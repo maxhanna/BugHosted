@@ -6,14 +6,12 @@ import { AppComponent } from '../app.component';
 import { CoinValueService } from '../../services/coin-value.service';
 import { WordlerService } from '../../services/wordler.service';
 import { User } from '../../services/datacontracts/user/user';
-import { MiningWalletResponse } from '../../services/datacontracts/crypto/mining-wallet-response';
 import { CalendarEntry } from '../../services/datacontracts/calendar/calendar-entry';
 import { MiningRig } from '../../services/datacontracts/crypto/mining-rig';
 import { NotificationService } from '../../services/notification.service';
 import { UserNotification } from '../../services/datacontracts/notification/user-notification';
 import { UserService } from '../../services/user.service';
 import { FileService } from '../../services/file.service';
-import { FileEntry } from '../../services/datacontracts/file/file-entry';
 
 @Component({
     selector: 'app-navigation',

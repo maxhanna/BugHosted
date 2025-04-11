@@ -5,6 +5,7 @@ using maxhanna.Server.Controllers.DataContracts.Users;
 using maxhanna.Server.Controllers.DataContracts.Wordler;
 using Microsoft.AspNetCore.Mvc;
 using MySqlConnector;
+using System.Text.RegularExpressions;
 
 namespace maxhanna.Server.Controllers
 {
@@ -286,7 +287,7 @@ namespace maxhanna.Server.Controllers
 			if (canSendRes != null) { return canSendRes; }
 
 			bool sendFirebaseNotification = true;
-
+			request.Message = RemoveQuotedBlocks(request.Message);
 
 			string? connectionString = _config.GetValue<string>("ConnectionStrings:maxhanna");
 			using (var conn = new MySqlConnection(connectionString))
@@ -644,8 +645,19 @@ namespace maxhanna.Server.Controllers
 				}
 			}
 		}
+		private static string RemoveQuotedBlocks(string message)
+		{
+			string pattern = @"\[Quoting[^\]]*?\]:.*?(?=(\[Quoting|\z))";
+			var regex = new Regex(pattern, RegexOptions.Singleline | RegexOptions.Compiled);
 
+			// Keep removing until no more [Quoting...] blocks are found
+			while (regex.IsMatch(message))
+			{
+				message = regex.Replace(message, "").Trim();
+			}
 
+			return message;
+		}
 		private IActionResult? CanSendNotification(NotificationRequest request)
 		{
 			if ((request.FileId != null && request.StoryId != null))

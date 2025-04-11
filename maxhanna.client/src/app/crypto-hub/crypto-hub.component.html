@@ -85,7 +85,7 @@
     <div class="wallet sectionContainer" *ngIf="wallet || btcWalletResponse">
       <div class="sectionName cryptoWalletSectionHeader" *ngIf="wallet || btcWalletResponse">Crypto Wallet Balance(s):</div>
       <table *ngIf="wallet || btcWalletResponse?.currencies" id="walletTable">
-        <thead>
+        <thead *ngIf="wallet?.length">
           <tr>
             <th (click)="areWalletAddressesHidden = !areWalletAddressesHidden" class="cursorPointerUnderlined normalBtcAddress">Address</th>
             <th (click)="sortTable(1, 'walletTable')">Currency</th>
@@ -94,17 +94,18 @@
             <th (click)="sortTable(4, 'walletTable')" title="Wallet data"></th>
           </tr>
         </thead>
-        <tbody *ngIf="wallet">
+        <tbody *ngFor="let subWallet of wallet">
           <ng-container>
-            <tr (click)="selectCoin(wallet.total?.currency)">
+            <tr (click)="selectCoin(subWallet.total?.currency)">
+              <!--<tr (click)="selectCoin(wallet.total?.currency)">-->
               <td></td>
-              <td>{{ wallet.total?.currency }}</td>
-              <td>{{ isDiscreete ? '***' : wallet.total?.totalBalance }}</td>
-              <td>{{ isDiscreete ? '***' : formatToCanadianCurrency(getConvertedCurrencyValue(multiplyValues(wallet.total?.available, btcFiatConversion))) }}</td>
+              <td>{{ subWallet.total?.currency }}</td>
+              <td>{{ isDiscreete ? '***' : subWallet.total?.totalBalance }}</td>
+              <td>{{ isDiscreete ? '***' : getTotalCurrencyDisplayValue(subWallet.total) }}</td>
               <td></td>
             </tr>
           </ng-container>
-          <ng-container *ngFor="let currency of wallet.currencies">
+          <ng-container *ngFor="let currency of subWallet?.currencies">
             <tr (click)="selectCoin(currency.currency)">
               <td (click)="areWalletAddressesHidden = !areWalletAddressesHidden"
                   [class]="areWalletAddressesHidden ? 'hiddenBtcAddress' : 'normalBtcAddress'">
@@ -112,7 +113,7 @@
               </td>
               <td>{{ currency.currency }}</td>
               <td>{{ isDiscreete ? '***' : currency.totalBalance }}</td>
-              <td>{{ isDiscreete ? '***' : formatToCanadianCurrency(getConvertedCurrencyValue(calculateTotalValue(currency))) }}</td>
+              <td>{{ isDiscreete ? '***' : getCurrencyDisplayValue(subWallet.total?.currency, currency) }}</td>
               <td title="Wallet data" class="cursorPointer" (click)="showWalletData(currency)">ℹ️</td>
             </tr>
           </ng-container>
@@ -129,13 +130,50 @@
     </div>
 
     <div class="sectionContainer">
-      <div class="popupPanelTitle cursorPointer" (click)="hideHostAiMessage = !hideHostAiMessage">
+      <div class="titleFont cursorPointer" (click)="hideHostAiMessage = !hideHostAiMessage">
         <span class="warning-text" title="This is not actual financial advice. This is based off AI and the data presented to it from your wallet. We take no responsibility in what you do with this information.">⚠️</span>
-        HostAI: <span *ngIf="!finishedGeneratingAiMessage">Generating...</span>
+        HostAI: <button (click)="generateGeneralAiMessage(); hideHostAiMessage = !hideHostAiMessage;" *ngIf="!finishedGeneratingAiMessage" [disabled]="isLoading">Generate Analysis</button>
       </div>
+      <div *ngIf="!finishedGeneratingAiMessage && isLoading">Generating...</div>
       <div class="aiMessage" *ngIf="finishedGeneratingAiMessage && !hideHostAiMessage">
         <span [innerHTML]="getAiMessage('1')"></span>
       </div>
+    </div>
+
+    <div class="sectionContainer">
+      <div class="titleFont cursorPointer">
+        <span class="warning-text" title="We take no responsibility in how you use this trade bot nor what you do with any of this information.">⚠️</span>
+        Trade Bot:
+        <span class="cursorPointerUnderlined" (click)="createUpdateUserComponent();" *ngIf="!hasKrakenApi && parentRef?.user?.id"> Set Up Kraken API Keys </span>
+        <span class="cursorPointerUnderlined" (click)="createUserComponent();" *ngIf="!hasKrakenApi && !parentRef?.user?.id"> Log in to use the bot.</span>
+        <div *ngIf="hasKrakenApi">
+          <button>Start</button>
+          <button>Stop</button>
+          <button (click)="checkBalance()" [disabled]="isTradebotBalanceShowing || isLoading">See Logs</button>
+        </div>
+        <div *ngIf="hasKrakenApi && isTradebotBalanceShowing && tradebotBalances?.length"  class="mainTableContainer">  
+          <table class="mainTable">
+            <thead>
+              <tr>
+                <th class="xxSmallFont">From Currency</th>
+                <th class="xxSmallFont">To Currency</th>
+                <th class="xxSmallFont">Value</th>
+                <th class="xxSmallFont">BTC Price CAD</th>
+                <th class="xxSmallFont">Timestamp</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let trade of tradebotBalances">
+                <td class="xxSmallFont">{{ trade.from_currency }}</td>
+                <td class="xxSmallFont">{{ trade.to_currency }}</td>
+                <td class="xxSmallFont">{{ trade.value }}</td>
+                <td class="xxSmallFont">{{ trade.btc_price_cad }}</td>
+                <td class="xxSmallFont">{{ getUtcTimeSince(trade.timestamp) }}</td>
+              </tr>
+            </tbody>
+          </table> 
+        </div>
+      </div>  
     </div>
   </div>
 
@@ -174,33 +212,7 @@
         <span (click)="discreete()" class="discreeteModeSpan">{{ isDiscreete ? '🙈' : '🙉' }}</span>
       </div>
     </div>
-  </div>
-  <div>
-    Experimental: <button (click)="checkBalance()">Tradebot Stats</button>
-    <div *ngIf="isTradebotBalanceShowing && tradebotBalances?.length" class="mainTableContainer">
-      <table class="mainTable">
-        <thead>
-          <tr> 
-            <th class="xxSmallFont">From Currency</th>
-            <th class="xxSmallFont">To Currency</th>
-            <th class="xxSmallFont">Value</th>
-            <th class="xxSmallFont">BTC Price CAD</th>
-            <th class="xxSmallFont">Timestamp</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr *ngFor="let trade of tradebotBalances"> 
-            <td class="xxSmallFont">{{ trade.from_currency }}</td>
-            <td class="xxSmallFont">{{ trade.to_currency }}</td>
-            <td class="xxSmallFont">{{ trade.value }}</td>
-            <td class="xxSmallFont">{{ trade.btc_price_cad }}</td>
-            <td class="xxSmallFont">{{ getUtcTimeSince(trade.timestamp) }}</td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-
-  </div>
+  </div> 
   <div>
     <button id="closeOverlay" (click)="closeMenuPanel()">Close</button>
   </div>
@@ -208,7 +220,7 @@
 
 
 
-<div *ngIf="isWalletPanelOpen" class="popupPanel">
+<div *ngIf="isWalletPanelOpen" class="popupPanel {{isWalletGraphFullscreened ? 'fullscreenPopupPanel' : ''}}">
   <div class="popupPanelTitle walletPopupTitle">
     Wallet ℹ️
     <div *ngIf="currentlySelectedCurrency">{{currentlySelectedCurrency.address}}</div>
@@ -230,7 +242,7 @@
     <div class="optionsStatsDiv">
       <div class="optionsStatsHeader">Value:</div>
       <div class="optionsStatsDescription">
-        {{formatToCanadianCurrency(getConvertedCurrencyValue(calculateTotalValue(currentlySelectedCurrency)))}}
+        {{formatToCanadianCurrency(getConvertedCurrencyValue(convertFromFIATToCryptoValue(currentlySelectedCurrency)))}}
       </div>
     </div>
   </div>
@@ -242,16 +254,19 @@
                     [selectedPeriod]="'5d'"
                     [graphTitle]="!currentSelectedCoin.includes('->') ? '$Bitcoin Value' : ('$Bitcoin/' + (selectedCurrency) + ' Value')"
                     [data]="allWalletBalanceData"
-                    [selectedCoin]="currentSelectedCoin">
+                    [selectedCoin]="currentSelectedCoin"
+                    (fullscreenSelectedEvent)="fullscreenSelectedInPopup($event)">
     </app-line-graph>
   </div>
   <div class="popupPanelTitle cursorPointer" (click)="hideHostAiMessageWallet = !hideHostAiMessageWallet">
     <span class="warning-text" title="This is not actual financial advice. This is based off AI and the data presented to it from your wallet. We take no responsibility in what you do with this information.">⚠️</span>
-    HostAI: <span *ngIf="!finishedGeneratingAiWalletMessage">Generating...</span>
+    HostAI: <button (click)="generateWalletAiMessage(); hideHostAiMessageWallet = !hideHostAiMessageWallet;" *ngIf="!finishedGeneratingAiWalletMessage && !getAiMessage(currentlySelectedCurrency?.address)" [disabled]="isLoading">Generate Analysis</button>
   </div>
-  <div class="aiMessage" *ngIf="currentlySelectedCurrency?.address != 'Nicehash Wallet' && !hideHostAiMessageWallet">
+  <div *ngIf="!finishedGeneratingAiWalletMessage && isLoading">Generating...</div>
+  <div class="aiMessage" *ngIf="(finishedGeneratingAiWalletMessage && !hideHostAiMessageWallet) || getAiMessage(currentlySelectedCurrency?.address)">
     <span [innerHTML]="getAiMessage(currentlySelectedCurrency?.address)"></span>
   </div>
+ 
   <div class="walletPanelCloseDiv">
     <button id="closeOverlay" (click)="closeWalletPanel()">Close</button>
   </div>

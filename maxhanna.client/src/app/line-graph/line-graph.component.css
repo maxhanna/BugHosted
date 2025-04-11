@@ -15,7 +15,7 @@
 }
 .canvasChart {
   max-width: 100%;
-  min-height: 300px;
+  height: 300px;
 }
 .canvasChartWrapper {
   display: block;
@@ -23,3 +23,7 @@
   display: flex;
   justify-content: center; 
 }
+  .canvasChartWrapper.fullscreenCanvas {
+    height: 100%; 
+    width: 100%; 
+  }

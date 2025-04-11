@@ -692,17 +692,17 @@ namespace maxhanna.Server.Controllers
 
 		[HttpPost("/CoinValue/BTCWallet/GetBTCWalletData", Name = "GetBTCWalletData")]
 		public async Task<IActionResult> GetBTCWalletData([FromBody] int userId)
-		{ 
+		{
 			if (!await _log.ValidateUserLoggedIn(userId)) return StatusCode(500, "Access Denied.");
-			  
+
 			try
 			{
 				// Call the private method to get wallet info from the database
-				CryptoWallet? miningWallet = await GetMiningWalletFromDb(userId);
+				CryptoWallet? btcWallet = await GetWalletFromDb(userId, "btc");
 
-				if (miningWallet != null && miningWallet.currencies != null && miningWallet.currencies.Count > 0)
+				if (btcWallet != null && btcWallet.currencies != null && btcWallet.currencies.Count > 0)
 				{
-					return Ok(miningWallet); // Return the MiningWallet object as the response
+					return Ok(btcWallet); // Return the MiningWallet object as the response
 				}
 				else
 				{
@@ -712,6 +712,44 @@ namespace maxhanna.Server.Controllers
 			catch (Exception ex)
 			{
 				_ = _log.Db("An error occurred while processing GetBTCWalletAddresses. " + ex.Message, userId, "USER", true);
+				return StatusCode(500, "An error occurred while processing the request.");
+			}
+		}
+		[HttpPost("/CoinValue/BTCWallet/GetWalletData", Name = "GetWalletData")]
+		public async Task<IActionResult> GetWalletData([FromBody] int userId)
+		{
+			if (!await _log.ValidateUserLoggedIn(userId)) return StatusCode(500, "Access Denied.");
+
+			try
+			{
+				// Call the private method to get wallet info from the database
+				CryptoWallet? btcWallet = await GetWalletFromDb(userId, "btc");
+				CryptoWallet? usdcWallet = await GetWalletFromDb(userId, "usdc");
+				List<CryptoWallet> returns = new List<CryptoWallet>();
+				if (btcWallet != null)
+				{
+					returns.Add(btcWallet);
+				}
+				if (usdcWallet != null)
+				{
+					returns.Add(usdcWallet);
+				}
+
+				bool check1 = (btcWallet != null && btcWallet.currencies != null && btcWallet.currencies.Count > 0);
+				bool check2 = (usdcWallet != null && usdcWallet.currencies != null && usdcWallet.currencies.Count > 0);
+
+				if ((check1 || check2) && returns.Count > 0)
+				{
+					return Ok(returns); 
+				}
+				else
+				{
+					return NotFound("No wallet addresses found for the user.");  
+				}
+			}
+			catch (Exception ex)
+			{
+				_ = _log.Db("An error occurred while processing GetWalletData. " + ex.Message, userId, "USER", true);
 				return StatusCode(500, "An error occurred while processing the request.");
 			}
 		}
@@ -765,14 +803,15 @@ namespace maxhanna.Server.Controllers
 			}
 		}
 
-		private async Task<CryptoWallet?> GetMiningWalletFromDb(int? userId)
+		private async Task<CryptoWallet?> GetWalletFromDb(int? userId, string type)
 		{
 			if (userId == null) { return null; }
-			var miningWallet = new CryptoWallet
+			if (type != "btc" && type != "usdc") return null;
+			var wallet = new CryptoWallet
 			{
 				total = new Total
 				{
-					currency = "BTC",
+					currency = type.ToUpper(),
 					totalBalance = "0",
 					available = "0",
 					debt = "0",
@@ -787,17 +826,17 @@ namespace maxhanna.Server.Controllers
 				{
 					await conn.OpenAsync();
 
-					string sql = @"
+					string sql = $@"
                 SELECT 
-										wi.btc_address, 
+										wi.{type}_address, 
 										wb.balance,  
 										wb.fetched_at
-								FROM user_btc_wallet_info wi
-								LEFT JOIN user_btc_wallet_balance wb ON wi.id = wb.wallet_id
+								FROM user_{type}_wallet_info wi
+								LEFT JOIN user_{type}_wallet_balance wb ON wi.id = wb.wallet_id
 								WHERE wi.user_id = @UserId 
 								AND wb.fetched_at = (
 										SELECT MAX(fetched_at) 
-										FROM user_btc_wallet_balance 
+										FROM user_{type}_wallet_balance 
 										WHERE wallet_id = wi.id
 								);";
 
@@ -813,13 +852,13 @@ namespace maxhanna.Server.Controllers
 							while (await reader.ReadAsync())
 							{
 								// Retrieve the final balance as Int64 and convert to decimal
-								decimal finalBalance = reader.GetDecimal("balance"); 
-								string address = reader.GetString("btc_address"); 
+								decimal finalBalance = reader.GetDecimal("balance");
+								string address = reader.GetString($"{type}_address");
 								var currency = new Currency
 								{
 									active = true,
 									address = address,
-									currency = "BTC",
+									currency = type.ToUpper(),
 									totalBalance = finalBalance.ToString("F8"),
 									available = finalBalance.ToString("F8"),
 									debt = "0",
@@ -829,7 +868,7 @@ namespace maxhanna.Server.Controllers
 									status = "active"
 								};
 
-								miningWallet.currencies.Add(currency);
+								wallet.currencies.Add(currency);
 
 								// Accumulate totals
 								totalBalance += finalBalance;
@@ -837,23 +876,22 @@ namespace maxhanna.Server.Controllers
 							}
 
 							// Update totals in MiningWallet
-							miningWallet.total.totalBalance = totalBalance.ToString("F8");
-							miningWallet.total.available = totalAvailable.ToString("F8");
+							wallet.total.totalBalance = totalBalance.ToString("F8");
+							wallet.total.available = totalAvailable.ToString("F8");
 						}
 					}
 				}
 			}
 			catch (Exception ex)
 			{
-				_ = _log.Db("An error occurred while fetching wallet data from the database. " + ex.Message, userId, "USER", true);
+				_ = _log.Db($"An error occurred while fetching {type.ToUpper()} wallet data from the database. " + ex.Message, userId, "USER", true);
 				throw;
 			}
 
-			return miningWallet;
+			return wallet;
 		}
-
-
 	}
+	 
 
 	public class CoinValue
 	{

@@ -1,5 +1,6 @@
 .componentMain {
   max-width: 500px;
+  min-width: 320px;
   max-height: CALC(var(--vh, 1vh) * 100 - 60px);
 }
 
@@ -168,6 +169,7 @@ input:checked + .slider:before {
   justify-content: space-between;
   align-content: center;
   align-items: center;
+  border-bottom: var(--main-border);
 }
 
 .sectionHeaderLabel {
@@ -203,9 +205,8 @@ input:checked + .slider:before {
 
 .sectionHeaderLabel {
 }
-
+ 
 .selectableIconMenuSection {
-  margin-top: 20px;
   border-top: var(--main-border);
 }
 
@@ -238,4 +239,11 @@ input:checked + .slider:before {
 .apiKeyInputWrapper {
   display: flex;
   flex-wrap: nowrap;
+  width: 100%;
+  align-content: center;
+  justify-content: space-between;
+  align-items: center;
+}
+.settingsSectionHeaderTitle {
+  cursor: pointer;
 }

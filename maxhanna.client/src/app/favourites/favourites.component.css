@@ -17,11 +17,10 @@
   align-content: center;
   align-items: center;
   flex-direction: column;
-  width: 125px;
-  height: 100px;
+  width: 135px;
+  height: 125px;
   text-overflow: ellipsis;
   cursor: pointer;
-  overflow: hidden;
   white-space: nowrap;
 }
 
@@ -61,7 +60,7 @@
 }
 
 .favouriteListWrapper {
-  margin: 20px;
+  padding: 10px;
   min-height: 200px;
   display: flex;
   column-gap: 40px;
@@ -108,4 +107,21 @@
   align-items: center;
   margin-top: 10px;
   margin-bottom: 15px;
+}
+.favUserCount {
+  width: 15px;
+  height: 15px;
+  position: relative;
+  bottom: CALC(100% - 40px);
+  right: -30px;
+  z-index: 1;
+  color: var(--third-font-color);
+  border: var(--main-border);
+  border-radius: 50%;
+  font-size: small;
+  text-align: center;
+}
+.generalFavouriteAddButton {
+  position: relative;
+  top: -20px;
 }

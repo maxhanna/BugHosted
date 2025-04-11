@@ -19,12 +19,12 @@ export class CrawlerComponent extends ChildComponent implements OnInit, OnDestro
   lastSearch = "";
   groupedResults?: { domain: string; links: MetaData[], showSubdomains: false }[] = [];
   storageStats?: any;
-  pageSize: number = 10;  // Default page size
   currentPage: number = 1;
   totalResults: number = 0;  // To be populated by API
   totalPages: number = 0;
   paginatedResults: any[] = [];
-  pageSizes: number[] = [10, 20, 30, 50]; // Dropdown options
+  pageSizes: number[] = [50, 100, 150, 300]; // Dropdown options
+  pageSize: number = this.pageSizes[0]; 
 
   @ViewChild('pageSizeDropdown') pageSizeDropdown!: ElementRef<HTMLSelectElement>;
   @ViewChild('urlInput') urlInput!: ElementRef<HTMLInputElement>;

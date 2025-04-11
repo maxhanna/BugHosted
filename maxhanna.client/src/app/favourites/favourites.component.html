@@ -30,8 +30,9 @@
               {{ sFav.name && sFav.name.trim() ? sFav.name : sFav.url }}
             </div>
           </a>
+          <div class="favUserCount">{{sFav.userCount}}</div>
           <button (click)="addLink(sFav)"
-                  class="cursorPointer"
+                  class="cursorPointer generalFavouriteAddButton"
                   [disabled]="isIncludedInFavourites(sFav)"
                   [title]="isIncludedInFavourites(sFav) ? 'Already added' : 'Add To Favourites'">
             ➕
@@ -52,6 +53,7 @@
               {{fav.name && fav.name.trim() ? fav.name : fav.url}}
             </div>
           </a>
+          <div class="favUserCount">{{fav.userCount}}</div>
           <div class="editOrDeleteSpanWrapper" *ngIf="showEditLinks">
             <span (click)="openEditPanel(fav)" class="cursorPointerUnderlined smallFont">[Edit]</span>
             <span (click)="deleteFav(fav)" class="cursorPointerUnderlined smallFont">[Delete]</span>

@@ -16,6 +16,7 @@ namespace maxhanna.Server.Controllers.DataContracts.Files
 		public string? CommentText { get; set; }
 		public DateTime Date { get; set; }
 		public List<FileEntry>? CommentFiles { get; set; } = new List<FileEntry>();
+		public List<FileComment>? Comments { get; set; } = new List<FileComment>();
 		public List<Reaction>? Reactions { get; set; }
 	}
 }

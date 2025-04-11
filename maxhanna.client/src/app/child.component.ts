@@ -3,9 +3,9 @@ import { AppComponent } from './app.component';
 import { User } from '../services/datacontracts/user/user';
 
 @Component({
-    selector: 'app-child-component',
-    template: '',
-    standalone: false
+  selector: 'app-child-component',
+  template: '',
+  standalone: false
 })
 export class ChildComponent {
   public unique_key?: number;
@@ -33,10 +33,10 @@ export class ChildComponent {
     const tmpDate = this.parentRef?.convertUtcToLocalTime(date) ?? date;
 
     return this.daysSinceDate(tmpDate, granularity);
-  } 
+  }
   daysSinceDate(dateString?: Date | string, granularity?: 'year' | 'month' | 'day' | 'hour' | 'minute'): string {
     if (!dateString) return '';
- 
+
     const date = typeof dateString === 'string' ? new Date(dateString) : dateString;
     const now = new Date();
 
@@ -109,7 +109,7 @@ export class ChildComponent {
         func.apply(this, args);
       }, wait);
     };
-  } 
+  }
 
   startLoading() {
     if (document && document.getElementById("loadingDiv")) {
@@ -131,21 +131,57 @@ export class ChildComponent {
     }
   }
   sortTable(columnIndex: number, tableId: string): void {
+    console.log(columnIndex);
+    let isCustomSortPreventAsc = false;
     const table = document.getElementById(tableId) as HTMLTableElement;
-    if (!table) return;
-
+    if (!table) return; 
     const rowsArray = Array.from(table.rows).slice(1); // Skip the header row
-    const isAscending = this.asc.some(([tbl, col]) => tbl === tableId && col === columnIndex);
 
-    // Regular expression to detect common date formats
+    // Update sort direction tracking first
+    const isAscending = !this.asc.some(([tbl, col]) => tbl === tableId && col === columnIndex);
+    console.log(isAscending);
+
+    // Regular expression to detect common date formats (ISO 8601)
     const dateRegex = /^\d{4}-\d{2}-\d{2}(?:[ T]\d{2}:\d{2}(?::\d{2})?)?$/;
+    const customDateRegex = /(\d+)([a-zA-Z]+)/g; // Matches custom dates like 10m, 16d, 8h, etc.
+
+    // Function to convert custom date format to total seconds
+    function parseCustomDate(dateStr: string): number {
+      let totalSeconds = 0;
+      let match;
+
+      // Loop through all matches in the custom date string
+      while ((match = customDateRegex.exec(dateStr)) !== null) {
+        const value = parseInt(match[1], 10);
+        const unit = match[2].toLowerCase();
+
+        switch (unit) {
+          case 'm': // minutes
+            totalSeconds += value * 60;
+            break;
+          case 'h': // hours
+            totalSeconds += value * 60 * 60;
+            break;
+          case 'd': // days
+            totalSeconds += value * 24 * 60 * 60;
+            break;
+          case 's': // seconds
+            totalSeconds += value;
+            break;
+          default:
+            break;
+        }
+      }
+
+      return totalSeconds;
+    }
 
     // Custom comparator for sorting
     const compare = (rowA: HTMLTableRowElement, rowB: HTMLTableRowElement) => {
       const cellA = rowA.cells[columnIndex].textContent?.trim() || '';
       const cellB = rowB.cells[columnIndex].textContent?.trim() || '';
 
-      // Check if both values match the date pattern
+      // Check if both values match the date pattern (ISO 8601)
       const isDateA = dateRegex.test(cellA);
       const isDateB = dateRegex.test(cellB);
 
@@ -153,6 +189,17 @@ export class ChildComponent {
         const dateA = new Date(cellA).getTime();
         const dateB = new Date(cellB).getTime();
         return isAscending ? dateA - dateB : dateB - dateA;
+      }
+
+      // Check if both values match the custom date format
+      const isCustomDateA = customDateRegex.test(cellA);
+      const isCustomDateB = customDateRegex.test(cellB);
+
+      if (isCustomDateA && isCustomDateB) {
+        const customDateA = parseCustomDate(cellA);
+        const customDateB = parseCustomDate(cellB);
+        isCustomSortPreventAsc = true;
+        return isAscending ? customDateA - customDateB : customDateB - customDateA;
       }
 
       // Check if both values are numbers
@@ -179,25 +226,24 @@ export class ChildComponent {
     // Append sorted rows back to the table
     table.tBodies[0].appendChild(fragment);
 
-    // Update sort direction tracking
-    if (isAscending) {
-      this.asc = this.asc.filter(([tbl, col]) => !(tbl === tableId && col === columnIndex));
-    } else {
+    // Update sort direction tracking AFTER sorting
+    if (isAscending && !isCustomSortPreventAsc) {
       this.asc.push([tableId, columnIndex]);
+      console.log("updating ascening by pushing asc")
+    } else if (!isCustomSortPreventAsc) {
+      this.asc = this.asc.filter(([tbl, col]) => !(tbl === tableId && col === columnIndex));
+      console.log("updating ascening by filtering out asc")
     }
-  }
-
-
+  } 
   isElementInViewport(el: HTMLElement): boolean {
-    const rect = el?.getBoundingClientRect(); 
+    const rect = el?.getBoundingClientRect();
     return (
       rect?.top >= 0 &&
       rect?.left >= 0 &&
       rect?.bottom <= (window.innerHeight || document.documentElement.clientHeight) &&
       rect?.right <= (window.innerWidth || document.documentElement.clientWidth)
     );
-  }
-
+  } 
   searchForEmoji(event?: any): void {
     if (!this.parentRef) return;
     const searchTerm = event ? event.target.value.toLowerCase() : '';
@@ -214,9 +260,7 @@ export class ChildComponent {
       // If there's no search term, show all emojis
       this.filteredEmojis = { ...this.parentRef.emojiMap };
     }
-  }
-
-
+  } 
   log(text: any) {
     console.log(text);
   }

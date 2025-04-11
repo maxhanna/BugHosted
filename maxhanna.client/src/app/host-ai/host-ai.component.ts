@@ -21,7 +21,8 @@ export class HostAiComponent extends ChildComponent implements OnInit, OnDestroy
   startedTalking = false;
   tmpStartTalkingVariable = false;
   private utterance: SpeechSynthesisUtterance | null = null; 
-  private lastSpokenMessage: string = '';
+  private engineeredText: string = ". This is our previous message history: ";
+  private savedMessageHistory: string[] = [];
 
   @ViewChild('chatInput') chatInput!: ElementRef<HTMLInputElement>;
   @ViewChild('chatContainer') chatContainer!: ElementRef<HTMLDivElement>;
@@ -39,7 +40,7 @@ export class HostAiComponent extends ChildComponent implements OnInit, OnDestroy
   }
   sendMessage() {
     const user = this.parentRef?.user ?? new User(0);
-    this.userMessage = this.chatInput.nativeElement.value.trim();
+    this.userMessage = this.chatInput.nativeElement.value.trim(); 
     if (this.userWantsToStopVoice(this.userMessage)) {
       this.chatInput.nativeElement.value = "";
       this.userMessage = "";
@@ -49,7 +50,7 @@ export class HostAiComponent extends ChildComponent implements OnInit, OnDestroy
     this.startLoading();
     if (this.userMessage.trim()) {
       this.pushMessage({ sender: 'You', message: this.userMessage.replace('\n', "<br>") });
-      this.aiService.sendMessage(user, false, this.userMessage).then(
+      this.aiService.sendMessage(user, false, this.userMessage + this.engineeredText + JSON.stringify(this.savedMessageHistory)).then(
         (response) => {
           let reply = this.aiService.parseMessage(response.response ?? response.reply);
           this.pushMessage({ sender: this.hostName, message: reply });
@@ -61,7 +62,7 @@ export class HostAiComponent extends ChildComponent implements OnInit, OnDestroy
           this.stopLoading();
         }
       );
-
+      this.savedMessageHistory.push(this.userMessage); 
       this.userMessage = '';
       this.chatInput.nativeElement.value = "";
       this.chatInput.nativeElement.focus();
@@ -114,10 +115,7 @@ console.log("Hello, world!");
   pushMessage(message: any) {
     this.chatMessages.push(message);
     if (message.sender === this.hostName) {
-      this.speakMessage(message.message);
-      if (this.startedTalking || this.tmpStartTalkingVariable) { 
-        this.startListening();
-      }
+      this.speakMessage(message.message); 
     }
     setTimeout(() => {
       const tgt = document.getElementsByClassName("chat-box")[0];
@@ -134,7 +132,7 @@ console.log("Hello, world!");
     if ('speechSynthesis' in window) {
       console.log("Speech synthesis is supported! ", message);
       const cleanMessage = message.replace(/<\/?[^>]+(>|$)/g, "").replace(/[^\x20-\x7E]/g, "");  
-      this.lastSpokenMessage = cleanMessage.toLowerCase();
+      //this.lastSpokenMessage = cleanMessage.toLowerCase();
 
       // Create the speech synthesis utterance
       this.utterance = new SpeechSynthesisUtterance(cleanMessage);
@@ -161,7 +159,7 @@ console.log("Hello, world!");
 
       // Adjust the pitch and rate for a more natural sound
       this.utterance.pitch = 0.8; // 1 is the default, increase or decrease for a higher/lower pitch
-      this.utterance.rate = 1.2; // 1 is the default, increase for faster or decrease for slower speech
+      this.utterance.rate = 1; // 1 is the default, increase for faster or decrease for slower speech
 
       this.utterance.onend = () => {
         if (this.startedTalking) {

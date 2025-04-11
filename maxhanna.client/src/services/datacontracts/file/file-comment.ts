@@ -18,4 +18,5 @@ export class FileComment {
   country?: string;
   ip?: string;
   reactions?: Array<Reaction> | undefined;
+  comments?: Array<FileComment> | undefined;
 }

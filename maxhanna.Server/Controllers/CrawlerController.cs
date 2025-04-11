@@ -108,69 +108,28 @@ namespace maxhanna.Server.Controllers
 
 					var urlVariants = new List<string>();
 					_ = _log.Db($"Found {results.Count} results before searching manually", null, "CRAWLERCTRL", true);
-					int scrapedResults = 0; 
-					bool skipScrape = false;
-					string tmpUrl = request.Url.Trim().Replace(",", "").Replace(" ", "").Replace("'", "");
-					string buildUrlCom = "";
-					string buildUrlNet = "";
-					if (!_webCrawler.IsValidDomain(request.Url))
+					int scrapedResults = 0;  
+					string tmpUrl = request.Url.Trim().Replace(",", "").Replace(" ", "").Replace("'", ""); 
+					if (!request.Url.StartsWith("http://") && !request.Url.StartsWith("https://"))
 					{
-						if (!request.Url.StartsWith("http://") && !request.Url.StartsWith("https://"))
+						tmpUrl = "https://" + tmpUrl;
+					}
+					if (!_webCrawler.IsValidDomain(tmpUrl))
+					{
+						Uri.TryCreate(tmpUrl, UriKind.Absolute, out var uri);
+						string host = uri?.Host ?? "";
+						if (!_webCrawler.HasValidSuffix(host))
 						{
-							string builtUrl = tmpUrl;
-							bool addedCom = false;
-							bool addedNet = false;
-							if (!tmpUrl.Contains(".com"))
-							{
-								buildUrlCom = builtUrl + ".com"; 
-								if (pageNumber != 1)
-								{
-									skipScrape = true;
-								}
-								addedCom = true;
-							}
-							if (!tmpUrl.Contains(".net"))
-							{
-								buildUrlNet = builtUrl + ".net"; 
-								if (pageNumber != 1)
-								{
-									skipScrape = true;
-								}
-								addedNet = true;
-							}
-							if (!addedCom || !addedNet)
-							{
-								urlVariants.Add(builtUrl);
-							}
+							urlVariants.Add(tmpUrl + ".com");
+							urlVariants.Add(tmpUrl + ".net");
 						}
 					}
-					if (request.Url.Trim() != "*" && !skipScrape)
-					{ 
-						if (tmpUrl.StartsWith("http://") || tmpUrl.StartsWith("https://"))
-						{
-							urlVariants.Add(tmpUrl);
-						}
-						else 
-						{
-							if (!string.IsNullOrEmpty(buildUrlCom) || !string.IsNullOrEmpty(buildUrlNet))
-							{
-								if (!string.IsNullOrEmpty(buildUrlCom))
-								{
-									urlVariants.Add("http://" + buildUrlCom);
-									urlVariants.Add("https://" + buildUrlCom);
-								}
-								if (!string.IsNullOrEmpty(buildUrlNet))
-								{
-									urlVariants.Add("http://" + buildUrlNet);
-									urlVariants.Add("https://" + buildUrlNet);
-								}
-							} else if (_webCrawler.IsValidDomain("https://" + tmpUrl))
-							{
-								urlVariants.Add("http://" + tmpUrl);
-								urlVariants.Add("https://" + tmpUrl);
-							} 
-						} 
-						// Await these sequentially before launching async tasks
+					else
+					{
+						urlVariants.Add(tmpUrl); 
+					}
+					if (request.Url.Trim() != "*")
+					{   
 						foreach (var urlVariant in urlVariants)
 						{ 
 							_ = _log.Db($"Manually scraping: " + urlVariant, null, "CRAWLERCTRL", true);
@@ -180,7 +139,10 @@ namespace maxhanna.Server.Controllers
 								scrapedResults++;
 								mainMetadata.Url = new Uri(new Uri(urlVariant), mainMetadata.Url).ToString().TrimEnd('/');
 								results.Add(mainMetadata);
-								_ = _webCrawler.SaveSearchResult(mainMetadata.Url, mainMetadata); 
+								if (mainMetadata.HttpStatus == null)
+								{ 
+									_ = _webCrawler.SaveSearchResult(mainMetadata.Url, mainMetadata);
+								}
 							}
 							else
 							{
@@ -222,7 +184,8 @@ namespace maxhanna.Server.Controllers
 
 		[HttpPost("/Crawler/IndexLinks", Name = "IndexLinks")]
 		public async void IndexLinks([FromBody] string url)
-		{ 
+		{  
+			await Task.Delay(10000); 
 			var urlVariants = new List<string>();
 
 			if (url.StartsWith("http://") || url.StartsWith("https://"))
@@ -240,7 +203,8 @@ namespace maxhanna.Server.Controllers
 			{
 				await _webCrawler.StartScrapingAsync(urlVariant);
 			}
-		} 
+		}
+
 
 		[HttpPost("/Crawler/IndexCount", Name = "IndexCount")]
 		public async Task<IActionResult> IndexCount()

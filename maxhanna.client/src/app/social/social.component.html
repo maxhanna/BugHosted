@@ -198,7 +198,7 @@
 
         <button (click)="edit(optionStory)" *ngIf="optionStory.user?.id == parentRef?.user?.id" title="Edit Post Text" style="display:inline-block">
           <span class="storyEditSpans storyRejectEdit" [style.display]="isEditButtonVisible(optionStory.id) ? 'block' : 'none'" [id]="'storyRejectEditButtonSpan' + optionStory.id">❌</span>
-          ✏️ Edit Text
+          ✏️Edit
         </button>
 
         <button (click)="hide(optionStory)" title="Hide Post" style="display:inline-block">
@@ -373,7 +373,7 @@
                             [currentReactions]="story.reactions"></app-reaction>
             </span>
             <span class="showCommentSpan" (click)="showComments(story.id)">
-              🗨️{{story.storyComments?.length}}
+              <span>🗨️</span>{{story.storyComments?.length}}
             </span>
             <span (click)="showStoryOptionsPanel(story);" class="postOptionButtons showPostOptionButton" title="Show post options">
               ⚙️

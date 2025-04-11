@@ -1,401 +1,396 @@
 <div class="componentMain">
   <div class="closeButton" (click)="remove_me('UpdateUserProfile')"></div>
-  <div class="componentTitle">{{ !showOnlySelectableMenuItems ? 'Settings' : 'Select Your Apps' }}</div>
+  <div class="componentTitle">{{ !showOnlySelectableMenuItems ? 'Settings' : 'App Selection' }}</div>
 
   <div class="settingsDiv">
-    <fieldset>
-      <legend *ngIf="!showOnlySelectableMenuItems">Update:</legend>
-
-      <!--USERNAME / PASSWORD-->
-      <div (click)="isGeneralToggled = !isGeneralToggled" *ngIf="!showOnlyWeatherLocation && !showOnlySelectableMenuItems && parentRef?.user" class="sectionHeaderDiv">
-        <div class="sectionHeaderLabel popupPanelTitle">
-          <div>
-            <span class="helperSpanTitle" title="Change your username or password."></span>
-          </div>
-          <div class="cursorPointerUnderlined">Account</div>
+    <!--USERNAME / PASSWORD-->
+    <div (click)="isGeneralToggled = !isGeneralToggled" *ngIf="!showOnlyNicehashApiKeys && !showOnlyKrakenApiKeys && !showOnlyWeatherLocation && !showOnlySelectableMenuItems && parentRef?.user" class="sectionHeaderDiv">
+      <div class="sectionHeaderLabel popupPanelTitle">
+        <div>
+          <span class="helperSpanTitle" title="Change your username or password."></span>
         </div>
-        <div style="text-align:right;">
-          <button (click)="updateUser()" title="Update settings" [disabled]="!isGeneralToggled" *ngIf="isGeneralToggled">💾Save Username/Password</button>
+        <div class="settingsSectionHeaderTitle">Account</div>
+      </div>
+      <div style="text-align:right;">
+        <button (click)="updateUser()" title="Update settings" [disabled]="!isGeneralToggled" *ngIf="isGeneralToggled">💾Save Username/Password</button>
+      </div>
+    </div>
+    <div *ngIf="isGeneralToggled" class="sectionDescriptionDiv">
+      <div class="sectionDescriptionSection">
+        <div>Name:</div>
+        <div><input type="text" placeholder="New Username" #updatedUsername [value]="parentRef!.user!.username" /></div>
+      </div>
+      <div class="sectionDescriptionSection">
+        <div>Password:</div>
+        <div><input type="password" placeholder="New Password" #updatedPassword [value]="parentRef!.user!.pass" /></div>
+      </div>
+      <div class="sectionDescriptionSection">
+        <div>
+          Display NSFW:
+        </div>
+        <div>
+          <input type="checkbox" #nsfwCheckmark [checked]="isDisplayingNSFW" (click)="updateNSFW()" />
         </div>
       </div>
-      <div *ngIf="!showOnlyWeatherLocation && !showOnlySelectableMenuItems && isGeneralToggled" class="sectionDescriptionDiv">
-        <div class="sectionDescriptionSection">
-          <div>Name:</div>
-          <div><input type="text" placeholder="New Username" #updatedUsername [value]="parentRef!.user!.username" /></div>
-        </div>
-        <div class="sectionDescriptionSection">
-          <div>Password:</div>
-          <div><input type="password" placeholder="New Password" #updatedPassword [value]="parentRef!.user!.pass" /></div>
-        </div>
-        <div class="sectionDescriptionSection">
-          <div>
-            Display NSFW:
+      <div class="sectionDescriptionSection profilePictureSectionContainer">
+        <div>
+          Attach your profile picture:
+          <div class="avatar" *ngIf="!this.parentRef?.user!.displayPictureFile">
+            <span class="avatarBug">🪲</span>
+            <span class="avatarBust">👤</span>
           </div>
-          <div>
-            <input type="checkbox" #nsfwCheckmark [checked]="isDisplayingNSFW" (click)="updateNSFW()" />
-          </div>
-        </div>
-        <div class="sectionDescriptionSection profilePictureSectionContainer">
-          <div>
-            Attach your profile picture:
-            <div class="avatar" *ngIf="!this.parentRef?.user!.displayPictureFile">
-              <span class="avatarBug">🪲</span>
-              <span class="avatarBust">👤</span>
+          <div *ngIf="this.parentRef?.user?.displayPictureFile" class="displayPictureContainerDiv">
+            <div class="xxSmallFont">Current display picture:</div>
+            <div class="avatar">
+              <app-media-viewer #displayPictureViewer
+                                [displayExpander]="false"
+                                [displayExtraInfo]="false"
+                                [showCommentSection]="false"
+                                [file]="this.inputtedParentRef?.user?.displayPictureFile ?? this.parentRef?.user!.displayPictureFile"
+                                [currentDirectory]="this.parentRef?.user!.displayPictureFile!.directory"
+                                [user]="parentRef!.user"
+                                [inputtedParentRef]="parentRef!">
+              </app-media-viewer>
             </div>
-            <div *ngIf="this.parentRef?.user?.displayPictureFile" class="displayPictureContainerDiv">
-              <div class="xxSmallFont">Current display picture:</div>
-              <div class="avatar">
-                <app-media-viewer #displayPictureViewer
-                                  [displayExpander]="false"
-                                  [displayExtraInfo]="false"
-                                  [showCommentSection]="false"
-                                  [file]="this.inputtedParentRef?.user?.displayPictureFile ?? this.parentRef?.user!.displayPictureFile"
-                                  [currentDirectory]="this.parentRef?.user!.displayPictureFile!.directory"
-                                  [user]="parentRef!.user"
-                                  [inputtedParentRef]="parentRef!">
-                </app-media-viewer>
+          </div>
+        </div>
+        <div>
+          <app-media-selector #displayPictureSelector
+                              [uploadButtonText]="'Upload Display Picture'"
+                              [maxSelectedFiles]="1"
+                              [inputtedParentRef]="parentRef"
+                              [user]="parentRef?.user"
+                              [currentDirectory]="'Users/'+parentRef?.user?.username"
+                              (selectFileEvent)="avatarSelected($event)">
+          </app-media-selector>
+        </div>
+      </div>
+
+    </div>
+
+
+    <!--ABOUT-->
+    <div (click)="isAboutToggled = !isAboutToggled" *ngIf="!showOnlyNicehashApiKeys && !showOnlyKrakenApiKeys && !showOnlyWeatherLocation && !showOnlySelectableMenuItems && parentRef?.user" class="sectionHeaderDiv">
+      <div class="sectionHeaderLabel popupPanelTitle">
+        <div>
+          <span class="helperSpanTitle" title="Your contact information."></span>
+        </div>
+        <div class="settingsSectionHeaderTitle">About You</div>
+      </div>
+      <div style="text-align:right;">
+        <button (click)="updateUserAbout()" title="Update information" [disabled]="!isAboutToggled" *ngIf="isAboutToggled">💾Save About You</button>
+      </div>
+    </div>
+    <div *ngIf="isAboutToggled" class="sectionDescriptionDiv">
+      <div class="sectionDescriptionSection">
+        <div>Description:</div>
+        <div><input type="text" placeholder="Profile description" #updatedDescription [value]="parentRef?.user?.about?.description ?? ''" /></div>
+      </div>
+      <div class="sectionDescriptionSection">
+        <div>Birthday:</div>
+        <div><input type="date" #updatedBirthday [value]="formatDate(parentRef?.user?.about?.birthday)" /></div>
+      </div>
+      <div class="sectionDescriptionSection">
+        <div>Email:</div>
+        <div><input type="text" #updatedEmail [value]="parentRef?.user?.about?.email ?? ''" /></div>
+      </div>
+      <div class="sectionDescriptionSection">
+        <div>Is Email Public?:</div>
+        <div style="display: flex;">
+          <label>
+            <input type="radio" name="emailPublic" #isEmailPublicYes [value]="true" [checked]="parentRef?.user?.about?.isEmailPublic === true" /> Yes
+          </label>
+          <label>
+            <input type="radio" name="emailPublic" #isEmailPublicNo [value]="false" [checked]="parentRef?.user?.about?.isEmailPublic === false" /> No
+          </label>
+        </div>
+      </div>
+      <div class="sectionDescriptionSection">
+        <div>Phone:</div>
+        <div><input type="tel" #updatedPhone [value]="parentRef?.user?.about?.phone ?? ''" /></div>
+      </div>
+      <div class="sectionDescriptionSection">
+        <div>Currency:</div>
+        <div>
+          <select #selectedCurrencyDropdown>
+            <option *ngFor="let currency of uniqueCurrencyNames" [selected]="parentRef?.user?.about?.currency === currency">{{ currency }}</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <!-- LOCATION -->
+    <div (click)="isWeatherLocationToggled = !isWeatherLocationToggled; getWeatherLocation()" *ngIf="!showOnlyNicehashApiKeys && !showOnlyKrakenApiKeys && !showOnlySelectableMenuItems" class="sectionHeaderDiv">
+      <div class="sectionHeaderLabel popupPanelTitle">
+        <div>
+          <span class="helperSpanTitle" title="Default is to automatically update your weather based on your IP address,
+but you can also set your own City for a more precise location."></span>
+        </div>
+        <div class="settingsSectionHeaderTitle">Location</div>
+      </div>
+      <div style="text-align:right;">
+        <button (click)="updateWeatherLocation()" title="Update settings" [disabled]="!isWeatherLocationToggled" *ngIf="isWeatherLocationToggled">💾Save Location</button>
+      </div>
+    </div>
+    <div *ngIf="isWeatherLocationToggled || showOnlyWeatherLocation" class="sectionDescriptionDiv">
+      <div class="sectionDescriptionDiv">
+        <div class="sectionDescriptionSection">
+          <div>City: </div>
+          <div><input type="text" placeholder="City (ex: 'Montreal')" #weatherLocationCityInput /></div>
+        </div>
+        <div class="sectionDescriptionSection">
+          <div>Country: </div>
+          <div><input type="text" placeholder="Country (ex: 'Canada')" #weatherLocationCountryInput /></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- MENU ICONS -->
+    <div (click)="getMenuIcons()" class="sectionHeaderDiv" *ngIf="!showOnlyNicehashApiKeys && !showOnlyKrakenApiKeys && !showOnlyWeatherLocation">
+      <div *ngIf="!showOnlySelectableMenuItems || isMenuIconsToggled" class="sectionHeaderLabel popupPanelTitle">
+        <div>
+          <span class="helperSpanTitle" title="Add / Remove icons from your menu."></span>
+        </div>
+        <div colspan="2" class="settingsSectionHeaderTitle">App Selection</div>
+      </div>
+    </div>
+    <div *ngIf="showOnlySelectableMenuItems || isMenuIconsToggled" class="sectionDescriptionDiv">
+      <div class="menuIconTable menuIconTableContainer" *ngIf="selectableIcons">
+        <div *ngFor="let icon of selectableIcons" class="selectableIconMenuSection">
+          <div class="selectableMenuIconTitles">
+            <span (click)="toggleIconDescription(icon.title)" class="cursorPointer">
+              {{ icon.title == 'Weather' ? '☀️' : icon.icon }}<span class=appTitle>{{ icon.title }}</span>
+            </span>
+            <label class="switch" (click)="selectMenuIcon(icon.title); $event.preventDefault();">
+              <input type="checkbox" [checked]="menuIconsIncludes(icon.title)" />
+              <span class="slider round"></span>
+            </label>
+          </div>
+          <div class="selectableMenuIconDescriptions" *ngIf="icon.title === expandedIconTitle">
+            <div *ngIf="icon.title == 'Bug-Wars'" [id]="icon.title+'tddiv'">
+              <div [id]="icon.title+'tddivdiv'" (click)="menuInformationZoom(icon.title+'td')" [class]="parentRef && parentRef.isModalOpen ? '' : 'ellipsis'">
+                "Bug Wars" is a real-time strategy, massively multiplayer online game set in the near future. Create your base and compete against others for control over the map!<br />
               </div>
             </div>
-          </div>
-          <div>
-            <app-media-selector #displayPictureSelector
-                                [uploadButtonText]="'Upload Display Picture'"
-                                [maxSelectedFiles]="1"
-                                [inputtedParentRef]="parentRef"
-                                [user]="parentRef?.user"
-                                [currentDirectory]="'Users/'+parentRef?.user?.username"
-                                (selectFileEvent)="avatarSelected($event)">
-            </app-media-selector>
-          </div>
-        </div>
-
-      </div>
-
-
-      <!--ABOUT-->
-      <div (click)="isAboutToggled = !isAboutToggled" *ngIf="!showOnlyWeatherLocation && !showOnlySelectableMenuItems && parentRef?.user" class="sectionHeaderDiv">
-        <div class="sectionHeaderLabel popupPanelTitle">
-          <div>
-            <span class="helperSpanTitle" title="Your contact information."></span>
-          </div>
-          <div class="cursorPointerUnderlined">About You</div>
-        </div>
-        <div style="text-align:right;">
-          <button (click)="updateUserAbout()" title="Update information" [disabled]="!isAboutToggled" *ngIf="isAboutToggled">💾Save About You</button>
-        </div>
-      </div>
-      <div *ngIf="!showOnlyWeatherLocation && !showOnlySelectableMenuItems && isAboutToggled" class="sectionDescriptionDiv">
-        <div class="sectionDescriptionSection">
-          <div>Description:</div>
-          <div><input type="text" placeholder="Profile description" #updatedDescription [value]="parentRef?.user?.about?.description ?? ''" /></div>
-        </div>
-        <div class="sectionDescriptionSection">
-          <div>Birthday:</div>
-          <div><input type="date" #updatedBirthday [value]="formatDate(parentRef?.user?.about?.birthday)" /></div>
-        </div>
-        <div class="sectionDescriptionSection">
-          <div>Email:</div>
-          <div><input type="text" #updatedEmail [value]="parentRef?.user?.about?.email ?? ''" /></div>
-        </div>
-        <div class="sectionDescriptionSection">
-          <div>Is Email Public?:</div>
-          <div style="display: flex;">
-            <label>
-              <input type="radio" name="emailPublic" #isEmailPublicYes [value]="true" [checked]="parentRef?.user?.about?.isEmailPublic === true" /> Yes
-            </label>
-            <label>
-              <input type="radio" name="emailPublic" #isEmailPublicNo [value]="false" [checked]="parentRef?.user?.about?.isEmailPublic === false" /> No
-            </label>
-          </div>
-        </div>
-        <div class="sectionDescriptionSection">
-          <div>Phone:</div>
-          <div><input type="tel" #updatedPhone [value]="parentRef?.user?.about?.phone ?? ''" /></div>
-        </div>
-        <div class="sectionDescriptionSection">
-          <div>Currency:</div>
-          <div>
-            <select #selectedCurrencyDropdown>
-              <option *ngFor="let currency of uniqueCurrencyNames" [selected]="parentRef?.user?.about?.currency === currency">{{ currency }}</option>
-            </select>
-          </div>
-        </div>
-      </div>
-
-      <!-- LOCATION -->
-      <div (click)="isWeatherLocationToggled = !isWeatherLocationToggled; getWeatherLocation()" *ngIf="!showOnlySelectableMenuItems" class="sectionHeaderDiv">
-        <div class="sectionHeaderLabel popupPanelTitle">
-          <div>
-            <span class="helperSpanTitle" title="Default is to automatically update your weather based on your IP address,
-but you can also set your own City for a more precise location."></span>
-          </div>
-          <div class="cursorPointerUnderlined">Location</div>
-        </div>
-        <div style="text-align:right;">
-          <button (click)="updateWeatherLocation()" title="Update settings" [disabled]="!isWeatherLocationToggled" *ngIf="isWeatherLocationToggled">💾Save Location</button>
-        </div>
-      </div>
-      <div *ngIf="isWeatherLocationToggled || showOnlyWeatherLocation">
-        <div>
-          <div>Location:</div>
-          <div><input type="text" placeholder="City (ex: 'Montreal')" #weatherLocationCityInput /></div>
-          <div><input type="text" placeholder="Country (ex: 'Canada')" #weatherLocationCountryInput /></div>
-          <div></div>
-        </div>
-      </div>
-
-      <!-- MENU ICONS -->
-      <div (click)="getMenuIcons()" class="sectionHeaderDiv" *ngIf="!showOnlyWeatherLocation">
-        <div *ngIf="!showOnlySelectableMenuItems || isMenuIconsToggled" class="sectionHeaderLabel popupPanelTitle">
-          <div>
-            <span class="helperSpanTitle" title="Add / Remove icons from your menu."></span>
-          </div>
-          <div colspan="2" class="cursorPointerUnderlined">Navigation Icons</div>
-        </div>
-      </div>
-      <div *ngIf="showOnlySelectableMenuItems || isMenuIconsToggled">
-        <div>
-          <div class="menuIconTableContainer" colspan=3>
-            <div class="menuIconTable">
-              <div *ngIf="selectableIcons">
-                <div *ngFor="let icon of selectableIcons" class="selectableIconMenuSection">
-                  <div class="selectableMenuIconTitles">
-                    <span (click)="selectMenuIcon(icon.title)" class="pointer">{{ icon.title == 'Weather' ? '☀️' : icon.icon }}<span class=appTitle>{{ icon.title }}</span></span>
-                    <label class="switch" (click)="selectMenuIcon(icon.title); $event.preventDefault();">
-                      <input type="checkbox" [checked]="menuIconsIncludes(icon.title)" />
-                      <span class="slider round"></span>
-                    </label>
-                  </div>
-                  <div class="selectableMenuIconDescriptions">
-                    <div *ngIf="icon.title == 'Bug-Wars'" [id]="icon.title+'tddiv'">
-                      <div [id]="icon.title+'tddivdiv'" (click)="menuInformationZoom(icon.title+'td')" [class]="parentRef && parentRef.isModalOpen ? '' : 'ellipsis'">
-                        "Bug Wars" is a real-time strategy, massively multiplayer online game set in the near future. Create your base and compete against others for control over the map!<br />
-                      </div>
-                    </div>
-                    <div *ngIf="icon.title == 'Files'" [id]="icon.title+'tddiv'">
-                      <div [id]="icon.title+'tddivdiv'" (click)="menuInformationZoom(icon.title+'td')" [class]="parentRef && parentRef.isModalOpen ? '' : 'ellipsis'">
-                        A file system which is the backbone of the site.
-                        Anything publicly available in the filesystem can be used as an attachment anywhere on the site or shared publicly off-site for free!
-                      </div>
-                    </div>
-                    <div *ngIf="icon.title == 'News'" [id]="icon.title+'tddiv'">
-                      <div [id]="icon.title+'tddivdiv'" (click)="menuInformationZoom(icon.title+'td')" [class]="parentRef && parentRef.isModalOpen ? '' : 'ellipsis'">
-                        Get the latest news on any subject from multiple different sources (from both main and non-mainstream news).
-                      </div>
-                    </div>
-                    <div *ngIf="icon.title == 'Notifications'" [id]="icon.title+'tddiv'">
-                      <div [id]="icon.title+'tddivdiv'" (click)="menuInformationZoom(icon.title+'td')" [class]="parentRef && parentRef.isModalOpen ? '' : 'ellipsis'">
-                        Notifications display for all components of this website. Get up to date information about your content.
-                      </div>
-                    </div>
-                    <div *ngIf="icon.title == 'Weather'" [id]="icon.title+'tddiv'">
-                      <div [id]="icon.title+'tddivdiv'" (click)="menuInformationZoom(icon.title+'td')" [class]="parentRef && parentRef.isModalOpen ? '' : 'ellipsis'">
-                        Get up to date weather information based on a location you supply or the automatically found location based on your IP-Address!
-                      </div>
-                    </div>
-                    <div *ngIf="icon.title == 'Todo'" [id]="icon.title+'tddiv'">
-                      <div [id]="icon.title+'tddivdiv'" (click)="menuInformationZoom(icon.title+'td')" [class]="parentRef && parentRef.isModalOpen ? '' : 'ellipsis'">
-                        A todo list to keep yourself reminded of everything todo. Create your own lists and save reminders to it!
-                      </div>
-                    </div>
-                    <div *ngIf="icon.title == 'Music'" [id]="icon.title+'tddiv'">
-                      <div [id]="icon.title+'tddivdiv'" (click)="menuInformationZoom(icon.title+'td')" [class]="parentRef && parentRef.isModalOpen ? '' : 'ellipsis'">
-                        A music list to keep track of your favourite youtube songs! Once added, the songs are displayed and a playlist can be selected from your profile page!
-                      </div>
-                    </div>
-                    <div *ngIf="icon.title == 'Crypto-Hub'" [id]="icon.title+'tddiv'">
-                      <div [id]="icon.title+'tddivdiv'" (click)="menuInformationZoom(icon.title+'td')" [class]="parentRef && parentRef.isModalOpen ? '' : 'ellipsis'">
-                        Crypto Hub does many Crypto-related things.
-                        <ul>
-                          <li>Keeps track of crypto prices for the most popular coins.</li>
-                          <li>Show your cryptocurrency wallet balance.</li>
-                          <li>Manage your cryptocurrency mining rigs.</li>
-                        </ul>
-                        <div class="smallFont">
-                          Currently only supports the NiceHash API for crypto mining rigs and wallet.
-                          If you do not have any mining rigs or wallets set up, you can quickly get started by using Nicehash.
-                          Follow this <a href='http://nicehash.com' target="_blank">Link</a> for more info!
-                        </div>
-                      </div>
-                    </div>
-                    <div *ngIf="icon.title == 'HostAi'" [id]="icon.title+'tddiv'">
-                      <div [id]="icon.title+'tddivdiv'" (click)="menuInformationZoom(icon.title+'td')" [class]="parentRef && parentRef.isModalOpen ? '' : 'ellipsis'">
-                        BugHosted's AI. Get information about anything instantly.
-                      </div>
-                    </div>
-                    <div *ngIf="icon.title == 'Notepad'" [id]="icon.title+'tddiv'">
-                      <div [id]="icon.title+'tddivdiv'" (click)="menuInformationZoom(icon.title+'td')" [class]="parentRef && parentRef.isModalOpen ? '' : 'ellipsis'">
-                        Jot down notes and share them with others. Saved news articles show up here.
-                      </div>
-                    </div>
-                    <div *ngIf="icon.title == 'Contacts'" [id]="icon.title+'tddiv'">
-                      <div [id]="icon.title+'tddivdiv'" (click)="menuInformationZoom(icon.title+'td')" [class]="parentRef && parentRef.isModalOpen ? '' : 'ellipsis'">
-                        <div>
-                          Add your friends as contacts! Simply go to a person's profile page and click Add as Contact to keep track of friends' contact information and profiles.
-                        </div>
-                      </div>
-                    </div>
-                    <div *ngIf="icon.title == 'Crawler'" [id]="icon.title+'tddiv'">
-                      <div [id]="icon.title+'tddivdiv'" (click)="menuInformationZoom(icon.title+'td')" [class]="parentRef && parentRef.isModalOpen ? '' : 'ellipsis'">
-                        <div>
-                          Our search engine with a full database of uncensored results. Index your website or search our database of websites for any information that can be found on the web.
-                        </div>
-                      </div>
-                    </div>
-                    <div *ngIf="icon.title == 'Calendar'" [id]="icon.title+'tddiv'">
-                      <div [id]="icon.title+'tddivdiv'" (click)="menuInformationZoom(icon.title+'td')" [class]="parentRef && parentRef.isModalOpen ? '' : 'ellipsis'">
-                        The Calendar helps you remember important things. Dont forget.
-                      </div>
-                    </div>
-                    <div *ngIf="icon.title == 'Meta-Bots'" [id]="icon.title+'tddiv'">
-                      <div [id]="icon.title+'tddivdiv'" (click)="menuInformationZoom(icon.title+'td')" [class]="parentRef && parentRef.isModalOpen ? '' : 'ellipsis'">
-                        Meta-Bots, our up and coming MMORPG.
-                      </div>
-                    </div>
-                    <div *ngIf="icon.title == 'Social'" [id]="icon.title+'tddiv'">
-                      <div [id]="icon.title+'tddivdiv'" (click)="menuInformationZoom(icon.title+'td')" [class]="parentRef && parentRef.isModalOpen ? '' : 'ellipsis'">
-                        Social platform.
-                      </div>
-                    </div>
-                    <div *ngIf="icon.title == 'Meme'" [id]="icon.title+'tddiv'">
-                      <div [id]="icon.title+'tddivdiv'" (click)="menuInformationZoom(icon.title+'td')" [class]="parentRef && parentRef.isModalOpen ? '' : 'ellipsis'">
-                        Share memes, use them in chat, on the socials or even as a display picture!
-                      </div>
-                    </div>
-                    <div *ngIf="icon.title == 'Wordler'" [id]="icon.title+'tddiv'">
-                      <div [id]="icon.title+'tddivdiv'" (click)="menuInformationZoom(icon.title+'td')" [class]="parentRef && parentRef.isModalOpen ? '' : 'ellipsis'">
-                        Can you defeat the Wordler? A word guessing game inspired from the NY Times website!
-                      </div>
-                    </div>
-                    <div *ngIf="icon.title == 'Chat'" [id]="icon.title+'tddiv'">
-                      <div [id]="icon.title+'tddivdiv'" (click)="menuInformationZoom(icon.title+'td')" [class]="parentRef && parentRef.isModalOpen ? '' : 'ellipsis'">
-                        Chat system to connect you with your friends or groups of friends.
-                      </div>
-                    </div>
-                    <div *ngIf="icon.title == 'Favourites'" [id]="icon.title+'tddiv'">
-                      <div [id]="icon.title+'tddivdiv'" (click)="menuInformationZoom(icon.title+'td')" [class]="parentRef && parentRef.isModalOpen ? '' : 'ellipsis'">
-                        Share and keep track of your favourite links.
-                        Make a list of your favourites, other users can see and search for the links you added too! Track how many people also added the favourite you created and see how popular your favourites are!
-                      </div>
-                    </div>
-                    <div *ngIf="icon.title == 'Array'" [id]="icon.title+'tddiv'">
-                      <div [id]="icon.title+'tddivdiv'" (click)="menuInformationZoom(icon.title+'td')" [class]="parentRef && parentRef.isModalOpen ? '' : 'ellipsis'">
-                        The Array transports users down a seemingly infinite array.
-                        The further you go down the array, the more experience you gain.
-                        Find items to make you stronger!
-                        Fight other players for glory!
-                      </div>
-                    </div>
-                    <div *ngIf="icon.title == 'Emulation'" [id]="icon.title+'tddiv'">
-                      <div [id]="icon.title+'tddivdiv'" (click)="menuInformationZoom(icon.title+'td')" [class]="parentRef && parentRef.isModalOpen ? '' : 'ellipsis'">
-                        Our "Nostalgist" emulator allows users to play Gameboy (Color), Gameboy Advance, Nintendo, Super Nintendo, Sega and more!
-                        Simply upload roms and enjoy the autosaving feature! The game will automatically be saved to our servers.
-                        You may now restart from anywhere with any device! (Supports joysticks and fullscreen mode!)
-                      </div>
-                    </div>
-                    <div *ngIf="icon.title == 'Theme'" [id]="icon.title+'tddiv'">
-                      <div [id]="icon.title+'tddivdiv'" (click)="menuInformationZoom(icon.title+'td')" [class]="parentRef && parentRef.isModalOpen ? '' : 'ellipsis'">
-                        Change the site's theme! Share your theme with others or use a theme someone else has shared!
-                      </div>
-                    </div>
-                  </div>
+            <div *ngIf="icon.title == 'Files'" [id]="icon.title+'tddiv'">
+              <div [id]="icon.title+'tddivdiv'" (click)="menuInformationZoom(icon.title+'td')" [class]="parentRef && parentRef.isModalOpen ? '' : 'ellipsis'">
+                A file system which is the backbone of the site.
+                Anything publicly available in the filesystem can be used as an attachment anywhere on the site or shared publicly off-site for free!
+              </div>
+            </div>
+            <div *ngIf="icon.title == 'News'" [id]="icon.title+'tddiv'">
+              <div [id]="icon.title+'tddivdiv'" (click)="menuInformationZoom(icon.title+'td')" [class]="parentRef && parentRef.isModalOpen ? '' : 'ellipsis'">
+                Get the latest news on any subject from multiple different sources (from both main and non-mainstream news).
+              </div>
+            </div>
+            <div *ngIf="icon.title == 'Notifications'" [id]="icon.title+'tddiv'">
+              <div [id]="icon.title+'tddivdiv'" (click)="menuInformationZoom(icon.title+'td')" [class]="parentRef && parentRef.isModalOpen ? '' : 'ellipsis'">
+                Notifications display for all components of this website. Get up to date information about your content.
+              </div>
+            </div>
+            <div *ngIf="icon.title == 'Weather'" [id]="icon.title+'tddiv'">
+              <div [id]="icon.title+'tddivdiv'" (click)="menuInformationZoom(icon.title+'td')" [class]="parentRef && parentRef.isModalOpen ? '' : 'ellipsis'">
+                Get up to date weather information based on a location you supply or the automatically found location based on your IP-Address!
+              </div>
+            </div>
+            <div *ngIf="icon.title == 'Todo'" [id]="icon.title+'tddiv'">
+              <div [id]="icon.title+'tddivdiv'" (click)="menuInformationZoom(icon.title+'td')" [class]="parentRef && parentRef.isModalOpen ? '' : 'ellipsis'">
+                A todo list to keep yourself reminded of everything todo. Create your own lists and save reminders to it!
+              </div>
+            </div>
+            <div *ngIf="icon.title == 'Music'" [id]="icon.title+'tddiv'">
+              <div [id]="icon.title+'tddivdiv'" (click)="menuInformationZoom(icon.title+'td')" [class]="parentRef && parentRef.isModalOpen ? '' : 'ellipsis'">
+                A music list to keep track of your favourite youtube songs! Once added, the songs are displayed and a playlist can be selected from your profile page!
+              </div>
+            </div>
+            <div *ngIf="icon.title == 'Crypto-Hub'" [id]="icon.title+'tddiv'">
+              <div [id]="icon.title+'tddivdiv'" (click)="menuInformationZoom(icon.title+'td')" [class]="parentRef && parentRef.isModalOpen ? '' : 'ellipsis'">
+                Crypto Hub does many Crypto-related things.
+                <ul>
+                  <li>Keeps track of crypto prices for the most popular coins.</li>
+                  <li>Show your cryptocurrency wallet balance.</li>
+                  <li>Manage your cryptocurrency mining rigs.</li>
+                  <li>Manage your trade bot.</li>
+                  <li>View trading logs.</li>
+                </ul>
+                <div class="smallFont">
+                  Currently only supports the NiceHash API for mining rigs.
+                  If you do not have any mining rigs set up, you can quickly get started using Nicehash.
+                  Follow this <a href='http://nicehash.com' target="_blank">Link</a> for more info!
                 </div>
               </div>
             </div>
+            <div *ngIf="icon.title == 'HostAi'" [id]="icon.title+'tddiv'">
+              <div [id]="icon.title+'tddivdiv'" (click)="menuInformationZoom(icon.title+'td')" [class]="parentRef && parentRef.isModalOpen ? '' : 'ellipsis'">
+                BugHosted's AI. Get information about anything instantly.
+              </div>
+            </div>
+            <div *ngIf="icon.title == 'Notepad'" [id]="icon.title+'tddiv'">
+              <div [id]="icon.title+'tddivdiv'" (click)="menuInformationZoom(icon.title+'td')" [class]="parentRef && parentRef.isModalOpen ? '' : 'ellipsis'">
+                Jot down notes and share them with others. Saved news articles show up here.
+              </div>
+            </div>
+            <div *ngIf="icon.title == 'Contacts'" [id]="icon.title+'tddiv'">
+              <div [id]="icon.title+'tddivdiv'" (click)="menuInformationZoom(icon.title+'td')" [class]="parentRef && parentRef.isModalOpen ? '' : 'ellipsis'">
+                <div>
+                  Add your friends as contacts! Simply go to a person's profile page and click Add as Contact to keep track of friends' contact information and profiles.
+                </div>
+              </div>
+            </div>
+            <div *ngIf="icon.title == 'Crawler'" [id]="icon.title+'tddiv'">
+              <div [id]="icon.title+'tddivdiv'" (click)="menuInformationZoom(icon.title+'td')" [class]="parentRef && parentRef.isModalOpen ? '' : 'ellipsis'">
+                <div>
+                  Our search engine with a full database of uncensored results. Index your website or search our database of websites for any information that can be found on the web.
+                </div>
+              </div>
+            </div>
+            <div *ngIf="icon.title == 'Calendar'" [id]="icon.title+'tddiv'">
+              <div [id]="icon.title+'tddivdiv'" (click)="menuInformationZoom(icon.title+'td')" [class]="parentRef && parentRef.isModalOpen ? '' : 'ellipsis'">
+                The Calendar helps you remember important things. Dont forget.
+              </div>
+            </div>
+            <div *ngIf="icon.title == 'Meta-Bots'" [id]="icon.title+'tddiv'">
+              <div [id]="icon.title+'tddivdiv'" (click)="menuInformationZoom(icon.title+'td')" [class]="parentRef && parentRef.isModalOpen ? '' : 'ellipsis'">
+                Meta-Bots, our up and coming MMORPG.
+              </div>
+            </div>
+            <div *ngIf="icon.title == 'Social'" [id]="icon.title+'tddiv'">
+              <div [id]="icon.title+'tddivdiv'" (click)="menuInformationZoom(icon.title+'td')" [class]="parentRef && parentRef.isModalOpen ? '' : 'ellipsis'">
+                Social platform.
+              </div>
+            </div>
+            <div *ngIf="icon.title == 'Meme'" [id]="icon.title+'tddiv'">
+              <div [id]="icon.title+'tddivdiv'" (click)="menuInformationZoom(icon.title+'td')" [class]="parentRef && parentRef.isModalOpen ? '' : 'ellipsis'">
+                Share memes, use them in chat, on the socials or even as a display picture!
+              </div>
+            </div>
+            <div *ngIf="icon.title == 'Wordler'" [id]="icon.title+'tddiv'">
+              <div [id]="icon.title+'tddivdiv'" (click)="menuInformationZoom(icon.title+'td')" [class]="parentRef && parentRef.isModalOpen ? '' : 'ellipsis'">
+                Can you defeat the Wordler? A word guessing game inspired from the NY Times website!
+              </div>
+            </div>
+            <div *ngIf="icon.title == 'Chat'" [id]="icon.title+'tddiv'">
+              <div [id]="icon.title+'tddivdiv'" (click)="menuInformationZoom(icon.title+'td')" [class]="parentRef && parentRef.isModalOpen ? '' : 'ellipsis'">
+                Chat system to connect you with your friends or groups of friends.
+              </div>
+            </div>
+            <div *ngIf="icon.title == 'Favourites'" [id]="icon.title+'tddiv'">
+              <div [id]="icon.title+'tddivdiv'" (click)="menuInformationZoom(icon.title+'td')" [class]="parentRef && parentRef.isModalOpen ? '' : 'ellipsis'">
+                Share and keep track of your favourite links.
+                Make a list of your favourites, other users can see and search for the links you added too! Track how many people also added the favourite you created and see how popular your favourites are!
+              </div>
+            </div>
+            <div *ngIf="icon.title == 'Array'" [id]="icon.title+'tddiv'">
+              <div [id]="icon.title+'tddivdiv'" (click)="menuInformationZoom(icon.title+'td')" [class]="parentRef && parentRef.isModalOpen ? '' : 'ellipsis'">
+                The Array transports users down a seemingly infinite array.
+                The further you go down the array, the more experience you gain.
+                Find items to make you stronger!
+                Fight other players for glory!
+              </div>
+            </div>
+            <div *ngIf="icon.title == 'Emulation'" [id]="icon.title+'tddiv'">
+              <div [id]="icon.title+'tddivdiv'" (click)="menuInformationZoom(icon.title+'td')" [class]="parentRef && parentRef.isModalOpen ? '' : 'ellipsis'">
+                Our "Nostalgist" emulator allows users to play Gameboy (Color), Gameboy Advance, Nintendo, Super Nintendo, Sega and more!
+                Simply upload roms and enjoy the autosaving feature! The game will automatically be saved to our servers.
+                You may now restart from anywhere with any device! (Supports joysticks and fullscreen mode!)
+              </div>
+            </div>
+            <div *ngIf="icon.title == 'Theme'" [id]="icon.title+'tddiv'">
+              <div [id]="icon.title+'tddivdiv'" (click)="menuInformationZoom(icon.title+'td')" [class]="parentRef && parentRef.isModalOpen ? '' : 'ellipsis'">
+                Change the site's theme! Share your theme with others or use a theme someone else has shared!
+              </div>
+            </div>
           </div>
         </div>
       </div>
+    </div>
 
-      <!--NICEHASH API-->
-      <div (click)="isNicehashApiKeysToggled = !isNicehashApiKeysToggled; getNicehashApiKeys()" *ngIf="!showOnlyWeatherLocation && !showOnlySelectableMenuItems && parentRef?.user" class="sectionHeaderDiv">
-        <div class="sectionHeaderLabel popupPanelTitle">
-          <div><span class="helperSpanTitle" title="These API Keys enable Nicehash support. A system for mining cryptocurrency."></span></div>
-          <div class="cursorPointerUnderlined">Nicehash API Keys</div>
-        </div>
-        <div style="text-align:right;">
-          <button (click)="updateNHAPIKeys()" title="Update settings" [disabled]="!isNicehashApiKeysToggled" *ngIf="isNicehashApiKeysToggled">💾Save</button>
-        </div>
+    <!--NICEHASH API-->
+    <div (click)="(showOnlyNicehashApiKeys ? '' : (isNicehashApiKeysToggled = !isNicehashApiKeysToggled)); getNicehashApiKeys()" *ngIf="!showOnlyKrakenApiKeys && !showOnlyWeatherLocation && !showOnlySelectableMenuItems && parentRef?.user" class="sectionHeaderDiv">
+      <div class="sectionHeaderLabel popupPanelTitle">
+        <div><span class="helperSpanTitle" title="These API Keys enable Nicehash support. A system for mining cryptocurrency."></span></div>
+        <div class="settingsSectionHeaderTitle">Nicehash API Keys</div>
       </div>
-      <div *ngIf="isNicehashApiKeysToggled" class="krakenApiKeyWrapperDiv">
-        <div class="apiKeyInputWrapper"> 
-          <div>OrgId:</div>
-          <div><input type="text" placeholder="Org Id" #orgId [value]="nhApiKeys?.orgId ?? ''" /></div>
-        </div>
-        <div class="apiKeyInputWrapper"> 
-          <div>ApiKey:</div>
-          <div><input type="text" placeholder="API Key" #apiKey [value]="nhApiKeys?.apiKey ?? ''" /></div>
-        </div>
-        <div class="apiKeyInputWrapper"> 
-          <div>ApiSecret:</div>
-          <div><input type="text" placeholder="API Secret" #apiSecret [value]="nhApiKeys?.apiSecret ?? ''" /></div>
-        </div>
+      <div style="text-align:right;">
+        <button (click)="updateNHAPIKeys()" title="Update settings" [disabled]="!isNicehashApiKeysToggled" *ngIf="isNicehashApiKeysToggled || showOnlyKrakenApiKeys">💾Save</button>
       </div>
+    </div>
+    <div *ngIf="isNicehashApiKeysToggled || showOnlyNicehashApiKeys" class="krakenApiKeyWrapperDiv sectionDescriptionDiv">
+      <div class="apiKeyInputWrapper sectionDescriptionSection">
+        <div>OrgId:</div>
+        <div><input type="text" placeholder="Org Id" #orgId [value]="nhApiKeys?.orgId ?? ''" /></div>
+      </div>
+      <div class="apiKeyInputWrapper sectionDescriptionSection">
+        <div>ApiKey:</div>
+        <div><input type="text" placeholder="API Key" #apiKey [value]="nhApiKeys?.apiKey ?? ''" /></div>
+      </div>
+      <div class="apiKeyInputWrapper sectionDescriptionSection">
+        <div>ApiSecret:</div>
+        <div><input type="text" placeholder="API Secret" #apiSecret [value]="nhApiKeys?.apiSecret ?? ''" /></div>
+      </div>
+    </div>
 
-      <!--KRAKEN API-->
-      <div (click)="isKrakenApiKeysToggled = !isKrakenApiKeysToggled; getKrakenApiKeys()" *ngIf="inputtedParentRef?.user?.id == 1 && !showOnlyWeatherLocation && !showOnlySelectableMenuItems && parentRef?.user" class="sectionHeaderDiv">
-        <div class="sectionHeaderLabel popupPanelTitle">
-          <div><span class="helperSpanTitle" title="These API Keys enable Trade bot support. A system for automatically trading cryptocurrency."></span></div>
-          <div class="cursorPointerUnderlined">Kraken API Keys <span *ngIf="hasKrakenKeys" title="Key is saved. For security purposes, we cannot show the saved API key.">🟢</span></div>
-        </div>
-        <div style="text-align:right;">
-          <button (click)="updateKrakenAPIKeys()" title="Update settings" [disabled]="!isKrakenApiKeysToggled" *ngIf="isKrakenApiKeysToggled">💾Save</button>
-        </div>
+    <!--KRAKEN API-->
+    <div (click)="(showOnlyKrakenApiKeys ? '' : (isKrakenApiKeysToggled = !isKrakenApiKeysToggled)); getKrakenApiKeys()" *ngIf="showOnlyKrakenApiKeys || (!showOnlyNicehashApiKeys && !showOnlyWeatherLocation && !showOnlySelectableMenuItems && parentRef?.user)" class="sectionHeaderDiv">
+      <div class="sectionHeaderLabel popupPanelTitle">
+        <div><span class="helperSpanTitle" title="These API Keys enable Trade bot support. A system for automatically trading cryptocurrency."></span></div>
+        <div class="settingsSectionHeaderTitle">Kraken API Keys</div>
       </div>
-      <div *ngIf="isKrakenApiKeysToggled" class="krakenApiKeyWrapperDiv"> 
-        <div class="apiKeyInputWrapper"> 
-          <div>
-            Api Key
-            <span class="warningOverwrite" *ngIf="hasKrakenKeys" title="Key is saved. For security purposes, we cannot show the saved API key.">(Overwriting)</span>:
-          </div>
-          <div><input type="text" placeholder="API Key" #krakenApiKey /></div>
-        </div>
-        <div class="apiKeyInputWrapper"> 
-          <div>
-            Private Key
-            <span class="warningOverwrite" *ngIf="hasKrakenKeys" title="Key is saved. For security purposes, we cannot show the saved API key.">(Overwriting)</span>:
-          </div>
-          <div><input type="text" placeholder="Private Key" #krakenPrivateKey /></div>
-        </div>
+      <div style="text-align:right;">
+        <button (click)="updateKrakenAPIKeys()" title="Update settings" [disabled]="!isKrakenApiKeysToggled" *ngIf="isKrakenApiKeysToggled || showOnlyKrakenApiKeys">💾Save</button>
       </div>
-
+    </div>
+    <div *ngIf="showOnlyKrakenApiKeys || isKrakenApiKeysToggled" class="krakenApiKeyWrapperDiv sectionDescriptionDiv">
+      <div class="apiKeyInputWrapper sectionDescriptionSection">
+        <div>
+          Api Key<span *ngIf="hasKrakenKeys" title="Key is saved. For security purposes, we cannot show the saved API key." class="cursorPointer">🟢</span>:
+        </div>
+        <div><input type="text" placeholder="API Key {{hasKrakenKeys ? '(Overwriting)' : ''}}" #krakenApiKey /></div>
+      </div>
+      <div class="apiKeyInputWrapper sectionDescriptionSection">
+        <div>
+          Private Key<span *ngIf="hasKrakenKeys" title="Key is saved. For security purposes, we cannot show the saved API key." class="cursorPointer">🟢</span>:
+        </div>
+        <div><input type="text" placeholder="Private Key {{hasKrakenKeys ? '(Overwriting)' : ''}}" #krakenPrivateKey /></div>
+      </div>
+    </div>
 
 
-      <!--BTC Wallet Addresses-->
-      <div (click)="isBTCWalletAddressesToggled = !isBTCWalletAddressesToggled; getBTCWalletAddresses()" *ngIf="!showOnlyWeatherLocation && !showOnlySelectableMenuItems && parentRef?.user" class="sectionHeaderDiv">
-        <div class="sectionHeaderLabel popupPanelTitle">
-          <div><span class="helperSpanTitle" title="Keep track of your BTC Wallet address here."></span></div>
-          <div class="cursorPointerUnderlined">BTC Wallet Addresses</div>
-        </div>
-        <div style="text-align:right;">
-          <button (click)="updateBTCWalletAddresses(); $event.stopPropagation()" title="Update BTC Wallet Addresses" [disabled]="!isBTCWalletAddressesToggled" *ngIf="isBTCWalletAddressesToggled">💾Save</button>
-          <button (click)="addBTCWalletAddress(); $event.stopPropagation()" title="Add BTC Wallet Address" [disabled]="!isBTCWalletAddressesToggled" *ngIf="isBTCWalletAddressesToggled && btcWalletAddresses && btcWalletAddresses.length > 0">➕</button>
-        </div>
-      </div>
-      <div *ngIf="isBTCWalletAddressesToggled">
-        <div *ngFor="let address of btcWalletAddresses; let i = index">
-          <div></div>
-          <div>BTC Wallet Address:</div>
-          <div><input type="text" class="btcWalletInput" placeholder="BTC Wallet Address" [value]="address" /><button *ngIf="address" (click)="deleteBTCWalletAddress(address)">🗑️</button></div>
-        </div>
-        <div *ngIf="btcWalletAddresses?.length === 0 || showAddBTCWalletAddressInput">
-          <div></div>
-          <div>BTC Wallet Address:</div>
-          <div><input type="text" class="btcWalletInput" placeholder="BTC Wallet Address" /></div>
-        </div>
-      </div>
 
-      <!--Delete Account-->
-      <div (click)="isDeleteAccountToggled = !isDeleteAccountToggled" *ngIf="!showOnlyWeatherLocation && !showOnlySelectableMenuItems && parentRef?.user" class="sectionHeaderDiv">
-        <div class="sectionHeaderLabel popupPanelTitle">
-          <div><span class="helperSpanTitle" title="Delete your account"></span></div>
-          <div class="cursorPointerUnderlined">Delete your account?</div>
-        </div>
-        <div style="text-align:right;">
-          <button (click)="deleteUser()" title="Delete your account?" [disabled]="!isDeleteAccountToggled" *ngIf="isDeleteAccountToggled">🗑️</button>
-        </div>
+    <!--BTC Wallet Addresses-->
+    <div (click)="isBTCWalletAddressesToggled = !isBTCWalletAddressesToggled; getBTCWalletAddresses()" *ngIf="!showOnlyNicehashApiKeys && !showOnlyKrakenApiKeys && !showOnlyWeatherLocation && !showOnlySelectableMenuItems && parentRef?.user" class="sectionHeaderDiv">
+      <div class="sectionHeaderLabel popupPanelTitle">
+        <div><span class="helperSpanTitle" title="Keep track of your BTC Wallet address here."></span></div>
+        <div class="settingsSectionHeaderTitle">BTC Wallet Addresses</div>
       </div>
+      <div style="text-align:right;">
+        <button (click)="updateBTCWalletAddresses(); $event.stopPropagation()" title="Update BTC Wallet Addresses" [disabled]="!isBTCWalletAddressesToggled" *ngIf="isBTCWalletAddressesToggled">💾Save</button>
+        <button (click)="addBTCWalletAddress(); $event.stopPropagation()" title="Add BTC Wallet Address" [disabled]="!isBTCWalletAddressesToggled" *ngIf="isBTCWalletAddressesToggled && btcWalletAddresses && btcWalletAddresses.length > 0">➕</button>
+      </div>
+    </div>
+    <div *ngIf="isBTCWalletAddressesToggled" class="sectionDescriptionDiv">
+      <div *ngFor="let address of btcWalletAddresses; let i = index" class="sectionDescriptionSection">
+        <div>BTC Wallet Address:</div>
+        <div><input type="text" class="btcWalletInput" placeholder="BTC Wallet Address" [value]="address" /><button *ngIf="address" (click)="deleteBTCWalletAddress(address)">🗑️</button></div>
+      </div>
+      <div *ngIf="btcWalletAddresses?.length === 0 || showAddBTCWalletAddressInput" class="sectionDescriptionSection">
+        <div>BTC Wallet Address:</div>
+        <div><input type="text" class="btcWalletInput" placeholder="BTC Wallet Address" /></div>
+      </div>
+    </div>
 
-      <button (click)="!showOnlySelectableMenuItems ? parentRef?.createComponent('User') : remove_me('UpdateUserProfile')">Close</button>
-    </fieldset>
+    <!--Delete Account-->
+    <div (click)="isDeleteAccountToggled = !isDeleteAccountToggled" *ngIf="!showOnlyNicehashApiKeys && !showOnlyKrakenApiKeys && !showOnlyWeatherLocation && !showOnlySelectableMenuItems && parentRef?.user" class="sectionHeaderDiv">
+      <div class="sectionHeaderLabel popupPanelTitle">
+        <div><span class="helperSpanTitle" title="Delete your account"></span></div>
+        <div class="settingsSectionHeaderTitle">Delete your account?</div>
+      </div>
+      <div style="text-align:right;">
+        <button (click)="deleteUser()" title="Delete your account?" [disabled]="!isDeleteAccountToggled" *ngIf="isDeleteAccountToggled">🗑️</button>
+      </div>
+    </div>
+    <div style="text-align:center; margin: 5px;">
+      <button (click)="closeThisComponent()">Close</button>
+    </div>
   </div>
 </div>

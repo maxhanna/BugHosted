@@ -116,6 +116,7 @@ export class FavouritesComponent extends ChildComponent implements OnInit {
           tmpFav.url = tmpLinkUrl;
           tmpFav.imageUrl = imageUrl;
           tmpFav.id = res.id;
+          tmpFav.createdBy = user.id;
           this.parentRef?.showNotification(res.message);
           this.userFavourites.push(tmpFav);
         });

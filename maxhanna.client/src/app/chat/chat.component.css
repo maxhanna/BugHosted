@@ -9,7 +9,7 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  width: calc(100% - 105px);
+  width: calc(100% - 145px);
 }
 
 @media only screen and (min-width:800px) {

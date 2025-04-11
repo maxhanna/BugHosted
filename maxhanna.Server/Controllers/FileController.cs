@@ -79,13 +79,14 @@ namespace maxhanna.Server.Controllers
 				string hiddenCondition = showHidden
 						? "" // If showHidden is true, don't filter out hidden files
 						: $" AND f.id NOT IN (SELECT file_id FROM maxhanna.hidden_files WHERE user_id = @userId) ";
+
+				int offset = (page - 1) * pageSize;
 				using (var connection = new MySqlConnection(_connectionString))
 				{
-					connection.Open();
-					int offset = (page - 1) * pageSize;
+					connection.Open(); 
 					int filePosition = 0;
 					if (fileId.HasValue && page == 1)
-					{ 
+					{
 						var directoryCommand = new MySqlCommand(
 							 "SELECT folder_path FROM maxhanna.file_uploads WHERE id = @fileId",
 							 connection);
@@ -113,10 +114,10 @@ namespace maxhanna.Server.Controllers
 
 						filePosition = Convert.ToInt32(countCommand.ExecuteScalar());
 						page = (filePosition / pageSize) + 1;
-						offset = Math.Max(0, ((page - 1) * pageSize) - 1);
-					} 
+						offset = Math.Max(0, ((page - 1) * pageSize) - 1) - (fileId.HasValue ? 5 : 0);
+					}
 					string orderBy = isRomSearch ? " ORDER BY f.last_access desc " : fileId == null ? " ORDER BY f.id desc " : string.Empty;
-					(string searchCondition, List<MySqlParameter> extraParameters) = await GetWhereCondition(search, user); 
+					(string searchCondition, List<MySqlParameter> extraParameters) = await GetWhereCondition(search, user);
 
 					var command = new MySqlCommand($@"
                         SELECT 
@@ -184,8 +185,7 @@ namespace maxhanna.Server.Controllers
 					{
 						command.Parameters.AddWithValue("@search", "%" + search + "%"); // Add search parameter
 					}
-					//_ = _log.Db(command.CommandText);
-
+					Console.WriteLine($"fileId {fileId}, offset {offset}, pageSize {pageSize}, page {page}, folder path {directory}. command: " + command.CommandText);
 					using (var reader = command.ExecuteReader())
 					{
 						while (reader.Read())
@@ -234,15 +234,39 @@ namespace maxhanna.Server.Controllers
 					}
 
 					var fileIds = fileEntries.Select(f => f.Id).ToList();
-					var commentIds = new List<int>(); 
+					var commentIds = new List<int>();
 					var fileIdsParameters = new List<string>();
 					for (int i = 0; i < fileIds.Count; i++)
 					{
 						fileIdsParameters.Add($"@fileId{i}");
 					}
 
-					// Fetch comments separately
-					var commentsCommand = new MySqlCommand($@"
+					GetFileComments(fileEntries, connection, fileIds, commentIds, fileIdsParameters);
+
+					var commentIdsParameters = new List<string>();
+					for (int i = 0; i < commentIds.Count; i++)
+					{
+						commentIdsParameters.Add($"@commentId{i}");
+					}
+
+					GetFileReactions(fileEntries, connection, fileIds, commentIds, fileIdsParameters, commentIdsParameters);
+					GetFileTopics(fileEntries, connection, fileIds, fileIdsParameters);
+					var result = GetDirectoryResults(user, directory, search, page, pageSize, fileEntries, fileTypeCondition, visibilityCondition, ownershipCondition, hiddenCondition, connection, searchCondition, extraParameters);
+
+					return Ok(result);
+				}
+			}
+			catch (Exception ex)
+			{
+				_ = _log.Db($"error:{ex}", null, "FILE", true);
+				return StatusCode(500, ex.Message);
+			}
+		}
+
+		private static void GetFileComments(List<FileEntry> fileEntries, MySqlConnection connection, List<int> fileIds, List<int> commentIds, List<string> fileIdsParameters)
+		{
+			// Fetch comments separately
+			var commentsCommand = new MySqlCommand($@"
                     SELECT 
                         fc.id AS commentId,
                         fc.file_id AS commentFileId,
@@ -251,6 +275,7 @@ namespace maxhanna.Server.Controllers
                         fc.city AS commentCity,
                         fc.country AS commentCountry,
                         fc.ip AS commentIp,
+												fc.comment_id as comment_parent_id,
                         uc.username AS commentUsername,
                         ucudpfu.id AS commentUserDisplayPicId,
                         ucudpfu.file_name AS commentUserDisplayPicFileName,
@@ -281,116 +306,115 @@ namespace maxhanna.Server.Controllers
                     LEFT JOIN 
                         maxhanna.users cfu2 on cfu2.id = cf2.user_id 
                     WHERE 1=1
-                       {(fileIds.Count > 0 ? " AND fc.file_id IN (" + string.Join(", ", fileIdsParameters) + ")" : string.Empty)};"
-					, connection);
-					for (int i = 0; i < fileIds.Count; i++)
+                       AND {(fileIds.Count > 0 ? "fc.file_id IN (" + string.Join(", ", fileIdsParameters) + ")" : "")}
+											OR fc.comment_id IN (SELECT id FROM comments AS z WHERE z.file_id IN (" + string.Join(", ", fileIdsParameters) + "));", connection);
+			for (int i = 0; i < fileIds.Count; i++)
+			{
+				commentsCommand.Parameters.AddWithValue($"@fileId{i}", fileIds[i]);
+			}
+			//Console.WriteLine(commentsCommand.CommandText);
+			using (var reader = commentsCommand.ExecuteReader())
+			{
+				//_ = _log.Db("comment command executed");
+
+				Dictionary<int, FileComment> allCommentsById = new();
+
+				while (reader.Read())
+				{
+					//_ = _log.Db("comment command read");
+					var commentId = reader.IsDBNull(reader.GetOrdinal("commentId")) ? 0 : reader.GetInt32("commentId");
+					var fileIdValue = reader.IsDBNull(reader.GetOrdinal("commentFileId")) ? 0 : reader.GetInt32("commentFileId");
+					//_ = _log.Db("Found commentId " + commentId);
+					var commentCity = reader.IsDBNull(reader.GetOrdinal("commentCity")) ? null : reader.GetString("commentCity");
+					var commentCountry = reader.IsDBNull(reader.GetOrdinal("commentCountry")) ? null : reader.GetString("commentCountry");
+					var commentIp = reader.IsDBNull(reader.GetOrdinal("commentIp")) ? null : reader.GetString("commentIp");
+					int? commentParentId = reader.IsDBNull(reader.GetOrdinal("comment_parent_id")) ? null : reader.GetInt32("comment_parent_id");
+
+					var commentUserDisplayPicId = reader.IsDBNull(reader.GetOrdinal("commentUserDisplayPicId")) ? (int?)null : reader.GetInt32("commentUserDisplayPicId");
+					var commentUserDisplayPicFileName = reader.IsDBNull(reader.GetOrdinal("commentUserDisplayPicFileName")) ? null : reader.GetString("commentUserDisplayPicFileName");
+					var commentUserDisplayPicFolderPath = reader.IsDBNull(reader.GetOrdinal("commentUserDisplayPicFolderPath")) ? null : reader.GetString("commentUserDisplayPicFolderPath");
+
+					var comment = new FileComment
 					{
-						commentsCommand.Parameters.AddWithValue($"@fileId{i}", fileIds[i]);
-					}
-					//_ = _log.Db(commentsCommand.CommandText);
-					using (var reader = commentsCommand.ExecuteReader())
+						Id = commentId,
+						FileId = fileIdValue,
+						CommentId = commentParentId,
+						User = new User(
+									reader.GetInt32("commentUserId"),
+									reader.GetString("commentUsername"),
+									null,
+									new FileEntry
+									{
+										Id = commentUserDisplayPicId ?? 0,
+										FileName = commentUserDisplayPicFileName,
+										Directory = commentUserDisplayPicFolderPath
+									},
+									null, null, null
+							),
+						CommentText = reader.GetString("commentText"),
+						Date = reader.GetDateTime("commentDate"),
+						City = commentCity,
+						Country = commentCountry,
+						Ip = commentIp,
+					};
+					commentIds.Add(commentId);
+					//_ = _log.Db("Comment constructed with id : " + commentId);
+					var fileEntryId = reader.IsDBNull(reader.GetOrdinal("commentFileEntryId")) ? (int?)null : reader.GetInt32("commentFileEntryId");
+
+					if (fileEntryId.HasValue)
 					{
-						//_ = _log.Db("comment command executed");
-						while (reader.Read())
+						var fileEntryName = reader.IsDBNull(reader.GetOrdinal("commentFileEntryName")) ? null : reader.GetString("commentFileEntryName");
+						var fileEntryFolderPath = reader.IsDBNull(reader.GetOrdinal("commentFileEntryFolderPath")) ? null : reader.GetString("commentFileEntryFolderPath");
+						var fileEntryVisibility = reader.GetBoolean("commentFileEntryIsPublic") ? "Public" : "Private";
+						var fileEntryUserId = reader.GetInt32("commentFileEntryUserId");
+						var fileEntryUserName = reader.GetString("commentFileEntryUserName");
+						var fileEntryDate = reader.GetDateTime("commentFileEntryDate");
+						var fileEntryType = reader.GetString("commentFileEntryType");
+						var fileEntrySize = reader.GetInt32("commentFileEntrySize");
+
+						var fileEntryComment = new FileEntry
 						{
-							//_ = _log.Db("comment command read");
-							var commentId = reader.IsDBNull(reader.GetOrdinal("commentId")) ? 0 : reader.GetInt32("commentId");
-							var fileIdValue = reader.IsDBNull(reader.GetOrdinal("commentFileId")) ? 0 : reader.GetInt32("commentFileId");
-							//_ = _log.Db("Found commentId " + commentId);
-							var commentCity = reader.IsDBNull(reader.GetOrdinal("commentCity")) ? null : reader.GetString("commentCity");
-							var commentCountry = reader.IsDBNull(reader.GetOrdinal("commentCountry")) ? null : reader.GetString("commentCountry");
-							var commentIp = reader.IsDBNull(reader.GetOrdinal("commentIp")) ? null : reader.GetString("commentIp");
+							Id = fileEntryId.Value,
+							FileName = fileEntryName,
+							Directory = fileEntryFolderPath,
+							Visibility = fileEntryVisibility,
+							IsFolder = reader.GetBoolean("commentFileEntryIsFolder"),
+							User = new User(fileEntryUserId, fileEntryUserName),
+							Date = fileEntryDate,
+							FileType = fileEntryType,
+							FileSize = fileEntrySize
+						};
 
-							var commentUserDisplayPicId = reader.IsDBNull(reader.GetOrdinal("commentUserDisplayPicId")) ? (int?)null : reader.GetInt32("commentUserDisplayPicId");
-							var commentUserDisplayPicFileName = reader.IsDBNull(reader.GetOrdinal("commentUserDisplayPicFileName")) ? null : reader.GetString("commentUserDisplayPicFileName");
-							var commentUserDisplayPicFolderPath = reader.IsDBNull(reader.GetOrdinal("commentUserDisplayPicFolderPath")) ? null : reader.GetString("commentUserDisplayPicFolderPath");
-
-							var comment = new FileComment
-							{
-								Id = commentId,
-								FileId = fileIdValue,
-								User = new User(
-											reader.GetInt32("commentUserId"),
-											reader.GetString("commentUsername"),
-											null,
-											new FileEntry
-											{
-												Id = commentUserDisplayPicId ?? 0,
-												FileName = commentUserDisplayPicFileName,
-												Directory = commentUserDisplayPicFolderPath
-											},
-											null, null, null
-									),
-								CommentText = reader.GetString("commentText"),
-								Date = reader.GetDateTime("commentDate"),
-								City = commentCity,
-								Country = commentCountry,
-								Ip = commentIp,
-							};
-							commentIds.Add(commentId);
-							//_ = _log.Db("Comment constructed with id : " + commentId);
-							var fileEntryId = reader.IsDBNull(reader.GetOrdinal("commentFileEntryId")) ? (int?)null : reader.GetInt32("commentFileEntryId");
-
-							if (fileEntryId.HasValue)
-							{
-								var fileEntryName = reader.IsDBNull(reader.GetOrdinal("commentFileEntryName")) ? null : reader.GetString("commentFileEntryName");
-								var fileEntryFolderPath = reader.IsDBNull(reader.GetOrdinal("commentFileEntryFolderPath")) ? null : reader.GetString("commentFileEntryFolderPath");
-								var fileEntryVisibility = reader.GetBoolean("commentFileEntryIsPublic") ? "Public" : "Private";
-								var fileEntryUserId = reader.GetInt32("commentFileEntryUserId");
-								var fileEntryUserName = reader.GetString("commentFileEntryUserName");
-								var fileEntryDate = reader.GetDateTime("commentFileEntryDate");
-								var fileEntryType = reader.GetString("commentFileEntryType");
-								var fileEntrySize = reader.GetInt32("commentFileEntrySize");
-
-								var fileEntryComment = new FileEntry
-								{
-									Id = fileEntryId.Value,
-									FileName = fileEntryName,
-									Directory = fileEntryFolderPath,
-									Visibility = fileEntryVisibility,
-									IsFolder = reader.GetBoolean("commentFileEntryIsFolder"),
-									User = new User(fileEntryUserId, fileEntryUserName),
-									Date = fileEntryDate,
-									FileType = fileEntryType,
-									FileSize = fileEntrySize
-								};
-
-								comment.CommentFiles!.Add(fileEntryComment);
-							}
-							//_ = _log.Db($"trying to find file with id value : {fileIdValue}");
-							var fileEntry = fileEntries.FirstOrDefault(f => f.Id == fileIdValue);
-
-							//_ = _log.Db($"found : {fileEntry}");
-
-							if (fileEntry != null)
-							{
-								if (fileEntry.FileComments == null)
-								{
-									fileEntry.FileComments = new List<FileComment>();
-								}
-								fileEntry.FileComments!.Add(comment);
-								//_ = _log.Db($"Attached comment {comment.Id} to file {fileEntry.Id}");
-							}
+						comment.CommentFiles!.Add(fileEntryComment);
+					}
+					if (comment.CommentId == null)
+					{
+						allCommentsById[comment.Id] = comment;
+					}
+					else
+					{
+						var tgtParentComment = allCommentsById[comment.CommentId.Value];
+						if (tgtParentComment != null)
+						{
+							if (tgtParentComment.Comments == null) { tgtParentComment.Comments = new List<FileComment>(); }
+							tgtParentComment.Comments.Add(comment);
 						}
 					}
+					//_ = _log.Db($"trying to find file with id value : {fileIdValue}");
+					var fileEntry = fileEntries.FirstOrDefault(f => f.Id == fileIdValue);
 
-					var commentIdsParameters = new List<string>();
-					for (int i = 0; i < commentIds.Count; i++)
+					//_ = _log.Db($"found : {fileEntry}");
+
+					if (fileEntry != null)
 					{
-						commentIdsParameters.Add($"@commentId{i}");
+						if (fileEntry.FileComments == null)
+						{
+							fileEntry.FileComments = new List<FileComment>();
+						}
+						fileEntry.FileComments!.Add(comment);
+						//_ = _log.Db($"Attached comment {comment.Id} to file {fileEntry.Id}");
 					}
-
-					GetFileReactions(fileEntries, connection, fileIds, commentIds, fileIdsParameters, commentIdsParameters);
-					GetFileTopics(fileEntries, connection, fileIds, fileIdsParameters);
-					var result = GetDirectoryResults(user, directory, search, page, pageSize, fileEntries, fileTypeCondition, visibilityCondition, ownershipCondition, hiddenCondition, connection, searchCondition, extraParameters);
-
-					return Ok(result);
 				}
-			}
-			catch (Exception ex)
-			{
-				_ = _log.Db($"error:{ex}", null, "FILE", true);
-				return StatusCode(500, ex.Message);
 			}
 		}
 

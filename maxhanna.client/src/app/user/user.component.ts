@@ -12,11 +12,9 @@ import { Contact } from '../../services/datacontracts/user/contact';
 import { AppComponent } from '../app.component';
 import { User } from '../../services/datacontracts/user/user';
 import { FriendRequest } from '../../services/datacontracts/friends/friendship-request';
-import { WordlerScore } from '../../services/datacontracts/wordler/wordler-score';
 import { Trophy } from '../../services/datacontracts/user/trophy';
-import { WeatherLocation } from '../../services/datacontracts/weather/weather-location';
-import { CurrencyFlagPipe } from '../currency-flag.pipe';
 import { NexusService } from '../../services/nexus.service';
+import { MetaService } from '../../services/meta.service';
 
 @Component({
   selector: 'app-user',
@@ -72,6 +70,8 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
   trophies?: Trophy[] = undefined;
   numberOfNexusBases: number = 0;
   wordlerStreak: number = 0;
+  bestWordlerStreak: number = 0;
+  metaBotLevelsSum: number = 0;
   weatherLocation?: { city: string; country: string } = undefined;
 
   showHiddenFiles: boolean = false;
@@ -85,6 +85,7 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
     private friendService: FriendService,
     private wordlerService: WordlerService,
     private todoService: TodoService,
+    private metaService: MetaService,
   ) {
     super();
     setTimeout(() => {
@@ -95,9 +96,7 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
     }, 500);
   }
 
-  async ngOnInit() {
-    console.log("got this storyId", this.storyId);
-    console.log("got this usrId", this.userId);
+  async ngOnInit() { 
     if (this.inputtedParentRef) {
       this.parentRef = this.inputtedParentRef;
     }
@@ -122,6 +121,7 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
       if (this.user) {
         await this.loadFriendData();
         await this.loadWordlerData();
+        await this.loadMetaheroData();
         await this.loadSongData();
         await this.loadContactsData(); 
         await this.loadLocation(this.user); 
@@ -209,8 +209,29 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
       try {
         const wsRes = await this.wordlerService.getConsecutiveDayStreak(user.id);
         if (wsRes) {
-          this.wordlerStreak = parseInt(wsRes);
+          this.bestWordlerStreak = parseInt(wsRes);
         }
+
+        const wsRes2 = await this.wordlerService.getTodaysDayStreak(user.id);
+        if (wsRes2) {
+          this.wordlerStreak = parseInt(wsRes2);
+        }
+      } catch (e) { }
+    }
+  }
+
+  async loadMetaheroData() {
+    const user = this.user ?? this.parentRef?.user;
+    if (user?.id) {
+      try {
+        const mhRes = await this.metaService.getHero(user.id);
+        if (mhRes) {
+          let sum = 0;
+          for (let bot of mhRes.metabots) {
+            sum += bot.level;
+          }
+          this.metaBotLevelsSum = sum;
+        } 
       } catch (e) { }
     }
   }
@@ -379,7 +400,12 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
         this.openFriendsPanel();
         break;
       case 'settings':
-        this.parentRef?.createComponent('UpdateUserSettings', { showOnlySelectableMenuItems: false, areSelectableMenuItemsExplained: false, inputtedParentRef: this.parentRef })
+        this.parentRef?.createComponent('UpdateUserSettings', {
+          showOnlySelectableMenuItems: false,
+          areSelectableMenuItemsExplained: false,
+          inputtedParentRef: this.parentRef,
+          previousComponent: "User"
+        });
         break;
       case 'logout':
         this.logout()
@@ -440,10 +466,10 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
         const resCreateUser = await this.userService.createUser(tmpUser);
         if (resCreateUser && !resCreateUser.toLowerCase().includes("error")) {
           tmpUser.id = parseInt(resCreateUser!);
-          await this.userService.addMenuItem(tmpUser.id, ["Social", "Meme", "Wordler", "Files", "Emulation", "Bug-Wars", "Notifications"]);
+          await this.userService.addMenuItem(tmpUser.id, ["Social", "Meme", "Wordler", "Files", "Emulation", "Bug-Wars", "Crypto-Hub", "Notifications"]);
           await this.login(guest ? tmpUserName : undefined, true);
           if (!this.loginOnly) {
-            this.parentRef?.createComponent('UpdateUserSettings');
+            this.parentRef?.openUserSettings('User');
           }
           this.parentRef?.getLocation();
         } else {

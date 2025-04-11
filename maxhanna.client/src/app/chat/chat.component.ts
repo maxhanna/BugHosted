@@ -306,7 +306,9 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
       this.removeAllAttachments();
       this.attachedFiles = [];
       await this.getMessageHistory().then(x => { 
-        this.chatWindow.nativeElement.scrollTop = this.chatWindow.nativeElement.scrollHeight;
+        setTimeout(() => {
+          this.chatWindow.nativeElement.scrollTop = this.chatWindow.nativeElement.scrollHeight;
+        }, 250); 
       });
       this.notificationService.createNotifications(
         { fromUserId: this.parentRef?.user?.id ?? 0, toUserIds: chatUsersIds.filter(x => x != (this.parentRef?.user?.id ?? 0)), message: msg, chatId: this.currentChatId }
@@ -502,5 +504,8 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
       this.notificationService.subscribeToTopic(parent.user.id, token, "notification" + parent.user.id);
     }
   }
-
+  getChatUsersWithoutSelf() {
+    const user = this.inputtedParentRef?.user ?? this.parentRef?.user;
+    return this.currentChatUsers?.filter(x => x.id != user?.id);
+  }
 }

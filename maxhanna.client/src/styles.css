@@ -64,6 +64,7 @@ a {
   text-align: center;
   text-decoration: none;
   font-style: italic;
+  word-break: break-word;
 }
 
   a:visited {
@@ -520,6 +521,15 @@ fieldset {
   cursor: default;
 }
 
+.fullscreenPopupPanel {
+  top: 0px !important;
+  left:0px !important;
+  padding:0px;
+  transform: unset !important;
+  width: 100vw !important;
+  height: CALC(var(--vh, 1vh) * 100) !important;
+}
+
 @media only screen and (max-width : 667px) {
   .popupPanel {
     width: 99vw;
@@ -530,6 +540,9 @@ fieldset {
 .popupPanelTitle {
   font-family: var(--section-font-family);
   font-size: x-large;
+}
+.titleFont {
+  font-family: var(--section-font-family);
 }
 
 .matchingTopic {
@@ -607,4 +620,8 @@ fieldset {
   color: unset;
   cursor: pointer;
   text-align: unset;
-} 
+}
+.linkedComponent {
+  color: var(--main-link-color);
+  cursor: pointer; 
+}

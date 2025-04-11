@@ -150,9 +150,7 @@ namespace maxhanna.Server.Controllers
 							}
 						}
 					}
-				}
-
-				_ = _log.Db("Weather location retrieved successfully.", userId, "WEATHER", true);
+				} 
 			}
 			catch (Exception ex)
 			{

@@ -176,6 +176,7 @@ singleAttachment {
 
 .storyOptionsPopupButtons {
   display: flex;
+  flex-wrap: wrap;
   justify-content: space-evenly;
   align-items: center;
   align-content: center;
@@ -220,12 +221,12 @@ singleAttachment {
   white-space: nowrap;
   font-size: 16px;
   min-width: 35px;
-}
-
-
-.commentUsername {
-}
-
+  flex-direction: row;
+  align-content: center;
+  justify-content: center;
+  align-items: center;
+  line-height: var(--main-font-size);
+}  
 .commentText {
   display: flex;
   flex-wrap: nowrap;
@@ -293,7 +294,7 @@ singleAttachment {
     max-height: 400px;
     text-overflow: ellipsis;
     overflow: hidden;
-    box-shadow: 0px 30px 33px -33px rgb(255 255 255 / 80%);
+    box-shadow: 0px 30px 33px -33px var(--primary-font-color);
     cursor: pointer;
   }
 
@@ -365,6 +366,14 @@ singleAttachment {
   font-size: 11px;
   display: inline-block;
   width: 100%;
+}
+
+.textExpanderDiv {
+  width: 100%;
+  text-align: center;
+  cursor: pointer;
+  margin-bottom: 10px;
+  opacity: 75%;
 }
 
 .topicDiv {

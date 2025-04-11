@@ -79,14 +79,14 @@ export class SocialService {
       return 'Error deleting story';
     }
   }
-  async editStory(user: User, story: Story) {
+  async editStory(userId: number, story: Story) {
     try {
       const res = await fetch('/social/edit-story', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ user, story }),
+        body: JSON.stringify({ userId, story }),
       });
 
       if (!res.ok) {

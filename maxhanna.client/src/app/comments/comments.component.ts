@@ -8,21 +8,22 @@ import { User } from '../../services/datacontracts/user/user';
 import { FileComment } from '../../services/datacontracts/file/file-comment';
 import { NotificationService } from '../../services/notification.service';
 import { Story } from '../../services/datacontracts/social/story';
+import { MediaSelectorComponent } from '../media-selector/media-selector.component';
 
 @Component({
-    selector: 'app-comments',
-    templateUrl: './comments.component.html',
-    styleUrl: './comments.component.css',
-    standalone: false
+  selector: 'app-comments',
+  templateUrl: './comments.component.html',
+  styleUrl: './comments.component.css',
+  standalone: false
 })
 export class CommentsComponent extends ChildComponent implements OnInit {
   showCommentLoadingOverlay = false;
-  isOptionsPanelOpen = false; 
-  optionsComment: FileComment | undefined; 
+  isOptionsPanelOpen = false;
+  optionsComment: FileComment | undefined;
   editingComments: number[] = []
   replyingToCommentIds: number[] = []
   selectedFiles: FileEntry[] = [];
- 
+
   @ViewChild('addCommentInput') addCommentInput!: ElementRef<HTMLInputElement>;
 
   @Input() inputtedParentRef?: AppComponent;
@@ -35,6 +36,8 @@ export class CommentsComponent extends ChildComponent implements OnInit {
   @Input() comment_id?: number = undefined;
   @Input() userProfileId?: number = undefined;
   @Input() automaticallyShowSubComments = true;
+  @Input() canReply = true;
+  @Input() debpth = 0;
   @Output() commentAddedEvent = new EventEmitter<FileComment>();
   @Output() commentRemovedEvent = new EventEmitter<FileComment>();
   @Output() commentHeaderClickedEvent = new EventEmitter<boolean>(this.showComments);
@@ -42,7 +45,8 @@ export class CommentsComponent extends ChildComponent implements OnInit {
 
   commentCount = 0;
 
-  @ViewChild('subCommentComponent') subCommentComponent!: CommentsComponent; 
+  @ViewChild('subCommentComponent') subCommentComponent!: CommentsComponent;
+  @ViewChild('commentInputAreaMediaSelector') commentInputAreaMediaSelector!: MediaSelectorComponent;
 
   constructor(private commentService: CommentService, private notificationService: NotificationService, private sanitizer: DomSanitizer) {
     super();
@@ -51,14 +55,8 @@ export class CommentsComponent extends ChildComponent implements OnInit {
     }
   }
 
-  ngOnInit() { 
-    if (this.comment_id) {
-      this.parentRef?.updateLastSeen();
-      this.commentService.getCommentDataByIds(this.comment_id).then(res => { 
-        this.commentList = res;
-        this.subCommentCountUpdatedEvent.emit({ commentCount: this.commentList.length, comment_id: this.comment_id });
-      });
-    } 
+  ngOnInit() {
+ 
   }
 
   override viewProfile(user: User) {
@@ -120,11 +118,11 @@ export class CommentsComponent extends ChildComponent implements OnInit {
         this.commentList = [];
       }
       if (this.commentList.find(x => x.date == currentDate)) {
-        this.commentList.find(x => x.date == currentDate)!.id = parseInt(res.split(" ")[0]); 
-      } else { 
-        this.commentList.push(comment); 
+        this.commentList.find(x => x.date == currentDate)!.id = parseInt(res.split(" ")[0]);
+      } else {
+        this.commentList.push(comment);
       }
-      if (this.comment_id) { 
+      if (this.comment_id) {
         this.commentList.push(comment);
       }
       this.replyingToCommentIds = [];
@@ -132,15 +130,15 @@ export class CommentsComponent extends ChildComponent implements OnInit {
 
       this.ngOnInit();
     }
-    this.sendNotifications(comment); 
+    this.sendNotifications(comment);
   }
-  private sendNotifications(comment: FileComment) { 
-    const replyingToUser = this.component?.user; 
+  private sendNotifications(comment: FileComment) {
+    const replyingToUser = this.component?.user;
     const isStory = this.type == "Social" || this.component?.storyId;
     const fromUserId = this.inputtedParentRef?.user?.id ?? 0;
     const message = (!comment || !comment.commentText) ? (isStory || this.userProfileId) ? "Social Post Comment" : "File Comment"
       : comment.commentText.length > 50 ? comment.commentText.slice(0, 50) + "…"
-      : comment.commentText;
+        : comment.commentText;
     if (replyingToUser) {
       const notificationData = {
         fromUserId: fromUserId,
@@ -150,7 +148,7 @@ export class CommentsComponent extends ChildComponent implements OnInit {
         fileId: comment.fileId,
         commentId: comment.commentId,
         userProfileId: comment.userProfileId,
-      }; 
+      };
       this.notificationService.createNotifications(notificationData);
     }
   }
@@ -201,7 +199,7 @@ export class CommentsComponent extends ChildComponent implements OnInit {
     this.closeOptionsPanel();
   }
   async confirmEditComment(comment: FileComment) {
-    let message = (document.getElementById('commentTextTextarea' + comment.id) as HTMLTextAreaElement).value; 
+    let message = (document.getElementById('commentTextTextarea' + comment.id) as HTMLTextAreaElement).value;
     this.editingComments = this.editingComments.filter(x => x != comment.id);
     if (document.getElementById('commentText' + comment.id) && this.inputtedParentRef && this.inputtedParentRef.user) {
       this.parentRef?.updateLastSeen();
@@ -210,8 +208,8 @@ export class CommentsComponent extends ChildComponent implements OnInit {
           this.inputtedParentRef?.showNotification(res);
         }
       });
-      comment.commentText = message; 
-    } 
+      comment.commentText = message;
+    }
   }
   getTextForDOM(text: string, component_id: number) {
     const parent = this.inputtedParentRef ?? this.parentRef;
@@ -219,8 +217,7 @@ export class CommentsComponent extends ChildComponent implements OnInit {
       return parent.getTextForDOM(text, component_id);
     } else return "Error fetching parent component.";
   }
-
-  createClickableUrls(text?: string): SafeHtml { 
+  createClickableUrls(text?: string): SafeHtml {
     return this.getTextForDOM(text ?? "", this.component_id);
   }
   showOptionsPanel(comment: FileComment) {
@@ -243,31 +240,19 @@ export class CommentsComponent extends ChildComponent implements OnInit {
     const parent = this.inputtedParentRef ?? this.parentRef;
     if (parent) {
       parent.closeOverlay();
-    } 
-  } 
-  changedCommentCount(event: any) { 
-    if (document.getElementById("commentIdCount" + event.comment_id)) {
-      document.getElementById("commentIdCount" + event.comment_id)!.innerHTML = "Repl" + (event.commentCount > 0 ? 'ies:<span class="commentCountSpan">' + event.commentCount + "</span>" : 'y') + "";
-      if (this.automaticallyShowSubComments) {
-        (document.getElementById('subCommentComponent' + event.comment_id) as HTMLDivElement).style.display = ((event.commentCount > 0) ? "block" : "none"); 
-      }
     }
   }
+
   showSubComments(commentId: number) {
-    const currElement = (document.getElementById('subCommentComponent' + commentId) as HTMLDivElement);
-    const shouldDisplay = !(currElement.style.display == "block")
-    currElement.style.display = shouldDisplay ? "block" : "none";
-    if (shouldDisplay) {
-      setTimeout(() => {
-        if (currElement && !this.isElementInViewport(currElement)) {
-          currElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }
-      }, 100);
-    } 
+    if (this.replyingToCommentIds.includes(commentId)) {
+      this.replyingToCommentIds = this.replyingToCommentIds.filter(x => x != commentId);
+      return;
+    }
+    this.replyingToCommentIds.push(commentId);
   }
   commentHeaderClicked() {
     this.showComments = !this.showComments;
-    this.commentHeaderClickedEvent.emit(this.showComments); 
+    this.commentHeaderClickedEvent.emit(this.showComments);
   }
   quote(comment: FileComment) {
     const parent = this.inputtedParentRef ?? this.parentRef;
@@ -276,26 +261,67 @@ export class CommentsComponent extends ChildComponent implements OnInit {
     }
     const input = this.addCommentInput.nativeElement;
     if (input) {
-      if (input.value.trim() != "") { 
+      if (input.value.trim() != "") {
         input.value += "\n ";
       }
       input.value += `[Quoting {${comment.user.username}|${comment.user.id}|${comment.date}}: ${comment.commentText}] \n`;
     }
     input.focus();
   }
+  getTotalCommentCount(): number {
+    if (!this.commentList || this.commentList.length === 0) return 0;
+    let count = 0;
+
+    const countSubComments = (comment: FileComment): number => {
+      let subCount = 0;
+      if (comment.comments && comment.comments.length) {
+        subCount += comment.comments.length;
+        for (let sub of comment.comments) {
+          subCount += countSubComments(sub); // Recursively count deeper sub-comments
+        }
+      }
+      return subCount;
+    };
+
+    for (let comment of this.commentList) {
+      count++; // Count main comment
+      count += countSubComments(comment); // Count its sub-comments
+    }
+
+    return count;
+  }
+
   async replyToComment(comment: FileComment) {
+    const parent = this.inputtedParentRef ?? this.parentRef;
+    const user = parent?.user ?? new User(0, "Anonymous");
+    parent?.updateLastSeen();
+
     const element = document.getElementById('commentReplyInput' + comment.id) as HTMLTextAreaElement;
-    const text = element.value;
-    const currentDate = new Date();
-    if (text) { 
-      const user = this.parentRef?.user ?? this.inputtedParentRef?.user ?? new User(0, "Anonymous");
-      this.parentRef?.updateLastSeen();
-      const res = await this.commentService.addComment(text, user.id, undefined, undefined, comment.id, undefined);
-      if (res) { 
-        if (this.commentList.find(x => x.date == currentDate)) {
-          this.commentList.find(x => x.date == currentDate)!.id = parseInt(res.split(" ")[0]); 
-        } 
+    let text = element.value;
+    text = parent?.replaceEmojisInMessage(text) ?? text;
+    const filesToSend = this.selectedFiles;
+    this.selectedFiles = [];
+    if (text) {
+
+      const location = await parent?.getLocation();
+      const res = await this.commentService.addComment(text, user.id, undefined, undefined, comment.id, undefined, filesToSend, location?.city, location?.country, location?.ip);
+      if (res) {
+        element.value = "";
+        const id = res.split(' ')[0];
+        let tmpC = new FileComment();
+        tmpC.id = parseInt(id);
+        tmpC.commentText = text;
+        tmpC.user = user;
+        tmpC.commentFiles = filesToSend;
+        tmpC.city = location?.city;
+        tmpC.country = location?.country;
+        if (!comment.comments) { comment.comments = []; }
+        comment.comments.push(tmpC);
+        if (this.commentInputAreaMediaSelector) {
+          this.commentInputAreaMediaSelector.selectedFiles = [];
+        }
+        this.replyingToCommentIds = this.replyingToCommentIds.filter(x => x != comment.id);
       }
     }
-  } 
+  }
 }

@@ -217,6 +217,7 @@ export class AppComponent implements OnInit, AfterViewInit {
         { ownership: 0, icon: "🧠", title: "Wordler", content: undefined },
         { ownership: 0, icon: "🎮", title: "Emulation", content: undefined },
         { ownership: 0, icon: "📁", title: "Files", content: undefined }, 
+        { ownership: 0, icon: "₿", title: "Crypto-Hub", content: undefined }, 
         { ownership: 0, icon: "👤", title: "User", content: undefined },
       ];
     } else {
@@ -413,8 +414,13 @@ export class AppComponent implements OnInit, AfterViewInit {
     this.isShowingOverlay = false;
     this.restoreBodyOverflow();
   }
-  openUserSettings() {
-    this.createComponent('UpdateUserSettings', { showOnlySelectableMenuItems: false, areSelectableMenuItemsExplained: false, inputtedParentRef: this });
+  openUserSettings(previousComponent?: string) {
+    this.createComponent('UpdateUserSettings', {
+      showOnlySelectableMenuItems: false,
+      areSelectableMenuItemsExplained: false,
+      inputtedParentRef: this,
+      previousComponent: previousComponent
+    });
   }
 
   setViewportScalability(scalable?: boolean) {
@@ -561,9 +567,18 @@ export class AppComponent implements OnInit, AfterViewInit {
       .replace(/\[\*\](.*?)\[\/\*\]/gi, "<br>&bull; $1") // Bullet-point
       .replace(/\[i\](.*?)\[\/i\]/gi, "<i>$1</i>"); // Italics
     text = this.replaceEmojisInMessage(text);
+
+    // Step 6: Replace ||component:<component-name>|| with a clickable span
+    text = text.replace(/\|\|component:([\w-]+)\|\|/g, (match, componentName) => {
+      return `<span onClick="document.getElementById('componentCreateName').value='${componentName}';document.getElementById('componentCreateClickButton').click()" class="linkedComponent">${componentName}${this.getIconByTitle(componentName)}</span>`;
+    });
+      
     return this.sanitizer.bypassSecurityTrustHtml(text);
   }
-
+  getIconByTitle(title: string): string | undefined {
+    const item = this.navigationItems.find(x => x.title === title);
+    return item?.icon;
+  }
   replaceEmojisInMessage(msg: string) {
     const urlRegex = /(https?:\/\/[^\s]+)/g;
     const escapedKeys = Object.keys(this.emojiMap).map(key => key.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&'));
@@ -686,6 +701,11 @@ export class AppComponent implements OnInit, AfterViewInit {
       target.src = ''; 
     }
     this.isShowingYoutubePopup = false;
+  }
+  createComponentButtonClicked() {
+    console.log("Here");
+    const title = (document.getElementById("componentCreateName") as HTMLInputElement).value;
+    if (title) { this.createComponent(title); } 
   }
   visitExternalLinkButtonClicked() {
     const url = (document.getElementById("hiddenUrlToVisit") as HTMLInputElement).value;

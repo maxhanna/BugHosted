@@ -212,7 +212,13 @@ export class MiningRigsComponent extends ChildComponent implements OnChanges {
     console.log("create usersettings component");
     const parent = this.inputtedParentRef ?? this.parentRef;
     if (parent) {
-      parent.openUserSettings()
+      parent?.createComponent('UpdateUserSettings', {
+        showOnlySelectableMenuItems: false,
+        areSelectableMenuItemsExplained: false,
+        showOnlyNicehashApiKeys: true,
+        inputtedParentRef: parent,
+        previousComponent: "Crypto-Hub"
+      })
     }
   }
   getIsUserLoggedIn(): boolean {

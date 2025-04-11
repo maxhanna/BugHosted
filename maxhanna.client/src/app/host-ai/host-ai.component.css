@@ -27,7 +27,7 @@
 
 
 .chat-box {
-  height: CALC(var(--vh, 1vh) * 100 - 160px);
+  height: CALC(var(--vh, 1vh) * 100 - 114px);
   overflow-y: auto; 
   padding-left: 30px;
   padding-right: 30px;
@@ -102,23 +102,7 @@ ol, ul {
     padding: unset;
     line-height: unset;
   }
-.messageButtonsWrapperDiv {
-  display: flex;
-  flex-direction: row;
-  flex-wrap: nowrap;
-  justify-content: flex-start;
-  align-content: flex-start;
-  align-items: flex-start;
-  gap: 5px;
-  margin-top:5px;
-  margin-bottom:5px;
-}
-.messageButtonsWrapperDiv button { 
-  width: 40px;
-  height: 35px;
-  line-height:0;
-}
-
+ 
 .loadingResponseDiv {
   margin:20px;
   padding: 20px;
@@ -133,7 +117,7 @@ ol, ul {
 }
 .emptyHostAiMessage {
   font-size: xx-large;
-  height: CALC(var(--vh, 1vh)* 100 - 200px);
+  height: CALC(var(--vh, 1vh)* 100 - 146px);
   overflow-y: auto;
   padding-left: 30px;
   padding-right: 30px;

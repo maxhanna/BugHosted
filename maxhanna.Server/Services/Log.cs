@@ -54,14 +54,37 @@ public class Log
 			using var reader = await cmd.ExecuteReaderAsync();
 			bool access = await reader.ReadAsync();
 			if (!access)
-			{ 
+			{
 				_ = Db("ValidateUserLoggedIn ACCESS DENIED", userId, "SYSTEM", true);
-			} 
-			return access; 
+			}
+			return access;
 		}
 		catch (Exception ex)
 		{
 			_ = Db("ValidateUserLoggedIn Exception: " + ex.Message, null, "SYSTEM", true);
+			return false;
+		}
+	}
+	public async Task<bool> DeleteOldLogs()
+	{
+		try
+		{
+			const string sql = @"
+			DELETE FROM maxhanna.logs 
+			WHERE timestamp < UTC_TIMESTAMP() - INTERVAL 10 DAY;";
+
+			using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+			await conn.OpenAsync();
+
+			using var cmd = new MySqlCommand(sql, conn);
+			int rowsAffected = await cmd.ExecuteNonQueryAsync();
+
+			//_ = Db($"Deleted {rowsAffected} old log(s)", null, "SYSTEM", true);
+			return true;
+		}
+		catch (Exception ex)
+		{
+			_ = Db("DeleteOldLogs Exception: " + ex.Message, null, "SYSTEM", true);
 			return false;
 		}
 	} 

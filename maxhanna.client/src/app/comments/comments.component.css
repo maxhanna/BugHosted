@@ -211,3 +211,15 @@
 .commentCountWrapper .commentCountSpan {
   color: var(--secondary-font-color);
 }
+.commentInputArea {
+  display: flex;
+  align-content: center;
+  flex-wrap: nowrap;
+  flex-direction: row;
+  align-items: center;
+  justify-content: flex-start;
+  width: 100%;
+}
+.commentReplyInputTextArea {
+  width: CALC(100% - 170px);
+}

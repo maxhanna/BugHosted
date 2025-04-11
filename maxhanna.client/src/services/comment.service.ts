@@ -27,7 +27,7 @@ export class CommentService {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          User: userId,
+          UserId: userId,
           FileId: fileId,
           StoryId: storyId,
           CommentId: commentId,

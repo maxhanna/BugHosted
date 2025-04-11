@@ -138,6 +138,12 @@ export class WeatherComponent extends ChildComponent implements OnInit {
     return hourPart === hour;
   }
   createUpdateUserComponent() {
-    this.parentRef?.createComponent('UpdateUserSettings', { showOnlyWeatherLocation: true, showOnlySelectableMenuItems: false, areSelectableMenuItemsExplained: false, inputtedParentRef: this.parentRef });
+    this.parentRef?.createComponent('UpdateUserSettings', {
+      showOnlyWeatherLocation: true,
+      showOnlySelectableMenuItems: false,
+      areSelectableMenuItemsExplained: false,
+      inputtedParentRef: this.parentRef, 
+      previousComponent: "Weather"
+    });
   }
 }

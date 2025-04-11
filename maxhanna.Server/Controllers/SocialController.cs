@@ -12,6 +12,7 @@ using System.Text;
 using System.Text.RegularExpressions;
 using System.Web;
 using System.Xml.Linq;
+using static maxhanna.Server.Controllers.AiController;
 
 namespace maxhanna.Server.Controllers
 {
@@ -501,56 +502,57 @@ namespace maxhanna.Server.Controllers
 			// Construct SQL query with parameterized IN clause for story IDs
 			StringBuilder sqlBuilder = new StringBuilder();
 			sqlBuilder.AppendLine(@"
-        SELECT 
-            c.id AS comment_id,
-            c.story_id AS story_id,
-            c.user_id AS comment_user_id,
-            c.city AS comment_city,
-            c.country AS comment_country,
-            c.ip AS comment_ip,
-            u.username AS comment_username,
-            udpfu.id as profileFileId,
-            udpfu.file_name as profileFileName,
-            udpfu.folder_path as profileFileFolder,
-            c.comment,
-            c.date,
-            cf.file_id AS comment_file_id,
-            f.file_name AS comment_file_name,
-            f.folder_path AS comment_file_folder_path,
-            f.is_public AS comment_file_visibility,
-            f.shared_with AS comment_file_shared_with,
-            f.is_folder AS comment_file_is_folder,
-            f.upload_date AS comment_file_date,
-            fu.id AS file_user_id,
-            fu.username AS file_username,
-            f.given_file_name as comment_file_given_file_name,
-            f.description as comment_file_description,
-            f.last_updated as comment_file_date,
-            r.id AS reaction_id,
-            r.type AS reaction_type,
-            r.user_id AS reaction_user_id,
-            ru.username AS reaction_username,
-            r.timestamp AS reaction_time
-        FROM 
-            comments AS c
-        LEFT JOIN 
-            users AS u ON c.user_id = u.id
-        LEFT JOIN 
-            user_display_pictures AS udp ON udp.user_id = u.id
-        LEFT JOIN 
-            file_uploads AS udpfu ON udp.file_id = udpfu.id
-        LEFT JOIN 
-            comment_files AS cf ON cf.comment_id = c.id
-        LEFT JOIN 
-            file_uploads AS f ON cf.file_id = f.id 
-        LEFT JOIN 
-            users AS fu ON f.user_id = fu.id
-        LEFT JOIN 
-            reactions AS r ON c.id = r.comment_id
-        LEFT JOIN 
-            users AS ru ON r.user_id = ru.id   
-        WHERE 
-            c.story_id IN (");
+    SELECT 
+        c.id AS comment_id,
+        c.story_id AS story_id,
+        c.user_id AS comment_user_id,
+        c.city AS comment_city,
+        c.country AS comment_country,
+        c.ip AS comment_ip,
+        u.username AS comment_username,
+        udpfu.id as profileFileId,
+        udpfu.file_name as profileFileName,
+        udpfu.folder_path as profileFileFolder,
+        c.comment,
+        c.date,
+        cf.file_id AS comment_file_id,
+        f.file_name AS comment_file_name,
+        f.folder_path AS comment_file_folder_path,
+        f.is_public AS comment_file_visibility,
+        f.shared_with AS comment_file_shared_with,
+        f.is_folder AS comment_file_is_folder,
+        f.upload_date AS comment_file_date,
+        fu.id AS file_user_id,
+        fu.username AS file_username,
+        f.given_file_name as comment_file_given_file_name,
+        f.description as comment_file_description,
+        f.last_updated as comment_file_date,
+        r.id AS reaction_id,
+        r.type AS reaction_type,
+        r.user_id AS reaction_user_id,
+        ru.username AS reaction_username,
+        r.timestamp AS reaction_time,
+        c.comment_id AS parent_comment_id
+    FROM 
+        comments AS c
+    LEFT JOIN 
+        users AS u ON c.user_id = u.id
+    LEFT JOIN 
+        user_display_pictures AS udp ON udp.user_id = u.id
+    LEFT JOIN 
+        file_uploads AS udpfu ON udp.file_id = udpfu.id
+    LEFT JOIN 
+        comment_files AS cf ON cf.comment_id = c.id
+    LEFT JOIN 
+        file_uploads AS f ON cf.file_id = f.id 
+    LEFT JOIN 
+        users AS fu ON f.user_id = fu.id
+    LEFT JOIN 
+        reactions AS r ON c.id = r.comment_id
+    LEFT JOIN 
+        users AS ru ON r.user_id = ru.id   
+    WHERE 
+         c.story_id IN (");
 
 			// Add placeholders for story IDs
 			for (int i = 0; i < storyIds.Count; i++)
@@ -563,10 +565,20 @@ namespace maxhanna.Server.Controllers
 			}
 
 			sqlBuilder.AppendLine(@")
-        GROUP BY c.id, r.id, r.type, ru.id, r.type, ru.username, r.timestamp, 
-        udpfu.file_name, udpfu.folder_path, cf.file_id, 
-        f.file_name, f.folder_path, f.is_public, f.shared_with, f.is_folder,
-        f.upload_date, fu.id, fu.username, f.given_file_name, f.description, f.last_updated ");
+		OR c.comment_id IN (SELECT id FROM comments AS z WHERE z.story_id IN (");
+			for (int i = 0; i < storyIds.Count; i++)
+			{
+				sqlBuilder.Append("@storyId" + i);
+				if (i < storyIds.Count - 1)
+				{
+					sqlBuilder.Append(", ");
+				}
+			}
+			sqlBuilder.AppendLine(@"))
+    GROUP BY c.id, r.id, r.type, ru.id, r.type, ru.username, r.timestamp, 
+    udpfu.file_name, udpfu.folder_path, cf.file_id, 
+    f.file_name, f.folder_path, f.is_public, f.shared_with, f.is_folder,
+    f.upload_date, fu.id, fu.username, f.given_file_name, f.description, f.last_updated");
 
 			// Execute the SQL query
 			using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
@@ -580,14 +592,17 @@ namespace maxhanna.Server.Controllers
 					{
 						cmd.Parameters.AddWithValue("@storyId" + i, storyIds[i]);
 					}
-
+					//Console.WriteLine(cmd.CommandText);
 					using (var rdr = await cmd.ExecuteReaderAsync())
-					{ 
+					{
+						var allComments = new List<FileComment>();
+
 						while (await rdr.ReadAsync())
 						{
-							if (rdr.IsDBNull("comment_id") || rdr.IsDBNull("story_id")) { continue; }
-							int storyId = rdr.GetInt32("story_id");
+							//if (rdr.IsDBNull("comment_id") || rdr.IsDBNull("story_id")) { continue; }
+							int? storyId = rdr.IsDBNull("story_id") ? (int?)null : rdr.GetInt32("story_id");
 							var commentId = rdr.GetInt32("comment_id");
+							var parentCommentId = rdr.IsDBNull("parent_comment_id") ? (int?)null : rdr.GetInt32("parent_comment_id");
 							var userId = rdr.GetInt32("comment_user_id");
 							var userName = rdr.GetString("comment_username");
 							var commentText = rdr.GetString("comment");
@@ -597,11 +612,9 @@ namespace maxhanna.Server.Controllers
 							var date = rdr.GetDateTime("date");
 
 							var story = stories.FirstOrDefault(s => s.Id == storyId);
-
-							if (story != null)
-							{
+ 
 								// Check if the comment already exists for the story
-								var comment = story.StoryComments!.FirstOrDefault(c => c.Id == commentId);
+								var comment = allComments.FirstOrDefault(c => c.Id == commentId);
 								if (comment == null)
 								{
 									int? displayPicId = rdr.IsDBNull(rdr.GetOrdinal("profileFileId")) ? null : rdr.GetInt32("profileFileId");
@@ -620,10 +633,11 @@ namespace maxhanna.Server.Controllers
 										Country = commentCountry,
 										Ip = commentIp,
 										CommentFiles = new List<FileEntry>(),
-										Reactions = new List<Reaction>() // Initialize reactions list
+										Reactions = new List<Reaction>(), // Initialize reactions list
+										Comments = new List<FileComment>() // Initialize subcomments list
 									};
 
-									story.StoryComments!.Add(comment);
+									allComments.Add(comment);
 								}
 
 								// Handle comment reactions
@@ -636,7 +650,7 @@ namespace maxhanna.Server.Controllers
 									var reactionTime = rdr.GetDateTime("reaction_time");
 
 									// Check if the reaction already exists for the comment
-									var existingReaction = comment.Reactions!.FirstOrDefault(r => r.Id == reactionId);
+									var existingReaction = comment.Reactions.FirstOrDefault(r => r.Id == reactionId);
 									if (existingReaction == null)
 									{
 										User reactionUser = new User(reactionUserId, reactionUserName);
@@ -652,8 +666,7 @@ namespace maxhanna.Server.Controllers
 											User = reactionUser
 										});
 									}
-								}
-
+								} 
 								// Check if there is a file associated with the comment
 								if (!rdr.IsDBNull("comment_file_id"))
 								{
@@ -664,10 +677,7 @@ namespace maxhanna.Server.Controllers
 										Directory = rdr.IsDBNull("comment_file_folder_path") ? _baseTarget : rdr.GetString("comment_file_folder_path"),
 										Visibility = rdr.IsDBNull("comment_file_visibility") ? null : rdr.GetBoolean("comment_file_visibility") ? "Public" : "Private",
 										SharedWith = rdr.IsDBNull("comment_file_shared_with") ? null : rdr.GetString("comment_file_shared_with"),
-										User = new User(
-													rdr.IsDBNull("file_user_id") ? 0 : rdr.GetInt32("file_user_id"),
-													rdr.IsDBNull("file_username") ? "Anonymous" : rdr.GetString("file_username")
-											),
+										User = new User(rdr.IsDBNull("file_user_id") ? 0 : rdr.GetInt32("file_user_id"), rdr.IsDBNull("file_username") ? "Anonymous" : rdr.GetString("file_username")),
 										IsFolder = rdr.GetBoolean("comment_file_is_folder"),
 										Date = rdr.GetDateTime("comment_file_date"),
 										FileData = new FileData()
@@ -678,10 +688,33 @@ namespace maxhanna.Server.Controllers
 											LastUpdated = rdr.IsDBNull("comment_file_date") ? null : rdr.GetDateTime("comment_file_date"),
 										}
 									};
-
-									comment.CommentFiles!.Add(fileEntry);
+									if (comment.CommentFiles == null) { comment.CommentFiles = new List<FileEntry> { }; }
+									comment.CommentFiles.Add(fileEntry);
+								}
+					 
+							if (parentCommentId.HasValue)
+							{
+								var parentComment = allComments.FirstOrDefault(c => c.Id == parentCommentId.Value);
+								if (parentComment != null)
+								{
+									if (parentComment.Comments == null)
+									{
+										parentComment.Comments = new List<FileComment>();
+									}
+									parentComment.Comments.Add(comment);
+								}
+								else
+								{
+									// Optionally, log this if the parent comment is missing
+									Console.WriteLine($"Parent comment with ID {parentCommentId.Value} not found for comment ID {commentId}");
 								}
 							}
+						}
+
+						// Assign all comments to the respective story
+						foreach (var story in stories)
+						{
+							story.StoryComments = allComments.Where(c => c.StoryId == story.Id).ToList();
 						}
 					}
 				}

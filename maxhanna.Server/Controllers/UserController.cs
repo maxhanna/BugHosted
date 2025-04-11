@@ -275,7 +275,7 @@ namespace maxhanna.Server.Controllers
 		}
 
 		[HttpPost("/User/GetAllUsers", Name = "GetAllUsers")]
-		public async Task<IActionResult> GetAllUsers([FromBody] UserSearchRequest request)
+		public async Task<IActionResult> GetAllUsers([FromBody] UserSearchRequest? request)
 		{
 			MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
 			try
@@ -289,13 +289,13 @@ namespace maxhanna.Server.Controllers
 						udp.file_id as display_file_id
 					FROM maxhanna.users u 
 					LEFT JOIN maxhanna.user_display_pictures udp on udp.user_id = u.id ";
-				if (!string.IsNullOrEmpty(request.Search))
+				if (!string.IsNullOrEmpty(request?.Search))
 				{
 					sql += " WHERE u.username like @search; ";
 				}
 
 				MySqlCommand cmd = new MySqlCommand(sql, conn);
-				if (!string.IsNullOrEmpty(request.Search))
+				if (!string.IsNullOrEmpty(request?.Search))
 				{
 					cmd.Parameters.AddWithValue("@search", "%" + request.Search + "%");
 				}

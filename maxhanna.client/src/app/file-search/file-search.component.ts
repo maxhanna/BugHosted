@@ -11,6 +11,7 @@ import { User } from '../../services/datacontracts/user/user';
 import { Topic } from '../../services/datacontracts/topics/topic';
 import { Meta, Title } from '@angular/platform-browser';
 import { UserService } from '../../services/user.service';
+import { FileComment } from '../../services/datacontracts/file/file-comment';
 
 
 @Component({
@@ -798,5 +799,27 @@ export class FileSearchComponent extends ChildComponent implements OnInit {
     if (prevIndex >= 0) {
       allComps[prevIndex]?.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
+  }
+  getTotalCommentCount(commentList?: FileComment[]): number {
+    if (!commentList || commentList.length === 0) return 0;
+    let count = 0;
+
+    const countSubComments = (comment: FileComment): number => {
+      let subCount = 0;
+      if (comment.comments && comment.comments.length) {
+        subCount += comment.comments.length;
+        for (let sub of comment.comments) {
+          subCount += countSubComments(sub); // Recursively count deeper sub-comments
+        }
+      }
+      return subCount;
+    };
+
+    for (let comment of commentList) {
+      count++; // Count main comment
+      count += countSubComments(comment); // Count its sub-comments
+    }
+
+    return count;
   }
 }

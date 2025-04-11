@@ -212,9 +212,9 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
   async editStory(story: Story) {
     const message = (document.getElementById('storyTextTextarea' + story.id) as HTMLTextAreaElement).value;
     story.storyText = message;
-    if (document.getElementById('storyText' + story.id) && this.parentRef && this.parentRef.user) {
+    if (document.getElementById('storyText' + story.id) && this.parentRef?.user?.id) {
       this.parentRef?.updateLastSeen();
-      this.socialService.editStory(this.parentRef.user, story);
+      this.socialService.editStory(this.parentRef.user.id, story);
       this.isEditing = this.isEditing.filter(x => x != story.id);
     }
   }

@@ -19,7 +19,7 @@ import { TradeService } from '../../services/trade.service';
   standalone: false
 })
 export class CryptoHubComponent extends ChildComponent implements OnInit, OnDestroy {
-  wallet?: MiningWalletResponse | undefined;
+  wallet?: MiningWalletResponse[] | undefined;
   btcFiatConversion?: number = 0;
   currentSelectedCoin: string = 'Bitcoin';
   selectedCurrency = "CAD";
@@ -42,10 +42,14 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
   currentlySelectedCurrency?: Currency = undefined;
   finishedGeneratingAiMessage = false;
   finishedGeneratingAiWalletMessage = false;
-
+  generalAiMessage = "";
   aiMessages: { addr: string, message: string }[] = [];
-  hideHostAiMessageWallet = false;
-  hideHostAiMessage = false;
+  hideHostAiMessageWallet = true;
+  hideHostAiMessage = true;
+  isWalletGraphFullscreened = false;
+  hostAiToggled = false;
+  popupHostAiToggled = false;
+  hasKrakenApi = false;
 
   @ViewChild('scrollContainer', { static: true }) scrollContainer!: ElementRef;
 
@@ -120,17 +124,16 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
           this.allHistoricalData?.forEach(x => x.valueCAD = x.valueCAD * this.latestCurrencyPriceRespectToCAD);
         }
       });
-
-      const coinValueBTCData = this.allHistoricalData?.filter(x => x.name === "Bitcoin");
-      this.generateAiMessage("1", coinValueBTCData).then(res => { this.finishedGeneratingAiMessage = true; });
+      setTimeout(() => {
+        if (this.parentRef?.user?.id) {
+          this.tradeService.HasApiKey(this.parentRef.user.id).then(res => { this.hasKrakenApi = res; });
+        }
+      });
     } catch (error) {
       console.error('Error fetching coin values:', error);
     }
     this.convertBTCtoFIAT()
-    this.stopLoading();
-    setTimeout(() => {
-      this.scrollContainer.nativeElement.scrollLeft = Math.random() * (this.scrollContainer.nativeElement.scrollWidth - this.scrollContainer.nativeElement.clientWidth);
-    }, 10);
+    this.stopLoading(); 
   }
   private async getUserCurrency() {
     const user = this.parentRef?.user;
@@ -154,43 +157,35 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
     this.parentRef?.removeResizeListener();
   }
   private async getBTCWallets() { 
-    this.wallet = this.wallet || { currencies: [] };
+    this.wallet = this.wallet || [];
     const user = this.parentRef?.user;
     if (user?.id) {
-      await this.coinValueService.getBTCWallet(user.id).then(res => {
-        if (res && res.currencies) {
-          res.currencies.forEach((btcData: Currency) => {
-            const tmpCurrency = {
-              currency: btcData.currency,
-              totalBalance: btcData.totalBalance,
-              available: btcData.available,
-              fiatRate: btcData.fiatRate ?? this.btcFiatConversion,
-              address: btcData.address
-            } as Currency;
-            this.wallet?.currencies?.push(tmpCurrency);
-          });
+      await this.coinValueService.getWallet(user.id).then(res => {
+        if (res && res.length > 0) {
+          this.wallet = res;
         }
       });
     }
 
-    if (this.wallet?.currencies) {
-      this.wallet.total = {
-        currency: "Total BTC",
-        totalBalance: this.wallet.currencies
-          .filter(x => x.currency?.toUpperCase() === "BTC")
-          .reduce((sum, curr) => sum + Number(curr.totalBalance || 0), 0)
-          .toString(),
-        available: this.wallet.currencies
-          .filter(x => x.currency?.toUpperCase() === "BTC")
-          .reduce((sum, curr) => sum + Number(curr.available || 0), 0)
-          .toString(),
-      };
-      this.wallet.currencies.forEach(x => !x.address ? x.address = "Nicehash Wallet" : x.address);
+    if (this.wallet) {
+      for (let type of this.wallet) { 
+        type.total = {
+          currency: "Total " + (type.total && type.total.currency ? type.total.currency.toUpperCase() : ""),
+          totalBalance: (type.currencies ?? [])
+            .filter(x => x.currency?.toUpperCase() === (type.total && type.total.currency ? type.total.currency.toUpperCase() : ""))
+            .reduce((sum, curr) => sum + Number(curr.totalBalance || 0), 0)
+            .toString(),
+          available: (type.currencies ?? [])
+            .filter(x => x.currency?.toUpperCase() === (type.total && type.total.currency ? type.total.currency.toUpperCase() : ""))
+            .reduce((sum, curr) => sum + Number(curr.available || 0), 0)
+            .toString(),
+        };
+      } 
     }
-  } 
-  calculateTotalValue(currency: Currency): number {
+  }
+  convertFromFIATToCryptoValue(currency?: any, conversionRate?: number): number { // best practice is to ensure currency.fiatRate is set.
     if (currency && (currency.fiatRate || this.btcFiatConversion) && currency.totalBalance) {
-      return (currency.fiatRate ? currency.fiatRate : this.btcFiatConversion ?? 1) * (Number)(currency.totalBalance);
+      return (conversionRate ? conversionRate : currency.fiatRate ? currency.fiatRate : this.btcFiatConversion ?? 1) * (Number)(currency.totalBalance);
     } else {
       return 0;
     }
@@ -288,7 +283,7 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
   }
   getConvertedCurrencyValue(cadValue?: number) {
     if (!cadValue) return 0;
-    else return cadValue * (this.latestCurrencyPriceRespectToCAD ?? 1);
+    else return parseFloat((cadValue * (this.latestCurrencyPriceRespectToCAD ?? 1)).toFixed(2));
   }
   getConvertedCurrencyValueByString(cadValue?: string) {
     if (!cadValue) return 0;
@@ -313,6 +308,32 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
       this.parentRef.closeOverlay();
     }
   }
+  generateGeneralAiMessage() {
+    this.startLoading();
+    this.finishedGeneratingAiMessage = false;
+    clearTimeout(this.debounceTimer);
+    this.debounceTimer = setTimeout(() => {
+      const coinValueBTCData = this.allHistoricalData?.filter(x => x.name === "Bitcoin");
+      this.generateAiMessage("1", coinValueBTCData).then(res => {
+        this.finishedGeneratingAiMessage = true;
+        this.hideHostAiMessage = false;
+        this.stopLoading();
+      });
+    }, 500);
+  }
+  async generateWalletAiMessage() {
+    this.startLoading();
+    this.finishedGeneratingAiWalletMessage = false;
+    clearTimeout(this.debounceTimer);
+    this.debounceTimer = setTimeout(() => { 
+      this.finishedGeneratingAiWalletMessage = false;
+      this.generateAiMessage(this.currentlySelectedCurrency?.address ?? "", this.allWalletBalanceData).then(res => {
+        this.finishedGeneratingAiWalletMessage = true;
+        this.hideHostAiMessageWallet = false;
+        this.stopLoading();
+      }); 
+    }, 500);
+  }
   async showWalletData(currency: Currency) {
     if (!currency.address) { return alert("No BTC Wallet address to look up."); }
     this.showWalletPanel();
@@ -323,13 +344,12 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
         this.allWalletBalanceData = res;
         this.processWalletBalances();
       }
-    });
-    this.finishedGeneratingAiWalletMessage = false;
-    await this.generateAiMessage(currency.address, this.allWalletBalanceData).then(res => { this.finishedGeneratingAiWalletMessage = true; });
+    }); 
   }
 
   private async generateAiMessage(walletAddress: string, data: any) {
     const tgtMessage = this.aiMessages.find(x => x.addr === walletAddress);
+    let response = undefined;
     if (!tgtMessage && walletAddress != "Nicehash Wallet") {
       let latest = data?.slice(-250) || [];
       let message = "";
@@ -361,9 +381,11 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
       await this.aiService.sendMessage(new User(0), true, message, 600).then(res => {
         if (res && res.response) {
           this.aiMessages.push({ addr: walletAddress ?? "1", message: this.aiService.parseMessage(res.response) });
+          response = this.aiService.parseMessage(res.response);
         }
       });
     }
+    return response;
   }
 
   showWalletPanel() {
@@ -377,7 +399,9 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
     }
   }
   closeWalletPanel() {
-    this.isWalletPanelOpen = false;
+    this.isWalletPanelOpen = false; 
+    this.finishedGeneratingAiWalletMessage = false;
+    this.hideHostAiMessageWallet = true;
     if (this.parentRef) {
       this.parentRef.closeOverlay();
     }
@@ -489,11 +513,13 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
     return this.aiMessages.find(x => x.addr === walletAddr)?.message;
   }
   checkBalance() {
+    this.startLoading();
     this.isTradebotBalanceShowing = true;
     this.tradeService.GetWalletBalance('').then(res => {
       if (res) {
         this.tradebotBalances = res; 
       }
+      this.stopLoading();
     });
   }
 
@@ -537,18 +563,54 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
     this.isDragging = false;
     this.startAutoScroll();
   }
-
   startAutoScroll() {
-    // Scroll by a small amount every second
+    const buffer = 110; // pixels before end to trigger reset
+
     this.scrollInterval = setInterval(() => {
       if (!this.isDragging) {
-        this.scrollContainer.nativeElement.scrollLeft += 5; // Scroll right by 1px
+        this.scrollContainer.nativeElement.scrollLeft += 5;
       }
-      const isAtEnd = this.scrollContainer.nativeElement.scrollLeft + this.scrollContainer.nativeElement.clientWidth >= this.scrollContainer.nativeElement.scrollWidth;
 
-      if (isAtEnd) {
-        this.scrollContainer.nativeElement.scrollLeft = 0;
+      const container = this.scrollContainer.nativeElement;
+      const isNearEnd =
+        container.scrollLeft + container.clientWidth >= container.scrollWidth - buffer;
+
+      if (isNearEnd) {
+        clearInterval(this.scrollInterval);
+        container.scrollLeft = 0;
+        setTimeout(() => this.startAutoScroll(), 1000);
       }
-    }, 500); // every 0.5 seconds
+    }, 500);
+  }
+
+  getCurrencyDisplayValue(currencyName?: string, currency?: Currency): string {
+    if (this.isDiscreete || !currencyName || !currency) return '***'; 
+    let tmpWalletCurrency = currencyName.toLowerCase().replaceAll("total", "").trim();
+    currency.fiatRate = tmpWalletCurrency == "btc" ? this.btcFiatConversion : 1;
+    const totalValue = this.convertFromFIATToCryptoValue(currency);
+   
+    return this.formatToCanadianCurrency(totalValue);
+  
+  }
+  getTotalCurrencyDisplayValue(total?: Total): string {
+    if (this.isDiscreete || !total || !this.btcFiatConversion) return '***';
+    let tmpWalletCurrency = total.currency?.toLowerCase().replaceAll("total", "").trim();
+    const totalValue = this.convertFromFIATToCryptoValue(total, tmpWalletCurrency != 'btc' ? 1 : undefined); 
+    return this.formatToCanadianCurrency(totalValue); 
+  }
+  fullscreenSelectedInPopup(event?: any) {
+    this.isWalletGraphFullscreened = !this.isWalletGraphFullscreened;
+  }
+  createUpdateUserComponent() {
+    this.parentRef?.createComponent('UpdateUserSettings', {
+      showOnlyKrakenApiKeys: true,
+      showOnlySelectableMenuItems: false,
+      areSelectableMenuItemsExplained: false,
+      inputtedParentRef: this.parentRef,
+      previousComponent: "Crypto-Hub"
+    });
+  }
+  createUserComponent() {
+    this.parentRef?.createComponent('User');
   }
 }

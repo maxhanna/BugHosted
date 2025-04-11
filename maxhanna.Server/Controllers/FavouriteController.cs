@@ -326,7 +326,7 @@ namespace maxhanna.Server.Controllers
 				LEFT JOIN favourites_selected fs ON f.id = fs.favourite_id
 				WHERE f.id IN (SELECT favourite_id FROM favourites_selected WHERE user_id = @UserId)
 				GROUP BY f.id, f.url, f.image_url, f.created_by, f.creation_date, f.modified_by, f.modification_date, f.last_added_date, f.name
-				ORDER BY f.creation_date DESC;";
+				ORDER BY f.name, f.modification_date, f.creation_date DESC;";
 
 			try
 			{

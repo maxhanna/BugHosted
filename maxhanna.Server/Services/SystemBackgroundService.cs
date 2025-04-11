@@ -24,6 +24,7 @@ namespace maxhanna.Server.Services
 		private DateTime _lastFiveMinuteTaskRun = DateTime.MinValue;
 		private DateTime _lastHourlyTaskRun = DateTime.MinValue;
 		private DateTime _lastMidDayTaskRun = DateTime.MinValue;
+		private bool isCrawling = false;
 
 		public SystemBackgroundService(Log log, IConfiguration config, WebCrawler webCrawler, KrakenService krakenService)
 		{
@@ -40,7 +41,7 @@ namespace maxhanna.Server.Services
 		{
 			while (!stoppingToken.IsCancellationRequested)
 			{
-				Console.WriteLine("Refreshing system information:" + DateTimeOffset.Now);
+			//	Console.WriteLine("Refreshing system information:" + DateTimeOffset.Now);
 
 				// Run tasks that need to execute every 1 minute
 				if ((DateTime.Now - _lastMinuteTaskRun).TotalMinutes >= 1)
@@ -78,6 +79,7 @@ namespace maxhanna.Server.Services
 					await DeleteOldSearchResults();
 					await DeleteNotificationRequests();
 					await DeleteHostAiRequests();
+					await _log.DeleteOldLogs();
 					_lastDailyTaskRun = DateTime.Now;
 				}
 
@@ -169,14 +171,19 @@ namespace maxhanna.Server.Services
 
 		private async Task FetchWebsiteMetadata()
 		{
-			try
+			if (!isCrawling)
 			{
-				await _webCrawler.StartBackgroundScrape();
-			}
-			catch (Exception ex)
-			{
-				_ = _log.Db("Exception while crawling : " + ex.Message, null);
-			}
+				try
+				{
+					this.isCrawling = true;
+					await _webCrawler.StartBackgroundScrape();
+					this.isCrawling = false;
+				}
+				catch (Exception ex)
+				{
+					_ = _log.Db("Exception while crawling : " + ex.Message, null);
+				}
+			} 
 		}
 
 		private async Task MakeCryptoTrade()

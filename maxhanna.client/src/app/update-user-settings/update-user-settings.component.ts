@@ -41,13 +41,17 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
   nhApiKeys?: NicehashApiKeys;
   hasKrakenKeys?: boolean;
   displayPictureFile?: FileEntry = this.parentRef?.user?.displayPictureFile;
+  expandedIconTitle: string | null = null;
 
   isDisplayingNSFW = false;
 
   @Input() inputtedParentRef?: AppComponent;
   @Input() showOnlySelectableMenuItems? = true;
   @Input() showOnlyWeatherLocation? = false;
+  @Input() showOnlyKrakenApiKeys? = false;
+  @Input() showOnlyNicehashApiKeys? = false;
   @Input() areSelectableMenuItemsExplained? = true;
+  @Input() previousComponent? = undefined;
 
   @ViewChild('updatedUsername') updatedUsername!: ElementRef<HTMLInputElement>;
   @ViewChild('updatedPassword') updatedPassword!: ElementRef<HTMLInputElement>;
@@ -86,8 +90,8 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
     this.isWeatherLocationToggled = false; 
     this.isDeleteAccountToggled = false;
     this.isAboutToggled = false;
-    this.isNicehashApiKeysToggled = false;
-    this.isKrakenApiKeysToggled = false;
+    this.isNicehashApiKeysToggled = this.showOnlyNicehashApiKeys ?? false;
+    this.isKrakenApiKeysToggled = this.showOnlyKrakenApiKeys ?? false;
 
     const user = this.inputtedParentRef?.user ?? this.parentRef?.user;
     if (user?.id) {
@@ -305,9 +309,10 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
         });
       } 
     }
+  } 
+  toggleIconDescription(title: string): void {
+    this.expandedIconTitle = this.expandedIconTitle === title ? null : title;
   }
-
-
   menuIconsIncludes(title: string) {
     return this.parentRef!.userSelectedNavigationItems.some(x => x.title == title) || this.inputtedParentRef?.userSelectedNavigationItems.some(x => x.title == title);
   }
@@ -399,6 +404,17 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
           input.value = "";
         }
       }
+    }
+  }
+
+  closeThisComponent() {
+    if (this.previousComponent) {
+      this.parentRef?.createComponent(this.previousComponent);
+    }
+    else  if (!this.showOnlySelectableMenuItems) {
+      this.parentRef?.createComponent('User');
+    } else {
+      this.remove_me('UpdateUserProfile');
     }
   }
 }

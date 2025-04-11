@@ -1,5 +1,4 @@
-<!-- Placeholder for the graph -->
-<div class="graphContainer">
+ <div class="graphContainer {{fullscreenMode ? 'popupPanel fullscreenPopupPanel' : ''}}">
   <div class="graphTitle sectionName">
     {{graphTitle ? (selectedCoin.includes('->') ? ('$Bitcoin/' + ('$'+selectedCurrency) + ' Value') : graphTitle) : (selectedCoin ? ('$' + selectedCoin) : '') + '/$' + (selectedCurrency ?? 'CAD') + ' Over Time'}}
     Span : {{selectedPeriod}}
@@ -18,20 +17,30 @@
       <option value="3y" [selected]="selectedPeriod === '3y'">3 Years</option>
       <option value="5y" [selected]="selectedPeriod === '5y'">5 Years</option>
     </select>
-    <select (change)="changeCoin($event)" *ngIf="displayCoinSwitcher">
+    <select (change)="changeCoin($event)" *ngIf="displayCoinSwitcher" #coinSwitcher>
       <option value="">All</option>
       <option *ngIf="type == 'Crypto'" value="Bitcoin" [selected]="selectedCoin === 'Bitcoin'">Bitcoin</option>
       <option *ngIf="type == 'Currency'" value="USD" [selected]="selectedCoin === 'USD'">USD</option>
       <option *ngFor="let coin of getUniqueCoinNames()" [value]="coin" [selected]="selectedCoin === coin">{{ coin }}</option>
     </select>
+    <button (click)="openFullscreen();">{{fullscreenMode ? 'Close ' : ''}}Full Screen</button>
+    <button (click)="toggleDarkMode()">
+      {{ darkMode ? 'Light Mode' : 'Dark Mode' }}
+    </button>
+    <select (change)="changeChartType($event.target)" [value]="chartType ?? 'line'">
+      <option *ngFor="let type of validTypes" [value]="type">
+        {{ type.charAt(0).toUpperCase() + type.slice(1) }}
+      </option>
+    </select>
   </div>
-  <div class="canvasChartWrapper">
-    <canvas baseChart class="canvasChart"
+  <div class="canvasChartWrapper {{fullscreenMode ? 'fullscreenCanvas' : ''}}" #canvasDiv>
+    <canvas baseChart
+            class="canvasChart" 
             [datasets]="lineChartData"
             [labels]="lineChartLabels"
             [options]="lineChartOptions"
             [legend]="lineChartLegend"
-            [type]="'line'">
+            [type]="chartType">
     </canvas>
   </div>
 </div>

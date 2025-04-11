@@ -1,23 +1,32 @@
-import { Component, ElementRef, Input, OnChanges, OnInit, ViewChild } from '@angular/core';
- import { CommonModule } from '@angular/common';
-import { BaseChartDirective } from 'ng2-charts'; 
+import { Component, ElementRef, EventEmitter, Input, Output, OnChanges, OnInit, ViewChild } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { BaseChartDirective } from 'ng2-charts';
 import { CoinValue } from '../../services/datacontracts/crypto/coin-value';
 import { ExchangeRate } from '../../services/datacontracts/crypto/exchange-rate';
+import { ChartType } from 'chart.js';
+
 
 @Component({
-    selector: 'app-line-graph',
-    templateUrl: './line-graph.component.html',
-    styleUrls: ['./line-graph.component.css'],
-    imports: [BaseChartDirective, CommonModule]
+  selector: 'app-line-graph',
+  standalone: true,
+  templateUrl: './line-graph.component.html',
+  styleUrls: ['./line-graph.component.css'],
+  imports: [BaseChartDirective, CommonModule]
 })
 export class LineGraphComponent implements OnInit, OnChanges {
   @Input() data: any[] = [];
   @Input() selectedCoin: string = '';
   @Input() selectedCurrency?: string = undefined;
   @Input() displayCoinSwitcher: boolean = true;
+  @Input() width: number = 500;
+  @Input() height: number = 300;
+  @Input() darkMode = false;
+  @Input() supportsXYZ = false;
   @Input() graphTitle: string = '';
   @Input() type: "Crypto" | "Currency" = "Crypto";
   @Input() selectedPeriod: '1d' | '2d' | '5d' | '1m' | '2m' | '3m' | '6m' | '1y' | '2y' | '3y' | '5y' = '1d';
+  @Output() fullscreenSelectedEvent = new EventEmitter<any>();
+
   lineChartData: any[] = [];
   lineChartLabels: any[] = [];
   lineChartOptions: any = {
@@ -25,14 +34,28 @@ export class LineGraphComponent implements OnInit, OnChanges {
     maintainAspectRatio: false
   };
   lineChartLegend = true;
+  defaultBorder = undefined;
+  fullscreenMode = false;
+  chartType: ChartType = 'line';
+  validTypes: ChartType[] = this.supportsXYZ
+    ? ['line', 'bar', 'radar', 'doughnut', 'pie', 'polarArea', 'scatter', 'bubble']
+    : ['line', 'bar', 'radar', 'doughnut', 'pie', 'polarArea'];
 
   @ViewChild('periodSelect') periodSelect!: ElementRef<HTMLSelectElement>;
+  @ViewChild('canvasDiv') canvasDiv!: ElementRef<HTMLDivElement>;
+  @ViewChild('coinSwitcher') coinSwitcher!: ElementRef<HTMLSelectElement>;
+  @ViewChild(BaseChartDirective) chart?: BaseChartDirective;
 
   ngOnInit() {
-    this.updateGraph(this.data); 
+    this.lineChartOptions = this.getChartOptions();
+    setTimeout(() => {
+      this.canvasDiv.nativeElement.style.backgroundColor = this.darkMode ? this.getCSSVariableValue("--secondary-component-background-color") ?? '#000000' : this.getCSSVariableValue("--component-background-color") ?? '#ffffff';
+      this.chart?.chart?.update();
+      this.updateGraph(this.data); 
+    }, 50);
   }
 
-  ngOnChanges() { 
+  ngOnChanges() {
     if (this.selectedCoin) {
       this.changeCoinByString(this.selectedCoin);
     }
@@ -67,18 +90,23 @@ export class LineGraphComponent implements OnInit, OnChanges {
     this.updateGraph(this.data);
   }
 
+  changeChartType(newType?: EventTarget | null): void {
+    if (this.validTypes.includes((newType as HTMLSelectElement).value as ChartType)) {
+      this.chartType = (newType as HTMLSelectElement).value as ChartType;
+    }
+  }
+
   updateGraph(data: any[]) {
     if (!this.selectedPeriod) {
       this.selectedPeriod = '1d';
     }
     this.data = data;
-    let filteredData: any[] = []; 
+    let filteredData: any[] = [];
     if (this.selectedCoin !== '') {
       filteredData = this.filterDataByPeriodAndCoin(this.selectedPeriod, this.selectedCoin);
     } else {
       filteredData = this.filterDataByPeriod(this.getDaysForPeriod(this.selectedPeriod));
     }
-
     // Initialize arrays for datasets and labels
     const datasets: any[] = [];
     const chartLabelsSet = new Set<string>();
@@ -88,8 +116,12 @@ export class LineGraphComponent implements OnInit, OnChanges {
     if (this.type == "Crypto") {
       uniqueCoinNames = Array.from(new Set(filteredData.map(item => item.name)))
     } else if (this.type == "Currency") {
-      uniqueCoinNames = Array.from(new Set(filteredData.map(item => item.targetCurrency))) 
-    }
+      uniqueCoinNames = Array.from(new Set(filteredData.map(item => item.targetCurrency)))
+    } 
+    const borderColor = (this.coinSwitcher?.nativeElement && !this.coinSwitcher?.nativeElement?.value)
+      ? undefined
+      : this.darkMode ? this.getCSSVariableValue("--main-link-color") : this.getCSSVariableValue("--third-font-color") ?? "#000000"; // Red fallback
+    console.log(borderColor, this.coinSwitcher?.nativeElement?.value); // See what the color is set to
 
     if (uniqueCoinNames) {
       if (this.type == "Crypto") {
@@ -97,7 +129,9 @@ export class LineGraphComponent implements OnInit, OnChanges {
           const coinFilteredData = filteredData.filter(item => item.name === coinName);
           datasets.push({
             data: coinFilteredData.map(item => item.valueCAD),
-            label: `${coinName} Fluctuation (${this.selectedCurrency}$)`,
+            label: `${coinName} Fluctuation (${this.selectedCurrency}$)`, 
+            backgroundColor: borderColor,
+            borderColor: borderColor,
             borderJoinStyle: "round",
             tension: 0.2,
             cubicInterpolationMode: 'monotone',
@@ -112,6 +146,8 @@ export class LineGraphComponent implements OnInit, OnChanges {
           datasets.push({
             data: coinFilteredData.map(item => item.rate),
             label: `${coinName} Fluctuation (CAD$)`,
+            borderColor: borderColor,
+            backgroundColor: borderColor,
             borderJoinStyle: "round",
             tension: 0.2,
             cubicInterpolationMode: 'monotone',
@@ -121,7 +157,7 @@ export class LineGraphComponent implements OnInit, OnChanges {
           coinFilteredData.forEach(item => chartLabelsSet.add(item.timestamp.replace('T', ' ').replace('-', '.')));
         });
       }
-    } 
+    }
 
 
     // Convert chartLabelsSet to array
@@ -181,4 +217,73 @@ export class LineGraphComponent implements OnInit, OnChanges {
 
     return 30; // Default to 1 month data if input doesn't match
   }
-}
+  openFullscreen() {
+    this.fullscreenMode = !this.fullscreenMode;
+    this.fullscreenSelectedEvent.emit();
+    if (!this.fullscreenMode) {
+      setTimeout(() => {
+        this.chart?.chart?.resize(this.width, this.height);
+        this.updateGraph(this.data);
+      }, 50);
+    }
+  }
+  toggleDarkMode() {
+    this.darkMode = !this.darkMode;
+    this.lineChartOptions = this.getChartOptions();
+    this.canvasDiv.nativeElement.style.backgroundColor = this.darkMode ? this.getCSSVariableValue("--secondary-component-background-color") ?? '#000000' : this.getCSSVariableValue("--component-background-color") ?? '#ffffff';
+    setTimeout(() => {
+      this.chart?.chart?.update(); 
+      this.updateGraph(this.data);
+    }, 50);
+  }
+  getChartOptions(): any {
+    const fontColor = this.getCSSVariableValue("--main-font-color")
+      ?? (this.darkMode ? '#ffffff' : '#000000');
+    const backgroundColor = this.coinSwitcher?.nativeElement?.value
+      ? (this.darkMode
+        ? this.getCSSVariableValue("--secondary-font-color") ?? '#ffffff'
+        : this.getCSSVariableValue("--third-font-color") ?? '#000000')
+      : undefined;
+
+    return {
+      responsive: true,
+      maintainAspectRatio: false,
+      backgroundColor,
+      scales: {
+        x: {
+          ticks: {
+            color: fontColor
+          },
+          grid: {
+            color: fontColor
+          }
+        },
+        y: {
+          ticks: {
+            color: fontColor
+          },
+          grid: {
+            color: fontColor
+          }
+        }
+      },
+      plugins: {
+        legend: {
+          labels: {
+            color: fontColor
+          }
+        },
+        tooltip: {
+          backgroundColor: this.darkMode ? '#333' : '#fff',
+          titleColor: this.darkMode ? '#fff' : '#000',
+          bodyColor: this.darkMode ? '#ccc' : '#000'
+        }
+      }
+    };
+  }
+
+  getCSSVariableValue(variableName: string) {
+    const styles = getComputedStyle(document.documentElement);
+    return styles.getPropertyValue(variableName).trim() ?? undefined;
+  }
+} 

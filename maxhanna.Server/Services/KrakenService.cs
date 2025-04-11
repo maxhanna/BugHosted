@@ -2,20 +2,24 @@
 using MySqlConnector;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using System.Globalization;
 using System.Net;
 using System.Security.Cryptography;
 using System.Text;
-using System.Text.Json.Serialization;
-using static maxhanna.Server.Controllers.AiController;
+using System.Text.Json.Serialization; 
 
 public class KrakenService
 {
 	private const decimal _MaximumTradeBalanceRatio = 0.9m;
 	private const decimal _TradeThreshold = 0.007m;
 	private const decimal _MinimumBTCTradeAmount = 0.00005m;
+	private const decimal _MaximumBTCTradeAmount = 0.00005m;
+	private const decimal _MaximumUSDCTradeAmount = 2000m;
 	private const decimal _ValueTradePercentage = 0.15m;
 	private const decimal _BTCPriceDiscrepencyStopPercentage = 0.10m;
 	private const decimal _InitialMinimumBTCAmountToStart = 0.001999m;
+	private const decimal _MinimumBTCReserves = 0.0004m;
+	private const decimal _MinimumUSDCReserves = 20m;
 	private readonly HttpClient _httpClient;
 	private static IConfiguration? _config; 
 	private readonly string _baseAddr = "https://api.kraken.com/"; 
@@ -70,6 +74,7 @@ public class KrakenService
 		decimal.TryParse(lastTrade.btc_price_cad, out decimal lastPrice);
 		decimal currentPrice = lastBTCValueCad.Value;
 		decimal spread = (currentPrice - lastPrice) / lastPrice;
+		//_ = _log.Db($"Current Price: {currentPrice}. Last Price: {lastPrice}.", userId, "TRADE", true); 
 
 		if (Math.Abs(spread) >= _TradeThreshold)
 		{
@@ -82,34 +87,33 @@ public class KrakenService
 			}  
 
 			var btcPriceToCad = await GetBtcPriceToCad(userId, keys);
+			_ = _log.Db("btcPriceCad:" + btcPriceToCad, userId, "TRADE", true);
 			if (!ValidatePriceDiscrepency(currentPrice, btcPriceToCad))
 			{
 				return false;
 			}
 
 			decimal btcBalance = balances.ContainsKey("XXBT") ? balances["XXBT"] : 0;
-			decimal usdcBalance = balances.ContainsKey("USDC") ? balances["USDC"] : 0;
-
+			decimal usdcBalance = balances.ContainsKey("USDC") ? balances["USDC"] : 0; 
+			_ = _log.Db("USDC Balance: " + usdcBalance + "; Btc Balance: " + btcBalance, userId, "TRADE", true);
 			if (spread >= _TradeThreshold)
 			{
-				decimal btcToTrade = btcBalance * _ValueTradePercentage;
+				decimal btcToTrade = Math.Min(btcBalance * _ValueTradePercentage, _MaximumBTCTradeAmount);
 				decimal? usdToCadRate = await GetUsdToCadRate();
-				_ = _log.Db("USD to CAD rate: " + usdToCadRate.Value + "; btcPriceToCad: " + btcPriceToCad, userId, "TRADE", true);
+				_ = _log.Db("USD to CAD rate: " + usdToCadRate.Value + "; btcPriceToCad: " + btcPriceToCad, userId, "TRADE", true); 
 				if (usdToCadRate.HasValue && btcPriceToCad.HasValue && (btcToTrade > 0))
-				{
-					// Convert the BTC price to USD
-					decimal btcPriceInUsd = btcPriceToCad.Value / usdToCadRate.Value;
-
-					// Now you can get the value of btcToTrade in USDC (1 USDC = 1 USD) 
-					decimal btcValueInUsdc = btcToTrade * btcPriceInUsd;
-					_ = _log.Db($"BTC to trade in USDC: {btcValueInUsdc}", userId, "TRADE", true); 
-					if (Is90PercentOfTotalWorth(btcValueInUsdc, usdcBalance))
+				{ 
+					// Convert the BTC price to USD;  Now you can get the value of btcToTrade in USDC (1 USDC = 1 USD) 
+					decimal btcValueInUsdc = ConvertBTCToUSDC(btcToTrade, btcPriceToCad.Value, usdToCadRate.Value);
+					decimal btcBalanceConverted = ConvertBTCToUSDC(btcBalance, btcPriceToCad.Value, usdToCadRate.Value);
+					_ = _log.Db($"BTC trade value in USDC: {btcValueInUsdc}; Converted btcBalanceValue in USDC: {btcBalanceConverted}", userId, "TRADE", true); 
+					if (Is90PercentOfTotalWorth(btcBalanceConverted, usdcBalance))
 					{
-						_ = _log.Db($"Trade to USDC is prevented. 90% of wallet is already in USDC. {btcValueInUsdc}/{usdcBalance}", userId, "TRADE", true); 
+						_ = _log.Db($"Trade to USDC is prevented. 90% of wallet is already in USDC. {btcBalanceConverted}/{usdcBalance}", userId, "TRADE", true); 
 						return false;
 					}
-					_ = _log.Db($"Spread is +{spread:P}, selling {btcToTrade} BTC for USDC", userId, "TRADE", true); 
-					await ExecuteXBTtoUSDCTrade(userId, keys, btcToTrade.ToString("0.00000000"), "sell");
+					_ = _log.Db($"Spread is +{spread:P} ({currentPrice}-{lastPrice}), selling {btcToTrade} BTC for USDC ({btcValueInUsdc})", userId, "TRADE", true); 
+					await ExecuteXBTtoUSDCTrade(userId, keys, FormatBTC(btcToTrade), "sell", btcBalance, false);
 				}
 				else
 				{
@@ -119,10 +123,10 @@ public class KrakenService
 			}
 			else if (spread <= -_TradeThreshold)
 			{
-				decimal usdcValueToTrade = usdcBalance * _ValueTradePercentage;
+				decimal usdcValueToTrade = Math.Min(usdcBalance * _ValueTradePercentage, _MaximumUSDCTradeAmount);
 				if (Is90PercentOfTotalWorth(usdcBalance, usdcValueToTrade))
 				{
-					_ = _log.Db($"Trade to XBT is prevented. 90% of wallet is already in XBT. {usdcBalance}/{usdcValueToTrade}", userId, "TRADE", true); 
+					_ = _log.Db($"Trade to XBT is prevented. 90% of wallet is already in XBT. {usdcBalance}/{btcBalance}", userId, "TRADE", true); 
 					return false;
 				}
 				if (btcPriceToCad == null)
@@ -145,8 +149,8 @@ public class KrakenService
 					decimal cadAmount = usdAmount * usdToCadRate.Value;
 					decimal btcAmount = cadAmount / btcPriceToCad.Value;
 
-					_ = _log.Db($"Spread is {spread:P}, buying BTC with {btcAmount.ToString("0.00000000")} BTC worth of USDC(${usdcToUse})", userId, "TRADE", true); 
-					await ExecuteXBTtoUSDCTrade(userId, keys, btcAmount.ToString("0.00000000"), "buy");
+					_ = _log.Db($"Spread is {spread:P} ({currentPrice}-{lastPrice}), buying BTC with {FormatBTC(btcAmount)} BTC worth of USDC(${usdcToUse})", userId, "TRADE", true); 
+					await ExecuteXBTtoUSDCTrade(userId, keys, FormatBTC(btcAmount), "buy", usdcBalance, false);
 				}
 			}
 		}
@@ -160,7 +164,6 @@ public class KrakenService
 
 	private bool ValidatePriceDiscrepency(decimal currentPrice, decimal? btcPriceToCad)
 	{ 
-		_ = _log.Db("btcPriceCad:" + btcPriceToCad, null, "TRADE", true);
 		if (btcPriceToCad == null || !btcPriceToCad.HasValue)
 		{
 			_ = _log.Db("BTC price in CAD is unavailable.", null, "TRADE", true); 
@@ -218,79 +221,6 @@ public class KrakenService
 			return null;
 		}
 	}
-	private async Task<decimal?> GetBtcPriceToCad(int userId, UserKrakenApiKey keys)
-	{
-		try
-		{
-			var pair = "XXBTZCAD";
-			var response = await MakeRequestAsync(userId, keys, "/Ticker", "public", new Dictionary<string, string> { ["pair"] = pair }); 
-			if (response == null || !response.ContainsKey("result"))
-			{ 
-				_ = _log.Db("Failed to get BTC price in CAD: 'result' not found.", userId, "TRADE", true);
-				return null;
-			}
-			var result = (JObject)response["result"];
-			if (!result.ContainsKey(pair))
-			{ 
-				_ = _log.Db("Failed to find XXBTZCAD pair in the response.", userId, "TRADE", true);
-				return null;
-			}
-
-			// Extract the ask price from the 'a' key (ask prices are in the array)
-			var askArray = result[pair]["a"]?.ToObject<JArray>();
-			if (askArray == null || askArray.Count < 1)
-			{ 
-				_ = _log.Db("Failed to extract ask price from response.", userId, "TRADE", true);
-				return null;
-			}
-			// The ask price is the first value in the array
-			var askPrice = askArray[0].ToObject<decimal>();
-			return askPrice;
-		}
-		catch (Exception ex)
-		{ 
-			_ = _log.Db($"Error fetching BTC price to CAD: {ex.Message}", userId, "TRADE", true);
-			return null;
-		}
-	}
-
-
-	private async Task<decimal?> GetBtcPriceToUSDC(int userId, UserKrakenApiKey keys)
-	{
-		try
-		{
-			var pair = "XXBTZUSD";
-			var response = await MakeRequestAsync(userId, keys, "/Ticker", "public", new Dictionary<string, string> { ["pair"] = pair }); 
-			if (response == null || !response.ContainsKey("result"))
-			{ 
-				_ = _log.Db("Failed to get BTC price in USD: 'result' not found.", userId, "TRADE", true);
-				return null;
-			}
-			var result = (JObject)response["result"];
-			if (!result.ContainsKey(pair))
-			{ 
-				_ = _log.Db("Failed to find XXBTZUSD pair in the response.", userId, "TRADE", true);
-				return null;
-			}
-
-			// Extract the ask price from the 'a' key (ask prices are in the array)
-			var askArray = result[pair]["a"]?.ToObject<JArray>();
-			if (askArray == null || askArray.Count < 1)
-			{ 
-				_ = _log.Db("Failed to extract ask price from response.", userId, "TRADE", true);
-				return null;
-			}
-			// The ask price is the first value in the array
-			var askPrice = askArray[0].ToObject<decimal>();
-			return askPrice;
-		}
-		catch (Exception ex)
-		{ 
-			_ = _log.Db($"Error fetching BTC price to USD: {ex.Message}", userId, "TRADE", true);
-			return null;
-		}
-	}
-
 	private async Task TradeHalfBTCForUSDC(int userId, UserKrakenApiKey keys)
 	{
 		decimal minBtc = _InitialMinimumBTCAmountToStart;
@@ -312,7 +242,7 @@ public class KrakenService
 			if (btcToTrade > 0)
 			{  
 				_ = _log.Db("Starting user off with some USDC reserves", userId, "TRADE", true);
-				await ExecuteXBTtoUSDCTrade(userId, keys, btcToTrade.ToString("0.00000000"), "sell");
+				await ExecuteXBTtoUSDCTrade(userId, keys, FormatBTC(btcToTrade), "sell", btcBalance, true);
 			}
 		}
 		else
@@ -321,25 +251,51 @@ public class KrakenService
 		}
 	}
 
-	private async Task ExecuteXBTtoUSDCTrade(int userId, UserKrakenApiKey keys, string amount, string buyOrSell)
+	private async Task ExecuteXBTtoUSDCTrade(int userId, UserKrakenApiKey keys, string amount, string buyOrSell, decimal balance, bool IsFirstTradeEver)
 	{
 		string from = "XBT";
 		string to = "USDC";
 		amount = amount.Trim();
-		decimal? lastBTCValueCad = await IsSystemUpToDate();
-		if (lastBTCValueCad == null)
-		{ 
-			_ = _log.Db("System is not up to date. Cancelling trade", userId, "TRADE", true);
-			return; //TODO instead of returning, update the system.
+		decimal? lastBTCValueCad = null;
+		try
+		{
+			lastBTCValueCad = await IsSystemUpToDate();
+			if (lastBTCValueCad == null)
+			{
+				_ = _log.Db("System is not up to date. Cancelling trade", userId, "TRADE", true);
+				return; //TODO instead of returning, update the system.
+			}
+			if (Convert.ToDecimal(amount) < _MinimumBTCTradeAmount)
+			{
+				_ = _log.Db("Trade amount is too small. Cancelling trade.", userId, "TRADE", true);
+				return;
+			}
+
+			//Contextual Adjustments: If you’re trading based on certain market conditions(e.g., high volatility or low reserves), you might want to adjust the range dynamically. For example
+			//If reserves are low, you may want a larger range to avoid too many trades.
+			//If there is high market volatility, you could reduce the range to act more cautiously.
+			if (!IsFirstTradeEver)
+			{
+				int tradeRange = 5;
+				bool shouldTradeBasedOnReserves = await ShouldTradeBasedOnRangeAndReserve(userId, from, to, buyOrSell, tradeRange, balance);
+				if (!shouldTradeBasedOnReserves)
+				{
+					_ = _log.Db($"User has {buyOrSell} {from} {to} too many times in the last {tradeRange} trades (Based on reserves or half the trades were the same). Cancelling trade.", userId, "TRADE", true);
+					return;
+				}
+				int tradeRangeLimit = 5;
+				int daySpanCheck = 1;
+				bool withinLimit = await CheckTradeFrequency(userId, "XTC", "USDC", buyOrSell, tradeRangeLimit, TimeSpan.FromDays(daySpanCheck));
+				if (!withinLimit)
+				{
+					_ = _log.Db($"User has {buyOrSell} {from} {to} too frequently ({tradeRangeLimit}) in the last {daySpanCheck} days. Cancelling trade.", userId, "TRADE", true);
+					return;
+				}
+			} 
 		}
-		if (await GetLast2Of3WereSame(userId, from, to, buyOrSell))
-		{ 
-			_ = _log.Db($"User has traded {from} {to} too many times in the last 3 trades. Cancelling trade.", userId, "TRADE", true);
-			return;
-		}
-		if (Convert.ToDecimal(amount) < _MinimumBTCTradeAmount)
-		{ 
-			_ = _log.Db("Trade amount is too small. Cancelling trade.", userId, "TRADE", true);
+		catch (Exception ex)
+		{
+			_ = _log.Db($"Exception while validating trade! Cancelling Trade. " + ex.Message, userId, "TRADE", true);
 			return;
 		}
 
@@ -505,50 +461,121 @@ public class KrakenService
 		await CreateTradeHistory(lastBTCValueCad, valueCad, userId, tmpFrom, tmpTo);
 		return true;
 	}
-
-	private async Task<bool> GetLast2Of3WereSame(int userId, string from, string to, string buyOrSell)
+	private async Task<bool> CheckTradeFrequency(int userId, string from, string to, string buyOrSell, int maxTrades, TimeSpan timeWindow)
 	{
-		// SELL : FROM:BTC -> TO:USDC 
-		// BUY  : FROM:USDC->TO:BTC
 		string tmpFrom = from;
 		if (buyOrSell == "buy")
 		{
-			tmpFrom = to; 
+			tmpFrom = to;
 		}
-		var checkSql = $@"
-        SELECT from_currency 
-        FROM maxhanna.trade_history
-        WHERE user_id = @UserId 
-        ORDER BY timestamp DESC
-        LIMIT 3;";
+
+		var checkSql = @"
+			SELECT COUNT(*) 
+			FROM maxhanna.trade_history
+			WHERE user_id = @UserId
+			AND from_currency = @FromCurrency
+			AND timestamp > @TimeWindowStart;";
+
 		try
 		{
 			using var conn = new MySqlConnection(_config?.GetValue<string>("ConnectionStrings:maxhanna"));
 			await conn.OpenAsync();
 
 			using var checkCmd = new MySqlCommand(checkSql, conn);
-			checkCmd.Parameters.AddWithValue("@UserId", userId);  
+			checkCmd.Parameters.AddWithValue("@UserId", userId);
+			checkCmd.Parameters.AddWithValue("@FromCurrency", tmpFrom);
+			checkCmd.Parameters.AddWithValue("@TimeWindowStart", DateTime.UtcNow - timeWindow);  // Time window parameter
 
-			using var reader = await checkCmd.ExecuteReaderAsync();
+			int tradeCount = Convert.ToInt32(await checkCmd.ExecuteScalarAsync());
 
-			int matchesFrom = 0; 
-			while (await reader.ReadAsync())
-			{
-				if (reader.GetString(0) == tmpFrom)
-				{ 
-						matchesFrom++; 
-				}
-			}
-			return (matchesFrom > 1); 
+			return tradeCount < maxTrades;  // Allow the trade only if the count is below the max allowed
 		}
 		catch (Exception ex)
 		{
-			_ = _log.Db("Error checking trades: " + ex.Message, null, "TRADE", true); 
-			return true;
-		}  
+			_ = _log.Db("Error checking trade frequency: " + ex.Message, userId, "TRADE", true);
+			return true; // Default action in case of error.
+		}
 	}
+	private async Task<bool> ShouldTradeBasedOnRangeAndReserve(int userId, string from, string to, string buyOrSell, int range, decimal balance)
+	{
+		bool isRepeatedTrade = await IsRepeatedTradesInRange(userId, from, to, buyOrSell, range); 
+		if (isRepeatedTrade)
+		{
+			_ = _log.Db($"Repeated too many trades ({buyOrSell} {from} {to} {range})", userId, "TRADE", true);
+		}
+		// Define threshold based on currency
+		decimal threshold = 0;
+		if (buyOrSell == "sell")
+		{
+			threshold = _MinimumBTCReserves;
+		}
+		else if (buyOrSell == "buy")
+		{
+			threshold = _MinimumUSDCReserves;
+		}
+		else
+		{
+			// If the currency is unsupported, throw an exception and make sure parent handles exceptions with returning false.
+			throw new ArgumentException("Unsupported currency type for balance check");
+		}
+		bool reservesLow = balance < threshold;
+		_ = _log.Db($"[reservesLow]={reservesLow} (Balance={balance}, Threshold={threshold})", userId, "TRADE", true); 
+		if (reservesLow) {
+			_ = _log.Db($"Reserves Are Low ({balance} < {threshold})", userId, "TRADE", true); 
+		}
 
+		// If the reserves are not low and not repeating too many trades, allow trade
+		return !isRepeatedTrade && !reservesLow;
+	}
+	private async Task<bool> IsRepeatedTradesInRange(int userId, string from, string to, string buyOrSell, int range = 3)
+	{
+		// SELL BTC  -> USDC -> from = BTC
+		// BUY  USDC -> BTC  -> from = USDC
+		string expectedFrom = (buyOrSell == "buy") ? to : from;
 
+		var checkSql = $@"
+			SELECT from_currency 
+			FROM maxhanna.trade_history
+			WHERE user_id = @UserId 
+			ORDER BY timestamp DESC
+			LIMIT @Range;";
+
+		try
+		{
+			using var conn = new MySqlConnection(_config?.GetValue<string>("ConnectionStrings:maxhanna"));
+			await conn.OpenAsync();
+
+			using var checkCmd = new MySqlCommand(checkSql, conn);
+			checkCmd.Parameters.AddWithValue("@UserId", userId);
+			checkCmd.Parameters.AddWithValue("@Range", range);
+
+			using var reader = await checkCmd.ExecuteReaderAsync();
+
+			int count = 0;
+			while (await reader.ReadAsync())
+			{
+				var actualFrom = reader.GetString(0);
+				if (!actualFrom.Equals(expectedFrom, StringComparison.OrdinalIgnoreCase))
+				{
+					// Break early if any trade does not match
+					//_ = _log.Db($"[ConsecutiveCheck] Mismatch at position {count}: Expected {expectedFrom}, Got {actualFrom}", userId, "TRADE", true);
+					return false;
+				}
+				count++;
+			}
+
+			// Only return true if we got enough matches
+			bool result = (count == range);
+			_ = _log.Db($"[ConsecutiveCheck] Consecutive Matches={count}, Range={range}, Result={result}", userId, "TRADE", true);
+			return result;
+		}
+		catch (Exception ex)
+		{
+			_ = _log.Db("Error checking consecutive trades: " + ex.Message, userId, "TRADE", true);
+			return true; // Fail safe: prevent trade
+		}
+	}
+  
 	private async Task<TradeRecord?> GetLastTradeJSONDeserialized(int userId, decimal? lastBTCValueCad)
 	{
 		if (lastBTCValueCad == null)
@@ -952,8 +979,77 @@ public class KrakenService
 			_ = _log.Db("Error getting API keys: " + ex.Message, userId, "TRADE", true);
 			return false; // Return false in case of error
 		}
-	}
+	} 
+	private async Task<decimal?> GetBtcPriceToCad(int userId, UserKrakenApiKey keys)
+	{
+		try
+		{
+			var pair = "XXBTZCAD";
+			var response = await MakeRequestAsync(userId, keys, "/Ticker", "public", new Dictionary<string, string> { ["pair"] = pair });
+			if (response == null || !response.ContainsKey("result"))
+			{
+				_ = _log.Db("Failed to get BTC price in CAD: 'result' not found.", userId, "TRADE", true);
+				return null;
+			}
+			var result = (JObject)response["result"];
+			if (!result.ContainsKey(pair))
+			{
+				_ = _log.Db("Failed to find XXBTZCAD pair in the response.", userId, "TRADE", true);
+				return null;
+			}
 
+			// Extract the ask price from the 'a' key (ask prices are in the array)
+			var askArray = result[pair]["a"]?.ToObject<JArray>();
+			if (askArray == null || askArray.Count < 1)
+			{
+				_ = _log.Db("Failed to extract ask price from response.", userId, "TRADE", true);
+				return null;
+			}
+			// The ask price is the first value in the array
+			var askPrice = askArray[0].ToObject<decimal>();
+			return askPrice;
+		}
+		catch (Exception ex)
+		{
+			_ = _log.Db($"Error fetching BTC price to CAD: {ex.Message}", userId, "TRADE", true);
+			return null;
+		}
+	} 
+	private async Task<decimal?> GetBtcPriceToUSDC(int userId, UserKrakenApiKey keys)
+	{
+		try
+		{
+			var pair = "XXBTZUSD";
+			var response = await MakeRequestAsync(userId, keys, "/Ticker", "public", new Dictionary<string, string> { ["pair"] = pair });
+			if (response == null || !response.ContainsKey("result"))
+			{
+				_ = _log.Db("Failed to get BTC price in USD: 'result' not found.", userId, "TRADE", true);
+				return null;
+			}
+			var result = (JObject)response["result"];
+			if (!result.ContainsKey(pair))
+			{
+				_ = _log.Db("Failed to find XXBTZUSD pair in the response.", userId, "TRADE", true);
+				return null;
+			}
+
+			// Extract the ask price from the 'a' key (ask prices are in the array)
+			var askArray = result[pair]["a"]?.ToObject<JArray>();
+			if (askArray == null || askArray.Count < 1)
+			{
+				_ = _log.Db("Failed to extract ask price from response.", userId, "TRADE", true);
+				return null;
+			}
+			// The ask price is the first value in the array
+			var askPrice = askArray[0].ToObject<decimal>();
+			return askPrice;
+		}
+		catch (Exception ex)
+		{
+			_ = _log.Db($"Error fetching BTC price to USD: {ex.Message}", userId, "TRADE", true);
+			return null;
+		}
+	}
 
 	public async Task<Dictionary<string, object>> MakeRequestAsync(int userId, UserKrakenApiKey keys, string endpoint, string publicOrPrivate, Dictionary<string, string> postData = null)
 	{
@@ -1010,7 +1106,13 @@ public class KrakenService
 			throw;
 		}
 	}
+	private string FormatBTC(decimal amount) => amount.ToString("0.00000000", CultureInfo.InvariantCulture);
 
+	private decimal ConvertBTCToUSDC(decimal btcAmount, decimal btcPriceCAD, decimal usdToCad)
+	{
+		decimal btcPriceUsd = btcPriceCAD / usdToCad;
+		return btcAmount * btcPriceUsd;
+	}
 	private string CreateSignature(string urlPath, string postData, string nonce, string privateKey)
 	{
 		// 1. SHA256(nonce + POST data)

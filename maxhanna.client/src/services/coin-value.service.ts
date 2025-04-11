@@ -3,6 +3,7 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 import { CoinValue } from './datacontracts/crypto/coin-value';
 import { ExchangeRate } from './datacontracts/crypto/exchange-rate';
 import { User } from './datacontracts/user/user';
+import { MiningWalletResponse } from './datacontracts/crypto/mining-wallet-response';
  
 @Injectable({
   providedIn: 'root'
@@ -238,7 +239,23 @@ export class CoinValueService {
       return [];
     }
   }
-
+  async getWallet(userId: number): Promise<MiningWalletResponse[] | undefined> {
+    try {
+      const response = await fetch('/coinvalue/btcwallet/getwalletdata', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(userId),
+      });
+      if (response.status === 404) {
+        return [];
+      }
+      return await response.json();
+    } catch (error) {
+      return [];
+    }
+  } 
   async deleteBTCWalletAddress(userId: number, address: string) {
     try {
       const response = await fetch('/coinvalue/btcwallet/deletebtcwalletaddress', {

@@ -19,18 +19,18 @@
 }
 .addReactionSpan, .addReactionSpanNoBorder {
   white-space: nowrap;
-  font-size: small;
-  padding-right: 2px;
-  padding: 2px;
+  font-size: small; 
+  padding: 4px;
   cursor: pointer;
   text-shadow: 1px 1px black;
-  display: flex; 
+  display: flex;
   white-space: nowrap;
   align-items: center;
   justify-content: center;
   align-content: center;
   flex-wrap: nowrap;
-  flex-direction: row; 
+  flex-direction: row;
+  line-height: var(--main-font-size);
 } 
 
 .reactionWrapper {
