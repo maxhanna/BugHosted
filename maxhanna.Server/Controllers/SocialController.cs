@@ -723,11 +723,11 @@ namespace maxhanna.Server.Controllers
 
 
 		[HttpPost("/Social/Post-Story/", Name = "PostStory")]
-		public async Task<IActionResult> PostStory([FromBody] StoryRequest request)
+		public async Task<IActionResult> PostStory([FromBody] StoryRequest request, [FromHeader(Name = "Encrypted-UserId")] string encryptedUserIdHeader)
 		{
 			if (request.userId != null)
 			{ 
-				if (!await _log.ValidateUserLoggedIn(request.userId.Value)) return StatusCode(500, "Access Denied.");
+				if (!await _log.ValidateUserLoggedIn(request.userId.Value, encryptedUserIdHeader)) return StatusCode(500, "Access Denied.");
 			}
 
 			try
@@ -813,11 +813,11 @@ namespace maxhanna.Server.Controllers
 
 
 		[HttpPost("/Social/Delete-Story", Name = "DeleteStory")]
-		public async Task<IActionResult> DeleteStory([FromBody] StoryRequest request)
+		public async Task<IActionResult> DeleteStory([FromBody] StoryRequest request, [FromHeader(Name = "Encrypted-UserId")] string encryptedUserIdHeader)
 		{
 			if (request.userId != null)
 			{
-				if (!await _log.ValidateUserLoggedIn(request.userId.Value)) return StatusCode(500, "Access Denied.");
+				if (!await _log.ValidateUserLoggedIn(request.userId.Value, encryptedUserIdHeader)) return StatusCode(500, "Access Denied.");
 			}
 
 			try
@@ -856,11 +856,11 @@ namespace maxhanna.Server.Controllers
 
 
 		[HttpPost("/Social/Edit-Story", Name = "EditStory")]
-		public async Task<IActionResult> EditStory([FromBody] StoryRequest request)
+		public async Task<IActionResult> EditStory([FromBody] StoryRequest request, [FromHeader(Name = "Encrypted-UserId")] string encryptedUserIdHeader)
 		{
 			if (request.userId != null)
 			{
-				if (!await _log.ValidateUserLoggedIn(request.userId.Value)) return StatusCode(500, "Access Denied.");
+				if (!await _log.ValidateUserLoggedIn(request.userId.Value, encryptedUserIdHeader)) return StatusCode(500, "Access Denied.");
 			}
 
 			try

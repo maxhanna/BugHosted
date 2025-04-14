@@ -7,14 +7,15 @@ import { HttpClient } from '@angular/common/http';
   providedIn: 'root'
 })
 export class AiService { 
-  async sendMessage(user: User, skipSave = false, message: string, maxCount?: number,) {
+  async sendMessage(userId: number, skipSave = false, message: string, encryptedUserId: string, maxCount?: number) {
     try {
       const response = await fetch('/ai/sendmessagetoai', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Encrypted-UserId': encryptedUserId,
         },
-        body: JSON.stringify({ User: user, Message: message, SkipSave: skipSave, MaxCount: maxCount ?? 0 }),
+        body: JSON.stringify({ UserId: userId, Message: message, SkipSave: skipSave, MaxCount: maxCount ?? 0 }),
       }); 
       return response.json();
     } catch (error) {
@@ -23,14 +24,14 @@ export class AiService {
     }
   }
 
-  async generateImage(user: User, message: string) {
+  async generateImage(userId: number, message: string) {
     try {
       const response = await fetch(`/ai/generateimagewithai`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ User: user, Message: message }),
+        body: JSON.stringify({ UserId: userId, Message: message }),
       });
 
       return await response.json();

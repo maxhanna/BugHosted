@@ -12,9 +12,11 @@ export class SpeechRecognitionComponent {
   isListening = false;
   lastSpokenMessages: { message: string }[] = []; 
   readonly MAX_HISTORY = 8;
+  speechRecognitionUnavailable = false;
 
   @Output() speechRecognitionEvent = new EventEmitter<string | undefined>();
   @Output() speechRecognitionStopListeningEvent = new EventEmitter<void>();
+  @Output() speechRecognitionNotSupportedEvent = new EventEmitter<boolean>();
   constructor(private zone: NgZone) {
     const SpeechRecognitionConstructor =
       (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
@@ -24,8 +26,10 @@ export class SpeechRecognitionComponent {
       this.recognition.lang = 'en-US';
       this.recognition.interimResults = false;
       this.recognition.maxAlternatives = 1;
+      this.speechRecognitionNotSupportedEvent.emit(false);
     } else {
-      alert('Speech recognition is not supported in this browser. Currently, this feature is available only on Chrome or Safari.');  
+      this.speechRecognitionNotSupportedEvent.emit(true);
+      this.speechRecognitionUnavailable = true;
     }
   }
   onResult(transcript: string) { 
@@ -39,19 +43,7 @@ export class SpeechRecognitionComponent {
 
     this.recognition.onresult = (event: any) => {
       const transcript = event.results[0][0].transcript;
-      const normalized = transcript.toLowerCase();
-      const now = new Date();
-
-      for (const entry of this.lastSpokenMessages) {
-        const similarity = this.getSimilarity(normalized, entry.message);
-        const wordRatio = this.getPartialWordMatchRatio(entry.message, normalized);
-        console.log("Checking against previous message:", entry.message, normalized, { similarity, wordRatio });
-        if (similarity > 0.2 || wordRatio > 0.2) {
-          console.log("Filtered echo-like input:", normalized, { similarity, wordRatio });
-          return;
-        }
-      }
-
+      const normalized = transcript.toLowerCase(); 
       this.zone.run(() => {
         this.speechRecognitionEvent.emit(transcript); 
         onResult(transcript);
@@ -68,46 +60,16 @@ export class SpeechRecognitionComponent {
     this.recognition.onerror = (event: any) => {
       console.error('Speech recognition error:', event.error);
       this.isListening = false;
+      this.speechRecognitionEvent.emit();
     };
   }
 
   stopListening() {
-    this.recognition.stop();
+    if (this.recognition) { 
+      this.recognition.stop();
+    }
     this.isListening = false;
     this.lastSpokenMessages = [];
     this.speechRecognitionStopListeningEvent.emit();
-  }
-
-  private getSimilarity(a: string, b: string): number {
-    const distance = this.levenshteinDistance(a, b);
-    const maxLen = Math.max(a.length, b.length);
-    return maxLen === 0 ? 1 : (1 - distance / maxLen);
-  }
-
-  private levenshteinDistance(a: string, b: string): number {
-    const matrix = Array.from({ length: a.length + 1 }, (_, i) =>
-      Array.from({ length: b.length + 1 }, (_, j) => (i === 0 ? j : j === 0 ? i : 0))
-    );
-
-    for (let i = 1; i <= a.length; i++) {
-      for (let j = 1; j <= b.length; j++) {
-        const cost = a[i - 1] === b[j - 1] ? 0 : 1;
-        matrix[i][j] = Math.min(
-          matrix[i - 1][j] + 1,      // deletion
-          matrix[i][j - 1] + 1,      // insertion
-          matrix[i - 1][j - 1] + cost // substitution
-        );
-      }
-    }
-
-    return matrix[a.length][b.length];
-  }
-  private getPartialWordMatchRatio(a: string, b: string): number {
-    const wordsA = a.split(/\s+/);
-    const wordsB = b.split(/\s+/);
-
-    const matchCount = wordsA.filter(word => wordsB.includes(word)).length;
-    return wordsA.length === 0 ? 0 : matchCount / wordsA.length;
-  }
-
+  } 
 }

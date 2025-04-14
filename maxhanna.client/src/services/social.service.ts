@@ -40,12 +40,13 @@ export class SocialService {
     }
   }
 
-  async postStory(userId: number, story: Story, profileStoryId?: number) {
+  async postStory(userId: number, story: Story, encryptedUserId: string, profileStoryId?: number) {
     try {
       const res = await fetch('/social/post-story', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Encrypted-UserId': encryptedUserId
         },
         body: JSON.stringify({ userId, story, profileStoryId }),
       });
@@ -60,12 +61,13 @@ export class SocialService {
     }
   }
 
-  async deleteStory(userId: number, story: Story) {
+  async deleteStory(userId: number, story: Story, encryptedUserId: string) {
     try {
       const res = await fetch('/social/delete-story', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Encrypted-UserId': encryptedUserId
         },
         body: JSON.stringify({ userId, story }),
       });
@@ -79,12 +81,13 @@ export class SocialService {
       return 'Error deleting story';
     }
   }
-  async editStory(userId: number, story: Story) {
+  async editStory(userId: number, story: Story, encryptedUserId: string) {
     try {
       const res = await fetch('/social/edit-story', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Encrypted-UserId': encryptedUserId,
         },
         body: JSON.stringify({ userId, story }),
       });

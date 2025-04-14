@@ -120,8 +120,7 @@ export class LineGraphComponent implements OnInit, OnChanges {
     } 
     const borderColor = (this.coinSwitcher?.nativeElement && !this.coinSwitcher?.nativeElement?.value)
       ? undefined
-      : this.darkMode ? this.getCSSVariableValue("--main-link-color") : this.getCSSVariableValue("--third-font-color") ?? "#000000"; // Red fallback
-    console.log(borderColor, this.coinSwitcher?.nativeElement?.value); // See what the color is set to
+      : this.darkMode ? this.getCSSVariableValue("--main-link-color") : this.getCSSVariableValue("--third-font-color") ?? "#000000"; 
 
     if (uniqueCoinNames) {
       if (this.type == "Crypto") {
@@ -129,15 +128,14 @@ export class LineGraphComponent implements OnInit, OnChanges {
           const coinFilteredData = filteredData.filter(item => item.name === coinName);
           datasets.push({
             data: coinFilteredData.map(item => item.valueCAD),
-            label: `${coinName} Fluctuation (${this.selectedCurrency}$)`, 
+            label: `${coinName} Fluctuation ${this.selectedCurrency ? "("+this.selectedCurrency+"$)" : ""}`, 
             backgroundColor: borderColor,
             borderColor: borderColor,
             borderJoinStyle: "round",
             tension: 0.2,
             cubicInterpolationMode: 'monotone',
           });
-
-          // Add unique timestamps to chartLabelsSet
+           
           coinFilteredData.forEach(item => chartLabelsSet.add(item.timestamp.replace('T', ' ').replace('-', '.')));
         });
       } else if (this.type == "Currency") {

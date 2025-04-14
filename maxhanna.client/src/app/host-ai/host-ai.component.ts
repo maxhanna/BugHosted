@@ -20,9 +20,10 @@ export class HostAiComponent extends ChildComponent implements OnInit, OnDestroy
 
   startedTalking = false;
   tmpStartTalkingVariable = false;
-  private utterance: SpeechSynthesisUtterance | null = null; 
-  private engineeredText: string = ". This is our previous message history: ";
+  private utterance: SpeechSynthesisUtterance | null = null;
+  private engineeredText: string = ". (previous message history: ";
   private savedMessageHistory: string[] = [];
+  speechRecognitionUnavailable?: boolean = undefined;
 
   @ViewChild('chatInput') chatInput!: ElementRef<HTMLInputElement>;
   @ViewChild('chatContainer') chatContainer!: ElementRef<HTMLDivElement>;
@@ -34,15 +35,21 @@ export class HostAiComponent extends ChildComponent implements OnInit, OnDestroy
   ngOnDestroy() {
     this.parentRef?.removeResizeListener();
     if (this.speechRecognitionComponent) {
-      this.speechRecognitionComponent.stopListening(); 
+      this.speechRecognitionComponent.stopListening();
     }
-    this.stopTalking();
+    setTimeout(() => {
+      this.stopTalking();
+    }, 50);
   }
   sendMessage() {
-    const user = this.parentRef?.user ?? new User(0);
-    this.userMessage = this.chatInput.nativeElement.value.trim(); 
+    if (!this.parentRef) return alert("No parent ref?");
+    const user = this.parentRef.user ?? new User(0);
+    this.userMessage = this.chatInput.nativeElement.value.trim();
+    if (!this.userMessage.trim()) return alert("No message sent");
+    if (this.userWantsToForgetHistory(this.userMessage)) {
+      this.savedMessageHistory = [];
+    }
     if (this.userWantsToStopVoice(this.userMessage)) {
-      this.chatInput.nativeElement.value = "";
       this.userMessage = "";
       this.stopTalking();
       return;
@@ -50,22 +57,29 @@ export class HostAiComponent extends ChildComponent implements OnInit, OnDestroy
     this.startLoading();
     if (this.userMessage.trim()) {
       this.pushMessage({ sender: 'You', message: this.userMessage.replace('\n', "<br>") });
-      this.aiService.sendMessage(user, false, this.userMessage + this.engineeredText + JSON.stringify(this.savedMessageHistory)).then(
-        (response) => {
-          let reply = this.aiService.parseMessage(response.response ?? response.reply);
-          this.pushMessage({ sender: this.hostName, message: reply });
-          this.stopLoading();
-        },
-        (error) => {
-          console.error(error);
-          this.pushMessage({ sender: 'System', message: error.reply });
-          this.stopLoading();
-        }
-      );
-      this.savedMessageHistory.push(this.userMessage); 
+      this.parentRef.getSessionToken().then(sessionToken => {
+        this.aiService.sendMessage(user.id ?? 0, false, this.userMessage + this.engineeredText + JSON.stringify(this.savedMessageHistory) + ")", sessionToken).then(
+          (response) => {
+            let reply = this.aiService.parseMessage(response.response ?? response.reply);
+            this.savedMessageHistory.push((response.response ?? response.reply));
+            this.pushMessage({ sender: this.hostName, message: reply });
+            this.chatInput.nativeElement.value = "";
+            this.chatInput.nativeElement.focus();
+            this.stopLoading();
+          },
+          (error) => {
+            console.error(error);
+            this.pushMessage({ sender: 'System', message: error.reply });
+            this.chatInput.nativeElement.value = "";
+            setTimeout(() => { 
+              this.chatInput.nativeElement.focus();
+            }, 50);
+            this.stopLoading();
+          }
+        );
+      })
+      this.savedMessageHistory.push(this.userMessage);
       this.userMessage = '';
-      this.chatInput.nativeElement.value = "";
-      this.chatInput.nativeElement.focus();
     }
   }
   speechRecognitionEvent(transcript: string | undefined) {
@@ -75,6 +89,8 @@ export class HostAiComponent extends ChildComponent implements OnInit, OnDestroy
       setTimeout(() => {
         this.sendMessage();
       }, 100);
+    } else {
+      this.startedTalking = false;
     }
   }
   generateImage() {
@@ -115,7 +131,7 @@ console.log("Hello, world!");
   pushMessage(message: any) {
     this.chatMessages.push(message);
     if (message.sender === this.hostName) {
-      this.speakMessage(message.message); 
+      this.speakMessage(message.message);
     }
     setTimeout(() => {
       const tgt = document.getElementsByClassName("chat-box")[0];
@@ -129,55 +145,91 @@ console.log("Hello, world!");
       return;
     }
     this.stopListeningTemporarily();
+
     if ('speechSynthesis' in window) {
       console.log("Speech synthesis is supported! ", message);
-      const cleanMessage = message.replace(/<\/?[^>]+(>|$)/g, "").replace(/[^\x20-\x7E]/g, "");  
-      //this.lastSpokenMessage = cleanMessage.toLowerCase();
 
-      // Create the speech synthesis utterance
-      this.utterance = new SpeechSynthesisUtterance(cleanMessage);
-      this.utterance.lang = 'en-US';
+      // Remove HTML tags and non-ASCII characters.
+      let cleanMessage = message.replace(/<\/?[^>]+(>|$)/g, "").replace(/[^\x20-\x7E]/g, "");
 
-      // Check available voices
-      const voices = speechSynthesis.getVoices();
+      // Replace "e.g.", "eg.", or "ex." (case-insensitive) with "example".
+      cleanMessage = cleanMessage.replace(/\b(e\.g\.|eg\.|ex\.)\b/gi, "example");
 
-      // If voices are available, choose the first one (or a specific one)
-      if (voices.length > 0) {
-        const naturalVoice = voices.find(voice => voice.name.toLowerCase().includes('mark') || voice.name.toLowerCase().includes('zira') || voice.name.toLowerCase().includes('microsoft'));
-        this.utterance.voice = naturalVoice || voices[0];
-      } else {
-        // If no voices available, we need to wait for them to load
-        speechSynthesis.onvoiceschanged = () => {
-          const voices = speechSynthesis.getVoices();
-          const naturalVoice = voices.find(voice => voice.name.toLowerCase().includes('mark') || voice.name.toLowerCase().includes('zira') || voice.name.toLowerCase().includes('microsoft'));
-          if (this.utterance) { 
-            this.utterance.voice = naturalVoice || voices[0];
-          }
-          console.log(voices);
-        };
+      // Remove parentheses and their contents.
+      cleanMessage = cleanMessage.replace(/\(.*?\)/g, '');
+
+      // Split the message into segments based on punctuation.
+      // This regular expression captures groups of characters ending with punctuation.
+      const segments: string[] = [];
+      const regex = /[^,;:\-\.]+[,:;\-\.]*/g;
+      let match: RegExpExecArray | null;
+      while ((match = regex.exec(cleanMessage)) !== null) {
+        segments.push(match[0].trim());
       }
 
-      // Adjust the pitch and rate for a more natural sound
-      this.utterance.pitch = 0.8; // 1 is the default, increase or decrease for a higher/lower pitch
-      this.utterance.rate = 1; // 1 is the default, increase for faster or decrease for slower speech
-
-      this.utterance.onend = () => {
-        if (this.startedTalking) {
-          this.startListening();
+      // Function to speak the segments sequentially.
+      const speakSegments = (index: number) => {
+        if (index >= segments.length) {
+          // All segments spoken; resume listening if applicable.
+          if (this.startedTalking) {
+            this.startListening();
+          }
+          return;
         }
+
+        const segment = segments[index];
+        const utterance = new SpeechSynthesisUtterance(segment);
+        utterance.lang = 'en-US';
+        utterance.pitch = 0.8; // Lower than the default for a more natural tone.
+        utterance.rate = 1.2;    // Normal speaking rate.
+        utterance.volume = 1;
+
+        // Choose a preferred voice if available.
+        const voices = window.speechSynthesis.getVoices();
+        if (voices.length > 0) {
+          const naturalVoice = voices.find(voice =>
+            voice.name.toLowerCase().includes('mark') ||
+            voice.name.toLowerCase().includes('zira') ||
+            voice.name.toLowerCase().includes('microsoft')
+          );
+          utterance.voice = naturalVoice || voices[0];
+        }
+
+        utterance.onend = () => {
+          // Default pause time.
+          let pauseTime = 200;
+          const lastChar = segment.slice(-1);
+          if (lastChar === ',') {
+            pauseTime = 300;
+          } else if (lastChar === ':' || lastChar === ';' || lastChar === '.') {
+            pauseTime = 400;
+          } else if (lastChar === '-') {
+            if (/ \- /.test(segment)) {// Only add a pause if the dash is surrounded by spaces.
+              pauseTime = 300;
+            } else {
+              pauseTime = 0;
+            }
+          }
+          setTimeout(() => speakSegments(index + 1), pauseTime);
+        };
+
+        window.speechSynthesis.speak(utterance);
       };
-      speechSynthesis.speak(this.utterance);
+
+      // Start the recursive speaking of segments.
+      speakSegments(0);
     } else {
       console.log("Speech synthesis is NOT supported in this browser.");
     }
   }
+
   private stopListeningTemporarily() {
     this.stopListening();
     this.tmpStartTalkingVariable = true;
     setTimeout(() => { this.startedTalking = true; this.tmpStartTalkingVariable = false; }, 1000);
   }
   private startListening() {
-    this.stopListening(); 
+    this.stopListening();
     setTimeout(() => {
       // Call startListening and pass the onResult callback
       this.speechRecognitionComponent?.startListening((transcript: string) => {
@@ -187,10 +239,14 @@ console.log("Hello, world!");
   }
 
   stopTalking() {
+    speechSynthesis.cancel();
+
     if (this.utterance) {
-      speechSynthesis.cancel();
+      this.utterance.onend = null;
+      this.utterance.onerror = null;
       this.utterance = null;
     }
+
     this.startedTalking = false;
     this.speechRecognitionComponent?.stopListening();
   }
@@ -199,18 +255,45 @@ console.log("Hello, world!");
   }
   userWantsToStopVoice(message: string): boolean {
     console.log(message);
-    if (message.toLowerCase().includes("cancel") ||
-      message.toLowerCase().includes("stop") ||
-      message.toLowerCase().includes("quit") ||
-      message.toLowerCase().includes("forget about it") ||
-      message.toLowerCase().includes("nevermind") ||
-      message.toLowerCase().includes("halt") ||
-      message.toLowerCase().includes("no") ||
-      message.toLowerCase().includes("pause") ||
-      message.toLowerCase().includes("end")) {
-      return true;
+    const stopWords = [
+      "cancel", "stop", "quit", "forget about it", "nevermind",
+      "halt", "no", "pause", "end"
+    ];
+
+    const lowerMessage = message.toLowerCase();
+
+    // Check for exact phrase matches first (like "forget about it")
+    for (const phrase of stopWords) {
+      if (lowerMessage === phrase) return true;
+      if (lowerMessage.includes(phrase) && phrase.includes(" ")) return true;
     }
-    else
-      return false;
+
+    // Tokenize for single-word exact matches (e.g., "no" vs "know")
+    const tokens = lowerMessage.split(/\b[\s,!.?;]+\b/);
+    for (const token of tokens) {
+      if (stopWords.includes(token)) return true;
+    }
+
+    return false;
+  } 
+  userWantsToForgetHistory(message: string): boolean {
+    console.log(message);
+    const forgetKeywords = new Set([
+      "forget", "erase", "clear", "delete", "remove",
+      "reset", "wipe", "discard", "start over", "start fresh",
+      "clean slate", "forget everything", "forget what i said"
+    ]);
+    const lowered = message.toLowerCase();
+
+    for (const keyword of forgetKeywords) {
+      if (lowered.includes(keyword)) {
+        console.log(`Matched forget intent keyword: "${keyword}"`);
+        return true;
+      }
+    }
+    return false;
+  }
+  speechRecognitionNotSupportedEvent(event: boolean) { 
+    this.speechRecognitionUnavailable = event;
   }
 }

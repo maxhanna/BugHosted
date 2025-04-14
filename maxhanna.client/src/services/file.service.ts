@@ -110,12 +110,13 @@ romFileExtensions = [
 			return null;
 		}
 	}
-	async createDirectory(userId: number, directory: string, isPublic: boolean) {
+	async createDirectory(userId: number, directory: string, isPublic: boolean, sessionToken: string) {
 		try {
 			const response = await fetch(`/file/makedirectory`, {
 				method: 'POST',
 				headers: {
-					'Content-Type': 'application/json',
+          'Content-Type': 'application/json',
+          'Encrypted-UserId': sessionToken,
 				},
 				body: JSON.stringify({ userId, directory, isPublic }),
 			});
@@ -155,13 +156,14 @@ romFileExtensions = [
 		}
 	}
 
-	async getFileById(fileId: number, options?: { signal: AbortSignal }, userId?: number) {
+  async getFileById(fileId: number, sessionToken: string, options?: { signal: AbortSignal }, userId?: number) {
 		try {
 			const response = await fetch(`/file/getfilebyid/${encodeURIComponent(fileId)}`, {
 				method: 'POST',
 				headers: {
 					'Content-Type': 'application/json',
-					'Cache-Control': 'max-age=31536000'
+          'Cache-Control': 'max-age=31536000',
+          'Encrypted-UserId': sessionToken,
 				}, 
         signal: options?.signal,
         body: JSON.stringify(userId)
@@ -361,8 +363,8 @@ romFileExtensions = [
 			return null;
 		}
 	}
-	async getFileSrcByFileId(fileId: number): Promise<string> {
-		const response = await this.getFileById(fileId);
+	async getFileSrcByFileId(fileId: number, sessionToken: string): Promise<string> {
+		const response = await this.getFileById(fileId, sessionToken);
 		if (!response || response == null) return '';
 		const contentDisposition = response.headers["content-disposition"];
 		const selectedFileExtension = this.getFileExtensionFromContentDisposition(contentDisposition);

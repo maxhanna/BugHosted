@@ -58,36 +58,43 @@
         Menu
       </div>
 
-      <div style="display:flex;" class="menuPopupSection">
-        <div>
-          <app-user-tag [user]="parentRef?.user" [inputtedParentRef]="parentRef ?? parent"></app-user-tag>
+      <div style="display: flex; justify-content: flex-start; align-content: center; align-items: center;" class="menuPopupSection">
+        <div style="display: flex; margin: 10px;">
+          <div>
+            <app-user-tag [user]="parentRef?.user" [inputtedParentRef]="parentRef ?? parent"></app-user-tag>
+          </div>
+          <div style="display: flex; flex-direction: column; align-content: center; justify-content: space-around; padding-left: 15px; font-family: var(--title-font-family)">
+            <div>{{city}},</div>
+            <div>{{country}}</div>
+          </div>
         </div>
-        <div style="display: flex; flex-direction: column; align-content: center; justify-content: space-around; padding-left: 15px; font-family: var(--title-font-family)">
-          <div>{{city}},</div>
-          <div>{{country}}</div>
+
+        <div style=" display: inline-flex; flex-direction: column; align-content: center; justify-content: center; align-items: center; flex-wrap: nowrap;">
+          <div *ngIf="totalPagesArray.length > 1" class="menuPopupSection" style="display: flex; justify-content: space-evenly; width: 100%;">
+            <span>Page Select:</span>
+            <select [value]="currentPage" (change)="pageChanged()" #pageSelect>
+              <option *ngFor="let page of totalPagesArray" [value]="page" [selected]="page === currentPage">{{ page }}</option>
+            </select>
+          </div>
+
+          <div class="menuPopupSection" style="display: flex; justify-content: space-evenly; width: 100%;">
+            <span>Display NSFW?:</span> <input type="checkbox" #nsfwCheckmark2 [checked]="isDisplayingNSFW" (click)="updateNSFW($event)" />
+          </div>
+
+          <div class="menuPopupSection">
+            <label style="display: flex; justify-content: space-evenly; width: 100%;">
+              <span>Show Hidden Posts?:</span>
+              <select (change)="setFilterHidden($event)">
+                <option value="yes" [selected]="filter.hidden === 'yes'">Yes</option>
+                <option value="no" [selected]="filter.hidden === 'no'">No</option>
+              </select>
+            </label>
+          </div>
         </div>
+
       </div>
 
-      <div *ngIf="totalPagesArray.length > 1" class="menuPopupSection">
-        Page Select:
-        <select [value]="currentPage" (change)="pageChanged()" #pageSelect>
-          <option *ngFor="let page of totalPagesArray" [value]="page" [selected]="page === currentPage">{{ page }}</option>
-        </select>
-      </div>
-
-      <div class="menuPopupSection">
-        Display NSFW? : <input type="checkbox" #nsfwCheckmark2 [checked]="isDisplayingNSFW" (click)="updateNSFW($event)" />
-      </div>
-
-      <div class="menuPopupSection">
-        <label>
-          Show Hidden Posts?:
-          <select (change)="setFilterHidden($event)">
-            <option value="yes" [selected]="filter.hidden === 'yes'">Yes</option>
-            <option value="no" [selected]="filter.hidden === 'no'">No</option>
-          </select>
-        </label>
-      </div>
+      
 
       <!-- search input area -->
       <div class="menuPopupSection">

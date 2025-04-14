@@ -628,8 +628,9 @@ namespace maxhanna.Server.Controllers
 
 
 		[HttpPost("/CoinValue/BTCWalletAddresses/Update", Name = "UpdateBTCWalletAddresses")]
-		public async Task<IActionResult> UpdateBTCWalletAddresses([FromBody] AddBTCWalletRequest request)
-		{ 
+		public async Task<IActionResult> UpdateBTCWalletAddresses([FromBody] AddBTCWalletRequest request, [FromHeader(Name = "Encrypted-UserId")] string encryptedUserIdHeader)
+		{
+			if (!await _log.ValidateUserLoggedIn(request.UserId, encryptedUserIdHeader)) return StatusCode(500, "Access Denied."); 
 			if (request.UserId == 0)
 			{
 				return BadRequest("User missing from AddBTCWalletAddress request");
@@ -691,9 +692,9 @@ namespace maxhanna.Server.Controllers
 		}
 
 		[HttpPost("/CoinValue/BTCWallet/GetBTCWalletData", Name = "GetBTCWalletData")]
-		public async Task<IActionResult> GetBTCWalletData([FromBody] int userId)
+		public async Task<IActionResult> GetBTCWalletData([FromBody] int userId, [FromHeader(Name = "Encrypted-UserId")] string encryptedUserIdHeader)
 		{
-			if (!await _log.ValidateUserLoggedIn(userId)) return StatusCode(500, "Access Denied.");
+			if (!await _log.ValidateUserLoggedIn(userId, encryptedUserIdHeader)) return StatusCode(500, "Access Denied.");
 
 			try
 			{
@@ -716,9 +717,9 @@ namespace maxhanna.Server.Controllers
 			}
 		}
 		[HttpPost("/CoinValue/BTCWallet/GetWalletData", Name = "GetWalletData")]
-		public async Task<IActionResult> GetWalletData([FromBody] int userId)
+		public async Task<IActionResult> GetWalletData([FromBody] int userId, [FromHeader(Name = "Encrypted-UserId")] string encryptedUserIdHeader)
 		{
-			if (!await _log.ValidateUserLoggedIn(userId)) return StatusCode(500, "Access Denied.");
+			if (!await _log.ValidateUserLoggedIn(userId, encryptedUserIdHeader)) return StatusCode(500, "Access Denied.");
 
 			try
 			{
@@ -755,13 +756,13 @@ namespace maxhanna.Server.Controllers
 		}
 
 		[HttpPost("/CoinValue/BTCWallet/DeleteBTCWalletAddress", Name = "DeleteBTCWalletAddress")]
-		public async Task<IActionResult> DeleteBTCWalletAddress([FromBody] DeleteCryptoWalletAddress request)
+		public async Task<IActionResult> DeleteBTCWalletAddress([FromBody] DeleteCryptoWalletAddress request, [FromHeader(Name = "Encrypted-UserId")] string encryptedUserIdHeader)
 		{ 
 			if (request.UserId == 0)
 			{
 				return BadRequest("You must be logged in");
 			}
-			if (!await _log.ValidateUserLoggedIn(request.UserId)) return StatusCode(500, "Access Denied.");
+			if (!await _log.ValidateUserLoggedIn(request.UserId, encryptedUserIdHeader)) return StatusCode(500, "Access Denied.");
 
 			using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
 			try

@@ -27,7 +27,7 @@
     <button (click)="toggleDarkMode()">
       {{ darkMode ? 'Light Mode' : 'Dark Mode' }}
     </button>
-    <select (change)="changeChartType($event.target)" [value]="chartType ?? 'line'">
+    <select (change)="changeChartType($event.target)" [value]="chartType">
       <option *ngFor="let type of validTypes" [value]="type">
         {{ type.charAt(0).toUpperCase() + type.slice(1) }}
       </option>

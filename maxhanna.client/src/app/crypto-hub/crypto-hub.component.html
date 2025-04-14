@@ -140,25 +140,32 @@
       </div>
     </div>
 
-    <div class="sectionContainer">
+    <div class="sectionContainer {{isTradeFullscreen ? 'popupPanel' : ''}}">
       <div class="titleFont cursorPointer">
         <span class="warning-text" title="We take no responsibility in how you use this trade bot nor what you do with any of this information.">⚠️</span>
         Trade Bot:
+        <button *ngIf="hasKrakenApi && hasAnyTradeConfig && !tradeBotStarted" (click)="startTradeBot()">Start</button>
+        <button *ngIf="tradeBotStarted" (click)="stopTradeBot()">Stop</button>
+        <p *ngIf="tradeBotStartedSince && isTradeFullscreen"></p>
+        <span *ngIf="tradeBotStartedSince">Running Since: {{tradeBotStartedSince}}</span>
         <span class="cursorPointerUnderlined" (click)="createUpdateUserComponent();" *ngIf="!hasKrakenApi && parentRef?.user?.id"> Set Up Kraken API Keys </span>
         <span class="cursorPointerUnderlined" (click)="createUserComponent();" *ngIf="!hasKrakenApi && !parentRef?.user?.id"> Log in to use the bot.</span>
-        <div *ngIf="hasKrakenApi">
-          <button>Start</button>
-          <button>Stop</button>
-          <button (click)="checkBalance()" [disabled]="isTradebotBalanceShowing || isLoading">See Logs</button>
+
+        <div *ngIf="hasKrakenApi && isTradeFullscreen" style="margin-top: 20px; display: flex; justify-content: center; align-content: flex-start; flex-wrap: wrap; align-items: flex-start;">
+          <button (click)="checkBalance()" [disabled]="isLoading" *ngIf="isTradeFullscreen">{{isTradebotBalanceShowing ? 'Hide' : 'Show'}} Trades</button>
+          <button (click)="showTradeSettings()" *ngIf="isTradeFullscreen">{{showingTradeSettings ? 'Hide' : 'Show'}} Configuration</button>
+          <button (click)="showTradeLogs()" *ngIf="isTradeFullscreen">{{showingTradeLogs ? 'Hide' : 'Show'}} Logs</button>
+          <button (click)="showTradeValueGraph()" *ngIf="isTradeFullscreen">{{isShowingTradeValueGraph ? 'Hide' : 'Show'}} Trade Value Graph</button>
         </div>
-        <div *ngIf="hasKrakenApi && isTradebotBalanceShowing && tradebotBalances?.length"  class="mainTableContainer">  
+        <div *ngIf="hasKrakenApi && isTradebotBalanceShowing && tradebotBalances?.length" class="mainTableContainer tradeDataTable">
           <table class="mainTable">
             <thead>
               <tr>
                 <th class="xxSmallFont">From Currency</th>
                 <th class="xxSmallFont">To Currency</th>
                 <th class="xxSmallFont">Value</th>
-                <th class="xxSmallFont">BTC Price CAD</th>
+                <th class="xxSmallFont">BTC Price $CAD</th>
+                <th class="xxSmallFont">Trade Value $CAD</th>
                 <th class="xxSmallFont">Timestamp</th>
               </tr>
             </thead>
@@ -168,14 +175,137 @@
                 <td class="xxSmallFont">{{ trade.to_currency }}</td>
                 <td class="xxSmallFont">{{ trade.value }}</td>
                 <td class="xxSmallFont">{{ trade.btc_price_cad }}</td>
+                <td class="xxSmallFont">{{ trade.trade_value_cad }}</td>
                 <td class="xxSmallFont">{{ getUtcTimeSince(trade.timestamp) }}</td>
               </tr>
             </tbody>
-          </table> 
+          </table>
         </div>
-      </div>  
+      </div>
+      <div *ngIf="showingTradeSettings" class="optionsStatsWrapperDiv tradeDataTable">
+        <div class="optionsStatsDiv">
+          <div class="optionsStatsHeader">From Coin</div>
+          <div class="optionsStatsDescription">
+            <select #tradeFromCoinSelect><option value="XBT">BTC</option></select>
+          </div>
+        </div>
+        <div class="optionsStatsDiv">
+          <div class="optionsStatsHeader">To Coin</div>
+          <div class="optionsStatsDescription">
+            <select #tradeToCoinSelect><option value="USDC">USDC</option></select>
+          </div>
+        </div>
+        <div class="optionsStatsDiv">
+          <div class="optionsStatsHeader">_MaximumFromTradeAmount</div>
+          <div class="optionsStatsDescription">
+            <input type="number" #tradeMaximumFromTradeAmount />
+          </div>
+        </div>
+        <div class="optionsStatsDiv">
+          <div class="optionsStatsHeader">_MinimumFromTradeAmount</div>
+          <div class="optionsStatsDescription">
+            <input type="number" #tradeMinimumFromTradeAmount />
+          </div>
+        </div>
+        <div class="optionsStatsDiv">
+          <div class="optionsStatsHeader">_MaximumToTradeAmount</div>
+          <div class="optionsStatsDescription">
+            <input type="number" #tradeMaximumToTradeAmount />
+          </div>
+        </div>
+        <div class="optionsStatsDiv">
+          <div class="optionsStatsHeader">_TradeThreshold</div>
+          <div class="optionsStatsDescription">
+            <input type="number" #tradeTradeThreshold />
+          </div>
+        </div>
+        <div class="optionsStatsDiv">
+          <div class="optionsStatsHeader">_MaximumTradeBalanceRatio</div>
+          <div class="optionsStatsDescription">
+            <input type="number" #tradeMaximumTradeBalanceRatio />
+          </div>
+        </div>
+        <div class="optionsStatsDiv">
+          <div class="optionsStatsHeader">_ValueTradePercentage</div>
+          <div class="optionsStatsDescription">
+            <input type="number" #tradeValueTradePercentage />
+          </div>
+        </div>
+        <div class="optionsStatsDiv">
+          <div class="optionsStatsHeader">_FromPriceDiscrepencyStopPercentage</div>
+          <div class="optionsStatsDescription">
+            <input type="number" #tradeFromPriceDiscrepencyStopPercentage />
+          </div>
+        </div>
+        <div class="optionsStatsDiv">
+          <div class="optionsStatsHeader">_InitialMinimumFromAmountToStart</div>
+          <div class="optionsStatsDescription">
+            <input type="number" #tradeInitialMinimumFromAmountToStart />
+          </div>
+        </div>
+        <div class="optionsStatsDiv">
+          <div class="optionsStatsHeader">_MinimumFromReserves</div>
+          <div class="optionsStatsDescription">
+            <input type="number" #tradeMinimumFromReserves />
+          </div>
+        </div>
+        <div class="optionsStatsDiv">
+          <div class="optionsStatsHeader">_MinimumToReserves</div>
+          <div class="optionsStatsDescription">
+            <input type="number" #tradeMinimumToReserves />
+          </div>
+        </div>
+        <div class="optionsStatsDiv">
+          <div class="optionsStatsHeader">Updated</div>
+          <div class="optionsStatsDescription">
+            <span *ngIf="tradeConfigLastUpdated">{{tradeConfigLastUpdated}}</span>
+            <span *ngIf="!tradeConfigLastUpdated">Never</span>
+          </div>
+        </div>
+        <div class="optionsStatsDiv">
+          <div class="optionsStatsHeader">Save Configuration</div>
+          <button (click)="updateCoinConfiguration()">💾Save</button>
+        </div>
+      </div> 
+      <div *ngIf="isShowingTradeValueGraph">
+        <app-line-graph [type]="'Crypto'"
+                        [graphTitle]="'Trade Value'"
+                        [data]="tradebotValuesForGraph"
+                        [selectedPeriod]="'5y'"
+                        (fullscreenSelectedEvent)="fullscreenSelectedInPopup($event)">
+        </app-line-graph>
+      </div>
+      <div *ngIf="showingTradeLogs" class="tradeDataTable">
+        <div *ngIf="tradeLogs.length > 0; else noLogs" class="mainTableContainer">
+          <table class="smallFont mainTable">
+            <thead>
+              <tr>
+                <th>Comment</th>
+                <th>Timestamp</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let log of paginatedLogs">
+                <td>{{ log.comment }}</td>
+                <td>{{ log.timestamp | date: 'short' }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <ng-template #noLogs>
+          <p>No logs found.</p>
+        </ng-template>
+      </div>
+      <div style="text-align:center;" *ngIf="showingTradeLogs && tradeLogs && tradeLogs.length > 0">
+        <button (click)="prevLogPage()" [disabled]="currentLogPage === 1">Previous</button>
+        <span>Page {{ currentLogPage }} of {{ totalLogPages }}</span>
+        <button (click)="nextLogPage()" [disabled]="currentLogPage >= totalLogPages">Next</button>
+      </div>
+
+      <div *ngIf="hasKrakenApi" style="{{isTradeFullscreen ? 'margin-top:20px;' : ''}}text-align:center; width: 100%;">
+        <button (click)="isTradeFullscreen ? closeTradeFullscreen() :  !isMenuPanelOpen ? openTradeFullscreen() : ''" id="closeOverlay">{{isTradeFullscreen ? 'Minimize' : 'Maximize'}} View</button>
+      </div> 
     </div>
-  </div>
 
   <div *ngIf="!data && isLoading">
     Loading data, please wait...

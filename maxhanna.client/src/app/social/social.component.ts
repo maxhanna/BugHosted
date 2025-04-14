@@ -180,10 +180,11 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
     }
   }
   async delete(story: Story) {
-    if (!this.parentRef?.user?.id) { return alert("Error: Cannot delete storise that dont belong to you."); }
-    if (!confirm("Are you sure you want to delete this story?")) return;
-
-    const res = await this.socialService.deleteStory(this.parentRef?.user?.id, story);
+    const parent = this.parentRef;
+    if (!parent?.user?.id) { return alert("Error: Cannot delete a post unless logged in or the post belongs to you."); }
+    if (!confirm("Are you sure you want to delete this post?")) return;
+    const sessionToken = await parent.getSessionToken();
+    const res = await this.socialService.deleteStory(parent.user.id, story, sessionToken);
     if (res) {
       this.parentRef?.showNotification(res);
       if (res.toLowerCase().includes('successful')) {
@@ -213,8 +214,9 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
     const message = (document.getElementById('storyTextTextarea' + story.id) as HTMLTextAreaElement).value;
     story.storyText = message;
     if (document.getElementById('storyText' + story.id) && this.parentRef?.user?.id) {
-      this.parentRef?.updateLastSeen();
-      this.socialService.editStory(this.parentRef.user.id, story);
+      this.parentRef.updateLastSeen();
+      const sessionToken = await this.parentRef.getSessionToken(); 
+      this.socialService.editStory(this.parentRef.user.id, story, sessionToken);
       this.isEditing = this.isEditing.filter(x => x != story.id);
     }
   }
@@ -364,16 +366,19 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
   private async postSingleStory(user: User, storyText: string): Promise<any> {
     const story = this.createStory(user, storyText, this.attachedFiles);
     this.parentRef?.updateLastSeen();
-    return this.socialService.postStory(user.id ?? 0, story);
+    const sessionToken = await this.parentRef?.getSessionToken(); 
+    return this.socialService.postStory(user.id ?? 0, story, sessionToken ?? "");
   }
 
   private async postEachFileAsSeparateStory(user: User, storyText: string): Promise<any[]> {
     this.parentRef?.updateLastSeen();
-    const promises = this.attachedFiles.map(file => {
+    const promises = this.attachedFiles.map(async file => {
       const story = this.createStory(user, storyText, [file]);
-      return this.socialService.postStory(user.id ?? 0, story);
+      const sessionToken = await this.parentRef?.getSessionToken();
+      return this.socialService.postStory(user.id ?? 0, story, sessionToken ?? "");
     });
-    return Promise.all(promises);
+
+    return await Promise.all(promises);
   }
 
   private clearStoryInputs(): void {

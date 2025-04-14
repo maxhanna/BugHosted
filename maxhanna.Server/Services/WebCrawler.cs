@@ -61,10 +61,9 @@ public class WebCrawler
 			foreach (string domain in nextDomains)
 			{
 				var tmpDomain = NormalizeUrl(domain);
-				await StartScrapingAsync(tmpDomain); // Await the asynchronous scraping call
-			}
-
-			// Once the list is built, scrape URLs from the list 1 by 1
+				await StartScrapingAsync(tmpDomain);
+				await Task.Delay(TimeSpan.FromSeconds(10));
+			} 
 			await ScrapeUrlsSequentially();
 		}
 		catch (HttpRequestException ex)
@@ -525,6 +524,13 @@ public class WebCrawler
 					}
 				}
 			}
+		}
+		catch (TaskCanceledException ex)
+		{
+			metadata.HttpStatus = 408;
+			_ = _log.Db($"ScrapeUrlData Timeout on URL ({url}) : " + ex.Message, null, "CRAWLER", true);
+			_ = MarkUrlAsFailed(url, 408);
+			return metadata;
 		}
 		catch (HttpRequestException ex)
 		{

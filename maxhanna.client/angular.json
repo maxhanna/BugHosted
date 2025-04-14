@@ -94,7 +94,7 @@
               "ssl": false,
               "liveReload": true,
               "watch": true,
-              "hmr": false
+              "hmr": true
             },
             "http": {
               "buildTarget": "maxhanna.client:build:production",

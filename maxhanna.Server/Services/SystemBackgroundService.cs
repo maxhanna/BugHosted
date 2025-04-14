@@ -1,10 +1,12 @@
 ﻿using maxhanna.Server.Controllers.DataContracts.Crypto;
 using maxhanna.Server.Controllers.Helpers;
 using MySqlConnector;
+using NewsAPI.Models;
 using Newtonsoft.Json;
 using RestSharp;
 using System.Data;
 using System.Text;
+using System.Text.RegularExpressions;
 
 namespace maxhanna.Server.Services
 {
@@ -16,6 +18,7 @@ namespace maxhanna.Server.Services
 		private readonly HttpClient _httpClient;
 		private readonly WebCrawler _webCrawler;
 		private readonly KrakenService _krakenService;
+		private readonly NewsService _newsService;
 		private readonly MiningApi _miningApiService = new MiningApi();
 		private readonly Log _log;
 		private readonly IConfiguration _config; // needed for apiKey
@@ -26,7 +29,7 @@ namespace maxhanna.Server.Services
 		private DateTime _lastMidDayTaskRun = DateTime.MinValue;
 		private bool isCrawling = false;
 
-		public SystemBackgroundService(Log log, IConfiguration config, WebCrawler webCrawler, KrakenService krakenService)
+		public SystemBackgroundService(Log log, IConfiguration config, WebCrawler webCrawler, KrakenService krakenService, NewsService newsService)
 		{
 			_config = config;
 			_connectionString = config.GetValue<string>("ConnectionStrings:maxhanna")!;
@@ -35,6 +38,7 @@ namespace maxhanna.Server.Services
 			_webCrawler = webCrawler;
 			_log = log;
 			_krakenService = krakenService; 
+			_newsService = newsService; 
 		}
 
 		protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -55,6 +59,7 @@ namespace maxhanna.Server.Services
 					await UpdateLastBTCWalletInfo();
 					await FetchAndStoreCoinValues(); 
 					_miningApiService.UpdateWalletInDB(_config, _log);
+					await _newsService.GetAndSaveTopQuarterHourlyHeadlines();
 				}
 				// Check if 1 hour has passed since the last coin fetch
 				if ((DateTime.Now - _lastHourlyTaskRun).TotalHours >= 1)
@@ -79,7 +84,11 @@ namespace maxhanna.Server.Services
 					await DeleteOldSearchResults();
 					await DeleteNotificationRequests();
 					await DeleteHostAiRequests();
+					await _newsService.CreateDailyCryptoNewsStoryAsync();
+					await _newsService.CreateDailyNewsStoryAsync();
+					await DeleteOldNews();
 					await _log.DeleteOldLogs();
+					await _log.BackupDatabase();
 					_lastDailyTaskRun = DateTime.Now;
 				}
 
@@ -190,7 +199,7 @@ namespace maxhanna.Server.Services
 		{
 			try
 			{
-				await _krakenService.MakeATrade();
+				await _krakenService.MakeATrade(1);
 			}
 			catch (Exception ex)
 			{
@@ -405,7 +414,7 @@ namespace maxhanna.Server.Services
 					await using (var deleteCmd = new MySqlCommand(deleteSql, conn, transaction))
 					{
 						int affectedRows = await deleteCmd.ExecuteNonQueryAsync();
-						_ = _log.Db($"Deleted {affectedRows} notification settings.", null);
+						_ = _log.Db($"Deleted {affectedRows} host ai calls.", null);
 					}
 
 					await transaction.CommitAsync();
@@ -413,6 +422,40 @@ namespace maxhanna.Server.Services
 				catch (Exception ex)
 				{
 					_ = _log.Db("Error occurred while deleting old HostAI calls. Rolling back transaction." + ex.Message, null);
+					await transaction.RollbackAsync();
+				}
+			}
+			catch (Exception ex)
+			{
+				_ = _log.Db("Error occurred while establishing the database connection or transaction." + ex.Message, null);
+			}
+		}
+
+		private async Task DeleteOldNews()
+		{
+			try
+			{
+				await using MySqlConnection conn = new MySqlConnection(_connectionString);
+				await conn.OpenAsync();
+
+				await using MySqlTransaction transaction = await conn.BeginTransactionAsync();
+				try
+				{
+					var deleteSql = @"
+                DELETE FROM maxhanna.news_headlines 
+                WHERE saved_at < UTC_TIMESTAMP() - INTERVAL 5 YEAR;";
+
+					await using (var deleteCmd = new MySqlCommand(deleteSql, conn, transaction))
+					{
+						int affectedRows = await deleteCmd.ExecuteNonQueryAsync();
+						_ = _log.Db($"Deleted {affectedRows} news headlines.", null);
+					}
+
+					await transaction.CommitAsync();
+				}
+				catch (Exception ex)
+				{
+					_ = _log.Db("Error occurred while deleting old news headlines. Rolling back transaction." + ex.Message, null);
 					await transaction.RollbackAsync();
 				}
 			}
@@ -800,4 +843,4 @@ namespace maxhanna.Server.Services
 		[JsonProperty("total_sent")]
 		public long TotalSent { get; set; }
 	}
-}
+}  

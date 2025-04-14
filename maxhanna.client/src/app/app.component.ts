@@ -34,7 +34,7 @@ import { FileEntry } from '../services/datacontracts/file/file-entry';
 import { CrawlerComponent } from './crawler/crawler.component';
 import { CrawlerService } from '../services/crawler.service';
 import { FavouriteService } from '../services/favourite.service';
-import { FileService } from '../services/file.service';
+import { FileService } from '../services/file.service'; 
 
 
 @Component({
@@ -90,6 +90,7 @@ export class AppComponent implements OnInit, AfterViewInit {
     { ownership: 0, icon: "➕", title: "UpdateUserSettings", content: undefined },
   ];
   location?: { ip:string, city: string, country: string } = undefined;
+  sessionToken?: string = undefined;
 
   private componentMap: { [key: string]: any; } = {
     "Navigation": NavigationComponent,
@@ -238,14 +239,17 @@ export class AppComponent implements OnInit, AfterViewInit {
     this.closeOverlay();
     this.replacePageTitleAndDescription(componentType, componentType);
 
-    if (!componentType || componentType.trim() === "") { 
-      window.location.reload(); 
-      return null;
+    if (!componentType || componentType.trim() === "") {
+      this.navigationComponent.maximizeNav();
+      this.showNotification("Invalid component type received. Returned to menu.");
+      return;
     }
 
     const componentClass = this.componentMap[componentType];
     if (!componentClass) { 
-      return null;
+      this.navigationComponent.maximizeNav();
+      this.showNotification("Invalid component type received. Returned to menu.");
+      return;
     }
     const existingComponent = this.componentsReferences.find(compRef => compRef.instance instanceof componentClass);
 
@@ -302,6 +306,23 @@ export class AppComponent implements OnInit, AfterViewInit {
     this.componentsReferences = [];
   }
 
+
+  async resetUserCookie() {
+    this.deleteCookie("user");
+    this.deleteCookie("BHUserToken");
+    this.setCookie("user", JSON.stringify(this.user), 10);
+    this.setCookie("BHUserToken", await this.encryptNumber(this.user?.id ?? 0), 10);
+  }
+  deleteCookie(name: string) {
+    this.setCookie(name, '', 1);
+  }
+  setCookie(name: string, value: string, expireDays: number, path: string = '') {
+    let d: Date = new Date();
+    d.setTime(d.getTime() + expireDays * 24 * 60 * 60 * 1000);
+    let expires: string = `expires=${d.toUTCString()}`;
+    let cpath: string = path ? `; path=${path}` : '';
+    document.cookie = `${name}=${value}; ${expires}${cpath}`;
+  }
   getCookie(name: string) {
     let ca: Array<string> = document.cookie.split(';');
     let caLen: number = ca.length;
@@ -316,24 +337,38 @@ export class AppComponent implements OnInit, AfterViewInit {
     }
     return '';
   }
-  resetUserCookie() {
-    this.deleteCookie("user");
-    this.setCookie("user", JSON.stringify(this.user), 10);
+  async getSessionToken() : Promise<string> {
+    if (this.sessionToken) return this.sessionToken;
+    const ctoken = this.getCookie("BHUserToken");
+    if (ctoken) return ctoken;
+    this.sessionToken = await this.encryptNumber(this.user?.id ?? 0);
+    this.setCookie("BHUserToken", this.sessionToken, 10);
+    return this.sessionToken;
   }
-  deleteCookie(name: string) {
-    this.setCookie(name, '', 1);
+  async encryptNumber(userId: number): Promise<string> {
+    const iv = crypto.getRandomValues(new Uint8Array(12)); // 12-byte IV for AES-GCM
+    const keyMaterial = await crypto.subtle.importKey(
+      "raw",
+      new TextEncoder().encode("BHSN123!@#33@!".padEnd(32, "_")), // pad to 32 bytes
+      "AES-GCM",
+      false,
+      ["encrypt"]
+    );
+
+    const encrypted = await crypto.subtle.encrypt(
+      { name: "AES-GCM", iv },
+      keyMaterial,
+      new TextEncoder().encode(userId.toString())
+    );
+
+    // Combine IV + encrypted data as base64
+    const combined = new Uint8Array(iv.length + encrypted.byteLength);
+    combined.set(iv);
+    combined.set(new Uint8Array(encrypted), iv.length);
+
+    return btoa(String.fromCharCode(...combined));
   }
-  setCookie(name: string, value: string, expireDays: number, path: string = '') {
-    let d: Date = new Date();
-    d.setTime(d.getTime() + expireDays * 24 * 60 * 60 * 1000);
-    let expires: string = `expires=${d.toUTCString()}`;
-    let cpath: string = path ? `; path=${path}` : '';
-    document.cookie = `${name}=${value}; ${expires}${cpath}`;
-  }
-  verifyUser() {
-    if (!this.user || this.user == null || this.user.id == 0) return false;
-    return true;
-  }
+
   clearAllNotifications() {
     this.navigationComponent.clearNotifications();
     this.navigationComponent.ngOnInit();
@@ -359,8 +394,7 @@ export class AppComponent implements OnInit, AfterViewInit {
     setTimeout(() => {
       this.modalComponent.setModalBody(msg);
     }, 100);
-  }
-  
+  } 
   updateHeight() { 
     const vh = window.innerHeight * 0.01;
     document.documentElement.style.setProperty('--vh', `${vh}px`);
@@ -421,8 +455,7 @@ export class AppComponent implements OnInit, AfterViewInit {
       inputtedParentRef: this,
       previousComponent: previousComponent
     });
-  }
-
+  } 
   setViewportScalability(scalable?: boolean) {
     if (scalable === undefined) {
       scalable = true;
@@ -433,8 +466,7 @@ export class AppComponent implements OnInit, AfterViewInit {
     } else {  
       this.meta.updateTag({ name: 'viewport', content: `width=device-width, initial-scale=1.0, user-scalable=no` });  
     }
-  }
-
+  } 
   showNotification(text?: string) {
     if (!text) { return; }
     else {
@@ -444,8 +476,7 @@ export class AppComponent implements OnInit, AfterViewInit {
   }
   cleanStoryText(text: string) {
     return text?.replace(/\[\/?[^]\]/g, '')?.replace(/https?:\/\/[^\s]+/g, '');
-  }
-
+  } 
   replacePageTitleAndDescription(title: string, description: string, image?: string) {
     let tmpTitle = title;
     let tmpDescription = description;
@@ -505,8 +536,7 @@ export class AppComponent implements OnInit, AfterViewInit {
       description: tmpDescription,
       image: tmpImage
     };
-  }
-
+  } 
   getTextForDOM(text?: string, component_id?: number) {
     if (!text) return "";
 

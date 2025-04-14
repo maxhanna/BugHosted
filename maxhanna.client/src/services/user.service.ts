@@ -17,16 +17,16 @@ export class UserService {
       const response = await fetch('/user/createuser', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json', // Set the Content-Type header to indicate JSON data
+          'Content-Type': 'application/json',
         },
-        body: JSON.stringify(user), // Convert the user object to JSON string
+        body: JSON.stringify(user),
       });
 
-      const responseData = await response.text(); // Extract the response as text
-      return responseData; // Return the response text
+      const responseData = await response.text();
+      return responseData;
     } catch (error) {
       console.error('Error creating user:', error);
-      return null; // Return null in case of error
+      return null;
     }
   }
 
@@ -34,11 +34,11 @@ export class UserService {
     try {
       const response = await fetch('/user');
 
-      const responseData = await response.text(); // Extract the response as text
-      return responseData; // Return the response text
+      const responseData = await response.text();
+      return responseData;
     } catch (error) {
       console.error('Error creating user:', error);
-      return null; // Return null in case of error
+      return null;
     }
   }
   async login(username: string, password: string): Promise<User | undefined> {
@@ -48,7 +48,7 @@ export class UserService {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({username, password}),
+        body: JSON.stringify({ username, password }),
       });
 
       return await response.json();
@@ -62,7 +62,7 @@ export class UserService {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-        }, 
+        },
       });
 
       return await response.json();
@@ -87,19 +87,20 @@ export class UserService {
       return [];
     }
   }
-  async updateUser(user: User) {
+  async updateUser(user: User, sessionToken: string) {
     try {
       const response = await fetch('/user', {
         method: 'PATCH',
         headers: {
-          'Content-Type': 'application/json', // Set the Content-Type header to indicate JSON data
+          'Content-Type': 'application/json',
+          'Encrypted-UserId': sessionToken,
         },
-        body: JSON.stringify(user), // Convert the user object to JSON string
+        body: JSON.stringify(user),
       });
 
-      return await response.json(); // Parse JSON response 
+      return await response.json();
     } catch (error) {
-      return null; // Return null in case of error
+      return null;
     }
   }
   async updateUserAbout(userId: number, about: UserAbout) {
@@ -107,29 +108,30 @@ export class UserService {
       const response = await fetch('/user/updateabout', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json', // Set the Content-Type header to indicate JSON data
+          'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ userId, about }), // Convert the user object to JSON string
+        body: JSON.stringify({ userId, about }),
       });
 
-      return await response.text(); // Parse JSON response 
+      return await response.text();
     } catch (error) {
-      return null; // Return null in case of error
+      return null;
     }
   }
-  async deleteUser(userId: number) {
+  async deleteUser(userId: number, sessionToken: string) {
     try {
       const response = await fetch('/user/deleteuser', {
         method: 'DELETE',
         headers: {
-          'Content-Type': 'application/json', // Set the Content-Type header to indicate JSON data
+          'Content-Type': 'application/json',
+          'Encrypted-UserId': sessionToken,
         },
-        body: JSON.stringify(userId), // Convert the user object to JSON string
+        body: JSON.stringify(userId),
       });
 
       return await response.json();
     } catch (error) {
-      return null; // Return null in case of error
+      return null;
     }
   }
 
@@ -141,29 +143,29 @@ export class UserService {
       const response = await fetch('/user/getipandlocation', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json', // Set the Content-Type header to indicate JSON data
+          'Content-Type': 'application/json',
         },
-        body: JSON.stringify(ip), // Convert the user object to JSON string
+        body: JSON.stringify(ip),
       });
 
       return await response.json();
     } catch (error) {
-      return null; // Return null in case of error
+      return null;
     }
   }
   async getUserIpFromBackend(userId: number) {
-    try { 
+    try {
       const response = await fetch('/user/getipaddress', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json', // Set the Content-Type header to indicate JSON data
+          'Content-Type': 'application/json',
         },
-        body: JSON.stringify(userId), // Convert the user object to JSON string
+        body: JSON.stringify(userId),
       });
 
       return await response.json();
     } catch (error) {
-      return null; // Return null in case of error
+      return null;
     }
   }
 
@@ -177,14 +179,14 @@ export class UserService {
       const response = await fetch('/user/updatedisplaypicture', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json', // Set the Content-Type header to indicate JSON data
+          'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ userId, fileId }), // Convert the user object to JSON string
+        body: JSON.stringify({ userId, fileId }),
       });
 
-      return await response.text(); // Parse JSON response 
+      return await response.text();
     } catch (error) {
-      return ''; // Return null in case of error
+      return '';
     }
   }
 
@@ -197,7 +199,7 @@ export class UserService {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(userId),
-      }); 
+      });
       return await response.json();
     } catch (error) {
       return undefined;
@@ -296,7 +298,7 @@ export class UserService {
         },
         body: JSON.stringify({ UserId: userId, Titles: [title] }),
       });
-       
+
 
       return await response.text();
     } catch (error) {
@@ -337,7 +339,7 @@ export class UserService {
       console.error('An error occurred:', error);
       return null;
     }
-  } 
+  }
 
   async getIPAddress(userId: number) {
     try {
@@ -369,7 +371,7 @@ export class UserService {
     } catch (error) {
       return null;
     }
-  } 
+  }
 
   async updateTheme(userId: number, theme: JSON) {
     try {
@@ -408,13 +410,13 @@ export class UserService {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify( userId ),
+        body: JSON.stringify(userId),
       });
       return await response.json();
     } catch (error) {
       return 'error';
     }
-  } 
+  }
   async getTheme(userId: number) {
     try {
       const response = await fetch('/user/getusertheme/', {

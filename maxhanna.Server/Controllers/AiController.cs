@@ -25,26 +25,27 @@ namespace maxhanna.Server.Controllers
 		}
 
 		[HttpPost("/Ai/SendMessageToAi", Name = "SendMessageToAi")]
-		public async Task<IActionResult> SendMessageToAi([FromBody] AiRequest request)
+		public async Task<IActionResult> SendMessageToAi([FromBody] AiRequest request, [FromHeader(Name = "Encrypted-UserId")] string encryptedUserIdHeader)
 		{
+			if (request.UserId != 0)
+			{
+				if (!await _log.ValidateUserLoggedIn(request.UserId, encryptedUserIdHeader)) return StatusCode(500, "Access Denied.");
+			}
+
 			if (request == null || string.IsNullOrWhiteSpace(request.Message))
 			{
 				return BadRequest("Message cannot be empty.");
-			}
-			if (request.User == null)
-			{
-				return BadRequest("User cannot be null.");
 			} 
 			try
 			{
-				bool hasExceeded = await HasExceededUsageLimit("text", request.User?.Id ?? 0);
+			 	bool hasExceeded = await HasExceededUsageLimit("text", request.UserId);
 				if (hasExceeded)
 				{
 					return StatusCode(429, new { Reply = "You have exceeded the maximum number of text requests for this month." });
 				}
 				if (!request.SkipSave)
 				{ 
-					await UpdateUserRequestCount(request.User!, request.Message, "text");
+					await UpdateUserRequestCount(request.UserId, request.Message, "text");
 				}
 
 				// Ollama API URL
@@ -120,19 +121,19 @@ namespace maxhanna.Server.Controllers
 			{
 				return BadRequest(new { Reply = "Message cannot be empty." });
 			}
-			if (request.User == null || request.User.Id == 0)
+			if (request.UserId == 0)
 			{
 				return BadRequest(new { Reply = "User cannot be null." });
 			} 
 
 			try
 			{
-				bool hasExceeded = await HasExceededUsageLimit("image", request.User?.Id ?? 0); 
+				bool hasExceeded = await HasExceededUsageLimit("image", request.UserId); 
 				if (hasExceeded)
 				{
 					return StatusCode(429, new { Reply = "You have exceeded the maximum number of image requests for this month." });
 				}
-				await UpdateUserRequestCount(request.User!, request.Message, "image");
+				await UpdateUserRequestCount(request.UserId, request.Message, "image");
 				// Load Service Account credentials from JSON key file
 				GoogleCredential credential = GoogleCredential.FromFile("./Properties/gen-lang-client-0917682158-bbfe62a207b1.json")
 																			.CreateScoped("https://www.googleapis.com/auth/cloud-platform");
@@ -198,7 +199,10 @@ namespace maxhanna.Server.Controllers
 
 				using var cmdTextGlobal = new MySqlCommand(sql, conn);
 				long globalCount = (long)(await cmdTextGlobal.ExecuteScalarAsync() ?? 0L);
-
+				if (userId == 0)
+				{
+					return globalCount >= MaxTextRequestsPerHourGlobal;
+				} 
 				// Check user-specific text requests in the last hour
 				sql = @"
             SELECT COUNT(*)
@@ -231,7 +235,7 @@ namespace maxhanna.Server.Controllers
 				return currentCount >= limit;
 			} 
 		}
-		private async Task UpdateUserRequestCount(User user, string message, string callType)
+		private async Task UpdateUserRequestCount(int userId, string message, string callType)
 		{
 			// Basic validation for callType
 			if (callType != "text" && callType != "image")
@@ -248,14 +252,14 @@ namespace maxhanna.Server.Controllers
 			using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
 			await conn.OpenAsync();
 			using var cmd = new MySqlCommand(sql, conn);
-			cmd.Parameters.AddWithValue("@UserId", user?.Id ?? 0); // Assuming 0 for anonymous/unknown if user is null
+			cmd.Parameters.AddWithValue("@UserId", userId); // Assuming 0 for anonymous/unknown if user is null
 			cmd.Parameters.AddWithValue("@message", message);
 			cmd.Parameters.AddWithValue("@type", callType); // Add the type parameter
 			await cmd.ExecuteNonQueryAsync();
 		} 
 		public class AiRequest
 		{
-			public required User User { get; set; }
+			public required int UserId { get; set; }
 			public required string Message { get; set; }
 			public required bool SkipSave { get; set; } 
 			public required int MaxCount { get; set; } 

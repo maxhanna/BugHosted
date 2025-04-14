@@ -37,6 +37,7 @@ builder.Services.AddHttpClient<KrakenService>();
 builder.Services.AddHttpClient<WebCrawler>();
 builder.Services.AddSingleton<Log>();
 builder.Services.AddSingleton<WebCrawler>(); 
+builder.Services.AddSingleton<NewsService>(); 
 builder.Services.AddSingleton<KrakenService>(); 
 
 builder.WebHost.ConfigureKestrel(options => options.Limits.MaxRequestBodySize = long.MaxValue); // Allows for large files
@@ -71,6 +72,7 @@ app.UseStaticFiles();
 if (app.Environment.IsDevelopment())
 {
 	app.UseSwagger();
+	app.UseHttpsRedirection();
 	app.UseSwaggerUI();
 }
 

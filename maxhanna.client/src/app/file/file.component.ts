@@ -143,7 +143,8 @@ export class FileComponent extends ChildComponent implements OnInit, OnDestroy {
     if (confirm(`Create directory : ${target} ?`)) { 
       this.startLoading();
       try {
-        const res = await this.fileService.createDirectory(userId, target, isPublic);
+        const sessionToken = await this.parentRef?.getSessionToken() ?? "";
+        const res = await this.fileService.createDirectory(userId, target, isPublic, sessionToken);
         this.parentRef?.showNotification("Created folder " + target);  
 
         if (!res?.toLowerCase().includes("already exists")) {

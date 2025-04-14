@@ -247,3 +247,8 @@
   background-color: var(--main-bg-color);
   border: none;
 }
+.tradeDataTable {
+  max-height: 200px;
+  overflow: auto;
+  width: 100%;
+}

@@ -114,7 +114,7 @@ namespace maxhanna.Server.Controllers
 
 						filePosition = Convert.ToInt32(countCommand.ExecuteScalar());
 						page = (filePosition / pageSize) + 1;
-						offset = Math.Max(0, ((page - 1) * pageSize) - 1) - (fileId.HasValue ? 5 : 0);
+						offset = Math.Max(Math.Max(0, ((page - 1) * pageSize) - 1) - (fileId.HasValue ? 5 : 0), 0);
 					}
 					string orderBy = isRomSearch ? " ORDER BY f.last_access desc " : fileId == null ? " ORDER BY f.id desc " : string.Empty;
 					(string searchCondition, List<MySqlParameter> extraParameters) = await GetWhereCondition(search, user);
@@ -185,7 +185,7 @@ namespace maxhanna.Server.Controllers
 					{
 						command.Parameters.AddWithValue("@search", "%" + search + "%"); // Add search parameter
 					}
-					Console.WriteLine($"fileId {fileId}, offset {offset}, pageSize {pageSize}, page {page}, folder path {directory}. command: " + command.CommandText);
+					//Console.WriteLine($"fileId {fileId}, offset {offset}, pageSize {pageSize}, page {page}, folder path {directory}. command: " + command.CommandText);
 					using (var reader = command.ExecuteReader())
 					{
 						while (reader.Read())
@@ -307,7 +307,7 @@ namespace maxhanna.Server.Controllers
                         maxhanna.users cfu2 on cfu2.id = cf2.user_id 
                     WHERE 1=1
                        AND {(fileIds.Count > 0 ? "fc.file_id IN (" + string.Join(", ", fileIdsParameters) + ")" : "")}
-											OR fc.comment_id IN (SELECT id FROM comments AS z WHERE z.file_id IN (" + string.Join(", ", fileIdsParameters) + "));", connection);
+											{(fileIdsParameters.Count > 0 ? " OR fc.comment_id IN (SELECT id FROM comments AS z WHERE z.file_id IN (\" + string.Join(\", \", fileIdsParameters) + \"))" : "")};", connection);
 			for (int i = 0; i < fileIds.Count; i++)
 			{
 				commentsCommand.Parameters.AddWithValue($"@fileId{i}", fileIds[i]);
@@ -696,7 +696,7 @@ namespace maxhanna.Server.Controllers
 		[HttpPost("/File/UpdateFileData", Name = "UpdateFileData")]
 		public async Task<IActionResult> UpdateFileData([FromBody] FileDataRequest request)
 		{
-			_ = _log.Db($"POST /File/UpdateFileData (Updating data for file: {request.FileData.FileId}  user: {request.UserId})", request.UserId, "FILE", true);
+		//	_ = _log.Db($"POST /File/UpdateFileData (Updating data for file: {request.FileData.FileId}  user: {request.UserId})", request.UserId, "FILE", true);
 
 			try
 			{
@@ -800,7 +800,7 @@ namespace maxhanna.Server.Controllers
 
 
 		[HttpPost("/File/GetFileById/{fileId}", Name = "GetFileById")]
-		public async Task<IActionResult> GetFileById([FromBody] int? userId, int fileId)
+		public async Task<IActionResult> GetFileById([FromBody] int? userId, int fileId, [FromHeader(Name = "Encrypted-UserId")] string encryptedUserIdHeader)
 		{ 
 			try
 			{
@@ -845,7 +845,7 @@ namespace maxhanna.Server.Controllers
 							_ = _log.Db($"User does not have permission to access file with id {fileId}.", userId, "FILE", true);
 							return Forbid();
 						}
-						if (!isPublic && (userId == null || (!await _log.ValidateUserLoggedIn(userId.Value)))) { 
+						if (!isPublic && (userId == null || (!await _log.ValidateUserLoggedIn(userId.Value, encryptedUserIdHeader)))) { 
 							_ = _log.Db($"User does not have permission to access file with id {fileId}.", userId, "FILE", true);
 							return Forbid();
 						}
@@ -874,9 +874,9 @@ namespace maxhanna.Server.Controllers
 		}
 
 		[HttpPost("/File/MakeDirectory", Name = "MakeDirectory")]
-		public async Task<IActionResult> MakeDirectory([FromBody] CreateDirectory request)
+		public async Task<IActionResult> MakeDirectory([FromBody] CreateDirectory request, [FromHeader(Name = "Encrypted-UserId")] string encryptedUserIdHeader)
 		{
-			if (!await _log.ValidateUserLoggedIn(request.userId)) return StatusCode(500, "Access Denied.");
+			if (!await _log.ValidateUserLoggedIn(request.userId, encryptedUserIdHeader)) return StatusCode(500, "Access Denied.");
 
 			if (request.directory == null)
 			{
@@ -2345,7 +2345,7 @@ namespace maxhanna.Server.Controllers
 				}
 				else
 				{
-					_ = _log.Db("No <video:video> element found in sitemap for file.", null, "FILE", true);
+				//	_ = _log.Db("No <video:video> element found in sitemap for file.", null, "FILE", true);
 				}
 
 				// Save the updated sitemap

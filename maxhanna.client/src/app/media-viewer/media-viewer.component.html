@@ -23,7 +23,7 @@
       <span class="clickToLoadText">Click here to load media</span>
     </div>
     <div *ngIf="isLoading && autoload" class="loading-spinner">Loading...</div>
-    <div *ngIf="autoload && selectedFileSrc != ''" class="mediaDiv">
+    <div *ngIf="autoload && selectedFileSrc != ''" class="mediaDiv"> 
       <img #mediaContainer
            (click)="expandFile({url: selectedFile, extension: selectedFileExtension})"
            *ngIf="imageFileExtensionsIncludes(this.selectedFileExtension)"

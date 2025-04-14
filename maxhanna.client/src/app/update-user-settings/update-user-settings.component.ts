@@ -116,7 +116,7 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
   }
   async getKrakenApiKeys() {
     if (this.isKrakenApiKeysToggled && this.parentRef?.user?.id && this.parentRef.user.id != 0) {
-      this.hasKrakenKeys = await this.tradeService.HasApiKey(this.parentRef.user.id);
+      this.hasKrakenKeys = await this.tradeService.hasApiKey(this.parentRef.user.id);
     }
   }
   async getUniqueCurrencyNames() {
@@ -161,10 +161,12 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
       const krakenPrivateKey = this.krakenPrivateKey.nativeElement.value;
       const krakenApiKey = this.krakenApiKey.nativeElement.value; 
       try {
-        this.tradeService.UpdateApiKey(user.id ?? 0, krakenApiKey, krakenPrivateKey).then(res => {
-          if (res) {
-            this.parentRef?.showNotification(res);
-          }
+        parent?.getSessionToken().then(sessionToken => {
+          this.tradeService.updateApiKey(user.id ?? 0, krakenApiKey, krakenPrivateKey, sessionToken).then(res => {
+            if (res) {
+              this.parentRef?.showNotification(res);
+            }
+          });
         });
       } catch (error) {
         console.log(error);
@@ -238,38 +240,44 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
   }
 
   async updateUser() {
+    const parent = this.parentRef ?? this.inputtedParentRef;
     const username = this.updatedUsername.nativeElement.value;
     const password = this.updatedPassword.nativeElement.value;
     if (!username) {
       return alert("Username cannot be empty!");
     }
-    const currUser = JSON.parse(this.parentRef!.getCookie("user")) as User;
+    if (!parent) return alert("Parent cannot be null");
+    const currUser = JSON.parse(parent.getCookie("user")) as User;
     const tmpUser = new User(currUser.id, username, password);
     this.startLoading();
     try {
-      const res = await this.userService.updateUser(tmpUser);
+      const sessionToken = await parent.getSessionToken();
+      const res = await this.userService.updateUser(tmpUser, sessionToken);
       const message = res["message"];
-      this.parentRef!.setCookie("user", JSON.stringify(tmpUser), 10);
-      this.parentRef?.showNotification(message);
+      parent.setCookie("user", JSON.stringify(tmpUser), 10);
+      parent.showNotification(message);
     } catch (error) {
-      this.parentRef?.showNotification(`Error updating user ${this.parentRef!.user?.username}. Error: ${JSON.stringify(error)}`);
+      parent.showNotification(`Error updating user ${parent.user?.username}. Error: ${JSON.stringify(error)}`);
     }
-    this.parentRef!.user = await this.userService.login(username, password);
+    parent.user = await this.userService.login(username, password);
     this.stopLoading();
   }
 
   async deleteUser() {
-    const cookie = this.parentRef?.getCookie("user");
-    if (cookie && this.parentRef) {
+    const parent = this.parentRef ?? this.inputtedParentRef; 
+    if (!parent) return alert("Parent cannot be null");
+    const cookie = parent.getCookie("user");
+    const sessionToken = await parent.getSessionToken();
+    if (cookie) {
       if (confirm("Are you sure you wish to delete your account? This will also delete all your saved data, chats, etc.")) {
         const tmpUser = JSON.parse(cookie) as User;
         try {
-          const res = await this.userService.deleteUser(tmpUser.id ?? 0);
-          this.parentRef.showNotification(res["message"]);
-          this.parentRef.deleteCookie("user");
+          const res = await this.userService.deleteUser(tmpUser.id ?? 0, sessionToken);
+          parent.showNotification(res["message"]);
+          parent.deleteCookie("user");
           window.location.reload(); 
         } catch (error) {
-          this.parentRef.showNotification(`Error deleting user ${this.parentRef!.user?.username}`);
+          parent.showNotification(`Error deleting user ${tmpUser.username}`);
         }
       }
     } else { return alert("You must be logged in first!"); }
@@ -359,8 +367,8 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
       wallets.push(walletInfo);
     }
 
-    // Proceed with updating BTC wallet addresses if all are valid
-    await this.coinService.updateBTCWalletAddresses(user.id, wallets);
+    const sessionToken = await this.parentRef?.getSessionToken() ?? "";
+    await this.coinService.updateBTCWalletAddresses(user.id, wallets, sessionToken);
     alert("BTC Wallet Addresses Updated. Visit the Crypto-Hub App To Track.");
   }
 
@@ -370,7 +378,8 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
     this.btcWalletAddresses = [];
 
     if (user && user.id) {
-      this.coinService.getBTCWallet(user.id).then((res: MiningWalletResponse) => {
+      const sessionToken = await this.parentRef?.getSessionToken() ?? "";
+      this.coinService.getBTCWallet(user.id, sessionToken).then((res: MiningWalletResponse) => {
         if (res) {
           res?.currencies?.forEach(x => {
             if (x.address) {
@@ -397,7 +406,8 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
     if (user && user.id) {
       if (!confirm(`Delete BTC Wallet Address : ${address}?`)) return;
 
-      await this.coinService.deleteBTCWalletAddress(user.id, address);
+      const sessionToken = await this.parentRef?.getSessionToken() ?? "";
+      await this.coinService.deleteBTCWalletAddress(user.id, address, sessionToken);
       const inputs = Array.from(document.getElementsByClassName("btcWalletInput")) as HTMLInputElement[];
       for (let input of inputs) {
         if (input.value == address) {

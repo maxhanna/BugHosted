@@ -27,18 +27,7 @@ namespace maxhanna.Server.Services
 			_log = log;
 			_checkForNewUnitUpgradesTimer = new Timer(ProcessQueue, null, TimeSpan.Zero, TimeSpan.FromSeconds(QueueProcessingInterval));
 		}
-
-		private void ConfigureServices(IServiceCollection services)
-		{
-			// Configure logging
-			services.AddLogging(configure => configure.AddConsole())
-							.Configure<LoggerFilterOptions>(options => options.MinLevel = LogLevel.Information);
-
-			// Configure configuration
-			services.AddSingleton<IConfiguration>(new ConfigurationBuilder()
-					.AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
-					.Build());
-		}
+		 
 		public void ScheduleUpgrade(int upgradeId, TimeSpan delay, Action<int> callback)
 		{
 			if (_timers.ContainsKey(upgradeId))

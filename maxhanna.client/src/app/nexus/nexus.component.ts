@@ -201,7 +201,8 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
     this.isUserComponentOpen = (!this.parentRef?.user || this.parentRef.user.id == 0);
     this.warehouseUpgradeLevels = Array.from({ length: 6 }, (_, i) => i + 1);
 
-    this.loadPictureSrcs();
+    const sessionToken = await this.parentRef?.getSessionToken() ?? "";
+    this.loadPictureSrcs(sessionToken);
     this.nexusService.getPlayerColor(this.parentRef?.user?.id ?? 0).then(res => {
       this.playerColors = res;
       if (res[this.parentRef?.user?.id ?? 0]) {
@@ -1563,7 +1564,7 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
     ];
   }
 
-  private loadPictureSrcs() {
+  private loadPictureSrcs(sessionToken: string) {
     const pictureSrcMap: { key: string; id: number }[] = [
       { key: 'cclvl1Src', id: 6546 },
       { key: 'cclvl2Src', id: 6547 },
@@ -1603,7 +1604,7 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
     ];
     const loadPromises = pictureSrcMap.map(({ key, id }) => {
       if (key) {
-        return this.fileService.getFileSrcByFileId(id)
+        return this.fileService.getFileSrcByFileId(id, sessionToken)
           .then(src => {
             (this[key as keyof this] as string) = src;
           })

@@ -37,6 +37,5 @@
     <ProjectReference Include="..\maxhanna.client\maxhanna.client.esproj">
       <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
     </ProjectReference>
-  </ItemGroup>
-
+  </ItemGroup> 
 </Project>

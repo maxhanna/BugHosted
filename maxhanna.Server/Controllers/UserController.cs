@@ -426,13 +426,13 @@ namespace maxhanna.Server.Controllers
 
 
 		[HttpPatch(Name = "UpdateUser")]
-		public async Task<IActionResult> UpdateUser([FromBody] User user)
+		public async Task<IActionResult> UpdateUser([FromBody] User user, [FromHeader(Name = "Encrypted-UserId")] string encryptedUserIdHeader)
 		{
 			if (string.IsNullOrEmpty(user.Username) || user?.Id == null)
 			{
 				return BadRequest("Username cannot be empty!");
 			}
-			if (!await _log.ValidateUserLoggedIn(user.Id.Value)) return StatusCode(500, "Access Denied.");
+			if (!await _log.ValidateUserLoggedIn(user.Id.Value, encryptedUserIdHeader)) return StatusCode(500, "Access Denied.");
 
 			string connectionString = _config.GetValue<string>("ConnectionStrings:maxhanna") ?? "";
 
@@ -534,14 +534,14 @@ namespace maxhanna.Server.Controllers
 
 
 		[HttpDelete("/User/DeleteUser", Name = "DeleteUser")]
-		public async Task<IActionResult> DeleteUser([FromBody] User user)
+		public async Task<IActionResult> DeleteUser([FromBody] User user, [FromHeader(Name = "Encrypted-UserId")] string encryptedUserIdHeader)
 		{
 			_ = _log.Db($"DELETE /User with ID: {user.Id}", user.Id, "USER", true);
 			if (user == null || user.Id == null || user.Id == 0 || user.Id == 1)
 			{
 				return BadRequest("Who do you think you are?");
 			}
-			if (!await _log.ValidateUserLoggedIn(user.Id.Value)) return StatusCode(500, "Access Denied.");
+			if (!await _log.ValidateUserLoggedIn(user.Id.Value, encryptedUserIdHeader)) return StatusCode(500, "Access Denied.");
 
 			MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
 			try

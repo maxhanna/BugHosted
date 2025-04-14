@@ -209,12 +209,13 @@ export class CoinValueService {
     }
   }
 
-  async updateBTCWalletAddresses(userId: number, btcWalletAddresses: string[]) {
+  async updateBTCWalletAddresses(userId: number, btcWalletAddresses: string[], encryptedUserId: string) {
     try {
       const response = await fetch('/coinvalue/btcwalletaddresses/update', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Encrypted-UserId': encryptedUserId
         },
         body: JSON.stringify({ UserId: userId, Wallets: btcWalletAddresses }),
       });
@@ -222,12 +223,13 @@ export class CoinValueService {
       console.log(error);
     }
   }
-  async getBTCWallet(userId: number) {
+  async getBTCWallet(userId: number, encryptedUserId: string) {
     try {
       const response = await fetch('/coinvalue/btcwallet/getbtcwalletdata', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Encrypted-UserId': encryptedUserId
         },
         body: JSON.stringify(userId),
       });
@@ -239,12 +241,13 @@ export class CoinValueService {
       return [];
     }
   }
-  async getWallet(userId: number): Promise<MiningWalletResponse[] | undefined> {
+  async getWallet(userId: number, sessionToken: string): Promise<MiningWalletResponse[] | undefined> {
     try {
       const response = await fetch('/coinvalue/btcwallet/getwalletdata', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Encrypted-UserId': sessionToken
         },
         body: JSON.stringify(userId),
       });
@@ -256,12 +259,13 @@ export class CoinValueService {
       return [];
     }
   } 
-  async deleteBTCWalletAddress(userId: number, address: string) {
+  async deleteBTCWalletAddress(userId: number, address: string, encryptedUserId: string) {
     try {
       const response = await fetch('/coinvalue/btcwallet/deletebtcwalletaddress', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Encrypted-UserId': encryptedUserId,
         },
         body: JSON.stringify({ userId, address }),
       });

@@ -27,8 +27,8 @@ export class ArrayComponent extends ChildComponent implements OnInit, OnDestroy 
   randomLocationPicture: FileEntry | undefined;
   randomNexusPicture: FileEntry | undefined;
   randomInventoryPicture: FileEntry | undefined;
-  lastNexusPoint: bigint = 0n;
-  itemsFound: bigint = 0n;
+  lastNexusPoint: number = 0;
+  itemsFound: number = 0;
 
   isHelpPanelOpen = false;
   isRanksExpanded = false;
@@ -133,7 +133,7 @@ export class ArrayComponent extends ChildComponent implements OnInit, OnDestroy 
     }
     await this.refreshHeroLadder();
     this.refreshRadar();
-    if (direction && direction != '' && this.isNexusPosition(this.hero?.position ?? 0n) && this.lastNexusPoint != this.hero.position) {
+    if (direction && direction != '' && this.isNexusPosition(this.hero?.position ?? 0) && this.lastNexusPoint != this.hero.position) {
       this.loadRandomBackground();
       this.loadRandomNexusBackground();
       this.lastNexusPoint = this.hero.position!;
@@ -177,7 +177,7 @@ export class ArrayComponent extends ChildComponent implements OnInit, OnDestroy 
 
   refreshRadar() {
 
-    const heroPosition = BigInt(this.hero.position!);
+    const heroPosition = Number(this.hero.position!);
     for (let i = 0; i < this.radar.length; i++) {
       if (i != 4) {
         this.radar[i] = [];
@@ -185,30 +185,30 @@ export class ArrayComponent extends ChildComponent implements OnInit, OnDestroy 
     }
     this.allPlayerHeros.forEach(player => {
       if (player?.user?.id != (this.parentRef?.user?.id ?? 0)) {
-        const playerPosition = BigInt(player.position!);
+        const playerPosition = Number(player.position!);
 
-        if (playerPosition + 4n === heroPosition) { 
+        if (playerPosition + 4 === heroPosition) { 
           this.radar[0].push(player.user ?? new User(0, "Anonymous"));
         }
-        else if (playerPosition + 3n === heroPosition) { 
+        else if (playerPosition + 3 === heroPosition) { 
           this.radar[1].push(player.user ?? new User(0, "Anonymous"));
         }
-        else if (playerPosition + 2n === heroPosition) { 
+        else if (playerPosition + 2 === heroPosition) { 
           this.radar[2].push(player.user ?? new User(0, "Anonymous"));
         }
-        else if (playerPosition + 1n === heroPosition) { 
+        else if (playerPosition + 1 === heroPosition) { 
           this.radar[3].push(player.user ?? new User(0, "Anonymous"));
         }
-        else if (playerPosition - 1n === heroPosition) { 
+        else if (playerPosition - 1 === heroPosition) { 
           this.radar[5].push(player.user ?? new User(0, "Anonymous"));
         }
-        else if (playerPosition - 2n === heroPosition) { 
+        else if (playerPosition - 2 === heroPosition) { 
           this.radar[6].push(player.user ?? new User(0, "Anonymous"));
         }
-        else if (playerPosition - 3n === heroPosition) { 
+        else if (playerPosition - 3 === heroPosition) { 
           this.radar[7].push(player.user ?? new User(0, "Anonymous"));
         }
-        else if (playerPosition - 4n === heroPosition) { 
+        else if (playerPosition - 4 === heroPosition) { 
           this.radar[8].push(player.user ?? new User(0, "Anonymous"));
         }
       }
@@ -238,7 +238,7 @@ export class ArrayComponent extends ChildComponent implements OnInit, OnDestroy 
           this.allPlayerHeros = [];
         }
         newHeroes.forEach(x => {
-          if (x.level !== 0n) {
+          if (x.level !== 0) {
             this.allPlayerHeros.push(x);
           }
         });
@@ -291,7 +291,7 @@ export class ArrayComponent extends ChildComponent implements OnInit, OnDestroy 
     this.isInventoryOpen = false;
   }
 
-  isNexusPosition(value: bigint): boolean {
+  isNexusPosition(value: number): boolean {
     if (!value) return true;
     const valueAsNumber = Number(value);
     const result = valueAsNumber % 50;

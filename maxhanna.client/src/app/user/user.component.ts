@@ -510,7 +510,7 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
         this.parentRef.resetUserCookie();
         this.parentRef?.showNotification(`Access granted. Welcome ${(fromUserCreation ? 'to BugHosted' : 'back')} ${this.parentRef!.user?.username}`);
         this.parentRef?.getLocation();
-
+        this.parentRef?.getSessionToken();
         this.parentRef!.userSelectedNavigationItems = await this.userService.getUserMenu(tmpUser.id);
 
         if (this.loginOnly) {

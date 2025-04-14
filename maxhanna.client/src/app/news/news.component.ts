@@ -24,19 +24,26 @@ export class NewsComponent extends ChildComponent implements OnInit, OnDestroy {
   async ngOnInit() {
     let preventLoadNews = false;
     if (this.parentRef?.user?.id) {
-      this.newsService.getDefaultSearch(this.parentRef.user.id).then(res => {
-        if (res) {
-          setTimeout(() => {
-            this.defaultSearch = res;
-            console.log(res);
-            if (this.defaultSearch) {
-              this.searchKeywords.nativeElement.value = this.defaultSearch;
-              this.searchByKeyword();
-              preventLoadNews = true;
-            } 
-          }, 30);
-        }
-      })
+      try {
+        this.newsService.getDefaultSearch(this.parentRef.user.id).then(
+          res => {
+            if (res) {
+              setTimeout(() => {
+                this.defaultSearch = res ?? ""; 
+                if (this.defaultSearch) {
+                  this.searchKeywords.nativeElement.value = this.defaultSearch;
+                  this.searchByKeyword();
+                  preventLoadNews = true;
+                }
+              }, 30);
+            } else {
+              this.defaultSearch = "";
+            }
+          });
+      }
+      catch (error) {
+        this.defaultSearch = "";
+      }  
     }
     if (!preventLoadNews) { 
       this.loadNews(); 

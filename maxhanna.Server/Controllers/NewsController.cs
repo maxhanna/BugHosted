@@ -14,16 +14,18 @@ namespace maxhanna.Server.Controllers
 	public class NewsController : ControllerBase
 	{
 		private readonly Log _log;
+		private readonly NewsService _newsService;
 		private readonly IConfiguration _config;
 
-		public NewsController(Log log, IConfiguration config)
+		public NewsController(Log log, IConfiguration config, NewsService newsService)
 		{
 			_log = log;
 			_config = config;
+			_newsService = newsService;
 		}
 
 		[HttpPost(Name = "GetAllNews")]
-		public ArticlesResult GetAllNews([FromQuery] string? keywords)
+		public async Task<ArticlesResult> GetAllNews([FromQuery] string? keywords)
 		{
 			string cleanKeywords = string.Join(" OR ", (keywords ?? "").Split(',')
 														 .Select(k => k.Trim())
@@ -45,10 +47,7 @@ namespace maxhanna.Server.Controllers
 				}
 				else
 				{
-					articlesResponse = newsApiClient.GetTopHeadlines(new TopHeadlinesRequest
-					{
-						Language = Languages.EN
-					});
+					articlesResponse = await _newsService.GetTopHeadlinesFromDb();
 				}
 				if (articlesResponse.Status == Statuses.Ok)
 				{

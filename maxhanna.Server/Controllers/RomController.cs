@@ -162,7 +162,7 @@ namespace maxhanna.Server.Controllers
 						_ = _log.Db($"File not found at {filePath} or {userSpecificPath}", userId, "ROM", true);
 						return NotFound();
 					}
-					_ = _log.Db($"File path changed . New FilePath: " + filePath, userId, "ROM", true);
+					//_ = _log.Db($"File path changed . New FilePath: " + filePath, userId, "ROM", true);
 				}
 				else if (userId == null && (filePath.Contains(".sav") || filePath.Contains(".srm")))
 					return BadRequest("Must be logged in to access save files!"); 
@@ -181,9 +181,7 @@ namespace maxhanna.Server.Controllers
 		}
 
 		private async void updateLastAccessForRom(string fileName)
-		{
-			Console.WriteLine("Updating last_access data for: " + fileName);
-
+		{ 
 			using (var connection = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
 			{
 				await connection.OpenAsync();

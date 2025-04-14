@@ -4,17 +4,17 @@
       Mining Rigs:
     </div>
     <div class="currentProfitabilityDiv">
-      <label *ngIf="showLocal" (click)="showLocal = !showLocal">Local Profitability: <span class="currentProfitabilitySpan">{{ isDiscreete ? '***' : rate != 1 ? formatToCanadianCurrency(rate * localProfitability) + " " + currency : localProfitability + " BTC"}}</span></label>
-      <label *ngIf="!showLocal" (click)="showLocal = !showLocal">Actual Profitability: <span class="currentProfitabilitySpan">{{ isDiscreete ? '***' : rate != 1 ? formatToCanadianCurrency(rate * actualProfitability) + " " + currency : actualProfitability + " BTC"}}</span></label>
+      <label *ngIf="showLocal" (click)="showLocal = !showLocal">Local Profitability: <span class="currentProfitabilitySpan thirdFontColor">{{ isDiscreete ? '***' : rate != 1 ? formatToCanadianCurrency(rate * localProfitability) + " " + currency : localProfitability + " BTC"}}</span></label>
+      <label *ngIf="!showLocal" (click)="showLocal = !showLocal">Actual Profitability: <span class="currentProfitabilitySpan thirdFontColor">{{ isDiscreete ? '***' : rate != 1 ? formatToCanadianCurrency(rate * actualProfitability) + " " + currency : actualProfitability + " BTC"}}</span></label>
     </div>
     <div (click)="toggleShowAllData()" class="totalDailyEarningsDiv">
       <span class="cursorPointer">
-        Yesterday's {{ dailyEarnings[0] ? '(' + dailyEarnings[0].date.toString().split("T")[0] + ')' : '' }} Total Earnings: {{ isDiscreete ? '***' : dailyEarnings[0] ? (rate != 1 ? formatToCanadianCurrency(rate * dailyEarnings[0].totalEarnings!) + " " + currency : dailyEarnings[0].totalEarnings + " BTC") : '' }}
+        Yesterday's {{ dailyEarnings[0] ? '(' + dailyEarnings[0].date.toString().split("T")[0] + ')' : '' }} Total Earnings: <span class="thirdFontColor">{{ isDiscreete ? '***' : dailyEarnings[0] ? (rate != 1 ? formatToCanadianCurrency(rate * dailyEarnings[0].totalEarnings!) + " " + currency : dailyEarnings[0].totalEarnings + " BTC") : '' }}</span>
 
       </span>
       <div class="cursorPointer">
-        Total Weekly Earnings: {{ isDiscreete ? '***' :  calculateWeeklyEarnings() }} | Daily Average: {{ isDiscreete ? '***' : calculateAverageDailyEarnings() }}
-      </div>
+        Total Weekly Earnings: <span class="thirdFontColor">{{ isDiscreete ? '***' :  calculateWeeklyEarnings() }}</span> | Daily Average: <span class="thirdFontColor">{{ isDiscreete ? '***' : calculateAverageDailyEarnings() }}</span>
+</div>
 
       <div *ngIf="showAllData">
         <table class="mainTable">

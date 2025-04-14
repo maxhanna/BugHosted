@@ -186,11 +186,11 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
       return;
     }
     else if (this.inputtedParentRef && this.inputtedParentRef.pictureSrcs && this.inputtedParentRef.pictureSrcs.find(x => x.key == fileId + '')) {
-      this.showThumbnail = true;
+      this.showThumbnail = true; 
       this.selectedFileSrc = this.inputtedParentRef.pictureSrcs.find(x => x.key == fileId + '')!.value;
       this.fileType = this.inputtedParentRef.pictureSrcs.find(x => x.key == fileId + '')!.type;
       this.selectedFileExtension = this.inputtedParentRef.pictureSrcs.find(x => x.key == fileId + '')!.extension;
-      this.muteOtherVideos();
+      this.muteOtherVideos(); 
       return;
     }
 
@@ -206,8 +206,10 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
     } 
     this.abortFileRequestController = new AbortController();
     try {
-      const user = this.parentRef?.user ?? this.inputtedParentRef?.user;
-      this.fileService.getFileById(fileId, {
+      const parent = this.inputtedParentRef ?? this.parentRef;
+      const user = parent?.user;
+      const sessionToken = await parent?.getSessionToken(); 
+      this.fileService.getFileById(fileId, sessionToken ?? "", {
         signal: this.abortFileRequestController.signal
       }, user?.id).then(response => {
         if (!response || response == null) return;
@@ -360,6 +362,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
     return this.fileService.audioFileExtensions.includes(ext);
   }
   imageFileExtensionsIncludes(ext: string) {
+    if (ext.includes("image")) return true;
     return this.fileService.imageFileExtensions.includes(ext);
   }
   otherFileExtensionsIncludes(ext: string) {

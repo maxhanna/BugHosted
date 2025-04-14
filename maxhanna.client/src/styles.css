@@ -625,3 +625,6 @@ fieldset {
   color: var(--main-link-color);
   cursor: pointer; 
 }
+.thirdFontColor {
+  color: var(--third-font-color);
+}
