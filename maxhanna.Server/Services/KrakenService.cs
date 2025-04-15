@@ -16,6 +16,7 @@ public class KrakenService
 	private static decimal _MaximumBTCTradeAmount = 0.005m;
 	private static decimal _MaximumUSDCTradeAmount = 2000m;
 	private static decimal _ValueTradePercentage = 0.15m;
+	private static decimal _ValueTradePercentagePremium = 0.05m;
 	private static decimal _BTCPriceDiscrepencyStopPercentage = 0.10m;
 	private static decimal _InitialMinimumBTCAmountToStart = 0.001999m;
 	private static decimal _MinimumBTCReserves = 0.0004m;
@@ -25,6 +26,12 @@ public class KrakenService
 	private readonly string _baseAddr = "https://api.kraken.com/";
 	private long _lastNonce;
 	private readonly Log _log;
+
+
+	private DateTime? _lastRunoffTime;
+	private DateTime? _lastSelloffTime;
+	private bool _runoffSignalActive;
+	private bool _selloffSignalActive;
 
 	public KrakenService(IConfiguration config, Log log)
 	{
@@ -116,7 +123,20 @@ public class KrakenService
 			_ = _log.Db("USDC Balance: " + usdcBalance + "; Btc Balance: " + btcBalance, userId, "TRADE", true);
 			if (spread >= _TradeThreshold)
 			{
-				decimal btcToTrade = Math.Min(btcBalance * _ValueTradePercentage, _MaximumBTCTradeAmount);
+				decimal btcToTrade = 0;
+				bool isPremiumSell = await CheckPremiumSellOpportunity(); 
+				if (isPremiumSell)
+				{
+					// Increase sell amount for premium opportunity
+					btcToTrade = Math.Min(btcBalance * (_ValueTradePercentage + _ValueTradePercentagePremium), _MaximumBTCTradeAmount);
+					_ = _log.Db($"PREMIUM SELL OPPORTUNITY - Increasing trade size by 5%", userId, "TRADE", true);
+				}
+				else
+				{
+					// Normal trade amount
+					btcToTrade = Math.Min(btcBalance * _ValueTradePercentage, _MaximumBTCTradeAmount);
+				}
+				//decimal btcToTrade = Math.Min(btcBalance * _ValueTradePercentage, _MaximumBTCTradeAmount);
 				decimal? usdToCadRate = await GetUsdToCadRate();
 				_ = _log.Db("USD to CAD rate: " + usdToCadRate.Value + "; btcPriceToCad: " + btcPriceToCad, userId, "TRADE", true);
 				if (usdToCadRate.HasValue && btcPriceToCad.HasValue && (btcToTrade > 0))
@@ -141,7 +161,20 @@ public class KrakenService
 			}
 			else if (spread <= -_TradeThreshold)
 			{
-				decimal usdcValueToTrade = Math.Min(usdcBalance * _ValueTradePercentage, _MaximumUSDCTradeAmount);
+				bool isPremiumBuyOpportunity = await CheckPremiumBuyOpportunity();
+				decimal usdcValueToTrade = 0;
+				if (isPremiumBuyOpportunity)
+				{
+					// Increase trade amount for premium opportunity
+					usdcValueToTrade = Math.Min(usdcBalance * (_ValueTradePercentage + _ValueTradePercentagePremium), _MaximumUSDCTradeAmount);
+					_ = _log.Db($"PREMIUM BUY OPPORTUNITY - Increasing trade size by 50%", userId, "TRADE", true);
+				}
+				else
+				{
+					// Normal trade amount
+					usdcValueToTrade = Math.Min(usdcBalance * _ValueTradePercentage, _MaximumUSDCTradeAmount);
+				}
+				//decimal usdcValueToTrade = Math.Min(usdcBalance * _ValueTradePercentage, _MaximumUSDCTradeAmount);
 				if (Is90PercentOfTotalWorth(usdcBalance, usdcValueToTrade))
 				{
 					_ = _log.Db($"Trade to XBT is prevented. 90% of wallet is already in XBT. {usdcBalance}/{btcBalance}", userId, "TRADE", true);
@@ -1428,9 +1461,258 @@ public class KrakenService
 		_MinimumBTCReserves = tc.MinimumFromReserves ?? _MinimumBTCReserves;
 		_MinimumUSDCReserves = tc.MinimumToReserves ?? _MinimumUSDCReserves;
 	}
-
-	public async Task<List<VolumeData>> GetTradeMarketVolumesAsync(int? days = null)
+	public async Task<bool> CheckPremiumSellOpportunity()
 	{
+		// First check for fresh runoff signals
+		bool currentRunoff = await GetIsMarketRunoff();
+
+		// Update signal timestamp if new runoff detected
+		if (currentRunoff)
+		{
+			_lastRunoffTime = DateTime.UtcNow;
+			_runoffSignalActive = true;
+			_log.Db("Runoff signal detected (potential future sell opportunity)", null, "TRADE", true);
+		}
+
+		// Check for post-runoff sell opportunity (after runoff completes)
+		if (_runoffSignalActive && _lastRunoffTime.HasValue)
+		{
+			var timeSinceRunoff = DateTime.UtcNow - _lastRunoffTime.Value;
+
+			// Sell window: After runoff completes (60-180 minutes later)
+			if (timeSinceRunoff.TotalMinutes > 60 && timeSinceRunoff.TotalMinutes < 180)
+			{
+				// Get price data since runoff began
+				var postRunoffPrices = await GetBtcPricesAsync(minutes: (int)timeSinceRunoff.TotalMinutes);
+
+				if (postRunoffPrices.Count >= 2)
+				{
+					decimal maxPrice = postRunoffPrices.Max(p => p.Price);
+					decimal currentPrice = postRunoffPrices.Last().Price;
+
+					// Premium sell conditions:
+					// 1. Price is within 0.5% of the peak (failed to make new highs)
+					// 2. Volume is declining from runoff peak
+					bool isNearPeak = (maxPrice - currentPrice) / maxPrice <= 0.005m;
+
+					// Get recent volume trend (last 30 minutes vs previous 30 minutes)
+					var recentVolumes = await GetTradeMarketVolumesAsync("XBT", "USDC", minutes: 60);
+					if (recentVolumes.Count >= 4) // Need at least 4 data points (15-min intervals)
+					{
+						var newestHalf = recentVolumes.Take(recentVolumes.Count / 2).Average(v => v.VolumeBTC);
+						var olderHalf = recentVolumes.Skip(recentVolumes.Count / 2).Average(v => v.VolumeBTC);
+						bool isVolumeDeclining = newestHalf < olderHalf * 0.8m; // 20%+ volume drop
+
+						if (isNearPeak && isVolumeDeclining)
+						{
+							_runoffSignalActive = false;
+							_log.Db($"PREMIUM SELL OPPORTUNITY: Price near peak with declining volume after runoff",
+											null, "TRADE", true);
+							return true;
+						}
+					}
+				}
+			}
+			else if (timeSinceRunoff.TotalMinutes >= 180)
+			{
+				_runoffSignalActive = false;
+			}
+		}
+
+		return false;
+	}
+	public async Task<bool> CheckPremiumBuyOpportunity()
+	{
+		// First check for fresh runoff/selloff signals
+		bool currentRunoff = await GetIsMarketRunoff();
+		bool currentSelloff = await GetIsMarketSelloff();
+
+		// Update signal timestamps
+		if (currentRunoff)
+		{
+			_lastRunoffTime = DateTime.UtcNow;
+			_runoffSignalActive = true;
+			_log.Db("Runoff signal detected", null, "TRADE", true);
+		}
+
+		if (currentSelloff)
+		{
+			_lastSelloffTime = DateTime.UtcNow;
+			_selloffSignalActive = true;
+			_log.Db("Selloff signal detected", null, "TRADE", true);
+		}
+
+		// Check for post-runoff opportunity (after 30-60 minutes)
+		if (_runoffSignalActive && _lastRunoffTime.HasValue)
+		{
+			var timeSinceRunoff = DateTime.UtcNow - _lastRunoffTime.Value;
+
+			if (timeSinceRunoff.TotalMinutes > 30 && timeSinceRunoff.TotalMinutes < 60)
+			{
+				// Get price data since runoff
+				var postRunoffPrices = await GetBtcPricesAsync(minutes: (int)timeSinceRunoff.TotalMinutes);
+
+				if (postRunoffPrices.Count >= 2)
+				{
+					decimal maxPrice = postRunoffPrices.Max(p => p.Price);
+					decimal currentPrice = postRunoffPrices.Last().Price;
+					decimal retracement = (maxPrice - currentPrice) / maxPrice;
+
+					// Buy signal if price retraced 1-3% from peak after runoff
+					if (retracement >= 0.01m && retracement <= 0.03m)
+					{
+						_runoffSignalActive = false;
+						_log.Db($"Premium buy opportunity after runoff (Retracement: {retracement:P1})",
+									 null, "TRADE", true);
+						return true;
+					}
+				}
+			}
+			else if (timeSinceRunoff.TotalMinutes >= 60)
+			{
+				_runoffSignalActive = false;
+			}
+		}
+
+		// Check for post-selloff opportunity (after 60-120 minutes)
+		if (_selloffSignalActive && _lastSelloffTime.HasValue)
+		{
+			var timeSinceSelloff = DateTime.UtcNow - _lastSelloffTime.Value;
+
+			if (timeSinceSelloff.TotalMinutes > 60 && timeSinceSelloff.TotalMinutes < 120)
+			{
+				// Get price data since selloff
+				var postSelloffPrices = await GetBtcPricesAsync(minutes: (int)timeSinceSelloff.TotalMinutes);
+
+				if (postSelloffPrices.Count >= 2)
+				{
+					decimal minPrice = postSelloffPrices.Min(p => p.Price);
+					decimal currentPrice = postSelloffPrices.Last().Price;
+					decimal recovery = (currentPrice - minPrice) / minPrice;
+
+					// Buy signal if price recovered 0.5-2% from bottom after selloff
+					if (recovery >= 0.005m && recovery <= 0.02m)
+					{
+						_selloffSignalActive = false;
+						_log.Db($"Premium buy opportunity after selloff (Recovery: {recovery:P1})",
+									 null, "TRADE", true);
+						return true;
+					}
+				}
+			}
+			else if (timeSinceSelloff.TotalMinutes >= 120)
+			{
+				_selloffSignalActive = false;
+			}
+		}
+
+		return false;
+	}
+	public async Task<bool> GetIsMarketRunoff()
+	{
+		// Get volume and price data for last 15 minutes
+		var volumeData = await GetTradeMarketVolumesAsync("XBT", "USDC", minutes: 15);
+		var priceData = await GetBtcPricesAsync(minutes: 15);
+
+		if (!volumeData.Any() || !priceData.Any())
+			return false;
+
+		// Calculate averages and price change
+		decimal avgVolume = volumeData.Average(x => x.VolumeBTC);
+		decimal priceChange = (priceData.Last().Price - priceData.First().Price) / priceData.First().Price;
+
+		// Get previous period data (15-30 minutes ago)
+		var prevVolumeData = (await GetTradeMarketVolumesAsync("XBT", "USDC", minutes: 30))
+				.Where(x => x.Timestamp < DateTime.UtcNow.AddMinutes(-15)).ToList();
+		var prevPriceData = (await GetBtcPricesAsync(minutes: 30))
+				.Where(x => x.Timestamp < DateTime.UtcNow.AddMinutes(-15)).ToList();
+
+		if (!prevVolumeData.Any() || !prevPriceData.Any())
+			return false;
+
+		decimal prevAvgVolume = prevVolumeData.Average(x => x.VolumeBTC);
+		_ = _log.Db($@"Runoff conditions: 1. Volume increase > 50: {(avgVolume > prevAvgVolume * 1.5m)}. 2. Price increase > 2%: {(priceChange > 0.02m)}. Result : {((avgVolume > prevAvgVolume * 1.5m) && (priceChange > 0.02m))}", null, "TRADE", true);
+		// Runoff conditions:
+		// 1. Volume increase > 50%
+		// 2. Price increase > 2%
+		// 3. Current volume > 1.5x 24h average (optional)
+		return (avgVolume > prevAvgVolume * 1.5m) &&
+					 (priceChange > 0.02m);
+	}
+
+	public async Task<bool> GetIsMarketSelloff()
+	{
+		// Get volume and price data for last 15 minutes
+		var volumeData = await GetTradeMarketVolumesAsync("XBT", "USDC", minutes: 15);
+		var priceData = await GetBtcPricesAsync(minutes: 15);
+
+		if (!volumeData.Any() || !priceData.Any())
+			return false;
+
+		// Calculate metrics
+		decimal avgUsdcVolume = volumeData.Average(x => x.VolumeUSDC);
+		decimal priceChange = (priceData.Last().Price - priceData.First().Price) / priceData.First().Price;
+		decimal btcDominance = volumeData.Average(x => x.VolumeBTC / (x.VolumeBTC + x.VolumeUSDC));
+
+		// Get previous period data
+		var prevVolumeData = (await GetTradeMarketVolumesAsync("XBT", "USDC", minutes: 30))
+				.Where(x => x.Timestamp < DateTime.UtcNow.AddMinutes(-15)).ToList();
+		var prevPriceData = (await GetBtcPricesAsync(minutes: 30))
+				.Where(x => x.Timestamp < DateTime.UtcNow.AddMinutes(-15)).ToList();
+
+		if (!prevVolumeData.Any() || !prevPriceData.Any())
+			return false;
+
+		decimal prevUsdcAvg = prevVolumeData.Average(x => x.VolumeUSDC);
+		decimal prevBtcDominance = prevVolumeData.Average(x => x.VolumeBTC / (x.VolumeBTC + x.VolumeUSDC));
+
+		_ = _log.Db($@"Selloff conditions: 1. USDC volume increase > 50%: {(avgUsdcVolume > prevUsdcAvg * 1.5m)}. 2. Price decrease > 2%: {(priceChange < -0.02m)}.  3. BTC dominance dropping: {(btcDominance < prevBtcDominance * 0.95m)}. Result : {((avgUsdcVolume > prevUsdcAvg * 1.5m) && (priceChange < -0.02m) && (btcDominance < prevBtcDominance * 0.95m))}", null, "TRADE", true);
+		// Selloff conditions:
+		// 1. USDC volume increase > 50%
+		// 2. Price decrease > 2%
+		// 3. BTC dominance dropping
+		return (avgUsdcVolume > prevUsdcAvg * 1.5m) &&
+					 (priceChange < -0.02m) &&
+					 (btcDominance < prevBtcDominance * 0.95m);
+	}
+
+	public async Task<List<PriceData>> GetBtcPricesAsync(int? minutes = null)
+	{
+		using var connection = new MySqlConnection(_config?.GetValue<string>("ConnectionStrings:maxhanna"));
+		await connection.OpenAsync();
+
+		var query = "SELECT value_cad as price, timestamp FROM maxhanna.coin_value WHERE name = 'Bitcoin' ";
+		if (minutes.HasValue)
+		{
+			query += " AND timestamp >= UTC_TIMESTAMP() - INTERVAL @minutes MINUTE";
+		}
+		query += " ORDER BY timestamp DESC";
+
+		using var command = new MySqlCommand(query, connection);
+		if (minutes.HasValue)
+		{
+			command.Parameters.AddWithValue("@minutes", minutes.Value);
+		}
+
+		var prices = new List<PriceData>();
+		using var reader = await command.ExecuteReaderAsync();
+		while (await reader.ReadAsync())
+		{
+			prices.Add(new PriceData
+			{
+				Price = reader.GetDecimal("price"),
+				Timestamp = reader.GetDateTime("timestamp")
+			});
+		}
+		return prices;
+	}
+	public async Task<List<VolumeData>> GetTradeMarketVolumesAsync(string fromCurrency, string toCurrency, int? days = null, int? minutes = null)
+	{
+		if (days.HasValue && minutes.HasValue)
+		{
+			throw new ArgumentException("Cannot specify both days and minutes parameters");
+		}
+
 		var volumes = new List<VolumeData>();
 
 		using var connection = new MySqlConnection(_config?.GetValue<string>("ConnectionStrings:maxhanna"));
@@ -1438,19 +1720,24 @@ public class KrakenService
 
 		var query = @"
         SELECT pair, volume_btc, volume_usdc, timestamp
-        FROM trade_market_volumes";
-
-		if (days.HasValue)
-		{
-			query += " WHERE timestamp >= UTC_TIMESTAMP() - INTERVAL @days DAY";
-		}
+        FROM trade_market_volumes
+        WHERE 1=1";  
 
 		using var command = new MySqlCommand(query, connection);
 
 		if (days.HasValue)
 		{
+			query += " AND timestamp >= UTC_TIMESTAMP() - INTERVAL @days DAY";
 			command.Parameters.AddWithValue("@days", days.Value);
 		}
+		else if (minutes.HasValue)
+		{
+			query += " AND timestamp >= UTC_TIMESTAMP() - INTERVAL @minutes MINUTE";
+			command.Parameters.AddWithValue("@minutes", minutes.Value);
+		}
+		query += $" AND pair = '{fromCurrency}{toCurrency}'";
+
+		command.CommandText = query; // Update command with final query
 
 		using var reader = await command.ExecuteReaderAsync();
 
@@ -1466,8 +1753,6 @@ public class KrakenService
 
 		return volumes;
 	}
-
-
 	private string CreateSignature(string urlPath, string postData, string nonce, string privateKey)
 	{
 		// 1. SHA256(nonce + POST data)
@@ -1573,4 +1858,9 @@ public class VolumeData
 	public decimal VolumeUSDC { get; set; }
 	public decimal ClosePrice { get; set; }
 	public DateTime? Timestamp { get; set; }
+}
+public class PriceData
+{
+	public decimal Price { get; set; }
+	public DateTime Timestamp { get; set; }
 }

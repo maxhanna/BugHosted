@@ -60,6 +60,7 @@
             <option *ngIf="user && user != parentRef?.user && (user && parentRef?.user?.username != user.username) && !friendsIncludeMe() && canAddFriend(user)" value="addFriend">👤 Follow {{isBeingFollowedByUser ? 'Back' : ''}}</option>
             <option *ngIf="user && user != parentRef?.user && (user && parentRef?.user?.username != user.username) && isFollowingUser()" value="unfollow">👤 Unfollow</option>
             <option *ngIf="user && parentRef && parentRef.user && user.id != parentRef.user.id && !contactsContains(user)" value="addContact">👤 Add Contact</option>
+            <option *ngIf="user && parentRef && parentRef.user && user.id != parentRef.user.id" value="{{isUserBlocked ? 'unblockContact' : 'blockContact'}}">{{isUserBlocked ? '👤 Unblock' : '⛔ Block'}} Contact</option>
             <option value="showFriends">👤 Show Friends</option>
             <option *ngIf="user" value="chat">🗨️ Chat</option>
             <option *ngIf="user" value="userInfo">ℹ️ {{ isAboutPanelOpen ? 'Hide ' : '' }} User Info</option>

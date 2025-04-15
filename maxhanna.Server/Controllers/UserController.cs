@@ -1634,6 +1634,143 @@ namespace maxhanna.Server.Controllers
 				conn.Close();
 			}
 		}
+		[HttpPost("/User/Block", Name = "BlockUser")]
+		public async Task<IActionResult> BlockUser([FromBody] BlockRequest request)
+		{
+			string connectionString = _config.GetValue<string>("ConnectionStrings:maxhanna") ?? "";
+
+			using (MySqlConnection conn = new MySqlConnection(connectionString))
+			{
+				try
+				{
+					await conn.OpenAsync();
+
+					// Check if block relationship already exists
+					string checkSql = @"
+                SELECT COUNT(*) FROM maxhanna.user_blocks 
+                WHERE user_id = @UserId AND blocked_user_id = @BlockedUserId;
+            ";
+
+					using (MySqlCommand checkCmd = new MySqlCommand(checkSql, conn))
+					{
+						checkCmd.Parameters.AddWithValue("@UserId", request.UserId);
+						checkCmd.Parameters.AddWithValue("@BlockedUserId", request.BlockedUserId);
+
+						long existingCount = (long)await checkCmd.ExecuteScalarAsync();
+						if (existingCount > 0)
+						{
+							return Ok("User already blocked");
+						}
+					}
+
+					// Insert new block relationship
+					string insertSql = @"
+                INSERT INTO maxhanna.user_blocks (user_id, blocked_user_id, created_at)
+                VALUES (@UserId, @BlockedUserId, UTC_TIMESTAMP());
+            ";
+
+					using (MySqlCommand insertCmd = new MySqlCommand(insertSql, conn))
+					{
+						insertCmd.Parameters.AddWithValue("@UserId", request.UserId);
+						insertCmd.Parameters.AddWithValue("@BlockedUserId", request.BlockedUserId);
+
+						int rowsAffected = await insertCmd.ExecuteNonQueryAsync();
+						if (rowsAffected == 1)
+						{
+							return Ok("User blocked successfully");
+						}
+						else
+						{
+							return StatusCode(500, "Failed to block user");
+						}
+					}
+				}
+				catch (Exception ex)
+				{
+					_ = _log.Db("Error blocking user." + ex.Message, request.UserId, "USER", true);
+					return StatusCode(500, "An error occurred while blocking user");
+				}
+			}
+		}
+
+		[HttpPost("/User/Unblock", Name = "UnblockUser")]
+		public async Task<IActionResult> UnblockUser([FromBody] BlockRequest request)
+		{
+			string connectionString = _config.GetValue<string>("ConnectionStrings:maxhanna") ?? "";
+
+			using (MySqlConnection conn = new MySqlConnection(connectionString))
+			{
+				try
+				{
+					await conn.OpenAsync();
+
+					string sql = @"
+                DELETE FROM maxhanna.user_blocks 
+                WHERE user_id = @UserId AND blocked_user_id = @BlockedUserId;
+            ";
+
+					using (MySqlCommand cmd = new MySqlCommand(sql, conn))
+					{
+						cmd.Parameters.AddWithValue("@UserId", request.UserId);
+						cmd.Parameters.AddWithValue("@BlockedUserId", request.BlockedUserId);
+
+						int rowsAffected = await cmd.ExecuteNonQueryAsync();
+						if (rowsAffected == 1)
+						{
+							return Ok("User unblocked successfully");
+						}
+						else
+						{
+							return NotFound("Block relationship not found");
+						}
+					}
+				}
+				catch (Exception ex)
+				{
+					_ = _log.Db("Error unblocking user." + ex.Message, request.UserId, "USER", true);
+					return StatusCode(500, "An error occurred while unblocking user");
+				}
+			}
+		}
+
+		[HttpPost("/User/IsUserBlocked", Name = "IsUserBlocked")]
+		public async Task<IActionResult> IsUserBlocked([FromBody] BlockRequest request)
+		{
+			string connectionString = _config.GetValue<string>("ConnectionStrings:maxhanna") ?? "";
+
+			using (MySqlConnection conn = new MySqlConnection(connectionString))
+			{
+				try
+				{
+					await conn.OpenAsync();
+
+					string sql = @"
+                SELECT COUNT(*) FROM maxhanna.user_blocks 
+                WHERE user_id = @UserId AND blocked_user_id = @BlockedUserId;
+            ";
+
+					using (MySqlCommand cmd = new MySqlCommand(sql, conn))
+					{
+						cmd.Parameters.AddWithValue("@UserId", request.UserId);
+						cmd.Parameters.AddWithValue("@BlockedUserId", request.BlockedUserId);
+
+						long count = (long)await cmd.ExecuteScalarAsync();
+						return Ok(new { IsBlocked = count > 0 });
+					}
+				}
+				catch (Exception ex)
+				{
+					_ = _log.Db("Error checking block status." + ex.Message, request.UserId, "USER", true);
+					return StatusCode(500, "An error occurred while checking block status");
+				}
+			}
+		}
+
+		public class BlockRequest
+		{
+			public int UserId { get; set; }
+			public int BlockedUserId { get; set; }
+		}
 		private static readonly SemaphoreSlim _sitemapLock = new(1, 1);
 		private readonly string _sitemapPath = Path.Combine(Directory.GetCurrentDirectory(), "../maxhanna.Client/src/sitemap.xml");
 		private async Task AppendToSitemapAsync(int targetId)

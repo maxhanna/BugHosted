@@ -42,6 +42,7 @@ public class NewsService
 	"securities", "futures", "derivatives", "yield", "treasury bonds", "cryptocurrency", "crypto", "money"
 	};
 	int newsServiceAccountNo = 308;
+	int cryptoNewsServiceAccountNo = 309;
 	private DateTime lastNewsDataTimestamp;
 
 	public NewsService(IConfiguration config, Log log)
@@ -103,7 +104,7 @@ public class NewsService
 
 			if (articlesResult?.Status != Statuses.Ok || articlesResult.Articles == null)
 			{
-				await _log.Db("Failed to fetch top headlines", null, "NEWSSERVICE", true);
+				await _log.Db("Failed to fetch top headlines", null, "NEWSSERVICE", false);
 				return false;
 			}
 
@@ -405,11 +406,11 @@ public class NewsService
 			await conn.OpenAsync();
 			await using var transaction = await conn.BeginTransactionAsync();
 
-			// Check if a social story already exists for today (user_id = {newsServiceAccountNo}, contains marker text)
+			// Check if a social story already exists for today (user_id = {cryptoNewsServiceAccountNo}, contains marker text)
 			string marker = "📰 [b]Crypto News Update![/b]";
 			string checkSql = $@"
 			SELECT COUNT(*) FROM stories
-			WHERE user_id = {newsServiceAccountNo} AND DATE(`date`) = CURDATE()
+			WHERE user_id = {cryptoNewsServiceAccountNo} AND DATE(`date`) = CURDATE()
 			AND story_text LIKE CONCAT('%', @marker, '%');
 		";
 
@@ -447,7 +448,7 @@ public class NewsService
 		";
 
 			await using var insertCmd = new MySqlCommand(insertSql, conn, transaction);
-			insertCmd.Parameters.AddWithValue("@userId", newsServiceAccountNo);
+			insertCmd.Parameters.AddWithValue("@userId", cryptoNewsServiceAccountNo);
 			insertCmd.Parameters.AddWithValue("@storyText", fullStoryText);
 
 			await insertCmd.ExecuteNonQueryAsync();

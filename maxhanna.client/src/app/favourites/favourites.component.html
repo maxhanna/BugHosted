@@ -23,7 +23,9 @@
         <div *ngFor="let sFav of favouriteSearch" class="favouriteDiv" [title]="sFav.url">
           <a (click)="parentRef?.visitExternalLink(sFav.url)">
             <div class="favImage" [title]="sFav.name">
-              <img [src]="sFav.imageUrl" *ngIf="sFav.imageUrl" />
+              <img [src]="sFav.imageUrl"
+                   *ngIf="sFav.imageUrl" 
+                   (error)="sFav.imageUrl = ''" />
               <div class="emptyFavImage" *ngIf="!sFav.imageUrl" [title]="sFav.url"></div>
             </div>
             <div class="favName">
@@ -46,7 +48,9 @@
         <div *ngFor="let fav of userFavourites" class="favouriteDiv" [style.border]="showEditLinks ? '1px solid' : ''" [title]="fav.url">
           <a (click)="parentRef?.visitExternalLink(fav.url)">
             <div class="favImage">
-              <img [src]="fav.imageUrl" *ngIf="fav.imageUrl" />
+              <img [src]="fav.imageUrl" 
+                   (error)="fav.imageUrl = ''"
+                   *ngIf="fav.imageUrl" />
               <div class="emptyFavImage" *ngIf="!fav.imageUrl" [title]="fav.url"></div>
             </div>
             <div class="favName">
@@ -75,10 +79,26 @@
   <div class="popupPanelTitle">
     Edit Link
   </div>
-  <div class="editingPopupPanelInputs">
-    <input [value]="editingFavourite?.url" #editingUrlInput placeholder="URL" /> 
-    <input [value]="editingFavourite?.imageUrl" #editingImageUrlInput placeholder="Website Logo URL" /> 
-    <input [value]="editingFavourite?.name" #editingNameInput placeholder="Website Name" />
+  <div class="editingPopupPanelInputs optionsStatsWrapperDiv">
+    <div class="optionsStatsDiv">
+      <div class="optionsStatsHeader">URL:</div>
+      <div class="optionsStatsDescription">
+        <input [value]="editingFavourite?.url" #editingUrlInput placeholder="URL" />
+      </div>
+    </div>
+    <div class="optionsStatsDiv">
+      <div class="optionsStatsHeader">Image URL:</div>
+      <div class="optionsStatsDescription">
+        <input [value]="editingFavourite?.imageUrl" #editingImageUrlInput placeholder="Website Logo URL" />
+      </div>
+    </div>
+    <div class="optionsStatsDiv">
+      <div class="optionsStatsHeader">Title:</div>
+      <div class="optionsStatsDescription">
+        <input [value]="editingFavourite?.name" #editingNameInput placeholder="Website Name" />
+      </div>
+    </div>
+
     <button (click)="editFavourite()" title="Update favourite">💾Update</button>
   </div>
   <div class="optionsStatsWrapperDiv">

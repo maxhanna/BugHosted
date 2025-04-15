@@ -80,3 +80,7 @@ button {
 .popupPanel {
   padding: 0;
 }
+.fileUploadLineDiv {
+  display: flex;
+  justify-content: space-between;
+}

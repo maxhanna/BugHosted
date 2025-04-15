@@ -85,7 +85,7 @@ namespace maxhanna.Server.Controllers
 			if (request.User1Id == null || request.User2Id == null)
 			{
 				return BadRequest("Both users must be present in the request");
-			} 
+			}
 			string sql = "UPDATE maxhanna.notepad SET Ownership = CONCAT(Ownership, ',', @User2Idid) WHERE id = @noteId";
 			try
 			{
@@ -99,8 +99,37 @@ namespace maxhanna.Server.Controllers
 						cmd.Parameters.AddWithValue("@noteId", noteId);
 
 						if (await cmd.ExecuteNonQueryAsync() > 0)
-						{ 
-							return Ok();
+						{
+						}
+						else
+						{
+							_ = _log.Db("Returned 500", request.User1Id, "NOTE", true);
+							return StatusCode(500, "Failed to insert data");
+						}
+					}
+				} 
+			}
+			catch (Exception ex)
+			{
+				_ = _log.Db("An error occurred while fetching Notepad." + ex.Message, request.User1Id, "NOTE", true);
+				return StatusCode(500, "An error occurred while fetching Notepad.");
+			}
+
+			string sql2 = "INSERT INTO maxhanna.notifications (user_id, from_user_id, text, date) VALUES(@userId, @fromUserId, @text, UTC_TIMESTAMP())";
+			try
+			{
+				using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+				{
+					await conn.OpenAsync();
+
+					using (var cmd = new MySqlCommand(sql2, conn))
+					{
+						cmd.Parameters.AddWithValue("@fromUserId", request.User1Id);
+						cmd.Parameters.AddWithValue("@userId", request.User2Id);
+						cmd.Parameters.AddWithValue("@text", "A note was shared with you! Open notepad to view it."); 
+
+						if (await cmd.ExecuteNonQueryAsync() > 0)
+						{
 						}
 						else
 						{
@@ -114,7 +143,8 @@ namespace maxhanna.Server.Controllers
 			{
 				_ = _log.Db("An error occurred while fetching Notepad." + ex.Message, request.User1Id, "NOTE", true);
 				return StatusCode(500, "An error occurred while fetching Notepad.");
-			}
+			} 
+			return Ok(); 
 		}
 		[HttpPost("/Notepad/{id}", Name = "GetNoteById")]
 		public async Task<IActionResult> Get([FromBody] int userId, int id)

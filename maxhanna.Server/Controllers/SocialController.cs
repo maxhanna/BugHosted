@@ -57,9 +57,17 @@ namespace maxhanna.Server.Controllers
 
 		private async Task<StoryResponse> GetStoriesAsync(GetStoryRequest request, string? search, string? topics, int page = 1, int pageSize = 10, bool showHiddenStories = false)
 		{
-			var whereClause = new StringBuilder(" WHERE 1=1 ");
+			var whereClause = new StringBuilder(@" WHERE 1=1 ");
 			var parameters = new Dictionary<string, object>();
-
+			if (request.UserId != 0)
+			{
+				whereClause.Append(@"
+            AND NOT EXISTS (
+                SELECT 1 FROM user_blocks ub 
+                WHERE (ub.user_id = @userId AND ub.blocked_user_id = s.user_id)
+                   OR (ub.user_id = s.user_id AND ub.blocked_user_id = @userId)
+            ) ");
+			}
 			// Fetch the NSFW setting for the user
 			int? nsfwEnabled = null;
 			if (request.UserId != 0)

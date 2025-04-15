@@ -73,6 +73,7 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
   bestWordlerStreak: number = 0;
   metaBotLevelsSum: number = 0;
   weatherLocation?: { city: string; country: string } = undefined;
+  isUserBlocked = false;
 
   showHiddenFiles: boolean = false;
   filter = {
@@ -119,13 +120,14 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
 
       await this.getLoggedInUser();
       if (this.user) {
-        await this.loadFriendData();
-        await this.loadWordlerData();
-        await this.loadMetaheroData();
-        await this.loadSongData();
-        await this.loadContactsData(); 
-        await this.loadLocation(this.user); 
-        await this.getIsBeingFollowedByUser();
+         this.loadFriendData();
+         this.loadWordlerData();
+         this.loadMetaheroData();
+         this.loadSongData();
+         this.loadContactsData(); 
+         this.loadLocation(this.user); 
+         this.getIsBeingFollowedByUser();
+        this.getIsUserBlocked(this.user);
       }
       this.getNSFWValue();
       this.getNumberOfNexusBases();
@@ -270,15 +272,48 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
     } else if (event === "trophyContainer") {
       this.isTrophyExpanded = !!!isOpen;
     }
-  }
+  } 
 
   async addContact(user: User) {
     const userId = this.parentRef?.user?.id;
-    if (userId) { 
+    if (userId) {
       const res = await this.contactService.addUserContact(userId, user.id ?? 0);
       this.parentRef?.showNotification(res);
     }
   }
+
+  async blockContact(user: User) {
+    const userId = this.parentRef?.user?.id;
+    if (userId) {
+      const res = await this.userService.blockUser(userId, user.id ?? 0);
+      if (res) { 
+        this.parentRef?.showNotification(res);
+        this.isUserBlocked = true;
+      }
+    }
+  }
+  async unblockContact(user: User) {
+    const userId = this.parentRef?.user?.id;
+    if (userId) {
+      const res = await this.userService.unblockUser(userId, user.id ?? 0);
+      if (res) { 
+        this.parentRef?.showNotification(res);
+        this.isUserBlocked = false;
+      }
+    }
+  }
+  async getIsUserBlocked(user: User) {
+    const userId = this.parentRef?.user?.id;
+    if (userId) {
+      await this.userService.isUserBlocked(userId, user.id ?? 0).then(res => {
+        if (res) {
+          this.isUserBlocked = res.isBlocked;
+        }  
+      });
+     
+    }
+  }
+
 
   canAddFriend(user: User) {
     let found = false;
@@ -388,6 +423,16 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
       case 'addContact':
         if (this.user) {
           this.addContact(this.user);
+        }
+        break;
+      case 'blockContact':
+        if (this.user) {
+          this.blockContact(this.user);
+        }
+        break;
+      case 'unblockContact':
+        if (this.user) {
+          this.unblockContact(this.user);
         }
         break;
       case 'chat':

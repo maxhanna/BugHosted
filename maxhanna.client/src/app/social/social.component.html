@@ -212,7 +212,7 @@
           {{optionStory.hidden ? '🙉Unhide' : '🙈Hide'}}
         </button>
 
-        <button (click)="delete(optionStory)" *ngIf="optionStory.user?.id == parentRef?.user?.id || (userProfileId && userProfileId == parentRef?.user?.id) || (optionStory.user?.id == 308 && (parentRef?.user?.id == 1 || parent?.user?.id == 1))" title="Delete Post" style="display:inline-block">❌Delete</button>
+        <button (click)="delete(optionStory)" *ngIf="(optionStory.user?.id == parentRef?.user?.id) || (userProfileId && userProfileId == parentRef?.user?.id) || (parentRef?.user?.id == 1 || parent?.user?.id == 1)" title="Delete Post" style="display:inline-block">❌Delete</button>
       </div>
 
       <div class="optionsStatsWrapperDiv">

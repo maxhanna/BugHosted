@@ -103,6 +103,51 @@ export class UserService {
       return null;
     }
   }
+  async blockUser(userId: number, blockedUserId: number) {
+    try {
+      const response = await fetch('/user/block', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ UserId: userId, BlockedUserId: blockedUserId }),
+      });
+
+      return await response.text();
+    } catch (error) {
+      return null;
+    }
+  }
+  async unblockUser(userId: number, blockedUserId: number) {
+    try {
+      const response = await fetch('/user/unblock', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ UserId: userId, BlockedUserId: blockedUserId }),
+      });
+
+      return await response.text();
+    } catch (error) {
+      return null;
+    }
+  }
+  async isUserBlocked(userId: number, blockedUserId: number) {
+    try {
+      const response = await fetch('/user/isUserBlocked', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ UserId: userId, BlockedUserId: blockedUserId }),
+      });
+
+      return await response.json();
+    } catch (error) {
+      return null;
+    }
+  }
   async updateUserAbout(userId: number, about: UserAbout) {
     try {
       const response = await fetch('/user/updateabout', {

@@ -149,7 +149,7 @@ public class TradeController : ControllerBase
 	{
 		try
 		{ 
-			List<VolumeData>? result = await _krakenService.GetTradeMarketVolumesAsync(days);
+			List<VolumeData>? result = await _krakenService.GetTradeMarketVolumesAsync("XBT","USDC",days);
 			return Ok(result);
 		}
 		catch (Exception ex)
