@@ -58,4 +58,7 @@ export class TradeService {
   async getTradeLogs(userId: number, encryptedUserId: string) {
     return this.post(`/trade/gettradelogs`, userId, 'text', encryptedUserId);
   }
+  async getTradeVolume(days?: number) {
+    return this.post(`/trade/gettradevolume`, days, 'text');
+  }
 }

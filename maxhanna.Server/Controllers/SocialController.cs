@@ -811,18 +811,20 @@ namespace maxhanna.Server.Controllers
 		}
 
 
-
 		[HttpPost("/Social/Delete-Story", Name = "DeleteStory")]
 		public async Task<IActionResult> DeleteStory([FromBody] StoryRequest request, [FromHeader(Name = "Encrypted-UserId")] string encryptedUserIdHeader)
 		{
-			if (request.userId != null)
-			{
-				if (!await _log.ValidateUserLoggedIn(request.userId.Value, encryptedUserIdHeader)) return StatusCode(500, "Access Denied.");
-			}
+			// Validate the requesting user is logged in
+			if (!await _log.ValidateUserLoggedIn(request.userId.Value, encryptedUserIdHeader))
+				return StatusCode(500, "Access Denied.");
 
 			try
 			{
-				string sql = @"DELETE FROM stories WHERE (user_id = @userId OR profile_user_id = @userId) AND id = @storyId;";
+				string sql = @"
+            DELETE FROM stories 
+            WHERE 
+                (user_id = @userId OR profile_user_id = @userId OR @userId = 1) 
+                AND id = @storyId;";
 
 				using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
 				{

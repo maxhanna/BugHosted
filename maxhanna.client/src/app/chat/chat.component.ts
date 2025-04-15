@@ -459,7 +459,15 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
       this.newMessage.nativeElement.value += "\n ";
     }
     this.newMessage.nativeElement.value += `[Quoting {${message.sender.username}|${message.sender.id}|${message.timestamp}}: ${message.content}] \n`;
-    this.newMessage.nativeElement.focus();
+    setTimeout(() => {
+      if (this.newMessage && this.newMessage.nativeElement) { 
+        const input = this.newMessage.nativeElement;
+        input.focus(); 
+        const length = input.value.length;
+        input.setSelectionRange(length, length); 
+        input.scrollTop = input.scrollHeight;
+      }
+    }, 50);
   }
 
   showMenuPanel() {

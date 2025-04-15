@@ -29,6 +29,7 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
 
   data?: CoinValue[];
   allHistoricalData?: CoinValue[] = [];
+  volumeData?: any[] = undefined;
   allHistoricalDataPreCalculation?: CoinValue[] = [];
   allWalletBalanceData?: CoinValue[] = [];
   allHistoricalExchangeRateData?: ExchangeRate[] = [];
@@ -53,13 +54,13 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
   hasKrakenApi = false;
   gotTradebotBalances = false;
   tradeBotStarted = false;
-  tradeBotStartedSince : undefined | Date = undefined;
+  tradeBotStartedSince: undefined | Date = undefined;
   showingTradeSettings = false;
   showingTradeLogs = false;
-  isTradeFullscreen = false;
+  isTradePanelOpen = false;
   isShowingTradeGraphWrapper = false;
   isShowingTradeValueGraph = false;
-  tradeConfigLastUpdated? : Date = undefined;
+  tradeConfigLastUpdated?: Date = undefined;
   hasAnyTradeConfig = false;
   tradeLogs: any[] = []
   paginatedLogs: any[] = [];
@@ -139,7 +140,7 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
           this.btcToCadPrice = res.valueCAD;
           if (!this.btcFiatConversion) {
             this.btcFiatConversion = res.valueCAD;
-          } 
+          }
         }
       });
       this.coinValueService.getUniqueCurrencyNames().then(res => { this.uniqueCurrencyNames = res; })
@@ -155,12 +156,20 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
           this.allHistoricalData?.forEach(x => x.valueCAD = x.valueCAD * this.latestCurrencyPriceRespectToCAD);
         }
       });
+      await this.tradeService.getTradeVolume().then(res => {
+        this.volumeData = res;
+        this.volumeData = res.map((item: any) => ({
+          timestamp: item.timestamp,
+          valueCAD: item.volumeBTC
+        }));
+      });
       setTimeout(() => {
         if (this.parentRef?.user?.id) {
           this.tradeService.hasApiKey(this.parentRef.user.id).then(res => { this.hasKrakenApi = res; });
           this.getLastCoinConfigurationUpdated("", "");
-        } 
-      }); 
+
+        }
+      });
     } catch (error) {
       console.error('Error fetching coin values:', error);
     }
@@ -195,12 +204,12 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
       const res = await this.tradeService.isTradebotStarted(parent.user.id, sessionToken);
       if (res) {
         this.tradeBotStartedSince = res as Date;
-      } 
+      }
       if (this.tradeBotStartedSince) {
         this.tradeBotStarted = true;
       } else {
         this.tradeBotStarted = false;
-      } 
+      }
     } else {
       this.tradeBotStarted = false;
     }
@@ -572,18 +581,20 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
     if (!walletAddr) return "";
     return this.aiMessages.find(x => x.addr === walletAddr)?.message;
   }
-  async checkBalance() {  
-    this.closeTradeDivs();
-    if (this.gotTradebotBalances && this.isTradebotBalanceShowing) {
+  async checkBalance() {
+    if (this.isTradebotBalanceShowing) {
       this.isTradebotBalanceShowing = false;
+      console.log("closed trade balance ");
       return;
     } else if (this.gotTradebotBalances && !this.isTradebotBalanceShowing) {
-      this.isTradebotBalanceShowing = true;
+      this.closeTradeDivs();
+      this.isTradebotBalanceShowing = true; 
       return;
     }
     if (this.gotTradebotBalances) {
       return;
     }
+    this.closeTradeDivs();
     if (!this.gotTradebotBalances) {
       this.startLoading();
       this.isTradebotBalanceShowing = true;
@@ -594,34 +605,29 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
           this.gotTradebotBalances = true;
         }
         this.stopLoading();
-      }); 
+      });
     }
   }
-    private closeTradeDivs() {
-        this.showingTradeLogs = false;
-        this.showingTradeSettings = false;
-        this.isShowingTradeGraphWrapper = false;
-        this.isShowingTradeValueGraph = false;
-        this.isTradebotBalanceShowing = false;
-    }
+  private closeTradeDivs() {
+    this.showingTradeLogs = false;
+    this.showingTradeSettings = false;
+    this.isShowingTradeGraphWrapper = false;
+    this.isShowingTradeValueGraph = false;
+    this.isTradebotBalanceShowing = false;
+
+  }
 
   openTradeFullscreen() {
-    if (this.fullscreenTimeout) return;  
-    clearTimeout(this.debounceTimer);
     this.tradeConfigLastUpdated = undefined;
-    this.debounceTimer = setTimeout(() => {
-      this.isTradeFullscreen = !this.isTradeFullscreen;
-      if (this.isTradeFullscreen) {
-        this.parentRef?.showOverlay();
-      } else {
-        this.parentRef?.closeOverlay();
-      } 
-    },100);   
+    if (this.isTradePanelOpen) {
+      this.closeTradeFullscreen();
+    } else {
+      this.isTradePanelOpen = true;
+    }
   }
-  closeTradeFullscreen() { 
-    this.parentRef?.closeOverlay();
+  closeTradeFullscreen() {
     this.closeTradeDivs();
-    setTimeout(() => { this.isTradeFullscreen = false; }, 50);
+    this.isTradePanelOpen = false;
   }
   showTradeSettings() {
     this.closeTradeDivs();
@@ -638,6 +644,7 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
     this.isShowingTradeGraphWrapper = !this.isShowingTradeGraphWrapper;
   }
   async showTradeValueGraph() {
+    this.closeTradeDivs();
     this.startLoading();
     this.isShowingTradeValueGraph = !this.isShowingTradeValueGraph;
     if (this.tradebotBalances.length == 0 && this.parentRef?.user?.id) {
@@ -647,7 +654,7 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
           this.tradebotBalances = res;
           this.gotTradebotBalances = true;
         }
-      }); 
+      });
     }
     this.tradebotValuesForGraph = this.tradebotBalances.map(balance => {
       return {
@@ -665,8 +672,8 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
       BTC: 'Bitcoin',
       XBT: 'Bitcoin',
       ETH: 'Ethereum',
-      LTC: 'Litecoin', 
-      USDC: 'USDCoin', 
+      LTC: 'Litecoin',
+      USDC: 'USDCoin',
     };
     return map[symbol.toUpperCase()] || symbol;
   }
@@ -675,9 +682,9 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
     this.closeTradeDivs();
     this.showingTradeLogs = !this.showingTradeLogs;
     if (this.showingTradeLogs && this.tradeLogs.length == 0) {
-      const sessionToken = await this.parentRef.getSessionToken(); 
+      const sessionToken = await this.parentRef.getSessionToken();
       this.tradeLogs = await this.tradeService.getTradeLogs(this.parentRef.user.id, sessionToken);
-      this.setPaginatedLogs(); 
+      this.setPaginatedLogs();
     }
   }
   setPaginatedLogs() {
@@ -685,13 +692,13 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
     const start = (this.currentLogPage - 1) * this.logsPerPage;
     const end = start + this.logsPerPage;
     this.paginatedLogs = this.tradeLogs.slice(start, end);
-  } 
+  }
   nextLogPage() {
     if ((this.currentLogPage * this.logsPerPage) < this.tradeLogs.length) {
       this.currentLogPage++;
       this.setPaginatedLogs();
     }
-  } 
+  }
   prevLogPage() {
     if (this.currentLogPage > 1) {
       this.currentLogPage--;
@@ -824,7 +831,7 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
         }
       });
     });
-  } 
+  }
   setDefaultTradeConfiguration() {
     if (this.tradeFromCoinSelect.nativeElement.value == "XBT" && this.tradeToCoinSelect.nativeElement.value == "USDC") {
       this.tradeMaximumTradeBalanceRatio.nativeElement.valueAsNumber = 0.9;
@@ -907,7 +914,7 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
         console.error(err);
         this.parentRef?.showNotification('Failed to update configuration.');
       });
-  } 
+  }
   createUpdateUserComponent() {
     this.parentRef?.createComponent('UpdateUserSettings', {
       showOnlyKrakenApiKeys: true,

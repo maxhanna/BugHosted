@@ -1,4 +1,5 @@
 ﻿using maxhanna.Server.Controllers.DataContracts.Crypto;
+using maxhanna.Server.Controllers.DataContracts.Users;
 using maxhanna.Server.Controllers.Helpers;
 using MySqlConnector;
 using NewsAPI.Models;
@@ -37,15 +38,15 @@ namespace maxhanna.Server.Services
 			_httpClient = new HttpClient();
 			_webCrawler = webCrawler;
 			_log = log;
-			_krakenService = krakenService; 
-			_newsService = newsService; 
+			_krakenService = krakenService;
+			_newsService = newsService;
 		}
 
 		protected override async Task ExecuteAsync(CancellationToken stoppingToken)
 		{
 			while (!stoppingToken.IsCancellationRequested)
 			{
-			//	Console.WriteLine("Refreshing system information:" + DateTimeOffset.Now);
+				//	Console.WriteLine("Refreshing system information:" + DateTimeOffset.Now);
 
 				// Run tasks that need to execute every 1 minute
 				if ((DateTime.Now - _lastMinuteTaskRun).TotalMinutes >= 1)
@@ -57,7 +58,7 @@ namespace maxhanna.Server.Services
 				if ((DateTime.Now - _lastFiveMinuteTaskRun).TotalMinutes >= 5)
 				{
 					await UpdateLastBTCWalletInfo();
-					await FetchAndStoreCoinValues(); 
+					await FetchAndStoreCoinValues();
 					_miningApiService.UpdateWalletInDB(_config, _log);
 					await _newsService.GetAndSaveTopQuarterHourlyHeadlines();
 				}
@@ -87,6 +88,7 @@ namespace maxhanna.Server.Services
 					await _newsService.CreateDailyCryptoNewsStoryAsync();
 					await _newsService.CreateDailyNewsStoryAsync();
 					await DeleteOldNews();
+					await DeleteOldTradeVolumeEntries();
 					await _log.DeleteOldLogs();
 					await _log.BackupDatabase();
 					_lastDailyTaskRun = DateTime.Now;
@@ -192,14 +194,21 @@ namespace maxhanna.Server.Services
 				{
 					_ = _log.Db("Exception while crawling : " + ex.Message, null);
 				}
-			} 
+			}
 		}
 
 		private async Task MakeCryptoTrade()
 		{
 			try
 			{
-				await _krakenService.MakeATrade(1);
+				UserKrakenApiKey? keys = await _krakenService.GetApiKey(1);
+				if (keys == null || string.IsNullOrEmpty(keys.ApiKey) || string.IsNullOrEmpty(keys.PrivateKey))
+				{
+					_ = _log.Db("No Kraken API keys found for this user", 1, "SYSTEM", true);
+					return;
+				}
+				await SaveVolumeDataAsync(1, keys);
+				await _krakenService.MakeATrade(1, keys);
 			}
 			catch (Exception ex)
 			{
@@ -712,6 +721,41 @@ namespace maxhanna.Server.Services
 				_ = _log.Db("Error occurred while assigning trophies. " + ex.Message, null);
 			}
 		}
+		public async Task SaveVolumeDataAsync(int userId, UserKrakenApiKey keys)
+		{
+			// Connect to the MySQL database
+			using (var connection = new MySqlConnection(_connectionString))
+			{
+				await connection.OpenAsync();
+
+				// Check if there's already a record for XBTUSDC in the last 5 minutes
+				var query = @"
+            SELECT COUNT(*) 
+            FROM trade_market_volumes
+            WHERE pair = @pair AND timestamp > @timestampThreshold;";
+
+				var command = new MySqlCommand(query, connection);
+				command.Parameters.AddWithValue("@pair", "XBTUSDC");
+				command.Parameters.AddWithValue("@timestampThreshold", DateTime.UtcNow.AddMinutes(-5));
+
+				var existingRecordCount = Convert.ToInt32(await command.ExecuteScalarAsync());
+				if (existingRecordCount > 0)
+				{
+					return;
+				}
+
+				var volumes = await _krakenService.GetLatest15MinVolumeAsync(userId, keys);
+
+				query = @"
+            INSERT INTO trade_market_volumes (pair, volume_btc, volume_usdc, timestamp)
+            VALUES (@pair, @volume_btc, @volume_usdc, UTC_TIMESTAMP());";
+				command = new MySqlCommand(query, connection);
+				command.Parameters.AddWithValue("@pair", "XBTUSDC");
+				command.Parameters.AddWithValue("@volume_btc", volumes.VolumeBTC);
+				command.Parameters.AddWithValue("@volume_usdc", volumes.VolumeUSDC);
+				await command.ExecuteNonQueryAsync();
+			}
+		}
 
 
 		private async Task FetchAndStoreCoinValues()
@@ -802,10 +846,80 @@ namespace maxhanna.Server.Services
 				await deleteCmd.ExecuteNonQueryAsync();
 			}
 		}
+		private async Task DeleteOldTradeVolumeEntries()
+		{
+			using (var conn = new MySqlConnection(_connectionString))
+			{
+				await conn.OpenAsync();
+
+				// Step 1: Delete entries older than 5 years
+				var countSql5Years = "SELECT COUNT(*) FROM trade_market_volumes WHERE timestamp < DATE_SUB(UTC_TIMESTAMP(), INTERVAL 5 YEAR)";
+				using (var countCmd = new MySqlCommand(countSql5Years, conn))
+				{
+					var deleteCount = Convert.ToInt32(await countCmd.ExecuteScalarAsync());
+					if (deleteCount > 0)
+					{
+						var deleteSql = "DELETE FROM trade_market_volumes WHERE timestamp < DATE_SUB(UTC_TIMESTAMP(), INTERVAL 5 YEAR)";
+						using (var deleteCmd = new MySqlCommand(deleteSql, conn))
+						{
+							await deleteCmd.ExecuteNonQueryAsync();
+							await _log.Db($"Deleted {deleteCount} entries older than 5 years", null, "SYSTEM", true);
+						}
+					}
+				}
+
+				// Step 2: Delete random entries older than 1 year if more than 50 per day
+				// First get the days that have more than 50 entries
+				var daysWithManyEntries = new List<DateTime>();
+				var getDaysSql = @"SELECT DISTINCT DATE(timestamp) as day 
+                          FROM trade_market_volumes 
+                          WHERE timestamp < DATE_SUB(UTC_TIMESTAMP(), INTERVAL 1 YEAR)
+                          GROUP BY DATE(timestamp)
+                          HAVING COUNT(*) > 50";
+
+				using (var daysCmd = new MySqlCommand(getDaysSql, conn))
+				using (var reader = await daysCmd.ExecuteReaderAsync())
+				{
+					while (await reader.ReadAsync())
+					{
+						daysWithManyEntries.Add(reader.GetDateTime(0));
+					}
+				}
+
+				// For each day with too many entries, delete the excess randomly
+				foreach (var day in daysWithManyEntries)
+				{
+					var deleteExcessSql = @"
+                DELETE FROM trade_market_volumes
+                WHERE DATE(timestamp) = @day
+                AND timestamp < DATE_SUB(UTC_TIMESTAMP(), INTERVAL 1 YEAR)
+                AND id NOT IN (
+                    SELECT id FROM (
+                        SELECT id FROM trade_market_volumes
+                        WHERE DATE(timestamp) = @day
+                        AND timestamp < DATE_SUB(UTC_TIMESTAMP(), INTERVAL 1 YEAR)
+                        ORDER BY RAND()
+                        LIMIT 50
+                    ) AS keepers
+                )";
+
+					using (var deleteCmd = new MySqlCommand(deleteExcessSql, conn))
+					{
+						deleteCmd.Parameters.AddWithValue("@day", day.ToString("yyyy-MM-dd"));
+						var deletedCount = await deleteCmd.ExecuteNonQueryAsync();
+
+						if (deletedCount > 0)
+						{
+							await _log.Db($"Deleted {deletedCount} entries from {day:yyyy-MM-dd} (keeping 50)", null, "SYSTEM", true);
+						}
+					}
+				}
+			}
+		}
 
 		private async Task<bool> IsSystemUpToDate(MySqlConnection conn)
 		{
-			var checkSql = "SELECT COUNT(*) FROM coin_value WHERE timestamp >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 15 MINUTE)";
+			var checkSql = "SELECT COUNT(*) FROM coin_value WHERE timestamp >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 5 MINUTE)";
 			using (var checkCmd = new MySqlCommand(checkSql, conn))
 			{
 				var count = Convert.ToInt32(await checkCmd.ExecuteScalarAsync());
@@ -843,4 +957,4 @@ namespace maxhanna.Server.Services
 		[JsonProperty("total_sent")]
 		public long TotalSent { get; set; }
 	}
-}  
+}

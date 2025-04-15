@@ -613,7 +613,7 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
       this.closeStoryOptionsPanel();
       return;
     }
-    this.optionStory = story;
+    this.optionStory = story; 
     this.isStoryOptionsPanelOpen = true;
     if (this.parentRef) {
       this.parentRef.showOverlay();

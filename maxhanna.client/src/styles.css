@@ -587,6 +587,7 @@ fieldset {
   justify-content: flex-start;
   align-items: center;
   cursor: default;
+  word-break: break-word;
 }
 
 .optionsStatsDescription {

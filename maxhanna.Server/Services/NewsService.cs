@@ -220,7 +220,7 @@ public class NewsService
 			await using var transaction = await conn.BeginTransactionAsync();
 
 			// Check if a social story already exists for today (user_id = 0, contains marker text)
-			string marker = "📰 *Daily News Update!*";
+			string marker = "📰 [b]Daily News Update![/b]";
 			string checkSql = $@"
         SELECT COUNT(*) FROM stories
         WHERE user_id = {newsServiceAccountNo} AND DATE(`date`) = CURDATE()
@@ -241,7 +241,7 @@ public class NewsService
 
 			// Build the story text and tokenize the descriptions of top articles
 			var sb = new StringBuilder();
-			sb.AppendLine("📰 *Daily News Update!*\n");
+			sb.AppendLine(marker);
 
 			var tokenFrequency = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
 			var articleTokenMap = new List<(Article Article, List<string> Tokens)>();
@@ -285,7 +285,7 @@ public class NewsService
 				return;
 			}
 			// Build the story string using only the most relevant article 
-			sb.AppendLine($"**{selectedArticle.Title}**\nRead more: {selectedArticle.Url}\n");
+			sb.AppendLine($"[*][b]{selectedArticle.Title}[/b]\nRead more: {selectedArticle.Url} [/*]");
 
 			string fullStoryText = sb.ToString().Trim();
 
@@ -360,8 +360,13 @@ public class NewsService
 		string sql = @"
 		SELECT id, file_name, given_file_name
 		FROM file_uploads
-		WHERE is_folder = 0 AND is_public = 1 AND (file_name IS NOT NULL OR given_file_name IS NOT NULL)
-	";
+		WHERE is_folder = 0
+		AND is_public = 1
+		AND (file_name IS NOT NULL OR given_file_name IS NOT NULL) 
+		AND file_type IN (
+			'jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'tiff', 'tif', 'svg', 'ico', 'heic', 'heif', 'raw', 'cr2', 'nef', 'orf', 'arw',
+			'mp4', 'm4v', 'mov', 'avi', 'wmv', 'flv', 'webm', 'mkv', 'mpeg', 'mpg', '3gp', '3g2', 'mts', 'm2ts', 'ts', 'vob', 'ogv'
+		)";
 
 		await using var cmd = new MySqlCommand(sql, conn, transaction);
 		await using var reader = await cmd.ExecuteReaderAsync();
@@ -395,19 +400,13 @@ public class NewsService
 			//	await _log.Db("Not enough articles saved yet.", null, "NEWSSERVICE", true); 
 				return; 
 			}
-			var topArticlesResult = await GetTopCryptoArticlesByDayAsync();
-			if (topArticlesResult?.Articles == null || topArticlesResult.Articles.Count == 0)
-			{
-				await _log.Db("No crypto articles to write a social story about", null, "NEWSSERVICE", true);
-				return;
-			}
 
 			await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
 			await conn.OpenAsync();
 			await using var transaction = await conn.BeginTransactionAsync();
 
 			// Check if a social story already exists for today (user_id = {newsServiceAccountNo}, contains marker text)
-			string marker = "📰 *Crypto News Update!*";
+			string marker = "📰 [b]Crypto News Update![/b]";
 			string checkSql = $@"
 			SELECT COUNT(*) FROM stories
 			WHERE user_id = {newsServiceAccountNo} AND DATE(`date`) = CURDATE()
@@ -426,12 +425,18 @@ public class NewsService
 				}
 			}
 
+			var topArticlesResult = await GetTopCryptoArticlesByDayAsync();
+			if (topArticlesResult?.Articles == null || topArticlesResult.Articles.Count == 0)
+			{
+				await _log.Db("No crypto articles to write a social story about", null, "NEWSSERVICE", true);
+				return;
+			}
 			// Build story text from all articles
 			var sb = new StringBuilder();
-			sb.AppendLine("📰 *Crypto News Update!*\n");
+			sb.AppendLine(marker);
 			foreach (var article in topArticlesResult.Articles)
 			{
-				sb.AppendLine($"**{article.Title}**\nRead more: {article.Url}\n");
+				sb.AppendLine($"[*][b]{article.Title}[/b]\nRead more: {article.Url} [/*]");
 			}
 
 			string fullStoryText = sb.ToString().Trim();
@@ -511,10 +516,29 @@ public class NewsService
 				string combinedText = $"{article.Title} {article.Description} {article.Content}".ToLower();
 
 				// Filter articles by real keyword match (exact word)
-				bool isRelevant = CryptoKeywords.Any(k =>
-					Regex.IsMatch(combinedText, $@"\b{k.ToLower()}\b", RegexOptions.IgnoreCase));
+				var words = Regex.Matches(combinedText, @"\b[a-zA-Z0-9]+\b")
+												 .Select(m => m.Value.ToLowerInvariant())
+												 .ToHashSet();
 
-				if (!isRelevant) continue;
+				var matchedKeywords = CryptoKeywords.Where(keyword =>
+				{
+					var lower = keyword.ToLowerInvariant();
+					return words.Contains(lower) ||
+								 words.Contains(lower + "s") ||
+								 words.Contains(lower + "es") ||
+								 words.Contains(lower.TrimEnd('e') + "ing") ||
+								 words.Contains(lower + "ed");
+				}).ToList();
+
+				if (matchedKeywords.Count > 0)
+				{
+					Console.WriteLine($"Matched keywords for article '{article.Title}': {string.Join(", ", matchedKeywords)}");
+				}
+				else
+				{
+					continue;
+				}
+
 
 				DateTime date = article.PublishedAt.Value.Date;
 

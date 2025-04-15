@@ -248,7 +248,11 @@
   border: none;
 }
 .tradeDataTable {
-  max-height: 200px;
+  height: CALC(var(--vh, 1vh) * 100 - 230px);
   overflow: auto;
   width: 100%;
+}
+.fullScreenTradePanelDiv {
+  width: 100%;
+  height: 100%;
 }

@@ -2,8 +2,8 @@
   <div class="closeButton" (click)="remove_me('CoinWalletComponent');"></div>
   <div class="menuButton" (click)="showMenuPanel();"></div>
   <div class="componentTitle">Crypto Hub</div>
-  <div [class]="noMining ? 'noMiningHubSection' : 'hubSection'">
-    <div class="cryptoHubConverterAndCoinWatchWrapper">
+  <div [class]="noMining ? 'noMiningHubSection' : !isTradePanelOpen ? 'hubSection' : ''" [style.display]="isTradePanelOpen ? 'none' : 'block'">
+    <div class="cryptoHubConverterAndCoinWatchWrapper" [style.display]="isTradePanelOpen ? 'none' : 'block'">
       <div class="marquee-scroll"
            (mousedown)="onMouseDown($event)"
            (mouseup)="onMouseUp()"
@@ -54,35 +54,46 @@
 
     </div>
 
-    <div *ngIf="allHistoricalData && allHistoricalData.length > 0" class="graphContainerDiv sectionContainer">
+    <div *ngIf="allHistoricalData && allHistoricalData.length > 0 && volumeData && volumeData.length > 0" class="graphContainerDiv sectionContainer" [style.display]="isTradePanelOpen ? 'none' : 'block'">
 
       <app-line-graph #lineGraphComponent
                       [type]="'Crypto'"
                       [selectedCurrency]="selectedCurrency"
-                      [selectedPeriod]="'5y'"
+                      [selectedPeriod]="'15min'"
+                      [showAverage]="true"
                       [data]="allHistoricalData!"
                       [selectedCoin]="currentSelectedCoin">
       </app-line-graph>
+      <app-line-graph [selectedCurrency]="'Volume'"
+                      [type]="'Volume'"
+                      [chartTypeInputted]="'bar'"
+                      [showAverage]="true"
+                      [displayCoinSwitcher]="false"
+                      [selectedPeriod]="'15min'"
+                      [data]="volumeData">
+      </app-line-graph>
     </div>
 
-    <div *ngIf="allHistoricalExchangeRateData && allHistoricalExchangeRateData.length > 0" class="graphContainerDiv sectionContainer">
+    <div *ngIf="allHistoricalExchangeRateData && allHistoricalExchangeRateData.length > 0" class="graphContainerDiv sectionContainer" [style.display]="isTradePanelOpen ? 'none' : 'block'">
 
       <app-line-graph [type]="'Currency'"
                       [selectedCoin]="'USD'"
-                      [selectedPeriod]="'3m'"
+                      [showAverage]="true"
+                      [selectedPeriod]="'1y'"
                       [data]="allHistoricalExchangeRateData!">
       </app-line-graph>
     </div>
   </div>
-  <div class="hubSection miningHubSection" *ngIf="latestCurrencyPriceRespectToCAD && latestCurrencyPriceRespectToCAD != 0">
-    <app-mining-rigs #miningRigComponent
+  <div [class]="isTradePanelOpen ? 'fullScreenTradePanelDiv' : 'hubSection miningHubSection'" *ngIf="latestCurrencyPriceRespectToCAD && latestCurrencyPriceRespectToCAD != 0">
+    <app-mining-rigs [style.display]="isTradePanelOpen ? 'none' : 'block'"
+                     #miningRigComponent
                      [isDiscreete]="isDiscreete"
                      [inputtedParentRef]="parentRef"
                      [conversionRate]="latestCurrencyPriceRespectToCAD"
                      [currency]="selectedCurrency"
                      (closeMiningEvent)="closeMiningEvent()"></app-mining-rigs>
 
-    <div class="wallet sectionContainer" *ngIf="wallet || btcWalletResponse">
+    <div class="wallet sectionContainer" *ngIf="(wallet || btcWalletResponse)" [style.display]="isTradePanelOpen ? 'none' : 'block'">
       <div class="sectionName cryptoWalletSectionHeader" *ngIf="wallet || btcWalletResponse">Crypto Wallet Balance(s):</div>
       <table *ngIf="wallet || btcWalletResponse?.currencies" id="walletTable">
         <thead *ngIf="wallet?.length">
@@ -129,43 +140,32 @@
       </div>
     </div>
 
-    <div class="sectionContainer">
-      <div class="titleFont cursorPointer" (click)="hideHostAiMessage = !hideHostAiMessage">
-        <span class="warning-text" title="This is not actual financial advice. This is based off AI and the data presented to it from your wallet. We take no responsibility in what you do with this information.">⚠️</span>
-        HostAI: <button (click)="generateGeneralAiMessage(); hideHostAiMessage = !hideHostAiMessage;" *ngIf="!finishedGeneratingAiMessage" [disabled]="isLoading">Generate Analysis</button>
-      </div>
-      <div *ngIf="!finishedGeneratingAiMessage && isLoading">Generating...</div>
-      <div class="aiMessage" *ngIf="finishedGeneratingAiMessage && !hideHostAiMessage">
-        <span [innerHTML]="getAiMessage('1')"></span>
-      </div>
-    </div>
-
-    <div class="sectionContainer {{isTradeFullscreen ? 'popupPanel' : ''}}">
+    <div class="{{isTradePanelOpen ? '' : 'sectionContainer'}}">
       <div class="titleFont cursorPointer">
         <span class="warning-text" title="We take no responsibility in how you use this trade bot nor what you do with any of this information.">⚠️</span>
         Trade Bot:
         <button *ngIf="hasKrakenApi && hasAnyTradeConfig && !tradeBotStarted" (click)="startTradeBot()">Start</button>
         <button *ngIf="tradeBotStarted" (click)="stopTradeBot()">Stop</button>
-        <p *ngIf="tradeBotStartedSince && isTradeFullscreen"></p>
+        <p *ngIf="tradeBotStartedSince && isTradePanelOpen"></p>
         <span *ngIf="tradeBotStartedSince">Running Since: {{tradeBotStartedSince}}</span>
         <span class="cursorPointerUnderlined" (click)="createUpdateUserComponent();" *ngIf="!hasKrakenApi && parentRef?.user?.id"> Set Up Kraken API Keys </span>
         <span class="cursorPointerUnderlined" (click)="createUserComponent();" *ngIf="!hasKrakenApi && !parentRef?.user?.id"> Log in to use the bot.</span>
 
-        <div *ngIf="hasKrakenApi && isTradeFullscreen" style="margin-top: 20px; display: flex; justify-content: center; align-content: flex-start; flex-wrap: wrap; align-items: flex-start;">
-          <button (click)="checkBalance()" [disabled]="isLoading" *ngIf="isTradeFullscreen">{{isTradebotBalanceShowing ? 'Hide' : 'Show'}} Trades</button>
-          <button (click)="showTradeSettings()" *ngIf="isTradeFullscreen">{{showingTradeSettings ? 'Hide' : 'Show'}} Configuration</button>
-          <button (click)="showTradeLogs()" *ngIf="isTradeFullscreen">{{showingTradeLogs ? 'Hide' : 'Show'}} Logs</button>
-          <button (click)="showTradeValueGraph()" *ngIf="isTradeFullscreen">{{isShowingTradeValueGraph ? 'Hide' : 'Show'}} Trade Value Graph</button>
+        <div *ngIf="hasKrakenApi && isTradePanelOpen" style="margin-top: 20px; display: flex; justify-content: center; align-content: flex-start; flex-wrap: wrap; align-items: flex-start;">
+          <button (click)="checkBalance()" [disabled]="isLoading" *ngIf="isTradePanelOpen">{{isTradebotBalanceShowing ? 'Hide' : 'Show'}} Trades</button>
+          <button (click)="showTradeSettings()" *ngIf="isTradePanelOpen">{{showingTradeSettings ? 'Hide' : 'Show'}} Configuration</button>
+          <button (click)="showTradeLogs()" *ngIf="isTradePanelOpen">{{showingTradeLogs ? 'Hide' : 'Show'}} Logs</button>
+          <button (click)="showTradeValueGraph()" *ngIf="isTradePanelOpen">{{isShowingTradeValueGraph ? 'Hide' : 'Show'}} Trade Value Graph</button>
         </div>
         <div *ngIf="hasKrakenApi && isTradebotBalanceShowing && tradebotBalances?.length" class="mainTableContainer tradeDataTable">
           <table class="mainTable">
             <thead>
               <tr>
-                <th class="xxSmallFont">From Currency</th>
-                <th class="xxSmallFont">To Currency</th>
+                <th class="xxSmallFont">From</th>
+                <th class="xxSmallFont">To</th>
                 <th class="xxSmallFont">Value</th>
-                <th class="xxSmallFont">BTC Price $CAD</th>
-                <th class="xxSmallFont">Trade Value $CAD</th>
+                <th class="xxSmallFont">BTC Price($CAD)</th>
+                <th class="xxSmallFont">Value($CAD)</th>
                 <th class="xxSmallFont">Timestamp</th>
               </tr>
             </thead>
@@ -266,12 +266,13 @@
           <div class="optionsStatsHeader">Save Configuration</div>
           <button (click)="updateCoinConfiguration()">💾Save</button>
         </div>
-      </div> 
+      </div>
       <div *ngIf="isShowingTradeValueGraph">
         <app-line-graph [type]="'Crypto'"
                         [graphTitle]="'Trade Value'"
                         [data]="tradebotValuesForGraph"
                         [selectedPeriod]="'5y'"
+                        [showAverage]="true"
                         (fullscreenSelectedEvent)="fullscreenSelectedInPopup($event)">
         </app-line-graph>
       </div>
@@ -302,18 +303,30 @@
         <button (click)="nextLogPage()" [disabled]="currentLogPage >= totalLogPages">Next</button>
       </div>
 
-      <div *ngIf="hasKrakenApi" style="{{isTradeFullscreen ? 'margin-top:20px;' : ''}}text-align:center; width: 100%;">
-        <button (click)="isTradeFullscreen ? closeTradeFullscreen() :  !isMenuPanelOpen ? openTradeFullscreen() : ''" id="closeOverlay">{{isTradeFullscreen ? 'Minimize' : 'Maximize'}} View</button>
-      </div> 
+      <div *ngIf="hasKrakenApi" style="{{isTradePanelOpen ? 'margin-top:20px;' : ''}}text-align:center; width: 100%;">
+        <button (click)="openTradeFullscreen()">{{isTradePanelOpen ? 'Minimize' : 'Maximize'}} View</button>
+      </div>
     </div>
 
-  <div *ngIf="!data && isLoading">
-    Loading data, please wait...
+
+    <div class="sectionContainer" [style.display]="isTradePanelOpen ? 'none' : 'block'">
+      <div class="titleFont cursorPointer" (click)="hideHostAiMessage = !hideHostAiMessage">
+        <span class="warning-text" title="This is not actual financial advice. This is based off AI and the data presented to it from your wallet. We take no responsibility in what you do with this information.">⚠️</span>
+        HostAI: <button (click)="generateGeneralAiMessage(); hideHostAiMessage = !hideHostAiMessage;" *ngIf="!finishedGeneratingAiMessage" [disabled]="isLoading">Generate Analysis</button>
+      </div>
+      <div *ngIf="!finishedGeneratingAiMessage && isLoading">Generating...</div>
+      <div class="aiMessage" *ngIf="finishedGeneratingAiMessage && !hideHostAiMessage">
+        <span [innerHTML]="getAiMessage('1')"></span>
+      </div>
+    </div>
+
+    <div *ngIf="!data && isLoading">
+      Loading data, please wait...
+    </div>
+    <div *ngIf="!data && !isLoading">
+      Something went wrong, please refresh this component after a while.
+    </div>
   </div>
-  <div *ngIf="!data && !isLoading">
-    Something went wrong, please refresh this component after a while.
-  </div>
-</div>
 
 
 <div *ngIf="isMenuPanelOpen" class="popupPanel">
@@ -383,8 +396,7 @@
                     [selectedCurrency]="selectedCurrency"
                     [selectedPeriod]="'5d'"
                     [graphTitle]="!currentSelectedCoin.includes('->') ? '$Bitcoin Value' : ('$Bitcoin/' + (selectedCurrency) + ' Value')"
-                    [data]="allWalletBalanceData"
-                    [selectedCoin]="currentSelectedCoin"
+                    [data]="allWalletBalanceData" 
                     (fullscreenSelectedEvent)="fullscreenSelectedInPopup($event)">
     </app-line-graph>
   </div>

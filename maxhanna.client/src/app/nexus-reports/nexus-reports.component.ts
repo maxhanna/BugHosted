@@ -152,7 +152,9 @@ export class NexusReportsComponent extends ChildComponent implements OnInit, OnC
   async nextPage() {
     if (!this.user?.id) return;
     const pageSize = parseInt(this.pageSize.nativeElement.value);
-    this.currentPage.nativeElement.value = parseInt(this.currentPage.nativeElement.value) + 1 + "";
+    if (this.currentPage && this.currentPage.nativeElement) {
+      this.currentPage.nativeElement.value = parseInt(this.currentPage.nativeElement.value) + 1 + "";
+    }
     let currentPage = parseInt(this.currentPage.nativeElement.value);
     this.battleReports = await this.nexusService.getBattleReports(this.user.id, currentPage, pageSize, this.targetBase);
     if (this.battleReports) {
@@ -181,8 +183,9 @@ export class NexusReportsComponent extends ChildComponent implements OnInit, OnC
 
     await this.nexusService.deleteReport(this.user.id, Array.from(this.selectedReportIds));
     await this.loadBattleReports(this.targetBase);
-
-    this.selectAllCheckbox.nativeElement.checked = false;
+    if (this.selectAllCheckbox && this.selectAllCheckbox.nativeElement) { 
+      this.selectAllCheckbox.nativeElement.checked = false;
+    }
     const checkboxes = (document.getElementsByTagName('input'));
     for (let x = 0; x < checkboxes.length; x++) {
       (checkboxes[x] as HTMLInputElement).checked = false;
@@ -192,8 +195,7 @@ export class NexusReportsComponent extends ChildComponent implements OnInit, OnC
   selectAllCheckboxes(event: Event) {
     const selectAllChecked = (event.target as HTMLInputElement).checked;
     const checkboxes = (document.getElementsByTagName('input'));
-
-    let selectedReportIds = this.selectedReportIds;
+     
     const updatedSelectedIds = new Set<number>();
 
     for (let x = 0; x < checkboxes.length; x++) {

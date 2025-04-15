@@ -144,6 +144,19 @@ public class TradeController : ControllerBase
 			return StatusCode(500, "Error stopping trade bot. " + ex.Message);
 		}
 	}
+	[HttpPost("/Trade/GetTradeVolume", Name = "GetTradeVolume")]
+	public async Task<IActionResult> GetTradeVolume([FromBody] int? days)
+	{
+		try
+		{ 
+			List<VolumeData>? result = await _krakenService.GetTradeMarketVolumesAsync(days);
+			return Ok(result);
+		}
+		catch (Exception ex)
+		{
+			return StatusCode(500, "Error GetTradeMarketVolumesAsync. " + ex.Message);
+		}
+	}
 
 	[HttpPost("/Trade/UpsertTradeConfiguration", Name = "UpsertTradeConfiguration")]
 	public async Task<IActionResult> UpsertTradeConfiguration(

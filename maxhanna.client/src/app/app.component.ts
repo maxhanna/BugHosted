@@ -442,12 +442,26 @@ export class AppComponent implements OnInit, AfterViewInit {
     this.hideBodyOverflow();
   }
   closeOverlay() {
-    //console.log("closing overlay");
-    const closeButtons = document.querySelectorAll<HTMLButtonElement>("#closeOverlay"); 
-    closeButtons.forEach((button) => button.click()); 
+    const closeButtons = document.querySelectorAll<HTMLButtonElement>("#closeOverlay");
+
+    closeButtons.forEach((button) => {
+      const style = window.getComputedStyle(button);
+      const isVisible =
+        button.offsetParent !== null && // Not display: none or detached
+        style.visibility !== 'hidden' &&
+        style.display !== 'none' &&
+        style.opacity !== '0';
+
+      if (isVisible) {
+        button.click();
+      }
+    });
+
     this.isShowingOverlay = false;
     this.restoreBodyOverflow();
   }
+
+
   openUserSettings(previousComponent?: string) {
     this.createComponent('UpdateUserSettings', {
       showOnlySelectableMenuItems: false,

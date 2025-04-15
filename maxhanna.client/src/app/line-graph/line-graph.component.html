@@ -1,23 +1,26 @@
  <div class="graphContainer {{fullscreenMode ? 'popupPanel fullscreenPopupPanel' : ''}}">
   <div class="graphTitle sectionName">
-    {{graphTitle ? (selectedCoin.includes('->') ? ('$Bitcoin/' + ('$'+selectedCurrency) + ' Value') : graphTitle) : (selectedCoin ? ('$' + selectedCoin) : '') + '/$' + (selectedCurrency ?? 'CAD') + ' Over Time'}}
-    Span : {{selectedPeriod}}
+    {{ getGraphTitle() }}
   </div>
   <div class="graphOptions">
-    <select (change)="changeGraphPeriod($event)" #periodSelect [value]="selectedPeriod">
-      <option value="1d" [selected]="selectedPeriod === '1d'">1 Day</option>
-      <option value="2d" [selected]="selectedPeriod === '2d'">2 Days</option>
-      <option value="5d" [selected]="selectedPeriod === '5d'">5 Days</option>
-      <option value="1m" [selected]="selectedPeriod === '1m'">1 Month</option>
-      <option value="2m" [selected]="selectedPeriod === '2m'">2 Months</option>
-      <option value="3m" [selected]="selectedPeriod === '3m'">3 Months</option>
-      <option value="6m" [selected]="selectedPeriod === '6m'">6 Months</option>
-      <option value="1y" [selected]="selectedPeriod === '1y'">1 Year</option>
-      <option value="2y" [selected]="selectedPeriod === '2y'">2 Years</option>
-      <option value="3y" [selected]="selectedPeriod === '3y'">3 Years</option>
-      <option value="5y" [selected]="selectedPeriod === '5y'">5 Years</option>
+    <select #periodSelect (change)="changeGraphPeriod($event)" [value]="selectedPeriod">
+      <option value="15min">15 minutes</option>
+      <option value="1h">1 hour</option>
+      <option value="6h">6 hours</option>
+      <option value="12h">12 hours</option>
+      <option value="1d">1 day</option>
+      <option value="2d">2 days</option>
+      <option value="5d">5 days</option>
+      <option value="1m">1 month</option>
+      <option value="2m">2 months</option>
+      <option value="3m">3 months</option>
+      <option value="6m">6 months</option>
+      <option value="1y">1 year</option>
+      <option value="2y">2 years</option>
+      <option value="3y">3 years</option>
+      <option value="5y">5 years</option>
     </select>
-    <select (change)="changeCoin($event)" *ngIf="displayCoinSwitcher" #coinSwitcher>
+    <select (change)="changeCoin($event)" *ngIf="displayCoinSwitcher && type !== 'Volume'" #coinSwitcher>
       <option value="">All</option>
       <option *ngIf="type == 'Crypto'" value="Bitcoin" [selected]="selectedCoin === 'Bitcoin'">Bitcoin</option>
       <option *ngIf="type == 'Currency'" value="USD" [selected]="selectedCoin === 'USD'">USD</option>
@@ -27,20 +30,20 @@
     <button (click)="toggleDarkMode()">
       {{ darkMode ? 'Light Mode' : 'Dark Mode' }}
     </button>
-    <select (change)="changeChartType($event.target)" [value]="chartType">
-      <option *ngFor="let type of validTypes" [value]="type">
+    <select (change)="changeChartType($event.target)" [value]="chartTypeInputted">
+      <option *ngFor="let type of validTypes" [value]="type" [selected]="type == chartTypeInputted">
         {{ type.charAt(0).toUpperCase() + type.slice(1) }}
       </option>
     </select>
   </div>
   <div class="canvasChartWrapper {{fullscreenMode ? 'fullscreenCanvas' : ''}}" #canvasDiv>
     <canvas baseChart
-            class="canvasChart" 
+            class="canvasChart"
             [datasets]="lineChartData"
             [labels]="lineChartLabels"
             [options]="lineChartOptions"
             [legend]="lineChartLegend"
-            [type]="chartType">
+            [type]="chartTypeInputted ?? 'line'">
     </canvas>
   </div>
 </div>

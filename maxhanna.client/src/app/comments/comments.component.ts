@@ -265,8 +265,11 @@ export class CommentsComponent extends ChildComponent implements OnInit {
         input.value += "\n ";
       }
       input.value += `[Quoting {${comment.user.username}|${comment.user.id}|${comment.date}}: ${comment.commentText}] \n`;
-    }
+    } 
     input.focus();
+    const length = input.value.length;
+    input.setSelectionRange(length, length);
+    input.scrollTop = input.scrollHeight;
   }
   getTotalCommentCount(): number {
     if (!this.commentList || this.commentList.length === 0) return 0;
