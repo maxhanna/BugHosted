@@ -6,7 +6,7 @@
   width: 400px;
   height: CALC(var(--vh, 1vh) * 100 - 60px);
 }
-
+ 
 
 @media only screen and (min-device-width: 300px) and (max-device-width: 800px) {
   .componentMain {
@@ -15,7 +15,7 @@
 }
 
 .bugWarsInfo {
-    padding:10px;
+  padding:10px;
   display: flex;
   flex-flow: column wrap;
   justify-content: flex-start; 
@@ -94,6 +94,7 @@
 .levelLabel {
   width: 85px;
   position: absolute;
+  text-shadow: 0px 0px 6px white;
 }
 
 .timerLabel {
@@ -633,11 +634,7 @@
 
 .upgradeDisplayTable {
   max-width: 100%;
-}
-
-.upgradeButton {
-  width: 65px;
-}
+} 
 
 .unitResearches {
   display: flex;
@@ -694,6 +691,7 @@
   z-index: 3;
   font-size: small;
   font-weight: bold;
+  text-shadow: 1px 1px black;
 }
 
 .unitPictureTd {
@@ -702,6 +700,7 @@
 
 .goldText {
   color: gold;
+  text-shadow: 1px 1px black;
 }
 
 .unitStatUnitTitle {

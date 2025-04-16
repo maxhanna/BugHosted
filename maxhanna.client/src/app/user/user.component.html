@@ -41,9 +41,9 @@
           <div class="invertedHighlights xxSmallFont">Last Seen: </div>
           <div>
             <span *ngIf="user && user.lastSeen && isUserOnline(user.lastSeen)">
-              🟢 Online
+              <span class="glowing onlineButton">🟢</span> Online
             </span>
-            <span *ngIf="user && user.lastSeen && !isUserOnline(user.lastSeen)"  class="invertedHighlights xxSmallFont">
+            <span *ngIf="user && user.lastSeen && !isUserOnline(user.lastSeen)"  class="invertedHighlights smallFont">
               {{ getUtcTimeSince(user.lastSeen) }} 
             </span>
             <span *ngIf="!user?.lastSeen">
@@ -60,7 +60,7 @@
             <option *ngIf="user && user != parentRef?.user && (user && parentRef?.user?.username != user.username) && !friendsIncludeMe() && canAddFriend(user)" value="addFriend">👤 Follow {{isBeingFollowedByUser ? 'Back' : ''}}</option>
             <option *ngIf="user && user != parentRef?.user && (user && parentRef?.user?.username != user.username) && isFollowingUser()" value="unfollow">👤 Unfollow</option>
             <option *ngIf="user && parentRef && parentRef.user && user.id != parentRef.user.id && !contactsContains(user)" value="addContact">👤 Add Contact</option>
-            <option *ngIf="user && parentRef && parentRef.user && user.id != parentRef.user.id" value="{{isUserBlocked ? 'unblockContact' : 'blockContact'}}">{{isUserBlocked ? '👤 Unblock' : '⛔ Block'}} Contact</option>
+            <option *ngIf="user && parentRef && parentRef.user && user.id != parentRef.user.id" value="{{isUserBlocked ? 'unblockContact' : 'blockContact'}}">{{isUserBlocked ? '👤 Unblock' : '⛔ Block'}} User</option>
             <option value="showFriends">👤 Show Friends</option>
             <option *ngIf="user" value="chat">🗨️ Chat</option>
             <option *ngIf="user" value="userInfo">ℹ️ {{ isAboutPanelOpen ? 'Hide ' : '' }} User Info</option>
@@ -323,7 +323,7 @@
                 Last Seen :
               </div>
               <div class="optionsStatsDescription">
-                {{daysSinceDate(user?.lastSeen)}} days ago.
+                {{getUtcTimeSince(user?.lastSeen)}}.
               </div>
             </div>
             <div class="optionsStatsDiv" *ngIf="user?.about?.description">
@@ -371,7 +371,7 @@
               </div>
             </div>
 
-            <div class="optionsStatsDiv">
+            <div class="optionsStatsDiv" *ngIf="bestWordlerStreak > 0">
               <div class="optionsStatsHeader">
                 Wordler🧠 Best streak:
               </div>
@@ -380,7 +380,7 @@
               </div>
             </div>
 
-            <div class="optionsStatsDiv">
+            <div class="optionsStatsDiv" *ngIf="wordlerStreak > 0">
               <div class="optionsStatsHeader">
                 Wordler🧠 Current streak:
               </div>
@@ -389,7 +389,7 @@
               </div>
             </div>
 
-            <div class="optionsStatsDiv">
+            <div class="optionsStatsDiv" *ngIf="metaBotLevelsSum > 0">
               <div class="optionsStatsHeader">
                 Metabot🤖 levels:
               </div>
@@ -398,7 +398,7 @@
               </div>
             </div>
 
-            <div class="optionsStatsDiv">
+            <div class="optionsStatsDiv" *ngIf="numberOfNexusBases > 0">
               <div class="optionsStatsHeader">
                 BugWars🏅 Bases:
               </div>

@@ -1,4 +1,4 @@
-import { AfterViewInit, Component, ElementRef, OnInit, ViewChild } from '@angular/core';
+import { AfterViewInit, Component, ElementRef, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { ChildComponent } from '../child.component';
 import { lastValueFrom } from 'rxjs';
 import { HttpClient, HttpParams } from '@angular/common/http';
@@ -11,7 +11,7 @@ import { TodoService } from '../../services/todo.service';
   styleUrl: './todo.component.css',
   standalone: false
 })
-export class TodoComponent extends ChildComponent implements OnInit, AfterViewInit {
+export class TodoComponent extends ChildComponent implements OnInit, AfterViewInit, OnDestroy {
   todos: Array<Todo> = [];
   todoTypes: string[] = ['Todo', 'Work', 'Shopping', 'Study', 'Movie', 'Bucket', 'Recipe', "Wife"];
   todoCount = 0;
@@ -29,6 +29,7 @@ export class TodoComponent extends ChildComponent implements OnInit, AfterViewIn
     super();
   }
   async ngOnInit() {
+    this.parentRef?.addResizeListener();
     await this.getTodoInfo();
     if (this.parentRef?.user?.id) {
       await this.todoService.getColumnsForUser(this.parentRef.user.id).then(res => {
@@ -47,6 +48,9 @@ export class TodoComponent extends ChildComponent implements OnInit, AfterViewIn
     }
 
     this.clearInputs();
+  }
+  ngOnDestroy() { 
+    this.parentRef?.removeResizeListener();
   }
   ngAfterViewInit() { 
     this.setTodoDropdownPlaceholder();

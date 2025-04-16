@@ -1,4 +1,4 @@
-import { Component, ElementRef, Input, ViewChild } from '@angular/core';
+import { Component, ElementRef, Input, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { ChildComponent } from '../child.component';
 import { Note } from '../../services/datacontracts/note';
 import { NotepadService } from '../../services/notepad.service'; 
@@ -12,7 +12,7 @@ import { NotificationService } from '../../services/notification.service';
     styleUrl: './notepad.component.css',
     standalone: false
 })
-export class NotepadComponent extends ChildComponent {
+export class NotepadComponent extends ChildComponent implements OnInit, OnDestroy {
   notes: Array<Note> = [];
   @ViewChild('noteInput') noteInput!: ElementRef<HTMLTextAreaElement>;
   @ViewChild('noteId') noteId!: ElementRef<HTMLInputElement>;
@@ -33,11 +33,15 @@ export class NotepadComponent extends ChildComponent {
     super();
   }
   async ngOnInit() {
+    this.parentRef?.addResizeListener();
     await this.getNotepad();
     if (this.inputtedSearch) {
       this.search();
     }
     this.clearInputs();
+  }
+  ngOnDestroy() { 
+    this.parentRef?.removeResizeListener();
   }
   clearInputs() {
     if (!this.noteInput) { return; }

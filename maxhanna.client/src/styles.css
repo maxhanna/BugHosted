@@ -4,7 +4,7 @@
   --main-bg-color: #0e0e0e;
   --component-background-color: #202020;
   --main-highlight-color: #3a3a3a;
-  --main-highlight-color-quarter-opacity: #a9a9a987; 
+  --main-highlight-color-quarter-opacity: #a9a9a987;
   --secondary-component-background-color: #011300;
   --table-thead-color: var(--main-highlight-color);
   --main-font-family: Helvetica, Arial;
@@ -67,18 +67,22 @@ a {
   word-break: break-word;
 }
 
-  a:visited {
-    color: var(--main-link-color);
-  }
+textarea, button {
+  font-size: var(--main-font-size);
+}
 
-  a:active {
-    color: var(--secondary-font-color);
-  }
+a:visited {
+  color: var(--main-link-color);
+}
 
-  a:hover {
-    border-radius: 5px;
-    border-bottom: 1px dotted var(--main-font-color);
-  }
+a:active {
+  color: var(--secondary-font-color);
+}
+
+a:hover {
+  border-radius: 5px;
+  border-bottom: 1px dotted var(--main-font-color);
+}
 
 legend {
   border: var(--main-border);
@@ -90,7 +94,7 @@ fieldset {
   border: var(--main-border);
 }
 
-.componentMain { 
+.componentMain {
   background-color: var(--component-background-color);
   position: relative;
   padding-top: 55px;
@@ -109,6 +113,7 @@ fieldset {
 .refreshButton::before, .closeButton::before, .menuButton::before, .menuBackButton::before {
   z-index: 1;
 }
+
 .refreshButton::before, .closeButton::before, .menuButton::before, .menuBackButton::before, .notificationTopButton, .topSearchButtonDiv {
   position: absolute;
   top: 0px;
@@ -125,14 +130,15 @@ fieldset {
   align-items: center;
   justify-content: center;
 }
- 
+
 .refreshButton::before {
   content: '🔄';
 }
 
 .menuButton::before {
-  content: '☰'; 
+  content: '☰';
 }
+
 .menuBackButton::before {
   content: '⤺';
   right: 50px;
@@ -165,8 +171,8 @@ fieldset {
   text-shadow: 1px 1px var(--main-link-color);
 }
 
-.topSearchButtonDiv {  
-  right: 105px;    
+.topSearchButtonDiv {
+  right: 105px;
   text-shadow: 1px 1px var(--main-link-color);
 }
 
@@ -174,13 +180,13 @@ fieldset {
 .componentTitle {
   font-family: var(--title-font-family);
   font-weight: bolder;
-  position: absolute; 
+  position: absolute;
   font-size: 25px;
   line-height: 50px;
   top: 0px;
   left: 55px;
   display: block;
-  text-shadow: 0px 0.50px 0.50px var(--secondary-font-color); 
+  text-shadow: 0px 0.50px 0.50px var(--secondary-font-color);
 }
 
 .mainTableDiv {
@@ -200,7 +206,7 @@ fieldset {
     overflow-x: scroll;
   }
 }
- 
+
 @media only screen and (max-device-width:800px) {
 
   .componentMain {
@@ -315,7 +321,7 @@ fieldset {
     color: var(--main-font-color);
     position: sticky;
     top: -3px;
-    font-weight: bold; 
+    font-weight: bold;
   }
 
 #loadingDiv {
@@ -487,6 +493,11 @@ fieldset {
   box-shadow: 0px 0px 5px black;
 }
 
+.onlineButton {
+  font-size: x-small;
+  position: relative;
+  top: -3px;
+}
 
 .glowing {
   animation: glow 1.5s infinite alternate;
@@ -523,8 +534,8 @@ fieldset {
 
 .fullscreenPopupPanel {
   top: 0px !important;
-  left:0px !important;
-  padding:0px;
+  left: 0px !important;
+  padding: 0px;
   transform: unset !important;
   width: 100vw !important;
   height: CALC(var(--vh, 1vh) * 100) !important;
@@ -541,6 +552,7 @@ fieldset {
   font-family: var(--section-font-family);
   font-size: x-large;
 }
+
 .titleFont {
   font-family: var(--section-font-family);
 }
@@ -608,24 +620,30 @@ fieldset {
   top: 99vh;
   right: 99vw;
 }
+
 .quote-text {
-  font-size: x-small; 
+  font-size: x-small;
 }
+
 .quote-message {
   color: var(--secondary-font-color);
 }
+
 .quote-time {
-  font-size: smaller; 
+  font-size: smaller;
 }
+
 .quote-link {
   color: unset;
   cursor: pointer;
   text-align: unset;
 }
+
 .linkedComponent {
   color: var(--main-link-color);
-  cursor: pointer; 
+  cursor: pointer;
 }
+
 .thirdFontColor {
   color: var(--third-font-color);
 }

@@ -68,6 +68,7 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
   logsPerPage = 10;
   totalLogPages = 0;
   fullscreenTimeout = false;
+  isTradeInformationOpen = false;
 
   @ViewChild('scrollContainer', { static: true }) scrollContainer!: ElementRef;
 
@@ -354,6 +355,22 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
   discreete() {
     this.isDiscreete = !this.isDiscreete;
   }
+  showTradeInformationPanel() {
+    if (this.isTradeInformationOpen) {
+      this.closeTradeInformationPanel();
+      return;
+    }
+    this.isTradeInformationOpen = true;
+    this.parentRef?.showOverlay();
+  }
+  closeTradeInformationPanel() {
+    this.isTradeInformationOpen = false;
+    setTimeout(() => {
+      if (this.parentRef) {
+        this.parentRef.closeOverlay();
+      }
+    }, 50);
+  }
   showMenuPanel() {
     if (this.isMenuPanelOpen) {
       this.closeMenuPanel();
@@ -449,8 +466,8 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
       const sessionToken = await this.parentRef?.getSessionToken();
       await this.aiService.sendMessage(this.parentRef?.user?.id ?? 0, true, message, sessionToken ?? "", 600).then(res => {
         if (res && res.response) {
-          this.aiMessages.push({ addr: walletAddress ?? "1", message: this.aiService.parseMessage(res.response) });
-          response = this.aiService.parseMessage(res.response);
+          response = this.aiService.parseMessage(res.response) ?? "Error.";
+          this.aiMessages.push({ addr: walletAddress ?? "1", message:  response}); 
         }
       });
     }
@@ -613,8 +630,7 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
     this.showingTradeSettings = false;
     this.isShowingTradeGraphWrapper = false;
     this.isShowingTradeValueGraph = false;
-    this.isTradebotBalanceShowing = false;
-
+    this.isTradebotBalanceShowing = false; 
   }
 
   openTradeFullscreen() {
@@ -630,8 +646,9 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
     this.isTradePanelOpen = false;
   }
   showTradeSettings() {
+    const tmpStatus = this.showingTradeSettings;
     this.closeTradeDivs();
-    this.showingTradeSettings = !this.showingTradeSettings;
+    this.showingTradeSettings = !tmpStatus;
     if (this.showingTradeSettings) {
       setTimeout(() => {
         this.setDefaultTradeConfiguration();
@@ -640,13 +657,15 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
     }
   }
   showTradeGraphWrapper() {
+    const tmpStatus = this.isShowingTradeGraphWrapper;
     this.closeTradeDivs();
-    this.isShowingTradeGraphWrapper = !this.isShowingTradeGraphWrapper;
+    this.isShowingTradeGraphWrapper = !tmpStatus;
   }
   async showTradeValueGraph() {
+    const tmpStatus = this.isShowingTradeValueGraph;
     this.closeTradeDivs();
     this.startLoading();
-    this.isShowingTradeValueGraph = !this.isShowingTradeValueGraph;
+    this.isShowingTradeValueGraph = !tmpStatus;
     if (this.tradebotBalances.length == 0 && this.parentRef?.user?.id) {
       const sessionToken = await this.parentRef.getSessionToken();
       await this.tradeService.getTradeHistory(this.parentRef?.user?.id ?? 1, sessionToken).then(res => {
@@ -678,9 +697,10 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
     return map[symbol.toUpperCase()] || symbol;
   }
   async showTradeLogs() {
-    if (!this.parentRef?.user?.id) return alert("You must be logged in to view trade logs.");
+    if (!this.parentRef?.user?.id) return alert("You must be logged in to view trade logs."); 
+    const tmpStatus = this.showingTradeLogs;
     this.closeTradeDivs();
-    this.showingTradeLogs = !this.showingTradeLogs;
+    this.showingTradeLogs = !tmpStatus;
     if (this.showingTradeLogs && this.tradeLogs.length == 0) {
       const sessionToken = await this.parentRef.getSessionToken();
       this.tradeLogs = await this.tradeService.getTradeLogs(this.parentRef.user.id, sessionToken);

@@ -54,9 +54,16 @@
 .hubSection {
   display: inline-flex;
   flex-direction: column;
-  width: CALC(100% - 10px);
+  width: CALC(100% - 25px);
   margin-left: auto;
   margin-right: auto;
+}
+
+
+@media only screen and (min-width : 1000px) {
+  .hubSection {
+    width: CALC(50% - 10px);
+  }
 }
 
 @media only screen and (max-width : 667px) {
@@ -79,13 +86,6 @@
   margin-top: 20px;
 }
 
-
-
-@media only screen and (min-width : 1000px) {
-  .hubSection {
-    width: CALC(50% - 10px);
-  }
-}
 
 
 .BTCtoCADConversionWrapperDiv {
@@ -135,7 +135,7 @@
 
   .cryptoHubConverterAndCoinWatchWrapper table th {
     padding: 10px;
-  } 
+  }
 
 .normalBtcAddress, .hiddenBtcAddress {
   text-align: left !important;
@@ -208,6 +208,7 @@
   overflow: auto;
   padding: 10px;
 }
+
 .marquee-scroll {
   overflow-x: auto;
   display: flex;
@@ -236,7 +237,7 @@
 
 .marquee-scroll::-webkit-scrollbar {
   width: 4px;
-  height: 4px; 
+  height: 4px;
 }
 
 .marquee-scroll::-webkit-scrollbar-thumb {
@@ -247,12 +248,45 @@
   background-color: var(--main-bg-color);
   border: none;
 }
+
 .tradeDataTable {
-  height: CALC(var(--vh, 1vh) * 100 - 230px);
+  height: CALC(var(--vh, 1vh) * 100 - 290px);
   overflow: auto;
   width: 100%;
 }
+
 .fullScreenTradePanelDiv {
   width: 100%;
   height: 100%;
+}
+
+.walletTotalHeaderRow {
+  box-shadow: 1px 1px 1px 2px var(--main-highlight-color);
+}
+
+.tradeButtonsWrapper {
+  margin-top: 20px;
+  display: flex;
+  justify-content: center;
+  align-content: flex-start;
+  flex-wrap: wrap;
+  align-items: flex-start;
+}
+
+.maximizedTradePanel {
+  padding: 20px;
+}
+
+.tradeBalanceTable td, .tradeBalanceTable th {
+  text-align: center;
+}
+
+.tradeBalanceCurrencyLabel {
+  background-color: white;
+}
+
+@media only screen and (min-width : 700px) {
+  .tradeBalanceTable .xxSmallFont, .tradeBalanceTable .smallFont {
+    font-size: var(--main-font-size);
+  }
 }

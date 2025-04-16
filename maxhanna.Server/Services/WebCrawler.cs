@@ -1,6 +1,7 @@
 ﻿using HtmlAgilityPack;
 using maxhanna.Server.Controllers.DataContracts.Metadata;
 using MySqlConnector;
+using System;
 using System.Data;
 using System.Net;
 using System.Security.Cryptography;
@@ -28,7 +29,7 @@ public class WebCrawler
 	private DateTime _lastRequestTime = DateTime.MinValue;
 	private static SemaphoreSlim scrapeSemaphore = new SemaphoreSlim(1, 1);
 	private readonly SemaphoreSlim _asyncScrapeSemaphore = new SemaphoreSlim(1, 1); // Semaphore to limit to one execution at a time per URL
-
+	private static readonly Random _random = new Random();
 	private List<string> urlsToScrapeQueue = new List<string>();
 	private HashSet<string> _visitedUrls = new HashSet<string>();
 	private Queue<string> delayedUrlsQueue = new Queue<string>();
@@ -56,7 +57,15 @@ public class WebCrawler
 	{
 		try
 		{
-			List<string> nextDomains = await GenerateNextUrl();
+			List<string> nextDomains = new List<string>();
+			if (_random.Next(1, 3) == 2)
+			{
+				nextDomains = await GenerateRandomUrls();
+			}
+			else
+			{
+				nextDomains = await GenerateNextUrl();
+			} 
 
 			foreach (string domain in nextDomains)
 			{
@@ -76,6 +85,52 @@ public class WebCrawler
 		}
 	}
 
+	private async Task<List<string>> GenerateRandomUrls()
+	{
+		List<string> nextDomains = new List<string>();
+		string? genWord = await GenerateRandomWord();
+		string? genWord2 = null;
+		if (_random.Next(1, 3) == 2)
+		{
+			genWord2 = await GenerateRandomWord();
+		}
+		int index = _random.Next(DomainSuffixes.Count);
+		string genSuffix = DomainSuffixes[index];
+
+		if (!string.IsNullOrEmpty(genWord) || !string.IsNullOrEmpty(genWord2))
+		{
+			nextDomains.Add($"http://{genWord}{genWord2}.{genSuffix}");
+			nextDomains.Add($"https://{genWord}{genWord2}.{genSuffix}");
+		}
+		return nextDomains;
+	}
+
+	private async Task<string?> GenerateRandomWord()
+	{
+		string sql = @"
+			SELECT word FROM wordler_words
+			ORDER BY rand()
+			LIMIT 1;";
+		try
+		{
+			string? connectionString = _config.GetValue<string>("ConnectionStrings:maxhanna");
+			using (var connection = new MySqlConnection(connectionString))
+			{
+				await connection.OpenAsync();
+				using (var command = new MySqlCommand(sql, connection))
+				{ 
+
+					var result = await command.ExecuteScalarAsync();
+					return result?.ToString();
+				} 
+			}
+		}
+		catch (Exception ex)
+		{
+			_ = _log.Db("Exception (GenerateRandomWord): " + ex.Message, null, "CRAWLER", true);
+			return string.Empty;
+		}
+	}
 
 	private async Task<List<string>> GenerateNextUrl()
 	{

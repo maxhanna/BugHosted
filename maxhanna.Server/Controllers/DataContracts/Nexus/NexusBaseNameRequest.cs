@@ -4,7 +4,7 @@ namespace maxhanna.Server.Controllers.DataContracts.Nexus
 {
 	public class NexusBaseNameRequest
 	{
-		public NexusBaseNameRequest(int userId, NexusBase nexus, string baseName)
+		public NexusBaseNameRequest(NexusBase nexus, string baseName)
 		{ 
 			this.Nexus = nexus;
 			this.BaseName = baseName;

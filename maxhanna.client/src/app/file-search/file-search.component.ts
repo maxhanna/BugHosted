@@ -252,7 +252,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit {
 
 
   private determineSearchTerms() {
-    const popupSearchTerm = this.popupSearch && this.popupSearch.nativeElement.value.trim() != '' ? this.popupSearch.nativeElement.value.trim() : undefined;
+    const popupSearchTerm = this.searchTerms ? this.searchTerms : this.popupSearch && this.popupSearch.nativeElement.value.trim() != '' ? this.popupSearch.nativeElement.value.trim() : undefined;
     this.searchTerms = popupSearchTerm ?? "";
     if (this.search && this.search.nativeElement.value.trim() != '') {
       if (this.searchTerms) {

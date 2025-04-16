@@ -27,16 +27,13 @@ export class TradeService {
       console.error(error); 
       return error.message ?? 'Unexpected error';
     }
-  }
-
+  } 
   async getTradeHistory(userId: number, encryptedUserId: string) {
     return this.post(`/trade/gettradehistory`, userId, 'json', encryptedUserId);
-  }
-
+  } 
   async updateApiKey(userId: number, apiKey: string, privateKey: string, encryptedUserId: string) {
     return this.post(`/trade/updateapikey`, { UserId: userId, ApiKey: apiKey, PrivateKey: privateKey }, 'text', encryptedUserId);
-  }
-
+  } 
   async hasApiKey(userId: number) {
     return this.post(`/trade/hasapikey`, userId, 'json');
   }

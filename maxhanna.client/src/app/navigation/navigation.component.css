@@ -39,7 +39,7 @@ a {
   top: 37px;
   left: 1px;
   color: black;
-  text-shadow: -2px -2px 3px white, 2px -2px 3px white, -2px 2px 3px white, 2px 2px 3px white;
+  text-shadow: -1px -1px 2px white, 1px -1px 2px white, -1px 1px 2px white, 1px 1px 2px white;
   font-weight: bolder;
   width: 50px;
   height: 0px !important;
@@ -63,7 +63,12 @@ a {
   border: 2px solid var(--main-font-color);
   border-radius: 65% / 10%;
   font-size: 35px;
-  overflow: hidden;
+  overflow: hidden; 
+}
+@supports (background: rgb(from red r g b)) {
+  .navLink {
+    background: rgb(from var(--main-highlight-color) r g b / 25%);
+  }
 }
   .navLink ::ng-deep * {
     overflow: hidden;

@@ -81,6 +81,8 @@ export class MemeComponent extends ChildComponent implements OnInit, OnDestroy  
     }
   } 
   topTopicClicked(topic: TopicRank) {
+    this.closeMenuPanel();
+    this.fileSearchComponent.searchTerms = "";
     this.fileSearchComponent.searchFiles(topic.topicName);
   }
   async updateNSFW(event: Event) { 

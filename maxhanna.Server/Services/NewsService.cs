@@ -142,7 +142,7 @@ public class NewsService
 		}
 	}
 
-	public async Task<ArticlesResult> GetTopHeadlinesFromDb()
+	public async Task<ArticlesResult> GetTopHeadlinesFromDb(int? hours = null)
 	{
 		var result = new ArticlesResult
 		{
@@ -155,14 +155,31 @@ public class NewsService
 			using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
 			await conn.OpenAsync();
 
+			// Base SQL query
 			string sql = @"
-				SELECT DISTINCT title, description, url, published_at, url_to_image, author, content, saved_at
-				FROM news_headlines
-				WHERE saved_at >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 1 HOUR)
-				ORDER BY saved_at DESC
-				LIMIT 50;";
+            SELECT DISTINCT title, description, url, published_at, url_to_image, author, content, saved_at
+            FROM news_headlines";
+
+			// Add time filter only if hours parameter has a value
+			if (hours.HasValue)
+			{
+				sql += @"
+                WHERE saved_at >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL @hours HOUR)";
+			}
+
+			// Complete the query
+			sql += @"
+            ORDER BY saved_at DESC
+            LIMIT 50;";
 
 			using var cmd = new MySqlCommand(sql, conn);
+
+			// Add parameter only if hours has value
+			if (hours.HasValue)
+			{
+				cmd.Parameters.AddWithValue("@hours", hours.Value);
+			}
+
 			using var reader = await cmd.ExecuteReaderAsync();
 
 			while (await reader.ReadAsync())
@@ -206,13 +223,12 @@ public class NewsService
 			int numberOfArticles = await GetNewsCountInLast24HoursAsync();
 			if (numberOfArticles < 50)
 			{
-				//await _log.Db("Not enough articles saved yet.", null, "NEWSSERVICE", true);
 				return;
 			}
-			var topArticlesResult = await GetTopHeadlinesFromDb();  // You can replace with a method that fetches top articles for the day
+
+			var topArticlesResult = await GetTopHeadlinesFromDb();
 			if (topArticlesResult?.Articles == null || topArticlesResult.Articles.Count == 0)
 			{
-			//	await _log.Db("No articles to create a social story for today", null, "NEWSSERVICE", true);
 				return;
 			}
 
@@ -223,46 +239,24 @@ public class NewsService
 			// Check if a social story already exists for today (user_id = 0, contains marker text)
 			string marker = "📰 [b]Daily News Update![/b]";
 			string checkSql = $@"
-        SELECT COUNT(*) FROM stories
-        WHERE user_id = {newsServiceAccountNo} AND DATE(`date`) = CURDATE()
-        AND story_text LIKE CONCAT('%', @marker, '%');
+            SELECT COUNT(*) FROM stories
+            WHERE user_id = {newsServiceAccountNo} AND DATE(`date`) = CURDATE()
+            AND story_text LIKE CONCAT('%', @marker, '%');
         ";
 
-			await using (var checkCmd = new MySqlCommand(checkSql, conn, transaction))
+			if (await CheckIfDailyNewsStoryAlreadyExists(conn, transaction, marker, checkSql))
 			{
-				checkCmd.Parameters.AddWithValue("@marker", marker);
-				var exists = Convert.ToInt32(await checkCmd.ExecuteScalarAsync()) > 0;
-				if (exists)
-				{
-					await _log.Db("Daily news story already exists. Skipping creation.", null, "NEWSSERVICE");
-					await transaction.RollbackAsync();
-					return;
-				}
+				await _log.Db("Daily news story already exists. Skipping creation.", null, "NEWSSERVICE");
+				await transaction.RollbackAsync();
+				return;
 			}
 
 			// Build the story text and tokenize the descriptions of top articles
 			var sb = new StringBuilder();
 			sb.AppendLine(marker);
 
-			var tokenFrequency = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
-			var articleTokenMap = new List<(Article Article, List<string> Tokens)>();
-
-			foreach (var article in topArticlesResult.Articles)
-			{
-				var tokens = TokenizeText(article.Description);
-				articleTokenMap.Add((article, tokens));
-
-				foreach (var token in tokens)
-				{
-					if (tokenFrequency.ContainsKey(token))
-						tokenFrequency[token]++;
-					else
-						tokenFrequency[token] = 1;
-				}
-			}
-
-			// Find the most frequent word
-			var mostFrequentWord = tokenFrequency.OrderByDescending(kv => kv.Value).First().Key;
+			List<(Article Article, List<string> Tokens)> articleTokenMap;
+			string mostFrequentWord = GetMostFrequentWord(topArticlesResult, out articleTokenMap);
 			await _log.Db($"Most frequent token from today's articles: '{mostFrequentWord}'", null, "NEWSSERVICE");
 
 			// Find the article where that word appears the most
@@ -280,61 +274,122 @@ public class NewsService
 					selectedArticle = article;
 				}
 			}
+
 			if (selectedArticle == null)
 			{
 				await _log.Db("Error in CreateDailyNewsStoryAsync: No news article selected.", null, "NEWSSERVICE", true);
 				return;
 			}
+
 			// Build the story string using only the most relevant article 
 			sb.AppendLine($"[*][b]{selectedArticle.Title}[/b]\nRead more: {selectedArticle.Url} [/*]");
-
 			string fullStoryText = sb.ToString().Trim();
 
 			// Save the description tokens of selected article for file-matching
-			var selectedArticleTokens = TokenizeText(selectedArticle.Description);
-
-
-			// Insert the story into the 'stories' table
-			string insertSql = @"
-        INSERT INTO stories (user_id, story_text, profile_user_id, city, country, date)
-        VALUES (@userId, @storyText, NULL, NULL, NULL, UTC_TIMESTAMP());
-        ";
-
-			await using var insertCmd = new MySqlCommand(insertSql, conn, transaction);
-			insertCmd.Parameters.AddWithValue("@userId", newsServiceAccountNo);
-			insertCmd.Parameters.AddWithValue("@storyText", fullStoryText);
-
-			await insertCmd.ExecuteNonQueryAsync();
-
-			// Get the last inserted story ID
-			string getLastStoryIdSql = "SELECT LAST_INSERT_ID();";
-			int storyId = Convert.ToInt32(await new MySqlCommand(getLastStoryIdSql, conn, transaction).ExecuteScalarAsync());
-
-			// Now, find the best matching file from the `file_uploads` table
-			int? bestFileMatch = await FindBestMatchingFileAsync(selectedArticleTokens, conn, transaction);
-
-			if (bestFileMatch != null)
-			{
-				// Link the matched file to the story
-				string insertStoryFileSql = @"
-            INSERT INTO story_files (story_id, file_id)
-            VALUES (@storyId, @fileId);
-            ";
-
-				await using var storyFileCmd = new MySqlCommand(insertStoryFileSql, conn, transaction);
-				storyFileCmd.Parameters.AddWithValue("@storyId", storyId);
-				storyFileCmd.Parameters.AddWithValue("@fileId", bestFileMatch.Value);
-
-				await storyFileCmd.ExecuteNonQueryAsync();
-			}
-
-			await transaction.CommitAsync();
-			await _log.Db("Daily news story created successfully.", null, "NEWSSERVICE");
+			var selectedArticleTokens = TokenizeText(selectedArticle.Description); 
+			// Insert the story into the 'stories' table (for the news service account)
+			await CreateNewsPosts(conn, transaction, fullStoryText, selectedArticleTokens, newsServiceAccountNo);
+			await _log.Db("Daily news story created successfully on both service account and user profile.", null, "NEWSSERVICE");
 		}
 		catch (Exception ex)
 		{
 			await _log.Db("Error in CreateDailyNewsStoryAsync: " + ex.Message, null, "NEWSSERVICE", true);
 		}
+	}
+
+	private async Task CreateNewsPosts(MySqlConnection conn, MySqlTransaction transaction, string fullStoryText, List<string> selectedArticleTokens, int accountId)
+	{
+		string insertSql = @"
+            INSERT INTO stories (user_id, story_text, profile_user_id, city, country, date)
+            VALUES (@userId, @storyText, NULL, NULL, NULL, UTC_TIMESTAMP());
+        ";
+
+		await using var insertCmd = new MySqlCommand(insertSql, conn, transaction);
+		insertCmd.Parameters.AddWithValue("@userId", accountId);
+		insertCmd.Parameters.AddWithValue("@storyText", fullStoryText);
+		await insertCmd.ExecuteNonQueryAsync();
+
+		// Get the last inserted story ID
+		string getLastStoryIdSql = "SELECT LAST_INSERT_ID();";
+		int storyId = Convert.ToInt32(await new MySqlCommand(getLastStoryIdSql, conn, transaction).ExecuteScalarAsync());
+
+		// Now, find the best matching file from the `file_uploads` table
+		int? bestFileMatch = await FindBestMatchingFileAsync(selectedArticleTokens, conn, transaction);
+		string insertStoryFileSql = @"
+                INSERT INTO story_files (story_id, file_id)
+                VALUES (@storyId, @fileId);
+            ";
+		if (bestFileMatch != null)
+		{
+			await using var storyFileCmd = new MySqlCommand(insertStoryFileSql, conn, transaction);
+			storyFileCmd.Parameters.AddWithValue("@storyId", storyId);
+			storyFileCmd.Parameters.AddWithValue("@fileId", bestFileMatch.Value);
+			await storyFileCmd.ExecuteNonQueryAsync();
+		}
+
+		// POST THE SAME STORY TO NEWS USER PROFILE
+		string insertUserProfileSql = @"
+            INSERT INTO stories (user_id, story_text, profile_user_id, city, country, date)
+            VALUES (@userId, @storyText, @profileUserId, NULL, NULL, UTC_TIMESTAMP());
+        ";
+
+		await using var userProfileCmd = new MySqlCommand(insertUserProfileSql, conn, transaction);
+		userProfileCmd.Parameters.AddWithValue("@userId", accountId);
+		userProfileCmd.Parameters.AddWithValue("@storyText", fullStoryText);
+		userProfileCmd.Parameters.AddWithValue("@profileUserId", accountId); // Assuming you have newsUserId defined
+		await userProfileCmd.ExecuteNonQueryAsync();
+
+		// Get the last inserted story ID for user profile
+		int userProfileStoryId = Convert.ToInt32(await new MySqlCommand(getLastStoryIdSql, conn, transaction).ExecuteScalarAsync());
+
+		if (bestFileMatch != null)
+		{
+			// Link the same file to the user profile story
+			await using var userProfileFileCmd = new MySqlCommand(insertStoryFileSql, conn, transaction);
+			userProfileFileCmd.Parameters.AddWithValue("@storyId", userProfileStoryId);
+			userProfileFileCmd.Parameters.AddWithValue("@fileId", bestFileMatch.Value);
+			await userProfileFileCmd.ExecuteNonQueryAsync();
+		}
+
+		await transaction.CommitAsync(); 
+	}
+
+	private string GetMostFrequentWord(ArticlesResult topArticlesResult, out List<(Article Article, List<string> Tokens)> articleTokenMap)
+	{
+		var tokenFrequency = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+		articleTokenMap = new List<(Article Article, List<string> Tokens)>();
+		foreach (var article in topArticlesResult.Articles)
+		{
+			var tokens = TokenizeText(article.Description);
+			articleTokenMap.Add((article, tokens));
+
+			foreach (var token in tokens)
+			{
+				if (tokenFrequency.ContainsKey(token))
+					tokenFrequency[token]++;
+				else
+					tokenFrequency[token] = 1;
+			}
+		}
+
+		// Find the most frequent word
+		return tokenFrequency.OrderByDescending(kv => kv.Value).First().Key; 
+	}
+
+	private async Task<bool> CheckIfDailyNewsStoryAlreadyExists(MySqlConnection conn, MySqlTransaction transaction, string marker, string checkSql)
+	{
+		await using (var checkCmd = new MySqlCommand(checkSql, conn, transaction))
+		{
+			checkCmd.Parameters.AddWithValue("@marker", marker);
+			var exists = Convert.ToInt32(await checkCmd.ExecuteScalarAsync()) > 0;
+			if (exists)
+			{
+				await _log.Db("Daily news story already exists. Skipping creation.", null, "NEWSSERVICE");
+				await transaction.RollbackAsync();
+				return true;
+			}
+		}
+		return false;
 	}
 
 	private List<string> TokenizeText(string input)
@@ -409,21 +464,17 @@ public class NewsService
 			// Check if a social story already exists for today (user_id = {cryptoNewsServiceAccountNo}, contains marker text)
 			string marker = "📰 [b]Crypto News Update![/b]";
 			string checkSql = $@"
-			SELECT COUNT(*) FROM stories
-			WHERE user_id = {cryptoNewsServiceAccountNo} AND DATE(`date`) = CURDATE()
-			AND story_text LIKE CONCAT('%', @marker, '%');
-		";
+				SELECT COUNT(*) FROM stories
+				WHERE user_id = {cryptoNewsServiceAccountNo} AND DATE(`date`) = CURDATE()
+				AND story_text LIKE CONCAT('%', @marker, '%');
+			";
 
-			await using (var checkCmd = new MySqlCommand(checkSql, conn, transaction))
+
+			if (await CheckIfDailyNewsStoryAlreadyExists(conn, transaction, marker, checkSql))
 			{
-				checkCmd.Parameters.AddWithValue("@marker", marker);
-				var exists = Convert.ToInt32(await checkCmd.ExecuteScalarAsync()) > 0;
-				if (exists)
-				{
-					await _log.Db("Daily crypto news story already exists. Skipping creation.", null, "NEWSSERVICE");
-					await transaction.RollbackAsync();
-					return;
-				}
+				await _log.Db("Daily crypto news story already exists. Skipping creation.", null, "NEWSSERVICE");
+				await transaction.RollbackAsync();
+				return;
 			}
 
 			var topArticlesResult = await GetTopCryptoArticlesByDayAsync();
@@ -440,20 +491,10 @@ public class NewsService
 				sb.AppendLine($"[*][b]{article.Title}[/b]\nRead more: {article.Url} [/*]");
 			}
 
-			string fullStoryText = sb.ToString().Trim();
-
-			string insertSql = @"
-			INSERT INTO stories (user_id, story_text, profile_user_id, city, country, date)
-			VALUES (@userId, @storyText, NULL, NULL, NULL, UTC_TIMESTAMP());
-		";
-
-			await using var insertCmd = new MySqlCommand(insertSql, conn, transaction);
-			insertCmd.Parameters.AddWithValue("@userId", cryptoNewsServiceAccountNo);
-			insertCmd.Parameters.AddWithValue("@storyText", fullStoryText);
-
-			await insertCmd.ExecuteNonQueryAsync();
-			await transaction.CommitAsync();
-
+			string fullStoryText = sb.ToString().Trim(); 
+			var selectedArticleTokens = TokenizeText(fullStoryText);
+			// Insert the story into the 'stories' table (for the news service account)
+			await CreateNewsPosts(conn, transaction, fullStoryText, selectedArticleTokens, cryptoNewsServiceAccountNo);
 			await _log.Db("Daily crypto news story created successfully.", null, "NEWSSERVICE");
 		}
 		catch (Exception ex)

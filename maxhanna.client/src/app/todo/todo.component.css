@@ -20,6 +20,7 @@
 
 .mainTableContainer {
   overflow: auto;
+  max-height: CALC(var(--vh, 1vh) * 100 - 125px);
 }
 
 .addTodoInputFieldset {

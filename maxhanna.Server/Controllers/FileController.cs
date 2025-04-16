@@ -51,7 +51,7 @@ namespace maxhanna.Server.Controllers
 			[FromQuery] int? fileId = null,
 			[FromQuery] List<string>? fileType = null,
 			[FromQuery] bool showHidden = false)
-		{
+		{ 
 			if (string.IsNullOrEmpty(directory))
 			{
 				directory = _baseTarget;
@@ -265,6 +265,7 @@ namespace maxhanna.Server.Controllers
 
 		private static void GetFileComments(List<FileEntry> fileEntries, MySqlConnection connection, List<int> fileIds, List<int> commentIds, List<string> fileIdsParameters)
 		{
+			//Console.WriteLine($"Get file comments {fileEntries.Count} {fileIds.Count} {commentIds.Count} {fileIdsParameters.Count}");
 			// Fetch comments separately
 			var commentsCommand = new MySqlCommand($@"
                     SELECT 
@@ -306,8 +307,8 @@ namespace maxhanna.Server.Controllers
                     LEFT JOIN 
                         maxhanna.users cfu2 on cfu2.id = cf2.user_id 
                     WHERE 1=1
-                       AND {(fileIds.Count > 0 ? "fc.file_id IN (" + string.Join(", ", fileIdsParameters) + ")" : "")}
-											{(fileIdsParameters.Count > 0 ? " OR fc.comment_id IN (SELECT id FROM comments AS z WHERE z.file_id IN (\" + string.Join(\", \", fileIdsParameters) + \"))" : "")};", connection);
+                       {((fileIds.Count > 0 || fileIdsParameters.Count > 0) ? " AND ": "")} {(fileIds.Count > 0 ? $"fc.file_id IN ({string.Join(", ", fileIdsParameters)})" : "")}
+											{(fileIdsParameters.Count > 0 ? $" {(fileIds.Count > 0 ? " OR " : " AND ")} fc.comment_id IN (SELECT id FROM comments AS z WHERE z.file_id IN ({string.Join(",", fileIdsParameters)}))" : "")};", connection);
 			for (int i = 0; i < fileIds.Count; i++)
 			{
 				commentsCommand.Parameters.AddWithValue($"@fileId{i}", fileIds[i]);
@@ -627,9 +628,9 @@ namespace maxhanna.Server.Controllers
 		}
 		private async Task<(string, List<MySqlParameter>)> GetWhereCondition(string? search, User? user)
 		{
-			string searchCondition = "";
-			bool nsfwEnabled = await GetNsfwForUser(user);
-			if (!nsfwEnabled)
+			Console.WriteLine("getting where for " + search);
+			string searchCondition = ""; 
+			if (!await GetNsfwForUser(user))
 			{
 				searchCondition += $@"
             AND NOT EXISTS (
@@ -641,14 +642,9 @@ namespace maxhanna.Server.Controllers
 
 			if (string.IsNullOrWhiteSpace(search))
 				return (searchCondition, new List<MySqlParameter>());
-
-			List<string> conditions = new();
+			 
 			List<MySqlParameter> parameters = new();
-
-			// Split search input into multiple keywords
-			var tmpSearch = search.Replace(",", " ");
-			var searchTerms = tmpSearch.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
-			  
+			 
 			// Use FULLTEXT search for better ranking 
 			searchCondition += $@"
       AND 
