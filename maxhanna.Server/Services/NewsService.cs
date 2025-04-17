@@ -246,8 +246,7 @@ public class NewsService
 
 			if (await CheckIfDailyNewsStoryAlreadyExists(conn, transaction, marker, checkSql))
 			{
-				await _log.Db("Daily news story already exists. Skipping creation.", null, "NEWSSERVICE");
-				await transaction.RollbackAsync();
+				await _log.Db("Daily news story already exists. Skipping creation.", null, "NEWSSERVICE"); 
 				return;
 			}
 
@@ -472,15 +471,14 @@ public class NewsService
 
 			if (await CheckIfDailyNewsStoryAlreadyExists(conn, transaction, marker, checkSql))
 			{
-				await _log.Db("Daily crypto news story already exists. Skipping creation.", null, "NEWSSERVICE");
-				await transaction.RollbackAsync();
+				await _log.Db("Daily crypto news story already exists. Skipping creation.", null, "NEWSSERVICE"); 
 				return;
 			}
 
 			var topArticlesResult = await GetTopCryptoArticlesByDayAsync();
 			if (topArticlesResult?.Articles == null || topArticlesResult.Articles.Count == 0)
 			{
-				await _log.Db("No crypto articles to write a social story about", null, "NEWSSERVICE", true);
+				await _log.Db("No crypto articles to write a social story about", null, "NEWSSERVICE", true); 
 				return;
 			}
 			// Build story text from all articles

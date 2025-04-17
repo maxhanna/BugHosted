@@ -627,8 +627,7 @@ namespace maxhanna.Server.Controllers
 			return nsfwEnabled;
 		}
 		private async Task<(string, List<MySqlParameter>)> GetWhereCondition(string? search, User? user)
-		{
-			Console.WriteLine("getting where for " + search);
+		{ 
 			string searchCondition = ""; 
 			if (!await GetNsfwForUser(user))
 			{

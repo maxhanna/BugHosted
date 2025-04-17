@@ -1,7 +1,7 @@
 <!-- Comments Section -->
 <div *ngIf="showCommentsHeader && !comment_id"
      [id]="'commentsHeader'+component.id"
-     class="commentsHeader {{showComments && !comment_id ? 'commentsHeaderGradientReverse' : ''}}"
+     class="commentsHeader {{showComments && !comment_id ? '' : 'commentsHeaderGradient'}}"
      [style.cursor]="commentList && commentList.length <= 0 ? 'default' : 'pointer'"
      (click)="commentHeaderClicked()">
   <span class="smallExpander commentHeaderSmallExpander">
@@ -123,7 +123,7 @@
     Loading comments...
   </div>
   <div *ngIf="!showCommentLoadingOverlay" class="addCommentInputDiv">
-    <textarea [placeholder]='comment_id ? "Reply " + component.user.username : commentList && commentList.length > 0 ? "💭Add a comment..." : "🗨️Leave the FIRST comment!"'
+    <textarea [placeholder]='comment_id ? "Reply " + component.user.username : commentList && commentList.length > 0 ? "💭Comment..." : "🗨️FIRST Comment!"'
               [style.display]="editingComments.length ? 'none' : 'block'"
               #addCommentInput
               [id]="'addCommentTextArea'+comment_id"

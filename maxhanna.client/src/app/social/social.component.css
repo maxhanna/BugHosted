@@ -1,3 +1,9 @@
+@media only screen and (min-width : 600px) {
+  button {
+    font-size: var(--main-font-size);
+  }
+}
+
 .componentMain {
   width: 98vw;
   display: flex;
@@ -216,17 +222,29 @@ singleAttachment {
 }
 
 .showCommentSpan {
-  display: inline-flex;
+  /*  display: inline-flex;*/
   cursor: pointer;
   white-space: nowrap;
-  font-size: 16px;
   min-width: 35px;
-  flex-direction: row;
+  margin-right: clamp(0px, 5vw, 20px);
+  /*  flex-direction: row;
   align-content: center;
   justify-content: center;
   align-items: center;
-  line-height: var(--main-font-size);
-}  
+  line-height: var(--main-font-size);*/
+}
+
+.commentBubbleIcon {
+  position: relative;
+  top: -0.5px;
+}
+
+@media only screen and (max-width : 667px) {
+  .showCommentSpan {
+    margin-right: 5px;
+  }
+}
+
 .commentText {
   display: flex;
   flex-wrap: nowrap;
@@ -339,6 +357,12 @@ singleAttachment {
   border: var(--main-border);
 }
 
+.storyContainerWrapperContainerDiv {
+  border: var(--main-border);
+  border-bottom-left-radius: 8px;
+  border-bottom-right-radius: 8px;
+} 
+
 .storyContainerWrapper {
   overflow: auto;
   max-height: 100%;
@@ -346,19 +370,20 @@ singleAttachment {
 
 .storyHeader {
   display: flex;
-  justify-content: center; 
-  height: 25px; 
+  justify-content: center;
+  /*  height: 25px;*/
   align-content: center;
   flex-direction: row;
   flex-wrap: nowrap;
   align-items: center;
-  font-weight: bolder;  
+  font-weight: bolder;
   padding-left: 15px;
   padding-right: 10px;
   padding-top: 2px;
+  border: var(--main-border);
   background: linear-gradient(to bottom, var(--main-highlight-color), transparent);
   border-top-left-radius: 8px;
-  border-top-right-radius: 8px; 
+  border-top-right-radius: 8px;
 }
 
 .storyDate {
@@ -422,7 +447,7 @@ singleAttachment {
   max-width: 100px;
   min-width: 35px;
 }
- 
+
 .popupPanelTitle {
   display: flex;
   width: 100%;
@@ -582,22 +607,28 @@ singleAttachment {
   justify-content: space-evenly;
   align-items: flex-start;
 }
+
 .postOptionButtonWrapper .postOptionButtons, .postOptionButtonWrapper .postOptionButtons ::ng-deep * button {
-  display: flex;
-  flex-wrap: nowrap;
   text-align: center;
   background-color: unset;
   color: var(--secondary-font-color);
-/*  text-shadow: 1px 1px var(--secondary-font-color); */
   min-width: 35px;
+  /*display: flex;
+  flex-wrap: nowrap;
+  text-shadow: 1px 1px var(--secondary-font-color); 
   align-content: center;
-  justify-content: center;
+  justify-content: center;*/
 }
+
+.postOptionButtons, .postOptionButtons ::ng-deep * span {
+  font-size: var(--main-font-size);
+}
+
 .postOptionButtonWrapper {
-  display: flex; 
+  display: flex;
   flex-wrap: nowrap;
 }
+
 .showPostOptionButton {
-  font-size: medium;
   cursor: pointer;
 }

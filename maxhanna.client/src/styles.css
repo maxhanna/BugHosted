@@ -67,7 +67,7 @@ a {
   word-break: break-word;
 }
 
-textarea, button {
+textarea {
   font-size: var(--main-font-size);
 }
 

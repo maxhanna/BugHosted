@@ -52,7 +52,7 @@ public class KrakenService
 		TradeConfiguration? tc = await GetTradeConfiguration(userId, "XBT", "USDC");
 		if (tc == null)
 		{
-			_ = _log.Db("Trade configuration object is null. Trade Cancelled.", userId, "TRADE", true);
+			_ = _log.Db("Trade configuration does not exist. Trade Cancelled.", userId, "TRADE", true);
 			return false;
 		}
 		var nullProperties = tc.GetType()
@@ -63,7 +63,7 @@ public class KrakenService
 		if (nullProperties.Any())
 		{
 			string nulls = string.Join(", ", nullProperties);
-			_ = _log.Db($"Trade Cancelled. The following properties are null: {nulls}", userId, "TRADE", true);
+			_ = _log.Db($"Trade Cancelled. The following trade configuration properties are null: {nulls}", userId, "TRADE", true);
 			return false;
 		}
 		ApplyTradeConfiguration(tc);
@@ -77,7 +77,7 @@ public class KrakenService
 
 		// 2. Get last trade
 		bool forceEqualizationCauseNoLastTrade = false;
-		TradeRecord? lastTrade = await GetLastTradeJSONDeserialized(userId, lastBTCValueCad);
+		TradeRecord? lastTrade = await GetLastTradeJSONDeserialized(userId);
 		if (lastTrade == null)
 		{
 			forceEqualizationCauseNoLastTrade = true;
@@ -142,7 +142,7 @@ public class KrakenService
 						_ = _log.Db($"Trade to USDC is prevented. 90% of wallet is already in USDC. {btcBalanceConverted}/{usdcBalance}", userId, "TRADE", true);
 						return false;
 					}
-					_ = _log.Db($"Spread is +{spread:P} ({currentPrice}-{lastPrice}), selling {btcToTrade} BTC for USDC ({btcValueInUsdc})", userId, "TRADE", true);
+					_ = _log.Db($"Spread is +{spread:P} (c:{currentPrice}-l:{lastPrice}), selling {btcToTrade} BTC for USDC ({btcValueInUsdc})", userId, "TRADE", true);
 					await ExecuteXBTtoUSDCTrade(userId, keys, FormatBTC(btcToTrade), "sell", btcBalance, usdcBalance, false);
 				}
 				else
@@ -190,7 +190,7 @@ public class KrakenService
 					decimal cadAmount = usdAmount * usdToCadRate.Value;
 					decimal btcAmount = cadAmount / btcPriceToCad.Value;
 
-					_ = _log.Db($"Spread is {spread:P} ({currentPrice}-{lastPrice}), buying BTC with {FormatBTC(btcAmount)} BTC worth of USDC(${usdcToUse})", userId, "TRADE", true);
+					_ = _log.Db($"Spread is {spread:P} (c:{currentPrice}-l:{lastPrice}), buying BTC with {FormatBTC(btcAmount)} BTC worth of USDC(${usdcToUse})", userId, "TRADE", true);
 					await ExecuteXBTtoUSDCTrade(userId, keys, FormatBTC(btcAmount), "buy", usdcBalance, btcBalance, false);
 				}
 			}
@@ -198,7 +198,7 @@ public class KrakenService
 		else
 		{
 			decimal thresholdDifference = (Math.Abs(_TradeThreshold) - Math.Abs(spread)) * 100;
-			_ = _log.Db($"Spread is {spread:P} ({currentPrice}-{lastPrice}), within threshold. No trade executed. It was {thresholdDifference:P} away from breaking the threshold.", userId, "TRADE", true);
+			_ = _log.Db($"Spread is {spread:P} (c:{currentPrice}-l:{lastPrice}), within threshold. No trade executed. It was {thresholdDifference:P} away from breaking the threshold.", userId, "TRADE", true);
 		}
 		return true;
 	}
@@ -624,14 +624,14 @@ public class KrakenService
 		}
 	}
 
-	private async Task<TradeRecord?> GetLastTradeJSONDeserialized(int userId, decimal? lastBTCValueCad)
+	private async Task<TradeRecord?> GetLastTradeJSONDeserialized(int userId)
 	{
-		if (lastBTCValueCad == null)
+		TradeRecord? lastTrade = await GetLastTrade(userId); 
+		if (lastTrade == null)
 		{
-			_ = _log.Db("No trade history and no last BTC value. Cannot proceed.", null, "TRADE", true);
+			_ = _log.Db("No trade history. Cannot proceed.", userId, "TRADE", true);
 			return null;
 		}
-		TradeRecord? lastTrade = await GetLastTrade(userId);
 		return lastTrade;
 	}
 

@@ -380,106 +380,106 @@
                             [currentReactions]="story.reactions"></app-reaction>
             </span>
             <span class="showCommentSpan" (click)="showComments(story.id)">
-              <span>🗨️</span>{{story.storyComments?.length}}
+              <span class="commentBubbleIcon">🗨️</span>{{getTotalCommentCount(story.storyComments)}}
             </span>
             <span (click)="showStoryOptionsPanel(story);" class="postOptionButtons showPostOptionButton" title="Show post options">
               ⚙️
             </span>
           </div>
         </div>
+        <div *ngIf="story && story.id && (story.storyText || isEditing.includes(story.id))" class="storyContainerWrapperContainerDiv">
+          <div *ngIf="story && story.id && (story.storyText || isEditing.includes(story.id))"
+               [class]="'storyTextContainer' + (!isExpanded('storyTextContainer'+story.id) && hasOverflow('storyTextContainer'+story.id) ? ' collapsed': '')"
+               [id]="'storyTextContainer'+story.id"
+               (click)="toggleCollapse('storyTextContainer'+story.id)">
+            <div class="storyContentDiv">
+              <div class="storyText"
+                   [style.display]="isEditing.includes(story.id) ? 'none' : 'block'"
+                   [innerHtml]="getTextForDOM(story.storyText, story.id)"
+                   [id]="'storyText' + story.id"></div>
 
-        <div *ngIf="story && story.id && (story.storyText || isEditing.includes(story.id))"
-             [class]="'storyTextContainer' + (!isExpanded('storyTextContainer'+story.id) && hasOverflow('storyTextContainer'+story.id) ? ' collapsed': '')"
-             [id]="'storyTextContainer'+story.id"
-             (click)="toggleCollapse('storyTextContainer'+story.id)">
-          <div class="storyContentDiv">
-            <div class="storyText"
-                 [style.display]="isEditing.includes(story.id) ? 'none' : 'block'"
-                 [innerHtml]="getTextForDOM(story.storyText, story.id)"
-                 [id]="'storyText' + story.id"></div>  
-
-            <textarea [id]="'storyTextTextarea' + story.id" [style.width]="isEditing.includes(story.id) ? '100%' : '0'" [style.display]="isEditing.includes(story.id) ? 'block' : 'none'">{{story.storyText}}</textarea>
-            <div class="editingTextAreaButtonWrapperDiv">
-              <button [id]="'storyTextEditConfirmButton' + story.id" (click)="editStory(story)" [style.display]="isEditing.includes(story.id) ? 'block' : 'none'">
-                <span class="storyEditSpans storyAcceptEdit" [id]="'storyAcceptEditButtonSpan' + story.id">✔️</span>
-                ✏️Edit
-              </button>
-              <button [style.display]="isEditing.includes(story.id) ? 'block' : 'none'"
-                      class="mainTopicSelectionsHeaderButton"
-                      (click)="insertBold('storyTextTextarea' + story.id);"
-                      title="Bold">
-                <span style="font-weight:900">B</span>
-              </button>
-              <button [style.display]="isEditing.includes(story.id) ? 'block' : 'none'"
-                      class="mainTopicSelectionsHeaderButton"
-                      (click)="insertItalics('storyTextTextarea' + story.id);"
-                      title="Italic">
-                <span style="font-style:italic">I</span>
-              </button>
-              <button [style.display]="isEditing.includes(story.id) ? 'block' : 'none'"
-                      class="mainTopicSelectionsHeaderButton"
-                      (click)="insertBullet('storyTextTextarea' + story.id);"
-                      title="Bullet-point">
-                <span>&bull;</span>
-              </button>
-            </div>
-          </div>
-        </div>
-        <div>
-          <div class="textExpanderDiv" *ngIf="!isExpanded('storyTextContainer'+story.id) && hasOverflow('storyTextContainer'+story.id)" (click)="toggleCollapse('storyTextContainer'+story.id)">
-            <span class="smallExpander">
-              [Expand Text]
-            </span>
-          </div>
-          <div *ngIf="story.storyFiles && story.storyFiles.length > 0" class="attachmentsDiv" >
-            <div *ngFor="let file of story.storyFiles" [class]="'attachment ' + (story.storyFiles.length > 1 ? 'multipleAttachments' : 'singleAttachment')">
-              <app-media-viewer [user]="file.user"
-                                [inputtedParentRef]="parentRef"
-                                [currentDirectory]="file.directory"
-                                [file]="file"
-                                [showCommentSection]="false"
-                                [displayExpander]="false"
-                                [displayExtraInfo]="false"
-                                [autoplay]="false"
-                                [autoload]="true"
-                                [forceInviewLoad]="true">
-              </app-media-viewer>
-            </div>
-          </div>
-          <div class="reactionTopicsAndExpanderDiv reactionTopics">
-            <span *ngIf="story.storyTopics && story.storyTopics.length > 0">
-              <span *ngFor="let topic of story.storyTopics" class="matchingTopic" (click)="topicClicked(topic)">
-                {{topic.topicText}}
-              </span>
-            </span>
-          </div>
-          <div style="display:flex; flex-wrap:wrap; gap: 15px;" *ngIf="!hasOverflow('storyTextContainer'+story.id) || (isExpanded('storyTextContainer'+story.id) && hasOverflow('storyTextContainer'+story.id))">
-            <div *ngFor="let metadata of story?.metadata" class="metadataContent">
-              <div *ngIf="metadata.title" class="metadataTitle">{{metadata.title}}</div>
-              <div *ngIf="metadata.description" class="metadataDescription" [innerHtml]="metadata.description | clickableUrls"></div>
-              <div *ngIf="metadata.imageUrl" (click)="goToLink(story, metadata.url)" class="cursorPointerUnderlined metaImgDiv">
-                <img class="metadataImage" [src]="metadata.imageUrl" />
-                <button class="playButtonInMetadataImage playButton" *ngIf="isValidYoutubeImageUrl(metadata.imageUrl)"></button>
+              <textarea [id]="'storyTextTextarea' + story.id" [style.width]="isEditing.includes(story.id) ? '100%' : '0'" [style.display]="isEditing.includes(story.id) ? 'block' : 'none'">{{story.storyText}}</textarea>
+              <div class="editingTextAreaButtonWrapperDiv">
+                <button [id]="'storyTextEditConfirmButton' + story.id" (click)="editStory(story)" [style.display]="isEditing.includes(story.id) ? 'block' : 'none'">
+                  <span class="storyEditSpans storyAcceptEdit" [id]="'storyAcceptEditButtonSpan' + story.id">✔️</span>
+                  ✏️Edit
+                </button>
+                <button [style.display]="isEditing.includes(story.id) ? 'block' : 'none'"
+                        class="mainTopicSelectionsHeaderButton"
+                        (click)="insertBold('storyTextTextarea' + story.id);"
+                        title="Bold">
+                  <span style="font-weight:900">B</span>
+                </button>
+                <button [style.display]="isEditing.includes(story.id) ? 'block' : 'none'"
+                        class="mainTopicSelectionsHeaderButton"
+                        (click)="insertItalics('storyTextTextarea' + story.id);"
+                        title="Italic">
+                  <span style="font-style:italic">I</span>
+                </button>
+                <button [style.display]="isEditing.includes(story.id) ? 'block' : 'none'"
+                        class="mainTopicSelectionsHeaderButton"
+                        (click)="insertBullet('storyTextTextarea' + story.id);"
+                        title="Bullet-point">
+                  <span>&bull;</span>
+                </button>
               </div>
             </div>
           </div>
-        </div>
-        <div>
-          <app-comments *ngIf="story"
-                        [inputtedParentRef]="parentRef"
-                        [type]="'Social'"
-                        [showComments]="openedStoryComments.includes(story?.id ?? 0)"
-                        [showCommentsHeader]="true"
-                        [component_id]="story.id!"
-                        [component]="story" 
-                        [userProfileId]="userProfileId" 
-                        [commentList]="story!.storyComments!"
-                        (commentAddedEvent)="commentAddedEvent($event)"
-                        (commentHeaderClickedEvent)="showComments(story.id)"
-                        (commentRemovedEvent)="commentRemovedEvent($event)">
-          </app-comments>
-        </div>
-
+          <div>
+            <div class="textExpanderDiv" *ngIf="!isExpanded('storyTextContainer'+story.id) && hasOverflow('storyTextContainer'+story.id)" (click)="toggleCollapse('storyTextContainer'+story.id)">
+              <span class="smallExpander">
+                [Expand Text]
+              </span>
+            </div>
+            <div *ngIf="story.storyFiles && story.storyFiles.length > 0" class="attachmentsDiv">
+              <div *ngFor="let file of story.storyFiles" [class]="'attachment ' + (story.storyFiles.length > 1 ? 'multipleAttachments' : 'singleAttachment')">
+                <app-media-viewer [user]="file.user"
+                                  [inputtedParentRef]="parentRef"
+                                  [currentDirectory]="file.directory"
+                                  [file]="file"
+                                  [showCommentSection]="false"
+                                  [displayExpander]="false"
+                                  [displayExtraInfo]="false"
+                                  [autoplay]="false"
+                                  [autoload]="true"
+                                  [forceInviewLoad]="true">
+                </app-media-viewer>
+              </div>
+            </div>
+            <div class="reactionTopicsAndExpanderDiv reactionTopics">
+              <span *ngIf="story.storyTopics && story.storyTopics.length > 0">
+                <span *ngFor="let topic of story.storyTopics" class="matchingTopic" (click)="topicClicked(topic)">
+                  {{topic.topicText}}
+                </span>
+              </span>
+            </div>
+            <div style="display:flex; flex-wrap:wrap; gap: 15px;" *ngIf="!hasOverflow('storyTextContainer'+story.id) || (isExpanded('storyTextContainer'+story.id) && hasOverflow('storyTextContainer'+story.id))">
+              <div *ngFor="let metadata of story?.metadata" class="metadataContent">
+                <div *ngIf="metadata.title" class="metadataTitle">{{metadata.title}}</div>
+                <div *ngIf="metadata.description" class="metadataDescription" [innerHtml]="metadata.description | clickableUrls"></div>
+                <div *ngIf="metadata.imageUrl" (click)="goToLink(story, metadata.url)" class="cursorPointerUnderlined metaImgDiv">
+                  <img class="metadataImage" [src]="metadata.imageUrl" />
+                  <button class="playButtonInMetadataImage playButton" *ngIf="isValidYoutubeImageUrl(metadata.imageUrl)"></button>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div>
+            <app-comments *ngIf="story"
+                          [inputtedParentRef]="parentRef"
+                          [type]="'Social'"
+                          [showComments]="openedStoryComments.includes(story?.id ?? 0)"
+                          [showCommentsHeader]="true"
+                          [component_id]="story.id!"
+                          [component]="story"
+                          [userProfileId]="userProfileId"
+                          [commentList]="story!.storyComments!"
+                          (commentAddedEvent)="commentAddedEvent($event)"
+                          (commentHeaderClickedEvent)="showComments(story.id)"
+                          (commentRemovedEvent)="commentRemovedEvent($event)">
+            </app-comments>
+          </div> 
+        </div> 
       </div>
       <div style="display: flex;">
         <div class="pagination" *ngIf="totalPagesArray.length > 1" style="position:relative; top:0; left: 0; white-space: nowrap;">

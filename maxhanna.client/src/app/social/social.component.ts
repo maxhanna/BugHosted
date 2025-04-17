@@ -904,7 +904,28 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
       } 
     }
   } 
+  getTotalCommentCount(commentList?: FileComment[]): number {
+    if (!commentList || commentList.length === 0) return 0;
+    let count = 0;
 
+    const countSubComments = (comment: FileComment): number => {
+      let subCount = 0;
+      if (comment.comments && comment.comments.length) {
+        subCount += comment.comments.length;
+        for (let sub of comment.comments) {
+          subCount += countSubComments(sub); // Recursively count deeper sub-comments
+        }
+      }
+      return subCount;
+    };
+
+    for (let comment of commentList) {
+      count++; // Count main comment
+      count += countSubComments(comment); // Count its sub-comments
+    }
+
+    return count;
+  }
   async updateNSFW(event: Event) {
     const parent = this.parent ?? this.parentRef;
     const user = parent?.user;

@@ -18,8 +18,7 @@
   border-radius: 50%;
 }
 .addReactionSpan, .addReactionSpanNoBorder {
-  white-space: nowrap;
-  font-size: small; 
+  white-space: nowrap; 
   padding: 4px;
   cursor: pointer;
   text-shadow: 1px 1px black;

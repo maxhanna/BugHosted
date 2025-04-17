@@ -264,7 +264,7 @@ export class CommentsComponent extends ChildComponent implements OnInit {
       if (input.value.trim() != "") {
         input.value += "\n ";
       }
-      input.value += `[Quoting {${comment.user.username}|${comment.user.id}|${comment.date}}: ${comment.commentText}] \n`;
+      input.value += `[Quoting {${comment.user.username}|${comment.user.id}|${comment.date}}: ${comment.commentText?.trim()}] \n`;
     } 
     input.focus();
     const length = input.value.length;

@@ -107,7 +107,7 @@ namespace maxhanna.Server.Controllers
 					}
 
 					var urlVariants = new List<string>();
-					_ = _log.Db($"Found {results.Count} results before searching manually", null, "CRAWLERCTRL", true);
+					//_ = _log.Db($"Found {results.Count} results before searching manually", null, "CRAWLERCTRL", true);
 					int scrapedResults = 0;  
 					string tmpUrl = request.Url.Trim().Replace(",", "").Replace(" ", "").Replace("'", ""); 
 					if (!request.Url.StartsWith("http://") && !request.Url.StartsWith("https://"))
@@ -132,17 +132,17 @@ namespace maxhanna.Server.Controllers
 					{   
 						foreach (var urlVariant in urlVariants)
 						{ 
-							_ = _log.Db($"Manually scraping: " + urlVariant, null, "CRAWLERCTRL", true);
+							//_ = _log.Db($"Manually scraping: " + urlVariant, null, "CRAWLERCTRL", true);
 							var mainMetadata = await _webCrawler.ScrapeUrlData(urlVariant);
 							if (mainMetadata != null)
 							{ 
 								scrapedResults++;
 								mainMetadata.Url = new Uri(new Uri(urlVariant), mainMetadata.Url).ToString().TrimEnd('/');
 								results.Add(mainMetadata);
-								if (mainMetadata.HttpStatus == null)
-								{ 
+								if (mainMetadata.HttpStatus == null && !_webCrawler.IsMetadataCompletelyEmpty(mainMetadata))
+								{
 									_ = _webCrawler.SaveSearchResult(mainMetadata.Url, mainMetadata);
-								}
+								} 
 							}
 							else
 							{
@@ -151,15 +151,9 @@ namespace maxhanna.Server.Controllers
 						}
 					} 
 					var allResults = results.ToList();
-
-					if (request.Url.Trim() != "*")
-					{
-						allResults = allResults
-										.GroupBy(r => r.Url)
-										.Select(g => g.First())
-										.OrderByDescending(r => _webCrawler.CalculateRelevanceScore(r, request.Url))
-										.ToList();
-					} 
+					 
+					allResults = GetOrderedResultsForWeb(request, allResults);
+					 
 					// Return the results along with the total count for pagination
 					return Ok(new { Results = allResults, TotalResults = totalResults + scrapedResults });
 				}
@@ -167,20 +161,49 @@ namespace maxhanna.Server.Controllers
 			catch (Exception ex)
 			{ 
 				if (results.Count > 0)
-				{
-					results = results
-									.GroupBy(r => r.Url)
-									.Select(g => g.First())
-									.OrderByDescending(r => _webCrawler.CalculateRelevanceScore(r, request.Url))
-									.ToList();
+				{ 
+					results = GetOrderedResultsForWeb(request, results);
 					return Ok(new { Results = results, TotalResults = totalResults });
 				}
 				else
 				{ 
-					return StatusCode(500, "An error occurred while processing the URL.");
+					return StatusCode(500, "An error occurred while processing the URL." + ex.Message);
 				}
 			}
 		}
+
+		private List<Metadata> GetOrderedResultsForWeb(CrawlerRequest request, List<Metadata> allResults)
+		{
+			// Normalize: prefer https over http
+			var httpsUrls = new HashSet<string>(
+				allResults
+					.Where(r => r.Url != null && r.Url.StartsWith("https://"))
+					.Select(r => r.Url!.Replace("https://", ""))
+			);
+
+			allResults = allResults
+				.Where(r =>
+				{
+					if (r.Url == null) return false;
+					if (r.Url.StartsWith("http://"))
+					{
+						var withoutScheme = r.Url.Replace("http://", "");
+						return !httpsUrls.Contains(withoutScheme);
+					}
+					return true;
+				})
+				.ToList();
+
+			// Deduplicate by URL and sort by relevance
+			allResults = allResults
+				.GroupBy(r => r.Url)
+				.Select(g => g.First())
+				.OrderByDescending(r => _webCrawler.CalculateRelevanceScore(r, request.Url))
+				.ToList();
+
+			return allResults;
+		}
+
 
 		[HttpPost("/Crawler/IndexLinks", Name = "IndexLinks")]
 		public async void IndexLinks([FromBody] string url)

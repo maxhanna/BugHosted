@@ -13,7 +13,9 @@
 .commentHeaderSmallExpander {
   color: var(--main-font-color);
 }
-
+.smallExpander {
+  text-decoration: underline;
+}
 .commentsHeader {
   margin-left: auto;
   margin-right: auto;
@@ -21,13 +23,16 @@
   cursor: pointer;
   font-weight: 700;
   font-size: smaller;
-  background: linear-gradient(to bottom, transparent, var(--main-highlight-color));
   color: var(--main-highlight-color-quarter-opacity);
-  border-bottom-left-radius: 8px;
-  border-bottom-right-radius: 8px;
   padding: 5px;
   width: CALC(100% - 10px);
 }
+.commentsHeaderGradient {
+/*  background: linear-gradient(to bottom, transparent, var(--main-highlight-color));
+*/  border-bottom-left-radius: 8px;
+  border-bottom-right-radius: 8px;
+}
+
 
 .commentsHeaderGradientReverse {
   background: linear-gradient(to bottom, var(--main-highlight-color), transparent);

@@ -58,7 +58,7 @@ public class WebCrawler
 		try
 		{
 			List<string> nextDomains = new List<string>();
-			if (_random.Next(1, 3) == 2)
+			if (_random.Next(1, 2) == 1)
 			{
 				nextDomains = await GenerateRandomUrls();
 			}
@@ -95,8 +95,14 @@ public class WebCrawler
 			genWord2 = await GenerateRandomWord();
 		}
 		int index = _random.Next(DomainSuffixes.Count);
-		string genSuffix = DomainSuffixes[index];
-
+		string genSuffix = "";
+		if (_random.Next(1, 3) == 2)
+		{
+			genSuffix = "com";
+		} else
+		{
+			genSuffix = DomainSuffixes[index];
+		}
 		if (!string.IsNullOrEmpty(genWord) || !string.IsNullOrEmpty(genWord2))
 		{
 			nextDomains.Add($"http://{genWord}{genWord2}.{genSuffix}");
@@ -588,9 +594,8 @@ public class WebCrawler
 			return metadata;
 		}
 		catch (HttpRequestException ex)
-		{
-			metadata.HttpStatus = 504;
-			_ = MarkUrlAsFailed(url, 504);
+		{ 
+			_ = MarkUrlAsFailed(url);
 			return metadata;
 		}
 		catch (StackOverflowException ex)
@@ -607,14 +612,31 @@ public class WebCrawler
 			return null;
 		}
 
-		return metadata;
-	}
+		if (IsMetadataCompletelyEmpty(metadata))
+		{
+			if (!string.IsNullOrEmpty(metadata.Url?.Trim())) { 
+				_ = MarkUrlAsFailed(url);
+			}
+			return null;
+		} else
+		{
+			return metadata; 
+		}
 
+	}
+	public bool IsMetadataCompletelyEmpty(Metadata metadata)
+	{
+		return string.IsNullOrEmpty(metadata.Title?.Trim()) &&
+					 string.IsNullOrEmpty(metadata.Description?.Trim()) &&
+					 string.IsNullOrEmpty(metadata.Keywords?.Trim()) &&
+					 string.IsNullOrEmpty(metadata.Author?.Trim()) &&
+					 string.IsNullOrEmpty(metadata.ImageUrl?.Trim());
+	}
 	private static void ExtractMetadataFromHtmlDocument(string url, Metadata metadata, HtmlDocument htmlDocument)
 	{ 
 		// Extract title from <title> tag
 		var titleNode = htmlDocument.DocumentNode.SelectSingleNode("//title");
-		if (titleNode != null)
+		if (titleNode != null && !string.IsNullOrEmpty(titleNode.InnerText.Trim()))
 		{
 			metadata.Title = titleNode.InnerText.Trim();
 		}
@@ -635,7 +657,7 @@ public class WebCrawler
 
 		// Extract Open Graph (OG) title
 		var ogTitleNode = htmlDocument.DocumentNode.SelectSingleNode("//meta[@property='og:title']");
-		if (ogTitleNode != null)
+		if (ogTitleNode != null && !string.IsNullOrEmpty(ogTitleNode.GetAttributeValue("content", "")))
 		{
 			metadata.Title = ogTitleNode.GetAttributeValue("content", "").Trim();
 		}
@@ -964,11 +986,15 @@ public class WebCrawler
 						_lastRequestTime = DateTime.Now;
 						Metadata? metaData = null; 
 						//_ = _log.Db($"(Crawler:{delayedUrlsQueue.Count()}#{urlsToScrapeQueue.Count()})Scraping: " + $"{ShortenUrl(url)}", null, "CRAWLER", true);
-						metaData = await ScrapeUrlData(url); 
-						if (metaData != null)
+						metaData = await ScrapeUrlData(url);
+						if (metaData != null && !IsMetadataCompletelyEmpty(metaData))
 						{
 							await SaveSearchResult(url, metaData);
 							await CrawlSitemap(url);
+						}
+						else if (metaData != null && IsMetadataCompletelyEmpty(metaData) && !string.IsNullOrEmpty(metaData.Url))
+						{
+							await MarkUrlAsFailed(metaData.Url);
 						}
 
 						if (DateTime.Now - _lastRequestTime < _requestInterval)
