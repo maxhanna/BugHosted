@@ -15,7 +15,8 @@
       <div class="loadingResponseDiv" *ngIf="isLoading">Loading...</div>
     </div>
     <div *ngIf="!isLoading && (!chatMessages || chatMessages.length == 0)" class="emptyHostAiMessage">
-      <div>Welcome to HostAI.</div>
+      <div>{{ greetingMessage() }}{{ parentRef?.user?.username ? ', ' + parentRef!.user!.username : '' }}.</div>
+
       <div>Start by typing a message <span *ngIf="!speechRecognitionUnavailable">or by pressing on the microphone</span>.</div>
       <div *ngIf="speechRecognitionUnavailable">(Speech recognition unavailable on this browser).</div>
     </div>

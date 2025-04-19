@@ -69,22 +69,10 @@ namespace maxhanna.Server.Controllers
 			{
 				await conn.OpenAsync();
 
-				string sql = @"
-				(
+				string sql = @" 
 					SELECT id, symbol, name, value_cad, timestamp
 					FROM coin_value
-					ORDER BY timestamp DESC
-					LIMIT 1000
-				)
-				UNION ALL
-				(
-					SELECT id, symbol, name, value_cad, timestamp
-					FROM coin_value
-					WHERE timestamp < (SELECT MAX(timestamp) FROM coin_value)
-					ORDER BY RAND()
-					LIMIT 5000
-				)
-				ORDER BY timestamp ASC;";
+					ORDER BY timestamp ASC;";
 				MySqlCommand cmd = new MySqlCommand(sql, conn);
 				using (var reader = await cmd.ExecuteReaderAsync())
 				{

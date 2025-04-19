@@ -68,7 +68,10 @@ namespace maxhanna.Server.Services
 
 		public override void Dispose()
 		{
-			_checkForNewUpgradesTimer.Dispose();
+			if (_checkForNewUpgradesTimer != null)
+			{ 
+				_checkForNewUpgradesTimer.Dispose();
+			}
 			base.Dispose();
 		}
 	}

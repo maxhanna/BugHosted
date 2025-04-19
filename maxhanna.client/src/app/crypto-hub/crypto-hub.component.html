@@ -153,21 +153,22 @@
             <span class="cursorPointerUnderlined" (click)="createUpdateUserComponent();" *ngIf="!hasKrakenApi && parentRef?.user?.id"> Set Up Kraken API Keys </span>
             <span class="cursorPointerUnderlined" (click)="createUserComponent();" *ngIf="!hasKrakenApi && !parentRef?.user?.id"> Log in to use the bot.</span>
           </span>
-          <span *ngIf="hasKrakenApi && !isTradePanelOpen">
+          <span *ngIf="!isTradePanelOpen">
             <button class="cursorPointer" (click)="openTradeFullscreen()">Maximize View</button>
-          </span>
-          <span *ngIf="!hasKrakenApi">
-            <button class="cursorPointer" (click)="showTradeInformationPanel()">Information</button>
           </span>
         </span>
 
         <div *ngIf="hasKrakenApi && isTradePanelOpen" class="tradeButtonsWrapper">
-          <button class="cursorPointer" (click)="checkBalance()" [disabled]="isLoading" *ngIf="isTradePanelOpen">{{isTradebotBalanceShowing ? 'Hide' : 'Show'}} Trades</button>
           <button class="cursorPointer" (click)="showTradeSettings()" *ngIf="isTradePanelOpen">{{showingTradeSettings ? 'Hide' : 'Show'}} Configuration</button>
+        </div> 
+        <span *ngIf="isTradePanelOpen">
+          <button class="cursorPointer" (click)="checkBalance()" [disabled]="isLoading" *ngIf="isTradePanelOpen">{{isTradebotBalanceShowing ? 'Hide' : 'Show'}} Trades</button>
           <button class="cursorPointer" (click)="showTradeLogs()" *ngIf="isTradePanelOpen">{{showingTradeLogs ? 'Hide' : 'Show'}} Logs</button>
           <button class="cursorPointer" (click)="showTradeValueGraph()" *ngIf="isTradePanelOpen">{{isShowingTradeValueGraph ? 'Hide' : 'Show'}} Trade Value Graph</button>
-        </div>
-        <div *ngIf="hasKrakenApi && isTradebotBalanceShowing && tradebotBalances?.length" class="mainTableContainer tradeDataTable">
+          <button class="cursorPointer" (click)="showTradeSimulationPanel()" *ngIf="isTradePanelOpen">{{isShowingTradeSimulator ? 'Hide' : 'Show'}} Tradebot Simulation</button>
+          <button class="cursorPointer" (click)="showTradeInformationPanel()">Information</button>
+        </span>
+        <div *ngIf="isTradebotBalanceShowing && tradebotBalances?.length" class="mainTableContainer tradeDataTable">
           <table class="mainTable tradeBalanceTable">
             <thead>
               <tr>
@@ -192,7 +193,7 @@
           </table>
         </div>
       </div>
-      <div *ngIf="showingTradeSettings" class="optionsStatsWrapperDiv tradeDataTable">
+      <div *ngIf="showingTradeSettings" class="optionsStatsWrapperDiv tradeDataTable" style="{{isLoading ? 'opacity:25%' : ''}}">
         <div class="optionsStatsDiv">
           <div class="optionsStatsHeader">From Coin</div>
           <div class="optionsStatsDescription">
@@ -274,7 +275,7 @@
         </div>
         <div class="optionsStatsDiv">
           <div class="optionsStatsHeader">Save Configuration</div>
-          <button (click)="updateCoinConfiguration()">💾Save</button>
+          <button (click)="updateCoinConfiguration()" [disabled]="isLoading">💾Save</button>
         </div>
       </div>
       <div *ngIf="isShowingTradeValueGraph">
@@ -312,7 +313,55 @@
         <span>Page {{ currentLogPage }} of {{ totalLogPages }}</span>
         <button class="cursorPointer" (click)="nextLogPage()" [disabled]="currentLogPage >= totalLogPages">Next</button>
       </div>
-
+      <div *ngIf="isShowingTradeSimulator && tradebotSimulationGraphData && tradebotSimulationGraphData.length > 0" class="tradeDataTable">
+        <app-line-graph [width]="300"
+                        [height]="150"
+                        [selectedPeriod]="'1d'"
+                        [data]="tradebotSimulationGraphData"
+                        [data2]="tradebotSimulationGraphData2"
+                        [graphTitle]="'Simulated Price Variation'"
+                        [skipFiltering]="true"
+                        [selectedCoin]="'Bitcoin'"
+                        [chartTypeInputted]="'line'"
+                        [chartTypeInputtedData2]="'line'"
+                        [isDotModeData2]="true"
+                        [type]="'Crypto'"></app-line-graph>
+        <button (click)="randomizeTradingSimGraph()">Randomize</button>
+        <button (click)="randomizeTradingSimGraphWithWeekData()">Random Day This Week</button>
+        <button (click)="downloadSimTradeDataCSV()">Download CSV</button>
+        <div style="display: flex; justify-content: space-around; align-content: center; flex-direction: row; flex-wrap: nowrap; align-items: center;">
+          <div style="display: flex; flex-direction: column; flex-wrap: nowrap; align-content: center; justify-content: center; align-items: center; text-align: center;">
+            <div>
+              <label>Initial BTC (USD)</label>
+              <input [value]="tradeSimParams.initialBtc" (change)="updateSimTradeVars()" type="number" min="100" max="100000" required #initialBtcUsd>
+            </div>
+            <div>
+              <label>Initial USDC</label>
+              <input [value]="tradeSimParams.initialUsd" (change)="updateSimTradeVars()" type="number" min="100" max="100000" required #initialUsdc>
+            </div>
+            <div>
+              <label>Trade Spread (%)</label>
+              <input [value]="tradeSimParams.tradeThreshold" (change)="updateSimTradeVars()" type="number" min="0.001" max="0.05" step="0.001" required #tradeSpreadPct>
+            </div>
+            <div>
+              <label>Trade Fee (%)</label>
+              <input [value]="tradeSimParams.fee" (change)="updateSimTradeVars()" type="number" min="0.001" max="0.01" step="0.001" required #tradeFeePct>
+            </div>
+            <div>
+              <label>Trade Amount (%)</label>
+              <input [value]="tradeSimParams.tradePercentage" (change)="updateSimTradeVars()" type="number" min="0.05" max="0.5" step="0.05" required #tradeAmountPct>
+            </div>
+          </div>
+          <div class="tradeBotSimDebugDivWrapper" #tradeBotSimDebugDivContainer id="tradeBotSimDebugDivContainer" *ngIf="tradeBotSimDebug && tradeBotSimDebug.length > 0">
+            <button (click)="scrollToBottomOfTradebotSimDebug()">Scroll to bottom</button>
+            <div *ngFor="let string of tradeBotSimDebug">
+              <div>{{ string }}</div>
+              <div *ngIf="string && string.includes('balances')" style="height:25px;"></div>
+            </div>
+            <button (click)="scrollToTopOfTradebotSimDebug()">Scroll to top</button>
+          </div>
+        </div> 
+      </div> 
       <div *ngIf="hasKrakenApi && isTradePanelOpen" style="{{isTradePanelOpen ? 'margin-top:20px;' : ''}}text-align:right; width: 100%;">
         <button class="cursorPointer" (click)="openTradeFullscreen()">{{isTradePanelOpen ? 'Minimize' : 'Maximize'}} View</button>
       </div>

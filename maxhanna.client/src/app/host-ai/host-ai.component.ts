@@ -296,4 +296,19 @@ console.log("Hello, world!");
   speechRecognitionNotSupportedEvent(event: boolean) { 
     this.speechRecognitionUnavailable = event;
   }
+  greetingMessage(): string {
+    const hour = new Date().getHours();
+
+    if (hour < 5) {
+      return 'Burning the midnight oil 🌌';
+    } else if (hour < 12) {
+      return 'Good morning ☀️';
+    } else if (hour < 17) {
+      return 'Good afternoon 🌤️';
+    } else if (hour < 21) {
+      return 'Good evening 🌇';
+    } else {
+      return 'Good night 🌙';
+    }
+  }
 }

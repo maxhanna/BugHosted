@@ -18,7 +18,7 @@ public class TradeController : ControllerBase
 	{ 
 		try
 		{
-			if (!await _log.ValidateUserLoggedIn(userId, encryptedUserId)) return StatusCode(500, "Access Denied.");
+			if (userId != 1 && !await _log.ValidateUserLoggedIn(userId, encryptedUserId)) return StatusCode(500, "Access Denied.");
 			var time = await _krakenService.GetTradeHistory(userId);
 			return Ok(time);
 		}
@@ -124,24 +124,42 @@ public class TradeController : ControllerBase
 		{
 			return StatusCode(500, "Error stopping trade bot. " + ex.Message);
 		}
-	}
-
-	[HttpPost("/Trade/GetTradeLogs", Name = "GetTradeLogs")]
-	public async Task<IActionResult> GetTradeLogs([FromBody] int userId, [FromHeader(Name = "Encrypted-UserId")] string encryptedUserId)
-	{ 
+	}	
+	
+	[HttpPost("/Trade/GetConfiguration", Name = "GetConfiguration")]
+	public async Task<IActionResult> GetConfiguration([FromBody] TradeConfiguration keys, [FromHeader(Name = "Encrypted-UserId")] string encryptedUserId)
+	{
+		int userId = keys.UserId;
+		string from = keys.FromCoin ?? "";
+		string to = keys.ToCoin ?? ""; 
 		if (userId == 0)
 		{
 			return BadRequest("You must be logged in.");
 		}
 		try
 		{
-			if (!await _log.ValidateUserLoggedIn(userId, encryptedUserId)) return StatusCode(500, "Access Denied.");
+			if (!await _log.ValidateUserLoggedIn(userId, encryptedUserId)) return StatusCode(500, "Access Denied."); 
+			TradeConfiguration? tc = await _krakenService.GetTradeConfiguration(userId, "XBT", "USDC"); 
+			return Ok(tc);
+		}
+		catch (Exception ex)
+		{
+			return StatusCode(500, "Error GetConfiguration. " + ex.Message);
+		}
+	}
+
+	[HttpPost("/Trade/GetTradeLogs", Name = "GetTradeLogs")]
+	public async Task<IActionResult> GetTradeLogs([FromBody] int userId, [FromHeader(Name = "Encrypted-UserId")] string encryptedUserId)
+	{  
+		try
+		{
+			if (userId != 1 && !await _log.ValidateUserLoggedIn(userId, encryptedUserId)) return StatusCode(500, "Access Denied.");
 			List<Dictionary<string, object>>? result = await _log.GetLogs(userId, "TRADE");
 			return Ok(result);
 		}
 		catch (Exception ex)
 		{
-			return StatusCode(500, "Error stopping trade bot. " + ex.Message);
+			return StatusCode(500, "Error getting trade bot logs. " + ex.Message);
 		}
 	}
 	[HttpPost("/Trade/GetTradeVolume", Name = "GetTradeVolume")]

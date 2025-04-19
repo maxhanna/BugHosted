@@ -140,6 +140,7 @@
   .commentContentAndAvatarContainerDiv button {
     height: 20px;
     line-height: 0px;
+    white-space: nowrap;
     cursor: pointer;
   }
 
@@ -227,4 +228,10 @@
 }
 .commentReplyInputTextArea {
   width: CALC(100% - 170px);
+}
+.subComment {
+  margin-left: 40px;
+  border-left: var(--main-border);
+  padding: 6px;
+  border-radius: 6px;
 }

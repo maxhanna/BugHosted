@@ -66,7 +66,7 @@ app.MapWhen(context => context.Request.Path.Value.Contains("firebase-messaging-s
 		await context.Response.WriteAsync("Access Denied");
 	});
 });
-app.UseStaticFiles();
+//app.UseStaticFiles();
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())

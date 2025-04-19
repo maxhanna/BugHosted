@@ -52,6 +52,9 @@ export class TradeService {
   async getTradeConfigurationLastUpdated(userId: number, encryptedUserId: string, from?: string, to?: string) {
     return this.post(`/trade/getconfigurationlastupdated`, { UserId: userId, FromCoin: from, ToCoin: to }, 'text', encryptedUserId);
   }
+  async getTradeConfiguration(userId: number, encryptedUserId: string, from?: string, to?: string) {
+    return this.post(`/trade/getconfiguration`, { UserId: userId, FromCoin: from, ToCoin: to }, 'text', encryptedUserId);
+  }
   async getTradeLogs(userId: number, encryptedUserId: string) {
     return this.post(`/trade/gettradelogs`, userId, 'text', encryptedUserId);
   }

@@ -9,9 +9,8 @@ import { CoinValueService } from '../../services/coin-value.service';
 import { UserService } from '../../services/user.service';
 import { MiningRigsComponent } from '../mining-rigs/mining-rigs.component';
 import { AiService } from '../../services/ai.service';
-import { User } from '../../services/datacontracts/user/user';
 import { TradeService } from '../../services/trade.service';
-import { debounce } from 'rxjs';
+
 
 @Component({
   selector: 'app-crypto-hub',
@@ -69,6 +68,7 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
   totalLogPages = 0;
   fullscreenTimeout = false;
   isTradeInformationOpen = false;
+  isShowingTradeSimulator = false;
 
   @ViewChild('scrollContainer', { static: true }) scrollContainer!: ElementRef;
 
@@ -88,6 +88,21 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
     timestamp: Date
   }[] = [];
   tradebotValuesForGraph: any;
+  tradebotSimulationGraphData: any[] = [];
+  tradebotSimulationGraphData2: any[] = [];
+  tradeSimParams = {
+    initialBtc: 0.02085,               // Starting BTC amount
+    initialUsd: 1000,           // Starting USD amount
+    tradeThreshold: 0.0085,       // 0.85% threshold for trades
+    tradePercentage: 0.15,       // Trade 15% of balance
+    maxBtcTrade: 0.005,          // Max 0.005 BTC per trade
+    minBtcTrade: 0.00005,        // Min 0.00005 BTC per trade
+    cooldownMinutes: 15,         // 15 min between trades
+    fee: 0.004                   // 0.4% fee
+  };
+  tradeBotSimDebug: string[] = [];
+
+  useRandomPriceGraph = false;
 
   @ViewChild(LineGraphComponent) lineGraphComponent!: LineGraphComponent;
   @ViewChild('miningRigComponent') miningRigComponent!: MiningRigsComponent;
@@ -109,6 +124,15 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
   @ViewChild('tradeInitialMinimumFromAmountToStart') tradeInitialMinimumFromAmountToStart!: ElementRef<HTMLInputElement>;
   @ViewChild('tradeMinimumFromReserves') tradeMinimumFromReserves!: ElementRef<HTMLInputElement>;
   @ViewChild('tradeMinimumToReserves') tradeMinimumToReserves!: ElementRef<HTMLInputElement>;
+  @ViewChild('tradeBotSimDebugDivContainer') tradeBotSimDebugDivContainer!: ElementRef<HTMLDivElement>;
+
+  @ViewChild('initialBtcUsd') initialBtcUsd!: ElementRef<HTMLInputElement>;
+  @ViewChild('initialUsdc') initialUsdc!: ElementRef<HTMLInputElement>;
+  @ViewChild('initialBtcPrice') initialBtcPrice!: ElementRef<HTMLInputElement>;
+  @ViewChild('tradeSpreadPct') tradeSpreadPct!: ElementRef<HTMLInputElement>;
+  @ViewChild('tradeFeePct') tradeFeePct!: ElementRef<HTMLInputElement>;
+  @ViewChild('tradeAmountPct') tradeAmountPct!: ElementRef<HTMLInputElement>;
+  @ViewChild('numOscillations') numOscillations!: ElementRef<HTMLInputElement>;
 
   @Output() coinSelected = new EventEmitter<string>();
 
@@ -371,6 +395,410 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
       }
     }, 50);
   }
+  async showTradeSimulationPanel() {
+    if (this.isShowingTradeSimulator) {
+      this.closeTradeSimulationPanel();
+      return;
+    }
+    this.startLoading();
+    this.generateSimulationData();
+
+    setTimeout(() => {
+      this.isShowingTradeSimulator = true;
+      this.stopLoading();
+    }, 50);
+  }
+  randomizeTradingSimGraphWithWeekData() {
+    this.getRandomDayData(); 
+    this.tradebotSimulationGraphData2 = this.generateTradeData(
+      this.tradebotSimulationGraphData,
+      this.tradeSimParams
+    );
+  }
+  randomizeTradingSimGraph() {
+    //this.tradebotSimulationGraphData = this.tradingSim.generateRandomPriceData();
+    //this.tradebotSimulationGraphData2 = this.tradingSim.generateTradeData(this.tradebotSimulationGraphData);
+    //console.log(this.tradebotSimulationGraphData);
+    this.tradeBotSimDebug = [];
+    this.generateSimulationData(); 
+  }
+
+  closeTradeSimulationPanel() {
+    this.isShowingTradeSimulator = false;
+  }
+  getRandomDayData() {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // Normalize to start of day
+
+    // If today is Monday (1) or Sunday (0), use last week's data
+    const dayOfWeek = today.getDay(); // 0 (Sun) to 6 (Sat)
+    const useLastWeek = dayOfWeek === 0 || dayOfWeek === 1;
+
+    // Find the most recent Monday (start of the current or previous week)
+    const daysSinceMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1; // Adjust for Monday start
+    const weekStart = new Date(today);
+    weekStart.setDate(today.getDate() - daysSinceMonday - (useLastWeek ? 7 : 0)); // Go back 7 more days if needed
+    weekStart.setHours(0, 0, 0, 0);
+
+    // Step 2: Get a random day from the week (Monday to Sunday)
+    const randomDayOffset = Math.floor(Math.random() * 7); // 0 (Mon) to 6 (Sun)
+    const randomDay = new Date(weekStart);
+    randomDay.setDate(weekStart.getDate() + randomDayOffset);
+
+    // Ensure the random day is before today
+    if (randomDay >= today) {
+      randomDay.setDate(randomDay.getDate() - 7); // Fall back to the previous week
+    }
+
+    // Step 3: Format the random day as "YYYY-MM-DD"
+    const year = randomDay.getFullYear();
+    const month = String(randomDay.getMonth() + 1).padStart(2, '0');
+    const day = String(randomDay.getDate()).padStart(2, '0');
+    const dateString = `${year}-${month}-${day}`;
+ 
+    // Step 4: Filter data for the random day
+    this.tradebotSimulationGraphData = this.allHistoricalData?.filter(x => {
+      if (!x.timestamp) return false;
+      return x.name === 'Bitcoin' && x.timestamp.startsWith(dateString);
+    }) ?? [];
+
+   // console.log('Random day:', dateString, 'Data:', this.tradebotSimulationGraphData);
+  }
+  updateSimTradeVars() {
+    if (this.initialBtcUsd?.nativeElement.value) {
+      this.tradeSimParams.initialBtc = parseFloat(this.initialBtcUsd.nativeElement.value);
+    }
+    if (this.initialUsdc?.nativeElement.value) {
+      this.tradeSimParams.initialUsd = parseFloat(this.initialUsdc.nativeElement.value);
+    }
+    if (this.tradeSpreadPct?.nativeElement.value) {
+      this.tradeSimParams.tradeThreshold = parseFloat(this.tradeSpreadPct.nativeElement.value);
+    }
+    if (this.tradeFeePct?.nativeElement.value) {
+      this.tradeSimParams.fee = parseFloat(this.tradeFeePct.nativeElement.value);
+    }
+    if (this.tradeAmountPct?.nativeElement.value) {
+      this.tradeSimParams.tradePercentage = parseFloat(this.tradeAmountPct.nativeElement.value);
+    }
+  }
+  generateSimulationData(timeRange: string = '1d') {
+    // 1. Generate price data first
+    this.tradebotSimulationGraphData = this.generatePriceData(timeRange);
+
+    // 2. Then generate trade data based on prices
+    this.tradebotSimulationGraphData2 = this.generateTradeData(
+      this.tradebotSimulationGraphData,
+      this.tradeSimParams
+    );
+  }
+
+  // Generate realistic BTC price data for given time range
+  generatePriceData(timeRange: string): any[] {
+    const now = new Date();
+    let hours = 24; // Default to 1 day
+    let volatility = 155.002; // Base volatility (0.2%)
+
+    // Adjust parameters based on time range
+    switch (timeRange) {
+      case '1h':
+        hours = 1;
+        volatility = 0.001;
+        break;
+      case '4h':
+        hours = 4;
+        volatility = 0.0015;
+        break;
+      case '1d':
+        hours = 24;
+        volatility = 0.002;
+        break;
+      case '7d':
+        hours = 168;
+        volatility = 0.003;
+        break;
+      case '14d':
+        hours = 336;
+        volatility = 0.004;
+        break;
+    }
+
+    const data = [];
+    const startPrice = this.btcToCadPrice || 50000; // Current price or default
+    let currentPrice = startPrice;
+
+    // Generate data points (1 per minute)
+    for (let i = 0; i < hours * 60; i++) {
+      const time = new Date(now.getTime() - (hours * 60 * 60 * 1000) + (i * 60 * 1000));
+
+      // Random walk with momentum
+      const randomChange = (Math.random() * 2 - 1) * volatility;
+      currentPrice = currentPrice * (1 + randomChange);
+
+      // Occasionally add larger moves (5% chance)
+      if (Math.random() < 0.05) {
+        const spike = (Math.random() * 0.04 - 0.02); // -2% to +2%
+        currentPrice = currentPrice * (1 + spike);
+      }
+
+      // Gentle mean reversion
+      if (currentPrice > startPrice * 1.2) {
+        currentPrice *= 0.999;
+      } else if (currentPrice < startPrice * 0.8) {
+        currentPrice *= 1.001;
+      }
+
+      data.push({
+        name: 'Bitcoin',
+        timestamp: time.toISOString(),
+        value: currentPrice
+      });
+    }
+
+    return data;
+  }
+  generateTradeData(priceData: any[], parameters: any): any[] {
+    // Validate all parameters before starting
+    if (!priceData || priceData.length == 0) {
+      console.error("invalid price data")
+      return [];
+    }
+    if (typeof parameters.initialBtc !== 'number' || parameters.initialBtc <= 0) {
+      console.error("Invalid initialBtc parameter");
+      return [];
+    }
+    if (typeof parameters.initialUsd !== 'number' || parameters.initialUsd <= 0) {
+      console.error("Invalid initialUsd parameter");
+      return [];
+    }
+    if (typeof parameters.tradeThreshold !== 'number' || parameters.tradeThreshold <= 0) {
+      console.error("Invalid tradeThreshold parameter");
+      return [];
+    }
+    if (typeof parameters.tradePercentage !== 'number' || parameters.tradePercentage <= 0 || parameters.tradePercentage > 1) {
+      console.error("Invalid tradePercentage parameter");
+      return [];
+    }
+    if (typeof parameters.maxBtcTrade !== 'number' || parameters.maxBtcTrade <= 0) {
+      console.error("Invalid maxBtcTrade parameter");
+      return [];
+    }
+    if (typeof parameters.minBtcTrade !== 'number' || parameters.minBtcTrade <= 0) {
+      console.error("Invalid minBtcTrade parameter");
+      return [];
+    }
+    if (typeof parameters.cooldownMinutes !== 'number' || parameters.cooldownMinutes <= 0) {
+      console.error("Invalid cooldownMinutes parameter");
+      return [];
+    }
+    if (typeof parameters.fee !== 'number' || parameters.fee < 0 || parameters.fee >= 1) {
+      console.error("Invalid fee parameter");
+      return [];
+    }
+
+    const tradeData = [];
+    let bitcoinBalance = parameters.initialBtc;
+    let usdBalance = parameters.initialUsd;
+    let lastTradeTime: any = null;
+    let lastTradePrice = priceData[0].value ?? priceData[0].valueCAD;
+    let recentTradeTypes: any[] = [];
+
+    let totalBTCSaleValue = 0;
+    let totalUSDCBuyValue = 0;
+    let totalFees = 0;
+
+    // Benchmark values
+    const initialPrice = priceData[0].value ?? priceData[0].valueCAD;
+    const initialBitcoinHold = parameters.initialBtc;
+    const initialUsdHold = parameters.initialUsd;
+    const initialAllUsd = parameters.initialUsd + (parameters.initialBtc * initialPrice);
+
+    // Trade diagnostics
+    let checks = 0;
+    let spreadTooSmall = 0;
+    let cooldownActive = 0;
+    let insufficientFunds = 0;
+    let consecutiveBlock = 0;
+    let potentialTrades = 0;
+
+    this.tradeBotSimDebug = [];
+    this.tradeBotSimDebug.push('=== TRADE SIMULATION ===');
+    this.tradeBotSimDebug.push(`Parameters: ${JSON.stringify(parameters, null, 2)}`);
+    this.tradeBotSimDebug.push(`Starting balances: ${bitcoinBalance} BTC, $${usdBalance} USD`);
+    this.tradeBotSimDebug.push(`Initial price: $${initialPrice}`);
+
+    priceData.forEach(dataPoint => {
+      checks++;
+      const currentTime = new Date(dataPoint.timestamp);
+      const currentPrice = dataPoint.value ?? dataPoint.valueCAD;
+      const portfolioValue = usdBalance + (bitcoinBalance * currentPrice);
+
+      // Check cooldown period
+      const canTrade = !lastTradeTime ||
+        (currentTime.getTime() - lastTradeTime.getTime()) > parameters.cooldownMinutes * 60 * 1000;
+
+      if (!canTrade) {
+        cooldownActive++;
+        return;
+      }
+
+      const priceChange = (currentPrice - lastTradePrice) / lastTradePrice;
+
+      if (Math.abs(priceChange) >= parameters.tradeThreshold) {
+        potentialTrades++;
+
+        if (priceChange > 0 && bitcoinBalance > parameters.minBtcTrade) {
+          // Sell conditions
+          if (recentTradeTypes.length >= 4 && recentTradeTypes.slice(-4).every(t => t === 'sell')) {
+            consecutiveBlock++;
+            return;
+          }
+
+          const bitcoinToSell = Math.min(
+            bitcoinBalance * parameters.tradePercentage,
+            parameters.maxBtcTrade
+          );
+
+          if (bitcoinToSell >= parameters.minBtcTrade) {
+            const usdReceived = bitcoinToSell * currentPrice * (1 - parameters.fee);
+            const fee = bitcoinToSell * currentPrice * parameters.fee;
+
+            // Execute sell
+            bitcoinBalance -= bitcoinToSell;
+            usdBalance += usdReceived;
+            lastTradeTime = currentTime;
+            lastTradePrice = currentPrice;
+            recentTradeTypes.push('sell');
+            totalFees += fee;
+            totalBTCSaleValue += bitcoinToSell * currentPrice; 
+
+            this.tradeBotSimDebug.push(`[SELL] ${currentTime}`);
+            this.tradeBotSimDebug.push(`Price: $${currentPrice.toFixed(2)} (${(priceChange * 100).toFixed(2)}% change)`);
+            this.tradeBotSimDebug.push(`Sold ${bitcoinToSell.toFixed(8)} BTC for $${usdReceived.toFixed(2)} (Fee: $${fee.toFixed(2)})`);
+            this.tradeBotSimDebug.push(`New balances: ${bitcoinBalance.toFixed(8)} BTC, $${usdBalance.toFixed(2)} USD`);
+
+            tradeData.push({
+              timestamp: dataPoint.timestamp,
+              type: 'sell',
+              value: lastTradePrice,
+              price: currentPrice,
+              amount: bitcoinToSell,
+              usdValue: usdReceived,
+              fee: fee,
+              btcBalance: bitcoinBalance,
+              usdBalance: usdBalance,
+              portfolioValue: portfolioValue
+            });
+          } else {
+            insufficientFunds++;
+          }
+        }
+        else if (priceChange < 0 && usdBalance > 10) {
+          // Buy conditions
+          if (recentTradeTypes.length >= 4 && recentTradeTypes.slice(-4).every(t => t === 'buy')) {
+            consecutiveBlock++;
+            return;
+          }
+
+          const usdToSpend = Math.min(
+            usdBalance * parameters.tradePercentage,
+            parameters.maxBtcTrade * currentPrice
+          );
+
+          if (usdToSpend >= 10) {
+            const bitcoinBought = (usdToSpend / currentPrice) * (1 - parameters.fee);
+            const fee = usdToSpend * parameters.fee;
+
+            // Execute buy
+            usdBalance -= usdToSpend;
+            bitcoinBalance += bitcoinBought;
+            lastTradeTime = currentTime;
+            lastTradePrice = currentPrice;
+            recentTradeTypes.push('buy');
+            totalFees += fee;
+            totalUSDCBuyValue += usdToSpend;
+
+            this.tradeBotSimDebug.push(`[BUY] ${currentTime}`);
+            this.tradeBotSimDebug.push(`Price: $${currentPrice.toFixed(2)} (${(priceChange * 100).toFixed(2)}% change)`);
+            this.tradeBotSimDebug.push(`Bought ${bitcoinBought.toFixed(8)} BTC for $${usdToSpend.toFixed(2)} (Fee: $${fee.toFixed(2)})`);
+            this.tradeBotSimDebug.push(`New balances: ${bitcoinBalance.toFixed(8)} BTC, $${usdBalance.toFixed(2)} USD`);
+
+            tradeData.push({
+              timestamp: dataPoint.timestamp,
+              type: 'buy',
+              value: lastTradePrice,
+              price: currentPrice,
+              amount: bitcoinBought,
+              usdValue: usdToSpend,
+              fee: fee,
+              btcBalance: bitcoinBalance,
+              usdBalance: usdBalance,
+              portfolioValue: portfolioValue
+            });
+          } else {
+            insufficientFunds++;
+          }
+        }
+      } else {
+        spreadTooSmall++;
+      }
+    });
+
+    // Final calculations
+    const finalPrice = priceData[priceData.length - 1].value ?? priceData[priceData.length - 1].valueCAD;
+    const finalStrategyValue = usdBalance + (bitcoinBalance * finalPrice * (tradeData.length > 0 ? (1 - parameters.fee) : 1));
+    const finalHoldValue = initialUsdHold + (initialBitcoinHold * finalPrice);
+    const finalAllUsd = initialAllUsd;
+    const vsHold = finalStrategyValue - finalHoldValue;
+    const vsUsd = finalStrategyValue - finalAllUsd;
+    const performance = totalBTCSaleValue - totalUSDCBuyValue - totalFees; 
+
+    // Diagnostic summary
+    this.tradeBotSimDebug.push('\n=== SIMULATION RESULTS ===');
+    this.tradeBotSimDebug.push(`Price checks: ${checks}`);
+    this.tradeBotSimDebug.push(`Potential trades: ${potentialTrades}`);
+    this.tradeBotSimDebug.push(`Missed trades - Spread too small: ${spreadTooSmall}`);
+    this.tradeBotSimDebug.push(`Missed trades - Cooldown: ${cooldownActive}`);
+    this.tradeBotSimDebug.push(`Missed trades - Insufficient funds: ${insufficientFunds}`);
+    this.tradeBotSimDebug.push(`Missed trades - Consecutive block: ${consecutiveBlock}`);
+    this.tradeBotSimDebug.push(`Executed trades: ${tradeData.length}`);
+    this.tradeBotSimDebug.push('\n=== FINAL VALUES ===');
+    this.tradeBotSimDebug.push(`Strategy: $${finalStrategyValue.toFixed(2)}; Trade Performance (Gains or losses): $${performance}`);
+    this.tradeBotSimDebug.push(`Buy & Hold: $${finalHoldValue.toFixed(2)} (${vsHold >= 0 ? '+' : ''}${vsHold.toFixed(2)})`);
+    this.tradeBotSimDebug.push(`All USD: $${finalAllUsd.toFixed(2)} (${vsUsd >= 0 ? '+' : ''}${vsUsd.toFixed(2)})`);
+
+    // Add final summary
+    tradeData.push({
+      summary: true,
+      timestamp: priceData[priceData.length - 1].timestamp,
+      finalStrategyValue: finalStrategyValue,
+      finalHoldValue: finalHoldValue,
+      finalAllUsd: finalAllUsd,
+      vsHold: vsHold,
+      vsUsd: vsUsd,
+      totalTrades: tradeData.length,
+      diagnostics: {
+        checks,
+        potentialTrades,
+        spreadTooSmall,
+        cooldownActive,
+        insufficientFunds,
+        consecutiveBlock
+      }
+    });
+
+    return tradeData;
+  }
+  downloadSimTradeDataCSV() {
+    const priceData = this.generatePriceData("1");
+    const tradeData = this.generateTradeData(priceData, this.tradeSimParams);
+    const csv = tradeData.map(row => `${row.timestamp},${row.action},${row.value.toFixed(2)},${row.btcAmount.toFixed(6)},${row.usdcAmount.toFixed(2)},${row.tradeAmount.toFixed(6)},${row.tradeGrossValue.toFixed(2)},${row.tradeFee.toFixed(2)},${row.tradeNetValue.toFixed(2)},${row.lastTradePrice.toFixed(2)}`).join('\n');
+    const blob = new Blob([`Timestamp,Action,Net Profit,BTC Amount,USDC Amount,Trade Amount,Trade Gross Value,Trade Fee,Trade Net Value,Last Trade Price\n${csv}`], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'trade_data.csv';
+    a.click();
+  }
   showMenuPanel() {
     if (this.isMenuPanelOpen) {
       this.closeMenuPanel();
@@ -467,7 +895,7 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
       await this.aiService.sendMessage(this.parentRef?.user?.id ?? 0, true, message, sessionToken ?? "", 600).then(res => {
         if (res && res.response) {
           response = this.aiService.parseMessage(res.response) ?? "Error.";
-          this.aiMessages.push({ addr: walletAddress ?? "1", message:  response}); 
+          this.aiMessages.push({ addr: walletAddress ?? "1", message: response });
         }
       });
     }
@@ -605,7 +1033,7 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
       return;
     } else if (this.gotTradebotBalances && !this.isTradebotBalanceShowing) {
       this.closeTradeDivs();
-      this.isTradebotBalanceShowing = true; 
+      this.isTradebotBalanceShowing = true;
       return;
     }
     if (this.gotTradebotBalances) {
@@ -630,7 +1058,7 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
     this.showingTradeSettings = false;
     this.isShowingTradeGraphWrapper = false;
     this.isShowingTradeValueGraph = false;
-    this.isTradebotBalanceShowing = false; 
+    this.isTradebotBalanceShowing = false;
   }
 
   openTradeFullscreen() {
@@ -645,16 +1073,35 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
     this.closeTradeDivs();
     this.isTradePanelOpen = false;
   }
-  showTradeSettings() {
+  async showTradeSettings() {
+    if (!this.parentRef?.user?.id) { return alert("You must be logged in to save settings."); }
+    this.startLoading();
     const tmpStatus = this.showingTradeSettings;
     this.closeTradeDivs();
     this.showingTradeSettings = !tmpStatus;
     if (this.showingTradeSettings) {
-      setTimeout(() => {
+      this.getLastCoinConfigurationUpdated();
+      if (!this.hasAnyTradeConfig) {
         this.setDefaultTradeConfiguration();
-        this.getLastCoinConfigurationUpdated();
-      }, 10);
+      } else {
+        const userId = this.parentRef.user.id;
+        const sessionToken = await this.parentRef.getSessionToken();
+        const tv = await this.tradeService.getTradeConfiguration(userId, sessionToken);
+        if (tv) {
+          this.tradeMaximumTradeBalanceRatio.nativeElement.valueAsNumber = tv.maximumTradeBalanceRatio;
+          this.tradeTradeThreshold.nativeElement.valueAsNumber = tv.tradeThreshold;
+          this.tradeMinimumFromTradeAmount.nativeElement.valueAsNumber = tv.minimumFromTradeAmount;
+          this.tradeMaximumFromTradeAmount.nativeElement.valueAsNumber = tv.maximumFromTradeAmount;
+          this.tradeMaximumToTradeAmount.nativeElement.valueAsNumber = tv.maximumToTradeAmount;
+          this.tradeValueTradePercentage.nativeElement.valueAsNumber = tv.valueTradePercentage;
+          this.tradeFromPriceDiscrepencyStopPercentage.nativeElement.valueAsNumber = tv.fromPriceDiscrepencyStopPercentage;
+          this.tradeInitialMinimumFromAmountToStart.nativeElement.valueAsNumber = tv.initialMinimumFromAmountToStart;
+          this.tradeMinimumFromReserves.nativeElement.valueAsNumber = tv.minimumFromReserves;
+          this.tradeMinimumToReserves.nativeElement.valueAsNumber = tv.minimumToReserves;
+        }
+      }
     }
+    this.stopLoading();
   }
   showTradeGraphWrapper() {
     const tmpStatus = this.isShowingTradeGraphWrapper;
@@ -696,14 +1143,13 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
     };
     return map[symbol.toUpperCase()] || symbol;
   }
-  async showTradeLogs() {
-    if (!this.parentRef?.user?.id) return alert("You must be logged in to view trade logs."); 
+  async showTradeLogs() { 
     const tmpStatus = this.showingTradeLogs;
     this.closeTradeDivs();
     this.showingTradeLogs = !tmpStatus;
     if (this.showingTradeLogs && this.tradeLogs.length == 0) {
-      const sessionToken = await this.parentRef.getSessionToken();
-      this.tradeLogs = await this.tradeService.getTradeLogs(this.parentRef.user.id, sessionToken);
+      const sessionToken = await this.parentRef?.getSessionToken();
+      this.tradeLogs = await this.tradeService.getTradeLogs(this.parentRef?.user?.id ?? 1, sessionToken ?? "");
       this.setPaginatedLogs();
     }
   }
@@ -946,5 +1392,19 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
   }
   createUserComponent() {
     this.parentRef?.createComponent('User');
+  }
+  scrollToBottomOfTradebotSimDebug() {
+    try {
+      this.tradeBotSimDebugDivContainer.nativeElement.scrollTop = this.tradeBotSimDebugDivContainer.nativeElement.scrollHeight;
+    } catch (err) {
+      console.error('Scroll failed', err);
+    }
+  }
+  scrollToTopOfTradebotSimDebug() {
+    try {
+      this.tradeBotSimDebugDivContainer.nativeElement.scrollTop = 0;
+    } catch (err) {
+      console.error('Scroll failed', err);
+    }
   }
 }

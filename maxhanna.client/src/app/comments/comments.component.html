@@ -74,9 +74,7 @@
                             [showCommentSection]="false"></app-media-viewer>
         </div>
 
-        <div *ngFor="let subComment of comment.comments"
-             class="subComment"
-             [style.marginLeft.px]="40">
+        <div *ngFor="let subComment of comment.comments" class="subComment">
           <div class="commentContentAndAvatarContainerDiv" [attr.data-timestamp]="subComment.date">
             <div class="commentAvatar usernameProfileLink">
               <app-user-tag [user]="subComment.user" [inputtedParentRef]="inputtedParentRef" [displayMiniTag]="true"></app-user-tag>

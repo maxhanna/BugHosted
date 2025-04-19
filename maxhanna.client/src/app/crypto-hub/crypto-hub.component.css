@@ -290,3 +290,12 @@
     font-size: var(--main-font-size);
   }
 }
+
+.tradeBotSimDebugDivWrapper {
+  max-height: 200px; 
+  width: 100%;
+  word-break: break-word;
+  overflow: auto;
+  padding: 20px;
+  border: var(--main-border);
+}

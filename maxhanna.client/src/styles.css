@@ -644,6 +644,10 @@ fieldset {
   cursor: pointer;
 }
 
+.secondaryFontColor {
+  color: var(--secondary-font-color);
+}
+
 .thirdFontColor {
   color: var(--third-font-color);
 }
