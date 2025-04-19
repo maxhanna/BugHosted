@@ -720,7 +720,7 @@ namespace maxhanna.Server.Controllers
 			}
 			catch (Exception ex)
 			{
-				_ = _log.Db("An error occurred while updating the Filedata.", request.UserId, "FILE", true);
+				_ = _log.Db("An error occurred while updating the Filedata. " + ex.Message, request.UserId, "FILE", true);
 				return StatusCode(500, "An error occurred while updating the Filedata.");
 			}
 		}
@@ -755,7 +755,7 @@ namespace maxhanna.Server.Controllers
 			}
 			catch (Exception ex)
 			{
-				_ = _log.Db("An error occurred while updating the Filedata.", request.UserId, "FILE", true);
+				_ = _log.Db("An error occurred while updating the Filedata. " + ex.Message, request.UserId, "FILE", true);
 				return StatusCode(500, "An error occurred while updating the Filedata.");
 			}
 		}
@@ -2249,10 +2249,10 @@ namespace maxhanna.Server.Controllers
 				}
 
 				// Ensure video namespace is declared
-				sitemap.Root.SetAttributeValue(XNamespace.Xmlns + "video", videoNs);
+				sitemap?.Root?.SetAttributeValue(XNamespace.Xmlns + "video", videoNs);
 
 				// Remove existing entry (if any) to prevent duplicates
-				var existingEntry = sitemap.Descendants(ns + "url")
+				var existingEntry = sitemap?.Descendants(ns + "url")
 																	 .FirstOrDefault(x => x.Element(ns + "loc")?.Value == fileUrl);
 				existingEntry?.Remove();
 
@@ -2279,8 +2279,8 @@ namespace maxhanna.Server.Controllers
 					urlElement.Add(videoElement);
 				}
 
-				sitemap.Root.Add(urlElement);
-				sitemap.Save(_sitemapPath);
+				sitemap?.Root?.Add(urlElement);
+				sitemap?.Save(_sitemapPath);
 			}
 			finally
 			{

@@ -5,10 +5,10 @@ namespace maxhanna.Server.Services
 	public class NexusGoldUpdateBackgroundService : BackgroundService
 	{
 		private readonly IConfiguration _config;
-		private readonly IServiceProvider _serviceProvider;
+		private readonly IServiceProvider? _serviceProvider;
 		private readonly Log _log;
 
-		private Timer _checkForNewBaseUpdates;
+		private Timer? _checkForNewBaseUpdates;
 		private int timerDuration = 20;
 
 		private static readonly SemaphoreSlim _semaphore = new SemaphoreSlim(10);
@@ -26,7 +26,7 @@ namespace maxhanna.Server.Services
 			await Task.Delay(TimeSpan.FromSeconds(3), stoppingToken); // random initail delay
 			_checkForNewBaseUpdates = new Timer(CheckForNewUpdates, null, TimeSpan.FromSeconds(timerDuration), TimeSpan.FromSeconds(timerDuration));
 		}
-		private async void CheckForNewUpdates(object state)
+		private async void CheckForNewUpdates(object? state)
 		{
 			_checkForNewBaseUpdates?.Change(Timeout.Infinite, Timeout.Infinite);
 			try

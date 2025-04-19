@@ -117,7 +117,7 @@ namespace maxhanna.Server.Controllers
 			}
 			catch (Exception ex)
 			{
-				_ = _log.Db("An error occurred while processing the PostComment request.", request.UserId, "COMMENT", true);
+				_ = _log.Db("An error occurred while processing the PostComment request. " + ex.Message, request.UserId, "COMMENT", true);
 				return StatusCode(500, "An error occurred while processing the request.");
 			}
 		}

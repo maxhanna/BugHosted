@@ -156,16 +156,13 @@
           <span *ngIf="!isTradePanelOpen">
             <button class="cursorPointer" (click)="openTradeFullscreen()">Maximize View</button>
           </span>
-        </span>
-
-        <div *ngIf="hasKrakenApi && isTradePanelOpen" class="tradeButtonsWrapper">
-          <button class="cursorPointer" (click)="showTradeSettings()" *ngIf="isTradePanelOpen">{{showingTradeSettings ? 'Hide' : 'Show'}} Configuration</button>
-        </div> 
-        <span *ngIf="isTradePanelOpen">
-          <button class="cursorPointer" (click)="checkBalance()" [disabled]="isLoading" *ngIf="isTradePanelOpen">{{isTradebotBalanceShowing ? 'Hide' : 'Show'}} Trades</button>
-          <button class="cursorPointer" (click)="showTradeLogs()" *ngIf="isTradePanelOpen">{{showingTradeLogs ? 'Hide' : 'Show'}} Logs</button>
-          <button class="cursorPointer" (click)="showTradeValueGraph()" *ngIf="isTradePanelOpen">{{isShowingTradeValueGraph ? 'Hide' : 'Show'}} Trade Value Graph</button>
-          <button class="cursorPointer" (click)="showTradeSimulationPanel()" *ngIf="isTradePanelOpen">{{isShowingTradeSimulator ? 'Hide' : 'Show'}} Tradebot Simulation</button>
+        </span> 
+        <span *ngIf="isTradePanelOpen"> 
+          <button class="cursorPointer" (click)="showTradeSettings()" *ngIf="hasKrakenApi">{{showingTradeSettings ? 'Hide' : 'Show'}} Configuration</button> 
+          <button class="cursorPointer" (click)="checkBalance()" [disabled]="isLoading">{{isTradebotBalanceShowing ? 'Hide' : 'Show'}} Trades</button>
+          <button class="cursorPointer" (click)="showTradeLogs()">{{showingTradeLogs ? 'Hide' : 'Show'}} Logs</button>
+          <button class="cursorPointer" (click)="showTradeValueGraph()">{{isShowingTradeValueGraph ? 'Hide' : 'Show'}} Trade Value Graph</button>
+          <button class="cursorPointer" (click)="showTradeSimulationPanel()">{{isShowingTradeSimulator ? 'Hide' : 'Show'}} Tradebot Simulation</button>
           <button class="cursorPointer" (click)="showTradeInformationPanel()">Information</button>
         </span>
         <div *ngIf="isTradebotBalanceShowing && tradebotBalances?.length" class="mainTableContainer tradeDataTable">
@@ -314,9 +311,7 @@
         <button class="cursorPointer" (click)="nextLogPage()" [disabled]="currentLogPage >= totalLogPages">Next</button>
       </div>
       <div *ngIf="isShowingTradeSimulator && tradebotSimulationGraphData && tradebotSimulationGraphData.length > 0" class="tradeDataTable">
-        <app-line-graph [width]="300"
-                        [height]="150"
-                        [selectedPeriod]="'1d'"
+        <app-line-graph [selectedPeriod]="'1d'"
                         [data]="tradebotSimulationGraphData"
                         [data2]="tradebotSimulationGraphData2"
                         [graphTitle]="'Simulated Price Variation'"
@@ -328,6 +323,8 @@
                         [type]="'Crypto'"></app-line-graph>
         <button (click)="randomizeTradingSimGraph()">Randomize</button>
         <button (click)="randomizeTradingSimGraphWithWeekData()">Random Day This Week</button>
+        <button (click)="randomizeTradingSimGraphWithRandomWeekData()">Random Week</button>
+        <button (click)="randomizeTradingSimGraphWithRandomMonthData()">Random Month</button>
         <button (click)="downloadSimTradeDataCSV()">Download CSV</button>
         <div style="display: flex; justify-content: space-around; align-content: center; flex-direction: row; flex-wrap: nowrap; align-items: center;">
           <div style="display: flex; flex-direction: column; flex-wrap: nowrap; align-content: center; justify-content: center; align-items: center; text-align: center;">

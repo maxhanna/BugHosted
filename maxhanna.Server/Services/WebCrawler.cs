@@ -34,6 +34,7 @@ public class WebCrawler
 	private HashSet<string> _visitedUrls = new HashSet<string>();
 	private Queue<string> delayedUrlsQueue = new Queue<string>();
 	private static bool isProcessing = false;
+	private static bool isBackgroundScrapeRunning = false;
 	private const int _maxRecursionLimit = 10;
 	private const int _maxSiteExceedance = 150;
 	private readonly Log _log;
@@ -53,35 +54,56 @@ public class WebCrawler
 		_httpClient.DefaultRequestHeaders.AcceptLanguage.ParseAdd("en-US,en;q=0.5");
 		_httpClient.DefaultRequestHeaders.Connection.ParseAdd("keep-alive");
 	}
+
 	public async Task StartBackgroundScrape()
 	{
+		// Ensure only one scrape operation runs at a time
+		if (isBackgroundScrapeRunning)
+		{
+			_ = _log.Db("Scrape operation already in progress", null, "CRAWLER");
+			return;
+		}
+		isBackgroundScrapeRunning = true;
 		try
 		{
 			List<string> nextDomains = new List<string>();
-			if (_random.Next(1, 2) == 1)
+			if (_random.Next(1, 3) == 1) // Changed to 1-3 to actually have randomness
 			{
 				nextDomains = await GenerateRandomUrls();
 			}
 			else
 			{
 				nextDomains = await GenerateNextUrl();
-			} 
+			}
 
 			foreach (string domain in nextDomains)
 			{
-				var tmpDomain = NormalizeUrl(domain);
-				await StartScrapingAsync(tmpDomain);
-				await Task.Delay(TimeSpan.FromSeconds(10));
-			} 
+				try
+				{
+					var tmpDomain = NormalizeUrl(domain);
+					await StartScrapingAsync(tmpDomain);
+					await Task.Delay(TimeSpan.FromSeconds(10)); // Delay between domains
+				}
+				catch (Exception ex)
+				{
+					_ = _log.Db($"Error scraping {domain}: {ex.Message}", null, "CRAWLER", true);
+					// Continue with next domain even if one fails
+				}
+			}
+
 			await ScrapeUrlsSequentially();
 		}
 		catch (HttpRequestException ex)
 		{
-			_ = _log.Db($"Crawler Network issue while scraping : {ex.Message}", null, "CRAWLER", true);
+			_ = _log.Db($"Crawler Network issue while scraping: {ex.Message}", null, "CRAWLER", true);
 		}
 		catch (Exception ex)
 		{
-			_ = _log.Db("Exception (StartBackgroundScrape) : " + ex.Message, null, "CRAWLER", true);
+			_ = _log.Db($"Exception (StartBackgroundScrape): {ex.Message}", null, "CRAWLER", true);
+		}
+		finally
+		{
+			isBackgroundScrapeRunning = false;
 		}
 	}
 
@@ -208,7 +230,7 @@ public class WebCrawler
 			// Generate next domain name
 			return IncrementNamePart(namePart) + "." + suffix;
 		}
-		catch (Exception ex)
+		catch (Exception)
 		{
 			return "example.com"; // Always return a valid domain
 		}
@@ -471,7 +493,7 @@ public class WebCrawler
 		}
 		catch (Exception ex)
 		{
-			_ = _log.Db("Exception (MarkUrlAsFailed) : " + ex.Message, null, "CRAWLER", true);
+			_ = _log.Db($"Exception (MarkUrlAsFailed) URL: {ShortenUrl(url)}. : " + ex.Message, null, "CRAWLER", true);
 		}
 
 	}
@@ -481,7 +503,7 @@ public class WebCrawler
 		try
 		{
 			// If already an absolute URL
-			if (Uri.TryCreate(url, UriKind.Absolute, out Uri absoluteUri))
+			if (Uri.TryCreate(url, UriKind.Absolute, out Uri? absoluteUri))
 			{
 				string fixedHost = absoluteUri.Host.StartsWith("ww.") ? absoluteUri.Host.Replace("ww.", "www.") : absoluteUri.Host;
 
@@ -586,28 +608,28 @@ public class WebCrawler
 				}
 			}
 		}
-		catch (TaskCanceledException ex)
+		catch (TaskCanceledException)
 		{
 			metadata.HttpStatus = 408;
-			_ = _log.Db($"ScrapeUrlData Timeout on URL ({url}) : " + ex.Message, null, "CRAWLER", true);
+			_ = _log.Db($"ScrapeUrlData Timeout on URL {ShortenUrl(url)}", null, "CRAWLER", true);
 			_ = MarkUrlAsFailed(url, 408);
-			return metadata;
+			return null;
 		}
-		catch (HttpRequestException ex)
+		catch (HttpRequestException)
 		{ 
 			_ = MarkUrlAsFailed(url);
 			return metadata;
 		}
-		catch (StackOverflowException ex)
+		catch (StackOverflowException)
 		{
 			metadata.HttpStatus = 500;
-			_ = _log.Db("ScrapeUrlData Stack Overflow Error on URL: " + url, null, "CRAWLER", true);
+			_ = _log.Db("ScrapeUrlData Stack Overflow Error on URL: " + ShortenUrl(url), null, "CRAWLER", true);
 			_ = MarkUrlAsFailed(url, 500);
 			return metadata;
 		}
 		catch (Exception ex)
 		{
-			_ = _log.Db($"ScrapeUrlData Exception on URL ({url}) : " + ex.Message, null, "CRAWLER", true);
+			_ = _log.Db($"ScrapeUrlData Exception on URL {ShortenUrl(url)} : " + ex.Message, null, "CRAWLER", true);
 			_ = MarkUrlAsFailed(url);
 			return null;
 		}
@@ -957,7 +979,7 @@ public class WebCrawler
 			string xmlContent = await ReadHtmlWithLimit(response, maxBufferSize);
 			return xmlContent;
 		}
-		catch (HttpRequestException ex)
+		catch (HttpRequestException)
 		{
 			return string.Empty;
 		}
@@ -1080,26 +1102,28 @@ public class WebCrawler
 
 		return sitemapUrls;
 	}
-
+	private readonly object _urlLock = new object();
 	public string? GetRandomUrlFromList(List<string> urls)
 	{
-		try
+		lock (_urlLock)
 		{
-			if (urls.Count > 0)
+			try
 			{
-				Random rng = new Random();
-				int randomIndex = rng.Next(0, urls.Count);
-				string randomUrl = urls[randomIndex];
-				urls.RemoveAt(randomIndex);
-				return randomUrl;
+				if (urls.Count > 0)
+				{ 
+					int randomIndex = _random.Next(0, urls.Count);
+					string randomUrl = urls[randomIndex];
+					urls.RemoveAt(randomIndex);
+					return randomUrl;
+				}
+				return null;
+			}
+			catch (Exception ex)
+			{
+				_ = _log.Db("Crawler Exception (GetRandomUrlFromList): " + ex.Message, null, "CRAWLER", true);
+				return null;
 			}
 		}
-		catch (Exception ex)
-		{
-			_ = _log.Db("Crawler Exception: " + ex.Message, null, "CRAWLER", true);
-		}
-
-		return null;
 	}
 	public string GetUrlHash(string url)
 	{
@@ -1113,7 +1137,7 @@ public class WebCrawler
 		}
 		catch (Exception ex)
 		{
-			_ = _log.Db("Crawler exception : " + ex.Message, null, "CRAWLER", true);
+			_ = _log.Db("Crawler exception (GetUrlHash) : " + ex.Message, null, "CRAWLER", true);
 		}
 		return "";
 	}
@@ -1145,7 +1169,7 @@ public class WebCrawler
 				return 0;
 			}
 		}
-		catch (Exception ex)
+		catch (Exception)
 		{
 			return 0;
 		}
@@ -1162,7 +1186,7 @@ public class WebCrawler
 		}
 		catch (Exception ex)
 		{
-			_ = _log.Db("Crawler exception : " + ex.Message, null, "CRAWLER", true);
+			_ = _log.Db("Crawler exception (ClearVisitedUrls): " + ex.Message, null, "CRAWLER", true);
 		}
 	}
 	public async Task<object?> GetStorageStats()
@@ -1266,7 +1290,7 @@ public class WebCrawler
 		}
 		catch (Exception ex)
 		{
-			// Log error if needed
+			_ = _log.Db($"Crawler Exception (GetStorageStats): " + ex.Message, null, "CRAWLER", true);
 		}
 
 		return null;

@@ -6,7 +6,7 @@ namespace maxhanna.Server.Controllers.DataContracts.Array
 	{
 		public ArrayCharacterInventory(int userId, List<ArrayCharacterItem> items)
 		{
-			userId = userId;
+			UserId = userId;
 			Items = items;
 		}
 		public int UserId { get; set; }

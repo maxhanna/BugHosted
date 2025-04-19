@@ -2,12 +2,8 @@
 using maxhanna.Server.Controllers.DataContracts.Users;
 using maxhanna.Server.Controllers.Helpers;
 using MySqlConnector;
-using NewsAPI.Models;
 using Newtonsoft.Json;
-using RestSharp;
-using System.Data;
 using System.Text;
-using System.Text.RegularExpressions;
 
 namespace maxhanna.Server.Services
 {
@@ -39,14 +35,14 @@ namespace maxhanna.Server.Services
 			_webCrawler = webCrawler;
 			_log = log;
 			_krakenService = krakenService;
-			_newsService = newsService;
+			_newsService = newsService; 
 		}
 
 		protected override async Task ExecuteAsync(CancellationToken stoppingToken)
 		{
 			while (!stoppingToken.IsCancellationRequested)
 			{
-				//	Console.WriteLine("Refreshing system information:" + DateTimeOffset.Now);
+					_ = _log.Db("Refreshing system information:" + DateTimeOffset.Now, null, null, true);
 
 				// Run tasks that need to execute every 1 minute
 				if ((DateTime.Now - _lastMinuteTaskRun).TotalMinutes >= 1)
@@ -85,6 +81,7 @@ namespace maxhanna.Server.Services
 					await DeleteOldSearchResults();
 					await DeleteNotificationRequests();
 					await DeleteHostAiRequests();
+					await DeleteOldCoinValueEntries();
 					await _newsService.CreateDailyCryptoNewsStoryAsync();
 					await _newsService.CreateDailyNewsStoryAsync();
 					await DeleteOldNews();
@@ -116,7 +113,7 @@ namespace maxhanna.Server.Services
 
 		//	if (!reader.HasRows)
 		//	{
-		//		Console.WriteLine("No memes found.");
+		//		_ = _log.Db("No memes found.");
 		//		return;
 		//	}
 
@@ -133,7 +130,7 @@ namespace maxhanna.Server.Services
 
 		//	// Step 1: Get the authorization URL for user login to get the authorization code
 		//	string authorizationUrl = await twitterService.GetAuthorizationUrlAsync();
-		//	Console.WriteLine("Visit this URL and authorize the app: " + authorizationUrl);
+		//	_ = _log.Db("Visit this URL and authorize the app: " + authorizationUrl);
 
 		//	// After the user visits the URL and gives authorization, they will be redirected to your redirect_uri with a code parameter.
 		//	// You need to capture this code.
@@ -154,7 +151,7 @@ namespace maxhanna.Server.Services
 		//	bool tweetPosted = await twitterService.PostTweetWithImage(accessToken, description, imageUrl);
 		//	if (tweetPosted)
 		//	{
-		//		Console.WriteLine("Tweet posted successfully!");
+		//		_ = _log.Db("Tweet posted successfully!");
 		//	}
 		//	else
 		//	{
@@ -170,7 +167,7 @@ namespace maxhanna.Server.Services
 		//		bool mediaTweetPosted = await twitterService.PostTweetWithMedia(accessToken, description, mediaId);
 		//		if (mediaTweetPosted)
 		//		{
-		//			Console.WriteLine("Tweet with media posted successfully!");
+		//			_ = _log.Db("Tweet with media posted successfully!");
 		//		}
 		//		else
 		//		{
@@ -286,7 +283,7 @@ namespace maxhanna.Server.Services
 					await updateCmd.ExecuteNonQueryAsync();
 				}
 
-				//Console.WriteLine($"Successfully inserted wallet balance data and updated last_fetched for address: {wallet.BtcAddress}");
+				//_ = _log.Db($"Successfully inserted wallet balance data and updated last_fetched for address: {wallet.BtcAddress}");
 			}
 			catch (Exception ex)
 			{
@@ -555,7 +552,7 @@ namespace maxhanna.Server.Services
 						}
 					}
 
-					_ = _log.Db("Exchange rates stored successfully.", null);
+					_ = _log.Db("Exchange rates stored successfully.");
 				}
 			}
 			catch (Exception ex)
@@ -582,7 +579,7 @@ namespace maxhanna.Server.Services
 					using (var deleteCmd = new MySqlCommand(deleteSql, conn))
 					{
 						int affectedRows = await deleteCmd.ExecuteNonQueryAsync();
-						_ = _log.Db($"Deleted {affectedRows} guest accounts older than 10 days.", null);
+						_ = _log.Db($"Deleted {affectedRows} guest accounts older than 10 days.");
 					}
 				}
 			}
@@ -770,22 +767,39 @@ namespace maxhanna.Server.Services
 				{
 					await conn.OpenAsync();
 
-					if (await IsSystemUpToDate(conn)) return;
-					await DeleteOldCoinValueEntries(conn);
 					CoinResponse[] coinData = await FetchCoinData();
 
 					if (coinData != null)
 					{
 						foreach (var coin in coinData)
 						{
-							var sql = "INSERT INTO coin_value (symbol, name, value_cad, timestamp) VALUES (@Symbol, @Name, @ValueCAD, UTC_TIMESTAMP())";
-							using (var cmd = new MySqlCommand(sql, conn))
-							{
-								cmd.Parameters.AddWithValue("@Symbol", coin.symbol);
-								cmd.Parameters.AddWithValue("@Name", coin.name);
-								cmd.Parameters.AddWithValue("@ValueCAD", coin.rate);
+							// First check if there's a recent entry for this coin
+							var checkSql = @"
+                        SELECT COUNT(*) FROM coin_value 
+                        WHERE symbol = @Symbol 
+                        AND timestamp >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 1 MINUTE)";
 
-								await cmd.ExecuteNonQueryAsync();
+							using (var checkCmd = new MySqlCommand(checkSql, conn))
+							{
+								checkCmd.Parameters.AddWithValue("@Symbol", coin.symbol);
+								var recentEntries = Convert.ToInt32(await checkCmd.ExecuteScalarAsync());
+
+								if (recentEntries == 0)
+								{
+									// Only insert if no recent entries exist
+									var insertSql = @"
+                                INSERT INTO coin_value (symbol, name, value_cad, timestamp) 
+                                VALUES (@Symbol, @Name, @ValueCAD, UTC_TIMESTAMP())";
+
+									using (var insertCmd = new MySqlCommand(insertSql, conn))
+									{
+										insertCmd.Parameters.AddWithValue("@Symbol", coin.symbol);
+										insertCmd.Parameters.AddWithValue("@Name", coin.name);
+										insertCmd.Parameters.AddWithValue("@ValueCAD", coin.rate);
+
+										await insertCmd.ExecuteNonQueryAsync();
+									}
+								}
 							}
 						}
 					}
@@ -837,13 +851,43 @@ namespace maxhanna.Server.Services
 			return coinData;
 		}
 
-		private static async Task DeleteOldCoinValueEntries(MySqlConnection conn)
+		private async Task DeleteOldCoinValueEntries()
 		{
-			// Delete entries older than 10 years
-			var deleteSql = "DELETE FROM coin_value WHERE timestamp < DATE_SUB(UTC_TIMESTAMP(), INTERVAL 10 YEAR)";
-			using (var deleteCmd = new MySqlCommand(deleteSql, conn))
+			using (var conn = new MySqlConnection(_connectionString))
 			{
-				await deleteCmd.ExecuteNonQueryAsync();
+				await conn.OpenAsync();
+
+				var deleteSql = @"
+            DELETE FROM coin_value
+            WHERE timestamp < DATE_SUB(UTC_TIMESTAMP(), INTERVAL 1 YEAR)
+            AND id NOT IN (
+                SELECT id
+                FROM (
+                    SELECT id,
+                           ROW_NUMBER() OVER (
+                               PARTITION BY name, 
+                               UNIX_TIMESTAMP(timestamp) DIV (5 * 60) 
+                               ORDER BY timestamp
+                           ) AS rn
+                    FROM coin_value
+                    WHERE timestamp < DATE_SUB(UTC_TIMESTAMP(), INTERVAL 1 YEAR)
+                ) ranked
+                WHERE rn = 1
+            );";
+
+				using (var deleteCmd = new MySqlCommand(deleteSql, conn))
+				{
+					int rowsAffected = await deleteCmd.ExecuteNonQueryAsync();
+					_ = _log.Db($"Deleted {rowsAffected} old coin value entries.");
+				}
+
+				// Delete records older than 10 years
+				var deleteOldSql = "DELETE FROM coin_value WHERE timestamp < DATE_SUB(UTC_TIMESTAMP(), INTERVAL 10 YEAR);";
+				using (var deleteOldCmd = new MySqlCommand(deleteOldSql, conn))
+				{
+					int rowsAffected = await deleteOldCmd.ExecuteNonQueryAsync();
+					_ = _log.Db($"Deleted {rowsAffected} coin value entries older than 10 years.");
+				}
 			}
 		}
 		private async Task DeleteOldTradeVolumeEntries()
@@ -852,83 +896,51 @@ namespace maxhanna.Server.Services
 			{
 				await conn.OpenAsync();
 
-				// Step 1: Delete entries older than 5 years
-				var countSql5Years = "SELECT COUNT(*) FROM trade_market_volumes WHERE timestamp < DATE_SUB(UTC_TIMESTAMP(), INTERVAL 5 YEAR)";
-				using (var countCmd = new MySqlCommand(countSql5Years, conn))
+				// Step 1: Delete records older than 1 year but younger than 10 years, keeping one per pair per 5-minute interval
+				var deleteSql = @"
+            DELETE FROM trade_market_volumes
+            WHERE timestamp < DATE_SUB(UTC_TIMESTAMP(), INTERVAL 1 YEAR)
+              AND timestamp >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 10 YEAR)
+              AND id NOT IN (
+                  SELECT id
+                  FROM (
+                      SELECT id,
+                             ROW_NUMBER() OVER (
+                                 PARTITION BY pair, 
+                                 UNIX_TIMESTAMP(timestamp) DIV (5 * 60) 
+                                 ORDER BY timestamp
+                             ) AS rn
+                      FROM trade_market_volumes
+                      WHERE timestamp < DATE_SUB(UTC_TIMESTAMP(), INTERVAL 1 YEAR)
+                        AND timestamp >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 10 YEAR)
+                        AND timestamp IS NOT NULL
+                        AND pair IS NOT NULL
+                  ) ranked
+                  WHERE rn = 1
+              );";
+
+				using (var deleteCmd = new MySqlCommand(deleteSql, conn))
 				{
-					var deleteCount = Convert.ToInt32(await countCmd.ExecuteScalarAsync());
-					if (deleteCount > 0)
+					int rowsAffected = await deleteCmd.ExecuteNonQueryAsync();
+					if (rowsAffected > 0)
 					{
-						var deleteSql = "DELETE FROM trade_market_volumes WHERE timestamp < DATE_SUB(UTC_TIMESTAMP(), INTERVAL 5 YEAR)";
-						using (var deleteCmd = new MySqlCommand(deleteSql, conn))
-						{
-							await deleteCmd.ExecuteNonQueryAsync();
-							await _log.Db($"Deleted {deleteCount} entries older than 5 years", null, "SYSTEM", true);
-						}
+						await _log.Db($"Deleted {rowsAffected} trade volume entries older than 1 year (keeping one per 5 minutes per pair)", null, "SYSTEM", true);
 					}
 				}
 
-				// Step 2: Delete random entries older than 1 year if more than 50 per day
-				// First get the days that have more than 50 entries
-				var daysWithManyEntries = new List<DateTime>();
-				var getDaysSql = @"SELECT DISTINCT DATE(timestamp) as day 
-                          FROM trade_market_volumes 
-                          WHERE timestamp < DATE_SUB(UTC_TIMESTAMP(), INTERVAL 1 YEAR)
-                          GROUP BY DATE(timestamp)
-                          HAVING COUNT(*) > 50";
-
-				using (var daysCmd = new MySqlCommand(getDaysSql, conn))
-				using (var reader = await daysCmd.ExecuteReaderAsync())
+				// Step 2: Delete records older than 10 years
+				var deleteOldSql = @"
+            DELETE FROM trade_market_volumes
+            WHERE timestamp < DATE_SUB(UTC_TIMESTAMP(), INTERVAL 10 YEAR);";
+				using (var deleteOldCmd = new MySqlCommand(deleteOldSql, conn))
 				{
-					while (await reader.ReadAsync())
+					int rowsAffected = await deleteOldCmd.ExecuteNonQueryAsync();
+					if (rowsAffected > 0)
 					{
-						daysWithManyEntries.Add(reader.GetDateTime(0));
-					}
-				}
-
-				// For each day with too many entries, delete the excess randomly
-				foreach (var day in daysWithManyEntries)
-				{
-					var deleteExcessSql = @"
-                DELETE FROM trade_market_volumes
-                WHERE DATE(timestamp) = @day
-                AND timestamp < DATE_SUB(UTC_TIMESTAMP(), INTERVAL 1 YEAR)
-                AND id NOT IN (
-                    SELECT id FROM (
-                        SELECT id FROM trade_market_volumes
-                        WHERE DATE(timestamp) = @day
-                        AND timestamp < DATE_SUB(UTC_TIMESTAMP(), INTERVAL 1 YEAR)
-                        ORDER BY RAND()
-                        LIMIT 50
-                    ) AS keepers
-                )";
-
-					using (var deleteCmd = new MySqlCommand(deleteExcessSql, conn))
-					{
-						deleteCmd.Parameters.AddWithValue("@day", day.ToString("yyyy-MM-dd"));
-						var deletedCount = await deleteCmd.ExecuteNonQueryAsync();
-
-						if (deletedCount > 0)
-						{
-							await _log.Db($"Deleted {deletedCount} entries from {day:yyyy-MM-dd} (keeping 50)", null, "SYSTEM", true);
-						}
+						await _log.Db($"Deleted {rowsAffected} trade volume entries older than 10 years", null, "SYSTEM", true);
 					}
 				}
 			}
-		}
-
-		private async Task<bool> IsSystemUpToDate(MySqlConnection conn)
-		{
-			var checkSql = "SELECT COUNT(*) FROM coin_value WHERE timestamp >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 5 MINUTE)";
-			using (var checkCmd = new MySqlCommand(checkSql, conn))
-			{
-				var count = Convert.ToInt32(await checkCmd.ExecuteScalarAsync());
-				if (count > 0)
-				{
-					return true;
-				}
-			}
-			return false;
 		}
 	}
 

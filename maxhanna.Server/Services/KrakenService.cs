@@ -68,7 +68,7 @@ public class KrakenService
 		}
 		ApplyTradeConfiguration(tc);
 
-		decimal? lastBTCValueCad = await IsSystemUpToDate();
+		decimal? lastBTCValueCad = await IsSystemUpToDate(userId, keys);
 		if (lastBTCValueCad == null)
 		{
 			_ = _log.Db("System is not up to date. Cancelling trade.", userId, "TRADE", true);
@@ -107,7 +107,7 @@ public class KrakenService
 			}
 
 			var btcPriceToCad = await GetBtcPriceToCad(userId, keys);
-			_ = _log.Db("btcPriceCad:" + btcPriceToCad, userId, "TRADE", true);
+			_ = _log.Db("btcPriceCad:" + lastBTCValueCad, userId, "TRADE", true);
 			if (!ValidatePriceDiscrepency(currentPrice, btcPriceToCad))
 			{
 				return false;
@@ -306,7 +306,7 @@ public class KrakenService
 		decimal? lastBTCValueCad = null;
 		try
 		{
-			lastBTCValueCad = await IsSystemUpToDate();
+			lastBTCValueCad = await IsSystemUpToDate(userId, keys);
 			if (lastBTCValueCad == null)
 			{
 				_ = _log.Db("System is not up to date. Cancelling trade", userId, "TRADE", true);
@@ -791,38 +791,66 @@ public class KrakenService
 		}
 	}
 
-
-
-	private async Task<decimal?> IsSystemUpToDate()
+	private async Task<decimal?> IsSystemUpToDate(int userId, UserKrakenApiKey keys)
 	{
 		var checkSql = @"
-			SELECT value_cad 
-			FROM maxhanna.coin_value 
-			WHERE name = 'Bitcoin'
-			AND timestamp >= UTC_TIMESTAMP() - INTERVAL 50 MINUTE
-			ORDER BY ID DESC LIMIT 1;";
-		// This query returns the last BTC value within the last 50 minutes
+      SELECT value_cad 
+      FROM maxhanna.coin_value 
+      WHERE name = 'Bitcoin'
+      AND timestamp >= UTC_TIMESTAMP() - INTERVAL 1 MINUTE
+      ORDER BY ID DESC LIMIT 1;";
+
 		try
 		{
-			using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+			using (var conn = new MySqlConnection(_config?.GetValue<string>("ConnectionStrings:maxhanna")))
 			{
 				await conn.OpenAsync();
 
+				// Check if there's a recent price in the database
 				using (var checkCmd = new MySqlCommand(checkSql, conn))
 				{
 					var result = await checkCmd.ExecuteScalarAsync();
 					if (result != null && decimal.TryParse(result.ToString(), out var valueCad))
 					{
-						return valueCad;
+						return valueCad; // Return recent price from database
 					}
+				}
+
+				// If no recent price, fetch from Kraken API
+				var btcPriceCad = await GetBtcPriceToCad(userId, keys);
+				if (btcPriceCad.HasValue)
+				{
+					// Store the fetched price in the database
+					var insertSql = @"
+            INSERT INTO maxhanna.coin_value (symbol, name, value_cad, timestamp)
+            VALUES ('₿', 'Bitcoin', @ValueCad, UTC_TIMESTAMP());";
+
+					using (var insertCmd = new MySqlCommand(insertSql, conn))
+					{
+						insertCmd.Parameters.AddWithValue("@ValueCad", btcPriceCad.Value);
+						await insertCmd.ExecuteNonQueryAsync();
+					}
+
+					//_ = _log.Db($"Fetched and stored BTC price from Kraken: {btcPriceCad.Value} CAD", userId, "TRADE", true);
+					return btcPriceCad.Value;
+				}
+				else
+				{
+					_ = _log.Db("Failed to fetch BTC price from Kraken API.", userId, "TRADE", true);
+					return null;
 				}
 			}
 		}
 		catch (MySqlException ex)
 		{
-			_ = _log.Db("Error checking IsSystemUpToDate : " + ex.Message, null, "TRADE", true);
+			_ = _log.Db("Error checking IsSystemUpToDate: " + ex.Message, userId, "TRADE", true);
+			return null;
 		}
-		return null;
+		catch (Exception ex)
+		{
+			_ = _log.Db("Unexpected error in IsSystemUpToDate: " + ex.Message, userId, "TRADE", true);
+			return null;
+		}
 	}
 	public async Task<TradeRecord?> GetLastTrade(int userId)
 	{
@@ -1120,8 +1148,9 @@ public class KrakenService
 				return null;
 			}
 			// The ask price is the first value in the array
-			var askPrice = askArray[0].ToObject<decimal>();
-			return askPrice;
+			var askPrice = askArray[0].ToObject<decimal>(); 
+			var roundedPrice = Math.Round(askPrice, 2);
+			return roundedPrice;
 		}
 		catch (Exception ex)
 		{

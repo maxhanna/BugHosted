@@ -25,7 +25,7 @@ namespace maxhanna.Server.Services
 		}
 
 		// Step 1: Get the OAuth 2.0 token using user context
-		public async Task<string> GetAccessTokenAsync(string authorizationCode, string redirectUri)
+		public async Task<string?> GetAccessTokenAsync(string authorizationCode, string redirectUri)
 		{
 			var url = "https://api.twitter.com/oauth2/token";
 			var content = new FormUrlEncodedContent(new[]
@@ -90,7 +90,7 @@ namespace maxhanna.Server.Services
 		}
 
 		// Step 3: Upload Media (Image or Video) to Twitter
-		public async Task<string> UploadMedia(string accessToken, string mediaFilePath)
+		public async Task<string?> UploadMedia(string accessToken, string mediaFilePath)
 		{
 			var uploadUrl = "https://upload.twitter.com/1.1/media/upload.json";
 			var mediaData = new MultipartFormDataContent();
@@ -156,46 +156,7 @@ namespace maxhanna.Server.Services
 				return false;
 			}
 		}
-
-		public async Task<string> GetAuthorizationUrlAsync()
-		{
-			var url = "https://api.twitter.com/oauth2/authorize";
-
-			// Create the parameters for the OAuth request
-			var oauthParameters = new Dictionary<string, string>
-		{
-				{ "oauth_consumer_key", _clientId },
-				{ "oauth_signature_method", "HMAC-SHA1" },
-				{ "oauth_version", "1.0" },
-				{ "oauth_callback", "https://your-redirect-uri.com" }  // The redirect URI you specified in your Twitter developer app
-    };
-
-			// Add any additional parameters if needed (you can use `oauth_nonce` and `oauth_timestamp` as in previous steps)
-			oauthParameters["oauth_nonce"] = Guid.NewGuid().ToString("N");
-			oauthParameters["oauth_timestamp"] = ((int)(DateTime.UtcNow - new DateTime(1970, 1, 1)).TotalSeconds).ToString();
-
-			// Sort parameters by name and construct the base string for signature
-			var sortedParameters = oauthParameters.OrderBy(p => p.Key)
-					.Select(p => $"{Uri.EscapeDataString(p.Key)}={Uri.EscapeDataString(p.Value)}");
-
-			string parameterString = string.Join("&", sortedParameters);
-			string baseString = $"GET&{Uri.EscapeDataString(url)}&{Uri.EscapeDataString(parameterString)}";
-
-			// Generate the OAuth signature
-			string signature = GenerateOAuthSignature(baseString);
-
-			// Add the signature to the parameters
-			oauthParameters["oauth_signature"] = signature;
-
-			// Build the OAuth header
-			var oauthHeader = string.Join(", ", oauthParameters.Select(p => $"{p.Key}=\"{Uri.EscapeDataString(p.Value)}\""));
-
-			// Make the request to Twitter's authorization endpoint
-			var authUrl = $"{url}?{parameterString}&oauth_signature={Uri.EscapeDataString(signature)}";
-
-			// Return the URL that the user can visit to authorize the app
-			return authUrl;
-		}
+		 
 		private string GenerateOAuthSignature(string baseString)
 		{
 			using (var hmacsha1 = new HMACSHA1(Encoding.UTF8.GetBytes($"{_clientSecret}&{_accessTokenSecret}")))

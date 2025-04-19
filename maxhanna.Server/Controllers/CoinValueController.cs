@@ -184,7 +184,7 @@ namespace maxhanna.Server.Controllers
 			}
 			catch (Exception ex)
 			{
-				_ = _log.Db("An error occurred while trying to get all exchange rate values.", null, "COIN", true);
+				_ = _log.Db("An error occurred while trying to get all exchange rate values. " + ex.Message, null, "COIN", true);
 			}
 			finally
 			{
@@ -289,7 +289,7 @@ namespace maxhanna.Server.Controllers
 			}
 			catch (Exception ex)
 			{
-				_ = _log.Db("An error occurred while trying to get the latest coin values.", null, "COIN", true);
+				_ = _log.Db("An error occurred while trying to get the latest coin values. " + ex.Message, null, "COIN", true);
 			}
 			finally
 			{
@@ -339,7 +339,7 @@ namespace maxhanna.Server.Controllers
 			}
 			catch (Exception ex)
 			{
-				_ = _log.Db("An error occurred while trying to get the latest coin values.", null, "COIN", true);
+				_ = _log.Db("An error occurred while trying to get the latest coin values. " + ex.Message, null, "COIN", true);
 			}
 			finally
 			{

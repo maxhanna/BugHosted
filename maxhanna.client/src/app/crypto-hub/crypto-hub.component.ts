@@ -409,7 +409,21 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
     }, 50);
   }
   randomizeTradingSimGraphWithWeekData() {
-    this.getRandomDayData(); 
+    this.getRandomDayData();
+    this.tradebotSimulationGraphData2 = this.generateTradeData(
+      this.tradebotSimulationGraphData,
+      this.tradeSimParams
+    );
+  }
+  randomizeTradingSimGraphWithRandomWeekData() {
+    this.getRandomWeekOrMonthData("week");
+    this.tradebotSimulationGraphData2 = this.generateTradeData(
+      this.tradebotSimulationGraphData,
+      this.tradeSimParams
+    );
+  }
+  randomizeTradingSimGraphWithRandomMonthData() {
+    this.getRandomWeekOrMonthData("month");
     this.tradebotSimulationGraphData2 = this.generateTradeData(
       this.tradebotSimulationGraphData,
       this.tradeSimParams
@@ -463,6 +477,155 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
     }) ?? [];
 
    // console.log('Random day:', dateString, 'Data:', this.tradebotSimulationGraphData);
+  }
+  getRandomWeekOrMonthData(weekOrMonth: 'week' | 'month'): void {
+    console.log('All historical data:', this.allHistoricalData);
+
+    // Step 1: Validate allHistoricalData
+    if (!this.allHistoricalData || this.allHistoricalData.length === 0) {
+      console.log('No historical data available.');
+      this.tradebotSimulationGraphData = [];
+      return;
+    }
+
+    // Step 2: Extract Bitcoin timestamps
+    const timestamps: Date[] = this.allHistoricalData
+      .filter((x: any): boolean => x.name === 'Bitcoin' && x.timestamp)
+      .map((x: any): Date | null => {
+        // Parse timestamp safely
+        const date = new Date(x.timestamp);
+        if (isNaN(date.getTime())) {
+          console.warn(`Invalid timestamp: ${x.timestamp}`);
+          return null;
+        }
+        // Normalize to start of day in UTC
+        return new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+      })
+      .filter((date: Date | null): boolean => date !== null) as Date[];
+
+    if (timestamps.length === 0) {
+      console.log('No valid Bitcoin data available.');
+      this.tradebotSimulationGraphData = [];
+      return;
+    }
+
+    // Step 3: Find min and max dates
+    const minDate: Date = new Date(Math.min(...timestamps.map((date: Date): number => date.getTime())));
+    const maxDate: Date = new Date(Math.max(...timestamps.map((date: Date): number => date.getTime())));
+    const today: Date = new Date();
+    today.setUTCHours(0, 0, 0, 0); // Normalize to start of day in UTC
+
+    // Ensure maxDate doesn't exceed today
+    if (maxDate > today) {
+      maxDate.setTime(today.getTime());
+    }
+
+    // Helper function to format dates as YYYY-MM-DD
+    const formatDate = (date: Date): string => {
+      const year: number = date.getUTCFullYear();
+      const month: string = String(date.getUTCMonth() + 1).padStart(2, '0');
+      const day: string = String(date.getUTCDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    };
+
+    if (weekOrMonth === 'week') {
+      // WEEK LOGIC
+      // Step 4: Find the earliest Monday and latest possible Monday
+      const earliestMonday: Date = new Date(minDate);
+      const minDayOfWeek: number = earliestMonday.getDay();
+      const daysToFirstMonday: number = minDayOfWeek === 0 ? 1 : minDayOfWeek === 1 ? 0 : 8 - minDayOfWeek;
+      earliestMonday.setDate(earliestMonday.getDate() + daysToFirstMonday);
+      earliestMonday.setUTCHours(0, 0, 0, 0);
+
+      // Latest Monday must allow a full week (7 days) within maxDate
+      const latestMonday: Date = new Date(maxDate);
+      latestMonday.setDate(maxDate.getDate() - 6); // Ensure 7 days from Monday fit
+      const latestMondayDayOfWeek: number = latestMonday.getDay();
+      const daysToLatestMonday: number = latestMondayDayOfWeek === 0 ? 6 : latestMondayDayOfWeek - 1;
+      latestMonday.setDate(latestMonday.getDate() - daysToLatestMonday);
+      latestMonday.setUTCHours(0, 0, 0, 0);
+
+      // Step 5: Calculate the number of possible weeks
+      const millisecondsPerWeek: number = 7 * 24 * 60 * 60 * 1000;
+      const weeksAvailable: number = Math.floor((latestMonday.getTime() - earliestMonday.getTime()) / millisecondsPerWeek) + 1;
+      if (weeksAvailable <= 0) {
+        console.log('Not enough data for a full week.');
+        this.tradebotSimulationGraphData = [];
+        return;
+      }
+
+      // Step 6: Select a random Monday
+      const randomWeekIndex: number = Math.floor(Math.random() * weeksAvailable);
+      const randomMonday: Date = new Date(earliestMonday);
+      randomMonday.setDate(earliestMonday.getDate() + randomWeekIndex * 7);
+
+      // Step 7: Define the week's date range (Monday to Sunday)
+      const weekEnd: Date = new Date(randomMonday);
+      weekEnd.setDate(randomMonday.getDate() + 6);
+
+      // Generate all dates in the week
+      const weekDates: string[] = [];
+      for (let i = 0; i < 7; i++) {
+        const currentDay: Date = new Date(randomMonday);
+        currentDay.setDate(randomMonday.getDate() + i);
+        weekDates.push(formatDate(currentDay));
+      }
+
+      // Step 8: Filter data for the selected week
+      this.tradebotSimulationGraphData = this.allHistoricalData.filter((x: any): boolean => {
+        if (!x.timestamp || x.name !== 'Bitcoin') return false;
+        const date = new Date(x.timestamp);
+        if (isNaN(date.getTime())) return false;
+        const datePart: string = formatDate(date);
+        return weekDates.includes(datePart);
+      });
+
+      console.log(`Random week: ${formatDate(randomMonday)} to ${formatDate(weekEnd)}, Data points: ${this.tradebotSimulationGraphData.length}`);
+    } else {
+      // MONTH LOGIC
+      // Step 4: Find earliest and latest possible month starts
+      const earliestMonth: Date = new Date(Date.UTC(minDate.getUTCFullYear(), minDate.getUTCMonth(), 1));
+      const latestMonth: Date = new Date(Date.UTC(maxDate.getUTCFullYear(), maxDate.getUTCMonth(), 1));
+
+      // Step 5: Calculate number of months available
+      const monthsAvailable = (latestMonth.getUTCFullYear() - earliestMonth.getUTCFullYear()) * 12 +
+        (latestMonth.getUTCMonth() - earliestMonth.getUTCMonth()) + 1;
+
+      if (monthsAvailable <= 0) {
+        console.log('Not enough data for a full month.');
+        this.tradebotSimulationGraphData = [];
+        return;
+      }
+
+      // Step 6: Select a random month
+      const randomMonthIndex: number = Math.floor(Math.random() * monthsAvailable);
+      const randomMonthStart: Date = new Date(earliestMonth);
+      randomMonthStart.setUTCMonth(earliestMonth.getUTCMonth() + randomMonthIndex);
+
+      // Step 7: Calculate month end date
+      const randomMonthEnd: Date = new Date(randomMonthStart);
+      randomMonthEnd.setUTCMonth(randomMonthStart.getUTCMonth() + 1);
+      randomMonthEnd.setUTCDate(0); // Last day of the month
+
+      // Generate all dates in the month
+      const monthDates: string[] = [];
+      const currentDay = new Date(randomMonthStart);
+      while (currentDay <= randomMonthEnd) {
+        monthDates.push(formatDate(currentDay));
+        currentDay.setUTCDate(currentDay.getUTCDate() + 1);
+      }
+
+      // Step 8: Filter data for the selected month
+      this.tradebotSimulationGraphData = this.allHistoricalData.filter((x: any): boolean => {
+        if (!x.timestamp || x.name !== 'Bitcoin') return false;
+        const date = new Date(x.timestamp);
+        if (isNaN(date.getTime())) return false;
+        const datePart: string = formatDate(date);
+        return monthDates.includes(datePart);
+      });
+
+      console.log(`Random month: ${formatDate(randomMonthStart)} to ${formatDate(randomMonthEnd)}, Data points: ${this.tradebotSimulationGraphData.length}`);
+    }
   }
   updateSimTradeVars() {
     if (this.initialBtcUsd?.nativeElement.value) {
@@ -1098,6 +1261,7 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
           this.tradeInitialMinimumFromAmountToStart.nativeElement.valueAsNumber = tv.initialMinimumFromAmountToStart;
           this.tradeMinimumFromReserves.nativeElement.valueAsNumber = tv.minimumFromReserves;
           this.tradeMinimumToReserves.nativeElement.valueAsNumber = tv.minimumToReserves;
+          this.tradeConfigLastUpdated = tv.updated;
         }
       }
     }

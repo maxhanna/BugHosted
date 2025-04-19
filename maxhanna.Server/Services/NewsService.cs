@@ -23,7 +23,7 @@ public class NewsService
 	{
 		"bitcoin", "btc", "ethereum", "eth", "tether", "usdt", "xrp", "bnb", "solana", "sol", "cardano", "ada", "dogecoin", "doge",
 	"polkadot", "dot", "litecoin", "ltc", "tron", "trx", "monero", "xmr", "avalanche", "avax", "stellar", "xlm", "vechain", "vet",
-	"chainlink", "link", "aptos", "apt", "arbitrum", "arb", "optimism", "op", "render", "rndr", "sui", "algorand", "algo",
+	"chainlink", "aptos", "apt", "arbitrum", "arb", "optimism", "op", "render", "rndr", "sui", "algorand", "algo",
 	"coinbase", "binance", "kraken", "bitfinex", "gemini", "huobi", "okx", "bitstamp", "kucoin", "crypto.com", "bybit", "mexc",
 	"bitmart", "upbit", "bittrex", "probit", "gate.io", "poloniex", "wallet", "cold wallet", "hot wallet", "hardware wallet",
 	"metamask", "trust wallet", "private key", "public key", "day trading", "forex", "margin trading", "leverage",
@@ -42,8 +42,7 @@ public class NewsService
 	"securities", "futures", "derivatives", "yield", "treasury bonds", "cryptocurrency", "crypto", "money"
 	};
 	int newsServiceAccountNo = 308;
-	int cryptoNewsServiceAccountNo = 309;
-	private DateTime lastNewsDataTimestamp;
+	int cryptoNewsServiceAccountNo = 309; 
 
 	public NewsService(IConfiguration config, Log log)
 	{
@@ -55,7 +54,7 @@ public class NewsService
 			AllowAutoRedirect = true,
 		});
 	}
-	public async Task<ArticlesResult?> GetTopHeadlines()
+	public ArticlesResult? GetTopHeadlines()
 	{
 		try
 		{
@@ -100,7 +99,7 @@ public class NewsService
 				}
 			}
 
-			var articlesResult = await GetTopHeadlines();
+			var articlesResult = GetTopHeadlines();
 
 			if (articlesResult?.Status != Statuses.Ok || articlesResult.Articles == null)
 			{
@@ -226,7 +225,7 @@ public class NewsService
 				return;
 			}
 
-			var topArticlesResult = await GetTopHeadlinesFromDb();
+			var topArticlesResult = await GetTopHeadlinesFromDb(24);
 			if (topArticlesResult?.Articles == null || topArticlesResult.Articles.Count == 0)
 			{
 				return;
@@ -475,7 +474,7 @@ public class NewsService
 				return;
 			}
 
-			var topArticlesResult = await GetTopCryptoArticlesByDayAsync();
+			var topArticlesResult = await GetTopCryptoArticlesByDayAsync(1);
 			if (topArticlesResult?.Articles == null || topArticlesResult.Articles.Count == 0)
 			{
 				await _log.Db("No crypto articles to write a social story about", null, "NEWSSERVICE", true); 

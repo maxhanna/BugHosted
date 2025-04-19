@@ -502,7 +502,7 @@
         <app-user-tag [user]="friendReq.receiver" [inputtedParentRef]="parentRef" [displayMiniTag]="true"></app-user-tag>
       </div>
       <div class="friendshipRequestActionDiv" *ngIf="!userId || userId == parentRef?.user?.id">
-        <button (click)="deleteFriendshipRequest(friendReq)" class="cursorPointer" title="Cancel Friendship Request">❌Cancel</button>
+        <button (click)="deleteFriendshipRequest(friendReq)" class="cursorPointer" title="Unfollow">❌</button>
       </div>
     </div>
   </div>
@@ -516,7 +516,7 @@
         <app-user-tag [user]="friendReq.sender" [inputtedParentRef]="parentRef" [displayMiniTag]="true"></app-user-tag>
       </div>
       <div class="friendshipRequestActionDiv" *ngIf="!userId || userId == parentRef?.user?.id">
-        <button (click)="acceptFriendshipRequest(friendReq)" class="cursorPointer" title="Accept Friendship Request">➕Follow Back</button>
+        <button (click)="acceptFriendshipRequest(friendReq)" class="cursorPointer" title="Follow Back User">➕</button>
         <!--<button (click)="denyFriendshipRequest(friendReq)" class="cursorPointer" title="Deny Friendship Request">❌Deny</button>-->
       </div>
     </div>

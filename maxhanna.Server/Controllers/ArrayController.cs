@@ -204,7 +204,7 @@ namespace maxhanna.Server.Controllers
 			}
 			catch (Exception ex)
 			{
-				_ = _log.Db("An error occurred while resurecting Array character.", userId, "ARRAY");
+				_ = _log.Db("An error occurred while resurecting Array character. " + ex.Message, userId, "ARRAY");
 				return StatusCode(500, "An error occurred while resurecting Array character.");
 			}
 		}

@@ -4,11 +4,10 @@ namespace maxhanna.Server.Services
 	public class NexusUnitBackgroundService : BackgroundService
 	{
 		private readonly IConfiguration _config;
-		private readonly IServiceProvider _serviceProvider;
+		private readonly IServiceProvider? _serviceProvider;
 		private readonly Log _log;
 
-		private Timer _checkForNewUnitsTimer;
-		private Timer _processUnitQueueTimer;
+		private Timer? _checkForNewUnitsTimer; 
 
 		private int timerDuration = 1;
 
@@ -30,7 +29,7 @@ namespace maxhanna.Server.Services
 					.Build());
 		}
 
-		protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+		protected override Task ExecuteAsync(CancellationToken stoppingToken)
 		{
 			_checkForNewUnitsTimer = new Timer(
 					async _ => await CheckForNewPurchases(stoppingToken),
@@ -38,6 +37,7 @@ namespace maxhanna.Server.Services
 					TimeSpan.FromSeconds(timerDuration),
 					TimeSpan.FromSeconds(timerDuration)
 			);
+			return Task.CompletedTask;
 		}
 
 		private async Task CheckForNewPurchases(CancellationToken stoppingToken)
@@ -61,10 +61,8 @@ namespace maxhanna.Server.Services
 		}
 
 		public override void Dispose()
-		{
-			_processUnitQueueTimer?.Change(Timeout.Infinite, Timeout.Infinite);
-			_checkForNewUnitsTimer?.Change(Timeout.Infinite, Timeout.Infinite);
-			_processUnitQueueTimer?.Dispose();
+		{ 
+			_checkForNewUnitsTimer?.Change(Timeout.Infinite, Timeout.Infinite); 
 			_checkForNewUnitsTimer?.Dispose();
 			base.Dispose();
 		}

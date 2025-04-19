@@ -49,10 +49,10 @@
       <div [class]="(!uploadProgress[file.name] || uploadProgress[file.name] == 0)  ? 'removeFileButton fileUploadLineDiv' : ' fileUploadLineDiv'" (click)="removeFile(file)" title="Remove file">
         <span>{{file.name}}</span>
         <span *ngIf="uploadProgress[file.name]">
-          {{ uploadProgress[file.name] === 100 ? '✅' : ('- ' + uploadProgress[file.name] + '%') }}
+          {{ uploadProgress[file.name] === 100 ? '✅' : (uploadProgress[file.name] + '%') }}
         </span>
         <span *ngIf="!uploadProgress[file.name] && totalProgress">
-          - 0%
+          0%
         </span>
       </div>
     </div>

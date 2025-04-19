@@ -54,7 +54,7 @@ namespace maxhanna.Server.Controllers
 					return articlesResponse;
 				}
 			}
-			catch (Exception ex)
+			catch (Exception)
 			{ 
 				return new ArticlesResult();
 			}
@@ -81,7 +81,7 @@ namespace maxhanna.Server.Controllers
 						{
 							if (await reader.ReadAsync())
 							{
-								defaultSearch = reader["default_search"]?.ToString();
+								defaultSearch = reader["default_search"]?.ToString() ?? "";
 							}
 						}
 					}

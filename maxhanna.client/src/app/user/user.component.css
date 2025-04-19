@@ -231,16 +231,11 @@
 }
 
 .mainFriendsPopupDiv {
-  max-height: 350px;
+  max-height: 110px;
   overflow: auto;
-}
-
-.friendshipRequestActionDiv button {
-  margin-left: 25px;
-  padding: 10px;
-}
-
-
+  white-space: nowrap;
+} 
+ 
 .seperatedUserHeader {
   display: flex;
   flex-direction: row;

@@ -13,8 +13,7 @@ namespace maxhanna.Server.Services
 		private readonly IConfiguration _config;
 		private readonly string _connectionString;
 
-		private readonly Log _log;
-		private Timer _processUpgradeQueueTimer;
+		private readonly Log _log; 
 		private Timer _checkForNewUnitUpgradesTimer;
 		private const int TimedCheckEveryXSeconds = 60;
 		private const int QueueProcessingInterval = 5;
@@ -52,14 +51,14 @@ namespace maxhanna.Server.Services
 			if (_upgradeQueue.Contains(upgradeId)) return;
 			_upgradeQueue.Enqueue(upgradeId);
 		}
-		private void ProcessQueue(object state)
+		private void ProcessQueue(object? state)
 		{
 			if (_upgradeQueue.TryDequeue(out int upgradeId))
 			{
 				ProcessUnitUpgrade(upgradeId);
 			}
 		}
-		protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+		protected override Task ExecuteAsync(CancellationToken stoppingToken)
 		{
 			_checkForNewUnitUpgradesTimer = new Timer(
 					async _ => await CheckForNewUnitUpgrades(stoppingToken),
@@ -67,6 +66,7 @@ namespace maxhanna.Server.Services
 					TimeSpan.FromSeconds(TimedCheckEveryXSeconds),
 					TimeSpan.FromSeconds(TimedCheckEveryXSeconds)
 			);
+			return Task.CompletedTask;
 		}
 
 		private async Task CheckForNewUnitUpgrades(CancellationToken stoppingToken)
@@ -223,8 +223,7 @@ namespace maxhanna.Server.Services
 			{
 				timer.Dispose();
 			}
-			_checkForNewUnitUpgradesTimer?.Dispose();
-			_processUpgradeQueueTimer?.Dispose();
+			_checkForNewUnitUpgradesTimer?.Dispose(); 
 			_semaphore.Dispose();
 			base.Dispose();
 		}

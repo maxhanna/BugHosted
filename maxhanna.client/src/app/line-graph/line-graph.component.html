@@ -3,7 +3,7 @@
     {{ getGraphTitle() }}
   </div>
   <div class="graphOptions">
-    <select #periodSelect (change)="changeGraphPeriod($event)" [value]="selectedPeriod">
+    <select #periodSelect (change)="changeGraphPeriod($event)" [value]="selectedPeriod" [style.display]="skipFiltering ? 'none' : 'inline-block'">
       <option value="15min">15 minutes</option>
       <option value="1h">1 hour</option>
       <option value="6h">6 hours</option>

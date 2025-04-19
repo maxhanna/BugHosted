@@ -154,7 +154,7 @@ public class TradeController : ControllerBase
 		try
 		{
 			if (userId != 1 && !await _log.ValidateUserLoggedIn(userId, encryptedUserId)) return StatusCode(500, "Access Denied.");
-			List<Dictionary<string, object>>? result = await _log.GetLogs(userId, "TRADE");
+			List<Dictionary<string, object>>? result = await _log.GetLogs(userId, "TRADE", 10000);
 			return Ok(result);
 		}
 		catch (Exception ex)

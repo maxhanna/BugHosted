@@ -12,7 +12,7 @@ public class Log
 		_config = config;
 	}
 
-	public async Task Db(string message, int? userId, string type = "SYSTEM", bool outputToConsole = false)
+	public async Task Db(string message, int? userId = null, string type = "SYSTEM", bool outputToConsole = false)
 	{
 		string sql = @"INSERT INTO maxhanna.logs (comment, component, user_id, timestamp) VALUES (@comment, @component, @userId, UTC_TIMESTAMP());";
 
@@ -244,8 +244,7 @@ public class Log
 		byte[] plaintextBytes = new byte[ciphertext.Length - 16]; // Last 16 bytes are the tag
 		byte[] tag = ciphertext.Skip(ciphertext.Length - 16).ToArray();
 		byte[] encryptedData = ciphertext.Take(ciphertext.Length - 16).ToArray();
-
-		using var aes = new AesGcm(key);
+		using var aes = new AesGcm(key, 16);
 		aes.Decrypt(iv, encryptedData, tag, plaintextBytes);
 
 		return int.Parse(Encoding.UTF8.GetString(plaintextBytes));

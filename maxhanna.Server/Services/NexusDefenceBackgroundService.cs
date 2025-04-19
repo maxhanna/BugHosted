@@ -13,9 +13,9 @@ namespace maxhanna.Server.Services
 
 		private readonly string _connectionString;
 		private readonly IConfiguration _config;
-		private readonly IServiceProvider _serviceProvider;
+		private readonly IServiceProvider? _serviceProvider;
 		private readonly Log _log;
-		private Timer _checkForNewDefencesTimer;
+		private Timer? _checkForNewDefencesTimer;
 		private Timer _processDefenceQueueTimer;
 
 		private static readonly SemaphoreSlim _semaphore = new SemaphoreSlim(10);
@@ -47,7 +47,7 @@ namespace maxhanna.Server.Services
 			_defenceQueue.Enqueue(defenceId);
 		}
 
-		private async void ProcessDefenceQueue(object state)
+		private async void ProcessDefenceQueue(object? state)
 		{
 			if (_defenceQueue.TryDequeue(out var defenceId))
 			{

@@ -232,7 +232,7 @@ namespace maxhanna.Server.Controllers
 					}
 				}
 
-				return Ok("Follow request sent successfully.");
+				return Ok("Following user.");
 			}
 			catch (Exception ex)
 			{
@@ -271,7 +271,7 @@ namespace maxhanna.Server.Controllers
 					await connection.OpenAsync();
 					await AddFriend(senderId, receiverId, connection);
 				}
-				return Ok("Friend request accepted successfully.");
+				return Ok("Friendship created successfully.");
 			}
 			catch (Exception ex)
 			{
@@ -295,7 +295,7 @@ namespace maxhanna.Server.Controllers
 					await connection.OpenAsync();
 					await DeleteFriendRequestFromDB(requestId, connection);
 				}
-				return Ok("Follow request deleted successfully.");
+				return Ok("Unfollowing user.");
 			}
 			catch (Exception ex)
 			{

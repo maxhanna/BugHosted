@@ -280,7 +280,7 @@ namespace maxhanna.Server.Controllers
 				}
 				catch (Exception ex)
 				{
-					_ = _log.Db("An error occurred while processing the request for GetChatUsersByChatId.", null, "CHAT");
+					_ = _log.Db("An error occurred while processing the request for GetChatUsersByChatId. " + ex.Message, null, "CHAT");
 					return StatusCode(500, "An error occurred while processing the request.");
 				}
 
