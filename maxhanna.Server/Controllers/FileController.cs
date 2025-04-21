@@ -41,17 +41,17 @@ namespace maxhanna.Server.Controllers
 
 		[HttpPost("/File/GetDirectory/", Name = "GetDirectory")]
 		public async Task<IActionResult> GetDirectory(
-			[FromBody] User? user,
-			[FromQuery] string? directory,
-			[FromQuery] string? visibility,
-			[FromQuery] string? ownership,
-			[FromQuery] string? search,
-			[FromQuery] int page = 1,
-			[FromQuery] int pageSize = 10,
-			[FromQuery] int? fileId = null,
-			[FromQuery] List<string>? fileType = null,
-			[FromQuery] bool showHidden = false)
-		{ 
+		[FromBody] User? user,
+		[FromQuery] string? directory,
+		[FromQuery] string? visibility,
+		[FromQuery] string? ownership,
+		[FromQuery] string? search,
+		[FromQuery] int page = 1,
+		[FromQuery] int pageSize = 10,
+		[FromQuery] int? fileId = null,
+		[FromQuery] List<string>? fileType = null,
+		[FromQuery] bool showHidden = false)
+		{
 			if (string.IsNullOrEmpty(directory))
 			{
 				directory = _baseTarget;
@@ -63,7 +63,7 @@ namespace maxhanna.Server.Controllers
 				{
 					directory += "/";
 				}
-			} 
+			}
 			if (!ValidatePath(directory!)) { return StatusCode(500, $"Must be within {_baseTarget}"); }
 
 			try
@@ -71,25 +71,26 @@ namespace maxhanna.Server.Controllers
 				List<FileEntry> fileEntries = new List<FileEntry>();
 				string replaced = "'" + string.Join(", ", fileType!).Replace(",", "','") + "'";
 				string fileTypeCondition = fileType != null && fileType.Any() && !string.IsNullOrEmpty(string.Join(',', fileType))
-								? " AND LOWER(f.file_type) IN (" + string.Join(", ", replaced) + ") "
-								: "";
+												? " AND LOWER(f.file_type) IN (" + string.Join(", ", replaced) + ") "
+												: "";
 				bool isRomSearch = DetermineIfRomSearch(fileType ?? new List<string>());
 				string visibilityCondition = string.IsNullOrEmpty(visibility) || visibility.ToLower() == "all" ? "" : visibility.ToLower() == "public" ? " AND f.is_public = 1 " : " AND f.is_public = 0 ";
 				string ownershipCondition = string.IsNullOrEmpty(ownership) || ownership.ToLower() == "all" ? "" : ownership.ToLower() == "others" ? " AND f.user_id != @userId " : " AND f.user_id = @userId ";
 				string hiddenCondition = showHidden
-						? "" // If showHidden is true, don't filter out hidden files
-						: $" AND f.id NOT IN (SELECT file_id FROM maxhanna.hidden_files WHERE user_id = @userId) ";
+								? "" // If showHidden is true, don't filter out hidden files
+								: $" AND f.id NOT IN (SELECT file_id FROM maxhanna.hidden_files WHERE user_id = @userId) ";
 
 				int offset = (page - 1) * pageSize;
 				using (var connection = new MySqlConnection(_connectionString))
 				{
-					connection.Open(); 
+					connection.Open();
 					int filePosition = 0;
 					if (fileId.HasValue && page == 1)
 					{
+						// Get the directory path for the file
 						var directoryCommand = new MySqlCommand(
-							 "SELECT folder_path FROM maxhanna.file_uploads WHERE id = @fileId",
-							 connection);
+								 "SELECT folder_path FROM maxhanna.file_uploads WHERE id = @fileId",
+								 connection);
 						directoryCommand.Parameters.AddWithValue("@fileId", fileId.Value);
 						var directoryReader = directoryCommand.ExecuteReader();
 
@@ -97,81 +98,123 @@ namespace maxhanna.Server.Controllers
 						{
 							directory = directoryReader.GetString("folder_path");
 						}
-
 						directoryReader.Close();
+						(string where, List<MySqlParameter> list) = await GetWhereCondition(search, user);
 
-						var countCommand = new MySqlCommand(
-								@$"
-									SELECT COUNT(*) FROM maxhanna.file_uploads f 
-									WHERE 
-                    {(!string.IsNullOrEmpty(search) ? "" : "f.folder_path = @folderPath AND ")} 
-                    f.id <= @fileId 
-										{fileTypeCondition} {visibilityCondition} {ownershipCondition};",
-								 connection);
-						countCommand.Parameters.AddWithValue("@folderPath", directory);
-						countCommand.Parameters.AddWithValue("@fileId", fileId.Value);
-						countCommand.Parameters.AddWithValue("@userId", user?.Id ?? 0);
-
-						filePosition = Convert.ToInt32(countCommand.ExecuteScalar());
-						page = (filePosition / pageSize) + 1;
-						offset = Math.Max(Math.Max(0, ((page - 1) * pageSize) - 1) - (fileId.HasValue ? 5 : 0), 0);
-					}
-					string orderBy = isRomSearch ? " ORDER BY f.last_access desc " : fileId == null ? " ORDER BY f.id desc " : string.Empty;
-					(string searchCondition, List<MySqlParameter> extraParameters) = await GetWhereCondition(search, user);
-
-					var command = new MySqlCommand($@"
-                        SELECT 
-                            f.id AS fileId,
-                            f.file_name,
-                            f.folder_path,
-                            f.is_public,
-                            f.is_folder,
-                            f.user_id AS fileUserId,
-                            u.username AS fileUsername,
-                            udpfl.id AS fileUserDisplayPictureFileId,
-                            udpfl.file_name AS fileUserDisplayPictureFileName,
-                            udpfl.folder_path AS fileUserDisplayPictureFolderPath,
-                            f.shared_with,
-                            f.upload_date AS date,
-                            f.given_file_name,
-                            f.description,
-                            f.last_updated AS file_data_updated,
-                            f.last_updated_by_user_id AS last_updated_by_user_id,
-                            uu.username AS last_updated_by_user_name,
-                            luudp.file_id AS last_updated_by_user_name_display_picture_file_id,
-                            f.file_type AS file_type,
-                            f.file_size AS file_size,
-                            f.width AS width,
-                            f.height AS height,
-                            f.last_access AS last_access
-                        FROM
-                            maxhanna.file_uploads f 
-                        LEFT JOIN
-                            maxhanna.users u ON f.user_id = u.id
-                        LEFT JOIN
-                            maxhanna.users uu ON f.last_updated_by_user_id = uu.id
-                        LEFT JOIN
-                            maxhanna.user_display_pictures udp ON udp.user_id = u.id
-                        LEFT JOIN
-                            maxhanna.user_display_pictures luudp ON luudp.user_id = uu.id
-                        LEFT JOIN
-                            maxhanna.file_uploads udpfl ON udp.file_id = udpfl.id 
-                        WHERE
+						// Get the exact position of the file in the sorted results
+						var positionCommand = new MySqlCommand(
+								$@"SELECT COUNT(*) FROM (
+                        SELECT f.id, ROW_NUMBER() OVER (
+                            {(isRomSearch ? "ORDER BY f.last_access DESC" : "ORDER BY f.id DESC")}
+                        ) as pos
+                        FROM maxhanna.file_uploads f
+                        LEFT JOIN maxhanna.users u ON f.user_id = u.id
+                        LEFT JOIN maxhanna.users uu ON f.last_updated_by_user_id = uu.id
+                        LEFT JOIN maxhanna.user_display_pictures udp ON udp.user_id = u.id
+                        LEFT JOIN maxhanna.user_display_pictures luudp ON luudp.user_id = uu.id
+                        LEFT JOIN maxhanna.file_uploads udpfl ON udp.file_id = udpfl.id
+                        WHERE 
                             {(!string.IsNullOrEmpty(search) ? "" : "f.folder_path = @folderPath AND ")}
                             (
                                 f.is_public = 1
                                 OR f.user_id = @userId
                                 OR FIND_IN_SET(@userId, f.shared_with) > 0
                             )
-                            {searchCondition} 
-														{fileTypeCondition} 
-														{visibilityCondition} 
-														{ownershipCondition} 
-														{hiddenCondition} 
-														{orderBy}
-                        LIMIT
-                            @pageSize OFFSET @offset;"
+                            {fileTypeCondition} 
+                            {visibilityCondition} 
+                            {ownershipCondition} 
+                            {hiddenCondition}
+                            {where}
+                    ) AS numbered_results
+                    WHERE id >= @fileId",  // For DESC order we use >=
+								connection);
+
+						positionCommand.Parameters.AddWithValue("@folderPath", directory);
+						positionCommand.Parameters.AddWithValue("@fileId", fileId.Value);
+						positionCommand.Parameters.AddWithValue("@userId", user?.Id ?? 0);
+						foreach (var param in list)
+						{
+							positionCommand.Parameters.Add(param);
+						}
+
+						filePosition = Convert.ToInt32(positionCommand.ExecuteScalar());
+
+						// Calculate page with the file centered when possible
+						page = (int)Math.Ceiling((double)filePosition / pageSize);
+
+						// Calculate offset to center the file in the page
+						int desiredPositionInPage = pageSize / 2;
+						offset = Math.Max(0, filePosition - desiredPositionInPage - 1);
+
+						// Ensure we don't go past the total count
+						var totalCount = GetResultCount(user, directory, search, fileTypeCondition,
+								visibilityCondition, ownershipCondition, hiddenCondition,
+								connection, (await GetWhereCondition(search, user)).Item1,
+								(await GetWhereCondition(search, user)).Item2);
+
+						if (offset + pageSize > totalCount)
+						{
+							offset = Math.Max(0, totalCount - pageSize);
+						}
+					}
+
+					string orderBy = isRomSearch ? " ORDER BY f.last_access DESC " : " ORDER BY f.id DESC ";
+					(string searchCondition, List<MySqlParameter> extraParameters) = await GetWhereCondition(search, user);
+
+					var command = new MySqlCommand($@"
+                SELECT 
+                    f.id AS fileId,
+                    f.file_name,
+                    f.folder_path,
+                    f.is_public,
+                    f.is_folder,
+                    f.user_id AS fileUserId,
+                    u.username AS fileUsername,
+                    udpfl.id AS fileUserDisplayPictureFileId,
+                    udpfl.file_name AS fileUserDisplayPictureFileName,
+                    udpfl.folder_path AS fileUserDisplayPictureFolderPath,
+                    f.shared_with,
+                    f.upload_date AS date,
+                    f.given_file_name,
+                    f.description,
+                    f.last_updated AS file_data_updated,
+                    f.last_updated_by_user_id AS last_updated_by_user_id,
+                    uu.username AS last_updated_by_user_name,
+                    luudp.file_id AS last_updated_by_user_name_display_picture_file_id,
+                    f.file_type AS file_type,
+                    f.file_size AS file_size,
+                    f.width AS width,
+                    f.height AS height,
+                    f.last_access AS last_access
+                FROM
+                    maxhanna.file_uploads f 
+                LEFT JOIN
+                    maxhanna.users u ON f.user_id = u.id
+                LEFT JOIN
+                    maxhanna.users uu ON f.last_updated_by_user_id = uu.id
+                LEFT JOIN
+                    maxhanna.user_display_pictures udp ON udp.user_id = u.id
+                LEFT JOIN
+                    maxhanna.user_display_pictures luudp ON luudp.user_id = uu.id
+                LEFT JOIN
+                    maxhanna.file_uploads udpfl ON udp.file_id = udpfl.id 
+                WHERE
+                    {(!string.IsNullOrEmpty(search) ? "" : "f.folder_path = @folderPath AND ")}
+                    (
+                        f.is_public = 1
+                        OR f.user_id = @userId
+                        OR FIND_IN_SET(@userId, f.shared_with) > 0
+                    )
+                    {searchCondition} 
+                    {fileTypeCondition} 
+                    {visibilityCondition} 
+                    {ownershipCondition} 
+                    {hiddenCondition} 
+                    {orderBy}
+                LIMIT
+                    @pageSize OFFSET @offset;"
 					, connection);
+
 					foreach (var param in extraParameters)
 					{
 						command.Parameters.Add(param);
@@ -180,12 +223,13 @@ namespace maxhanna.Server.Controllers
 					command.Parameters.AddWithValue("@userId", user?.Id ?? 0);
 					command.Parameters.AddWithValue("@pageSize", pageSize);
 					command.Parameters.AddWithValue("@offset", offset);
-					command.Parameters.AddWithValue("@fileId", fileId);
 					if (!string.IsNullOrEmpty(search))
 					{
-						command.Parameters.AddWithValue("@search", "%" + search + "%"); // Add search parameter
+						command.Parameters.AddWithValue("@search", "%" + search + "%");
 					}
-					//Console.WriteLine($"fileId {fileId}, offset {offset}, pageSize {pageSize}, page {page}, folder path {directory}. command: " + command.CommandText);
+
+					Console.WriteLine($"fileId {fileId}, offset {offset}, pageSize {pageSize}, page {page}, folder path {directory}. command: " + command.CommandText);
+
 					using (var reader = command.ExecuteReader())
 					{
 						while (reader.Read())
@@ -200,15 +244,15 @@ namespace maxhanna.Server.Controllers
 								Visibility = (reader.IsDBNull("is_public") ? true : reader.GetBoolean("is_public")) ? "Public" : "Private",
 								IsFolder = reader.IsDBNull("is_folder") ? false : reader.GetBoolean("is_folder"),
 								User = new User(
-											reader.IsDBNull("fileUserId") ? 0 : reader.GetInt32("fileUserId"),
-											reader.IsDBNull("fileUsername") ? "" : reader.GetString("fileUsername"),
-											new FileEntry
-											{
-												Id = reader.IsDBNull("fileUserDisplayPictureFileId") ? 0 : reader.GetInt32("fileUserDisplayPictureFileId"),
-												FileName = reader.IsDBNull("fileUserDisplayPictureFileName") ? null : reader.GetString("fileUserDisplayPictureFileName"),
-												Directory = reader.IsDBNull("fileUserDisplayPictureFolderPath") ? null : reader.GetString("fileUserDisplayPictureFolderPath")
-											}
-									),
+															reader.IsDBNull("fileUserId") ? 0 : reader.GetInt32("fileUserId"),
+															reader.IsDBNull("fileUsername") ? "" : reader.GetString("fileUsername"),
+															new FileEntry
+															{
+																Id = reader.IsDBNull("fileUserDisplayPictureFileId") ? 0 : reader.GetInt32("fileUserDisplayPictureFileId"),
+																FileName = reader.IsDBNull("fileUserDisplayPictureFileName") ? null : reader.GetString("fileUserDisplayPictureFileName"),
+																Directory = reader.IsDBNull("fileUserDisplayPictureFolderPath") ? null : reader.GetString("fileUserDisplayPictureFolderPath")
+															}
+											),
 								SharedWith = reader.IsDBNull("shared_with") ? "" : reader.GetString("shared_with"),
 								Date = reader.IsDBNull("date") ? DateTime.Now : reader.GetDateTime("date"),
 								GivenFileName = reader.IsDBNull("given_file_name") ? null : reader.GetString("given_file_name"),
@@ -216,12 +260,12 @@ namespace maxhanna.Server.Controllers
 								LastUpdatedUserId = reader.IsDBNull("last_updated_by_user_id") ? 0 : reader.GetInt32("last_updated_by_user_id"),
 								Description = reader.IsDBNull("description") ? null : reader.GetString("description"),
 								LastUpdatedBy = new User(
-									reader.IsDBNull("last_updated_by_user_id") ? 0 : reader.GetInt32("last_updated_by_user_id"),
-									reader.IsDBNull("last_updated_by_user_name") ? "Anonymous" : reader.GetString("last_updated_by_user_name"),
-									new FileEntry
-									{
-										Id = reader.IsDBNull("last_updated_by_user_name_display_picture_file_id") ? 0 : reader.GetInt32("last_updated_by_user_name_display_picture_file_id")
-									}),
+											reader.IsDBNull("last_updated_by_user_id") ? 0 : reader.GetInt32("last_updated_by_user_id"),
+											reader.IsDBNull("last_updated_by_user_name") ? "Anonymous" : reader.GetString("last_updated_by_user_name"),
+											new FileEntry
+											{
+												Id = reader.IsDBNull("last_updated_by_user_name_display_picture_file_id") ? 0 : reader.GetInt32("last_updated_by_user_name_display_picture_file_id")
+											}),
 								FileType = reader.IsDBNull("file_type") ? "" : reader.GetString("file_type"),
 								FileSize = reader.IsDBNull("file_size") ? 0 : reader.GetInt32("file_size"),
 								Width = reader.IsDBNull("width") ? null : reader.GetInt32("width"),
@@ -233,6 +277,7 @@ namespace maxhanna.Server.Controllers
 						}
 					}
 
+					// Rest of the method remains the same...
 					var fileIds = fileEntries.Select(f => f.Id).ToList();
 					var commentIds = new List<int>();
 					var fileIdsParameters = new List<string>();
@@ -262,160 +307,145 @@ namespace maxhanna.Server.Controllers
 				return StatusCode(500, ex.Message);
 			}
 		}
-
 		private static void GetFileComments(List<FileEntry> fileEntries, MySqlConnection connection, List<int> fileIds, List<int> commentIds, List<string> fileIdsParameters)
 		{
-			//Console.WriteLine($"Get file comments {fileEntries.Count} {fileIds.Count} {commentIds.Count} {fileIdsParameters.Count}");
-			// Fetch comments separately
 			var commentsCommand = new MySqlCommand($@"
-                    SELECT 
-                        fc.id AS commentId,
-                        fc.file_id AS commentFileId,
-                        fc.user_id AS commentUserId,
-                        fc.date AS commentDate,
-                        fc.city AS commentCity,
-                        fc.country AS commentCountry,
-                        fc.ip AS commentIp,
-												fc.comment_id as comment_parent_id,
-                        uc.username AS commentUsername,
-                        ucudpfu.id AS commentUserDisplayPicId,
-                        ucudpfu.file_name AS commentUserDisplayPicFileName,
-                        ucudpfu.folder_path AS commentUserDisplayPicFolderPath,
-                        fc.comment AS commentText,
-                        cf.file_id AS commentFileEntryId,
-                        cf2.file_name AS commentFileEntryName,
-                        cf2.folder_path AS commentFileEntryFolderPath,
-                        cf2.is_public AS commentFileEntryIsPublic,
-                        cf2.is_folder AS commentFileEntryIsFolder,
-                        cf2.user_id AS commentFileEntryUserId,
-                        cfu2.username AS commentFileEntryUserName,
-                        cf2.file_type AS commentFileEntryType,
-                        cf2.file_size AS commentFileEntrySize,
-                        cf2.upload_date AS commentFileEntryDate
-                    FROM
-                        maxhanna.comments fc
-                    LEFT JOIN
-                        maxhanna.users uc ON fc.user_id = uc.id
-                    LEFT JOIN
-                        maxhanna.user_display_pictures ucudp ON ucudp.user_id = uc.id
-                    LEFT JOIN
-                        maxhanna.file_uploads ucudpfu ON ucudp.file_id = ucudpfu.id
-                    LEFT JOIN
-                        maxhanna.comment_files cf ON fc.id = cf.comment_id
-                    LEFT JOIN
-                        maxhanna.file_uploads cf2 ON cf.file_id = cf2.id
-                    LEFT JOIN 
-                        maxhanna.users cfu2 on cfu2.id = cf2.user_id 
-                    WHERE 1=1
-                       {((fileIds.Count > 0 || fileIdsParameters.Count > 0) ? " AND ": "")} {(fileIds.Count > 0 ? $"fc.file_id IN ({string.Join(", ", fileIdsParameters)})" : "")}
-											{(fileIdsParameters.Count > 0 ? $" {(fileIds.Count > 0 ? " OR " : " AND ")} fc.comment_id IN (SELECT id FROM comments AS z WHERE z.file_id IN ({string.Join(",", fileIdsParameters)}))" : "")};", connection);
+		SELECT 
+			fc.id AS commentId,
+			fc.file_id AS commentFileId,
+			fc.user_id AS commentUserId,
+			fc.date AS commentDate,
+			fc.city AS commentCity,
+			fc.country AS commentCountry,
+			fc.ip AS commentIp,
+			fc.comment_id as comment_parent_id,
+			uc.username AS commentUsername,
+			ucudpfu.id AS commentUserDisplayPicId,
+			ucudpfu.file_name AS commentUserDisplayPicFileName,
+			ucudpfu.folder_path AS commentUserDisplayPicFolderPath,
+			fc.comment AS commentText,
+			cf.file_id AS commentFileEntryId,
+			cf2.file_name AS commentFileEntryName,
+			cf2.folder_path AS commentFileEntryFolderPath,
+			cf2.is_public AS commentFileEntryIsPublic,
+			cf2.is_folder AS commentFileEntryIsFolder,
+			cf2.user_id AS commentFileEntryUserId,
+			cfu2.username AS commentFileEntryUserName,
+			cf2.file_type AS commentFileEntryType,
+			cf2.file_size AS commentFileEntrySize,
+			cf2.upload_date AS commentFileEntryDate
+		FROM
+			maxhanna.comments fc
+		LEFT JOIN maxhanna.users uc ON fc.user_id = uc.id
+		LEFT JOIN maxhanna.user_display_pictures ucudp ON ucudp.user_id = uc.id
+		LEFT JOIN maxhanna.file_uploads ucudpfu ON ucudp.file_id = ucudpfu.id
+		LEFT JOIN maxhanna.comment_files cf ON fc.id = cf.comment_id
+		LEFT JOIN maxhanna.file_uploads cf2 ON cf.file_id = cf2.id
+		LEFT JOIN maxhanna.users cfu2 ON cfu2.id = cf2.user_id
+		WHERE 1=1
+			{((fileIds.Count > 0 || fileIdsParameters.Count > 0) ? " AND " : "")}
+			{(fileIds.Count > 0 ? $"fc.file_id IN ({string.Join(", ", fileIdsParameters)})" : "")}
+			{(fileIdsParameters.Count > 0 ? $" {(fileIds.Count > 0 ? " OR " : " AND ")} fc.comment_id IN (SELECT id FROM comments AS z WHERE z.file_id IN ({string.Join(",", fileIdsParameters)}))" : "")};", connection);
+
 			for (int i = 0; i < fileIds.Count; i++)
 			{
 				commentsCommand.Parameters.AddWithValue($"@fileId{i}", fileIds[i]);
 			}
-			//Console.WriteLine(commentsCommand.CommandText);
-			using (var reader = commentsCommand.ExecuteReader())
+
+			using var reader = commentsCommand.ExecuteReader();
+
+			Dictionary<int, FileComment> allCommentsById = new();
+			List<(FileComment comment, int parentId)> childComments = new();
+
+			while (reader.Read())
 			{
-				//_ = _log.Db("comment command executed");
+				var commentId = reader.IsDBNull(reader.GetOrdinal("commentId")) ? 0 : reader.GetInt32("commentId");
+				var fileIdValue = reader.IsDBNull(reader.GetOrdinal("commentFileId")) ? 0 : reader.GetInt32("commentFileId");
+				var commentCity = reader.IsDBNull(reader.GetOrdinal("commentCity")) ? null : reader.GetString("commentCity");
+				var commentCountry = reader.IsDBNull(reader.GetOrdinal("commentCountry")) ? null : reader.GetString("commentCountry");
+				var commentIp = reader.IsDBNull(reader.GetOrdinal("commentIp")) ? null : reader.GetString("commentIp");
+				int? commentParentId = reader.IsDBNull(reader.GetOrdinal("comment_parent_id")) ? null : reader.GetInt32("comment_parent_id");
 
-				Dictionary<int, FileComment> allCommentsById = new();
+				var commentUserDisplayPicId = reader.IsDBNull(reader.GetOrdinal("commentUserDisplayPicId")) ? (int?)null : reader.GetInt32("commentUserDisplayPicId");
+				var commentUserDisplayPicFileName = reader.IsDBNull(reader.GetOrdinal("commentUserDisplayPicFileName")) ? null : reader.GetString("commentUserDisplayPicFileName");
+				var commentUserDisplayPicFolderPath = reader.IsDBNull(reader.GetOrdinal("commentUserDisplayPicFolderPath")) ? null : reader.GetString("commentUserDisplayPicFolderPath");
 
-				while (reader.Read())
+				var comment = new FileComment
 				{
-					//_ = _log.Db("comment command read");
-					var commentId = reader.IsDBNull(reader.GetOrdinal("commentId")) ? 0 : reader.GetInt32("commentId");
-					var fileIdValue = reader.IsDBNull(reader.GetOrdinal("commentFileId")) ? 0 : reader.GetInt32("commentFileId");
-					//_ = _log.Db("Found commentId " + commentId);
-					var commentCity = reader.IsDBNull(reader.GetOrdinal("commentCity")) ? null : reader.GetString("commentCity");
-					var commentCountry = reader.IsDBNull(reader.GetOrdinal("commentCountry")) ? null : reader.GetString("commentCountry");
-					var commentIp = reader.IsDBNull(reader.GetOrdinal("commentIp")) ? null : reader.GetString("commentIp");
-					int? commentParentId = reader.IsDBNull(reader.GetOrdinal("comment_parent_id")) ? null : reader.GetInt32("comment_parent_id");
+					Id = commentId,
+					FileId = fileIdValue,
+					CommentId = commentParentId,
+					User = new User(
+						reader.GetInt32("commentUserId"),
+						reader.GetString("commentUsername"),
+						null,
+						new FileEntry
+						{
+							Id = commentUserDisplayPicId ?? 0,
+							FileName = commentUserDisplayPicFileName,
+							Directory = commentUserDisplayPicFolderPath
+						},
+						null, null, null
+					),
+					CommentText = reader.GetString("commentText"),
+					Date = reader.GetDateTime("commentDate"),
+					City = commentCity,
+					Country = commentCountry,
+					Ip = commentIp
+				};
 
-					var commentUserDisplayPicId = reader.IsDBNull(reader.GetOrdinal("commentUserDisplayPicId")) ? (int?)null : reader.GetInt32("commentUserDisplayPicId");
-					var commentUserDisplayPicFileName = reader.IsDBNull(reader.GetOrdinal("commentUserDisplayPicFileName")) ? null : reader.GetString("commentUserDisplayPicFileName");
-					var commentUserDisplayPicFolderPath = reader.IsDBNull(reader.GetOrdinal("commentUserDisplayPicFolderPath")) ? null : reader.GetString("commentUserDisplayPicFolderPath");
+				commentIds.Add(commentId);
 
-					var comment = new FileComment
+				var fileEntryId = reader.IsDBNull(reader.GetOrdinal("commentFileEntryId")) ? (int?)null : reader.GetInt32("commentFileEntryId");
+
+				if (fileEntryId.HasValue)
+				{
+					var fileEntry = new FileEntry
 					{
-						Id = commentId,
-						FileId = fileIdValue,
-						CommentId = commentParentId,
+						Id = fileEntryId.Value,
+						FileName = reader.IsDBNull(reader.GetOrdinal("commentFileEntryName")) ? null : reader.GetString("commentFileEntryName"),
+						Directory = reader.IsDBNull(reader.GetOrdinal("commentFileEntryFolderPath")) ? null : reader.GetString("commentFileEntryFolderPath"),
+						Visibility = reader.GetBoolean("commentFileEntryIsPublic") ? "Public" : "Private",
+						IsFolder = reader.GetBoolean("commentFileEntryIsFolder"),
 						User = new User(
-									reader.GetInt32("commentUserId"),
-									reader.GetString("commentUsername"),
-									null,
-									new FileEntry
-									{
-										Id = commentUserDisplayPicId ?? 0,
-										FileName = commentUserDisplayPicFileName,
-										Directory = commentUserDisplayPicFolderPath
-									},
-									null, null, null
-							),
-						CommentText = reader.GetString("commentText"),
-						Date = reader.GetDateTime("commentDate"),
-						City = commentCity,
-						Country = commentCountry,
-						Ip = commentIp,
+							reader.GetInt32("commentFileEntryUserId"),
+							reader.GetString("commentFileEntryUserName")
+						),
+						Date = reader.GetDateTime("commentFileEntryDate"),
+						FileType = reader.GetString("commentFileEntryType"),
+						FileSize = reader.GetInt32("commentFileEntrySize")
 					};
-					commentIds.Add(commentId);
-					//_ = _log.Db("Comment constructed with id : " + commentId);
-					var fileEntryId = reader.IsDBNull(reader.GetOrdinal("commentFileEntryId")) ? (int?)null : reader.GetInt32("commentFileEntryId");
 
-					if (fileEntryId.HasValue)
-					{
-						var fileEntryName = reader.IsDBNull(reader.GetOrdinal("commentFileEntryName")) ? null : reader.GetString("commentFileEntryName");
-						var fileEntryFolderPath = reader.IsDBNull(reader.GetOrdinal("commentFileEntryFolderPath")) ? null : reader.GetString("commentFileEntryFolderPath");
-						var fileEntryVisibility = reader.GetBoolean("commentFileEntryIsPublic") ? "Public" : "Private";
-						var fileEntryUserId = reader.GetInt32("commentFileEntryUserId");
-						var fileEntryUserName = reader.GetString("commentFileEntryUserName");
-						var fileEntryDate = reader.GetDateTime("commentFileEntryDate");
-						var fileEntryType = reader.GetString("commentFileEntryType");
-						var fileEntrySize = reader.GetInt32("commentFileEntrySize");
-
-						var fileEntryComment = new FileEntry
-						{
-							Id = fileEntryId.Value,
-							FileName = fileEntryName,
-							Directory = fileEntryFolderPath,
-							Visibility = fileEntryVisibility,
-							IsFolder = reader.GetBoolean("commentFileEntryIsFolder"),
-							User = new User(fileEntryUserId, fileEntryUserName),
-							Date = fileEntryDate,
-							FileType = fileEntryType,
-							FileSize = fileEntrySize
-						};
-
-						comment.CommentFiles!.Add(fileEntryComment);
-					}
-					if (comment.CommentId == null)
-					{
-						allCommentsById[comment.Id] = comment;
-					}
-					else
-					{
-						var tgtParentComment = allCommentsById[comment.CommentId.Value];
-						if (tgtParentComment != null)
-						{
-							if (tgtParentComment.Comments == null) { tgtParentComment.Comments = new List<FileComment>(); }
-							tgtParentComment.Comments.Add(comment);
-						}
-					}
-					//_ = _log.Db($"trying to find file with id value : {fileIdValue}");
-					var fileEntry = fileEntries.FirstOrDefault(f => f.Id == fileIdValue);
-
-					//_ = _log.Db($"found : {fileEntry}");
-
-					if (fileEntry != null)
-					{
-						if (fileEntry.FileComments == null)
-						{
-							fileEntry.FileComments = new List<FileComment>();
-						}
-						fileEntry.FileComments!.Add(comment);
-						//_ = _log.Db($"Attached comment {comment.Id} to file {fileEntry.Id}");
-					}
+					comment.CommentFiles!.Add(fileEntry);
 				}
+
+				allCommentsById[comment.Id] = comment;
+
+				if (commentParentId.HasValue)
+				{
+					childComments.Add((comment, commentParentId.Value));
+				}
+
+				var fileEntryMatch = fileEntries.FirstOrDefault(f => f.Id == fileIdValue);
+				if (fileEntryMatch != null)
+				{
+					if (fileEntryMatch.FileComments == null)
+					{
+						fileEntryMatch.FileComments = new List<FileComment>();
+					}
+					fileEntryMatch.FileComments!.Add(comment);
+				}
+			}
+
+			// Second pass: assign child comments to their parent
+			foreach (var (comment, parentId) in childComments)
+			{
+				if (allCommentsById.TryGetValue(parentId, out var parent))
+				{
+					parent.Comments ??= new List<FileComment>();
+					parent.Comments.Add(comment);
+				}
+				// else skip � parent was likely filtered out or not included
 			}
 		}
 
@@ -627,8 +657,8 @@ namespace maxhanna.Server.Controllers
 			return nsfwEnabled;
 		}
 		private async Task<(string, List<MySqlParameter>)> GetWhereCondition(string? search, User? user)
-		{ 
-			string searchCondition = ""; 
+		{
+			string searchCondition = "";
 			if (!await GetNsfwForUser(user))
 			{
 				searchCondition += $@"
@@ -641,9 +671,9 @@ namespace maxhanna.Server.Controllers
 
 			if (string.IsNullOrWhiteSpace(search))
 				return (searchCondition, new List<MySqlParameter>());
-			 
+
 			List<MySqlParameter> parameters = new();
-			 
+
 			// Use FULLTEXT search for better ranking 
 			searchCondition += $@"
       AND 
@@ -668,7 +698,7 @@ namespace maxhanna.Server.Controllers
 			)";
 
 			parameters.Add(new MySqlParameter("@FullTextSearch", search));
-		 
+
 
 			// Special rules for keywords like "sega", "nintendo", "gameboy"
 			if (search.Contains("sega", StringComparison.OrdinalIgnoreCase))
@@ -691,7 +721,7 @@ namespace maxhanna.Server.Controllers
 		[HttpPost("/File/UpdateFileData", Name = "UpdateFileData")]
 		public async Task<IActionResult> UpdateFileData([FromBody] FileDataRequest request)
 		{
-		//	_ = _log.Db($"POST /File/UpdateFileData (Updating data for file: {request.FileData.FileId}  user: {request.UserId})", request.UserId, "FILE", true);
+			//	_ = _log.Db($"POST /File/UpdateFileData (Updating data for file: {request.FileData.FileId}  user: {request.UserId})", request.UserId, "FILE", true);
 
 			try
 			{
@@ -764,7 +794,7 @@ namespace maxhanna.Server.Controllers
 		public IActionResult GetFile(string filePath)
 		{
 			filePath = Path.Combine(_baseTarget, WebUtility.UrlDecode(filePath) ?? "");
-			 
+
 			if (!ValidatePath(filePath)) { return StatusCode(500, $"Must be within {_baseTarget}"); }
 
 			try
@@ -796,7 +826,7 @@ namespace maxhanna.Server.Controllers
 
 		[HttpPost("/File/GetFileById/{fileId}", Name = "GetFileById")]
 		public async Task<IActionResult> GetFileById([FromBody] int? userId, int fileId, [FromHeader(Name = "Encrypted-UserId")] string encryptedUserIdHeader)
-		{ 
+		{
 			try
 			{
 				if (fileId == 0)
@@ -836,11 +866,12 @@ namespace maxhanna.Server.Controllers
 
 						// Check if the user has permission to access the file
 						if (!isPublic && (userId == null || userIdDb != userId))
-						{ 
+						{
 							_ = _log.Db($"User does not have permission to access file with id {fileId}.", userId, "FILE", true);
 							return Forbid();
 						}
-						if (!isPublic && (userId == null || (!await _log.ValidateUserLoggedIn(userId.Value, encryptedUserIdHeader)))) { 
+						if (!isPublic && (userId == null || (!await _log.ValidateUserLoggedIn(userId.Value, encryptedUserIdHeader))))
+						{
 							_ = _log.Db($"User does not have permission to access file with id {fileId}.", userId, "FILE", true);
 							return Forbid();
 						}
@@ -1041,10 +1072,10 @@ namespace maxhanna.Server.Controllers
 						var fileEntry = CreateFileEntry(file, userId ?? 0, isPublic, fileId, convertedFilePath, uploadDirectory, width, height, duration);
 						uploaded.Add(fileEntry);
 
-						await AppendToSitemapAsync(fileEntry); 
+						await AppendToSitemapAsync(fileEntry);
 					}
 				}
-				string message = $"Uploaded {uploaded.Count} files. Conflicts: {conflicts}."; 
+				string message = $"Uploaded {uploaded.Count} files. Conflicts: {conflicts}.";
 				return Ok(uploaded);
 			}
 			catch (Exception ex)
@@ -1183,7 +1214,7 @@ namespace maxhanna.Server.Controllers
 
 		[HttpPost("/File/Edit-Topics", Name = "EditFileTopics")]
 		public async Task<IActionResult> EditFileTopics([FromBody] EditTopicRequest request)
-		{ 
+		{
 			try
 			{
 				string deleteSql = "DELETE FROM maxhanna.file_topics WHERE file_id = @FileId;";
@@ -1562,7 +1593,7 @@ namespace maxhanna.Server.Controllers
 
 				string fileName = Path.GetFileName(convertedFilePath);
 				long fileSize = new FileInfo(convertedFilePath).Length;
-				DateTime uploadDate = DateTime.UtcNow; 
+				DateTime uploadDate = DateTime.UtcNow;
 
 				var command = new MySqlCommand(
 				@"INSERT IGNORE INTO maxhanna.file_uploads 
@@ -1776,7 +1807,7 @@ namespace maxhanna.Server.Controllers
 			{
 				using (var connection = new MySqlConnection(_connectionString))
 				{
-					await connection.OpenAsync(); 
+					await connection.OpenAsync();
 					using (var transaction = await connection.BeginTransactionAsync())
 					{
 						// Insert into hidden_files table (no permission check)
@@ -1793,7 +1824,7 @@ namespace maxhanna.Server.Controllers
 						await transaction.CommitAsync();
 					}
 				}
-				 
+
 				return Ok("File hidden successfully.");
 			}
 			catch (Exception ex)
@@ -1810,7 +1841,7 @@ namespace maxhanna.Server.Controllers
 			{
 				using (var connection = new MySqlConnection(_connectionString))
 				{
-					await connection.OpenAsync();  
+					await connection.OpenAsync();
 					using (var transaction = await connection.BeginTransactionAsync())
 					{
 						// Remove from hidden_files table (no permission check)
@@ -1820,7 +1851,7 @@ namespace maxhanna.Server.Controllers
 						unhideCommand.Parameters.AddWithValue("@userId", request.UserId);
 						unhideCommand.Parameters.AddWithValue("@fileId", request.FileId);
 
-						await unhideCommand.ExecuteNonQueryAsync(); 
+						await unhideCommand.ExecuteNonQueryAsync();
 
 						// Commit transaction
 						await transaction.CommitAsync();
@@ -1889,7 +1920,7 @@ namespace maxhanna.Server.Controllers
 						if (isFolder)
 						{
 							if (Directory.Exists(filePath))
-							{ 
+							{
 								Directory.Delete(filePath, true);
 								_ = _log.Db($"Directory deleted at {filePath}", null, "FILE", true);
 							}
@@ -1911,7 +1942,7 @@ namespace maxhanna.Server.Controllers
 						else
 						{
 							if (System.IO.File.Exists(filePath))
-							{ 
+							{
 								System.IO.File.Delete(filePath);
 								_ = _log.Db($"File deleted at {filePath}", request.userId, "FILE", true);
 							}
@@ -1950,7 +1981,7 @@ namespace maxhanna.Server.Controllers
 
 		[HttpPost("/File/Move/", Name = "MoveFile")]
 		public async Task<IActionResult> MoveFile([FromQuery] string inputFile, [FromQuery] string? destinationFolder, [FromBody] int userId)
-		{ 
+		{
 			try
 			{
 				// Remove any leading slashes
@@ -1967,7 +1998,7 @@ namespace maxhanna.Server.Controllers
 					return NotFound("Invalid path.");
 				}
 
-				if(!CanMoveFile(inputFile, destinationFolder, userId))
+				if (!CanMoveFile(inputFile, destinationFolder, userId))
 				{
 					_ = _log.Db($"Cannot move file: {inputFile} to {destinationFolder}. Insufficient Privileges.", userId, "FILE", true);
 					return NotFound("Cannot move file.");
@@ -2057,13 +2088,13 @@ namespace maxhanna.Server.Controllers
 
 					// Find all parent directories
 					while (!string.IsNullOrEmpty(filePath))
-					{ 
+					{
 						string parentPath = (Path.GetDirectoryName(filePath.TrimEnd('/').Replace("\\", "/")) ?? "").Replace("\\", "/");
 						if (!parentPath.EndsWith("/"))
 						{
 							parentPath += "/";
 						}
-						string folderName = Path.GetFileName(filePath.TrimEnd('/')); 
+						string folderName = Path.GetFileName(filePath.TrimEnd('/'));
 
 						if (string.IsNullOrEmpty(parentPath))
 						{
@@ -2099,7 +2130,7 @@ namespace maxhanna.Server.Controllers
 							updateCmd.Parameters.AddWithValue("@fileId", id);
 							await updateCmd.ExecuteNonQueryAsync();
 						}
-					} 
+					}
 					return Ok();
 				}
 			}
@@ -2132,7 +2163,7 @@ namespace maxhanna.Server.Controllers
 				string fileName = Path.GetFileName(oldFilePath);
 
 				_ = _log.Db($"Update FilePath in database: oldFolderPath: {oldFolderPath}; newFolderPath: {newFolderPath}; fileName: {fileName}", null, "FILE", true);
-				 
+
 				var command = new MySqlCommand(
 						"UPDATE maxhanna.file_uploads SET folder_path = @newFolderPath WHERE folder_path = @oldFolderPath AND file_name = @fileName", connection);
 				command.Parameters.AddWithValue("@newFolderPath", newFolderPath);
@@ -2144,7 +2175,7 @@ namespace maxhanna.Server.Controllers
 		}
 
 		private async Task UpdateDirectoryPathInDatabase(string oldDirectoryPath, string newDirectoryPath)
-		{ 
+		{
 			using (var connection = new MySqlConnection(_connectionString))
 			{
 				await connection.OpenAsync();
@@ -2189,7 +2220,7 @@ namespace maxhanna.Server.Controllers
 
 		[HttpPost("/File/Batch/", Name = "ExecuteBatch")]
 		public IActionResult ExecuteBatch([FromBody] User user, [FromQuery] string? inputFile)
-		{ 
+		{
 			string result = "";
 			try
 			{
@@ -2225,7 +2256,7 @@ namespace maxhanna.Server.Controllers
 		private readonly string _sitemapPath = Path.Combine(Directory.GetCurrentDirectory(), "../maxhanna.Client/src/sitemap.xml");
 
 		private async Task AppendToSitemapAsync(FileEntry fileEntry)
-		{ 
+		{
 			string fileUrl = IsVideoFileFromExtensionString(fileEntry.FileType)
 					? $"https://bughosted.com/Media/{fileEntry.Id}"
 					: $"https://bughosted.com/File/{fileEntry.Id}";
@@ -2340,7 +2371,7 @@ namespace maxhanna.Server.Controllers
 				}
 				else
 				{
-				//	_ = _log.Db("No <video:video> element found in sitemap for file.", null, "FILE", true);
+					//	_ = _log.Db("No <video:video> element found in sitemap for file.", null, "FILE", true);
 				}
 
 				// Save the updated sitemap
@@ -2348,7 +2379,7 @@ namespace maxhanna.Server.Controllers
 			}
 			catch (Exception ex)
 			{
-				_ = _log.Db("An error occurred while updating the sitemap entry. " +ex.Message, null, "FILE", true);
+				_ = _log.Db("An error occurred while updating the sitemap entry. " + ex.Message, null, "FILE", true);
 			}
 			finally
 			{
@@ -2426,7 +2457,7 @@ namespace maxhanna.Server.Controllers
 			cmd.Parameters.AddWithValue("@userId", userId);
 
 			using var reader = cmd.ExecuteReader();
-			return reader.Read();  
+			return reader.Read();
 		}
 
 		private bool ValidatePath(string directory)

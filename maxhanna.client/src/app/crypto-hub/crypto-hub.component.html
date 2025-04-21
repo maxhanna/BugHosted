@@ -54,23 +54,27 @@
 
     </div>
 
-    <div *ngIf="allHistoricalData && allHistoricalData.length > 0 && volumeData && volumeData.length > 0" class="graphContainerDiv sectionContainer" [style.display]="isTradePanelOpen ? 'none' : 'block'">
+    <div *ngIf="allHistoricalData && allHistoricalData.length > 0 && volumeData && volumeData.length > 0 && tradebotTradeValuesForMainGraph && tradebotTradeValuesForMainGraph.length > 0" class="graphContainerDiv sectionContainer" [style.display]="isTradePanelOpen ? 'none' : 'block'">
 
       <app-line-graph #lineGraphComponent
                       [type]="'Crypto'"
                       [selectedCurrency]="selectedCurrency"
-                      [selectedPeriod]="'15min'"
-                      [showAverage]="true"
-                      [data]="allHistoricalData!"
-                      [selectedCoin]="currentSelectedCoin">
+                      [selectedPeriod]="'1h'"  
+                      [data]="allHistoricalData"
+                      [data2]="tradebotTradeValuesForMainGraph"
+                      [chartTypeInputtedData2]="'line'"
+                      [isDotModeData2]="true"
+                      [selectedCoin]="currentSelectedCoin"
+                      (changeTimePeriodEvent)="changeTimePeriodEventOnBTCHistoricalGraph($event)">
       </app-line-graph>
       <app-line-graph [selectedCurrency]="'Volume'"
                       [type]="'Volume'"
                       [chartTypeInputted]="'bar'"
                       [showAverage]="true"
                       [displayCoinSwitcher]="false"
-                      [selectedPeriod]="'15min'"
-                      [data]="volumeData">
+                      [selectedPeriod]="'6h'"
+                      [data]="volumeData"
+                      (changeTimePeriodEvent)="changeTimePeriodEventOnVolumeGraph($event)">
       </app-line-graph>
     </div>
 
@@ -146,8 +150,8 @@
           <span>
             <span class="warning-text" title="We take no responsibility in how you use this trade bot nor what you do with any of this information.">⚠️</span>
             Trade Bot:
-            <button class="cursorPointer" *ngIf="hasKrakenApi && hasAnyTradeConfig && !tradeBotStarted" (click)="startTradeBot()">Start</button>
-            <button class="cursorPointer" *ngIf="tradeBotStarted" (click)="stopTradeBot()" style="{{tradeBotStartedSince ? 'margin-right: 15px' : ''}}">Stop</button>
+            <button class="cursorPointer" *ngIf="hasKrakenApi && hasAnyTradeConfig && !tradeBotStarted" (click)="startTradeBot()" title="Start the tradebot.">Start</button>
+            <button class="cursorPointer" *ngIf="tradeBotStarted" (click)="stopTradeBot()" style="{{tradeBotStartedSince ? 'margin-right: 15px' : ''}}" title="Stop the tradebot.">Stop</button>
             <p *ngIf="tradeBotStartedSince && isTradePanelOpen"></p>
             <span *ngIf="tradeBotStartedSince">Running Since: <span class="thirdFontColor smallFont">{{tradeBotStartedSince}}</span></span>
             <span class="cursorPointerUnderlined" (click)="createUpdateUserComponent();" *ngIf="!hasKrakenApi && parentRef?.user?.id"> Set Up Kraken API Keys </span>
@@ -184,7 +188,7 @@
                 <td class="smallFont">{{ trade.value }}</td>
                 <td class="xxSmallFont">{{ trade.btc_price_cad }}</td>
                 <td class="smallFont">{{ trade.trade_value_cad }}</td>
-                <td class="xxSmallFont">{{ getUtcTimeSince(trade.timestamp) }}</td>
+                <td class="xxSmallFont" [title]="getUtcTimeSince(trade.timestamp)">{{ parentRef?.convertUtcToLocalTime(trade.timestamp) }}</td>
               </tr>
             </tbody>
           </table>
@@ -192,88 +196,101 @@
       </div>
       <div *ngIf="showingTradeSettings" class="optionsStatsWrapperDiv tradeDataTable" style="{{isLoading ? 'opacity:25%' : ''}}">
         <div class="optionsStatsDiv">
-          <div class="optionsStatsHeader">From Coin</div>
+          <div class="optionsStatsHeader" title="Coin you're trading from">From Coin</div>
           <div class="optionsStatsDescription">
-            <select #tradeFromCoinSelect><option value="XBT">BTC</option></select>
+            <select #tradeFromCoinSelect title="Select the coin you want to sell"><option value="XBT">BTC</option></select>
           </div>
         </div>
+
         <div class="optionsStatsDiv">
-          <div class="optionsStatsHeader">To Coin</div>
+          <div class="optionsStatsHeader" title="Coin you're trading to">To Coin</div>
           <div class="optionsStatsDescription">
-            <select #tradeToCoinSelect><option value="USDC">USDC</option></select>
+            <select #tradeToCoinSelect title="Select the coin you want to receive"><option value="USDC">USDC</option></select>
           </div>
         </div>
+
         <div class="optionsStatsDiv">
-          <div class="optionsStatsHeader">_MaximumFromTradeAmount</div>
+          <div class="optionsStatsHeader" title="Upper limit of the amount you can trade FROM">_MaximumFromTradeAmount</div>
           <div class="optionsStatsDescription">
-            <input type="number" #tradeMaximumFromTradeAmount />
+            <input type="number" #tradeMaximumFromTradeAmount title="Max amount of source coin per trade" />
           </div>
         </div>
+
         <div class="optionsStatsDiv">
-          <div class="optionsStatsHeader">_MinimumFromTradeAmount</div>
+          <div class="optionsStatsHeader" title="Lower limit of the amount you can trade FROM">_MinimumFromTradeAmount</div>
           <div class="optionsStatsDescription">
-            <input type="number" #tradeMinimumFromTradeAmount />
+            <input type="number" #tradeMinimumFromTradeAmount title="Min amount of source coin per trade" />
           </div>
         </div>
+
         <div class="optionsStatsDiv">
-          <div class="optionsStatsHeader">_MaximumToTradeAmount</div>
+          <div class="optionsStatsHeader" title="Upper limit of the amount you can receive">_MaximumToTradeAmount</div>
           <div class="optionsStatsDescription">
-            <input type="number" #tradeMaximumToTradeAmount />
+            <input type="number" #tradeMaximumToTradeAmount title="Max amount of target coin received per trade" />
           </div>
         </div>
+
         <div class="optionsStatsDiv">
-          <div class="optionsStatsHeader">_TradeThreshold</div>
+          <div class="optionsStatsHeader" title="Only trade if spread exceeds this %">_TradeThreshold</div>
           <div class="optionsStatsDescription">
-            <input type="number" #tradeTradeThreshold />
+            <input type="number" #tradeTradeThreshold title="Minimum required spread (%) to trigger trade" />
           </div>
         </div>
+
         <div class="optionsStatsDiv">
-          <div class="optionsStatsHeader">_MaximumTradeBalanceRatio</div>
+          <div class="optionsStatsHeader" title="Avoid trading too much of your total balance">_MaximumTradeBalanceRatio</div>
           <div class="optionsStatsDescription">
-            <input type="number" #tradeMaximumTradeBalanceRatio />
+            <input type="number" #tradeMaximumTradeBalanceRatio title="Max % of balance allowed to be traded" />
           </div>
         </div>
+
         <div class="optionsStatsDiv">
-          <div class="optionsStatsHeader">_ValueTradePercentage</div>
+          <div class="optionsStatsHeader" title="Trade only a fraction of available funds">_ValueTradePercentage</div>
           <div class="optionsStatsDescription">
-            <input type="number" #tradeValueTradePercentage />
+            <input type="number" #tradeValueTradePercentage title="Percentage of balance used in each trade" />
           </div>
         </div>
+
         <div class="optionsStatsDiv">
-          <div class="optionsStatsHeader">_FromPriceDiscrepencyStopPercentage</div>
+          <div class="optionsStatsHeader" title="Stop trades if price deviation exceeds this %">_FromPriceDiscrepencyStopPercentage</div>
           <div class="optionsStatsDescription">
-            <input type="number" #tradeFromPriceDiscrepencyStopPercentage />
+            <input type="number" #tradeFromPriceDiscrepencyStopPercentage title="Max allowed price difference from expected" />
           </div>
         </div>
+
         <div class="optionsStatsDiv">
-          <div class="optionsStatsHeader">_InitialMinimumFromAmountToStart</div>
+          <div class="optionsStatsHeader" title="Don't trade unless this minimum amount is available">_InitialMinimumFromAmountToStart</div>
           <div class="optionsStatsDescription">
-            <input type="number" #tradeInitialMinimumFromAmountToStart />
+            <input type="number" #tradeInitialMinimumFromAmountToStart title="Minimum amount of FROM coin to start trading" />
           </div>
         </div>
+
         <div class="optionsStatsDiv">
-          <div class="optionsStatsHeader">_MinimumFromReserves</div>
+          <div class="optionsStatsHeader" title="Always keep at least this much of the FROM coin">_MinimumFromReserves</div>
           <div class="optionsStatsDescription">
-            <input type="number" #tradeMinimumFromReserves />
+            <input type="number" #tradeMinimumFromReserves title="Minimum reserve of source coin to keep" />
           </div>
         </div>
+
         <div class="optionsStatsDiv">
-          <div class="optionsStatsHeader">_MinimumToReserves</div>
+          <div class="optionsStatsHeader" title="Always keep at least this much of the TO coin">_MinimumToReserves</div>
           <div class="optionsStatsDescription">
-            <input type="number" #tradeMinimumToReserves />
+            <input type="number" #tradeMinimumToReserves title="Minimum reserve of target coin to keep" />
           </div>
         </div>
+
         <div class="optionsStatsDiv">
-          <div class="optionsStatsHeader">Updated</div>
+          <div class="optionsStatsHeader" title="Last time this configuration was updated">Updated</div>
           <div class="optionsStatsDescription">
-            <span *ngIf="tradeConfigLastUpdated">{{tradeConfigLastUpdated}}</span>
-            <span *ngIf="!tradeConfigLastUpdated">Never</span>
+            <span *ngIf="tradeConfigLastUpdated" title="Time of last save">{{tradeConfigLastUpdated}}</span>
+            <span *ngIf="!tradeConfigLastUpdated" title="No configuration has been saved yet">Never</span>
           </div>
         </div>
+
         <div class="optionsStatsDiv">
-          <div class="optionsStatsHeader">Save Configuration</div>
-          <button (click)="updateCoinConfiguration()" [disabled]="isLoading">💾Save</button>
-        </div>
+          <div class="optionsStatsHeader" title="Save current trade parameters">Save Configuration</div>
+          <button (click)="updateCoinConfiguration()" [disabled]="isLoading" title="Click to save current configuration">💾Save</button>
+        </div> 
       </div>
       <div *ngIf="isShowingTradeValueGraph">
         <app-line-graph [type]="'Crypto'"
@@ -352,19 +369,18 @@
           <div class="tradeBotSimDebugDivWrapper" #tradeBotSimDebugDivContainer id="tradeBotSimDebugDivContainer" *ngIf="tradeBotSimDebug && tradeBotSimDebug.length > 0">
             <button (click)="scrollToBottomOfTradebotSimDebug()">Scroll to bottom</button>
             <div *ngFor="let string of tradeBotSimDebug">
+              <div *ngIf="string && (string.includes('[SELL]') || string.includes('[BUY]'))" style="height:25px;"></div>
               <div>{{ string }}</div>
-              <div *ngIf="string && string.includes('balances')" style="height:25px;"></div>
             </div>
             <button (click)="scrollToTopOfTradebotSimDebug()">Scroll to top</button>
           </div>
         </div> 
       </div> 
-      <div *ngIf="hasKrakenApi && isTradePanelOpen" style="{{isTradePanelOpen ? 'margin-top:20px;' : ''}}text-align:right; width: 100%;">
+      <div *ngIf="hasKrakenApi && isTradePanelOpen" [style.marginTop]="isTradePanelOpen ? '20px' : ''" style="text-align:right; width: 100%;">
         <button class="cursorPointer" (click)="openTradeFullscreen()">{{isTradePanelOpen ? 'Minimize' : 'Maximize'}} View</button>
       </div>
     </div>
-
-
+ 
     <div class="sectionContainer" [style.display]="isTradePanelOpen ? 'none' : 'block'">
       <div class="titleFont cursorPointer" style="display: flex; justify-content: space-between;" (click)="hideHostAiMessage = !hideHostAiMessage">
         <span class="warning-text" title="This is not actual financial advice. This is based off AI and the data presented to it from your wallet. We take no responsibility in what you do with this information.">⚠️ HostAI: </span>

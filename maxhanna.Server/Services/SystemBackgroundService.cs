@@ -42,7 +42,7 @@ namespace maxhanna.Server.Services
 		{
 			while (!stoppingToken.IsCancellationRequested)
 			{
-					_ = _log.Db("Refreshing system information:" + DateTimeOffset.Now, null, null, true);
+					_ = _log.Db("Refreshing system information:" + DateTimeOffset.Now, outputToConsole: true);
 
 				// Run tasks that need to execute every 1 minute
 				if ((DateTime.Now - _lastMinuteTaskRun).TotalMinutes >= 1)

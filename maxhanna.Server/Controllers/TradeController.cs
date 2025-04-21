@@ -1,21 +1,22 @@
+using maxhanna.Server.Controllers.DataContracts.Crypto;
 using maxhanna.Server.Controllers.DataContracts.Users;
 using Microsoft.AspNetCore.Mvc;
 using System.Text.Json;
 
 public class TradeController : ControllerBase
-{ 
-	private readonly KrakenService _krakenService; 
+{
+	private readonly KrakenService _krakenService;
 	private readonly Log _log;
 
 	public TradeController(KrakenService krakenService, Log log)
-	{ 
+	{
 		_krakenService = krakenService;
 		_log = log;
 	}
 
 	[HttpPost("/Trade/GetTradeHistory", Name = "GetTradeHistory")]
 	public async Task<IActionResult> GetTradeHistory([FromBody] int userId, [FromHeader(Name = "Encrypted-UserId")] string encryptedUserId)
-	{ 
+	{
 		try
 		{
 			if (userId != 1 && !await _log.ValidateUserLoggedIn(userId, encryptedUserId)) return StatusCode(500, "Access Denied.");
@@ -124,22 +125,22 @@ public class TradeController : ControllerBase
 		{
 			return StatusCode(500, "Error stopping trade bot. " + ex.Message);
 		}
-	}	
-	
+	}
+
 	[HttpPost("/Trade/GetConfiguration", Name = "GetConfiguration")]
 	public async Task<IActionResult> GetConfiguration([FromBody] TradeConfiguration keys, [FromHeader(Name = "Encrypted-UserId")] string encryptedUserId)
 	{
 		int userId = keys.UserId;
 		string from = keys.FromCoin ?? "";
-		string to = keys.ToCoin ?? ""; 
+		string to = keys.ToCoin ?? "";
 		if (userId == 0)
 		{
 			return BadRequest("You must be logged in.");
 		}
 		try
 		{
-			if (!await _log.ValidateUserLoggedIn(userId, encryptedUserId)) return StatusCode(500, "Access Denied."); 
-			TradeConfiguration? tc = await _krakenService.GetTradeConfiguration(userId, "XBT", "USDC"); 
+			if (!await _log.ValidateUserLoggedIn(userId, encryptedUserId)) return StatusCode(500, "Access Denied.");
+			TradeConfiguration? tc = await _krakenService.GetTradeConfiguration(userId, "XBT", "USDC");
 			return Ok(tc);
 		}
 		catch (Exception ex)
@@ -150,7 +151,7 @@ public class TradeController : ControllerBase
 
 	[HttpPost("/Trade/GetTradeLogs", Name = "GetTradeLogs")]
 	public async Task<IActionResult> GetTradeLogs([FromBody] int userId, [FromHeader(Name = "Encrypted-UserId")] string encryptedUserId)
-	{  
+	{
 		try
 		{
 			if (userId != 1 && !await _log.ValidateUserLoggedIn(userId, encryptedUserId)) return StatusCode(500, "Access Denied.");
@@ -166,8 +167,22 @@ public class TradeController : ControllerBase
 	public async Task<IActionResult> GetTradeVolume([FromBody] int? days)
 	{
 		try
-		{ 
-			List<VolumeData>? result = await _krakenService.GetTradeMarketVolumesAsync("XBT","USDC",days);
+		{
+			List<VolumeData>? result = await _krakenService.GetTradeMarketVolumesAsync("XBT", "USDC", days);
+			return Ok(result);
+		}
+		catch (Exception ex)
+		{
+			return StatusCode(500, "Error GetTradeMarketVolumesAsync. " + ex.Message);
+		}
+	}
+
+	[HttpPost("/Trade/GetTradeVolumeForGraph", Name = "GetTradeVolumeForGraph")]
+	public async Task<IActionResult> GetTradeVolumeForGraph([FromBody] GraphRangeRequest request)
+	{
+		try
+		{
+			List<VolumeData>? result = await _krakenService.GetTradeMarketVolumesForGraphAsync("XBT", "USDC", request);
 			return Ok(result);
 		}
 		catch (Exception ex)
@@ -180,7 +195,7 @@ public class TradeController : ControllerBase
 	public async Task<IActionResult> UpsertTradeConfiguration(
 		[FromBody] TradeConfiguration config,
 		[FromHeader(Name = "Encrypted-UserId")] string encryptedUserId)
-	{ 
+	{
 		string from = config.FromCoin ?? "";
 		string to = config.ToCoin ?? "";
 		int userId = config.UserId;
@@ -221,5 +236,5 @@ public class TradeController : ControllerBase
 			_ = _log.Db("Error upserting trade config. " + ex.Message, config.UserId, "TRADE", true);
 			return StatusCode(500, "Error saving configuration.");
 		}
-	} 
+	}
 }

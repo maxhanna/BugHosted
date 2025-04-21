@@ -50,15 +50,18 @@ export class TradeService {
     return this.post(`/trade/upserttradeconfiguration`, config, 'text', encryptedUserId);
   }
   async getTradeConfigurationLastUpdated(userId: number, encryptedUserId: string, from?: string, to?: string) {
-    return this.post(`/trade/getconfigurationlastupdated`, { UserId: userId, FromCoin: from, ToCoin: to }, 'text', encryptedUserId);
+    return this.post(`/trade/getconfigurationlastupdated`, { UserId: userId, FromCoin: from, ToCoin: to }, 'json', encryptedUserId);
   }
   async getTradeConfiguration(userId: number, encryptedUserId: string, from?: string, to?: string) {
-    return this.post(`/trade/getconfiguration`, { UserId: userId, FromCoin: from, ToCoin: to }, 'text', encryptedUserId);
+    return this.post(`/trade/getconfiguration`, { UserId: userId, FromCoin: from, ToCoin: to }, 'json', encryptedUserId);
   }
   async getTradeLogs(userId: number, encryptedUserId: string) {
-    return this.post(`/trade/gettradelogs`, userId, 'text', encryptedUserId);
+    return this.post(`/trade/gettradelogs`, userId, 'json', encryptedUserId);
   }
   async getTradeVolume(days?: number) {
-    return this.post(`/trade/gettradevolume`, days, 'text');
+    return this.post(`/trade/gettradevolume`, days, 'json');
+  }
+  async getTradeVolumeForGraph(from?: Date, hourRange?: number) {
+    return this.post(`/trade/gettradevolumeforgraph`, {From: from, HourRange: hourRange}, 'json');
   }
 }

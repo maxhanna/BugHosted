@@ -1731,7 +1731,7 @@ namespace maxhanna.Server.Controllers
 					return StatusCode(500, "An error occurred while unblocking user");
 				}
 			}
-		}
+		} 
 
 		[HttpPost("/User/IsUserBlocked", Name = "IsUserBlocked")]
 		public async Task<IActionResult> IsUserBlocked([FromBody] BlockRequest request)
@@ -1765,6 +1765,61 @@ namespace maxhanna.Server.Controllers
 				}
 			}
 		}
+
+		[HttpPost("/User/GetBlockedUsers", Name = "GetBlockedUsers")]
+		public async Task<IActionResult> GetBlockedUsers([FromBody] int userId)
+		{
+			string connectionString = _config.GetValue<string>("ConnectionStrings:maxhanna") ?? "";
+
+			using (MySqlConnection conn = new MySqlConnection(connectionString))
+			{
+				try
+				{
+					await conn.OpenAsync();
+
+					string sql = @"
+                SELECT 
+                    ub.blocked_user_id,
+                    u.username,
+                    udp.file_id,
+                    ub.created_at AS blocked_at
+                FROM maxhanna.user_blocks ub
+                JOIN maxhanna.users u ON ub.blocked_user_id = u.id
+                LEFT JOIN maxhanna.user_display_pictures udp ON udp.user_id = u.id
+                WHERE ub.user_id = @UserId
+                ORDER BY ub.created_at DESC;
+            ";
+
+					using (MySqlCommand cmd = new MySqlCommand(sql, conn))
+					{
+						cmd.Parameters.AddWithValue("@UserId", userId);
+
+						var blockedUsers = new List<User>();
+						using (var reader = await cmd.ExecuteReaderAsync())
+						{
+							while (await reader.ReadAsync())
+							{
+								blockedUsers.Add(new User
+								{
+									Id = reader.GetInt32("blocked_user_id"),
+									Username = reader.GetString("username"),
+									DisplayPictureFile = reader.IsDBNull("file_id") ?
+												null : new FileEntry(reader.GetInt32("file_id")),
+								});
+							}
+						}
+
+						return Ok(blockedUsers);
+					}
+				}
+				catch (Exception ex)
+				{
+					_ = _log.Db($"Error getting blocked users for user {userId}. " + ex.Message, userId, "USER", true);
+					return StatusCode(500, "An error occurred while retrieving blocked users");
+				}
+			}
+		}
+
 
 		public class BlockRequest
 		{

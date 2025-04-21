@@ -1,5 +1,6 @@
 <div class="componentMain">
-  <div class="closeButton" (click)="remove_me('HostAiComponent');"></div> 
+  <div class="closeButton" (click)="remove_me('HostAiComponent');"></div>
+  <div class="menuButton" (click)="showMenuPanel();"></div>
   <div class="componentTitle">{{this.hostName}}</div>
 
   <div class="chat-container" #chatContainer>
@@ -9,7 +10,7 @@
         <div>
           <strong>{{ message.sender }}:</strong>
           <span class="message" [innerHTML]="message.message"></span>
-          <button *ngIf="message.sender === hostName" (click)="startedTalking = true; speakMessage(message.message)" [disabled]="startedTalking">🔊</button> 
+          <button *ngIf="message.sender === hostName" (click)="startedTalking = true; speakMessage(message.message)" [disabled]="startedTalking">🔊</button>
         </div>
       </div>
       <div class="loadingResponseDiv" *ngIf="isLoading">Loading...</div>
@@ -20,7 +21,7 @@
       <div>Start by typing a message <span *ngIf="!speechRecognitionUnavailable">or by pressing on the microphone</span>.</div>
       <div *ngIf="speechRecognitionUnavailable">(Speech recognition unavailable on this browser).</div>
     </div>
-     
+
     <div class="input-container">
       <textarea [value]="userMessage"
                 (keydown)="handleKeyDown($event)"
@@ -31,5 +32,30 @@
       <button (click)="stopTalking()" *ngIf="startedTalking">🤐</button>
       <button (click)="sendMessage()" [disabled]="isLoading">Send</button>
     </div>
+  </div>
+</div>
+
+<div class="popupPanel" *ngIf="isMenuOpen">
+  <div class="popupPanelTitle">
+    <span>Menu</span>
   </div> 
+  <div class="menuOptionDiv">
+    <div>
+      Response length:
+      <select #periodSelect (change)="changeResponseLength($event)" [value]="responseLength">
+        <option value="30">Super short</option>
+        <option value="200">Short</option>
+        <option value="450">Medium</option>
+        <option value="600">Long</option>
+        <option value="0">Unfiltered</option>
+      </select>
+    </div>
+    <div>
+      <button (click)="clearMemory()" title="Clear interaction history">Clear Memory</button>
+    </div>
+   
+  </div>
+  <div>
+    <button id="closeOverlay" (click)="closeMenuPanel()">Close</button>
+  </div>
 </div>

@@ -27,6 +27,7 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
   isGeneralToggled = false;
   isMenuIconsToggled = false;
   isWeatherLocationToggled = false; 
+  isBlockedUsersToggled = false; 
   isDeleteAccountToggled = false;
   isBTCWalletAddressesToggled = false;
   isAboutToggled = false;
@@ -38,6 +39,7 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
   notifications: string[] = [];
   selectedCurrency = '';
   uniqueCurrencyNames: string[] = [];
+  blockedUsers: User[] = [];
   nhApiKeys?: NicehashApiKeys;
   hasKrakenKeys?: boolean;
   displayPictureFile?: FileEntry = this.parentRef?.user?.displayPictureFile;
@@ -88,6 +90,7 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
     this.isGeneralToggled = false;
     this.isMenuIconsToggled = false;
     this.isWeatherLocationToggled = false; 
+    this.isBlockedUsersToggled = false; 
     this.isDeleteAccountToggled = false;
     this.isAboutToggled = false;
     this.isNicehashApiKeysToggled = this.showOnlyNicehashApiKeys ?? false;
@@ -416,7 +419,34 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
       }
     }
   }
-
+  async getBlockedUsers() {
+    const parent = this.inputtedParentRef ?? this.parentRef;
+    const user = parent?.user;
+    this.startLoading();
+    if (user?.id) {
+      this.userService.getBlockedUsers(user.id).then(res => {
+        if (res) { 
+          this.blockedUsers = res;
+        }
+      });
+    } else {
+      this.blockedUsers = [];
+    }
+    this.stopLoading();
+  }
+  unblock(blockedUser: User) {
+    const parent = this.inputtedParentRef ?? this.parentRef;
+    const user = parent?.user;
+    if (!user?.id || !blockedUser || !blockedUser.id) return;
+    this.userService.unblockUser(user.id, blockedUser.id).then(res => {
+      if (res) {
+        parent?.showNotification(res);
+        if (res.includes("successfully")) {
+          this.blockedUsers = this.blockedUsers.filter(x => x.id != blockedUser.id);
+        }
+      }
+    })
+  }
   closeThisComponent() {
     if (this.previousComponent) {
       this.parentRef?.createComponent(this.previousComponent);

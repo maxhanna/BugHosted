@@ -18,6 +18,8 @@ export class HostAiComponent extends ChildComponent implements OnInit, OnDestroy
   chatMessages: { sender: string, message: any }[] = [];
   hostName: string = "Host";
 
+  responseLength? = 200;
+  isMenuOpen = false;
   startedTalking = false;
   tmpStartTalkingVariable = false;
   private utterance: SpeechSynthesisUtterance | null = null;
@@ -58,7 +60,7 @@ export class HostAiComponent extends ChildComponent implements OnInit, OnDestroy
     if (this.userMessage.trim()) {
       this.pushMessage({ sender: 'You', message: this.userMessage.replace('\n', "<br>") });
       this.parentRef.getSessionToken().then(sessionToken => {
-        this.aiService.sendMessage(user.id ?? 0, false, this.userMessage + this.engineeredText + JSON.stringify(this.savedMessageHistory) + ")", sessionToken).then(
+        this.aiService.sendMessage(user.id ?? 0, false, this.userMessage + this.engineeredText + JSON.stringify(this.savedMessageHistory) + ")", sessionToken, this.responseLength).then(
           (response) => {
             let reply = this.aiService.parseMessage(response.response ?? response.reply);
             this.savedMessageHistory.push((response.response ?? response.reply));
@@ -71,7 +73,7 @@ export class HostAiComponent extends ChildComponent implements OnInit, OnDestroy
             console.error(error);
             this.pushMessage({ sender: 'System', message: error.reply });
             this.chatInput.nativeElement.value = "";
-            setTimeout(() => { 
+            setTimeout(() => {
               this.chatInput.nativeElement.focus();
             }, 50);
             this.stopLoading();
@@ -275,7 +277,7 @@ console.log("Hello, world!");
     }
 
     return false;
-  } 
+  }
   userWantsToForgetHistory(message: string): boolean {
     console.log(message);
     const forgetKeywords = new Set([
@@ -293,7 +295,7 @@ console.log("Hello, world!");
     }
     return false;
   }
-  speechRecognitionNotSupportedEvent(event: boolean) { 
+  speechRecognitionNotSupportedEvent(event: boolean) {
     this.speechRecognitionUnavailable = event;
   }
   greetingMessage(): string {
@@ -310,5 +312,33 @@ console.log("Hello, world!");
     } else {
       return 'Good night 🌙';
     }
+  } 
+
+  changeResponseLength(event: Event) {
+    this.responseLength = parseInt((event.target as HTMLSelectElement).value);
+    if (this.responseLength == 0) {
+      this.responseLength = undefined;
+    }
+  }
+  showMenuPanel() {
+    if (this.isMenuOpen) {
+      this.closeMenuPanel();
+      return;
+    }
+    this.isMenuOpen = true;
+    if (this.parentRef) {
+      this.parentRef.showOverlay();
+    }
+  }
+  closeMenuPanel() {
+    this.isMenuOpen = false;
+    if (this.parentRef) {
+      this.parentRef.closeOverlay();
+    }
+  }
+  clearMemory() {
+    this.savedMessageHistory = [];
+    this.parentRef?.showNotification("Memory cleared.");
+    this.closeMenuPanel();
   }
 }

@@ -4,22 +4,48 @@
   </div>
   <div class="graphOptions">
     <select #periodSelect (change)="changeGraphPeriod($event)" [value]="selectedPeriod" [style.display]="skipFiltering ? 'none' : 'inline-block'">
+      <!-- Short-Term -->
+      <option disabled>── Short-Term ──</option>
+      <option value="1min">1 minute</option>
+      <option value="3min">3 minutes</option>
+      <option value="5min">5 minutes</option>
+      <option value="10min">10 minutes</option>
       <option value="15min">15 minutes</option>
+      <option value="30min">30 minutes</option>
+    
+      <!-- Intraday -->
+      <option disabled>── Intraday ──</option>
       <option value="1h">1 hour</option>
+      <option value="3h">3 hours</option>
       <option value="6h">6 hours</option>
       <option value="12h">12 hours</option>
+    
+      <!-- Daily -->
+      <option disabled>── Daily ──</option>
       <option value="1d">1 day</option>
       <option value="2d">2 days</option>
+      <option value="3d">3 days</option>
       <option value="5d">5 days</option>
+      <option value="7d">7 days (1 week)</option>
+    
+      <!-- Weekly / Monthly -->
+      <option disabled>── Weekly / Monthly ──</option>
+      <option value="2w">2 weeks</option>
       <option value="1m">1 month</option>
       <option value="2m">2 months</option>
       <option value="3m">3 months</option>
       <option value="6m">6 months</option>
+    
+      <!-- Yearly -->
+      <option disabled>── Yearly ──</option>
       <option value="1y">1 year</option>
       <option value="2y">2 years</option>
       <option value="3y">3 years</option>
       <option value="5y">5 years</option>
+      <option value="10y">10 years</option>
+      <option value="max">Max (All Data)</option>
     </select>
+    
     <select (change)="changeCoin($event)" *ngIf="displayCoinSwitcher && type !== 'Volume'" #coinSwitcher>
       <option value="">All</option>
       <option *ngIf="type == 'Crypto'" value="Bitcoin" [selected]="selectedCoin === 'Bitcoin'">Bitcoin</option>
@@ -35,6 +61,7 @@
         {{ type.charAt(0).toUpperCase() + type.slice(1) }}
       </option>
     </select>
+    <button (click)="exportToCSV()" title="Export CSV Data">Export</button> 
   </div>
   <div class="canvasChartWrapper {{fullscreenMode ? 'fullscreenCanvas' : ''}}" #canvasDiv>
     <canvas baseChart

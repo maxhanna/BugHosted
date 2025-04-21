@@ -28,13 +28,14 @@ export class CoinValueService {
     }
   }
 
-  async getAllCoinValuesForGraph() {
+  async getAllCoinValuesForGraph(from?: Date, hourRange?: number) {
     try {
       const response = await fetch(`/coinvalue/getallforgraph`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
+        body: JSON.stringify({From: from, HourRange: hourRange}),
       });
 
       return await response.json();

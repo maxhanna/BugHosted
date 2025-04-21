@@ -148,6 +148,21 @@ export class UserService {
       return null;
     }
   }
+  async getBlockedUsers(userId: number): Promise<User[] | undefined> {
+    try {
+      const response = await fetch('/user/getblockedusers', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify( userId ),
+      });
+
+      return await response.json();
+    } catch (error) {
+      return undefined;
+    }
+  }
   async updateUserAbout(userId: number, about: UserAbout) {
     try {
       const response = await fetch('/user/updateabout', {

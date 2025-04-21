@@ -21,7 +21,7 @@ namespace maxhanna.Server.Controllers
 
 		[HttpPost("/CoinValue/", Name = "GetAllCoinValues")]
 		public async Task<List<CoinValue>> GetAllCoinValues()
-		{ 
+		{
 			var coinValues = new List<CoinValue>();
 
 			MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
@@ -60,31 +60,41 @@ namespace maxhanna.Server.Controllers
 		}
 
 		[HttpPost("/CoinValue/GetAllForGraph", Name = "GetAllCoinValuesForGraph")]
-		public async Task<List<CoinValue>> GetAllCoinValuesForGraph()
-		{ 
+		public async Task<List<CoinValue>> GetAllCoinValuesForGraph([FromBody] GraphRangeRequest request)
+		{
 			var coinValues = new List<CoinValue>();
-
 			MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+			if (request.From == null) { request.From = new DateTime(); }
 			try
 			{
 				await conn.OpenAsync();
 
-				string sql = @" 
+				// Split the range in half (handle odd numbers by flooring one side, ceiling the other)
+			 
+				var actualFrom = request.From.Value.AddHours(-1 * (request.HourRange ?? 24));
+				var actualTo = request.From.Value.AddHours(request.HourRange ?? 24);
+
+				string sql = @$"
 					SELECT id, symbol, name, value_cad, timestamp
 					FROM coin_value
+					{(request.HourRange != 0 ? " WHERE timestamp >= @From AND timestamp <= @To " : "")}
 					ORDER BY timestamp ASC;";
+
 				MySqlCommand cmd = new MySqlCommand(sql, conn);
+				cmd.Parameters.AddWithValue("@From", actualFrom);
+				cmd.Parameters.AddWithValue("@To", actualTo);
+
 				using (var reader = await cmd.ExecuteReaderAsync())
 				{
 					while (await reader.ReadAsync())
 					{
 						var coinValue = new CoinValue
 						{
-							Id = reader.GetInt32(reader.GetOrdinal("id")),
+							Id = reader.GetInt32("id"),
 							Symbol = reader.IsDBNull(reader.GetOrdinal("symbol")) ? null : reader.GetString(reader.GetOrdinal("symbol")),
 							Name = reader.IsDBNull(reader.GetOrdinal("name")) ? null : reader.GetString(reader.GetOrdinal("name")),
-							ValueCAD = reader.IsDBNull(reader.GetOrdinal("value_cad")) ? 0 : reader.GetDecimal(reader.GetOrdinal("value_cad")),
-							Timestamp = reader.GetDateTime(reader.GetOrdinal("timestamp"))
+							ValueCAD =  reader.IsDBNull(reader.GetOrdinal("value_cad")) ? 0 : reader.GetDecimal(reader.GetOrdinal("value_cad")),
+							Timestamp = reader.GetDateTime("timestamp")
 						};
 						coinValues.Add(coinValue);
 					}
@@ -104,7 +114,7 @@ namespace maxhanna.Server.Controllers
 
 		[HttpPost("/CoinValue/GetWalletBalanceData", Name = "GetWalletBalanceData")]
 		public async Task<List<CoinValue>> GetWalletBalanceData([FromBody] string walletAddress)
-		{ 
+		{
 			var coinValues = new List<CoinValue>();
 
 			MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
@@ -156,7 +166,7 @@ namespace maxhanna.Server.Controllers
 
 		[HttpPost("/CurrencyValue/", Name = "GetAllCurrencyValues")]
 		public async Task<List<ExchangeRate>> GetAllCurrencyValues()
-		{ 
+		{
 			var exchangeRates = new List<ExchangeRate>();
 
 			MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
@@ -197,7 +207,7 @@ namespace maxhanna.Server.Controllers
 
 		[HttpPost("/CurrencyValue/GetAllForGraph", Name = "GetAllCurrencyValuesForGraph")]
 		public async Task<List<ExchangeRate>> GetAllCurrencyValuesForGraph()
-		{ 
+		{
 			var exchangeRates = new List<ExchangeRate>();
 
 			MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
@@ -252,7 +262,7 @@ namespace maxhanna.Server.Controllers
 
 		[HttpPost("/CoinValue/GetLatest/", Name = "GetLatestCoinValues")]
 		public async Task<List<CoinValue>> GetLatestCoinValues()
-		{ 
+		{
 			var coinValues = new List<CoinValue>();
 
 			MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
@@ -302,7 +312,7 @@ namespace maxhanna.Server.Controllers
 
 		[HttpPost("/CurrencyValue/GetLatest/", Name = "GetLatestCurrencyValues")]
 		public async Task<List<ExchangeRate>> GetLatestCurrencyValues()
-		{ 
+		{
 			var exchangeRates = new List<ExchangeRate>();
 
 			MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
@@ -352,7 +362,7 @@ namespace maxhanna.Server.Controllers
 
 		[HttpPost("/CurrencyValue/GetUniqueNames/", Name = "GetUniqueCurrencyValueNames")]
 		public async Task<List<string>> GetUniqueCurrencyValueNames()
-		{ 
+		{
 			var currencies = new List<string>();
 
 			MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
@@ -385,7 +395,7 @@ namespace maxhanna.Server.Controllers
 
 		[HttpPost("/CurrencyValue/UpdateUserCurrency/", Name = "UpdateUserCurrency")]
 		public async Task<IActionResult> UpdateUserCurrency([FromBody] UserCurrencyUpdateRequest req)
-		{ 
+		{
 			string connectionString = _config.GetValue<string>("ConnectionStrings:maxhanna") ?? "";
 
 			using (MySqlConnection conn = new MySqlConnection(connectionString))
@@ -420,7 +430,7 @@ namespace maxhanna.Server.Controllers
 
 		[HttpPost("/CurrencyValue/GetUserCurrency/", Name = "GetUserCurrency")]
 		public async Task<IActionResult> GetUserCurrency([FromBody] int userId)
-		{  
+		{
 			string connectionString = _config.GetValue<string>("ConnectionStrings:maxhanna") ?? "";
 
 			using (MySqlConnection conn = new MySqlConnection(connectionString))
@@ -460,7 +470,7 @@ namespace maxhanna.Server.Controllers
 
 		[HttpPost("/CoinValue/GetLatestByName/{name}", Name = "GetLatestCoinValuesByName")]
 		public async Task<CoinValue> GetLatestCoinValuesByName(string name)
-		{ 
+		{
 			var coinValue = new CoinValue();
 
 			MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
@@ -511,7 +521,7 @@ namespace maxhanna.Server.Controllers
 
 		[HttpPost("/CoinValue/IsBTCRising", Name = "IsBTCRising")]
 		public async Task<bool> IsBTCRising()
-		{  
+		{
 			MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
 			try
 			{
@@ -539,7 +549,7 @@ namespace maxhanna.Server.Controllers
 					if (await reader.ReadAsync())
 					{
 						var latestPrice = reader.IsDBNull(0) ? (decimal?)null : reader.GetDecimal(0);
-						var previousPrice = reader.IsDBNull(1) ? (decimal?)null : reader.GetDecimal(1); 
+						var previousPrice = reader.IsDBNull(1) ? (decimal?)null : reader.GetDecimal(1);
 
 						if (latestPrice.HasValue && previousPrice.HasValue)
 						{
@@ -564,7 +574,7 @@ namespace maxhanna.Server.Controllers
 
 		[HttpPost("/CurrencyValue/GetLatestByName/{name}", Name = "GetLatestCurrencyValuesByName")]
 		public async Task<ExchangeRate> GetLatestCurrencyValuesByName(string name)
-		{ 
+		{
 			var exchangeRates = new ExchangeRate();
 
 			MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
@@ -618,7 +628,7 @@ namespace maxhanna.Server.Controllers
 		[HttpPost("/CoinValue/BTCWalletAddresses/Update", Name = "UpdateBTCWalletAddresses")]
 		public async Task<IActionResult> UpdateBTCWalletAddresses([FromBody] AddBTCWalletRequest request, [FromHeader(Name = "Encrypted-UserId")] string encryptedUserIdHeader)
 		{
-			if (!await _log.ValidateUserLoggedIn(request.UserId, encryptedUserIdHeader)) return StatusCode(500, "Access Denied."); 
+			if (!await _log.ValidateUserLoggedIn(request.UserId, encryptedUserIdHeader)) return StatusCode(500, "Access Denied.");
 			if (request.UserId == 0)
 			{
 				return BadRequest("User missing from AddBTCWalletAddress request");
@@ -729,11 +739,11 @@ namespace maxhanna.Server.Controllers
 
 				if ((check1 || check2) && returns.Count > 0)
 				{
-					return Ok(returns); 
+					return Ok(returns);
 				}
 				else
 				{
-					return NotFound("No wallet addresses found for the user.");  
+					return NotFound("No wallet addresses found for the user.");
 				}
 			}
 			catch (Exception ex)
@@ -745,7 +755,7 @@ namespace maxhanna.Server.Controllers
 
 		[HttpPost("/CoinValue/BTCWallet/DeleteBTCWalletAddress", Name = "DeleteBTCWalletAddress")]
 		public async Task<IActionResult> DeleteBTCWalletAddress([FromBody] DeleteCryptoWalletAddress request, [FromHeader(Name = "Encrypted-UserId")] string encryptedUserIdHeader)
-		{ 
+		{
 			if (request.UserId == 0)
 			{
 				return BadRequest("You must be logged in");
@@ -880,7 +890,7 @@ namespace maxhanna.Server.Controllers
 			return wallet;
 		}
 	}
-	 
+
 
 	public class CoinValue
 	{

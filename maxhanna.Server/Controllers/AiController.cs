@@ -50,12 +50,41 @@ namespace maxhanna.Server.Controllers
 
 				// Ollama API URL
 				string url = "http://localhost:11434/api/generate";
+				string basePrompt = request.Message;
+
+				switch (request.MaxCount)
+				{
+					case 30: // Super short
+						basePrompt += "\n\nRespond in one concise sentence. Do not elaborate.";
+						break;
+
+					case 200: // Short
+						basePrompt += "\n\nRespond briefly. Keep it to a few sentences and avoid unnecessary detail.";
+						break;
+
+					case 450: // Medium
+						basePrompt += "\n\nRespond with a moderate amount of detail. Two to three paragraphs is ideal.";
+						break;
+
+					case 600: // Long
+						basePrompt += "\n\nRespond in detail. Feel free to explain thoroughly and give multiple examples if needed.";
+						break;
+
+					case 0: // Unfiltered
+									// No modification — allow model to respond freely
+						break;
+
+					default:
+						// Catch-all for unexpected values, use safe default
+						basePrompt += "\n\nRespond briefly.";
+						break;
+				}
 
 				// Ollama request payload
 				var requestBody = new
 				{
 					model = "gemma3",  // Make sure you have the correct model installed
-					prompt = request.Message,
+					prompt = basePrompt,
 					stream = false,
 					max_tokens = request.MaxCount,
 				};

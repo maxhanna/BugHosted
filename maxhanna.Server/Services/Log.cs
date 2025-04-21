@@ -12,7 +12,7 @@ public class Log
 		_config = config;
 	}
 
-	public async Task Db(string message, int? userId = null, string type = "SYSTEM", bool outputToConsole = false)
+	public async Task Db(string message, int? userId = null, string? type = "SYSTEM", bool outputToConsole = false)
 	{
 		string sql = @"INSERT INTO maxhanna.logs (comment, component, user_id, timestamp) VALUES (@comment, @component, @userId, UTC_TIMESTAMP());";
 

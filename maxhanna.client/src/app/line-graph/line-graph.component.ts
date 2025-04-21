@@ -26,10 +26,11 @@ export class LineGraphComponent implements OnInit, OnChanges {
   @Input() supportsXYZ = false;
   @Input() graphTitle: string = '';
   @Input() type: "Crypto" | "Currency" | "Volume" = "Crypto";
-  @Input() selectedPeriod: '15min' | '1h' | '6h' | '12h' | '1d' | '2d' | '5d' | '1m' | '2m' | '3m' | '6m' | '1y' | '2y' | '3y' | '5y' = '1d';
+  @Input() selectedPeriod: '5min' | '15min' | '1h' | '6h' | '12h' | '1d' | '2d' | '5d' | '1m' | '2m' | '3m' | '6m' | '1y' | '2y' | '3y' | '5y' = '1d';
   @Input() showAverage: boolean = false;
   @Input() skipFiltering: boolean = false;
   @Output() fullscreenSelectedEvent = new EventEmitter<any>();
+  @Output() changeTimePeriodEvent = new EventEmitter<any>();
 
   lineChartData: any[] = [];
   lineChartLabels: any[] = [];
@@ -76,6 +77,7 @@ export class LineGraphComponent implements OnInit, OnChanges {
       changes['selectedPeriod'] || changes['selectedCoin']) &&
       this.lineChartData.length > 0) {
       this.updateChartWithAverage();
+      this.updateGraph(this.data);
     }
   }
 
@@ -95,8 +97,10 @@ export class LineGraphComponent implements OnInit, OnChanges {
   }
 
   changeGraphPeriod(event: Event) {
+    console.log("change graph period", event);
     this.selectedPeriod = (event.target as HTMLSelectElement).value as typeof this.selectedPeriod;
-    this.updateGraph(this.data);
+    this.changeTimePeriodEvent.emit(this.selectedPeriod);
+    // this.updateGraph(this.data); 
   }
 
   changeCoin(event: Event) {
@@ -140,6 +144,9 @@ export class LineGraphComponent implements OnInit, OnChanges {
     } else {
       filteredData = this.filterDataByPeriod(this.getDaysForPeriod(this.selectedPeriod));
     }
+    if (this.selectedPeriod === '5min' && filteredData.length > 100) {
+      filteredData = filteredData.filter((_, index) => index % 2 === 0);
+    }
 
     let filteredData2: any[] = [];
     if (this.data2 && this.data2.length > 0) {
@@ -153,7 +160,8 @@ export class LineGraphComponent implements OnInit, OnChanges {
         );
       }
     }
-
+    filteredData2 = this.data2;
+    console.log("filtered data2:",filteredData2);
     let datasets: any[] = [];
     let chartLabelsSet = new Set<string>();
 
@@ -257,7 +265,7 @@ export class LineGraphComponent implements OnInit, OnChanges {
           data: coinFilteredData.map(item =>
             item.valueCAD ?? item.value ?? item.rate
           ),
-          label: `${coinName} Fluctuation ${this.type == "Crypto" && this.selectedCurrency ? `(${this.selectedCurrency}$)` : "(CAD$)"}`,
+          label: `${coinName} Fluctuation ${this.type == "Crypto" && this.selectedCurrency ? `(${this.selectedCurrency}$)` : ""}`,
           backgroundColor: this.hexToRgba(baseColor, 0.2),
           borderColor: baseColor,
           borderWidth: 2,
@@ -320,22 +328,49 @@ export class LineGraphComponent implements OnInit, OnChanges {
   }
 
   private filterDataByPeriod(periodValue: number): any[] {
-    const currentDate = new Date();
-    const cutoffDate = new Date();
+    // Sort data by timestamp descending and get the most recent timestamp
+    const sortedData = [...this.data].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+    if (sortedData.length === 0) return [];
 
+    // Use the latest timestamp as the reference "current date" in UTC
+    const latestDate = new Date(sortedData[0].timestamp);
+    const currentUTC = new Date(Date.UTC(
+      latestDate.getUTCFullYear(),
+      latestDate.getUTCMonth(),
+      latestDate.getUTCDate(),
+      latestDate.getUTCHours(),
+      latestDate.getUTCMinutes(),
+      latestDate.getUTCSeconds()
+    ));
+
+    const cutoffDate = new Date(currentUTC);
+
+    // Calculate cutoff based on periodValue (in days)
     if (periodValue < 1) {
-      if (periodValue < 1 / 24) {
-        const minutes = Math.round(periodValue * 24 * 60);
-        cutoffDate.setMinutes(currentDate.getMinutes() - minutes);
+      if (periodValue < 1 / 24) { // Less than 1 hour
+        const minutes = periodValue * 24 * 60; // Convert days to minutes
+        cutoffDate.setTime(currentUTC.getTime() - minutes * 60000);
       } else {
-        const hours = Math.round(periodValue * 24);
-        cutoffDate.setHours(currentDate.getHours() - hours);
+        const hours = periodValue * 24; // Convert days to hours
+        cutoffDate.setTime(currentUTC.getTime() - hours * 3600000);
       }
     } else {
-      cutoffDate.setDate(currentDate.getDate() - Math.round(periodValue));
+      cutoffDate.setUTCDate(currentUTC.getUTCDate() - Math.round(periodValue));
     }
 
-    return this.data.filter(item => new Date(item.timestamp) >= cutoffDate);
+    // Filter data, converting timestamps to UTC for comparison
+    return this.data.filter(item => {
+      const itemDate = new Date(item.timestamp);
+      const itemUTC = new Date(Date.UTC(
+        itemDate.getUTCFullYear(),
+        itemDate.getUTCMonth(),
+        itemDate.getUTCDate(),
+        itemDate.getUTCHours(),
+        itemDate.getUTCMinutes(),
+        itemDate.getUTCSeconds()
+      ));
+      return itemUTC >= cutoffDate;
+    });
   }
 
   private filterDataByPeriodAndCoin(period: string, coinName: string): any[] {
@@ -371,7 +406,7 @@ export class LineGraphComponent implements OnInit, OnChanges {
   }
 
   private getDaysForPeriod(period: string): number {
-    const periodRegex = /^(\d+)\s*(m|min|mins|h|hour|hours|d|day|days|m|month|months|y|year|years)$/;
+    const periodRegex = /^(\d+)\s*(m|min|mins|minute|minutes|h|hour|hours|d|day|days|m|month|months|y|year|years)$/;
     const match = period.trim().toLowerCase().match(periodRegex);
 
     if (match) {
@@ -381,6 +416,8 @@ export class LineGraphComponent implements OnInit, OnChanges {
       switch (unit) {
         case 'min':
         case 'mins':
+        case 'minute':
+        case 'minutes':
           return value / (24 * 60);
         case 'h':
         case 'hour':
@@ -488,7 +525,13 @@ export class LineGraphComponent implements OnInit, OnChanges {
       backgroundColor,
       scales: {
         x: {
-          ticks: { color: fontColor },
+          ticks: {
+            color: fontColor,
+            maxRotation: 45,
+            minRotation: 45,
+            autoSkip: true,
+            maxTicksLimit: 10
+          },
           grid: { color: fontColor, borderDash: [3, 3] }
         },
         y: {
@@ -572,32 +615,85 @@ export class LineGraphComponent implements OnInit, OnChanges {
     return this.selectedPeriod ? ` • ${this.formatPeriodDisplay()}` : '';
   }
 
-  private formatPeriodDisplay(): string {
-    const periodMap: { [key: string]: string } = {
-      '15m': '15 min',
-      '1h': '1 hour',
-      '6h': '6 hours',
-      '12h': '12 hours',
-      '1d': '1 day',
-      '2d': '2 days',
-      '5d': '5 days',
-      '1m': '1 month',
-      '2m': '2 months',
-      '3m': '3 months',
-      '6m': '6 months',
-      '1y': '1 year',
-      '2y': '2 years',
-      '3y': '3 years',
-      '5y': '5 years'
+  formatPeriodDisplay(): string {
+    const period = this.selectedPeriod;
+    if (!period) return '';
+  
+    const match = period.match(/^(\d+)(min|m|h|d|w|y)$/);
+    if (!match) return period;
+  
+    const [, valueStr, unit] = match;
+    const value = parseInt(valueStr);
+  
+    const unitNames: { [key: string]: string } = {
+      min: 'minute',
+      m: 'month',
+      h: 'hour',
+      d: 'day',
+      w: 'week',
+      y: 'year'
     };
-    return periodMap[this.selectedPeriod] || this.selectedPeriod;
+  
+    const unitName = unitNames[unit] || unit;
+    const plural = value === 1 ? '' : 's';
+  
+    return `${value} ${unitName}${plural}`;
   }
-}
+  
+  exportToCSV() {
+    // Get filtered data from the current graph
+    let filteredData = [];
+    if (this.type === "Volume") {
+      filteredData = this.filterDataByPeriod(this.getDaysForPeriod(this.selectedPeriod));
+    } else if (this.selectedCoin !== '') {
+      filteredData = this.filterDataByPeriodAndCoin(this.selectedPeriod, this.selectedCoin);
+    } else {
+      filteredData = this.filterDataByPeriod(this.getDaysForPeriod(this.selectedPeriod));
+    }
 
-interface ChartDataset {
-  label: string;
-  data: number[];
-  borderColor?: string;
-  borderWidth?: number;
-  type?: ChartType;
-}
+    let filteredData2 = [];
+    if (this.data2 && this.data2.length > 0) {
+      const primaryTimestamps = new Set(filteredData.map(item => item.timestamp));
+      filteredData2 = this.data2.filter(item => primaryTimestamps.has(item.timestamp));
+      if (filteredData2.length === 0) {
+        filteredData2 = this.filterDataByPeriodForSecondary(
+          this.getDaysForPeriod(this.selectedPeriod),
+          this.data2
+        );
+      }
+    }
+
+    // Prepare CSV headers and rows
+    const headers = ['Timestamp', 'Coin', 'Value', 'Currency', 'Secondary Value', 'Secondary Type'];
+    const rows = filteredData.map(item => {
+      const secondaryItem = filteredData2.find(s => s.timestamp === item.timestamp);
+      const coinName = this.type === "Crypto" ? item.name : this.type === "Currency" ? item.targetCurrency : 'Volume';
+      const value = item.valueCAD ?? item.value ?? item.rate ?? '';
+      const secondaryValue = secondaryItem ? (secondaryItem.valueCAD ?? secondaryItem.value ?? secondaryItem.rate ?? '') : '';
+      const secondaryType = secondaryItem ? secondaryItem.type ?? '' : '';
+      return [
+        item.timestamp,
+        coinName,
+        value,
+        this.selectedCurrency || 'CAD',
+        secondaryValue,
+        secondaryType
+      ].map(field => `"${field}"`).join(',');
+    });
+
+    // Combine headers and rows into CSV content
+    const csvContent = [headers.join(','), ...rows].join('\n');
+
+    // Create and trigger download
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `graph-data-${this.getGraphTitle().replace(/\s+/g, '-')}-${this.selectedPeriod}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  } 
+} 
