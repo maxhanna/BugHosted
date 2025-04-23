@@ -185,13 +185,13 @@ namespace maxhanna.Server.Services
 				{
 					this.isCrawling = true;
 					await _webCrawler.StartBackgroundScrape();
-					this.isCrawling = false;
 				}
 				catch (Exception ex)
 				{
 					_ = _log.Db("Exception while crawling : " + ex.Message, null);
 				}
 			}
+			this.isCrawling = false;
 		}
 
 		private async Task MakeCryptoTrade()

@@ -33,13 +33,14 @@ export class CrawlerComponent extends ChildComponent implements OnInit, OnDestro
   ngOnInit() {
     this.parentRef?.addResizeListener();
     this.crawlerService.indexCount().then(res => { if (res) { this.indexCount = parseInt(res); } });
-
+    (document.getElementsByClassName("componentContainer")[0] as HTMLDivElement)?.classList.add("centeredContainer"); 
     setTimeout(() => {
       if (this.url) {
         this.urlInput.nativeElement.value = this.url;
         this.url = "";
         this.searchUrl();
       }
+      this.urlInput.nativeElement.focus();
     }, 1);
 
     this.indexUpdateTimer = setInterval(() => {
@@ -49,11 +50,13 @@ export class CrawlerComponent extends ChildComponent implements OnInit, OnDestro
     }, 60000);
   }
   ngOnDestroy() {
+    (document.getElementsByClassName("componentContainer")[0] as HTMLDivElement)?.classList.remove("centeredContainer");  
     clearInterval(this.indexUpdateTimer);
     this.parentRef?.removeResizeListener();
   }
 
   async searchUrl() {
+    (document.getElementsByClassName("componentContainer")[0] as HTMLDivElement)?.classList.remove("centeredContainer"); 
     this.error = '';
     const url = this.urlInput.nativeElement.value;
     if (url != this.lastSearch) {
@@ -85,6 +88,9 @@ export class CrawlerComponent extends ChildComponent implements OnInit, OnDestro
     } else {
       this.searchMetadata = [];
       this.groupedResults = [];
+      this.totalPages = 0;
+      this.totalResults = 0;
+      this.currentPage = 1;
     }
     this.stopLoading();
     document.getElementsByClassName("componentMain")[0].scrollTop = 0;
@@ -156,6 +162,7 @@ export class CrawlerComponent extends ChildComponent implements OnInit, OnDestro
     }
   }
   showMenuPanel() {
+    (document.getElementsByClassName("componentContainer")[0] as HTMLDivElement)?.classList.remove("centeredContainer"); 
     if (!this.storageStats) {
       this.crawlerService.storageStats().then(res => { if (res) this.storageStats = res; });
     }
@@ -180,6 +187,10 @@ export class CrawlerComponent extends ChildComponent implements OnInit, OnDestro
   }
   toggleSubdomains(group: any) {
     group.showSubdomains = !group.showSubdomains;
+  }
+  seeNew() {
+    this.urlInput.nativeElement.value = '*';
+    this.searchUrl();
   }
   getHttpStatusMeaning(status: number): string {
     switch (status) {

@@ -84,7 +84,8 @@
       <div *ngIf="selectedNexusBase?.user">
         <span style="display:inline-block;">
           <app-user-tag [user]="selectedNexusBase.user"
-                        [inputtedParentRef]="inputtedParentRef"></app-user-tag>
+                        [inputtedParentRef]="inputtedParentRef"
+                        [previousComponent]="'Nexus'"></app-user-tag>
         </span>
       </div>
       <div>

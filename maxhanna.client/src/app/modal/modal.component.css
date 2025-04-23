@@ -29,6 +29,7 @@
 .modal-body {
   max-height: 470px;
   overflow: auto;
+  word-break: break-word;
 }
 .modal-header,
 .modal-footer {

@@ -46,6 +46,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit {
   @Input() showHiddenFiles: boolean = true;
   @Input() showTopics: boolean = true;
   @Input() currentPage = this.defaultCurrentPage;
+  @Input() previousComponent : string = "Files";
   @Output() selectFileEvent = new EventEmitter<FileEntry>();
   @Output() currentDirectoryChangeEvent = new EventEmitter<string>();
   @Output() userNotificationEvent = new EventEmitter<string>();
@@ -153,7 +154,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit {
 
   async getDirectory(file?: string, fileId?: number, append?: boolean) {
     this.startLoading(); 
-    this.determineSearchTerms();
+     
     this.showData = true;
     try {
       const res = await this.fileService.getDirectory(
@@ -248,26 +249,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit {
     this.debounceTimer = setTimeout(() => {
       this.getDirectory();   
     }, 500); 
-  }
-
-
-  private determineSearchTerms() {
-    const popupSearchTerm = this.searchTerms ? this.searchTerms : this.popupSearch && this.popupSearch.nativeElement.value.trim() != '' ? this.popupSearch.nativeElement.value.trim() : undefined;
-    this.searchTerms = popupSearchTerm ?? "";
-    if (this.search && this.search.nativeElement.value.trim() != '') {
-      if (this.searchTerms) {
-        this.searchTerms = this.searchTerms + ',';
-      }
-      this.searchTerms += this.search.nativeElement.value.trim();
-    }
-    if (this.tmpSearchTerms) {
-      if (this.searchTerms) {
-        this.searchTerms = this.searchTerms + ',';
-      }
-      this.searchTerms += this.tmpSearchTerms.trim();
-      this.tmpSearchTerms = "";
-    } 
-  }
+  } 
 
   getFileExtension(filename: string) {
     return this.fileService.getFileExtension(filename);
@@ -670,11 +652,11 @@ export class FileSearchComponent extends ChildComponent implements OnInit {
     return this.totalPages > 1 && this.totalPages != this.currentPage;
   }
   async searchFiles(topic: string) {
-    this.tmpSearchTerms = topic;
+    this.searchTerms = topic;
     await this.getDirectory();
   }
   async fileTopicClicked(topic: Topic[]) {
-    this.tmpSearchTerms = topic.map(t => t.topicText).join(',');
+    this.searchTerms = topic.map(t => t.topicText).join(',');
 
     this.closeOptionsPanel();
     await this.getDirectory();
@@ -821,5 +803,13 @@ export class FileSearchComponent extends ChildComponent implements OnInit {
     }
 
     return count;
+  }
+  changeSearchTermsFromPopup() {
+    this.searchTerms = this.popupSearch.nativeElement.value.trim();
+    this.getDirectory();
+  }
+  changeSearchTermsFromSearchInput() { 
+    this.searchTerms = this.search.nativeElement.value.trim();
+    this.getDirectory();
   }
 }

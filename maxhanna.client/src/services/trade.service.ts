@@ -62,6 +62,9 @@ export class TradeService {
     return this.post(`/trade/gettradevolume`, days, 'json');
   }
   async getTradeVolumeForGraph(from?: Date, hourRange?: number) {
-    return this.post(`/trade/gettradevolumeforgraph`, {From: from, HourRange: hourRange}, 'json');
+    return this.post(`/trade/gettradevolumeforgraph`, { From: from, HourRange: hourRange }, 'json');
+  }
+  async getWeightedAveragePrices(userId: number, encryptedUserId: string) {
+    return this.post(`/trade/getweightedaverageprices`, userId, 'json', encryptedUserId);
   }
 }

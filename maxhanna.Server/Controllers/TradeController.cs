@@ -58,7 +58,20 @@ public class TradeController : ControllerBase
 			return StatusCode(500, "Error getting API key");
 		}
 	}
-
+	[HttpPost("/Trade/GetWeightedAveragePrices", Name = "GetWeightedAveragePrices")]
+	public async Task<IActionResult> GetWeightedAveragePrices([FromBody] int userId, [FromHeader(Name = "Encrypted-UserId")] string encryptedUserId)
+	{
+		try
+		{
+			if (userId != 1 && !await _log.ValidateUserLoggedIn(userId, encryptedUserId)) return StatusCode(500, "Access Denied.");
+			var result = await _krakenService.GetWeightedAveragePrices(userId, "XBT", "USDC");
+			return Ok(result);
+		}
+		catch (Exception ex)
+		{
+			return StatusCode(500, "Error starting trade bot. " + ex.Message);
+		}
+	}
 	[HttpPost("/Trade/StartBot", Name = "StartBot")]
 	public async Task<IActionResult> StartBot([FromBody] int userId, [FromHeader(Name = "Encrypted-UserId")] string encryptedUserId)
 	{

@@ -28,7 +28,7 @@
     <div [class]="'notificationsListContainer ' + (minimalInterface ? 'notificationsList' : '')" *ngIf="notifications && notifications.length > 0">
       <div *ngFor="let notification of notifications" class="notificationListItem" [style.opacity]="notification.isRead ? '50%' : '100%'">
         <div class="nliLeftDiv">
-          <app-user-tag [user]="notification.fromUser" [inputtedParentRef]="inputtedParentRef ?? parentRef"></app-user-tag>
+          <app-user-tag [user]="notification.fromUser" [inputtedParentRef]="inputtedParentRef ?? parentRef" [previousComponent]="previousComponent"></app-user-tag>
         </div>
         <div class="nliRightDiv">
           <button title="Delete Notification" (click)="delete(notification)" class="deleteNotificationButton">❌</button>

@@ -206,32 +206,27 @@ namespace maxhanna.Server.Controllers
 
 
 		[HttpPost("/CurrencyValue/GetAllForGraph", Name = "GetAllCurrencyValuesForGraph")]
-		public async Task<List<ExchangeRate>> GetAllCurrencyValuesForGraph()
+		public async Task<List<ExchangeRate>> GetAllCurrencyValuesForGraph([FromBody] GraphRangeRequest request)
 		{
 			var exchangeRates = new List<ExchangeRate>();
+			if (request.From == null) { request.From = new DateTime(); }
 
+			var actualFrom = request.From.Value.AddHours(-1 * (request.HourRange ?? 24));
+			var actualTo = request.From.Value.AddHours(request.HourRange ?? 24);
 			MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
 			try
 			{
 				await conn.OpenAsync();
 
-				string sql = @"
-					(
-						SELECT id, base_currency, target_currency, rate, timestamp
-						FROM maxhanna.exchange_rates
-						ORDER BY timestamp DESC
-						LIMIT 1000
-					)
-					UNION ALL
-					(
-						SELECT id, base_currency, target_currency, rate, timestamp
-						FROM maxhanna.exchange_rates
-						WHERE timestamp < (SELECT MAX(timestamp) FROM maxhanna.exchange_rates)
-						ORDER BY RAND()
-						LIMIT 5000
-					)
+				string sql = $@" 
+					SELECT id, base_currency, target_currency, rate, timestamp
+					FROM maxhanna.exchange_rates 
+					{(request.HourRange != 0 ? " WHERE timestamp >= @From AND timestamp <= @To " : "")}
 					ORDER BY timestamp ASC;";
+
 				MySqlCommand cmd = new MySqlCommand(sql, conn);
+				cmd.Parameters.AddWithValue("@From", actualFrom);
+				cmd.Parameters.AddWithValue("@To", actualTo); 
 				using (var reader = await cmd.ExecuteReaderAsync())
 				{
 					while (await reader.ReadAsync())

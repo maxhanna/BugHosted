@@ -3,8 +3,10 @@
   <div class="menuButton" (click)="showMenuPanel();"></div>
   <div class="componentTitle">Meme</div>
    
-  <app-notifications [minimalInterface]="true"
-                      [inputtedParentRef]="parentRef">
+  <app-notifications *ngIf="parentRef?.user?.id"
+                      [minimalInterface]="true"
+                      [inputtedParentRef]="parentRef"
+                      [previousComponent]="'Meme'">
   </app-notifications>
  
   <div class="memeResultsDiv">
@@ -26,6 +28,7 @@
                      [showSpaceForNotifications]="true"
                      [showHiddenFiles]="false"
                      [currentPage]="currentMemePage" 
+                     [previousComponent]="'Meme'"
                      (userNotificationEvent)="uploadNotification($event);">
     </app-file-search>
     <div class="loadMoreResultsDiv" *ngIf="fileSearchComponent.currentPage < fileSearchComponent.totalPages && fileSearchComponent.directory?.data?.length">

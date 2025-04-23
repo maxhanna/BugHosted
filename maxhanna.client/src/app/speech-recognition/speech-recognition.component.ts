@@ -1,4 +1,4 @@
-import { Component, EventEmitter, Output } from '@angular/core';
+import { Component, EventEmitter, Input, Output } from '@angular/core';
 import { Injectable, NgZone } from '@angular/core'; 
 
 @Component({
@@ -13,7 +13,8 @@ export class SpeechRecognitionComponent {
   lastSpokenMessages: { message: string }[] = []; 
   readonly MAX_HISTORY = 8;
   speechRecognitionUnavailable = false;
-
+  
+  @Input() disabled = false;
   @Output() speechRecognitionEvent = new EventEmitter<string | undefined>();
   @Output() speechRecognitionStopListeningEvent = new EventEmitter<void>();
   @Output() speechRecognitionNotSupportedEvent = new EventEmitter<boolean>();

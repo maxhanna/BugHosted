@@ -26,10 +26,10 @@ export class WordlerService {
     }
   }
 
-  async getConsecutiveDayStreak(userId: number) {
+  async getBestConsecutiveDayStreak(userId: number) {
     if (!userId) return;
     try {
-      const response = await fetch(`/wordler/getconsecutivedaysstreak`, {
+      const response = await fetch(`/wordler/getbestconsecutivedaysstreak`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

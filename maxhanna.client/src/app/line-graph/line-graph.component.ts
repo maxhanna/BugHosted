@@ -22,6 +22,7 @@ export class LineGraphComponent implements OnInit, OnChanges {
   @Input() chartTypeInputtedData2?: any = 'line';
   @Input() width: number = 500;
   @Input() height: number = 300;
+  @Input() secondaryDataLabel: string = "Secondary Data";
   @Input() darkMode = false;
   @Input() supportsXYZ = false;
   @Input() graphTitle: string = '';
@@ -69,9 +70,9 @@ export class LineGraphComponent implements OnInit, OnChanges {
   }
 
   ngOnChanges(changes: SimpleChanges) {
-    if (this.selectedCoin) {
-      this.changeCoinByString(this.selectedCoin);
-    }
+    // if (this.selectedCoin) {
+    //   this.changeCoinByString(this.selectedCoin);
+    // }
 
     if ((changes['showAverage'] || changes['data'] || changes['data2'] ||
       changes['selectedPeriod'] || changes['selectedCoin']) &&
@@ -151,17 +152,9 @@ export class LineGraphComponent implements OnInit, OnChanges {
     let filteredData2: any[] = [];
     if (this.data2 && this.data2.length > 0) {
       const primaryTimestamps = new Set(filteredData.map(item => item.timestamp));
-      filteredData2 = this.data2.filter(item => primaryTimestamps.has(item.timestamp));
-
-      if (filteredData2.length === 0) {
-        filteredData2 = this.filterDataByPeriodForSecondary(
-          this.getDaysForPeriod(this.selectedPeriod),
-          this.data2
-        );
-      }
-    }
-    filteredData2 = this.data2;
-    console.log("filtered data2:",filteredData2);
+      filteredData2 = this.data2.filter(item => primaryTimestamps.has(item.timestamp)); 
+    } 
+    //console.log("filtered data2:",filteredData2);
     let datasets: any[] = [];
     let chartLabelsSet = new Set<string>();
 
@@ -194,50 +187,72 @@ export class LineGraphComponent implements OnInit, OnChanges {
       filteredData.forEach(item => chartLabelsSet.add(this.formatTimestamp(item.timestamp)));
     }
 
-    if (filteredData2.length > 0) {
+    if (this.data2 && this.data2.length > 0) {
+      // Filter data2 to match the selected period
+      // filteredData2 = this.filterDataByPeriodForSecondary(
+      //   this.getDaysForPeriod(this.selectedPeriod),
+      //   this.data2
+      // );
+    
+      // Create value and type maps for data2
       const data2ValueMap = new Map(
         filteredData2.map(item => [
           item.timestamp,
           item.valueCAD ?? item.value ?? item.rate
         ])
       );
-      // Create a type map for filteredData2
       const typeMap = new Map(
         filteredData2.map(item => [item.timestamp, item.type])
       );
-
+    
+      // Map each filteredData timestamp to the closest data2 timestamp's value within ±5 minutes
+      const secondaryData = filteredData.map(item => {
+        const targetTime = new Date(item.timestamp).getTime();
+        const data2Timestamps = Array.from(data2ValueMap.keys()).map(ts => ({
+          ts,
+          time: new Date(ts).getTime()
+        }));
+    
+        if (data2Timestamps.length === 0) return { value: null, type: 'grey' };
+    
+        // Find the closest data2 timestamp
+        const closest = data2Timestamps.reduce((prev, curr) =>
+          Math.abs(curr.time - targetTime) < Math.abs(prev.time - targetTime) ? curr : prev
+        );
+    
+        // Check if the closest timestamp is within ±1 minutes (1000 * 60 ms)
+        const timeDiff = Math.abs(closest.time - targetTime);
+        if (timeDiff > (1000*60)) {
+          return { value: null, type: 'grey' };
+        }
+    
+        return {
+          value: data2ValueMap.get(closest.ts) ?? null,
+          type: typeMap.get(closest.ts) ?? 'grey'
+        };
+      });
+    
+      // Create a single secondary dataset
       const secondaryConfig: any = {
         type: this.isDotModeData2 ? 'line' : this.chartTypeInputtedData2 ?? 'line',
-        label: `Secondary Data`,
-        data: filteredData.map(item => data2ValueMap.get(item.timestamp) ?? null),
-        backgroundColor: filteredData.map(item => {
-          const type = typeMap.get(item.timestamp);
-          return type === 'buy' ? 'green' : type === 'sell' ? 'red' : 'grey';
-        }),
-        borderColor: filteredData.map(item => {
-          const type = typeMap.get(item.timestamp);
-          return type === 'buy' ? 'green' : type === 'sell' ? 'red' : 'grey';
-        }),
-        pointBackgroundColor: filteredData.map(item => {
-          const type = typeMap.get(item.timestamp);
-          return type === 'buy' ? 'green' : type === 'sell' ? 'red' : 'grey';
-        }),
-        pointBorderColor: filteredData.map(item => {
-          const type = typeMap.get(item.timestamp);
-          return type === 'buy' ? 'green' : type === 'sell' ? 'red' : 'grey';
-        }),
+        label: this.secondaryDataLabel,
+        data: secondaryData.map(d => d.value),
+        backgroundColor: secondaryData.map(d => d.type === 'buy' ? 'green' : d.type === 'sell' ? 'red' : 'grey'),
+        borderColor: secondaryData.map(d => d.type === 'buy' ? 'green' : d.type === 'sell' ? 'red' : 'grey'),
+        pointBackgroundColor: secondaryData.map(d => d.type === 'buy' ? 'green' : d.type === 'sell' ? 'red' : 'grey'),
+        pointBorderColor: secondaryData.map(d => d.type === 'buy' ? 'green' : d.type === 'sell' ? 'red' : 'grey'),
         borderWidth: 2,
         order: 1,
         spanGaps: true
       };
-
+    
       if (this.isDotModeData2) {
         secondaryConfig.showLine = false;
         secondaryConfig.pointRadius = 10;
         secondaryConfig.pointHoverRadius = 7;
         secondaryConfig.borderWidth = 0;
       }
-
+    
       datasets.push(secondaryConfig);
     }
 
@@ -259,7 +274,7 @@ export class LineGraphComponent implements OnInit, OnChanges {
         );
 
         const colorIndex = index % colorPalette.length;
-        const baseColor = colorPalette[colorIndex];
+        const baseColor = index == 0 ? this.darkMode ? this.getCSSVariableValue("--main-link-color") : this.getCSSVariableValue("--third-font-color") : colorPalette[colorIndex];
 
         const datasetConfig: any = {
           data: coinFilteredData.map(item =>
@@ -272,7 +287,7 @@ export class LineGraphComponent implements OnInit, OnChanges {
           borderJoinStyle: "round",
           tension: 0.2,
           cubicInterpolationMode: 'monotone',
-          pointBackgroundColor: '#ffffff',
+          pointBackgroundColor: index == 0 ? this.darkMode ? this.getCSSVariableValue("--main-font-color") : this.getCSSVariableValue("--main-highlight-color") : '#ffffff',
           pointBorderColor: baseColor,
           pointRadius: 3,
           pointHoverRadius: 5
@@ -406,7 +421,7 @@ export class LineGraphComponent implements OnInit, OnChanges {
   }
 
   private getDaysForPeriod(period: string): number {
-    const periodRegex = /^(\d+)\s*(m|min|mins|minute|minutes|h|hour|hours|d|day|days|m|month|months|y|year|years)$/;
+    const periodRegex = /^(\d+)\s*(m|min|mins|minute|minutes|h|hour|hours|d|day|days|w|week|weeks|m|month|months|y|year|years)$/;
     const match = period.trim().toLowerCase().match(periodRegex);
 
     if (match) {
@@ -427,6 +442,10 @@ export class LineGraphComponent implements OnInit, OnChanges {
         case 'day':
         case 'days':
           return value;
+          case 'w':
+          case 'week':
+          case 'weeks':
+            return value * 7;
         case 'm':
         case 'month':
         case 'months':
@@ -558,14 +577,14 @@ export class LineGraphComponent implements OnInit, OnChanges {
         point: {
           radius: (context: any) => {
             const dataset = context.dataset;
-            if (dataset.label === 'Secondary Data') {
+            if (dataset.label === this.secondaryDataLabel) {
               return this.isDotModeData2 ? 10 : 3;
             }
             return this.isDotModeData1 ? 10 : 3;
           },
           hoverRadius: (context: any) => {
             const dataset = context.dataset;
-            if (dataset.label === 'Secondary Data') {
+            if (dataset.label === this.secondaryDataLabel) {
               return this.isDotModeData2 ? 12 : 6;
             }
             return this.isDotModeData1 ? 12 : 6;
@@ -575,7 +594,7 @@ export class LineGraphComponent implements OnInit, OnChanges {
         line: {
           borderWidth: (context: any) => {
             const dataset = context.dataset;
-            if (dataset.label === 'Secondary Data') {
+            if (dataset.label === this.secondaryDataLabel) {
               return this.isDotModeData2 ? 0 : 2;
             }
             return this.isDotModeData1 ? 0 : 2;

@@ -50,6 +50,41 @@ export class ThemesComponent extends ChildComponent implements OnInit, OnDestroy
   originalThemeId = 0;
   warnUserToSave = false;
   blockWarnThemeChange = true;
+  fontFamilyExpanded = false;
+  fonts = [
+    // Sans-Serif
+    { label: 'Arial', value: 'Arial, sans-serif' },
+    { label: 'Arial Black', value: '"Arial Black", Gadget, sans-serif' },
+    { label: 'Helvetica', value: 'Helvetica, Arial, sans-serif' },
+    { label: 'Verdana', value: 'Verdana, sans-serif' },
+    { label: 'Verdana (Alt)', value: 'Verdana, Geneva, sans-serif' },
+    { label: 'Tahoma', value: 'Tahoma, Geneva, sans-serif' },
+    { label: 'Trebuchet MS', value: '"Trebuchet MS", Helvetica, sans-serif' },
+    { label: 'Lucida Sans', value: '"Lucida Sans Unicode", "Lucida Grande", sans-serif' },
+    { label: 'Sans-serif (Default)', value: 'Arial, sans-serif' },
+
+    // Serif
+    { label: 'Times New Roman', value: '"Times New Roman", Times, serif' },
+    { label: 'Georgia', value: 'Georgia, serif' },
+    { label: 'Palatino', value: '"Palatino Linotype", "Book Antiqua", Palatino, serif' },
+    { label: 'Garamond', value: 'Garamond, serif' },
+
+    // Monospace
+    { label: 'Courier New', value: '"Courier New", monospace' },
+    { label: 'Courier', value: 'Courier, monospace' },
+    { label: 'Courier New (Alt)', value: '"Courier New", Courier, monospace' },
+    { label: 'Lucida Console', value: '"Lucida Console", Monaco, monospace' },
+    { label: 'Consolas', value: 'Consolas, monospace' },
+    { label: 'Monaco', value: 'Monaco, monospace' },
+
+    // Cursive
+    { label: 'Comic Sans MS', value: '"Comic Sans MS", cursive, sans-serif' },
+    { label: 'Brush Script MT', value: '"Brush Script MT", cursive' },
+
+    // Fantasy
+    { label: 'Impact', value: 'Impact, Charcoal, sans-serif' },
+    { label: 'Papyrus', value: 'Papyrus, fantasy' }
+  ];
 
   constructor(private userService: UserService, private fileService: FileService) {
     super();
@@ -98,6 +133,7 @@ export class ThemesComponent extends ChildComponent implements OnInit, OnDestroy
 
   // Update CSS variables dynamically
   updateCSS(variable: string, event?: Event, variableValue?: any) {
+    console.log(variableValue);
     if (!event && !variableValue) return;
 
     const target = event?.target as HTMLInputElement;

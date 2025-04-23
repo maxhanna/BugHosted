@@ -57,22 +57,22 @@ public class WebCrawler
 
 	public async Task StartBackgroundScrape()
 	{
-		// Ensure only one scrape operation runs at a time
+		// Ensure only one scrape operation runs at a time 
 		if (isBackgroundScrapeRunning)
 		{
-			_ = _log.Db("Scrape operation already in progress", null, "CRAWLER");
+			_ = _log.Db("Scrape operation already in progress", null, "CRAWLER", outputToConsole: true);
 			return;
 		}
 		isBackgroundScrapeRunning = true;
 		try
 		{
 			List<string> nextDomains = new List<string>();
-			if (_random.Next(1, 3) == 1) // Changed to 1-3 to actually have randomness
+			if (_random.Next(1, 2) == 1)
 			{
-				nextDomains = await GenerateRandomUrls();
+				nextDomains.AddRange(await GenerateRandomUrls());
+				nextDomains.AddRange(await GenerateRandomUrls());
 			}
-			else
-			{
+			else {
 				nextDomains = await GenerateNextUrl();
 			}
 
@@ -81,6 +81,7 @@ public class WebCrawler
 				try
 				{
 					var tmpDomain = NormalizeUrl(domain);
+					//Console.WriteLine("Background scraping : " + tmpDomain);
 					await StartScrapingAsync(tmpDomain);
 					await Task.Delay(TimeSpan.FromSeconds(10)); // Delay between domains
 				}
@@ -120,16 +121,16 @@ public class WebCrawler
 		string genSuffix = "";
 		if (_random.Next(1, 3) == 2)
 		{
-			genSuffix = "com";
+			genSuffix = DomainSuffixes[index];
 		} else
 		{
-			genSuffix = DomainSuffixes[index];
+			genSuffix = "com";
 		}
 		if (!string.IsNullOrEmpty(genWord) || !string.IsNullOrEmpty(genWord2))
 		{
 			nextDomains.Add($"http://{genWord}{genWord2}.{genSuffix}");
 			nextDomains.Add($"https://{genWord}{genWord2}.{genSuffix}");
-		}
+		} 
 		return nextDomains;
 	}
 
@@ -618,7 +619,7 @@ public class WebCrawler
 		catch (HttpRequestException)
 		{ 
 			_ = MarkUrlAsFailed(url);
-			return metadata;
+			return null;
 		}
 		catch (StackOverflowException)
 		{

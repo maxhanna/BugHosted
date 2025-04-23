@@ -842,7 +842,7 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
 
     // Apply the modified text
     targetInput.value = newText;
-
+    this.closePostOptionsPanel();
     // Adjust cursor position after inserting tags
     const cursorPos = selectedText ? end + tag.length + 6 : end + tag.length + 6;
     targetInput.setSelectionRange(cursorPos, cursorPos);

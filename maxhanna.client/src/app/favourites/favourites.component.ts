@@ -5,6 +5,7 @@ import { FavouriteService } from '../../services/favourite.service';
 import { User } from '../../services/datacontracts/user/user';
 import { CrawlerService } from '../../services/crawler.service';
 import { UserService } from '../../services/user.service';
+import { target } from '../meta/helpers/fight';
 
 @Component({
     selector: 'app-favourites',
@@ -83,10 +84,12 @@ export class FavouritesComponent extends ChildComponent implements OnInit {
   }
 
   async addLink(fav?: Favourite) {
-    if (!this.parentRef?.user?.id) { return alert("You must be logged in to update the favourites"); }
+    const user = this.parentRef?.user;
+    if (!user?.id) { return alert("You must be logged in to update the favourites"); }
     this.startLoading();
+    console.log("adding link");
     if (fav) {
-      await this.favoriteService.addFavourite(this.parentRef.user.id, fav.id).then(res => {
+      await this.favoriteService.addFavourite(user.id, fav.id).then(res => {
         if (res) {
           this.parentRef?.showNotification(res);
         } 
@@ -96,20 +99,35 @@ export class FavouritesComponent extends ChildComponent implements OnInit {
       const linkUrl = this.linkInput.nativeElement.value;
       let imageUrl = "";
       let name = "";
-      let tmpLinkUrl = linkUrl;
-      if (!tmpLinkUrl.includes("http")) {
-        tmpLinkUrl = "https://" + tmpLinkUrl;
-      }
-      if (linkUrl.includes('.')) { 
-        const cRes = await this.crawlerService.searchUrl(tmpLinkUrl);
-        if (cRes) {
+      let tmpLinkUrl = linkUrl;  
+      if (tmpLinkUrl) {
+        const exactMatch = linkUrl.includes('.') ? true : false;
+        const cRes = await this.crawlerService.searchUrl(tmpLinkUrl, undefined, undefined, exactMatch);
+        if (cRes && cRes.results.length > 0 && (!exactMatch ? cRes.results[0].url.includes(tmpLinkUrl) : true)) {
           let targetData = cRes.results[0];
           imageUrl = targetData.imageUrl;
           name = targetData.title;
+          tmpLinkUrl = targetData.url; 
+          this.parentRef?.setModalBody(`
+            Search results found and added this link to favourites:
+            <img src='${imageUrl}' (error)="fav.imageUrl = '' /> <br />
+            Found Title: ${name} <br />
+            Found URL: ${tmpLinkUrl} <br />
+          `);
+          setTimeout(() => { this.parentRef?.openModal(); },);
+        } else {
+          if (!tmpLinkUrl.includes("https")) {
+            tmpLinkUrl = "https://" + tmpLinkUrl;
+            name = tmpLinkUrl;
+          }
+          this.parentRef?.setModalBody(`
+            No search results found; Manually added link to favourites.<br />
+            Title: ${name} <br />
+            URL: ${tmpLinkUrl} <br />
+          `);
+          setTimeout(() => { this.parentRef?.openModal(); },);
         }
-      }  
-      const user = this.parentRef.user;
-      if (linkUrl) {
+        console.log(cRes);
         await this.favoriteService.updateFavourites(user, tmpLinkUrl, 0, imageUrl, name ?? linkUrl).then(res => {
           var tmpFav = new Favourite();
           tmpFav.name = name ?? linkUrl;
@@ -117,6 +135,8 @@ export class FavouritesComponent extends ChildComponent implements OnInit {
           tmpFav.imageUrl = imageUrl;
           tmpFav.id = res.id;
           tmpFav.createdBy = user.id;
+          tmpFav.modifiedBy = user.id;
+          tmpFav.userCount = 1;
           this.parentRef?.showNotification(res.message);
           this.userFavourites.push(tmpFav);
         });

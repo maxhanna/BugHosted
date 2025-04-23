@@ -38,6 +38,7 @@ export class CommentsComponent extends ChildComponent implements OnInit {
   @Input() automaticallyShowSubComments = true;
   @Input() canReply = true;
   @Input() debpth = 0;
+  @Input() previousComponent?: string;
   @Output() commentAddedEvent = new EventEmitter<FileComment>();
   @Output() commentRemovedEvent = new EventEmitter<FileComment>();
   @Output() commentHeaderClickedEvent = new EventEmitter<boolean>(this.showComments);

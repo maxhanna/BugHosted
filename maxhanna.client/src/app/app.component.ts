@@ -206,6 +206,10 @@ export class AppComponent implements OnInit, AfterViewInit {
           this.checkAndClearRouterOutlet();
           this.createComponent('Crypto-Hub');
         }
+        if (this.router.url.includes('Host') || this.router.url.includes('HostAi') || this.router.url.includes('Ai')) {
+          this.checkAndClearRouterOutlet();
+          this.createComponent('HostAi');
+        }
       }
     }); 
   } 

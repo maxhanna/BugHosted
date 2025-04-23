@@ -5,16 +5,19 @@
   <p class="notification">You've entered the array, {{parentRef?.user?.username ?? 'Anonymous'}}.</p>
 
   <div *ngIf="!isUserComponentClosed">
-    <app-user [loginOnly]="true"
-              [inputtedParentRef]="parentRef"
-              (closeUserComponentEvent)="closeUserComponent($event)"></app-user>
+    <app-user [loginOnly]="true" [inputtedParentRef]="parentRef"
+      (closeUserComponentEvent)="closeUserComponent($event)"></app-user>
   </div>
 
   <div class="" *ngIf="!isDead">
     <div class="radar">
       <div *ngFor="let users of radar" class="radarCube">
         <div *ngFor="let user of users" class="userTag">
-          <app-user-tag [user]="user" [inputtedParentRef]="parentRef" [hideName]="true" [displayTinyPicture]="true"></app-user-tag>
+          <app-user-tag [user]="user"
+            [inputtedParentRef]="parentRef"
+            [hideName]="true" 
+            [displayTinyPicture]="true"
+            [previousComponent]="'Array'"></app-user-tag>
         </div>
       </div>
     </div>
@@ -23,15 +26,9 @@
 
       <div *ngIf="inventory" class="inventoryItemsDiv">
         <div *ngFor="let item of inventory.items" class="inventoryItem">
-          <app-media-viewer [file]="item.file"
-                            [currentDirectory]="item?.file?.directory"
-                            [inputtedParentRef]="parentRef"
-                            [displayExtraInfo]="false"
-                            [showCommentSection]="false"
-                            [user]="parentRef?.user"
-                            [autoplay]="true"
-                            [blockExpand]="true"
-                            [displayExpander]="false">
+          <app-media-viewer [file]="item.file" [currentDirectory]="item?.file?.directory"
+            [inputtedParentRef]="parentRef" [displayExtraInfo]="false" [showCommentSection]="false"
+            [user]="parentRef?.user" [autoplay]="true" [blockExpand]="true" [displayExpander]="false">
           </app-media-viewer>
         </div>
       </div>
@@ -50,39 +47,21 @@
         <button (click)="showInventory()">Inventory</button>
       </div>
       <div *ngIf="hero && randomLocationPicture && !isNexusPosition(hero.position!)" class="locationPicture">
-        <app-media-viewer [file]="randomLocationPicture"
-                          [currentDirectory]="randomLocationPicture.directory"
-                          [inputtedParentRef]="parentRef"
-                          [displayExtraInfo]="false"
-                          [showCommentSection]="false"
-                          [user]="parentRef?.user"
-                          [autoplay]="true"
-                          [blockExpand]="true"
-                          [displayExpander]="false">
+        <app-media-viewer [file]="randomLocationPicture" [currentDirectory]="randomLocationPicture.directory"
+          [inputtedParentRef]="parentRef" [displayExtraInfo]="false" [showCommentSection]="false"
+          [user]="parentRef?.user" [autoplay]="true" [blockExpand]="true" [displayExpander]="false">
         </app-media-viewer>
       </div>
       <div *ngIf="hero && randomNexusPicture && isNexusPosition(hero.position!)" class="locationPicture">
-        <app-media-viewer [file]="randomNexusPicture"
-                          [currentDirectory]="randomNexusPicture.directory"
-                          [inputtedParentRef]="parentRef"
-                          [displayExtraInfo]="false"
-                          [showCommentSection]="false"
-                          [user]="parentRef?.user"
-                          [autoplay]="true"
-                          [blockExpand]="true"
-                          [displayExpander]="false">
+        <app-media-viewer [file]="randomNexusPicture" [currentDirectory]="randomNexusPicture.directory"
+          [inputtedParentRef]="parentRef" [displayExtraInfo]="false" [showCommentSection]="false"
+          [user]="parentRef?.user" [autoplay]="true" [blockExpand]="true" [displayExpander]="false">
         </app-media-viewer>
       </div>
       <div *ngIf="hero && randomInventoryPicture && isInventoryOpen" class="locationPicture">
-        <app-media-viewer [file]="randomInventoryPicture"
-                          [currentDirectory]="randomInventoryPicture.directory"
-                          [inputtedParentRef]="parentRef"
-                          [displayExtraInfo]="false"
-                          [showCommentSection]="false"
-                          [user]="parentRef?.user"
-                          [autoplay]="true"
-                          [blockExpand]="true"
-                          [displayExpander]="false">
+        <app-media-viewer [file]="randomInventoryPicture" [currentDirectory]="randomInventoryPicture.directory"
+          [inputtedParentRef]="parentRef" [displayExtraInfo]="false" [showCommentSection]="false"
+          [user]="parentRef?.user" [autoplay]="true" [blockExpand]="true" [displayExpander]="false">
         </app-media-viewer>
       </div>
     </div>
@@ -90,7 +69,10 @@
   <div *ngIf="isDead" class="deathMessageDiv">
     <div class="deathMessage">You have died!</div>
     <div>Killed by :</div>
-    <div><app-user-tag [user]="graveyardHero.killer" [inputtedParentRef]="parentRef"></app-user-tag></div>
+    <div>
+      <app-user-tag [user]="graveyardHero.killer" [inputtedParentRef]="parentRef"
+        [previousComponent]="'Array'"></app-user-tag>
+    </div>
     <div class="actionButtons">
       <button (click)="resurrect()">Resurrect</button>
     </div>
@@ -110,8 +92,10 @@
   </div>
 
   <div *ngIf="hideRanks" (click)="hideRanks = !hideRanks" class="usernameProfileLink rankingDiv">Show Ranks</div>
-  <div *ngIf="!hideRanks" class="rankingDiv {{isNexusPosition(hero.position!) ? '' : 'rankingDivOffNexus'}}" #rankingDiv>
-    <span class="usernameProfileLink" (click)="hideRanks = !hideRanks">Ranks</span> <span (click)="expandRanks()" class="ranksExpander">[{{isRanksExpanded ? 'shrink' : 'expand'}}]</span>
+  <div *ngIf="!hideRanks" class="rankingDiv {{isNexusPosition(hero.position!) ? '' : 'rankingDivOffNexus'}}"
+    #rankingDiv>
+    <span class="usernameProfileLink" (click)="hideRanks = !hideRanks">Ranks</span> <span (click)="expandRanks()"
+      class="ranksExpander">[{{isRanksExpanded ? 'shrink' : 'expand'}}]</span>
     <table>
       <thead>
         <tr>
@@ -122,7 +106,7 @@
       <tbody *ngFor="let hero of allPlayerHeros">
         <tr *ngIf="hero && hero.level">
           <td class="miniUserTag">
-            <app-user-tag [user]="hero.user" [inputtedParentRef]="parentRef" [displayMiniTag]="true"></app-user-tag>
+            <app-user-tag [user]="hero.user" [inputtedParentRef]="parentRef" [displayMiniTag]="true" [previousComponent]="'Array'"></app-user-tag>
           </td>
           <td>
             <span title="Hero Level">🦸</span>: {{hero.level}}
@@ -145,49 +129,70 @@
 
 
 <!-- Menu Popup -->
-<div class="arrayPopupPanel" style="overflow: auto;" *ngIf="isHelpPanelOpen"> 
+<div class="arrayPopupPanel" style="overflow: auto;" *ngIf="isHelpPanelOpen">
   <div class="popupPanelTitle">
     The Array
   </div>
   <div>
     <p><strong>Instructions:</strong></p>
 
-    <p><strong>Objective:</strong> In this game, your hero needs to traverse an array while avoiding powerful enemies that can reset your position.
-    Move carefully, as you gain experience for each cell you pass. You can also find safe zones called <em>nexuses</em> where you cannot be reset.</p>
+    <p><strong>Objective:</strong> In this game, your hero needs to traverse an array while avoiding powerful enemies
+      that can reset your position.
+      Move carefully, as you gain experience for each cell you pass. You can also find safe zones called
+      <em>nexuses</em> where you cannot be reset.</p>
 
     <h3>Basic Gameplay</h3>
     <ul>
-      <li><strong>Moving:</strong> Use the movement buttons to go left or right through the array. Every time you move, you gain experience.</li>
-      <li><strong>Leveling Up:</strong> The further down the array you go, the more experience you get. Be mindful, as enemies may be ahead, and some could be higher level than you!</li>
-      <li><strong>Enemies:</strong> If an enemy is in front of you, they may reset your position to 0 if you try to pass them. Be strategic in choosing your path and avoid stronger enemies.</li>
-      <li><strong>Nexus:</strong> If you reach a nexus point, you are safe. No one can reset your position while you're there. It’s a good place to rest and avoid dangers.</li>
+      <li><strong>Moving:</strong> Use the movement buttons to go left or right through the array. Every time you move,
+        you gain experience.</li>
+      <li><strong>Leveling Up:</strong> The further down the array you go, the more experience you get. Be mindful, as
+        enemies may be ahead, and some could be higher level than you!</li>
+      <li><strong>Enemies:</strong> If an enemy is in front of you, they may reset your position to 0 if you try to pass
+        them. Be strategic in choosing your path and avoid stronger enemies.</li>
+      <li><strong>Nexus:</strong> If you reach a nexus point, you are safe. No one can reset your position while you're
+        there. It’s a good place to rest and avoid dangers.</li>
     </ul>
 
     <h3>Actions</h3>
     <ul>
-      <li><strong>Go Left:</strong> Move your hero one step to the left on the array. The further you go, the higher the potential experience rewards.</li>
-      <li><strong>Go Right:</strong> Move your hero one step to the right on the array. The further you go, the higher the potential experience rewards.</li>
-      <li><strong>Train:</strong> Use your hero's abilities to train and increase experience passively when you’re not moving. This helps you accumulate experience without running into the danger of having to attack others.</li>
-      <li><strong>Inventory:</strong> Open your inventory to view and manage your items. You may find items that can aid your hero on their journey, such as healing potions or buffs to enhance your abilities.</li>
-      <li><strong>Resurrect:</strong> If you die, you can choose to resurrect and return to the game, although you'll start back at the first cell.</li>
+      <li><strong>Go Left:</strong> Move your hero one step to the left on the array. The further you go, the higher the
+        potential experience rewards.</li>
+      <li><strong>Go Right:</strong> Move your hero one step to the right on the array. The further you go, the higher
+        the potential experience rewards.</li>
+      <li><strong>Train:</strong> Use your hero's abilities to train and increase experience passively when you’re not
+        moving. This helps you accumulate experience without running into the danger of having to attack others.</li>
+      <li><strong>Inventory:</strong> Open your inventory to view and manage your items. You may find items that can aid
+        your hero on their journey, such as healing potions or buffs to enhance your abilities.</li>
+      <li><strong>Resurrect:</strong> If you die, you can choose to resurrect and return to the game, although you'll
+        start back at the first cell.</li>
     </ul>
 
     <h3>Special Features</h3>
     <ul>
-      <li><strong>Levels:</strong> Each hero has a level. You can view your level and the levels of other players in the ranking section.</li>
-      <li><strong>Stats:</strong> Your hero has various stats, including players killed, monsters defeated, and experience gained. Keep track of these to measure your progress.</li>
-      <li><strong>Safe Zones:</strong> Nexus points provide a safe zone where enemies cannot reset you. Use them wisely to rest and plan your next move.</li>
+      <li><strong>Levels:</strong> Each hero has a level. You can view your level and the levels of other players in the
+        ranking section.</li>
+      <li><strong>Stats:</strong> Your hero has various stats, including players killed, monsters defeated, and
+        experience gained. Keep track of these to measure your progress.</li>
+      <li><strong>Safe Zones:</strong> Nexus points provide a safe zone where enemies cannot reset you. Use them wisely
+        to rest and plan your next move.</li>
     </ul>
 
     <h3>Combat & Experience System</h3>
     <ul>
-      <li><strong>Player vs Player:</strong> Players can battle each other. If your hero encounters another player, you have the option to engage in combat. Defeating another player may reward you with experience or other resources.</li>
-      <li><strong>Experience Gain:</strong> Each time you pass through a cell, you gain experience points. You can also earn experience through combat, both by defeating enemies and other players. The higher your level, the more experience you will gain from each cell and battle.</li>
-      <li><strong>Death & Resurrection:</strong> If your hero is defeated by an enemy or another player, you will be resurrected at the starting point, but you may lose some progress. Be sure to keep an eye on your level before engaging other players!</li>
+      <li><strong>Player vs Player:</strong> Players can battle each other. If your hero encounters another player, you
+        have the option to engage in combat. Defeating another player may reward you with experience or other resources.
+      </li>
+      <li><strong>Experience Gain:</strong> Each time you pass through a cell, you gain experience points. You can also
+        earn experience through combat, both by defeating enemies and other players. The higher your level, the more
+        experience you will gain from each cell and battle.</li>
+      <li><strong>Death & Resurrection:</strong> If your hero is defeated by an enemy or another player, you will be
+        resurrected at the starting point, but you may lose some progress. Be sure to keep an eye on your level before
+        engaging other players!</li>
     </ul>
 
     <h3>Ranking System</h3>
-    <p>The game includes a ranking system where players are ranked based on their hero’s level, experience, and other stats. Keep an eye on your rank to see how you compare with other players!</p>
+    <p>The game includes a ranking system where players are ranked based on their hero’s level, experience, and other
+      stats. Keep an eye on your rank to see how you compare with other players!</p>
   </div>
 
   <button id="closeOverlay" (click)="closeHelpPanel()">Close</button>

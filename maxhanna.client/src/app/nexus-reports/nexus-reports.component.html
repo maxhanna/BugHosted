@@ -41,12 +41,12 @@
       <div class="reportsCenterDisplay">
         <div class="reportsNameDisplay">
           <span (click)="openMapEmitter.emit(report.originCoordsX + ',' + report.originCoordsY)" class="invertedHighlights cursorPointerUnderlined">({{report.originCoordsX}},{{report.originCoordsY}})<span class="invertedHighlights" *ngIf="getBaseNameForCoords(report.originCoordsX, report.originCoordsY)">{{getBaseNameForCoords(report.originCoordsX, report.originCoordsY)}}</span></span>
-          <app-user-tag [user]="report.originUser" [displayOnlyName]="true"></app-user-tag>
+          <app-user-tag [user]="report.originUser" [displayOnlyName]="true" [previousComponent]="'Nexus'"></app-user-tag>
         </div>
         <div> VS </div>
         <div class="reportsNameDisplay">
           <span (click)="openMapEmitter.emit(report.destinationCoordsX + ',' + report.destinationCoordsY)" class="invertedHighlights cursorPointerUnderlined">({{report.destinationCoordsX}},{{report.destinationCoordsY}})<span class="invertedHighlights" *ngIf="getBaseNameForCoords(report.destinationCoordsX, report.destinationCoordsY)">{{getBaseNameForCoords(report.destinationCoordsX, report.destinationCoordsY)}}</span></span>
-          <app-user-tag [user]="report.destinationUser" [displayOnlyName]="true"></app-user-tag>
+          <app-user-tag [user]="report.destinationUser" [displayOnlyName]="true" [previousComponent]="'Nexus'"></app-user-tag>
         </div>
         <div class="reportTimestampSpan">📀 Stolen: <span [class]="report.defenderGoldStolen && report.defenderGoldStolen > 0 ? 'goldText' : 'greyText'">{{report.defenderGoldStolen | number:'1.2-2' }}</span> / <span [class]="report.defenderGold && report.defenderGold > 0 ? 'goldText' : 'greyText'">{{report.defenderGold | number:'1.2-2' }}</span></div>
       </div>

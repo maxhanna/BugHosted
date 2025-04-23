@@ -23,9 +23,11 @@ export class ChildComponent {
       console.log("key not found: " + componentTitle);
     }
   }
-
   onMobile() {
-    return /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+    return (
+      /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent) ||
+      window.innerWidth < 600
+    );
   }
   getUtcTimeSince(dateString?: Date | string, granularity?: 'year' | 'month' | 'day' | 'hour' | 'minute'): string {
     if (!dateString) return '';
@@ -124,10 +126,10 @@ export class ChildComponent {
     this.isLoading = false;
   }
 
-  viewProfile(user?: User) {
+  viewProfile(user?: User, previousComponent?: string) {
     if (user && user.id != 0) {
       this.parentRef?.closeOverlay();
-      this.parentRef?.createComponent("User", { "userId": user.id });
+      this.parentRef?.createComponent("User", { "userId": user.id, "previousComponent": previousComponent });
     }
   }
   sortTable(columnIndex: number, tableId: string): void {

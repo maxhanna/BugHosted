@@ -107,7 +107,7 @@
       </thead>
       <tbody>
         <tr *ngFor="let score of scores">
-          <td class="usernameProfileLink cursorPointerUnderlined" (click)="viewProfile(score.user)">{{score.user.username ?? 'Anonymous'}}</td>
+          <td class="usernameProfileLink cursorPointerUnderlined" (click)="viewProfile(score.user, 'Wordler')">{{score.user.username ?? 'Anonymous'}}</td>
           <td>{{score.score}}</td>
           <td>{{score.time}}</td>
           <td>{{score.difficulty == 4 ? 'Easy Difficulty' : score.difficulty == 5 ? 'Medium Difficulty' : score.difficulty == 6 ? 'Hard Difficulty' : 'Master Wordler'}}</td>

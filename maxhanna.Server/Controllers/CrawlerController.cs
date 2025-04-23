@@ -29,22 +29,23 @@ namespace maxhanna.Server.Controllers
 			int pageSize = request.PageSize;
 			int offset = (pageNumber - 1) * pageSize;
 			int totalResults = 0;
-
+			request.Url = request.Url?.TrimEnd('/');
 			try
 			{
-				string urlHash = _webCrawler.GetUrlHash(request.Url);
+				string urlHash = _webCrawler.GetUrlHash(request.Url ?? "");
 				using (var connection = new MySqlConnection(connectionString))
-				{
-					await connection.OpenAsync();
-					bool hasCommaSeparatedKeywords = request.Url.Contains(",");
-					var keywords = request.Url.Split(',')
-																.Select(keyword => "%" + keyword.Trim().ToLower() + "%")
-																.ToList();
+                {
+                    await connection.OpenAsync();
+                    bool hasCommaSeparatedKeywords = (request.Url ?? "").Contains(",");
+                    var keywords = request.Url?.Split(',')
+                                                                .Select(keyword => "%" + keyword.Trim().ToLower() + "%")
+                                                                .ToList();
 
-					// Define the common search condition
-					bool searchAll = (request.Url == "*");
-					string whereCondition = searchAll ? " (failed = 0 OR (failed = 1 AND response_code IS NOT NULL)) " : @$"
-					( 
+                    // Define the common search condition
+                    bool searchAll = request.Url == "*";
+                    string whereCondition = request.ExactMatch.GetValueOrDefault() ? " url_hash = @urlHash "
+					: searchAll ? " (failed = 0) " 
+					: @$" ( 
 							url_hash = @urlHash
 							OR MATCH(title, description, author, keywords) AGAINST (@search IN NATURAL LANGUAGE MODE)
 							OR url LIKE @search
@@ -52,112 +53,91 @@ namespace maxhanna.Server.Controllers
 					AND (failed = 0 OR (failed = 1 AND response_code IS NOT NULL))";
 
 
-					// Query to get the paginated results
-					string checkUrlQuery = $@"
-                SELECT id, url, title, description, author, keywords, image_url, failed, response_code 
-                FROM search_results 
-                WHERE {whereCondition} 
-                ORDER BY CASE WHEN @searchAll IS TRUE THEN found_date ELSE id END DESC
-                LIMIT @pageSize OFFSET @offset;";
+                    // Query to get the paginated results
+                    string checkUrlQuery = $@"
+						SELECT id, url, title, description, author, keywords, image_url, failed, response_code 
+						FROM search_results 
+						WHERE {whereCondition} 
+						ORDER BY CASE WHEN @searchAll IS TRUE THEN found_date ELSE id END DESC
+						LIMIT @pageSize OFFSET @offset;";
 
-					// Query to get the total count of results
-					string totalCountQuery = $@"
-                SELECT COUNT(*) 
-                FROM search_results 
-                WHERE {whereCondition};";
+                    // Query to get the total count of results
+                    string totalCountQuery = $@"
+						SELECT COUNT(*) 
+						FROM search_results 
+						WHERE {whereCondition};";
 
 
-					using (var command = new MySqlCommand(checkUrlQuery, connection))
-					{
-						command.Parameters.AddWithValue("@searchAll", searchAll);
-						command.Parameters.AddWithValue("@urlHash", searchAll ? DBNull.Value : (object)urlHash); 
-						command.Parameters.AddWithValue("@search",  request.Url.ToLower() );
-						 
-						command.Parameters.AddWithValue("@pageSize", pageSize);
-						command.Parameters.AddWithValue("@offset", offset);
-						using (var reader = await command.ExecuteReaderAsync())
-						{
-							while (reader.Read())
-							{
-								results.Add(new Metadata
-								{
-									Url = reader.IsDBNull(reader.GetOrdinal("url")) ? null : reader.GetString("url"),
-									Title = reader.IsDBNull(reader.GetOrdinal("title")) ? null : reader.GetString("title"),
-									Description = reader.IsDBNull(reader.GetOrdinal("description")) ? null : reader.GetString("description"),
-									ImageUrl = reader.IsDBNull(reader.GetOrdinal("image_url")) ? null : reader.GetString("image_url"),
-									Author = reader.IsDBNull(reader.GetOrdinal("author")) ? null : reader.GetString("author"),
-									Keywords = reader.IsDBNull(reader.GetOrdinal("keywords")) ? null : reader.GetString("keywords"),
-									HttpStatus = reader.IsDBNull(reader.GetOrdinal("response_code")) ? null : reader.GetInt32("response_code"),
-								});
-							}
-						}
-					}
+                    using (var command = new MySqlCommand(checkUrlQuery, connection))
+                    {
+                        command.Parameters.AddWithValue("@searchAll", searchAll);
+                        command.Parameters.AddWithValue("@urlHash", searchAll ? DBNull.Value : (object)urlHash);
+                        command.Parameters.AddWithValue("@search", request.Url?.ToLower());
 
-					// Get total count
-					using (var countCommand = new MySqlCommand(totalCountQuery, connection))
-					{
-						countCommand.Parameters.AddWithValue("@searchAll", searchAll);
-						countCommand.Parameters.AddWithValue("@urlHash", searchAll ? DBNull.Value : (object)urlHash);
+                        command.Parameters.AddWithValue("@pageSize", pageSize);
+                        command.Parameters.AddWithValue("@offset", offset);
+                        using (var reader = await command.ExecuteReaderAsync())
+                        {
+                            while (reader.Read())
+                            {
+                                results.Add(new Metadata
+                                {
+                                    Url = reader.IsDBNull(reader.GetOrdinal("url")) ? null : reader.GetString("url"),
+                                    Title = reader.IsDBNull(reader.GetOrdinal("title")) ? null : reader.GetString("title"),
+                                    Description = reader.IsDBNull(reader.GetOrdinal("description")) ? null : reader.GetString("description"),
+                                    ImageUrl = reader.IsDBNull(reader.GetOrdinal("image_url")) ? null : reader.GetString("image_url"),
+                                    Author = reader.IsDBNull(reader.GetOrdinal("author")) ? null : reader.GetString("author"),
+                                    Keywords = reader.IsDBNull(reader.GetOrdinal("keywords")) ? null : reader.GetString("keywords"),
+                                    HttpStatus = reader.IsDBNull(reader.GetOrdinal("response_code")) ? null : reader.GetInt32("response_code"),
+                                });
+                            }
+                        }
+                    }
 
-					 
-						countCommand.Parameters.AddWithValue("@search",   request.Url.ToLower()  );
-						 
-
-						totalResults = Convert.ToInt32(await countCommand.ExecuteScalarAsync());
-					}
-
-					var urlVariants = new List<string>();
-					//_ = _log.Db($"Found {results.Count} results before searching manually", null, "CRAWLERCTRL", true);
-					int scrapedResults = 0;  
-					string tmpUrl = request.Url.Trim().Replace(",", "").Replace(" ", "").Replace("'", ""); 
-					if (!request.Url.StartsWith("http://") && !request.Url.StartsWith("https://"))
-					{
-						tmpUrl = "https://" + tmpUrl;
-					}
-					if (!_webCrawler.IsValidDomain(tmpUrl))
-					{
-						Uri.TryCreate(tmpUrl, UriKind.Absolute, out var uri);
-						string host = uri?.Host ?? "";
-						if (!_webCrawler.HasValidSuffix(host))
-						{
-							urlVariants.Add(tmpUrl + ".com");
-							urlVariants.Add(tmpUrl + ".net");
-						}
-					}
-					else
-					{
-						urlVariants.Add(tmpUrl); 
-					}
-					if (request.Url.Trim() != "*")
-					{   
-						foreach (var urlVariant in urlVariants)
-						{ 
-							//_ = _log.Db($"Manually scraping: " + urlVariant, null, "CRAWLERCTRL", true);
-							var mainMetadata = await _webCrawler.ScrapeUrlData(urlVariant);
-							if (mainMetadata != null)
-							{ 
-								scrapedResults++;
-								mainMetadata.Url = new Uri(new Uri(urlVariant), mainMetadata.Url).ToString().TrimEnd('/');
+                    // Get total count
+                    using (var countCommand = new MySqlCommand(totalCountQuery, connection))
+                    {
+                        countCommand.Parameters.AddWithValue("@searchAll", searchAll);
+                        countCommand.Parameters.AddWithValue("@urlHash", searchAll ? DBNull.Value : (object)urlHash); 
+                        countCommand.Parameters.AddWithValue("@search", request.Url?.ToLower()); 
+                        totalResults = Convert.ToInt32(await countCommand.ExecuteScalarAsync());
+                    }
+ 
+                    _ = _log.Db($"Found {results.Count} results before searching manually", null, "CRAWLERCTRL", true);
+                    int scrapedResults = 0;
+					List<string> urlVariants = GetUrlVariants(request);
+                    if (request.Url?.Trim() != "*")
+                    {
+                        foreach (var urlVariant in urlVariants)
+                        {
+                            _ = _log.Db($"Manually scraping: " + urlVariant, null, "CRAWLERCTRL", true);
+                            var mainMetadata = await _webCrawler.ScrapeUrlData(urlVariant);
+                            if (mainMetadata != null)
+                            {
+                                scrapedResults++;
+                                mainMetadata.Url = new Uri(new Uri(urlVariant), mainMetadata.Url).ToString().TrimEnd('/');
+								_ = _log.Db($"Added: " + mainMetadata.Url + " to search results.", null, "CRAWLERCTRL", true);
 								results.Add(mainMetadata);
-								if (mainMetadata.HttpStatus == null && !_webCrawler.IsMetadataCompletelyEmpty(mainMetadata))
-								{
-									_ = _webCrawler.SaveSearchResult(mainMetadata.Url, mainMetadata);
-								} 
-							}
-							else
+                                if (mainMetadata.HttpStatus == null && !_webCrawler.IsMetadataCompletelyEmpty(mainMetadata))
+                                {
+                                    _ = _webCrawler.SaveSearchResult(mainMetadata.Url, mainMetadata);
+                                }
+                            }
+                            else
 							{
-								_ = _webCrawler.MarkUrlAsFailed(urlVariant); 
-							}
-						}
-					} 
-					var allResults = results.ToList();
-					 
-					allResults = GetOrderedResultsForWeb(request, allResults);
-					 
-					// Return the results along with the total count for pagination
-					return Ok(new { Results = allResults, TotalResults = totalResults + scrapedResults });
-				}
-			}
+								_ = _log.Db($"Url Failed: " + urlVariant, null, "CRAWLERCTRL", true);
+								_ = _webCrawler.MarkUrlAsFailed(urlVariant);
+                            }
+                        }
+                    }
+                    var allResults = results.ToList();
+
+                    allResults = GetOrderedResultsForWeb(request, allResults);
+
+                    // Return the results along with the total count for pagination
+                    return Ok(new { Results = allResults, TotalResults = totalResults + scrapedResults });
+                }
+            }
 			catch (Exception ex)
 			{ 
 				if (results.Count > 0)
@@ -172,7 +152,32 @@ namespace maxhanna.Server.Controllers
 			}
 		}
 
-		private List<Metadata> GetOrderedResultsForWeb(CrawlerRequest request, List<Metadata> allResults)
+        private List<string> GetUrlVariants(CrawlerRequest request)
+        {
+			List<string> variants = new List<string>();
+            string tmpUrl = request.Url?.Trim().Replace(",", "").Replace(" ", "").Replace("'", "") ?? "";
+            if (!tmpUrl.StartsWith("http://") && !tmpUrl.StartsWith("https://"))
+            {
+                tmpUrl = "https://" + tmpUrl;
+            }
+            if (!_webCrawler.IsValidDomain(tmpUrl))
+            {
+                Uri.TryCreate(tmpUrl, UriKind.Absolute, out var uri);
+                string host = uri?.Host ?? "";
+                if (!_webCrawler.HasValidSuffix(host))
+                {
+					variants.Add(tmpUrl + ".com");
+					variants.Add(tmpUrl + ".net");
+                }
+            }
+            else
+            {
+				variants.Add(tmpUrl);
+            }
+			return variants; 
+		}
+
+        private List<Metadata> GetOrderedResultsForWeb(CrawlerRequest request, List<Metadata> allResults)
 		{
 			// Normalize: prefer https over http
 			var httpsUrls = new HashSet<string>(
@@ -198,7 +203,7 @@ namespace maxhanna.Server.Controllers
 			allResults = allResults
 				.GroupBy(r => r.Url)
 				.Select(g => g.First())
-				.OrderByDescending(r => _webCrawler.CalculateRelevanceScore(r, request.Url))
+				.OrderByDescending(r => _webCrawler.CalculateRelevanceScore(r, request.Url ?? ""))
 				.ToList();
 
 			return allResults;

@@ -4,7 +4,8 @@ import { ChildComponent } from '../child.component';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { User } from '../../services/datacontracts/user/user';
 import { SpeechRecognitionComponent } from '../speech-recognition/speech-recognition.component';
-
+ 
+export class AIMessage { sender?: string; message: any };
 
 @Component({
   selector: 'app-host-ai',
@@ -15,7 +16,7 @@ import { SpeechRecognitionComponent } from '../speech-recognition/speech-recogni
 export class HostAiComponent extends ChildComponent implements OnInit, OnDestroy {
   constructor(private aiService: AiService, private sanitizer: DomSanitizer) { super(); }
   userMessage: string = '';
-  chatMessages: { sender: string, message: any }[] = [];
+  chatMessages: AIMessage[] = [];
   hostName: string = "Host";
 
   responseLength? = 200;
@@ -66,7 +67,9 @@ export class HostAiComponent extends ChildComponent implements OnInit, OnDestroy
             this.savedMessageHistory.push((response.response ?? response.reply));
             this.pushMessage({ sender: this.hostName, message: reply });
             this.chatInput.nativeElement.value = "";
-            this.chatInput.nativeElement.focus();
+            this.chatInput.nativeElement.focus(); 
+            this.savedMessageHistory.push(this.userMessage);
+            this.userMessage = '';
             this.stopLoading();
           },
           (error) => {
@@ -76,18 +79,18 @@ export class HostAiComponent extends ChildComponent implements OnInit, OnDestroy
             setTimeout(() => {
               this.chatInput.nativeElement.focus();
             }, 50);
+            this.savedMessageHistory.push(this.userMessage);
+            this.userMessage = '';
             this.stopLoading();
           }
         );
       })
-      this.savedMessageHistory.push(this.userMessage);
-      this.userMessage = '';
     }
   }
   speechRecognitionEvent(transcript: string | undefined) {
     if (transcript) {
       this.startedTalking = true;
-      this.chatInput.nativeElement.value = transcript;
+      this.chatInput.nativeElement.value += transcript;
       setTimeout(() => {
         this.sendMessage();
       }, 100);
@@ -142,11 +145,11 @@ console.log("Hello, world!");
       }
     }, 500);
   }
-  speakMessage(message: string) {
+  speakMessage(message: string, listenAfter = true) {
     if (!this.startedTalking) {
       return;
     }
-    this.stopListeningTemporarily();
+    //this.stopListeningTemporarily();
 
     if ('speechSynthesis' in window) {
       console.log("Speech synthesis is supported! ", message);
@@ -173,7 +176,7 @@ console.log("Hello, world!");
       const speakSegments = (index: number) => {
         if (index >= segments.length) {
           // All segments spoken; resume listening if applicable.
-          if (this.startedTalking) {
+          if (this.startedTalking && listenAfter) {
             this.startListening();
           }
           return;
@@ -212,7 +215,9 @@ console.log("Hello, world!");
               pauseTime = 0;
             }
           }
-          setTimeout(() => speakSegments(index + 1), pauseTime);
+          if (this.startedTalking) {
+            setTimeout(() => speakSegments(index + 1), pauseTime);
+          }  
         };
 
         window.speechSynthesis.speak(utterance);
@@ -241,16 +246,18 @@ console.log("Hello, world!");
   }
 
   stopTalking() {
-    speechSynthesis.cancel();
-
-    if (this.utterance) {
-      this.utterance.onend = null;
-      this.utterance.onerror = null;
-      this.utterance = null;
-    }
-
     this.startedTalking = false;
-    this.speechRecognitionComponent?.stopListening();
+    setTimeout(() => {
+      speechSynthesis.cancel();
+
+      if (this.utterance) {
+        this.utterance.onend = null;
+        this.utterance.onerror = null;
+        this.utterance = null;
+      }
+
+      this.speechRecognitionComponent?.stopListening();
+    }, 10);
   }
   stopListening() {
     this.startedTalking = false;
@@ -340,5 +347,16 @@ console.log("Hello, world!");
     this.savedMessageHistory = [];
     this.parentRef?.showNotification("Memory cleared.");
     this.closeMenuPanel();
+  }
+  listenToChatMessage(message: AIMessage) {
+    if (!this.startedTalking) { 
+      this.startedTalking = true; 
+      setTimeout(() => {
+        this.speakMessage(message.message, false); 
+      }, 20); 
+    } else { 
+      this.startedTalking = false; 
+      this.stopTalking();
+    }
   }
 }

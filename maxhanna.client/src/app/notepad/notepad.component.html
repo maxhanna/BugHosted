@@ -8,7 +8,10 @@
         Share Note (id# {{ noteId.value }})? <span *ngIf="splitNoteOwnershipUsers && splitNoteOwnershipUsers.length > 0">Currently shared with:</span>
       </div>
       <div *ngFor="let user of splitNoteOwnershipUsers">
-        <app-user-tag [user]="user" [inputtedParentRef]="parentRef" [displayMiniTag]="true"></app-user-tag>
+        <app-user-tag [user]="user" 
+        [inputtedParentRef]="parentRef" 
+        [displayMiniTag]="true"
+        [previousComponent]="'Notepad'"></app-user-tag>
       </div>
     </div>
     <app-user-list (userClickEvent)="shareNote($event);"

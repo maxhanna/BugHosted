@@ -49,7 +49,8 @@
                                 [file]="this.inputtedParentRef?.user?.displayPictureFile ?? this.parentRef?.user!.displayPictureFile"
                                 [currentDirectory]="this.parentRef?.user!.displayPictureFile!.directory"
                                 [user]="parentRef!.user"
-                                [inputtedParentRef]="parentRef!">
+                                [inputtedParentRef]="parentRef!"
+                                [previousComponent]="'UpdateUserSettings'">
               </app-media-viewer>
             </div>
           </div>
@@ -159,7 +160,7 @@ but you can also set your own City for a more precise location."></span>
         <div class="sectionDescriptionSection">
           <div>User: </div>
           <div style="display:flex;">
-            <app-user-tag [user]="user" [inputtedParentRef]="inputtedParentRef" [displayMiniTag]="true"></app-user-tag>
+            <app-user-tag [user]="user" [inputtedParentRef]="inputtedParentRef" [displayMiniTag]="true" [previousComponent]="'UpdateUserSettings'"></app-user-tag>
             <button (click)="unblock(user)" title="Unblock">❌</button>
           </div>
         </div> 

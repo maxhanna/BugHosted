@@ -1,6 +1,6 @@
 
 <div class="fileActionCommands" *ngIf="!fileSearchMode">
-  <span class="topSearchButtonDiv {{ (!showSpaceForNotifications && !showFileSearchOptions) ? 'noNotificationsSearchDiv' : '' }}" (click)="openSearchPanel();">🔍</span>
+  <span class="{{(inputtedParentRef?.user?.id || parentRef?.user?.id) ? 'topSearchButtonDiv' : 'topSearchButtonDivSpecial'}} {{ (!showSpaceForNotifications && !showFileSearchOptions) ? 'noNotificationsSearchDiv' : '' }}" (click)="openSearchPanel();">🔍</span>
   <span class="notificationTopButton" (click)="openSearchOptionsPanel();" *ngIf="showFileSearchOptions">⚙️</span>
 </div>
 
@@ -18,7 +18,7 @@
     </span>
   </span>
   <span *ngIf="totalPages > 1" class="totalPageDisplay">{{currentPage}}{{displayTotal ? '/' + totalPages : ''}}</span>
-  <input *ngIf="fileSearchMode" #search (keyup)="searchDirectory()" placeholder="🔍Search Files" />
+  <input *ngIf="fileSearchMode" #search (keyup)="changeSearchTermsFromSearchInput()" placeholder="🔍Search Files" />
   <span *ngIf="isDisplayingTotalPagesButton()">
     <span (click)="nextPage()" class="cursorPointer">
       ➡️
@@ -82,7 +82,9 @@
                               [inputtedParentRef]="inputtedParentRef ?? parentRef"
                               [currentReactions]="file.reactions"
                               [component]="file"
-                              [fileId]="file.id" (click)="$event.stopPropagation()">
+                              [fileId]="file.id" 
+                              [previousComponent]="previousComponent"
+                              (click)="$event.stopPropagation()">
                 </app-reaction>
                 <div *ngIf="displayComments && !file.isFolder" class="fileOptionsAction fileOptionsChatBubble" (click)="openFileWithComments(file); $event.stopPropagation()">
                   🗨️ <span>{{getTotalCommentCount(file.fileComments)}}</span>
@@ -118,7 +120,8 @@
                                 [canScroll]="fileId ? true : false"
                                 [displayExpander]="false"
                                 [displayExtraInfo]="false"
-                                [forceInviewLoad]="true"c
+                                [forceInviewLoad]="true"
+                                [previousComponent]="previousComponent"
                                 (emittedNotification)="emittedNotification($event)"
                                 (commentHeaderClickedEvent)="addOrRemoveIdFromOpenedComments(file.id, $event)"
                                 (expandClickedEvent)="expandClickedEvent.emit($event)"
@@ -301,7 +304,8 @@
       <div class="optionsStatsDescription">
         <app-user-tag [user]="optionsFile.user"
                       [inputtedParentRef]="parentRef ?? inputtedParentRef"
-                      [displayMiniTag]="true"></app-user-tag>
+                      [displayMiniTag]="true"
+                      [previousComponent]="previousComponent"></app-user-tag>
       </div>
     </div>
     <div class="optionsStatsDiv" *ngIf="optionsFile.lastUpdatedBy && optionsFile.lastUpdated !== optionsFile.date">
@@ -319,7 +323,8 @@
       <div class="optionsStatsDescription">
         <app-user-tag [user]="optionsFile.lastUpdatedBy"
                       [inputtedParentRef]="parentRef ?? inputtedParentRef"
-                      [displayMiniTag]="true"></app-user-tag>
+                      [displayMiniTag]="true"
+                      [previousComponent]="previousComponent"></app-user-tag>
       </div>
     </div>
   </div>
@@ -330,7 +335,7 @@
 <div class="popupPanel searchPopup" *ngIf="isSearchPanelOpen">
   <div class="popupPanelTitle">🔍Search Files</div>
   <div>
-    <input #popupSearch (keyup)="searchDirectory()" placeholder="Search {{ currentDirectory }}" [value]="searchTerms" />
+    <input #popupSearch (input)="changeSearchTermsFromPopup()" placeholder="Search {{ currentDirectory }}" [value]="searchTerms" />
     <div *ngIf="directory">Result(s): {{ directory.totalCount }}</div>
   </div>
   <div class="smallFont">Deliniate with quotes " to search for exact search terms. Use space ( ) or commas (,) to find seperate keywords.</div>

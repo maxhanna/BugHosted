@@ -30,6 +30,7 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
   @Input() inputtedParentRef?: AppComponent | undefined;
   @Input() loginReasonMessage?: string | undefined;
   @Input() canClose = true;
+  @Input() previousComponent?: string | undefined;
   @Output() closeUserComponentEvent = new EventEmitter<User>();
 
 
@@ -101,6 +102,7 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
     if (this.inputtedParentRef) {
       this.parentRef = this.inputtedParentRef;
     }
+    console.log("prev component: " + this.previousComponent);
     this.startLoading();
     this.usersCount = await this.userService.getUserCount();
     try {
@@ -207,11 +209,13 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
   }
   async loadWordlerData() {
     const user = this.user ?? this.parentRef?.user;
+    console.log("load worlder data");
     if (user?.id) {
       try {
-        const wsRes = await this.wordlerService.getConsecutiveDayStreak(user.id);
+        const wsRes = await this.wordlerService.getBestConsecutiveDayStreak(user.id);
         if (wsRes) {
           this.bestWordlerStreak = parseInt(wsRes);
+          console.log("best streak: " , this.bestWordlerStreak);
         }
 
         const wsRes2 = await this.wordlerService.getTodaysDayStreak(user.id);
@@ -726,5 +730,9 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
       (tgtElement as HTMLDivElement).style.border = "unset";
     }
   }
-
+  backButtonPressed() {
+    if (this.previousComponent) {
+      this.parentRef?.createComponent(this.previousComponent);
+    }
+  }
 }

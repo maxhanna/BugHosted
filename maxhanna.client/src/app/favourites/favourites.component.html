@@ -53,7 +53,7 @@
                    *ngIf="fav.imageUrl" />
               <div class="emptyFavImage" *ngIf="!fav.imageUrl" [title]="fav.url"></div>
             </div>
-            <div class="favName">
+            <div class="favName" [title]="fav.name ?? fav.url">
               {{fav.name && fav.name.trim() ? fav.name : fav.url}}
             </div>
           </a>
@@ -111,7 +111,7 @@
     <div class="optionsStatsDiv">
       <div class="optionsStatsHeader">Created By:</div>
       <div class="optionsStatsDescription">
-        <app-user-tag [user]="editingCreatedBy" [displayMiniTag]="true" [inputtedParentRef]="parentRef"></app-user-tag>
+        <app-user-tag [user]="editingCreatedBy" [displayMiniTag]="true" [inputtedParentRef]="parentRef" [previousComponent]="'Favourites'"></app-user-tag>
       </div>
     </div>
     <div class="optionsStatsDiv">
@@ -121,7 +121,7 @@
     <div class="optionsStatsDiv">
       <div class="optionsStatsHeader">Modified By:</div>
       <div class="optionsStatsDescription">
-        <app-user-tag [user]="editingUpdatedBy" [displayMiniTag]="true" [inputtedParentRef]="parentRef"></app-user-tag>
+        <app-user-tag [user]="editingUpdatedBy" [displayMiniTag]="true" [inputtedParentRef]="parentRef" [previousComponent]="'Favourites'"></app-user-tag>
       </div>
     </div>
     <div class="optionsStatsDiv">

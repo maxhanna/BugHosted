@@ -390,8 +390,8 @@ namespace maxhanna.Server.Controllers
 			}
 		}
 
-		[HttpPost("/Wordler/GetConsecutiveDaysStreak/")]
-		public async Task<IActionResult> GetConsecutiveDays([FromBody] int userId)
+		[HttpPost("/Wordler/GetBestConsecutiveDaysStreak/")]
+		public async Task<IActionResult> GetBestConsecutiveDays([FromBody] int userId)
 		{ 
 			if (userId <= 0)
 			{
@@ -494,43 +494,64 @@ namespace maxhanna.Server.Controllers
 			}
 
 			// Sort the dates in ascending order
-			dates.Sort();
+
 
 			DateTime today = DateTime.Today;
 			int consecutiveDays = 0;
 			int maxConsecutiveDays = 0;
-			bool streakStartedFromToday = false;
+			bool streakStartedFromToday = false; 
+			dates = dates
+				.Select(d => d.Date)
+				.Distinct()
+				.OrderBy(d => d)
+				.ToList();
+			if (!startFromToday) {
+				
+				for (int i = 1; i < dates.Count; i++)
+				{
+					//Console.WriteLine($"Processing date: {dates[i]}, index: {i}, consecutiveDays: {consecutiveDays}, maxConsecutiveDays: {maxConsecutiveDays}, streakStartedFromToday: {streakStartedFromToday}");
 
-			for (int i = 0; i < dates.Count; i++)
-			{
-				if (startFromToday && dates[i] == today)
-				{
-					streakStartedFromToday = true;
-					consecutiveDays = 1;
-					maxConsecutiveDays = 1;
-				}
-				else if (i > 0 && (dates[i] - dates[i - 1]).Days == 1)
-				{
-					if (streakStartedFromToday || !startFromToday)
-					{
+					if ((dates[i] - dates[i - 1]).Days == 1) {
 						consecutiveDays++;
-						maxConsecutiveDays = Math.Max(maxConsecutiveDays, consecutiveDays);
+					} else if (consecutiveDays > 0) {
+						maxConsecutiveDays = Math.Max(consecutiveDays, maxConsecutiveDays);
+						consecutiveDays = 0;
 					}
-				}
-				else if (i > 0 && (dates[i] - dates[i - 1]).Days > 1)
+				} 
+			}
+			else {
+				for (int i = 0; i < dates.Count; i++)
 				{
-					consecutiveDays = 1;
-					if (dates[i] == today)
+					if (startFromToday && dates[i] == today)
 					{
 						streakStartedFromToday = true;
+						consecutiveDays = 1;
 						maxConsecutiveDays = 1;
 					}
-					else
+					else if (i > 0 && (dates[i] - dates[i - 1]).Days == 1)
 					{
-						streakStartedFromToday = false;
+						if (streakStartedFromToday || !startFromToday)
+						{
+							consecutiveDays++;
+							maxConsecutiveDays = Math.Max(maxConsecutiveDays, consecutiveDays);
+						}
+					}
+					else if (i > 0 && (dates[i] - dates[i - 1]).Days > 1)
+					{
+						consecutiveDays = 1;
+						if (dates[i] == today)
+						{
+							streakStartedFromToday = true;
+							maxConsecutiveDays = 1;
+						}
+						else
+						{
+							streakStartedFromToday = false;
+						}
 					}
 				}
 			}
+			
 
 			return startFromToday && !streakStartedFromToday ? 0 : maxConsecutiveDays;
 		}

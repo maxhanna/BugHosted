@@ -1,11 +1,13 @@
 <div class="componentMain {{ user ? 'componentMainFullHeight' : ''}}">
   <div class="closeButton" (click)="remove_me('UserComponent');" *ngIf="canClose || (!loginOnly && (parentRef?.user || user))"></div>
   <div class="menuButton" (click)="showMenuPanel();" *ngIf="parentRef?.user"></div>
+  <div *ngIf="previousComponent" [class]="'menuBackButton ' + (parentRef?.user ? 'menuBackButtonSpecial' : '')" (click)="backButtonPressed();"></div> 
   <div class="componentTitle" *ngIf="!loginOnly">{{user ? user.username : 'Login'}}</div>
 
   <div *ngIf="parentRef?.user">
     <app-notifications [minimalInterface]="true"
-                       [inputtedParentRef]="parentRef">
+                       [inputtedParentRef]="parentRef"
+                       [previousComponent]="'User'">
     </app-notifications>
   </div>
 
@@ -19,7 +21,8 @@
                           [inputtedParentRef]="inputtedParentRef ?? parentRef"
                           [file]="user.displayPictureFile"
                           [currentDirectory]="user.displayPictureFile.directory"
-                          [user]="user">
+                          [user]="user"
+                          [previousComponent]="previousComponent ?? 'User'">
         </app-media-viewer>
       </div>
       <div class="profileHeaderInfo" *ngIf="!loginOnly && (parentRef?.user || user)">
@@ -40,7 +43,7 @@
         <div class="seperatedUserHeader">
           <div class="invertedHighlights xxSmallFont">Last Seen: </div>
           <div>
-            <span *ngIf="user && user.lastSeen && isUserOnline(user.lastSeen)">
+            <span *ngIf="user && user.lastSeen && isUserOnline(user.lastSeen)" class="cursorPointer" [title]="getUtcTimeSince(user.lastSeen)">
               <span class="glowing onlineButton">🟢</span> Online
             </span>
             <span *ngIf="user && user.lastSeen && !isUserOnline(user.lastSeen)"  class="invertedHighlights smallFont">
@@ -77,7 +80,7 @@
         <div *ngIf="!parentRef?.user">
           <div class="bughostedHeader">
             <div class="emptyUserTagLogo" *ngIf="!loginOnly">
-              <app-user-tag [displayEmptyAvatar]="true"></app-user-tag>
+              <app-user-tag [displayEmptyAvatar]="true" [previousComponent]="previousComponent ?? 'User'"></app-user-tag>
             </div>
             <div class="bugHostedLogo" *ngIf="!loginOnly">
               BugH_sted
@@ -144,25 +147,29 @@
                                 [inputtedParentRef]="parentRef"
                                 [displayExtraInfo]="false"
                                 [showCommentSection]="false"
-                                [displayExpander]="false">
+                                [displayExpander]="false"
+                                [previousComponent]="previousComponent ?? 'User'">
               </app-media-viewer>
               <app-media-viewer [fileId]="6374"
                                 [inputtedParentRef]="parentRef"
                                 [displayExtraInfo]="false"
                                 [showCommentSection]="false"
-                                [displayExpander]="false">
+                                [displayExpander]="false"
+                                [previousComponent]="previousComponent ?? 'User'">
               </app-media-viewer>
               <app-media-viewer [fileId]="6375"
                                 [inputtedParentRef]="parentRef"
                                 [displayExtraInfo]="false"
                                 [showCommentSection]="false"
-                                [displayExpander]="false">
+                                [displayExpander]="false"
+                                [previousComponent]="previousComponent ?? 'User'">
               </app-media-viewer>
               <app-media-viewer [fileId]="6376"
                                 [inputtedParentRef]="parentRef"
                                 [displayExtraInfo]="false"
                                 [showCommentSection]="false"
-                                [displayExpander]="false">
+                                [displayExpander]="false"
+                                [previousComponent]="previousComponent ?? 'User'">
               </app-media-viewer>
               <app-media-viewer [fileId]="6380"
                                 [inputtedParentRef]="parentRef"
@@ -236,8 +243,8 @@
 
     <div *ngIf="friends" class="friendsListWrapperDiv">
       <div *ngFor="let friend of friends" class="friendsListDiv">
-        <div (click)="viewProfile(friend)" class="usernameProfileLink">
-          <app-user-tag [user]="friend" [inputtedParentRef]="parentRef"></app-user-tag>
+        <div (click)="viewProfile(friend, 'User')" class="usernameProfileLink">
+          <app-user-tag [user]="friend" [inputtedParentRef]="parentRef" [previousComponent]="previousComponent ?? 'User'"></app-user-tag>
         </div>
       </div>
 
@@ -252,7 +259,7 @@
   <div *ngIf="!isEditingFriends && friendRequestsSent.length > 0" class="friendsPopupContainer mainFriendsPopupDiv">
     <div *ngFor="let friendReq of friendRequestsSent" class="friendsListDiv friendsRequestReceivedList">
       <div class="usernameProfileLink">
-        <app-user-tag [user]="friendReq.receiver" [inputtedParentRef]="parentRef" [displayMiniTag]="true"></app-user-tag>
+        <app-user-tag [user]="friendReq.receiver" [inputtedParentRef]="parentRef" [displayMiniTag]="true" [previousComponent]="previousComponent ?? 'User'"></app-user-tag>
       </div>
       <div class="friendshipRequestActionDiv" *ngIf="!userId || userId == parentRef?.user?.id">
         <span (click)="deleteFriendshipRequest(friendReq)" class="cursorPointer" title="Unfollow">❌</span>
@@ -266,7 +273,7 @@
   <div *ngIf="!isEditingFriends && friendRequestsReceived.length > 0" class="friendsPopupContainer mainFriendsPopupDiv">
     <div *ngFor="let friendReq of friendRequestsReceived" class="friendsListDiv friendsRequestReceivedList">
       <div class="usernameProfileLink">
-        <app-user-tag [user]="friendReq.sender" [inputtedParentRef]="parentRef" [displayMiniTag]="true"></app-user-tag>
+        <app-user-tag [user]="friendReq.sender" [inputtedParentRef]="parentRef" [displayMiniTag]="true" [previousComponent]="previousComponent ?? 'User'"></app-user-tag>
       </div>
       <div class="friendshipRequestActionDiv" *ngIf="!userId || userId == parentRef?.user?.id">
         <span (click)="acceptFriendshipRequest(friendReq)" class="cursorPointer" title="Follow Back">➕</span>
@@ -280,7 +287,7 @@
 
       <div *ngFor="let friend of friends" class="friendsListDiv deletingFriendsList">
         <div>
-          <app-user-tag [user]="friend" [inputtedParentRef]="parentRef" [displayMiniTag]="true"></app-user-tag>
+          <app-user-tag [user]="friend" [inputtedParentRef]="parentRef" [displayMiniTag]="true" [previousComponent]="previousComponent ?? 'User'"></app-user-tag>
         </div>
         <div *ngIf="!userId || userId == parentRef?.user?.id">
           <span title="Remove Friend" (click)="removeFriend(friend)" class="cursorPointer">
@@ -437,7 +444,8 @@
                                   [displayExtraInfo]="false"
                                   [showCommentSection]="false"
                                   [file]="trophy.file"
-                                  [inputtedParentRef]="inputtedParentRef ?? parentRef">
+                                  [inputtedParentRef]="inputtedParentRef ?? parentRef"
+                                  [previousComponent]="previousComponent ?? 'User'">
                 </app-media-viewer>
               </div>
               <div>
@@ -483,8 +491,8 @@
 
     <div *ngIf="friends" class="friendsListWrapperDiv">
       <div *ngFor="let friend of friends" class="friendsListDiv">
-        <div (click)="viewProfile(friend)" class="usernameProfileLink">
-          <app-user-tag [user]="friend" [inputtedParentRef]="parentRef"></app-user-tag>
+        <div (click)="viewProfile(friend, 'User')" class="usernameProfileLink">
+          <app-user-tag [user]="friend" [inputtedParentRef]="parentRef" [previousComponent]="previousComponent ?? 'User'"></app-user-tag>
         </div>
       </div>
 
@@ -499,7 +507,7 @@
   <div *ngIf="!isEditingFriends && friendRequestsSent.length > 0" class="friendsPopupContainer mainFriendsPopupDiv">
     <div *ngFor="let friendReq of friendRequestsSent" class="friendsListDiv friendsRequestReceivedList">
       <div class="usernameProfileLink">
-        <app-user-tag [user]="friendReq.receiver" [inputtedParentRef]="parentRef" [displayMiniTag]="true"></app-user-tag>
+        <app-user-tag [user]="friendReq.receiver" [inputtedParentRef]="parentRef" [displayMiniTag]="true" [previousComponent]="previousComponent ?? 'User'"></app-user-tag>
       </div>
       <div class="friendshipRequestActionDiv" *ngIf="!userId || userId == parentRef?.user?.id">
         <button (click)="deleteFriendshipRequest(friendReq)" class="cursorPointer" title="Unfollow">❌</button>
@@ -513,7 +521,7 @@
   <div *ngIf="!isEditingFriends && friendRequestsReceived.length > 0" class="friendsPopupContainer mainFriendsPopupDiv">
     <div *ngFor="let friendReq of friendRequestsReceived" class="friendsListDiv friendsRequestReceivedList">
       <div class="usernameProfileLink">
-        <app-user-tag [user]="friendReq.sender" [inputtedParentRef]="parentRef" [displayMiniTag]="true"></app-user-tag>
+        <app-user-tag [user]="friendReq.sender" [inputtedParentRef]="parentRef" [displayMiniTag]="true" [previousComponent]="previousComponent ?? 'User'"></app-user-tag>
       </div>
       <div class="friendshipRequestActionDiv" *ngIf="!userId || userId == parentRef?.user?.id">
         <button (click)="acceptFriendshipRequest(friendReq)" class="cursorPointer" title="Follow Back User">➕</button>
@@ -528,7 +536,7 @@
 
       <div *ngFor="let friend of friends" class="friendsListDiv deletingFriendsList">
         <div>
-          <app-user-tag [user]="friend" [inputtedParentRef]="parentRef" [displayMiniTag]="true"></app-user-tag>
+          <app-user-tag [user]="friend" [inputtedParentRef]="parentRef" [displayMiniTag]="true" [previousComponent]="previousComponent ?? 'User'"></app-user-tag>
         </div>
         <div *ngIf="!userId || userId == parentRef?.user?.id">
           <span title="Remove Friend" (click)="removeFriend(friend)" class="cursorPointer">

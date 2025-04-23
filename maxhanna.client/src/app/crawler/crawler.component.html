@@ -58,10 +58,8 @@
       </div>
 
     </div>
-    <div *ngIf="searchMetadata?.length == 0 && !error && !isLoading" class="smallFont nbDiv">
-      <div>Note: You can index your website by searching for it.</div>
-      <div>(make sure to include http or https in the request)</div>
-      <div>Note: You can see the latest indexes by searching with: *</div>
+    <div *ngIf="searchMetadata?.length == 0 && !error && !isLoading" class="smallFont nbDiv"> 
+      <div (click)="seeNew()" class="cursorPointerUnderlined">See the latest indexes.</div>
     </div>
     <div style="text-align:center">
       <button *ngIf="totalPages > 1 && currentPage < totalPages" (click)="onPageChange()">Load More Results</button>
@@ -69,7 +67,7 @@
   </div>
 </div>
 
-<!-- Chat Members Popup -->
+<!-- Menu Popup -->
 <div class="popupPanel" *ngIf="isMenuOpen">
   <div class="popupPanelTitle">
     <span>Menu</span>
@@ -125,6 +123,7 @@
       </div>
     </div>
   </div>
+  <div>Note: You can index your website by searching for it.</div> 
   <div>
     <button id="closeOverlay" (click)="closeMenuPanel()">Close</button>
   </div>

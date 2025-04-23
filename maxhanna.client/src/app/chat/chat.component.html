@@ -6,7 +6,7 @@
     Chat
     <span *ngIf="currentChatUsers">
       with 
-      <span *ngFor="let user of getChatUsersWithoutSelf(); let i = index" (click)="viewProfile(user)" class="cursorPointer"><span *ngIf="i > 0">, </span>{{user.username}}</span>
+      <span *ngFor="let user of getChatUsersWithoutSelf(); let i = index" (click)="viewProfile(user, 'Chat')" class="cursorPointer"><span *ngIf="i > 0">, </span>{{user.username}}</span>
     </span>
   </div>
 
@@ -36,7 +36,7 @@
 
             <div class="profileTag">
               <div class="usernameProfileLink">
-                <app-user-tag [user]="message.sender" [inputtedParentRef]="parentRef"></app-user-tag>
+                <app-user-tag [user]="message.sender" [inputtedParentRef]="parentRef" [previousComponent]="'Chat'"></app-user-tag>
               </div>
             </div>
             <div class="messageContent" [attr.data-timestamp]="message.timestamp">
@@ -46,7 +46,8 @@
                               [user]="parentRef?.user"
                               [component]="message"
                               [inputtedParentRef]="parentRef"
-                              [currentReactions]="message.reactions"></app-reaction>
+                              [currentReactions]="message.reactions"
+                              [previousComponent]="'Chat'"></app-reaction>
                 <button (click)="quote(message)">🗨️Quote</button>
               </div>
               <div *ngFor="let file of message.files" style="{{ message.files && message.files.length > 0 ? 'margin-top: 10px' : '' }}">
@@ -58,7 +59,8 @@
                                   [showCommentSection]="false"
                                   [user]="parentRef?.user"
                                   [autoplay]="false"
-                                  [autoload]="true">
+                                  [autoload]="true"
+                                  [previousComponent]="'Chat'">
                 </app-media-viewer>
               </div>
             </div>
@@ -73,7 +75,8 @@
                               [user]="parentRef?.user"
                               [component]="message"
                               [inputtedParentRef]="parentRef"
-                              [currentReactions]="message.reactions"></app-reaction>
+                              [currentReactions]="message.reactions"
+                              [previousComponent]="'Chat'"></app-reaction>
                 <button (click)="quote(message)">🗨️Quote</button>
               </div>
               <div *ngFor="let file of message.files">
@@ -86,14 +89,15 @@
                                     [showCommentSection]="false"
                                     [user]="parentRef?.user"
                                     [autoplay]="false"
-                                    [autoload]="true">
+                                    [autoload]="true"
+                                    [previousComponent]="'Chat'">
                   </app-media-viewer>
                 </div>
               </div>
             </div>
             <div class="profileTag">
               <div class="usernameProfileLink">
-                <app-user-tag [user]="message.sender" [inputtedParentRef]="parentRef"></app-user-tag>
+                <app-user-tag [user]="message.sender" [inputtedParentRef]="parentRef" [previousComponent]="'Chat'"></app-user-tag>
               </div>
             </div>
           </ng-container>
@@ -131,7 +135,7 @@
   </div>
   <div class="addChatMembersList">
     <div *ngFor="let chatMember of currentChatUsers" class="addChatMemberLi">
-      <app-user-tag [user]="chatMember" [inputtedParentRef]="parentRef ?? inputtedParentRef" [displayMiniTag]="true"></app-user-tag>
+      <app-user-tag [user]="chatMember" [inputtedParentRef]="parentRef ?? inputtedParentRef" [displayMiniTag]="true" [previousComponent]="'Chat'"></app-user-tag>
     </div>
   </div>
   <div style="width: 100%; margin-top: 5px; text-align: center; max-height: 250px; overflow: auto">

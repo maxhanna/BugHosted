@@ -3,14 +3,14 @@ import { Injectable } from '@angular/core';
   providedIn: 'root'
 })
 export class CrawlerService {
-  async searchUrl(url: string, currentPage = 1, pageSize = 10) {
+  async searchUrl(url: string, currentPage = 1, pageSize = 10, exactMatch?: boolean) {
     try {
       const response = await fetch(`/crawler/searchurl`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ Url: url, CurrentPage: currentPage, PageSize: pageSize }),
+        body: JSON.stringify({ Url: url, CurrentPage: currentPage, PageSize: pageSize, ExactMatch: exactMatch }),
       });
 
       return await response.json();

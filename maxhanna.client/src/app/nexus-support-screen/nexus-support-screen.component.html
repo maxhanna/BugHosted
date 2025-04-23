@@ -1,7 +1,10 @@
 <div *ngIf="groupedDefences && getObjectKeys(groupedDefences).length > 0; else noDefences">
   <div *ngFor="let key of getObjectKeys(groupedDefences)" class="defencesTableDiv">
     <div class="mainInfoSection"> 
-      <app-user-tag [user]="getTmpUserForUserId(key.split('-')[0])" [inputtedParentRef]="inputtedParentRef" [displayOnlyName]="true"></app-user-tag>
+      <app-user-tag [user]="getTmpUserForUserId(key.split('-')[0])" 
+      [inputtedParentRef]="inputtedParentRef" 
+      [displayOnlyName]="true"
+      [previousComponent]="'Nexus'"></app-user-tag>
       <span class="cursorPointer" (click)="openMapEmitter.emit(key.split('-')[1])">
         <span class="invertedHighlights">{{'{' + key.split('-')[1] + '} ' }}</span>
         <span class="invertedHighlights">{{ getBaseNameForCoords(key.split('-')[1].split(',')[0],key.split('-')[1].split(',')[1]) }}</span>
@@ -74,7 +77,10 @@
       <tbody>
         <tr *ngFor="let defence of groupedDefences[key]">
           <td (click)="openMapEmitter.emit(defence.originCoordsX + ',' + defence.originCoordsY)" class="cursorPointerUnderlined invertedHighlights">{{defence.originCoordsX}},{{defence.originCoordsY}}</td>
-          <td><app-user-tag [user]="defence.originUser" [inputtedParentRef]="inputtedParentRef" [displayOnlyName]="true"></app-user-tag></td>
+          <td><app-user-tag [user]="defence.originUser" 
+            [inputtedParentRef]="inputtedParentRef" 
+            [displayOnlyName]="true"
+            [previousComponent]="'Nexus'"></app-user-tag></td>
           <td [class]="defence.marineTotal > 0 ? '' : 'greyText'">{{defence.marineTotal}}</td>
           <td [class]="defence.goliathTotal > 0 ? '' : 'greyText'">{{defence.goliathTotal}}</td>
           <td [class]="defence.siegeTankTotal > 0 ? '' : 'greyText'">{{defence.siegeTankTotal}}</td>

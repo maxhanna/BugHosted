@@ -16,7 +16,7 @@
   <div *ngFor="let comment of commentList!" class="commentListDiv" [style.paddingLeft]="comment_id ? '40px' : '20px'">
     <div class="commentContentAndAvatarContainerDiv" [attr.data-timestamp]="comment.date">
       <div class="commentAvatar usernameProfileLink">
-        <app-user-tag [user]="comment.user" [inputtedParentRef]="inputtedParentRef" [displayMiniTag]="true"></app-user-tag>
+        <app-user-tag [user]="comment.user" [inputtedParentRef]="inputtedParentRef" [displayMiniTag]="true" [previousComponent]="previousComponent"></app-user-tag>
       </div>
       <div class="commentDate">{{inputtedParentRef?.convertUtcToLocalTime(comment.date)}}</div>
       <div class="commentReaction">
@@ -25,7 +25,8 @@
                       [userProfileId]="userProfileId"
                       [user]="inputtedParentRef?.user"
                       [inputtedParentRef]="inputtedParentRef"
-                      [currentReactions]="comment.reactions">
+                      [currentReactions]="comment.reactions"
+                      [previousComponent]="previousComponent">
         </app-reaction>
       </div>
       <button class="commentOptionButton" (click)="showOptionsPanel(comment)">
@@ -71,13 +72,14 @@
                             [displayExtraInfo]="false"
                             [autoplay]="false"
                             [autoload]="true"
-                            [showCommentSection]="false"></app-media-viewer>
+                            [showCommentSection]="false"
+                            [previousComponent]="previousComponent"></app-media-viewer>
         </div>
 
         <div *ngFor="let subComment of comment.comments" class="subComment">
           <div class="commentContentAndAvatarContainerDiv" [attr.data-timestamp]="subComment.date">
             <div class="commentAvatar usernameProfileLink">
-              <app-user-tag [user]="subComment.user" [inputtedParentRef]="inputtedParentRef" [displayMiniTag]="true"></app-user-tag>
+              <app-user-tag [user]="subComment.user" [inputtedParentRef]="inputtedParentRef" [displayMiniTag]="true" [previousComponent]="previousComponent"></app-user-tag>
             </div>
             <div class="commentDate">{{inputtedParentRef?.convertUtcToLocalTime(subComment.date)}}</div>
             <div class="commentReaction">
@@ -86,7 +88,8 @@
                             [userProfileId]="userProfileId"
                             [user]="inputtedParentRef?.user"
                             [inputtedParentRef]="inputtedParentRef"
-                            [currentReactions]="subComment.reactions">
+                            [currentReactions]="subComment.reactions"
+                            [previousComponent]="previousComponent">
               </app-reaction>
             </div>
             <button class="commentOptionButton" (click)="showOptionsPanel(subComment)">
@@ -105,7 +108,8 @@
                                 [displayExtraInfo]="false"
                                 [autoplay]="false"
                                 [autoload]="true"
-                                [showCommentSection]="false">
+                                [showCommentSection]="false"
+                                [previousComponent]="previousComponent">
               </app-media-viewer>
             </div>
           </div>

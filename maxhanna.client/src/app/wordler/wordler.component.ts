@@ -64,7 +64,7 @@ export class WordlerComponent extends ChildComponent implements OnInit {
           this.wordlerScores = res;
           this.setTopScores();
         }
-        const wsRes = await this.wordlerService.getConsecutiveDayStreak(this.parentRef.user.id);
+        const wsRes = await this.wordlerService.getBestConsecutiveDayStreak(this.parentRef.user.id);
         if (wsRes) {
           this.wordlerStreak = parseInt(wsRes);
         }

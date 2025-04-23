@@ -2,57 +2,50 @@
 using NewsAPI.Models;
 using NewsAPI;
 using MySqlConnector;
-using System.Linq.Expressions;
 using System.Text.RegularExpressions;
 using System.Text;
 
 public class NewsService
-{
-	private readonly HttpClient _httpClient;
+{ 
 	private readonly IConfiguration _config;
 	private readonly Log _log;
 	private static readonly HashSet<string> Stopwords = new(StringComparer.OrdinalIgnoreCase)
 	{
-			"the", "and", "a", "an", "of", "to", "in", "for", "on", "with", "at", "by", "from", "up",
-			"about", "as", "into", "like", "through", "after", "over", "between", "out", "against",
-			"during", "without", "before", "under", "around", "among", "is", "are", "was", "were", "be",
-			"has", "had", "have", "it", "this", "that", "these", "those", "you", "i", "he", "she", "they",
-			"we", "but", "or", "so", "if", "because", "while", "just", "not", "no", "yes"
+		"the", "and", "a", "an", "of", "to", "in", "for", "on", "with", "at", "by", "from", "up",
+		"about", "as", "into", "like", "through", "after", "over", "between", "out", "against",
+		"during", "without", "before", "under", "around", "among", "is", "are", "was", "were", "be",
+		"has", "had", "have", "it", "this", "that", "these", "those", "you", "i", "he", "she", "they",
+		"we", "but", "or", "so", "if", "because", "while", "just", "not", "no", "yes"
 	};
 	private static readonly HashSet<string> CryptoKeywords = new(StringComparer.OrdinalIgnoreCase)
 	{
 		"bitcoin", "btc", "ethereum", "eth", "tether", "usdt", "xrp", "bnb", "solana", "sol", "cardano", "ada", "dogecoin", "doge",
-	"polkadot", "dot", "litecoin", "ltc", "tron", "trx", "monero", "xmr", "avalanche", "avax", "stellar", "xlm", "vechain", "vet",
-	"chainlink", "aptos", "apt", "arbitrum", "arb", "optimism", "op", "render", "rndr", "sui", "algorand", "algo",
-	"coinbase", "binance", "kraken", "bitfinex", "gemini", "huobi", "okx", "bitstamp", "kucoin", "crypto.com", "bybit", "mexc",
-	"bitmart", "upbit", "bittrex", "probit", "gate.io", "poloniex", "wallet", "cold wallet", "hot wallet", "hardware wallet",
-	"metamask", "trust wallet", "private key", "public key", "day trading", "forex", "margin trading", "leverage",
-	"long position", "short position", "stop loss", "take profit", "trading bot", "pump and dump", "technical analysis",
-	"candlestick", "bullish", "bearish", "market cap", "volume", "liquidity", "blockchain", "ledger", "smart contract",
-	"gas fees", "layer 1", "layer 2", "sharding", "rollups", "zk-rollup", "optimistic rollup", "sidechain", "consensus",
-	"proof of work", "proof of stake", "pos", "pow", "staking", "validator", "mining", "miner", "hashrate", "hashing",
-	"hashpower", "nonce", "node", "fork", "hard fork", "soft fork", "altcoin", "stablecoin", "shitcoin", "memecoin",
-	"uniswap", "pancakeswap", "sushiswap", "aave", "compound", "makerdao", "yearn finance", "curve", "balancer", "1inch",
-	"polygon", "matic", "fantom", "ftm", "hedera", "hbar", "nft", "non-fungible token", "openSea", "blur", "minting",
-	"floor price", "rarity", "digital art", "bored ape", "crypto punk", "metaverse", "sandbox", "decentraland", "web3",
-	"virtual land", "play to earn", "p2e", "axie infinity", "gala", "immutable x", "gamefi", "ledger", "trezor", "multisig",
-	"2fa", "rugpull", "scam", "exploit", "airdrop", "whitelist", "kyc", "aml", "regulation", "sec", "defi", "dapp", "dao",
-	"downtime", "bridge", "cross-chain", "audit", "hack", "vulnerability", "digital currency", "token", "coin", "exchange",
-	"fiat", "inflation", "interest rates", "macro", "fed", "federal reserve", "treasury", "gold", "silver", "etf", "spot etf",
-	"securities", "futures", "derivatives", "yield", "treasury bonds", "cryptocurrency", "crypto", "money"
+		"polkadot", "dot", "litecoin", "ltc", "tron", "trx", "monero", "xmr", "avalanche", "avax", "stellar", "xlm", "vechain", "vet",
+		"chainlink", "aptos",   "arbitrum", "arb", "optimism",   "rndr", "sui", "algorand", "algo",
+		"coinbase", "binance", "kraken", "bitfinex", "gemini", "huobi", "okx", "bitstamp", "kucoin", "crypto.com", "bybit", "mexc",
+		"bitmart", "upbit", "bittrex", "probit", "gate.io", "poloniex", "wallet", "cold wallet", "hot wallet", "hardware wallet",
+		"metamask", "trust wallet", "private key", "public key", "day trading", "forex", "margin trading", "leverage",
+		"long position", "short position", "stop loss", "take profit", "trading bot", "pump and dump", "technical analysis",
+		"candlestick", "bullish", "bearish", "market cap", "volume", "liquidity", "blockchain", "ledger", "smart contract",
+		"gas fees", "layer 1", "layer 2", "sharding", "rollups", "zk-rollup", "optimistic rollup", "sidechain", "consensus",
+		"proof of work", "proof of stake", "pos", "pow", "staking", "validator", "mining", "miner", "hashrate", "hashing",
+		"hashpower", "nonce", "node", "fork", "hard fork", "soft fork", "altcoin", "stablecoin", "shitcoin", "memecoin",
+		"uniswap", "pancakeswap", "sushiswap", "aave",  "makerdao", "yearn finance", "curve", "balancer", "1inch",
+		"polygon", "matic", "fantom", "ftm", "hedera", "hbar", "nft", "non-fungible token", "openSea",
+		"floor price", "rarity", "digital art", "bored ape", "crypto punk", "metaverse", "sandbox", "decentraland", "web3",
+		"virtual land", "play to earn", "p2e", "axie infinity", "gala", "immutable x", "gamefi", "ledger", "trezor", "multisig",
+		"2fa", "rugpull", "scam", "exploit", "airdrop", "whitelist", "kyc", "aml", "regulation", "sec", "defi", "dapp", "dao",
+		"downtime",  "cross-chain",  "digital currency", "token", "coin",
+		"fiat", "inflation", "interest rates", "macro", "fed", "federal reserve", "treasury", "gold", "silver", "etf", "spot etf",
+		"securities", "futures", "derivatives", "yield", "treasury bonds", "cryptocurrency", "crypto", "money"
 	};
 	int newsServiceAccountNo = 308;
-	int cryptoNewsServiceAccountNo = 309; 
+	int cryptoNewsServiceAccountNo = 309;
 
 	public NewsService(IConfiguration config, Log log)
 	{
 		_config = config;
-		_log = log;
-		_httpClient = new HttpClient(new HttpClientHandler
-		{
-			ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator,
-			AllowAutoRedirect = true,
-		});
+		_log = log; 
 	}
 	public ArticlesResult? GetTopHeadlines()
 	{
@@ -131,7 +124,7 @@ public class NewsService
 
 			await transaction.CommitAsync();
 
-		//	await _log.Db($"Successfully saved top {articlesToTake} news headlines", null, "NEWSSERVICE", true);
+			//	await _log.Db($"Successfully saved top {articlesToTake} news headlines", null, "NEWSSERVICE", true);
 			return true;
 		}
 		catch (Exception ex)
@@ -245,7 +238,7 @@ public class NewsService
 
 			if (await CheckIfDailyNewsStoryAlreadyExists(conn, transaction, marker, checkSql))
 			{
-				await _log.Db("Daily news story already exists. Skipping creation.", null, "NEWSSERVICE"); 
+				await _log.Db("Daily news story already exists. Skipping creation.", null, "NEWSSERVICE");
 				return;
 			}
 
@@ -284,7 +277,7 @@ public class NewsService
 			string fullStoryText = sb.ToString().Trim();
 
 			// Save the description tokens of selected article for file-matching
-			var selectedArticleTokens = TokenizeText(selectedArticle.Description); 
+			var selectedArticleTokens = TokenizeText(selectedArticle.Description);
 			// Insert the story into the 'stories' table (for the news service account)
 			await CreateNewsPosts(conn, transaction, fullStoryText, selectedArticleTokens, newsServiceAccountNo);
 			await _log.Db("Daily news story created successfully on both service account and user profile.", null, "NEWSSERVICE");
@@ -316,7 +309,12 @@ public class NewsService
 		string insertStoryFileSql = @"
                 INSERT INTO story_files (story_id, file_id)
                 VALUES (@storyId, @fileId);
+
+				INSERT INTO story_topics (story_id, topic_id) VALUES (@storyId, (SELECT id FROM maxhanna.topics WHERE topic = 'News'));
             ";
+		if (accountId == cryptoNewsServiceAccountNo) {
+			insertStoryFileSql += " INSERT INTO story_topics (story_id, topic_id) VALUES (@storyId, (SELECT id FROM maxhanna.topics WHERE topic = 'Crypto'));";
+		}
 		if (bestFileMatch != null)
 		{
 			await using var storyFileCmd = new MySqlCommand(insertStoryFileSql, conn, transaction);
@@ -349,7 +347,7 @@ public class NewsService
 			await userProfileFileCmd.ExecuteNonQueryAsync();
 		}
 
-		await transaction.CommitAsync(); 
+		await transaction.CommitAsync();
 	}
 
 	private string GetMostFrequentWord(ArticlesResult topArticlesResult, out List<(Article Article, List<string> Tokens)> articleTokenMap)
@@ -371,7 +369,7 @@ public class NewsService
 		}
 
 		// Find the most frequent word
-		return tokenFrequency.OrderByDescending(kv => kv.Value).First().Key; 
+		return tokenFrequency.OrderByDescending(kv => kv.Value).First().Key;
 	}
 
 	private async Task<bool> CheckIfDailyNewsStoryAlreadyExists(MySqlConnection conn, MySqlTransaction transaction, string marker, string checkSql)
@@ -450,9 +448,10 @@ public class NewsService
 		try
 		{
 			int numberOfArticles = await GetNewsCountInLast24HoursAsync();
-			if (numberOfArticles < 50) {
-			//	await _log.Db("Not enough articles saved yet.", null, "NEWSSERVICE", true); 
-				return; 
+			if (numberOfArticles < 50)
+			{
+				//	await _log.Db("Not enough articles saved yet.", null, "NEWSSERVICE", true); 
+				return;
 			}
 
 			await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
@@ -470,14 +469,14 @@ public class NewsService
 
 			if (await CheckIfDailyNewsStoryAlreadyExists(conn, transaction, marker, checkSql))
 			{
-				await _log.Db("Daily crypto news story already exists. Skipping creation.", null, "NEWSSERVICE"); 
+				await _log.Db("Daily crypto news story already exists. Skipping creation.", null, "NEWSSERVICE");
 				return;
 			}
 
 			var topArticlesResult = await GetTopCryptoArticlesByDayAsync(1);
 			if (topArticlesResult?.Articles == null || topArticlesResult.Articles.Count == 0)
 			{
-				await _log.Db("No crypto articles to write a social story about", null, "NEWSSERVICE", true); 
+				await _log.Db("No crypto articles to write a social story about", null, "NEWSSERVICE", true);
 				return;
 			}
 			// Build story text from all articles
@@ -488,7 +487,7 @@ public class NewsService
 				sb.AppendLine($"[*][b]{article.Title}[/b]\nRead more: {article.Url} [/*]");
 			}
 
-			string fullStoryText = sb.ToString().Trim(); 
+			string fullStoryText = sb.ToString().Trim();
 			var selectedArticleTokens = TokenizeText(fullStoryText);
 			// Insert the story into the 'stories' table (for the news service account)
 			await CreateNewsPosts(conn, transaction, fullStoryText, selectedArticleTokens, cryptoNewsServiceAccountNo);

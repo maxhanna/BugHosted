@@ -41,9 +41,9 @@
   align-items: flex-start;
 }
 
-  .mainTopicSelector input {
-    width: 100%;
-  }
+.mainTopicSelector input {
+  width: 100%;
+}
 
 .foodForThought {
   min-width: 200px;
@@ -204,6 +204,7 @@ singleAttachment {
   width: 100%;
   margin-bottom: 10px;
   margin-top: 10px;
+  text-align: center;
 }
 
 .addToMusicPlaylistButtonDiv {
@@ -278,16 +279,16 @@ singleAttachment {
   margin-bottom: 6px;
 }
 
-  .mainFileUploaderAndTopicSelectorDiv ::ng-deep button {
-    cursor: pointer;
-    height: 23px !important;
-    line-height: 12px;
-    min-width: 70px;
-    white-space: nowrap;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
+.mainFileUploaderAndTopicSelectorDiv ::ng-deep button {
+  cursor: pointer;
+  height: 23px !important;
+  line-height: 12px;
+  min-width: 70px;
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
 
 .searchInputs {
   display: flex;
@@ -308,13 +309,13 @@ singleAttachment {
   justify-content: flex-start;
 }
 
-  .storyTextContainer.collapsed {
-    max-height: 400px;
-    text-overflow: ellipsis;
-    overflow: hidden;
-    box-shadow: 0px 30px 33px -33px var(--primary-font-color);
-    cursor: pointer;
-  }
+.storyTextContainer.collapsed {
+  max-height: 400px;
+  text-overflow: ellipsis;
+  overflow: hidden;
+  box-shadow: 0px 30px 33px -33px var(--primary-font-color);
+  cursor: pointer;
+}
 
 .storyContentDiv {
   padding-left: 10px;
@@ -348,10 +349,10 @@ singleAttachment {
   left: CALC(100% - 200px);
 }
 
-  .topPagination select {
-    width: 35px;
-    height: 30px;
-  }
+.topPagination select {
+  width: 35px;
+  height: 30px;
+}
 
 .mainTableDiv {
   border: var(--main-border);
@@ -361,7 +362,7 @@ singleAttachment {
   border: var(--main-border);
   border-bottom-left-radius: 8px;
   border-bottom-right-radius: 8px;
-} 
+}
 
 .storyContainerWrapper {
   overflow: auto;
@@ -512,11 +513,14 @@ singleAttachment {
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  padding: 10px 20px; /* Adjust the padding as needed */
-  background-color: rgba(255, 0, 0, 0.7); /* Example background, adjust as needed */
+  padding: 10px 20px;
+  /* Adjust the padding as needed */
+  background-color: rgba(255, 0, 0, 0.7);
+  /* Example background, adjust as needed */
   color: white;
   border: none;
-  border-radius: 50%; /* Optional: rounded corners for the button */
+  border-radius: 50%;
+  /* Optional: rounded corners for the button */
   cursor: pointer;
 }
 
@@ -531,42 +535,45 @@ singleAttachment {
   text-indent: 0.1em;
   transition: all 150ms ease-out;
   width: 4em;
-  box-shadow: inset 0px 2px 5px rgba(255, 255, 255, 0.6), /* Soft light reflection */
-  inset 0px -2px 5px rgba(0, 0, 0, 0.5), /* Darker bottom */
-  0px 5px 10px rgba(0, 0, 0, 0.5); /* Outer shadow */
+  box-shadow: inset 0px 2px 5px rgba(255, 255, 255, 0.6),
+    /* Soft light reflection */
+    inset 0px -2px 5px rgba(0, 0, 0, 0.5),
+    /* Darker bottom */
+    0px 5px 10px rgba(0, 0, 0, 0.5);
+  /* Outer shadow */
 }
 
-  .playButton:hover {
-    background: red;
-    box-shadow: inset 0px 2px 5px rgba(255, 255, 255, 0.8), inset 0px -2px 5px rgba(0, 0, 0, 0.6), 0px 5px 15px rgba(0, 0, 0, 0.7);
-  }
+.playButton:hover {
+  background: red;
+  box-shadow: inset 0px 2px 5px rgba(255, 255, 255, 0.8), inset 0px -2px 5px rgba(0, 0, 0, 0.6), 0px 5px 15px rgba(0, 0, 0, 0.7);
+}
 
-  .playButton::before {
-    background: inherit;
-    border-radius: 5% / 50%;
-    bottom: 9%;
-    content: "";
-    left: -5%;
-    position: absolute;
-    right: -5%;
-    top: 9%;
-    background: linear-gradient(60deg, rgba(255, 255, 255, 0.2) 10%, transparent 50%, rgba(0, 0, 0, 0.2) 90%);
-    clip-path: polygon(20% 10%, 80% 10%, 95% 50%, 80% 90%, 20% 90%, 6% 50%);
-  }
+.playButton::before {
+  background: inherit;
+  border-radius: 5% / 50%;
+  bottom: 9%;
+  content: "";
+  left: -5%;
+  position: absolute;
+  right: -5%;
+  top: 9%;
+  background: linear-gradient(60deg, rgba(255, 255, 255, 0.2) 10%, transparent 50%, rgba(0, 0, 0, 0.2) 90%);
+  clip-path: polygon(20% 10%, 80% 10%, 95% 50%, 80% 90%, 20% 90%, 6% 50%);
+}
 
-  .playButton::after {
-    border-style: solid;
-    border-width: 1em 0 1em 1.732em;
-    border-color: transparent transparent transparent rgba(255, 255, 255, 0.85);
-    content: ' ';
-    font-size: 0.75em;
-    height: 0;
-    margin: -1em 0 0 -0.75em;
-    top: 50%;
-    left: 53%;
-    position: absolute;
-    width: 0;
-  }
+.playButton::after {
+  border-style: solid;
+  border-width: 1em 0 1em 1.732em;
+  border-color: transparent transparent transparent rgba(255, 255, 255, 0.85);
+  content: ' ';
+  font-size: 0.75em;
+  height: 0;
+  margin: -1em 0 0 -0.75em;
+  top: 50%;
+  left: 53%;
+  position: absolute;
+  width: 0;
+}
 
 .loadMoreResultsDiv {
   width: 100%;
@@ -576,10 +583,10 @@ singleAttachment {
   padding: 20px;
 }
 
-  .loadMoreResultsDiv button {
-    font-size: 30px;
-    font-family: var(--title-font-family);
-  }
+.loadMoreResultsDiv button {
+  font-size: 30px;
+  font-family: var(--title-font-family);
+}
 
 .searchSocialsPanelContentDiv {
   margin-top: 15px;
@@ -593,7 +600,8 @@ singleAttachment {
   margin: 5px;
 }
 
-.emojiFilterInputDiv, .emojiFilterCloseOverlayButton {
+.emojiFilterInputDiv,
+.emojiFilterCloseOverlayButton {
   text-align: center;
   margin: 15px;
 }
@@ -608,7 +616,8 @@ singleAttachment {
   align-items: flex-start;
 }
 
-.postOptionButtonWrapper .postOptionButtons, .postOptionButtonWrapper .postOptionButtons ::ng-deep * button {
+.postOptionButtonWrapper .postOptionButtons,
+.postOptionButtonWrapper .postOptionButtons ::ng-deep * button {
   text-align: center;
   background-color: unset;
   color: var(--secondary-font-color);
@@ -620,7 +629,8 @@ singleAttachment {
   justify-content: center;*/
 }
 
-.postOptionButtons, .postOptionButtons ::ng-deep * span {
+.postOptionButtons,
+.postOptionButtons ::ng-deep * span {
   font-size: var(--main-font-size);
 }
 
@@ -631,4 +641,26 @@ singleAttachment {
 
 .showPostOptionButton {
   cursor: pointer;
+}
+
+.mobilePostButtonOptions {
+  cursor: pointer;
+  height: 23px !important;
+  line-height: 12px;
+  min-width: 70px;
+  white-space: nowrap;
+  display: flex;
+  justify-content: center;
+  width: 100%;
+  align-content: center;
+  flex-wrap: nowrap;
+  flex-direction: row;
+  align-items: stretch;
+  margin-top: 20px;
+  margin-bottom: 20px;
+}
+
+.mobilePostButtonOptions button {
+  text-align: center;
+  width: 65px;
 }

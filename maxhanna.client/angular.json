@@ -33,6 +33,7 @@
             "assets": [
               "src/favicon.ico",
               "src/sitemap.xml",
+              "src/robots.txt",
               "src/assets/", 
               "src/firebase-messaging-sw.js"
             ],

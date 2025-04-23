@@ -49,7 +49,7 @@
   <div class="reactionsOverlayWrapper optionsStatsWrapperDiv">
     <div *ngFor="let reaction of currentReactions" class="reactedReactionDiv optionsStatsDiv">
       <div class="optionsStatsHeader">
-        <app-user-tag [user]="reaction.user" [inputtedParentRef]="inputtedParentRef" [displayMiniTag]="true"></app-user-tag>
+        <app-user-tag [user]="reaction.user" [inputtedParentRef]="inputtedParentRef" [displayMiniTag]="true" [previousComponent]="previousComponent"></app-user-tag>
       </div>
       <div class="optionsStatsDescription">
         <span class="reactionTypeSpan" [title]="reaction.type">{{replaceReactionType(reaction.type)}}</span>

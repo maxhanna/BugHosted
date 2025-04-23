@@ -69,7 +69,7 @@ namespace maxhanna.Server.Controllers
 		{
 			string connectionString = _config.GetValue<string>("ConnectionStrings:maxhanna") ?? "";
 			body.TryGetValue("username", out var username);
-			body.TryGetValue("password", out var password); 
+			body.TryGetValue("password", out var password);
 			using (MySqlConnection conn = new MySqlConnection(connectionString))
 			{
 				try
@@ -194,7 +194,7 @@ namespace maxhanna.Server.Controllers
 			MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
 			try
 			{
-				conn.Open(); 
+				conn.Open();
 				string sql = @"
                     SELECT 
                         u.*, 
@@ -356,7 +356,7 @@ namespace maxhanna.Server.Controllers
 					string salt = GenerateSalt();
 
 					// Hash the password with the salt
-					string hashedPassword = HashPassword(user.Pass, salt);
+					string hashedPassword = HashPassword(user.Pass ?? "", salt);
 
 					string insertSql = @"INSERT INTO maxhanna.users (username, pass, salt, created, last_seen) VALUES (@Username, @Password, @Salt, UTC_TIMESTAMP(), UTC_TIMESTAMP());";
 					MySqlCommand insertCmd = new MySqlCommand(insertSql, conn);
@@ -474,7 +474,7 @@ namespace maxhanna.Server.Controllers
 						}
 
 						// Hash the new password with the existing salt
-						string hashedPassword = HashPassword(user.Pass, existingSalt);
+						string hashedPassword = HashPassword(user.Pass ?? "", existingSalt);
 
 						// Handle renaming directories if username changes
 						if (!oldUsername.Equals(user.Username, StringComparison.OrdinalIgnoreCase))
@@ -596,7 +596,7 @@ namespace maxhanna.Server.Controllers
 		[HttpPost("/User/UpdateLastSeen", Name = "UpdateLastSeen")]
 		public async void UpdateLastSeen([FromBody] int userId)
 		{
-			string connectionString = _config.GetValue<string>("ConnectionStrings:maxhanna");
+			string? connectionString = _config?.GetValue<string>("ConnectionStrings:maxhanna");
 
 			using (MySqlConnection conn = new MySqlConnection(connectionString))
 			{
@@ -636,14 +636,14 @@ namespace maxhanna.Server.Controllers
 					}
 
 					var jsonResponse = await response.Content.ReadAsStringAsync();
-					IpApiResponse data = JsonConvert.DeserializeObject<IpApiResponse>(jsonResponse);
+					IpApiResponse? data = JsonConvert.DeserializeObject<IpApiResponse>(jsonResponse);
 
 					// Return IP and city
 					var result = new
 					{
-						ip = data.Query,  // Use explicit properties from the class
-						city = data.City,
-						country = data.Country
+						ip = data?.Query,  // Use explicit properties from the class
+						city = data?.City,
+						country = data?.Country
 					};
 
 					return Ok(result);
@@ -659,7 +659,7 @@ namespace maxhanna.Server.Controllers
 
 		[HttpPost("/User/GetIpAddress", Name = "GetIpAddress")]
 		public async Task<WeatherLocation> GetIpAddress([FromBody] int userId)
-		{ 
+		{
 			var loc = new WeatherLocation();
 
 			try
@@ -1226,17 +1226,17 @@ namespace maxhanna.Server.Controllers
 
 								// Check if theme values are identical
 								int? dbBackgroundImage = reader["background_image"] == DBNull.Value ? (int?)null : Convert.ToInt32(reader["background_image"]);
-								string dbBackgroundColor = reader["background_color"] == DBNull.Value ? "" : reader["background_color"].ToString().Trim();
-								string dbComponentBackgroundColor = reader["component_background_color"] == DBNull.Value ? "" : reader["component_background_color"].ToString().Trim();
-								string dbSecondaryComponentBackgroundColor = reader["secondary_component_background_color"] == DBNull.Value ? "" : reader["secondary_component_background_color"].ToString().Trim();
-								string dbFontColor = reader["font_color"] == DBNull.Value ? "" : reader["font_color"].ToString().Trim();
-								string dbSecondaryFontColor = reader["secondary_font_color"] == DBNull.Value ? "" : reader["secondary_font_color"].ToString().Trim();
-								string dbThirdFontColor = reader["third_font_color"] == DBNull.Value ? "" : reader["third_font_color"].ToString().Trim();
-								string dbMainHighlightColor = reader["main_highlight_color"] == DBNull.Value ? "" : reader["main_highlight_color"].ToString().Trim();
-								string dbMainHighlightColorQuarterOpacity = reader["main_highlight_color_quarter_opacity"] == DBNull.Value ? "" : reader["main_highlight_color_quarter_opacity"].ToString().Trim();
-								string dbLinkColor = reader["link_color"] == DBNull.Value ? "" : reader["link_color"].ToString().Trim();
-								int? dbFontSize = reader["font_size"] == DBNull.Value ? (int?)null : Convert.ToInt32(reader["font_size"]);
-								string dbFontFamily = reader["font_family"] == DBNull.Value ? "" : reader["font_family"].ToString().Trim();
+								string dbBackgroundColor = GetStringSafe(reader, "background_color");
+								string dbComponentBackgroundColor = GetStringSafe(reader, "component_background_color");
+								string dbSecondaryComponentBackgroundColor = GetStringSafe(reader, "secondary_component_background_color");
+								string dbFontColor = GetStringSafe(reader, "font_color");
+								string dbSecondaryFontColor = GetStringSafe(reader, "secondary_font_color");
+								string dbThirdFontColor = GetStringSafe(reader, "third_font_color");
+								string dbMainHighlightColor = GetStringSafe(reader, "main_highlight_color");
+								string dbMainHighlightColorQuarterOpacity = GetStringSafe(reader, "main_highlight_color_quarter_opacity");
+								string dbLinkColor = GetStringSafe(reader, "link_color");
+								int? dbFontSize = GetNullableInt(reader, "font_size");
+								string dbFontFamily = GetStringSafe(reader, "font_family");
 
 								isSameTheme =
 										dbBackgroundImage == request.Theme.BackgroundImage &&
@@ -1389,20 +1389,20 @@ namespace maxhanna.Server.Controllers
 						{
 							var theme = new UserTheme()
 							{
-								Id = Convert.ToInt32(reader["id"]),
-								BackgroundImage = reader["background_image"] != DBNull.Value ? Convert.ToInt32(reader["background_image"]) : null,
-								BackgroundColor = reader["background_color"].ToString(),
-								ComponentBackgroundColor = reader["component_background_color"].ToString(),
-								SecondaryComponentBackgroundColor = reader["secondary_component_background_color"].ToString(),
-								FontColor = reader["font_color"].ToString(),
-								SecondaryFontColor = reader["secondary_font_color"].ToString(),
-								ThirdFontColor = reader["third_font_color"].ToString(),
-								MainHighlightColor = reader["main_highlight_color"].ToString(),
-								MainHighlightColorQuarterOpacity = reader["main_highlight_color_quarter_opacity"].ToString(),
-								LinkColor = reader["link_color"].ToString(),
-								FontSize = reader["font_size"] != DBNull.Value ? Convert.ToInt32(reader["font_size"]) : 16,
-								FontFamily = reader["font_family"].ToString(),
-								Name = reader["name"].ToString()
+								Id = Convert.ToInt32(reader["id"]), 
+								BackgroundImage = GetNullableInt(reader, "background_image"),
+								BackgroundColor = GetStringSafe(reader, "background_color"),
+								ComponentBackgroundColor = GetStringSafe(reader, "component_background_color"),
+								SecondaryComponentBackgroundColor = GetStringSafe(reader, "secondary_component_background_color"),
+								FontColor = GetStringSafe(reader, "font_color"),
+								SecondaryFontColor = GetStringSafe(reader, "secondary_font_color"),
+								ThirdFontColor = GetStringSafe(reader, "third_font_color"),
+								MainHighlightColor = GetStringSafe(reader, "main_highlight_color"),
+								MainHighlightColorQuarterOpacity = GetStringSafe(reader, "main_highlight_color_quarter_opacity"),
+								LinkColor = GetStringSafe(reader, "link_color"),
+								FontSize = GetIntSafe(reader, "font_size", 16),
+								FontFamily = GetStringSafe(reader, "font_family"),
+								Name = GetStringSafe(reader, "name") 
 							};
 
 							return Ok(theme);
@@ -1459,19 +1459,19 @@ namespace maxhanna.Server.Controllers
 							{
 								Id = Convert.ToInt32(reader["id"]),
 								UserId = reader["user_id"] != DBNull.Value ? Convert.ToInt32(reader["user_id"]) : null,
-								BackgroundImage = reader["background_image"] != DBNull.Value ? Convert.ToInt32(reader["background_image"]) : null,
-								BackgroundColor = reader["background_color"].ToString(),
-								ComponentBackgroundColor = reader["component_background_color"].ToString(),
-								SecondaryComponentBackgroundColor = reader["secondary_component_background_color"].ToString(),
-								FontColor = reader["font_color"].ToString(),
-								SecondaryFontColor = reader["secondary_font_color"].ToString(),
-								ThirdFontColor = reader["third_font_color"].ToString(),
-								MainHighlightColor = reader["main_highlight_color"].ToString(),
-								MainHighlightColorQuarterOpacity = reader["main_highlight_color_quarter_opacity"].ToString(),
-								LinkColor = reader["link_color"].ToString(),
-								FontSize = reader["font_size"] != DBNull.Value ? Convert.ToInt32(reader["font_size"]) : 16,
-								FontFamily = reader["font_family"].ToString(),
-								Name = reader["name"].ToString()
+								BackgroundImage = GetNullableInt(reader, "background_image"),
+								BackgroundColor = GetStringSafe(reader, "background_color"),
+								ComponentBackgroundColor = GetStringSafe(reader, "component_background_color"),
+								SecondaryComponentBackgroundColor = GetStringSafe(reader, "secondary_component_background_color"),
+								FontColor = GetStringSafe(reader, "font_color"),
+								SecondaryFontColor = GetStringSafe(reader, "secondary_font_color"),
+								ThirdFontColor = GetStringSafe(reader, "third_font_color"),
+								MainHighlightColor = GetStringSafe(reader, "main_highlight_color"),
+								MainHighlightColorQuarterOpacity = GetStringSafe(reader, "main_highlight_color_quarter_opacity"),
+								LinkColor = GetStringSafe(reader, "link_color"),
+								FontSize = GetIntSafe(reader, "font_size", 16),
+								FontFamily = GetStringSafe(reader, "font_family"),
+								Name = GetStringSafe(reader, "name") 
 							};
 
 							themes.Add(theme);
@@ -1529,19 +1529,19 @@ namespace maxhanna.Server.Controllers
 							{
 								Id = Convert.ToInt32(reader["id"]),
 								UserId = reader["user_id"] != DBNull.Value ? Convert.ToInt32(reader["user_id"]) : null,
-								BackgroundImage = reader["background_image"] != DBNull.Value ? Convert.ToInt32(reader["background_image"]) : null,
-								BackgroundColor = reader["background_color"].ToString(),
-								ComponentBackgroundColor = reader["component_background_color"].ToString(),
-								SecondaryComponentBackgroundColor = reader["secondary_component_background_color"].ToString(),
-								FontColor = reader["font_color"].ToString(),
-								SecondaryFontColor = reader["secondary_font_color"].ToString(),
-								ThirdFontColor = reader["third_font_color"].ToString(),
-								MainHighlightColor = reader["main_highlight_color"].ToString(),
-								MainHighlightColorQuarterOpacity = reader["main_highlight_color_quarter_opacity"].ToString(),
-								LinkColor = reader["link_color"].ToString(),
-								FontSize = reader["font_size"] != DBNull.Value ? Convert.ToInt32(reader["font_size"]) : 16,
-								FontFamily = reader["font_family"].ToString(),
-								Name = reader["name"].ToString()
+								BackgroundImage = GetNullableInt(reader, "background_image"),
+								BackgroundColor = GetStringSafe(reader, "background_color"),
+								ComponentBackgroundColor = GetStringSafe(reader, "component_background_color"),
+								SecondaryComponentBackgroundColor = GetStringSafe(reader, "secondary_component_background_color"),
+								FontColor = GetStringSafe(reader, "font_color"),
+								SecondaryFontColor = GetStringSafe(reader, "secondary_font_color"),
+								ThirdFontColor = GetStringSafe(reader, "third_font_color"),
+								MainHighlightColor = GetStringSafe(reader, "main_highlight_color"),
+								MainHighlightColorQuarterOpacity = GetStringSafe(reader, "main_highlight_color_quarter_opacity"),
+								LinkColor = GetStringSafe(reader, "link_color"),
+								FontSize = GetIntSafe(reader, "font_size", 16),
+								FontFamily = GetStringSafe(reader, "font_family"),
+								Name = GetStringSafe(reader, "name"),
 							};
 
 							themes.Add(theme);
@@ -1576,7 +1576,7 @@ namespace maxhanna.Server.Controllers
 				{
 					await conn.OpenAsync();
 
-					// Delete user’s selected theme from user_theme_selected
+					// Delete userï¿½s selected theme from user_theme_selected
 					string sql = "DELETE FROM maxhanna.user_theme_selected WHERE user_id = @UserId;";
 
 					MySqlCommand cmd = new MySqlCommand(sql, conn);
@@ -1656,7 +1656,7 @@ namespace maxhanna.Server.Controllers
 						checkCmd.Parameters.AddWithValue("@UserId", request.UserId);
 						checkCmd.Parameters.AddWithValue("@BlockedUserId", request.BlockedUserId);
 
-						long existingCount = (long)await checkCmd.ExecuteScalarAsync();
+						long? existingCount = (long?)await checkCmd.ExecuteScalarAsync();
 						if (existingCount > 0)
 						{
 							return Ok("User already blocked");
@@ -1731,7 +1731,7 @@ namespace maxhanna.Server.Controllers
 					return StatusCode(500, "An error occurred while unblocking user");
 				}
 			}
-		} 
+		}
 
 		[HttpPost("/User/IsUserBlocked", Name = "IsUserBlocked")]
 		public async Task<IActionResult> IsUserBlocked([FromBody] BlockRequest request)
@@ -1754,7 +1754,7 @@ namespace maxhanna.Server.Controllers
 						cmd.Parameters.AddWithValue("@UserId", request.UserId);
 						cmd.Parameters.AddWithValue("@BlockedUserId", request.BlockedUserId);
 
-						long count = (long)await cmd.ExecuteScalarAsync();
+						long? count = (long?)await cmd.ExecuteScalarAsync();
 						return Ok(new { IsBlocked = count > 0 });
 					}
 				}
@@ -1818,6 +1818,7 @@ namespace maxhanna.Server.Controllers
 					return StatusCode(500, "An error occurred while retrieving blocked users");
 				}
 			}
+	  
 		}
 
 
@@ -1847,7 +1848,7 @@ namespace maxhanna.Server.Controllers
 					if (existingUrl != null)
 					{
 						// Update lastmod if the entry exists
-						existingUrl.Parent.Element(ns + "lastmod")?.SetValue(lastMod);
+						existingUrl.Parent?.Element(ns + "lastmod")?.SetValue(lastMod);
 						sitemap.Save(_sitemapPath);
 						return;
 					}
@@ -1867,9 +1868,9 @@ namespace maxhanna.Server.Controllers
 						new XElement(ns + "priority", "0.8")
 				);
 
-				sitemap.Root.Add(newUrlElement);
+				sitemap?.Root?.Add(newUrlElement);
 
-				sitemap.Save(_sitemapPath);
+				sitemap?.Save(_sitemapPath);
 			}
 			finally
 			{
@@ -1911,6 +1912,19 @@ namespace maxhanna.Server.Controllers
 			{
 				_sitemapLock.Release();
 			}
+		}
+		string GetStringSafe(IDataRecord reader, string columnName)
+		{
+			return reader[columnName] == DBNull.Value ? "" : reader[columnName]?.ToString()?.Trim() ?? "";
+		}
+
+		int? GetNullableInt(IDataRecord reader, string columnName)
+		{
+			return reader[columnName] == DBNull.Value ? (int?)null : Convert.ToInt32(reader[columnName]);
+		}
+		int GetIntSafe(IDataRecord reader, string columnName, int fallback = 0)
+		{
+			return reader[columnName] == DBNull.Value ? fallback : Convert.ToInt32(reader[columnName]);
 		}
 	}
 }

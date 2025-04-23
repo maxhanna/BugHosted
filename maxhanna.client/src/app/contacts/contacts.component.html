@@ -50,7 +50,7 @@
       </thead>
       <tbody>
         <tr *ngFor="let contact of contacts" (click)="selectContact(contact)">
-          <td><span (click)="viewProfile(contact.user)" [class]="contact.user?.id != 0 ? 'usernameProfileLink cursorPointerUnderlined' : ''">{{ contact.name }}</span></td>
+          <td><span (click)="viewProfile(contact.user, 'Contacts')" [class]="contact.user?.id != 0 ? 'usernameProfileLink cursorPointerUnderlined' : ''">{{ contact.name }}</span></td>
           <td class="noTMI">{{ getContactPhone(contact) }}</td>
           <td>{{ getContactBirthday(contact)  | date: 'MMM dd, yyyy' }}</td>
           <td class="noTMI">{{ getContactNotes(contact) }}</td>

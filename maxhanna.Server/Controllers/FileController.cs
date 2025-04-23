@@ -228,7 +228,7 @@ namespace maxhanna.Server.Controllers
 						command.Parameters.AddWithValue("@search", "%" + search + "%");
 					}
 
-					Console.WriteLine($"fileId {fileId}, offset {offset}, pageSize {pageSize}, page {page}, folder path {directory}. command: " + command.CommandText);
+					//Console.WriteLine($"fileId {fileId}, offset {offset}, pageSize {pageSize}, page {page}, folder path {directory}. command: " + command.CommandText);
 
 					using (var reader = command.ExecuteReader())
 					{

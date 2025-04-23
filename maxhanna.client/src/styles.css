@@ -53,7 +53,8 @@ body {
   background-repeat: no-repeat;
 }
 
-html, body {
+html,
+body {
   overscroll-behavior-x: none;
 }
 
@@ -110,11 +111,20 @@ fieldset {
   }
 }
 
-.refreshButton::before, .closeButton::before, .menuButton::before, .menuBackButton::before {
+.refreshButton::before,
+.closeButton::before,
+.menuButton::before,
+.menuBackButton::before {
   z-index: 1;
 }
 
-.refreshButton::before, .closeButton::before, .menuButton::before, .menuBackButton::before, .notificationTopButton, .topSearchButtonDiv {
+.refreshButton::before,
+.closeButton::before,
+.menuButton::before,
+.menuBackButton::before,
+.notificationTopButton,
+.topSearchButtonDiv,
+.topSearchButtonDivSpecial {
   position: absolute;
   top: 0px;
   width: 50px;
@@ -145,7 +155,8 @@ fieldset {
   text-shadow: 1px 1px var(--main-link-color);
 }
 
-.refreshButton::before, .menuButton::before {
+.refreshButton::before,
+.menuButton::before {
   left: 0px;
 }
 
@@ -176,6 +187,11 @@ fieldset {
   text-shadow: 1px 1px var(--main-link-color);
 }
 
+.topSearchButtonDivSpecial {
+  right: 53px;
+  text-shadow: 1px 1px var(--main-link-color);
+}
+
 
 .componentTitle {
   font-family: var(--title-font-family);
@@ -200,6 +216,7 @@ fieldset {
   text-align: center;
   text-decoration: underline;
 }
+
 /* Make the table scrollable horizontally on mobile */
 @media only screen and (max-device-width: 480px) and (-webkit-min-device-pixel-ratio: 1.5) {
   .mainTable {
@@ -242,87 +259,87 @@ fieldset {
   color: var(--secondary-font-color);
 }
 
-  .mainTable thead th {
-    position: sticky;
-    top: 0;
-    background-color: var(--main-highlight-color);
-    z-index: 1;
-    cursor: default;
-  }
+.mainTable thead th {
+  position: sticky;
+  top: 0;
+  background-color: var(--main-highlight-color);
+  z-index: 1;
+  cursor: default;
+}
 
-  .mainTable tr:not(thead,tr):hover {
-    outline: var(--main-border);
-  }
+.mainTable tr:not(thead, tr):hover {
+  outline: var(--main-border);
+}
 
-  .mainTable tr:nth-child(even) {
-    border-bottom: 1px solid;
-    border-top: 1px solid;
-    border-color: var(--main-highlight-color);
-    background-color: var(--secondary-bg-color);
-  }
+.mainTable tr:nth-child(even) {
+  border-bottom: 1px solid;
+  border-top: 1px solid;
+  border-color: var(--main-highlight-color);
+  background-color: var(--secondary-bg-color);
+}
 
-  .mainTable tbody {
-    height: 30px !important;
-    width: 100%;
-    overflow-y: hidden;
-    cursor: default;
-  }
+.mainTable tbody {
+  height: 30px !important;
+  width: 100%;
+  overflow-y: hidden;
+  cursor: default;
+}
 
-    .mainTable tbody tr:hover td:first-child {
-      position: relative;
-    }
+.mainTable tbody tr:hover td:first-child {
+  position: relative;
+}
 
-      .mainTable tbody tr:hover td:first-child::before,
-      .mainTable tbody tr:hover td:first-child::after {
-        content: '';
-        position: absolute;
-        bottom: 0;
-        border-bottom: 1px dotted var(--secondary-font-color);
-        width: 100%;
-        height: 1px;
-        pointer-events: none;
-      }
+.mainTable tbody tr:hover td:first-child::before,
+.mainTable tbody tr:hover td:first-child::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  border-bottom: 1px dotted var(--secondary-font-color);
+  width: 100%;
+  height: 1px;
+  pointer-events: none;
+}
 
-      .mainTable tbody tr:hover td:first-child::before {
-        left: 0;
-      }
+.mainTable tbody tr:hover td:first-child::before {
+  left: 0;
+}
 
-      .mainTable tbody tr:hover td:first-child::after {
-        right: 0;
-      }
+.mainTable tbody tr:hover td:first-child::after {
+  right: 0;
+}
 
-  .mainTable a:link,
-  .mainTable a:visited {
-    color: var(--main-font-color);
-    text-decoration: none;
-  }
+.mainTable a:link,
+.mainTable a:visited {
+  color: var(--main-font-color);
+  text-decoration: none;
+}
 
-  .mainTable a:hover {
-    color: #FF00FF;
-    text-decoration: underline;
-  }
+.mainTable a:hover {
+  color: #FF00FF;
+  text-decoration: underline;
+}
 
-  .mainTable a:active {
-    color: #0000FF;
-  }
+.mainTable a:active {
+  color: #0000FF;
+}
 
-  .mainTable td:first-child {
-    color: var(--main-font-color);
-  }
+.mainTable td:first-child {
+  color: var(--main-font-color);
+}
 
-  .mainTable td:nth-child(2) {
-    color: var(--main-font-color);
-  }
+.mainTable td:nth-child(2) {
+  color: var(--main-font-color);
+}
 
-  .mainTable th {
-    border-collapse: collapse;
-    text-align: left;
-    background-color: var(--main-highlight-color-quarter-opacity);
-    color: var(--main-font-color);
-    position: sticky;
-    top: -3px;
-    font-weight: bold;
-  }
+.mainTable th {
+  border-collapse: collapse;
+  text-align: left;
+  background-color: var(--main-highlight-color-quarter-opacity);
+  color: var(--main-font-color);
+  position: sticky;
+  top: -3px;
+  font-weight: bold;
+}
 
 #loadingDiv {
   position: fixed;
@@ -369,9 +386,9 @@ fieldset {
   box-shadow: var(--main-border);
 }
 
-  ::-webkit-scrollbar-thumb:hover {
-    background: var(--main-font-color);
-  }
+::-webkit-scrollbar-thumb:hover {
+  background: var(--main-font-color);
+}
 
 
 
@@ -381,9 +398,9 @@ fieldset {
   text-decoration-color: var(--main-font-color);
 }
 
-  .notification::before {
-    content: '🪲';
-  }
+.notification::before {
+  content: '🪲';
+}
 
 .cursorPointer {
   cursor: pointer;
@@ -401,8 +418,7 @@ fieldset {
 }
 
 .smallExpander {
-  font-size: small;
-  font-family: 'Segoe UI Symbol';
+  font-size: small; 
   cursor: pointer;
 }
 
@@ -421,9 +437,9 @@ fieldset {
   cursor: pointer;
 }
 
-  .helperSpanTitle:before {
-    content: 'ℹ️';
-  }
+.helperSpanTitle:before {
+  content: 'ℹ️';
+}
 
 .avatar {
   max-width: 50px;
@@ -435,7 +451,8 @@ fieldset {
   max-height: 100px;
 }
 
-.avatarBug, .avatarBust {
+.avatarBug,
+.avatarBust {
   display: inline;
   position: relative;
   top: auto;
@@ -586,9 +603,9 @@ fieldset {
   border-bottom: 1px dotted var(--main-font-color);
 }
 
-  .optionsStatsDiv:hover {
-    border-bottom: 1px solid var(--main-link-color);
-  }
+.optionsStatsDiv:hover {
+  border-bottom: 1px solid var(--main-link-color);
+}
 
 .optionsStatsHeader {
   min-width: 125px;
@@ -609,7 +626,8 @@ fieldset {
 }
 
 
-.popupPanel button, .popupPanel a {
+.popupPanel button,
+.popupPanel a {
   cursor: pointer;
 }
 
@@ -650,4 +668,11 @@ fieldset {
 
 .thirdFontColor {
   color: var(--third-font-color);
+}
+
+.centeredContainer {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -15%);
 }

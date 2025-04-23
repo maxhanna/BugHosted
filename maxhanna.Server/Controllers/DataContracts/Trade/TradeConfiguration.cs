@@ -13,5 +13,6 @@ public class TradeConfiguration
 	public decimal? InitialMinimumFromAmountToStart { get; set; }
 	public decimal? MinimumFromReserves { get; set; }
 	public decimal? MinimumToReserves { get; set; }
+	public int? MaxTradeTypeOccurances { get; set; }
 	public DateTime? Updated { get; set; }
 }

@@ -31,6 +31,7 @@ export class NotificationsComponent extends ChildComponent implements OnInit, On
 
   @Input() minimalInterface? = false;
   @Input() inputtedParentRef?: AppComponent;
+  @Input() previousComponent?: string;
 
   showNotifications = false;
   notifications?: UserNotification[] = [];
@@ -115,7 +116,7 @@ export class NotificationsComponent extends ChildComponent implements OnInit, On
       const storyId = notification.storyId;
       console.log(storyId, userProfileId);
       this.parentRef?.closeOverlay();
-      this.parentRef?.createComponent("User", { "userId": userProfileId, "storyId": storyId });
+      this.parentRef?.createComponent("User", { "userId": userProfileId, "storyId": storyId, "previousComponent": this.previousComponent }); 
     }
   }
   async goToCommentId(notification?: UserNotification) {
@@ -185,9 +186,9 @@ export class NotificationsComponent extends ChildComponent implements OnInit, On
     } else if (notification.chatId) {
       this.goToChat(notification);
     } else if (notification?.text?.toLowerCase().includes("following")) {
-      this.viewProfile(notification.fromUser);
+      this.viewProfile(notification.fromUser, this.previousComponent);
     } else if (notification?.text?.toLowerCase().includes("friend request")) {
-      this.viewProfile(notification.fromUser);
+      this.viewProfile(notification.fromUser, this.previousComponent);
     }
   }
 

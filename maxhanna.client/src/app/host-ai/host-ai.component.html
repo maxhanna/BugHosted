@@ -10,7 +10,7 @@
         <div>
           <strong>{{ message.sender }}:</strong>
           <span class="message" [innerHTML]="message.message"></span>
-          <button *ngIf="message.sender === hostName" (click)="startedTalking = true; speakMessage(message.message)" [disabled]="startedTalking">🔊</button>
+          <button *ngIf="message.sender === hostName" (click)="listenToChatMessage(message)">{{startedTalking ? '🤐' : '🔊'}}</button>
         </div>
       </div>
       <div class="loadingResponseDiv" *ngIf="isLoading">Loading...</div>
@@ -26,9 +26,11 @@
       <textarea [value]="userMessage"
                 (keydown)="handleKeyDown($event)"
                 placeholder="Type your message..." rows="4" #chatInput [disabled]="isLoading"></textarea>
-      <app-speech-recognition (speechRecognitionEvent)="speechRecognitionEvent($event)"
-                              (speechRecognitionStopListeningEvent)="stopListening()"
-                              (speechRecognitionNotSupportedEvent)="speechRecognitionNotSupportedEvent($event)"></app-speech-recognition>
+      <app-speech-recognition 
+        [disabled]="isLoading"
+        (speechRecognitionEvent)="speechRecognitionEvent($event)"
+        (speechRecognitionStopListeningEvent)="stopListening()"
+        (speechRecognitionNotSupportedEvent)="speechRecognitionNotSupportedEvent($event)"></app-speech-recognition>
       <button (click)="stopTalking()" *ngIf="startedTalking">🤐</button>
       <button (click)="sendMessage()" [disabled]="isLoading">Send</button>
     </div>

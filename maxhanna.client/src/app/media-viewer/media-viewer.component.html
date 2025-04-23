@@ -204,7 +204,8 @@
           <div class="optionsStatsDescription">
             <app-user-tag [user]="selectedFile.user"
                           [inputtedParentRef]="parentRef ?? inputtedParentRef"
-                          [displayMiniTag]="true"></app-user-tag>
+                          [displayMiniTag]="true"
+                          [previousComponent]="previousComponent"></app-user-tag>
           </div>
         </div>
         <div class="optionsStatsDiv" *ngIf="selectedFile.lastUpdatedBy && selectedFile.lastUpdated !== selectedFile.date">
@@ -222,7 +223,8 @@
           <div class="optionsStatsDescription">
             <app-user-tag [user]="selectedFile.lastUpdatedBy"
                           [inputtedParentRef]="parentRef ?? inputtedParentRef"
-                          [displayMiniTag]="true"></app-user-tag>
+                          [displayMiniTag]="true"
+                          [previousComponent]="previousComponent"></app-user-tag>
           </div>
         </div>
       </div>
@@ -235,6 +237,7 @@
                   [component_id]="selectedFile?.id || file?.id ?? 0"
                   [component]="selectedFile || file"
                   [commentList]="file?.fileComments ?? selectedFile?.fileComments ?? []"
+                  [previousComponent]="previousComponent"
                   (commentAddedEvent)="commentAddedEvent($event)"
                   (commentHeaderClickedEvent)="commentHeaderClickedEvent.emit($event)">
     </app-comments>

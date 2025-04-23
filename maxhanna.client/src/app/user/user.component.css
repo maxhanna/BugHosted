@@ -332,3 +332,8 @@
   align-items: center;
   cursor: default;
 } 
+.menuBackButtonSpecial {
+    right: 55px;
+    position: absolute;
+    top: 0px;
+}
