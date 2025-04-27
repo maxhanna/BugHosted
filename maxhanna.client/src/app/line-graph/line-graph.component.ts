@@ -78,17 +78,15 @@ export class LineGraphComponent implements OnInit, OnChanges {
       changes['selectedPeriod'] || changes['selectedCoin']) &&
       this.lineChartData.length > 0) {
       this.updateChartWithAverage();
-      this.updateGraph(this.data);
+      this.updateGraph(this.data); 
     }
   }
 
   getUniqueCoinNames(): string[] {
     const uniqueCoinNamesSet = new Set<string>();
     this.data?.forEach(item => {
-      if (this.type == "Crypto") {
-        if (item.name != "Bitcoin") {
-          uniqueCoinNamesSet.add(item.name);
-        }
+      if (this.type == "Crypto") { 
+        uniqueCoinNamesSet.add(item.name); 
       } else if (this.type == "Currency") {
         const name = (item as ExchangeRate).targetCurrency;
         uniqueCoinNamesSet.add(name);
@@ -106,6 +104,7 @@ export class LineGraphComponent implements OnInit, OnChanges {
 
   changeCoin(event: Event) {
     this.selectedCoin = (event.target as HTMLSelectElement).value;
+    console.log("change coin", this.selectedCoin);
     this.updateGraph(this.data);
   }
 
@@ -131,13 +130,16 @@ export class LineGraphComponent implements OnInit, OnChanges {
       this.updateGraph(this.data);
     }
   }
+   
   updateGraph(data: any[]) {
     if (!this.selectedPeriod) {
       this.selectedPeriod = '1d';
     }
     this.data = data;
     let filteredData: any[] = [];
-
+    this.lineChartData = [];
+    this.lineChartLabels = [];
+ 
     if (this.type === "Volume") {
       filteredData = this.filterDataByPeriod(this.getDaysForPeriod(this.selectedPeriod));
     } else if (this.selectedCoin !== '') {
@@ -149,20 +151,39 @@ export class LineGraphComponent implements OnInit, OnChanges {
       filteredData = filteredData.filter((_, index) => index % 2 === 0);
     }
 
+    // Filter data2 by period only, not by matching primary timestamps
     let filteredData2: any[] = [];
+    let hasValidSecondaryData = false; // New flag to track if we have valid secondary data
+
     if (this.data2 && this.data2.length > 0) {
-      const primaryTimestamps = new Set(filteredData.map(item => item.timestamp));
-      filteredData2 = this.data2.filter(item => primaryTimestamps.has(item.timestamp)); 
-    } 
-    //console.log("filtered data2:",filteredData2);
+      filteredData2 = this.filterDataByPeriodForSecondary(
+        this.getDaysForPeriod(this.selectedPeriod),
+        this.data2
+      );
+      hasValidSecondaryData = filteredData2.length > 0;
+    }
+
     let datasets: any[] = [];
     let chartLabelsSet = new Set<string>();
-
     const colorPalette = [
       '#4e79a7', '#f28e2b', '#e15759', '#76b7b2',
       '#59a14f', '#edc948', '#b07aa1', '#ff9da7',
       '#9c755f', '#bab0ac'
     ];
+
+    // Add timestamps from filteredData to chartLabelsSet
+    filteredData.forEach(item => chartLabelsSet.add(this.formatTimestamp(item.timestamp)));
+
+    // Add timestamps from filteredData2 to chartLabelsSet
+    filteredData2.forEach(item => chartLabelsSet.add(this.formatTradeHistoryTimestamp(item.timestamp)));
+
+    // Sort labels to ensure chronological order
+    const sortedLabels = Array.from(chartLabelsSet).sort((a, b) => {
+      // Convert formatted timestamps back to Date objects
+      const dateA = new Date(a.replace(/\./g, '-').replace(' ', 'T') + 'Z');
+      const dateB = new Date(b.replace(/\./g, '-').replace(' ', 'T') + 'Z');
+      return dateA.getTime() - dateB.getTime();
+    });
 
     if (this.type === "Volume") {
       const volumeConfig: any = {
@@ -184,55 +205,21 @@ export class LineGraphComponent implements OnInit, OnChanges {
       }
 
       datasets.push(volumeConfig);
-      filteredData.forEach(item => chartLabelsSet.add(this.formatTimestamp(item.timestamp)));
     }
 
-    if (this.data2 && this.data2.length > 0) {
-      // Filter data2 to match the selected period
-      // filteredData2 = this.filterDataByPeriodForSecondary(
-      //   this.getDaysForPeriod(this.selectedPeriod),
-      //   this.data2
-      // );
-    
-      // Create value and type maps for data2
-      const data2ValueMap = new Map(
-        filteredData2.map(item => [
-          item.timestamp,
-          item.valueCAD ?? item.value ?? item.rate
-        ])
-      );
-      const typeMap = new Map(
-        filteredData2.map(item => [item.timestamp, item.type])
-      );
-    
-      // Map each filteredData timestamp to the closest data2 timestamp's value within ±5 minutes
-      const secondaryData = filteredData.map(item => {
-        const targetTime = new Date(item.timestamp).getTime();
-        const data2Timestamps = Array.from(data2ValueMap.keys()).map(ts => ({
-          ts,
-          time: new Date(ts).getTime()
-        }));
-    
-        if (data2Timestamps.length === 0) return { value: null, type: 'grey' };
-    
-        // Find the closest data2 timestamp
-        const closest = data2Timestamps.reduce((prev, curr) =>
-          Math.abs(curr.time - targetTime) < Math.abs(prev.time - targetTime) ? curr : prev
-        );
-    
-        // Check if the closest timestamp is within ±1 minutes (1000 * 60 ms)
-        const timeDiff = Math.abs(closest.time - targetTime);
-        if (timeDiff > (1000*60)) {
-          return { value: null, type: 'grey' };
+    if (hasValidSecondaryData) {
+      // Create a data array for data2 aligned with sortedLabels
+      const secondaryData = sortedLabels.map(label => {
+        const matchingTrade = filteredData2.find(item => this.formatTimestamp(item.timestamp) === label);
+        if (matchingTrade) {
+          return {
+            value: matchingTrade.valueCAD ?? matchingTrade.value ?? matchingTrade.rate,
+            type: matchingTrade.type ?? 'grey'
+          };
         }
-    
-        return {
-          value: data2ValueMap.get(closest.ts) ?? null,
-          type: typeMap.get(closest.ts) ?? 'grey'
-        };
+        return { value: null, type: 'grey' };
       });
-    
-      // Create a single secondary dataset
+
       const secondaryConfig: any = {
         type: this.isDotModeData2 ? 'line' : this.chartTypeInputtedData2 ?? 'line',
         label: this.secondaryDataLabel,
@@ -243,16 +230,12 @@ export class LineGraphComponent implements OnInit, OnChanges {
         pointBorderColor: secondaryData.map(d => d.type === 'buy' ? 'green' : d.type === 'sell' ? 'red' : 'grey'),
         borderWidth: 2,
         order: 1,
-        spanGaps: true
+        spanGaps: true,
+        showLine: this.isDotModeData2 ? false : true,
+        pointRadius: this.isDotModeData2 ? 10 : 5,
+        pointHoverRadius: this.isDotModeData2 ? 12 : 7
       };
-    
-      if (this.isDotModeData2) {
-        secondaryConfig.showLine = false;
-        secondaryConfig.pointRadius = 10;
-        secondaryConfig.pointHoverRadius = 7;
-        secondaryConfig.borderWidth = 0;
-      }
-    
+
       datasets.push(secondaryConfig);
     }
 
@@ -273,13 +256,17 @@ export class LineGraphComponent implements OnInit, OnChanges {
           this.type == "Crypto" ? item.name === coinName : item.targetCurrency === coinName
         );
 
+        // Create data array aligned with sortedLabels
+        const coinData = sortedLabels.map(label => {
+          const matchingItem = coinFilteredData.find(item => this.formatTimestamp(item.timestamp) === label);
+          return matchingItem ? (matchingItem.valueCAD ?? matchingItem.value ?? matchingItem.rate) : null;
+        });
+
         const colorIndex = index % colorPalette.length;
         const baseColor = index == 0 ? this.darkMode ? this.getCSSVariableValue("--main-link-color") : this.getCSSVariableValue("--third-font-color") : colorPalette[colorIndex];
 
         const datasetConfig: any = {
-          data: coinFilteredData.map(item =>
-            item.valueCAD ?? item.value ?? item.rate
-          ),
+          data: coinData,
           label: `${coinName} Fluctuation ${this.type == "Crypto" && this.selectedCurrency ? `(${this.selectedCurrency}$)` : ""}`,
           backgroundColor: this.hexToRgba(baseColor, 0.2),
           borderColor: baseColor,
@@ -290,7 +277,8 @@ export class LineGraphComponent implements OnInit, OnChanges {
           pointBackgroundColor: index == 0 ? this.darkMode ? this.getCSSVariableValue("--main-font-color") : this.getCSSVariableValue("--main-highlight-color") : '#ffffff',
           pointBorderColor: baseColor,
           pointRadius: 3,
-          pointHoverRadius: 5
+          pointHoverRadius: 5,
+          spanGaps: true
         };
 
         if (this.isDotModeData1) {
@@ -301,12 +289,11 @@ export class LineGraphComponent implements OnInit, OnChanges {
         }
 
         datasets.push(datasetConfig);
-        coinFilteredData.forEach(item => chartLabelsSet.add(this.formatTimestamp(item.timestamp)));
       });
     }
 
     this.lineChartData = datasets;
-    this.lineChartLabels = Array.from(chartLabelsSet).sort();
+    this.lineChartLabels = sortedLabels;
     this.updateChartWithAverage();
 
     setTimeout(() => {
@@ -316,6 +303,17 @@ export class LineGraphComponent implements OnInit, OnChanges {
 
   private formatTimestamp(timestamp: string): string {
     return timestamp.replace('T', ' ').replace(/-/g, '.');
+  }
+
+  private formatTradeHistoryTimestamp(timestamp: string): string {
+    // Normalize ISO timestamps to a consistent format
+    const date = new Date(timestamp);
+    if (isNaN(date.getTime())) {
+      console.warn(`Invalid timestamp: ${timestamp}`);
+      return ''; // Or handle as needed
+    }
+    // Format as YYYY.MM.DD HH:mm:ss for display
+    return `${date.getFullYear()}.${(date.getMonth() + 1).toString().padStart(2, '0')}.${date.getDate().toString().padStart(2, '0')} ${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}:${date.getSeconds().toString().padStart(2, '0')}`;
   }
 
   private filterDataByPeriodForSecondary(periodValue: number, data: any[]): any[] {

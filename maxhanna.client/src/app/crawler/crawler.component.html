@@ -56,14 +56,13 @@
           <button>{{ group.showSubdomains ? 'Collapse' : 'Expand' }}</button>
         </span>
       </div>
-
+      <div style="text-align:center">
+        <button *ngIf="totalPages > 1 && currentPage < totalPages" (click)="onPageChange()">Load More Results</button>
+      </div>
     </div>
     <div *ngIf="searchMetadata?.length == 0 && !error && !isLoading" class="smallFont nbDiv"> 
       <div (click)="seeNew()" class="cursorPointerUnderlined">See the latest indexes.</div>
-    </div>
-    <div style="text-align:center">
-      <button *ngIf="totalPages > 1 && currentPage < totalPages" (click)="onPageChange()">Load More Results</button>
-    </div>
+    </div> 
   </div>
 </div>
 

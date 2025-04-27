@@ -210,7 +210,7 @@ export class ThemesComponent extends ChildComponent implements OnInit, OnDestroy
       mainHighlightColorQuarterOpacity: this.mainHighlightColorQuarterOpacity.nativeElement.value,
       linkColor: this.linkColor.nativeElement.value,
       fontSize: this.fontSize.nativeElement.value,
-      fontFamily: this.fontFamily.nativeElement.value,
+      fontFamily: this.getComputedStyleValue('--main-font-family'),
       name: name,
     };
 

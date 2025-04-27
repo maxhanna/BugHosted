@@ -4,24 +4,34 @@
   <div class="popupPanelTitle favouritesTitle">
     Add/Share your Favorites
   </div>
-  <div class=topLinks>
-    <input #linkInput placeholder="URL" (input)="linkUrlInput()" />
-    <button (click)="addLink()" *ngIf="showNameImageInput" [disabled]="isLoading">💾Create</button>
-    <div *ngIf="showingLatestLinks">
-      <input [placeholder]="page" (change)="pageChanged($event)" style="width: 20px;" />
-      <select (change)="pageSizeChanged($event)">
-        <option value="" disabled selected>Page size</option>
-        <option>10</option>
-        <option>20</option>
-        <option>50</option>
-        <option>100</option>
-      </select>
-    </div>
+  <div class="favouritesControlsDiv">
+        <input #linkInput placeholder="URL" (input)="linkUrlInput()" />
+        <button (click)="addLink()" *ngIf="showNameImageInput" [disabled]="isLoading">💾Create</button>
+        <div>
+          <input [placeholder]="page" (change)="pageChanged($event)" style="width: 20px;" *ngIf="totalCount > pageSize"/>
+          <select (change)="pageSizeChanged($event)">
+            <option value="" disabled selected>Page size</option>
+            <option>10</option>
+            <option>20</option>
+            <option>50</option>
+            <option>100</option>
+          </select>
+        </div>
+        <select (change)="orderChanged($event)"
+          *ngIf="showingLatestLinks || (!showNameImageInput && !showingLatestLinks && !isSearchingUrls)">
+          <option value="recent">Most Recent</option>
+          <option value="popular">Most Popular</option>
+          <option value="visited">Most Visited</option>
+          <option value="name">By Name</option>
+          <option value="url">By URL</option>
+        </select>
+  </div>
+  <div class=topLinks> 
     <div *ngIf="favouriteSearch.length > 0">
       <div class="miniTitle">{{ showingLatestLinks ? 'Latest' : 'Existing' }} Links:</div>
       <div class="favouriteListWrapper">
         <div *ngFor="let sFav of favouriteSearch" class="favouriteDiv" [title]="sFav.url">
-          <a (click)="parentRef?.visitExternalLink(sFav.url)">
+          <a (click)="visitExternalLink(sFav)">
             <div class="favImage" [title]="sFav.name">
               <img [src]="sFav.imageUrl"
                    *ngIf="sFav.imageUrl" 
@@ -46,7 +56,7 @@
       <div class="miniTitle">Your Favs:</div>
       <div class="favouriteListWrapper">
         <div *ngFor="let fav of userFavourites" class="favouriteDiv" [style.border]="showEditLinks ? '1px solid' : ''" [title]="fav.url">
-          <a (click)="parentRef?.visitExternalLink(fav.url)">
+          <a (click)="visitExternalLink(fav)">
             <div class="favImage">
               <img [src]="fav.imageUrl" 
                    (error)="fav.imageUrl = ''"
@@ -65,10 +75,15 @@
         </div>
       </div>
     </div>
-    <div *ngIf="(!showNameImageInput && !showingLatestLinks && !isSearchingUrls) || showingLatestLinks" class="linkOptionButtons">
-      <button (click)="showEditLinks = !showEditLinks" class="cursorPointer" *ngIf="userFavourites.length > 0 && (!showNameImageInput && !showingLatestLinks && !isSearchingUrls)">{{showEditLinks ? 'Done ' : ''}}Edit{{showEditLinks ? 'ing' : ''}}{{showEditLinks ? '' : ' Links'}}</button>
-      <button (click)="showLatestLinks()" class="cursorPointer" *ngIf="showingLatestLinks || (!showNameImageInput && !showingLatestLinks && !isSearchingUrls)">{{ !showingLatestLinks ? 'Show' : 'Hide' }} Latest Links</button>
-    </div>
+  </div>
+  <div *ngIf="(!showNameImageInput && !showingLatestLinks && !isSearchingUrls) || showingLatestLinks"
+    class="linkOptionButtons">
+    <button (click)="showEditLinks = !showEditLinks" class="cursorPointer"
+      *ngIf="userFavourites.length > 0 && (!showNameImageInput && !showingLatestLinks && !isSearchingUrls)">{{showEditLinks
+      ? 'Done ' : ''}}Edit{{showEditLinks ? 'ing' : ''}}{{showEditLinks ? '' : ' Links'}}</button>
+    <button (click)="showLatestLinks()" class="cursorPointer"
+      *ngIf="showingLatestLinks || (!showNameImageInput && !showingLatestLinks && !isSearchingUrls)">{{
+      !showingLatestLinks ? 'Show' : 'Hide' }} Latest Links</button>
   </div>
 </div>
 
@@ -80,19 +95,19 @@
     Edit Link
   </div>
   <div class="editingPopupPanelInputs optionsStatsWrapperDiv">
-    <div class="optionsStatsDiv">
+    <div class="optionsStatsDiv specialStatsDiv">
       <div class="optionsStatsHeader">URL:</div>
       <div class="optionsStatsDescription">
         <input [value]="editingFavourite?.url" #editingUrlInput placeholder="URL" />
       </div>
     </div>
-    <div class="optionsStatsDiv">
+    <div class="optionsStatsDiv specialStatsDiv">
       <div class="optionsStatsHeader">Image URL:</div>
       <div class="optionsStatsDescription">
         <input [value]="editingFavourite?.imageUrl" #editingImageUrlInput placeholder="Website Logo URL" />
       </div>
     </div>
-    <div class="optionsStatsDiv">
+    <div class="optionsStatsDiv specialStatsDiv">
       <div class="optionsStatsHeader">Title:</div>
       <div class="optionsStatsDescription">
         <input [value]="editingFavourite?.name" #editingNameInput placeholder="Website Name" />
@@ -108,6 +123,13 @@
         {{ editingFavourite?.userCount }}
       </div>
     </div>
+    <div class="optionsStatsDiv">
+      <div class="optionsStatsHeader">Accessed:</div>
+      <div class="optionsStatsDescription">
+        {{ editingFavourite?.accessCount }}
+      </div>
+    </div>
+    
     <div class="optionsStatsDiv">
       <div class="optionsStatsHeader">Created By:</div>
       <div class="optionsStatsDescription">

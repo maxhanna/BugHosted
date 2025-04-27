@@ -1,7 +1,7 @@
 
 export interface ArticlesResult {
-  status: Statuses;
-  error: Error;
+  status?: Statuses;
+  error?: Error;
   totalResults: number;
   articles: Article[];
 }

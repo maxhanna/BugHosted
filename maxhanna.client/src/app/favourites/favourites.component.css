@@ -5,6 +5,8 @@
 .topLinks {
   align-content: center;
   text-align: center;
+  max-height: CALC(var(--vh, 1vh) * 100 - 201px);
+  overflow: auto;
 }
 
 .favouritesTitle {
@@ -17,7 +19,7 @@
   align-content: center;
   align-items: center;
   flex-direction: column;
-  width: 135px;
+  width: 120px;
   height: 125px;
   text-overflow: ellipsis;
   cursor: pointer;
@@ -31,21 +33,24 @@
   overflow: hidden;
   white-space: nowrap;
 }
+
 .emptyFavImage {
   width: 50px;
   height: 50px;
   border: var(--main-border);
 }
+
 .favImage {
   height: 50px;
-  width: 50px; 
+  width: 50px;
   display: flex;
   align-items: center;
   justify-content: center;
   align-content: center;
 }
 
-.favouriteDiv img, .favImage {
+.favouriteDiv img,
+.favImage {
   max-width: 50px;
   max-height: 50px;
 }
@@ -109,6 +114,7 @@
   margin-top: 10px;
   margin-bottom: 15px;
 }
+
 .favUserCount {
   width: 15px;
   height: 15px;
@@ -122,7 +128,19 @@
   font-size: small;
   text-align: center;
 }
+
 .generalFavouriteAddButton {
   position: relative;
   top: -20px;
+}
+
+.specialStatsDiv {
+  display: flex;
+  justify-content: space-evenly !important; 
+  text-align: left !important;
+}
+.favouritesControlsDiv {
+  margin: 5px;
+  padding: 5px;
+  text-align: center;
 }

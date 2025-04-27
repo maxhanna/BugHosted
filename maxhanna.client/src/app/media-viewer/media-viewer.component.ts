@@ -313,7 +313,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
 
   async download(file: FileEntry, force: boolean) {
     
-    if (!confirm(`Download ${file.fileName}?`)) {
+    if (!confirm(`Download ${file.givenFileName ?? file.fileName}?`)) {
       return;
     }
 
@@ -398,5 +398,37 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
     if (parent) {
       return parent?.getDirectoryName(file);
     } else return '.'; 
+  }
+  shortenFilename(filename: string, maxLength: number = 20): string {
+    if (!filename || filename.length <= maxLength) {
+      return filename;
+    }
+
+    // Split filename into base name and extension
+    const lastDotIndex = filename.lastIndexOf('.');
+    let baseName = filename;
+    let extension = '';
+
+    if (lastDotIndex !== -1 && lastDotIndex < filename.length - 1) {
+      baseName = filename.substring(0, lastDotIndex);
+      extension = filename.substring(lastDotIndex); // Includes the dot
+    }
+
+    // If the extension is too long, prioritize it but truncate base name more
+    if (extension.length >= maxLength - 3) {
+      return extension.substring(0, maxLength - 3) + '...';
+    }
+
+    // Calculate lengths for base name parts
+    const availableLength = maxLength - extension.length - 3; // Room for "..."
+    const firstPartLength = Math.ceil(availableLength / 2);
+    const lastPartLength = availableLength - firstPartLength;
+
+    // Ensure we don't exceed the base name length
+    const truncatedBaseName = baseName.length <= availableLength
+      ? baseName
+      : baseName.substring(0, firstPartLength) + '...' + baseName.slice(-lastPartLength);
+
+    return truncatedBaseName + extension;
   }
 }

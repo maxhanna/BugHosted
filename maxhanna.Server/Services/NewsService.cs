@@ -25,19 +25,27 @@ public class NewsService
 		"coinbase", "binance", "kraken", "bitfinex", "gemini", "huobi", "okx", "bitstamp", "kucoin", "crypto.com", "bybit", "mexc",
 		"bitmart", "upbit", "bittrex", "probit", "gate.io", "poloniex", "wallet", "cold wallet", "hot wallet", "hardware wallet",
 		"metamask", "trust wallet", "private key", "public key", "day trading", "forex", "margin trading", "leverage",
-		"long position", "short position", "stop loss", "take profit", "trading bot", "pump and dump", "technical analysis",
+		"long position", "short position", "stop loss", "take profit", "trading bot", "pump and dump",
 		"candlestick", "bullish", "bearish", "market cap", "volume", "liquidity", "blockchain", "ledger", "smart contract",
 		"gas fees", "layer 1", "layer 2", "sharding", "rollups", "zk-rollup", "optimistic rollup", "sidechain", "consensus",
 		"proof of work", "proof of stake", "pos", "pow", "staking", "validator", "mining", "miner", "hashrate", "hashing",
 		"hashpower", "nonce", "node", "fork", "hard fork", "soft fork", "altcoin", "stablecoin", "shitcoin", "memecoin",
 		"uniswap", "pancakeswap", "sushiswap", "aave",  "makerdao", "yearn finance", "curve", "balancer", "1inch",
-		"polygon", "matic", "fantom", "ftm", "hedera", "hbar", "nft", "non-fungible token", "openSea",
-		"floor price", "rarity", "digital art", "bored ape", "crypto punk", "metaverse", "sandbox", "decentraland", "web3",
-		"virtual land", "play to earn", "p2e", "axie infinity", "gala", "immutable x", "gamefi", "ledger", "trezor", "multisig",
-		"2fa", "rugpull", "scam", "exploit", "airdrop", "whitelist", "kyc", "aml", "regulation", "sec", "defi", "dapp", "dao",
-		"downtime",  "cross-chain",  "digital currency", "token", "coin",
-		"fiat", "inflation", "interest rates", "macro", "fed", "federal reserve", "treasury", "gold", "silver", "etf", "spot etf",
-		"securities", "futures", "derivatives", "yield", "treasury bonds", "cryptocurrency", "crypto", "money"
+		"polygon", "matic", "fantom", "ftm", "hedera", "hbar", "nft", "non-fungible token", "openSea", "sei", "phantom",
+		"tron", "digital art", "bored ape", "crypto punk", "metaverse", "sandbox", "decentraland", "web3",
+		"virtual land", "play to earn", "p2e", "axie infinity", "immutable x", "gamefi", "ledger", "trezor", "multisig",
+		"2fa", "rugpull", "airdrop", "kyc", "aml", "regulation", "sec", "defi", "dapp", "dao",
+		"downtime",  "cross-chain",  "digital currency",  "fiat currency", "central bank digital currency", "cbdc", "etf", "spot etf",
+		"securities", "futures", "derivatives", "treasury bonds", "cryptocurrency", "crypto",
+		"shiba inu", "shib", "pepe", "pepecoin", "floki", "floki inu", "bonk", "dogelon mars", "safemoon", "hoge", "wojak", 
+		"wojak coin", "toshi", "base toshi", "turbo", "milady", "mog", "mog coin", 
+		"wif", "dogwifhat", "bome", "book of meme", "tate", "andrew tate coin", "troll", "troll coin", "boden", "tremp", 
+		"kishu inu", "kishu", "akita inu", "akita", "samoyedcoin", "samoyed", "babydoge", "baby doge", "smog", "smog token", 
+		"myro", "myro coin", "popcat", "popcat coin", "coq", "coq inu", "honk", "honk token", "slerf", "slerf coin", "pol", "pol coin", 
+		"meme", "meme coin", "fren", "fren coin", "anon", "anon coin", "chad", "chad coin", "viral", "viral coin", "degen", "degen coin", 
+		"kek", "kek coin", "cummies", "cummies token", "lambo", "lambo coin", "hodl", "hodl coin", "wagmi", "wagmi coin", 
+		"ngmi", "ngmi coin", "wen", "wen coin", "luna classic", "ustc", "terrausd classic",
+		"scamcoin", "scam coin", "rug coin"
 	};
 	int newsServiceAccountNo = 308;
 	int cryptoNewsServiceAccountNo = 309;
@@ -47,17 +55,18 @@ public class NewsService
 		_config = config;
 		_log = log; 
 	}
-	public ArticlesResult? GetTopHeadlines()
+	public async Task<ArticlesResult?> GetTopHeadlines(string? keywords)
 	{
 		try
 		{
 			var newsApiClient = new NewsApiClient("f782cf1b4d3349dd86ef8d9ac53d0440");
-			var articlesResponse = new ArticlesResult();
-
-			articlesResponse = newsApiClient.GetTopHeadlines(new TopHeadlinesRequest
+			ArticlesResult? articlesResponse = new ArticlesResult();
+			TopHeadlinesRequest hr = new TopHeadlinesRequest
 			{
-				Language = Languages.EN
-			});
+				Language = Languages.EN,
+				Q = keywords 
+			};
+			articlesResponse = await newsApiClient.GetTopHeadlinesAsync(hr);
 
 			if (articlesResponse.Status == Statuses.Ok)
 			{
@@ -71,8 +80,28 @@ public class NewsService
 		}
 		return null;
 	}
+	public async Task<ArticlesResult?> GetTopCryptoHeadlines()
+	{
+		Console.WriteLine("Getting top crypto headlines");
+		try
+		{
+			var newsApiClient = new NewsApiClient("f782cf1b4d3349dd86ef8d9ac53d0440"); 
+			ArticlesResult? articlesResponse = await newsApiClient.GetTopHeadlinesAsync(new TopHeadlinesRequest
+			{
+				Language = Languages.EN, 
+			});
+			Console.WriteLine("Number of results: " + articlesResponse.Articles.Count);
+			return articlesResponse;
+			
+		}
+		catch (Exception ex)
+		{
+			_ = _log.Db("Exception GetTopCryptoHeadlines: " + ex.Message, null, "NEWSSERVICE", true);
+			return null;
+		} 
+	}
 
-	public async Task<bool> GetAndSaveTopQuarterHourlyHeadlines()
+	public async Task<bool> GetAndSaveTopQuarterHourlyHeadlines(string? keyword)
 	{
 		int articlesToTake = 20;
 		try
@@ -92,7 +121,7 @@ public class NewsService
 				}
 			}
 
-			var articlesResult = GetTopHeadlines();
+			var articlesResult = await GetTopHeadlines(keyword);
 
 			if (articlesResult?.Status != Statuses.Ok || articlesResult.Articles == null)
 			{
@@ -124,7 +153,7 @@ public class NewsService
 
 			await transaction.CommitAsync();
 
-			//	await _log.Db($"Successfully saved top {articlesToTake} news headlines", null, "NEWSSERVICE", true);
+			await _log.Db($"Successfully saved top {articlesToTake} news headlines{(keyword != null ? $" with keyword:{keyword}" : "")}", null, "NEWSSERVICE", true);
 			return true;
 		}
 		catch (Exception ex)
@@ -134,7 +163,7 @@ public class NewsService
 		}
 	}
 
-	public async Task<ArticlesResult> GetTopHeadlinesFromDb(int? hours = null)
+	public async Task<ArticlesResult> GetArticlesFromDb(string? keywords = null, int? hours = null, int page = 1, int pageSize = 50)
 	{
 		var result = new ArticlesResult
 		{
@@ -147,31 +176,54 @@ public class NewsService
 			using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
 			await conn.OpenAsync();
 
-			// Base SQL query
-			string sql = @"
-            SELECT DISTINCT title, description, url, published_at, url_to_image, author, content, saved_at
-            FROM news_headlines";
+			// Base SQL query with SQL_CALC_FOUND_ROWS
+			var sql = new System.Text.StringBuilder(@"
+            SELECT SQL_CALC_FOUND_ROWS 
+                title, description, url, published_at, url_to_image, author, content, saved_at
+            FROM news_headlines
+            WHERE 1=1");
 
-			// Add time filter only if hours parameter has a value
-			if (hours.HasValue)
+			using var cmd = new MySqlCommand("", conn);
+
+			// Add keyword conditions if keywords are provided
+			if (!string.IsNullOrWhiteSpace(keywords))
 			{
-				sql += @"
-                WHERE saved_at >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL @hours HOUR)";
+				var searchTerms = keywords.Split(',')
+					.Select(k => k.Trim())
+					.Where(k => !string.IsNullOrEmpty(k))
+					.ToList();
+
+				if (searchTerms.Any())
+				{
+					var keywordConditions = new List<string>();
+					for (int i = 0; i < searchTerms.Count; i++)
+					{
+						keywordConditions.Add($@"
+                        (title LIKE CONCAT('%', @term{i}, '%')
+                         OR description LIKE CONCAT('%', @term{i}, '%') 
+                         OR content LIKE CONCAT('%', @term{i}, '%')
+                         OR author LIKE CONCAT('%', @term{i}, '%')
+                        )");
+						cmd.Parameters.AddWithValue($"@term{i}", searchTerms[i]);
+					}
+					sql.Append(" AND (").Append(string.Join(" OR ", keywordConditions)).Append(")");
+				}
 			}
 
-			// Complete the query
-			sql += @"
-            ORDER BY saved_at DESC
-            LIMIT 50;";
-
-			using var cmd = new MySqlCommand(sql, conn);
-
-			// Add parameter only if hours has value
+			// Add time filter if hours parameter has a value
 			if (hours.HasValue)
 			{
+				sql.Append(" AND saved_at >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL @hours HOUR)");
 				cmd.Parameters.AddWithValue("@hours", hours.Value);
 			}
 
+			// Add pagination
+			sql.Append($" ORDER BY saved_at DESC LIMIT {pageSize} OFFSET {(page - 1) * pageSize};");
+
+			// Set the final command text
+			cmd.CommandText = sql.ToString();
+
+			// Execute the main query
 			using var reader = await cmd.ExecuteReaderAsync();
 
 			while (await reader.ReadAsync())
@@ -185,7 +237,7 @@ public class NewsService
 					Source = new Source
 					{
 						Id = "local-db",
-						Name = "SavedHeadline"
+						Name = reader["url"]?.ToString() ?? reader["author"]?.ToString(),
 					},
 					Author = reader["author"]?.ToString(),
 					Content = reader["content"]?.ToString(),
@@ -193,11 +245,16 @@ public class NewsService
 				});
 			}
 
-			result.TotalResults = result.Articles.Count;
+			// Close the reader to allow the next query on the same connection
+			await reader.CloseAsync();
+
+			// Get total count using FOUND_ROWS()
+			cmd.CommandText = "SELECT FOUND_ROWS() as total;";
+			result.TotalResults = Convert.ToInt32(await cmd.ExecuteScalarAsync());
 		}
 		catch (Exception ex)
 		{
-			await _log.Db("Exception in GetTopHeadlinesFromDb: " + ex.Message, null, "NEWSSERVICE", true);
+			await _log.Db($"Exception in GetArticlesFromDb (keywords: {keywords}, hours: {hours}): {ex.Message}", null, "NEWSSERVICE", true);
 			result.Status = Statuses.Error;
 			result.Error = new Error
 			{
@@ -218,7 +275,7 @@ public class NewsService
 				return;
 			}
 
-			var topArticlesResult = await GetTopHeadlinesFromDb(24);
+			var topArticlesResult = await GetArticlesFromDb(null, 24);
 			if (topArticlesResult?.Articles == null || topArticlesResult.Articles.Count == 0)
 			{
 				return;
@@ -233,8 +290,7 @@ public class NewsService
 			string checkSql = $@"
             SELECT COUNT(*) FROM stories
             WHERE user_id = {newsServiceAccountNo} AND DATE(`date`) = CURDATE()
-            AND story_text LIKE CONCAT('%', @marker, '%');
-        ";
+            AND story_text LIKE CONCAT('%', @marker, '%');";
 
 			if (await CheckIfDailyNewsStoryAlreadyExists(conn, transaction, marker, checkSql))
 			{
@@ -406,41 +462,80 @@ public class NewsService
 		if (tokens == null || tokens.Count == 0)
 			return null;
 
-		var fileScores = new Dictionary<int, int>(); // file_id -> score
-
-		// We'll search using a FULLTEXT match (but also fall back to basic LIKE search)
-		string sql = @"
-		SELECT id, file_name, given_file_name
-		FROM file_uploads
-		WHERE is_folder = 0
-		AND is_public = 1
-		AND (file_name IS NOT NULL OR given_file_name IS NOT NULL) 
-		AND file_type IN (
-			'jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'tiff', 'tif', 'svg', 'ico', 'heic', 'heif', 'raw', 'cr2', 'nef', 'orf', 'arw',
-			'mp4', 'm4v', 'mov', 'avi', 'wmv', 'flv', 'webm', 'mkv', 'mpeg', 'mpg', '3gp', '3g2', 'mts', 'm2ts', 'ts', 'vob', 'ogv'
-		)";
-
-		await using var cmd = new MySqlCommand(sql, conn, transaction);
-		await using var reader = await cmd.ExecuteReaderAsync();
-
-		while (await reader.ReadAsync())
-		{
-			int fileId = reader.GetInt32("id");
-			string fileName = reader["file_name"]?.ToString() ?? "";
-			string givenName = reader["given_file_name"]?.ToString() ?? "";
-
-			var combinedText = $"{fileName} {givenName}".ToLowerInvariant();
-			int score = tokens.Count(token => combinedText.Contains(token.ToLowerInvariant()));
-
-			if (score > 0)
-				fileScores[fileId] = score;
-		}
-
-		if (fileScores.Count == 0)
+		// Filter out empty tokens
+		var validTokens = tokens.Where(t => !string.IsNullOrWhiteSpace(t)).ToList();
+		if (validTokens.Count == 0)
 			return null;
 
-		// Return the file_id with the highest score
-		return fileScores.OrderByDescending(kv => kv.Value).First().Key;
+		// Build the dynamic SQL query
+		var sql = new StringBuilder(@"
+        SELECT 
+            id,
+            (
+                IFNULL((
+                    SELECT SUM(
+                        CASE 
+                            WHEN LOWER(file_name) LIKE CONCAT('%', LOWER(token), '%') THEN 1 
+                            ELSE 0 
+                        END
+                    )
+                    FROM (");
+
+		// Add token parameters for file_name matching
+		for (int i = 0; i < validTokens.Count; i++)
+		{
+			sql.Append(i == 0 ? "SELECT ? AS token" : " UNION SELECT ?");
+		}
+
+		sql.Append(@") AS tokens
+                    WHERE token <> '' AND token IS NOT NULL
+                ), 0) +
+                IFNULL((
+                    SELECT SUM(
+                        CASE 
+                            WHEN LOWER(given_file_name) LIKE CONCAT('%', LOWER(token), '%') THEN 1 
+                            ELSE 0 
+                        END
+                    )
+                    FROM (");
+
+		// Add token parameters for given_file_name matching
+		for (int i = 0; i < validTokens.Count; i++)
+		{
+			sql.Append(i == 0 ? "SELECT ? AS token" : " UNION SELECT ?");
+		}
+
+		sql.Append(@") AS tokens
+                    WHERE token <> '' AND token IS NOT NULL
+                ), 0)
+            ) AS score
+        FROM file_uploads
+        WHERE is_folder = 0
+        AND is_public = 1
+        AND folder_path = 'E:/Dev/maxhanna/maxhanna.client/src/assets/Uploads/Meme/' 
+        AND (file_name IS NOT NULL OR given_file_name IS NOT NULL) 
+        AND file_type IN (
+            'jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'tiff', 'tif', 'svg', 'ico', 'heic', 'heif', 'raw', 'cr2', 'nef', 'orf', 'arw',
+            'mp4', 'm4v', 'mov', 'avi', 'wmv', 'flv', 'webm', 'mkv', 'mpeg', 'mpg', '3gp', '3g2', 'mts', 'm2ts', 'ts', 'vob', 'ogv'
+        )
+        HAVING score > 0
+        ORDER BY score DESC
+        LIMIT 1");
+
+		await using var cmd = new MySqlCommand(sql.ToString(), conn, transaction);
+
+		// Add parameters twice (once for file_name matching, once for given_file_name matching)
+		foreach (var token in validTokens)
+		{
+			cmd.Parameters.AddWithValue("", token);
+		}
+		foreach (var token in validTokens)
+		{
+			cmd.Parameters.AddWithValue("", token);
+		}
+
+		var result = await cmd.ExecuteScalarAsync();
+		return result != null ? (int?)Convert.ToInt32(result) : null;
 	}
 
 	public async Task CreateDailyCryptoNewsStoryAsync()
@@ -473,19 +568,17 @@ public class NewsService
 				return;
 			}
 
-			var topArticlesResult = await GetTopCryptoArticlesByDayAsync(1);
-			if (topArticlesResult?.Articles == null || topArticlesResult.Articles.Count == 0)
+			var topArticlesResult = await GetTopCryptoArticleAsync(1);
+			if (topArticlesResult == null)
 			{
 				await _log.Db("No crypto articles to write a social story about", null, "NEWSSERVICE", true);
 				return;
 			}
 			// Build story text from all articles
 			var sb = new StringBuilder();
-			sb.AppendLine(marker);
-			foreach (var article in topArticlesResult.Articles)
-			{
-				sb.AppendLine($"[*][b]{article.Title}[/b]\nRead more: {article.Url} [/*]");
-			}
+			sb.AppendLine(marker); 
+			sb.AppendLine($"[*][b]{topArticlesResult.Title}[/b]\nRead more: {topArticlesResult.Url} [/*]");
+		 
 
 			string fullStoryText = sb.ToString().Trim();
 			var selectedArticleTokens = TokenizeText(fullStoryText);
@@ -498,37 +591,31 @@ public class NewsService
 			await _log.Db("Error in CreateDailyCryptoNewsStoryAsync: " + ex.Message, null, "NEWSSERVICE", true);
 		}
 	}
-	public async Task<ArticlesResult> GetTopCryptoArticlesByDayAsync(int daysBack = 7)
+	public async Task<Article?> GetTopCryptoArticleAsync(int daysBack = 1)
 	{
-		var result = new ArticlesResult
-		{
-			Status = Statuses.Ok,
-			Articles = new List<Article>()
-		};
-
 		try
 		{
 			using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
 			await conn.OpenAsync();
 
-			// Pull candidates without filtering too harshly
-			string sql = $@"
-			SELECT title, description, url, published_at, url_to_image, author, content, saved_at
-			FROM (
-				SELECT *,
-					ROW_NUMBER() OVER (PARTITION BY DATE(saved_at) ORDER BY saved_at DESC) AS row_num
-				FROM news_headlines
-				WHERE saved_at >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL {daysBack} DAY)
-			) filtered
-			WHERE row_num <= 10
-			ORDER BY saved_at DESC;
-		";
+			// Query to get potential candidates with some basic filtering
+			string sql = @"
+            SELECT 
+                title, description, url, published_at, url_to_image, author, content, saved_at,
+                LENGTH(content) as content_length,
+                (CASE WHEN author IS NOT NULL AND author != '' THEN 1 ELSE 0 END) as has_author,
+                (CASE WHEN url_to_image IS NOT NULL AND url_to_image != '' THEN 1 ELSE 0 END) as has_image
+            FROM news_headlines
+            WHERE saved_at >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL @daysBack DAY)
+            ORDER BY saved_at DESC
+            LIMIT 100;  // Get a reasonable number to evaluate
+        ";
 
 			using var cmd = new MySqlCommand(sql, conn);
+			cmd.Parameters.AddWithValue("@daysBack", daysBack);
 			using var reader = await cmd.ExecuteReaderAsync();
 
-			// Temp storage per day
-			var dailyBuckets = new Dictionary<DateTime, List<Article>>();
+			var candidates = new List<(Article Article, int ContentLength, bool HasAuthor, bool HasImage)>();
 
 			while (await reader.ReadAsync())
 			{
@@ -538,75 +625,113 @@ public class NewsService
 					Description = reader["description"]?.ToString(),
 					Url = reader["url"]?.ToString(),
 					PublishedAt = reader["published_at"] as DateTime?,
-					Source = new Source
-					{
-						Id = "local-db",
-						Name = "SavedHeadline"
-					},
+					Source = new Source { Id = "local-db", Name = "SavedHeadline" },
 					Author = reader["author"]?.ToString(),
 					Content = reader["content"]?.ToString(),
-					UrlToImage = reader["url_to_image"]?.ToString(),
+					UrlToImage = reader["url_to_image"]?.ToString()
 				};
 
 				if (article.PublishedAt == null) continue;
 
-				// Combine text fields for keyword matching
-				string combinedText = $"{article.Title} {article.Description} {article.Content}".ToLower();
-
-				// Filter articles by real keyword match (exact word)
-				var words = Regex.Matches(combinedText, @"\b[a-zA-Z0-9]+\b")
-												 .Select(m => m.Value.ToLowerInvariant())
-												 .ToHashSet();
-
-				var matchedKeywords = CryptoKeywords.Where(keyword =>
-				{
-					var lower = keyword.ToLowerInvariant();
-					return words.Contains(lower) ||
-								 words.Contains(lower + "s") ||
-								 words.Contains(lower + "es") ||
-								 words.Contains(lower.TrimEnd('e') + "ing") ||
-								 words.Contains(lower + "ed");
-				}).ToList();
-
-				if (matchedKeywords.Count > 0)
-				{
-					Console.WriteLine($"Matched keywords for article '{article.Title}': {string.Join(", ", matchedKeywords)}");
-				}
-				else
-				{
-					continue;
-				}
-
-
-				DateTime date = article.PublishedAt.Value.Date;
-
-				if (!dailyBuckets.ContainsKey(date))
-					dailyBuckets[date] = new List<Article>();
-
-				if (dailyBuckets[date].Count < 3)
-					dailyBuckets[date].Add(article);
+				candidates.Add((
+					article,
+					ContentLength: reader["content_length"] as int? ?? 0,
+					HasAuthor: (reader["has_author"] as int? ?? 0) == 1,
+					HasImage: (reader["has_image"] as int? ?? 0) == 1
+				));
 			}
 
-			// Flatten sorted articles
-			result.Articles = dailyBuckets
-				.OrderByDescending(kvp => kvp.Key)
-				.SelectMany(kvp => kvp.Value.OrderByDescending(a => a.PublishedAt))
-				.ToList();
+			// Score and select the best article
+			var scoredArticles = candidates.Select(candidate =>
+			{
+				var score = CalculateCryptoArticleScore(
+					candidate.Article,
+					candidate.ContentLength,
+					candidate.HasAuthor,
+					candidate.HasImage);
+				return (Article: candidate.Article, Score: score);
+			})
+			.Where(x => x.Score > 0)  // Only consider articles with some crypto relevance
+			.OrderByDescending(x => x.Score)
+			.ToList();
 
-			result.TotalResults = result.Articles.Count;
+			return scoredArticles.FirstOrDefault().Article;
 		}
 		catch (Exception ex)
 		{
-			await _log.Db("Exception in GetTopCryptoArticlesByDayAsync: " + ex.Message, null, "NEWSSERVICE", true);
-			result.Status = Statuses.Error;
-			result.Error = new Error
-			{
-				Code = NewsAPI.Constants.ErrorCodes.UnexpectedError,
-				Message = ex.Message
-			};
+			await _log.Db("Exception in GetTopCryptoArticleAsync: " + ex.Message, null, "NEWSSERVICE", true);
+			return null;
+		}
+	}
+
+	private float CalculateCryptoArticleScore(Article article, int contentLength, bool hasAuthor, bool hasImage)
+	{
+		if (article.Title == null || article.Content == null)
+			return 0;
+
+		// Combine text fields for analysis
+		string combinedText = $"{article.Title} {article.Description} {article.Content}".ToLower();
+
+		// 1. Keyword relevance (more matches = higher score)
+		var words = Regex.Matches(combinedText, @"\b[a-zA-Z0-9]+\b")
+						.Select(m => m.Value.ToLowerInvariant())
+						.ToHashSet();
+
+		var keywordMatches = CryptoKeywords
+			.Select(keyword => keyword.ToLowerInvariant())
+			.Count(keyword =>
+				words.Contains(keyword) ||
+				words.Contains(keyword + "s") ||
+				words.Contains(keyword + "es"));
+		if (keywordMatches == 0)
+			return 0;
+
+		float keywordScore = keywordMatches * 2.0f;
+
+		// 2. Content quality indicators
+		float qualityScore = 0;
+
+		// Longer content is generally better
+		qualityScore += Math.Min(contentLength / 1000.0f, 5); // Max 5 points
+
+		// Has author and image
+		if (hasAuthor) qualityScore += 1;
+		if (hasImage) qualityScore += 1;
+
+		// 3. Title indicators (exclamation, question marks might indicate importance)
+		if (article.Title.Contains("!")) qualityScore += 0.5f;
+		if (article.Title.Contains("?")) qualityScore += 0.3f;
+
+		// 4. Major keywords boost (Bitcoin, Ethereum, etc.)
+		var majorKeywords = new[] { "bitcoin", "ethereum", "crypto", "cryptocurrency", "blockchain" };
+		var majorMatches = majorKeywords.Count(k => words.Contains(k));
+		float majorKeywordBoost = majorMatches * 3.0f;
+
+		// 5. Negative indicators (reduce score for clickbait)
+		float negativeScore = 0;
+		var clickbaitWords = new[] { "secret", "shocking", "you won't believe", "this one trick" };
+		if (clickbaitWords.Any(w => article.Title.ToLower().Contains(w)))
+		{
+			negativeScore -= 3.0f;
 		}
 
-		return result;
+		// 6. Recentness (newer articles get slightly higher score)
+		float recentnessScore = 0;
+		if (article.PublishedAt.HasValue)
+		{
+			var hoursOld = (DateTime.UtcNow - article.PublishedAt.Value).TotalHours;
+			recentnessScore = (float)Math.Max(0, 5 - (hoursOld / 24.0)); // Up to 5 points for freshness
+		}
+
+		// Combine all scores
+		float totalScore =
+			keywordScore +
+			qualityScore +
+			majorKeywordBoost +
+			negativeScore +
+			recentnessScore;
+
+		return totalScore;
 	}
 	public async Task<int> GetNewsCountInLast24HoursAsync()
 	{
@@ -622,9 +747,9 @@ public class NewsService
 
 			// SQL query to count stories created in the last 24 hours
 			string checkSql = $@"
-        SELECT COUNT(*) 
-        FROM news_headlines 
-        WHERE saved_at BETWEEN @startTime AND @endTime;";
+				SELECT COUNT(*) 
+				FROM news_headlines 
+				WHERE saved_at BETWEEN @startTime AND @endTime;";
 
 			// Prepare and execute the command
 			await using var cmd = new MySqlCommand(checkSql, conn);

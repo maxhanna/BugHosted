@@ -9,6 +9,7 @@ export class Favourite {
   lastAddedDate: Date;
   name?: string;
   userCount: number;
+  accessCount: number;
 
   constructor(data: Partial<Favourite> = {}) { 
     this.id = data.id ?? 0;
@@ -21,5 +22,6 @@ export class Favourite {
     this.modifiedBy = data.modifiedBy ?? undefined;
     this.modificationDate = data.modificationDate ? new Date(data.modificationDate) : new Date();
     this.lastAddedDate = data.lastAddedDate ? new Date(data.lastAddedDate) : new Date();
+    this.accessCount = data.accessCount ? data.accessCount : 0;
   }
 }

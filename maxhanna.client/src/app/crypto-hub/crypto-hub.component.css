@@ -299,3 +299,16 @@
   padding: 20px;
   border: var(--main-border);
 }
+
+.positive-percent {
+  color: #4CAF50; 
+}
+
+.negative-percent {
+  color: #F44336; 
+}
+ 
+.positive-percent,
+.negative-percent {
+  font-weight: bold;
+}

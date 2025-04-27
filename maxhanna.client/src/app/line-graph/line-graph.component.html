@@ -47,8 +47,7 @@
     </select>
     
     <select (change)="changeCoin($event)" *ngIf="displayCoinSwitcher && type !== 'Volume'" #coinSwitcher>
-      <option value="">All</option>
-      <option *ngIf="type == 'Crypto'" value="Bitcoin" [selected]="selectedCoin === 'Bitcoin'">Bitcoin</option>
+      <option value="">All</option> 
       <option *ngIf="type == 'Currency'" value="USD" [selected]="selectedCoin === 'USD'">USD</option>
       <option *ngFor="let coin of getUniqueCoinNames()" [value]="coin" [selected]="selectedCoin === coin">{{ coin }}</option>
     </select>

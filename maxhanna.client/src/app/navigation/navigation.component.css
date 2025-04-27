@@ -14,7 +14,7 @@
   transition: transform 0.3s ease;
   padding: 12px;
 }
- 
+
 a {
   font-style: unset;
 }
@@ -22,17 +22,17 @@ a {
 #navbar div {
   display: inline-block;
   width: 50px;
-  height: 50px;   
-  cursor: pointer; 
+  height: 50px;
+  cursor: pointer;
   text-align: center;
   text-indent: .1em;
 }
 
-  #navbar div:before {
-    content: '';
-    position: absolute;
-    background: inherit;
-  }
+#navbar div:before {
+  content: '';
+  position: absolute;
+  background: inherit;
+}
 
 .navbarNotificationSpan {
   position: relative;
@@ -63,22 +63,24 @@ a {
   border: 2px solid var(--main-font-color);
   border-radius: 65% / 10%;
   font-size: 35px;
-  overflow: hidden; 
+  overflow: hidden;
 }
+
 @supports (background: rgb(from red r g b)) {
   .navLink {
     background: rgb(from var(--main-highlight-color) r g b / 25%);
   }
 }
-  .navLink ::ng-deep * {
-    overflow: hidden;
-  }
 
-  .navLink:before {
-    border-radius: 2% / 50%;
-    background: inherit;
-    content: ''; 
-  }
+.navLink ::ng-deep * {
+  overflow: hidden;
+}
+
+.navLink:before {
+  border-radius: 2% / 50%;
+  background: inherit;
+  content: '';
+}
 
 .navLinkText {
   font-size: 8px;
@@ -99,7 +101,8 @@ a {
   box-shadow: 1px 1px 1px 1px black;
   background-color: #000000a6;
 }
-.navLinkUnderText { 
+
+.navLinkUnderText {
   font-size: 10px;
   overflow: hidden;
   height: 12px;
@@ -113,11 +116,11 @@ a {
 }
 
 .collapsed {
-    display:none !important; 
+  display: none !important;
 }
- 
+
 .collapsedNavbar {
-  height: 0px !important; 
+  height: 0px !important;
 }
 
 .toggleNavButton {
@@ -134,7 +137,8 @@ a {
   transition: opacity 3s ease;
   font-size: 20px;
   animation: glow 1.5s infinite alternate;
-} 
+}
+
 .toggleNavButton.visible {
   opacity: 1;
 }
@@ -146,6 +150,45 @@ a {
 .redTitle {
   color: red;
 }
+
 .greenTitle {
   color: chartreuse;
 }
+
+.loadingNotification {
+  max-width: 90%;
+  margin: 8px auto;
+  padding: 10px 16px;
+  background-color: var(--component-background-color, #2c3e50);
+  color: var(--secondary-font-color, white);
+  border-radius: 6px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  font-size: var(--main-font-size, 14px);
+  animation: fadeIn 0.3s ease-in-out;
+} 
+.loading-notification-container {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  pointer-events: none;
+  padding: 16px;
+  z-index: 1000;
+}
+
+/* Optional fade-in */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+} 

@@ -6,47 +6,57 @@ import { User } from './datacontracts/user/user';
   providedIn: 'root'
 })
 export class NewsService { 
-  async getAllNews() {
+  async searchNews(keywords: string, page: number = 1, pageSize: number = 10): Promise<ArticlesResult | null> {
+    const params = new URLSearchParams({
+      q: keywords,
+      page: page.toString(),
+      pageSize: pageSize.toString(),
+    });
+
     try {
-      const res = await fetch('/news', {
+      const res = await fetch(`/news?${params.toString()}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-        }, 
+        },
       });
 
       if (!res.ok) {
         throw new Error('Failed to fetch news');
       }
+
+      const data = await res.json();
+      return data as ArticlesResult;
+    } catch (error) {
+      console.error('Error fetching news:', error);
+      return null;
+    }
+  }
+
+  async getAllNews(page: number = 1, pageSize: number = 50): Promise<ArticlesResult | null> {
+    const params = new URLSearchParams({
+      page: page.toString(),
+      pageSize: pageSize.toString(),
+    });
+
+    try {
+      const res = await fetch(`/news?${params.toString()}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!res.ok) {
+        throw new Error('Failed to fetch news');
+      }
+
       return await res.json() as ArticlesResult;
     } catch (error) {
       console.error('Error fetching news:', error);
       return null;
     }
-  }
-
-  async searchNews(keyword: string) {
-    const params = new URLSearchParams({ keywords: keyword });
-
-    try {
-      const res = await fetch(`/news?${params}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        }, 
-      });
-
-      if (!res.ok) {
-        throw new Error('Failed to fetch news');
-      }
-      const data = await res.json();
-      return data as ArticlesResult | null;
-    } catch (error) {
-      console.error('Error fetching news:', error);
-      return null;
-    }
-  }
-
+  } 
 
   async saveDefaultSearch(userId: number, search: string) {
     try {

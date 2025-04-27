@@ -1912,7 +1912,7 @@ namespace maxhanna.Server.Controllers
 						filePath = Path.Combine(_baseTarget, folderPath.TrimStart('/'), fileName).Replace("\\", "/");
 						ownershipReader.Close();
 
-						if (!ValidatePath(filePath)) { return BadRequest($"Cannot delete: {filePath}"); }
+						if (!ValidatePath(filePath, forDelete: true)) { return BadRequest($"Cannot delete: {filePath}"); }
 
 						_ = _log.Db($"User {request.userId} has ownership. Proceeding with deletion. File Path: {filePath}", request.userId, "FILE", true);
 
@@ -1998,7 +1998,7 @@ namespace maxhanna.Server.Controllers
 					return NotFound("Invalid path.");
 				}
 
-				if (!CanMoveFile(inputFile, destinationFolder, userId))
+				if (!CanMoveFile(inputFile, userId))
 				{
 					_ = _log.Db($"Cannot move file: {inputFile} to {destinationFolder}. Insufficient Privileges.", userId, "FILE", true);
 					return NotFound("Cannot move file.");
@@ -2441,8 +2441,11 @@ namespace maxhanna.Server.Controllers
 			string newDirectoryPath = Path.Combine(destinationDirectory, directoryName);
 			Directory.Move(sourceDirectory, newDirectoryPath);
 		}
-		private bool CanMoveFile(string from, string to, int userId)
+		private bool CanMoveFile(string from, int userId)
 		{
+			if (userId == 1)
+				return true;
+
 			const string sql = @"
 				SELECT 1 
 				FROM maxhanna.file_uploads 
@@ -2460,18 +2463,18 @@ namespace maxhanna.Server.Controllers
 			return reader.Read();
 		}
 
-		private bool ValidatePath(string directory)
+		private bool ValidatePath(string directory, bool forDelete = false)
 		{
 			if (!directory.Contains(_baseTarget))
 			{
 				_ = _log.Db($"{directory} Must be within {_baseTarget}", null, "FILE", true);
 				return false;
 			}
-			else if (directory.Equals(_baseTarget + "Users") || directory.Equals(_baseTarget + "Roms")
+			else if (forDelete && (directory.Equals(_baseTarget + "Users") || directory.Equals(_baseTarget + "Roms")
 					|| directory.Equals(_baseTarget + "Meme") || directory.Equals(_baseTarget + "Nexus")
 					|| directory.Equals(_baseTarget + "Array") || directory.Equals(_baseTarget + "BugHosted")
 					|| directory.Equals(_baseTarget + "Files") || directory.Equals(_baseTarget + "Pictures")
-					|| directory.Equals(_baseTarget + "Videos"))
+					|| directory.Equals(_baseTarget + "Videos")))
 			{
 				_ = _log.Db($"Cannot delete {directory}!", null, "FILE", true);
 				return false;

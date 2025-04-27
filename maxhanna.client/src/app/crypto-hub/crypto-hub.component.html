@@ -12,55 +12,64 @@
           <div>{{ item.name }} <span *ngIf="item.symbol">({{ item.symbol }})</span></div>
           <div>{{ item.valueCAD ? formatToCanadianCurrency(getConvertedCurrencyValue(item.valueCAD)) : '-' }}</div>
         </a>
-      </div>
-
-
+      </div> 
+      
       <div class="BTCtoCADConversionWrapperDiv">
-        <div class="BTCtoCADConversionDiv">
-          <label for="btcConvertBTCValue">BTC:</label>
-          <input id="btcConvertBTCValue" type="text" value="1" #btcConvertBTCValue (input)="convertBTCtoFIAT()"
+        <div class="BTCtoCADConversionDiv" *ngIf="coinNames">
+          <label for="convertBTCInput">
+            <select #btcConvertCoinSelect (change)="coinConvertSelectChange()" style="width:50px;" [title]="selectedCoinConversionName">
+              <option *ngFor="let name of coinNames" [selected]="selectedCoinConversionName == name" [value]="name">{{name}}</option>
+            </select>
+          </label>
+          <input id="convertBTCInput" type="text" value="1" #convertBTCInput (input)="convertCoinInputted()"
             placeholder="Enter BTC amount" />
         </div>
 
         <div class="BTCtoCADConversionDiv">
-          <label for="btcConvertCADValue">{{selectedCurrency}}:</label>
-          <input id="btcConvertCADValue" type="text" #btcConvertCADValue (input)="convertCurrencyToBTC()"
-            placeholder="Enter CAD amount" />
+          <label for="convertCurrencyInput">{{selectedCurrency}}:</label>
+          <input id="convertCurrencyInput" type="text" #convertCurrencyInput (input)="convertCurrencyInputted()"
+            [placeholder]="'Enter ' + selectedCurrency + ' amount'" />
         </div>
 
         <div class="BTCtoCADConversionDiv">
-          <label for="btcConvertSATValue">SAT:</label>
-          <input id="btcConvertSATValue" type="text" #btcConvertSATValue (input)="convertSatoshiToBTC()"
+          <label for="convertSATInput">SAT:</label>
+          <input id="convertSATInput" type="text" #convertSATInput (input)="convertSatoshiInputted()"
             placeholder="Enter Satoshi amount" />
         </div>
 
-        <div class="BTCtoCADConversionDiv" *ngIf="fiatNames">
-          <label for="btcConvertFAITValue"><select #btcConvertFIATSelect (change)="fiatConvertSelectChange()"><option *ngFor="let name of fiatNames" [selected]="name == 'USD'" [value]="name">{{name}}</option></select></label>
-          <input id="btcConvertFIATValue" type="text" #btcConvertFIATValue (input)="convertFIATToBTC()" placeholder="Enter Fiat amount" />
+        <div class="BTCtoCADConversionDiv" *ngIf="fiatNames && selectedFiatConversionName">
+          <label for="convertFIATInput">
+            <select #btcConvertFIATSelect (change)="fiatConvertSelectChange()" style="width:50px;">
+              <option *ngFor="let name of fiatNames" [selected]="selectedFiatConversionName == name" [value]="name">{{name}}</option>
+            </select>
+          </label>
+          <input id="convertFIATInput" type="text" #convertFIATInput (input)="convertFIATInputted()" placeholder="Enter Fiat amount" />
         </div>
       </div> 
-    </div>
-
-    <div
-      *ngIf="allHistoricalData && allHistoricalData.length > 0 && volumeData && volumeData.length > 0 && tradebotTradeValuesForMainGraph && tradebotTradeValuesForMainGraph.length > 0"
-      class="graphContainerDiv sectionContainer" [style.display]="isTradePanelOpen ? 'none' : 'block'">
+    </div> 
+    <div class="graphContainerDiv sectionContainer" [style.display]="isTradePanelOpen ? 'none' : 'block'">
+      <ng-container *ngIf="allHistoricalData">
       <app-line-graph #lineGraphComponent [type]="'Crypto'" [selectedCurrency]="selectedCurrency"
-        [selectedPeriod]="'1h'" [data]="allHistoricalData" [data2]="tradebotTradeValuesForMainGraph"
+        [selectedPeriod]="lineGraphInitialPeriod" [data]="allHistoricalData" [data2]="tradebotTradeValuesForMainGraph"
         [chartTypeInputtedData2]="'line'" [isDotModeData2]="true" [selectedCoin]="currentSelectedCoin"
-        [secondaryDataLabel]="'Tradebot Action (Red:Sell/Green:Buy)'"
+        [secondaryDataLabel]="'Tradebot Action (Red:Sell/Green:Buy)'" [displayCoinSwitcher]="false"
         (changeTimePeriodEvent)="changeTimePeriodEventOnBTCHistoricalGraph($event)">
       </app-line-graph>
-      <app-line-graph [selectedCurrency]="'Volume'" [type]="'Volume'" [chartTypeInputted]="'bar'" [showAverage]="true"
-        [displayCoinSwitcher]="false" [selectedPeriod]="'6h'" [data]="volumeData"
-        (changeTimePeriodEvent)="changeTimePeriodEventOnVolumeGraph($event)">
-      </app-line-graph>
+    </ng-container>
+      <ng-container *ngIf="volumeData">
+          <app-line-graph [selectedCurrency]="'Volume'" [type]="'Volume'" [chartTypeInputted]="'bar'" [showAverage]="true"
+            [displayCoinSwitcher]="false" [selectedPeriod]="'6h'" [data]="volumeData"
+            (changeTimePeriodEvent)="changeTimePeriodEventOnVolumeGraph($event)">
+          </app-line-graph>
+      </ng-container> 
     </div>
 
-    <div *ngIf="allHistoricalExchangeRateData && allHistoricalExchangeRateData.length > 0"
+    <div *ngIf="allHistoricalExchangeRateDataForGraph && allHistoricalExchangeRateDataForGraph.length > 0"
       class="graphContainerDiv sectionContainer" [style.display]="isTradePanelOpen ? 'none' : 'block'">
 
-      <app-line-graph [type]="'Currency'" [selectedCoin]="'USD'" [showAverage]="true" [selectedPeriod]="'1y'"
-        [data]="allHistoricalExchangeRateData!"
+      <app-line-graph [type]="'Currency'" [selectedCoin]="'USD'" [displayCoinSwitcher]="false"
+       [selectedCurrency]="selectedFiatConversionName" [showAverage]="true" [selectedPeriod]="'1y'"
+        [data]="allHistoricalExchangeRateDataForGraph!" #currencyExchangeLineGraph
         (changeTimePeriodEvent)="changeTimePeriodEventOnCurrencyExchangeGraph($event)">
       </app-line-graph>
     </div>
@@ -73,9 +82,9 @@
 
     <div class="wallet sectionContainer" *ngIf="(wallet || btcWalletResponse)"
       [style.display]="isTradePanelOpen ? 'none' : 'block'">
-      <div class="sectionName cryptoWalletSectionHeader" *ngIf="wallet || btcWalletResponse">Crypto Wallet Balance(s):
+      <div class="sectionName cryptoWalletSectionHeader" *ngIf="latestCurrencyPriceRespectToCAD && (wallet || btcWalletResponse)">Crypto Wallet Balance(s):
       </div>
-      <table *ngIf="wallet || btcWalletResponse?.currencies" id="walletTable">
+      <table *ngIf="latestCurrencyPriceRespectToCAD && (wallet || btcWalletResponse?.currencies)" id="walletTable">
         <thead *ngIf="wallet?.length">
           <tr>
             <th (click)="areWalletAddressesHidden = !areWalletAddressesHidden"
@@ -106,7 +115,7 @@
               </td>
               <td>{{ currency.currency }}</td>
               <td>{{ isDiscreete ? '***' : currency.totalBalance }}</td>
-              <td>{{ isDiscreete ? '***' : getCurrencyDisplayValue(subWallet.total?.currency, currency) }}</td>
+              <td>{{ isDiscreete ? '***' : getCurrencyDisplayValue(currency.currency, currency) }}</td>
               <td title="Wallet data" class="cursorPointer" (click)="showWalletData(currency)">ℹ️</td>
             </tr>
           </ng-container>
@@ -138,8 +147,18 @@
               [style.marginRight]="tradeBotStartedSince ? '15px' : ''" title="Stop the tradebot.">Stop</button> 
             <div *ngIf="tradeBotStartedSince">Running Since: <span class="thirdFontColor smallFont">{{tradeBotStartedSince}}</span></div>
             <div *ngIf="weightedAveragePrices && weightedAveragePrices.length > 0">
-              <div>Average Buy Price: <span class="thirdFontColor smallFont">{{formatToCanadianCurrency(weightedAveragePrices[0])}}</span></div>
-              <div>Average Sell Price: <span class="thirdFontColor smallFont">{{formatToCanadianCurrency(weightedAveragePrices[1])}}</span></div>
+              <div *ngIf="hasKrakenApi">Average Buy Price: <span class="thirdFontColor smallFont">{{formatToCanadianCurrency(weightedAveragePrices[0])}}</span></div>
+              <div *ngIf="hasKrakenApi">Average Sell Price: <span class="thirdFontColor smallFont">{{formatToCanadianCurrency(weightedAveragePrices[1])}}</span></div>
+              <div *ngIf="tradebotBalances && tradebotBalances.length > 0 && tradebotBalances[tradebotBalances.length - 1]">
+                Last Trade:
+                <span class="thirdFontColor smallFont">
+                  <span [innerHTML]="getLastTradebotTradeDisplay()"></span>
+                  <span *ngIf="getLastTradePercentage() !== null" [class.positive-percent]="getLastTradePercentage() >= 0"
+                    [class.negative-percent]="getLastTradePercentage() < 0">
+                    ({{ getLastTradePercentage().toFixed(2) }}%)
+                  </span>
+                </span>
+              </div>
             </div>
             <span class="cursorPointerUnderlined" (click)="createUpdateUserComponent();"
               *ngIf="!hasKrakenApi && parentRef?.user?.id"> Set Up Kraken API Keys </span>
@@ -184,9 +203,9 @@
                   [style.color]="trade.to_currency == 'XBT' ? '#a17f1a' : trade.to_currency == 'USDC' ? 'blue' : ''">{{
                   trade.to_currency }}</td>
                 <td class="smallFont">{{ trade.value }}</td>
-                <td class="xxSmallFont">{{ trade.btc_price_usdc }}</td>
+                <td class="xxSmallFont">{{ formatStringCanadianCurrency(trade.btc_price_usdc) }}</td>
                 <td class="smallFont">{{ formatStringCanadianCurrency(trade.trade_value_usdc) }}</td>
-                <td class="smallFont">{{ formatToCanadianCurrency(trade.fees) }}</td>
+                <td class="xxSmallFont">{{ formatToCanadianCurrency(trade.fees) }}</td>
                 <td class="xxSmallFont" [title]="getUtcTimeSince(trade.timestamp)">{{ parentRef?.convertUtcToLocalTime(trade.timestamp) }}</td>
               </tr>
             </tbody>
@@ -432,13 +451,13 @@
       Menu
     </div>
     <div class="optionsStatsWrapperDiv menuPanelOptionsDiv">
-      <div *ngIf="uniqueCurrencyNames" class="optionsStatsDiv">
+      <div *ngIf="fiatNames" class="optionsStatsDiv">
         <div class="optionsStatsHeader">
           Selected Currency :
         </div>
         <div class="optionsStatsDescription">
           <select #selectedCurrencyDropdown (change)="changeDefaultCurrency()">
-            <option *ngFor="let currency of uniqueCurrencyNames" [selected]="selectedCurrency === currency">
+            <option *ngFor="let currency of fiatNames" [selected]="selectedCurrency === currency">
               {{ currency }}
             </option>
           </select>

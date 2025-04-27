@@ -5,99 +5,78 @@
   <div class="componentTitle">
     Chat
     <span *ngIf="currentChatUsers">
-      with 
-      <span *ngFor="let user of getChatUsersWithoutSelf(); let i = index" (click)="viewProfile(user, 'Chat')" class="cursorPointer"><span *ngIf="i > 0">, </span>{{user.username}}</span>
+      with
+      <span *ngFor="let user of getChatUsersWithoutSelf(); let i = index" (click)="viewProfile(user, 'Chat')"
+        class="cursorPointer"><span *ngIf="i > 0">, </span>{{user.username}}</span>
     </span>
   </div>
 
-  <app-user-list (userClickEvent)="singleUserSelected($event);"
-                 (userSelectClickEvent)="userSelectClickEvent($event)"
-                 (groupChatEvent)="groupChatEvent($event)"
-                 [user]="parentRef?.user"
-                 [class.expanded]="isPanelExpanded"
-                 [displayOnlyFriends]="true"
-                 [displayRadioFilters]="true"
-                 [inputtedParentRef]="parentRef"
-                 class="userPanel"
-                 *ngIf="isPanelExpanded && showUserList">
+  <app-user-list (userClickEvent)="singleUserSelected($event);" (userSelectClickEvent)="userSelectClickEvent($event)"
+    (groupChatEvent)="groupChatEvent($event)" [user]="parentRef?.user" [class.expanded]="isPanelExpanded"
+    [displayOnlyFriends]="true" [displayRadioFilters]="true" [inputtedParentRef]="parentRef" class="userPanel"
+    *ngIf="isPanelExpanded && showUserList">
   </app-user-list>
 
   <div class="chatArea" [class]="isPanelExpanded ? 'expanded' : ''">
     <div *ngIf="currentChatUsers">
       <div class="chatWindow" *ngIf="chatHistory" #chatWindow (scroll)="onScroll();">
-        <div *ngFor="let message of chatHistory"
-             [class.messageContainer]="true"
-             [class.otherPersonsMessage]="message.sender.id !== (parentRef?.user?.id ?? 0)"
-             [class.align-left]="message.sender.id === (parentRef?.user?.id ?? 0)"
-             [class.align-right]="message.sender.id !== (parentRef?.user?.id ?? 0)">
+        <div *ngFor="let message of chatHistory" [class.messageContainer]="true"
+          [class.otherPersonsMessage]="message.sender.id !== (parentRef?.user?.id ?? 0)"
+          [class.align-left]="message.sender.id === (parentRef?.user?.id ?? 0)"
+          [class.align-right]="message.sender.id !== (parentRef?.user?.id ?? 0)">
           <!-- USER MESSAGE -->
           <ng-container *ngIf="message.sender.id === (parentRef?.user?.id ?? 0)">
-            <span class="messageTimestamp">{{ getUtcTimestampString(message.timestamp) }}<span class="userSeen" *ngIf="message.seen" [title]="'Seen by:' + message.seen">👀</span></span>
+            <span class="messageTimestamp">{{ getUtcTimestampString(message.timestamp) }}<span class="userSeen"
+                *ngIf="message.seen" [title]="'Seen by:' + message.seen">👀</span></span>
 
             <div class="profileTag">
               <div class="usernameProfileLink">
-                <app-user-tag [user]="message.sender" [inputtedParentRef]="parentRef" [previousComponent]="'Chat'"></app-user-tag>
+                <app-user-tag [user]="message.sender" [inputtedParentRef]="parentRef" [previousComponent]="'Chat'"
+                  [hideName]="true"></app-user-tag>
               </div>
             </div>
             <div class="messageContent" [attr.data-timestamp]="message.timestamp">
               <div [innerHTML]="getTextForDOM(message.content)"></div>
               <div class="reactionDiv">
-                <app-reaction [messageId]="message.id"
-                              [user]="parentRef?.user"
-                              [component]="message"
-                              [inputtedParentRef]="parentRef"
-                              [currentReactions]="message.reactions"
-                              [previousComponent]="'Chat'"></app-reaction>
+                <app-reaction [messageId]="message.id" [user]="parentRef?.user" [component]="message"
+                  [inputtedParentRef]="parentRef" [currentReactions]="message.reactions"
+                  [previousComponent]="'Chat'"></app-reaction>
                 <button (click)="quote(message)">🗨️Quote</button>
               </div>
-              <div *ngFor="let file of message.files" style="{{ message.files && message.files.length > 0 ? 'margin-top: 10px' : '' }}">
-                <app-media-viewer [file]="file"
-                                  [currentDirectory]="file.directory"
-                                  [inputtedParentRef]="parentRef"
-                                  [displayExtraInfo]="false"
-                                  [displayExpander]="false"
-                                  [showCommentSection]="false"
-                                  [user]="parentRef?.user"
-                                  [autoplay]="false"
-                                  [autoload]="true"
-                                  [previousComponent]="'Chat'">
+              <div *ngFor="let file of message.files"
+                style="{{ message.files && message.files.length > 0 ? 'margin-top: 10px' : '' }}">
+                <app-media-viewer [file]="file" [currentDirectory]="file.directory" [inputtedParentRef]="parentRef"
+                  [displayExtraInfo]="false" [displayExpander]="false" [showCommentSection]="false"
+                  [user]="parentRef?.user" [autoplay]="false" [autoload]="true" [previousComponent]="'Chat'">
                 </app-media-viewer>
               </div>
             </div>
           </ng-container>
           <!-- RECEIVER MESSAGE -->
           <ng-container *ngIf="message.sender.id !== (parentRef?.user?.id ?? 0)">
-            <span class="messageTimestamp">{{ getUtcTimestampString(message.timestamp) }}<span class="receiverSeen" *ngIf="message.seen" [title]="'Seen by:' + message.seen">👀</span></span>
+            <span class="messageTimestamp">{{ getUtcTimestampString(message.timestamp) }}<span class="receiverSeen"
+                *ngIf="message.seen" [title]="'Seen by:' + message.seen">👀</span></span>
             <div class="messageContent" [attr.data-timestamp]="message.timestamp">
               <div [innerHTML]="getTextForDOM(message.content)"></div>
               <div class="otherPersonsReactionDiv">
-                <app-reaction [messageId]="message.id"
-                              [user]="parentRef?.user"
-                              [component]="message"
-                              [inputtedParentRef]="parentRef"
-                              [currentReactions]="message.reactions"
-                              [previousComponent]="'Chat'"></app-reaction>
+                <app-reaction [messageId]="message.id" [user]="parentRef?.user" [component]="message"
+                  [inputtedParentRef]="parentRef" [currentReactions]="message.reactions"
+                  [previousComponent]="'Chat'"></app-reaction>
                 <button (click)="quote(message)">🗨️Quote</button>
               </div>
               <div *ngFor="let file of message.files">
                 <div class="attachmentMedia">
-                  <app-media-viewer [file]="file"
-                                    [currentDirectory]="file.directory"
-                                    [inputtedParentRef]="parentRef"
-                                    [displayExtraInfo]="false"
-                                    [displayExpander]="false"
-                                    [showCommentSection]="false"
-                                    [user]="parentRef?.user"
-                                    [autoplay]="false"
-                                    [autoload]="true"
-                                    [previousComponent]="'Chat'">
+                  <app-media-viewer [file]="file" [currentDirectory]="file.directory" [inputtedParentRef]="parentRef"
+                    [displayExtraInfo]="false" [displayExpander]="false" [showCommentSection]="false"
+                    [user]="parentRef?.user" [autoplay]="false" [autoload]="true" [previousComponent]="'Chat'">
                   </app-media-viewer>
                 </div>
               </div>
             </div>
             <div class="profileTag">
               <div class="usernameProfileLink">
-                <app-user-tag [user]="message.sender" [inputtedParentRef]="parentRef" [previousComponent]="'Chat'"></app-user-tag>
+                <app-user-tag [user]="message.sender" [inputtedParentRef]="parentRef" [previousComponent]="'Chat'"
+                  [hideName]="true"></app-user-tag>
               </div>
             </div>
           </ng-container>
@@ -113,10 +92,8 @@
         <textarea placeholder="Type a message" #newMessage (keydown.enter)="sendMessage()"></textarea>
         <div>
           <app-media-selector #attachmentSelector
-                              [currentDirectory]="'Users/' + (parentRef?.user && parentRef?.user?.id != 0 ? parentRef?.user?.username : 'Anonymous')"
-                              [user]="parentRef?.user"
-                              [inputtedParentRef]="parentRef"
-                              (selectFileEvent)="selectFile($event)">
+            [currentDirectory]="'Users/' + (parentRef?.user && parentRef?.user?.id != 0 ? parentRef?.user?.username : 'Anonymous')"
+            [user]="parentRef?.user" [inputtedParentRef]="parentRef" (selectFileEvent)="selectFile($event)">
           </app-media-selector>
         </div>
         <button (click)="sendMessage()">🗨️Send</button>
@@ -135,13 +112,15 @@
   </div>
   <div class="addChatMembersList">
     <div *ngFor="let chatMember of currentChatUsers" class="addChatMemberLi">
-      <app-user-tag [user]="chatMember" [inputtedParentRef]="parentRef ?? inputtedParentRef" [displayMiniTag]="true" [previousComponent]="'Chat'"></app-user-tag>
+      <app-user-tag [user]="chatMember" [inputtedParentRef]="parentRef ?? inputtedParentRef" [displayMiniTag]="true"
+        [previousComponent]="'Chat'"></app-user-tag>
     </div>
   </div>
   <div style="width: 100%; margin-top: 5px; text-align: center; max-height: 250px; overflow: auto">
     Add Chat Member(s) :
     <div style="max-height:200px; width: 100%; overflow:auto; display: inline;">
-      <app-user-list [searchOnly]="true" [inputtedParentRef]="inputtedParentRef ?? parentRef" (groupChatEvent)="addChatMember($event)"></app-user-list>
+      <app-user-list [searchOnly]="true" [inputtedParentRef]="inputtedParentRef ?? parentRef"
+        (groupChatEvent)="addChatMember($event)"></app-user-list>
     </div>
   </div>
 </div>
@@ -176,7 +155,8 @@
     <div class="optionsStatsDiv" *ngIf="!showUserList && currentChatUsers">
       <div class="optionsStatsHeader">
         Members:
-        <span *ngIf="currentChatUsers.length > 1" style="cursor: pointer" (click)="displayChatMembers()"> ({{currentChatUsers.length}})</span>
+        <span *ngIf="currentChatUsers.length > 1" style="cursor: pointer" (click)="displayChatMembers()">
+          ({{currentChatUsers.length}})</span>
       </div>
       <div class="optionsStatsDescription">
         <button (click)="displayChatMembers()">Display</button>

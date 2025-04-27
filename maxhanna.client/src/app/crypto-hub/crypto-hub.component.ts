@@ -1,12 +1,10 @@
 import { Component, ElementRef, EventEmitter, OnDestroy, OnInit, Output, ViewChild } from '@angular/core';
 import { ChildComponent } from '../child.component';
-import { MiningService } from '../../services/mining.service';
 import { Currency, MiningWalletResponse, Total } from '../../services/datacontracts/crypto/mining-wallet-response';
 import { CoinValue } from '../../services/datacontracts/crypto/coin-value';
 import { ExchangeRate } from '../../services/datacontracts/crypto/exchange-rate';
 import { LineGraphComponent } from '../line-graph/line-graph.component';
 import { CoinValueService } from '../../services/coin-value.service';
-import { UserService } from '../../services/user.service';
 import { MiningRigsComponent } from '../mining-rigs/mining-rigs.component';
 import { AiService } from '../../services/ai.service';
 import { TradeService } from '../../services/trade.service';
@@ -22,17 +20,20 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
   wallet?: MiningWalletResponse[] | undefined;
   btcFiatConversion?: number = 0;
   currentSelectedCoin: string = 'Bitcoin';
-  selectedCurrency = "CAD";
+  selectedCurrency?: string = undefined;
+  selectedFiatConversionName?: string = undefined;
+  selectedCoinConversionName: string = "BTC";
   noMining = false;
   isDiscreete = false;
-
   data?: CoinValue[];
   allHistoricalData?: CoinValue[] = [];
   volumeData?: any[] = undefined;
   allHistoricalDataPreCalculation?: CoinValue[] = [];
   allWalletBalanceData?: CoinValue[] = [];
   allHistoricalExchangeRateData?: ExchangeRate[] = [];
+  allHistoricalExchangeRateDataForGraph?: ExchangeRate[] = [];
   fiatNames: string[] = [];
+  coinNames: string[] = [];
   btcWalletResponse?: MiningWalletResponse = undefined;
   btcToCadPrice = 0;
   isAddCryptoDivVisible = false;
@@ -41,7 +42,6 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
   isWalletPanelOpen = false;
   latestCurrencyPriceRespectToCAD = 0;
   latestCurrencyPriceRespectToFIAT = 0;
-  uniqueCurrencyNames: string[] = [];
   currentlySelectedCurrency?: Currency = undefined;
   finishedGeneratingAiMessage = false;
   finishedGeneratingAiWalletMessage = false;
@@ -52,7 +52,7 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
   isWalletGraphFullscreened = false;
   hostAiToggled = false;
   popupHostAiToggled = false;
-  hasKrakenApi = false; 
+  hasKrakenApi = false;
   tradeBotStarted = false;
   tradeBotStartedSince: undefined | Date = undefined;
   showingTradeSettings = false;
@@ -71,9 +71,12 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
   isTradeInformationOpen = false;
   isShowingTradeSimulator = false;
   weightedAveragePrices?: any;
-
-  @ViewChild('scrollContainer', { static: true }) scrollContainer!: ElementRef;
-
+  private exchangeRateCache = new Map<string, {
+    baseRates: ExchangeRate[];
+    targetRates: ExchangeRate[];
+    baseTimestamps: number[];
+    targetTimestamps: number[];
+  }>();
   isDragging = false;
   startX = 0;
   scrollLeft = 0;
@@ -92,9 +95,9 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
     fees: number,
     timestamp: Date
   }[] = undefined;
-  tradebotValuesForGraph: any; 
-  tradebotTradeValuesForMainGraph?: { timestamp: Date; valueCAD: number }[];
-
+  tradebotValuesForGraph: any;
+  tradebotTradeValuesForMainGraph: { timestamp: Date; valueCAD: number }[] = [];
+  lineGraphInitialPeriod: '5min' | '15min' | '1h' | '6h' | '12h' | '1d' | '2d' | '5d' | '1m' | '2m' | '3m' | '6m' | '1y' | '2y' | '3y' | '5y' = '6h';
   tradebotSimulationGraphData: any[] = [];
   tradebotSimulationGraphData2: any[] = [];
   tradeSimParams = {
@@ -108,17 +111,20 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
     fee: 0.004                   // 0.4% fee
   };
   tradeBotSimDebug: string[] = [];
-
   useRandomPriceGraph = false;
-
+  cadToUsdRate?: number;
+  btcUSDRate?: number;
+  @ViewChild('scrollContainer', { static: true }) scrollContainer!: ElementRef;
   @ViewChild(LineGraphComponent) lineGraphComponent!: LineGraphComponent;
   @ViewChild(LineGraphComponent) simLineGraph!: LineGraphComponent;
+  @ViewChild(LineGraphComponent) currencyExchangeLineGraph!: LineGraphComponent;
   @ViewChild('miningRigComponent') miningRigComponent!: MiningRigsComponent;
-  @ViewChild('btcConvertSATValue') btcConvertSATValue!: ElementRef<HTMLInputElement>;
-  @ViewChild('btcConvertCADValue') btcConvertCADValue!: ElementRef<HTMLInputElement>;
-  @ViewChild('btcConvertBTCValue') btcConvertBTCValue!: ElementRef<HTMLInputElement>;
-  @ViewChild('btcConvertFIATValue') btcConvertFIATValue!: ElementRef<HTMLInputElement>;
+  @ViewChild('convertSATInput') convertSATInput!: ElementRef<HTMLInputElement>;
+  @ViewChild('convertCurrencyInput') convertCurrencyInput!: ElementRef<HTMLInputElement>;
+  @ViewChild('convertBTCInput') convertBTCInput!: ElementRef<HTMLInputElement>;
+  @ViewChild('convertFIATInput') convertFIATInput!: ElementRef<HTMLInputElement>;
   @ViewChild('btcConvertFIATSelect') btcConvertFIATSelect!: ElementRef<HTMLSelectElement>;
+  @ViewChild('btcConvertCoinSelect') btcConvertCoinSelect!: ElementRef<HTMLSelectElement>;
   @ViewChild('selectedCurrencyDropdown') selectedCurrencyDropdown!: ElementRef<HTMLSelectElement>;
   @ViewChild('newWalletInput') newWalletInput!: ElementRef<HTMLInputElement>;
   @ViewChild('tradeFromCoinSelect') tradeFromCoinSelect!: ElementRef<HTMLSelectElement>;
@@ -136,7 +142,6 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
   @ViewChild('tradeMinimumToReserves') tradeMinimumToReserves!: ElementRef<HTMLInputElement>;
   @ViewChild('tradeTradeMaximumTypeOccurances') tradeTradeMaximumTypeOccurances!: ElementRef<HTMLInputElement>;
   @ViewChild('tradeBotSimDebugDivContainer') tradeBotSimDebugDivContainer!: ElementRef<HTMLDivElement>;
-
   @ViewChild('initialBtcUsd') initialBtcUsd!: ElementRef<HTMLInputElement>;
   @ViewChild('initialUsdc') initialUsdc!: ElementRef<HTMLInputElement>;
   @ViewChild('initialBtcPrice') initialBtcPrice!: ElementRef<HTMLInputElement>;
@@ -147,9 +152,8 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
 
   @Output() coinSelected = new EventEmitter<string>();
 
-  constructor(private miningService: MiningService,
+  constructor(
     private coinValueService: CoinValueService,
-    private userService: UserService,
     private aiService: AiService,
     private tradeService: TradeService) {
     super();
@@ -166,19 +170,53 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
       await this.coinValueService.getLatestCoinValuesByName("Bitcoin").then(res => { if (res && res.valueCAD) this.btcFiatConversion = res.valueCAD; });
       this.getBTCWallets();
       this.getIsTradebotStarted();
-      this.coinValueService.getLatestCoinValues().then(res => {
+      this.coinValueService.getLatestCoinValues().then((res: CoinValue[]) => {
         this.data = res;
+        this.coinNames = res.map(x => x.name.replace("Bitcoin", "BTC")).filter((name, index, arr) => arr.indexOf(name) === index);
       });
-      this.coinValueService.getAllExchangeRateValuesForGraph(new Date(), 356*24).then(res => {
+      this.coinValueService.getAllExchangeRateValuesForGraph(new Date(), 356 * 24).then(async res => {
         if (res) {
           this.allHistoricalExchangeRateData = res;
+          const currencyRate = await this.getCurrencyToCadRate(this.selectedCurrency ?? "CAD");
+          // First collect all currencies
+          const allCurrencies: string[] = [];
           this.allHistoricalExchangeRateData?.forEach(element => {
-            if (!this.fiatNames.includes(element.targetCurrency)) {
-              this.fiatNames.push(element.targetCurrency);
-            } 
+            if (element.targetCurrency && !allCurrencies.includes(element.targetCurrency)) {
+              allCurrencies.push(element.targetCurrency);
+            }
+            const tmpelement = { ...element };
+            tmpelement.rate = tmpelement.rate * currencyRate; 
+            this.allHistoricalExchangeRateDataForGraph?.push(tmpelement);
           });
+
+          // Define the priority order for popular currencies
+          const popularCurrenciesOrder = [
+            'USD', 'EUR', 'GBP', 'JPY', 'CAD',
+            'AUD', 'CHF', 'CNY', 'NZD', 'SGD'
+          ];
+
+          // Reorder currencies - popular first, then others alphabetically
+          this.fiatNames = [
+            // Popular currencies in defined order (only those that exist in our data)
+            ...popularCurrenciesOrder.filter(currency =>
+              allCurrencies.includes(currency)
+            ),
+
+            // Other currencies sorted alphabetically
+            ...allCurrencies
+              .filter(currency =>
+                !popularCurrenciesOrder.includes(currency)
+              )
+              .sort((a, b) => a.localeCompare(b))
+          ];
         }
       });
+      if (this.parentRef?.user?.id) {
+        await this.tradeService.hasApiKey(this.parentRef.user.id).then(res => {
+          this.hasKrakenApi = res;
+        });
+        this.getLastCoinConfigurationUpdated("", "");
+      }
       this.coinValueService.getLatestCoinValuesByName("Bitcoin").then(res => {
         if (res) {
           this.btcToCadPrice = res.valueCAD;
@@ -187,67 +225,68 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
           }
         }
       });
-      this.coinValueService.getUniqueCurrencyNames().then(res => { this.uniqueCurrencyNames = res; });
-      console.log(this.selectedCurrency);
+ 
       const ceRes = await this.coinValueService.getLatestCurrencyValuesByName(this.selectedCurrency) as ExchangeRate;
       if (ceRes) {
         this.latestCurrencyPriceRespectToCAD = ceRes.rate;
       }
 
-      const ceRes2 = await this.coinValueService.getLatestCurrencyValuesByName( "USD") as ExchangeRate;
+      const ceRes2 = await this.coinValueService.getLatestCurrencyValuesByName(this.selectedFiatConversionName) as ExchangeRate;
       if (ceRes2) {
         this.latestCurrencyPriceRespectToFIAT = ceRes2.rate;
       }
-
-       
-      await this.coinValueService.getAllCoinValuesForGraph(new Date(), 1).then(res => {
+      const hours = this.convertTimePeriodToHours(this.lineGraphInitialPeriod); 
+      const startTime = new Date();
+      startTime.setHours(startTime.getHours() - hours);
+      await this.coinValueService.getAllCoinValuesForGraph(new Date(), hours).then(res => {
         if (res) {
           this.allHistoricalDataPreCalculation = res;
           this.allHistoricalData = res.filter((x: any) => x.name == 'Bitcoin');
           this.allHistoricalData?.forEach(x => x.valueCAD = x.valueCAD * this.latestCurrencyPriceRespectToCAD);
         }
       });
-      await this.tradeService.getTradeVolumeForGraph(new Date(), 6).then(res => {
-        this.volumeData = res;
+      const sessionToken = await this.parentRef?.getSessionToken();
+      const tradeUserId = this.hasKrakenApi ? this.parentRef?.user?.id ?? 1 : 1;
+      this.getTradebotValuesForMainGraph(tradeUserId, sessionToken);
+      await this.tradeService.getTradeVolumeForGraph(new Date(), hours).then(res => {
         this.volumeData = res.map((item: any) => ({
           timestamp: item.timestamp,
           valueCAD: item.volumeBTC
         }));
-      }); 
-      const sessionToken = await this.parentRef?.getSessionToken();
-      this.tradeService.getTradeHistory(this.parentRef?.user?.id ?? 1, sessionToken ?? "").then(res => {
-        if (res) {
-          this.tradebotBalances = res;
-          this.tradebotTradeValuesForMainGraph = this.tradebotBalances?.map(x => { 
-            return {
-              timestamp: x.timestamp,
-              valueCAD: parseFloat(x.btc_price_cad),
-              type: x.from_currency == "XBT" ? 'sell' : 'buy'
-            };
-          });
-          console.log("tradebot balances for graph: ", this.tradebotTradeValuesForMainGraph);
-        }
       });
-        
-      if (this.parentRef?.user?.id) {
-        this.tradeService.hasApiKey(this.parentRef.user.id).then(res => { 
-          this.hasKrakenApi = res; 
-        });
-        this.getLastCoinConfigurationUpdated("", "");
-      } 
+
       if (!this.weightedAveragePrices) {
         this.tradeService.getWeightedAveragePrices(this.parentRef?.user?.id ?? 1, sessionToken ?? "").then(res => {
           if (res) {
-            this.weightedAveragePrices = res; 
+            this.weightedAveragePrices = res;
           }
         });
-      } 
+      }
     } catch (error) {
       console.error('Error fetching coin values:', error);
     }
-    this.convertBTCtoFIAT()
+    setTimeout(() => { this.convertCoinInputted(); }, 50);
+    this.getCurrencyToCadRate("usd").then(res => {
+      this.cadToUsdRate = res;
+      this.btcUSDRate = this.btcToCadPrice / this.cadToUsdRate; 
+    });   
     this.stopLoading();
   }
+  private async getTradebotValuesForMainGraph(tradeUserId: number, sessionToken: string | undefined) {
+    await this.tradeService.getTradeHistory(tradeUserId, sessionToken ?? "").then(res => {
+      if (res) {
+        this.tradebotBalances = res;
+        this.tradebotTradeValuesForMainGraph = res.map((x: any) => {
+          return {
+            timestamp: x.timestamp,
+            valueCAD: parseFloat(x.btc_price_cad) * this.latestCurrencyPriceRespectToCAD,
+            type: x.from_currency == "XBT" ? 'sell' : 'buy'
+          };
+        });
+      }
+    });
+  }
+
   private async getUserCurrency() {
     const user = this.parentRef?.user;
     if (user?.id) {
@@ -255,13 +294,19 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
         if (res) {
           if (res.includes("not found")) {
             this.selectedCurrency = "CAD";
+            this.selectedFiatConversionName = this.selectedCurrency == 'USD' ? "CAD" : "USD";
+
           } else {
             this.selectedCurrency = res;
+            this.selectedFiatConversionName = this.selectedCurrency == 'USD' ? "CAD" : "USD";
+
           }
         }
       });
     } else {
       this.selectedCurrency = "CAD";
+      this.selectedFiatConversionName = this.selectedCurrency == 'USD' ? "CAD" : "USD";
+
     }
   }
 
@@ -326,13 +371,7 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
     this.tradeSimParams.initialBtc = parseFloat(krakenBtcCurrencyWallet.totalBalance ?? "");
     this.tradeSimParams.initialUsd = parseFloat(krakenUsdcCurrencyWallet.totalBalance ?? "");
   }
-  convertFromFIATToCryptoValue(currency?: any, conversionRate?: number): number { // best practice is to ensure currency.fiatRate is set.
-    if (currency && (currency.fiatRate || this.btcFiatConversion) && currency.totalBalance) {
-      return (conversionRate ? conversionRate : currency.fiatRate ? currency.fiatRate : this.btcFiatConversion ?? 1) * (Number)(currency.totalBalance);
-    } else {
-      return 0;
-    }
-  }
+
   multiplyValues(number1: any, number2: any): number {
     if (number1 && number2) {
       return ((Number)(number1) * (Number)(number2));
@@ -347,57 +386,97 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
   closeMiningEvent() {
     this.noMining = true;
   }
-  selectCoin(coinName?: string) {
+  async selectCoin(coinName?: string) {
     if (!coinName) return;
+    if (!coinName.includes("BTC") && !coinName.includes("Bitcoin")) {
+      this.tradebotTradeValuesForMainGraph = [];
+    } else {
+      if (!this.tradebotTradeValuesForMainGraph || this.tradebotTradeValuesForMainGraph.length == 0) { 
+        const userId = this.parentRef?.user?.id ?? 1;
+        const sessionToken = await this.parentRef?.getSessionToken();
+        await this.getTradebotValuesForMainGraph(userId, sessionToken);
+      }
+    }
     this.coinSelected.emit(this.currentSelectedCoin = coinName === "Total BTC" || coinName === "BTC" ? "Bitcoin" : coinName);
+    setTimeout(() => { this.changeTimePeriodEventOnBTCHistoricalGraph('6h') }, 50);
   }
 
-  convertFIATToBTC(): void { 
-    const fiatValue = parseFloat(this.btcConvertFIATValue.nativeElement.value ?? 1);
-    const btcValue = fiatValue / (this.btcToCadPrice * (this.latestCurrencyPriceRespectToFIAT ?? 1)); 
-    this.btcConvertCADValue.nativeElement.value = this.formatToCanadianCurrency(fiatValue * this.latestCurrencyPriceRespectToFIAT);
-    this.btcConvertBTCValue.nativeElement.value = btcValue.toFixed(8);
-    this.btcConvertSATValue.nativeElement.value = this.formatWithCommas(btcValue * 1e8);
+  async convertFIATInputted() {
+    const inputValue = parseFloat(this.convertFIATInput.nativeElement.value ?? 1);
+    let coinValue = { valueCAD: 0 };
+    const cRes = await this.coinValueService.getAllCoinValuesForGraph(new Date(), 0.1);
+    if (cRes) {
+      const latestMatch = cRes.reduce((latest, item) => {
+        if (item.name !== this.selectedCoinConversionName.replace("BTC", "Bitcoin")) return latest;
+        const itemTime = new Date(item.timestamp).getTime();
+        const latestTime = latest ? new Date(latest.timestamp).getTime() : -Infinity;
+        return itemTime > latestTime ? item : latest;
+      }, undefined as typeof cRes[0] | undefined);
+
+      coinValue = latestMatch ?? { valueCAD: 0 };
+    } 
+
+
+    const btcValue = inputValue / (coinValue.valueCAD * (this.latestCurrencyPriceRespectToFIAT ?? 1));
+    //this.convertCurrencyInput.nativeElement.value = this.formatToCanadianCurrency(fiatValue * this.latestCurrencyPriceRespectToFIAT);
+    this.convertBTCInput.nativeElement.value = btcValue.toFixed(8);
+    this.convertCoinInputted();
   }
-  convertBTCtoFIAT(): void {
-    const btcValue = parseFloat(this.btcConvertBTCValue.nativeElement.value) || 0;
-    const cadValue = btcValue * this.btcToCadPrice * (this.latestCurrencyPriceRespectToCAD ?? 1);
-    const fiatValue = btcValue * this.btcToCadPrice * (this.latestCurrencyPriceRespectToFIAT ?? 1);
+  async convertCoinInputted() { 
+    clearTimeout(this.debounceTimer);
+    this.debounceTimer = setTimeout(async () => {
+      const inputValue = parseFloat(this.convertBTCInput.nativeElement.value) || 1;
+      let coinValue = { valueCAD: 0 };
+      const cRes = await this.coinValueService.getAllCoinValuesForGraph(new Date(), 0.1);
+      if (cRes) {
+        const latestMatch = cRes.reduce((latest, item) => {
+          if (item.name !== this.selectedCoinConversionName.replace("BTC", "Bitcoin")) return latest;
+          const itemTime = new Date(item.timestamp).getTime();
+          const latestTime = latest ? new Date(latest.timestamp).getTime() : -Infinity;
+          return itemTime > latestTime ? item : latest;
+        }, undefined as typeof cRes[0] | undefined);
 
-    this.btcConvertCADValue.nativeElement.value = this.formatToCanadianCurrency(cadValue);
-    this.btcConvertSATValue.nativeElement.value = this.formatWithCommas(btcValue * 1e8);
-    this.btcConvertFIATValue.nativeElement.value = this.formatToCanadianCurrency(fiatValue);
+        coinValue = latestMatch ?? { valueCAD: 0 }; 
+      } 
+
+      const curRate = await this.getCurrencyToCadRate(this.selectedFiatConversionName ?? "CAD");  // confirmed good
+      console.log("coinValue: ", coinValue, this.selectedCoinConversionName, (this.latestCurrencyPriceRespectToCAD ?? 1), curRate, this.selectedFiatConversionName);
+        
+      const fiatValue = inputValue * (coinValue.valueCAD / curRate);  // confirmed good
+      const selectedCurrencyValue = inputValue * coinValue.valueCAD * (this.latestCurrencyPriceRespectToCAD ?? 1);
+      this.convertCurrencyInput.nativeElement.value = this.formatToCanadianCurrency(selectedCurrencyValue);
+      this.convertSATInput.nativeElement.value = this.formatWithCommas(inputValue * 1e8);
+      this.convertFIATInput.nativeElement.value = this.formatToCanadianCurrency(fiatValue); 
+    }, 2000);
   }
+  async convertCurrencyInputted() {
+    const currencyValue = parseFloat(this.convertCurrencyInput.nativeElement.value.replace(/[$,]/g, '')) || 0; 
+    let coinValue = { valueCAD: 0 };
+    const cRes = await this.coinValueService.getAllCoinValuesForGraph(new Date(), 0.1);
+    if (cRes) {
+      const latestMatch = cRes.reduce((latest, item) => {
+        if (item.name !== this.selectedCoinConversionName.replace("BTC", "Bitcoin")) return latest;
+        const itemTime = new Date(item.timestamp).getTime();
+        const latestTime = latest ? new Date(latest.timestamp).getTime() : -Infinity;
+        return itemTime > latestTime ? item : latest;
+      }, undefined as typeof cRes[0] | undefined);
 
-  convertCurrencyToBTC(): void {
-    const currencyValue = parseFloat(this.btcConvertCADValue.nativeElement.value.replace(/[$,]/g, '')) || 0;
-    const sanitizedValue = parseFloat(currencyValue.toString().replace(/[$,]/g, '')) || 0;
-    const btcValue = sanitizedValue / (this.btcToCadPrice * (this.latestCurrencyPriceRespectToCAD ?? 1));
-    const fiatValue = this.latestCurrencyPriceRespectToFIAT * currencyValue;
-    this.btcConvertBTCValue.nativeElement.value = btcValue.toFixed(8);
-    this.btcConvertSATValue.nativeElement.value = this.formatWithCommas(btcValue * 1e8);
-    this.btcConvertCADValue.nativeElement.value = this.formatToCanadianCurrency(sanitizedValue);
-    this.btcConvertFIATValue.nativeElement.value = this.formatToCanadianCurrency(fiatValue); 
+      coinValue = latestMatch ?? { valueCAD: 0 };
+    } 
+    
+    const btcValue = currencyValue / (coinValue.valueCAD * (this.latestCurrencyPriceRespectToCAD ?? 1)); 
+    this.convertBTCInput.nativeElement.value = btcValue.toFixed(8);
+    this.convertCoinInputted();
   }
-
-  convertCADtoBTC(): void {
-    const currencyValue = parseFloat(this.btcConvertCADValue.nativeElement.value.replace(/[$,]/g, '')) || 0;
-    const btcValue = currencyValue / (this.btcToCadPrice * (this.btcFiatConversion ?? 1));
-
-    this.btcConvertBTCValue.nativeElement.value = btcValue.toFixed(8);
-    this.btcConvertSATValue.nativeElement.value = this.formatWithCommas(btcValue * 1e8);
-    this.btcConvertCADValue.nativeElement.value = this.formatToCanadianCurrency(currencyValue);
-  }
-
-  convertSatoshiToBTC(): void {
-    const satValue = parseInt(this.btcConvertSATValue.nativeElement.value.replace(/,/g, ''), 10) || 0;
+  convertSatoshiInputted(): void {
+    const satValue = parseInt(this.convertSATInput.nativeElement.value.replace(/,/g, ''), 10) || 0;
     const btcValue = satValue / 1e8;
-
-    this.btcConvertBTCValue.nativeElement.value = btcValue.toFixed(8);
-    this.btcConvertCADValue.nativeElement.value = this.formatToCanadianCurrency(btcValue * this.btcToCadPrice * this.latestCurrencyPriceRespectToCAD);
-    this.btcConvertFIATValue.nativeElement.value = this.formatToCanadianCurrency(btcValue * this.btcToCadPrice * this.latestCurrencyPriceRespectToFIAT);
-    this.btcConvertSATValue.nativeElement.value = this.formatWithCommas(satValue);
+    this.convertBTCInput.nativeElement.value = btcValue.toFixed(8);
+    this.convertCurrencyInput.nativeElement.value = this.formatToCanadianCurrency(btcValue * this.btcToCadPrice * this.latestCurrencyPriceRespectToCAD);
+    this.convertFIATInput.nativeElement.value = this.formatToCanadianCurrency(btcValue * this.btcToCadPrice * this.latestCurrencyPriceRespectToFIAT);
+    this.convertSATInput.nativeElement.value = this.formatWithCommas(satValue);
   }
+
   formatStringCanadianCurrency(value: string): string {
     return new Intl.NumberFormat('en-CA', {
       style: 'currency',
@@ -437,6 +516,7 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
   }
   async changeDefaultCurrency() {
     const user = this.parentRef?.user;
+    if (!user?.id) return alert("You must be logged in to change your currency");
     const selectedCoin = this.selectedCurrencyDropdown.nativeElement.value;
     this.selectedCurrency = selectedCoin;
     if (selectedCoin && user?.id) {
@@ -496,14 +576,14 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
     }, 50);
   }
   async randomizeTradingSimGraphWithRandomDayThisWeek() {
-    const hours = 24*7;
+    const hours = 24 * 7;
     await this.coinValueService.getAllCoinValuesForGraph(new Date(), hours).then(res => {
       if (res) {
         this.allHistoricalData = res.filter((x: any) => x.name == 'Bitcoin');
         this.allHistoricalData?.forEach(x => x.valueCAD = x.valueCAD * this.latestCurrencyPriceRespectToCAD);
       }
     });
- 
+
     this.getRandomDayData();
     this.tradebotSimulationGraphData2 = this.generateTradeData(
       this.tradebotSimulationGraphData,
@@ -518,14 +598,14 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
         this.allHistoricalData?.forEach(x => x.valueCAD = x.valueCAD * this.latestCurrencyPriceRespectToCAD);
       }
     });
- 
+
     this.getRandomWeekOrMonthData("week");
     this.tradebotSimulationGraphData2 = this.generateTradeData(
       this.tradebotSimulationGraphData,
       this.tradeSimParams
     );
- 
-    console.log("tbsgd: ", this.tradebotSimulationGraphData,this.tradebotSimulationGraphData2);
+
+    console.log("tbsgd: ", this.tradebotSimulationGraphData, this.tradebotSimulationGraphData2);
   }
   async randomizeTradingSimGraphWithRandomMonthData() {
     const hours = 24 * 7 * 365;
@@ -535,7 +615,7 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
         this.allHistoricalData?.forEach(x => x.valueCAD = x.valueCAD * this.latestCurrencyPriceRespectToCAD);
       }
     });
- 
+
     this.getRandomWeekOrMonthData("month");
     this.tradebotSimulationGraphData2 = this.generateTradeData(
       this.tradebotSimulationGraphData,
@@ -1202,22 +1282,27 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
       this.parentRef.closeOverlay();
     }
   }
-  processWalletBalances() {
+  async processWalletBalances() {
     if (!this.allWalletBalanceData) return;
-
+    console.log("Processing wallet balances...", this.allWalletBalanceData);
     const additionalEntries: CoinValue[] = [];
+    const currExRate = this.allHistoricalExchangeRateData && this.allHistoricalExchangeRateData[0] ? this.allHistoricalExchangeRateData[0].targetCurrency : undefined;
 
-    for (const entry of this.allWalletBalanceData) {
-      const closestRate = this.findClosestRate(entry.timestamp) ?? 1;
+    for (const entry of this.allWalletBalanceData) { 
+      console.log("Original CAD value:", entry.valueCAD);
+      const closestRate = this.findClosestRate(entry.timestamp, this.selectedCurrency, currExRate ?? "USD") ?? 1;
       const closestBtcRate = this.findClosestBTCRate(entry.timestamp) ?? 1;
+
+      console.log("BTC rate:", closestBtcRate);
+      console.log("Currency rate:", closestRate);
       if (closestRate !== null) {
-        let btcValueInCad = (entry.valueCAD * (closestBtcRate * closestRate)) / 100_000_000;
+        let btcValueInSelectedCurrency = entry.valueCAD * closestBtcRate * closestRate;
 
         const newEntry: CoinValue = {
           id: entry.id,
           symbol: "BTC",
-          name: "BTC -> " + this.selectedCurrency,
-          valueCAD: btcValueInCad,
+          name: "BTC -> $" + this.selectedCurrency,
+          valueCAD: btcValueInSelectedCurrency,
           timestamp: entry.timestamp
         };
 
@@ -1226,41 +1311,88 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
     }
     this.allWalletBalanceData.push(...additionalEntries);
   }
-  findClosestRate(timestamp: string, currency?: string): number | null {
+  findClosestRate(
+    timestamp: string,
+    targetCurrency?: string,
+    baseCurrency: string = "CAD"
+  ): number | null {
     if (!this.allHistoricalExchangeRateData || this.allHistoricalExchangeRateData.length === 0) {
       return null;
     }
 
-    const targetTimestamp = new Date(timestamp).getTime();
-    const tmpHistoricalData = this.allHistoricalExchangeRateData
-      .filter(x => x.targetCurrency.toLowerCase() == (currency ?? this.selectedCurrency).toLowerCase())
-      .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+    const targetCurrencyToUse = (targetCurrency ?? this.selectedCurrency ?? "CAD").toLowerCase();
+    const baseCurrencyToUse = baseCurrency.toLowerCase();
+    const cacheKey = `${baseCurrencyToUse}_${targetCurrencyToUse}`;
 
-    // Binary search for closest rate
-    let left = 0, right = tmpHistoricalData.length - 1;
-    while (left < right) {
-      const mid = Math.floor((left + right) / 2);
-      const midTimestamp = new Date(tmpHistoricalData[mid].timestamp).getTime();
+    // Check cache first
+    if (!this.exchangeRateCache.has(cacheKey)) {
+      // Pre-process data for this currency pair
+      const oneDayMs = 24 * 60 * 60 * 1000;
+      const now = new Date();
+      const oneDayBefore = new Date(now.getTime() - oneDayMs);
+      const oneDayAfter = new Date(now.getTime() + oneDayMs);
 
-      if (midTimestamp === targetTimestamp) {
-        return tmpHistoricalData[mid].rate; // Exact match
-      } else if (midTimestamp < targetTimestamp) {
-        left = mid + 1;
-      } else {
-        right = mid;
+      // Filter and sort data just once per currency pair
+      const dataInRange = this.allHistoricalExchangeRateData.filter(x => {
+        const date = new Date(x.timestamp);
+        return date >= oneDayBefore && date <= oneDayAfter;
+      });
+
+      const targetRates = dataInRange
+        .filter(x => x.targetCurrency.toLowerCase() === targetCurrencyToUse)
+        .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+
+      let baseRates: ExchangeRate[] = [];
+      if (baseCurrencyToUse !== "cad") {
+        baseRates = dataInRange
+          .filter(x => x.targetCurrency.toLowerCase() === baseCurrencyToUse)
+          .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
       }
+
+      // Pre-compute timestamps for faster searching
+      this.exchangeRateCache.set(cacheKey, {
+        baseRates,
+        targetRates,
+        baseTimestamps: baseRates.map(x => new Date(x.timestamp).getTime()),
+        targetTimestamps: targetRates.map(x => new Date(x.timestamp).getTime())
+      });
     }
 
-    // Closest rate is now at left or left - 1, compare both
-    const closest = tmpHistoricalData[left];
-    const previous = left > 0 ? tmpHistoricalData[left - 1] : null;
+    const cached = this.exchangeRateCache.get(cacheKey)!;
+    const targetTimestamp = new Date(timestamp).getTime();
 
-    if (!previous) return closest.rate;
+    // Fast binary search helper
+    const findClosestIndex = (timestamps: number[]) => {
+      let left = 0, right = timestamps.length - 1;
+      while (left < right) {
+        const mid = Math.floor((left + right) / 2);
+        if (timestamps[mid] === targetTimestamp) return mid;
+        else if (timestamps[mid] < targetTimestamp) left = mid + 1;
+        else right = mid;
+      }
+      return left;
+    };
 
-    return Math.abs(new Date(previous.timestamp).getTime() - targetTimestamp) <
-      Math.abs(new Date(closest.timestamp).getTime() - targetTimestamp)
-      ? previous.rate
-      : closest.rate;
+    // Handle case where no target rates exist
+    if (cached.targetRates.length === 0 || (baseCurrencyToUse !== "cad" && cached.baseRates.length === 0)) {
+      return null;
+    }
+
+    // Find closest target rate
+    const targetIdx = findClosestIndex(cached.targetTimestamps);
+    const closestTargetRate = cached.targetRates[targetIdx].rate;
+
+    // If base is CAD, return directly
+    if (baseCurrencyToUse === "cad") {
+      return closestTargetRate;
+    }
+
+    // Find closest base rate
+    const baseIdx = findClosestIndex(cached.baseTimestamps);
+    const closestBaseRate = cached.baseRates[baseIdx].rate;
+
+    // Compute cross-rate
+    return closestTargetRate / closestBaseRate;
   }
   findClosestBTCRate(timestamp: string): number | null {
     if (!this.allHistoricalData || this.allHistoricalData.length === 0) {
@@ -1328,7 +1460,7 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
       const sessionToken = await this.parentRef?.getSessionToken() ?? "";
       await this.tradeService.getTradeHistory(this.parentRef?.user?.id ?? 1, sessionToken).then(res => {
         if (res) {
-          this.tradebotBalances = res; 
+          this.tradebotBalances = res;
         }
         this.stopLoading();
       });
@@ -1349,7 +1481,7 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
       this.closeTradeFullscreen();
     } else {
       this.isTradePanelOpen = true;
-    } 
+    }
   }
   closeTradeFullscreen() {
     this.closeTradeDivs();
@@ -1401,7 +1533,7 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
       const sessionToken = await this.parentRef.getSessionToken();
       await this.tradeService.getTradeHistory(this.parentRef?.user?.id ?? 1, sessionToken).then(res => {
         if (res) {
-          this.tradebotBalances = res; 
+          this.tradebotBalances = res;
         }
       });
     }
@@ -1515,20 +1647,24 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
       }
     }, 500);
   }
-
+  convertFromFIATToCryptoValue(currency?: any, conversionRate?: number): number { // best practice is to ensure currency.fiatRate is set.
+    if (currency && (currency.fiatRate || this.btcFiatConversion) && currency.totalBalance) {
+      return (conversionRate ? conversionRate : currency.fiatRate ? currency.fiatRate : this.btcFiatConversion ?? 1) * (Number)(currency.totalBalance);
+    } else {
+      return 0;
+    }
+  }
   getCurrencyDisplayValue(currencyName?: string, currency?: Currency): string {
-    if (this.isDiscreete || !currencyName || !currency) return '***';
-    let tmpWalletCurrency = currencyName.toLowerCase().replaceAll("total", "").trim();
-    currency.fiatRate = tmpWalletCurrency == "btc" ? this.btcFiatConversion : 1;
-    const totalValue = this.convertFromFIATToCryptoValue(currency);
-
+    if (this.isDiscreete) return '***';
+    if (!currency || !currency.totalBalance || !this.latestCurrencyPriceRespectToCAD) return this.formatToCanadianCurrency(0);
+    const totalValue = currencyName == "BTC" ? (parseFloat(currency.totalBalance) * this.btcToCadPrice * this.latestCurrencyPriceRespectToCAD) : parseFloat(currency.totalBalance);
     return this.formatToCanadianCurrency(totalValue);
-
   }
   getTotalCurrencyDisplayValue(total?: Total): string {
-    if (this.isDiscreete || !total || !this.btcFiatConversion) return '***';
+    if (this.isDiscreete) return '***';
+    if (!total || !total.totalBalance || !this.latestCurrencyPriceRespectToCAD) return this.formatToCanadianCurrency(0);
     let tmpWalletCurrency = total.currency?.toLowerCase().replaceAll("total", "").trim();
-    const totalValue = this.convertFromFIATToCryptoValue(total, tmpWalletCurrency != 'btc' ? 1 : undefined);
+    const totalValue = tmpWalletCurrency == "btc" ? (parseFloat(total.totalBalance) * this.btcToCadPrice * this.latestCurrencyPriceRespectToCAD) : parseFloat(total.totalBalance);
     return this.formatToCanadianCurrency(totalValue);
   }
   fullscreenSelectedInPopup(event?: any) {
@@ -1549,18 +1685,21 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
       return alert("Server Error, Try again later.");
     }
     if (!hasConfig) return alert("You must save a bot configuration first");
+
     this.parentRef?.getSessionToken().then(sessionToken => {
-      this.tradeService.startBot(user?.id ?? 0, sessionToken).then(res => {
-        if (res) {
-          this.parentRef?.showNotification(res);
-          if (res.includes("Trading bot has started")) {
-            this.tradeBotStarted = true;
-            this.tradeBotStartedSince = new Date();
-          } else {
-            this.tradeBotStarted = false;
+      if (user.id) {
+        this.tradeService.startBot(user.id, sessionToken).then(res => {
+          if (res) {
+            this.parentRef?.showNotification(res);
+            if (res.includes("Trading bot has started")) {
+              this.tradeBotStarted = true;
+              this.tradeBotStartedSince = new Date();
+            } else {
+              this.tradeBotStarted = false;
+            }
           }
-        }
-      });
+        });
+      } else { return alert("You must be logged in!"); }
     });
   }
   stopTradeBot() {
@@ -1694,21 +1833,32 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
       console.error('Scroll failed', err);
     }
   }
-  async changeTimePeriodEventOnBTCHistoricalGraph(periodSelected: string) {
-    //15min, 5min, 3m, 1y, 6y, etc
-    console.log("change time", periodSelected);
-    const hours = this.convertTimePeriodToHours(periodSelected);
+  async changeTimePeriodEventOnBTCHistoricalGraph(periodSelected: string) { 
+    const hours = this.convertTimePeriodToHours(periodSelected); 
+
+    // Get current time in UTC
+    const currentTime = new Date();
+    const startDate = new Date(currentTime.getTime() - (hours * 60 * 60 * 1000));
+    console.log(`Start time for filtering (UTC):`, startDate.toISOString());
+
     await this.coinValueService.getAllCoinValuesForGraph(new Date(), hours).then(res => {
-      if (res) { 
-        this.allHistoricalData = res.filter((x: any) => x.name == 'Bitcoin');
-        this.allHistoricalData?.forEach(x => x.valueCAD = x.valueCAD * this.latestCurrencyPriceRespectToCAD);
+      if (res) {
+        this.allHistoricalData = res.filter((x: any) => x.name == this.lineGraphComponent.selectedCoin);
+        this.allHistoricalData?.forEach(x => {
+          x.valueCAD = x.valueCAD * this.latestCurrencyPriceRespectToCAD;
+          if (isNaN(x.valueCAD)) {
+            console.warn(`Invalid valueCAD for BTC: ${x.valueCAD}`);
+            x.valueCAD = 0;
+          }
+        });
+        console.log(`${this.lineGraphComponent.selectedCoin} data for ${periodSelected}:`, this.allHistoricalData?.map(x => ({ timestamp: x.timestamp, valueCAD: x.valueCAD })));
       }
     });
-  } 
+  }
   async changeTimePeriodEventOnVolumeGraph(periodSelected: string) {
     const hours = this.convertTimePeriodToHours(periodSelected);
     await this.tradeService.getTradeVolumeForGraph(new Date(), hours).then(res => {
-      if (res) {  
+      if (res) {
         this.volumeData = res.map((item: any) => ({
           timestamp: item.timestamp,
           valueCAD: item.volumeBTC
@@ -1719,36 +1869,236 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
   }
   async changeTimePeriodEventOnCurrencyExchangeGraph(periodSelected: string) {
     const hours = this.convertTimePeriodToHours(periodSelected);
-    await this.coinValueService.getAllExchangeRateValuesForGraph(new Date(), hours).then(res => {
-      if (res) {   
-        this.allHistoricalExchangeRateData = res;
-      }
+
+    // Clear cache when period changes
+    this.exchangeRateCache.clear();
+
+    // Get data just once
+    const exchangeRates = await this.coinValueService.getAllExchangeRateValuesForGraph(new Date(), hours);
+    if (!exchangeRates) return;
+
+    // Process all data at once
+    const selectCoin = this.selectedFiatConversionName;
+    const selectCurrency = this.selectedCurrency;
+
+    this.allHistoricalExchangeRateDataForGraph = exchangeRates.map((x:ExchangeRate) => {
+      const rate = selectCoin === "CAD"
+        ? x.rate
+        : this.findClosestRate(x.timestamp, selectCoin, selectCurrency) ?? 1;
+      return { ...x, rate };
     });
   }
   async fiatConvertSelectChange() {
-    const fiat = this.btcConvertFIATSelect.nativeElement.value;
+    const selectedFiat = this.btcConvertFIATSelect.nativeElement.value;
+    this.selectedFiatConversionName = selectedFiat;
+    const selectedCurrency = this.selectedCurrency ?? "USD";
+    if (!selectedFiat) return;
 
-    const currencyValue = parseFloat(this.btcConvertCADValue.nativeElement.value.replace(/[$,]/g, '')) || 0; 
-    if (fiat) {
-      const ceRes = await this.coinValueService.getLatestCurrencyValuesByName(fiat) as ExchangeRate;
-      if (ceRes) {
-        this.latestCurrencyPriceRespectToFIAT = ceRes.rate;
-        const fiatValue = this.latestCurrencyPriceRespectToFIAT * currencyValue;
-        this.btcConvertFIATValue.nativeElement.value = this.formatToCanadianCurrency(fiatValue);
+    try {
+      // Get current BTC amount
+      const btcAmount = parseFloat(this.convertBTCInput.nativeElement.value) || 0;
+
+      // Get BTC to USD rate
+      const btcToCADRate = await this.getBtcToCADRate(selectedCurrency);
+
+      // Get USD to selected fiat (CAD) rate
+      const usdToFiatRate = await this.getCurrencyToFiatRate(selectedFiat, selectedCurrency);
+
+      // Calculate USD value
+      const usdValue = btcAmount * btcToCADRate;
+
+      // Calculate CAD value
+      const cadValue = usdValue * usdToFiatRate;
+
+      // Update fields
+      this.convertCurrencyInput.nativeElement.value = this.formatToCanadianCurrency(usdValue);
+      this.convertFIATInput.nativeElement.value = this.formatToCanadianCurrency(cadValue);
+
+      // Update SAT value
+      this.convertSATInput.nativeElement.value = this.formatWithCommas(btcAmount * 1e8);
+
+    } catch (error) {
+      console.error('Error updating fiat rate:', error);
+    }
+  }
+
+  async getBtcToCADRate(currency: string): Promise<number> {
+    const rate = await this.coinValueService.getLatestCoinValuesByName('Bitcoin');
+    return rate?.valueCAD || 1; // Adjust based on your actual rate property
+  }
+
+  async getCurrencyConversionRate(baseCurrency: string, targetCurrency: string): Promise<number> {
+    // If same currency, return 1
+    if (baseCurrency === targetCurrency) {
+      return 1;
+    }
+
+    try {
+      // Get base currency to CAD rate
+      const baseToCadRate = await this.getCurrencyToCadRate(baseCurrency);
+
+      // Get target currency to CAD rate
+      const targetToCadRate = await this.getCurrencyToCadRate(targetCurrency);
+
+      // Calculate conversion rate: (1 unit of baseCurrency in CAD) / (1 unit of targetCurrency in CAD)
+      return baseToCadRate / targetToCadRate;
+    } catch (error) {
+      console.error('Error getting conversion rate:', error);
+      return 1; // Fallback to 1:1 if there's an error
+    }
+  }
+
+  private async getCurrencyToCadRate(currency: string): Promise<number> {
+    console.log("Getting currency to CAD rate for:", currency);
+    if (currency === 'CAD') {
+      return 1;
+    }
+
+    // Check if it's a cryptocurrency
+    const crypto = await this.coinValueService.getLatestCoinValuesByName(currency);
+    if (crypto && crypto.name) {
+      console.log("Crypto rate found:", crypto);
+      return crypto.valueCAD || 1;
+    }
+
+    // Handle fiat currencies
+    const exchangeRate = await this.coinValueService.getLatestCurrencyValuesByName(currency);
+    if (exchangeRate) {
+      // If the rate is CAD → target, we need to invert it
+      if (exchangeRate.baseCurrency === 'CAD') {
+        return 1 / exchangeRate.rate;
       }
-    } 
+      // If it's target → CAD, use directly
+      return exchangeRate.rate;
+    }
+
+    return 1; // Fallback rate
+  }
+  private async getCurrencyToFiatRate(targetFiat: string, baseCurrency: string = this.selectedCurrency ?? ""): Promise<number> {
+    if (!this.selectedCurrency) return 1;
+    targetFiat = targetFiat.replace("BTC", "Bitcoin");
+
+    // If converting to same currency, rate is 1
+    if (targetFiat === this.selectedCurrency) return 1;
+
+
+    // Fallback: Get CAD→TargetFiat rate and calculate via CAD
+    const cadToTarget = await this.coinValueService.getLatestCurrencyValuesByName(targetFiat);
+    if (cadToTarget) {
+      console.log("cadToTarget", cadToTarget);
+      return cadToTarget.rate / this.latestCurrencyPriceRespectToCAD;
+    }
+
+    return 1;
+  }
+  async coinConvertSelectChange() {
+    // Get the selected coin from the dropdown
+    let selectedCoin = this.btcConvertCoinSelect.nativeElement.value;
+    this.selectedCoinConversionName = selectedCoin;
+    if (!selectedCoin) return;
+    selectedCoin = selectedCoin.replace("BTC", "Bitcoin");
+    // Get the current amount entered in the BTC/coin input field
+    const coinAmount = parseFloat(this.convertBTCInput.nativeElement.value) || 0;
+    
+    try {
+      // Get the latest price for the selected coin
+      const coinData = await this.coinValueService.getLatestCoinValuesByName(selectedCoin);
+      if (!coinData || !coinData.valueCAD) return;
+
+      // Calculate values for all fields
+      const currentSelectedCurrencyValue = coinAmount * coinData.valueCAD;
+      const satValue = selectedCoin === 'BTC' ? coinAmount * 1e8 :
+        (coinAmount * coinData.valueCAD) / (this.btcToCadPrice * 1e8);
+
+      // Get current fiat rate if fiat is selected
+      let fiatValue = currentSelectedCurrencyValue;
+      const selectedFiat = this.btcConvertFIATSelect.nativeElement.value;
+      if (selectedFiat) {
+        const fiatRate = await this.coinValueService.getLatestCurrencyValuesByName(selectedFiat);
+        if (fiatRate) {
+          fiatValue = currentSelectedCurrencyValue * fiatRate.rate;
+        }
+      }
+      const periodHours = this.convertTimePeriodToHours(this.lineGraphComponent.selectedPeriod);
+      this.coinValueService.getAllCoinValuesForGraph(new Date(), periodHours).then(res => { 
+        this.allHistoricalData = res?.filter(x => x.name == selectedCoin) ?? []; 
+        this.allHistoricalData?.forEach(x => x.valueCAD = x.valueCAD * this.latestCurrencyPriceRespectToCAD); 
+        this.tradebotTradeValuesForMainGraph = [];
+        this.lineGraphComponent.data2 = []; 
+         this.lineGraphComponent.selectedCoin = selectedCoin;  
+      });
+
+      // Update all fields
+      this.convertCurrencyInput.nativeElement.value = this.formatToCanadianCurrency(currentSelectedCurrencyValue * (this.latestCurrencyPriceRespectToCAD ?? 1));
+      this.convertSATInput.nativeElement.value = this.formatWithCommas(satValue);
+      this.convertFIATInput.nativeElement.value = this.formatToCanadianCurrency(fiatValue);
+
+      // Store the conversion rate for this coin
+      this.latestCurrencyPriceRespectToFIAT = coinData.valueCAD;
+
+    } catch (error) {
+      console.error('Error in coin conversion:', error);
+    }
   }
   convertTimePeriodToHours(period: string): number {
-    const num = parseFloat(period);
-    if (isNaN(num)) return 0; 
-    if (period.endsWith("min")) return num / 60;
-    if (period.endsWith("h")) return num;
-    if (period.endsWith("d")) return num * 24;
-    if (period.endsWith("w")) return num * 24 * 7;
-    if (period.endsWith("m")) return num * 30 * 24; // Approximate a month as 30 days
-    if (period.endsWith("y")) return num * 365 * 24; // Approximate a year as 365 days
-    if (period == "max") return 0; // Approximate a year as 365 days
-  
+    const periodRegex = /^(\d+)\s*(m|min|mins|minute|minutes|h|hour|hours|d|day|days|w|week|weeks|m|month|months|y|year|years)$/;
+    const match = period.trim().toLowerCase().match(periodRegex);
+
+    if (match) {
+      const value = parseInt(match[1], 10);
+      const unit = match[2];
+
+      switch (unit) {
+        case 'min':
+        case 'mins':
+        case 'minute':
+        case 'minutes':
+          return value / 60; // Minutes to hours
+        case 'h':
+        case 'hour':
+        case 'hours':
+          return value; // Hours
+        case 'd':
+        case 'day':
+        case 'days':
+          return value * 24;
+        case 'w':
+        case 'week':
+        case 'weeks':
+          return value * 24 * 7;
+        case 'm':
+        case 'month':
+        case 'months':
+          return value * 24 * 30;
+        case 'y':
+        case 'year':
+        case 'years':
+          return value * 24 * 365;
+        default:
+          console.warn(`Unknown period unit: ${unit}`);
+          return 1;
+      }
+    }
+    console.warn(`Invalid period format: ${period}`);
+    return 1;
+  }
+  getLastTradePercentage() {
+    if (this.tradebotBalances && this.cadToUsdRate && this.btcUSDRate) {
+      const price = parseFloat(this.tradebotBalances[0].btc_price_usdc);
+      const rate = this.btcUSDRate ?? 1;
+      return ((rate - price) / price) * 100;
+    }
     return 0;
+  }
+  getLastTradebotTradeDisplay() {
+    if (this.tradebotBalances && this.cadToUsdRate) {
+      const value = this.tradebotBalances[0].value;
+      const price = parseFloat(this.tradebotBalances[0].btc_price_usdc); 
+      const buyOrSell = this.tradebotBalances[0].to_currency == "XBT" ? "Buy" : "Sell";
+      const timestamp = this.getUtcTimeSince(this.tradebotBalances[0].timestamp);
+      const vp = parseFloat(value) * price; 
+      return `[${timestamp}] ${buyOrSell}:${value}(${this.formatToCanadianCurrency(vp)}) @ ${this.formatToCanadianCurrency(price)} `;
+    }
+    return '';
   }
 }

@@ -66,7 +66,9 @@
         </div>
         <div class="filetype" *ngIf="displayExtraInfo || otherFileExtensionsIncludes(this.selectedFileExtension)">
           <button (click)="copyLink()" title="Share Link" *ngIf="displayExtraInfo">📋Share</button>
-          <button (click)="download(selectedFile!, true)" *ngIf="displayExtraInfo || otherFileExtensionsIncludes(this.selectedFileExtension)">📥Download</button>
+          <button (click)="download(selectedFile, true)"
+           *ngIf="selectedFile && (displayExtraInfo || otherFileExtensionsIncludes(this.selectedFileExtension))"
+           [title]="'Download ' + (selectedFile.givenFileName ?? selectedFile.fileName ?? '')">📥Download {{ shortenFilename(selectedFile.givenFileName ?? selectedFile.fileName ?? '') }}</button>
         </div>
       </div>
     </div>

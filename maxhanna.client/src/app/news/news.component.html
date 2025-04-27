@@ -6,7 +6,7 @@
     <table>
       <tr>
         <td>
-          <input type="text" #searchKeywords placeholder="Search news by keyword" (keyup.enter)="searchByKeyword()" />
+          <input type="text" #searchKeywords placeholder="Search news by keyword" (keyup)="searchByKeyword()" />
         </td>
         <td>
           <button (click)="searchByKeyword()">🔍Keywords</button>
@@ -22,8 +22,13 @@
       </tr>
     </table> 
   </div>
+  <div class="paginationControls" *ngIf="newsArticles && newsArticles.totalResults && newsArticles.totalResults > pageSize">
+    <button (click)="previousPage()" [disabled]="currentPage === 1">Previous</button>
+    <span>Page {{currentPage}} of {{totalPages}}</span>
+    <button (click)="nextPage()" [disabled]="currentPage === totalPages">Next</button>
+  </div> 
   <!-- Display list of news articles -->
-  <div class="newsList mainTableContainer" *ngIf="newsArticles != null">
+  <div class="newsList mainTableContainer" *ngIf="newsArticles != null" #newsList>
     <span class="smallFont">Results: {{newsArticles.totalResults}}</span>
     <div *ngFor="let newsArticle of newsArticles.articles">
       <div class="articleContainer" (click)="selectArticle(newsArticle)">

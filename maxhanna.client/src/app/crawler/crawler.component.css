@@ -40,13 +40,15 @@
   border: var(--main-border);
   border-radius: 12px;
   margin: 22px;
-  padding: 12px; 
+  padding: 12px;
   display: flex;
   flex-direction: column;
   word-break: break-all;
 }
 
 .metadataSearchWrapper {
+  max-height: CALC(var(--vh, 1vh)* 100 - 155px);
+  overflow: auto;
 }
 
 .metadataTitleWrapper {
@@ -81,9 +83,10 @@
   word-break: break-word;
   text-align: left;
 }
- 
 
-.keywordsClass, .authorClass {
+
+.keywordsClass,
+.authorClass {
   font-size: xx-small;
 }
 
@@ -91,6 +94,7 @@
   margin: 10px;
   font-size: smaller;
 }
+
 .groupDomainTitle {
   font-size: x-small;
   color: var(--secondary-font-color);
@@ -107,24 +111,29 @@
   flex-direction: row;
   text-align: left;
 }
+
 .metadataTitleLinkFavouriteWrapper a {
   text-align: left !important;
 }
+
 .metadataTitleLinkFavouriteWrapper button {
   cursor: pointer;
 }
-.groupLinkWrapperDiv { 
+
+.groupLinkWrapperDiv {
   display: flex;
   flex-direction: row;
   flex-wrap: nowrap;
 }
+
 .groupLinkDataWrapperDiv {
   width: CALC(100% - 50px);
 }
- 
-.expandButton{
-  width: 100%; 
+
+.expandButton {
+  width: 100%;
   cursor: pointer;
   text-decoration: underline;
   text-align: center;
+  padding-top: 5px;
 }

@@ -15,7 +15,7 @@
     <input type="submit" value="💾Save" (click)="addTodo()" />
   </fieldset>
 
-  <div class="mainTableContainer">
+  <div class="mainTableContainer" [style.opacity]="!isLoading ? '1' : '0.5'">
     <table class="mainTable" id="todoTable">
       <thead>
         <tr>
@@ -36,8 +36,8 @@
           <td><input type="button" value="❌" (click)="deleteTodo(item.id!);" id="todoDeleteNo{{item.id!}}" /></td>
         </tr>
       </tbody>
-    </table>
-    <div *ngIf="todos.length <= 0">Nothing in this list yet!</div>
+    </table><div *ngIf="todos.length <= 0 && !isLoading">Nothing in this list yet!</div>
+    <div *ngIf="todos.length <= 0 && isLoading">Loading...</div>
   </div>
 </div>
 

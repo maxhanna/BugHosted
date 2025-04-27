@@ -25,41 +25,26 @@ namespace maxhanna.Server.Controllers
 		}
 
 		[HttpPost(Name = "GetAllNews")]
-		public async Task<ArticlesResult> GetAllNews([FromQuery] string? keywords)
+		public async Task<ArticlesResult> GetAllNews(
+		[FromQuery] string? keywords,
+		[FromQuery] int page = 1,
+		[FromQuery] int pageSize = 50)
 		{
-			string cleanKeywords = string.Join(" OR ", (keywords ?? "").Split(',')
-														 .Select(k => k.Trim())
-														 .Where(k => !string.IsNullOrEmpty(k)));
-			 
 			try
 			{
-				var newsApiClient = new NewsApiClient("f782cf1b4d3349dd86ef8d9ac53d0440");
-				var articlesResponse = new ArticlesResult();
 				if (keywords != null)
 				{
-
-					articlesResponse = newsApiClient.GetEverything(new EverythingRequest
-					{
-						Q = cleanKeywords,
-						SortBy = SortBys.PublishedAt,
-						Language = Languages.EN
-					});
+					return await _newsService.GetArticlesFromDb(keywords, null, page, pageSize);
 				}
 				else
 				{
-					articlesResponse = await _newsService.GetTopHeadlinesFromDb();
-				}
-				if (articlesResponse.Status == Statuses.Ok)
-				{
-					return articlesResponse;
+					return await _newsService.GetArticlesFromDb(null, null, page, pageSize);
 				}
 			}
 			catch (Exception)
-			{ 
+			{
 				return new ArticlesResult();
 			}
-
-			return new ArticlesResult();
 		}
 
 		[HttpPost("/News/GetDefaultSearch", Name = "GetDefaultSearch")]

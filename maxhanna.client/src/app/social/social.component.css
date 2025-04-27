@@ -29,6 +29,7 @@
   align-content: center;
   justify-content: flex-start;
   align-items: stretch;
+  padding: 5px;
 }
 
 .mainTopicSelector {
@@ -237,7 +238,7 @@ singleAttachment {
 
 .commentBubbleIcon {
   position: relative;
-  top: -0.5px;
+  /* top: -0.5px; */
 }
 
 @media only screen and (max-width : 667px) {
@@ -371,16 +372,15 @@ singleAttachment {
 
 .storyHeader {
   display: flex;
-  justify-content: center;
+  /* justify-content: center; */
   /*  height: 25px;*/
-  align-content: center;
+  /* align-content: center;
   flex-direction: row;
   flex-wrap: nowrap;
   align-items: center;
-  font-weight: bolder;
-  padding-left: 15px;
+  font-weight: bolder; */
+  padding-left: 10px;
   padding-right: 10px;
-  padding-top: 2px;
   border: var(--main-border);
   background: linear-gradient(to bottom, var(--main-highlight-color), transparent);
   border-top-left-radius: 8px;
@@ -390,8 +390,9 @@ singleAttachment {
 .storyDate {
   color: var(--secondary-font-color);
   font-size: 11px;
-  display: inline-block;
+  display: inline-flex;
   width: 100%;
+  align-items: center;
 }
 
 .textExpanderDiv {
@@ -621,7 +622,7 @@ singleAttachment {
   text-align: center;
   background-color: unset;
   color: var(--secondary-font-color);
-  min-width: 35px;
+  /* min-width: 35px; */
   /*display: flex;
   flex-wrap: nowrap;
   text-shadow: 1px 1px var(--secondary-font-color); 
@@ -637,6 +638,7 @@ singleAttachment {
 .postOptionButtonWrapper {
   display: flex;
   flex-wrap: nowrap;
+  align-items: center;
 }
 
 .showPostOptionButton {

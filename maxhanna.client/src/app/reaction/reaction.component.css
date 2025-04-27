@@ -1,8 +1,8 @@
 .addReactionDiv {
-  position: relative;
+  /* position: relative;
   bottom: 0;
   right: 0;
-  font-size: small;
+  font-size: small; */
   color: var(--main-font-color);
   display: inline-block;
   white-space: nowrap;
@@ -19,7 +19,7 @@
 }
 .addReactionSpan, .addReactionSpanNoBorder {
   white-space: nowrap; 
-  padding: 4px;
+  padding-right: 5px;
   cursor: pointer;
   text-shadow: 1px 1px black;
   display: flex;
@@ -29,7 +29,7 @@
   align-content: center;
   flex-wrap: nowrap;
   flex-direction: row;
-  line-height: var(--main-font-size);
+  line-height: unset;
 } 
 
 .reactionWrapper {
@@ -71,8 +71,8 @@
 }
 
 .reactionsContainer {
-  display: flex;
-  align-items: center;
+  display: inline-flex;
+  /* align-items: center; */
   justify-content: center;
   max-width: 120px;  
   overflow: hidden;
@@ -80,16 +80,14 @@
 
 .reactionsDisplaySpan {
   display: inline-block;
-  position:relative;
-  top: 2px;
+  position:relative; 
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
   max-width: 80px;
   width: 100%;
   direction: rtl;
-  text-align: left;
-  margin-right: 5px;
+  text-align: left; 
   line-height: unset;
 }
 

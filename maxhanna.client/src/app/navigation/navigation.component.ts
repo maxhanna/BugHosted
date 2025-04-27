@@ -31,6 +31,11 @@ export class NavigationComponent implements OnInit, OnDestroy {
   navbarReady = false;
   navbarCollapsed: boolean = false;
   isBTCRising = true;
+  isLoadingNotifications = false;
+  isLoadingTheme = false;
+  isLoadingCryptoHub = false;
+  isLoadingWordlerStreak = false;
+  isLoadingCalendar = false;
   @Input() user?: User;
 
   constructor(public _parent: AppComponent,
@@ -76,8 +81,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
     });
   }
   async getNotifications() {
-    if (!this._parent || !this._parent.user || this._parent.user.id == 0) return;
-
+    if (!this._parent || !this._parent.user || this._parent.user.id == 0) return; 
     this.getCurrentWeatherInfo();
     this.getCalendarInfo();
     this.getCryptoHubInfo();
@@ -96,6 +100,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
     if (!this._parent || !this._parent.user) {
       return;
     }
+    this.isLoadingNotifications = true;
     const res = await this.notificationService.getNotifications(this._parent.user.id ?? 0) as UserNotification[];
     if (res) {
       this._parent.navigationItems.filter(x => x.title == "Notifications")[0].content = res.filter(x => x.isRead == false).length + '';
@@ -112,10 +117,12 @@ export class NavigationComponent implements OnInit, OnDestroy {
     } else {
       this._parent.navigationItems.filter(x => x.title == "Notifications")[0].content = '';
     }
+    this.isLoadingNotifications = false;
   }
 
   async getThemeInfo() {
     if (!this._parent?.user?.id) return;
+    this.isLoadingTheme = true;
     try {
       const theme = await this.userService.getTheme(this._parent.user.id);
 
@@ -126,12 +133,13 @@ export class NavigationComponent implements OnInit, OnDestroy {
     } catch (error) {
       console.error('Error fetching theme data:', error);
     }
+    this.isLoadingTheme = false;
   }
 
   async getCalendarInfo() {
     if (!this.user) { return; }
     if (!this._parent.userSelectedNavigationItems.find(x => x.title == "Calendar")) { return; }
-
+    this.isLoadingCalendar = true;
     let notificationCount = 0;
     const today = new Date();
     const startDate = new Date(Date.UTC(today.getFullYear(), today.getMonth(), today.getDate())); // Midnight today in UTC
@@ -153,6 +161,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
     }
 
     this._parent.navigationItems.find(x => x.title == "Calendar")!.content = (notificationCount != 0 ? notificationCount + '' : '');
+    this.isLoadingCalendar = false;
   }
   async getCurrentWeatherInfo() {
     if (!this._parent.user?.id || !this._parent.userSelectedNavigationItems.find(x => x.title == "Weather")) { return; }
@@ -174,7 +183,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
     if (!this.user?.id) { return; }
     if (!this._parent.userSelectedNavigationItems.find(x => x.title.toLowerCase().includes("crypto-hub"))) { return; }
     let tmpLocalProfitability = 0;
-
+    this.isLoadingCryptoHub = true;
     const res1 = await this.miningService.getMiningRigInfo(this.user.id) as Array<MiningRig>;
     res1?.forEach(x => {
       tmpLocalProfitability += x.localProfitability!;
@@ -193,14 +202,17 @@ export class NavigationComponent implements OnInit, OnDestroy {
       }
       this._parent.navigationItems.filter(x => x.title == "Crypto-Hub")[0].content += "\n" + btcToCADRate.toFixed(0) + "$";
     }
+    this.isLoadingCryptoHub = false;
   }
 
   async getWordlerStreakInfo() {
     if (!this._parent.user?.id || !this._parent.userSelectedNavigationItems.find(x => x.title.toLowerCase().includes("wordler"))) { return; }
+    this.isLoadingWordlerStreak = true;
     const res = await this.wordlerService.getTodaysDayStreak(this._parent.user.id);
     if (res && res != "0") {
       this._parent.navigationItems.find(x => x.title == "Wordler")!.content = res;
     }
+    this.isLoadingWordlerStreak = false;
   }
   toggleMenu() {
     this.toggleNavButton.nativeElement.style.display = "block";

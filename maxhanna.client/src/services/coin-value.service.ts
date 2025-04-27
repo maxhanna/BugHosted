@@ -13,7 +13,7 @@ export class CoinValueService {
   constructor(private http: HttpClient) { }
 
   // Get all coin values
-  async getAllCoinValues() {
+  async getAllCoinValues(): Promise<CoinValue[] | undefined> {
     try {
       const response = await fetch(`/coinvalue`, {
         method: 'POST',
@@ -24,11 +24,11 @@ export class CoinValueService {
 
       return await response.json();
     } catch (error) {
-      return null;
+      return;
     }
   }
 
-  async getAllCoinValuesForGraph(from?: Date, hourRange?: number) {
+  async getAllCoinValuesForGraph(from?: Date, hourRange?: number): Promise<CoinValue[] | undefined> {
     try {
       const response = await fetch(`/coinvalue/getallforgraph`, {
         method: 'POST',
@@ -40,7 +40,7 @@ export class CoinValueService {
 
       return await response.json();
     } catch (error) {
-      return null;
+      return;
     }
   }
 
@@ -180,7 +180,8 @@ export class CoinValueService {
   }
 
   // Get the latest coin values by name
-  async getLatestCurrencyValuesByName(name: string) {
+  async getLatestCurrencyValuesByName(name?: string) {
+    if (!name) return;
     const params = new HttpParams().set('name', name);
 
     try {

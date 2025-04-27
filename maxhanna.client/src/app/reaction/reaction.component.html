@@ -1,22 +1,18 @@
 <div class="reactionsContainer" id="reactionsContainer">
-  <div class="addReactionDiv cursorPointer" (click)="showReactionsOnClick()" *ngIf="!(userHasReacted() && reactionCount == 1)">
-    <span class="reactionsDisplaySpan">{{reactionsDisplay}}</span> 
+  <div class="addReactionDiv cursorPointer reactionsDisplaySpan" (click)="showReactionsOnClick()"
+    *ngIf="!(userHasReacted() && reactionCount == 1)">
+    {{reactionsDisplay}}
   </div>
 
   <div class="addReactionDiv myReactionDiv" (click)="reactionDisplayOnClick()">
-    <button class="addReactionButton"
-            (click)="reactionButtonOnClick($event)"
-            [id]="'addReactionSpan_' + reactionId"
-            [title]="(userHasReacted() ? 'Change' : 'Add') + ' Reaction'"
-            *ngIf="!showSpan">
+    <button class="addReactionButton" (click)="reactionButtonOnClick($event)" [id]="'addReactionSpan_' + reactionId"
+      [title]="(userHasReacted() ? 'Change' : 'Add') + ' Reaction'" *ngIf="!showSpan">
       {{userHasReacted() ? replaceReactionType(userReaction) : '✚'}}
       <span class="addReactionTitleSpan" *ngIf="!userHasReacted()" title="Reactions"></span>
     </button>
     <span [class]="showSpanBorder ? 'addReactionSpan' : 'addReactionSpanNoBorder'"
-          (click)="reactionButtonOnClick($event)"
-          [id]="'addReactionSpan_' + reactionId"
-          [title]="(userHasReacted() ? 'Change' : 'Add') + ' Reaction'"
-          *ngIf="showSpan">
+      (click)="reactionButtonOnClick($event)" [id]="'addReactionSpan_' + reactionId"
+      [title]="(userHasReacted() ? 'Change' : 'Add') + ' Reaction'" *ngIf="showSpan">
       {{userHasReacted() ? replaceReactionType(userReaction) : '✚'}}
       <span class="addReactionTitleSpan" *ngIf="!userHasReacted()" title="Reactions"></span>
     </span>
@@ -27,12 +23,14 @@
   <div class="popupPanelTitle">
     Reaction Choices
   </div>
-  <div class="searchInputDiv"> 
-    <input #reactionFilter placeholder="Filter/Search" (input)="searchForReaction()" /><button (click)="searchForReaction()">🔍Search</button>
+  <div class="searchInputDiv">
+    <input #reactionFilter placeholder="Filter/Search" (input)="searchForReaction()" /><button
+      (click)="searchForReaction()">🔍Search</button>
   </div>
-   
+
   <div class="reactionChoices">
-    <div class="reactionChoice" *ngFor="let reaction of filteredReactions" (click)="selectReaction(reaction.type)" [title]="reaction.label">
+    <div class="reactionChoice" *ngFor="let reaction of filteredReactions" (click)="selectReaction(reaction.type)"
+      [title]="reaction.label">
       {{reaction.emoji}}
     </div>
   </div>
@@ -49,12 +47,13 @@
   <div class="reactionsOverlayWrapper optionsStatsWrapperDiv">
     <div *ngFor="let reaction of currentReactions" class="reactedReactionDiv optionsStatsDiv">
       <div class="optionsStatsHeader">
-        <app-user-tag [user]="reaction.user" [inputtedParentRef]="inputtedParentRef" [displayMiniTag]="true" [previousComponent]="previousComponent"></app-user-tag>
+        <app-user-tag [user]="reaction.user" [inputtedParentRef]="inputtedParentRef" [displayMiniTag]="true"
+          [previousComponent]="previousComponent"></app-user-tag>
       </div>
       <div class="optionsStatsDescription">
         <span class="reactionTypeSpan" [title]="reaction.type">{{replaceReactionType(reaction.type)}}</span>
         <span class="smallFont">{{daysSinceDate(reaction.timestamp)}}</span>
       </div>
     </div>
-  </div> 
+  </div>
 </div>

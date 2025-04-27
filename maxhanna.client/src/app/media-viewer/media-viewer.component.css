@@ -37,10 +37,12 @@
 
 .mediaDiv {
   background-color: transparent;
-  display: block;
+  display: flex;
   margin-left: auto;
   margin-right: auto;
   text-align: center;
+  align-items: center;
+  justify-content: center;
 }
 
 .media {

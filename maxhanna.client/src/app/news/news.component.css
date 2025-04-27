@@ -92,7 +92,7 @@
 
 
 .newsList {
-  margin-top: 20px;
+  margin-top: 5px;
 }
 
 .newsItem {
@@ -131,7 +131,7 @@
 }
 
 .mainTableContainer {
-  height: CALC(var(--vh, 1vh) * 100 - 125px);
+  height: CALC(var(--vh, 1vh) * 100 - 170px);
   overflow: auto;
 }
 
@@ -154,10 +154,7 @@
 .articleDetails {
   margin-top: 20px;
 }
-
-.selectedArticleTitle {
-
-}
+ 
 
 .articleDetailData {
   width: fit-content;
@@ -231,4 +228,24 @@
   justify-content: space-evenly;
   align-items: center;
   cursor: default;
+}
+.paginationControls {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 1rem;
+  margin-top: 1rem; 
+}
+
+.paginationControls button {
+  padding: 0.5rem 1rem;
+  background-color: #f0f0f0;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.paginationControls button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }

@@ -55,3 +55,10 @@
     </div>
   </ng-container>
 </div>
+<div class="loading-notification-container">
+  <div *ngIf="isLoadingNotifications" class="loadingNotification">Loading Notifications...</div>
+  <div *ngIf="isLoadingTheme" class="loadingNotification">Loading Theme...</div>
+  <div *ngIf="isLoadingCryptoHub" class="loadingNotification">Loading Crypto Hub...</div>
+  <div *ngIf="isLoadingWordlerStreak" class="loadingNotification">Loading Wordler Streak...</div>
+  <div *ngIf="isLoadingCalendar" class="loadingNotification">Loading Calendar...</div>
+</div>

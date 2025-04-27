@@ -68,6 +68,7 @@ export class CalendarComponent extends ChildComponent implements OnInit {
   }
 
   private async initilizeCalendarWithDate() {
+    this.startLoading();
     this.selectedDate = undefined;
     await this.setCalendarDates(this.now);
     this.currentDate = new Date();
@@ -84,6 +85,7 @@ export class CalendarComponent extends ChildComponent implements OnInit {
       this.selectedDate = tmpSelectedDate;
       this.getCalendarDetails(this.selectedDate!);
     }
+    this.stopLoading();
   }
 
   monthForwardClick() {
@@ -261,9 +263,11 @@ export class CalendarComponent extends ChildComponent implements OnInit {
   }
 
   private async refreshCalendar() {
+    this.startLoading();
     await this.getCalendarEntries();
     await this.setCalendarDates(this.now);
     await this.getCalendarDetails(this.selectedDate!);
+    this.stopLoading();
 
   }
 

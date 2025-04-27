@@ -35,6 +35,7 @@ import { CrawlerComponent } from './crawler/crawler.component';
 import { CrawlerService } from '../services/crawler.service';
 import { FavouriteService } from '../services/favourite.service';
 import { FileService } from '../services/file.service'; 
+import { TopComponent } from './top/top.component';
 
 
 @Component({
@@ -81,7 +82,8 @@ export class AppComponent implements OnInit, AfterViewInit {
     { ownership: 0, icon: "📇", title: "Contacts", content: undefined }, 
     { ownership: 0, icon: "📰", title: "News", content: undefined }, 
     { ownership: 0, icon: "₿", title: "Crypto-Hub", content: undefined },
-    { ownership: 0, icon: "🔍", title: "Favourites", content: undefined }, 
+    { ownership: 0, icon: "🔍", title: "Favourites", content: undefined },
+    { ownership: 0, icon: "💯", title: "Top100", content: undefined },
     { ownership: 0, icon: "🎨", title: "Theme", content: undefined }, 
     { ownership: 0, icon: "🧐", title: "HostAi", content: undefined }, 
     { ownership: 0, icon: "🕸️", title: "Crawler", content: undefined },
@@ -117,6 +119,7 @@ export class AppComponent implements OnInit, AfterViewInit {
     "MediaViewer": MediaViewerComponent,
     "Crawler": CrawlerComponent,
     "Meme": MemeComponent,
+    "Top100": TopComponent,
     "Notifications": NotificationsComponent,
     "UpdateUserSettings": UpdateUserSettingsComponent
   };
@@ -221,8 +224,11 @@ export class AppComponent implements OnInit, AfterViewInit {
         { ownership: 0, icon: "🗨️", title: "Chat", content: undefined },
         { ownership: 0, icon: "🧠", title: "Wordler", content: undefined },
         { ownership: 0, icon: "🎮", title: "Emulation", content: undefined },
-        { ownership: 0, icon: "📁", title: "Files", content: undefined }, 
-        { ownership: 0, icon: "₿", title: "Crypto-Hub", content: undefined }, 
+        { ownership: 0, icon: "📁", title: "Files", content: undefined },
+        { ownership: 0, icon: "₿", title: "Crypto-Hub", content: undefined },
+        { ownership: 0, icon: "🔍", title: "Favourites", content: undefined },
+        { ownership: 0, icon: "🕸️", title: "Crawler", content: undefined },
+        { ownership: 0, icon: "🧐", title: "HostAi", content: undefined }, 
         { ownership: 0, icon: "👤", title: "User", content: undefined },
       ];
     } else {

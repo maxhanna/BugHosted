@@ -25,6 +25,7 @@ namespace maxhanna.Server.Services
 		private DateTime _lastHourlyTaskRun = DateTime.MinValue;
 		private DateTime _lastMidDayTaskRun = DateTime.MinValue;
 		private bool isCrawling = false;
+		private bool lastWasCrypto = false;
 
 		public SystemBackgroundService(Log log, IConfiguration config, WebCrawler webCrawler, KrakenService krakenService, NewsService newsService)
 		{
@@ -56,7 +57,8 @@ namespace maxhanna.Server.Services
 					await UpdateLastBTCWalletInfo();
 					await FetchAndStoreCoinValues();
 					_miningApiService.UpdateWalletInDB(_config, _log);
-					await _newsService.GetAndSaveTopQuarterHourlyHeadlines();
+					lastWasCrypto = !lastWasCrypto;
+					await _newsService.GetAndSaveTopQuarterHourlyHeadlines(!lastWasCrypto ? "Cryptocurrency" : null); 
 				}
 				// Check if 1 hour has passed since the last coin fetch
 				if ((DateTime.Now - _lastHourlyTaskRun).TotalHours >= 1)
@@ -222,11 +224,11 @@ namespace maxhanna.Server.Services
 
 				// Fetch the most recently updated BTC wallet where the last_fetched timestamp is older than 1 hour
 				string fetchWalletSql = @"
-            SELECT id, user_id, btc_address, last_fetched 
-            FROM user_btc_wallet_info 
-            WHERE last_fetched < UTC_TIMESTAMP() - INTERVAL 1 HOUR
-            ORDER BY last_fetched ASC
-            LIMIT 1;";
+					SELECT id, user_id, btc_address, last_fetched 
+					FROM user_btc_wallet_info 
+					WHERE last_fetched < UTC_TIMESTAMP() - INTERVAL 1 HOUR
+					ORDER BY last_fetched ASC
+					LIMIT 1;";
 
 				WalletInfo? wallet = null;
 				using (var cmd = new MySqlCommand(fetchWalletSql, conn))
@@ -259,8 +261,8 @@ namespace maxhanna.Server.Services
 
 				// Insert the new wallet balance data into user_btc_wallet_balance
 				string insertSql = @"
-            INSERT INTO user_btc_wallet_balance (wallet_id, balance, fetched_at)
-            VALUES (@WalletId, @FinalBalance, UTC_TIMESTAMP());";
+					INSERT INTO user_btc_wallet_balance (wallet_id, balance, fetched_at)
+					VALUES (@WalletId, @FinalBalance, UTC_TIMESTAMP());";
 
 				using (var insertCmd = new MySqlCommand(insertSql, conn))
 				{
@@ -273,9 +275,9 @@ namespace maxhanna.Server.Services
 
 				// Update the last_fetched timestamp in user_btc_wallet_info
 				string updateLastFetchedSql = @"
-            UPDATE user_btc_wallet_info 
-            SET last_fetched = UTC_TIMESTAMP() 
-            WHERE id = @WalletId;";
+					UPDATE user_btc_wallet_info 
+					SET last_fetched = UTC_TIMESTAMP() 
+					WHERE id = @WalletId;";
 
 				using (var updateCmd = new MySqlCommand(updateLastFetchedSql, conn))
 				{
@@ -448,8 +450,8 @@ namespace maxhanna.Server.Services
 				try
 				{
 					var deleteSql = @"
-                DELETE FROM maxhanna.news_headlines 
-                WHERE saved_at < UTC_TIMESTAMP() - INTERVAL 5 YEAR;";
+						DELETE FROM maxhanna.news_headlines 
+						WHERE saved_at < UTC_TIMESTAMP() - INTERVAL 5 YEAR;";
 
 					await using (var deleteCmd = new MySqlCommand(deleteSql, conn, transaction))
 					{
@@ -772,12 +774,11 @@ namespace maxhanna.Server.Services
 					if (coinData != null)
 					{
 						foreach (var coin in coinData)
-						{
-							// First check if there's a recent entry for this coin
+						{ 
 							var checkSql = @"
-                        SELECT COUNT(*) FROM coin_value 
-                        WHERE symbol = @Symbol 
-                        AND timestamp >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 1 MINUTE)";
+								SELECT COUNT(*) FROM coin_value 
+								WHERE symbol = @Symbol 
+								AND timestamp >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 1 MINUTE)";
 
 							using (var checkCmd = new MySqlCommand(checkSql, conn))
 							{
@@ -821,8 +822,8 @@ namespace maxhanna.Server.Services
 				currency = "CAD",
 				sort = "rank",
 				order = "ascending",
-				offset = 0,
-				limit = 8,
+				offset = 0, 
+				maximum = 100,
 				meta = true
 			};
 

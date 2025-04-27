@@ -7,6 +7,10 @@
   width:25px;
   height:25px;
   white-space: nowrap;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  align-content: center;
 }
 .tinyAvatarPic {
   width: 25px;
@@ -53,16 +57,16 @@
   width: unset !important;
 }
 .miniAvatarBust {
-  transform: scale(0.5) translateX(-15px) translateY(-25px);
+  transform: scale(0.5) translateX(-15px);
   width: 25px;
 }
 .miniAvatarBug {
   left: -30px !important;
   top: -25px !important;
 } 
-.avatar { 
+/* .avatar { 
   line-height: 50px !important;
-}
+} */
 .avatarBug {
   left: 6px;
   top: -77px;

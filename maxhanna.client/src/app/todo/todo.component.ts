@@ -49,10 +49,10 @@ export class TodoComponent extends ChildComponent implements OnInit, AfterViewIn
 
     this.clearInputs();
   }
-  ngOnDestroy() { 
+  ngOnDestroy() {
     this.parentRef?.removeResizeListener();
   }
-  ngAfterViewInit() { 
+  ngAfterViewInit() {
     this.setTodoDropdownPlaceholder();
   }
   clearInputs() {
@@ -63,11 +63,12 @@ export class TodoComponent extends ChildComponent implements OnInit, AfterViewIn
   async typeOnChange() {
     this.ngOnInit();
     this.setTodoDropdownPlaceholder();
-  } 
+  }
 
   async getTodoInfo() {
     if (!this.parentRef?.user?.id) return;
     try {
+      this.startLoading();
       const terms = this.searchInput ? this.searchInput.nativeElement.value : "";
       const search = (!terms || terms.trim() == "") ? undefined : terms;
 
@@ -75,6 +76,7 @@ export class TodoComponent extends ChildComponent implements OnInit, AfterViewIn
       const res = await this.todoService.getTodo(this.parentRef.user.id, type, search);
       this.todos = res;
       this.todoCount = this.todos?.length;
+      this.stopLoading();
     } catch (error) {
       console.error("Error fetching calendar entries:", error);
     }
@@ -85,6 +87,7 @@ export class TodoComponent extends ChildComponent implements OnInit, AfterViewIn
     if (!this.todoInput.nativeElement.value) {
       return alert("Cannot add empty values.");
     }
+    this.startLoading();
     let tmpTodo = new Todo();
     tmpTodo.date = new Date();
     tmpTodo.type = this.selectedType.nativeElement.value;
@@ -93,10 +96,11 @@ export class TodoComponent extends ChildComponent implements OnInit, AfterViewIn
 
     await this.todoService.createTodo(this.parentRef.user.id, tmpTodo);
     this.ngOnInit();
+    this.stopLoading();
   }
   async deleteTodo(id: number) {
     if (!this.parentRef?.user?.id) return;
-
+    this.startLoading();
     await this.todoService.deleteTodo(this.parentRef.user.id, id);
     if (document.getElementById("todoNo" + id)) {
       document.getElementById("todoNo" + id)!.style.textDecoration = "line-through";
@@ -104,6 +108,7 @@ export class TodoComponent extends ChildComponent implements OnInit, AfterViewIn
     }
     this.todoCount--;
     this.clearInputs();
+    this.stopLoading();
   }
   async search() {
     this.getTodoInfo();
@@ -150,7 +155,7 @@ export class TodoComponent extends ChildComponent implements OnInit, AfterViewIn
         this.parentRef?.showNotification(res);
       }
     });
-  } 
+  }
   private setTodoDropdownPlaceholder() {
     setTimeout(() => {
       const typeValue = this.selectedType?.nativeElement?.value || '';

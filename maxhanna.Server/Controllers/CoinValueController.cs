@@ -821,18 +821,18 @@ namespace maxhanna.Server.Controllers
 					await conn.OpenAsync();
 
 					string sql = $@"
-                SELECT 
-										wi.{type}_address, 
-										wb.balance,  
-										wb.fetched_at
-								FROM user_{type}_wallet_info wi
-								LEFT JOIN user_{type}_wallet_balance wb ON wi.id = wb.wallet_id
-								WHERE wi.user_id = @UserId 
-								AND wb.fetched_at = (
-										SELECT MAX(fetched_at) 
-										FROM user_{type}_wallet_balance 
-										WHERE wallet_id = wi.id
-								);";
+					SELECT 
+						wi.{type}_address, 
+						wb.balance,  
+						wb.fetched_at
+					FROM user_{type}_wallet_info wi
+					LEFT JOIN user_{type}_wallet_balance wb ON wi.id = wb.wallet_id
+					WHERE wi.user_id = @UserId 
+					AND wb.fetched_at = (
+						SELECT MAX(fetched_at) 
+						FROM user_{type}_wallet_balance 
+						WHERE wallet_id = wi.id
+					);";
 
 					using (var cmd = new MySqlCommand(sql, conn))
 					{

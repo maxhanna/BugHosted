@@ -99,18 +99,17 @@ public class KrakenService
 		decimal currentPrice = btcPriceUSDC.Value;
 		decimal spread = (currentPrice - lastPrice) / lastPrice;
 		decimal spread2 = firstPriceToday != null ? (currentPrice - firstPriceToday.Value) / firstPriceToday.Value : 0;
-		_ = _log.Db($"Current Price: {currentPrice}. Last Price: {lastPrice}. Spread: {spread}. Evaluating first price today? {(firstPriceToday != null ? $"true. Spread2: {spread2}." : "false.")}", userId, "TRADE", true);
+		//_ = _log.Db($"Current Price: {currentPrice}. Last Price: {lastPrice}. Spread: {spread}. Evaluating first price today? {(firstPriceToday != null ? $"true. Spread2: {spread2}." : "false.")}", userId, "TRADE", true);
+		var balances = await GetBalance(userId, keys);
+		if (balances == null)
+		{
+			_ = _log.Db("Failed to get wallet balances", userId, "TRADE");
+			return false;
+		}
 
 		if (Math.Abs(spread) >= _TradeThreshold || Math.Abs(spread2) >= _TradeThreshold)
 		{
-			// 5. Now we know a trade is needed — fetch balances
-			var balances = await GetBalance(userId, keys);
-			if (balances == null)
-			{
-				_ = _log.Db("Failed to get wallet balances", userId, "TRADE");
-				return false;
-			}
-
+			// 5. Now we know a trade is needed — fetch balances 
 			var btcPriceToCad = await GetBtcPriceToCad(userId, keys);
 			_ = _log.Db($"btcPriceCad: {btcPriceCAD}, btcPriceUSDC {btcPriceUSDC}", userId, "TRADE", true);
 
@@ -152,7 +151,7 @@ public class KrakenService
 				}
 				else
 				{
-					_ = _log.Db("Error fetching USDC exchange rates.", userId, "TRADE", true);
+					_ = _log.Db("⚠️Error fetching USDC exchange rates.", userId, "TRADE", true);
 					return false;
 				}
 			}
@@ -276,7 +275,7 @@ public class KrakenService
 		catch (Exception ex)
 		{
 			// Handle any errors that occur during the request
-			_ = _log.Db($"Error fetching balance: {ex.Message}", null, "TRADE", true);
+			_ = _log.Db($"⚠️Error fetching balance: {ex.Message}", null, "TRADE", true);
 			return null;
 		}
 	}
@@ -286,7 +285,7 @@ public class KrakenService
 		var balances = await GetBalance(userId, keys);
 		if (balances == null)
 		{
-			_ = _log.Db("Failed to get wallet balances", userId, "TRADE", true);
+			_ = _log.Db("⚠️Failed to get wallet balances", userId, "TRADE", true);
 			return;
 		}
 		decimal btcBalance = balances.ContainsKey("XXBT") ? balances["XXBT"] : 0;
@@ -312,7 +311,7 @@ public class KrakenService
 		}
 		else
 		{
-			_ = _log.Db($"Not enough BTC to trade ({btcBalance}<{minBtc})", userId, "TRADE", true);
+			_ = _log.Db($"⚠️Not enough BTC to trade ({btcBalance}<{minBtc})", userId, "TRADE", true);
 		}
 	}
 
@@ -350,11 +349,17 @@ public class KrakenService
 					_ = _log.Db($"User has {buyOrSell} {from} {to} too frequently ({tradeRangeLimit}) in the last {daySpanCheck} days. Trade Cancelled.", userId, "TRADE", true);
 					return;
 				}
+				bool withinTradeSequenceLimit = await CheckTradeSequence(userId, buyOrSell, _MaxTradeTypeOccurances);
+				if (!withinTradeSequenceLimit)
+				{
+					_ = _log.Db($"User has {buyOrSell} {from} {to} too frequently ({_MaxTradeTypeOccurances-1}) in the last {_MaxTradeTypeOccurances} occurances. Trade Cancelled.", userId, "TRADE", true);
+					return;
+				}
 			}
 		}
 		catch (Exception ex)
 		{
-			_ = _log.Db($"Exception while validating trade! Trade Cancelled. " + ex.Message, userId, "TRADE", true);
+			_ = _log.Db($"⚠️Exception while validating trade! Trade Cancelled. " + ex.Message, userId, "TRADE", true);
 			return;
 		}
 
@@ -461,7 +466,7 @@ public class KrakenService
 			// Fee already set and matches
 			if (currentFee == fee)
 			{
-				_ = _log.Db($"{logPrefix}: Trade ID {tradeId} already has fee {fee}", userId, "TRADE", false);
+				//_ = _log.Db($"{logPrefix}: Trade ID {tradeId} already has fee {fee}", userId, "TRADE", false);
 				return true;
 			}
 
@@ -498,7 +503,7 @@ public class KrakenService
 		}
 		catch (Exception ex)
 		{
-			_ = _log.Db($"{logPrefix}: Failed to update trade ID {tradeId}: {ex.Message}",
+			_ = _log.Db($"⚠️{logPrefix}: Failed to update trade ID {tradeId}: {ex.Message}",
 						userId, "TRADE", true);
 			return false;
 		}
@@ -535,7 +540,7 @@ public class KrakenService
 		}
 		catch (Exception ex)
 		{
-			_ = _log.Db($"Error updating missing fees: {ex.Message}", userId, "TRADE", true);
+			_ = _log.Db($"⚠️Error updating missing fees: {ex.Message}", userId, "TRADE", true);
 		}
 	}
 
@@ -678,7 +683,7 @@ public class KrakenService
 		}
 		catch (Exception ex)
 		{
-			_ = _log.Db("Error fetching latest exchange rate: " + ex.Message, null, "TRADE", true);
+			_ = _log.Db("⚠️Error fetching latest exchange rate: " + ex.Message, null, "TRADE", true);
 			return null;
 		}
 	}
@@ -732,7 +737,7 @@ public class KrakenService
 		}
 		catch (Exception ex)
 		{
-			_ = _log.Db("Error checking trade frequency: " + ex.Message, userId, "TRADE", true);
+			_ = _log.Db("⚠️Error checking trade frequency: " + ex.Message, userId, "TRADE", true);
 			return true; // Default action in case of error.
 		}
 	}
@@ -812,7 +817,7 @@ public class KrakenService
 		}
 		catch (Exception ex)
 		{
-			_ = _log.Db("Error checking consecutive trades: " + ex.Message, userId, "TRADE", true);
+			_ = _log.Db("⚠️Error checking consecutive trades: " + ex.Message, userId, "TRADE", true);
 			return true; // Fail safe: prevent trade
 		}
 	}
@@ -848,7 +853,7 @@ public class KrakenService
 		}
 		catch (Exception ex)
 		{
-			_ = _log.Db("Error creating trade history: " + ex.Message, userId, "TRADE", true);
+			_ = _log.Db("⚠️Error creating trade history: " + ex.Message, userId, "TRADE", true);
 		}
 	}
 	private async Task CreateWalletEntryFromFetchedDictionary(Dictionary<string, decimal>? balanceDictionary, int userId)
@@ -955,7 +960,7 @@ public class KrakenService
 		}
 		catch (Exception ex)
 		{
-			_ = _log.Db("Error creating wallet balance entry: " + ex.Message, userId, "TRADE", true);
+			_ = _log.Db("⚠️Error creating wallet balance entry: " + ex.Message, userId, "TRADE", true);
 		}
 	}
 	private async Task<int?> GetMinutesSinceLastTrade(int userId)
@@ -980,7 +985,7 @@ public class KrakenService
 		}
 		catch (Exception ex)
 		{
-			_ = _log.Db("Error checking trade history: " + ex.Message, userId, "TRADE", true);
+			_ = _log.Db("⚠️Error checking trade history: " + ex.Message, userId, "TRADE", true);
 			return null;
 		}
 	}
@@ -1037,12 +1042,12 @@ public class KrakenService
 		}
 		catch (MySqlException ex)
 		{
-			_ = _log.Db("Error checking IsSystemUpToDate: " + ex.Message, userId, "TRADE", true);
+			_ = _log.Db("⚠️Error checking IsSystemUpToDate: " + ex.Message, userId, "TRADE", true);
 			return null;
 		}
 		catch (Exception ex)
 		{
-			_ = _log.Db("Unexpected error in IsSystemUpToDate: " + ex.Message, userId, "TRADE", true);
+			_ = _log.Db("⚠️Unexpected error in IsSystemUpToDate: " + ex.Message, userId, "TRADE", true);
 			return null;
 		}
 	}
@@ -1080,7 +1085,7 @@ public class KrakenService
 		}
 		catch (Exception ex)
 		{
-			_ = _log.Db("Error fetching last trade: " + ex.Message, null, "TRADE", true);
+			_ = _log.Db("⚠️Error fetching last trade: " + ex.Message, null, "TRADE", true);
 		}
 		return null;
 	}
@@ -1120,10 +1125,73 @@ public class KrakenService
 		}
 		catch (Exception ex)
 		{
-			_ = _log.Db("Error fetching wallet balances: " + ex.Message, null, "TRADE", true);
+			_ = _log.Db("⚠️Error fetching wallet balances: " + ex.Message, null, "TRADE", true);
 		}
 
 		return tradeRecords;
+	}
+	public async Task<bool> CheckTradeSequence(int userId, string tradeType, int checkCount)
+	{
+		if (!new[] { "buy", "sell" }.Contains(tradeType.ToLower()))
+		{
+			throw new ArgumentException("tradeType must be 'buy' or 'sell'");
+		}
+		if (checkCount < 2)
+		{
+			throw new ArgumentException("checkCount must be at least 2");
+		}
+
+		var query = @"
+			SELECT from_currency, to_currency
+			FROM maxhanna.trade_history
+			WHERE user_id = @UserId
+			ORDER BY timestamp DESC
+			LIMIT @CheckCount;";
+
+		try
+		{
+			using var conn = new MySqlConnection(_config?.GetValue<string>("ConnectionStrings:maxhanna"));
+			await conn.OpenAsync();
+
+			using var cmd = new MySqlCommand(query, conn);
+			cmd.Parameters.AddWithValue("@UserId", userId);
+			cmd.Parameters.AddWithValue("@CheckCount", checkCount);
+
+			using var reader = await cmd.ExecuteReaderAsync();
+			var trades = new List<(string fromCurrency, string toCurrency)>();
+
+			while (await reader.ReadAsync())
+			{
+				trades.Add((
+					reader.GetString("from_currency"),
+					reader.GetString("to_currency")
+				));
+			}
+
+			// Check if we have enough trades
+			if (trades.Count < checkCount)
+			{
+				return true; // Not enough trades, so condition is satisfied
+			}
+
+			// Determine trade directions
+			var tradeDirections = trades
+				.Select(t => t.toCurrency.ToUpper() == "XBT" ? "buy" :
+							 t.fromCurrency.ToUpper() == "XBT" ? "sell" : "unknown")
+				.ToList();
+
+			// Check the last (X-1) trades
+			var targetTrades = tradeDirections.Take(checkCount - 1);
+			int matchingTrades = targetTrades.Count(t => t.Equals(tradeType, StringComparison.OrdinalIgnoreCase));
+
+			// Return true if not all (X-1) trades are the same type
+			return matchingTrades < (checkCount - 1);
+		}
+		catch (Exception ex)
+		{
+			_ = _log.Db($"⚠️Error checking trade sequence: {ex.Message}", null, "TRADE", true);
+			throw; // Or handle as needed
+		}
 	}
 	public async Task UpdateApiKey(UpdateApiKeyRequest request)
 	{
@@ -1187,7 +1255,7 @@ public class KrakenService
 		}
 		catch (Exception ex)
 		{
-			_ = _log.Db("Error updating API keys: " + ex.Message, request.UserId, "TRADE", true);
+			_ = _log.Db("⚠️Error updating API keys: " + ex.Message, request.UserId, "TRADE", true);
 		}
 	}
 	public async Task<UserKrakenApiKey?> GetApiKey(int userId)
@@ -1223,7 +1291,7 @@ public class KrakenService
 		}
 		catch (Exception ex)
 		{
-			_ = _log.Db("Error getting API keys: " + ex.Message, userId, "TRADE", true);
+			_ = _log.Db("⚠️Error getting API keys: " + ex.Message, userId, "TRADE", true);
 			return null; // Return null in case of an error
 		}
 	}
@@ -1245,7 +1313,7 @@ public class KrakenService
 		}
 		catch (Exception ex)
 		{
-			_ = _log.Db("Error getting API keys: " + ex.Message, userId, "TRADE", true);
+			_ = _log.Db("⚠️Error getting API keys: " + ex.Message, userId, "TRADE", true);
 			return false; // Return false in case of error
 		}
 	}
@@ -1268,7 +1336,7 @@ public class KrakenService
 		}
 		catch (Exception ex)
 		{
-			_ = _log.Db("Error starting the bot: " + ex.Message, userId, "TRADE", true);
+			_ = _log.Db("⚠️Error starting the bot: " + ex.Message, userId, "TRADE", true);
 			return false;
 		}
 		return true;
@@ -1292,7 +1360,7 @@ public class KrakenService
 		}
 		catch (Exception ex)
 		{
-			_ = _log.Db("Error stopping the bot: " + ex.Message, userId, "TRADE", true);
+			_ = _log.Db("⚠️Error stopping the bot: " + ex.Message, userId, "TRADE", true);
 			return false;
 		}
 		return true;
@@ -1317,7 +1385,7 @@ public class KrakenService
 		}
 		catch (Exception ex)
 		{
-			_ = _log.Db("Error stopping the bot: " + ex.Message, userId, "TRADE", true);
+			_ = _log.Db("⚠️Error stopping the bot: " + ex.Message, userId, "TRADE", true);
 			return null;
 		}
 	}
@@ -1359,7 +1427,7 @@ public class KrakenService
 		}
 		catch (Exception ex)
 		{
-			_ = _log.Db($"Error fetching BTC price to CAD: {ex.Message}", userId, "TRADE", true);
+			_ = _log.Db($"⚠️Error fetching BTC price to CAD: {ex.Message}", userId, "TRADE", true);
 			return null;
 		}
 	}
@@ -1394,7 +1462,7 @@ public class KrakenService
 		}
 		catch (Exception ex)
 		{
-			_ = _log.Db($"Error fetching BTC price to USDC: {ex.Message}", userId, "TRADE", true);
+			_ = _log.Db($"⚠️Error fetching BTC price to USDC: {ex.Message}", userId, "TRADE", true);
 			return null;
 		}
 	}
@@ -1538,7 +1606,7 @@ public class KrakenService
 		}
 		catch (Exception ex)
 		{
-			await _log.Db("GetTradeConfigurationLastUpdate Exception: " + ex.Message, userId, "TRADE", true);
+			await _log.Db("⚠️GetTradeConfigurationLastUpdate Exception: " + ex.Message, userId, "TRADE", true);
 		}
 
 		return null;
@@ -1590,7 +1658,7 @@ public class KrakenService
 		}
 		catch (Exception ex)
 		{
-			await _log.Db("GetTradeConfiguration Exception: " + ex.Message, userId, "TRADE", true);
+			await _log.Db("⚠️GetTradeConfiguration Exception: " + ex.Message, userId, "TRADE", true);
 		}
 
 		return null;
@@ -1655,7 +1723,7 @@ public class KrakenService
 		}
 		catch (Exception ex)
 		{
-			await _log.Db("Error upserting trade configuration: " + ex.Message, userId, "TRADE", true);
+			await _log.Db("⚠️Error upserting trade configuration: " + ex.Message, userId, "TRADE", true);
 			return false;
 		}
 	}
@@ -1721,7 +1789,7 @@ public class KrakenService
 		}
 		catch (Exception ex)
 		{
-			_ = _log.Db($"Error checking first BTC price with trade condition: {ex.Message}", userId, "TRADE", true);
+			_ = _log.Db($"⚠️Error checking first BTC price with trade condition: {ex.Message}", userId, "TRADE", true);
 			return null;
 		}
 	}
@@ -1972,7 +2040,7 @@ public class KrakenService
 		}
 		catch (Exception e)
 		{
-			_ = _log.Db("KrakenService exception GetTradeMarketVolumesForGraphAsync: " + e.Message, outputToConsole: true);
+			_ = _log.Db("⚠️KrakenService exception GetTradeMarketVolumesForGraphAsync: " + e.Message, outputToConsole: true);
 		}
 		return volumes;
 	}
@@ -2064,7 +2132,7 @@ public class KrakenService
 				}
 			}
 
-			if (totalUSDCValue > 0)  // Fixed this condition (was checking totalBtcValue)
+			if (totalUSDCValue > 0)   
 			{
 				averageUSDCPrice = totalUSDCPricePaid / totalUSDCValue;
 			}
@@ -2074,7 +2142,7 @@ public class KrakenService
 		}
 		catch (Exception e)
 		{
-			_ = _log.Db("Exception in GetAveragePrices: " + e.Message, outputToConsole: true);
+			_ = _log.Db("⚠️Exception in GetAveragePrices: " + e.Message, outputToConsole: true);
 		}
 
 		return avgPrices;

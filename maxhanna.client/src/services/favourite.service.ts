@@ -1,5 +1,5 @@
 // user.service.ts
-import { Injectable } from '@angular/core'; 
+import { Injectable } from '@angular/core';
 import { User } from './datacontracts/user/user';
 import { HttpErrorResponse } from '@angular/common/http';
 
@@ -7,19 +7,24 @@ import { HttpErrorResponse } from '@angular/common/http';
   providedIn: 'root'
 })
 export class FavouriteService {
-  async getFavourites(search?: string, page = 1, pageSize = 10) {
+  async getFavourites(search?: string, page = 1, pageSize = 10, orderBy?: string, userId?: number) {
     try {
       const response = await fetch(`/favourite/`, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json', 
+          'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ Search: search, Page: page, PageSize: pageSize }),  
+        body: JSON.stringify({
+          Search: search,
+          Page: page,
+          PageSize: pageSize,
+          OrderBy: orderBy,
+          UserId: userId
+        }),
       });
-
-      return await response.json(); // Parse JSON response 
+      return await response.json();
     } catch (error) {
-      return null; 
+      return null;
     }
   }
 
@@ -37,7 +42,7 @@ export class FavouriteService {
     } catch (error) {
       return null;
     }
-  } 
+  }
 
   async removeFavourite(userId: number, favoriteId: number) {
     try {
@@ -53,7 +58,7 @@ export class FavouriteService {
     } catch (error) {
       return null;
     }
-  } 
+  }
 
   async deleteFavourite(userId: number, favoriteId: number) {
     try {
@@ -69,7 +74,7 @@ export class FavouriteService {
     } catch (error) {
       return null;
     }
-  } 
+  }
 
   async updateFavourites(user: User, url: string, id: number, imageUrl?: string, name?: string) {
     try {
@@ -78,10 +83,10 @@ export class FavouriteService {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ Url: url, ImageUrl: imageUrl, id: id, CreatedBy: user.id, Name: name }), 
+        body: JSON.stringify({ Url: url, ImageUrl: imageUrl, id: id, CreatedBy: user.id, Name: name }),
       });
       if (!response.ok) {
-        return await response.text(); 
+        return await response.text();
       }
       return await response.json();
     } catch (error) {
@@ -91,18 +96,17 @@ export class FavouriteService {
       return "Error.";
     }
   }
-
-  async getUserFavourites(userId: number) {
+  async visit(favouriteId: number) {
     try {
-      const response = await fetch(`/favourite/user`, {
+      const response = await fetch(`/favourite/visit`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ UserId: userId }), 
+        body: JSON.stringify(favouriteId),
       });
 
-      return await response.json();
+      return await response.text();
     } catch (error) {
       return null;
     }

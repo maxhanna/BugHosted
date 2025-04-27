@@ -72,6 +72,7 @@ export class UserListComponent extends ChildComponent implements OnInit, OnDestr
     parent?.removeResizeListener();
   }
   async searchUsers() { 
+    this.startLoading();
     let search = undefined;
     if (this.searchInput.nativeElement.value.trim() != '') {
       search = this.searchInput.nativeElement.value.trim();
@@ -82,8 +83,10 @@ export class UserListComponent extends ChildComponent implements OnInit, OnDestr
     } else { 
       this.usersSearched = [];
     }
+    this.stopLoading();
   }
   async getUsers() {
+    this.startLoading();
     const user = this.user ?? this.parentRef?.user ?? this.inputtedParentRef?.user ?? new User(0, "Anonymous");
     if (!this.friendsRadio || this.friendsRadio.nativeElement?.checked) {
       const fsRes = await this.friendService.getFriends(user.id ?? 0);
@@ -122,6 +125,7 @@ export class UserListComponent extends ChildComponent implements OnInit, OnDestr
         this.users = [];
       }
     }
+    this.stopLoading();
   }
 
   closeOverlayOnClick(user?: User) {

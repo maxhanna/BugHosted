@@ -77,7 +77,7 @@ export class UserService {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(search),
+        body: JSON.stringify({Search: search}),
       });
       if (response.status === 404) {
         return [];
