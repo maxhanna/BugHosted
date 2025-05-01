@@ -30,8 +30,7 @@ export class NotificationsComponent extends ChildComponent implements OnInit, On
   }
 
   @Input() minimalInterface? = false;
-  @Input() inputtedParentRef?: AppComponent;
-  @Input() previousComponent?: string;
+  @Input() inputtedParentRef?: AppComponent; 
 
   showNotifications = false;
   notifications?: UserNotification[] = [];
@@ -59,8 +58,10 @@ export class NotificationsComponent extends ChildComponent implements OnInit, On
   }
   private async getNotifications() {  
     if (this.parentRef?.user?.id) { 
+      this.startLoading();
       this.notifications = await this.notificationService.getNotifications(this.parentRef.user.id);
       this.unreadNotifications = this.notifications?.filter(x => x.isRead == false).length;
+      this.stopLoading();
     }
   }
   private startPolling() {
@@ -91,15 +92,15 @@ export class NotificationsComponent extends ChildComponent implements OnInit, On
   goToFileId(notification: UserNotification) {
     this.location.replaceState("/File/" + notification.fileId);
     if (!notification.isRead) { this.read(notification, true); }
-    this.createComponent("Files", { "fileId": notification.fileId });
+    this.createComponent("Files", { "fileId": notification.fileId, "previousComponent": this.previousComponent });
   }
   goToStoryId(notification: UserNotification) {
     if (notification.userProfileId) {
       this.location.replaceState("/User/" + notification.userProfileId);
-      this.createComponent("User", { "userId": notification.userProfileId });
+      this.createComponent("User", { "userId": notification.userProfileId, "previousComponent": this.previousComponent });
     } else { 
       this.location.replaceState("/Social/" + notification.storyId);
-      this.createComponent("Social", { "storyId": notification.storyId });
+      this.createComponent("Social", { "storyId": notification.storyId, "previousComponent": this.previousComponent });
     }
     if (!notification.isRead) { this.read(notification, true); }
   }
@@ -116,7 +117,11 @@ export class NotificationsComponent extends ChildComponent implements OnInit, On
       const storyId = notification.storyId;
       console.log(storyId, userProfileId);
       this.parentRef?.closeOverlay();
-      this.parentRef?.createComponent("User", { "userId": userProfileId, "storyId": storyId, "previousComponent": this.previousComponent }); 
+      this.parentRef?.createComponent("User", { 
+        "userId": userProfileId, 
+        "storyId": storyId,
+        "previousComponent": this.previousComponent,  
+      }); 
     }
   }
   async goToCommentId(notification?: UserNotification) {
@@ -165,14 +170,13 @@ export class NotificationsComponent extends ChildComponent implements OnInit, On
         this.unreadNotifications = 0;
         await this.notificationService.readNotifications(parent.user.id ?? 0, undefined);
       }
-      parent.getNotifications();
+      parent.navigationComponent.setNotificationNumber(this.unreadNotifications);
     }
   }
   notificationTextClick(notification: UserNotification) {
     if (!notification.isRead) { 
       this.read(notification, true);
-    }
-    console.log(notification);
+    } 
     if (notification.text?.includes('Captured') && notification.text?.includes('base at')) {
       this.parentRef?.createComponent('Bug-Wars');
     } else if (notification.text?.includes('BugWars')) {

@@ -35,9 +35,8 @@
         </div>
         <div class="seperatedUserHeader">
           <div class="invertedHighlights xxSmallFont">Joined: </div>
-          <div>
-            {{(user && user.created ? (user.created | date: 'y/MM/d') : 'Unknown')}}
-            <span class="invertedHighlights xxSmallFont">({{user && user.created ? getUtcTimeSince(user.created, 'day') : '0 days'}})</span>
+          <div [title]="(user && user.created ? (user.created | date: 'y/MM/d') : 'Unknown')" class="smallFont thirdFontColor cursorPointer"> 
+            {{user && user.created ? getUtcTimeSince(user.created, 'day') : '0 days'}}
           </div>
         </div>
         <div class="seperatedUserHeader">

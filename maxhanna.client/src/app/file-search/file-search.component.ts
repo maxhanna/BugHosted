@@ -45,8 +45,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit {
   @Input() showSpaceForNotifications = false;
   @Input() showHiddenFiles: boolean = true;
   @Input() showTopics: boolean = true;
-  @Input() currentPage = this.defaultCurrentPage;
-  @Input() previousComponent : string = "Files";
+  @Input() currentPage = this.defaultCurrentPage; 
   @Output() selectFileEvent = new EventEmitter<FileEntry>();
   @Output() currentDirectoryChangeEvent = new EventEmitter<string>();
   @Output() userNotificationEvent = new EventEmitter<string>();
@@ -94,6 +93,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit {
 
   constructor(private fileService: FileService, private userService: UserService, private route: ActivatedRoute) {
     super(); 
+    this.previousComponent = "Files";
   }
 
   async ngOnInit() {

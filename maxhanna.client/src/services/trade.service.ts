@@ -1,4 +1,5 @@
 import { Injectable } from '@angular/core';
+import { ProfitData } from './datacontracts/trade/profit-data';
 
 @Injectable({
   providedIn: 'root',
@@ -66,5 +67,14 @@ export class TradeService {
   }
   async getWeightedAveragePrices(userId: number, encryptedUserId: string) {
     return this.post(`/trade/getweightedaverageprices`, userId, 'json', encryptedUserId);
+  }
+  async enterPosition(userId: number, encryptedUserId: string) {
+    return this.post(`/trade/enterposition`, userId, 'json', encryptedUserId);
+  }
+  async exitPosition(userId: number, encryptedUserId: string) {
+    return this.post(`/trade/exitposition`, userId, 'json', encryptedUserId);
+  }
+  async getProfitData(userId: number, days = 100, encryptedUserId: string) {
+    return this.post(`/trade/getprofitdata`, {UserId: userId, Days: days}, 'json', encryptedUserId);
   }
 }

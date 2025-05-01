@@ -154,7 +154,7 @@
   justify-content: flex-start;
 }
 
-.commentDate, .commentReaction {
+.commentDate {
   font-size: x-small;
   color: var(--secondary-font-color);
   display: inline-flex;

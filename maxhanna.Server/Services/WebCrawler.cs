@@ -494,7 +494,7 @@ public class WebCrawler
 		}
 		catch (Exception ex)
 		{
-			_ = _log.Db($"Exception (MarkUrlAsFailed) URL: {ShortenUrl(url)}. : " + ex.Message, null, "CRAWLER", true);
+			_ = _log.Db($"Exception (MarkUrlAsFailed) URL: {ShortenUrl(url)}. : " + ex.Message, null, "CRAWLER", false);
 		}
 
 	}
@@ -550,7 +550,7 @@ public class WebCrawler
 			url = NormalizeUrl(url);
 			if (!IsValidDomain(url))
 			{
-				_ = _log.Db("(ScrapeUrlData) Invalid URL, skip scrape : " + url, null, "CRAWLER", true);
+				//_ = _log.Db("(ScrapeUrlData) Invalid URL, skip scrape : " + url, null, "CRAWLER", true);
 				return null;
 			} 
 			_httpClient.DefaultRequestHeaders.UserAgent.ParseAdd("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36");
@@ -565,7 +565,8 @@ public class WebCrawler
 			var response = await _httpClient.GetAsync(url, HttpCompletionOption.ResponseHeadersRead);
 			response.EnsureSuccessStatusCode();  
 			if (!response.IsSuccessStatusCode)
-			{
+			{ 
+				//_ = _log.Db($"ScrapeUrlData: Invalid response code {response.StatusCode} for URL: {ShortenUrl(url)}", null, "CRAWLER", true);
 				_ = MarkUrlAsFailed(url, (int)response.StatusCode);
 				return null;
 			}
@@ -612,25 +613,26 @@ public class WebCrawler
 		catch (TaskCanceledException)
 		{
 			metadata.HttpStatus = 408;
-			_ = _log.Db($"ScrapeUrlData Timeout on URL {ShortenUrl(url)}", null, "CRAWLER", true);
+			//_ = _log.Db($"ScrapeUrlData Timeout on URL {ShortenUrl(url)}", null, "CRAWLER", true);
 			_ = MarkUrlAsFailed(url, 408);
 			return null;
 		}
 		catch (HttpRequestException)
-		{ 
+		{
+			//_ = _log.Db($"ScrapeUrlData HttpRequestException on URL {ShortenUrl(url)}", null, "CRAWLER", true);  
 			_ = MarkUrlAsFailed(url);
 			return null;
 		}
 		catch (StackOverflowException)
 		{
 			metadata.HttpStatus = 500;
-			_ = _log.Db("ScrapeUrlData Stack Overflow Error on URL: " + ShortenUrl(url), null, "CRAWLER", true);
+			//_ = _log.Db("ScrapeUrlData Stack Overflow Error on URL: " + ShortenUrl(url), null, "CRAWLER", true);
 			_ = MarkUrlAsFailed(url, 500);
 			return metadata;
 		}
 		catch (Exception ex)
 		{
-			_ = _log.Db($"ScrapeUrlData Exception on URL {ShortenUrl(url)} : " + ex.Message, null, "CRAWLER", true);
+			//_ = _log.Db($"ScrapeUrlData Exception on URL {ShortenUrl(url)} : " + ex.Message, null, "CRAWLER", true);
 			_ = MarkUrlAsFailed(url);
 			return null;
 		}
@@ -640,6 +642,8 @@ public class WebCrawler
 			if (!string.IsNullOrEmpty(metadata.Url?.Trim())) { 
 				_ = MarkUrlAsFailed(url);
 			}
+			//_ = _log.Db($"ScrapeUrlData IsMetadataCompletelyEmpty on URL {ShortenUrl(url)}", null, "CRAWLER", true);
+
 			return null;
 		} else
 		{
@@ -880,7 +884,7 @@ public class WebCrawler
 			var sitemapUrls = ExtractUrlsFromSitemap(sitemapIndexXml, sitemapLimit);
 			if (sitemapUrls != null)
 			{
-				foreach (var url in sitemapUrls)
+				foreach (var url in sitemapUrls.ToList())
 				{
 					if (sitemapLimit <= 0) { break; }
 					sitemapLimit--;
@@ -1304,16 +1308,11 @@ public class WebCrawler
 		int _exceedanceCount = _maxSiteExceedance;
 		int count = 0;
 		int delayedUrlsCount = delayedUrlsQueue.Where(x => GetDomain(x) == domain).Count();
-		foreach (string delayedUrl in delayedUrlsQueue)
+		foreach (string item in delayedUrlsQueue.Concat(urlsToScrapeQueue))
 		{
-			if (count >= _exceedanceCount) { break; }
-			if (GetDomain(delayedUrl) == domain) count++;
+			if (count >= _maxSiteExceedance) break;
+			if (GetDomain(item) == domain) count++;
 		}
-		foreach (string urlToScrape in urlsToScrapeQueue)
-		{ 
-			if (count >= _exceedanceCount) { break; }
-			if (GetDomain(urlToScrape) == domain) count++; 
-		} 
 		if (count >= _exceedanceCount)
 		{
 			RemoveDomainFromLists(domain);

@@ -152,32 +152,44 @@ namespace maxhanna.Server.Controllers
 			}
 		}
 
-        private List<string> GetUrlVariants(CrawlerRequest request)
-        {
+		private List<string> GetUrlVariants(CrawlerRequest request)
+		{
 			List<string> variants = new List<string>();
-            string tmpUrl = request.Url?.Trim().Replace(",", "").Replace(" ", "").Replace("'", "") ?? "";
-            if (!tmpUrl.StartsWith("http://") && !tmpUrl.StartsWith("https://"))
-            {
-                tmpUrl = "https://" + tmpUrl;
-            }
-            if (!_webCrawler.IsValidDomain(tmpUrl))
-            {
-                Uri.TryCreate(tmpUrl, UriKind.Absolute, out var uri);
-                string host = uri?.Host ?? "";
-                if (!_webCrawler.HasValidSuffix(host))
-                {
-					variants.Add(tmpUrl + ".com");
-					variants.Add(tmpUrl + ".net");
-                }
-            }
-            else
-            {
-				variants.Add(tmpUrl);
-            }
-			return variants; 
-		}
+			string tmpUrl = request.Url?.Trim().Replace(",", "").Replace(" ", "").Replace("'", "") ?? "";
 
-        private List<Metadata> GetOrderedResultsForWeb(CrawlerRequest request, List<Metadata> allResults)
+			// Ensure the base URL has no protocol
+			if (tmpUrl.StartsWith("http://") || tmpUrl.StartsWith("https://"))
+			{
+				tmpUrl = tmpUrl.Replace("http://", "").Replace("https://", "");
+			}
+
+			// Create base URLs with both protocols
+			string httpsUrl = "https://" + tmpUrl;
+			string httpUrl = "http://" + tmpUrl;
+
+			if (!_webCrawler.IsValidDomain(httpsUrl))
+			{
+				Uri.TryCreate(httpsUrl, UriKind.Absolute, out var uri);
+				string host = uri?.Host ?? "";
+				if (!_webCrawler.HasValidSuffix(host))
+				{
+					// Add both HTTPS and HTTP variants with .com and .net
+					variants.Add(httpsUrl + ".com");
+					variants.Add(httpUrl + ".com");
+					variants.Add(httpsUrl + ".net");
+					variants.Add(httpUrl + ".net");
+				}
+			}
+			else
+			{
+				// Add both HTTPS and HTTP variants
+				variants.Add(httpsUrl);
+				variants.Add(httpUrl);
+			}
+
+			return variants;
+		}
+		private List<Metadata> GetOrderedResultsForWeb(CrawlerRequest request, List<Metadata> allResults)
 		{
 			// Normalize: prefer https over http
 			var httpsUrls = new HashSet<string>(

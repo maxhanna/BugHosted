@@ -205,8 +205,8 @@ namespace maxhanna.Server.Controllers
                         ua.phone,
                         ua.email,
                         ua.birthday,
-												ua.currency,
-												ua.is_email_public
+						ua.currency,
+						ua.is_email_public
                     FROM 
                         maxhanna.users u
                     LEFT JOIN 
@@ -216,8 +216,7 @@ namespace maxhanna.Server.Controllers
                     LEFT JOIN 
                         maxhanna.file_uploads dpf ON dpf.id = dp.file_id
                     WHERE
-                        u.id = @user_id;
-                ";
+                        u.id = @user_id;";
 
 				MySqlCommand cmd = new MySqlCommand(sql, conn);
 				cmd.Parameters.AddWithValue("@user_id", id);
@@ -266,6 +265,92 @@ namespace maxhanna.Server.Controllers
 			catch (Exception ex)
 			{
 				_ = _log.Db("An error occurred while processing the GetUserById request. " + ex.Message, id, "USER", true);
+				return StatusCode(500, "An error occurred while processing the GetUserById request.");
+			}
+			finally
+			{
+				conn.Close();
+			}
+		}
+
+
+		[HttpPost("/User/Username/{username}", Name = "GetUserByUsername")]
+		public async Task<IActionResult> GetUserByUsername(string username)
+		{
+			MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+			try
+			{
+				conn.Open();
+				string sql = @"
+                    SELECT 
+                        u.*, 
+                        dp.file_id AS latest_file_id,
+                        dpf.file_name,
+                        dpf.folder_path,
+                        ua.description,
+                        ua.phone,
+                        ua.email,
+                        ua.birthday,
+						ua.currency,
+						ua.is_email_public
+                    FROM 
+                        maxhanna.users u
+                    LEFT JOIN 
+                        maxhanna.user_display_pictures dp ON dp.user_id = u.id
+                    LEFT JOIN 
+                        maxhanna.user_about ua ON ua.user_id = u.id
+                    LEFT JOIN 
+                        maxhanna.file_uploads dpf ON dpf.id = dp.file_id
+                    WHERE
+                        u.username = @username;";
+
+				MySqlCommand cmd = new MySqlCommand(sql, conn);
+				cmd.Parameters.AddWithValue("@username", username);
+
+				using (var reader = await cmd.ExecuteReaderAsync())
+				{
+					if (reader.Read())
+					{
+						FileEntry displayPic = new FileEntry()
+						{
+							Id = reader.IsDBNull(reader.GetOrdinal("latest_file_id")) ? 0 : reader.GetInt32("latest_file_id"),
+							FileName = reader.IsDBNull(reader.GetOrdinal("file_name")) ? "" : reader.GetString("file_name"),
+							Directory = reader.IsDBNull(reader.GetOrdinal("folder_path")) ? "" : reader.GetString("folder_path"),
+						};
+
+						UserAbout tmpAbout = new UserAbout()
+						{
+							UserId = reader.IsDBNull(reader.GetOrdinal("id")) ? 0 : reader.GetInt32("id"),
+							Description = reader.IsDBNull(reader.GetOrdinal("description")) ? "" : reader.GetString("description"),
+							Phone = reader.IsDBNull(reader.GetOrdinal("phone")) ? "" : reader.GetString("phone"),
+							Email = reader.IsDBNull(reader.GetOrdinal("email")) ? "" : reader.GetString("email"),
+							Birthday = reader.IsDBNull(reader.GetOrdinal("birthday")) ? null : reader.GetDateTime("birthday"),
+							Currency = reader.IsDBNull(reader.GetOrdinal("currency")) ? null : reader.GetString("currency"),
+							IsEmailPublic = reader.IsDBNull(reader.GetOrdinal("is_email_public")) ? true : reader.GetBoolean("is_email_public"),
+						};
+
+						// User found, return the user details
+						return Ok(new User
+						(
+								Convert.ToInt32(reader["id"]),
+								reader["username"].ToString()!,
+								null, // Password is not returned in this method 
+								displayPic.Id == 0 ? null : displayPic,
+								tmpAbout,
+								(DateTime)reader["created"],
+								(DateTime)reader["last_seen"]
+						));
+					}
+					else
+					{
+						// User not found
+						return NotFound();
+					}
+				}
+			}
+			catch (Exception ex)
+			{
+				_ = _log.Db($"An error occurred while processing the GetUserByUsername request for username: {username}. " + ex.Message, null, "USER", true);
 				return StatusCode(500, "An error occurred while processing the GetUserById request.");
 			}
 			finally
@@ -883,8 +968,7 @@ namespace maxhanna.Server.Controllers
 					string updateSql = @"
                 INSERT INTO maxhanna.user_settings (user_id, notifications_enabled, notifications_changed_date)
                 VALUES (@userId, @notifications_enabled, UTC_TIMESTAMP())
-                ON DUPLICATE KEY UPDATE 
-                    notifications_enabled = VALUES(notifications_enabled)
+                ON DUPLICATE KEY UPDATE notifications_enabled = VALUES(notifications_enabled),
 										notifications_changed_date = UTC_TIMESTAMP();";
 
 					MySqlCommand updateCmd = new MySqlCommand(updateSql, conn);

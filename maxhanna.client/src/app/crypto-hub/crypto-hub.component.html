@@ -17,29 +17,29 @@
       <div class="BTCtoCADConversionWrapperDiv">
         <div class="BTCtoCADConversionDiv" *ngIf="coinNames">
           <label for="convertBTCInput">
-            <select #btcConvertCoinSelect (change)="coinConvertSelectChange()" style="width:50px;" [title]="selectedCoinConversionName">
+            <select #btcConvertCoinSelect (change)="coinConvertSelectChange()" [title]="selectedCoinConversionName">
               <option *ngFor="let name of coinNames" [selected]="selectedCoinConversionName == name" [value]="name">{{name}}</option>
             </select>
           </label>
           <input id="convertBTCInput" type="text" value="1" #convertBTCInput (input)="convertCoinInputted()"
-            placeholder="Enter BTC amount" />
+            placeholder="BTC amount" />
         </div>
 
         <div class="BTCtoCADConversionDiv">
           <label for="convertCurrencyInput">{{selectedCurrency}}:</label>
           <input id="convertCurrencyInput" type="text" #convertCurrencyInput (input)="convertCurrencyInputted()"
-            [placeholder]="'Enter ' + selectedCurrency + ' amount'" />
+            [placeholder]="selectedCurrency + ' amount'" />
         </div>
 
         <div class="BTCtoCADConversionDiv">
           <label for="convertSATInput">SAT:</label>
           <input id="convertSATInput" type="text" #convertSATInput (input)="convertSatoshiInputted()"
-            placeholder="Enter Satoshi amount" />
+            placeholder="Satoshi amount" />
         </div>
 
         <div class="BTCtoCADConversionDiv" *ngIf="fiatNames && selectedFiatConversionName">
           <label for="convertFIATInput">
-            <select #btcConvertFIATSelect (change)="fiatConvertSelectChange()" style="width:50px;">
+            <select #btcConvertFIATSelect (change)="fiatConvertSelectChange()">
               <option *ngFor="let name of fiatNames" [selected]="selectedFiatConversionName == name" [value]="name">{{name}}</option>
             </select>
           </label>
@@ -150,15 +150,27 @@
               <div *ngIf="hasKrakenApi">Average Buy Price: <span class="thirdFontColor smallFont">{{formatToCanadianCurrency(weightedAveragePrices[0])}}</span></div>
               <div *ngIf="hasKrakenApi">Average Sell Price: <span class="thirdFontColor smallFont">{{formatToCanadianCurrency(weightedAveragePrices[1])}}</span></div>
               <div *ngIf="tradebotBalances && tradebotBalances.length > 0 && tradebotBalances[tradebotBalances.length - 1]">
-                Last Trade:
+                Last:
                 <span class="thirdFontColor smallFont">
                   <span [innerHTML]="getLastTradebotTradeDisplay()"></span>
-                  <span *ngIf="getLastTradePercentage() !== null" [class.positive-percent]="getLastTradePercentage() >= 0"
+                  <span *ngIf="getLastTradePercentage() !== null" 
+                    [title]="getLastTradePercentage() >= 0 ? 'Price has increased by ' + getLastTradePercentage().toFixed(2) + '% since last trade.' : 'Price has decreased by ' + getLastTradePercentage().toFixed(2) + '% since last trade.'"
+                    class="cursorPointer xxSmallFont"
+                    [class.positive-percent]="getLastTradePercentage() >= 0"
                     [class.negative-percent]="getLastTradePercentage() < 0">
                     ({{ getLastTradePercentage().toFixed(2) }}%)
                   </span>
                 </span>
               </div>
+              <div *ngIf="isTradePanelOpen">
+                Current Price:
+                <span class="thirdFontColor smallFont"> 
+                  <span>
+                    {{ getLastBTCPrice() }} 
+                  </span>
+                </span>
+              </div>
+              
             </div>
             <span class="cursorPointerUnderlined" (click)="createUpdateUserComponent();"
               *ngIf="!hasKrakenApi && parentRef?.user?.id"> Set Up Kraken API Keys </span>
@@ -169,18 +181,95 @@
             <button class="cursorPointer" (click)="openTradeFullscreen()">Maximize View</button>
           </span>
         </span>
-        <span *ngIf="isTradePanelOpen">
-          <button class="cursorPointer" (click)="showTradeSettings()" *ngIf="hasKrakenApi">{{showingTradeSettings ?
-            'Hide' : 'Show'}} Configuration</button>
-          <button class="cursorPointer" (click)="checkBalance()" [disabled]="isLoading">{{isTradebotBalanceShowing ?
-            'Hide' : 'Show'}} Trades</button>
-          <button class="cursorPointer" (click)="showTradeLogs()">{{showingTradeLogs ? 'Hide' : 'Show'}} Logs</button>
-          <button class="cursorPointer" (click)="showTradeValueGraph()">{{isShowingTradeValueGraph ? 'Hide' : 'Show'}}
-            Trade Value Graph</button>
-          <button class="cursorPointer" (click)="showTradeSimulationPanel()">{{isShowingTradeSimulator ? 'Hide' :
-            'Show'}} Tradebot Simulation</button>
-          <button class="cursorPointer" (click)="showTradeInformationPanel()">Information</button>
-        </span>
+        <div *ngIf="isTradePanelOpen"
+          [class.trade-panel-controls]="canShowTradePanelInfo()">
+          <div class="button-wrapper"
+            *ngIf="hasKrakenApi && (canShowTradePanelInfo() || showingTradeSettings)">
+            <button class="cursorPointer" (click)="showTradeSettings()" id="config-button" aria-describedby="config-desc">
+              {{showingTradeSettings ? 'Hide' : 'Show'}} Configuration
+            </button>
+            <p class="button-description" id="config-desc" *ngIf="!showingTradeSettings">
+              Opens the settings panel to configure trading parameters like trade thresholds and reserve amounts.
+            </p>
+          </div>
+          <div class="button-wrapper"
+            *ngIf="canShowTradePanelInfo() || isTradebotBalanceShowing">
+            <button class="cursorPointer" (click)="checkBalance()" [disabled]="isLoading" id="trades-button"
+              aria-describedby="trades-desc">
+              {{isTradebotBalanceShowing ? 'Hide' : 'Show'}} Trades
+            </button>
+            <p class="button-description" id="trades-desc" *ngIf="!isTradebotBalanceShowing">
+              Displays a table of recent trades, including BTC/USDC transactions, prices, and fees.
+            </p>
+          </div>
+          <div class="button-wrapper"
+            *ngIf="canShowTradePanelInfo() || showingTradeLogs">
+            <button class="cursorPointer" (click)="showTradeLogs()" id="logs-button" aria-describedby="logs-desc">
+              {{showingTradeLogs ? 'Hide' : 'Show'}} Logs
+            </button>
+            <p class="button-description" id="logs-desc" *ngIf="!showingTradeLogs">
+              Shows detailed logs of bot actions, such as trade decisions and errors, with pagination.
+            </p>
+          </div>
+          <div class="button-wrapper"
+            *ngIf="canShowTradePanelInfo() || isShowingTradeValueGraph">
+            <button class="cursorPointer" (click)="showTradeValueGraph()" id="graph-button" aria-describedby="graph-desc">
+              {{isShowingTradeValueGraph ? 'Hide' : 'Show'}} Trade Value Graph
+            </button>
+            <p class="button-description" id="graph-desc" *ngIf="!isShowingTradeValueGraph">
+              Plots trade values over time to visualize bot performance and profitability.
+            </p>
+          </div>
+          <div class="button-wrapper"
+            *ngIf="canShowTradePanelInfo() || isShowingTradeSimulator">
+            <button class="cursorPointer" (click)="showTradeSimulationPanel()" id="sim-button" aria-describedby="sim-desc">
+              {{isShowingTradeSimulator ? 'Hide' : 'Show'}} Tradebot Simulation
+            </button>
+            <p class="button-description" id="sim-desc" *ngIf="!isShowingTradeSimulator">
+              Runs a simulation of trading strategies with historical or random data to test performance.
+            </p>
+          </div>
+          <div class="button-wrapper"
+            [title]="tradeBotStarted ? 'Disabled: Tradebot is running.' : ''"
+            *ngIf="canShowTradePanelInfo()">
+            <button class="cursorPointer" (click)="enterPosition()"
+              [title]="'Buy BTC On dip by splitting funds with _InitialMinimumFromAmountToStart (set in configuration).'+ hasKrakenApi ? '' : 'Disabled: No Kraken API keys found.' + !tradeBotStarted ? '' : 'Disabled: Tradebot already started.'"
+              id="enter-button" aria-describedby="enter-desc" [disabled]="!hasKrakenApi || tradeBotStarted"> 
+              Enter Position
+            </button>
+            <p class="button-description" id="enter-desc">
+              Buys BTC using configured funds, starting a new trading position and starting the bot. See configuration under: _InitialMinimumFromAmountToStart.
+            </p>
+          </div>
+          <div class="button-wrapper" [title]="!tradeBotStarted ? 'Disabled: Tradebot is not running.' : ''"
+            *ngIf="canShowTradePanelInfo()">
+            <button class="cursorPointer" (click)="exitPosition()"
+              [title]="'Sell all BTC at current price and exit BTC position. ' + hasKrakenApi ? '' : 'Disabled: No Kraken API keys found.' + tradeBotStarted ? '' : 'Disabled: Tradebot not started.'"
+              id="exit-button" aria-describedby="exit-desc" [disabled]="!hasKrakenApi || !tradeBotStarted">
+              Exit Position
+            </button>
+            <p class="button-description" id="exit-desc">
+              Sells all BTC at market price, closing the current trading position and stopping the bot.
+            </p>
+          </div>
+          <div class="button-wrapper" *ngIf="canShowTradePanelInfo() || isShowingTradeProfit">
+            <button class="cursorPointer" (click)="!isShowingTradeProfit ? showProfit() : hideProfit()" [title]="'Show Tradebot Profit.'" id="profit-button" aria-describedby="profit-desc">
+              {{isShowingTradeProfit ? 'Hide' : 'Show'}} Profit And Loss
+            </button>
+            <p class="button-description" id="profit-desc" *ngIf="!isShowingTradeProfit">
+              Shows all profit and loss from the tradebot, including fees and other costs.
+            </p>
+          </div>
+          <div class="button-wrapper"
+            *ngIf="canShowTradePanelInfo()">
+            <button class="cursorPointer" (click)="showTradeInformationPanel()" id="info-button" aria-describedby="info-desc">
+              Information
+            </button>
+            <p class="button-description" id="info-desc">
+              Opens a panel with details about the bot’s features, logic, and best practices.
+            </p>
+          </div>
+        </div>
         <div *ngIf="isTradebotBalanceShowing && tradebotBalances?.length" class="mainTableContainer tradeDataTable">
           <table class="mainTable tradeBalanceTable">
             <thead>
@@ -311,9 +400,22 @@
         </div>
 
         <div class="optionsStatsDiv">
-          <div class="optionsStatsHeader" title="The maximum times a trade type (buy/sell) can happen. Applies both per day, and per consecutive trade. *note: This number will be diminished during above average volume period to create openings to buy high or sell low.">_MaximumTradeTypeOccurance</div>
+          <div class="optionsStatsHeader"
+            title="The maximum times a trade type (buy/sell) can happen. Applies both per day, and per consecutive trade. *note: This number will be diminished during above average volume period to create openings to buy high or sell low.">
+            _MaximumTradeTypeOccurance
+          </div>
           <div class="optionsStatsDescription">
             <input type="number" #tradeTradeMaximumTypeOccurances title="Maximum occurance of either buy or sell." />
+          </div>
+        </div>
+
+        <div class="optionsStatsDiv">
+          <div class="optionsStatsHeader"
+            title="The maximum times a trade type (buy/sell) can happen while the volume is above average. This number will diminish the amount of times buying/selling can occur consecutively during above average volume period to create openings to buy higher or sell lower.">
+            _VolumeSpikeMaxTradeOccurance
+          </div>
+          <div class="optionsStatsDescription">
+            <input type="number" #tradeVolumeSpikeMaxTradeOccurance title="Maximum occurance of either buy or sell during high volume spikes." />
           </div>
         </div>
 
@@ -332,10 +434,187 @@
         </div>
       </div>
       <div *ngIf="isShowingTradeValueGraph">
-        <app-line-graph [type]="'Crypto'" [graphTitle]="'Trade Value'" [data]="tradebotValuesForGraph"
-          [selectedPeriod]="'5y'" [showAverage]="true" (fullscreenSelectedEvent)="fullscreenSelectedInPopup($event)">
+        <app-line-graph [type]="'Crypto'" [graphTitle]="'Trade Value'" [data]="tradebotValuesForGraph" [selectedPeriod]="'5y'"
+          [showAverage]="true" (fullscreenSelectedEvent)="fullscreenSelectedInPopup($event)">
         </app-line-graph>
+      </div> 
+
+
+
+      <div *ngIf="isShowingTradeProfit && profitData?.length" class="profit-container tradeDataTable"> 
+        <!-- Days Section -->
+        <div class="period-type-section">
+          <div class="section-header" (click)="toggleProfitSection('days')">
+            <div class="popupPanelTitle">Daily Performance <span class="toggle-icon">{{ isProfitSectionOpen('days') ? '−' : '+' }}</span></div>
+          </div>
+          <div class="profit-periods" *ngIf="isProfitSectionOpen('days')">
+            <div *ngFor="let period of getProfitPeriodsByType('daily')" class="period-card">
+              <div class="period-header">
+                <span class="period-type">{{ period.periodType | titlecase }}</span>
+                <span class="period-dates">
+                  {{ period.periodStart | date:'MMM d, y' }} -
+                  {{ (period.periodEnd | date:'MMM d, y') || 'Present' }}
+                </span>
+              </div>
+      
+              <div class="profit-values">
+                <div class="value-row">
+                  <span>Starting Balance:</span>
+                  <span>{{ period.startUsdc | currency }} + {{ period.startBtc }} BTC</span>
+                </div>
+      
+                <div class="value-row">
+                  <span>Starting Net Worth:</span>
+                  <span>{{ (period.startUsdc ?? 0) + ((period.startBtc ?? 0) * (period.startBtcPriceUsdc ?? 0)) | currency }}
+                    USD</span>
+                </div>
+      
+                <div class="value-row">
+                  <span>BTC Price:</span>
+                  <span>{{ period.startBtcPriceUsdc | currency }}</span>
+                </div>
+      
+                <div class="value-row" *ngIf="period.endBtcPriceUsdc">
+                  <span>Ending BTC Price:</span>
+                  <span>{{ period.endBtcPriceUsdc | currency }}</span>
+                </div>
+      
+                <div class="value-row" *ngIf="period.endUsdc && period.endBtc && period.endBtcPriceUsdc">
+                  <span>Ending Net Worth:</span>
+                  <span>{{ period.endUsdc + (period.endBtc * period.endBtcPriceUsdc) | currency }} USD</span>
+                </div>
+      
+                <div class="value-row profit-row" [class.positive]="period.profitUsdc && period.profitUsdc > 0"
+                  [class.negative]="period.profitUsdc && period.profitUsdc < 0">
+                  <span>Profit:</span>
+                  <span>{{ period.profitUsdc | currency:'USD':'symbol':'1.2-10' }}</span>
+                </div>
+      
+                <div class="value-row cumulative-row">
+                  <span>Cumulative Profit:</span>
+                  <span>{{ period.cumulativeProfitUsdc | currency:'USD':'symbol':'1.2-10' }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      
+        <!-- Weeks Section -->
+        <div class="period-type-section">
+          <div class="section-header" (click)="toggleProfitSection('weeks')">
+            <div class="popupPanelTitle">Weekly Performance <span class="toggle-icon">{{ isProfitSectionOpen('weeks') ? '−' : '+' }}</span></div> 
+          </div>
+          <div class="profit-periods" *ngIf="isProfitSectionOpen('weeks')">
+            <div *ngFor="let period of getProfitPeriodsByType('weekly')" class="period-card">
+              <div class="period-header">
+                <span class="period-type">{{ period.periodType | titlecase }}</span>
+                <span class="period-dates">
+                  {{ period.periodStart | date:'MMM d, y' }} -
+                  {{ (period.periodEnd | date:'MMM d, y') || 'Present' }}
+                </span>
+              </div>
+      
+              <div class="profit-values">
+                <div class="value-row">
+                  <span>Starting Balance:</span>
+                  <span>{{ period.startUsdc | currency }} + {{ period.startBtc }} BTC</span>
+                </div>
+      
+                <div class="value-row">
+                  <span>Starting Net Worth:</span>
+                  <span>{{ (period.startUsdc ?? 0) + ((period.startBtc ?? 0) * (period.startBtcPriceUsdc ?? 0)) | currency }}
+                    USD</span>
+                </div>
+      
+                <div class="value-row">
+                  <span>BTC Price:</span>
+                  <span>{{ period.startBtcPriceUsdc | currency }}</span>
+                </div>
+      
+                <div class="value-row" *ngIf="period.endBtcPriceUsdc">
+                  <span>Ending BTC Price:</span>
+                  <span>{{ period.endBtcPriceUsdc | currency }}</span>
+                </div>
+      
+                <div class="value-row" *ngIf="period.endUsdc && period.endBtc && period.endBtcPriceUsdc">
+                  <span>Ending Net Worth:</span>
+                  <span>{{ period.endUsdc + (period.endBtc * period.endBtcPriceUsdc) | currency }} USD</span>
+                </div>
+      
+                <div class="value-row profit-row" [class.positive]="period.profitUsdc && period.profitUsdc > 0"
+                  [class.negative]="period.profitUsdc && period.profitUsdc < 0">
+                  <span>Profit:</span>
+                  <span>{{ period.profitUsdc | currency:'USD':'symbol':'1.2-10' }}</span>
+                </div>
+      
+                <div class="value-row cumulative-row">
+                  <span>Cumulative Profit:</span>
+                  <span>{{ period.cumulativeProfitUsdc | currency:'USD':'symbol':'1.2-10' }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      
+        <!-- Months Section -->
+        <div class="period-type-section">
+          <div class="section-header" (click)="toggleProfitSection('months')">
+            <div class="popupPanelTitle">Monthly Performance <span class="toggle-icon">{{ isProfitSectionOpen('months') ? '−' : '+' }}</span></div> 
+          </div>
+          <div class="profit-periods" *ngIf="isProfitSectionOpen('months')">
+            <div *ngFor="let period of getProfitPeriodsByType('monthly')" class="period-card">
+              <div class="period-header">
+                <span class="period-type">{{ period.periodType | titlecase }}</span>
+                <span class="period-dates">
+                  {{ period.periodStart | date:'MMM d, y' }} -
+                  {{ (period.periodEnd | date:'MMM d, y') || 'Present' }}
+                </span>
+              </div>
+      
+              <div class="profit-values">
+                <div class="value-row">
+                  <span>Starting Balance:</span>
+                  <span>{{ period.startUsdc | currency }} + {{ period.startBtc }} BTC</span>
+                </div>
+      
+                <div class="value-row">
+                  <span>Starting Net Worth:</span>
+                  <span>{{ (period.startUsdc ?? 0) + ((period.startBtc ?? 0) * (period.startBtcPriceUsdc ?? 0)) | currency }}
+                    USD</span>
+                </div>
+      
+                <div class="value-row">
+                  <span>BTC Price:</span>
+                  <span>{{ period.startBtcPriceUsdc | currency }}</span>
+                </div>
+      
+                <div class="value-row" *ngIf="period.endBtcPriceUsdc">
+                  <span>Ending BTC Price:</span>
+                  <span>{{ period.endBtcPriceUsdc | currency }}</span>
+                </div>
+      
+                <div class="value-row" *ngIf="period.endUsdc && period.endBtc && period.endBtcPriceUsdc">
+                  <span>Ending Net Worth:</span>
+                  <span>{{ period.endUsdc + (period.endBtc * period.endBtcPriceUsdc) | currency }} USD</span>
+                </div>
+      
+                <div class="value-row profit-row" [class.positive]="period.profitUsdc && period.profitUsdc > 0"
+                  [class.negative]="period.profitUsdc && period.profitUsdc < 0">
+                  <span>Profit:</span>
+                  <span>{{ period.profitUsdc | currency:'USD':'symbol':'1.2-10' }}</span>
+                </div>
+      
+                <div class="value-row cumulative-row">
+                  <span>Cumulative Profit:</span>
+                  <span>{{ period.cumulativeProfitUsdc | currency:'USD':'symbol':'1.2-10' }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
+      
+
       <div *ngIf="showingTradeLogs" class="tradeDataTable" [style.opacity]="isLoading ? '25%' : ''">
         <div *ngIf="tradeLogs.length > 0; else noLogs" class="mainTableContainer">
           <table class="smallFont mainTable">
@@ -413,11 +692,16 @@
           </div>
         </div>
       </div>
-      <div *ngIf="isTradePanelOpen" [style.marginTop]="isTradePanelOpen ? '20px' : ''"
-        style="text-align:right; width: 100%;">
+      <div *ngIf="isTradePanelOpen" [style.marginTop]="isTradePanelOpen ? '15px' : ''"
+        style="display: flex; justify-content: space-between; width: 100%;">
+        <div *ngIf="isTradePanelOpen && canShowTradePanelInfo()">
+          <div class="smallFont thirdFontColor">Consider buying me a coffee if you like this tool!</div>
+          <div class="smallFont thirdFontColor">BTC Address: bc1qz8xl5f3r40pzy3ypldp9q9vrhct8hz53vysrd4</div>
+        </div>
         <button class="cursorPointer" (click)="openTradeFullscreen()">{{isTradePanelOpen ? 'Minimize' : 'Maximize'}}
           View</button>
       </div>
+     
     </div>
 
     <div class="sectionContainer" [style.display]="isTradePanelOpen ? 'none' : 'block'">

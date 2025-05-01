@@ -38,7 +38,6 @@ export class CommentsComponent extends ChildComponent implements OnInit {
   @Input() automaticallyShowSubComments = true;
   @Input() canReply = true;
   @Input() debpth = 0;
-  @Input() previousComponent?: string;
   @Output() commentAddedEvent = new EventEmitter<FileComment>();
   @Output() commentRemovedEvent = new EventEmitter<FileComment>();
   @Output() commentHeaderClickedEvent = new EventEmitter<boolean>(this.showComments);
@@ -57,7 +56,7 @@ export class CommentsComponent extends ChildComponent implements OnInit {
   }
 
   ngOnInit() {
- 
+
   }
 
   override viewProfile(user: User) {
@@ -133,7 +132,7 @@ export class CommentsComponent extends ChildComponent implements OnInit {
     }
     this.sendNotifications(comment);
   }
-  private sendNotifications(comment: FileComment) {
+  private async sendNotifications(comment: FileComment) {
     const replyingToUser = this.component?.user;
     const isStory = this.type == "Social" || this.component?.storyId;
     const fromUserId = this.inputtedParentRef?.user?.id ?? 0;
@@ -151,6 +150,22 @@ export class CommentsComponent extends ChildComponent implements OnInit {
         userProfileId: comment.userProfileId,
       };
       this.notificationService.createNotifications(notificationData);
+    }
+    const mentionnedUsers = await this.inputtedParentRef?.getUsersByUsernames(comment.commentText ?? "");
+    if (mentionnedUsers && mentionnedUsers.length > 0) {
+      console.log("mentionned:", mentionnedUsers);
+      const mentionnedUserIds = mentionnedUsers.filter(x => x.id != replyingToUser.id).map(x => x.id);
+      if (mentionnedUserIds.length > 0) {
+        const notificationData: any = {
+          fromUserId: fromUserId,
+          toUserIds: mentionnedUserIds,
+          message: "You were mentionned!",
+          commentId: comment.commentId,
+          storyId: comment.storyId ?? this.component.storyId,
+          fileId: comment.fileId,
+        };
+        this.notificationService.createNotifications(notificationData);
+      }
     }
   }
 
@@ -266,7 +281,7 @@ export class CommentsComponent extends ChildComponent implements OnInit {
         input.value += "\n ";
       }
       input.value += `[Quoting {${comment.user.username}|${comment.user.id}|${comment.date}}: ${comment.commentText?.trim()}] \n`;
-    } 
+    }
     input.focus();
     const length = input.value.length;
     input.setSelectionRange(length, length);

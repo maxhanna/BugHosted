@@ -391,9 +391,7 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
       return;
     }
     const currentUrl = window.location.href;
-    if (currentUrl.includes(":8000/")) {
-      return;
-    }  
+   
     try {
       const firebaseConfig = {
         apiKey: "AIzaSyAR5AbDVyw2RmW4MCLL2aLVa2NLmf3W-Xc",
@@ -406,12 +404,12 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
       };
       this.app = initializeApp(firebaseConfig); 
       this.messaging = await getMessaging(this.app); 
-      //onMessage(this.messaging, (payload: any) => {
-      //  const parent = this.inputtedParentRef ?? this.parentRef;
-      //  const body = payload.notification.body;
-      //  const title = payload.notification.title;
-      //  parent?.showNotification(`${title}: ${body}`);
-      //});
+      onMessage(this.messaging, (payload: any) => {
+       const parent = this.inputtedParentRef ?? this.parentRef;
+       const body = payload.notification.body;
+       const title = payload.notification.title;
+       parent?.showNotification(`${title}: ${body}`);
+      });
 
       console.log('Current Notification Permission:', Notification.permission);
       if (this.notificationsEnabled == undefined) {

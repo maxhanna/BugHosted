@@ -2,7 +2,7 @@
   <span [class]="'notificationTopButton ' + (notifications && notifications.length > 0 && unreadNotifications > 0 ? 'glowing' : '')">🔔</span>
 </div>
 
-<div [class]="minimalInterface ? 'minimalInterfaceComponent' : 'componentMain'" *ngIf="!minimalInterface || showNotifications">
+<div [class]="minimalInterface ? 'popupPanel minimalPopupPanel' : 'componentMain'" *ngIf="!minimalInterface || showNotifications">
   <div class="closeButton" (click)="removeMe('Notifications')" *ngIf="!minimalInterface"></div>
   <div class="refreshButton" (click)="ngOnInit();" *ngIf="!minimalInterface"></div>
   <div class="componentTitle" *ngIf="!minimalInterface">Notifications</div>
@@ -61,10 +61,13 @@
       <div class="noNotificationsWrapperSpan">
         <div class="popupPanelTitle">You don't have any notifications.</div>
         <div>Notifications will appear when users interact with you or your content.</div> 
-      </div>
+      </div> 
       <button
            id="closeOverlay"
            (click)="inputtedParentRef ? inputtedParentRef.closeOverlay() : removeMe('Notifications')">Close</button> 
     </div>
+  </div>
+  <div *ngIf="isLoading">
+    Loading...
   </div>
 </div> 

@@ -1,4 +1,8 @@
- 
+@media only screen and (max-width: 667px) {
+  .componentMain {
+    width: unset;
+  }
+}
 .deleteNotificationButton, .readNotificationButton {
   width: 65px;
   height: 25px;
@@ -23,35 +27,19 @@
 .date {
   font-size: small;
 }
-.minimalInterfaceComponent {
-  background-color: var(--secondary-component-background-color);
-  position: fixed;
-  width: 100%;
-  max-width: 600px;
-  overflow: auto;  
-  left: 50%;
-  top:0;
-  z-index: 3;
-  border: var(--main-border);
-  display: flex;
-  align-items: center;
-  justify-content: flex-start;
-  align-content: center;
-  flex-wrap: wrap;
-  flex-direction: column;
-  border-radius: 8px;
-  transform: translateX(-50%) !important;
-  cursor: default;
+.minimalPopupPanel { 
+  padding: 50px 0px 0px 0px !important;
 }
 
 /* typical phone screen resolution */
 @media only screen and (max-width : 667px) {
-  .minimalInterfaceComponent {
-    height: 100%;
-    width: 99vw;
+  .minimalPopupPanel {
+    height: CALC(var(--vh, 1vh) * 100 - 50px);
+    width: 100vw;
     max-width: unset;
     transform: unset;
     top: 0; 
+    left:0;
     border-radius: 0px;
   }
 } 
@@ -60,19 +48,23 @@
 }
 .notificationsDisplay {
   display: flex;
-  flex-flow: column wrap;
-  justify-content: space-between;
-  z-index: 3;
-  padding: 5px;
+  z-index: 3; 
 /*  height: CALC(var(--vh, 1vh) * 100 - 70px);
 */  flex-wrap: nowrap;
   text-shadow: 0 0 black;
   font-size: var(--main-font-size);
 }
+@media only screen and (max-width : 900px) {
+  .notificationsDisplay {
+    flex-flow: column wrap;
+    justify-content: space-between;
+  }
+}
+ 
 .notificationsListContainer {
   overflow-y: auto;
   overflow-x: hidden;
-  height: CALC(var(--vh, 1vh) * 100 - 220px);
+  height: CALC(var(--vh, 1vh) * 100 - 165px);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -112,9 +104,8 @@
   align-items: center;
   justify-content: center;
   align-content: center;
-  flex-wrap: nowrap;
-  margin-bottom: 20px;
-  margin-top: 15px;
+  flex-wrap: nowrap; 
+  text-align: center;
 }
 .notificationsCountHeaderButtons {
   display: flex;

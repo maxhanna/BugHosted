@@ -36,8 +36,9 @@ builder.Services.AddHostedService<NexusDefenceBackgroundService>();
 builder.Services.AddHttpClient<KrakenService>();
 builder.Services.AddHttpClient<WebCrawler>();
 builder.Services.AddSingleton<Log>();
-builder.Services.AddSingleton<WebCrawler>(); 
-builder.Services.AddSingleton<NewsService>(); 
+builder.Services.AddSingleton<WebCrawler>();
+builder.Services.AddSingleton<NewsService>();
+builder.Services.AddSingleton<ProfitCalculationService>();
 builder.Services.AddSingleton<KrakenService>();  
 
 builder.WebHost.ConfigureKestrel(options => options.Limits.MaxRequestBodySize = long.MaxValue); // Allows for large files
@@ -71,8 +72,7 @@ app.MapWhen(context => context.Request.Path.Value.Contains("firebase-messaging-s
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
-	app.UseSwagger();
-	app.UseHttpsRedirection();
+	app.UseSwagger(); 
 	app.UseSwaggerUI();
 }
 

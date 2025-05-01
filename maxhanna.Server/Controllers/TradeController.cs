@@ -1,5 +1,5 @@
 using maxhanna.Server.Controllers.DataContracts.Crypto;
-using maxhanna.Server.Controllers.DataContracts.Users;
+using maxhanna.Server.Controllers.DataContracts.Users; 
 using Microsoft.AspNetCore.Mvc;
 using System.Text.Json;
 
@@ -64,12 +64,12 @@ public class TradeController : ControllerBase
 		try
 		{
 			if (userId != 1 && !await _log.ValidateUserLoggedIn(userId, encryptedUserId)) return StatusCode(500, "Access Denied.");
-			var result = await _krakenService.GetWeightedAveragePrices(userId, "XBT", "USDC");
+			var result = await _krakenService.GetWeightedAveragePrices(userId, "XBT", "USDC"); 
 			return Ok(result);
 		}
 		catch (Exception ex)
 		{
-			return StatusCode(500, "Error starting trade bot. " + ex.Message);
+			return StatusCode(500, "Error GetWeightedAveragePrices. " + ex.Message);
 		}
 	}
 	[HttpPost("/Trade/StartBot", Name = "StartBot")]
@@ -190,6 +190,25 @@ public class TradeController : ControllerBase
 		}
 	}
 
+	[HttpPost("/Trade/GetProfitData", Name = "GetProfitData")]
+	public async Task<IActionResult> GetProfitData([FromBody] ProfitDataRequest req, [FromHeader(Name = "Encrypted-UserId")] string encryptedUserId)
+	{
+		if (req.UserId == 0)
+		{
+			return BadRequest("You must be logged in.");
+		}
+		try
+		{
+			if (req.UserId != 1 && !await _log.ValidateUserLoggedIn(req.UserId, encryptedUserId)) return StatusCode(500, "Access Denied.");
+			List<ProfitData>? result = await _krakenService.GetUserProfitDataAsync(req.UserId, req.Days);
+			return Ok(result);
+		}
+		catch (Exception ex)
+		{
+			return StatusCode(500, "Error GetProfitData. " + ex.Message);
+		}
+	}
+	 
 	[HttpPost("/Trade/GetTradeVolumeForGraph", Name = "GetTradeVolumeForGraph")]
 	public async Task<IActionResult> GetTradeVolumeForGraph([FromBody] GraphRangeRequest request)
 	{
@@ -239,7 +258,9 @@ public class TradeController : ControllerBase
 					config.FromPriceDiscrepencyStopPercentage ?? 0,
 					config.InitialMinimumFromAmountToStart ?? 0,
 					config.MinimumFromReserves ?? 0,
-					config.MinimumToReserves ?? 0
+					config.MinimumToReserves ?? 0,
+					config.MaxTradeTypeOccurances ?? 0,
+					config.VolumeSpikeMaxTradeOccurance ?? 0
 			);
 
 			return worked ? Ok(worked) : BadRequest("Something went wrong. Check input data.");
@@ -248,6 +269,44 @@ public class TradeController : ControllerBase
 		{
 			_ = _log.Db("Error upserting trade config. " + ex.Message, config.UserId, "TRADE", true);
 			return StatusCode(500, "Error saving configuration.");
+		}
+	}
+
+	[HttpPost("/Trade/EnterPosition", Name = "EnterPosition")]
+	public async Task<IActionResult> EnterPosition([FromBody] int userId, [FromHeader(Name = "Encrypted-UserId")] string encryptedUserId)
+	{
+		if (userId == 0)
+		{
+			return BadRequest("You must be logged in.");
+		}
+		try
+		{
+			if (!await _log.ValidateUserLoggedIn(userId, encryptedUserId)) return StatusCode(500, "Access Denied.");
+			bool ok = await _krakenService.EnterPosition(userId);
+			return Ok(ok);
+		}
+		catch (Exception ex)
+		{
+			return StatusCode(500, "Error EnterPosition. " + ex.Message);
+		}
+	}
+
+	[HttpPost("/Trade/ExitPosition", Name = "ExitPosition")]
+	public async Task<IActionResult> ExitPosition([FromBody] int userId, [FromHeader(Name = "Encrypted-UserId")] string encryptedUserId)
+	{
+		if (userId == 0)
+		{
+			return BadRequest("You must be logged in.");
+		}
+		try
+		{
+			if (!await _log.ValidateUserLoggedIn(userId, encryptedUserId)) return StatusCode(500, "Access Denied.");
+			bool ok = await _krakenService.ExitPosition(userId);
+			return Ok(ok);
+		}
+		catch (Exception ex)
+		{
+			return StatusCode(500, "Error ExitPosition. " + ex.Message);
 		}
 	}
 }

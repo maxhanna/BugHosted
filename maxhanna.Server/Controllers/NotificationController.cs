@@ -285,7 +285,7 @@ namespace maxhanna.Server.Controllers
 		{
 			IActionResult? canSendRes = CanSendNotification(request);
 			if (canSendRes != null) { return canSendRes; }
-
+			//Console.WriteLine("Creating notifications for userId : " + request.FromUserId);
 			bool sendFirebaseNotification = true;
 			request.Message = RemoveQuotedBlocks(request.Message);
 
@@ -346,31 +346,170 @@ namespace maxhanna.Server.Controllers
 			}
 			return true;
 		}
-
 		private async Task<bool> TryResolveStoryNotification(MySqlConnection conn, NotificationRequest request)
 		{
-			if (request.StoryId == null) return false; 
-			string notificationSql = $@"
-						INSERT INTO maxhanna.notifications (user_id, from_user_id, story_id, text, date, user_profile_id)
-						SELECT user_id, @user_id, @storyId, @comment, UTC_TIMESTAMP(), @userProfileId
-						FROM maxhanna.stories
-						WHERE id = @storyId AND user_id != @user_id;
-
-						INSERT INTO maxhanna.notifications (user_id, from_user_id, story_id, text)
-						SELECT DISTINCT user_id, @user_id, @story_id, @comment
-						FROM maxhanna.comments
-						WHERE story_id = @story_id AND user_id <> @user_id";
-
-			using (var cmd = new MySqlCommand(notificationSql, conn))
+			if (request.StoryId == null)
 			{
-				cmd.Parameters.AddWithValue("@user_id", request.FromUserId);
-				cmd.Parameters.AddWithValue("@comment", request.Message);
-				cmd.Parameters.AddWithValue("@storyId", request.StoryId);
-				cmd.Parameters.AddWithValue("@userProfileId", request.UserProfileId ?? (object)DBNull.Value);
-				cmd.Parameters.AddWithValue("@story_id", request.StoryId);
-				await cmd.ExecuteNonQueryAsync();
+				_ = _log.Db("StoryId is null.", request.FromUserId, "NOTIFICATION", true);
+				return false;
 			}
-			return true;
+			if (request.ToUserIds == null || !request.ToUserIds.Any())
+			{
+				_ = _log.Db("No valid ToUserIds provided.", request.FromUserId, "NOTIFICATION", false);
+				return false;
+			}
+
+			_ = _log.Db($"TryResolveStoryNotification: StoryId={request.StoryId}, ToUserIds={string.Join(",", request.ToUserIds)}, FromUserId={request.FromUserId}, Message={request.Message}, UserProfileId={request.UserProfileId}", request.FromUserId, "NOTIFICATION", false);
+
+			try
+			{
+				// Verify story exists
+				string checkStorySql = "SELECT COUNT(*) FROM maxhanna.stories WHERE id = @storyId";
+				using (var checkCmd = new MySqlCommand(checkStorySql, conn))
+				{
+					checkCmd.Parameters.AddWithValue("@storyId", request.StoryId);
+					long? count = (long?)await checkCmd.ExecuteScalarAsync();
+					if (count == 0)
+					{
+						_ = _log.Db($"Story {request.StoryId} does not exist.", request.FromUserId, "NOTIFICATION", true);
+						return false;
+					}
+				}
+
+				// Collect unique recipient user IDs
+				HashSet<int> recipientUserIds = new HashSet<int>(request.ToUserIds.Where(id => id != request.FromUserId));
+
+				// Get story owner and commenters in a single query to avoid duplicates
+				string recipientsSql = @"
+					SELECT user_id FROM maxhanna.stories WHERE id = @storyId AND user_id != @fromUserId
+					UNION
+					SELECT DISTINCT user_id FROM maxhanna.comments WHERE story_id = @storyId AND user_id != @fromUserId";
+				using (var recipientsCmd = new MySqlCommand(recipientsSql, conn))
+				{
+					recipientsCmd.Parameters.AddWithValue("@storyId", request.StoryId);
+					recipientsCmd.Parameters.AddWithValue("@fromUserId", request.FromUserId);
+					using (var reader = await recipientsCmd.ExecuteReaderAsync())
+					{
+						while (await reader.ReadAsync())
+						{
+							recipientUserIds.Add(reader.GetInt32("user_id"));
+						}
+					}
+				}
+
+				_ = _log.Db($"Unique recipient user IDs: {string.Join(",", recipientUserIds)}", request.FromUserId, "NOTIFICATION", false);
+
+				if (!recipientUserIds.Any())
+				{
+					_ = _log.Db("No unique recipients found after deduplication.", request.FromUserId, "NOTIFICATION", false);
+					return false;
+				}
+
+				// First query: Notify story owner and commenters
+				string firstQuerySql = @"
+					INSERT INTO maxhanna.notifications (user_id, from_user_id, story_id, text, date, user_profile_id)
+					SELECT DISTINCT user_id, @from_user_id, @story_id, @comment, UTC_TIMESTAMP(), @user_profile_id
+					FROM (
+						SELECT user_id FROM maxhanna.stories WHERE id = @story_id AND user_id != @from_user_id
+						UNION
+						SELECT user_id FROM maxhanna.comments WHERE story_id = @story_id AND user_id != @from_user_id
+					) AS recipients
+					WHERE user_id IN ({0});";
+
+				int firstQueryRowsAffected = 0;
+				HashSet<int> notifiedUserIds = new HashSet<int>();
+				if (recipientUserIds.Any())
+				{
+					var placeholders = string.Join(",", recipientUserIds.Select((_, i) => $"@user_id{i}"));
+					firstQuerySql = string.Format(firstQuerySql, placeholders);
+					using (var firstCmd = new MySqlCommand(firstQuerySql, conn))
+					{
+						firstCmd.Parameters.AddWithValue("@from_user_id", request.FromUserId);
+						firstCmd.Parameters.AddWithValue("@comment", request.Message ?? (object)DBNull.Value);
+						firstCmd.Parameters.AddWithValue("@story_id", request.StoryId);
+						firstCmd.Parameters.AddWithValue("@user_profile_id", request.UserProfileId ?? (object)DBNull.Value);
+						for (int i = 0; i < recipientUserIds.Count; i++)
+						{
+							firstCmd.Parameters.AddWithValue($"@user_id{i}", recipientUserIds.ElementAt(i));
+						}
+
+						// Log parameters for debugging
+						_ = _log.Db($"First query parameters: from_user_id={request.FromUserId}, story_id={request.StoryId}, user_ids={string.Join(",", recipientUserIds)}", request.FromUserId, "NOTIFICATION", false);
+
+						try
+						{
+							firstQueryRowsAffected = await firstCmd.ExecuteNonQueryAsync();
+							_ = _log.Db($"First query inserted {firstQueryRowsAffected} notifications for story {request.StoryId}", request.FromUserId, "NOTIFICATION", false);
+
+							// Track notified users
+							string notifiedSql = @"
+								SELECT DISTINCT user_id
+								FROM maxhanna.notifications
+								WHERE story_id = @story_id AND from_user_id = @from_user_id
+								AND date >= UTC_TIMESTAMP() - INTERVAL 1 SECOND";
+							using (var notifiedCmd = new MySqlCommand(notifiedSql, conn))
+							{
+								notifiedCmd.Parameters.AddWithValue("@story_id", request.StoryId);
+								notifiedCmd.Parameters.AddWithValue("@from_user_id", request.FromUserId);
+								using (var reader = await notifiedCmd.ExecuteReaderAsync())
+								{
+									while (await reader.ReadAsync())
+									{
+										notifiedUserIds.Add(reader.GetInt32("user_id"));
+									}
+								}
+							}
+							_ = _log.Db($"Notified user IDs after first query: {string.Join(",", notifiedUserIds)}", request.FromUserId, "NOTIFICATION", false);
+						}
+						catch (Exception ex)
+						{
+							_ = _log.Db($"First query failed: {ex.Message}", request.FromUserId, "NOTIFICATION", true);
+							return false; // Fail fast if the first query fails
+						}
+					}
+				}
+
+				// Second query: Notify remaining mentioned users (ToUserIds) not yet notified
+				string secondQuerySql = @"
+					INSERT INTO maxhanna.notifications (user_id, from_user_id, story_id, text, date, user_profile_id)
+					VALUES (@to_user_id, @from_user_id, @story_id, @comment, UTC_TIMESTAMP(), @user_profile_id);";
+
+				int secondQueryRowsAffected = 0;
+				foreach (var toUserId in request.ToUserIds.Distinct().Where(id => id != request.FromUserId && !notifiedUserIds.Contains(id)))
+				{
+					using (var secondCmd = new MySqlCommand(secondQuerySql, conn))
+					{
+						secondCmd.Parameters.AddWithValue("@to_user_id", toUserId);
+						secondCmd.Parameters.AddWithValue("@from_user_id", request.FromUserId);
+						secondCmd.Parameters.AddWithValue("@comment", request.Message ?? (object)DBNull.Value);
+						secondCmd.Parameters.AddWithValue("@story_id", request.StoryId);
+						secondCmd.Parameters.AddWithValue("@user_profile_id", request.UserProfileId ?? (object)DBNull.Value);
+
+						try
+						{
+							int rowsAffected = await secondCmd.ExecuteNonQueryAsync();
+							secondQueryRowsAffected += rowsAffected;
+							_ = _log.Db($"Second query inserted {rowsAffected} notifications for user {toUserId}, story {request.StoryId}", request.FromUserId, "NOTIFICATION", false);
+							notifiedUserIds.Add(toUserId); // Track notified user
+						}
+						catch (Exception ex)
+						{
+							_ = _log.Db($"Second query failed for user {toUserId}: {ex.Message}", request.FromUserId, "NOTIFICATION", true);
+							continue; // Continue with next user
+						}
+					}
+				}
+
+				// Return true only if at least one notification was inserted
+				bool notificationsSent = firstQueryRowsAffected > 0 || secondQueryRowsAffected > 0;
+				_ = _log.Db($"Notifications sent for story {request.StoryId}: {notificationsSent}", request.FromUserId, "NOTIFICATION", false);
+				return notificationsSent;
+			}
+			catch (Exception ex)
+			{
+				_ = _log.Db($"Error in TryResolveStoryNotification: {ex.Message}", request.FromUserId, "NOTIFICATION", true);
+				return false;
+			}
 		}
 		private async Task UpdateLastSeen(MySqlConnection conn, NotificationRequest request)
 		{
@@ -638,6 +777,7 @@ namespace maxhanna.Server.Controllers
 					};
 
 					string response = await FirebaseMessaging.DefaultInstance.SendAsync(message);
+					Console.WriteLine($"Successfully sent message: {response} to user {tmpUserId}");
 				}
 				catch (Exception ex)
 				{

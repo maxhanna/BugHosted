@@ -64,6 +64,7 @@
   display: inline-block;
   border-radius: 3px;
   font-weight: 400;
+  word-break: break-word;
 }
 
 .storyUserDetails textarea {
@@ -665,4 +666,14 @@ singleAttachment {
 .mobilePostButtonOptions button {
   text-align: center;
   width: 65px;
+}
+.menuBackButtonSpecial {
+  right: 55px; 
+}
+.menuBackButtonSpecialUser {
+  right: 107px;
+}
+.menuBackButtonSpecial, .menuBackButtonSpecialUser {
+  position: absolute;
+  top: 0px;
 }

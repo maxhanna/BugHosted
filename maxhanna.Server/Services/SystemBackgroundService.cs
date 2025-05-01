@@ -16,6 +16,7 @@ namespace maxhanna.Server.Services
 		private readonly WebCrawler _webCrawler;
 		private readonly KrakenService _krakenService;
 		private readonly NewsService _newsService;
+		private readonly ProfitCalculationService _profitService;
 		private readonly MiningApi _miningApiService = new MiningApi();
 		private readonly Log _log;
 		private readonly IConfiguration _config; // needed for apiKey
@@ -27,8 +28,9 @@ namespace maxhanna.Server.Services
 		private bool isCrawling = false;
 		private bool lastWasCrypto = false;
 
-		public SystemBackgroundService(Log log, IConfiguration config, WebCrawler webCrawler, KrakenService krakenService, NewsService newsService)
-		{
+		public SystemBackgroundService(Log log, IConfiguration config, WebCrawler webCrawler, KrakenService krakenService, 
+										NewsService newsService, ProfitCalculationService profitService)
+		{ 
 			_config = config;
 			_connectionString = config.GetValue<string>("ConnectionStrings:maxhanna")!;
 			_apiKey = config.GetValue<string>("CoinWatch:ApiKey")!;
@@ -36,14 +38,15 @@ namespace maxhanna.Server.Services
 			_webCrawler = webCrawler;
 			_log = log;
 			_krakenService = krakenService;
-			_newsService = newsService; 
+			_newsService = newsService;
+			_profitService = profitService;
 		}
 
 		protected override async Task ExecuteAsync(CancellationToken stoppingToken)
 		{
 			while (!stoppingToken.IsCancellationRequested)
 			{
-					_ = _log.Db("Refreshing system information:" + DateTimeOffset.Now, outputToConsole: true);
+				_ = _log.Db("Refreshing system information:" + DateTimeOffset.Now, outputToConsole: true);
 
 				// Run tasks that need to execute every 1 minute
 				if ((DateTime.Now - _lastMinuteTaskRun).TotalMinutes >= 1)
@@ -58,7 +61,8 @@ namespace maxhanna.Server.Services
 					await FetchAndStoreCoinValues();
 					_miningApiService.UpdateWalletInDB(_config, _log);
 					lastWasCrypto = !lastWasCrypto;
-					await _newsService.GetAndSaveTopQuarterHourlyHeadlines(!lastWasCrypto ? "Cryptocurrency" : null); 
+					await _newsService.GetAndSaveTopQuarterHourlyHeadlines(!lastWasCrypto ? "Cryptocurrency" : null);
+					await _profitService.CalculateDailyProfits();
 				}
 				// Check if 1 hour has passed since the last coin fetch
 				if ((DateTime.Now - _lastHourlyTaskRun).TotalHours >= 1)
@@ -72,6 +76,9 @@ namespace maxhanna.Server.Services
 				if ((DateTime.Now - _lastMidDayTaskRun).TotalHours >= 6)
 				{
 					await FetchExchangeRates();
+					await _profitService.CalculateWeeklyProfits();
+				  	await _profitService.CalculateMonthlyProfits();
+
 					_lastMidDayTaskRun = DateTime.Now;
 				}
 
@@ -86,6 +93,7 @@ namespace maxhanna.Server.Services
 					await DeleteOldCoinValueEntries();
 					await _newsService.CreateDailyCryptoNewsStoryAsync();
 					await _newsService.CreateDailyNewsStoryAsync();
+					await _newsService.PostDailyMemeAsync();
 					await DeleteOldNews();
 					await DeleteOldTradeVolumeEntries();
 					await _log.DeleteOldLogs();
@@ -198,20 +206,30 @@ namespace maxhanna.Server.Services
 
 		private async Task MakeCryptoTrade()
 		{
-			try
+			var activeUsers = await _krakenService.GetActiveTradeBotUsers(null);
+			UserKrakenApiKey? ownerkeys = await _krakenService.GetApiKey(1);
+			if (ownerkeys == null || string.IsNullOrEmpty(ownerkeys.ApiKey) || string.IsNullOrEmpty(ownerkeys.PrivateKey))
 			{
-				UserKrakenApiKey? keys = await _krakenService.GetApiKey(1);
-				if (keys == null || string.IsNullOrEmpty(keys.ApiKey) || string.IsNullOrEmpty(keys.PrivateKey))
-				{
-					_ = _log.Db("No Kraken API keys found for this user", 1, "SYSTEM", true);
-					return;
-				}
-				await SaveVolumeDataAsync(1, keys);
-				await _krakenService.MakeATrade(1, keys);
+				_ = _log.Db("No Kraken API keys found for userId: 1", 1, "SYSTEM", true);
+				return;
 			}
-			catch (Exception ex)
+			await SaveVolumeDataAsync(1, ownerkeys);
+			foreach (var userId in activeUsers)
 			{
-				_ = _log.Db("Exception while trading : " + ex.Message, null);
+				try
+				{
+					UserKrakenApiKey? keys = await _krakenService.GetApiKey(userId);
+					if (keys == null || string.IsNullOrEmpty(keys.ApiKey) || string.IsNullOrEmpty(keys.PrivateKey))
+					{
+						_ = _log.Db("No Kraken API keys found for this user", userId, "SYSTEM", true);
+						return;
+					}
+					await _krakenService.MakeATrade(userId, keys);
+				}
+				catch (Exception ex)
+				{
+					_ = _log.Db("Exception while trading : " + ex.Message, null);
+				}
 			}
 		}
 
@@ -384,7 +402,7 @@ namespace maxhanna.Server.Services
 						UPDATE maxhanna.user_settings 
             SET notifications_enabled = NULL, 
                 notifications_changed_date = UTC_TIMESTAMP() 
-            WHERE notifications_changed_date < DATE_SUB(NOW(), INTERVAL 2 MONTH);";
+            WHERE notifications_changed_date < DATE_SUB(NOW(), INTERVAL 1 MONTH);";
 
 					await using (var deleteCmd = new MySqlCommand(deleteSql, conn, transaction))
 					{
@@ -514,8 +532,8 @@ namespace maxhanna.Server.Services
 
 					// Check if an entry was added in the last 6 hours
 					var checkSql = @"
-                SELECT COUNT(*) FROM exchange_rates 
-                WHERE timestamp >= UTC_TIMESTAMP() - INTERVAL 6 HOUR";
+						SELECT COUNT(*) FROM exchange_rates 
+						WHERE timestamp >= UTC_TIMESTAMP() - INTERVAL 6 HOUR";
 
 					using (var checkCmd = new MySqlCommand(checkSql, connection))
 					{
@@ -529,20 +547,23 @@ namespace maxhanna.Server.Services
 
 					// Delete old entries (older than 10 years)
 					var deleteSql = @"
-                DELETE FROM exchange_rates 
-                WHERE timestamp < UTC_TIMESTAMP() - INTERVAL 10 YEAR";
+						DELETE FROM exchange_rates 
+						WHERE timestamp < UTC_TIMESTAMP() - INTERVAL 10 YEAR";
 
 					using (var deleteCmd = new MySqlCommand(deleteSql, connection))
 					{
 						await deleteCmd.ExecuteNonQueryAsync();
+					} 
+					if (exchangeData.Rates == null || exchangeData.Rates.Count == 0)
+					{
+						_ = _log.Db("No exchange rates found in the response.", null);
+						return;
 					}
-
-					// Insert new exchange rates
 					foreach (var rate in exchangeData.Rates)
 					{
 						var insertSql = @"
-                    INSERT INTO exchange_rates (base_currency, target_currency, rate, timestamp) 
-                    VALUES (@base, @target, @rate, UTC_TIMESTAMP())";
+							INSERT INTO exchange_rates (base_currency, target_currency, rate, timestamp) 
+							VALUES (@base, @target, @rate, UTC_TIMESTAMP())";
 
 						using (var insertCmd = new MySqlCommand(insertSql, connection))
 						{
@@ -729,9 +750,9 @@ namespace maxhanna.Server.Services
 
 				// Check if there's already a record for XBTUSDC in the last 5 minutes
 				var query = @"
-            SELECT COUNT(*) 
-            FROM trade_market_volumes
-            WHERE pair = @pair AND timestamp > @timestampThreshold;";
+					SELECT COUNT(*) 
+					FROM trade_market_volumes
+					WHERE pair = @pair AND timestamp > @timestampThreshold;";
 
 				var command = new MySqlCommand(query, connection);
 				command.Parameters.AddWithValue("@pair", "XBTUSDC");
@@ -746,12 +767,12 @@ namespace maxhanna.Server.Services
 				var volumes = await _krakenService.GetLatest15MinVolumeAsync(userId, keys);
 
 				query = @"
-            INSERT INTO trade_market_volumes (pair, volume_btc, volume_usdc, timestamp)
-            VALUES (@pair, @volume_btc, @volume_usdc, UTC_TIMESTAMP());";
+					INSERT INTO trade_market_volumes (pair, volume_btc, volume_usdc, timestamp)
+					VALUES (@pair, @volume_btc, @volume_usdc, UTC_TIMESTAMP());";
 				command = new MySqlCommand(query, connection);
 				command.Parameters.AddWithValue("@pair", "XBTUSDC");
-				command.Parameters.AddWithValue("@volume_btc", volumes.VolumeBTC);
-				command.Parameters.AddWithValue("@volume_usdc", volumes.VolumeUSDC);
+				command.Parameters.AddWithValue("@volume_btc", volumes?.VolumeBTC);
+				command.Parameters.AddWithValue("@volume_usdc", volumes?.VolumeUSDC);
 				await command.ExecuteNonQueryAsync();
 			}
 		}
@@ -774,7 +795,7 @@ namespace maxhanna.Server.Services
 					if (coinData != null)
 					{
 						foreach (var coin in coinData)
-						{ 
+						{
 							var checkSql = @"
 								SELECT COUNT(*) FROM coin_value 
 								WHERE symbol = @Symbol 
@@ -822,7 +843,7 @@ namespace maxhanna.Server.Services
 				currency = "CAD",
 				sort = "rank",
 				order = "ascending",
-				offset = 0, 
+				offset = 0,
 				maximum = 100,
 				meta = true
 			};
@@ -859,22 +880,22 @@ namespace maxhanna.Server.Services
 				await conn.OpenAsync();
 
 				var deleteSql = @"
-            DELETE FROM coin_value
-            WHERE timestamp < DATE_SUB(UTC_TIMESTAMP(), INTERVAL 1 YEAR)
-            AND id NOT IN (
-                SELECT id
-                FROM (
-                    SELECT id,
-                           ROW_NUMBER() OVER (
-                               PARTITION BY name, 
-                               UNIX_TIMESTAMP(timestamp) DIV (5 * 60) 
-                               ORDER BY timestamp
-                           ) AS rn
-                    FROM coin_value
-                    WHERE timestamp < DATE_SUB(UTC_TIMESTAMP(), INTERVAL 1 YEAR)
-                ) ranked
-                WHERE rn = 1
-            );";
+					DELETE FROM coin_value
+					WHERE timestamp < DATE_SUB(UTC_TIMESTAMP(), INTERVAL 1 YEAR)
+					AND id NOT IN (
+						SELECT id
+						FROM (
+							SELECT id,
+								ROW_NUMBER() OVER (
+									PARTITION BY name, 
+									UNIX_TIMESTAMP(timestamp) DIV (5 * 60) 
+									ORDER BY timestamp
+								) AS rn
+							FROM coin_value
+							WHERE timestamp < DATE_SUB(UTC_TIMESTAMP(), INTERVAL 1 YEAR)
+						) ranked
+						WHERE rn = 1
+					);";
 
 				using (var deleteCmd = new MySqlCommand(deleteSql, conn))
 				{
@@ -899,26 +920,26 @@ namespace maxhanna.Server.Services
 
 				// Step 1: Delete records older than 1 year but younger than 10 years, keeping one per pair per 5-minute interval
 				var deleteSql = @"
-            DELETE FROM trade_market_volumes
-            WHERE timestamp < DATE_SUB(UTC_TIMESTAMP(), INTERVAL 1 YEAR)
-              AND timestamp >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 10 YEAR)
-              AND id NOT IN (
-                  SELECT id
-                  FROM (
-                      SELECT id,
-                             ROW_NUMBER() OVER (
-                                 PARTITION BY pair, 
-                                 UNIX_TIMESTAMP(timestamp) DIV (5 * 60) 
-                                 ORDER BY timestamp
-                             ) AS rn
-                      FROM trade_market_volumes
-                      WHERE timestamp < DATE_SUB(UTC_TIMESTAMP(), INTERVAL 1 YEAR)
-                        AND timestamp >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 10 YEAR)
-                        AND timestamp IS NOT NULL
-                        AND pair IS NOT NULL
-                  ) ranked
-                  WHERE rn = 1
-              );";
+					DELETE FROM trade_market_volumes
+					WHERE timestamp < DATE_SUB(UTC_TIMESTAMP(), INTERVAL 1 YEAR)
+					AND timestamp >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 10 YEAR)
+					AND id NOT IN (
+						SELECT id
+						FROM (
+							SELECT id,
+									ROW_NUMBER() OVER (
+										PARTITION BY pair, 
+										UNIX_TIMESTAMP(timestamp) DIV (5 * 60) 
+										ORDER BY timestamp
+									) AS rn
+							FROM trade_market_volumes
+							WHERE timestamp < DATE_SUB(UTC_TIMESTAMP(), INTERVAL 1 YEAR)
+								AND timestamp >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 10 YEAR)
+								AND timestamp IS NOT NULL
+								AND pair IS NOT NULL
+						) ranked
+						WHERE rn = 1
+					);";
 
 				using (var deleteCmd = new MySqlCommand(deleteSql, conn))
 				{
@@ -931,8 +952,8 @@ namespace maxhanna.Server.Services
 
 				// Step 2: Delete records older than 10 years
 				var deleteOldSql = @"
-            DELETE FROM trade_market_volumes
-            WHERE timestamp < DATE_SUB(UTC_TIMESTAMP(), INTERVAL 10 YEAR);";
+					DELETE FROM trade_market_volumes
+					WHERE timestamp < DATE_SUB(UTC_TIMESTAMP(), INTERVAL 10 YEAR);";
 				using (var deleteOldCmd = new MySqlCommand(deleteOldSql, conn))
 				{
 					int rowsAffected = await deleteOldCmd.ExecuteNonQueryAsync();
@@ -942,9 +963,8 @@ namespace maxhanna.Server.Services
 					}
 				}
 			}
-		}
+		} 
 	}
-
 	public class CoinResponse
 	{
 		public string? symbol { get; set; }

@@ -729,18 +729,19 @@ namespace maxhanna.Server.Controllers
 			}
 		}
 
-
 		[HttpPost("/Social/Post-Story/", Name = "PostStory")]
 		public async Task<IActionResult> PostStory([FromBody] StoryRequest request, [FromHeader(Name = "Encrypted-UserId")] string encryptedUserIdHeader)
 		{
 			if (request.userId != null)
-			{ 
-				if (!await _log.ValidateUserLoggedIn(request.userId.Value, encryptedUserIdHeader)) return StatusCode(500, "Access Denied.");
+			{
+				if (!await _log.ValidateUserLoggedIn(request.userId.Value, encryptedUserIdHeader))
+					return StatusCode(500, "Access Denied.");
 			}
 
 			try
 			{
-				string sql = @"INSERT INTO stories (user_id, story_text, profile_user_id, city, country, date) VALUES (@userId, @storyText, @profileUserId, @city, @country, UTC_TIMESTAMP());";
+				string sql = @"INSERT INTO stories (user_id, story_text, profile_user_id, city, country, date) 
+                      VALUES (@userId, @storyText, @profileUserId, @city, @country, UTC_TIMESTAMP());";
 				string topicSql = @"INSERT INTO story_topics (story_id, topic_id) VALUES (@storyId, @topicId);";
 
 				using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
@@ -751,7 +752,9 @@ namespace maxhanna.Server.Controllers
 					{
 						cmd.Parameters.AddWithValue("@userId", request.userId);
 						cmd.Parameters.AddWithValue("@storyText", request.story.StoryText);
-						cmd.Parameters.AddWithValue("@profileUserId", request.story.ProfileUserId.HasValue && request.story.ProfileUserId != 0 ? request.story.ProfileUserId.Value : (object)DBNull.Value);
+						cmd.Parameters.AddWithValue("@profileUserId", request.story.ProfileUserId.HasValue && request.story.ProfileUserId != 0
+							? request.story.ProfileUserId.Value
+							: (object)DBNull.Value);
 						cmd.Parameters.AddWithValue("@city", request.story.City ?? (object)DBNull.Value);
 						cmd.Parameters.AddWithValue("@country", request.story.Country ?? (object)DBNull.Value);
 
@@ -802,7 +805,8 @@ namespace maxhanna.Server.Controllers
 
 							await AppendToSitemapAsync(storyId);
 
-							return Ok("Story posted successfully.");
+							// Return the storyId in the response
+							return Ok(new { StoryId = storyId, Message = "Story posted successfully." });
 						}
 						else
 						{
@@ -813,7 +817,7 @@ namespace maxhanna.Server.Controllers
 			}
 			catch (Exception ex)
 			{
-				_ = _log.Db("An error occurred while posting story." +ex.Message, request.userId, "SOCIAL", true);
+				_ = _log.Db("An error occurred while posting story: " + ex.Message, request.userId, "SOCIAL", true);
 				return StatusCode(500, "An error occurred while posting story.");
 			}
 		}

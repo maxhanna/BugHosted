@@ -12,12 +12,13 @@ import { NotificationService } from '../../services/notification.service';
 import { UserNotification } from '../../services/datacontracts/notification/user-notification';
 import { UserService } from '../../services/user.service';
 import { FileService } from '../../services/file.service';
+import { ExchangeRate } from '../../services/datacontracts/crypto/exchange-rate';
 
 @Component({
-    selector: 'app-navigation',
-    templateUrl: './navigation.component.html',
-    styleUrls: ['./navigation.component.css'],
-    standalone: false
+  selector: 'app-navigation',
+  templateUrl: './navigation.component.html',
+  styleUrls: ['./navigation.component.css'],
+  standalone: false
 })
 export class NavigationComponent implements OnInit, OnDestroy {
   @ViewChild('navbar') navbar!: ElementRef<HTMLElement>;
@@ -26,8 +27,9 @@ export class NavigationComponent implements OnInit, OnDestroy {
   private notificationInfoInterval: any;
   private cryptoHubInterval: any;
   private calendarInfoInterval: any;
-  private wordlerInfoInterval: any;
-
+  private wordlerInfoInterval: any; 
+  private lastCollapseTime: Date | null = null;
+  private readonly COLLAPSE_COOLDOWN_MS = 60 * 1000;
   navbarReady = false;
   navbarCollapsed: boolean = false;
   isBTCRising = true;
@@ -35,7 +37,8 @@ export class NavigationComponent implements OnInit, OnDestroy {
   isLoadingTheme = false;
   isLoadingCryptoHub = false;
   isLoadingWordlerStreak = false;
-  isLoadingCalendar = false;
+  isLoadingCalendar = false; 
+  numberOfNotifications = 0;
   @Input() user?: User;
 
   constructor(public _parent: AppComponent,
@@ -48,6 +51,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
     private fileService: FileService,
     private notificationService: NotificationService) {
   }
+
   async ngOnInit() {
     this.navbarReady = true;
 
@@ -63,6 +67,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
     clearInterval(this.notificationInfoInterval);
     this.clearNotifications();
   }
+
   clearNotifications() {
     const itemsToClear = [
       "Crypto-Hub",
@@ -80,8 +85,9 @@ export class NavigationComponent implements OnInit, OnDestroy {
       }
     });
   }
+
   async getNotifications() {
-    if (!this._parent || !this._parent.user || this._parent.user.id == 0) return; 
+    if (!this._parent || !this._parent.user || this._parent.user.id == 0) return;
     this.getCurrentWeatherInfo();
     this.getCalendarInfo();
     this.getCryptoHubInfo();
@@ -95,27 +101,66 @@ export class NavigationComponent implements OnInit, OnDestroy {
     this.wordlerInfoInterval = setInterval(() => this.getWordlerStreakInfo(), 60 * 60 * 1000); // every hour
   }
 
+  stopNotifications() { 
+    clearInterval(this.cryptoHubInterval);
+    clearInterval(this.calendarInfoInterval);
+    clearInterval(this.wordlerInfoInterval);
+    clearInterval(this.notificationInfoInterval);
+  }
+ 
+  private debounce<T extends (...args: any[]) => any>(func: T, wait: number): (...args: Parameters<T>) => void {
+    let timeout: any;
+    return (...args: Parameters<T>) => {
+      clearTimeout(timeout);
+      timeout = setTimeout(() => func.apply(this, args), wait);
+    };
+  }
+ 
+  private debouncedRestartNotifications = this.debounce(() => { 
+    if (this.navbarCollapsed) {
+      return;
+    }
+    this.getNotificationInfo();
+    this.getCryptoHubInfo();
+    this.getCalendarInfo();
+    this.getWordlerStreakInfo();
+    this.notificationInfoInterval = setInterval(() => this.getNotificationInfo(), 60 * 1000); // every minute
+    this.cryptoHubInterval = setInterval(() => this.getCryptoHubInfo(), 20 * 60 * 1000); // every 20 minutes
+    this.calendarInfoInterval = setInterval(() => this.getCalendarInfo(), 20 * 60 * 1000); // every 20 minutes 
+    this.wordlerInfoInterval = setInterval(() => this.getWordlerStreakInfo(), 60 * 60 * 1000); // every hour
+  }, 5000); // 5s debounce delay
+
+  setNotificationNumber(notifs?: number) {
+    if (notifs) {
+      this.numberOfNotifications = notifs;
+    } 
+    this._parent.navigationItems.filter(x => x.title == "Notifications")[0].content = this.numberOfNotifications + "";
+  }
 
   async getNotificationInfo() {
     if (!this._parent || !this._parent.user) {
       return;
     }
     this.isLoadingNotifications = true;
-    const res = await this.notificationService.getNotifications(this._parent.user.id ?? 0) as UserNotification[];
-    if (res) {
-      this._parent.navigationItems.filter(x => x.title == "Notifications")[0].content = res.filter(x => x.isRead == false).length + '';
+    try {
+      const res = await this.notificationService.getNotifications(this._parent.user.id ?? 0) as UserNotification[];
+      if (res) {
+        this.numberOfNotifications = res.filter(x => x.isRead == false).length;
+        this._parent.navigationItems.filter(x => x.title == "Notifications")[0].content = this.numberOfNotifications + "";
 
-      if (this._parent.userSelectedNavigationItems.find(x => x.title == "Chat")) {
-        //get # of chat notifs
-        const numberOfChatNotifs = res.filter(x => x.chatId && x.isRead == false).length;
-        if (numberOfChatNotifs) {
-          this._parent.navigationItems.filter(x => x.title == "Chat")[0].content = numberOfChatNotifs + '';
-        } else {
-          this._parent.navigationItems.filter(x => x.title == "Chat")[0].content = ''; 
+        if (this._parent.userSelectedNavigationItems.find(x => x.title == "Chat")) { 
+          const numberOfChatNotifs = res.filter(x => x.chatId && x.isRead == false).length;
+          if (numberOfChatNotifs) {
+            this._parent.navigationItems.filter(x => x.title == "Chat")[0].content = numberOfChatNotifs + '';
+          } else {
+            this._parent.navigationItems.filter(x => x.title == "Chat")[0].content = '';
+          }
         }
+      } else {
+        this._parent.navigationItems.filter(x => x.title == "Notifications")[0].content = '';
       }
-    } else {
-      this._parent.navigationItems.filter(x => x.title == "Notifications")[0].content = '';
+    } catch (error) {
+      console.error('Error fetching notifications:', error);
     }
     this.isLoadingNotifications = false;
   }
@@ -125,9 +170,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
     this.isLoadingTheme = true;
     try {
       const theme = await this.userService.getTheme(this._parent.user.id);
-
-      // Handle the theme data as required, for example, store it in a component variable
-      if (theme && !theme.message) { 
+      if (theme && !theme.message) {
         this.applyThemeToCSS(theme);
       }
     } catch (error) {
@@ -139,30 +182,36 @@ export class NavigationComponent implements OnInit, OnDestroy {
   async getCalendarInfo() {
     if (!this.user) { return; }
     if (!this._parent.userSelectedNavigationItems.find(x => x.title == "Calendar")) { return; }
-    this.isLoadingCalendar = true;
-    let notificationCount = 0;
-    const today = new Date();
-    const startDate = new Date(Date.UTC(today.getFullYear(), today.getMonth(), today.getDate())); // Midnight today in UTC
-    const endDate = new Date(startDate);
-    endDate.setUTCDate(startDate.getUTCDate() + 1); // Midnight tomorrow in UTC
+    try {
+      this.isLoadingCalendar = true;
+      let notificationCount = 0;
+      const today = new Date();
+      const startDate = new Date(Date.UTC(today.getFullYear(), today.getMonth(), today.getDate()));  
+      const endDate = new Date(startDate);
+      endDate.setUTCDate(startDate.getUTCDate() + 1); 
 
-    const res = await this.calendarService.getCalendarEntries(this.user.id, startDate, endDate) as Array<CalendarEntry>;
-    if (res && res.length > 0) {
-      res.forEach(entry => {
-        const entryDate = new Date(entry.date!);
-        if (
-          entryDate.getUTCFullYear() === startDate.getUTCFullYear() &&
-          entryDate.getUTCMonth() === startDate.getUTCMonth() &&
-          entryDate.getUTCDate() === startDate.getUTCDate()
-        ) {
-          notificationCount++; 
-        }
-      });
+      const res = await this.calendarService.getCalendarEntries(this.user.id, startDate, endDate) as Array<CalendarEntry>;
+      if (res && res.length > 0) {
+        res.forEach(entry => {
+          const entryDate = new Date(entry.date!);
+          if (
+            entryDate.getUTCFullYear() === startDate.getUTCFullYear() &&
+            entryDate.getUTCMonth() === startDate.getUTCMonth() &&
+            entryDate.getUTCDate() === startDate.getUTCDate()
+          ) {
+            notificationCount++;
+          }
+        });
+      }
+
+      this._parent.navigationItems.find(x => x.title == "Calendar")!.content = (notificationCount != 0 ? notificationCount + '' : '');
+      this.isLoadingCalendar = false;
+    } catch (error) {
+      console.error('Error fetching calendar data:', error);
+      this.isLoadingCalendar = false;
     }
-
-    this._parent.navigationItems.find(x => x.title == "Calendar")!.content = (notificationCount != 0 ? notificationCount + '' : '');
-    this.isLoadingCalendar = false;
   }
+
   async getCurrentWeatherInfo() {
     if (!this._parent.user?.id || !this._parent.userSelectedNavigationItems.find(x => x.title == "Weather")) { return; }
 
@@ -177,43 +226,59 @@ export class NavigationComponent implements OnInit, OnDestroy {
     } catch {
 
     }
-
   }
+
   async getCryptoHubInfo() {
     if (!this.user?.id) { return; }
     if (!this._parent.userSelectedNavigationItems.find(x => x.title.toLowerCase().includes("crypto-hub"))) { return; }
-    let tmpLocalProfitability = 0;
-    this.isLoadingCryptoHub = true;
-    const res1 = await this.miningService.getMiningRigInfo(this.user.id) as Array<MiningRig>;
-    res1?.forEach(x => {
-      tmpLocalProfitability += x.localProfitability!;
-    });
+    try {
+      let tmpLocalProfitability = 0;
+      this.isLoadingCryptoHub = true;
+      const res1 = await this.miningService.getMiningRigInfo(this.user.id) as Array<MiningRig>;
+      res1?.forEach(x => {
+        tmpLocalProfitability += x.localProfitability!;
+      });
 
-    await this.coinValueService.isBTCRising().then(res => {
-      this.isBTCRising = (Boolean)(res);
-    });
-    const res = await this.coinValueService.getLatestCoinValuesByName("Bitcoin");
-    const result = res;
-    if (result) {
-      const btcToCADRate = result.valueCAD;
-      this._parent.navigationItems.filter(x => x.title == "Crypto-Hub")[0].content = "";
-      if (tmpLocalProfitability > 0) {
-        this._parent.navigationItems.filter(x => x.title == "Crypto-Hub")[0].content += (tmpLocalProfitability * btcToCADRate).toFixed(2).toString() + (btcToCADRate != 1 ? "$" : '');
+      await this.coinValueService.isBTCRising().then(res => {
+        this.isBTCRising = (Boolean)(res);
+      });
+      const userCurrency = await this.coinValueService.getUserCurrency(this.user.id) ?? "CAD";
+      let latestCurrencyPriceRespectToCAD = 1;
+      const ceRes = await this.coinValueService.getLatestCurrencyValuesByName(userCurrency) as ExchangeRate;
+      if (ceRes) {
+        latestCurrencyPriceRespectToCAD = ceRes.rate;
       }
-      this._parent.navigationItems.filter(x => x.title == "Crypto-Hub")[0].content += "\n" + btcToCADRate.toFixed(0) + "$";
+      const res = await this.coinValueService.getLatestCoinValuesByName("Bitcoin");
+      const result = res;
+      if (result) {
+        const btcToCADRate = result.valueCAD * latestCurrencyPriceRespectToCAD;
+        this._parent.navigationItems.filter(x => x.title == "Crypto-Hub")[0].content = "";
+        if (tmpLocalProfitability > 0) {
+          this._parent.navigationItems.filter(x => x.title == "Crypto-Hub")[0].content += (tmpLocalProfitability * btcToCADRate).toFixed(2).toString() + (btcToCADRate != 1 ? "$" : '');
+        }
+        this._parent.navigationItems.filter(x => x.title == "Crypto-Hub")[0].content += "\n" + btcToCADRate.toFixed(0) + "$";
+      }
+      this.isLoadingCryptoHub = false;
+    } catch (error) {
+      console.error('Error fetching Crypto Hub data:', error);
+      this.isLoadingCryptoHub = false;
     }
-    this.isLoadingCryptoHub = false;
   }
 
   async getWordlerStreakInfo() {
     if (!this._parent.user?.id || !this._parent.userSelectedNavigationItems.find(x => x.title.toLowerCase().includes("wordler"))) { return; }
     this.isLoadingWordlerStreak = true;
-    const res = await this.wordlerService.getTodaysDayStreak(this._parent.user.id);
-    if (res && res != "0") {
-      this._parent.navigationItems.find(x => x.title == "Wordler")!.content = res;
+    try {
+      const res = await this.wordlerService.getTodaysDayStreak(this._parent.user.id);
+      if (res && res != "0") {
+        this._parent.navigationItems.find(x => x.title == "Wordler")!.content = res;
+      }
+    } catch (error) {
+      console.error('Error fetching Wordler streak data:', error);
     }
     this.isLoadingWordlerStreak = false;
   }
+
   toggleMenu() {
     this.toggleNavButton.nativeElement.style.display = "block";
     this.toggleNavButton.nativeElement.classList.toggle('visible');
@@ -235,7 +300,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
     return parseInt(notifNumbers);
   }
 
-  goTo(title: string, event: any) { 
+  goTo(title: string, event: any) {
     if (title.toLowerCase() == "close menu") {
       this.toggleMenu();
     } else if (title == "UpdateUserSettings") {
@@ -245,6 +310,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
     }
     event.stopPropagation();
   }
+
   menuIconsIncludes(title: string) {
     return this._parent.userSelectedNavigationItems.some(x => x.title == title);
   }
@@ -253,8 +319,11 @@ export class NavigationComponent implements OnInit, OnDestroy {
     if (this.navbar) {
       this.navbar.nativeElement.classList.add('collapsed');
       this.navbarCollapsed = true;
+      this.lastCollapseTime = new Date(); 
     }
+    this.stopNotifications();
   }
+
   maximizeNav() {
     if (this.navbar) {
       this.navbar.nativeElement.classList.remove('collapsed');
@@ -263,9 +332,29 @@ export class NavigationComponent implements OnInit, OnDestroy {
         this.toggleMenu();
       }
     }
+    this.smartRestartNotifications();
   }
+  private smartRestartNotifications() {
+    if (!this.lastCollapseTime) {
+      // No recent collapse - restart immediately
+      this.debouncedRestartNotifications();
+      return;
+    }
 
-  applyThemeToCSS(theme: any) { 
+    const timeSinceCollapse = new Date().getTime() - this.lastCollapseTime.getTime();
+    const remainingCooldown = this.COLLAPSE_COOLDOWN_MS - timeSinceCollapse;
+
+    if (remainingCooldown <= 0) {
+      // Cooldown period has passed
+      this.debouncedRestartNotifications();
+    } else {
+      // Wait until cooldown period ends
+      setTimeout(() => {
+        this.debouncedRestartNotifications();
+      }, remainingCooldown);
+    }
+  } 
+  applyThemeToCSS(theme: any) {
     if (theme.backgroundImage) {
       this.fileService.getFileEntryById(theme.backgroundImage).then(res => {
         if (res) {
@@ -310,5 +399,4 @@ export class NavigationComponent implements OnInit, OnDestroy {
       document.documentElement.style.setProperty('--main-font-family', theme.fontFamily);
     }
   }
-
 }

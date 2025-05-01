@@ -1,3 +1,11 @@
+select,
+button {
+  border-radius: 4px;
+  border: var(--main-border);
+  background-color: var(--component-background-color, #ffffff);
+  color: var(--main-font-color, #000000);
+}
+
 .componentMain {
   width: 99vw;
   height: CALC(var(--vh, 1vh) * 100 - 60px);
@@ -22,13 +30,13 @@
   padding: 10px;
 }
 
-  .wallet table {
-    width: 100%;
-  }
+.wallet table {
+  width: 100%;
+}
 
-    .wallet table td {
-      text-align: center;
-    }
+.wallet table td {
+  text-align: center;
+}
 
 @media only screen and (max-width : 667px) {
   .wallet {
@@ -109,17 +117,17 @@
   flex-direction: row;
 }
 
-  .BTCtoCADConversionDiv input {
-    width: 100px;
-  }
+.BTCtoCADConversionDiv input {
+  width: 100px;
+}
 
-  .BTCtoCADConversionDiv label {
-    padding: 5px;
-    font-size: small;
-    font-weight: bold;
-    width: 50px;
-    text-align: left;
-  }
+.BTCtoCADConversionDiv label {
+  padding: 5px;
+  font-size: small;
+  font-weight: bold;
+  width: 50px;
+  text-align: left;
+}
 
 .miningHubSection {
   display: inline-flex;
@@ -133,11 +141,12 @@
   justify-content: center;
 }
 
-  .cryptoHubConverterAndCoinWatchWrapper table th {
-    padding: 10px;
-  }
+.cryptoHubConverterAndCoinWatchWrapper table th {
+  padding: 10px;
+}
 
-.normalBtcAddress, .hiddenBtcAddress {
+.normalBtcAddress,
+.hiddenBtcAddress {
   text-align: left !important;
 }
 
@@ -189,9 +198,9 @@
   word-break: break-all;
 }
 
-  .walletPopupTitle div {
-    font-size: small;
-  }
+.walletPopupTitle div {
+  font-size: small;
+}
 
 .walletPopupWrapperDiv {
   margin-top: 20px;
@@ -223,9 +232,9 @@
   user-select: none;
 }
 
-  .marquee-scroll.dragging {
-    cursor: grabbing;
-  }
+.marquee-scroll.dragging {
+  cursor: grabbing;
+}
 
 .marquee-item {
   display: inline-flex;
@@ -250,9 +259,15 @@
 }
 
 .tradeDataTable {
-  height: CALC(var(--vh, 1vh) * 100 - 290px);
+  height: CALC(var(--vh, 1vh) * 100 - 300px);
   overflow: auto;
   width: 100%;
+}
+
+@media only screen and (max-width : 600px) {
+  tradeDataTable {
+    height: CALC(var(--vh, 1vh) * 100 - 315px);
+  }
 }
 
 .fullScreenTradePanelDiv {
@@ -274,10 +289,11 @@
 }
 
 .maximizedTradePanel {
-  padding: 20px;
+  padding: 10px;
 }
 
-.tradeBalanceTable td, .tradeBalanceTable th {
+.tradeBalanceTable td,
+.tradeBalanceTable th {
   text-align: center;
 }
 
@@ -286,13 +302,15 @@
 }
 
 @media only screen and (min-width : 700px) {
-  .tradeBalanceTable .xxSmallFont, .tradeBalanceTable .smallFont {
+
+  .tradeBalanceTable .xxSmallFont,
+  .tradeBalanceTable .smallFont {
     font-size: var(--main-font-size);
   }
 }
 
 .tradeBotSimDebugDivWrapper {
-  max-height: 200px; 
+  max-height: 200px;
   width: 100%;
   word-break: break-word;
   overflow: auto;
@@ -301,14 +319,247 @@
 }
 
 .positive-percent {
-  color: #4CAF50; 
+  color: #4CAF50;
 }
 
 .negative-percent {
-  color: #F44336; 
+  color: #F44336;
 }
- 
+
 .positive-percent,
 .negative-percent {
   font-weight: bold;
+}
+
+.trade-panel-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 15px;
+  padding: 20px;
+  background: linear-gradient(135deg, var(--component-background-color), var(--secondary-component-background-color));
+  border: var(--main-border);
+  border-radius: 8px;
+  box-shadow: 0 0 10px var(--main-highlight-color);
+  justify-content: center;
+  align-items: flex-start;
+  margin: 10px 0;
+}
+
+.button-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  max-width: 180px;
+}
+
+/* New: Center single button when subpanel is open */
+div:not(.trade-panel-controls) .button-wrapper {
+  max-width: 200px;
+  width: 100%;
+  margin: 0 auto;
+  /* Centers the single button */
+}
+
+.trade-panel-controls button.cursorPointer {
+  border: var(--main-border);
+  border-radius: 5px;
+  padding: 8px 12px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  width: 100%;
+  text-align: center;
+}
+
+.trade-panel-controls button.cursorPointer:hover {
+  background-color: var(--main-highlight-color-quarter-opacity);
+  color: var(--main-link-color);
+  box-shadow: 0 0 8px var(--main-highlight-color);
+}
+
+.trade-panel-controls button.cursorPointer:disabled {
+  background-color: #4a4a4a;
+  color: #888;
+  border-color: #888;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.trade-panel-controls button.cursorPointer:focus {
+  outline: none;
+  box-shadow: 0 0 5px var(--main-highlight-color-quarter-opacity);
+}
+
+.trade-panel-controls .button-description {
+  display: block;
+  color: var(--third-font-color);
+  font-weight: 400;
+  text-align: center;
+  margin: 0;
+  opacity: 0.9;
+  transition: opacity 0.3s ease;
+  line-height: 1.4;
+  max-width: 100%;
+  word-break: break-word;
+}
+
+.button-wrapper:hover .button-description {
+  opacity: 1;
+}
+
+@media (max-width: 768px) {
+  .trade-panel-controls {
+    gap: 10px;
+    padding: 15px;
+  }
+
+  .button-wrapper {
+    max-width: 140px;
+  }
+
+  div:not(.trade-panel-controls) .button-wrapper {
+    max-width: 160px;
+  }
+
+  .trade-panel-controls button.cursorPointer {
+    font-size: larger;
+    padding: 6px 10px;
+  }
+
+  .trade-panel-controls .button-description {
+    word-break: break-word;
+  }
+}
+
+@media (max-width: 480px) {
+  .trade-panel-controls {
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .button-wrapper {
+    max-width: 100%;
+    width: 100%;
+  }
+
+  div:not(.trade-panel-controls) .button-wrapper {
+    max-width: 100%;
+  }
+
+  .trade-panel-controls button.cursorPointer {
+    font-size: small;
+  }
+
+  .trade-panel-controls .button-description {
+    font-size: smaller;
+  }
+}
+
+.BTCtoCADConversionDiv select {
+  width: 55px;
+}
+
+
+.profit-periods {
+  padding: 16px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 16px;
+}
+
+.period-card {
+  background: linear-gradient(135deg, var(--component-background-color), var(--secondary-component-background-color));
+  border: var(--main-border);
+  border-radius: 8px;
+  padding: 15px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.period-header {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 15px;
+  padding-bottom: 10px;
+  border-bottom: 2px solid var(--main-highlight-color);
+  box-shadow: 0 4px 2px -2px var(--main-link-color);
+}
+
+.period-type {
+  font-weight: bold;
+  color: var(--secondary-font-color);
+}
+
+.period-dates {
+  color: var(--secondary-font-color);
+  font-size: 0.9em;
+}
+
+.profit-values {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.value-row {
+  display: flex;
+  justify-content: space-between;
+}
+
+.value-row span:first-child {
+  font-weight: 500;
+  color: var(--third-font-color);
+}
+
+.profit-row {
+  font-weight: bold;
+  padding-top: 8px;
+  border-top: 1px solid var(--main-highlight-color);
+}
+
+.positive {
+  color: #28a745;
+  /* Green for positive profit */
+}
+
+.negative {
+  color: #dc3545;
+  /* Red for negative profit */
+}
+
+.cumulative-row {
+  font-weight: bold;
+  color: var(--third-font-color);
+}
+
+.toggle-icon {
+  display: inline-block;
+  font-weight: bold;
+  font-size: 18px;
+  color: var(--main-link-color);
+  margin-left: 10px;
+  cursor: pointer;
+  text-shadow: 0px 0.50px 0.50px var(--secondary-font-color);
+}
+.period-type-section .section-header .popupPanelTitle {
+  display: inline-block;  
+  padding: 8px 0px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  width: calc(100% - 20px);
+  text-align: center;
+  border-radius: 4px;
+  border: var(--main-border);
+  background-color: var(--component-background-color, #ffffff);
+  color: var(--main-font-color, #000000);
+}
+
+.period-type-section .section-header .popupPanelTitle:hover {
+  background-color: var(--main-highlight-color-quarter-opacity);
+  color: var(--main-link-color);
+  box-shadow: 0 0 8px var(--main-highlight-color);
 }

@@ -15,6 +15,10 @@ import { AppComponent } from '../app.component';
 import { MiningWalletResponse } from '../../services/datacontracts/crypto/mining-wallet-response';
 import { CoinValueService } from '../../services/coin-value.service';
 import { TradeService } from '../../services/trade.service';
+import { UserSettings } from '../../services/datacontracts/user/user-settings';
+import { NotificationService } from '../../services/notification.service';
+import { initializeApp } from 'firebase/app';
+import { getMessaging, getToken, onMessage, Messaging } from "firebase/messaging";
 
 @Component({
     selector: 'app-update-user-settings',
@@ -46,14 +50,16 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
   expandedIconTitle: string | null = null;
 
   isDisplayingNSFW = false;
+  isPushNotificationsEnabled? = false;
+  app?: any;
+  messaging?: any;
 
   @Input() inputtedParentRef?: AppComponent;
   @Input() showOnlySelectableMenuItems? = true;
   @Input() showOnlyWeatherLocation? = false;
   @Input() showOnlyKrakenApiKeys? = false;
   @Input() showOnlyNicehashApiKeys? = false;
-  @Input() areSelectableMenuItemsExplained? = true;
-  @Input() previousComponent? = undefined;
+  @Input() areSelectableMenuItemsExplained? = true; 
 
   @ViewChild('updatedUsername') updatedUsername!: ElementRef<HTMLInputElement>;
   @ViewChild('updatedPassword') updatedPassword!: ElementRef<HTMLInputElement>;
@@ -65,6 +71,7 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
   @ViewChild('weatherLocationCityInput') weatherLocationCityInput!: ElementRef<HTMLInputElement>;
   @ViewChild('weatherLocationCountryInput') weatherLocationCountryInput!: ElementRef<HTMLInputElement>;
   @ViewChild('nsfwCheckmark') nsfwCheckmark!: ElementRef<HTMLInputElement>;
+  @ViewChild('pushNotificationsCheckmark') pushNotificationsCheckmark!: ElementRef<HTMLInputElement>;
 
   @ViewChild('updatedEmail') updatedEmail!: ElementRef<HTMLInputElement>;
   @ViewChild('isEmailPublicYes') isEmailPublicYes!: ElementRef<HTMLInputElement>;
@@ -78,7 +85,7 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
   @ViewChild(MediaViewerComponent) displayPictureViewer!: MediaViewerComponent;
 
 
-  constructor(private miningService: MiningService, private tradeService: TradeService, private weatherService: WeatherService, private userService: UserService, private coinService: CoinValueService) {
+  constructor(private miningService: MiningService, private tradeService: TradeService, private weatherService: WeatherService, private userService: UserService, private coinService: CoinValueService, private notificationService: NotificationService) {
     super();
   }
   async ngOnInit() {
@@ -103,7 +110,19 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
           this.isDisplayingNSFW = res.nsfwEnabled ?? false; 
         }
       });
+    } 
+    if (user) {
+      this.userService.getUserSettings(user.id ?? 0).then((res?: UserSettings) => {
+        if (res) {
+          this.isPushNotificationsEnabled = res.notificationsEnabled;
+          if (this.isPushNotificationsEnabled == undefined || this.isPushNotificationsEnabled) {
+            this.requestNotificationPermission();
+          } 
+        }
+      })
     }
+
+
     this.getUniqueCurrencyNames();
 
     if (this.showOnlyWeatherLocation) {
@@ -447,6 +466,63 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
       }
     })
   }
+  async requestNotificationPermission() {
+      const parent = this.inputtedParentRef ?? this.parentRef;
+      if (!parent?.user || !parent.user.id) {
+        return;
+      } 
+      try {
+        const firebaseConfig = {
+          apiKey: "AIzaSyAR5AbDVyw2RmW4MCLL2aLVa2NLmf3W-Xc",
+          authDomain: "bughosted.firebaseapp.com",
+          projectId: "bughosted",
+          storageBucket: "bughosted.firebasestorage.app",
+          messagingSenderId: "288598058428",
+          appId: "1:288598058428:web:a4605e4d8eea73eac137b9",
+          measurementId: "G-MPRXZ6WVE9"
+        };
+        this.app = initializeApp(firebaseConfig); 
+        this.messaging = await getMessaging(this.app); 
+        onMessage(this.messaging, (payload: any) => {
+         const parent = this.inputtedParentRef ?? this.parentRef;
+         const body = payload.notification.body;
+         const title = payload.notification.title;
+         parent?.showNotification(`${title}: ${body}`);
+        });
+  
+        console.log('Current Notification Permission:', Notification.permission);
+        if (this.isPushNotificationsEnabled == undefined) {
+          if (Notification.permission === 'default') {
+            const permission = await Notification.requestPermission();
+            if (permission === "granted") {
+              const token = await getToken(this.messaging, { vapidKey: "BOdqEEb-xWiCvKqILbKr92U6ETC3O0SmpbpAtulpvEqNMMRq79_0JidqqPgrzOLDo_ZnW3Xh7PNMwzP9uBQSCyA" });
+              await this.subscribeToNotificationTopic(token);
+              this.userService.updateNotificationsEnabled(parent.user.id, true);
+            } else {
+              console.log('User declined notification permission');
+              this.userService.updateNotificationsEnabled(parent.user.id, false);
+            }
+          } else if (Notification.permission === 'granted') {
+            const token = await getToken(this.messaging, { vapidKey: "BOdqEEb-xWiCvKqILbKr92U6ETC3O0SmpbpAtulpvEqNMMRq79_0JidqqPgrzOLDo_ZnW3Xh7PNMwzP9uBQSCyA" });
+            await this.subscribeToNotificationTopic(token);
+            this.userService.updateNotificationsEnabled(parent.user.id, true);
+          } else {
+            console.log('User denied notification permission');
+            this.userService.updateNotificationsEnabled(parent.user.id, false);
+          }
+        } else {
+          console.log("User has already enabled or disabled notifications.");
+        }
+      } catch (error) {
+        console.log('Error requesting notification permission:', error);
+      }
+    }
+  private async subscribeToNotificationTopic(token: string) {
+    const parent = this.inputtedParentRef ?? this.parentRef;
+    if (parent?.user?.id) {
+      this.notificationService.subscribeToTopic(parent.user.id, token, "notification" + parent.user.id);
+    }
+  }
   closeThisComponent() {
     if (this.previousComponent) {
       this.parentRef?.createComponent(this.previousComponent);
@@ -456,5 +532,12 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
     } else {
       this.remove_me('UpdateUserProfile');
     }
+  }
+  updatePushNotifications() { 
+    if (!this.parentRef?.user?.id) return;
+    this.isPushNotificationsEnabled = this.pushNotificationsCheckmark.nativeElement.checked;
+    this.userService.updateNotificationsEnabled(this.parentRef.user.id, this.isPushNotificationsEnabled).then(res => {
+      this.parentRef?.showNotification(res);
+    });
   }
 }

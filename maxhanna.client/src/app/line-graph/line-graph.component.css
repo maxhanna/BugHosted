@@ -1,29 +1,184 @@
-.graphTitle
-{
-    text-align:center;
-    font-weight:bold;
+.graphTitle {
+  text-align: center;
+  font-weight: bold;
 }
+
 .graphOptions {
-    text-align:center;
+  text-align: center;
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+
+.graphOptions select,
+.graphOptions button {
+  padding: 5px 10px;
+  border-radius: 4px;
+  border: var(--main-border);
+  background-color: var(--component-background-color, #ffffff);
+  color: var(--main-font-color, #000000);
+}
+
+.graphOptions button:hover {
+  background-color: var(--main-highlight-color, #e0e0e0);
 }
 
 .sectionName {
-  font-family: Courier New, Arial;
+  font-family: 'Courier New', Arial, sans-serif;
   font-weight: bolder;
-  text-shadow: 0px 0.50px 0.50px var(--secondary-font-color);
+  text-shadow: 0px 0.5px 0.5px var(--secondary-font-color, #666666);
   text-align: center;
+  font-size: 1.5em;
+  margin-bottom: 10px;
 }
+
 .canvasChart {
   max-width: 100%;
   height: 300px;
 }
+
 .canvasChartWrapper {
-  display: block;
-  background-color: white;
   display: flex;
-  justify-content: center; 
+  justify-content: center;
+  background-color: white;
 }
-  .canvasChartWrapper.fullscreenCanvas {
-    height: 100%; 
-    width: 100%; 
-  }
+
+.canvasChartWrapper.fullscreenCanvas {
+  height: 100%;
+  width: 100%;
+}
+
+.sliderContainer {
+  position: relative;
+  margin: 20px 0;
+  padding: 0 20px;
+  height: 30px;
+  user-select: none;
+  --highlight-left: calc(0% + 20px); 
+  --highlight-width: calc(100% - 40px); 
+}
+
+.sliderContainer label {
+  display: block;
+  margin-bottom: 10px;
+  line-height: 10px;
+  font-weight: bold;
+  text-align: center;
+  font-family: 'Courier New', Arial, sans-serif;
+  color: var(--main-font-color, #000000);
+  user-select: none;
+}
+
+.sliderContainer input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 8px;
+  background: transparent;
+  border-radius: 4px;
+  outline: none;
+  margin: 0;
+  position: absolute;
+  top: 11px;
+  left: 0;
+  pointer-events: none;
+}
+
+.sliderContainer::before {
+  content: '';
+  position: absolute;
+  width: 100%;
+  height: 8px;
+  background: var(--component-background-color, #dddddd);
+  border-radius: 4px;
+  top: 11px;
+  left: 0;
+  z-index: 1;
+  pointer-events: none;
+  user-select: none;
+}
+
+.sliderContainer::after {
+  content: '';
+  position: absolute;
+  height: 8px;
+  background: var(--main-bg-color, #666666);
+  border-radius: 4px;
+  top: 11px;
+  z-index: 2;
+  left: var(--highlight-left);
+  width: var(--highlight-width);
+  pointer-events: none;
+  user-select: none;
+}
+
+.sliderContainer input[type="range"]:first-of-type::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 24px;
+  height: 24px;
+  background: var(--main-link-color, #007bff);
+  border-radius: 50%;
+  cursor: pointer;
+  pointer-events: auto;
+  z-index: 5;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+  transform: translateY(-8px);
+}
+
+.sliderContainer input[type="range"]:first-of-type::-moz-range-thumb {
+  width: 24px;
+  height: 24px;
+  background: var(--main-link-color, #007bff);
+  border-radius: 50%;
+  cursor: pointer;
+  pointer-events: auto;
+  z-index: 5;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+  transform: translateY(-8px);
+}
+
+.sliderContainer input[type="range"]:last-of-type::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 24px;
+  height: 24px;
+  background: var(--main-link-color, #007bff);
+  border-radius: 50%;
+  cursor: pointer;
+  pointer-events: auto;
+  z-index: 4;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+  transform: translateY(-8px);
+}
+
+.sliderContainer input[type="range"]:last-of-type::-moz-range-thumb {
+  width: 24px;
+  height: 24px;
+  background: var(--main-link-color, #007bff);
+  border-radius: 50%;
+  cursor: pointer;
+  pointer-events: auto;
+  z-index: 4;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+  transform: translateY(-8px);
+}
+
+.sliderLabels {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 15px;
+  font-size: 0.9em;
+  color: var(--main-font-color, #000000);
+  font-family: 'Courier New', Arial, sans-serif;
+  user-select: none;
+}
+
+.sliderContainer input[type="range"]::-webkit-slider-thumb,
+.sliderContainer input[type="range"]::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  transform: translateY(-4px); 
+}

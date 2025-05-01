@@ -70,6 +70,20 @@ export class UserService {
       return null;
     }
   }
+  async getUserByUsername(username: string) {
+    try {
+      const response = await fetch(`/user/username/${username}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      return await response.json();
+    } catch (error) {
+      return null;
+    }
+  }
   async getAllUsers(search?: string) {
     try {
       const response = await fetch('/user/getallusers', {

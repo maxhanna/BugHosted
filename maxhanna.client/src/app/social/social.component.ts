@@ -19,9 +19,9 @@ import { Todo } from '../../services/datacontracts/todo';
 import { NotificationService } from '../../services/notification.service';
 
 @Pipe({
-    name: 'clickableUrls',
-    standalone: false
-})
+  name: 'clickableUrls',
+  standalone: false
+}) 
 export class ClickableUrlsPipe implements PipeTransform {
   transform(value?: string): string {
     if (!value) {
@@ -100,7 +100,7 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
   @Input() storyId: number | undefined = undefined;
   @Input() showTopicSelector: boolean = true;
   @Input() user?: User;
-  @Input() parent?: AppComponent;
+  @Input() parent?: AppComponent; 
 
   constructor(private socialService: SocialService,
     private topicService: TopicService,
@@ -162,6 +162,8 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
         }
       });
     }
+
+    console.log(this.previousComponent);
   }
 
   ngOnDestroy() {
@@ -312,7 +314,8 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
     this.startLoading();
 
     try {
-      const user = this.parentRef?.user ?? this.parent?.user ?? new User(0, "Anonymous");
+      const parent = this.parentRef ?? this.parent; 
+      const user = parent?.user ?? new User(0, "Anonymous");
 
       const results = this.eachAttachmentSeperatePost
         ? await this.postEachFileAsSeparateStory(user, storyText)
@@ -324,15 +327,31 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
         this.topicComponent?.removeAllTopics();
         if (this.user && this.user.id) {
           const notificationData: any = {
-            fromUser: user,
-            toUser: [this.user],
+            fromUserId: user.id,
+            toUserIds: [this.user.id],
             message: "New post on your profile!",
             userProfileId: this.user.id
           };
           this.notificationService.createNotifications(notificationData);
         }
+        if (parent) {
+          const mentionnedUsers = await parent.getUsersByUsernames(storyText);
+          if (mentionnedUsers && mentionnedUsers.length > 0) {
+            console.log("mentionned:", mentionnedUsers);
+            const notificationData: any = {
+              fromUserId: user.id,
+              toUserIds: mentionnedUsers.map(x => x.id),
+              message: "You were mentionned!",
+              userProfileId: this.user?.id,
+              storyId: results.storyId,
+            };
+            this.notificationService.createNotifications(notificationData);
+          }
+          parent.showNotification(results.message ?? "Story posted successfully!");
+        }
+       
       } else {
-        this.parentRef?.showNotification("An unexpected error occurred.");
+        parent?.showNotification("An unexpected error occurred.");
       }
     } catch (error) {
       console.error("Error while posting story:", error);
@@ -926,6 +945,7 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
 
     return count;
   }
+ 
   async updateNSFW(event: Event) {
     const parent = this.parent ?? this.parentRef;
     const user = parent?.user;

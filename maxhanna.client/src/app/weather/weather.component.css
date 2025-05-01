@@ -1,16 +1,29 @@
-td {
-  text-align: center;
-}
-
 .smallConditionIcon {
   max-width: 30px;
   max-height: 30px;
 }
 
-.mainTable th, td {
+.mainTable {
+  border-collapse: unset;
+}
+
+.mainTable th,
+td {
   padding-left: 5px;
   padding-right: 5px;
+  text-align: center;
 }
+
+@media only screen and (max-width : 600px) {
+
+  .mainTable th,
+  td {
+    padding-left: unset;
+    padding-right: unset;
+  }
+}
+
+
 
 .highlight {
   background-color: rgba(255, 99, 71, 0.3) !important;
@@ -28,13 +41,37 @@ td {
   font-size: x-small;
   gap: 20px;
   padding: 20px;
+  color: var(--secondary-font-color);
+  align-items: center;
+  justify-content: center;
 }
 
-  .weatherLegend div {
-    display: flex;
-  }
+.weatherLegend div {
+  display: flex;
+}
 
 .mainTableContainer {
-  height: CALC(var(--vh, 1vh) * 100 - 200px);
+  height: CALC(var(--vh, 1vh) * 100 - 360px);
   overflow: auto;
+}
+
+.currentWeather {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.currentWeatherContainer {
+  border: var(--main-border);
+  border-radius: 8px;
+  padding: 5px;
+}
+
+.currentWeatherStats.optionsStatsWrapperDiv {
+  padding-top: 15px;
+  height: unset;
+}
+
+.optionsStatsDescription {
+  cursor: pointer;
 }

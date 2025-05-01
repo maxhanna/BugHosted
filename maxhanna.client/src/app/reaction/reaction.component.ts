@@ -124,8 +124,7 @@ export class ReactionComponent extends ChildComponent implements OnInit {
   @Input() userProfileId?: number;
   @Input() showSpan: boolean = false;
   @Input() showSpanBorder: boolean = false;
-  @Input() currentReactions?: Reaction[] = [];
-  @Input() previousComponent?: string;
+  @Input() currentReactions?: Reaction[] = []; 
   constructor(private reactionService: ReactionService, private notificationService: NotificationService) { super(); }
 
   ngOnInit() {

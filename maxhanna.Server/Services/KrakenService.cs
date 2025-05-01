@@ -23,6 +23,7 @@ public class KrakenService
 	private static decimal _MinimumUSDCReserves = 20m;
 	//new
 	private static int _MaxTradeTypeOccurances = 5;
+	private static int _VolumeSpikeMaxTradeOccurance = 1;
 	//end of new
 	private readonly HttpClient _httpClient;
 	private static IConfiguration? _config;
@@ -87,17 +88,10 @@ public class KrakenService
 		decimal? firstPriceToday = await GetFirstBtcPriceTodayIfNoRecentTrades(userId);
 		firstPriceToday = firstPriceToday * (await GetUsdToCadRate());
 
-		// 3. If no last trade, we must equalize — get balances now
-		if (forceEqualizationCauseNoLastTrade || lastTrade == null)
-		{
-			await TradeHalfBTCForUSDC(userId, keys, btcPriceCAD.Value, btcPriceUSDC.Value);
-			return false;
-		}
-
-		// 4. Calculate spread
-		decimal.TryParse(lastTrade.btc_price_usdc, out decimal lastPrice);
+		// 3. Calculate spread
+		decimal.TryParse(lastTrade?.btc_price_usdc, out decimal lastPrice);
 		decimal currentPrice = btcPriceUSDC.Value;
-		decimal spread = (currentPrice - lastPrice) / lastPrice;
+		decimal spread = forceEqualizationCauseNoLastTrade ? 0 : (currentPrice - lastPrice) / lastPrice;
 		decimal spread2 = firstPriceToday != null ? (currentPrice - firstPriceToday.Value) / firstPriceToday.Value : 0;
 		//_ = _log.Db($"Current Price: {currentPrice}. Last Price: {lastPrice}. Spread: {spread}. Evaluating first price today? {(firstPriceToday != null ? $"true. Spread2: {spread2}." : "false.")}", userId, "TRADE", true);
 		var balances = await GetBalance(userId, keys);
@@ -109,7 +103,7 @@ public class KrakenService
 
 		if (Math.Abs(spread) >= _TradeThreshold || Math.Abs(spread2) >= _TradeThreshold)
 		{
-			// 5. Now we know a trade is needed — fetch balances 
+			// 4. Now we know a trade is needed - fetch balances 
 			var btcPriceToCad = await GetBtcPriceToCad(userId, keys);
 			_ = _log.Db($"btcPriceCad: {btcPriceCAD}, btcPriceUSDC {btcPriceUSDC}", userId, "TRADE", true);
 
@@ -120,6 +114,14 @@ public class KrakenService
 			{
 				string triggeredBy = spread >= _TradeThreshold ? "spread" : "spread2";
 				_ = _log.Db($"Trade triggered by: {triggeredBy}", userId, "TRADE", true);
+
+				// If no last trade, we must equalize - get balances now
+				if (forceEqualizationCauseNoLastTrade || lastTrade == null)
+				{
+					await TradeHalfBTCForUSDC(userId, keys, btcBalance, usdcBalance, btcPriceCAD.Value, btcPriceUSDC.Value);
+					return false;
+				}
+
 				decimal? btcToTrade;
 				var isPremiumCondition = await IsInPremiumWindow();
 				var tmpTradePerc = firstPriceToday != null ? _ValueTradePercentage - _ValueTradePercentagePremium : _ValueTradePercentage;
@@ -246,7 +248,7 @@ public class KrakenService
 		return false;
 	}
 
-	private async Task<Dictionary<string, decimal>?> GetBalance(int userId, UserKrakenApiKey keys)
+	public async Task<Dictionary<string, decimal>?> GetBalance(int userId, UserKrakenApiKey keys)
 	{
 		try
 		{
@@ -279,17 +281,9 @@ public class KrakenService
 			return null;
 		}
 	}
-	private async Task TradeHalfBTCForUSDC(int userId, UserKrakenApiKey keys, decimal btcPriceCAD, decimal btcPriceUSDC)
+	private async Task TradeHalfBTCForUSDC(int userId, UserKrakenApiKey keys, decimal btcBalance, decimal usdcBalance, decimal btcPriceCAD, decimal btcPriceUSDC)
 	{
 		decimal minBtc = _InitialMinimumBTCAmountToStart;
-		var balances = await GetBalance(userId, keys);
-		if (balances == null)
-		{
-			_ = _log.Db("⚠️Failed to get wallet balances", userId, "TRADE", true);
-			return;
-		}
-		decimal btcBalance = balances.ContainsKey("XXBT") ? balances["XXBT"] : 0;
-		decimal usdcBalance = balances.ContainsKey("USDC") ? balances["USDC"] : 0;
 
 		if (usdcBalance > _MinimumUSDCReserves)
 		{
@@ -333,12 +327,12 @@ public class KrakenService
 			//If there is high market volatility, you could reduce the range to act more cautiously. 
 			if (!IsFirstTradeEver)
 			{
-				bool isVolumeSpiking = await IsVolumeAboveAverageLastHour("XBT", "USDC");
-				int tradeRange = isVolumeSpiking ? 2 : _MaxTradeTypeOccurances;
+				bool isVolumeSpiking = await IsSignificantVolumeSpike("XBT", "USDC", userId);
+				int tradeRange = isVolumeSpiking ? _VolumeSpikeMaxTradeOccurance : _MaxTradeTypeOccurances;
 				bool shouldTradeBasedOnReserves = await ShouldTradeBasedOnRangeAndReserve(userId, from, to, buyOrSell, tradeRange, fromBalance);
 				if (!shouldTradeBasedOnReserves)
 				{
-					_ = _log.Db($"User has {buyOrSell} {from} {to} too many times in the last {tradeRange} trades (Based on reserves or last {(isVolumeSpiking ? 2 : _MaxTradeTypeOccurances)} were the same). Trade Cancelled.", userId, "TRADE", true);
+					_ = _log.Db($"User has {buyOrSell} {from} {to} too many times in the last {tradeRange} trades (Based on BTC/USDC reserves, volume spike, or last {_MaxTradeTypeOccurances} trades were the same). Trade Cancelled.", userId, "TRADE", true);
 					return;
 				}
 				int tradeRangeLimit = _MaxTradeTypeOccurances;
@@ -352,7 +346,7 @@ public class KrakenService
 				bool withinTradeSequenceLimit = await CheckTradeSequence(userId, buyOrSell, _MaxTradeTypeOccurances);
 				if (!withinTradeSequenceLimit)
 				{
-					_ = _log.Db($"User has {buyOrSell} {from} {to} too frequently ({_MaxTradeTypeOccurances-1}) in the last {_MaxTradeTypeOccurances} occurances. Trade Cancelled.", userId, "TRADE", true);
+					_ = _log.Db($"User has {buyOrSell} {from} {to} too frequently ({_MaxTradeTypeOccurances - 1}) in the last {_MaxTradeTypeOccurances} occurances. Trade Cancelled.", userId, "TRADE", true);
 					return;
 				}
 			}
@@ -567,7 +561,7 @@ public class KrakenService
 					if (tradeInfo != null)
 					{
 						// Parse Unix timestamp to DateTime 
-						if (!decimal.TryParse(tradeInfo["time"].ToString(), out var unixTimestampDecimal))
+						if (!decimal.TryParse(tradeInfo["time"]?.ToString(), out var unixTimestampDecimal))
 						{
 							_ = _log.Db($"Failed to parse timestamp for trade {trade.Key}", userId, "TRADE", true);
 							continue;
@@ -582,10 +576,10 @@ public class KrakenService
 							OrderId = tradeInfo["ordertxid"]?.ToString() ?? "",
 							Pair = tradeInfo["pair"]?.ToString() ?? "",
 							Type = tradeInfo["type"]?.ToString() ?? "",
-							Price = decimal.Parse(tradeInfo["price"].ToString()),
-							Volume = decimal.Parse(tradeInfo["vol"].ToString()),
-							Fee = float.Parse(tradeInfo["fee"].ToString()),
-							Cost = decimal.Parse(tradeInfo["cost"].ToString()),
+							Price = decimal.Parse(tradeInfo["price"]?.ToString() ?? "0"),
+							Volume = decimal.Parse(tradeInfo["vol"]?.ToString()?? "0"),
+							Fee = float.Parse(tradeInfo["fee"]?.ToString() ?? "0"),
+							Cost = decimal.Parse(tradeInfo["cost"]?.ToString() ?? "0"),
 							Timestamp = tradeTime
 						});
 					}
@@ -772,6 +766,50 @@ public class KrakenService
 
 		// If the reserves are not low and not repeating too many trades, allow trade
 		return !isRepeatedTrade && !reservesLow;
+	}
+	public async Task<List<int>> GetActiveTradeBotUsers(MySqlConnection? conn = null)
+	{
+		bool shouldDisposeConnection = conn == null;
+		var activeUsers = new List<int>();
+		const string sql = @"
+				SELECT u.id 
+				FROM users u
+				JOIN trade_bot_status tbs ON u.id = tbs.user_id AND tbs.is_running = 1
+				JOIN user_kraken_api_keys ukak ON u.id = ukak.user_id
+				WHERE ukak.api_key IS NOT NULL 
+				AND ukak.api_key != ''
+				AND ukak.private_key IS NOT NULL
+				AND ukak.private_key != ''";
+
+		try
+		{
+			conn ??= new MySqlConnection(_config?.GetValue<string>("ConnectionStrings:maxhanna"));
+			if (conn.State != System.Data.ConnectionState.Open)
+			{
+				await conn.OpenAsync();
+			}
+			using var cmd = new MySqlCommand(sql, conn);
+			using var reader = await cmd.ExecuteReaderAsync();
+
+			while (await reader.ReadAsync())
+			{
+				activeUsers.Add(reader.GetInt32("id"));
+			}
+
+			_ = _log.Db($"Found {activeUsers.Count} active trade bot users");
+		}
+		catch (Exception ex)
+		{
+			_ = _log.Db($"Error fetching active trade bot users: {ex.Message}");
+		}
+		finally
+		{
+			if (shouldDisposeConnection && conn != null)
+			{
+				await conn.DisposeAsync();
+			}
+		}
+		return activeUsers;
 	}
 	private async Task<bool> IsRepeatedTradesInRange(int userId, string from, string to, string buyOrSell, int range = 3)
 	{
@@ -1332,6 +1370,7 @@ public class KrakenService
 
 				cmd.Parameters.AddWithValue("@userId", userId);
 				await cmd.ExecuteNonQueryAsync();
+				_ = _log.Db("Bot started.", userId, "TRADE", true);
 			}
 		}
 		catch (Exception ex)
@@ -1356,6 +1395,7 @@ public class KrakenService
 
 				cmd.Parameters.AddWithValue("@userId", userId);
 				await cmd.ExecuteNonQueryAsync();
+				_ = _log.Db("Bot stopped.", userId, "TRADE", true);
 			}
 		}
 		catch (Exception ex)
@@ -1431,7 +1471,7 @@ public class KrakenService
 			return null;
 		}
 	}
-	private async Task<decimal?> GetBtcPriceToUSDC(int userId, UserKrakenApiKey keys)
+	public async Task<decimal?> GetBtcPriceToUSDC(int userId, UserKrakenApiKey keys)
 	{
 		try
 		{
@@ -1653,6 +1693,7 @@ public class KrakenService
 					MinimumFromReserves = reader.GetDecimal("minimum_from_reserves"),
 					MinimumToReserves = reader.GetDecimal("minimum_to_reserves"),
 					MaxTradeTypeOccurances = reader.GetInt32("max_trade_type_occurances"),
+					VolumeSpikeMaxTradeOccurance = reader.GetInt32("volume_spike_max_trade_occurances"),
 				};
 			}
 		}
@@ -1666,7 +1707,8 @@ public class KrakenService
 	public async Task<bool> UpsertTradeConfiguration(int userId, string fromCoin,
 		string toCoin, decimal maxFromAmount, decimal minFromAmount, decimal threshold,
 		decimal maxBalanceRatio, decimal maxToAmount, decimal valuePercentage, decimal priceStopPercentage,
-		decimal initialMinFromToStart, decimal minFromReserves, decimal minToReserves)
+		decimal initialMinFromToStart, decimal minFromReserves, decimal minToReserves,
+		int maxtradeTypeOccurances, int volumeSpikeMaxTradeOccurance)
 	{
 		try
 		{
@@ -1675,13 +1717,22 @@ public class KrakenService
 
 			var cmd = new MySqlCommand(@"
 			INSERT INTO maxhanna.trade_configuration (
-				user_id, from_coin, to_coin, updated, 
-				maximum_from_trade_amount, minimum_from_trade_amount, 
-				trade_threshold, maximum_trade_balance_ratio, 
-				maximum_to_trade_amount, value_trade_percentage, 
+				user_id, 
+				from_coin, 
+				to_coin, 
+				updated, 
+				maximum_from_trade_amount, 
+				minimum_from_trade_amount, 
+				trade_threshold, 
+				maximum_trade_balance_ratio, 
+				maximum_to_trade_amount, 
+				value_trade_percentage, 
 				from_price_discrepency_stop_percentage, 
 				initial_minimum_from_amount_to_start, 
-				minimum_from_reserves, minimum_to_reserves
+				minimum_from_reserves, 
+				minimum_to_reserves,
+				max_trade_type_occurances,
+				volume_spike_max_trade_occurances
 			)
 			VALUES (
 				@userId, @fromCoin, @toCoin, UTC_TIMESTAMP(),
@@ -1689,7 +1740,8 @@ public class KrakenService
 				@threshold, @maxBalanceRatio,
 				@maxToAmount, @valuePercentage,
 				@priceStopPercentage, @initialMinFromToStart,
-				@minFromReserves, @minToReserves
+				@minFromReserves, @minToReserves, @maxTradeTypeOccurances, 
+				@volumeSpikeMaxTradeOccurance
 			)
 			ON DUPLICATE KEY UPDATE 
 				updated = UTC_TIMESTAMP(),
@@ -1702,7 +1754,10 @@ public class KrakenService
 				from_price_discrepency_stop_percentage = @priceStopPercentage,
 				initial_minimum_from_amount_to_start = @initialMinFromToStart,
 				minimum_from_reserves = @minFromReserves,
-				minimum_to_reserves = @minToReserves;", connection);
+				minimum_to_reserves = @minToReserves,
+				max_trade_type_occurances = @maxTradeTypeOccurances,
+				volume_spike_max_trade_occurances = @volumeSpikeMaxTradeOccurance;
+				", connection);
 
 			cmd.Parameters.AddWithValue("@userId", userId);
 			cmd.Parameters.AddWithValue("@fromCoin", fromCoin);
@@ -1717,6 +1772,8 @@ public class KrakenService
 			cmd.Parameters.AddWithValue("@initialMinFromToStart", initialMinFromToStart);
 			cmd.Parameters.AddWithValue("@minFromReserves", minFromReserves);
 			cmd.Parameters.AddWithValue("@minToReserves", minToReserves);
+			cmd.Parameters.AddWithValue("@maxTradeTypeOccurances", maxtradeTypeOccurances);
+			cmd.Parameters.AddWithValue("@volumeSpikeMaxTradeOccurance", volumeSpikeMaxTradeOccurance);
 
 			await cmd.ExecuteNonQueryAsync();
 			return true;
@@ -1743,6 +1800,8 @@ public class KrakenService
 		_MinimumBTCReserves = tc.MinimumFromReserves ?? _MinimumBTCReserves;
 		_MinimumUSDCReserves = tc.MinimumToReserves ?? _MinimumUSDCReserves;
 		_MaxTradeTypeOccurances = tc.MaxTradeTypeOccurances ?? _MaxTradeTypeOccurances;
+		_VolumeSpikeMaxTradeOccurance = tc.VolumeSpikeMaxTradeOccurance ?? _VolumeSpikeMaxTradeOccurance;
+
 		return true;
 	}
 
@@ -1899,12 +1958,16 @@ public class KrakenService
 
 		return volumes;
 	}
-	public async Task<bool> IsVolumeAboveAverageLastHour(string fromCurrency, string toCurrency)
+	public async Task<bool> IsSignificantVolumeSpike(string fromCurrency, string toCurrency, int userId, decimal spikeThresholdPercent = 0.5m)
 	{
 		var sinceTime = DateTime.UtcNow.AddHours(-1);
 		var volumes = await GetTradeMarketVolumesSinceAsync(fromCurrency, toCurrency, sinceTime);
 
-		if (volumes == null || volumes.Count == 0) return false;
+		if (volumes == null || volumes.Count == 0)
+		{
+			_ = _log.Db("No volume data available for spike detection.", null, "TRADE", true);
+			return false;
+		}
 
 		// Calculate average volume
 		var averageVolume = volumes.Average(v => v.VolumeUSDC);
@@ -1912,17 +1975,23 @@ public class KrakenService
 		// Get the latest volume (most recent timestamp)
 		var latestVolume = volumes.Last().VolumeUSDC;
 
-		// Check if the latest volume is above average
+		// Calculate the percentage increase over the average
+		var volumeIncreasePercent = (latestVolume - averageVolume) / averageVolume;
+
+		// Check if the latest volume is significantly above average
+		bool isSpike = volumeIncreasePercent >= spikeThresholdPercent;
 
 		_ = _log.Db($@"[Volume Spike Check]
-			Time Range: Last 1 hour (since {sinceTime:u})
-			Pair: {fromCurrency}/{toCurrency}
-			Volume Points: {volumes.Count}
-			Average Volume: {averageVolume:N2}
-			Latest Volume: {latestVolume:N2}
-			Spike Detected: {latestVolume > averageVolume}
-			", null, "TRADE", true);
-		return latestVolume > averageVolume;
+        Time Range: Last 1 hour (since {sinceTime:u})
+        Pair: {fromCurrency}/{toCurrency}
+        Volume Points: {volumes.Count}
+        Average Volume: {averageVolume:N2} USDC
+        Latest Volume: {latestVolume:N2} USDC
+        Volume Increase: {volumeIncreasePercent:P2}
+        Spike Threshold: {spikeThresholdPercent:P2}
+        Significant Spike Detected: {isSpike}",
+			userId, "TRADE", true);
+		return isSpike;
 	}
 	public async Task<List<PriceData>> GetBtcPricesAsync(int? minutes = null)
 	{
@@ -2044,108 +2113,314 @@ public class KrakenService
 		}
 		return volumes;
 	}
+	public async Task<bool> ExitPosition(int userId)
+	{
+		try
+		{
+			if (userId == 0) return false;
+			//GET USER API KEYS
+			UserKrakenApiKey? keys = await GetApiKey(userId);
+			if (keys == null) return false;
+			//GET TOTAL BTC BALANCE
+			var balances = await GetBalance(userId, keys);
+			if (balances == null)
+			{
+				_ = _log.Db("Failed to get wallet balances", userId, "TRADE");
+				return false;
+			}
+			decimal btcBalance = balances.ContainsKey("XXBT") ? balances["XXBT"] : 0;
+			decimal usdcBalance = balances.ContainsKey("USDC") ? balances["USDC"] : 0;
+			decimal? btcPriceCAD = await IsSystemUpToDate(userId, keys);
+			decimal? btcPriceUSDC = await GetBtcPriceToUSDC(userId, keys);
+			if (btcPriceCAD == null)
+			{
+				_ = _log.Db("No CAD price found. Trade Cancelled.", userId, "TRADE", true);
+				return false;
+			}
+			if (btcPriceUSDC == null)
+			{
+				_ = _log.Db("No USDC price found. Trade Cancelled.", userId, "TRADE", true);
+				return false;
+			}
+			_ = _log.Db($"Exiting position. BTC Balance: {btcBalance}", userId, "TRADE", true);
+			await ExecuteXBTtoUSDCTrade(userId, keys, FormatBTC(btcBalance), "sell", btcBalance, usdcBalance, false, btcPriceCAD.Value, btcPriceUSDC.Value);
+			await StopBot(userId);
+			return true;
+		}
+		catch (Exception e)
+		{
+			_ = _log.Db("⚠️KrakenService exception ExitPosition: " + e.Message, outputToConsole: true);
+			return false;
+		}
+	}
+	public async Task<bool> EnterPosition(int userId)
+	{
+		try
+		{
+			if (userId == 0) return false;
+			//GET USER API KEYS
+			UserKrakenApiKey? keys = await GetApiKey(userId);
+			if (keys == null) return false;
+
+			// 1. If user does not have _InitialMinimumFromAmountToStart, cancel entering position.  
+			var balances = await GetBalance(userId, keys);
+			if (balances == null)
+			{
+				_ = _log.Db("Failed to get wallet balances", userId, "TRADE");
+				return false;
+			}
+			decimal btcBalance = balances.ContainsKey("XXBT") ? balances["XXBT"] : 0;
+			decimal usdcBalance = balances.ContainsKey("USDC") ? balances["USDC"] : 0;
+			decimal? btcPriceCAD = await IsSystemUpToDate(userId, keys);
+			decimal? btcPriceUSDC = await GetBtcPriceToUSDC(userId, keys);
+			if (btcPriceCAD == null)
+			{
+				_ = _log.Db("No CAD price found. Trade Cancelled.", userId, "TRADE", true);
+				return false;
+			}
+			if (btcPriceUSDC == null)
+			{
+				_ = _log.Db("No USDC price found. Trade Cancelled.", userId, "TRADE", true);
+				return false;
+			}
+			if (usdcBalance > _MinimumUSDCReserves)
+			{
+				_ = _log.Db($"No need to equalize funds. USDC Balance ({usdcBalance}) over minimum reserves ({_MinimumUSDCReserves}).", userId, "TRADE", true);
+				return false;
+			}
+			decimal minBtc = _InitialMinimumBTCAmountToStart;
+			if (btcBalance > minBtc)
+			{
+				//Trade 50% of USDC balance TO BTC
+				decimal halfTradePercentage = 0.5m;
+				decimal usdcValueToTrade = Math.Min(usdcBalance * halfTradePercentage, _MaximumUSDCTradeAmount);
+				if (usdcValueToTrade > 0)
+				{
+					decimal? usdToCadRate = await GetUsdToCadRate();
+					if (usdToCadRate == null)
+					{
+						_ = _log.Db("USD to CAD rate is unavailable.", userId, "TRADE", true);
+						return false;
+					}
+					_ = _log.Db("USD to CAD rate: " + usdToCadRate.Value, userId, "TRADE", true);
+					decimal btcAmount = usdcValueToTrade / btcPriceUSDC.Value;
+
+					_ = _log.Db($"Entering Position - Buying BTC with {FormatBTC(btcAmount)} BTC worth of USDC(${usdcValueToTrade})", userId, "TRADE", true);
+					await ExecuteXBTtoUSDCTrade(userId, keys, FormatBTC(btcAmount), "buy", usdcBalance, btcBalance, false, btcPriceCAD.Value, btcPriceUSDC.Value);
+					await StartBot(userId);
+					return true;
+				}
+			}
+			else
+			{
+				_ = _log.Db($"⚠️Not enough BTC to trade ({btcBalance}<{minBtc})", userId, "TRADE", true);
+				return false;
+			}
+			return false;
+		}
+		catch (Exception e)
+		{
+			_ = _log.Db("⚠️KrakenService exception EnterPosition: " + e.Message, outputToConsole: true);
+			return false;
+		}
+	}
+
+
 	public async Task<List<decimal>> GetWeightedAveragePrices(int userId, string fromCurrency, string toCurrency)
 	{
-		List<decimal> avgPrices = new List<decimal>() { 0m, 0m }; // Initialize with default values
+		List<decimal> avgPrices = new List<decimal>() { 0m, 0m };
 
 		try
 		{
 			using var connection = new MySqlConnection(_config?.GetValue<string>("ConnectionStrings:maxhanna"));
 			await connection.OpenAsync();
 
-			// Weighted average buy price
-			decimal totalBtcValue = 0;
-			decimal totalPricePaid = 0;
-			decimal averageBtcPrice = 0;
+			// Get conversion rate (CAD to USDC) if needed - you'll need to implement this
+			decimal? cadToUsdcRate = await GetUsdToCadRate();
 
-			// First query - buy trades
+			// Weighted average buy price (USDC → XBT)
 			var buyCmd = new MySqlCommand(@"
-            SELECT * FROM trade_history
-            WHERE user_id = @userId
-            AND from_currency = @toCurrency
-            AND to_currency = @fromCurrency
-			AND btc_price_usdc > 0;", connection);
+        SELECT 
+            SUM(value) as total_btc,
+            SUM(value * 
+                CASE 
+                    WHEN btc_price_usdc > '0' THEN CAST(btc_price_usdc AS DECIMAL(20,10))
+                    ELSE CAST(btc_price_cad AS DECIMAL(20,10)) / @cadToUsdcRate
+                END) as total_cost_usdc
+        FROM trade_history
+        WHERE user_id = @userId
+        AND from_currency = @toCurrency   -- Buying BTC (USDC → XBT)
+        AND to_currency = @fromCurrency
+        AND (btc_price_usdc > '0' OR btc_price_cad > '0')
+        AND timestamp >= DATE_SUB(NOW(), INTERVAL 30 DAY);", connection);
 
 			buyCmd.Parameters.AddWithValue("@userId", userId);
 			buyCmd.Parameters.AddWithValue("@toCurrency", toCurrency);
 			buyCmd.Parameters.AddWithValue("@fromCurrency", fromCurrency);
+			buyCmd.Parameters.AddWithValue("@cadToUsdcRate", cadToUsdcRate);
 
 			using (var reader = await buyCmd.ExecuteReaderAsync())
 			{
-				while (await reader.ReadAsync())
+				if (await reader.ReadAsync())
 				{
-					var tradeRecord = new TradeRecord
+					decimal totalBtc = reader.IsDBNull(0) ? 0 : reader.GetDecimal(0);
+					decimal totalCost = reader.IsDBNull(1) ? 0 : reader.GetDecimal(1);
+
+					if (totalBtc > 0)
 					{
-						from_currency = reader.GetString(reader.GetOrdinal("from_currency")),
-						to_currency = reader.GetString(reader.GetOrdinal("to_currency")),
-						value = reader.GetFloat(reader.GetOrdinal("value")),
-						btc_price_usdc = reader.GetString(reader.GetOrdinal("btc_price_usdc"))
-					};
-
-					decimal tradeValue = Convert.ToDecimal(tradeRecord.value);
-					decimal tradePrice = Convert.ToDecimal(tradeRecord.btc_price_usdc);
-
-					totalBtcValue += tradeValue;
-					totalPricePaid += tradeValue * tradePrice;
+						avgPrices[0] = totalCost / totalBtc;
+					}
 				}
 			}
 
-			if (totalBtcValue > 0)
-			{
-				averageBtcPrice = totalPricePaid / totalBtcValue;
-			}
-
-			// Weighted average sell price
-			decimal totalUSDCValue = 0;
-			decimal totalUSDCPricePaid = 0;
-			decimal averageUSDCPrice = 0;
-
-			// Second query - sell trades
+			// Weighted average sell price (XBT → USDC)
 			var sellCmd = new MySqlCommand(@"
-            SELECT * FROM trade_history
-            WHERE user_id = @userId
-            AND from_currency = @fromCurrency
-            AND to_currency = @toCurrency
-			AND btc_price_usdc > 0;", connection);
+        SELECT 
+            SUM(value) as total_btc,
+            SUM(value * 
+                CASE 
+                    WHEN btc_price_usdc > '0' THEN CAST(btc_price_usdc AS DECIMAL(20,10))
+                    ELSE CAST(btc_price_cad AS DECIMAL(20,10)) / @cadToUsdcRate
+                END) as total_revenue_usdc
+        FROM trade_history
+        WHERE user_id = @userId
+        AND from_currency = @fromCurrency   -- Selling BTC (XBT → USDC)
+        AND to_currency = @toCurrency
+        AND (btc_price_usdc > '0' OR btc_price_cad > '0')
+        AND timestamp >= DATE_SUB(NOW(), INTERVAL 30 DAY);", connection);
 
+			// Reuse parameters
 			sellCmd.Parameters.AddWithValue("@userId", userId);
 			sellCmd.Parameters.AddWithValue("@toCurrency", toCurrency);
 			sellCmd.Parameters.AddWithValue("@fromCurrency", fromCurrency);
+			sellCmd.Parameters.AddWithValue("@cadToUsdcRate", cadToUsdcRate);
 
-			using (var reader2 = await sellCmd.ExecuteReaderAsync())
+			using (var reader = await sellCmd.ExecuteReaderAsync())
 			{
-				while (await reader2.ReadAsync())
+				if (await reader.ReadAsync())
 				{
-					var tradeRecord = new TradeRecord
+					decimal totalBtc = reader.IsDBNull(0) ? 0 : reader.GetDecimal(0);
+					decimal totalRevenue = reader.IsDBNull(1) ? 0 : reader.GetDecimal(1);
+
+					if (totalBtc > 0)
 					{
-						from_currency = reader2.GetString(reader2.GetOrdinal("from_currency")),
-						to_currency = reader2.GetString(reader2.GetOrdinal("to_currency")),
-						value = reader2.GetFloat(reader2.GetOrdinal("value")), 
-						btc_price_usdc = reader2.GetString(reader2.GetOrdinal("btc_price_usdc"))
-					};
-
-					decimal tradeValue = Convert.ToDecimal(tradeRecord.value);
-					decimal tradePrice = Convert.ToDecimal(tradeRecord.btc_price_usdc);
-
-					totalUSDCValue += tradeValue;
-					totalUSDCPricePaid += tradeValue * tradePrice;
+						avgPrices[1] = totalRevenue / totalBtc;
+					}
 				}
 			}
-
-			if (totalUSDCValue > 0)   
-			{
-				averageUSDCPrice = totalUSDCPricePaid / totalUSDCValue;
-			}
-
-			avgPrices[0] = averageBtcPrice;
-			avgPrices[1] = averageUSDCPrice;
 		}
 		catch (Exception e)
 		{
-			_ = _log.Db("⚠️Exception in GetAveragePrices: " + e.Message, outputToConsole: true);
+			_ = _log.Db($"⚠️Exception in GetWeightedAveragePrices: {e.Message}", outputToConsole: true);
 		}
 
 		return avgPrices;
+	}
+	public async Task<List<ProfitData>> GetUserProfitDataAsync(int userId, int? days = null)
+	{
+		var profitData = new List<ProfitData>();
+
+		using var connection = new MySqlConnection(_config?.GetValue<string>("ConnectionStrings:maxhanna"));
+		await connection.OpenAsync();
+
+		// Query for daily profit data
+		var dailyQuery = @"
+        SELECT 
+            'daily' as period_type,
+            date_start as period_start,
+            date_end as period_end,
+            start_usdc,
+            start_btc,
+            start_btc_price_usdc,
+            end_usdc,
+            end_btc,
+            end_btc_price_usdc,
+            profit_usdc,
+            cumulative_profit_usdc
+        FROM trade_daily_profit
+        WHERE user_id = @userId";
+
+		if (days.HasValue)
+		{
+			dailyQuery += " AND date_start >= UTC_TIMESTAMP() - INTERVAL @days DAY";
+		}
+
+		// Query for weekly profit data
+		var weeklyQuery = @"
+        SELECT 
+            'weekly' as period_type,
+            week_start as period_start,
+            week_end as period_end,
+            start_usdc,
+            start_btc,
+            start_btc_price_usdc,
+            end_usdc,
+            end_btc,
+            end_btc_price_usdc,
+            profit_usdc,
+            cumulative_profit_usdc
+        FROM trade_weekly_profit
+        WHERE user_id = @userId";
+
+		if (days.HasValue)
+		{
+			weeklyQuery += " AND week_start >= UTC_TIMESTAMP() - INTERVAL @days DAY";
+		}
+
+		// Query for monthly profit data
+		var monthlyQuery = @"
+        SELECT 
+            'monthly' as period_type,
+            month_start as period_start,
+            month_end as period_end,
+            start_usdc,
+            start_btc,
+            start_btc_price_usdc,
+            end_usdc,
+            end_btc,
+            end_btc_price_usdc,
+            profit_usdc,
+            cumulative_profit_usdc
+        FROM trade_monthly_profit
+        WHERE user_id = @userId";
+
+		if (days.HasValue)
+		{
+			monthlyQuery += " AND month_start >= UTC_TIMESTAMP() - INTERVAL @days DAY";
+		}
+
+		// Combine all queries with UNION ALL
+		var combinedQuery = $"{dailyQuery} UNION ALL {weeklyQuery} UNION ALL {monthlyQuery} ORDER BY period_start DESC";
+
+		using var command = new MySqlCommand(combinedQuery, connection);
+		command.Parameters.AddWithValue("@userId", userId);
+
+		if (days.HasValue)
+		{
+			command.Parameters.AddWithValue("@days", days.Value);
+		}
+
+		using var reader = await command.ExecuteReaderAsync();
+
+		while (await reader.ReadAsync())
+		{
+			profitData.Add(new ProfitData
+			{
+				PeriodType = reader.IsDBNull(reader.GetOrdinal("period_type")) ? string.Empty : reader.GetString("period_type"),
+				PeriodStart = reader.IsDBNull(reader.GetOrdinal("period_start")) ? (DateTime?)null : reader.GetDateTime("period_start"),
+				PeriodEnd = reader.IsDBNull(reader.GetOrdinal("period_end")) ? (DateTime?)null : reader.GetDateTime("period_end"),
+				StartUsdc = reader.IsDBNull(reader.GetOrdinal("start_usdc")) ? 0m : reader.GetDecimal("start_usdc"),
+				StartBtc = reader.IsDBNull(reader.GetOrdinal("start_btc")) ? 0m : reader.GetDecimal("start_btc"),
+				StartBtcPriceUsdc = reader.IsDBNull(reader.GetOrdinal("start_btc_price_usdc")) ? 0m : reader.GetDecimal("start_btc_price_usdc"),
+				EndUsdc = reader.IsDBNull(reader.GetOrdinal("end_usdc")) ? 0m : reader.GetDecimal("end_usdc"),
+				EndBtc = reader.IsDBNull(reader.GetOrdinal("end_btc")) ? 0m : reader.GetDecimal("end_btc"),
+				EndBtcPriceUsdc = reader.IsDBNull(reader.GetOrdinal("end_btc_price_usdc")) ? 0m : reader.GetDecimal("end_btc_price_usdc"),
+				ProfitUsdc = reader.IsDBNull(reader.GetOrdinal("profit_usdc")) ? 0m : reader.GetDecimal("profit_usdc"),
+				CumulativeProfitUsdc = reader.IsDBNull(reader.GetOrdinal("cumulative_profit_usdc")) ? 0m : reader.GetDecimal("cumulative_profit_usdc")
+			});
+		}
+
+		return profitData;
 	}
 	private bool ValidateTradeConfiguration(object? config, int userId)
 	{
@@ -2240,7 +2515,7 @@ public class KrakenService
 			byte[] hashedBytes = sha256.ComputeHash(inputBytes);
 			return Convert.ToBase64String(hashedBytes);
 		}
-	}
+	} 
 }
 public class KrakenApiException : Exception
 {
@@ -2256,18 +2531,18 @@ public class KrakenApiException : Exception
 }
 public class KrakenTrade
 {
-	public string TradeId { get; set; }        // Trade transaction ID
-	public string OrderId { get; set; }       // Order ID that this trade belongs to
-	public string Pair { get; set; }          // Asset pair (e.g., "XBTUSDC")
-	public string Type { get; set; }          // "buy" or "sell"
+	public string? TradeId { get; set; }        // Trade transaction ID
+	public string? OrderId { get; set; }       // Order ID that this trade belongs to
+	public string? Pair { get; set; }          // Asset pair (e.g., "XBTUSDC")
+	public string? Type { get; set; }          // "buy" or "sell"
 	public decimal Price { get; set; }        // Price in quote currency
 	public decimal Volume { get; set; }       // Volume in base currency
 	public float Fee { get; set; }          // Fee amount in quote currency
 	public decimal Cost { get; set; }         // Total cost (price * volume) in quote currency
 	public DateTime Timestamp { get; set; }   // When the trade occurred 
-	public string Margin { get; set; }        // Margin position ID (if margin trade)
-	public string Misc { get; set; }          // Miscellaneous info
-	public string PosTxId { get; set; }       // Position ID (for margin/derivatives)
+	public string? Margin { get; set; }        // Margin position ID (if margin trade)
+	public string? Misc { get; set; }          // Miscellaneous info
+	public string? PosTxId { get; set; }       // Position ID (for margin/derivatives)
 	public bool? HasDifference { get; set; } //internal for setting fees.
 }
 public class TradeRecord
@@ -2301,4 +2576,18 @@ public class PricePeak
 {
 	public decimal Price { get; set; }
 	public DateTime Timestamp { get; set; }
+}
+public class ProfitData
+{
+	public required string PeriodType { get; set; } // "daily", "weekly", or "monthly"
+	public DateTime? PeriodStart { get; set; }
+	public DateTime? PeriodEnd { get; set; }
+	public decimal StartUsdc { get; set; }
+	public decimal StartBtc { get; set; }
+	public decimal StartBtcPriceUsdc { get; set; }
+	public decimal EndUsdc { get; set; }
+	public decimal EndBtc { get; set; }
+	public decimal EndBtcPriceUsdc { get; set; }
+	public decimal ProfitUsdc { get; set; }
+	public decimal CumulativeProfitUsdc { get; set; }
 }

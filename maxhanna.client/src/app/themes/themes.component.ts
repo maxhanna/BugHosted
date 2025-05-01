@@ -23,7 +23,6 @@ export class ThemesComponent extends ChildComponent implements OnInit, OnDestroy
   @ViewChild('mainHighlightColorQuarterOpacity') mainHighlightColorQuarterOpacity!: ElementRef;
   @ViewChild('linkColor') linkColor!: ElementRef;
   @ViewChild('fontSize') fontSize!: ElementRef;
-  @ViewChild('fontFamily') fontFamily!: ElementRef;
   @ViewChild('themeNameInput') themeNameInput!: ElementRef<HTMLInputElement>;
   @ViewChild('themeSearchInput') themeSearchInput!: ElementRef<HTMLInputElement>;
   @ViewChild('mediaSelector') mediaSelector!: MediaSelectorComponent;
@@ -39,7 +38,7 @@ export class ThemesComponent extends ChildComponent implements OnInit, OnDestroy
     secondaryFontColor: '#ffffff',
     thirdFontColor: 'cornflowerblue',
     mainHighlightColor: '#3a3a3a',
-    mainHighlightColorQuarterOpacity: '#a9a9a987',
+    mainHighlightColorQuarterOpacity: '#a9a9a9',
     linkColor: 'chartreuse',
     fontSize: 16,
     fontFamily: 'Helvetica, Arial',
@@ -99,7 +98,7 @@ export class ThemesComponent extends ChildComponent implements OnInit, OnDestroy
           this.originalThemeId = this.userSelectedTheme?.id ?? 0;
           this.themeNameInput.nativeElement.value = (this.userSelectedTheme?.name ? this.userSelectedTheme.name : "Default");
           
-          this.replenishBackroundImageSelection(res);
+          this.replenishBackroundImageSelection(res, true);
         }
       });
 
@@ -187,7 +186,7 @@ export class ThemesComponent extends ChildComponent implements OnInit, OnDestroy
     if (!user || !user?.id) return alert("You must be logged in to save your theme.");
 
     const name = this.themeNameInput.nativeElement.value;
-    if (name.toLowerCase() == "default") {
+    if (name.toLowerCase() == "default" && this.warnUserToSave) {
       this.themeNameInput.nativeElement.focus();
       return alert("Please enter a valid theme name.");
     }
@@ -302,9 +301,7 @@ export class ThemesComponent extends ChildComponent implements OnInit, OnDestroy
     this.secondaryFontColor.nativeElement.value = this.defaultTheme.secondaryFontColor; 
     this.mainHighlightColor.nativeElement.value = this.defaultTheme.mainHighlightColor;
     this.mainHighlightColorQuarterOpacity.nativeElement.value = this.defaultTheme.mainHighlightColorQuarterOpacity;
-    this.fontSize.nativeElement.value = this.defaultTheme.fontSize;
-    this.fontFamily.nativeElement.value = this.defaultTheme.fontFamily;
-
+    this.fontSize.nativeElement.value = this.defaultTheme.fontSize; 
 
     const thirdFontColorHex = this.getHexFromColorName(this.defaultTheme.thirdFontColor);
     this.thirdFontColor.nativeElement.value = thirdFontColorHex;
@@ -317,6 +314,7 @@ export class ThemesComponent extends ChildComponent implements OnInit, OnDestroy
     this.debounceTimer = setTimeout(() => {
       const user = this.parentRef?.user;
       if (user && user.id && updateServer) {
+        console.log("deleting selected theme user:", user.id);
         this.userService.deleteUserSelectedTheme(user.id).then(res => {
           if (res) {
             this.parentRef?.showNotification(res.message);
@@ -452,20 +450,25 @@ export class ThemesComponent extends ChildComponent implements OnInit, OnDestroy
     }, 500);  
   }
 
-  private replenishBackroundImageSelection(res: any) {
+  private replenishBackroundImageSelection(res: any, blockSavePrompt = false) {
     if (res.backgroundImage) {
       this.fileService.getFileEntryById(res.backgroundImage).then(feRes => {
         if (feRes) {
-          this.selectBackgroundImage(feRes);
+          this.selectBackgroundImage(feRes, blockSavePrompt);
         }
       });
     }
   }
 
-  private selectBackgroundImage(feRes: FileEntry) { 
+  private selectBackgroundImage(feRes: FileEntry, blockSavePrompt: boolean = false) { 
     this.attachedFiles = [];
     this.mediaSelector.selectedFiles = [];
     this.mediaSelector.selectFile(feRes);
+    if (blockSavePrompt) {
+      setTimeout(() => {
+        this.warnUserToSave = false;
+      }, 1000);
+    }
     setTimeout(() => {
       document.getElementById("closeOverlay")?.click();
     }, 5);

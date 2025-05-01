@@ -14,5 +14,6 @@ public class TradeConfiguration
 	public decimal? MinimumFromReserves { get; set; }
 	public decimal? MinimumToReserves { get; set; }
 	public int? MaxTradeTypeOccurances { get; set; }
+	public int? VolumeSpikeMaxTradeOccurance { get; set; }
 	public DateTime? Updated { get; set; }
 }

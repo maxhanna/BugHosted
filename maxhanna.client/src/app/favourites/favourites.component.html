@@ -17,13 +17,12 @@
             <option>100</option>
           </select>
         </div>
-        <select (change)="orderChanged($event)"
-          *ngIf="showingLatestLinks || (!showNameImageInput && !showingLatestLinks && !isSearchingUrls)">
-          <option value="recent">Most Recent</option>
-          <option value="popular">Most Popular</option>
-          <option value="visited">Most Visited</option>
-          <option value="name">By Name</option>
-          <option value="url">By URL</option>
+        <select (change)="orderChanged($event)" [value]="currentOrder" *ngIf="showingLatestLinks || (!showNameImageInput && !showingLatestLinks && !isSearchingUrls)">
+          <option value="recent" >Most Recent</option>
+          <option value="popular" >Most Popular</option>
+          <option value="visited" >Most Visited</option>
+          <option value="name" >By Name</option>
+          <option value="url" >By URL</option>
         </select>
   </div>
   <div class=topLinks> 

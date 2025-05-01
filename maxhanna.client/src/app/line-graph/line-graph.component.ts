@@ -50,9 +50,26 @@ export class LineGraphComponent implements OnInit, OnChanges {
 
   @ViewChild('periodSelect') periodSelect!: ElementRef<HTMLSelectElement>;
   @ViewChild('canvasDiv') canvasDiv!: ElementRef<HTMLDivElement>;
+  @ViewChild('sliderContainer') sliderContainer!: ElementRef<HTMLDivElement>;
   @ViewChild('coinSwitcher') coinSwitcher!: ElementRef<HTMLSelectElement>;
   @ViewChild(BaseChartDirective) chart?: BaseChartDirective;
+  @ViewChild('timeRangeSliderMin') timeRangeSliderMin!: ElementRef<HTMLInputElement>;
+  @ViewChild('timeRangeSliderMax') timeRangeSliderMax!: ElementRef<HTMLInputElement>;
 
+  sliderMin: number = 0;
+  sliderMax: number = 0;
+  sliderMinValue: number = 0;
+  sliderMaxValue: number = 0;
+  private readonly minSeparation: number = 1000; // 1 second
+  get formattedSliderMin(): string {
+    return this.formatTimestamp(new Date(this.sliderMinValue).toISOString(), true);
+  }
+
+  // Getter for formatted slider max timestamp
+  get formattedSliderMax(): string {
+    return this.formatTimestamp(new Date(this.sliderMaxValue).toISOString(), true);
+  }
+  
   ngOnInit() {
     if (!this.selectedPeriod) {
       if (this.type === "Volume") {
@@ -65,28 +82,72 @@ export class LineGraphComponent implements OnInit, OnChanges {
     this.lineChartOptions = this.getChartOptions();
     setTimeout(() => {
       this.canvasDiv.nativeElement.style.backgroundColor = this.darkMode ? this.getCSSVariableValue("--secondary-component-background-color") ?? '#000000' : this.getCSSVariableValue("--component-background-color") ?? '#ffffff';
+      this.initializeSlider();
       this.updateGraph(this.data);
     }, 50);
   }
 
   ngOnChanges(changes: SimpleChanges) {
-    // if (this.selectedCoin) {
-    //   this.changeCoinByString(this.selectedCoin);
-    // }
-
-    if ((changes['showAverage'] || changes['data'] || changes['data2'] ||
-      changes['selectedPeriod'] || changes['selectedCoin']) &&
+    if (changes['data'] || changes['data2']) {
+      this.initializeSlider();
+      this.updateGraph(this.data);
+    }
+    if ((changes['showAverage'] || changes['selectedPeriod'] || changes['selectedCoin']) &&
       this.lineChartData.length > 0) {
       this.updateChartWithAverage();
-      this.updateGraph(this.data); 
+      this.updateGraph(this.data);
     }
+  }
+
+  initializeSlider() {
+    if (this.data.length === 0) return;
+
+    const timestamps = this.data.map(item => new Date(item.timestamp).getTime()).filter(time => !isNaN(time));
+    if (timestamps.length === 0) return;
+
+    this.sliderMin = Math.min(...timestamps);
+    this.sliderMax = Math.max(...timestamps);
+    this.sliderMinValue = this.sliderMin;
+    this.sliderMaxValue = this.sliderMax;
+
+    setTimeout(() => {
+      if (this.timeRangeSliderMin && this.timeRangeSliderMax) {
+        this.timeRangeSliderMin.nativeElement.value = this.sliderMinValue.toString();
+        this.timeRangeSliderMax.nativeElement.value = this.sliderMaxValue.toString();
+        this.updateHighlightedRange();
+        this.timeRangeSliderMin.nativeElement.dispatchEvent(new Event('input'));
+        this.timeRangeSliderMax.nativeElement.dispatchEvent(new Event('input'));
+      }
+    }, 100);
+  }
+  updateSliderMin(event: Event) {
+    const value = parseInt((event.target as HTMLInputElement).value);
+    if (value >= this.sliderMaxValue - this.minSeparation) {
+      this.sliderMinValue = this.sliderMaxValue - this.minSeparation;
+      this.timeRangeSliderMin.nativeElement.value = this.sliderMinValue.toString();
+    } else {
+      this.sliderMinValue = value;
+    }
+    this.updateHighlightedRange();
+    this.updateGraph(this.data);
+  }
+  updateSliderMax(event: Event) {
+    const value = parseInt((event.target as HTMLInputElement).value);
+    if (value <= this.sliderMinValue + this.minSeparation) {
+      this.sliderMaxValue = this.sliderMinValue + this.minSeparation;
+      this.timeRangeSliderMax.nativeElement.value = this.sliderMaxValue.toString();
+    } else {
+      this.sliderMaxValue = value;
+    }
+    this.updateHighlightedRange();
+    this.updateGraph(this.data);
   }
 
   getUniqueCoinNames(): string[] {
     const uniqueCoinNamesSet = new Set<string>();
     this.data?.forEach(item => {
-      if (this.type == "Crypto") { 
-        uniqueCoinNamesSet.add(item.name); 
+      if (this.type == "Crypto") {
+        uniqueCoinNamesSet.add(item.name);
       } else if (this.type == "Currency") {
         const name = (item as ExchangeRate).targetCurrency;
         uniqueCoinNamesSet.add(name);
@@ -94,17 +155,33 @@ export class LineGraphComponent implements OnInit, OnChanges {
     });
     return Array.from(uniqueCoinNamesSet);
   }
+  private updateHighlightedRange() {
+    if (!this.sliderContainer) return;
+
+    const sliderWidth = this.sliderContainer.nativeElement.offsetWidth - 40; // Adjust for 20px padding on each side
+    const range = this.sliderMax - this.sliderMin;
+
+    // Avoid division by zero
+    if (range <= 0) return;
+
+    const minPercent = ((this.sliderMinValue - this.sliderMin) / range) * 100;
+    const maxPercent = ((this.sliderMaxValue - this.sliderMin) / range) * 100;
+
+    const left = (minPercent * sliderWidth) / 100 + 20; // Offset by left padding
+    const width = ((maxPercent - minPercent) * sliderWidth) / 100;
+
+    this.sliderContainer.nativeElement.style.setProperty('--highlight-left', `${left}px`);
+    this.sliderContainer.nativeElement.style.setProperty('--highlight-width', `${width}px`);
+  }
 
   changeGraphPeriod(event: Event) {
-    console.log("change graph period", event);
     this.selectedPeriod = (event.target as HTMLSelectElement).value as typeof this.selectedPeriod;
     this.changeTimePeriodEvent.emit(this.selectedPeriod);
-    // this.updateGraph(this.data); 
+    this.updateGraph(this.data);
   }
 
   changeCoin(event: Event) {
     this.selectedCoin = (event.target as HTMLSelectElement).value;
-    console.log("change coin", this.selectedCoin);
     this.updateGraph(this.data);
   }
 
@@ -130,7 +207,7 @@ export class LineGraphComponent implements OnInit, OnChanges {
       this.updateGraph(this.data);
     }
   }
-   
+
   updateGraph(data: any[]) {
     if (!this.selectedPeriod) {
       this.selectedPeriod = '1d';
@@ -139,7 +216,8 @@ export class LineGraphComponent implements OnInit, OnChanges {
     let filteredData: any[] = [];
     this.lineChartData = [];
     this.lineChartLabels = [];
- 
+
+    // Apply period and coin filtering
     if (this.type === "Volume") {
       filteredData = this.filterDataByPeriod(this.getDaysForPeriod(this.selectedPeriod));
     } else if (this.selectedCoin !== '') {
@@ -147,19 +225,24 @@ export class LineGraphComponent implements OnInit, OnChanges {
     } else {
       filteredData = this.filterDataByPeriod(this.getDaysForPeriod(this.selectedPeriod));
     }
+
+    // Apply slider time range filtering
+    filteredData = this.filterDataBySliderRange(filteredData);
+
     if (this.selectedPeriod === '5min' && filteredData.length > 100) {
       filteredData = filteredData.filter((_, index) => index % 2 === 0);
     }
 
-    // Filter data2 by period only, not by matching primary timestamps
+    // Filter data2 by period and slider range
     let filteredData2: any[] = [];
-    let hasValidSecondaryData = false; // New flag to track if we have valid secondary data
+    let hasValidSecondaryData = false;
 
     if (this.data2 && this.data2.length > 0) {
       filteredData2 = this.filterDataByPeriodForSecondary(
         this.getDaysForPeriod(this.selectedPeriod),
         this.data2
       );
+      filteredData2 = this.filterDataBySliderRange(filteredData2);
       hasValidSecondaryData = filteredData2.length > 0;
     }
 
@@ -172,14 +255,13 @@ export class LineGraphComponent implements OnInit, OnChanges {
     ];
 
     // Add timestamps from filteredData to chartLabelsSet
-    filteredData.forEach(item => chartLabelsSet.add(this.formatTimestamp(item.timestamp)));
+    filteredData.forEach(item => chartLabelsSet.add(this.formatTimestamp(item.timestamp, true)));
 
     // Add timestamps from filteredData2 to chartLabelsSet
-    filteredData2.forEach(item => chartLabelsSet.add(this.formatTradeHistoryTimestamp(item.timestamp)));
+    filteredData2.forEach(item => chartLabelsSet.add(this.formatTimestamp(item.timestamp, true)));
 
     // Sort labels to ensure chronological order
     const sortedLabels = Array.from(chartLabelsSet).sort((a, b) => {
-      // Convert formatted timestamps back to Date objects
       const dateA = new Date(a.replace(/\./g, '-').replace(' ', 'T') + 'Z');
       const dateB = new Date(b.replace(/\./g, '-').replace(' ', 'T') + 'Z');
       return dateA.getTime() - dateB.getTime();
@@ -208,9 +290,8 @@ export class LineGraphComponent implements OnInit, OnChanges {
     }
 
     if (hasValidSecondaryData) {
-      // Create a data array for data2 aligned with sortedLabels
       const secondaryData = sortedLabels.map(label => {
-        const matchingTrade = filteredData2.find(item => this.formatTimestamp(item.timestamp) === label);
+        const matchingTrade = filteredData2.find(item => this.formatTimestamp(item.timestamp, true) === label);
         if (matchingTrade) {
           return {
             value: matchingTrade.valueCAD ?? matchingTrade.value ?? matchingTrade.rate,
@@ -256,9 +337,8 @@ export class LineGraphComponent implements OnInit, OnChanges {
           this.type == "Crypto" ? item.name === coinName : item.targetCurrency === coinName
         );
 
-        // Create data array aligned with sortedLabels
         const coinData = sortedLabels.map(label => {
-          const matchingItem = coinFilteredData.find(item => this.formatTimestamp(item.timestamp) === label);
+          const matchingItem = coinFilteredData.find(item => this.formatTimestamp(item.timestamp, true) === label);
           return matchingItem ? (matchingItem.valueCAD ?? matchingItem.value ?? matchingItem.rate) : null;
         });
 
@@ -301,20 +381,23 @@ export class LineGraphComponent implements OnInit, OnChanges {
     });
   }
 
-  private formatTimestamp(timestamp: string): string {
-    return timestamp.replace('T', ' ').replace(/-/g, '.');
+  private filterDataBySliderRange(data: any[]): any[] {
+    const minTime = this.sliderMinValue;
+    const maxTime = this.sliderMaxValue;
+    return data.filter(item => {
+      const itemTime = new Date(item.timestamp).getTime();
+      return itemTime >= minTime && itemTime <= maxTime;
+    });
   }
 
-  private formatTradeHistoryTimestamp(timestamp: string): string {
-    // Normalize ISO timestamps to a consistent format
+  private formatTimestamp(timestamp: string, omitSeconds = false): string {
     const date = new Date(timestamp);
     if (isNaN(date.getTime())) {
       console.warn(`Invalid timestamp: ${timestamp}`);
-      return ''; // Or handle as needed
+      return '';
     }
-    // Format as YYYY.MM.DD HH:mm:ss for display
-    return `${date.getFullYear()}.${(date.getMonth() + 1).toString().padStart(2, '0')}.${date.getDate().toString().padStart(2, '0')} ${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}:${date.getSeconds().toString().padStart(2, '0')}`;
-  }
+    return `${date.getFullYear()}.${(date.getMonth() + 1).toString().padStart(2, '0')}.${date.getDate().toString().padStart(2, '0')} ${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}${(!omitSeconds ? ':'+date.getSeconds().toString().padStart(2, '0') : '')}`;
+  }  
 
   private filterDataByPeriodForSecondary(periodValue: number, data: any[]): any[] {
     const currentDate = new Date();
@@ -341,11 +424,9 @@ export class LineGraphComponent implements OnInit, OnChanges {
   }
 
   private filterDataByPeriod(periodValue: number): any[] {
-    // Sort data by timestamp descending and get the most recent timestamp
     const sortedData = [...this.data].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
     if (sortedData.length === 0) return [];
 
-    // Use the latest timestamp as the reference "current date" in UTC
     const latestDate = new Date(sortedData[0].timestamp);
     const currentUTC = new Date(Date.UTC(
       latestDate.getUTCFullYear(),
@@ -358,20 +439,18 @@ export class LineGraphComponent implements OnInit, OnChanges {
 
     const cutoffDate = new Date(currentUTC);
 
-    // Calculate cutoff based on periodValue (in days)
     if (periodValue < 1) {
-      if (periodValue < 1 / 24) { // Less than 1 hour
-        const minutes = periodValue * 24 * 60; // Convert days to minutes
+      if (periodValue < 1 / 24) {
+        const minutes = periodValue * 24 * 60;
         cutoffDate.setTime(currentUTC.getTime() - minutes * 60000);
       } else {
-        const hours = periodValue * 24; // Convert days to hours
+        const hours = periodValue * 24;
         cutoffDate.setTime(currentUTC.getTime() - hours * 3600000);
       }
     } else {
       cutoffDate.setUTCDate(currentUTC.getUTCDate() - Math.round(periodValue));
     }
 
-    // Filter data, converting timestamps to UTC for comparison
     return this.data.filter(item => {
       const itemDate = new Date(item.timestamp);
       const itemUTC = new Date(Date.UTC(
@@ -440,10 +519,10 @@ export class LineGraphComponent implements OnInit, OnChanges {
         case 'day':
         case 'days':
           return value;
-          case 'w':
-          case 'week':
-          case 'weeks':
-            return value * 7;
+        case 'w':
+        case 'week':
+        case 'weeks':
+          return value * 7;
         case 'm':
         case 'month':
         case 'months':
@@ -635,13 +714,13 @@ export class LineGraphComponent implements OnInit, OnChanges {
   formatPeriodDisplay(): string {
     const period = this.selectedPeriod;
     if (!period) return '';
-  
+
     const match = period.match(/^(\d+)(min|m|h|d|w|y)$/);
     if (!match) return period;
-  
+
     const [, valueStr, unit] = match;
     const value = parseInt(valueStr);
-  
+
     const unitNames: { [key: string]: string } = {
       min: 'minute',
       m: 'month',
@@ -650,15 +729,14 @@ export class LineGraphComponent implements OnInit, OnChanges {
       w: 'week',
       y: 'year'
     };
-  
+
     const unitName = unitNames[unit] || unit;
     const plural = value === 1 ? '' : 's';
-  
+
     return `${value} ${unitName}${plural}`;
   }
-  
+
   exportToCSV() {
-    // Get filtered data from the current graph
     let filteredData = [];
     if (this.type === "Volume") {
       filteredData = this.filterDataByPeriod(this.getDaysForPeriod(this.selectedPeriod));
@@ -667,20 +745,17 @@ export class LineGraphComponent implements OnInit, OnChanges {
     } else {
       filteredData = this.filterDataByPeriod(this.getDaysForPeriod(this.selectedPeriod));
     }
+    filteredData = this.filterDataBySliderRange(filteredData);
 
     let filteredData2 = [];
     if (this.data2 && this.data2.length > 0) {
-      const primaryTimestamps = new Set(filteredData.map(item => item.timestamp));
-      filteredData2 = this.data2.filter(item => primaryTimestamps.has(item.timestamp));
-      if (filteredData2.length === 0) {
-        filteredData2 = this.filterDataByPeriodForSecondary(
-          this.getDaysForPeriod(this.selectedPeriod),
-          this.data2
-        );
-      }
+      filteredData2 = this.filterDataByPeriodForSecondary(
+        this.getDaysForPeriod(this.selectedPeriod),
+        this.data2
+      );
+      filteredData2 = this.filterDataBySliderRange(filteredData2);
     }
 
-    // Prepare CSV headers and rows
     const headers = ['Timestamp', 'Coin', 'Value', 'Currency', 'Secondary Value', 'Secondary Type'];
     const rows = filteredData.map(item => {
       const secondaryItem = filteredData2.find(s => s.timestamp === item.timestamp);
@@ -698,10 +773,8 @@ export class LineGraphComponent implements OnInit, OnChanges {
       ].map(field => `"${field}"`).join(',');
     });
 
-    // Combine headers and rows into CSV content
     const csvContent = [headers.join(','), ...rows].join('\n');
 
-    // Create and trigger download
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
     const url = URL.createObjectURL(blob);
@@ -712,5 +785,5 @@ export class LineGraphComponent implements OnInit, OnChanges {
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
-  } 
-} 
+  }
+}

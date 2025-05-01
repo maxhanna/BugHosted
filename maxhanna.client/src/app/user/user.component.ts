@@ -30,7 +30,6 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
   @Input() inputtedParentRef?: AppComponent | undefined;
   @Input() loginReasonMessage?: string | undefined;
   @Input() canClose = true;
-  @Input() previousComponent?: string | undefined;
   @Output() closeUserComponentEvent = new EventEmitter<User>();
 
 
@@ -729,10 +728,5 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
     if (tgtElement) {
       (tgtElement as HTMLDivElement).style.border = "unset";
     }
-  }
-  backButtonPressed() {
-    if (this.previousComponent) {
-      this.parentRef?.createComponent(this.previousComponent);
-    }
-  }
+  } 
 }

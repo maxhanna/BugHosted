@@ -1,8 +1,7 @@
 using maxhanna.Server.Controllers.DataContracts.Crypto;
 using maxhanna.Server.Controllers.DataContracts.Users;
 using Microsoft.AspNetCore.Mvc;
-using MySqlConnector;
-using static maxhanna.Server.Controllers.AiController;
+using MySqlConnector; 
 
 namespace maxhanna.Server.Controllers
 {
@@ -12,6 +11,14 @@ namespace maxhanna.Server.Controllers
 	{
 		private Log _log;
 		private readonly IConfiguration _config;
+		private const int TRUNCATE_DAY = 120; // 2 minutes for <= 1 day
+		private const int TRUNCATE_WEEK = 900; // 15 minutes for > 1 day and <= 1 week
+		private const int TRUNCATE_MONTH = 3600; // 1 hour for > 1 week and <= 1 month
+		private const int TRUNCATE_YEAR = 14400; // 4 hours for > 1 month and <= 1 year
+		private const int TRUNCATE_LONG_TERM = 86400; // 1 day for > 1 year
+		private const double HOURS_IN_WEEK = 168; // 7 days * 24 hours
+		private const double HOURS_IN_MONTH = 720; // 30 days * 24 hours
+		private const double HOURS_IN_YEAR = 8760; // 365 days * 24 hours
 
 		public CoinValueController(Log log, IConfiguration config)
 		{
@@ -57,60 +64,7 @@ namespace maxhanna.Server.Controllers
 			}
 
 			return coinValues;
-		}
-
-		[HttpPost("/CoinValue/GetAllForGraph", Name = "GetAllCoinValuesForGraph")]
-		public async Task<List<CoinValue>> GetAllCoinValuesForGraph([FromBody] GraphRangeRequest request)
-		{
-			var coinValues = new List<CoinValue>();
-			MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
-			if (request.From == null) { request.From = new DateTime(); }
-			try
-			{
-				await conn.OpenAsync();
-
-				// Split the range in half (handle odd numbers by flooring one side, ceiling the other)
-			 
-				var actualFrom = request.From.Value.AddHours(-1 * (request.HourRange ?? 24));
-				var actualTo = request.From.Value.AddHours(request.HourRange ?? 24);
-
-				string sql = @$"
-					SELECT id, symbol, name, value_cad, timestamp
-					FROM coin_value
-					{(request.HourRange != 0 ? " WHERE timestamp >= @From AND timestamp <= @To " : "")}
-					ORDER BY timestamp ASC;";
-
-				MySqlCommand cmd = new MySqlCommand(sql, conn);
-				cmd.Parameters.AddWithValue("@From", actualFrom);
-				cmd.Parameters.AddWithValue("@To", actualTo);
-
-				using (var reader = await cmd.ExecuteReaderAsync())
-				{
-					while (await reader.ReadAsync())
-					{
-						var coinValue = new CoinValue
-						{
-							Id = reader.GetInt32("id"),
-							Symbol = reader.IsDBNull(reader.GetOrdinal("symbol")) ? null : reader.GetString(reader.GetOrdinal("symbol")),
-							Name = reader.IsDBNull(reader.GetOrdinal("name")) ? null : reader.GetString(reader.GetOrdinal("name")),
-							ValueCAD =  reader.IsDBNull(reader.GetOrdinal("value_cad")) ? 0 : reader.GetDecimal(reader.GetOrdinal("value_cad")),
-							Timestamp = reader.GetDateTime("timestamp")
-						};
-						coinValues.Add(coinValue);
-					}
-				}
-			}
-			catch (Exception ex)
-			{
-				_ = _log.Db("An error occurred while trying to get all coin values. " + ex.Message, null, "COIN", true);
-			}
-			finally
-			{
-				await conn.CloseAsync();
-			}
-
-			return coinValues;
-		}
+		} 
 
 		[HttpPost("/CoinValue/GetWalletBalanceData", Name = "GetWalletBalanceData")]
 		public async Task<List<CoinValue>> GetWalletBalanceData([FromBody] string walletAddress)
@@ -204,6 +158,123 @@ namespace maxhanna.Server.Controllers
 			return exchangeRates;
 		}
 
+		[HttpPost("/CoinValue/GetAllForGraph", Name = "GetAllCoinValuesForGraph")]
+		public async Task<List<CoinValue>> GetAllCoinValuesForGraph([FromBody] GraphRangeRequest request)
+		{
+			var coinValues = new List<CoinValue>();
+			MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+			if (request.From == null) { request.From = new DateTime(); }
+
+			try
+			{
+				await conn.OpenAsync();
+
+				var actualFrom = request.From.Value.AddHours(-1 * (request.HourRange ?? 24));
+				var actualTo = request.From.Value.AddHours(request.HourRange ?? 24);
+				double hourRange = request.HourRange ?? 24;
+				string sql;
+
+				if (hourRange > HOURS_IN_YEAR) // More than one year
+				{
+					sql = @$"
+                SELECT 
+                    MIN(id) as id, 
+                    symbol, 
+                    name, 
+                    AVG(value_cad) as value_cad, 
+                    FROM_UNIXTIME(FLOOR(UNIX_TIMESTAMP(timestamp) / {TRUNCATE_LONG_TERM}) * {TRUNCATE_LONG_TERM}) as timestamp
+                FROM coin_value
+                WHERE timestamp >= @From AND timestamp <= @To
+                GROUP BY symbol, name, FROM_UNIXTIME(FLOOR(UNIX_TIMESTAMP(timestamp) / {TRUNCATE_LONG_TERM}) * {TRUNCATE_LONG_TERM})
+                ORDER BY timestamp ASC;";
+				}
+				else if (hourRange > HOURS_IN_MONTH) // More than one month but less than or equal to one year
+				{
+					sql = @$"
+                SELECT 
+                    MIN(id) as id, 
+                    symbol, 
+                    name, 
+                    AVG(value_cad) as value_cad, 
+                    FROM_UNIXTIME(FLOOR(UNIX_TIMESTAMP(timestamp) / {TRUNCATE_YEAR}) * {TRUNCATE_YEAR}) as timestamp
+                FROM coin_value
+                WHERE timestamp >= @From AND timestamp <= @To
+                GROUP BY symbol, name, FROM_UNIXTIME(FLOOR(UNIX_TIMESTAMP(timestamp) / {TRUNCATE_YEAR}) * {TRUNCATE_YEAR})
+                ORDER BY timestamp ASC;";
+				}
+				else if (hourRange > HOURS_IN_WEEK) // More than one week but less than or equal to one month
+				{
+					sql = @$"
+                SELECT 
+                    MIN(id) as id, 
+                    symbol, 
+                    name, 
+                    AVG(value_cad) as value_cad, 
+                    FROM_UNIXTIME(FLOOR(UNIX_TIMESTAMP(timestamp) / {TRUNCATE_MONTH}) * {TRUNCATE_MONTH}) as timestamp
+                FROM coin_value
+                WHERE timestamp >= @From AND timestamp <= @To
+                GROUP BY symbol, name, FROM_UNIXTIME(FLOOR(UNIX_TIMESTAMP(timestamp) / {TRUNCATE_MONTH}) * {TRUNCATE_MONTH})
+                ORDER BY timestamp ASC;";
+				}
+				else if (hourRange > 24) // More than one day but less than or equal to one week
+				{
+					sql = @$"
+                SELECT 
+                    MIN(id) as id, 
+                    symbol, 
+                    name, 
+                    AVG(value_cad) as value_cad, 
+                    FROM_UNIXTIME(FLOOR(UNIX_TIMESTAMP(timestamp) / {TRUNCATE_WEEK}) * {TRUNCATE_WEEK}) as timestamp
+                FROM coin_value
+                WHERE timestamp >= @From AND timestamp <= @To
+                GROUP BY symbol, name, FROM_UNIXTIME(FLOOR(UNIX_TIMESTAMP(timestamp) / {TRUNCATE_WEEK}) * {TRUNCATE_WEEK})
+                ORDER BY timestamp ASC;";
+				}
+				else // One day or less
+				{
+					sql = @$"
+                SELECT 
+                    id, 
+                    symbol, 
+                    name, 
+                    value_cad, 
+                    timestamp
+                FROM coin_value
+                {(request.HourRange != 0 ? " WHERE timestamp >= @From AND timestamp <= @To " : "")}
+                ORDER BY timestamp ASC;";
+				}
+
+				MySqlCommand cmd = new MySqlCommand(sql, conn);
+				cmd.Parameters.AddWithValue("@From", actualFrom);
+				cmd.Parameters.AddWithValue("@To", actualTo);
+
+				using (var reader = await cmd.ExecuteReaderAsync())
+				{
+					while (await reader.ReadAsync())
+					{
+						var coinValue = new CoinValue
+						{
+							Id = reader.GetInt32("id"),
+							Symbol = reader.IsDBNull(reader.GetOrdinal("symbol")) ? null : reader.GetString(reader.GetOrdinal("symbol")),
+							Name = reader.IsDBNull(reader.GetOrdinal("name")) ? null : reader.GetString(reader.GetOrdinal("name")),
+							ValueCAD = reader.IsDBNull(reader.GetOrdinal("value_cad")) ? 0 : reader.GetDecimal(reader.GetOrdinal("value_cad")),
+							Timestamp = reader.GetDateTime("timestamp")
+						};
+						coinValues.Add(coinValue);
+					}
+				}
+			}
+			catch (Exception ex)
+			{
+				_ = _log.Db("An error occurred while trying to get all coin values. " + ex.Message, null, "COIN", true);
+			}
+			finally
+			{
+				await conn.CloseAsync();
+			}
+
+			return coinValues;
+		}
 
 		[HttpPost("/CurrencyValue/GetAllForGraph", Name = "GetAllCurrencyValuesForGraph")]
 		public async Task<List<ExchangeRate>> GetAllCurrencyValuesForGraph([FromBody] GraphRangeRequest request)
@@ -218,15 +289,82 @@ namespace maxhanna.Server.Controllers
 			{
 				await conn.OpenAsync();
 
-				string sql = $@" 
-					SELECT id, base_currency, target_currency, rate, timestamp
-					FROM maxhanna.exchange_rates 
-					{(request.HourRange != 0 ? " WHERE timestamp >= @From AND timestamp <= @To " : "")}
-					ORDER BY timestamp ASC;";
+				double hourRange = request.HourRange ?? 24;
+				string sql;
+
+				if (hourRange > HOURS_IN_YEAR) // More than one year
+				{
+					sql = @$"
+                SELECT 
+                    MIN(id) as id, 
+                    base_currency, 
+                    target_currency, 
+                    AVG(rate) as rate, 
+                    FROM_UNIXTIME(FLOOR(UNIX_TIMESTAMP(timestamp) / {TRUNCATE_LONG_TERM}) * {TRUNCATE_LONG_TERM}) as timestamp
+                FROM maxhanna.exchange_rates
+                WHERE timestamp >= @From AND timestamp <= @To
+                GROUP BY base_currency, target_currency, FROM_UNIXTIME(FLOOR(UNIX_TIMESTAMP(timestamp) / {TRUNCATE_LONG_TERM}) * {TRUNCATE_LONG_TERM})
+                ORDER BY timestamp ASC;";
+				}
+				else if (hourRange > HOURS_IN_MONTH) // More than one month but less than or equal to one year
+				{
+					sql = @$"
+                SELECT 
+                    MIN(id) as id, 
+                    base_currency, 
+                    target_currency, 
+                    AVG(rate) as rate, 
+                    FROM_UNIXTIME(FLOOR(UNIX_TIMESTAMP(timestamp) / {TRUNCATE_YEAR}) * {TRUNCATE_YEAR}) as timestamp
+                FROM maxhanna.exchange_rates
+                WHERE timestamp >= @From AND timestamp <= @To
+                GROUP BY base_currency, target_currency, FROM_UNIXTIME(FLOOR(UNIX_TIMESTAMP(timestamp) / {TRUNCATE_YEAR}) * {TRUNCATE_YEAR})
+                ORDER BY timestamp ASC;";
+				}
+				else if (hourRange > HOURS_IN_WEEK) // More than one week but less than or equal to one month
+				{
+					sql = @$"
+                SELECT 
+                    MIN(id) as id, 
+                    base_currency, 
+                    target_currency, 
+                    AVG(rate) as rate, 
+                    FROM_UNIXTIME(FLOOR(UNIX_TIMESTAMP(timestamp) / {TRUNCATE_MONTH}) * {TRUNCATE_MONTH}) as timestamp
+                FROM maxhanna.exchange_rates
+                WHERE timestamp >= @From AND timestamp <= @To
+                GROUP BY base_currency, target_currency, FROM_UNIXTIME(FLOOR(UNIX_TIMESTAMP(timestamp) / {TRUNCATE_MONTH}) * {TRUNCATE_MONTH})
+                ORDER BY timestamp ASC;";
+				}
+				else if (hourRange > 24) // More than one day but less than or equal to one week
+				{
+					sql = @$"
+                SELECT 
+                    MIN(id) as id, 
+                    base_currency, 
+                    target_currency, 
+                    AVG(rate) as rate, 
+                    FROM_UNIXTIME(FLOOR(UNIX_TIMESTAMP(timestamp) / {TRUNCATE_WEEK}) * {TRUNCATE_WEEK}) as timestamp
+                FROM maxhanna.exchange_rates
+                WHERE timestamp >= @From AND timestamp <= @To
+                GROUP BY base_currency, target_currency, FROM_UNIXTIME(FLOOR(UNIX_TIMESTAMP(timestamp) / {TRUNCATE_WEEK}) * {TRUNCATE_WEEK})
+                ORDER BY timestamp ASC;";
+				}
+				else // One day or less
+				{
+					sql = @$"
+                SELECT 
+                    id, 
+                    base_currency, 
+                    target_currency, 
+                    rate, 
+                    timestamp
+                FROM maxhanna.exchange_rates 
+                {(request.HourRange != 0 ? " WHERE timestamp >= @From AND timestamp <= @To " : "")}
+                ORDER BY timestamp ASC;";
+				}
 
 				MySqlCommand cmd = new MySqlCommand(sql, conn);
 				cmd.Parameters.AddWithValue("@From", actualFrom);
-				cmd.Parameters.AddWithValue("@To", actualTo); 
+				cmd.Parameters.AddWithValue("@To", actualTo);
 				using (var reader = await cmd.ExecuteReaderAsync())
 				{
 					while (await reader.ReadAsync())

@@ -54,7 +54,7 @@ export class SocialService {
       if (!res.ok) {
         throw new Error('Failed to post story');
       }
-      return 'Story posted successfully';
+      return res.json();
     } catch (error) {
       console.error('Error posting story:', error);
       return null;

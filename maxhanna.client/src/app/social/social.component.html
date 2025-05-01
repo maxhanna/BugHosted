@@ -2,6 +2,9 @@
   <div *ngIf="!user">
     <div class="closeButton" (click)="remove_me('SocialComponent');"></div>
     <div class="menuButton" (click)="showMenuPanel();"></div>
+    <div *ngIf="previousComponent" 
+      [class]="'menuBackButton ' + (parentRef?.user?.id ? 'menuBackButtonSpecialUser' : 'menuBackButtonSpecial')" 
+      (click)="backButtonPressed();"></div> 
     <div class="componentTitle"><span>Social</span></div>
   </div>
   <div [class]="user ? 'embeddedSocialComponentsContent' : 'socialComponentContents'">

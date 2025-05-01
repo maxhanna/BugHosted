@@ -26,7 +26,7 @@ export class FavouritesComponent extends ChildComponent implements OnInit {
   showEditLinks = false;
   showingLatestLinks = false;
   isSearchingUrls = false;
-  currentOrder: string = 'recent'; // default order
+  currentOrder = 'recent';
 
   editingCreatedBy?: User;
   editingUpdatedBy?: User;
@@ -37,12 +37,13 @@ export class FavouritesComponent extends ChildComponent implements OnInit {
   totalCount = 1;
 
   constructor(private favoriteService: FavouriteService, private crawlerService: CrawlerService, private userService: UserService) {
-    super();
+    super();  
   }
 
   ngOnInit() {
     this.startLoading();
-    if (this.parentRef?.user?.id) {
+    if (this.parentRef?.user?.id) { 
+      this.currentOrder = 'visited';
       this.favoriteService.getFavourites('', this.page, this.pageSize, this.currentOrder, this.parentRef.user.id).then(res => {
         if (res) {
           console.log(res);
@@ -53,9 +54,15 @@ export class FavouritesComponent extends ChildComponent implements OnInit {
           this.totalCount = 0;
         }
         this.stopLoading();
+        setTimeout(() => {
+          if (this.userFavourites.length == 0) { 
+            this.showLatestLinks();
+          }
+        }, 50);
       });
     } else {
-      this.stopLoading();
+      this.stopLoading(); 
+      this.showLatestLinks();
     }
   }
 
@@ -123,7 +130,7 @@ export class FavouritesComponent extends ChildComponent implements OnInit {
           `);
           setTimeout(() => { this.parentRef?.openModal(); },);
         } else {
-          if (!tmpLinkUrl.includes("https")) {
+          if (!tmpLinkUrl.toLowerCase().includes("https") && !tmpLinkUrl.toLowerCase().includes("http")) {
             tmpLinkUrl = "https://" + tmpLinkUrl;
             name = tmpLinkUrl;
           }
@@ -238,6 +245,7 @@ export class FavouritesComponent extends ChildComponent implements OnInit {
   async showLatestLinks() {
     this.showingLatestLinks = !this.showingLatestLinks;
     if (this.showingLatestLinks) {
+      this.currentOrder = 'recent';
       this.favoriteService.getFavourites('', 1, 50, this.currentOrder).then(res => {
         this.favouriteSearch = res.items;
         this.totalCount = res.totalCount || 0;
@@ -298,8 +306,8 @@ export class FavouritesComponent extends ChildComponent implements OnInit {
     this.favoriteService.visit(fav.id);
     this.parentRef?.visitExternalLink(fav.url);
   }
-  orderChanged(event: any) {
-    this.currentOrder = event.target.value;
+  orderChanged(event?: any, value?: string) {
+    this.currentOrder = value ?? event.target.value;
     this.favoriteService.getFavourites(this.linkInput.nativeElement.value, this.page, this.pageSize, this.currentOrder, this.showingLatestLinks ? undefined : this.parentRef?.user?.id).then(res => {
       if (res) {
         console.log(res);

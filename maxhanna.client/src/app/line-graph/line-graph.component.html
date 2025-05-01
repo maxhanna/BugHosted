@@ -1,9 +1,10 @@
- <div class="graphContainer {{fullscreenMode ? 'popupPanel fullscreenPopupPanel' : ''}}">
+<div class="graphContainer {{fullscreenMode ? 'popupPanel fullscreenPopupPanel' : ''}}">
   <div class="graphTitle sectionName">
     {{ getGraphTitle() }}
   </div>
   <div class="graphOptions">
-    <select #periodSelect (change)="changeGraphPeriod($event)" [value]="selectedPeriod" [style.display]="skipFiltering ? 'none' : 'inline-block'">
+    <select #periodSelect (change)="changeGraphPeriod($event)" [value]="selectedPeriod"
+      [style.display]="skipFiltering ? 'none' : 'inline-block'">
       <!-- Short-Term -->
       <option disabled>── Short-Term ──</option>
       <option value="1min">1 minute</option>
@@ -12,14 +13,14 @@
       <option value="10min">10 minutes</option>
       <option value="15min">15 minutes</option>
       <option value="30min">30 minutes</option>
-    
+
       <!-- Intraday -->
       <option disabled>── Intraday ──</option>
       <option value="1h">1 hour</option>
       <option value="3h">3 hours</option>
       <option value="6h">6 hours</option>
       <option value="12h">12 hours</option>
-    
+
       <!-- Daily -->
       <option disabled>── Daily ──</option>
       <option value="1d">1 day</option>
@@ -27,7 +28,7 @@
       <option value="3d">3 days</option>
       <option value="5d">5 days</option>
       <option value="7d">7 days (1 week)</option>
-    
+
       <!-- Weekly / Monthly -->
       <option disabled>── Weekly / Monthly ──</option>
       <option value="2w">2 weeks</option>
@@ -35,7 +36,7 @@
       <option value="2m">2 months</option>
       <option value="3m">3 months</option>
       <option value="6m">6 months</option>
-    
+
       <!-- Yearly -->
       <option disabled>── Yearly ──</option>
       <option value="1y">1 year</option>
@@ -45,11 +46,12 @@
       <option value="10y">10 years</option>
       <option value="max">Max (All Data)</option>
     </select>
-    
+
     <select (change)="changeCoin($event)" *ngIf="displayCoinSwitcher && type !== 'Volume'" #coinSwitcher>
-      <option value="">All</option> 
+      <option value="">All</option>
       <option *ngIf="type == 'Currency'" value="USD" [selected]="selectedCoin === 'USD'">USD</option>
-      <option *ngFor="let coin of getUniqueCoinNames()" [value]="coin" [selected]="selectedCoin === coin">{{ coin }}</option>
+      <option *ngFor="let coin of getUniqueCoinNames()" [value]="coin" [selected]="selectedCoin === coin">{{ coin }}
+      </option>
     </select>
     <button (click)="openFullscreen();">{{fullscreenMode ? 'Close ' : ''}}Full Screen</button>
     <button (click)="toggleDarkMode()">
@@ -60,16 +62,22 @@
         {{ type.charAt(0).toUpperCase() + type.slice(1) }}
       </option>
     </select>
-    <button (click)="exportToCSV()" title="Export CSV Data">Export</button> 
+    <button (click)="exportToCSV()" title="Export CSV Data">Export</button>
+  </div>
+  <div class="sliderContainer" *ngIf="data.length > 0" #sliderContainer>
+    <label>Time Range Filter:</label>
+    <input type="range" #timeRangeSliderMin [min]="sliderMin" [max]="sliderMax" [value]="sliderMinValue"
+      (input)="updateSliderMin($event)" style="position: absolute; width: 100%; pointer-events: none;" />
+    <input type="range" #timeRangeSliderMax [min]="sliderMin" [max]="sliderMax" [value]="sliderMaxValue"
+      (input)="updateSliderMax($event)" style="position: absolute; width: 100%; pointer-events: none;" />
+  <div class="sliderLabels">
+    <span>{{ formattedSliderMin }}</span>
+    <span>{{ formattedSliderMax }}</span>
+  </div>
   </div>
   <div class="canvasChartWrapper {{fullscreenMode ? 'fullscreenCanvas' : ''}}" #canvasDiv>
-    <canvas baseChart
-            class="canvasChart"
-            [datasets]="lineChartData"
-            [labels]="lineChartLabels"
-            [options]="lineChartOptions"
-            [legend]="lineChartLegend"
-            [type]="chartTypeInputted ?? 'line'">
+    <canvas baseChart class="canvasChart" [datasets]="lineChartData" [labels]="lineChartLabels"
+      [options]="lineChartOptions" [legend]="lineChartLegend" [type]="chartTypeInputted ?? 'line'">
     </canvas>
   </div>
 </div>

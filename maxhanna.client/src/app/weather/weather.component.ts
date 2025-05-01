@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnDestroy, OnInit } from '@angular/core';
 import { ChildComponent } from '../child.component'; 
 import { WeatherService } from '../../services/weather.service';
 import { WeatherResponse } from '../../services/datacontracts/weather/weather-response';
@@ -15,7 +15,7 @@ interface WeatherForecast {
     styleUrl: './weather.component.css',
     standalone: false
 })
-export class WeatherComponent extends ChildComponent implements OnInit {
+export class WeatherComponent extends ChildComponent implements OnInit, OnDestroy {
   weather: WeatherResponse = new WeatherResponse();
   collapsedDays: string[] = [];
   city?: string = undefined;
@@ -24,8 +24,12 @@ export class WeatherComponent extends ChildComponent implements OnInit {
   constructor(private weatherService: WeatherService) { super(); }
 
   ngOnInit() {
+    this.parentRef?.addResizeListener();
     this.getForecasts();
     this.getLocation();
+  }
+  ngOnDestroy() {
+    this.parentRef?.removeResizeListener();
   }
   async getLocation() {
     try {

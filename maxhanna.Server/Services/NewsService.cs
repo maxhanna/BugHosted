@@ -49,6 +49,9 @@ public class NewsService
 	};
 	int newsServiceAccountNo = 308;
 	int cryptoNewsServiceAccountNo = 309;
+	int memeServiceAccountNo = 314;
+	private const string MemeFolderPath = "E:/Dev/maxhanna/maxhanna.client/src/assets/Uploads/Meme/";
+
 
 	public NewsService(IConfiguration config, Log log)
 	{
@@ -116,7 +119,7 @@ public class NewsService
 				var count = Convert.ToInt32(await checkCmd.ExecuteScalarAsync());
 				if (count > 0)
 				{
-					//await _log.Db("Skipped saving headlines — already saved in the 15 minutes", null, "NEWSSERVICE", false);
+					//await _log.Db("Skipped saving headlines - already saved in the 15 minutes", null, "NEWSSERVICE", false);
 					return false;
 				}
 			}
@@ -130,7 +133,7 @@ public class NewsService
 			}
 
 			var top20 = articlesResult.Articles.Take(articlesToTake).ToList();
-
+			int aCount = 0;
 			using var transaction = await conn.BeginTransactionAsync();
 
 			foreach (var article in top20)
@@ -149,11 +152,12 @@ public class NewsService
 				cmd.Parameters.AddWithValue("@author", article.Author ?? "");
 
 				await cmd.ExecuteNonQueryAsync();
+				aCount++;
 			}
 
 			await transaction.CommitAsync();
 
-			await _log.Db($"Successfully saved top {articlesToTake} news headlines{(keyword != null ? $" with keyword:{keyword}" : "")}", null, "NEWSSERVICE", true);
+			await _log.Db($"Successfully saved ({aCount}) top {articlesToTake} news headlines{(keyword != null ? $" with keyword:{keyword}" : "")}", null, "NEWSSERVICE", true);
 			return true;
 		}
 		catch (Exception ex)
@@ -406,6 +410,136 @@ public class NewsService
 		await transaction.CommitAsync();
 	}
 
+	public async Task PostDailyMemeAsync()
+	{
+		try
+		{
+			using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+			await conn.OpenAsync();
+			using var transaction = await conn.BeginTransactionAsync();
+
+			// Check if we already posted a meme today
+			if (await HasPostedMemeTodayAsync(conn, transaction))
+			{
+				await _log.Db("Already posted a meme today. Skipping.", null, "MEMESERVICE");
+				await transaction.RollbackAsync();
+				return;
+			}
+
+			// Get today's most popular meme
+			var topMeme = await GetMostPopularMemeTodayAsync(conn, transaction);
+
+			if (topMeme == null)
+			{
+				await _log.Db("No memes uploaded today to post.", null, "MEMESERVICE");
+				await transaction.RollbackAsync();
+				return;
+			}
+
+			// Create the story text
+			var storyText = $@"📢 [b]Top Daily Meme![/b]
+<a href='https://bughosted.com/Memes/{topMeme.Id}'>https://bughosted.com/Memes/{topMeme.Id}</a>
+Posted by user @{topMeme.Username}<br><small>Daily top memes are selected based on highest number of comments and reactions.</small>";
+
+			// Insert the story
+			await InsertMemeStoryAsync(conn, transaction, storyText, topMeme.Id, memeServiceAccountNo);
+			await InsertMemeStoryAsync(conn, transaction, storyText, topMeme.Id, null);
+
+			await transaction.CommitAsync();
+			await _log.Db($"Successfully posted daily meme: {topMeme.FileName}", null, "MEMESERVICE");
+		}
+		catch (Exception ex)
+		{
+			await _log.Db($"Error in PostDailyMemeAsync: {ex.Message}", null, "MEMESERVICE", true);
+		}
+	}
+
+	private async Task<bool> HasPostedMemeTodayAsync(MySqlConnection conn, MySqlTransaction transaction)
+	{
+		const string sql = @"
+            SELECT COUNT(*) FROM stories 
+            WHERE user_id = @userId 
+            AND DATE(date) = CURDATE() 
+            AND story_text LIKE '%Daily Meme!%'";
+
+		using var cmd = new MySqlCommand(sql, conn, transaction);
+		cmd.Parameters.AddWithValue("@userId", memeServiceAccountNo);
+		return (long?)await cmd.ExecuteScalarAsync() > 0;
+	}
+
+	private async Task<MemeInfo?> GetMostPopularMemeTodayAsync(MySqlConnection conn, MySqlTransaction transaction)
+	{
+		const string sql = @"
+            SELECT 
+                fu.id,
+                fu.file_name,
+                fu.given_file_name,
+                fu.user_id,
+				fuu.username,
+                COUNT(DISTINCT c.id) AS comment_count,
+                COUNT(DISTINCT r.id) AS reaction_count
+            FROM file_uploads fu
+            LEFT JOIN users fuu on fuu.id = fu.user_id
+            LEFT JOIN comments c ON c.file_id = fu.id
+            LEFT JOIN reactions r ON r.file_id = fu.id
+            WHERE 
+                fu.folder_path = @folderPath
+                AND DATE(fu.upload_date) = CURDATE()
+                AND fu.is_folder = 0
+                AND fu.is_public = 1
+            GROUP BY fu.id, fu.file_name, fu.given_file_name, fu.user_id, fuu.username
+            ORDER BY (comment_count + reaction_count) DESC, fu.upload_date DESC
+            LIMIT 1";
+
+		using var cmd = new MySqlCommand(sql, conn, transaction);
+		cmd.Parameters.AddWithValue("@folderPath", MemeFolderPath);
+
+		using var reader = await cmd.ExecuteReaderAsync();
+		if (await reader.ReadAsync())
+		{
+			return new MemeInfo
+			{
+				Id = reader.GetInt32("id"),
+				FileName = reader.GetString("file_name"),
+				GivenFileName = reader.GetString("given_file_name"),
+				UserId = reader.GetInt32("user_id"),
+				Username = reader.GetString("username"),
+				CommentCount = reader.GetInt32("comment_count"),
+				ReactionCount = reader.GetInt32("reaction_count")
+			};
+		}
+
+		return null;
+	}
+
+	private async Task InsertMemeStoryAsync(MySqlConnection conn, MySqlTransaction transaction, string storyText, int fileId, int? profileUserId)
+	{
+		// Insert the main story
+		const string insertStorySql = @"
+            INSERT INTO stories (user_id, story_text, profile_user_id, city, country, date)
+            VALUES (@userId, @storyText, @profileUserId, NULL, NULL, UTC_TIMESTAMP());
+            SELECT LAST_INSERT_ID();";
+
+		using var storyCmd = new MySqlCommand(insertStorySql, conn, transaction);
+		storyCmd.Parameters.AddWithValue("@userId", memeServiceAccountNo);
+		storyCmd.Parameters.AddWithValue("@storyText", storyText);
+		storyCmd.Parameters.AddWithValue("@profileUserId", profileUserId ?? (object)DBNull.Value);
+
+		var storyId = Convert.ToInt32(await storyCmd.ExecuteScalarAsync());
+
+		// Link the meme file to the story
+		const string insertStoryFileSql = @"
+            INSERT INTO story_files (story_id, file_id)
+            VALUES (@storyId, @fileId);
+
+            INSERT INTO story_topics (story_id, topic_id) 
+            VALUES (@storyId, (SELECT id FROM topics WHERE topic = 'Meme'));";
+
+		using var fileCmd = new MySqlCommand(insertStoryFileSql, conn, transaction);
+		fileCmd.Parameters.AddWithValue("@storyId", storyId);
+		fileCmd.Parameters.AddWithValue("@fileId", fileId);
+		await fileCmd.ExecuteNonQueryAsync();
+	}
 	private string GetMostFrequentWord(ArticlesResult topArticlesResult, out List<(Article Article, List<string> Tokens)> articleTokenMap)
 	{
 		var tokenFrequency = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
@@ -505,14 +639,14 @@ public class NewsService
 			sql.Append(i == 0 ? "SELECT ? AS token" : " UNION SELECT ?");
 		}
 
-		sql.Append(@") AS tokens
+		sql.Append($@") AS tokens
                     WHERE token <> '' AND token IS NOT NULL
                 ), 0)
             ) AS score
         FROM file_uploads
         WHERE is_folder = 0
         AND is_public = 1
-        AND folder_path = 'E:/Dev/maxhanna/maxhanna.client/src/assets/Uploads/Meme/' 
+        AND folder_path = '{MemeFolderPath}' 
         AND (file_name IS NOT NULL OR given_file_name IS NOT NULL) 
         AND file_type IN (
             'jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'tiff', 'tif', 'svg', 'ico', 'heic', 'heif', 'raw', 'cr2', 'nef', 'orf', 'arw',
@@ -771,5 +905,15 @@ public class NewsService
 			await _log.Db($"Error retrieving story count: {ex.Message}", null, "NEWSSERVICE", true);
 			return 0; // Return 0 in case of an error
 		}
+	}
+	private class MemeInfo
+	{
+		public int Id { get; set; }
+		public string? FileName { get; set; }
+		public string? GivenFileName { get; set; }
+		public int UserId { get; set; }
+		public string? Username { get; set; }
+		public int CommentCount { get; set; }
+		public int ReactionCount { get; set; }
 	}
 }
