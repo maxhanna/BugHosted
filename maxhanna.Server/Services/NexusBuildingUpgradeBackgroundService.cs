@@ -5,9 +5,9 @@ namespace maxhanna.Server.Services
 	public class NexusBuildingUpgradeBackgroundService : BackgroundService
 	{
 		private readonly IConfiguration _config;
-		private readonly IServiceProvider _serviceProvider;
+		// private readonly IServiceProvider _serviceProvider;
 		private readonly Log _log;
-		private Timer _checkForNewUpgradesTimer;
+		private Timer? _checkForNewUpgradesTimer;
 
 
 
@@ -17,7 +17,7 @@ namespace maxhanna.Server.Services
 
 			var serviceCollection = new ServiceCollection();
 			ConfigureServices(serviceCollection);
-			_serviceProvider = serviceCollection.BuildServiceProvider();
+			// _serviceProvider = serviceCollection.BuildServiceProvider();
 			_log = log;
 		}
 

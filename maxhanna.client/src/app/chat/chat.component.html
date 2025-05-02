@@ -44,7 +44,7 @@
                 <button (click)="quote(message)">🗨️Quote</button>
               </div>
               <div *ngFor="let file of message.files"
-                style="{{ message.files && message.files.length > 0 ? 'margin-top: 10px' : '' }}">
+                [style.marginTop]="message.files && message.files.length > 0 ? 'margin-top: 10px' : ''">
                 <app-media-viewer [file]="file" [currentDirectory]="file.directory" [inputtedParentRef]="parentRef"
                   [displayExtraInfo]="false" [displayExpander]="false" [showCommentSection]="false"
                   [user]="parentRef?.user" [autoplay]="false" [autoload]="true" [previousComponent]="'Chat'">
@@ -144,6 +144,12 @@
       <div class="optionsStatsHeader">Close Chat:</div>
       <div class="optionsStatsDescription">
         <button (click)="closeChat()">Back</button>
+      </div>
+    </div>
+    <div class="optionsStatsDiv" *ngIf="!showUserList && currentChatId">
+      <div class="optionsStatsHeader">Leave Chat:</div>
+      <div class="optionsStatsDescription">
+        <button (click)="leaveChat(currentChatId)">Leave</button>
       </div>
     </div>
     <div class="optionsStatsDiv">

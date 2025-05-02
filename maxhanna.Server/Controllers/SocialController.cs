@@ -1,3 +1,4 @@
+using FirebaseAdmin.Messaging;
 using HtmlAgilityPack;
 using maxhanna.Server.Controllers.DataContracts;
 using maxhanna.Server.Controllers.DataContracts.Files;
@@ -187,8 +188,7 @@ namespace maxhanna.Server.Controllers
 					foreach (var param in parameters)
 					{
 						countCmd.Parameters.AddWithValue(param.Key, param.Value);
-					}
-					//Console.WriteLine(countCmd.CommandText);
+					} 
 					storyResponse.TotalCount = Convert.ToInt32(await countCmd.ExecuteScalarAsync());
 				}
 				using (var cmd = new MySqlCommand(sql, conn))
@@ -198,8 +198,7 @@ namespace maxhanna.Server.Controllers
 					foreach (var param in parameters)
 					{
 						cmd.Parameters.AddWithValue(param.Key, param.Value);
-					}
-					//Console.WriteLine(cmd.CommandText);
+					} 
 					using (var rdr = await cmd.ExecuteReaderAsync())
 					{
 						while (await rdr.ReadAsync())
@@ -246,7 +245,7 @@ namespace maxhanna.Server.Controllers
 			}
 
 			storyResponse.Stories = storyDictionary.Values.ToList();
-			await AttachCommentsToStoriesAsync(storyResponse.Stories);
+			await AttachCommentsToStoriesAsync(request.UserId, storyResponse.Stories);
 			await AttachFilesToStoriesAsync(storyResponse.Stories);
 			await FetchAndAttachTopicsAsync(storyResponse.Stories);
 			await FetchAndAttachReactionsAsync(storyResponse.Stories);
@@ -496,7 +495,7 @@ namespace maxhanna.Server.Controllers
 			}
 		}
 
-		private async Task AttachCommentsToStoriesAsync(List<Story> stories)
+		private async Task AttachCommentsToStoriesAsync(int userId, List<Story> stories)
 		{
 			// Extract all unique story IDs from the list of stories
 			var storyIds = stories.Select(s => s.Id).Distinct().ToList();
@@ -506,10 +505,19 @@ namespace maxhanna.Server.Controllers
 			{
 				return;
 			}
-
+			string whereC = "";
+			if (userId != 0)
+			{
+				whereC = @"
+					AND NOT EXISTS (
+						SELECT 1 FROM user_blocks ub 
+						WHERE (ub.user_id = @userId AND ub.blocked_user_id = c.user_id)
+						OR (ub.user_id = c.user_id AND ub.blocked_user_id = @userId)
+					) ";
+			}
 			// Construct SQL query with parameterized IN clause for story IDs
 			StringBuilder sqlBuilder = new StringBuilder();
-			sqlBuilder.AppendLine(@"
+			sqlBuilder.AppendLine(@$"
     SELECT 
         c.id AS comment_id,
         c.story_id AS story_id,
@@ -559,7 +567,8 @@ namespace maxhanna.Server.Controllers
         reactions AS r ON c.id = r.comment_id
     LEFT JOIN 
         users AS ru ON r.user_id = ru.id   
-    WHERE 
+    WHERE 1=1 
+	{whereC} AND
          c.story_id IN (");
 
 			// Add placeholders for story IDs
@@ -596,11 +605,12 @@ namespace maxhanna.Server.Controllers
 				using (var cmd = new MySqlCommand(sqlBuilder.ToString(), conn))
 				{
 					// Bind each story ID to its respective parameter
+					cmd.Parameters.AddWithValue("@userId", userId);
+
 					for (int i = 0; i < storyIds.Count; i++)
 					{
 						cmd.Parameters.AddWithValue("@storyId" + i, storyIds[i]);
-					}
-					//Console.WriteLine(cmd.CommandText);
+					} 
 					using (var rdr = await cmd.ExecuteReaderAsync())
 					{
 						var allComments = new List<FileComment>();
@@ -611,7 +621,7 @@ namespace maxhanna.Server.Controllers
 							int? storyId = rdr.IsDBNull("story_id") ? (int?)null : rdr.GetInt32("story_id");
 							var commentId = rdr.GetInt32("comment_id");
 							var parentCommentId = rdr.IsDBNull("parent_comment_id") ? (int?)null : rdr.GetInt32("parent_comment_id");
-							var userId = rdr.GetInt32("comment_user_id");
+							var cuserId = rdr.GetInt32("comment_user_id");
 							var userName = rdr.GetString("comment_username");
 							var commentText = rdr.GetString("comment");
 							var commentCity = rdr.IsDBNull(rdr.GetOrdinal("comment_city")) ? null : rdr.GetString("comment_city");
@@ -635,7 +645,7 @@ namespace maxhanna.Server.Controllers
 										Id = commentId,
 										CommentText = commentText,
 										StoryId = storyId,
-										User = new User(userId, userName, null, dpFileEntry, null, null, null),
+										User = new User(cuserId, userName, null, dpFileEntry, null, null, null),
 										Date = date,
 										City = commentCity,
 										Country = commentCountry,
@@ -658,7 +668,7 @@ namespace maxhanna.Server.Controllers
 									var reactionTime = rdr.GetDateTime("reaction_time");
 
 									// Check if the reaction already exists for the comment
-									var existingReaction = comment.Reactions.FirstOrDefault(r => r.Id == reactionId);
+									var existingReaction = comment.Reactions?.FirstOrDefault(r => r.Id == reactionId);
 									if (existingReaction == null)
 									{
 										User reactionUser = new User(reactionUserId, reactionUserName);
@@ -711,11 +721,11 @@ namespace maxhanna.Server.Controllers
 									}
 									parentComment.Comments.Add(comment);
 								}
-								else
-								{
-									// Optionally, log this if the parent comment is missing
-									Console.WriteLine($"Parent comment with ID {parentCommentId.Value} not found for comment ID {commentId}");
-								}
+								// else
+								// {
+								// 	// Optionally, log this if the parent comment is missing
+								// 	Console.WriteLine($"Parent comment with ID {parentCommentId.Value} not found for comment ID {commentId}");
+								// }
 							}
 						}
 
@@ -764,7 +774,9 @@ namespace maxhanna.Server.Controllers
 						{
 							// Fetch the last inserted ID
 							int storyId = (int)cmd.LastInsertedId;
-
+							if (request.userId != null) { 
+								await NotifyFollowers(request.userId, storyId);
+							}
 							// Insert attached files into story_files table
 							if (request.story.StoryFiles != null && request.story.StoryFiles.Count > 0)
 							{
@@ -827,7 +839,7 @@ namespace maxhanna.Server.Controllers
 		public async Task<IActionResult> DeleteStory([FromBody] StoryRequest request, [FromHeader(Name = "Encrypted-UserId")] string encryptedUserIdHeader)
 		{
 			// Validate the requesting user is logged in
-			if (!await _log.ValidateUserLoggedIn(request.userId.Value, encryptedUserIdHeader))
+			if (request.userId == null || !await _log.ValidateUserLoggedIn(request.userId.Value, encryptedUserIdHeader))
 				return StatusCode(500, "Access Denied.");
 
 			try
@@ -1110,14 +1122,163 @@ namespace maxhanna.Server.Controllers
 						cmd.Parameters.AddWithValue("@StoryId", storyId);
 						await cmd.ExecuteNonQueryAsync();
 					}
-				} 
+				}
 			}
 			catch
 			{
 				return "Could not delete metadata";
 			}
 			return "Deleted metadata";
-		} 
+		}
+		private async Task<bool> NotifyFollowers(int? userId, int storyId)
+		{
+			if (userId == null || userId == 0) return false;
+
+			try
+			{
+				using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+				{
+					await conn.OpenAsync();
+
+					// Get all followers (friends + pending requests)
+					string sql = @"
+                -- Users who are friends with the poster
+                SELECT friend_id AS follower_id FROM friends WHERE user_id = @userId
+                UNION
+                -- Users who have pending friend requests from the poster
+                SELECT receiver_id AS follower_id FROM friend_requests 
+                WHERE sender_id = @userId AND (status = 'pending' OR status = 'deleted') 
+                UNION
+                -- Users who the poster has pending friend requests from
+                SELECT sender_id AS follower_id FROM friend_requests 
+                WHERE receiver_id = @userId AND (status = 'pending' OR status = 'deleted') ";
+
+					var followerIds = new List<int>();
+
+					using (var cmd = new MySqlCommand(sql, conn))
+					{
+						cmd.Parameters.AddWithValue("@userId", userId);
+
+						using (var rdr = await cmd.ExecuteReaderAsync())
+						{
+							while (await rdr.ReadAsync())
+							{
+								followerIds.Add(rdr.GetInt32("follower_id"));
+							}
+						}
+					}
+
+					// Filter out followers who have blocked notifications
+					var validFollowerIds = new List<int>();
+					foreach (var followerId in followerIds)
+					{
+						if (await CanUserNotifyAsync(userId.Value, followerId))
+						{
+							validFollowerIds.Add(followerId);
+						}
+						else
+						{
+							_ = _log.Db($"Skipping story notification to {followerId} - notifications blocked", userId.Value, "SOCIAL");
+						}
+					}
+
+					// Insert notifications for each valid follower
+					if (validFollowerIds.Count > 0)
+					{
+						string notificationText = "New post.";
+						string insertSql = @"
+                    INSERT INTO notifications 
+                    (user_id, from_user_id, story_id, text, date, is_read) 
+                    VALUES (@userId, @fromUserId, @storyId, @text, UTC_TIMESTAMP(), 0)";
+
+						foreach (var followerId in validFollowerIds)
+						{
+							using (var insertCmd = new MySqlCommand(insertSql, conn))
+							{
+								insertCmd.Parameters.AddWithValue("@userId", followerId);
+								insertCmd.Parameters.AddWithValue("@fromUserId", userId);
+								insertCmd.Parameters.AddWithValue("@storyId", storyId);
+								insertCmd.Parameters.AddWithValue("@text", notificationText);
+
+								await insertCmd.ExecuteNonQueryAsync();
+							}
+						}
+
+						// Send push notifications
+						await SendStoryPushNotifications(userId.Value, validFollowerIds, storyId, notificationText);
+					}
+
+					return true;
+				}
+			}
+			catch (Exception ex)
+			{
+				_ = _log.Db($"Error in NotifyFollowers: {ex.Message}", userId, "SOCIAL", true);
+				return false;
+			}
+		}
+
+		private async Task SendStoryPushNotifications(int fromUserId, List<int> followerIds, int storyId, string message)
+		{
+			foreach (var followerId in followerIds)
+			{
+				try
+				{
+					var firebaseMessage = new Message()
+					{
+						Notification = new FirebaseAdmin.Messaging.Notification()
+						{
+							Title = "New Story Post",
+							Body = message,
+							ImageUrl = "https://www.bughosted.com/assets/logo.jpg"
+						},
+						Data = new Dictionary<string, string>
+				{
+					{ "storyId", storyId.ToString() },
+					{ "fromUserId", fromUserId.ToString() },
+					{ "type", "story_post" }
+				},
+						Topic = $"notification{followerId}"
+					};
+
+					string response = await FirebaseMessaging.DefaultInstance.SendAsync(firebaseMessage); 				}
+				catch (Exception ex)
+				{
+					_ = _log.Db($"Failed to send story notification to {followerId}: {ex.Message}", fromUserId, "SOCIAL");
+				}
+			}
+		}
+		public async Task<bool> CanUserNotifyAsync(int senderId, int recipientId)
+		{
+			MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+			try
+			{
+				await conn.OpenAsync();
+
+				string sql = @"
+					SELECT COUNT(*) 
+					FROM maxhanna.user_prevent_notification 
+					WHERE user_id = @RecipientId 
+					AND from_user_id = @SenderId
+					LIMIT 1";
+
+				MySqlCommand cmd = new MySqlCommand(sql, conn);
+				cmd.Parameters.AddWithValue("@RecipientId", recipientId);
+				cmd.Parameters.AddWithValue("@SenderId", senderId);
+
+				long? count = (long?)await cmd.ExecuteScalarAsync();
+				return count == 0; // Returns true if no blocking record exists (can notify)
+			}
+			catch (Exception ex)
+			{
+				_ = _log.Db($"Error checking notification permission: {ex.Message}", recipientId, "NOTIFICATION");
+				return true; // Default to allowing notifications if there's an error
+			}
+			finally
+			{
+				await conn.CloseAsync();
+			}
+		}
 
 		private static readonly SemaphoreSlim _sitemapLock = new(1, 1);
 		private readonly string _sitemapPath = Path.Combine(Directory.GetCurrentDirectory(), "../maxhanna.Client/src/sitemap.xml");
@@ -1159,8 +1320,7 @@ namespace maxhanna.Server.Controllers
 						new XElement(ns + "changefreq", "daily"),
 						new XElement(ns + "priority", "0.8")
 				);
-
-				sitemap.Root.Add(newUrlElement);
+ 				sitemap.Root?.Add(newUrlElement);
 
 				sitemap.Save(_sitemapPath);
 			}

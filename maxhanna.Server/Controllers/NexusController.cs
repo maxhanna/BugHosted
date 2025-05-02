@@ -5522,7 +5522,7 @@ namespace maxhanna.Server.Controllers
 			catch (Exception ex)
 			{
 				_ = _log.Db("An error occurred while executing update" + ex.Message, null, "NEXUS", true); 
-				_ = _log.Db(cmdText, null, "NEXUS", true);
+				_ = _log.Db(cmdText, null, "NEXUS", false);
 				foreach (var param in parameters)
 				{
 					_ = _log.Db("Param: " + param.Key + ": " + param.Value, null, "NEXUS", true);

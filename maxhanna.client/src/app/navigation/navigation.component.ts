@@ -130,11 +130,18 @@ export class NavigationComponent implements OnInit, OnDestroy {
     this.wordlerInfoInterval = setInterval(() => this.getWordlerStreakInfo(), 60 * 60 * 1000); // every hour
   }, 5000); // 5s debounce delay
 
-  setNotificationNumber(notifs?: number) {
-    if (notifs) {
+  setNotificationNumber(notifs?: number) {  
+    if (notifs !== undefined) {
       this.numberOfNotifications = notifs;
-    } 
-    this._parent.navigationItems.filter(x => x.title == "Notifications")[0].content = this.numberOfNotifications + "";
+    }
+
+    // Safely update the UI
+    if (this._parent?.navigationItems) {
+      const notificationItem = this._parent.navigationItems.find(x => x.title === "Notifications");
+      if (notificationItem) {
+        notificationItem.content = this.numberOfNotifications.toString();
+      }
+    }
   }
 
   async getNotificationInfo() {
@@ -181,7 +188,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
 
   async getCalendarInfo() {
     if (!this.user) { return; }
-    if (!this._parent.userSelectedNavigationItems.find(x => x.title == "Calendar")) { return; }
+    if (!this._parent.userSelectedNavigationItems.find(x => x.title == "Calendar")) { return; } 
     try {
       this.isLoadingCalendar = true;
       let notificationCount = 0;
@@ -195,15 +202,14 @@ export class NavigationComponent implements OnInit, OnDestroy {
         res.forEach(entry => {
           const entryDate = new Date(entry.date!);
           if (
-            entryDate.getUTCFullYear() === startDate.getUTCFullYear() &&
-            entryDate.getUTCMonth() === startDate.getUTCMonth() &&
+            // entryDate.getUTCFullYear() === startDate.getUTCFullYear() &&
+            // entryDate.getUTCMonth() === startDate.getUTCMonth() &&
             entryDate.getUTCDate() === startDate.getUTCDate()
           ) {
             notificationCount++;
           }
         });
-      }
-
+      } 
       this._parent.navigationItems.find(x => x.title == "Calendar")!.content = (notificationCount != 0 ? notificationCount + '' : '');
       this.isLoadingCalendar = false;
     } catch (error) {

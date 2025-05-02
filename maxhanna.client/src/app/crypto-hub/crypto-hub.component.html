@@ -620,14 +620,14 @@
           <table class="smallFont mainTable">
             <thead>
               <tr>
-                <th>Comment</th>
-                <th>Timestamp</th>
+                <th class="xxSmallFont">Comment</th>
+                <th class="xxSmallFont">Timestamp</th>
               </tr>
             </thead>
             <tbody>
               <tr *ngFor="let log of paginatedLogs">
                 <td>{{ log.comment }}</td>
-                <td>{{ log.timestamp | date: 'short' }}</td>
+                <td class="xxSmallFont">{{ log.timestamp | date: 'short' }}</td>
               </tr>
             </tbody>
           </table>
@@ -783,7 +783,10 @@
       </div>
       <div class="optionsStatsDiv">
         <div class="optionsStatsHeader">Value:</div>
-        <div class="optionsStatsDescription">
+        <div class="optionsStatsDescription" *ngIf="currentlySelectedCurrency.currency == 'USDC'">
+          {{ currentlySelectedCurrency.totalBalance | currency}}
+        </div>
+        <div class="optionsStatsDescription" *ngIf="currentlySelectedCurrency.currency != 'USDC'">
           {{formatToCanadianCurrency(getConvertedCurrencyValue(convertFromFIATToCryptoValue(currentlySelectedCurrency)))}}
         </div>
       </div>

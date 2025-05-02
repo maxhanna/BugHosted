@@ -53,16 +53,19 @@
       <option *ngFor="let coin of getUniqueCoinNames()" [value]="coin" [selected]="selectedCoin === coin">{{ coin }}
       </option>
     </select>
-    <button (click)="openFullscreen();">{{fullscreenMode ? 'Close ' : ''}}Full Screen</button>
-    <button (click)="toggleDarkMode()">
+    <button [style.display]="isShowingOptions ? 'inline-block' : 'none'" (click)="openFullscreen();">{{fullscreenMode ?
+      'Close ' : ''}}Full Screen</button>
+    <button [style.display]="isShowingOptions ? 'inline-block' : 'none'" (click)="toggleDarkMode()">
       {{ darkMode ? 'Light Mode' : 'Dark Mode' }}
     </button>
-    <select (change)="changeChartType($event.target)" [value]="chartTypeInputted">
+    <select [style.display]="isShowingOptions ? 'inline-block' : 'none'" (change)="changeChartType($event.target)" [value]="chartTypeInputted">
       <option *ngFor="let type of validTypes" [value]="type" [selected]="type == chartTypeInputted">
         {{ type.charAt(0).toUpperCase() + type.slice(1) }}
       </option>
     </select>
-    <button (click)="exportToCSV()" title="Export CSV Data">Export</button>
+    <button [style.display]="isShowingOptions ? 'inline-block' : 'none'" (click)="exportToCSV()"
+      title="Export CSV Data">Export</button>
+    <button (click)="showOptions()" title="Show Options">{{isShowingOptions ? 'Hide ' : ''}}Options</button>
   </div>
   <div class="sliderContainer" *ngIf="data.length > 0" #sliderContainer>
     <label>Time Range Filter:</label>
@@ -70,10 +73,10 @@
       (input)="updateSliderMin($event)" style="position: absolute; width: 100%; pointer-events: none;" />
     <input type="range" #timeRangeSliderMax [min]="sliderMin" [max]="sliderMax" [value]="sliderMaxValue"
       (input)="updateSliderMax($event)" style="position: absolute; width: 100%; pointer-events: none;" />
-  <div class="sliderLabels">
-    <span>{{ formattedSliderMin }}</span>
-    <span>{{ formattedSliderMax }}</span>
-  </div>
+    <div class="sliderLabels">
+      <span>{{ formattedSliderMin }}</span>
+      <span>{{ formattedSliderMax }}</span>
+    </div>
   </div>
   <div class="canvasChartWrapper {{fullscreenMode ? 'fullscreenCanvas' : ''}}" #canvasDiv>
     <canvas baseChart class="canvasChart" [datasets]="lineChartData" [labels]="lineChartLabels"

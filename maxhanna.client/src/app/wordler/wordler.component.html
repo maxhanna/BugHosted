@@ -131,15 +131,16 @@
   </div>
   <div>
     <div class="wordlerPopupPanelSection">
-      <div class="popupPanelTitle">Current streak:</div>
-      <div>{{wordlerStreak}} consecutive days.</div>
+      <div class="popupPanelTitle">Best: <span>{{wordlerBestStreak}} consecutive days.</span></div> 
     </div>
+      <div class="wordlerPopupPanelSection">
+        <div class="popupPanelTitle">Current: <span>{{wordlerStreak}} consecutive days.</span></div> 
+      </div>
     <div class="wordlerPopupPanelSection">
       <div class="popupPanelTitle">
-        Best Scores:
-        <div class="smallFont">(out of {{wordlerScoresCount}} games played)</div>
+        Best Scores: 
       </div>
-      <div *ngIf="wordlerScores.length > 0">
+      <div *ngIf="wordlerScores.length > 0" class="wordlerScoresDiv">
         <table *ngIf="wordlerScores && wordlerScores.length > 0" class="scoreTable" id="scoreTablePopup">
           <thead>
             <tr>

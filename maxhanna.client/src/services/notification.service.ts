@@ -46,6 +46,15 @@ export class NotificationService {
   async unreadNotifications(userId: number, notificationIds?: number[]): Promise<string> {
     return await this.fetchData('/notification/unread', { UserId: userId, NotificationIds: notificationIds });
   }
+  async stopNotifications(userId: number, fromUserId: number): Promise<string> {
+    return await this.fetchData('/notification/stopnotifications', { UserId: userId, FromUserId: fromUserId });
+  }
+  async allowNotifications(userId: number, fromUserId: number): Promise<string> {
+    return await this.fetchData('/notification/allownotifications', { UserId: userId, FromUserId: fromUserId });
+  }
+  async getStoppedNotifications(userId: number): Promise<number[]> {
+    return await this.fetchData('/notification/getstoppednotifications', userId);
+  }
   async subscribeToTopic(userId: number, token: string, topic: string): Promise<string> {
     return await this.fetchData('/notification/subscribe', { UserId: userId, Token: token, Topic: topic });
   } 

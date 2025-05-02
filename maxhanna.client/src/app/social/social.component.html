@@ -225,7 +225,7 @@
       </div>
       <div class="storyOptionsPopupButtons" style="margin-bottom: 15px;">
         <button (click)="copyLink(optionStory.id)" title="Share Link" style="display:inline-block">📋Share</button>
-
+        <button (click)="selectAllText(optionStory.id)" title="Select all text" style="display:inline-block">📄Select Text</button> 
         <button (click)="edit(optionStory)" *ngIf="optionStory.user?.id == parentRef?.user?.id" title="Edit Post Text"
           style="display:inline-block">
           <span class="storyEditSpans storyRejectEdit"
@@ -450,7 +450,7 @@
               <div *ngFor="let file of story.storyFiles"
                 [class]="'attachment ' + (story.storyFiles.length > 1 ? 'multipleAttachments' : 'singleAttachment')">
                 <app-media-viewer [user]="file.user" [inputtedParentRef]="parentRef" [currentDirectory]="file.directory"
-                  [file]="file" [showCommentSection]="false" [displayExpander]="false" [displayExtraInfo]="false"
+                  [file]="file" [showCommentSection]="false" [showMediaInformation]="true" [displayExpander]="false" [displayExtraInfo]="false"
                   [autoplay]="false" [autoload]="true" [forceInviewLoad]="true" [previousComponent]="'Social'">
                 </app-media-viewer>
               </div>

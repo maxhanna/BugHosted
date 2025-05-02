@@ -11,7 +11,7 @@ using System.Text;
 public class KrakenService
 {
 	private static decimal _MaximumTradeBalanceRatio = 0.9m;
-	private static decimal _TradeThreshold = 0.007m;
+	private static decimal _TradeThreshold = 0.0084m;
 	private static decimal _MinimumBTCTradeAmount = 0.00005m;
 	private static decimal _MaximumBTCTradeAmount = 0.005m;
 	private static decimal _MaximumUSDCTradeAmount = 2000m;
@@ -20,11 +20,9 @@ public class KrakenService
 	private static decimal _BTCPriceDiscrepencyStopPercentage = 0.10m;
 	private static decimal _InitialMinimumBTCAmountToStart = 0.001999m;
 	private static decimal _MinimumBTCReserves = 0.0004m;
-	private static decimal _MinimumUSDCReserves = 20m;
-	//new
+	private static decimal _MinimumUSDCReserves = 20m; 
 	private static int _MaxTradeTypeOccurances = 5;
-	private static int _VolumeSpikeMaxTradeOccurance = 1;
-	//end of new
+	private static int _VolumeSpikeMaxTradeOccurance = 1; 
 	private readonly HttpClient _httpClient;
 	private static IConfiguration? _config;
 	private readonly string _baseAddr = "https://api.kraken.com/";
@@ -70,14 +68,14 @@ public class KrakenService
 		{
 			_ = _log.Db("System is not up to date. Trade Cancelled.", userId, "TRADE", true);
 			return false;
-		}
+		} 
 
 		// 2. Get last trade info
-		bool forceEqualizationCauseNoLastTrade = false;
+		bool isFirstTradeEver = false;
 		TradeRecord? lastTrade = await GetLastTradeJSONDeserialized(userId);
 		if (lastTrade == null)
 		{
-			forceEqualizationCauseNoLastTrade = true;
+			isFirstTradeEver = true;
 		}
 		var btcPriceUSDC = await GetBtcPriceToUSDC(userId, keys);
 		if (btcPriceUSDC == null)
@@ -86,37 +84,258 @@ public class KrakenService
 			return false;
 		}
 		decimal? firstPriceToday = await GetFirstBtcPriceTodayIfNoRecentTrades(userId);
-		firstPriceToday = firstPriceToday * (await GetUsdToCadRate());
+		if (firstPriceToday != null) {
+			decimal? usdToCadRate = await GetUsdToCadRate() ?? 0;
+			if (usdToCadRate == null) {
+				_ = _log.Db("⚠️Error. USD to CAD rate not found!", userId, "TRADE", true); 
+				return false;
+			}
+			firstPriceToday = firstPriceToday / usdToCadRate;
+		} 
 
 		// 3. Calculate spread
 		decimal.TryParse(lastTrade?.btc_price_usdc, out decimal lastPrice);
 		decimal currentPrice = btcPriceUSDC.Value;
-		decimal spread = forceEqualizationCauseNoLastTrade ? 0 : (currentPrice - lastPrice) / lastPrice;
+		decimal spread = isFirstTradeEver ? 0 : (currentPrice - lastPrice) / lastPrice;
 		decimal spread2 = firstPriceToday != null ? (currentPrice - firstPriceToday.Value) / firstPriceToday.Value : 0;
 		//_ = _log.Db($"Current Price: {currentPrice}. Last Price: {lastPrice}. Spread: {spread}. Evaluating first price today? {(firstPriceToday != null ? $"true. Spread2: {spread2}." : "false.")}", userId, "TRADE", true);
-		var balances = await GetBalance(userId, keys);
-		if (balances == null)
+		
+
+		//Check the upwards momentum strategy before proceeding.
+		//if trying to sell, get momentum from btc to usdc.
+		MomentumStrategy? UpwardsMomentum = await GetMomentumStrategy(userId, "XBT", "USDC");
+		if (UpwardsMomentum != null && UpwardsMomentum.Timestamp != null)
 		{
-			_ = _log.Db("Failed to get wallet balances", userId, "TRADE");
-			return false;
+			_ = _log.Db("Upwards momentum strategy detected. Verifying momentum data.", userId, "TRADE", true);
+			//is timestamp over the minute threshold?
+			DateTime currentUtcTime = DateTime.UtcNow;
+			TimeSpan timeDifference = currentUtcTime - UpwardsMomentum.Timestamp.Value;
+			if (timeDifference.TotalMinutes < 1)
+			{
+				_ = _log.Db("One minute has not passed since last momentum check. Trade Cancelled.", userId, "TRADE", true);
+				return false;
+			}
+			//is spread still respected?
+			if (Math.Abs(spread) >= _TradeThreshold || Math.Abs(spread2) >= _TradeThreshold)
+			{   //Spread is still respected. Is price over threshold? (new - old) >= 50$ or (new - best) >= 50$
+				decimal triggeredBySpread = Math.Abs(spread) >= _TradeThreshold ? spread : spread2;
+
+				const decimal baseThreshold = 50.0m; // Minimum threshold
+				const decimal maxThreshold = 200.0m; // Maximum threshold
+				const decimal spreadSensitivity = 2.0m; // How aggressively to scale with spread
+				const decimal volatilityFactor = 1.25m; // Additional scaling for high volatility
+
+				// Calculate dynamic threshold
+				decimal spreadImpact = Math.Abs(triggeredBySpread) * spreadSensitivity;
+				decimal volatilityImpact = (Math.Abs(triggeredBySpread) / _TradeThreshold) * volatilityFactor;
+				decimal dynamicThreshold = baseThreshold * (1 + spreadImpact + volatilityImpact);
+
+				// Ensure threshold stays within bounds
+				dynamicThreshold = Math.Min(dynamicThreshold, maxThreshold);
+				bool priceAboveInitial = (btcPriceUSDC.Value - UpwardsMomentum.BtcPriceUsdc) >= -dynamicThreshold;
+				bool priceAboveBest = (btcPriceUSDC.Value - UpwardsMomentum.BestBtcPriceUsdc) >= -dynamicThreshold;
+
+				if (priceAboveInitial || priceAboveBest)
+				{   //we gotta wait here. Return false;
+					await UpdateMomentumEntry(userId, "XBT", "USDC", btcPriceUSDC.Value);
+					_ = _log.Db($"Updated momentum entry from XBT to USDC: {btcPriceUSDC.Value}. triggeredBySpread: {triggeredBySpread:P}, {(spread > 0 ? $"spread:{spread:P}" : "")} {(spread2 > 0 ? $"spread2:{spread2:P}" : "")}", userId, "TRADE", true); 
+					_ = _log.Db($"Threshold ({-dynamicThreshold}) still respected. Waiting. (btcPriceUSDC:{btcPriceUSDC.Value} - UpwardsMomentum.BtcPriceUsdc:{UpwardsMomentum.BtcPriceUsdc} >= {-dynamicThreshold} || btcPriceUSDC:{btcPriceUSDC.Value} - UpwardsMomentum.BestBtcPriceUsdc:{UpwardsMomentum.BestBtcPriceUsdc} >= {-dynamicThreshold}) Trade Cancelled.", userId, "TRADE", true); 
+					return false;
+				}
+				else {
+					//sell at this point
+					var balances = await GetBalance(userId, keys);
+					if (balances == null)
+					{
+						_ = _log.Db("Failed to get wallet balances", userId, "TRADE");
+						return false;
+					} 
+					decimal btcBalance = balances.ContainsKey("XXBT") ? balances["XXBT"] : 0;
+					decimal usdcBalance = balances.ContainsKey("USDC") ? balances["USDC"] : 0;
+					_ = _log.Db("USDC Balance: " + usdcBalance + "; Btc Balance: " + btcBalance, userId, "TRADE", true);
+
+					decimal? btcToTrade;
+					var isPremiumCondition = dynamicThreshold > 100; //A Ratio depending on how far we are from the price.
+					var tmpTradePerc = firstPriceToday != null ? _ValueTradePercentage - _ValueTradePercentagePremium : _ValueTradePercentage;
+					if (isPremiumCondition)
+					{ // Increase sell amount for premium opportunity  // take off a premium if the bot used a fallback trade price value.
+						btcToTrade = Math.Min(btcBalance * (tmpTradePerc + _ValueTradePercentagePremium), _MaximumBTCTradeAmount);
+						_ = _log.Db($"[PREMIUM SELL OPPORTUNITY] dynamicThreshold:{dynamicThreshold} > 100. Increasing trade size by {_ValueTradePercentagePremium:P}", userId, "TRADE", true);
+					}
+					else
+					{ // Normal trade amount // take off a premium if the bot used a fallback trade price value.
+						btcToTrade = Math.Min(btcBalance * tmpTradePerc, _MaximumBTCTradeAmount);
+					}
+
+					decimal btcValueInUsdc = btcToTrade.Value * btcPriceUSDC.Value;
+					var spread2Message = firstPriceToday != null ? $"Spread2 : {spread2:P} " : ""; 
+					_ = _log.Db($"Spread is +{spread:P}, {spread2Message}(c:{currentPrice}-l:{lastPrice}), selling {btcToTrade} BTC for USDC ({btcValueInUsdc}) possibility opened. Switching to momentum strategy.", userId, "TRADE", true);
+					await ExecuteXBTtoUSDCTrade(userId, keys, FormatBTC(btcToTrade.Value), "sell", btcBalance, usdcBalance, false, btcPriceCAD.Value, btcPriceUSDC.Value);
+					if (await DeleteMomentumStrategy(userId, "XBT", "USDC"))
+					{
+						_ = _log.Db($"Deleted Momentum strategy.", userId, "TRADE", true);
+					}
+					else
+					{
+						_ = _log.Db($"⚠️Error deleting momentum strategy!", userId, "TRADE", true);
+					}
+					return true;
+				}
+			} 
+			else {
+				//Delete momentum strategy and return;
+				if (await DeleteMomentumStrategy(userId, "XBT", "USDC")) {
+					_ = _log.Db($"Spread (spread:{spread:P},spread2:{spread2:P}) no longer respected. Deleted Momentum strategy. Trade Cancelled.", userId, "TRADE", true); 
+				} else {
+					_ = _log.Db($"⚠️Error deleting momentum strategy! Spread (spread:{spread:P},spread2:{spread2:P}) no longer respected. Trade Cancelled.", userId, "TRADE", true); 
+				}
+				return false;
+			}
+
 		}
 
+		//check the downards momentum strategy
+		MomentumStrategy? DownwardsMomentum = await GetMomentumStrategy(userId, "USDC", "XBT"); //if trying to buy, its because downwards trend.
+		if (DownwardsMomentum != null && DownwardsMomentum.Timestamp != null)
+		{
+			_ = _log.Db("Downwards momentum strategy detected. Verifying momentum data.", userId, "TRADE", true);
+			//is timestamp over the minute threshold?
+			DateTime currentUtcTime = DateTime.UtcNow;
+			TimeSpan timeDifference = currentUtcTime - DownwardsMomentum.Timestamp.Value;
+			if (timeDifference.TotalMinutes < 1)
+			{
+				_ = _log.Db("One minute has not passed since last momentum check. Trade Cancelled.", userId, "TRADE", true);
+				return false;
+			}
+			//is spread still respected?
+			if (Math.Abs(spread) >= _TradeThreshold || Math.Abs(spread2) >= _TradeThreshold)
+			{   //Spread is still respected. Is price over threshold? (new - old) >= 50$ or (new - best) >= 50$
+				decimal triggeredBySpread = Math.Abs(spread) >= _TradeThreshold ? spread : spread2;
+
+				const decimal baseThreshold = 50.0m; // Minimum threshold
+				const decimal maxThreshold = 200.0m; // Maximum threshold
+				const decimal spreadSensitivity = 2.0m; // How aggressively to scale with spread
+				const decimal volatilityFactor = 1.25m; // Additional scaling for high volatility
+
+				// Calculate dynamic threshold
+				decimal spreadImpact = Math.Abs(triggeredBySpread) * spreadSensitivity;
+				decimal volatilityImpact = (Math.Abs(triggeredBySpread) / _TradeThreshold) * volatilityFactor;
+				decimal dynamicThreshold = baseThreshold * (1 + spreadImpact + volatilityImpact);
+
+				// Ensure threshold stays within bounds
+				dynamicThreshold = Math.Min(dynamicThreshold, maxThreshold);
+				bool priceAboveInitial = (btcPriceUSDC.Value - DownwardsMomentum.BtcPriceUsdc) >= dynamicThreshold;
+				bool priceAboveBest = (btcPriceUSDC.Value - DownwardsMomentum.BestBtcPriceUsdc) >= dynamicThreshold;
+
+				if (priceAboveInitial || priceAboveBest)
+				{
+					// buy at this point
+					var balances = await GetBalance(userId, keys);
+					if (balances == null)
+					{
+						_ = _log.Db("Failed to get wallet balances", userId, "TRADE");
+						return false;
+					}
+					decimal btcBalance = balances.ContainsKey("XXBT") ? balances["XXBT"] : 0;
+					decimal usdcBalance = balances.ContainsKey("USDC") ? balances["USDC"] : 0;
+					decimal usdcValueToTrade = 0;
+					var isPremiumCondition = dynamicThreshold > 100;
+					var tmpTradePerc = (firstPriceToday != null ? _ValueTradePercentage - _ValueTradePercentagePremium : _ValueTradePercentage);
+
+					if (isPremiumCondition)
+					{ // Increase trade amount for premium opportunity
+						usdcValueToTrade = Math.Min(usdcBalance * (tmpTradePerc + _ValueTradePercentagePremium), _MaximumUSDCTradeAmount);
+						_ = _log.Db($"[PREMIUM BUY OPPORTUNITY] dynamicThreshold:{dynamicThreshold} > 100. Increasing trade size by 5%", userId, "TRADE", true);
+					}
+					else
+					{ // Normal trade amount
+						usdcValueToTrade = Math.Min(usdcBalance * tmpTradePerc, _MaximumUSDCTradeAmount);
+					}  
+
+					if (usdcValueToTrade > 0)
+					{
+						decimal? usdToCadRate = await GetUsdToCadRate();
+						if (usdToCadRate == null)
+						{
+							_ = _log.Db("USD to CAD rate is unavailable.", userId, "TRADE", true);
+							return false;
+						} 
+						
+						_ = _log.Db("USD to CAD rate: " + usdToCadRate.Value, userId, "TRADE", true);
+						decimal btcAmount = usdcValueToTrade / btcPriceUSDC.Value;
+						var spread2Message = firstPriceToday != null ? $"Spread2: {spread2:P} " : "";
+						_ = _log.Db($"Spread is {spread:P} {spread2Message} (c:{currentPrice}-l:{lastPrice}){(firstPriceToday != null ? $" [First price today: {firstPriceToday}] ":"")}, buying BTC with {FormatBTC(btcAmount)} BTC worth of USDC(${usdcValueToTrade})", userId, "TRADE", true);
+
+ 						await ExecuteXBTtoUSDCTrade(userId, keys, FormatBTC(btcAmount), "buy", usdcBalance, btcBalance, false, btcPriceCAD.Value, btcPriceUSDC.Value);
+						if (await DeleteMomentumStrategy(userId, "USDC", "XBT"))
+						{
+							_ = _log.Db("Deleted Momentum strategy.", userId, "TRADE", true);
+						}
+						else
+						{
+							_ = _log.Db("⚠️Error deleting momentum strategy!", userId, "TRADE", true);
+						}
+						return true;
+					}
+					else {
+						_ = _log.Db($"⚠️Error executing momentum strategy! usdcValueToTrade:{usdcValueToTrade} < 0. Trade Cancelled.", userId, "TRADE", true);
+						if (await DeleteMomentumStrategy(userId, "USDC", "XBT"))
+						{
+							_ = _log.Db("Deleted Momentum strategy.", userId, "TRADE", true);
+						}
+						else
+						{
+							_ = _log.Db("⚠️Error deleting momentum strategy!", userId, "TRADE", true);
+						}
+						return false;
+					} 
+				}
+				else
+				{
+					await UpdateMomentumEntry(userId, "USDC", "XBT", btcPriceUSDC.Value);
+					_ = _log.Db($"Updated momentum entry from USDC to XBT: {btcPriceUSDC.Value}. triggeredBySpread: {triggeredBySpread:P}, {(spread > 0 ? $"spread:{spread:P}" : "")} {(spread2 > 0 ? $"spread2:{spread2:P}" : "")}", userId, "TRADE", true);
+					_ = _log.Db($"Threshold ({dynamicThreshold}) still respected. Waiting. (btcPriceUSDC:{btcPriceUSDC.Value} - DownwardsMomentum.BtcPriceUsdc:{DownwardsMomentum.BtcPriceUsdc} >= {dynamicThreshold} ({priceAboveInitial}:{(btcPriceUSDC.Value - DownwardsMomentum.BtcPriceUsdc)}) || btcPriceUSDC:{btcPriceUSDC.Value} - DownwardsMomentum.BestBtcPriceUsdc:{DownwardsMomentum.BestBtcPriceUsdc} >= {dynamicThreshold} ({priceAboveBest}:{(btcPriceUSDC.Value - DownwardsMomentum.BestBtcPriceUsdc)})) Trade Cancelled.", userId, "TRADE", true);
+					return false;
+				}
+			}
+			else
+			{
+				//Delete momentum strategy and return;
+				if (await DeleteMomentumStrategy(userId, "USDC", "XBT"))
+				{
+					_ = _log.Db($"Spread (spread:{spread:P},spread2:{spread2:P}) no longer respected. Deleted Momentum strategy. Trade Cancelled.", userId, "TRADE", true);
+				}
+				else
+				{
+					_ = _log.Db($"⚠️Error deleting momentum strategy! Spread (spread:{spread:P},spread2:{spread2:P}) no longer respected. Trade Cancelled.", userId, "TRADE", true);
+				}
+				return false;
+			}
+
+		}
+
+		// NO MOMENTUM DETECTED AS OF YET, Check if trade crosses spread thresholds
 		if (Math.Abs(spread) >= _TradeThreshold || Math.Abs(spread2) >= _TradeThreshold)
 		{
 			// 4. Now we know a trade is needed - fetch balances 
-			var btcPriceToCad = await GetBtcPriceToCad(userId, keys);
-			_ = _log.Db($"btcPriceCad: {btcPriceCAD}, btcPriceUSDC {btcPriceUSDC}", userId, "TRADE", true);
-
+			var balances = await GetBalance(userId, keys);
+			if (balances == null)
+			{
+				_ = _log.Db("Failed to get wallet balances", userId, "TRADE");
+				return false;
+			}
 			decimal btcBalance = balances.ContainsKey("XXBT") ? balances["XXBT"] : 0;
-			decimal usdcBalance = balances.ContainsKey("USDC") ? balances["USDC"] : 0;
+			decimal usdcBalance = balances.ContainsKey("USDC") ? balances["USDC"] : 0; 
 			_ = _log.Db("USDC Balance: " + usdcBalance + "; Btc Balance: " + btcBalance, userId, "TRADE", true);
+			_ = _log.Db($"btcPriceCad: {btcPriceCAD}, btcPriceUSDC {btcPriceUSDC}", userId, "TRADE", true);
+ 
 			if (spread >= _TradeThreshold || (firstPriceToday != null && spread2 >= _TradeThreshold))
 			{
 				string triggeredBy = spread >= _TradeThreshold ? "spread" : "spread2";
 				_ = _log.Db($"Trade triggered by: {triggeredBy}", userId, "TRADE", true);
 
 				// If no last trade, we must equalize - get balances now
-				if (forceEqualizationCauseNoLastTrade || lastTrade == null)
+				if (isFirstTradeEver || lastTrade == null)
 				{
 					await TradeHalfBTCForUSDC(userId, keys, btcBalance, usdcBalance, btcPriceCAD.Value, btcPriceUSDC.Value);
 					return false;
@@ -135,23 +354,28 @@ public class KrakenService
 					btcToTrade = Math.Min(btcBalance * tmpTradePerc, _MaximumBTCTradeAmount);
 				}
 				if (btcToTrade.HasValue && btcToTrade > 0)
-				{
-					// Convert the BTC price to USD;  Now you can get the value of btcToTrade in USDC (1 USDC = 1 USD) 
-					decimal btcValueInUsdc = btcToTrade.Value * btcPriceUSDC.Value;
-					decimal btcBalanceConverted = btcBalance * btcPriceUSDC.Value;
-					_ = _log.Db($"BTC trade value in USDC: {btcValueInUsdc}; Converted btcBalanceValue in USDC: {btcBalanceConverted}", userId, "TRADE", true);
-					if (Is90PercentOfTotalWorth(btcBalanceConverted, usdcBalance))
-					{
-						_ = _log.Db($"Trade to USDC is prevented. 90% of wallet is already in USDC. {btcBalanceConverted}/{usdcBalance}", userId, "TRADE", true);
-						return false;
-					}
-					var spread2Message = firstPriceToday != null ? $"Spread2 : {spread2:P} " : "";
+                {
+                    // Convert the BTC price to USD;  Now you can get the value of btcToTrade in USDC (1 USDC = 1 USD) 
+                    decimal btcBalanceConverted = btcBalance * btcPriceUSDC.Value;
+                    _ = _log.Db($"Converted btcBalanceValue in USDC: {btcBalanceConverted}", userId, "TRADE", true);
+                    if (Is90PercentOfTotalWorth(btcBalanceConverted, usdcBalance))
+                    {
+                        _ = _log.Db($"Trade to USDC is prevented. 90% of wallet is already in USDC. {btcBalanceConverted}/{usdcBalance}", userId, "TRADE", true);
+                        return false;
+                    }
+                    var spread2Message = firstPriceToday != null ? $"Spread2 : {spread2:P} " : "";
+                    bool isValidTrade = await ValidateXBTUSDCTrade(userId, "XBT", "USDC", "sell", usdcBalance, btcToTrade);
+                    if (!isValidTrade)
+                    {
+                        return false;
+                    }
 
-					_ = _log.Db($"Spread is +{spread:P}, {spread2Message}(c:{currentPrice}-l:{lastPrice}), selling {btcToTrade} BTC for USDC ({btcValueInUsdc})",
-							userId, "TRADE", true);
-					await ExecuteXBTtoUSDCTrade(userId, keys, FormatBTC(btcToTrade.Value), "sell", btcBalance, usdcBalance, false, btcPriceCAD.Value, btcPriceUSDC.Value);
-				}
-				else
+                    _ = _log.Db($"Spread is +{spread:P}, {spread2Message}(c:{currentPrice}-l:{lastPrice}), selling {btcToTrade} BTC for USDC possibility opened. Switching to momentum strategy.", userId, "TRADE", true);
+                    await AddMomentumEntry(userId, "XBT", "USDC", btcPriceUSDC.Value);
+                    return false;
+                    //await ExecuteXBTtoUSDCTrade(userId, keys, FormatBTC(btcToTrade.Value), "sell", btcBalance, usdcBalance, false, btcPriceCAD.Value, btcPriceUSDC.Value);
+                }
+                else
 				{
 					_ = _log.Db("⚠️Error fetching USDC exchange rates.", userId, "TRADE", true);
 					return false;
@@ -160,44 +384,24 @@ public class KrakenService
 			if (spread <= -_TradeThreshold || (firstPriceToday != null && spread2 <= -_TradeThreshold))
 			{
 				string triggeredBy = spread <= -_TradeThreshold ? "spread" : "spread2";
-				_ = _log.Db($"Trade triggered by: {triggeredBy}", userId, "TRADE", true);
-				decimal usdcValueToTrade = 0;
-				var isPremiumCondition = await IsInPremiumWindow();
-				var tmpTradePerc = (firstPriceToday != null ? _ValueTradePercentage - _ValueTradePercentagePremium : _ValueTradePercentage);
-
-				if (isPremiumCondition)
-				{ // Increase trade amount for premium opportunity
-					usdcValueToTrade = Math.Min(usdcBalance * (tmpTradePerc + _ValueTradePercentagePremium), _MaximumUSDCTradeAmount);
-					_ = _log.Db($"PREMIUM BUY OPPORTUNITY - Increasing trade size by 5%", userId, "TRADE", true);
-				}
-				else
-				{ // Normal trade amount
-					usdcValueToTrade = Math.Min(usdcBalance * tmpTradePerc, _MaximumUSDCTradeAmount);
-				}
-				if (Is90PercentOfTotalWorth(usdcBalance, usdcValueToTrade))
+				_ = _log.Db($"Trade triggered by: {triggeredBy}", userId, "TRADE", true); 
+				decimal tmpTradePerc = (firstPriceToday != null ? _ValueTradePercentage - _ValueTradePercentagePremium : _ValueTradePercentage);
+				decimal usdcValueToTrade = Math.Min(usdcBalance * tmpTradePerc, _MaximumUSDCTradeAmount);
+				decimal btcAmount = usdcValueToTrade / btcPriceUSDC.Value;
+				bool isValidTrade = await ValidateXBTUSDCTrade(userId, "USDC", "XBT", "buy", usdcBalance, btcAmount);
+				if (!isValidTrade)
 				{
-					_ = _log.Db($"Trade to XBT is prevented. 90% of wallet is already in XBT. {usdcBalance}/{btcBalance}", userId, "TRADE", true);
-					return false;
-				}
-				if (btcPriceToCad == null)
-				{
-					_ = _log.Db("BTC price in CAD is unavailable.", userId, "TRADE", true);
 					return false;
 				}
 
 				if (usdcValueToTrade > 0)
-				{
-					decimal? usdToCadRate = await GetUsdToCadRate();
-					if (usdToCadRate == null)
-					{
-						_ = _log.Db("USD to CAD rate is unavailable.", userId, "TRADE", true);
-						return false;
-					}
-					_ = _log.Db("USD to CAD rate: " + usdToCadRate.Value, userId, "TRADE", true);
-					decimal btcAmount = usdcValueToTrade / btcPriceUSDC.Value;
+				{ 
 					var spread2Message = firstPriceToday != null ? $"Spread2: {spread2:P} " : "";
 					_ = _log.Db($"Spread is {spread:P} {spread2Message} (c:{currentPrice}-l:{lastPrice}), buying BTC with {FormatBTC(btcAmount)} BTC worth of USDC(${usdcValueToTrade})", userId, "TRADE", true);
-					await ExecuteXBTtoUSDCTrade(userId, keys, FormatBTC(btcAmount), "buy", usdcBalance, btcBalance, false, btcPriceCAD.Value, btcPriceUSDC.Value);
+
+					await AddMomentumEntry(userId, "USDC", "XBT", btcPriceUSDC.Value);
+					return false;
+					//await ExecuteXBTtoUSDCTrade(userId, keys, FormatBTC(btcAmount), "buy", usdcBalance, btcBalance, false, btcPriceCAD.Value, btcPriceUSDC.Value);
 				}
 			}
 		}
@@ -211,18 +415,65 @@ public class KrakenService
 			var spread2Message = firstPriceToday != null ? $"Spread2: {spread2:P} " : "";
 			var thresh2Message = firstPriceToday != null ? $"/{thresholdDifference2:P} " : " ";
 			var lp2Message = firstPriceToday != null ? $"/{firstPriceToday}" : "";
-
+			var timeSince = _log.GetTimeSince(lastTrade?.timestamp, true);
+			 
 			_ = _log.Db(
-				$"Spread is {spread:P} {spread2Message} (c:{currentPrice}{lp2Message}-l:{lastPrice}), " +
-				$"within threshold. No trade executed. It was {thresholdDifference:P}{thresh2Message} " +
-				$"away from breaking the threshold.",
+				$@"Spread is within threshold. {spread:P} {spread2Message} (c:{currentPrice}{lp2Message}-l:{lastPrice}|{timeSince}), No trade executed. It was {thresholdDifference:P}{thresh2Message}away from breaking the threshold.",
 				userId, "TRADE", true);
 		}
 
 		return true;
 	}
 
-	private bool ValidatePriceDiscrepency(decimal currentPrice, decimal? btcPriceToCad)
+    private async Task<bool> ValidateXBTUSDCTrade(int userId, string from, string to, string buyOrSell, decimal usdcBalance, decimal? btcToTrade)
+	{
+		_ = _log.Db($"ValidateXBTUSDCTrade from:{from}, to: {to}, {buyOrSell}, usdcBalance:{usdcBalance}, btcToTrade:{btcToTrade}.", userId, "TRADE", true);
+
+		try
+		{
+            if (Convert.ToDecimal(btcToTrade) < _MinimumBTCTradeAmount)
+            {
+                _ = _log.Db($"Trade amount:{btcToTrade} < {_MinimumBTCTradeAmount} is too small. Trade Cancelled.", userId, "TRADE", true);
+                return false;
+            }
+
+            //Contextual Adjustments: If you’re trading based on certain market conditions(e.g., high volatility or low reserves), you might want to adjust the range dynamically. For example
+            //If reserves are low, you may want a larger range to avoid too many trades.
+            //If there is high market volatility, you could reduce the range to act more cautiously.  
+            bool isVolumeSpiking = await IsSignificantVolumeSpike(from, to, userId);
+            int tradeRange = isVolumeSpiking ? _VolumeSpikeMaxTradeOccurance : _MaxTradeTypeOccurances;
+            bool shouldTradeBasedOnReserves = await ShouldTradeBasedOnRangeAndReserve(userId, from, to, buyOrSell, tradeRange, usdcBalance);
+            if (!shouldTradeBasedOnReserves)
+            {
+                _ = _log.Db($"User has {buyOrSell} {from} {to} too many times in the last {tradeRange} trades (Based on BTC/USDC reserves, volume spike, or last {_MaxTradeTypeOccurances} trades were the same). Trade Cancelled.", userId, "TRADE", true);
+                return false;
+            }
+            int tradeRangeLimit = _MaxTradeTypeOccurances;
+            int daySpanCheck = 1;
+            bool withinLimit = await HasExceededTradeLimitInTimeWindow(userId, from, to, buyOrSell, tradeRangeLimit, TimeSpan.FromDays(daySpanCheck));
+            if (!withinLimit)
+            {
+                _ = _log.Db($"User has {buyOrSell} {from} {to} too frequently ({tradeRangeLimit}) in the last {daySpanCheck} days. Trade Cancelled.", userId, "TRADE", true);
+                return false;
+            }
+            bool withinTradeSequenceLimit = await CheckTradeSequence(userId, buyOrSell, _MaxTradeTypeOccurances);
+            if (!withinTradeSequenceLimit)
+            {
+                _ = _log.Db($"User has {buyOrSell} {from} {to} too frequently ({_MaxTradeTypeOccurances - 1}) in the last {_MaxTradeTypeOccurances} occurances. Trade Cancelled.", userId, "TRADE", true);
+                return false;
+            }
+
+        }
+        catch (Exception ex)
+        {
+            _ = _log.Db($"⚠️Exception while validating trade! Trade Cancelled. " + ex.Message, userId, "TRADE", true);
+            return false;
+        }
+
+        return true;
+    }
+
+    private bool ValidatePriceDiscrepency(decimal currentPrice, decimal? btcPriceToCad)
 	{
 		if (btcPriceToCad == null || !btcPriceToCad.HasValue)
 		{
@@ -313,49 +564,7 @@ public class KrakenService
 	{
 		string from = "XBT";
 		string to = "USDC";
-		amount = amount.Trim();
-		try
-		{
-			if (Convert.ToDecimal(amount) < _MinimumBTCTradeAmount)
-			{
-				_ = _log.Db("Trade amount is too small. Trade Cancelled.", userId, "TRADE", true);
-				return;
-			}
-
-			//Contextual Adjustments: If you’re trading based on certain market conditions(e.g., high volatility or low reserves), you might want to adjust the range dynamically. For example
-			//If reserves are low, you may want a larger range to avoid too many trades.
-			//If there is high market volatility, you could reduce the range to act more cautiously. 
-			if (!IsFirstTradeEver)
-			{
-				bool isVolumeSpiking = await IsSignificantVolumeSpike("XBT", "USDC", userId);
-				int tradeRange = isVolumeSpiking ? _VolumeSpikeMaxTradeOccurance : _MaxTradeTypeOccurances;
-				bool shouldTradeBasedOnReserves = await ShouldTradeBasedOnRangeAndReserve(userId, from, to, buyOrSell, tradeRange, fromBalance);
-				if (!shouldTradeBasedOnReserves)
-				{
-					_ = _log.Db($"User has {buyOrSell} {from} {to} too many times in the last {tradeRange} trades (Based on BTC/USDC reserves, volume spike, or last {_MaxTradeTypeOccurances} trades were the same). Trade Cancelled.", userId, "TRADE", true);
-					return;
-				}
-				int tradeRangeLimit = _MaxTradeTypeOccurances;
-				int daySpanCheck = 1;
-				bool withinLimit = await HasExceededTradeLimitInTimeWindow(userId, "XTC", "USDC", buyOrSell, tradeRangeLimit, TimeSpan.FromDays(daySpanCheck));
-				if (!withinLimit)
-				{
-					_ = _log.Db($"User has {buyOrSell} {from} {to} too frequently ({tradeRangeLimit}) in the last {daySpanCheck} days. Trade Cancelled.", userId, "TRADE", true);
-					return;
-				}
-				bool withinTradeSequenceLimit = await CheckTradeSequence(userId, buyOrSell, _MaxTradeTypeOccurances);
-				if (!withinTradeSequenceLimit)
-				{
-					_ = _log.Db($"User has {buyOrSell} {from} {to} too frequently ({_MaxTradeTypeOccurances - 1}) in the last {_MaxTradeTypeOccurances} occurances. Trade Cancelled.", userId, "TRADE", true);
-					return;
-				}
-			}
-		}
-		catch (Exception ex)
-		{
-			_ = _log.Db($"⚠️Exception while validating trade! Trade Cancelled. " + ex.Message, userId, "TRADE", true);
-			return;
-		}
+		amount = amount.Trim(); 
 
 		// fee is 0.4%; 
 		var pair = $"{from}{to}";
@@ -1814,10 +2023,10 @@ public class KrakenService
 
 			// 1. First check if user has recent trades
 			var checkTradesQuery = @"
-            SELECT COUNT(*) 
-            FROM maxhanna.trade_history 
-            WHERE user_id = @userId
-            AND timestamp >= UTC_TIMESTAMP() - INTERVAL 24 HOUR;";
+				SELECT COUNT(*) 
+				FROM maxhanna.trade_history 
+				WHERE user_id = @userId
+				AND timestamp >= UTC_TIMESTAMP() - INTERVAL 24 HOUR;";
 
 			using var checkCmd = new MySqlCommand(checkTradesQuery, connection);
 			checkCmd.Parameters.AddWithValue("@userId", userId);
@@ -1898,6 +2107,168 @@ public class KrakenService
 
 		return peaks;
 	}
+	private async Task<bool> AddMomentumEntry(int userId, string from, string to, decimal btcPriceUsdc)
+	{
+		var checkSql = @"
+			INSERT INTO maxhanna.trade_momentum_accumulation (user_id, from_currency, to_currency, timestamp, btc_price_usdc, best_btc_price_usdc) 
+			VALUES (@UserId, @From, @To, UTC_TIMESTAMP(), @BtcValueUSDC, @BtcValueUSDC);";
+		try
+		{
+			using var conn = new MySqlConnection(_config?.GetValue<string>("ConnectionStrings:maxhanna"));
+			await conn.OpenAsync();
+			using var checkCmd = new MySqlCommand(checkSql, conn);
+			checkCmd.Parameters.AddWithValue("@UserId", userId);
+			checkCmd.Parameters.AddWithValue("@From", from);
+			checkCmd.Parameters.AddWithValue("@To", to);
+			checkCmd.Parameters.AddWithValue("@BtcValueUSDC", btcPriceUsdc);
+			await checkCmd.ExecuteNonQueryAsync();
+		}
+		catch (Exception ex)
+		{
+			_ = _log.Db("⚠️Error creating momentum entry: " + ex.Message, userId, "TRADE", true);
+			return false;
+		}
+		return true;
+	}
+	private async Task<bool> DeleteMomentumStrategy(int userId, string from, string to, MySqlConnection? conn = null)
+	{
+		bool shouldDisposeConnection = conn == null;
+		bool isDeleted = false;
+		const string sql = @"
+			DELETE FROM maxhanna.trade_momentum_accumulation 
+			WHERE user_id = @UserId 
+			AND from_currency = @From 
+			AND to_currency = @To";
+
+		try
+		{
+			conn ??= new MySqlConnection(_config?.GetValue<string>("ConnectionStrings:maxhanna"));
+			if (conn.State != System.Data.ConnectionState.Open)
+			{
+				await conn.OpenAsync();
+			}
+
+			using var cmd = new MySqlCommand(sql, conn);
+			cmd.Parameters.AddWithValue("@UserId", userId);
+			cmd.Parameters.AddWithValue("@From", from);
+			cmd.Parameters.AddWithValue("@To", to);
+
+			int rowsAffected = await cmd.ExecuteNonQueryAsync();
+			isDeleted = rowsAffected > 0;
+
+			if (isDeleted)
+			{
+				_ = _log.Db($"Deleted momentum strategy for user {userId}; From {from}, To {to}.", userId, "TRADE", true);
+			}
+			else
+			{
+				_ = _log.Db($"No momentum strategy found to delete for user {userId}; From {from}, To {to}.", userId, "TRADE", true);
+			}
+		}
+		catch (Exception ex)
+		{
+			_ = _log.Db($"Error deleting momentum strategy for user {userId}; From {from}, To {to}: {ex.Message}", userId, "TRADE", true);
+			isDeleted = false;
+		}
+		finally
+		{
+			if (shouldDisposeConnection && conn != null)
+			{
+				await conn.DisposeAsync();
+			}
+		}
+
+		return isDeleted;
+	}
+	private async Task<bool> UpdateMomentumEntry(int userId, string from, string to, decimal btcPriceUsdc)
+	{
+		// Determine if we're buying or selling BTC
+		bool isSellingBtc = from.Equals("XBT", StringComparison.OrdinalIgnoreCase) && to.Equals("USDC", StringComparison.OrdinalIgnoreCase);
+		bool isBuyingBtc = from.Equals("USDC", StringComparison.OrdinalIgnoreCase) && to.Equals("XBT", StringComparison.OrdinalIgnoreCase);
+
+		var sql = @"
+			INSERT INTO maxhanna.trade_momentum_accumulation 
+				(user_id, from_currency, to_currency, timestamp, btc_price_usdc, best_btc_price_usdc)
+			VALUES 
+				(@UserId, @From, @To, UTC_TIMESTAMP(), @BtcPriceUSDC, @BtcPriceUSDC)
+			ON DUPLICATE KEY UPDATE
+				timestamp = UTC_TIMESTAMP(),
+				btc_price_usdc = @BtcPriceUSDC,
+				best_btc_price_usdc = CASE 
+					WHEN @IsSellingBtc THEN GREATEST(best_btc_price_usdc, @BtcPriceUSDC)
+					WHEN @IsBuyingBtc THEN LEAST(COALESCE(best_btc_price_usdc, @BtcPriceUSDC), @BtcPriceUSDC)
+					ELSE best_btc_price_usdc
+				END";
+
+		try
+		{
+			using var conn = new MySqlConnection(_config?.GetValue<string>("ConnectionStrings:maxhanna"));
+			await conn.OpenAsync();
+
+			using var cmd = new MySqlCommand(sql, conn);
+			cmd.Parameters.AddWithValue("@UserId", userId);
+			cmd.Parameters.AddWithValue("@From", from.ToLower());
+			cmd.Parameters.AddWithValue("@To", to.ToLower());
+			cmd.Parameters.AddWithValue("@BtcPriceUSDC", btcPriceUsdc);
+			cmd.Parameters.AddWithValue("@IsSellingBtc", isSellingBtc);
+			cmd.Parameters.AddWithValue("@IsBuyingBtc", isBuyingBtc);
+
+			await cmd.ExecuteNonQueryAsync();
+			return true;
+		}
+		catch (Exception ex)
+		{
+			_ = _log.Db("⚠️Error updating momentum entry: " + ex.Message, userId, "TRADE", true);
+			return false;
+		}
+	}
+	private async Task<MomentumStrategy?> GetMomentumStrategy(int userId, string from, string to, MySqlConnection? conn = null)
+	{
+		bool shouldDisposeConnection = conn == null;
+ 		MomentumStrategy? momentumStrategy = null;
+		const string sql = @"SELECT * FROM maxhanna.trade_momentum_accumulation WHERE user_id = @UserId AND from_currency = @From AND to_currency = @To LIMIT 1;"; 
+		try
+		{
+			conn ??= new MySqlConnection(_config?.GetValue<string>("ConnectionStrings:maxhanna"));
+			if (conn.State != System.Data.ConnectionState.Open)
+			{
+				await conn.OpenAsync();
+			}
+			using var cmd = new MySqlCommand(sql, conn);
+			cmd.Parameters.AddWithValue("@UserId", userId);
+			cmd.Parameters.AddWithValue("@From", from);
+			cmd.Parameters.AddWithValue("@To", to);
+			using var reader = await cmd.ExecuteReaderAsync();
+
+			while (await reader.ReadAsync())
+			{
+				momentumStrategy = new MomentumStrategy
+				{
+					UserId = reader.GetInt32("user_id"),
+					FromCurrency = reader.GetString("from_currency"),
+					ToCurrency = reader.GetString("to_currency"),
+					Timestamp = reader.GetDateTime("timestamp"),
+					BtcPriceUsdc = reader.GetDecimal("btc_price_usdc"),
+					BestBtcPriceUsdc = reader.GetDecimal("best_btc_price_usdc")
+				}; 
+			}
+			if (momentumStrategy != null) {
+				_ = _log.Db($"Found an active momentum strategy for user {userId}; From {from}, To {to}.", userId, "TRADE", true);
+			}
+		}
+		catch (Exception ex)
+		{
+			_ = _log.Db($"Error fetching active momentum strategy for user {userId}; From {from}, To {to}.: {ex.Message}");
+		}
+		finally
+		{
+			if (shouldDisposeConnection && conn != null)
+			{
+				await conn.DisposeAsync();
+			}
+		}
+		return momentumStrategy;
+	}
 	private bool IsNearPrice(decimal currentPrice, decimal peakPrice, decimal thresholdPercent)
 	{
 		decimal difference = Math.Abs(peakPrice - currentPrice);
@@ -1913,7 +2284,7 @@ public class KrakenService
 	private async Task<bool> IsVolumeDecliningSince(DateTime sinceTime)
 	{
 		// Get volume data since the peak
-		var volumes = await GetTradeMarketVolumesSinceAsync("XBT", "USDC", sinceTime);
+		var volumes = await GetXBTUSDCTradeMarketVolumesSinceAsync(sinceTime);
 
 		if (volumes.Count < 3) return false; // Need at least 3 data points
 
@@ -1928,7 +2299,7 @@ public class KrakenService
 		// Volume is declining if each segment is lower than previous
 		return middleSegment < firstSegment && lastSegment < middleSegment;
 	}
-	public async Task<List<VolumeData>> GetTradeMarketVolumesSinceAsync(string fromCurrency, string toCurrency, DateTime sinceTime)
+	public async Task<List<VolumeData>> GetXBTUSDCTradeMarketVolumesSinceAsync(DateTime sinceTime)
 	{
 		using var connection = new MySqlConnection(_config?.GetValue<string>("ConnectionStrings:maxhanna"));
 		await connection.OpenAsync();
@@ -1941,7 +2312,7 @@ public class KrakenService
         ORDER BY timestamp ASC";  // Oldest first for proper trend analysis
 
 		using var command = new MySqlCommand(query, connection);
-		command.Parameters.AddWithValue("@pair", $"{fromCurrency}{toCurrency}");
+		command.Parameters.AddWithValue("@pair", "XBTUSDC");
 		command.Parameters.AddWithValue("@sinceTime", sinceTime);
 
 		var volumes = new List<VolumeData>();
@@ -1961,7 +2332,7 @@ public class KrakenService
 	public async Task<bool> IsSignificantVolumeSpike(string fromCurrency, string toCurrency, int userId, decimal spikeThresholdPercent = 0.5m)
 	{
 		var sinceTime = DateTime.UtcNow.AddHours(-1);
-		var volumes = await GetTradeMarketVolumesSinceAsync(fromCurrency, toCurrency, sinceTime);
+		var volumes = await GetXBTUSDCTradeMarketVolumesSinceAsync(sinceTime);
 
 		if (volumes == null || volumes.Count == 0)
 		{
@@ -2564,6 +2935,15 @@ public class VolumeData
 	public decimal VolumeBTC { get; set; }
 	public decimal VolumeUSDC { get; set; }
 	public decimal ClosePrice { get; set; }
+	public DateTime? Timestamp { get; set; }
+}
+public class MomentumStrategy
+{
+	public int UserId { get; set; }
+	public required string FromCurrency { get; set; }
+	public required string ToCurrency { get; set; }
+	public decimal BtcPriceUsdc { get; set; }
+	public decimal BestBtcPriceUsdc { get; set; }
 	public DateTime? Timestamp { get; set; }
 }
 public class PriceData

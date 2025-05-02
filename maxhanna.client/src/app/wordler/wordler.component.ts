@@ -35,6 +35,7 @@ export class WordlerComponent extends ChildComponent implements OnInit {
 
   wordlerScores: WordlerScore[] = [];
   wordlerScoresCount: number = 0;
+  wordlerBestStreak: number = 0;
   wordlerStreak: number = 0;
 
   @ViewChild('difficultySelect') difficultySelect!: ElementRef<HTMLSelectElement>;
@@ -66,7 +67,12 @@ export class WordlerComponent extends ChildComponent implements OnInit {
         }
         const wsRes = await this.wordlerService.getBestConsecutiveDayStreak(this.parentRef.user.id);
         if (wsRes) {
-          this.wordlerStreak = parseInt(wsRes);
+          this.wordlerBestStreak = parseInt(wsRes);
+        }
+
+        const wsRes2 = await this.wordlerService.getTodaysDayStreak(this.parentRef.user.id);
+        if (wsRes2) {
+          this.wordlerStreak = parseInt(wsRes2);
         }
       } catch (e) { }
     }

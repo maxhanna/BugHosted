@@ -361,25 +361,48 @@ namespace maxhanna.Server.Controllers
 
 		[HttpPost("/User/GetAllUsers", Name = "GetAllUsers")]
 		public async Task<IActionResult> GetAllUsers([FromBody] UserSearchRequest? request)
-		{
+		{ 
 			MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
 			try
 			{
 				conn.Open();
-
 				string sql = @"
 					SELECT 
 						u.id, 
 						u.username,
 						udp.file_id as display_file_id
 					FROM maxhanna.users u 
-					LEFT JOIN maxhanna.user_display_pictures udp on udp.user_id = u.id ";
+					LEFT JOIN maxhanna.user_display_pictures udp ON udp.user_id = u.id
+					WHERE 1=1"; 
+ 
+				if (request?.UserId > 0)
+				{
+					sql += " AND u.id != @searchingUserId";
+				}
+
+				// Skip block checks if userId is null/0
+				if (request?.UserId > 0)
+				{
+					sql += @"
+						AND NOT EXISTS (
+							SELECT 1 FROM maxhanna.user_blocks ub1 
+							WHERE ub1.user_id = u.id AND ub1.blocked_user_id = @searchingUserId
+						)
+						AND NOT EXISTS (
+							SELECT 1 FROM maxhanna.user_blocks ub2 
+							WHERE ub2.user_id = @searchingUserId AND ub2.blocked_user_id = u.id
+						)";
+				}
+
+				// Add search filter if provided
 				if (!string.IsNullOrEmpty(request?.Search))
 				{
-					sql += " WHERE u.username like @search; ";
+					sql += " AND u.username LIKE @search";
 				}
 
 				MySqlCommand cmd = new MySqlCommand(sql, conn);
+				cmd.Parameters.AddWithValue("@searchingUserId", request?.UserId ?? 0);
+
 				if (!string.IsNullOrEmpty(request?.Search))
 				{
 					cmd.Parameters.AddWithValue("@search", "%" + request.Search + "%");
@@ -393,26 +416,19 @@ namespace maxhanna.Server.Controllers
 					{
 						users.Add(new User
 						(
-								Convert.ToInt32(reader["id"]),
-								(string)reader["username"],
-								reader.IsDBNull(reader.GetOrdinal("display_file_id")) ? null : new FileEntry(Convert.ToInt32(reader["display_file_id"]))
+							Convert.ToInt32(reader["id"]),
+							(string)reader["username"],
+							reader.IsDBNull(reader.GetOrdinal("display_file_id")) ? null : new FileEntry(Convert.ToInt32(reader["display_file_id"]))
 						));
 					}
 				}
 
-				if (users.Count > 0)
-				{
-					return Ok(users);
-				}
-				else
-				{
-					return NotFound();
-				}
+				return users.Count > 0 ? Ok(users) : NotFound();
 			}
 			catch (Exception ex)
 			{
-				_ = _log.Db("An error occurred while processing the GetAllUsers request. " + ex.Message, null, "USER", true);
-				return StatusCode(500, "An error occurred while processing the request.");
+				_ = _log.Db("Error in GetAllUsers: " + ex.Message, null, "USER", true);
+				return StatusCode(500, "An error occurred.");
 			}
 			finally
 			{

@@ -28,6 +28,7 @@ namespace maxhanna.Server.Controllers.DataContracts.Files
 		public List<Reaction>? Reactions { get; set; }
 		public List<Topic>? Topics { get; set; }
 		public DateTime? LastAccess { get; set; }
+		public int AccessCount { get; set; } = 0;
 
 		public FileEntry() { }
 		public FileEntry(int id)

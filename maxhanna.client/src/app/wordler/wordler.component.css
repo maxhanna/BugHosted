@@ -1,5 +1,3 @@
-
-
 .attempt {
   width: 100%;
   display: flex;
@@ -18,15 +16,15 @@ input {
   font-size: 18px;
 }
 
-  input.correct {
-    background-color: green;
-    color: white;
-  }
+input.correct {
+  background-color: green;
+  color: white;
+}
 
-  input.present {
-    background-color: yellow;
-    color: black;
-  }
+input.present {
+  background-color: yellow;
+  color: black;
+}
 
 .wordlerTitleIcons {
   font-size: xx-large;
@@ -148,7 +146,9 @@ input {
 }
 
 @keyframes shake {
-  0%, 100% {
+
+  0%,
+  100% {
     transform: translateX(0);
   }
 
@@ -219,16 +219,24 @@ input {
   margin-bottom: 15px;
 }
 
-.popupPanelTitle{
+.popupPanelTitle {
   text-align: center;
   width: 100%;
 }
+
 .mainPopupTitle {
   font-size: 2.5em;
   margin-bottom: 10px;
 }
+
 #scoreTablePopup tr:hover {
   text-decoration: underline;
   text-decoration-style: dotted;
   text-decoration-color: var(--main-link-color);
+}
+
+.wordlerScoresDiv {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
 }

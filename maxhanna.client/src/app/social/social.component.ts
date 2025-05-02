@@ -21,7 +21,7 @@ import { NotificationService } from '../../services/notification.service';
 @Pipe({
   name: 'clickableUrls',
   standalone: false
-}) 
+})
 export class ClickableUrlsPipe implements PipeTransform {
   transform(value?: string): string {
     if (!value) {
@@ -33,10 +33,10 @@ export class ClickableUrlsPipe implements PipeTransform {
 }
 
 @Component({
-    selector: 'app-social',
-    templateUrl: './social.component.html',
-    styleUrls: ['./social.component.css'],
-    standalone: false
+  selector: 'app-social',
+  templateUrl: './social.component.html',
+  styleUrls: ['./social.component.css'],
+  standalone: false
 })
 export class SocialComponent extends ChildComponent implements OnInit, OnDestroy, AfterViewInit {
   fileMetadata: any;
@@ -53,10 +53,10 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
   isPostOptionsPanelOpen = false;
   isEmojiPanelOpen = false;
   isEditing: number[] = [];
-  editingTopics: number[] = []; 
-  eachAttachmentSeperatePost = false; 
+  editingTopics: number[] = [];
+  eachAttachmentSeperatePost = false;
   attachedFiles: FileEntry[] = [];
-  attachedTopics: Array<Topic> = []; 
+  attachedTopics: Array<Topic> = [];
   storyOverflowMap: { [key: string]: boolean } = {};
 
   userProfileId?: number = undefined;
@@ -76,7 +76,7 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
   isDisplayingNSFW = false;
   searchTimeout: any;
   showHiddenFiles: boolean = false;
-  filter = { 
+  filter = {
     hidden: this.showHiddenFiles ? 'yes' : 'no',
   };
   private storyUpdateInterval: any;
@@ -95,12 +95,12 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
   @ViewChild('componentMain') componentMain!: ElementRef<HTMLDivElement>;
   @ViewChild(MediaSelectorComponent) mediaSelectorComponent!: MediaSelectorComponent;
   @ViewChild(MediaSelectorComponent) postMediaSelector!: MediaSelectorComponent;
-  @ViewChild(TopicsComponent) topicComponent!: TopicsComponent; 
+  @ViewChild(TopicsComponent) topicComponent!: TopicsComponent;
 
   @Input() storyId: number | undefined = undefined;
   @Input() showTopicSelector: boolean = true;
   @Input() user?: User;
-  @Input() parent?: AppComponent; 
+  @Input() parent?: AppComponent;
 
   constructor(private socialService: SocialService,
     private topicService: TopicService,
@@ -114,11 +114,11 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
     if (this.parent) {
       this.parentRef = this.parent;
     }
-    if (this.storyId) { 
-      this.openedStoryComments.push(this.storyId); 
+    if (this.storyId) {
+      this.openedStoryComments.push(this.storyId);
     }
     this.parent?.addResizeListener();
-    this.getStories().then(() => { 
+    this.getStories().then(() => {
       if (this.storyId && this.storyResponse && this.storyResponse.stories && this.storyResponse.stories.length > 0) {
         const tgtStory = this.storyResponse.stories.find((story) => story.id == this.storyId);
         if (tgtStory) {
@@ -129,9 +129,9 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
             const script = document.createElement('script');
             script.setAttribute('type', 'application/ld+json');
             script.textContent = titleAndDescrip?.title ?? "";
-            document.head.appendChild(script); 
+            document.head.appendChild(script);
           }
-        } 
+        }
       }
     });
     this.topicService.getTopStoryTopics().then(res => {
@@ -142,9 +142,9 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
     this.parentRef?.getLocation().then(res => {
       if (res) {
         this.country = res.country;
-        this.city = res.city; 
+        this.city = res.city;
       }
-    }) 
+    })
     if (this.user) {
       const elements = document.getElementsByClassName('componentMain');
 
@@ -153,12 +153,12 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
           (e as HTMLElement).style.maxHeight = 'none';
         });
       }
-    } 
+    }
     const user = this.parent?.user ?? this.parentRef?.user;
     if (user && user.id) {
       this.userService.getUserSettings(user.id).then(res => {
         if (res) {
-          this.isDisplayingNSFW = res.nsfwEnabled ?? false; 
+          this.isDisplayingNSFW = res.nsfwEnabled ?? false;
         }
       });
     }
@@ -217,7 +217,7 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
     story.storyText = message;
     if (document.getElementById('storyText' + story.id) && this.parentRef?.user?.id) {
       this.parentRef.updateLastSeen();
-      const sessionToken = await this.parentRef.getSessionToken(); 
+      const sessionToken = await this.parentRef.getSessionToken();
       this.socialService.editStory(this.parentRef.user.id, story, sessionToken);
       this.isEditing = this.isEditing.filter(x => x != story.id);
     }
@@ -267,13 +267,13 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
           )
         );
       } else {
-        this.storyResponse = res; 
+        this.storyResponse = res;
       }
 
       if (this.storyResponse?.stories) {
-        this.storyResponse.stories.forEach(story => { 
-          if (story.date) { 
-            if (typeof story.date === 'string') { 
+        this.storyResponse.stories.forEach(story => {
+          if (story.date) {
+            if (typeof story.date === 'string') {
               story.date = new Date(story.date);
             }
             story.date = new Date(story.date.getTime() - story.date.getTimezoneOffset() * 60000);  //Convert UTC dates to local time.
@@ -314,7 +314,7 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
     this.startLoading();
 
     try {
-      const parent = this.parentRef ?? this.parent; 
+      const parent = this.parentRef ?? this.parent;
       const user = parent?.user ?? new User(0, "Anonymous");
 
       const results = this.eachAttachmentSeperatePost
@@ -349,7 +349,7 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
           }
           parent.showNotification(results.message ?? "Story posted successfully!");
         }
-       
+
       } else {
         parent?.showNotification("An unexpected error occurred.");
       }
@@ -385,7 +385,7 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
   private async postSingleStory(user: User, storyText: string): Promise<any> {
     const story = this.createStory(user, storyText, this.attachedFiles);
     this.parentRef?.updateLastSeen();
-    const sessionToken = await this.parentRef?.getSessionToken(); 
+    const sessionToken = await this.parentRef?.getSessionToken();
     return this.socialService.postStory(user.id ?? 0, story, sessionToken ?? "");
   }
 
@@ -413,9 +413,9 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
     const user = this.parentRef?.user ?? this.parent?.user;
     if (user) {
       this.parentRef?.updateLastSeen();
-      this.socialService.editTopics(story, topics); 
+      this.socialService.editTopics(story, topics);
       this.closeStoryOptionsPanel();
-      this.editingTopics = this.editingTopics.filter(x => x != story.id); 
+      this.editingTopics = this.editingTopics.filter(x => x != story.id);
       story.storyTopics = topics;
     }
   }
@@ -438,13 +438,13 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
     const matches = text.match(urlPattern);
     return matches ? matches[0] : undefined;
   }
-  goToLink(story?: Story, metadataUrl?: string) { 
+  goToLink(story?: Story, metadataUrl?: string) {
     if (story && story.storyText) {
       const goodUrl = metadataUrl ?? this.extractUrl(story.storyText);
       if (goodUrl) {
-        const videoId = this.extractYouTubeVideoId(metadataUrl ?? story.storyText); 
+        const videoId = this.extractYouTubeVideoId(metadataUrl ?? story.storyText);
         if (videoId) {
-          (document.getElementById('youtubeVideoIdInput') as HTMLInputElement).value = videoId; 
+          (document.getElementById('youtubeVideoIdInput') as HTMLInputElement).value = videoId;
           this.parentRef?.playYoutubeVideo();
         } else {
           window.open(goodUrl, '_blank');
@@ -482,18 +482,18 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
           storyContainer.scrollIntoView();
         }
       } else {
-        window.scrollTo({ top: 0, behavior: 'smooth' }); 
+        window.scrollTo({ top: 0, behavior: 'smooth' });
       }
     }, 20);
   }
-    
+
   isValidYoutubeImageUrl(url?: string): boolean {
     if (!url) return false;
     return url.includes("ytimg");
   }
 
   onTopicAdded(topics?: Array<Topic>) {
-    if (topics) {  
+    if (topics) {
       this.currentPage = 1;
       this.attachedTopics = topics;
       this.searchStories(topics);
@@ -543,7 +543,7 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
       this.parentRef?.showNotification('Failed to copy link!');
     });
   }
-  updateStoryDates() { 
+  updateStoryDates() {
     if (this.storyResponse?.stories) {
       this.storyResponse.stories.forEach(story => {
         story.timeSince = this.daysSinceDate(story.date);
@@ -552,7 +552,7 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
   }
   formatDate(dateString?: Date): string {
     if (!dateString) return '';
-    const date = typeof dateString === 'string' ? new Date(dateString) : dateString; 
+    const date = typeof dateString === 'string' ? new Date(dateString) : dateString;
     const day = date.getDate();
 
     const monthNames = [
@@ -632,7 +632,7 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
       this.closeStoryOptionsPanel();
       return;
     }
-    this.optionStory = story; 
+    this.optionStory = story;
     this.isStoryOptionsPanelOpen = true;
     if (this.parentRef) {
       this.parentRef.showOverlay();
@@ -646,7 +646,7 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
       this.parentRef.closeOverlay();
     }
   }
-  showPostOptionsPanel() { 
+  showPostOptionsPanel() {
     if (this.isPostOptionsPanelOpen) {
       this.closePostOptionsPanel();
       if (this.parentRef) {
@@ -675,7 +675,7 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
     const parent = this.parent ?? this.parentRef;
     if (parent) {
       parent.showOverlay();
-      this.filteredEmojis = { ...parent.emojiMap }; 
+      this.filteredEmojis = { ...parent.emojiMap };
     }
   }
   closeInsertEmojiPanel() {
@@ -918,11 +918,11 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
           }
           if (this.filter.hidden != "yes") {
             this.getStories(undefined, undefined, undefined, undefined, undefined, false);
-          } 
+          }
         });
-      } 
+      }
     }
-  } 
+  }
   getTotalCommentCount(commentList?: FileComment[]): number {
     if (!commentList || commentList.length === 0) return 0;
     let count = 0;
@@ -945,7 +945,29 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
 
     return count;
   }
- 
+  selectDivText = (element: HTMLElement) => {
+    const range = document.createRange();
+    range.selectNode(element);
+    window.getSelection()?.removeAllRanges();
+    window.getSelection()?.addRange(range);
+  };
+  selectAllText(storyId?: number) {
+    if (!storyId) {
+      alert("Post Id is null");
+      return;
+    } 
+    this.closePostOptionsPanel(); 
+    // Attempt to select text immediately
+    const el = document.getElementById("storyText" + storyId);
+    if (!el) {
+      console.warn(`Element with ID storyText${storyId} not found.`);
+      alert(`Post with ID ${storyId} not found.`);
+      return;
+    } else { 
+      el.focus();
+      this.selectDivText(el);
+    } 
+  }
   async updateNSFW(event: Event) {
     const parent = this.parent ?? this.parentRef;
     const user = parent?.user;
@@ -957,6 +979,6 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
         parent.showNotification(res);
         this.searchStories();
       }
-    }); 
+    });
   }
 }

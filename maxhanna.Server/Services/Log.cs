@@ -36,9 +36,9 @@ public class Log
 			Console.WriteLine($"[{DateTime.UtcNow}] {type}: {message}");
 		}
 	}
-	public async Task<List<Dictionary<string, object>>> GetLogs(int? userId = null, string? component = null, int limit = 1000)
+	public async Task<List<Dictionary<string, object?>>> GetLogs(int? userId = null, string? component = null, int limit = 1000)
 	{
-		var logs = new List<Dictionary<string, object>>();
+		var logs = new List<Dictionary<string, object?>>();
 
 		var sql = new StringBuilder("SELECT comment, component, user_id, timestamp FROM maxhanna.logs WHERE 1=1");
 
@@ -67,7 +67,7 @@ public class Log
 
 			while (await reader.ReadAsync())
 			{
-				var logEntry = new Dictionary<string, object>
+				var logEntry = new Dictionary<string, object?>
 				{
 					["comment"] = reader["comment"],
 					["component"] = reader["component"],
@@ -165,7 +165,7 @@ public class Log
 			// Skip if most recent backup is under 10 days old
 			if ((DateTime.UtcNow - latestBackup).TotalDays < 10)
 			{
-				await Db("Skipped database backup: last backup is less than 10 days old.", null, "SYSTEM", true);
+				await Db($"Skipped database backup: last backup is less than 10 days old ({GetTimeSince(latestBackup, true)}).", null, "SYSTEM", true);
 				return false;
 			}
 
@@ -248,5 +248,37 @@ public class Log
 		aes.Decrypt(iv, encryptedData, tag, plaintextBytes);
 
 		return int.Parse(Encoding.UTF8.GetString(plaintextBytes));
+	}
+	
+	public string GetTimeSince(DateTime? timestamp, bool isUtc = true)
+	{
+		if (!timestamp.HasValue) return "just now";
+
+		TimeSpan elapsed = isUtc
+			? DateTime.UtcNow - timestamp.Value
+			: DateTime.Now - timestamp.Value;
+
+		return FormatElapsedTime(elapsed); // Reuse the same helper
+	}
+
+	// Shared logic for formatting
+	private string FormatElapsedTime(TimeSpan elapsed)
+	{
+		if (elapsed.TotalSeconds < 0)
+			return "just now";
+
+		if (elapsed.TotalSeconds < 60)
+			return $"{(int)elapsed.TotalSeconds} second{(elapsed.TotalSeconds < 2 ? "" : "s")} ago";
+
+		if (elapsed.TotalMinutes < 60)
+			return $"{(int)elapsed.TotalMinutes} minute{(elapsed.TotalMinutes < 2 ? "" : "s")} ago";
+
+		if (elapsed.TotalHours < 24)
+		{
+			// Check TotalHours (double) before casting to int
+			return $"{(int)elapsed.TotalHours} hour{(elapsed.TotalHours < 2 ? "" : "s")} ago";
+		}
+
+		return $"{(int)elapsed.TotalDays} day{(elapsed.TotalDays < 2 ? "" : "s")} ago";
 	}
 }

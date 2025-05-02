@@ -5,7 +5,6 @@ import { FavouriteService } from '../../services/favourite.service';
 import { User } from '../../services/datacontracts/user/user';
 import { CrawlerService } from '../../services/crawler.service';
 import { UserService } from '../../services/user.service';
-import { target } from '../meta/helpers/fight';
 
 @Component({
   selector: 'app-favourites',
@@ -18,8 +17,8 @@ export class FavouritesComponent extends ChildComponent implements OnInit {
   @ViewChild('editingUrlInput') editingUrlInput!: ElementRef<HTMLInputElement>;
   @ViewChild('editingImageUrlInput') editingImageUrlInput!: ElementRef<HTMLInputElement>;
   @ViewChild('editingNameInput') editingNameInput!: ElementRef<HTMLInputElement>;
-  userFavourites: Favourite[] = [];
-  favouriteSearch: Favourite[] = [];
+
+  favorites: Favourite[] = []; // Single array for all favorites
   editingFavourite?: Favourite;
   showNameImageInput = false;
   isEditPanelOpen = false;
@@ -27,60 +26,68 @@ export class FavouritesComponent extends ChildComponent implements OnInit {
   showingLatestLinks = false;
   isSearchingUrls = false;
   currentOrder = 'recent';
-
   editingCreatedBy?: User;
   editingUpdatedBy?: User;
-  getProfileCount = 0;
-
   page = 1;
   pageSize = 100;
   totalCount = 1;
+  isMenuPanelOpen = false;
+  numberOfPages = 0;
 
-  constructor(private favoriteService: FavouriteService, private crawlerService: CrawlerService, private userService: UserService) {
-    super();  
+  constructor(
+    private favoriteService: FavouriteService,
+    private crawlerService: CrawlerService,
+    private userService: UserService
+  ) {
+    super();
   }
 
   ngOnInit() {
     this.startLoading();
-    if (this.parentRef?.user?.id) { 
+    if (this.parentRef?.user?.id) {
       this.currentOrder = 'visited';
-      this.favoriteService.getFavourites('', this.page, this.pageSize, this.currentOrder, this.parentRef.user.id).then(res => {
-        if (res) {
-          console.log(res);
-          this.userFavourites = Array.isArray(res.items) ? res.items : [];
-          this.totalCount = res.totalCount || 0;
-        } else {
-          this.userFavourites = [];
-          this.totalCount = 0;
-        }
-        this.stopLoading();
-        setTimeout(() => {
-          if (this.userFavourites.length == 0) { 
-            this.showLatestLinks();
-          }
-        }, 50);
-      });
+      this.loadFavorites();
     } else {
-      this.stopLoading(); 
+      this.stopLoading();
       this.showLatestLinks();
     }
   }
 
-  permanentlyDelete(fav?: Favourite) {
-    if (!fav) return;
-    const user = this.parentRef?.user;
-    if (!user?.id) { return alert("You must be logged in to delete favourites."); }
+  async loadFavorites(search: string = '') {
+    if (!search) { this.isSearchingUrls = false; }
+    const res = await this.favoriteService.getFavourites(
+      search,
+      this.page,
+      this.pageSize,
+      this.showingLatestLinks,
+      this.currentOrder,
+      this.parentRef?.user?.id
+    );
+    if (res) {
+      this.favorites = res.items;
+      this.totalCount = res.totalCount || 0;
+    } else {
+      this.favorites = [];
+      this.totalCount = 0;
+    }
+    this.numberOfPages = Math.ceil(this.totalCount / this.pageSize);
+    console.log("loading favorites for " + this.parentRef?.user?.id, this.favorites, this.isSearchingUrls);
+    this.stopLoading(); 
+  }
+
+  async permanentlyDelete(fav?: Favourite) {
+    if (!fav || !this.parentRef?.user?.id) {
+      return alert("You must be logged in to delete favourites.");
+    }
     this.startLoading();
-    this.favoriteService.deleteFavourite(user.id, fav.id).then(res => {
-      if (res) {
-        this.parentRef?.showNotification(res);
-      }
-      this.stopLoading();
-    });
-    this.favouriteSearch = this.favouriteSearch.filter(x => x.id != this.editingFavourite?.id);
-    this.userFavourites = this.userFavourites.filter(x => x.id != this.editingFavourite?.id);
+    const res = await this.favoriteService.deleteFavourite(this.parentRef.user.id, fav.id);
+    if (res) {
+      this.parentRef?.showNotification(res);
+    }
+    this.favorites = this.favorites.filter(x => x.id !== fav.id);
     this.editingFavourite = undefined;
     this.closeEditPanel();
+    this.stopLoading();
   }
 
   async deleteFav(fav: Favourite) {
@@ -88,37 +95,40 @@ export class FavouritesComponent extends ChildComponent implements OnInit {
       return alert("You must be logged in to update the favourites");
     }
     this.startLoading();
-    await this.favoriteService.removeFavourite(this.parentRef.user.id, fav.id).then(res => {
-      if (res) {
-        this.parentRef?.showNotification(res);
-      }
-      this.stopLoading();
-    });
-    this.userFavourites = this.userFavourites.filter(x => x.url != fav.url);
+    const res = await this.favoriteService.removeFavourite(this.parentRef.user.id, fav.id);
+    if (res) {
+      this.parentRef?.showNotification(res);
+    }
+    this.favorites = this.favorites.filter(x => x.id !== fav.id);
+    this.stopLoading();
   }
 
   async addLink(fav?: Favourite) {
     const user = this.parentRef?.user;
-    if (!user?.id) { return alert("You must be logged in to update the favourites"); }
+    if (!user?.id) {
+      return alert("You must be logged in to update the favourites");
+    }
     this.startLoading();
-    console.log("adding link");
+
     if (fav) {
-      await this.favoriteService.addFavourite(user.id, fav.id).then(res => {
-        if (res) {
-          this.parentRef?.showNotification(res);
-        }
-      });
-      this.userFavourites.push(fav);
+      const res = await this.favoriteService.addFavourite(user.id, fav.id);
+      if (res) {
+        this.parentRef?.showNotification(res);
+      }
+      this.favorites = this.favorites.map(f =>
+        f.id === fav.id ? { ...f, isUserFavourite: true } : f
+      );
     } else {
       const linkUrl = this.linkInput.nativeElement.value;
       let imageUrl = "";
       let name = "";
       let tmpLinkUrl = linkUrl;
+
       if (tmpLinkUrl) {
         const exactMatch = linkUrl.includes('.') ? true : false;
         const cRes = await this.crawlerService.searchUrl(tmpLinkUrl, undefined, undefined, exactMatch);
         if (cRes && cRes.results.length > 0 && (!exactMatch ? cRes.results[0].url.includes(tmpLinkUrl) : true)) {
-          let targetData = cRes.results[0];
+          const targetData = cRes.results[0];
           imageUrl = targetData.imageUrl;
           name = targetData.title;
           tmpLinkUrl = targetData.url;
@@ -128,7 +138,7 @@ export class FavouritesComponent extends ChildComponent implements OnInit {
             Found Title: ${name} <br />
             Found URL: ${tmpLinkUrl} <br />
           `);
-          setTimeout(() => { this.parentRef?.openModal(); },);
+          setTimeout(() => this.parentRef?.openModal(), 0);
         } else {
           if (!tmpLinkUrl.toLowerCase().includes("https") && !tmpLinkUrl.toLowerCase().includes("http")) {
             tmpLinkUrl = "https://" + tmpLinkUrl;
@@ -139,84 +149,80 @@ export class FavouritesComponent extends ChildComponent implements OnInit {
             Title: ${name} <br />
             URL: ${tmpLinkUrl} <br />
           `);
-          setTimeout(() => { this.parentRef?.openModal(); },);
+          setTimeout(() => this.parentRef?.openModal(), 0);
         }
-        console.log(cRes);
-        await this.favoriteService.updateFavourites(user, tmpLinkUrl, 0, imageUrl, name ?? linkUrl).then(res => {
-          var tmpFav = new Favourite();
-          tmpFav.name = name ?? linkUrl;
-          tmpFav.url = tmpLinkUrl;
-          tmpFav.imageUrl = imageUrl;
-          tmpFav.id = res.id;
-          tmpFav.createdBy = user.id;
-          tmpFav.modifiedBy = user.id;
-          tmpFav.userCount = 1;
-          this.parentRef?.showNotification(res.message);
 
-          // Ensure we're adding to an array
-          if (!Array.isArray(this.userFavourites)) {
-            this.userFavourites = [];
-          }
-          this.userFavourites.push(tmpFav);
-        });
+        const res = await this.favoriteService.updateFavourites(user, tmpLinkUrl, 0, imageUrl, name ?? linkUrl);
+        const tmpFav = new Favourite();
+        tmpFav.name = name ?? linkUrl;
+        tmpFav.url = tmpLinkUrl;
+        tmpFav.imageUrl = imageUrl;
+        tmpFav.id = res.id;
+        tmpFav.createdBy = user.id;
+        tmpFav.modifiedBy = user.id;
+        tmpFav.userCount = 1;
+        tmpFav.isUserFavourite = true;
+
+        this.favorites.unshift(tmpFav);
+        this.parentRef?.showNotification(res.message);
       }
     }
-    this.resetInputs();
 
+    this.resetInputs();
     this.showNameImageInput = false;
     this.stopLoading();
   }
 
   private resetInputs() {
-    if (this.linkInput && this.linkInput.nativeElement) this.linkInput.nativeElement.value = "";
+    if (this.linkInput && this.linkInput.nativeElement) {
+      this.linkInput.nativeElement.value = "";
+    }
     this.isSearchingUrls = false;
   }
 
   async editFavourite() {
-    if (!this.parentRef?.user) { return alert("You must be log in to edit favourites."); }
-    if (!this.editingFavourite) { return alert("You must select a favourite to edit."); }
+    if (!this.parentRef?.user || !this.editingFavourite) {
+      return alert("You must be logged in and select a favourite to edit.");
+    }
     const name = this.editingNameInput.nativeElement.value;
     const url = this.editingUrlInput.nativeElement.value;
     const imageUrl = this.editingImageUrlInput.nativeElement.value;
 
-    this.favoriteService.updateFavourites(this.parentRef.user, url, this.editingFavourite.id, imageUrl, name).then(res => {
-      this.ngOnInit();
-      this.closeEditPanel();
-      this.parentRef?.showNotification(res.message);
-    });
+    const res = await this.favoriteService.updateFavourites(
+      this.parentRef.user,
+      url,
+      this.editingFavourite.id,
+      imageUrl,
+      name
+    );
+
+    this.favorites = this.favorites.map(f =>
+      f.id === this.editingFavourite?.id ? { ...f, name, url, imageUrl } : f
+    );
+    this.closeEditPanel();
+    this.parentRef?.showNotification(res.message);
   }
+
   linkUrlInput() {
-    this.showNameImageInput = (this.linkInput.nativeElement.value ? true : false);
-    const search = this.linkInput.nativeElement.value;
-    if (search) {
-      this.isSearchingUrls = true;
-      this.favoriteService.getFavourites(search, this.page, this.pageSize, this.currentOrder).then(res => {
-        if (res) {
-          this.favouriteSearch = res.items;
-          this.totalCount = res.totalCount || 0;
-        } else {
-          this.favouriteSearch = [];
-          this.totalCount = 0;
-        }
-      });
-    } else {
-      this.isSearchingUrls = false;
-      this.favouriteSearch = []
-      this.totalCount = 0;
-    }
-    this.showingLatestLinks = false;
+    const search = this.linkInput.nativeElement.value ?? "";
+    this.showNameImageInput = !!search;
+    this.isSearchingUrls = true;
+    const userId = this.parentRef?.user?.id; 
+    this.loadFavorites(search);
   }
+
   async openEditPanel(fav: Favourite) {
     this.isEditPanelOpen = true;
     this.parentRef?.showOverlay();
     this.editingFavourite = fav;
+
     if (fav.createdBy) {
       const res = await this.userService.getUserById(fav.createdBy);
       if (res) {
         this.editingCreatedBy = res || new User(0, "Anonymous");
       }
     }
-    if (fav.createdBy == fav.modifiedBy) {
+    if (fav.createdBy === fav.modifiedBy) {
       this.editingUpdatedBy = this.editingCreatedBy;
     } else if (fav.modifiedBy) {
       const res = await this.userService.getUserById(fav.modifiedBy);
@@ -225,6 +231,7 @@ export class FavouritesComponent extends ChildComponent implements OnInit {
       }
     }
   }
+
   closeEditPanel() {
     this.isEditPanelOpen = false;
     this.parentRef?.closeOverlay();
@@ -234,127 +241,46 @@ export class FavouritesComponent extends ChildComponent implements OnInit {
     if (url.startsWith('http://') || url.startsWith('https://')) {
       return url;
     }
-    return 'https://' + url; // Ensures proper external URL navigation
+    return 'https://' + url;
   }
+
   isIncludedInFavourites(fav: Favourite): boolean {
-    if (!fav || !fav.id || !Array.isArray(this.userFavourites)) {
-      return false;
-    }
-    return this.userFavourites.some(x => x.id === fav.id);
+    return !!fav.isUserFavourite;
   }
+
   async showLatestLinks() {
     this.showingLatestLinks = !this.showingLatestLinks;
-    if (this.showingLatestLinks) {
-      this.currentOrder = 'recent';
-      this.favoriteService.getFavourites('', 1, 50, this.currentOrder).then(res => {
-        this.favouriteSearch = res.items;
-        this.totalCount = res.totalCount || 0;
-      });
-    } else {
-      this.favouriteSearch = [];
-      this.totalCount = 0;
-    }
+    this.currentOrder = this.showingLatestLinks ? 'recent' : 'visited';
+    await this.loadFavorites();
   }
+
   pageChanged(event: any) {
-    this.page = event.srcElement.value;
-    console.log(event);
-    this.favoriteService.getFavourites(this.linkInput.nativeElement.value, this.page, this.pageSize, this.currentOrder).then(res => {
-      if (res) {
-        if (this.showingLatestLinks) {
-          this.favouriteSearch = Array.isArray(res.items) ? res.items : [];
-          this.totalCount = res.totalCount || 0;
-        } else {
-          this.userFavourites = Array.isArray(res.items) ? res.items : [];
-          this.totalCount = res.totalCount || 0;
-        }
-      } else {
-        if (this.showingLatestLinks) {
-          this.favouriteSearch = [];
-          this.totalCount = 0;
-        } else {
-          this.userFavourites = [];
-          this.totalCount = 0;
-        }
-      }
-    });
+    this.page = parseInt(event.srcElement.value) || 1;
+    this.loadFavorites(this.linkInput.nativeElement.value);
   }
 
   pageSizeChanged(event: any) {
-    this.pageSize = event.srcElement.value;
-    console.log(this.pageSize);
-    this.favoriteService.getFavourites(this.linkInput.nativeElement.value, this.page, this.pageSize, this.currentOrder, this.showingLatestLinks ? undefined : this.parentRef?.user?.id).then(res => {
-      if (res) {
-        if (this.showingLatestLinks) {
-          this.favouriteSearch = Array.isArray(res.items) ? res.items : [];
-          this.totalCount = res.totalCount || 0;
-        } else {
-          this.userFavourites = Array.isArray(res.items) ? res.items : [];
-          this.totalCount = res.totalCount || 0;
-        }
-      } else {
-        if (this.showingLatestLinks) {
-          this.favouriteSearch = [];
-          this.totalCount = 0;
-        } else {
-          this.userFavourites = [];
-          this.totalCount = 0;
-        }
-      }
-    });
+    this.pageSize = parseInt(event.srcElement.value);
+    this.loadFavorites(this.linkInput.nativeElement.value);
   }
+
   visitExternalLink(fav: Favourite) {
     this.favoriteService.visit(fav.id);
     this.parentRef?.visitExternalLink(fav.url);
   }
+
   orderChanged(event?: any, value?: string) {
     this.currentOrder = value ?? event.target.value;
-    this.favoriteService.getFavourites(this.linkInput.nativeElement.value, this.page, this.pageSize, this.currentOrder, this.showingLatestLinks ? undefined : this.parentRef?.user?.id).then(res => {
-      if (res) {
-        console.log(res);
-        if (this.showingLatestLinks) {
-          this.favouriteSearch = Array.isArray(res.items) ? res.items : [];
-          this.totalCount = res.totalCount || 0;
-        } else {
-          this.userFavourites = Array.isArray(res.items) ? res.items : [];
-          this.totalCount = res.totalCount || 0;
-        }
-        this.applyOrdering();
-      } else {
-        if (this.showingLatestLinks) {
-          this.favouriteSearch = [];
-          this.totalCount = 0;
-        } else {
-          this.userFavourites = [];
-          this.totalCount = 0;
-        }
-      }
-      this.stopLoading();
-    });
+    this.loadFavorites(this.linkInput.nativeElement.value);
   }
-  private applyOrdering() {
-    switch (this.currentOrder) {
-      case 'recent':
-        this.favouriteSearch.sort((a, b) =>
-          new Date(b.creationDate).getTime() - new Date(a.creationDate).getTime());
-        this.userFavourites.sort((a, b) =>
-          new Date(b.creationDate).getTime() - new Date(a.creationDate).getTime());
-        break;
-      case 'popular':
-        this.favouriteSearch.sort((a, b) => b.userCount - a.userCount);
-        this.userFavourites.sort((a, b) => b.userCount - a.userCount);
-        break;
-      case 'visited':
-        this.favouriteSearch.sort((a, b) => b.accessCount - a.accessCount);
-        this.userFavourites.sort((a, b) => b.accessCount - a.accessCount);
-        break;
-      case 'name':
-        this.favouriteSearch.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
-        this.userFavourites.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
-        break;
-      case 'url':
-        this.favouriteSearch.sort((a, b) => a.url.localeCompare(b.url));
-        this.userFavourites.sort((a, b) => a.url.localeCompare(b.url));
-        break;
-    }
+
+  showMenuPanel() {
+    this.isMenuPanelOpen = !this.isMenuPanelOpen;
+    this.isMenuPanelOpen ? this.parentRef?.showOverlay() : this.parentRef?.closeOverlay();
   }
+
+  closeMenuPanel() {
+    this.isMenuPanelOpen = false;
+    this.parentRef?.closeOverlay();
+  } 
 }

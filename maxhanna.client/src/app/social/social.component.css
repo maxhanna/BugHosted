@@ -65,6 +65,7 @@
   border-radius: 3px;
   font-weight: 400;
   word-break: break-word;
+  user-select: text;
 }
 
 .storyUserDetails textarea {
@@ -146,8 +147,7 @@
 }
 
 .attachment {
-  display: inline-block;
-  overflow-y: auto;
+  display: inline-block; 
 }
 
 singleAttachment {

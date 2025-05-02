@@ -632,7 +632,7 @@ public class WebCrawler
 		}
 		catch (Exception ex)
 		{
-			//_ = _log.Db($"ScrapeUrlData Exception on URL {ShortenUrl(url)} : " + ex.Message, null, "CRAWLER", true);
+			_ = _log.Db($"ScrapeUrlData Exception on URL {ShortenUrl(url)} : " + ex.Message, null, "CRAWLER", false);
 			_ = MarkUrlAsFailed(url);
 			return null;
 		}

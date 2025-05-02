@@ -1585,7 +1585,7 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
     this.startLoading();
     if (this.showingTradeLogs && this.tradeLogs.length == 0) {
       const sessionToken = await this.parentRef?.getSessionToken() ?? "";
-      this.tradeLogs = await this.tradeService.getTradeLogs(this.parentRef?.user?.id ?? 1, sessionToken)
+      this.tradeLogs = await this.tradeService.getTradeLogs(this.hasKrakenApi ? this.parentRef?.user?.id ?? 1 : 1, sessionToken)
       this.setPaginatedLogs();
     }
     this.stopLoading();

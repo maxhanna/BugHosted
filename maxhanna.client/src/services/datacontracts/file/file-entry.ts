@@ -14,8 +14,9 @@ export class FileEntry {
   isFolder?: boolean;
   fileComments?: Array<FileComment>;
   date?: Date;
-  lastUpdated?: Date; 
-  lastAccess?: Date; 
+  lastUpdated?: Date;
+  lastAccess?: Date;
+  accessCount?: number; 
   fileSize?: number;
   fileType?: string;
   width?: number;
@@ -25,7 +26,8 @@ export class FileEntry {
     
   constructor(id: number, fileName?: string, directory?: string, visibility?: string, sharedWith?: string,
     user?: User, isFolder?: boolean, comments?: Array<FileComment>, date?: Date,
-    fileSize?: number, fileType?: string, reactions?: Array<Reaction>, lastUpdated?: Date, lastUpdatedBy?: User, givenFileName?: string, width?: number, height?: number, lastAccess?: Date,) {
+    fileSize?: number, fileType?: string, reactions?: Array<Reaction>, lastUpdated?: Date, lastUpdatedBy?: User, givenFileName?: string,
+     width?: number, height?: number, lastAccess?: Date, accessCount?: number,) {
     this.id = id;
     this.fileName = fileName;
     this.directory = directory;
@@ -44,5 +46,6 @@ export class FileEntry {
     this.height = height;
     this.reactions = reactions;
     this.lastAccess = lastAccess;
+    this.accessCount = accessCount;
   } 
 }

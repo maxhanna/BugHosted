@@ -13,7 +13,7 @@ namespace maxhanna.Server.Services
 		private readonly IConfiguration _config;
 		private readonly string _connectionString; 
 		private readonly Log _log;
-		private Timer _checkForNewAttacksTimer;
+		private Timer? _checkForNewAttacksTimer;
 		private Timer _processAttackQueueTimer;
 
 		private static readonly SemaphoreSlim _semaphore = new SemaphoreSlim(10);
@@ -23,7 +23,7 @@ namespace maxhanna.Server.Services
 			_config = config;
 			_connectionString = config.GetValue<string>("ConnectionStrings:maxhanna") ?? ""; 
 			_log = log;
-			_processAttackQueueTimer = new Timer(ProcessAttackQueue, null, TimeSpan.Zero, TimeSpan.FromMilliseconds(100));
+			_processAttackQueueTimer = new Timer(ProcessAttackQueue, null, TimeSpan.Zero, TimeSpan.FromMilliseconds(100)); 
 		}
 
 		public void ScheduleAttack(int attackId, TimeSpan delay, Action<int> callback)
@@ -53,7 +53,7 @@ namespace maxhanna.Server.Services
 			_attackQueue.Enqueue(attackId);
 		}
 
-		private async void ProcessAttackQueue(object state)
+		private async void ProcessAttackQueue(object? state)
 		{
 			if (_attackQueue.TryDequeue(out var attackId))
 			{
@@ -215,7 +215,7 @@ namespace maxhanna.Server.Services
 			{
 				timer.Dispose();
 			}
-			_checkForNewAttacksTimer.Dispose();
+			_checkForNewAttacksTimer?.Dispose();
 			_processAttackQueueTimer.Dispose();
 			_semaphore.Dispose();
 			base.Dispose();

@@ -49,7 +49,8 @@ romFileExtensions = [
 		search?: string,
 		fileId?: number,
 		fileType?: Array<string>,
-		showHidden?: boolean
+		showHidden?: boolean,
+		sortOption?: string,
 	) {
 		// Create a URLSearchParams object
 		const params = new URLSearchParams();
@@ -60,6 +61,7 @@ romFileExtensions = [
 		params.append('ownership', ownership || '');
 		params.append('page', page ? page.toString() : '1');
 		params.append('pageSize', pageSize ? pageSize.toString() : '100');
+		params.append('sortOption', sortOption ? sortOption : 'Latest');
 		if (search) params.append('search', search);
 		if (fileId) params.append('fileId', fileId.toString());
 		if (fileType) params.append('fileType', fileType.join(','));
@@ -355,7 +357,22 @@ romFileExtensions = [
 				headers: {
 					'Content-Type': 'application/json',
 				},
-				body: JSON.stringify( fileId ),
+				body: JSON.stringify(fileId),
+			});
+
+			return await response.json();
+		} catch (error) {
+			return null;
+		}
+	}
+	async notifyFollowersFileUploaded(userId: number, fileId: number, fileCount?: number) {
+		try {
+			const response = await fetch(`/file/notifyfollowersfileuploaded`, {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json',
+				},
+				body: JSON.stringify({UserId: userId, FileId: fileId, FileCount: fileCount ?? 1}),
 			});
 
 			return await response.json();

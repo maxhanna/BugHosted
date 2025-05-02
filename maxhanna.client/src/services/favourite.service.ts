@@ -7,7 +7,7 @@ import { HttpErrorResponse } from '@angular/common/http';
   providedIn: 'root'
 })
 export class FavouriteService {
-  async getFavourites(search?: string, page = 1, pageSize = 10, orderBy?: string, userId?: number) {
+  async getFavourites(search?: string, page = 1, pageSize = 10, showAll = false, orderBy?: string, userId?: number) {
     try {
       const response = await fetch(`/favourite/`, {
         method: 'POST',
@@ -19,7 +19,8 @@ export class FavouriteService {
           Page: page,
           PageSize: pageSize,
           OrderBy: orderBy,
-          UserId: userId
+          UserId: userId,
+          ShowAll: showAll
         }),
       });
       return await response.json();

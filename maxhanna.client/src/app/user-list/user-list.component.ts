@@ -77,7 +77,7 @@ export class UserListComponent extends ChildComponent implements OnInit, OnDestr
     if (this.searchInput.nativeElement.value.trim() != '') {
       search = this.searchInput.nativeElement.value.trim();
     } 
-    const fsRes = await this.userService.getAllUsers(search);
+    const fsRes = await this.userService.getAllUsers(this.inputtedParentRef?.user?.id ?? this.parentRef?.user?.id, search);
     if (fsRes) {
       this.usersSearched = fsRes;
     } else { 
@@ -99,7 +99,7 @@ export class UserListComponent extends ChildComponent implements OnInit, OnDestr
       }
     }
     else {
-      const fsRes = await this.userService.getAllUsers();
+      const fsRes = await this.userService.getAllUsers(this.inputtedParentRef?.user?.id ?? this.parentRef?.user?.id);
       if (fsRes) {
         this.users = fsRes;
       } else {
@@ -117,7 +117,7 @@ export class UserListComponent extends ChildComponent implements OnInit, OnDestr
     });
 
     if (!this.displayRadioFilters && this.messageRows.length == 0) {
-      const fsRes = await this.userService.getAllUsers();
+      const fsRes = await this.userService.getAllUsers(this.inputtedParentRef?.user?.id ?? this.parentRef?.user?.id);
       if (fsRes) {
         this.users = fsRes;
       } else {

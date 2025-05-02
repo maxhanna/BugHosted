@@ -220,12 +220,20 @@
         {{optionsFile.fileType?.toUpperCase()}} {{optionsFile.isFolder ? 'Folder' : ''}}
       </div>
     </div>
-    <div class="optionsStatsDiv" *ngIf="optionsFile.fileSize">
+    <div class="optionsStatsDiv" *ngIf="optionsFile.accessCount !== undefined">
+      <div class="optionsStatsHeader">
+        Views:
+      </div>
+      <div class="optionsStatsDescription">
+        {{optionsFile.accessCount}}
+      </div>
+    </div>
+    <div class="optionsStatsDiv" *ngIf="optionsFile.fileSize !== undefined">
       <div class="optionsStatsHeader">
         Filesize:
       </div>
       <div class="optionsStatsDescription">
-        {{formatFileSize(optionsFile.fileSize)}}
+        {{optionsFile.fileSize | fileSize}}
       </div>
     </div>
     <div class="optionsStatsDiv" *ngIf="optionsFile.width">
@@ -337,6 +345,19 @@
   <div>
     <input #popupSearch (input)="changeSearchTermsFromPopup()" placeholder="Search {{ currentDirectory }}" [value]="searchTerms" />
     <div *ngIf="directory">Result(s): {{ directory.totalCount }}</div>
+  </div>
+  <div>
+    <select (change)="setSortOption($event)">
+      <option value="Latest" [selected]="sortOption === 'Latest'">Latest</option>
+      <option value="Oldest" [selected]="sortOption === 'Oldest'">Oldest</option>
+      <option value="Random" [selected]="sortOption === 'Random'">Random</option>
+      <option value="Most Views" [selected]="sortOption === 'Most Views'">Most Views</option>
+      <option value="Filesize ASC" [selected]="sortOption === 'Filesize ASC'">Filesize Ascending</option>
+      <option value="Filesize DESC" [selected]="sortOption === 'Filesize DESC'">Filesize Descending</option>
+      <option value="Most Comments" [selected]="sortOption === 'Most Comments'">Most Comments</option>
+      <option value="A-Z" [selected]="sortOption === 'A-Z'">A-Z (Alphabetical)</option>
+      <option value="Z-A" [selected]="sortOption === 'Z-A'">Z-A (Reverse Alphabetical)</option>
+    </select>
   </div>
   <div class="smallFont">Deliniate with quotes " to search for exact search terms. Use space ( ) or commas (,) to find seperate keywords.</div>
   <div>

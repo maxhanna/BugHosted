@@ -149,7 +149,7 @@ export class NotificationsComponent extends ChildComponent implements OnInit, On
       } else {
         this.notifications = [];
       }
-      parent.getNotifications();
+      parent.navigationComponent.setNotificationNumber(this.unreadNotifications);
     }
   }
   async read(notification?: UserNotification, forceRead: boolean = false) {

@@ -60,6 +60,7 @@ export class LineGraphComponent implements OnInit, OnChanges {
   sliderMax: number = 0;
   sliderMinValue: number = 0;
   sliderMaxValue: number = 0;
+  isShowingOptions = false;
   private readonly minSeparation: number = 1000; // 1 second
   get formattedSliderMin(): string {
     return this.formatTimestamp(new Date(this.sliderMinValue).toISOString(), true);
@@ -785,5 +786,8 @@ export class LineGraphComponent implements OnInit, OnChanges {
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
+  }
+  showOptions() {
+    this.isShowingOptions = !this.isShowingOptions;
   }
 }

@@ -135,6 +135,7 @@ namespace maxhanna.Server.Controllers
 						messages m  
 				WHERE 
 						FIND_IN_SET(@ReceiverId, m.receiver) > 0
+						AND NOT EXISTS (SELECT 1 FROM maxhanna.user_left_chat WHERE chat_id = m.chat_id AND user_id = @ReceiverId)
 				GROUP BY 
 						m.chat_id, 
 						m.receiver
@@ -616,13 +617,13 @@ namespace maxhanna.Server.Controllers
 
 		[HttpPost("/Chat/SendMessage", Name = "SendMessage")]
 		public async Task<IActionResult> SendMessage([FromBody] SendMessageRequest request)
-		{ 
+		{
 			//_ = _log.Db($"POST /Chat/SendMessage from user: {request.Sender?.Id} to chatId: {request.ChatId} with {request.Files?.Count ?? 0} # of files", request.Sender?.Id, "CHAT");
 
 			MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
 			try
 			{
-				conn.Open();
+				conn.Open(); 
 				bool isContained = false;
 
 				// Convert receiver list to a comma-separated string
@@ -704,12 +705,52 @@ namespace maxhanna.Server.Controllers
 							await filecmd.ExecuteNonQueryAsync();
 						}
 					}
-				}
+				} 
+
+				//delete any user_left_chat
+				string ulcSql = "DELETE FROM maxhanna.user_left_chat WHERE chat_id = @ChatId;";
+				MySqlCommand ulcCmd = new MySqlCommand(ulcSql, conn);
+				ulcCmd.Parameters.AddWithValue("@ChatId", targetChatId);
+				await ulcCmd.ExecuteNonQueryAsync(); 
 				return Ok(targetChatId);
 			}
 			catch (Exception ex)
 			{
 				_ = _log.Db("An error occurred while processing the POST request for sending a message. " + ex.Message, request.SenderId, "CHAT");
+				return StatusCode(500, "An error occurred while processing the request.");
+			}
+			finally
+			{
+				conn.Close();
+			}
+		}
+
+
+
+		[HttpPost("/Chat/LeaveChat", Name = "LeaveChat")]
+		public async Task<IActionResult> LeaveChat([FromBody] LeaveChatRequest request)
+		{
+			//_ = _log.Db($"POST /Chat/SendMessage from user: {request.Sender?.Id} to chatId: {request.ChatId} with {request.Files?.Count ?? 0} # of files", request.Sender?.Id, "CHAT");
+
+			MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+			try
+			{
+				conn.Open();
+				  
+
+				string sql = "INSERT INTO maxhanna.user_left_chat (user_id, chat_id, timestamp) VALUES (@UserId, @ChatId, UTC_TIMESTAMP())";
+
+				MySqlCommand cmd = new MySqlCommand(sql, conn);
+				cmd.Parameters.AddWithValue("@UserId", request.UserId);
+				cmd.Parameters.AddWithValue("@ChatId", request.ChatId); 
+
+				int rowsAffected = await cmd.ExecuteNonQueryAsync();
+ 
+				return Ok(rowsAffected);
+			}
+			catch (Exception ex)
+			{
+				_ = _log.Db("An error occurred while processing the POST request for LeaveChat. " + ex.Message, request.UserId, "CHAT");
 				return StatusCode(500, "An error occurred while processing the request.");
 			}
 			finally
@@ -730,6 +771,11 @@ namespace maxhanna.Server.Controllers
 		{
 			public int ChatId { get; set; }
 			public int Count { get; set; }
+		}
+		public class LeaveChatRequest
+		{
+			public int ChatId { get; set; }
+			public int UserId { get; set; }
 		}
 	}
 }

@@ -10,17 +10,79 @@
         </span>
       </p>
       <p class="notification" *ngIf="city">Closest city : {{city}}</p>
-    </div>
+    </div> 
+
     <div class="currentWeatherContainer">
-      <div *ngIf="weather?.current" class="currentWeather">
-        <div [title]="weather.current.temp_f + '°F'" class="cursorPointer">
-          {{weather.current.temp_c}}°C
+      <div>
+        <div class="weatherButtonTabContainer">
+          <button [class.active]="activeTab === 'now'" (click)="onTabClick('now')">
+            Now
+          </button>
+          <button [class.active]="activeTab === 'plus6'" (click)="onTabClick('plus6')">
+            {{getTargetHour(6)}}:00
+          </button>
+          <button [class.active]="activeTab === 'plus12'" (click)="onTabClick('plus12')">
+            {{getTargetHour(12)}}:00
+          </button>
+          <span class="tabTimeSelectedSpan">{{activeTab === 'plus6' ? `${getTargetHour(6)}:00` : activeTab === 'plus12' ? `${getTargetHour(12)}:00` : 'Now'}}</span>
         </div>
-        <div [title]="weather.current.condition.text">
-          <img [src]="weather.current.condition.icon" />
+
+        <div *ngIf="weather?.forecast" class="hourly-forecast-container">
+          <!-- Now Tab -->
+          <div *ngIf="activeTab === 'now'" class="hourly-forecast">
+            <div>
+              <div class="currentWeather">
+                <div class="temp">
+                  {{isCountryAmerica(country ?? '') ? weather.current.temp_f + "°F" : weather.current.temp_c + "°C"}}
+                </div>
+                <div class="condition">
+                  <img [src]="weather.current.condition.icon" [title]="weather.current.condition.text" />
+                </div>
+              </div>
+
+              <div class="feelsLikeMainDiv">
+                <span title="Feels Like">Feels Like: {{isCountryAmerica(country ?? '') ? weather.current.feelslike_f + "°F" : weather.current.feelslike_c + "°C"}}</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- +6hrs Tab -->
+          <div *ngIf="activeTab === 'plus6'" class="hourly-forecast">
+            <div *ngFor="let hour of getFutureHours(6)">
+              <div class="currentWeather">
+                <div class="temp">
+                  {{isCountryAmerica(country ?? '') ? hour.temp_f + "°F" : hour.temp_c + "°C"}}
+                </div>
+                <div class="condition">
+                  <img [src]="hour.condition.icon" [title]="hour.condition.text" />
+                </div>
+              </div>
+              <div class="feelsLikeMainDiv">
+                <span title="Feels Like">Feels Like: {{isCountryAmerica(country ?? '') ? hour.feelslike_f + "°F" : hour.feelslike_c + "°C"}}</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- +12hrs Tab -->
+          <div *ngIf="activeTab === 'plus12'" class="hourly-forecast">
+            <div *ngFor="let hour of getFutureHours(12)">
+              <div class="currentWeather">
+                <div class="temp">
+                  {{isCountryAmerica(country ?? '') ? hour.temp_f + "°F" : hour.temp_c + "°C"}}
+                </div>
+                <div class="condition">
+                  <img [src]="hour.condition.icon" [title]="hour.condition.text" />
+                </div>
+              </div>
+
+              <div class="feelsLikeMainDiv">
+                <span title="Feels Like">Feels Like: {{isCountryAmerica(country ?? '') ? hour.feelslike_f + "°F" : hour.feelslike_c + "°C"}}</span>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
-    </div>
+    </div>  
   </div>
 
 

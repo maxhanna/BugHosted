@@ -1,73 +1,37 @@
-<div class=componentMain>
+<div class="componentMain">
   <div class="closeButton" (click)="remove_me('FavouritesComponent');"></div>
   <div class="componentTitle">Favourites</div>
+  <div class="menuButton" (click)="showMenuPanel();"></div>
+
   <div class="popupPanelTitle favouritesTitle">
     Add/Share your Favorites
   </div>
   <div class="favouritesControlsDiv">
-        <input #linkInput placeholder="URL" (input)="linkUrlInput()" />
-        <button (click)="addLink()" *ngIf="showNameImageInput" [disabled]="isLoading">💾Create</button>
-        <div>
-          <input [placeholder]="page" (change)="pageChanged($event)" style="width: 20px;" *ngIf="totalCount > pageSize"/>
-          <select (change)="pageSizeChanged($event)">
-            <option value="" disabled selected>Page size</option>
-            <option>10</option>
-            <option>20</option>
-            <option>50</option>
-            <option>100</option>
-          </select>
-        </div>
-        <select (change)="orderChanged($event)" [value]="currentOrder" *ngIf="showingLatestLinks || (!showNameImageInput && !showingLatestLinks && !isSearchingUrls)">
-          <option value="recent" >Most Recent</option>
-          <option value="popular" >Most Popular</option>
-          <option value="visited" >Most Visited</option>
-          <option value="name" >By Name</option>
-          <option value="url" >By URL</option>
-        </select>
+    <input #linkInput placeholder="URL" (input)="linkUrlInput()" />
+    <button (click)="addLink()" *ngIf="showNameImageInput" [disabled]="isLoading">💾Create</button>
   </div>
-  <div class=topLinks> 
-    <div *ngIf="favouriteSearch.length > 0">
-      <div class="miniTitle">{{ showingLatestLinks ? 'Latest' : 'Existing' }} Links:</div>
+  <div class="topLinks">
+    <div *ngIf="favorites.length > 0">
+      <div class="miniTitle">{{ showingLatestLinks ? 'Latest' : 'Your' }} Links:</div>
       <div class="favouriteListWrapper">
-        <div *ngFor="let sFav of favouriteSearch" class="favouriteDiv" [title]="sFav.url">
-          <a (click)="visitExternalLink(sFav)">
-            <div class="favImage" [title]="sFav.name">
-              <img [src]="sFav.imageUrl"
-                   *ngIf="sFav.imageUrl" 
-                   (error)="sFav.imageUrl = ''" />
-              <div class="emptyFavImage" *ngIf="!sFav.imageUrl" [title]="sFav.url"></div>
-            </div>
-            <div class="favName">
-              {{ sFav.name && sFav.name.trim() ? sFav.name : sFav.url }}
-            </div>
-          </a>
-          <div class="favUserCount">{{sFav.userCount}}</div>
-          <button (click)="addLink(sFav)"
-                  class="cursorPointer generalFavouriteAddButton"
-                  [disabled]="isIncludedInFavourites(sFav)"
-                  [title]="isIncludedInFavourites(sFav) ? 'Already added' : 'Add To Favourites'">
-            ➕
-          </button>
-        </div>
-      </div>
-    </div>
-    <div *ngIf="!showNameImageInput && !showingLatestLinks && !isSearchingUrls">
-      <div class="miniTitle">Your Favs:</div>
-      <div class="favouriteListWrapper">
-        <div *ngFor="let fav of userFavourites" class="favouriteDiv" [style.border]="showEditLinks ? '1px solid' : ''" [title]="fav.url">
+        <div *ngFor="let fav of favorites" class="favouriteDiv" [title]="fav.url"
+          [style.border]="showEditLinks && fav.isUserFavourite ? '1px solid' : ''">
           <a (click)="visitExternalLink(fav)">
-            <div class="favImage">
-              <img [src]="fav.imageUrl" 
-                   (error)="fav.imageUrl = ''"
-                   *ngIf="fav.imageUrl" />
+            <div class="favImage" [title]="fav.name">
+              <img [src]="fav.imageUrl" *ngIf="fav.imageUrl" (error)="fav.imageUrl = ''" />
               <div class="emptyFavImage" *ngIf="!fav.imageUrl" [title]="fav.url"></div>
             </div>
-            <div class="favName" [title]="fav.name ?? fav.url">
-              {{fav.name && fav.name.trim() ? fav.name : fav.url}}
+            <div class="favName">
+              {{ fav.name && fav.name.trim() ? fav.name : fav.url }}
             </div>
           </a>
           <div class="favUserCount">{{fav.userCount}}</div>
-          <div class="editOrDeleteSpanWrapper" *ngIf="showEditLinks">
+          <button *ngIf="!fav.isUserFavourite" (click)="addLink(fav)" class="cursorPointer generalFavouriteAddButton"
+            [disabled]="isIncludedInFavourites(fav)"
+            [title]="isIncludedInFavourites(fav) ? 'Already added' : 'Add To Favourites'">
+            ➕
+          </button>
+          <div class="editOrDeleteSpanWrapper" *ngIf="showEditLinks && fav.isUserFavourite">
             <span (click)="openEditPanel(fav)" class="cursorPointerUnderlined smallFont">[Edit]</span>
             <span (click)="deleteFav(fav)" class="cursorPointerUnderlined smallFont">[Delete]</span>
           </div>
@@ -75,18 +39,16 @@
       </div>
     </div>
   </div>
-  <div *ngIf="(!showNameImageInput && !showingLatestLinks && !isSearchingUrls) || showingLatestLinks"
-    class="linkOptionButtons">
-    <button (click)="showEditLinks = !showEditLinks" class="cursorPointer"
-      *ngIf="userFavourites.length > 0 && (!showNameImageInput && !showingLatestLinks && !isSearchingUrls)">{{showEditLinks
-      ? 'Done ' : ''}}Edit{{showEditLinks ? 'ing' : ''}}{{showEditLinks ? '' : ' Links'}}</button>
+  <div class="linkOptionButtons">
+    <button (click)="showEditLinks = !showEditLinks" class="cursorPointer" *ngIf="!showingLatestLinks">
+      {{showEditLinks ? 'Done ' : ''}}Edit{{showEditLinks ? 'ing' : ''}}{{showEditLinks ? '' : ' Links'}}
+    </button>
     <button (click)="showLatestLinks()" class="cursorPointer"
-      *ngIf="showingLatestLinks || (!showNameImageInput && !showingLatestLinks && !isSearchingUrls)">{{
-      !showingLatestLinks ? 'Show' : 'Hide' }} Latest Links</button>
+      *ngIf=" !isSearchingUrls">
+      {{ !showingLatestLinks ? 'Show' : 'Hide' }} Latest Links
+    </button>
   </div>
 </div>
-
-
 
 <!-- Edit Favourite Popup -->
 <div class="popupPanel editingPopupPanel" *ngIf="isEditPanelOpen">
@@ -112,10 +74,15 @@
         <input [value]="editingFavourite?.name" #editingNameInput placeholder="Website Name" />
       </div>
     </div>
-
     <button (click)="editFavourite()" title="Update favourite">💾Update</button>
   </div>
   <div class="optionsStatsWrapperDiv">
+    <div class="optionsStatsDiv">
+      <div class="optionsStatsHeader">Id:</div>
+      <div class="optionsStatsDescription">
+        {{ editingFavourite?.id }}
+      </div>
+    </div>
     <div class="optionsStatsDiv">
       <div class="optionsStatsHeader">Users:</div>
       <div class="optionsStatsDescription">
@@ -128,11 +95,11 @@
         {{ editingFavourite?.accessCount }}
       </div>
     </div>
-    
     <div class="optionsStatsDiv">
       <div class="optionsStatsHeader">Created By:</div>
       <div class="optionsStatsDescription">
-        <app-user-tag [user]="editingCreatedBy" [displayMiniTag]="true" [inputtedParentRef]="parentRef" [previousComponent]="'Favourites'"></app-user-tag>
+        <app-user-tag [user]="editingCreatedBy" [displayMiniTag]="true" [inputtedParentRef]="parentRef"
+          [previousComponent]="'Favourites'"></app-user-tag>
       </div>
     </div>
     <div class="optionsStatsDiv">
@@ -142,12 +109,13 @@
     <div class="optionsStatsDiv">
       <div class="optionsStatsHeader">Modified By:</div>
       <div class="optionsStatsDescription">
-        <app-user-tag [user]="editingUpdatedBy" [displayMiniTag]="true" [inputtedParentRef]="parentRef" [previousComponent]="'Favourites'"></app-user-tag>
+        <app-user-tag [user]="editingUpdatedBy" [displayMiniTag]="true" [inputtedParentRef]="parentRef"
+          [previousComponent]="'Favourites'"></app-user-tag>
       </div>
     </div>
     <div class="optionsStatsDiv">
       <div class="optionsStatsHeader">Modification Date:</div>
-      <div class="optionsStatsDescription">{{ editingFavourite?.modificationDate  | date: 'y/MM/dd HH:mm' }}</div>
+      <div class="optionsStatsDescription">{{ editingFavourite?.modificationDate | date: 'y/MM/dd HH:mm' }}</div>
     </div>
     <div class="optionsStatsDiv" *ngIf="parentRef?.user?.id === editingFavourite?.createdBy">
       <div class="optionsStatsHeader">Permanently Delete:</div>
@@ -156,5 +124,53 @@
   </div>
   <div>
     <button id="closeOverlay" (click)="closeEditPanel()">Close</button>
+  </div>
+</div>
+
+<!-- Menu Popup -->
+<div class="popupPanel" *ngIf="isMenuPanelOpen">
+  <div class="popupPanelTitle" style="margin-bottom:15px;">
+    Menu
+  </div>
+  <div class="optionsStatsWrapperDiv chatMenuPopupWrapperDiv">
+    <div class="optionsStatsDiv" *ngIf="totalCount > pageSize">
+      <div class="optionsStatsHeader">
+        Page:
+      </div>
+      <div class="optionsStatsDescription">
+        <input [placeholder]="page" (input)="pageChanged($event)" style="width: 20px;" /> on {{numberOfPages}}
+      </div>
+    </div>
+    <div class="optionsStatsDiv">
+      <div class="optionsStatsHeader">
+        Page Size:
+      </div>
+      <div class="optionsStatsDescription">
+        <select (change)="pageSizeChanged($event)">
+          <option value="" disabled selected>Page size</option>
+          <option>10</option>
+          <option>20</option>
+          <option>50</option>
+          <option>100</option>
+        </select>
+      </div>
+    </div>
+    <div class="optionsStatsDiv">
+      <div class="optionsStatsHeader">
+        Order:
+      </div>
+      <div class="optionsStatsDescription">
+        <select (change)="orderChanged($event)" [value]="currentOrder">
+          <option value="recent">Most Recent</option>
+          <option value="popular">Most Popular</option>
+          <option value="visited">Most Visited</option>
+          <option value="name">By Name</option>
+          <option value="url">By URL</option>
+        </select>
+      </div>
+    </div>
+  </div>
+  <div class="chatMenuPopupCloseDiv">
+    <button id="closeOverlay" (click)="closeMenuPanel()">Close</button>
   </div>
 </div>

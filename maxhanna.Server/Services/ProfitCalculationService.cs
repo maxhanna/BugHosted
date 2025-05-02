@@ -32,69 +32,102 @@ namespace maxhanna.Server.Services
 				using var conn = new MySqlConnection(_connectionString);
 				await conn.OpenAsync();
 
-				var (periodStart, _) = GetPeriodRange(interval);
-
-				if (IsNewPeriod(interval))
+				if (await IsNewPeriod(conn, interval))
 				{
 					var activeUsers = await GetActiveTradeBotUsers(conn);
+					var (periodStart, _) = GetPeriodRange(interval);
 					await ProcessPeriodTransitions(conn, activeUsers, interval, periodStart);
 				}
 			}
 			catch (Exception ex)
 			{
-				await _log.Db($"Error in {interval} profit calculation: {ex.Message}");
+				await _log.Db($"Error in {interval} profit calculation: {ex.Message}", type: "PROFIT", outputToConsole: true);
 			}
 		}
 
-		private bool IsNewPeriod(ProfitInterval interval)
+		private async Task<bool> IsNewPeriod(MySqlConnection conn, ProfitInterval interval)
 		{
 			var now = DateTime.UtcNow;
 			var (currentPeriodStart, _) = GetPeriodRange(interval);
-			return now > currentPeriodStart;
-		} 
+
+			// First check if we're actually in a new period time-wise
+			if (now <= currentPeriodStart)
+			{
+				return false;
+			}
+
+			// Then check if we've already processed this period
+			var tableName = GetTableName(interval);
+			var periodColumn = GetPeriodColumn(interval);
+
+			var sql = $@"
+				SELECT COUNT(*) 
+				FROM {tableName} 
+				WHERE DATE({periodColumn}) = @currentPeriodStart";
+
+			using var cmd = new MySqlCommand(sql, conn);
+			cmd.Parameters.AddWithValue("@currentPeriodStart", currentPeriodStart.Date);
+
+			var count = Convert.ToInt32(await cmd.ExecuteScalarAsync());
+			return count == 0; // Only new if no records exist for this period
+		}
 
 		private async Task ProcessPeriodTransitions(MySqlConnection conn, List<int> userIds, ProfitInterval interval, DateTime newPeriodStart)
-		{ 
-			foreach (var userId in userIds)
+		{
+			// Process first user immediately
+			if (userIds.Count > 0)
 			{
-				try
+				await ProcessUserWithErrorHandling(conn, userIds[0], interval, newPeriodStart);
+			}
+
+			// Process remaining users with delay
+			for (int i = 1; i < userIds.Count; i++)
+			{
+				await Task.Delay(3000); // Wait before starting next user
+				await ProcessUserWithErrorHandling(conn, userIds[i], interval, newPeriodStart);
+			}
+		}
+
+		private async Task ProcessUserWithErrorHandling(MySqlConnection conn, int userId,
+			ProfitInterval interval, DateTime newPeriodStart)
+		{
+			try
+			{
+				// Get the previous period record that needs closing
+				var previousRecord = await GetOpenPreviousPeriodRecord(conn, userId, interval, newPeriodStart);
+
+				// Get current balances and prices
+				var keys = await _krakenService.GetApiKey(userId);
+				if (keys == null) return;
+
+				var balances = await _krakenService.GetBalance(userId, keys);
+				if (balances == null) return;
+
+				var btcBalance = balances.GetValueOrDefault("XXBT", 0);
+				var usdcBalance = balances.GetValueOrDefault("USDC", 0);
+				var btcPrice = await _krakenService.GetBtcPriceToUSDC(userId, keys);
+				if (btcPrice == null) return;
+
+				// Close previous period if exists
+				if (previousRecord != null)
 				{
-					// Get the previous period record that needs closing
-					var previousRecord = await GetOpenPreviousPeriodRecord(conn, userId, interval, newPeriodStart);
+					var cumulativeProfit = await CalculateCumulativeProfit(conn, previousRecord.Id, interval,
+						btcBalance, usdcBalance, btcPrice.Value, previousRecord);
 
-					// Get current balances and prices (needed for both closing and opening)
-					var keys = await _krakenService.GetApiKey(userId);
-					if (keys == null) continue;
-
-					var balances = await _krakenService.GetBalance(userId, keys);
-					if (balances == null) continue;
-
-					var btcBalance = balances.GetValueOrDefault("XXBT", 0);
-					var usdcBalance = balances.GetValueOrDefault("USDC", 0);
-					var btcPrice = await _krakenService.GetBtcPriceToUSDC(userId, keys);
-					if (btcPrice == null) continue;
-
-					// Close previous period if exists
-					if (previousRecord != null)
-					{
-						var cumulativeProfit = await CalculateCumulativeProfit(conn, previousRecord.Id, interval,
-							btcBalance, usdcBalance, btcPrice.Value, previousRecord);
-
-						await UpdateClosingValues(conn, previousRecord.Id, interval,
-							usdcBalance, btcBalance, btcPrice.Value, cumulativeProfit);
-					}
-
-					// Open new period
-					var recordId = await GetOrCreateProfitRecord(conn, userId, interval, newPeriodStart);
-					if (recordId == null) continue;
-
-					await UpdateOpeningValues(conn, userId, recordId.Value, interval,
-						usdcBalance, btcBalance, btcPrice.Value);
+					await UpdateClosingValues(conn, previousRecord.Id, interval,
+						usdcBalance, btcBalance, btcPrice.Value, cumulativeProfit);
 				}
-				catch (Exception ex)
-				{
-					await _log.Db($"Error processing {interval} period transition for user {userId}: {ex.Message}");
-				}
+
+				// Open new period
+				var recordId = await GetOrCreateProfitRecord(conn, userId, interval, newPeriodStart);
+				if (recordId == null) return;
+
+				await UpdateOpeningValues(conn, userId, recordId.Value, interval,
+					usdcBalance, btcBalance, btcPrice.Value);
+			}
+			catch (Exception ex)
+			{
+				await _log.Db($"Error processing {interval} period transition for user {userId}: {ex.Message}", type: "PROFIT", outputToConsole: true);
 			}
 		}
 		private async Task<OpeningValues?> GetOpenPreviousPeriodRecord(MySqlConnection conn,
@@ -146,32 +179,43 @@ namespace maxhanna.Server.Services
 					new DateTime(now.Year, now.Month, 1).AddMonths(1).AddTicks(-1)),
 				_ => throw new ArgumentOutOfRangeException(nameof(interval), interval, null)
 			};
-		} 
+		}
 
 		private async Task<int?> GetOrCreateProfitRecord(MySqlConnection conn, int userId,
-			ProfitInterval interval, DateTime periodStart)
+	ProfitInterval interval, DateTime periodStart)
 		{
 			var tableName = GetTableName(interval);
 			var periodColumn = GetPeriodColumn(interval);
 
-			var sql = $@"
-                SELECT id FROM {tableName} 
-                WHERE user_id = @userId 
-                AND DATE({periodColumn}) = @periodStart 
-                LIMIT 1;
+			// First try to get existing record
+			var selectSql = $@"
+        SELECT id FROM {tableName} 
+        WHERE user_id = @userId 
+        AND DATE({periodColumn}) = @periodStart 
+        LIMIT 1";
 
-                IF NOT FOUND THEN
-                    INSERT INTO {tableName} (user_id, {periodColumn})
-                    VALUES (@userId, @periodStart);
-                    SELECT LAST_INSERT_ID();
-                END IF;";
+			using var selectCmd = new MySqlCommand(selectSql, conn);
+			selectCmd.Parameters.AddWithValue("@userId", userId);
+			selectCmd.Parameters.AddWithValue("@periodStart", periodStart);
 
-			using var cmd = new MySqlCommand(sql, conn);
-			cmd.Parameters.AddWithValue("@userId", userId);
-			cmd.Parameters.AddWithValue("@periodStart", periodStart);
+			var existingId = await selectCmd.ExecuteScalarAsync();
+			if (existingId != null)
+			{
+				return Convert.ToInt32(existingId);
+			}
 
-			var result = await cmd.ExecuteScalarAsync();
-			return result != null ? Convert.ToInt32(result) : null;
+			// If not found, insert new record
+			var insertSql = $@"
+        INSERT INTO {tableName} (user_id, {periodColumn})
+        VALUES (@userId, @periodStart);
+        SELECT LAST_INSERT_ID();";
+
+			using var insertCmd = new MySqlCommand(insertSql, conn);
+			insertCmd.Parameters.AddWithValue("@userId", userId);
+			insertCmd.Parameters.AddWithValue("@periodStart", periodStart);
+
+			var newId = await insertCmd.ExecuteScalarAsync();
+			return newId != null ? Convert.ToInt32(newId) : null;
 		}
 
 		private async Task UpdateOpeningValues(MySqlConnection conn, int userId, int recordId,
@@ -206,7 +250,7 @@ namespace maxhanna.Server.Services
 			cmd.Parameters.AddWithValue("@btcPrice", btcPrice);
 
 			await cmd.ExecuteNonQueryAsync();
-			await _log.Db($"Updated {interval} opening values for record {recordId}");
+			await _log.Db($"Updated {interval} opening values for record {recordId}", type: "PROFIT", outputToConsole: true);
 		}
 
 		private async Task UpdateClosingValues(MySqlConnection conn, int recordId,
@@ -234,7 +278,7 @@ namespace maxhanna.Server.Services
 			cmd.Parameters.AddWithValue("@cumulativeProfit", cumulativeProfit);
 
 			await cmd.ExecuteNonQueryAsync();
-			await _log.Db($"Updated {interval} closing values for record {recordId}");
+			await _log.Db($"Updated {interval} closing values for record {recordId}", type: "PROFIT", outputToConsole: true);
 		}
 
 		private async Task<decimal> CalculateCumulativeProfit(MySqlConnection conn, int recordId,

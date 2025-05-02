@@ -157,6 +157,10 @@ export class FileUploadComponent implements OnDestroy {
         });
       }
 
+      if (this.user?.id) {
+        this.fileService.notifyFollowersFileUploaded(this.user.id, this.uploadedFileList[0].id, this.uploadedFileList.length);
+        console.log("notifying followers");
+      }
       this.userUploadFinishedEvent.emit(this.uploadedFileList);
       this.userNotificationEvent.emit(`Finished uploading ${this.uploadedFileList.length} files.`);
 

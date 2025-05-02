@@ -17,6 +17,7 @@ namespace maxhanna.Server.Controllers
 			_log = log;
 			_config = config;
 		}
+
 		[HttpPost("/Favourite", Name = "GetFavourites")]
 		public async Task<IActionResult> Get([FromBody] GetFavouritesRequest request)
 		{
@@ -30,29 +31,34 @@ namespace maxhanna.Server.Controllers
 			};
 
 			string sql = $@"
-        SELECT SQL_CALC_FOUND_ROWS
-            f.id,
-            f.url, 
-            f.image_url, 
-            f.created_by, 
-            f.creation_date, 
-            f.modified_by, 
-            f.modification_date,
-            f.last_added_date,
-            f.name,
-            f.access_count,
-            COUNT(fs.user_id) AS user_count,
-            {(request.UserId.HasValue ? "MAX(CASE WHEN fs.user_id = @UserId THEN 1 ELSE 0 END) AS is_user_favourite" : "0 AS is_user_favourite")}
-        FROM favourites f
-        LEFT JOIN favourites_selected fs ON f.id = fs.favourite_id
-        WHERE 1=1  
-            {(string.IsNullOrEmpty(request.Search) ? "" : " AND (url LIKE CONCAT('%', @Search, '%') OR name LIKE CONCAT('%', @Search, '%')) ")}
-            {(request.UserId.HasValue ? " AND f.id IN (SELECT favourite_id FROM favourites_selected WHERE user_id = @UserId)" : "")}
-        GROUP BY f.id, f.url, f.image_url, f.created_by, f.creation_date, f.modified_by, f.modification_date, f.last_added_date, f.name  
-        ORDER BY {orderByClause}
-        LIMIT @PageSize OFFSET @Offset;
+				SELECT SQL_CALC_FOUND_ROWS
+					f.id,
+					f.url, 
+					f.image_url, 
+					f.created_by, 
+					f.creation_date, 
+					f.modified_by, 
+					f.modification_date,
+					f.last_added_date,
+					f.name,
+					f.access_count,
+					COUNT(fs.user_id) AS user_count,
+					EXISTS (
+						SELECT 1 
+						FROM favourites_selected fs2 
+						WHERE fs2.favourite_id = f.id 
+						AND fs2.user_id = @UserId
+					) AS is_user_favourite
+				FROM favourites f
+				LEFT JOIN favourites_selected fs ON f.id = fs.favourite_id
+				WHERE 1=1  
+					{(string.IsNullOrEmpty(request.Search) ? "" : " AND (f.url LIKE CONCAT('%', @Search, '%') OR f.name LIKE CONCAT('%', @Search, '%'))")}
+					{(!request.ShowAll ? " AND f.id IN(SELECT favourite_id FROM favourites_selected WHERE user_id = @UserId)" : "")} 
+				GROUP BY f.id, f.url, f.image_url, f.created_by, f.creation_date, f.modified_by, f.modification_date, f.last_added_date, f.name, f.access_count
+				ORDER BY {orderByClause}
+				LIMIT @PageSize OFFSET @Offset;
 
-        SELECT FOUND_ROWS() AS totalCount;";
+				SELECT FOUND_ROWS() AS totalCount; ";
 
 			int offset = (request.Page - 1) * request.PageSize;
 
@@ -68,13 +74,11 @@ namespace maxhanna.Server.Controllers
 						{
 							cmd.Parameters.AddWithValue("@Search", request.Search);
 						}
-						if (request.UserId.HasValue)
-						{
-							cmd.Parameters.AddWithValue("@UserId", request.UserId);
-						}
+						 
+						cmd.Parameters.AddWithValue("@UserId", request.UserId ?? 0); 
 						cmd.Parameters.AddWithValue("@PageSize", request.PageSize);
 						cmd.Parameters.AddWithValue("@Offset", offset);
-
+						//Console.WriteLine(cmd.CommandText);
 						using (var rdr = await cmd.ExecuteReaderAsync())
 						{
 							var favourites = new List<Favourite>();
@@ -88,13 +92,14 @@ namespace maxhanna.Server.Controllers
 									url: rdr.GetString("url"),
 									name: rdr.IsDBNull(rdr.GetOrdinal("name")) ? null : rdr.GetString("name"),
 									imageUrl: rdr.IsDBNull(rdr.GetOrdinal("image_url")) ? null : rdr.GetString("image_url"),
-									userCount: rdr.IsDBNull(rdr.GetOrdinal("user_count")) ? 0 : rdr.GetInt32("user_count"),
+									userCount: rdr.GetInt32("user_count"),
 									createdBy: rdr.IsDBNull(rdr.GetOrdinal("created_by")) ? null : rdr.GetInt32("created_by"),
 									creationDate: rdr.GetDateTime("creation_date"),
 									modifiedBy: rdr.IsDBNull(rdr.GetOrdinal("modified_by")) ? null : rdr.GetInt32("modified_by"),
 									modificationDate: rdr.GetDateTime("modification_date"),
 									lastAddedDate: rdr.GetDateTime("last_added_date"),
-									accessCount: rdr.GetInt32("access_count")
+									accessCount: rdr.GetInt32("access_count"),
+									isUserFavourite: rdr.GetBoolean("is_user_favourite")
 								));
 							}
 
@@ -121,6 +126,7 @@ namespace maxhanna.Server.Controllers
 				return StatusCode(500, "An error occurred while fetching favourites.");
 			}
 		}
+
 		[HttpPut("/Favourite", Name = "UpsertFavourite")]
 		public async Task<IActionResult> UpsertFavourite([FromBody] FavouriteUpdateRequest request)
 		{

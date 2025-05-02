@@ -4,7 +4,7 @@ import { ChildComponent } from '../child.component';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { User } from '../../services/datacontracts/user/user';
 import { SpeechRecognitionComponent } from '../speech-recognition/speech-recognition.component';
- 
+
 export class AIMessage { sender?: string; message: any };
 
 @Component({
@@ -35,6 +35,7 @@ export class HostAiComponent extends ChildComponent implements OnInit, OnDestroy
   ngOnInit() {
     this.parentRef?.addResizeListener();
   }
+
   ngOnDestroy() {
     this.parentRef?.removeResizeListener();
     if (this.speechRecognitionComponent) {
@@ -44,19 +45,35 @@ export class HostAiComponent extends ChildComponent implements OnInit, OnDestroy
       this.stopTalking();
     }, 50);
   }
+
   sendMessage() {
     if (!this.parentRef) return alert("No parent ref?");
     const user = this.parentRef.user ?? new User(0);
     this.userMessage = this.chatInput.nativeElement.value.trim();
+
     if (!this.userMessage.trim()) return alert("No message sent");
+
+    // Check for voice commands
     if (this.userWantsToForgetHistory(this.userMessage)) {
       this.savedMessageHistory = [];
+      this.parentRef.showNotification("Memory cleared.");
+      this.userMessage = "";
+      this.chatInput.nativeElement.value = "";
+      this.chatInput.nativeElement.focus();
+      return;
     }
     if (this.userWantsToStopVoice(this.userMessage)) {
       this.userMessage = "";
       this.stopTalking();
       return;
     }
+    if (this.userWantsToChangeResponseLength(this.userMessage)) { 
+      this.userMessage = "";
+      this.chatInput.nativeElement.value = "";
+      this.chatInput.nativeElement.focus();
+      return;
+    }
+
     this.startLoading();
     if (this.userMessage.trim()) {
       this.pushMessage({ sender: 'You', message: this.userMessage.replace('\n', "<br>") });
@@ -67,7 +84,7 @@ export class HostAiComponent extends ChildComponent implements OnInit, OnDestroy
             this.savedMessageHistory.push((response.response ?? response.reply));
             this.pushMessage({ sender: this.hostName, message: reply });
             this.chatInput.nativeElement.value = "";
-            this.chatInput.nativeElement.focus(); 
+            this.chatInput.nativeElement.focus();
             this.savedMessageHistory.push(this.userMessage);
             this.userMessage = '';
             this.stopLoading();
@@ -84,9 +101,10 @@ export class HostAiComponent extends ChildComponent implements OnInit, OnDestroy
             this.stopLoading();
           }
         );
-      })
+      });
     }
   }
+
   speechRecognitionEvent(transcript: string | undefined) {
     if (transcript) {
       this.startedTalking = true;
@@ -98,9 +116,11 @@ export class HostAiComponent extends ChildComponent implements OnInit, OnDestroy
       this.startedTalking = false;
     }
   }
+
   generateImage() {
     return alert("Feature not yet available");
   }
+
   handleKeyDown(event: KeyboardEvent) {
     if (event.key === 'Enter') {
       if (event.shiftKey) {
@@ -127,12 +147,14 @@ export class HostAiComponent extends ChildComponent implements OnInit, OnDestroy
       chatInput.focus();
     }, 0);
   }
+
   createCodeSnippet(): void {
     const codeSnippet = `\`\`\`
 console.log("Hello, world!");
 \`\`\``;
     this.insertAtCursor(codeSnippet);
   }
+
   pushMessage(message: any) {
     this.chatMessages.push(message);
     if (message.sender === this.hostName) {
@@ -145,6 +167,7 @@ console.log("Hello, world!");
       }
     }, 500);
   }
+
   speakMessage(message: string, listenAfter = true) {
     if (!this.startedTalking) {
       return;
@@ -209,7 +232,7 @@ console.log("Hello, world!");
           } else if (lastChar === ':' || lastChar === ';' || lastChar === '.') {
             pauseTime = 400;
           } else if (lastChar === '-') {
-            if (/ \- /.test(segment)) {// Only add a pause if the dash is surrounded by spaces.
+            if (/ \- /.test(segment)) { // Only add a pause if the dash is surrounded by spaces.
               pauseTime = 300;
             } else {
               pauseTime = 0;
@@ -217,7 +240,7 @@ console.log("Hello, world!");
           }
           if (this.startedTalking) {
             setTimeout(() => speakSegments(index + 1), pauseTime);
-          }  
+          }
         };
 
         window.speechSynthesis.speak(utterance);
@@ -235,6 +258,7 @@ console.log("Hello, world!");
     this.tmpStartTalkingVariable = true;
     setTimeout(() => { this.startedTalking = true; this.tmpStartTalkingVariable = false; }, 1000);
   }
+
   private startListening() {
     this.stopListening();
     setTimeout(() => {
@@ -259,9 +283,11 @@ console.log("Hello, world!");
       this.speechRecognitionComponent?.stopListening();
     }, 10);
   }
+
   stopListening() {
     this.startedTalking = false;
   }
+
   userWantsToStopVoice(message: string): boolean {
     console.log(message);
     const stopWords = [
@@ -285,6 +311,7 @@ console.log("Hello, world!");
 
     return false;
   }
+
   userWantsToForgetHistory(message: string): boolean {
     console.log(message);
     const forgetKeywords = new Set([
@@ -302,9 +329,41 @@ console.log("Hello, world!");
     }
     return false;
   }
+
+  userWantsToChangeResponseLength(message: string): boolean {
+    const lowerMessage = message.toLowerCase().trim();
+    const responseLengthPatterns = [
+      /set response length to (\d+)/,
+      /change response length to (\d+)/,
+      /response length (\d+)/,
+      /make response length (\d+)/
+    ];
+
+    for (const pattern of responseLengthPatterns) {
+      const match = lowerMessage.match(pattern);
+      if (match && match[1]) {
+        console.log("user wants to change length");
+        const newLength = parseInt(match[1], 10);
+        // Validate the response length (e.g., ensure it's a reasonable number)
+        if (newLength >= 0 && newLength <= 1000) { // Adjust max limit as needed
+          this.responseLength = newLength === 0 ? undefined : newLength;
+          this.parentRef?.showNotification(`Response length set to ${newLength === 0 ? 'unlimited' : newLength}.`);
+          this.pushMessage({ sender: 'System', message: `Response length changed to ${newLength === 0 ? 'unlimited' : newLength}.` });
+          return true;
+        } else {
+          this.parentRef?.showNotification("Invalid response length. Please choose a number between 0 and 1000.");
+          this.pushMessage({ sender: 'System', message: "Invalid response length. Please choose a number between 0 and 1000." });
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
   speechRecognitionNotSupportedEvent(event: boolean) {
     this.speechRecognitionUnavailable = event;
   }
+
   greetingMessage(): string {
     const hour = new Date().getHours();
 
@@ -319,7 +378,7 @@ console.log("Hello, world!");
     } else {
       return 'Good night 🌙';
     }
-  } 
+  }
 
   changeResponseLength(event: Event) {
     this.responseLength = parseInt((event.target as HTMLSelectElement).value);
@@ -327,6 +386,7 @@ console.log("Hello, world!");
       this.responseLength = undefined;
     }
   }
+
   showMenuPanel() {
     if (this.isMenuOpen) {
       this.closeMenuPanel();
@@ -337,25 +397,28 @@ console.log("Hello, world!");
       this.parentRef.showOverlay();
     }
   }
+
   closeMenuPanel() {
     this.isMenuOpen = false;
     if (this.parentRef) {
       this.parentRef.closeOverlay();
     }
   }
+
   clearMemory() {
     this.savedMessageHistory = [];
     this.parentRef?.showNotification("Memory cleared.");
     this.closeMenuPanel();
   }
+
   listenToChatMessage(message: AIMessage) {
-    if (!this.startedTalking) { 
-      this.startedTalking = true; 
+    if (!this.startedTalking) {
+      this.startedTalking = true;
       setTimeout(() => {
-        this.speakMessage(message.message, false); 
-      }, 20); 
-    } else { 
-      this.startedTalking = false; 
+        this.speakMessage(message.message, false);
+      }, 20);
+    } else {
+      this.startedTalking = false;
       this.stopTalking();
     }
   }

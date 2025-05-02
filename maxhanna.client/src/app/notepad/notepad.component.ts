@@ -56,7 +56,7 @@ export class NotepadComponent extends ChildComponent implements OnInit, OnDestro
     this.noteInputValue = this.noteInput.nativeElement.value.trim();
   }
   async getUsers() {
-    this.users = await this.userService.getAllUsers();
+    this.users = await this.userService.getAllUsers(this.parentRef?.user?.id);
   }
   shareNoteButtonClick() {
     this.isPanelExpanded = !this.isPanelExpanded;

@@ -285,6 +285,30 @@ namespace maxhanna.Server.Controllers
 		{
 			IActionResult? canSendRes = CanSendNotification(request);
 			if (canSendRes != null) { return canSendRes; }
+
+
+			var validRecipients = new List<int>();
+			foreach (var recipientId in request.ToUserIds)
+			{
+				if (await CanUserNotifyAsync(request.FromUserId, recipientId))
+				{
+					validRecipients.Add(recipientId);
+				}
+				else
+				{
+					_ = _log.Db($"Skipping notification to {recipientId} - notifications blocked", request.FromUserId, "NOTIFICATION");
+				}
+			}
+
+			// If no valid recipients remain, return early
+			if (!validRecipients.Any())
+			{
+				return Ok("No valid recipients - notifications blocked");
+			}
+
+			// Replace with filtered list
+			request.ToUserIds = validRecipients.ToArray();
+
 			//Console.WriteLine("Creating notifications for userId : " + request.FromUserId);
 			bool sendFirebaseNotification = true;
 			request.Message = RemoveQuotedBlocks(request.Message);
@@ -329,6 +353,142 @@ namespace maxhanna.Server.Controllers
 			}
 
 			return Ok("Notification(s) Created");
+		}
+
+		[HttpPost("/Notification/StopNotifications", Name = "StopNotifications")]
+		public async Task<IActionResult> StopNotifications([FromBody] StopNotificationsRequest request)
+		{
+			//_ = _log.Db($"POST /Chat/SendMessage from user: {request.Sender?.Id} to chatId: {request.ChatId} with {request.Files?.Count ?? 0} # of files", request.Sender?.Id, "CHAT");
+
+			MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+			try
+			{
+				conn.Open();
+
+
+				string sql = "INSERT INTO maxhanna.user_prevent_notification (user_id, from_user_id, timestamp) VALUES (@UserId, @FromId, UTC_TIMESTAMP())";
+
+				MySqlCommand cmd = new MySqlCommand(sql, conn);
+				cmd.Parameters.AddWithValue("@UserId", request.UserId);
+				cmd.Parameters.AddWithValue("@FromId", request.FromUserId);
+
+				int rowsAffected = await cmd.ExecuteNonQueryAsync();
+
+				return Ok(rowsAffected);
+			}
+			catch (Exception ex)
+			{
+				_ = _log.Db("An error occurred while processing the POST request for StopNotifications. " + ex.Message, request.UserId, "CHAT");
+				return StatusCode(500, "An error occurred while processing the request.");
+			}
+			finally
+			{
+				conn.Close();
+			}
+		}
+
+
+		[HttpPost("/Notification/AllowNotifications", Name = "AllowNotifications")]
+		public async Task<IActionResult> AllowNotifications([FromBody] StopNotificationsRequest request)
+		{
+			//_ = _log.Db($"POST /Chat/SendMessage from user: {request.Sender?.Id} to chatId: {request.ChatId} with {request.Files?.Count ?? 0} # of files", request.Sender?.Id, "CHAT");
+
+			MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+			try
+			{
+				conn.Open();
+
+
+				string sql = "DELETE FROM maxhanna.user_prevent_notification WHERE user_id = @UserId AND from_user_id = @FromUserId LIMIT 1;";
+
+				MySqlCommand cmd = new MySqlCommand(sql, conn);
+				cmd.Parameters.AddWithValue("@UserId", request.UserId);
+				cmd.Parameters.AddWithValue("@FromUserId", request.FromUserId);
+
+				int rowsAffected = await cmd.ExecuteNonQueryAsync();
+
+				return Ok(rowsAffected);
+			}
+			catch (Exception ex)
+			{
+				_ = _log.Db("An error occurred while processing the POST request for AllowNotifications. " + ex.Message, request.UserId, "CHAT");
+				return StatusCode(500, "An error occurred while processing the request.");
+			}
+			finally
+			{
+				conn.Close();
+			}
+		}
+
+		[HttpPost("/Notification/GetStoppedNotifications")]
+		public async Task<IActionResult> GetStoppedNotifications([FromBody] int userId)
+		{
+			//_ = _log.Db("Fetching stopped notifications: " + userId, userId, "NOTIFICATION", true);
+
+			MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+			try
+			{
+				conn.Open();
+
+				string sql = @"
+					SELECT from_user_id 
+					FROM maxhanna.user_prevent_notification 
+					WHERE user_id = @UserId
+					ORDER BY timestamp DESC";
+
+				MySqlCommand cmd = new MySqlCommand(sql, conn);
+				cmd.Parameters.AddWithValue("@UserId", userId);
+
+				using var reader = await cmd.ExecuteReaderAsync();
+
+				List<int> mutedUserIds = new List<int>();
+				while (await reader.ReadAsync())
+				{
+					mutedUserIds.Add(reader.GetInt32("from_user_id"));
+				}
+
+				return Ok(mutedUserIds);
+			}
+			catch (Exception ex)
+			{
+				_ = _log.Db("Error fetching stopped notifications: " + ex.Message, userId, "NOTIFICATION", true);
+				return StatusCode(500, "Error fetching muted users");
+			}
+			finally
+			{
+				conn.Close();
+			}
+		}
+		public async Task<bool> CanUserNotifyAsync(int senderId, int recipientId)
+		{
+			MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+			try
+			{
+				await conn.OpenAsync();
+
+				string sql = @"
+					SELECT COUNT(*) 
+					FROM maxhanna.user_prevent_notification 
+					WHERE user_id = @RecipientId 
+					AND from_user_id = @SenderId
+					LIMIT 1";
+
+				MySqlCommand cmd = new MySqlCommand(sql, conn);
+				cmd.Parameters.AddWithValue("@RecipientId", recipientId);
+				cmd.Parameters.AddWithValue("@SenderId", senderId);
+
+				long? count = (long?)await cmd.ExecuteScalarAsync();
+				return count == 0; // Returns true if no blocking record exists (can notify)
+			}
+			catch (Exception ex)
+			{
+				_ = _log.Db($"Error checking notification permission: {ex.Message}", recipientId, "NOTIFICATION");
+				return true; // Default to allowing notifications if there's an error
+			}
+			finally
+			{
+				await conn.CloseAsync();
+			}
 		}
 		private async Task<bool> ResolveParentCommentAsync(MySqlConnection conn, NotificationRequest request)
 		{
@@ -385,7 +545,7 @@ namespace maxhanna.Server.Controllers
 					UNION
 					SELECT DISTINCT user_id FROM maxhanna.comments WHERE story_id = @storyId AND user_id != @fromUserId";
 				using (var recipientsCmd = new MySqlCommand(recipientsSql, conn))
-				{
+				{ 
 					recipientsCmd.Parameters.AddWithValue("@storyId", request.StoryId);
 					recipientsCmd.Parameters.AddWithValue("@fromUserId", request.FromUserId);
 					using (var reader = await recipientsCmd.ExecuteReaderAsync())
@@ -757,7 +917,7 @@ namespace maxhanna.Server.Controllers
 
 			foreach (int tmpUserId in usersWithoutAnon)
 			{
-				if (tmpUserId == request.FromUserId || tmpUserId == 29 || tmpUserId == 0) continue; //dont send to yourself or to test users
+				if (tmpUserId == request.FromUserId || tmpUserId == 29 || tmpUserId == 0 || !await CanUserNotifyAsync(request.FromUserId, tmpUserId)) continue; //dont send to yourself or to test users
 
 				try
 				{
@@ -785,6 +945,7 @@ namespace maxhanna.Server.Controllers
 				}
 			}
 		}
+		
 		private static string RemoveQuotedBlocks(string message)
 		{
 			string pattern = @"\[Quoting[^\]]*?\]:.*?(?=(\[Quoting|\z))";

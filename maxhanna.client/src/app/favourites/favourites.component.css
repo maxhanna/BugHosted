@@ -37,7 +37,7 @@
 .emptyFavImage {
   width: 50px;
   height: 50px;
-  border: var(--main-border);
+  background: linear-gradient(135deg, var(--component-background-color), var(--secondary-component-background-color));
 }
 
 .favImage {
@@ -47,6 +47,9 @@
   align-items: center;
   justify-content: center;
   align-content: center;
+  border: var(--main-border);
+  border-radius: 4px;
+  background: linear-gradient(135deg, var(--component-background-color), var(--secondary-component-background-color));
 }
 
 .favouriteDiv img,
@@ -136,9 +139,10 @@
 
 .specialStatsDiv {
   display: flex;
-  justify-content: space-evenly !important; 
+  justify-content: space-evenly !important;
   text-align: left !important;
 }
+
 .favouritesControlsDiv {
   margin: 5px;
   padding: 5px;

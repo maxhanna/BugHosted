@@ -84,14 +84,14 @@ export class UserService {
       return null;
     }
   }
-  async getAllUsers(search?: string) {
+  async getAllUsers(userId?: number, search?: string) {
     try {
       const response = await fetch('/user/getallusers', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({Search: search}),
+        body: JSON.stringify({UserId: userId, Search: search}),
       });
       if (response.status === 404) {
         return [];

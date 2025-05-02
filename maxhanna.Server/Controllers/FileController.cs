@@ -1,3 +1,4 @@
+using FirebaseAdmin.Messaging;
 using maxhanna.Server.Controllers.DataContracts;
 using maxhanna.Server.Controllers.DataContracts.Files;
 using maxhanna.Server.Controllers.DataContracts.Topics;
@@ -10,8 +11,7 @@ using System.Data;
 using System.Diagnostics;
 using System.Net;
 using System.Xml.Linq;
-using Xabe.FFmpeg;
-using static maxhanna.Server.Controllers.AiController;
+using Xabe.FFmpeg; 
 
 namespace maxhanna.Server.Controllers
 {
@@ -50,7 +50,8 @@ namespace maxhanna.Server.Controllers
 		[FromQuery] int pageSize = 10,
 		[FromQuery] int? fileId = null,
 		[FromQuery] List<string>? fileType = null,
-		[FromQuery] bool showHidden = false)
+		[FromQuery] bool showHidden = false,
+		[FromQuery] string sortOption = "Latest")
 		{
 			if (string.IsNullOrEmpty(directory))
 			{
@@ -79,7 +80,38 @@ namespace maxhanna.Server.Controllers
 				string hiddenCondition = showHidden
 								? "" // If showHidden is true, don't filter out hidden files
 								: $" AND f.id NOT IN (SELECT file_id FROM maxhanna.hidden_files WHERE user_id = @userId) ";
+				string orderBy = "";
+				switch (sortOption)
+				{
+					case "Latest":
+						orderBy = "ORDER BY date DESC";
+						break;
+					case "Oldest":
+						orderBy = "ORDER BY date ASC";
+						break;
+					case "Random":
+						orderBy = "ORDER BY RAND()";
+						break;
+					case "Most Views":
+						orderBy = "ORDER BY access_count DESC";
+						break;
+					case "Filesize ASC":
+						orderBy = "ORDER BY file_size ASC";
+						break;
+					case "Filesize DESC":
+						orderBy = "ORDER BY file_size DESC";
+						break;
+					case "Most Comments":
+						orderBy = "ORDER BY comment_count DESC";
+						break;
+					case "A-Z":
+						orderBy = "ORDER BY given_file_name ASC, file_name ASC";
+						break;
+					case "Z-A":
+						orderBy = "ORDER BY given_file_name DESC, file_name DESC";
+						break;
 
+				}
 				int offset = (page - 1) * pageSize;
 				using (var connection = new MySqlConnection(_connectionString))
 				{
@@ -158,61 +190,90 @@ namespace maxhanna.Server.Controllers
 						}
 					}
 
-					string orderBy = isRomSearch ? " ORDER BY f.last_access DESC " : " ORDER BY f.id DESC ";
+					orderBy = isRomSearch ? " ORDER BY f.last_access DESC " : orderBy;
 					(string searchCondition, List<MySqlParameter> extraParameters) = await GetWhereCondition(search, user);
 
 					var command = new MySqlCommand($@"
                 SELECT 
-                    f.id AS fileId,
-                    f.file_name,
-                    f.folder_path,
-                    f.is_public,
-                    f.is_folder,
-                    f.user_id AS fileUserId,
-                    u.username AS fileUsername,
-                    udpfl.id AS fileUserDisplayPictureFileId,
-                    udpfl.file_name AS fileUserDisplayPictureFileName,
-                    udpfl.folder_path AS fileUserDisplayPictureFolderPath,
-                    f.shared_with,
-                    f.upload_date AS date,
-                    f.given_file_name,
-                    f.description,
-                    f.last_updated AS file_data_updated,
-                    f.last_updated_by_user_id AS last_updated_by_user_id,
-                    uu.username AS last_updated_by_user_name,
-                    luudp.file_id AS last_updated_by_user_name_display_picture_file_id,
-                    f.file_type AS file_type,
-                    f.file_size AS file_size,
-                    f.width AS width,
-                    f.height AS height,
-                    f.last_access AS last_access
-                FROM
-                    maxhanna.file_uploads f 
-                LEFT JOIN
-                    maxhanna.users u ON f.user_id = u.id
-                LEFT JOIN
-                    maxhanna.users uu ON f.last_updated_by_user_id = uu.id
-                LEFT JOIN
-                    maxhanna.user_display_pictures udp ON udp.user_id = u.id
-                LEFT JOIN
-                    maxhanna.user_display_pictures luudp ON luudp.user_id = uu.id
-                LEFT JOIN
-                    maxhanna.file_uploads udpfl ON udp.file_id = udpfl.id 
-                WHERE
-                    {(!string.IsNullOrEmpty(search) ? "" : "f.folder_path = @folderPath AND ")}
-                    (
-                        f.is_public = 1
-                        OR f.user_id = @userId
-                        OR FIND_IN_SET(@userId, f.shared_with) > 0
-                    )
-                    {searchCondition} 
-                    {fileTypeCondition} 
-                    {visibilityCondition} 
-                    {ownershipCondition} 
-                    {hiddenCondition} 
-                    {orderBy}
-                LIMIT
-                    @pageSize OFFSET @offset;"
+    f.id AS fileId,
+    f.file_name,
+    f.folder_path,
+    f.is_public,
+    f.is_folder,
+    f.user_id AS fileUserId,
+    u.username AS fileUsername,
+    udpfl.id AS fileUserDisplayPictureFileId,
+    udpfl.file_name AS fileUserDisplayPictureFileName,
+    udpfl.folder_path AS fileUserDisplayPictureFolderPath,
+    f.shared_with,
+    f.upload_date AS date,
+    f.given_file_name,
+    f.description,
+    f.last_updated AS file_data_updated,
+    f.last_updated_by_user_id AS last_updated_by_user_id,
+    uu.username AS last_updated_by_user_name,
+    luudp.file_id AS last_updated_by_user_name_display_picture_file_id,
+    f.file_type AS file_type,
+    f.file_size AS file_size,
+    f.width AS width,
+    f.height AS height,
+    f.last_access AS last_access,
+    f.access_count AS access_count,
+    COUNT(c.id) AS comment_count
+FROM
+    maxhanna.file_uploads f 
+LEFT JOIN
+    maxhanna.users u ON f.user_id = u.id
+LEFT JOIN
+    maxhanna.users uu ON f.last_updated_by_user_id = uu.id
+LEFT JOIN
+    maxhanna.user_display_pictures udp ON udp.user_id = u.id
+LEFT JOIN
+    maxhanna.user_display_pictures luudp ON luudp.user_id = uu.id
+LEFT JOIN
+    maxhanna.file_uploads udpfl ON udp.file_id = udpfl.id 
+LEFT JOIN
+    maxhanna.comments c ON f.id = c.file_id
+WHERE
+    {(!string.IsNullOrEmpty(search) ? "" : "f.folder_path = @folderPath AND ")}
+    (
+        f.is_public = 1
+        OR f.user_id = @userId
+        OR FIND_IN_SET(@userId, f.shared_with) > 0
+    )
+    {searchCondition} 
+    {fileTypeCondition} 
+    {visibilityCondition} 
+    {ownershipCondition} 
+    {hiddenCondition} 
+GROUP BY
+    f.id,
+    f.file_name,
+    f.folder_path,
+    f.is_public,
+    f.is_folder,
+    f.user_id,
+    u.username,
+    udpfl.id,
+    udpfl.file_name,
+    udpfl.folder_path,
+    f.shared_with,
+    f.upload_date,
+    f.given_file_name,
+    f.description,
+    f.last_updated,
+    f.last_updated_by_user_id,
+    uu.username,
+    luudp.file_id,
+    f.file_type,
+    f.file_size,
+    f.width,
+    f.height,
+    f.last_access,
+    f.access_count
+{orderBy}
+LIMIT
+    @pageSize OFFSET @offset;"
 					, connection);
 
 					foreach (var param in extraParameters)
@@ -271,6 +332,7 @@ namespace maxhanna.Server.Controllers
 								Width = reader.IsDBNull("width") ? null : reader.GetInt32("width"),
 								Height = reader.IsDBNull("height") ? null : reader.GetInt32("height"),
 								LastAccess = reader.IsDBNull("last_access") ? null : reader.GetDateTime("last_access"),
+								AccessCount = reader.IsDBNull("access_count") ? 0 : reader.GetInt32("access_count"),
 							};
 
 							fileEntries.Add(fileEntry);
@@ -668,6 +730,16 @@ namespace maxhanna.Server.Controllers
                 WHERE t.topic = 'NSFW' AND ft.file_id = f.id
             )";
 			}
+			if (user != null) {
+				int userId = user.Id ?? 0;
+				searchCondition += $@" 
+				AND NOT EXISTS (
+					SELECT 1 FROM user_blocks ub 
+					WHERE (ub.user_id = {userId} AND ub.blocked_user_id = f.user_id)
+					OR (ub.user_id = f.user_id AND ub.blocked_user_id = {userId})
+				) ";
+			}
+			
 
 			if (string.IsNullOrWhiteSpace(search))
 				return (searchCondition, new List<MySqlParameter>());
@@ -791,11 +863,14 @@ namespace maxhanna.Server.Controllers
 		}
 
 		[HttpPost("/File/GetFile/{filePath}", Name = "GetFile")]
-		public IActionResult GetFile(string filePath)
+		public async Task<IActionResult> GetFile(string filePath)
 		{
 			filePath = Path.Combine(_baseTarget, WebUtility.UrlDecode(filePath) ?? "");
 
-			if (!ValidatePath(filePath)) { return StatusCode(500, $"Must be within {_baseTarget}"); }
+			if (!ValidatePath(filePath))
+			{
+				return StatusCode(500, $"Must be within {_baseTarget}");
+			}
 
 			try
 			{
@@ -811,14 +886,37 @@ namespace maxhanna.Server.Controllers
 					return NotFound();
 				}
 
+				// Update access stats in database
+				var relativePath = filePath.Replace(_baseTarget, "").TrimStart(Path.DirectorySeparatorChar);
+				var fileName = Path.GetFileName(filePath);
+				var folderPath = Path.GetDirectoryName(relativePath);
+
+				using (var connection = new MySqlConnection(_config.GetConnectionString("YourConnectionString")))
+				{
+					await connection.OpenAsync();
+
+					var updateSql = @"
+						UPDATE file_uploads 
+						SET last_access = UTC_TIMESTAMP(), 
+							access_count = access_count + 1 
+						WHERE file_name = @FileName 
+						AND folder_path = @FolderPath";
+
+					using (var command = new MySqlCommand(updateSql, connection))
+					{
+						command.Parameters.AddWithValue("@FileName", fileName);
+						command.Parameters.AddWithValue("@FolderPath", folderPath);
+						await command.ExecuteNonQueryAsync();
+					}
+				}
+
 				var fileStream = new FileStream(filePath, FileMode.Open, FileAccess.Read);
 				string contentType = GetContentType(Path.GetExtension(filePath));
-				//_ = _log.Db("returning file : " + filePath);
 				return File(fileStream, contentType, Path.GetFileName(filePath));
 			}
 			catch (Exception ex)
 			{
-				_ = _log.Db("An error occurred while streaming the file." + ex.Message, null, "FILE", true);
+				_ = _log.Db($"An error occurred while streaming the file: {ex.Message}", null, "FILE", true);
 				return StatusCode(500, "An error occurred while streaming the file.");
 			}
 		}
@@ -840,7 +938,7 @@ namespace maxhanna.Server.Controllers
 					await connection.OpenAsync();
 					string sql = @"
 						UPDATE maxhanna.file_uploads
-						SET last_access = UTC_TIMESTAMP()
+						SET last_access = UTC_TIMESTAMP(), access_count = access_count + 1
 						WHERE id = @fileId LIMIT 1;
 
 						SELECT user_id, file_name, folder_path, is_public
@@ -1101,6 +1199,7 @@ namespace maxhanna.Server.Controllers
                 f.folder_path, 
                 f.width, 
                 f.height, 
+				f.file_size,
                 f.user_id, 
                 u.username AS username, 
                 f.shared_with,  
@@ -1113,7 +1212,9 @@ namespace maxhanna.Server.Controllers
                 f.description,
                 f.last_updated as file_data_updated,
                 f.last_access as last_access,
-                udp.file_id AS commentUserDisplayPicId
+				f.access_count as access_count,
+                udp.file_id AS commentUserDisplayPicId,
+                udpf.file_id AS fileUserDisplayPicId
             FROM 
                 maxhanna.file_uploads f    
             LEFT JOIN 
@@ -1123,7 +1224,9 @@ namespace maxhanna.Server.Controllers
             LEFT JOIN 
                 maxhanna.users uc ON fc.user_id = uc.id   
             LEFT JOIN 
-                maxhanna.user_display_pictures udp ON udp.user_id = uc.id
+                maxhanna.user_display_pictures udp ON udp.user_id = uc.id 
+            LEFT JOIN 
+                maxhanna.user_display_pictures udpf ON udpf.user_id = f.user_id
             WHERE 
                 f.id = @fileId 
             GROUP BY 
@@ -1145,9 +1248,11 @@ namespace maxhanna.Server.Controllers
 						var shared_with = reader.IsDBNull(reader.GetOrdinal("shared_with")) ? string.Empty : reader.GetString("shared_with");
 						int? width = reader.IsDBNull(reader.GetOrdinal("width")) ? null : reader.GetInt32("width");
 						int? height = reader.IsDBNull(reader.GetOrdinal("height")) ? null : reader.GetInt32("height");
+						int fileSize = reader.IsDBNull(reader.GetOrdinal("file_size")) ? 0 : reader.GetInt32("file_size");
 						var isFolder = reader.GetBoolean("is_folder");
 						var folderPath = reader.GetString("folder_path");
 						var lastAccess = reader.GetDateTime("last_access");
+						var accessCount = reader.GetInt32("access_count");
 						var date = reader.GetDateTime("date");
 
 						var fileData = new FileData
@@ -1157,6 +1262,7 @@ namespace maxhanna.Server.Controllers
 							Description = reader.IsDBNull(reader.GetOrdinal("description")) ? null : reader.GetString("description"),
 							LastUpdated = reader.IsDBNull(reader.GetOrdinal("file_data_updated")) ? null : reader.GetDateTime("file_data_updated")
 						};
+						int? fuDisplayPicId = reader.IsDBNull(reader.GetOrdinal("fileUserDisplayPicId")) ? null : reader.GetInt32("fileUserDisplayPicId");
 
 						var fileEntry = new FileEntry
 						{
@@ -1164,7 +1270,7 @@ namespace maxhanna.Server.Controllers
 							FileName = reader.GetString("file_name"),
 							Visibility = reader.GetBoolean("is_public") ? "Public" : "Private",
 							SharedWith = shared_with,
-							User = new User(user_id, userName),
+							User = new User(user_id, userName, fuDisplayPicId != null ? new FileEntry(fuDisplayPicId.Value) : null),
 							IsFolder = isFolder,
 							Directory = folderPath,
 							FileComments = new List<FileComment>(),
@@ -1172,7 +1278,9 @@ namespace maxhanna.Server.Controllers
 							FileData = fileData,
 							Width = width,
 							Height = height,
-							LastAccess = lastAccess
+							FileSize = fileSize,
+							LastAccess = lastAccess,
+							AccessCount = accessCount
 						};
 
 						if (!reader.IsDBNull(reader.GetOrdinal("commentId")))
@@ -1271,6 +1379,160 @@ namespace maxhanna.Server.Controllers
 			}
 		}
 
+		[HttpPost("/File/NotifyFollowersFileUploaded/", Name = "NotifyFollowersFileUploaded")]
+		public async Task<bool> NotifyFollowersFileUploaded(NotifyFollowersRequest req)
+		{
+			if (req.UserId == 0) return false;
+
+			try
+			{
+				using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+				{
+					await conn.OpenAsync();
+
+					// Get all followers (friends + pending requests)
+					string sql = @"
+						-- Users who are friends with the poster
+						SELECT friend_id AS follower_id FROM friends WHERE user_id = @userId
+						UNION
+						-- Users who have pending friend requests from the poster
+						SELECT receiver_id AS follower_id FROM friend_requests 
+						WHERE sender_id = @userId AND (status = 'pending' OR status = 'deleted')
+						UNION
+						-- Users who the poster has pending friend requests from
+						SELECT sender_id AS follower_id FROM friend_requests 
+						WHERE receiver_id = @userId AND (status = 'pending' OR status = 'deleted')";
+
+					var followerIds = new List<int>();
+
+					using (var cmd = new MySqlCommand(sql, conn))
+					{
+						cmd.Parameters.AddWithValue("@userId", req.UserId);
+
+						using (var rdr = await cmd.ExecuteReaderAsync())
+						{
+							while (await rdr.ReadAsync())
+							{
+								followerIds.Add(rdr.GetInt32("follower_id"));
+							}
+						}
+					}
+
+					// Filter out followers who have blocked notifications
+					var validFollowerIds = new List<int>();
+					foreach (var followerId in followerIds)
+					{
+						if (await CanUserNotifyAsync(req.UserId, followerId))
+						{
+							//Console.WriteLine("Notifying user : " + followerId);
+							validFollowerIds.Add(followerId);
+						}
+						else
+						{
+							_ = _log.Db($"Skipping notification to {followerId} - notifications blocked", req.UserId, "FILE");
+						}
+					}
+
+					// Insert notifications for each valid follower
+					if (validFollowerIds.Count > 0)
+					{
+						string notificationText = $"New {(req.FileCount > 0 ? $"({req.FileCount})" : "")} file{(req.FileCount > 1 ? "s" : "")} uploaded.";
+						string insertSql = @"
+                    INSERT INTO notifications 
+                    (user_id, from_user_id, file_id, text, date, is_read) 
+                    VALUES (@userId, @fromUserId, @fileId, @text, UTC_TIMESTAMP(), 0)";
+
+						foreach (var followerId in validFollowerIds)
+						{
+							using (var insertCmd = new MySqlCommand(insertSql, conn))
+							{
+								insertCmd.Parameters.AddWithValue("@userId", followerId);
+								insertCmd.Parameters.AddWithValue("@fromUserId", req.UserId);
+								insertCmd.Parameters.AddWithValue("@fileId", req.FileId);
+								insertCmd.Parameters.AddWithValue("@text", notificationText);
+
+								await insertCmd.ExecuteNonQueryAsync();
+							}
+						}
+
+						// Send push notifications (if implemented)
+						await SendFileUploadPushNotifications(req.UserId, validFollowerIds, req.FileId, notificationText);
+					}
+
+					Console.WriteLine($"Notified {validFollowerIds.Count} followers");
+					return true;
+				}
+			}
+			catch (Exception ex)
+			{
+				_ = _log.Db($"Error in NotifyFollowersFileUploaded: {ex.Message}", req.UserId, "FILE", true);
+				return false;
+			}
+		}
+
+		private async Task SendFileUploadPushNotifications(int fromUserId, List<int> followerIds, int fileId, string message)
+		{
+			foreach (var followerId in followerIds)
+			{
+				try
+				{
+					var firebaseMessage = new Message()
+					{
+						Notification = new FirebaseAdmin.Messaging.Notification()
+						{
+							Title = "New File Upload",
+							Body = message,
+							ImageUrl = "https://www.bughosted.com/assets/logo.jpg"
+						},
+						Data = new Dictionary<string, string>
+				{
+					{ "fileId", fileId.ToString() },
+					{ "fromUserId", fromUserId.ToString() },
+					{ "type", "file_upload" }
+				},
+						Topic = $"notification{followerId}"
+					};
+
+					string response = await FirebaseMessaging.DefaultInstance.SendAsync(firebaseMessage);
+					//Console.WriteLine($"Sent push notification to user {followerId}");
+				}
+				catch (Exception ex)
+				{
+					_ = _log.Db($"Failed to send push notification to {followerId}: {ex.Message}", fromUserId, "FILE");
+				}
+			}
+		}
+		public async Task<bool> CanUserNotifyAsync(int senderId, int recipientId)
+		{
+			MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+			try
+			{
+				await conn.OpenAsync();
+
+				string sql = @"
+					SELECT COUNT(*) 
+					FROM maxhanna.user_prevent_notification 
+					WHERE user_id = @RecipientId 
+					AND from_user_id = @SenderId
+					LIMIT 1";
+
+				MySqlCommand cmd = new MySqlCommand(sql, conn);
+				cmd.Parameters.AddWithValue("@RecipientId", recipientId);
+				cmd.Parameters.AddWithValue("@SenderId", senderId);
+
+				long? count = (long?)await cmd.ExecuteScalarAsync();
+				return count == 0; // Returns true if no blocking record exists (can notify)
+			}
+			catch (Exception ex)
+			{
+				_ = _log.Db($"Error checking notification permission: {ex.Message}", recipientId, "NOTIFICATION");
+				return true; // Default to allowing notifications if there's an error
+			}
+			finally
+			{
+				await conn.CloseAsync();
+			}
+		}
 		private bool IsWebPFile(IFormFile file)
 		{
 			var fileExtension = Path.GetExtension(file.FileName).ToLowerInvariant();
@@ -1684,6 +1946,7 @@ namespace maxhanna.Server.Controllers
                         f.is_folder, 
                         f.width, 
                         f.height, 
+                        f.file_size, 
                         f.user_id, 
                         u.username AS username, 
                         f.shared_with,  
@@ -1696,7 +1959,7 @@ namespace maxhanna.Server.Controllers
                         f.description,
                         f.last_updated as file_data_updated,
                         f.last_access as last_access,
-												udp.file_id AS commentUserDisplayPicId
+						udp.file_id AS commentUserDisplayPicId
                     FROM 
                         maxhanna.file_uploads f    
                     LEFT JOIN 
@@ -1705,9 +1968,8 @@ namespace maxhanna.Server.Controllers
                         maxhanna.users u ON u.id = f.user_id 
                     LEFT JOIN 
                         maxhanna.users uc ON fc.user_id = uc.id   
-										LEFT JOIN 
-												maxhanna.user_display_pictures udp ON udp.user_id = uc.id
-
+					LEFT JOIN 
+							maxhanna.user_display_pictures udp ON udp.user_id = uc.id
                     WHERE 
                         (f.file_name = @fileName OR f.file_name = @originalFileName)
                         AND f.folder_path = @folderPath 
@@ -1737,6 +1999,7 @@ namespace maxhanna.Server.Controllers
 						var shared_with = reader.IsDBNull(reader.GetOrdinal("shared_with")) ? string.Empty : reader.GetString("shared_with");
 						int? width = reader.IsDBNull(reader.GetOrdinal("width")) ? null : reader.GetInt32("width");
 						int? height = reader.IsDBNull(reader.GetOrdinal("height")) ? null : reader.GetInt32("height");
+						int fileSize = reader.IsDBNull(reader.GetOrdinal("file_size")) ? 0 : reader.GetInt32("file_size");
 						var isFolder = reader.GetBoolean("is_folder");
 						var lastAccess = reader.GetDateTime("last_access");
 
@@ -1760,6 +2023,7 @@ namespace maxhanna.Server.Controllers
 						fileEntry.FileData = fileData;
 						fileEntry.Width = width;
 						fileEntry.Height = height;
+						fileEntry.FileSize = fileSize;
 						fileEntry.LastAccess = lastAccess;
 
 
@@ -2215,9 +2479,8 @@ namespace maxhanna.Server.Controllers
 
 				await command.ExecuteNonQueryAsync();
 			}
-		}
-
-
+		} 
+		
 		[HttpPost("/File/Batch/", Name = "ExecuteBatch")]
 		public IActionResult ExecuteBatch([FromBody] User user, [FromQuery] string? inputFile)
 		{

@@ -97,6 +97,21 @@ export class ChatService {
       return null;
     }
   }
+  async leaveChat(userId: number, chatId: number) {
+    try {
+      const response = await fetch(`/chat/leavechat`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ UserId: userId, ChatId: chatId }),
+      });
+
+      return await response.text();
+    } catch (error) {
+      return null;
+    }
+  }
   getCommaSeparatedGroupChatUserNames(users: User | User[], currentUser?: User, includeCurrentUser: boolean = false): string {
     let userArray: User[];
 

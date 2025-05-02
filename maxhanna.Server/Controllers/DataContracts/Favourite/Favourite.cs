@@ -13,9 +13,10 @@
 		public DateTime ModificationDate { get; set; }
 		public DateTime LastAddedDate { get; set; }
 		public int? AccessCount { get; set; }
+		public bool IsUserFavourite { get; set; }
 
 		public Favourite(int id, string url, string? name, string? imageUrl, int? userCount, 
-		int? createdBy, DateTime creationDate, int? modifiedBy, DateTime modificationDate, DateTime lastAddedDate, int? accessCount)
+		int? createdBy, DateTime creationDate, int? modifiedBy, DateTime modificationDate, DateTime lastAddedDate, bool isUserFavourite, int? accessCount)
 		{ 
 			Id = id;
 			Url = url;
@@ -28,6 +29,7 @@
 			ModificationDate = modificationDate;
 			LastAddedDate = lastAddedDate;
 			AccessCount = accessCount;
+			IsUserFavourite = isUserFavourite;
 		}
 	}
 }

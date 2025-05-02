@@ -15,6 +15,7 @@ import { FriendRequest } from '../../services/datacontracts/friends/friendship-r
 import { Trophy } from '../../services/datacontracts/user/trophy';
 import { NexusService } from '../../services/nexus.service';
 import { MetaService } from '../../services/meta.service';
+import { NotificationService } from '../../services/notification.service';
 
 @Component({
   selector: 'app-user',
@@ -74,7 +75,7 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
   metaBotLevelsSum: number = 0;
   weatherLocation?: { city: string; country: string } = undefined;
   isUserBlocked = false;
-
+  stoppedNotifications : number[] = [];
   showHiddenFiles: boolean = false;
   filter = {
     hidden: this.showHiddenFiles ? 'yes' : 'no',
@@ -83,6 +84,7 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
     private nexusService: NexusService,
     private contactService: ContactService,
     private weatherService: WeatherService,
+    private notificationService: NotificationService,
     private friendService: FriendService,
     private wordlerService: WordlerService,
     private todoService: TodoService,
@@ -121,14 +123,17 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
 
       await this.getLoggedInUser();
       if (this.user) {
-         this.loadFriendData();
-         this.loadWordlerData();
-         this.loadMetaheroData();
-         this.loadSongData();
-         this.loadContactsData(); 
-         this.loadLocation(this.user); 
-         this.getIsBeingFollowedByUser();
+        this.loadFriendData();
+        this.loadWordlerData();
+        this.loadMetaheroData();
+        this.loadSongData();
+        this.loadContactsData(); 
+        this.loadLocation(this.user); 
+        this.getIsBeingFollowedByUser();
         this.getIsUserBlocked(this.user);
+        if (this.user.id == this.parentRef?.user?.id && this.user.id != 0 && this.user.id !== undefined) {
+          this.notificationService.getStoppedNotifications(this.user.id).then(res => this.stoppedNotifications = res );
+        }
       }
       this.getNSFWValue();
       this.getNumberOfNexusBases();
@@ -729,4 +734,30 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
       (tgtElement as HTMLDivElement).style.border = "unset";
     }
   } 
+
+  preventNotifications(frReq: FriendRequest) {
+    if (!this.parentRef?.user?.id) return alert("You must be logged in");
+    if (!frReq.receiver.id || !frReq.sender.id) return alert("Data mismatch error.");
+    const user = frReq.receiver.id != this.parentRef.user.id ? frReq.receiver : frReq.sender;
+    this.notificationService.stopNotifications(this.parentRef.user.id, user.id ?? 0).then(res => {
+      if (res) {
+        this.parentRef?.showNotification(`You will no longer see notifications from ${user.username}`);
+        this.stoppedNotifications.push(user.id ?? 0);
+        this.closeFriendsPanel();
+      }
+    })
+  }
+
+  async allowNotifications(frReq: FriendRequest) {
+    if (!this.parentRef?.user?.id) return alert("You must be logged in");
+    if (!frReq.receiver.id || !frReq.sender.id) return alert("Data mismatch error.");
+    const user = frReq.receiver.id != this.parentRef.user.id ? frReq.receiver : frReq.sender;
+    await this.notificationService.allowNotifications(this.parentRef.user.id, user.id ?? 0).then(res => {
+      if (res !== undefined) {
+        this.parentRef?.showNotification(`You will now see notifications from ${user.username}`);
+        this.stoppedNotifications = this.stoppedNotifications.filter(x => x == user.id);
+        this.closeFriendsPanel();
+      }
+    })
+  }
 }

@@ -19,7 +19,13 @@ export class WeatherComponent extends ChildComponent implements OnInit, OnDestro
   weather: WeatherResponse = new WeatherResponse();
   collapsedDays: string[] = [];
   city?: string = undefined;
+  country?: string = undefined;
   location?: string = undefined;
+  activeTab: 'now' | 'plus6' | 'plus12' = 'now'; 
+
+  private tabInterval: any;
+  private userInteracted = false;
+
 
   constructor(private weatherService: WeatherService) { super(); }
 
@@ -27,15 +33,18 @@ export class WeatherComponent extends ChildComponent implements OnInit, OnDestro
     this.parentRef?.addResizeListener();
     this.getForecasts();
     this.getLocation();
+    this.startTabRotation();
   }
   ngOnDestroy() {
     this.parentRef?.removeResizeListener();
+    this.stopTabRotation();
   }
   async getLocation() {
     try {
       const res = await this.weatherService.getWeatherLocation(this.parentRef?.user?.id ?? 0);
       if (res && res.city) {
         this.city = res.city;
+        this.country = res.country;
       }
       if (res && res.location) {
         this.location = res.location;
@@ -149,5 +158,72 @@ export class WeatherComponent extends ChildComponent implements OnInit, OnDestro
       inputtedParentRef: this.parentRef, 
       previousComponent: "Weather"
     });
+  }
+
+  isCountryAmerica(country: string){
+    return country.toLowerCase().includes("united states") || country.toLowerCase().includes("america") || country.toLowerCase().includes("usa");
+  }
+  getFutureHours(hoursAhead: number): any[] {
+    if (!this.weather?.forecast) return [];
+
+    const now = new Date();
+    const targetTime = new Date(now.getTime() + hoursAhead * 60 * 60 * 1000);
+    const targetHour = targetTime.getHours();
+
+    const forecastDay = this.weather.forecast.forecastday.find(day => {
+      const forecastDate = new Date(day.date);
+      return forecastDate.getDate() === targetTime.getDate() &&
+        forecastDate.getMonth() === targetTime.getMonth() &&
+        forecastDate.getFullYear() === targetTime.getFullYear();
+    });
+
+    if (!forecastDay) return [];
+
+    const hour = forecastDay.hour.find(hour => {
+      const hourTime = new Date(hour.time);
+      return hourTime.getHours() === targetHour;
+    });
+
+    return hour ? [hour] : []; // Return as array
+  }
+  getTargetHour(hoursAhead: number) {
+    const now = new Date();
+    const targetTime = new Date(now.getTime() + hoursAhead * 60 * 60 * 1000);
+    const targetHour = targetTime.getHours();
+    return targetHour;
+  }
+
+  startTabRotation() {
+    this.tabInterval = setInterval(() => {
+      if (!this.userInteracted) {
+        this.rotateToNextTab();
+      }
+    }, 5000); // Rotate every 5 seconds
+  }
+
+  stopTabRotation() {
+    if (this.tabInterval) {
+      clearInterval(this.tabInterval);
+    }
+  }
+
+  rotateToNextTab() {
+    switch (this.activeTab) {
+      case 'now':
+        this.activeTab = 'plus6';
+        break;
+      case 'plus6':
+        this.activeTab = 'plus12';
+        break;
+      case 'plus12':
+        this.activeTab = 'now';
+        break;
+    }
+  }
+
+  onTabClick(tab: 'now' | 'plus6' | 'plus12') {
+    this.userInteracted = true;
+    this.activeTab = tab;
+    this.stopTabRotation();
   }
 }

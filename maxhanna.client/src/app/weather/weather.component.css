@@ -59,9 +59,14 @@ td {
   display: flex;
   align-items: center;
   gap: 5px;
+  position: relative;
+  top: -10px;
+  justify-content: center;
+  align-content: flex-start;
 }
 
 .currentWeatherContainer {
+  background: linear-gradient(135deg, var(--component-background-color), var(--secondary-component-background-color));
   border: var(--main-border);
   border-radius: 8px;
   padding: 5px;
@@ -74,4 +79,47 @@ td {
 
 .optionsStatsDescription {
   cursor: pointer;
+}
+
+.feelsLikeMainDiv {
+  width: 100%;
+  text-align: center;
+  font-size: small;
+  color: var(--third-font-color);
+  height: 0px;
+  top: -16px;
+  position: relative;
+}
+.weatherButtonTabContainer button {
+  position: relative;
+  z-index: 2;
+}
+.tabTimeSelectedSpan {
+  height: 0px;
+  position: relative;
+  top: 0px;
+  left: 0px;
+  display: block;
+  font-size: xx-small;
+  color: var(--secondary-font-color);
+}
+
+
+ 
+/* All tab content */
+.hourly-forecast { 
+  animation: fadeIn 0.3s ease-in-out;  
+}
+ 
+/* Optional fade-in */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }

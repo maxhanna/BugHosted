@@ -171,16 +171,16 @@ but you can also set your own City for a more precise location."></span>
       </div>
     </div>
     <div *ngIf="isBlockedUsersToggled" class="sectionDescriptionDiv">
-      <div class="sectionDescriptionSection" *ngFor="let user of blockedUsers">
-        <div class="sectionDescriptionSection">
-          <div>User: </div>
-          <div style="display:flex;">
-            <app-user-tag [user]="user" [inputtedParentRef]="inputtedParentRef" [displayMiniTag]="true"
-              [previousComponent]="'UpdateUserSettings'"></app-user-tag>
-            <button (click)="unblock(user)" title="Unblock">❌</button>
-          </div>
+      <div class="sectionDescriptionSection" *ngFor="let user of blockedUsers"> 
+        <div>
+          <app-user-tag [user]="user" [inputtedParentRef]="inputtedParentRef" [displayMiniTag]="true"
+          [previousComponent]="'UpdateUserSettings'"></app-user-tag>
+        </div>
+        <div style="display:flex;"> 
+          <button (click)="unblock(user)" title="Unblock">❌</button>
         </div>
       </div>
+      
       <div *ngIf="!blockedUsers || blockedUsers.length == 0">
         No blocked users.
       </div>

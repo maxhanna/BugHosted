@@ -4,7 +4,7 @@ namespace maxhanna.Server.Services
 	public class NexusUnitBackgroundService : BackgroundService
 	{
 		private readonly IConfiguration _config;
-		private readonly IServiceProvider? _serviceProvider;
+		// private readonly IServiceProvider? _serviceProvider;
 		private readonly Log _log;
 
 		private Timer? _checkForNewUnitsTimer; 
@@ -17,17 +17,17 @@ namespace maxhanna.Server.Services
 			_config = config;
 			_log = log;
 		}
-		private void ConfigureServices(IServiceCollection services)
-		{
-			// Configure logging
-			services.AddLogging(configure => configure.AddConsole())
-							.Configure<LoggerFilterOptions>(options => options.MinLevel = LogLevel.Information);
+		// private void ConfigureServices(IServiceCollection services)
+		// {
+		// 	// Configure logging
+		// 	services.AddLogging(configure => configure.AddConsole())
+		// 					.Configure<LoggerFilterOptions>(options => options.MinLevel = LogLevel.Information);
 
-			// Configure configuration
-			services.AddSingleton<IConfiguration>(new ConfigurationBuilder()
-					.AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
-					.Build());
-		}
+		// 	// Configure configuration
+		// 	services.AddSingleton<IConfiguration>(new ConfigurationBuilder()
+		// 			.AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
+		// 			.Build());
+		// }
 
 		protected override Task ExecuteAsync(CancellationToken stoppingToken)
 		{

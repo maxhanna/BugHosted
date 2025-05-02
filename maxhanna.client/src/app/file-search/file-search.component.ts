@@ -51,7 +51,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit {
   @Output() userNotificationEvent = new EventEmitter<string>();
   @Output() expandClickedEvent = new EventEmitter<FileEntry>();
  
-
+  sortOption: string = 'Latest';
   showData = true;
   showShareUserList = false;
   isSearchPanelOpen = false;
@@ -168,6 +168,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit {
         fileId,
         (this.allowedFileTypes && this.allowedFileTypes.length > 0 ? this.allowedFileTypes : new Array<string>()),
         this.filter.hidden == 'all' ? true : false,
+        this.sortOption,
       ).then(res => {
         if (append && this.directory && this.directory.data) { 
           this.directory.data = this.directory.data.concat(
@@ -522,10 +523,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit {
   }
   getFileWithoutExtension(fileName: string) {
     return this.fileService.getFileWithoutExtension(fileName);
-  }
-  formatFileSize(bytes: number, decimalPoint: number = 2): string {
-    return this.fileService.formatFileSize(bytes, decimalPoint);
-  }
+  } 
   shareFile(user?: User) {
     if (!user?.id) return;
     if (this.selectedSharedFile && this.user) {
@@ -811,5 +809,13 @@ export class FileSearchComponent extends ChildComponent implements OnInit {
   changeSearchTermsFromSearchInput() { 
     this.searchTerms = this.search.nativeElement.value.trim();
     this.getDirectory();
+  }
+  setSortOption(event: Event): void {
+    const target = event.target as HTMLSelectElement;
+    this.sortOption = target.value;
+    this.getDirectory(); 
+    setTimeout(() => {
+      this.closeSearchPanel();
+    }, 50);
   }
 }

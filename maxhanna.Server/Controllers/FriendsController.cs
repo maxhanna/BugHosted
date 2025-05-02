@@ -203,7 +203,7 @@ namespace maxhanna.Server.Controllers
 					{
 						// Update the existing friend request
 						int requestId = Convert.ToInt32(result);
-						await AddFriend(request.SenderId, request.ReceiverId, connection);
+						await AddFriend(request.SenderId ?? 0, request.ReceiverId??0, connection);
 						return Ok("You are both following each other. Adding a friend instead of follower.");
 					}
 					else
@@ -243,23 +243,10 @@ namespace maxhanna.Server.Controllers
 
 
 		[HttpPost("/Friend/Request/Accept", Name = "AcceptFriendRequest")]
-		public async Task<IActionResult> AcceptFriendRequest([FromBody] Dictionary<string, string> body)
+		public async Task<IActionResult> AcceptFriendRequest([FromBody] FriendshipRequest req)
 		{
-			if (!body.TryGetValue("ReceiverId", out var receiverIdStr) ||
-					!int.TryParse(receiverIdStr, out var receiverId) ||
-					receiverId <= 0)
-			{
-				return BadRequest("Invalid or missing Receiver ID.");
-			}
-
-			if (!body.TryGetValue("SenderId", out var senderIdStr) ||
-					!int.TryParse(senderIdStr, out var senderId) ||
-				senderId <= 0)
-			{
-				return BadRequest("Invalid or missing Sender ID.");
-			}
-
-			if (senderId == 0 || receiverId == 0)
+		 
+			if (req.SenderId  == 0 || req.ReceiverId == 0)
 			{
 				return BadRequest("Invalid friendship request. Cannot be friends with Anonymous");
 			}
@@ -269,13 +256,13 @@ namespace maxhanna.Server.Controllers
 				using (var connection = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
 				{
 					await connection.OpenAsync();
-					await AddFriend(senderId, receiverId, connection);
+					await AddFriend(req.SenderId ?? 0, req.ReceiverId ?? 0, connection);
 				}
 				return Ok("Friendship created successfully.");
 			}
 			catch (Exception ex)
 			{
-				_ = _log.Db("An error occurred while accepting the friend request. " + ex.Message, senderId, "FRIEND", true);
+				_ = _log.Db("An error occurred while accepting the friend request. " + ex.Message, req.SenderId, "FRIEND", true);
 				return StatusCode(500, "An error occurred while accepting the friend request.");
 			}
 		}
@@ -439,22 +426,8 @@ namespace maxhanna.Server.Controllers
 		}
 
 		[HttpPost("/Friend/Request/Reject", Name = "RejectFriendRequest")]
-		public async Task<IActionResult> RejectFriendRequest([FromBody] Dictionary<string, string> body)
-		{
-			if (!body.TryGetValue("RequestId", out var requestIdStr) ||
-				!int.TryParse(requestIdStr, out var requestId) ||
-				requestId <= 0)
-			{
-				return BadRequest("Invalid or missing request ID.");
-			}
-
-			if (!body.TryGetValue("UserId", out var userIdStr) ||
-				!int.TryParse(userIdStr, out var userId) ||
-				userId <= 0)
-			{
-				return BadRequest("Invalid or missing user ID.");
-			}
-
+		public async Task<IActionResult> RejectFriendRequest([FromBody] FriendshipRequest req)
+		{ 
 			try
 			{
 				using var connection = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
@@ -466,7 +439,7 @@ namespace maxhanna.Server.Controllers
 					FROM friend_requests 
 					WHERE id = @requestId";
 				using var fetchCommand = new MySqlCommand(fetchQuery, connection);
-				fetchCommand.Parameters.AddWithValue("@requestId", requestId);
+				fetchCommand.Parameters.AddWithValue("@requestId", req.RequestId);
 
 				int senderId = 0;
 				int receiverId = 0;
@@ -491,17 +464,17 @@ namespace maxhanna.Server.Controllers
 					return BadRequest("Cannot reject or delete a request that is not pending.");
 				}
 
-				if (userId == senderId)
+				if (req.ReceiverId == senderId)
 				{
 					// Sender deletes their own pending request
 					string deleteQuery = "DELETE FROM friend_requests WHERE id = @requestId";
 					using var deleteCommand = new MySqlCommand(deleteQuery, connection);
-					deleteCommand.Parameters.AddWithValue("@requestId", requestId);
+					deleteCommand.Parameters.AddWithValue("@requestId", req.RequestId);
 					await deleteCommand.ExecuteNonQueryAsync();
 
 					return Ok("Your pending friend request has been deleted successfully.");
 				}
-				else if (userId == receiverId)
+				else if (req.ReceiverId == receiverId)
 				{
 					// Receiver rejects the pending request
 					string rejectQuery = @"
@@ -509,7 +482,7 @@ namespace maxhanna.Server.Controllers
 						SET status = 'rejected', updated_at = NOW() 
 						WHERE id = @requestId";
 					using var rejectCommand = new MySqlCommand(rejectQuery, connection);
-					rejectCommand.Parameters.AddWithValue("@requestId", requestId);
+					rejectCommand.Parameters.AddWithValue("@requestId", req.RequestId);
 					await rejectCommand.ExecuteNonQueryAsync();
 
 					return Ok("Friendship request rejected successfully.");
@@ -521,7 +494,7 @@ namespace maxhanna.Server.Controllers
 			}
 			catch (Exception ex)
 			{
-				_ = _log.Db("Error processing friend request rejection. " + ex.Message, userId, "FRIEND", true);
+				_ = _log.Db("Error processing friend request rejection. " + ex.Message, null, "FRIEND", true);
 				return StatusCode(500, "An error occurred while rejecting the friend request.");
 			}
 		} 

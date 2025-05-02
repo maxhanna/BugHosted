@@ -10,6 +10,7 @@ export class Favourite {
   name?: string;
   userCount: number;
   accessCount: number;
+  isUserFavourite?: boolean;
 
   constructor(data: Partial<Favourite> = {}) { 
     this.id = data.id ?? 0;
@@ -23,5 +24,6 @@ export class Favourite {
     this.modificationDate = data.modificationDate ? new Date(data.modificationDate) : new Date();
     this.lastAddedDate = data.lastAddedDate ? new Date(data.lastAddedDate) : new Date();
     this.accessCount = data.accessCount ? data.accessCount : 0;
+    this.isUserFavourite = data.isUserFavourite ? data.isUserFavourite : false;
   }
 }

@@ -13,7 +13,7 @@
   <div #fullscreenOverlay class="fullscreen-overlay" (click)="imageFileExtensionsIncludes(this.selectedFileExtension) ? shrink() : ''">
     <span class="close-overlay" (click)="shrink()">✖</span>
     <img #fullscreenImage class="fullscreen-media" />
-    <video #fullscreenVideo class="fullscreen-media" controls [autoplay]="autoplay"></video>
+    <video #fullscreenVideo class="fullscreen-media" controls autoplay loop muted></video>
     <audio #fullscreenAudio class="fullscreen-media" controls [autoplay]="false"></audio>
     <div class="shrinkMediaDiv cursorPointerUnderlined" (click)="shrink()">Shrink {{fileType}} ▢</div>
   </div>
@@ -72,6 +72,8 @@
         </div>
       </div>
     </div>
+    <div *ngIf="showMediaInformation" class="cursorPointer xxSmallFont" title="Information"><a (click)="showMediaInformationButtonClicked()">ℹ️Info</a></div>
+
   </div>
   <app-topics *ngIf="showTopics"
               [isDropdown]="false"
@@ -80,8 +82,8 @@
               [attachedTopics]="selectedFile?.topics"
               (topicClicked)="topicClicked($event)">
   </app-topics>
-  <div style="width:100%">
-    <div *ngIf="isLoadedFromURL && selectedFile && (selectedFile.fileName || selectedFile.givenFileName)" class="fileDataDiv">
+  <div [style]="isShowingMediaInformation ? 'padding:20px;' : 'width:100%'" [class]="isShowingMediaInformation ? 'popupPanel' : ''">
+    <div *ngIf="(isShowingMediaInformation && selectedFile) || (isLoadedFromURL && selectedFile && (selectedFile.fileName || selectedFile.givenFileName))" [class]="!isShowingMediaInformation ? 'fileDataDiv' : ''">
       <div class="optionsStatsWrapperDiv">
         <div class="optionsStatsDiv">
           <div class="optionsStatsHeader">Id:</div>
@@ -105,6 +107,25 @@
             {{selectedFile.givenFileName}}
           </div>
         </div>
+
+        <div class="optionsStatsDiv">
+          <div class="optionsStatsHeader">
+            Views:
+          </div>
+          <div class="optionsStatsDescription">
+            {{selectedFile.accessCount}}
+          </div>
+        </div>
+
+        <div class="optionsStatsDiv">
+          <div class="optionsStatsHeader">
+            File Size:
+          </div>
+          <div class="optionsStatsDescription">
+            {{ (selectedFile.fileSize ?? 0) | fileSize}}
+          </div>
+        </div>
+
         <div class="optionsStatsDiv">
           <div class="optionsStatsHeader">
             Topics:
@@ -210,23 +231,24 @@
                           [previousComponent]="previousComponent"></app-user-tag>
           </div>
         </div>
-        <div class="optionsStatsDiv" *ngIf="selectedFile.lastUpdatedBy && selectedFile.lastUpdated !== selectedFile.date">
+        <div class="optionsStatsDiv" *ngIf="selectedFile.lastUpdated && selectedFile.lastUpdated !== selectedFile.date">
           <div class="optionsStatsHeader">
             Updated:
           </div>
           <div class="optionsStatsDescription">
-            {{selectedFile.lastUpdated | date: 'y/MM/d HH:mm'}} ({{daysSinceDate(selectedFile.lastUpdated, 'minute')}})
+            {{selectedFile.lastUpdated | date: 'y/MM/d HH:mm'}} ({{selectedFile.lastUpdated ? daysSinceDate(selectedFile.lastUpdated, 'minute') : ''}})
           </div>
         </div>
-        <div class="optionsStatsDiv" *ngIf="selectedFile.lastUpdatedBy">
+        <div class="optionsStatsDiv" *ngIf="selectedFile?.lastUpdatedBy">
           <div class="optionsStatsHeader">
             Updated By:
           </div>
           <div class="optionsStatsDescription">
-            <app-user-tag [user]="selectedFile.lastUpdatedBy"
+            <!-- <app-user-tag *ngIf="selectedFile.lastUpdatedBy"
+                          [user]="selectedFile.lastUpdatedBy"
                           [inputtedParentRef]="parentRef ?? inputtedParentRef"
                           [displayMiniTag]="true"
-                          [previousComponent]="previousComponent"></app-user-tag>
+                          [previousComponent]="previousComponent"></app-user-tag> -->
           </div>
         </div>
       </div>
@@ -243,6 +265,6 @@
                   (commentAddedEvent)="commentAddedEvent($event)"
                   (commentHeaderClickedEvent)="commentHeaderClickedEvent.emit($event)">
     </app-comments>
-
+    <div *ngIf="isShowingMediaInformation"><button (click)="closeMediaInformationButtonClicked();">Close</button></div>
   </div>
 </div>

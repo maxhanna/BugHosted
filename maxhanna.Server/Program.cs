@@ -59,7 +59,7 @@ app.UseForwardedHeaders(new ForwardedHeadersOptions
 
 app.UseDefaultFiles();
 
-app.MapWhen(context => context.Request.Path.Value.Contains("firebase-messaging-sw.js"), appBranch =>
+app.MapWhen(context => context.Request.Path.Value != null && context.Request.Path.Value.Contains("firebase-messaging-sw.js"), appBranch =>
 {
 	appBranch.Run(async context =>
 	{

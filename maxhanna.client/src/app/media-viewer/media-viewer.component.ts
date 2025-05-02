@@ -33,6 +33,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
   abortFileRequestController: AbortController | null = null; 
   fS = '/'; 
   isFullscreenMode = false;
+  isShowingMediaInformation = false;
   @ViewChild('mediaContainer', { static: false }) mediaContainer!: ElementRef;
   @ViewChild('fullscreenOverlay', { static: false }) fullscreenOverlay!: ElementRef;
   @ViewChild('fullscreenImage', { static: false }) fullscreenImage!: ElementRef;
@@ -58,7 +59,8 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
   @Input() currentDirectory?: string = '';
   @Input() user?: User;
   @Input() inputtedParentRef?: AppComponent;
-  @Input() isLoadedFromURL = false; 
+  @Input() isLoadedFromURL = false;
+  @Input() showMediaInformation = false; 
   @Output() emittedNotification = new EventEmitter<string>(); 
   @Output() commentHeaderClickedEvent = new EventEmitter<boolean>(); 
   @Output() expandClickedEvent = new EventEmitter<FileEntry>(); 
@@ -235,8 +237,10 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
             this.inputtedParentRef.pictureSrcs.push({ key: fileId + '', value: this.selectedFileSrc, type: type, extension: this.selectedFileExtension });
           }
           setTimeout(() => {
-            if (this.mediaContainer && this.mediaContainer.nativeElement)
+            if (this.mediaContainer && this.mediaContainer.nativeElement) { 
               this.mediaContainer.nativeElement.muted = true;
+              this.mediaContainer.nativeElement.loop = true;
+            }
           }, 50);
         };
       }); 
@@ -429,5 +433,12 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
       : baseName.substring(0, firstPartLength) + '...' + baseName.slice(-lastPartLength);
 
     return truncatedBaseName + extension;
+  }
+  showMediaInformationButtonClicked() {
+    this.isShowingMediaInformation = !this.isShowingMediaInformation;
+    console.log(this.selectedFile);
+  }
+  closeMediaInformationButtonClicked() { 
+    this.isShowingMediaInformation = !this.isShowingMediaInformation;
   }
 }

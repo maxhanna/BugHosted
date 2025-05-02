@@ -227,8 +227,8 @@
 
   </div>
 </div>
-
-<!-- Friends Popup -->
+<!-- 
+ Friends Popup  
 <div class="popupPanel" *ngIf="isFriendsPanelOpen">
   <div class="popupPanelTitle">
     {{ isEditingFriends ? 'Deleting ' : ''}}Friends
@@ -260,7 +260,7 @@
       <div class="usernameProfileLink">
         <app-user-tag [user]="friendReq.receiver" [inputtedParentRef]="parentRef" [displayMiniTag]="true" [previousComponent]="previousComponent ?? 'User'"></app-user-tag>
       </div>
-      <div class="friendshipRequestActionDiv" *ngIf="!userId || userId == parentRef?.user?.id">
+      <div class="friendshipRequestActionDiv" *ngIf="!userId || userId == parentRef?.user?.id"> 
         <span (click)="deleteFriendshipRequest(friendReq)" class="cursorPointer" title="Unfollow">❌</span>
       </div>
     </div>
@@ -300,7 +300,7 @@
   <div>
     <button id="closeOverlay" (click)="closeFriendsPanel()">Close</button>
   </div>
-</div>
+</div> -->
 
 <!-- About User Popup -->
 <div class="aboutPopupPanel aboutPopupPanel" *ngIf="isAboutPanelOpen">
@@ -509,6 +509,10 @@
         <app-user-tag [user]="friendReq.receiver" [inputtedParentRef]="parentRef" [displayMiniTag]="true" [previousComponent]="previousComponent ?? 'User'"></app-user-tag>
       </div>
       <div class="friendshipRequestActionDiv" *ngIf="!userId || userId == parentRef?.user?.id">
+        <button (click)="preventNotifications(friendReq)" class="cursorPointer"
+          title="Prevent Notifications" *ngIf="!stoppedNotifications.includes(friendReq.receiver.id ?? 0)">🔔</button>
+        <button (click)="allowNotifications(friendReq)" class="cursorPointer" 
+          title="Allow Notifications" *ngIf="stoppedNotifications.includes(friendReq.receiver.id ?? 0)">❌🔔</button>
         <button (click)="deleteFriendshipRequest(friendReq)" class="cursorPointer" title="Unfollow">❌</button>
       </div>
     </div>

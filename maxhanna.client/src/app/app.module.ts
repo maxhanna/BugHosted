@@ -49,12 +49,14 @@ import { NexusSupportScreenComponent } from './nexus-support-screen/nexus-suppor
 import { NotificationsComponent } from './notifications/notifications.component';
 import { InViewDirective } from './in-view.directive';
 import { CurrencyFlagPipe } from './currency-flag.pipe';
+import { FileSizePipe } from './file-size.pipe';
 import { MetaComponent } from './meta/meta.component';
 import { HostAiComponent } from './host-ai/host-ai.component';
 import { ThemesComponent } from './themes/themes.component';
 import { CrawlerComponent } from './crawler/crawler.component';
 import { SpeechRecognitionComponent } from './speech-recognition/speech-recognition.component';
 import { TopComponent } from './top/top.component'; 
+import { TimeFormatPipe } from './time-format.pipe';
 
 @NgModule({
   declarations: [
@@ -99,8 +101,8 @@ import { TopComponent } from './top/top.component';
     NotificationsComponent,
     InViewDirective,
     MetaComponent,
-    ClickableUrlsPipe,
-    CurrencyFlagPipe,
+    ClickableUrlsPipe, 
+    CurrencyFlagPipe, 
     HostAiComponent,
     ThemesComponent,
     CrawlerComponent,
@@ -110,11 +112,15 @@ import { TopComponent } from './top/top.component';
   bootstrap: [AppComponent],
   imports: [BrowserModule,
     LineGraphComponent,
+    TimeFormatPipe,
+    FileSizePipe,
     AppRoutingModule],
   exports: [
     InViewDirective,
     ClickableUrlsPipe,
-    CurrencyFlagPipe
+    TimeFormatPipe,
+    CurrencyFlagPipe,
+    FileSizePipe
   ],
   providers: [
     provideHttpClient(withInterceptorsFromDi()),

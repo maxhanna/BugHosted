@@ -514,4 +514,13 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
     const user = this.inputtedParentRef?.user ?? this.parentRef?.user;
     return this.currentChatUsers?.filter(x => x.id != user?.id);
   }
+  async leaveChat(chatId: number) {
+    if (!this.parentRef?.user?.id) { return alert("Must be logged in."); }
+    if (!confirm("Warning: This chat will be archived and only reappear if you get a new message. Proceed?")) { return; }
+    this.chatService.leaveChat(this.parentRef.user.id, chatId).then(res=> {
+      if (res) {
+        this.parentRef?.showNotification(`You've left chat#${chatId}.`);
+      }
+    });
+  }
 }
