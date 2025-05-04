@@ -615,8 +615,10 @@
       </div>
       
 
-      <div *ngIf="showingTradeLogs" class="tradeDataTable" [style.opacity]="isLoading ? '25%' : ''">
-        <div *ngIf="tradeLogs.length > 0; else noLogs" class="mainTableContainer">
+      <div *ngIf="showingTradeLogs" [style.opacity]="isLoading ? '25%' : ''">
+        <div class="xxSmallFont secondaryFontColor" style="width:100%; text-align: right;">Logs will refresh every minute.</div>
+
+        <div *ngIf="tradeLogs.length > 0; else noLogs" class="mainTableContainer tradeDataTable">
           <table class="smallFont mainTable">
             <thead>
               <tr>
@@ -627,7 +629,7 @@
             <tbody>
               <tr *ngFor="let log of paginatedLogs">
                 <td>{{ log.comment }}</td>
-                <td class="xxSmallFont">{{ log.timestamp | date: 'short' }}</td>
+                <td class="xxSmallFont">{{ parentRef?.convertUtcToLocalTime(log.timestamp)  }}</td>
               </tr>
             </tbody>
           </table>

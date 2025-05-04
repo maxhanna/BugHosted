@@ -143,6 +143,9 @@ public class KrakenService
 					return false;
 				}
 				else {
+					_ = _log.Db($"Executing momentum entry from XBT to USDC: {btcPriceUSDC.Value}. triggeredBySpread: {triggeredBySpread:P}, {(spread > 0 ? $"spread:{spread:P}" : "")} {(spread2 > 0 ? $"spread2:{spread2:P}" : "")}", userId, "TRADE", true);
+					_ = _log.Db($"Threshold ({dynamicThreshold}). (btcPriceUSDC:{btcPriceUSDC.Value} - UpwardsMomentum.BtcPriceUsdc:{UpwardsMomentum.BtcPriceUsdc} >= {-dynamicThreshold} ({priceAboveInitial}:{(btcPriceUSDC.Value - UpwardsMomentum.BtcPriceUsdc)}) || btcPriceUSDC:{btcPriceUSDC.Value} - UpwardsMomentum.BestBtcPriceUsdc:{UpwardsMomentum.BestBtcPriceUsdc} >= {-dynamicThreshold} ({priceAboveBest}:{(btcPriceUSDC.Value - UpwardsMomentum.BestBtcPriceUsdc)})).", userId, "TRADE", true);
+
 					//sell at this point
 					var balances = await GetBalance(userId, keys);
 					if (balances == null)
@@ -155,12 +158,12 @@ public class KrakenService
 					_ = _log.Db("USDC Balance: " + usdcBalance + "; Btc Balance: " + btcBalance, userId, "TRADE", true);
 
 					decimal? btcToTrade;
-					var isPremiumCondition = dynamicThreshold > 100; //A Ratio depending on how far we are from the price.
+					var isPremiumCondition = dynamicThreshold > 155; //A Ratio depending on how far we are from the price.
 					var tmpTradePerc = firstPriceToday != null ? _ValueTradePercentage - _ValueTradePercentagePremium : _ValueTradePercentage;
 					if (isPremiumCondition)
 					{ // Increase sell amount for premium opportunity  // take off a premium if the bot used a fallback trade price value.
 						btcToTrade = Math.Min(btcBalance * (tmpTradePerc + _ValueTradePercentagePremium), _MaximumBTCTradeAmount);
-						_ = _log.Db($"[PREMIUM SELL OPPORTUNITY] dynamicThreshold:{dynamicThreshold} > 100. Increasing trade size by {_ValueTradePercentagePremium:P}", userId, "TRADE", true);
+						_ = _log.Db($"[PREMIUM SELL OPPORTUNITY] dynamicThreshold:{dynamicThreshold} > 155. Increasing trade size by {_ValueTradePercentagePremium:P}", userId, "TRADE", true);
 					}
 					else
 					{ // Normal trade amount // take off a premium if the bot used a fallback trade price value.
@@ -229,6 +232,9 @@ public class KrakenService
 
 				if (priceAboveInitial || priceAboveBest)
 				{
+					_ = _log.Db($"Executing momentum entry from USDC to XBT: {btcPriceUSDC.Value}. triggeredBySpread: {triggeredBySpread:P}, {(spread > 0 ? $"spread:{spread:P}" : "")} {(spread2 > 0 ? $"spread2:{spread2:P}" : "")}", userId, "TRADE", true);
+					_ = _log.Db($"Threshold ({dynamicThreshold}). (btcPriceUSDC:{btcPriceUSDC.Value} - DownwardsMomentum.BtcPriceUsdc:{DownwardsMomentum.BtcPriceUsdc} >= {dynamicThreshold} ({priceAboveInitial}:{(btcPriceUSDC.Value - DownwardsMomentum.BtcPriceUsdc)}) || btcPriceUSDC:{btcPriceUSDC.Value} - DownwardsMomentum.BestBtcPriceUsdc:{DownwardsMomentum.BestBtcPriceUsdc} >= {dynamicThreshold} ({priceAboveBest}:{(btcPriceUSDC.Value - DownwardsMomentum.BestBtcPriceUsdc)})).", userId, "TRADE", true);
+
 					// buy at this point
 					var balances = await GetBalance(userId, keys);
 					if (balances == null)
@@ -239,13 +245,13 @@ public class KrakenService
 					decimal btcBalance = balances.ContainsKey("XXBT") ? balances["XXBT"] : 0;
 					decimal usdcBalance = balances.ContainsKey("USDC") ? balances["USDC"] : 0;
 					decimal usdcValueToTrade = 0;
-					var isPremiumCondition = dynamicThreshold > 100;
+					var isPremiumCondition = dynamicThreshold > 155;
 					var tmpTradePerc = (firstPriceToday != null ? _ValueTradePercentage - _ValueTradePercentagePremium : _ValueTradePercentage);
 
 					if (isPremiumCondition)
 					{ // Increase trade amount for premium opportunity
 						usdcValueToTrade = Math.Min(usdcBalance * (tmpTradePerc + _ValueTradePercentagePremium), _MaximumUSDCTradeAmount);
-						_ = _log.Db($"[PREMIUM BUY OPPORTUNITY] dynamicThreshold:{dynamicThreshold} > 100. Increasing trade size by 5%", userId, "TRADE", true);
+						_ = _log.Db($"[PREMIUM BUY OPPORTUNITY] dynamicThreshold:{dynamicThreshold} > 155. Increasing trade size by 5%", userId, "TRADE", true);
 					}
 					else
 					{ // Normal trade amount
@@ -332,7 +338,7 @@ public class KrakenService
 			if (spread >= _TradeThreshold || (firstPriceToday != null && spread2 >= _TradeThreshold))
 			{
 				string triggeredBy = spread >= _TradeThreshold ? "spread" : "spread2";
-				_ = _log.Db($"Trade triggered by: {triggeredBy}", userId, "TRADE", true);
+				_ = _log.Db($"Trade triggered by: {triggeredBy} ({(triggeredBy == "spread2" ? spread2 : spread)})", userId, "TRADE", true);
 
 				// If no last trade, we must equalize - get balances now
 				if (isFirstTradeEver || lastTrade == null)

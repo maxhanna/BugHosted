@@ -66,10 +66,10 @@
       </span>
     </span>
   </div>
-  <div *ngIf="!searchOnly && (!users || users.length == 0)">
+  <div *ngIf="!isLoading && !searchOnly && (!users || users.length == 0)">
     No {{ isFriendsChecked ? 'Friends' : 'Users' }} to Display.
   </div>
-  <div *ngIf="(searchOnly && searchInput && searchInput.nativeElement?.value != '' && (!usersSearched || usersSearched.length == 0))">
+  <div *ngIf="!isLoading && (searchOnly && searchInput && searchInput.nativeElement?.value != '' && (!usersSearched || usersSearched.length == 0))">
     No Users to Display.
   </div>
   <div *ngIf="messageRows && messageRows.length > 0 && isFriendsChecked && !friendsOnly && !sharingSearch">

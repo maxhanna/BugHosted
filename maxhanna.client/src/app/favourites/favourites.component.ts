@@ -70,8 +70,7 @@ export class FavouritesComponent extends ChildComponent implements OnInit {
       this.favorites = [];
       this.totalCount = 0;
     }
-    this.numberOfPages = Math.ceil(this.totalCount / this.pageSize);
-    console.log("loading favorites for " + this.parentRef?.user?.id, this.favorites, this.isSearchingUrls);
+    this.numberOfPages = Math.ceil(this.totalCount / this.pageSize); 
     this.stopLoading(); 
   }
 
@@ -250,6 +249,7 @@ export class FavouritesComponent extends ChildComponent implements OnInit {
 
   async showLatestLinks() {
     this.showingLatestLinks = !this.showingLatestLinks;
+    this.showEditLinks = false;
     this.currentOrder = this.showingLatestLinks ? 'recent' : 'visited';
     await this.loadFavorites();
   }

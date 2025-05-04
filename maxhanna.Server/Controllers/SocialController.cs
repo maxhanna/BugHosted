@@ -1142,16 +1142,16 @@ namespace maxhanna.Server.Controllers
 
 					// Get all followers (friends + pending requests)
 					string sql = @"
-                -- Users who are friends with the poster
-                SELECT friend_id AS follower_id FROM friends WHERE user_id = @userId
-                UNION
-                -- Users who have pending friend requests from the poster
-                SELECT receiver_id AS follower_id FROM friend_requests 
-                WHERE sender_id = @userId AND (status = 'pending' OR status = 'deleted') 
-                UNION
-                -- Users who the poster has pending friend requests from
-                SELECT sender_id AS follower_id FROM friend_requests 
-                WHERE receiver_id = @userId AND (status = 'pending' OR status = 'deleted') ";
+						-- Users who are friends with the poster
+						SELECT friend_id AS follower_id FROM friends WHERE user_id = @userId
+						UNION
+						-- Users who have pending friend requests from the poster
+						-- SELECT receiver_id AS follower_id FROM friend_requests 
+						-- WHERE sender_id = @userId AND (status = 'pending' OR status = 'deleted') 
+						-- UNION
+						-- Users who the poster has pending friend requests from
+						SELECT sender_id AS follower_id FROM friend_requests 
+						WHERE receiver_id = @userId AND (status = 'pending' OR status = 'deleted') ";
 
 					var followerIds = new List<int>();
 

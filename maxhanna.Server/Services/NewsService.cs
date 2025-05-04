@@ -17,6 +17,51 @@ public class NewsService
 		"has", "had", "have", "it", "this", "that", "these", "those", "you", "i", "he", "she", "they",
 		"we", "but", "or", "so", "if", "because", "while", "just", "not", "no", "yes"
 	};
+	private static readonly HashSet<string> NegativeKeywordsForCryptoArticles = new(StringComparer.OrdinalIgnoreCase)
+	{
+		"nba", "nfl", "mlb", "nhl", "fifa", "uefa", "espn", "sports", "sport", "athlete", "athletics",
+		"basketball", "football", "baseball", "hockey", "soccer", "tennis", "golf", "cricket", "rugby",
+		"olympics", "playoffs", "tournament", "championship", "match", "game", "player", "team", "coach",
+		"referee", "stadium", "arena", "score", "win", "loss", "victory", "defeat", "draft", "transfer",
+		"contract", "salary", "injury", "foul", "penalty", "goal", "assist", "mvp", "all-star", "final",
+
+		// Entertainment & Celebrities
+		"movie", "film", "actor", "actress", "hollywood", "oscar", "emmy", "grammy", "award", "celebrity",
+		"tv", "television", "series", "netflix", "disney", "hbo", "amazon prime", "streaming", "youtube",
+		"music", "song", "album", "artist", "band", "concert", "tour", "billboard", "spotify", "tiktok",
+		"instagram", "social media", "influencer", "viral", "trending", "famous", "red carpet", "gossip",
+		"rumor", "scandal", "divorce", "marriage", "engagement", "birth", "death", "obituary", "biography",
+
+		// Politics & World News
+		"politics", "politician", "election", "president", "prime minister", "congress", "senate", "parliament",
+		"government", "law", "bill", "policy", "tax", "economy", "trade", "sanction", "embargo", "treaty",
+		"war", "conflict", "military", "army", "navy", "air force", "nato", "un", "united nations", "who",
+		"european union", "brexit", "immigration", "refugee", "border", "security", "terrorism", "cyberattack",
+		"hacking", "espionage", "diplomacy", "summit", "meeting", "negotiation", "protest", "riot", "strike",
+		"scandal", "corruption", "investigation", "court", "judge", "verdict", "trial", "lawsuit", "crime",
+		"police", "arrest", "murder", "shooting",
+
+		// General Non-Crypto News
+		"weather", "forecast", "hurricane", "earthquake", "flood", "fire", "disaster", "accident", "crash",
+		"plane", "airplane", "flight", "train", "car", "vehicle", "traffic", "road", "bridge", "construction",
+		"health", "medical", "doctor", "hospital", "disease", "virus", "covid", "pandemic", "vaccine", "medicine",
+		"science", "research", "study", "discovery", "invention", "space", "nasa", "rocket", "mars", "moon",
+		"alien", "ufo", "technology", "ai", "artificial intelligence", "robot", "machine learning", "quantum",
+		"gadget", "smartphone", "laptop", "computer", "software", "hardware", "internet", "website", "app",
+		"business", "company", "startup", "merger", "acquisition", "ceo", "founder", "investor", "stock",
+		"market", "finance", "bank", "loan", "mortgage", "interest", "inflation", "recession", "unemployment",
+		"job", "hire", "layoff", "salary", "wage", "union", "strike", "protest", "consumer", "product", "brand",
+		"advertising", "marketing", "sales", "retail", "amazon", "walmart", "tesla", "apple", "google", "meta",
+		"microsoft", "netflix", "disney", "sony", "nintendo", "playstation", "xbox", "gaming", "esports", "twitch",
+
+		// Miscellaneous
+		"food", "restaurant", "recipe", "cooking", "chef", "meal", "diet", "nutrition", "fitness", "gym",
+		"exercise", "weight", "muscle", "health", "wellness", "travel", "tourism", "vacation", "hotel", "flight",
+		"airline", "destination", "beach", "mountain", "city", "country", "culture", "tradition", "festival",
+		"holiday", "christmas", "new year", "easter", "halloween", "thanksgiving", "valentine", "birthday",
+		"wedding", "anniversary", "party", "celebration", "event", "concert", "festival", "exhibition", "museum",
+		"art", "painting", "sculpture", "photography", "design", "fashion", "clothing", "shoes", "jewelry",
+	};
 	private static readonly HashSet<string> CryptoKeywords = new(StringComparer.OrdinalIgnoreCase)
 	{
 		"bitcoin", "btc", "ethereum", "eth", "tether", "usdt", "xrp", "bnb", "solana", "sol", "cardano", "ada", "dogecoin", "doge",
@@ -499,13 +544,13 @@ Posted by user @{topMeme.Username}<br><small>Daily top memes are selected based 
 		{
 			return new MemeInfo
 			{
-				Id = reader.GetInt32("id"),
-				FileName = reader.GetString("file_name"),
-				GivenFileName = reader.GetString("given_file_name"),
-				UserId = reader.GetInt32("user_id"),
-				Username = reader.GetString("username"),
-				CommentCount = reader.GetInt32("comment_count"),
-				ReactionCount = reader.GetInt32("reaction_count")
+				Id = reader.GetInt32(reader.GetOrdinal("id")),
+				FileName = reader.IsDBNull(reader.GetOrdinal("file_name")) ? null : reader.GetString(reader.GetOrdinal("file_name")),
+				GivenFileName = reader.IsDBNull(reader.GetOrdinal("given_file_name")) ? null : reader.GetString(reader.GetOrdinal("given_file_name")),
+				UserId = reader.GetInt32(reader.GetOrdinal("user_id")),
+				Username = reader.IsDBNull(reader.GetOrdinal("username")) ? null : reader.GetString(reader.GetOrdinal("username")),
+				CommentCount = reader.IsDBNull(reader.GetOrdinal("comment_count")) ? 0 : reader.GetInt32(reader.GetOrdinal("comment_count")),
+				ReactionCount = reader.IsDBNull(reader.GetOrdinal("reaction_count")) ? 0 : reader.GetInt32(reader.GetOrdinal("reaction_count"))
 			};
 		}
 
@@ -848,7 +893,14 @@ Posted by user @{topMeme.Username}<br><small>Daily top memes are selected based 
 		{
 			negativeScore -= 3.0f;
 		}
-
+		foreach (var negKeyword in NegativeKeywordsForCryptoArticles)
+		{
+			if (combinedText.Contains(negKeyword))
+			{
+				negativeScore -= 5.0f; // Heavy penalty for sports terms
+				break;
+			}
+		}
 		// 6. Recentness (newer articles get slightly higher score)
 		float recentnessScore = 0;
 		if (article.PublishedAt.HasValue)

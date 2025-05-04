@@ -520,6 +520,7 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
     this.chatService.leaveChat(this.parentRef.user.id, chatId).then(res=> {
       if (res) {
         this.parentRef?.showNotification(`You've left chat#${chatId}.`);
+        this.closeChat();
       }
     });
   }

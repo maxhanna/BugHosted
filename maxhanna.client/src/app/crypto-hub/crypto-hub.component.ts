@@ -29,8 +29,7 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
   isDiscreete = false;
   data?: CoinValue[];
   allHistoricalData?: CoinValue[] = [];
-  volumeData?: any[] = undefined;
-  allHistoricalDataPreCalculation?: CoinValue[] = [];
+  volumeData?: any[] = undefined; 
   allWalletBalanceData?: CoinValue[] = [];
   allHistoricalExchangeRateData?: ExchangeRate[] = [];
   allHistoricalExchangeRateDataForGraph?: ExchangeRate[] = [];
@@ -122,6 +121,11 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
   useRandomPriceGraph = false;
   cadToUsdRate?: number;
   btcUSDRate?: number;
+
+  private tradeLogInterval: any = null;
+  private coinAndVolumeRefreshInterval: any;
+
+
   @ViewChild('scrollContainer', { static: true }) scrollContainer!: ElementRef;
   @ViewChild(LineGraphComponent) lineGraphComponent!: LineGraphComponent;
   @ViewChild(LineGraphComponent) simLineGraph!: LineGraphComponent;
@@ -244,26 +248,8 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
       if (ceRes2) {
         this.latestCurrencyPriceRespectToFIAT = ceRes2.rate;
       }
-      const hours = this.convertTimePeriodToHours(this.lineGraphInitialPeriod); 
-      const startTime = new Date();
-      startTime.setHours(startTime.getHours() - hours);
-      await this.coinValueService.getAllCoinValuesForGraph(new Date(), hours).then(res => {
-        if (res) {
-          this.allHistoricalDataPreCalculation = res;
-          this.allHistoricalData = res.filter((x: any) => x.name == 'Bitcoin');
-          this.allHistoricalData?.forEach(x => x.valueCAD = x.valueCAD * this.latestCurrencyPriceRespectToCAD);
-        }
-      });
-      const sessionToken = await this.parentRef?.getSessionToken();
-      const tradeUserId = this.hasKrakenApi ? this.parentRef?.user?.id ?? 1 : 1;
-      this.getTradebotValuesForMainGraph(tradeUserId, sessionToken);
-      await this.tradeService.getTradeVolumeForGraph(new Date(), hours).then(res => {
-        this.volumeData = res.map((item: any) => ({
-          timestamp: item.timestamp,
-          valueCAD: item.volumeBTC
-        }));
-      });
-
+      const { sessionToken, tradeUserId } = await this.refreshCoinAndVolumeGraph();
+      this.startCoinAndVolumePolling();
       if (!this.weightedAveragePrices) {
         this.tradeService.getWeightedAveragePrices(this.parentRef?.user?.id ?? 1, sessionToken ?? "").then(res => {
           if (res) {
@@ -289,6 +275,35 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
       this.btcUSDRate = this.btcToCadPrice / this.cadToUsdRate; 
     });   
     this.stopLoading();
+  }
+  private async refreshCoinAndVolumeGraph() {
+    const hours = this.convertTimePeriodToHours(this.lineGraphInitialPeriod);
+    const startTime = new Date();
+    startTime.setHours(startTime.getHours() - hours);
+    await this.coinValueService.getAllCoinValuesForGraph(new Date(), hours).then(res => {
+      if (res) { 
+        this.allHistoricalData = res.filter((x: any) => x.name == 'Bitcoin');
+        this.allHistoricalData?.forEach(x => x.valueCAD = x.valueCAD * this.latestCurrencyPriceRespectToCAD);
+      }
+    });
+    const sessionToken = await this.parentRef?.getSessionToken();
+    const tradeUserId = this.hasKrakenApi ? this.parentRef?.user?.id ?? 1 : 1;
+    this.getTradebotValuesForMainGraph(tradeUserId, sessionToken);
+    await this.tradeService.getTradeVolumeForGraph(new Date(), hours).then(res => {
+      this.volumeData = res.map((item: any) => ({
+        timestamp: item.timestamp,
+        valueCAD: item.volumeBTC
+      }));
+    });
+    return { sessionToken, tradeUserId };
+  }
+  private startCoinAndVolumePolling() {
+    this.coinAndVolumeRefreshInterval = setInterval(async () => {
+      const hours = this.convertTimePeriodToHours(this.lineGraphInitialPeriod);
+      if (hours < 24 * 4) { // dont refresh constantly for big data sets
+        await this.refreshCoinAndVolumeGraph();
+      }
+    }, 60 * 1000);   
   }
   private async getTradebotValuesForMainGraph(tradeUserId: number, sessionToken: string | undefined) {
     await this.tradeService.getTradeHistory(tradeUserId, sessionToken ?? "").then(res => {
@@ -329,6 +344,8 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
   }
 
   ngOnDestroy() {
+    clearInterval(this.coinAndVolumeRefreshInterval); 
+    this.stopTradeLogPolling(); 
     clearInterval(this.scrollInterval);
     this.parentRef?.removeResizeListener();
   }
@@ -1498,8 +1515,11 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
     this.tradeConfigLastUpdated = undefined;
     if (this.isTradePanelOpen) {
       this.closeTradeFullscreen();
+      this.stopTradeLogPolling();
+      this.startCoinAndVolumePolling();
     } else {
       this.isTradePanelOpen = true;
+      clearInterval(this.coinAndVolumeRefreshInterval); 
     }
   }
   closeTradeFullscreen() {
@@ -1579,16 +1599,53 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
     return map[symbol.toUpperCase()] || symbol;
   }
   async showTradeLogs() {
-    const tmpStatus = this.showingTradeLogs;
+    const wasShowingLogs = this.showingTradeLogs;
     this.closeTradeDivs();
-    this.showingTradeLogs = !tmpStatus;
-    this.startLoading();
-    if (this.showingTradeLogs && this.tradeLogs.length == 0) {
-      const sessionToken = await this.parentRef?.getSessionToken() ?? "";
-      this.tradeLogs = await this.tradeService.getTradeLogs(this.hasKrakenApi ? this.parentRef?.user?.id ?? 1 : 1, sessionToken)
-      this.setPaginatedLogs();
+    this.showingTradeLogs = !wasShowingLogs;
+
+    if (this.showingTradeLogs) {
+      this.startLoading();
+      await this.startTradeLogPolling(); // Start polling if showing logs
+      this.stopLoading();
+    } else {
+      this.stopTradeLogPolling(); // Stop polling if hiding logs
     }
-    this.stopLoading();
+  }
+  private async startTradeLogPolling() {
+    // Clear any existing interval to avoid duplicates
+    this.stopTradeLogPolling();
+
+    // Initial fetch
+    await this.fetchTradeLogs();
+
+    // Start polling every 60 seconds
+    this.tradeLogInterval = setInterval(async () => {
+      if (this.showingTradeLogs && this.currentLogPage <= 2) {  
+        await this.fetchTradeLogs();
+      }
+    }, 60 * 1000); // 60 seconds
+  }
+  private async fetchTradeLogs() {
+    try {
+      this.startLoading();
+      const sessionToken = await this.parentRef?.getSessionToken() ?? "";
+      this.tradeLogs = await this.tradeService.getTradeLogs(
+        this.hasKrakenApi ? this.parentRef?.user?.id ?? 1 : 1,
+        sessionToken
+      );
+      this.setPaginatedLogs();
+    } catch (error) {
+      console.error('Failed to fetch trade logs:', error);
+      // Optional: Retry after a delay
+    } finally {
+      this.stopLoading();
+    }
+  }
+  private stopTradeLogPolling() {
+    if (this.tradeLogInterval) {
+      clearInterval(this.tradeLogInterval);
+      this.tradeLogInterval = null;
+    }
   }
   setPaginatedLogs() {
     this.totalLogPages = Math.ceil(this.tradeLogs.length / this.logsPerPage);
@@ -1857,6 +1914,7 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
   }
   async changeTimePeriodEventOnBTCHistoricalGraph(periodSelected: string) {
     this.startLoading();
+    this.lineGraphInitialPeriod = periodSelected as "5min" | "15min" | "1h" | "6h" | "12h" | "1d" | "2d" | "5d" | "1m" | "2m" | "3m" | "6m" | "1y" | "2y" | "3y" | "5y";
     const hours = this.convertTimePeriodToHours(periodSelected); 
     // Get current time in UTC
     const currentTime = new Date();
