@@ -13,7 +13,11 @@
     </div>
     <div class="instructions" *ngIf="!gameStarted">
       <div class="instructionTitle">The Word Guessing Game!</div>
-      <div class="instructionTitle">Best Daily Streak : {{wordlerBestStreak}}</div>
+      <div class="instructionTitle">Your Best Daily Streak : {{wordlerBestStreak}}</div>
+      <div class="instructionTitle smallFont" *ngIf="wordlerBestStreakOverall">
+        All-time Best Daily Streak ({{wordlerBestStreakOverall.streak}}) By :
+        <app-user-tag [userId]="wordlerBestStreakOverall.userId" [inputtedParentRef]="parentRef" [displayMiniTag]="true" [previousComponent]="'Wordler'"></app-user-tag>        
+      </div>
       <div class="notification">You get {{numberOfTries}} tries to guess today's word.</div>
       <div class="notification">Succeed or fail, you must wait until tomorrow to try again.</div>
       <div class="notification">Everyone gets the same word.</div>
@@ -107,7 +111,10 @@
       </thead>
       <tbody>
         <tr *ngFor="let score of scores">
-          <td class="usernameProfileLink cursorPointerUnderlined" (click)="viewProfile(score.user, 'Wordler')">{{score.user.username ?? 'Anonymous'}}</td>
+          <td (click)="viewProfile(score.user, 'Wordler')"> 
+            <app-user-tag [userId]="score.user.id" [inputtedParentRef]="parentRef" [displayMiniTag]="true"
+              [previousComponent]="'Wordler'"></app-user-tag> 
+          </td>
           <td>{{score.score}}</td>
           <td>{{score.time}}</td>
           <td>{{score.difficulty == 4 ? 'Easy Difficulty' : score.difficulty == 5 ? 'Medium Difficulty' : score.difficulty == 6 ? 'Hard Difficulty' : 'Master Wordler'}}</td>

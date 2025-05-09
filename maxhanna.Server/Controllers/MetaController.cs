@@ -4,8 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using MySqlConnector;
 using System;
 using System.Text;
-using System.Text.Json;
-using static System.Runtime.InteropServices.JavaScript.JSType;
+using System.Text.Json; 
 
 namespace maxhanna.Server.Controllers
 {
@@ -838,11 +837,14 @@ namespace maxhanna.Server.Controllers
         b.level as metabot_level, 
         b.exp as metabot_exp,
         b.is_deployed as metabot_is_deployed,
-        p.id as part_id, p.part_name, p.type as part_type, p.damage_mod, p.skill
+        p.id as part_id, p.part_name, p.type as part_type, p.damage_mod, p.skill,
+		e.coordsX, e.coordsY
     FROM
         maxhanna.meta_bot b
     LEFT JOIN
         maxhanna.meta_encounter_bot_part p ON b.hero_id = p.hero_id
+    LEFT JOIN
+        maxhanna.meta_encounter e ON e.hero_id = b.hero_id
     WHERE b.hero_id IN (" + string.Join(",", heroIds) + ");"; // Inject IDs safely
 
 			MySqlCommand cmd = new MySqlCommand(sql, conn, transaction);
@@ -867,6 +869,7 @@ namespace maxhanna.Server.Controllers
 							Exp = Convert.ToInt32(reader["metabot_exp"]),
 							Level = Convert.ToInt32(reader["metabot_level"]),
 							IsDeployed = Convert.ToBoolean(reader["metabot_is_deployed"]),
+							Position = new Vector2(Convert.ToInt32(reader["coordsX"]), Convert.ToInt32(reader["coordsY"]))
 						};
 						bots.Add(metabot);
 					}
@@ -1130,8 +1133,22 @@ namespace maxhanna.Server.Controllers
 					{ "@heroId", heroId },
 			};
 
-			await this.ExecuteInsertOrUpdateOrDeleteAsync(sql, parameters, connection, transaction); 
-		} 
+			await this.ExecuteInsertOrUpdateOrDeleteAsync(sql, parameters, connection, transaction);
+		}
+
+		private async Task UpdateEncounterPosition(int encounterId, int destinationX, int destionationY, MySqlConnection connection, MySqlTransaction transaction)
+		{
+			string sql = @"UPDATE maxhanna.meta_encounter SET coordsX = @coordsX, coordsY = @coordsY WHERE hero_id = @heroId;";
+
+			Dictionary<string, object?> parameters = new Dictionary<string, object?>
+			{
+					{ "@heroId", encounterId },
+					{ "@coordsX", destinationX },
+					{ "@coordsY", destionationY },
+			};
+
+			await this.ExecuteInsertOrUpdateOrDeleteAsync(sql, parameters, connection, transaction);
+		}
 
 		private async Task DeployMetabot(int metabotId, MySqlConnection connection, MySqlTransaction transaction)
 		{
@@ -1190,8 +1207,10 @@ namespace maxhanna.Server.Controllers
 				// If heroId is negative, perform a DELETE instead of UPDATE
 				if (heroId < 0)
 				{
-					sql = "DELETE FROM maxhanna.meta_bot WHERE hero_id = @heroId" +
-								(metabotId.HasValue ? " AND id = @botId" : "");
+					sql =
+					$@"DELETE FROM maxhanna.meta_bot WHERE hero_id = @heroId {(metabotId.HasValue ? " AND id = @botId" : "")};
+					DELETE FROM maxhanna.meta_encounter_bot_part WHERE hero_id = @heroId;
+					UPDATE maxhanna.meta_encounter SET coordsX = -1, coordsY = -1, last_killed = UTC_TIMESTAMP WHERE hero_id = @heroId;";
 					if (metabotId.HasValue)
 					{
 						parameters.Add("@botId", metabotId.Value);
@@ -1200,9 +1219,9 @@ namespace maxhanna.Server.Controllers
 				else
 				{
 					sql = @$"
-                UPDATE maxhanna.meta_bot 
-                SET is_deployed = 0, hp = 0 
-                WHERE hero_id = @heroId {(metabotId.HasValue ? " AND id = @botId" : "")};";
+						UPDATE maxhanna.meta_bot 
+						SET is_deployed = 0, hp = 0 
+						WHERE hero_id = @heroId {(metabotId.HasValue ? " AND id = @botId" : "")};";
 
 					if (metabotId.HasValue)
 					{
@@ -1241,8 +1260,15 @@ namespace maxhanna.Server.Controllers
 			}
 			else if (metaEvent != null && metaEvent.Data != null && metaEvent.EventType == "REPAIR_ALL_METABOTS")
 			{
-				int heroId = Convert.ToInt32(metaEvent.Data["heroId"]); 
+				int heroId = Convert.ToInt32(metaEvent.Data["heroId"]);
 				await RepairAllMetabots(heroId, connection, transaction);
+			} 
+			else if (metaEvent != null && metaEvent.Data != null && metaEvent.EventType == "UPDATE_ENCOUNTER_POSITION")
+			{ 
+				int encounterId = Convert.ToInt32(metaEvent.Data["encounterId"]);
+				int destinationX = Convert.ToInt32(metaEvent.Data["destinationX"]);
+				int destinationY = Convert.ToInt32(metaEvent.Data["destinationY"]);
+				await UpdateEncounterPosition(encounterId, destinationX, destinationY, connection, transaction);
 			}
 			else if (metaEvent != null && metaEvent.Data != null && metaEvent.EventType == "DEPLOY")
 			{
@@ -1267,35 +1293,7 @@ namespace maxhanna.Server.Controllers
 			{
 				int heroId = metaEvent.HeroId;
 				await DestroyMetabot(heroId, null, connection, transaction); 
-			}
-			else if (metaEvent != null && metaEvent.Data != null && metaEvent.EventType == "CREATE_ENEMY")
-			{ 
-				if (metaEvent.Data.ContainsKey("bot"))
-				{
-					var botJson = metaEvent.Data["bot"];
-					//_ = _log.Db("Received Bot JSON: " + botJson);
-					var bot = JsonSerializer.Deserialize<MetaBot>(botJson, new JsonSerializerOptions
-					{
-						PropertyNameCaseInsensitive = true
-					}); 
-					if (bot != null)
-					{
-						bool botExists = await EnemyBotCreationEventExists(bot.HeroId, connection, transaction);
-						if (!botExists)
-						{ 
-							_ = CreateBot(bot);
-						} else
-						{
-							_ = _log.Db("Bot already exists.", null, "META", true);
-						}
-					}
-					else
-					{
-						_ = _log.Db("Bot data is null or invalid.", null, "META", true);
-					}
-				}
-
-			}
+			} 
 		}
 
 		private static void StopAttackDamageOverTimeForBot(int? sourceId, int? targetId)
@@ -1404,11 +1402,11 @@ namespace maxhanna.Server.Controllers
 							{
 								// 2. Check if a TARGET_UNLOCKED event has occurred for bot
 								string checkEventSql = @"
-                    SELECT COUNT(*) 
-                    FROM maxhanna.meta_event 
-                    WHERE event = 'TARGET_UNLOCKED' 
-                        AND (JSON_EXTRACT(data, '$.sourceId') = @SourceId AND JSON_EXTRACT(data, '$.targetId') = @TargetId) 
-                        AND timestamp > NOW() - INTERVAL 5 SECOND"; // 5 second window (adjust as needed)
+									SELECT COUNT(*) 
+									FROM maxhanna.meta_event 
+									WHERE event = 'TARGET_UNLOCKED' 
+										AND (JSON_EXTRACT(data, '$.sourceId') = @SourceId AND JSON_EXTRACT(data, '$.targetId') = @TargetId) 
+										AND timestamp > NOW() - INTERVAL 5 SECOND"; // 5 second window (adjust as needed)
 
 								int eventCount = 0;
 
@@ -1562,24 +1560,6 @@ namespace maxhanna.Server.Controllers
 		}
 
 
-		private async Task<bool> EnemyBotCreationEventExists(int botHeroId, MySqlConnection connection, MySqlTransaction? transaction)
-		{
-			string checkEventSql = @"
-      SELECT COUNT(*) 
-      FROM maxhanna.meta_event 
-      WHERE event = 'CREATE_ENEMY' 
-      AND JSON_UNQUOTE(JSON_EXTRACT(data, '$.HeroId')) = @BotHeroId;";
-
-			using (var command = new MySqlCommand(checkEventSql, connection, transaction))
-			{
-				command.Parameters.AddWithValue("@BotHeroId", botHeroId);
-
-				var result = await command.ExecuteScalarAsync();
-				return Convert.ToInt32(result) > 0;
-			}
-		}
-
-
 		private void ApplyDamageToBot(MetaBot attackingBot, MetaBot defendingBot, MetaBotPart attackingPart, MetaBotPart defendingPart, MySqlConnection connection, MySqlTransaction transaction)
 		{
 			// 1. Calculate damage for both bots using the same formula
@@ -1588,14 +1568,14 @@ namespace maxhanna.Server.Controllers
 			// 2. Apply damage to both bots in the database
 			string updateSql = @"
 				UPDATE maxhanna.meta_bot_part SET last_used = NOW() WHERE metabot_id = @SourceId AND part_name = @PartName;
-        UPDATE maxhanna.meta_bot AS bot 
-        SET 
-            bot.hp = GREATEST(bot.hp - @Damage, 0), 
-            bot.is_deployed = CASE 
-                WHEN GREATEST(bot.hp - @Damage, 0) = 0 THEN 0
-                ELSE bot.is_deployed 
-            END
-        WHERE bot.id = @TargetId";
+				UPDATE maxhanna.meta_bot AS bot 
+				SET 
+					bot.hp = GREATEST(bot.hp - @Damage, 0), 
+					bot.is_deployed = CASE 
+						WHEN GREATEST(bot.hp - @Damage, 0) = 0 THEN 0
+						ELSE bot.is_deployed 
+					END
+				WHERE bot.id = @TargetId";
 
 			// Apply damage to the defender
 			using (var command = new MySqlCommand(updateSql, connection, transaction))
@@ -1605,7 +1585,7 @@ namespace maxhanna.Server.Controllers
 				command.Parameters.AddWithValue("@SourceId", attackingBot.Id);
 				command.Parameters.AddWithValue("@PartName", attackingPart.PartName);
 				command.ExecuteNonQuery();
-			} 
+			}   
 			_ = _log.Db($"{attackingBot.Id}({attackingBot.Hp}) dealt {appliedDamageToDefender} damage to {defendingBot.Id}({defendingBot.Hp})! {DateTime.Now.ToString()} part: {attackingPart.PartName}", null, "META", true);
  		}
 
@@ -1624,11 +1604,25 @@ namespace maxhanna.Server.Controllers
 				typeMultiplier = 0.5f; // Not Effective
 			}
 
-			// Calculate base damage and apply the multiplier
-			int baseDamage = attacker.Level * attackingPart.DamageMod;
-			int appliedDamage = (int)(baseDamage * typeMultiplier);
+			// 2. Base Damage Calculation
+			int baseDamage = (int)(attacker.Level * attackingPart.DamageMod * typeMultiplier);
 
-			return appliedDamage > 0 ? appliedDamage : 0;
+			// 3. Defense Calculation (scales with level difference)
+			int levelDifference = defender.Level - attacker.Level;
+			float defenseFactor = Math.Max(0.2f, 1.0f - (1 + (levelDifference * 0.5f)) / 100f);
+
+			// 4. Final Damage Calculation
+			int finalDamage = (int)(baseDamage * defenseFactor);
+
+			// 5. Critical Hit Chance (10% chance)
+			if (new Random().NextDouble() < 0.1)
+			{
+				finalDamage = (int)(finalDamage * 1.5f); 
+				_ = _log.Db($"{attacker.Name} scored a critical hit!", null, "META", true); 
+			}
+
+			// Ensure minimum damage of 1
+			return Math.Max(1, finalDamage);
 		} 
 		private async Task<long?> ExecuteInsertOrUpdateOrDeleteAsync(string sql, Dictionary<string, object?> parameters, MySqlConnection? connection = null, MySqlTransaction? transaction = null)
 		{

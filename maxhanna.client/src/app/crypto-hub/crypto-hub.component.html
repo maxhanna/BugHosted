@@ -56,14 +56,49 @@
         (changeTimePeriodEvent)="changeTimePeriodEventOnBTCHistoricalGraph($event)">
       </app-line-graph>
     </ng-container>
-      <ng-container *ngIf="volumeData">
-          <app-line-graph [selectedCurrency]="'Volume'" [type]="'Volume'" [chartTypeInputted]="'bar'" [showAverage]="true"
-            [displayCoinSwitcher]="false" [selectedPeriod]="'6h'" [data]="volumeData"
-            (changeTimePeriodEvent)="changeTimePeriodEventOnVolumeGraph($event)">
-          </app-line-graph>
+      <ng-container *ngIf="volumeData"> 
+        <app-line-graph [selectedCurrency]="'Volume'" [type]="'Volume'" [chartTypeInputted]="'bar'" [showAverage]="true"
+          [displayCoinSwitcher]="false" [selectedPeriod]="'6h'" [data]="volumeData"
+          (changeTimePeriodEvent)="changeTimePeriodEventOnVolumeGraph($event)">
+        </app-line-graph> 
       </ng-container> 
     </div>
-
+    <div class="sectionContainer volume-depth-indicator" [style.display]="isTradePanelOpen ? 'none' : 'block'" *ngIf="volumeData"> 
+      <div class="sectionName">Volume Comparison</div> 
+      <div class="volume-bars">
+        <div class="btc-bar" [style.width.%]="volumeDisplayData?.btcPercentage || 0">
+          <span class="volume-value">
+            {{ volumeDisplayData?.btcInUSDC | number:'1.0-0' }} USDC
+          </span>
+        </div>
+        <div class="usdc-bar" [style.width.%]="volumeDisplayData?.usdcPercentage || 0">
+          <span class="volume-value">
+            {{ volumeDisplayData?.usdc | number:'1.0-0' }} USDC
+          </span>
+        </div>
+      </div> 
+      <div class="volume-stats">
+        <div>
+          <strong>BTC:</strong>
+          {{ volumeDisplayData?.btc | number:'1.4-4' }} BTC ≈
+          {{ volumeDisplayData?.btcInUSDC | number:'1.0-0' }} USDC
+        </div>
+        <div>
+          <strong>USDC:</strong>
+          {{ volumeDisplayData?.usdc | number:'1.0-0' }} USDC
+        </div>
+        <div *ngIf="volumeDisplayData?.btcPrice">
+          <strong>BTC Price:</strong>
+          {{ volumeDisplayData?.btcPrice | number:'1.0-0' }} USDC
+        </div>
+        <div *ngIf="volumeDisplayData?.ratio" [class.mild-warning]="volumeDisplayData?.warningLevel === 'mild'"
+          [class.severe-warning]="volumeDisplayData?.warningLevel === 'severe'">
+          <strong>{{ volumeDisplayData?.dominanceDescription }}:</strong>
+          1 BTC volume ≈ {{ volumeDisplayData?.ratio }}x USDC volume
+          <span *ngIf="volumeDisplayData?.warningLevel !== 'none'">⚠️</span>
+        </div>
+      </div> 
+    </div>
     <div *ngIf="allHistoricalExchangeRateDataForGraph && allHistoricalExchangeRateDataForGraph.length > 0"
       class="graphContainerDiv sectionContainer" [style.display]="isTradePanelOpen ? 'none' : 'block'">
 
@@ -135,16 +170,17 @@
     </div>
 
     <div class="{{isTradePanelOpen ? 'maximizedTradePanel' : 'sectionContainer'}}">
-      <div class="titleFont">
-        <span style="display: flex; justify-content: space-between;">
-          <span>
-            <span class="cursorPointer warning-text"
-              title="We take no responsibility in how you use this trade bot nor what you do with any of this information.">⚠️</span>
-            Trade Bot:
-            <button class="cursorPointer" *ngIf="hasKrakenApi && hasAnyTradeConfig && !tradeBotStarted"
-              (click)="startTradeBot()" title="Start the tradebot.">Start</button>
-            <button class="cursorPointer" *ngIf="tradeBotStarted" (click)="stopTradeBot()"
-              [style.marginRight]="tradeBotStartedSince ? '15px' : ''" title="Stop the tradebot.">Stop</button> 
+      <div class="titleFont"> 
+          <div style="width:100%;"> 
+            <div>
+              <span>
+                <span class="cursorPointer warning-text"
+                  title="We take no responsibility in how you use this trade bot nor what you do with any of this information.">⚠️</span>
+                Trade Bot
+              </span> 
+              <button class="cursorPointer" (click)="openTradeFullscreen()" *ngIf="!isTradePanelOpen">Maximize View</button>
+            </div> 
+           
             <div *ngIf="tradeBotStartedSince">Running Since: <span class="thirdFontColor smallFont">{{tradeBotStartedSince}}</span></div>
             <div *ngIf="weightedAveragePrices && weightedAveragePrices.length > 0">
               <div *ngIf="hasKrakenApi">Average Buy Price: <span class="thirdFontColor smallFont">{{formatToCanadianCurrency(weightedAveragePrices[0])}}</span></div>
@@ -152,13 +188,17 @@
               <div *ngIf="tradebotBalances && tradebotBalances.length > 0 && tradebotBalances[tradebotBalances.length - 1]">
                 Last:
                 <span class="thirdFontColor smallFont">
-                  <span [innerHTML]="getLastTradebotTradeDisplay()"></span>
-                  <span *ngIf="getLastTradePercentage() !== null" 
-                    [title]="getLastTradePercentage() >= 0 ? 'Price has increased by ' + getLastTradePercentage().toFixed(2) + '% since last trade.' : 'Price has decreased by ' + getLastTradePercentage().toFixed(2) + '% since last trade.'"
+                  <span>
+                    <span class="xxSmallFont">[{{lastTradebotTradeTimestamp}}]</span> 
+                    {{lastTradebotTradeBuyOrSell}}:{{lastTradebotTradeValue}}({{lastTradebotTradeValuePrice}}) &#64;
+                    {{lastTradebotTradePrice}}
+                  </span>
+                  <span *ngIf="lastTradePercentage !== null" 
+                    [title]="lastTradePercentage >= 0 ? 'Price has increased by ' + lastTradePercentage.toFixed(2) + '% since last trade.' : 'Price has decreased by ' + lastTradePercentage.toFixed(2) + '% since last trade.'"
                     class="cursorPointer xxSmallFont"
-                    [class.positive-percent]="getLastTradePercentage() >= 0"
-                    [class.negative-percent]="getLastTradePercentage() < 0">
-                    ({{ getLastTradePercentage().toFixed(2) }}%)
+                    [class.positive-percent]="lastTradePercentage >= 0"
+                    [class.negative-percent]="lastTradePercentage < 0">
+                    ({{ lastTradePercentage.toFixed(2) }}%)
                   </span>
                 </span>
               </div>
@@ -166,7 +206,7 @@
                 Current Price:
                 <span class="thirdFontColor smallFont"> 
                   <span>
-                    {{ getLastBTCPrice() }} 
+                    {{ this.formatToCanadianCurrency(this.btcToCadPrice * (this.latestCurrencyPriceRespectToCAD)) }} 
                   </span>
                 </span>
               </div>
@@ -175,14 +215,18 @@
             <span class="cursorPointerUnderlined" (click)="createUpdateUserComponent();"
               *ngIf="!hasKrakenApi && parentRef?.user?.id"> Set Up Kraken API Keys </span>
             <span class="cursorPointerUnderlined" (click)="createUserComponent();"
-              *ngIf="!hasKrakenApi && !parentRef?.user?.id"> Log in to use the bot.</span>
-          </span>
-          <span *ngIf="!isTradePanelOpen">
-            <button class="cursorPointer" (click)="openTradeFullscreen()">Maximize View</button>
-          </span>
-        </span>
+              *ngIf="!hasKrakenApi && !parentRef?.user?.id"> Log in to use the bot.</span> 
+          </div>  
         <div *ngIf="isTradePanelOpen"
           [class.trade-panel-controls]="canShowTradePanelInfo()">
+          <div class="button-wrapper" *ngIf="canShowTradePanelInfo()">
+            <button class="cursorPointer" *ngIf="hasKrakenApi && hasAnyTradeConfig && !tradeBotStarted" (click)="startTradeBot()"
+              title="Start the tradebot.">Start BTC</button>
+            <button class="cursorPointer" *ngIf="tradeBotStarted" (click)="stopTradeBot()" title="Stop the tradebot.">Stop BTC</button>
+            <p class="button-description" id="trades-desc" *ngIf="!isTradebotBalanceShowing">
+              Trade USDC and BTC pair.
+            </p>
+          </div> 
           <div class="button-wrapper"
             *ngIf="hasKrakenApi && (canShowTradePanelInfo() || showingTradeSettings)">
             <button class="cursorPointer" (click)="showTradeSettings()" id="config-button" aria-describedby="config-desc">
@@ -192,8 +236,7 @@
               Opens the settings panel to configure trading parameters like trade thresholds and reserve amounts.
             </p>
           </div>
-          <div class="button-wrapper"
-            *ngIf="canShowTradePanelInfo() || isTradebotBalanceShowing">
+          <div class="button-wrapper" *ngIf="canShowTradePanelInfo() || isTradebotBalanceShowing">
             <button class="cursorPointer" (click)="checkBalance()" [disabled]="isLoading" id="trades-button"
               aria-describedby="trades-desc">
               {{isTradebotBalanceShowing ? 'Hide' : 'Show'}} Trades
@@ -233,11 +276,11 @@
             [title]="tradeBotStarted ? 'Disabled: Tradebot is running.' : ''"
             *ngIf="canShowTradePanelInfo()">
             <button class="cursorPointer" (click)="enterPosition()"
-              [title]="'Buy BTC On dip by splitting funds with _InitialMinimumFromAmountToStart (set in configuration).'+ hasKrakenApi ? '' : 'Disabled: No Kraken API keys found.' + !tradeBotStarted ? '' : 'Disabled: Tradebot already started.'"
-              id="enter-button" aria-describedby="enter-desc" [disabled]="!hasKrakenApi || tradeBotStarted"> 
+              [title]="'Buy BTC On dip by splitting funds with _InitialMinimumFromAmountToStart (set in configuration).'+ hasKrakenApi ? '' : 'Disabled: No Kraken API keys found.'"
+              id="enter-button" aria-describedby="enter-desc" [disabled]="!hasKrakenApi"> 
               Enter Position
             </button>
-            <p class="button-description" id="enter-desc">
+            <p class="button-description" id="enter-desc"> <!-- TODO: Display foreseable buy amount here -->
               Buys BTC using configured funds, starting a new trading position and starting the bot. See configuration under: _InitialMinimumFromAmountToStart.
             </p>
           </div>
@@ -616,7 +659,7 @@
       
 
       <div *ngIf="showingTradeLogs" [style.opacity]="isLoading ? '25%' : ''">
-        <div class="xxSmallFont secondaryFontColor" style="width:100%; text-align: right;">Logs will refresh every minute.</div>
+        <div class="xxSmallFont secondaryFontColor" style="width:100%; text-align: right;">Logs refresh every 30s.</div>
 
         <div *ngIf="tradeLogs.length > 0; else noLogs" class="mainTableContainer tradeDataTable">
           <table class="smallFont mainTable">

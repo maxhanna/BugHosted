@@ -60,6 +60,7 @@ export class Character extends GameObject {
     expForNextLevel?: number,
     level?: number,
     mask?: Mask,
+    isSolid?: boolean,
     preventDraw?: boolean,
     forceDrawName?: boolean,
     preventDrawName?: boolean,
@@ -71,6 +72,7 @@ export class Character extends GameObject {
       preventDraw: params.preventDraw,
       forceDrawName: params.forceDrawName ?? true,
       preventDrawName: params.preventDrawName ?? true,
+      isSolid: params.isSolid ?? true,
     });
     this.id = params.id;
     this.name = params.name;
@@ -418,6 +420,37 @@ export class Character extends GameObject {
     // Draw yellow EXP bar (filled portion)
     ctx.fillStyle = expColor;
     ctx.fillRect(barX, barY, barWidth * expPercentage, barHeight);
+  }
+
+  drawLevel(ctx: CanvasRenderingContext2D, drawPosX: number, drawPosY: number) {
+    // Diamond (rhombus) dimensions
+    const diamondSize = 12;
+    const diamondX = drawPosX + 35; // Position to the left of HP bar
+    const diamondY = drawPosY - 8; // Align with HP bar
+
+    // Draw diamond outline
+    ctx.fillStyle = "rgba(0, 0, 0, 0.7)"; // Semi-transparent black background
+    ctx.strokeStyle = "white";
+    ctx.lineWidth = 1;
+
+    // Create diamond path
+    ctx.beginPath();
+    ctx.moveTo(diamondX, diamondY - diamondSize / 2); // Top point
+    ctx.lineTo(diamondX + diamondSize / 2, diamondY); // Right point
+    ctx.lineTo(diamondX, diamondY + diamondSize / 2); // Bottom point
+    ctx.lineTo(diamondX - diamondSize / 2, diamondY); // Left point
+    ctx.closePath();
+
+    // Fill and stroke diamond
+    ctx.fill();
+    ctx.stroke();
+
+    // Draw level text
+    ctx.fillStyle = "white";
+    ctx.font = "bold 8px fontRetroGaming";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(this.level.toString(), diamondX, diamondY);
   }
 
 

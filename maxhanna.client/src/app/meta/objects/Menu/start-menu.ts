@@ -170,7 +170,7 @@ export class StartMenu extends GameObject {
 
     // Track the last displayed exit to compare with the next one
     let lastExit: { x: number, y: number } | null = null;
-
+    let eCount = 0;
     for (let exit of this.exits) {
       // If there's a previous exit, check if this one is too close
       if (lastExit) {
@@ -183,10 +183,10 @@ export class StartMenu extends GameObject {
         }
       }
 
-      // Display this exit if it's not too close to the last one
+      const label = `${++eCount}: ${exit.targetMap}`;
       yOffset = yOffset + 10;
       this.items.push(`Warp to exit: ${exit.position.x}, ${exit.position.y}`);
-      const warpLabel = new SpriteTextString(`Warp to exit: ${exit.position.x}, ${exit.position.y}`, new Vector2(xOffset, this.menuLocationY + yOffset), "Black");
+      const warpLabel = new SpriteTextString(label, new Vector2(xOffset, this.menuLocationY + yOffset), "Black");
       this.addChild(warpLabel); 
 
       // Update the last exit to the current one

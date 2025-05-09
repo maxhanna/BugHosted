@@ -49,6 +49,7 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
   displayPictureFile?: FileEntry = this.parentRef?.user?.displayPictureFile;
   expandedIconTitle: string | null = null;
 
+  isKrakenHelpPanelShowing = false;
   isDisplayingNSFW = false;
   isPushNotificationsEnabled? = false;
   app?: any;
@@ -539,5 +540,15 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
     this.userService.updateNotificationsEnabled(this.parentRef.user.id, this.isPushNotificationsEnabled).then(res => {
       this.parentRef?.showNotification(res);
     });
+  }
+  showKrakenHelpPanel() {
+    this.isKrakenHelpPanelShowing = true;
+    const parent = this.inputtedParentRef ?? this.parentRef;
+    parent?.showOverlay();
+  }
+  closeKrakenHelpPanel() {
+    this.isKrakenHelpPanelShowing = false;
+    const parent = this.inputtedParentRef ?? this.parentRef;
+    parent?.closeOverlay();
   }
 }

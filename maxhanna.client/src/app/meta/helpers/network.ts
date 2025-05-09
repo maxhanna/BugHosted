@@ -79,7 +79,7 @@ export function subscribeToMainGameEvents(object: any) {
       }
        
       setTimeout(() => {
-        const deployedBot = object.metaHero.metabots.find((x: MetaBot) => x.isDeployed && x.hp > 0);
+        const deployedBot = object.metaHero?.metabots?.find((x: MetaBot) => x.isDeployed && x.hp > 0);
         if (deployedBot) {
           deployedBot.position = tmpBotPosition;
           deployedBot.destinationPosition = tmpBotPosition;
@@ -279,8 +279,8 @@ export function subscribeToMainGameEvents(object: any) {
   }); 
 
   events.on("CHARACTER_CREATED", object, (name: string) => {
-    if (object.chatInput.nativeElement.placeholder === "Enter your name" && object.parentRef && object.parentRef.user) {
-      object.metaService.createHero(object.parentRef.user, name);
+    if (object.chatInput.nativeElement.placeholder === "Enter your name" && object.parentRef && object.parentRef.user && object.parentRef.user.id) {
+      object.metaService.createHero(object.parentRef.user.id, name);
     }
   });
 
@@ -418,7 +418,11 @@ export function subscribeToMainGameEvents(object: any) {
       object.metaService.updateEvents(metaEvent);
     }
   });
-
+  events.on("UPDATE_ENCOUNTER_POSITION", object, (source: Bot) => { 
+    const metaEvent = new MetaEvent(0, source.heroId ?? 0, new Date(), "UPDATE_ENCOUNTER_POSITION", object.metaHero.map, 
+      { "encounterId": source.heroId + "", "destinationX": source.destinationPosition.x + "", "destinationY": source.destinationPosition.y + "" });
+    object.metaService.updateEvents(metaEvent); 
+  });
   //events.on("START_FIGHT", object, (source: Npc) => { 
   //  const metaEvent = new MetaEvent(0, object.metaHero.id, new Date(), "START_FIGHT", object.metaHero.map, { "party_members": `${JSON.stringify(object.partyMembers)}`, "source": `${source.type}` })
   //  object.metaService.updateEvents(metaEvent);
@@ -550,58 +554,7 @@ export function subscribeToMainGameEvents(object: any) {
     } 
   });
 
-  events.on("CREATE_ENEMY", object, (params: { bot: Bot, owner?: any }) => { 
-    const bot = object.mainScene.level?.children.find((x: any) => x.heroId == params.owner?.id) as Bot;
-    const bot2 = object.mainScene.level?.children.find((x: any) => x.id == params.bot?.id) as Bot; 
-    if (bot || bot2) { 
-      return;
-    }
-    if (params.owner) { 
-      params.owner.lastCreated = new Date();
-    }
-    // console.log(object.events); events arent updated as soon as you start the game, so bots need to wait before being created when u first load in.
-    const tgtCreateEvent = object.events.find((x: MetaEvent) => {
-      if ((x.eventType === "CREATE_ENEMY") && x.data && x.data["bot"]) {
-        const bot = typeof x.data["bot"] === "string" ? JSON.parse(x.data["bot"]) : x.data["bot"]; 
-        return bot["HeroId"] == params.owner.id;
-      }
-      return false;
-    });  
-    const tgtDestroyedEvent = object.events.find((x: MetaEvent) => {
-      if ((x.eventType === "BOT_DESTROYED") && x.heroId) { 
-        return x.heroId == params.owner.id;
-      }
-      return false;
-    });
-
-    if (tgtCreateEvent || tgtDestroyedEvent) {
-     // console.log(`Bot ${params.bot.name} was ${tgtCreateEvent ? 'spawned' : 'destroyed'} not long ago, no need to recreate.`);
-      params.owner.lastCreated = tgtCreateEvent?.timestamp ?? tgtDestroyedEvent.timestamp;
-      return;
-    }
-    console.log("bot created :", params.bot); 
-    const botData = {
-      Id: params.bot.id,
-      Type: params.bot.botType,
-      Name: params.bot.name,
-      Level: params.bot.level,
-      Exp: params.bot.exp,
-      Hp: params.bot.hp,
-      LeftArm: params.bot.leftArm,
-      RightArm: params.bot.rightArm,
-      Head: params.bot.head,
-      Legs: params.bot.legs,
-      IsDeployed: true,
-      IsEnemy: true,
-      HeroId: params.bot.heroId || 39758
-    };
-    const ownerData = params.owner ? { id: params.owner.id, name: params.owner.name } : null;
-    const metaEvent = new MetaEvent(0, object.metaHero.id, new Date(), "CREATE_ENEMY", object.metaHero.map, {
-      "bot": JSON.stringify(botData),
-      "owner": JSON.stringify(ownerData)
-    });
-    object.metaService.updateEvents(metaEvent);
-  });
+   
 
   events.on("CHANGE_COLOR", object, () => {
     if (object.parentRef) {
@@ -654,30 +607,20 @@ export function actionMultiplayerEvents(object: any, metaEvents: MetaEvent[]) {
           }
         }
         if (event.eventType === "BOT_DESTROYED" && event.data) { 
+          //console.log("data:", event.data);
           const bot = object.mainScene.level?.children.find((x: any) => x.heroId == event.heroId) as Bot;
           const winnerBotId = JSON.parse(event.data["winnerBotId"]) as number || undefined;
          // console.log("winnerBotId", winnerBotId);
           if (winnerBotId) {
             const winnerBot = object.mainScene.level.children.find((x: any) => x.id == winnerBotId) as Bot;
             winnerBot.targeting = undefined;
-            if (winnerBot.heroId === object.metaHero.id) {
-              //console.log("you killed the bot, so generating reward", winnerBot);
+            if (winnerBot.heroId === object.metaHero.id) { 
               generateReward(winnerBot, bot);
-            }
-
-            const oldTargetSprite1 = object.mainScene.level?.children.find((child: any) => child.parentId == winnerBotId);
-            if (oldTargetSprite1) {  
-              oldTargetSprite1.destroy();
-            }
+            } 
           }
         
           setTargetToDestroyed(bot); 
-          if (bot) { 
-            const oldTargetSprite2 = object.mainScene.level?.children.find((child: any) => child.parentId == bot?.id);
-            if (oldTargetSprite2) { 
-              oldTargetSprite2.body?.destroy();
-              oldTargetSprite2.destroy();
-            }
+          if (bot) {  
             bot.hp = 0;
             bot.isDeployed = false;
             bot.targeting = undefined;
@@ -690,11 +633,6 @@ export function actionMultiplayerEvents(object: any, metaEvents: MetaEvent[]) {
                 metaBot.isDeployed = false; 
               }
             }, 50);
-          }
-          const oldTargetSprite3 = object.mainScene.level?.children.find((child: any) => child.heroId == event.heroId);
-          if (oldTargetSprite3) { 
-            oldTargetSprite3.body?.destroy();
-            oldTargetSprite3.destroy();
           } 
         }
         if (event.eventType === "CALL_BOT_BACK") {

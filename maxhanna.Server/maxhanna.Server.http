@@ -156,3 +156,6 @@ Accept: application/json
 POST {{maxhanna.Server_HostAddress}}/Top/
 Accept: application/json
 ###
+POST {{maxhanna.Server_HostAddress}}/Poll/
+Accept: application/json
+###

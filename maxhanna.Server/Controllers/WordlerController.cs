@@ -392,7 +392,7 @@ namespace maxhanna.Server.Controllers
 
 		[HttpPost("/Wordler/GetBestConsecutiveDaysStreak/")]
 		public async Task<IActionResult> GetBestConsecutiveDays([FromBody] int userId)
-		{ 
+		{
 			if (userId <= 0)
 			{
 				return BadRequest("Invalid user ID.");
@@ -437,6 +437,69 @@ namespace maxhanna.Server.Controllers
 			}
 		}
 
+		[HttpPost("/Wordler/GetBestConsecutiveDaysStreakOverall/")]
+		public async Task<IActionResult> GetBestConsecutiveDaysStreakOverall()
+		{
+			var connectionString = _config.GetValue<string>("ConnectionStrings:maxhanna");
+
+			try
+			{
+				using (var connection = new MySqlConnection(connectionString))
+				{
+					await connection.OpenAsync();
+
+					string query = @"
+                SELECT user_id, DATE(submitted) AS score_date
+                FROM wordler_scores
+                GROUP BY user_id, DATE(submitted)
+                ORDER BY user_id, score_date";
+
+					using (var command = new MySqlCommand(query, connection))
+					{
+						var userStreaks = new Dictionary<int, List<DateTime>>();
+
+						using (var reader = await command.ExecuteReaderAsync())
+						{
+							while (await reader.ReadAsync())
+							{
+								int currentUserId = reader.GetInt32("user_id");
+								DateTime scoreDate = reader.GetDateTime("score_date");
+
+								if (!userStreaks.ContainsKey(currentUserId))
+								{
+									userStreaks[currentUserId] = new List<DateTime>();
+								}
+								userStreaks[currentUserId].Add(scoreDate);
+							}
+						}
+
+						int bestStreak = 0;
+						int bestUserId = 0;
+
+						foreach (var kvp in userStreaks)
+						{
+							int currentStreak = CalculateConsecutiveDays(kvp.Value, false);
+							if (currentStreak > bestStreak)
+							{
+								bestStreak = currentStreak;
+								bestUserId = kvp.Key;
+							}
+						}
+
+						return Ok(new
+						{
+							UserId = bestUserId,
+							Streak = bestStreak
+						});
+					}
+				}
+			}
+			catch (Exception ex)
+			{
+				_ = _log.Db("An error occurred while fetching the consecutive days." + ex.Message, 0, "WORDLER", true);
+				return StatusCode(500, "An error occurred while fetching the consecutive days.");
+			}
+		}
 
 
 		[HttpPost("/Wordler/GetCurrentStreak/")]

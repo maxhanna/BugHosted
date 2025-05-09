@@ -20,11 +20,12 @@ namespace maxhanna.Server.Services
 		private readonly MiningApi _miningApiService = new MiningApi();
 		private readonly Log _log;
 		private readonly IConfiguration _config; // needed for apiKey
-		private DateTime _lastDailyTaskRun = DateTime.MinValue;
-		private DateTime _lastMinuteTaskRun = DateTime.MinValue;
-		private DateTime _lastFiveMinuteTaskRun = DateTime.MinValue;
-		private DateTime _lastHourlyTaskRun = DateTime.MinValue;
-		private DateTime _lastMidDayTaskRun = DateTime.MinValue;
+		private Timer _halfMinuteTimer;
+		private Timer _minuteTimer;
+		private Timer _fiveMinuteTimer;
+		private Timer _hourlyTimer;
+		private Timer _sixHourTimer;
+		private Timer _dailyTimer;
 		private bool isCrawling = false;
 		private bool lastWasCrypto = false;
 
@@ -40,70 +41,84 @@ namespace maxhanna.Server.Services
 			_krakenService = krakenService;
 			_newsService = newsService;
 			_profitService = profitService;
+
+			_halfMinuteTimer = new Timer(async _ => await Run30SecondTasks(), null, Timeout.Infinite, Timeout.Infinite);
+			_minuteTimer = new Timer(async _ => await FetchWebsiteMetadata(), null, Timeout.Infinite, Timeout.Infinite);
+			_fiveMinuteTimer = new Timer(async _ => await RunFiveMinuteTasks(), null, Timeout.Infinite, Timeout.Infinite);
+			_hourlyTimer = new Timer(async _ => await AssignTrophies(), null, Timeout.Infinite, Timeout.Infinite);
+			_sixHourTimer = new Timer(async _ => await RunSixHourTasks(), null, Timeout.Infinite, Timeout.Infinite);
+			_dailyTimer = new Timer(async _ => await RunDailyTasks(), null, Timeout.Infinite, Timeout.Infinite);
 		}
 
 		protected override async Task ExecuteAsync(CancellationToken stoppingToken)
 		{
+			// Start all timers
+			_halfMinuteTimer.Change(TimeSpan.Zero, TimeSpan.FromSeconds(30));
+			_minuteTimer.Change(TimeSpan.Zero, TimeSpan.FromMinutes(1));
+			_fiveMinuteTimer.Change(TimeSpan.Zero, TimeSpan.FromMinutes(5));
+			_hourlyTimer.Change(TimeSpan.Zero, TimeSpan.FromHours(1));
+			_sixHourTimer.Change(TimeSpan.Zero, TimeSpan.FromHours(6));
+			_dailyTimer.Change(CalculateNextDailyRun(), TimeSpan.FromHours(24));
+
+			// Keep the service running until cancellation
 			while (!stoppingToken.IsCancellationRequested)
 			{
-				_ = _log.Db("Refreshing system information:" + DateTimeOffset.Now, outputToConsole: true);
-
-				// Run tasks that need to execute every 1 minute
-				if ((DateTime.Now - _lastMinuteTaskRun).TotalMinutes >= 1)
-				{
-					await FetchWebsiteMetadata();
-					await MakeCryptoTrade();
-				}
-				// Run tasks that need to execute every 5 minutes
-				if ((DateTime.Now - _lastFiveMinuteTaskRun).TotalMinutes >= 5)
-				{
-					await UpdateLastBTCWalletInfo();
-					await FetchAndStoreCoinValues();
-					_miningApiService.UpdateWalletInDB(_config, _log);
-					lastWasCrypto = !lastWasCrypto;
-					await _newsService.GetAndSaveTopQuarterHourlyHeadlines(!lastWasCrypto ? "Cryptocurrency" : null);
-					await _profitService.CalculateDailyProfits();
-				}
-				// Check if 1 hour has passed since the last coin fetch
-				if ((DateTime.Now - _lastHourlyTaskRun).TotalHours >= 1)
-				{
-					await AssignTrophies();
-					//	await PostRandomMemeToTwitter();
-					_lastHourlyTaskRun = DateTime.Now;
-				}
-
-				// Check if 6 hour has passed since the last exchange rate fetch
-				if ((DateTime.Now - _lastMidDayTaskRun).TotalHours >= 6)
-				{
-					await FetchExchangeRates();
-					await _profitService.CalculateWeeklyProfits();
-				  	await _profitService.CalculateMonthlyProfits();
-
-					_lastMidDayTaskRun = DateTime.Now;
-				}
-
-				// Check and run daily tasks only once every 24 hours
-				if ((DateTime.Now - _lastDailyTaskRun).TotalHours >= 24)
-				{
-					await DeleteOldBattleReports();
-					await DeleteOldGuests();
-					await DeleteOldSearchResults();
-					await DeleteNotificationRequests();
-					await DeleteHostAiRequests();
-					await DeleteOldCoinValueEntries();
-					await _newsService.CreateDailyCryptoNewsStoryAsync();
-					await _newsService.CreateDailyNewsStoryAsync();
-					await _newsService.PostDailyMemeAsync();
-					await DeleteOldNews();
-					await DeleteOldTradeVolumeEntries();
-					await _log.DeleteOldLogs();
-					await _log.BackupDatabase();
-					_lastDailyTaskRun = DateTime.Now;
-				}
-
-				// Delay for 5 minutes before repeating
-				await Task.Delay(TimeSpan.FromMinutes(1), stoppingToken);
+				await Task.Delay(1000, stoppingToken);
 			}
+		}
+		private async Task Run30SecondTasks() {
+			await MakeCryptoTrade();
+			await SpawnEncounterMetabots();
+		}
+		private async Task RunFiveMinuteTasks()
+		{
+			await UpdateLastBTCWalletInfo();
+			await FetchAndStoreCoinValues();
+			_miningApiService.UpdateWalletInDB(_config, _log);
+			lastWasCrypto = !lastWasCrypto;
+			await _newsService.GetAndSaveTopQuarterHourlyHeadlines(!lastWasCrypto ? "Cryptocurrency" : null);
+			await _profitService.CalculateDailyProfits();
+		}
+
+		private async Task RunSixHourTasks()
+		{
+			await FetchExchangeRates();
+			await _profitService.CalculateWeeklyProfits();
+			await _profitService.CalculateMonthlyProfits();
+		}
+
+		private async Task RunDailyTasks()
+		{
+			await DeleteOldBattleReports();
+			await DeleteOldGuests();
+			await DeleteOldSearchResults();
+			await DeleteNotificationRequests();
+			await DeleteHostAiRequests();
+			await DeleteOldCoinValueEntries();
+			await _newsService.CreateDailyCryptoNewsStoryAsync();
+			await _newsService.CreateDailyNewsStoryAsync();
+			await _newsService.PostDailyMemeAsync();
+			await DeleteOldNews();
+			await DeleteOldTradeVolumeEntries();
+			await _log.DeleteOldLogs();
+			await _log.BackupDatabase();
+		}
+		private TimeSpan CalculateNextDailyRun()
+		{
+			var now = DateTime.Now;
+			var nextRun = new DateTime(now.Year, now.Month, now.Day, 0, 0, 0).AddDays(1);
+			return nextRun - now;
+		}
+		public override async Task StopAsync(CancellationToken cancellationToken)
+		{
+			_halfMinuteTimer?.Change(Timeout.Infinite, Timeout.Infinite);
+			_minuteTimer?.Change(Timeout.Infinite, Timeout.Infinite);
+			_fiveMinuteTimer?.Change(Timeout.Infinite, Timeout.Infinite);
+			_hourlyTimer?.Change(Timeout.Infinite, Timeout.Infinite);
+			_sixHourTimer?.Change(Timeout.Infinite, Timeout.Infinite);
+			_dailyTimer?.Change(Timeout.Infinite, Timeout.Infinite);
+
+			await base.StopAsync(cancellationToken);
 		}
 		//private async Task PostRandomMemeToTwitter()
 		//{
@@ -490,6 +505,227 @@ namespace maxhanna.Server.Services
 				_ = _log.Db("Error occurred while establishing the database connection or transaction." + ex.Message, null);
 			}
 		}
+		private async Task SpawnEncounterMetabots()
+		{
+			int spawnCount = 0;
+			try
+			{ 
+				await using MySqlConnection conn = new MySqlConnection(_connectionString);
+				await conn.OpenAsync();
+
+				await using MySqlTransaction transaction = await conn.BeginTransactionAsync();
+				try
+				{
+					// Get dead metabots that need respawning
+					var getDeadMetabotsSql = @"
+                SELECT hero_id, map, coordsX, coordsY, bot_types, level, hp,
+                       head_part_type, legs_part_type, left_arm_part_type, right_arm_part_type
+                FROM meta_encounter 
+                WHERE last_killed < UTC_TIMESTAMP() - INTERVAL 30 SECOND;";
+
+					List<MetabotEncounter> deadEncounters = new();
+
+					await using (var getCmd = new MySqlCommand(getDeadMetabotsSql, conn, transaction))
+					{
+						await using var reader = await getCmd.ExecuteReaderAsync();
+						while (await reader.ReadAsync())
+						{
+							deadEncounters.Add(new MetabotEncounter(
+								reader.GetInt32("hero_id"),
+								reader.GetString("map"),
+								reader.GetInt32("coordsX"),
+								reader.GetInt32("coordsY"),
+								reader.GetString("bot_types"),
+								reader.GetInt32("level"),
+								reader.GetInt32("hp"),
+								reader.GetInt32("head_part_type"),
+								reader.GetInt32("legs_part_type"),
+								reader.GetInt32("left_arm_part_type"),
+								reader.GetInt32("right_arm_part_type")
+							));
+						}
+					}
+
+					// Respawn each dead metabot
+					if (deadEncounters.Count > 0)
+					{ 
+						var random = new Random(); 
+						foreach (var encounter in deadEncounters)
+						{
+							// Check if bot already exists
+							string checkSql = "SELECT COUNT(*) FROM maxhanna.meta_bot WHERE hero_id = @HeroId;";
+							int existingBotCount = 0;
+
+							using (var command = new MySqlCommand(checkSql, conn, transaction))
+							{
+								command.Parameters.AddWithValue("@HeroId", encounter.HeroId);
+								existingBotCount = Convert.ToInt32(await command.ExecuteScalarAsync());
+							}
+
+							if (existingBotCount > 0)
+							{
+								//_ = _log.Db($"Bot with hero_id {encounter.HeroId} already exists. Skipping.", null, "META", true);
+								continue;
+							}
+
+							Console.WriteLine("inserting encounterid: " + encounter.HeroId);
+							// Select random bot type
+							string[] botTypeArray = encounter.BotTypes.Split(',')
+								.Select(bt => bt.Trim())
+								.Where(bt => !string.IsNullOrEmpty(bt))
+								.ToArray();
+							if (botTypeArray.Length == 0)
+							{
+								_ = _log.Db($"No valid bot types for hero {encounter.HeroId}. Skipping.", null, outputToConsole: true);
+								continue;
+							}
+							string selectedBotType = botTypeArray[random.Next(botTypeArray.Length)];
+							int typeId = await GetBotTypeId(selectedBotType, conn, transaction);
+
+							if (typeId == 0)
+							{
+								_ = _log.Db($"Invalid bot type '{selectedBotType}' for hero {encounter.HeroId}. Skipping.", null, outputToConsole: true);
+								continue;
+							}
+
+							Console.WriteLine("encounterid bot type: " + typeId);
+							// Insert new metabot and get its ID
+							int newBotId = 0;
+							try
+							{
+								string insertSql = @"
+									INSERT INTO maxhanna.meta_bot 
+									(hero_id, name, type, hp, exp, level, is_deployed) 
+									VALUES (@HeroId, @Name, @Type, @Hp, @Exp, @Level, @IsDeployed);
+									SELECT LAST_INSERT_ID();";
+
+								using (var command = new MySqlCommand(insertSql, conn, transaction))
+								{
+									command.Parameters.AddWithValue("@HeroId", encounter.HeroId);
+									command.Parameters.AddWithValue("@Name", selectedBotType);
+									command.Parameters.AddWithValue("@Type", typeId);
+									command.Parameters.AddWithValue("@Hp", encounter.Hp);
+									command.Parameters.AddWithValue("@Exp", 0);
+									command.Parameters.AddWithValue("@Level", encounter.Level);
+									command.Parameters.AddWithValue("@IsDeployed", true);
+
+									newBotId = Convert.ToInt32(await command.ExecuteScalarAsync());
+								}
+							}
+							catch (Exception ex)
+							{
+								_ = _log.Db($"Exception while respawning {selectedBotType} (ID: {encounter.HeroId}) at {encounter.Map}({encounter.CoordsX},{encounter.CoordsY}). " + ex.Message, null, outputToConsole: true);
+								continue;
+							}
+
+							// Insert metabot parts into meta_encounter_bot_part
+							var parts = new Dictionary<string, int>
+							{
+								{ "head", encounter.HeadPartType },
+								{ "legs", encounter.LegsPartType },
+								{ "left_arm", encounter.LeftArmPartType },
+								{ "right_arm", encounter.RightArmPartType }
+							};
+
+							foreach (var part in parts)
+							{
+								try
+								{
+									// Get part details from meta_bot_part_type using part type as id
+									string getPartSql = @"
+                                SELECT damage_mod_min, damage_mod_max, skill 
+                                FROM meta_bot_part_type 
+                                WHERE id = @PartTypeId;";
+ 
+									int damageMod = 0;
+									string? skill = null;
+
+									using (var command = new MySqlCommand(getPartSql, conn, transaction))
+									{
+										command.Parameters.AddWithValue("@PartTypeId", part.Value);
+
+										await using var reader = await command.ExecuteReaderAsync();
+										if (await reader.ReadAsync())
+										{
+											int minDamage = reader.GetInt32("damage_mod_min");
+											int maxDamage = reader.GetInt32("damage_mod_max");
+											damageMod = random.Next(minDamage, maxDamage + 1);
+											skill = reader.IsDBNull(reader.GetOrdinal("skill")) ? "Sting" : reader.GetString("skill");
+										}
+										else
+										{
+											_ = _log.Db($"No part type found for {part.Key} with id {part.Value} for hero {encounter.HeroId}. Skipping part.", null, outputToConsole: true);
+											continue;
+										}
+									}
+
+									// Insert the part into meta_encounter_bot_part
+									string insertPartSql = @"
+										INSERT INTO maxhanna.meta_encounter_bot_part 
+										(hero_id, part_name, type, damage_mod, skill) 
+										VALUES (@HeroId, @PartName, @Type, @DamageMod, @Skill);";
+
+									using (var command = new MySqlCommand(insertPartSql, conn, transaction))
+									{
+										command.Parameters.AddWithValue("@HeroId", encounter.HeroId);
+										command.Parameters.AddWithValue("@PartName", part.Key.ToUpper());
+										command.Parameters.AddWithValue("@Type", part.Value);
+										command.Parameters.AddWithValue("@DamageMod", damageMod);
+										command.Parameters.AddWithValue("@Skill", skill ?? (object)DBNull.Value);
+
+										await command.ExecuteNonQueryAsync();
+									}
+								}
+								catch (Exception ex)
+								{
+									_ = _log.Db($"Exception while inserting part {part.Key} for hero {encounter.HeroId}: {ex.Message}", null, outputToConsole: true);
+									continue;
+								}
+							}
+
+							// Update spawn time
+							var updateSql = "UPDATE meta_encounter SET last_spawn = UTC_TIMESTAMP() WHERE hero_id = @heroId;";
+							using (var updateCmd = new MySqlCommand(updateSql, conn, transaction))
+							{
+								updateCmd.Parameters.AddWithValue("@heroId", encounter.HeroId);
+								await updateCmd.ExecuteNonQueryAsync();
+							}
+							spawnCount++;
+							_ = _log.Db($"Respawned {selectedBotType} (ID: {newBotId}, HeroID: {encounter.HeroId}) at {encounter.Map}({encounter.CoordsX},{encounter.CoordsY})", null, outputToConsole: true);
+						}
+					}
+
+					await transaction.CommitAsync();
+					_ = _log.Db($"Processed {spawnCount} metabot respawns.", null, outputToConsole: spawnCount > 0);
+				}
+				catch (Exception ex)
+				{
+					_ = _log.Db("Error in metabot respawn transaction: " + ex.Message, null, outputToConsole: true);
+					await transaction.RollbackAsync();
+				}
+			}
+			catch (Exception ex)
+			{
+				_ = _log.Db("Database connection error: " + ex.Message, null, outputToConsole: true);
+			}
+		}
+		private async Task<int> GetBotTypeId(string botTypeName, MySqlConnection conn, MySqlTransaction transaction)
+		{
+			string query = "SELECT type FROM meta_encounter_bot_type WHERE bot_name = @BotName LIMIT 1;";
+
+			using var command = new MySqlCommand(query, conn, transaction);
+			command.Parameters.AddWithValue("@BotName", botTypeName);
+
+			var result = await command.ExecuteScalarAsync();
+
+			if (result != null && int.TryParse(result.ToString(), out var typeId))
+			{
+				return typeId;
+			}
+
+			_ = _log.Db($"Bot type '{botTypeName}' not found in meta_encounter_bot_type.", null);
+			return 0; // Fallback or throw an exception based on your requirements
+		}
 		private async Task<ExchangeRateData?> FetchExchangeRates()
 		{
 			string apiUrl = $"https://api.exchangerate-api.com/v4/latest/CAD";
@@ -748,7 +984,7 @@ namespace maxhanna.Server.Services
 			{
 				await connection.OpenAsync();
 
-				// Check if there's already a record for XBTUSDC in the last 5 minutes
+				// Check if there's already a record for XBTUSDC in the last 30 seconds
 				var query = @"
 					SELECT COUNT(*) 
 					FROM trade_market_volumes
@@ -756,7 +992,7 @@ namespace maxhanna.Server.Services
 
 				var command = new MySqlCommand(query, connection);
 				command.Parameters.AddWithValue("@pair", "XBTUSDC");
-				command.Parameters.AddWithValue("@timestampThreshold", DateTime.UtcNow.AddMinutes(-5));
+				command.Parameters.AddWithValue("@timestampThreshold", DateTime.UtcNow.AddSeconds(-30));
 
 				var existingRecordCount = Convert.ToInt32(await command.ExecuteScalarAsync());
 				if (existingRecordCount > 0)
@@ -989,5 +1225,35 @@ namespace maxhanna.Server.Services
 
 		[JsonProperty("total_sent")]
 		public long TotalSent { get; set; }
+	}
+}
+public class MetabotEncounter
+{
+	public int HeroId { get; }
+	public string Map { get; }
+	public int CoordsX { get; }
+	public int CoordsY { get; }
+	public string BotTypes { get; }
+	public int Level { get; }
+	public int Hp { get; }
+	public int HeadPartType { get; }
+	public int LegsPartType { get; }
+	public int LeftArmPartType { get; }
+	public int RightArmPartType { get; }
+
+	public MetabotEncounter(int heroId, string map, int coordsX, int coordsY, string botTypes,
+						  int level, int hp, int headPart, int legsPart, int leftArm, int rightArm)
+	{
+		HeroId = heroId;
+		Map = map;
+		CoordsX = coordsX;
+		CoordsY = coordsY;
+		BotTypes = botTypes;
+		Level = level;
+		Hp = hp;
+		HeadPartType = headPart;
+		LegsPartType = legsPart;
+		LeftArmPartType = leftArm;
+		RightArmPartType = rightArm;
 	}
 }

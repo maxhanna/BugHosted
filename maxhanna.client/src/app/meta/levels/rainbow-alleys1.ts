@@ -104,27 +104,35 @@ export class RainbowAlleys1 extends Level {
 
     const salesMan = new Salesman(
       {
-        position: new Vector2(gridCells(8), gridCells(10) - 0.005),
+        position: new Vector2(gridCells(8), gridCells(8) - 0.005),
         heroPosition: new Vector2(gridCells(8), gridCells(12)),
         entranceLevel: tmpLvl,
         items: maskSelection
       });
     if (salesMan.body) {
-      salesMan.body.offsetY -= 10;
+      salesMan.body.offsetY += 26;
     }
     this.addChild(salesMan);
-    const invisibleSalesman = new Salesman({
-      position: new Vector2(gridCells(9), gridCells(10) - 0.005),
-      heroPosition: new Vector2(gridCells(8), gridCells(12)),
-      entranceLevel: tmpLvl,
-      items: maskSelection,
-      preventDraw: !this.showDebugSprites
-    });
-    this.addChild(invisibleSalesman);
+    for (let x = 0; x < 2; x++) {
+      const invisibleSalesman = new Salesman({
+        position: new Vector2(gridCells(8+x), gridCells(10) - 0.005),
+        heroPosition: new Vector2(gridCells(8), gridCells(12)),
+        entranceLevel: tmpLvl,
+        items: maskSelection,
+        preventDraw: !this.showDebugSprites
+      });
+      this.addChild(invisibleSalesman);
 
-    const stand = new Stand(gridCells(5), gridCells(10));
+    }
+ 
+    const stand = new Stand(gridCells(5), gridCells(8));
     this.addChild(stand);
-    const standbg = new Sprite({ position: new Vector2(gridCells(6), gridCells(9)), resource: resources.images["bedroomFloor"], frameSize: new Vector2(142, 32) });
+    const standbg = new Sprite({
+       position: new Vector2(gridCells(6), gridCells(7)), 
+      resource: resources.images["bedroomFloor"], 
+      frameSize: new Vector2(142, 32),
+      offsetY: 34
+     });
     this.addChild(standbg);
     const anbuMask = new Mask(getMaskNameById(2));
     const bunnyMask = new Mask(getMaskNameById(1));
@@ -145,16 +153,7 @@ export class RainbowAlleys1 extends Level {
     this.addChild(bunnyMask);
     this.addChild(bunnyEarsMask);
     this.addChild(anbuMask);
-    this.addChild(botMask);
-
-    const wardrobe = new Wardrobe({ position: new Vector2(gridCells(15), gridCells(10) - 0.005) });
-    if (wardrobe.body) {
-      wardrobe.body.frameSize.x = 24;
-      wardrobe.body.flipX = true;
-      wardrobe.body.offsetX = 5;
-    }
-    this.addChild(wardrobe);
-
+    this.addChild(botMask); 
     const offsets = [
       { x: 0, y: -2, dir: "DOWN" },   // Top bot
       { x: -2, y: 0, dir: "RIGHT" },  // Left bot
@@ -172,33 +171,39 @@ export class RainbowAlleys1 extends Level {
       this.addChild(punchingBot);
     } 
 
-    const stand2 = new Stand(gridCells(5), gridCells(2));
+    const stand2 = new Stand(gridCells(5), gridCells(0));
     this.addChild(stand2);
-    const standbg2 = new Sprite({ position: new Vector2(gridCells(6), gridCells(1)), resource: resources.images["bedroomFloor"], frameSize: new Vector2(142, 32) });
+    const standbg2 = new Sprite({
+      position: new Vector2(gridCells(6), gridCells(-1)), 
+      resource: resources.images["bedroomFloor"],
+      frameSize: new Vector2(142, 32),
+      offsetY: 34
+    });
     this.addChild(standbg2);
-    const wardrobe2 = new Wardrobe({ position: new Vector2(gridCells(15), gridCells(2) - 0.005) });
-    if (wardrobe2.body) {
-      wardrobe2.body.frameSize.x = 24;
-      wardrobe2.body.flipX = true;
-      wardrobe2.body.offsetX = 5;
+    for (let x = 0 ; x < 4; x++) {
+      const wardrobe2 = new Wardrobe({ position: new Vector2(gridCells(15 + x), gridCells(2) - 0.005), isVisible: x == 0 });
+      if (wardrobe2.body) {
+        wardrobe2.body.flipX = true;
+        wardrobe2.body.offsetX = 5;
+        wardrobe2.body.offsetY = 5; 
+        wardrobe2.body.isSolid = true;
+      }
+      this.addChild(wardrobe2);
     }
-    this.addChild(wardrobe2);
+   
     for (let x = 1; x < 5; x++) {
       const stoneRoad = new Sprite({ objectId: 0, resource: resources.images["stoneroad"], position: new Vector2(gridCells(1) + gridCells(4 * x), gridCells(4)), frameSize: new Vector2(64, 64) });
       stoneRoad.drawLayer = FLOOR;
       this.addChild(stoneRoad);
     }
-    const stand3 = new Stand(gridCells(5), gridCells(22));
+    const stand3 = new Stand(gridCells(5), gridCells(20));
     this.addChild(stand3);
-    const standbg3 = new Sprite({ position: new Vector2(gridCells(6), gridCells(21)), resource: resources.images["bedroomFloor"], frameSize: new Vector2(142, 32) });
-    this.addChild(standbg3);
-    const wardrobe3 = new Wardrobe({ position: new Vector2(gridCells(15), gridCells(22) - 0.005) });
-    if (wardrobe3.body) {
-      wardrobe3.body.frameSize.x = 24;
-      wardrobe3.body.flipX = true;
-      wardrobe3.body.offsetX = 5;
-    }
-    this.addChild(wardrobe3);
+    const standbg3 = new Sprite({
+      position: new Vector2(gridCells(6), gridCells(19)), 
+      resource: resources.images["bedroomFloor"], 
+      frameSize: new Vector2(142, 32),
+      offsetY: 34 });
+    this.addChild(standbg3); 
     for (let x = 1; x < 5; x++) {
       const stoneRoad = new Sprite({ objectId: 0, resource: resources.images["stoneroad"], position: new Vector2(gridCells(1) + gridCells(4 * x), gridCells(24)), frameSize: new Vector2(64, 64) });
       stoneRoad.drawLayer = FLOOR;
@@ -206,17 +211,15 @@ export class RainbowAlleys1 extends Level {
     }
 
 
-    const stand4 = new Stand(gridCells(5), gridCells(30));
+    const stand4 = new Stand(gridCells(5), gridCells(28));
     this.addChild(stand4);
-    const standbg4 = new Sprite({ position: new Vector2(gridCells(6), gridCells(29)), resource: resources.images["bedroomFloor"], frameSize: new Vector2(142, 32) });
+    const standbg4 = new Sprite({
+      position: new Vector2(gridCells(6), gridCells(27)), 
+      resource: resources.images["bedroomFloor"], 
+      frameSize: new Vector2(142, 32),
+      offsetY: 34 });
     this.addChild(standbg4);
-    const wardrobe4 = new Wardrobe({ position: new Vector2(gridCells(15), gridCells(30) - 0.005) });
-    if (wardrobe4.body) {
-      wardrobe4.body.frameSize.x = 24;
-      wardrobe4.body.flipX = true;
-      wardrobe4.body.offsetX = 5;
-    }
-    this.addChild(wardrobe4);
+   
     for (let x = 1; x < 5; x++) {
       const stoneRoad = new Sprite({ objectId: 0, resource: resources.images["stoneroad"], position: new Vector2(gridCells(1) + gridCells(4 * x), gridCells(32)), frameSize: new Vector2(64, 64) });
       stoneRoad.drawLayer = FLOOR;
@@ -282,6 +285,19 @@ export class RainbowAlleys1 extends Level {
       );
       this.addChild(underground1Exit);
     }
+    }
+
+    for (let x = 0 ; x < 4; x++) {
+      const metroDoor = new Sprite({
+        position: new Vector2(gridCells(22 + (2 * x) + (x == 0 ? 0.5 : x == 1 ? 0.5 : x == 3 ? 0 : 0)), gridCells(-14)),
+        resource: resources.images["metrodoor"],
+        isSolid: false, 
+        frameSize: new Vector2(26, 40),
+        scale: new Vector2(0.85, 0.85), 
+        offsetX: -16,
+        flipX: x > 1,
+      });
+      this.addChild(metroDoor);
     }
 
     //Walls

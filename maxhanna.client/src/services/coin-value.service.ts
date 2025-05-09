@@ -76,14 +76,14 @@ export class CoinValueService {
   }
 
 
-  async getAllExchangeRateValuesForGraph(from?: Date, hourRange?: number) {
+  async getAllExchangeRateValuesForGraph(from?: Date, hourRange?: number, currency?: string) {
     try {
       const response = await fetch(`/currencyvalue/getallforgraph`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         }, 
-        body: JSON.stringify({From: from, HourRange: hourRange}),
+        body: JSON.stringify({From: from, HourRange: hourRange, Currency: currency}),
       });
 
       return await response.json();
@@ -112,8 +112,7 @@ export class CoinValueService {
   async getUniqueCurrencyNames() {
     try {
       const response = await fetch(`/currencyvalue/getuniquenames`, {
-        method: 'POST',
-
+        method: 'POST', 
         headers: {
           'Content-Type': 'application/json',
         },

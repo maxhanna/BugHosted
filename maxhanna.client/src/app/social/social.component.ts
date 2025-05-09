@@ -17,6 +17,7 @@ import { UserService } from '../../services/user.service';
 import { TodoService } from '../../services/todo.service';
 import { Todo } from '../../services/datacontracts/todo';
 import { NotificationService } from '../../services/notification.service';
+import { SafeHtml } from '@angular/platform-browser';
 
 @Pipe({
   name: 'clickableUrls',
@@ -280,11 +281,9 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
           }
         });
       }
-
-      setTimeout(() => { this.updateStoryDates(); }, 1500);
-      this.storyUpdateInterval = setInterval(() => {
-        this.updateStoryDates();
-      }, 15000);
+      this.storyResponse?.stories?.forEach(story => {
+        story.timeSince = this.daysSinceDate(story.date);
+      });
 
       this.totalPages = this.storyResponse?.pageCount ?? 0;
       this.totalPagesArray = Array.from({ length: this.totalPages }, (_, index) => index + 1);
@@ -535,7 +534,8 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
     }
   }
   copyLink(storyId?: number) {
-    const link = `https://bughosted.com/Social/${storyId}`;
+    const apd = this.user ? `User/${this.user.id}/${storyId}` : `Social/${storyId}`;
+    const link = `https://bughosted.com/${apd}`;
     this.closeStoryOptionsPanel();
     navigator.clipboard.writeText(link).then(() => {
       this.parentRef?.showNotification('Link copied to clipboard!');
@@ -543,13 +543,7 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
       this.parentRef?.showNotification('Failed to copy link!');
     });
   }
-  updateStoryDates() {
-    if (this.storyResponse?.stories) {
-      this.storyResponse.stories.forEach(story => {
-        story.timeSince = this.daysSinceDate(story.date);
-      });
-    }
-  }
+
   formatDate(dateString?: Date): string {
     if (!dateString) return '';
     const date = typeof dateString === 'string' ? new Date(dateString) : dateString;
@@ -882,9 +876,7 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
   }
   getTextForDOM(text?: string, componentId?: any) {
     const parent = this.parent ?? this.parentRef;
-    if (parent) {
-      return parent.getTextForDOM(text, componentId);
-    } else return "Error fetching parent component.";
+    return parent?.getTextForDOM(text, "storyText" + componentId);
   }
   clearSearchInput() {
     this.search.nativeElement.value = '';
@@ -955,18 +947,18 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
     if (!storyId) {
       alert("Post Id is null");
       return;
-    } 
-    this.closePostOptionsPanel(); 
+    }
+    this.closePostOptionsPanel();
     // Attempt to select text immediately
     const el = document.getElementById("storyText" + storyId);
     if (!el) {
       console.warn(`Element with ID storyText${storyId} not found.`);
       alert(`Post with ID ${storyId} not found.`);
       return;
-    } else { 
+    } else {
       el.focus();
       this.selectDivText(el);
-    } 
+    }
   }
   async updateNSFW(event: Event) {
     const parent = this.parent ?? this.parentRef;
@@ -980,5 +972,31 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
         this.searchStories();
       }
     });
+  }
+  insertPollSnippet() {
+    const pollTemplate = `
+[Poll]
+Question: What's your favorite color?
+Option 1: Red
+Option 2: Blue
+Option 3: Green
+Option 4: Yellow
+[/Poll]
+  `.trim();
+
+    // Assuming you have a reference to your textarea
+    const textarea = this.story.nativeElement;
+    const currentPos = textarea.selectionStart ?? 0;
+    const currentValue = textarea.value;
+
+    // Insert the template at cursor position
+    textarea.value = currentValue.substring(0, currentPos) +
+      pollTemplate +
+      currentValue.substring(currentPos);
+
+    // Set cursor after the inserted template
+    textarea.selectionStart = currentPos + pollTemplate.length;
+    textarea.selectionEnd = currentPos + pollTemplate.length;
+    textarea.focus();
   }
 }

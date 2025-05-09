@@ -56,7 +56,7 @@ import { ThemesComponent } from './themes/themes.component';
 import { CrawlerComponent } from './crawler/crawler.component';
 import { SpeechRecognitionComponent } from './speech-recognition/speech-recognition.component';
 import { TopComponent } from './top/top.component'; 
-import { TimeFormatPipe } from './time-format.pipe';
+import { TimeFormatPipe } from './time-format.pipe'; 
 
 @NgModule({
   declarations: [
@@ -113,7 +113,7 @@ import { TimeFormatPipe } from './time-format.pipe';
   imports: [BrowserModule,
     LineGraphComponent,
     TimeFormatPipe,
-    FileSizePipe,
+    FileSizePipe, 
     AppRoutingModule],
   exports: [
     InViewDirective,

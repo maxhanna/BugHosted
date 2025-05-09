@@ -196,7 +196,7 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
   }
 
   async ngOnInit() { 
-    this.serverDown = (!await this.parentRef?.isServerUp());
+    this.serverDown = (this.parentRef ? await this.parentRef?.isServerUp() <= 0 : false);
     this.isUserNew = true;
     this.isUserComponentOpen = (!this.parentRef?.user || this.parentRef.user.id == 0);
     this.warehouseUpgradeLevels = Array.from({ length: 6 }, (_, i) => i + 1);
@@ -1220,7 +1220,7 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
       this.nexusUnitsPurchaseList.push(purchasedUnit);
 
       this.getUnitTimers();
-      this.nexusService.purchaseUnit(this.nexusBase, tmpUnit.unitId, tmpUnit.purchasedValue ?? 0).then(res => this.handleUpgradeResponse(res));
+      this.nexusService.purchaseUnit(this.nexusBase.user?.id ?? 0, this.nexusBase, tmpUnit.unitId, tmpUnit.purchasedValue ?? 0).then(res => this.handleUpgradeResponse(res));
     }
 
 

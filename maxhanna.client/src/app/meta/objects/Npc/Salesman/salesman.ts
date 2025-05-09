@@ -85,7 +85,9 @@ export class Salesman extends Npc {
       "Come back when you’re serious… or desperate."
     ]
   };
-  constructor(params: { position: Vector2, heroPosition: Vector2, entranceLevel: Level, items?: InventoryItem[], skin?: string, preventDraw?: boolean }) {
+  constructor(params: { position: Vector2, heroPosition: Vector2, 
+    entranceLevel: Level, items?: InventoryItem[], skin?: string,
+     preventDraw?: boolean, offsetX?: number, offsetY?: number }) {
     super({
       id: Math.floor(Math.random() * (-9999 + 1000)) - 1000,
       position: params.position,
@@ -98,6 +100,8 @@ export class Salesman extends Npc {
         frameSize: new Vector2(32, 32),
         hFrames: 4,
         vFrames: 4,
+        offsetX: params.offsetX,
+        offsetY: params.offsetY,
         preventDraw: params.preventDraw,
         animations: new Animations(
           { 
@@ -122,7 +126,8 @@ export class Salesman extends Npc {
         resource: resources.images["shadow"],
         preventDraw: params.preventDraw,
         position: new Vector2(0, 0),
-        offsetX: -10, 
+        offsetX: -10 + (params.offsetX ?? 0),
+        offsetY: params.offsetY, 
         scale: new Vector2(1.25, 1),
         frameSize: new Vector2(32, 32),
       });

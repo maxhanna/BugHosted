@@ -863,6 +863,7 @@ namespace maxhanna.Server.Controllers
 
 						if (rowsAffected == 1)
 						{
+							await DeletePollsByStoryId(request.story.Id);
 							await RemoveFromSitemapAsync(request.story.Id);
 							return Ok("Story deleted successfully.");
 						}
@@ -1329,6 +1330,41 @@ namespace maxhanna.Server.Controllers
 				_sitemapLock.Release();
 			}
 		}
+		private async Task<bool> DeletePollsByStoryId(int storyId)
+		{ 
+			try
+			{
+				string sql = "DELETE FROM poll_votes WHERE component_id = @storyId";
+
+				using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+				{
+					await conn.OpenAsync();
+
+					using (var cmd = new MySqlCommand(sql, conn))
+					{ 
+						cmd.Parameters.AddWithValue("@storyId", "storyText" + storyId);
+
+						int rowsAffected = await cmd.ExecuteNonQueryAsync();
+
+						if (rowsAffected == 1)
+						{
+						 
+							return true;
+						}
+						else
+						{
+							return false;
+						}
+					}
+				}
+			}
+			catch (Exception ex)
+			{
+				_ = _log.Db("An error occurred while deleting poll votes." + ex.Message, null, "SOCIAL", true);
+				return false;
+			}
+		}
+
 		private async Task RemoveFromSitemapAsync(int targetId)
 		{
 			string targetUrl = $"https://bughosted.com/Social/{targetId}"; 

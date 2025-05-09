@@ -49,13 +49,82 @@
   font-size: larger;
 }
 
-  .notificationBubble:not(:first-of-type) {
-    margin-top: 20px;
-  }
+.notificationBubble:not(:first-of-type) {
+  margin-top: 20px;
+}
 
 #youtubeIframe {
-  width: 98vw;  
-  max-width: 800px;  
-  aspect-ratio: 16 / 9; 
-  border: none; 
+  width: 98vw;
+  max-width: 800px;
+  aspect-ratio: 16 / 9;
+  border: none;
+}
+
+.pollPopupPanel {
+  border-radius: 4px;
+  padding: 20px 20px 0px 20px; 
+  max-width: calc(100vw - 60px);
+}
+
+.popupContent {
+  width: 100%;
+}
+
+.poll-question {
+  font-weight: bold;
+  margin-bottom: 15px;
+  font-size: 18px;
+  color: var(--secondary-font-color)
+}
+
+.poll-option {
+  margin-bottom: 15px;
+  display: flex;
+  width: 100%;
+  align-items: stretch;
+  justify-content: space-between;
+}
+
+.option-row {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 5px;
+}
+
+.vote-bar-container {
+  border-radius: 5px;
+  margin-bottom: 5px;
+  min-width: 70px;
+}
+
+.vote-bar {
+  height: 100%;
+  background-color: var(--third-font-color);
+  border-radius: 5px;
+  transition: width 0.3s ease;
+}
+
+.percentage {
+  text-align: left;
+  font-size: 12px;
+  color: var(--secondary-font-color);
+  padding-left: 5px;
+  padding-top: 2px;
+}
+
+.total-voters {
+  margin-top: 20px;
+  font-style: italic;
+  text-align: center;
+  color: var(--third-font-color);
+}
+
+.pollTitle {
+  position: relative;
+  top: -25px;
+}
+
+.pollResults {
+  position: relative;
+  top: -20px;
 }

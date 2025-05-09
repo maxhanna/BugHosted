@@ -6,7 +6,7 @@
   <div *ngIf="isLoading" class="loadingModal">The game is loading...</div>
   <div *ngIf="serverDown">We are sorry, server is currently down. Please be patient while we bring it back online.</div>
   <div class="gameCanvasContainer" [style.display]="!serverDown && parentRef && parentRef.user ? 'block' : 'none'">
-    <canvas #gameCanvas id="gameCanvas" class="gameCanvas" width=320 height="220"></canvas>
+    <canvas #gameCanvas id="gameCanvas" class="gameCanvas" width=320 height="220"></canvas> 
   </div>
   <div class="chatArea" [style.display]="parentRef && parentRef.user && mainScene.input.displayChat ? 'block' : 'none'">
     <div class="chatInputDiv">

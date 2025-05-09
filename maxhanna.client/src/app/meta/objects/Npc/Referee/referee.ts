@@ -1,12 +1,13 @@
 import { Vector2 } from "../../../../../services/datacontracts/meta/vector2"; 
 import { Sprite } from "../../sprite"; 
-import { DOWN } from "../../../helpers/grid-cells";
+import { DOWN, LEFT, RIGHT, UP } from "../../../helpers/grid-cells";
 import { Animations } from "../../../helpers/animations";
 import { resources } from "../../../helpers/resources";
 import { FrameIndexPattern } from "../../../helpers/frame-index-pattern";
 import { events } from "../../../helpers/events";
 import { WALK_DOWN, WALK_UP, WALK_LEFT, WALK_RIGHT, STAND_DOWN, STAND_RIGHT, STAND_LEFT, STAND_UP } from "./referee-animations";
 import { Npc } from "../../Npc/npc";
+import { l } from "@angular/core/weak_ref.d-Bp6cSy-X";
 
 export class Referee extends Npc {
   directionIndex = 0;
@@ -60,18 +61,31 @@ export class Referee extends Npc {
   override ready() {
     events.on("HERO_REQUESTS_ACTION", this, (params: { hero: any, objectAtPosition: any }) => {
       if (params.objectAtPosition.id === this.id) {
-        const oldKey = this.body?.animations?.activeKey;
-        const oldFacingDirection = this.facingDirection;
-        this.body?.animations?.play("standDown");
-        this.facingDirection = DOWN;
-        setTimeout(() => {
-          if (oldKey) {
-            this.body?.animations?.play(oldKey);
+        this.facePlayer(params);
+        if (params.hero.parent.name.toLowerCase().trim() == "undergroundlevel2") {
+          const encounterBots = params.hero.parent.children.filter((x:any) => x.heroId < 0);
+          if (encounterBots) {
+            for (let x = 0; x < encounterBots.length; x++) {
+              encounterBots[x].chasing = params.hero;
+            }
           }
-          this.facingDirection = oldFacingDirection;
-        }, 20000);
+        } 
       }
     });
   }
 
+
+  private facePlayer(params: { hero: any; objectAtPosition: any; }) {
+    const oldKey = this.body?.animations?.activeKey;
+    const oldFacingDirection = this.facingDirection;
+    this.facingDirection = params.hero.facingDirection == DOWN ? UP : params.hero.facingDirection == LEFT ? RIGHT : params.hero.facingDirection == UP ? DOWN : LEFT;
+    this.body?.animations?.play("stand" + this.facingDirection.charAt(0) + this.facingDirection.substring(1, this.facingDirection.length).toLowerCase());
+    console.log("animation : " + this.body?.animations?.activeKey);
+    setTimeout(() => {
+      if (oldKey) {
+        this.body?.animations?.play(oldKey);
+      }
+      this.facingDirection = oldFacingDirection;
+    }, 20000);
+  }
 }

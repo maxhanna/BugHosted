@@ -491,7 +491,7 @@ export class UserService {
       return 'error';
     }
   }
-  async getTheme(userId: number) {
+  async getTheme(userId: number): Promise<any> {
     try {
       const response = await fetch('/user/getusertheme/', {
         method: 'POST',
@@ -500,8 +500,13 @@ export class UserService {
         },
         body: JSON.stringify(userId),
       });
+
+      if (!response.ok) { 
+          return null;  
+      }
+
       return await response.json();
-    } catch (error) {
+    } catch (error) { 
       return 'error';
     }
   }

@@ -120,6 +120,8 @@ export class NavigationComponent implements OnInit, OnDestroy {
     if (this.navbarCollapsed) {
       return;
     }
+
+    console.log("debouncedRestartNotifications");
     this.getNotificationInfo();
     this.getCryptoHubInfo();
     this.getCalendarInfo();
@@ -145,10 +147,11 @@ export class NavigationComponent implements OnInit, OnDestroy {
   }
 
   async getNotificationInfo() {
-    if (!this._parent || !this._parent.user) {
+    if (!this._parent || !this._parent.user || this.navbarCollapsed) {
       return;
     }
     this.isLoadingNotifications = true;
+    console.log("getting getNotificationInfo");
     try {
       const res = await this.notificationService.getNotifications(this._parent.user.id ?? 0) as UserNotification[];
       if (res) {

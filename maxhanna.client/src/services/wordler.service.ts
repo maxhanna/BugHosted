@@ -48,6 +48,26 @@ export class WordlerService {
     }
   }
 
+  async getBestConsecutiveDayStreakOverall() { 
+    try {
+      const response = await fetch(`/wordler/getbestconsecutivedaysstreakoverall`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        }, 
+      });
+
+      if (!response.ok) {
+        throw new Error(`Error getConsecutiveDayStreak: ${response.statusText}`);
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error(error);
+      return '';
+    }
+  }
+
 
   async getTodaysDayStreak(userId: number) {
     if (!userId) return;

@@ -350,6 +350,13 @@ but you can also set your own City for a more precise location."></span>
                 many people also added the favourite you created and see how popular your favourites are!
               </div>
             </div>
+            <div *ngIf="icon.title == 'Top'" [id]="icon.title+'tddiv'">
+              <div [id]="icon.title+'tddivdiv'" (click)="menuInformationZoom(icon.title+'td')"
+                [class]="parentRef && parentRef.isModalOpen ? '' : 'ellipsis'">
+                Under Construction.
+                Top 100 List! Create any list for any category and lets all vote!
+              </div>
+            </div>
             <div *ngIf="icon.title == 'Array'" [id]="icon.title+'tddiv'">
               <div [id]="icon.title+'tddivdiv'" (click)="menuInformationZoom(icon.title+'td')"
                 [class]="parentRef && parentRef.isModalOpen ? '' : 'ellipsis'">
@@ -444,6 +451,14 @@ but you can also set your own City for a more precise location."></span>
         <div><input type="text" placeholder="Private Key {{hasKrakenKeys ? '(Overwriting)' : ''}}" #krakenPrivateKey />
         </div>
       </div>
+      <div class="apiKeyInputWrapper sectionDescriptionSection">
+        <div>
+          Information:
+        </div>
+        <div>
+          <button (click)="showKrakenHelpPanel()">Help</button>
+        </div>
+      </div>
     </div>
 
 
@@ -493,4 +508,26 @@ but you can also set your own City for a more precise location."></span>
       <button (click)="closeThisComponent()">Close</button>
     </div>
   </div>
+</div>
+
+
+
+<!-- Menu Popup -->
+<div class="popupPanel" *ngIf="isKrakenHelpPanelShowing">
+  <div class="popupPanelTitle popupPanelContent" style="margin-bottom:15px;">
+    🦑How to get Kraken API keys?
+  </div>
+  <ol>
+    <li>First, sign up on Kraken: <a href="https://krakenpro.onelink.me/9f1e/he08evy5" target="_blank">Kraken Sign Up</a>.</li>
+    <li>Go to your Kraken Pro API settings page: <a href="https://pro.kraken.com/app/settings/api" target="_blank">https://pro.kraken.com/app/settings/api</a></li>
+    <li>Click on "Create API Key" button. Enable these options: 
+      <br>Under "Orders and trades":
+      <ul><li>Query open orders & trades</li><li>Query closed orders & trades</li><li>Create & modify orders</li></ul>
+      <br>Under "Funds permissions": 
+      <ul><li>Query</li></ul>
+      <br>Enabling only these options offers the maximum security for your account. No withdrawals possible while still allowing the bot to trade on your behalf.</li>
+    <li>Once you name your key and save it, you will be shown your API Key and Private key, copy and paste those into the inputs on this settings page.</li>
+    </ol>
+
+  <button id="closeOverlay" (click)="closeKrakenHelpPanel()">Close</button>
 </div>

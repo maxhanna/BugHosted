@@ -12,8 +12,7 @@ export class Fire extends GameObject {
   constructor(x: number, y: number) {
     super({
       position: new Vector2(x, y),
-      name: "Fire",    
-      isSolid: true,
+      name: "Fire",
     })
 
     this.body = new Sprite({
@@ -24,6 +23,7 @@ export class Fire extends GameObject {
       vFrames: 1,
       hFrames: 4,
       offsetY: -10,
+      isSolid: true,
       animations: new Animations({
         burnAnimation: new FrameIndexPattern(BURN_ANIMATION),
       }),  

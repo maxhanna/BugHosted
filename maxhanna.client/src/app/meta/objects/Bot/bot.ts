@@ -28,6 +28,7 @@ export class Bot extends Character {
   isDeployed? = false;
   isEnemy = true;
   targeting?: Bot = undefined;
+  chasing?: Character = undefined;
   lastAttack = new Date();
   lastAttackPart?: MetaBotPart;
   lastTargetDate = new Date(); 
@@ -39,6 +40,8 @@ export class Bot extends Character {
     "Ram": "botFrame5",
     "Bee": "botFrame7",
   }
+  private chaseDebounceTimer: any;
+  chaseCancelBlock = new Date();
 
   private targetingInterval?: any;
 
@@ -79,44 +82,48 @@ export class Bot extends Character {
       forceDrawName: params.forceDrawName,
       preventDrawName: params.preventDrawName, 
       facingDirection: params.facingDirection,
-      speed: 1,
+      speed: (params.heroId ?? 0) < 0 ? 0.5 : 1,
       name: "Bot",
       exp: params.exp ?? 0,
       expForNextLevel: params.expForNextLevel ?? 0,
+      isSolid: params.isSolid ?? false,
       level: params.level ?? 1,
-      body: params.preventDraw ? undefined : new Sprite({
-        objectId: params.id ?? Math.floor(Math.random() * (-9999 + 1000)) - 1000,
-        resource: resources.images[
-          params.name == "Jaguar" ? "botFrame"
-          : params.name == "Ram" ? "botFrame5"
-          : params.name == "Bee" ? "botFrame7"
-          : (params.spriteName ?? "botFrame")],
-        frameSize: params.spriteName == "white" ? new Vector2(0, 0) : new Vector2(32, 32),
-        scale: params.scale,
-        name: "Bot",
-        position: new Vector2(-7, 0),
-        offsetX: (params.offsetX ?? 0), 
-        offsetY: (params.offsetY ?? 0), 
-        colorSwap: params.colorSwap,
-        hFrames: params.spriteName?.includes("botFrame") ? 4 : 1,
-        vFrames: params.spriteName?.includes("botFrame") ? 5 : 1,
-        animations: new Animations(
-          {
-            walkDown: new FrameIndexPattern(WALK_DOWN),
-            walkUp: new FrameIndexPattern(WALK_UP),
-            walkLeft: new FrameIndexPattern(WALK_LEFT),
-            walkRight: new FrameIndexPattern(WALK_RIGHT),
-            standDown: new FrameIndexPattern(STAND_DOWN),
-            standRight: new FrameIndexPattern(STAND_RIGHT),
-            standLeft: new FrameIndexPattern(STAND_LEFT),
-            standUp: new FrameIndexPattern(STAND_UP),
-            pickupDown: new FrameIndexPattern(PICK_UP_DOWN),
-            attackDown: new FrameIndexPattern(ATTACK_DOWN),
-            attackUp: new FrameIndexPattern(ATTACK_UP),
-            attackLeft: new FrameIndexPattern(ATTACK_LEFT),
-            attackRight: new FrameIndexPattern(ATTACK_RIGHT),
-          })
-      }),
+      body: params.preventDraw ? undefined : 
+        new Sprite({
+          objectId: params.id ?? Math.floor(Math.random() * (-9999 + 1000)) - 1000,
+          resource: resources.images[
+            params.name == "Jaguar" ? "botFrame"
+            : params.name == "Ram" ? "botFrame5"
+            : params.name == "Bee" ? "botFrame7"
+            : (params.spriteName ?? "botFrame")],
+          frameSize: params.spriteName == "white" ? new Vector2(0, 0) : new Vector2(32, 32),
+          scale: params.scale,
+          name: "Bot",
+          isSolid:params.isSolid ?? false,
+          position: new Vector2(-7, 0),
+          offsetX: (params.offsetX ?? 0), 
+          offsetY: (params.offsetY ?? 0), 
+          colorSwap: params.colorSwap,
+          hFrames: params.spriteName?.includes("botFrame") ? 4 : 1,
+          vFrames: params.spriteName?.includes("botFrame") ? 5 : 1,
+          animations: new Animations(
+            {
+              walkDown: new FrameIndexPattern(WALK_DOWN),
+              walkUp: new FrameIndexPattern(WALK_UP),
+              walkLeft: new FrameIndexPattern(WALK_LEFT),
+              walkRight: new FrameIndexPattern(WALK_RIGHT),
+              standDown: new FrameIndexPattern(STAND_DOWN),
+              standRight: new FrameIndexPattern(STAND_RIGHT),
+              standLeft: new FrameIndexPattern(STAND_LEFT),
+              standUp: new FrameIndexPattern(STAND_UP),
+              pickupDown: new FrameIndexPattern(PICK_UP_DOWN),
+              attackDown: new FrameIndexPattern(ATTACK_DOWN),
+              attackUp: new FrameIndexPattern(ATTACK_UP),
+              attackLeft: new FrameIndexPattern(ATTACK_LEFT),
+              attackRight: new FrameIndexPattern(ATTACK_RIGHT),
+            })
+          }
+        ),
       shadow: params.preventDraw ? undefined : new Sprite({
         objectId: params.id ?? Math.floor(Math.random() * (-9999 + 1000)) - 1000,
         resource: resources.images["shadow"],
@@ -137,8 +144,7 @@ export class Bot extends Character {
     this.legs = params.legs;
     this.name = params.name ?? "Anon";
     this.isDeployed = params.isDeployed;
-    this.isEnemy = params.isEnemy ?? false;
-    this.isSolid = params.isSolid ?? false;   
+    this.isEnemy = params.isEnemy ?? false; 
     this.isInvulnerable = params.isInvulnerable ?? false;   
     this.canAttack = params.canAttack ?? true; 
     this.setupEvents(); 
@@ -158,8 +164,6 @@ export class Bot extends Character {
       setTimeout(() => {
         fire.destroy();
         super.destroy();
-        this.parent?.removeChild(fire);
-        this.parent?.removeChild(this);
       }, 1100);
     } else {
       super.destroy();
@@ -168,16 +172,49 @@ export class Bot extends Character {
 
   override ready() {
     this.targetingInterval = setInterval(() => {
-      findTargets(this);
+      findTargets(this); 
+      this.chaseAfter();
     }, 1000);
     events.on("CHARACTER_POSITION", this, (hero: any) => {
       if (hero.id === this.heroId) {
-        this.followHero(hero);
+        this.followHero(hero); 
       } 
     });
     events.emit("BOT_CREATED");  
   }
  
+
+  private chaseAfter() {
+    if (this.chasing && this.chasing.id &&
+      (this.destinationPosition.x != this.chasing.destinationPosition.x || this.destinationPosition.y != this.chasing.destinationPosition.y)) {
+      const dx = this.chasing.destinationPosition.x - this.destinationPosition.x;
+      const dy = this.chasing.destinationPosition.y - this.destinationPosition.y;
+      const distance = Math.sqrt(dx * dx + dy * dy);
+      if (distance > 500 || !(this.chasing as Hero).metabots?.find(x => x.isDeployed)) {
+        console.log(`${this.name} stopped following ${this.chasing.name}`);
+        this.chasing = undefined;
+        this.latestMessage = "😡";
+        this.chaseCancelBlock = new Date();
+      } else {
+        this.destinationPosition = this.chasing.destinationPosition.duplicate();
+        clearTimeout(this.chaseDebounceTimer);
+        this.chaseDebounceTimer = setTimeout(() => {
+          events.emit("UPDATE_ENCOUNTER_POSITION", this);
+        }, 100);
+      }
+      setTimeout(()=> {
+        if (this.chasing) { 
+          const now = new Date();
+          if (now.getTime() - this.chaseCancelBlock.getTime() > 50) {
+            this.chasing = undefined;
+            this.destinationPosition = this.position.duplicate();
+            this.latestMessage = "😡";
+            this.chaseCancelBlock = new Date();
+          } 
+        }
+      }, 12 * 1000);
+    }
+  }
 
   override getContent() { 
     if (this.textContent) {
@@ -199,6 +236,11 @@ export class Bot extends Character {
     if (this.isDeployed && this.isEnemy) {
       this.drawHP(ctx, drawPosX, drawPosY);
       this.drawExp(ctx, drawPosX, drawPosY);
+      this.drawLevel(ctx, drawPosX, drawPosY);
+    }
+    if (this.latestMessage) {
+      this.drawLatestMessage(ctx, drawPosX, drawPosY);
+      setTimeout(() => { this.latestMessage = ""; }, 5000);
     }
   }
 
@@ -210,7 +252,7 @@ export class Bot extends Character {
       this.lastAttack = new Date();
 
       const botsInRange = getBotsInRange(this);
-      if (botsInRange.some((x: Bot) => x.id == this.targeting?.id)) { 
+      if (botsInRange.some((x: Bot) => x.id == this.targeting?.id)) {  
         attack(this, this.targeting);
       } else {
         untarget(this, this.targeting); 
@@ -219,7 +261,7 @@ export class Bot extends Character {
   } 
 
   private followHero(hero: Character) {
-    if ((hero.distanceLeftToTravel ?? 0) < 15 && this.heroId === hero.id && this.isDeployed) {
+    if ((hero.distanceLeftToTravel ?? 0) < 15 && this.isDeployed) {
       const directionX = hero.position.x - (this.previousHeroPosition?.x ?? this.position.x);
       const directionY = hero.position.y - (this.previousHeroPosition?.y ?? this.position.y);
       const distanceFromHero = gridCells(2);

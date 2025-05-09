@@ -103,8 +103,8 @@ export class NexusService {
   async getUnitUpgradeStats(): Promise<any> {
     return await this.fetchData('/nexus/getunitupgradestats');
   }
-  async purchaseUnit(nexus: NexusBase, unitId: number, purchaseAmount: number): Promise<any> {
-    return await this.fetchData('/nexus/purchaseUnit', { Nexus: nexus, unitId, purchaseAmount });
+  async purchaseUnit(userId: number, nexus: NexusBase, unitId: number, purchaseAmount: number): Promise<any> {
+    return await this.fetchData('/nexus/purchaseUnit', { UserId: userId, Nexus: nexus, unitId, purchaseAmount });
   }
   async engage(originNexus: NexusBase, destinationNexus: NexusBase, unitStats: UnitStats[]): Promise<any> {
     return await this.fetchData('/nexus/engage', { OriginNexus: originNexus, DestinationNexus: destinationNexus, UnitList: unitStats });

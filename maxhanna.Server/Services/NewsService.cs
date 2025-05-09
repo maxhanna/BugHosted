@@ -151,7 +151,7 @@ public class NewsService
 
 	public async Task<bool> GetAndSaveTopQuarterHourlyHeadlines(string? keyword)
 	{
-		int articlesToTake = 20;
+		const int articlesToTake = 20;
 		try
 		{
 			using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
@@ -164,7 +164,6 @@ public class NewsService
 				var count = Convert.ToInt32(await checkCmd.ExecuteScalarAsync());
 				if (count > 0)
 				{
-					//await _log.Db("Skipped saving headlines - already saved in the 15 minutes", null, "NEWSSERVICE", false);
 					return false;
 				}
 			}
@@ -178,36 +177,57 @@ public class NewsService
 			}
 
 			var top20 = articlesResult.Articles.Take(articlesToTake).ToList();
-			int aCount = 0;
+			int successfullyInsertedCount = 0;
+ 
 			using var transaction = await conn.BeginTransactionAsync();
 
 			foreach (var article in top20)
 			{
-				string sql = @"
-					INSERT IGNORE INTO news_headlines (title, description, url, published_at, saved_at, url_to_image, content, author)
-					VALUES (@title, @description, @url, @published_at, UTC_TIMESTAMP(), @url_to_image, @content, @author);";
+				try
+				{
+					string sql = @"
+                    INSERT IGNORE INTO news_headlines 
+                    (title, description, url, published_at, saved_at, url_to_image, content, author)
+                    VALUES (@title, @description, @url, @published_at, UTC_TIMESTAMP(), @url_to_image, @content, @author);";
 
-				using var cmd = new MySqlCommand(sql, conn, transaction);
-				cmd.Parameters.AddWithValue("@title", article.Title ?? "");
-				cmd.Parameters.AddWithValue("@description", article.Description ?? "");
-				cmd.Parameters.AddWithValue("@url", article.Url ?? "");
-				cmd.Parameters.AddWithValue("@published_at", article.PublishedAt ?? DateTime.UtcNow);
-				cmd.Parameters.AddWithValue("@url_to_image", article.UrlToImage ?? "");
-				cmd.Parameters.AddWithValue("@content", article.Content ?? "");
-				cmd.Parameters.AddWithValue("@author", article.Author ?? "");
+					using var cmd = new MySqlCommand(sql, conn, transaction);
+					cmd.Parameters.AddWithValue("@title", article.Title ?? "");
+					cmd.Parameters.AddWithValue("@description", article.Description ?? "");
+					cmd.Parameters.AddWithValue("@url", article.Url ?? "");
+					cmd.Parameters.AddWithValue("@published_at", article.PublishedAt ?? DateTime.UtcNow);
+					cmd.Parameters.AddWithValue("@url_to_image", article.UrlToImage ?? "");
+					cmd.Parameters.AddWithValue("@content", article.Content ?? "");
+					cmd.Parameters.AddWithValue("@author", article.Author ?? "");
 
-				await cmd.ExecuteNonQueryAsync();
-				aCount++;
+					int rowsAffected = await cmd.ExecuteNonQueryAsync(); 
+					if (rowsAffected > 0)
+					{
+						successfullyInsertedCount++;
+					}
+				}
+				catch (Exception ex)
+				{
+					// Log but continue with next article
+					await _log.Db($"Failed to insert article (Title: {article.Title?.Substring(0, Math.Min(20, article.Title.Length))}...): {ex.Message}",
+								 null, "NEWSSERVICE", false);
+					continue;
+				}
 			}
 
 			await transaction.CommitAsync();
 
-			await _log.Db($"Successfully saved ({aCount}) top {articlesToTake} news headlines{(keyword != null ? $" with keyword:{keyword}" : "")}", null, "NEWSSERVICE", true);
-			return true;
+			if (successfullyInsertedCount > 0)
+			{
+				await _log.Db($"Successfully saved {successfullyInsertedCount}/{articlesToTake} headlines{(keyword != null ? $" (keyword: {keyword})" : "")}",
+							 null, "NEWSSERVICE", true);
+				return true;
+			}
+
+			return false;
 		}
 		catch (Exception ex)
 		{
-			await _log.Db("Exception in GetAndSaveTopHeadlines: " + ex.Message, null, "NEWSSERVICE", true);
+			await _log.Db($"Critical error in GetAndSaveTopHeadlines: {ex.Message}", null, "NEWSSERVICE", true);
 			return false;
 		}
 	}
@@ -532,6 +552,7 @@ Posted by user @{topMeme.Username}<br><small>Daily top memes are selected based 
                 AND DATE(fu.upload_date) = CURDATE()
                 AND fu.is_folder = 0
                 AND fu.is_public = 1
+				AND (comment_count + reaction_count) > 0 
             GROUP BY fu.id, fu.file_name, fu.given_file_name, fu.user_id, fuu.username
             ORDER BY (comment_count + reaction_count) DESC, fu.upload_date DESC
             LIMIT 1";

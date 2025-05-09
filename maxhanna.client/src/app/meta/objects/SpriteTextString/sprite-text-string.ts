@@ -71,7 +71,7 @@ export class SpriteTextString extends GameObject {
         if (currentShowingIndex > this.showingIndex) {
           return;
         }
-
+        char.sprite.drawLayer = "HUD";
         char.sprite.draw(ctx, cursorX - 5, cursorY); 
         cursorX += char.width + 1; 
         currentShowingIndex++;

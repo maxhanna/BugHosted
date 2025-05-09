@@ -1,7 +1,7 @@
 using maxhanna.Server.Controllers.DataContracts.Crypto;
 using maxhanna.Server.Controllers.DataContracts.Users;
 using Microsoft.AspNetCore.Mvc;
-using MySqlConnector; 
+using MySqlConnector;
 
 namespace maxhanna.Server.Controllers
 {
@@ -64,7 +64,7 @@ namespace maxhanna.Server.Controllers
 			}
 
 			return coinValues;
-		} 
+		}
 
 		[HttpPost("/CoinValue/GetWalletBalanceData", Name = "GetWalletBalanceData")]
 		public async Task<List<CoinValue>> GetWalletBalanceData([FromBody] string walletAddress)
@@ -303,6 +303,7 @@ namespace maxhanna.Server.Controllers
                     FROM_UNIXTIME(FLOOR(UNIX_TIMESTAMP(timestamp) / {TRUNCATE_LONG_TERM}) * {TRUNCATE_LONG_TERM}) as timestamp
                 FROM maxhanna.exchange_rates
                 WHERE timestamp >= @From AND timestamp <= @To
+				{(request.Currency != null ? " AND target_currency = @Currency " : "")}
                 GROUP BY base_currency, target_currency, FROM_UNIXTIME(FLOOR(UNIX_TIMESTAMP(timestamp) / {TRUNCATE_LONG_TERM}) * {TRUNCATE_LONG_TERM})
                 ORDER BY timestamp ASC;";
 				}
@@ -317,6 +318,7 @@ namespace maxhanna.Server.Controllers
                     FROM_UNIXTIME(FLOOR(UNIX_TIMESTAMP(timestamp) / {TRUNCATE_YEAR}) * {TRUNCATE_YEAR}) as timestamp
                 FROM maxhanna.exchange_rates
                 WHERE timestamp >= @From AND timestamp <= @To
+				{(request.Currency != null ? " AND target_currency = @Currency " : "")}
                 GROUP BY base_currency, target_currency, FROM_UNIXTIME(FLOOR(UNIX_TIMESTAMP(timestamp) / {TRUNCATE_YEAR}) * {TRUNCATE_YEAR})
                 ORDER BY timestamp ASC;";
 				}
@@ -331,6 +333,7 @@ namespace maxhanna.Server.Controllers
                     FROM_UNIXTIME(FLOOR(UNIX_TIMESTAMP(timestamp) / {TRUNCATE_MONTH}) * {TRUNCATE_MONTH}) as timestamp
                 FROM maxhanna.exchange_rates
                 WHERE timestamp >= @From AND timestamp <= @To
+				{(request.Currency != null ? " AND target_currency = @Currency " : "")}
                 GROUP BY base_currency, target_currency, FROM_UNIXTIME(FLOOR(UNIX_TIMESTAMP(timestamp) / {TRUNCATE_MONTH}) * {TRUNCATE_MONTH})
                 ORDER BY timestamp ASC;";
 				}
@@ -345,6 +348,7 @@ namespace maxhanna.Server.Controllers
                     FROM_UNIXTIME(FLOOR(UNIX_TIMESTAMP(timestamp) / {TRUNCATE_WEEK}) * {TRUNCATE_WEEK}) as timestamp
                 FROM maxhanna.exchange_rates
                 WHERE timestamp >= @From AND timestamp <= @To
+				{(request.Currency != null ? " AND target_currency = @Currency " : "")}
                 GROUP BY base_currency, target_currency, FROM_UNIXTIME(FLOOR(UNIX_TIMESTAMP(timestamp) / {TRUNCATE_WEEK}) * {TRUNCATE_WEEK})
                 ORDER BY timestamp ASC;";
 				}
@@ -358,13 +362,20 @@ namespace maxhanna.Server.Controllers
                     rate, 
                     timestamp
                 FROM maxhanna.exchange_rates 
-                {(request.HourRange != 0 ? " WHERE timestamp >= @From AND timestamp <= @To " : "")}
+				WHERE 1=1 
+                {(request.HourRange != 0 ? " AND timestamp >= @From AND timestamp <= @To " : "")}
+				{(request.Currency != null ? " AND target_currency = @Currency " : "")}
                 ORDER BY timestamp ASC;";
 				}
 
 				MySqlCommand cmd = new MySqlCommand(sql, conn);
 				cmd.Parameters.AddWithValue("@From", actualFrom);
 				cmd.Parameters.AddWithValue("@To", actualTo);
+				if (request.Currency != null)
+				{
+					cmd.Parameters.AddWithValue("@Currency", request.Currency);
+				}
+
 				using (var reader = await cmd.ExecuteReaderAsync())
 				{
 					while (await reader.ReadAsync())
@@ -391,6 +402,39 @@ namespace maxhanna.Server.Controllers
 			}
 
 			return exchangeRates;
+		}
+
+		[HttpPost("/CurrencyValue/GetCurrencyNames", Name = "GetCurrencyNames")]
+		public async Task<List<string>> GetCurrencyNames()
+		{
+			List<string> currencies = new List<string>();
+			MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+			try
+			{
+				await conn.OpenAsync();
+				string sql = "SELECT DISTINCT target_currency FROM maxhanna.exchange_rates";
+
+				MySqlCommand cmd = new MySqlCommand(sql, conn);
+
+
+				using (var reader = await cmd.ExecuteReaderAsync())
+				{
+					while (await reader.ReadAsync())
+					{
+						currencies.Add(reader.GetString(reader.GetOrdinal("target_currency")));
+					}
+				}
+			}
+			catch (Exception ex)
+			{
+				_ = _log.Db("An error occurred while trying to get all exchange rate names. " + ex.Message, null, "COIN", true);
+			}
+			finally
+			{
+				await conn.CloseAsync();
+			}
+
+			return currencies;
 		}
 
 		[HttpPost("/CoinValue/GetLatest/", Name = "GetLatestCoinValues")]
@@ -847,41 +891,39 @@ namespace maxhanna.Server.Controllers
 				return StatusCode(500, "An error occurred while processing the request.");
 			}
 		}
+
 		[HttpPost("/CoinValue/BTCWallet/GetWalletData", Name = "GetWalletData")]
 		public async Task<IActionResult> GetWalletData([FromBody] int userId, [FromHeader(Name = "Encrypted-UserId")] string encryptedUserIdHeader)
 		{
-			if (!await _log.ValidateUserLoggedIn(userId, encryptedUserIdHeader)) return StatusCode(500, "Access Denied.");
+			if (!await _log.ValidateUserLoggedIn(userId, encryptedUserIdHeader))
+				return StatusCode(500, "Access Denied.");
 
 			try
 			{
-				// Call the private method to get wallet info from the database
-				CryptoWallet? btcWallet = await GetWalletFromDb(userId, "btc");
-				CryptoWallet? usdcWallet = await GetWalletFromDb(userId, "usdc");
-				List<CryptoWallet> returns = new List<CryptoWallet>();
-				if (btcWallet != null)
-				{
-					returns.Add(btcWallet);
-				}
-				if (usdcWallet != null)
-				{
-					returns.Add(usdcWallet);
-				}
+				// Parallel database calls
+				var btcTask = GetWalletFromDb(userId, "btc");
+				var usdcTask = GetWalletFromDb(userId, "usdc");
+				await Task.WhenAll(btcTask, usdcTask);
 
-				bool check1 = (btcWallet != null && btcWallet.currencies != null && btcWallet.currencies.Count > 0);
-				bool check2 = (usdcWallet != null && usdcWallet.currencies != null && usdcWallet.currencies.Count > 0);
+				var btcWallet = await btcTask;
+				var usdcWallet = await usdcTask;
 
-				if ((check1 || check2) && returns.Count > 0)
-				{
-					return Ok(returns);
-				}
-				else
+				// Early exit if no valid wallets
+				if (btcWallet?.currencies?.Count == 0 && usdcWallet?.currencies?.Count == 0)
 				{
 					return NotFound("No wallet addresses found for the user.");
 				}
+
+				// Build response
+				var returns = new List<CryptoWallet>();
+				if (btcWallet?.currencies?.Count > 0) returns.Add(btcWallet);
+				if (usdcWallet?.currencies?.Count > 0) returns.Add(usdcWallet);
+
+				return returns.Count > 0 ? Ok(returns) : NotFound("No valid wallet data found.");
 			}
 			catch (Exception ex)
 			{
-				_ = _log.Db("An error occurred while processing GetWalletData. " + ex.Message, userId, "USER", true);
+				_ = _log.Db($"GetWalletData error: {ex.Message}", userId, "USER", true);
 				return StatusCode(500, "An error occurred while processing the request.");
 			}
 		}
@@ -959,19 +1001,20 @@ namespace maxhanna.Server.Controllers
 					await conn.OpenAsync();
 
 					string sql = $@"
-					SELECT 
-						wi.{type}_address, 
-						wb.balance,  
-						wb.fetched_at
-					FROM user_{type}_wallet_info wi
-					LEFT JOIN user_{type}_wallet_balance wb ON wi.id = wb.wallet_id
-					WHERE wi.user_id = @UserId 
-					AND wb.fetched_at = (
-						SELECT MAX(fetched_at) 
-						FROM user_{type}_wallet_balance 
-						WHERE wallet_id = wi.id
-					);";
-
+						SELECT 
+							wi.{type}_address, 
+							wb.balance,  
+							wb.fetched_at
+						FROM user_{type}_wallet_info wi
+						JOIN (
+							SELECT wallet_id, MAX(fetched_at) as latest_fetch
+							FROM user_{type}_wallet_balance
+							GROUP BY wallet_id
+						) latest ON wi.id = latest.wallet_id
+						JOIN user_{type}_wallet_balance wb ON latest.wallet_id = wb.wallet_id 
+							AND latest.latest_fetch = wb.fetched_at
+						WHERE wi.user_id = @UserId;
+						);"; 
 					using (var cmd = new MySqlCommand(sql, conn))
 					{
 						cmd.Parameters.AddWithValue("@UserId", userId);

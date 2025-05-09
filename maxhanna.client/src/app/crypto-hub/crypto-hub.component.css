@@ -563,3 +563,87 @@ div:not(.trade-panel-controls) .button-wrapper {
   color: var(--main-link-color);
   box-shadow: 0 0 8px var(--main-highlight-color);
 }
+ 
+
+
+
+
+.volume-depth-indicator { 
+  padding: 1rem; 
+  border-radius: 8px;
+}
+
+.volume-bars {
+  display: flex;
+  height: 40px;
+  margin: 1rem 0;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.btc-bar {
+  background-color: #f7931a;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  padding-left: 8px;
+  color: white;
+  font-weight: bold;
+}
+
+.usdc-bar {
+  background-color: #2775ca;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding-right: 8px;
+  color: white;
+  font-weight: bold;
+}
+
+.volume-stats {
+  display: flex;
+  justify-content: space-between;
+  font-size: xx-small;
+  color: #666;
+}
+@media only screen and (min-width : 1000px) {
+  .volume-stats {
+    font-size: small;
+  }
+}
+
+.volume-stats div {
+  margin: 0 0.5rem;
+}
+
+.mild-warning {
+  color: #ff9800;
+  /* Orange */
+  background: rgba(255, 152, 0, 0.1);
+  border-left: 3px solid #ff9800;
+  padding: 4px 8px;
+}
+
+.severe-warning {
+  color: #ff4d4d;
+  /* Red */
+  background: rgba(255, 77, 77, 0.1);
+  border-left: 3px solid #ff4d4d;
+  padding: 4px 8px;
+  animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+  0% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.6;
+  }
+
+  100% {
+    opacity: 1;
+  }
+}

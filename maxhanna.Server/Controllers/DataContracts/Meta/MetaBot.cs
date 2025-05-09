@@ -8,8 +8,9 @@ namespace maxhanna.Server.Controllers.DataContracts.Meta
 		public int Type { get; set; }
 		public int Hp { get; set; }
 		public int Exp { get; set; }
-		public int Level { get; set; } 
-		public Boolean IsDeployed { get; set; } 
+		public int Level { get; set; }
+		public Boolean IsDeployed { get; set; }
+		public Vector2? Position { get; set; }
 		public MetaBotPart? Head { get; set; }
 		public MetaBotPart? Legs { get; set; }
 		public MetaBotPart? LeftArm { get; set; }

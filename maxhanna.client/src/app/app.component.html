@@ -33,4 +33,40 @@
 <input type="hidden" id="componentCreateName" />
 <button id="componentCreateClickButton" style="display:none;" (click)="createComponentButtonClicked()" class="hiddenInput"></button>
 <input type="hidden" id="userMentionInput" />
-<button type="button" id="userMentionButton" style="display: none;" (click)="handleUserMention()"></button> 
+<button type="button" id="userMentionButton" style="display: none;" (click)="handleUserMention()"></button><input type="hidden" id="pollCheckId" />
+<input type="hidden" id="pollCheckId" />
+<input type="hidden" id="pollComponentId" />
+<input type="hidden" id="pollQuestion" />
+<button type="button" id="pollCheckClickedButton" style="display: none;" (click)="handlePollCheckClicked()"></button>
+
+<div class="popupPanel pollPopupPanel" *ngIf="pollChecked" (click)="pollChecked = false; closeOverlay();">
+  <span class="closeButton" id="closeOverlay" (click)="pollChecked = false; closeOverlay();"></span>
+  <div class="popupContent" (click)="$event.stopPropagation()">  
+    <h2 class="pollTitle">Poll Results</h2>
+
+    <div *ngIf="pollResults" class="pollResults">
+      <div class="poll-question">{{ pollQuestion || 'Poll Results' }}</div>
+
+      <div class="poll-options">
+        <div class="poll-option" *ngFor="let option of pollResults.options; let i = index">
+          <div class="option-row">
+            <span class="option-text">{{ option.value }}</span>
+            <span class="option-votes">({{ option.voteCount }} votes)</span>
+          </div>
+          <div class="vote-bar-container"> 
+            <div class="vote-bar" [style.width.%]="(option.voteCount / pollResults.totalVoters) * 100">
+                <div class="percentage">
+                  {{ (option.voteCount / pollResults.totalVoters * 100).toFixed(1) }}%
+                </div>
+            </div>
+          </div>
+          
+        </div>
+      </div>
+
+      <div class="total-voters">
+        Total voters: {{ pollResults.totalVoters }}
+      </div>
+    </div>
+  </div>
+</div>

@@ -185,7 +185,7 @@
           <div class="optionsStatsDescription">
             <span>
               <select [value]="selectedFile.visibility"
-                      *ngIf="selectedFile.user?.id == parentRef?.user?.id || selectedFile.user?.id == inputtedParentRef?.user?.id" disabled>
+                      [disabled]="!(selectedFile.user?.id == parentRef?.user?.id || selectedFile.user?.id == inputtedParentRef?.user?.id)" *ngIf="selectedFile.user?.id == parentRef?.user?.id || selectedFile.user?.id == inputtedParentRef?.user?.id">
                 <option value="Public" [selected]="selectedFile.visibility == 'Public'">Public</option>
                 <option value="Private" [selected]="selectedFile.visibility == 'Private'">Private</option>
               </select>

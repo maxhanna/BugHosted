@@ -34,6 +34,7 @@ export class Npc extends Character {
 		speed?: number,
 		level?: number,
 		hp?: number,
+		isSolid?: boolean,
 	}) {
 		super({
 			id: config.id,
@@ -42,10 +43,10 @@ export class Npc extends Character {
 			body: config.body,
 			isUserControlled: false,
 			preventDraw: config.preventDraw,
+			isSolid: config.isSolid ?? true,
 		});
 		this.type = config.type;
-		this.id = config.id;
-		this.isSolid = true;
+		this.id = config.id; 
 		this.facingDirection = DOWN;
 		this.position = config.position;
 		this.destinationPosition = this.position.duplicate();

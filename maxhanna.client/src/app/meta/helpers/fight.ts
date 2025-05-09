@@ -6,6 +6,7 @@ import { getBotsInRange } from './move-towards';
 import { DOWN, LEFT, RIGHT, UP } from './grid-cells';
 import { events } from './events';
 import { Target } from '../objects/Effects/Target/target';
+import { Critical } from '../objects/Effects/Critical/critical';
 import { Sting } from '../objects/Effects/Sting/sting';
 
 export const typeEffectiveness = new Map<SkillType, SkillType>([
@@ -20,10 +21,7 @@ export const typeEffectiveness = new Map<SkillType, SkillType>([
 
 export function calculateAndApplyDamage(attackingBot: Bot, defendingBot: Bot) {
   if (!attackingBot || !defendingBot || attackingBot.hp <= 0) return;
-  console.log(attackingBot.leftArm);
-  console.log(attackingBot.rightArm);
-  console.log(attackingBot.legs);
-  console.log(attackingBot.head);
+  
   let attackingPart = attackingBot.lastAttackPart ?? attackingBot.leftArm;
   if (attackingPart?.partName === LEFT_ARM && (attackingBot.rightArm || attackingBot.leftArm || attackingBot.legs || attackingBot.head)) {
     attackingPart = attackingBot.rightArm ?? attackingBot.leftArm ?? attackingBot.legs ?? attackingBot.head!;
@@ -43,10 +41,27 @@ export function calculateAndApplyDamage(attackingBot: Bot, defendingBot: Bot) {
   } else if (attackingPart && typeEffectiveness.get(defendingType) === attackingType) {
     typeMultiplier = 0.5; // Not Effective
   }
+  const criticalHitChance = 0.10; // 10% chance
+  const isCritical = Math.random() < criticalHitChance;
+  const criticalMultiplier = isCritical ? 1.5 : 1.0; // 50% bonus damage on crit
+  if (isCritical) {
+    const crit = new Critical({ position: defendingBot.position, parentId: attackingBot.id, targetId: defendingBot.id });  
+    attackingBot.parent?.addChild(crit);
+  }
+  const botDefence = 1; // Base defence
+  const botDefenceMultiplier = 0.5; //How much defence scales per level
+  const levelDifference = defendingBot.level - attackingBot.level;
+  const defenseFactor = Math.max(0.1, 1 - (botDefence + (levelDifference * botDefenceMultiplier)) / 100);
   const baseDamage = attackingBot.level * (attackingPart?.damageMod ?? 1);
-  const appliedDamage = baseDamage * typeMultiplier;
-  console.log(`${attackingBot.name} attacking ${defendingBot.name} with ${attackingPart?.partName} dealing ${appliedDamage} (${appliedDamage}/${defendingBot.hp})`)
-
+  const appliedDamage = Math.floor(baseDamage * typeMultiplier * defenseFactor * criticalMultiplier);
+  console.log(`${attackingBot.name} attacks ${defendingBot.name} with ${attackingPart?.partName}:
+    Level: ${attackingBot.level} vs ${defendingBot.level}
+    Base: ${baseDamage}
+    Type: ×${typeMultiplier} ${typeMultiplier !== 1 ? (typeMultiplier > 1 ? '(Super Effective!)' : '(Not Very Effective)') : ''}
+    ${isCritical ? 'CRITICAL HIT! ×1.5' : ''}
+    Defense: ×${defenseFactor.toFixed(2)}
+    Final: ${appliedDamage} (${defendingBot.hp} → ${Math.max(0, defendingBot.hp - appliedDamage)})`);
+    
   if (!defendingBot.isInvulnerable) { 
     defendingBot.hp = Math.max(0, defendingBot.hp - appliedDamage);
   }
@@ -75,6 +90,9 @@ export function attack(source: Bot, target: Bot) {
   faceTarget(source, target);
   // Define available attack parts
   calculateAndApplyDamage(source, target);
+  source.chasing = undefined;
+  source.chaseCancelBlock = new Date();
+  source.destinationPosition = source.position;
   const lastAttackPart = source.lastAttackPart;
   console.log(`${source.name} attacking ${target.name} with ${lastAttackPart?.skill?.name}`);
   if (lastAttackPart) { 
@@ -124,12 +142,15 @@ export function untarget(source: Bot, targetBot: Bot) {
     source.targeting = undefined;
     events.emit("TARGET_UNLOCKED", { source: source, target: targetBot })
     console.log(source.name + " lost target: " + targetBot.name);
+    chaseAfter(source, targetBot); 
+  }
+}
 
-    const oldTargetSprite = source.parent?.children.find((child: any) => child.parentId == source.id);
-    if (oldTargetSprite) {
-      oldTargetSprite.body?.destroy(); 
-      oldTargetSprite.destroy(); 
-    }
+function chaseAfter(source: Bot, targetBot: Bot) {
+  if ((source.heroId ?? 0) < 0 && (targetBot.heroId ?? 0) > 0) {
+    const hero = source.parent?.children.find((child: any) => child.id == targetBot.heroId);
+    source.chasing = hero;
+    console.log("Starting chasing ", hero);
   }
 }
 
@@ -149,16 +170,11 @@ export function faceTarget(source: Bot, target: Bot) {
   } 
 }
 
-export function generateReward(source: Bot, target: Bot) {
-  // Determine rarity chance based on level difference 
-  const baseChance = 0.5; // 50% base chance
-  let rarityModifier = Math.max(0.1, 1 / (1 + Math.exp(source.level / 5))); // Logistic decay
-
-  const dropChance = baseChance * rarityModifier;
+export function generateReward(source: Bot, target: Bot) { 
+  const dropChance = 0.5;
   const roll = Math.random();
 
-  if (roll > dropChance) {
-    //console.log("No reward this time!"); // Exit early if unlucky
+  if (roll > dropChance) { 
     return;
   }
 
@@ -175,9 +191,9 @@ export function generateReward(source: Bot, target: Bot) {
     (part) => part !== undefined
   ) as MetaBotPart[];
 
-  if (parts.length > 0) {
+  if (parts.length > 0) { 
     const randomPart = parts[Math.floor(Math.random() * parts.length)];
-    if (randomPart) {
+    if (randomPart) { 
       const randomDamageMod = Math.floor(Math.random() * randomPart.damageMod) + 1;
 
       generatedPart = new MetaBotPart({
@@ -192,7 +208,7 @@ export function generateReward(source: Bot, target: Bot) {
     } 
   }
 
-  if (generateGenericPart) {
+  if (generateGenericPart) { 
     const randomSkill = skills[Math.floor(Math.random() * skills.length)];
     const partName = (randomSkill.partName ?? HEAD);
     generatedPart = new MetaBotPart({
@@ -202,11 +218,11 @@ export function generateReward(source: Bot, target: Bot) {
       type: SkillType.NORMAL,
       damageMod: 1,
       partName: partName as typeof HEAD,
-    });
+    }); 
+  }
 
-    if (generatedPart) {
-      events.emit("GOT_REWARDS", { location: target.position, part: generatedPart });
-    }
+  if (generatedPart) {
+    events.emit("GOT_REWARDS", { location: target.position, part: generatedPart });
   }
 }
 

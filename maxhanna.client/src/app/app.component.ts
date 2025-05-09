@@ -1,4 +1,4 @@
-import { AfterViewInit, Component, ComponentRef, ElementRef, OnDestroy, OnInit, ViewChild, ViewContainerRef } from '@angular/core';
+import { AfterViewInit, ChangeDetectorRef, Component, ComponentRef, ElementRef, OnDestroy, OnInit, ViewChild, ViewContainerRef } from '@angular/core';
 import { ActivatedRoute, NavigationEnd, NavigationStart, Router, RouterOutlet } from '@angular/router';
 import { CalendarComponent } from './calendar/calendar.component';
 import { FavouritesComponent } from './favourites/favourites.component';
@@ -36,6 +36,7 @@ import { CrawlerService } from '../services/crawler.service';
 import { FavouriteService } from '../services/favourite.service';
 import { FileService } from '../services/file.service';
 import { TopComponent } from './top/top.component';
+import { PollService } from '../services/poll.service';
 
 
 @Component({
@@ -97,7 +98,9 @@ export class AppComponent implements OnInit, AfterViewInit {
   location?: { ip: string, city: string, country: string } = undefined;
   sessionToken?: string = undefined;
   userIdCache = new Map<string, number>()
-
+  pollChecked = false;
+  pollQuestion = "";
+  pollResults: any = null;
   private componentMap: { [key: string]: any; } = {
     "Navigation": NavigationComponent,
     "Favourites": FavouritesComponent,
@@ -134,8 +137,10 @@ export class AppComponent implements OnInit, AfterViewInit {
     private crawlerService: CrawlerService,
     private favouriteService: FavouriteService,
     private fileService: FileService,
+    private pollService: PollService,
     private meta: Meta,
     private title: Title,
+    private changeDetectorRef: ChangeDetectorRef,
     private sanitizer: DomSanitizer) { }
 
   ngOnInit() {
@@ -170,8 +175,8 @@ export class AppComponent implements OnInit, AfterViewInit {
         if (this.router.url.includes('User')) {
           console.log("router has user");
           this.checkAndClearRouterOutlet();
-          const userId = this.router.url.toLowerCase().split('user/')[1]?.split('?')[0];
-          const storyId = this.router.url.toLowerCase().split('user/')[1]?.split('/')[1];
+          const userId = this.router.url.toLowerCase().split('user/')[1]?.split('?')[0].split('/')[0];
+          const storyId = this.router.url.toLowerCase().split('user/')[1]?.split('/')[1]; 
           this.createComponent("User", { "userId": userId, storyId: storyId });
         }
         if (this.router.url.includes('File')) {
@@ -569,8 +574,10 @@ export class AppComponent implements OnInit, AfterViewInit {
       image: tmpImage
     };
   }
-  getTextForDOM(text?: string, component_id?: number) {
-    if (!text) return "";
+  getTextForDOM(text?: string, component_id?: any) {
+    if (!text) return ""; 
+    // Process polls first (before other transformations)
+    text = this.processPolls(text, component_id);
 
     const youtubeRegex = /(https?:\/\/(?:www\.|m\.)?(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)([\w-]{11})|youtu\.be\/([\w-]{11}))(?:\S+)?)/g;
 
@@ -632,6 +639,54 @@ export class AppComponent implements OnInit, AfterViewInit {
     });
 
     return this.sanitizer.bypassSecurityTrustHtml(text);
+  }
+
+  private processPolls(text: string, component_id: any): string {
+    const pollRegex = /\[Poll\](.*?)\[\/Poll\]/gs;
+
+    return text.replace(pollRegex, (match: string, content: string): string => {
+      // Generate a unique ID for this poll
+      const pollId = `poll_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+      // Parse poll content
+      const lines: string[] = content
+        .split('\n')
+        .map((l: string) => l.trim())
+        .filter((l: string) => l);
+
+      if (lines.length < 2) {
+        return '<div class="poll-error">Invalid poll format</div>';
+      }
+
+      const question: string = lines[0].replace('Question:', '').trim();
+      const options: string[] = lines
+        .slice(1)
+        .filter((line: string) => line.startsWith('Option'))
+        .map((line: string) => line.replace(/Option \d+:/, '').trim());
+
+      if (options.length < 2) {
+        return '<div class="poll-error">Poll needs at least 2 options</div>';
+      }
+
+      // Generate poll HTML
+      let pollHtml: string = `<div class="poll-container"><div class="poll-question">${question}</div><div class="poll-options">`;
+
+      options.forEach((option: string, index: number) => {
+        pollHtml += `
+          <div class="poll-option">
+              <input type="checkbox" value="${option}" id="poll-option-${pollId}-${index}" name="poll-options-${pollId}" onClick="document.getElementById('pollCheckId').value='poll-option-${pollId}-${index}';document.getElementById('pollQuestion').value='${this.htmlEncodeForInput(question)}';document.getElementById('pollComponentId').value='${component_id}';document.getElementById('pollCheckClickedButton').click()">
+              <label for="poll-option-${pollId}-${index}" onClick="document.getElementById('pollCheckId').value='poll-option-${pollId}-${index}';document.getElementById('pollQuestion').value='${this.htmlEncodeForInput(question)}';document.getElementById('pollComponentId').value='${component_id}';document.getElementById('pollCheckClickedButton').click()">${option}</label>
+          </div>
+        `;
+      });
+
+      pollHtml += `</div></div>`;
+
+      return pollHtml;
+    });
+  }
+  private htmlEncodeForInput(str: string): string { 
+     return str.replaceAll("'", "");
   }
   getIconByTitle(title: string): string | undefined {
     const item = this.navigationItems.find(x => x.title === title);
@@ -827,14 +882,25 @@ export class AppComponent implements OnInit, AfterViewInit {
       tmpUser.lastSeen = new Date();
     }
   }
-  async isServerUp() {
+  async isServerUp(): Promise<number> {
     try {
-      const usersCount = await this.userService.getUserCount();
-      if (!usersCount || parseInt(usersCount) == 0) {
-        return false;
-      } else return true;
-    } catch {
-      return false;
+      // Create a timeout promise that rejects after 10 seconds
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        setTimeout(() => reject(new Error('Timeout after 10 seconds')), 10000);
+      });
+
+      // Race the getUserCount call against the timeout
+      const usersCount = await Promise.race([
+        this.userService.getUserCount(),
+        timeoutPromise
+      ]);
+
+      const count = parseInt(usersCount ?? "0");
+      return (isNaN(count) || count == 0) ? -1 : count;
+
+    } catch (error) {
+      console.error('Server check failed:', error);
+      return -1;
     }
   }
   async getLocation(user?: User) {
@@ -876,6 +942,28 @@ export class AppComponent implements OnInit, AfterViewInit {
       if (user) validUsers.push(user);
     }
     return validUsers;
+  }
+  async handlePollCheckClicked() {
+    const checkValue = (document.getElementById((document.getElementById("pollCheckId") as HTMLInputElement).value) as HTMLInputElement).value;
+    const pollQuestion = (document.getElementById("pollQuestion") as HTMLInputElement).value;
+    const componentId = (document.getElementById("pollComponentId") as HTMLInputElement).value;
+
+    try {
+      // Call your poll service to vote
+      const res = await this.pollService.vote(this.user?.id ?? 0, checkValue, componentId);
+
+      // Store the results and show the popup
+      this.pollResults = res;
+      this.pollChecked = true;
+      this.pollQuestion = pollQuestion; 
+      // Force Angular to detect changes
+      this.changeDetectorRef.detectChanges();
+      this.showOverlay();
+    } catch (error) {
+      console.error("Error updating poll:", error);
+      // Optionally show error to user
+      alert("Failed to update poll. Please try again.");
+    }
   }
   async handleUserMention() {
     const username = (document.getElementById('userMentionInput') as HTMLInputElement).value.trim();

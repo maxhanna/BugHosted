@@ -106,15 +106,7 @@ public class KrakenService
 		MomentumStrategy? UpwardsMomentum = await GetMomentumStrategy(userId, "XBT", "USDC");
 		if (UpwardsMomentum != null && UpwardsMomentum.Timestamp != null)
 		{
-			_ = _log.Db("Upwards momentum strategy detected. Verifying momentum data.", userId, "TRADE", true);
-			//is timestamp over the minute threshold?
-			DateTime currentUtcTime = DateTime.UtcNow;
-			TimeSpan timeDifference = currentUtcTime - UpwardsMomentum.Timestamp.Value;
-			if (timeDifference.TotalMinutes < 1)
-			{
-				_ = _log.Db("One minute has not passed since last momentum check. Trade Cancelled.", userId, "TRADE", true);
-				return false;
-			}
+			_ = _log.Db("Upwards momentum strategy detected. Verifying momentum data.", userId, "TRADE", true); 
 			//is spread still respected?
 			if (Math.Abs(spread) >= _TradeThreshold || Math.Abs(spread2) >= _TradeThreshold)
 			{   //Spread is still respected. Is price over threshold? (new - old) >= 50$ or (new - best) >= 50$
@@ -135,11 +127,11 @@ public class KrakenService
 				bool priceAboveInitial = (btcPriceUSDC.Value - UpwardsMomentum.BtcPriceUsdc) >= -dynamicThreshold;
 				bool priceAboveBest = (btcPriceUSDC.Value - UpwardsMomentum.BestBtcPriceUsdc) >= -dynamicThreshold;
 
-				if (priceAboveInitial || priceAboveBest)
+				if (priceAboveInitial && priceAboveBest)
 				{   //we gotta wait here. Return false;
 					await UpdateMomentumEntry(userId, "XBT", "USDC", btcPriceUSDC.Value);
 					_ = _log.Db($"Updated momentum entry from XBT to USDC: {btcPriceUSDC.Value}. triggeredBySpread: {triggeredBySpread:P}, {(spread > 0 ? $"spread:{spread:P}" : "")} {(spread2 > 0 ? $"spread2:{spread2:P}" : "")}", userId, "TRADE", true); 
-					_ = _log.Db($"Threshold ({-dynamicThreshold}) still respected. Waiting. (btcPriceUSDC:{btcPriceUSDC.Value} - UpwardsMomentum.BtcPriceUsdc:{UpwardsMomentum.BtcPriceUsdc} >= {-dynamicThreshold} || btcPriceUSDC:{btcPriceUSDC.Value} - UpwardsMomentum.BestBtcPriceUsdc:{UpwardsMomentum.BestBtcPriceUsdc} >= {-dynamicThreshold}) Trade Cancelled.", userId, "TRADE", true); 
+					_ = _log.Db($"Threshold ({-dynamicThreshold}) still respected. Waiting. (priceAboveInitial:{priceAboveInitial}? : btcPriceUSDC:{btcPriceUSDC.Value} - UpwardsMomentum.BtcPriceUsdc:{UpwardsMomentum.BtcPriceUsdc} >= {-dynamicThreshold} && priceAboveBest:{priceAboveBest}?: btcPriceUSDC:{btcPriceUSDC.Value} - UpwardsMomentum.BestBtcPriceUsdc:{UpwardsMomentum.BestBtcPriceUsdc} >= {-dynamicThreshold}) Trade Cancelled.", userId, "TRADE", true); 
 					return false;
 				}
 				else {
@@ -201,15 +193,7 @@ public class KrakenService
 		MomentumStrategy? DownwardsMomentum = await GetMomentumStrategy(userId, "USDC", "XBT"); //if trying to buy, its because downwards trend.
 		if (DownwardsMomentum != null && DownwardsMomentum.Timestamp != null)
 		{
-			_ = _log.Db("Downwards momentum strategy detected. Verifying momentum data.", userId, "TRADE", true);
-			//is timestamp over the minute threshold?
-			DateTime currentUtcTime = DateTime.UtcNow;
-			TimeSpan timeDifference = currentUtcTime - DownwardsMomentum.Timestamp.Value;
-			if (timeDifference.TotalMinutes < 1)
-			{
-				_ = _log.Db("One minute has not passed since last momentum check. Trade Cancelled.", userId, "TRADE", true);
-				return false;
-			}
+			_ = _log.Db("Downwards momentum strategy detected. Verifying momentum data.", userId, "TRADE", true); 
 			//is spread still respected?
 			if (Math.Abs(spread) >= _TradeThreshold || Math.Abs(spread2) >= _TradeThreshold)
 			{   //Spread is still respected. Is price over threshold? (new - old) >= 50$ or (new - best) >= 50$
@@ -300,7 +284,7 @@ public class KrakenService
 				{
 					await UpdateMomentumEntry(userId, "USDC", "XBT", btcPriceUSDC.Value);
 					_ = _log.Db($"Updated momentum entry from USDC to XBT: {btcPriceUSDC.Value}. triggeredBySpread: {triggeredBySpread:P}, {(spread > 0 ? $"spread:{spread:P}" : "")} {(spread2 > 0 ? $"spread2:{spread2:P}" : "")}", userId, "TRADE", true);
-					_ = _log.Db($"Threshold ({dynamicThreshold}) still respected. Waiting. (btcPriceUSDC:{btcPriceUSDC.Value} - DownwardsMomentum.BtcPriceUsdc:{DownwardsMomentum.BtcPriceUsdc} >= {dynamicThreshold} ({priceAboveInitial}:{(btcPriceUSDC.Value - DownwardsMomentum.BtcPriceUsdc)}) || btcPriceUSDC:{btcPriceUSDC.Value} - DownwardsMomentum.BestBtcPriceUsdc:{DownwardsMomentum.BestBtcPriceUsdc} >= {dynamicThreshold} ({priceAboveBest}:{(btcPriceUSDC.Value - DownwardsMomentum.BestBtcPriceUsdc)})) Trade Cancelled.", userId, "TRADE", true);
+					_ = _log.Db($"Threshold ({dynamicThreshold}) still respected. Waiting. (priceAboveInitial:{priceAboveInitial}? : btcPriceUSDC:{btcPriceUSDC.Value} - DownwardsMomentum.BtcPriceUsdc:{DownwardsMomentum.BtcPriceUsdc} >= {dynamicThreshold} ({priceAboveInitial}:{(btcPriceUSDC.Value - DownwardsMomentum.BtcPriceUsdc)}) || priceAboveBest:{priceAboveBest}?: btcPriceUSDC:{btcPriceUSDC.Value} - DownwardsMomentum.BestBtcPriceUsdc:{DownwardsMomentum.BestBtcPriceUsdc} >= {dynamicThreshold} ({priceAboveBest}:{(btcPriceUSDC.Value - DownwardsMomentum.BestBtcPriceUsdc)})) Trade Cancelled.", userId, "TRADE", true);
 					return false;
 				}
 			}
@@ -338,7 +322,7 @@ public class KrakenService
 			if (spread >= _TradeThreshold || (firstPriceToday != null && spread2 >= _TradeThreshold))
 			{
 				string triggeredBy = spread >= _TradeThreshold ? "spread" : "spread2";
-				_ = _log.Db($"Trade triggered by: {triggeredBy} ({(triggeredBy == "spread2" ? spread2 : spread)})", userId, "TRADE", true);
+				_ = _log.Db($"Trade triggered by: {triggeredBy} ({(triggeredBy == "spread2" ? spread2 : spread):P})", userId, "TRADE", true);
 
 				// If no last trade, we must equalize - get balances now
 				if (isFirstTradeEver || lastTrade == null)
@@ -390,7 +374,7 @@ public class KrakenService
 			if (spread <= -_TradeThreshold || (firstPriceToday != null && spread2 <= -_TradeThreshold))
 			{
 				string triggeredBy = spread <= -_TradeThreshold ? "spread" : "spread2";
-				_ = _log.Db($"Trade triggered by: {triggeredBy}", userId, "TRADE", true); 
+				_ = _log.Db($"Trade triggered by: {triggeredBy} {(triggeredBy == "spread2" ? spread2 : spread):P}", userId, "TRADE", true); 
 				decimal tmpTradePerc = (firstPriceToday != null ? _ValueTradePercentage - _ValueTradePercentagePremium : _ValueTradePercentage);
 				decimal usdcValueToTrade = Math.Min(usdcBalance * tmpTradePerc, _MaximumUSDCTradeAmount);
 				decimal btcAmount = usdcValueToTrade / btcPriceUSDC.Value;
@@ -441,8 +425,7 @@ public class KrakenService
             {
                 _ = _log.Db($"Trade amount:{btcToTrade} < {_MinimumBTCTradeAmount} is too small. Trade Cancelled.", userId, "TRADE", true);
                 return false;
-            }
-
+            } 
             //Contextual Adjustments: If you’re trading based on certain market conditions(e.g., high volatility or low reserves), you might want to adjust the range dynamically. For example
             //If reserves are low, you may want a larger range to avoid too many trades.
             //If there is high market volatility, you could reduce the range to act more cautiously.  
@@ -451,7 +434,7 @@ public class KrakenService
             bool shouldTradeBasedOnReserves = await ShouldTradeBasedOnRangeAndReserve(userId, from, to, buyOrSell, tradeRange, usdcBalance);
             if (!shouldTradeBasedOnReserves)
             {
-                _ = _log.Db($"User has {buyOrSell} {from} {to} too many times in the last {tradeRange} trades (Based on BTC/USDC reserves, volume spike, or last {_MaxTradeTypeOccurances} trades were the same). Trade Cancelled.", userId, "TRADE", true);
+                _ = _log.Db($"User has {buyOrSell} {from} {to} too many times in the last {tradeRange} trades (Based on BTC/USDC reserves, volume spike:({isVolumeSpiking}), or last {_MaxTradeTypeOccurances} trades were the same). Trade Cancelled.", userId, "TRADE", true);
                 return false;
             }
             int tradeRangeLimit = _MaxTradeTypeOccurances;
@@ -2535,10 +2518,21 @@ public class KrakenService
 		try
 		{
 			if (userId == 0) return false;
-			//GET USER API KEYS
+			//GET USER API KEYS, Trade Configuration
 			UserKrakenApiKey? keys = await GetApiKey(userId);
 			if (keys == null) return false;
 
+			TradeConfiguration? tc = await GetTradeConfiguration(userId, "XBT", "USDC");
+			if (!ValidateTradeConfiguration(tc, userId))
+			{
+				return false;
+			}
+			if (!ApplyTradeConfiguration(tc))
+			{
+				_ = _log.Db("Null trade configuration. Trade Cancelled.", userId, "TRADE", true);
+				return false;
+			} 
+			
 			// 1. If user does not have _InitialMinimumFromAmountToStart, cancel entering position.  
 			var balances = await GetBalance(userId, keys);
 			if (balances == null)
@@ -2559,40 +2553,31 @@ public class KrakenService
 			{
 				_ = _log.Db("No USDC price found. Trade Cancelled.", userId, "TRADE", true);
 				return false;
-			}
-			if (usdcBalance > _MinimumUSDCReserves)
+			} 
+ 
+			//Trade configured percentage % of USDC balance TO BTC 
+			decimal usdcValueToTrade = Math.Min(usdcBalance * _ValueTradePercentage, _MaximumUSDCTradeAmount);
+			if (usdcValueToTrade > 0)
 			{
-				_ = _log.Db($"No need to equalize funds. USDC Balance ({usdcBalance}) over minimum reserves ({_MinimumUSDCReserves}).", userId, "TRADE", true);
-				return false;
-			}
-			decimal minBtc = _InitialMinimumBTCAmountToStart;
-			if (btcBalance > minBtc)
-			{
-				//Trade 50% of USDC balance TO BTC
-				decimal halfTradePercentage = 0.5m;
-				decimal usdcValueToTrade = Math.Min(usdcBalance * halfTradePercentage, _MaximumUSDCTradeAmount);
-				if (usdcValueToTrade > 0)
+				decimal? usdToCadRate = await GetUsdToCadRate();
+				if (usdToCadRate == null)
 				{
-					decimal? usdToCadRate = await GetUsdToCadRate();
-					if (usdToCadRate == null)
-					{
-						_ = _log.Db("USD to CAD rate is unavailable.", userId, "TRADE", true);
-						return false;
-					}
-					_ = _log.Db("USD to CAD rate: " + usdToCadRate.Value, userId, "TRADE", true);
-					decimal btcAmount = usdcValueToTrade / btcPriceUSDC.Value;
-
-					_ = _log.Db($"Entering Position - Buying BTC with {FormatBTC(btcAmount)} BTC worth of USDC(${usdcValueToTrade})", userId, "TRADE", true);
-					await ExecuteXBTtoUSDCTrade(userId, keys, FormatBTC(btcAmount), "buy", usdcBalance, btcBalance, false, btcPriceCAD.Value, btcPriceUSDC.Value);
-					await StartBot(userId);
-					return true;
+					_ = _log.Db("USD to CAD rate is unavailable.", userId, "TRADE", true);
+					return false;
 				}
-			}
+				_ = _log.Db("USD to CAD rate: " + usdToCadRate.Value, userId, "TRADE", true);
+				decimal btcAmount = usdcValueToTrade / btcPriceUSDC.Value;
+
+				_ = _log.Db($"Entering Position - Buying BTC with {FormatBTC(btcAmount)} BTC worth of USDC(${usdcValueToTrade})", userId, "TRADE", true);
+				await ExecuteXBTtoUSDCTrade(userId, keys, FormatBTC(btcAmount), "buy", usdcBalance, btcBalance, false, btcPriceCAD.Value, btcPriceUSDC.Value);
+
+				return true;
+			} 
 			else
 			{
-				_ = _log.Db($"⚠️Not enough BTC to trade ({btcBalance}<{minBtc})", userId, "TRADE", true);
-				return false;
+				_ = _log.Db($"Not enough USDC to trade! {usdcValueToTrade}. Trade Cancelled.", userId, "TRADE", true);
 			}
+
 			return false;
 		}
 		catch (Exception e)

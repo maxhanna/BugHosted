@@ -9,6 +9,7 @@ import { Level } from "../Level/level";
 import { SpriteTextStringWithBackdrop } from "../SpriteTextString/sprite-text-string-with-backdrop";
 import { MetaHero } from "../../../../services/datacontracts/meta/meta-hero";
 import { Character } from "../character";
+import { Npc } from "../Npc/npc";
 
 export class Main extends GameObject {
   level?: Level = undefined;
@@ -85,10 +86,10 @@ export class Main extends GameObject {
 
   drawObjects(ctx: CanvasRenderingContext2D) { 
     this.children.forEach((child: GameObject) => {
-      if (child.drawLayer !== HUD) { 
+      if (child.drawLayer !== HUD) {
         child.draw(ctx, 0, 0);
-      } 
-    });
+      }
+    }); 
   }
 
   drawForeground(ctx: CanvasRenderingContext2D) { 

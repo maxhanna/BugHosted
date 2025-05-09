@@ -1,6 +1,4 @@
-import { Skill } from "../../../app/meta/helpers/skill-types";
-import { User } from "../user/user";
-import { Vector2 } from "./vector2";
+import { Skill } from "../../../app/meta/helpers/skill-types"; 
 
 export class MetaBotPart {
   id: number;

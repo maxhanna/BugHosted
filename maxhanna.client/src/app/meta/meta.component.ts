@@ -23,6 +23,7 @@ import { BrushRoad1 } from './levels/brush-road1';
 import { BrushRoad2 } from './levels/brush-road2';
 import { RainbowAlleys1 } from './levels/rainbow-alleys1';
 import { UndergroundLevel1 } from './levels/underground-level1';
+import { UndergroundLevel2 } from './levels/underground-level2';
 import { MetaEvent } from '../../services/datacontracts/meta/meta-event';
 import { InventoryItem } from './objects/InventoryItem/inventory-item';
 import { DroppedItem } from './objects/Environment/DroppedItem/dropped-item';
@@ -79,7 +80,7 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
   private pollingInterval: any;
 
   async ngOnInit() {
-    this.serverDown = (!await this.parentRef?.isServerUp());
+    this.serverDown = (this.parentRef ? await this.parentRef?.isServerUp() <= 0 : false);
     this.parentRef?.setViewportScalability(false);
     this.parentRef?.addResizeListener();
     this.canvas = this.gameCanvas.nativeElement;
@@ -189,7 +190,7 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
           tgtEnemy.hp = enemy.hp;
         } else {
           const tgtEncounter = this.mainScene.level.children.find((x: Character) => x.id == enemy.heroId);
-          if (tgtEncounter) {
+          if (tgtEncounter) { 
             let tmp = new Bot({
               botType: enemy.type,
               name: enemy.name ?? "botFrame",
@@ -197,7 +198,7 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
               colorSwap: (tgtEncounter.color ? new ColorSwap([0, 160, 200], hexToRgb(tgtEncounter.color)) : undefined),
               isDeployed: true,
               isEnemy: true,
-              position: tgtEncounter.position.duplicate(),
+              position: (enemy.position !== undefined && enemy.position.x != -1 && enemy.position.y != -1) ? new Vector2(enemy.position.x, enemy.position.y) : new Vector2(tgtEncounter.position?.x ?? 0, tgtEncounter.position?.y ?? 0),
               level: enemy.level,
               hp: enemy.hp,
               id: enemy.id,
@@ -481,6 +482,7 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
     else if (upperKey == "BRUSHROAD2") return new BrushRoad2({ itemsFound: itemsFoundNames });
     else if (upperKey == "RAINBOWALLEYS1") return new RainbowAlleys1({ itemsFound: itemsFoundNames });
     else if (upperKey == "UNDERGROUNDLEVEL1") return new UndergroundLevel1({ itemsFound: itemsFoundNames });
+    else if (upperKey == "UNDERGROUNDLEVEL2") return new UndergroundLevel2({ itemsFound: itemsFoundNames });
     else if (upperKey == "BRUSHSHOP1") return new BrushShop1({ itemsFound: itemsFoundNames });
     //else if (upperKey == "FIGHT") return new Fight(
     //  {

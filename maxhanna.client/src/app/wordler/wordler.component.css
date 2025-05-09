@@ -211,8 +211,13 @@ input.present {
 }
 
 .instructionTitle {
-  margin-bottom: 10px;
-  text-align: center;
+    margin-bottom: 10px;
+    text-align: center;
+    display: flex;
+    gap: 5px;
+    align-content: center;
+    justify-content: center;
+    align-items: center;
 }
 
 .wordlerPopupPanelSection {

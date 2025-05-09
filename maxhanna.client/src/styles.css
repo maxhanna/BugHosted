@@ -688,3 +688,38 @@ fieldset {
   cursor: pointer;
   text-decoration: underline;
 }
+ 
+.poll-container {
+  border: var(--main-border);
+  border-radius: 8px;
+  padding-left: 15px; 
+  padding-right: 15px;
+  padding-top: 15px;
+}
+
+.poll-question {
+  font-weight: bold; 
+  color: var(--secondary-font-color);
+}
+
+.poll-option {  
+  display: flex;
+}
+
+.poll-option:hover {
+  background-color: var(--secondary-component-background-color);
+}
+
+.poll-vote-btn { 
+  padding: 5px 15px;
+  background-color: var(--component-background-color); 
+  border: var(--main-border);
+  color: var(--main-font-color);
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.poll-error {
+  color: red;
+  font-style: italic;
+}

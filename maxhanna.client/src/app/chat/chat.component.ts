@@ -11,6 +11,7 @@ import { NotificationService } from '../../services/notification.service';
 import { MediaSelectorComponent } from '../media-selector/media-selector.component';
 import { UserService } from '../../services/user.service';
 import { UserSettings } from '../../services/datacontracts/user/user-settings';
+import { SafeHtml } from '@angular/platform-browser';
 @Component({
     selector: 'app-chat',
     templateUrl: './chat.component.html',
@@ -440,10 +441,8 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
   }
 
   getTextForDOM(text?: string, componentId?: any) {
-    const parent = this.inputtedParentRef ?? this.parentRef;
-    if (parent) {
-      return parent.getTextForDOM(text, componentId);
-    } else return "Error fetching parent component.";
+    const parent = this.inputtedParentRef ?? this.parentRef; 
+    return parent?.getTextForDOM(text, componentId); 
   }
    
   filterUniqueUsers(users: User[]): User[] {

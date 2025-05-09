@@ -175,6 +175,9 @@
         <button class="storyControlFlairButton" (click)="openInsertEmojiPanel();" title="Emoji">
           <span>😊</span>
         </button>
+        <button class="storyControlFlairButton" (click)="insertPollSnippet();" title="Poll">
+          <span>📊</span>
+        </button>
       </div>
       <div>
         <button id="closeOverlay" (click)="closePostOptionsPanel()">Close</button>
@@ -372,6 +375,9 @@
         <button *ngIf="!onMobile()" class="storyControlFlairButton" (click)="openInsertEmojiPanel();" title="Emoji">
           <span>😊</span>
         </button>
+        <button *ngIf="!onMobile()" class="storyControlFlairButton" (click)="insertPollSnippet();" title="Poll">
+          <span>📊</span>
+        </button>
       </div>
     </div>
 
@@ -408,8 +414,11 @@
             [class]="'storyTextContainer' + (!isExpanded('storyTextContainer'+story.id) && hasOverflow('storyTextContainer'+story.id) ? ' collapsed': '')"
             [id]="'storyTextContainer'+story.id" (click)="toggleCollapse('storyTextContainer'+story.id)">
             <div class="storyContentDiv">
-              <div class="storyText" [style.display]="isEditing.includes(story.id) ? 'none' : 'block'"
-                [innerHtml]="getTextForDOM(story.storyText, story.id)" [id]="'storyText' + story.id"></div>
+              <div class="storyText" 
+              [style.display]="isEditing.includes(story.id) ? 'none' : 'block'" 
+              [style.opacity]="isLoading ? 0.5 : 1"
+              [innerHtml]="getTextForDOM(story.storyText, story.id)" 
+              [id]="'storyText' + story.id"></div>
 
               <textarea [id]="'storyTextTextarea' + story.id"
                 [style.width]="isEditing.includes(story.id) ? '100%' : '0'"
@@ -449,7 +458,7 @@
             <div *ngIf="story.storyFiles && story.storyFiles.length > 0" class="attachmentsDiv">
               <div *ngFor="let file of story.storyFiles"
                 [class]="'attachment ' + (story.storyFiles.length > 1 ? 'multipleAttachments' : 'singleAttachment')">
-                <app-media-viewer [user]="file.user" [inputtedParentRef]="parentRef" [currentDirectory]="file.directory"
+                <app-media-viewer [user]="file.user" [inputtedParentRef]="parentRef ?? parent" [currentDirectory]="file.directory"
                   [file]="file" [showCommentSection]="false" [showMediaInformation]="true" [displayExpander]="false" [displayExtraInfo]="false"
                   [autoplay]="false" [autoload]="true" [forceInviewLoad]="true" [previousComponent]="'Social'">
                 </app-media-viewer>

@@ -7,10 +7,10 @@ import { User } from '../../services/datacontracts/user/user';
 type DifficultyKey = "Easy Difficulty" | "Medium Difficulty" | "Hard Difficulty" | "Master Wordler";
 
 @Component({
-    selector: 'app-wordler',
-    templateUrl: './wordler.component.html',
-    styleUrls: ['./wordler.component.css'],
-    standalone: false
+  selector: 'app-wordler',
+  templateUrl: './wordler.component.html',
+  styleUrls: ['./wordler.component.css'],
+  standalone: false
 })
 export class WordlerComponent extends ChildComponent implements OnInit {
   wordToGuess: string = 'people';
@@ -29,13 +29,14 @@ export class WordlerComponent extends ChildComponent implements OnInit {
   notifications: string[] = [];
   selectedDifficulty = 0;
   disableAllInputs = false;
-  guessAttempts: string[] = []; 
+  guessAttempts: string[] = [];
   isMenuPanelOpen = false;
   definition?: string;
 
   wordlerScores: WordlerScore[] = [];
   wordlerScoresCount: number = 0;
   wordlerBestStreak: number = 0;
+  wordlerBestStreakOverall?: { userId: number, streak: number } = undefined;
   wordlerStreak: number = 0;
 
   @ViewChild('difficultySelect') difficultySelect!: ElementRef<HTMLSelectElement>;
@@ -68,6 +69,11 @@ export class WordlerComponent extends ChildComponent implements OnInit {
         const wsRes = await this.wordlerService.getBestConsecutiveDayStreak(this.parentRef.user.id);
         if (wsRes) {
           this.wordlerBestStreak = parseInt(wsRes);
+        }
+
+        const wsRes3 = await this.wordlerService.getBestConsecutiveDayStreakOverall();
+        if (wsRes3) {
+          this.wordlerBestStreakOverall = wsRes3;
         }
 
         const wsRes2 = await this.wordlerService.getTodaysDayStreak(this.parentRef.user.id);
@@ -311,9 +317,9 @@ export class WordlerComponent extends ChildComponent implements OnInit {
         this.stopTimer();
         const message = `Game over! The word was: ${this.wordToGuess}; Time elapsed: ${this.elapsedTime}`;
         this.parentRef?.showNotification(message);
-        this.showScores = true; 
-        const definition = await this.wordlerService.getWordDefinition(this.wordToGuess); 
-        this.definition = `Word definition: ${definition}`; 
+        this.showScores = true;
+        const definition = await this.wordlerService.getWordDefinition(this.wordToGuess);
+        this.definition = `Word definition: ${definition}`;
       }
     }
   }
@@ -327,7 +333,7 @@ export class WordlerComponent extends ChildComponent implements OnInit {
     const definition = await this.wordlerService.getWordDefinition(guess);
 
     this.definition = `Word definition: ${definition}`;
- 
+
     this.showScores = true;
     this.disableAllInputs = true;
   }

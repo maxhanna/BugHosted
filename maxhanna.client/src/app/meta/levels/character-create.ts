@@ -209,8 +209,8 @@ export class CharacterCreate extends Level {
   }
   private verifyCharacterName(name: string) {
     let outcome = undefined;
-    const n = name.toLowerCase(); 
-    if (!name) {
+    const n = name.toLowerCase().trim(); 
+    if (!name || !n) {
       outcome = "Enter a valid name.";
     }
     else if (this.profanity.some(bw => n.includes(bw))) {
