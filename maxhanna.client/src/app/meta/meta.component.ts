@@ -554,8 +554,7 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy, 
   closeUserComponent(user: User) {
     this.isUserComponentOpen = false;
     if (this.parentRef) {
-      this.ngOnDestroy();
-      setTimeout(() => { this.parentRef?.createComponent("Meta-Bots"); }, 100);
+      this.parentRef.restartComponent("Meta-Bots");
     }
   }
 }

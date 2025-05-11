@@ -252,6 +252,10 @@ export class AppComponent implements OnInit, AfterViewInit {
       this.router.dispose();
     }
   }
+  restartComponent(componentName: string) { 
+    this.removeAllComponents();
+    this.createComponent(componentName);
+  }
   createComponent(componentType: string, inputs?: { [key: string]: any; }, previousComponentParameters?: { [key: string]: any; }) {
     console.log("in create component : " + componentType);
     this.navigationComponent.minimizeNav();
