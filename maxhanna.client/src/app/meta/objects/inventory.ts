@@ -95,6 +95,7 @@ export class Inventory extends GameObject {
   closeStartMenu() {
     if (this.startMenu) {
       this.removeChild(this.startMenu);
+      this.startMenu.destroy(); 
       this.startMenu = undefined;
       events.emit("HERO_MOVEMENT_UNLOCK");
       return true;
@@ -131,6 +132,11 @@ export class Inventory extends GameObject {
       }
     }
     return itemsFoundNames;
+  }
+  override destroy() {
+    events.unsubscribe(this); 
+    this.startMenu?.destroy();
+    super.destroy();
   }
   override drawImage(ctx: CanvasRenderingContext2D, drawPosX: number, drawPosY: number) { 
     this.drawItemSelectionBox(ctx);  //Draws a red box around the currently selected inventory item;

@@ -29,6 +29,7 @@ export class Hero extends Character {
       isUserControlled: params.isUserControlled,
       forceDrawName: params.forceDrawName ?? true,
       preventDrawName: params.preventDrawName ?? false,
+      isSolid: false,
       body: new Sprite({
         objectId: params.id ?? 0,
         resource: resources.images["hero"], 
@@ -38,6 +39,7 @@ export class Hero extends Character {
         offsetY: -10,
         hFrames: 4,
         vFrames: 5,
+        isSolid: false,
         animations: new Animations(
           {
             walkDown: new FrameIndexPattern(WALK_DOWN),

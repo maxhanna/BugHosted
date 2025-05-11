@@ -15,10 +15,8 @@ import { HEADBUTT, Skill } from "./skill-types";
 import { InventoryItem } from "../objects/InventoryItem/inventory-item";
 import { MetaHero } from "../../../services/datacontracts/meta/meta-hero";
 import { Npc } from "../objects/Npc/npc";
-import { BrushLevel1 } from "../levels/brush-level1";
 import { storyFlags } from "./story-flags";
 import { Character } from "../objects/character";
-import { Encounter } from "../objects/Environment/Encounter/encounter";
 import { generateReward, setTargetToDestroyed } from "./fight";
 import { WarpBase } from "../objects/Effects/Warp/warp-base";
 
@@ -27,8 +25,30 @@ export class Network {
   constructor() {
   }
 }
-
+ 
 export let actionBlocker = false;
+export let encounterUpdates: Bot[] = [];
+export let batchInterval: any;
+
+export function startBatchUpdates(object: any, batchIntervalMs = 1000) {
+  batchInterval = setInterval(() => {
+    if (encounterUpdates.length > 0) {
+      sendBatchToBackend(encounterUpdates, object);
+      encounterUpdates = [];
+    } else { 
+      stopBatchUpdates();
+    }
+  }, batchIntervalMs);
+}
+
+export function handleEncounterUpdate(bot: Bot) {
+  encounterUpdates.push(bot);
+}
+
+export function stopBatchUpdates() {
+  clearInterval(batchInterval);
+  encounterUpdates = [];
+}
 
 export function setActionBlocker(duration: number) {
   actionBlocker = true;
@@ -36,6 +56,7 @@ export function setActionBlocker(duration: number) {
     actionBlocker = false;
   }, duration);
 }
+
 function safeStringify(obj: any) {
   const seen = new WeakSet();
   return JSON.stringify(obj, (key, value) => {
@@ -46,6 +67,39 @@ function safeStringify(obj: any) {
       seen.add(value);
     }
     return value;
+  });
+}
+
+function sendBatchToBackend(bots: Bot[], object: any) {
+  if (bots.length === 0) return;
+
+  const uniqueBots = new Map<number, Bot>();
+  bots.forEach(bot => {
+    if (bot.id && bot.heroId && bot.destinationPosition && !bot.isWarping && bot.hp > 0) {
+      uniqueBots.set(bot.id, bot);
+    }
+  });
+
+  if (uniqueBots.size === 0) return;
+
+  const batchData = Array.from(uniqueBots.values()).map(bot => ({
+    botId: bot.id,
+    heroId: bot.heroId,
+    destinationX: bot.destinationPosition.x,
+    destinationY: bot.destinationPosition.y,
+  }));
+
+  const metaEvent = new MetaEvent(
+    0,
+    object.metaHero.id,
+    new Date(),
+    "UPDATE_ENCOUNTER_POSITION",
+    object.metaHero.map,
+    { batch: safeStringify(batchData) }
+  );
+
+  object.metaService.updateEvents(metaEvent).catch((error: any) => {
+    console.error("Failed to send batched encounter updates:", error);
   });
 }
 export function subscribeToMainGameEvents(object: any) {
@@ -278,7 +332,7 @@ export function subscribeToMainGameEvents(object: any) {
     }
   }); 
 
-  events.on("CHARACTER_CREATED", object, (name: string) => {
+  events.on("CHARACTER_NAME_CREATED", object, (name: string) => {
     if (object.chatInput.nativeElement.placeholder === "Enter your name" && object.parentRef && object.parentRef.user && object.parentRef.user.id) {
       object.metaService.createHero(object.parentRef.user.id, name);
     }
@@ -419,9 +473,11 @@ export function subscribeToMainGameEvents(object: any) {
     }
   });
   events.on("UPDATE_ENCOUNTER_POSITION", object, (source: Bot) => { 
-    const metaEvent = new MetaEvent(0, source.heroId ?? 0, new Date(), "UPDATE_ENCOUNTER_POSITION", object.metaHero.map, 
-      { "encounterId": source.heroId + "", "destinationX": source.destinationPosition.x + "", "destinationY": source.destinationPosition.y + "" });
-    object.metaService.updateEvents(metaEvent); 
+    // const metaEvent = new MetaEvent(0, source.heroId ?? 0, new Date(), "UPDATE_ENCOUNTER_POSITION", object.metaHero.map, 
+    //   { "encounterId": source.heroId + "", "destinationX": source.destinationPosition.x + "", "destinationY": source.destinationPosition.y + "" });
+    // object.metaService.updateEvents(metaEvent); 
+    handleEncounterUpdate(source);
+    startBatchUpdates(object);
   });
   //events.on("START_FIGHT", object, (source: Npc) => { 
   //  const metaEvent = new MetaEvent(0, object.metaHero.id, new Date(), "START_FIGHT", object.metaHero.map, { "party_members": `${JSON.stringify(object.partyMembers)}`, "source": `${source.type}` })

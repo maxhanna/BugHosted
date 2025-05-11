@@ -1,4 +1,4 @@
-import { Component, ElementRef, OnDestroy, OnInit, ViewChild } from '@angular/core';
+import { AfterViewInit, Component, ElementRef, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { ChildComponent } from '../child.component';
 import { MetaHero } from '../../services/datacontracts/meta/meta-hero';
 import { Vector2 } from '../../services/datacontracts/meta/vector2';
@@ -35,6 +35,7 @@ import { MetaBotPart } from '../../services/datacontracts/meta/meta-bot-part';
 import { Mask, getMaskNameById } from './objects/Wardrobe/mask';
 import { Bot } from './objects/Bot/bot';
 import { Character } from './objects/character';
+import { UndergroundLevel3 } from './levels/underground-level3';
 
 @Component({
     selector: 'app-meta',
@@ -43,7 +44,7 @@ import { Character } from './objects/character';
     standalone: false
 })
 
-export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
+export class MetaComponent extends ChildComponent implements OnInit, OnDestroy, AfterViewInit {
   @ViewChild('gameCanvas', { static: true }) gameCanvas!: ElementRef<HTMLCanvasElement>;
   @ViewChild('chatInput') chatInput!: ElementRef<HTMLInputElement>;
   @ViewChild('colorInput') colorInput!: ElementRef<HTMLInputElement>;
@@ -100,12 +101,16 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
 
 
   ngOnDestroy() {
-    clearInterval(this.pollingInterval);
+    clearInterval(this.pollingInterval); 
     this.mainScene.destroy();
     this.gameLoop.stop();
     this.remove_me('MetaComponent');
     this.parentRef?.setViewportScalability(true);
     this.parentRef?.removeResizeListener();
+  }
+
+  ngAfterViewInit() {
+    this.mainScene.input.setChatInput(this.chatInput.nativeElement);
   }
 
   update = async (delta: number) => {
@@ -132,6 +137,7 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
         await this.reinitializeHero(rz);
       } else {
         this.mainScene.setLevel(new CharacterCreate());
+        return;
       }
     }
 
@@ -483,6 +489,7 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
     else if (upperKey == "RAINBOWALLEYS1") return new RainbowAlleys1({ itemsFound: itemsFoundNames });
     else if (upperKey == "UNDERGROUNDLEVEL1") return new UndergroundLevel1({ itemsFound: itemsFoundNames });
     else if (upperKey == "UNDERGROUNDLEVEL2") return new UndergroundLevel2({ itemsFound: itemsFoundNames });
+    else if (upperKey == "UNDERGROUNDLEVEL3") return new UndergroundLevel3({ itemsFound: itemsFoundNames });
     else if (upperKey == "BRUSHSHOP1") return new BrushShop1({ itemsFound: itemsFoundNames });
     //else if (upperKey == "FIGHT") return new Fight(
     //  {
@@ -547,7 +554,8 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
   closeUserComponent(user: User) {
     this.isUserComponentOpen = false;
     if (this.parentRef) {
-      this.ngOnInit();
+      this.ngOnDestroy();
+      setTimeout(() => { this.parentRef?.createComponent("Meta-Bots"); }, 100);
     }
   }
 }

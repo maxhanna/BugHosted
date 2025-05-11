@@ -13,6 +13,7 @@ import { Referee } from "../objects/Npc/Referee/referee";
 import { Scenario } from "../helpers/story-flags";
 import { Stand } from "../objects/Environment/Stand/stand";
 import { Salesman } from "../objects/Npc/Salesman/salesman";
+import { UndergroundLevel3 } from "./underground-level3";
 
 
 export class UndergroundLevel2 extends Level {
@@ -28,8 +29,8 @@ export class UndergroundLevel2 extends Level {
       this.itemsFound = params.itemsFound;
     }
 
-    for (let x = -4; x < 90; x++) {
-      for (let y = -10; y < 50; y++) {
+    for (let x = -4; x < 38; x++) {
+      for (let y = -10; y < 55; y++) {
         const metroWall = new Sprite({
           objectId: 0, resource: resources.images["metrowall"],
           position: new Vector2(gridCells(2 * x), gridCells(y)),
@@ -39,6 +40,24 @@ export class UndergroundLevel2 extends Level {
           flipY: Math.random() > 0.5
         });
         this.addChild(metroWall);
+      }
+    } 
+    for (let x = 0; x < 6; x++) {
+      for (let y = 0; y < 4; y++) {
+        const metroFloor = new Sprite({
+          objectId: 0, resource: resources.images["metrotile"], position: new Vector2(gridCells(50) + gridCells(x), gridCells(41) + gridCells(y)), frameSize: new Vector2(16, 16),
+          drawLayer: BASE
+        });
+        this.addChild(metroFloor);
+      }
+    }
+    for (let x = 0; x < 8; x++) {
+      for (let y = 0; y < 8; y++) {
+        const metroFloor = new Sprite({
+          objectId: 0, resource: resources.images["metrotile"], position: new Vector2(gridCells(56) + gridCells(x), gridCells(37) + gridCells(y)), frameSize: new Vector2(16, 16),
+          drawLayer: BASE
+        });
+        this.addChild(metroFloor);
       }
     }
     for (let x = -4; x < 50; x++) {
@@ -116,11 +135,22 @@ export class UndergroundLevel2 extends Level {
           drawLayer: BASE
         });
         this.addChild(metroFloor);
-      }
-
+      } 
     }
 
-
+    for (let x = 0 ; x < 4; x++) {
+      const metroDoor = new Sprite({
+        position: new Vector2(gridCells(56 + (2*x)), gridCells(35)),
+        resource: resources.images["metrodoor"],
+        isSolid: false, 
+        frameSize: new Vector2(26, 40),  
+        flipX: x > 1,
+        offsetY: -5,
+        offsetX: 3,
+      });
+      this.addChild(metroDoor);
+    }
+   
     const stand = new Stand( gridCells(31), gridCells(12) );
     this.addChild(stand);
     const shopSign = new Sprite({
@@ -139,6 +169,12 @@ export class UndergroundLevel2 extends Level {
         { position: new Vector2(gridCells(0) + gridCells(x), gridCells(0)), showSprite: this.showDebugSprites, targetMap: "UndergroundLevel1", sprite: "white", colorSwap: new ColorSwap([255, 255, 255], [0, 0, 0]) }
       );
       this.addChild(undergroundLevel1Exit);
+    }
+    for (let x = 0; x < 8; x++) {
+      const undergroundLevel3Exit = new Exit(
+        { position: new Vector2(gridCells(56) + gridCells(x), gridCells(37)), showSprite: this.showDebugSprites, targetMap: "UndergroundLevel3", sprite: "white", colorSwap: new ColorSwap([255, 255, 255], [0, 0, 0]) }
+      );
+      this.addChild(undergroundLevel3Exit);
     }
 
     //Walls
@@ -202,6 +238,11 @@ export class UndergroundLevel2 extends Level {
       if (targetMap === "UndergroundLevel1") {
         events.emit("CHANGE_LEVEL", new UndergroundLevel1({
           heroPosition: new Vector2(gridCells(175), gridCells(6)), itemsFound: this.itemsFound
+        }));
+      }
+      if (targetMap === "UndergroundLevel3") {
+        events.emit("CHANGE_LEVEL", new UndergroundLevel3({
+          heroPosition: new Vector2(gridCells(3), gridCells(1)), itemsFound: this.itemsFound
         }));
       }
     });

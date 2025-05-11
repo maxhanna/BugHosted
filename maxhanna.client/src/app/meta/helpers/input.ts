@@ -9,6 +9,7 @@ export class Input {
   lastKeys: Record<string, boolean> = {};
   inputKeyPressedTimeout = 140;
   chatSelected = false;
+  private _chatInput: HTMLInputElement | null = null;
   constructor() {
     document.addEventListener("keydown", (e) => {
       if (e.code != " ") {
@@ -21,12 +22,22 @@ export class Input {
         this.keys[e.code] = false;
         this.handleKeyup(e);
       }
-    });
-
+    }); 
   }
-
+  destroy() {
+    document.removeEventListener('keydown', this.handleKeydown.bind(this));
+    document.removeEventListener('keyup', this.handleKeyup.bind(this));
+  }
   get direction() {
     return this.heldDirections[0];
+  }
+
+  setChatInput(input: HTMLInputElement) {
+    this._chatInput = input;
+  }
+
+  get chatInput() {
+    return this._chatInput!;
   }
 
   update() {
@@ -85,9 +96,9 @@ export class Input {
         }
       }
       if (moveLock) {
-        events.emit("HERO_MOVEMENT_LOCK");
+        this.emitDebounced("HERO_MOVEMENT_LOCK");
       } else {
-        events.emit("HERO_MOVEMENT_UNLOCK");
+        this.emitDebounced("HERO_MOVEMENT_UNLOCK");
       }
     }
   }
@@ -196,8 +207,8 @@ export class Input {
     }
   }
   pressSpace() {
-    if (document.activeElement != this.chatInput) { 
-      events.emit("SPACEBAR_PRESSED");
+    if (document.activeElement != this.chatInput) {
+      this.emitDebounced('SPACEBAR_PRESSED');
     }
   }
   pressStart(sendChat: boolean = true) { 
@@ -228,83 +239,35 @@ export class Input {
   }
 
   handleControl(direction: string, action: 'press' | 'release', event?: TouchEvent) {
-    // Prevent the default action to avoid any unwanted scrolling behavior on mobile
+    if (action === 'press' && !this.verifyCanPressKey()) return;
     if (event) {
       event.preventDefault();
     }
-
-    if (action === 'press') {  
-      switch (direction) {
-        case 'UP':
-          this.onArrowPressed('UP');
-          break;
-        case 'UP_LEFT':
-          this.onArrowPressed('UP');
-          this.onArrowPressed('LEFT');
-          break;
-        case 'UP_RIGHT':
-          this.onArrowPressed('UP');
-          this.onArrowPressed('RIGHT');
-          break;
-        case 'DOWN':
-          this.onArrowPressed('DOWN');
-          break;
-        case 'DOWN_LEFT':
-          this.onArrowPressed('DOWN');
-          this.onArrowPressed('LEFT');
-          break;
-        case 'DOWN_RIGHT':
-          this.onArrowPressed('DOWN');
-          this.onArrowPressed('RIGHT');
-          break;
-        case 'LEFT':
-          this.onArrowPressed('LEFT');
-          break;
-        case 'RIGHT':
-          this.onArrowPressed('RIGHT');
-          break;
-        default:
-          break;
-      }
-    } else if (action === 'release') {  
-      switch (direction) {
-        case 'UP':
-          this.onArrowReleased('UP');
-          break;
-        case 'UP_LEFT':
-          this.onArrowReleased('UP');
-          this.onArrowReleased('LEFT');
-          break;
-        case 'UP_RIGHT':
-          this.onArrowReleased('UP');
-          this.onArrowReleased('RIGHT');
-          break;
-        case 'DOWN':
-          this.onArrowReleased('DOWN');
-          break;
-        case 'DOWN_LEFT':
-          this.onArrowReleased('DOWN');
-          this.onArrowReleased('LEFT');
-          break;
-        case 'DOWN_RIGHT':
-          this.onArrowReleased('DOWN');
-          this.onArrowReleased('RIGHT');
-          break;
-        case 'LEFT':
-          this.onArrowReleased('LEFT');
-          break;
-        case 'RIGHT':
-          this.onArrowReleased('RIGHT');
-          break;
-        default:
-          break;
-      }
+    if (event?.type === 'touchcancel') {
+      this.onArrowReleased(direction);
+      return;
     }
-  }
-  get chatInput() {
-    return document.getElementById("chatInput") as HTMLInputElement;
-  }
 
+    const directions = {
+      UP: ['UP'],
+      UP_LEFT: ['UP', 'LEFT'],
+      UP_RIGHT: ['UP', 'RIGHT'],
+      DOWN: ['DOWN'],
+      DOWN_LEFT: ['DOWN', 'LEFT'],
+      DOWN_RIGHT: ['DOWN', 'RIGHT'],
+      LEFT: ['LEFT'],
+      RIGHT: ['RIGHT'],
+    }[direction] || [];
+
+    directions.forEach(dir => {
+      if (action === 'press') {
+        this.onArrowPressed(dir);
+      } else {
+        this.onArrowReleased(dir);
+      }
+    });
+  }
+ 
   verifyCanPressKey() { 
     const currentTime = new Date();
     if ((currentTime.getTime() - inputKeyPressedDate.getTime()) > this.inputKeyPressedTimeout) {
@@ -313,5 +276,8 @@ export class Input {
     }
     return false;
   }
-
+  private emitDebounced(eventName: string, data?: any) {
+    if (!this.verifyCanPressKey()) return;
+    events.emit(eventName, data);
+  }
 }

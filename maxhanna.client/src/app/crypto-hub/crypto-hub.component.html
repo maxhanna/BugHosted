@@ -63,47 +63,59 @@
         </app-line-graph> 
       </ng-container> 
     </div>
-    <div class="sectionContainer volume-depth-indicator" [style.display]="isTradePanelOpen ? 'none' : 'block'" *ngIf="volumeData"> 
-      <div class="sectionName">Volume Comparison</div> 
-      <div class="volume-bars">
-        <div class="btc-bar" [style.width.%]="volumeDisplayData?.btcPercentage || 0">
-          <span class="volume-value">
-            {{ volumeDisplayData?.btcInUSDC | number:'1.0-0' }} USDC
-          </span>
-        </div>
-        <div class="usdc-bar" [style.width.%]="volumeDisplayData?.usdcPercentage || 0">
-          <span class="volume-value">
-            {{ volumeDisplayData?.usdc | number:'1.0-0' }} USDC
-          </span>
-        </div>
-      </div> 
-      <div class="volume-stats">
-        <div>
-          <strong>BTC:</strong>
-          {{ volumeDisplayData?.btc | number:'1.4-4' }} BTC ≈
-          {{ volumeDisplayData?.btcInUSDC | number:'1.0-0' }} USDC
-        </div>
-        <div>
-          <strong>USDC:</strong>
-          {{ volumeDisplayData?.usdc | number:'1.0-0' }} USDC
-        </div>
-        <div *ngIf="volumeDisplayData?.btcPrice">
-          <strong>BTC Price:</strong>
-          {{ volumeDisplayData?.btcPrice | number:'1.0-0' }} USDC
-        </div>
-        <div *ngIf="volumeDisplayData?.ratio" [class.mild-warning]="volumeDisplayData?.warningLevel === 'mild'"
-          [class.severe-warning]="volumeDisplayData?.warningLevel === 'severe'">
-          <strong>{{ volumeDisplayData?.dominanceDescription }}:</strong>
-          1 BTC volume ≈ {{ volumeDisplayData?.ratio }}x USDC volume
-          <span *ngIf="volumeDisplayData?.warningLevel !== 'none'">⚠️</span>
-        </div>
-      </div> 
+<div class="sectionContainer volume-depth-indicator" [style.display]="isTradePanelOpen ? 'none' : 'block'"
+  *ngIf="volumeData">
+  <div class="sectionName">Volume Comparison</div>
+  <div class="volume-bars">
+    <div class="btc-bar" [style.width.%]="volumeDisplayData?.btcPercentage || 0">
+      <span class="volume-value">
+        {{ volumeDisplayData?.btc | number:'1.4-4' }} BTC
+      </span>
     </div>
+    <div class="usdc-bar" [style.width.%]="volumeDisplayData?.usdcPercentage || 0">
+      <span class="volume-value">
+        {{ volumeDisplayData?.usdc | number:'1.0-0' }} USDC
+      </span>
+    </div>
+  </div>
+  <div class="volume-stats">
+    <div>
+      <strong>BTC:</strong>
+      {{ volumeDisplayData?.btc | number:'1.4-4' }} BTC ≈
+      {{ volumeDisplayData?.btcInUSDC | number:'1.0-0' }} USDC
+    </div>
+    <div>
+      <strong>USDC:</strong>
+      {{ volumeDisplayData?.usdc | number:'1.0-0' }} USDC
+    </div>
+    <div *ngIf="volumeDisplayData?.btcPrice">
+      <strong>BTC Price:</strong>
+      {{ volumeDisplayData?.btcPrice | number:'1.0-0' }} USDC
+    </div>
+    <div *ngIf="volumeDisplayData?.ratio">
+      <strong>{{ volumeDisplayData?.dominanceDescription }}:</strong>
+      1 BTC volume ≈ {{ volumeDisplayData?.ratio }}x USDC volume
+    </div>
+
+    <!-- Warning displays - can show both if needed -->
+    <div *ngIf="volumeDisplayData?.warnings?.usdc?.level !== 'none'"
+      [class.usdc-mild-warning]="volumeDisplayData?.warnings?.usdc?.level === 'mild'"
+      [class.usdc-severe-warning]="volumeDisplayData?.warnings?.usdc?.level === 'severe'">
+      ⚠️ {{ volumeDisplayData?.warnings?.usdc?.description }}
+    </div>
+
+    <div *ngIf="volumeDisplayData?.warnings?.btc?.level !== 'none'"
+      [class.btc-mild-warning]="volumeDisplayData?.warnings?.btc?.level === 'mild'"
+      [class.btc-severe-warning]="volumeDisplayData?.warnings?.btc?.level === 'severe'">
+      ⚠️ {{ volumeDisplayData?.warnings?.btc?.description }}
+    </div>
+  </div>
+</div>
     <div *ngIf="allHistoricalExchangeRateDataForGraph && allHistoricalExchangeRateDataForGraph.length > 0"
       class="graphContainerDiv sectionContainer" [style.display]="isTradePanelOpen ? 'none' : 'block'">
 
-      <app-line-graph [type]="'Currency'" [selectedCoin]="'USD'" [displayCoinSwitcher]="false"
-       [selectedCurrency]="selectedFiatConversionName" [showAverage]="true" [selectedPeriod]="'1y'"
+      <app-line-graph [type]="'Currency'" [selectedCoin]="selectedCurrency ?? 'CAD'" [displayCoinSwitcher]="false"
+       [selectedCurrency]="selectedFiatConversionName" [showAverage]="true" [selectedPeriod]="exchangeRateGraphSelectedPeriod"
         [data]="allHistoricalExchangeRateDataForGraph!" #currencyExchangeLineGraph
         (changeTimePeriodEvent)="changeTimePeriodEventOnCurrencyExchangeGraph($event)">
       </app-line-graph>
@@ -182,9 +194,9 @@
             </div> 
            
             <div *ngIf="tradeBotStartedSince">Running Since: <span class="thirdFontColor smallFont">{{tradeBotStartedSince}}</span></div>
-            <div *ngIf="weightedAveragePrices && weightedAveragePrices.length > 0">
-              <div *ngIf="hasKrakenApi">Average Buy Price: <span class="thirdFontColor smallFont">{{formatToCanadianCurrency(weightedAveragePrices[0])}}</span></div>
-              <div *ngIf="hasKrakenApi">Average Sell Price: <span class="thirdFontColor smallFont">{{formatToCanadianCurrency(weightedAveragePrices[1])}}</span></div>
+            <div>
+              <!-- <div *ngIf="hasKrakenApi">Average Buy Price: <span class="thirdFontColor smallFont">{{formatToCanadianCurrency(weightedAveragePrices[0])}}</span></div>
+              <div *ngIf="hasKrakenApi">Average Sell Price: <span class="thirdFontColor smallFont">{{formatToCanadianCurrency(weightedAveragePrices[1])}}</span></div> -->
               <div *ngIf="tradebotBalances && tradebotBalances.length > 0 && tradebotBalances[tradebotBalances.length - 1]">
                 Last:
                 <span class="thirdFontColor smallFont">
@@ -220,11 +232,11 @@
         <div *ngIf="isTradePanelOpen"
           [class.trade-panel-controls]="canShowTradePanelInfo()">
           <div class="button-wrapper" *ngIf="canShowTradePanelInfo()">
-            <button class="cursorPointer" *ngIf="hasKrakenApi && hasAnyTradeConfig && !tradeBotStarted" (click)="startTradeBot()"
+            <button class="cursorPointer" [disabled]="tradeBotStarted || !hasKrakenApi" (click)="startTradeBot()"
               title="Start the tradebot.">Start BTC</button>
-            <button class="cursorPointer" *ngIf="tradeBotStarted" (click)="stopTradeBot()" title="Stop the tradebot.">Stop BTC</button>
+            <button class="cursorPointer" (click)="stopTradeBot()" title="Stop the tradebot." [disabled]="!tradeBotStarted ||!hasKrakenApi">Stop BTC</button>
             <p class="button-description" id="trades-desc" *ngIf="!isTradebotBalanceShowing">
-              Trade USDC and BTC pair.
+              {{tradeBotStarted ? 'Stop' : 'Start'}} trading USDC and BTC pair.
             </p>
           </div> 
           <div class="button-wrapper"
@@ -740,8 +752,8 @@
       <div *ngIf="isTradePanelOpen" [style.marginTop]="isTradePanelOpen ? '15px' : ''"
         style="display: flex; justify-content: space-between; width: 100%;">
         <div *ngIf="isTradePanelOpen && canShowTradePanelInfo()">
-          <div class="smallFont thirdFontColor">Consider buying me a coffee if you like this tool!</div>
-          <div class="smallFont thirdFontColor">BTC Address: bc1qz8xl5f3r40pzy3ypldp9q9vrhct8hz53vysrd4</div>
+          <div class="smallFont thirdFontColor">Consider buying me a coffee!</div>
+          <div class="smallFont thirdFontColor"><span class="secondaryFontColor">BTC Address:</span> bc1qz8xl5f3r40pzy3ypldp9q9vrhct8hz53vysrd4</div>
         </div>
         <button class="cursorPointer" (click)="openTradeFullscreen()">{{isTradePanelOpen ? 'Minimize' : 'Maximize'}}
           View</button>

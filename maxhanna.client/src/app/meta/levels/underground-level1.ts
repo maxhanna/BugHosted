@@ -9,7 +9,7 @@ import { Sprite } from "../objects/sprite";
 import { Scenario } from "../helpers/story-flags";
 import { ColorSwap } from "../../../services/datacontracts/meta/color-swap";
 import { RainbowAlleys1 } from "./rainbow-alleys1";
-import { BASE, FLOOR, GROUND, HUD } from "../objects/game-object";
+import { BASE, FLOOR, HUD } from "../objects/game-object";
 import { Encounter } from "../objects/Environment/Encounter/encounter";
 import { UndergroundLevel2 } from "./underground-level2";
 
@@ -241,8 +241,10 @@ export class UndergroundLevel1 extends Level {
       const slopeUp2 = new Slope({ position: new Vector2(gridCells(33), gridCells(6) + gridCells(y)), showSprite: this.showDebugSprites, slopeType: UP, slopeDirection: LEFT, startScale: new Vector2(0.74, 0.74), endScale: new Vector2(1, 1) });
       this.addChild(slopeUp2);
 
-      const slopeUp3 = new Slope({ position: new Vector2(gridCells(48), gridCells(0) + gridCells(y)), showSprite: this.showDebugSprites, slopeType: UP, slopeDirection: LEFT, startScale: new Vector2(0.74, 0.74), endScale: new Vector2(1, 1) });
-      this.addChild(slopeUp3);
+      if (y < 5) {   
+        const slopeUp3 = new Slope({ position: new Vector2(gridCells(48), gridCells(0) + gridCells(y)), showSprite: this.showDebugSprites, slopeType: UP, slopeDirection: LEFT, startScale: new Vector2(0.74, 0.74), endScale: new Vector2(1, 1) });
+        this.addChild(slopeUp3);
+      }
 
       const slopeUp4 = new Slope({ position: new Vector2(gridCells(75), gridCells(1) + gridCells(y)), showSprite: this.showDebugSprites, slopeType: UP, slopeDirection: RIGHT, startScale: new Vector2(0.74, 0.74), endScale: new Vector2(1, 1) });
       this.addChild(slopeUp4);
@@ -259,8 +261,10 @@ export class UndergroundLevel1 extends Level {
       const slopeDown3 = new Slope({ position: new Vector2(gridCells(25), gridCells(6) + gridCells(y)), showSprite: this.showDebugSprites, slopeType: DOWN, slopeDirection: LEFT, startScale: new Vector2(1, 1), endScale: new Vector2(0.74, 0.74) });
       this.addChild(slopeDown3);
 
-      const slopeDown4 = new Slope({ position: new Vector2(gridCells(44), gridCells(0) + gridCells(y)), showSprite: this.showDebugSprites, slopeType: DOWN, slopeDirection: RIGHT, endScale: new Vector2(0.74, 0.74) });
-      this.addChild(slopeDown4);
+      if (y < 5) { 
+        const slopeDown4 = new Slope({ position: new Vector2(gridCells(44), gridCells(0) + gridCells(y)), showSprite: this.showDebugSprites, slopeType: DOWN, slopeDirection: RIGHT, endScale: new Vector2(0.74, 0.74) });
+        this.addChild(slopeDown4);
+      }
 
       const slopeDown5 = new Slope({ position: new Vector2(gridCells(79), gridCells(0) + gridCells(y)), showSprite: this.showDebugSprites, slopeType: DOWN, slopeDirection: LEFT, endScale: new Vector2(0.74, 0.74) });
       this.addChild(slopeDown5);

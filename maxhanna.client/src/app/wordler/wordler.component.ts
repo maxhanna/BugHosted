@@ -34,6 +34,7 @@ export class WordlerComponent extends ChildComponent implements OnInit {
   definition?: string;
 
   wordlerScores: WordlerScore[] = [];
+  userWordlerScores: WordlerScore[] = [];
   wordlerScoresCount: number = 0;
   wordlerBestStreak: number = 0;
   wordlerBestStreakOverall?: { userId: number, streak: number } = undefined;
@@ -59,13 +60,19 @@ export class WordlerComponent extends ChildComponent implements OnInit {
     this.loadScoreData();
   }
   async loadScoreData() {
+
+    const res = await this.wordlerService.getAllScores();
+    if (res) {
+      this.wordlerScores = res;
+      this.setTopScores();
+    }
+
     if (this.parentRef?.user?.id) {
-      try {
-        const res = await this.wordlerService.getAllScores(this.parentRef.user.id);
-        if (res) {
-          this.wordlerScores = res;
-          this.setTopScores();
-        }
+      try { 
+        this.wordlerService.getAllScores(this.parentRef.user.id).then(userRes => { 
+          this.userWordlerScores = userRes;
+        });
+
         const wsRes = await this.wordlerService.getBestConsecutiveDayStreak(this.parentRef.user.id);
         if (wsRes) {
           this.wordlerBestStreak = parseInt(wsRes);

@@ -377,22 +377,30 @@ export function isObjectNearby(playerOrObject: any) {
 	// Define the discrepancy value
 	const discrepancy = 1;
 
-	// Get nearby objects
+	// Get nearby objects - check both base position and neighbor position
 	const possibilities = playerOrObject.parent?.children?.filter((child: GameObject) => {
-		return (
-     (
-        !(child instanceof Sprite) || child.textContent) && 
+		// Check if child is at either base position or neighbor position
+		const isAtBasePosition = child.name != playerOrObject.name &&
+			child.position.x >= basePosition.x - discrepancy &&
+			child.position.x <= basePosition.x + discrepancy &&
+			child.position.y >= basePosition.y - discrepancy &&
+			child.position.y <= basePosition.y + discrepancy;
+
+		const isAtNeighborPosition =
 			child.position.x >= neighborPosition.x - discrepancy &&
 			child.position.x <= neighborPosition.x + discrepancy &&
 			child.position.y >= neighborPosition.y - discrepancy &&
-			child.position.y <= neighborPosition.y + discrepancy
-		);
-	}) ?? []; 
+			child.position.y <= neighborPosition.y + discrepancy;
 
-  //console.log(possibilities);
-  // Prioritize items to pickup
-  const bestChoiceItem = possibilities.find((x: any) => x.itemLabel);
-  if (bestChoiceItem) return bestChoiceItem;
+		return (
+			(!(child instanceof Sprite) || child.textContent) &&
+			(isAtBasePosition || isAtNeighborPosition)
+		);
+	}) ?? [];
+ 
+	// Prioritize items to pickup
+	const bestChoiceItem = possibilities.find((x: any) => x.itemLabel);
+	if (bestChoiceItem) return bestChoiceItem;
 
 	// Prioritize objects with text content
 	const bestChoice = possibilities.find((x: any) => x.textContent?.string);

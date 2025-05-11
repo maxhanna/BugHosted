@@ -1264,11 +1264,31 @@ namespace maxhanna.Server.Controllers
 				await RepairAllMetabots(heroId, connection, transaction);
 			} 
 			else if (metaEvent != null && metaEvent.Data != null && metaEvent.EventType == "UPDATE_ENCOUNTER_POSITION")
-			{ 
-				int encounterId = Convert.ToInt32(metaEvent.Data["encounterId"]);
-				int destinationX = Convert.ToInt32(metaEvent.Data["destinationX"]);
-				int destinationY = Convert.ToInt32(metaEvent.Data["destinationY"]);
-				await UpdateEncounterPosition(encounterId, destinationX, destinationY, connection, transaction);
+			{
+				if (metaEvent.Data.TryGetValue("batch", out var batchJson))
+				{
+					try
+					{
+						// Parse the batch JSON string into a list of position updates
+						var batchData = JsonSerializer.Deserialize<List<EncounterPositionUpdate>>(batchJson);
+						if (batchData != null && batchData.Count > 0)
+						{
+							await UpdateEncounterPositionBatch(batchData, connection, transaction);
+						}
+						else
+						{
+							_ = _log.Db("Empty or invalid batch data for UPDATE_ENCOUNTER_POSITION", null, "META", true);
+						}
+					}
+					catch (JsonException ex)
+					{
+						_ = _log.Db($"Failed to parse batch data for UPDATE_ENCOUNTER_POSITION: {ex.Message}", null, "META", true);
+					}
+				}
+				else
+				{
+					_ = _log.Db("No batch data found for UPDATE_ENCOUNTER_POSITION", null, "META", true);
+				}
 			}
 			else if (metaEvent != null && metaEvent.Data != null && metaEvent.EventType == "DEPLOY")
 			{
@@ -1471,7 +1491,77 @@ namespace maxhanna.Server.Controllers
 
 				await Task.Delay(1000); // Apply damage every 1 second
 			}
-		} 
+		}
+
+		private async Task UpdateEncounterPositionBatch(List<EncounterPositionUpdate> updates, MySqlConnection connection, MySqlTransaction transaction)
+		{
+			try
+			{
+				var sql = new StringBuilder();
+				var parameters = new Dictionary<string, object?>();
+				int paramIndex = 0;
+
+				foreach (var update in updates)
+				{
+					sql.AppendLine($@"
+						UPDATE maxhanna.meta_encounter
+						SET coordsX = @coordsX_{paramIndex}, coordsY = @coordsY_{paramIndex}
+						WHERE hero_id = @heroId_{paramIndex} LIMIT 1;
+					");
+
+					parameters.Add($"@heroId_{paramIndex}", update.HeroId);
+					parameters.Add($"@coordsX_{paramIndex}", update.DestinationX);
+					parameters.Add($"@coordsY_{paramIndex}", update.DestinationY);
+					paramIndex++;
+				}
+
+				if (sql.Length > 0)
+				{
+					try
+					{
+						await ExecuteInsertOrUpdateOrDeleteAsync(sql.ToString(), parameters, connection, transaction);
+						//_ = _log.Db($"Updated {updates.Count} encounter positions in batch", null, "META", true);
+					}
+					catch (Exception ex)
+					{
+						// If you want to debug individual updates, do it here:
+						_ = _log.Db("Batch update failed. Attempting individual updates for debugging... " + ex.Message, null, "META", true);
+
+						foreach (var update in updates)
+						{
+							try
+							{
+								const string singleUpdateSql = @"
+									UPDATE maxhanna.meta_encounter
+									SET coordsX = @coordsX, coordsY = @coordsY
+									WHERE hero_id = @heroId LIMIT 1;
+								";
+
+								var singleParams = new Dictionary<string, object?>
+								{
+									{ "@heroId", update.HeroId },
+									{ "@coordsX", update.DestinationX },
+									{ "@coordsY", update.DestinationY }
+								};
+
+								await ExecuteInsertOrUpdateOrDeleteAsync(singleUpdateSql, singleParams, connection, transaction);
+								_ = _log.Db($"Successfully updated hero_id {update.HeroId}", null, "META", true);
+							}
+							catch (Exception innerEx)
+							{
+								_ = _log.Db($"Failed to update hero_id {update.HeroId}: {innerEx.Message}", null, "META", true);
+							}
+						}
+					}
+				}
+			}
+			catch (Exception ex)
+			{
+				_ = _log.Db($"Error updating batch encounter positions: {ex.Message}", null, "META", true);
+				throw;
+			}
+		}
+
 
 		private async Task HandleDeadMetabot(string map, MetaBot? winnerBot, MetaBot? deadBot, MySqlConnection connection, MySqlTransaction transaction)
 		{ 
@@ -1692,4 +1782,18 @@ namespace maxhanna.Server.Controllers
 			return insertedId ?? rowsAffected;
 		}
 	}
+}
+class EncounterPositionUpdate
+{
+	[System.Text.Json.Serialization.JsonPropertyName("botId")]
+	public int BotId { get; set; }
+
+	[System.Text.Json.Serialization.JsonPropertyName("heroId")]
+	public int HeroId { get; set; }
+
+	[System.Text.Json.Serialization.JsonPropertyName("destinationX")]
+	public int DestinationX { get; set; }
+
+	[System.Text.Json.Serialization.JsonPropertyName("destinationY")]
+	public int DestinationY { get; set; }
 }

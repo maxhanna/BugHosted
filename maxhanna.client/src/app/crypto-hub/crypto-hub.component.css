@@ -647,3 +647,67 @@ div:not(.trade-panel-controls) .button-wrapper {
     opacity: 1;
   }
 }
+
+/* Warning styles */
+.usdc-mild-warning {
+  color: #ff9800;
+  background-color: #fff3e0;
+  padding: 4px;
+  border-left: 3px solid #ff9800;
+  margin-top: 4px;
+}
+
+.usdc-severe-warning {
+  color: #f44336;
+  background-color: #ffebee;
+  padding: 4px;
+  border-left: 3px solid #f44336;
+  margin-top: 4px;
+  font-weight: bold;
+}
+
+.btc-mild-warning {
+  color: #2196f3;
+  background-color: #e3f2fd;
+  padding: 4px;
+  border-left: 3px solid #2196f3;
+  margin-top: 4px;
+}
+
+.btc-severe-warning {
+  color: #0d47a1;
+  background-color: #bbdefb;
+  padding: 4px;
+  border-left: 3px solid #0d47a1;
+  margin-top: 4px;
+  font-weight: bold;
+}
+
+/* Existing volume bar styles */
+.volume-bars {
+  display: flex;
+  height: 24px;
+  margin: 8px 0;
+}
+
+.btc-bar {
+  background-color: #f7931a;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding-right: 8px;
+}
+
+.usdc-bar {
+  background-color: #2775ca;
+  display: flex;
+  align-items: center;
+  padding-left: 8px;
+}
+
+.volume-value {
+  color: white;
+  font-size: 12px;
+  font-weight: bold;
+  text-shadow: 1px 1px 1px rgba(0, 0, 0, 0.5);
+}

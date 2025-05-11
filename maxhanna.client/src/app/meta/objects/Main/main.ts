@@ -63,10 +63,14 @@ export class Main extends GameObject {
           events.off(endingSub);
         });
       } 
-    });
-
+    }); 
   }
  
+  override destroy() {
+    this.input.destroy();
+    this.camera.destroy();
+    super.destroy();
+  }
   setHeroId(metaHeroId: number) {
     this.heroId = metaHeroId;
     this.camera.heroId = metaHeroId;

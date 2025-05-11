@@ -568,7 +568,7 @@ namespace maxhanna.Server.Services
 								continue;
 							}
 
-							Console.WriteLine("inserting encounterid: " + encounter.HeroId);
+							//Console.WriteLine("inserting encounterid: " + encounter.HeroId);
 							// Select random bot type
 							string[] botTypeArray = encounter.BotTypes.Split(',')
 								.Select(bt => bt.Trim())
@@ -587,8 +587,7 @@ namespace maxhanna.Server.Services
 								_ = _log.Db($"Invalid bot type '{selectedBotType}' for hero {encounter.HeroId}. Skipping.", null, outputToConsole: true);
 								continue;
 							}
-
-							Console.WriteLine("encounterid bot type: " + typeId);
+ 
 							// Insert new metabot and get its ID
 							int newBotId = 0;
 							try
@@ -691,7 +690,7 @@ namespace maxhanna.Server.Services
 								await updateCmd.ExecuteNonQueryAsync();
 							}
 							spawnCount++;
-							_ = _log.Db($"Respawned {selectedBotType} (ID: {newBotId}, HeroID: {encounter.HeroId}) at {encounter.Map}({encounter.CoordsX},{encounter.CoordsY})", null, outputToConsole: true);
+						//	_ = _log.Db($"Respawned {selectedBotType} (ID: {newBotId}, HeroID: {encounter.HeroId}) at {encounter.Map}({encounter.CoordsX},{encounter.CoordsY})", null, outputToConsole: true);
 						}
 					}
 

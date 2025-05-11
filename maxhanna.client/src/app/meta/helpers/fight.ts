@@ -32,53 +32,14 @@ export function calculateAndApplyDamage(attackingBot: Bot, defendingBot: Bot) {
   } else if (attackingPart?.partName === HEAD && (attackingBot.rightArm || attackingBot.leftArm || attackingBot.legs || attackingBot.head)) {
     attackingPart = attackingBot.head ?? attackingBot.legs ?? attackingBot.rightArm ?? attackingBot.leftArm!;
   }
-  attackingBot.lastAttackPart = attackingPart;
-  const attackingType = attackingPart?.skill?.type ?? SkillType.NORMAL;
-  const defendingType = defendingBot.botType ?? SkillType.NORMAL;
-  let typeMultiplier = 1.0;
-  if (attackingPart && typeEffectiveness.get(attackingType) === defendingType) {
-    typeMultiplier = 2.0; // Super Effective
-  } else if (attackingPart && typeEffectiveness.get(defendingType) === attackingType) {
-    typeMultiplier = 0.5; // Not Effective
-  }
+  attackingBot.lastAttackPart = attackingPart; 
   const criticalHitChance = 0.10; // 10% chance
-  const isCritical = Math.random() < criticalHitChance;
-  const criticalMultiplier = isCritical ? 1.5 : 1.0; // 50% bonus damage on crit
+  const isCritical = Math.random() < criticalHitChance; 
   if (isCritical) {
     const crit = new Critical({ position: defendingBot.position, parentId: attackingBot.id, targetId: defendingBot.id });  
     attackingBot.parent?.addChild(crit);
-  }
-  const botDefence = 1; // Base defence
-  const botDefenceMultiplier = 0.5; //How much defence scales per level
-  const levelDifference = defendingBot.level - attackingBot.level;
-  const defenseFactor = Math.max(0.1, 1 - (botDefence + (levelDifference * botDefenceMultiplier)) / 100);
-  const baseDamage = attackingBot.level * (attackingPart?.damageMod ?? 1);
-  const appliedDamage = Math.floor(baseDamage * typeMultiplier * defenseFactor * criticalMultiplier);
-  console.log(`${attackingBot.name} attacks ${defendingBot.name} with ${attackingPart?.partName}:
-    Level: ${attackingBot.level} vs ${defendingBot.level}
-    Base: ${baseDamage}
-    Type: ×${typeMultiplier} ${typeMultiplier !== 1 ? (typeMultiplier > 1 ? '(Super Effective!)' : '(Not Very Effective)') : ''}
-    ${isCritical ? 'CRITICAL HIT! ×1.5' : ''}
-    Defense: ×${defenseFactor.toFixed(2)}
-    Final: ${appliedDamage} (${defendingBot.hp} → ${Math.max(0, defendingBot.hp - appliedDamage)})`);
-    
-  if (!defendingBot.isInvulnerable) { 
-    defendingBot.hp = Math.max(0, defendingBot.hp - appliedDamage);
-  }
-}
-
-export function awardExpToPlayers(player: Character, enemy: Character) {
-  player.exp += enemy.level; // Add experience from the enemy metabot
-  if (!player.expForNextLevel) {
-    calculateExpForNextLevel(player);
-  }
-  // Check if the bot's experience exceeds the experience needed for the next level
-  while (player.exp >= player.expForNextLevel) {
-    player.exp -= player.expForNextLevel; // Subtract the required experience for leveling up
-    player.level++;
-    calculateExpForNextLevel(player);
-  }
-}
+  } 
+} 
 
 export function calculateExpForNextLevel(player: Character) {
   player.expForNextLevel = (player.level + 1) * 5;

@@ -29,14 +29,12 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
   isDiscreete = false;
   data?: CoinValue[];
   allHistoricalData?: CoinValue[] = [];
-  volumeData?: any[] = undefined; 
+  volumeData?: any[] = undefined;
   totalBTCVolume: number = 0;
   totalUSDCVolume: number = 0;
   btcVolumePercentage: number = 0;
   usdcVolumePercentage: number = 0; 
-  volumeDisplayData?: { btc: number; usdc: number; btcInUSDC: number; btcPercentage: number;
-    usdcPercentage: number; btcPrice: number; ratio: string, warningLevel: string, dominanceDescription: string, timestamp: Date };
-
+  volumeDisplayData?: VolumeDisplayData;
   allWalletBalanceData?: CoinValue[] = [];
   allHistoricalExchangeRateData?: ExchangeRate[] = [];
   allHistoricalExchangeRateDataForGraph?: ExchangeRate[] = [];
@@ -83,8 +81,7 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
     days: false,
     weeks: false,
     months: false
-  };
-  weightedAveragePrices?: any;
+  }; 
   private exchangeRateCache = new Map<string, {
     baseRates: ExchangeRate[];
     targetRates: ExchangeRate[];
@@ -112,6 +109,7 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
   tradebotValuesForGraph: any;
   tradebotTradeValuesForMainGraph: { timestamp: Date; valueCAD: number }[] = [];
   lineGraphInitialPeriod: '5min' | '15min' | '1h' | '6h' | '12h' | '1d' | '2d' | '5d' | '1m' | '2m' | '3m' | '6m' | '1y' | '2y' | '3y' | '5y' = '6h';
+  exchangeRateGraphSelectedPeriod: '5min' | '15min' | '1h' | '6h' | '12h' | '1d' | '2d' | '5d' | '1m' | '2m' | '3m' | '6m' | '1y' | '2y' | '3y' | '5y' = '1y'
   tradebotSimulationGraphData: any[] = [];
   tradebotSimulationGraphData2: any[] = [];
   tradeSimParams = {
@@ -228,13 +226,13 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
       }
       const { sessionToken, tradeUserId } = await this.refreshCoinAndVolumeGraph();
       this.startCoinAndVolumePolling();
-      if (!this.weightedAveragePrices) {
-        this.tradeService.getWeightedAveragePrices(this.parentRef?.user?.id ?? 1, sessionToken ?? "").then(res => {
-          if (res) {
-            this.weightedAveragePrices = res;
-          }
-        });
-      }
+      // if (!this.weightedAveragePrices) {
+      //   this.tradeService.getWeightedAveragePrices(this.parentRef?.user?.id ?? 1, sessionToken ?? "").then(res => {
+      //     if (res) {
+      //       this.weightedAveragePrices = res;
+      //     }
+      //   });
+      // }
 
 
       this.tradeService.getProfitData(tradeUserId, 100, sessionToken ?? "").then(res => {
@@ -259,16 +257,16 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
 
     this.stopLoading();
   }
-  private getExchangeRateData() {
-    this.coinValueService.getAllExchangeRateValuesForGraph(new Date(), 356 * 24, this.selectedCurrency).then(async (res) => {
+  private async getExchangeRateData() {
+    const period = this.convertTimePeriodToHours(this.exchangeRateGraphSelectedPeriod);
+    await this.coinValueService.getAllExchangeRateValuesForGraph(new Date(), period, this.selectedCurrency).then(async (res) => {
       if (res) {
-        this.allHistoricalExchangeRateData = res;
-        const currencyRate = await this.getCurrencyToCadRate(this.selectedFiatConversionName ?? "CAD");
-        // First collect all currencies 
-        this.allHistoricalExchangeRateData?.forEach(element => {
-          element.rate = element.rate * currencyRate;
-        });
+        this.allHistoricalExchangeRateData = res;   
         this.allHistoricalExchangeRateDataForGraph = this.allHistoricalExchangeRateData;
+        this.allHistoricalExchangeRateDataForGraph?.forEach(async element => {
+          const currencyRate = await this.findClosestRate(element.timestamp, this.selectedFiatConversionName ?? "CAD", this.selectedCurrency);
+          element.rate = element.rate * (currencyRate ?? 1);
+        }); 
       }
     });
   }
@@ -278,7 +276,7 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
     startTime.setHours(startTime.getHours() - hours);
     await this.coinValueService.getAllCoinValuesForGraph(new Date(), hours).then(res => {
       if (res) {
-        this.allHistoricalData = res.filter((x: any) => x.name == 'Bitcoin'); 
+        this.allHistoricalData = res.filter((x: any) => x.name == 'Bitcoin');
         this.btcToCadPrice = this.allHistoricalData[this.allHistoricalData.length - 1].valueCAD;
         setTimeout(() => { this.convertCoinInputted(); }, 50);
         this.allHistoricalData?.forEach(x => x.valueCAD = x.valueCAD * this.latestCurrencyPriceRespectToCAD);
@@ -299,7 +297,7 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
 
     return { sessionToken, tradeUserId };
   }
-  async updateVolumeDisplayData(res: any) { 
+  async updateVolumeDisplayData(res: any) {
     if (!res || res.length === 0) return;
 
     const usdRate = await this.getCurrencyConversionRate("CAD", "USD") ?? 1;
@@ -325,8 +323,8 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
     });
 
     // Filter and calculate stats
-    const validRatios = historicalRatios.filter((r:any) => r > 0 && isFinite(r));
-    const avgRatio = validRatios.length > 0 ? validRatios.reduce((a:any, b:any) => a + b, 0) / validRatios.length : 0;
+    const validRatios = historicalRatios.filter((r: any) => r > 0 && isFinite(r));
+    const avgRatio = validRatios.length > 0 ? validRatios.reduce((a: any, b: any) => a + b, 0) / validRatios.length : 0;
     const stdDev = validRatios.length > 0 ? Math.sqrt(validRatios.reduce((a: any, r: any) => a + Math.pow(r - avgRatio, 2), 0) / validRatios.length) : 0;
 
     // Current ratio and log calculations
@@ -335,12 +333,39 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
     const logUSDC = Math.log10(latestUSDC + 1);
     const totalLog = logBTC + logUSDC;
 
-    // Determine warning level
-    let warningLevel: 'none' | 'mild' | 'severe' = 'none';
+    // Determine warning levels for both USDC and BTC dominance independently
+    const warnings = {
+      usdc: {
+        level: 'none' as 'none' | 'mild' | 'severe',
+        description: ''
+      },
+      btc: {
+        level: 'none' as 'none' | 'mild' | 'severe',
+        description: ''
+      }
+    };
+
     if (validRatios.length > 0) {
-      if (currentRatio > avgRatio + 2 * stdDev) warningLevel = 'mild';
-      if (currentRatio > avgRatio + 4 * stdDev) warningLevel = 'severe';
+      // Check for USDC dominance (when ratio is significantly above average)
+      if (currentRatio > avgRatio + 2 * stdDev) {
+        warnings.usdc.level = 'mild';
+      }
+      if (currentRatio > avgRatio + 4 * stdDev) {
+        warnings.usdc.level = 'severe';
+      }
+
+      // Check for BTC dominance (when ratio is significantly below average)
+      if (currentRatio < avgRatio - 2 * stdDev) {
+        warnings.btc.level = 'mild';
+      }
+      if (currentRatio < avgRatio - 4 * stdDev) {
+        warnings.btc.level = 'severe';
+      }
     }
+
+    // Set warning descriptions
+    warnings.usdc.description = this.getUsdcDominanceDescription(currentRatio, warnings.usdc.level);
+    warnings.btc.description = this.getBtcDominanceDescription(currentRatio, warnings.btc.level);
 
     this.volumeDisplayData = {
       btc: latestBTC,
@@ -351,17 +376,28 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
       btcPrice: btcPrice,
       timestamp: newTimestamp,
       ratio: currentRatio.toFixed(0),
-      warningLevel,
+      warnings, // Now contains both USDC and BTC warnings
       dominanceDescription: this.getDominanceDescription(currentRatio)
-    }; 
+    };
   }
-
 
   private getDominanceDescription(ratio: number): string {
     if (ratio < 100000) return "Balanced";
     if (ratio < 1000000) return "USDC Mild Dominance";
     if (ratio < 10000000) return "USDC Strong Dominance";
     return "USDC Extreme Dominance";
+  }
+
+  private getUsdcDominanceDescription(ratio: number, level: 'none' | 'mild' | 'severe'): string {
+    if (level === 'none') return '';
+    const base = level === 'mild' ? 'Mild USDC Dominance' : 'Severe USDC Dominance';
+    return `${base} (Ratio: ${ratio.toExponential(2)})`;
+  }
+
+  private getBtcDominanceDescription(ratio: number, level: 'none' | 'mild' | 'severe'): string {
+    if (level === 'none') return '';
+    const base = level === 'mild' ? 'Mild BTC Dominance' : 'Severe BTC Dominance';
+    return `${base} (Ratio: ${ratio.toExponential(2)})`;
   }
   private startCoinAndVolumePolling() {
     this.coinAndVolumeRefreshInterval = setInterval(async () => {
@@ -392,7 +428,7 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
       await this.coinValueService.getUserCurrency(user.id).then(async (res) => {
         if (res) {
           if (res.includes("not found")) {
-            this.selectedCurrency = "CAD";
+            this.selectedCurrency = "USD";
             this.selectedFiatConversionName = this.selectedCurrency == 'USD' ? "CAD" : "USD";
 
           } else {
@@ -403,7 +439,7 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
         }
       });
     } else {
-      this.selectedCurrency = "CAD";
+      this.selectedCurrency = "USD";
       this.selectedFiatConversionName = this.selectedCurrency == 'USD' ? "CAD" : "USD";
     }
   }
@@ -481,8 +517,12 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
       .filter(currency =>
         currency.address === "Kraken" && currency.currency === "BTC"
       )[0];
-    this.tradeSimParams.initialBtc = parseFloat(krakenBtcCurrencyWallet.totalBalance ?? "");
-    this.tradeSimParams.initialUsd = parseFloat(krakenUsdcCurrencyWallet.totalBalance ?? "");
+    if (krakenBtcCurrencyWallet && krakenBtcCurrencyWallet.totalBalance) {
+      this.tradeSimParams.initialBtc = parseFloat(krakenBtcCurrencyWallet.totalBalance ?? "");
+    }
+    if (krakenUsdcCurrencyWallet && krakenUsdcCurrencyWallet.totalBalance) {
+      this.tradeSimParams.initialUsd = parseFloat(krakenUsdcCurrencyWallet.totalBalance ?? "");
+    }
   }
 
   multiplyValues(number1: any, number2: any): number {
@@ -1395,8 +1435,8 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
       return null;
     }
 
-    const targetCurrencyToUse = (targetCurrency ?? this.selectedCurrency ?? "CAD").toLowerCase();
-    const baseCurrencyToUse = baseCurrency.toLowerCase();
+    const targetCurrencyToUse = (targetCurrency ?? this.selectedCurrency ?? "CAD").toLowerCase().trim();
+    const baseCurrencyToUse = baseCurrency.toLowerCase().trim();
     const cacheKey = `${baseCurrencyToUse}_${targetCurrencyToUse}`;
 
     // Check cache first
@@ -1430,7 +1470,7 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
         targetRates,
         baseTimestamps: baseRates.map(x => new Date(x.timestamp).getTime()),
         targetTimestamps: targetRates.map(x => new Date(x.timestamp).getTime())
-      });
+      }); 
     }
 
     const cached = this.exchangeRateCache.get(cacheKey)!;
@@ -1449,7 +1489,7 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
     };
 
     // Handle case where no target rates exist
-    if (cached.targetRates.length === 0 || (baseCurrencyToUse !== "cad" && cached.baseRates.length === 0)) {
+    if (cached.targetRates.length === 0 || (baseCurrencyToUse !== "cad" && cached.baseRates.length === 0)) { 
       return null;
     }
 
@@ -1458,7 +1498,7 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
     const closestTargetRate = cached.targetRates[targetIdx].rate;
 
     // If base is CAD, return directly
-    if (baseCurrencyToUse === "cad") {
+    if (baseCurrencyToUse === "cad") { 
       return closestTargetRate;
     }
 
@@ -1982,7 +2022,6 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
             x.valueCAD = 0;
           }
         });
-        //console.log(`${this.lineGraphComponent.selectedCoin} data for ${periodSelected}:`, this.allHistoricalData?.map(x => ({ timestamp: x.timestamp, valueCAD: x.valueCAD })));
       }
     });
     this.stopLoading();
@@ -2100,7 +2139,7 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
       const crypto = await this.coinValueService.getLatestCoinValuesByName(currency);
       if (crypto && crypto.name) {
         return crypto.valueCAD || 1;
-      } 
+      }
     }
 
     // Handle fiat currencies
@@ -2248,8 +2287,8 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
   }
   async enterPosition() {
     const userId = this.parentRef?.user?.id;
-    if (!userId || userId == 0 || !this.parentRef) return alert("You must be logged in to enter position.");  
-    let purchasePreview, btcPurchaseAmount; 
+    if (!userId || userId == 0 || !this.parentRef) return alert("You must be logged in to enter position.");
+    let purchasePreview, btcPurchaseAmount;
     const krakenUsdcCurrencyWallet = (this.wallet ?? [])
       .flatMap(walletItem => walletItem.currencies || [])
       .filter(currency =>
@@ -2261,7 +2300,7 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
     }
     const sessionToken = await this.parentRef.getSessionToken();
     const tc = await this.tradeService.getTradeConfiguration(userId, sessionToken ?? "");
-    if (tc) { 
+    if (tc) {
       purchasePreview = parseFloat(tc.valueTradePercentage) * currentUSDC;
       btcPurchaseAmount = purchasePreview / (this.btcUSDRate ?? 0);
     } else {
@@ -2274,7 +2313,7 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
     if (!confirm(`Purchasing ${btcPurchaseAmount.toFixed(8)} BTC for ${this.formatToCanadianCurrency(purchasePreview)}.`)) { return alert("Cancelled"); }
     this.tradeService.enterPosition(userId, sessionToken).then(res => {
       if (res) {
-        this.parentRef?.showNotification("Position entered.");  
+        this.parentRef?.showNotification("Position entered.");
       } else {
         this.parentRef?.showNotification("Error entering position.");
       }
@@ -2282,7 +2321,7 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
   }
   async exitPosition() {
     const userId = this.parentRef?.user?.id;
-    if (!userId || userId == 0) return alert("You must be logged in to exit your position."); 
+    if (!userId || userId == 0) return alert("You must be logged in to exit your position.");
     const krakenBTCCurrencyWallet = (this.wallet ?? [])
       .flatMap(walletItem => walletItem.currencies || [])
       .filter(currency =>
@@ -2343,4 +2382,28 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
     if (ratio < 1000) return "USDC Strong Dominance";
     return "USDC Extreme Dominance";
   }
+}
+
+
+interface VolumeWarning {
+  level: 'none' | 'mild' | 'severe';
+  description: string;
+}
+
+interface VolumeDisplayData {
+  btc: number;
+  usdc: number;
+  btcInUSDC: number;
+  btcPercentage: number;
+  usdcPercentage: number;
+  btcPrice: number;
+  ratio: string;
+  timestamp: Date;
+  dominanceDescription: string;
+  warnings: {
+    usdc: VolumeWarning;
+    btc: VolumeWarning;
+  };
+  // Keep the legacy warningLevel for backward compatibility if needed
+  warningLevel?: 'none' | 'mild' | 'severe';
 }

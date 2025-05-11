@@ -22,10 +22,8 @@ export class Camera extends GameObject {
       }
     }); 
     events.on("SHOP_OPENED_TO_SELL", this, (newLevelInstance: Level) => {
-      if (newLevelInstance) {  
-      
-          this.centerPositionOnTarget(new Vector2(128, 177));
-      
+      if (newLevelInstance) {   
+          this.centerPositionOnTarget(new Vector2(128, 177)); 
       }
     })
 
@@ -36,6 +34,10 @@ export class Camera extends GameObject {
         this.centerPositionOnTarget(new Vector2(0,0)); 
       }
     })
+  }
+  override destroy()  {
+    events.unsubscribe(this);
+    super.destroy();
   }
   centerPositionOnTarget(pos: Vector2) {
     const personHalf = 8;

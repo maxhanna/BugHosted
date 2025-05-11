@@ -116,7 +116,7 @@ export class CharacterCreate extends Level {
       if (content) {
         this.displayContent(content);
       }
-      events.emit("CHARACTER_CREATED", this.characterName);
+      events.emit("CHARACTER_NAME_CREATED", this.characterName);
     });
     events.on("SPACEBAR_PRESSED", this, () => { 
       const currentTime = new Date();
@@ -124,9 +124,12 @@ export class CharacterCreate extends Level {
         this.inputKeyPressedDate = new Date();
          
         if (storyFlags.contains(CHARACTER_CREATE_STORY_TEXT_8)) {
-          events.emit("CHANGE_LEVEL", new HeroRoomLevel({
-            heroPosition: new Vector2(gridCells(4), gridCells(4))
-          }));
+          setTimeout(() => {
+            events.emit("CHANGE_LEVEL", new HeroRoomLevel({
+              heroPosition: new Vector2(gridCells(4), gridCells(4))
+            }));
+          }, 100);
+          return;
         } else if (storyFlags.contains(CHARACTER_CREATE_STORY_TEXT_4)) {
           const sts = new SpriteTextString(  
             `Enter your name in the chat input, then press ${!this.onMobile() ? 'Enter or ' : ''}the A Button to confirm`, new Vector2(10, 10)
@@ -144,7 +147,10 @@ export class CharacterCreate extends Level {
       }
     })
   }
-
+  override destroy() {
+    events.unsubscribe(this); 
+    super.destroy();
+  }
   private displayContent(content: Scenario) {
     this.children.forEach((child: any) => {
       if (child.textSpeed) {
@@ -181,17 +187,17 @@ export class CharacterCreate extends Level {
     }, 0);
   }
   private hideChatInput() {
-    setTimeout(() => {
-      const chatInput = this.parent.input.chatInput;
-      if (chatInput) {
-        chatInput.value = ""; 
-        chatInput.style.setProperty('display', 'none', 'important'); 
-        this.parent.input.chatInput.blur();
-      }
-    }, 0);
+    const chatInput = this.parent?.input?.chatInput;
+    if (chatInput) {
+      chatInput.value = "";
+      chatInput.style.cssText = ''; // Reset all styles
+      chatInput.blur();
+    }
   }
 
   private createNameChatInput() {
+    if (!this.parent?.input?.chatInput) return;
+
     const chatInput = this.parent.input.chatInput; 
     setTimeout(() => {
       if (chatInput) {

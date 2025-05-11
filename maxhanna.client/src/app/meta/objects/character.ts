@@ -255,7 +255,7 @@ export class Character extends GameObject {
     }
   }
   private recalculateMaskPositioning() {
-    if (!this.mask || !this.body) return;
+    if (!this.mask || !this.body || this.body.frame === undefined) return;
     const currentTime = Date.now();
     if (currentTime - this.lastMaskCalculationTime < 10) return;
     this.lastMaskCalculationTime = currentTime;

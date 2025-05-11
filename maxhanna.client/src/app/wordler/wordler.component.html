@@ -147,8 +147,8 @@
       <div class="popupPanelTitle">
         Best Scores: 
       </div>
-      <div *ngIf="wordlerScores.length > 0" class="wordlerScoresDiv">
-        <table *ngIf="wordlerScores && wordlerScores.length > 0" class="scoreTable" id="scoreTablePopup">
+      <div *ngIf="userWordlerScores.length > 0" class="wordlerScoresDiv">
+        <table *ngIf="userWordlerScores && userWordlerScores.length > 0" class="scoreTable" id="scoreTablePopup">
           <thead>
             <tr>
               <th (click)="sortTable(0, 'scoreTablePopup')">Score</th>
@@ -158,7 +158,7 @@
             </tr>
           </thead>
           <tbody>
-            <tr *ngFor="let score of wordlerScores">
+            <tr *ngFor="let score of userWordlerScores">
               <td>{{score.score + 1}}</td>
               <td>{{score.time}}</td>
               <td>{{score.difficulty == 4 ? 'Easy' : score.difficulty == 5 ? 'Medium' : score.difficulty == 6 ? 'Hard' : 'Master Wordler'}}</td>
@@ -167,7 +167,7 @@
           </tbody>
         </table>
       </div>
-      <div *ngIf="!wordlerScores || wordlerScores.length == 0 && !isLoading">No scores yet!</div>
+      <div *ngIf="!userWordlerScores || userWordlerScores.length == 0 && !isLoading">No scores yet!</div>
     </div>
   </div>
 
