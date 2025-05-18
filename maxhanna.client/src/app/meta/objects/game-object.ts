@@ -136,7 +136,7 @@ export class GameObject {
   } 
   sortChildren() {
     this.tmpSortedChildren = [...this.children].sort((a: any, b: any) => {
-      // Step 1: Prioritize by drawLayer order: BASE < GROUND < FLOOR < all others
+      // Step 1: Prioritize by drawLayer order: BASE < GROUND < FLOOR < all others 
       if (a.drawLayer === BASE && b.drawLayer !== BASE) return -1;
       if (b.drawLayer === BASE && a.drawLayer !== BASE) return 1;
 
@@ -174,9 +174,6 @@ export class GameObject {
     const match = storyFlags.getRelevantScenario(this.textContent);
     if (!match) { 
       return undefined;
-    }
-    if (match.addsFlag && match.addsFlag == "START_FIGHT") { 
-      events.emit("START_FIGHT", this);
     } 
     return {
       portraitFrame: this.textPortraitFrame,

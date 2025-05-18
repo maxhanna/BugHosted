@@ -43,6 +43,9 @@ export class MetaService {
   async getHero(userId: number): Promise<MetaHero | undefined> {
     return this.fetchData('/meta', userId);
   } 
+  async getPartyMembers(userId: number): Promise<{ heroId: number, name: string, color?: string }[] | undefined> {
+    return this.fetchData('/meta/getuserpartymembers', userId);
+  } 
   async createHero(userId: number, name: string): Promise<MetaHero | undefined> {
     return this.fetchData('/meta/create', { UserId: userId, Name: name });
   }

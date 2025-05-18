@@ -221,15 +221,24 @@ namespace maxhanna.Server.Services
 
 		private async Task MakeCryptoTrade()
 		{
-			var activeUsers = await _krakenService.GetActiveTradeBotUsers(null);
 			UserKrakenApiKey? ownerkeys = await _krakenService.GetApiKey(1);
 			if (ownerkeys == null || string.IsNullOrEmpty(ownerkeys.ApiKey) || string.IsNullOrEmpty(ownerkeys.PrivateKey))
 			{
 				_ = _log.Db("No Kraken API keys found for userId: 1", 1, "SYSTEM", true);
 				return;
 			}
-			await SaveVolumeDataAsync(1, ownerkeys);
-			foreach (var userId in activeUsers)
+			try { 
+				await SaveVolumeDataAsync(1, "XBTUSDC", ownerkeys);
+				await SaveVolumeDataAsync(1, "XRPUSDC", ownerkeys);
+			}
+			catch (Exception ex)
+			{
+				_ = _log.Db("Exception while getting volumes before trading : " + ex.Message, null);
+				return;
+			}
+
+			var activeBTCUsers = await _krakenService.GetActiveTradeBotUsers("BTC", null);
+			foreach (var userId in activeBTCUsers)
 			{
 				try
 				{
@@ -239,11 +248,32 @@ namespace maxhanna.Server.Services
 						_ = _log.Db("No Kraken API keys found for this user", userId, "SYSTEM", true);
 						return;
 					}
-					await _krakenService.MakeATrade(userId, keys);
+					await _krakenService.MakeATrade(userId, "BTC", keys);
 				}
 				catch (Exception ex)
 				{
 					_ = _log.Db("Exception while trading : " + ex.Message, null);
+					return;
+				}
+			}
+
+			var activeXRPUsers = await _krakenService.GetActiveTradeBotUsers("XRP", null);
+			foreach (var userId in activeXRPUsers)
+			{
+				try
+				{
+					UserKrakenApiKey? keys = await _krakenService.GetApiKey(userId);
+					if (keys == null || string.IsNullOrEmpty(keys.ApiKey) || string.IsNullOrEmpty(keys.PrivateKey))
+					{
+						_ = _log.Db("No Kraken API keys found for this user", userId, "SYSTEM", true);
+						return;
+					}
+					await _krakenService.MakeATrade(userId, "XRP", keys);
+				}
+				catch (Exception ex)
+				{
+					_ = _log.Db("Exception while trading : " + ex.Message, null);
+					return;
 				}
 			}
 		}
@@ -976,7 +1006,7 @@ namespace maxhanna.Server.Services
 				_ = _log.Db("Error occurred while assigning trophies. " + ex.Message, null);
 			}
 		}
-		public async Task SaveVolumeDataAsync(int userId, UserKrakenApiKey keys)
+		public async Task SaveVolumeDataAsync(int userId, string pair, UserKrakenApiKey keys)
 		{
 			// Connect to the MySQL database
 			using (var connection = new MySqlConnection(_connectionString))
@@ -990,7 +1020,7 @@ namespace maxhanna.Server.Services
 					WHERE pair = @pair AND timestamp > @timestampThreshold;";
 
 				var command = new MySqlCommand(query, connection);
-				command.Parameters.AddWithValue("@pair", "XBTUSDC");
+				command.Parameters.AddWithValue("@pair", pair);
 				command.Parameters.AddWithValue("@timestampThreshold", DateTime.UtcNow.AddSeconds(-30));
 
 				var existingRecordCount = Convert.ToInt32(await command.ExecuteScalarAsync());
@@ -999,14 +1029,14 @@ namespace maxhanna.Server.Services
 					return;
 				}
 
-				var volumes = await _krakenService.GetLatest15MinVolumeAsync(userId, keys);
+				var volumes = await _krakenService.GetLatest15MinVolumeAsync(userId, pair, keys);
 
 				query = @"
-					INSERT INTO trade_market_volumes (pair, volume_btc, volume_usdc, timestamp)
-					VALUES (@pair, @volume_btc, @volume_usdc, UTC_TIMESTAMP());";
+					INSERT INTO trade_market_volumes (pair, volume_coin, volume_usdc, timestamp)
+					VALUES (@pair, @volume_coin, @volume_usdc, UTC_TIMESTAMP());";
 				command = new MySqlCommand(query, connection);
-				command.Parameters.AddWithValue("@pair", "XBTUSDC");
-				command.Parameters.AddWithValue("@volume_btc", volumes?.VolumeBTC);
+				command.Parameters.AddWithValue("@pair", pair);
+				command.Parameters.AddWithValue("@volume_coin", volumes?.Volume);
 				command.Parameters.AddWithValue("@volume_usdc", volumes?.VolumeUSDC);
 				await command.ExecuteNonQueryAsync();
 			}
@@ -1045,8 +1075,8 @@ namespace maxhanna.Server.Services
 								{
 									// Only insert if no recent entries exist
 									var insertSql = @"
-                                INSERT INTO coin_value (symbol, name, value_cad, timestamp) 
-                                VALUES (@Symbol, @Name, @ValueCAD, UTC_TIMESTAMP())";
+										INSERT INTO coin_value (symbol, name, value_cad, timestamp) 
+										VALUES (@Symbol, @Name, @ValueCAD, UTC_TIMESTAMP())";
 
 									using (var insertCmd = new MySqlCommand(insertSql, conn))
 									{

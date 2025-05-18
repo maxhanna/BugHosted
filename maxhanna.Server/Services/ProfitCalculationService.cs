@@ -100,12 +100,12 @@ namespace maxhanna.Server.Services
 				var keys = await _krakenService.GetApiKey(userId);
 				if (keys == null) return;
 
-				var balances = await _krakenService.GetBalance(userId, keys);
+				var balances = await _krakenService.GetBalance(userId, "BTC", keys);
 				if (balances == null) return;
 
 				var btcBalance = balances.GetValueOrDefault("XXBT", 0);
 				var usdcBalance = balances.GetValueOrDefault("USDC", 0);
-				var btcPrice = await _krakenService.GetBtcPriceToUSDC(userId, keys);
+				var btcPrice = await _krakenService.GetCoinPriceToUSDC(userId, "BTC", keys);
 				if (btcPrice == null) return;
 
 				// Close previous period if exists
@@ -291,7 +291,7 @@ namespace maxhanna.Server.Services
 				(openingValues.StartUsdc + (openingValues.StartBtc * btcPrice));
 
 			var sqlCumulative = $@"
-                SELECT COALESCE(SUM(profit_usdc), 0)
+                SELECT COALESCE(SUM(absolute_profit_usdc), 0)
                 FROM {tableName}
                 WHERE user_id = (SELECT user_id FROM {tableName} WHERE id = @recordId)
                 AND id < @recordId";
@@ -310,7 +310,7 @@ namespace maxhanna.Server.Services
 			const string sql = @"
                 SELECT u.id 
                 FROM users u
-                JOIN trade_bot_status tbs ON u.id = tbs.user_id AND tbs.is_running = 1
+                JOIN trade_bot_status tbs ON u.id = tbs.user_id AND tbs.is_running_btc_usdc = 1
                 JOIN user_kraken_api_keys ukak ON u.id = ukak.user_id
                 WHERE ukak.api_key IS NOT NULL 
                 AND ukak.api_key != ''

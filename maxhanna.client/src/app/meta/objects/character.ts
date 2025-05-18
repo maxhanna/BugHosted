@@ -110,7 +110,8 @@ export class Character extends GameObject {
       }, 1300);
     } else { 
       this.destroyBody();
-      super.destroy();
+      events.unsubscribe(this);
+      super.destroy(); 
     }
   }
 
@@ -240,7 +241,7 @@ export class Character extends GameObject {
 
   onPickupItem(data: { position: Vector2, hero: any, name: string, imageName: string, category: string, stats?: any }) {
     //console.log(data);
-    if (data.hero?.id == this.id) {
+    if (data.hero?.id == this.id && this.itemPickupTime == 0) {
 /*      this.mask?.destroy();*/ 
       this.itemPickupTime = 2500;
       this.itemPickupShell = new GameObject({ position: new Vector2(0, 0) });
@@ -457,95 +458,120 @@ export class Character extends GameObject {
   drawLatestMessage(ctx: CanvasRenderingContext2D, characterCenterX: number, characterTopY: number) {
     if (!this.latestMessage.trim()) return;
 
+    // Only recreate cache if message changes
     if (this.latestMessage !== this.cachedMessage) {
       this.cachedMessage = this.latestMessage;
 
+      // Create temp canvas for measurement
+      const tempCanvas = document.createElement("canvas");
+      const tempCtx = tempCanvas.getContext("2d");
+      if (!tempCtx) return;
+
+      // Set the same font we'll use for rendering
+      tempCtx.font = "8px fontRetroGaming";
+
+      // Split message into lines with proper measurement
+      const maxWidth = 120; // Maximum bubble width before wrapping
+      const lineHeight = 10; // Height of each text line
+      const padding = 6; // Reduced padding for tighter fit
+      const tailHeight = 6; // Height of the speech bubble tail
+
+      // Split text into lines
+      const lines: string[] = [];
+      const words = this.latestMessage.split(' ');
+      let currentLine = words[0];
+
+      for (let i = 1; i < words.length; i++) {
+        const word = words[i];
+        const testLine = currentLine + ' ' + word;
+        const metrics = tempCtx.measureText(testLine);
+
+        if (metrics.width <= maxWidth) {
+          currentLine = testLine;
+        } else {
+          lines.push(currentLine);
+          currentLine = word;
+        }
+      }
+      lines.push(currentLine);
+
+      // Calculate bubble dimensions
+      let bubbleWidth = 0;
+      for (const line of lines) {
+        const width = tempCtx.measureText(line).width;
+        if (width > bubbleWidth) bubbleWidth = width;
+      }
+
+      // Add padding and ensure minimum width
+      bubbleWidth = Math.max(bubbleWidth + padding * 2, 30);
+      const bubbleHeight = lines.length * lineHeight + padding * 1.5;
+
+      // Create the message cache canvas
       this.messageCache = document.createElement("canvas");
-      const offCtx = this.messageCache.getContext("2d");
-      if (!offCtx) return;
-
-      const lines = this.splitMessageIntoLines(this.latestMessage, offCtx);
-      const padding = 10; // Padding around the text inside the bubble
-      const textHeight = 8; // Approximate height per line
-      const tailHeight = 5; // Height of the bubble's tail
-
-      const bubbleWidth = Math.max(...lines.map(line => offCtx.measureText(line).width)) + padding * 2 + 5;
-      const bubbleHeight = lines.length * textHeight + padding;
-
-      // Set canvas dimensions based on bubble size
       this.messageCache.width = bubbleWidth;
-      this.messageCache.height = bubbleHeight + tailHeight; // Extra space for the bubble's tail
+      this.messageCache.height = bubbleHeight + tailHeight;
+      const bubbleCtx = this.messageCache.getContext("2d");
+      if (!bubbleCtx) return;
 
-      // Bubble styling
-      offCtx.font = "8px fontRetroGaming";
-      offCtx.fillStyle = "rgba(255, 255, 255, 0.8)";
-      offCtx.strokeStyle = "black";
-      offCtx.lineWidth = 1;
+      // Set the font for rendering
+      bubbleCtx.font = "8px fontRetroGaming";
 
-      // Draw the bubble with rounded corners and a tail
-      offCtx.beginPath();
-      offCtx.moveTo(3, 0);
-      offCtx.lineTo(bubbleWidth - 10, 0);
-      offCtx.quadraticCurveTo(bubbleWidth, 0, bubbleWidth, 10);
-      offCtx.lineTo(bubbleWidth, bubbleHeight - 10);
-      offCtx.quadraticCurveTo(bubbleWidth, bubbleHeight, bubbleWidth - 10, bubbleHeight);
+      // Draw speech bubble with tail
+      bubbleCtx.fillStyle = "rgba(255, 255, 255, 0.9)";
+      bubbleCtx.strokeStyle = "rgba(0, 0, 0, 0.8)";
+      bubbleCtx.lineWidth = 1;
 
-      // Draw the tail at the bottom center
-      const tailX = bubbleWidth / 2;
-      offCtx.lineTo(tailX + 5, bubbleHeight); // Right side of the tail
-      offCtx.lineTo(tailX, bubbleHeight + tailHeight); // Point of the tail
-      offCtx.lineTo(tailX - 5, bubbleHeight); // Left side of the tail
+      // Bubble body with rounded corners
+      const radius = 5;
+      bubbleCtx.beginPath();
+      bubbleCtx.moveTo(radius, 0);
+      bubbleCtx.lineTo(bubbleWidth - radius, 0);
+      bubbleCtx.quadraticCurveTo(bubbleWidth, 0, bubbleWidth, radius);
+      bubbleCtx.lineTo(bubbleWidth, bubbleHeight - radius);
+      bubbleCtx.quadraticCurveTo(bubbleWidth, bubbleHeight, bubbleWidth - radius, bubbleHeight);
+
+      // Speech bubble tail (centered)
+      const tailWidth = 10;
+      const tailCenter = bubbleWidth / 2;
+      bubbleCtx.lineTo(tailCenter + tailWidth / 2, bubbleHeight);
+      bubbleCtx.lineTo(tailCenter, bubbleHeight + tailHeight);
+      bubbleCtx.lineTo(tailCenter - tailWidth / 2, bubbleHeight);
 
       // Complete the bubble
-      offCtx.lineTo(10, bubbleHeight);
-      offCtx.quadraticCurveTo(0, bubbleHeight, 0, bubbleHeight - 10);
-      offCtx.lineTo(0, 10);
-      offCtx.quadraticCurveTo(0, 0, 10, 0);
-      offCtx.closePath();
+      bubbleCtx.lineTo(radius, bubbleHeight);
+      bubbleCtx.quadraticCurveTo(0, bubbleHeight, 0, bubbleHeight - radius);
+      bubbleCtx.lineTo(0, radius);
+      bubbleCtx.quadraticCurveTo(0, 0, radius, 0);
+      bubbleCtx.closePath();
 
-      // Fill and stroke the bubble
-      offCtx.fill();
-      offCtx.stroke();
+      bubbleCtx.fill();
+      bubbleCtx.stroke();
 
-      // Draw the text inside the bubble
-      offCtx.fillStyle = "black";
-      lines.forEach((line, index) => {
-        offCtx.fillText(line, padding, padding + index * textHeight + 2.5);
-      });
+      // Draw text lines
+      bubbleCtx.fillStyle = "#000";
+      bubbleCtx.textAlign = "left";
+      bubbleCtx.textBaseline = "top";
+
+      for (let i = 0; i < lines.length; i++) {
+        bubbleCtx.fillText(
+          lines[i],
+          padding,
+          padding + (i * lineHeight)
+        );
+      }
     }
 
-    const verticalOffset = 20; // Increase this value to move the bubble higher
-    const horizontalOffset = -5; // Increase this value to move the bubble higher
-    const bubbleTopY = characterTopY - (this.messageCache?.height ?? 0) - verticalOffset;
-
+    // Draw the cached bubble
     if (this.messageCache) {
-      const bubbleTopX = characterCenterX - this.messageCache.width / 2 - horizontalOffset;
-      ctx.drawImage(this.messageCache, bubbleTopX, bubbleTopY);
+      const verticalOffset = 16; // Distance above character
+      const bubbleX = (characterCenterX + 8) - this.messageCache.width / 2;
+      const bubbleY = (characterTopY + (this.body?.offsetY ?? 0)) - this.messageCache.height - verticalOffset;
+
+      ctx.drawImage(this.messageCache, bubbleX, bubbleY);
     }
   }
 
   private calculateExpForNextLevel(player: Character) {
     player.expForNextLevel = (player.level + 1) * 15;
-  }
-
-  private splitMessageIntoLines(message: string, ctx: CanvasRenderingContext2D): string[] {
-    const words = message.split(" ");
-    const maxLineWidth = 120;
-    let lines = [];
-    let currentLine = "";
-
-    for (let word of words) {
-      const testLine = currentLine + word + " ";
-      if (ctx.measureText(testLine).width > maxLineWidth && currentLine.length > 0) {
-        lines.push(currentLine.trim());
-        currentLine = word + " ";
-      } else {
-        currentLine = testLine;
-      }
-    }
-    if (currentLine.length > 0) {
-      lines.push(currentLine.trim());
-    }
-    return lines;
   } 
 }

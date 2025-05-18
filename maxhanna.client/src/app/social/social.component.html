@@ -386,12 +386,12 @@
       *ngIf="storyResponse && storyResponse.stories && storyResponse.stories.length > 0">
       <div *ngFor="let story of storyResponse?.stories" [id]="'storyDiv'+story.id" class="storyContainer">
         <div class="storyHeader">
-          <span style="padding-right:10px; display: flex; justify-content: center; align-items: flex-end;" (click)="viewProfile(story.user, 'Social')">
+          <span style="padding-right: 10px;display: flex;align-items: center;" (click)="viewProfile(story.user, 'Social')">
             <app-user-tag [user]="story.user" [inputtedParentRef]="parentRef ?? parent" [displayMiniTag]="true"
               [previousComponent]="'Social'"></app-user-tag>
           </span>
-          <div class="storyDate">
-            {{ story.timeSince }}
+          <div class="storyDate" [title]="(story.date?.toString() ?? '').replace('T',' ')">
+            {{ story.date | timeSince }}
           </div>
           <div class="postOptionButtonWrapper">
             <span class="postOptionButtons">

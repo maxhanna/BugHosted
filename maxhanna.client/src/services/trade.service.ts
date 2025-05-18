@@ -38,15 +38,15 @@ export class TradeService {
   async hasApiKey(userId: number) {
     return this.post(`/trade/hasapikey`, userId, 'json');
   }
-  async startBot(userId: number, encryptedUserId: string) {
-    return this.post(`/trade/startbot`, userId, 'text', encryptedUserId);
+  async startBot(userId: number, coin: string, encryptedUserId: string) {
+    return this.post(`/trade/startbot`, { UserId: userId, Coin: coin }, 'text', encryptedUserId);
   }
-  async stopBot(userId: number, encryptedUserId: string) {
-    return this.post(`/trade/stopbot`, userId, 'text', encryptedUserId);
+  async stopBot(userId: number, coin: string, encryptedUserId: string) {
+    return this.post(`/trade/stopbot`, { UserId: userId, Coin: coin }, 'text', encryptedUserId);
   }
-  async isTradebotStarted(userId: number, encryptedUserId: string) {
-    return this.post(`/trade/istradebotstarted`, userId, 'text', encryptedUserId);
-  }
+  async isTradebotStarted(userId: number, coin: string, encryptedUserId: string) {
+    return this.post(`/trade/istradebotstarted`, {UserId: userId, Coin: coin }, 'text', encryptedUserId);
+  }  
   async upsertTradeConfiguration(config: any, encryptedUserId: string) {
     return this.post(`/trade/upserttradeconfiguration`, config, 'text', encryptedUserId);
   }

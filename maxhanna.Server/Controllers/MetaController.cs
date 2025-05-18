@@ -81,7 +81,7 @@ namespace maxhanna.Server.Controllers
 						hero = await UpdateHeroInDB(hero, connection, transaction);
 						MetaHero[]? heroes = await GetNearbyPlayers(hero, connection, transaction); 
 						MetaBot[]? enemyBots = await GetEncounterMetaBots(connection, transaction, hero.Map); 
-						List<MetaEvent> events = await GetEventsFromDb(hero.Map, connection, transaction);
+						List<MetaEvent> events = await GetEventsFromDb(hero.Map, hero.Id, connection, transaction);
 						await transaction.CommitAsync();
 						return Ok(new
 						{
@@ -415,7 +415,7 @@ namespace maxhanna.Server.Controllers
 
 		[HttpPost("/Meta/UnequipPart", Name = "UnequipPart")]
 		public async Task<IActionResult> UnequipPart([FromBody] EquipPartRequest req)
-		{ 
+		{
 			using (var connection = new MySqlConnection(_connectionString))
 			{
 				await connection.OpenAsync();
@@ -438,6 +438,68 @@ namespace maxhanna.Server.Controllers
 						await transaction.RollbackAsync();
 						return StatusCode(500, "Internal server error: " + ex.Message);
 					}
+				}
+			}
+		}
+
+
+		[HttpPost("/Meta/GetUserPartyMembers", Name = "GetUserPartyMembers")]
+		public async Task<IActionResult> GetUserPartyMembers([FromBody] int userId)
+		{
+			using (var connection = new MySqlConnection(_connectionString))
+			{
+				await connection.OpenAsync();
+				try
+				{
+					// Query to find all hero IDs and names in the party
+					const string sql = @"
+                SELECT DISTINCT h.id, h.name, h.color
+                FROM (
+                    SELECT meta_hero_id_1 AS hero_id
+                    FROM meta_hero_party
+                    WHERE meta_hero_id_2 = @UserId
+                    UNION
+                    SELECT meta_hero_id_2 AS hero_id
+                    FROM meta_hero_party
+                    WHERE meta_hero_id_1 = @UserId
+                    UNION
+                    SELECT @UserId AS hero_id
+                ) AS party_members
+                JOIN meta_hero h ON party_members.hero_id = h.id";
+
+					using (var command = new MySqlCommand(sql, connection))
+					{
+						command.Parameters.AddWithValue("@UserId", userId);
+						var partyMembers = new List<object>();
+
+						using (var reader = await command.ExecuteReaderAsync())
+						{
+							while (await reader.ReadAsync())
+							{
+								partyMembers.Add(new
+								{
+									heroId = reader.GetInt32("id"),
+									name = reader.GetString("name"),
+									color = reader.IsDBNull(reader.GetOrdinal("color")) ? null : reader.GetString("color")
+								});
+							}
+						}
+
+						// Return the list of party members with heroId and name
+						return Ok(partyMembers);
+					}
+				}
+				catch (MySqlException ex)
+				{
+					// Log the error (assuming _log.Db exists from previous context)
+					await _log.Db($"Database error in GetUserPartyMembers for userId {userId}: {ex.Message} (Error Code: {ex.Number})", null, "META", true);
+					return StatusCode(500, $"Database error: {ex.Message}");
+				}
+				catch (Exception ex)
+				{
+					// Log unexpected errors
+					await _log.Db($"Unexpected error in GetUserPartyMembers for userId {userId}: {ex.Message}", null, "META", true);
+					return StatusCode(500, $"Internal server error: {ex.Message}");
 				}
 			}
 		}
@@ -593,24 +655,52 @@ namespace maxhanna.Server.Controllers
 			} 
 		}
 
-		private async Task<List<MetaEvent>> GetEventsFromDb(string map, MySqlConnection connection, MySqlTransaction transaction)
+		private async Task<List<MetaEvent>> GetEventsFromDb(string map, int heroId, MySqlConnection connection, MySqlTransaction transaction)
 		{
 			if (connection.State != System.Data.ConnectionState.Open)
 			{
 				await connection.OpenAsync();
 			}
+
 			if (transaction == null)
 			{
 				_ = _log.Db("Exception: GetEventsFromDB Transaction is null.", null, "META", true);
 				throw new InvalidOperationException("Transaction is required for this operation.");
 			}
+
+			// First, get all party members for the current hero
+			List<int> partyMemberIds = new List<int> { heroId }; // Include self
+			string partyQuery = @"
+        SELECT meta_hero_id_1 AS hero_id FROM meta_hero_party WHERE meta_hero_id_2 = @HeroId
+        UNION
+        SELECT meta_hero_id_2 AS hero_id FROM meta_hero_party WHERE meta_hero_id_1 = @HeroId";
+
+			using (var partyCmd = new MySqlCommand(partyQuery, connection, transaction))
+			{
+				partyCmd.Parameters.AddWithValue("@HeroId", heroId);
+				using (var partyReader = await partyCmd.ExecuteReaderAsync())
+				{
+					while (await partyReader.ReadAsync())
+					{
+						partyMemberIds.Add(Convert.ToInt32(partyReader["hero_id"]));
+					}
+				}
+			}
+
+			// Now fetch events:
+			// 1. All events from current map
+			// 2. All CHAT events from party members (regardless of map)
 			string sql = @"
-                DELETE FROM maxhanna.meta_event WHERE timestamp < NOW() - INTERVAL 20 SECOND;
-                SELECT *
-                FROM maxhanna.meta_event 
-                WHERE map = @Map;";
+        DELETE FROM maxhanna.meta_event WHERE timestamp < NOW() - INTERVAL 20 SECOND;
+        
+        SELECT *
+        FROM maxhanna.meta_event 
+        WHERE map = @Map
+        OR (event = 'CHAT' AND hero_id IN (" + string.Join(",", partyMemberIds) + "));";
+
 			MySqlCommand cmd = new MySqlCommand(sql, connection, transaction);
 			cmd.Parameters.AddWithValue("@Map", map);
+
 			List<MetaEvent> events = new List<MetaEvent>();
 			using (var reader = await cmd.ExecuteReaderAsync())
 			{
@@ -627,6 +717,7 @@ namespace maxhanna.Server.Controllers
 					events.Add(tmpEvent);
 				}
 			}
+
 			return events;
 		}
 		private async Task<MetaHero?> GetHeroData(int userId, int? heroId, MySqlConnection conn, MySqlTransaction transaction)
@@ -1262,7 +1353,39 @@ namespace maxhanna.Server.Controllers
 			{
 				int heroId = Convert.ToInt32(metaEvent.Data["heroId"]);
 				await RepairAllMetabots(heroId, connection, transaction);
-			} 
+			}
+			else if (metaEvent != null && metaEvent.Data != null && metaEvent.EventType == "UNPARTY")
+			{
+				int heroId = metaEvent.HeroId;
+				await Unparty(heroId, connection, transaction);
+			}
+			else if (metaEvent != null && metaEvent.Data != null && metaEvent.EventType == "PARTY_INVITE_ACCEPTED")
+			{
+				if (metaEvent.Data.TryGetValue("party_members", out var partyJson))
+				{
+					try
+					{
+						// Parse the batch JSON string into a list of position updates
+						var partyData = JsonSerializer.Deserialize<List<int>>(partyJson);
+						if (partyData != null && partyData.Count > 0)
+						{
+							await UpdateMetaHeroParty(partyData, connection, transaction);
+						}
+						else
+						{
+							_ = _log.Db("Empty or invalid party data for UPDATE_ENCOPARTY_INVITE_ACCEPTEDUNTER_POSITION", null, "META", true);
+						}
+					}
+					catch (JsonException ex)
+					{
+						_ = _log.Db($"Failed to parse party data for PARTY_INVITE_ACCEPTED: {ex.Message}", null, "META", true);
+					}
+				}
+				else
+				{
+					_ = _log.Db("No batch data found for UPDATE_ENCOUNTER_POSITION", null, "META", true);
+				} 
+			}
 			else if (metaEvent != null && metaEvent.Data != null && metaEvent.EventType == "UPDATE_ENCOUNTER_POSITION")
 			{
 				if (metaEvent.Data.TryGetValue("batch", out var batchJson))
@@ -1326,16 +1449,18 @@ namespace maxhanna.Server.Controllers
 				activeLocks[lockKey].Cancel();
 				activeLocks.Remove(lockKey);
 			} 
-		} 
+		}
+
 		private async Task StartDamageOverTimeForBot(string sourceId, string targetId, CancellationToken cancellationToken)
 		{
-			// Add the logic of handling damage over time to both bots here (not calling StartDamageOverTime twice).
-			bool attackerStopped = false; 
-			string map = "";
+			bool attackerStopped = false;
 			while (!cancellationToken.IsCancellationRequested)
 			{
 				_ = _log.Db($"Applying DPS from {sourceId} to {targetId}", null, "META", true);
 				MetaBot? attackingBot = null, defendingBot = null;
+				string? attackingBotMap = null;
+				string? defendingBotMap = null;
+
 				try
 				{
 					using (var connection = new MySqlConnection(_connectionString))
@@ -1343,21 +1468,23 @@ namespace maxhanna.Server.Controllers
 						await connection.OpenAsync();
 						using (MySqlTransaction transaction = await connection.BeginTransactionAsync())
 						{
-							// 1. Fetch attacker & defender in a single query
+							// 1. Fetch attacker & defender in a single query with their maps
 							string fetchBotsSql = @"
-								SELECT 
-										mb.id, 
-										mb.type, 
-										mb.exp, 
-										mb.level, 
-										mb.hp,
-										mb.hero_id,
-										mb.is_deployed,
-										mh.map
-								FROM maxhanna.meta_bot AS mb
-								LEFT JOIN maxhanna.meta_hero AS mh ON mh.id = mb.hero_id 
-								WHERE mb.id = @SourceId 
-									 OR mb.id = @TargetId;";
+                        SELECT 
+                            mb.id, 
+                            mb.type, 
+                            mb.exp, 
+                            mb.level, 
+                            mb.hp,
+                            mb.hero_id,
+                            mb.is_deployed,
+                            IF(mb.hero_id > 0, 
+                                (SELECT mh.map FROM maxhanna.meta_hero mh WHERE mh.id = mb.hero_id),
+                                (SELECT me.map FROM maxhanna.meta_encounter me WHERE me.hero_id = mb.hero_id)
+                            ) AS map
+                        FROM maxhanna.meta_bot AS mb
+                        WHERE mb.id = @SourceId 
+                             OR mb.id = @TargetId;";
 
 							using (var command = new MySqlCommand(fetchBotsSql, connection, transaction))
 							{
@@ -1388,45 +1515,56 @@ namespace maxhanna.Server.Controllers
 											IsDeployed = botIsDeployed
 										};
 
-										if (!string.IsNullOrEmpty(botMap) && string.IsNullOrEmpty(map)) map = botMap;   
-										if (botId == Convert.ToInt32(sourceId)) attackingBot = bot;
-										else defendingBot = bot;
+										if (botId == Convert.ToInt32(sourceId))
+										{
+											attackingBot = bot;
+											attackingBotMap = botMap;
+										}
+										else
+										{
+											defendingBot = bot;
+											defendingBotMap = botMap;
+										}
 									}
 								}
 							}
 
-							if (map == null) return;
-
 							if (attackingBot == null || defendingBot == null)
 							{
 								_ = _log.Db("One or both bots are missing, stopping DPS.", null, "META", true);
-								attackerStopped = true; 
+								attackerStopped = true;
 							}
+
+							// Check if bots are on the same map
+							if (!attackerStopped && (string.IsNullOrEmpty(attackingBotMap) || string.IsNullOrEmpty(defendingBotMap) || attackingBotMap != defendingBotMap))
+							{
+								_ = _log.Db($"Bots are on different maps ({attackingBotMap} vs {defendingBotMap}). Stopping DPS.", null, "META", true);
+								attackerStopped = true;
+							}
+
 							if (!attackerStopped && attackingBot?.Hp <= 0)
 							{
 								_ = _log.Db($"Attacking bot {sourceId} has died. Stopping DPS.", null, "META", true);
-								attackerStopped = true; 
-								await HandleDeadMetabot(map, defendingBot, attackingBot, connection, transaction);
-
+								attackerStopped = true;
+								await HandleDeadMetabot(attackingBotMap ?? "", defendingBot, attackingBot, connection, transaction);
 							}
 
 							if (!attackerStopped && defendingBot?.Hp <= 0)
 							{
 								_ = _log.Db($"Defending bot {targetId} has died. Stopping DPS.", null, "META", true);
-								attackerStopped = true; 
-								await HandleDeadMetabot(map, attackingBot, defendingBot, connection, transaction);
+								attackerStopped = true;
+								await HandleDeadMetabot(defendingBotMap ?? "", attackingBot, defendingBot, connection, transaction);
 							}
-
 
 							if (!attackerStopped)
 							{
 								// 2. Check if a TARGET_UNLOCKED event has occurred for bot
 								string checkEventSql = @"
-									SELECT COUNT(*) 
-									FROM maxhanna.meta_event 
-									WHERE event = 'TARGET_UNLOCKED' 
-										AND (JSON_EXTRACT(data, '$.sourceId') = @SourceId AND JSON_EXTRACT(data, '$.targetId') = @TargetId) 
-										AND timestamp > NOW() - INTERVAL 5 SECOND"; // 5 second window (adjust as needed)
+                            SELECT COUNT(*) 
+                            FROM maxhanna.meta_event 
+                            WHERE event = 'TARGET_UNLOCKED' 
+                                AND (JSON_EXTRACT(data, '$.sourceId') = @SourceId AND JSON_EXTRACT(data, '$.targetId') = @TargetId) 
+                                AND timestamp > NOW() - INTERVAL 5 SECOND"; // 5 second window (adjust as needed)
 
 								int eventCount = 0;
 
@@ -1441,16 +1579,16 @@ namespace maxhanna.Server.Controllers
 								if (eventCount > 0)
 								{
 									_ = _log.Db("TARGET_UNLOCKED event detected. Stopping DPS for both bots.", null, "META", true);
-									attackerStopped = true; 
+									attackerStopped = true;
 								}
 
 								if (!attackerStopped && attackingBot != null && defendingBot != null)
 								{
-									MetaBotPart? attackingPart = 
+									MetaBotPart? attackingPart =
 										GetLastUsedPart(attackingBot.HeroId > 0 ? "meta_bot_part" : "meta_encounter_bot_part",
 										attackingBot.HeroId > 0 ? "metabot_id" : "hero_id",
 										attackingBot.HeroId > 0 ? attackingBot.Id : attackingBot.HeroId,
-										connection, 
+										connection,
 										transaction);
 									MetaBotPart? defendingPart =
 										GetLastUsedPart(defendingBot.HeroId > 0 ? "meta_bot_part" : "meta_encounter_bot_part",
@@ -1458,15 +1596,15 @@ namespace maxhanna.Server.Controllers
 										defendingBot.HeroId > 0 ? defendingBot.Id : defendingBot.HeroId,
 										connection,
 										transaction);
-									 
+
 									// 4. Apply damage to both bots every second
- 									ApplyDamageToBot(attackingBot, defendingBot, attackingPart, defendingPart, connection, transaction);
+									ApplyDamageToBot(attackingBot, defendingBot, attackingPart, defendingPart, connection, transaction);
 
 									// Check if either bot's HP is 0 or below, if so, stop DPS  
 									if (defendingBot.Hp <= 0)
 									{
-										attackerStopped = true; 
-										await HandleDeadMetabot(map, attackingBot, defendingBot, connection, transaction);
+										attackerStopped = true;
+										await HandleDeadMetabot(defendingBotMap ?? "", attackingBot, defendingBot, connection, transaction);
 									}
 								}
 							}
@@ -1480,8 +1618,6 @@ namespace maxhanna.Server.Controllers
 					_ = _log.Db($"DPS Error: {ex.Message}", null, "META", true);
 					attackerStopped = true;
 				}
-
-				// Exit the loop if both bots are stopped
 
 				if (attackerStopped)
 				{
@@ -1561,7 +1697,109 @@ namespace maxhanna.Server.Controllers
 				throw;
 			}
 		}
+		private async Task UpdateMetaHeroParty(List<int>? partyData, MySqlConnection connection, MySqlTransaction transaction)
+		{
+			try
+			{
+				// Validate input
+				if (partyData == null || partyData.Count < 2)
+				{
+					await _log.Db("Party data is null or has fewer than 2 members for PARTY_INVITE_ACCEPTED", null, "META", true);
+					return;
+				}
 
+				// Extract hero IDs (assuming MetaHero has an Id property)
+				var heroIds = partyData.Distinct().ToList();
+				if (heroIds.Count < 2)
+				{
+					await _log.Db("Fewer than 2 unique hero IDs in party data for PARTY_INVITE_ACCEPTED", null, "META", true);
+					return;
+				}
+
+				// Step 1: Delete existing party records for these heroes to avoid duplicates
+				const string deleteQuery = @"
+            DELETE FROM meta_hero_party 
+            WHERE meta_hero_id_1 IN (@heroId1) OR meta_hero_id_2 IN (@heroId2)";
+
+				using (var deleteCommand = new MySqlCommand(deleteQuery, connection, transaction))
+				{
+					// Create a comma-separated list of hero IDs for the IN clause
+					var heroIdParams = string.Join(",", heroIds.Select((_, index) => $"@hero{index}"));
+					deleteCommand.CommandText = deleteQuery.Replace("@heroId1", heroIdParams).Replace("@heroId2", heroIdParams);
+
+					// Add parameters for each hero ID
+					for (int i = 0; i < heroIds.Count; i++)
+					{
+						deleteCommand.Parameters.AddWithValue($"@hero{i}", heroIds[i]);
+					}
+
+					await deleteCommand.ExecuteNonQueryAsync();
+				}
+
+				// Step 2: Insert new party records (all pairwise combinations of heroes)
+				const string insertQuery = @"
+            INSERT INTO meta_hero_party (meta_hero_id_1, meta_hero_id_2)
+            VALUES (@heroId1, @heroId2)";
+
+				using (var insertCommand = new MySqlCommand(insertQuery, connection, transaction))
+				{
+					// Insert each pair of heroes (avoiding self-pairs and duplicates)
+					for (int i = 0; i < heroIds.Count; i++)
+					{
+						for (int j = i + 1; j < heroIds.Count; j++)
+						{
+							insertCommand.Parameters.Clear();
+							insertCommand.Parameters.AddWithValue("@heroId1", heroIds[i]);
+							insertCommand.Parameters.AddWithValue("@heroId2", heroIds[j]);
+
+							await insertCommand.ExecuteNonQueryAsync();
+						}
+					}
+				}
+
+				// Log success
+				await _log.Db($"Successfully updated party with {heroIds.Count} heroes for PARTY_INVITE_ACCEPTED", null, "META", false);
+			}
+			catch (MySqlException ex)
+			{
+				await _log.Db($"Database error while updating party for PARTY_INVITE_ACCEPTED: {ex.Message}", null, "META", true);
+				throw; // Re-throw to allow transaction rollback
+			}
+			catch (Exception ex)
+			{
+				await _log.Db($"Unexpected error while updating party for PARTY_INVITE_ACCEPTED: {ex.Message}", null, "META", true);
+				throw; // Re-throw to allow transaction rollback
+			}
+		}
+
+		private async Task Unparty(int heroId, MySqlConnection connection, MySqlTransaction transaction)
+		{
+			try
+			{ 
+				const string deleteQuery = @"
+					DELETE FROM meta_hero_party 
+					WHERE meta_hero_id_1 IN (@heroId) OR meta_hero_id_2 IN (@heroId)";
+
+				using (var deleteCommand = new MySqlCommand(deleteQuery, connection, transaction))
+				{ 
+					deleteCommand.Parameters.AddWithValue("@heroId", heroId); 
+					await deleteCommand.ExecuteNonQueryAsync();
+				}
+ 
+				// Log success
+				await _log.Db($"Successfully updated party with {heroId}", null, "META", false);
+			}
+			catch (MySqlException ex)
+			{
+				await _log.Db($"Database error while updating party for heroId {heroId}: {ex.Message}", null, "META", true);
+				throw; // Re-throw to allow transaction rollback
+			}
+			catch (Exception ex)
+			{
+				await _log.Db($"Unexpected error while updating party for heroId {heroId}: {ex.Message}", null, "META", true);
+				throw; // Re-throw to allow transaction rollback
+			}
+		}
 
 		private async Task HandleDeadMetabot(string map, MetaBot? winnerBot, MetaBot? deadBot, MySqlConnection connection, MySqlTransaction transaction)
 		{ 

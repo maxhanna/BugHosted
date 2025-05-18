@@ -100,6 +100,7 @@ export class Salesman extends Npc {
         frameSize: new Vector2(32, 32),
         hFrames: 4,
         vFrames: 4,
+        name: "Sales Person",
         offsetX: params.offsetX,
         offsetY: params.offsetY,
         preventDraw: params.preventDraw,

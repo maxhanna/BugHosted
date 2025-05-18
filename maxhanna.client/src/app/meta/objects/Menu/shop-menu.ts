@@ -23,6 +23,7 @@ export class ShopMenu extends Level {
   scrollPage = 0;
   MAX_VISIBLE_ITEMS = 6;
   totalPages = 1;
+  itemPurchasedTextString: any;
 
   constructor(params: { heroPosition: Vector2, entranceLevel: Level, items?: InventoryItem[], sellingMode?: boolean }) {
     super();
@@ -177,6 +178,10 @@ export class ShopMenu extends Level {
       this.leaveShop();
     });
   }
+  override destroy() {
+    this.itemPurchasedTextString?.destroy();
+    super.destroy();
+  }
   private leaveShop() {
     this.entranceLevel.defaultHeroPosition = this.defaultHeroPosition;
     if (this.itemsSold.length > 0) {
@@ -186,6 +191,8 @@ export class ShopMenu extends Level {
     events.emit("HERO_MOVEMENT_UNLOCK");
   }
   private purchaseItem(item: InventoryItem) {
+    this.itemPurchasedTextString = new SpriteTextString((item.name ?? item.category) + " purchased.", new Vector2(50,80), "Black", 2);
+    this.addChild(this.itemPurchasedTextString); 
     console.log(item);
     if (!item) return;
     if (item.category == "botFrame") {

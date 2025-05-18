@@ -187,7 +187,7 @@ but you can also set your own City for a more precise location."></span>
     </div>
 
     <!-- MENU ICONS -->
-    <div (click)="getMenuIcons()" class="sectionHeaderDiv"
+    <div (click)="showOnlySelectableMenuItems ? '' : getMenuIcons()" class="sectionHeaderDiv"
       *ngIf="!showOnlyNicehashApiKeys && !showOnlyKrakenApiKeys && !showOnlyWeatherLocation">
       <div *ngIf="!showOnlySelectableMenuItems || isMenuIconsToggled" class="sectionHeaderLabel popupPanelTitle">
         <div>

@@ -4,7 +4,7 @@ import { Sprite } from "../sprite";
 //WIDTHS
 const DEFAULT_WIDTH = 5;
 const width = new Map();
-
+const spriteCache: Record<string, Sprite> = {};
 //Add overrides
 width.set("c", 4);
 width.set("e", 5);
@@ -52,11 +52,16 @@ export const calculateWords = ( params: {content: string, color: string}) => {
       const name = undefined;
       const animations = undefined;
 
+      let sprite = getCachedSprite(char, params.color);
+      if (!sprite) {
+        sprite = new Sprite(
+          { objectId, resource, position, scale, frame, frameSize, hFrames, vFrames, animations, name }
+        );
+        spriteCache[`${char}_${params.color}`] = sprite;
+      }
       return {
         width: charWidth,
-        sprite: new Sprite(
-          { objectId, resource, position, scale, frame, frameSize, hFrames, vFrames, animations, name }
-        )
+        sprite: sprite
       }
     });
 
@@ -79,4 +84,8 @@ const frameMap = new Map();
 
 export const getCharacterFrame = (char: string): number => { 
   return frameMap.get(char) ?? 0;
+}
+function getCachedSprite(char: string, color: string): Sprite {
+  const key = `${char}_${color}`; 
+  return spriteCache[key];
 }

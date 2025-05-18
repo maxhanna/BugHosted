@@ -4,7 +4,7 @@ import { Sprite } from "../sprite";
 import { Scenario } from "../../helpers/story-flags";
 import { DOWN, LEFT, RIGHT, UP, gridCells, snapToGrid } from "../../helpers/grid-cells";
 import { MetaBot } from "../../../../services/datacontracts/meta/meta-bot";
-import { hexToRgb, resources } from "../../helpers/resources";
+import { resources } from "../../helpers/resources";
 import { ColorSwap } from "../../../../services/datacontracts/meta/color-swap";
 import { Bot } from "../Bot/bot";
 
@@ -13,10 +13,12 @@ export class Npc extends Character {
 	type?: string;
 	partnerNpcs: Npc[] = [];
 	finishedMoving = false;
+	private moveTimeouts: any[] = []; 
 
 	moveUpDown?: number;
 	moveLeftRight?: number;
 	moveCounter = 0;
+	private moveTimeoutId: any | null = null;
 
 	constructor(config: {
 		id: number,
@@ -72,73 +74,96 @@ export class Npc extends Character {
 		if (this.moveUpDown || this.moveLeftRight) {
 			this.randomMove();
 		}
-
-		setTimeout(() => {
-			for (let i = 0; i < this.metabots.length; i++) {
-				if (this.metabots[i].isDeployed == true) {
-					const bot = this.metabots[i];
-					const tmpBot = new Bot({
-						id: bot.id,
-						heroId: this.id,
-						botType: bot.type,
-						name: bot.name ?? "Bot",
-						position: new Vector2(snapToGrid(this.position.x + gridCells(1), gridCells(1)), snapToGrid(this.position.y + gridCells(1), gridCells(1))),
-						colorSwap: this.colorSwap,
-						isDeployed: true,
-						isEnemy: true,
-						hp: bot.hp,
-						exp: bot.exp,
-						expForNextLevel: bot.expForNextLevel,
-						level: bot.level,
-						leftArm: bot.leftArm,
-						rightArm: bot.rightArm,
-						head: bot.head,
-						legs: bot.legs,
-					});
-					this.parent.addChild(tmpBot);
-				}
+ 
+		for (let i = 0; i < this.metabots.length; i++) {
+			if (this.metabots[i].isDeployed == true) {
+				const bot = this.metabots[i];
+				const tmpBot = new Bot({
+					id: bot.id,
+					heroId: this.id,
+					botType: bot.type,
+					name: bot.name ?? "Bot",
+					position: new Vector2(snapToGrid(this.position.x + gridCells(1), gridCells(1)), snapToGrid(this.position.y + gridCells(1), gridCells(1))),
+					colorSwap: this.colorSwap,
+					isDeployed: true,
+					isEnemy: true,
+					hp: bot.hp,
+					exp: bot.exp,
+					expForNextLevel: bot.expForNextLevel,
+					level: bot.level,
+					leftArm: bot.leftArm,
+					rightArm: bot.rightArm,
+					head: bot.head,
+					legs: bot.legs,
+				});
+				this.parent.addChild(tmpBot);
 			}
-		}, 5);
+		} 
 	}
 
+	override destroy() {
+		this.moveTimeouts.forEach(timeoutId => clearTimeout(timeoutId));
+		this.moveTimeouts = [];
+
+		if (this.moveTimeoutId) {
+			clearTimeout(this.moveTimeoutId);
+			this.moveTimeoutId = null;
+		} 
+		super.destroy();
+	}
 	private randomMove() {
-		if (this.moveCounter > 40) { this.moveCounter = 0; }
+		if (this.moveCounter > 40) {
+			this.moveCounter = 0;
+		}
+
+		// Clear any pending movement timeouts from previous moves
+		this.moveTimeouts.forEach(timeoutId => clearTimeout(timeoutId));
+		this.moveTimeouts = [];
+
 		// Determine movement based on the moveCounter's current value
 		switch (this.moveCounter % 4) {
 			case 0:
 				// Move up
 				if (this.moveUpDown) {
 					this.facingDirection = UP;
-					setTimeout(() => {
-						this.destinationPosition.y = this.position.y - gridCells(this.moveUpDown ?? 0);
-					}, 50);
+					this.moveTimeouts.push(
+						setTimeout(() => {
+							this.destinationPosition.y = this.position.y - gridCells(this.moveUpDown ?? 0);
+						}, 50)
+					);
 				}
 				break;
 			case 1:
 				// Move right
 				if (this.moveLeftRight) {
 					this.facingDirection = RIGHT;
-					setTimeout(() => {
-						this.destinationPosition.x = this.position.x + gridCells(this.moveLeftRight ?? 0);
-					}, 50);
+					this.moveTimeouts.push(
+						setTimeout(() => {
+							this.destinationPosition.x = this.position.x + gridCells(this.moveLeftRight ?? 0);
+						}, 50)
+					);
 				}
 				break;
 			case 2:
 				// Move down
 				if (this.moveUpDown) {
 					this.facingDirection = DOWN;
-					setTimeout(() => {
-						this.destinationPosition.y = this.position.y + gridCells(this.moveUpDown ?? 0);
-					}, 50);
+					this.moveTimeouts.push(
+						setTimeout(() => {
+							this.destinationPosition.y = this.position.y + gridCells(this.moveUpDown ?? 0);
+						}, 50)
+					);
 				}
 				break;
 			case 3:
 				// Move left
 				if (this.moveLeftRight) {
 					this.facingDirection = LEFT;
-					setTimeout(() => {
-						this.destinationPosition.x = this.position.x - gridCells(this.moveLeftRight ?? 0);
-					}, 50);
+					this.moveTimeouts.push(
+						setTimeout(() => {
+							this.destinationPosition.x = this.position.x - gridCells(this.moveLeftRight ?? 0);
+						}, 50)
+					);
 				}
 				break;
 		}
@@ -147,9 +172,19 @@ export class Npc extends Character {
 		this.moveCounter++;
 
 		// Set a new random interval between 10 seconds and 25 seconds
-		const newInterval = Math.max(Math.max(10000, Math.floor(Math.random() * 25000)), (this.speed * 750 * Math.max(this.moveLeftRight ?? 0, this.moveUpDown ?? 0)));
+		const newInterval = Math.max(
+			Math.max(10000, Math.floor(Math.random() * 25000)),
+			(this.speed * 750 * Math.max(this.moveLeftRight ?? 0, this.moveUpDown ?? 0))
+		);
 
-		// Call randomMove again after `newInterval` milliseconds
-		setTimeout(this.randomMove.bind(this), newInterval);
+		// Clear previous main interval before setting a new one
+		if (this.moveTimeoutId) {
+			clearTimeout(this.moveTimeoutId);
+		}
+
+		// Set new timeout and store its ID
+		this.moveTimeoutId = setTimeout(() => {
+			this.randomMove();
+		}, newInterval);
 	}
 }

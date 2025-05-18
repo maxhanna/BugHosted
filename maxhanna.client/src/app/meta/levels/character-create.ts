@@ -11,6 +11,8 @@ import { SpriteTextString } from "../objects/SpriteTextString/sprite-text-string
 export class CharacterCreate extends Level { 
   textBox = new SpriteTextStringWithBackdrop({});
   inputKeyPressedDate = new Date();
+  characterNameEmitted = false;
+  changeLevelEmitted = false;
   characterName = "";
   referee = new Referee({ position: new Vector2(gridCells(5), gridCells(5)) });
   profanity = ["4r5e", "5h1t", "5hit", "a55", "anal", "anus", "ar5e", "arrse", "arse", "ass", "ass-fucker", "asses",
@@ -53,6 +55,7 @@ export class CharacterCreate extends Level {
   override defaultHeroPosition = new Vector2(gridCells(1), gridCells(1));
   constructor(params: { heroPosition?: Vector2 } = {}) {
     super();
+    console.log("new char create");
     this.name = "CharacterCreate";
     if (params.heroPosition) {
       this.defaultHeroPosition = params.heroPosition;
@@ -116,7 +119,11 @@ export class CharacterCreate extends Level {
       if (content) {
         this.displayContent(content);
       }
-      events.emit("CHARACTER_NAME_CREATED", this.characterName);
+      console.log("emitting char name");
+      if (!this.characterNameEmitted) {
+        events.emit("CHARACTER_NAME_CREATED", this.characterName);
+        this.characterNameEmitted = true;
+      }
     });
     events.on("SPACEBAR_PRESSED", this, () => { 
       const currentTime = new Date();
@@ -128,6 +135,7 @@ export class CharacterCreate extends Level {
             events.emit("CHANGE_LEVEL", new HeroRoomLevel({
               heroPosition: new Vector2(gridCells(4), gridCells(4))
             }));
+            this.destroy();
           }, 100);
           return;
         } else if (storyFlags.contains(CHARACTER_CREATE_STORY_TEXT_4)) {
@@ -148,15 +156,18 @@ export class CharacterCreate extends Level {
     })
   }
   override destroy() {
+    this.textBox.destroy();
+    this.referee.destroy();
     events.unsubscribe(this); 
     super.destroy();
   }
   private displayContent(content: Scenario) {
     this.children.forEach((child: any) => {
-      if (child.textSpeed) {
+      if (child instanceof SpriteTextStringWithBackdrop || child instanceof SpriteTextString) {
         child.destroy();
       }
     });
+    if (this.textBox) { this.textBox.destroy(); }
 
     if (content.addsFlag) {
       storyFlags.add(content.addsFlag);

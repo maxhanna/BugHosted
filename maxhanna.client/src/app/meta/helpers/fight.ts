@@ -77,8 +77,8 @@ export function findTargets(source: Bot) {
     && (source.lastAttack.getTime() + 1000 < now)
     && (source.lastTargetDate.getTime() + 500 < now))
   { 
-    source.lastTargetDate = new Date();
-    let nearest = getBotsInRange(source)[0];
+    source.lastTargetDate = new Date(); 
+    let nearest = getBotsInRange(source, source.partyMembers)[0];
     if (nearest && nearest.name) { 
       target(source, nearest);
     }  

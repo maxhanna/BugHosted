@@ -1760,7 +1760,9 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
       && this.nexusBase) ? true : false;
   }
   shouldShowResources(): boolean {
-    return (!this.isReportsOpen && !this.isMapOpen && !this.isBasesOpen && !this.isSupportOpen && !this.isUserNew && this.nexusBase) ? true : false;
+    return (!this.isReportsOpen && !this.isMapOpen && !this.isBasesOpen 
+      && !this.isSupportOpen && !this.showMoreWarehouseInfo && !this.showMoreFactoryInfo
+       && !this.showMoreStarportInfo && !this.showMoreEngineeringBayInfo && !this.isUserNew && this.nexusBase) ? true : false;
   }
   getUnitsWithoutGlitcher() {
     if (!this.units || !this.nexusBase) return undefined;

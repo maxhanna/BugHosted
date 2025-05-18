@@ -106,11 +106,9 @@
 }
 
 .commentMediaFile {
-  display: block;
-  border: var(--main-border);
+  display: block; 
   max-width: 225px;
-  max-height: 525px;
-  overflow-y: auto;
+  max-height: 525px; 
 }
 
 .highlightedCommentCounter {

@@ -252,10 +252,7 @@ export class AppComponent implements OnInit, AfterViewInit {
       this.router.dispose();
     }
   }
-  restartComponent(componentName: string) { 
-    this.removeAllComponents();
-    this.createComponent(componentName);
-  }
+ 
   createComponent(componentType: string, inputs?: { [key: string]: any; }, previousComponentParameters?: { [key: string]: any; }) {
     console.log("in create component : " + componentType);
     this.navigationComponent.minimizeNav();
@@ -594,7 +591,7 @@ export class AppComponent implements OnInit, AfterViewInit {
     // Step 2: Convert regular URLs into clickable links
     text = text.replace(/(<a[^>]*>.*?<\/a>)|(https?:\/\/[a-zA-Z0-9\-._~:/?#[\]@!$&'()*+,;=%]+)/gi, (match, existingLink, url) => {
       if (existingLink) return existingLink;
-      return `<a onClick="document.getElementById('hiddenUrlToVisit').value='${url}';document.getElementById('hiddenUrlToVisitButton').click()" class=cursorPointer>${url}</a>`;
+      return `<a href='${url}' target="_blank" onClick="document.getElementById('hiddenUrlToVisit').value='${url}';document.getElementById('hiddenUrlToVisitButton').click()" class=cursorPointer>${url}</a>`;
     }).replace(/\n/g, '<br>');
 
     // Step 3: Replace YouTube placeholders with clickable links
@@ -827,7 +824,7 @@ export class AppComponent implements OnInit, AfterViewInit {
   visitExternalLinkButtonClicked() {
     const url = (document.getElementById("hiddenUrlToVisit") as HTMLInputElement).value;
     (document.getElementById("hiddenUrlToVisit") as HTMLInputElement).value = "";
-    this.visitExternalLink(url);
+    this.indexLink(url);
   }
   visitExternalLink(url?: string) {
     if (!url) return;

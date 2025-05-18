@@ -9,7 +9,6 @@ import { Level } from "../Level/level";
 import { SpriteTextStringWithBackdrop } from "../SpriteTextString/sprite-text-string-with-backdrop";
 import { MetaHero } from "../../../../services/datacontracts/meta/meta-hero";
 import { Character } from "../character";
-import { Npc } from "../Npc/npc";
 
 export class Main extends GameObject {
   level?: Level = undefined;
@@ -19,13 +18,15 @@ export class Main extends GameObject {
   heroId?: number;
   metaHero?: MetaHero;
   hero: Character;
+  partyMembers?: { heroId: number, name: string, color?: string }[] = [];
 
-  constructor(config: { position: Vector2, heroId: number, metaHero: MetaHero, hero: Character }) {
+  constructor(config: { position: Vector2, heroId: number, metaHero: MetaHero, hero: Character, partyMembers?: { heroId: number, name: string, color?: string }[] }) {
     super({ position: config.position });
     this.heroId = config.heroId;
     this.metaHero = config.metaHero;
     this.hero = config.hero;
-    this.inventory = new Inventory({ character: this.metaHero });
+    this.partyMembers = config.partyMembers;
+    this.inventory = new Inventory({ character: this.metaHero, partyMembers: this.partyMembers });
     this.camera = new Camera({ position: new Vector2(0, 0), heroId: this.heroId });
     this.isOmittable = false;
   }
@@ -48,6 +49,12 @@ export class Main extends GameObject {
         if (content.addsFlag) { 
           storyFlags.add(content.addsFlag);
         }
+        if (content.string.includes("Party Up")) {
+          if (this.partyMembers?.find(x => x.heroId == params.objectAtPosition.id) || this.partyMembers?.find(x => x.heroId == params.objectAtPosition.heroId)) {
+            content.string = content.string.filter((x:string) => x != "Party Up");
+            content.string.unshift("Unparty");
+          }
+        }
 
         const textBox = new SpriteTextStringWithBackdrop({
           portraitFrame: content.portraitFrame,
@@ -59,7 +66,7 @@ export class Main extends GameObject {
         events.emit("START_TEXT_BOX");
 
         const endingSub = events.on("END_TEXT_BOX", this, () => {
-          textBox.destroy();
+          textBox.destroy(); 
           events.off(endingSub);
         });
       } 
@@ -80,6 +87,7 @@ export class Main extends GameObject {
     if (this.level) {
       this.level.destroy();
     } 
+    console.log("setting level: ", newLevelInstance, this.children);
     this.level = newLevelInstance; 
     this.addChild(this.level);
   }
@@ -98,9 +106,9 @@ export class Main extends GameObject {
 
   drawForeground(ctx: CanvasRenderingContext2D) { 
     this.children.forEach((child: GameObject) => {
-      if (child.drawLayer === HUD) { 
+      if (child.drawLayer === HUD) {
         child.draw(ctx, 0, 0);
-      } 
+      }
     }) 
   }
 }

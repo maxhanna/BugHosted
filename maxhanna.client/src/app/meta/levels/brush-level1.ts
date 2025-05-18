@@ -1,12 +1,12 @@
 import { Vector2 } from "../../../services/datacontracts/meta/vector2";
 import { gridCells } from "../helpers/grid-cells";
 import { resources } from "../helpers/resources";
-import { events } from "../helpers/events"; 
+import { events } from "../helpers/events";
 import { Exit } from "../objects/Environment/Exit/exit";
 import { Level } from "../objects/Level/level";
 import { BrushShop1 } from "./brush-shop1";
 import { RivalHomeLevel1 } from "./rival-home-level1";
-import { Sprite } from "../objects/sprite"; 
+import { Sprite } from "../objects/sprite";
 import { HeroHome } from "./hero-home";
 import { GOT_FIRST_METABOT, Scenario, storyFlags } from "../helpers/story-flags";
 import { Referee } from "../objects/Npc/Referee/referee";
@@ -25,9 +25,9 @@ import { Sign } from "../objects/Environment/Sign/sign";
 import { BrushRoad1 } from "./brush-road1";
 import { GROUND, FLOOR } from "../objects/game-object";
 import { Encounter } from "../objects/Environment/Encounter/encounter";
- 
 
-export class BrushLevel1 extends Level { 
+
+export class BrushLevel1 extends Level {
   override defaultHeroPosition = new Vector2(gridCells(13), gridCells(29));
   showDebugSprites = false;
   constructor(params: { heroPosition?: Vector2, itemsFound?: string[] | undefined }) {
@@ -35,11 +35,11 @@ export class BrushLevel1 extends Level {
     this.name = "BrushLevel1";
     if (params.heroPosition) {
       this.defaultHeroPosition = params.heroPosition;
-    } 
+    }
     if (params.itemsFound) {
       this.itemsFound = params.itemsFound;
     }
-     
+
     const whiteBg = new Sprite(
       {
         objectId: 0,
@@ -51,7 +51,7 @@ export class BrushLevel1 extends Level {
       }
     );
     whiteBg.drawLayer = GROUND;
-    this.addChild(whiteBg); 
+    this.addChild(whiteBg);
 
     for (let x = -5; x < 24; x++) {
       for (let y = -5; y < 22; y++) {
@@ -90,11 +90,11 @@ export class BrushLevel1 extends Level {
     }
     for (let x = 1; x < 8; x++) {
       const rock = new Rocks({
-        position: new Vector2(gridCells(x) + gridCells(29), gridCells(1)), 
+        position: new Vector2(gridCells(x) + gridCells(29), gridCells(1)),
       });
       this.addChild(rock);
       const rock2 = new Rocks({
-        position: new Vector2(gridCells(x) + gridCells(29), gridCells(7)), 
+        position: new Vector2(gridCells(x) + gridCells(29), gridCells(7)),
       });
       this.addChild(rock2);
     }
@@ -115,31 +115,31 @@ export class BrushLevel1 extends Level {
 
 
     const house = new House(gridCells(8), gridCells(28));
-    this.addChild(house);  
+    this.addChild(house);
 
     const sign = new Sign(
       { position: new Vector2(gridCells(17), gridCells(29)), text: ["Home."] }
-    );  
-    this.addChild(sign); 
+    );
+    this.addChild(sign);
 
 
-    const shop = new Shop(gridCells(25), gridCells(17));
-    this.addChild(shop); 
-  
+    const shop = new Shop(gridCells(25), gridCells(20));
+    this.addChild(shop);
+
     const shopsign = new Sign(
       { position: new Vector2(gridCells(32), gridCells(18)), text: ["Local Meta-Shop", "Buy, Sell, Repair here."] }
     );
-    this.addChild(shopsign); 
+    this.addChild(shopsign);
 
     const rivalHouse = new House(gridCells(8), gridCells(10));
-    this.addChild(rivalHouse); 
+    this.addChild(rivalHouse);
 
     const rivalSign = new Sign(
       { position: new Vector2(gridCells(17), gridCells(11)), text: [`Rivals' House.`] }
     );
-    this.addChild(rivalSign); 
+    this.addChild(rivalSign);
 
-    const tree = new GiantTree(gridCells(32), gridCells(32)); 
+    const tree = new GiantTree(gridCells(32), gridCells(32));
     this.addChild(tree);
 
     const chicken = new Chicken(gridCells(20), gridCells(25));
@@ -158,7 +158,7 @@ export class BrushLevel1 extends Level {
       );
       goldPath.drawLayer = FLOOR;
       this.addChild(goldPath);
-    } 
+    }
 
     //plants alongside road
     for (let x = 0; x < 10; x++) {
@@ -180,7 +180,12 @@ export class BrushLevel1 extends Level {
     //hero's home fence
     for (let x = 0; x < 12; x++) {
       const fence = new Sprite(
-        { objectId: 0, resource: resources.images["fenceHorizontal"], position: new Vector2(x * gridCells(1) + gridCells(8), gridCells(20)), frameSize: new Vector2(16, 16) }
+        {
+          objectId: 0, resource: resources.images["fenceHorizontal"],
+          position: new Vector2(x * gridCells(1) + gridCells(8), gridCells(20)),
+          frameSize: new Vector2(16, 16),
+          drawLayer: GROUND,
+        }
       );
       fence.isSolid = true;
       this.addChild(fence);
@@ -204,7 +209,7 @@ export class BrushLevel1 extends Level {
       fence2.isSolid = true;
       this.addChild(fence2);
     }
-    for (let y = 0; y < 2; y++) { 
+    for (let y = 0; y < 2; y++) {
       const rock = new Rocks({
         position: new Vector2(gridCells(19), gridCells(26 + y)),
         frame: 4 + y,
@@ -223,13 +228,13 @@ export class BrushLevel1 extends Level {
 
 
     //exits 
-    const rivalHomeExit = new Exit({ position: new Vector2(gridCells(13), gridCells(10)), showSprite: false, targetMap: "RivalHomeLevel1" }); 
+    const rivalHomeExit = new Exit({ position: new Vector2(gridCells(13), gridCells(10)), showSprite: false, targetMap: "RivalHomeLevel1" });
     this.addChild(rivalHomeExit);
 
-    const shopExit = new Exit({ position: new Vector2(gridCells(30), gridCells(17)), showSprite: false, targetMap: "BrushShop1" }); 
+    const shopExit = new Exit({ position: new Vector2(gridCells(30), gridCells(17)), showSprite: false, targetMap: "BrushShop1" });
     this.addChild(shopExit);
 
-    const heroHomeExit = new Exit({ position: new Vector2(gridCells(13), gridCells(28)), showSprite: false, targetMap: "HeroHome" }); 
+    const heroHomeExit = new Exit({ position: new Vector2(gridCells(13), gridCells(28)), showSprite: false, targetMap: "HeroHome" });
     this.addChild(heroHomeExit);
 
     if (storyFlags.contains("GOT_FIRST_METABOT")) {
@@ -237,36 +242,36 @@ export class BrushLevel1 extends Level {
         const brushRoad1Exit = new Exit(
           { position: new Vector2(gridCells(- 1), gridCells(x) + gridCells(12)), showSprite: false, targetMap: "BrushRoad1" }
         );
-        this.addChild(brushRoad1Exit); 
+        this.addChild(brushRoad1Exit);
       }
     }
     const brsign = new Sign(
       { position: new Vector2(gridCells(1), gridCells(11)), text: ["Brush Road."] }
     );
-    this.addChild(brsign); 
-     
- 
+    this.addChild(brsign);
+
+
 
     //map perimeter fences/bushes
     for (let x = 0; x < 38; x++) {
       const bb = new Sprite(
         { objectId: 0, resource: resources.images["biggerBush"], position: new Vector2(x * gridCells(1), gridCells(0)), frameSize: new Vector2(15, 17), isSolid: true }
-      ); 
+      );
       this.addChild(bb);
 
       const bb2 = new Sprite(
         { objectId: 0, resource: resources.images["biggerBush"], position: new Vector2(x * gridCells(1), gridCells(36)), frameSize: new Vector2(15, 17), isSolid: true }
-      ); 
+      );
       this.addChild(bb2);
-      if (x < 31) { 
+      if (x < 31) {
         const fence = new Sprite(
           { objectId: 0, resource: resources.images["fenceHorizontal"], position: new Vector2(x * gridCells(1), gridCells(1)), frameSize: new Vector2(16, 16), isSolid: true }
         );
-        this.addChild(fence); 
+        this.addChild(fence);
       }
       const fence2 = new Sprite(
         { objectId: 0, resource: resources.images["fenceHorizontal"], position: new Vector2(x * gridCells(1), gridCells(35)), frameSize: new Vector2(16, 16), isSolid: true }
-      ); 
+      );
       this.addChild(fence2);
     }
 
@@ -276,27 +281,27 @@ export class BrushLevel1 extends Level {
       } else {
         const bb = new Sprite(
           { objectId: 0, resource: resources.images["biggerBush"], position: new Vector2(gridCells(-1), gridCells(y) / 2), frameSize: new Vector2(15, 17), isSolid: true }
-        ); 
+        );
         this.addChild(bb);
 
         const fence = new Sprite(
           { objectId: 0, resource: resources.images["fenceVertical"], position: new Vector2(gridCells(0), y * gridCells(1) / 2), frameSize: new Vector2(16, 16), isSolid: true }
-        ); 
+        );
         this.addChild(fence);
       }
 
       const bb2 = new Sprite(
         { objectId: 0, resource: resources.images["biggerBush"], position: new Vector2(gridCells(38), gridCells(y) / 2), frameSize: new Vector2(15, 17), isSolid: true }
-      ); 
+      );
       this.addChild(bb2);
 
-      if (y > 15) { 
+      if (y > 15) {
         const fence2 = new Sprite(
           { objectId: 0, resource: resources.images["fenceVertical"], position: new Vector2(gridCells(37), y * gridCells(1) / 2), frameSize: new Vector2(16, 16), isSolid: true }
         );
         this.addChild(fence2);
       }
-    } 
+    }
 
     const gangster0 = new Gangster({ position: new Vector2(gridCells(13), gridCells(10)), });
     gangster0.textContent = [
@@ -308,7 +313,7 @@ export class BrushLevel1 extends Level {
 
     //Npcs <<-- PLACED AT THE END BECAUSE FOR SOME REASON, IT DOESNT RENDER MY ACCOUNT (MAX) ON BOTTOM UNLESS ITS POSITIONED HERE LMAO
     if (storyFlags.contains(GOT_FIRST_METABOT)) {
- 
+
       const encounter = new Encounter({
         id: -997711,
         position: new Vector2(gridCells(33), gridCells(4)),
@@ -327,14 +332,14 @@ export class BrushLevel1 extends Level {
         hp: 20,
         level: 1,
       });
-      this.addChild(encounterGangsterBot); 
+      this.addChild(encounterGangsterBot);
 
       const gangster1 = new Gangster({ position: new Vector2(gridCells(15), gridCells(15)) });
       gangster1.textContent = [
         {
           string: ["Our orders are to get your parents and bring them back to headquarters. You can't stop us."],
         } as Scenario
-      ]; 
+      ];
       this.addChild(gangster1);
 
       const gangster2 = new Gangster({ position: new Vector2(gridCells(26), gridCells(18)) });
@@ -342,24 +347,24 @@ export class BrushLevel1 extends Level {
         {
           string: ["We're not here to chat, buzz off."],
         } as Scenario
-      ]; 
-      this.addChild(gangster2); 
+      ];
+      this.addChild(gangster2);
 
-      const gangster3 = new Gangster({ position: new Vector2(gridCells(12), gridCells(29)), moveLeftRight: 2 }); 
+      const gangster3 = new Gangster({ position: new Vector2(gridCells(12), gridCells(29)), moveLeftRight: 2 });
       gangster3.textContent = [
         {
-          string: ["We're under strict orders not to let anyone in!!"], 
+          string: ["We're under strict orders not to let anyone in!!"],
         } as Scenario
-      ]; 
+      ];
       this.addChild(gangster3);
     }
     const referee = new Referee({ position: new Vector2(gridCells(5), gridCells(10)), moveUpDown: 5 });
     referee.textContent = [
       {
-        string: ["I cant wait to see more meta-battles!"], 
+        string: ["I cant wait to see more meta-battles!"],
       } as Scenario
-    ]; 
-    this.addChild(referee);  
+    ];
+    this.addChild(referee);
   }
 
   override ready() {
@@ -381,10 +386,10 @@ export class BrushLevel1 extends Level {
       }
       if (targetMap === "BrushRoad1") {
         events.emit("CHANGE_LEVEL", new BrushRoad1({
-           itemsFound: this.itemsFound
+          itemsFound: this.itemsFound
         }));
       }
-    }); 
+    });
   }
   override getDefaultHeroPosition() {
     return this.defaultHeroPosition;

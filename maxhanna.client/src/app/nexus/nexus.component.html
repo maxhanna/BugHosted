@@ -538,7 +538,7 @@
         </div>
       </div>
       <div *ngIf="nexusBase && nexusBase.engineeringBayLevel > 6">
-        Create cybershardss!
+        Create cybershards! 
       </div>
       <div><button (click)="closeWarehouse()">Back</button></div>
     </div>
@@ -562,7 +562,7 @@
         </div>
         <div class="notification">Every research upgrade is a damage multiplier applied to units when attacking and defending.</div>
         <div *ngFor="let stat of unitUpgradeStats">
-          <table class="unitsTableDiv">
+          <table class="unitsTableDiv unitUpgradeStatsTable">
             <tbody>
               <tr>
                 <td>Level: {{stat.unitLevel}}</td>
@@ -576,7 +576,7 @@
       <div class="unitsUpgradesDiv" *ngIf="!showMoreEngineeringBayInfo">
         <div class="unitResearches">
           <div *ngFor="let unit of (unitsWithoutGlitcher ? unitsWithoutGlitcher : getUnitsWithoutGlitcher()); trackBy: trackByUnit" class="unitUpgradeDiv capitalize xxSmallFont gameNotification unitUpgradeDivContainer">
-            <div class="portraitContainer" [title]="unit.unitLevel < 4 ? '📀'+getResearchCostPerUnit(unit) : ''">
+            <div class="portraitContainer" [title]="unit.unitLevel < 3 ? '📀'+getResearchCostPerUnit(unit) : ''">
               <img [src]="unit.pictureSrc" loading="lazy" class="unitPicture " decoding="asynchronous" />
               <div class="unitCountLabel">
                 Level {{unit.unitLevel > 3 ? 3 : unit.unitLevel}}

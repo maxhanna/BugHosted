@@ -10,6 +10,7 @@ export class ProfitData {
   endBtcPriceUsdc?: number;
   profitUsdc?: number;
   cumulativeProfitUsdc?: number;
+  absoluteProfitUsdc?: number;
 
   constructor(data?: Partial<ProfitData>) {
     if (data) {
@@ -24,6 +25,7 @@ export class ProfitData {
       this.endBtcPriceUsdc = data.endBtcPriceUsdc;
       this.profitUsdc = data.profitUsdc;
       this.cumulativeProfitUsdc = data.cumulativeProfitUsdc;
+      this.absoluteProfitUsdc = data.absoluteProfitUsdc;
     }
   }
 }

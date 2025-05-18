@@ -506,6 +506,7 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
   }
 
   async createUser(guest?: boolean) {
+    console.log("creating user:", guest);
     let tmpUserName = this.loginUsername.nativeElement.value;
     const tmpPassword = this.loginPassword.nativeElement.value;
     if (guest && tmpUserName.trim() == "") {
@@ -567,6 +568,7 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
         this.parentRef!.userSelectedNavigationItems = await this.userService.getUserMenu(tmpUser.id);
 
         if (this.loginOnly) {
+          console.log("close user event emitted from user panel");
           this.closeUserComponentEvent.emit(tmpUser);
         }
       } else {

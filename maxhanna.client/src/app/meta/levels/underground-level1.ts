@@ -81,44 +81,34 @@ export class UndergroundLevel1 extends Level {
     for (let railNo = 0; railNo < 3; railNo++) {
       for (let x = 0; x < 8; x++) {
         if (x == 0 || x == 7) {
-          const metalRailSide = new Sprite({ position: new Vector2(gridCells(2) + gridCells(8 * railNo) + gridCells(x), gridCells(3)), resource: resources.images["metalrailside"], isSolid: true, frameSize: new Vector2(16, 32), flipX: x === 7, offsetY: -16 });
+          const metalRailSide = new Sprite({ position: new Vector2(gridCells(2) + gridCells(8 * railNo) + gridCells(x), gridCells(4)), resource: resources.images["metalrailside"], isSolid: true, frameSize: new Vector2(16, 32), flipX: x === 7, offsetY: -16 });
           this.addChild(metalRailSide);
         } else {
-          const metalRail = new Sprite({ position: new Vector2(gridCells(2) + gridCells(8 * railNo) + gridCells(x), gridCells(3)), resource: resources.images["metalrail"], isSolid: true, frameSize: new Vector2(16, 32), offsetY: -16 });
+          const metalRail = new Sprite({ position: new Vector2(gridCells(2) + gridCells(8 * railNo) + gridCells(x), gridCells(4)), resource: resources.images["metalrail"], isSolid: true, frameSize: new Vector2(16, 32), offsetY: -16 });
           this.addChild(metalRail);
         }
       }
     }
     for (let x = 0; x < 8; x++) {
       if (x == 0 || x == 7) {
-        const metalRailSide = new Sprite({ position: new Vector2(gridCells(30) + gridCells(x), gridCells(3)), resource: resources.images["metalrailside"], isSolid: true, frameSize: new Vector2(16, 32), flipX: x === 7, offsetY: -16 });
+        const metalRailSide = new Sprite({ position: new Vector2(gridCells(30) + gridCells(x), gridCells(4)), resource: resources.images["metalrailside"], isSolid: true, frameSize: new Vector2(16, 32), flipX: x === 7, offsetY: -16 });
         this.addChild(metalRailSide);
       } else {
-        const metalRail = new Sprite({ position: new Vector2(gridCells(30) + gridCells(x), gridCells(3)), resource: resources.images["metalrail"], isSolid: true, frameSize: new Vector2(16, 32), offsetY: -16 });
+        const metalRail = new Sprite({ position: new Vector2(gridCells(30) + gridCells(x), gridCells(4)), resource: resources.images["metalrail"], isSolid: true, frameSize: new Vector2(16, 32), offsetY: -16 });
         this.addChild(metalRail);
       }
     }
 
     for (let x = 0; x < 3; x++) {
       if (x == 0 || x == 2) {
-        const metalRailSide = new Sprite({ position: new Vector2(gridCells(38) + gridCells(x), gridCells(3)), resource: resources.images["metalrailside"], isSolid: true, frameSize: new Vector2(16, 32), flipX: x === 2, offsetY: -16 });
+        const metalRailSide = new Sprite({ position: new Vector2(gridCells(38) + gridCells(x), gridCells(4)), resource: resources.images["metalrailside"], isSolid: true, frameSize: new Vector2(16, 32), flipX: x === 2, offsetY: -16 });
         this.addChild(metalRailSide);
       } else {
-        const metalRail = new Sprite({ position: new Vector2(gridCells(38) + gridCells(x), gridCells(3)), resource: resources.images["metalrail"], isSolid: true, frameSize: new Vector2(16, 32), offsetY: -16 });
+        const metalRail = new Sprite({ position: new Vector2(gridCells(38) + gridCells(x), gridCells(4)), resource: resources.images["metalrail"], isSolid: true, frameSize: new Vector2(16, 32), offsetY: -16 });
         this.addChild(metalRail);
       }
     }
-    for (let y = 0; y < 4; y++) {
-
-      const metalRailSide0 = new Sprite({ position: new Vector2(gridCells(2), gridCells(2) + gridCells(y)), resource: resources.images["metalrailside"], isSolid: y != 0, frameSize: new Vector2(5, 16) });
-      this.addChild(metalRailSide0);
-
-      const metalRailSide = new Sprite({ position: new Vector2(gridCells(26), gridCells(2) + gridCells(y)), resource: resources.images["metalrailside"], isSolid: y != 0, flipX: true, frameSize: new Vector2(5, 16), offsetX: -5 });
-      this.addChild(metalRailSide);
-
-      const metalRailSide2 = new Sprite({ position: new Vector2(gridCells(30), gridCells(2) + gridCells(y)), resource: resources.images["metalrailside"], isSolid: y != 0, frameSize: new Vector2(5, 16) });
-      this.addChild(metalRailSide2);
-    }
+ 
     //second floor
     for (let x = 0; x < 70; x++) {
       for (let y = 0; y < 16; y++) {

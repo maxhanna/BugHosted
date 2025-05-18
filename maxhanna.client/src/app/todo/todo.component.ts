@@ -1,7 +1,5 @@
-import { AfterViewInit, Component, ElementRef, OnDestroy, OnInit, ViewChild } from '@angular/core';
-import { ChildComponent } from '../child.component';
-import { lastValueFrom } from 'rxjs';
-import { HttpClient, HttpParams } from '@angular/common/http';
+import { AfterViewInit, ChangeDetectionStrategy, Component, ElementRef, OnDestroy, OnInit, ViewChild } from '@angular/core';
+import { ChildComponent } from '../child.component'; 
 import { Todo } from '../../services/datacontracts/todo';
 import { TodoService } from '../../services/todo.service';
 
@@ -9,7 +7,7 @@ import { TodoService } from '../../services/todo.service';
   selector: 'app-todo',
   templateUrl: './todo.component.html',
   styleUrl: './todo.component.css',
-  standalone: false
+  standalone: false, 
 })
 export class TodoComponent extends ChildComponent implements OnInit, AfterViewInit, OnDestroy {
   todos: Array<Todo> = [];

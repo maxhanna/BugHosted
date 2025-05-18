@@ -86,8 +86,7 @@
   white-space: nowrap;
   text-overflow: ellipsis;
   max-width: 80px;
-  width: 100%;
-  direction: rtl;
+  width: 100%; 
   text-align: left; 
   line-height: unset;
 }

@@ -50,6 +50,7 @@ namespace maxhanna.Server.Services
 		{
 			if (_upgradeQueue.Contains(upgradeId)) return;
 			_upgradeQueue.Enqueue(upgradeId);
+			ProcessQueue(true);
 		}
 		private void ProcessQueue(object? state)
 		{

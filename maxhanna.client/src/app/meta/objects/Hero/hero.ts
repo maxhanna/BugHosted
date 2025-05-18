@@ -96,6 +96,9 @@ export class Hero extends Character {
         if (selectedItem === "Party Up") {
           events.emit("PARTY_UP", isObjectNearby(this));
         }
+        else if (selectedItem === "Unparty") { 
+          events.emit("UNPARTY", isObjectNearby(this));
+        }
         else if (selectedItem === "Wave") {
           events.emit("WAVE_AT", isObjectNearby(this));
         }

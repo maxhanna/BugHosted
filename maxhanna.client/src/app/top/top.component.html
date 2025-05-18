@@ -1,11 +1,39 @@
-<div class=componentMain>
+<div class="componentMain">
     <div class="closeButton" (click)="remove_me('FavouritesComponent');"></div>
     <div class="componentTitle">Top100</div>
+
     <div class="popupPanelTitle">Choose a category:</div>
     <app-topics #topicComponent [isDropdown]="true" [user]="parentRef?.user" [parent]="parentRef"
         (topicAdded)="onTopicAdded($event)">
     </app-topics>
-    <div style="height: 500px;"> 
-        <div>top thing</div>
+
+    <div class="add-entry-form">
+        <input type="text" #titleInput placeholder="Title" class="form-input" />
+        <input type="text" #urlInput placeholder="URL (optional)" class="form-input" />
+        <button (click)="addToTop()" class="add-button">Add</button>
+    </div>
+
+    <div *ngIf="isLoading" class="loading-message">Loading top entries...</div>
+    <div *ngIf="errorMessage" class="error-message">{{ errorMessage }}</div>
+
+    <div class="entries-container">
+        <div *ngFor="let entry of topEntries" class="entry-card">
+            <div class="entry-header">
+                <span class="entry-rank">#{{ entry.id }}</span>
+                <span class="entry-title">{{ entry.entry }}</span>
+            </div>
+
+            <div class="entry-details">
+                <span class="entry-category">Category: {{ entry.category }}</span>
+                <span *ngIf="entry.url" class="entry-url">
+                    <a [href]="entry.url" target="_blank">Link</a>
+                </span>
+                <span class="entry-date">Added: {{ entry.createdAt | date:'medium' }}</span>
+            </div>
+        </div>
+
+        <div *ngIf="!isLoading && topEntries.length === 0" class="no-entries">
+            No entries found. Be the first to add one!
+        </div>
     </div>
 </div>

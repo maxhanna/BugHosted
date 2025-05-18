@@ -55,8 +55,9 @@ import { HostAiComponent } from './host-ai/host-ai.component';
 import { ThemesComponent } from './themes/themes.component';
 import { CrawlerComponent } from './crawler/crawler.component';
 import { SpeechRecognitionComponent } from './speech-recognition/speech-recognition.component';
-import { TopComponent } from './top/top.component'; 
-import { TimeFormatPipe } from './time-format.pipe'; 
+import { TopComponent } from './top/top.component';
+import { TimeFormatPipe } from './time-format.pipe';
+import { TimeSincePipe } from './time-since.pipe'; 
 
 @NgModule({
   declarations: [
@@ -113,12 +114,14 @@ import { TimeFormatPipe } from './time-format.pipe';
   imports: [BrowserModule,
     LineGraphComponent,
     TimeFormatPipe,
+    TimeSincePipe,
     FileSizePipe, 
     AppRoutingModule],
   exports: [
     InViewDirective,
     ClickableUrlsPipe,
     TimeFormatPipe,
+    TimeSincePipe,
     CurrencyFlagPipe,
     FileSizePipe
   ],

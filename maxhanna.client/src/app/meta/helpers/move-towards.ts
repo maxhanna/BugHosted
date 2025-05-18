@@ -348,12 +348,13 @@ export function setAnimationToStandAfterTimeElapsed(player: any) {
 	}, (player.isUserControlled ? 1000 : 1500));
 }
 
-export function getBotsInRange(player: Bot): Bot[] { 
+export function getBotsInRange(player: Bot, partyMembers?: { heroId: number, name: string }[]): Bot[] { 
   const discrepancy = gridCells(5);
 
   const posibilities = player.parent?.children?.filter((child: Bot) => {
     return (
       ((player.heroId ?? 0) < 0 ? (child.heroId ?? 0) > 0 : true) &&
+	  !partyMembers?.find(x => x.heroId == (child.heroId ?? 0)) &&
       (child.isDeployed) &&
       (child.id != player.id) &&
       (child.isEnemy) &&

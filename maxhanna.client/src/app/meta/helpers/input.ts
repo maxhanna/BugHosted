@@ -98,7 +98,7 @@ export class Input {
       if (moveLock) {
         this.emitDebounced("HERO_MOVEMENT_LOCK");
       } else {
-        this.emitDebounced("HERO_MOVEMENT_UNLOCK");
+        events.emit("HERO_MOVEMENT_UNLOCK");
       }
     }
   }
@@ -222,7 +222,7 @@ export class Input {
     }
   }
   pressBackspace() {
-    if (this.chatInput.value.trim() == "" && document.activeElement == this.chatInput) {
+    if (this.chatInput && this.chatInput.value.trim() == "" && document.activeElement == this.chatInput) {
       console.log("press backspace");
       this.chatInput.blur();
       this.chatSelected = false;
@@ -238,8 +238,7 @@ export class Input {
     events.emit("CLOSE_MENUS"); 
   }
 
-  handleControl(direction: string, action: 'press' | 'release', event?: TouchEvent) {
-    if (action === 'press' && !this.verifyCanPressKey()) return;
+  handleControl(direction: string, action: 'press' | 'release', event?: TouchEvent) { 
     if (event) {
       event.preventDefault();
     }

@@ -1,3 +1,5 @@
+using System.Text;
+
 public class TradeConfiguration
 {
 	public int UserId { get; set; }
@@ -9,11 +11,13 @@ public class TradeConfiguration
 	public decimal? TradeThreshold { get; set; }
 	public decimal? MaximumTradeBalanceRatio { get; set; }
 	public decimal? ValueTradePercentage { get; set; }
-	public decimal? FromPriceDiscrepencyStopPercentage { get; set; }
 	public decimal? InitialMinimumFromAmountToStart { get; set; }
+	public decimal? InitialMinimumUSDCAmountToStart { get; set; }
+	public decimal? InitialMaximumUSDCAmountToStart { get; set; }
 	public decimal? MinimumFromReserves { get; set; }
 	public decimal? MinimumToReserves { get; set; }
 	public int? MaxTradeTypeOccurances { get; set; }
 	public int? VolumeSpikeMaxTradeOccurance { get; set; }
+	public decimal? TradeStopLoss { get; set; }
 	public DateTime? Updated { get; set; }
 }

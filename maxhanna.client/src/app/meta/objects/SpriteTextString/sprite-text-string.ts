@@ -15,15 +15,19 @@ export class SpriteTextString extends GameObject {
   LINE_WIDTH_MAX = 240;
   LINE_VERTICAL_WIDTH = 14;
   color: string = "White";
-  constructor(wordToWrite: string, position: Vector2, color?: string) {
+  constructor(wordToWrite: string, position: Vector2, color?: "White" | "Black", secondsToLive?: number) {
     super({ position: position, drawLayer: HUD }); 
     if (color) { 
       this.color = color;
     } 
     const content = wordToWrite ?? "Default text!";
     this.words = calculateWords({ content: content, color: this.color });
- 
+    
     this.finalIndex = this.words.reduce((acc, word) => acc + word.chars.length, 0);
+
+    if (secondsToLive) {
+      setTimeout(() => { this.destroy(); }, secondsToLive * 1000);
+    }
   }
 
   override step(delta: number, root: GameObject) { 
@@ -33,7 +37,7 @@ export class SpriteTextString extends GameObject {
         parent = parent.parent;
       }
     }
-    if (!(this.showingIndex = this.finalIndex)) {
+    if (!(this.showingIndex === this.finalIndex)) {
       const input = parent?.input as Input;
       if (input?.getActionJustPressed("Space")) {
         if (this.showingIndex < this.finalIndex) {

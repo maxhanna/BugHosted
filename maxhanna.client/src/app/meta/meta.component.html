@@ -2,17 +2,17 @@
   <div class="closeButton" (click)="remove_me('MetaComponent');"></div>
   <!--<div class="refreshButton" (click)="ngOnInit();"></div>-->
   <div class="componentTitle">Meta-Bots</div>
-
+<!-- 
   <div *ngIf="isLoading" class="loadingModal">The game is loading...</div>
-  <div *ngIf="serverDown">We are sorry, server is currently down. Please be patient while we bring it back online.</div>
+  <div *ngIf="serverDown">We are sorry, server is currently down. Please be patient while we bring it back online.</div> -->
   <div class="gameCanvasContainer">
     <canvas #gameCanvas id="gameCanvas" class="gameCanvas" width=320 height="220"></canvas> 
   </div>
-  <div class="chatArea" *ngIf="parentRef && parentRef.user && mainScene.input.displayChat">
+  <div class="chatArea">
     <div class="chatInputDiv">
       <input type="text" [placeholder]=" 'Chat'" #chatInput id="chatInput" class="chatInput" (keydown)="lockMovementForChat()" (change)="lockMovementForChat()" />
     </div>
-    <div class="chatBox" id="chatBox">
+    <!-- <div class="chatBox" id="chatBox">
       <div *ngFor="let msg of chat">
         <span class="heroName">
           {{msg.hero}}
@@ -20,10 +20,10 @@
         </span>:
         <span class="chatBoxMessage">{{msg.content}}</span>
       </div> 
-    </div> 
+    </div>  -->
   </div>
 
-  <div *ngIf="parentRef && parentRef.user" class="inputArea">
+  <div class="inputArea">
     <div class="controls">
       <div class="controls">
         <div class="dpad">
@@ -103,12 +103,13 @@
         <div class="a" (mouseup)='mainScene.input.pressA()'>A</div>
       </div>
 
-      <div class="start" (mouseup)='mainScene.input.pressStart()' [style.visibility]="hideStartButton ? 'hidden' : 'visible'">START</div>
+      <div class="start" (mouseup)='mainScene.input.pressStart()' >START</div>
     </div>
 
-    <input type="color" (change)='changeColor()' #colorInput class="colorInput" [value]="metaHero.color" *ngIf="metaHero" />
+    <input type="color" (change)='changeColor()' #colorInput class="colorInput" [value]="metaHero.color"  />
   </div>
-  <app-user *ngIf="isUserComponentOpen"
+  <app-user class="popupPanel ucPopupPanel"
+            *ngIf="isUserComponentOpen"
             [loginOnly]="true"
             [inputtedParentRef]="parentRef"
             [canClose]="false"

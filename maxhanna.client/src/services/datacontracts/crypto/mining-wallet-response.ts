@@ -4,6 +4,7 @@ export interface Total {
   available?: string;
   debt?: string;
   pending?: string;
+  fiatRate?: number;
 }
 
 export interface Currency {

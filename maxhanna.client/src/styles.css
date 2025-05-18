@@ -586,6 +586,7 @@ fieldset {
   border: var(--main-border);
   color: var(--secondary-font-color);
   align-items: center;
+  gap: 8px;
 }
 
 

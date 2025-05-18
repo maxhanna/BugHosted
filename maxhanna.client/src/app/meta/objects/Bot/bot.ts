@@ -2,13 +2,13 @@ import { Vector2 } from "../../../../services/datacontracts/meta/vector2";
 import { Sprite } from "../sprite";
 import { Fire } from "../Effects/Fire/fire";
 import { SkillType } from "../../helpers/skill-types";
-import { DOWN, LEFT, RIGHT, UP, gridCells, isOnGrid } from "../../helpers/grid-cells";
+import { DOWN, gridCells } from "../../helpers/grid-cells";
 import { Animations } from "../../helpers/animations";
 import { getBotsInRange } from "../../helpers/move-towards";
 import { resources } from "../../helpers/resources";
 import { FrameIndexPattern } from "../../helpers/frame-index-pattern";
 import { events } from "../../helpers/events";
-import { attack, calculateAndApplyDamage, findTargets, untarget } from "../../helpers/fight";
+import { attack, findTargets, untarget } from "../../helpers/fight";
 import { WALK_DOWN, WALK_UP, WALK_LEFT, WALK_RIGHT, STAND_DOWN, STAND_RIGHT, STAND_LEFT, STAND_UP, PICK_UP_DOWN, ATTACK_LEFT, ATTACK_UP, ATTACK_DOWN, ATTACK_RIGHT } from "./bot-animations";
 import { MetaBotPart } from "../../../../services/datacontracts/meta/meta-bot-part";
 import { ColorSwap } from "../../../../services/datacontracts/meta/color-swap";
@@ -35,6 +35,7 @@ export class Bot extends Character {
   isInvulnerable = false;
   preventDestroyAnimation = false;
   canAttack = true; 
+  partyMembers?: { heroId: number, name: string }[];
   frameMap = {
     "Jaguar": "botFrame1",
     "Ram": "botFrame5",
@@ -47,6 +48,7 @@ export class Bot extends Character {
 
   constructor(params: {
     position: Vector2,
+    partyMembers?: { heroId: number, name: string }[],
     id?: number,
     heroId?: number,
     botType?: number,
@@ -147,6 +149,7 @@ export class Bot extends Character {
     this.isEnemy = params.isEnemy ?? false; 
     this.isInvulnerable = params.isInvulnerable ?? false;   
     this.canAttack = params.canAttack ?? true; 
+    this.partyMembers = params.partyMembers;
     this.setupEvents(); 
   }
 
@@ -251,7 +254,7 @@ export class Bot extends Character {
        
       this.lastAttack = new Date();
 
-      const botsInRange = getBotsInRange(this);
+      const botsInRange = getBotsInRange(this, this.partyMembers);
       if (botsInRange.some((x: Bot) => x.id == this.targeting?.id)) {  
         attack(this, this.targeting);
       } else {
@@ -292,8 +295,11 @@ export class Bot extends Character {
         } 
       }
       this.facingDirection = hero.facingDirection; 
-      this.destinationPosition = new Vector2(newX, newY);  
+      this.destinationPosition = new Vector2(newX, newY).duplicate();  
       this.previousHeroPosition = new Vector2(hero.position.x, hero.position.y); 
     }
+    // if ((hero.distanceLeftToTravel ?? 0) > 35 && this.isDeployed) {
+    //   console.log("bot should warp to hero");
+    // }
   } 
 }  

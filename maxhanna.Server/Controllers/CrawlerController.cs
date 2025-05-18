@@ -224,7 +224,9 @@ namespace maxhanna.Server.Controllers
 
 		[HttpPost("/Crawler/IndexLinks", Name = "IndexLinks")]
 		public async void IndexLinks([FromBody] string url)
-		{  
+		{
+			_ = _log.Db($"Indexing {url}", null, "CRAWLERCTRL", true);
+
 			await Task.Delay(10000); 
 			var urlVariants = new List<string>();
 

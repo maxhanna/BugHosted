@@ -49,10 +49,10 @@
       <div class="optionsStatsHeader">
         <app-user-tag [user]="reaction.user" [inputtedParentRef]="inputtedParentRef" [displayMiniTag]="true"
           [previousComponent]="previousComponent"></app-user-tag>
+        <span class="xxSmallFont thirdFontColor" style="margin-left: 5px" [title]="reaction.timestamp">{{reaction.timestamp | timeSince}}</span>
       </div>
       <div class="optionsStatsDescription">
         <span class="reactionTypeSpan" [title]="reaction.type">{{replaceReactionType(reaction.type)}}</span>
-        <span class="smallFont">{{daysSinceDate(reaction.timestamp)}}</span>
       </div>
     </div>
   </div>

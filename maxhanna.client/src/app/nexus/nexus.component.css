@@ -881,3 +881,10 @@
   height: CALC(var(--vh, 1vh) * 100 - 40px - var(--nexus-gamescreen-height));
   overflow: auto;
 } 
+.unitUpgradeStatsTable {
+  border: var(--main-border);
+  font-size: small;
+}
+.unitUpgradeStatsTable :hover {
+  background-color: var(--main-highlight-color-quarter-opacity);
+}

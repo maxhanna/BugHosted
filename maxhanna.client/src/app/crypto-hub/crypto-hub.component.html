@@ -234,11 +234,21 @@
           <div class="button-wrapper" *ngIf="canShowTradePanelInfo()">
             <button class="cursorPointer" [disabled]="tradeBotStarted || !hasKrakenApi" (click)="startTradeBot()"
               title="Start the tradebot.">Start BTC</button>
-            <button class="cursorPointer" (click)="stopTradeBot()" title="Stop the tradebot." [disabled]="!tradeBotStarted ||!hasKrakenApi">Stop BTC</button>
+            <button class="cursorPointer" (click)="stopTradeBot()" title="Stop the tradebot."
+              [disabled]="!tradeBotStarted ||!hasKrakenApi">Stop BTC</button>
             <p class="button-description" id="trades-desc" *ngIf="!isTradebotBalanceShowing">
               {{tradeBotStarted ? 'Stop' : 'Start'}} trading USDC and BTC pair.
             </p>
-          </div> 
+          </div>
+          <div class="button-wrapper" *ngIf="canShowTradePanelInfo()">
+            <button class="cursorPointer" [disabled]="xrpTradeBotStarted || !hasKrakenApi" (click)="startXrpTradeBot()"
+              title="Start the tradebot.">Start XRP</button>
+            <button class="cursorPointer" (click)="stopXrpTradeBot()" title="Stop the XRP tradebot."
+              [disabled]="!xrpTradeBotStarted ||!hasKrakenApi">Stop XRP</button>
+            <p class="button-description" id="trades-desc" *ngIf="!isTradebotBalanceShowing">
+              {{xrpTradeBotStarted ? 'Stop' : 'Start'}} trading USDC and XRP pair.
+            </p>
+          </div>
           <div class="button-wrapper"
             *ngIf="hasKrakenApi && (canShowTradePanelInfo() || showingTradeSettings)">
             <button class="cursorPointer" (click)="showTradeSettings()" id="config-button" aria-describedby="config-desc">
@@ -347,7 +357,7 @@
                   [style.color]="trade.to_currency == 'XBT' ? '#a17f1a' : trade.to_currency == 'USDC' ? 'blue' : ''">{{
                   trade.to_currency }}</td>
                 <td class="smallFont">{{ trade.value }}</td>
-                <td class="xxSmallFont">{{ formatStringCanadianCurrency(trade.btc_price_usdc) }}</td>
+                <td class="xxSmallFont">{{ formatStringCanadianCurrency(trade.coin_price_usdc) }}</td>
                 <td class="smallFont">{{ formatStringCanadianCurrency(trade.trade_value_usdc) }}</td>
                 <td class="xxSmallFont">{{ formatToCanadianCurrency(trade.fees) }}</td>
                 <td class="xxSmallFont" [title]="getUtcTimeSince(trade.timestamp)">{{ parentRef?.convertUtcToLocalTime(trade.timestamp) }}</td>
@@ -361,8 +371,9 @@
         <div class="optionsStatsDiv">
           <div class="optionsStatsHeader" title="Coin you're trading from">From Coin</div>
           <div class="optionsStatsDescription">
-            <select #tradeFromCoinSelect title="Select the coin you want to sell">
+            <select #tradeFromCoinSelect title="Select the coin you want to sell" (change)="tradeFromCoinSelectChange()">
               <option value="XBT">BTC</option>
+              <option value="XRP">XRP</option> 
             </select>
           </div>
         </div>
@@ -419,26 +430,28 @@
           <div class="optionsStatsDescription">
             <input type="number" #tradeValueTradePercentage title="Percentage of balance used in each trade" />
           </div>
-        </div>
-
+        </div> 
         <div class="optionsStatsDiv">
-          <div class="optionsStatsHeader" title="Stop trades if price deviation exceeds this %">
-            _FromPriceDiscrepencyStopPercentage</div>
-          <div class="optionsStatsDescription">
-            <input type="number" #tradeFromPriceDiscrepencyStopPercentage
-              title="Max allowed price difference from expected" />
-          </div>
-        </div>
-
-        <div class="optionsStatsDiv">
-          <div class="optionsStatsHeader" title="Don't trade unless this minimum amount is available">
+          <div class="optionsStatsHeader" title="Don't start trade unless this minimum BTC amount is available">
             _InitialMinimumFromAmountToStart</div>
           <div class="optionsStatsDescription">
-            <input type="number" #tradeInitialMinimumFromAmountToStart
-              title="Minimum amount of FROM coin to start trading" />
+            <input type="number" #tradeInitialMinimumFromAmountToStart title="Minimum amount of FROM coin to start trading" />
+          </div>
+        </div> 
+        <div class="optionsStatsDiv">
+          <div class="optionsStatsHeader" title="Don't start trade unless this minimum USDC amount is available">
+            _InitialMinimumUSDCAmountToStart</div>
+          <div class="optionsStatsDescription">
+            <input type="number" #tradeInitialMinimumUSDCAmountToStart title="Minimum amount of USDC coin to start trading" />
           </div>
         </div>
-
+        <div class="optionsStatsDiv">
+          <div class="optionsStatsHeader" title="The maximum initial USDC amount invested in a new coin to start trading. Set this to zero (0) to intially convert 50% of USDC to target coin or set this to a dollar value to convert the Mininimum between (50% of usdcBalance OR this maximum amount).">
+            _InitialMaximumUSDCAmountToStart</div>
+          <div class="optionsStatsDescription">
+            <input type="number" #tradeInitialMaximumUSDCAmountToStart title="Maximum amount of USDC to spend to start trading. This is the math set for initial trade value: _InitialMaximumUSDCAmountToStart > 0 ? Math.Min(usdcBalance * 50%, _InitialMaximumUSDCAmountToStart) : (usdcBalance * 50%)" />
+          </div>
+        </div>
         <div class="optionsStatsDiv">
           <div class="optionsStatsHeader" title="Always keep at least this much of the FROM coin">_MinimumFromReserves
           </div>
@@ -466,13 +479,25 @@
 
         <div class="optionsStatsDiv">
           <div class="optionsStatsHeader"
-            title="The maximum times a trade type (buy/sell) can happen while the volume is above average. This number will diminish the amount of times buying/selling can occur consecutively during above average volume period to create openings to buy higher or sell lower.">
+            title="Maximum trade occurances during a volume spike.">
             _VolumeSpikeMaxTradeOccurance
           </div>
           <div class="optionsStatsDescription">
-            <input type="number" #tradeVolumeSpikeMaxTradeOccurance title="Maximum occurance of either buy or sell during high volume spikes." />
+            <input type="number" #tradeVolumeSpikeMaxTradeOccurance title="Maximum trade occurances during volume spike." />
           </div>
         </div>
+
+        <div class="optionsStatsDiv">
+          <div class="optionsStatsHeader"
+            title="Input a price point to liquidate your BTC (trade 100% BTC to USDC) at your defined price. Put the value in USDC.">
+            _StopLossExitPosition
+          </div>
+          <div class="optionsStatsDescription">
+            <input type="number" #tradeStopLoss title="Minimum USDC value for 1 BTC before liquidating BTC reserves." />
+          </div>
+        </div>
+
+
 
         <div class="optionsStatsDiv">
           <div class="optionsStatsHeader" title="Last time this configuration was updated">Updated</div>
@@ -495,40 +520,44 @@
       </div> 
 
 
+      <div *ngIf="isShowingTradeProfit && profitData?.length" class="profit-container tradeDataTable">
+        <div *ngFor="let type of periodTypes" class="period-type-section">
+          <div class="section-header" (click)="toggleProfitSection(type.key)">
+            <div class="popupPanelTitle">{{ type.label }} <span class="toggle-icon">{{ isProfitSectionOpen(type.key) ? '−' :
+                '+' }}</span></div>
+          </div>
+          <div class="profit-periods" *ngIf="isProfitSectionOpen(type.key)">
+            <div *ngFor="let period of getProfitPeriodsByType(type.periodKey)" class="period-card">
+              <div class="period-header">
+                <span class="period-type">{{ period.periodType | titlecase }}</span>
+                <span class="period-dates">
+                  {{ period.periodStart | date:'MMM d, y' }} -
+                  {{ (period.periodEnd | date:'MMM d, y') || 'Present' }}
+                </span>
+              </div>
+      
+              <div class="profit-values">
+                <div class="value-row">
+                  <span>Starting Balance:</span>
+                  <span>{{ period.startUsdc | currency }} + {{ period.startBtc }} BTC</span>
+                </div>
+      
+                <div class="value-row">
+                  <span>Starting Net Worth:</span>
+                  <span>{{ (period.startUsdc ?? 0) + ((period.startBtc ?? 0) * (period.startBtcPriceUsdc ?? 0)) | currency }}
+                    USD</span>
+                </div>
+      
+                <div class="value-row">
+                  <span>BTC Price:</span>
+                  <span>{{ period.startBtcPriceUsdc | currency }}</span>
+                </div>
 
-      <div *ngIf="isShowingTradeProfit && profitData?.length" class="profit-container tradeDataTable"> 
-        <!-- Days Section -->
-        <div class="period-type-section">
-          <div class="section-header" (click)="toggleProfitSection('days')">
-            <div class="popupPanelTitle">Daily Performance <span class="toggle-icon">{{ isProfitSectionOpen('days') ? '−' : '+' }}</span></div>
-          </div>
-          <div class="profit-periods" *ngIf="isProfitSectionOpen('days')">
-            <div *ngFor="let period of getProfitPeriodsByType('daily')" class="period-card">
-              <div class="period-header">
-                <span class="period-type">{{ period.periodType | titlecase }}</span>
-                <span class="period-dates">
-                  {{ period.periodStart | date:'MMM d, y' }} -
-                  {{ (period.periodEnd | date:'MMM d, y') || 'Present' }}
-                </span>
-              </div>
-      
-              <div class="profit-values">
                 <div class="value-row">
-                  <span>Starting Balance:</span>
-                  <span>{{ period.startUsdc | currency }} + {{ period.startBtc }} BTC</span>
+                  <span>Ending Balance:</span>
+                  <span>{{ period.endUsdc | currency }} + {{ period.endBtc }} BTC</span>
                 </div>
-      
-                <div class="value-row">
-                  <span>Starting Net Worth:</span>
-                  <span>{{ (period.startUsdc ?? 0) + ((period.startBtc ?? 0) * (period.startBtcPriceUsdc ?? 0)) | currency }}
-                    USD</span>
-                </div>
-      
-                <div class="value-row">
-                  <span>BTC Price:</span>
-                  <span>{{ period.startBtcPriceUsdc | currency }}</span>
-                </div>
-      
+
                 <div class="value-row" *ngIf="period.endBtcPriceUsdc">
                   <span>Ending BTC Price:</span>
                   <span>{{ period.endBtcPriceUsdc | currency }}</span>
@@ -545,129 +574,22 @@
                   <span>{{ period.profitUsdc | currency:'USD':'symbol':'1.2-10' }}</span>
                 </div>
       
-                <div class="value-row cumulative-row">
+                <div class="value-row profit-row" [class.positive]="period.absoluteProfitUsdc && period.absoluteProfitUsdc > 0"
+                  [class.negative]="period.absoluteProfitUsdc && period.absoluteProfitUsdc < 0">
+                  <span>Absolute Profit:</span>
+                  <span>{{ period.absoluteProfitUsdc | currency }}</span>
+                </div>
+
+                <div class="value-row profit-row" [class.positive]="period.cumulativeProfitUsdc && period.cumulativeProfitUsdc > 0"
+                  [class.negative]="period.cumulativeProfitUsdc && period.cumulativeProfitUsdc < 0">
                   <span>Cumulative Profit:</span>
-                  <span>{{ period.cumulativeProfitUsdc | currency:'USD':'symbol':'1.2-10' }}</span>
+                  <span>{{ period.cumulativeProfitUsdc | currency }}</span>
                 </div>
               </div>
             </div>
           </div>
-        </div>
-      
-        <!-- Weeks Section -->
-        <div class="period-type-section">
-          <div class="section-header" (click)="toggleProfitSection('weeks')">
-            <div class="popupPanelTitle">Weekly Performance <span class="toggle-icon">{{ isProfitSectionOpen('weeks') ? '−' : '+' }}</span></div> 
-          </div>
-          <div class="profit-periods" *ngIf="isProfitSectionOpen('weeks')">
-            <div *ngFor="let period of getProfitPeriodsByType('weekly')" class="period-card">
-              <div class="period-header">
-                <span class="period-type">{{ period.periodType | titlecase }}</span>
-                <span class="period-dates">
-                  {{ period.periodStart | date:'MMM d, y' }} -
-                  {{ (period.periodEnd | date:'MMM d, y') || 'Present' }}
-                </span>
-              </div>
-      
-              <div class="profit-values">
-                <div class="value-row">
-                  <span>Starting Balance:</span>
-                  <span>{{ period.startUsdc | currency }} + {{ period.startBtc }} BTC</span>
-                </div>
-      
-                <div class="value-row">
-                  <span>Starting Net Worth:</span>
-                  <span>{{ (period.startUsdc ?? 0) + ((period.startBtc ?? 0) * (period.startBtcPriceUsdc ?? 0)) | currency }}
-                    USD</span>
-                </div>
-      
-                <div class="value-row">
-                  <span>BTC Price:</span>
-                  <span>{{ period.startBtcPriceUsdc | currency }}</span>
-                </div>
-      
-                <div class="value-row" *ngIf="period.endBtcPriceUsdc">
-                  <span>Ending BTC Price:</span>
-                  <span>{{ period.endBtcPriceUsdc | currency }}</span>
-                </div>
-      
-                <div class="value-row" *ngIf="period.endUsdc && period.endBtc && period.endBtcPriceUsdc">
-                  <span>Ending Net Worth:</span>
-                  <span>{{ period.endUsdc + (period.endBtc * period.endBtcPriceUsdc) | currency }} USD</span>
-                </div>
-      
-                <div class="value-row profit-row" [class.positive]="period.profitUsdc && period.profitUsdc > 0"
-                  [class.negative]="period.profitUsdc && period.profitUsdc < 0">
-                  <span>Profit:</span>
-                  <span>{{ period.profitUsdc | currency:'USD':'symbol':'1.2-10' }}</span>
-                </div>
-      
-                <div class="value-row cumulative-row">
-                  <span>Cumulative Profit:</span>
-                  <span>{{ period.cumulativeProfitUsdc | currency:'USD':'symbol':'1.2-10' }}</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      
-        <!-- Months Section -->
-        <div class="period-type-section">
-          <div class="section-header" (click)="toggleProfitSection('months')">
-            <div class="popupPanelTitle">Monthly Performance <span class="toggle-icon">{{ isProfitSectionOpen('months') ? '−' : '+' }}</span></div> 
-          </div>
-          <div class="profit-periods" *ngIf="isProfitSectionOpen('months')">
-            <div *ngFor="let period of getProfitPeriodsByType('monthly')" class="period-card">
-              <div class="period-header">
-                <span class="period-type">{{ period.periodType | titlecase }}</span>
-                <span class="period-dates">
-                  {{ period.periodStart | date:'MMM d, y' }} -
-                  {{ (period.periodEnd | date:'MMM d, y') || 'Present' }}
-                </span>
-              </div>
-      
-              <div class="profit-values">
-                <div class="value-row">
-                  <span>Starting Balance:</span>
-                  <span>{{ period.startUsdc | currency }} + {{ period.startBtc }} BTC</span>
-                </div>
-      
-                <div class="value-row">
-                  <span>Starting Net Worth:</span>
-                  <span>{{ (period.startUsdc ?? 0) + ((period.startBtc ?? 0) * (period.startBtcPriceUsdc ?? 0)) | currency }}
-                    USD</span>
-                </div>
-      
-                <div class="value-row">
-                  <span>BTC Price:</span>
-                  <span>{{ period.startBtcPriceUsdc | currency }}</span>
-                </div>
-      
-                <div class="value-row" *ngIf="period.endBtcPriceUsdc">
-                  <span>Ending BTC Price:</span>
-                  <span>{{ period.endBtcPriceUsdc | currency }}</span>
-                </div>
-      
-                <div class="value-row" *ngIf="period.endUsdc && period.endBtc && period.endBtcPriceUsdc">
-                  <span>Ending Net Worth:</span>
-                  <span>{{ period.endUsdc + (period.endBtc * period.endBtcPriceUsdc) | currency }} USD</span>
-                </div>
-      
-                <div class="value-row profit-row" [class.positive]="period.profitUsdc && period.profitUsdc > 0"
-                  [class.negative]="period.profitUsdc && period.profitUsdc < 0">
-                  <span>Profit:</span>
-                  <span>{{ period.profitUsdc | currency:'USD':'symbol':'1.2-10' }}</span>
-                </div>
-      
-                <div class="value-row cumulative-row">
-                  <span>Cumulative Profit:</span>
-                  <span>{{ period.cumulativeProfitUsdc | currency:'USD':'symbol':'1.2-10' }}</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
+        </div></div>
+ 
       
 
       <div *ngIf="showingTradeLogs" [style.opacity]="isLoading ? '25%' : ''">

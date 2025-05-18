@@ -18,7 +18,7 @@
       <div class="commentAvatar usernameProfileLink">
         <app-user-tag [user]="comment.user" [inputtedParentRef]="inputtedParentRef" [displayMiniTag]="true" [previousComponent]="previousComponent"></app-user-tag>
       </div>
-      <div class="commentDate">{{inputtedParentRef?.convertUtcToLocalTime(comment.date)}}</div>
+      <div class="commentDate" [title]="(comment.date?.toString() ?? '').replace('T',' ')">{{ comment.date | timeSince}}</div>
       <div class="commentReaction">
         <app-reaction [commentId]="comment.id"
                       [component]="comment"
@@ -82,7 +82,7 @@
             <div class="commentAvatar usernameProfileLink">
               <app-user-tag [user]="subComment.user" [inputtedParentRef]="inputtedParentRef" [displayMiniTag]="true" [previousComponent]="previousComponent"></app-user-tag>
             </div>
-            <div class="commentDate">{{inputtedParentRef?.convertUtcToLocalTime(subComment.date)}}</div>
+            <div class="commentDate" [title]="(subComment.date?.toString() ?? '').replace('T',' ')">{{ subComment.date | timeSince }}</div>
             <div class="commentReaction">
               <app-reaction [commentId]="subComment.id"
                             [component]="subComment"

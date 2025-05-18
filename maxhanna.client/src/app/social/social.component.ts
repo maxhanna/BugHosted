@@ -280,11 +280,7 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
             story.date = new Date(story.date.getTime() - story.date.getTimezoneOffset() * 60000);  //Convert UTC dates to local time.
           }
         });
-      }
-      this.storyResponse?.stories?.forEach(story => {
-        story.timeSince = this.daysSinceDate(story.date);
-      });
-
+      } 
       this.totalPages = this.storyResponse?.pageCount ?? 0;
       this.totalPagesArray = Array.from({ length: this.totalPages }, (_, index) => index + 1);
     }
