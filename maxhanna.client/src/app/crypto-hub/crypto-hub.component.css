@@ -711,3 +711,12 @@ div:not(.trade-panel-controls) .button-wrapper {
   font-weight: bold;
   text-shadow: 1px 1px 1px rgba(0, 0, 0, 0.5);
 }
+
+.logTypeFiltersWrapper {
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+} 
+.logTypeFiltersWrapper span {
+  cursor: pointer;
+}

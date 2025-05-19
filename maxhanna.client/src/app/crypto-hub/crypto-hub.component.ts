@@ -143,6 +143,7 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
     { key: 'weeks', label: 'Weekly Performance', periodKey: 'weekly' },
     { key: 'months', label: 'Monthly Performance', periodKey: 'monthly' }
   ];
+  logFilterType?: string = undefined;
 
   @ViewChild('scrollContainer', { static: true }) scrollContainer!: ElementRef;
   @ViewChild(LineGraphComponent) lineGraphComponent!: LineGraphComponent;
@@ -515,6 +516,11 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
       .flatMap(walletItem => walletItem.currencies || [])
       .filter(currency =>
         currency.address === "Kraken" && currency.currency === "USDC"
+      )[0];
+    const krakenXrpCurrencyWallet = this.wallet
+      .flatMap(walletItem => walletItem.currencies || [])
+      .filter(currency =>
+        currency.address === "Kraken" && currency.currency === "XRP"
       )[0];
     const krakenBtcCurrencyWallet = this.wallet
       .flatMap(walletItem => walletItem.currencies || [])
@@ -1732,6 +1738,20 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
       }
     }, 30 * 1000); // 30 seconds
   }
+  async filterLogs(type?: string) {
+    this.startLoading();
+    const sessionToken = await this.parentRef?.getSessionToken() ?? "";
+    this.tradeLogs = await this.tradeService.getTradeLogs(
+      this.hasKrakenApi ? this.parentRef?.user?.id ?? 1 : 1,
+      sessionToken
+    ); 
+    this.logFilterType = type;
+    if (type) { 
+      this.tradeLogs = this.tradeLogs.filter((x: any) => x.comment.toUpperCase().includes(type));
+    }  
+    this.setPaginatedLogs();  
+    this.stopLoading();
+  }
   private async fetchTradeLogs() {
     try {
       this.startLoading();
@@ -1739,12 +1759,15 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
       this.tradeLogs = await this.tradeService.getTradeLogs(
         this.hasKrakenApi ? this.parentRef?.user?.id ?? 1 : 1,
         sessionToken
-      );
+      ); 
+      if (this.logFilterType) {
+        this.tradeLogs = this.tradeLogs.filter((x: any) => x.comment.toUpperCase().includes(this.logFilterType));
+      }  
       this.setPaginatedLogs();
       if (this.currentLogPage <= 1) {
         const comment = this.tradeLogs[0].comment;
         const currentPriceMatch = comment.match(/c:(\d+(\.\d+)?)/);
-        if (currentPriceMatch) {
+        if (currentPriceMatch && comment.includes("XBT")) {
           const currentPrice = parseFloat(currentPriceMatch[1]);
           this.btcUSDRate = currentPrice;
           const priceInCAD = currentPrice * (this.cadToUsdRate ?? 1);

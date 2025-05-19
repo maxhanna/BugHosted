@@ -399,14 +399,14 @@
           <div class="optionsStatsHeader" title="Lower limit of the amount you can trade FROM">_MinimumFromTradeAmount
           </div>
           <div class="optionsStatsDescription">
-            <input type="number" #tradeMinimumFromTradeAmount title="Min amount of source coin per trade" />
+            <input type="number" #tradeMinimumFromTradeAmount title="Min amount of source coin per trade." />
           </div>
         </div>
 
         <div class="optionsStatsDiv">
-          <div class="optionsStatsHeader" title="Upper limit of the amount you can receive">_MaximumToTradeAmount</div>
+          <div class="optionsStatsHeader" title="Upper limit of the amount you can buy in USDC.">_MaximumUSDCTradeAmount</div>
           <div class="optionsStatsDescription">
-            <input type="number" #tradeMaximumToTradeAmount title="Max amount of target coin received per trade" />
+            <input type="number" #tradeMaximumToTradeAmount title="Max amount of USDC per trade." />
           </div>
         </div>
 
@@ -593,7 +593,14 @@
       
 
       <div *ngIf="showingTradeLogs" [style.opacity]="isLoading ? '25%' : ''">
-        <div class="xxSmallFont secondaryFontColor" style="width:100%; text-align: right;">Logs refresh every 30s.</div>
+        <div class="xxSmallFont secondaryFontColor" style="width:100%; display: flex; justify-content: space-between;">
+          <div class="logTypeFiltersWrapper">
+            Display: <span (click)="filterLogs('XBT')">XBT Logs Only</span> <span (click)="filterLogs('XRP')">XRP Logs Only</span> <span (click)="filterLogs()">Unfiltered</span>
+          </div>
+          <div>
+            Logs refresh every 30s.
+          </div>
+        </div>
 
         <div *ngIf="tradeLogs.length > 0; else noLogs" class="mainTableContainer tradeDataTable">
           <table class="smallFont mainTable">

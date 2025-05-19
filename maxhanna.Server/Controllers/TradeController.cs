@@ -18,7 +18,7 @@ public class TradeController : ControllerBase
 		try
 		{
 			if (userId != 1 && !await _log.ValidateUserLoggedIn(userId, encryptedUserId)) return StatusCode(500, "Access Denied.");
-			var time = await _krakenService.GetTradeHistory(userId);
+			var time = await _krakenService.GetTradeHistory(userId, "XBT");
 			return Ok(time);
 		}
 		catch (Exception ex)

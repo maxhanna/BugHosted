@@ -903,13 +903,15 @@ namespace maxhanna.Server.Controllers
 				// Parallel database calls
 				var btcTask = GetWalletFromDb(userId, "btc");
 				var usdcTask = GetWalletFromDb(userId, "usdc");
+				var xrpTask = GetWalletFromDb(userId, "xrp");
 				await Task.WhenAll(btcTask, usdcTask);
 
 				var btcWallet = await btcTask;
 				var usdcWallet = await usdcTask;
+				var xrpWallet = await xrpTask;
 
 				// Early exit if no valid wallets
-				if (btcWallet?.currencies?.Count == 0 && usdcWallet?.currencies?.Count == 0)
+				if (btcWallet?.currencies?.Count == 0 && usdcWallet?.currencies?.Count == 0 && xrpWallet?.currencies?.Count == 0)
 				{
 					return NotFound("No wallet addresses found for the user.");
 				}
@@ -918,6 +920,7 @@ namespace maxhanna.Server.Controllers
 				var returns = new List<CryptoWallet>();
 				if (btcWallet?.currencies?.Count > 0) returns.Add(btcWallet);
 				if (usdcWallet?.currencies?.Count > 0) returns.Add(usdcWallet);
+				if (xrpWallet?.currencies?.Count > 0) returns.Add(xrpWallet);
 
 				return returns.Count > 0 ? Ok(returns) : NotFound("No valid wallet data found.");
 			}
@@ -980,7 +983,7 @@ namespace maxhanna.Server.Controllers
 		private async Task<CryptoWallet?> GetWalletFromDb(int? userId, string type)
 		{
 			if (userId == null) { return null; }
-			if (type != "btc" && type != "usdc") return null;
+			if (type != "btc" && type != "usdc" && type != "xrp") return null;
 			var wallet = new CryptoWallet
 			{
 				total = new Total
