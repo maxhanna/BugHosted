@@ -554,7 +554,7 @@ public class KrakenService
 			var balanceDictionary = result.ToObject<Dictionary<string, decimal>>();
 
 
-			_ = CreateWalletEntryFromFetchedDictionary(coin, balanceDictionary, userId);
+			_ = CreateWalletEntriesFromFetchedDictionary(balanceDictionary, userId);
 
 
 			return balanceDictionary;
@@ -1230,119 +1230,111 @@ public class KrakenService
 			_ = _log.Db("⚠️Error creating trade history: " + ex.Message, userId, "TRADE", true);
 		}
 	}
-	private async Task CreateWalletEntryFromFetchedDictionary(string coin, Dictionary<string, decimal>? balanceDictionary, int userId)
+	private async Task CreateWalletEntriesFromFetchedDictionary(Dictionary<string, decimal>? balanceDictionary, int userId)
 	{
-		string tmpCoin = coin.ToUpper().Trim();
-		tmpCoin = tmpCoin == "BTC" ? "XBT" : tmpCoin;
-
-		string tmpType = coin.ToLower().Trim();
-		tmpType = tmpType == "xbt" ? "btc" : tmpType;
-
 		if (balanceDictionary == null)
 		{
-			_ = _log.Db("Balance dictionary is null. Cannot create wallet entry.", userId, "TRADE", true);
+			_ = _log.Db("Balance dictionary is null. Cannot create wallet entries.", userId, "TRADE", true);
 			return;
 		}
 
-		decimal coinBalance = balanceDictionary.TryGetValue($"X{tmpCoin}", out var btc) ? btc : 0;
-		decimal usdcBalance = balanceDictionary.TryGetValue("USDC", out var usdc) ? usdc : 0;
+		// Map Kraken symbols to our database table names
+		var coinMappings = new Dictionary<string, string>
+	{
+		{"XBT", "btc"},  // Kraken uses XBT for Bitcoin
+        {"BTC", "btc"},  // Just in case
+        {"ETH", "eth"},
+		{"USDC", "usdc"},
+		{"USDT", "usdt"},
+		{"XRP", "xrp"},
+        // Add more mappings as needed
+    };
 
-		string ensureCoinWalletSql = $@"
-		INSERT INTO user_{tmpType}_wallet_info (user_id, {tmpType}_address, last_fetched)
-		VALUES (@UserId, 'Kraken', UTC_TIMESTAMP())
-		ON DUPLICATE KEY UPDATE id = LAST_INSERT_ID(id);
-		SELECT LAST_INSERT_ID();";
+		const string ensureWalletSqlTemplate = @"
+			INSERT INTO user_{0}_wallet_info (user_id, {0}_address, last_fetched)
+			VALUES (@UserId, 'Kraken', UTC_TIMESTAMP())
+			ON DUPLICATE KEY UPDATE id = LAST_INSERT_ID(id);
+			SELECT LAST_INSERT_ID();";
 
-		const string ensureUsdcWalletSql = @"
-		INSERT INTO user_usdc_wallet_info (user_id, usdc_address, last_fetched)
-		VALUES (@UserId, 'Kraken', UTC_TIMESTAMP())
-		ON DUPLICATE KEY UPDATE id = LAST_INSERT_ID(id);
-		SELECT LAST_INSERT_ID();";
+		const string checkRecentBalanceSqlTemplate = @"
+			SELECT COUNT(*) FROM user_{0}_wallet_balance 
+			WHERE wallet_id = @WalletId AND fetched_at > (UTC_TIMESTAMP() - INTERVAL 10 MINUTE);";
 
-		string checkRecentBtcSql = @$"
-		SELECT COUNT(*) FROM user_{tmpType}_wallet_balance 
-		WHERE wallet_id = @WalletId AND fetched_at > (UTC_TIMESTAMP() - INTERVAL 10 MINUTE);";
-
-		const string checkRecentUsdcSql = @"
-		SELECT COUNT(*) FROM user_usdc_wallet_balance 
-		WHERE wallet_id = @WalletId AND fetched_at > (UTC_TIMESTAMP() - INTERVAL 10 MINUTE);";
-
-		string insertSql = $"INSERT INTO user_{tmpType}_wallet_balance (wallet_id, balance, fetched_at) VALUES (@WalletId, @Balance, UTC_TIMESTAMP());";
-		const string insertUsdcSql = "INSERT INTO user_usdc_wallet_balance (wallet_id, balance, fetched_at) VALUES (@WalletId, @Balance, UTC_TIMESTAMP());";
-
-		string updateFetchedSql = $"UPDATE user_{tmpType}_wallet_info SET last_fetched = UTC_TIMESTAMP() WHERE id = @WalletId;";
-		const string updateUsdcFetchedSql = "UPDATE user_usdc_wallet_info SET last_fetched = UTC_TIMESTAMP() WHERE id = @WalletId;";
+		const string insertBalanceSqlTemplate = "INSERT INTO user_{0}_wallet_balance (wallet_id, balance, fetched_at) VALUES (@WalletId, @Balance, UTC_TIMESTAMP());";
+		const string updateFetchedSqlTemplate = "UPDATE user_{0}_wallet_info SET last_fetched = UTC_TIMESTAMP() WHERE id = @WalletId;";
 
 		try
 		{
 			using var conn = new MySqlConnection(_config?.GetValue<string>("ConnectionStrings:maxhanna"));
 			await conn.OpenAsync();
 
-			// BTC Wallet
-			if (coinBalance > 0)
+			foreach (var entry in balanceDictionary)
 			{
-				int coinWalletId;
-				using (var cmd = new MySqlCommand(ensureCoinWalletSql, conn))
+				var coinSymbol = entry.Key;
+				var balance = entry.Value;
+
+				// Skip zero balances
+				if (balance <= 0) continue;
+
+				// Check if we have a mapping for this coin
+				if (!coinMappings.TryGetValue(coinSymbol, out var tableSuffix))
 				{
-					cmd.Parameters.AddWithValue("@UserId", userId);
-					using var reader = await cmd.ExecuteReaderAsync();
-					await reader.ReadAsync();
-					coinWalletId = reader.GetInt32(0);
+					// Log unknown coins but continue processing others
+					_ = _log.Db($"No mapping found for coin symbol: {coinSymbol}", userId, "TRADE", false);
+					continue;
 				}
 
-				using (var checkCmd = new MySqlCommand(checkRecentBtcSql, conn))
+				// Process each coin balance
+				try
 				{
-					checkCmd.Parameters.AddWithValue("@WalletId", coinWalletId);
-					var recentCount = Convert.ToInt32(await checkCmd.ExecuteScalarAsync());
-					if (recentCount == 0)
-					{
-						using var insertCmd = new MySqlCommand(insertSql, conn);
-						insertCmd.Parameters.AddWithValue("@WalletId", coinWalletId);
-						insertCmd.Parameters.AddWithValue("@Balance", coinBalance);
-						await insertCmd.ExecuteNonQueryAsync();
+					// Get or create wallet
+					int walletId;
+					var ensureWalletSql = string.Format(ensureWalletSqlTemplate, tableSuffix);
 
-						using var updateCmd = new MySqlCommand(updateFetchedSql, conn);
-						updateCmd.Parameters.AddWithValue("@WalletId", coinWalletId);
-						await updateCmd.ExecuteNonQueryAsync();
+					using (var cmd = new MySqlCommand(ensureWalletSql, conn))
+					{
+						cmd.Parameters.AddWithValue("@UserId", userId);
+						using var reader = await cmd.ExecuteReaderAsync();
+						await reader.ReadAsync();
+						walletId = reader.GetInt32(0);
+					}
+
+					// Check for recent entries
+					var checkRecentSql = string.Format(checkRecentBalanceSqlTemplate, tableSuffix);
+					using (var checkCmd = new MySqlCommand(checkRecentSql, conn))
+					{
+						checkCmd.Parameters.AddWithValue("@WalletId", walletId);
+						var recentCount = Convert.ToInt32(await checkCmd.ExecuteScalarAsync());
+						if (recentCount == 0)
+						{
+							// Insert new balance record
+							var insertSql = string.Format(insertBalanceSqlTemplate, tableSuffix);
+							using var insertCmd = new MySqlCommand(insertSql, conn);
+							insertCmd.Parameters.AddWithValue("@WalletId", walletId);
+							insertCmd.Parameters.AddWithValue("@Balance", balance);
+							await insertCmd.ExecuteNonQueryAsync();
+
+							// Update last fetched timestamp
+							var updateSql = string.Format(updateFetchedSqlTemplate, tableSuffix);
+							using var updateCmd = new MySqlCommand(updateSql, conn);
+							updateCmd.Parameters.AddWithValue("@WalletId", walletId);
+							await updateCmd.ExecuteNonQueryAsync();
+						}
 					}
 				}
-			}
-
-			// USDC Wallet
-			if (usdcBalance > 0)
-			{
-				int usdcWalletId;
-				using (var cmd = new MySqlCommand(ensureUsdcWalletSql, conn))
+				catch (Exception ex)
 				{
-					cmd.Parameters.AddWithValue("@UserId", userId);
-					using var reader = await cmd.ExecuteReaderAsync();
-					await reader.ReadAsync();
-					usdcWalletId = reader.GetInt32(0);
-				}
-
-				using (var checkCmd = new MySqlCommand(checkRecentUsdcSql, conn))
-				{
-					checkCmd.Parameters.AddWithValue("@WalletId", usdcWalletId);
-					var recentCount = Convert.ToInt32(await checkCmd.ExecuteScalarAsync());
-					if (recentCount == 0)
-					{
-						using var insertCmd = new MySqlCommand(insertUsdcSql, conn);
-						insertCmd.Parameters.AddWithValue("@WalletId", usdcWalletId);
-						insertCmd.Parameters.AddWithValue("@Balance", usdcBalance);
-						await insertCmd.ExecuteNonQueryAsync();
-
-						using var updateCmd = new MySqlCommand(updateUsdcFetchedSql, conn);
-						updateCmd.Parameters.AddWithValue("@WalletId", usdcWalletId);
-						await updateCmd.ExecuteNonQueryAsync();
-					}
+					_ = _log.Db($"⚠️Error processing {coinSymbol} balance: {ex.Message}", userId, "TRADE", false);
+					// Continue with next coin even if one fails
 				}
 			}
 		}
 		catch (Exception ex)
 		{
-			_ = _log.Db($"⚠️Error creating {tmpType} wallet balance entry: " + ex.Message, userId, "TRADE", true);
+			_ = _log.Db($"⚠️Error creating wallet balance entries: " + ex.Message, userId, "TRADE", true);
 		}
 	}
+
 	private async Task<int?> GetMinutesSinceLastTrade(int userId, string coin)
 	{
 		string tmpCoin = coin.ToUpper();

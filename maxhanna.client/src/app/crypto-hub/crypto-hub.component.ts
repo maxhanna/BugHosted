@@ -2425,7 +2425,7 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
       return alert("Either you have no USDC available or wallet data has not yet fully loaded. Verify and retry.");
     }
     const sessionToken = await this.parentRef.getSessionToken();
-    const tc = await this.tradeService.getTradeConfiguration(userId, sessionToken ?? "");
+    const tc = await this.tradeService.getTradeConfiguration(userId, sessionToken ?? "", "BTC", "USDC");
     if (tc) {
       purchasePreview = parseFloat(tc.valueTradePercentage) * currentUSDC;
       btcPurchaseAmount = purchasePreview / (this.btcUSDRate ?? 0);
