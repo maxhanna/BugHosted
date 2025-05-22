@@ -63,11 +63,17 @@ namespace maxhanna.Server.Controllers
 			if (request.UserId != 0)
 			{
 				whereClause.Append(@"
-            AND NOT EXISTS (
-                SELECT 1 FROM user_blocks ub 
-                WHERE (ub.user_id = @userId AND ub.blocked_user_id = s.user_id)
-                   OR (ub.user_id = s.user_id AND ub.blocked_user_id = @userId)
-            ) ");
+					AND NOT EXISTS (
+						SELECT 1 FROM user_blocks ub 
+						WHERE (ub.user_id = @userId AND ub.blocked_user_id = s.user_id)
+						OR (ub.user_id = s.user_id AND ub.blocked_user_id = @userId)
+					) ");
+				whereClause.Append(@"
+					AND NOT EXISTS (
+						SELECT 1 FROM topic_ignored ti 
+						WHERE ti.user_id = @userId 
+						AND ti.topic_id IN (SELECT topic_id FROM story_topics st WHERE st.story_id = s.id)
+					) ");
 			}
 			// Fetch the NSFW setting for the user
 			int? nsfwEnabled = null;
@@ -88,12 +94,12 @@ namespace maxhanna.Server.Controllers
 			if (nsfwEnabled == null || nsfwEnabled == 0)
 			{
 				whereClause.Append(@"
-            AND NOT EXISTS (
-                SELECT 1 FROM story_topics st 
-                JOIN topics t ON st.topic_id = t.id 
-                WHERE st.story_id = s.id AND t.topic = 'NSFW'
-            )
-        ");
+					AND NOT EXISTS (
+						SELECT 1 FROM story_topics st 
+						JOIN topics t ON st.topic_id = t.id 
+						WHERE st.story_id = s.id AND t.topic = 'NSFW'
+					)
+				");
 			}
 
 
@@ -1030,7 +1036,7 @@ namespace maxhanna.Server.Controllers
 			{
 				using (var connection = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
 				{
-					await connection.OpenAsync(); 
+					await connection.OpenAsync();
 					using (var transaction = await connection.BeginTransactionAsync())
 					{
 						// Insert into hidden_files table (no permission check)
@@ -1040,18 +1046,52 @@ namespace maxhanna.Server.Controllers
 						hideCommand.Parameters.AddWithValue("@userId", request.UserId);
 						hideCommand.Parameters.AddWithValue("@storyId", request.StoryId);
 
-						await hideCommand.ExecuteNonQueryAsync(); 
+						await hideCommand.ExecuteNonQueryAsync();
 
 						// Commit transaction
 						await transaction.CommitAsync();
 					}
-				} 
+				}
 				return Ok("Post unhidden successfully.");
 			}
 			catch (Exception ex)
 			{
 				_ = _log.Db("An error occurred while unhidden the post." + ex.Message, request.UserId, "SOCIAL", true);
 				return StatusCode(500, "An error occurred while unhidden the post.");
+			}
+		}
+
+		[HttpGet("/Social/GetLatestStoryId/", Name = "GetLatestStoryId")]
+		public async Task<IActionResult> GetLatestStoryId()
+		{
+			try
+			{
+				using (var connection = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+				{
+					await connection.OpenAsync();
+
+					// Create command with the query
+					using (var command = new MySqlCommand(
+						"SELECT id FROM maxhanna.stories WHERE profile_user_id IS NULL ORDER BY id DESC LIMIT 1;",
+						connection))
+					{
+						// Execute the query and get the result
+						var result = await command.ExecuteScalarAsync();
+
+						if (result != null && result != DBNull.Value)
+						{
+							// Convert the result to int
+							int latestId = Convert.ToInt32(result);
+							return Ok(latestId);
+						}
+						return NotFound("No stories found");
+					}
+				}
+			}
+			catch (Exception ex)
+			{
+				_ = _log.Db($"An error occurred while getting latest story ID: {ex.Message}", 0, "SOCIAL", true);
+				return StatusCode(500, "An error occurred while getting latest story ID");
 			}
 		}
 

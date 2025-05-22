@@ -296,13 +296,14 @@ namespace maxhanna.Server.Controllers
 				}
 				else
 				{
-					_ = _log.Db($"Skipping notification to {recipientId} - notifications blocked", request.FromUserId, "NOTIFICATION");
+					_ = _log.Db($"Skipping notification to {recipientId} - notifications blocked", request.FromUserId, "NOTIFICATION", outputToConsole: true);
 				}
 			}
 
 			// If no valid recipients remain, return early
 			if (!validRecipients.Any())
 			{
+				_ = _log.Db($"Skipping notification - no valid recipients to notify.", request.FromUserId, "NOTIFICATION", outputToConsole: true);
 				return Ok("No valid recipients - notifications blocked");
 			}
 
@@ -510,7 +511,7 @@ namespace maxhanna.Server.Controllers
 		{
 			if (request.StoryId == null)
 			{
-				_ = _log.Db("StoryId is null.", request.FromUserId, "NOTIFICATION", true);
+				//_ = _log.Db("StoryId is null.", request.FromUserId, "NOTIFICATION", true);
 				return false;
 			}
 			if (request.ToUserIds == null || !request.ToUserIds.Any())
@@ -776,24 +777,12 @@ namespace maxhanna.Server.Controllers
 								AND chat_id IS NOT NULL
 								AND date >= UTC_TIMESTAMP() - INTERVAL 10 MINUTE;";
 
-				string updateNotificationSql = @"
-							UPDATE maxhanna.notifications
-							SET text = CASE
-															WHEN LENGTH(text) <= 250 THEN CONCAT(text, ', ', @Content)
-															ELSE text
-													END,
-									date = UTC_TIMESTAMP()
-							WHERE user_id = @Receiver
-								AND chat_id = @ChatId
-								AND chat_id IS NOT NULL
-								AND date >= UTC_TIMESTAMP() - INTERVAL 10 MINUTE;";
-
-
+				  
 				string insertNotificationSql = @"
 							INSERT INTO maxhanna.notifications
-									(user_id, from_user_id, chat_id, text, date)
+								(user_id, from_user_id, chat_id, text, date)
 							VALUES
-									(@Receiver, @Sender, @ChatId, @Content, UTC_TIMESTAMP());";
+								(@Receiver, @Sender, @ChatId, @Content, UTC_TIMESTAMP());";
 
 				using (var checkCommand = new MySqlCommand(checkSql, conn))
 				{
@@ -804,16 +793,7 @@ namespace maxhanna.Server.Controllers
 					var count = Convert.ToInt32(await checkCommand.ExecuteScalarAsync()); 
 					if (count > 0)
 					{
-						sendFirebaseNotification = false;
-						using (var updateCommand = new MySqlCommand(updateNotificationSql, conn))
-						{
-							updateCommand.Parameters.AddWithValue("@Sender", request.FromUserId);
-							updateCommand.Parameters.AddWithValue("@Receiver", receiverUserId);
-							updateCommand.Parameters.AddWithValue("@Content", request.Message);
-							updateCommand.Parameters.AddWithValue("@ChatId", request.ChatId);
-
-							await updateCommand.ExecuteNonQueryAsync();
-						}
+						sendFirebaseNotification = false; 
 					}
 					else
 					{
@@ -937,7 +917,7 @@ namespace maxhanna.Server.Controllers
 					};
 
 					string response = await FirebaseMessaging.DefaultInstance.SendAsync(message);
-					Console.WriteLine($"Successfully sent message: {response} to user {tmpUserId}");
+					Console.WriteLine($"Successfully sent message: {response} to user {tmpUserId} with topic: {message.Topic}.");
 				}
 				catch (Exception ex)
 				{

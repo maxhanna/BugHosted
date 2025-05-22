@@ -677,6 +677,10 @@ fieldset {
   color: var(--third-font-color);
 }
 
+.linkFontColor {
+  color: var(--main-link-color);
+}
+
 .centeredContainer {
   position: absolute;
   top: 50%;

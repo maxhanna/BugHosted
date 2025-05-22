@@ -42,11 +42,11 @@
         <div class="seperatedUserHeader">
           <div class="invertedHighlights xxSmallFont">Last Seen: </div>
           <div>
-            <span *ngIf="user && user.lastSeen && isUserOnline(user.lastSeen)" class="cursorPointer" [title]="getUtcTimeSince(user.lastSeen)">
+            <span *ngIf="user && user.lastSeen && isUserOnline(user.lastSeen | timeSince)" class="cursorPointer" [title]="user.lastSeen | timeSince">
               <span class="glowing onlineButton">🟢</span> Online
             </span>
-            <span *ngIf="user && user.lastSeen && !isUserOnline(user.lastSeen)"  class="invertedHighlights smallFont">
-              {{ getUtcTimeSince(user.lastSeen) }} 
+            <span *ngIf="user && user.lastSeen && !isUserOnline(user.lastSeen | timeSince)"  class="invertedHighlights smallFont">
+              {{ user.lastSeen | timeSince }} 
             </span>
             <span *ngIf="!user?.lastSeen">
               Unknown <span class="invertedHighlights xxSmallFont">(0 days)</span>
@@ -103,128 +103,128 @@
               </div>
             </div>
           </div>
-          <div *ngIf="!usersCount && !isLoading">Server down</div>
-          <p *ngIf="!loginOnly" class="moreInfoTitle welcomeTitle cursorPointerUnderlined" (click)="isAboutOpen = !isAboutOpen">{{ !isAboutOpen ? 'Click here for more' : 'Show less'}} information</p>
-          <div *ngIf="isAboutOpen" class="aboutSiteDiv">
-            <ul>
-              <li>
-                Play games together
-              </li>
-              <li>
-                Interact with users
-              </li>
-              <li>
-                Social Media platform
-              </li>
-              <li>
-                Memes
-              </li>
-              <li>
-                Shared Filesystem
-              </li>
-              <li>
-                Cryptocurrency Tools
-              </li>
-              <li>
-                Music and self organization tools
-              </li>
-              <li>
-                Calendar
-              </li>
-              <li>
-                Todo
-              </li>
-            </ul>
-            <div>
-              <div>And more!</div>
-              <div>We are comitted to an open and free internet.</div>
-              <div>Visit our public <a href="https://github.com/maxhanna/BugHosted">GitHub repository</a>.</div>
-            </div>
-
-            <div class="aboutPictureContainer">
-              <app-media-viewer [fileId]="6373"
-                                [inputtedParentRef]="parentRef"
-                                [displayExtraInfo]="false"
-                                [showCommentSection]="false"
-                                [displayExpander]="false"
-                                [previousComponent]="previousComponent ?? 'User'">
-              </app-media-viewer>
-              <app-media-viewer [fileId]="6374"
-                                [inputtedParentRef]="parentRef"
-                                [displayExtraInfo]="false"
-                                [showCommentSection]="false"
-                                [displayExpander]="false"
-                                [previousComponent]="previousComponent ?? 'User'">
-              </app-media-viewer>
-              <app-media-viewer [fileId]="6375"
-                                [inputtedParentRef]="parentRef"
-                                [displayExtraInfo]="false"
-                                [showCommentSection]="false"
-                                [displayExpander]="false"
-                                [previousComponent]="previousComponent ?? 'User'">
-              </app-media-viewer>
-              <app-media-viewer [fileId]="6376"
-                                [inputtedParentRef]="parentRef"
-                                [displayExtraInfo]="false"
-                                [showCommentSection]="false"
-                                [displayExpander]="false"
-                                [previousComponent]="previousComponent ?? 'User'">
-              </app-media-viewer>
-              <app-media-viewer [fileId]="6380"
-                                [inputtedParentRef]="parentRef"
-                                [displayExtraInfo]="false"
-                                [showCommentSection]="false"
-                                [displayExpander]="false">
-              </app-media-viewer>
-              <app-media-viewer [fileId]="6377"
-                                [inputtedParentRef]="parentRef"
-                                [displayExtraInfo]="false"
-                                [showCommentSection]="false"
-                                [displayExpander]="false">
-              </app-media-viewer>
-              <app-media-viewer [fileId]="6378"
-                                [inputtedParentRef]="parentRef"
-                                [displayExtraInfo]="false"
-                                [showCommentSection]="false"
-                                [displayExpander]="false">
-              </app-media-viewer>
-              <app-media-viewer [fileId]="6379"
-                                [inputtedParentRef]="parentRef"
-                                [displayExtraInfo]="false"
-                                [showCommentSection]="false"
-                                [displayExpander]="false">
-              </app-media-viewer>
-              <app-media-viewer [fileId]="6381"
-                                [inputtedParentRef]="parentRef"
-                                [displayExtraInfo]="false"
-                                [showCommentSection]="false"
-                                [displayExpander]="false">
-              </app-media-viewer>
-              <app-media-viewer [fileId]="6382"
-                                [inputtedParentRef]="parentRef"
-                                [displayExtraInfo]="false"
-                                [showCommentSection]="false"
-                                [displayExpander]="false">
-              </app-media-viewer>
-            </div>
-          </div>
+          <div *ngIf="!usersCount && !isLoading">Server down</div> 
         </div>
       </div>
-    </div>
-
-
+    </div> 
+    <!-- LATEST MEME -->
+    <div *ngIf="!user?.id && !loginOnly" style="display: flex;align-items: flex-start;justify-content: center;flex-wrap: wrap;">
+      <div *ngIf="latestMemeId">
+        <div class="popupPanelTitle cursorPointerUnderlined" style="margin-top: 15px;"
+          (click)="parentRef?.createComponent('Meme')">Latest Meme:</div>
+        <app-media-viewer [fileId]="latestMemeId" [inputtedParentRef]="parentRef"></app-media-viewer>
+      </div>
+      <!-- LATEST WORDLER SCORES -->
+      <div *ngIf="wordlerHighScores && wordlerHighScores.length > 0">
+        <div class="popupPanelTitle cursorPointerUnderlined" style="margin-top: 15px;"
+          (click)="parentRef?.createComponent('Wordler')">Wordler Scores:</div>
+        <table *ngIf="wordlerHighScores && wordlerHighScores.length > 0" class="mainTable scoreTable" id="scoreTable">
+          <thead>
+            <tr>
+              <th (click)="sortTable(0, 'scoreTable')">User</th>
+              <th (click)="sortTable(1, 'scoreTable')">Attempts</th>
+              <th (click)="sortTable(2, 'scoreTable')">Time</th>
+              <th (click)="sortTable(3, 'scoreTable')">Difficulty</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let score of wordlerHighScores">
+              <td (click)="viewProfile(score.user, 'Wordler')">
+                <app-user-tag [userId]="score.user.id" [inputtedParentRef]="parentRef" [displayMiniTag]="true"
+                  [previousComponent]="'Wordler'"></app-user-tag>
+              </td>
+              <td>{{score.score}}</td>
+              <td>{{score.time}}</td>
+              <td>{{score.difficulty == 4 ? 'Easy Difficulty' : score.difficulty == 5 ? 'Medium Difficulty' : score.difficulty
+                == 6 ? 'Hard Difficulty' : 'Master Wordler'}}</td>
+            </tr>
+          </tbody>
+        </table>
+        </div>
+    </div> 
+    
     <!-- SOCIAL -->
-    <div *ngIf="user || parentRef?.user">
-      <app-social #socialComponent
-                  [user]="user"
-                  [storyId]="storyId"
-                  [parent]="parentRef"
-                  [showTopicSelector]="false"
-                  *ngIf="user && parentRef"></app-social>
+    <div *ngIf="(this.latestSocialStoryId || storyId || user?.id) && !loginOnly">
+      <div *ngIf="!user || !parentRef?.user" class="popupPanelTitle cursorPointerUnderlined" style="margin-top: 15px;"
+        (click)="parentRef?.createComponent('Social')">
+        Latest Post:
+      </div>
+      <app-social #socialComponent [showOnlyPost]="true" [user]="user" [storyId]="this.latestSocialStoryId ?? storyId"
+        [parent]="parentRef" [showTopicSelector]="false"></app-social>
     </div>
 
     <div *ngIf="user && user.id == parentRef?.user?.id && parentRef?.user?.username?.includes('Guest')" class="xxSmallFont">Note: <span class="italics">Guest accounts will be deleted after 10 days.</span></div>
-
+    <p *ngIf="!loginOnly" class="moreInfoTitle welcomeTitle cursorPointerUnderlined" (click)="isAboutOpen = !isAboutOpen">{{
+      !isAboutOpen ? 'Click here for more' : 'Show less'}} information</p>
+    <div *ngIf="isAboutOpen" class="aboutSiteDiv">
+      <ul>
+        <li>
+          Play games together
+        </li>
+        <li>
+          Interact with users
+        </li>
+        <li>
+          Social Media platform
+        </li>
+        <li>
+          Memes
+        </li>
+        <li>
+          Shared Filesystem
+        </li>
+        <li>
+          Cryptocurrency Tools
+        </li>
+        <li>
+          Music and self organization tools
+        </li>
+        <li>
+          Calendar
+        </li>
+        <li>
+          Todo
+        </li>
+      </ul>
+      <div>
+        <div>And more!</div>
+        <div>We are comitted to an open and free internet.</div>
+        <div>Visit our public <a href="https://github.com/maxhanna/BugHosted">GitHub repository</a>.</div>
+      </div>
+    
+      <div class="aboutPictureContainer">
+        <app-media-viewer [fileId]="6373" [inputtedParentRef]="parentRef" [displayExtraInfo]="false"
+          [showCommentSection]="false" [displayExpander]="false" [previousComponent]="previousComponent ?? 'User'">
+        </app-media-viewer>
+        <app-media-viewer [fileId]="6374" [inputtedParentRef]="parentRef" [displayExtraInfo]="false"
+          [showCommentSection]="false" [displayExpander]="false" [previousComponent]="previousComponent ?? 'User'">
+        </app-media-viewer>
+        <app-media-viewer [fileId]="6375" [inputtedParentRef]="parentRef" [displayExtraInfo]="false"
+          [showCommentSection]="false" [displayExpander]="false" [previousComponent]="previousComponent ?? 'User'">
+        </app-media-viewer>
+        <app-media-viewer [fileId]="6376" [inputtedParentRef]="parentRef" [displayExtraInfo]="false"
+          [showCommentSection]="false" [displayExpander]="false" [previousComponent]="previousComponent ?? 'User'">
+        </app-media-viewer>
+        <app-media-viewer [fileId]="6380" [inputtedParentRef]="parentRef" [displayExtraInfo]="false"
+          [showCommentSection]="false" [displayExpander]="false">
+        </app-media-viewer>
+        <app-media-viewer [fileId]="6377" [inputtedParentRef]="parentRef" [displayExtraInfo]="false"
+          [showCommentSection]="false" [displayExpander]="false">
+        </app-media-viewer>
+        <app-media-viewer [fileId]="6378" [inputtedParentRef]="parentRef" [displayExtraInfo]="false"
+          [showCommentSection]="false" [displayExpander]="false">
+        </app-media-viewer>
+        <app-media-viewer [fileId]="6379" [inputtedParentRef]="parentRef" [displayExtraInfo]="false"
+          [showCommentSection]="false" [displayExpander]="false">
+        </app-media-viewer>
+        <app-media-viewer [fileId]="6381" [inputtedParentRef]="parentRef" [displayExtraInfo]="false"
+          [showCommentSection]="false" [displayExpander]="false">
+        </app-media-viewer>
+        <app-media-viewer [fileId]="6382" [inputtedParentRef]="parentRef" [displayExtraInfo]="false"
+          [showCommentSection]="false" [displayExpander]="false">
+        </app-media-viewer>
+      </div>
+    </div>
   </div>
 </div>
 <!-- 

@@ -346,7 +346,18 @@ export function subscribeToMainGameEvents(object: any) {
       object.metaService.createHero(object.parentRef.user.id, name);
     }
   });
-
+  events.on("STARTED_TYPING", object, () => {
+    const metaEvent = new MetaEvent(0, object.metaHero.id, new Date(), "CHAT", object.metaHero.map, { "sender": object.metaHero.name ?? "Anon", "content": "..." });
+    object.metaService.updateEvents(metaEvent); 
+    const name = object.metaHero.name;
+    object.chat.unshift(
+      {
+        hero: name,
+        content: "...",
+        timestamp: new Date()
+      } as MetaChat);
+    object.setHeroLatestMessage(object.otherHeroes.find((x: Character) => x.name === name))
+  })
   events.on("SEND_CHAT_MESSAGE", object, (chat: string) => {
     const msg = chat.trim();
     if (object.parentRef?.user) {

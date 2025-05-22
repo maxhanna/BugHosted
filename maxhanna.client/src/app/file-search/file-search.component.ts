@@ -57,7 +57,9 @@ export class FileSearchComponent extends ChildComponent implements OnInit {
   isSearchPanelOpen = false;
   isSearchOptionsPanelOpen = false;
   isOptionsPanelOpen = false;
+  isShowingFileViewers = false; 
   showCommentsInOpenedFiles: number[] = [];
+  fileViewers?: User[] | undefined;
 
   optionsFile: FileEntry | undefined;
   directory?: DirectoryResults;
@@ -383,7 +385,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit {
 
       try {
         this.startLoading();
-        const response = await this.fileService.getFile(target, undefined);
+        const response = await this.fileService.getFile(target, undefined, this.inputtedParentRef?.user);
         const blob = new Blob([(response?.blob)!], { type: 'application/octet-stream' });
 
         const a = document.createElement('a');
@@ -817,5 +819,19 @@ export class FileSearchComponent extends ChildComponent implements OnInit {
     setTimeout(() => {
       this.closeSearchPanel();
     }, 50);
+  }
+  getFileViewers(fileId: number) {
+    const parent = this.inputtedParentRef ?? this.parentRef;
+    parent?.closeOverlay();
+    this.fileService.getFileViewers(fileId).then(res => {
+      parent?.showOverlay();
+      this.fileViewers = res;
+      this.isShowingFileViewers = true;
+    });
+  }
+  closeFileViewers() {
+    this.isShowingFileViewers = false;
+    const parent = this.inputtedParentRef ?? this.parentRef;
+    parent?.closeOverlay();
   }
 }

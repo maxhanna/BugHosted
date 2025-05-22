@@ -69,6 +69,8 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
   expanded: string[] = [];
   attachedSearchTopics: Array<Topic> = [];
   topTopics: TopicRank[] = [];
+  favTopics: Topic[] = [];
+  ignoredTopics: Topic[] = [];
 
   currentPage: number = 1;
   totalPages: number = 1;
@@ -100,6 +102,7 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
 
   @Input() storyId: number | undefined = undefined;
   @Input() showTopicSelector: boolean = true;
+  @Input() showOnlyPost: boolean = false;
   @Input() user?: User;
   @Input() parent?: AppComponent;
 
@@ -140,6 +143,11 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
         this.topTopics = res;
       }
     });
+    if (this.parentRef?.user?.id) {
+      this.topicService.getFavTopics(this.parentRef.user).then(res => this.favTopics = res);
+      this.topicService.getIgnoredTopics(this.parentRef.user).then(res => this.ignoredTopics = res);
+    }
+
     this.parentRef?.getLocation().then(res => {
       if (res) {
         this.country = res.country;
@@ -179,6 +187,11 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
       this.componentMain.nativeElement.style.paddingTop = "0px";
       this.componentMain.nativeElement.classList.add("mobileMaxHeight");
       (document.getElementsByClassName('storyInputDiv')[0] as HTMLDivElement).style.marginTop = "0px";
+      (document.getElementsByClassName('componentMain')[0] as HTMLDivElement).style.border = "unset";
+    }
+    if (this.showOnlyPost) {
+      this.componentMain.nativeElement.style.paddingTop = "0px";
+      this.componentMain.nativeElement.classList.add("mobileMaxHeight");
       (document.getElementsByClassName('componentMain')[0] as HTMLDivElement).style.border = "unset";
     }
   }
@@ -271,16 +284,16 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
         this.storyResponse = res;
       }
 
-      if (this.storyResponse?.stories) {
-        this.storyResponse.stories.forEach(story => {
-          if (story.date) {
-            if (typeof story.date === 'string') {
-              story.date = new Date(story.date);
-            }
-            story.date = new Date(story.date.getTime() - story.date.getTimezoneOffset() * 60000);  //Convert UTC dates to local time.
-          }
-        });
-      } 
+      // if (this.storyResponse?.stories) {
+      //   this.storyResponse.stories.forEach(story => {
+      //     if (story.date) {
+      //       if (typeof story.date === 'string') {
+      //         story.date = new Date(story.date);
+      //       }
+      //       story.date = new Date(story.date.getTime() - story.date.getTimezoneOffset() * 60000);  //Convert UTC dates to local time.
+      //     }
+      //   });
+      // } 
       this.totalPages = this.storyResponse?.pageCount ?? 0;
       this.totalPagesArray = Array.from({ length: this.totalPages }, (_, index) => index + 1);
     }
@@ -486,7 +499,19 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
     if (!url) return false;
     return url.includes("ytimg");
   }
-
+  addFavouriteTopic() {
+    if (this.parentRef?.user?.id) {
+      const topicIds = this.attachedTopics.map(x => x.id);
+      this.topicService.addFavTopic(this.parentRef.user.id, topicIds).then(res => {
+        if (res) {
+          this.parentRef?.showNotification(res.message);
+          if (res.success) {
+            this.favTopics = res.allFavoriteTopics;
+          }
+        }
+      });
+    }
+  }
   onTopicAdded(topics?: Array<Topic>) {
     if (topics) {
       this.currentPage = 1;
@@ -994,5 +1019,50 @@ Option 4: Yellow
     textarea.selectionStart = currentPos + pollTemplate.length;
     textarea.selectionEnd = currentPos + pollTemplate.length;
     textarea.focus();
+  }
+  getNonFavoriteTopics(): Topic[] {
+    if (!this.attachedTopics || !this.favTopics) return [];
+
+    return this.attachedTopics.filter(attachedTopic =>
+      !this.favTopics.some(favTopic => favTopic.id === attachedTopic.id)
+    );
+  }
+  removeFavTopic(topic: Topic) {
+    if (this.parentRef?.user?.id) {
+      this.topicService.removeFavTopic(this.parentRef.user.id, [topic.id]).then(res => {
+        if (res) {
+          this.parentRef?.showNotification(res.message);
+          if (res.success) {
+            this.favTopics = res.remainingFavoriteTopics;
+          }
+        }
+      });
+    }
+  }
+  ignoreTopic(topic: Topic) {
+    if (this.parentRef?.user?.id) { 
+      this.topicService.addIgnoredTopic(this.parentRef.user.id, [topic.id]).then(res => {
+        if (res) {
+          this.parentRef?.showNotification(res.message);
+          if (res.success) {
+            this.ignoredTopics = res.allIgnoredTopics;
+            this.closePostOptionsPanel();
+            this.getStories();
+          }
+        }
+      });
+    }
+  }
+  removeIgnoredTopic(topic: Topic) {
+    if (this.parentRef?.user?.id) {
+      this.topicService.removeIgnoredTopic(this.parentRef.user.id, [topic.id]).then(res => {
+        if (res) {
+          this.parentRef?.showNotification(res.message);
+          if (res.success) {
+            this.ignoredTopics = res.remainingIgnoredTopics;
+          }
+        }
+      });
+    }
   }
 }

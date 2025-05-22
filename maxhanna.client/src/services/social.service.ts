@@ -177,5 +177,23 @@ export class SocialService {
       console.error('Error getting metadata:', error);
       return null;
     }
-  } 
+  }
+  async getLatestStoryId() {
+    try {
+      const res = await fetch('/social/getlateststoryid', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        }, 
+      });
+
+      if (!res.ok) {
+        throw new Error('Failed to get latest post id');
+      }
+      return res.text();
+    } catch (error) {
+      console.error('Error getting latest post id:', error);
+      return null;
+    }
+  }
 }

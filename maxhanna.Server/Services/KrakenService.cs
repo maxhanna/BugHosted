@@ -40,6 +40,7 @@ public class KrakenService
 	{
 		// 1. Cooldown and system check
 		await UpdateFees(userId, coin, keys);
+		
 		DateTime? started = await IsTradebotStarted(userId, coin);
 		if (started == null)
 		{
@@ -53,7 +54,7 @@ public class KrakenService
 			return false;
 		}
 		string tmpCoin = coin.ToUpper().Trim();
-		tmpCoin = tmpCoin == "BTC" ? "XBT" : tmpCoin;
+		tmpCoin = tmpCoin == "BTC" ? "XBT" : tmpCoin; 
 		TradeConfiguration? tc = await GetTradeConfiguration(userId, tmpCoin, "USDC");
 		if (!ValidateTradeConfiguration(tc, userId) || tc == null)
 		{
@@ -103,6 +104,7 @@ public class KrakenService
 			firstPriceToday = firstPriceToday / usdToCadRate;
 		}
 
+
 		// 3. Calculate spread
 		decimal.TryParse(lastTrade?.coin_price_usdc, out decimal lastPrice);
 		decimal currentPrice = coinPriceUSDC.Value;
@@ -128,7 +130,7 @@ public class KrakenService
 		// NO MOMENTUM DETECTED AS OF YET, Check if trade crosses spread thresholds
 		if (Math.Abs(spread) >= _TradeThreshold || Math.Abs(spread2) >= _TradeThreshold)
 		{
-			// 4. Now we know a trade is needed - fetch balances 
+			// // 4. Now we know a trade is needed - fetch balances 
 			var balances = await GetBalance(userId, tmpCoin, keys);
 			if (balances == null)
 			{
@@ -240,9 +242,7 @@ public class KrakenService
 		}
 
 		return true;
-	}
-
- 
+	} 
 
 	private async Task<bool> ExecuteDownwardsMomentumStrategy(int userId, string coin, UserKrakenApiKey keys, decimal coinPriceCAD, decimal coinPriceUSDC, decimal? firstPriceToday, decimal lastPrice, decimal currentPrice, decimal spread, decimal spread2, MomentumStrategy DownwardsMomentum)
 	{
@@ -255,14 +255,14 @@ public class KrakenService
 	        decimal triggeredBySpread = Math.Abs(spread) >= _TradeThreshold ? spread : spread2;
 
 			decimal baseThreshold, maxThreshold, premiumThreshold;
-			const decimal spreadSensitivity = 2.0m;
-			const decimal volatilityFactor = 1.25m;
+			const decimal spreadSensitivity = 1.5m;
+			const decimal volatilityFactor = 1.5m;
 
 			if (tmpCoin == "XBT")
 			{
-				baseThreshold = 50.0m;
-				maxThreshold = 150.0m;
-				premiumThreshold = 120.0m;
+				baseThreshold = Math.Max(40.0m, coinPriceUSDC * 0.00025m); // e.g., $100 at $200,000
+				maxThreshold = baseThreshold * 3.0m; // e.g., $600
+				premiumThreshold = baseThreshold * 2.0m; // e.g., $400
 			}
 			else
 			{
@@ -275,7 +275,7 @@ public class KrakenService
 
 			decimal spreadImpact = Math.Abs(triggeredBySpread) * spreadSensitivity;
 			decimal volatilityImpact = (Math.Abs(triggeredBySpread) / _TradeThreshold) * volatilityFactor;
-			decimal dynamicThreshold = baseThreshold * (1 + spreadImpact + volatilityImpact);
+			decimal dynamicThreshold = baseThreshold * Math.Max(1, spreadImpact + volatilityImpact);
 			dynamicThreshold = Math.Min(dynamicThreshold, maxThreshold);
 
 			bool priceAboveInitial = (coinPriceUSDC - DownwardsMomentum.CoinPriceUsdc) >= dynamicThreshold;
@@ -382,14 +382,14 @@ public class KrakenService
 	        decimal triggeredBySpread = Math.Abs(spread) >= _TradeThreshold ? spread : spread2;
  
 			decimal baseThreshold, maxThreshold, premiumThreshold;
-			const decimal spreadSensitivity = 2.0m;
-			const decimal volatilityFactor = 1.25m;
+			const decimal spreadSensitivity = 1.5m;
+			const decimal volatilityFactor = 1.5m;
 
 			if (tmpCoin == "XBT")
 			{
-				baseThreshold = 50.0m;
-				maxThreshold = 150.0m;
-				premiumThreshold = 120.0m;
+				baseThreshold = Math.Max(40.0m, coinPriceUSDC * 0.00025m); // e.g., $100 at $200,000
+				maxThreshold = baseThreshold * 3.0m; // e.g., $600
+				premiumThreshold = baseThreshold * 2.0m; // e.g., $400
 			}
 			else
 			{
@@ -402,11 +402,12 @@ public class KrakenService
 
 			decimal spreadImpact = Math.Abs(triggeredBySpread) * spreadSensitivity;
 			decimal volatilityImpact = (Math.Abs(triggeredBySpread) / _TradeThreshold) * volatilityFactor;
-			decimal dynamicThreshold = baseThreshold * (1 + spreadImpact + volatilityImpact);
+			decimal dynamicThreshold = baseThreshold * Math.Max(1, spreadImpact + volatilityImpact);
 			dynamicThreshold = Math.Min(dynamicThreshold, maxThreshold);
-
-			bool priceAboveInitial = (coinPriceUSDC - UpwardsMomentum.CoinPriceUsdc) >= dynamicThreshold;
-			bool priceAboveBest = (coinPriceUSDC - UpwardsMomentum.BestCoinPriceUsdc) >= dynamicThreshold;
+ 
+  
+			bool priceAboveInitial = (coinPriceUSDC - UpwardsMomentum.CoinPriceUsdc) >= -dynamicThreshold;
+			bool priceAboveBest = (coinPriceUSDC - UpwardsMomentum.BestCoinPriceUsdc) >= -dynamicThreshold;
 
 			if (priceAboveInitial && priceAboveBest)
 	        {   //we gotta wait here. Return false;
@@ -446,7 +447,7 @@ public class KrakenService
 
 	            decimal coinValueInUsdc = coinToTrade.Value * coinPriceUSDC;
 	            var spread2Message = firstPriceToday != null ? $"Spread2 : {spread2:P} " : "";
-	            _ = _log.Db($"Spread is +{spread:P}, {spread2Message}(c:{currentPrice}-l:{lastPrice}), selling {coinToTrade} {tmpCoin} for USDC ({coinValueInUsdc}) possibility opened. Switching to momentum strategy.", userId, "TRADE", true);
+	            _ = _log.Db($"Spread is +{spread:P}, {spread2Message}(c:{currentPrice}-l:{lastPrice}), selling {coinToTrade} {tmpCoin} for USDC ({coinValueInUsdc}).", userId, "TRADE", true);
 	            await ExecuteTrade(userId, tmpCoin, keys, FormatBTC(coinToTrade.Value), "sell", coinBalance, usdcBalance, coinPriceCAD, coinPriceUSDC);
 	            if (await DeleteMomentumStrategy(userId, tmpCoin, "USDC"))
 	            {
@@ -553,7 +554,7 @@ public class KrakenService
 			// Convert the result into a Dictionary<string, decimal> to store the balances
 			var balanceDictionary = result.ToObject<Dictionary<string, decimal>>();
 
-
+			Console.WriteLine(string.Join(Environment.NewLine, balanceDictionary.Select(x => $"{x.Key}: {x.Value}")));
 			_ = CreateWalletEntriesFromFetchedDictionary(balanceDictionary, userId);
 
 
@@ -1240,15 +1241,15 @@ public class KrakenService
 
 		// Map Kraken symbols to our database table names
 		var coinMappings = new Dictionary<string, string>
-	{
-		{"XBT", "btc"},  // Kraken uses XBT for Bitcoin
-        {"BTC", "btc"},  // Just in case
-        {"ETH", "eth"},
-		{"USDC", "usdc"},
-		{"USDT", "usdt"},
-		{"XRP", "xrp"},
-        // Add more mappings as needed
-    };
+		{
+			{"XBT", "btc"},
+			{"XXBT", "btc"},  // Kraken uses XBT for Bitcoin
+			{"BTC", "btc"},  
+			{"USDC", "usdc"},
+			{"XRP", "xrp"},
+			{"XXRP", "xrp"},
+			// Add more mappings as needed
+		};
 
 		const string ensureWalletSqlTemplate = @"
 			INSERT INTO user_{0}_wallet_info (user_id, {0}_address, last_fetched)
@@ -1273,8 +1274,8 @@ public class KrakenService
 				var coinSymbol = entry.Key;
 				var balance = entry.Value;
 
-				// Skip zero balances
-				if (balance <= 0) continue;
+				// // Skip zero balances
+				// if (balance <= 0) continue;
 
 				// Check if we have a mapping for this coin
 				if (!coinMappings.TryGetValue(coinSymbol, out var tableSuffix))
@@ -2307,6 +2308,7 @@ public class KrakenService
 			checkCmd.Parameters.AddWithValue("@To", to);
 			checkCmd.Parameters.AddWithValue("@BtcValueUSDC", coinPriceUsdc);
 			await checkCmd.ExecuteNonQueryAsync();
+			_ = _log.Db($"Momentum entry created: {from}/{to} price : {coinPriceUsdc}.", userId, "TRADE", true); 
 		}
 		catch (Exception ex)
 		{

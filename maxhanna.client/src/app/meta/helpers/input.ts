@@ -74,7 +74,8 @@ export class Input {
         if (!this.chatSelected) {
           chatInputElement.focus();
           this.chatSelected = true;
-          moveLock = true; 
+          moveLock = true;  
+          events.emit("STARTED_TYPING");
         } else {
           chatInputElement.blur();
           this.chatSelected = false;
@@ -90,6 +91,7 @@ export class Input {
           moveLock = false;
         }
         else {
+          events.emit("STARTED_TYPING");
           chatInputElement.focus();
           this.chatSelected = true;
           moveLock = true;

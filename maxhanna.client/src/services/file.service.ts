@@ -117,8 +117,8 @@ romFileExtensions = [
 			const response = await fetch(`/file/makedirectory`, {
 				method: 'POST',
 				headers: {
-          'Content-Type': 'application/json',
-          'Encrypted-UserId': sessionToken,
+					'Content-Type': 'application/json',
+					'Encrypted-UserId': sessionToken,
 				},
 				body: JSON.stringify({ userId, directory, isPublic }),
 			});
@@ -128,14 +128,30 @@ romFileExtensions = [
 			return null;
 		}
 	}
-	async getFile(file: string, options?: { signal: AbortSignal }) {
+	async getLatestMemeId() {
+		try {
+			const response = await fetch(`/file/getlatestmemeid`, {
+				method: 'GET',
+				headers: {
+					'Content-Type': 'application/json', 
+				}, 
+			});
+
+			return await response.text();
+		} catch (error) {
+			return null;
+		}
+	}
+	async getFile(file: string, options?: { signal: AbortSignal }, user?: User) {
 		try {
 			const response = await fetch(`/file/getfile/${encodeURIComponent(file)}`, {
 				method: 'POST',
 				headers: {
-					'Content-Type': 'application/json',
-				}, 
-				signal: options?.signal  // Pass the AbortSignal here
+					'Content-Type': 'application/json', 
+					'Cache-Control': 'max-age=31536000',
+				},
+				signal: options?.signal,
+				body: JSON.stringify(user?.id)
 			});
 
 			// Check if the request was aborted
@@ -190,7 +206,25 @@ romFileExtensions = [
 		}
 	}
 
+	async getFileViewers(fileId: number) {
+		try {
+			const response = await fetch(`/file/getfileviewers`, {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json',
+				},
+				body: JSON.stringify(fileId),
+			});
 
+			if (!response.ok) {
+				throw new Error(`Error: ${response.status} - ${response.statusText}`);
+			}
+
+			return await response.json();
+		} catch (error) {
+			throw error;
+		}
+	}
 	async getComments(fileId: number) {
 		try {
 			const response = await fetch(`/file/comments/${fileId}`, {

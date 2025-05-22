@@ -112,7 +112,7 @@
           <div class="optionsStatsHeader">
             Views:
           </div>
-          <div class="optionsStatsDescription">
+          <div class="optionsStatsDescription cursorPointerUnderlined linkFontColor" (click)="getFileViewers(selectedFile.id)">
             {{selectedFile.accessCount}}
           </div>
         </div>
@@ -265,6 +265,18 @@
                   (commentAddedEvent)="commentAddedEvent($event)"
                   (commentHeaderClickedEvent)="commentHeaderClickedEvent.emit($event)">
     </app-comments>
-    <div *ngIf="isShowingMediaInformation"><button (click)="closeMediaInformationButtonClicked();">Close</button></div>
+    <div *ngIf="isShowingMediaInformation"><button id="closeOverlay" (click)="closeMediaInformationButtonClicked();">Close</button></div>
   </div>
+</div>
+
+
+<!-- File viewers Popup -->
+<div class="popupPanel" *ngIf="isShowingFileViewers">
+  <div class="popupPanelTitle popupPanelContents" style="margin-bottom:15px;">
+    File Viewers
+  </div> 
+  <div *ngFor="let viewer of fileViewers" class="fileViewerDiv">
+    <app-user-tag [user]="viewer" [inputtedParentRef]="parentRef ?? inputtedParentRef" [previousComponent]="previousComponent"></app-user-tag>
+  </div> 
+  <button id="closeOverlay" (click)="closeFileViewers()">Close</button>
 </div>

@@ -70,7 +70,7 @@ export class TopicsComponent extends ChildComponent {
         this.addTopicButton.nativeElement.style.visibility = "hidden"; 
       } 
       if (enteredValue.trim() != '' || force) { 
-        await this.topicService.getTopics(enteredValue).then(matchingTopics => {
+        await this.topicService.getTopics(enteredValue, this.user).then(matchingTopics => {
           this.matchingTopics = matchingTopics;
           if (enteredValue.trim() == '') {
             this.showAddTopicButton = false;

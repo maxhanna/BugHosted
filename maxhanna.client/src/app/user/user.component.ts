@@ -16,6 +16,8 @@ import { Trophy } from '../../services/datacontracts/user/trophy';
 import { NexusService } from '../../services/nexus.service';
 import { MetaService } from '../../services/meta.service';
 import { NotificationService } from '../../services/notification.service';
+import { SocialService } from '../../services/social.service';
+import { FileService } from '../../services/file.service';
 
 @Component({
   selector: 'app-user',
@@ -80,6 +82,10 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
   filter = {
     hidden: this.showHiddenFiles ? 'yes' : 'no',
   };
+  latestSocialStoryId? : number = undefined;
+  wordlerHighScores?: any = undefined;
+  latestMemeId?: number = undefined;
+
   constructor(private userService: UserService,
     private nexusService: NexusService,
     private contactService: ContactService,
@@ -89,6 +95,8 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
     private wordlerService: WordlerService,
     private todoService: TodoService,
     private metaService: MetaService,
+    private socialService: SocialService,
+    private fileService: FileService,
   ) {
     super();
     setTimeout(() => {
@@ -133,6 +141,18 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
         this.getIsUserBlocked(this.user);
         if (this.user.id == this.parentRef?.user?.id && this.user.id != 0 && this.user.id !== undefined) {
           this.notificationService.getStoppedNotifications(this.user.id).then(res => this.stoppedNotifications = res );
+        }
+      }
+      if (!this.user) {
+        console.log("getting latest social story");
+        const lidRes = await this.socialService.getLatestStoryId();
+        if (lidRes) {
+          this.latestSocialStoryId = parseInt(lidRes);
+        } 
+        this.wordlerHighScores = await this.wordlerService.getAllScores();
+        const lmRes = await this.fileService.getLatestMemeId();
+        if (lmRes) {
+          this.latestMemeId = parseInt(lmRes);
         }
       }
       this.getNSFWValue();
@@ -571,6 +591,7 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
           console.log("close user event emitted from user panel");
           this.closeUserComponentEvent.emit(tmpUser);
         }
+        this.latestSocialStoryId = undefined;
       } else {
         this.parentRef?.showNotification("Access denied");
       }
@@ -702,11 +723,26 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
 
     this.socialComponent.getStories(undefined, undefined, undefined, undefined, undefined, showHidden);
   }
-  isUserOnline(lastSeen: string | Date): boolean {
-    const lastSeenDate = new Date(lastSeen);
+  isUserOnline(lastSeen: string): boolean {  
+    // Parse duration string like "2d 8h 51m" into minutes
+    let days = 0, hours = 0, minutes = 0;
 
-    return (Date.now() - lastSeenDate.getTime()) < 10 * 60 * 1000;
+    const dayMatch = lastSeen.match(/(\d+)d/);
+    if (dayMatch) days = parseInt(dayMatch[1]);
+
+    const hourMatch = lastSeen.match(/(\d+)h/);
+    if (hourMatch) hours = parseInt(hourMatch[1]);
+
+    const minuteMatch = lastSeen.match(/(\d+)m/);
+    if (minuteMatch) minutes = parseInt(minuteMatch[1]);
+
+    // Convert everything to minutes
+    minutes = (days * 24 * 60) + (hours * 60) + minutes;
+
+    // Return true if last seen < 10 minutes ago
+    return minutes < 10;
   }
+ 
   private getNSFWValue() {
     const parent = this.inputtedParentRef ?? this.parentRef;
     const user = parent?.user;

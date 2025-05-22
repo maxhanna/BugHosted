@@ -182,8 +182,9 @@ input[type="text"] {
 
   .reactionDiv button, .otherPersonsReactionDiv button {
     cursor: pointer;
-    background-color: unset;
+    background-color: var(--main-highlight-color);
     color: var(--secondary-font-color);
+    border-color: var(--main-highlight-color);
   }
 
   .chatUserConnected {

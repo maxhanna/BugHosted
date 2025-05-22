@@ -72,7 +72,7 @@
 
 .reactionsContainer {
   display: inline-flex;
-  /* align-items: center; */
+  align-items: baseline;
   justify-content: center;
   max-width: 120px;  
   overflow: hidden;
@@ -80,7 +80,7 @@
 }
 
 .reactionsDisplaySpan {
-  display: inline-block;
+  /* display: inline-block; */
   position:relative; 
   overflow: hidden;
   white-space: nowrap;

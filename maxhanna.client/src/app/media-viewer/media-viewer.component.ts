@@ -1,27 +1,27 @@
 import { Component, ElementRef, EventEmitter, Input, OnDestroy, OnInit, Output, ViewChild } from '@angular/core';
-import { ChildComponent } from '../child.component'; 
-import { FileService } from '../../services/file.service';  
+import { ChildComponent } from '../child.component';
+import { FileService } from '../../services/file.service';
 import { AppComponent } from '../app.component';
 import { FileEntry } from '../../services/datacontracts/file/file-entry';
 import { User } from '../../services/datacontracts/user/user';
 import { FileComment } from '../../services/datacontracts/file/file-comment';
 import { Topic } from '../../services/datacontracts/topics/topic';
- 
+
 
 @Component({
-    selector: 'app-media-viewer',
-    templateUrl: './media-viewer.component.html',
-    styleUrl: './media-viewer.component.css',
-    standalone: false
+  selector: 'app-media-viewer',
+  templateUrl: './media-viewer.component.html',
+  styleUrl: './media-viewer.component.css',
+  standalone: false
 })
 export class MediaViewerComponent extends ChildComponent implements OnInit, OnDestroy {
-  constructor(private fileService: FileService) { 
+  constructor(private fileService: FileService) {
     super();
     if (this.file) {
       this.selectedFile = this.file;
     }
   }
-
+  fileViewers?: User[] | undefined;
   selectedFileExtension = '';
   selectedFileSrc = '';
   selectedFile: FileEntry | undefined;
@@ -30,16 +30,17 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
   showComments = true;
   showCommentLoadingOverlay = false;
   selectedFileName = '';
-  abortFileRequestController: AbortController | null = null; 
-  fS = '/'; 
+  abortFileRequestController: AbortController | null = null;
+  fS = '/';
   isFullscreenMode = false;
   isShowingMediaInformation = false;
+  isShowingFileViewers = false;
   @ViewChild('mediaContainer', { static: false }) mediaContainer!: ElementRef;
   @ViewChild('fullscreenOverlay', { static: false }) fullscreenOverlay!: ElementRef;
   @ViewChild('fullscreenImage', { static: false }) fullscreenImage!: ElementRef;
   @ViewChild('fullscreenVideo', { static: false }) fullscreenVideo!: ElementRef;
   @ViewChild('fullscreenAudio', { static: false }) fullscreenAudio!: ElementRef;
-   
+
   @Input() displayExpander: boolean = true;
   @Input() displayExtraInfo: boolean = true;
   @Input() blockExpand: boolean = false;
@@ -47,26 +48,26 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
   @Input() autoplayAudio: boolean = false;
   @Input() autoload: boolean = true;
   @Input() forceInviewLoad: boolean = false;
-  @Input() showTopics: boolean = true; 
-  @Input() showCommentSection: boolean = true; 
-  @Input() showCommentSectionHeader: boolean = true; 
-  @Input() showCommentSectionOnLoad: boolean = true; 
+  @Input() showTopics: boolean = true;
+  @Input() showCommentSection: boolean = true;
+  @Input() showCommentSectionHeader: boolean = true;
+  @Input() showCommentSectionOnLoad: boolean = true;
   @Input() canScroll: boolean = false;
   @Input() file?: FileEntry;
   @Input() fileId?: number;
-  @Input() fileSrc?: string; 
-  @Input() title?: string; 
+  @Input() fileSrc?: string;
+  @Input() title?: string;
   @Input() currentDirectory?: string = '';
   @Input() user?: User;
   @Input() inputtedParentRef?: AppComponent;
   @Input() isLoadedFromURL = false;
   @Input() showMediaInformation = false; 
-  @Output() emittedNotification = new EventEmitter<string>(); 
-  @Output() commentHeaderClickedEvent = new EventEmitter<boolean>(); 
-  @Output() expandClickedEvent = new EventEmitter<FileEntry>(); 
-  @Output() topicClickedEvent = new EventEmitter<Topic[]>(); 
-    
-  async ngOnInit() {
+  @Output() emittedNotification = new EventEmitter<string>();
+  @Output() commentHeaderClickedEvent = new EventEmitter<boolean>();
+  @Output() expandClickedEvent = new EventEmitter<FileEntry>();
+  @Output() topicClickedEvent = new EventEmitter<Topic[]>();
+
+  async ngOnInit() { 
     if (this.isLoadedFromURL) {
       const componentContainers = document.getElementsByClassName("componentContainer");
       for (let i = 0; i < componentContainers.length; i++) {
@@ -74,9 +75,9 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
       }
     }
   }
-  onInView(isInView: boolean) { 
+  onInView(isInView: boolean) {
     if (!this.forceInviewLoad || (this.forceInviewLoad && isInView && this.isComponentHeightSufficient())) {
-      this.fetchFileSrc(); 
+      this.fetchFileSrc();
     } else {
       // Pause any media playback when not in view or height is insufficient
       if (this.mediaContainer && this.mediaContainer.nativeElement instanceof HTMLVideoElement) {
@@ -97,13 +98,13 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
     const mediaContainer = document.getElementById('mediaContainer' + this.fileId);
     if (mediaContainer) {
       const containerHeight = mediaContainer.offsetHeight;
-      const windowHeight = window.innerHeight; 
+      const windowHeight = window.innerHeight;
       return containerHeight <= windowHeight;
     }
     return false;
   }
 
-  async fetchFileSrc() { 
+  async fetchFileSrc() {
     if (this.fileSrc) {
       this.selectedFileSrc = this.fileSrc;
       return;
@@ -114,10 +115,10 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
       this.selectedFile = {
         id: this.fileId,
       } as FileEntry;
-         
+
       if (this.parentRef && this.parentRef.pictureSrcs[this.fileId] && this.parentRef.pictureSrcs[this.fileId].value
-        || this.inputtedParentRef && this.inputtedParentRef.pictureSrcs[this.fileId] && this.inputtedParentRef.pictureSrcs[this.fileId].value) {  
-        this.setFileSrcByParentRefValue(this.fileId);  
+        || this.inputtedParentRef && this.inputtedParentRef.pictureSrcs[this.fileId] && this.inputtedParentRef.pictureSrcs[this.fileId].value) {
+        this.setFileSrcByParentRefValue(this.fileId);
         return;
       } else {
         this.setFileSrcById(this.selectedFile.id);
@@ -129,15 +130,15 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
       const fileId = fileObject.id;
 
       const parentRef = this.parentRef || this.inputtedParentRef;
-      if (parentRef?.pictureSrcs[fileId]?.value) { 
+      if (parentRef?.pictureSrcs[fileId]?.value) {
         this.setFileSrcByParentRefValue(fileId);
       } else {
         this.setFileSrcById(fileId);
         this.selectedFile = fileObject;
-      } 
-    } 
+      }
+    }
   }
-  private setFileSrcByParentRefValue(id: number) { 
+  private setFileSrcByParentRefValue(id: number) {
     this.muteOtherVideos();
     this.selectedFileSrc = this.parentRef?.pictureSrcs[id].value ?? this.inputtedParentRef!.pictureSrcs[id].value;
   }
@@ -163,7 +164,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
     this.ngOnInit();
   }
   copyLink() {
-    const link = `https://bughosted.com/${this.file?.directory?.includes("Meme") ? 'Memes' : 'File'}/${this.file?.id ?? this.selectedFile!.id}`; 
+    const link = `https://bughosted.com/${this.file?.directory?.includes("Meme") ? 'Memes' : 'File'}/${this.file?.id ?? this.selectedFile!.id}`;
     try {
       navigator.clipboard.writeText(link);
       this.emittedNotification.emit(`${link} copied to clipboard!`);
@@ -176,11 +177,11 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
     if (!user) { return alert("you must select a user!"); }
     setTimeout(() => { this.inputtedParentRef?.createComponent("User", { "user": user }); }, 1);
   }
-   
-  async setFileSrcById(fileId: number) { 
-    if (this.selectedFileSrc) return; 
+
+  async setFileSrcById(fileId: number) {
+    if (this.selectedFileSrc) return;
     if (this.parentRef && this.parentRef.pictureSrcs && this.parentRef.pictureSrcs.find(x => x.key == fileId + '')) {
-      this.showThumbnail = true; 
+      this.showThumbnail = true;
       this.selectedFileSrc = this.parentRef.pictureSrcs.find(x => x.key == fileId + '')!.value;
       this.fileType = this.parentRef.pictureSrcs.find(x => x.key == fileId + '')!.type;
       this.selectedFileExtension = this.parentRef.pictureSrcs.find(x => x.key == fileId + '')!.extension;
@@ -188,29 +189,29 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
       return;
     }
     else if (this.inputtedParentRef && this.inputtedParentRef.pictureSrcs && this.inputtedParentRef.pictureSrcs.find(x => x.key == fileId + '')) {
-      this.showThumbnail = true; 
+      this.showThumbnail = true;
       this.selectedFileSrc = this.inputtedParentRef.pictureSrcs.find(x => x.key == fileId + '')!.value;
       this.fileType = this.inputtedParentRef.pictureSrcs.find(x => x.key == fileId + '')!.type;
       this.selectedFileExtension = this.inputtedParentRef.pictureSrcs.find(x => x.key == fileId + '')!.extension;
-      this.muteOtherVideos(); 
+      this.muteOtherVideos();
       return;
     }
 
-    if (!this.selectedFile?.givenFileName && !this.selectedFile?.fileName) { 
+    if (!this.selectedFile?.givenFileName && !this.selectedFile?.fileName) {
       this.fileService.getFileEntryById(fileId).then(res => {
         if (res) {
           this.selectedFile = res;
         }
       });
-    } 
+    }
     if (this.abortFileRequestController) {
       this.abortFileRequestController.abort();
-    } 
+    }
     this.abortFileRequestController = new AbortController();
     try {
       const parent = this.inputtedParentRef ?? this.parentRef;
       const user = parent?.user;
-      const sessionToken = await parent?.getSessionToken(); 
+      const sessionToken = await parent?.getSessionToken();
       this.fileService.getFileById(fileId, sessionToken ?? "", {
         signal: this.abortFileRequestController.signal
       }, user?.id).then(response => {
@@ -230,20 +231,20 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
         reader.onloadend = () => {
           this.showThumbnail = true;
           this.selectedFileSrc = (reader.result as string);
-          if (this.parentRef && !this.parentRef.pictureSrcs.find(x => x.key == fileId + '')) { 
+          if (this.parentRef && !this.parentRef.pictureSrcs.find(x => x.key == fileId + '')) {
             this.parentRef.pictureSrcs.push({ key: fileId + '', value: this.selectedFileSrc, type: type, extension: this.selectedFileExtension });
           }
-          else if (this.inputtedParentRef && !this.inputtedParentRef.pictureSrcs.find(x => x.key == fileId + '')) { 
+          else if (this.inputtedParentRef && !this.inputtedParentRef.pictureSrcs.find(x => x.key == fileId + '')) {
             this.inputtedParentRef.pictureSrcs.push({ key: fileId + '', value: this.selectedFileSrc, type: type, extension: this.selectedFileExtension });
           }
           setTimeout(() => {
-            if (this.mediaContainer && this.mediaContainer.nativeElement) { 
+            if (this.mediaContainer && this.mediaContainer.nativeElement) {
               this.mediaContainer.nativeElement.muted = true;
               this.mediaContainer.nativeElement.loop = true;
             }
           }, 50);
         };
-      }); 
+      });
     } catch (error) {
       if ((error as Error).name !== 'AbortError') {
         console.error(error);
@@ -251,12 +252,12 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
       }
     } finally {
       this.stopLoading();
-      if (this.canScroll) { 
+      if (this.canScroll) {
         setTimeout(() => { document.getElementById('fileIdName' + fileId)?.scrollIntoView(); }, 100);
       }
     }
   }
- 
+
   expandFile(file: any) {
     if (this.selectedFile) { this.expandClickedEvent.emit(this.selectedFile); }
     if (this.blockExpand) return;
@@ -311,11 +312,11 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
       parent.restoreBodyOverflow();
     }
   }
-  
-   
+
+
 
   async download(file: FileEntry, force: boolean) {
-    
+
     if (!confirm(`Download ${file.givenFileName ?? file.fileName}?`)) {
       return;
     }
@@ -328,7 +329,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
       this.startLoading();
       this.emittedNotification.emit(`Downloading ${file.fileName}`);
 
-      const response = await this.fileService.getFile(target, undefined);
+      const response = await this.fileService.getFile(target, undefined, this.parentRef?.user ?? this.inputtedParentRef?.user);
       const blob = new Blob([(response?.blob)!], { type: 'application/octet-stream' });
 
       const a = document.createElement('a');
@@ -343,19 +344,19 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
       this.stopLoading();
     } catch (ex) {
       console.error(ex);
-      this.emittedNotification.emit((ex as Error).message); 
+      this.emittedNotification.emit((ex as Error).message);
     }
   }
-  togglePlay(currentVideo: HTMLVideoElement | HTMLAudioElement) { 
-    this.muteOtherVideos(currentVideo);   
+  togglePlay(currentVideo: HTMLVideoElement | HTMLAudioElement) {
+    this.muteOtherVideos(currentVideo);
   }
 
   muteOtherVideos(excludeMedia?: HTMLMediaElement) {
     const mediaElements = document.querySelectorAll<HTMLMediaElement>('video, audio');
 
-    mediaElements.forEach((media) => { 
+    mediaElements.forEach((media) => {
       if (media !== excludeMedia) {
-        media.muted = true; 
+        media.muted = true;
       }
     });
   }
@@ -372,7 +373,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
   otherFileExtensionsIncludes(ext: string) {
     return !this.videoFileExtensionsIncludes(ext) && !this.audioFileExtensionsIncludes(ext) && !this.imageFileExtensionsIncludes(ext);
   }
-  commentAddedEvent(comment: FileComment) { 
+  commentAddedEvent(comment: FileComment) {
     const addCommentToFile = (file: { fileComments?: FileComment[] }) => {
       if (file) {
         if (!file.fileComments) {
@@ -380,8 +381,8 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
         }
         file.fileComments.push(comment);
       }
-    }; 
-    if (this.file) { 
+    };
+    if (this.file) {
       addCommentToFile(this.file);
     }
     else if (this.selectedFile) {
@@ -390,7 +391,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
   }
   topicClicked(event?: Topic[]) {
     if (event) {
-      this.topicClickedEvent.emit(event); 
+      this.topicClickedEvent.emit(event);
     }
   }
   formatFileSize(bytes: number, decimalPoint: number = 2): string {
@@ -400,7 +401,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
     const parent = this.inputtedParentRef ?? this.parentRef;
     if (parent) {
       return parent?.getDirectoryName(file);
-    } else return '.'; 
+    } else return '.';
   }
   shortenFilename(filename: string, maxLength: number = 20): string {
     if (!filename || filename.length <= maxLength) {
@@ -436,9 +437,33 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
   }
   showMediaInformationButtonClicked() {
     this.isShowingMediaInformation = !this.isShowingMediaInformation;
+    const parent = this.inputtedParentRef ?? this.parentRef;
+    if (this.isShowingMediaInformation) {
+      parent?.showOverlay();
+    } else {
+      parent?.closeOverlay();
+    }
     console.log(this.selectedFile);
   }
   closeMediaInformationButtonClicked() { 
-    this.isShowingMediaInformation = !this.isShowingMediaInformation;
+    const parent = this.inputtedParentRef ?? this.parentRef;
+    if (this.isShowingMediaInformation) {
+      parent?.closeOverlay();
+    }  
+    setTimeout(() => { this.isShowingMediaInformation = false; }, 50);
+  }
+  getFileViewers(fileId: number) {
+    const parent = this.inputtedParentRef ?? this.parentRef;
+    parent?.closeOverlay();
+    this.fileService.getFileViewers(fileId).then(res => {
+      parent?.showOverlay();
+      this.fileViewers = res;
+      this.isShowingFileViewers = true;
+    });
+  }
+  closeFileViewers() {
+    this.isShowingFileViewers = false; 
+    const parent = this.inputtedParentRef ?? this.parentRef;
+    parent?.closeOverlay();
   }
 }

@@ -28,7 +28,7 @@
         <div *ngFor="let item of inventory.items" class="inventoryItem">
           <app-media-viewer [file]="item.file" [currentDirectory]="item?.file?.directory"
             [inputtedParentRef]="parentRef" [displayExtraInfo]="false" [showCommentSection]="false"
-            [user]="parentRef?.user" [autoplay]="true" [blockExpand]="true" [displayExpander]="false">
+            [user]="parentRef?.user" [autoplay]="true" [blockExpand]="true" [displayExpander]="false" [previousComponent]="'Array'">
           </app-media-viewer>
         </div>
       </div>
@@ -49,19 +49,19 @@
       <div *ngIf="hero && randomLocationPicture && !isNexusPosition(hero.position!)" class="locationPicture">
         <app-media-viewer [file]="randomLocationPicture" [currentDirectory]="randomLocationPicture.directory"
           [inputtedParentRef]="parentRef" [displayExtraInfo]="false" [showCommentSection]="false"
-          [user]="parentRef?.user" [autoplay]="true" [blockExpand]="true" [displayExpander]="false">
+          [user]="parentRef?.user" [autoplay]="true" [blockExpand]="true" [displayExpander]="false" [previousComponent]="'Array'">
         </app-media-viewer>
       </div>
       <div *ngIf="hero && randomNexusPicture && isNexusPosition(hero.position!)" class="locationPicture">
         <app-media-viewer [file]="randomNexusPicture" [currentDirectory]="randomNexusPicture.directory"
           [inputtedParentRef]="parentRef" [displayExtraInfo]="false" [showCommentSection]="false"
-          [user]="parentRef?.user" [autoplay]="true" [blockExpand]="true" [displayExpander]="false">
+          [user]="parentRef?.user" [autoplay]="true" [blockExpand]="true" [displayExpander]="false" [previousComponent]="'Array'">
         </app-media-viewer>
       </div>
       <div *ngIf="hero && randomInventoryPicture && isInventoryOpen" class="locationPicture">
         <app-media-viewer [file]="randomInventoryPicture" [currentDirectory]="randomInventoryPicture.directory"
           [inputtedParentRef]="parentRef" [displayExtraInfo]="false" [showCommentSection]="false"
-          [user]="parentRef?.user" [autoplay]="true" [blockExpand]="true" [displayExpander]="false">
+          [user]="parentRef?.user" [autoplay]="true" [blockExpand]="true" [displayExpander]="false" [previousComponent]="'Array'">
         </app-media-viewer>
       </div>
     </div>

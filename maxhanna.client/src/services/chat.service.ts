@@ -2,12 +2,72 @@
 import { Injectable } from '@angular/core';
 import { User } from './datacontracts/user/user';
 import { FileEntry } from './datacontracts/file/file-entry';
-import { Message } from './datacontracts/chat/message';
+import { Message } from './datacontracts/chat/message'; 
 
 @Injectable({
   providedIn: 'root'
 })
-export class ChatService {
+export class ChatService {  
+  private readonly encoder = new TextEncoder();
+  private readonly decoder = new TextDecoder();
+
+  encryptContent(message: string, password: string = 'defaultPassword'): string {
+    try {
+      // Convert to byte arrays
+      const msgBytes = this.encoder.encode(message);
+      const pwdBytes = this.encoder.encode(password);
+
+      // Process each byte
+      const result = new Uint8Array(msgBytes.length);
+      for (let i = 0; i < msgBytes.length; i++) {
+        // Get password byte (cycling through password)
+        const pwdByte = pwdBytes[i % pwdBytes.length];
+
+        // Multi-layer transformation
+        let transformed = msgBytes[i] ^ pwdByte;  // XOR with password
+        transformed = (transformed + 7) % 256;    // Add constant
+        transformed = ((transformed << 4) | (transformed >> 4)) & 0xFF;  // Rotate bits
+
+        result[i] = transformed;
+      }
+
+      // Convert to hex string for easy storage
+      return Array.from(result).map(b => b.toString(16).padStart(2, '0')).join('');
+    } catch (error) {
+      console.error('Encryption error:', error);
+      return message;
+    }
+  }
+
+  decryptContent(encryptedHex: string, password: string = 'defaultPassword'): string {
+    try {
+      // Convert from hex string
+      const bytes = new Uint8Array(encryptedHex.match(/.{1,2}/g)?.map(byte => parseInt(byte, 16)) || []);
+
+      // Convert password to bytes
+      const pwdBytes = this.encoder.encode(password);
+
+      // Reverse the transformation
+      const result = new Uint8Array(bytes.length);
+      for (let i = 0; i < bytes.length; i++) {
+        const pwdByte = pwdBytes[i % pwdBytes.length];
+
+        let transformed = bytes[i];
+        transformed = ((transformed >> 4) | (transformed << 4)) & 0xFF;  // Reverse rotation
+        transformed = (transformed - 7 + 256) % 256;  // Subtract constant (handle underflow)
+        transformed = transformed ^ pwdByte;  // XOR with password
+
+        result[i] = transformed;
+      }
+
+      return this.decoder.decode(result);
+    } catch (error) {
+      console.error('Decryption error:', error);
+      return 'Error decrypting message';
+    }
+  } 
+  
+
   async getMessageHistory(userId: number = 0, receiverIds: number[], chatId?: number, pageNumber: number = 0, pageSize?: number) { 
     try {
       const response = await fetch(`/chat/getmessagehistory`, {

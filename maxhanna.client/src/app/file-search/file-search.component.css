@@ -293,3 +293,7 @@
 .noNotificationsSearchDiv {
   right: 53px !important;
 }
+.fileViewerDiv {
+  max-height: 400vh;
+  overflow: auto;
+}

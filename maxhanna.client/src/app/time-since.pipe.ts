@@ -1,79 +1,55 @@
 import { Pipe, PipeTransform } from "@angular/core";
 
-// time-since.pipe.ts
 @Pipe({
   name: 'timeSince',
-  pure: false // Important for dynamic updates
+  pure: false
 })
 export class TimeSincePipe implements PipeTransform {
-  transform(date?: Date): string {
-    if (date) { 
-      return this.getUtcTimeSince(date);
-    } else return "0";
+  transform(date?: Date | string): string {
+    if (!date) return "0";
+
+    // Properly parse the date whether it's a string or Date object
+    const dateObj = this.parseDate(date);
+    if (!dateObj || isNaN(dateObj.getTime())) return "0";
+
+    return this.calculateTimeSince(dateObj, 'minute');
   }
 
-  private getUtcTimeSince(date: Date): string {
-    if (!date) return "";
+  private parseDate(date: Date | string): Date {
+    if (date instanceof Date) return date;
 
-    // Get the user's local time zone dynamically
-    const userTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    // Handle ISO strings (with or without 'Z') and other formats
+    if (typeof date === 'string') {
+      // If it's already in ISO format with timezone info
+      if (date.includes('Z') || date.includes('+')) {
+        return new Date(date);
+      }
+      // If it's in ISO format without timezone, treat as UTC
+      if (date.match(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}$/)) {
+        return new Date(date + 'Z');
+      }
+      // Try parsing as is
+      return new Date(date);
+    }
 
-    // Check if the date is already in UTC format, if not, treat it as UTC
-    const utcDate = date.toString().includes("Z") ? new Date(date) : new Date(date + "Z");
-
-    const options = {
-      timeZone: userTimeZone,  // Use the user's local time zone
-      hour12: false,           // 24-hour format
-      year: 'numeric',
-      month: 'numeric',
-      day: 'numeric',
-      hour: 'numeric',
-      minute: 'numeric',
-      second: 'numeric'
-    } as Intl.DateTimeFormatOptions;
-
-    const tmpDate = utcDate.toLocaleString('en-US', options);  
-    return this.daysSinceDate(tmpDate, "minute");
-
+    return new Date(NaN); // Invalid date
   }
-  daysSinceDate(dateString?: Date | string, granularity?: 'year' | 'month' | 'day' | 'hour' | 'minute'): string {
-    if (!dateString) return '';
 
-    const date = typeof dateString === 'string' ? new Date(dateString) : dateString;
+  private calculateTimeSince(date: Date, granularity?: 'year' | 'month' | 'day' | 'hour' | 'minute'): string {
     const now = new Date();
+    const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
 
-    // Calculate differences
-    let years = now.getFullYear() - date.getFullYear();
-    let months = now.getMonth() - date.getMonth();
-    let days = now.getDate() - date.getDate();
-    let hours = now.getHours() - date.getHours();
-    let minutes = now.getMinutes() - date.getMinutes();
-    let seconds = now.getSeconds() - date.getSeconds();
+    if (diffInSeconds < 0) return "0"; // Future date
 
-    // Adjust for negative values
-    if (seconds < 0) {
-      minutes--;
-      seconds += 60;
-    }
-    if (minutes < 0) {
-      hours--;
-      minutes += 60;
-    }
-    if (hours < 0) {
-      days--;
-      hours += 24;
-    }
-    if (days < 0) {
-      months--;
-      const daysInLastMonth = new Date(now.getFullYear(), now.getMonth(), 0).getDate();
-      days += daysInLastMonth;
-    }
-    if (months < 0) {
-      years--;
-      months += 12;
-    }
+    // Calculate all time units
+    const years = Math.floor(diffInSeconds / (60 * 60 * 24 * 365));
+    const months = Math.floor(diffInSeconds / (60 * 60 * 24 * 30)) % 12;
+    const days = Math.floor(diffInSeconds / (60 * 60 * 24)) % 30;
+    const hours = Math.floor(diffInSeconds / (60 * 60)) % 24;
+    const minutes = Math.floor(diffInSeconds / 60) % 60;
+    const seconds = diffInSeconds % 60;
 
-    // Build the result string dynamically based on granularity
+    // Build the result string
     const parts: string[] = [];
 
     if (years > 0) parts.push(`${years}y`);
@@ -93,7 +69,6 @@ export class TimeSincePipe implements PipeTransform {
 
     if (seconds > 0) parts.push(`${seconds}s`);
 
-    return parts.join(' ');
+    return parts.join(' ') || '0s';
   }
-
 }

@@ -24,6 +24,9 @@
   justify-content: space-between;
   align-items: center;
 }
+.userList .user ::ng-deep * {
+  font-size: unset;
+}
 .userAvatars {
   display: flex;
   align-items: center;
@@ -34,6 +37,7 @@
 }
 .users {
   display: flex;
+  gap: 10px;
 }
 .user {
     width:100%;

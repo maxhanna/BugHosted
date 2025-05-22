@@ -10,8 +10,8 @@ import { getMessaging, getToken, onMessage, Messaging } from "firebase/messaging
 import { NotificationService } from '../../services/notification.service';
 import { MediaSelectorComponent } from '../media-selector/media-selector.component';
 import { UserService } from '../../services/user.service';
-import { UserSettings } from '../../services/datacontracts/user/user-settings';
-import { SafeHtml } from '@angular/platform-browser';
+import { UserSettings } from '../../services/datacontracts/user/user-settings'; 
+
 @Component({
     selector: 'app-chat',
     templateUrl: './chat.component.html',
@@ -292,6 +292,7 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
     if (msg.trim() == "" && (!this.attachedFiles || this.attachedFiles.length == 0)) {
       return alert("Message content cannot be empty.");
     }
+    msg = this.encryptContent(msg);
     let chatUsersIds: number[] = [];
     this.currentChatUsers.forEach(x => chatUsersIds.push(x.id ?? 0));
     if (this.parentRef && this.parentRef.user && !this.currentChatUsers.find(x => x.id == this.parentRef?.user?.id)) {
@@ -312,7 +313,7 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
         }, 250); 
       });
       this.notificationService.createNotifications(
-        { fromUserId: this.parentRef?.user?.id ?? 0, toUserIds: chatUsersIds.filter(x => x != (this.parentRef?.user?.id ?? 0)), message: msg, chatId: this.currentChatId }
+        { fromUserId: this.parentRef?.user?.id ?? 0, toUserIds: chatUsersIds.filter(x => x != (this.parentRef?.user?.id ?? 0)), message: 'New chat message!', chatId: this.currentChatId }
       );
     } catch (error) {
       console.error(error);
@@ -385,6 +386,35 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
     this.selectedUsers = this.filterUniqueUsers(this.selectedUsers);
     this.openGroupChat();
   }
+  safeStringify(obj: any) {
+    const seen = new WeakSet();
+    return JSON.stringify(obj, (key, value) => {
+      if (typeof value === "object" && value !== null) {
+        if (seen.has(value)) {
+          return "[Circular]";
+        }
+        seen.add(value);
+      }
+      return value;
+    });
+    }
+  encryptContent(msg: string) {
+    try {
+      return this.chatService.encryptContent(msg, this.chatId ? this.chatId + "" : undefined);  
+    } catch (error) {
+      console.error('Encryption error:', error);
+      return msg;  
+    }
+  }
+
+  decryptContent(encryptedContent: string) {
+    try {
+      return this.chatService.decryptContent(encryptedContent, this.chatId ? this.chatId + "" : undefined); 
+    } catch (error) {
+      console.error('Decryption error:', error);
+      return encryptedContent;
+    }
+  }
 
   async requestNotificationPermission() {
     const parent = this.inputtedParentRef ?? this.parentRef;
@@ -455,7 +485,8 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
     if (this.newMessage.nativeElement.value.trim() != "") {
       this.newMessage.nativeElement.value += "\n ";
     }
-    this.newMessage.nativeElement.value += `[Quoting {${message.sender.username}|${message.sender.id}|${message.timestamp}}: ${message.content}] \n`;
+    const parent = this.inputtedParentRef ?? this.parentRef;
+    this.newMessage.nativeElement.value += `[Quoting {${message.sender.username}|${message.sender.id}|${message.timestamp}}: ${this.decryptContent(message.content)}] \n`;
     setTimeout(() => {
       if (this.newMessage && this.newMessage.nativeElement) { 
         const input = this.newMessage.nativeElement;

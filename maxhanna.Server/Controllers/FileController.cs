@@ -863,64 +863,113 @@ LIMIT
 		}
 
 		[HttpPost("/File/GetFile/{filePath}", Name = "GetFile")]
-		public async Task<IActionResult> GetFile(string filePath)
+		public async Task<IActionResult> GetFile(string filePath, [FromBody] int? userId)
 		{
-			filePath = Path.Combine(_baseTarget, WebUtility.UrlDecode(filePath) ?? "");
-
-			if (!ValidatePath(filePath))
-			{
-				return StatusCode(500, $"Must be within {_baseTarget}");
-			}
-
 			try
 			{
+				Console.WriteLine($"Request received for file: {filePath} by user: {userId}");
+
+				// Validate and process file path
+				filePath = Path.Combine(_baseTarget, WebUtility.UrlDecode(filePath) ?? "");
+				if (!ValidatePath(filePath))
+				{
+					Console.WriteLine($"Invalid path: {filePath} (must be within {_baseTarget})");
+					return StatusCode(500, $"Must be within {_baseTarget}");
+				}
+
 				if (string.IsNullOrEmpty(filePath))
 				{
-					_ = _log.Db($"File path is missing.", null, "FILE", true);
+					Console.WriteLine("Empty file path received");
+					await _log.Db("File path is missing.", null, "FILE", true);
 					return BadRequest("File path is missing.");
 				}
 
 				if (!System.IO.File.Exists(filePath))
 				{
-					_ = _log.Db($"File not found at {filePath}", null, "FILE", true);
+					Console.WriteLine($"File not found: {filePath}");
+					await _log.Db($"File not found at {filePath}", null, "FILE", true);
 					return NotFound();
 				}
 
-				// Update access stats in database
+				// Database operations
 				var relativePath = filePath.Replace(_baseTarget, "").TrimStart(Path.DirectorySeparatorChar);
 				var fileName = Path.GetFileName(filePath);
-				var folderPath = Path.GetDirectoryName(relativePath);
-
-				using (var connection = new MySqlConnection(_config.GetConnectionString("YourConnectionString")))
+				var folderPath = filePath.Replace(fileName, ""); 
+				using (var connection = new MySqlConnection(_connectionString))
 				{
 					await connection.OpenAsync();
-
-					var updateSql = @"
-						UPDATE file_uploads 
-						SET last_access = UTC_TIMESTAMP(), 
-							access_count = access_count + 1 
-						WHERE file_name = @FileName 
-						AND folder_path = @FolderPath";
-
-					using (var command = new MySqlCommand(updateSql, connection))
+					Console.WriteLine("Database connection opened successfully");
+ 
+					using (var transaction = await connection.BeginTransactionAsync())
 					{
-						command.Parameters.AddWithValue("@FileName", fileName);
-						command.Parameters.AddWithValue("@FolderPath", folderPath);
-						await command.ExecuteNonQueryAsync();
+						try
+						{ 
+							var updateCmd = new MySqlCommand(@"
+									UPDATE file_uploads 
+									SET last_access = UTC_TIMESTAMP(), 
+										access_count = access_count + 1 
+									WHERE file_name = @FileName 
+									AND folder_path = @FolderPath",
+								connection, transaction);
+
+							updateCmd.Parameters.AddWithValue("@FileName", fileName);
+							updateCmd.Parameters.AddWithValue("@FolderPath", folderPath);
+
+							int rowsUpdated = await updateCmd.ExecuteNonQueryAsync();
+							Console.WriteLine($"Updated {rowsUpdated} rows in file_uploads");
+
+							if (rowsUpdated == 0)
+							{
+								Console.WriteLine("No records updated in file_uploads - file not registered?");
+							}
+ 
+							if (userId.HasValue)
+							{
+								var insertCmd = new MySqlCommand(@"
+									INSERT INTO file_access (file_id, user_id)
+									SELECT id, @UserId 
+									FROM file_uploads 
+									WHERE file_name = @FileName 
+									AND folder_path = @FolderPath
+									ON DUPLICATE KEY UPDATE file_id = VALUES(file_id)",
+									connection, transaction);
+
+								insertCmd.Parameters.AddWithValue("@FileName", fileName);
+								insertCmd.Parameters.AddWithValue("@FolderPath", folderPath);
+								insertCmd.Parameters.AddWithValue("@UserId", userId.Value);
+
+								int rowsInserted = await insertCmd.ExecuteNonQueryAsync(); 
+							}
+
+							await transaction.CommitAsync(); 
+						}
+						catch (Exception dbEx)
+						{
+							await transaction.RollbackAsync(); 
+							await _log.Db($"Database error: {dbEx.Message}", null, "FILE", true); 
+						}
 					}
 				}
 
-				var fileStream = new FileStream(filePath, FileMode.Open, FileAccess.Read);
-				string contentType = GetContentType(Path.GetExtension(filePath));
-				return File(fileStream, contentType, Path.GetFileName(filePath));
+				// Stream the file
+				try
+				{
+					var fileStream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read, 4096, FileOptions.Asynchronous);
+					string contentType = GetContentType(Path.GetExtension(filePath)); 
+					return File(fileStream, contentType, Path.GetFileName(filePath));
+				}
+				catch (IOException ioEx)
+				{ 
+					await _log.Db($"File streaming error: {ioEx.Message}", null, "FILE", true);
+					return StatusCode(500, "Error accessing the file");
+				}
 			}
 			catch (Exception ex)
-			{
-				_ = _log.Db($"An error occurred while streaming the file: {ex.Message}", null, "FILE", true);
-				return StatusCode(500, "An error occurred while streaming the file.");
+			{ 
+				await _log.Db($"Global error: {ex.Message}", null, "FILE", true);
+				return StatusCode(500, "An unexpected error occurred");
 			}
 		}
-
 
 		[HttpPost("/File/GetFileById/{fileId}", Name = "GetFileById")]
 		public async Task<IActionResult> GetFileById([FromBody] int? userId, int fileId, [FromHeader(Name = "Encrypted-UserId")] string encryptedUserIdHeader)
@@ -929,70 +978,107 @@ LIMIT
 			{
 				if (fileId == 0)
 				{
-					_ = _log.Db($"File id is missing.", userId, "FILE", true);
+					await _log.Db($"File id is missing.", userId, "FILE", true);
 					return BadRequest("File id is missing.");
 				}
 
 				using (var connection = new MySqlConnection(_connectionString))
 				{
 					await connection.OpenAsync();
-					string sql = @"
-						UPDATE maxhanna.file_uploads
-						SET last_access = UTC_TIMESTAMP(), access_count = access_count + 1
-						WHERE id = @fileId LIMIT 1;
 
-						SELECT user_id, file_name, folder_path, is_public
-						FROM maxhanna.file_uploads
-						WHERE id = @fileId LIMIT 1;";
-					var command = new MySqlCommand(
-							sql,
-							connection);
-					command.Parameters.AddWithValue("@fileId", fileId);
-
-					using (var reader = await command.ExecuteReaderAsync())
+					// Start transaction for atomic operations
+					using (var transaction = await connection.BeginTransactionAsync())
 					{
-						if (!await reader.ReadAsync())
+						try
 						{
-							_ = _log.Db($"File with id {fileId} not found in database.", userId, "FILE", true);
-							return NotFound();
+							// First query: Update access stats and get file info
+							string sql = @"
+								UPDATE maxhanna.file_uploads
+								SET last_access = UTC_TIMESTAMP(), 
+									access_count = access_count + 1
+								WHERE id = @fileId LIMIT 1;
+
+								SELECT user_id, file_name, folder_path, is_public
+								FROM maxhanna.file_uploads
+								WHERE id = @fileId LIMIT 1;";
+
+							var command = new MySqlCommand(sql, connection, transaction);
+							command.Parameters.AddWithValue("@fileId", fileId);
+
+							using (var reader = await command.ExecuteReaderAsync())
+							{
+								if (!await reader.ReadAsync())
+								{
+									await _log.Db($"File with id {fileId} not found in database.", userId, "FILE", true);
+									return NotFound();
+								}
+
+								int userIdDb = reader.GetInt32("user_id");
+								string fileName = reader.GetString("file_name");
+								string folderPath = reader.GetString("folder_path");
+								bool isPublic = reader.GetBoolean("is_public");
+
+								// Check permissions
+								if (!isPublic && (userId == null || userIdDb != userId))
+								{
+									await _log.Db($"User does not have permission to access file with id {fileId}.", userId, "FILE", true);
+									return Forbid();
+								}
+
+								if (!isPublic && (userId == null || (!await _log.ValidateUserLoggedIn(userId.Value, encryptedUserIdHeader))))
+								{
+									await _log.Db($"User does not have permission to access file with id {fileId}.", userId, "FILE", true);
+									return Forbid();
+								}
+
+								// Close the first reader before executing next command
+								await reader.CloseAsync();
+
+								// Record user access if userId is provided
+								if (userId != null)
+								{
+									var accessCommand = new MySqlCommand(@"
+										INSERT INTO maxhanna.file_access (file_id, user_id)
+										VALUES (@fileId, @userId)
+										ON DUPLICATE KEY UPDATE file_id = @fileId",
+										connection, transaction);
+
+									accessCommand.Parameters.AddWithValue("@fileId", fileId);
+									accessCommand.Parameters.AddWithValue("@userId", userId.Value);
+
+									await accessCommand.ExecuteNonQueryAsync();
+								}
+
+								// Commit transaction if everything succeeded
+								await transaction.CommitAsync();
+
+								// Construct the full file path
+								string filePath = Path.Combine(folderPath, fileName);
+
+								if (!System.IO.File.Exists(filePath))
+								{
+									await _log.Db($"File not found at {filePath}", userId, "FILE", true);
+									return NotFound();
+								}
+
+								var fileStream = new FileStream(filePath, FileMode.Open, FileAccess.Read);
+								string contentType = GetContentType(Path.GetExtension(filePath));
+
+								return File(fileStream, contentType, fileName);
+							}
 						}
-
-						int userIdDb = reader.GetInt32("user_id");
-						string fileName = reader.GetString("file_name");
-						string folderPath = reader.GetString("folder_path");
-						bool isPublic = reader.GetBoolean("is_public");
-
-						// Check if the user has permission to access the file
-						if (!isPublic && (userId == null || userIdDb != userId))
+						catch (Exception ex)
 						{
-							_ = _log.Db($"User does not have permission to access file with id {fileId}.", userId, "FILE", true);
-							return Forbid();
+							await transaction.RollbackAsync();
+							await _log.Db("Transaction rolled back. Error: " + ex.Message, userId, "FILE", true);
+							return StatusCode(500, "An error occurred while processing your request.");
 						}
-						if (!isPublic && (userId == null || (!await _log.ValidateUserLoggedIn(userId.Value, encryptedUserIdHeader))))
-						{
-							_ = _log.Db($"User does not have permission to access file with id {fileId}.", userId, "FILE", true);
-							return Forbid();
-						}
-
-						// Construct the full file path
-						string filePath = Path.Combine(folderPath, fileName);
-
-						if (!System.IO.File.Exists(filePath))
-						{
-							_ = _log.Db($"File not found at {filePath}", userId, "FILE", true);
-							return NotFound();
-						}
-
-						var fileStream = new FileStream(filePath, FileMode.Open, FileAccess.Read);
-						string contentType = GetContentType(Path.GetExtension(filePath));
-
-						return File(fileStream, contentType, fileName);
 					}
 				}
 			}
 			catch (Exception ex)
 			{
-				_ = _log.Db("An error occurred while retrieving or streaming the file." + ex.Message, userId, "FILE", true);
+				await _log.Db("An error occurred while retrieving or streaming the file: " + ex.Message, userId, "FILE", true);
 				return StatusCode(500, "An error occurred while retrieving or streaming the file.");
 			}
 		}
@@ -1073,6 +1159,89 @@ LIMIT
 				_ = _log.Db("An error occurred while creating directory. " + ex.Message, request.userId, "FILE", true);
 				return StatusCode(500, "An error occurred while creating directory.");
 			}
+		}
+
+		[HttpGet("/File/GetLatestMemeId", Name = "GetLatestMemeId")]
+		public async Task<IActionResult> GetLatestMemeId()
+		{
+			try
+			{
+				using (var connection = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+				{
+					await connection.OpenAsync();
+
+					// Query to get the latest meme ID
+					string query = @"
+						SELECT id 
+						FROM file_uploads 
+						WHERE folder_path = 'E:/Dev/maxhanna/maxhanna.client/src/assets/Uploads/Meme/'
+						AND is_folder = 0
+						ORDER BY id DESC 
+						LIMIT 1;";
+
+					using (var command = new MySqlCommand(query, connection))
+					{
+						var result = await command.ExecuteScalarAsync();
+
+						if (result != null && result != DBNull.Value)
+						{
+							int latestId = Convert.ToInt32(result);
+							return Ok(latestId);
+						}
+						return NotFound("No memes found");
+					}
+				}
+			}
+			catch (Exception ex)
+			{
+				_ = _log.Db($"An error occurred while getting latest meme ID: {ex.Message}", 0, "FILE", true);
+				return StatusCode(500, "An error occurred while getting latest meme ID");
+			}
+		}
+
+
+		[HttpPost("/File/GetFileViewers", Name = "GetFileViewers")]
+		public async Task<IActionResult> GetFileViewers([FromBody] int fileId)
+		{
+			List<User> users = new List<User>();
+			try
+			{
+				using (var connection = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+				{
+					await connection.OpenAsync();
+
+					// Query to get the latest meme ID
+					string query = @"
+						SELECT fa.user_id, u.username, udp.file_id as display_picture_id
+						FROM file_access AS fa
+						LEFT JOIN users AS u ON u.id = fa.user_id
+						LEFT JOIN user_display_pictures AS udp ON udp.user_id = fa.user_id
+						WHERE fa.file_id = @FileId;";
+
+					using (var command = new MySqlCommand(query, connection))
+					{
+						command.Parameters.AddWithValue("@FileId", fileId);
+						using (var reader = await command.ExecuteReaderAsync())
+						{
+							while (await reader.ReadAsync())
+							{
+								users.Add(new User
+								{
+									Id = reader.GetInt32("user_id"),
+									Username = reader.GetString("username"),
+									DisplayPictureFile = reader.IsDBNull("display_picture_id") ? null : new FileEntry(reader.GetInt32("display_picture_id"))
+								});
+							}
+						}
+					}
+				}
+			}
+			catch (Exception ex)
+			{
+				_ = _log.Db($"An error occurred while getting file viewers for FileID {fileId}: {ex.Message}", 0, "FILE", true);
+				return StatusCode(500, "An error occurred while getting file viewers for FileID {fileId}");
+			}
+			return Ok(users);
 		}
 
 		[HttpPost("/File/Upload", Name = "Upload")]
@@ -1485,16 +1654,16 @@ LIMIT
 							ImageUrl = "https://www.bughosted.com/assets/logo.jpg"
 						},
 						Data = new Dictionary<string, string>
-				{
-					{ "fileId", fileId.ToString() },
-					{ "fromUserId", fromUserId.ToString() },
-					{ "type", "file_upload" }
-				},
+						{
+							{ "fileId", fileId.ToString() },
+							{ "fromUserId", fromUserId.ToString() },
+							{ "type", "file_upload" }
+						},
 						Topic = $"notification{followerId}"
 					};
 
 					string response = await FirebaseMessaging.DefaultInstance.SendAsync(firebaseMessage);
-					//Console.WriteLine($"Sent push notification to user {followerId}");
+					Console.WriteLine($"Sent push notification to user {followerId}, topic: {firebaseMessage.Topic}.");
 				}
 				catch (Exception ex)
 				{

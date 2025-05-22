@@ -232,18 +232,18 @@
         <div *ngIf="isTradePanelOpen"
           [class.trade-panel-controls]="canShowTradePanelInfo()">
           <div class="button-wrapper" *ngIf="canShowTradePanelInfo()">
-            <button class="cursorPointer" [disabled]="tradeBotStarted || !hasKrakenApi" (click)="startTradeBot()"
+            <button class="cursorPointer" [disabled]="tradeBotStarted || !hasKrakenApi" (click)="startTradeBot('BTC')"
               title="Start the tradebot.">Start BTC</button>
-            <button class="cursorPointer" (click)="stopTradeBot()" title="Stop the tradebot."
+            <button class="cursorPointer" (click)="stopTradeBot('BTC')" title="Stop the tradebot."
               [disabled]="!tradeBotStarted ||!hasKrakenApi">Stop BTC</button>
             <p class="button-description" id="trades-desc" *ngIf="!isTradebotBalanceShowing">
               {{tradeBotStarted ? 'Stop' : 'Start'}} trading USDC and BTC pair.
             </p>
           </div>
           <div class="button-wrapper" *ngIf="canShowTradePanelInfo()">
-            <button class="cursorPointer" [disabled]="xrpTradeBotStarted || !hasKrakenApi" (click)="startXrpTradeBot()"
+            <button class="cursorPointer" [disabled]="xrpTradeBotStarted || !hasKrakenApi" (click)="startTradeBot('XRP')"
               title="Start the tradebot.">Start XRP</button>
-            <button class="cursorPointer" (click)="stopXrpTradeBot()" title="Stop the XRP tradebot."
+            <button class="cursorPointer" (click)="stopTradeBot('XRP')" title="Stop the XRP tradebot."
               [disabled]="!xrpTradeBotStarted ||!hasKrakenApi">Stop XRP</button>
             <p class="button-description" id="trades-desc" *ngIf="!isTradebotBalanceShowing">
               {{xrpTradeBotStarted ? 'Stop' : 'Start'}} trading USDC and XRP pair.
@@ -341,9 +341,8 @@
               <tr>
                 <th class="xxSmallFont">From</th>
                 <th class="xxSmallFont">To</th>
-                <th class="xxSmallFont">Value</th>
-                <th class="xxSmallFont">BTC Price($USDC)</th>
-                <th class="xxSmallFont">Value($USDC)</th>
+                <th class="xxSmallFont">Value ($BTC)/($USDC)</th>
+                <th class="xxSmallFont">BTC Price</th> 
                 <th class="xxSmallFont">Fees</th>
                 <th class="xxSmallFont">Timestamp</th>
               </tr>
@@ -356,9 +355,8 @@
                 <td class="xxSmallFont tradeBalanceCurrencyLabel"
                   [style.color]="trade.to_currency == 'XBT' ? '#a17f1a' : trade.to_currency == 'USDC' ? 'blue' : ''">{{
                   trade.to_currency }}</td>
-                <td class="smallFont">{{ trade.value }}</td>
-                <td class="xxSmallFont">{{ formatStringCanadianCurrency(trade.coin_price_usdc) }}</td>
-                <td class="smallFont">{{ formatStringCanadianCurrency(trade.trade_value_usdc) }}</td>
+                <td class="smallFont" style="display:flex; justify-content: space-evenly;"><span style="margin-left:3px">{{ trade.value }}</span><span style="margin-right:3px" class="thirdFontColor">{{ formatStringCanadianCurrency(trade.trade_value_usdc) }}</span></td>
+                <td class="xxSmallFont">{{ formatStringCanadianCurrency(trade.coin_price_usdc) }}</td> 
                 <td class="xxSmallFont">{{ formatToCanadianCurrency(trade.fees) }}</td>
                 <td class="xxSmallFont" [title]="getUtcTimeSince(trade.timestamp)">{{ parentRef?.convertUtcToLocalTime(trade.timestamp) }}</td>
               </tr>

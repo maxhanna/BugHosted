@@ -167,29 +167,29 @@ export class AppComponent implements OnInit, AfterViewInit {
           const memeId = this.router.url.toLowerCase().split('memes/')[1]?.split('?')[0];
           this.createComponent("Meme", { "memeId": memeId });
         }
-        if (this.router.url.includes('Social')) {
+        else if (this.router.url.includes('Social')) {
           this.checkAndClearRouterOutlet();
           const storyId = this.router.url.toLowerCase().split('social/')[1]?.split('?')[0];
           this.createComponent("Social", { "storyId": storyId });
         }
-        if (this.router.url.includes('User')) {
+        else if (this.router.url.includes('User')) {
           console.log("router has user");
           this.checkAndClearRouterOutlet();
           const userId = this.router.url.toLowerCase().split('user/')[1]?.split('?')[0].split('/')[0];
           const storyId = this.router.url.toLowerCase().split('user/')[1]?.split('/')[1]; 
           this.createComponent("User", { "userId": userId, storyId: storyId });
         }
-        if (this.router.url.includes('File')) {
+        else if (this.router.url.includes('File')) {
           this.checkAndClearRouterOutlet();
           const fileId = this.router.url.toLowerCase().split('file/')[1]?.split('?')[0];
           this.createComponent("Files", { "fileId": fileId });
         }
-        if (this.router.url.includes('Media')) {
+        else if (this.router.url.includes('Media')) {
           this.checkAndClearRouterOutlet();
           const fileId = this.router.url.toLowerCase().split('media/')[1]?.split('?')[0];
           this.createComponent("MediaViewer", { "fileId": fileId, "isLoadedFromURL": true });
         }
-        if (this.router.url.includes('Crawler')) {
+        else if (this.router.url.includes('Crawler')) {
           this.checkAndClearRouterOutlet();
           const url = this.router.url.toLowerCase().split('crawler/')[1]?.split('?')[0];
           if (url) {
@@ -198,29 +198,32 @@ export class AppComponent implements OnInit, AfterViewInit {
             this.createComponent("Crawler");
           }
         }
-        if (this.router.url.includes('Array')) {
+        else if (this.router.url.includes('Array')) {
           this.checkAndClearRouterOutlet();
           this.createComponent('Array');
         }
-        if (this.router.url.includes('War')) {
+        else if (this.router.url.includes('War')) {
           this.checkAndClearRouterOutlet();
           this.createComponent('Bug-Wars');
         }
-        if (this.router.url.includes('Meta')) {
+        else if (this.router.url.includes('Meta')) {
           this.checkAndClearRouterOutlet();
           this.createComponent('Meta-Bots');
         }
-        if (this.router.url.includes('Wordler')) {
+        else if (this.router.url.includes('Wordler')) {
           this.checkAndClearRouterOutlet();
           this.createComponent('Wordler');
         }
-        if (this.router.url.includes('Crypto') || this.router.url.includes('Cryptocurrency') || this.router.url.includes('Defi')) {
+        else if (this.router.url.includes('Crypto') || this.router.url.includes('Cryptocurrency') || this.router.url.includes('Defi')) {
           this.checkAndClearRouterOutlet();
           this.createComponent('Crypto-Hub');
         }
-        if (this.router.url.includes('Host') || this.router.url.includes('HostAi') || this.router.url.includes('Ai')) {
+        else if (this.router.url.includes('Host') || this.router.url.includes('HostAi') || this.router.url.includes('Ai')) {
           this.checkAndClearRouterOutlet();
           this.createComponent('HostAi');
+        } 
+        else if (!this.user) { 
+          this.createComponent('User');
         }
       }
     });

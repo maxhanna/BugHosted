@@ -1843,8 +1843,7 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
     const x = event.touches[0].pageX - this.scrollContainer.nativeElement.offsetLeft;
     const walk = (x - this.startX) * 1;
     this.scrollContainer.nativeElement.scrollLeft = this.scrollLeft - walk;
-  }
-
+  } 
   onTouchEnd() {
     this.isDragging = false;
     this.startAutoScroll();
@@ -1895,16 +1894,17 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
   fullscreenSelectedInPopup(event?: any) {
     this.isWalletGraphFullscreened = !this.isWalletGraphFullscreened;
   }
-  async startXrpTradeBot() {
+ 
+  async startTradeBot(coin: string) {
     const user = this.parentRef?.user;
     if (!user?.id || !this.parentRef) return alert("You must be logged in.");
-    if (!confirm("Are you sure you want to start the XRP trade bot?")) {
+    if (!confirm(`Are you sure you want to start the ${coin} trade bot?`)) {
       return this.parentRef?.showNotification("Cancelled");
     }
     let hasConfig = false;
     try {
       const sessionToken = await this.parentRef.getSessionToken();
-      hasConfig = await this.tradeService.getTradeConfigurationLastUpdated(user.id, sessionToken, "XRP", "USDC");
+      hasConfig = await this.tradeService.getTradeConfigurationLastUpdated(user.id, sessionToken, coin, "USDC");
     } catch {
       return alert("Server Error, Try again later.");
     }
@@ -1912,87 +1912,55 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
 
     this.parentRef?.getSessionToken().then(sessionToken => {
       if (user.id) {
-        this.tradeService.startBot(user.id, "XRP", sessionToken).then(res => {
+        this.tradeService.startBot(user.id, coin, sessionToken).then(res => {
           if (res) {
             this.parentRef?.showNotification(res);
-            if (res.includes("XRP Trading bot has started")) {
-              this.xrpTradeBotStarted = true;
-              this.xrpTradeBotStartedSince = new Date();
+            if (res.includes(`${coin} Trading bot has started`)) {
+              if (coin === "BTC") {
+                this.tradeBotStarted = true;
+                this.tradeBotStartedSince = new Date();
+              } else if (coin === "XRP") {
+                this.xrpTradeBotStarted = true;
+                this.xrpTradeBotStartedSince = new Date();
+              }
             } else {
+              if (coin === "BTC") {
+                this.tradeBotStarted = false;
+              } else if (coin === "XRP") {
+                this.xrpTradeBotStarted = false;
+              }
+            }
+          }
+        });
+      } else {
+        return alert("You must be logged in!");
+      }
+    });
+  }
+  async stopTradeBot(coin: string) {
+    const user = this.parentRef?.user;
+    if (!user?.id) return alert("You must be logged in.");
+    if (!confirm(`Are you sure you want to stop the ${coin} trade bot?`)) {
+      return this.parentRef?.showNotification("Cancelled");
+    }
+    this.parentRef?.getSessionToken().then(sessionToken => {
+      this.tradeService.stopBot(user?.id ?? 0, coin, sessionToken).then(res => {
+        if (res) {
+          this.parentRef?.showNotification(res);
+          if (res.includes(`${coin} Trading bot has stopped`)) {
+            if (coin === "BTC") {
+              this.tradeBotStartedSince = undefined;
+              this.tradeBotStarted = false;
+            } else if (coin === "XRP") {
+              this.xrpTradeBotStartedSince = undefined;
               this.xrpTradeBotStarted = false;
             }
-          }
-        });
-      } else { return alert("You must be logged in!"); }
-    });
-
-  }
-  async stopXrpTradeBot() {
-    const user = this.parentRef?.user;
-    if (!user?.id) return alert("You must be logged in.");
-    if (!confirm("Are you sure you want to stop the XRP trade bot?")) {
-      return this.parentRef?.showNotification("Cancelled");
-    }
-    this.parentRef?.getSessionToken().then(sessionToken => {
-      this.tradeService.stopBot(user?.id ?? 0, "XRP", sessionToken).then(res => {
-        if (res) {
-          this.parentRef?.showNotification(res);
-          if (res.includes("XRP Trading bot has stopped")) {
-            this.xrpTradeBotStartedSince = undefined;
-            this.xrpTradeBotStarted = false;
           } else {
-            this.xrpTradeBotStarted = true;
-          }
-        }
-      });
-    });
-  }
-  async startTradeBot() {
-    const user = this.parentRef?.user;
-    if (!user?.id || !this.parentRef) return alert("You must be logged in.");
-    if (!confirm("Are you sure you want to start the BTC trade bot?")) {
-      return this.parentRef?.showNotification("Cancelled");
-    }
-    let hasConfig = false;
-    try {
-      const sessionToken = await this.parentRef.getSessionToken();
-      hasConfig = await this.tradeService.getTradeConfigurationLastUpdated(user.id, sessionToken, "BTC", "USDC");
-    } catch {
-      return alert("Server Error, Try again later.");
-    }
-    if (!hasConfig) return alert("You must save a bot configuration first");
-
-    this.parentRef?.getSessionToken().then(sessionToken => {
-      if (user.id) {
-        this.tradeService.startBot(user.id, "BTC", sessionToken).then(res => {
-          if (res) {
-            this.parentRef?.showNotification(res);
-            if (res.includes("BTC Trading bot has started")) {
+            if (coin === "BTC") {
               this.tradeBotStarted = true;
-              this.tradeBotStartedSince = new Date();
-            } else {
-              this.tradeBotStarted = false;
+            } else if (coin === "XRP") {
+              this.xrpTradeBotStarted = true;
             }
-          }
-        });
-      } else { return alert("You must be logged in!"); }
-    });
-  }
-  stopTradeBot() {
-    const user = this.parentRef?.user;
-    if (!user?.id) return alert("You must be logged in.");
-    if (!confirm("Are you sure you want to stop the trade bot?")) {
-      return this.parentRef?.showNotification("Cancelled");
-    }
-    this.parentRef?.getSessionToken().then(sessionToken => {
-      this.tradeService.stopBot(user?.id ?? 0, "BTC", sessionToken).then(res => {
-        if (res) {
-          this.parentRef?.showNotification(res);
-          if (res.includes("BTC Trading bot has stopped")) {
-            this.tradeBotStartedSince = undefined;
-            this.tradeBotStarted = false;
-          } else {
-            this.tradeBotStarted = true;
           }
         }
       });

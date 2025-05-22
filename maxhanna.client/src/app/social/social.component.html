@@ -1,5 +1,5 @@
 <div class="componentMain" #componentMain>
-  <div *ngIf="!user">
+  <div *ngIf="!user && !showOnlyPost">
     <div class="closeButton" (click)="remove_me('SocialComponent');"></div>
     <div class="menuButton" (click)="showMenuPanel();"></div>
     <div *ngIf="previousComponent" 
@@ -8,17 +8,17 @@
     <div class="componentTitle"><span>Social</span></div>
   </div>
   <div [class]="user ? 'embeddedSocialComponentsContent' : 'socialComponentContents'">
-    <div *ngIf="showTopicSelector && parentRef?.user?.id">
+    <div *ngIf="showTopicSelector && parentRef?.user?.id && !showOnlyPost">
       <app-notifications [minimalInterface]="true" [inputtedParentRef]="parentRef" [previousComponent]="'Social'">
       </app-notifications>
     </div>
     <!-- Search -->
-    <div *ngIf="showTopicSelector" [class]="parentRef?.user?.id ? 'topSearchButtonDiv' : 'topSearchButtonDivSpecial'"
+    <div *ngIf="showTopicSelector && !showOnlyPost" [class]="parentRef?.user?.id ? 'topSearchButtonDiv' : 'topSearchButtonDivSpecial'"
       (click)="showSearchSocialsPanel()">
       🔍
     </div>
     <!-- Search Popup -->
-    <div class="popupPanel" *ngIf="isSearchSocialsPanelOpen">
+    <div class="popupPanel" *ngIf="isSearchSocialsPanelOpen && !showOnlyPost">
       <div class="popupPanelTitle">Search the Socials</div>
 
       <div class="searchSocialsPanelContentDiv">
@@ -59,7 +59,7 @@
     </div>
 
     <!-- Menu Popup -->
-    <div class="popupPanel" style="overflow: auto;" *ngIf="isMenuPanelOpen">
+    <div class="popupPanel" style="overflow: auto;" *ngIf="isMenuPanelOpen && !showOnlyPost">
 
       <div class="popupPanelTitle" style="margin-bottom:15px;">
         Menu
@@ -185,12 +185,48 @@
     </div>
 
     <!-- Post Topics Popup -->
-    <div class="popupPanel largePopupPanel" *ngIf="isMobileTopicsPanelOpen">
+    <div class="popupPanel largePopupPanel" *ngIf="isMobileTopicsPanelOpen && !showOnlyPost">
       <div class="popupPanelTitle">Topics</div>
       <app-topics #topicComponent [isDropdown]="true" [user]="parentRef?.user" [parent]="parent ?? parentRef"
         [attachedTopics]="attachedTopics" (topicAdded)="onTopicAdded($event)">
-      </app-topics>
-      <!-- Top Topic Selector -->
+      </app-topics> 
+      <div>
+        <div class="topTopicTitle" *ngIf="showTopicSelector">
+          Favourite Topics:
+        </div>
+        <div *ngFor="let topic of favTopics" (click)="topTopicClicked(topic.topicText, topic.id)" class="topTopicsDiv">
+          <span class="matchingTopic">
+            {{topic.topicText}}
+            <button class="removeTopicButton" (click)="removeFavTopic(topic); $event.stopPropagation();">❌</button>
+          </span>
+        </div>
+        <div *ngIf="favTopics.length == 0">No favourites yet.</div>
+        <div *ngIf="attachedTopics.length > 0">
+          <ng-container *ngIf="getNonFavoriteTopics().length > 0">
+            <button (click)="addFavouriteTopic()">
+              Add
+              <span *ngFor="let aTopic of getNonFavoriteTopics(); let last = last">
+                <span class="matchingTopic">{{aTopic.topicText}}</span>
+                {{last ? '' : ', '}}
+              </span>
+              to favourites
+            </button>
+          </ng-container>
+        </div>
+      </div>
+
+      <div>
+        <div class="topTopicTitle" *ngIf="showTopicSelector">
+          Ignored Topics:
+        </div>
+        <div *ngFor="let topic of ignoredTopics" (click)="topTopicClicked(topic.topicText, topic.id)" class="topTopicsDiv">
+          <span class="matchingTopic">
+            {{topic.topicText}}
+            <button class="removeTopicButton" (click)="removeIgnoredTopic(topic); $event.stopPropagation();">❌</button>
+          </span>
+        </div>
+        <div *ngIf="ignoredTopics.length == 0">No ignored topics.</div> 
+      </div>
       <div>
         <div class="topTopicTitle" *ngIf="showTopicSelector">
           Top Topics:
@@ -205,7 +241,7 @@
     </div>
 
     <!-- Emoji picker Popup -->
-    <div class="popupPanel" *ngIf="isEmojiPanelOpen">
+    <div class="popupPanel" *ngIf="isEmojiPanelOpen && !showOnlyPost">
       <div>
         <div class="emojiFilterInputDiv">
           <input id="emojiFilter" #emojiFilter placeholder="🔍Search" (input)="searchForEmoji($event)" />
@@ -235,15 +271,18 @@
             [style.display]="isEditButtonVisible(optionStory.id) ? 'block' : 'none'"
             [id]="'storyRejectEditButtonSpan' + optionStory.id">❌</span>
           ✏️Edit
-        </button>
-
-        <button (click)="hide(optionStory)" title="Hide Post" style="display:inline-block">
+        </button> 
+        <button (click)="hide(optionStory)" title="Hide Post" style="display:inline-block" *ngIf="parentRef?.user?.id">
           {{optionStory.hidden ? '🙉Unhide' : '🙈Hide'}}
-        </button>
-
+        </button> 
         <button (click)="delete(optionStory)"
           *ngIf="(optionStory.user?.id == parentRef?.user?.id) || (userProfileId && userProfileId == parentRef?.user?.id) || (parentRef?.user?.id == 1 || parent?.user?.id == 1)"
-          title="Delete Post" style="display:inline-block">❌Delete</button>
+          title="Delete Post" style="display:inline-block">
+          ❌Delete
+        </button>
+        <button *ngFor="let topic of optionStory.storyTopics" (click)="ignoreTopic(topic)">
+          Ignore Topic <span class="matchingTopic">{{topic.topicText}}</span>
+        </button>
       </div>
 
       <div class="optionsStatsWrapperDiv">
@@ -337,7 +376,7 @@
     </div>
 
     <!-- Story Input -->
-    <div class="storyInputDiv">
+    <div class="storyInputDiv" *ngIf="!showOnlyPost">
       <div>
         <textarea #story placeholder="Whats on your mind ?" class="foodForThought"></textarea>
       </div>
@@ -390,7 +429,7 @@
             <app-user-tag [user]="story.user" [inputtedParentRef]="parentRef ?? parent" [displayMiniTag]="true"
               [previousComponent]="'Social'"></app-user-tag>
           </span>
-          <div class="storyDate" [title]="(story.date?.toString() ?? '').replace('T',' ')">
+          <div class="storyDate" [title]="(story.date?.toString() ?? '')">
             {{ story.date | timeSince }}
           </div>
           <div class="postOptionButtonWrapper">
@@ -506,7 +545,7 @@
           </select>
         </div>
         <div class="loadMoreResultsDiv"
-          *ngIf="wasFromSearchId || (totalPagesArray.length > 1 && currentPage < totalPagesArray.length)">
+          *ngIf="!showOnlyPost && (wasFromSearchId || (totalPagesArray.length > 1 && currentPage < totalPagesArray.length))">
           <button (click)="loadMorePosts()">Load More</button>
         </div>
       </div>

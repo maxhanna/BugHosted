@@ -57,7 +57,7 @@ import { CrawlerComponent } from './crawler/crawler.component';
 import { SpeechRecognitionComponent } from './speech-recognition/speech-recognition.component';
 import { TopComponent } from './top/top.component';
 import { TimeFormatPipe } from './time-format.pipe';
-import { TimeSincePipe } from './time-since.pipe'; 
+import { TimeSincePipe } from './time-since.pipe';
 
 @NgModule({
   declarations: [

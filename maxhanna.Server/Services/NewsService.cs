@@ -536,26 +536,26 @@ Posted by user @{topMeme.Username}<br><small>Daily top memes are selected based 
 	{
 		const string sql = @"
             SELECT 
-                fu.id,
-                fu.file_name,
-                fu.given_file_name,
-                fu.user_id,
+				fu.id,
+				fu.file_name,
+				fu.given_file_name,
+				fu.user_id,
 				fuu.username,
-                COUNT(DISTINCT c.id) AS comment_count,
-                COUNT(DISTINCT r.id) AS reaction_count
-            FROM file_uploads fu
-            LEFT JOIN users fuu on fuu.id = fu.user_id
-            LEFT JOIN comments c ON c.file_id = fu.id
-            LEFT JOIN reactions r ON r.file_id = fu.id
-            WHERE 
-                fu.folder_path = @folderPath
-                AND DATE(fu.upload_date) = CURDATE()
-                AND fu.is_folder = 0
-                AND fu.is_public = 1
-				AND (comment_count + reaction_count) > 0 
-            GROUP BY fu.id, fu.file_name, fu.given_file_name, fu.user_id, fuu.username
-            ORDER BY (comment_count + reaction_count) DESC, fu.upload_date DESC
-            LIMIT 1";
+				COUNT(DISTINCT c.id) AS comment_count,
+				COUNT(DISTINCT r.id) AS reaction_count
+			FROM file_uploads fu
+			LEFT JOIN users fuu ON fuu.id = fu.user_id
+			LEFT JOIN comments c ON c.file_id = fu.id
+			LEFT JOIN reactions r ON r.file_id = fu.id
+			WHERE 
+				fu.folder_path = @folderPath 
+				AND DATE(fu.upload_date) = CURDATE() 
+				AND fu.is_folder = 0 
+				AND fu.is_public = 1
+			GROUP BY fu.id, fu.file_name, fu.given_file_name, fu.user_id, fuu.username
+			HAVING(COUNT(DISTINCT c.id) + COUNT(DISTINCT r.id)) > 0
+			ORDER BY(COUNT(DISTINCT c.id) + COUNT(DISTINCT r.id)) DESC, fu.upload_date DESC
+			LIMIT 1";
 
 		using var cmd = new MySqlCommand(sql, conn, transaction);
 		cmd.Parameters.AddWithValue("@folderPath", MemeFolderPath);

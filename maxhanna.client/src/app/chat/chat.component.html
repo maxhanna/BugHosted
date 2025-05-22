@@ -36,7 +36,7 @@
               </div>
             </div>
             <div class="messageContent" [attr.data-timestamp]="message.timestamp">
-              <div [innerHTML]="getTextForDOM(message.content)"></div>
+              <div [innerHTML]="getTextForDOM(decryptContent(message.content))"></div>
               <div class="reactionDiv">
                 <app-reaction [messageId]="message.id" [user]="parentRef?.user" [component]="message"
                   [inputtedParentRef]="parentRef" [currentReactions]="message.reactions"
@@ -57,7 +57,7 @@
             <span class="messageTimestamp">{{ getUtcTimestampString(message.timestamp) }}<span class="receiverSeen"
                 *ngIf="message.seen" [title]="'Seen by:' + message.seen">👀</span></span>
             <div class="messageContent" [attr.data-timestamp]="message.timestamp">
-              <div [innerHTML]="getTextForDOM(message.content)"></div>
+              <div [innerHTML]="getTextForDOM(decryptContent(message.content))"></div>
               <div class="otherPersonsReactionDiv">
                 <app-reaction [messageId]="message.id" [user]="parentRef?.user" [component]="message"
                   [inputtedParentRef]="parentRef" [currentReactions]="message.reactions"
@@ -168,6 +168,9 @@
         <button (click)="displayChatMembers()">Display</button>
       </div>
     </div>
+  </div>
+  <div class="smallFont thirdFontColor">
+    Note: Chat messages are end-to-end encrypted with quantum-resistant encryption. We take your privacy seriously. That means your chat messages leave your computer securely encrypted over the internet, and kept encrypted in our database. No one but you and the recipient(s) can read these messages. 
   </div>
   <div class="chatMenuPopupCloseDiv">
     <button id="closeOverlay" (click)="closeMenuPanel()">Close</button>

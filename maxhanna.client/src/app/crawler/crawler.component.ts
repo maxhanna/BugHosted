@@ -93,7 +93,9 @@ export class CrawlerComponent extends ChildComponent implements OnInit, OnDestro
       this.currentPage = 1;
     }
     this.stopLoading();
-    document.getElementsByClassName("componentMain")[0].scrollTop = 0;
+    setTimeout(() => {
+      document.getElementsByClassName("metadataSearchWrapper")[0].scrollTop = 0;
+    }, 100);
   }
 
   private getGroupedResults(results: MetaData[]) {
