@@ -400,7 +400,7 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
     }
   encryptContent(msg: string) {
     try {
-      return this.chatService.encryptContent(msg, this.chatId ? this.chatId + "" : undefined);  
+      return this.chatService.encryptContent(msg, this.currentChatId ? this.currentChatId + "" : undefined);  
     } catch (error) {
       console.error('Encryption error:', error);
       return msg;  
@@ -409,7 +409,8 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
 
   decryptContent(encryptedContent: string) {
     try {
-      return this.chatService.decryptContent(encryptedContent, this.chatId ? this.chatId + "" : undefined); 
+      console.log("decrypting for chat id: ", this.currentChatId);
+      return this.chatService.decryptContent(encryptedContent, this.currentChatId ? this.currentChatId + "" : undefined); 
     } catch (error) {
       console.error('Decryption error:', error);
       return encryptedContent;

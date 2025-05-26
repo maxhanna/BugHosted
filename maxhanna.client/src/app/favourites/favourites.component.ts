@@ -5,6 +5,7 @@ import { FavouriteService } from '../../services/favourite.service';
 import { User } from '../../services/datacontracts/user/user';
 import { CrawlerService } from '../../services/crawler.service';
 import { UserService } from '../../services/user.service';
+import { MetaData } from '../../services/datacontracts/social/story';
 
 @Component({
   selector: 'app-favourites',
@@ -32,6 +33,8 @@ export class FavouritesComponent extends ChildComponent implements OnInit {
   pageSize = 100;
   totalCount = 1;
   isMenuPanelOpen = false;
+  isSearchingEditUrl = false;
+  isSearchingUrl = false;
   numberOfPages = 0;
 
   constructor(
@@ -133,11 +136,11 @@ export class FavouritesComponent extends ChildComponent implements OnInit {
           tmpLinkUrl = targetData.url;
           this.parentRef?.setModalBody(`
             Search results found and added this link to favourites:
-            <img src='${imageUrl}' (error)="fav.imageUrl = '' /> <br />
+            <img src='${imageUrl}' (error)="fav.imageUrl = ''" /> <br />
             Found Title: ${name} <br />
             Found URL: ${tmpLinkUrl} <br />
           `);
-          setTimeout(() => this.parentRef?.openModal(), 0);
+          setTimeout(() => this.parentRef?.openModal(), 50);
         } else {
           if (!tmpLinkUrl.toLowerCase().includes("https") && !tmpLinkUrl.toLowerCase().includes("http")) {
             tmpLinkUrl = "https://" + tmpLinkUrl;
@@ -282,5 +285,16 @@ export class FavouritesComponent extends ChildComponent implements OnInit {
   closeMenuPanel() {
     this.isMenuPanelOpen = false;
     this.parentRef?.closeOverlay();
-  } 
+  }  
+  urlSelectedEvent(meta: MetaData) { 
+    if (this.isSearchingEditUrl) {
+      this.editingUrlInput.nativeElement.value = meta.url ?? "";
+      this.editingImageUrlInput.nativeElement.value = meta.imageUrl ?? this.editingImageUrlInput.nativeElement.value ?? "";
+      this.isSearchingEditUrl = false;
+    } 
+    else if (this.isSearchingUrl) {
+      this.linkInput.nativeElement.value = meta.url ?? "";
+      this.isSearchingUrl = false;
+    }
+  }
 }

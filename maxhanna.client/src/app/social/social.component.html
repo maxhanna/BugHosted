@@ -439,7 +439,7 @@
                 [currentReactions]="story.reactions" [previousComponent]="'Social'"></app-reaction>
             </span>
             <span class="showCommentSpan" (click)="showComments(story.id)">
-              <span class="commentBubbleIcon">🗨️</span>{{getTotalCommentCount(story.storyComments)}}
+              <span class="commentBubbleIcon">🗨️{{getTotalCommentCount(story.storyComments)}}</span>
             </span>
             <span (click)="showStoryOptionsPanel(story);" class="postOptionButtons showPostOptionButton"
               title="Show post options">

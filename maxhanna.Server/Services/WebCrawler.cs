@@ -16,12 +16,136 @@ public class WebCrawler
 	private const string Chars = "abcdefghijklmnopqrstuvwxyz123456789";
 	public static readonly List<string> DomainSuffixes = new List<string>
 	{
-			"com", "io", "net", "ca", "qc.ca", "org", "gov", "edu", "co", "biz", "info", "us", "tv", "me", "co.uk",
-			"de", "fr", "es", "jp", "cn", "in", "br", "it", "ru", "au", "pl", "se", "nl", "ch", "at", "no", "fi", "dk",
-			"be", "cz", "gr", "hu", "sg", "za", "kr", "mx", "kr", "ua", "sa", "ae", "cl", "ar", "tr", "pt", "ro", "kr",
-			"tw", "my", "ph", "vn", "id", "lk", "pk", "ng", "ke", "eg", "gh", "dz", "bd", "do", "hn", "uy", "pe", "cr",
-			"jm", "bz", "pa", "gt", "sv", "bo", "py", "ec", "tt", "jm", "ws", "pm", "mu", "tk", "cy", "ba", "hr", "mk",
-			"rs", "bg", "md", "lt", "lv", "to", "ee", "is", "me", "mk", "ks", "lb"
+		// Original Generic TLDs
+		"com", "net", "org", "gov", "edu", "mil", "int", 
+		
+		// Common Generic TLDs
+		"biz", "info", "name", "pro", "aero", "coop", "museum", 
+		
+		// New Generic TLDs (2012+)
+		"xyz", "online", "site", "tech", "store", "shop", "blog", "app", "dev", "io",
+		"ai", "game", "games", "play", "fun", "cloud", "host", "space", "website",
+		"digital", "network", "systems", "media", "social", "club", "life", "world",
+		"group", "ltd", "inc", "corp", "llc", "company", "academy", "school",
+		"university", "college", "education", "careers", "jobs", "recruitment",
+		"health", "medical", "doctor", "hospital", "pharmacy", "fit", "fitness",
+		"guru", "expert", "services", "solutions", "support", "center", "guide",
+		"directory", "tools", "equipment", "gallery", "photos", "camera", "film",
+		"music", "audio", "radio", "tv", "video", "studio", "art", "design",
+		"fashion", "style", "beauty", "hair", "skin", "luxury", "jewelry",
+		"watch", "cars", "auto", "motorcycles", "boats", "yachts", "aviation",
+		"travel", "tours", "vacations", "cruises", "flights", "hotels", "villas",
+		"restaurant", "cafe", "bar", "pub", "food", "pizza", "burger", "sushi",
+		"coffee", "tea", "wine", "beer", "spirits", "vodka", "whiskey", "cooking",
+		"kitchen", "recipes", "farm", "organic", "green", "eco", "solar", "energy",
+		"construction", "contractors", "engineering", "architect", "build", "house",
+		"estate", "properties", "rentals", "apartments", "villas", "condos",
+		"finance", "money", "bank", "capital", "invest", "trading", "forex",
+		"crypto", "bitcoin", "ethereum", "blockchain", "exchange", "wallet",
+		"insurance", "loans", "credit", "mortgage", "financial", "accountants",
+		"legal", "law", "attorney", "lawyer", "justice", "court", "security",
+		"protection", "safety", "emergency", "fire", "police", "army", "navy",
+		"airforce", "marines", "veterans", "charity", "foundation", "ngo",
+		"community", "church", "faith", "bible", "catholic", "christian", "islam",
+		"muslim", "jewish", "buddhist", "hindu", "spiritual", "yoga", "meditation",
+		"reiki", "healing", "therapy", "counseling", "psychology", "rehab",
+		"retirement", "senior", "kids", "toys", "baby", "children", "family",
+		"mom", "dad", "parents", "dating", "love", "wedding", "bridal", "events",
+		"party", "gifts", "flowers", "cards", "stationery", "books", "library",
+		"news", "press", "magazine", "journal", "blog", "forum", "chat", "social",
+		"dating", "friends", "meet", "connect", "dating", "personals", "singles",
+		"pets", "dog", "cat", "vet", "animal", "horse", "fish", "bird", "reptile",
+		"bike", "bicycle", "running", "soccer", "football", "basketball", "golf",
+		"tennis", "hockey", "rugby", "cricket", "baseball", "softball", "volleyball",
+		"swim", "surf", "ski", "snow", "skate", "board", "fishing", "hunting",
+		"camping", "hike", "climb", "adventure", "outdoors", "parks", "garden",
+		"land", "property", "realestate", "realtor", "rent", "lease", "forsale",
+		"auction", "deals", "discount", "coupons", "vouchers", "free", "cheap",
+		"best", "top", "premium", "deluxe", "exclusive", "elite", "prime", "gold",
+		"silver", "platinum", "diamond", "vip", "royal", "imperial", "luxury",
+		"furniture", "decor", "lighting", "appliances", "electronics", "computer",
+		"laptop", "phone", "mobile", "tablet", "watch", "wearables", "gadgets",
+		"software", "hardware", "data", "server", "hosting", "domain", "website",
+		"email", "mail", "chat", "messenger", "call", "voip", "sms", "text",
+		"fax", "print", "copy", "scan", "office", "business", "enterprise",
+		"global", "international", "worldwide", "europe", "asia", "africa",
+		"america", "australia", "antarctica", "arctic", "atlantic", "pacific",
+		"indian", "earth", "planet", "space", "universe", "galaxy", "star",
+		"sun", "moon", "mars", "venus", "jupiter", "saturn", "neptune", "pluto",
+		"comet", "asteroid", "meteor", "alien", "ufo", "science", "physics",
+		"chemistry", "biology", "math", "history", "geography", "philosophy",
+		"psychology", "sociology", "anthropology", "archeology", "paleontology",
+		"geology", "meteorology", "oceanography", "astronomy", "astrology",
+		"technology", "engineering", "architecture", "design", "art", "music",
+		"literature", "poetry", "theater", "dance", "opera", "ballet", "cinema",
+		"film", "tv", "radio", "podcast", "youtube", "vimeo", "twitch", "tiktok",
+		"instagram", "facebook", "twitter", "linkedin", "pinterest", "reddit",
+		"discord", "slack", "telegram", "signal", "whatsapp", "wechat", "line",
+		"kakao", "viber", "skype", "zoom", "meet", "hangouts", "duo", "teams",
+		"office", "google", "amazon", "apple", "microsoft", "ibm", "oracle",
+		"intel", "amd", "nvidia", "cisco", "dell", "hp", "lenovo", "asus",
+		"acer", "samsung", "lg", "sony", "panasonic", "toshiba", "sharp", "fujitsu",
+		"hitachi", "siemens", "bosch", "philips", "ge", "whirlpool", "electrolux",
+		"ikea", "nike", "adidas", "puma", "reebok", "underarmour", "newbalance",
+		"converse", "vans", "gucci", "prada", "versace", "armani", "dior", "chanel",
+		"louisvuitton", "hermes", "burberry", "ralphlauren", "calvinklein", "tommyhilfiger",
+		"hugo", "boss", "diesel", "levis", "wrangler", "lee", "guess", "dkny",
+		"gap", "oldnavy", "bananarepublic", "zara", "hm", "uniqlo", "forever21",
+		"victoriassecret", "sephora", "macys", "nordstrom", "bloomingdales", "neimanmarcus",
+		"saks", "barneys", "bergdorfgoodman", "dillards", "kohls", "jcpenney", "target",
+		"walmart", "costco", "samclub", "bestbuy", "homedepot", "lowes", "menards",
+		"acehardware", "truevalue", "napa", "autozone", "pepboys", "advanceautoparts",
+		"oreilly", "carquest", "batteriesplus", "firestone", "goodyear", "bridgestone",
+		"michelin", "pirelli", "continental", "dunlop", "yokohama", "toyota", "honda",
+		"nissan", "mazda", "subaru", "mitsubishi", "suzuki", "isuzu", "daihatsu",
+		"lexus", "infiniti", "acura", "bmw", "mercedes", "audi", "volkswagen", "porsche",
+		"opel", "renault", "peugeot", "citroen", "fiat", "alfa", "ferrari", "lamborghini",
+		"maserati", "bugatti", "rollsroyce", "bentley", "astonmartin", "jaguar", "landrover",
+		"volvo", "saab", "scania", "man", "iveco", "daf", "kenworth", "peterbilt",
+		"mack", "freightliner", "westernstar", "international", "ford", "chevrolet", "gmc",
+		"cadillac", "buick", "lincoln", "chrysler", "dodge", "jeep", "ram", "tesla",
+		"rivian", "lucid", "fisker", "nikola", "workhorse", "lordstown", "canoo",
+		"arrival", "bollinger", "faradayfuture", "karma", "sfmotors", "byton", "nio",
+		"xpev", "li", "xpeng", "higer", "yutong", "zhongtong", "kinglong", "anhui",
+		"shacman", "foton", "jac", "haval", "greatwall", "chery", "geely", "byd",
+		"changan", "dongfeng", "saic", "gac", "baic", "brilliance", "jac", "jmc",
+		"zotye", "lifan", "haima", "qoros", "lynk", "polestar", "volvo", "scania",
+		"man", "iveco", "daf", "kenworth", "peterbilt", "mack", "freightliner",
+		"westernstar", "international", "ford", "chevrolet", "gmc", "cadillac",
+		"buick", "lincoln", "chrysler", "dodge", "jeep", "ram", "tesla", "rivian",
+		"lucid", "fisker", "nikola", "workhorse", "lordstown", "canoo", "arrival",
+		"bollinger", "faradayfuture", "karma", "sfmotors", "byton", "nio", "xpev",
+		"li", "xpeng", "higer", "yutong", "zhongtong", "kinglong", "anhui", "shacman",
+		"foton", "jac", "haval", "greatwall", "chery", "geely", "byd", "changan",
+		"dongfeng", "saic", "gac", "baic", "brilliance", "jac", "jmc", "zotye",
+		"lifan", "haima", "qoros", "lynk", "polestar",
+
+		// Country Code TLDs (ccTLDs)
+		"ac", "ad", "ae", "af", "ag", "ai", "al", "am", "ao", "aq", "ar", "as", "at", "au", "aw", "ax", "az",
+		"ba", "bb", "bd", "be", "bf", "bg", "bh", "bi", "bj", "bm", "bn", "bo", "bq", "br", "bs", "bt", "bv", "bw", "by", "bz",
+		"ca", "cc", "cd", "cf", "cg", "ch", "ci", "ck", "cl", "cm", "cn", "co", "cr", "cu", "cv", "cw", "cx", "cy", "cz",
+		"de", "dj", "dk", "dm", "do", "dz",
+		"ec", "ee", "eg", "eh", "er", "es", "et", "eu",
+		"fi", "fj", "fk", "fm", "fo", "fr",
+		"ga", "gb", "gd", "ge", "gf", "gg", "gh", "gi", "gl", "gm", "gn", "gp", "gq", "gr", "gs", "gt", "gu", "gw", "gy",
+		"hk", "hm", "hn", "hr", "ht", "hu",
+		"id", "ie", "il", "im", "in", "io", "iq", "ir", "is", "it",
+		"je", "jm", "jo", "jp",
+		"ke", "kg", "kh", "ki", "km", "kn", "kp", "kr", "kw", "ky", "kz",
+		"la", "lb", "lc", "li", "lk", "lr", "ls", "lt", "lu", "lv", "ly",
+		"ma", "mc", "md", "me", "mg", "mh", "mk", "ml", "mm", "mn", "mo", "mp", "mq", "mr", "ms", "mt", "mu", "mv", "mw", "mx", "my", "mz",
+		"na", "nc", "ne", "nf", "ng", "ni", "nl", "no", "np", "nr", "nu", "nz",
+		"om",
+		"pa", "pe", "pf", "pg", "ph", "pk", "pl", "pm", "pn", "pr", "ps", "pt", "pw", "py",
+		"qa",
+		"re", "ro", "rs", "ru", "rw",
+		"sa", "sb", "sc", "sd", "se", "sg", "sh", "si", "sj", "sk", "sl", "sm", "sn", "so", "sr", "ss", "st", "su", "sv", "sx", "sy", "sz",
+		"tc", "td", "tf", "tg", "th", "tj", "tk", "tl", "tm", "tn", "to", "tr", "tt", "tv", "tw", "tz",
+		"ua", "ug", "uk", "us", "uy", "uz",
+		"va", "vc", "ve", "vg", "vi", "vn", "vu",
+		"wf", "ws",
+		"ye", "yt",
+		"za", "zm", "zw"
 	};
 
 
@@ -465,38 +589,94 @@ public class WebCrawler
 			_ = _log.Db("Exception (SaveSearchResult) : " + ex.Message, null, "CRAWLER", true);
 		}
 	}
-	public async Task MarkUrlAsFailed(string url, int? responseCode = null)
+	public async Task<Metadata?> MarkUrlAsFailed(string url, int? responseCode = null)
 	{
 		try
 		{
 			//_ = _log.Db("Marking as failed: " + $"{url.Substring(0, Math.Min(url.Length, 25)) + (url.Length > 35 ? "..." + url[^10..] : "")}", null, "CRAWLER", true);
 			string? connectionString = _config.GetValue<string>("ConnectionStrings:maxhanna");
+
 			using (var connection = new MySqlConnection(connectionString))
 			{
 				await connection.OpenAsync();
 
+				// First, check if the URL exists with data and not failed
+				string checkQuery = @"
+                SELECT url, title, description, author, keywords, image_url, response_code
+                FROM search_results 
+                WHERE url = @url 
+                AND failed = 0 
+                AND (
+                    title IS NOT NULL OR 
+                    description IS NOT NULL OR 
+                    keywords IS NOT NULL OR 
+                    image_url IS NOT NULL OR 
+                    author IS NOT NULL
+                )";
+
+				using (var checkCommand = new MySqlCommand(checkQuery, connection))
+				{
+					checkCommand.Parameters.AddWithValue("@url", url.ToLower());
+
+					using (var reader = await checkCommand.ExecuteReaderAsync())
+					{
+						if (reader.HasRows)
+						{
+							await reader.ReadAsync();
+							return new Metadata
+							{
+								Url = reader.GetString("url"),
+								Title = reader.IsDBNull("title") ? null : reader.GetString("title"),
+								Description = reader.IsDBNull("description") ? null : reader.GetString("description"),
+								Author = reader.IsDBNull("author") ? null : reader.GetString("author"),
+								Keywords = reader.IsDBNull("keywords") ? null : reader.GetString("keywords"),
+								ImageUrl = reader.IsDBNull("image_url") ? null : reader.GetString("image_url"),
+								HttpStatus = reader.IsDBNull("response_code") ? null : reader.GetInt32("response_code")
+							};
+						}
+					}
+				}
+
+				// If we got here, either the URL doesn't exist or it's failed/has no data
 				string failureQuery = @"
-        INSERT INTO search_results (url, failed, response_code, found_date, last_crawled)
-        VALUES (@url, TRUE, @responseCode, UTC_TIMESTAMP(), UTC_TIMESTAMP())
-        ON DUPLICATE KEY UPDATE 
-            failed = TRUE, 
-            response_code = @responseCode,
-            last_crawled = UTC_TIMESTAMP();";
+                INSERT INTO search_results (url, failed, response_code, found_date, last_crawled)
+                VALUES (@url, TRUE, @responseCode, UTC_TIMESTAMP(), UTC_TIMESTAMP())
+                ON DUPLICATE KEY UPDATE 
+                    failed = IF(
+                        title IS NOT NULL OR 
+                        description IS NOT NULL OR 
+                        keywords IS NOT NULL OR 
+                        image_url IS NOT NULL OR 
+                        author IS NOT NULL,
+                        failed,  // Keep existing value if any content exists
+                        IF(failed = TRUE, TRUE, VALUES(failed))  // Original logic
+                    ), 
+                    response_code = IF(
+                        title IS NOT NULL OR 
+                        description IS NOT NULL OR 
+                        keywords IS NOT NULL OR 
+                        image_url IS NOT NULL OR 
+                        author IS NOT NULL,
+                        response_code,  // Keep existing value if any content exists
+                        IF(failed = TRUE, @responseCode, response_code)  // Original logic
+                    ),
+                    last_crawled = UTC_TIMESTAMP()";
 
 				using (var command = new MySqlCommand(failureQuery, connection))
 				{
 					command.Parameters.AddWithValue("@url", url.ToLower());
 					command.Parameters.AddWithValue("@responseCode", (object?)responseCode ?? DBNull.Value);
-
 					await command.ExecuteNonQueryAsync();
 				}
+
+				return null;
 			}
 		}
 		catch (Exception ex)
 		{
 			_ = _log.Db($"Exception (MarkUrlAsFailed) URL: {ShortenUrl(url)}. : " + ex.Message, null, "CRAWLER", false);
+			return null;
 		}
-
 	}
 	private string NormalizeUrl(string? url, string? baseDomain = null)
 	{
@@ -567,8 +747,7 @@ public class WebCrawler
 			if (!response.IsSuccessStatusCode)
 			{ 
 				//_ = _log.Db($"ScrapeUrlData: Invalid response code {response.StatusCode} for URL: {ShortenUrl(url)}", null, "CRAWLER", true);
-				_ = MarkUrlAsFailed(url, (int)response.StatusCode);
-				return null;
+				return await MarkUrlAsFailed(url, (int)response.StatusCode); 
 			}
 
 			const int maxHtmlLength = 400_000;
@@ -614,33 +793,44 @@ public class WebCrawler
 		{
 			metadata.HttpStatus = 408;
 			//_ = _log.Db($"ScrapeUrlData Timeout on URL {ShortenUrl(url)}", null, "CRAWLER", true);
-			_ = MarkUrlAsFailed(url, 408);
-			return null;
+			if (IsMetadataCompletelyEmpty(metadata))
+			{
+				return await MarkUrlAsFailed(url); 
+			}
+			else
+			{
+				return metadata;
+			} 
 		}
-		catch (HttpRequestException)
+		catch (HttpRequestException ex)
 		{
-			//_ = _log.Db($"ScrapeUrlData HttpRequestException on URL {ShortenUrl(url)}", null, "CRAWLER", true);  
-			_ = MarkUrlAsFailed(url);
-			return null;
+			_ = _log.Db($"ScrapeUrlData HttpRequestException on URL {ShortenUrl(url)}:" + ex.Message, null, "CRAWLER", false);
+			if (IsMetadataCompletelyEmpty(metadata))
+			{
+				return await MarkUrlAsFailed(url); 
+			}
+			else
+			{
+				return metadata;
+			}
 		}
 		catch (StackOverflowException)
 		{
 			metadata.HttpStatus = 500;
 			//_ = _log.Db("ScrapeUrlData Stack Overflow Error on URL: " + ShortenUrl(url), null, "CRAWLER", true);
-			_ = MarkUrlAsFailed(url, 500);
-			return metadata;
+			Metadata? tmpData = await MarkUrlAsFailed(url, 500); 
+			return tmpData ?? metadata;
 		}
 		catch (Exception ex)
 		{
 			_ = _log.Db($"ScrapeUrlData Exception on URL {ShortenUrl(url)} : " + ex.Message, null, "CRAWLER", false);
-			_ = MarkUrlAsFailed(url);
-			return null;
+			return await MarkUrlAsFailed(url); 
 		}
 
 		if (IsMetadataCompletelyEmpty(metadata))
 		{
 			if (!string.IsNullOrEmpty(metadata.Url?.Trim())) { 
-				_ = MarkUrlAsFailed(url);
+				return await MarkUrlAsFailed(url);
 			}
 			//_ = _log.Db($"ScrapeUrlData IsMetadataCompletelyEmpty on URL {ShortenUrl(url)}", null, "CRAWLER", true);
 

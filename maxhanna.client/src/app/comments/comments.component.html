@@ -18,10 +18,18 @@
       <div class="commentAvatar usernameProfileLink">
         <app-user-tag [user]="comment.user" [inputtedParentRef]="inputtedParentRef" [displayMiniTag]="true" [previousComponent]="previousComponent"></app-user-tag>
       </div>
-      <div class="commentDate" [title]="(comment.date?.toString() ?? '').replace('T',' ')">{{ comment.date | timeSince}}</div>
+      <div class="commentDate" [title]="(comment.date?.toString() ?? '').replace('T',' ')">
+        <ng-container *ngIf="onMobile(); else fullTime">
+          {{ (comment.date | timeSince).split(' ')[0] }}
+        </ng-container>
+        <ng-template #fullTime>
+          {{ comment.date | timeSince }}
+        </ng-template></div>
       <div class="commentReaction">
         <app-reaction [commentId]="comment.id"
                       [component]="comment"
+                      [fileId]="comment.fileId"
+                      [storyId]="comment.storyId"
                       [userProfileId]="userProfileId"
                       [user]="inputtedParentRef?.user"
                       [inputtedParentRef]="inputtedParentRef"
@@ -77,14 +85,23 @@
                             [previousComponent]="previousComponent"></app-media-viewer>
         </div>
 
-        <div *ngFor="let subComment of comment.comments" class="subComment">
+        <div *ngFor="let subComment of comment.comments" class="subComment" [id]="'subComment' + subComment.id">
           <div class="commentContentAndAvatarContainerDiv" [attr.data-timestamp]="subComment.date">
             <div class="commentAvatar usernameProfileLink">
               <app-user-tag [user]="subComment.user" [inputtedParentRef]="inputtedParentRef" [displayMiniTag]="true" [previousComponent]="previousComponent"></app-user-tag>
             </div>
-            <div class="commentDate" [title]="(subComment.date?.toString() ?? '').replace('T',' ')">{{ subComment.date | timeSince }}</div>
+            <div class="commentDate" [title]="(subComment.date?.toString() ?? '').replace('T',' ')">
+              <ng-container *ngIf="onMobile(); else fullTime">
+                {{ (subComment.date | timeSince).split(' ')[0] }}
+              </ng-container>
+              <ng-template #fullTime>
+                {{ subComment.date | timeSince }}
+              </ng-template>      
+            </div>
             <div class="commentReaction">
               <app-reaction [commentId]="subComment.id"
+                            [storyId]="subComment.storyId"
+                            [fileId]="subComment.fileId" 
                             [component]="subComment"
                             [userProfileId]="userProfileId"
                             [user]="inputtedParentRef?.user"

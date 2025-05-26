@@ -1,8 +1,8 @@
-import { Component, ElementRef, Input, OnDestroy, OnInit, ViewChild } from '@angular/core';
+import { Component, ElementRef, EventEmitter, Input, OnDestroy, OnInit, Output, ViewChild } from '@angular/core';
 import { ChildComponent } from '../child.component';
 import { CrawlerService } from '../../services/crawler.service';
 import { MetaData } from '../../services/datacontracts/social/story';
-import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
+import { DomSanitizer, Meta, SafeHtml } from '@angular/platform-browser';
 
 @Component({
     selector: 'app-crawler',
@@ -17,7 +17,7 @@ export class CrawlerComponent extends ChildComponent implements OnInit, OnDestro
   indexUpdateTimer: any;
   isMenuOpen = false;
   lastSearch = "";
-  groupedResults?: { domain: string; links: MetaData[], showSubdomains: false }[] = [];
+  groupedResults?: { domain: string; links: MetaData[]; showSubdomains: boolean }[] = [];
   storageStats?: any;
   currentPage: number = 1;
   totalResults: number = 0;  // To be populated by API
@@ -29,6 +29,9 @@ export class CrawlerComponent extends ChildComponent implements OnInit, OnDestro
   @ViewChild('pageSizeDropdown') pageSizeDropdown!: ElementRef<HTMLSelectElement>;
   @ViewChild('urlInput') urlInput!: ElementRef<HTMLInputElement>;
   @Input() url: string = '';
+  @Input() onlySearch: boolean = false;
+  @Output() urlSelectedEvent = new EventEmitter<MetaData>();
+  @Output() closeSearchEvent = new EventEmitter<void>();
   constructor(private sanitizer: DomSanitizer, private crawlerService: CrawlerService) { super(); }
   ngOnInit() {
     this.parentRef?.addResizeListener();
@@ -54,8 +57,17 @@ export class CrawlerComponent extends ChildComponent implements OnInit, OnDestro
     clearInterval(this.indexUpdateTimer);
     this.parentRef?.removeResizeListener();
   }
-
-  async searchUrl() {
+  visitExternalLink(url?: string) {
+    if (!url) return;
+    if (this.onlySearch) {
+      const tgtMetadata = this.searchMetadata.filter((x: MetaData) => x.url == url)[0];
+      if (tgtMetadata) { 
+        this.urlSelectedEvent.emit(tgtMetadata);
+      }
+    }  
+    this.parentRef?.visitExternalLink(url); 
+  }
+  async searchUrl(skipScrape?: boolean) {
     (document.getElementsByClassName("componentContainer")[0] as HTMLDivElement)?.classList.remove("centeredContainer"); 
     this.error = '';
     const url = this.urlInput.nativeElement.value;
@@ -69,7 +81,7 @@ export class CrawlerComponent extends ChildComponent implements OnInit, OnDestro
     this.startLoading();
 
     if (url) {
-      await this.crawlerService.searchUrl(url, currentPage, pageSize).then(res => {
+      await this.crawlerService.searchUrl(url, currentPage, pageSize, undefined, skipScrape).then(res => {
         if (res && res.totalResults != 0) {
           this.totalResults = res.totalResults;
           this.totalPages = Math.ceil(this.totalResults / this.pageSize);
@@ -119,28 +131,36 @@ export class CrawlerComponent extends ChildComponent implements OnInit, OnDestro
     return groupedResults;
   }
 
-  private sortResults(groupedResults: { [domain: string]: MetaData[]; }) {
+  private sortResults(groupedResults: { [domain: string]: MetaData[]; }) { 
     this.groupedResults = Object.entries(groupedResults).map(([domain, links]) => {
       const sortedLinks = links.sort((a: any, b: any) => {
-        const urlA = new URL(a.url);
-        const urlB = new URL(b.url);
+        try {
+          const urlA = new URL(a.url);
+          const urlB = new URL(b.url);
 
-        const isTopLevelA = urlA.pathname === '/' || urlA.pathname === '';
-        const isTopLevelB = urlB.pathname === '/' || urlB.pathname === '';
+          const isTopLevelA = urlA.pathname === '/' || urlA.pathname === '';
+          const isTopLevelB = urlB.pathname === '/' || urlB.pathname === '';
 
-        if (isTopLevelA && !isTopLevelB) {
-          return -1;
-        } else if (!isTopLevelA && isTopLevelB) {
-          return 1;
+          // Top-level URLs come first
+          if (isTopLevelA && !isTopLevelB) return -1;
+          if (!isTopLevelA && isTopLevelB) return 1;
+
+          // Then sort by URL length (shorter URLs first)
+          const lengthCompare = a.url.length - b.url.length;
+          if (lengthCompare !== 0) return lengthCompare;
+
+          // Finally sort alphabetically
+          return a.url.localeCompare(b.url);
+        } catch (e) {
+          console.error('Error parsing URLs:', e);
+          return 0;
         }
-
-        return a.url.localeCompare(b.url);
       });
 
       return {
         domain,
         links: sortedLinks,
-        showSubdomains: false // Initialize showSubdomains as false
+        showSubdomains: false 
       };
     });
   }
@@ -149,7 +169,7 @@ export class CrawlerComponent extends ChildComponent implements OnInit, OnDestro
     console.log("apge size changed");
     this.currentPage = 1;
     this.pageSize = parseInt(this.pageSizeDropdown.nativeElement.value);
-    this.searchUrl();
+    this.searchUrl(true);
     this.closeMenuPanel();
   }
 
@@ -160,7 +180,7 @@ export class CrawlerComponent extends ChildComponent implements OnInit, OnDestro
     }
     if (tmpPage >= 1 && tmpPage <= this.totalPages) {
       this.currentPage = tmpPage;
-      this.searchUrl();
+      this.searchUrl(true);
     }
   }
   showMenuPanel() {
@@ -192,7 +212,7 @@ export class CrawlerComponent extends ChildComponent implements OnInit, OnDestro
   }
   seeNew() {
     this.urlInput.nativeElement.value = '*';
-    this.searchUrl();
+    this.searchUrl(true);
   }
   getHttpStatusMeaning(status: number): string {
     switch (status) {

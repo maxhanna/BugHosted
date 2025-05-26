@@ -58,6 +58,9 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
   isBeingFollowedByUser = false;
   isDisplayingNSFW = false;
   isMenuPanelOpen = false;
+  showingFollowingList = false;
+  showingFollowersList = false;
+  showingFriendsList = true;
   friends: User[] = [];
   friendRequests: FriendRequest[] = [];
   friendRequestsSent: FriendRequest[] = [];
@@ -77,12 +80,12 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
   metaBotLevelsSum: number = 0;
   weatherLocation?: { city: string; country: string } = undefined;
   isUserBlocked = false;
-  stoppedNotifications : number[] = [];
+  stoppedNotifications: number[] = [];
   showHiddenFiles: boolean = false;
   filter = {
     hidden: this.showHiddenFiles ? 'yes' : 'no',
   };
-  latestSocialStoryId? : number = undefined;
+  latestSocialStoryId?: number = undefined;
   wordlerHighScores?: any = undefined;
   latestMemeId?: number = undefined;
 
@@ -105,21 +108,20 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
     setTimeout(() => {
       this.removeBorderOnSocial();
     }, 500);
+    const parent = this.inputtedParentRef ?? this.parentRef;
+    parent?.setViewportScalability(false);
   }
 
-  async ngOnInit() { 
+  async ngOnInit() {
     if (this.inputtedParentRef) {
       this.parentRef = this.inputtedParentRef;
-    }
-    console.log("prev component: " + this.previousComponent);
+    } 
     this.startLoading();
     this.usersCount = await this.userService.getUserCount();
     try {
-      if (this.userId) {
-        console.log("getting user by id : " + this.userId);
+      if (this.userId) { 
         const res = await this.userService.getUserById(this.userId);
-        if (res) {
-          console.log("got user : ", res);
+        if (res) { 
           this.user = res as User;
           if (this.socialComponent) {
             this.socialComponent.user = this.user;
@@ -135,38 +137,49 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
         this.loadWordlerData();
         this.loadMetaheroData();
         this.loadSongData();
-        this.loadContactsData(); 
-        this.loadLocation(this.user); 
+        this.loadContactsData();
+        this.loadLocation(this.user);
         this.getIsBeingFollowedByUser();
         this.getIsUserBlocked(this.user);
         if (this.user.id == this.parentRef?.user?.id && this.user.id != 0 && this.user.id !== undefined) {
-          this.notificationService.getStoppedNotifications(this.user.id).then(res => this.stoppedNotifications = res );
+          this.notificationService.getStoppedNotifications(this.user.id).then(res => this.stoppedNotifications = res);
         }
       }
-      if (!this.user) {
-        console.log("getting latest social story");
+      if (!this.user) { 
         const lidRes = await this.socialService.getLatestStoryId();
         if (lidRes) {
           this.latestSocialStoryId = parseInt(lidRes);
-        } 
+        }
         this.wordlerHighScores = await this.wordlerService.getAllScores();
         const lmRes = await this.fileService.getLatestMemeId();
         if (lmRes) {
           this.latestMemeId = parseInt(lmRes);
         }
+      } else {
+        this.latestSocialStoryId = undefined; 
       }
       this.getNSFWValue();
       this.getNumberOfNexusBases();
     }
     catch (error) { console.log((error as Error).message); }
     this.stopLoading();
+
+    document.addEventListener('DOMContentLoaded', function () {
+      if (/iPhone|iPad|iPod/i.test(navigator.userAgent)) {
+        document.querySelectorAll('#loginInput, #passwordInput').forEach(el => {
+          el.addEventListener('focus', function () {
+            document.querySelector('meta[name="viewport"]')?.setAttribute('content', 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no');
+          });
+        });
+      }
+    });
   }
 
 
   private async loadLocation(user: User) {
     let gotLoc = false;
     const wRes = await this.weatherService.getWeatherLocation(user.id ?? 0);
-    if (wRes) { 
+    if (wRes) {
       this.weatherLocation = { city: wRes.city, country: wRes.country };
       gotLoc = true;
     }
@@ -232,14 +245,12 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
     } catch (e) { }
   }
   async loadWordlerData() {
-    const user = this.user ?? this.parentRef?.user;
-    console.log("load worlder data");
+    const user = this.user ?? this.parentRef?.user; 
     if (user?.id) {
       try {
         const wsRes = await this.wordlerService.getBestConsecutiveDayStreak(user.id);
         if (wsRes) {
-          this.bestWordlerStreak = parseInt(wsRes);
-          console.log("best streak: " , this.bestWordlerStreak);
+          this.bestWordlerStreak = parseInt(wsRes); 
         }
 
         const wsRes2 = await this.wordlerService.getTodaysDayStreak(user.id);
@@ -261,7 +272,7 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
             sum += bot.level;
           }
           this.metaBotLevelsSum = sum;
-        } 
+        }
       } catch (e) { }
     }
   }
@@ -285,12 +296,10 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
 
   }
 
-  expandDiv(event: string) {
-    console.log(event);
+  expandDiv(event: string) { 
     const isOpen = event === "aboutContainer" ? this.isAboutExpanded
       : event === "musicProfileContainer" ? this.isMusicContainerExpanded
-        : this.isTrophyExpanded;
-    console.log(isOpen);
+        : this.isTrophyExpanded; 
 
 
     if (event === "aboutContainer") {
@@ -300,7 +309,7 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
     } else if (event === "trophyContainer") {
       this.isTrophyExpanded = !!!isOpen;
     }
-  } 
+  }
 
   async addContact(user: User) {
     const userId = this.parentRef?.user?.id;
@@ -314,7 +323,7 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
     const userId = this.parentRef?.user?.id;
     if (userId) {
       const res = await this.userService.blockUser(userId, user.id ?? 0);
-      if (res) { 
+      if (res) {
         this.parentRef?.showNotification(res);
         this.isUserBlocked = true;
       }
@@ -324,7 +333,7 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
     const userId = this.parentRef?.user?.id;
     if (userId) {
       const res = await this.userService.unblockUser(userId, user.id ?? 0);
-      if (res) { 
+      if (res) {
         this.parentRef?.showNotification(res);
         this.isUserBlocked = false;
       }
@@ -336,9 +345,9 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
       await this.userService.isUserBlocked(userId, user.id ?? 0).then(res => {
         if (res) {
           this.isUserBlocked = res.isBlocked;
-        }  
+        }
       });
-     
+
     }
   }
 
@@ -525,8 +534,7 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
     }
   }
 
-  async createUser(guest?: boolean) {
-    console.log("creating user:", guest);
+  async createUser(guest?: boolean) { 
     let tmpUserName = this.loginUsername.nativeElement.value;
     const tmpPassword = this.loginPassword.nativeElement.value;
     if (guest && tmpUserName.trim() == "") {
@@ -566,15 +574,14 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
     }
   }
 
-  async login(guest?: string, fromUserCreation?: boolean) {
-    console.log("logging in " + (guest ? " as " + guest : ""));
+  async login(guest?: string, fromUserCreation?: boolean) { 
     if (this.parentRef?.user) {
       this.parentRef.user = undefined;
     }
     let tmpUserName = this.loginUsername.nativeElement.value;
     if (guest) {
       tmpUserName = guest;
-    } 
+    }
     try {
       const tmpUser = await this.userService.login(tmpUserName, this.loginPassword.nativeElement.value) as User;
 
@@ -587,8 +594,7 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
         this.parentRef?.getSessionToken();
         this.parentRef!.userSelectedNavigationItems = await this.userService.getUserMenu(tmpUser.id);
 
-        if (this.loginOnly) {
-          console.log("close user event emitted from user panel");
+        if (this.loginOnly) { 
           this.closeUserComponentEvent.emit(tmpUser);
         }
         this.latestSocialStoryId = undefined;
@@ -723,7 +729,7 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
 
     this.socialComponent.getStories(undefined, undefined, undefined, undefined, undefined, showHidden);
   }
-  isUserOnline(lastSeen: string): boolean {  
+  isUserOnline(lastSeen: string): boolean {
     // Parse duration string like "2d 8h 51m" into minutes
     let days = 0, hours = 0, minutes = 0;
 
@@ -742,7 +748,7 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
     // Return true if last seen < 10 minutes ago
     return minutes < 10;
   }
- 
+
   private getNSFWValue() {
     const parent = this.inputtedParentRef ?? this.parentRef;
     const user = parent?.user;
@@ -771,7 +777,7 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
     if (tgtElement) {
       (tgtElement as HTMLDivElement).style.border = "unset";
     }
-  } 
+  }
 
   preventNotifications(frReq: FriendRequest) {
     if (!this.parentRef?.user?.id) return alert("You must be logged in");

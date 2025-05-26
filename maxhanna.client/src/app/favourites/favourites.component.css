@@ -148,3 +148,55 @@
   padding: 5px;
   text-align: center;
 }
+/* Add to your component's CSS or global styles */
+.optionsStatsDescription input {
+  padding-right: 30px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.search-icon-button {
+  position: absolute;
+  right: 5px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  color: #666;
+}
+
+.search-icon-button:hover {
+  color: #333;
+}
+.search-input-container {
+  position: relative;
+  display: inline-block;
+}
+
+.search-input-container input {
+  padding-right: 30px;
+  /* Make space for the search button */
+}
+
+.search-button {
+  position: absolute;
+  right: 5px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  color: #666;
+}
+
+.search-button:hover {
+  color: #333;
+}
+
+.search-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

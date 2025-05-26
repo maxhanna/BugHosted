@@ -65,6 +65,7 @@ export class CommentsComponent extends ChildComponent implements OnInit {
   }
 
   async addComment(comment: string) {
+    console.log("addComment", comment);
     const parent = this.inputtedParentRef ?? this.parentRef;
     this.showCommentLoadingOverlay = true;
     clearTimeout(this.debounceTimer);
@@ -99,10 +100,13 @@ export class CommentsComponent extends ChildComponent implements OnInit {
   }
 
   async addAsyncComment(comment: FileComment, currentDate: Date) {
-    this.parentRef?.updateLastSeen();
+    console.log("addAsyncComment", comment);
+    const parent = this.inputtedParentRef ?? this.parentRef;
+    const user = parent?.user;
+    parent?.updateLastSeen();
     const res = await this.commentService.addComment(
       comment.commentText ?? "",
-      this.inputtedParentRef?.user?.id,
+      user?.id,
       comment.fileId,
       comment.storyId,
       comment.commentId,
@@ -132,11 +136,15 @@ export class CommentsComponent extends ChildComponent implements OnInit {
     }
     this.sendNotifications(comment);
   }
-  private async sendNotifications(comment: FileComment) {
-    const replyingToUser = this.component?.user;
+  private async sendNotifications(comment: FileComment, text?: string, replyingTo?: User, newCommentId?: number) {
+    console.log("sendNotifications", comment);  
+    const parent = this.inputtedParentRef ?? this.parentRef;
+    const user = parent?.user;
+
+    const replyingToUser = replyingTo ?? this.component?.user;
     const isStory = this.type == "Social" || this.component?.storyId;
-    const fromUserId = this.inputtedParentRef?.user?.id ?? 0;
-    const message = (!comment || !comment.commentText) ? (isStory || this.userProfileId) ? "Social Post Comment" : "File Comment"
+    const fromUserId = user?.id ?? 0;
+    const message = text ?? (!comment || !comment.commentText) ? (isStory || this.userProfileId) ? "Social Post Comment" : "File Comment"
       : comment.commentText.length > 50 ? comment.commentText.slice(0, 50) + "…"
         : comment.commentText;
     if (replyingToUser) {
@@ -146,12 +154,12 @@ export class CommentsComponent extends ChildComponent implements OnInit {
         message: message,
         storyId: comment.storyId ?? this.component.storyId,
         fileId: comment.fileId,
-        commentId: comment.commentId,
+        commentId: newCommentId ?? comment.commentId,
         userProfileId: comment.userProfileId,
       };
       this.notificationService.createNotifications(notificationData);
     }
-    const mentionnedUsers = await this.inputtedParentRef?.getUsersByUsernames(comment.commentText ?? "");
+    const mentionnedUsers = await parent?.getUsersByUsernames(comment.commentText ?? "");
     if (mentionnedUsers && mentionnedUsers.length > 0) {
       console.log("mentionned:", mentionnedUsers);
       const mentionnedUserIds = mentionnedUsers.filter(x => x.id != replyingToUser.id).map(x => x.id);
@@ -180,11 +188,20 @@ export class CommentsComponent extends ChildComponent implements OnInit {
   }
 
   async deleteCommentAsync(comment: FileComment) {
-    if (!this.inputtedParentRef?.user?.id) { return alert("You must be logged in to delete a comment!"); }
-
-    this.parentRef?.updateLastSeen();
-    const res = await this.commentService.deleteComment(this.inputtedParentRef.user.id, comment.id);
-    if (res && res.includes("success")) {
+    const parent = this.inputtedParentRef ?? this.parentRef;
+    const user = parent?.user;
+    if (!user?.id || !parent) { return alert("You must be logged in to delete a comment!"); }
+    console.log("deleteCommentAsync", comment);
+    parent.updateLastSeen();
+    const res = await this.commentService.deleteComment(user.id, comment.id);
+    if (res) {
+      console.log("deleteCommentAsync res", res);
+      this.commentList = this.commentList.filter(x => x.id != comment.id);
+      const tgtSubcomment = document.getElementById('subComment' + comment.id);
+      if (tgtSubcomment) {
+        tgtSubcomment.remove();
+      }
+      parent.showNotification(res);
       this.commentRemovedEvent.emit(comment as FileComment);
     }
   }
@@ -311,6 +328,7 @@ export class CommentsComponent extends ChildComponent implements OnInit {
   }
 
   async replyToComment(comment: FileComment) {
+    console.log("replyToComment", comment);
     const parent = this.inputtedParentRef ?? this.parentRef;
     const user = parent?.user ?? new User(0, "Anonymous");
     parent?.updateLastSeen();
@@ -326,9 +344,9 @@ export class CommentsComponent extends ChildComponent implements OnInit {
       const res = await this.commentService.addComment(text, user.id, undefined, undefined, comment.id, undefined, filesToSend, location?.city, location?.country, location?.ip);
       if (res) {
         element.value = "";
-        const id = res.split(' ')[0];
+        const id = parseInt(res.split(' ')[0]);
         let tmpC = new FileComment();
-        tmpC.id = parseInt(id);
+        tmpC.id = id;
         tmpC.commentText = text;
         tmpC.user = user;
         tmpC.commentFiles = filesToSend;
@@ -340,6 +358,13 @@ export class CommentsComponent extends ChildComponent implements OnInit {
           this.commentInputAreaMediaSelector.selectedFiles = [];
         }
         this.replyingToCommentIds = this.replyingToCommentIds.filter(x => x != comment.id);
+        let repliedUserIds: number[] = [];
+        for (let i = 0; i < comment.comments.length; i++) {
+          if (comment.comments[i].user.id != user.id && !repliedUserIds.includes(comment.comments[i].user.id ?? 0)) {
+            this.sendNotifications(comment, text, comment.comments[i].user, id);
+            repliedUserIds.push(comment.comments[i].user.id ?? 0);
+          }
+        }
       }
     }
   }

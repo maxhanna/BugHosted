@@ -160,4 +160,14 @@ export class TodoComponent extends ChildComponent implements OnInit, AfterViewIn
       this.todoPlaceholder = `Add to the ${typeValue} list`;
     });
   }
+  visitUrl(url: string) {
+    if (this.parentRef?.isYoutubeUrl(url)) {
+      const videoId = this.parentRef.getYouTubeVideoId(url);
+      if (videoId) {
+        this.parentRef.playYoutubeVideo(videoId);
+      }
+    } else { 
+      this.parentRef?.visitExternalLink(url);
+    }
+  }
 }

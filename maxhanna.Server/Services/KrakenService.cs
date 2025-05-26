@@ -544,7 +544,7 @@ public class KrakenService
 			// Check if the response contains the "result" key
 			if (balanceResponse == null || !balanceResponse.ContainsKey("result"))
 			{
-				_ = _log.Db("Failed to get wallet balances: 'result' not found.", userId, "TRADE", true);
+				_ = _log.Db("⚠️Failed to get wallet balances: 'result' not found.", userId, "TRADE", true);
 				return null;
 			}
 
@@ -552,12 +552,15 @@ public class KrakenService
 			var result = (JObject)balanceResponse["result"];
 
 			// Convert the result into a Dictionary<string, decimal> to store the balances
-			var balanceDictionary = result.ToObject<Dictionary<string, decimal>>();
-
+			Dictionary<string, decimal>? balanceDictionary = result.ToObject<Dictionary<string, decimal>>(); 
+			if (balanceDictionary == null)
+			{
+				_ = _log.Db("⚠️Failed to convert balance response to dictionary.", userId, "TRADE", true);
+				return null;
+			}
 			Console.WriteLine(string.Join(Environment.NewLine, balanceDictionary.Select(x => $"{x.Key}: {x.Value}")));
 			_ = CreateWalletEntriesFromFetchedDictionary(balanceDictionary, userId);
-
-
+			
 			return balanceDictionary;
 		}
 		catch (Exception ex)

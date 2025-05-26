@@ -7,6 +7,7 @@ namespace maxhanna.Server.Controllers.DataContracts.Top
 		public required string Entry { get; set; }
 		public required Topic[] Topics { get; set; }
 		public string? Url { get; set; }
+		public string? Text { get; set; }
 		public int? UserId { get; set; } 
 	} 
 }

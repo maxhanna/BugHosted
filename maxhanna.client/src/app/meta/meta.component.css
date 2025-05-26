@@ -8,6 +8,7 @@ body {
   image-rendering: pixelated;
   padding: 0;
   margin: 0;
+  user-select: none;
   -webkit-touch-callout: none;
   -webkit-user-select: none;
   -khtml-user-select: none;
@@ -136,7 +137,7 @@ body {
 
 .colorInput {
   position: fixed;
-  right: CALC(50% - 105px);
+  right: CALC(50% - 125px);
   top: CALC(50% - 15px);
   display: none;
   z-index: 102;

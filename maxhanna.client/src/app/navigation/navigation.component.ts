@@ -27,7 +27,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
   private notificationInfoInterval: any;
   private cryptoHubInterval: any;
   private calendarInfoInterval: any;
-  private wordlerInfoInterval: any; 
+  private wordlerInfoInterval: any;
   private lastCollapseTime: Date | null = null;
   private readonly COLLAPSE_COOLDOWN_MS = 60 * 1000;
   navbarReady = false;
@@ -37,7 +37,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
   isLoadingTheme = false;
   isLoadingCryptoHub = false;
   isLoadingWordlerStreak = false;
-  isLoadingCalendar = false; 
+  isLoadingCalendar = false;
   numberOfNotifications = 0;
   @Input() user?: User;
 
@@ -101,13 +101,13 @@ export class NavigationComponent implements OnInit, OnDestroy {
     this.wordlerInfoInterval = setInterval(() => this.getWordlerStreakInfo(), 60 * 60 * 1000); // every hour
   }
 
-  stopNotifications() { 
+  stopNotifications() {
     clearInterval(this.cryptoHubInterval);
     clearInterval(this.calendarInfoInterval);
     clearInterval(this.wordlerInfoInterval);
     clearInterval(this.notificationInfoInterval);
   }
- 
+
   private debounce<T extends (...args: any[]) => any>(func: T, wait: number): (...args: Parameters<T>) => void {
     let timeout: any;
     return (...args: Parameters<T>) => {
@@ -115,8 +115,8 @@ export class NavigationComponent implements OnInit, OnDestroy {
       timeout = setTimeout(() => func.apply(this, args), wait);
     };
   }
- 
-  private debouncedRestartNotifications = this.debounce(() => { 
+
+  private debouncedRestartNotifications = this.debounce(() => {
     if (this.navbarCollapsed) {
       return;
     }
@@ -132,16 +132,30 @@ export class NavigationComponent implements OnInit, OnDestroy {
     this.wordlerInfoInterval = setInterval(() => this.getWordlerStreakInfo(), 60 * 60 * 1000); // every hour
   }, 5000); // 5s debounce delay
 
-  setNotificationNumber(notifs?: number) {  
+  setNotificationNumber(notifs?: number, notification?: UserNotification) {
     if (notifs !== undefined) {
       this.numberOfNotifications = notifs;
     }
 
-    // Safely update the UI
     if (this._parent?.navigationItems) {
-      const notificationItem = this._parent.navigationItems.find(x => x.title === "Notifications");
-      if (notificationItem) {
-        notificationItem.content = this.numberOfNotifications.toString();
+      const notificationNavItem = this._parent.navigationItems.find(x => x.title === "Notifications");
+      if (notificationNavItem) {
+        notificationNavItem.content = this.numberOfNotifications.toString();
+      }
+      if (notifs == 0) {
+        const chatNavItem = this._parent?.navigationItems?.find(x => x.title === "Chat");
+        if (chatNavItem) {
+          chatNavItem.content = '';
+        }
+      } else {
+        if (notification?.chatId) {
+          const notificationItem = this._parent.navigationItems.find(x => x.title === "Chat");
+          if (notificationItem && notification.isRead) {
+            notificationItem.content = parseInt(notificationItem.content ?? '1') - 1 == 0 ? '' : (parseInt(notificationItem.content ?? '1') - 1 + '');
+          } else if (notificationItem && !notification.isRead) {
+            notificationItem.content = (parseInt(notificationItem.content?.trim() ?? '0') || 0) + 1 + '';
+          }
+        }
       }
     }
   }
@@ -158,7 +172,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
         this.numberOfNotifications = res.filter(x => x.isRead == false).length;
         this._parent.navigationItems.filter(x => x.title == "Notifications")[0].content = this.numberOfNotifications + "";
 
-        if (this._parent.userSelectedNavigationItems.find(x => x.title == "Chat")) { 
+        if (this._parent.userSelectedNavigationItems.find(x => x.title == "Chat")) {
           const numberOfChatNotifs = res.filter(x => x.chatId && x.isRead == false).length;
           if (numberOfChatNotifs) {
             this._parent.navigationItems.filter(x => x.title == "Chat")[0].content = numberOfChatNotifs + '';
@@ -191,28 +205,27 @@ export class NavigationComponent implements OnInit, OnDestroy {
 
   async getCalendarInfo() {
     if (!this.user) { return; }
-    if (!this._parent.userSelectedNavigationItems.find(x => x.title == "Calendar")) { return; } 
+    if (!this._parent.userSelectedNavigationItems.find(x => x.title == "Calendar")) { return; }
     try {
       this.isLoadingCalendar = true;
       let notificationCount = 0;
       const today = new Date();
-      const startDate = new Date(Date.UTC(today.getFullYear(), today.getMonth(), today.getDate()));  
+      const startDate = new Date(Date.UTC(today.getFullYear(), today.getMonth(), today.getDate()));
       const endDate = new Date(startDate);
-      endDate.setUTCDate(startDate.getUTCDate() + 1); 
+      endDate.setUTCDate(startDate.getUTCDate() + 1);
 
       const res = await this.calendarService.getCalendarEntries(this.user.id, startDate, endDate) as Array<CalendarEntry>;
       if (res && res.length > 0) {
+        const isoDateOnly = (d: Date) => d.toISOString().split('T')[0];
+        const todayStr = isoDateOnly(startDate);
+
         res.forEach(entry => {
-          const entryDate = new Date(entry.date!);
-          if (
-            // entryDate.getUTCFullYear() === startDate.getUTCFullYear() &&
-            // entryDate.getUTCMonth() === startDate.getUTCMonth() &&
-            entryDate.getUTCDate() === startDate.getUTCDate()
-          ) {
+          const entryStr = isoDateOnly(new Date(entry.date + 'Z')); // force UTC
+          if (entryStr === todayStr) {
             notificationCount++;
           }
-        });
-      } 
+        }); 
+      }
       this._parent.navigationItems.find(x => x.title == "Calendar")!.content = (notificationCount != 0 ? notificationCount + '' : '');
       this.isLoadingCalendar = false;
     } catch (error) {
@@ -328,7 +341,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
     if (this.navbar) {
       this.navbar.nativeElement.classList.add('collapsed');
       this.navbarCollapsed = true;
-      this.lastCollapseTime = new Date(); 
+      this.lastCollapseTime = new Date();
     }
     this.stopNotifications();
   }
@@ -362,7 +375,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
         this.debouncedRestartNotifications();
       }, remainingCooldown);
     }
-  } 
+  }
   applyThemeToCSS(theme: any) {
     if (theme.backgroundImage) {
       this.fileService.getFileEntryById(theme.backgroundImage).then(res => {

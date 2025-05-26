@@ -594,6 +594,9 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy, 
     this.metaHero.color = this.colorInput.nativeElement.value;
     this.colorInput.nativeElement.style.display = "none";
     this.parentRef?.closeModal();
+    if (this.parentRef) { 
+      this.parentRef.isModal = true;
+    }
     await this.reinitializeHero(this.metaHero);
     events.emit("HERO_MOVEMENT_UNLOCK");
   }

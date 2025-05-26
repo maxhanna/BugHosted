@@ -22,15 +22,13 @@
   padding-right: 5px;
   cursor: pointer;
   text-shadow: 1px 1px black;
-  display: flex;
-  white-space: nowrap;
-  align-items: center;
-  justify-content: center;
-  align-content: center;
-  flex-wrap: nowrap;
-  flex-direction: row;
-  line-height: unset;
+  /* display: flex;
+  align-items: baseline; */
 } 
+.addReactionSpanNoBorder {
+  position: relative;
+  top: -1px;
+}
 
 .reactionWrapper {
   display: flex;
@@ -46,10 +44,7 @@
 .myReactionDiv {
   display: inline-block;
 }
-
-.addReactionTitleSpan {
-  font-size: small;
-}
+ 
 
 .reactionChoice {
   cursor: pointer;
@@ -75,6 +70,7 @@
   align-items: baseline;
   justify-content: center;
   max-width: 120px;  
+  height: 100%;
   overflow: hidden;
   /* flex-direction: row-reverse; */
 }

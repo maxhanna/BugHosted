@@ -634,12 +634,13 @@ export function subscribeToMainGameEvents(object: any) {
         events.emit("HERO_MOVEMENT_LOCK");
       }, 50);
       object.colorInput.nativeElement.style.display = "block";
-      object.parentRef.openModal();
+      object.parentRef.openModal(true);
       setTimeout(() => {
         if (object.parentRef) {
           object.parentRef.isModal = true;
-          object.parentRef.isModalCloseVisible = false;
+          object.parentRef.modalComponent.isModalCloseVisible = false;
           object.parentRef.modalComponent.setModalFont("fontRetroGaming");
+          object.parentRef.modalComponent.removeCloseButton();
           object.parentRef.setModalBody("What's your style? :");
         }
       }, 1);

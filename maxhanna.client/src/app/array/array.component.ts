@@ -302,9 +302,10 @@ export class ArrayComponent extends ChildComponent implements OnInit, OnDestroy 
     const link = `https://bughosted.com/Array`;
 
     try {
-      navigator.clipboard.writeText(link); 
+      navigator.clipboard.writeText(link);
+      this.parentRef?.showNotification("Link copied to clipboard!");
     } catch {
-      console.log("Error: Unable to share link!");
+      this.parentRef?.showNotification("Error: Unable to share link!");
     }
   }
 

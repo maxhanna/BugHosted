@@ -54,7 +54,7 @@ export class AppComponent implements OnInit, AfterViewInit {
   notifications: string[] = [];
   showMainContent = true;
   isModalOpen = false;
-  isModal = false;
+  isModal = true;
   isModalCloseVisible = true;
   isShowingYoutubePopup = false;
   isShowingOverlay = false;
@@ -213,6 +213,10 @@ export class AppComponent implements OnInit, AfterViewInit {
         else if (this.router.url.includes('Wordler')) {
           this.checkAndClearRouterOutlet();
           this.createComponent('Wordler');
+        }
+        else if (this.router.url.includes('Top')) {
+          this.checkAndClearRouterOutlet();
+          this.createComponent('Top100');
         }
         else if (this.router.url.includes('Crypto') || this.router.url.includes('Cryptocurrency') || this.router.url.includes('Defi')) {
           this.checkAndClearRouterOutlet();
@@ -407,12 +411,24 @@ export class AppComponent implements OnInit, AfterViewInit {
       await this.navigationComponent.getNotifications();
     }, 500);
   }
-  openModal() {
+  openModal(isModal?: boolean) {
+    console.log("open modal", isModal);
     this.isModalOpen = true;
+    setTimeout(() => {
+      if (isModal) {
+        this.isModal = true;
+        this.modalComponent.isModal = true;
+      } else if (!isModal || isModal === undefined) {
+        this.isModal = false;
+        this.modalComponent.isModal = false;
+      }
+    }, 100);
   }
 
   closeModal() {
-    this.isModalOpen = false;
+    console.log("close modal");
+    this.isModalOpen = false; 
+    this.modalComponent.isCloseButtonVisible = true;
   }
   setModalBody(msg: any) {
     if (!this.isModalOpen) {
@@ -800,11 +816,11 @@ export class AppComponent implements OnInit, AfterViewInit {
   removeResizeListener() {
     window.removeEventListener('resize', this.updateHeight);
   }
-  playYoutubeVideo() {
+  playYoutubeVideo(videoId?: string) {
     this.showOverlay();
     this.isShowingYoutubePopup = true;
 
-    const videoId = (document.getElementById('youtubeVideoIdInput') as HTMLInputElement).value;
+    videoId = videoId ?? (document.getElementById('youtubeVideoIdInput') as HTMLInputElement).value;
     setTimeout(() => {
       let target = document.getElementById(`youtubeIframe`) as HTMLIFrameElement;
       if (!target || !videoId) return;
@@ -819,6 +835,59 @@ export class AppComponent implements OnInit, AfterViewInit {
     }
     this.isShowingYoutubePopup = false;
   }
+  isYoutubeUrl(url?: string) {
+    if (!url) return false;
+    try {
+      const parsedUrl = new URL(url);
+      const isYoutubeDomain = ['www.youtube.com', 'm.youtube.com', 'youtube.com', 'youtu.be'].includes(parsedUrl.hostname);
+
+      return isYoutubeDomain;
+    } catch (e) {
+      return false;
+    }
+  }
+  getYouTubeVideoId(url?: string): string | null {
+    if (!url) return null;
+
+    try {
+      const parsedUrl = new URL(url);
+      const hostname = parsedUrl.hostname;
+
+      // Handle youtu.be URLs (shortened)
+      if (hostname === 'youtu.be') {
+        return parsedUrl.pathname.slice(1).split(/[?&#]/)[0];
+      }
+
+      // Handle YouTube mobile URLs
+      if (hostname === 'm.youtube.com') {
+        const mobileId = parsedUrl.searchParams.get('v');
+        if (mobileId) return mobileId;
+      }
+
+      // Handle standard YouTube URLs
+      if (['www.youtube.com', 'youtube.com'].includes(hostname)) {
+        // Check for /embed/ URLs
+        if (parsedUrl.pathname.startsWith('/embed/')) {
+          return parsedUrl.pathname.split('/')[2];
+        }
+
+        // Check for /watch URLs
+        if (parsedUrl.pathname.startsWith('/watch')) {
+          const vParam = parsedUrl.searchParams.get('v');
+          if (vParam) return vParam.split(/[?&#]/)[0];
+        }
+
+        // Check for /v/ URLs (older format)
+        if (parsedUrl.pathname.startsWith('/v/')) {
+          return parsedUrl.pathname.split('/')[2];
+        }
+      }
+
+      return null;
+    } catch (e) {
+      return null;
+    }
+  }
   createComponentButtonClicked() {
     console.log("Here");
     const title = (document.getElementById("componentCreateName") as HTMLInputElement).value;
@@ -830,12 +899,13 @@ export class AppComponent implements OnInit, AfterViewInit {
     this.indexLink(url);
   }
   visitExternalLink(url?: string) {
-    if (!url) return;
+    if (!url) return; 
     this.indexLink(url);
     window.open(url, '_blank');
     event?.stopPropagation();
   }
   async indexLink(url: string) {
+    console.log("indexing link ", url);
     this.crawlerService.indexLink(url);
   }
 

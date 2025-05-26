@@ -61,11 +61,11 @@
             <option *ngIf="user && user != parentRef?.user && (user && parentRef?.user?.username != user.username) && friendsIncludeMe() && !canAddFriend(user)" value="removeFriend">👤 Unfriend</option>
             <option *ngIf="user && user != parentRef?.user && (user && parentRef?.user?.username != user.username) && !friendsIncludeMe() && canAddFriend(user)" value="addFriend">👤 Follow {{isBeingFollowedByUser ? 'Back' : ''}}</option>
             <option *ngIf="user && user != parentRef?.user && (user && parentRef?.user?.username != user.username) && isFollowingUser()" value="unfollow">👤 Unfollow</option>
-            <option *ngIf="user && parentRef && parentRef.user && user.id != parentRef.user.id && !contactsContains(user)" value="addContact">👤 Add Contact</option>
+            <option *ngIf="user && parentRef && parentRef.user && user.id != parentRef.user.id && !contactsContains(user)" value="addContact">📇 Add Contact</option>
             <option *ngIf="user && parentRef && parentRef.user && user.id != parentRef.user.id" value="{{isUserBlocked ? 'unblockContact' : 'blockContact'}}">{{isUserBlocked ? '👤 Unblock' : '⛔ Block'}} User</option>
             <option value="showFriends">👤 Show Friends</option>
             <option *ngIf="user" value="chat">🗨️ Chat</option>
-            <option *ngIf="user" value="userInfo">ℹ️ {{ isAboutPanelOpen ? 'Hide ' : '' }} User Info</option>
+            <option *ngIf="user" value="userInfo">📝 {{ isAboutPanelOpen ? 'Hide ' : '' }} User Info</option>
             <option *ngIf="user && user.id == parentRef?.user?.id" value="settings">⚙️ Settings</option>
             <option *ngIf="user && user.id == parentRef?.user?.id" value="logout">🔑 Logout</option>
           </select>
@@ -94,8 +94,8 @@
             </div>
 
             <div class="loginDiv">
-              <input type="text" placeholder="Username" #loginUsername (keydown.enter)="login()" />
-              <input type="password" placeholder="Password" #loginPassword (keydown.enter)="login()" />
+              <input type="text" id="loginInput" placeholder="Username" #loginUsername (keydown.enter)="login()" />
+              <input type="password" id="passwordInput" placeholder="Password" #loginPassword (keydown.enter)="login()" />
               <div>
                 <input type="submit" value="🔑 Login" (click)="login()" />
                 <input type="submit" value="👤➕ Create User" (click)="createUser()" />
@@ -145,7 +145,7 @@
     
     <!-- SOCIAL -->
     <div *ngIf="(this.latestSocialStoryId || storyId || user?.id) && !loginOnly">
-      <div *ngIf="!user || !parentRef?.user" class="popupPanelTitle cursorPointerUnderlined" style="margin-top: 15px;"
+      <div *ngIf="this.latestSocialStoryId && (!user || !parentRef?.user)" class="popupPanelTitle cursorPointerUnderlined" style="margin-top: 15px;"
         (click)="parentRef?.createComponent('Social')">
         Latest Post:
       </div>
@@ -227,85 +227,11 @@
     </div>
   </div>
 </div>
-<!-- 
- Friends Popup  
-<div class="popupPanel" *ngIf="isFriendsPanelOpen">
-  <div class="popupPanelTitle">
-    {{ isEditingFriends ? 'Deleting ' : ''}}Friends
-    <span *ngIf="!userId || userId == parentRef?.user?.id"
-          (click)="isEditingFriends = !isEditingFriends"
-          class="smallFont cursorPointerUnderlined">
-      [{{ isEditingFriends ? 'cancel' : 'edit' }}]
-    </span>
-  </div>
-  <div *ngIf="!isEditingFriends" class="friendsPopupContainer mainFriendsPopupDiv">
 
-    <div *ngIf="friends" class="friendsListWrapperDiv">
-      <div *ngFor="let friend of friends" class="friendsListDiv">
-        <div (click)="viewProfile(friend, 'User')" class="usernameProfileLink">
-          <app-user-tag [user]="friend" [inputtedParentRef]="parentRef" [previousComponent]="previousComponent ?? 'User'"></app-user-tag>
-        </div>
-      </div>
-
-    </div>
-    <div *ngIf="isLoading && (!friends || friends.length == 0)">Loading friends list...</div>
-    <div *ngIf="!isLoading && (!friends || friends.length == 0)">Friends list is empty.</div>
-  </div>
-
-  <div *ngIf="!isEditingFriends && friendRequestsSent.length > 0">
-    Following:
-  </div>
-  <div *ngIf="!isEditingFriends && friendRequestsSent.length > 0" class="friendsPopupContainer mainFriendsPopupDiv">
-    <div *ngFor="let friendReq of friendRequestsSent" class="friendsListDiv friendsRequestReceivedList">
-      <div class="usernameProfileLink">
-        <app-user-tag [user]="friendReq.receiver" [inputtedParentRef]="parentRef" [displayMiniTag]="true" [previousComponent]="previousComponent ?? 'User'"></app-user-tag>
-      </div>
-      <div class="friendshipRequestActionDiv" *ngIf="!userId || userId == parentRef?.user?.id"> 
-        <span (click)="deleteFriendshipRequest(friendReq)" class="cursorPointer" title="Unfollow">❌</span>
-      </div>
-    </div>
-  </div>
-
-  <div *ngIf="!isEditingFriends && friendRequestsReceived.length > 0">
-    Followers:
-  </div>
-  <div *ngIf="!isEditingFriends && friendRequestsReceived.length > 0" class="friendsPopupContainer mainFriendsPopupDiv">
-    <div *ngFor="let friendReq of friendRequestsReceived" class="friendsListDiv friendsRequestReceivedList">
-      <div class="usernameProfileLink">
-        <app-user-tag [user]="friendReq.sender" [inputtedParentRef]="parentRef" [displayMiniTag]="true" [previousComponent]="previousComponent ?? 'User'"></app-user-tag>
-      </div>
-      <div class="friendshipRequestActionDiv" *ngIf="!userId || userId == parentRef?.user?.id">
-        <span (click)="acceptFriendshipRequest(friendReq)" class="cursorPointer" title="Follow Back">➕</span>
-      </div>
-    </div>
-  </div>
-
-
-  <div *ngIf="isEditingFriends" class="friendsPopupContainer">
-    <div *ngIf="friends" class="friendsListWrapperDiv deletingFriendsListWrapper">
-
-      <div *ngFor="let friend of friends" class="friendsListDiv deletingFriendsList">
-        <div>
-          <app-user-tag [user]="friend" [inputtedParentRef]="parentRef" [displayMiniTag]="true" [previousComponent]="previousComponent ?? 'User'"></app-user-tag>
-        </div>
-        <div *ngIf="!userId || userId == parentRef?.user?.id">
-          <span title="Remove Friend" (click)="removeFriend(friend)" class="cursorPointer">
-            ❌
-          </span>
-        </div>
-      </div>
-
-    </div>
-  </div>
-  <div>
-    <button id="closeOverlay" (click)="closeFriendsPanel()">Close</button>
-  </div>
-</div> -->
-
-<!-- About User Popup -->
+<!-- User Info Popup -->
 <div class="aboutPopupPanel aboutPopupPanel" *ngIf="isAboutPanelOpen">
   <div class="popupPanelTitle">
-    About User
+    📝 User Info
   </div>
   <div class="aboutPopupPanelContentContainer">
     <div class="topProfileContainer" id="aboutContainer">
@@ -479,14 +405,16 @@
 <!-- Friends Popup -->
 <div class="popupPanel" *ngIf="isFriendsPanelOpen">
   <div class="popupPanelTitle friendsPopupPanelTitle">
-    {{ isEditingFriends ? 'Deleting ' : ''}}Friends:
-    <span *ngIf="!userId || userId == parentRef?.user?.id"
+    <span (click)="showingFriendsList = !showingFriendsList" class="cursorPointer">
+      {{ isEditingFriends ? 'Deleting ' : ''}}Friends{{ showingFriendsList ? ":" : ` [${friends.length}]`}}
+    </span>
+    <span *ngIf="showingFriendsList && (!userId || userId == parentRef?.user?.id)"
           (click)="isEditingFriends = !isEditingFriends"
           class="smallFont cursorPointer">
       [{{ isEditingFriends ? 'cancel' : 'edit' }}]
     </span>
   </div>
-  <div *ngIf="!isEditingFriends" class="friendsPopupContainer mainFriendsPopupDiv">
+  <div *ngIf="!isEditingFriends && showingFriendsList" class="friendsPopupContainer mainFriendsPopupDiv">
 
     <div *ngIf="friends" class="friendsListWrapperDiv">
       <div *ngFor="let friend of friends" class="friendsListDiv">
@@ -500,10 +428,12 @@
     <div *ngIf="!isLoading && (!friends || friends.length == 0)">Friends list is empty.</div>
   </div>
 
-  <div *ngIf="!isEditingFriends && friendRequestsSent.length > 0" class="followingFriendsPanelTitle popupPanelTitle">
-    Following:
+  <div *ngIf="!isEditingFriends && friendRequestsSent.length > 0" 
+    class="followingFriendsPanelTitle popupPanelTitle cursorPointer" 
+    (click)="showingFollowingList = !showingFollowingList">
+    Following{{ showingFollowingList ? ":" : ` [${friendRequestsSent.length}]`}}
   </div>
-  <div *ngIf="!isEditingFriends && friendRequestsSent.length > 0" class="friendsPopupContainer mainFriendsPopupDiv">
+  <div *ngIf="!isEditingFriends && friendRequestsSent.length > 0 && showingFollowingList" class="friendsPopupContainer mainFriendsPopupDiv">
     <div *ngFor="let friendReq of friendRequestsSent" class="friendsListDiv friendsRequestReceivedList">
       <div class="usernameProfileLink">
         <app-user-tag [user]="friendReq.receiver" [inputtedParentRef]="parentRef" [displayMiniTag]="true" [previousComponent]="previousComponent ?? 'User'"></app-user-tag>
@@ -518,10 +448,12 @@
     </div>
   </div>
 
-  <div *ngIf="!isEditingFriends && friendRequestsReceived.length > 0" class="followingFriendsPanelTitle popupPanelTitle">
-    Followers:
+  <div *ngIf="!isEditingFriends && friendRequestsReceived.length > 0" 
+    class="followingFriendsPanelTitle popupPanelTitle cursorPointer" 
+    (click)="showingFollowersList = !showingFollowersList">
+    Followers{{ showingFollowersList ? ":" : ` [${friendRequestsReceived.length}]`}}
   </div>
-  <div *ngIf="!isEditingFriends && friendRequestsReceived.length > 0" class="friendsPopupContainer mainFriendsPopupDiv">
+  <div *ngIf="!isEditingFriends && friendRequestsReceived.length > 0 && showingFollowersList" class="friendsPopupContainer mainFriendsPopupDiv">
     <div *ngFor="let friendReq of friendRequestsReceived" class="friendsListDiv friendsRequestReceivedList">
       <div class="usernameProfileLink">
         <app-user-tag [user]="friendReq.sender" [inputtedParentRef]="parentRef" [displayMiniTag]="true" [previousComponent]="previousComponent ?? 'User'"></app-user-tag>

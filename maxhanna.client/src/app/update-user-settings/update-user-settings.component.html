@@ -350,11 +350,11 @@ but you can also set your own City for a more precise location."></span>
                 many people also added the favourite you created and see how popular your favourites are!
               </div>
             </div>
-            <div *ngIf="icon.title == 'Top'" [id]="icon.title+'tddiv'">
+            <div *ngIf="icon.title == 'Top100'" [id]="icon.title+'tddiv'">
               <div [id]="icon.title+'tddivdiv'" (click)="menuInformationZoom(icon.title+'td')"
                 [class]="parentRef && parentRef.isModalOpen ? '' : 'ellipsis'">
-                Under Construction.
-                Top 100 List! Create any list for any category and lets all vote!
+                 Create lists in topics and rank them according to a user voting system! 
+                 Use this to promote your favorite site, products, or just create a ranking list on any topic!
               </div>
             </div>
             <div *ngIf="icon.title == 'Array'" [id]="icon.title+'tddiv'">

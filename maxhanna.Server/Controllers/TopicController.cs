@@ -94,7 +94,7 @@ namespace maxhanna.Server.Controllers
 		[HttpPost("/Topic/Add", Name = "AddTopic")]
 		public async Task<IActionResult> AddTopic([FromBody] TopicRequest request)
 		{
-			if (string.IsNullOrEmpty(request.Topic.TopicText))
+			if (string.IsNullOrEmpty(request.Topic?.TopicText))
 			{
 				return BadRequest(new Topic(0, ""));
 			}

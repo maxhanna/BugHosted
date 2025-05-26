@@ -762,15 +762,7 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
     }
   }
   isYoutubeUrl(url?: string): boolean {
-    if (!url) return false;
-    try {
-      const parsedUrl = new URL(url);
-      const isYoutubeDomain = ['www.youtube.com', 'm.youtube.com', 'youtube.com', 'youtu.be'].includes(parsedUrl.hostname);
-
-      return isYoutubeDomain;
-    } catch (e) {
-      return false;
-    }
+    return this.parentRef?.isYoutubeUrl(url) ?? false;
   }
   async addToMusicPlaylist(story?: Story, metadata?: MetaData, event?: Event) {
     if (!story || !story.metadata || !this.parentRef?.user?.id) return;

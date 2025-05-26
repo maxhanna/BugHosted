@@ -211,31 +211,31 @@ namespace maxhanna.Server.Controllers
 						{
 							int storyId = rdr.GetInt32("story_id");
 							if (!storyDictionary.TryGetValue(storyId, out var story))
-							{
-								int? displayPicId = rdr.IsDBNull(rdr.GetOrdinal("displayPictureFileId")) ? null : rdr.GetInt32("displayPictureFileId");
-								string? displayPicFolderPath = rdr.IsDBNull(rdr.GetOrdinal("displayPictureFileFolderPath")) ? null : rdr.GetString("displayPictureFileFolderPath");
-								string? displayPicFileFileName = rdr.IsDBNull(rdr.GetOrdinal("displayPictureFileFileName")) ? null : rdr.GetString("displayPictureFileFileName");
-								FileEntry? dpFileEntry = displayPicId != null ? new FileEntry { Id = (int)displayPicId, Directory = displayPicFolderPath, FileName = displayPicFileFileName } : null;
-
-								story = new Story
-								{
-									Id = storyId,
-									User = new User(rdr.GetInt32("user_id"), rdr.GetString("username"), null, dpFileEntry, null, null, null),
-									StoryText = rdr.GetString("story_text"),
-									Date = rdr.GetDateTime("date"),
-									City = rdr.IsDBNull(rdr.GetOrdinal("city")) ? null : rdr.GetString("city"),
-									Country = rdr.IsDBNull(rdr.GetOrdinal("country")) ? null : rdr.GetString("country"),
-									CommentsCount = rdr.GetInt32("comments_count"),
-									Metadata = new List<Metadata>(),
-									StoryFiles = new List<FileEntry>(),
-									StoryComments = new List<FileComment>(),
-									StoryTopics = new List<Topic>(),
-									Reactions = new List<Reaction>(),
-									Hidden = rdr.IsDBNull(rdr.GetOrdinal("hidden")) ? false : rdr.GetBoolean("hidden"),
-								};
-								storyDictionary[storyId] = story;
-							}
-							if (!rdr.IsDBNull(rdr.GetOrdinal("title")))
+                            {
+                                int? displayPicId = rdr.IsDBNull(rdr.GetOrdinal("displayPictureFileId")) ? null : rdr.GetInt32("displayPictureFileId");
+                                string? displayPicFolderPath = rdr.IsDBNull(rdr.GetOrdinal("displayPictureFileFolderPath")) ? null : rdr.GetString("displayPictureFileFolderPath");
+                                string? displayPicFileFileName = rdr.IsDBNull(rdr.GetOrdinal("displayPictureFileFileName")) ? null : rdr.GetString("displayPictureFileFileName");
+                                FileEntry? dpFileEntry = displayPicId != null ? new FileEntry { Id = (int)displayPicId, Directory = displayPicFolderPath, FileName = displayPicFileFileName } : null;
+                                Metadata? metadata = attachStoryMetadataDbData(rdr);
+                                story = new Story
+                                {
+                                    Id = storyId,
+                                    User = new User(rdr.GetInt32("user_id"), rdr.GetString("username"), null, dpFileEntry, null, null, null),
+                                    StoryText = rdr.GetString("story_text"),
+                                    Date = rdr.GetDateTime("date"),
+                                    City = rdr.IsDBNull(rdr.GetOrdinal("city")) ? null : rdr.GetString("city"),
+                                    Country = rdr.IsDBNull(rdr.GetOrdinal("country")) ? null : rdr.GetString("country"),
+                                    CommentsCount = rdr.GetInt32("comments_count"),
+                                    Metadata = metadata != null ? new List<Metadata>() { metadata } : new List<Metadata>(),
+                                    StoryFiles = new List<FileEntry>(),
+                                    StoryComments = new List<FileComment>(),
+                                    StoryTopics = new List<Topic>(),
+                                    Reactions = new List<Reaction>(),
+                                    Hidden = rdr.IsDBNull(rdr.GetOrdinal("hidden")) ? false : rdr.GetBoolean("hidden"),
+                                };
+                                storyDictionary[storyId] = story;
+                            }
+                            if (!rdr.IsDBNull(rdr.GetOrdinal("title")))
 							{
 								story.Metadata?.Add(new Metadata
 								{
@@ -262,7 +262,28 @@ namespace maxhanna.Server.Controllers
 			return storyResponse;
 		}
 
-		private async Task FetchAndAttachTopicsAsync(List<Story> stories)
+        private static Metadata? attachStoryMetadataDbData(MySqlDataReader rdr)
+        {
+            Metadata? metadata = null;
+            string? metadataUrl = rdr.IsDBNull(rdr.GetOrdinal("metadata_url")) ? null : rdr.GetString("metadata_url");
+            string? metadataImageUrl = rdr.IsDBNull(rdr.GetOrdinal("image_url")) ? null : rdr.GetString("image_url");
+            string? metadataDescription = rdr.IsDBNull(rdr.GetOrdinal("description")) ? null : rdr.GetString("description");
+            string? metadataTitle = rdr.IsDBNull(rdr.GetOrdinal("title")) ? null : rdr.GetString("title");
+            if (metadataUrl != null || metadataImageUrl != null || metadataDescription != null || metadataTitle != null)
+            {
+                metadata = new Metadata
+                {
+                    Url = metadataUrl,
+                    ImageUrl = metadataImageUrl,
+                    Description = metadataDescription,
+                    Title = metadataTitle
+                };
+            }
+
+            return metadata;
+        }
+
+        private async Task FetchAndAttachTopicsAsync(List<Story> stories)
 		{
 			if (stories.Count == 0)
 			{
@@ -817,6 +838,7 @@ namespace maxhanna.Server.Controllers
 							if (urls != null)
 							{
 								// Fetch metadata
+								Console.WriteLine($"Urls extracted for metadata: {string.Join(", ", urls)}");
 								var metadataRequest = new MetadataRequest { Url = urls };
 								var metadataResponse = SetMetadata(metadataRequest, storyId);
 							}
@@ -918,6 +940,7 @@ namespace maxhanna.Server.Controllers
 							string[]? url = _crawler.ExtractUrls(request.story.StoryText);
 							if (url != null)
 							{
+								Console.WriteLine($"Urls extracted for metadata: {string.Join(", ", url)}");
 								// Fetch metadata
 								var metadataRequest = new MetadataRequest { Url = url };
 								var metadataResponse = SetMetadata(metadataRequest, request.story.Id);

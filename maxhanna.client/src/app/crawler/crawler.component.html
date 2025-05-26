@@ -1,12 +1,15 @@
 <div class="componentMain">
-  <div class="closeButton" (click)="remove_me('Crawler');"></div>
-  <div class="menuButton" (click)="showMenuPanel();"></div>
-  <div class="componentTitle">Crawler</div>
-  <div class="xxSmallFont nbDiv">
+  <div class="closeButton" (click)="remove_me('Crawler')"  *ngIf="!onlySearch"></div>
+  <div class="menuButton" (click)="showMenuPanel();" *ngIf="!onlySearch"></div>
+  <div class="componentTitle" *ngIf="!onlySearch">Crawler</div>
+  <div class="xxSmallFont nbDiv" [style.margin-Top]="onlySearch ? '-20px' : ''">
     <div *ngIf="!searchMetadata.length">Total indexes: {{indexCount}}</div>
     <div *ngIf="searchMetadata?.length">Search results: {{totalResults}}</div>
   </div>
-  <div class="crawler-container" [style.opacity]="isLoading ? 0.5 : 1">
+  <div class="crawler-container"
+   [style.opacity]="isLoading ? 0.5 : 1" 
+   [style.position]="onlySearch ? 'relative' : ''"
+   [style.top]="onlySearch ? '-50px' : ''">
     <div>
       <div class="crawlerInputs" *ngIf="totalPages > 1" style="margin-bottom:10px">
         <button (click)="onPageChange(currentPage - 1)" [disabled]="currentPage <= 1">Previous</button>
@@ -22,21 +25,22 @@
     <div *ngIf="isLoading" class="loadingNotificationDiv">Loading...</div>
 
     <div *ngIf="error" class="error-message">{{ error }}</div>
-    <div class="metadataSearchWrapper">
+    <div class="metadataSearchWrapper" [style.max-Height]="onlySearch ? '30vh' : ''">
       <div *ngFor="let group of groupedResults" class="metadataSearchDiv">
         <div class="groupDomainTitle">
           {{ group.domain }}
         </div>
-        <div *ngFor="let metadata of group.links; let i = index" class="groupLinkWrapperDiv">
+        <div *ngFor="let metadata of group.links; let i = index" [class]="(group.showSubdomains || i === 0) ? 'groupLinkWrapperDiv' : ''">
           <div class="groupLinkDataWrapperDiv" *ngIf="group.showSubdomains || i === 0">
             <div *ngIf="metadata.title" class="descriptionDiv titleClass cursorPointerUnderlined">
-              <a *ngIf="metadata.url" (click)="parentRef?.visitExternalLink(metadata.url)" [innerHTML]="getSanitizedDescription(metadata.title)"></a>
+              <a *ngIf="metadata.url" (click)="visitExternalLink(metadata.url)" [innerHTML]="getSanitizedDescription(metadata.title)"></a>
             </div>
             <div class="descriptionDiv cursorPointer metadataTitleLinkFavouriteWrapper">
-              <a (click)="parentRef?.visitExternalLink(metadata.url)">{{ metadata.url }}</a><button (click)="parentRef?.addFavourite(metadata.url, metadata.imageUrl, metadata.title)" title="Add to Favourites">❤️</button>
+              <a (click)="visitExternalLink(metadata.url)">{{ metadata.url }}</a>
+              <button (click)="parentRef?.addFavourite(metadata.url, metadata.imageUrl, metadata.title)" title="Add to Favourites" *ngIf="!onlySearch">❤️</button>
             </div>
-            <div *ngIf="metadata.description" class="descriptionDiv descriptClass" [innerHTML]="getSanitizedDescription(metadata.description)"></div>
-            <div *ngIf="metadata.author" class="descriptionDiv authorClass" [innerHTML]="getSanitizedDescription(metadata.author)"></div>
+            <div *ngIf="metadata.description && !onlySearch" class="descriptionDiv descriptClass" [innerHTML]="getSanitizedDescription(metadata.description)"></div>
+            <div *ngIf="metadata.author && !onlySearch" class="descriptionDiv authorClass" [innerHTML]="getSanitizedDescription(metadata.author)"></div>
             <div *ngIf="metadata.httpStatus" class="descriptionDiv authorClass">
               {{ metadata.httpStatus }}  {{ getHttpStatusMeaning(metadata.httpStatus) }}
             </div>
@@ -44,7 +48,7 @@
           </div>
           <div class="imageUrlPictureDiv" *ngIf="group.showSubdomains || i === 0">
             <a *ngIf="metadata.imageUrl && (i === 0 || metadata.imageUrl !== group.links[0].imageUrl)"
-               (click)="parentRef?.visitExternalLink(metadata.url)">
+               (click)="visitExternalLink(metadata.url)">
               <img [src]="metadata.imageUrl"
                    [attr.loading]="'lazy'"
                    [title]="metadata.imageUrl"

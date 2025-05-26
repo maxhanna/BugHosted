@@ -1,22 +1,18 @@
 <div class="reactionsContainer" id="reactionsContainer">
-  <div class="addReactionDiv cursorPointer reactionsDisplaySpan" (click)="showReactionsOnClick()"
-    *ngIf="!(userHasReacted() && reactionCount == 1)">
+  <div class="addReactionDiv cursorPointer reactionsDisplaySpan" (click)="showReactionsOnClick()" 
+  *ngIf="currentReactions && currentReactions.length > 0 && (!userHasReacted() || currentReactions.length > 1)">
     {{reactionsDisplay}}
   </div>
-
-  <div class="addReactionDiv myReactionDiv" (click)="reactionDisplayOnClick()">
-    <button class="addReactionButton" (click)="reactionButtonOnClick($event)" [id]="'addReactionSpan_' + reactionId"
-      [title]="(userHasReacted() ? 'Change' : 'Add') + ' Reaction'" *ngIf="!showSpan">
-      {{userHasReacted() ? replaceReactionType(userReaction) : '✚'}}
-      <span class="addReactionTitleSpan" *ngIf="!userHasReacted()" title="Reactions"></span>
-    </button>
-    <span [class]="showSpanBorder ? 'addReactionSpan' : 'addReactionSpanNoBorder'"
-      (click)="reactionButtonOnClick($event)" [id]="'addReactionSpan_' + reactionId"
-      [title]="(userHasReacted() ? 'Change' : 'Add') + ' Reaction'" *ngIf="showSpan">
-      {{userHasReacted() ? replaceReactionType(userReaction) : '✚'}}
-      <span class="addReactionTitleSpan" *ngIf="!userHasReacted()" title="Reactions"></span>
-    </span>
-  </div>
+ 
+  <button class="addReactionButton" (click)="reactionButtonOnClick($event)" [id]="'addReactionSpan_' + reactionId"
+    [title]="(userHasReacted() ? 'Change' : 'Add') + ' Reaction'" *ngIf="!showSpan">
+    {{userHasReacted() ? replaceReactionType(userReaction) : '✚'}} 
+  </button>
+  <span [class]="showSpanBorder ? 'addReactionSpan' : 'addReactionSpanNoBorder'"
+    (click)="reactionButtonOnClick($event)" [id]="'addReactionSpan_' + reactionId"
+    [title]="(userHasReacted() ? 'Change' : 'Add') + ' Reaction'" *ngIf="showSpan">
+    {{userHasReacted() ? replaceReactionType(userReaction) : '✚'}} 
+  </span> 
 </div>
 
 <div *ngIf="showReactionChoices" class="popupPanel" id="reactionChoicesDiv">

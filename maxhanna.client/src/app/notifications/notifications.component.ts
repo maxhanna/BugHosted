@@ -146,7 +146,9 @@ export class NotificationsComponent extends ChildComponent implements OnInit, On
         if (!notification.isRead) {
           this.unreadNotifications--;
         }
-      } else {
+      }  
+      if (!notification) {
+        this.unreadNotifications = 0;
         this.notifications = [];
       }
       parent.navigationComponent.setNotificationNumber(this.unreadNotifications);
@@ -170,7 +172,7 @@ export class NotificationsComponent extends ChildComponent implements OnInit, On
         this.unreadNotifications = 0;
         await this.notificationService.readNotifications(parent.user.id ?? 0, undefined);
       }
-      parent.navigationComponent.setNotificationNumber(this.unreadNotifications);
+      parent.navigationComponent.setNotificationNumber(this.unreadNotifications, notification);
     }
   }
   notificationTextClick(notification: UserNotification) {

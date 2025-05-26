@@ -172,28 +172,30 @@ export class ReactionComponent extends ChildComponent implements OnInit {
   }
   private sendNotification() { 
     const fromUser = this.user ?? new User(0, "Anonymous");
-    let targetNotificationUsers: User[] = [];
+    let targetNotificationUserIds: number[] = [];
     let notificationData: any = {
-      fromUser,
+      fromUserId: fromUser.id,
       message: `New reaction from ${fromUser.username}`,
       userProfileId: this.userProfileId,
     };
 
+    console.log("Sending notification for component:", this.component, this.commentId, this.storyId, this.messageId, this.fileId);
+
     if (this.fileId && (this.component as FileEntry).user?.id !== 0) {
-      targetNotificationUsers = [(this.component as FileEntry).user!];
-      notificationData = { ...notificationData, toUser: targetNotificationUsers, fileId: this.fileId };
+      targetNotificationUserIds = [(this.component as FileEntry).user?.id!];
+      notificationData = { ...notificationData, toUserIds: targetNotificationUserIds, fileId: this.fileId };
     } else if (this.storyId) {
-      targetNotificationUsers = [(this.component as Story).user];
-      notificationData = { ...notificationData, toUser: targetNotificationUsers, storyId: this.storyId };
+      targetNotificationUserIds = [(this.component as Story).user?.id ?? 0];
+      notificationData = { ...notificationData, toUserIds: targetNotificationUserIds, storyId: this.storyId };
     } else if (this.commentId) {
-      targetNotificationUsers = [(this.component as FileComment).user];
-      notificationData = { ...notificationData, toUser: targetNotificationUsers, commentId: this.commentId };
+      targetNotificationUserIds = [(this.component as FileComment).user?.id ?? 0];
+      notificationData = { ...notificationData, toUserIds: targetNotificationUserIds, commentId: this.commentId };
     } else if (this.messageId) {
       const sender = (this.component as Message).sender;
-      targetNotificationUsers = [sender];
-      notificationData = { ...notificationData, toUser: targetNotificationUsers, chatId: (this.component).chatId };
+      targetNotificationUserIds = [sender.id ?? 0];
+      notificationData = { ...notificationData, toUserIds: targetNotificationUserIds, chatId: (this.component).chatId };
     }
-    if (targetNotificationUsers.length > 0) {
+    if (targetNotificationUserIds.length > 0) {
       this.notificationService.createNotifications(notificationData);
     }
   }
@@ -280,8 +282,9 @@ export class ReactionComponent extends ChildComponent implements OnInit {
   }
 
   userHasReacted(): boolean {
-    if (this.currentReactions) {
-      return this.currentReactions!.some(reaction => (reaction.user?.id ?? 0) === (this.user?.id ?? 0));
+    if (this.currentReactions) { 
+      const user = this.user ?? this.inputtedParentRef?.user;
+      return this.currentReactions!.some(reaction => (reaction.user?.id ?? 0) === (user?.id ?? 0));
     }
     return false;
   }

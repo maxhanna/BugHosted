@@ -1,15 +1,15 @@
 import { Component, ElementRef, EventEmitter, Input, OnInit, Output, ViewChild } from '@angular/core';
 import { TopicService } from '../../services/topic.service';
-import { Topic } from '../../services/datacontracts/topics/topic'; 
+import { Topic } from '../../services/datacontracts/topics/topic';
 import { AppComponent } from '../app.component';
 import { User } from '../../services/datacontracts/user/user';
 import { ChildComponent } from '../child.component';
 
 @Component({
-    selector: 'app-topics',
-    templateUrl: './topics.component.html',
-    styleUrl: './topics.component.css',
-    standalone: false
+  selector: 'app-topics',
+  templateUrl: './topics.component.html',
+  styleUrl: './topics.component.css',
+  standalone: false
 })
 export class TopicsComponent extends ChildComponent {
   @Input() user: User | undefined;
@@ -22,15 +22,15 @@ export class TopicsComponent extends ChildComponent {
   @ViewChild('newTopic') newTopic!: ElementRef<HTMLInputElement>;
   @ViewChild('addTopicButton') addTopicButton!: ElementRef<HTMLButtonElement>;
 
-  showAddTopicButton = false; 
+  showAddTopicButton = false;
   matchingTopics: Topic[] = [];
   isDropdownShowing = false;
   private searchTimer: any;
 
   constructor(private topicService: TopicService) {
-    super(); 
+    super();
   }
-   
+
   async addTopic() {
     const user = this.user ?? this.parent?.user
     if (!user?.id) { return alert("Must be logged in to add a topic!"); }
@@ -45,13 +45,13 @@ export class TopicsComponent extends ChildComponent {
       }
       this.attachedTopics.push(tmpTopic);
       this.topicAdded.emit(this.attachedTopics);
-      if (this.addTopicButton && this.addTopicButton.nativeElement) { 
-        this.addTopicButton.nativeElement.style.visibility = "hidden"; 
+      if (this.addTopicButton && this.addTopicButton.nativeElement) {
+        this.addTopicButton.nativeElement.style.visibility = "hidden";
       }
     }
   }
   removeTopic(topic: Topic) {
-    this.attachedTopics = this.attachedTopics?.filter(x => x.id != topic.id); 
+    this.attachedTopics = this.attachedTopics?.filter(x => x.id != topic.id);
     this.topicAdded.emit(this.attachedTopics);
   }
   removeAllTopics() {
@@ -60,16 +60,16 @@ export class TopicsComponent extends ChildComponent {
   }
 
 
-  async searchTopics(enteredValue: string, force: boolean = false) {  
+  async searchTopics(enteredValue: string, force: boolean = false) {
     if (this.searchTimer) {
       clearTimeout(this.searchTimer);
     }
-     
+
     this.searchTimer = setTimeout(async () => {
       if (this.addTopicButton) {
-        this.addTopicButton.nativeElement.style.visibility = "hidden"; 
-      } 
-      if (enteredValue.trim() != '' || force) { 
+        this.addTopicButton.nativeElement.style.visibility = "hidden";
+      }
+      if (enteredValue.trim() != '' || force) {
         await this.topicService.getTopics(enteredValue, this.user).then(matchingTopics => {
           this.matchingTopics = matchingTopics;
           if (enteredValue.trim() == '') {
@@ -90,7 +90,7 @@ export class TopicsComponent extends ChildComponent {
               }
             }
           }
-        }); 
+        });
       } else {
         this.matchingTopics = [];
         this.showAddTopicButton = false;
@@ -99,32 +99,37 @@ export class TopicsComponent extends ChildComponent {
         if (document.getElementById('dropdownMenu') && document.getElementById('chooseTopicInput')) {
           (document.getElementById('dropdownMenu') as HTMLDivElement).style.top = (document.getElementById('chooseTopicInput') as HTMLInputElement).offsetTop + (document.getElementById('chooseTopicInput') as HTMLInputElement).offsetHeight + "px";
 
-          if (this.parent) {
+          if (this.parent && enteredValue) {
             this.parent.showOverlay();
             this.isDropdownShowing = true;
           }
-          
         }
-       
-      }, 10); 
-    }, 100);
-  } 
+        if (!this.matchingTopics || this.matchingTopics.length == 0) {
+          if (!document.getElementById('closeOverlay') && document.getElementsByClassName('overlay')[0]) { 
+            this.parent?.closeOverlay();
+          }
+          this.isDropdownShowing = false;
 
-  selectTopic(topic: Topic) { 
+        }
+      }, 10);
+    }, 100);
+  }
+
+  selectTopic(topic: Topic) {
     if (this.attachedTopics?.some(x => x.topicText.toLowerCase() == topic.topicText.toLowerCase())) return;
     if (!this.attachedTopics) {
       this.attachedTopics = [];
     }
 
-    if (!this.attachedTopics.includes(topic)) { 
+    if (!this.attachedTopics.includes(topic)) {
       this.attachedTopics.push(topic);
     }
-      
+
     this.topicAdded.emit(this.attachedTopics);
     this.newTopic.nativeElement.value = '';
     this.matchingTopics = [];
     if (this.addTopicButton) {
-      this.addTopicButton.nativeElement.style.visibility = "hidden"; 
+      this.addTopicButton.nativeElement.style.visibility = "hidden";
     }
     if (this.parent?.isShowingOverlay && !this.preventClosingOverlay) {
       this.parent.closeOverlay();
@@ -133,7 +138,7 @@ export class TopicsComponent extends ChildComponent {
   }
   searchInputClick() {
     if (this.isDropdown) {
-      if (this.newTopic && this.newTopic.nativeElement.value.trim() != '') { 
+      if (this.newTopic && this.newTopic.nativeElement.value.trim() != '') {
         this.searchTopics(this.newTopic.nativeElement.value.trim(), true);
       } else {
         this.searchTopics('', true);
@@ -141,7 +146,7 @@ export class TopicsComponent extends ChildComponent {
       }
     }
   }
-  clearSearch() { 
+  clearSearch() {
     this.newTopic.nativeElement.value = "";
     this.matchingTopics = [];
     this.showAddTopicButton = false;
@@ -150,6 +155,6 @@ export class TopicsComponent extends ChildComponent {
     setTimeout(() => {
       this.clearSearch();
       this.isDropdownShowing = false;
-}, timeout ?? 0);
+    }, timeout ?? 0);
   }
 }

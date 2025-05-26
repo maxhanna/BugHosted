@@ -8,16 +8,22 @@ import { Component, ElementRef, EventEmitter, Input, Output, ViewChild } from '@
 })
 export class ModalComponent {
   @Output() close = new EventEmitter<void>();
+  @Output() confirm = new EventEmitter<void>();
   @Input() isCloseButtonVisible: boolean = false;
-  @Input() isModal: boolean = false;
+  @Input() modalTitle: string = "";
+  @Input() isModal: boolean = true;
+  @Input() hasConfirmButton: boolean = false;
   
   @ViewChild('modalBody') modalBody!: ElementRef<HTMLDivElement>;
 
   setModalBody(msg: any) {  
     this.modalBody.nativeElement.innerHTML = msg;
   }
-  closeModal() {
+  closeModal() { 
     this.close.emit();
+  }
+  confirmAction() { 
+    this.confirm.emit();
   }
   setModalFont(fontFamily?: string) {
     if (this.modalBody) {
@@ -28,5 +34,8 @@ export class ModalComponent {
         this.modalBody.nativeElement.style.fontFamily = fontFamily;
       }
     }
+  }
+  removeCloseButton() {
+    this.isCloseButtonVisible = false;
   }
 }

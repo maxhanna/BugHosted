@@ -120,6 +120,19 @@ export class CalendarComponent extends ChildComponent implements OnInit {
         this.selectedCalendarEntries?.push(ce);
       }
     });
+    this.selectedCalendarEntries = [...(this.selectedCalendarEntries ?? [])].sort((a, b) => {
+      const dateA = a.date ? new Date(a.date).getTime() : null;
+      const dateB = b.date ? new Date(b.date).getTime() : null;
+
+      if (dateA !== null && dateB !== null) {
+        return dateA - dateB; // Ascending order
+      } else if (dateA !== null) {
+        return -1;
+      } else if (dateB !== null) {
+        return 1;
+      }
+      return 0;
+    });
     this.currentDate = new Date(selectedDate.date!);
   }
   async validateNoteEntry() {

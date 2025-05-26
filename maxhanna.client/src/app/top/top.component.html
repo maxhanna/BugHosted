@@ -1,39 +1,135 @@
 <div class="componentMain">
-    <div class="closeButton" (click)="remove_me('FavouritesComponent');"></div>
-    <div class="componentTitle">Top100</div>
-
-    <div class="popupPanelTitle">Choose a category:</div>
-    <app-topics #topicComponent [isDropdown]="true" [user]="parentRef?.user" [parent]="parentRef"
-        (topicAdded)="onTopicAdded($event)">
+    <div style="margin-bottom:50px;">
+        <div class="closeButton" (click)="remove_me('FavouritesComponent');"></div>
+        <div class="componentTitle">Top100</div>
+    </div>
+    <div class="categoryTitle">Choose a category:</div>
+    <app-topics #topicComponent [isDropdown]="true" [user]="parentRef?.user" [parent]="parentRef" (topicAdded)="onTopicAdded($event)">
     </app-topics>
 
-    <div class="add-entry-form">
+    <div class="add-entry-form" *ngIf="topicInputted && topicInputted.length > 0">
+        <div class="categoryTitle">Add entry:</div>
         <input type="text" #titleInput placeholder="Title" class="form-input" />
-        <input type="text" #urlInput placeholder="URL (optional)" class="form-input" />
+        <div class="url-input-container">
+            <input type="text" #urlInput placeholder="URL (optional)" class="form-input url-input" />
+            <button (click)="searchUrl()" class="url-search-button">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="11" cy="11" r="8"></circle>
+                    <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                </svg>
+            </button>
+        </div>
+        <div>
+            <textarea #textInput placeholder="Text (optional)" class="form-input"></textarea>
+        </div>
         <button (click)="addToTop()" class="add-button">Add</button>
+    </div>
+
+    <div *ngIf="isSearchingUrl" class="popupPanel crawlerPopupPanel">
+        <app-crawler [url]="urlInput.nativeElement.value" [onlySearch]="true"
+            (urlSelectedEvent)="urlSelectedEvent($event)" (closeSearchEvent)="closeSearchEvent()"></app-crawler>
+        <button id="closeOverlay" (click)="closeSearchPanel()">Cancel</button>
     </div>
 
     <div *ngIf="isLoading" class="loading-message">Loading top entries...</div>
     <div *ngIf="errorMessage" class="error-message">{{ errorMessage }}</div>
 
-    <div class="entries-container">
-        <div *ngFor="let entry of topEntries" class="entry-card">
-            <div class="entry-header">
-                <span class="entry-rank">#{{ entry.id }}</span>
-                <span class="entry-title">{{ entry.entry }}</span>
+    <ol class="entries-container">
+        <li *ngFor="let entry of topEntries" class="entry-card">
+            <div style="display: flex; flex-direction: row; flex-wrap: nowrap; justify-content: space-between;">
+                <div>
+                    <div class="entry-header" *ngIf="entry.url">
+                        <a (click)="parentRef?.indexLink(entry.url)" [href]="entry.url" target="_blank"
+                            class="cursorPointer" [title]="entry.url">
+                            <span class="entry-title">{{ entry.entry }}</span>
+                        </a>
+                    </div>
+                    <div class="entry-header" *ngIf="!entry.url">
+                        <span class="entry-title">{{ entry.entry }}</span>
+                    </div>
+                    <div *ngIf="entry.text">
+                        <textarea class="entry-text" disabled>{{ entry.text }}</textarea>
+                    </div>
+                    <div class="entry-details">
+                        <span class="thirdFontColor">Category: </span>
+                        <span *ngFor="let category of getCategories(entry.category); let last = last" class="secondaryFontColor clickable-category cursorPointerUnderlined" (click)="addClickedTopic(category)">{{ category.trim() }}{{ !last ? ',' : '' }}</span>
+                    </div>
+                    <div class="entry-date" [title]="entry.createdAt">
+                        <span class="thirdFontColor">Added:</span> <span class="secondaryFontColor">{{ entry.createdAt | timeSince }}</span>
+                    </div>
+                </div>
+                <div class="entry-image">
+                    <img *ngIf="entry.imgUrl" [src]="entry.imgUrl" [attr.loading]="'lazy'" [title]="entry.imgUrl"
+                        (error)="entry.imgUrl = ''" />
+                </div>
             </div>
 
-            <div class="entry-details">
-                <span class="entry-category">Category: {{ entry.category }}</span>
-                <span *ngIf="entry.url" class="entry-url">
-                    <a [href]="entry.url" target="_blank">Link</a>
-                </span>
-                <span class="entry-date">Added: {{ entry.createdAt | date:'medium' }}</span>
-            </div>
-        </div>
+            <button (click)="upvote(entry)">Upvote ({{entry.upvotes}})</button>
+            <button (click)="downvote(entry)">Downvote ({{entry.downvotes}})</button>
+            <button (click)="edit(entry)" *ngIf="parentRef?.user?.id == entry.userId">Edit</button>
+        </li>
 
         <div *ngIf="!isLoading && topEntries.length === 0" class="no-entries">
             No entries found. Be the first to add one!
         </div>
+    </ol>
+
+    <button (click)="copyLink()" title="Share Link">📋Share</button>
+</div>
+
+
+<!-- Edit Popup Overlay -->
+<div class="edit-popup-overlay" *ngIf="isEditPanelOpen" (click)="closeEditPanel()"></div>
+
+<!-- Edit Popup Content -->
+<div class="edit-popup-container" *ngIf="isEditPanelOpen" (click)="$event.stopPropagation()">
+    <div class="edit-popup-header">
+        <h3>Edit Entry</h3>
+        <button class="close-popup-btn" (click)="closeEditPanel()">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M18 6L6 18M6 6l12 12"></path>
+            </svg>
+        </button>
+    </div>
+
+    <div class="edit-popup-body">
+        <div class="form-group">
+            <label for="titleEditInput">Title</label>
+            <input type="text" id="titleEditInput" #titleEditInput class="form-control" [value]="editingEntry.entry"
+                placeholder="Enter title">
+        </div>
+
+        <div class="form-group">
+            <label for="urlEditInput">URL (optional)</label>
+            <div class="url-input-container">
+                <input type="text" id="urlEditInput" #urlEditInput class="form-control" [value]="editingEntry.url"
+                    placeholder="https://example.com">
+                <button (click)="searchUrlForEdit()" class="url-search-button">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="11" cy="11" r="8"></circle>
+                        <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                    </svg>
+                </button>
+            </div>
+        </div>
+
+        <div *ngIf="isSearchingUrlForEdit">
+            <app-crawler [url]="urlEditInput.value" [onlySearch]="true" (urlSelectedEvent)="urlSelectedEvent($event)"
+                (closeSearchEvent)="closeSearchEvent()"></app-crawler>
+            <button (click)="closeSearchPanel()">Cancel</button>
+        </div>
+
+        <div class="form-group">
+            <label for="textEditInput">Description (optional)</label>
+            <textarea id="textEditInput" #textEditInput class="form-control" rows="4" [value]="editingEntry.text"
+                placeholder="Enter description"></textarea>
+        </div>
+    </div>
+
+    <div class="edit-popup-footer">
+        <button class="btn-cancel" (click)="closeEditPanel()">Cancel</button>
+        <button class="btn-save" (click)="editTop()">Save Changes</button>
     </div>
 </div>

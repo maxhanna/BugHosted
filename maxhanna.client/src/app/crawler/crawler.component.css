@@ -76,6 +76,7 @@
   max-height: 500px;
   overflow: hidden;
   display: -webkit-box;
+  line-clamp: 4;
   -webkit-line-clamp: 4;
   -webkit-box-orient: vertical;
   text-overflow: ellipsis;
@@ -124,6 +125,9 @@
   display: flex;
   flex-direction: row;
   flex-wrap: nowrap;
+  margin-top: 5px;   
+  border-top: var(--main-border);
+  border-top-width: 50%;
 }
 
 .groupLinkDataWrapperDiv {

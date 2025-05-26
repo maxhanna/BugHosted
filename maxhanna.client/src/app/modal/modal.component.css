@@ -1,6 +1,6 @@
 @font-face {
   font-family: fontRetroGaming;
-  src: url("../../assets/metabots/retro-gaming.ttf")
+  src: url("../../assets/metabots/retro-gaming.ttf");
 }
 
 .modal-overlay {
@@ -9,39 +9,112 @@
   left: 0;
   width: 100%;
   height: 100%;
-  background: rgba(0, 0, 0, 0.5);
+  background: rgba(0, 0, 0, 0.7);
   display: flex;
   justify-content: center;
   align-items: center;
-  z-index:100;
+  z-index: 1;
+  backdrop-filter: blur(4px);
 }
 
 .modal {
   background-color: var(--secondary-component-background-color);
   padding: 20px;
-  border-radius: 8px;
-  width: 300px;
-  max-height:500px;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-  z-index: 101; 
-  overflow:auto;
+  border-radius: 4px;
+  width: 320px;
+  max-height: 80vh;
+  box-shadow:
+    0 0 0 4px #000,
+    0 0 0 6px var(--main-highlight-color, #ff00ff),
+    0 0 20px 8px rgba(0, 0, 0, 0.7);
+  z-index: 2;
+  overflow: hidden;
+  font-family: fontRetroGaming, monospace;
+  border: 2px solid #000;
+  position: relative;
 }
+
+.modal::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: linear-gradient(90deg,
+      var(--main-highlight-color, #ff00ff) 0%,
+      #00ffff 50%,
+      var(--main-highlight-color, #ff00ff) 100%);
+}
+
 .modal-body {
-  max-height: 470px;
-  overflow: auto;
+  max-height: calc(80vh - 100px);
+  overflow-y: auto;
   word-break: break-word;
+  padding: 15px 0;
+  color: #e0e0e0;
+  line-height: 1.4;
+  font-size: 16px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--main-highlight-color, #ff00ff) #333;
 }
+
+.modal-body::-webkit-scrollbar {
+  width: 8px;
+}
+
+.modal-body::-webkit-scrollbar-track {
+  background: #333;
+}
+
+.modal-body::-webkit-scrollbar-thumb {
+  background-color: var(--main-highlight-color, #ff00ff);
+  border-radius: 4px;
+}
+
 .modal-header,
 .modal-footer {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  padding: 10px 0;
 }
 
-  .modal-header button,
-  .modal-footer button {
-    background: none;
-    border: none;
-    cursor: pointer;
-    font-size: 1rem;
-  }
+.modal-header {
+  border-bottom: 2px solid var(--main-highlight-color, #ff00ff);
+  margin-bottom: 10px;
+}
+
+.modal-footer {
+  border-top: 2px solid var(--main-highlight-color, #ff00ff);
+  margin-top: 10px;
+  padding-top: 15px;
+}
+
+.modal-header button,
+.modal-footer button { 
+  border: 2px solid var(--main-highlight-color, #ff00ff); 
+  cursor: pointer;
+  font-size: 16px;
+  padding: 5px 15px;
+  font-family: fontRetroGaming, monospace;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  transition: all 0.2s;
+}
+
+.modal-header button:hover,
+.modal-footer button:hover {
+  background: var(--main-highlight-color, #ff00ff);
+  color: #000;
+  text-shadow: 0 0 5px #fff;
+}
+
+.modal-title {
+  color: var(--main-highlight-color, #ff00ff);
+  font-size: 20px;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  margin: 0;
+  text-shadow: 0 0 5px rgba(255, 0, 255, 0.5);
+}
