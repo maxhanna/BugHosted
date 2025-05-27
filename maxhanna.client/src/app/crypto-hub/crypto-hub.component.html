@@ -5,14 +5,17 @@
   <div [class]="noMining ? 'noMiningHubSection' : !isTradePanelOpen ? 'hubSection' : ''"
     [style.display]="isTradePanelOpen ? 'none' : 'block'">
     <div class="cryptoHubConverterAndCoinWatchWrapper" [style.display]="isTradePanelOpen ? 'none' : 'block'">
-      <div class="marquee-scroll" (mousedown)="onMouseDown($event)" (mouseup)="onMouseUp()"
-        (mousemove)="onMouseMove($event)" (mouseleave)="onMouseUp()" (touchstart)="onTouchStart($event)"
-        (touchend)="onTouchEnd()" (touchmove)="onTouchMove($event)" #scrollContainer>
-        <a *ngFor="let item of data" (click)="selectCoin(item.name)" class="cursorPointer marquee-item">
-          <div>{{ item.name }} <span *ngIf="item.symbol">({{ item.symbol }})</span></div>
-          <div>{{ item.valueCAD ? formatToCanadianCurrency(getConvertedCurrencyValue(item.valueCAD)) : '-' }}</div>
-        </a>
-      </div> 
+      <div class="marquee-container">
+        <div class="marquee-scroll" (mousedown)="onMouseDown($event)" (mouseup)="onMouseUp()"
+          (mousemove)="onMouseMove($event)" (mouseleave)="onMouseUp()" (touchstart)="onTouchStart($event)"
+          (touchend)="onTouchEnd()" (touchmove)="onTouchMove($event)" #scrollContainer>
+          <div class="marquee-content">
+            <a *ngFor="let item of data" (click)="selectCoin(item.name)" class="marquee-item">
+              <div>{{ item.name }} <span *ngIf="item.symbol">({{ item.symbol }})</span></div>
+              <div>{{ item.valueCAD ? formatToCanadianCurrency(getConvertedCurrencyValue(item.valueCAD)) : '-' }}</div>
+            </a>
+          </div>
+        </div></div>
       
       <div class="BTCtoCADConversionWrapperDiv">
         <div class="BTCtoCADConversionDiv" *ngIf="coinNames">

@@ -204,7 +204,6 @@ a {
   z-index: 1000;
 }
 
-/* Optional fade-in */
 @keyframes fadeIn {
   from {
     opacity: 0;
@@ -215,4 +214,7 @@ a {
     opacity: 1;
     transform: translateY(0);
   }
+}
+.navLink:hover { 
+  z-index: 2; 
 }

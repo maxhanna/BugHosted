@@ -10,13 +10,13 @@ import { getMessaging, getToken, onMessage, Messaging } from "firebase/messaging
 import { NotificationService } from '../../services/notification.service';
 import { MediaSelectorComponent } from '../media-selector/media-selector.component';
 import { UserService } from '../../services/user.service';
-import { UserSettings } from '../../services/datacontracts/user/user-settings'; 
+import { UserSettings } from '../../services/datacontracts/user/user-settings';
 
 @Component({
-    selector: 'app-chat',
-    templateUrl: './chat.component.html',
-    styleUrls: ['./chat.component.css'],
-    standalone: false
+  selector: 'app-chat',
+  templateUrl: './chat.component.html',
+  styleUrls: ['./chat.component.css'],
+  standalone: false
 })
 export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
   users: Array<User> = [];
@@ -25,7 +25,8 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
   currentChatId?: number;
   chatHistory: Message[] = [];
   attachedFiles: FileEntry[] = [];
-  selectedUsers: User[] = [] 
+  selectedUsers: User[] = []
+  isEditing: number[] = [];
   @ViewChild('newMessage') newMessage!: ElementRef<HTMLTextAreaElement>;
   @ViewChild('chatWindow') chatWindow!: ElementRef;
   @ViewChild('changePageMenuSelect') changePageMenuSelect!: ElementRef<HTMLSelectElement>;
@@ -44,7 +45,7 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
   totalPages = 1;
   totalPagesArray: number[] = [];
   isDisplayingChatMembersPanel = false;
-  isMenuPanelOpen= false;
+  isMenuPanelOpen = false;
   showUserList = true;
   app?: any;
   messaging?: any;
@@ -55,7 +56,7 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
     super();
 
     const parent = this.parentRef ?? this.inputtedParentRef;
-    parent?.addResizeListener(); 
+    parent?.addResizeListener();
   }
 
   async ngOnInit() {
@@ -84,12 +85,12 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
           this.notificationsEnabled = res.notificationsEnabled;
           if (this.notificationsEnabled == undefined || this.notificationsEnabled) {
             this.requestNotificationPermission();
-          } 
+          }
         }
       })
     }
   }
-  
+
   ngOnDestroy() {
     this.inputtedParentRef?.removeResizeListener();
     this.parentRef?.removeResizeListener();
@@ -125,7 +126,6 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
       });
     }
   }
-
   async getMessageHistory(pageNumber?: number, pageSize: number = 10) {
     if (!this.currentChatUsers) return;
     try {
@@ -140,37 +140,67 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
         receiverUserIds,
         this.currentChatId,
         pageNumber,
-        pageSize);
+        pageSize
+      );
       if (res && res.status && res.status == "404") {
-        this.chatHistory = [];
+        if (this.chatHistory.length > 0) {
+          this.chatHistory = []; 
+        }
         return;
       }
-      if (res) { 
-        const newMessages = res.messages.filter((newMessage: Message) => !this.chatHistory.some((existingMessage: Message) => existingMessage.id === newMessage.id));
-        this.updateSeenStatus(res);
-        if (!this.isChangingPage) {
-          this.playSoundIfNewMessage(newMessages);
+      if (res) {
+        let hasChanges = false;
+        const newMessages: Message[] = [];
+        const updatedChatHistory = [...this.chatHistory];
+
+        res.messages.forEach((incomingMessage: Message) => {
+          const existingIndex = updatedChatHistory.findIndex(
+            (existingMessage: Message) => existingMessage.id === incomingMessage.id
+          );
+          if (existingIndex !== -1) {
+            // Update only if content or relevant fields differ
+            const existing = updatedChatHistory[existingIndex];
+            if (
+              existing.content !== incomingMessage.content || existing.timestamp !== incomingMessage.timestamp  
+            ) {
+              updatedChatHistory[existingIndex] = { ...incomingMessage };
+              hasChanges = true;
+            }
+          } else {
+            newMessages.push({ ...incomingMessage });
+            hasChanges = true;
+          }
+        });
+
+        if (hasChanges) {
+          // Append new messages and sort
+          this.chatHistory = [...updatedChatHistory, ...newMessages].sort(
+            (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+          );
+          this.updateSeenStatus(res);
+          if (!this.isChangingPage) {
+            this.playSoundIfNewMessage(newMessages);
+          }
+          this.pageNumber = res.currentPage;
+          if (!this.currentChatId && res.messages[0]?.chatId) {
+            this.currentChatId = res.messages[0].chatId;
+          }
+          this.scrollToBottomIfNeeded(); 
         }
         this.isChangingPage = false;
-
-        this.chatHistory = [...this.chatHistory, ...newMessages];
-        this.pageNumber = res.currentPage;
-        if (!this.currentChatId && (res.messages[0] as Message).chatId) {
-          this.currentChatId = (res.messages[0] as Message).chatId;
-        }
-        this.chatHistory.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
-        this.scrollToBottomIfNeeded();
       }
-    } catch { }
-  }
-    private updateSeenStatus(res: any) {
-        res.messages.forEach((newMessage: Message) => {
-            const existingMessage = this.chatHistory.find((msg: Message) => msg.id === newMessage.id);
-            if (existingMessage) {
-                existingMessage.seen = newMessage.seen;
-            }
-        });
+    } catch (error) {
+      console.error('Error fetching message history:', error);
     }
+  }
+  private updateSeenStatus(res: any) {
+    res.messages.forEach((newMessage: Message) => {
+      const existingMessage = this.chatHistory.find((msg: Message) => msg.id === newMessage.id);
+      if (existingMessage) {
+        existingMessage.seen = newMessage.seen;
+      }
+    });
+  }
 
   private playSoundIfNewMessage(newMessages: Message[]) {
     const user = this.inputtedParentRef?.user ?? this.parentRef?.user ?? new User(0, "Anonymous");
@@ -212,7 +242,7 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
   }
   async openChat(users?: User[]) {
     if (!users) { return; }
-    setTimeout(() => { 
+    setTimeout(() => {
       const parent = this.parentRef ?? this.inputtedParentRef;
       parent?.addResizeListener();
       parent?.updateLastSeen();
@@ -244,7 +274,7 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
 
       if (!this.currentChatId && message0.chatId) {
         this.currentChatId = message0.chatId;
-      } 
+      }
     }
     setTimeout(() => {
       this.scrollToBottomIfNeeded();
@@ -303,14 +333,14 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
         this.newMessage.nativeElement.value = '';
         this.newMessage.nativeElement.innerHTML = '';
         this.newMessage.nativeElement.textContent = '';
-      }, 10); 
+      }, 10);
       await this.chatService.sendMessage(this.parentRef?.user?.id ?? 0, chatUsersIds, this.currentChatId, msg, this.attachedFiles);
       this.removeAllAttachments();
       this.attachedFiles = [];
-      await this.getMessageHistory().then(x => { 
+      await this.getMessageHistory().then(x => {
         setTimeout(() => {
           this.chatWindow.nativeElement.scrollTop = this.chatWindow.nativeElement.scrollHeight;
-        }, 250); 
+        }, 250);
       });
       this.notificationService.createNotifications(
         { fromUserId: this.parentRef?.user?.id ?? 0, toUserIds: chatUsersIds.filter(x => x != (this.parentRef?.user?.id ?? 0)), message: 'New chat message!', chatId: this.currentChatId }
@@ -359,7 +389,7 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
     return this.currentChatUsers?.filter(x => x.id != (parent?.user?.id ?? 0));
   }
 
-  displayChatMembers() { 
+  displayChatMembers() {
     const parent = this.inputtedParentRef ?? this.parentRef;
     if (parent) {
       parent.closeOverlay();
@@ -377,7 +407,7 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
     }
   }
   addChatMember(users?: User[]) {
-    if (!users) return; 
+    if (!users) return;
     if (users.some(user => this.currentChatUsers?.some(z => z.id === user.id))) {
       alert("Duplicate users found. Aborting.");
       return;
@@ -397,20 +427,19 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
       }
       return value;
     });
-    }
+  }
   encryptContent(msg: string) {
     try {
-      return this.chatService.encryptContent(msg, this.currentChatId ? this.currentChatId + "" : undefined);  
+      return this.chatService.encryptContent(msg, this.currentChatId ? this.currentChatId + "" : undefined);
     } catch (error) {
       console.error('Encryption error:', error);
-      return msg;  
+      return msg;
     }
   }
 
   decryptContent(encryptedContent: string) {
     try {
-      console.log("decrypting for chat id: ", this.currentChatId);
-      return this.chatService.decryptContent(encryptedContent, this.currentChatId ? this.currentChatId + "" : undefined); 
+      return this.chatService.decryptContent(encryptedContent, this.currentChatId ? this.currentChatId + "" : undefined);
     } catch (error) {
       console.error('Decryption error:', error);
       return encryptedContent;
@@ -423,7 +452,7 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
       return;
     }
     const currentUrl = window.location.href;
-   
+
     try {
       const firebaseConfig = {
         apiKey: "AIzaSyAR5AbDVyw2RmW4MCLL2aLVa2NLmf3W-Xc",
@@ -434,13 +463,13 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
         appId: "1:288598058428:web:a4605e4d8eea73eac137b9",
         measurementId: "G-MPRXZ6WVE9"
       };
-      this.app = initializeApp(firebaseConfig); 
-      this.messaging = await getMessaging(this.app); 
+      this.app = initializeApp(firebaseConfig);
+      this.messaging = await getMessaging(this.app);
       onMessage(this.messaging, (payload: any) => {
-       const parent = this.inputtedParentRef ?? this.parentRef;
-       const body = payload.notification.body;
-       const title = payload.notification.title;
-       parent?.showNotification(`${title}: ${body}`);
+        const parent = this.inputtedParentRef ?? this.parentRef;
+        const body = payload.notification.body;
+        const title = payload.notification.title;
+        parent?.showNotification(`${title}: ${body}`);
       });
 
       console.log('Current Notification Permission:', Notification.permission);
@@ -472,10 +501,10 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
   }
 
   getTextForDOM(text?: string, componentId?: any) {
-    const parent = this.inputtedParentRef ?? this.parentRef; 
-    return parent?.getTextForDOM(text, componentId); 
+    const parent = this.inputtedParentRef ?? this.parentRef;
+    return parent?.getTextForDOM(text, componentId);
   }
-   
+
   filterUniqueUsers(users: User[]): User[] {
     return users.filter((user, index, self) =>
       index === self.findIndex(u => (u.id === user.id || u.username === user.username))
@@ -489,11 +518,11 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
     const parent = this.inputtedParentRef ?? this.parentRef;
     this.newMessage.nativeElement.value += `[Quoting {${message.sender.username}|${message.sender.id}|${message.timestamp}}: ${this.decryptContent(message.content)}] \n`;
     setTimeout(() => {
-      if (this.newMessage && this.newMessage.nativeElement) { 
+      if (this.newMessage && this.newMessage.nativeElement) {
         const input = this.newMessage.nativeElement;
-        input.focus(); 
+        input.focus();
         const length = input.value.length;
-        input.setSelectionRange(length, length); 
+        input.setSelectionRange(length, length);
         input.scrollTop = input.scrollHeight;
       }
     }, 50);
@@ -512,17 +541,17 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
 
     this.isMenuPanelOpen = true;
     const parent = this.inputtedParentRef ?? this.parentRef;
-    parent?.showOverlay(); 
+    parent?.showOverlay();
   }
   closeMenuPanel() {
     this.isMenuPanelOpen = false;
     const parent = this.inputtedParentRef ?? this.parentRef;
-    parent?.closeOverlay(); 
+    parent?.closeOverlay();
   }
   async enableGhostRead() {
     const parent = this.inputtedParentRef ?? this.parentRef;
     const user = parent?.user;
-    if (!user || !user.id) return alert("You must be logged in to enable Ghost Read."); 
+    if (!user || !user.id) return alert("You must be logged in to enable Ghost Read.");
     this.userService.updateGhostRead(user.id, !this.ghostReadEnabled).then(res => {
       if (res) {
         parent.showNotification(res);
@@ -545,10 +574,32 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
     const user = this.inputtedParentRef?.user ?? this.parentRef?.user;
     return this.currentChatUsers?.filter(x => x.id != user?.id);
   }
+  async edit(message: Message) { 
+    if (!this.isEditing.some(id => id === message.id)) {
+      this.isEditing.push(message.id);
+    }
+  }
+  async acceptEdit(message: Message) { 
+    if (this.isEditing.some(id => id === message.id)) {
+      this.isEditing = this.isEditing.filter(x => x != message.id);
+    }
+    const tmpMessage = this.encryptContent((document.getElementById(`editTextArea${message.id}`) as HTMLTextAreaElement).value.trim());
+    if (tmpMessage == message.content) {
+      return;
+    }
+    this.chatService.editMessage(message.id, this.parentRef?.user?.id, tmpMessage).then(res => {
+      if (res) {
+        this.parentRef?.showNotification(`Message #${message.id} edited successfully.`);
+        this.getMessageHistory();
+      } else {
+        this.parentRef?.showNotification(`Failed to edit message #${message.id}.`);
+      }
+    });
+  }
   async leaveChat(chatId: number) {
     if (!this.parentRef?.user?.id) { return alert("Must be logged in."); }
     if (!confirm("Warning: This chat will be archived and only reappear if you get a new message. Proceed?")) { return; }
-    this.chatService.leaveChat(this.parentRef.user.id, chatId).then(res=> {
+    this.chatService.leaveChat(this.parentRef.user.id, chatId).then(res => {
       if (res) {
         this.parentRef?.showNotification(`You've left chat#${chatId}.`);
         this.closeChat();

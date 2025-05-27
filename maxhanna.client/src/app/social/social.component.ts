@@ -283,21 +283,33 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
       } else {
         this.storyResponse = res;
       }
-
-      // if (this.storyResponse?.stories) {
-      //   this.storyResponse.stories.forEach(story => {
-      //     if (story.date) {
-      //       if (typeof story.date === 'string') {
-      //         story.date = new Date(story.date);
-      //       }
-      //       story.date = new Date(story.date.getTime() - story.date.getTimezoneOffset() * 60000);  //Convert UTC dates to local time.
-      //     }
-      //   });
-      // } 
       this.totalPages = this.storyResponse?.pageCount ?? 0;
       this.totalPagesArray = Array.from({ length: this.totalPages }, (_, index) => index + 1);
+      this.setPollResultsIfVoted(res);
     }
     this.stopLoading();
+  }
+
+  private setPollResultsIfVoted(res: StoryResponse) {
+    if (res.polls?.length && res.stories?.length) {
+      res.stories?.forEach(story => {
+        const poll = res.polls?.find(p => p.componentId === `storyText${story.id}`);
+        if (poll && story.storyText?.includes('[Poll]')) {
+          if (poll.userVotes.some(x => x.userId === this.parentRef?.user?.id)) {
+            const pollRegex = /\[Poll\](.*?)\[\/Poll\]/s;
+            const match = story.storyText?.match(pollRegex);
+            if (match) {
+              poll.options.forEach(option => {
+                story.storyText = story.storyText?.replace(option.text, `${option.text} (${option.voteCount} votes, ${option.percentage}%)`);
+              });
+            }
+            //Show who voted.
+            story.storyText += `<button onclick="document.getElementById('pollComponentId').value='storyText${story.id}';document.getElementById('pollDeleteButton').click()" class="deletePollVoteButton">Delete Vote</button>`;
+            story.storyText += `<div class=voterSpan>Voters(${poll.userVotes.length}): ${poll.userVotes.map(x => '@' + x.username).join(', ')}</div>`;
+          }
+        }
+      });
+    }
   }
 
   private getSearchStoryId() {
@@ -311,6 +323,65 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
     }
     this.storyId = undefined;
     return storyId;
+  }
+
+  updatePollsInDOM(delayMs: number = 1000): void {
+    if (!this.storyResponse?.polls?.length) {
+      console.log('No polls to update.');
+      return;
+    }
+
+    setTimeout(() => {
+      console.log('Updating poll DOM with data:', this.storyResponse?.polls);
+
+      this.storyResponse?.polls?.forEach(poll => {
+        const componentId = poll.componentId; // e.g., storyText717
+        const pollContainer = document.getElementById(componentId);
+
+        if (!pollContainer) {
+          console.warn(`Poll container for ${componentId} not found in DOM.`);
+          return;
+        }
+
+        // Generate poll result HTML
+        let pollHtml = `<div class="poll-container" data-component-id="${componentId}">
+          <div class="poll-question">${poll.question}</div>
+          <div class="poll-options">`;
+
+        poll.options.forEach((option, index) => {
+          const percentage = option.percentage;
+          const voteCount = option.voteCount;
+          const pollId = `poll_${componentId}_${index}`; // Unique ID for this poll option
+
+          pollHtml += `
+            <div class="poll-option">
+              <input type="checkbox" value="${option.text}" id="poll-option-${pollId}" name="poll-options-${pollId}"
+                onClick="document.getElementById('pollCheckId').value='poll-option-${pollId}';
+                         document.getElementById('pollQuestion').value='${poll.question}';
+                         document.getElementById('pollComponentId').value='${componentId}';
+                         document.getElementById('pollCheckClickedButton').click()">
+              <label for="poll-option-${pollId}" onClick="document.getElementById('pollCheckId').value='poll-option-${pollId}';
+                         document.getElementById('pollQuestion').value='${poll.question}';
+                         document.getElementById('pollComponentId').value='${componentId}';
+                         document.getElementById('pollCheckClickedButton').click()">
+                ${option.text}
+              </label>
+              <div class="poll-result">
+                <div class="poll-bar" style="width: ${percentage}%"></div>
+                <span class="poll-stats">${voteCount} votes (${percentage}%)</span>
+              </div>
+            </div>`;
+        });
+
+        pollHtml += `</div>
+          <div class="poll-total">Total Votes: ${poll.totalVotes}</div>
+        </div>`;
+
+        // Update the DOM
+        pollContainer.innerHTML = pollHtml;
+        console.log(`Updated DOM for poll ${componentId}`);
+      });
+    }, delayMs);
   }
 
   async post() {
@@ -1032,7 +1103,7 @@ Option 4: Yellow
     }
   }
   ignoreTopic(topic: Topic) {
-    if (this.parentRef?.user?.id) { 
+    if (this.parentRef?.user?.id) {
       this.topicService.addIgnoredTopic(this.parentRef.user.id, [topic.id]).then(res => {
         if (res) {
           this.parentRef?.showNotification(res.message);

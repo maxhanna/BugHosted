@@ -594,9 +594,9 @@ export class AppComponent implements OnInit, AfterViewInit {
       image: tmpImage
     };
   }
+  
   getTextForDOM(text?: string, component_id?: any) {
-    if (!text) return ""; 
-    // Process polls first (before other transformations)
+    if (!text) return "";  
     text = this.processPolls(text, component_id);
 
     const youtubeRegex = /(https?:\/\/(?:www\.|m\.)?(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)([\w-]{11})|youtu\.be\/([\w-]{11}))(?:\S+)?)/g;
@@ -690,19 +690,32 @@ export class AppComponent implements OnInit, AfterViewInit {
 
       // Generate poll HTML
       let pollHtml: string = `<div class="poll-container"><div class="poll-question">${question}</div><div class="poll-options">`;
-
+      let hasVoted = false;
       options.forEach((option: string, index: number) => {
-        pollHtml += `
+        if (!option.includes("votes, ")) {
+          pollHtml += `
+            <div class="poll-option">
+                <input type="checkbox" value="${option}" id="poll-option-${pollId}-${index}" name="poll-options-${pollId}" onClick="document.getElementById('pollCheckId').value='poll-option-${pollId}-${index}';document.getElementById('pollQuestion').value='${this.htmlEncodeForInput(question)}';document.getElementById('pollComponentId').value='${component_id}';document.getElementById('pollCheckClickedButton').click()">
+                <label for="poll-option-${pollId}-${index}" onClick="document.getElementById('pollCheckId').value='poll-option-${pollId}-${index}';document.getElementById('pollQuestion').value='${this.htmlEncodeForInput(question)}';document.getElementById('pollComponentId').value='${component_id}';document.getElementById('pollCheckClickedButton').click()">${option}</label>
+            </div>
+          `;
+        } else {
+          hasVoted = true; 
+          const optionText = option.trim(); 
+          const percentage = parseInt(optionText.split(', ')[1]) ?? 0;
+          pollHtml += `
           <div class="poll-option">
-              <input type="checkbox" value="${option}" id="poll-option-${pollId}-${index}" name="poll-options-${pollId}" onClick="document.getElementById('pollCheckId').value='poll-option-${pollId}-${index}';document.getElementById('pollQuestion').value='${this.htmlEncodeForInput(question)}';document.getElementById('pollComponentId').value='${component_id}';document.getElementById('pollCheckClickedButton').click()">
-              <label for="poll-option-${pollId}-${index}" onClick="document.getElementById('pollCheckId').value='poll-option-${pollId}-${index}';document.getElementById('pollQuestion').value='${this.htmlEncodeForInput(question)}';document.getElementById('pollComponentId').value='${component_id}';document.getElementById('pollCheckClickedButton').click()">${option}</label>
-          </div>
-        `;
+            <div class="poll-option-text">
+              ${optionText} ${percentage > 0 ? `<span class="poll-bar" style="width: ${percentage}%">(${percentage}%)</span>` : ''}  
+            </div>
+           
+          </div>`; 
+        } 
       });
 
       pollHtml += `</div></div>`;
 
-      return pollHtml;
+      return pollHtml.replace(/\n/g, '');
     });
   }
   private htmlEncodeForInput(str: string): string { 
@@ -1023,19 +1036,31 @@ export class AppComponent implements OnInit, AfterViewInit {
     const componentId = (document.getElementById("pollComponentId") as HTMLInputElement).value;
 
     try {
-      // Call your poll service to vote
       const res = await this.pollService.vote(this.user?.id ?? 0, checkValue, componentId);
 
-      // Store the results and show the popup
       this.pollResults = res;
       this.pollChecked = true;
-      this.pollQuestion = pollQuestion; 
-      // Force Angular to detect changes
+      this.pollQuestion = pollQuestion;
       this.changeDetectorRef.detectChanges();
       this.showOverlay();
     } catch (error) {
       console.error("Error updating poll:", error);
-      // Optionally show error to user
+      alert("Failed to update poll. Please try again.");
+    }
+  }
+  async handlePollDeleteClicked() {
+    const componentId = (document.getElementById("pollComponentId") as HTMLInputElement).value;
+
+    try {
+      await this.pollService.deleteVote(this.user?.id ?? 0, componentId).then(res => {
+        if (res) { 
+          this.showNotification(res);
+        } else {
+          this.showNotification("Error deleting vote.");
+        }
+      });
+    } catch (error) {
+      console.error("Error updating poll:", error);
       alert("Failed to update poll. Please try again.");
     }
   }

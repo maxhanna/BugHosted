@@ -3,7 +3,7 @@ using HtmlAgilityPack;
 using maxhanna.Server.Controllers.DataContracts;
 using maxhanna.Server.Controllers.DataContracts.Files;
 using maxhanna.Server.Controllers.DataContracts.Metadata;
-using maxhanna.Server.Controllers.DataContracts.Social;
+using maxhanna.Server.Controllers.DataContracts.Social; 
 using maxhanna.Server.Controllers.DataContracts.Topics;
 using maxhanna.Server.Controllers.DataContracts.Users;
 using Microsoft.AspNetCore.Mvc;
@@ -234,17 +234,7 @@ namespace maxhanna.Server.Controllers
                                     Hidden = rdr.IsDBNull(rdr.GetOrdinal("hidden")) ? false : rdr.GetBoolean("hidden"),
                                 };
                                 storyDictionary[storyId] = story;
-                            }
-                            if (!rdr.IsDBNull(rdr.GetOrdinal("title")))
-							{
-								story.Metadata?.Add(new Metadata
-								{
-									Title = rdr.GetString("title"),
-									Url = rdr.IsDBNull(rdr.GetOrdinal("metadata_url")) ? null : rdr.GetString("metadata_url"),
-									Description = rdr.IsDBNull(rdr.GetOrdinal("description")) ? null : rdr.GetString("description"),
-									ImageUrl = rdr.IsDBNull(rdr.GetOrdinal("image_url")) ? null : rdr.GetString("image_url")
-								});
-							}
+                            } 
 						}
 					}
 				}
@@ -255,33 +245,285 @@ namespace maxhanna.Server.Controllers
 			await AttachFilesToStoriesAsync(storyResponse.Stories);
 			await FetchAndAttachTopicsAsync(storyResponse.Stories);
 			await FetchAndAttachReactionsAsync(storyResponse.Stories);
-
+			await FetchAndAttachPollVotesAsync(storyResponse);
 			storyResponse.CurrentPage = page;
 			storyResponse.PageCount = (int)Math.Ceiling((double)storyResponse.TotalCount / pageSize);
 
 			return storyResponse;
 		}
 
-        private static Metadata? attachStoryMetadataDbData(MySqlDataReader rdr)
-        {
-            Metadata? metadata = null;
-            string? metadataUrl = rdr.IsDBNull(rdr.GetOrdinal("metadata_url")) ? null : rdr.GetString("metadata_url");
-            string? metadataImageUrl = rdr.IsDBNull(rdr.GetOrdinal("image_url")) ? null : rdr.GetString("image_url");
-            string? metadataDescription = rdr.IsDBNull(rdr.GetOrdinal("description")) ? null : rdr.GetString("description");
-            string? metadataTitle = rdr.IsDBNull(rdr.GetOrdinal("title")) ? null : rdr.GetString("title");
-            if (metadataUrl != null || metadataImageUrl != null || metadataDescription != null || metadataTitle != null)
-            {
-                metadata = new Metadata
-                {
-                    Url = metadataUrl,
-                    ImageUrl = metadataImageUrl,
-                    Description = metadataDescription,
-                    Title = metadataTitle
-                };
-            }
+		private async Task FetchAndAttachPollVotesAsync(StoryResponse storyResponse)
+		{
+			//Console.WriteLine("Fetch poll votes.");
+			if (storyResponse.Stories == null || storyResponse.Stories.Count == 0)
+			{
+				//Console.WriteLine("No stories found to fetch poll votes for.");
+				return;
+			}
 
-            return metadata;
-        }
+			string pollSql = @"
+				SELECT 
+					pv.id, pv.user_id, pv.component_id, pv.value, pv.timestamp,
+					u.username,
+					udpfu.folder_path AS display_picture_folder,
+					udpfu.file_name AS display_picture_filename
+				FROM poll_votes pv
+				JOIN users u ON pv.user_id = u.id
+				LEFT JOIN user_display_pictures udp ON udp.user_id = u.id
+				LEFT JOIN file_uploads udpfu ON udp.file_id = udpfu.id
+				WHERE pv.component_id IN ({0})
+				ORDER BY pv.timestamp DESC;";
+
+			var storyIds = storyResponse.Stories.Select(s => $"storyText{s.Id}").ToList();
+			if (storyIds.Count == 0)
+			{
+				//Console.WriteLine("No stories found to fetch poll votes for.");
+				return;
+			}
+
+			//Console.WriteLine($"Processing {storyIds.Count} story IDs: {string.Join(",", storyIds)}");
+
+			// Create parameter placeholders (e.g., @storyId0, @storyId1, ...)
+			var parameterPlaceholders = string.Join(",", storyIds.Select((_, i) => $"@storyId{i}"));
+			pollSql = string.Format(pollSql, parameterPlaceholders);
+
+			try
+			{
+				using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+				{
+					await conn.OpenAsync();
+					//Console.WriteLine("Database connection opened.");
+					using (var pollCmd = new MySqlCommand(pollSql, conn))
+					{
+						// Add each story ID as a separate parameter
+						for (int i = 0; i < storyIds.Count; i++)
+						{
+							pollCmd.Parameters.AddWithValue($"@storyId{i}", storyIds[i]);
+						}
+
+						//Console.WriteLine("Executing poll query.");
+						using (var pollRdr = await pollCmd.ExecuteReaderAsync())
+						{
+							//Console.WriteLine("Processing poll votes for stories.");
+							var pollData = new Dictionary<string, List<PollVote>>();
+
+							while (await pollRdr.ReadAsync())
+							{
+								//Console.WriteLine("Poll vote reading.");
+								var componentId = pollRdr.GetString("component_id");
+								if (!pollData.ContainsKey(componentId))
+								{
+									pollData[componentId] = new List<PollVote>();
+								}
+								//Console.WriteLine($"Processing poll vote for component ID: {componentId}, Value: {pollRdr.GetString("value")}");
+
+								string? displayPicPath = null;
+								if (!pollRdr.IsDBNull(pollRdr.GetOrdinal("display_picture_folder")) &&
+									!pollRdr.IsDBNull(pollRdr.GetOrdinal("display_picture_filename")))
+								{
+									displayPicPath = $"{pollRdr.GetString("display_picture_folder")}/{pollRdr.GetString("display_picture_filename")}";
+								}
+
+								pollData[componentId].Add(new PollVote
+								{
+									Id = pollRdr.GetInt32("id"),
+									UserId = pollRdr.GetInt32("user_id"),
+									ComponentId = componentId,
+									Value = pollRdr.GetString("value"),
+									Timestamp = pollRdr.GetDateTime("timestamp"),
+									Username = pollRdr.GetString("username"),
+									DisplayPicture = displayPicPath
+								});
+							}
+							//Console.WriteLine($"Poll votes fetched successfully. Found votes for {pollData.Count} components: {string.Join(",", pollData.Keys)}");
+
+							// Attach poll data to stories
+							storyResponse.Polls = new List<Poll>();
+							//Console.WriteLine($"Processing {storyResponse.Stories.Count} stories for poll attachment.");
+							foreach (var story in storyResponse.Stories)
+							{
+								try
+								{
+									//Console.WriteLine($"Checking story ID: {story.Id}, StoryText: {(string.IsNullOrEmpty(story.StoryText) ? "null/empty" : "present")}");
+
+									// Check if the story has a poll in its text
+									string storyText = story.StoryText ?? string.Empty;
+									string question = ExtractPollQuestion(storyText);
+									List<PollOption> options = ExtractPollOptions(storyText);
+									string componentId = $"storyText{story.Id}";
+
+									if (!string.IsNullOrEmpty(question) && options.Any())
+									{
+										//Console.WriteLine($"Found poll for story {story.Id}. Extracting poll details.");
+										var poll = new Poll
+										{
+											ComponentId = componentId, // Use storyText{storyId}
+											Question = question,
+											Options = options,
+											UserVotes = pollData.TryGetValue(componentId, out var votes) ? votes : new List<PollVote>(),
+											TotalVotes = votes?.Count ?? 0,
+											CreatedAt = story.Date
+										};
+
+										//Console.WriteLine($"Poll question for story {story.Id}: '{poll.Question}', Options: {poll.Options.Count}");
+
+										// Calculate vote counts by matching vote value to option text
+										var voteCounts = poll.UserVotes
+											.GroupBy(v => v.Value)
+											.ToDictionary(g => g.Key, g => g.Count());
+
+										foreach (var option in poll.Options)
+										{
+											// Find the vote count by matching option.Text to vote.Value
+											int voteCount = voteCounts.FirstOrDefault(kvp => kvp.Key.Equals(option.Text, StringComparison.OrdinalIgnoreCase)).Value;
+											option.VoteCount = voteCount;
+											option.Percentage = poll.TotalVotes > 0
+												? (int)Math.Round((double)voteCount / poll.TotalVotes * 100)
+												: 0;
+											//Console.WriteLine($"Option {option.Id} ('{option.Text}'): {option.VoteCount} votes, {option.Percentage}%");
+										}
+
+										storyResponse.Polls.Add(poll);
+										//Console.WriteLine($"Poll for story {story.Id} with question '{poll.Question}' has {poll.TotalVotes} votes.");
+									}
+									else
+									{
+										//Console.WriteLine($"No poll found in story text for story {story.Id}.");
+									}
+								}
+								catch (Exception ex)
+								{
+									_ = _log.Db($"Error processing story {story.Id}: {ex.Message}\nStack Trace: {ex.StackTrace}", null, "SOCIAL", true);
+									continue;
+								}
+							}
+							//Console.WriteLine($"Finished attaching polls. Total polls added: {storyResponse.Polls.Count}");
+						}
+					}
+				}
+			}
+			catch (Exception ex)
+			{
+				_ = _log.Db($"Error in FetchAndAttachPollVotesAsync: {ex.Message}\nStack Trace: {ex.StackTrace}", null, "SOCIAL", true);
+				throw;
+			}
+		}
+		private string ExtractPollQuestion(string storyText)
+		{
+			if (string.IsNullOrEmpty(storyText) || !storyText.Contains("[Poll]") || !storyText.Contains("[/Poll]"))
+			{
+				//Console.WriteLine("No valid poll found in story text.");
+				return string.Empty;
+			}
+
+			try
+			{
+				// Extract the poll section
+				int startIndex = storyText.IndexOf("[Poll]") + 6;
+				int endIndex = storyText.IndexOf("[/Poll]");
+				if (endIndex < startIndex)
+				{
+					_ = _log.Db("Malformed poll: [/Poll] tag missing or before [Poll].", null, "SOCIAL", true);
+					return string.Empty;
+				}
+
+				string pollContent = storyText.Substring(startIndex, endIndex - startIndex).Trim();
+				var lines = pollContent.Split(new[] { '\n' }, StringSplitOptions.RemoveEmptyEntries);
+
+				foreach (var line in lines)
+				{
+					if (line.Trim().StartsWith("Question:", StringComparison.OrdinalIgnoreCase))
+					{
+						return line.Substring("Question:".Length).Trim();
+					}
+				}
+
+				//Console.WriteLine("No question found in poll content.");
+				return string.Empty;
+			}
+			catch (Exception ex)
+			{
+				_ = _log.Db($"Error extracting poll question: {ex.Message}", null, "SOCIAL", true);
+				return string.Empty;
+			}
+		}
+
+		private List<PollOption> ExtractPollOptions(string storyText)
+		{
+			var options = new List<PollOption>();
+			if (string.IsNullOrEmpty(storyText) || !storyText.Contains("[Poll]") || !storyText.Contains("[/Poll]"))
+			{
+			//	Console.WriteLine("No valid poll found in story text.");
+				return options;
+			}
+
+			try
+			{
+				// Extract the poll section
+				int startIndex = storyText.IndexOf("[Poll]") + 6;
+				int endIndex = storyText.IndexOf("[/Poll]");
+				if (endIndex < startIndex)
+				{
+					_ = _log.Db("Malformed poll: [/Poll] tag missing or before [Poll].", null, "SOCIAL", true);
+					return options;
+				}
+
+				string pollContent = storyText.Substring(startIndex, endIndex - startIndex).Trim();
+				var lines = pollContent.Split(new[] { '\n' }, StringSplitOptions.RemoveEmptyEntries);
+
+				foreach (var line in lines)
+				{
+					if (line.Trim().StartsWith("Option ", StringComparison.OrdinalIgnoreCase))
+					{
+						var parts = line.Split(':', 2);
+						if (parts.Length == 2)
+						{
+							string optionId = parts[0].Replace("Option ", "", StringComparison.OrdinalIgnoreCase).Trim();
+							string optionText = parts[1].Trim();
+							if (!string.IsNullOrEmpty(optionText))
+							{
+								options.Add(new PollOption
+								{
+									Id = optionId, // e.g., "1", "2"
+									Text = optionText, // e.g., "Social", "Crypto"
+									VoteCount = 0,
+									Percentage = 0
+								});
+							}
+						}
+					}
+				}
+
+				//Console.WriteLine($"Extracted {options.Count} poll options.");
+				return options;
+			}
+			catch (Exception ex)
+			{
+				_ = _log.Db($"Error extracting poll options: {ex.Message}", null, "SOCIAL", true);
+				return options;
+			}
+		}
+
+		private static Metadata? attachStoryMetadataDbData(MySqlDataReader rdr)
+		{
+			Metadata? metadata = null;
+			string? metadataUrl = rdr.IsDBNull(rdr.GetOrdinal("metadata_url")) ? null : rdr.GetString("metadata_url");
+			string? metadataImageUrl = rdr.IsDBNull(rdr.GetOrdinal("image_url")) ? null : rdr.GetString("image_url");
+			string? metadataDescription = rdr.IsDBNull(rdr.GetOrdinal("description")) ? null : rdr.GetString("description");
+			string? metadataTitle = rdr.IsDBNull(rdr.GetOrdinal("title")) ? null : rdr.GetString("title");
+			if (metadataUrl != null || metadataImageUrl != null || metadataDescription != null || metadataTitle != null)
+			{
+				metadata = new Metadata
+				{
+					Url = metadataUrl,
+					ImageUrl = metadataImageUrl,
+					Description = metadataDescription,
+					Title = metadataTitle
+				};
+			}
+
+			return metadata;
+		}
 
         private async Task FetchAndAttachTopicsAsync(List<Story> stories)
 		{

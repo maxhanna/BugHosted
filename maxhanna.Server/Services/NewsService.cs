@@ -15,7 +15,20 @@ public class NewsService
 		"about", "as", "into", "like", "through", "after", "over", "between", "out", "against",
 		"during", "without", "before", "under", "around", "among", "is", "are", "was", "were", "be",
 		"has", "had", "have", "it", "this", "that", "these", "those", "you", "i", "he", "she", "they",
-		"we", "but", "or", "so", "if", "because", "while", "just", "not", "no", "yes"
+		"we", "but", "or", "so", "if", "because", "while", "just", "not", "no", "yes", "his", "her",
+		"them", "my", "your", "its", "their", "our", "me", "him", "us", "them", "who", "whom", "which",
+		"what", "where", "when", "why", "how", "all", "any", "some", "many", "much", "more", "most",
+		"few", "fewer", "least", "less", "such", "same", "other", "another", "each", "every", "either",
+		"neither", "both", "one", "two", "three", "first", "second", "third", "last", "next", "previous",
+		"then", "now", "there", "here", "wherever", "whenever", "however", "therefore", "thus", "hence",
+		"although", "though", "even", "unless", "until", "whereas", "despite", "new", "old", "long", "short",
+		"big", "small", "large", "high", "low", "good", "bad", "right", "wrong", "true", "false", "same",
+		"different", "important", "interesting", "difficult", "easy", "quick", "slow", "happy", "sad",
+		"angry", "surprised", "excited", "bored", "tired", "scared", "worried", "confused", "relaxed", "calm",
+		"ready", "willing", "able", "likely", "unlikely", "possible", "impossible", "necessary", "unnecessary",
+		"available", "unavailable", "useful", "useless", "helpful", "harmful", "safe", "unsafe", "healthy",
+		"unhealthy", "rich", "poor", "famous", "unknown", "popular", "unpopular", "beautiful", "ugly", "clean",
+		"dirty", "clear", "unclear", "simple", "complex", "normal", "abnormal", "usual", "unusual", "common",
 	};
 	private static readonly HashSet<string> NegativeKeywordsForCryptoArticles = new(StringComparer.OrdinalIgnoreCase)
 	{

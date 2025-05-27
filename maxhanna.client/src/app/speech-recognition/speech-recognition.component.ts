@@ -34,7 +34,7 @@ export class SpeechRecognitionComponent {
     }
   }
   onResult(transcript: string) { 
-    console.log('Recognized text: ', transcript);
+   // console.log('Recognized text: ', transcript);
   }
   startListening(onResult: (transcript: string) => void) {
     if (this.isListening) return;

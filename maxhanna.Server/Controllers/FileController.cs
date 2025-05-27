@@ -289,8 +289,11 @@ LIMIT
 						command.Parameters.AddWithValue("@search", "%" + search + "%");
 					}
 
-					//Console.WriteLine($"fileId {fileId}, offset {offset}, pageSize {pageSize}, page {page}, folder path {directory}. command: " + command.CommandText);
-
+					// Console.WriteLine($"fileId {fileId}, offset {offset}, pageSize {pageSize}, page {page}, folder path {directory}. command: " + command.CommandText);
+					// Console.WriteLine($"filePosition: {filePosition}, search: {search}, visibility: {visibility}, ownership: {ownership}, fileTypeCondition: {fileTypeCondition}, visibilityCondition: {visibilityCondition}, ownershipCondition: {ownershipCondition}, hiddenCondition: {hiddenCondition}");
+					// Console.WriteLine($"searchCondition: {searchCondition}, extraParameters: {JsonConvert.SerializeObject(extraParameters)}");
+					// Console.WriteLine($"orderBy: {orderBy}");
+					// Console.WriteLine(command.CommandText);
 					using (var reader = command.ExecuteReader())
 					{
 						while (reader.Read())

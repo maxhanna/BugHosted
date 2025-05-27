@@ -186,12 +186,14 @@ fieldset {
   right: 105px;
   text-shadow: 1px 1px var(--main-link-color);
 }
+
 .topSearchButtonDivSpecial {
   right: 53px;
   text-shadow: 1px 1px var(--main-link-color);
 }
+
 .topBackButtonDivSpecial {
-  right: 53px; 
+  right: 53px;
 }
 
 .componentTitle {
@@ -550,6 +552,7 @@ fieldset {
   cursor: default;
   animation: popupFadeIn 0.2s ease-out;
 }
+
 @keyframes popupFadeIn {
   from {
     opacity: 0;
@@ -640,7 +643,9 @@ fieldset {
 }
 
 @media only screen and (min-width : 667px) {
-  .optionsStatsDescription, .optionsStatsHeader {
+
+  .optionsStatsDescription,
+  .optionsStatsHeader {
     padding: 5px;
   }
 }
@@ -699,37 +704,44 @@ fieldset {
   left: 50%;
   transform: translate(-50%, -15%);
 }
+
 .userMentionSpan {
   color: var(--main-link-color);
   font-weight: bold;
   cursor: pointer;
   text-decoration: underline;
 }
- 
+
 .poll-container {
   border: var(--main-border);
   border-radius: 8px;
-  padding-left: 15px; 
+  padding-left: 15px;
   padding-right: 15px;
   padding-top: 15px;
 }
 
 .poll-question {
-  font-weight: bold; 
-  color: var(--secondary-font-color);
+  font-weight: bold;
+  margin-bottom: 15px;
+  font-size: x-large;
+  color: var(--secondary-font-color)
 }
 
-.poll-option {  
+.poll-option {
+  margin-bottom: 15px;
   display: flex;
+  width: 100%;
+  align-items: stretch;
 }
 
 .poll-option:hover {
-  background-color: var(--secondary-component-background-color);
+  color: var(--secondary-font-color);
+  background-color: var(--main-highlight-color-quarter-opacity);
 }
 
-.poll-vote-btn { 
+.poll-vote-btn {
   padding: 5px 15px;
-  background-color: var(--component-background-color); 
+  background-color: var(--component-background-color);
   border: var(--main-border);
   color: var(--main-font-color);
   border-radius: 4px;
@@ -739,4 +751,87 @@ fieldset {
 .poll-error {
   color: red;
   font-style: italic;
+}
+
+.poll-option-text {
+  width: 100%;
+}
+
+.poll-bar {
+  background: linear-gradient(135deg, var(--component-background-color), var(--secondary-component-background-color));
+}
+
+.poll-bar,
+.poll-bar-empty {
+  border-radius: 5px;
+  transition: width 0.3s ease;
+  display: inline-block;
+  min-width: 45px !important;
+  height: 20px;
+  text-align: center;
+  color: var(--secondary-font-color);
+}
+
+
+.option-row {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 5px;
+}
+
+.vote-bar-container {
+  border-radius: 5px;
+  margin-bottom: 5px;
+  min-width: 70px;
+}
+
+.vote-bar {
+  height: 100%;
+  background-color: var(--third-font-color);
+  border-radius: 5px;
+  transition: width 0.3s ease;
+}
+
+.percentage {
+  text-align: left;
+  font-size: 12px;
+  color: var(--secondary-font-color);
+  padding-left: 5px;
+  padding-top: 2px;
+}
+
+.total-voters {
+  margin-top: 20px;
+  font-style: italic;
+  text-align: center;
+  color: var(--third-font-color);
+}
+
+.pollTitle {
+  position: relative;
+  top: -25px;
+}
+
+.pollResults {
+  position: relative;
+  top: -20px;
+}
+
+.voterSpan {
+  color: var(--third-font-color);
+  font-size: x-small;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: calc(100vw - 40px);
+  white-space: nowrap;
+  margin-top: 5px; 
+  margin-left: 5px;
+}
+
+.deletePollVoteButton {
+  font-size: x-small;
+  margin-left: 5px;
+  margin-bottom: 5px;
+  margin-top: 5px;
+  cursor: pointer;
 }

@@ -14,8 +14,10 @@ export class Message {
   reactions?: Reaction[];
   files?: FileEntry[];
   seen?: string;
+  editDate?: Date;
 
-  constructor(id: number, chatId: number, sender: User, receiver: User[], content: string, timestamp: Date, reactions?: Reaction[], files?: FileEntry[], seen?: string) {
+  constructor(id: number, chatId: number, sender: User, receiver: User[], content: string, timestamp: Date, 
+    reactions?: Reaction[], files?: FileEntry[], seen?: string, editDate?: Date) {
     this.id = id;
     this.chatId = chatId;
     this.sender = sender;
@@ -25,5 +27,6 @@ export class Message {
     this.timestamp = timestamp;
     this.reactions = reactions;
     this.files = files;
+    this.editDate = editDate;
   }
 }

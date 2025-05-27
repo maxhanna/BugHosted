@@ -23,21 +23,6 @@
   <iframe id="youtubeIframe"></iframe>
   <button id="closeOverlay" (click)="closeYoutubePopup()">Close</button>
 </div>
-<input type="hidden" id="hiddenUrlToVisit" />
-<button style="width:0px;height:0px;display:none;" id="hiddenUrlToVisitButton" (click)="visitExternalLinkButtonClicked()"></button>
-<button id="youtubeVideoButton" style="display:none;" (click)="playYoutubeVideo()" class="hiddenInput"></button>
-<input type="hidden" id="youtubeVideoIdInput" />
-<button id="quoteClickButton" style="display:none;" (click)="scrollToQuote()" class="hiddenInput"></button>
-<input type="hidden" id="scrollToQuoteDateInput" />
-<input type="hidden" id="scrollToQuoteMessageInput" />
-<input type="hidden" id="componentCreateName" />
-<button id="componentCreateClickButton" style="display:none;" (click)="createComponentButtonClicked()" class="hiddenInput"></button>
-<input type="hidden" id="userMentionInput" />
-<button type="button" id="userMentionButton" style="display: none;" (click)="handleUserMention()"></button><input type="hidden" id="pollCheckId" />
-<input type="hidden" id="pollCheckId" />
-<input type="hidden" id="pollComponentId" />
-<input type="hidden" id="pollQuestion" />
-<button type="button" id="pollCheckClickedButton" style="display: none;" (click)="handlePollCheckClicked()"></button>
 
 <div class="popupPanel pollPopupPanel" *ngIf="pollChecked" (click)="pollChecked = false; closeOverlay();">
   <span class="closeButton" id="closeOverlay" (click)="pollChecked = false; closeOverlay();"></span>
@@ -70,3 +55,23 @@
     </div>
   </div>
 </div>
+
+<input type="hidden" id="hiddenUrlToVisit" />
+<button style="width:0px;height:0px;display:none;" id="hiddenUrlToVisitButton"
+  (click)="visitExternalLinkButtonClicked()"></button>
+<button id="youtubeVideoButton" style="display:none;" (click)="playYoutubeVideo()" class="hiddenInput"></button>
+<input type="hidden" id="youtubeVideoIdInput" />
+<button id="quoteClickButton" style="display:none;" (click)="scrollToQuote()" class="hiddenInput"></button>
+<input type="hidden" id="scrollToQuoteDateInput" />
+<input type="hidden" id="scrollToQuoteMessageInput" />
+<input type="hidden" id="componentCreateName" />
+<button id="componentCreateClickButton" style="display:none;" (click)="createComponentButtonClicked()"
+  class="hiddenInput"></button>
+<input type="hidden" id="userMentionInput" />
+<button type="button" id="userMentionButton" style="display: none;" (click)="handleUserMention()"></button><input
+  type="hidden" id="pollCheckId" />
+<input type="hidden" id="pollCheckId" />
+<input type="hidden" id="pollComponentId" />
+<input type="hidden" id="pollQuestion" />
+<button type="button" id="pollCheckClickedButton" style="display: none;" (click)="handlePollCheckClicked()"></button>
+<button type="button" id="pollDeleteButton" style="display: none;" (click)="handlePollDeleteClicked()"></button>

@@ -1849,23 +1849,9 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
     this.startAutoScroll();
   }
   startAutoScroll() {
-    const buffer = 110; // pixels before end to trigger reset
 
-    this.scrollInterval = setInterval(() => {
-      if (!this.isDragging) {
-        this.scrollContainer.nativeElement.scrollLeft += 5;
-      }
+    setInterval(() => this.autoScroll(), 30);
 
-      const container = this.scrollContainer.nativeElement;
-      const isNearEnd =
-        container.scrollLeft + container.clientWidth >= container.scrollWidth - buffer;
-
-      if (isNearEnd) {
-        clearInterval(this.scrollInterval);
-        container.scrollLeft = 0;
-        setTimeout(() => this.startAutoScroll(), 1000);
-      }
-    }, 500);
   }
   convertFromFIATToCryptoValue(currency?: any, conversionRate?: number): number { // best practice is to ensure currency.fiatRate is set.
     if (currency && (currency.fiatRate || this.btcFiatConversion) && currency.totalBalance) {
@@ -2475,6 +2461,21 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
     if (ratio < 100) return "USDC Mild Dominance";
     if (ratio < 1000) return "USDC Strong Dominance";
     return "USDC Extreme Dominance";
+  }
+  autoScroll() {
+    if (this.isDragging) return;
+
+    const container = this.scrollContainer.nativeElement;
+    const content = container.querySelector('.marquee-content');
+
+    if (content.scrollWidth > container.clientWidth) {
+      container.scrollLeft += 1;
+
+      // Reset to start when reaching end
+      if (container.scrollLeft >= (content.scrollWidth - container.clientWidth)) {
+        container.scrollLeft = 0;
+      }
+    }
   }
 }
 

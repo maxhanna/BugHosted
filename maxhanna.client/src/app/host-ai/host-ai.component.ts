@@ -67,12 +67,14 @@ export class HostAiComponent extends ChildComponent implements OnInit, OnDestroy
       this.stopTalking();
       return;
     }
-    if (this.userWantsToChangeResponseLength(this.userMessage)) { 
+    if (this.userWantsToChangeResponseLength(this.userMessage)) {
       this.userMessage = "";
       this.chatInput.nativeElement.value = "";
       this.chatInput.nativeElement.focus();
       return;
     }
+
+    this.checkIfUserWantsToChangeResponseLengthToVerbose(this.userMessage); 
 
     this.startLoading();
     if (this.userMessage.trim()) {
@@ -171,9 +173,7 @@ console.log("Hello, world!");
   speakMessage(message: string, listenAfter = true) {
     if (!this.startedTalking) {
       return;
-    }
-    //this.stopListeningTemporarily();
-
+    } 
     if ('speechSynthesis' in window) {
       console.log("Speech synthesis is supported! ", message);
 
@@ -225,21 +225,23 @@ console.log("Hello, world!");
 
         utterance.onend = () => {
           // Default pause time.
-          let pauseTime = 200;
-          const lastChar = segment.slice(-1);
-          if (lastChar === ',') {
-            pauseTime = 300;
-          } else if (lastChar === ':' || lastChar === ';' || lastChar === '.') {
-            pauseTime = 400;
-          } else if (lastChar === '-') {
-            if (/ \- /.test(segment)) { // Only add a pause if the dash is surrounded by spaces.
-              pauseTime = 300;
-            } else {
-              pauseTime = 0;
-            }
-          }
+          // let pauseTime = 200;
+          // const lastChar = segment.slice(-1);
+          // if (lastChar === ',') {
+          //   pauseTime = 80;
+          // } else if (lastChar === ':' || lastChar === ';' || lastChar === '.') {
+          //   pauseTime = 200;
+          // } else if (lastChar === '-') {
+          //   if (/ \- /.test(segment)) { // Only add a pause if the dash is surrounded by spaces.
+          //     pauseTime = 50;
+          //   } else {
+          //     pauseTime = 0;
+          //   }
+          // }
           if (this.startedTalking) {
-            setTimeout(() => speakSegments(index + 1), pauseTime);
+            setTimeout(() => speakSegments(index + 1), 0);
+
+            //setTimeout(() => speakSegments(index + 1), pauseTime);
           }
         };
 
@@ -252,13 +254,7 @@ console.log("Hello, world!");
       console.log("Speech synthesis is NOT supported in this browser.");
     }
   }
-
-  private stopListeningTemporarily() {
-    this.stopListening();
-    this.tmpStartTalkingVariable = true;
-    setTimeout(() => { this.startedTalking = true; this.tmpStartTalkingVariable = false; }, 1000);
-  }
-
+ 
   private startListening() {
     this.stopListening();
     setTimeout(() => {
@@ -289,7 +285,7 @@ console.log("Hello, world!");
   }
 
   userWantsToStopVoice(message: string): boolean {
-    console.log(message);
+    //console.log(message);
     const stopWords = [
       "cancel", "stop", "quit", "forget about it", "nevermind",
       "halt", "no", "pause", "end"
@@ -313,7 +309,7 @@ console.log("Hello, world!");
   }
 
   userWantsToForgetHistory(message: string): boolean {
-    console.log(message);
+    //console.log(message);
     const forgetKeywords = new Set([
       "forget", "erase", "clear", "delete", "remove",
       "reset", "wipe", "discard", "start over", "start fresh",
@@ -342,7 +338,7 @@ console.log("Hello, world!");
     for (const pattern of responseLengthPatterns) {
       const match = lowerMessage.match(pattern);
       if (match && match[1]) {
-        console.log("user wants to change length");
+        //console.log("user wants to change length");
         const newLength = parseInt(match[1], 10);
         // Validate the response length (e.g., ensure it's a reasonable number)
         if (newLength >= 0 && newLength <= 1000) { // Adjust max limit as needed
@@ -355,6 +351,25 @@ console.log("Hello, world!");
           this.pushMessage({ sender: 'System', message: "Invalid response length. Please choose a number between 0 and 1000." });
           return true;
         }
+      }
+    }
+    return false;
+  }
+
+  checkIfUserWantsToChangeResponseLengthToVerbose(message: string): boolean {
+    const lowerMessage = message.toLowerCase().trim();
+    const responseLengthPatterns = [
+      /(?:^|\s)(?:go in )?detail(?:ed|s)?(?:$|\s)/,  // matches "detail", "details", "detailed", "go in detail"
+      /(?:^|\s)more detail(?:s|ed)?(?:$|\s)/,         // matches "more detail", "more details"
+      /(?:^|\s)be verbose(?:$|\s)/,                   // matches "be verbose"
+      /(?:^|\s)long(?:er)? response(?:$|\s)/          // matches "long response", "longer response"
+    ];
+
+    for (const pattern of responseLengthPatterns) {
+      if (pattern.test(lowerMessage)) {  
+        this.responseLength = 450;
+        this.parentRef?.showNotification(`Response length changed to Medium.`); 
+        return true; 
       }
     }
     return false;

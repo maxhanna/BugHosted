@@ -100,6 +100,63 @@ namespace maxhanna.Server.Controllers
 			}
 		}
 
+
+		[HttpPost("/Poll/DeleteVote", Name = "DeleteVote")]
+		public async Task<IActionResult> DeleteVote([FromBody] VoteRequest request)
+		{
+			MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+			try
+			{
+				conn.Open();
+
+				// First check if the user already voted on this component
+				string checkSql = @"
+					SELECT id, value 
+					FROM poll_votes 
+					WHERE user_id = @userId AND component_id = @componentId
+					LIMIT 1";
+
+				// Delete existing vote if it exists
+				string deleteSql = @"
+					DELETE FROM poll_votes 
+					WHERE user_id = @userId AND component_id = @componentId LIMIT 1;";
+
+				// Check if user already voted
+				string? existingValue = null;
+				using (var checkCmd = new MySqlCommand(checkSql, conn))
+				{
+					checkCmd.Parameters.AddWithValue("@userId", request.UserId);
+					checkCmd.Parameters.AddWithValue("@componentId", request.ComponentId);
+
+					using (var reader = await checkCmd.ExecuteReaderAsync())
+					{
+						if (reader.Read())
+						{
+							existingValue = reader.IsDBNull("value") ? null : reader.GetString("value");
+						}
+					}
+				}
+
+				// Delete existing vote if it exists
+				using (var deleteCmd = new MySqlCommand(deleteSql, conn))
+				{
+					deleteCmd.Parameters.AddWithValue("@userId", request.UserId);
+					deleteCmd.Parameters.AddWithValue("@componentId", request.ComponentId);
+					await deleteCmd.ExecuteNonQueryAsync();
+				}
+			}
+			catch (Exception ex)
+			{
+				_ = _log.Db("An error occurred while deleting poll vote. " + ex.Message, request.UserId, "POLL", true);
+				return StatusCode(500, "An error occurred while deleting your vote.");
+			}
+			finally
+			{
+				conn.Close();
+			}
+			return Ok("Vote deleted successfully.");
+		}
+
 		private async Task<IActionResult> GetPollResults(string componentId, MySqlConnection conn)
 		{
 			string resultsSql = @"
@@ -168,7 +225,7 @@ namespace maxhanna.Server.Controllers
 		public class VoteRequest
 		{
 			public int UserId { get; set; }
-			public required string Value { get; set; }
+			public string? Value { get; set; }
 			public required string ComponentId { get; set; }
 		} 
 	}

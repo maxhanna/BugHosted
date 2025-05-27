@@ -268,6 +268,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit {
       if (!file.isFolder) {
         this.download(file, false, true)
       } else {
+        this.currentPage = this.defaultCurrentPage;
         this.currentDirectory += file.fileName + "/";
         this.getDirectory(file.fileName);
       }

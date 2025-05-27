@@ -13,18 +13,22 @@
   background-color: unset;
   color: var(--secondary-font-color);
 }
+
 .addReactionSpan {
   border: 1px solid;
   border-radius: 50%;
 }
-.addReactionSpan, .addReactionSpanNoBorder {
-  white-space: nowrap; 
+
+.addReactionSpan,
+.addReactionSpanNoBorder {
+  white-space: nowrap;
   padding-right: 5px;
   cursor: pointer;
   text-shadow: 1px 1px black;
   /* display: flex;
   align-items: baseline; */
-} 
+}
+
 .addReactionSpanNoBorder {
   position: relative;
   top: -1px;
@@ -44,7 +48,7 @@
 .myReactionDiv {
   display: inline-block;
 }
- 
+
 
 .reactionChoice {
   cursor: pointer;
@@ -69,7 +73,7 @@
   display: inline-flex;
   align-items: baseline;
   justify-content: center;
-  max-width: 120px;  
+  max-width: 120px;
   height: 100%;
   overflow: hidden;
   /* flex-direction: row-reverse; */
@@ -77,19 +81,19 @@
 
 .reactionsDisplaySpan {
   /* display: inline-block; */
-  position:relative; 
+  position: relative;
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
   max-width: 80px;
-  width: 100%; 
-  text-align: left; 
+  width: 100%;
+  text-align: left;
   line-height: unset;
 }
 
 @media (max-width: 350px) {
   .reactionsDisplaySpan {
-    max-width: 50px; 
+    max-width: 50px;
   }
 }
 
@@ -113,12 +117,12 @@
   gap: 20px;
 }
 
-  .reactionsOverlayWrapper div {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-wrap: nowrap;
-  }
+.reactionsOverlayWrapper div {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: nowrap;
+}
 
 .searchInputDiv {
   display: flex;
@@ -137,4 +141,13 @@
   width: 100%;
   flex-wrap: wrap !important;
   flex-direction: row-reverse !important;
+}
+
+.showReactionsPopupPanelTitleWrapperDiv {
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  align-content: center;
+  flex-direction: column;
 }

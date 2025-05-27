@@ -37,9 +37,9 @@
     height: CALC(var(--vh, 1vh) * 100 - 50px);
     width: 100vw;
     max-width: unset;
-    transform: unset;
-    top: 0; 
-    left:0;
+    transform: translate(-50%, -50%);
+    top: 50%; 
+    left:50%;
     border-radius: 0px;
   }
 } 
@@ -67,7 +67,12 @@
   height: CALC(var(--vh, 1vh) * 100 - 165px);
   display: flex;
   flex-direction: column;
-  align-items: center;
+  align-items: center; 
+}
+@media only screen and (min-width: 667px) {
+  .notificationsListContainer {
+    padding: 5px;
+  }
 }
 .notificationsList {
   overflow-y: auto;
@@ -78,7 +83,7 @@
   border: var(--main-border);
   display: flex;
   position: relative;
-  margin: 0px 0px 10px 10px;
+  margin-bottom: 10px;
   padding: 20px;
   max-width: 500px;
 }
@@ -105,7 +110,12 @@
   justify-content: center;
   align-content: center;
   flex-wrap: nowrap; 
-  text-align: center;
+  text-align: center; 
+}
+@media only screen and (min-width: 667px) {
+  .notificationsCountHeader {
+    padding-left: 15px;
+  }
 }
 .notificationsCountHeaderButtons {
   display: flex;

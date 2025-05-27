@@ -97,6 +97,22 @@ export class ChatService {
       return null;
     }
   }
+
+  async editMessage(messageId: number, userId?: number, content?: string) {
+    try {
+      const response = await fetch(`/chat/edit`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ MessageId: messageId, UserId: userId ?? 0, Content: content ?? '' }),
+      });
+
+      return await response.text();
+    } catch (error) {
+      return null;
+    }
+  }
   async getGroupChats(userId?: number): Promise<Message[] | undefined> {
     try {
       const response = await fetch(`/chat/getgroupchats`, {

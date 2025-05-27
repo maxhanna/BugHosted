@@ -20,6 +20,7 @@ namespace maxhanna.Server.Services
 		private readonly MiningApi _miningApiService = new MiningApi();
 		private readonly Log _log;
 		private readonly IConfiguration _config; // needed for apiKey
+		private Timer _tenSecondTimer;
 		private Timer _halfMinuteTimer;
 		private Timer _minuteTimer;
 		private Timer _fiveMinuteTimer;
@@ -42,6 +43,7 @@ namespace maxhanna.Server.Services
 			_newsService = newsService;
 			_profitService = profitService;
 
+			_tenSecondTimer = new Timer(async _ => await Run10SecondTasks(), null, Timeout.Infinite, Timeout.Infinite);
 			_halfMinuteTimer = new Timer(async _ => await Run30SecondTasks(), null, Timeout.Infinite, Timeout.Infinite);
 			_minuteTimer = new Timer(async _ => await FetchWebsiteMetadata(), null, Timeout.Infinite, Timeout.Infinite);
 			_fiveMinuteTimer = new Timer(async _ => await RunFiveMinuteTasks(), null, Timeout.Infinite, Timeout.Infinite);
@@ -52,7 +54,8 @@ namespace maxhanna.Server.Services
 
 		protected override async Task ExecuteAsync(CancellationToken stoppingToken)
 		{
-			// Start all timers
+			// Start all timers 
+			_tenSecondTimer.Change(TimeSpan.Zero, TimeSpan.FromSeconds(10));
 			_halfMinuteTimer.Change(TimeSpan.Zero, TimeSpan.FromSeconds(30));
 			_minuteTimer.Change(TimeSpan.Zero, TimeSpan.FromMinutes(1));
 			_fiveMinuteTimer.Change(TimeSpan.Zero, TimeSpan.FromMinutes(5));
@@ -66,8 +69,12 @@ namespace maxhanna.Server.Services
 				await Task.Delay(1000, stoppingToken);
 			}
 		}
-		private async Task Run30SecondTasks() {
-			await MakeCryptoTrade();
+		private async Task Run10SecondTasks()
+		{
+			await MakeCryptoTrade(); 
+		}
+		private async Task Run30SecondTasks()
+		{ 
 			await SpawnEncounterMetabots();
 		}
 		private async Task RunFiveMinuteTasks()
@@ -884,53 +891,21 @@ namespace maxhanna.Server.Services
 			{
 				using (var conn = new MySqlConnection(_connectionString))
 				{
-					await conn.OpenAsync();
-
-					// SQL statement to delete from nexus_reports_deleted and nexus_battles in one go
+					await conn.OpenAsync(); 
 					var deleteSql = @"
                         DELETE FROM search_results 
-												WHERE (title IS NULL OR title = '') 
-												AND (description IS NULL OR description = '') 
-												AND (author IS NULL OR author = '') 
-												AND (keywords IS NULL OR keywords = '') 
-												AND (image_url IS NULL OR image_url = '') 
-												AND response_code IS NULL
-												AND last_crawled < UTC_TIMESTAMP() - INTERVAL 1 DAY;
- 
-												DELETE s FROM search_results s
-												JOIN (
-														SELECT id FROM (
-																SELECT id, 
-																				ROW_NUMBER() OVER (
-																						PARTITION BY  
-																								CASE 
-																										WHEN url LIKE 'http://www.%' THEN SUBSTRING(url, 12) 
-																										WHEN url LIKE 'https://www.%' THEN SUBSTRING(url, 13) 
-																										WHEN url LIKE 'http://%' THEN SUBSTRING(url, 8) 
-																										WHEN url LIKE 'https://%' THEN SUBSTRING(url, 9) 
-																										ELSE url 
-																								END 
-																						ORDER BY  
-																								(url LIKE 'https://%') DESC,   
-																								(title IS NOT NULL AND title != '') DESC, 
-																								(description IS NOT NULL AND description != '') DESC, 
-																								(author IS NOT NULL AND author != '') DESC, 
-																								(keywords IS NOT NULL AND keywords != '') DESC, 
-																								(image_url IS NOT NULL AND image_url != '') DESC, 
-																								(response_code IS NOT NULL) DESC,
-																								last_crawled DESC
-																				) AS RowNum 
-																FROM search_results
-														) RankedResults 
-														WHERE RankedResults.RowNum > 1
-												) duplicates 
-												ON s.id = duplicates.id
-												WHERE s.last_crawled < UTC_TIMESTAMP() - INTERVAL 1 DAY;";
+						WHERE (title IS NULL OR title = '') 
+						AND (description IS NULL OR description = '') 
+						AND (author IS NULL OR author = '') 
+						AND (keywords IS NULL OR keywords = '') 
+						AND (image_url IS NULL OR image_url = '') 
+						AND response_code IS NULL
+						AND last_crawled < UTC_TIMESTAMP() - INTERVAL 30 DAY;";
 
 					using (var deleteCmd = new MySqlCommand(deleteSql, conn))
 					{
 						int affectedRows = await deleteCmd.ExecuteNonQueryAsync();
-						_ = _log.Db($"Deleted {affectedRows} search results older than 1 day.", null);
+						_ = _log.Db($"Deleted {affectedRows} search results older than 30 days.", null);
 					}
 				}
 			}

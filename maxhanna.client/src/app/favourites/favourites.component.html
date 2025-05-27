@@ -86,7 +86,7 @@
         <input [value]="editingFavourite?.name" #editingNameInput placeholder="Website Name" />
       </div>
     </div>
-    <button (click)="editFavourite()" title="Update favourite">💾Update</button>
+    <button (click)="editFavourite()" title="Update favourite" *ngIf="editingFavourite?.createdBy == parentRef?.user?.id">💾Update</button>
   </div>
   <div *ngIf="isSearchingEditUrl">
     <app-crawler [url]="editingUrlInput.value" [onlySearch]="true" (urlSelectedEvent)="urlSelectedEvent($event)"></app-crawler>

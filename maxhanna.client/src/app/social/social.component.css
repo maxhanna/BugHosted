@@ -617,8 +617,8 @@ singleAttachment {
 .postOptionButtonWrapper .postOptionButtons,
 .postOptionButtonWrapper .postOptionButtons ::ng-deep * button {
   text-align: center;
-  background-color: unset;
-  color: var(--secondary-font-color);
+  /* background-color: unset;
+  color: var(--secondary-font-color); */
   /* min-width: 35px; */
   display: flex;
   align-items: center;

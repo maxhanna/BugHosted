@@ -24,7 +24,7 @@ namespace maxhanna.Server.Controllers
 
 		[HttpPost("/Chat/Notifications", Name = "GetChatNotifications")]
 		public async Task<IActionResult> GetChatNotifications([FromBody] int userId)
-		{ 
+		{
 			MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
 			try
 			{
@@ -230,7 +230,7 @@ namespace maxhanna.Server.Controllers
 
 		[HttpPost("/Chat/GetChatUsersByChatId", Name = "GetChatUsersByChatId")]
 		public async Task<IActionResult> GetChatUsersByChatId([FromBody] GetChatUsersByChatIdRequest request)
-		{ 
+		{
 			List<User> users = new List<User>();
 
 			string connectionString = _config.GetValue<string>("ConnectionStrings:maxhanna") ?? "";
@@ -332,7 +332,7 @@ namespace maxhanna.Server.Controllers
 								.Where(i => i != -1) // remove failed parses
 								.OrderBy(i => i)
 								.ToList();
-							 
+
 							if (request.ReceiverIds != null && request.ReceiverIds.Length > 0)
 							{
 								var requestSet = new HashSet<int>(request.ReceiverIds);
@@ -489,7 +489,8 @@ namespace maxhanna.Server.Controllers
 											Seen = reader.IsDBNull(reader.GetOrdinal("seen")) ? null : reader.GetString("seen"),
 											Content = reader["content"].ToString(),
 											Timestamp = Convert.ToDateTime(reader["timestamp"]),
-											Reactions = new List<Reaction>()
+											Reactions = new List<Reaction>(),
+											EditDate = reader.IsDBNull(reader.GetOrdinal("edit_date")) ? null : (DateTime?)Convert.ToDateTime(reader["edit_date"]),
 										};
 
 										messageMap.Add(messageId, message);
@@ -623,7 +624,7 @@ namespace maxhanna.Server.Controllers
 			MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
 			try
 			{
-				conn.Open(); 
+				conn.Open();
 				bool isContained = false;
 
 				// Convert receiver list to a comma-separated string
@@ -705,13 +706,13 @@ namespace maxhanna.Server.Controllers
 							await filecmd.ExecuteNonQueryAsync();
 						}
 					}
-				} 
+				}
 
 				//delete any user_left_chat
 				string ulcSql = "DELETE FROM maxhanna.user_left_chat WHERE chat_id = @ChatId;";
 				MySqlCommand ulcCmd = new MySqlCommand(ulcSql, conn);
 				ulcCmd.Parameters.AddWithValue("@ChatId", targetChatId);
-				await ulcCmd.ExecuteNonQueryAsync(); 
+				await ulcCmd.ExecuteNonQueryAsync();
 				return Ok(targetChatId);
 			}
 			catch (Exception ex)
@@ -726,6 +727,34 @@ namespace maxhanna.Server.Controllers
 		}
 
 
+		[HttpPost("/Chat/Edit", Name = "EditChatMessage")]
+		public async Task<IActionResult> EditChatMessage([FromBody] EditChatRequest request)
+		{ 
+			MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+			try
+			{
+				conn.Open(); 
+				string sql = "UPDATE maxhanna.messages SET content = @Content, edit_date = UTC_TIMESTAMP() WHERE id = @MessageId AND sender = @UserId LIMIT 1;";
+
+				MySqlCommand cmd = new MySqlCommand(sql, conn);
+				cmd.Parameters.AddWithValue("@UserId", request.UserId ?? 0);
+				cmd.Parameters.AddWithValue("@Content", request.Content);
+				cmd.Parameters.AddWithValue("@MessageId", request.MessageId);
+
+				int rowsAffected = await cmd.ExecuteNonQueryAsync();
+
+				return Ok(rowsAffected);
+			}
+			catch (Exception ex)
+			{
+				_ = _log.Db("An error occurred while EditChatMessage. " + ex.Message, request.UserId, "CHAT", true);
+				return StatusCode(500, "An error occurred while EditChatMessage.");
+			}
+			finally
+			{
+				conn.Close();
+			} 
+		}
 
 		[HttpPost("/Chat/LeaveChat", Name = "LeaveChat")]
 		public async Task<IActionResult> LeaveChat([FromBody] LeaveChatRequest request)
@@ -736,16 +765,16 @@ namespace maxhanna.Server.Controllers
 			try
 			{
 				conn.Open();
-				  
+
 
 				string sql = "INSERT INTO maxhanna.user_left_chat (user_id, chat_id, timestamp) VALUES (@UserId, @ChatId, UTC_TIMESTAMP())";
 
 				MySqlCommand cmd = new MySqlCommand(sql, conn);
 				cmd.Parameters.AddWithValue("@UserId", request.UserId);
-				cmd.Parameters.AddWithValue("@ChatId", request.ChatId); 
+				cmd.Parameters.AddWithValue("@ChatId", request.ChatId);
 
 				int rowsAffected = await cmd.ExecuteNonQueryAsync();
- 
+
 				return Ok(rowsAffected);
 			}
 			catch (Exception ex)
@@ -776,6 +805,12 @@ namespace maxhanna.Server.Controllers
 		{
 			public int ChatId { get; set; }
 			public int UserId { get; set; }
+		}
+		public class EditChatRequest
+		{
+			public int? UserId { get; set; }
+			public int MessageId { get; set; }
+			public string? Content { get; set; }
 		}
 	}
 }
