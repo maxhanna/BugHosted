@@ -1184,11 +1184,14 @@ LIMIT
 
 					// Query to get the latest meme ID
 					string query = @"
-						SELECT id 
-						FROM file_uploads 
-						WHERE folder_path = 'E:/Dev/maxhanna/maxhanna.client/src/assets/Uploads/Meme/'
-						AND is_folder = 0
-						ORDER BY id DESC 
+						SELECT f.id 
+						FROM file_uploads f
+						LEFT JOIN file_topics ft ON f.id = ft.file_id
+						LEFT JOIN topics t ON ft.topic_id = t.id AND t.topic = 'NSFW'
+						WHERE f.folder_path = 'E:/Dev/maxhanna/maxhanna.client/src/assets/Uploads/Meme/'
+						AND f.is_folder = 0
+						AND t.id IS NULL  -- This ensures the file doesn't have the NSFW topic
+						ORDER BY f.id DESC 
 						LIMIT 1;";
 
 					using (var command = new MySqlCommand(query, connection))

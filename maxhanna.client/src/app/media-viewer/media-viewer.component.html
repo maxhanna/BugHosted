@@ -79,7 +79,7 @@
               [isDropdown]="false"
               [user]="inputtedParentRef?.user ?? parentRef?.user"
               [parent]="inputtedParentRef ?? parentRef"
-              [attachedTopics]="selectedFile?.topics"
+              [attachedTopics]="file?.topics ?? selectedFile?.topics"
               (topicClicked)="topicClicked($event)">
   </app-topics>
   <div [style]="isShowingMediaInformation ? 'padding:20px;' : 'width:100%'" [class]="isShowingMediaInformation ? 'popupPanel' : ''">

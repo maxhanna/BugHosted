@@ -32,7 +32,8 @@ namespace maxhanna.Server.Controllers
 					await connection.OpenAsync();
 
 					var commandStr = "";
-					int? reactionId = CheckIfReactionExists(connection, reactionRequest.User?.Id ?? 0, reactionRequest.CommentId, reactionRequest.StoryId, reactionRequest.MessageId, reactionRequest.FileId);
+					int? reactionId = CheckIfReactionExists(connection, reactionRequest.User?.Id ?? 0,
+						reactionRequest.CommentId, reactionRequest.StoryId, reactionRequest.MessageId, reactionRequest.FileId);
 					if (reactionId != null)
 					{ 
 						commandStr = @" UPDATE reactions 
@@ -76,10 +77,19 @@ namespace maxhanna.Server.Controllers
 		private int? CheckIfReactionExists(MySqlConnection connection, int userId, int? commentId, int? storyId, int? messageId, int? fileId)
 		{
 			string query = @"
-                SELECT id
-                FROM reactions
-                WHERE user_id = @userId
-                AND (comment_id = @commentId OR story_id = @storyId OR message_id = @messageId OR file_id = @fileId) LIMIT 1;";
+				SELECT id
+				FROM reactions
+				WHERE user_id = @userId
+				AND (
+					(comment_id = @commentId OR (@commentId IS NULL AND comment_id IS NULL))
+					AND 
+					(story_id = @storyId OR (@storyId IS NULL AND story_id IS NULL))
+					AND 
+					(message_id = @messageId OR (@messageId IS NULL AND message_id IS NULL))
+					AND 
+					(file_id = @fileId OR (@fileId IS NULL AND file_id IS NULL))
+				)
+				LIMIT 1;";
 
 			MySqlCommand command = new MySqlCommand(query, connection);
 			command.Parameters.AddWithValue("@userId", userId);
@@ -88,8 +98,11 @@ namespace maxhanna.Server.Controllers
 			command.Parameters.AddWithValue("@messageId", messageId ?? (object)DBNull.Value);
 			command.Parameters.AddWithValue("@fileId", fileId ?? (object)DBNull.Value);
 
-			var result = command.ExecuteScalar(); 
-			return result != null ? Convert.ToInt32(result) : (int?)null; 
+			Console.WriteLine(command.CommandText);
+			Console.WriteLine(string.Join(", ", command.Parameters.Cast<MySqlParameter>().Select(p => $"{p.ParameterName}: {p.Value}")));
+
+			var result = command.ExecuteScalar();
+			return result != null ? Convert.ToInt32(result) : (int?)null;
 		}
 	}
 }

@@ -52,6 +52,9 @@ export class UserListComponent extends ChildComponent implements OnInit, OnDestr
     super();
   }
   async ngOnInit() {
+    if (this.inputtedParentRef) {
+      this.parentRef = this.inputtedParentRef; 
+    }
     if (!this.searchOnly) {
       this.getChatNotifications();
       this.chatInfoInterval = setInterval(() => this.getChatNotifications(), 30 * 1000);

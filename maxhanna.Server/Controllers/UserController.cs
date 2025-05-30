@@ -388,6 +388,7 @@ namespace maxhanna.Server.Controllers
 					SELECT 
 						u.id, 
 						u.username,
+						u.last_seen,
 						udp.file_id as display_file_id
 					FROM maxhanna.users u 
 					LEFT JOIN maxhanna.user_display_pictures udp ON udp.user_id = u.id
@@ -432,12 +433,14 @@ namespace maxhanna.Server.Controllers
 				{
 					while (reader.Read())
 					{
-						users.Add(new User
+						User tmpUser = new User
 						(
 							Convert.ToInt32(reader["id"]),
 							(string)reader["username"],
 							reader.IsDBNull(reader.GetOrdinal("display_file_id")) ? null : new FileEntry(Convert.ToInt32(reader["display_file_id"]))
-						));
+						);
+						tmpUser.LastSeen = reader.IsDBNull(reader.GetOrdinal("last_seen")) ? null : reader.GetDateTime("last_seen");
+						users.Add(tmpUser);
 					}
 				}
 

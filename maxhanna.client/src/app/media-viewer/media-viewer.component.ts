@@ -73,7 +73,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
       for (let i = 0; i < componentContainers.length; i++) {
         (componentContainers[i] as HTMLDivElement).style.backgroundColor = "var(--component-background-color)";
       }
-    }
+    } 
   }
   onInView(isInView: boolean) {
     if (!this.forceInviewLoad || (this.forceInviewLoad && isInView && this.isComponentHeightSufficient())) {
@@ -122,8 +122,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
         return;
       } else {
         this.setFileSrcById(this.selectedFile.id);
-      }
-
+      } 
     }
     else if (this.file) {
       const fileObject = Array.isArray(this.file) && this.file.length > 0 ? this.file[0] : this.file;

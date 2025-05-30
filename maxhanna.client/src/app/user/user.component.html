@@ -172,7 +172,7 @@
         Latest Post:
       </div>
       <app-social #socialComponent [showOnlyPost]="true" [user]="user" [storyId]="storyId ?? this.latestSocialStoryId"
-        [parent]="parentRef" [showTopicSelector]="false"></app-social>
+        [commentId]="commentId" [parent]="parentRef" [showTopicSelector]="false"></app-social>
     </div>
 
     <div *ngIf="user && user.id == parentRef?.user?.id && parentRef?.user?.username?.includes('Guest')" class="xxSmallFont">Note: <span class="italics">Guest accounts will be deleted after 10 days.</span></div>

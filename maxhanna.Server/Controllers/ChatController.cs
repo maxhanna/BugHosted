@@ -191,6 +191,7 @@ namespace maxhanna.Server.Controllers
 						SELECT 
 							u.id, 
 							u.username,
+							u.last_seen,
 							udp.file_id as display_file_id
 						FROM maxhanna.users u 
 						LEFT JOIN maxhanna.user_display_pictures udp on udp.user_id = u.id
@@ -210,6 +211,9 @@ namespace maxhanna.Server.Controllers
 									? null
 									: new FileEntry(Convert.ToInt32(userReader["display_file_id"]));
 							users[id] = new User(id, username, dp);
+							users[id].LastSeen = userReader.IsDBNull(userReader.GetOrdinal("last_seen"))
+									? null
+									: (DateTime?)userReader.GetDateTime("last_seen");
 						}
 
 						List<User> receivers = chat.Value

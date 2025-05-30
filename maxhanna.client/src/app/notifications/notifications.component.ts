@@ -115,11 +115,13 @@ export class NotificationsComponent extends ChildComponent implements OnInit, On
     const userProfileId = notification.userProfileId;
     if (userProfileId && userProfileId != 0) {
       const storyId = notification.storyId;
+      const commentId = notification.commentId;
       console.log(storyId, userProfileId);
       this.parentRef?.closeOverlay();
       this.parentRef?.createComponent("User", { 
-        "userId": userProfileId, 
+        "userId": userProfileId,
         "storyId": storyId,
+        "commentId": commentId,
         "previousComponent": this.previousComponent,  
       }); 
     }

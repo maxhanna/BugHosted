@@ -286,7 +286,13 @@ namespace maxhanna.Server.Controllers
 			IActionResult? canSendRes = CanSendNotification(request);
 			if (canSendRes != null)
 			{
-				_ = _log.Db($"Cant send notification : " + canSendRes.ToString(), request.FromUserId, "NOTIFICATION", outputToConsole: true);
+				string errorMessage = canSendRes switch
+				{
+					BadRequestObjectResult badRequest => badRequest.Value?.ToString() ?? "Bad request",
+					ObjectResult objectResult => objectResult.Value?.ToString() ?? "Error occurred",
+					_ => canSendRes.ToString()
+				} ?? "Unknown error";
+				_ = _log.Db($"Cant send notification : " + errorMessage, request.FromUserId, "NOTIFICATION", outputToConsole: true);
 				return canSendRes;
 			} 
 

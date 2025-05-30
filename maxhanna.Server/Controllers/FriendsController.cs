@@ -29,6 +29,7 @@ namespace maxhanna.Server.Controllers
                     SELECT 
                         u.id, 
                         u.username, 
+                        u.last_seen, 
                         dp.file_id AS display_picture_file_id
                     FROM 
                         users u
@@ -48,6 +49,7 @@ namespace maxhanna.Server.Controllers
                     SELECT 
                         u.id, 
                         u.username, 
+                        u.last_seen, 
                         dp.file_id AS display_picture_file_id
                     FROM 
                         users u
@@ -80,6 +82,7 @@ namespace maxhanna.Server.Controllers
 								Username = reader.GetString("username"),
 								DisplayPictureFile = reader.IsDBNull("display_picture_file_id") ? null : new FileEntry(reader.GetInt32("display_picture_file_id"))
 							};
+							friend.LastSeen = reader.IsDBNull("last_seen") ? null : reader.GetDateTime("last_seen");
 							friends.Add(friend);
 						}
 

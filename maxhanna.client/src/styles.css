@@ -480,7 +480,7 @@ fieldset {
   font-size: small;
 }
 .xxSmallFont {
-  font-size: xx-small;
+  font-size: xx-small !important;
 }
 .largeFont {
   font-size: large;

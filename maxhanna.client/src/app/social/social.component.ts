@@ -101,6 +101,7 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
   @ViewChild(TopicsComponent) topicComponent!: TopicsComponent;
 
   @Input() storyId: number | undefined = undefined;
+  @Input() commentId: number | undefined = undefined;
   @Input() showTopicSelector: boolean = true;
   @Input() showOnlyPost: boolean = false;
   @Input() user?: User;
@@ -126,11 +127,18 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
       console.log("User ID provided:", this.user.id); 
     }
     this.parent?.addResizeListener();
+    console.log("Initializing social component with storyId:", this.storyId, "and user:", this.user);
+    const tmpStoryId = this.storyId;
+    const tmpCommentId = this.commentId;
     this.getStories().then(() => {
-      if (this.storyId && this.storyResponse && this.storyResponse.stories && this.storyResponse.stories.length > 0) {
-        const tgtStory = this.storyResponse.stories.find((story) => story.id == this.storyId);
+      console.log("Stories fetched successfully:", this.storyResponse?.stories);
+      if (tmpStoryId) {
+        console.log("Searching for target story with ID:", tmpStoryId);
+        const tgtStory = this.storyResponse?.stories?.find((story) => story.id == tmpStoryId);
         if (tgtStory) {
+          console.log("Target story found:", tgtStory);
           this.scrollToStory(tgtStory.id);
+          this.scrollToInputtedCommentId(tmpCommentId);
           const storyText = tgtStory.storyText;
           if (storyText) {
             const titleAndDescrip = this.parentRef?.replacePageTitleAndDescription(storyText.trim(), storyText);
@@ -174,9 +182,26 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
           this.isDisplayingNSFW = res.nsfwEnabled ?? false;
         }
       });
-    }
+    } 
+  }
 
-    console.log(this.previousComponent);
+  private scrollToInputtedCommentId(commentId?: number) {
+    console.log("Scrolling to comment ID:", commentId);
+    if (commentId) {
+      setTimeout(() => {
+        const subCommentElement = document.getElementById("subComment" + commentId);
+        if (subCommentElement) {
+          subCommentElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          console.log("Scrolled to sub comment element:", subCommentElement);
+        } else {
+          const parentCommentElement = document.getElementById("commentText" + commentId);
+          if (parentCommentElement) {
+            parentCommentElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            console.log("Scrolled to parent comment element:", parentCommentElement);
+          }
+        }
+      }, 1000);
+    }
   }
 
   ngOnDestroy() {

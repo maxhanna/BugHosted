@@ -29,6 +29,7 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
   @Input() user?: User | undefined;
   @Input() userId: number | null = null;
   @Input() storyId: number | undefined = undefined;
+  @Input() commentId: number | undefined = undefined;
   @Input() loginOnly?: boolean | undefined;
   @Input() inputtedParentRef?: AppComponent | undefined;
   @Input() loginReasonMessage?: string | undefined;
@@ -117,6 +118,7 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
     if (this.inputtedParentRef) {
       this.parentRef = this.inputtedParentRef;
     } 
+    console.log("ngOnInit UserComponent, userId: " + this.userId, this.commentId, this.storyId);
     this.startLoading();
     this.usersCount = await this.userService.getUserCount();
     try {

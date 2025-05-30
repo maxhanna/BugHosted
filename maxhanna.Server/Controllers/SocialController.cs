@@ -592,20 +592,22 @@ namespace maxhanna.Server.Controllers
 				return;
 			}
 			var reactionSql = @"
-        SELECT 
-            r.id AS reaction_id,
-            r.story_id AS story_id,
-            r.user_id AS user_id,
-            reactionusers.username AS user_name,
-						udp.file_id as user_display_picture_file_id,
-            r.type AS reaction_type,
-            r.timestamp AS reaction_timestamp
-        FROM 
-            reactions AS r
-            LEFT JOIN users AS reactionusers ON r.user_id = reactionusers.id
-            LEFT JOIN user_display_pictures AS udp ON udp.user_id = reactionusers.id 
-        WHERE 
-            r.story_id IN ({0})"; // Placeholder for story IDs
+				SELECT 
+					r.id AS reaction_id,
+					r.story_id AS story_id,
+					r.user_id AS user_id,
+					r.comment_id AS comment_id,
+					reactionusers.username AS user_name,
+								udp.file_id as user_display_picture_file_id,
+					r.type AS reaction_type,
+					r.timestamp AS reaction_timestamp
+				FROM 
+					reactions AS r
+					LEFT JOIN users AS reactionusers ON r.user_id = reactionusers.id
+					LEFT JOIN user_display_pictures AS udp ON udp.user_id = reactionusers.id 
+				WHERE 
+					r.story_id IN ({0})
+					AND r.comment_id IS NULL ";
 
 			var storyIds = string.Join(",", stories.Select(s => s.Id)); // Convert IDs to comma-separated string
 
@@ -636,6 +638,7 @@ namespace maxhanna.Server.Controllers
 									Username = rdr.IsDBNull("user_name") ? string.Empty : rdr.GetString("user_name"),
 									DisplayPictureFile = udpFileEntry
 								},
+								CommentId = rdr.IsDBNull("comment_id") ? null : rdr.GetInt32("comment_id"), 
 								Type = rdr.IsDBNull("reaction_type") ? string.Empty : rdr.GetString("reaction_type"),
 								Timestamp = rdr.IsDBNull("reaction_timestamp") ? DateTime.MinValue : rdr.GetDateTime("reaction_timestamp")
 							};

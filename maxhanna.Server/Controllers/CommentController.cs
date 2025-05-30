@@ -168,7 +168,7 @@ namespace maxhanna.Server.Controllers
         LEFT JOIN comment_files AS cf ON cf.comment_id = c.id
         LEFT JOIN file_uploads AS f ON cf.file_id = f.id 
         LEFT JOIN users AS fu ON f.user_id = fu.id
-        LEFT JOIN reactions AS r ON c.id = r.comment_id
+        LEFT JOIN reactions AS r ON c.id = r.comment_id AND r.comment_id IS NULL
         LEFT JOIN users AS ru ON r.user_id = ru.id   
         WHERE c.comment_id = @commentId
         ORDER BY c.id, r.id, cf.file_id;");

@@ -42,7 +42,7 @@
           <div *ngIf="notification.storyId" (click)="notification.userProfileId ? viewProfileByNotification(notification) : goToStoryId(notification)" class="usernameProfileLink cursorPointerUnderlined fileId">
             <strong>Post ID:</strong> {{ notification.storyId }}
           </div>
-          <div *ngIf="notification.commentId" (click)="goToCommentId(notification)" class="usernameProfileLink cursorPointerUnderlined fileId">
+          <div *ngIf="notification.commentId" (click)="notification.userProfileId ? viewProfileByNotification(notification) : goToCommentId(notification)" class="usernameProfileLink cursorPointerUnderlined fileId">
             <strong>Comment ID:</strong> {{ notification.commentId }}
           </div>
           <div *ngIf="notification.userProfileId" (click)="viewProfileByNotification(notification)" class="usernameProfileLink cursorPointerUnderlined fileId">

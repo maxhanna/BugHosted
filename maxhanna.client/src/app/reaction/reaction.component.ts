@@ -141,11 +141,12 @@ export class ReactionComponent extends ChildComponent implements OnInit {
     tmpReaction.storyId = this.storyId;
     tmpReaction.commentId = this.commentId;
     tmpReaction.fileId = this.fileId;
+    tmpReaction.userProfileId = this.userProfileId;
     tmpReaction.user = this.user ?? new User(0, "Anonymous");
     tmpReaction.type = reaction;
     tmpReaction.timestamp = new Date();
 
-    const res = await this.reactionService.addReaction(tmpReaction).then(res => {
+    await this.reactionService.addReaction(tmpReaction).then(res => {
       if (res) {
         tmpReaction.id = parseInt(res);
       
@@ -175,6 +176,10 @@ export class ReactionComponent extends ChildComponent implements OnInit {
     let targetNotificationUserIds: number[] = [];
     let notificationData: any = {
       fromUserId: fromUser.id,
+      commentId: this.commentId,
+      storyId: this.storyId,
+      fileId: this.component.fileId ?? this.fileId,
+      chatId: this.messageId ? (this.component as Message).chatId : undefined,
       message: `New reaction from ${fromUser.username}`,
       userProfileId: this.userProfileId,
     };
@@ -183,17 +188,17 @@ export class ReactionComponent extends ChildComponent implements OnInit {
 
     if (this.fileId && (this.component as FileEntry).user?.id !== 0) {
       targetNotificationUserIds = [(this.component as FileEntry).user?.id!];
-      notificationData = { ...notificationData, toUserIds: targetNotificationUserIds, fileId: this.fileId };
+      notificationData = { ...notificationData, toUserIds: targetNotificationUserIds };
     } else if (this.storyId) {
       targetNotificationUserIds = [(this.component as Story).user?.id ?? 0];
-      notificationData = { ...notificationData, toUserIds: targetNotificationUserIds, storyId: this.storyId };
+      notificationData = { ...notificationData, toUserIds: targetNotificationUserIds };
     } else if (this.commentId) {
       targetNotificationUserIds = [(this.component as FileComment).user?.id ?? 0];
-      notificationData = { ...notificationData, toUserIds: targetNotificationUserIds, commentId: this.commentId };
+      notificationData = { ...notificationData, toUserIds: targetNotificationUserIds };
     } else if (this.messageId) {
       const sender = (this.component as Message).sender;
       targetNotificationUserIds = [sender.id ?? 0];
-      notificationData = { ...notificationData, toUserIds: targetNotificationUserIds, chatId: (this.component).chatId };
+      notificationData = { ...notificationData, toUserIds: targetNotificationUserIds };
     }
     if (targetNotificationUserIds.length > 0) {
       this.notificationService.createNotifications(notificationData);
@@ -201,16 +206,10 @@ export class ReactionComponent extends ChildComponent implements OnInit {
   }
 
   getReactionsListDisplay() {
-    if (this.currentReactions && this.currentReactions.length > 0) {
-      this.reactionCount = this.currentReactions.length;
-      this.reactionsDisplay = this.currentReactions.map(x => this.replaceReactionType(x.type)).join(',');
-      const foundReaction = this.currentReactions.find(x => (x.user?.id ?? 0) === (this.user?.id ?? 0));
-      if (foundReaction) {
-        this.userReaction = foundReaction.type ?? '';
-      }
-    }
-    if (this.inputtedParentRef) {
-      const emojiMapArray = Object.entries(this.inputtedParentRef?.emojiMap).map(([key, emoji]) => ({
+
+    const parent = this.inputtedParentRef ?? this.parentRef;
+    if (parent) {
+      const emojiMapArray = Object.entries(parent.emojiMap).map(([key, emoji]) => ({
         type: key.replace(/[:\-]/g, ''), // Remove colons and dashes to create a suitable type
         emoji: emoji,
         label: key // Use the original key as the label for now
@@ -218,10 +217,21 @@ export class ReactionComponent extends ChildComponent implements OnInit {
 
       // Merge both lists, ensuring no duplicates based on the emoji value
       const emojiSet = new Set(this.reactions.map(r => r.emoji));
+      //console.log("Emoji Set:", emojiSet);
       const mergedReactions = [...this.reactions, ...emojiMapArray.filter(e => !emojiSet.has(e.emoji))];
       this.filteredReactions = [...mergedReactions];
       this.reactions = [...mergedReactions];
     } 
+
+    if (this.currentReactions && this.currentReactions.length > 0) {
+      console.log("Current reactions:", this.currentReactions);
+      this.reactionCount = this.currentReactions.length;
+      this.reactionsDisplay = this.currentReactions.map(x => this.replaceReactionType(x.type)).join(',');
+      const foundReaction = this.currentReactions.find(x => (x.user?.id ?? 0) === (this.user?.id ?? 0));
+      if (foundReaction) {
+        this.userReaction = foundReaction.type ?? '';
+      }
+    }
   }
   reactionDisplayOnClick() { 
     this.showReactionChoices = !this.showReactionChoices;
@@ -273,11 +283,14 @@ export class ReactionComponent extends ChildComponent implements OnInit {
     }
   }
   replaceReactionType(type?: string) {
+    console.log("Replacing reaction type:", type);
     if (type) {
       const t = type.toLowerCase();
       const reaction = this.reactions.find(r => r.type === t);
+      console.log("Found reaction:", reaction);
       return reaction ? reaction.emoji : '';
     }
+    console.log("No reaction type provided, returning empty string.");
     return '';
   }
 
