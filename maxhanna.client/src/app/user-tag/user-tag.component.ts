@@ -1,4 +1,4 @@
-import { Component, ElementRef, Input, OnChanges, OnInit, SimpleChanges, ViewChild } from '@angular/core'; 
+import { Component, ElementRef, EventEmitter, Input, OnChanges, OnDestroy, OnInit, Output, SimpleChanges, ViewChild } from '@angular/core'; 
 import { AppComponent } from '../app.component';
 import { ChildComponent } from '../child.component';
 import { User } from '../../services/datacontracts/user/user';
@@ -11,7 +11,7 @@ import { UserService } from '../../services/user.service';
     styleUrl: './user-tag.component.css',
     standalone: false
 })
-export class UserTagComponent extends ChildComponent implements OnInit, OnChanges {
+export class UserTagComponent extends ChildComponent implements OnInit, OnDestroy, OnChanges {
   @Input() user?: User;
   @Input() userId?: number;
   @Input() inputtedParentRef?: AppComponent;
@@ -23,8 +23,13 @@ export class UserTagComponent extends ChildComponent implements OnInit, OnChange
   @Input() preventOpenProfile = false;
   @Input() preventExpandPicture = true;
   @Input() hideName = false;
-  @Input() displayTinyPicture = false; 
+  @Input() displayTinyPicture = false;
+  @Input() displayHoverPicture = false;
+  @Output() userLoaded = new EventEmitter<User>();
   @ViewChild('profileImageViewer') profileImageViewer!: MediaViewerComponent;
+
+  popupTop: number = 0;
+  popupLeft: number = 0;
 
   constructor(private userService: UserService) { super(); }
   async ngOnInit() { 
@@ -33,28 +38,60 @@ export class UserTagComponent extends ChildComponent implements OnInit, OnChange
       await this.userService.getUserById(this.user.id).then(res => {
         if (res) {
           this.user = res;
+          this.userLoaded.emit(this.user);
         }
       });
     } else if (this.userId) {  
       await this.userService.getUserById(this.userId).then(res => {
         if (res) {
           this.user = res;
+          this.userLoaded.emit(this.user);
         }
       }); 
     }
   }
-
+  ngOnDestroy() { 
+    this.onUserTagLeave();
+  }
+ 
   ngOnChanges(changes: SimpleChanges) { 
     if (changes['user'] && !changes['user'].firstChange && this.profileImageViewer) {
       this.user = changes["user"].currentValue;
       this.profileImageViewer.fileSrc = undefined;
       this.profileImageViewer.selectedFileSrc = '';
       this.profileImageViewer.file = undefined;
-      this.profileImageViewer.fileId = this.user?.displayPictureFile?.id; 
+      this.profileImageViewer.fileId = this.user?.displayPictureFile?.id;  
+      this.userLoaded.emit(this.user);
 
       setTimeout(() => {
         this.profileImageViewer.fetchFileSrc();
       }, 10)
+    }
+  }
+
+  onUserTagHover(event: any) {
+    if (!this.user?.id) return;
+    clearTimeout(this.debounceTimer);
+    this.debounceTimer = setTimeout(async () => {
+      const btn = document.getElementById("showUserTagButton");
+      const inputX = document.getElementById("showUserTagX") as HTMLInputElement;
+      const inputY = document.getElementById("showUserTagY") as HTMLInputElement; 
+      (document.getElementById("showUserTagUserId") as HTMLInputElement).value = this.user?.id?.toString() || '0'; 
+      const newX = event.clientX + 150;
+      const newY = event.clientY + 30;
+      if (btn) {
+        btn.click(); 
+        inputX.value = newX; // 10px right of cursor
+        inputY.value = newY; // 10px below cursor  
+      }
+    }, 500);
+   
+  }
+  onUserTagLeave() {
+    if (!this.user?.id) return;
+    const btn = document.getElementById("hideUserTagButton");
+    if (btn) {
+      btn.click(); 
     }
   }
 }

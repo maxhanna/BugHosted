@@ -476,13 +476,14 @@ fieldset {
 .italics {
   font-style: italic;
 }
-
 .smallFont {
   font-size: small;
 }
-
 .xxSmallFont {
   font-size: xx-small;
+}
+.largeFont {
+  font-size: large;
 }
 
 .capitalize {

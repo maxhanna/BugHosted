@@ -28,7 +28,10 @@
     <div [class]="'notificationsListContainer ' + (minimalInterface ? 'notificationsList' : '')" *ngIf="notifications && notifications.length > 0">
       <div *ngFor="let notification of notifications" class="notificationListItem" [style.opacity]="notification.isRead ? '50%' : '100%'">
         <div class="nliLeftDiv">
-          <app-user-tag [user]="notification.fromUser" [inputtedParentRef]="inputtedParentRef ?? parentRef" [previousComponent]="previousComponent"></app-user-tag>
+          <app-user-tag [user]="notification.fromUser" 
+            [inputtedParentRef]="inputtedParentRef ?? parentRef"
+            [previousComponent]="previousComponent" 
+            [displayHoverPicture]="true"></app-user-tag>
         </div>
         <div class="nliRightDiv">
           <button title="Delete Notification" (click)="delete(notification)" class="deleteNotificationButton">❌</button>
@@ -36,7 +39,7 @@
           <div *ngIf="notification.fileId" (click)="goToFileId(notification)" class="usernameProfileLink cursorPointerUnderlined fileId">
             <strong>File ID:</strong> {{ notification.fileId }}
           </div>
-          <div *ngIf="notification.storyId" (click)="viewProfileByNotification(notification)" class="usernameProfileLink cursorPointerUnderlined fileId">
+          <div *ngIf="notification.storyId" (click)="notification.userProfileId ? viewProfileByNotification(notification) : goToStoryId(notification)" class="usernameProfileLink cursorPointerUnderlined fileId">
             <strong>Post ID:</strong> {{ notification.storyId }}
           </div>
           <div *ngIf="notification.commentId" (click)="goToCommentId(notification)" class="usernameProfileLink cursorPointerUnderlined fileId">

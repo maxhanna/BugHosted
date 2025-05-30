@@ -264,6 +264,21 @@ export class UserService {
     }
   }
 
+  async updateProfileBackgroundPicture(userId: number, fileId: number) {
+    try {
+      const response = await fetch('/user/updateprofilebackgroundpicture', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ userId, fileId }),
+      });
+
+      return await response.text();
+    } catch (error) {
+      return '';
+    }
+  }
 
   async getUserSettings(userId: number): Promise<UserSettings | undefined> {
     try {

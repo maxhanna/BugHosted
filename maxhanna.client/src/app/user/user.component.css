@@ -1,16 +1,16 @@
-.componentMain {
-  min-width: 350px;
-}
+/* .componentMain {
+  min-width: 350px; 
+} */
 
 .componentMainFullHeight {
   height: CALC(var(--vh, 1vh) * 100 - 65px);
 }
-
+/* 
 @media only screen and (max-width : 667px) {
   .componentMain {
     width: unset !important;
   }
-}
+} */
 
 .userProfileContents {
   max-height: CALC(var(--vh, 1vh) * 100 - 65px);
@@ -145,15 +145,14 @@
   text-align: right;
 }
 
-.profileHeader {
-  width: 100%;
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  flex-wrap: nowrap;
-  gap: clamp(0px, 3vw, 20px);
-  justify-content: center;
+.profileHeader {width: 100%;
   margin-bottom: 10px;
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  align-content: center;
 }
 
 .emptyUserTagLogo {
@@ -177,6 +176,23 @@
   align-items: center;
   flex-wrap: nowrap;
   min-width: 230px;
+  background: rgba(255, 255, 255, 0.1);
+    padding: 4px 8px;
+    /* Adjust as needed */
+    border-radius: 4px;
+    /* Optional: rounded corners */
+}
+
+.profileHeaderContents { 
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  flex-wrap: nowrap;
+  gap: clamp(0px, 3vw, 20px);
+  justify-content: center;
+  max-width: 443px;
+  /* padding-right: 50px;
+  padding-left: 50px; */
 }
 
 .popupPanel {
@@ -439,4 +455,18 @@
   color: var(--secondary-font-color);
 }
 
- 
+.profileBackgroundContainer {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh; 
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  z-index: -1;
+  /* opacity: 0.2; */
+  /* Adjust opacity as needed */
+  /*filter: blur(8px);*/
+  /* Optional blur effect */
+}

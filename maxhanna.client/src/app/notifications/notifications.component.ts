@@ -162,9 +162,10 @@ export class NotificationsComponent extends ChildComponent implements OnInit, On
           notification.isRead = false;
           this.unreadNotifications++;
           await this.notificationService.unreadNotifications(parent.user.id ?? 0, [notification.id]);
-        } else {
+        } else if (!notification.isRead) {
           notification.isRead = true;
           this.unreadNotifications--;
+          console.log("reading notification: ", notification.id);
           await this.notificationService.readNotifications(parent.user.id ?? 0, [notification.id]);
         }
       } else {

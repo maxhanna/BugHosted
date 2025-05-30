@@ -39,6 +39,21 @@ export class NavigationComponent implements OnInit, OnDestroy {
   isLoadingWordlerStreak = false;
   isLoadingCalendar = false;
   numberOfNotifications = 0;
+  defaultTheme = {
+    backgroundColor: '#0e0e0e',
+    componentBackgroundColor: '#202020',
+    secondaryComponentBackgroundColor: '#011300',
+    fontColor: '#b0c2b1',
+    secondaryFontColor: '#ffffff',
+    thirdFontColor: 'cornflowerblue',
+    mainHighlightColor: '#3a3a3a',
+    mainHighlightColorQuarterOpacity: '#a9a9a9',
+    linkColor: 'chartreuse',
+    fontSize: 16,
+    fontFamily: 'Helvetica, Arial',
+    backgroundImage: '',
+    name: 'default'
+  };
   @Input() user?: User;
 
   constructor(public _parent: AppComponent,
@@ -189,13 +204,27 @@ export class NavigationComponent implements OnInit, OnDestroy {
     this.isLoadingNotifications = false;
   }
 
-  async getThemeInfo() {
-    if (!this._parent?.user?.id) return;
+  async getThemeInfo(userId?: number) {
+    if (!this._parent?.user?.id && !userId) return;
     this.isLoadingTheme = true;
     try {
-      const theme = await this.userService.getTheme(this._parent.user.id);
+      const theme = await this.userService.getTheme(userId ?? this._parent?.user?.id ?? 0);
       if (theme && !theme.message) {
         this.applyThemeToCSS(theme);
+      } else {
+        document.documentElement.style.setProperty('--main-background-image-url', this.defaultTheme.backgroundImage);
+        document.body.style.backgroundImage = ``;
+        document.documentElement.style.setProperty('--main-bg-color', this.defaultTheme.backgroundColor);
+        document.documentElement.style.setProperty('--component-background-color', this.defaultTheme.componentBackgroundColor);
+        document.documentElement.style.setProperty('--secondary-component-background-color', this.defaultTheme.secondaryComponentBackgroundColor);
+        document.documentElement.style.setProperty('--main-font-color', this.defaultTheme.fontColor);
+        document.documentElement.style.setProperty('--secondary-font-color', this.defaultTheme.secondaryFontColor);
+        document.documentElement.style.setProperty('--third-font-color', this.defaultTheme.thirdFontColor);
+        document.documentElement.style.setProperty('--main-highlight-color', this.defaultTheme.mainHighlightColor);
+        document.documentElement.style.setProperty('--main-highlight-color-quarter-opacity', this.defaultTheme.mainHighlightColorQuarterOpacity);
+        document.documentElement.style.setProperty('--main-link-color', this.defaultTheme.linkColor);
+        document.documentElement.style.setProperty('--main-font-size', `${this.defaultTheme.fontSize}px`);
+        document.documentElement.style.setProperty('--main-font-family', this.defaultTheme.fontFamily);
       }
     } catch (error) {
       console.error('Error fetching theme data:', error);
@@ -381,11 +410,16 @@ export class NavigationComponent implements OnInit, OnDestroy {
       this.fileService.getFileEntryById(theme.backgroundImage).then(res => {
         if (res) {
           const directLink = `https://bughosted.com/assets/Uploads/${(this._parent.getDirectoryName(res) != '.' ? this._parent.getDirectoryName(res) : '')}${res.fileName}`;
-          document.documentElement.style.setProperty('--main-background-image-url', `url(${directLink})`);
-
+          document.documentElement.style.setProperty('--main-background-image-url', `url(${directLink})`); 
           document.body.style.backgroundImage = `url(${directLink})`;
+        } else {
+          document.documentElement.style.setProperty('--main-background-image-url', `none`);
+          document.body.style.backgroundImage = `none`;
         }
       });
+    } else {
+      document.documentElement.style.setProperty('--main-background-image-url', `none`); 
+      document.body.style.backgroundImage = `none`;
     }
     if (theme.backgroundColor) {
       document.documentElement.style.setProperty('--main-bg-color', theme.backgroundColor);

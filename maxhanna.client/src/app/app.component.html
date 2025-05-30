@@ -24,9 +24,10 @@
   <button id="closeOverlay" (click)="closeYoutubePopup()">Close</button>
 </div>
 
+<!-- POLL POPUP PANEL -->
 <div class="popupPanel pollPopupPanel" *ngIf="pollChecked" (click)="pollChecked = false; closeOverlay();">
   <span class="closeButton" id="closeOverlay" (click)="pollChecked = false; closeOverlay();"></span>
-  <div class="popupContent" (click)="$event.stopPropagation()">  
+  <div class="popupContent" (click)="$event.stopPropagation()">
     <h2 class="pollTitle">Poll Results</h2>
 
     <div *ngIf="pollResults" class="pollResults">
@@ -38,14 +39,14 @@
             <span class="option-text">{{ option.value }}</span>
             <span class="option-votes">({{ option.voteCount }} votes)</span>
           </div>
-          <div class="vote-bar-container"> 
+          <div class="vote-bar-container">
             <div class="vote-bar" [style.width.%]="(option.voteCount / pollResults.totalVoters) * 100">
-                <div class="percentage">
-                  {{ (option.voteCount / pollResults.totalVoters * 100).toFixed(1) }}%
-                </div>
+              <div class="percentage">
+                {{ (option.voteCount / pollResults.totalVoters * 100).toFixed(1) }}%
+              </div>
             </div>
           </div>
-          
+
         </div>
       </div>
 
@@ -54,6 +55,52 @@
       </div>
     </div>
   </div>
+</div>
+<!-- USER TAG POPUP PANEL -->
+<div class="popupPanel userTagPopupPanel" [style.left.px]="showUserTagX ? showUserTagX.value : 0" [style.top.px]="showUserTagY ? showUserTagY.value : 0"
+  *ngIf="isShowingUserTagPopup" (click)="isShowingUserTagPopup = false;" (touchend)="isShowingUserTagPopup = false;">
+  <div class="user-tag-background-overlay">
+    <app-media-viewer [displayExpander]="false" [displayExtraInfo]="false" [showCommentSection]="false"
+      [inputtedParentRef]="this" [file]="popupUserTagUser?.profileBackgroundPictureFile">
+    </app-media-viewer>
+  </div>
+  <div class="user-tag-content-wrapper">
+    <div style="display: flex; justify-content: space-between; gap:20px;">
+      <div>
+        <app-user-tag [userId]="showUserTagUserId ? parseInteger(showUserTagUserId.value) : 0" [inputtedParentRef]="this"
+          (userLoaded)="userTagUserLoaded($event)" [preventOpenProfile]="true"></app-user-tag>
+      </div>
+      <div *ngIf="popupUserTagUser" class="popupUserTagInfo">
+        <div class="seperatedUserHeader" *ngIf="popupUserTagUser?.about?.currency">
+          {{ (popupUserTagUser.about?.currency ?? '') | currencyFlag }}
+        </div>
+        <div>{{ popupUserTagUser.about?.description }}</div>
+        <div class="invertedHighlights xxSmallFont">Last Seen: </div>
+        <div>
+          <span *ngIf="popupUserTagUser && popupUserTagUser.lastSeen && isUserOnline(popupUserTagUser.lastSeen | timeSince)"
+            class="cursorPointer" [title]="popupUserTagUser.lastSeen | timeSince">
+            <span class="glowing onlineButton">🟢</span> Online
+          </span>
+          <span
+            *ngIf="popupUserTagUser && popupUserTagUser.lastSeen && !isUserOnline(popupUserTagUser.lastSeen | timeSince)"
+            class="invertedHighlights smallFont">
+            {{ popupUserTagUser.lastSeen | timeSince }}
+          </span>
+          <span *ngIf="!popupUserTagUser?.lastSeen">
+            Unknown <span class="invertedHighlights xxSmallFont">(0 days)</span>
+          </span>
+        </div>
+        <div class="seperatedUserHeader">
+          <div class="invertedHighlights xxSmallFont">Joined: </div>
+          <div
+            [title]="(popupUserTagUser && popupUserTagUser.created ? (popupUserTagUser.created | date: 'y/MM/d') : 'Unknown')"
+            class="smallFont thirdFontColor cursorPointer">
+            {{(popupUserTagUser && popupUserTagUser.created ? popupUserTagUser.created : '0 days') | timeSince}}
+          </div>
+        </div>
+      </div>
+      </div>
+  </div> 
 </div>
 
 <input type="hidden" id="hiddenUrlToVisit" />
@@ -75,3 +122,8 @@
 <input type="hidden" id="pollQuestion" />
 <button type="button" id="pollCheckClickedButton" style="display: none;" (click)="handlePollCheckClicked()"></button>
 <button type="button" id="pollDeleteButton" style="display: none;" (click)="handlePollDeleteClicked()"></button>
+<button type="button" id="showUserTagButton" style="display: none;" (click)="isShowingUserTagPopup = !isShowingUserTagPopup"></button>
+<button type="button" id="hideUserTagButton" style="display: none;" (click)="isShowingUserTagPopup = false"></button>
+<input type="hidden" id="showUserTagX" #showUserTagX />
+<input type="hidden" id="showUserTagY" #showUserTagY />
+<input type="hidden" id="showUserTagUserId" #showUserTagUserId />

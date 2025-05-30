@@ -88,6 +88,7 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
   latestSocialStoryId?: number = undefined;
   wordlerHighScores?: any = undefined;
   latestMemeId?: number = undefined;
+  changedTheme = false;
 
   constructor(private userService: UserService,
     private nexusService: NexusService,
@@ -144,6 +145,8 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
         if (this.user.id == this.parentRef?.user?.id && this.user.id != 0 && this.user.id !== undefined) {
           this.notificationService.getStoppedNotifications(this.user.id).then(res => this.stoppedNotifications = res);
         }
+        this.changeTheme();
+        this.setBackgroundImage();
       }
       if (!this.user) { 
         const lidRes = await this.socialService.getLatestStoryId();
@@ -163,6 +166,7 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
     }
     catch (error) { console.log((error as Error).message); }
     this.stopLoading();
+    console.log("story id: "  + this.storyId);
 
     document.addEventListener('DOMContentLoaded', function () {
       if (/iPhone|iPad|iPod/i.test(navigator.userAgent)) {
@@ -175,6 +179,26 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
     });
   }
 
+
+  private async changeTheme() {
+    if (this.user?.id != this.parentRef?.user?.id && this.user?.id !== undefined) {
+      const theme = await this.userService.getTheme(this.user?.id);
+      if (theme && !theme.message) { 
+        console.log("got users: " + this.user?.id + " theme: " + theme);  
+        this.parentRef?.navigationComponent.getThemeInfo(this.user.id ?? 0);
+        this.changedTheme = true;
+      }
+    }
+  }
+
+  private setBackgroundImage() {
+    if (this.user?.profileBackgroundPictureFile?.id) {
+      const element = document.querySelector('.componentMain') as HTMLDivElement;
+      if (element) {
+        element.style.setProperty('background-color', 'unset', 'important');
+      } 
+    }
+  }
 
   private async loadLocation(user: User) {
     let gotLoc = false;
@@ -199,6 +223,9 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
         parent.navigationComponent.getNotifications();
       }
     }
+    if (this.changedTheme) {  
+      this.parentRef?.navigationComponent.getThemeInfo(this.parentRef.user?.id ?? 0);
+    } 
   }
 
   override remove_me(title: string) {
@@ -730,23 +757,8 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
     this.socialComponent.getStories(undefined, undefined, undefined, undefined, undefined, showHidden);
   }
   isUserOnline(lastSeen: string): boolean {
-    // Parse duration string like "2d 8h 51m" into minutes
-    let days = 0, hours = 0, minutes = 0;
-
-    const dayMatch = lastSeen.match(/(\d+)d/);
-    if (dayMatch) days = parseInt(dayMatch[1]);
-
-    const hourMatch = lastSeen.match(/(\d+)h/);
-    if (hourMatch) hours = parseInt(hourMatch[1]);
-
-    const minuteMatch = lastSeen.match(/(\d+)m/);
-    if (minuteMatch) minutes = parseInt(minuteMatch[1]);
-
-    // Convert everything to minutes
-    minutes = (days * 24 * 60) + (hours * 60) + minutes;
-
-    // Return true if last seen < 10 minutes ago
-    return minutes < 10;
+    const parent = this.inputtedParentRef ?? this.parentRef;
+    return parent?.isUserOnline(lastSeen) ?? false;
   }
 
   private getNSFWValue() {

@@ -136,12 +136,11 @@ export class CommentsComponent extends ChildComponent implements OnInit {
     }
     this.sendNotifications(comment);
   }
-  private async sendNotifications(comment: FileComment, text?: string, replyingTo?: User, newCommentId?: number) {
-    console.log("sendNotifications", comment);  
+  private async sendNotifications(comment: FileComment, text?: string, replyingTo?: User[], newCommentId?: number) {
     const parent = this.inputtedParentRef ?? this.parentRef;
     const user = parent?.user;
 
-    const replyingToUser = replyingTo ?? this.component?.user;
+    const replyingToUser = replyingTo ?? [this.component?.user];
     const isStory = this.type == "Social" || this.component?.storyId;
     const fromUserId = user?.id ?? 0;
     const message = text ?? (!comment || !comment.commentText) ? (isStory || this.userProfileId) ? "Social Post Comment" : "File Comment"
@@ -150,7 +149,7 @@ export class CommentsComponent extends ChildComponent implements OnInit {
     if (replyingToUser) {
       const notificationData = {
         fromUserId: fromUserId,
-        toUserIds: [replyingToUser.id],
+        toUserIds: replyingToUser.map((x : User) => x.id) as number[],
         message: message,
         storyId: comment.storyId ?? this.component.storyId,
         fileId: comment.fileId,
@@ -162,7 +161,7 @@ export class CommentsComponent extends ChildComponent implements OnInit {
     const mentionnedUsers = await parent?.getUsersByUsernames(comment.commentText ?? "");
     if (mentionnedUsers && mentionnedUsers.length > 0) {
       console.log("mentionned:", mentionnedUsers);
-      const mentionnedUserIds = mentionnedUsers.filter(x => x.id != replyingToUser.id).map(x => x.id);
+      const mentionnedUserIds = mentionnedUsers.filter(x => !replyingToUser.filter((y: User) => y.id != x.id)).map(x => x.id);
       if (mentionnedUserIds.length > 0) {
         const notificationData: any = {
           fromUserId: fromUserId,
@@ -327,8 +326,7 @@ export class CommentsComponent extends ChildComponent implements OnInit {
     return count;
   }
 
-  async replyToComment(comment: FileComment) {
-    console.log("replyToComment", comment);
+  async replyToComment(comment: FileComment) { 
     const parent = this.inputtedParentRef ?? this.parentRef;
     const user = parent?.user ?? new User(0, "Anonymous");
     parent?.updateLastSeen();
@@ -358,12 +356,16 @@ export class CommentsComponent extends ChildComponent implements OnInit {
           this.commentInputAreaMediaSelector.selectedFiles = [];
         }
         this.replyingToCommentIds = this.replyingToCommentIds.filter(x => x != comment.id);
-        let repliedUserIds: number[] = [];
-        for (let i = 0; i < comment.comments.length; i++) {
-          if (comment.comments[i].user.id != user.id && !repliedUserIds.includes(comment.comments[i].user.id ?? 0)) {
-            this.sendNotifications(comment, text, comment.comments[i].user, id);
-            repliedUserIds.push(comment.comments[i].user.id ?? 0);
-          }
+        const repliedUsers = [
+          ...new Set([
+            ...comment.comments
+              .filter(c => c.user.id !== user.id)
+              .map(c => c.user),
+            comment.user
+          ])
+        ];
+        if (repliedUsers.length > 0) {
+          this.sendNotifications(comment, text, repliedUsers, id); 
         }
       }
     }

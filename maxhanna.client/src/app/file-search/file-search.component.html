@@ -312,7 +312,8 @@
       <div class="optionsStatsDescription">
         <app-user-tag [user]="optionsFile.user"
                       [inputtedParentRef]="parentRef ?? inputtedParentRef"
-                      [displayMiniTag]="true"
+                      [displayMiniTag]="true" 
+                      [displayHoverPicture]="true"
                       [previousComponent]="previousComponent"></app-user-tag>
       </div>
     </div>
@@ -331,7 +332,8 @@
       <div class="optionsStatsDescription">
         <app-user-tag [user]="optionsFile.lastUpdatedBy"
                       [inputtedParentRef]="parentRef ?? inputtedParentRef"
-                      [displayMiniTag]="true"
+                      [displayMiniTag]="true" 
+                      [displayHoverPicture]="true"
                       [previousComponent]="previousComponent"></app-user-tag>
       </div>
     </div>
@@ -419,7 +421,8 @@
   </div>
   <div *ngFor="let viewer of fileViewers" class="fileViewerDiv">
     <app-user-tag [user]="viewer"
-      [inputtedParentRef]="parentRef ?? inputtedParentRef" 
+      [inputtedParentRef]="parentRef ?? inputtedParentRef"  
+      [displayHoverPicture]="true"
       [previousComponent]="previousComponent"></app-user-tag>
   </div>
   <button id="closeOverlay" (click)="closeFileViewers()">Close</button>

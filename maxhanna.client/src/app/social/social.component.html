@@ -70,6 +70,7 @@
         <div style="display: flex; margin: 10px;">
           <div>
             <app-user-tag [user]="parentRef?.user" [inputtedParentRef]="parentRef ?? parent"
+              [displayHoverPicture]="true"
               [previousComponent]="'Social'"></app-user-tag>
           </div>
           <div
@@ -321,7 +322,10 @@
         <div class="optionsStatsDiv">
           <div class="optionsStatsHeader">Created By:</div>
           <div class="optionsStatsDescription">
-            <app-user-tag [user]="optionStory.user" [inputtedParentRef]="parentRef ?? parent" [displayMiniTag]="true"
+            <app-user-tag [user]="optionStory.user" 
+              [displayHoverPicture]="true"
+              [inputtedParentRef]="parentRef ?? parent" 
+              [displayMiniTag]="true"
               [previousComponent]="'Social'"></app-user-tag>
           </div>
         </div>
@@ -427,6 +431,7 @@
         <div class="storyHeader">
           <span style="padding-right: 10px;display: flex;align-items: center;" (click)="viewProfile(story.user, 'Social')">
             <app-user-tag [user]="story.user" [inputtedParentRef]="parentRef ?? parent" [displayMiniTag]="true"
+              [displayHoverPicture]="true"
               [previousComponent]="'Social'"></app-user-tag>
           </span>
           <div class="storyDate" [title]="(story.date?.toString() ?? '')">

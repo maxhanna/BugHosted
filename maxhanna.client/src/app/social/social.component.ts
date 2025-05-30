@@ -119,7 +119,11 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
       this.parentRef = this.parent;
     }
     if (this.storyId) {
+      console.log("Story ID provided:", this.storyId);
       this.openedStoryComments.push(this.storyId);
+    }
+    if (this.user?.id) {
+      console.log("User ID provided:", this.user.id); 
     }
     this.parent?.addResizeListener();
     this.getStories().then(() => {
@@ -186,13 +190,19 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
       this.userProfileId = this.user.id;
       this.componentMain.nativeElement.style.paddingTop = "0px";
       this.componentMain.nativeElement.classList.add("mobileMaxHeight");
-      (document.getElementsByClassName('storyInputDiv')[0] as HTMLDivElement).style.marginTop = "0px";
-      (document.getElementsByClassName('componentMain')[0] as HTMLDivElement).style.border = "unset";
+      if (document.getElementsByClassName('storyInputDiv')[0]) { 
+        (document.getElementsByClassName('storyInputDiv')[0] as HTMLDivElement).style.marginTop = "0px";
+      }
+      if (document.getElementsByClassName('componentMain')[0]) { 
+        (document.getElementsByClassName('componentMain')[0] as HTMLDivElement).style.border = "unset";
+      }
     }
     if (this.showOnlyPost) {
       this.componentMain.nativeElement.style.paddingTop = "0px";
       this.componentMain.nativeElement.classList.add("mobileMaxHeight");
-      (document.getElementsByClassName('componentMain')[0] as HTMLDivElement).style.border = "unset";
+      if (document.getElementsByClassName('componentMain')[0]) { 
+        (document.getElementsByClassName('componentMain')[0] as HTMLDivElement).style.border = "unset";
+      }
     }
   }
   async delete(story: Story) {
@@ -319,6 +329,7 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
       storyId = parseInt(this.searchIdInput.nativeElement.value);
     } else if (this.storyId) {
       storyId = this.storyId;
+      console.log("Using storyId from input:", storyId);
       this.wasFromSearchId = true;
     }
     this.storyId = undefined;

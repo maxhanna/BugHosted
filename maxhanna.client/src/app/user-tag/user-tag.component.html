@@ -1,4 +1,7 @@
-<div class="cursorPointer userTag {{displayMiniTag ? 'miniTag' : ''}}" (click)="preventOpenProfile ? '' : viewProfile(user, previousComponent)">
+<div class="cursorPointer userTag {{displayMiniTag ? 'miniTag' : ''}}" 
+(mouseenter)="displayHoverPicture ? onUserTagHover($event) : ''" 
+(mouseout)="onUserTagLeave()"
+  (click)="preventOpenProfile ? '' : viewProfile(user, previousComponent)">
   <div class="{{displayMiniTag ? 'miniAvatar' : 'largeAvatar'}}" *ngIf="!displayOnlyName">
     <div class="displayPicture {{displayLargeAvatar ? 'largeAvatar' : ''}} {{displayMiniTag ? 'miniAvatarPic' : ''}} {{displayTinyPicture ? 'tinyAvatarPic' : ''}}" *ngIf="user && user.id != 0 && user.displayPictureFile && user.displayPictureFile.id != 0 && !displayEmptyAvatar">
       <app-media-viewer #profileImageViewer

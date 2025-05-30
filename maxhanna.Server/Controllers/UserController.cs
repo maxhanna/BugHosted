@@ -117,6 +117,7 @@ namespace maxhanna.Server.Controllers
                         SELECT 
                             u.*, 
                             dp.file_id AS latest_file_id,
+                            dp.tag_background_file_id AS tag_background_file_id,
                             dpf.file_name,
                             dpf.folder_path,
                             ua.description,
@@ -151,6 +152,10 @@ namespace maxhanna.Server.Controllers
 											FileName = dataReader.IsDBNull(dataReader.GetOrdinal("file_name")) ? "" : dataReader.GetString("file_name"),
 											Directory = dataReader.IsDBNull(dataReader.GetOrdinal("folder_path")) ? "" : dataReader.GetString("folder_path"),
 										};
+										FileEntry profileBackgroundPicture = new FileEntry()
+										{
+											Id = dataReader.IsDBNull(dataReader.GetOrdinal("tag_background_file_id")) ? 0 : dataReader.GetInt32("tag_background_file_id"),
+										};
 										UserAbout tmpAbout = new UserAbout()
 										{
 											UserId = dataReader.IsDBNull(dataReader.GetOrdinal("id")) ? 0 : dataReader.GetInt32("id"),
@@ -168,6 +173,7 @@ namespace maxhanna.Server.Controllers
 												dataReader["username"].ToString()!,
 												null, // Password should never be returned
 												displayPic.Id != 0 ? displayPic : null,
+												profileBackgroundPicture.Id != 0 ? profileBackgroundPicture : null,
 												tmpAbout,
 												(DateTime)dataReader["created"],
 												(DateTime)dataReader["last_seen"]
@@ -199,6 +205,7 @@ namespace maxhanna.Server.Controllers
                     SELECT 
                         u.*, 
                         dp.file_id AS latest_file_id,
+                        dp.tag_background_file_id AS tag_background_file_id,
                         dpf.file_name,
                         dpf.folder_path,
                         ua.description,
@@ -231,6 +238,10 @@ namespace maxhanna.Server.Controllers
 							FileName = reader.IsDBNull(reader.GetOrdinal("file_name")) ? "" : reader.GetString("file_name"),
 							Directory = reader.IsDBNull(reader.GetOrdinal("folder_path")) ? "" : reader.GetString("folder_path"),
 						};
+						FileEntry userTagBackgroundPic = new FileEntry()
+						{
+							Id = reader.IsDBNull(reader.GetOrdinal("tag_background_file_id")) ? 0 : reader.GetInt32("tag_background_file_id"), 
+						};
 
 						UserAbout tmpAbout = new UserAbout()
 						{
@@ -250,6 +261,7 @@ namespace maxhanna.Server.Controllers
 								reader["username"].ToString()!,
 								null, // Password is not returned in this method 
 								displayPic.Id == 0 ? null : displayPic,
+								userTagBackgroundPic.Id == 0 ? null : userTagBackgroundPic,
 								tmpAbout,
 								(DateTime)reader["created"],
 								(DateTime)reader["last_seen"]
@@ -285,6 +297,7 @@ namespace maxhanna.Server.Controllers
                     SELECT 
                         u.*, 
                         dp.file_id AS latest_file_id,
+                        dp.tag_background_file_id AS tag_background_file_id,
                         dpf.file_name,
                         dpf.folder_path,
                         ua.description,
@@ -317,6 +330,10 @@ namespace maxhanna.Server.Controllers
 							FileName = reader.IsDBNull(reader.GetOrdinal("file_name")) ? "" : reader.GetString("file_name"),
 							Directory = reader.IsDBNull(reader.GetOrdinal("folder_path")) ? "" : reader.GetString("folder_path"),
 						};
+						FileEntry profileBackgroundPicture = new FileEntry()
+						{
+							Id = reader.IsDBNull(reader.GetOrdinal("tag_background_file_id")) ? 0 : reader.GetInt32("tag_background_file_id"), 
+						};
 
 						UserAbout tmpAbout = new UserAbout()
 						{
@@ -336,6 +353,7 @@ namespace maxhanna.Server.Controllers
 								reader["username"].ToString()!,
 								null, // Password is not returned in this method 
 								displayPic.Id == 0 ? null : displayPic,
+								profileBackgroundPicture.Id == 0 ? null : profileBackgroundPicture,
 								tmpAbout,
 								(DateTime)reader["created"],
 								(DateTime)reader["last_seen"]
@@ -862,6 +880,7 @@ namespace maxhanna.Server.Controllers
 			}
 		}
 
+
 		[HttpPost("/User/UpdateDisplayPicture", Name = "UpdateDisplayPicture")]
 		public async Task<IActionResult> UpdateDisplayPicture([FromBody] DisplayPictureRequest request)
 		{
@@ -887,6 +906,38 @@ namespace maxhanna.Server.Controllers
 			{
 				_ = _log.Db("An error occurred while processing the display picture POST request. " + ex.Message, request.UserId, "USER", true);
 				return StatusCode(500, "An error occurred while processing the display picture request.");
+			}
+			finally
+			{
+				conn.Close();
+			}
+		}
+
+		
+		[HttpPost("/User/UpdateProfileBackgroundPicture", Name = "UpdateProfileBackgroundPicture")]
+		public async Task<IActionResult> UpdateProfileBackgroundPicture([FromBody] DisplayPictureRequest request)
+		{
+			MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+			try
+			{
+				conn.Open();
+
+				string checkUserSql = $@"
+                    INSERT INTO maxhanna.user_display_pictures (user_id, tag_background_file_id)
+                    VALUES (@userId, @fileId)
+                    ON DUPLICATE KEY UPDATE tag_background_file_id = VALUES(tag_background_file_id);
+                ";
+				MySqlCommand updateCmd = new MySqlCommand(checkUserSql, conn);
+				updateCmd.Parameters.AddWithValue("@userId", request.UserId);
+				updateCmd.Parameters.AddWithValue("@fileId", request.FileId);
+
+				await updateCmd.ExecuteNonQueryAsync();
+				return Ok();
+			}
+			catch (Exception ex)
+			{
+				_ = _log.Db("An error occurred while processing the profile background picture POST request. " + ex.Message, request.UserId, "USER", true);
+				return StatusCode(500, "An error occurred while processing the profile background picture request.");
 			}
 			finally
 			{
@@ -1472,13 +1523,13 @@ namespace maxhanna.Server.Controllers
 					await conn.OpenAsync();
 
 					string sql = @"
-                SELECT ut.id, ut.background_image, ut.background_color, ut.component_background_color, ut.secondary_component_background_color, 
-                       ut.font_color, ut.secondary_font_color, ut.third_font_color, ut.main_highlight_color, ut.main_highlight_color_quarter_opacity, 
-                       ut.link_color, ut.font_size, ut.font_family, ut.name
-                FROM maxhanna.user_theme_selected uts
-                INNER JOIN maxhanna.user_theme ut ON uts.theme_id = ut.id
-                WHERE uts.user_id = @UserId
-                LIMIT 1;";
+						SELECT ut.id, ut.background_image, ut.background_color, ut.component_background_color, ut.secondary_component_background_color, 
+							ut.font_color, ut.secondary_font_color, ut.third_font_color, ut.main_highlight_color, ut.main_highlight_color_quarter_opacity, 
+							ut.link_color, ut.font_size, ut.font_family, ut.name
+						FROM maxhanna.user_theme_selected uts
+						INNER JOIN maxhanna.user_theme ut ON uts.theme_id = ut.id
+						WHERE uts.user_id = @UserId
+						LIMIT 1;";
 
 					MySqlCommand cmd = new MySqlCommand(sql, conn);
 					cmd.Parameters.AddWithValue("@UserId", UserId);
@@ -1509,7 +1560,7 @@ namespace maxhanna.Server.Controllers
 						}
 						else
 						{
-							return NotFound(new { message = "No theme found for the user." });
+							return Ok(new { message = "No theme found for the user." });
 						}
 					}
 				}

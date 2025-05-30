@@ -385,6 +385,7 @@ LIMIT
 			fc.ip AS commentIp,
 			fc.comment_id as comment_parent_id,
 			uc.username AS commentUsername,
+			ucudp.tag_background_file_id AS commentUserProfileBackgroundPicId,
 			ucudpfu.id AS commentUserDisplayPicId,
 			ucudpfu.file_name AS commentUserDisplayPicFileName,
 			ucudpfu.folder_path AS commentUserDisplayPicFolderPath,
@@ -431,6 +432,8 @@ LIMIT
 				var commentIp = reader.IsDBNull(reader.GetOrdinal("commentIp")) ? null : reader.GetString("commentIp");
 				int? commentParentId = reader.IsDBNull(reader.GetOrdinal("comment_parent_id")) ? null : reader.GetInt32("comment_parent_id");
 
+				var commentUserProfileBackgroundPicId = reader.IsDBNull(reader.GetOrdinal("commentUserProfileBackgroundPicId")) ? (int?)null : reader.GetInt32("commentUserProfileBackgroundPicId");
+
 				var commentUserDisplayPicId = reader.IsDBNull(reader.GetOrdinal("commentUserDisplayPicId")) ? (int?)null : reader.GetInt32("commentUserDisplayPicId");
 				var commentUserDisplayPicFileName = reader.IsDBNull(reader.GetOrdinal("commentUserDisplayPicFileName")) ? null : reader.GetString("commentUserDisplayPicFileName");
 				var commentUserDisplayPicFolderPath = reader.IsDBNull(reader.GetOrdinal("commentUserDisplayPicFolderPath")) ? null : reader.GetString("commentUserDisplayPicFolderPath");
@@ -449,6 +452,10 @@ LIMIT
 							Id = commentUserDisplayPicId ?? 0,
 							FileName = commentUserDisplayPicFileName,
 							Directory = commentUserDisplayPicFolderPath
+						},
+						new FileEntry
+						{
+							Id = commentUserProfileBackgroundPicId ?? 0,
 						},
 						null, null, null
 					),
@@ -586,8 +593,9 @@ LIMIT
                             r.type AS reaction_type,
                             r.user_id AS reaction_user_id,
                             ru.username AS reaction_username,
-														udp.file_id as reaction_user_display_picture_id,
-														r.timestamp as reaction_date
+							udp.file_id as reaction_user_display_picture_id,
+							udp.tag_background_file_id as reaction_user_background_picture_id,
+							r.timestamp as reaction_date
                         FROM
                             maxhanna.reactions r
                         LEFT JOIN
@@ -616,6 +624,7 @@ LIMIT
 					var fileIdValue = reader.IsDBNull(reader.GetOrdinal("reactionFileId")) ? 0 : reader.GetInt32("reactionFileId");
 					var commentIdValue = reader.IsDBNull(reader.GetOrdinal("reactionCommentId")) ? 0 : reader.GetInt32("reactionCommentId");
 					var udpFileEntry = reader.IsDBNull(reader.GetOrdinal("reaction_user_display_picture_id")) ? null : new FileEntry(reader.GetInt32("reaction_user_display_picture_id"));
+					var udpBgFileEntry = reader.IsDBNull(reader.GetOrdinal("reaction_user_background_picture_id")) ? null : new FileEntry(reader.GetInt32("reaction_user_background_picture_id"));
 					var reaction = new Reaction
 					{
 						Id = reactionId,
@@ -623,7 +632,7 @@ LIMIT
 						CommentId = commentIdValue != 0 ? commentIdValue : null,
 						Type = reader.GetString("reaction_type"),
 						Timestamp = reader.GetDateTime("reaction_date"),
-						User = new User(reader.GetInt32("reaction_user_id"), reader.GetString("reaction_username"), udpFileEntry)
+						User = new User(reader.GetInt32("reaction_user_id"), reader.GetString("reaction_username"), udpFileEntry, udpBgFileEntry)
 					};
 
 					var fileEntry = fileEntries.FirstOrDefault(f => f.Id == fileIdValue);
@@ -1215,7 +1224,7 @@ LIMIT
 
 					// Query to get the latest meme ID
 					string query = @"
-						SELECT fa.user_id, u.username, udp.file_id as display_picture_id
+						SELECT fa.user_id, u.username, udp.file_id as display_picture_id, udp.tag_background_file_id as background_picture_id
 						FROM file_access AS fa
 						LEFT JOIN users AS u ON u.id = fa.user_id
 						LEFT JOIN user_display_pictures AS udp ON udp.user_id = fa.user_id
@@ -1232,7 +1241,8 @@ LIMIT
 								{
 									Id = reader.GetInt32("user_id"),
 									Username = reader.GetString("username"),
-									DisplayPictureFile = reader.IsDBNull("display_picture_id") ? null : new FileEntry(reader.GetInt32("display_picture_id"))
+									DisplayPictureFile = reader.IsDBNull("display_picture_id") ? null : new FileEntry(reader.GetInt32("display_picture_id")),
+									ProfileBackgroundPictureFile = reader.IsDBNull("background_picture_id") ? null : new FileEntry(reader.GetInt32("background_picture_id"))
 								});
 							}
 						}
@@ -1386,7 +1396,9 @@ LIMIT
                 f.last_access as last_access,
 				f.access_count as access_count,
                 udp.file_id AS commentUserDisplayPicId,
-                udpf.file_id AS fileUserDisplayPicId
+                udp.tag_background_file_id AS commentUserBackgroundPicId,
+                udpf.file_id AS fileUserDisplayPicId,
+                udpf.tag_background_file_id AS fileUserBackgroundPicId
             FROM 
                 maxhanna.file_uploads f    
             LEFT JOIN 
@@ -1435,6 +1447,7 @@ LIMIT
 							LastUpdated = reader.IsDBNull(reader.GetOrdinal("file_data_updated")) ? null : reader.GetDateTime("file_data_updated")
 						};
 						int? fuDisplayPicId = reader.IsDBNull(reader.GetOrdinal("fileUserDisplayPicId")) ? null : reader.GetInt32("fileUserDisplayPicId");
+						int? fuBackgroundPicId = reader.IsDBNull(reader.GetOrdinal("fileUserBackgroundPicId")) ? null : reader.GetInt32("fileUserBackgroundPicId");
 
 						var fileEntry = new FileEntry
 						{
@@ -1442,7 +1455,7 @@ LIMIT
 							FileName = reader.GetString("file_name"),
 							Visibility = reader.GetBoolean("is_public") ? "Public" : "Private",
 							SharedWith = shared_with,
-							User = new User(user_id, userName, fuDisplayPicId != null ? new FileEntry(fuDisplayPicId.Value) : null),
+							User = new User(user_id, userName, (fuDisplayPicId != null ? new FileEntry(fuDisplayPicId.Value) : null), (fuBackgroundPicId != null ? new FileEntry(fuBackgroundPicId.Value) : null)),
 							IsFolder = isFolder,
 							Directory = folderPath,
 							FileComments = new List<FileComment>(),
@@ -1464,8 +1477,10 @@ LIMIT
 								var commentUsername = reader.GetString("commentUsername");
 								var commentText = reader.GetString("commentText");
 								int? displayPicId = reader.IsDBNull(reader.GetOrdinal("commentUserDisplayPicId")) ? null : reader.GetInt32("commentUserDisplayPicId");
+								int? backgroundPicId = reader.IsDBNull(reader.GetOrdinal("commentUserBackgroundPicId")) ? null : reader.GetInt32("commentUserBackgroundPicId");
 
 								FileEntry? dpFileEntry = displayPicId != null ? new FileEntry() { Id = (int)displayPicId } : null;
+								FileEntry? bgFileEntry = backgroundPicId != null ? new FileEntry() { Id = (int)backgroundPicId } : null;
 
 								var fileComment = new FileComment
 								{
@@ -1476,6 +1491,7 @@ LIMIT
 												commentUsername ?? "Anonymous",
 												null,
 												dpFileEntry,
+												bgFileEntry,
 												null, null, null),
 									CommentText = commentText,
 								};
@@ -2131,7 +2147,8 @@ LIMIT
                         f.description,
                         f.last_updated as file_data_updated,
                         f.last_access as last_access,
-						udp.file_id AS commentUserDisplayPicId
+						udp.file_id AS commentUserDisplayPicId,
+						udp.tag_background_file_id AS commentUserDisplayPicId
                     FROM 
                         maxhanna.file_uploads f    
                     LEFT JOIN 
@@ -2207,10 +2224,12 @@ LIMIT
 								var commentUserId = reader.GetInt32("commentUserId");
 								var commentUsername = reader.GetString("commentUsername");
 								var commentText = reader.GetString("commentText");
-
-
+ 
 								int? displayPicId = reader.IsDBNull(reader.GetOrdinal("commentUserDisplayPicId")) ? null : reader.GetInt32("commentUserDisplayPicId");
 								FileEntry? dpFileEntry = displayPicId != null ? new FileEntry() { Id = (Int32)(displayPicId) } : null;
+ 
+								int? backgroundPicId = reader.IsDBNull(reader.GetOrdinal("commentUserBackgroundPicId")) ? null : reader.GetInt32("commentUserBackgroundPicId");
+								FileEntry? bgFileEntry = backgroundPicId != null ? new FileEntry() { Id = (Int32)(backgroundPicId) } : null;
 
 								var fileComment = new FileComment
 								{
@@ -2221,6 +2240,7 @@ LIMIT
 												commentUsername ?? "Anonymous",
 												null,
 												displayPicId != null ? dpFileEntry : null,
+												bgFileEntry != null ? bgFileEntry : null,
 												null, null, null),
 									CommentText = commentText,
 								};

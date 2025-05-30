@@ -44,6 +44,7 @@
             (click)="updatePushNotifications()" />
         </div>
       </div>
+      <!-- Profile picture -->
       <div class="sectionDescriptionSection profilePictureSectionContainer">
         <div>
           Attach your profile picture:
@@ -51,8 +52,8 @@
             <span class="avatarBug">🪲</span>
             <span class="avatarBust">👤</span>
           </div>
-          <div *ngIf="this.parentRef?.user?.displayPictureFile" class="displayPictureContainerDiv">
-            <div class="xxSmallFont">Current display picture:</div>
+          <div *ngIf="this.parentRef?.user?.displayPictureFile?.id" class="displayPictureContainerDiv">
+            <div class="xxSmallFont">Current picture:</div>
             <div class="avatar">
               <app-media-viewer #displayPictureViewer [displayExpander]="false" [displayExtraInfo]="false"
                 [showCommentSection]="false"
@@ -64,13 +65,35 @@
           </div>
         </div>
         <div>
-          <app-media-selector #displayPictureSelector [uploadButtonText]="'Upload Display Picture'"
-            [maxSelectedFiles]="1" [inputtedParentRef]="parentRef" [user]="parentRef?.user"
-            [currentDirectory]="'Users/'+parentRef?.user?.username" (selectFileEvent)="avatarSelected($event)">
+          <app-media-selector #displayPictureSelector [uploadButtonText]="'Upload Display Picture'" [maxSelectedFiles]="1"
+            [inputtedParentRef]="parentRef" [user]="parentRef?.user" [currentDirectory]="'Users/'+parentRef?.user?.username"
+            (selectFileEvent)="avatarSelected($event)">
           </app-media-selector>
         </div>
       </div>
-
+      <!-- Background Picture -->
+      <div class="sectionDescriptionSection profilePictureSectionContainer">
+        <div>
+          Attach your profile background picture: 
+          <div class="displayPictureContainerDiv" *ngIf="this.parentRef?.user!.profileBackgroundPictureFile?.id">
+            <div class="xxSmallFont">Current picture:</div>
+            <div>
+              <app-media-viewer #backgroundPictureViewer [displayExpander]="false" [displayExtraInfo]="false"
+                [showCommentSection]="false"
+                [file]="this.inputtedParentRef?.user?.profileBackgroundPictureFile ?? this.parentRef?.user!.profileBackgroundPictureFile"
+                [user]="parentRef!.user"
+                [inputtedParentRef]="parentRef!" [previousComponent]="'UpdateUserSettings'">
+              </app-media-viewer>
+            </div>
+          </div>
+        </div>
+        <div>
+          <app-media-selector #profileBackgroundPictureSelector [uploadButtonText]="'Upload Background Picture'" [maxSelectedFiles]="1"
+            [inputtedParentRef]="parentRef" [user]="parentRef?.user" [currentDirectory]="'Users/'+parentRef?.user?.username"
+            (selectFileEvent)="profileBackgroundSelected($event)">
+          </app-media-selector>
+        </div>
+      </div> 
     </div>
 
 
@@ -173,7 +196,9 @@ but you can also set your own City for a more precise location."></span>
     <div *ngIf="isBlockedUsersToggled" class="sectionDescriptionDiv">
       <div class="sectionDescriptionSection" *ngFor="let user of blockedUsers"> 
         <div>
-          <app-user-tag [user]="user" [inputtedParentRef]="inputtedParentRef" [displayMiniTag]="true"
+          <app-user-tag [user]="user" [inputtedParentRef]="inputtedParentRef" 
+          [displayHoverPicture]="true"
+          [displayMiniTag]="true"
           [previousComponent]="'UpdateUserSettings'"></app-user-tag>
         </div>
         <div style="display:flex;"> 

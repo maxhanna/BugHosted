@@ -101,6 +101,8 @@ export class AppComponent implements OnInit, AfterViewInit {
   pollChecked = false;
   pollQuestion = "";
   pollResults: any = null;
+  isShowingUserTagPopup = false;
+  popupUserTagUser?: User;
   private componentMap: { [key: string]: any; } = {
     "Navigation": NavigationComponent,
     "Favourites": FavouritesComponent,
@@ -1095,4 +1097,31 @@ export class AppComponent implements OnInit, AfterViewInit {
       this.showNotification("User not found!");
     }
   }
+  parseInteger(value: any): number {
+    const parsedValue = parseInt(value, 10);
+    return isNaN(parsedValue) ? 0 : parsedValue;
+  }
+  userTagUserLoaded(user?: User) {
+    console.log("User tag user loaded", user);
+    this.popupUserTagUser = user; 
+  }
+  isUserOnline(lastSeen: string): boolean {
+    // Parse duration string like "2d 8h 51m" into minutes
+    let days = 0, hours = 0, minutes = 0;
+
+    const dayMatch = lastSeen.match(/(\d+)d/);
+    if (dayMatch) days = parseInt(dayMatch[1]);
+
+    const hourMatch = lastSeen.match(/(\d+)h/);
+    if (hourMatch) hours = parseInt(hourMatch[1]);
+
+    const minuteMatch = lastSeen.match(/(\d+)m/);
+    if (minuteMatch) minutes = parseInt(minuteMatch[1]);
+
+    // Convert everything to minutes
+    minutes = (days * 24 * 60) + (hours * 60) + minutes;
+
+    // Return true if last seen < 10 minutes ago
+    return minutes < 10;
+  } 
 }

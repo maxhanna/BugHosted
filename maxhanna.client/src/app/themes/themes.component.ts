@@ -30,21 +30,7 @@ export class ThemesComponent extends ChildComponent implements OnInit, OnDestroy
   userSelectedTheme?: Theme;
   allThemes?: Theme[];
   myThemes?: Theme[];
-  defaultTheme = {
-    backgroundColor: '#0e0e0e',
-    componentBackgroundColor: '#202020',
-    secondaryComponentBackgroundColor: '#011300',
-    fontColor: '#b0c2b1',
-    secondaryFontColor: '#ffffff',
-    thirdFontColor: 'cornflowerblue',
-    mainHighlightColor: '#3a3a3a',
-    mainHighlightColorQuarterOpacity: '#a9a9a9',
-    linkColor: 'chartreuse',
-    fontSize: 16,
-    fontFamily: 'Helvetica, Arial',
-    backgroundImage: '',
-    name: 'default'
-  };
+ 
   isSearching = false
   originalThemeId = 0;
   warnUserToSave = false;
@@ -276,37 +262,38 @@ export class ThemesComponent extends ChildComponent implements OnInit, OnDestroy
   }
 
   restoreDefaultSettings(updateServer = true) {
-    document.documentElement.style.setProperty('--main-background-image-url', this.defaultTheme.backgroundImage);
+    if (!this.parentRef?.navigationComponent.defaultTheme) return;
+    document.documentElement.style.setProperty('--main-background-image-url', this.parentRef.navigationComponent.defaultTheme.backgroundImage);
     document.body.style.backgroundImage = ``;
-    document.documentElement.style.setProperty('--main-bg-color', this.defaultTheme.backgroundColor);
-    document.documentElement.style.setProperty('--component-background-color', this.defaultTheme.componentBackgroundColor);
-    document.documentElement.style.setProperty('--secondary-component-background-color', this.defaultTheme.secondaryComponentBackgroundColor);
-    document.documentElement.style.setProperty('--main-font-color', this.defaultTheme.fontColor);
-    document.documentElement.style.setProperty('--secondary-font-color', this.defaultTheme.secondaryFontColor);
-    document.documentElement.style.setProperty('--third-font-color', this.defaultTheme.thirdFontColor);
-    document.documentElement.style.setProperty('--main-highlight-color', this.defaultTheme.mainHighlightColor);
-    document.documentElement.style.setProperty('--main-highlight-color-quarter-opacity', this.defaultTheme.mainHighlightColorQuarterOpacity);
-    document.documentElement.style.setProperty('--main-link-color', this.defaultTheme.linkColor);
-    document.documentElement.style.setProperty('--main-font-size', `${this.defaultTheme.fontSize}px`);
-    document.documentElement.style.setProperty('--main-font-family', this.defaultTheme.fontFamily);
-    this.themeNameInput.nativeElement.value = this.defaultTheme.name;
+    document.documentElement.style.setProperty('--main-bg-color', this.parentRef.navigationComponent.defaultTheme.backgroundColor);
+    document.documentElement.style.setProperty('--component-background-color', this.parentRef.navigationComponent.defaultTheme.componentBackgroundColor);
+    document.documentElement.style.setProperty('--secondary-component-background-color', this.parentRef.navigationComponent.defaultTheme.secondaryComponentBackgroundColor);
+    document.documentElement.style.setProperty('--main-font-color', this.parentRef.navigationComponent.defaultTheme.fontColor);
+    document.documentElement.style.setProperty('--secondary-font-color', this.parentRef.navigationComponent.defaultTheme.secondaryFontColor);
+    document.documentElement.style.setProperty('--third-font-color', this.parentRef.navigationComponent.defaultTheme.thirdFontColor);
+    document.documentElement.style.setProperty('--main-highlight-color', this.parentRef.navigationComponent.defaultTheme.mainHighlightColor);
+    document.documentElement.style.setProperty('--main-highlight-color-quarter-opacity', this.parentRef.navigationComponent.defaultTheme.mainHighlightColorQuarterOpacity);
+    document.documentElement.style.setProperty('--main-link-color', this.parentRef.navigationComponent.defaultTheme.linkColor);
+    document.documentElement.style.setProperty('--main-font-size', `${this.parentRef.navigationComponent.defaultTheme.fontSize}px`);
+    document.documentElement.style.setProperty('--main-font-family', this.parentRef.navigationComponent.defaultTheme.fontFamily);
+    this.themeNameInput.nativeElement.value = this.parentRef.navigationComponent.defaultTheme.name;
 
     this.attachedFiles = [];
     this.mediaSelector.selectedFiles = [];
     this.themeNameInput.nativeElement.value = "Default";
-    this.backgroundColor.nativeElement.value = this.defaultTheme.backgroundColor;
-    this.componentBackgroundColor.nativeElement.value = this.defaultTheme.componentBackgroundColor;
-    this.secondaryComponentBackgroundColor.nativeElement.value = this.defaultTheme.secondaryComponentBackgroundColor;
-    this.fontColor.nativeElement.value = this.defaultTheme.fontColor;
-    this.secondaryFontColor.nativeElement.value = this.defaultTheme.secondaryFontColor; 
-    this.mainHighlightColor.nativeElement.value = this.defaultTheme.mainHighlightColor;
-    this.mainHighlightColorQuarterOpacity.nativeElement.value = this.defaultTheme.mainHighlightColorQuarterOpacity;
-    this.fontSize.nativeElement.value = this.defaultTheme.fontSize; 
+    this.backgroundColor.nativeElement.value = this.parentRef.navigationComponent.defaultTheme.backgroundColor;
+    this.componentBackgroundColor.nativeElement.value = this.parentRef.navigationComponent.defaultTheme.componentBackgroundColor;
+    this.secondaryComponentBackgroundColor.nativeElement.value = this.parentRef.navigationComponent.defaultTheme.secondaryComponentBackgroundColor;
+    this.fontColor.nativeElement.value = this.parentRef.navigationComponent.defaultTheme.fontColor;
+    this.secondaryFontColor.nativeElement.value = this.parentRef.navigationComponent.defaultTheme.secondaryFontColor; 
+    this.mainHighlightColor.nativeElement.value = this.parentRef.navigationComponent.defaultTheme.mainHighlightColor;
+    this.mainHighlightColorQuarterOpacity.nativeElement.value = this.parentRef.navigationComponent.defaultTheme.mainHighlightColorQuarterOpacity;
+    this.fontSize.nativeElement.value = this.parentRef.navigationComponent.defaultTheme.fontSize; 
 
-    const thirdFontColorHex = this.getHexFromColorName(this.defaultTheme.thirdFontColor);
+    const thirdFontColorHex = this.getHexFromColorName(this.parentRef.navigationComponent.defaultTheme.thirdFontColor);
     this.thirdFontColor.nativeElement.value = thirdFontColorHex;
 
-    const linkHex = this.getHexFromColorName(this.defaultTheme.linkColor); 
+    const linkHex = this.getHexFromColorName(this.parentRef.navigationComponent.defaultTheme.linkColor); 
     this.linkColor.nativeElement.value = linkHex;
 
 

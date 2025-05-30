@@ -16,7 +16,8 @@
   <div *ngFor="let comment of commentList!" class="commentListDiv" [style.paddingLeft]="comment_id ? '40px' : '20px'">
     <div class="commentContentAndAvatarContainerDiv" [attr.data-timestamp]="comment.date">
       <div class="commentAvatar usernameProfileLink">
-        <app-user-tag [user]="comment.user" [inputtedParentRef]="inputtedParentRef" [displayMiniTag]="true" [previousComponent]="previousComponent"></app-user-tag>
+        <app-user-tag [user]="comment.user" [inputtedParentRef]="inputtedParentRef" [displayMiniTag]="true" 
+        [displayHoverPicture]="true" [previousComponent]="previousComponent"></app-user-tag>
       </div>
       <div class="commentDate" [title]="(comment.date?.toString() ?? '').replace('T',' ')">
         <ng-container *ngIf="onMobile(); else fullTime">
@@ -88,7 +89,8 @@
         <div *ngFor="let subComment of comment.comments" class="subComment" [id]="'subComment' + subComment.id">
           <div class="commentContentAndAvatarContainerDiv" [attr.data-timestamp]="subComment.date">
             <div class="commentAvatar usernameProfileLink">
-              <app-user-tag [user]="subComment.user" [inputtedParentRef]="inputtedParentRef" [displayMiniTag]="true" [previousComponent]="previousComponent"></app-user-tag>
+              <app-user-tag [user]="subComment.user" [inputtedParentRef]="inputtedParentRef" 
+              [displayHoverPicture]="true" [displayMiniTag]="true" [previousComponent]="previousComponent"></app-user-tag>
             </div>
             <div class="commentDate" [title]="(subComment.date?.toString() ?? '').replace('T',' ')">
               <ng-container *ngIf="onMobile(); else fullTime">

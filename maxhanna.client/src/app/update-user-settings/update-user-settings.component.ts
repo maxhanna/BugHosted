@@ -47,6 +47,7 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
   nhApiKeys?: NicehashApiKeys;
   hasKrakenKeys?: boolean;
   displayPictureFile?: FileEntry = this.parentRef?.user?.displayPictureFile;
+  profileBackgroundPictureFile?: FileEntry = this.parentRef?.user?.profileBackgroundPictureFile;
   expandedIconTitle: string | null = null;
 
   isKrakenHelpPanelShowing = false;
@@ -248,6 +249,17 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
         this.parentRef?.showNotification("Error while updating weather location!");
       }
       this.ngOnInit();
+    }
+  }
+
+  async profileBackgroundSelected(files: FileEntry[]) { 
+    const targetParent = this.inputtedParentRef ?? this.parentRef;
+    if (files && files.length > 0 && targetParent?.user?.id) {
+      await this.userService.updateProfileBackgroundPicture(targetParent.user.id, files[0].id);
+      targetParent.user.profileBackgroundPictureFile = files[0];
+      targetParent.deleteCookie("user");
+      targetParent.setCookie("user", JSON.stringify(targetParent.user), 10);
+      this.ngOnInit(); 
     }
   }
 

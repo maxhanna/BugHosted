@@ -157,32 +157,32 @@ namespace maxhanna.Server.Controllers
 												LEFT JOIN hidden_stories hs ON hs.story_id = s.id AND hs.user_id = @userId  
 												{whereClause};";
 			string sql = @$"
-    SELECT 
-        s.id AS story_id, 
-        u.id AS user_id, 
-				u.username as username, 
-        udp.file_id AS displayPictureFileId,
-        udpfu.folder_path AS displayPictureFileFolderPath,
-        udpfu.file_name AS displayPictureFileFileName,
-        s.story_text, s.date, s.city, s.country, 
-				CASE 
-						WHEN hs.story_id IS NOT NULL THEN TRUE 
-						ELSE FALSE 
-				END AS hidden,
-        COALESCE(c.comments_count, 0) AS comments_count,
-        sm.title, sm.description, sm.image_url, sm.metadata_url
-    FROM stories AS s 
-    JOIN users AS u ON s.user_id = u.id  
-    LEFT JOIN user_display_pictures AS udp ON udp.user_id = u.id 
-    LEFT JOIN file_uploads AS udpfu ON udp.file_id = udpfu.id 
-    LEFT JOIN (SELECT story_id, COUNT(id) AS comments_count FROM comments GROUP BY story_id) AS c 
-        ON s.id = c.story_id
-    LEFT JOIN story_metadata AS sm ON s.id = sm.story_id  
-		LEFT JOIN hidden_stories hs ON hs.story_id = s.id AND hs.user_id = @userId  
-     {whereClause}  
-    ORDER BY s.id DESC 
-    LIMIT @pageSize OFFSET @offset;";
-
+				SELECT 
+					s.id AS story_id, 
+					u.id AS user_id, 
+							u.username as username, 
+					udp.file_id AS displayPictureFileId,
+					udpfu.folder_path AS displayPictureFileFolderPath,
+					udpfu.file_name AS displayPictureFileFileName,
+					s.story_text, s.date, s.city, s.country, 
+							CASE 
+									WHEN hs.story_id IS NOT NULL THEN TRUE 
+									ELSE FALSE 
+							END AS hidden,
+					COALESCE(c.comments_count, 0) AS comments_count,
+					sm.title, sm.description, sm.image_url, sm.metadata_url
+				FROM stories AS s 
+				JOIN users AS u ON s.user_id = u.id  
+				LEFT JOIN user_display_pictures AS udp ON udp.user_id = u.id 
+				LEFT JOIN file_uploads AS udpfu ON udp.file_id = udpfu.id 
+				LEFT JOIN (SELECT story_id, COUNT(id) AS comments_count FROM comments GROUP BY story_id) AS c 
+					ON s.id = c.story_id
+				LEFT JOIN story_metadata AS sm ON s.id = sm.story_id  
+					LEFT JOIN hidden_stories hs ON hs.story_id = s.id AND hs.user_id = @userId  
+				{whereClause}  
+				ORDER BY s.id DESC 
+				LIMIT @pageSize OFFSET @offset;";
+			//Console.WriteLine("sql: " + sql);
 			var storyResponse = new StoryResponse();
 			var storyDictionary = new Dictionary<int, Story>();
 

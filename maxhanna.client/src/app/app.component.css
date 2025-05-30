@@ -62,10 +62,45 @@
 
 .pollPopupPanel {
   border-radius: 4px;
-  padding: 20px 20px 0px 20px; 
+  padding: 20px 20px 0px 20px;
   max-width: calc(100vw - 60px);
 }
 
 .popupContent {
   width: 100%;
+}
+
+.userTagPopupPanel {
+  max-width: 200px;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  padding: 15px;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.user-tag-background-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  z-index: 0;
+}
+
+.user-tag-content-wrapper {
+  position: relative;
+  z-index: 1;
+}
+
+.popupUserTagInfo {
+  display: flex; 
+  flex-direction: column;
+  text-shadow: 1px 1px var(--main-highlight-color);
+  background: rgba(255, 255, 255, 0.1);
+  padding: 4px 8px; /* Adjust as needed */
+  border-radius: 4px; /* Optional: rounded corners */
 }
