@@ -3,6 +3,9 @@ import { ChildComponent } from '../child.component';
 import { Todo } from '../../services/datacontracts/todo';
 import { TodoService } from '../../services/todo.service'; 
 import { User } from '../../services/datacontracts/user/user';
+import { FileEntry } from '../../services/datacontracts/file/file-entry';
+import { MediaSelectorComponent } from '../media-selector/media-selector.component';
+import { MediaViewerComponent } from '../media-viewer/media-viewer.component';
 
 @Component({
     selector: 'app-music',
@@ -17,9 +20,16 @@ export class MusicComponent extends ChildComponent implements OnInit, AfterViewI
   @ViewChild('musicVideo') musicVideo!: ElementRef<HTMLIFrameElement>;
   @ViewChild('orderSelect') orderSelect!: ElementRef<HTMLSelectElement>;
   @ViewChild('componentMain') componentMain!: ElementRef<HTMLDivElement>;
+  @ViewChild('mediaSelector') mediaSelector!: MediaSelectorComponent;
+  @ViewChild('fileMediaViewer') fileMediaViewer!: MediaViewerComponent;
   songs: Array<Todo> = [];
+  fileSongs: Array<Todo> = [];
+  youtubeSongs: Array<Todo> = [];
   orders: Array<string> = ["Newest", "Oldest", "Alphanumeric ASC", "Alphanumeric DESC", "Random"];
   isMusicPlaying = false;
+  selectedFile?: FileEntry;
+  fileIdPlaylist?: number[];
+  fileIdPlaying?:number;
   @Input() user?: User;
   @Input() songPlaylist?: Todo[];
   @Input() smallPlayer = false;
@@ -40,15 +50,24 @@ export class MusicComponent extends ChildComponent implements OnInit, AfterViewI
       this.componentMain.nativeElement.style.padding = "unset";
     }
   }
-  play(url: string) {
-    if (url == '') { return alert("Url cant be empty"); }
+  play(url?: string, fileId?: number) {
+    if (!url && !fileId) { return alert("Url/File cant be empty"); }
     this.isMusicPlaying = true;
-    const playlist = this.getPlaylistForYoutubeUrl(url).join(',')
-    const trimmedUrl = this.trimYoutubeUrl(url);
-    const target = `https://www.youtube.com/embed/${trimmedUrl}?playlist=${playlist}&autoplay=1&vq=tiny`;
-    setTimeout(() => {
-      this.musicVideo.nativeElement.src = target;
-    }, 1)
+    if (url) {
+      const playlist = this.getPlaylistForYoutubeUrl(url).join(',')
+      const trimmedUrl = this.trimYoutubeUrl(url);
+      const target = `https://www.youtube.com/embed/${trimmedUrl}?playlist=${playlist}&autoplay=1&vq=tiny`;
+      setTimeout(() => {
+        this.musicVideo.nativeElement.src = target;
+      }, 1)
+    }
+    else if (fileId) {
+      this.fileIdPlaying = fileId;
+      setTimeout(() => {
+        this.fileMediaViewer.resetSelectedFile();
+        this.fileMediaViewer.setFileSrcById(fileId);
+      }, 50); 
+    }
     this.isMusicControlsDisplayed(true);
   }
   async addSong() {
@@ -56,17 +75,19 @@ export class MusicComponent extends ChildComponent implements OnInit, AfterViewI
     if (!this.parentRef?.user?.id) { return alert("You must be logged in to add to the music list."); }
     const url = this.extractYouTubeVideoId(this.urlInput.nativeElement.value);
     const title = this.titleInput.nativeElement.value;
-    if (!url || !title || url.trim() == "" || title.trim() == "") {
-      return alert("Title & URL cannot be empty!");
+    if (((!url || url.trim() == "") && !this.selectFile) || !title || title.trim() == "") {
+      return alert("Title & URL/File cannot be empty!");
     }
     let tmpTodo = new Todo();
     tmpTodo.type = "music";
     tmpTodo.url = url.trim();
     tmpTodo.todo = title.trim(); 
-
+    tmpTodo.fileId = this.selectedFile?.id;
     const resTodo = await this.todoService.createTodo(this.parentRef.user.id, tmpTodo);
     if (resTodo) {
       tmpTodo.id = parseInt(resTodo); 
+      this.selectedFile = undefined;
+
       this.songs.unshift(tmpTodo);
       this.titleInput.nativeElement.value = '';
       this.urlInput.nativeElement.value = '';
@@ -78,7 +99,10 @@ export class MusicComponent extends ChildComponent implements OnInit, AfterViewI
     } else {
       const user = this.user ?? this.parentRef?.user;
       if (!user?.id) return;
-      this.songs = await this.todoService.getTodo(user.id, "Music");
+      const tmpSongs = await this.todoService.getTodo(user.id, "Music"); 
+      this.youtubeSongs = tmpSongs.filter((song: Todo) => this.parentRef?.isYoutubeUrl(song.url));
+      this.fileSongs = tmpSongs.filter((song: Todo) => !this.parentRef?.isYoutubeUrl(song.url));
+      this.songs = this.youtubeSongs;
     }
     this.gotPlaylistEvent.emit(this.songs);
   }
@@ -89,7 +113,9 @@ export class MusicComponent extends ChildComponent implements OnInit, AfterViewI
       return this.reorderTable(undefined, this.orderSelect.nativeElement.value);
     }
     if (this.parentRef?.user?.id) { 
-      this.songs = await this.todoService.getTodo(this.parentRef.user.id, "Music", search);
+      const tmpSongs = await this.todoService.getTodo(this.parentRef.user.id, "Music", search);
+      this.youtubeSongs = tmpSongs.filter((song: Todo) => this.parentRef?.isYoutubeUrl(song.url));
+      this.fileSongs = tmpSongs.filter((song: Todo) => !this.parentRef?.isYoutubeUrl(song.url));
     }
     this.reorderTable(undefined, this.orderSelect.nativeElement.value);
   }
@@ -102,7 +128,12 @@ export class MusicComponent extends ChildComponent implements OnInit, AfterViewI
     this.clearInputs();
   }
   randomSong() {
-    this.play(this.songs[Math.floor(Math.random() * this.songs.length)].url!);
+    if (this.fileIdPlaylist && this.fileIdPlaylist.length > 0) {
+      const randomFileId = this.fileIdPlaylist[Math.floor(Math.random() * this.fileIdPlaylist.length)]; 
+      this.play(undefined, randomFileId); 
+    } else {
+      this.play(this.songs[Math.floor(Math.random() * this.songs.length)].url!);
+    }
   }
   followLink() {
     const currUrl = this.musicVideo.nativeElement.src;
@@ -209,5 +240,30 @@ export class MusicComponent extends ChildComponent implements OnInit, AfterViewI
     this.debounceTimer = setTimeout(() => {
       this.searchForSong();
     }, 100); 
+  }
+  selectType(type: string) {
+    if (type == "file") {
+      this.songs = this.fileSongs;
+      this.fileIdPlaylist = this.fileSongs.map(song => song.fileId!);
+    } else if (type == "youtube") {
+      this.songs = this.youtubeSongs;
+      this.fileIdPlaylist = undefined;
+    }
+  }
+  selectFile(fileEntry: FileEntry[]) {
+    this.selectedFile = fileEntry[0];
+  }
+  mediaEndedEvent() {
+    console.log("Media ended event triggered.");
+    const currentId = this.fileIdPlaying;
+    if (this.fileIdPlaylist && this.fileIdPlaylist.length > 0) {
+      const currentIndex = this.fileIdPlaylist.indexOf(currentId!);
+      if (currentIndex >= 0 && currentIndex < this.fileIdPlaylist.length - 1) {
+        const nextFileId = this.fileIdPlaylist[currentIndex + 1];
+        this.play(undefined, nextFileId);
+      } else {
+        this.randomSong();
+      }
+    } 
   }
 }

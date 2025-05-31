@@ -795,7 +795,7 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
 
       const upgradeStat = upgradeStatsMap.get(foundUnitLevel);
       if (upgradeStat) {
-        const remainingTimeInSeconds = (unitTimeDuration * upgradeStat.duration) - elapsedTimeInSeconds;
+        const remainingTimeInSeconds = (unitTimeDuration) - elapsedTimeInSeconds;
         this.isUpgradingUnits = true;
         this.startUnitResearchTimer(`${unit.unitType} level ${foundUnitLevel}`, remainingTimeInSeconds, upgrade);
       }

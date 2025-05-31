@@ -362,6 +362,7 @@ console.log("Hello, world!");
       /(?:^|\s)(?:go in )?detail(?:ed|s)?(?:$|\s)/,  // matches "detail", "details", "detailed", "go in detail"
       /(?:^|\s)more detail(?:s|ed)?(?:$|\s)/,         // matches "more detail", "more details"
       /(?:^|\s)be verbose(?:$|\s)/,                   // matches "be verbose"
+      /(?:^|\s)elaborate(?:$|\s)/,                   // matches "elaborate"
       /(?:^|\s)long(?:er)? response(?:$|\s)/          // matches "long response", "longer response"
     ];
 

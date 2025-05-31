@@ -115,7 +115,7 @@
     <div *ngIf="isAboutToggled" class="sectionDescriptionDiv">
       <div class="sectionDescriptionSection">
         <div>Description:</div>
-        <div><input type="text" placeholder="Profile description" #updatedDescription
+        <div><input type="text" placeholder="Profile description" #updatedDescription maxlength="100"
             [value]="parentRef?.user?.about?.description ?? ''" /></div>
       </div>
       <div class="sectionDescriptionSection">
@@ -124,7 +124,7 @@
       </div>
       <div class="sectionDescriptionSection">
         <div>Email:</div>
-        <div><input type="text" #updatedEmail [value]="parentRef?.user?.about?.email ?? ''" /></div>
+        <div><input type="text" #updatedEmail [value]="parentRef?.user?.about?.email ?? ''" maxlength="100" /></div>
       </div>
       <div class="sectionDescriptionSection">
         <div>Is Email Public?:</div>

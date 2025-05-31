@@ -2,6 +2,8 @@ import { AfterViewInit, ChangeDetectionStrategy, Component, ElementRef, OnDestro
 import { ChildComponent } from '../child.component'; 
 import { Todo } from '../../services/datacontracts/todo';
 import { TodoService } from '../../services/todo.service';
+import { MediaSelectorComponent } from '../media-selector/media-selector.component';
+import { FileEntry } from '../../services/datacontracts/file/file-entry';
 
 @Component({
   selector: 'app-todo',
@@ -16,11 +18,13 @@ export class TodoComponent extends ChildComponent implements OnInit, AfterViewIn
   isEditListPanelOpen = false;
   userColumns: string[] = [];
   todoPlaceholder = "";
+  selectedFile?: FileEntry;
 
   @ViewChild('todoInput') todoInput!: ElementRef<HTMLInputElement>;
   @ViewChild('urlInput') urlInput!: ElementRef<HTMLInputElement>;
   @ViewChild('selectedType') selectedType!: ElementRef<HTMLSelectElement>;
   @ViewChild('searchInput') searchInput!: ElementRef<HTMLInputElement>;
+  @ViewChild('mediaSelector') mediaSelector!: MediaSelectorComponent;
   @ViewChild('addNewColumnInput') addNewColumnInput!: ElementRef<HTMLInputElement>;
 
   constructor(private todoService: TodoService) {
@@ -91,6 +95,7 @@ export class TodoComponent extends ChildComponent implements OnInit, AfterViewIn
     tmpTodo.type = this.selectedType.nativeElement.value;
     tmpTodo.url = this.urlInput.nativeElement.value;
     tmpTodo.todo = this.todoInput.nativeElement.value;
+    tmpTodo.fileId = this.selectedFile?.id;
 
     await this.todoService.createTodo(this.parentRef.user.id, tmpTodo);
     this.ngOnInit();
@@ -159,6 +164,9 @@ export class TodoComponent extends ChildComponent implements OnInit, AfterViewIn
       const typeValue = this.selectedType?.nativeElement?.value || '';
       this.todoPlaceholder = `Add to the ${typeValue} list`;
     });
+  }
+  selectFile(selectedFile: FileEntry[]) {
+    this.selectedFile = selectedFile[0];
   }
   visitUrl(url: string) {
     if (this.parentRef?.isYoutubeUrl(url)) {

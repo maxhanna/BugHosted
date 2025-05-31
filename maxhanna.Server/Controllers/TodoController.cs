@@ -49,20 +49,21 @@ namespace maxhanna.Server.Controllers
 					string columnFilter = "AND type IN (" + type + ")"; 
 
 					string sql = $@"
-            SELECT 
-                id, 
-                todo, 
-                type, 
-                url, 
-                date, 
-                ownership 
-            FROM 
-                maxhanna.todo 
-            WHERE 
-                ownership = @Owner 
-                AND type = @Type 
-                {(string.IsNullOrEmpty(search) ? "" : " AND todo LIKE CONCAT('%', @Search, '%') ")} 
-            ORDER BY id DESC";
+						SELECT 
+							id, 
+							todo, 
+							type, 
+							url, 
+							file_id, 
+							date, 
+							ownership 
+						FROM 
+							maxhanna.todo 
+						WHERE 
+							ownership = @Owner 
+							AND type = @Type 
+							{(string.IsNullOrEmpty(search) ? "" : " AND todo LIKE CONCAT('%', @Search, '%') ")} 
+						ORDER BY id DESC";
 
 					using (var cmd = new MySqlCommand(sql, conn))
 					{
@@ -84,8 +85,9 @@ namespace maxhanna.Server.Controllers
 												todo: rdr.GetString(1),
 												type: rdr.GetString(2),
 												url: rdr.IsDBNull(3) ? null : rdr.GetString(3),
-												date: rdr.GetDateTime(4),
-												ownership: rdr.GetInt32(5)
+												fileId: rdr.IsDBNull(4) ? null : rdr.GetInt32(4),
+												date: rdr.GetDateTime(5),
+												ownership: rdr.GetInt32(6)
 								));
 							}
 
@@ -112,14 +114,15 @@ namespace maxhanna.Server.Controllers
 				conn.Open();
 				string sql = @"
                     INSERT INTO 
-                        maxhanna.todo (todo, type, url, ownership, date) 
+                        maxhanna.todo (todo, type, url, file_id, ownership, date) 
                     VALUES 
-                        (@Todo, @Type, @Url, @Owner, UTC_TIMESTAMP());
+                        (@Todo, @Type, @Url, @FileId, @Owner, UTC_TIMESTAMP());
                     SELECT LAST_INSERT_ID();";
 				MySqlCommand cmd = new MySqlCommand(sql, conn);
 				cmd.Parameters.AddWithValue("@Todo", model.todo.todo);
 				cmd.Parameters.AddWithValue("@Type", model.todo.type);
 				cmd.Parameters.AddWithValue("@Url", model.todo.url);
+				cmd.Parameters.AddWithValue("@FileId", model.todo.fileId);
 				cmd.Parameters.AddWithValue("@Owner", model.userId);
 				var result = await cmd.ExecuteScalarAsync();
 				if (result != null)
@@ -181,8 +184,8 @@ namespace maxhanna.Server.Controllers
 			} 
 			string sql = @"
 				INSERT INTO todo_columns (user_id, column_name, is_added)
-        VALUES (@Owner, @Column, TRUE)
-        ON DUPLICATE KEY UPDATE is_added = TRUE;";
+				VALUES (@Owner, @Column, TRUE)
+				ON DUPLICATE KEY UPDATE is_added = TRUE;";
 
 			try
 			{
@@ -214,8 +217,8 @@ namespace maxhanna.Server.Controllers
 			} 
 			string sql = @"
 				INSERT INTO todo_columns (user_id, column_name, is_added)
-        VALUES (@Owner, @Column, FALSE)
-        ON DUPLICATE KEY UPDATE is_added = FALSE;";
+				VALUES (@Owner, @Column, FALSE)
+				ON DUPLICATE KEY UPDATE is_added = FALSE;";
 			try
 			{
 				using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
@@ -242,26 +245,25 @@ namespace maxhanna.Server.Controllers
 		public async Task<IActionResult> GetColumnsForUser(int userId)
 		{  
 			string sqlColumns = @"
-        SELECT column_name, 
-               IFNULL(is_added, TRUE) as is_added 
-        FROM todo_columns 
-        WHERE user_id = @Owner
-        UNION 
-        SELECT column_name, 
-               TRUE as is_added
-        FROM (SELECT 'Todo' AS column_name UNION ALL 
-              SELECT 'Work' UNION ALL 
-              SELECT 'Shopping' UNION ALL 
-              SELECT 'Study' UNION ALL 
-              SELECT 'Movie' UNION ALL 
-              SELECT 'Bucket' UNION ALL 
-              SELECT 'Recipe' UNION ALL 
-              SELECT 'Wife') default_columns
-        WHERE NOT EXISTS (SELECT 1 
-                          FROM todo_columns 
-                          WHERE user_id = @Owner 
-                          AND column_name = default_columns.column_name)
-    ";
+				SELECT column_name, 
+					IFNULL(is_added, TRUE) as is_added 
+				FROM todo_columns 
+				WHERE user_id = @Owner
+				UNION 
+				SELECT column_name, 
+					TRUE as is_added
+				FROM (SELECT 'Todo' AS column_name UNION ALL 
+					SELECT 'Work' UNION ALL 
+					SELECT 'Shopping' UNION ALL 
+					SELECT 'Study' UNION ALL 
+					SELECT 'Movie' UNION ALL 
+					SELECT 'Bucket' UNION ALL 
+					SELECT 'Recipe' UNION ALL 
+					SELECT 'Wife') default_columns
+				WHERE NOT EXISTS (SELECT 1 
+								FROM todo_columns 
+								WHERE user_id = @Owner 
+								AND column_name = default_columns.column_name)";
 
 			try
 			{

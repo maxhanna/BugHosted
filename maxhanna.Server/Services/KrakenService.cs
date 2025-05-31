@@ -330,6 +330,7 @@ public class KrakenService
 					usdcValueToTrade = Math.Min(usdcBalance * tmpTradePerc, _MaximumUSDCTradeAmount);
 				}
 
+
 				if (usdcValueToTrade > 0)
 				{
 					decimal? usdToCadRate = await GetUsdToCadRate();
@@ -464,6 +465,17 @@ public class KrakenService
 				else
 				{ // Normal trade amount // take off a premium if the bot used a fallback trade price value.
 					coinToTrade = Math.Min(coinBalance * tmpTradePerc, _MaximumBTCTradeAmount);
+				}
+				int priorTradeCount = await GetOppositeTradeCount(userId, tmpCoin, "sell");
+				decimal adjustmentFactor = 1m;
+				if (priorTradeCount > 0)
+				{
+					// Reduce sell amount by 5% per prior buy
+					decimal reductionPerBuy = 0.05m; // 5% reduction per prior buy
+					adjustmentFactor = 1m - (priorTradeCount * reductionPerBuy);
+					adjustmentFactor = Math.Max(0.5m, adjustmentFactor); // Cap reduction at 50%
+					coinToTrade = coinToTrade.Value * adjustmentFactor;
+					_ = _log.Db($"Adjusted sell amount by {adjustmentFactor:P} due to {priorTradeCount} prior buys. New amount: {coinToTrade}", userId, "TRADE", true);
 				}
 
 				decimal coinValueInUsdc = coinToTrade.Value * coinPriceUSDC;
@@ -3098,6 +3110,59 @@ public class KrakenService
 
 		return avgPrices;
 	}
+
+	private async Task<int> GetOppositeTradeCount(int userId, string coin, string buyOrSell, int lookbackCount = 5)
+	{
+		string tmpCoin = coin.ToUpper() == "BTC" ? "XBT" : coin.ToUpper();
+		try
+		{
+			using var conn = new MySqlConnection(_config?.GetValue<string>("ConnectionStrings:maxhanna"));
+			await conn.OpenAsync();
+
+			// Query to get the last N trades for the user involving the coin
+			var query = @"
+				SELECT from_currency, to_currency
+				FROM trade_history
+				WHERE user_id = @UserId
+				AND (from_currency = @Coin OR to_currency = @Coin)
+				ORDER BY timestamp DESC
+				LIMIT @LookbackCount";
+
+			using var cmd = new MySqlCommand(query, conn);
+			cmd.Parameters.AddWithValue("@UserId", userId);
+			cmd.Parameters.AddWithValue("@Coin", tmpCoin);
+			cmd.Parameters.AddWithValue("@LookbackCount", lookbackCount);
+
+			var trades = new List<(string FromCurrency, string ToCurrency)>();
+			using var reader = await cmd.ExecuteReaderAsync();
+			while (await reader.ReadAsync())
+			{
+				trades.Add((reader.GetString("from_currency"), reader.GetString("to_currency")));
+			}
+
+			int oppositeCount = 0;
+			string expectedFrom = buyOrSell == "sell" ? "USDC" : tmpCoin;
+			string expectedTo = buyOrSell == "sell" ? tmpCoin : "USDC";
+
+			// Count consecutive trades of the opposite type (buy or sell)
+			foreach (var trade in trades)
+			{
+				if (trade.FromCurrency == expectedFrom && trade.ToCurrency == expectedTo)
+				{
+					oppositeCount++;
+				} 
+			}  
+
+			_ = _log.Db($"Trade history for {tmpCoin}: {oppositeCount} {buyOrSell}s, prior {(buyOrSell == "buy" ? "sells" : "buys")}", userId, "TRADE", true);
+			return  oppositeCount; // Return prior buys for sell, or consecutive buys for buy
+		}
+		catch (Exception ex)
+		{
+			_ = _log.Db($"⚠️Error analyzing trade history for {tmpCoin}: {ex.Message}", userId, "TRADE", true);
+			return 0;
+		}
+	}
+
 	public async Task<List<ProfitData>> GetUserProfitDataAsync(int userId, int? days = null)
 	{
 		var profitData = new List<ProfitData>();

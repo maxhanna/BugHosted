@@ -90,6 +90,7 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
   wordlerHighScores?: any = undefined;
   latestMemeId?: number = undefined;
   changedTheme = false;
+  private originalBackgroundColor: string | null = null;
 
   constructor(private userService: UserService,
     private nexusService: NexusService,
@@ -194,11 +195,25 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
   }
 
   private setBackgroundImage() {
-    if (this.user?.profileBackgroundPictureFile?.id) {
+    if (this.user?.profileBackgroundPictureFile?.id && !this.loginOnly) {
+      console.log("Setting background image for user: " + this.user?.id);
       const element = document.querySelector('.componentMain') as HTMLDivElement;
       if (element) {
+        // Store original value first
+        this.originalBackgroundColor = element.style.backgroundColor;
         element.style.setProperty('background-color', 'unset', 'important');
-      } 
+      }
+    }
+  }
+
+  private restoreBackground() {
+    const element = document.querySelector('.componentMain') as HTMLDivElement;
+    if (element && this.originalBackgroundColor !== null) {
+      if (this.originalBackgroundColor) {
+        element.style.setProperty('background-color', this.originalBackgroundColor, 'important');
+      } else {
+        element.style.removeProperty('background-color');
+      }
     }
   }
 
@@ -227,6 +242,7 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
     }
     if (this.changedTheme) {  
       this.parentRef?.navigationComponent.getThemeInfo(this.parentRef.user?.id ?? 0);
+      this.restoreBackground();
     } 
   }
 

@@ -5,17 +5,25 @@
 
   <fieldset *ngIf="!user">
     <legend title="Add to the music list">Add to the music list</legend>
-    <input type="text" #titleInput placeholder="Artist - Song Title" (keyup.enter)="addSong()" />
-    <input type="text" #urlInput placeholder="URL" (keyup.enter)="addSong()" />
-    <input type="submit" value="💾" (click)="addSong()" />
+    <div style="display: flex; justify-content: center; align-items: center; flex-wrap: wrap">
+      <input type="text" #titleInput placeholder="Artist - Song Title" (keyup.enter)="addSong()" />
+      <input type="text" #urlInput placeholder="URL" (keyup.enter)="addSong()" />
+      <app-media-selector #mediaSelector
+        [currentDirectory]="'Users/' + (parentRef?.user && parentRef?.user?.id != 0 ? parentRef?.user?.username : 'Anonymous')"
+        [user]="parentRef?.user" [inputtedParentRef]="parentRef" [maxSelectedFiles]="1"
+        (selectFileEvent)="selectFile($event)"></app-media-selector>
+      <input type="submit" value="💾" (click)="addSong()"/>
+    </div> 
   </fieldset>
   <div id="musicPlayerDiv" [class]="smallPlayer ? 'smallSongList' : 'normalSongList'">
     <div *ngIf="songs && songs.length > 0 && isMusicPlaying" [class]="smallPlayer ? 'smallIframeDiv' : 'iframeDiv'">
-      <iframe frameborder=0 id=musicVideo #musicVideo allow="autoplay"></iframe>
+      <iframe *ngIf="!fileIdPlaylist" frameborder=0 id=musicVideo #musicVideo allow="autoplay"></iframe>
+      <app-media-viewer #fileMediaViewer *ngIf="fileIdPlaying && fileIdPlaying" [inputtedParentRef]="parentRef"
+        [autoplay]="true" [autoload]="true" [loop]="false" [muted]="false" [showCommentSection]="false" [previousComponent]="'Music'" (mediaEndedEvent)="mediaEndedEvent()"></app-media-viewer>
     </div>
     <div class="musicControls">
       <label id="stopMusicButton" (click)="stopMusic()">◼</label>
-      <label id="followLinkButton" (click)="followLink()">🕸</label>
+      <label id="followLinkButton" *ngIf="!fileIdPlaylist" (click)="followLink()">🕸</label>
       <label (click)="randomSong()">⚡</label>
     </div>
 
@@ -26,10 +34,22 @@
         Search: <input placeholder="Keyword" #searchInput (input)="onSearchEnter()" /><input type="submit" value="🔍" (click)="searchForSong()" />
       </div>
       <div class="mainTableDiv">
+        <div class="musicTypeSelector">
+          <label>
+            <input type="radio" name="songType" (click)="selectType('youtube')" [checked]="true" />
+            YouTube
+          </label>
+          <label>
+            <input type="radio" name="songType" (click)="selectType('file')" />
+            Files
+            </label>
+        </div>
+      
+
         <table id="songListTable" class="mainTable">
           <tbody>
             <tr *ngFor="let song of songs" id="songId{{song.id!}}">
-              <td (click)="play(song.url!)">{{song.todo}}</td>
+              <td (click)="play(song.url, song.fileId)">{{song.todo}}</td>
               <td style="width:0%;" *ngIf="!user"><input (click)="deleteSong(song.id!)" value="❌" type="submit" /></td>
             </tr>
           </tbody>

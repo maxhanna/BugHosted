@@ -13,8 +13,13 @@
   <div #fullscreenOverlay class="fullscreen-overlay" (click)="imageFileExtensionsIncludes(this.selectedFileExtension) ? shrink() : ''">
     <span class="close-overlay" (click)="shrink()">✖</span>
     <img #fullscreenImage class="fullscreen-media" />
-    <video #fullscreenVideo class="fullscreen-media" controls autoplay loop muted></video>
-    <audio #fullscreenAudio class="fullscreen-media" controls [autoplay]="false"></audio>
+    <video #fullscreenVideo class="fullscreen-media" (ended)="onMediaEnded()" controls autoplay 
+      [muted]="muted"
+      [loop]="loop"></video>
+    <audio #fullscreenAudio class="fullscreen-media" (ended)="onMediaEnded()" controls
+      [muted]="muted"
+      [loop]="loop"
+      [autoplay]="false"></audio>
     <div class="shrinkMediaDiv cursorPointerUnderlined" (click)="shrink()">Shrink {{fileType}} ▢</div>
   </div>
   <div [class]="'mediaContainerDiv ' + (isLoadedFromURL ? 'fileDataDiv' : '')"
@@ -33,13 +38,15 @@
       <video #mediaContainer
              *ngIf="videoFileExtensionsIncludes(this.selectedFileExtension)"
              [src]="selectedFileSrc"
-             controls
-             muted
+             controls 
              playsinline
              preload="auto"
              [autoplay]="autoplay"
+             [loop]="loop"
+             [muted]="muted"
              (touchend)="togglePlay(mediaContainer)"
              (play)="togglePlay(mediaContainer)"
+             (ended)="onMediaEnded()"
              class="video media">
       </video>
       <audio #mediaContainer
@@ -47,9 +54,12 @@
              [src]="selectedFileSrc"
              controls
              preload="auto"
-             [autoplay]="false"
+             [autoplay]="false" 
+             [muted]="muted"
+             [loop]="loop"
              (touchend)="togglePlay(mediaContainer)"
              (play)="togglePlay(mediaContainer)"
+             (ended)="onMediaEnded()"
              class="audio media">
         Your browser does not support the audio element.
       </audio>

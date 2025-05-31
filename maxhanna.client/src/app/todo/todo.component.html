@@ -12,6 +12,9 @@
   <fieldset class="addTodoInputFieldset"> 
     <input type="text" id="todoInput" [placeholder]="todoPlaceholder" #todoInput required (keydown.enter)="addTodo()" />
     <input type="url" id="urlInput" placeholder="url?" #urlInput (keydown.enter)="addTodo()" />
+    <app-media-selector #mediaSelector
+      [currentDirectory]="'Users/' + (parentRef?.user && parentRef?.user?.id != 0 ? parentRef?.user?.username : 'Anonymous')"
+      [user]="parentRef?.user" [inputtedParentRef]="parentRef" [maxSelectedFiles]="1" (selectFileEvent)="selectFile($event)"></app-media-selector>
     <input type="submit" value="💾Save" (click)="addTodo()" />
   </fieldset>
 
@@ -30,7 +33,12 @@
       </thead>
       <tbody *ngIf="todos.length > 0">
         <tr *ngFor="let item of todos" id="todoNo{{item.id!}}">
-          <td>{{ item.todo }}</td>
+          <td>
+            <div>{{ item.todo }}</div>
+            <app-media-viewer *ngIf="item.fileId" [fileId]="item.fileId" [inputtedParentRef]="parentRef"
+              [showCommentSection]="false" [showMediaInformation]="true" [displayExpander]="true"
+              [displayExtraInfo]="true"></app-media-viewer>
+          </td>
           <td><a (click)="visitUrl(item.url)" *ngIf="item.url" [title]="item.url">🔗</a></td>
           <td class="todoDate" [title]="(item.date?.toString() ?? '').replace('T',' ')">{{ item.date | timeSince }}</td>
           <td><input type="button" value="❌" (click)="deleteTodo(item.id!);" id="todoDeleteNo{{item.id!}}" /></td>

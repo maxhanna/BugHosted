@@ -47,6 +47,8 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
   @Input() autoplay: boolean = true;
   @Input() autoplayAudio: boolean = false;
   @Input() autoload: boolean = true;
+  @Input() loop: boolean = true;
+  @Input() muted: boolean = true;
   @Input() forceInviewLoad: boolean = false;
   @Input() showTopics: boolean = true;
   @Input() showCommentSection: boolean = true;
@@ -66,6 +68,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
   @Output() commentHeaderClickedEvent = new EventEmitter<boolean>();
   @Output() expandClickedEvent = new EventEmitter<FileEntry>();
   @Output() topicClickedEvent = new EventEmitter<Topic[]>();
+  @Output() mediaEndedEvent = new EventEmitter<void>();
 
   async ngOnInit() { 
     if (this.isLoadedFromURL) {
@@ -238,8 +241,8 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
           }
           setTimeout(() => {
             if (this.mediaContainer && this.mediaContainer.nativeElement) {
-              this.mediaContainer.nativeElement.muted = true;
-              this.mediaContainer.nativeElement.loop = true;
+              //this.mediaContainer.nativeElement.muted = true;
+             // this.mediaContainer.nativeElement.loop = true;
             }
           }, 50);
         };
@@ -464,5 +467,9 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
     this.isShowingFileViewers = false; 
     const parent = this.inputtedParentRef ?? this.parentRef;
     parent?.closeOverlay();
+  }
+  onMediaEnded() {
+    console.log("Media ended");
+    this.mediaEndedEvent.emit();
   }
 }

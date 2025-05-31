@@ -26,13 +26,21 @@ namespace maxhanna.Server.Services
 			_log = log;
 			_checkForNewUnitUpgradesTimer = new Timer(ProcessQueue, null, TimeSpan.Zero, TimeSpan.FromSeconds(QueueProcessingInterval));
 		}
-		 
+
 		public void ScheduleUpgrade(int upgradeId, TimeSpan delay, Action<int> callback)
 		{
 			if (_timers.ContainsKey(upgradeId))
 			{
 				return;
 			}
+
+			// If the delay is too large, cap it at the maximum allowed value
+			if (delay > TimeSpan.FromMilliseconds(int.MaxValue - 1))
+			{
+				delay = TimeSpan.FromMilliseconds(int.MaxValue - 1);
+				_ = _log.Db($"Capped excessive delay for upgrade {upgradeId} to maximum timer duration", null, "NUUS", true);
+			}
+
 			var timer = new Timer(state =>
 			{
 				var id = (state != null ? (int)state : -1);
@@ -40,10 +48,9 @@ namespace maxhanna.Server.Services
 				_timers.TryRemove(id, out _);
 			}, upgradeId, delay, Timeout.InfiniteTimeSpan);
 
-
 			if (!_timers.TryAdd(upgradeId, timer))
 			{
-				timer.Dispose(); // In case the upgradeId was added by another thread between the check and the add
+				timer.Dispose();
 			}
 		}
 		public void EnqueueUpgrade(int upgradeId)
@@ -97,7 +104,7 @@ namespace maxhanna.Server.Services
                         p.id, 
                         p.timestamp, 
                         p.unit_id_upgraded,
-                        (us.duration * s.duration) as total_duration
+                        us.duration as total_duration
                     FROM 
                         nexus_unit_upgrades p
                     JOIN 
@@ -125,7 +132,7 @@ namespace maxhanna.Server.Services
 					int unitId = reader.GetInt32("unit_id_upgraded");
 					int totalDuration = reader.GetInt32("total_duration");
 
-					//Console.WriteLine($"upgradeId {upgradeId} totalDuration {totalDuration} timestamp {timestamp} ");
+					//_ = _log.Db($"upgradeId {upgradeId} totalDuration {totalDuration} timestamp {timestamp} ", null, "NUUS", false);
 
 					TimeSpan delay = timestamp.AddSeconds(totalDuration) - DateTime.Now;
 					if (delay > TimeSpan.Zero)
@@ -152,7 +159,7 @@ namespace maxhanna.Server.Services
 				await conn.OpenAsync();
 
 				string sqlBase =
-						@"SELECT * FROM maxhanna.nexus_bases n
+					@"SELECT * FROM maxhanna.nexus_bases n
                       LEFT JOIN maxhanna.nexus_unit_upgrades a ON a.coords_x = n.coords_x AND a.coords_y = n.coords_y
                       WHERE a.id = @UpgradeId LIMIT 1;";
 
