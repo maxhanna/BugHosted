@@ -59,8 +59,12 @@ export class NotificationsComponent extends ChildComponent implements OnInit, On
   private async getNotifications() {  
     if (this.parentRef?.user?.id) { 
       this.startLoading();
-      this.notifications = await this.notificationService.getNotifications(this.parentRef.user.id);
-      this.unreadNotifications = this.notifications?.filter(x => x.isRead == false).length;
+      await this.notificationService.getNotifications(this.parentRef.user.id).then(res => {
+        if (res) {
+          this.notifications = res; 
+          this.unreadNotifications = this.notifications?.filter(x => x.isRead == false).length; 
+        }
+      });
       this.stopLoading();
     }
   }
@@ -179,10 +183,11 @@ export class NotificationsComponent extends ChildComponent implements OnInit, On
     }
   }
   notificationTextClick(notification: UserNotification) {
+    console.log("Notification text clicked: ", notification);
     if (!notification.isRead) { 
       this.read(notification, true);
     } 
-    if (notification.text?.includes('Captured') && notification.text?.includes('base at')) {
+    if (notification.text?.toLowerCase().includes('captured') || notification.text?.includes('base at')) {
       this.parentRef?.createComponent('Bug-Wars');
     } else if (notification.text?.includes('BugWars')) {
       this.parentRef?.createComponent('Bug-Wars');

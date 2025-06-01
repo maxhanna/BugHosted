@@ -118,8 +118,9 @@ export class NexusService {
   async returnAttack(defenceId: number): Promise<any> {
     return await this.fetchData('/nexus/returnattack', { DefenceId: defenceId });
   }
-  async getBattleReports(userId: number, pageNumber: number, pageSize: number, targetBase?: NexusBase, targetUserId?: number): Promise<NexusBattleOutcomeReports> {
-    return await this.fetchData('/nexus/getbattlereports', { UserId: userId, PageNumber: pageNumber, PageSize: pageSize, TargetBase: targetBase, TargetUserId: targetUserId });
+  async getBattleReports(userId: number, pageNumber: number, pageSize: number, targetBase?: NexusBase, targetUserId?: number, searchDefenceReports?: boolean, searchAttackReports?: boolean): Promise<NexusBattleOutcomeReports> {
+    return await this.fetchData('/nexus/getbattlereports', { UserId: userId, PageNumber: pageNumber, PageSize: pageSize, TargetBase: targetBase, TargetUserId: targetUserId, 
+      SearchDefenceReports: searchDefenceReports, SearchAttackReports: searchAttackReports });
   }
   async deleteReport(userId: number, battleIds?: number[]): Promise<any> {
     return await this.fetchData('/nexus/deletereport', { UserId: userId, BattleIds: battleIds });

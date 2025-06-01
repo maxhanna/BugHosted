@@ -39,6 +39,7 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
   isMapOpen = false;
   isBasesOpen = false;
   isSupportOpen = false;
+  isMovementOpen = false;
   isReportsOpen = false;
   isMarineOpen = false;
   isGoliathOpen = false;
@@ -1637,12 +1638,18 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
       this.isMapOpen = false;
       this.isBasesOpen = false;
       this.isSupportOpen = false;
+      this.isMovementOpen = false;
       this.toggledUnitStat = undefined;
       this.toggleUnitScreen();
 
       if (screen == "reports") {
         setTimeout(() => {
           this.isReportsOpen = isOpen != undefined ? isOpen : !this.isReportsOpen;
+        }, 50);
+      }
+      if (screen == "movement") {
+        setTimeout(() => {
+          this.isMovementOpen = isOpen != undefined ? isOpen : !this.isMovementOpen;
         }, 50);
       }
       else if (screen == "map") { 
@@ -1716,11 +1723,25 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
       return this.units.find(x => x.unitType == "glitcher");
     else return undefined;
   }
-  addNotification(notif?: string) { 
-    if (notif) {
-      this.parentRef?.showNotification(notif); 
+  addNotification(notif?: string) {
+    if (notif && notif.toLowerCase().includes("attack sent to")) {
+      let notifList = this.parentRef?.notifications;
+      if (notifList) {
+        let index = notifList.findIndex(x => x.toLowerCase().includes("attack sent to"));
+        if (index !== -1) {
+          console.log("replacing existing attack notification", notifList[index]);
+          notifList[index] = notif;
+        } else {
+          this.parentRef?.showNotification(notif);
+        }
+      }
+    } else {
+      if (notif) {
+        this.parentRef?.showNotification(notif);
+      }
     }
   }
+  
   toggleUnitScreenFromBaseUnits(unit: string) {
     if (!this.units) return;
     const unitStat = this.units.find(x => x.unitType == unit);
@@ -1755,10 +1776,10 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
     return unit.unitId; // or a unique identifier for the unit
   }
   shouldShowIncomingAttacks(): boolean {
-    return (this.attacksIncomingCount > 0 && !this.isReportsOpen && !this.isSupportOpen && !this.isBasesOpen && !this.isMapOpen && this.nexusBase) ? true : false;
+    return (this.attacksIncomingCount > 0 && !this.isReportsOpen && !this.isSupportOpen && !this.isBasesOpen && !this.isMapOpen && !this.isMovementOpen && this.nexusBase) ? true : false;
   }
   shouldShowIncomingDefences(): boolean {
-    return (this.defencesIncomingCount > 0 && !this.isReportsOpen && !this.isSupportOpen && !this.isBasesOpen && !this.isMapOpen && this.nexusBase) ? true : false;
+    return (this.defencesIncomingCount > 0 && !this.isReportsOpen && !this.isSupportOpen && !this.isBasesOpen && !this.isMapOpen && !this.isMovementOpen && this.nexusBase) ? true : false;
   }
   shouldShowBaseNav(): boolean {
     return this.hideBaseNavForMap ? false : (this.numberOfPersonalBases > 1
@@ -1774,12 +1795,13 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
       && !this.isWarehouseOpen
       && !this.isEngineeringBayOpen
       && !this.isSupplyDepotOpen
+      && !this.isMovementOpen
       && this.nexusBase) ? true : false;
   }
   shouldShowResources(): boolean {
     return (!this.isReportsOpen && !this.isMapOpen && !this.isBasesOpen 
       && !this.isSupportOpen && !this.showMoreWarehouseInfo && !this.showMoreFactoryInfo
-       && !this.showMoreStarportInfo && !this.showMoreEngineeringBayInfo && !this.isUserNew && this.nexusBase) ? true : false;
+      && !this.showMoreStarportInfo && !this.showMoreEngineeringBayInfo && !this.isUserNew && !this.isMovementOpen && this.nexusBase) ? true : false;
   }
   getUnitsWithoutGlitcher() {
     if (!this.units || !this.nexusBase) return undefined;
@@ -2103,9 +2125,17 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
     this.parentRef?.closeOverlay(); 
   }
   searchReports($event?: User) {
-    if ($event) { 
+    if ($event) {
       this.nexusReportsComponent.searchReports($event);
     }
+    this.closeUserSearchOverlay();
+  }
+  searchReportsByDefence() {
+    this.nexusReportsComponent.searchReportsByDefence();
+    this.closeUserSearchOverlay();
+  }
+  searchReportsByAttack() {
+    this.nexusReportsComponent.searchReportsByAttack();
     this.closeUserSearchOverlay();
   }
   debounceLoadNexusData = this.debounce(async () => {

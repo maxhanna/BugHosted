@@ -567,7 +567,7 @@ namespace maxhanna.Server.Controllers
 		[HttpPost("/Nexus/GetBattleReports", Name = "GetBattleReports")]
 		public async Task<IActionResult> GetBattleReports([FromBody] BattleReportRequest request)
 		{ 
-			var paginatedReports = await GetAllBattleReports(request.UserId, request.TargetBase, request.TargetUserId, request.PageNumber, request.PageSize, null, null);
+			var paginatedReports = await GetAllBattleReports(request.UserId, request.TargetBase, request.TargetUserId, request.PageNumber, request.PageSize, request.SearchDefenceReports ?? false, request.SearchAttackReports ?? false, null, null);
 			return Ok(paginatedReports);
 		}
 
@@ -4669,20 +4669,22 @@ namespace maxhanna.Server.Controllers
 				int? targetUserId,
 				int pageNumber,
 				int pageSize,
+				bool searchDefenceReports,
+				bool searchAttackReports,
 				MySqlConnection? externalConnection = null,
 				MySqlTransaction? externalTransaction = null)
 		{
 			var battleReports = new List<NexusBattleOutcome>();
 			int offset = (pageNumber - 1) * pageSize;
 			int totalReports = 0;
-			string query = @"
+			string query = $@"
                 SELECT SQL_CALC_FOUND_ROWS b.*, au.username as attackerUsername, du.username as defenderUsername, audp.file_id as attackerDp, dudp.file_id as defenderDp
                 FROM nexus_battles b
                 LEFT JOIN maxhanna.users au ON au.id = b.origin_user_id
                 LEFT JOIN maxhanna.user_display_pictures audp ON au.id = audp.user_id
                 LEFT JOIN maxhanna.users du ON du.id = b.destination_user_id
                 LEFT JOIN maxhanna.user_display_pictures dudp ON du.id = dudp.user_id
-                WHERE 1=1";
+                WHERE 1=1 {(searchDefenceReports ? " AND du.id = @UserId " : "")} {(searchAttackReports ? " AND au.id = @UserId " : "")}";
 
 			if (userId != null)
 			{
@@ -4723,7 +4725,7 @@ namespace maxhanna.Server.Controllers
 			string countQuery = @"
                     SELECT COUNT(*) 
                     FROM nexus_battles b 
-                    WHERE 1=1";
+                    WHERE 1=1 ";
 
 			if (userId != null)
 			{

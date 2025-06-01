@@ -319,14 +319,14 @@ namespace maxhanna.Server.Controllers
 			// Replace with filtered list
 			request.ToUserIds = validRecipients.ToArray();
 
-			// Console.WriteLine($@"Creating notifications for 
+			// _ = _log.Db($@"Creating notifications for 
 			//  userId : {request.FromUserId},
 			//  toUserId : {string.Join(", ", request.ToUserIds)},
 			//  storyId: {request.StoryId}, 
 			//  commentId: {request.CommentId}, 
 			//  fileId: {request.FileId}, 
 			//  userProfileId: {request.UserProfileId}, 
-			//  chatId: {request.ChatId}.");
+			//  chatId: {request.ChatId}.", null, "NOTIFICATION", outputToConsole: true);
 			bool sendFirebaseNotification = true;
 			request.Message = RemoveQuotedBlocks(request.Message);
 
@@ -356,12 +356,9 @@ namespace maxhanna.Server.Controllers
 				{
 					sendFirebaseNotification = true;
 				}
-				else if (!sendFirebaseNotification && request.Message != null)
-				{
-					if (await TryResolveGenericMessageNotification(conn, request))
-					{
-						sendFirebaseNotification = true;
-					}
+				else if (await TryResolveGenericMessageNotification(conn, request))
+				{ 
+					sendFirebaseNotification = true; 
 				}
 			}
 			if (sendFirebaseNotification)
@@ -913,81 +910,155 @@ namespace maxhanna.Server.Controllers
 			}
 			return sendFirebaseNotification;
 		}
-
 		private async Task<bool> TryResolveGenericMessageNotification(MySqlConnection conn, NotificationRequest request)
 		{
 			if (request.Message == null) return false;
+
 			bool sendFirebaseNotification = true;
+			bool isBugWarsAttack = request.Message.StartsWith("BugWars attack incoming on");
+			bool isNewChatMessage = request.Message.StartsWith("New chat message!");
+
 			foreach (var receiverUserId in request.ToUserIds)
 			{
 				if (receiverUserId == request.FromUserId)
 				{
 					continue;
-				} 
+				}
 
-				string checkSql = @"
-							SELECT COUNT(*) 
-							FROM maxhanna.notifications
-							WHERE user_id = @Receiver
-								AND from_user_id = @Sender
-								AND chat_id IS NULL
-								AND file_id IS NULL
-								AND story_id IS NULL
-								AND comment_id IS NULL
-								AND user_profile_id IS NULL
-								AND date >= NOW() - INTERVAL 10 MINUTE;";
-
-				string updateNotificationSql = @"
-							UPDATE maxhanna.notifications
-							SET text = CASE
-									WHEN LENGTH(text) <= 250 THEN CONCAT(text, ', ', @Content)
-									ELSE text
-							END,
-							date = NOW()
-							WHERE user_id = @Receiver
-								AND from_user_id = @Sender
-								AND chat_id IS NULL
-								AND file_id IS NULL
-								AND story_id IS NULL
-								AND comment_id IS NULL
-								AND user_profile_id IS NULL
-								AND date >= NOW() - INTERVAL 10 MINUTE;";
-
-				string insertNotificationSql = @"
-							INSERT INTO maxhanna.notifications (user_id, from_user_id, text, user_profile_id)
-							VALUES (@Receiver, @Sender, @Content, @UserProfileId);";
-
-				using (var checkCommand = new MySqlCommand(checkSql, conn))
+				try
 				{
-					checkCommand.Parameters.AddWithValue("@Sender", request.FromUserId);
-					checkCommand.Parameters.AddWithValue("@Receiver", receiverUserId);
-					checkCommand.Parameters.AddWithValue("@Content", request.Message);
-					checkCommand.Parameters.AddWithValue("@UserProfileId", request.UserProfileId ?? (object)DBNull.Value);
+					string checkSql = @"
+                SELECT id, text 
+                FROM maxhanna.notifications
+                WHERE user_id = @Receiver
+                    AND from_user_id = @Sender
+                    AND chat_id IS NULL
+                    AND file_id IS NULL
+                    AND story_id IS NULL
+                    AND comment_id IS NULL
+                    AND user_profile_id IS NULL
+                    AND date >= UTC_TIMESTAMP() - INTERVAL 10 MINUTE
+                LIMIT 1;";
 
-					int count = Convert.ToInt32(await checkCommand.ExecuteScalarAsync()); 
-					if (count > 0)
+					string updateNotificationSql = @"
+                UPDATE maxhanna.notifications
+                SET text = @Content,
+                    date = UTC_TIMESTAMP()
+                WHERE id = @NotificationId;";
+
+					string insertNotificationSql = @"
+                INSERT INTO maxhanna.notifications 
+                    (user_id, from_user_id, text, date)
+                VALUES 
+                    (@Receiver, @Sender, @Content, UTC_TIMESTAMP());";
+
+					using (var checkCommand = new MySqlCommand(checkSql, conn))
 					{
-						// Update existing notification
-						using (var updateCommand = new MySqlCommand(updateNotificationSql, conn))
+						checkCommand.Parameters.AddWithValue("@Sender", request.FromUserId);
+						checkCommand.Parameters.AddWithValue("@Receiver", receiverUserId);
+
+						using (var reader = await checkCommand.ExecuteReaderAsync())
 						{
-							updateCommand.Parameters.AddWithValue("@Sender", request.FromUserId);
-							updateCommand.Parameters.AddWithValue("@Receiver", receiverUserId);
-							updateCommand.Parameters.AddWithValue("@Content", request.Message);
-							sendFirebaseNotification = false;
-							await updateCommand.ExecuteNonQueryAsync();
+							string newContent = request.Message;
+							int? existingId = null;
+
+							if (await reader.ReadAsync())
+							{
+								existingId = reader.GetInt32("id");
+								string existingText = reader.GetString("text");
+
+								if (isBugWarsAttack)
+								{
+									if (existingText.StartsWith("BugWars:"))
+									{
+										var match = Regex.Match(existingText, @"BugWars: (\d+) Attacks incoming!");
+										newContent = match.Success && int.TryParse(match.Groups[1].Value, out int currentCount)
+											? $"BugWars: {currentCount + 1} Attacks incoming!"
+											: "BugWars: 2 Attacks incoming!";
+									}
+									else if (existingText.StartsWith("BugWars attack incoming on"))
+									{
+										newContent = "BugWars: 2 Attacks incoming!";
+									}
+									sendFirebaseNotification = false;
+								}
+								else if (isNewChatMessage)
+								{
+									if (existingText.StartsWith("New chat messages ("))
+									{
+										var match = Regex.Match(existingText, @"New chat messages \((\d+)\)");
+										newContent = match.Success && int.TryParse(match.Groups[1].Value, out int currentCount)
+											? $"New chat messages ({currentCount + 1})"
+											: $"New chat messages (2)";
+									}
+									else if (existingText.StartsWith("New chat message!"))
+									{
+										newContent = "New chat messages (2)";
+									}
+									else if (existingText.Contains("New chat message!"))
+									{
+										// Count existing chat messages in the concatenated string
+										int count = existingText.Split(new[] { "New chat message!" }, StringSplitOptions.None).Length;
+										newContent = $"New chat messages ({count + 1})";
+									}
+									sendFirebaseNotification = false;
+								}
+								else
+								{
+									// Normal message concatenation (for other message types)
+									newContent = existingText.Length <= 250
+										? $"{existingText}, {request.Message}"
+										: existingText;
+								}
+							}
+
+							await reader.CloseAsync();
+
+							try
+							{
+								if (existingId.HasValue)
+								{
+									using (var updateCommand = new MySqlCommand(updateNotificationSql, conn))
+									{
+										updateCommand.Parameters.AddWithValue("@NotificationId", existingId.Value);
+										updateCommand.Parameters.AddWithValue("@Content", newContent);
+										await updateCommand.ExecuteNonQueryAsync();
+									}
+								}
+								else
+								{
+									using (var insertCommand = new MySqlCommand(insertNotificationSql, conn))
+									{
+										insertCommand.Parameters.AddWithValue("@Sender", request.FromUserId);
+										insertCommand.Parameters.AddWithValue("@Receiver", receiverUserId);
+										insertCommand.Parameters.AddWithValue("@Content",
+											isBugWarsAttack ? request.Message :
+											isNewChatMessage ? request.Message :
+											newContent);
+										await insertCommand.ExecuteNonQueryAsync();
+									}
+								}
+							}
+							catch (MySqlException updateInsertEx)
+							{
+								_ = _log.Db($"Error processing notification for user {receiverUserId}: {updateInsertEx.Message}",
+										   null, "NOTIFICATION", true);
+								continue;
+							}
 						}
 					}
-					else
-					{
-						// Insert new notification
-						using (var insertCommand = new MySqlCommand(insertNotificationSql, conn))
-						{
-							insertCommand.Parameters.AddWithValue("@Sender", request.FromUserId);
-							insertCommand.Parameters.AddWithValue("@Receiver", receiverUserId);
-							insertCommand.Parameters.AddWithValue("@Content", request.Message); 
-							await insertCommand.ExecuteNonQueryAsync();
-						}
-					}
+				}
+				catch (MySqlException sqlEx)
+				{
+					_ = _log.Db($"Database error processing notification: {sqlEx.Message}",
+							   null, "NOTIFICATION", true);
+					continue;
+				}
+				catch (Exception ex)
+				{
+					_ = _log.Db($"Unexpected error processing notification: {ex.Message}",
+							   null, "NOTIFICATION", true);
+					continue;
 				}
 			}
 

@@ -43,28 +43,27 @@
     </div>
     <!-- Reports -->
     <div *ngIf="parentRef && parentRef.user && isReportsOpen " class="battleReportComponentDiv">
-      <app-nexus-reports #reportsComponent
-                         [user]="parentRef.user"
-                         [inputtedParentRef]="parentRef"
-                         [mapData]="mapData"
-                         [marinePictureSrc]="marinePictureSrc"
-                         [goliathPictureSrc]="goliathPictureSrc"
-                         [siegeTankPictureSrc]="siegeTankPictureSrc"
-                         [scoutPictureSrc]="scoutPictureSrc"
-                         [wraithPictureSrc]="wraithPictureSrc"
-                         [battlecruiserPictureSrc]="battlecruiserPictureSrc"
-                         [glitcherPictureSrc]="glitcherPictureSrc"
-                         [cclvl1Src]="cclvl1Src"
-                         [splvl1Src]="splvl1Src"
-                         [sdlvl1Src]="sdlvl1Src"
-                         [whlvl1Src]="whlvl1Src"
-                         [eblvl1Src]="eblvl1Src"
-                         [mineslvl1Src]="mineslvl1Src"
-                         [flvl1Src]="flvl1Src"
-                         (openMapEmitter)="emittedOpenMapAndScrollTo($event)"
-                         (openUserSearchEmitter)="emittedOpenUserSearch()"
-                         *ngIf="isReportsOpen">
+      <app-nexus-reports #reportsComponent [user]="parentRef.user" [inputtedParentRef]="parentRef" [mapData]="mapData"
+        [marinePictureSrc]="marinePictureSrc" [goliathPictureSrc]="goliathPictureSrc"
+        [siegeTankPictureSrc]="siegeTankPictureSrc" [scoutPictureSrc]="scoutPictureSrc"
+        [wraithPictureSrc]="wraithPictureSrc" [battlecruiserPictureSrc]="battlecruiserPictureSrc"
+        [glitcherPictureSrc]="glitcherPictureSrc" [cclvl1Src]="cclvl1Src" [splvl1Src]="splvl1Src" [sdlvl1Src]="sdlvl1Src"
+        [whlvl1Src]="whlvl1Src" [eblvl1Src]="eblvl1Src" [mineslvl1Src]="mineslvl1Src" [flvl1Src]="flvl1Src"
+        (openMapEmitter)="emittedOpenMapAndScrollTo($event)" (openUserSearchEmitter)="emittedOpenUserSearch()"
+        *ngIf="isReportsOpen">
       </app-nexus-reports>
+    </div>
+    <!-- Movement -->
+    <div *ngIf="parentRef && parentRef.user && isMovementOpen " class="battleReportComponentDiv">
+      <app-nexus-movement #movementComponent [user]="parentRef.user" [inputtedParentRef]="parentRef" (openMapEmitter)="emittedOpenMapAndScrollTo($event)" 
+      [marinePictureSrc]="marinePictureSrc" [goliathPictureSrc]="goliathPictureSrc"
+      [siegeTankPictureSrc]="siegeTankPictureSrc" [scoutPictureSrc]="scoutPictureSrc"
+      [wraithPictureSrc]="wraithPictureSrc" [battlecruiserPictureSrc]="battlecruiserPictureSrc"
+      [glitcherPictureSrc]="glitcherPictureSrc" [cclvl1Src]="cclvl1Src" [splvl1Src]="splvl1Src" [sdlvl1Src]="sdlvl1Src"
+      [whlvl1Src]="whlvl1Src" [eblvl1Src]="eblvl1Src" [mineslvl1Src]="mineslvl1Src" [flvl1Src]="flvl1Src"
+      [nexusAttacksSent]="nexusAttacksSent" [nexusAttacksIncoming]="nexusAttacksIncoming" [nexusDefencesSent]="nexusDefencesSent" [nexusDefencesIncoming]="nexusDefencesIncoming"
+        *ngIf="isMovementOpen">
+      </app-nexus-movement>
     </div>
     <!-- Map screen -->
     <div class="mapComponentDiv" #mapComponentDiv *ngIf="parentRef && parentRef.user && isMapOpen && mapData">
@@ -160,7 +159,7 @@
                               (defenceReturnedEmitter)="emittedDefenceReturned($event)"
                               (openMapEmitter)="emittedOpenMapAndScrollTo($event)"></app-nexus-support-screen>
     <!-- Buildings -->
-    <div *ngIf="!isMinesOpen && !isCommandCenterOpen && !isSupplyDepotOpen && !isFactoryOpen && !isMinesOpen && !isStarportOpen && !isWarehouseOpen && !isEngineeringBayOpen && !isMapOpen && !isBasesOpen && !isReportsOpen && !isSupportOpen && nexusBase">
+    <div *ngIf="!isMinesOpen && !isCommandCenterOpen && !isSupplyDepotOpen && !isFactoryOpen && !isMinesOpen && !isStarportOpen && !isWarehouseOpen && !isEngineeringBayOpen && !isMapOpen && !isMovementOpen && !isBasesOpen && !isReportsOpen && !isSupportOpen && nexusBase">
       <img [src]="nexusBackgroundPictureSrc"
            class="nexusBackground"
            *ngIf="nexusBackgroundPictureSrc"
@@ -702,7 +701,7 @@
     </div>
   </div>
 
-  <div *ngIf="!isCommandCenterOpen && !toggledUnitStat && !isMapOpen && !isReportsOpen && !isBasesOpen && !isSupportOpen && !isUserNew && !isUserComponentOpen" class="movementResearchAndUnitsDiv">
+  <div *ngIf="!isCommandCenterOpen && !toggledUnitStat && !isMapOpen && !isMovementOpen && !isReportsOpen && !isBasesOpen && !isSupportOpen && !isUserNew && !isUserComponentOpen" class="movementResearchAndUnitsDiv">
     <!-- TIMERS -->
     <span *ngIf="activeAttackTimers().length > 0 || activeDefenceTimers().length > 0" class="mainInfoSection">Movement:</span>
     <div *ngIf="activeAttackTimers().length > 0 || activeDefenceTimers().length > 0" class="movementListDiv">
@@ -789,7 +788,7 @@
       </div>
     </div>
     <!-- UNITS -->
-    <div class="unitslist" *ngIf="!isCommandCenterOpen && !isMapOpen && !isReportsOpen && !isBasesOpen && !isSupportOpen && !isUserNew && !isUserComponentOpen && !toggledUnitStat">
+    <div class="unitslist" *ngIf="!isCommandCenterOpen && !isMapOpen && !isMovementOpen && !isReportsOpen && !isBasesOpen && !isSupportOpen && !isUserNew && !isUserComponentOpen && !toggledUnitStat">
       <div *ngIf="nexusAvailableUnits">
         <span class="mainInfoSection">Available:</span>
         <app-nexus-base-units [parentRef]="parentRef"
@@ -857,11 +856,13 @@
     <div *ngFor="let notif of notifications" class="gameNotification capitalize" (click)="notifications = []">➫ <span>{{notif.replaceAll('_', ' ')}}</span></div>
   </div>
   <div class="shareMapButtonDiv">
-    <button (click)="copyLink()" title="Share Link" *ngIf="!isReportsOpen && !isMapOpen && !isBasesOpen && !isSupportOpen">Share 📋</button>
-    <button (click)="toggleScreen('map', !isMapOpen)" title="View Map" *ngIf="!isUserNew && parentRef && parentRef.user && !isReportsOpen && !isSupportOpen && !isBasesOpen" [disabled]="isLoading">{{isMapOpen ? 'Close ' : ''}}Map 🗺️</button>
-    <button (click)="toggleScreen('reports', !isReportsOpen)" title="View Reports" *ngIf="!isUserNew && parentRef && parentRef.user && !isMapOpen && !isSupportOpen && !isBasesOpen" [disabled]="isLoading">{{isReportsOpen ? 'Close ' : ''}}Data 📃</button>
-    <button (click)="toggleScreen('bases', !isBasesOpen)" title="View Bases" *ngIf="!isUserNew && parentRef && parentRef.user && !isReportsOpen && !isSupportOpen && !isMapOpen" [disabled]="isLoading">{{isBasesOpen ? 'Close ' : ''}}Bases 🏰</button>
-    <button (click)="toggleScreen('support', !isSupportOpen)" title="View Support" *ngIf="!isUserNew && parentRef && parentRef.user && !isReportsOpen && !isMapOpen && (isBasesOpen || isSupportOpen)" [disabled]="isLoading">{{isSupportOpen ? 'Close ' : ''}}Support 🛡️</button>
+    <button (click)="copyLink()" title="Share Link" *ngIf="!isReportsOpen && !isMapOpen && !isMovementOpen && !isBasesOpen && !isSupportOpen">Share 📋</button>
+    <button (click)="toggleScreen('map', !isMapOpen)" title="View Map" *ngIf="!isUserNew && parentRef && parentRef.user && !isReportsOpen && !isSupportOpen && !isBasesOpen && !isMovementOpen" [disabled]="isLoading">{{isMapOpen ? 'Close ' : ''}}Map 🗺️</button>
+    <button (click)="toggleScreen('reports', !isReportsOpen)" title="View Reports" *ngIf="!isUserNew && parentRef && parentRef.user && !isMapOpen && !isSupportOpen && !isBasesOpen && !isMovementOpen" [disabled]="isLoading">{{isReportsOpen ? 'Close ' : ''}}Data 📃</button>
+    <button (click)="toggleScreen('bases', !isBasesOpen)" title="View Bases" *ngIf="!isUserNew && parentRef && parentRef.user && !isReportsOpen && !isSupportOpen && !isMapOpen && !isMovementOpen" [disabled]="isLoading">{{isBasesOpen ? 'Close ' : ''}}Bases 🏰</button>
+    <button (click)="toggleScreen('support', !isSupportOpen)" title="View Support" *ngIf="!isUserNew && parentRef && parentRef.user && !isReportsOpen && !isMapOpen && (isBasesOpen || isSupportOpen) && !isMovementOpen" [disabled]="isLoading">{{isSupportOpen ? 'Close ' : ''}}Support 🛡️</button>
+    <button (click)="toggleScreen('movement', !isMovementOpen)" title="View Movement" *ngIf="!isUserNew && parentRef && parentRef.user && !isReportsOpen && !isSupportOpen && !isMapOpen" [disabled]="isLoading">{{isMovementOpen ? 'Close ' : ''}}Movement 🏇</button>
+
   </div>
   <div *ngIf="!isLoading && !nexusBase && !isUserNew">
     Server is down.
@@ -875,4 +876,10 @@
                  [searchOnly]="true"
                  [inputtedParentRef]="parentRef">
   </app-user-list>
+  <div>
+    <label>Show defences: <input type="checkbox" #searchByDefence (click)="searchReportsByDefence();" [checked]="nexusReportsComponent.searchDefenceReports" /></label>
+  </div> 
+  <div>
+    <label>Show attacks: <input type="checkbox" #searchByDefence (click)="searchReportsByAttack();" [checked]="nexusReportsComponent.searchAttackReports" /></label>
+  </div>
 </div>

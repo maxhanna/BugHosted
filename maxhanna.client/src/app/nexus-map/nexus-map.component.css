@@ -36,8 +36,12 @@
   width: 50px;
   height: 50px; 
   background-color: #150f0f;
+  /* box-shadow: 0 0 0 1px black; */
 }
-
+/* .cell-content:hover {
+  transform: scale(1.05);
+  box-shadow: inset 0 0 0 1px var(--main-link-color);
+} */
 
 .cell-content-coords {
   position: relative;
@@ -242,16 +246,13 @@
   z-index: 5;
   border-radius:50%;
 }
-.tileInfoDiv {
-  margin-top: 25px;
-  border: var(--main-border);
-  max-width: 300px;
-}
+ 
 .infoContainer {
   width: 100%;
   display: flex; 
   justify-content: center;
   align-items: center;
+  flex-wrap: wrap;
 }
 .selectedBaseNameOnMap {
   max-width: 130px;

@@ -59,6 +59,8 @@ export class NexusReportsComponent extends ChildComponent implements OnInit, OnC
     'warehouse',
     'supply_depot'
   ];
+  searchDefenceReports = false;
+  searchAttackReports = false;
 
   @ViewChild('pageSize') pageSize!: ElementRef<HTMLSelectElement>;
   @ViewChild('currentPage') currentPage!: ElementRef<HTMLSelectElement>;
@@ -123,7 +125,7 @@ export class NexusReportsComponent extends ChildComponent implements OnInit, OnC
       this.targetBase = targetBase;
     }
     this.startLoading();
-    this.battleReports = await this.nexusService.getBattleReports(this.user.id, +currentPage, +pageSize, this.targetBase, this.targetUser?.id);
+    this.battleReports = await this.nexusService.getBattleReports(this.user.id, +currentPage, +pageSize, this.targetBase, this.targetUser?.id, this.searchDefenceReports, this.searchAttackReports);
     this.stopLoading();
 
     if (this.battleReports) {
@@ -218,6 +220,16 @@ export class NexusReportsComponent extends ChildComponent implements OnInit, OnC
     if (this.inputtedParentRef) {
       this.inputtedParentRef.closeOverlay();
     }
+    this.loadBattleReports(this.targetBase);
+  }
+  searchReportsByDefence() {
+    this.searchAttackReports = false;
+    this.searchDefenceReports = !this.searchDefenceReports;
+    this.loadBattleReports(this.targetBase);
+  }
+  searchReportsByAttack() {
+    this.searchDefenceReports = false; 
+    this.searchAttackReports = !this.searchAttackReports;
     this.loadBattleReports(this.targetBase);
   }
   

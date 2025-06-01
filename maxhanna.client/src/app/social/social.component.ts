@@ -969,7 +969,7 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
       if (tag.startsWith('#')) {
         // For headings
         newText = targetInput.value.substring(0, start) +
-          `\n\n${tag} ${selectedText}\n\n` +
+          `${tag} ${selectedText}` +
           targetInput.value.substring(end);
         cursorOffset = start + tag.length + selectedText.length + 4; // After header text
       } else {
@@ -984,7 +984,7 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
       if (tag.startsWith('#')) {
         // For headings
         newText = targetInput.value.substring(0, end) +
-          `\n\n${tag} ` +  // Space after header
+          `${tag} ` +  // Space after header
           targetInput.value.substring(end);
         cursorOffset = end + tag.length + 3; // After header marker and space
       } else {

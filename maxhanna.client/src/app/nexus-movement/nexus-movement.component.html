@@ -1,0 +1,54 @@
+<div class="movement-section">
+    <ng-container *ngFor="let movement of movements; let i = index">
+        <h2 class="collapsible-header" (click)="toggleCollapse(i)">
+            {{ movement.title }} ({{ movement.data.length }})
+            <span class="collapse-icon">{{ movement.isCollapsed ? '▼' : '▲' }}</span>
+        </h2>
+        <div *ngIf="!movement.isCollapsed">
+            <div *ngIf="movement.paginatedData.length > 0; else noMovements">
+                <div *ngFor="let item of movement.paginatedData" class="movement-item">
+                    <div class="movement-header">
+                        <span class="movement-coords cursorPointerUnderlined"
+                            (click)="openMapEmitter.emit(item.originCoordsX + ',' + item.originCoordsY)">
+                            ({{ item.originCoordsX }}, {{ item.originCoordsY }})
+                            <app-user-tag [user]="item.originUser" [inputtedParentRef]="inputtedParentRef"
+                                [previousComponent]="'BugWars'" [displayMiniTag]="true"
+                                [displayHoverPicture]="true"></app-user-tag>
+                        </span>
+                        <span class="movement-arrow">➔</span>
+                        <span class="movement-coords cursorPointerUnderlined"
+                            (click)="openMapEmitter.emit(item.destinationCoordsX + ',' + item.destinationCoordsY)">
+                            ({{ item.destinationCoordsX }}, {{ item.destinationCoordsY }})
+                            <app-user-tag [user]="item.destinationUser" [inputtedParentRef]="inputtedParentRef" 
+                                [previousComponent]="'BugWars'"
+                                [displayMiniTag]="true" [displayHoverPicture]="true"></app-user-tag>
+                        </span>
+                        <span class="movement-eta">⏱️ {{ item.duration }}s</span>
+                    </div>
+                    <div class="unit-summary">
+                        <div *ngFor="let unit of getUnitsArray(item)" class="unit-item">
+                            <img [src]="getUnitPictureSrc(unit.key)" class="unit-pic" alt="{{ unit.key }}" />
+                            <span class="unit-count">{{ unit.value }}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <ng-template #noMovements>
+                <p class="no-movements">{{ movement.emptyMessage }}</p>
+            </ng-template>
+            <!-- Pagination Controls -->
+            <div class="pagination-controls" *ngIf="movement.data.length > itemsPerPage">
+                <button [disabled]="movement.currentPage === 1" (click)="goToPreviousPage(i)" class="pagination-button">
+                    Previous
+                </button>
+                <span class="pagination-info">
+                    Page {{ movement.currentPage }} of {{ movement.totalPages }}
+                </span>
+                <button [disabled]="movement.currentPage === movement.totalPages" (click)="goToNextPage(i)"
+                    class="pagination-button">
+                    Next
+                </button>
+            </div>
+        </div>
+    </ng-container>
+    </div>

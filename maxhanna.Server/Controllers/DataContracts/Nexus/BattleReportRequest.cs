@@ -7,5 +7,7 @@ namespace maxhanna.Server.Controllers.DataContracts.Nexus
 		public int? TargetUserId { get; set; }
 		public int PageNumber { get; set; }
 		public int PageSize { get; set; }
+		public bool? SearchDefenceReports { get; set; } = false;
+		public bool? SearchAttackReports { get; set; } = false;
 	}
 }

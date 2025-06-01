@@ -5,21 +5,23 @@
 
   <fieldset *ngIf="!user">
     <legend title="Add to the music list">Add to the music list</legend>
-    <div style="display: flex; justify-content: center; align-items: center; flex-wrap: wrap">
+    <div style="display: flex; justify-content: center; align-items: center; flex-wrap: wrap; gap: 3px;">
       <input type="text" #titleInput placeholder="Artist - Song Title" (keyup.enter)="addSong()" />
       <input type="text" #urlInput placeholder="URL" (keyup.enter)="addSong()" />
       <app-media-selector #mediaSelector
         [currentDirectory]="'Users/' + (parentRef?.user && parentRef?.user?.id != 0 ? parentRef?.user?.username : 'Anonymous')"
-        [user]="parentRef?.user" [inputtedParentRef]="parentRef" [maxSelectedFiles]="1"
+        [user]="parentRef?.user" [inputtedParentRef]="parentRef" [maxSelectedFiles]="1" [uploadButtonText]="''"
         (selectFileEvent)="selectFile($event)"></app-media-selector>
-      <input type="submit" value="💾" (click)="addSong()"/>
-    </div> 
+      <input type="submit" value="💾" (click)="addSong()" />
+    </div>
   </fieldset>
+
   <div id="musicPlayerDiv" [class]="smallPlayer ? 'smallSongList' : 'normalSongList'">
     <div *ngIf="songs && songs.length > 0 && isMusicPlaying" [class]="smallPlayer ? 'smallIframeDiv' : 'iframeDiv'">
       <iframe *ngIf="!fileIdPlaylist" frameborder=0 id=musicVideo #musicVideo allow="autoplay"></iframe>
       <app-media-viewer #fileMediaViewer *ngIf="fileIdPlaying && fileIdPlaying" [inputtedParentRef]="parentRef"
-        [autoplay]="true" [autoload]="true" [loop]="false" [muted]="false" [showCommentSection]="false" [previousComponent]="'Music'" (mediaEndedEvent)="mediaEndedEvent()"></app-media-viewer>
+        [autoplay]="true" [autoload]="true" [loop]="false" [muted]="false" [showCommentSection]="false"
+        [previousComponent]="'Music'" (mediaEndedEvent)="mediaEndedEvent()"></app-media-viewer>
     </div>
     <div class="musicControls">
       <label id="stopMusicButton" (click)="stopMusic()">◼</label>
@@ -27,33 +29,51 @@
       <label (click)="randomSong()">⚡</label>
     </div>
 
-    <div id=songlist>
-      <div style="width:100%; text-align:center;">
-        Total : {{songs.length}} Songs <br />
-        Order : <select id="orderSelect" (change)="reorderTable($event)" #orderSelect><option *ngFor="let order of orders" value="{{order}}">{{order}}</option></select><br />
-        Search: <input placeholder="Keyword" #searchInput (input)="onSearchEnter()" /><input type="submit" value="🔍" (click)="searchForSong()" />
+    <div id="songlist">
+      <div class="collapsible-header" (click)="toggleSongList()">
+        Total: ({{songs.length}})
+        <span class="collapse-icon">{{ isSongListCollapsed ? '▼' : '▲' }}</span>
       </div>
-      <div class="mainTableDiv">
+      <div *ngIf="!isSongListCollapsed">
+        <div style="width:100%; text-align:center;">
+          Order: <select id="orderSelect" (change)="reorderTable($event)" #orderSelect>
+            <option *ngFor="let order of orders" [value]="order">{{order}}</option>
+          </select><br />
+          Search: <input placeholder="Keyword" #searchInput (input)="onSearchEnter()" />
+          <input type="submit" value="🔍" (click)="searchForSong()" />
+        </div>
         <div class="musicTypeSelector">
           <label>
-            <input type="radio" name="songType" (click)="selectType('youtube')" [checked]="true" />
+            <input type="radio" name="songType" (click)="selectType('youtube')"
+              [checked]="selectedType === 'youtube'" />
             YouTube
           </label>
           <label>
-            <input type="radio" name="songType" (click)="selectType('file')" />
+            <input type="radio" name="songType" (click)="selectType('file')" [checked]="selectedType === 'file'" />
             Files
-            </label>
+          </label>
         </div>
-      
 
         <table id="songListTable" class="mainTable">
           <tbody>
-            <tr *ngFor="let song of songs" id="songId{{song.id!}}">
+            <tr *ngFor="let song of paginatedSongs" id="songId{{song.id!}}">
               <td (click)="play(song.url, song.fileId)">{{song.todo}}</td>
               <td style="width:0%;" *ngIf="!user"><input (click)="deleteSong(song.id!)" value="❌" type="submit" /></td>
             </tr>
           </tbody>
         </table>
+
+        <div class="pagination-controls" *ngIf="songs.length > itemsPerPage">
+          <button [disabled]="currentPage === 1" (click)="goToPreviousPage()" class="pagination-button">
+            Previous
+          </button>
+          <span class="pagination-info">
+            Page {{ currentPage }} of {{ totalPages }}
+          </span>
+          <button [disabled]="currentPage === totalPages" (click)="goToNextPage()" class="pagination-button">
+            Next
+          </button>
+        </div>
       </div>
     </div>
   </div>

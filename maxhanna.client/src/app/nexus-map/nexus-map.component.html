@@ -11,19 +11,15 @@
     <div *ngFor="let cell of row; let x = index; trackBy: trackByIndex" class="cell" [attr.x]="x" [attr.y]="y">
       <div class="cell-content" (click)="selectCoordinates(x, y);">
         <div *ngIf="lvl1Src && lvl2Src && lvl3Src && mapTileSrc" [id]="'x' + x + ',y' + y + 'LocDiv'">
-          <img [src]="getImageSrc(x, y)"
-               class="cell-content"
-               [style.transform]="getImageTransform(x, y)"
-               loading="lazy"
-               decoding="asynchronous" />
+          <img [src]="getImageSrc(x, y)" class="cell-content" [style.transform]="getImageTransform(x, y)" loading="lazy"
+            decoding="asynchronous" />
           <span *ngIf="grid[x][y] as base">
 
-            <span class="baseAllianceSpan"
-                  [class]="getBaseAllianceSpanClass(x, y)"
-                  [style.background]="getHalfAndHalfStyle(x, y)">
+            <span class="baseAllianceSpan" [class]="getBaseAllianceSpanClass(x, y)"
+              [style.background]="getHalfAndHalfStyle(x, y)">
             </span>
             <!--<span class="baseAllianceSpan" [class]="getBaseAllianceSpanClass(x, y)" [style.backgroundColor]="getPlayerColor(x, y)">-->
-              <!--<span class="playerColorSpan baseAllianceSpan" [style]="getPlayerColorStyle(x, y)">
+            <!--<span class="playerColorSpan baseAllianceSpan" [style]="getPlayerColorStyle(x, y)">
     </span>-->
             <!--</span>-->
           </span>
@@ -36,38 +32,48 @@
               <div class="selectedBaseMapControls">
                 <div style=" display: flex;">
                   <button (click)="showAttackScreen(false)" *ngIf="showAttackButton" title="Send Attack">⚔️</button>
-                  <span *ngIf="selectedNexusBase?.baseName" class="usernameProfileLink selectedBaseNameOnMap">{{selectedNexusBase.baseName}}</span>
+                  <span *ngIf="selectedNexusBase?.baseName"
+                    class="usernameProfileLink selectedBaseNameOnMap">{{selectedNexusBase.baseName}}</span>
                   <button (click)="showAttackScreen(true)" *ngIf="showAttackButton" title="Send Defence">🛡️</button>
                 </div>
                 <div>
-                  <button (click)="toggleShowReports()" *ngIf="showAttackButton" title="Shows battle reports for this base.">📃</button>
-                  <button *ngIf="selectedNexusBase?.user?.id == user?.id" (click)="emittedGoToBaseEvent.emit(selectedNexusBase)">🏰</button>
+                  <button (click)="toggleShowReports()" *ngIf="showAttackButton"
+                    title="Shows battle reports for this base.">📃</button>
+                  <button *ngIf="selectedNexusBase?.user?.id == user?.id"
+                    (click)="emittedGoToBaseEvent.emit(selectedNexusBase)">🏰</button>
                 </div>
               </div>
             </div>
           </div>
         </div>
-        <div [class]="'cell-content-coords ' + (grid[x][y] ? 'cell-content-coords-adjustedForBase' : '')" [id]="'x' + x + ',y' + y + 'LocCoordsDiv'" *ngIf="grid[x][y]">{{x + ',' + y + ' '}}</div>
+        <div [class]="'cell-content-coords ' + (grid[x][y] ? 'cell-content-coords-adjustedForBase' : '')"
+          [id]="'x' + x + ',y' + y + 'LocCoordsDiv'" *ngIf="grid[x][y]">{{x + ',' + y + ' '}}</div>
         <span [class]="'incomingIconSpan ' + (grid[x][y] ? '' : 'attackIconSpan-adjustedForNoBase')"
-              *ngIf="attackSentStatus.get(x + ',' + y)">⚔️</span>
+          *ngIf="attackSentStatus.get(x + ',' + y)">⚔️</span>
         <span [class]="'incomingIconSpan ' + (grid[x][y] ? '' : 'attackIconSpan-adjustedForNoBase')"
-              *ngIf="attackReturningStatus.get(x + ',' + y)">↩</span>
+          *ngIf="attackReturningStatus.get(x + ',' + y)">↩</span>
         <span [class]="'incomingIconSpan ' + (grid[x][y] ? '' : 'attackIconSpan-adjustedForNoBase')"
-              *ngIf="defenseSentStatus.get(x + ',' + y)">🛡️</span>
+          *ngIf="defenseSentStatus.get(x + ',' + y)">🛡️</span>
       </div>
     </div>
   </div>
 </div>
-<div *ngIf="!zoomedOut" class="centeredDiv topMapCoords" [style.display]="!isAttackScreenOpen && isMapRendered ? 'flex':'none'">
+<div *ngIf="!zoomedOut" class="centeredDiv topMapCoords"
+  [style.display]="!isAttackScreenOpen && isMapRendered ? 'flex':'none'">
   <button (click)="zoomOut()">Zoom out</button>
   <span>
-    X: <input type="number" placeholder="0" min="0" max="99" #mapInputX class="mapInput" (keyup.enter)="onMapInputChange(mapInputX.value)" />
-    Y: <input type="number" placeholder="0" min="0" max="99" #mapInputY class="mapInput" (input)="onMapInputChange(mapInputY.value)" />
+    X: <input type="number" placeholder="0" min="0" max="99" #mapInputX class="mapInput"
+      (keyup.enter)="onMapInputChange(mapInputX.value)" />
+    Y: <input type="number" placeholder="0" min="0" max="99" #mapInputY class="mapInput"
+      (input)="onMapInputChange(mapInputY.value)" />
 
-    <button (click)="showMapLocation()" *ngIf="mapInputX.value && mapInputY.value" [disabled]="!mapInputX.value || !mapInputY.value">📍:{{'{' + mapInputX.value + ',' + mapInputY.value  + '}'}}</button>
+    <button (click)="showMapLocation()" *ngIf="mapInputX.value && mapInputY.value"
+      [disabled]="!mapInputX.value || !mapInputY.value">📍:{{'{' + mapInputX.value + ',' + mapInputY.value +
+      '}'}}</button>
     <button (click)="clearMapInputs()" *ngIf="mapInputX.value || mapInputY.value">Clear</button>
   </span>
-  <button (click)="scrollToCoordinates(nexusBase.coordsX, nexusBase.coordsY, false)" *ngIf="nexusBase">📍:{{'{' + nexusBase.coordsX + ',' + nexusBase.coordsY + '}'}}</button>
+  <button (click)="scrollToCoordinates(nexusBase.coordsX, nexusBase.coordsY, false)" *ngIf="nexusBase">📍:{{'{' +
+    nexusBase.coordsX + ',' + nexusBase.coordsY + '}'}}</button>
 </div>
 
 <div *ngIf="shouldShowMapInputs() && selectedNexusBase && !zoomedOut" class="centeredDiv mapReportsCenterDiv">
@@ -75,75 +81,78 @@
   <div>
     <button (click)="showAttackScreen(false)" *ngIf="showAttackButton" title="Send Attack">⚔️Attack</button>
     <button (click)="showAttackScreen(true)" *ngIf="showAttackButton" title="Send Defence">🛡️Defend</button>
-    <button (click)="toggleShowReports()" title="Shows battle reports for this base.">📃{{ isReportsHidden ? '' : 'Hide' }} Data</button>
-    <button *ngIf="selectedNexusBase?.user?.id == user?.id" (click)="emittedGoToBaseEvent.emit(selectedNexusBase)">🏰View Base</button>
+    <button (click)="toggleShowReports()" title="Shows battle reports for this base.">📃{{ isReportsHidden ? '' : 'Hide'
+      }} Data</button>
+    <button *ngIf="selectedNexusBase?.user?.id == user?.id"
+      (click)="emittedGoToBaseEvent.emit(selectedNexusBase)">🏰View Base</button>
   </div>
   <!-- LOCATION INFO -->
   <div class="infoContainer" *ngIf="isReportsHidden">
     <div class="tileInfoDiv">
       <div *ngIf="selectedNexusBase?.user">
-        <span style="display:inline-block;">
-          <app-user-tag [user]="selectedNexusBase.user"
-                        [inputtedParentRef]="inputtedParentRef"
-                        [previousComponent]="'Nexus'"></app-user-tag>
-        </span>
+        <app-user-tag [user]="selectedNexusBase.user" [inputtedParentRef]="inputtedParentRef"
+          [previousComponent]="'Nexus'" (userLoaded)="userTagLoaded($event)"></app-user-tag>
+
       </div>
       <div>
-        <button (click)="scrollToCoordinates(selectedNexusBase.coordsX, selectedNexusBase.coordsY, false)">{{isAttackScreenOpen ? 'Attacking 📍:' : '📍:'}} {{'{' + selectedNexusBase.coordsX + ',' + selectedNexusBase.coordsY + '}'}}</button>
-        <div *ngIf="selectedNexusBase.baseName">Name: <span class="usernameProfileLink">{{selectedNexusBase.baseName}}</span></div>
+        <button
+          (click)="scrollToCoordinates(selectedNexusBase.coordsX, selectedNexusBase.coordsY, false)">{{isAttackScreenOpen
+          ? 'Attacking 📍:' : '📍:'}} {{'{' + selectedNexusBase.coordsX + ',' + selectedNexusBase.coordsY +
+          '}'}}</button> 
       </div>
     </div>
-  </div>
-  <!-- ATTACK TIMERS -->
-  <div class="attackDefenceTimers" *ngIf="isReportsHidden && !isAttackScreenOpen">
-    <ng-container *ngIf="getAttackTimers().length;">
-      <div *ngFor="let attackTimer of getAttackTimers(); trackBy: trackByTimerId">
-        <span class="invertedHighlights cursorPointerUnderlined" (click)="scrollToCoordinatesFromAttackTimer(attackTimer, true)">
-          {{ getAttackerLabel(attackTimer) }}
-        </span>
-        {{getAttackOrReturnLabel(attackTimer)}}
-        <span class="invertedHighlights cursorPointerUnderlined" (click)="scrollToCoordinatesFromAttackTimer(attackTimer, false)">{{getRestOfAttackLabel(attackTimer.object)}}</span>:
-        {{ formatTimer(attackTimer.endTime) }}
-        <span *ngIf="canSendUnitsBack(attackTimer.object)" (click)="sendBackAttack(attackTimer.object)" class="cancelAttackSpan">[Cancel ↩]</span>
+    <!-- ATTACK TIMERS -->
+    <div class="attackDefenceTimers" *ngIf="isReportsHidden && !isAttackScreenOpen">
+      <div *ngIf="selectedNexusBase.baseName">Name: <span class="usernameProfileLink">{{selectedNexusBase.baseName}}</span>
       </div>
-    </ng-container>
-    <ng-container *ngIf="getDefenceTimers().length;">
-      <div *ngFor="let attackTimer of getDefenceTimers(); trackBy: trackByTimerId">
-        <span class="invertedHighlights cursorPointerUnderlined" (click)="scrollToCoordinatesFromAttackTimer(attackTimer, true)">
-          {{ getAttackerLabel(attackTimer) }}
-        </span>
-        Defending
-        <span class="invertedHighlights cursorPointerUnderlined" (click)="scrollToCoordinatesFromAttackTimer(attackTimer, false)">{{getRestOfAttackLabel(attackTimer.object)}}</span>:
-        {{ formatTimer(attackTimer.endTime) }}<span *ngIf="canSendUnitsBack(attackTimer.object)" (click)="sendBackDefence(attackTimer.object)" class="cancelAttackSpan">[Cancel ↩]</span>
-      </div>
-    </ng-container>
-    <div *ngIf="attackTimers || defenceTimers" class="xxSmallFont">Note: <span class="timersReducedNote">Maximum 5 attack and 5 defence timers displayed.</span></div>
+      <ng-container *ngIf="getAttackTimers().length;">
+        <div *ngFor="let attackTimer of getAttackTimers(); trackBy: trackByTimerId" class="smallFont">
+          <span class="invertedHighlights cursorPointerUnderlined"
+            (click)="scrollToCoordinatesFromAttackTimer(attackTimer, true)">
+            {{ getAttackerLabel(attackTimer) }}
+          </span>
+          {{getAttackOrReturnLabel(attackTimer)}}
+          <span class="invertedHighlights cursorPointerUnderlined"
+            (click)="scrollToCoordinatesFromAttackTimer(attackTimer, false)">{{getRestOfAttackLabel(attackTimer.object)}}</span>:
+          {{ formatTimer(attackTimer.endTime) }}
+          <span *ngIf="canSendUnitsBack(attackTimer.object)" (click)="sendBackAttack(attackTimer.object)"
+            class="cancelAttackSpan">[Cancel ↩]</span>
+        </div>
+      </ng-container>
+      <ng-container *ngIf="getDefenceTimers().length;">
+        <div *ngFor="let attackTimer of getDefenceTimers(); trackBy: trackByTimerId" class="smallFont">
+          <span class="invertedHighlights cursorPointerUnderlined"
+            (click)="scrollToCoordinatesFromAttackTimer(attackTimer, true)">
+            {{ getAttackerLabel(attackTimer) }}
+          </span>
+          Defending
+          <span class="invertedHighlights cursorPointerUnderlined"
+            (click)="scrollToCoordinatesFromAttackTimer(attackTimer, false)">{{getRestOfAttackLabel(attackTimer.object)}}</span>:
+          {{ formatTimer(attackTimer.endTime) }}<span *ngIf="canSendUnitsBack(attackTimer.object)"
+            (click)="sendBackDefence(attackTimer.object)" class="cancelAttackSpan">[Cancel ↩]</span>
+        </div>
+      </ng-container>
+      <div *ngIf="attackTimers || defenceTimers" class="xxSmallFont">Note: <span class="timersReducedNote">Maximum 5
+          attack
+          and 5 defence timers displayed.</span></div>
+    </div>
+    <!-- REPORTS -->
+    <div class="reportsDisplayDiv" *ngIf="!isReportsHidden && !isAttackScreenOpen">
+      <app-nexus-reports [user]="user" [targetBase]="selectedNexusBase" [marinePictureSrc]="marinePictureSrc"
+        [goliathPictureSrc]="goliathPictureSrc" [siegeTankPictureSrc]="siegeTankPictureSrc"
+        [scoutPictureSrc]="scoutPictureSrc" [wraithPictureSrc]="wraithPictureSrc"
+        [battlecruiserPictureSrc]="battlecruiserPictureSrc" [glitcherPictureSrc]="glitcherPictureSrc"
+        [cclvl1Src]="cclvl1Src" [splvl1Src]="splvl1Src" [sdlvl1Src]="sdlvl1Src" [whlvl1Src]="whlvl1Src"
+        [eblvl1Src]="eblvl1Src" [mineslvl1Src]="mineslvl1Src" [flvl1Src]="flvl1Src" #nexusReports></app-nexus-reports>
+    </div>
   </div>
-  <!-- REPORTS -->
-  <div class="reportsDisplayDiv" *ngIf="!isReportsHidden && !isAttackScreenOpen">
-    <app-nexus-reports [user]="user"
-                       [targetBase]="selectedNexusBase"
-                       [marinePictureSrc]="marinePictureSrc"
-                       [goliathPictureSrc]="goliathPictureSrc"
-                       [siegeTankPictureSrc]="siegeTankPictureSrc"
-                       [scoutPictureSrc]="scoutPictureSrc"
-                       [wraithPictureSrc]="wraithPictureSrc"
-                       [battlecruiserPictureSrc]="battlecruiserPictureSrc"
-                       [glitcherPictureSrc]="glitcherPictureSrc"
-                       [cclvl1Src]="cclvl1Src"
-                       [splvl1Src]="splvl1Src"
-                       [sdlvl1Src]="sdlvl1Src"
-                       [whlvl1Src]="whlvl1Src"
-                       [eblvl1Src]="eblvl1Src"
-                       [mineslvl1Src]="mineslvl1Src"
-                       [flvl1Src]="flvl1Src"
-                       #nexusReports></app-nexus-reports>
-  </div>
+
 </div>
 <div class="bottomActionDiv">
   <div *ngIf="isAttackScreenOpen" class="attackScreenDiv">
 
-    <div [style.display]="((numberOfPersonalBases || 0) > 1)  && !zoomedOut ? 'flex' : 'none'" class="baseAutoSwitcherDiv">
+    <div [style.display]="((numberOfPersonalBases || 0) > 1)  && !zoomedOut ? 'flex' : 'none'"
+      class="baseAutoSwitcherDiv">
       <div *ngIf="(numberOfPersonalBases ?? 0)  > 1">
         <label class="cursorPointerUnderlined usernameProfileLink">
           <input type="checkbox" #switchNextBaseCheckbox />
@@ -163,28 +172,16 @@
         </label>
       </div>
     </div>
-    <app-nexus-attack-screen #nexusAttackScreenComponent
-                             class="attackScreenDiv"
-                             [user]="user"
-                             [originBase]="nexusBase"
-                             [selectedNexus]="selectedNexusBase"
-                             [nexusAvailableUnits]="nexusAvailableUnits"
-                             [nexusUnitsOutsideOfBase]="nexusUnitsOutsideOfBase"
-                             [unitStats]="unitStats"
-                             [marinePictureSrc]="marinePictureSrc"
-                             [goliathPictureSrc]="goliathPictureSrc"
-                             [siegeTankPictureSrc]="siegeTankPictureSrc"
-                             [scoutPictureSrc]="scoutPictureSrc"
-                             [wraithPictureSrc]="wraithPictureSrc"
-                             [battlecruiserPictureSrc]="battlecruiserPictureSrc"
-                             [glitcherPictureSrc]="glitcherPictureSrc"
-                             [isSendingDefence]="isSendingDefence"
-                             [isLoadingData]="isLoading || (isLoadingData ? true : false)"
-                             (emittedClosedAttackScreen)="emittedClosedAttackScreen()"
-                             (emittedNotifications)="emittedNotifications.emit($event)"
-                             (emittedReloadEvent)="emittedReloadEvent.emit($event)"
-                             (emittedAttack)="emittedAttack($event)"
-                             (emittedGoToCoords)="emittedGoToCoords($event)">
+    <app-nexus-attack-screen #nexusAttackScreenComponent class="attackScreenDiv" [user]="user" [originBase]="nexusBase"
+      [selectedNexus]="selectedNexusBase" [nexusAvailableUnits]="nexusAvailableUnits"
+      [nexusUnitsOutsideOfBase]="nexusUnitsOutsideOfBase" [unitStats]="unitStats" [marinePictureSrc]="marinePictureSrc"
+      [goliathPictureSrc]="goliathPictureSrc" [siegeTankPictureSrc]="siegeTankPictureSrc"
+      [scoutPictureSrc]="scoutPictureSrc" [wraithPictureSrc]="wraithPictureSrc"
+      [battlecruiserPictureSrc]="battlecruiserPictureSrc" [glitcherPictureSrc]="glitcherPictureSrc"
+      [isSendingDefence]="isSendingDefence" [isLoadingData]="isLoading || (isLoadingData ? true : false)"
+      (emittedClosedAttackScreen)="emittedClosedAttackScreen()"
+      (emittedNotifications)="emittedNotifications.emit($event)" (emittedReloadEvent)="emittedReloadEvent.emit($event)"
+      (emittedAttack)="emittedAttack($event)" (emittedGoToCoords)="emittedGoToCoords($event)">
     </app-nexus-attack-screen>
   </div>
   <div class="zoomInButtonDiv" *ngIf="zoomedOut">
@@ -193,14 +190,17 @@
 </div>
 <div *ngIf="isLoading || isLoadingData" class="baseAutoSwitcherDiv">Loading Data</div>
 
-<button (click)="isMapInfoOpen ? closeMapInfo() : showMapInfo()" class="showMapInfoButton">{{isMapInfoOpen ? 'Close ' : 'Help'}}</button>
+<button (click)="isMapInfoOpen ? closeMapInfo() : showMapInfo()" class="showMapInfoButton">{{isMapInfoOpen ? 'Close ' :
+  'Help'}}</button>
 <div *ngIf="isMapInfoOpen" class="mapInfoScreen">
   <div>
     <h2>Attacking on the Map</h2>
     <p>When attacking on the map, you can select different options to control how your units are deployed:</p>
     <ul>
-      <li><strong>Engage All:</strong> Sends all your available units into battle without needing to use the sliders.</li>
-      <li><strong>Lock On:</strong> Keeps the attack mode active after sending an attack, allowing for quick consecutive attacks.</li>
+      <li><strong>Engage All:</strong> Sends all your available units into battle without needing to use the sliders.
+      </li>
+      <li><strong>Lock On:</strong> Keeps the attack mode active after sending an attack, allowing for quick consecutive
+        attacks.</li>
       <li><strong>Auto Switch:</strong> Automatically switches to your next base after sending an attack.</li>
       <li><strong>Lock On + Auto Switch:</strong> Enables rapid attack deployment from multiple bases.</li>
     </ul>
@@ -208,29 +208,44 @@
     <h1>Scouting and Intelligence Gathering</h1>
 
     <h2>Using Scouts</h2>
-    <p>Scouts are specialized units used for gathering intelligence on enemy villages. To launch a scouting mission, send scouts as you would with any other unit in an attack.</p>
+    <p>Scouts are specialized units used for gathering intelligence on enemy villages. To launch a scouting mission,
+      send scouts as you would with any other unit in an attack.</p>
 
     <h2>Defending Against Scouts</h2>
-    <p>The only way to defend against enemy scouts is by having your own scouts stationed in your village. If enemy scouts attempt to gather information, your scouts will engage them in combat. However, unlike regular battles, defending scouts do not suffer losses.</p>
+    <p>The only way to defend against enemy scouts is by having your own scouts stationed in your village. If enemy
+      scouts attempt to gather information, your scouts will engage them in combat. However, unlike regular battles,
+      defending scouts do not suffer losses.</p>
 
     <h2>Scout Attack Outcomes</h2>
-    <p>The success of a scouting mission depends on how many scouts survive the attack. The more scouts that survive, the more information they bring back:</p>
+    <p>The success of a scouting mission depends on how many scouts survive the attack. The more scouts that survive,
+      the more information they bring back:</p>
     <ul>
-      <li><span class="highlight">Less than 50% survive:</span> Your scouts fail to gather intelligence. No information is revealed unless you are the owner of the attacking or defending village.</li>
-      <li><span class="highlight">At least 50% survive:</span> Your scouts successfully identify the units currently stationed in the village.</li>
-      <li><span class="highlight">At least 50% survive, and your scout base has Level 1 scouts:</span> Your scouts also gather information on the village’s available resources.</li>
-      <li><span class="highlight">At least 70% survive, and your scout base has Level 2 scouts:</span> In addition to resources, your scouts report the levels of buildings in the village.</li>
-      <li><span class="highlight">At least 90% survive, and your scout base has Level 3 scouts:</span> Your scouts uncover information about units stationed outside the village.</li>
+      <li><span class="highlight">Less than 50% survive:</span> Your scouts fail to gather intelligence. No information
+        is revealed unless you are the owner of the attacking or defending village.</li>
+      <li><span class="highlight">At least 50% survive:</span> Your scouts successfully identify the units currently
+        stationed in the village.</li>
+      <li><span class="highlight">At least 50% survive, and your scout base has Level 1 scouts:</span> Your scouts also
+        gather information on the village’s available resources.</li>
+      <li><span class="highlight">At least 70% survive, and your scout base has Level 2 scouts:</span> In addition to
+        resources, your scouts report the levels of buildings in the village.</li>
+      <li><span class="highlight">At least 90% survive, and your scout base has Level 3 scouts:</span> Your scouts
+        uncover information about units stationed outside the village.</li>
     </ul>
 
     <h2>Gold Plundering</h2>
-    <p>Gold can be stolen during an attack, but how much is taken depends on the number of attacking and defending units.</p>
+    <p>Gold can be stolen during an attack, but how much is taken depends on the number of attacking and defending
+      units.</p>
     <ul>
-      <li><span class="highlight">If there are no defenders:</span> Attackers take all the available gold, up to their carrying capacity.</li>
+      <li><span class="highlight">If there are no defenders:</span> Attackers take all the available gold, up to their
+        carrying capacity.</li>
       <li><span class="highlight">If there are no attackers left:</span> No gold is taken.</li>
-      <li><span class="highlight">If both attackers and defenders are present:</span> The amount of gold stolen depends on the ratio of attacking to defending units. More attackers relative to defenders means more gold is plundered, but attackers can never take more than they can carry.</li>
+      <li><span class="highlight">If both attackers and defenders are present:</span> The amount of gold stolen depends
+        on the ratio of attacking to defending units. More attackers relative to defenders means more gold is plundered,
+        but attackers can never take more than they can carry.</li>
     </ul>
-    <p><span class="highlight">Note:</span> Scouts do not participate in gold plundering. Their sole purpose is to gather intelligence.</p>
+    <p><span class="highlight">Note:</span> Scouts do not participate in gold plundering. Their sole purpose is to
+      gather intelligence.</p>
   </div>
-  <div style="text-align:center; width:100%; margin-top: 10px; margin-bottom: 10px;"><button (click)="closeMapInfo()">Back</button></div>
+  <div style="text-align:center; width:100%; margin-top: 10px; margin-bottom: 10px;"><button
+      (click)="closeMapInfo()">Back</button></div>
 </div>

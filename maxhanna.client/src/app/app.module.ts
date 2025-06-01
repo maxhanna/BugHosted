@@ -58,6 +58,7 @@ import { SpeechRecognitionComponent } from './speech-recognition/speech-recognit
 import { TopComponent } from './top/top.component';
 import { TimeFormatPipe } from './time-format.pipe';
 import { TimeSincePipe } from './time-since.pipe';
+import { NexusMovementComponent } from './nexus-movement/nexus-movement.component';
 
 @NgModule({
   declarations: [
@@ -108,7 +109,8 @@ import { TimeSincePipe } from './time-since.pipe';
     ThemesComponent,
     CrawlerComponent,
     SpeechRecognitionComponent,
-    TopComponent, 
+    TopComponent,
+    NexusMovementComponent, 
   ],
   bootstrap: [AppComponent],
   imports: [BrowserModule,

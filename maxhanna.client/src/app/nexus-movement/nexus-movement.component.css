@@ -1,0 +1,106 @@
+.movement-section {
+    padding: 20px;
+    font-family: Arial, sans-serif;
+}
+
+.collapsible-header {
+    font-size: large;
+    margin-bottom: 10px;
+    color: var(--secondary-font-color);
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px;
+    background: linear-gradient(135deg, var(--component-background-color), var(--secondary-component-background-color));
+    border-radius: 5px;
+}
+
+.collapse-icon {
+    font-size: xx-large;
+}
+
+.movement-item {
+    border: var(--main-border);
+    border-radius: 5px;
+    padding: 10px;
+    margin-bottom: 10px;
+    background: linear-gradient(135deg, var(--component-background-color), var(--secondary-component-background-color));
+}
+
+.movement-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+
+.movement-coords {
+    cursor: pointer;
+    color: var(--main-link-color);
+}
+
+.cursorPointerUnderlined:hover {
+    text-decoration: underline;
+}
+
+.movement-arrow {
+    font-size: small; 
+}
+
+.movement-eta {
+    color: var(--third-font-color);
+}
+
+.unit-summary {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.unit-item {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.unit-pic {
+    width: 30px;
+    height: 30px;
+    object-fit: cover;
+    border-radius: 3px;
+}
+
+.unit-count {
+    font-size:  small; 
+}
+
+.no-movements { 
+    font-style: italic;
+}
+
+.pagination-controls {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 10px;
+    margin-top: 10px;
+}
+
+.pagination-button {
+    padding: 5px 10px;  
+    cursor: pointer;
+}
+
+.pagination-button:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+}
+
+.pagination-button:hover:not(:disabled) {
+    background-color: #e0e0e0;
+}
+
+.pagination-info {
+    font-size: small; 
+}
