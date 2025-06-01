@@ -182,7 +182,6 @@ export class FileUploadComponent implements OnDestroy {
     this.totalProgress = Object.values(this.uploadProgress).reduce((sum, progress) => sum + progress, 0);
     return this.totalProgress = Math.round(this.totalProgress / this.uploadFileList.length);
   }
-
   onTopicAdded(topics: Topic[]) {
     console.log("topic added", topics);
     this.fileUploadTopics = topics;

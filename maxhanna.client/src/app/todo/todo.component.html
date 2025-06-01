@@ -14,7 +14,7 @@
     <input type="url" id="urlInput" placeholder="url?" #urlInput (keydown.enter)="addTodo()" />
     <app-media-selector #mediaSelector
       [currentDirectory]="'Users/' + (parentRef?.user && parentRef?.user?.id != 0 ? parentRef?.user?.username : 'Anonymous')"
-      [user]="parentRef?.user" [inputtedParentRef]="parentRef" [maxSelectedFiles]="1" (selectFileEvent)="selectFile($event)"></app-media-selector>
+      [user]="parentRef?.user" [inputtedParentRef]="parentRef" [maxSelectedFiles]="1" [uploadButtonText]="''" (selectFileEvent)="selectFile($event)"></app-media-selector>
     <input type="submit" value="💾Save" (click)="addTodo()" />
   </fieldset>
 

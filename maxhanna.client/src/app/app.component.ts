@@ -103,6 +103,8 @@ export class AppComponent implements OnInit, AfterViewInit {
   pollResults: any = null;
   isShowingUserTagPopup = false;
   popupUserTagUser?: User;
+  isSpeaking = false;
+
   private componentMap: { [key: string]: any; } = {
     "Navigation": NavigationComponent,
     "Favourites": FavouritesComponent,
@@ -178,7 +180,7 @@ export class AppComponent implements OnInit, AfterViewInit {
           console.log("router has user");
           this.checkAndClearRouterOutlet();
           const userId = this.router.url.toLowerCase().split('user/')[1]?.split('?')[0].split('/')[0];
-          const storyId = this.router.url.toLowerCase().split('user/')[1]?.split('/')[1]; 
+          const storyId = this.router.url.toLowerCase().split('user/')[1]?.split('/')[1];
           this.createComponent("User", { "userId": userId, storyId: storyId });
         }
         else if (this.router.url.includes('File')) {
@@ -227,8 +229,8 @@ export class AppComponent implements OnInit, AfterViewInit {
         else if (this.router.url.includes('Host') || this.router.url.includes('HostAi') || this.router.url.includes('Ai')) {
           this.checkAndClearRouterOutlet();
           this.createComponent('HostAi');
-        } 
-        else if (!this.user) { 
+        }
+        else if (!this.user) {
           this.createComponent('User');
         }
       }
@@ -261,7 +263,7 @@ export class AppComponent implements OnInit, AfterViewInit {
       this.router.dispose();
     }
   }
- 
+
   createComponent(componentType: string, inputs?: { [key: string]: any; }, previousComponentParameters?: { [key: string]: any; }) {
     console.log("in create component : " + componentType);
     this.navigationComponent.minimizeNav();
@@ -429,7 +431,7 @@ export class AppComponent implements OnInit, AfterViewInit {
 
   closeModal() {
     console.log("close modal");
-    this.isModalOpen = false; 
+    this.isModalOpen = false;
     this.modalComponent.isCloseButtonVisible = true;
   }
   setModalBody(msg: any) {
@@ -441,7 +443,7 @@ export class AppComponent implements OnInit, AfterViewInit {
     }, 100);
   }
   updateHeight() {
-    const vh = window.innerHeight * 0.01; 
+    const vh = window.innerHeight * 0.01;
     document.documentElement.style.setProperty('--vh', `${vh}px`);
   }
   hideBodyOverflow() {
@@ -596,9 +598,9 @@ export class AppComponent implements OnInit, AfterViewInit {
       image: tmpImage
     };
   }
-  
+
   getTextForDOM(text?: string, component_id?: any) {
-    if (!text) return "";  
+    if (!text) return "";
     text = this.processPolls(text, component_id);
 
     const youtubeRegex = /(https?:\/\/(?:www\.|m\.)?(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)([\w-]{11})|youtu\.be\/([\w-]{11}))(?:\S+)?)/g;
@@ -642,12 +644,23 @@ export class AppComponent implements OnInit, AfterViewInit {
     };
 
     text = processQuotes(text);
-
-    // Step 5: Convert Bold, Bullet-point, and Italics
     text = text
+      .replace(/(<br[^>]*>[\s\r\n]*)*(#{2,4})\s+([^<\r\n]+)([\s\r\n]*<br[^>]*>)*/gi,
+        (match, leadingBr, hashes, title, trailingBr) => {
+          // Calculate header level (minimum h2, maximum h3)
+          const hashCount = Math.min(hashes.length, 4); // Count # symbols
+          const headerLevel = Math.min(hashCount, 3);   // Limit to h3 maximum
+
+          // Keep original <br> tags but replace header
+          return (leadingBr || '') +
+            `<h${headerLevel}>${title.trim()}</h${headerLevel}>` +
+            (trailingBr || '');
+        }
+      ).replace(/\*\*(.*?)\*\*/g, "<b>$1</b>")
       .replace(/\[b\](.*?)\[\/b\]/gi, "<b>$1</b>")
       .replace(/\[\*\](.*?)\[\/\*\]/gi, "<br>• $1")
       .replace(/\[i\](.*?)\[\/i\]/gi, "<i>$1</i>");
+
     text = this.replaceEmojisInMessage(text);
 
     // Step 6: Replace ||component:<component-name>|| with a clickable span
@@ -702,8 +715,8 @@ export class AppComponent implements OnInit, AfterViewInit {
             </div>
           `;
         } else {
-          hasVoted = true; 
-          const optionText = option.trim(); 
+          hasVoted = true;
+          const optionText = option.trim();
           const percentage = parseInt(optionText.split(', ')[1]) ?? 0;
           pollHtml += `
           <div class="poll-option">
@@ -711,8 +724,8 @@ export class AppComponent implements OnInit, AfterViewInit {
               ${optionText} ${percentage > 0 ? `<span class="poll-bar" style="width: ${percentage}%">(${percentage}%)</span>` : ''}  
             </div>
            
-          </div>`; 
-        } 
+          </div>`;
+        }
       });
 
       pollHtml += `</div></div>`;
@@ -720,8 +733,8 @@ export class AppComponent implements OnInit, AfterViewInit {
       return pollHtml.replace(/\n/g, '');
     });
   }
-  private htmlEncodeForInput(str: string): string { 
-     return str.replaceAll("'", "");
+  private htmlEncodeForInput(str: string): string {
+    return str.replaceAll("'", "");
   }
   getIconByTitle(title: string): string | undefined {
     const item = this.navigationItems.find(x => x.title === title);
@@ -914,7 +927,7 @@ export class AppComponent implements OnInit, AfterViewInit {
     this.indexLink(url);
   }
   visitExternalLink(url?: string) {
-    if (!url) return; 
+    if (!url) return;
     this.indexLink(url);
     window.open(url, '_blank');
     event?.stopPropagation();
@@ -1055,7 +1068,7 @@ export class AppComponent implements OnInit, AfterViewInit {
 
     try {
       await this.pollService.deleteVote(this.user?.id ?? 0, componentId).then(res => {
-        if (res) { 
+        if (res) {
           this.showNotification(res);
         } else {
           this.showNotification("Error deleting vote.");
@@ -1069,7 +1082,7 @@ export class AppComponent implements OnInit, AfterViewInit {
   async handleUserMention() {
     const username = (document.getElementById('userMentionInput') as HTMLInputElement).value.trim();
     this.selectedUsername = username;
-    
+
     if (this.userIdCache.has(username)) {
       const cachedUserId = this.userIdCache.get(username);
       this.createComponent("User", {
@@ -1097,13 +1110,82 @@ export class AppComponent implements OnInit, AfterViewInit {
       this.showNotification("User not found!");
     }
   }
+  speakMessage(message: string) {
+    if ('speechSynthesis' in window) {
+      this.isSpeaking = true;
+      console.log("Speech synthesis is supported! ", message);
+      let cleanMessage = message.replace(/<\/?[^>]+(>|$)/g, "").replace(/[^\x20-\x7E]/g, "");
+
+      // Replace "e.g.", "eg.", or "ex." (case-insensitive) with "example".
+      cleanMessage = cleanMessage.replace(/\b(e\.g\.|eg\.|ex\.)\b/gi, "example");
+
+      // Remove parentheses and their contents.
+      cleanMessage = cleanMessage.replace(/\(.*?\)/g, '');
+
+      // Split the message into segments based on punctuation.
+      // This regular expression captures groups of characters ending with punctuation.
+      const segments: string[] = [];
+      const regex = /[^,;:\-\.]+[,:;\-\.]*/g;
+      let match: RegExpExecArray | null;
+      while ((match = regex.exec(cleanMessage)) !== null) {
+        segments.push(match[0].trim());
+      }
+
+      // Function to speak the segments sequentially.
+      const speakSegments = (index: number) => {
+        if (index >= segments.length) {
+          console.log("Finished speaking all segments.");
+          this.isSpeaking = false;
+          return;
+        }
+
+        const segment = segments[index];
+        const utterance = new SpeechSynthesisUtterance(segment);
+        utterance.lang = 'en-US';
+        utterance.pitch = 0.8; // Lower than the default for a more natural tone.
+        utterance.rate = 1.2;    // Normal speaking rate.
+        utterance.volume = 1;
+
+        // Choose a preferred voice if available.
+        const voices = window.speechSynthesis.getVoices();
+        if (voices.length > 0) {
+          const naturalVoice = voices.find(voice =>
+            voice.name.toLowerCase().includes('mark') ||
+            voice.name.toLowerCase().includes('zira') ||
+            voice.name.toLowerCase().includes('microsoft')
+          );
+          utterance.voice = naturalVoice || voices[0];
+        }
+
+        utterance.onend = () => {
+
+          setTimeout(() => speakSegments(index + 1), 0);
+
+        };
+
+        window.speechSynthesis.speak(utterance);
+      };
+
+      // Start the recursive speaking of segments.
+      speakSegments(0);
+    } else {
+      console.log("Speech synthesis is NOT supported in this browser.");
+    }
+  }
+  stopSpeaking() {
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+      console.log("Speech stopped");
+      this.isSpeaking = false;
+    }
+  }
   parseInteger(value: any): number {
     const parsedValue = parseInt(value, 10);
     return isNaN(parsedValue) ? 0 : parsedValue;
   }
   userTagUserLoaded(user?: User) {
     console.log("User tag user loaded", user);
-    this.popupUserTagUser = user; 
+    this.popupUserTagUser = user;
   }
   isUserOnline(lastSeen: string): boolean {
     // Parse duration string like "2d 8h 51m" into minutes
@@ -1123,5 +1205,5 @@ export class AppComponent implements OnInit, AfterViewInit {
 
     // Return true if last seen < 10 minutes ago
     return minutes < 10;
-  } 
+  }
 }

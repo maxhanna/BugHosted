@@ -473,6 +473,9 @@ fieldset {
   font-size: 40px !important;
 }
 
+.bold {
+  font-weight: bold;
+}
 .italics {
   font-style: italic;
 }

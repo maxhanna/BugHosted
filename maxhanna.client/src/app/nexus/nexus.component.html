@@ -116,7 +116,9 @@
                      (emittedAttackEvent)="emittedAttackEvent($event)"
                      (emittedGoToBaseEvent)="emittedGoToBaseEvent($event)"
                      (emittedSendBackAttackEvent)="emittedSendBackAttackEvent($event)"
-                     (emittedSendBackDefenceEvent)="emittedSendBackDefenceEvent($event)">
+                     (emittedSendBackDefenceEvent)="emittedSendBackDefenceEvent($event)"
+                     (emittedZoomInEvent)="emittedZoomInEvent()"
+                     (emittedZoomOutEvent)="emittedZoomOutEvent()">
       </app-nexus-map>
     </div>
     <!-- Bases screen -->
@@ -706,10 +708,10 @@
     <div *ngIf="activeAttackTimers().length > 0 || activeDefenceTimers().length > 0" class="movementListDiv">
       <div class="upgradeTimersTableDiv">
         <div *ngFor="let timer of activeAttackTimers()" [class]="(timer.unit.includes('Support') ? 'defenceProgressDisplayP' : 'unitProgressDisplayP') + ' capitalize'">
-          <span class="pointer" (click)="openMapAndScrollTo(timer, true)">{{ timer.unit }}</span> {{ formatTimer(timer.endTime) }} <span *ngIf="canSendUnitsBack(timer.object)" (click)="sendBackAttack(timer.object)" class="cancelAttackSpan">[Cancel ↩]</span>
+          <span class="cursorPointerUnderlined" (click)="openMapAndScrollTo(timer, true)">{{ timer.unit }}</span> {{ formatTimer(timer.endTime) }} <span *ngIf="canSendUnitsBack(timer.object)" (click)="sendBackAttack(timer.object)" class="cancelAttackSpan">[Cancel ↩]</span>
         </div>
         <div *ngFor="let timer of activeDefenceTimers()" [class]="(timer.unit.includes('Support') ? 'defenceProgressDisplayP' : 'unitProgressDisplayP') + ' capitalize'">
-          <span class="pointer" (click)="openMapAndScrollTo(timer, false)">{{ timer.unit }}</span> {{ formatTimer(timer.endTime) }} <span *ngIf="canSendUnitsBack(timer.object)" (click)="sendBackDefence(timer.object)" class="cancelAttackSpan">[Cancel ↩]</span>
+          <span class="cursorPointerUnderlined" (click)="openMapAndScrollTo(timer, false)">{{ timer.unit }}</span> {{ formatTimer(timer.endTime) }} <span *ngIf="canSendUnitsBack(timer.object)" (click)="sendBackDefence(timer.object)" class="cancelAttackSpan">[Cancel ↩]</span>
         </div>
       </div>
     </div>

@@ -41,8 +41,11 @@
           {{storyResponse?.stories?.length ?? 0}}</div>
       </div>
       <div class="searchSocialsPanelContentDiv">
-        Display NSFW? : <input type="checkbox" #nsfwCheckmark [checked]="isDisplayingNSFW"
-          (click)="updateNSFW($event)" />
+        Display NSFW? :
+        <select (change)="onNSFWChange($event)">
+          <option value="yes" [selected]="isDisplayingNSFW">Show</option>
+          <option value="no" [selected]="!isDisplayingNSFW">Hide</option>
+        </select>
       </div>
       <div class="searchSocialsPanelContentDiv">
         <label>
@@ -59,7 +62,7 @@
     </div>
 
     <!-- Menu Popup -->
-    <div class="popupPanel" style="overflow: auto;" *ngIf="isMenuPanelOpen && !showOnlyPost">
+    <div class="menuPopupPanel popupPanel" style="overflow: auto;" *ngIf="isMenuPanelOpen && !showOnlyPost">
 
       <div class="popupPanelTitle" style="margin-bottom:15px;">
         Menu
@@ -67,23 +70,22 @@
 
       <div style="display: flex; justify-content: flex-start; align-content: center; align-items: center;"
         class="menuPopupSection">
-        <div style="display: flex; margin: 10px;">
-          <div>
+        <div class="userProfileSection">
+          <div class="avatarContainer">
             <app-user-tag [user]="parentRef?.user" [inputtedParentRef]="parentRef ?? parent"
               [displayHoverPicture]="true"
               [previousComponent]="'Social'"></app-user-tag>
           </div>
           <div
-            style="display: flex; flex-direction: column; align-content: center; justify-content: space-around; padding-left: 15px; font-family: var(--title-font-family)">
+          class="smallFont thirdFontColor"
+            style="display: flex; flex-direction: column; align-content: center; justify-content: space-around; padding-left: 15px; font-family: var(--title-font-family);">
             <div>{{city}},</div>
             <div>{{country}}</div>
           </div>
         </div>
 
-        <div
-          style=" display: inline-flex; flex-direction: column; align-content: center; justify-content: center; align-items: center; flex-wrap: nowrap;">
-          <div *ngIf="totalPagesArray.length > 1" class="menuPopupSection"
-            style="display: flex; justify-content: space-evenly; width: 100%;">
+        <div style=" display: inline-flex; flex-direction: column; align-content: center; justify-content: center; align-items: center; flex-wrap: nowrap;">
+          <div *ngIf="totalPagesArray.length > 1" class="menuPopupSection menuPopupMiniOptions">
             <span>Page Select:</span>
             <select [value]="currentPage" (change)="pageChanged()" #pageSelect>
               <option *ngFor="let page of totalPagesArray" [value]="page" [selected]="page === currentPage">{{ page }}
@@ -91,26 +93,25 @@
             </select>
           </div>
 
-          <div class="menuPopupSection" style="display: flex; justify-content: space-evenly; width: 100%;">
-            <span>Display NSFW?:</span> <input type="checkbox" #nsfwCheckmark2 [checked]="isDisplayingNSFW"
-              (click)="updateNSFW($event)" />
+          <div class="menuPopupSection menuPopupMiniOptions">
+            <span title="Not Safe For Work (adult) posts">NSFW:</span>  
+              <select (change)="onNSFWChange($event)">
+                <option value="yes" [selected]="isDisplayingNSFW">Show</option>
+                <option value="no" [selected]="!isDisplayingNSFW">Hide</option>
+              </select>
           </div>
 
-          <div class="menuPopupSection">
-            <label style="display: flex; justify-content: space-evenly; width: 100%;">
-              <span>Show Hidden Posts?:</span>
+          <div class="menuPopupSection menuPopupMiniOptions"> 
+              <span>Hidden Posts?:</span>
               <select (change)="setFilterHidden($event)">
-                <option value="yes" [selected]="filter.hidden === 'yes'">Yes</option>
-                <option value="no" [selected]="filter.hidden === 'no'">No</option>
-              </select>
-            </label>
+                <option value="yes" [selected]="filter.hidden === 'yes'">Show</option>
+                <option value="no" [selected]="filter.hidden === 'no'">Hide</option>
+              </select> 
           </div>
         </div>
 
       </div>
-
-
-
+ 
       <!-- search input area -->
       <div class="menuPopupSection">
         <input type="text" #search placeholder="Search the socials" (input)="debouncedSearch()" *ngIf="!user"
@@ -131,15 +132,14 @@
       </div>
 
       <!-- Top Topic Selector -->
-      <div class="menuPopupSection">
+      <div class="menuPopupSection topTopicsSection">
         <div class="topTopicTitle" *ngIf="showTopicSelector">
           Top Topics:
         </div>
-        <span *ngFor="let topic of topTopics | slice:0:15" (click)="topTopicClicked(topic.topicName, topic.topicId)"
-          class="topTopicsDiv">
-          <span class="matchingTopic">{{topic.topicName}}</span>
-          <span class="topicStoryCount">({{topic.storyCount}})</span>
-        </span>
+        <div *ngFor="let topic of topTopics | slice:0:15" (click)="topTopicClicked(topic.topicName, topic.topicId)"
+          class="topicsGrid">
+          <span class="matchingTopic topicName">{{topic.topicName}}<span class="topicStoryCount topicCount">({{topic.storyCount}})</span></span>
+        </div>
       </div>
 
       <button id="closeOverlay" (click)="closeMenuPanel()">Close</button>
@@ -172,6 +172,12 @@
         </button>
         <button class="storyControlFlairButton" (click)="insertBullet();" title="Bullet-point">
           <span>&bull;</span> Bullet
+        </button>
+        <button class="storyControlFlairButton" (click)="insertH2();" title="Header">
+          <span>##</span> Header
+        </button>
+        <button class="storyControlFlairButton" (click)="insertH3();" title="Sub-Header">
+          <span>###</span> Sub-Header
         </button>
         <button class="storyControlFlairButton" (click)="openInsertEmojiPanel();" title="Emoji">
           <span>😊</span>
@@ -281,9 +287,15 @@
           title="Delete Post" style="display:inline-block">
           ❌Delete
         </button>
+        <button (click)="parentRef?.speakMessage(optionStory.storyText ?? '')" *ngIf="!parentRef?.isSpeaking">
+          🔊Read Outloud
+        </button>
+        <button (click)="parentRef?.stopSpeaking()" *ngIf="parentRef?.isSpeaking">
+          🤐Stop Reading Outloud
+        </button>
         <button *ngFor="let topic of optionStory.storyTopics" (click)="ignoreTopic(topic)">
           Ignore Topic <span class="matchingTopic">{{topic.topicText}}</span>
-        </button>
+        </button> 
       </div>
 
       <div class="optionsStatsWrapperDiv">
@@ -415,6 +427,12 @@
         <button *ngIf="!onMobile()" class="storyControlFlairButton" (click)="insertBullet();" title="Bullet-point">
           <span>&bull;</span>
         </button>
+        <button *ngIf="!onMobile()" class="storyControlFlairButton" (click)="insertH2();" title="Header">
+          <span>##</span>
+        </button>
+        <button *ngIf="!onMobile()" class="storyControlFlairButton" (click)="insertH3();" title="Sub-Header">
+          <span>###</span>
+        </button>
         <button *ngIf="!onMobile()" class="storyControlFlairButton" (click)="openInsertEmojiPanel();" title="Emoji">
           <span>😊</span>
         </button>
@@ -488,6 +506,14 @@
                   title="Bullet-point">
                   <span>&bull;</span>
                 </button>
+                <button [style.display]="isEditing.includes(story.id) ? 'block' : 'none'"
+                 class="mainTopicSelectionsHeaderButton" (click)="insertH2('storyTextTextarea' + story.id);" title="Header">
+                  <span>##</span>
+                </button>
+                <button [style.display]="isEditing.includes(story.id) ? 'block' : 'none'"
+                 class="mainTopicSelectionsHeaderButton" (click)="insertH3('storyTextTextarea' + story.id);" title="Sub-Header">
+                  <span>###</span>
+                  </button>
               </div>
             </div>
           </div>

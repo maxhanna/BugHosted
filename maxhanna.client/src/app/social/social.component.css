@@ -689,3 +689,276 @@ singleAttachment {
   vertical-align: middle;
   background-color: var(--secondary-font-color);
 }
+
+
+
+
+/* Highly specific CSS selectors for .menuPopupPanel */
+.menuPopupPanel.popupPanel {   
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.menuPopupPanel .popupHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.menuPopupPanel .popupTitle {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: var(--primary-font-color);
+}
+
+.menuPopupPanel .closeButton {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 5px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--secondary-font-color);
+  transition: all 0.2s ease;
+}
+
+.menuPopupPanel .closeButton:hover {
+  background: rgba(0, 0, 0, 0.05);
+  color: var(--primary-font-color);
+}
+
+.menuPopupPanel .userProfileSection {
+  display: flex;
+  align-items: center; 
+  padding: 12px;
+  background: rgba(var(--main-highlight-color-rgb), 0.1);
+  border-radius: 8px;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-content: center;
+}
+
+.menuPopupPanel .avatarContainer {
+  flex-shrink: 0;
+}
+
+.menuPopupPanel .locationInfo {
+  display: flex;
+  flex-direction: column;
+}
+
+.menuPopupPanel .city,
+.menuPopupPanel .country {
+  font-size: 0.9rem;
+  line-height: 1.4;
+}
+
+.menuPopupPanel .city {
+  font-weight: 500;
+  color: var(--primary-font-color);
+}
+
+.menuPopupPanel .country {
+  color: var(--secondary-font-color);
+}
+
+.menuPopupPanel .settingsSection {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  padding: 15px 0;
+  border-top: 1px solid var(--main-border-color);
+  border-bottom: 1px solid var(--main-border-color);
+}
+
+.menuPopupPanel .settingRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.menuPopupPanel .settingRow label {
+  font-size: 0.9rem;
+  color: var(--primary-font-color);
+}
+
+.menuPopupPanel .styledSelect {
+  padding: 6px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--main-border-color);
+  background: var(--input-background-color);
+  color: var(--primary-font-color);
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.menuPopupPanel .toggleSetting {
+  padding: 5px 0;
+}
+
+.menuPopupPanel .toggleSwitch {
+  position: relative;
+  display: inline-block;
+  width: 42px;
+  height: 22px;
+}
+
+.menuPopupPanel .toggleSwitch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.menuPopupPanel .slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #ccc;
+  transition: .4s;
+  border-radius: 24px;
+}
+
+.menuPopupPanel .slider:before {
+  position: absolute;
+  content: "";
+  height: 16px;
+  width: 16px;
+  left: 3px;
+  bottom: 3px;
+  background-color: white;
+  transition: .4s;
+  border-radius: 50%;
+}
+
+.menuPopupPanel input:checked+.slider {
+  background-color: var(--main-highlight-color);
+}
+
+.menuPopupPanel input:checked+.slider:before {
+  transform: translateX(20px);
+}
+
+.menuPopupPanel .searchSection {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.menuPopupPanel .searchInputContainer {
+  display: flex;
+  align-items: center;
+  background: var(--input-background-color);
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid var(--main-border-color);
+}
+
+.menuPopupPanel .searchInput {
+  flex: 1;
+  padding: 8px 12px;
+  border: none;
+  background: transparent;
+  color: var(--primary-font-color);
+  font-size: 0.9rem;
+}
+
+.menuPopupPanel .searchInput:focus {
+  outline: none;
+}
+
+.menuPopupPanel .searchButton {
+  background: none;
+  border: none;
+  padding: 8px 12px;
+  cursor: pointer;
+  color: var(--secondary-font-color);
+  display: flex;
+  align-items: center;
+}
+
+.menuPopupPanel .searchButton:hover {
+  color: var(--primary-font-color);
+}
+
+.menuPopupPanel .currentSearch {
+  display: flex;
+  align-items: center;
+  font-size: 0.85rem;
+  color: var(--secondary-font-color);
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+  background: rgba(var(--main-highlight-color-rgb), 0.1);
+}
+
+.menuPopupPanel .clearSearch {
+  margin-left: 6px;
+  font-size: 1.1rem;
+  color: var(--primary-font-color);
+}
+
+.menuPopupPanel .topicsSection {
+  padding-top: 10px;
+}
+
+.menuPopupPanel .topTopicsSection {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.menuPopupPanel .sectionTitle {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 500;
+  color: var(--primary-font-color);
+}
+
+.menuPopupPanel .topicsGrid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.menuPopupPanel .topicTag {
+  display: flex;
+  align-items: center;
+  background: rgba(var(--main-highlight-color-rgb), 0.1);
+  padding: 4px 8px;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.menuPopupPanel .topicTag:hover {
+  background: rgba(var(--main-highlight-color-rgb), 0.2);
+}
+
+.menuPopupPanel .topicName {
+  font-size: 0.8rem;
+  color: var(--primary-font-color);
+}
+
+.menuPopupPanel .topicCount {
+  font-size: 0.7rem;
+  color: var(--secondary-font-color);
+  margin-left: 4px;
+  background: rgba(0, 0, 0, 0.1);
+  padding: 1px 4px;
+  border-radius: 8px;
+}
+.menuPopupMiniOptions {
+  display: flex;
+  justify-content: space-between;
+  width: 100%;
+}

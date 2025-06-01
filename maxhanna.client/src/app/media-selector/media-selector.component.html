@@ -1,13 +1,13 @@
 <div class="mediaSelectorDiv">
-  <button class="mediaSelectorButton cursorPointer" (click)="toggleMediaChoices()">
+  <button class="mediaSelectorButton cursorPointer" (click)="toggleMediaChoices()" [title]="viewMediaChoicesOpen ? 'Close Media Selector' : 'Select Media Files'">
     🧷{{uploadButtonText}}
     <span style="font-size:xx-small" *ngIf="selectedFiles && selectedFiles.length > 0">({{ selectedFiles.length }})</span>
   </button>
   <ng-container *ngIf="viewMediaChoicesOpen || displaySearch">
     <div id="selectMediaDiv" [ngClass]="{'open': viewMediaChoicesOpen || displaySearch}">
 
-      <div class="mediaSelectorTitle selectFilesTitle">
-        <span>
+      <div class="mediaSelectorTitle selectFilesTitle" *ngIf="!displaySearch">
+        <span class="popupPanelTitle">
           Select Media Files <span class="smallFont" *ngIf="selectedFiles && selectedFiles.length > 0">({{selectedFiles.length}} selected)</span>
         </span>
 
@@ -70,12 +70,12 @@
        
       <!-- SEARCH/UPLOAD buttons -->
       <div class="searchUploadButtonChoiceDiv" *ngIf="!maxFilesReached">
-        <button (click)="displaySearch ? closeSearchDiv($event) : displaySearchDiv()" title="Search for files" class="cursorPointer">
+        <button (click)="displaySearch ? closeSearchDiv($event) : displaySearchDiv()" title="Search for files" class="cursorPointer" [style]="displaySearch ? 'position:relative; top:-10px;' : ''">
           {{displaySearch ? 'Close Search' : ('🔍Search' )}}
         </button>
         <div *ngIf="!displaySearch">
           <app-file-upload #fileUploadComponent
-                           [uploadButtonText]="uploadButtonText"
+                           [uploadButtonText]="uploadButtonText || 'Upload'"
                            [inputtedParentRef]="inputtedParentRef"
                            [showPrivatePublicOption]="false"
                            [currentDirectory]="currentDirectory"

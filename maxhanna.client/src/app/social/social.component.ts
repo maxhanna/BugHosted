@@ -949,6 +949,7 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
     clearTimeout(this.searchTimeout);
     this.searchTimeout = setTimeout(() => this.searchStories(this.attachedTopics, true), 500);
   }
+  
   insertTag(tag: string, componentId?: string) {
     let targetInput = componentId
       ? document.getElementById(componentId) as HTMLInputElement
@@ -960,27 +961,50 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
     const end = targetInput.selectionEnd || 0;
     const selectedText = targetInput.value.substring(start, end);
 
-    let newText;
+    let newText: string;
+    let cursorOffset: number;
+
     if (selectedText) {
-      // Wrap selected text with the tag
-      newText = targetInput.value.substring(0, start) +
-        `[${tag}]${selectedText}[/${tag}]` +
-        targetInput.value.substring(end);
+      // Wrap selected text
+      if (tag.startsWith('#')) {
+        // For headings
+        newText = targetInput.value.substring(0, start) +
+          `\n\n${tag} ${selectedText}\n\n` +
+          targetInput.value.substring(end);
+        cursorOffset = start + tag.length + selectedText.length + 4; // After header text
+      } else {
+        // For other tags
+        newText = targetInput.value.substring(0, start) +
+          `[${tag}]${selectedText}[/${tag}]` +
+          targetInput.value.substring(end);
+        cursorOffset = start + tag.length * 2 + selectedText.length + 4; // After closing tag
+      }
     } else {
-      // Insert empty tag at cursor position
-      newText = targetInput.value.substring(0, end) +
-        `[${tag}][/${tag}]` +
-        targetInput.value.substring(end);
+      // Insert empty tag
+      if (tag.startsWith('#')) {
+        // For headings
+        newText = targetInput.value.substring(0, end) +
+          `\n\n${tag} ` +  // Space after header
+          targetInput.value.substring(end);
+        cursorOffset = end + tag.length + 3; // After header marker and space
+      } else {
+        // For other tags
+        newText = targetInput.value.substring(0, end) +
+          `[${tag}][/${tag}]` +
+          targetInput.value.substring(end);
+        cursorOffset = end + tag.length + 2; // Between tags
+      }
     }
 
-    // Apply the modified text
+    // Apply changes
     targetInput.value = newText;
     this.closePostOptionsPanel();
-    // Adjust cursor position after inserting tags
-    const cursorPos = selectedText ? end + tag.length + 6 : end + tag.length + 6;
-    targetInput.setSelectionRange(cursorPos, cursorPos);
+
+    // Set cursor position
+    targetInput.setSelectionRange(cursorOffset, cursorOffset);
     targetInput.focus();
   }
+
   insertBold(componentId?: string) {
     this.insertTag('b', componentId);
   }
@@ -989,6 +1013,12 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
   }
   insertBullet(componentId?: string) {
     this.insertTag('*', componentId);
+  }
+  insertH2(componentId?: string) {
+    this.insertTag('## ', componentId);
+  }
+  insertH3(componentId?: string) {
+    this.insertTag('### ', componentId);
   }
   insertEmoji(emoji: string) {
     this.story.nativeElement.value += emoji;
@@ -1087,6 +1117,21 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
     const isChecked = (event.target as HTMLInputElement).checked;
     this.isDisplayingNSFW = isChecked;
     this.userService.updateNSFW(user.id, isChecked).then(res => {
+      if (res) {
+        parent.showNotification(res);
+        this.searchStories();
+      }
+    });
+  }
+  onNSFWChange(event: Event) {
+    const selectElement = event.target as HTMLSelectElement;
+    const selectedValue = selectElement.value; // "yes" or "no"
+    this.isDisplayingNSFW = (selectedValue === 'yes');
+    const parent = this.parent ?? this.parentRef;
+    const user = parent?.user;
+    if (!user || !user.id) return alert("You must be logged in to view NSFW content.");
+
+    this.userService.updateNSFW(user.id, this.isDisplayingNSFW).then(res => {
       if (res) {
         parent.showNotification(res);
         this.searchStories();

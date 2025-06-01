@@ -63,6 +63,7 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
   preventMapScrolling = false;
   shouldLoadMap = false;
   shouldLoadBaseUnits = false;
+  hideBaseNavForMap = false;
 
   mapTileSrc?: string;
   mapTileSrc2?: string;
@@ -293,7 +294,7 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
   }
 
   private startLoadMapCounter(): void {
-    this.startLoadCounter(this.shouldLoadMap, 1, 'Map');
+    this.startLoadCounter(this.shouldLoadMap, 10, 'Map');
   }
 
   private startLoadBaseUnitsCounter(): void {
@@ -1644,11 +1645,27 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
           this.isReportsOpen = isOpen != undefined ? isOpen : !this.isReportsOpen;
         }, 50);
       }
-      else if (screen == "map") {
+      else if (screen == "map") { 
+        this.hideBaseNavForMap = false;
+        this.mapComponent?.resetComponentMainWidth();
         setTimeout(() => {
           this.isMapOpen = isOpen != undefined ? isOpen : !this.isMapOpen;
           setTimeout(() => {
-            if (this.mapData && isOpen && !this.mapComponent.isMapRendered) {
+            if (!this.mapData) {
+              this.fetchMapData().then(() => {
+                setTimeout(() => {
+                  if (this.mapData && isOpen && !this.mapComponent.isMapRendered) {
+                    this.mapComponent.setMapData();
+                    setTimeout(() => {
+                      if (this.nexusBase && !this.preventMapScrolling && this.mapComponent) {
+                        this.mapComponent.scrollToCoordinates(this.nexusBase.coordsX, this.nexusBase.coordsY);
+                      }
+                    }, 10)
+                  }
+                }, 50); 
+              })
+            }
+            else if (this.mapData && isOpen && !this.mapComponent.isMapRendered) {
               this.mapComponent.setMapData();
               setTimeout(() => {
                 if (this.nexusBase && !this.preventMapScrolling && this.mapComponent) {
@@ -1744,7 +1761,7 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
     return (this.defencesIncomingCount > 0 && !this.isReportsOpen && !this.isSupportOpen && !this.isBasesOpen && !this.isMapOpen && this.nexusBase) ? true : false;
   }
   shouldShowBaseNav(): boolean {
-    return (this.numberOfPersonalBases > 1
+    return this.hideBaseNavForMap ? false : (this.numberOfPersonalBases > 1
       && !this.isReportsOpen
       && !this.isSupportOpen
       && !this.isBasesOpen
@@ -2055,10 +2072,10 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
       this.playerColors[this.parentRef?.user?.id ?? 0] = this.playerColor;
     } 
   }
-  fetchMapData() {
+  async fetchMapData() {
     if (!this.mapData || this.numberOfPersonalBases == 0 || this.shouldLoadMap) {
       this.shouldLoadMap = false;
-      this.nexusService.getMap().then(res => {
+      await this.nexusService.getMap().then(res => {
         if (res) {
           this.mapData = res;
           this.currentPersonalBases = this.mapData.filter(x => x.user?.id == this.parentRef?.user?.id);
@@ -2074,6 +2091,12 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
     setTimeout(() => {
       (document.getElementsByClassName("searchUsersSpan")[0] as HTMLButtonElement).click();
     }, 50);
+  }
+  emittedZoomInEvent() {
+    this.hideBaseNavForMap = false;
+  }
+  emittedZoomOutEvent() {
+    this.hideBaseNavForMap = true;
   }
   closeUserSearchOverlay() {
     this.isUserSearchOpen = false; 

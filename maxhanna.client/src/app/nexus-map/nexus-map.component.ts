@@ -12,13 +12,14 @@ import { ChildComponent } from '../child.component';
 import { NexusTimer } from '../../services/datacontracts/nexus/nexus-timer';
 import { Subject, debounceTime } from 'rxjs';
 import { NexusAttackScreenComponent } from '../nexus-attack-screen/nexus-attack-screen.component';
-
+import { ChangeDetectionStrategy, ChangeDetectorRef } from '@angular/core';
 
 @Component({
     selector: 'app-nexus-map',
     templateUrl: './nexus-map.component.html',
     styleUrl: './nexus-map.component.css',
-    standalone: false
+    standalone: false,
+    changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class NexusMapComponent extends ChildComponent {
   selectedNexusBase?: NexusBase;
@@ -37,6 +38,7 @@ export class NexusMapComponent extends ChildComponent {
   attackTimers: { [key: string]: NexusTimer } = {};
   defenceTimers: { [key: string]: NexusTimer } = {};
   isMapInfoOpen = false;
+  componentMainWidth? : string; 
 
   public attackSentStatus: Map<string, boolean> = new Map();
   public attackReturningStatus: Map<string, boolean> = new Map();
@@ -87,6 +89,8 @@ export class NexusMapComponent extends ChildComponent {
   @Output() emittedAttackEvent = new EventEmitter<AttackEventPayload>();
   @Output() emittedSendBackAttackEvent = new EventEmitter<object>();
   @Output() emittedSendBackDefenceEvent = new EventEmitter<object>();
+  @Output() emittedZoomInEvent = new EventEmitter<void>();
+  @Output() emittedZoomOutEvent = new EventEmitter<void>();
 
   @ViewChild('mapInputX') mapInputX!: ElementRef<HTMLInputElement>;
   @ViewChild('mapInputY') mapInputY!: ElementRef<HTMLInputElement>;
@@ -98,7 +102,7 @@ export class NexusMapComponent extends ChildComponent {
   @ViewChild(NexusAttackScreenComponent) nexusAttackScreenComponent!: NexusAttackScreenComponent;
 
 
-  constructor(private nexusService: NexusService) {
+  constructor(private nexusService: NexusService, private cdr: ChangeDetectorRef) {
     super();
     this.searchTerm.pipe(debounceTime(300)).subscribe(() => {
       this.showMapLocation();
@@ -107,6 +111,8 @@ export class NexusMapComponent extends ChildComponent {
 
   zoomOut() {
     this.zoomedOut = true;
+    this.setComponentMainWidth();
+
     const mapElement = document.getElementsByClassName('map')[0] as HTMLDivElement;
     mapElement.style.transform = `scale(${0.5}) translateX(-50%) translateY(-50%)`;
     mapElement.style.width = "200%";
@@ -126,7 +132,9 @@ export class NexusMapComponent extends ChildComponent {
     } 
   `;
     this.resetSwitches();
+    this.emittedZoomOutEvent.emit();
   }
+  
   resetSwitches() {
     if (this.attackModeCheckbox)
       this.attackModeCheckbox.nativeElement.checked = false;
@@ -151,8 +159,32 @@ export class NexusMapComponent extends ChildComponent {
     if (styleElement) {
       styleElement.parentNode?.removeChild(styleElement);
     }
+
+    this.resetComponentMainWidth();
     this.resetSwitches();
+    this.emittedZoomInEvent.emit();
   }
+
+  public setComponentMainWidth() {
+    const componentMain = document.getElementsByClassName('componentMain')[0] as HTMLDivElement;
+    if (componentMain) {
+      if (!this.componentMainWidth) {
+        const computedStyle = window.getComputedStyle(componentMain);
+        this.componentMainWidth = computedStyle.width;
+      }
+      componentMain.style.width = "100vw";
+    }
+  }
+
+  public resetComponentMainWidth() {
+    if (!this.componentMainWidth) { return; }
+    const componentMain = document.getElementsByClassName('componentMain')[0] as HTMLDivElement;
+    if (componentMain) { 
+      componentMain.style.width = this.componentMainWidth;
+      this.componentMainWidth = undefined;
+    }
+  }
+
   scrollToCoordinates(coordsX: number, coordsY: number, hideAttackButton?: boolean) {
     if (!this.user || !this.mapData || this.mapData.length === 0) return;
     const cell = this.mapContainer.nativeElement.querySelector(`.cell[x='${coordsX}'][y='${coordsY}']`);
@@ -201,6 +233,7 @@ export class NexusMapComponent extends ChildComponent {
 
     this.computeStatuses();
     this.stopLoading();
+    this.cdr.markForCheck();
   }
 
   scrollToUserBase() {
@@ -368,7 +401,8 @@ export class NexusMapComponent extends ChildComponent {
         this.updateAttackTimers();
         this.updateDefenceTimers();
       }
-    }, 100)
+    }, 100);
+    this.cdr.markForCheck();
   }
 
 

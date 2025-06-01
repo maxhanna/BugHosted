@@ -1,4 +1,4 @@
-import { Component, ViewChild, ElementRef, OnDestroy, OnInit } from '@angular/core';
+import { Component, ViewChild, ElementRef, OnDestroy, OnInit, ChangeDetectorRef } from '@angular/core';
 import { AiService } from '../../services/ai.service';
 import { ChildComponent } from '../child.component';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
@@ -14,7 +14,7 @@ export class AIMessage { sender?: string; message: any };
   standalone: false
 })
 export class HostAiComponent extends ChildComponent implements OnInit, OnDestroy {
-  constructor(private aiService: AiService, private sanitizer: DomSanitizer) { super(); }
+  constructor(private aiService: AiService, private sanitizer: DomSanitizer, private cdr: ChangeDetectorRef) { super(); }
   userMessage: string = '';
   chatMessages: AIMessage[] = [];
   hostName: string = "Host";
@@ -56,11 +56,7 @@ export class HostAiComponent extends ChildComponent implements OnInit, OnDestroy
     // Check for voice commands
     if (this.userWantsToForgetHistory(this.userMessage)) {
       this.savedMessageHistory = [];
-      this.parentRef.showNotification("Memory cleared.");
-      this.userMessage = "";
-      this.chatInput.nativeElement.value = "";
-      this.chatInput.nativeElement.focus();
-      return;
+      this.parentRef.showNotification("Memory cleared."); 
     }
     if (this.userWantsToStopVoice(this.userMessage)) {
       this.userMessage = "";
@@ -175,9 +171,7 @@ console.log("Hello, world!");
       return;
     } 
     if ('speechSynthesis' in window) {
-      console.log("Speech synthesis is supported! ", message);
-
-      // Remove HTML tags and non-ASCII characters.
+      console.log("Speech synthesis is supported! ", message); 
       let cleanMessage = message.replace(/<\/?[^>]+(>|$)/g, "").replace(/[^\x20-\x7E]/g, "");
 
       // Replace "e.g.", "eg.", or "ex." (case-insensitive) with "example".
@@ -198,8 +192,11 @@ console.log("Hello, world!");
       // Function to speak the segments sequentially.
       const speakSegments = (index: number) => {
         if (index >= segments.length) {
-          // All segments spoken; resume listening if applicable.
-          if (this.startedTalking && listenAfter) {
+          this.startedTalking = false;
+          this.cdr.detectChanges(); // Ensure UI updates
+          console.log("Finished speaking all segments.");
+          if (listenAfter) {
+            console.log("Resuming listening after speaking.");
             this.startListening();
           }
           return;
@@ -223,25 +220,9 @@ console.log("Hello, world!");
           utterance.voice = naturalVoice || voices[0];
         }
 
-        utterance.onend = () => {
-          // Default pause time.
-          // let pauseTime = 200;
-          // const lastChar = segment.slice(-1);
-          // if (lastChar === ',') {
-          //   pauseTime = 80;
-          // } else if (lastChar === ':' || lastChar === ';' || lastChar === '.') {
-          //   pauseTime = 200;
-          // } else if (lastChar === '-') {
-          //   if (/ \- /.test(segment)) { // Only add a pause if the dash is surrounded by spaces.
-          //     pauseTime = 50;
-          //   } else {
-          //     pauseTime = 0;
-          //   }
-          // }
+        utterance.onend = () => { 
           if (this.startedTalking) {
-            setTimeout(() => speakSegments(index + 1), 0);
-
-            //setTimeout(() => speakSegments(index + 1), pauseTime);
+            setTimeout(() => speakSegments(index + 1), 0); 
           }
         };
 
@@ -252,6 +233,8 @@ console.log("Hello, world!");
       speakSegments(0);
     } else {
       console.log("Speech synthesis is NOT supported in this browser.");
+      this.startedTalking = false;
+      this.cdr.detectChanges();  
     }
   }
  
@@ -267,6 +250,7 @@ console.log("Hello, world!");
 
   stopTalking() {
     this.startedTalking = false;
+    this.cdr.detectChanges();  
     setTimeout(() => {
       speechSynthesis.cancel();
 
@@ -282,6 +266,7 @@ console.log("Hello, world!");
 
   stopListening() {
     this.startedTalking = false;
+    this.cdr.detectChanges(); 
   }
 
   userWantsToStopVoice(message: string): boolean {
@@ -430,6 +415,7 @@ console.log("Hello, world!");
   listenToChatMessage(message: AIMessage) {
     if (!this.startedTalking) {
       this.startedTalking = true;
+      this.cdr.detectChanges();  
       setTimeout(() => {
         this.speakMessage(message.message, false);
       }, 20);
@@ -437,5 +423,11 @@ console.log("Hello, world!");
       this.startedTalking = false;
       this.stopTalking();
     }
+  } 
+  sayOutloud() {
+    this.startedTalking = true; 
+    this.cdr.detectChanges();  
+    console.log("Saying out loud: ", this.chatInput.nativeElement.value);
+    this.speakMessage(this.chatInput.nativeElement.value ?? "", false)
   }
 }

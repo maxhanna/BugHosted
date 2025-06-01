@@ -14,18 +14,18 @@
       <option [value]="false">Private</option>
     </select>
   </div>
-
-  <div>
-    {{isUploading ? 'Uploading' : 'Upload'}} {{uploadFileList.length}} files to {{currentDirectory && currentDirectory != '' ? currentDirectory : '/'}}{{isUploading ? '...' : '?'}}
-
+  <div class="uploadFilesTitle">{{isUploading ? 'Uploading' : 'Upload'}} <span class="secondaryFontColor">{{uploadFileList.length}}</span> files to
+    <span class="thirdFontColor bold italics">{{currentDirectory && currentDirectory != ''
+    ? currentDirectory : '/'}}</span>{{isUploading ? '...' : '?'}}</div>
+  <div style="margin-top:35px; width: 100%;">  
     <div class="uploadFileActionWrapper" *ngIf="!isUploading">
       <div class="uploadFileActionDiv">
-        <span (click)="displayFileUploadOptions = !displayFileUploadOptions" class="cursorPointer smallFont">
-          [Options{{displayFileUploadOptions ? '-' : '+'}}]
-        </span>
-        <span (click)="displayFileUploadTopics = !displayFileUploadTopics" class="cursorPointer smallFont">
-          [Topics{{displayFileUploadTopics ? '-' : '+'}}]
-        </span>
+        <button (click)="displayFileUploadOptions = !displayFileUploadOptions" class="cursorPointer smallFont">
+          Options [{{displayFileUploadOptions ? '-' : '+'}}]
+        </button>
+        <button (click)="displayFileUploadTopics = !displayFileUploadTopics" class="cursorPointer smallFont">
+          Topics [{{displayFileUploadTopics ? '-' : '+'}}]
+        </button>
       </div>
       <div *ngIf="displayFileUploadOptions" style="display: flex; flex-direction: column;">
         <label><input type="checkbox" #compressCheckbox checked /> Compress Media Files</label>
@@ -46,24 +46,25 @@
 
   <div class="fileListDiv">
     <div *ngFor="let file of uploadFileList; let i = index">
-      <div [class]="(!uploadProgress[file.name] || uploadProgress[file.name] == 0)  ? 'removeFileButton fileUploadLineDiv' : ' fileUploadLineDiv'" (click)="removeFile(file)" title="Remove file">
+      <div class="fileUploadLineDiv">
         <span>{{file.name}}</span>
         <span *ngIf="uploadProgress[file.name]">
           {{ uploadProgress[file.name] === 100 ? '✅' : (uploadProgress[file.name] + '%') }}
         </span>
         <span *ngIf="!uploadProgress[file.name] && totalProgress">
           0%
-        </span>
+        </span> 
+        <span *ngIf="(!uploadProgress[file.name] || uploadProgress[file.name] == 0)" class="removeFileButton"
+         (click)="removeFile(file)" title="Remove file"></span>
       </div>
     </div>
   </div>
 
   <div class="fileUploaderButtons">
-    <button type="submit"
-            (click)="uploadSubmitClicked()"
-            title="Upload file(s)">
+    <button type="submit" (click)="uploadSubmitClicked()" title="Upload file(s)" style="position:relative; top: -8px;">
       {{isUploading ? (getOverallProgress() == 100 ? 'Finalizing...' : getOverallProgress() + '%') : (uploadFileList.length > 0 ? '✅Upload' : '⏫' + uploadButtonText)}}
     </button>
-    <button type="submit" id="closeOverlay" *ngIf="!isUploading" (click)="preventDisplayClose ? null : cancelFileUpload()" title="Cancel upload">❌Cancel</button>
+    <button type="submit" id="closeOverlay" *ngIf="!isUploading" 
+      (click)="preventDisplayClose ? null : cancelFileUpload()" title="Cancel upload" style="position:relative; top: -8px;">❌Cancel</button>
   </div>
 </div>
