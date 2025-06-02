@@ -134,7 +134,7 @@
       [style.display]="isTradePanelOpen ? 'none' : 'block'">
       <div class="sectionName cryptoWalletSectionHeader" *ngIf="latestCurrencyPriceRespectToCAD && (wallet || btcWalletResponse)">Crypto Wallet Balance(s):
       </div>
-      <table *ngIf="latestCurrencyPriceRespectToCAD && (wallet || btcWalletResponse?.currencies)" id="walletTable">
+      <table *ngIf="latestCurrencyPriceRespectToCAD && (wallet || btcWalletResponse?.currencies)" id="walletTable" class="mainTable">
         <thead *ngIf="wallet?.length">
           <tr>
             <th (click)="areWalletAddressesHidden = !areWalletAddressesHidden"

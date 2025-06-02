@@ -2,6 +2,13 @@ import { Component, EventEmitter, Input, Output, SimpleChanges, OnChanges } from
 import { User } from '../../services/datacontracts/user/user';
 import { NexusAttackSent } from '../../services/datacontracts/nexus/nexus-attack-sent';
 
+// Define sorting options
+type SortOption = {
+  name: string;
+  key: string;
+  direction: 'asc' | 'desc';
+};
+
 @Component({
   selector: 'app-nexus-movement',
   standalone: false,
@@ -34,16 +41,32 @@ export class NexusMovementComponent implements OnChanges {
   // Pagination settings
   itemsPerPage = 5;
 
-  // Define movements with pagination and collapsible properties
+  // Available sorting options
+  sortOptions: SortOption[] = [
+    { name: 'Time Remaining (Soonest First)', key: 'timeRemaining', direction: 'asc' },
+    { name: 'Time Remaining (Latest First)', key: 'timeRemaining', direction: 'desc' },
+    { name: 'Origin Player (A-Z)', key: 'originUser.username', direction: 'asc' },
+    { name: 'Origin Player (Z-A)', key: 'originUser.username', direction: 'desc' },
+    { name: 'Destination Player (A-Z)', key: 'destinationUser.username', direction: 'asc' },
+    { name: 'Destination Player (Z-A)', key: 'destinationUser.username', direction: 'desc' },
+    { name: 'Total Units (High-Low)', key: 'totalUnits', direction: 'desc' },
+    { name: 'Total Units (Low-High)', key: 'totalUnits', direction: 'asc' },
+    { name: 'Distance (Far-Near)', key: 'distance', direction: 'desc' },
+    { name: 'Distance (Near-Far)', key: 'distance', direction: 'asc' }
+  ];
+
+  // Define movements with pagination, collapsible, and sorting properties
   movements = [
     {
-      title: '🛫 Attacks Sent',
+      title: '⚔️ Attacks Sent',
       data: [] as NexusAttackSent[],
       emptyMessage: 'No attacks currently in progress',
       currentPage: 1,
       totalPages: 1,
       paginatedData: [] as NexusAttackSent[],
-      isCollapsed: true
+      isCollapsed: true,
+      currentSort: this.sortOptions[0], // Default sort
+      sortOptions: this.sortOptions
     },
     {
       title: '🎯 Attacks Incoming',
@@ -52,7 +75,9 @@ export class NexusMovementComponent implements OnChanges {
       currentPage: 1,
       totalPages: 1,
       paginatedData: [] as NexusAttackSent[],
-      isCollapsed: true
+      isCollapsed: true,
+      currentSort: this.sortOptions[0], // Default sort
+      sortOptions: this.sortOptions
     },
     {
       title: '🛡️ Defenses Sent',
@@ -61,7 +86,9 @@ export class NexusMovementComponent implements OnChanges {
       currentPage: 1,
       totalPages: 1,
       paginatedData: [] as NexusAttackSent[],
-      isCollapsed: true
+      isCollapsed: true,
+      currentSort: this.sortOptions[0], // Default sort
+      sortOptions: this.sortOptions
     },
     {
       title: '🧱 Defenses Incoming',
@@ -70,7 +97,9 @@ export class NexusMovementComponent implements OnChanges {
       currentPage: 1,
       totalPages: 1,
       paginatedData: [] as NexusAttackSent[],
-      isCollapsed: true
+      isCollapsed: true,
+      currentSort: this.sortOptions[0], // Default sort
+      sortOptions: this.sortOptions
     }
   ];
 
@@ -78,47 +107,115 @@ export class NexusMovementComponent implements OnChanges {
   ngOnChanges(changes: SimpleChanges) {
     this.movements = [
       {
-        title: '🛫 Attacks Sent',
-        data: this.sortByTimestamp(this.nexusAttacksSent || []),
-        emptyMessage: 'No attacks currently in progress',
-        currentPage: this.movements[0].currentPage,
+        ...this.movements[0],
+        data: this.sortData(this.nexusAttacksSent || [], this.movements[0].currentSort),
         totalPages: this.calculateTotalPages(this.nexusAttacksSent || []),
-        paginatedData: this.getPaginatedData(this.sortByTimestamp(this.nexusAttacksSent || []), this.movements[0].currentPage),
-        isCollapsed: this.movements[0].isCollapsed
+        paginatedData: this.getPaginatedData(
+          this.sortData(this.nexusAttacksSent || [], this.movements[0].currentSort),
+          this.movements[0].currentPage
+        )
       },
       {
-        title: '🎯 Attacks Incoming',
-        data: this.sortByTimestamp(this.nexusAttacksIncoming || []),
-        emptyMessage: 'No incoming attacks detected',
-        currentPage: this.movements[1].currentPage,
+        ...this.movements[1],
+        data: this.sortData(this.nexusAttacksIncoming || [], this.movements[1].currentSort),
         totalPages: this.calculateTotalPages(this.nexusAttacksIncoming || []),
-        paginatedData: this.getPaginatedData(this.sortByTimestamp(this.nexusAttacksIncoming || []), this.movements[1].currentPage),
-        isCollapsed: this.movements[1].isCollapsed
+        paginatedData: this.getPaginatedData(
+          this.sortData(this.nexusAttacksIncoming || [], this.movements[1].currentSort),
+          this.movements[1].currentPage
+        )
       },
       {
-        title: '🛡️ Defenses Sent',
-        data: this.sortByTimestamp(this.nexusDefencesSent || []),
-        emptyMessage: 'No defenses currently in progress',
-        currentPage: this.movements[2].currentPage,
+        ...this.movements[2],
+        data: this.sortData(this.nexusDefencesSent || [], this.movements[2].currentSort),
         totalPages: this.calculateTotalPages(this.nexusDefencesSent || []),
-        paginatedData: this.getPaginatedData(this.sortByTimestamp(this.nexusDefencesSent || []), this.movements[2].currentPage),
-        isCollapsed: this.movements[2].isCollapsed
+        paginatedData: this.getPaginatedData(
+          this.sortData(this.nexusDefencesSent || [], this.movements[2].currentSort),
+          this.movements[2].currentPage
+        )
       },
       {
-        title: '🧱 Defenses Incoming',
-        data: this.sortByTimestamp(this.nexusDefencesIncoming || []),
-        emptyMessage: 'No incoming defenses detected',
-        currentPage: this.movements[3].currentPage,
+        ...this.movements[3],
+        data: this.sortData(this.nexusDefencesIncoming || [], this.movements[3].currentSort),
         totalPages: this.calculateTotalPages(this.nexusDefencesIncoming || []),
-        paginatedData: this.getPaginatedData(this.sortByTimestamp(this.nexusDefencesIncoming || []), this.movements[3].currentPage),
-        isCollapsed: this.movements[3].isCollapsed
+        paginatedData: this.getPaginatedData(
+          this.sortData(this.nexusDefencesIncoming || [], this.movements[3].currentSort),
+          this.movements[3].currentPage
+        )
       }
     ];
   }
 
-  // Sort array by timestamp (descending, newest first) without modifying original
-  private sortByTimestamp(data: NexusAttackSent[]): NexusAttackSent[] {
-    return [...data].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+  // Sort data based on the selected sort option
+  private sortData(data: NexusAttackSent[], sortOption: SortOption): NexusAttackSent[] {
+    const sortedData = [...data];
+
+    sortedData.sort((a, b) => {
+      // Calculate total units for sorting
+      const aTotalUnits = this.getTotalUnits(a);
+      const bTotalUnits = this.getTotalUnits(b);
+
+      // Calculate distance for sorting (hypotenuse of coordinates)
+      const aDistance = Math.sqrt(Math.pow(a.originCoordsX - a.destinationCoordsX, 2) +
+        Math.pow(a.originCoordsY - a.destinationCoordsY, 2));
+      const bDistance = Math.sqrt(Math.pow(b.originCoordsX - b.destinationCoordsX, 2) +
+        Math.pow(b.originCoordsY - b.destinationCoordsY, 2));
+
+      let valueA, valueB;
+
+      switch (sortOption.key) {
+        case 'timeRemaining':
+          valueA = this.getRemainingTime(a);
+          valueB = this.getRemainingTime(b);
+          break;
+        case 'originUser.username':
+          valueA = a.originUser?.username?.toLowerCase() || '';
+          valueB = b.originUser?.username?.toLowerCase() || '';
+          break;
+        case 'destinationUser.username':
+          valueA = a.destinationUser?.username?.toLowerCase() || '';
+          valueB = b.destinationUser?.username?.toLowerCase() || '';
+          break;
+        case 'totalUnits':
+          valueA = aTotalUnits;
+          valueB = bTotalUnits;
+          break;
+        case 'distance':
+          valueA = aDistance;
+          valueB = bDistance;
+          break;
+        default:
+          valueA = 0;
+          valueB = 0;
+      }
+
+      if (valueA < valueB) {
+        return sortOption.direction === 'asc' ? -1 : 1;
+      }
+      if (valueA > valueB) {
+        return sortOption.direction === 'asc' ? 1 : -1;
+      }
+      return 0;
+    });
+
+    return sortedData;
+  }
+
+  // Calculate total units in a movement
+  private getTotalUnits(attack: NexusAttackSent): number {
+    return this.unitKeys.reduce((total, key) => total + (attack[key] ?? 0), 0);
+  }
+
+  // Change sort option for a movement section
+  changeSort(movementIndex: number, sortOption: SortOption) {
+    this.movements[movementIndex].currentSort = sortOption;
+    this.movements[movementIndex].data = this.sortData(
+      this.movements[movementIndex].data,
+      sortOption
+    );
+    this.movements[movementIndex].paginatedData = this.getPaginatedData(
+      this.movements[movementIndex].data,
+      this.movements[movementIndex].currentPage
+    );
   }
 
   // Calculate total pages
@@ -190,5 +287,53 @@ export class NexusMovementComponent implements OnChanges {
       glitcherTotal: this.glitcherPictureSrc
     };
     return unitImageMap[unitKey] || '';
+  }
+
+  onSortChange(movementIndex: number, event: Event): void {
+    const selectElement = event.target as HTMLSelectElement;
+    const selectedSortName = selectElement.value;
+
+    // Find the corresponding sort option
+    const selectedOption = this.movements[movementIndex].sortOptions.find(
+      option => option.name === selectedSortName
+    );
+
+    if (selectedOption) {
+      this.changeSort(movementIndex, selectedOption);
+    }
+  }
+
+  getRemainingTime(attack: NexusAttackSent): number {
+    const arrivalTime = new Date(attack.timestamp).getTime() + (attack.duration * 1000);
+    const now = Date.now();
+    return Math.max(0, Math.floor((arrivalTime - now) / 1000));
+  }
+
+  formatRemainingTime(seconds: number): string {
+    if (seconds <= 0) return 'Arrived!';
+
+    // Days if more than 24 hours
+    if (seconds >= 86400) {
+      const days = Math.floor(seconds / 86400);
+      const hours = Math.floor((seconds % 86400) / 3600);
+      return `${days}d ${hours}h`;
+    }
+
+    // Hours if more than 60 minutes
+    if (seconds >= 3600) {
+      const hours = Math.floor(seconds / 3600);
+      const mins = Math.floor((seconds % 3600) / 60);
+      return `${hours}h ${mins}m`;
+    }
+
+    // Minutes if more than 60 seconds
+    if (seconds >= 60) {
+      const mins = Math.floor(seconds / 60);
+      const secs = seconds % 60;
+      return `${mins}m ${secs}s`;
+    }
+
+    // Seconds only
+    return `${seconds}s`;
   }
 }

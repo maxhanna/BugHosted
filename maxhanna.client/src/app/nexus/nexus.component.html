@@ -861,7 +861,7 @@
     <button (click)="toggleScreen('reports', !isReportsOpen)" title="View Reports" *ngIf="!isUserNew && parentRef && parentRef.user && !isMapOpen && !isSupportOpen && !isBasesOpen && !isMovementOpen" [disabled]="isLoading">{{isReportsOpen ? 'Close ' : ''}}Data 📃</button>
     <button (click)="toggleScreen('bases', !isBasesOpen)" title="View Bases" *ngIf="!isUserNew && parentRef && parentRef.user && !isReportsOpen && !isSupportOpen && !isMapOpen && !isMovementOpen" [disabled]="isLoading">{{isBasesOpen ? 'Close ' : ''}}Bases 🏰</button>
     <button (click)="toggleScreen('support', !isSupportOpen)" title="View Support" *ngIf="!isUserNew && parentRef && parentRef.user && !isReportsOpen && !isMapOpen && (isBasesOpen || isSupportOpen) && !isMovementOpen" [disabled]="isLoading">{{isSupportOpen ? 'Close ' : ''}}Support 🛡️</button>
-    <button (click)="toggleScreen('movement', !isMovementOpen)" title="View Movement" *ngIf="!isUserNew && parentRef && parentRef.user && !isReportsOpen && !isSupportOpen && !isMapOpen" [disabled]="isLoading">{{isMovementOpen ? 'Close ' : ''}}Movement 🏇</button>
+    <button (click)="toggleScreen('movement', !isMovementOpen)" title="View Movement" *ngIf="!isUserNew && parentRef && parentRef.user && !isReportsOpen && !isSupportOpen && !isBasesOpen && !isMapOpen" [disabled]="isLoading">{{isMovementOpen ? 'Close ' : ''}}Movement 🏇</button>
 
   </div>
   <div *ngIf="!isLoading && !nexusBase && !isUserNew">
