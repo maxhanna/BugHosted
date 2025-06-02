@@ -24,6 +24,7 @@ export class UserListComponent extends ChildComponent implements OnInit, OnDestr
   @Input() searchOnly: boolean = false;
   @Input() sharingSearch: boolean = false;
   @Input() displayOnlyFriends: boolean = true;
+  @Input() hidePreviousMessages: boolean = false;
   @Input() displayRadioFilters: boolean = false;
   @Input() contactsOnly: boolean = false;
   @Output() userClickEvent = new EventEmitter<User | undefined>();
@@ -205,13 +206,18 @@ export class UserListComponent extends ChildComponent implements OnInit, OnDestr
   }
   openSearchPanel() {
     this.isSearchPanelOpen = true;
-    const parent = this.parentRef ?? this.inputtedParentRef;
-    if (parent) {
-      parent.showOverlay();
-    }
-    setTimeout(() => {
-      this.searchInput.nativeElement.focus();
-    }, 50);
+    // const parent = this.parentRef ?? this.inputtedParentRef;
+    // if (parent) {
+    //   parent.closeOverlay();
+    // }
+    // setTimeout(() => {
+    //   this.isSearchPanelOpen = true;
+    //   setTimeout(() => {
+    //     parent?.showOverlay();
+    //     this.searchInput?.nativeElement?.focus();
+    //   }, 50);
+      
+    // }, 50);
   }
   closeSearchPanel() {
     this.isSearchPanelOpen = false;

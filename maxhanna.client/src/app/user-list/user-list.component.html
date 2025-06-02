@@ -1,5 +1,6 @@
 <!-- Search Popup -->
-<div class="{{searchOnly ? '' : 'popupPanel searchPopup'}}" *ngIf="isSearchPanelOpen">
+<!-- <div class="{{searchOnly ? '' : 'popupPanel searchPopup'}}" *ngIf="isSearchPanelOpen"> -->
+<div *ngIf="isSearchPanelOpen">
   <div class="popupPanelTitle">Search Users</div>
   <div>
     <input #searchInput (keyup)="searchUsers()" placeholder="🔍Search for Users" />
@@ -9,11 +10,8 @@
       </div>
       <div *ngFor="let user of usersSearched" class="userList" (click)="closeOverlayOnClick(user);">
         <span class="user">
-          <app-user-tag [user]="user"
-                        [inputtedParentRef]="inputtedParentRef ?? parentRef"
-                        [displayMiniTag]="true"
-                        [preventOpenProfile]="true"
-                        [preventExpandPicture]="true"></app-user-tag> 
+          <app-user-tag [user]="user" [inputtedParentRef]="inputtedParentRef ?? parentRef" [displayMiniTag]="true"
+            [preventOpenProfile]="true" [preventExpandPicture]="true"></app-user-tag>
           <span *ngIf="parentRef?.isUserOnline(user.lastSeen | timeSince)" class="glowing onlineButton"
             [title]="'Online Since: ' + (user.lastSeen | timeSince)" [style.top]="'10px'">🟢</span>
         </span>
@@ -24,15 +22,10 @@
           </span>
         </span>
       </div>
-    </div> 
-  </div>
-  <div *ngIf="!searchOnly">
-    <button id="closeOverlay" (click)="closeSearchPanel()">Ok</button>
+    </div>
   </div>
 </div>
-
-
-<div class="searchDiv" [style.display]="searchOnly ? 'inline-flex' : 'flex'">
+<div class="searchDiv" [style.display]="searchOnly ? 'inline-flex' : 'flex'" *ngIf="!isSearchPanelOpen">
   <div *ngIf="displayRadioFilters">
     Show:
     <label>
@@ -49,7 +42,7 @@
     <button (click)="userClickEvent.emit()" class="searchUsersSpan" title="Cancel" *ngIf="sharingSearch && !isSearchPanelOpen">❌Cancel</button>
   </div>
 </div>
-<div class="searchResults">
+<div class="searchResults" *ngIf="!isSearchPanelOpen">
   <div class="prevChatMessages popupPanelTitle" *ngIf="!searchOnly">
     {{ isFriendsChecked ? 'Friends' : 'User' }} List
   </div>
@@ -76,7 +69,7 @@
   <div *ngIf="!isLoading && (searchOnly && searchInput && searchInput.nativeElement?.value != '' && (!usersSearched || usersSearched.length == 0))">
     No Users to Display.
   </div>
-  <div *ngIf="messageRows && messageRows.length > 0 && isFriendsChecked && !friendsOnly && !sharingSearch">
+  <div *ngIf="messageRows && messageRows.length > 0 && isFriendsChecked && !friendsOnly && !sharingSearch && !hidePreviousMessages">
     <div class="prevChatMessages popupPanelTitle" *ngIf="messageRows.length > 0">
       Previous Messages
     </div>

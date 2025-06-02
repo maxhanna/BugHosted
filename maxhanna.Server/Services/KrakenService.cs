@@ -163,7 +163,7 @@ public class KrakenService
 			if (spread >= _TradeThreshold || (firstPriceToday != null && spread2 >= _TradeThreshold))
 			{
 				string triggeredBy = spread >= _TradeThreshold ? "spread" : "spread2";
-				_ = _log.Db($"{tmpCoin} Trade triggered by: {triggeredBy} ({(triggeredBy == "spread2" ? spread2 : spread):P})", userId, "TRADE", true);
+				_ = _log.Db($"({tmpCoin}:{userId}) Trade triggered by: {triggeredBy} ({(triggeredBy == "spread2" ? spread2 : spread):P})", userId, "TRADE", true);
 
 				// If no last trade, we must equalize - get balances now
 				if (isFirstTradeEver || lastTrade == null)
@@ -224,7 +224,7 @@ public class KrakenService
 			if (spread <= -_TradeThreshold || (firstPriceToday != null && spread2 <= -_TradeThreshold))
 			{
 				string triggeredBy = spread <= -_TradeThreshold ? "spread" : "spread2";
-				_ = _log.Db($"Trade triggered by: {triggeredBy} {(triggeredBy == "spread2" ? spread2 : spread):P}", userId, "TRADE", true);
+				_ = _log.Db($"({tmpCoin}:{userId}) Trade triggered by: {triggeredBy} {(triggeredBy == "spread2" ? spread2 : spread):P}", userId, "TRADE", true);
 				decimal tmpTradePerc = (firstPriceToday != null ? _ValueTradePercentage - _ValueTradePercentagePremium : _ValueTradePercentage);
 				decimal usdcValueToTrade = Math.Min(usdcBalance * tmpTradePerc, _MaximumUSDCTradeAmount);
 				decimal coinAmount = usdcValueToTrade / coinPriceUSDC.Value;
@@ -237,7 +237,7 @@ public class KrakenService
 				if (usdcValueToTrade > 0)
 				{
 					var spread2Message = firstPriceToday != null ? $"Spread2: {spread2:P} " : "";
-					_ = _log.Db($"Spread is {spread:P} {spread2Message} (c:{currentPrice}-l:{lastPrice}), buying {tmpCoin} with {FormatBTC(coinAmount)} {tmpCoin} worth of USDC(${usdcValueToTrade})", userId, "TRADE", true);
+					_ = _log.Db($"({tmpCoin}:{userId}) Spread is {spread:P} {spread2Message} (c:{currentPrice}-l:{lastPrice}), buying {tmpCoin} with {FormatBTC(coinAmount)} {tmpCoin} worth of USDC(${usdcValueToTrade})", userId, "TRADE", true);
 
 					await AddMomentumEntry(userId, "USDC", tmpCoin, coinPriceUSDC.Value);
 					return false;
@@ -258,7 +258,7 @@ public class KrakenService
 			var timeSince = _log.GetTimeSince(lastTrade?.timestamp, true);
 
 			_ = _log.Db(
-				$@"{tmpCoin} Spread within threshold: {spread:P} {spread2Message} (c:{currentPrice:F2}{lp2Message}-l:{lastPrice:F2}|{timeSince}). {thresholdDifference:P}{thresh2Message}away from breaking threshold.",
+				$@"({tmpCoin}:{userId}) Spread within threshold: {spread:P} {spread2Message} (c:{currentPrice:F2}{lp2Message}-l:{lastPrice:F2}|{timeSince}). {thresholdDifference:P}{thresh2Message}away from breaking threshold.",
 				userId, "TRADE", true);
 		}
 
@@ -2030,6 +2030,9 @@ public class KrakenService
 			return null;
 		}
 
+		string tmpFromCoin = (from ?? "").ToUpper();
+		tmpFromCoin = tmpFromCoin == "BTC" ? "XBT" : tmpFromCoin;
+
 		string checkSql = @"
 			SELECT updated 
 			FROM maxhanna.trade_configuration 
@@ -2051,8 +2054,8 @@ public class KrakenService
 			using var cmd = new MySqlCommand(checkSql, conn);
 			cmd.Parameters.AddWithValue("@UserId", userId);
 
-			if (!string.IsNullOrEmpty(from))
-				cmd.Parameters.AddWithValue("@FromCoin", from);
+			if (!string.IsNullOrEmpty(tmpFromCoin))
+				cmd.Parameters.AddWithValue("@FromCoin", tmpFromCoin);
 			if (!string.IsNullOrEmpty(to))
 				cmd.Parameters.AddWithValue("@ToCoin", to);
 

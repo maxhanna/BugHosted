@@ -7,6 +7,7 @@
       <option *ngFor="let type of todoTypes" [value]="type">{{ type }} <span *ngIf="type === selectedType.value">({{ todoCount }})</span></option>
     </select>
     <span class="smallFont cursorPointerUnderlined" (click)="openEditListPanel()">[Edit]</span>
+    <span class="smallFont cursorPointerUnderlined" (click)="openShareListPanel()">[Share]</span>
   </div>
 
   <fieldset class="addTodoInputFieldset"> 
@@ -48,9 +49,8 @@
     <div *ngIf="todos.length <= 0 && isLoading">Loading...</div>
   </div>
 </div>
-
 <div class="popupPanel" *ngIf="isEditListPanelOpen">
-  <div class="popupPanelTitle">Edit list</div> 
+  <div class="popupPanelTitle">Edit list</div>
   <div>
     <div *ngFor="let type of todoTypes">{{type}} <span class="cursorPointer" (click)="hideColumn(type)">[❌]</span></div>
   </div>
@@ -61,4 +61,80 @@
   <div>
     <button id="closeOverlay" (click)="closeEditListPanel()">Close</button>
   </div>
+</div>
+
+<div class="popupPanel" *ngIf="isShareListPanelOpen">
+  <!-- Existing Share Panel Content -->
+  <div *ngIf="!defaultTodoTypes.includes(selectedType.value) && !showSharedList">
+    <div class="panel-title">Share {{selectedType.value}} list?</div>
+    <div class="user-list-container">
+      <app-user-list [displayOnlyFriends]="true" [inputtedParentRef]="parentRef" [hidePreviousMessages]="true" (userClickEvent)="shareWith($event);">
+      </app-user-list>
+    </div> 
+  </div> 
+
+  <!-- New Shared Columns Display -->
+  <div *ngIf="showSharedList" class="shared-columns-view">
+    <div class="panel-title">Sharing Status</div>  
+    <div class="shared-section" *ngIf="this.sharedColumns.length > 0">
+      <h4>Shared With You:</h4>
+      <div class="shared-user" *ngFor="let item of getSharedWithYou()">
+        <div>
+          <div>Column: {{item.columnName}}</div>
+          <div>Shared With {{item.sharedWith.split(',').length}} user{{item.sharedWith.split(',').length > 0 ? 's' : ''}}.</div>
+          <div style="display: flex;justify-content: space-between;"><span>Owner:</span><app-user-tag [userId]="item.ownerId" [inputtedParentRef]="parentRef" [displayHoverPicture]="true"></app-user-tag></div>
+        </div>
+        <div style="display:flex; flex-direction: column; align-items: flex-end;">
+          <div>
+            Enabled:
+            <label class="toggle-switch">
+              <input type="checkbox" [checked]="isColumnAdded(item.columnName)" (change)="toggleSharedColumn(item.columnName)">
+              <span class="slider round"></span>
+            </label>
+          </div> 
+          <div>
+            Delete: <button class="unshare-btn" (click)="leaveSharedColumn(item.columnName, item.ownerId)">Remove</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Shared By Current User -->
+    <div class="shared-section" *ngIf="this.sharedColumns.length > 0">
+      <h4>You've Shared:</h4>
+      <div class="shared-user" *ngFor="let column of getSharedUsers()"> 
+        <div>
+          <div>Column: {{column.columnName}}</div>
+          <div>Shared With {{column.sharedWith.split(',').length}} user{{column.sharedWith.split(',').length > 0 ? 's' : ''}}.</div>
+          <div style="display: flex;justify-content: space-between;"><span>Owner:</span><app-user-tag [userId]="column.ownerId" [inputtedParentRef]="parentRef" [displayHoverPicture]="true"></app-user-tag></div>
+        </div>
+        <div class="shared-with">
+          <div>Users:</div>
+          <div *ngFor="let userId of column.sharedWith.split(',')" class="sharedWithUser">
+            <app-user-tag [userId]="userId" [inputtedParentRef]="parentRef" [displayHoverPicture]="true"></app-user-tag>
+            <button class="unshare-btn" (click)="unshare(column.columnName, userId)">Remove</button>
+          </div>
+        </div> 
+      </div>
+    </div>
+
+    <div *ngIf="this.sharedColumns.length === 0">
+      <p>Currently no lists shared with anyone</p>
+    </div>
+  </div> 
+  <div class="panel-footer">
+    <button class="view-shared-btn" (click)="showSharedList = true" *ngIf="!showSharedList">
+      View Shared Status
+    </button>
+    <button *ngIf="showSharedList" class="back-btn" (click)="showSharedList = false">
+      Back to Sharing
+    </button>
+    <button id="closeOverlay" (click)="closeShareListPanel()">Close</button>
+  </div>
+ 
+  <div class="shareErrorMessage" *ngIf="defaultTodoTypes.includes(selectedType.value) && !showSharedList">
+    {{selectedType.value}} cannot be shared.<br>Choose another or create a new list to share it with another user.
+    <div class="smallFont thirdFontColor">Cannot share : {{defaultTodoTypes.join(', ')}}</div>
+  </div>
+
 </div>

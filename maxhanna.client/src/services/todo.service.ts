@@ -43,6 +43,21 @@ export class TodoService {
       return null;
     }
   }
+  async shareListWith(userId: number, toUserId: number, todoColumn: string) {
+    try {
+      const response = await fetch('/todo/sharelistwith', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ UserId: userId, ToUserId: toUserId, Column: todoColumn }),
+      });
+
+      return await response.text();
+    } catch (error) {
+      return null;
+    }
+  }
   async deleteTodo(userId: number, id: number) {
     try {
       const response = await fetch(`/todo/${id}`, {
@@ -96,10 +111,55 @@ export class TodoService {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(userId ),
+        body: JSON.stringify(userId),
       });
 
       return await response.json();
+    } catch (error) {
+      return null;
+    }
+  }
+  async getSharedColumns(userId: number) {
+    try {
+      const response = await fetch(`/todo/getsharedcolumns`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(userId),
+      });
+
+      return await response.json();
+    } catch (error) {
+      return null;
+    }
+  }
+  async unshareWith(userId: number, unshareWithUserId: number, column: string) {
+    try {
+      const response = await fetch(`/todo/unsharewith`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ UserId: userId, ToUserId: unshareWithUserId, Column: column }),
+      });
+
+      return await response.text();
+    } catch (error) {
+      return null;
+    }
+  }
+  async leaveSharedColumn(userId: number, ownerId: number, column: string) {
+    try {
+      const response = await fetch(`/todo/leavesharedcolumn`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ UserId: userId, OwnerId: ownerId, ColumnName: column }),
+      });
+
+      return await response.text();
     } catch (error) {
       return null;
     }

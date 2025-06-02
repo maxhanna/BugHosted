@@ -4,6 +4,7 @@ import { Todo } from '../../services/datacontracts/todo';
 import { TodoService } from '../../services/todo.service';
 import { MediaSelectorComponent } from '../media-selector/media-selector.component';
 import { FileEntry } from '../../services/datacontracts/file/file-entry';
+import { User } from '../../services/datacontracts/user/user';
 
 @Component({
   selector: 'app-todo',
@@ -13,12 +14,16 @@ import { FileEntry } from '../../services/datacontracts/file/file-entry';
 })
 export class TodoComponent extends ChildComponent implements OnInit, AfterViewInit, OnDestroy {
   todos: Array<Todo> = [];
-  todoTypes: string[] = ['Todo', 'Work', 'Shopping', 'Study', 'Movie', 'Bucket', 'Recipe', "Wife"];
+  sharedColumns: any[] = [];
+  todoTypes: string[] = ['Todo', 'Work', 'Shopping', 'Study', 'Movie', 'Bucket', 'Recipe'];
+  defaultTodoTypes: string[] = ['Todo', 'Work', 'Shopping', 'Study', 'Movie', 'Bucket', 'Recipe'];
   todoCount = 0;
   isEditListPanelOpen = false;
+  isShareListPanelOpen = false;
   userColumns: string[] = [];
   todoPlaceholder = "";
   selectedFile?: FileEntry;
+  showSharedList = false;
 
   @ViewChild('todoInput') todoInput!: ElementRef<HTMLInputElement>;
   @ViewChild('urlInput') urlInput!: ElementRef<HTMLInputElement>;
@@ -32,6 +37,7 @@ export class TodoComponent extends ChildComponent implements OnInit, AfterViewIn
   }
   async ngOnInit() {
     this.parentRef?.addResizeListener();
+    this.startLoading();
     await this.getTodoInfo();
     if (this.parentRef?.user?.id) {
       await this.todoService.getColumnsForUser(this.parentRef.user.id).then(res => {
@@ -44,12 +50,19 @@ export class TodoComponent extends ChildComponent implements OnInit, AfterViewIn
             .map((col: any) => col.column_name); // Extract column names
 
           // Update todoTypes based on user columns
-          this.todoTypes = this.todoTypes.filter(type => userColumnNames.includes(type));
+          this.todoTypes = userColumnNames;
         }
       });
+
+      await this.todoService.getSharedColumns(this.parentRef.user.id).then(res => {
+        if (res) {
+          this.sharedColumns = res;
+        }
+      }); 
     }
 
     this.clearInputs();
+    this.stopLoading();
   }
   ngOnDestroy() {
     this.parentRef?.removeResizeListener();
@@ -126,6 +139,7 @@ export class TodoComponent extends ChildComponent implements OnInit, AfterViewIn
   }
   hideColumn(type: string) {
     if (!this.parentRef?.user?.id) return alert("You must be logged in to edit your todo list.");
+    if (!type) { return alert("type cannot be empty"); }
     this.todoService.removeColumn(this.parentRef.user.id, type).then(res => {
       if (res) {
         this.parentRef?.showNotification(res);
@@ -139,14 +153,17 @@ export class TodoComponent extends ChildComponent implements OnInit, AfterViewIn
       }
     });
   }
-  addColumn() {
+  addColumn(column?: string) {
     if (!this.parentRef?.user?.id) return alert("You must be logged in to edit your todo list.");
-    const type = this.addNewColumnInput.nativeElement.value;
+    const type = column ?? this.addNewColumnInput.nativeElement.value;
     if (type) {
       this.todoService.addColumn(this.parentRef.user.id, type).then(res => {
         if (res) {
           this.parentRef?.showNotification(res);
           this.todoTypes.push(type);
+          if (this.addNewColumnInput && this.addNewColumnInput.nativeElement) { 
+            this.addNewColumnInput.nativeElement.value = "";
+          }
         }
       });
     }
@@ -177,5 +194,157 @@ export class TodoComponent extends ChildComponent implements OnInit, AfterViewIn
     } else { 
       this.parentRef?.visitExternalLink(url);
     }
+  }
+  openShareListPanel() {
+    this.isShareListPanelOpen = true;
+    this.parentRef?.showOverlay();
+  }
+  closeShareListPanel() {
+    this.isShareListPanelOpen = false;
+    this.parentRef?.closeOverlay();
+  }
+  shareWith(user?: User) {
+    if (!this.parentRef?.user?.id || !user?.id) { return alert("You must be logged in to share a list."); }
+    console.log(user);
+    this.todoService.shareListWith(this.parentRef.user.id, user.id, this.selectedType.nativeElement.value).then(res => {
+      if (res) {
+        this.parentRef?.showNotification(res);
+        if (res.includes("successfully")) {
+          if (this.sharedColumns.some((x: any) => x.columnName == this.selectedType.nativeElement.value  && x.ownerId == this.parentRef?.user?.id)) {
+            const index = this.sharedColumns.findIndex((x: any) => x.columnName == this.selectedType.nativeElement.value && x.ownerId == this.parentRef?.user?.id);
+            console.log("fixing existing sharedColumn: ", this.sharedColumns[index]);
+            this.sharedColumns[index].sharedWith += ", " + user.id;
+          } else { 
+            this.sharedColumns.push(
+              {
+                ownerId: this.parentRef?.user?.id,
+                columnName: this.selectedType.nativeElement.value,
+                ownerName: this.parentRef?.user?.username,
+                sharedWith: user.id + '',
+                shareDirection: 'shared_by_me'
+              });
+          }
+        }
+      }
+    });
+  }
+  async unshare(column: string, userId?: number): Promise<void> {
+    if (!this.parentRef?.user?.id) {
+      alert("You must be logged in to unshare");
+      return;
+    }
+
+    if (!userId) {
+      alert("Please specify a user to unshare with");
+      return;
+    }
+
+    try {
+      const result = await this.todoService.unshareWith(
+        this.parentRef.user.id,
+        userId,
+        column
+      );
+
+      if (result?.includes("successfully")) {
+        this.parentRef.showNotification(result);
+        // More precise filtering that won't match partial IDs
+        this.sharedColumns = this.sharedColumns.map(col => {
+          if (col.columnName === column && col.sharedWith) {
+            return {
+              ...col,
+              sharedWith: col.sharedWith.split(',')
+                .map((id: string) => id.trim())
+                .filter((id:string) => id !== userId.toString())
+                .join(', ')
+            };
+          }
+          return col;
+        }).filter(col =>
+          col.columnName !== column ||
+          (col.sharedWith && col.sharedWith.trim() !== '')
+        );
+      }
+    } catch (error) {
+      console.error("Failed to unshare:", error);
+      this.parentRef?.showNotification("Failed to unshare list");
+    }
+  }
+
+  async leaveSharedColumn(column: string, ownerId?: number): Promise<void> {
+    if (!this.parentRef?.user?.id) {
+      alert("You must be logged in to leave a shared column");
+      return;
+    }
+
+    if (!ownerId) {
+      alert("Please specify the list owner");
+      return;
+    }
+
+    try {
+      const result = await this.todoService.leaveSharedColumn(
+        this.parentRef.user.id,
+        ownerId,
+        column
+      );
+
+      if (result) {
+        this.parentRef.showNotification(result);
+        // Remove the column from sharedColumns if leaving was successful
+        this.sharedColumns = this.sharedColumns.filter(col =>
+          !(col.columnName === column && col.ownerId === ownerId)
+        );
+      }
+    } catch (error) {
+      console.error("Failed to leave shared column:", error);
+      this.parentRef?.showNotification("Failed to leave shared column");
+    }
+  }
+  parseInteger(any: any) {
+    return parseInt(any);
+  }
+  getSharedWithYou() {
+    return this.sharedColumns.filter(column => {
+      return column.shareDirection == "shared_with_me"; 
+    });
+  }
+  getSharedUsers() {
+    return this.sharedColumns.filter(x => x.ownerId == this.parentRef?.user?.id);
+  }
+ 
+  currentUserColumns: string[] = []; // List of column names the user has added
+
+  isColumnAdded(columnName: string): boolean {
+    return this.todoTypes.includes(columnName);
+  }
+
+  toggleSharedColumn(column: any): void {
+    console.log(this.todoTypes.includes(column), column);
+    if (!column) return;
+    if (this.todoTypes.includes(column)) {
+      // Remove column logic
+      this.removeColumn(column);
+    } else {
+      // Add column logic
+      this.addSharedColumn(column);
+    }
+  }
+
+  addSharedColumn(column: any): void {
+    // Call your API to add the column to user's list
+    // Then update currentUserColumns  
+    this.addColumn(column);
+  }
+
+  removeColumn(columnName: string): void {
+    // Call your API to remove the column from user's list
+    // Then update currentUserColumns 
+    this.hideColumn(columnName);
+  }
+
+  openSharePanel(column: any): void {
+    this.selectedType.nativeElement.value = column.columnName;
+    this.isShareListPanelOpen = true;
   }
 }

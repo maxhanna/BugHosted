@@ -71,7 +71,7 @@
           </ng-container>
         </td>
         <td class="unitPictureTd capitalize">
-          {{ unit.unitType }}
+          {{ unit.unitType.replace('_','') }}
         </td>
         <td class="unitSliderTd">
           <input type="range" class="unitSliderTd" [value]="unit.sentValue ?? 0" [min]="0" [max]="maxSliderValue(unit)" [step]="1" (input)="onSliderChange($event, unit)" />
