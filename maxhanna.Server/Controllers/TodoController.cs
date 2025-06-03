@@ -16,6 +16,7 @@ namespace maxhanna.Server.Controllers
 			_log = log;
 			_config = config;
 		}
+
 		public async Task<IActionResult> Get([FromBody] int userId, [FromQuery] string type, [FromQuery] string? search)
 		{
 			try
@@ -24,69 +25,8 @@ namespace maxhanna.Server.Controllers
 				{
 					await conn.OpenAsync();
 
-					// 1. Get all available columns for this user
-					string sqlColumns = @"
-                -- Default columns that aren't hidden
-                SELECT DISTINCT dt.type as column_name, @UserId as user_id
-                FROM (SELECT 'Todo' as type UNION SELECT 'Work' UNION SELECT 'Shopping' 
-                      UNION SELECT 'Study' UNION SELECT 'Movie' UNION SELECT 'Bucket' 
-                      UNION SELECT 'Recipe') dt
-                WHERE NOT EXISTS (
-                    SELECT 1 FROM todo_columns 
-                    WHERE user_id = @UserId 
-                    AND column_name = dt.type
-                    AND is_added = FALSE
-                )
-                
-                UNION
-                
-                -- Custom columns added by user
-                SELECT column_name, user_id 
-                FROM todo_columns 
-                WHERE user_id = @UserId 
-                AND is_added = TRUE
-                
-                UNION
-                
-                -- Columns shared with user
-                SELECT column_name, user_id 
-                FROM todo_columns 
-                WHERE FIND_IN_SET(@UserId, REPLACE(shared_with, ' ', '')) > 0
-                AND is_added = TRUE";
-
-					var columns = new List<(string Name, int OwnerId)>();
-
-					using (var cmdColumns = new MySqlCommand(sqlColumns, conn))
-					{
-						cmdColumns.Parameters.AddWithValue("@UserId", userId);
-
-						using (var rdrColumns = await cmdColumns.ExecuteReaderAsync())
-						{
-							while (await rdrColumns.ReadAsync())
-							{
-								columns.Add((rdrColumns.GetString(0), rdrColumns.GetInt32(1)));
-							}
-						}
-					}
-
-					if (columns.Count == 0)
-						return Ok(new List<Todo>());
-
-					// Filter by requested type if specified
-					if (!string.IsNullOrEmpty(type))
-					{
-						columns = columns.Where(c =>
-							c.Name.Equals(type, StringComparison.OrdinalIgnoreCase)).ToList();
-						if (columns.Count == 0)
-							return Ok(new List<Todo>());
-					}
-
-					// 2. Get todos from all relevant columns
-					var columnOwners = columns.Select(c => c.OwnerId).Distinct();
-					var columnNames = columns.Select(c => c.Name).Distinct();
-
 					string sql = $@"
-                SELECT 
+                SELECT DISTINCT 
                     t.id, 
                     t.todo, 
                     t.type, 
@@ -98,14 +38,23 @@ namespace maxhanna.Server.Controllers
                 FROM 
                     todo t
                 JOIN users u ON t.ownership = u.id
-                WHERE 
-                    t.ownership IN ({string.Join(",", columnOwners)})
-                    AND t.type IN ({string.Join(",", columnNames.Select(n => $"'{n.Replace("'", "''")}'"))})
+                LEFT JOIN todo_columns tc ON t.ownership = tc.user_id AND tc.column_name = @Type
+                WHERE  
+                    t.type = @Type
+                    AND (
+                        t.ownership = @UserId
+                        OR (
+                            tc.user_id IS NOT NULL
+                            AND FIND_IN_SET(@UserId, tc.shared_with)
+                        )
+                    )
                     {(string.IsNullOrEmpty(search) ? "" : " AND t.todo LIKE CONCAT('%', @Search, '%')")} 
                 ORDER BY t.date DESC";
 
 					using (var cmd = new MySqlCommand(sql, conn))
 					{
+						cmd.Parameters.AddWithValue("@Type", type);
+						cmd.Parameters.AddWithValue("@UserId", userId);
 						if (!string.IsNullOrEmpty(search))
 						{
 							cmd.Parameters.AddWithValue("@Search", search);
@@ -125,7 +74,7 @@ namespace maxhanna.Server.Controllers
 									fileId: rdr.IsDBNull(rdr.GetOrdinal("file_id")) ? null : rdr.GetInt32(rdr.GetOrdinal("file_id")),
 									date: rdr.GetDateTime(rdr.GetOrdinal("date")),
 									ownership: rdr.GetInt32(rdr.GetOrdinal("ownership"))
-									//ownerName: rdr.IsDBNull(rdr.GetOrdinal("owner_name")) ? null : rdr.GetString(rdr.GetOrdinal("owner_name"))
+								//ownerName: rdr.IsDBNull(rdr.GetOrdinal("owner_name")) ? null : rdr.GetString(rdr.GetOrdinal("owner_name"))
 								));
 							}
 
@@ -136,7 +85,7 @@ namespace maxhanna.Server.Controllers
 			}
 			catch (Exception ex)
 			{
-				_ = _log.Db("An error occurred while fetching todos." + ex.Message, userId, "TODO", true);
+				_ = _log.Db("An error occurred while fetching todos: " + ex.Message, userId, "TODO", true);
 				return StatusCode(500, "An error occurred while fetching todos.");
 			}
 		}
@@ -250,76 +199,115 @@ namespace maxhanna.Server.Controllers
 			}
 		}
 
-
 		[HttpPost("/Todo/ShareListWith", Name = "ShareListWith")]
 		public async Task<IActionResult> ShareListWith([FromBody] ShareTodoColumnRequest req)
 		{
-			MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+			if (string.IsNullOrEmpty(req.Column) || req.UserId <= 0 || req.ToUserId <= 0)
+			{
+				return BadRequest("Invalid column name or user IDs.");
+			}
+
+			string selectSql = @"
+        SELECT shared_with 
+        FROM todo_columns 
+        WHERE user_id = @UserId AND column_name = @Column FOR UPDATE;";
+
+			string insertSql = @"
+        INSERT INTO todo_columns (user_id, column_name, is_added, shared_with)
+        VALUES (@UserId, @Column, TRUE, @SharedWith)
+        ON DUPLICATE KEY UPDATE shared_with = @SharedWith;";
+
+			string updateSql = @"
+        UPDATE todo_columns 
+        SET shared_with = @SharedWith 
+        WHERE user_id = @UserId AND column_name = @Column;";
+
 			try
 			{
-				conn.Open();
-
-				// First, get the current shared_with value
-				string getSql = @"SELECT shared_with FROM todo_columns 
-                          WHERE user_id = @UserId AND column_name = @Column";
-
-				MySqlCommand getCmd = new MySqlCommand(getSql, conn);
-				getCmd.Parameters.AddWithValue("@UserId", req.UserId);
-				getCmd.Parameters.AddWithValue("@Column", req.Column);
-
-				var currentSharedWith = await getCmd.ExecuteScalarAsync() as string;
-
-				// Prepare the new shared_with value
-				string newSharedWith;
-				if (string.IsNullOrEmpty(currentSharedWith))
+				using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
 				{
-					newSharedWith = req.ToUserId.ToString();
-				}
-				else
-				{
-					// Check if user is already in the list
-					var userIds = currentSharedWith.Split(',')
-						.Select(x => x.Trim())
-						.ToList();
-
-					if (userIds.Contains(req.ToUserId.ToString()))
+					await conn.OpenAsync();
+					using (var transaction = await conn.BeginTransactionAsync())
 					{
-						return BadRequest("User is already in the shared list");
+						// Check if the column exists and retrieve shared_with value with FOR UPDATE
+						string? currentSharedWith = null;
+						bool rowExists = false;
+						using (var selectCmd = new MySqlCommand(selectSql, conn, transaction))
+						{
+							selectCmd.Parameters.AddWithValue("@UserId", req.UserId);
+							selectCmd.Parameters.AddWithValue("@Column", req.Column);
+							var result = await selectCmd.ExecuteScalarAsync();
+							if (result != null && result != DBNull.Value)
+							{
+								currentSharedWith = result.ToString();
+							}
+							rowExists = result != null; // Row exists if result is not null (even if shared_with is null)
+						}
+
+						// Prepare the new shared_with value
+						string newSharedWith;
+						if (!string.IsNullOrEmpty(currentSharedWith))
+						{
+							var userIds = currentSharedWith.Split(',', StringSplitOptions.RemoveEmptyEntries)
+								.Select(x => x.Trim())
+								.ToList();
+
+							if (userIds.Contains(req.ToUserId.ToString()))
+							{
+								await transaction.RollbackAsync();
+								return BadRequest("User is already in the shared list.");
+							}
+
+							newSharedWith = $"{currentSharedWith}, {req.ToUserId}";
+						}
+						else
+						{
+							newSharedWith = req.ToUserId.ToString();
+						}
+
+						// Perform insert or update based on existence
+						int rowsAffected;
+						if (!rowExists)
+						{
+							// Row doesn't exist, perform insert with ON DUPLICATE KEY UPDATE
+							using (var insertCmd = new MySqlCommand(insertSql, conn, transaction))
+							{
+								insertCmd.Parameters.AddWithValue("@UserId", req.UserId);
+								insertCmd.Parameters.AddWithValue("@Column", req.Column);
+								insertCmd.Parameters.AddWithValue("@SharedWith", newSharedWith);
+								rowsAffected = await insertCmd.ExecuteNonQueryAsync();
+							}
+						}
+						else
+						{
+							// Row exists, perform update
+							using (var updateCmd = new MySqlCommand(updateSql, conn, transaction))
+							{
+								updateCmd.Parameters.AddWithValue("@SharedWith", newSharedWith);
+								updateCmd.Parameters.AddWithValue("@UserId", req.UserId);
+								updateCmd.Parameters.AddWithValue("@Column", req.Column);
+								rowsAffected = await updateCmd.ExecuteNonQueryAsync();
+							}
+						}
+
+						if (rowsAffected > 0)
+						{
+							await transaction.CommitAsync();
+							return Ok("Column shared successfully.");
+						}
+						else
+						{
+							await transaction.RollbackAsync();
+							_ = _log.Db($"Failed to share column '{req.Column}' for user {req.UserId}.", req.UserId, "TODO", true);
+							return StatusCode(500, "Failed to share column.");
+						}
 					}
-
-					newSharedWith = $"{currentSharedWith}, {req.ToUserId}";
-				}
-
-				// Update the shared_with column
-				string updateSql = @"UPDATE todo_columns 
-                            SET shared_with = @SharedWith 
-                            WHERE user_id = @UserId AND column_name = @Column";
-
-				MySqlCommand updateCmd = new MySqlCommand(updateSql, conn);
-				updateCmd.Parameters.AddWithValue("@SharedWith", newSharedWith);
-				updateCmd.Parameters.AddWithValue("@UserId", req.UserId);
-				updateCmd.Parameters.AddWithValue("@Column", req.Column);
-
-				int rowsAffected = await updateCmd.ExecuteNonQueryAsync();
-
-				if (rowsAffected > 0)
-				{
-					return Ok("List shared successfully");
-				}
-				else
-				{
-					_ = _log.Db("Failed to share list", req.UserId, "TODO", true);
-					return StatusCode(500, "Failed to share list");
 				}
 			}
 			catch (Exception ex)
 			{
-				_ = _log.Db("An error occurred while sharing the list: " + ex.Message, req.UserId, "TODO", true);
-				return StatusCode(500, "An error occurred while sharing the list.");
-			}
-			finally
-			{
-				conn.Close();
+				_ = _log.Db($"Error sharing column '{req.Column}' for user {req.UserId}: {ex.Message}", req.UserId, "TODO", true);
+				return StatusCode(500, "Error sharing column.");
 			}
 		}
 
@@ -499,32 +487,76 @@ namespace maxhanna.Server.Controllers
 			if (string.IsNullOrEmpty(req.Column))
 			{
 				return BadRequest("Invalid column name.");
-			} 
-			string sql = @"
-				INSERT INTO todo_columns (user_id, column_name, is_added)
-				VALUES (@Owner, @Column, TRUE)
-				ON DUPLICATE KEY UPDATE is_added = TRUE;";
+			}
+
+			string selectOwnSql = @"
+        SELECT shared_with 
+        FROM todo_columns 
+        WHERE user_id = @Owner AND column_name = @Column FOR UPDATE;";
+
+			string insertSql = @"
+        INSERT INTO todo_columns (user_id, column_name, is_added, shared_with)
+        VALUES (@Owner, @Column, TRUE, NULL)
+        ON DUPLICATE KEY UPDATE is_added = TRUE, shared_with = NULL;";
+
+			string updateSharedWithSql = @"
+        UPDATE todo_columns tc
+        JOIN (
+            SELECT column_name, 
+                   GROUP_CONCAT(DISTINCT user_id ORDER BY user_id SEPARATOR ',') AS shared_with_list
+            FROM todo_columns
+            WHERE column_name = @Column
+            GROUP BY column_name
+            HAVING LENGTH(GROUP_CONCAT(DISTINCT user_id ORDER BY user_id SEPARATOR ',')) <= 45
+        ) AS sub
+        ON tc.column_name = sub.column_name
+        SET tc.shared_with = sub.shared_with_list
+        WHERE tc.column_name = @Column;";
 
 			try
 			{
 				using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
 				{
 					await conn.OpenAsync();
-					using (var cmd = new MySqlCommand(sql, conn))
+					using (var transaction = await conn.BeginTransactionAsync())
 					{
-						cmd.Parameters.AddWithValue("@Owner", req.UserId);
-						cmd.Parameters.AddWithValue("@Column", req.Column);
-						await cmd.ExecuteNonQueryAsync();
+						// Check if the column exists for the current user
+						bool rowExists = false;
+						using (var selectCmd = new MySqlCommand(selectOwnSql, conn, transaction))
+						{
+							selectCmd.Parameters.AddWithValue("@Owner", req.UserId);
+							selectCmd.Parameters.AddWithValue("@Column", req.Column);
+							var result = await selectCmd.ExecuteScalarAsync();
+							rowExists = result != null; // Row exists for this user
+						}
+
+						// Perform the insert or update (set shared_with to NULL initially)
+						using (var insertCmd = new MySqlCommand(insertSql, conn, transaction))
+						{
+							insertCmd.Parameters.AddWithValue("@Owner", req.UserId);
+							insertCmd.Parameters.AddWithValue("@Column", req.Column);
+							await insertCmd.ExecuteNonQueryAsync();
+						}
+
+						// Update shared_with for all rows with the same column_name
+						using (var updateCmd = new MySqlCommand(updateSharedWithSql, conn, transaction))
+						{
+							updateCmd.Parameters.AddWithValue("@Column", req.Column);
+							await updateCmd.ExecuteNonQueryAsync();
+						}
+
+						await transaction.CommitAsync();
+						return Ok("Column added and shared_with updated.");
 					}
 				}
-				return Ok("Column added.");
 			}
 			catch (Exception ex)
 			{
-				_ = _log.Db("Error adding column." + ex.Message, req.UserId, "TODO", true);
+				_ = _log.Db($"Error adding column '{req.Column}' for user {req.UserId}: {ex.Message}", req.UserId, "TODO", true);
 				return StatusCode(500, "Error adding column.");
 			}
 		}
+
 
 		[HttpPost("/Todo/Columns/Remove")]
 		public async Task<IActionResult> RemoveColumn([FromBody] AddTodoColumnRequest req)

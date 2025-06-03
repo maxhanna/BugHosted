@@ -153,11 +153,11 @@ export class TodoComponent extends ChildComponent implements OnInit, AfterViewIn
       }
     });
   }
-  addColumn(column?: string) {
+  async addColumn(column?: string) {
     if (!this.parentRef?.user?.id) return alert("You must be logged in to edit your todo list.");
     const type = column ?? this.addNewColumnInput.nativeElement.value;
     if (type) {
-      this.todoService.addColumn(this.parentRef.user.id, type).then(res => {
+      await this.todoService.addColumn(this.parentRef.user.id, type).then(res => {
         if (res) {
           this.parentRef?.showNotification(res);
           this.todoTypes.push(type);
@@ -306,11 +306,11 @@ export class TodoComponent extends ChildComponent implements OnInit, AfterViewIn
   }
   getSharedWithYou() {
     return this.sharedColumns.filter(column => {
-      return column.shareDirection == "shared_with_me"; 
+      return column.shareDirection == "shared_with_me" && column.ownerId != this.parentRef?.user?.id; 
     });
   }
   getSharedUsers() {
-    return this.sharedColumns.filter(x => x.ownerId == this.parentRef?.user?.id);
+    return this.sharedColumns.filter(x => x.shareDirection == "shared_by_me" &&  x.ownerId == this.parentRef?.user?.id);
   }
  
   currentUserColumns: string[] = []; // List of column names the user has added
@@ -320,21 +320,22 @@ export class TodoComponent extends ChildComponent implements OnInit, AfterViewIn
   }
 
   toggleSharedColumn(column: any): void {
-    console.log(this.todoTypes.includes(column), column);
+    console.log(this.todoTypes.includes(column.columnName), column);
     if (!column) return;
-    if (this.todoTypes.includes(column)) {
+    if (this.todoTypes.includes(column.columnName)) {
       // Remove column logic
-      this.removeColumn(column);
+      this.removeColumn(column.columnName);
     } else {
       // Add column logic
       this.addSharedColumn(column);
     }
   }
 
-  addSharedColumn(column: any): void {
+  async addSharedColumn(column: any) {
     // Call your API to add the column to user's list
-    // Then update currentUserColumns  
-    this.addColumn(column);
+    // Then update currentUserColumns   
+    await this.addColumn(column.columnName);
+  //  await this.shareWith(new User(column.ownerId));
   }
 
   removeColumn(columnName: string): void {

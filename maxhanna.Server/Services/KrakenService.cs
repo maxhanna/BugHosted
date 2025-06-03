@@ -393,24 +393,36 @@ public class KrakenService
 		}
 	}
 
-    private async Task<decimal> AdjustToPriors(int userId, string tmpCoin, decimal valueToTrade, string buyOrSell)
-    {
-        int priorTradeCount = await GetOppositeTradeCount(userId, tmpCoin, buyOrSell);
-        decimal adjustmentFactor = 1m;
-        if (priorTradeCount > 0)
-        {
-            // Reduce sell amount by 5% per prior buy
-            decimal reductionPerBuy = 0.05m; // 5% reduction per prior buy
-            adjustmentFactor = 1m - (priorTradeCount * reductionPerBuy);
-            adjustmentFactor = Math.Max(0.5m, adjustmentFactor); // Cap reduction at 50%
-            valueToTrade = valueToTrade * adjustmentFactor;
-            _ = _log.Db($"Adjusted buy amount by {adjustmentFactor:P} due to {priorTradeCount} prior sells. New amount: {valueToTrade}", userId, "TRADE", true);
-        }
+	private async Task<decimal> AdjustToPriors(int userId, string tmpCoin, decimal valueToTrade, string buyOrSell)
+	{
+		int priorTradeCount = await GetOppositeTradeCount(userId, tmpCoin, buyOrSell, lookbackCount: 5);
+		decimal adjustmentFactor = 1m;
 
-        return valueToTrade;
-    }
+		if (priorTradeCount > 0)
+		{
+			decimal adjustmentPerTrade = 0.05m; // 5% per prior trade
+			if (buyOrSell.ToLower() == "buy")
+			{
+				// Increase buy amount by 5% per prior sell
+				adjustmentFactor = 1m + (priorTradeCount * adjustmentPerTrade);
+				adjustmentFactor = Math.Min(1.5m, adjustmentFactor); // Cap increase at 150%
+				valueToTrade = valueToTrade * adjustmentFactor;
+				_ = _log.Db($"Increased buy amount by {adjustmentFactor:P} due to {priorTradeCount} prior sells. New amount: {valueToTrade}", userId, "TRADE", true);
+			}
+			else if (buyOrSell.ToLower() == "sell")
+			{
+				// Reduce sell amount by 5% per prior buy
+				adjustmentFactor = 1m - (priorTradeCount * adjustmentPerTrade);
+				adjustmentFactor = Math.Max(0.5m, adjustmentFactor); // Cap reduction at 50%
+				valueToTrade = valueToTrade * adjustmentFactor;
+				_ = _log.Db($"Reduced sell amount by {adjustmentFactor:P} due to {priorTradeCount} prior buys. New amount: {valueToTrade}", userId, "TRADE", true);
+			}
+		}
 
-    private async Task<bool> ExecuteUpwardsMomentumStrategy(int userId, string coin, UserKrakenApiKey keys, decimal coinPriceCAD, decimal coinPriceUSDC, decimal? firstPriceToday, decimal lastPrice, decimal currentPrice, decimal spread, decimal spread2, MomentumStrategy UpwardsMomentum)
+		return valueToTrade;
+	}
+
+	private async Task<bool> ExecuteUpwardsMomentumStrategy(int userId, string coin, UserKrakenApiKey keys, decimal coinPriceCAD, decimal coinPriceUSDC, decimal? firstPriceToday, decimal lastPrice, decimal currentPrice, decimal spread, decimal spread2, MomentumStrategy UpwardsMomentum)
 	{
 		string tmpCoin = coin.ToUpper();
 		tmpCoin = tmpCoin == "BTC" ? "XBT" : tmpCoin;

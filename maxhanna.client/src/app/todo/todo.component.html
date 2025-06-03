@@ -88,7 +88,7 @@
           <div>
             Enabled:
             <label class="toggle-switch">
-              <input type="checkbox" [checked]="isColumnAdded(item.columnName)" (change)="toggleSharedColumn(item.columnName)">
+              <input type="checkbox" [checked]="isColumnAdded(item.columnName)" (change)="toggleSharedColumn(item)">
               <span class="slider round"></span>
             </label>
           </div> 
@@ -100,7 +100,7 @@
     </div>
 
     <!-- Shared By Current User -->
-    <div class="shared-section" *ngIf="this.sharedColumns.length > 0">
+    <!-- <div class="shared-section" *ngIf="this.sharedColumns.length > 0">
       <h4>You've Shared:</h4>
       <div class="shared-user" *ngFor="let column of getSharedUsers()"> 
         <div>
@@ -116,7 +116,7 @@
           </div>
         </div> 
       </div>
-    </div>
+    </div> -->
 
     <div *ngIf="this.sharedColumns.length === 0">
       <p>Currently no lists shared with anyone</p>
