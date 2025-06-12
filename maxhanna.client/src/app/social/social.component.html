@@ -9,8 +9,7 @@
   </div>
   <div [class]="user ? 'embeddedSocialComponentsContent' : 'socialComponentContents'">
     <div *ngIf="showTopicSelector && parentRef?.user?.id && !showOnlyPost">
-      <app-notifications [minimalInterface]="true" [inputtedParentRef]="parentRef" [previousComponent]="'Social'">
-      </app-notifications>
+      <app-notifications [minimalInterface]="true" [inputtedParentRef]="parentRef" [previousComponent]="'Social'"></app-notifications>
     </div>
     <!-- Search -->
     <div *ngIf="showTopicSelector && !showOnlyPost" [class]="parentRef?.user?.id ? 'topSearchButtonDiv' : 'topSearchButtonDivSpecial'"
@@ -177,7 +176,7 @@
           <span>##</span> Header
         </button>
         <button class="storyControlFlairButton" (click)="insertH3();" title="Sub-Header">
-          <span>###</span> Sub-Header
+          <span>###</span> Sub
         </button>
         <button class="storyControlFlairButton" (click)="openInsertEmojiPanel();" title="Emoji">
           <span>😊</span>
@@ -392,7 +391,7 @@
     </div>
 
     <!-- Story Input -->
-    <div class="storyInputDiv" *ngIf="!showOnlyPost">
+    <div class="storyInputDiv" *ngIf="!showOnlyPost || user">
       <div>
         <textarea #story placeholder="Whats on your mind ?" class="foodForThought"></textarea>
       </div>
@@ -470,8 +469,8 @@
             </span>
           </div>
         </div>
-        <div *ngIf="story && story.id && (story.storyText || isEditing.includes(story.id) || story.storyFiles)"
-          class="storyContainerWrapperContainerDiv">
+        <div *ngIf="story && story.id && (story.storyText || isEditing.includes(story.id) || story.storyFiles)" 
+        class="storyContainerWrapperContainerDiv" [style.opacity]="isLoading ? '20%' : ''">
           <div *ngIf="story && story.id && (story.storyText || isEditing.includes(story.id))"
             [class]="'storyTextContainer' + (!isExpanded('storyTextContainer'+story.id) && hasOverflow('storyTextContainer'+story.id) ? ' collapsed': '')"
             [id]="'storyTextContainer'+story.id" (click)="toggleCollapse('storyTextContainer'+story.id)">

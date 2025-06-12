@@ -1,4 +1,3 @@
-
 public class ProfitDataRequest
 {
 	public required int UserId { get; set; } 

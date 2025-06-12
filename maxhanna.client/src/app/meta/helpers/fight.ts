@@ -1,13 +1,17 @@
 import { Bot } from '../objects/Bot/bot';
 import { HEAD, LEFT_ARM, LEGS, MetaBotPart, RIGHT_ARM } from '../../../services/datacontracts/meta/meta-bot-part';
 import { Character } from '../objects/character';
-import { HEADBUTT, KICK, LEFT_PUNCH, RIGHT_PUNCH, Skill, SkillType, STING } from './skill-types';
+import { CHAIN, FLARE, HEADBUTT, KICK, LEFT_PUNCH, RAIL, RIGHT_PUNCH, Skill, SkillType, STING, SUBSONIC } from './skill-types';
 import { getBotsInRange } from './move-towards';
 import { DOWN, LEFT, RIGHT, UP } from './grid-cells';
 import { events } from './events';
 import { Target } from '../objects/Effects/Target/target';
 import { Critical } from '../objects/Effects/Critical/critical';
 import { Sting } from '../objects/Effects/Sting/sting';
+import { Flare } from '../objects/Effects/Flare/flare';
+import { Rail } from '../objects/Effects/Rail/rail';
+import { Chain } from '../objects/Effects/Chain/chain';  
+import { Subsonic } from '../objects/Effects/Subsonic/subsonic';
 
 export const typeEffectiveness = new Map<SkillType, SkillType>([
   [SkillType.SPEED, SkillType.STRENGTH],       // Speed counters Strength
@@ -26,13 +30,15 @@ export function calculateAndApplyDamage(attackingBot: Bot, defendingBot: Bot) {
   if (attackingPart?.partName === LEFT_ARM && (attackingBot.rightArm || attackingBot.leftArm || attackingBot.legs || attackingBot.head)) {
     attackingPart = attackingBot.rightArm ?? attackingBot.leftArm ?? attackingBot.legs ?? attackingBot.head!;
   } else if (attackingPart?.partName === RIGHT_ARM && (attackingBot.rightArm || attackingBot.leftArm || attackingBot.legs || attackingBot.head)) {
-    attackingPart = attackingBot.leftArm ?? attackingBot.rightArm ?? attackingBot.legs ?? attackingBot.head!;
+    attackingPart = attackingBot.legs ?? attackingBot.rightArm ?? attackingBot.legs ?? attackingBot.head!;
   } else if (attackingPart?.partName === LEGS && (attackingBot.rightArm || attackingBot.leftArm || attackingBot.legs || attackingBot.head)) {
-    attackingPart = attackingBot.legs ?? attackingBot.head ?? attackingBot.rightArm ?? attackingBot.leftArm!;
+    attackingPart = attackingBot.head ?? attackingBot.head ?? attackingBot.rightArm ?? attackingBot.leftArm!;
   } else if (attackingPart?.partName === HEAD && (attackingBot.rightArm || attackingBot.leftArm || attackingBot.legs || attackingBot.head)) {
-    attackingPart = attackingBot.head ?? attackingBot.legs ?? attackingBot.rightArm ?? attackingBot.leftArm!;
+    attackingPart = attackingBot.leftArm ?? attackingBot.legs ?? attackingBot.rightArm ?? attackingBot.leftArm!;
   }
   attackingBot.lastAttackPart = attackingPart; 
+  if (attackingBot.name == "Jaguar")
+    console.log(`${attackingBot.name} last attack part: ${attackingBot.lastAttackPart?.partName}`)
   const criticalHitChance = 0.10; // 10% chance
   const isCritical = Math.random() < criticalHitChance; 
   if (isCritical) {
@@ -56,11 +62,20 @@ export function attack(source: Bot, target: Bot) {
   source.destinationPosition = source.position;
   const lastAttackPart = source.lastAttackPart;
   console.log(`${source.name} attacking ${target.name} with ${lastAttackPart?.skill?.name}`);
-  if (lastAttackPart) { 
-    if (lastAttackPart.skill.name === STING.name) {
-      const sting = new Sting(source.position.x, source.position.y);
-      source.parent?.addChild(sting); 
-      sting.moveTo(target.position.x, target.position.y, 1000); 
+  const skillEffectMap: Record<string, new (x: number, y: number) => any> = {
+    [STING.name]: Sting,
+    [FLARE.name]: Flare,
+    [RAIL.name]: Rail,
+    [CHAIN.name]: Chain,
+    [SUBSONIC.name]: Subsonic,
+  };
+
+  if (lastAttackPart) {
+    const EffectClass = skillEffectMap[lastAttackPart.skill.name];
+    if (EffectClass) {
+      const effect = new EffectClass(source.position.x, source.position.y);
+      source.parent?.addChild(effect);
+      (effect as any).moveTo?.(target.position.x, target.position.y, 1000);
     }
   }
   if (target.hp <= 0 && target.isDeployed) {
@@ -132,6 +147,7 @@ export function faceTarget(source: Bot, target: Bot) {
 }
 
 export function generateReward(source: Bot, target: Bot) { 
+  if (target == undefined || !target.id) return;
   const dropChance = 0.5;
   const roll = Math.random();
 
@@ -148,9 +164,12 @@ export function generateReward(source: Bot, target: Bot) {
   ];
 
   let generateGenericPart = true;
-  const parts = [target.head, target.legs, target.leftArm, target.rightArm].filter(
-    (part) => part !== undefined
-  ) as MetaBotPart[];
+  let parts: MetaBotPart[] = [];
+  if (target && target.head) { parts.push(target.head) }
+  if (target && target.legs) { parts.push(target.legs) }
+  if (target && target.leftArm) { parts.push(target.leftArm) }
+  if (target && target.rightArm) { parts.push(target.rightArm) }
+ 
 
   if (parts.length > 0) { 
     const randomPart = parts[Math.floor(Math.random() * parts.length)];

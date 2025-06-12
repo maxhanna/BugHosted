@@ -110,6 +110,8 @@ export class FavouritesComponent extends ChildComponent implements OnInit {
     if (!user?.id) {
       return alert("You must be logged in to update the favourites");
     }
+    this.parentRef?.closeOverlay();
+    this.isSearchingUrl = false;
     this.startLoading();
 
     if (fav) {
@@ -135,7 +137,7 @@ export class FavouritesComponent extends ChildComponent implements OnInit {
           name = targetData.title;
           tmpLinkUrl = targetData.url;
           this.parentRef?.setModalBody(`
-            Search results found and added this link to favourites:
+            Crawler search results found and added this link to favourites:
             <img src='${imageUrl}' (error)="fav.imageUrl = ''" /> <br />
             Found Title: ${name} <br />
             Found URL: ${tmpLinkUrl} <br />
@@ -147,11 +149,11 @@ export class FavouritesComponent extends ChildComponent implements OnInit {
             name = tmpLinkUrl;
           }
           this.parentRef?.setModalBody(`
-            No search results found; Manually added link to favourites.<br />
+            Added link to favourites.<br />
             Title: ${name} <br />
             URL: ${tmpLinkUrl} <br />
           `);
-          setTimeout(() => this.parentRef?.openModal(), 0);
+          setTimeout(() => this.parentRef?.openModal(), 50);
         }
 
         const res = await this.favoriteService.updateFavourites(user, tmpLinkUrl, 0, imageUrl, name ?? linkUrl);

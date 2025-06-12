@@ -62,7 +62,7 @@
             <div *ngFor="let file of message.files"
               [style.marginTop]="message.files && message.files.length > 0 ? 'margin-top: 10px' : ''">
               <app-media-viewer [file]="file" [currentDirectory]="file.directory" [inputtedParentRef]="parentRef"
-                [displayExtraInfo]="false" [displayExpander]="false" [showCommentSection]="false" [user]="parentRef?.user"
+                [displayExtraInfo]="false" [displayExpander]="false" [showMediaInformation]="true" [showCommentSection]="false" [user]="parentRef?.user"
                 [autoplay]="false" [autoload]="true" [previousComponent]="'Chat'">
               </app-media-viewer>
             </div>

@@ -39,6 +39,7 @@ builder.Services.AddSingleton<Log>();
 builder.Services.AddSingleton<WebCrawler>();
 builder.Services.AddSingleton<NewsService>();
 builder.Services.AddSingleton<ProfitCalculationService>();
+builder.Services.AddSingleton<TradeIndicatorService>();
 builder.Services.AddSingleton<KrakenService>();  
 
 builder.WebHost.ConfigureKestrel(options => options.Limits.MaxRequestBodySize = long.MaxValue); // Allows for large files

@@ -447,18 +447,35 @@ namespace maxhanna.Server.Controllers
 				conn.Close();
 			}
 		}
- 
+
 		[HttpDelete("/Todo/{id}", Name = "DeleteTodo")]
 		public async Task<IActionResult> Delete([FromBody] int userId, int id)
-		{ 
+		{
 			MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
 			try
 			{
 				conn.Open();
-				string sql = "DELETE FROM maxhanna.todo WHERE ID = @Id AND ownership = @Owner";
+
+				// We try to delete if:
+				// - The user owns the todo (ownership = userId)
+				// - OR The user is in the shared_with list for that owner's column
+				string sql = @"
+					DELETE FROM maxhanna.todo
+					WHERE id = @Id AND (
+						ownership = @UserId
+						OR EXISTS (
+							SELECT 1 FROM todo_columns
+							WHERE column_name = todo.type
+							AND user_id = todo.ownership
+							AND FIND_IN_SET(@UserIdStr, REPLACE(shared_with, ' ', '')) > 0
+						)
+					);";
+
 				MySqlCommand cmd = new MySqlCommand(sql, conn);
 				cmd.Parameters.AddWithValue("@Id", id);
-				cmd.Parameters.AddWithValue("@Owner", userId);
+				cmd.Parameters.AddWithValue("@UserId", userId);
+				cmd.Parameters.AddWithValue("@UserIdStr", userId.ToString());
+
 				int rowsAffected = await cmd.ExecuteNonQueryAsync();
 
 				if (rowsAffected > 0)
@@ -472,7 +489,7 @@ namespace maxhanna.Server.Controllers
 			}
 			catch (Exception ex)
 			{
-				_ = _log.Db("An error occurred while processing the DELETE request." + ex.Message, userId, "TODO", true);
+				_ = _log.Db("An error occurred while processing the DELETE request. " + ex.Message, userId, "TODO", true);
 				return StatusCode(500, "An error occurred while processing the request.");
 			}
 			finally
@@ -480,6 +497,7 @@ namespace maxhanna.Server.Controllers
 				conn.Close();
 			}
 		}
+
 
 		[HttpPost("/Todo/Columns/Add")]
 		public async Task<IActionResult> AddColumn([FromBody] AddTodoColumnRequest req)

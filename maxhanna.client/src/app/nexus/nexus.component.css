@@ -675,6 +675,7 @@
 
 .unitSliderTd {
   -webkit-appearance: none;
+  appearance: none;
   width: 100%;
   height: 16px;
   outline: none;
@@ -692,6 +693,7 @@
   font-size: small;
   font-weight: bold;
   text-shadow: 1px 1px black;
+  padding: 5px;
 }
 
 .unitPictureTd {
@@ -721,6 +723,15 @@
 }
 
 @-webkit-keyframes glowing {
+  from {
+    box-shadow: 0 0 10px #fff, 0 0 20px #fff, 0 0 30px #f0f, 0 0 40px #0ff, 0 0 50px #e60073, 0 0 60px #e60073, 0 0 70px #e60073;
+  }
+
+  to {
+    box-shadow: 0 0 20px #fff, 0 0 30px #ff4da6, 0 0 40px #ff4da6, 0 0 50px #ff4da6, 0 0 60px #ff4da6, 0 0 70px #ff4da6, 0 0 80px #ff4da6;
+  }
+}
+@keyframes glowing {
   from {
     box-shadow: 0 0 10px #fff, 0 0 20px #fff, 0 0 30px #f0f, 0 0 40px #0ff, 0 0 50px #e60073, 0 0 60px #e60073, 0 0 70px #e60073;
   }
@@ -887,4 +898,45 @@
 }
 .unitUpgradeStatsTable :hover {
   background-color: var(--main-highlight-color-quarter-opacity);
+}
+
+.rankings-container {  
+  margin: 0 auto; 
+  background: linear-gradient(135deg, var(--component-background-color), var(--secondary-component-background-color));
+  overflow: auto;
+} 
+
+.ranking-header,
+.ranking-item {
+  align-items: center;
+}
+
+.ranking-item {
+  font-size: xx-small;
+  display: flex;
+  flex-direction: row; 
+}
+
+.ranking-header {
+  font-weight: bold;
+  border-bottom: 2px solid var(--third-font-color);
+  margin-bottom: 5px;
+}
+ 
+
+.rank-col {
+  text-align: center;
+}
+
+.bases-col,
+.upgrades-col,
+.gold-col {
+  text-align: right;
+}
+
+.loading,
+.no-data {
+  text-align: center;
+  padding: 20px;
+  font-style: italic; 
 }

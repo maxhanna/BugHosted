@@ -170,6 +170,9 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
   mineSmokeContainersLis = new Array(9);
   randomMineSmokeContainersBooleans: boolean[] = [];
   isUserSearchOpen = false;
+  epochRankings?: any;
+  isMenuPanelOpen = false;
+  isShowingBWInfo = true;
 
   private unitTypeMap = new Map<string, number>([
     ["marine", 6],
@@ -202,6 +205,7 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
     this.isUserNew = true;
     this.isUserComponentOpen = (!this.parentRef?.user || this.parentRef.user.id == 0);
     this.warehouseUpgradeLevels = Array.from({ length: 6 }, (_, i) => i + 1);
+    this.nexusService.getEpochRankings().then(res => { if (res) {this.epochRankings = res;}});
 
     const sessionToken = await this.parentRef?.getSessionToken() ?? "";
     this.loadPictureSrcs(sessionToken);
@@ -2138,6 +2142,27 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
     this.nexusReportsComponent.searchReportsByAttack();
     this.closeUserSearchOverlay();
   }
+  openMenu() {
+    this.isMenuPanelOpen = true;
+    this.parentRef?.showOverlay();
+  }
+  closeMenu() {
+    this.isMenuPanelOpen = false;
+    this.parentRef?.closeOverlay();
+  }
+  groupByEpoch(data: any) {
+    const epochSize = 1;
+    return data.reduce((acc:any, item:any) => {
+      // Assuming each item has a timestamp property
+      const epoch = Math.floor(item.timestamp / epochSize) * epochSize;
+      if (!acc[epoch]) {
+        acc[epoch] = [];
+      }
+      acc[epoch].push(item);
+      return acc;
+    }, {});
+  }
+  
   debounceLoadNexusData = this.debounce(async () => {
     this.loadNexusData();
   }, 1000);

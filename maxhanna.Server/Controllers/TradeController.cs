@@ -1,3 +1,4 @@
+using System.Security.Cryptography;
 using maxhanna.Server.Controllers.DataContracts.Crypto;  
 using Microsoft.AspNetCore.Mvc;
 
@@ -62,7 +63,7 @@ public class TradeController : ControllerBase
 		try
 		{
 			if (userId != 1 && !await _log.ValidateUserLoggedIn(userId, encryptedUserId)) return StatusCode(500, "Access Denied.");
-			var result = await _krakenService.GetWeightedAveragePrices(userId, "XBT", "USDC"); 
+			var result = await _krakenService.GetWeightedAveragePrices(userId, "XBT", "USDC");
 			return Ok(result);
 		}
 		catch (Exception ex)
@@ -131,7 +132,7 @@ public class TradeController : ControllerBase
 		try
 		{
 			if (!await _log.ValidateUserLoggedIn(userId, encryptedUserId)) return StatusCode(500, "Access Denied.");
-			DateTime? result = await _krakenService.GetTradeConfigurationLastUpdate(userId, from, to);
+			DateTime? result = await _krakenService.GetTradeConfigurationLastUpdate(userId, from, to, keys.Strategy ?? "DCA");
 			return Ok(result);
 		}
 		catch (Exception ex)
@@ -154,7 +155,7 @@ public class TradeController : ControllerBase
 		try
 		{
 			if (!await _log.ValidateUserLoggedIn(userId, encryptedUserId)) return StatusCode(500, "Access Denied.");
-			TradeConfiguration? tc = await _krakenService.GetTradeConfiguration(userId, from, to);
+			TradeConfiguration? tc = await _krakenService.GetTradeConfiguration(userId, from, to, keys.Strategy ?? "DCA");
 			return Ok(tc);
 		}
 		catch (Exception ex)
@@ -209,7 +210,7 @@ public class TradeController : ControllerBase
 			return StatusCode(500, "Error GetProfitData. " + ex.Message);
 		}
 	}
-	 
+
 	[HttpPost("/Trade/GetTradeVolumeForGraph", Name = "GetTradeVolumeForGraph")]
 	public async Task<IActionResult> GetTradeVolumeForGraph([FromBody] GraphRangeRequest request)
 	{
@@ -226,7 +227,7 @@ public class TradeController : ControllerBase
 
 	[HttpPost("/Trade/UpsertTradeConfiguration", Name = "UpsertTradeConfiguration")]
 	public async Task<IActionResult> UpsertTradeConfiguration([FromBody] TradeConfiguration req, [FromHeader(Name = "Encrypted-UserId")] string encryptedUserId)
-	{ 
+	{
 		string from = req.FromCoin ?? "";
 		string to = req.ToCoin ?? "";
 		int userId = req.UserId;
@@ -248,12 +249,14 @@ public class TradeController : ControllerBase
 					userId,
 					from,
 					to,
+					req.Strategy ?? "DCA",
 					req.MaximumFromTradeAmount ?? 0,
 					req.MinimumFromTradeAmount ?? 0,
 					req.TradeThreshold ?? 0,
 					req.MaximumTradeBalanceRatio ?? 0,
 					req.MaximumToTradeAmount ?? 0,
 					req.ValueTradePercentage ?? 0,
+					req.ValueSellPercentage ?? 0,
 					req.InitialMinimumFromAmountToStart ?? 0,
 					req.InitialMinimumUSDCAmountToStart ?? 0,
 					req.InitialMaximumUSDCAmountToStart ?? 0,
@@ -309,5 +312,12 @@ public class TradeController : ControllerBase
 		{
 			return StatusCode(500, "Error ExitPosition. " + ex.Message);
 		}
+	}
+
+	[HttpPost("/Trade/GetTradeIndicators", Name = "GetTradeIndicators")]
+	public async Task<IActionResult> GetTradeIndicators([FromBody] TradebotIndicatorRequest req)
+	{  
+		IndicatorData? ok = await _krakenService.GetIndicatorData(req.FromCoin, req.ToCoin);
+		return Ok(ok); 
 	}
 }

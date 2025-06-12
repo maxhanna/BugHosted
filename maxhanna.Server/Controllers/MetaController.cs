@@ -1470,21 +1470,21 @@ namespace maxhanna.Server.Controllers
 						{
 							// 1. Fetch attacker & defender in a single query with their maps
 							string fetchBotsSql = @"
-                        SELECT 
-                            mb.id, 
-                            mb.type, 
-                            mb.exp, 
-                            mb.level, 
-                            mb.hp,
-                            mb.hero_id,
-                            mb.is_deployed,
-                            IF(mb.hero_id > 0, 
-                                (SELECT mh.map FROM maxhanna.meta_hero mh WHERE mh.id = mb.hero_id),
-                                (SELECT me.map FROM maxhanna.meta_encounter me WHERE me.hero_id = mb.hero_id)
-                            ) AS map
-                        FROM maxhanna.meta_bot AS mb
-                        WHERE mb.id = @SourceId 
-                             OR mb.id = @TargetId;";
+								SELECT 
+									mb.id, 
+									mb.type, 
+									mb.exp, 
+									mb.level, 
+									mb.hp,
+									mb.hero_id,
+									mb.is_deployed,
+									IF(mb.hero_id > 0, 
+										(SELECT mh.map FROM maxhanna.meta_hero mh WHERE mh.id = mb.hero_id),
+										(SELECT me.map FROM maxhanna.meta_encounter me WHERE me.hero_id = mb.hero_id)
+									) AS map
+								FROM maxhanna.meta_bot AS mb
+								WHERE mb.id = @SourceId 
+									OR mb.id = @TargetId;";
 
 							using (var command = new MySqlCommand(fetchBotsSql, connection, transaction))
 							{
@@ -1933,11 +1933,11 @@ namespace maxhanna.Server.Controllers
 			}
 
 			// 2. Base Damage Calculation
-			int baseDamage = (int)(attacker.Level * attackingPart.DamageMod * typeMultiplier);
+			int baseDamage = (int)(attacker.Level * attackingPart.DamageMod * typeMultiplier); 
 
-			// 3. Defense Calculation (scales with level difference)
-			int levelDifference = defender.Level - attacker.Level;
-			float defenseFactor = Math.Max(0.2f, 1.0f - (1 + (levelDifference * 0.5f)) / 100f);
+			// 3. Defense Calculation (defense equals defender's level, mitigating level% of damage)
+			float defenseMultiplier = defender.Level / 100f; // e.g., level 298 = 2.98
+			float defenseFactor = 1f / (1f + defenseMultiplier); // e.g., 1 / (1 + 2.98) ≈ 0.2513
 
 			// 4. Final Damage Calculation
 			int finalDamage = (int)(baseDamage * defenseFactor);

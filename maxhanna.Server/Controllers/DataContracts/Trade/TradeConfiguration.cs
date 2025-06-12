@@ -1,8 +1,7 @@
-using System.Text;
-
 public class TradeConfiguration
 {
 	public int UserId { get; set; }
+	public string? Strategy { get; set; } = string.Empty;
 	public string? FromCoin { get; set; } = string.Empty;
 	public string? ToCoin { get; set; } = string.Empty;
 	public decimal? MaximumFromTradeAmount { get; set; }
@@ -11,6 +10,8 @@ public class TradeConfiguration
 	public decimal? TradeThreshold { get; set; }
 	public decimal? MaximumTradeBalanceRatio { get; set; }
 	public decimal? ValueTradePercentage { get; set; }
+
+	public decimal? ValueSellPercentage { get; set; }
 	public decimal? InitialMinimumFromAmountToStart { get; set; }
 	public decimal? InitialMinimumUSDCAmountToStart { get; set; }
 	public decimal? InitialMaximumUSDCAmountToStart { get; set; }

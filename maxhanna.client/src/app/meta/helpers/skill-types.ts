@@ -22,6 +22,10 @@ export enum SkillType {
 //SKILL NAMES
 export const POUND = new Skill("Pound", SkillType.STRENGTH);
 export const STING = new Skill("Sting", SkillType.SPEED);
+export const FLARE = new Skill("Flare", SkillType.ARMOR);
+export const RAIL = new Skill("Rail", SkillType.RANGED);
+export const CHAIN = new Skill("Chain", SkillType.INTELLIGENCE);
+export const SUBSONIC = new Skill("Subsonic", SkillType.STEALTH);
 export const HEADBUTT = new Skill("Headbutt", SkillType.NORMAL);
 export const KICK = new Skill("Kick", SkillType.NORMAL);
 export const LEFT_PUNCH = new Skill("Left Punch", SkillType.NORMAL);

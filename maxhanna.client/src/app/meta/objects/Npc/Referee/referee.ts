@@ -6,8 +6,7 @@ import { resources } from "../../../helpers/resources";
 import { FrameIndexPattern } from "../../../helpers/frame-index-pattern";
 import { events } from "../../../helpers/events";
 import { WALK_DOWN, WALK_UP, WALK_LEFT, WALK_RIGHT, STAND_DOWN, STAND_RIGHT, STAND_LEFT, STAND_UP } from "./referee-animations";
-import { Npc } from "../../Npc/npc";
-import { l } from "@angular/core/weak_ref.d-Bp6cSy-X";
+import { Npc } from "../../Npc/npc"; 
 
 export class Referee extends Npc {
   directionIndex = 0;
@@ -61,8 +60,8 @@ export class Referee extends Npc {
   override ready() {
     events.on("HERO_REQUESTS_ACTION", this, (params: { hero: any, objectAtPosition: any }) => {
       if (params.objectAtPosition.id === this.id) {
-        this.facePlayer(params);
-        if (params.hero.parent.name.toLowerCase().trim() == "undergroundlevel2") {
+        this.facePlayer(params); 
+        if (this.textContent?.find(x => x.string.find(s => s.toLowerCase().includes("meta-grinder")))) {
           const encounterBots = params.hero.parent.children.filter((x:any) => x.heroId < 0);
           if (encounterBots) {
             for (let x = 0; x < encounterBots.length; x++) {

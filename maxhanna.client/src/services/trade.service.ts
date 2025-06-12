@@ -29,6 +29,32 @@ export class TradeService {
       return error.message ?? 'Unexpected error';
     }
   } 
+  async get<T = any>(url: string, encryptedUserId?: string): Promise<T | string | ''> {
+    try {
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Encrypted-UserId': encryptedUserId ?? '',
+        },
+      });
+      const contentType = response.headers.get('Content-Type') || '';
+      const data = contentType.includes('application/json')
+        ? await response.json()
+        : await response.text();
+      if (!response.ok) {
+        throw new Error(typeof data === 'string' ? data : data?.message ?? 'Unknown error');
+      }
+
+      return data;
+    } catch (error: any) {
+      console.error(error);
+      return error.message ?? 'Unexpected error';
+    }
+  } 
+  async getTopMarketCaps(): Promise<any> {
+    const url = 'https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=10&page=1';
+    return this.get(url);
+  }
   async getTradeHistory(userId: number, encryptedUserId: string) {
     return this.post(`/trade/gettradehistory`, userId, 'json', encryptedUserId);
   } 
@@ -50,11 +76,11 @@ export class TradeService {
   async upsertTradeConfiguration(config: any, encryptedUserId: string) {
     return this.post(`/trade/upserttradeconfiguration`, config, 'text', encryptedUserId);
   }
-  async getTradeConfigurationLastUpdated(userId: number, encryptedUserId: string, from?: string, to?: string) {
-    return this.post(`/trade/getconfigurationlastupdated`, { UserId: userId, FromCoin: from, ToCoin: to }, 'json', encryptedUserId);
+  async getTradeConfigurationLastUpdated(userId: number, encryptedUserId: string, from?: string, to?: string, strategy?: string) {
+    return this.post(`/trade/getconfigurationlastupdated`, { UserId: userId, FromCoin: from, ToCoin: to, Strategy: strategy }, 'json', encryptedUserId);
   }
-  async getTradeConfiguration(userId: number, encryptedUserId: string, from?: string, to?: string) {
-    return this.post(`/trade/getconfiguration`, { UserId: userId, FromCoin: from, ToCoin: to }, 'json', encryptedUserId);
+  async getTradeConfiguration(userId: number, encryptedUserId: string, from?: string, to?: string, strategy?: string) {
+    return this.post(`/trade/getconfiguration`, { UserId: userId, FromCoin: from, ToCoin: to, Strategy: strategy }, 'json', encryptedUserId);
   }
   async getTradeLogs(userId: number, encryptedUserId: string) {
     return this.post(`/trade/gettradelogs`, userId, 'json', encryptedUserId);
@@ -73,6 +99,9 @@ export class TradeService {
   }
   async exitPosition(userId: number, encryptedUserId: string) {
     return this.post(`/trade/exitposition`, userId, 'json', encryptedUserId);
+  }
+  async getTradeIndicators(fromCoin: string, toCoin: string) {
+    return this.post(`/trade/gettradeindicators`, {FromCoin: fromCoin, ToCoin: toCoin}, 'json');
   }
   async getProfitData(userId: number, days = 100, encryptedUserId: string) {
     return this.post(`/trade/getprofitdata`, {UserId: userId, Days: days}, 'json', encryptedUserId);

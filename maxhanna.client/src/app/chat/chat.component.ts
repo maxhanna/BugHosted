@@ -51,6 +51,7 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
   messaging?: any;
   ghostReadEnabled = false;
   notificationsEnabled?: boolean = undefined;
+  firstMessageDetails: { content: string } | null = null;
 
   constructor(private chatService: ChatService, private notificationService: NotificationService, private userService: UserService) {
     super();
@@ -184,6 +185,27 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
           this.pageNumber = res.currentPage;
           if (!this.currentChatId && res.messages[0]?.chatId) {
             this.currentChatId = res.messages[0].chatId;
+ 
+            if (this.firstMessageDetails) {
+              const encryptedContent = this.encryptContent(this.firstMessageDetails.content);
+              if (encryptedContent !== res.messages[0].content) {
+                await this.chatService.editMessage(
+                  res.messages[0].id,
+                  user.id,
+                  encryptedContent
+                ).then(editRes => {
+                  if (editRes) {
+                    this.parentRef?.showNotification(`First message encrypted successfully.`);
+                    // Refresh message history to reflect the edited message
+                    this.getMessageHistory(this.pageNumber, this.pageSize);
+                  } else {
+                    this.parentRef?.showNotification(`Failed to encrypt first message.`);
+                  }
+                });
+              }
+              // Clear firstMessageDetails after processing
+              this.firstMessageDetails = null;
+            }
           }
           this.scrollToBottomIfNeeded(); 
         }
@@ -307,6 +329,7 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
     this.totalPagesArray = new Array<number>();
     clearInterval(this.pollingInterval);
     this.showUserList = true;
+    this.firstMessageDetails = null;
     this.isPanelExpanded = true;
 
     const parent = this.inputtedParentRef ?? this.parentRef;
@@ -322,6 +345,7 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
     if (msg.trim() == "" && (!this.attachedFiles || this.attachedFiles.length == 0)) {
       return alert("Message content cannot be empty.");
     }
+    const originalContent = msg; 
     msg = this.encryptContent(msg);
     let chatUsersIds: number[] = [];
     this.currentChatUsers.forEach(x => chatUsersIds.push(x.id ?? 0));
@@ -335,6 +359,9 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
         this.newMessage.nativeElement.textContent = '';
       }, 10);
       await this.chatService.sendMessage(this.parentRef?.user?.id ?? 0, chatUsersIds, this.currentChatId, msg, this.attachedFiles);
+      if (!this.currentChatId) {
+        this.firstMessageDetails = { content: originalContent };
+      }
       this.removeAllAttachments();
       this.attachedFiles = [];
       await this.getMessageHistory().then(x => {

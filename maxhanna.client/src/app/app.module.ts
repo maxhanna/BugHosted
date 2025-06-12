@@ -59,6 +59,7 @@ import { TopComponent } from './top/top.component';
 import { TimeFormatPipe } from './time-format.pipe';
 import { TimeSincePipe } from './time-since.pipe';
 import { NexusMovementComponent } from './nexus-movement/nexus-movement.component';
+import { CurrencyShortenPipe } from './currency-shorten';
 
 @NgModule({
   declarations: [
@@ -103,8 +104,9 @@ import { NexusMovementComponent } from './nexus-movement/nexus-movement.componen
     NotificationsComponent,
     InViewDirective,
     MetaComponent,
-    ClickableUrlsPipe, 
-    CurrencyFlagPipe, 
+    ClickableUrlsPipe,
+    CurrencyFlagPipe,
+    CurrencyShortenPipe, 
     HostAiComponent,
     ThemesComponent,
     CrawlerComponent,
@@ -125,6 +127,7 @@ import { NexusMovementComponent } from './nexus-movement/nexus-movement.componen
     TimeFormatPipe,
     TimeSincePipe,
     CurrencyFlagPipe,
+    CurrencyShortenPipe,
     FileSizePipe
   ],
   providers: [

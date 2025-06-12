@@ -17,9 +17,11 @@ namespace maxhanna.Server.Services
 		private readonly KrakenService _krakenService;
 		private readonly NewsService _newsService;
 		private readonly ProfitCalculationService _profitService;
+		private readonly TradeIndicatorService _indicatorService;
 		private readonly MiningApi _miningApiService = new MiningApi();
 		private readonly Log _log;
 		private readonly IConfiguration _config; // needed for apiKey
+		private Timer _halfSecondTimer;
 		private Timer _tenSecondTimer;
 		private Timer _halfMinuteTimer;
 		private Timer _minuteTimer;
@@ -31,7 +33,8 @@ namespace maxhanna.Server.Services
 		private bool lastWasCrypto = false;
 
 		public SystemBackgroundService(Log log, IConfiguration config, WebCrawler webCrawler, KrakenService krakenService, 
-										NewsService newsService, ProfitCalculationService profitService)
+										NewsService newsService, ProfitCalculationService profitService,
+										TradeIndicatorService indicatorService)
 		{ 
 			_config = config;
 			_connectionString = config.GetValue<string>("ConnectionStrings:maxhanna")!;
@@ -42,7 +45,9 @@ namespace maxhanna.Server.Services
 			_krakenService = krakenService;
 			_newsService = newsService;
 			_profitService = profitService;
+			_indicatorService = indicatorService;
 
+			_halfSecondTimer = new Timer(async _ => await RunHalfSecondTasks(), null, Timeout.Infinite, Timeout.Infinite); 
 			_tenSecondTimer = new Timer(async _ => await Run10SecondTasks(), null, Timeout.Infinite, Timeout.Infinite);
 			_halfMinuteTimer = new Timer(async _ => await Run30SecondTasks(), null, Timeout.Infinite, Timeout.Infinite);
 			_minuteTimer = new Timer(async _ => await FetchWebsiteMetadata(), null, Timeout.Infinite, Timeout.Infinite);
@@ -55,6 +60,7 @@ namespace maxhanna.Server.Services
 		protected override async Task ExecuteAsync(CancellationToken stoppingToken)
 		{
 			// Start all timers 
+			_halfSecondTimer.Change(TimeSpan.Zero, TimeSpan.FromMilliseconds(500));
 			_tenSecondTimer.Change(TimeSpan.Zero, TimeSpan.FromSeconds(10));
 			_halfMinuteTimer.Change(TimeSpan.Zero, TimeSpan.FromSeconds(30));
 			_minuteTimer.Change(TimeSpan.Zero, TimeSpan.FromMinutes(1));
@@ -69,12 +75,16 @@ namespace maxhanna.Server.Services
 				await Task.Delay(1000, stoppingToken);
 			}
 		}
+		private async Task RunHalfSecondTasks()
+		{ 
+			await fixCoinValueTable();
+		}
 		private async Task Run10SecondTasks()
 		{
 			await MakeCryptoTrade(); 
 		}
 		private async Task Run30SecondTasks()
-		{ 
+		{
 			await SpawnEncounterMetabots();
 		}
 		private async Task RunFiveMinuteTasks()
@@ -84,7 +94,8 @@ namespace maxhanna.Server.Services
 			_miningApiService.UpdateWalletInDB(_config, _log);
 			lastWasCrypto = !lastWasCrypto;
 			await _newsService.GetAndSaveTopQuarterHourlyHeadlines(!lastWasCrypto ? "Cryptocurrency" : null);
-			await _profitService.CalculateDailyProfits();
+			await _profitService.CalculateDailyProfits(); 
+			await _indicatorService.UpdateIndicators();
 		}
 
 		private async Task RunSixHourTasks()
@@ -225,6 +236,105 @@ namespace maxhanna.Server.Services
 			}
 			this.isCrawling = false;
 		}
+		private record CoinValueRow(int Id, DateTime Timestamp, decimal ValueCad);
+
+		private async Task<CoinValueRow?> GetNextUnprocessedRow(MySqlConnection connection)
+        {
+            const string sql = @"
+                SELECT id, timestamp, value_cad 
+                FROM coin_value 
+                WHERE value_usd IS NULL
+                ORDER BY timestamp ASC
+                LIMIT 1
+                FOR UPDATE SKIP LOCKED";
+
+            using var cmd = new MySqlCommand(sql, connection);
+            using var reader = await cmd.ExecuteReaderAsync();
+
+            if (await reader.ReadAsync())
+            {
+                return new CoinValueRow(
+                    reader.GetInt32("id"),
+                    reader.GetDateTime("timestamp"),
+                    reader.GetDecimal("value_cad"));
+            }
+
+            return null;
+        }
+
+        private async Task<decimal> GetClosestExchangeRate(
+            MySqlConnection connection, 
+            DateTime timestamp)
+        {
+            const string sql = @"
+                (SELECT rate, ABS(TIMESTAMPDIFF(SECOND, timestamp, @timestamp)) as diff
+                 FROM exchange_rates
+                 WHERE base_currency = 'CAD'
+                 AND target_currency = 'USD'
+                 AND timestamp <= @timestamp
+                 ORDER BY timestamp DESC
+                 LIMIT 1)
+                UNION ALL
+                (SELECT rate, ABS(TIMESTAMPDIFF(SECOND, timestamp, @timestamp)) as diff
+                 FROM exchange_rates
+                 WHERE base_currency = 'CAD'
+                 AND target_currency = 'USD'
+                 AND timestamp > @timestamp
+                 ORDER BY timestamp ASC
+                 LIMIT 1)
+                ORDER BY diff ASC
+                LIMIT 1";
+
+            using var cmd = new MySqlCommand(sql, connection);
+            cmd.Parameters.AddWithValue("@timestamp", timestamp);
+            
+            var result = await cmd.ExecuteScalarAsync();
+            return result != null ? Convert.ToDecimal(result) : 0.705m; // Default fallback rate
+        }
+
+        private async Task UpdateUsdValue(
+            MySqlConnection connection, 
+            int id, 
+            decimal usdValue)
+        {
+            const string sql = @"
+                UPDATE coin_value
+                SET value_usd = @usdValue
+                WHERE id = @id";
+
+            using var cmd = new MySqlCommand(sql, connection);
+            cmd.Parameters.AddWithValue("@id", id);
+            cmd.Parameters.AddWithValue("@usdValue", usdValue);
+            
+            await cmd.ExecuteNonQueryAsync();
+        }
+
+		private async Task fixCoinValueTable()
+		{
+			using var connection = new MySqlConnection(_connectionString);
+			await connection.OpenAsync();
+			// 1. Get the next unprocessed Bitcoin row
+			var coinRow = await GetNextUnprocessedRow(connection);
+			if (coinRow == null)
+			{
+				_ = _log.Db("No more rows to process...", outputToConsole: true);
+				return;
+			}
+
+			// 2. Get the closest exchange rate
+			var exchangeRate = await GetClosestExchangeRate(
+				connection,
+				coinRow.Timestamp);
+
+			// 3. Update the row
+			await UpdateUsdValue(
+				connection,
+				coinRow.Id,
+				coinRow.ValueCad * exchangeRate);
+
+			//_=_log.Db($"Updated ID {coinRow.Id} with rate {exchangeRate}", outputToConsole: true);
+
+		}
 
 		private async Task MakeCryptoTrade()
 		{
@@ -234,7 +344,8 @@ namespace maxhanna.Server.Services
 				_ = _log.Db("No Kraken API keys found for userId: 1", 1, "SYSTEM", true);
 				return;
 			}
-			try { 
+			try
+			{
 				await SaveVolumeDataAsync(1, "XBTUSDC", ownerkeys);
 				await SaveVolumeDataAsync(1, "XRPUSDC", ownerkeys);
 			}
@@ -297,7 +408,7 @@ namespace maxhanna.Server.Services
 					SELECT id, user_id, btc_address, last_fetched 
 					FROM user_btc_wallet_info 
 					WHERE last_fetched < UTC_TIMESTAMP() - INTERVAL 1 HOUR
-					ORDER BY last_fetched ASC
+					ORDER BY last_fetched DESC
 					LIMIT 1;";
 
 				WalletInfo? wallet = null;
@@ -1034,6 +1145,28 @@ namespace maxhanna.Server.Services
 
 					if (coinData != null)
 					{
+						// Fetch the latest CAD/USD exchange rate
+						decimal cadUsdRate = 0.705m; // Fallback rate (1 CAD = 0.705 USD)
+						var rateSql = @"
+							SELECT rate
+							FROM exchange_rates
+							WHERE base_currency = 'CAD' AND target_currency = 'USD'
+							ORDER BY timestamp DESC
+							LIMIT 1";
+
+						using (var rateCmd = new MySqlCommand(rateSql, conn))
+						{
+							var rateResult = await rateCmd.ExecuteScalarAsync();
+							if (rateResult != null && rateResult != DBNull.Value)
+							{
+								cadUsdRate = Convert.ToDecimal(rateResult);
+							}
+							else
+							{
+								_ = _log.Db("No recent CAD/USD exchange rate found, using fallback rate 0.705", null, "COINSVC", outputToConsole: true);
+							}
+						}
+
 						foreach (var coin in coinData)
 						{
 							var checkSql = @"
@@ -1048,16 +1181,20 @@ namespace maxhanna.Server.Services
 
 								if (recentEntries == 0)
 								{
-									// Only insert if no recent entries exist
+									// Calculate value_cad using the exchange rate (USD to CAD)
+									decimal valueCad = cadUsdRate != 0 ? Convert.ToDecimal(coin.rate) / cadUsdRate : Convert.ToDecimal(coin.rate); // Avoid division by zero
+
 									var insertSql = @"
-										INSERT INTO coin_value (symbol, name, value_cad, timestamp) 
-										VALUES (@Symbol, @Name, @ValueCAD, UTC_TIMESTAMP())";
+										INSERT INTO coin_value (symbol, name, value_cad, value_usd, timestamp) 
+										VALUES (@Symbol, @Name, @ValueCAD, @ValueUSD, UTC_TIMESTAMP())";
 
 									using (var insertCmd = new MySqlCommand(insertSql, conn))
 									{
 										insertCmd.Parameters.AddWithValue("@Symbol", coin.symbol);
 										insertCmd.Parameters.AddWithValue("@Name", coin.name);
-										insertCmd.Parameters.AddWithValue("@ValueCAD", coin.rate);
+										insertCmd.Parameters.AddWithValue("@ValueCAD", valueCad);
+										insertCmd.Parameters.AddWithValue("@ValueUSD", coin.rate);
+										insertCmd.Parameters.AddWithValue("@Timestamp", DateTime.UtcNow);
 
 										await insertCmd.ExecuteNonQueryAsync();
 									}
@@ -1066,12 +1203,12 @@ namespace maxhanna.Server.Services
 						}
 					}
 
-					_ = _log.Db("Coin values stored successfully.", null);
+					_ = _log.Db("Coin values stored successfully.", null, "COINSVC");
 				}
 			}
 			catch (Exception ex)
 			{
-				_ = _log.Db("Error occurred while storing coin values. " + ex.Message, null);
+				_ = _log.Db($"Error occurred while storing coin values: {ex.Message}", null, "COINSVC", outputToConsole: true);
 			}
 		}
 
@@ -1080,7 +1217,7 @@ namespace maxhanna.Server.Services
 			CoinResponse[] coinData = [];
 			var body = new
 			{
-				currency = "CAD",
+				currency = "USD",
 				sort = "rank",
 				order = "ascending",
 				offset = 0,

@@ -12,11 +12,11 @@
   </div>
 
   <div class="profileBackgroundContainer" *ngIf="user?.profileBackgroundPictureFile">
-    <app-media-viewer [displayExpander]="false" [displayExtraInfo]="false"
-      [showCommentSection]="false" [inputtedParentRef]="inputtedParentRef ?? parentRef" 
-      [file]="user?.profileBackgroundPictureFile" [previousComponent]="previousComponent ?? 'User'">
+    <app-media-viewer [displayExpander]="false" [displayExtraInfo]="false" [showCommentSection]="false"
+      [inputtedParentRef]="inputtedParentRef ?? parentRef" [file]="user?.profileBackgroundPictureFile"
+      [previousComponent]="previousComponent ?? 'User'">
     </app-media-viewer>
-  </div>
+  </div> 
 
   <div class="userProfileContents">
     <div class="profileHeader">
@@ -28,16 +28,19 @@
             [currentDirectory]="user.displayPictureFile.directory" [user]="user"
             [previousComponent]="previousComponent ?? 'User'">
           </app-media-viewer>
-          <div class="largeFont secondaryFontColor" [title]="user.username">{{user.username}}</div>
+          <div [class]="'secondaryFontColor' + (onMobile() ? ' smallFont' : '')" [title]="user.username">{{user.username}}</div>
+        </div>
+        <div class="largeAvatar" *ngIf="!loginOnly && !user?.displayPictureFile">
+          <app-user-tag></app-user-tag>
+          <div class="smallFont secondaryFontColor" [title]="user?.username ?? 'Anonymous'">{{user?.username ?? "Anonymous"}}</div>
         </div>
         <div class="profileHeaderInfo secondaryFontColor" *ngIf="!loginOnly && (parentRef?.user || user)">
           <div class="profileHeaderUserDescription">
             {{user?.about?.description}}
           </div>
-          <div class="seperatedUserHeader">
+          <div class="seperatedUserHeader" *ngIf="weatherLocation?.city || user?.about?.currency">
             <div class="invertedHighlights xxSmallFont" title="Location">Location: </div>
-            <div>{{weatherLocation?.city || 'Unknown'}} {{ (weatherLocation?.country ?? user?.about?.currency ?? '') |
-              currencyFlag }}</div>
+            <div>{{weatherLocation?.city}} {{ (weatherLocation?.country ?? user?.about?.currency ?? '') | currencyFlag }}</div>
           </div>
           <div class="seperatedUserHeader">
             <div class="invertedHighlights xxSmallFont" title="Joined">Joined: </div>

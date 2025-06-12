@@ -139,14 +139,7 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
           console.log("Target story found:", tgtStory);
           this.scrollToStory(tgtStory.id);
           this.scrollToInputtedCommentId(tmpCommentId);
-          const storyText = tgtStory.storyText;
-          if (storyText) {
-            const titleAndDescrip = this.parentRef?.replacePageTitleAndDescription(storyText.trim(), storyText);
-            const script = document.createElement('script');
-            script.setAttribute('type', 'application/ld+json');
-            script.textContent = titleAndDescrip?.title ?? "";
-            document.head.appendChild(script);
-          }
+          this.changePageTitleAndDescription(tgtStory);
         }
       }
     });
@@ -166,15 +159,7 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
         this.city = res.city;
       }
     })
-    if (this.user) {
-      const elements = document.getElementsByClassName('componentMain');
-
-      if (elements.length > 0) {
-        Array.from(elements).forEach((e) => {
-          (e as HTMLElement).style.maxHeight = 'none';
-        });
-      }
-    }
+    this.changeComponentMainHeight();
     const user = this.parent?.user ?? this.parentRef?.user;
     if (user && user.id) {
       this.userService.getUserSettings(user.id).then(res => {
@@ -183,6 +168,30 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
         }
       });
     } 
+  }
+
+  private changeComponentMainHeight() {
+    if (this.user) {
+      const elements = document.getElementsByClassName('componentMain');
+
+      if (elements.length > 0) {
+        Array.from(elements).forEach((e) => {
+          (e as HTMLElement).style.maxHeight = 'none';
+          // (e as HTMLElement).style.background = 'unset';
+        });
+      }
+    }
+  }
+
+  private changePageTitleAndDescription(tgtStory: Story) {
+    const storyText = tgtStory.storyText;
+    if (storyText && !this.showOnlyPost) {
+      const titleAndDescrip = this.parentRef?.replacePageTitleAndDescription(storyText.trim(), storyText);
+      const script = document.createElement('script');
+      script.setAttribute('type', 'application/ld+json');
+      script.textContent = titleAndDescrip?.title ?? "";
+      document.head.appendChild(script);
+    }
   }
 
   private scrollToInputtedCommentId(commentId?: number) {
@@ -934,9 +943,8 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
     if (!element) {
       return false; // Element not found
     }
-
-    const isDesktop = window.innerWidth > 990;
-    const threshold = 400; // 500px for desktop, 100px for mobile
+ 
+    const threshold = 400;
 
     return element.scrollHeight >= threshold;
   }

@@ -183,7 +183,7 @@ export class StartMenu extends GameObject {
         }
       }
 
-      const label = `${++eCount}: ${exit.targetMap}`;
+      const label = `${++eCount}: ${this.shortenMapName(exit.targetMap)}`;
       yOffset = yOffset + 10;
       this.items.push(`Warp to exit: ${exit.position.x}, ${exit.position.y}`);
       const warpLabel = new SpriteTextString(label, new Vector2(xOffset, this.menuLocationY + yOffset), "Black");
@@ -201,7 +201,14 @@ export class StartMenu extends GameObject {
     this.blockSelectionTimeout();
   }
 
+  private shortenMapName(name: string, maxLength: number = 13): string {
+    if (name.length <= maxLength) return name;
 
+    const keep = Math.floor((maxLength - 3) / 2);
+    const start = name.slice(0, keep);
+    const end = name.slice(-keep);
+    return `${start}...${end}`;
+  }
 
   private displayJournalMenu() {
     this.clearMenu();

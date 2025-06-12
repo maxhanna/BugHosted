@@ -57,6 +57,7 @@
   font-size: 16px;
   scrollbar-width: thin;
   scrollbar-color: var(--main-highlight-color, #ff00ff) #333;
+  object-fit: contain;
 }
 
 .modal-body::-webkit-scrollbar {

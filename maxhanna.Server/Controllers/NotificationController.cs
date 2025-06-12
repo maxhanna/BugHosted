@@ -294,7 +294,7 @@ namespace maxhanna.Server.Controllers
 				} ?? "Unknown error";
 				_ = _log.Db($"Cant send notification : " + errorMessage, request.FromUserId, "NOTIFICATION", outputToConsole: true);
 				return canSendRes;
-			} 
+			}
 
 			var validRecipients = new List<int>();
 			foreach (var recipientId in request.ToUserIds)
@@ -319,15 +319,8 @@ namespace maxhanna.Server.Controllers
 			// Replace with filtered list
 			request.ToUserIds = validRecipients.ToArray();
 
-			// _ = _log.Db($@"Creating notifications for 
-			//  userId : {request.FromUserId},
-			//  toUserId : {string.Join(", ", request.ToUserIds)},
-			//  storyId: {request.StoryId}, 
-			//  commentId: {request.CommentId}, 
-			//  fileId: {request.FileId}, 
-			//  userProfileId: {request.UserProfileId}, 
-			//  chatId: {request.ChatId}.", null, "NOTIFICATION", outputToConsole: true);
-			bool sendFirebaseNotification = true;
+			bool notificationProcessed = false;
+			bool sendFirebaseNotification = false;
 			request.Message = RemoveQuotedBlocks(request.Message);
 
 			string? connectionString = _config.GetValue<string>("ConnectionStrings:maxhanna");
@@ -336,37 +329,47 @@ namespace maxhanna.Server.Controllers
 				await conn.OpenAsync();
 				await UpdateLastSeen(conn, request);
 				await ResolveParentCommentAsync(conn, request);
+
 				if (await TryResolveStoryNotification(conn, request))
 				{
+					notificationProcessed = true;
 					sendFirebaseNotification = true;
 				}
 				else if (await TryResolveFileNotification(conn, request))
 				{
+					notificationProcessed = true;
 					sendFirebaseNotification = true;
 				}
 				else if (await TryResolveCommentNotification(conn, request))
 				{
+					notificationProcessed = true;
 					sendFirebaseNotification = true;
 				}
 				else if (await TryResolveProfileNotification(conn, request))
 				{
+					notificationProcessed = true;
 					sendFirebaseNotification = true;
 				}
 				else if (await TryResolveChatNotification(conn, request))
 				{
-					sendFirebaseNotification = true;
+					notificationProcessed = true;
+					sendFirebaseNotification = await ShouldSendFirebaseNotificationForChat(conn, request);
 				}
 				else if (await TryResolveGenericMessageNotification(conn, request))
-				{ 
-					sendFirebaseNotification = true; 
+				{
+					notificationProcessed = true;
+					sendFirebaseNotification = true;
 				}
 			}
+
 			if (sendFirebaseNotification)
 			{
 				_ = SendFirebaseNotifications(request);
 			}
 
-			return Ok("Notification(s) Created");
+			return notificationProcessed
+				? Ok("Notification(s) Created")
+				: Ok("No notifications created");
 		}
 
 		[HttpPost("/Notification/StopNotifications", Name = "StopNotifications")]
@@ -861,54 +864,50 @@ namespace maxhanna.Server.Controllers
 		}
 		private async Task<bool> TryResolveChatNotification(MySqlConnection conn, NotificationRequest request)
 		{
-			if (request.ChatId == null) return false;
-			bool sendFirebaseNotification = true; 
+			if (request.ChatId == null)
+			{
+				return false;
+			}
+
 			foreach (var receiverUserId in request.ToUserIds)
 			{
-				if (receiverUserId == request.FromUserId)
-				{
-					continue;
-				}
-				string checkSql = @"
-							SELECT COUNT(*) 
-							FROM maxhanna.notifications
-							WHERE user_id = @Receiver
-								AND chat_id = @ChatId
-								AND chat_id IS NOT NULL
-								AND date >= UTC_TIMESTAMP() - INTERVAL 10 MINUTE;";
+				if (receiverUserId == request.FromUserId) continue;
 
-				  
-				string insertNotificationSql = @"
-							INSERT INTO maxhanna.notifications
-								(user_id, from_user_id, chat_id, text, date)
-							VALUES
-								(@Receiver, @Sender, @ChatId, @Content, UTC_TIMESTAMP());";
+				// Check if a recent notification exists
+				string checkSql = @"
+					SELECT COUNT(*) 
+					FROM maxhanna.notifications
+					WHERE user_id = @Receiver
+						AND chat_id = @ChatId
+						AND chat_id IS NOT NULL
+						AND date >= UTC_TIMESTAMP() - INTERVAL 10 MINUTE;";
 
 				using (var checkCommand = new MySqlCommand(checkSql, conn))
 				{
-					checkCommand.Parameters.AddWithValue("@Sender", request.FromUserId);
 					checkCommand.Parameters.AddWithValue("@Receiver", receiverUserId);
 					checkCommand.Parameters.AddWithValue("@ChatId", request.ChatId);
-					checkCommand.Parameters.AddWithValue("@Content", request.Message); 
-					var count = Convert.ToInt32(await checkCommand.ExecuteScalarAsync()); 
-					if (count > 0)
+					var count = Convert.ToInt32(await checkCommand.ExecuteScalarAsync());
+
+					if (count == 0) // Only insert if no recent notification exists
 					{
-						sendFirebaseNotification = false; 
-					}
-					else
-					{
-						using (var insertCommand = new MySqlCommand(insertNotificationSql, conn))
+						string insertSql = @"
+                    INSERT INTO maxhanna.notifications
+                        (user_id, from_user_id, chat_id, text, date)
+                    VALUES
+                        (@Receiver, @Sender, @ChatId, @Content, UTC_TIMESTAMP());";
+
+						using (var insertCommand = new MySqlCommand(insertSql, conn))
 						{
 							insertCommand.Parameters.AddWithValue("@Sender", request.FromUserId);
 							insertCommand.Parameters.AddWithValue("@Receiver", receiverUserId);
 							insertCommand.Parameters.AddWithValue("@Content", request.Message);
-							insertCommand.Parameters.AddWithValue("@ChatId", request.ChatId); 
+							insertCommand.Parameters.AddWithValue("@ChatId", request.ChatId);
 							await insertCommand.ExecuteNonQueryAsync();
 						}
 					}
 				}
 			}
-			return sendFirebaseNotification;
+			return true; // Successfully processed
 		}
 		private async Task<bool> TryResolveGenericMessageNotification(MySqlConnection conn, NotificationRequest request)
 		{
@@ -1063,6 +1062,39 @@ namespace maxhanna.Server.Controllers
 			}
 
 			return sendFirebaseNotification;
+		}
+		private async Task<bool> ShouldSendFirebaseNotificationForChat(MySqlConnection conn, NotificationRequest request)
+		{
+			if (request.ChatId == null)
+			{
+				return false;
+			}
+
+			foreach (var receiverUserId in request.ToUserIds)
+			{
+				if (receiverUserId == request.FromUserId) continue;
+
+				string checkSql = @"
+            SELECT COUNT(*) 
+            FROM maxhanna.notifications
+            WHERE user_id = @Receiver
+                AND chat_id = @ChatId
+                AND chat_id IS NOT NULL
+                AND date >= UTC_TIMESTAMP() - INTERVAL 10 MINUTE;";
+
+				using (var checkCommand = new MySqlCommand(checkSql, conn))
+				{
+					checkCommand.Parameters.AddWithValue("@Receiver", receiverUserId);
+					checkCommand.Parameters.AddWithValue("@ChatId", request.ChatId);
+					var count = Convert.ToInt32(await checkCommand.ExecuteScalarAsync());
+
+					if (count == 0)
+					{
+						return true; // Send Firebase notification if no recent notification exists
+					}
+				}
+			}
+			return false; // Don't send Firebase notification if all recipients have recent notifications
 		}
 		private async Task SendFirebaseNotifications(NotificationRequest request)
 		{

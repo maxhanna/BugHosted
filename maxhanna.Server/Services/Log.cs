@@ -102,12 +102,12 @@ public class Log
 			bool access = await reader.ReadAsync();
 			if (!access)
 			{
-				_ = Db("ValidateUserLoggedIn ACCESS DENIED", userId, "SYSTEM", true);
+				_ = Db($"ValidateUserLoggedIn ACCESS DENIED userId:{userId}. User seen > 60 minutes.", userId, "SYSTEM", true);
 				return false;
 			} 
 			int decryptedUserId = DecryptUserId(encryptedUserId);
 			if (decryptedUserId != userId) {
-				_ = Db("ValidateUserLoggedIn ACCESS DENIED", userId, "SYSTEM", true);
+				_ = Db($"ValidateUserLoggedIn ACCESS DENIED userId:{userId}. Decryption key mismatch.", userId, "SYSTEM", true);
 				return false;
 			}
 			return true;

@@ -1,7 +1,12 @@
 /* .componentMain {
   min-width: 350px; 
 } */
-
+.componentTitle {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  width: calc(100% - 200px);
+}
 .componentMainFullHeight {
   height: CALC(var(--vh, 1vh) * 100 - 65px);
 }

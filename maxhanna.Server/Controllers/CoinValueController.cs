@@ -904,14 +904,22 @@ namespace maxhanna.Server.Controllers
 				var btcTask = GetWalletFromDb(userId, "btc");
 				var usdcTask = GetWalletFromDb(userId, "usdc");
 				var xrpTask = GetWalletFromDb(userId, "xrp");
-				await Task.WhenAll(btcTask, usdcTask);
+				var solTask = GetWalletFromDb(userId, "sol");
+				var dogeTask = GetWalletFromDb(userId, "xdg");
+				await Task.WhenAll(btcTask, usdcTask, xrpTask, solTask, dogeTask);
 
 				var btcWallet = await btcTask;
 				var usdcWallet = await usdcTask;
 				var xrpWallet = await xrpTask;
+				var solWallet = await solTask;
+				var dogeWallet = await dogeTask;
 
 				// Early exit if no valid wallets
-				if (btcWallet?.currencies?.Count == 0 && usdcWallet?.currencies?.Count == 0 && xrpWallet?.currencies?.Count == 0)
+				if (btcWallet?.currencies?.Count == 0
+					&& usdcWallet?.currencies?.Count == 0
+					&& xrpWallet?.currencies?.Count == 0
+					&& solWallet?.currencies?.Count == 0
+					&& dogeWallet?.currencies?.Count == 0)
 				{
 					return NotFound("No wallet addresses found for the user.");
 				}
@@ -921,6 +929,8 @@ namespace maxhanna.Server.Controllers
 				if (btcWallet?.currencies?.Count > 0) returns.Add(btcWallet);
 				if (usdcWallet?.currencies?.Count > 0) returns.Add(usdcWallet);
 				if (xrpWallet?.currencies?.Count > 0) returns.Add(xrpWallet);
+				if (solWallet?.currencies?.Count > 0) returns.Add(solWallet);
+				if (dogeWallet?.currencies?.Count > 0) returns.Add(dogeWallet);
 
 				return returns.Count > 0 ? Ok(returns) : NotFound("No valid wallet data found.");
 			}
@@ -983,7 +993,8 @@ namespace maxhanna.Server.Controllers
 		private async Task<CryptoWallet?> GetWalletFromDb(int? userId, string type)
 		{
 			if (userId == null) { return null; }
-			if (type != "btc" && type != "usdc" && type != "xrp") return null;
+			type = type.ToLower();
+			if (type != "btc" && type != "usdc" && type != "xrp" && type != "sol" && type != "xdg") return null;
 			var wallet = new CryptoWallet
 			{
 				total = new Total
@@ -1004,7 +1015,7 @@ namespace maxhanna.Server.Controllers
 					await conn.OpenAsync();
 
 					string sql = $@"
-						SELECT 
+						SELECT DISTINCT
 							wi.{type}_address, 
 							wb.balance,  
 							wb.fetched_at

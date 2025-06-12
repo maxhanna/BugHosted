@@ -16,6 +16,10 @@ import { Bucket } from "../objects/Environment/Bucket/bucket";
 import { Lockers } from "../objects/Environment/Lockers/lockers";
 import { Mop } from "../objects/Environment/Mop/mop";
 import { MetalFence } from "../objects/Environment/MetalFence/metal-fence";
+import { Stand } from "../objects/Environment/Stand/stand";
+import { Scenario } from "../helpers/story-flags";
+import { Referee } from "../objects/Npc/Referee/referee";
+import { Salesman } from "../objects/Npc/Salesman/salesman";
 
 
 export class UndergroundLevel3 extends Level {
@@ -185,6 +189,21 @@ export class UndergroundLevel3 extends Level {
       const locker = new Lockers({ position: new Vector2(gridCells(28 + (2 * x)), gridCells(0)), type: x, offsetY: -16 });
       this.addChild(locker);
     }
+
+
+    const stand = new Stand( gridCells(31), gridCells(12) );
+    this.addChild(stand);
+    const shopSign = new Sprite({
+      objectId: 0, resource: resources.images["metagrindershopsign"], 
+      position: new Vector2(gridCells(32), gridCells(11)),
+      frameSize: new Vector2(240, 32), 
+      scale: new Vector2(0.75, 0.8),
+      offsetX: 5,
+      offsetY: 5,
+    });
+    this.addChild(shopSign);
+
+    
     for (let y = 0; y < 5; y++) {
       const fenceLength = 12;
       for (let x = 0; x < fenceLength; x++) {
@@ -229,15 +248,46 @@ export class UndergroundLevel3 extends Level {
 
     //NPC 
 
+    const referee = new Referee({ position: new Vector2(gridCells(28), gridCells(17)) });
+    referee.textContent = [
+      {
+        string: ["Welcome to the Meta-grinder event!", "How many waves can you survive?!", "Prepare for Ro-Battle!!!"],
+      } as Scenario
+    ];
+    this.addChild(referee);
+
+    const salesman = new Salesman({
+      position: new Vector2(gridCells(34), gridCells(11)),
+      heroPosition: new Vector2(gridCells(32), gridCells(16)),
+      entranceLevel: this,
+      offsetY: 42,
+    });
+    this.addChild(salesman);
+    for (let x = 0 ; x < 3; x++) {
+      const invisSalesman = new Salesman({
+        position: new Vector2(gridCells(33 + x), gridCells(14)),
+        heroPosition: new Vector2(gridCells(32), gridCells(16)),
+        entranceLevel: this,
+        preventDraw: true
+      });
+      this.addChild(invisSalesman);
+    } 
+
     const tmpEncounterPositions = [
-      new Vector2(gridCells(1), gridCells(16)),
-      new Vector2(gridCells(-3), gridCells(17)),
-      new Vector2(gridCells(-2), gridCells(14)),
-      new Vector2(gridCells(27), gridCells(2)),
-      new Vector2(gridCells(25), gridCells(3)),
-      new Vector2(gridCells(28), gridCells(1)),
-      new Vector2(gridCells(47), gridCells(1)),
-      new Vector2(gridCells(49), gridCells(3)),
+      new Vector2(gridCells(7), gridCells(18)),
+      new Vector2(gridCells(8), gridCells(17)),
+      new Vector2(gridCells(7), gridCells(16)),
+      new Vector2(gridCells(8), gridCells(16)),
+
+      new Vector2(gridCells(27), gridCells(42)),
+      new Vector2(gridCells(25), gridCells(41)),
+      new Vector2(gridCells(28), gridCells(40)),
+      new Vector2(gridCells(27), gridCells(40)),
+
+      new Vector2(gridCells(47), gridCells(18)),
+      new Vector2(gridCells(49), gridCells(17)),
+      new Vector2(gridCells(46), gridCells(15)),
+      new Vector2(gridCells(47), gridCells(15))
     ];
     let ecId = -997762;
     for (let x = 0; x < tmpEncounterPositions.length; x++) {
@@ -245,7 +295,7 @@ export class UndergroundLevel3 extends Level {
       const encounter = new Encounter({
         id: currentId,
         position: tmpEncounterPositions[x],
-        possibleEnemies: ["spiderBot", "armobot"],
+        possibleEnemies: ["scandroid", "scorpinox"],
         hp: 1,
         level: 1,
         moveLeftRight: 10

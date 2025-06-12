@@ -225,9 +225,9 @@ namespace maxhanna.Server.Controllers
 			try
 			{
 				string sql = @"
-        INSERT INTO nexus_colors (user_id, color)
-        VALUES (@userId, @color)
-        ON DUPLICATE KEY UPDATE color = @color;";
+					INSERT INTO nexus_colors (user_id, color)
+					VALUES (@userId, @color)
+					ON DUPLICATE KEY UPDATE color = @color;";
 
 				using (var connection = new MySqlConnection(_connectionString))
 				{
@@ -439,14 +439,14 @@ namespace maxhanna.Server.Controllers
 
 				// Insert new base and assign random color
 				string insertSql = @"
-                INSERT INTO nexus_bases (user_id, gold, base_name, coords_x, coords_y)
-                VALUES (@UserId, 200, @BaseName, @CoordsX, @CoordsY);
+					INSERT INTO nexus_bases (user_id, gold, base_name, coords_x, coords_y)
+					VALUES (@UserId, 200, (SELECT u.username FROM users AS u WHERE u.id = user_id), @CoordsX, @CoordsY);
 
-                INSERT INTO nexus_colors (user_id, color)
-                VALUES (@UserId, LPAD(HEX(FLOOR(RAND() * 16777215)), 6, '0'))
-                ON DUPLICATE KEY UPDATE color = color;
+					INSERT INTO nexus_colors (user_id, color)
+					VALUES (@UserId, LPAD(HEX(FLOOR(RAND() * 16777215)), 6, '0'))
+					ON DUPLICATE KEY UPDATE color = color;
 
-                SELECT @CoordsX AS coords_x, @CoordsY AS coords_y;";
+					SELECT @CoordsX AS coords_x, @CoordsY AS coords_y;";
 
 				using var insertCmd = new MySqlCommand(insertSql, conn);
 				insertCmd.Parameters.AddWithValue("@UserId", userId);
@@ -4109,22 +4109,22 @@ namespace maxhanna.Server.Controllers
                 ON DUPLICATE KEY UPDATE user_id = @UserId;";
 
 			var baseParameters = new Dictionary<string, object?>
-						{
-								{ "@UserId", userId },
-								{ "@CoordsX", deadBase.CoordsX },
-								{ "@CoordsY", deadBase.CoordsY },
-								{ "@Gold", 200 }
-						};
+			{
+				{ "@UserId", userId },
+				{ "@CoordsX", deadBase.CoordsX },
+				{ "@CoordsY", deadBase.CoordsY },
+				{ "@Gold", 200 }
+			};
 
 			await ExecuteInsertOrUpdateOrDeleteAsync(insertOrUpdateBaseSql, baseParameters, conn, transaction);
 
 			// Update attacks and defences sent to that base
 			var updateParameters = new Dictionary<string, object?>
-						{
-								{ "@UserId", userId },
-								{ "@CoordsX", deadBase.CoordsX },
-								{ "@CoordsY", deadBase.CoordsY }
-						};
+			{
+				{ "@UserId", userId },
+				{ "@CoordsX", deadBase.CoordsX },
+				{ "@CoordsY", deadBase.CoordsY }
+			};
 
 			const string updateAttacksSentSql = @"
                 UPDATE maxhanna.nexus_attacks_sent 
@@ -4148,169 +4148,383 @@ namespace maxhanna.Server.Controllers
 			}
 		}
 
+		[HttpPost("/Nexus/GetEpochRankings", Name = "GetEpochRankings")]
+		public async Task<IActionResult> GetEpochRankings()
+		{
+			using (MySqlConnection conn = new MySqlConnection(_connectionString))
+			{
+				await conn.OpenAsync();
+
+				try
+				{
+					string querySql = @"
+						SELECT 
+							epoch_id,
+							user_id,
+							username,
+							base_count,
+							total_building_upgrades,
+							total_unit_upgrades,
+							total_units,
+							total_unit_purchases,
+							total_gold,
+							total_supply,
+							attacks_sent,
+							defences_sent,
+							battles_won,
+							battles_lost,
+							gold_stolen,
+							`rank`,
+							timestamp
+						FROM 
+							maxhanna.nexus_epoch_rankings
+						ORDER BY 
+							epoch_id DESC,
+							`rank` ASC;";
+
+					var rankings = new List<NexusEpochRanking>();
+
+					using (var cmd = new MySqlCommand(querySql, conn))
+					{
+						using var reader = await cmd.ExecuteReaderAsync();
+						while (await reader.ReadAsync())
+						{
+							rankings.Add(new NexusEpochRanking
+							{
+								EpochId = reader.GetInt32("epoch_id"),
+								UserId = reader.GetInt32("user_id"),
+								Username = reader.GetString("username"),
+								BaseCount = reader.GetInt32("base_count"),
+								TotalBuildingUpgrades = reader.GetInt32("total_building_upgrades"),
+								TotalUnitUpgrades = reader.GetInt32("total_unit_upgrades"),
+								TotalUnits = reader.GetInt32("total_units"),
+								TotalUnitPurchases = reader.GetInt32("total_unit_purchases"),
+								TotalGold = reader.GetDecimal("total_gold"),
+								TotalSupply = reader.GetInt32("total_supply"),
+								AttacksSent = reader.GetInt32("attacks_sent"),
+								DefencesSent = reader.GetInt32("defences_sent"),
+								BattlesWon = reader.GetInt32("battles_won"),
+								BattlesLost = reader.GetInt32("battles_lost"),
+								GoldStolen = reader.GetDecimal("gold_stolen"),
+								Rank = reader.GetInt32("rank"),
+								Timestamp = reader.GetDateTime("timestamp")
+							});
+						}
+					}
+
+					return Ok(rankings);
+				}
+				catch (Exception ex)
+				{
+					return StatusCode(500, "An error occurred while retrieving epoch rankings. " + ex.Message);
+				}
+			}
+		}
 		private async Task VictoryConditionMet(MySqlConnection conn, MySqlTransaction transaction, int userId)
 		{
 			try
 			{
-				// Get current epoch ID (max + 1)
-				string getEpochSql = "SELECT COALESCE(MAX(epoch_id), 0) + 1 FROM nexus_epoch_rankings;";
-				using (var epochCmd = new MySqlCommand(getEpochSql, conn, transaction))
+				// 1. Get the next epoch ID
+				int epochId = await GetNextEpochId(conn, transaction);
+
+				// 2. Get all active users (those with bases)
+				var activeUserIds = await GetActiveUserIds(conn, transaction);
+
+				// 3. Process each user's stats and save rankings
+				var allRankings = new List<UserRanking>();
+				foreach (var activeUserId in activeUserIds)
 				{
-					int epochId = Convert.ToInt32(await epochCmd.ExecuteScalarAsync());
-
-					// Collect player stats
-					string statsSql = @"
-                    SELECT 
-                        u.id AS user_id,
-                        COALESCE(u.username, 'Anonymous') AS username,
-                        COUNT(DISTINCT nb.coords_x, nb.coords_y) AS base_count,
-                        SUM(
-                            COALESCE(nb.command_center_level, 0) +
-                            COALESCE(nb.mines_level, 0) +
-                            COALESCE(nb.supply_depot_level, 0) +
-                            COALESCE(nb.factory_level, 0) +
-                            COALESCE(nb.starport_level, 0) +
-                            COALESCE(nb.warehouse_level, 0) +
-                            COALESCE(nb.engineering_bay_level, 0)
-                        ) AS total_building_levels,
-                        SUM(
-                            COALESCE(nb.marine_level, 0) +
-                            COALESCE(nb.goliath_level, 0) +
-                            COALESCE(nb.siege_tank_level, 0) +
-                            COALESCE(nb.scout_level, 0) +
-                            COALESCE(nb.wraith_level, 0) +
-                            COALESCE(nb.battlecruiser_level, 0) +
-                            COALESCE(nb.glitcher_level, 0)
-                        ) AS total_unit_levels,
-                        (SELECT COUNT(*) FROM nexus_base_upgrades nbu 
-                         WHERE nbu.coords_x = nb.coords_x AND nbu.coords_y = nb.coords_y) AS building_upgrade_events,
-                        (SELECT COUNT(*) FROM nexus_unit_upgrades nuu 
-                         WHERE nuu.coords_x = nb.coords_x AND nuu.coords_y = nb.coords_y) AS unit_upgrade_events,
-                        SUM(
-                            COALESCE(nu.marine_total, 0) +
-                            COALESCE(nu.goliath_total, 0) +
-                            COALESCE(nu.siege_tank_total, 0) +
-                            COALESCE(nu.scout_total, 0) +
-                            COALESCE(nu.wraith_total, 0) +
-                            COALESCE(nu.battlecruiser_total, 0) +
-                            COALESCE(nu.glitcher_total, 0)
-                        ) AS total_units,
-                        (SELECT SUM(quantity_purchased) FROM nexus_unit_purchases nup 
-                         WHERE nup.coords_x = nb.coords_x AND nup.coords_y = nb.coords_y) AS total_unit_purchases,
-                        SUM(COALESCE(nb.gold, 0)) AS total_gold,
-                        SUM(COALESCE(nb.supply, 0)) AS total_supply,
-                        (SELECT COUNT(*) FROM nexus_attacks_sent nas 
-                         WHERE nas.origin_user_id = u.id) AS attacks_sent,
-                        (SELECT COUNT(*) FROM nexus_defences_sent nds 
-                         WHERE nds.origin_user_id = u.id) AS defences_sent,
-                        (SELECT COUNT(*) FROM nexus_battles nbatt 
-                         WHERE nbatt.origin_user_id = u.id AND nbatt.defender_gold_stolen > 0) AS battles_won,
-                        (SELECT COUNT(*) FROM nexus_battles nbatt 
-                         WHERE nbatt.destination_user_id = u.id AND nbatt.defender_gold_stolen > 0) AS battles_lost,
-                        (SELECT SUM(COALESCE(nbatt.defender_gold_stolen, 0)) FROM nexus_battles nbatt 
-                         WHERE nbatt.origin_user_id = u.id) AS gold_stolen
-                    FROM users u
-                    LEFT JOIN nexus_bases nb ON u.id = nb.user_id
-                    LEFT JOIN nexus_units nu ON nb.coords_x = nu.coords_x AND nb.coords_y = nu.coords_y
-                    GROUP BY u.id, u.username
-                    HAVING base_count > 0
-                    ORDER BY base_count DESC, total_building_levels DESC, total_gold DESC;";
-
-					var rankings = new List<(int UserId, string Username, int BaseCount, int TotalBuildingUpgrades,
-						int TotalUnitUpgrades, int TotalUnits, int TotalUnitPurchases, decimal TotalGold, int TotalSupply,
-						int AttacksSent, int DefencesSent, int BattlesWon, int BattlesLost, decimal GoldStolen)>();
-
-					using (var statsCmd = new MySqlCommand(statsSql, conn, transaction))
-					{
-						using var reader = await statsCmd.ExecuteReaderAsync();
-						while (await reader.ReadAsync())
-						{
-							rankings.Add((
-								UserId: reader.GetInt32("user_id"),
-								Username: reader.GetString("username"),
-								BaseCount: reader.GetInt32("base_count"),
-								TotalBuildingUpgrades: reader.GetInt32("total_building_levels") +
-									(reader.IsDBNull(reader.GetOrdinal("building_upgrade_events")) ? 0 : reader.GetInt32("building_upgrade_events")),
-								TotalUnitUpgrades: reader.GetInt32("total_unit_levels") +
-									(reader.IsDBNull(reader.GetOrdinal("unit_upgrade_events")) ? 0 : reader.GetInt32("unit_upgrade_events")),
-								TotalUnits: reader.IsDBNull(reader.GetOrdinal("total_units")) ? 0 : reader.GetInt32("total_units"),
-								TotalUnitPurchases: reader.IsDBNull(reader.GetOrdinal("total_unit_purchases")) ? 0 : reader.GetInt32("total_unit_purchases"),
-								TotalGold: reader.GetDecimal("total_gold"),
-								TotalSupply: reader.GetInt32("total_supply"),
-								AttacksSent: reader.GetInt32("attacks_sent"),
-								DefencesSent: reader.GetInt32("defences_sent"),
-								BattlesWon: reader.GetInt32("battles_won"),
-								BattlesLost: reader.GetInt32("battles_lost"),
-								GoldStolen: reader.GetDecimal("gold_stolen")
-							));
-						}
-					}
-
-					// Insert rankings and notify each player
-					string insertRankingSql = @"
-                    INSERT INTO nexus_epoch_rankings (
-                        epoch_id, user_id, username, base_count, total_building_upgrades, total_unit_upgrades,
-                        total_units, total_unit_purchases, total_gold, total_supply, attacks_sent, defences_sent,
-                        battles_won, battles_lost, gold_stolen, rank, timestamp
-                    ) VALUES (
-                        @EpochId, @UserId, @Username, @BaseCount, @TotalBuildingUpgrades, @TotalUnitUpgrades,
-                        @TotalUnits, @TotalUnitPurchases, @TotalGold, @TotalSupply, @AttacksSent, @DefencesSent,
-                        @BattlesWon, @BattlesLost, @GoldStolen, @Rank, NOW()
-                    );";
-
-					string notifySql = @"
-					INSERT INTO maxhanna.notifications (user_id, text, date) 
-                    VALUES (@UserId, @Message, UTC_TIMESTAMP());";
-
-					for (int i = 0; i < rankings.Count; i++)
-					{
-						var rank = i + 1; // Rank 1 for highest base_count
-						var player = rankings[i];
-
-						// Insert ranking
-						using (var insertCmd = new MySqlCommand(insertRankingSql, conn, transaction))
-						{
-							insertCmd.Parameters.AddWithValue("@EpochId", epochId);
-							insertCmd.Parameters.AddWithValue("@UserId", player.UserId);
-							insertCmd.Parameters.AddWithValue("@Username", player.Username);
-							insertCmd.Parameters.AddWithValue("@BaseCount", player.BaseCount);
-							insertCmd.Parameters.AddWithValue("@TotalBuildingUpgrades", player.TotalBuildingUpgrades);
-							insertCmd.Parameters.AddWithValue("@TotalUnitUpgrades", player.TotalUnitUpgrades);
-							insertCmd.Parameters.AddWithValue("@TotalUnits", player.TotalUnits);
-							insertCmd.Parameters.AddWithValue("@TotalUnitPurchases", player.TotalUnitPurchases);
-							insertCmd.Parameters.AddWithValue("@TotalGold", player.TotalGold);
-							insertCmd.Parameters.AddWithValue("@TotalSupply", player.TotalSupply);
-							insertCmd.Parameters.AddWithValue("@AttacksSent", player.AttacksSent);
-							insertCmd.Parameters.AddWithValue("@DefencesSent", player.DefencesSent);
-							insertCmd.Parameters.AddWithValue("@BattlesWon", player.BattlesWon);
-							insertCmd.Parameters.AddWithValue("@BattlesLost", player.BattlesLost);
-							insertCmd.Parameters.AddWithValue("@GoldStolen", player.GoldStolen);
-							insertCmd.Parameters.AddWithValue("@Rank", rank);
-							await insertCmd.ExecuteNonQueryAsync();
-						}
-
-						// Notify player
-						using (var notifyCmd = new MySqlCommand(notifySql, conn, transaction))
-						{
-							notifyCmd.Parameters.AddWithValue("@UserId", player.UserId);
-							notifyCmd.Parameters.AddWithValue("@Message",
-								$"Epoch {epochId} ended! You ranked #{rank} with {player.BaseCount} bases, " +
-								$"{player.TotalBuildingUpgrades + player.TotalUnitUpgrades} upgrades, and " +
-								$"{player.TotalGold} gold. Check the rankings for details!");
-							await notifyCmd.ExecuteNonQueryAsync();
-						}
-					}
-
-					// Reset the game
-					await ResetGameAsync(conn, transaction);
+					var stats = await CalculateUserStats(conn, transaction, activeUserId);
+					var ranking = await SaveUserRanking(conn, transaction, epochId, stats);
+					allRankings.Add(ranking);
 				}
+
+				// 4. Determine final rankings based on base count
+				var orderedRankings = allRankings
+					.OrderByDescending(r => r.BaseCount)
+					.ThenByDescending(r => r.TotalBuildingUpgrades)
+					.ThenByDescending(r => r.TotalGold)
+					.ToList();
+
+				// 5. Update ranks in the database
+				for (int i = 0; i < orderedRankings.Count; i++)
+				{
+					await UpdateUserRank(conn, transaction, epochId, orderedRankings[i].UserId, i + 1);
+				}
+
+				// 6. Send notifications to all players
+				foreach (var ranking in orderedRankings)
+				{
+					await SendPlayerNotification(
+						conn,
+						transaction,
+						ranking.UserId,
+						ranking.Username,
+						epochId,
+						ranking.Rank,
+						ranking.BaseCount,
+						ranking.TotalBuildingUpgrades + ranking.TotalUnitUpgrades,
+						ranking.TotalGold);
+				}
+
+				// 7. Only after all processing is complete, reset the game
+				await ResetGameAsync(conn, transaction);
 			}
 			catch (Exception ex)
 			{
 				await _log.Db($"Error in VictoryConditionMet for user {userId}: {ex.Message}", userId, "NEXUS", true);
-				throw; // Re-throw to rollback transaction
+				throw;
 			}
 		}
+
+		private async Task<int> GetNextEpochId(MySqlConnection conn, MySqlTransaction transaction)
+		{
+			const string sql = "SELECT COALESCE(MAX(epoch_id), 0) + 1 FROM nexus_epoch_rankings;";
+			using var cmd = new MySqlCommand(sql, conn, transaction);
+			cmd.CommandTimeout = 300;
+			return Convert.ToInt32(await cmd.ExecuteScalarAsync());
+		}
+
+		private async Task<List<int>> GetActiveUserIds(MySqlConnection conn, MySqlTransaction transaction)
+		{
+			var userIds = new List<int>();
+			const string sql = "SELECT DISTINCT user_id FROM nexus_bases;";
+
+			using (var cmd = new MySqlCommand(sql, conn, transaction))
+			{
+				cmd.CommandTimeout = 300;
+				using var reader = await cmd.ExecuteReaderAsync();
+				while (await reader.ReadAsync())
+				{
+					userIds.Add(reader.GetInt32(0));
+				}
+			}
+			return userIds;
+		}
+
+		private async Task<UserStats> CalculateUserStats(MySqlConnection conn, MySqlTransaction transaction, int userId)
+		{
+			const string statsSql = @"
+    SELECT 
+        u.id AS user_id,
+        COALESCE(u.username, 'Anonymous') AS username,
+        COUNT(DISTINCT nb.coords_x, nb.coords_y) AS base_count,
+        SUM(
+            COALESCE(nb.command_center_level, 0) +
+            COALESCE(nb.mines_level, 0) +
+            COALESCE(nb.supply_depot_level, 0) +
+            COALESCE(nb.factory_level, 0) +
+            COALESCE(nb.starport_level, 0) +
+            COALESCE(nb.warehouse_level, 0) +
+            COALESCE(nb.engineering_bay_level, 0)
+        ) AS total_building_levels,
+        SUM(
+            COALESCE(nb.marine_level, 0) +
+            COALESCE(nb.goliath_level, 0) +
+            COALESCE(nb.siege_tank_level, 0) +
+            COALESCE(nb.scout_level, 0) +
+            COALESCE(nb.wraith_level, 0) +
+            COALESCE(nb.battlecruiser_level, 0) +
+            COALESCE(nb.glitcher_level, 0)
+        ) AS total_unit_levels,
+        (SELECT COUNT(*) FROM nexus_base_upgrades nbu 
+         JOIN nexus_bases nb2 ON nbu.coords_x = nb2.coords_x AND nbu.coords_y = nb2.coords_y
+         WHERE nb2.user_id = u.id) AS building_upgrade_events,
+        (SELECT COUNT(*) FROM nexus_unit_upgrades nuu 
+         JOIN nexus_bases nb2 ON nuu.coords_x = nb2.coords_x AND nuu.coords_y = nb2.coords_y
+         WHERE nb2.user_id = u.id) AS unit_upgrade_events,
+        SUM(
+            COALESCE(nu.marine_total, 0) +
+            COALESCE(nu.goliath_total, 0) +
+            COALESCE(nu.siege_tank_total, 0) +
+            COALESCE(nu.scout_total, 0) +
+            COALESCE(nu.wraith_total, 0) +
+            COALESCE(nu.battlecruiser_total, 0) +
+            COALESCE(nu.glitcher_total, 0)
+        ) AS total_units,
+        (SELECT COALESCE(SUM(quantity_purchased), 0) FROM nexus_unit_purchases nup 
+         JOIN nexus_bases nb2 ON nup.coords_x = nb2.coords_x AND nup.coords_y = nb2.coords_y
+         WHERE nb2.user_id = u.id) AS total_unit_purchases,
+        SUM(COALESCE(nb.gold, 0)) AS total_gold,
+        SUM(COALESCE(nb.supply, 0)) AS total_supply,
+        (SELECT COUNT(*) FROM nexus_attacks_sent WHERE origin_user_id = u.id) AS attacks_sent,
+        (SELECT COUNT(*) FROM nexus_defences_sent WHERE origin_user_id = u.id) AS defences_sent,
+        (SELECT COUNT(*) FROM nexus_battles WHERE origin_user_id = u.id AND defender_gold_stolen > 0) AS battles_won,
+        (SELECT COUNT(*) FROM nexus_battles WHERE destination_user_id = u.id AND defender_gold_stolen > 0) AS battles_lost,
+        (SELECT COALESCE(SUM(defender_gold_stolen), 0) FROM nexus_battles WHERE origin_user_id = u.id) AS gold_stolen
+    FROM users u
+    LEFT JOIN nexus_bases nb ON u.id = nb.user_id
+    LEFT JOIN nexus_units nu ON nb.coords_x = nu.coords_x AND nb.coords_y = nu.coords_y
+    WHERE u.id = @userId
+    GROUP BY u.id, u.username;";
+
+			using var cmd = new MySqlCommand(statsSql, conn, transaction);
+			cmd.Parameters.AddWithValue("@userId", userId);
+			cmd.CommandTimeout = 300;
+
+			using var reader = await cmd.ExecuteReaderAsync();
+			if (await reader.ReadAsync())
+			{
+				return new UserStats(
+					UserId: reader.GetInt32("user_id"),
+					Username: reader.GetString("username"),
+					BaseCount: reader.GetInt32("base_count"),
+					TotalBuildingLevels: reader.GetInt32("total_building_levels"),
+					TotalUnitLevels: reader.GetInt32("total_unit_levels"),
+					BuildingUpgradeEvents: reader.IsDBNull(reader.GetOrdinal("building_upgrade_events")) ?
+						0 : reader.GetInt32("building_upgrade_events"),
+					UnitUpgradeEvents: reader.IsDBNull(reader.GetOrdinal("unit_upgrade_events")) ?
+						0 : reader.GetInt32("unit_upgrade_events"),
+					TotalUnits: reader.IsDBNull(reader.GetOrdinal("total_units")) ?
+						0 : reader.GetInt32("total_units"),
+					TotalUnitPurchases: reader.IsDBNull(reader.GetOrdinal("total_unit_purchases")) ?
+						0 : reader.GetInt32("total_unit_purchases"),
+					TotalGold: reader.GetDecimal("total_gold"),
+					TotalSupply: reader.GetInt32("total_supply"),
+					AttacksSent: reader.GetInt32("attacks_sent"),
+					DefencesSent: reader.GetInt32("defences_sent"),
+					BattlesWon: reader.GetInt32("battles_won"),
+					BattlesLost: reader.GetInt32("battles_lost"),
+					GoldStolen: reader.GetDecimal("gold_stolen")
+				);
+			}
+
+			throw new Exception($"No stats found for user {userId}");
+		}
+
+		private async Task<UserRanking> SaveUserRanking(MySqlConnection conn, MySqlTransaction transaction, int epochId, UserStats stats)
+		{
+			const string sql = @"
+    INSERT INTO nexus_epoch_rankings (
+        epoch_id, user_id, username, base_count, total_building_upgrades, total_unit_upgrades,
+        total_units, total_unit_purchases, total_gold, total_supply, attacks_sent, defences_sent,
+        battles_won, battles_lost, gold_stolen, timestamp
+    ) VALUES (
+        @epochId, @userId, @username, @baseCount, @totalBuildingUpgrades, @totalUnitUpgrades,
+        @totalUnits, @totalUnitPurchases, @totalGold, @totalSupply, @attacksSent, @defencesSent,
+        @battlesWon, @battlesLost, @goldStolen, UTC_TIMESTAMP()
+    );
+    SELECT LAST_INSERT_ID();";
+
+			using var cmd = new MySqlCommand(sql, conn, transaction);
+			cmd.Parameters.AddWithValue("@epochId", epochId);
+			cmd.Parameters.AddWithValue("@userId", stats.UserId);
+			cmd.Parameters.AddWithValue("@username", stats.Username);
+			cmd.Parameters.AddWithValue("@baseCount", stats.BaseCount);
+			cmd.Parameters.AddWithValue("@totalBuildingUpgrades", stats.TotalBuildingLevels + stats.BuildingUpgradeEvents);
+			cmd.Parameters.AddWithValue("@totalUnitUpgrades", stats.TotalUnitLevels + stats.UnitUpgradeEvents);
+			cmd.Parameters.AddWithValue("@totalUnits", stats.TotalUnits);
+			cmd.Parameters.AddWithValue("@totalUnitPurchases", stats.TotalUnitPurchases);
+			cmd.Parameters.AddWithValue("@totalGold", stats.TotalGold);
+			cmd.Parameters.AddWithValue("@totalSupply", stats.TotalSupply);
+			cmd.Parameters.AddWithValue("@attacksSent", stats.AttacksSent);
+			cmd.Parameters.AddWithValue("@defencesSent", stats.DefencesSent);
+			cmd.Parameters.AddWithValue("@battlesWon", stats.BattlesWon);
+			cmd.Parameters.AddWithValue("@battlesLost", stats.BattlesLost);
+			cmd.Parameters.AddWithValue("@goldStolen", stats.GoldStolen);
+			cmd.CommandTimeout = 300;
+
+			var rankingId = Convert.ToInt32(await cmd.ExecuteScalarAsync());
+
+			return new UserRanking(
+				RankingId: rankingId,
+				UserId: stats.UserId,
+				Username: stats.Username,
+				BaseCount: stats.BaseCount,
+				TotalBuildingUpgrades: stats.TotalBuildingLevels + stats.BuildingUpgradeEvents,
+				TotalUnitUpgrades: stats.TotalUnitLevels + stats.UnitUpgradeEvents,
+				TotalUnits: stats.TotalUnits,
+				TotalUnitPurchases: stats.TotalUnitPurchases,
+				TotalGold: stats.TotalGold,
+				TotalSupply: stats.TotalSupply,
+				AttacksSent: stats.AttacksSent,
+				DefencesSent: stats.DefencesSent,
+				BattlesWon: stats.BattlesWon,
+				BattlesLost: stats.BattlesLost,
+				GoldStolen: stats.GoldStolen,
+				Rank: 0 // Temporary value, will be updated later
+			);
+		}
+
+		private async Task UpdateUserRank(MySqlConnection conn, MySqlTransaction transaction, int epochId, int userId, int rank)
+		{
+			const string sql = @"
+    UPDATE nexus_epoch_rankings 
+    SET `rank` = @rank 
+    WHERE epoch_id = @epochId AND user_id = @userId;";
+
+			using var cmd = new MySqlCommand(sql, conn, transaction);
+			cmd.Parameters.AddWithValue("@epochId", epochId);
+			cmd.Parameters.AddWithValue("@userId", userId);
+			cmd.Parameters.AddWithValue("@rank", rank);
+			cmd.CommandTimeout = 300;
+
+			await cmd.ExecuteNonQueryAsync();
+		}
+
+		private async Task SendPlayerNotification(
+			MySqlConnection conn,
+			MySqlTransaction transaction,
+			int userId,
+			string username,
+			int epochId,
+			int rank,
+			int baseCount,
+			int totalUpgrades,
+			decimal totalGold)
+		{
+			const string sql = @"
+    INSERT INTO notifications (user_id, text, date) 
+    VALUES (@userId, @message, UTC_TIMESTAMP());";
+
+			using var cmd = new MySqlCommand(sql, conn, transaction);
+			cmd.Parameters.AddWithValue("@userId", userId);
+			cmd.Parameters.AddWithValue("@message",
+				$"Epoch {epochId} ended! You ranked #{rank} with {baseCount} bases, " +
+				$"{totalUpgrades} upgrades, and {totalGold} gold. Check the rankings for details!");
+			cmd.CommandTimeout = 300;
+
+			await cmd.ExecuteNonQueryAsync();
+		}
+
+		// Helper classes
+		private record UserStats(
+			int UserId,
+			string Username,
+			int BaseCount,
+			int TotalBuildingLevels,
+			int TotalUnitLevels,
+			int BuildingUpgradeEvents,
+			int UnitUpgradeEvents,
+			int TotalUnits,
+			int TotalUnitPurchases,
+			decimal TotalGold,
+			int TotalSupply,
+			int AttacksSent,
+			int DefencesSent,
+			int BattlesWon,
+			int BattlesLost,
+			decimal GoldStolen
+		);
+
+		private record UserRanking(
+			int RankingId,
+			int UserId,
+			string Username,
+			int BaseCount,
+			int TotalBuildingUpgrades,
+			int TotalUnitUpgrades,
+			int TotalUnits,
+			int TotalUnitPurchases,
+			decimal TotalGold,
+			int TotalSupply,
+			int AttacksSent,
+			int DefencesSent,
+			int BattlesWon,
+			int BattlesLost,
+			decimal GoldStolen,
+			int Rank
+		);
 
 		private async Task ResetGameAsync(MySqlConnection conn, MySqlTransaction transaction)
 		{

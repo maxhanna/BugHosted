@@ -155,7 +155,9 @@ export class NexusService {
   async getNumberOfBases(userId: number): Promise<any> {
     return await this.fetchData('/nexus/getnumberofbases', userId);
   }
-
+  async getEpochRankings(): Promise<any> {
+    return await this.fetchData('/nexus/getepochrankings');
+  }
 
   formatTimer(allSeconds?: number): string {
     if (!allSeconds && allSeconds !== 0) return '';

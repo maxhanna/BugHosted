@@ -43,7 +43,7 @@ namespace maxhanna.Server.Controllers
                                   OR 
                                   (Type = 'Weekly' AND DATE_FORMAT(Date, '%w') = DATE_FORMAT(@StartDate, '%w')) -- Weekly on the same day of the week
                                   OR 
-                                  (Type = 'Monthly' AND DAY(Date) = DAY(@StartDate)) -- Monthly on the same day of the month
+                                  (Type = 'Monthly') -- Monthly on the same day of the month
                                   OR 
                                   (Type IN ('Annually', 'Birthday', 'Milestone', 'Newyears', 'Christmas') AND MONTH(Date) = MONTH(@StartDate)) -- Annually on the same day and month
                                   OR 
