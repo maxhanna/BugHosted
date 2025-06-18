@@ -548,30 +548,38 @@ Posted by user @{topMeme.Username}<br><small>Daily top memes are selected based 
 	private async Task<MemeInfo?> GetMostPopularMemeTodayAsync(MySqlConnection conn, MySqlTransaction transaction)
 	{
 		const string sql = @"
-            SELECT 
-				fu.id,
-				fu.file_name,
-				fu.given_file_name,
-				fu.user_id,
-				fuu.username,
-				COUNT(DISTINCT c.id) AS comment_count,
-				COUNT(DISTINCT r.id) AS reaction_count
-			FROM file_uploads fu
-			LEFT JOIN users fuu ON fuu.id = fu.user_id
-			LEFT JOIN comments c ON c.file_id = fu.id
-			LEFT JOIN reactions r ON r.file_id = fu.id
-			WHERE 
-				fu.folder_path = @folderPath 
-				AND DATE(fu.upload_date) = CURDATE() 
-				AND fu.is_folder = 0 
-				AND fu.is_public = 1
-			GROUP BY fu.id, fu.file_name, fu.given_file_name, fu.user_id, fuu.username
-			HAVING(COUNT(DISTINCT c.id) + COUNT(DISTINCT r.id)) > 0
-			ORDER BY(COUNT(DISTINCT c.id) + COUNT(DISTINCT r.id)) DESC, fu.upload_date DESC
-			LIMIT 1";
+        SELECT 
+            fu.id,
+            fu.file_name,
+            fu.given_file_name,
+            fu.user_id,
+            fuu.username,
+            COUNT(DISTINCT c.id) AS comment_count,
+            COUNT(DISTINCT r.id) AS reaction_count
+        FROM file_uploads fu
+        LEFT JOIN users fuu ON fuu.id = fu.user_id
+        LEFT JOIN comments c ON c.file_id = fu.id
+        LEFT JOIN reactions r ON r.file_id = fu.id
+        WHERE 
+            fu.folder_path = @folderPath 
+            AND fu.is_folder = 0 
+            AND fu.is_public = 1
+            AND fu.id NOT IN (
+                SELECT sf.file_id 
+                FROM story_files sf
+                JOIN stories s ON s.id = sf.story_id
+                WHERE s.user_id = @serviceAccountId
+                AND s.story_text LIKE '%Daily Meme%'
+                ORDER BY s.date DESC 
+            )
+        GROUP BY fu.id, fu.file_name, fu.given_file_name, fu.user_id, fuu.username
+        HAVING (COUNT(DISTINCT c.id) + COUNT(DISTINCT r.id)) > 0
+        ORDER BY fu.upload_date DESC, (COUNT(DISTINCT c.id) + COUNT(DISTINCT r.id)) DESC
+        LIMIT 1";
 
 		using var cmd = new MySqlCommand(sql, conn, transaction);
 		cmd.Parameters.AddWithValue("@folderPath", MemeFolderPath);
+		cmd.Parameters.AddWithValue("@serviceAccountId", memeServiceAccountNo);
 
 		using var reader = await cmd.ExecuteReaderAsync();
 		if (await reader.ReadAsync())

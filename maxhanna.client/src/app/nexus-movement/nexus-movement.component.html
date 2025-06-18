@@ -17,7 +17,7 @@
             </select>
         </div>
         <div *ngIf="!movement.isCollapsed">
-            <div *ngIf="movement.paginatedData.length > 0; else noMovements">
+            <div *ngIf="movement.paginatedData.length > 0; else noMovements" class="movement-container">
                 <div *ngFor="let item of movement.paginatedData" class="movement-item">
                     <div class="movement-header">
                         <span class="movement-coords cursorPointerUnderlined"
@@ -36,7 +36,8 @@
                                 [displayHoverPicture]="true"></app-user-tag>
                         </span>
                         <span class="movement-eta" [class.urgent]="item.duration < 60">
-                            ⏱️ {{ formatRemainingTime(getRemainingTime(item)) }}                   
+                            <span>⏱️ {{ formatRemainingTime(getRemainingTime(item)) }}</span>
+                            <span class="xxSmallFont thirdFontColor" *ngIf="getRemainingTime(item) > 0">/{{formatRemainingTime(item.duration)}}</span>                
                         </span>
                     </div>
                     <div class="unit-summary">

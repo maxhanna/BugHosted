@@ -100,7 +100,7 @@
   display: flex; 
   flex-direction: column;
   text-shadow: 1px 1px var(--main-highlight-color);
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.4);
   padding: 4px 8px; /* Adjust as needed */
   border-radius: 4px; /* Optional: rounded corners */
 }

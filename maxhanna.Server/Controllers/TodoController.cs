@@ -127,6 +127,34 @@ namespace maxhanna.Server.Controllers
 			}
 		}
 
+
+		[HttpPost("/Todo/Edit", Name = "EditTodo")]
+		public async Task<IActionResult> Edit([FromBody] EditTodo req)
+		{
+			MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+			try
+			{
+				conn.Open();
+				string sql = @"
+                    UPDATE 
+                        maxhanna.todo
+                    SET todo = @Todo 
+					WHERE id = @Id
+					LIMIT 1;";
+				MySqlCommand cmd = new MySqlCommand(sql, conn);
+				cmd.Parameters.AddWithValue("@Todo", req.content);
+				cmd.Parameters.AddWithValue("@Id", req.id); 
+				var result = await cmd.ExecuteScalarAsync(); 
+				return Ok($"{req.id} Edit successful.");
+				
+			}
+			catch (Exception ex)
+			{
+				_ = _log.Db("An error occurred while processing the Edit request." + ex.Message, null, "TODO", true);
+				return StatusCode(500, "An error occurred while processing the edit request.");
+			}
+		}
+
 		[HttpPost("/Todo/GetSharedColumns", Name = "GetSharedColumns")]
 		public async Task<IActionResult> GetSharedColumns([FromBody] int userId)
 		{

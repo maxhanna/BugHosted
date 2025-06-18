@@ -33,16 +33,22 @@
         </tr>
       </thead>
       <tbody *ngIf="todos.length > 0">
-        <tr *ngFor="let item of todos" id="todoNo{{item.id!}}">
-          <td>
-            <div>{{ item.todo }}</div>
+        <tr *ngFor="let item of todos" id="todoNo{{item.id}}">
+          <td *ngIf="item.id">
+            <div>
+              <span class="todoText" *ngIf="!isEditing.includes(item.id)">{{ item.todo }}</span>
+              <textarea *ngIf="isEditing.includes(item.id)" [value]="item.todo" id="todoEditingTextarea" style="width:100%"></textarea>
+            </div>
             <app-media-viewer *ngIf="item.fileId" [fileId]="item.fileId" [inputtedParentRef]="parentRef"
               [showCommentSection]="false" [showMediaInformation]="true" [displayExpander]="true"
               [displayExtraInfo]="true"></app-media-viewer>
           </td>
           <td><a (click)="visitUrl(item.url)" *ngIf="item.url" [title]="item.url">🔗</a></td>
           <td class="todoDate" [title]="(item.date?.toString() ?? '').replace('T',' ')">{{ item.date | timeSince }}</td>
-          <td><input type="button" value="❌" (click)="deleteTodo(item.id!);" id="todoDeleteNo{{item.id!}}" /></td>
+          <td *ngIf="item.id" style="display:flex; gap: 5px; justify-content: space-around;">
+            <button (click)="editTodo(item.id)" [title]="'Edit'" class="xxSmallFont cursorPointer">{{ isEditing.includes(item.id) ? '💾':'✏️'}}</button>
+            <input type="button" value="❌" [title]="'Delete'" (click)="deleteTodo(item.id!);" id="todoDeleteNo{{item.id}}" class="xxSmallFont cursorPointer" />
+          </td>
         </tr>
       </tbody>
     </table><div *ngIf="todos.length <= 0 && !isLoading">Nothing in this list yet!</div>

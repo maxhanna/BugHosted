@@ -57,8 +57,14 @@
         <table id="songListTable" class="mainTable">
           <tbody>
             <tr *ngFor="let song of paginatedSongs" id="songId{{song.id!}}">
-              <td (click)="play(song.url, song.fileId)">{{song.todo}}</td>
-              <td style="width:0%;" *ngIf="!user"><input (click)="deleteSong(song.id!)" value="❌" type="submit" /></td>
+              <td (click)="play(song.url, song.fileId)" *ngIf="song.id" style="width:100%">
+                <span *ngIf="!isEditing.includes(song.id)">{{song.todo}}</span>
+                <textarea *ngIf="isEditing.includes(song.id)" [value]="song.todo" style="width:100%"></textarea>
+              </td>
+              <td style="width:0%; display:flex; gap: 5px;" *ngIf="!user && song.id">
+                <button (click)="editSong(song.id)" class="xxSmallFont cursorPointer">{{ isEditing.includes(song.id) ? '💾':'✏️'}}</button>
+                <input (click)="deleteSong(song.id)" value="❌" type="submit" class="xxSmallFont cursorPointer" /> 
+              </td>
             </tr>
           </tbody>
         </table>

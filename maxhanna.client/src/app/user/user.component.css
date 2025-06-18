@@ -173,15 +173,18 @@
   font-size: small;
 }
 
+.profileHeaderBubble {
+  min-width: 230px;
+}
+
 .profileHeaderInfo {
   display: flex;
   flex-direction: column;
   align-content: center;
   justify-content: center;
   align-items: center;
-  flex-wrap: nowrap;
-  min-width: 230px;
-  background: rgba(255, 255, 255, 0.1);
+  flex-wrap: nowrap; 
+  background: rgba(255, 255, 255, 0.4);
     padding: 4px 8px;
     /* Adjust as needed */
     border-radius: 4px;

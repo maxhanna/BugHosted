@@ -1,0 +1,23 @@
+.calendar-controls {
+    display: flex;
+    justify-content: center;
+    gap: 1rem;
+    margin-bottom: 1rem;
+    align-items: center;
+    font-size: small;
+}
+.event-card {
+    background: linear-gradient(135deg, var(--component-background-color), var(--secondary-component-background-color));
+    border: var(--main-border);
+    padding: 1rem;
+    margin-bottom: 1rem;
+    border-radius: 8px;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+}
+.event-card-container {
+    max-height: 400px;
+    overflow: auto;
+    padding: 10px;
+}

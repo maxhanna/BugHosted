@@ -6,8 +6,8 @@ import { Pipe, PipeTransform } from '@angular/core';
   standalone: false
 })
 export class CurrencyShortenPipe implements PipeTransform {
-  transform(value: number, onMobile: boolean): string {
-    if (!onMobile) {
+  transform(value: number, showLess?: boolean): string {
+    if (showLess != undefined && showLess == true) {
       return '$' + value.toLocaleString();
     }
 

@@ -37,6 +37,7 @@ export class MusicComponent extends ChildComponent implements OnInit, AfterViewI
   totalPages = 1;
   isSongListCollapsed = false;
   selectedType: 'youtube' | 'file' = 'youtube';
+  isEditing: number[] = [];
 
   @Input() user?: User;
   @Input() songPlaylist?: Todo[];
@@ -343,5 +344,27 @@ export class MusicComponent extends ChildComponent implements OnInit, AfterViewI
     }
     this.youtubeSongs = this.songs.filter(song => this.parentRef?.isYoutubeUrl(song.url));
     this.fileSongs = this.songs.filter((song: Todo) => !this.parentRef?.isYoutubeUrl(song.url));
+  }
+
+  async editSong(id?: number) {
+    if (!id) return;
+    if (!this.isEditing.includes(id)) {
+      this.isEditing.push(id);
+    } else {
+      const todoDiv = document.getElementById('songId' + id) as HTMLTableCellElement;
+      const textArea = todoDiv.getElementsByTagName("textarea")[0];
+
+      try {
+        await this.todoService.editTodo(id, textArea.value);
+        const todoIndex = this.songs.findIndex(todo => todo.id === id);
+        if (todoIndex !== -1) {
+          this.songs[todoIndex].todo = textArea.value;
+        }
+        this.isEditing = this.isEditing.filter(x => x !== id);
+      } catch (error) {
+        console.error("Error updating todo:", error);
+        this.parentRef?.showNotification("Failed to update todo");
+      }
+    }
   }
 }

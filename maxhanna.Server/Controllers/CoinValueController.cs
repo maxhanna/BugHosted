@@ -799,7 +799,160 @@ namespace maxhanna.Server.Controllers
 
 			return exchangeRates;
 		}
+		/// <summary>
+		/// Return the CoinMarketCap Fear & Greed index values for the last N days.
+		/// Defaults to the last 7 days if no daysBack is supplied.
+		/// </summary>
+		[HttpPost("/CoinValue/FearGreedIndex", Name = "GetFearGreedIndex")]
+		public async Task<IActionResult> GetFearGreedIndex(
+			[FromQuery] int daysBack = 7,   // how many days to look backwards (inclusive)
+			[FromQuery] int? limit = null)  // optional hard row cap
+		{
+			try
+			{
+				await using var conn = new MySqlConnection(
+					_config.GetValue<string>("ConnectionStrings:maxhanna"));
+				await conn.OpenAsync();
+ 
+				var sql = @"
+					SELECT
+						timestamp_utc,
+						value,
+						classification
+					FROM crypto_fear_greed
+					WHERE timestamp_utc >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL @DaysBack DAY)";
 
+				if (limit is not null && limit > 0)
+					sql += " ORDER BY timestamp_utc DESC LIMIT @Limit;";
+				else
+					sql += " ORDER BY timestamp_utc DESC;";
+
+				var results = new List<FearGreedResponse>();
+
+				await using (var cmd = new MySqlCommand(sql, conn))
+				{
+					cmd.Parameters.AddWithValue("@DaysBack", daysBack);
+					if (limit is not null && limit > 0)
+						cmd.Parameters.AddWithValue("@Limit", limit);
+
+					await using var rdr = await cmd.ExecuteReaderAsync();
+					while (await rdr.ReadAsync())
+					{
+						results.Add(new FearGreedResponse
+						{
+							TimestampUtc = rdr.GetDateTime("timestamp_utc"),
+							Value = rdr.GetInt32("value"),
+							Classification = rdr.IsDBNull(rdr.GetOrdinal("classification"))
+												? null
+												: rdr.GetString("classification")
+						});
+					}
+				}
+
+				return Ok(new
+				{
+					Success = true,
+					Count = results.Count,
+					Indices = results
+				});
+			}
+			catch (Exception ex)
+			{
+				_ = _log.Db($"Error fetching Fear & Greed index: {ex.Message}",
+							 0, "FEAR_GREED", true);
+				return StatusCode(500, new
+				{
+					Success = false,
+					Message = "An error occurred while fetching Fear & Greed index data"
+				});
+			}
+		}
+		[HttpPost("/CoinValue/CryptoCalendarEvents", Name = "GetCryptoCalendarEvents")]
+		public async Task<IActionResult> GetCryptoCalendarEvents(
+			[FromQuery] int daysAhead = 7,
+			[FromQuery] int limit = 50,
+			[FromQuery] string? coinSymbol = null)
+		{
+			try
+			{
+				using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+				await conn.OpenAsync();
+
+				var query = @"
+					SELECT 
+						event_id,
+						title,
+						coin_symbol,
+						coin_name,
+						event_date,
+						created_date,
+						source,
+						description,
+						is_hot,
+						proof_url
+					FROM crypto_calendar_events
+					WHERE event_date >= UTC_DATE() 
+  					AND event_date <  DATE_ADD(UTC_DATE(), INTERVAL @DaysAhead + 1 DAY);
+				";
+
+				// Add coin filter if specified
+				if (!string.IsNullOrEmpty(coinSymbol))
+				{
+					query += " AND coin_symbol = @CoinSymbol ";
+				}
+
+				query += " ORDER BY event_date ASC LIMIT @Limit ";
+
+				var events = new List<CryptoCalendarEventResponse>();
+
+				using (var cmd = new MySqlCommand(query.ToString(), conn))
+				{
+					cmd.Parameters.AddWithValue("@DaysAhead", daysAhead);
+					cmd.Parameters.AddWithValue("@Limit", limit);
+
+					if (!string.IsNullOrEmpty(coinSymbol))
+					{
+						cmd.Parameters.AddWithValue("@CoinSymbol", coinSymbol.ToUpper());
+					}
+
+					await using (var reader = await cmd.ExecuteReaderAsync())
+					{
+						while (await reader.ReadAsync())
+						{
+							events.Add(new CryptoCalendarEventResponse
+							{
+								EventId = reader.GetString("event_id"),
+								Title = reader.GetString("title"),
+								CoinSymbol = reader.GetString("coin_symbol"),
+								CoinName = reader.GetString("coin_name"),
+								EventDate = reader.GetDateTime("event_date"),
+								CreatedDate = reader.GetDateTime("created_date"),
+								Source = reader.IsDBNull(reader.GetOrdinal("source")) ? null : reader.GetString("source"),
+								Description = reader.IsDBNull(reader.GetOrdinal("description")) ? null : reader.GetString("description"),
+								IsHot = reader.GetBoolean("is_hot"),
+								ProofUrl = reader.IsDBNull(reader.GetOrdinal("proof_url")) ? null : reader.GetString("proof_url")
+							});
+						}
+					}
+				}
+
+				return Ok(new
+				{
+					Success = true,
+					Count = events.Count,
+					Events = events
+				});
+			}
+			catch (Exception ex)
+			{
+				_ = _log.Db($"Error fetching crypto calendar events: {ex.Message}", 0, "CRYPTO_CALENDAR", true);
+				return StatusCode(500, new
+				{
+					Success = false,
+					Message = "An error occurred while fetching crypto calendar events"
+				});
+			}
+		}
 
 
 		[HttpPost("/CoinValue/BTCWalletAddresses/Update", Name = "UpdateBTCWalletAddresses")]
@@ -906,6 +1059,7 @@ namespace maxhanna.Server.Controllers
 				var xrpTask = GetWalletFromDb(userId, "xrp");
 				var solTask = GetWalletFromDb(userId, "sol");
 				var dogeTask = GetWalletFromDb(userId, "xdg");
+				var ethTask = GetWalletFromDb(userId, "eth");
 				await Task.WhenAll(btcTask, usdcTask, xrpTask, solTask, dogeTask);
 
 				var btcWallet = await btcTask;
@@ -913,13 +1067,15 @@ namespace maxhanna.Server.Controllers
 				var xrpWallet = await xrpTask;
 				var solWallet = await solTask;
 				var dogeWallet = await dogeTask;
+				var ethWallet = await ethTask;
 
 				// Early exit if no valid wallets
 				if (btcWallet?.currencies?.Count == 0
 					&& usdcWallet?.currencies?.Count == 0
 					&& xrpWallet?.currencies?.Count == 0
 					&& solWallet?.currencies?.Count == 0
-					&& dogeWallet?.currencies?.Count == 0)
+					&& dogeWallet?.currencies?.Count == 0
+					&& ethWallet?.currencies?.Count == 0)
 				{
 					return NotFound("No wallet addresses found for the user.");
 				}
@@ -931,6 +1087,7 @@ namespace maxhanna.Server.Controllers
 				if (xrpWallet?.currencies?.Count > 0) returns.Add(xrpWallet);
 				if (solWallet?.currencies?.Count > 0) returns.Add(solWallet);
 				if (dogeWallet?.currencies?.Count > 0) returns.Add(dogeWallet);
+				if (ethWallet?.currencies?.Count > 0) returns.Add(ethWallet);
 
 				return returns.Count > 0 ? Ok(returns) : NotFound("No valid wallet data found.");
 			}
@@ -994,7 +1151,7 @@ namespace maxhanna.Server.Controllers
 		{
 			if (userId == null) { return null; }
 			type = type.ToLower();
-			if (type != "btc" && type != "usdc" && type != "xrp" && type != "sol" && type != "xdg") return null;
+			if (type != "btc" && type != "usdc" && type != "xrp" && type != "sol" && type != "xdg" && type != "eth") return null;
 			var wallet = new CryptoWallet
 			{
 				total = new Total
@@ -1028,7 +1185,7 @@ namespace maxhanna.Server.Controllers
 						JOIN user_{type}_wallet_balance wb ON latest.wallet_id = wb.wallet_id 
 							AND latest.latest_fetch = wb.fetched_at
 						WHERE wi.user_id = @UserId;
-						);"; 
+						);";
 					using (var cmd = new MySqlCommand(sql, conn))
 					{
 						cmd.Parameters.AddWithValue("@UserId", userId);
@@ -1098,5 +1255,11 @@ namespace maxhanna.Server.Controllers
 		public string? TargetCurrency { get; set; }
 		public decimal Rate { get; set; }
 		public DateTime Timestamp { get; set; }
+	}
+	public class FearGreedResponse
+	{
+		public DateTime TimestampUtc { get; set; }
+		public int Value { get; set; }
+		public string? Classification { get; set; }
 	}
 }

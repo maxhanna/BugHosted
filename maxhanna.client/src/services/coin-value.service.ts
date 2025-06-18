@@ -1,14 +1,14 @@
 import { Injectable } from '@angular/core';
-import { HttpClient, HttpParams } from '@angular/common/http'; 
+import { HttpClient, HttpParams } from '@angular/common/http';
 import { CoinValue } from './datacontracts/crypto/coin-value';
 import { ExchangeRate } from './datacontracts/crypto/exchange-rate';
 import { User } from './datacontracts/user/user';
 import { MiningWalletResponse } from './datacontracts/crypto/mining-wallet-response';
- 
+
 @Injectable({
   providedIn: 'root'
 })
-export class CoinValueService { 
+export class CoinValueService {
 
   constructor(private http: HttpClient) { }
 
@@ -35,7 +35,7 @@ export class CoinValueService {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({From: from, HourRange: hourRange}),
+        body: JSON.stringify({ From: from, HourRange: hourRange }),
       });
 
       return await response.json();
@@ -82,8 +82,8 @@ export class CoinValueService {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-        }, 
-        body: JSON.stringify({From: from, HourRange: hourRange, Currency: currency}),
+        },
+        body: JSON.stringify({ From: from, HourRange: hourRange, Currency: currency }),
       });
 
       return await response.json();
@@ -112,7 +112,7 @@ export class CoinValueService {
   async getUniqueCurrencyNames() {
     try {
       const response = await fetch(`/currencyvalue/getuniquenames`, {
-        method: 'POST', 
+        method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
@@ -196,7 +196,7 @@ export class CoinValueService {
       return null;
     }
   }
-  async isBTCRising() {  
+  async isBTCRising() {
     try {
       const response = await fetch(`/coinvalue/isbtcrising`, {
         method: 'POST',
@@ -225,6 +225,60 @@ export class CoinValueService {
       console.log(error);
     }
   }
+  async fetchCryptoCalendarEvents(daysAhead = 7, limit = 50, coinSymbol = null) {
+    try {
+      const url = new URL('/coinvalue/cryptocalendarevents', window.location.origin);
+
+      // Add query parameters
+      url.searchParams.append('daysAhead', daysAhead.toString());
+      url.searchParams.append('limit', limit.toString());
+      if (coinSymbol) {
+        url.searchParams.append('coinSymbol', coinSymbol);
+      }
+
+      const response = await fetch(url.toString(), {
+        method: 'POST', // It uses POST even though it reads data
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) throw new Error('Network response was not ok');
+
+      const result = await response.json();
+      return result;
+    } catch (error) {
+      console.error('Error fetching crypto calendar events:', error);
+      return null;
+    }
+  }
+
+
+  async fetchCryptoFearAndGreed(daysAhead = 7, limit = 50) {
+    try {
+      const url = new URL('/coinvalue/feargreedindex', window.location.origin);
+
+      // Add query parameters
+      url.searchParams.append('daysAhead', daysAhead.toString());
+      url.searchParams.append('limit', limit.toString()); 
+
+      const response = await fetch(url.toString(), {
+        method: 'POST', // It uses POST even though it reads data
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) throw new Error('Network response was not ok');
+
+      const result = await response.json();
+      return result;
+    } catch (error) {
+      console.error('Error fetching crypto fear and greed index:', error);
+      return null;
+    }
+  }
+
   async getBTCWallet(userId: number, encryptedUserId: string) {
     try {
       const response = await fetch('/coinvalue/btcwallet/getbtcwalletdata', {
@@ -260,7 +314,7 @@ export class CoinValueService {
     } catch (error) {
       return [];
     }
-  } 
+  }
   async deleteBTCWalletAddress(userId: number, address: string, encryptedUserId: string) {
     try {
       const response = await fetch('/coinvalue/btcwallet/deletebtcwalletaddress', {
@@ -279,4 +333,10 @@ export class CoinValueService {
       return [];
     }
   }
+}
+
+export interface FearGreedPoint {
+  timestampUtc: string;   // ISO string
+  value: number;          // 0‑100
+  classification?: string;
 }

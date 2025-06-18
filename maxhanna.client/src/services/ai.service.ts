@@ -39,6 +39,27 @@ export class AiService {
     }
   }
 
+
+  async getMarketSentiment(startDate?: string, endDate?: string) {
+    try {
+      const body = JSON.stringify({ startDate, endDate });
+
+      const response = await fetch('/ai/getmarketsentiment', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body,
+      });
+
+      return await response.json();
+    } catch (error) {
+      console.error('Failed to get market sentiment:', error);
+      return null;
+    }
+  }
+  
+
   parseMessage(message: string): string {
     if (!message) return '';
 

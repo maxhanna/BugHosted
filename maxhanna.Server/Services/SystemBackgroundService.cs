@@ -1,4 +1,5 @@
-﻿using maxhanna.Server.Controllers.DataContracts.Crypto;
+﻿using maxhanna.Server.Controllers;
+using maxhanna.Server.Controllers.DataContracts.Crypto;
 using maxhanna.Server.Controllers.DataContracts.Users;
 using maxhanna.Server.Controllers.Helpers;
 using MySqlConnector;
@@ -15,13 +16,13 @@ namespace maxhanna.Server.Services
 		private readonly HttpClient _httpClient;
 		private readonly WebCrawler _webCrawler;
 		private readonly KrakenService _krakenService;
+		private readonly AiController _aiController;
 		private readonly NewsService _newsService;
 		private readonly ProfitCalculationService _profitService;
 		private readonly TradeIndicatorService _indicatorService;
 		private readonly MiningApi _miningApiService = new MiningApi();
 		private readonly Log _log;
-		private readonly IConfiguration _config; // needed for apiKey
-		private Timer _halfSecondTimer;
+		private readonly IConfiguration _config; // needed for apiKey 
 		private Timer _tenSecondTimer;
 		private Timer _halfMinuteTimer;
 		private Timer _minuteTimer;
@@ -32,35 +33,38 @@ namespace maxhanna.Server.Services
 		private bool isCrawling = false;
 		private bool lastWasCrypto = false;
 
-		public SystemBackgroundService(Log log, IConfiguration config, WebCrawler webCrawler, KrakenService krakenService, 
+		private static readonly SemaphoreSlim _tradeLock = new SemaphoreSlim(1, 1);
+		private static readonly System.Diagnostics.Stopwatch _tradeTimer = new System.Diagnostics.Stopwatch();
+
+
+		public SystemBackgroundService(Log log, IConfiguration config, WebCrawler webCrawler, AiController aiController, KrakenService krakenService,
 										NewsService newsService, ProfitCalculationService profitService,
 										TradeIndicatorService indicatorService)
-		{ 
+		{
 			_config = config;
 			_connectionString = config.GetValue<string>("ConnectionStrings:maxhanna")!;
 			_apiKey = config.GetValue<string>("CoinWatch:ApiKey")!;
 			_httpClient = new HttpClient();
 			_webCrawler = webCrawler;
+			_aiController = aiController;
 			_log = log;
 			_krakenService = krakenService;
 			_newsService = newsService;
 			_profitService = profitService;
 			_indicatorService = indicatorService;
-
-			_halfSecondTimer = new Timer(async _ => await RunHalfSecondTasks(), null, Timeout.Infinite, Timeout.Infinite); 
+ 
 			_tenSecondTimer = new Timer(async _ => await Run10SecondTasks(), null, Timeout.Infinite, Timeout.Infinite);
 			_halfMinuteTimer = new Timer(async _ => await Run30SecondTasks(), null, Timeout.Infinite, Timeout.Infinite);
 			_minuteTimer = new Timer(async _ => await FetchWebsiteMetadata(), null, Timeout.Infinite, Timeout.Infinite);
 			_fiveMinuteTimer = new Timer(async _ => await RunFiveMinuteTasks(), null, Timeout.Infinite, Timeout.Infinite);
-			_hourlyTimer = new Timer(async _ => await AssignTrophies(), null, Timeout.Infinite, Timeout.Infinite);
+			_hourlyTimer = new Timer(async _ => await RunHourlyTasks(), null, Timeout.Infinite, Timeout.Infinite);
 			_sixHourTimer = new Timer(async _ => await RunSixHourTasks(), null, Timeout.Infinite, Timeout.Infinite);
 			_dailyTimer = new Timer(async _ => await RunDailyTasks(), null, Timeout.Infinite, Timeout.Infinite);
 		}
 
 		protected override async Task ExecuteAsync(CancellationToken stoppingToken)
 		{
-			// Start all timers 
-			_halfSecondTimer.Change(TimeSpan.Zero, TimeSpan.FromMilliseconds(500));
+			// Start all timers  
 			_tenSecondTimer.Change(TimeSpan.Zero, TimeSpan.FromSeconds(10));
 			_halfMinuteTimer.Change(TimeSpan.Zero, TimeSpan.FromSeconds(30));
 			_minuteTimer.Change(TimeSpan.Zero, TimeSpan.FromMinutes(1));
@@ -74,11 +78,7 @@ namespace maxhanna.Server.Services
 			{
 				await Task.Delay(1000, stoppingToken);
 			}
-		}
-		private async Task RunHalfSecondTasks()
-		{ 
-			await fixCoinValueTable();
-		}
+		} 
 		private async Task Run10SecondTasks()
 		{
 			await MakeCryptoTrade(); 
@@ -88,7 +88,7 @@ namespace maxhanna.Server.Services
 			await SpawnEncounterMetabots();
 		}
 		private async Task RunFiveMinuteTasks()
-		{
+		{ 
 			await UpdateLastBTCWalletInfo();
 			await FetchAndStoreCoinValues();
 			_miningApiService.UpdateWalletInDB(_config, _log);
@@ -103,6 +103,14 @@ namespace maxhanna.Server.Services
 			await FetchExchangeRates();
 			await _profitService.CalculateWeeklyProfits();
 			await _profitService.CalculateMonthlyProfits();
+			await FetchAndStoreCryptoEvents();
+			await FetchAndStoreFearGreedAsync();
+		}
+
+		private async Task RunHourlyTasks()
+		{
+			await AssignTrophies();
+			await _aiController.ProvideMarketAnalysis();
 		}
 
 		private async Task RunDailyTasks()
@@ -137,6 +145,207 @@ namespace maxhanna.Server.Services
 			_dailyTimer?.Change(Timeout.Infinite, Timeout.Infinite);
 
 			await base.StopAsync(cancellationToken);
+		}
+
+		private async Task FetchAndStoreFearGreedAsync()
+		{
+			await _log.Db("Fetching Fear & Greed index...", null, "FGI", outputToConsole: true);
+			await using (var conn1 = new MySqlConnection(_connectionString))
+			{
+				await conn1.OpenAsync();
+
+				const string latestSql = "SELECT MAX(updated) FROM crypto_fear_greed;";
+				await using var latestCmd = new MySqlCommand(latestSql, conn1);
+				var latestObj = await latestCmd.ExecuteScalarAsync();
+
+				if (latestObj is DateTime lastUpdated &&
+					lastUpdated >= DateTime.UtcNow.AddDays(-1))
+				{
+					await _log.Db(
+						$"Fear-and-Greed already stored @ {lastUpdated:u}; skipped pull.",
+						null, "FGI", outputToConsole: true);
+					return;
+				}
+			}
+
+			// 1. Grab the API key you put in appsettings.json
+			var apiKey = _config.GetValue<string>("CoinMarketCap:ApiKey");
+			if (string.IsNullOrWhiteSpace(apiKey))
+			{
+				await _log.Db("CoinMarketCap API key missing", null, "FGI", outputToConsole: true);
+				return;
+			}
+
+			// 2. Call /v3/fear‑and‑greed/latest
+			string json;
+			using (var http = new HttpClient())
+			{
+				var req = new HttpRequestMessage
+				{
+					Method = HttpMethod.Get,
+					RequestUri = new Uri("https://pro-api.coinmarketcap.com/v3/fear-and-greed/latest"),
+				};
+				req.Headers.Add("X-CMC_PRO_API_KEY", apiKey);
+				req.Headers.Add("Accepts", "application/json");
+
+				using var resp = await http.SendAsync(req);
+				resp.EnsureSuccessStatusCode();
+				json = await resp.Content.ReadAsStringAsync();
+			}
+
+			// 3. Pull out the fields we care about
+			var root = Newtonsoft.Json.Linq.JObject.Parse(json);
+			var dataToken = root["data"];                 // object, not an array, for “latest”
+			var indexValue = dataToken?["value"]?.ToObject<int>() ?? 0;
+			var classification = dataToken?["value_classification"]?.ToObject<string>();
+			var timestampUtc = dataToken?["timestamp"]?.ToObject<DateTime>() ?? DateTime.UtcNow; 
+			// 4. Insert / update
+			await using var conn = new MySqlConnection(_connectionString);
+			await conn.OpenAsync();
+
+			// quick duplicate check (optional)
+			const string existsSql = @"SELECT 1 FROM crypto_fear_greed
+                               WHERE timestamp_utc = @ts
+                                 AND updated >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 3 HOUR)
+                               LIMIT 1;";
+			await using (var exists = new MySqlCommand(existsSql, conn))
+			{
+				exists.Parameters.AddWithValue("@ts", timestampUtc);
+				if (await exists.ExecuteScalarAsync() is not null)
+				{
+					await _log.Db("Fear‑and‑Greed already up‑to‑date, skipping.", null, "FGI", outputToConsole: true);
+					return;
+				}
+			}
+
+			const string upsertSql = @"
+				INSERT INTO crypto_fear_greed (timestamp_utc, value, classification, updated)
+				VALUES (@ts, @val, @class, UTC_TIMESTAMP())
+				ON DUPLICATE KEY UPDATE
+					value          = VALUES(value),
+					classification = VALUES(classification),
+					updated        = VALUES(updated);";
+
+			await using (var cmd = new MySqlCommand(upsertSql, conn))
+			{
+				cmd.Parameters.AddWithValue("@ts", timestampUtc);
+				cmd.Parameters.AddWithValue("@val", indexValue);
+				cmd.Parameters.AddWithValue("@class", classification);
+				await cmd.ExecuteNonQueryAsync();
+			}
+
+			await _log.Db($"Stored Fear & Greed = {indexValue} ({classification}) @ {timestampUtc:u}", null, "FGI", outputToConsole: true);
+		} 
+
+		private async Task FetchAndStoreCryptoEvents()
+		{
+			await _log.Db("Fetching Crypto Calendar of events...", null, "CCS", outputToConsole: true);
+
+			try
+			{
+				await using (var conn1 = new MySqlConnection(_connectionString))
+				{
+					await conn1.OpenAsync();
+
+					var recentExistsSql = @"
+						SELECT 1
+						FROM crypto_calendar_events
+						WHERE updated >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 1 DAY)
+						LIMIT 1;";
+
+					await using (var recentCmd = new MySqlCommand(recentExistsSql, conn1))
+					{
+						var hasRecent = await recentCmd.ExecuteScalarAsync() is not null;
+						if (hasRecent)
+						{
+							await _log.Db("Crypto-calendar already updated in the last 24 h. Skipping fetch.", null, "CCS", outputToConsole: true);
+							return;
+						}
+					}
+				}
+
+				var apiKey = _config.GetValue<string>("CoinMarketCal:ApiKey");
+				if (string.IsNullOrEmpty(apiKey))
+				{
+					await _log.Db("CoinMarketCal API key is missing in configuration", null, "CCS", outputToConsole: true);
+					return;
+				}
+
+				using var httpClient = new HttpClient();
+				var request = new HttpRequestMessage
+				{
+					Method = HttpMethod.Get,
+					RequestUri = new Uri("https://developers.coinmarketcal.com/v1/events?max=100"),
+					Headers =
+					{
+						{ "Accept", "application/json" },
+						{ "x-api-key", apiKey },
+					},
+				};
+
+				using var response = await httpClient.SendAsync(request);
+				response.EnsureSuccessStatusCode();
+
+				var responseBody = await response.Content.ReadAsStringAsync();
+				//Console.WriteLine("Received response: " + responseBody);
+				var eventsResponse = JsonConvert.DeserializeObject<CoinMarketCalResponse>(responseBody);
+
+				if (eventsResponse?.Body == null || eventsResponse.Body.Count == 0)
+				{
+					await _log.Db("No events found in CoinMarketCal response", null, "CCS", outputToConsole: true);
+					return;
+				}
+
+				await using var conn = new MySqlConnection(_connectionString);
+				await conn.OpenAsync();
+
+				// Delete events older than 10 years
+				var deleteOldSql = "DELETE FROM crypto_calendar_events WHERE event_date < DATE_SUB(UTC_TIMESTAMP(), INTERVAL 10 YEAR);";
+				await using (var deleteCmd = new MySqlCommand(deleteOldSql, conn))
+				{
+					await deleteCmd.ExecuteNonQueryAsync();
+				}
+
+				foreach (var eventItem in eventsResponse.Body)
+				{
+					//Console.WriteLine($"Processing event: ID={eventItem?.Id}, Title={eventItem?.TitleText}, DateEvent={eventItem?.DateEvent}");
+
+					var insertSql = @"
+						INSERT INTO crypto_calendar_events 
+						(event_id, title, coin_symbol, coin_name, event_date, created_date, source, description, is_hot, proof_url, updated)
+						VALUES (@eventId, @title, @coinSymbol, @coinName, @eventDate, @createdDate, @source, @description, @isHot, @proofUrl, UTC_TIMESTAMP())
+						ON DUPLICATE KEY UPDATE 
+							title = VALUES(title),
+							event_date = VALUES(event_date),
+							created_date = VALUES(created_date),
+							source = VALUES(source),
+							description = VALUES(description),
+							is_hot = VALUES(is_hot),
+							proof_url = VALUES(proof_url);";
+
+					await using (var insertCmd = new MySqlCommand(insertSql, conn))
+					{
+						insertCmd.Parameters.AddWithValue("@eventId", eventItem?.Id);
+						insertCmd.Parameters.AddWithValue("@title", eventItem?.TitleText);
+						insertCmd.Parameters.AddWithValue("@coinSymbol", eventItem?.Coins?[0].Symbol);
+						insertCmd.Parameters.AddWithValue("@coinName", eventItem?.Coins?[0].Name);
+						insertCmd.Parameters.AddWithValue("@eventDate", eventItem?.DateEvent);
+						insertCmd.Parameters.AddWithValue("@createdDate", eventItem?.CreatedDate);
+						insertCmd.Parameters.AddWithValue("@source", eventItem?.Source);
+						insertCmd.Parameters.AddWithValue("@description", eventItem?.Description);
+						insertCmd.Parameters.AddWithValue("@isHot", eventItem?.IsHot);
+						insertCmd.Parameters.AddWithValue("@proofUrl", eventItem?.Proof);
+
+						await insertCmd.ExecuteNonQueryAsync();
+					}
+				}
+
+				await _log.Db($"Successfully stored {eventsResponse.Body.Count} crypto events", null, "CCS", outputToConsole: true);
+			}
+			catch (Exception ex)
+			{
+				await _log.Db($"Error fetching crypto events: {ex.Message}", null, "CCS", outputToConsole: true);
+			}
 		}
 		//private async Task PostRandomMemeToTwitter()
 		//{
@@ -261,138 +470,73 @@ namespace maxhanna.Server.Services
 
             return null;
         }
-
-        private async Task<decimal> GetClosestExchangeRate(
-            MySqlConnection connection, 
-            DateTime timestamp)
-        {
-            const string sql = @"
-                (SELECT rate, ABS(TIMESTAMPDIFF(SECOND, timestamp, @timestamp)) as diff
-                 FROM exchange_rates
-                 WHERE base_currency = 'CAD'
-                 AND target_currency = 'USD'
-                 AND timestamp <= @timestamp
-                 ORDER BY timestamp DESC
-                 LIMIT 1)
-                UNION ALL
-                (SELECT rate, ABS(TIMESTAMPDIFF(SECOND, timestamp, @timestamp)) as diff
-                 FROM exchange_rates
-                 WHERE base_currency = 'CAD'
-                 AND target_currency = 'USD'
-                 AND timestamp > @timestamp
-                 ORDER BY timestamp ASC
-                 LIMIT 1)
-                ORDER BY diff ASC
-                LIMIT 1";
-
-            using var cmd = new MySqlCommand(sql, connection);
-            cmd.Parameters.AddWithValue("@timestamp", timestamp);
-            
-            var result = await cmd.ExecuteScalarAsync();
-            return result != null ? Convert.ToDecimal(result) : 0.705m; // Default fallback rate
-        }
-
-        private async Task UpdateUsdValue(
-            MySqlConnection connection, 
-            int id, 
-            decimal usdValue)
-        {
-            const string sql = @"
-                UPDATE coin_value
-                SET value_usd = @usdValue
-                WHERE id = @id";
-
-            using var cmd = new MySqlCommand(sql, connection);
-            cmd.Parameters.AddWithValue("@id", id);
-            cmd.Parameters.AddWithValue("@usdValue", usdValue);
-            
-            await cmd.ExecuteNonQueryAsync();
-        }
-
-		private async Task fixCoinValueTable()
-		{
-			using var connection = new MySqlConnection(_connectionString);
-			await connection.OpenAsync();
-			// 1. Get the next unprocessed Bitcoin row
-			var coinRow = await GetNextUnprocessedRow(connection);
-			if (coinRow == null)
-			{
-				_ = _log.Db("No more rows to process...", outputToConsole: true);
-				return;
-			}
-
-			// 2. Get the closest exchange rate
-			var exchangeRate = await GetClosestExchangeRate(
-				connection,
-				coinRow.Timestamp);
-
-			// 3. Update the row
-			await UpdateUsdValue(
-				connection,
-				coinRow.Id,
-				coinRow.ValueCad * exchangeRate);
-
-			//_=_log.Db($"Updated ID {coinRow.Id} with rate {exchangeRate}", outputToConsole: true);
-
-		}
-
+  
 		private async Task MakeCryptoTrade()
 		{
-			UserKrakenApiKey? ownerkeys = await _krakenService.GetApiKey(1);
-			if (ownerkeys == null || string.IsNullOrEmpty(ownerkeys.ApiKey) || string.IsNullOrEmpty(ownerkeys.PrivateKey))
+			// Try to acquire the lock, return immediately if already locked
+			if (!await _tradeLock.WaitAsync(0))
 			{
-				_ = _log.Db("No Kraken API keys found for userId: 1", 1, "SYSTEM", true);
 				return;
 			}
+
 			try
 			{
-				await SaveVolumeDataAsync(1, "XBTUSDC", ownerkeys);
-				await SaveVolumeDataAsync(1, "XRPUSDC", ownerkeys);
+				UserKrakenApiKey? ownerkeys = await _krakenService.GetApiKey(1);
+				if (ownerkeys == null || string.IsNullOrEmpty(ownerkeys.ApiKey) || string.IsNullOrEmpty(ownerkeys.PrivateKey))
+				{
+					await _log.Db("No Kraken API keys found for userId: 1", 1, "SYSTEM", true);
+					return;
+				}
+
+				try
+				{
+					await SaveVolumeDataAsync(1, "XBTUSDC", ownerkeys);
+					await SaveVolumeDataAsync(1, "XRPUSDC", ownerkeys);
+					await SaveVolumeDataAsync(1, "XDGUSDC", ownerkeys);
+					await SaveVolumeDataAsync(1, "ETHUSDC", ownerkeys);
+					await SaveVolumeDataAsync(1, "SOLUSDC", ownerkeys);
+				}
+				catch (Exception ex)
+				{
+					await _log.Db("Exception while getting volumes before trading : " + ex.Message, null);
+					return;
+				}
+
+				_tradeTimer.Restart();
+
+				foreach (var crypto in new[] { "BTC", "XRP", "SOL", "XDG", "ETH" })
+				{
+					var iterationStart = _tradeTimer.Elapsed;
+
+					var activeUsers = await _krakenService.GetActiveTradeBotUsers(crypto, null);
+
+					foreach (var userId in activeUsers)
+					{
+						UserKrakenApiKey? keys = await _krakenService.GetApiKey(userId);
+						if (keys == null || string.IsNullOrEmpty(keys.ApiKey) || string.IsNullOrEmpty(keys.PrivateKey))
+						{
+							await _log.Db("No Kraken API keys found for this user", userId, "SYSTEM", true);
+							continue; // Changed from return to continue to process other users
+						}
+
+						await _krakenService.MakeATrade(userId, crypto, keys);
+					}
+
+					// Ensure at least 1 second between crypto iterations
+					var elapsed = _tradeTimer.Elapsed - iterationStart;
+					if (elapsed < TimeSpan.FromSeconds(1))
+					{
+						await Task.Delay(TimeSpan.FromSeconds(1) - elapsed);
+					}
+				}
 			}
 			catch (Exception ex)
 			{
-				_ = _log.Db("Exception while getting volumes before trading : " + ex.Message, null);
-				return;
+				await _log.Db($"Exception while trading: {ex.Message}", null);
 			}
-
-			var activeBTCUsers = await _krakenService.GetActiveTradeBotUsers("BTC", null);
-			foreach (var userId in activeBTCUsers)
+			finally
 			{
-				try
-				{
-					UserKrakenApiKey? keys = await _krakenService.GetApiKey(userId);
-					if (keys == null || string.IsNullOrEmpty(keys.ApiKey) || string.IsNullOrEmpty(keys.PrivateKey))
-					{
-						_ = _log.Db("No Kraken API keys found for this user", userId, "SYSTEM", true);
-						return;
-					}
-					await _krakenService.MakeATrade(userId, "BTC", keys);
-				}
-				catch (Exception ex)
-				{
-					_ = _log.Db("Exception while trading : " + ex.Message, null);
-					return;
-				}
-			}
-
-			var activeXRPUsers = await _krakenService.GetActiveTradeBotUsers("XRP", null);
-			foreach (var userId in activeXRPUsers)
-			{
-				try
-				{
-					UserKrakenApiKey? keys = await _krakenService.GetApiKey(userId);
-					if (keys == null || string.IsNullOrEmpty(keys.ApiKey) || string.IsNullOrEmpty(keys.PrivateKey))
-					{
-						_ = _log.Db("No Kraken API keys found for this user", userId, "SYSTEM", true);
-						return;
-					}
-					await _krakenService.MakeATrade(userId, "XRP", keys);
-				}
-				catch (Exception ex)
-				{
-					_ = _log.Db("Exception while trading : " + ex.Message, null);
-					return;
-				}
+				_tradeLock.Release();
 			}
 		}
 
@@ -1397,4 +1541,56 @@ public class MetabotEncounter
 		LeftArmPartType = leftArm;
 		RightArmPartType = rightArm;
 	}
+}
+public class CoinMarketCalResponse
+{
+	[JsonProperty("body")]
+	public List<CryptoEvent>? Body { get; set; }
+}
+
+public class CryptoEvent
+{
+	[JsonProperty("id")]
+	public string? Id { get; set; }
+
+	[JsonProperty("title")]
+	public EventTitle? Title { get; set; }
+
+	[JsonProperty("coins")]
+	public List<EventCoin>? Coins { get; set; }
+
+	[JsonProperty("date_event")]
+	public DateTime DateEvent { get; set; }
+
+	[JsonProperty("created_date")]
+	public DateTime CreatedDate { get; set; }
+
+	[JsonProperty("source")]
+	public string? Source { get; set; }
+
+	[JsonProperty("description")]
+	public string? Description { get; set; }
+
+	[JsonProperty("is_hot")]
+	public bool IsHot { get; set; }
+
+	[JsonProperty("proof")]
+	public string? Proof { get; set; }
+ 
+	public string? TitleText => Title?.English;
+}
+
+public class EventTitle
+{
+	[JsonProperty("en")]
+	public string? English { get; set; }
+}
+
+public class EventCoin
+{
+	[JsonProperty("symbol")]
+	public string? Symbol { get; set; }
+
+	[JsonProperty("name")]
+	public string? Name { get; set; }
 }

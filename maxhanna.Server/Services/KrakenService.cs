@@ -96,18 +96,7 @@ public class KrakenService
 			return await ExitPosition(userId, coin, keys);
 		}
 
-		decimal? firstPriceToday = await GetFirstCoinPriceTodayIfNoRecentTrades(coin, userId);
-		if (firstPriceToday != null)
-		{
-			decimal? usdToCadRate = await GetUsdToCadRate() ?? 0;
-			if (usdToCadRate == null)
-			{
-				_ = _log.Db("⚠️Error. USD to CAD rate not found!", userId, "TRADE", true);
-				return false;
-			}
-			firstPriceToday = firstPriceToday / usdToCadRate;
-		}
-
+		decimal? firstPriceToday = await GetFirstCoinPriceTodayIfNoRecentTrades(coin, userId);  
 
 		// 3. Calculate spread
 		decimal.TryParse(lastTrade?.coin_price_usdc, out decimal lastPrice);
@@ -345,14 +334,7 @@ public class KrakenService
 
                 if (usdcValueToTrade > 0)
                 {
-                    decimal? usdToCadRate = await GetUsdToCadRate();
-                    if (usdToCadRate == null)
-                    {
-                        _ = _log.Db("USD to CAD rate is unavailable.", userId, "TRADE", true);
-                        return false;
-                    }
-
-                    _ = _log.Db("USD to CAD rate: " + usdToCadRate.Value, userId, "TRADE", true);
+                    //_ = _log.Db("USD to CAD rate: " + usdToCadRate.Value, userId, "TRADE", true);
                     decimal coinAmount = usdcValueToTrade / coinPriceUSDC;
                     var spread2Message = firstPriceToday != null ? $"Spread2: {spread2:P} " : "";
                     _ = _log.Db($"Spread is {spread:P} {spread2Message} (c:{currentPrice:F2}-l:{lastPrice:F2}){(firstPriceToday != null ? $" [First price today: {firstPriceToday}] " : "")}, buying {tmpCoin} with {FormatBTC(coinAmount)} {coin} worth of USDC(${usdcValueToTrade})", userId, "TRADE", true);
@@ -428,7 +410,7 @@ public class KrakenService
 				valueToTrade = valueToTrade * adjustmentFactor;
 				_ = _log.Db($"Reduced sell amount by {adjustmentFactor:P} due to {priorTradeCount} prior buys. New amount: {valueToTrade}", userId, "TRADE", true);
 			}
-		}
+		} 
 
 		return valueToTrade;
 	}
@@ -512,6 +494,20 @@ public class KrakenService
 					coinToTrade = Math.Min(coinBalance * _ValueSellPercentage, _MaximumBTCTradeAmount);
 				} 
 				coinToTrade = await AdjustToPriors(userId, tmpCoin, coinToTrade.Value, "sell");
+
+				decimal coinValueMatchingLastBuyPrice = await GetLastBuyPriceAsync(userId, tmpCoin);
+				if (coinValueMatchingLastBuyPrice == 0)
+				{
+					_ = _log.Db($"⚠️No matching buy price at this depth!", userId, "TRADE", true);
+				}
+				else
+				{
+					if (coinValueMatchingLastBuyPrice < coinToTrade)
+					{
+						_ = _log.Db($"⚠️Set {coinToTrade} to match buy price at this depth : {coinValueMatchingLastBuyPrice}", userId, "TRADE", true); 
+						coinToTrade = coinValueMatchingLastBuyPrice;
+					}
+				}
 
 				decimal coinValueInUsdc = coinToTrade.Value * coinPriceUSDC;
 				var spread2Message = firstPriceToday != null ? $"Spread2 : {spread2:P} " : "";
@@ -633,7 +629,7 @@ public class KrakenService
 				_ = _log.Db("⚠️Failed to convert balance response to dictionary.", userId, "TRADE", true);
 				return null;
 			}
-			Console.WriteLine(string.Join(Environment.NewLine, balanceDictionary.Select(x => $"{x.Key}: {x.Value}")));
+			_ = _log.Db(string.Join(Environment.NewLine, balanceDictionary.Select(x => $"{x.Key}: {x.Value}")), userId, "TRADE", true);
 			_ = CreateWalletEntriesFromFetchedDictionary(balanceDictionary, userId);
 
 			return balanceDictionary;
@@ -873,7 +869,7 @@ public class KrakenService
 		bool hasMissingFees = await CheckForMissingFees(userId, tmpCoin);
 		if (!hasMissingFees)
 		{
-			_ = _log.Db($"No trades with missing fees found for {tmpCoin}", userId, "TRADE", false);
+			//_ = _log.Db($"No trades with missing fees found for {tmpCoin}", userId, "TRADE", false);
 			return false; // No work needed
 		}
 		try
@@ -1385,7 +1381,9 @@ public class KrakenService
 			{"USDC", "usdc"},
 			{"XRP", "xrp"},
 			{"XXRP", "xrp"},
-			{"XXDG", "xdg"}, 
+			{"XXDG", "xdg"},
+			{"XETH", "eth"},
+			{"ETH", "eth"},
 			{"SOL.F", "sol"},
 			// Add more mappings as needed
 		};
@@ -2397,7 +2395,7 @@ public class KrakenService
 			if (tradeCount == 0)
 			{
 				var priceQuery = $@"
-                SELECT value_cad 
+                SELECT value_usd 
                 FROM maxhanna.coin_value 
                 WHERE name = '{tmpCoinName}'
                 AND DATE(timestamp) = CURDATE()
@@ -2982,14 +2980,7 @@ public class KrakenService
 			//Trade configured percentage % of USDC balance TO BTC 
 			decimal usdcValueToTrade = Math.Min(usdcBalance * _ValueTradePercentage, _MaximumUSDCTradeAmount);
 			if (usdcValueToTrade > 0)
-			{
-				decimal? usdToCadRate = await GetUsdToCadRate();
-				if (usdToCadRate == null)
-				{
-					_ = _log.Db("USD to CAD rate is unavailable.", userId, "TRADE", true);
-					return false;
-				}
-				_ = _log.Db("USD to CAD rate: " + usdToCadRate.Value, userId, "TRADE", true);
+			{ 
 				decimal btcAmount = usdcValueToTrade / coinPriceUSDC.Value;
 
 				_ = _log.Db($"Entering Position - Buying {tmpCoin} with {FormatBTC(btcAmount)} {tmpCoin} worth of USDC(${usdcValueToTrade})", userId, "TRADE", true);
@@ -3412,6 +3403,7 @@ public class KrakenService
 
 		return profitData;
 	}
+	
 	public async Task<IndicatorData?> GetIndicatorData(string fromCoin, string toCoin)
 	{
 		string tmpCoin = fromCoin.ToUpper();
@@ -3423,9 +3415,12 @@ public class KrakenService
 			var indicatorQuery = @"
 			SELECT 
 				200_day_moving_average,
+				200_day_moving_average_value,
 				rsi_14_day,
 				vwap_24_hour,
-				vwap_24_hour_value
+				vwap_24_hour_value,
+				retracement_from_high,
+				retracement_from_high_value
 			FROM trade_indicators
 			WHERE from_coin = @FromCoin AND to_coin = @ToCoin LIMIT 1;";
 			using var connection = new MySqlConnection(_config?.GetValue<string>("ConnectionStrings:maxhanna"));
@@ -3440,13 +3435,17 @@ public class KrakenService
 
 			while (await reader.ReadAsync())
 			{
-				indicators = new IndicatorData {
+				indicators = new IndicatorData
+				{
 					FromCoin = tmpCoin,
 					ToCoin = toCoin,
 					TwoHundredDayMA = reader.IsDBNull(reader.GetOrdinal("200_day_moving_average")) ? false : reader.GetBoolean("200_day_moving_average"),
+					TwoHundredDayMAValue = reader.IsDBNull(reader.GetOrdinal("200_day_moving_average_value")) ? 0 : reader.GetDecimal("200_day_moving_average_value"),
 					RSI14Day = reader.IsDBNull(reader.GetOrdinal("rsi_14_day")) ? 0 : reader.GetDecimal("rsi_14_day"),
 					VWAP24Hour = reader.IsDBNull(reader.GetOrdinal("vwap_24_hour")) ? false : reader.GetBoolean("vwap_24_hour"),
 					VWAP24HourValue = reader.IsDBNull(reader.GetOrdinal("vwap_24_hour_value")) ? 0 : reader.GetDecimal("vwap_24_hour_value"),
+					RetracementFromHigh = reader.IsDBNull(reader.GetOrdinal("retracement_from_high")) ? false : reader.GetBoolean("retracement_from_high"),
+					RetracementFromHighValue = reader.IsDBNull(reader.GetOrdinal("retracement_from_high_value")) ? 0 : reader.GetDecimal("retracement_from_high_value"),
 				};
 			}
 
@@ -3514,6 +3513,40 @@ public class KrakenService
 		}
 
 		return true;
+	}
+
+	/// <summary>
+	/// Retrieves the price of the most recent buy trade for the specified coin by the user.	
+	/// </summary> 
+	private async Task<decimal> GetLastBuyPriceAsync(int userId, string coin)
+	{ 
+		string tmpCoin = coin.ToUpper() == "BTC" ? "XBT" : coin.ToUpper(); 
+
+		const string sql = @$"
+			SELECT value        
+			FROM   trade_history
+			WHERE  user_id       = @UserId
+			AND  from_currency = 'USDC'
+			AND  to_currency   = @ToCur 
+			ORDER  BY timestamp DESC
+			LIMIT  1;"; 
+		try
+		{
+			using var conn = new MySqlConnection(_config?.GetValue<string>("ConnectionStrings:maxhanna"));
+			await conn.OpenAsync();
+
+			using var cmd = new MySqlCommand(sql, conn);
+			cmd.Parameters.AddWithValue("@UserId", userId);
+			cmd.Parameters.AddWithValue("@ToCur", tmpCoin); 
+
+			object? result = await cmd.ExecuteScalarAsync();
+			return result == null ? 0m : Convert.ToDecimal(result);
+		}
+		catch (Exception ex)
+		{
+			_ = _log.Db($"⚠️Error getting last buy price for {tmpCoin}: {ex.Message}", userId, "TRADE", true);
+			return 0m;
+		}
 	}
 
 	private string CreateSignature(string urlPath, string postData, string nonce, string privateKey)

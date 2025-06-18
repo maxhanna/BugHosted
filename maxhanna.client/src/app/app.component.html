@@ -59,8 +59,8 @@
 <!-- USER TAG POPUP PANEL -->
 <div class="popupPanel userTagPopupPanel" [style.left.px]="showUserTagX ? showUserTagX.value : 0" [style.top.px]="showUserTagY ? showUserTagY.value : 0"
   *ngIf="isShowingUserTagPopup" (click)="isShowingUserTagPopup = false;" (touchend)="isShowingUserTagPopup = false;">
-  <div class="user-tag-background-overlay">
-    <app-media-viewer [displayExpander]="false" [displayExtraInfo]="false" [showCommentSection]="false"
+  <div class="user-tag-background-overlay" *ngIf="popupUserTagUser?.profileBackgroundPictureFile">
+    <app-media-viewer #userTagPopupMediaViewer [displayExpander]="false" [displayExtraInfo]="false" [showCommentSection]="false" 
       [inputtedParentRef]="this" [file]="popupUserTagUser?.profileBackgroundPictureFile">
     </app-media-viewer>
   </div>
@@ -68,12 +68,15 @@
     <div style="display: flex; justify-content: space-between; gap:20px;">
       <div>
         <app-user-tag [userId]="showUserTagUserId ? parseInteger(showUserTagUserId.value) : 0" [inputtedParentRef]="this"
-          (userLoaded)="userTagUserLoaded($event)" [preventOpenProfile]="true"></app-user-tag>
+          (userLoaded)="userTagUserLoaded($event)" [preventOpenProfile]="true" [hideName]="true"></app-user-tag>
+          <div class="thirdFontColor xxSmallFont popupUserTagInfo">
+            {{popupUserTagUser?.username ?? "Anonymous"}}
+            <span class="seperatedUserHeader" *ngIf="popupUserTagUser?.about?.currency">
+              {{ (popupUserTagUser?.about?.currency ?? '') | currencyFlag }}
+            </span>
+          </div>
       </div>
-      <div *ngIf="popupUserTagUser" class="popupUserTagInfo">
-        <div class="seperatedUserHeader" *ngIf="popupUserTagUser?.about?.currency">
-          {{ (popupUserTagUser.about?.currency ?? '') | currencyFlag }}
-        </div>
+      <div *ngIf="popupUserTagUser" class="popupUserTagInfo"> 
         <div>{{ popupUserTagUser.about?.description }}</div>
         <div class="invertedHighlights xxSmallFont">Last Seen: </div>
         <div>

@@ -55,8 +55,8 @@ export class TradeService {
     const url = 'https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=10&page=1';
     return this.get(url);
   }
-  async getTradeHistory(userId: number, encryptedUserId: string) {
-    return this.post(`/trade/gettradehistory`, userId, 'json', encryptedUserId);
+  async getTradeHistory(userId: number, encryptedUserId: string, coin?: string) {
+    return this.post(`/trade/gettradehistory`, { UserId: userId, Coin: coin ?? "XBT" }, 'json', encryptedUserId);
   } 
   async updateApiKey(userId: number, apiKey: string, privateKey: string, encryptedUserId: string) {
     return this.post(`/trade/updateapikey`, { UserId: userId, ApiKey: apiKey, PrivateKey: privateKey }, 'text', encryptedUserId);

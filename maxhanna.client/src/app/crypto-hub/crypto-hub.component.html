@@ -6,11 +6,11 @@
     [style.display]="isTradePanelOpen ? 'none' : 'block'">
     <div class="cryptoHubConverterAndCoinWatchWrapper" [style.display]="isTradePanelOpen ? 'none' : 'block'">
       <div class="marquee-container">
-        <div class="marquee-scroll" (mousedown)="onMouseDown($event)" (mouseup)="onMouseUp()"
-          (mousemove)="onMouseMove($event)" (mouseleave)="onMouseUp()" (touchstart)="onTouchStart($event)"
+        <div class="marquee-scroll" (mousedown)="onMouseDown($event)" (mouseup)="onMarqueeMouseUp()"
+          (mousemove)="onMouseMove($event)" (mouseleave)="onMarqueeMouseUp()" (touchstart)="onTouchStart($event)"
           (touchend)="onTouchEnd()" (touchmove)="onTouchMove($event)" #scrollContainer>
           <div class="marquee-content">
-            <a *ngFor="let item of data" (click)="selectCoin(item.name)" class="marquee-item">
+            <a *ngFor="let item of loopedData" (click)="selectCoin(item.name)" class="marquee-item">
               <div>{{ item.name }} <span *ngIf="item.symbol">({{ item.symbol }})</span></div>
               <div>{{ item.valueCAD ? formatToCanadianCurrency(getConvertedCurrencyValue(item.valueCAD)) : '-' }}</div>
             </a>
@@ -127,6 +127,130 @@
         #currencyExchangeLineGraph (changeTimePeriodEvent)="changeTimePeriodEventOnCurrencyExchangeGraph($event)">
       </app-line-graph>
     </div>
+    <div *ngIf="!isTradePanelOpen && tradeIndicators && !isLoading" class="sectionContainer indicators-container">
+      <div class="sectionName" style="margin-bottom: 15px;">Trade Indicators for {{
+        tradeIndicators.fromCoin.replace('XBT','BTC') }}/{{ tradeIndicators.toCoin }}</div>
+    
+      <div class="indicators-grid">
+        <!-- 200-Day MA -->
+        <div class="indicator-card">
+          <span class="indicator-label"
+            title="Measures long-term price trend. 'Yes' means price is above the 200-day average.">
+            200-Day Moving Average
+          </span>
+          <span class="indicator-value" [class.positive]="tradeIndicators.twoHundredDayMA">
+            {{ tradeIndicators.twoHundredDayMA ? 'Yes' : 'No' }}
+            <div class="indicator-value" [class]="tradeIndicators.twoHundredDayMA ? 'positive' : 'vwap-value'">
+              {{ tradeIndicators.twoHundredDayMAValue | currency:'USD':'symbol':'1.2-2' }}
+            </div>
+          </span>
+        </div>
+    
+        <!-- RSI -->
+        <div class="indicator-card">
+          <span class="indicator-label" title="Relative Strength Index. Over 70 = overbought, under 30 = oversold.">
+            14-Day RSI
+          </span>
+          <span class="indicator-value"
+            [class]="(tradeIndicators.rsI14Day < 30 || tradeIndicators.rsI14Day > 70) ? 'positive' : getRSIStatus(tradeIndicators.rsI14Day).class">
+            {{ tradeIndicators.rsI14Day | number:'1.2-2' }}
+            <span class="rsi-label">({{ getRSIStatus(tradeIndicators.rsI14Day).label || 'Unknown' }})</span>
+          </span>
+        </div>
+    
+        <!-- VWAP Boolean -->
+        <div class="indicator-card">
+          <div class="indicator-label"
+            title="Volume-Weighted Average Price over the past 24 hours. 'Yes' means price is currently above VWAP.">
+            Above 24-Hour VWAP
+          </div>
+          <div class="indicator-value" [class.positive]="tradeIndicators.vwaP24Hour">
+            {{ tradeIndicators.vwaP24Hour ? 'Yes' : 'No' }}
+          </div>
+          <div class="indicator-value" [class]="tradeIndicators.vwaP24Hour ? 'positive' : 'vwap-value'">
+            {{ tradeIndicators.vwaP24HourValue | currency:'USD':'symbol':'1.2-2' }}
+          </div>
+        </div>
+    
+        <!-- Retracement From High Boolean -->
+        <div class="indicator-card">
+          <div class="indicator-label"
+            title="How much the price has dropped from its recent high. Small values suggest strength.">
+            Retracement From High
+          </div>
+          <div class="indicator-value" [class.positive]="tradeIndicators.retracementFromHigh">
+            {{ tradeIndicators.retracementFromHigh ? 'Yes' : 'No' }}
+          </div>
+          <div class="indicator-value" [class]="tradeIndicators.retracementFromHigh ? 'positive' : 'vwap-value'">
+            {{ tradeIndicators.retracementFromHighValue * 100 | number:'1.2-2' }}%
+          </div>
+        </div>
+
+        <!-- Retracement From High Boolean -->
+        <div [class]="'indicator-card' + (isMarketSentimentMaximized ? ' popupPanel' : '')" *ngIf="marketSentimentData != undefined" (click)="(isMarketSentimentMaximized ? '' : openMarketSentimentPopup())">
+          <div class="indicator-label"
+            title="How much the price has dropped from its recent high. Small values suggest strength.">
+            Sentiment Analysis Score
+          </div>
+          <div class="indicator-value" [class]="marketSentimentData[0].sentimentScore > 50 ? 'positive' : 'negative'" *ngIf="!isMarketSentimentMaximized">
+            {{ marketSentimentData[0].sentimentScore }}%
+          </div>
+          <div [class]="'indicator-value' + (isMarketSentimentMaximized ? '' : ' marketSentimentAnalysis')" *ngIf="!isMarketSentimentMaximized">
+            {{ marketSentimentData[0].analysis }}
+          </div>
+          
+
+          <div *ngIf="isMarketSentimentMaximized">
+          
+            <!-- TABLE -->
+            <table class="sentiment-table">
+              <thead>
+                <tr>
+                  <th class="smallColumn">Score</th>
+                  <th>Analysis</th>
+                  <th class="smallColumn">Created</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let item of sentimentPageData" (click)="toggleSentiment(item)" [class.clickable]="!isLatestSentiment(item)">
+                  <!-- Score -->
+                  <td class="smallColumn" [class.positive]="item.sentimentScore > 50" [class.negative]="item.sentimentScore <= 50">
+                    {{ item.sentimentScore }}%
+                  </td>
+          
+                  <!-- Analysis -->
+                  <td style="width: auto;" [class.ellipsis]="!isLatestSentiment(item) && !item.expanded">
+                    {{ item.analysis }}
+                  </td>
+                  <td class="smallColumn" [class.ellipsis]="!isLatestSentiment(item) && !item.expanded" [title]="item.createdUtc">
+                    {{ item.createdUtc | timeSince }}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          
+            <!-- PAGINATION -->
+            <div class="pager">
+              <button (click)="prevSentimentPage()" [disabled]="currentSentimentPage === 1">Prev</button>
+              <span>Page {{ currentSentimentPage }} / {{ totalSentimentPages }}</span>
+              <button (click)="nextSentimentPage()" [disabled]="currentSentimentPage === totalSentimentPages">Next</button>
+            </div>
+          
+            <!-- CLOSE BUTTON -->
+            <div style="text-align:right;margin-top:12px;">
+              <button id="closeOverlay" (click)="closeMarketSentimentPopup()">OK</button>
+            </div>
+          
+          </div>
+          
+          
+        </div>
+    
+      </div>
+    </div>
+    <div *ngIf="!isTradePanelOpen" class="sectionContainer">
+      <app-crypto-fear-and-greed [inputtedParentRef]="parentRef"></app-crypto-fear-and-greed>
+    </div>
   </div>
   <div [class]="isTradePanelOpen ? 'fullScreenTradePanelDiv' : 'hubSection miningHubSection'"
     *ngIf="latestCurrencyPriceRespectToCAD && latestCurrencyPriceRespectToCAD != 0">
@@ -242,24 +366,34 @@
             *ngIf="!hasKrakenApi && !parentRef?.user?.id"> Log in to use the bot.</span>
         </div>
         <div *ngIf="isTradePanelOpen" [class.trade-panel-controls]="canShowTradePanelInfo()">
+
           <div class="button-wrapper" *ngIf="canShowTradePanelInfo()">
-            <button class="cursorPointer" [disabled]="tradeBotStarted || !hasKrakenApi" (click)="startTradeBot('BTC')"
-              title="Start the tradebot.">Start BTC</button>
-            <button class="cursorPointer" (click)="stopTradeBot('BTC')" title="Stop the tradebot."
-              [disabled]="!tradeBotStarted ||!hasKrakenApi">Stop BTC</button>
+            <select class="currency-select" #selectedTradebotCurrency>
+              <option value="BTC">Bitcoin/USDC</option>
+              <option value="ETH">Ethereum/USDC</option>
+              <option value="XRP">XRP/USDC</option>
+              <option value="SOL">Solana/USDC</option>
+              <option value="XDG">Dogecoin/USDC</option>
+              <!-- Add more currency pairs as needed -->
+            </select>
+          
+            <button class="cursorPointer" [disabled]="isTradeBotStarted(selectedTradebotCurrency.value) || !hasKrakenApi"
+              (click)="startTradeBot(selectedTradebotCurrency.value)" title="Start the tradebot.">
+              Start {{selectedTradebotCurrency.value}} DCA
+            </button>
+          
+            <button class="cursorPointer" (click)="stopTradeBot(selectedTradebotCurrency.value)" title="Stop the tradebot."
+              [disabled]="!isTradeBotStarted(selectedTradebotCurrency.value) || !hasKrakenApi">
+              Stop {{selectedTradebotCurrency.value}} DCA
+            </button>
+          
             <p class="button-description" id="trades-desc" *ngIf="!isTradebotBalanceShowing">
-              {{tradeBotStarted ? 'Stop' : 'Start'}} trading USDC and BTC pair.
-            </p>
+              {{isTradeBotStarted(selectedTradebotCurrency.value) ? 'Stop' : 'Start'}} trading USDC and {{selectedTradebotCurrency.value}} pair
+              {{selectedTradebotCurrency.value === 'BTC' ? 'with DCA strategy' : ''}}.
+            </p>    
           </div>
-          <div class="button-wrapper" *ngIf="canShowTradePanelInfo()">
-            <button class="cursorPointer" [disabled]="xrpTradeBotStarted || !hasKrakenApi"
-              (click)="startTradeBot('XRP')" title="Start the tradebot.">Start XRP</button>
-            <button class="cursorPointer" (click)="stopTradeBot('XRP')" title="Stop the XRP tradebot."
-              [disabled]="!xrpTradeBotStarted ||!hasKrakenApi">Stop XRP</button>
-            <p class="button-description" id="trades-desc" *ngIf="!isTradebotBalanceShowing">
-              {{xrpTradeBotStarted ? 'Stop' : 'Start'}} trading USDC and XRP pair.
-            </p>
-          </div>
+
+
           <div class="button-wrapper" *ngIf="hasKrakenApi && (canShowTradePanelInfo() || showingTradeSettings)">
             <button class="cursorPointer" (click)="showTradeSettings()" id="config-button"
               aria-describedby="config-desc">
@@ -304,24 +438,24 @@
               Runs a simulation of trading strategies with historical or random data to test performance.
             </p>
           </div>
-          <div class="button-wrapper" [title]="tradeBotStarted ? 'Disabled: Tradebot is running.' : ''"
+          <div class="button-wrapper" [title]="tradeBotStatus['BTC'] == true ? 'Disabled: Tradebot is running.' : ''"
             *ngIf="canShowTradePanelInfo()">
             <button class="cursorPointer" (click)="enterPosition()"
               [title]="'Buy BTC On dip by splitting funds with _InitialMinimumFromAmountToStart (set in configuration).'+ hasKrakenApi ? '' : 'Disabled: No Kraken API keys found.'"
               id="enter-button" aria-describedby="enter-desc" [disabled]="!hasKrakenApi">
-              Enter Position
+              Enter BTC Position
             </button>
-            <p class="button-description" id="enter-desc"> <!-- TODO: Display foreseable buy amount here -->
+            <p class="button-description" id="enter-desc">  
               Buys BTC using configured funds, starting a new trading position and starting the bot. See configuration
               under: _InitialMinimumFromAmountToStart.
             </p>
           </div>
-          <div class="button-wrapper" [title]="!tradeBotStarted ? 'Disabled: Tradebot is not running.' : ''"
+          <div class="button-wrapper" [title]="!tradeBotStatus['BTC'] ? 'Disabled: Tradebot is not running.' : ''"
             *ngIf="canShowTradePanelInfo()">
             <button class="cursorPointer" (click)="exitPosition()"
-              [title]="'Sell all BTC at current price and exit BTC position. ' + hasKrakenApi ? '' : 'Disabled: No Kraken API keys found.' + tradeBotStarted ? '' : 'Disabled: Tradebot not started.'"
-              id="exit-button" aria-describedby="exit-desc" [disabled]="!hasKrakenApi || !tradeBotStarted">
-              Exit Position
+              [title]="'Sell all BTC at current price and exit BTC position. ' + hasKrakenApi ? '' : 'Disabled: No Kraken API keys found.' + tradeBotStatus['BTC'] ? '' : 'Disabled: Tradebot not started.'"
+              id="exit-button" aria-describedby="exit-desc" [disabled]="!hasKrakenApi || !tradeBotStatus['BTC']">
+              Exit BTC Position
             </button>
             <p class="button-description" id="exit-desc">
               Sells all BTC at market price, closing the current trading position and stopping the bot.
@@ -346,7 +480,16 @@
             </p>
           </div>
         </div>
-        <div *ngIf="isTradebotBalanceShowing && tradebotBalances?.length" class="mainTableContainer tradeDataTable">
+        <div *ngIf="isTradebotBalanceShowing">
+          <select #tradeBalanceCoinSelector (change)="showTradeBalance(tradeBalanceCoinSelector.value)">
+            <option value="XBT">BTC</option>
+            <option value="ETH">ETH</option>
+            <option value="XRP">XRP</option>
+            <option value="SOL">SOL</option>
+            <option value="XDG">XDG</option>
+          </select>
+        </div>
+        <div *ngIf="isTradebotBalanceShowing" class="mainTableContainer tradeDataTable"> 
           <table class="mainTable tradeBalanceTable">
             <thead>
               <tr>
@@ -366,13 +509,13 @@
                 <td class="xxSmallFont tradeBalanceCurrencyLabel"
                   [style.color]="trade.to_currency == 'XBT' ? '#a17f1a' : trade.to_currency == 'USDC' ? 'blue' : ''">{{
                   trade.to_currency }}</td>
-                <td class="smallFont" style="display:flex; justify-content: space-evenly;"><span
+                <td class="smallFont" style="display:flex; justify-content: space-evenly; flex-wrap: wrap;"><span
                     style="margin-left:3px">{{ trade.value }}</span><span style="margin-right:3px"
                     class="thirdFontColor">{{ formatStringCanadianCurrency(trade.trade_value_usdc) }}</span></td>
                 <td class="xxSmallFont">{{ formatStringCanadianCurrency(trade.coin_price_usdc) }}</td>
                 <td class="xxSmallFont">{{ formatToCanadianCurrency(trade.fees) }}</td>
-                <td class="xxSmallFont" [title]="getUtcTimeSince(trade.timestamp)">{{
-                  parentRef?.convertUtcToLocalTime(trade.timestamp) }}</td>
+                <td class="xxSmallFont" [title]="parentRef?.convertUtcToLocalTime(trade.timestamp)">{{
+                  parentRef?.convertUtcToLocalTime(trade.timestamp) | timeSince }}</td>
               </tr>
             </tbody>
           </table>
@@ -399,7 +542,10 @@
             <select #tradeFromCoinSelect title="Select the coin you want to sell"
               (change)="tradeFromCoinSelectChange()">
               <option value="XBT">BTC</option>
+              <option value="ETH" *ngIf="tradeStrategySelect.value == 'DCA'">ETH</option>
               <option value="XRP" *ngIf="tradeStrategySelect.value == 'DCA'">XRP</option>
+              <option value="SOL" *ngIf="tradeStrategySelect.value == 'DCA'">SOL</option>
+              <option value="XDG" *ngIf="tradeStrategySelect.value == 'DCA'">XDG</option>
             </select>
           </div>
         </div>
@@ -637,12 +783,11 @@
 
 
       <div *ngIf="showingTradeLogs" [style.opacity]="isLoading ? '25%' : ''">
-        <div class="xxSmallFont secondaryFontColor" style="width:100%; display: flex; justify-content: space-between;">
+        <div class="secondaryFontColor" style="width:100%; display: flex; justify-content: space-between;">
           <div class="logTypeFiltersWrapper">
-            Display: <span (click)="filterLogs('XBT')">XBT Logs Only</span> <span (click)="filterLogs('XRP')">XRP Logs
-              Only</span> <span (click)="filterLogs()">Unfiltered</span>
+            <span class="xxSmallFont">Filter: </span><span (click)="filterLogs('XBT')">XBT</span> <span (click)="filterLogs('XRP')">XRP</span> <span (click)="filterLogs()">Unfiltered</span>
           </div>
-          <div>
+          <div class="xxSmallFont">
             Logs refresh every 30s.
           </div>
         </div>
@@ -652,13 +797,13 @@
             <thead>
               <tr>
                 <th class="xxSmallFont">Comment</th>
-                <th class="xxSmallFont">Timestamp</th>
+                <th class="xxSmallFont">Time</th>
               </tr>
             </thead>
             <tbody>
               <tr *ngFor="let log of paginatedLogs">
                 <td>{{ log.comment }}</td>
-                <td class="xxSmallFont">{{ parentRef?.convertUtcToLocalTime(log.timestamp) }}</td>
+                <td class="xxSmallFont" [title]="parentRef?.convertUtcToLocalTime(log.timestamp)">{{ parentRef?.convertUtcToLocalTime(log.timestamp) | timeSince }}</td>
               </tr>
             </tbody>
           </table>
@@ -755,10 +900,10 @@
       </div>
     </div>
 
-    <div *ngIf="!data && isLoading">
+    <div *ngIf="!coinValueData && isLoading">
       Loading data, please wait...
     </div>
-    <div *ngIf="!data && !isLoading">
+    <div *ngIf="!coinValueData && !isLoading">
       Something went wrong, please refresh this component after a while.
     </div>
     <div *ngIf="!isTradePanelOpen && topMarketCaps?.length > 0; else loading" class="sectionContainer">
@@ -772,12 +917,15 @@
           </tr>
         </thead>
         <tbody>
-          <tr *ngFor="let coin of topMarketCaps">
-            <td [class]="onMobile() ? 'smallFont' : ''">
+          <tr *ngFor="let coin of topMarketCaps" (click)="selectCoin(coin.name)">
+            <td [class]="'cursorPointer' + onMobile() ? ' smallFont' : ''">
               <img [src]="coin.image" alt="{{coin.name}}" width="24" height="24" />
-              {{ coin.name }}
-              <span *ngIf="coin.name.toLowerCase() != coin.symbol.toLowerCase()"
-                [class]="onMobile() ? 'xxSmallFont' : ''">({{ coin.symbol.toUpperCase() }})</span>
+              <span>
+                {{ coin.name }}
+                <span *ngIf="coin.name.toLowerCase() != coin.symbol.toLowerCase()" [class]="onMobile() ? 'xxSmallFont' : ''">
+                  ({{ coin.symbol.toUpperCase() }})
+                </span>
+              </span>
             </td>
             <td [class]="onMobile() ? 'xxSmallFont' : ''">
               ${{ coin.current_price | number:'1.2-2' }}
@@ -790,54 +938,21 @@
               {{ coin.market_cap | currencyShorten:onMobile() }}
             </td>
           </tr>
+          <tr class="totalMarketCapTotalRow">
+            <td colspan="3" [class]="onMobile() ? 'xxSmallFont' : ''"><strong>Total Market Capital:</strong></td>
+            <td>{{ totalMarketCap | currencyShorten }}</td>     
+          </tr>
         </tbody>
       </table>
     </div>
 
     <ng-template #loading>
       <p *ngIf="!isTradePanelOpen">Loading coin market caps...</p>
-    </ng-template>
+    </ng-template> 
 
-
-    <div *ngIf="!isTradePanelOpen && tradeIndicators && !isLoading" class="sectionContainer indicators-container">
-      <div class="sectionName" style="margin-bottom: 15px;">Trade Indicators for {{ tradeIndicators.fromCoin.replace('XBT','BTC') }}/{{ tradeIndicators.toCoin }}</div>
-    
-      <div class="indicators-grid">
-        <!-- 200-Day MA -->
-        <div class="indicator-card">
-          <span class="indicator-label">200-Day Moving Average</span>
-          <span class="indicator-value" [class.positive]="tradeIndicators.twoHundredDayMA">
-            {{ tradeIndicators.twoHundredDayMA ? 'Yes' : 'No' }}
-          </span>
-        </div>
-    
-        <!-- RSI -->
-        <div class="indicator-card">
-          <span class="indicator-label">14-Day RSI</span>
-          <span class="indicator-value" [ngClass]="getRSIStatus(tradeIndicators.rsI14Day).class">
-            {{ tradeIndicators.rsI14Day | number:'1.2-2' }}
-            <span class="rsi-label">({{ getRSIStatus(tradeIndicators.rsI14Day).label || 'Unknown' }})</span>
-          </span>
-        </div>
-    
-        <!-- VWAP Boolean -->
-        <div class="indicator-card">
-          <span class="indicator-label">Above 24-Hour VWAP</span>
-          <span class="indicator-value" [class.positive]="tradeIndicators.vwaP24Hour">
-            {{ tradeIndicators.vwaP24Hour ? 'Yes' : 'No' }}
-          </span>
-        </div>
-    
-        <!-- VWAP Value -->
-        <div class="indicator-card">
-          <span class="indicator-label">24-Hour VWAP</span>
-          <span class="indicator-value vwap-value">
-            {{ tradeIndicators.vwaP24HourValue | currency:'USD':'symbol':'1.2-2' }}
-          </span>
-        </div>
-      </div>
+    <div *ngIf="!isTradePanelOpen" class="sectionContainer">
+      <app-crypto-calendar [inputtedParentRef]="parentRef"></app-crypto-calendar>
     </div>
-
   </div>
 
 

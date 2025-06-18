@@ -37,6 +37,7 @@ import { FavouriteService } from '../services/favourite.service';
 import { FileService } from '../services/file.service';
 import { TopComponent } from './top/top.component';
 import { PollService } from '../services/poll.service';
+import { UserTagComponent } from './user-tag/user-tag.component';
 
 
 @Component({
@@ -51,6 +52,7 @@ export class AppComponent implements OnInit, AfterViewInit {
   @ViewChild("outlet") outlet!: RouterOutlet;
   @ViewChild(NavigationComponent) navigationComponent!: NavigationComponent;
   @ViewChild(ModalComponent) modalComponent!: ModalComponent;
+  @ViewChild(MediaViewerComponent) userTagPopupMediaViewer!: MediaViewerComponent;
   notifications: string[] = [];
   showMainContent = true;
   isModalOpen = false;
@@ -1184,8 +1186,11 @@ export class AppComponent implements OnInit, AfterViewInit {
     return isNaN(parsedValue) ? 0 : parsedValue;
   }
   userTagUserLoaded(user?: User) {
-    console.log("User tag user loaded", user);
+    //console.log("User tag user loaded", user);
     this.popupUserTagUser = user;
+    setTimeout(() => {
+      this.userTagPopupMediaViewer.reloadMedia(true);
+    }, 50);
   }
   isUserOnline(lastSeen: string): boolean {
     // Parse duration string like "2d 8h 51m" into minutes

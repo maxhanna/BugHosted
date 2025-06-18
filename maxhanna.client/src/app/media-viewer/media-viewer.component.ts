@@ -161,6 +161,63 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
       }
     } catch (e) { }
   }
+  /**
+ * Reloads the media in the component by resetting and fetching the file source again
+ * @param forceReload If true, will reload even if the src hasn't changed
+ */
+  async reloadMedia(forceReload: boolean = false) {
+    // Reset current state
+    this.resetSelectedFile();
+
+    // Check which input property has changed and needs to be used for reloading
+    if (this.fileSrc && (forceReload || this.fileSrc !== this.selectedFileSrc)) {
+      // Directly use the provided src
+      this.selectedFileSrc = this.fileSrc;
+      this.showThumbnail = true;
+      this.muteOtherVideos();
+    }
+    else if (this.fileId && (forceReload || !this.selectedFile || this.fileId !== this.selectedFile.id)) {
+      // Fetch by file ID
+      this.selectedFile = { id: this.fileId } as FileEntry;
+      await this.setFileSrcById(this.fileId);
+    }
+    else if (this.file && (forceReload || !this.selectedFile || this.file !== this.selectedFile)) {
+      // Use the provided file object
+      const fileObject = Array.isArray(this.file) && this.file.length > 0 ? this.file[0] : this.file;
+      if (fileObject.id) {
+        await this.setFileSrcById(fileObject.id);
+      } else if (fileObject.filePath) {
+        // Handle case where file has a direct path but no ID
+        this.selectedFileSrc = fileObject.filePath;
+        this.showThumbnail = true;
+        this.muteOtherVideos();
+      }
+      this.selectedFile = fileObject;
+    }
+
+    // If we have a media container, reload the media element
+    if (this.mediaContainer && this.mediaContainer.nativeElement) {
+      const mediaElement = this.mediaContainer.nativeElement;
+
+      // For video/audio elements, we need to load() after changing src
+      if (mediaElement instanceof HTMLVideoElement || mediaElement instanceof HTMLAudioElement) {
+        mediaElement.src = this.selectedFileSrc;
+        mediaElement.load();
+
+        // Reapply autoplay settings if needed
+        if (this.autoplay && mediaElement instanceof HTMLVideoElement) {
+          mediaElement.play().catch(e => console.log('Autoplay prevented:', e));
+        }
+        if (this.autoplayAudio && mediaElement instanceof HTMLAudioElement) {
+          mediaElement.play().catch(e => console.log('Autoplay prevented:', e));
+        }
+      }
+      // For images, just setting src is enough
+      else if (mediaElement instanceof HTMLImageElement) {
+        mediaElement.src = this.selectedFileSrc;
+      }
+    }
+  }
   forceLoad() {
     this.autoload = true;
     this.ngOnInit();

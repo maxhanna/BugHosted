@@ -57,16 +57,12 @@ export class HostAiComponent extends ChildComponent implements OnInit, OnDestroy
     if (this.userWantsToForgetHistory(this.userMessage)) {
       this.savedMessageHistory = [];
       this.parentRef.showNotification("Memory cleared."); 
-    }
-    if (this.userWantsToStopVoice(this.userMessage)) {
-      this.userMessage = "";
-      this.stopTalking();
-      return;
-    }
+    } 
     if (this.userWantsToChangeResponseLength(this.userMessage)) {
       this.userMessage = "";
       this.chatInput.nativeElement.value = "";
       this.chatInput.nativeElement.focus();
+      console.log("returning because user changed response length");
       return;
     }
 

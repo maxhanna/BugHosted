@@ -21,6 +21,7 @@ export class TodoComponent extends ChildComponent implements OnInit, AfterViewIn
   isEditListPanelOpen = false;
   isShareListPanelOpen = false;
   userColumns: string[] = [];
+  isEditing: number[] = [];
   todoPlaceholder = "";
   selectedFile?: FileEntry;
   showSharedList = false;
@@ -351,5 +352,26 @@ export class TodoComponent extends ChildComponent implements OnInit, AfterViewIn
   openSharePanel(column: any): void {
     this.selectedType.nativeElement.value = column.columnName;
     this.isShareListPanelOpen = true;
+  }
+  async editTodo(id?: number) {
+    if (!id) return;
+    if (!this.isEditing.includes(id)) {
+      this.isEditing.push(id);
+    } else {
+      const todoDiv = document.getElementById('todoNo' + id) as HTMLDivElement;
+      const textArea = todoDiv.getElementsByTagName("textarea")[0];
+
+      try { 
+        await this.todoService.editTodo(id, textArea.value).then(res => { if (res) { this.parentRef?.showNotification(res); }}); 
+        const todoIndex = this.todos.findIndex(todo => todo.id === id);
+        if (todoIndex !== -1) {
+          this.todos[todoIndex].todo = textArea.value;  
+        } 
+        this.isEditing = this.isEditing.filter(x => x !== id);
+      } catch (error) {
+        console.error("Error updating todo:", error);
+        this.parentRef?.showNotification("Failed to update todo");
+      }
+    }
   }
 }

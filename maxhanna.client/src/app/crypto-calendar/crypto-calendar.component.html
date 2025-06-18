@@ -1,0 +1,36 @@
+<div style="padding: 10px;">
+    <div class="popupPanelTitle" style="width: 100%; text-align: center;">Calendar of Events</div>
+    <div style="margin-bottom: 10px; text-align: center;"> 
+        <input #selectedCoinSymbol type=text (input)="filterEventsForDate()" placeholder="Coin Filter: ALL" />
+        <label style="margin-left: 10px;">
+            <input type="checkbox" #ignoreDateFilter (change)="filterEventsForDate()" />
+            Show events across all dates
+        </label>
+    </div>
+    <div class="calendar-controls" *ngIf="!ignoreDateFilter.checked">
+        <button (click)="prevDay()">⬅️</button>
+        <span class="large">{{ formatDate(currentDate) }} <span class="xxSmallFont">({{filteredEvents.length}} events)</span></span>
+        <button (click)="nextDay()">➡️</button>
+    </div>
+
+    <div *ngIf="filteredEvents.length === 0">
+        <p>No events for this date.</p>
+    </div>
+    <div class="event-card-container">
+        <div *ngFor="let event of filteredEvents" class="event-card">
+            <div>
+                <a *ngIf="event.source" (click)="inputtedParentRef?.visitExternalLink(event.source)" target="_blank"
+                    class="cursorPointer">
+                    {{ event.title }} ({{ event.coinSymbol }})
+                </a>
+                <div>{{ event.coinName }}</div>
+            </div>
+            <div class="optionsStatsDescription">
+                <a [href]="event.proofUrl" target="_blank"><img *ngIf="event.proofUrl" [src]="event.proofUrl" width="120"
+                        alt="Proof" /></a>
+            </div>
+        </div>  
+    </div> 
+</div>
+
+  

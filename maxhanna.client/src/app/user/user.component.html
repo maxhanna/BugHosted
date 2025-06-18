@@ -28,13 +28,13 @@
             [currentDirectory]="user.displayPictureFile.directory" [user]="user"
             [previousComponent]="previousComponent ?? 'User'">
           </app-media-viewer>
-          <div [class]="'secondaryFontColor' + (onMobile() ? ' smallFont' : '')" [title]="user.username">{{user.username}}</div>
+          <div [class]="'secondaryFontColor profileHeaderInfo' + (onMobile() ? ' smallFont' : '')" [title]="user.username">{{user.username}}</div>
         </div>
         <div class="largeAvatar" *ngIf="!loginOnly && !user?.displayPictureFile">
           <app-user-tag></app-user-tag>
-          <div class="smallFont secondaryFontColor" [title]="user?.username ?? 'Anonymous'">{{user?.username ?? "Anonymous"}}</div>
+          <div [class]="'smallFont secondaryFontColor profileHeaderInfo' + (onMobile() ? ' smallFont' : '')" [title]="user?.username ?? 'Anonymous'">{{user?.username ?? "Anonymous"}}</div>
         </div>
-        <div class="profileHeaderInfo secondaryFontColor" *ngIf="!loginOnly && (parentRef?.user || user)">
+        <div class="profileHeaderInfo profileHeaderBubble secondaryFontColor" *ngIf="!loginOnly && (parentRef?.user || user)">
           <div class="profileHeaderUserDescription">
             {{user?.about?.description}}
           </div>

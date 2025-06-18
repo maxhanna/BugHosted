@@ -80,9 +80,9 @@ export class UserTagComponent extends ChildComponent implements OnInit, OnDestro
       const newX = event.clientX + 150;
       const newY = event.clientY + 30;
       if (btn) {
-        btn.click(); 
         inputX.value = newX; // 10px right of cursor
         inputY.value = newY; // 10px below cursor  
+        btn.click(); 
       }
     }, 500);
    

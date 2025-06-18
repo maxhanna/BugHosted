@@ -204,7 +204,7 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
     this.serverDown = (this.parentRef ? await this.parentRef?.isServerUp() <= 0 : false);
     this.isUserNew = true;
     this.isUserComponentOpen = (!this.parentRef?.user || this.parentRef.user.id == 0);
-    this.warehouseUpgradeLevels = Array.from({ length: 6 }, (_, i) => i + 1);
+    this.warehouseUpgradeLevels = Array.from({ length: 10 }, (_, i) => i + 1);
     this.nexusService.getEpochRankings().then(res => { if (res) {this.epochRankings = res;}});
 
     const sessionToken = await this.parentRef?.getSessionToken() ?? "";
@@ -1182,7 +1182,7 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
   }
 
   private isUpgradeAffordable(upgradeCost: number, upgrade: string): boolean { 
-    if (this.nexusBase && (this.nexusBase.gold - upgradeCost) > 0) { 
+    if (this.nexusBase && (this.nexusBase.gold - upgradeCost) >= 0) { 
       return true;
     } else { 
       this.addNotification(`{${this.nexusBase?.coordsX},${this.nexusBase?.coordsY}} Not enough gold to upgrade ${upgrade}`);

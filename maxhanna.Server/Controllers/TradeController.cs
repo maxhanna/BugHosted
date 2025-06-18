@@ -14,18 +14,18 @@ public class TradeController : ControllerBase
 	}
 
 	[HttpPost("/Trade/GetTradeHistory", Name = "GetTradeHistory")]
-	public async Task<IActionResult> GetTradeHistory([FromBody] int userId, [FromHeader(Name = "Encrypted-UserId")] string encryptedUserId)
+	public async Task<IActionResult> GetTradeHistory([FromBody] TradebotStatusRequest req, [FromHeader(Name = "Encrypted-UserId")] string encryptedUserId)
 	{
 		try
 		{
-			if (userId != 1 && !await _log.ValidateUserLoggedIn(userId, encryptedUserId)) return StatusCode(500, "Access Denied.");
-			var time = await _krakenService.GetTradeHistory(userId, "XBT");
+			if (req.UserId != 1 && !await _log.ValidateUserLoggedIn(req.UserId, encryptedUserId)) return StatusCode(500, "Access Denied.");
+			var time = await _krakenService.GetTradeHistory(req.UserId, req.Coin ?? "XBT");
 			return Ok(time);
 		}
 		catch (Exception ex)
 		{
-			_ = _log.Db("Error fetching balance. " + ex.Message, userId, "TRADE", true);
-			return StatusCode(500, "Error fetching balance.");
+			_ = _log.Db("Error fetching trade history. " + ex.Message, req.UserId, "TRADE", true);
+			return StatusCode(500, "Error fetching trade history.");
 		}
 	}
 

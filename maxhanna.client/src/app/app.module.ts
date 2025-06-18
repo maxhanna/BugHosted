@@ -60,6 +60,8 @@ import { TimeFormatPipe } from './time-format.pipe';
 import { TimeSincePipe } from './time-since.pipe';
 import { NexusMovementComponent } from './nexus-movement/nexus-movement.component';
 import { CurrencyShortenPipe } from './currency-shorten';
+import { CryptoCalendarComponent } from './crypto-calendar/crypto-calendar.component';
+import { CryptoFearAndGreedComponent } from './crypto-fear-and-greed/crypto-fear-and-greed.component';
 
 @NgModule({
   declarations: [
@@ -112,7 +114,8 @@ import { CurrencyShortenPipe } from './currency-shorten';
     CrawlerComponent,
     SpeechRecognitionComponent,
     TopComponent,
-    NexusMovementComponent, 
+    NexusMovementComponent,
+    CryptoCalendarComponent, 
   ],
   bootstrap: [AppComponent],
   imports: [BrowserModule,
@@ -120,7 +123,8 @@ import { CurrencyShortenPipe } from './currency-shorten';
     TimeFormatPipe,
     TimeSincePipe,
     FileSizePipe, 
-    AppRoutingModule],
+    AppRoutingModule,
+    CryptoFearAndGreedComponent],
   exports: [
     InViewDirective,
     ClickableUrlsPipe,

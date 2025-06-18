@@ -2,6 +2,7 @@
 using FirebaseAdmin;
 using FirebaseAdmin.Auth;
 using Google.Apis.Auth.OAuth2;
+using maxhanna.Server.Controllers;
 using maxhanna.Server.Services;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.HttpOverrides;
@@ -37,6 +38,7 @@ builder.Services.AddHttpClient<KrakenService>();
 builder.Services.AddHttpClient<WebCrawler>();
 builder.Services.AddSingleton<Log>();
 builder.Services.AddSingleton<WebCrawler>();
+builder.Services.AddSingleton<AiController>();
 builder.Services.AddSingleton<NewsService>();
 builder.Services.AddSingleton<ProfitCalculationService>();
 builder.Services.AddSingleton<TradeIndicatorService>();

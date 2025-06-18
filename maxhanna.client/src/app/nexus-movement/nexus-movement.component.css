@@ -1,5 +1,5 @@
 .movement-section {
-    padding: 20px; 
+    padding: 20px;
 }
 
 .collapsible-header {
@@ -15,7 +15,7 @@
     background: linear-gradient(135deg, var(--component-background-color), var(--secondary-component-background-color));
     border-radius: 5px;
 }
- 
+
 .movement-item {
     border: var(--main-border);
     border-radius: 5px;
@@ -44,8 +44,18 @@
     font-size: small;
 }
 
+.movement-container {
+    background: var(--secondary-component-background-color);
+}
+
 .movement-eta {
     color: var(--third-font-color);
+    display: flex;
+    gap: 5px;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: baseline;
+    align-content: center;
 }
 
 .unit-summary {
@@ -113,6 +123,7 @@
     border-radius: 4px;
     border: var(--main-border);
 }
+
 .movement-eta {
     transition: all 0.3s ease;
 }
@@ -133,4 +144,5 @@
 
     100% {
         transform: scale(1);
-    } }
+    }
+}
