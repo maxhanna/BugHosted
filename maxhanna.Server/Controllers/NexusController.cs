@@ -493,19 +493,20 @@ namespace maxhanna.Server.Controllers
 				string sql = @"
                     SELECT 
                         n.user_id, 
-												n.base_name, 
-												u.username, 
-												n.coords_x, 
-												n.coords_y, 
-												n.gold, 
-												n.command_center_level, 
-												n.engineering_bay_level, 
-												n.mines_level, 
-												n.factory_level, 
-												n.starport_level, 
-												n.warehouse_level,
-												n.supply_depot_level,
-												udp.file_id
+						n.base_name, 
+						u.username, 
+						n.coords_x, 
+						n.coords_y, 
+						n.gold, 
+						n.command_center_level, 
+						n.engineering_bay_level, 
+						n.mines_level, 
+						n.factory_level, 
+						n.starport_level, 
+						n.warehouse_level,
+						n.supply_depot_level,
+						n.conquered, 
+						udp.file_id
                     FROM 
                         maxhanna.nexus_bases n
                     LEFT JOIN 
@@ -538,6 +539,7 @@ namespace maxhanna.Server.Controllers
 						tmpBase.WarehouseLevel = reader.IsDBNull(reader.GetOrdinal("warehouse_level")) ? 0 : reader.GetInt32(reader.GetOrdinal("warehouse_level"));
 						tmpBase.SupplyDepotLevel = reader.IsDBNull(reader.GetOrdinal("supply_depot_level")) ? 0 : reader.GetInt32(reader.GetOrdinal("supply_depot_level"));
 						tmpBase.Gold = reader.IsDBNull(reader.GetOrdinal("gold")) ? 0 : reader.GetDecimal(reader.GetOrdinal("gold"));
+						tmpBase.Conquered = reader.IsDBNull(reader.GetOrdinal("conquered")) ? DateTime.MinValue : reader.GetDateTime(reader.GetOrdinal("conquered"));
 						tmpBase.User =
 								new User(
 									reader.IsDBNull(reader.GetOrdinal("user_id")) ? 0 : reader.GetInt32(reader.GetOrdinal("user_id")), 
@@ -562,7 +564,50 @@ namespace maxhanna.Server.Controllers
 
 			return Ok(bases);
 		}
+		
+		[HttpPost("/Nexus/HasRecentFirstConquest", Name = "HasRecentFirstConquest")]
+		public async Task<IActionResult> HasRecentFirstConquest([FromBody] int userId)
+		{
+			await using var conn = new MySqlConnection(_connectionString);
+			await conn.OpenAsync();
 
+			await using var cmd = new MySqlCommand(@"
+				SELECT conquered
+				FROM   maxhanna.nexus_bases
+				WHERE  user_id = @userId
+				AND  conquered IS NOT NULL
+				ORDER  BY conquered ASC
+				LIMIT  1;", conn);
+
+			cmd.Parameters.AddWithValue("@userId", userId);
+
+			try
+			{
+				var result = await cmd.ExecuteScalarAsync();
+
+				// No conquered‑date found ⇒ user never conquered a base.
+				if (result is null || result == DBNull.Value)
+					return Ok(false);
+
+				var firstConquered = (DateTime)result;
+
+				// Compare in UTC to avoid daylight/time‑zone surprises.
+				bool isLessThan3Days =
+					firstConquered.ToUniversalTime() > DateTime.UtcNow.AddDays(-3);
+
+				return Ok(isLessThan3Days);   // returns true / false
+			}
+			catch (Exception ex)
+			{
+				await _log.Db("Error checking first conquest date: " + ex.Message,
+							  null, "NEXUS", true);
+				return StatusCode(500, "Internal server error");
+			}
+			finally
+			{
+				await conn.CloseAsync();
+			}
+		}
 
 		[HttpPost("/Nexus/GetBattleReports", Name = "GetBattleReports")]
 		public async Task<IActionResult> GetBattleReports([FromBody] BattleReportRequest request)

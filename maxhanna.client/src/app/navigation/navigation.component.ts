@@ -179,8 +179,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
     if (!this._parent || !this._parent.user || this.navbarCollapsed) {
       return;
     }
-    this.isLoadingNotifications = true;
-    console.log("getting getNotificationInfo");
+    this.isLoadingNotifications = true; 
     try {
       const res = await this.notificationService.getNotifications(this._parent.user.id ?? 0) as UserNotification[];
       if (res) {

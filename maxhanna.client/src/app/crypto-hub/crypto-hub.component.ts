@@ -1,4 +1,4 @@
-import { Component, ElementRef, EventEmitter, OnDestroy, OnInit, Output, ViewChild } from '@angular/core';
+import { ChangeDetectorRef, Component, ElementRef, EventEmitter, OnDestroy, OnInit, Output, ViewChild } from '@angular/core';
 import { ChildComponent } from '../child.component';
 import { Currency, MiningWalletResponse, Total } from '../../services/datacontracts/crypto/mining-wallet-response';
 import { CoinValue } from '../../services/datacontracts/crypto/coin-value';
@@ -160,7 +160,7 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
   };
   marketSentimentData?: any;
   isMarketSentimentMaximized = false; 
-  readonly sentimentPageSize = 5;
+  readonly sentimentPageSize = this.onMobile() ? 3 : 5;
   currentSentimentPage = 1;
   
   @ViewChild('scrollContainer', { static: true }) scrollContainer!: ElementRef;
@@ -209,7 +209,8 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
   constructor(
     private coinValueService: CoinValueService,
     private aiService: AiService,
-    private tradeService: TradeService) {
+    private tradeService: TradeService,
+    private changeDetectorRef: ChangeDetectorRef,) {
     super();
   }
   async ngOnInit() {
@@ -2698,10 +2699,13 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
       return { class: '', label: 'Neutral' };
     }
   } 
-  isTradeBotStarted(currency?: string): boolean {
+  isTradeBotStarted(currency?: string): boolean { 
     if (!currency) return false;
     return this.tradeBotStatus[currency] || false;
   } 
+  currencySelectTradebotEngage() { 
+    this.changeDetectorRef.detectChanges();
+  }
   openMarketSentimentPopup() {
     this.isMarketSentimentMaximized = true;
     this.parentRef?.showOverlay(); 

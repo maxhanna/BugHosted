@@ -270,17 +270,18 @@ namespace maxhanna.Server.Controllers
 					await conn.OpenAsync();
 
 					const string recentSql = @"
-                SELECT id, sentiment_score, analysis_text, created
-                FROM   market_sentiment_analysis
-                WHERE  created >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 3 HOUR)
-                ORDER  BY created DESC
-                LIMIT  1";
+						SELECT id, sentiment_score, analysis_text, created
+						FROM   market_sentiment_analysis
+						WHERE  created >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 3 HOUR)
+						ORDER  BY created DESC
+						LIMIT  1";
 
 					using var checkCmd = new MySqlCommand(recentSql, conn);
 					using var reader = await checkCmd.ExecuteReaderAsync();
 					if (await reader.ReadAsync())
 					{
 						// Already exists, no need to insert again
+						_ = _log.Db("Market Sentiment Analysis for the last 3 hours already provided. Skipping.", null, "AIController", outputToConsole: true);
 						return true;
 					}
 				}

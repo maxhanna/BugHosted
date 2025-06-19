@@ -60,7 +60,16 @@ export class NexusAttackScreenComponent extends ChildComponent {
     } else if (!this.selectedNexus || !this.nexusAvailableUnits || !this.unitStats) {
       this.parentRef?.showNotification("No units to send.");
       return;
+    } else {
+      if (this.selectedNexus.user?.id) { 
+        const fcRes = await this.nexusService.hasRecentFirstConquest(this.selectedNexus.user?.id);
+        if (fcRes) {
+          this.parentRef?.showNotification("Beginner protection enabled. You must wait 3 days before attacking a new base.");
+          return;
+        } 
+      }
     }
+    
 
     this.startLoading();
     setTimeout(() => {

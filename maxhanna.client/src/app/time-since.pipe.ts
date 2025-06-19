@@ -5,14 +5,13 @@ import { Pipe, PipeTransform } from "@angular/core";
   pure: false
 })
 export class TimeSincePipe implements PipeTransform {
-  transform(date?: Date | string): string {
+  transform(date?: Date | string, granularity: 'year' | 'month' | 'day' | 'hour' | 'minute' | 'second' = 'minute'): string {
     if (!date) return "0";
 
-    // Properly parse the date whether it's a string or Date object
     const dateObj = this.parseDate(date);
     if (!dateObj || isNaN(dateObj.getTime())) return "0";
 
-    return this.calculateTimeSince(dateObj, 'minute');
+    return this.calculateTimeSince(dateObj, granularity);
   }
 
   private parseDate(date: Date | string): Date {
@@ -35,7 +34,7 @@ export class TimeSincePipe implements PipeTransform {
     return new Date(NaN); // Invalid date
   }
 
-  private calculateTimeSince(date: Date, granularity?: 'year' | 'month' | 'day' | 'hour' | 'minute'): string {
+  private calculateTimeSince(date: Date, granularity?: 'year' | 'month' | 'day' | 'hour' | 'minute' | 'second'): string {
     const now = new Date();
     const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
 

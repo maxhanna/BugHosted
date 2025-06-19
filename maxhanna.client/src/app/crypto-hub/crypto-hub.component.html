@@ -368,7 +368,7 @@
         <div *ngIf="isTradePanelOpen" [class.trade-panel-controls]="canShowTradePanelInfo()">
 
           <div class="button-wrapper" *ngIf="canShowTradePanelInfo()">
-            <select class="currency-select" #selectedTradebotCurrency>
+            <select class="currency-select" #selectedTradebotCurrency (change)="currencySelectTradebotEngage()">
               <option value="BTC">Bitcoin/USDC</option>
               <option value="ETH">Ethereum/USDC</option>
               <option value="XRP">XRP/USDC</option>

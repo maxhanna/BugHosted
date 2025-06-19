@@ -38,7 +38,7 @@
   transform: translateX(-50%);
   max-width: 300px;
   text-align: center;
-  background-color: var(--main-highlight-color-quarter-opacity);
+  background-color: var(--secondary-component-background-color);
   color: var(--third-font-color);
   border: var(--main-border);
   text-overflow: ellipsis;
@@ -92,9 +92,12 @@
 }
 
 .levelLabel {
-  width: 85px;
-  position: absolute;
-  text-shadow: 0px 0px 6px white;
+  max-width: 15px;
+  position: absolute; 
+  background-color: var(--main-highlight-color-quarter-opacity);
+  font-size: small;
+  padding: 1px;
+  line-height: 13px;
 }
 
 .timerLabel {
@@ -531,7 +534,7 @@
 }
 
 .supplyUsedDiv {
-  height: 120px;
+  max-height: 120px;
   width: 30%;
   border: var(--main-border);
   padding-left: 10px;
@@ -567,7 +570,10 @@
 .unitPurchaseTableDiv {
   display: flex;
 }
-
+.gameHighlightSpan {
+  color: var(--secondary-font-color);
+  background-color: rgba(54, 25, 25, 0.6);
+}
 .gameNotification {
   color: var(--secondary-font-color);
   font-size: small;
@@ -692,7 +698,7 @@
   z-index: 3;
   font-size: small;
   font-weight: bold;
-  text-shadow: 1px 1px black;
+  text-shadow: 1px 1px var(--main-highlight-color);
   padding: 5px;
 }
 
@@ -702,7 +708,7 @@
 
 .goldText {
   color: gold;
-  text-shadow: 1px 1px black;
+  text-shadow: 1px 1px var(--main-highlight-color);
 }
 
 .unitStatUnitTitle {
@@ -906,6 +912,15 @@
   overflow: auto;
 } 
 
+.rankings-container tr {
+  font-size: xx-small;
+}
+.rankings-container th {
+  padding-left: 3px;
+  padding-right: 3px;
+  text-align: center;
+}
+
 .ranking-header,
 .ranking-item {
   align-items: center;
@@ -939,4 +954,17 @@
   text-align: center;
   padding: 20px;
   font-style: italic; 
+}
+.subtleInfoDiv {
+  width: 0px;
+  height: 0px; 
+  position: relative;
+  top: calc(var(--nexus-gamescreen-height) - 20px);
+  left: calc(var(--nexus-gamescreen-width) + 10px);
+  cursor: pointer;
+}
+.helpSnippet {
+  font-size: large;
+  font-weight: bolder;
+  padding: 20px;
 }

@@ -46,7 +46,7 @@
         <tbody>
           <tr *ngFor="let ranking of epochRankings">
             <td>{{ ranking.epochId }}</td>
-            <td [title]="ranking.timestamp">{{ ranking.timestamp | timeSince }}</td>
+            <td [title]="ranking.timestamp">{{ ranking.timestamp | timeSince:'day' }}</td>
             <td>{{ ranking.rank }}</td>
             <td>{{ ranking.username }}</td>
             <td>{{ ranking.baseCount }}</td>
@@ -313,17 +313,18 @@
       *ngIf="cclvl1Src && cclvl2Src && cclvl3Src && nexusBase && isCommandCenterOpen" loading="lazy"
       decoding="asynchronous" />
     <div *ngIf="nexusBase && isCommandCenterOpen" class="commandCenterScreen">
-      <div>
+      <div (click)="isDisplayingCommandCenterHelp = !isDisplayingCommandCenterHelp" class="xxSmallFont subtleInfoDiv">ℹ️Info</div>
+      <div *ngIf="isDisplayingCommandCenterHelp" class="helpSnippet">
         Upgrade the Command Center to gain more worker slots.
         Worker slots allow you to upgrade more buildings simultaneously.
       </div>
       <div class="upgradeProgressDisplayP">
         Current upgrade limit : {{nexusBase.commandCenterLevel + 1}}
       </div>
-      <div>
+      <div *ngIf="!isDisplayingCommandCenterHelp">
         Player Color : <input type="color" #playerColorInput [value]="'#'+playerColor" (change)="setPlayerColor()" />
       </div>
-      <div>
+      <div *ngIf="!isDisplayingCommandCenterHelp">
         Base Name : <input type="text" #baseNameInput [placeholder]="nexusBase.baseName ?? ''"
           (keyup.enter)="setBaseName()" />
         <button (click)="setBaseName()">Change</button>
@@ -336,13 +337,17 @@
       *ngIf="sdlvl1Src && sdlvl2Src && sdlvl3Src && nexusBase && isSupplyDepotOpen" loading="lazy"
       decoding="asynchronous" />
     <div *ngIf="isSupplyDepotOpen" class="supplyDepotScreen">
+      <div (click)="isDisplayingSupplyDepotHelp = !isDisplayingSupplyDepotHelp" class="xxSmallFont subtleInfoDiv">ℹ️Info</div>
+      <span *ngIf="isDisplayingSupplyDepotHelp" class="helpSnippet">For every supply depot level your supply capacity increases by 2500.</span>
       <div class="supplyInfoDiv">
-        <div class="supplyExplainDiv">
-          For every supply depot level your supply capacity increases by 2500.
-          <p class="gameNotification">🥩 Capacity: {{supplyCapacity}}</p>
-          <p class="gameNotification" *ngIf="nexusBase && isSupplyDepotOpen">🥩 Used: <span
-              [class]="supplyUsedPercentage > 95 ? 'redText' : ''">{{nexusBase.supply}} ({{ supplyUsedPercentage |
-              number:'1.0-2' }}% of total capacity)</span></p>
+        <div class="supplyExplainDiv"> 
+          <div class="gameNotification">🥩 Capacity: {{supplyCapacity}}</div>
+          <div class="gameNotification" *ngIf="nexusBase && isSupplyDepotOpen">🥩 Used: 
+            <span
+              [class]="supplyUsedPercentage > 95 ? 'redText' : ''">
+              {{nexusBase.supply}} ({{ supplyUsedPercentage | number:'1.0-2' }}% of total capacity)
+            </span>
+          </div>
         </div>
         <div class="supplyUsedDiv && isSupplyDepotOpen">
           <div *ngFor="let unit of units" class="capitalize">
@@ -357,9 +362,8 @@
     <img [src]="currentFactorySrc" class="screenBackground"
       *ngIf="flvl1Src && flvl2Src && flvl3Src && nexusBase && isFactoryOpen" loading="lazy" decoding="asynchronous" />
     <div *ngIf="isFactoryOpen" class="factoryScreen">
-      <div class="moreInfoTitle xxSmallFont cursorPointerUnderlined"
-        (click)="showMoreFactoryInfo = !showMoreFactoryInfo">[More Info]</div>
-      <div *ngIf="calculateCurrentSupply() > 0 && !showMoreFactoryInfo">
+      <div (click)="showMoreFactoryInfo = !showMoreFactoryInfo" class="xxSmallFont subtleInfoDiv">ℹ️Info </div>
+      <div *ngIf="calculateCurrentSupply() > 0 && !showMoreFactoryInfo" class="helpSnippet">
         Upgrade the Factory to train more units simultaneously. Current training limit: <span
           class="redText">{{nexusBase?.factoryLevel ?? 0}}</span>
       </div>
@@ -449,11 +453,10 @@
       *ngIf="splvl1Src && splvl2Src && splvl3Src && nexusBase && isStarportOpen" loading="lazy"
       decoding="asynchronous" />
     <div *ngIf="isStarportOpen" class="starportScreen">
-      <div class="moreInfoTitle xxSmallFont cursorPointerUnderlined"
-        (click)="showMoreStarportInfo = !showMoreStarportInfo">[More Info]</div>
-      <div *ngIf="calculateCurrentSupply() > 0 && !showMoreStarportInfo">
-        Upgrade the Starport to train more units simultaneously. Current training limit: <span
-          class="redText">{{nexusBase?.starportLevel ?? 0}}</span>
+      <div (click)="showMoreStarportInfo = !showMoreStarportInfo" class="xxSmallFont subtleInfoDiv">ℹ️Info </div> 
+      <div *ngIf="calculateCurrentSupply() > 0 && !showMoreStarportInfo" class="helpSnippet">
+        Upgrade the Starport to train more units simultaneously. Current training limit: 
+        <span class="redText">{{nexusBase?.starportLevel ?? 0}}</span>
       </div>
       <div *ngIf="calculateCurrentSupply() == 0 && !showMoreStarportInfo" class="redText">You require more supply.</div>
       <div *ngIf="calculateCurrentSupply() == 0 && !showMoreStarportInfo">Upgrade the Supply Depot to train more units.
@@ -680,11 +683,12 @@
       decoding="asynchronous" />
     <div *ngIf="isMinesOpen" class="minesScreen">
       <div>
-        <div>Upgrade the mines to increase mining efficiency.</div>
-        <div>Current mining speed: <span class="gameNotification"><span class="goldText">1 📀</span> per {{miningSpeed}}
+        <div (click)="isDisplayingMineHelp = !isDisplayingMineHelp" class="xxSmallFont subtleInfoDiv">ℹ️Info</div> 
+        <div *ngIf="isDisplayingMineHelp" class="helpSnippet">Upgrade the mines to increase mining efficiency.</div>
+        <div>Current mining speed: <span class="gameHighlightSpan"><span class="goldText">1 📀</span> per {{miningSpeed}}
             second(s)</span>.</div>
         <div *ngIf="nexusBase">
-          Time until max capacity: {{ formatTimer(calculateTimeUntilMaxCapacity()) }}
+          Time until max capacity: <span class="gameHighlightSpan">{{ formatTimer(calculateTimeUntilMaxCapacity()) }}</span>
         </div>
       </div>
       <div><button (click)="closeMines()">Back</button></div>
@@ -934,7 +938,6 @@
 </div>
 
 <div class="popupPanel" *ngIf="isMenuPanelOpen">
-  Menu <button id="closeOverlay" (click)="closeMenu()">Close</button>
   <div>
     <div class="popupPanelTitle">Nexus Epoch Rankings</div> 
     <div class="rankings-container mainTableContainer" [style.maxWidth]="onMobile() ? '300px' : ''"> 
@@ -959,7 +962,7 @@
         <tbody>
           <tr *ngFor="let ranking of epochRankings">
             <td>{{ ranking.epochId }}</td>
-            <td [title]="ranking.timestamp">{{ ranking.timestamp | timeSince }}</td>
+            <td [title]="ranking.timestamp">{{ ranking.timestamp | timeSince:'day' }}</td>
             <td>{{ ranking.rank }}</td>
             <td>{{ ranking.username }}</td>
             <td>{{ ranking.baseCount }}</td>
@@ -970,4 +973,5 @@
       </table>
     </div>
   </div>
+  <div style="margin-top: 15px; display:flex; align-items: center;"><button id="closeOverlay" (click)="closeMenu()">Close</button></div> 
 </div>

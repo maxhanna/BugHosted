@@ -179,8 +179,7 @@
     </div>
 
     <div *ngIf="user && user.id == parentRef?.user?.id && parentRef?.user?.username?.includes('Guest')" class="xxSmallFont">Note: <span class="italics">Guest accounts will be deleted after 10 days.</span></div>
-    <p *ngIf="!loginOnly" class="moreInfoTitle welcomeTitle cursorPointerUnderlined" (click)="isAboutOpen = !isAboutOpen">{{
-      !isAboutOpen ? 'Click here for more' : 'Show less'}} information</p>
+    <p *ngIf="!loginOnly && !user" class="moreInfoTitle welcomeTitle cursorPointerUnderlined" (click)="isAboutOpen = !isAboutOpen">{{ !isAboutOpen ? 'Click here for more' : 'Show less'}} information</p>
     <div *ngIf="isAboutOpen" class="aboutSiteDiv">
       <ul>
         <li>

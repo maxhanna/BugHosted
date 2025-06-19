@@ -83,6 +83,7 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
     hidden: this.showHiddenFiles ? 'yes' : 'no',
   };
   private storyUpdateInterval: any;
+  private overflowCache: Record<string, boolean> = {};
 
 
   city: string | undefined;
@@ -119,24 +120,18 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
     if (this.parent) {
       this.parentRef = this.parent;
     }
-    if (this.storyId) {
-      console.log("Story ID provided:", this.storyId);
+    if (this.storyId) { 
       this.openedStoryComments.push(this.storyId);
-    }
-    if (this.user?.id) {
-      console.log("User ID provided:", this.user.id); 
-    }
+    } 
     this.parent?.addResizeListener();
-    console.log("Initializing social component with storyId:", this.storyId, "and user:", this.user);
+   // console.log("Initializing social component with storyId:", this.storyId, "and user:", this.user);
     const tmpStoryId = this.storyId;
     const tmpCommentId = this.commentId;
     this.getStories().then(() => {
-      console.log("Stories fetched successfully:", this.storyResponse?.stories);
       if (tmpStoryId) {
-        console.log("Searching for target story with ID:", tmpStoryId);
         const tgtStory = this.storyResponse?.stories?.find((story) => story.id == tmpStoryId);
         if (tgtStory) {
-          console.log("Target story found:", tgtStory);
+          //console.log("Target story found:", tgtStory);
           this.scrollToStory(tgtStory.id);
           this.scrollToInputtedCommentId(tmpCommentId);
           this.changePageTitleAndDescription(tgtStory);
@@ -194,19 +189,16 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
     }
   }
 
-  private scrollToInputtedCommentId(commentId?: number) {
-    console.log("Scrolling to comment ID:", commentId);
+  private scrollToInputtedCommentId(commentId?: number) { 
     if (commentId) {
       setTimeout(() => {
         const subCommentElement = document.getElementById("subComment" + commentId);
         if (subCommentElement) {
-          subCommentElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
-          console.log("Scrolled to sub comment element:", subCommentElement);
+          subCommentElement.scrollIntoView({ behavior: 'smooth', block: 'start' }); 
         } else {
           const parentCommentElement = document.getElementById("commentText" + commentId);
           if (parentCommentElement) {
-            parentCommentElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
-            console.log("Scrolled to parent comment element:", parentCommentElement);
+            parentCommentElement.scrollIntoView({ behavior: 'smooth', block: 'start' }); 
           }
         }
       }, 1000);
@@ -362,8 +354,7 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
     if (this.searchIdInput?.nativeElement.value) {
       storyId = parseInt(this.searchIdInput.nativeElement.value);
     } else if (this.storyId) {
-      storyId = this.storyId;
-      console.log("Using storyId from input:", storyId);
+      storyId = this.storyId; 
       this.wasFromSearchId = true;
     }
     this.storyId = undefined;
@@ -371,14 +362,11 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
   }
 
   updatePollsInDOM(delayMs: number = 1000): void {
-    if (!this.storyResponse?.polls?.length) {
-      console.log('No polls to update.');
+    if (!this.storyResponse?.polls?.length) { 
       return;
     }
 
-    setTimeout(() => {
-      console.log('Updating poll DOM with data:', this.storyResponse?.polls);
-
+    setTimeout(() => {  
       this.storyResponse?.polls?.forEach(poll => {
         const componentId = poll.componentId; // e.g., storyText717
         const pollContainer = document.getElementById(componentId);
@@ -423,8 +411,7 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
         </div>`;
 
         // Update the DOM
-        pollContainer.innerHTML = pollHtml;
-        console.log(`Updated DOM for poll ${componentId}`);
+        pollContainer.innerHTML = pollHtml; 
       });
     }, delayMs);
   }
@@ -460,8 +447,7 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
         }
         if (parent) {
           const mentionnedUsers = await parent.getUsersByUsernames(storyText);
-          if (mentionnedUsers && mentionnedUsers.length > 0) {
-            console.log("mentionned:", mentionnedUsers);
+          if (mentionnedUsers && mentionnedUsers.length > 0) { 
             const notificationData: any = {
               fromUserId: user.id,
               toUserIds: mentionnedUsers.map(x => x.id),
@@ -936,18 +922,23 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
     const youtubeMatch = url.match(youtubeRegex);
 
     return youtubeMatch?.[1] ?? '';
-  }
+  } 
 
   hasOverflow(elementId: string): boolean {
-    const element = document.getElementById(elementId);
-    if (!element) {
-      return false; // Element not found
+    if (this.overflowCache[elementId] !== undefined) {
+      return this.overflowCache[elementId];
     }
- 
-    const threshold = 400;
 
-    return element.scrollHeight >= threshold;
+    const element = document.getElementById(elementId);
+    if (!element) return false;
+
+    const threshold = 400;
+    const buffer = 20;
+    this.overflowCache[elementId] = element.scrollHeight >= (threshold + buffer);
+
+    return this.overflowCache[elementId];
   }
+
   async loadMorePosts() {
     this.currentPage++;
     await this.getStories(this.currentPage + 1, 10, undefined, undefined, true);

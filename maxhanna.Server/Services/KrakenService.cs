@@ -495,7 +495,7 @@ public class KrakenService
 				} 
 				coinToTrade = await AdjustToPriors(userId, tmpCoin, coinToTrade.Value, "sell");
 
-				decimal coinValueMatchingLastBuyPrice = await GetLastBuyPriceAsync(userId, tmpCoin);
+				decimal coinValueMatchingLastBuyPrice = await GetLowestBuyPriceInXTradesAsync(userId, tmpCoin, 5);
 				if (coinValueMatchingLastBuyPrice == 0)
 				{
 					_ = _log.Db($"⚠️No matching buy price at this depth!", userId, "TRADE", true);
@@ -1026,36 +1026,7 @@ public class KrakenService
 		_ = _log.Db($"No matching {tmpCoin} Kraken trade found", dbTrade.user_id, "TRADE", false);
 		return null;
 	}
-	private async Task<decimal?> GetUsdToCadRate()
-	{
-		// SQL query to get the latest rate for CAD -> USD
-		var selectSql = @"
-			SELECT rate 
-			FROM exchange_rates 
-			WHERE base_currency = 'CAD' AND target_currency = 'USD' 
-			ORDER BY timestamp DESC 
-			LIMIT 1;";
-
-		try
-		{
-			// Open connection to the database
-			using var conn = new MySqlConnection(_config?.GetValue<string>("ConnectionStrings:maxhanna"));
-			await conn.OpenAsync();
-
-			// Execute the query
-			using var cmd = new MySqlCommand(selectSql, conn);
-			var result = await cmd.ExecuteScalarAsync();
-
-			// If result is not null, return it, otherwise return null
-			return result != DBNull.Value ? (decimal?)(1 / Convert.ToDecimal(result)) : null;
-		}
-		catch (Exception ex)
-		{
-			_ = _log.Db("⚠️Error fetching latest exchange rate: " + ex.Message, null, "TRADE", true);
-			return null;
-		}
-	}
-
+	  
 	private async Task<bool> SaveTradeFootprint(int userId, string from, string to, string amount,
 		decimal lastCoinValueCad, decimal lastCoinValueUSDC, string buyOrSell,
 		decimal coinBalance, decimal usdcBalance)
@@ -1384,7 +1355,9 @@ public class KrakenService
 			{"XXDG", "xdg"},
 			{"XETH", "eth"},
 			{"ETH", "eth"},
+			{"ETH.F", "eth"},
 			{"SOL.F", "sol"},
+			{"SOL", "sol"},
 			// Add more mappings as needed
 		};
 
@@ -1952,52 +1925,7 @@ public class KrakenService
 			_ = _log.Db("⚠️Error stopping the bot: " + ex.Message, userId, "TRADE", true);
 			return null;
 		}
-	}
-	private async Task<decimal?> GetCoinPriceToCad(int userId, string coin, UserKrakenApiKey keys)
-	{
-		try
-		{
-			string tmpCoin = coin.ToUpper().Trim();
-			tmpCoin = tmpCoin == "BTC" ? "XBT" : tmpCoin;
-
-			var pair = $"X{tmpCoin}ZCAD";
-			var response = await MakeRequestAsync(userId, keys, "/Ticker", "public", new Dictionary<string, string> { ["pair"] = pair });
-			if (response == null || !response.ContainsKey("result"))
-			{
-				_ = _log.Db($"Failed to get {tmpCoin} price in CAD: 'result' not found.", userId, "TRADE", true);
-				return null;
-			}
-			var result = (JObject)response["result"];
-			if (!result.ContainsKey(pair))
-			{
-				_ = _log.Db($"Failed to find {pair} pair in the response.", userId, "TRADE", true);
-				return null;
-			}
-
-			// Extract the ask price from the 'a' key (ask prices are in the array)
-			var askArrayToken = result[pair]?["a"];
-			if (askArrayToken == null)
-			{
-				_ = _log.Db("Failed to extract ask price from response.", userId, "TRADE", true);
-				return null;
-			}
-			var askArray = askArrayToken.ToObject<JArray>();
-			if (askArray == null || askArray.Count < 1)
-			{
-				_ = _log.Db("Failed to extract ask price from response.", userId, "TRADE", true);
-				return null;
-			}
-			// The ask price is the first value in the array
-			var askPrice = askArray[0].ToObject<decimal>();
-			var roundedPrice = Math.Round(askPrice, 2);
-			return roundedPrice;
-		}
-		catch (Exception ex)
-		{
-			_ = _log.Db($"⚠️Error fetching {coin} price to CAD: {ex.Message}", userId, "TRADE", true);
-			return null;
-		}
-	}
+	} 
 	public async Task<decimal?> GetCoinPriceToUSDC(int userId, string coin, UserKrakenApiKey keys)
 	{
 		string tmpCoin = coin.ToUpper();
@@ -3147,99 +3075,7 @@ public class KrakenService
 			_ = _log.Db($"⚠️CreateStopLossOrder exception: {e.Message}, StackTrace: {e.StackTrace}", userId, "TRADE", true);
 			return false;
 		}
-	}
-
-
-	public async Task<List<decimal>> GetWeightedAveragePrices(int userId, string fromCurrency, string toCurrency)
-	{
-		List<decimal> avgPrices = new List<decimal>() { 0m, 0m };
-
-		try
-		{
-			using var connection = new MySqlConnection(_config?.GetValue<string>("ConnectionStrings:maxhanna"));
-			await connection.OpenAsync();
-
-			// Get conversion rate (CAD to USDC) if needed - you'll need to implement this
-			decimal? cadToUsdcRate = await GetUsdToCadRate();
-
-			// Weighted average buy price (USDC → XBT)
-			var buyCmd = new MySqlCommand(@"
-				SELECT 
-					SUM(value) as total_btc,
-					SUM(value * 
-						CASE 
-							WHEN coin_price_usdc > '0' THEN CAST(coin_price_usdc AS DECIMAL(20,10))
-							ELSE CAST(coin_price_cad AS DECIMAL(20,10)) / @cadToUsdcRate
-						END) as total_cost_usdc
-				FROM trade_history
-				WHERE user_id = @userId
-				AND from_currency = @toCurrency   -- Buying BTC (USDC → XBT)
-				AND to_currency = @fromCurrency
-				AND (coin_price_usdc > '0' OR coin_price_cad > '0')
-				AND timestamp >= DATE_SUB(NOW(), INTERVAL 30 DAY);", connection);
-
-			buyCmd.Parameters.AddWithValue("@userId", userId);
-			buyCmd.Parameters.AddWithValue("@toCurrency", toCurrency);
-			buyCmd.Parameters.AddWithValue("@fromCurrency", fromCurrency);
-			buyCmd.Parameters.AddWithValue("@cadToUsdcRate", cadToUsdcRate);
-
-			using (var reader = await buyCmd.ExecuteReaderAsync())
-			{
-				if (await reader.ReadAsync())
-				{
-					decimal totalBtc = reader.IsDBNull(0) ? 0 : reader.GetDecimal(0);
-					decimal totalCost = reader.IsDBNull(1) ? 0 : reader.GetDecimal(1);
-
-					if (totalBtc > 0)
-					{
-						avgPrices[0] = totalCost / totalBtc;
-					}
-				}
-			}
-
-			// Weighted average sell price (XBT → USDC)
-			var sellCmd = new MySqlCommand(@"
-				SELECT 
-					SUM(value) as total_btc,
-					SUM(value * 
-						CASE 
-							WHEN coin_price_usdc > '0' THEN CAST(coin_price_usdc AS DECIMAL(20,10))
-							ELSE CAST(coin_price_cad AS DECIMAL(20,10)) / @cadToUsdcRate
-						END) as total_revenue_usdc
-				FROM trade_history
-				WHERE user_id = @userId
-				AND from_currency = @fromCurrency   -- Selling BTC (XBT → USDC)
-				AND to_currency = @toCurrency
-				AND (coin_price_usdc > '0' OR coin_price_cad > '0')
-				AND timestamp >= DATE_SUB(NOW(), INTERVAL 30 DAY);", connection);
-
-			// Reuse parameters
-			sellCmd.Parameters.AddWithValue("@userId", userId);
-			sellCmd.Parameters.AddWithValue("@toCurrency", toCurrency);
-			sellCmd.Parameters.AddWithValue("@fromCurrency", fromCurrency);
-			sellCmd.Parameters.AddWithValue("@cadToUsdcRate", cadToUsdcRate);
-
-			using (var reader = await sellCmd.ExecuteReaderAsync())
-			{
-				if (await reader.ReadAsync())
-				{
-					decimal totalBtc = reader.IsDBNull(0) ? 0 : reader.GetDecimal(0);
-					decimal totalRevenue = reader.IsDBNull(1) ? 0 : reader.GetDecimal(1);
-
-					if (totalBtc > 0)
-					{
-						avgPrices[1] = totalRevenue / totalBtc;
-					}
-				}
-			}
-		}
-		catch (Exception e)
-		{
-			_ = _log.Db($"⚠️Exception in GetWeightedAveragePrices: {e.Message}", outputToConsole: true);
-		}
-
-		return avgPrices;
-	}
+	} 
 
 	private async Task<int> GetOppositeTradeCount(int userId, string coin, string buyOrSell, int lookbackCount = 5)
 	{
@@ -3516,35 +3352,45 @@ public class KrakenService
 	}
 
 	/// <summary>
-	/// Retrieves the price of the most recent buy trade for the specified coin by the user.	
-	/// </summary> 
-	private async Task<decimal> GetLastBuyPriceAsync(int userId, string coin)
-	{ 
-		string tmpCoin = coin.ToUpper() == "BTC" ? "XBT" : coin.ToUpper(); 
+	/// Looks at the last <paramref name="lookbackTrades"/> USDC‑&gt;COIN buys
+	/// made by <paramref name="userId"/> and returns the lowest price paid.
+	/// </summary>
+	private async Task<decimal> GetLowestBuyPriceInXTradesAsync(int userId, string coin, int lookbackTrades)
+	{
+		if (lookbackTrades <= 0)
+		{
+			_ = _log.Db("Value must be greater than zero.", userId, "TRADE", true);
+			return 0m;
+		} 
+		string tmpCoin = coin.Equals("BTC", StringComparison.OrdinalIgnoreCase) ? "XBT" : coin.ToUpperInvariant();
+  
+		string sql = $@"
+			SELECT MIN(t.value) AS LowestBuyPrice
+			FROM (
+				SELECT value
+				FROM   trade_history
+				WHERE  user_id       = @UserId
+				AND  from_currency = 'USDC'
+				AND  to_currency   = @ToCur
+				ORDER  BY timestamp DESC
+				LIMIT  {lookbackTrades}
+			) AS t;";
 
-		const string sql = @$"
-			SELECT value        
-			FROM   trade_history
-			WHERE  user_id       = @UserId
-			AND  from_currency = 'USDC'
-			AND  to_currency   = @ToCur 
-			ORDER  BY timestamp DESC
-			LIMIT  1;"; 
 		try
 		{
-			using var conn = new MySqlConnection(_config?.GetValue<string>("ConnectionStrings:maxhanna"));
+			await using var conn = new MySqlConnection(_config?.GetValue<string>("ConnectionStrings:maxhanna"));
 			await conn.OpenAsync();
 
-			using var cmd = new MySqlCommand(sql, conn);
+			await using var cmd = new MySqlCommand(sql, conn);
 			cmd.Parameters.AddWithValue("@UserId", userId);
-			cmd.Parameters.AddWithValue("@ToCur", tmpCoin); 
+			cmd.Parameters.AddWithValue("@ToCur", tmpCoin);
 
 			object? result = await cmd.ExecuteScalarAsync();
-			return result == null ? 0m : Convert.ToDecimal(result);
+			return result is null ? 0m : Convert.ToDecimal(result);
 		}
 		catch (Exception ex)
 		{
-			_ = _log.Db($"⚠️Error getting last buy price for {tmpCoin}: {ex.Message}", userId, "TRADE", true);
+			_ = _log.Db($"⚠️ Error getting lowest buy price for {tmpCoin}: {ex.Message}", userId, "TRADE", true);
 			return 0m;
 		}
 	}

@@ -94,13 +94,25 @@
 .user-tag-content-wrapper {
   position: relative;
   z-index: 1;
+  color: black;
+  width: 100%;
+
 }
 
-.popupUserTagInfo {
-  display: flex; 
-  flex-direction: column;
+.popupUserTagInfo { 
   text-shadow: 1px 1px var(--main-highlight-color);
   background: rgba(255, 255, 255, 0.4);
   padding: 4px 8px; /* Adjust as needed */
   border-radius: 4px; /* Optional: rounded corners */
+}
+
+.popupUserTagAvatarAndName {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  align-content: center;
+  max-width: 75px;
+  white-space: normal;
+  word-wrap: break-word;
 }

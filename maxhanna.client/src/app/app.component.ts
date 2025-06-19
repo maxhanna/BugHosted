@@ -164,6 +164,7 @@ export class AppComponent implements OnInit, AfterViewInit {
           console.error('Service Worker registration failed:', error);
         });
     }
+    this.updateLastSeenPeriodically();
   }
   ngAfterViewInit() {
     this.router.events.subscribe(event => {
@@ -975,9 +976,12 @@ export class AppComponent implements OnInit, AfterViewInit {
     });
 
     event?.stopPropagation();
+  } 
+  async updateLastSeenPeriodically() {
+    setInterval(() => {
+      this.updateLastSeen();
+    }, 60 * 60 * 1000);
   }
-
-
   async updateLastSeen(user?: User) {
     const tmpUser = user ?? this.user;
 

@@ -22,14 +22,15 @@
     position: absolute;
     top: 0;
     left: 0;
-    background-color: rgba(0, 0, 0, 0.4);
-    color: var(--main-font-color); 
+    background-color: var(--main-highlight-color-quarter-opacity); 
+    opacity: 70%;
     font-size: 11px; 
     pointer-events: none;
     width: 50px;
     text-overflow: ellipsis;
     overflow: hidden;
     word-break: keep-all;
+    text-align: center;
   }
 .unitCountLabel {
   position: absolute;

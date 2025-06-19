@@ -88,6 +88,10 @@ export class NexusService {
   async upgradeWarehouse(userId: number, nexus: NexusBase): Promise<any> {
     return await this.fetchData('/nexus/upgradewarehouse', { UserId: userId, Nexus: nexus });
   }
+
+  async hasRecentFirstConquest(userId: number): Promise<any> {
+    return await this.fetchData('/nexus/hasrecentfirstconquest', userId);
+  }
   async start(userId: number): Promise<any> {
     return await this.fetchData('/nexus/start', userId);
   }

@@ -65,6 +65,9 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
   shouldLoadMap = false;
   shouldLoadBaseUnits = false;
   hideBaseNavForMap = false;
+  isDisplayingCommandCenterHelp = false;
+  isDisplayingSupplyDepotHelp = false;
+  isDisplayingMineHelp = false;
 
   mapTileSrc?: string;
   mapTileSrc2?: string;
@@ -835,7 +838,11 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
             const unitType = this.getUnitTypeFromId(obj.unitIdPurchased);
             const qtyPurchased = obj.quantityPurchased;
             delete this.unitTimers[upgrade];
-
+            if (obj.unitIdPurchased == 6 || obj.unitIdPurchased == 7 || obj.unitIdPurchased == 10) {
+              this.factoryUnitsBeingBuilt--;
+            } else if (obj.unitIdPurchased == 8 || obj.unitIdPurchased == 9 || obj.unitIdPurchased == 11) {
+              this.starportUnitsBeingBuilt--;
+            }
             const unitMap: any = {
               marine: 'marineTotal',
               goliath: 'goliathTotal',

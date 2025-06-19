@@ -66,43 +66,44 @@
   </div>
   <div class="user-tag-content-wrapper">
     <div style="display: flex; justify-content: space-between; gap:20px;">
-      <div>
+      <div class="popupUserTagAvatarAndName">
         <app-user-tag [userId]="showUserTagUserId ? parseInteger(showUserTagUserId.value) : 0" [inputtedParentRef]="this"
           (userLoaded)="userTagUserLoaded($event)" [preventOpenProfile]="true" [hideName]="true"></app-user-tag>
-          <div class="thirdFontColor xxSmallFont popupUserTagInfo">
-            {{popupUserTagUser?.username ?? "Anonymous"}}
-            <span class="seperatedUserHeader" *ngIf="popupUserTagUser?.about?.currency">
-              {{ (popupUserTagUser?.about?.currency ?? '') | currencyFlag }}
-            </span>
+          <div [class]="(popupUserTagUser?.username || 'Anonymous').length > 10 ? 'xxSmallFont'
+                      : (popupUserTagUser?.username || 'Anonymous').length > 5 ? 'smallFont' : ''">
+            <span class="popupUserTagInfo">{{popupUserTagUser?.username ?? "Anonymous"}}</span> 
           </div>
+          <span class="seperatedUserHeader" *ngIf="popupUserTagUser?.about?.currency">
+            {{ (popupUserTagUser?.about?.currency ?? '') | currencyFlag }}
+          </span>
       </div>
       <div *ngIf="popupUserTagUser" class="popupUserTagInfo"> 
-        <div>{{ popupUserTagUser.about?.description }}</div>
-        <div class="invertedHighlights xxSmallFont">Last Seen: </div>
+        <div [class]="(popupUserTagUser.about?.description?.length ?? 0) > 25 ? 'xxSmallFont' : ''">
+          {{ popupUserTagUser.about?.description }}  
+        </div>
+        <div class="xxSmallFont">Last Seen: </div>
         <div>
           <span *ngIf="popupUserTagUser && popupUserTagUser.lastSeen && isUserOnline(popupUserTagUser.lastSeen | timeSince)"
             class="cursorPointer" [title]="popupUserTagUser.lastSeen | timeSince">
             <span class="glowing onlineButton">🟢</span> Online
           </span>
-          <span
-            *ngIf="popupUserTagUser && popupUserTagUser.lastSeen && !isUserOnline(popupUserTagUser.lastSeen | timeSince)"
-            class="invertedHighlights smallFont">
+          <span *ngIf="popupUserTagUser && popupUserTagUser.lastSeen && !isUserOnline(popupUserTagUser.lastSeen | timeSince)">
             {{ popupUserTagUser.lastSeen | timeSince }}
           </span>
           <span *ngIf="!popupUserTagUser?.lastSeen">
-            Unknown <span class="invertedHighlights xxSmallFont">(0 days)</span>
+            Unknown <span class="xxSmallFont">(0 days)</span>
           </span>
         </div>
         <div class="seperatedUserHeader">
-          <div class="invertedHighlights xxSmallFont">Joined: </div>
+          <div class="xxSmallFont">Joined: </div>
           <div
             [title]="(popupUserTagUser && popupUserTagUser.created ? (popupUserTagUser.created | date: 'y/MM/d') : 'Unknown')"
-            class="smallFont thirdFontColor cursorPointer">
+            class="smallFont cursorPointer">
             {{(popupUserTagUser && popupUserTagUser.created ? popupUserTagUser.created : '0 days') | timeSince}}
           </div>
         </div>
       </div>
-      </div>
+    </div>
   </div> 
 </div>
 

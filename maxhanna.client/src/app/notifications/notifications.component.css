@@ -133,6 +133,7 @@
   margin-bottom: 10px;
   height: 100%;
   min-height: 300px;
+  padding: 10px;
 }
 .noNotificationsWrapperSpan {
   display: flex;

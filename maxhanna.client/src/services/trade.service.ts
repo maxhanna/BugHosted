@@ -90,10 +90,7 @@ export class TradeService {
   }
   async getTradeVolumeForGraph(from?: Date, hourRange?: number) {
     return this.post(`/trade/gettradevolumeforgraph`, { From: from, HourRange: hourRange }, 'json');
-  }
-  async getWeightedAveragePrices(userId: number, encryptedUserId: string) {
-    return this.post(`/trade/getweightedaverageprices`, userId, 'json', encryptedUserId);
-  }
+  } 
   async enterPosition(userId: number, encryptedUserId: string) {
     return this.post(`/trade/enterposition`, userId, 'json', encryptedUserId);
   }
