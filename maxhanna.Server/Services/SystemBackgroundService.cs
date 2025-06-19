@@ -105,6 +105,7 @@ namespace maxhanna.Server.Services
 			await _profitService.CalculateMonthlyProfits();
 			await FetchAndStoreCryptoEvents();
 			await FetchAndStoreFearGreedAsync();
+			await FetchAndStoreGlobalMetricsAsync();
 		}
 
 		private async Task RunHourlyTasks()
@@ -235,7 +236,145 @@ namespace maxhanna.Server.Services
 			}
 
 			await _log.Db($"Stored Fear & Greed = {indexValue} ({classification}) @ {timestampUtc:u}", null, "FGI", outputToConsole: true);
-		} 
+		}
+
+		private async Task FetchAndStoreGlobalMetricsAsync()
+		{
+			await _log.Db("Fetching global metrics from CoinMarketCap...", null, "GMF", outputToConsole: true);
+
+			// First check if we have recent data (within last 3 hours)
+			await using (var checkConn = new MySqlConnection(_connectionString))
+			{
+				await checkConn.OpenAsync();
+
+				const string recentCheckSql = @"
+					SELECT 1 FROM crypto_global_metrics 
+					WHERE last_updated >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 3 HOUR)
+					LIMIT 1;";
+
+				await using var checkCmd = new MySqlCommand(recentCheckSql, checkConn);
+				if (await checkCmd.ExecuteScalarAsync() != null)
+				{
+					await _log.Db("Recent global metrics already exist (within last 3 hours), skipping update.",
+								 null, "GMF", outputToConsole: true);
+					return;
+				}
+			}
+
+			// Get API key from config
+			var apiKey = _config.GetValue<string>("CoinMarketCap:ApiKey");
+			if (string.IsNullOrWhiteSpace(apiKey))
+			{
+				await _log.Db("CoinMarketCap API key missing", null, "GMF", outputToConsole: true);
+				return;
+			}
+
+			// Call CoinMarketCap API
+			string json;
+			try
+			{
+				using var http = new HttpClient();
+				var req = new HttpRequestMessage
+				{
+					Method = HttpMethod.Get,
+					RequestUri = new Uri("https://pro-api.coinmarketcap.com/v1/global-metrics/quotes/latest"),
+				};
+				req.Headers.Add("X-CMC_PRO_API_KEY", apiKey);
+				req.Headers.Add("Accepts", "application/json");
+
+				using var resp = await http.SendAsync(req);
+				resp.EnsureSuccessStatusCode();
+				json = await resp.Content.ReadAsStringAsync();
+			}
+			catch (Exception ex)
+			{
+				await _log.Db($"Failed to fetch global metrics: {ex.Message}", null, "GMF", outputToConsole: true);
+				return;
+			}
+
+			// Parse the response
+			try
+			{
+				var root = Newtonsoft.Json.Linq.JObject.Parse(json);
+				var data = root["data"] ?? throw new Exception("No data in API response");
+				var quote = data["quote"]?["USD"] ?? throw new Exception("No USD quote in API response");
+
+				var timestamp = data["last_updated"]?.ToObject<DateTime>() ?? DateTime.UtcNow;
+
+				// Check if we already have this exact timestamp (redundant check but good for safety)
+				await using var conn = new MySqlConnection(_connectionString);
+				await conn.OpenAsync();
+
+				const string existsSql = @"SELECT 1 FROM crypto_global_metrics 
+                              WHERE timestamp_utc = @ts LIMIT 1;";
+				await using var existsCmd = new MySqlCommand(existsSql, conn);
+				existsCmd.Parameters.AddWithValue("@ts", timestamp);
+				if (await existsCmd.ExecuteScalarAsync() != null)
+				{
+					await _log.Db($"Global metrics already exist @ {timestamp:u}, skipping.", null, "GMF", outputToConsole: true);
+					return;
+				}
+
+				// Prepare the insert command
+				const string insertSql = @"
+					INSERT INTO crypto_global_metrics (
+						timestamp_utc, btc_dominance, eth_dominance,
+						active_cryptocurrencies, active_exchanges, active_market_pairs,
+						total_market_cap, total_volume_24h, total_volume_24h_reported,
+						altcoin_market_cap, altcoin_volume_24h, altcoin_volume_24h_reported,
+						defi_market_cap, defi_volume_24h, 
+						stablecoin_market_cap, stablecoin_volume_24h,
+						derivatives_volume_24h, last_updated
+					) VALUES (
+						@ts, @btcDom, @ethDom,
+						@activeCryptos, @activeExchanges, @activePairs,
+						@totalCap, @totalVol, @totalVolReported,
+						@altcoinCap, @altcoinVol, @altcoinVolReported,
+						@defiCap, @defiVol,
+						@stablecoinCap, @stablecoinVol,
+						@derivativesVol, @lastUpdated
+					)";
+
+				await using var cmd = new MySqlCommand(insertSql, conn);
+
+				// Add parameters
+				cmd.Parameters.AddWithValue("@ts", timestamp);
+				cmd.Parameters.AddWithValue("@btcDom", data["btc_dominance"]?.ToObject<decimal>() ?? 0m);
+				cmd.Parameters.AddWithValue("@ethDom", data["eth_dominance"]?.ToObject<decimal>() ?? 0m);
+				cmd.Parameters.AddWithValue("@activeCryptos", data["active_cryptocurrencies"]?.ToObject<int>() ?? 0);
+				cmd.Parameters.AddWithValue("@activeExchanges", data["active_exchanges"]?.ToObject<int>() ?? 0);
+				cmd.Parameters.AddWithValue("@activePairs", data["active_market_pairs"]?.ToObject<int>() ?? 0);
+
+				cmd.Parameters.AddWithValue("@totalCap", quote["total_market_cap"]?.ToObject<decimal>() ?? 0m);
+				cmd.Parameters.AddWithValue("@totalVol", quote["total_volume_24h"]?.ToObject<decimal>() ?? 0m);
+				cmd.Parameters.AddWithValue("@totalVolReported", quote["total_volume_24h_reported"]?.ToObject<decimal>() ?? 0m);
+				cmd.Parameters.AddWithValue("@altcoinCap", quote["altcoin_market_cap"]?.ToObject<decimal>() ?? 0m);
+				cmd.Parameters.AddWithValue("@altcoinVol", quote["altcoin_volume_24h"]?.ToObject<decimal>() ?? 0m);
+				cmd.Parameters.AddWithValue("@altcoinVolReported", quote["altcoin_volume_24h_reported"]?.ToObject<decimal>() ?? 0m);
+
+				cmd.Parameters.AddWithValue("@defiCap", quote["defi_market_cap"]?.ToObject<decimal>() ?? 0m);
+				cmd.Parameters.AddWithValue("@defiVol", quote["defi_volume_24h"]?.ToObject<decimal>() ?? 0m);
+				cmd.Parameters.AddWithValue("@stablecoinCap", quote["stablecoin_market_cap"]?.ToObject<decimal>() ?? 0m);
+				cmd.Parameters.AddWithValue("@stablecoinVol", quote["stablecoin_volume_24h"]?.ToObject<decimal>() ?? 0m);
+				cmd.Parameters.AddWithValue("@derivativesVol", quote["derivatives_volume_24h"]?.ToObject<decimal>() ?? 0m);
+				cmd.Parameters.AddWithValue("@lastUpdated", data["last_updated"]?.ToObject<DateTime>() ?? DateTime.UtcNow);
+
+				var affectedRows = await cmd.ExecuteNonQueryAsync();
+
+				if (affectedRows > 0)
+				{
+					await _log.Db($"Successfully stored global metrics @ {timestamp:u}", null, "GMF", outputToConsole: true);
+				}
+				else
+				{
+					await _log.Db("Failed to store global metrics (no rows affected)", null, "GMF", outputToConsole: true);
+				}
+			}
+			catch (Exception ex)
+			{
+				await _log.Db($"Failed to process global metrics: {ex.Message}", null, "GMF", outputToConsole: true);
+			}
+		}
 
 		private async Task FetchAndStoreCryptoEvents()
 		{

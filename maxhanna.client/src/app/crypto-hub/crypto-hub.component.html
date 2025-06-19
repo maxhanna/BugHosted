@@ -134,14 +134,39 @@
       <div class="indicators-grid">
         <!-- 200-Day MA -->
         <div class="indicator-card">
-          <span class="indicator-label"
-            title="Measures long-term price trend. 'Yes' means price is above the 200-day average.">
+          <span class="indicator-label" title="Measures long-term price trend. 'Yes' means price is above the 200-day average.">
             200-Day Moving Average
           </span>
           <span class="indicator-value" [class.positive]="tradeIndicators.twoHundredDayMA">
             {{ tradeIndicators.twoHundredDayMA ? 'Yes' : 'No' }}
             <div class="indicator-value" [class]="tradeIndicators.twoHundredDayMA ? 'positive' : 'vwap-value'">
               {{ tradeIndicators.twoHundredDayMAValue | currency:'USD':'symbol':'1.2-2' }}
+            </div>
+          </span>
+        </div>
+
+        <!-- 14-Day MA -->
+        <div class="indicator-card">
+          <span class="indicator-label" title="Measures long-term price trend. 'Yes' means price is above the 14-day average.">
+            14-Day Moving Average
+          </span>
+          <span class="indicator-value" [class.positive]="tradeIndicators.fourteenDayMA">
+            {{ tradeIndicators.fourteenDayMA ? 'Yes' : 'No' }}
+            <div class="indicator-value" [class]="tradeIndicators.fourteenDayMA ? 'positive' : 'vwap-value'">
+              {{ tradeIndicators.fourteenDayMAValue | currency:'USD':'symbol':'1.2-2' }}
+            </div>
+          </span>
+        </div>
+
+        <!-- 21-Day MA -->
+        <div class="indicator-card">
+          <span class="indicator-label" title="Measures long-term price trend. 'Yes' means price is above the 21-day average.">
+            21-Day Moving Average
+          </span>
+          <span class="indicator-value" [class.positive]="tradeIndicators.twentyOneDayMA">
+            {{ tradeIndicators.twentyOneDayMA ? 'Yes' : 'No' }}
+            <div class="indicator-value" [class]="tradeIndicators.twentyOneDayMA ? 'positive' : 'vwap-value'">
+              {{ tradeIndicators.twentyOneDayMAValue | currency:'USD':'symbol':'1.2-2' }}
             </div>
           </span>
         </div>
@@ -251,6 +276,50 @@
     <div *ngIf="!isTradePanelOpen" class="sectionContainer">
       <app-crypto-fear-and-greed [inputtedParentRef]="parentRef"></app-crypto-fear-and-greed>
     </div>
+    <div *ngIf="!isTradePanelOpen && topMarketCaps?.length > 0; else loading" class="sectionContainer">
+      <table class="mainTable">
+        <thead>
+          <tr>
+            <th></th>
+            <th>Price</th>
+            <th>24h %</th>
+            <th>Market Cap</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let coin of topMarketCaps" (click)="selectCoin(coin.name)">
+            <td [class]="'cursorPointer' + onMobile() ? ' smallFont' : ''">
+              <img [src]="coin.image" alt="{{coin.name}}" width="24" height="24" />
+              <span>
+                {{ coin.name }}
+                <span *ngIf="coin.name.toLowerCase() != coin.symbol.toLowerCase()"
+                  [class]="onMobile() ? 'xxSmallFont' : ''">
+                  ({{ coin.symbol.toUpperCase() }})
+                </span>
+              </span>
+            </td>
+            <td [class]="onMobile() ? 'xxSmallFont' : ''">
+              ${{ coin.current_price | number:'1.2-2' }}
+            </td>
+            <td [style.color]="coin.price_change_percentage_24h >= 0 ? 'green' : 'red'"
+              [class]="onMobile() ? 'xxSmallFont' : ''">
+              {{ coin.price_change_percentage_24h | number:'1.2-2' }}%
+            </td>
+            <td [class]="onMobile() ? 'xxSmallFont' : ''">
+              {{ coin.market_cap | currencyShorten:onMobile() }}
+            </td>
+          </tr>
+          <tr class="totalMarketCapTotalRow">
+            <td colspan="3" [class]="onMobile() ? 'xxSmallFont' : ''"><strong>Total Market Capital:</strong></td>
+            <td>{{ (globalCryptoStats?.latest?.totalMarketCap ?? totalMarketCap) | currencyShorten }}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    
+    <ng-template #loading>
+      <p *ngIf="!isTradePanelOpen">Loading coin market caps...</p>
+    </ng-template>
   </div>
   <div [class]="isTradePanelOpen ? 'fullScreenTradePanelDiv' : 'hubSection miningHubSection'"
     *ngIf="latestCurrencyPriceRespectToCAD && latestCurrencyPriceRespectToCAD != 0">
@@ -906,53 +975,13 @@
     <div *ngIf="!coinValueData && !isLoading">
       Something went wrong, please refresh this component after a while.
     </div>
-    <div *ngIf="!isTradePanelOpen && topMarketCaps?.length > 0; else loading" class="sectionContainer">
-      <table class="mainTable">
-        <thead>
-          <tr>
-            <th></th>
-            <th>Price</th>
-            <th>24h %</th>
-            <th>Market Cap</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr *ngFor="let coin of topMarketCaps" (click)="selectCoin(coin.name)">
-            <td [class]="'cursorPointer' + onMobile() ? ' smallFont' : ''">
-              <img [src]="coin.image" alt="{{coin.name}}" width="24" height="24" />
-              <span>
-                {{ coin.name }}
-                <span *ngIf="coin.name.toLowerCase() != coin.symbol.toLowerCase()" [class]="onMobile() ? 'xxSmallFont' : ''">
-                  ({{ coin.symbol.toUpperCase() }})
-                </span>
-              </span>
-            </td>
-            <td [class]="onMobile() ? 'xxSmallFont' : ''">
-              ${{ coin.current_price | number:'1.2-2' }}
-            </td>
-            <td [style.color]="coin.price_change_percentage_24h >= 0 ? 'green' : 'red'"
-              [class]="onMobile() ? 'xxSmallFont' : ''">
-              {{ coin.price_change_percentage_24h | number:'1.2-2' }}%
-            </td>
-            <td [class]="onMobile() ? 'xxSmallFont' : ''">
-              {{ coin.market_cap | currencyShorten:onMobile() }}
-            </td>
-          </tr>
-          <tr class="totalMarketCapTotalRow">
-            <td colspan="3" [class]="onMobile() ? 'xxSmallFont' : ''"><strong>Total Market Capital:</strong></td>
-            <td>{{ totalMarketCap | currencyShorten }}</td>     
-          </tr>
-        </tbody>
-      </table>
-    </div>
 
-    <ng-template #loading>
-      <p *ngIf="!isTradePanelOpen">Loading coin market caps...</p>
-    </ng-template> 
-
+    <div *ngIf="!isTradePanelOpen && globalCryptoStats" class="sectionContainer">
+      <app-crypto-global-stats [metrics]="globalCryptoStats"></app-crypto-global-stats> 
+    </div> 
     <div *ngIf="!isTradePanelOpen" class="sectionContainer">
       <app-crypto-calendar [inputtedParentRef]="parentRef"></app-crypto-calendar>
-    </div>
+    </div> 
   </div>
 
 

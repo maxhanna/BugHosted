@@ -953,7 +953,122 @@ namespace maxhanna.Server.Controllers
 				});
 			}
 		}
+		[HttpGet("/CoinValue/GlobalMetrics", Name = "GetLatestGlobalMetrics")]
+		public async Task<IActionResult> GetLatestGlobalMetrics()
+		{
+			using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+			try
+			{
+				await conn.OpenAsync();
 
+				// Query for the latest metrics
+				const string latestSql = @"
+            SELECT 
+                timestamp_utc,
+                btc_dominance,
+                eth_dominance,
+                active_cryptocurrencies,
+                active_exchanges,
+                active_market_pairs,
+                total_market_cap,
+                total_volume_24h,
+                total_volume_24h_reported,
+                altcoin_market_cap,
+                altcoin_volume_24h,
+                altcoin_volume_24h_reported,
+                defi_market_cap,
+                defi_volume_24h,
+                stablecoin_market_cap,
+                stablecoin_volume_24h,
+                derivatives_volume_24h,
+                last_updated
+            FROM crypto_global_metrics
+            ORDER BY timestamp_utc DESC
+            LIMIT 1;";
+
+				// Query for 7-day historical data
+				const string historicalSql = @"
+            SELECT 
+                DATE(timestamp_utc) as date,
+                AVG(total_market_cap) as total_market_cap,
+                AVG(total_volume_24h) as total_volume_24h
+            FROM crypto_global_metrics
+            WHERE timestamp_utc >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
+            GROUP BY DATE(timestamp_utc)
+            ORDER BY date ASC;";
+
+				// Fetch latest metrics
+				Object? latestMetrics = null;
+				await using (var cmd = new MySqlCommand(latestSql, conn))
+				{
+					await using var reader = await cmd.ExecuteReaderAsync();
+					if (await reader.ReadAsync())
+					{
+						latestMetrics = new
+						{
+							TimestampUtc = reader.GetDateTime("timestamp_utc"),
+							BtcDominance = reader.GetDecimal("btc_dominance"),
+							EthDominance = reader.GetDecimal("eth_dominance"),
+							ActiveCryptocurrencies = reader.GetInt32("active_cryptocurrencies"),
+							ActiveExchanges = reader.GetInt32("active_exchanges"),
+							ActiveMarketPairs = reader.GetInt32("active_market_pairs"),
+							TotalMarketCap = reader.GetDecimal("total_market_cap"),
+							TotalVolume24h = reader.GetDecimal("total_volume_24h"),
+							TotalVolume24hReported = reader.GetDecimal("total_volume_24h_reported"),
+							AltcoinMarketCap = reader.GetDecimal("altcoin_market_cap"),
+							AltcoinVolume24h = reader.GetDecimal("altcoin_volume_24h"),
+							AltcoinVolume24hReported = reader.GetDecimal("altcoin_volume_24h_reported"),
+							DefiMarketCap = reader.GetDecimal("defi_market_cap"),
+							DefiVolume24h = reader.GetDecimal("defi_volume_24h"),
+							StablecoinMarketCap = reader.GetDecimal("stablecoin_market_cap"),
+							StablecoinVolume24h = reader.GetDecimal("stablecoin_volume_24h"),
+							DerivativesVolume24h = reader.GetDecimal("derivatives_volume_24h"),
+							LastUpdated = reader.GetDateTime("last_updated")
+						};
+					}
+					await reader.CloseAsync();
+				}
+
+				if (latestMetrics == null)
+				{
+					return NotFound("No global metrics data available");
+				}
+
+				// Fetch historical data
+				var historicalData = new List<object>();
+				await using (var cmd = new MySqlCommand(historicalSql, conn))
+				{
+					await using var reader = await cmd.ExecuteReaderAsync();
+					while (await reader.ReadAsync())
+					{
+						historicalData.Add(new
+						{
+							Date = reader.GetDateTime("date").ToString("yyyy-MM-dd"),
+							TotalMarketCap = reader.GetDecimal("total_market_cap"),
+							TotalVolume24h = reader.GetDecimal("total_volume_24h")
+						});
+					}
+				}
+
+				// Combine latest metrics and historical data
+				var response = new
+				{
+					Latest = latestMetrics,
+					Historical = historicalData
+				};
+
+				return Ok(response);
+			}
+			catch (Exception ex)
+			{
+				_ = _log.Db("Error fetching global metrics: " + ex.Message, 0, "GLOBAL", true);
+				return StatusCode(500, "An error occurred while fetching global metrics");
+			}
+			finally
+			{
+				await conn.CloseAsync();
+			}
+		}
 
 		[HttpPost("/CoinValue/BTCWalletAddresses/Update", Name = "UpdateBTCWalletAddresses")]
 		public async Task<IActionResult> UpdateBTCWalletAddresses([FromBody] AddBTCWalletRequest request, [FromHeader(Name = "Encrypted-UserId")] string encryptedUserIdHeader)

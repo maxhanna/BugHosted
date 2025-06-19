@@ -1,0 +1,46 @@
+<div class="global-stats-container">
+    <div class="title popupPanelTitle">Global Cryptocurrency Metrics</div>
+
+    <div class="metrics-grid">
+        <!-- Market Cap Dominance Pie Chart -->
+        <div class="chart-container">
+            <div class="smallFont">Market Cap Dominance</div>
+            <canvas baseChart [data]="dominanceChartData" [type]="'pie'" [options]="chartOptions">
+            </canvas>
+        </div>
+
+        <!-- Volume Distribution Pie Chart -->
+        <div class="chart-container">
+            <div class="smallFont">24h Volume Distribution</div>
+            <canvas baseChart [data]="volumeChartData" [type]="'pie'" [options]="chartOptions">
+            </canvas>
+        </div>
+    </div>
+
+    <!-- Market Cap and Volume Line Graph -->
+    <div class="chart-container full-width">
+        <div class="smallFont">Market Trends</div>
+        <canvas baseChart [data]="trendsChartData" [type]="'line'" [options]="lineChartOptions">
+        </canvas>
+    </div>
+
+    <!-- Key Metrics Display -->
+    <div class="metrics-display">
+        <div class="metric-card">
+            <h4>Total Market Cap</h4>
+            <p>${{ formatNumber(metrics.latest?.totalMarketCap) }}</p>
+        </div>
+        <div class="metric-card">
+            <h4>24h Volume</h4>
+            <p>${{ formatNumber(metrics.latest?.totalVolume24h) }}</p>
+        </div>
+        <div class="metric-card">
+            <h4>Active Cryptocurrencies</h4>
+            <p>{{ formatNumber(metrics.latest?.activeCryptocurrencies) }}</p>
+        </div>
+        <div class="metric-card">
+            <h4>Active Exchanges</h4>
+            <p>{{ formatNumber(metrics.latest?.activeExchanges) }}</p>
+        </div>
+    </div>
+</div>

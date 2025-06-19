@@ -136,6 +136,7 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
   btcUSDRate?: number;
   usdToSelectedCurrencyRate?: number;
   lastTradePercentage = 0;
+  globalCryptoStats?: any = undefined;
 
   private tradeLogInterval: any = null;
   private coinAndVolumeRefreshInterval: any;
@@ -277,7 +278,9 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
         this.getLastTradebotTradeDisplay();
       }, 50);
     });
- 
+    this.coinValueService.getGlobalMetrics().then(res => {
+      this.globalCryptoStats = res;
+    });
     this.tradeService.getTopMarketCaps().then(res => { this.topMarketCaps = res; }); 
     this.tradeService.getTradeIndicators("BTC", "USDC").then(res => {
       if (res) {
@@ -2773,6 +2776,10 @@ interface IndicatorData {
   toCoin: string;
   twoHundredDayMA: boolean;
   twoHundredDayMAValue: number;
+  fourteenDayMA: boolean;
+  fourteenDayMAValue: number; 
+  twentyOneDayMA: boolean;
+  twentyOneDayMAValue: number;
   rsI14Day: number;
   vwaP24Hour: boolean;
   vwaP24HourValue: number;

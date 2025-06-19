@@ -160,6 +160,21 @@ export class CoinValueService {
     }
   }
 
+  async getGlobalMetrics() {
+    try {
+      const response = await fetch(`/coinvalue/globalmetrics`, {
+        method: 'GET',
+
+        headers: {
+          'Content-Type': 'application/json',
+        }, 
+      });
+
+      return await response.json();
+    } catch (error) {
+      return null;
+    }
+  }
   // Get the latest coin values by name
   async getLatestCoinValuesByName(name: string) {
     const params = new HttpParams().set('name', name);

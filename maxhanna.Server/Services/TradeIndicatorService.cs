@@ -29,9 +29,11 @@ namespace maxhanna.Server.Services
 				}
 				bool success = true;
 				success &= await UpdateXBTUSDC200DMA(connection);
+				success &= await UpdateXBTUSDC14DMA(connection);
+				success &= await UpdateXBTUSDC21DMA(connection);
 				success &= await UpdateXBTUSDCRSI(connection);
 				success &= await UpdateXBTUSDCVWAP(connection);
-				success &= await UpdateXBTUSDCRetracementFromHigh(connection); 
+				success &= await UpdateXBTUSDCRetracementFromHigh(connection);
 				_ = _log.Db("Trade indicators updated successfully.", null, "TISVC", outputToConsole: true);
 				return success;
 			}
@@ -195,7 +197,7 @@ namespace maxhanna.Server.Services
 
 					if (result is null or DBNull)
 					{
-						_ = _log.Db("No data for 200‑DMA calc", null, "TISVC", true);
+						_ = _log.Db("No data for 200-DMA calc", null, "TISVC", true);
 						return false;
 					}
 
@@ -220,18 +222,144 @@ namespace maxhanna.Server.Services
 
 					await upd.ExecuteNonQueryAsync();
 
-					_ = _log.Db($"200‑DMA flag={isAboveMovingAvg}, value={maValue:F2}", null, "TISVC", true);
+					_ = _log.Db($"200-DMA flag={isAboveMovingAvg}, value={maValue:F2}", null, "TISVC", true);
 					return true;
 				}
 				catch (MySqlException ex) when (ex.Number == 2013 && attempt < MaxRetries)
 				{
-					_ = _log.Db($"Lost connection during 200‑DMA (attempt {attempt}): {ex.Message}. Retrying…",
+					_ = _log.Db($"Lost connection during 200-DMA (attempt {attempt}): {ex.Message}. Retrying…",
 								 null, "TISVC", true);
 					await Task.Delay(RetryDelayMs);
 				}
 			}
 
-			_ = _log.Db("Failed to update 200‑DMA after max retries", null, "TISVC", true);
+			_ = _log.Db("Failed to update 200-DMA after max retries", null, "TISVC", true);
+			return false;
+		}
+
+
+		private async Task<bool> UpdateXBTUSDC14DMA(MySqlConnection connection)
+		{
+			const string sql = @"
+				SELECT AVG(daily_usd_price) AS moving_average
+				FROM (
+					SELECT  DATE(cv.timestamp)          AS price_date,
+							AVG(cv.value_usd)           AS daily_usd_price
+					FROM    coin_value cv
+					WHERE   cv.name      = 'Bitcoin'
+					AND   cv.timestamp >= DATE_SUB(CURRENT_TIMESTAMP, INTERVAL 14 DAY)
+					GROUP BY DATE(cv.timestamp)
+				) daily_prices;";
+
+			for (int attempt = 1; attempt <= MaxRetries; attempt++)
+			{
+				try
+				{
+					using var cmd = new MySqlCommand(sql, connection);
+					object? result = await cmd.ExecuteScalarAsync();
+
+					if (result is null or DBNull)
+					{
+						_ = _log.Db("No data for 14 day MA calc", null, "TISVC", true);
+						return false;
+					}
+
+					decimal maValue = Convert.ToDecimal(result);   // the numeric 200‑DMA
+					bool isAboveMovingAvg = await IsPriceAboveMovingAverage(connection, maValue);
+
+					const string updateSql = @"
+                INSERT INTO trade_indicators
+                       (from_coin, to_coin,
+                        `14_day_moving_average`, `14_day_moving_average_value`, updated)
+                VALUES (@from, @to, @flag, @val, UTC_TIMESTAMP())
+                ON DUPLICATE KEY UPDATE
+                        `14_day_moving_average`        = @flag,
+                        `14_day_moving_average_value`  = @val,
+                        updated                         = UTC_TIMESTAMP();";
+
+					using var upd = new MySqlCommand(updateSql, connection);
+					upd.Parameters.AddWithValue("@from", "XBT");
+					upd.Parameters.AddWithValue("@to", "USDC");
+					upd.Parameters.AddWithValue("@flag", isAboveMovingAvg ? 1 : 0);
+					upd.Parameters.AddWithValue("@val", maValue);
+
+					await upd.ExecuteNonQueryAsync();
+
+					_ = _log.Db($"14-DMA flag={isAboveMovingAvg}, value={maValue:F2}", null, "TISVC", true);
+					return true;
+				}
+				catch (MySqlException ex) when (ex.Number == 2013 && attempt < MaxRetries)
+				{
+					_ = _log.Db($"Lost connection during 14-DMA (attempt {attempt}): {ex.Message}. Retrying…",
+								 null, "TISVC", true);
+					await Task.Delay(RetryDelayMs);
+				}
+			}
+
+			_ = _log.Db("Failed to update 14-DMA after max retries", null, "TISVC", true);
+			return false;
+		}
+
+
+		private async Task<bool> UpdateXBTUSDC21DMA(MySqlConnection connection)
+		{
+			const string sql = @"
+				SELECT AVG(daily_usd_price) AS moving_average
+				FROM (
+					SELECT  DATE(cv.timestamp)          AS price_date,
+							AVG(cv.value_usd)           AS daily_usd_price
+					FROM    coin_value cv
+					WHERE   cv.name      = 'Bitcoin'
+					AND   cv.timestamp >= DATE_SUB(CURRENT_TIMESTAMP, INTERVAL 21 DAY)
+					GROUP BY DATE(cv.timestamp)
+				) daily_prices;";
+
+			for (int attempt = 1; attempt <= MaxRetries; attempt++)
+			{
+				try
+				{
+					using var cmd = new MySqlCommand(sql, connection);
+					object? result = await cmd.ExecuteScalarAsync();
+
+					if (result is null or DBNull)
+					{
+						_ = _log.Db("No data for 21 day MA calc", null, "TISVC", true);
+						return false;
+					}
+
+					decimal maValue = Convert.ToDecimal(result);   // the numeric 200‑DMA
+					bool isAboveMovingAvg = await IsPriceAboveMovingAverage(connection, maValue);
+
+					const string updateSql = @"
+						INSERT INTO trade_indicators
+							(from_coin, to_coin,
+								`21_day_moving_average`, `21_day_moving_average_value`, updated)
+						VALUES (@from, @to, @flag, @val, UTC_TIMESTAMP())
+						ON DUPLICATE KEY UPDATE
+								`21_day_moving_average`        = @flag,
+								`21_day_moving_average_value`  = @val,
+								updated                         = UTC_TIMESTAMP();";
+
+					using var upd = new MySqlCommand(updateSql, connection);
+					upd.Parameters.AddWithValue("@from", "XBT");
+					upd.Parameters.AddWithValue("@to", "USDC");
+					upd.Parameters.AddWithValue("@flag", isAboveMovingAvg ? 1 : 0);
+					upd.Parameters.AddWithValue("@val", maValue);
+
+					await upd.ExecuteNonQueryAsync();
+
+					_ = _log.Db($"21-DMA flag={isAboveMovingAvg}, value={maValue:F2}", null, "TISVC", true);
+					return true;
+				}
+				catch (MySqlException ex) when (ex.Number == 2013 && attempt < MaxRetries)
+				{
+					_ = _log.Db($"Lost connection during 21-DMA (attempt {attempt}): {ex.Message}. Retrying…",
+								 null, "TISVC", true);
+					await Task.Delay(RetryDelayMs);
+				}
+			}
+
+			_ = _log.Db("Failed to update 21-DMA after max retries", null, "TISVC", true);
 			return false;
 		}
 

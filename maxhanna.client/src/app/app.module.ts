@@ -62,6 +62,7 @@ import { NexusMovementComponent } from './nexus-movement/nexus-movement.componen
 import { CurrencyShortenPipe } from './currency-shorten';
 import { CryptoCalendarComponent } from './crypto-calendar/crypto-calendar.component';
 import { CryptoFearAndGreedComponent } from './crypto-fear-and-greed/crypto-fear-and-greed.component';
+import { CryptoGlobalStatsComponent } from './crypto-global-stats/crypto-global-stats.component';
 
 @NgModule({
   declarations: [
@@ -124,7 +125,8 @@ import { CryptoFearAndGreedComponent } from './crypto-fear-and-greed/crypto-fear
     TimeSincePipe,
     FileSizePipe, 
     AppRoutingModule,
-    CryptoFearAndGreedComponent],
+    CryptoFearAndGreedComponent,
+    CryptoGlobalStatsComponent],
   exports: [
     InViewDirective,
     ClickableUrlsPipe,
