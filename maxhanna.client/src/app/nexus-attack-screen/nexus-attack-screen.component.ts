@@ -7,6 +7,7 @@ import { User } from '../../services/datacontracts/user/user';
 import { ChildComponent } from '../child.component';
 import { NexusAttackSent } from '../../services/datacontracts/nexus/nexus-attack-sent';
 import { NotificationService } from '../../services/notification.service';
+import { AppComponent } from '../app.component';
 
 
 @Component({
@@ -31,6 +32,7 @@ export class NexusAttackScreenComponent extends ChildComponent {
   @Input() glitcherPictureSrc: string | undefined;
   @Input() isSendingDefence: boolean = false;
   @Input() isLoadingData: boolean = false;
+  @Input() inputtedParentRef?: AppComponent;
 
   @Output() emittedNotifications = new EventEmitter<string>();
   @Output() emittedClosedAttackScreen = new EventEmitter<void>();
@@ -38,14 +40,15 @@ export class NexusAttackScreenComponent extends ChildComponent {
   @Output() emittedReloadEvent = new EventEmitter<string>();
   @Output() emittedGoToCoords = new EventEmitter<[number, number]>();
 
+  isBeginnerProtectionEnabled?: boolean;  
   constructor(private nexusService: NexusService, private notificationService: NotificationService) { super(); }
 
   async engageAttackAllUnits() {
     if (!this.user || !this.originBase) { 
-      this.parentRef?.showNotification("Something went wrong with the request.");
+      this.inputtedParentRef?.showNotification("Something went wrong with the request.");
       return;
     } else if (!this.selectedNexus || !this.nexusAvailableUnits || !this.unitStats) {
-      this.parentRef?.showNotification("No units to send.");
+      this.inputtedParentRef?.showNotification("No units to send.");
       return;
     }
 
@@ -55,16 +58,23 @@ export class NexusAttackScreenComponent extends ChildComponent {
 
   async engageAttack(allUnits: boolean = false) {
     if (!this.user || !this.originBase) {
-      this.parentRef?.showNotification("Something went wrong with the request.");
+      this.inputtedParentRef?.showNotification("Something went wrong with the request.");
       return;
     } else if (!this.selectedNexus || !this.nexusAvailableUnits || !this.unitStats) {
-      this.parentRef?.showNotification("No units to send.");
+      this.inputtedParentRef?.showNotification("No units to send.");
       return;
     } else {
+      if (this.originBase.user?.id && this.selectedNexus.user?.id) {
+        const ucRes = await this.nexusService.hasRecentFirstConquest(this.originBase.user.id); 
+        if (ucRes) { 
+          this.inputtedParentRef?.showNotification("Beginner protection enabled. You must wait 3 days before attacking any players.");
+          return;
+        }
+      } 
       if (this.selectedNexus.user?.id) { 
-        const fcRes = await this.nexusService.hasRecentFirstConquest(this.selectedNexus.user?.id);
+        const fcRes = await this.nexusService.hasRecentFirstConquest(this.selectedNexus.user.id);
         if (fcRes) {
-          this.parentRef?.showNotification("Beginner protection enabled. You must wait 3 days before attacking a new base.");
+          this.inputtedParentRef?.showNotification("Beginner protection enabled. You must wait 3 days before attacking a new player's base.");
           return;
         } 
       }
@@ -82,7 +92,7 @@ export class NexusAttackScreenComponent extends ChildComponent {
           }
         }
         if (!hasUnits && !this.unitStats.some(x => x.sentValue && x.sentValue > 0)) {
-          this.parentRef?.showNotification("No units have been selected! Please select some units and try again.");
+          this.inputtedParentRef?.showNotification("No units have been selected! Please select some units and try again.");
           return;
         } 
 
@@ -243,4 +253,4 @@ export class NexusAttackScreenComponent extends ChildComponent {
   trackByUnit(index: number, unit: UnitStats): number {
     return unit.unitId; // or any unique identifier
   }
-}
+} 

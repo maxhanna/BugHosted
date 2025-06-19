@@ -16,7 +16,9 @@ import { MiningSpeed } from './datacontracts/nexus/mining-speed';
 @Injectable({
   providedIn: 'root'
 })
-export class NexusService {
+export class NexusService { 
+  private readonly cacheTtlMs = 60 * 60 * 1000;      // 60-min sliding TTL
+  private beginnerCache = new Map<number, BeginnerCacheEntry>();
 
   private async fetchData(url: string, body?: any) {
     try {
@@ -90,7 +92,13 @@ export class NexusService {
   }
 
   async hasRecentFirstConquest(userId: number): Promise<any> {
-    return await this.fetchData('/nexus/hasrecentfirstconquest', userId);
+    const cached = this.beginnerCache.get(userId);
+    if (cached && Date.now() - cached.fetchedAt < this.cacheTtlMs) {
+      return cached.value;                           // use cached answer
+    }
+    const result = await this.fetchData('/nexus/hasrecentfirstconquest', userId);
+    this.beginnerCache.set(userId, { value: result, fetchedAt: Date.now() });
+    return result;
   }
   async start(userId: number): Promise<any> {
     return await this.fetchData('/nexus/start', userId);
@@ -184,4 +192,8 @@ export class NexusService {
   }
 
 
+}
+interface BeginnerCacheEntry {
+  value: boolean;   // true ⇢ user is still protected
+  fetchedAt: number; // epoch ms
 }
