@@ -516,7 +516,9 @@ fieldset {
   color: var(--secondary-font-color);
   box-shadow: 0px 0px 5px black;
 }
-
+.gradientBackground {
+  background: linear-gradient(135deg, var(--component-background-color), var(--secondary-component-background-color));
+}
 .onlineButton {
   font-size: x-small;
   position: relative;
