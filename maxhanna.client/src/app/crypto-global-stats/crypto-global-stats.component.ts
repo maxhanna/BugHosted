@@ -1,4 +1,4 @@
-import { Component, Input } from '@angular/core';
+import { Component, Input, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { BaseChartDirective } from 'ng2-charts';
 import { ChartOptions, ChartConfiguration } from 'chart.js';
@@ -10,10 +10,11 @@ import { ChartOptions, ChartConfiguration } from 'chart.js';
   templateUrl: './crypto-global-stats.component.html',
   styleUrls: ['./crypto-global-stats.component.css']
 })
-export class CryptoGlobalStatsComponent {
+export class CryptoGlobalStatsComponent implements OnInit {
   @Input() set metrics(value: any) {
     if (value) {
       this._metrics = value;
+      console.log(this.metrics);
       this.updateCharts();
     }
   }
@@ -22,10 +23,23 @@ export class CryptoGlobalStatsComponent {
   }
   private _metrics: any = {};
 
+  // Color variables
+  private mainFontColor: string = '#ffffff';
+  private secondaryFontColor: string = '#cccccc';
+  private componentBgColor: string = '#2d2d2d';
+
+  /* UI state */
+  showExtraMetrics = false;
+  showDominanceChart = false;
+  dominanceTrendBroken = false;   // <-- flag for alert styling
+
   // Chart configurations
   dominanceChartData?: ChartConfiguration<'pie'>['data'];
   volumeChartData?: ChartConfiguration<'pie'>['data'];
   trendsChartData?: ChartConfiguration<'line'>['data'];
+
+  // === dominance: NEW 30-day line data ===
+  dominanceLineChartData?: ChartConfiguration<'line'>['data'];
 
   chartOptions: ChartOptions<'pie'> = {
     responsive: true,
@@ -34,7 +48,7 @@ export class CryptoGlobalStatsComponent {
       legend: {
         position: 'right' as const,
         labels: {
-          color: 'var(--main-font-color)',
+          color: this.mainFontColor,
           usePointStyle: true,
           padding: 20
         }
@@ -44,8 +58,9 @@ export class CryptoGlobalStatsComponent {
           label: (context: any) => {
             const label = context.label || '';
             const value = context.raw || 0;
+            const formattedValue = this.formatLargeNumber(value);
             const percentage = context.parsed || 0;
-            return `${label}: ${value.toLocaleString()} (${percentage.toFixed(2)}%)`;
+            return `${label}: ${formattedValue} (${percentage.toFixed(2)}%)`;
           }
         }
       }
@@ -59,61 +74,55 @@ export class CryptoGlobalStatsComponent {
       x: {
         type: 'category',
         ticks: {
-          color: 'var(--main-font-color)',
+          color: this.mainFontColor,
           maxRotation: 45,
           minRotation: 45
         },
         grid: {
-          color: 'var(--secondary-font-color)',
+          color: this.secondaryFontColor
         }
       },
       marketCap: {
         type: 'linear',
         position: 'left',
         ticks: {
-          color: 'var(--main-font-color)',
+          color: this.mainFontColor,
           callback: (value: any) => {
-            if (value >= 1e12) return '$' + (value / 1e12).toFixed(1) + 'T';
-            if (value >= 1e9) return '$' + (value / 1e9).toFixed(1) + 'B';
-            if (value >= 1e6) return '$' + (value / 1e6).toFixed(1) + 'M';
-            return '$' + value;
+            return this.formatLargeNumber(value);
           }
         },
         grid: {
-          color: 'var(--secondary-font-color)',
+          color: this.secondaryFontColor
         },
         title: {
           display: true,
           text: 'Market Cap',
-          color: 'var(--main-font-color)'
+          color: this.mainFontColor
         }
       },
       volume: {
         type: 'linear',
         position: 'right',
         ticks: {
-          color: 'var(--main-font-color)',
+          color: this.mainFontColor,
           callback: (value: any) => {
-            if (value >= 1e12) return '$' + (value / 1e12).toFixed(1) + 'T';
-            if (value >= 1e9) return '$' + (value / 1e9).toFixed(1) + 'B';
-            if (value >= 1e6) return '$' + (value / 1e6).toFixed(1) + 'M';
-            return '$' + value;
+            return this.formatLargeNumber(value);
           }
         },
         grid: {
-          drawOnChartArea: false, // Prevent grid lines from overlapping
+          drawOnChartArea: false
         },
         title: {
           display: true,
           text: '24h Volume',
-          color: 'var(--main-font-color)'
+          color: this.mainFontColor
         }
       }
     },
     plugins: {
       legend: {
         labels: {
-          color: 'var(--main-font-color)',
+          color: this.mainFontColor,
           usePointStyle: true,
           padding: 20
         }
@@ -123,15 +132,210 @@ export class CryptoGlobalStatsComponent {
           label: (context: any) => {
             const label = context.dataset.label || '';
             const value = context.raw || 0;
-            return `${label}: $${value.toLocaleString()}`;
+            return `${label}: ${this.formatLargeNumber(value)}`;
           }
         }
       }
     }
   };
 
+  // === dominance: OPTIONS FOR PERCENTAGE Y-AXIS ===
+  dominanceLineChartOptions: ChartOptions<'line'> = {
+    responsive: true,
+    maintainAspectRatio: false,
+    scales: {
+      x: {
+        type: 'category',
+        ticks: {
+          color: this.mainFontColor,
+          maxRotation: 45,
+          minRotation: 45
+        },
+        grid: {
+          color: this.secondaryFontColor
+        }
+      },
+      y: {
+        type: 'linear',
+        position: 'left',
+        ticks: {
+          color: this.mainFontColor,
+          callback: (v: any) => v + '%'
+        },
+        grid: {
+          color: this.secondaryFontColor
+        },
+        title: {
+          display: true,
+          text: 'Dominance %',
+          color: this.mainFontColor
+        },
+        min: 0,
+        max: 100
+      }
+    },
+    plugins: {
+      legend: {
+        labels: {
+          color: this.mainFontColor,
+          usePointStyle: true,
+          padding: 20
+        }
+      },
+      tooltip: {
+        callbacks: {
+          label: (ctx: any) => {
+            const label = ctx.dataset.label || '';
+            return `${label}: ${ctx.parsed.y.toFixed(2)}%`;
+          }
+        }
+      }
+    }
+  };
+
+  ngOnInit() {
+    this.getCssVariables();
+  }
+
+  private getCssVariables() {
+    if (typeof window !== 'undefined' && typeof document !== 'undefined') {
+      const root = document.documentElement;
+      const styles = getComputedStyle(root);
+
+      this.mainFontColor =
+        styles.getPropertyValue('--main-font-color').trim() ||
+        this.mainFontColor;
+      this.secondaryFontColor =
+        styles.getPropertyValue('--secondary-font-color').trim() ||
+        this.secondaryFontColor;
+      this.componentBgColor =
+        styles.getPropertyValue('--component-background-color').trim() ||
+        this.componentBgColor;
+
+      this.updateChartOptions();
+    }
+  }
+
+  private updateChartOptions() {
+    this.chartOptions = {
+      ...this.chartOptions,
+      plugins: {
+        ...this.chartOptions.plugins,
+        legend: {
+          ...this.chartOptions.plugins?.legend,
+          labels: {
+            ...this.chartOptions.plugins?.legend?.labels,
+            color: this.mainFontColor
+          }
+        }
+      }
+    };
+
+    this.lineChartOptions = {
+      ...this.lineChartOptions,
+      scales: {
+        ...this.lineChartOptions.scales,
+        x: {
+          ...this.lineChartOptions.scales?.['x'],
+          ticks: {
+            ...this.lineChartOptions.scales?.['x']?.ticks,
+            color: this.mainFontColor
+          },
+          grid: {
+            ...this.lineChartOptions.scales?.['x']?.grid,
+            color: this.secondaryFontColor
+          }
+        },
+        marketCap: {
+          ...this.lineChartOptions.scales?.['marketCap'],
+          ticks: {
+            ...this.lineChartOptions.scales?.['marketCap']?.ticks,
+            color: this.mainFontColor
+          },
+          grid: {
+            ...this.lineChartOptions.scales?.['marketCap']?.grid,
+            color: this.secondaryFontColor
+          },
+          title: {
+            ...this.lineChartOptions.scales?.['marketCap']?.title,
+            color: this.mainFontColor
+          }
+        },
+        volume: {
+          ...this.lineChartOptions.scales?.['volume'],
+          ticks: {
+            ...this.lineChartOptions.scales?.['volume']?.ticks,
+            color: this.mainFontColor
+          },
+          title: {
+            ...this.lineChartOptions.scales?.['volume']?.title,
+            color: this.mainFontColor
+          }
+        }
+      },
+      plugins: {
+        ...this.lineChartOptions.plugins,
+        legend: {
+          ...this.lineChartOptions.plugins?.legend,
+          labels: {
+            ...this.lineChartOptions.plugins?.legend?.labels,
+            color: this.mainFontColor
+          }
+        }
+      }
+    };
+
+    // === dominance: also recolor dominance options ===
+    this.dominanceLineChartOptions = {
+      ...this.dominanceLineChartOptions,
+      scales: {
+        ...this.dominanceLineChartOptions.scales,
+        x: {
+          ...this.dominanceLineChartOptions.scales?.['x'],
+          ticks: {
+            ...this.dominanceLineChartOptions.scales?.['x']?.ticks,
+            color: this.mainFontColor
+          },
+          grid: {
+            ...this.dominanceLineChartOptions.scales?.['x']?.grid,
+            color: this.secondaryFontColor
+          }
+        },
+        y: {
+          ...this.dominanceLineChartOptions.scales?.['y'],
+          ticks: {
+            ...this.dominanceLineChartOptions.scales?.['y']?.ticks,
+            color: this.mainFontColor
+          },
+          grid: {
+            ...this.dominanceLineChartOptions.scales?.['y']?.grid,
+            color: this.secondaryFontColor
+          },
+          title: {
+            ...this.dominanceLineChartOptions.scales?.['y']?.title,
+            color: this.mainFontColor
+          }
+        }
+      },
+      plugins: {
+        ...this.dominanceLineChartOptions.plugins,
+        legend: {
+          ...this.dominanceLineChartOptions.plugins?.legend,
+          labels: {
+            ...this.dominanceLineChartOptions.plugins?.legend?.labels,
+            color: this.mainFontColor
+          }
+        }
+      }
+    };
+  }
+
   private updateCharts() {
-    if (!this.metrics || !this.metrics.latest || !this.metrics.historical) {
+    if (
+      !this.metrics ||
+      !this.metrics.latest ||
+      !this.metrics.historical
+    ) {
       console.warn('Metrics data is incomplete:', this.metrics);
       return;
     }
@@ -139,9 +343,14 @@ export class CryptoGlobalStatsComponent {
     const latest = this.metrics.latest;
     const historical = this.metrics.historical;
 
-    // Validate latest metrics
-    if (!latest.btcDominance || !latest.ethDominance || !latest.totalVolume24h ||
-      !latest.stablecoinVolume24h || !latest.defiVolume24h || !latest.derivativesVolume24h) {
+    if (
+      !latest.btcDominance ||
+      !latest.ethDominance ||
+      !latest.totalVolume24h ||
+      !latest.stablecoinVolume24h ||
+      !latest.defiVolume24h ||
+      !latest.derivativesVolume24h
+    ) {
       console.warn('Latest metrics missing required fields:', latest);
       return;
     }
@@ -149,46 +358,52 @@ export class CryptoGlobalStatsComponent {
     // Market Cap Dominance Pie Chart
     this.dominanceChartData = {
       labels: ['Bitcoin', 'Ethereum', 'Altcoins'],
-      datasets: [{
-        data: [
-          latest.btcDominance,
-          latest.ethDominance,
-          100 - latest.btcDominance - latest.ethDominance
-        ],
-        backgroundColor: [
-          '#F7931A', // Bitcoin orange
-          '#627EEA', // Ethereum blue
-          '#26A17B'  // Altcoin green
-        ],
-        borderColor: 'var(--component-background-color)',
-        borderWidth: 1
-      }]
+      datasets: [
+        {
+          data: [
+            latest.btcDominance,
+            latest.ethDominance,
+            100 - latest.btcDominance - latest.ethDominance
+          ],
+          backgroundColor: ['#F7931A', '#627EEA', '#26A17B'],
+          borderColor: this.componentBgColor,
+          borderWidth: 1
+        }
+      ]
     };
 
     // 24h Volume Distribution Pie Chart
     this.volumeChartData = {
-      labels: ['Bitcoin', 'Ethereum', 'Stablecoins', 'DeFi', 'Derivatives'],
-      datasets: [{
-        data: [
-          latest.totalVolume24h * (latest.btcDominance / 100),
-          latest.totalVolume24h * (latest.ethDominance / 100),
-          latest.stablecoinVolume24h,
-          latest.defiVolume24h,
-          latest.derivativesVolume24h
-        ],
-        backgroundColor: [
-          '#F7931A', // Bitcoin
-          '#627EEA', // Ethereum
-          '#2775CA', // Stablecoins (blue)
-          '#FF6B6B', // DeFi (red)
-          '#9B59B6', // Derivatives (purple) 
-        ],
-        borderColor: 'var(--component-background-color)',
-        borderWidth: 1
-      }]
+      labels: [
+        'Bitcoin',
+        'Ethereum',
+        'Stablecoins',
+        'DeFi',
+        'Derivatives'
+      ],
+      datasets: [
+        {
+          data: [
+            latest.totalVolume24h * (latest.btcDominance / 100),
+            latest.totalVolume24h * (latest.ethDominance / 100),
+            latest.stablecoinVolume24h,
+            latest.defiVolume24h,
+            latest.derivativesVolume24h
+          ],
+          backgroundColor: [
+            '#F7931A',
+            '#627EEA',
+            '#2775CA',
+            '#FF6B6B',
+            '#9B59B6'
+          ],
+          borderColor: this.componentBgColor,
+          borderWidth: 1
+        }
+      ]
     };
 
-    // Market Trends Line Chart (7-day historical)
+    // Market Trends Line Chart (7-day)
     if (historical.length > 0) {
       this.trendsChartData = {
         labels: historical.map((item: any) => item.date),
@@ -201,17 +416,19 @@ export class CryptoGlobalStatsComponent {
             borderWidth: 2,
             yAxisID: 'marketCap',
             fill: true,
-            tension: 0.3 // Smooth the line
+            tension: 0.3
           },
           {
             label: '24h Trading Volume',
-            data: historical.map((item: any) => item.totalVolume24h),
+            data: historical.map(
+              (item: any) => item.totalVolume24h
+            ),
             backgroundColor: 'rgba(153, 102, 255, 0.2)',
             borderColor: 'rgba(153, 102, 255, 1)',
             borderWidth: 2,
             yAxisID: 'volume',
             fill: true,
-            tension: 0.3 // Smooth the line
+            tension: 0.3
           }
         ]
       };
@@ -219,16 +436,98 @@ export class CryptoGlobalStatsComponent {
       console.warn('No historical data available for trends chart');
       this.trendsChartData = { labels: [], datasets: [] };
     }
+
+    // === dominance: 30-day dominance line chart ===
+    if (this.metrics.dominance && this.metrics.dominance.length > 0) {
+      const dom = this.metrics.dominance;
+      this.dominanceLineChartData = {
+        labels: dom.map((d: DominanceEntry) => d.date),
+        datasets: [
+          {
+            label: 'BTC Dominance',
+            data: dom.map((d: DominanceEntry) => d.btcDominance),
+            borderColor: '#F7931A',
+            backgroundColor: 'rgba(247, 147, 26, 0.2)',
+            borderWidth: 2,
+            fill: true,
+            tension: 0.25,
+            pointRadius: 0
+          },
+          {
+            label: 'Altcoin Dominance',
+            data: dom.map(
+              (d: DominanceEntry) => d.altcoinDominance
+            ),
+            borderColor: '#26A17B',
+            backgroundColor: 'rgba(38, 161, 123, 0.2)',
+            borderWidth: 2,
+            fill: true,
+            tension: 0.25,
+            pointRadius: 0
+          },
+          {
+            label: 'Stablecoin Dominance',
+            data: dom.map(
+              (d: DominanceEntry) => d.stablecoinDominance
+            ),
+            borderColor: '#2775CA',
+            backgroundColor: 'rgba(39, 117, 202, 0.2)',
+            borderWidth: 2,
+            fill: true,
+            tension: 0.25,
+            pointRadius: 0
+          }
+        ]
+      };
+      const first = dom[0].btcDominance;
+      const last = dom[dom.length - 1].btcDominance;
+      this.dominanceTrendBroken = Math.abs(last - first) > 1; // >1 pp swing → broken
+    } else {
+      console.warn('No dominance data available for dominance chart'); 
+      this.dominanceLineChartData = { labels: [], datasets: [] };
+      this.dominanceTrendBroken = false;
+    }
   }
 
-  formatNumber(value: number | null | undefined): string {
-    if (value == null || isNaN(value)) {
-      return 'N/A'; // Fallback for null, undefined, or NaN
+  /**
+   * Formats large numbers with appropriate units while preserving precision
+   * @param value The number to format
+   * @param decimals Number of decimal places to show
+   * @returns Formatted string
+   */
+  formatLargeNumber(value: number): string {
+    if (value == null || isNaN(value)) return 'N/A';
+
+    // For trillions: show 3 decimal places (e.g., 3.276T)
+    if (value >= 1e12) {
+      return '$' + (value / 1e12).toFixed(3) + 'T';
     }
-    if (value >= 1e12) return (value / 1e12).toFixed(2) + 'T';
-    if (value >= 1e9) return (value / 1e9).toFixed(2) + 'B';
-    if (value >= 1e6) return (value / 1e6).toFixed(2) + 'M';
-    if (value >= 1e3) return (value / 1e3).toFixed(2) + 'K';
-    return value.toFixed(2);
+    // For billions: show 2 decimal places (e.g., 276.54B)
+    if (value >= 1e9) {
+      return '$' + (value / 1e9).toFixed(2) + 'B';
+    }
+    // For millions: show full precision with comma separators (e.g., 542,123,456M)
+    if (value >= 1e6) {
+      return '$' + Math.floor(value).toLocaleString() + 'M';
+    }
+    // For thousands: show full number with comma separators (e.g., 123,456K)
+    if (value >= 1e3) {
+      return '$' + Math.floor(value).toLocaleString() + 'K';
+    }
+    // For numbers less than 1000: show with 2 decimal places
+    return '$' + value.toFixed(2);
   }
+
+  // Replace the existing formatNumber method with this one
+  formatNumber(value: number | null | undefined): string {
+    return this.formatLargeNumber(value || 0);
+  }
+}
+
+// === dominance: interface stays the same ===
+export interface DominanceEntry {
+  date: string; // 'YYYY-MM-DD'
+  btcDominance: number;
+  altcoinDominance: number;
+  stablecoinDominance: number;
 }

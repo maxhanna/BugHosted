@@ -19,7 +19,7 @@ public class TradeController : ControllerBase
 		try
 		{
 			if (req.UserId != 1 && !await _log.ValidateUserLoggedIn(req.UserId, encryptedUserId)) return StatusCode(500, "Access Denied.");
-			var time = await _krakenService.GetTradeHistory(req.UserId, req.Coin ?? "XBT");
+			var time = await _krakenService.GetTradeHistory(req.UserId, req.Coin ?? "XBT", "DCA");
 			return Ok(time);
 		}
 		catch (Exception ex)
@@ -94,7 +94,7 @@ public class TradeController : ControllerBase
 		try
 		{
 			if (!await _log.ValidateUserLoggedIn(req.UserId, encryptedUserId)) return StatusCode(500, "Access Denied.");
-			DateTime? result = await _krakenService.IsTradebotStarted(req.UserId, tmpCoin);
+			DateTime? result = await _krakenService.IsTradebotStarted(req.UserId, tmpCoin, req.Strategy ?? "DCA");
 			return Ok(result);
 		}
 		catch (Exception ex)
@@ -291,7 +291,7 @@ public class TradeController : ControllerBase
 		try
 		{
 			if (!await _log.ValidateUserLoggedIn(userId, encryptedUserId)) return StatusCode(500, "Access Denied.");
-			bool ok = await _krakenService.ExitPosition(userId, "BTC", null);
+			bool ok = await _krakenService.ExitPosition(userId, "BTC", null, "XXX");
 			return Ok(ok);
 		}
 		catch (Exception ex)

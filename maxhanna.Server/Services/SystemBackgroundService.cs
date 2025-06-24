@@ -647,9 +647,8 @@ namespace maxhanna.Server.Services
 				{
 					var iterationStart = _tradeTimer.Elapsed;
 
-					var activeUsers = await _krakenService.GetActiveTradeBotUsers(crypto, null);
-
-					foreach (var userId in activeUsers)
+					var activeDCAUsers = await _krakenService.GetActiveTradeBotUsers(crypto, "DCA", null); 
+					foreach (var userId in activeDCAUsers)
 					{
 						UserKrakenApiKey? keys = await _krakenService.GetApiKey(userId);
 						if (keys == null || string.IsNullOrEmpty(keys.ApiKey) || string.IsNullOrEmpty(keys.PrivateKey))
@@ -658,7 +657,21 @@ namespace maxhanna.Server.Services
 							continue; // Changed from return to continue to process other users
 						}
 
-						await _krakenService.MakeATrade(userId, crypto, keys);
+						await _krakenService.MakeADCATrade(userId, crypto, keys);
+					}
+
+
+					var activeINDUsers = await _krakenService.GetActiveTradeBotUsers(crypto, "IND", null); 
+					foreach (var userId in activeINDUsers)
+					{
+						UserKrakenApiKey? keys = await _krakenService.GetApiKey(userId);
+						if (keys == null || string.IsNullOrEmpty(keys.ApiKey) || string.IsNullOrEmpty(keys.PrivateKey))
+						{
+							await _log.Db("No Kraken API keys found for this user", userId, "SYSTEM", true);
+							continue; // Changed from return to continue to process other users
+						}
+
+						await _krakenService.MakeAINDTrade(userId, crypto, keys);
 					}
 
 					// Ensure at least 1 second between crypto iterations

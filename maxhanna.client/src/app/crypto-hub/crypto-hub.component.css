@@ -864,7 +864,7 @@ div:not(.trade-panel-controls) .button-wrapper {
 }
 
 .clickable:hover {
-  background: #fafafa;
+  background: var(--main-highlight-color);
 }
 
 /* Pager */

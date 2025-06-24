@@ -209,6 +209,10 @@ export class AppComponent implements OnInit, AfterViewInit {
           this.checkAndClearRouterOutlet();
           this.createComponent('Array');
         }
+        else if (this.router.url.toLowerCase().includes('emu')) {
+          this.checkAndClearRouterOutlet();
+          this.createComponent('Emulator');
+        }
         else if (this.router.url.includes('War')) {
           this.checkAndClearRouterOutlet();
           this.createComponent('Bug-Wars');

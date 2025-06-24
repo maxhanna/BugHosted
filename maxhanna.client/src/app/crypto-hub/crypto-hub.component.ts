@@ -229,7 +229,7 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
       this.getIsTradebotStarted();
       this.coinValueService.getLatestCoinValues().then((res: CoinValue[]) => {
         this.coinValueData = res;
-        this.coinNames = res.map(x => x.name.replace("Bitcoin", "BTC")).filter((name, index, arr) => arr.indexOf(name) === index);
+        this.coinNames = res.map(x => x.name.replace("Bitcoin", "BTC")).filter((name, index, arr) => arr.indexOf(name) === index).sort();
       });
       this.getExchangeRateData();
       if (this.parentRef?.user?.id) {
@@ -302,26 +302,34 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
     const hours = this.convertTimePeriodToHours(this.lineGraphInitialPeriod);
     const startTime = new Date();
     startTime.setHours(startTime.getHours() - hours);
-    await this.coinValueService.getAllCoinValuesForGraph(new Date(), hours).then(res => {
-      if (res) {
-        this.allHistoricalData = res.filter((x: any) => x.name == 'Bitcoin');
-        this.btcToCadPrice = this.allHistoricalData[this.allHistoricalData.length - 1].valueCAD;
+    const selectedCoin = this.lineGraphComponent.selectedCoin;
+    await this.coinValueService.getAllCoinValuesForGraph(startTime, hours, selectedCoin).then(res => {
+      if (res) { 
+        this.allHistoricalData = res; 
+        if (selectedCoin == "BTC" || selectedCoin == "Bitcoin") {
+          this.btcToCadPrice = this.allHistoricalData[this.allHistoricalData.length - 1].valueCAD;
+        }
         setTimeout(() => { this.convertCoinInputted(); }, 50);
         this.allHistoricalData?.forEach(x => x.valueCAD = x.valueCAD * this.latestCurrencyPriceRespectToCAD);
       }
     });
     const sessionToken = await this.parentRef?.getSessionToken();
     const tradeUserId = this.hasKrakenApi ? this.parentRef?.user?.id ?? 1 : 1;
-    await this.getTradebotValuesForMainGraph(tradeUserId, sessionToken);
-    await this.tradeService.getTradeVolumeForGraph(new Date(), hours).then(res => {
-      this.updateVolumeDisplayData(res);
-      // Prepare data for the graph - normalized to percentages
-      this.volumeData = res.map((item: any) => ({
-        timestamp: item.timestamp,
-        valueCAD: item.volume,
-        valueUSDC: item.volumeUSDC
-      }));
-    });
+    
+    if (selectedCoin == "Bitcoin" || selectedCoin.toLowerCase() == "BTC") {  
+      await this.getTradebotValuesForMainGraph(tradeUserId, sessionToken);
+    }
+    if (selectedCoin == "BTC" || selectedCoin == "Bitcoin") {
+      await this.tradeService.getTradeVolumeForGraph(new Date(), hours).then(res => {
+        this.updateVolumeDisplayData(res);
+        // Prepare data for the graph - normalized to percentages
+        this.volumeData = res.map((item: any) => ({
+          timestamp: item.timestamp,
+          valueCAD: item.volume,
+          valueUSDC: item.volumeUSDC
+        }));
+      });
+    } 
 
     return { sessionToken, tradeUserId };
   }
@@ -422,6 +430,9 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
     return `${base} (Ratio: ${ratio.toExponential(2)})`;
   }
  
+  private stopCoinAndVolumePolling() { 
+    clearInterval(this.coinAndVolumeRefreshInterval);
+  }
   private startCoinAndVolumePolling() {
     this.coinAndVolumeRefreshInterval = setInterval(async () => {
       const hours = this.convertTimePeriodToHours(this.lineGraphInitialPeriod);
@@ -483,7 +494,7 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
   }
 
   ngOnDestroy() {
-    clearInterval(this.coinAndVolumeRefreshInterval);
+    this.stopCoinAndVolumePolling();
     this.stopTradeLogPolling();
     this.stopAutoScroll();
     this.parentRef?.removeResizeListener();
@@ -718,7 +729,7 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
       const inputValue = parseFloat(this.convertBTCInput.nativeElement.value) || 1;
       let coinValue = { valueCAD: currentCoinValueCad ?? 0 };
       if (!currentCoinValueCad) {
-        const cRes = await this.coinValueService.getAllCoinValuesForGraph(new Date(), 0.1);
+        const cRes = await this.coinValueService.getAllCoinValuesForGraph(new Date(), 0.1, "Bitcoin");
         if (cRes) {
           const latestMatch = cRes.reduce((latest, item) => {
             if (item.name !== this.selectedCoinConversionName.replace("BTC", "Bitcoin")) return latest;
@@ -745,7 +756,7 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
     const currencyValue = parseFloat(this.convertCurrencyInput.nativeElement.value.replace(/[$,]/g, '')) || 0;
     let coinValue = { valueCAD: currentCoinValueCad ?? 0 };
     if (!currentCoinValueCad) {
-      const cRes = await this.coinValueService.getAllCoinValuesForGraph(new Date(), 0.1);
+      const cRes = await this.coinValueService.getAllCoinValuesForGraph(new Date(), 0.1, "Bitcoin");
       if (cRes) {
         const latestMatch = cRes.reduce((latest, item) => {
           if (item.name !== this.selectedCoinConversionName.replace("BTC", "Bitcoin")) return latest;
@@ -871,7 +882,7 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
   }
   async randomizeTradingSimGraphWithRandomDayThisWeek() {
     const hours = 24 * 7;
-    await this.coinValueService.getAllCoinValuesForGraph(new Date(), hours).then(res => {
+    await this.coinValueService.getAllCoinValuesForGraph(new Date(), hours, "Bitcoin").then(res => {
       if (res) {
         this.allHistoricalData = res.filter((x: any) => x.name == 'Bitcoin');
         this.allHistoricalData?.forEach(x => x.valueCAD = x.valueCAD * this.latestCurrencyPriceRespectToCAD);
@@ -886,7 +897,7 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
   }
   async randomizeTradingSimGraphWithRandomWeekData() {
     const hours = 24 * 7 * 365;
-    await this.coinValueService.getAllCoinValuesForGraph(new Date(), hours).then(res => {
+    await this.coinValueService.getAllCoinValuesForGraph(new Date(), hours, "Bitcoin").then(res => {
       if (res) {
         this.allHistoricalData = res.filter((x: any) => x.name == 'Bitcoin');
         this.allHistoricalData?.forEach(x => x.valueCAD = x.valueCAD * this.latestCurrencyPriceRespectToCAD);
@@ -901,7 +912,7 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
   }
   async randomizeTradingSimGraphWithRandomMonthData() {
     const hours = 24 * 7 * 365;
-    await this.coinValueService.getAllCoinValuesForGraph(new Date(), hours).then(res => {
+    await this.coinValueService.getAllCoinValuesForGraph(new Date(), hours, "Bitcoin").then(res => {
       if (res) {
         this.allHistoricalData = res.filter((x: any) => x.name == 'Bitcoin');
         this.allHistoricalData?.forEach(x => x.valueCAD = x.valueCAD * this.latestCurrencyPriceRespectToCAD);
@@ -1882,6 +1893,11 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
       }
     }, 30 * 1000); // 30 seconds
   }
+  filterLogsFromEvent(event: Event) {
+    const select = event.target as HTMLSelectElement;
+    const value = select.value;
+    this.filterLogs(value);
+  }
   async filterLogs(type?: string) {
     this.startLoading();
     const sessionToken = await this.parentRef?.getSessionToken() ?? "";
@@ -2286,7 +2302,12 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
     // Get current time in UTC
     const currentTime = new Date();
     const startDate = new Date(currentTime.getTime() - (hours * 60 * 60 * 1000));
-
+    if (this.lineGraphComponent.selectedCoin != "Bitcoin" && this.lineGraphComponent.selectedCoin.toLowerCase() != "BTC") {
+      this.tradebotValuesForGraph = undefined;
+    } else {
+      const session = await this.parentRef?.getSessionToken();
+      await this.getTradebotValuesForMainGraph(this.parentRef?.user?.id ?? 1, session);
+    }
     await this.coinValueService.getAllCoinValuesForGraph(new Date(), hours).then(res => {
       if (res) {
         this.allHistoricalData = res.filter((x: any) => x.name == this.lineGraphComponent.selectedCoin);
@@ -2474,7 +2495,7 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
         }
       }
       const periodHours = this.convertTimePeriodToHours(this.lineGraphComponent.selectedPeriod);
-      this.coinValueService.getAllCoinValuesForGraph(new Date(), periodHours).then(res => {
+      this.coinValueService.getAllCoinValuesForGraph(new Date(), periodHours, selectedCoin).then(res => {
         this.allHistoricalData = res?.filter(x => x.name == selectedCoin) ?? [];
         this.allHistoricalData?.forEach(x => x.valueCAD = x.valueCAD * this.latestCurrencyPriceRespectToCAD);
         this.tradebotTradeValuesForMainGraph = [];
@@ -2490,6 +2511,14 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
       // Store the conversion rate for this coin
       this.latestCurrencyPriceRespectToFIAT = coinData.valueCAD;
 
+      setTimeout(async () => {
+        console.log(selectedCoin);
+        if (selectedCoin == "Bitcoin" || selectedCoin == "BTC") {
+          console.log("getting tradebot values for main graph");
+          const session = await this.parentRef?.getSessionToken();
+          await this.getTradebotValuesForMainGraph(this.parentRef?.user?.id ?? 1, session);
+        }
+      }, 50); 
     } catch (error) {
       console.error('Error in coin conversion:', error);
     }
@@ -2745,6 +2774,19 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
   /** Toggle row expansion (ignored for latest row) */
   toggleSentiment(item: SentimentEntry): void {
     if (!this.isLatestSentiment(item)) item.expanded = !item.expanded;
+  }
+  getLogPagesArray(): number[] { 
+    return Array.from({ length: this.totalLogPages }, (_, i) => i + 1); 
+  }
+  goToLogPage(page: number): void { 
+    if (page >= 1 && page <= this.totalLogPages) {
+      this.currentLogPage = page;
+      this.setPaginatedLogs();
+    }
+  }
+  goToLogPageSelected(event: Event): void {
+    const page = parseInt((event?.target as HTMLSelectElement).value);
+    this.goToLogPage(page);
   }
 }
 

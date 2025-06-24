@@ -177,76 +177,90 @@ namespace maxhanna.Server.Controllers
 				if (hourRange > HOURS_IN_YEAR) // More than one year
 				{
 					sql = @$"
-                SELECT 
-                    MIN(id) as id, 
-                    symbol, 
-                    name, 
-                    AVG(value_cad) as value_cad, 
-                    FROM_UNIXTIME(FLOOR(UNIX_TIMESTAMP(timestamp) / {TRUNCATE_LONG_TERM}) * {TRUNCATE_LONG_TERM}) as timestamp
-                FROM coin_value
-                WHERE timestamp >= @From AND timestamp <= @To
-                GROUP BY symbol, name, FROM_UNIXTIME(FLOOR(UNIX_TIMESTAMP(timestamp) / {TRUNCATE_LONG_TERM}) * {TRUNCATE_LONG_TERM})
-                ORDER BY timestamp ASC;";
+						SELECT 
+							MIN(id) as id, 
+							symbol, 
+							name, 
+							AVG(value_cad) as value_cad, 
+							FROM_UNIXTIME(FLOOR(UNIX_TIMESTAMP(timestamp) / {TRUNCATE_LONG_TERM}) * {TRUNCATE_LONG_TERM}) as timestamp
+						FROM coin_value
+						WHERE timestamp >= @From 
+						AND timestamp <= @To
+						{(request.Currency != null ? " AND name = @Name " : "")}
+						GROUP BY symbol, name, FROM_UNIXTIME(FLOOR(UNIX_TIMESTAMP(timestamp) / {TRUNCATE_LONG_TERM}) * {TRUNCATE_LONG_TERM})
+						ORDER BY timestamp ASC;";
 				}
 				else if (hourRange > HOURS_IN_MONTH) // More than one month but less than or equal to one year
 				{
 					sql = @$"
-                SELECT 
-                    MIN(id) as id, 
-                    symbol, 
-                    name, 
-                    AVG(value_cad) as value_cad, 
-                    FROM_UNIXTIME(FLOOR(UNIX_TIMESTAMP(timestamp) / {TRUNCATE_YEAR}) * {TRUNCATE_YEAR}) as timestamp
-                FROM coin_value
-                WHERE timestamp >= @From AND timestamp <= @To
-                GROUP BY symbol, name, FROM_UNIXTIME(FLOOR(UNIX_TIMESTAMP(timestamp) / {TRUNCATE_YEAR}) * {TRUNCATE_YEAR})
-                ORDER BY timestamp ASC;";
+						SELECT 
+							MIN(id) as id, 
+							symbol, 
+							name, 
+							AVG(value_cad) as value_cad, 
+							FROM_UNIXTIME(FLOOR(UNIX_TIMESTAMP(timestamp) / {TRUNCATE_YEAR}) * {TRUNCATE_YEAR}) as timestamp
+						FROM coin_value
+						WHERE timestamp >= @From 
+						AND timestamp <= @To
+						{(request.Currency != null ? " AND name = @Name " : "")} 
+						GROUP BY symbol, name, FROM_UNIXTIME(FLOOR(UNIX_TIMESTAMP(timestamp) / {TRUNCATE_YEAR}) * {TRUNCATE_YEAR})
+						ORDER BY timestamp ASC;";
 				}
 				else if (hourRange > HOURS_IN_WEEK) // More than one week but less than or equal to one month
 				{
 					sql = @$"
-                SELECT 
-                    MIN(id) as id, 
-                    symbol, 
-                    name, 
-                    AVG(value_cad) as value_cad, 
-                    FROM_UNIXTIME(FLOOR(UNIX_TIMESTAMP(timestamp) / {TRUNCATE_MONTH}) * {TRUNCATE_MONTH}) as timestamp
-                FROM coin_value
-                WHERE timestamp >= @From AND timestamp <= @To
-                GROUP BY symbol, name, FROM_UNIXTIME(FLOOR(UNIX_TIMESTAMP(timestamp) / {TRUNCATE_MONTH}) * {TRUNCATE_MONTH})
-                ORDER BY timestamp ASC;";
+						SELECT 
+							MIN(id) as id, 
+							symbol, 
+							name, 
+							AVG(value_cad) as value_cad, 
+							FROM_UNIXTIME(FLOOR(UNIX_TIMESTAMP(timestamp) / {TRUNCATE_MONTH}) * {TRUNCATE_MONTH}) as timestamp
+						FROM coin_value
+						WHERE timestamp >= @From 
+						AND timestamp <= @To						
+						{(request.Currency != null ? " AND name = @Name " : "")} 
+						GROUP BY symbol, name, FROM_UNIXTIME(FLOOR(UNIX_TIMESTAMP(timestamp) / {TRUNCATE_MONTH}) * {TRUNCATE_MONTH})
+						ORDER BY timestamp ASC;";
 				}
 				else if (hourRange > 24) // More than one day but less than or equal to one week
 				{
 					sql = @$"
-                SELECT 
-                    MIN(id) as id, 
-                    symbol, 
-                    name, 
-                    AVG(value_cad) as value_cad, 
-                    FROM_UNIXTIME(FLOOR(UNIX_TIMESTAMP(timestamp) / {TRUNCATE_WEEK}) * {TRUNCATE_WEEK}) as timestamp
-                FROM coin_value
-                WHERE timestamp >= @From AND timestamp <= @To
-                GROUP BY symbol, name, FROM_UNIXTIME(FLOOR(UNIX_TIMESTAMP(timestamp) / {TRUNCATE_WEEK}) * {TRUNCATE_WEEK})
-                ORDER BY timestamp ASC;";
+						SELECT 
+							MIN(id) as id, 
+							symbol, 
+							name, 
+							AVG(value_cad) as value_cad, 
+							FROM_UNIXTIME(FLOOR(UNIX_TIMESTAMP(timestamp) / {TRUNCATE_WEEK}) * {TRUNCATE_WEEK}) as timestamp
+						FROM coin_value
+						WHERE timestamp >= @From 
+						AND timestamp <= @To						
+						{(request.Currency != null ? " AND name = @Name " : "")} 
+						GROUP BY symbol, name, FROM_UNIXTIME(FLOOR(UNIX_TIMESTAMP(timestamp) / {TRUNCATE_WEEK}) * {TRUNCATE_WEEK})
+						ORDER BY timestamp ASC;";
 				}
 				else // One day or less
 				{
 					sql = @$"
-                SELECT 
-                    id, 
-                    symbol, 
-                    name, 
-                    value_cad, 
-                    timestamp
-                FROM coin_value
-                {(request.HourRange != 0 ? " WHERE timestamp >= @From AND timestamp <= @To " : "")}
-                ORDER BY timestamp ASC;";
+						SELECT 
+							id, 
+							symbol, 
+							name, 
+							value_cad, 
+							timestamp
+						FROM coin_value
+						WHERE 1=1 
+						{(request.HourRange != 0 ? " AND timestamp >= @From AND timestamp <= @To " : "")}
+						{(request.Currency != null ? " AND name = @Name " : "")} 
+						ORDER BY timestamp ASC;";
 				}
 
 				MySqlCommand cmd = new MySqlCommand(sql, conn);
 				cmd.Parameters.AddWithValue("@From", actualFrom);
 				cmd.Parameters.AddWithValue("@To", actualTo);
+				if (!string.IsNullOrEmpty(request.Currency))
+				{
+					cmd.Parameters.AddWithValue("@Name", request.Currency);
+				} 
 
 				using (var reader = await cmd.ExecuteReaderAsync())
 				{
@@ -988,15 +1002,26 @@ namespace maxhanna.Server.Controllers
 
 				// Query for 7-day historical data
 				const string historicalSql = @"
-            SELECT 
-                DATE(timestamp_utc) as date,
-                AVG(total_market_cap) as total_market_cap,
-                AVG(total_volume_24h) as total_volume_24h
-            FROM crypto_global_metrics
-            WHERE timestamp_utc >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
-            GROUP BY DATE(timestamp_utc)
-            ORDER BY date ASC;";
-
+					SELECT 
+						DATE(timestamp_utc) as date,
+						AVG(total_market_cap) as total_market_cap,
+						AVG(total_volume_24h) as total_volume_24h
+					FROM crypto_global_metrics
+					WHERE timestamp_utc >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
+					GROUP BY DATE(timestamp_utc)
+					ORDER BY date ASC;";
+				const string dominanceSql = @"
+					SELECT
+						DATE(timestamp_utc)               AS date,
+						AVG(btc_dominance)                AS btc_dominance,
+						AVG((altcoin_market_cap / total_market_cap) * 100)
+														AS altcoin_dominance,
+						AVG((stablecoin_market_cap / total_market_cap) * 100)
+														AS stablecoin_dominance
+					FROM crypto_global_metrics
+					WHERE timestamp_utc >= DATE_SUB(CURDATE(), INTERVAL 1 MONTH)
+					GROUP BY DATE(timestamp_utc)
+					ORDER BY date ASC;";
 				// Fetch latest metrics
 				Object? latestMetrics = null;
 				await using (var cmd = new MySqlCommand(latestSql, conn))
@@ -1050,11 +1075,29 @@ namespace maxhanna.Server.Controllers
 					}
 				}
 
+				// Fetch dominance data
+				var dominanceData = new List<object>();
+				await using (var cmd = new MySqlCommand(dominanceSql, conn))
+				{
+					await using var reader = await cmd.ExecuteReaderAsync();
+					while (await reader.ReadAsync())
+					{
+						dominanceData.Add(new
+						{
+							Date = reader.GetDateTime("date").ToString("yyyy-MM-dd"),
+							BtcDominance = reader.GetDecimal("btc_dominance"),
+							AltcoinDominance = reader.GetDecimal("altcoin_dominance"),
+							StablecoinDominance = reader.GetDecimal("stablecoin_dominance")
+						});
+					}
+				}
+
 				// Combine latest metrics and historical data
 				var response = new
 				{
 					Latest = latestMetrics,
-					Historical = historicalData
+					Historical = historicalData,
+					Dominance = dominanceData
 				};
 
 				return Ok(response);

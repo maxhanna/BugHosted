@@ -379,11 +379,23 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
     if (!confirm(`Download ${file.givenFileName ?? file.fileName}?`)) {
       return;
     }
+    const parent = this.inputtedParentRef ?? this.parentRef;
+    if (!parent) return;
+    const session = await parent.getSessionToken();
 
-    const directoryValue = this.currentDirectory;
+    let directoryValue = this.currentDirectory;
+    if (!directoryValue) {
+
+      const fileEntry = await this.fileService.getFileEntryById(file.id);
+      if (fileEntry) {
+        directoryValue = fileEntry.directory;
+      }
+    }
+ 
     let target = (directoryValue ?? "").replace(/\\/g, "/");
     target += ((directoryValue ?? "").length > 0 && (directoryValue ?? "")[(directoryValue ?? "").length - 1] === this.fS) ? file.fileName : (directoryValue ?? "").length > 0 ? this.fS + file.fileName : file.fileName;
 
+    console.log(target,directoryValue);
     try {
       this.startLoading();
       this.emittedNotification.emit(`Downloading ${file.fileName}`);

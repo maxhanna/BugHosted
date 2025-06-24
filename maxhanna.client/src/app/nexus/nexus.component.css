@@ -94,10 +94,12 @@
 .levelLabel {
   max-width: 15px;
   position: absolute; 
+  color: var(--main-link-color);
   background-color: var(--main-highlight-color-quarter-opacity);
   font-size: small;
   padding: 1px;
   line-height: 13px;
+  text-shadow: 1px 1px 0px var(--third-font-color);
 }
 
 .timerLabel {
@@ -960,7 +962,7 @@
   height: 0px; 
   position: relative;
   top: calc(var(--nexus-gamescreen-height) - 20px);
-  left: calc(var(--nexus-gamescreen-width) + 10px);
+  left: calc(100% - 30px);
   cursor: pointer;
 }
 .helpSnippet {

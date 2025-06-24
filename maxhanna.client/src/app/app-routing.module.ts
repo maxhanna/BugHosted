@@ -25,6 +25,8 @@ const routes: Routes = [
   { path: 'Meta', component: AppComponent },
   { path: 'Crawler/:url', component: AppComponent },
   { path: 'Crawler', component: AppComponent },
+  { path: 'Emulator', component: AppComponent },
+  { path: 'Emu', component: AppComponent },
   { path: 'Top', component: AppComponent },
 ];
 

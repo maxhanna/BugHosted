@@ -1,11 +1,5 @@
-<!-- crypto-fear-greed.component.html -->
-<div class="popupPanelTitle" style="text-align:center; display: flex; justify-content: center; gap: 5px">
-    <span>Fear &amp; Greed Index</span>
-    <a (click)="openInfoPanel()" class="xxSmallFont cursorPointer">ℹ️Info</a>
-</div>
-
 <div class="gauge-wrapper">
-    <svg viewBox="0 0 200 100" class="gauge">
+    <svg #gaugeSvg viewBox="0 0 200 100" class="gauge">
         <!-- Three-section background -->
         <path d="M 10 100 A 90 90 0 0 1 70 40" fill="none" stroke="#d32f2f" stroke-width="20" />
         <path d="M 70 40 A 90 90 0 0 1 130 40" fill="none" stroke="#9e9e9e" stroke-width="20" />
@@ -18,7 +12,7 @@
         <circle cx="100" cy="100" r="4" fill="#000" />
 
         <!-- Labels -->
-        <text x="100" y="90" text-anchor="middle" font-size="18" fill="#333">
+        <text x="100" y="90" text-anchor="middle" font-size="18" fill="var(--main-font-color)">
             {{ fearGreedValue }} / 100
         </text>
         <text x="100" y="110" text-anchor="middle" font-size="12" fill="#666">
@@ -38,15 +32,16 @@
         {{ latest.classification }} ({{ latest.value }}/100)
         <div class="small">{{ latest.timestampUtc | date:'mediumDate' }}</div>
     </div>
-    <div class="cursorPointerUnderlined smallFont linkFontColor" (click)="showHistory = !showHistory">{{showHistory ? 'Hide' : 'Show'}} History</div>
+    <div class="cursorPointerUnderlined smallFont linkFontColor" (click)="showHistory = !showHistory">{{showHistory ?
+        'Hide' : 'Show'}} History</div>
 </div>
 
-<!-- 7‑day spark line -->
-<div style="margin-top:20px;" *ngIf="chartDataPoints && chartDataPoints.length > 0" [style.display]="showHistory ? 'block' : 'none'">
+<!-- 7-day spark line -->
+<div style="margin-top:20px;" *ngIf="chartDataPoints && chartDataPoints.length > 0"
+    [style.display]="showHistory ? 'block' : 'none'">
     <app-line-graph #lineGraphComponent [data]="chartDataPoints" [type]="'Crypto'" [graphTitle]="'Fear & Greed Index'"
         [selectedPeriod]="'5d'" [skipFiltering]="true" [showAverage]="false"></app-line-graph>
 </div>
-
 
 <div class="popupPanel" *ngIf="isInfoPanelOpen">
     <div class="popupPanelTitle" style="margin-bottom:15px;">
@@ -55,12 +50,10 @@
     <div>
         The Fear and Greed Index is a tool developed by CoinMarketCap that measures the prevailing sentiment in
         the cryptocurrency market. This index ranges from 0 to 100, where a lower value indicates extreme fear, and a
-        higher
-        value indicates extreme greed. It helps investors understand the emotional state of the market, which can
-        influence
-        buying and selling behaviors. The index provides insights into whether the market may be undervalued (extreme
-        fear) or
-        overvalued (extreme greed).
+        higher value indicates extreme greed. It helps investors understand the emotional state of the market, which can
+        influence buying and selling behaviors. The index provides insights into whether the market may be undervalued
+        (extreme
+        fear) or overvalued (extreme greed).
     </div>
     <div style="margin-top: 10px;">
         <button id="closeOverlay" (click)="closeInfoPanel()">Close</button>

@@ -848,13 +848,19 @@
           </div>
         </div>
       </div>
-
-
+ 
 
       <div *ngIf="showingTradeLogs" [style.opacity]="isLoading ? '25%' : ''">
         <div class="secondaryFontColor" style="width:100%; display: flex; justify-content: space-between;">
           <div class="logTypeFiltersWrapper">
-            <span class="xxSmallFont">Filter: </span><span (click)="filterLogs('XBT')">XBT</span> <span (click)="filterLogs('XRP')">XRP</span> <span (click)="filterLogs()">Unfiltered</span>
+            <span class="xxSmallFont">Filter: </span>
+            <select (change)="filterLogsFromEvent($event)">
+              <option value="">None</option>
+              <option value="XBT">BTC</option>
+              <option value="XRP">XRP</option>
+              <option value="SOL">Solana</option>
+              <option value="XDG">Dogecoin</option>   
+            </select>    
           </div>
           <div class="xxSmallFont">
             Logs refresh every 30s.
@@ -884,9 +890,24 @@
       </div>
       <div style="text-align:center;" *ngIf="showingTradeLogs && tradeLogs && tradeLogs.length > 0">
         <button class="cursorPointer" (click)="prevLogPage()" [disabled]="currentLogPage === 1">Previous</button>
-        <span>Page {{ currentLogPage }} of {{ totalLogPages }}</span>
-        <button class="cursorPointer" (click)="nextLogPage()" [disabled]="currentLogPage >= totalLogPages">Next</button>
-      </div>
+      
+        <span *ngIf="totalLogPages <= 10">
+          <button *ngFor="let page of getLogPagesArray()" class="cursorPointer" (click)="goToLogPage(page)"
+            [disabled]="page === currentLogPage" [class.active]="page === currentLogPage">
+            {{ page }}
+          </button>
+        </span>
+      
+        <span *ngIf="totalLogPages > 10">
+          <select (change)="goToLogPageSelected($event)">
+            <option *ngFor="let page of getLogPagesArray()" [value]="page" [selected]="page === currentLogPage">
+              Page {{ page }}
+            </option>
+          </select>
+        </span>
+      
+        <span> of {{ totalLogPages }}</span>
+        <button class="cursorPointer" (click)="nextLogPage()" [disabled]="currentLogPage >= totalLogPages">Next</button></div>
       <div *ngIf="isShowingTradeSimulator && tradebotSimulationGraphData && tradebotSimulationGraphData.length > 0"
         class="tradeDataTable">
         <app-line-graph #simLineGraph [selectedPeriod]="'1d'" [data]="tradebotSimulationGraphData"

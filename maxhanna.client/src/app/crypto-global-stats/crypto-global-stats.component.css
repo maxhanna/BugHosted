@@ -1,14 +1,14 @@
 .global-stats-container {
-    padding: 10px; 
+    padding: 10px;
 }
 
-.title { 
+.title {
     margin-bottom: 20px;
     text-align: center;
 }
 
 .metrics-grid {
-    display: flex; 
+    display: flex;
     gap: 20px;
     flex-wrap: wrap;
     align-content: center;
@@ -17,8 +17,8 @@
     margin-bottom: 20px;
 }
 
-.chart-container { 
-    height: 230px; 
+.chart-container {
+    height: 230px;
     text-align: center;
 }
 
@@ -63,5 +63,42 @@
 
     .metrics-display {
         grid-template-columns: repeat(2, 1fr);
-    } 
+    }
+}
+
+.toggle-extra-metrics {
+    margin-top: 5px;
+    text-align: center;
+}
+
+.toggle-extra-metrics button {
+    padding: 6px 12px; 
+    border: var(--main-border);
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.toggle-extra-metrics button:hover, .toggle-dominance-chart button:hover {
+    background: var(--main-highlight-color);
+    color: var(--secondary-font-color);
+}
+
+.toggle-dominance-chart {
+    text-align: center;
+    margin: 10px 0;
+}
+
+.toggle-dominance-chart button {
+    padding: 6px 12px;
+    border: var(--main-border);
+    border-radius: 4px;
+    cursor: pointer; 
+    font-weight: 600;
+}
+
+/* Red, bold attention state */
+.toggle-dominance-chart button.alert {
+    background: #b60d0d; 
+    color: #fff;
+    font-weight: 700; 
 }

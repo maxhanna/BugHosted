@@ -17,22 +17,36 @@
         </div>
     </div>
 
-    <!-- Market Cap and Volume Line Graph -->
+    <!-- Market Cap & Volume (7-day) -->
     <div class="chart-container full-width">
         <div class="smallFont">Market Trends</div>
         <canvas baseChart [data]="trendsChartData" [type]="'line'" [options]="lineChartOptions">
         </canvas>
     </div>
 
+    <!-- === Dominance toggle & chart === -->
+    <div class="toggle-dominance-chart">
+        <button (click)="showDominanceChart = !showDominanceChart" [ngClass]="{ alert: dominanceTrendBroken }">
+            {{ showDominanceChart ? 'Hide' : 'Show' }} 30-Day Dominance Trend
+        </button>
+    </div>
+
+    <div class="chart-container full-width" *ngIf="showDominanceChart && dominanceLineChartData">
+        <div class="smallFont">Market Dominance (30 Days)</div>
+        <canvas baseChart [data]="dominanceLineChartData" [options]="dominanceLineChartOptions" [type]="'line'">
+        </canvas>
+    </div>
+
     <!-- Key Metrics Display -->
     <div class="metrics-display">
+        <!-- Always Visible -->
         <div class="metric-card">
             <h4>Total Market Cap</h4>
-            <p>${{ formatNumber(metrics.latest?.totalMarketCap) }}</p>
+            <p>{{ formatNumber(metrics.latest?.totalMarketCap) }}</p>
         </div>
         <div class="metric-card">
             <h4>24h Volume</h4>
-            <p>${{ formatNumber(metrics.latest?.totalVolume24h) }}</p>
+            <p>{{ formatNumber(metrics.latest?.totalVolume24h) }}</p>
         </div>
         <div class="metric-card">
             <h4>Active Cryptocurrencies</h4>
@@ -42,5 +56,57 @@
             <h4>Active Exchanges</h4>
             <p>{{ formatNumber(metrics.latest?.activeExchanges) }}</p>
         </div>
+
+        <!-- Conditionally Visible Extra Metrics -->
+        <ng-container *ngIf="showExtraMetrics">
+            <div class="metric-card">
+                <h4>BTC Dominance</h4>
+                <p>{{ metrics.latest?.btcDominance.toFixed(2) }}%</p>
+            </div>
+            <div class="metric-card">
+                <h4>ETH Dominance</h4>
+                <p>{{ metrics.latest?.ethDominance.toFixed(2) }}%</p>
+            </div>
+            <div class="metric-card">
+                <h4>Altcoin Market Cap</h4>
+                <p>{{ formatNumber(metrics.latest?.altcoinMarketCap) }}</p>
+            </div>
+            <div class="metric-card">
+                <h4>Altcoin 24h Volume</h4>
+                <p>{{ formatNumber(metrics.latest?.altcoinVolume24h) }}</p>
+            </div>
+            <div class="metric-card">
+                <h4>DeFi Market Cap</h4>
+                <p>{{ formatNumber(metrics.latest?.defiMarketCap) }}</p>
+            </div>
+            <div class="metric-card">
+                <h4>DeFi 24h Volume</h4>
+                <p>{{ formatNumber(metrics.latest?.defiVolume24h) }}</p>
+            </div>
+            <div class="metric-card">
+                <h4>Stablecoin Market Cap</h4>
+                <p>{{ formatNumber(metrics.latest?.stablecoinMarketCap) }}</p>
+            </div>
+            <div class="metric-card">
+                <h4>Stablecoin 24h Volume</h4>
+                <p>{{ formatNumber(metrics.latest?.stablecoinVolume24h) }}</p>
+            </div>
+            <div class="metric-card">
+                <h4>Derivatives 24h Volume</h4>
+                <p>{{ formatNumber(metrics.latest?.derivativesVolume24h) }}</p>
+            </div>
+            <div class="metric-card">
+                <h4>Active Market Pairs</h4>
+                <p>{{ formatNumber(metrics.latest?.activeMarketPairs) }}</p>
+            </div>
+        </ng-container>
+    </div>
+
+    <!-- Extra-metrics toggle -->
+    <div class="toggle-extra-metrics">
+        <button (click)="showExtraMetrics = !showExtraMetrics">
+            {{ showExtraMetrics ? 'Hide' : 'Show' }} Extra Metrics
+        </button>
     </div>
 </div>
+  

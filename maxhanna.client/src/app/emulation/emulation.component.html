@@ -165,13 +165,21 @@
         Upload ROM file:
       </div>
       <div class="optionsStatsDescription uploadRomSpan upload-label controlVolume">
-        <app-file-upload [currentDirectory]="'/roms'"
-                         [user]="parentRef?.user!"
-                         [inputtedParentRef]="parentRef"
-                         [uploadButtonText]="'Upload Rom(s)'">
+        <app-file-upload [currentDirectory]="'/roms'" [user]="parentRef?.user!" [inputtedParentRef]="parentRef"
+          [uploadButtonText]="'Upload Rom(s)'">
         </app-file-upload>
       </div>
     </div>
+    <div class="optionsStatsDiv">
+      <div class="optionsStatsHeader">
+        Share Link
+      </div>
+      <div class="optionsStatsDescription uploadRomSpan upload-label controlVolume">
+        <button title="Share File" (click)="shareLink();">
+          ↗️Share
+        </button>
+      </div>
+    </div>  
   </div>
 
   <div class="optionsStatsWrapperDiv" *ngIf="!onMobile()">

@@ -1537,16 +1537,16 @@ namespace maxhanna.Server.Controllers
 					{
 						Notification = new FirebaseAdmin.Messaging.Notification()
 						{
-							Title = "New Story Post",
+							Title = $"New Story Post From UserId: {fromUserId}",
 							Body = message,
 							ImageUrl = "https://www.bughosted.com/assets/logo.jpg"
 						},
 						Data = new Dictionary<string, string>
-				{
-					{ "storyId", storyId.ToString() },
-					{ "fromUserId", fromUserId.ToString() },
-					{ "type", "story_post" }
-				},
+						{
+							{ "storyId", storyId.ToString() },
+							{ "fromUserId", fromUserId.ToString() },
+							{ "type", "story_post" }
+						},
 						Topic = $"notification{followerId}"
 					};
 

@@ -488,4 +488,15 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
       }
     }, 3);
   }
+  shareLink() {
+    const link = `https://bughosted.com/Emulator`;
+    try {
+      navigator.clipboard.writeText(link);
+      this.parentRef?.showNotification(`${link} copied to clipboard!`);
+    } catch {
+      this.parentRef?.showNotification("Error: Unable to share link!");
+      console.log("Error: Unable to share link!");
+    }
+    this.closeMenuPanel();
+  }
 }
