@@ -268,14 +268,14 @@ namespace maxhanna.Server.Services
 					bool isAboveMovingAvg = await IsPriceAboveMovingAverage(connection, maValue);
 
 					const string updateSql = @"
-                INSERT INTO trade_indicators
-                       (from_coin, to_coin,
-                        `14_day_moving_average`, `14_day_moving_average_value`, updated)
-                VALUES (@from, @to, @flag, @val, UTC_TIMESTAMP())
-                ON DUPLICATE KEY UPDATE
-                        `14_day_moving_average`        = @flag,
-                        `14_day_moving_average_value`  = @val,
-                        updated                         = UTC_TIMESTAMP();";
+						INSERT INTO trade_indicators
+							(from_coin, to_coin,
+								`14_day_moving_average`, `14_day_moving_average_value`, updated)
+						VALUES (@from, @to, @flag, @val, UTC_TIMESTAMP())
+						ON DUPLICATE KEY UPDATE
+								`14_day_moving_average`        = @flag,
+								`14_day_moving_average_value`  = @val,
+								updated                         = UTC_TIMESTAMP();";
 
 					using var upd = new MySqlCommand(updateSql, connection);
 					upd.Parameters.AddWithValue("@from", "XBT");
