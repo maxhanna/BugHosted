@@ -188,8 +188,9 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
   ]);
 
   playerColor = "chartreuse";
-  playerColors: { [key: number]: string } = []; 
+  playerColors: { [key: number]: string } = [];
   protectedPlayerIds?: number[] | undefined;
+  protectedBaseCoordinates: [number, number][] = []; // Array of coordinate tuples
 
   @ViewChild('upgradeMineButton') upgradeMineButton!: ElementRef<HTMLButtonElement>;
   @ViewChild('upgradeFactoryButton') upgradeFactoryButton!: ElementRef<HTMLButtonElement>;
@@ -2116,6 +2117,8 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
           this.numberOfPersonalBases = this.currentPersonalBases.length ?? 0;
           if (!this.protectedPlayerIds) {
             this.protectedPlayerIds = this.getUsersWithSingleRecentBase(this.mapData);
+            const protectedBases = this.mapData.filter((x: NexusBase) => this.protectedPlayerIds?.includes(x.user?.id ?? 0));
+            this.protectedBaseCoordinates = protectedBases.map(base => [base.coordsX, base.coordsY] as [number, number]);
           }
         }
       });

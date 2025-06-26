@@ -8,7 +8,10 @@
 </div>
 <div class="map" *ngIf="mapData isMapRendered" #mapContainer>
   <div *ngFor="let row of grid; let y = index; trackBy: trackByIndex" class="row">
-    <div *ngFor="let cell of row; let x = index; trackBy: trackByIndex" class="cell" [attr.x]="x" [attr.y]="y">
+    <div *ngFor="let cell of row; let x = index; trackBy: trackByIndex"
+      [class]="'cell' + (isProtected(x, y) ? ' beginnerCell' : ''"
+      [attr.x]="x"
+      [attr.y]="y">
       <div class="cell-content" (click)="selectCoordinates(x, y);">
         <div *ngIf="lvl1Src && lvl2Src && lvl3Src && mapTileSrc" [id]="'x' + x + ',y' + y + 'LocDiv'">
           <img [src]="getImageSrc(x, y)" class="cell-content" [style.transform]="getImageTransform(x, y)" loading="lazy"

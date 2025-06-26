@@ -72,7 +72,7 @@ export class NexusMapComponent extends ChildComponent {
   @Input() flvl1Src: string | undefined;
   @Input() playerColors?: { [key: number]: string } = [];
   @Input() protectedPlayerIds?: number[] | undefined;
-
+  @Input() protectedBaseCoordinates: [number, number][] = [];
 
 
   @Input() numberOfPersonalBases: number | undefined;
@@ -872,5 +872,10 @@ export class NexusMapComponent extends ChildComponent {
   userTagLoaded(user: User) {
     console.log("User tag loaded", user);
     this.cdr.markForCheck();
+  }
+  isProtected(x: number, y: number): boolean {
+    return this.protectedBaseCoordinates.some(
+      ([protectedX, protectedY]) => protectedX === x && protectedY === y
+    );
   }
 }
