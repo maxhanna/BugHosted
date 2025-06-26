@@ -92,7 +92,6 @@
       <div *ngIf="selectedNexusBase?.user">
         <app-user-tag [user]="selectedNexusBase.user" [inputtedParentRef]="inputtedParentRef"
           [previousComponent]="'Nexus'" (userLoaded)="userTagLoaded($event)"></app-user-tag>
-        <div *ngIf="protectedPlayerIds?.includes(selectedNexusBase?.user?.id ?? 0)" class="redText smallFont">Beginner protection enabled.</div>
       </div>
       <div>
         <button
@@ -103,8 +102,8 @@
     </div>
     <!-- ATTACK TIMERS -->
     <div class="attackDefenceTimers" *ngIf="isReportsHidden && !isAttackScreenOpen">
-      <div *ngIf="selectedNexusBase.baseName">Name: <span class="usernameProfileLink">{{selectedNexusBase.baseName}}</span>
-      </div>
+      <div *ngIf="protectedPlayerIds?.includes(selectedNexusBase?.user?.id ?? 0)" class="redText smallFont">Beginner protection enabled.</div> 
+      <div *ngIf="selectedNexusBase.baseName">Name: <span class="usernameProfileLink">{{selectedNexusBase.baseName}}</span></div>
       <ng-container *ngIf="getAttackTimers().length;">
         <div *ngFor="let attackTimer of getAttackTimers(); trackBy: trackByTimerId" class="smallFont">
           <span class="invertedHighlights cursorPointerUnderlined"
@@ -177,7 +176,7 @@
       [nexusUnitsOutsideOfBase]="nexusUnitsOutsideOfBase" [unitStats]="unitStats" [marinePictureSrc]="marinePictureSrc"
       [goliathPictureSrc]="goliathPictureSrc" [siegeTankPictureSrc]="siegeTankPictureSrc"
       [scoutPictureSrc]="scoutPictureSrc" [wraithPictureSrc]="wraithPictureSrc"
-      [battlecruiserPictureSrc]="battlecruiserPictureSrc" [glitcherPictureSrc]="glitcherPictureSrc"
+      [battlecruiserPictureSrc]="battlecruiserPictureSrc" [glitcherPictureSrc]="glitcherPictureSrc" [protectedPlayerIds]="protectedPlayerIds"
       [isSendingDefence]="isSendingDefence" [inputtedParentRef]="inputtedParentRef" [isLoadingData]="isLoading || (isLoadingData ? true : false)"
       (emittedClosedAttackScreen)="emittedClosedAttackScreen()"
       (emittedNotifications)="emittedNotifications.emit($event)" (emittedReloadEvent)="emittedReloadEvent.emit($event)"

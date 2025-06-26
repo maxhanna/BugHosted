@@ -32,6 +32,7 @@ export class NexusAttackScreenComponent extends ChildComponent {
   @Input() glitcherPictureSrc: string | undefined;
   @Input() isSendingDefence: boolean = false;
   @Input() isLoadingData: boolean = false;
+  @Input() protectedPlayerIds?: number[] | undefined;
   @Input() inputtedParentRef?: AppComponent;
 
   @Output() emittedNotifications = new EventEmitter<string>();
@@ -64,19 +65,16 @@ export class NexusAttackScreenComponent extends ChildComponent {
       this.inputtedParentRef?.showNotification("No units to send.");
       return;
     } else {
-      if (this.originBase.user?.id && this.selectedNexus.user?.id) {
-        const ucRes = await this.nexusService.hasRecentFirstConquest(this.originBase.user.id); 
-        if (ucRes) { 
-          this.inputtedParentRef?.showNotification("Beginner protection enabled. You must wait 3 days before attacking any players.");
-          return;
-        }
+      if (this.originBase.user?.id 
+        && this.selectedNexus.user?.id
+        && this.protectedPlayerIds 
+        && this.protectedPlayerIds.includes(this.selectedNexus.user?.id)) { 
+        this.inputtedParentRef?.showNotification("Beginner protection enabled. You must wait 3 days before attacking any players.");
+        return; 
       } 
-      if (this.selectedNexus.user?.id) { 
-        const fcRes = await this.nexusService.hasRecentFirstConquest(this.selectedNexus.user.id);
-        if (fcRes) {
-          this.inputtedParentRef?.showNotification("Beginner protection enabled. You must wait 3 days before attacking a new player's base.");
-          return;
-        } 
+      if (this.selectedNexus.user?.id && this.protectedPlayerIds && this.protectedPlayerIds.includes(this.selectedNexus.user?.id)) {  
+        this.inputtedParentRef?.showNotification("Beginner protection enabled. You must wait 3 days before attacking a new player's base.");
+        return; 
       }
     }
     
