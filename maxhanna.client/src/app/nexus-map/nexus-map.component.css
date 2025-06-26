@@ -32,7 +32,7 @@
   box-sizing: border-box;
 }
 
-.beginnerCell[_ngcontent-ng-c1856795685]::before {
+.beginnerCell::before {
   content: "";
   position: absolute;
   top: 0;
