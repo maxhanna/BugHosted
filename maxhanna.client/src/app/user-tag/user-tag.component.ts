@@ -79,33 +79,43 @@ export class UserTagComponent extends ChildComponent implements OnInit, OnDestro
       (document.getElementById("showUserTagUserId") as HTMLInputElement).value = this.user?.id?.toString() || '0';
 
       // Constants for tag dimensions (adjust based on your actual tag size)
-      const tagWidth = 250; // Estimated width of the user tag
-      const tagHeight = 150; // Estimated height of the user tag
-      const offset = 10; // Space between cursor and tag
+      const tagWidth = 200; // Width of the user tag
+      const tagHeight = 150; // Height of the user tag
+      const offset = 4; // Space between cursor and tag
+      const minScreenWidth = 200; // Minimum screen width to display the tag
+
+      // If screen is too narrow, don't show the tag at all
+      if (window.innerWidth < minScreenWidth) {
+        return;
+      }
 
       // Calculate initial position (bottom right of cursor)
       let newX = event.clientX + offset;
       let newY = event.clientY + offset;
 
-      // Check if tag would go off the right edge of the window
+      // Check if tag would go off the right edge
       if (newX + tagWidth > window.innerWidth) {
-        newX = event.clientX - tagWidth - offset; // Position to the left of cursor
+        newX = event.clientX - tagWidth - offset; // Move left of cursor
       }
 
-      // Check if tag would go off the bottom edge of the window
+      // Check if tag would go off the bottom edge
       if (newY + tagHeight > window.innerHeight) {
-        newY = event.clientY - tagHeight - offset; // Position above cursor
+        newY = event.clientY - tagHeight - offset; // Move above cursor
       }
 
-      // Ensure the tag doesn't go off the left edge
+      // If tag is now off the left edge, center it horizontally
       if (newX < 0) {
-        newX = offset;
+        newX = (window.innerWidth - tagWidth) / 2; // Center the tag
       }
 
-      // Ensure the tag doesn't go off the top edge
+      // If tag is off the top edge, center it vertically
       if (newY < 0) {
-        newY = offset;
+        newY = (window.innerHeight - tagHeight) / 2; // Center the tag
       }
+
+      // Ensure final position is within bounds (sanity check)
+      newX = Math.max(0, Math.min(newX, window.innerWidth - tagWidth));
+      newY = Math.max(0, Math.min(newY, window.innerHeight - tagHeight));
 
       if (btn) {
         inputX.value = newX.toString();
