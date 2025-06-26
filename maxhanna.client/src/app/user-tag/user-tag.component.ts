@@ -75,50 +75,41 @@ export class UserTagComponent extends ChildComponent implements OnInit, OnDestro
     this.debounceTimer = setTimeout(async () => {
       const btn = document.getElementById("showUserTagButton");
       const inputX = document.getElementById("showUserTagX") as HTMLInputElement;
-      const inputY = document.getElementById("showUserTagY") as HTMLInputElement;
-      (document.getElementById("showUserTagUserId") as HTMLInputElement).value = this.user?.id?.toString() || '0';
-
-      // Constants for tag dimensions (adjust based on your actual tag size)
-      const tagWidth = 200; // Width of the user tag
-      const tagHeight = 150; // Height of the user tag
-      const offset = 4; // Space between cursor and tag
-      const minScreenWidth = 200; // Minimum screen width to display the tag
-
-      // If screen is too narrow, don't show the tag at all
-      if (window.innerWidth < minScreenWidth) {
-        return;
-      }
-
-      // Calculate initial position (bottom right of cursor)
-      let newX = event.clientX + offset;
-      let newY = event.clientY + offset;
-
-      // Check if tag would go off the right edge
+      const inputY = document.getElementById("showUserTagY") as HTMLInputElement; 
+      (document.getElementById("showUserTagUserId") as HTMLInputElement).value = this.user?.id?.toString() || '0'; 
+      let newX = event.clientX + 150;
+      let newY = event.clientY + 30;
+      const tagWidth = 200;
+      const tagHeight = 80;
+      const offset = 5;
+      // Check if tag would go off the right edge of the window
       if (newX + tagWidth > window.innerWidth) {
-        newX = event.clientX - tagWidth - offset; // Move left of cursor
+        newX = event.clientX - tagWidth - offset; // Position to the left of cursor
       }
 
-      // Check if tag would go off the bottom edge
+      // Check if tag would go off the bottom edge of the window
       if (newY + tagHeight > window.innerHeight) {
-        newY = event.clientY - tagHeight - offset; // Move above cursor
+        newY = event.clientY - tagHeight - offset; // Position above cursor
       }
 
-      // If tag is now off the left edge, center it horizontally
+      // Ensure the tag doesn't go off the left edge
       if (newX < 0) {
-        newX = (window.innerWidth - tagWidth) / 2; // Center the tag
+        newX = offset;
       }
 
-      // If tag is off the top edge, center it vertically
+      // Ensure the tag doesn't go off the top edge
       if (newY < 0) {
-        newY = (window.innerHeight - tagHeight) / 2; // Center the tag
-      } 
-      
+        newY = offset;
+      }
+
+
       if (btn) {
-        inputX.value = newX.toString();
-        inputY.value = newY.toString();
-        btn.click();
+        inputX.value = newX; // 10px right of cursor
+        inputY.value = newY; // 10px below cursor  
+        btn.click(); 
       }
     }, 500);
+   
   }
   onUserTagLeave() {
     if (!this.user?.id) return;
