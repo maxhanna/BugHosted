@@ -1,4 +1,4 @@
-import { Component, ElementRef, EventEmitter, Input, OnChanges, OnDestroy, OnInit, Output, SimpleChanges, ViewChild } from '@angular/core'; 
+import { Component, ElementRef, EventEmitter, Input, OnChanges, OnDestroy, OnInit, Output, SimpleChanges, ViewChild } from '@angular/core';
 import { AppComponent } from '../app.component';
 import { ChildComponent } from '../child.component';
 import { User } from '../../services/datacontracts/user/user';
@@ -6,10 +6,10 @@ import { MediaViewerComponent } from '../media-viewer/media-viewer.component';
 import { UserService } from '../../services/user.service';
 
 @Component({
-    selector: 'app-user-tag',
-    templateUrl: './user-tag.component.html',
-    styleUrl: './user-tag.component.css',
-    standalone: false
+  selector: 'app-user-tag',
+  templateUrl: './user-tag.component.html',
+  styleUrl: './user-tag.component.css',
+  standalone: false
 })
 export class UserTagComponent extends ChildComponent implements OnInit, OnDestroy, OnChanges {
   @Input() user?: User;
@@ -32,35 +32,35 @@ export class UserTagComponent extends ChildComponent implements OnInit, OnDestro
   popupLeft: number = 0;
 
   constructor(private userService: UserService) { super(); }
-  async ngOnInit() { 
+  async ngOnInit() {
     this.parentRef = this.inputtedParentRef;
-    if (this.user && this.user.id && !this.user.username) { 
+    if (this.user && this.user.id && !this.user.username) {
       await this.userService.getUserById(this.user.id).then(res => {
         if (res) {
           this.user = res;
           this.userLoaded.emit(this.user);
         }
       });
-    } else if (this.userId) {  
+    } else if (this.userId) {
       await this.userService.getUserById(this.userId).then(res => {
         if (res) {
           this.user = res;
           this.userLoaded.emit(this.user);
         }
-      }); 
+      });
     }
   }
-  ngOnDestroy() { 
+  ngOnDestroy() {
     this.onUserTagLeave();
   }
- 
-  ngOnChanges(changes: SimpleChanges) { 
+
+  ngOnChanges(changes: SimpleChanges) {
     if (changes['user'] && !changes['user'].firstChange && this.profileImageViewer) {
       this.user = changes["user"].currentValue;
       this.profileImageViewer.fileSrc = undefined;
       this.profileImageViewer.selectedFileSrc = '';
       this.profileImageViewer.file = undefined;
-      this.profileImageViewer.fileId = this.user?.displayPictureFile?.id;  
+      this.profileImageViewer.fileId = this.user?.displayPictureFile?.id;
       this.userLoaded.emit(this.user);
 
       setTimeout(() => {
@@ -75,8 +75,8 @@ export class UserTagComponent extends ChildComponent implements OnInit, OnDestro
     this.debounceTimer = setTimeout(async () => {
       const btn = document.getElementById("showUserTagButton");
       const inputX = document.getElementById("showUserTagX") as HTMLInputElement;
-      const inputY = document.getElementById("showUserTagY") as HTMLInputElement; 
-      (document.getElementById("showUserTagUserId") as HTMLInputElement).value = this.user?.id?.toString() || '0'; 
+      const inputY = document.getElementById("showUserTagY") as HTMLInputElement;
+      (document.getElementById("showUserTagUserId") as HTMLInputElement).value = this.user?.id?.toString() || '0';
       let newX = event.clientX + 150;
       let newY = event.clientY + 30;
       const tagWidth = 200;
@@ -104,18 +104,18 @@ export class UserTagComponent extends ChildComponent implements OnInit, OnDestro
 
 
       if (btn) {
-        inputX.value = newX; // 10px right of cursor
-        inputY.value = newY; // 10px below cursor  
-        btn.click(); 
+        inputX.value = newX;
+        inputY.value = newY;
+        btn.click();
       }
     }, 500);
-   
+
   }
   onUserTagLeave() {
     if (!this.user?.id) return;
     const btn = document.getElementById("hideUserTagButton");
     if (btn) {
-      btn.click(); 
+      btn.click();
     }
   }
 }
