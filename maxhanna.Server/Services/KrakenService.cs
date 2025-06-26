@@ -173,7 +173,7 @@ public class KrakenService
 			decimal usdcBalance = balances.ContainsKey("USDC") ? balances["USDC"] : 0;
 			_ = _log.Db("USDC Balance: " + usdcBalance + "; Coin Balance: " + coinBalance, userId, "TRADE", true);
 			_ = _log.Db($"coinPriceCad: {coinPriceCAD}, coinPriceUSDC {coinPriceUSDC:F2}", userId, "TRADE", true);
-			_ = _log.Db($"spread1: {spread:P}, spread2 {spread2:P}", userId, "TRADE", true);
+			_ = _log.Db($"spread1: {spread:P} (), spread2 {spread2:P} (currentPrice({currentPrice}), lastPrice({lastPrice}), firstPriceToday({firstPriceToday.GetValueOrDefault()}))", userId, "TRADE", true);
 
 			if (spread >= _TradeThreshold || (firstPriceToday != null && spread2 >= _TradeThreshold))
 			{
