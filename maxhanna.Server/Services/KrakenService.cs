@@ -230,8 +230,14 @@ public class KrakenService
 					bool isValidTrade = await ValidateTrade(userId, tmpCoin, tmpCoin, "USDC", "sell", usdcBalance, coinToTrade);
 					if (isValidTrade)
 					{
-						_ = _log.Db($"Spread is +{spread:P}, {spread2Message}(c:{currentPrice}-l:{lastPrice}), selling {coinToTrade} {tmpCoin} for USDC possibility opened. Switching to momentum strategy.", userId, "TRADE", true);
-						await AddMomentumEntry(userId, tmpCoin, "USDC", coinPriceUSDC.Value);
+						_ = _log.Db($"Spread is +{spread:P}, {spread2Message}(c:{currentPrice}-l:{lastPrice}), selling {coinToTrade} {tmpCoin} for USDC possibility opened. Switching to momentum strategy.", userId, "TRADE", true); 
+						int? matchingBuyOrderId = await FindMatchingBuyOrder(userId, tmpCoin, coinPriceUSDC.Value);
+						if (matchingBuyOrderId == null)
+						{
+							_ = _log.Db("⚠️Cannot sell at this rate. No matching buy orders for this price range. Trade Cancelled.", userId, "TRADE", true);
+							return false;
+						}
+						await AddMomentumEntry(userId, tmpCoin, "USDC", coinPriceUSDC.Value, matchingBuyOrderId);
 						return false;
 					}
 				}
@@ -257,7 +263,7 @@ public class KrakenService
 						var spread2Message = firstPriceToday != null ? $"Spread2: {spread2:P} " : "";
 						_ = _log.Db($"({tmpCoin}:{userId}) Spread is {spread:P} {spread2Message} (c:{currentPrice}-l:{lastPrice}), buying {tmpCoin} with {FormatBTC(coinAmount)} {tmpCoin} worth of USDC(${usdcValueToTrade})", userId, "TRADE", true);
 
-						await AddMomentumEntry(userId, "USDC", tmpCoin, coinPriceUSDC.Value);
+						await AddMomentumEntry(userId, "USDC", tmpCoin, coinPriceUSDC.Value, null); 
 						return false;
 					}
 				} 
