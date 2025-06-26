@@ -33,7 +33,7 @@
                      (userNotificationEvent)="uploadNotification($event);">
     </app-file-search>
     <div class="loadMoreResultsDiv" *ngIf="fileSearchComponent.currentPage < fileSearchComponent.totalPages && fileSearchComponent.directory?.data?.length">
-      <button (click)="fileSearchComponent.appendNextPage(); $event.preventDefault()">Load More Results</button>
+      <button (click)="fileSearchComponent.appendNextPage(); $event.preventDefault()" appInView (inView)="onLoadMoreInView($event)">Load More Results</button>
     </div>
   </div>
 </div>

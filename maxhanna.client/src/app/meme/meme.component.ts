@@ -96,5 +96,10 @@ export class MemeComponent extends ChildComponent implements OnInit, OnDestroy  
         this.fileSearchComponent.getDirectory();
       }
     });
+  }  
+  onLoadMoreInView(isInView: boolean) {
+    if (isInView && this.fileSearchComponent.currentPage < this.fileSearchComponent.totalPages) {
+      this.fileSearchComponent.appendNextPage();
+    }
   }
 }
