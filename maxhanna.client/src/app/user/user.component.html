@@ -131,7 +131,7 @@
       </div>
     </div> 
     <!-- LATEST MEME -->
-    <div *ngIf="!user?.id && !loginOnly" style="display: flex;align-items: flex-start;justify-content: center;flex-wrap: wrap;">
+    <div *ngIf="!user?.id && !loginOnly" style="display: flex;align-items: flex-start;justify-content: center;flex-wrap: wrap;" [class]="onMobile() ? 'gradientBackground':''">
       <div *ngIf="latestMemeId">
         <div class="popupPanelTitle cursorPointerUnderlined" style="margin-top: 15px;"
           (click)="parentRef?.createComponent('Meme')">Latest Meme:</div>
