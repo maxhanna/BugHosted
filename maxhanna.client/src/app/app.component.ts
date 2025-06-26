@@ -36,8 +36,7 @@ import { CrawlerService } from '../services/crawler.service';
 import { FavouriteService } from '../services/favourite.service';
 import { FileService } from '../services/file.service';
 import { TopComponent } from './top/top.component';
-import { PollService } from '../services/poll.service';
-import { UserTagComponent } from './user-tag/user-tag.component';
+import { PollService } from '../services/poll.service'; 
 
 
 @Component({

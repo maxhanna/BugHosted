@@ -75,17 +75,44 @@ export class UserTagComponent extends ChildComponent implements OnInit, OnDestro
     this.debounceTimer = setTimeout(async () => {
       const btn = document.getElementById("showUserTagButton");
       const inputX = document.getElementById("showUserTagX") as HTMLInputElement;
-      const inputY = document.getElementById("showUserTagY") as HTMLInputElement; 
-      (document.getElementById("showUserTagUserId") as HTMLInputElement).value = this.user?.id?.toString() || '0'; 
-      const newX = event.clientX + 150;
-      const newY = event.clientY + 30;
+      const inputY = document.getElementById("showUserTagY") as HTMLInputElement;
+      (document.getElementById("showUserTagUserId") as HTMLInputElement).value = this.user?.id?.toString() || '0';
+
+      // Constants for tag dimensions (adjust based on your actual tag size)
+      const tagWidth = 250; // Estimated width of the user tag
+      const tagHeight = 150; // Estimated height of the user tag
+      const offset = 10; // Space between cursor and tag
+
+      // Calculate initial position (bottom right of cursor)
+      let newX = event.clientX + offset;
+      let newY = event.clientY + offset;
+
+      // Check if tag would go off the right edge of the window
+      if (newX + tagWidth > window.innerWidth) {
+        newX = event.clientX - tagWidth - offset; // Position to the left of cursor
+      }
+
+      // Check if tag would go off the bottom edge of the window
+      if (newY + tagHeight > window.innerHeight) {
+        newY = event.clientY - tagHeight - offset; // Position above cursor
+      }
+
+      // Ensure the tag doesn't go off the left edge
+      if (newX < 0) {
+        newX = offset;
+      }
+
+      // Ensure the tag doesn't go off the top edge
+      if (newY < 0) {
+        newY = offset;
+      }
+
       if (btn) {
-        inputX.value = newX; // 10px right of cursor
-        inputY.value = newY; // 10px below cursor  
-        btn.click(); 
+        inputX.value = newX.toString();
+        inputY.value = newY.toString();
+        btn.click();
       }
     }, 500);
-   
   }
   onUserTagLeave() {
     if (!this.user?.id) return;
