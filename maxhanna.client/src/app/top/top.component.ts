@@ -29,6 +29,10 @@ export class TopComponent extends ChildComponent implements OnInit {
   isEditPanelOpen = false;
   isSearchingUrl = false; 
   isSearchingUrlForEdit = false;
+  isMenuPanelOpen = false;
+  isVoterPanelOpen = false;
+  selectedTopEntry?: any = undefined;
+  topCategories?:any = undefined;
 
   constructor(private topService: TopService, private topicService: TopicService) {
     super();
@@ -49,6 +53,12 @@ export class TopComponent extends ChildComponent implements OnInit {
       console.log("No topics in URL, loading default entries");
       this.loadTopEntries();
     }
+    this.topService.getTopCategories().then((res: any) => {
+      if (res) {
+        this.topCategories = res;
+      }
+    });
+
   }
 
   private getTopicsFromUrl(): string[] {
@@ -210,10 +220,10 @@ export class TopComponent extends ChildComponent implements OnInit {
       this.isSearchingUrl = false; 
     }
   }
-  closeSearchPanel() { 
-    if (this.isSearchingUrlForEdit) { 
+  closeSearchPanel() {
+    if (this.isSearchingUrlForEdit) {
       this.isSearchingUrlForEdit = false;
-    } else { 
+    } else {
       this.isSearchingUrl = false;
     }
   }
@@ -224,6 +234,7 @@ export class TopComponent extends ChildComponent implements OnInit {
       this.isSearchingUrl = false;
     }
   } 
+  
   getCategories(categoryString: string): string[] {
     if (!categoryString) return [];
     return categoryString.split(',');
@@ -245,6 +256,25 @@ export class TopComponent extends ChildComponent implements OnInit {
         }
       })
     }
+  }
+  closeMenuPanel() {
+    this.parentRef?.closeOverlay();
+    this.isMenuPanelOpen = false;
+  }
+  openMenuPanel() {
+    this.parentRef?.showOverlay();
+    this.isMenuPanelOpen = true;
+  }
+
+  closeVoterPanel() {
+    this.parentRef?.closeOverlay();
+    this.isVoterPanelOpen = false;
+    this.selectedTopEntry = undefined;
+  }
+  openVoterPanel(topEntry: any) {
+    this.selectedTopEntry = topEntry;
+    this.parentRef?.showOverlay();
+    this.isVoterPanelOpen = true;
   }
 
   copyLink() {

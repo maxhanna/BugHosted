@@ -84,7 +84,9 @@ namespace maxhanna.Server.Controllers
 							CreatedAt = reader.GetDateTime(reader.GetOrdinal("created_at")),
 							TotalVotes = 0,
 							Upvotes = 0,
-							Downvotes = 0
+							Downvotes = 0,
+							Upvoters = new List<int>(),
+							Downvoters = new List<int>()
 						};
 						entryIds.Add(entry.Id);
 						entries.Add(entry);
@@ -93,6 +95,7 @@ namespace maxhanna.Server.Controllers
 
 				if (entryIds.Count > 0)
 				{
+					// First get the vote counts
 					var votesResponse = await GetVotes(entryIds.ToArray()) as OkObjectResult;
 					if (votesResponse != null && votesResponse.Value is Dictionary<int, VoteData> votes)
 					{
@@ -106,6 +109,36 @@ namespace maxhanna.Server.Controllers
 							}
 						}
 					}
+
+					// Then get the voter details
+					string voterSql = @"
+						SELECT entry_id, user_id, vote_value 
+						FROM maxhanna.top_entry_votes 
+						WHERE entry_id IN (" + string.Join(",", entryIds) + ")";
+
+					using MySqlCommand voterCmd = new MySqlCommand(voterSql, conn);
+					using (var voterReader = await voterCmd.ExecuteReaderAsync())
+					{
+						while (await voterReader.ReadAsync())
+						{
+							int entryId = voterReader.GetInt32(voterReader.GetOrdinal("entry_id"));
+							int userId = voterReader.GetInt32(voterReader.GetOrdinal("user_id"));
+							int voteValue = voterReader.GetInt32(voterReader.GetOrdinal("vote_value"));
+
+							var entry = entries.FirstOrDefault(e => e.Id == entryId);
+							if (entry != null)
+							{
+								if (voteValue == 1)
+								{
+									entry.Upvoters.Add(userId);
+								}
+								else 
+								{
+									entry.Downvoters.Add(userId);
+								}
+							}
+						}
+					}
 				}
 
 				entries = entries.OrderByDescending(e => e.Upvotes - e.Downvotes).ToList();
@@ -113,8 +146,77 @@ namespace maxhanna.Server.Controllers
 			}
 			catch (Exception ex)
 			{
-				_ = _log.Db($"An error occurred while getting top entries: {ex.Message}", null, "FILE", true);
+				_ = _log.Db($"An error occurred while getting top entries: {ex.Message}", null, "TOP", true);
 				return StatusCode(500, "An error occurred while getting top entries.");
+			}
+		}
+
+		[HttpPost("/Top/GetTopCategories", Name = "GetTopCategories")]
+		public async Task<IActionResult> GetTopCategories(int limit = 30)
+		{
+			try
+			{
+				using MySqlConnection conn = new MySqlConnection(_connectionString);
+				await conn.OpenAsync();
+
+				// Query to split comma-separated categories and count each individual occurrence
+				string sql = @"
+					WITH RECURSIVE category_split AS (
+						SELECT 
+							id,
+							TRIM(SUBSTRING_INDEX(category, ',', 1)) AS single_category,
+							IF(
+								LOCATE(',', category) > 0,
+								SUBSTRING(category, LOCATE(',', category) + 1),
+								''
+							) AS remaining_categories
+						FROM maxhanna.top_entries
+						WHERE category != ''
+						
+						UNION ALL
+						
+						SELECT 
+							id,
+							TRIM(SUBSTRING_INDEX(remaining_categories, ',', 1)) AS single_category,
+							IF(
+								LOCATE(',', remaining_categories) > 0,
+								SUBSTRING(remaining_categories, LOCATE(',', remaining_categories) + 1),
+								''
+							) AS remaining_categories
+						FROM category_split
+						WHERE remaining_categories != ''
+					)
+					SELECT 
+						single_category AS CategoryName,
+						COUNT(*) AS EntryCount
+					FROM category_split
+					WHERE single_category != ''
+					GROUP BY single_category
+					ORDER BY EntryCount DESC
+					LIMIT @limit";
+
+				using MySqlCommand cmd = new MySqlCommand(sql, conn);
+				cmd.Parameters.AddWithValue("@limit", limit);
+
+				var categories = new List<TopCategory>();
+				using (var reader = await cmd.ExecuteReaderAsync())
+				{
+					while (await reader.ReadAsync())
+					{
+						categories.Add(new TopCategory
+						{
+							CategoryName = reader.GetString("CategoryName"),
+							EntryCount = reader.GetInt32("EntryCount")
+						});
+					}
+				}
+
+				return Ok(categories);
+			}
+			catch (Exception ex)
+			{
+				_ = _log.Db($"An error occurred while getting top categories: {ex.Message}", null, "TOP", true);
+				return StatusCode(500, "An error occurred while getting top categories.");
 			}
 		}
 
@@ -180,7 +282,7 @@ namespace maxhanna.Server.Controllers
 			}
 			catch (Exception ex)
 			{
-				_ = _log.Db($"An error occurred while processing vote: {ex.Message}", null, "FILE", true);
+				_ = _log.Db($"An error occurred while processing vote: {ex.Message}", null, "TOP", true);
 				return StatusCode(500, "An error occurred while processing vote.");
 			}
 		}
@@ -226,7 +328,7 @@ namespace maxhanna.Server.Controllers
 			}
 			catch (Exception ex)
 			{
-				_ = _log.Db("An error occurred while adding entry to category: " + ex.Message, null, "FILE", true);
+				_ = _log.Db("An error occurred while adding entry to category: " + ex.Message, null, "TOP", true);
 				return StatusCode(500, "An error occurred while adding entry to category.");
 			}
 		}
@@ -295,7 +397,7 @@ namespace maxhanna.Server.Controllers
 			}
 			catch (Exception ex)
 			{
-				_ = _log.Db($"An error occurred while editing entry: {ex.Message}", null, "FILE", true);
+				_ = _log.Db($"An error occurred while editing entry: {ex.Message}", null, "TOP", true);
 				return StatusCode(500, "An error occurred while editing entry.");
 			}
 		}
@@ -309,14 +411,14 @@ namespace maxhanna.Server.Controllers
 				await conn.OpenAsync();
 
 				string sql = @$"
-            SELECT 
-                entry_id,
-                SUM(vote_value) AS total_votes,
-                COUNT(CASE WHEN vote_value = 1 THEN 1 END) AS upvotes,
-                COUNT(CASE WHEN vote_value = -1 THEN 1 END) AS downvotes
-            FROM maxhanna.top_entry_votes
-					WHERE entry_id IN ( { string.Join(",", entryIds.Select((_, i) => $"@id{ i} ")) } ) 
-					GROUP BY entry_id";
+					SELECT 
+						entry_id,
+						SUM(vote_value) AS total_votes,
+						COUNT(CASE WHEN vote_value = 1 THEN 1 END) AS upvotes,
+						COUNT(CASE WHEN vote_value = -1 THEN 1 END) AS downvotes
+					FROM maxhanna.top_entry_votes
+							WHERE entry_id IN ( { string.Join(",", entryIds.Select((_, i) => $"@id{ i} ")) } ) 
+							GROUP BY entry_id";
 					
 		using MySqlCommand cmd = new MySqlCommand(sql, conn);
 
@@ -343,7 +445,7 @@ namespace maxhanna.Server.Controllers
 			}
 			catch (Exception ex)
 			{
-				_ = _log.Db($"An error occurred while getting votes: {ex.Message}", null, "FILE", true);
+				_ = _log.Db($"An error occurred while getting votes: {ex.Message}", null, "TOP", true);
 				return StatusCode(500, "An error occurred while getting votes.");
 			}
 		}
@@ -383,9 +485,32 @@ namespace maxhanna.Server.Controllers
 			}
 			catch (Exception ex)
 			{
-				_ = _log.Db($"An error occurred while getting user votes: {ex.Message}", null, "FILE", true);
+				_ = _log.Db($"An error occurred while getting user votes: {ex.Message}", null, "TOP", true);
 				return StatusCode(500, "An error occurred while getting user votes.");
 			}
 		}
 	}
+}
+
+public class TopEntry
+{
+	public int Id { get; set; }
+	public string? Entry { get; set; }
+	public string? Category { get; set; }
+	public string? Url { get; set; }
+	public string? Text { get; set; }
+	public string? ImgUrl { get; set; }
+	public int? UserId { get; set; }
+	public DateTime CreatedAt { get; set; }
+	public int TotalVotes { get; set; }
+	public int Upvotes { get; set; }
+	public int Downvotes { get; set; }
+	public List<int> Upvoters { get; set; } = new List<int>();
+	public List<int> Downvoters { get; set; } = new List<int>();
+}
+
+public class TopCategory
+{
+	public string? CategoryName { get; set; }
+	public int EntryCount { get; set; }
 }

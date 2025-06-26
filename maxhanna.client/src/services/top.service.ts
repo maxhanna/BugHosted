@@ -66,4 +66,18 @@ export class TopService {
       return null;
     }
   }
+  async getTopCategories(limit?: number) {
+    try {
+      const response = await fetch(`/top/gettopcategories`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(limit),
+      });
+
+      return await response.json();
+    } catch (error) {
+    }
+  }
 }

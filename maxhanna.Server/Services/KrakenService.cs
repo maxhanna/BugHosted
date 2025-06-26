@@ -1281,13 +1281,13 @@ public class KrakenService
 			var count = Convert.ToInt32(await checkCmd.ExecuteScalarAsync());
 
 			bool result = count >= threshold;
-			_ = _log.Db($"[DailyTradeCheck] Today's {buyOrSell} {from}/{to} count={count}, Threshold={threshold}, Result={result}", userId, "TRADE", true);
+			_ = _log.Db($"[RepeatingTradesCheck] Today's {buyOrSell} {from}/{to} count={count}, Threshold={threshold}, Result={result}", userId, "TRADE", true);
 			return result;
 		}
 		catch (Exception ex)
 		{
-			_ = _log.Db("⚠️Error checking daily trades: " + ex.Message, userId, "TRADE", true);
-			return true; // Fail safe: prevent trade
+			_ = _log.Db("⚠️Error at [RepeatingTradesCheck]: " + ex.Message, userId, "TRADE", true);
+			return true;
 		}
 	}
 

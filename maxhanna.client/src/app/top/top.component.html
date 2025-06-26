@@ -1,9 +1,15 @@
 <div class="componentMain">
     <div style="margin-bottom:50px;">
+        <div class="menuButton" (click)="openMenuPanel();"></div> 
         <div class="closeButton" (click)="remove_me('FavouritesComponent');"></div>
         <div class="componentTitle">Top100</div>
     </div>
-    <div class="categoryTitle">Choose a category:</div>
+    <div style="width:100%; text-align: center;">
+        <div class="categoryTitle">Choose A Category</div>
+        <div class="smallFont" *ngIf="!topicComponent.attachedTopics || !topicComponent.attachedTopics.length">
+            To add a new entry, first choose a category.
+        </div>
+    </div>
     <app-topics #topicComponent [isDropdown]="true" [user]="parentRef?.user" [parent]="parentRef" (topicAdded)="onTopicAdded($event)">
     </app-topics>
 
@@ -58,15 +64,17 @@
                     <div class="entry-date" [title]="entry.createdAt">
                         <span class="thirdFontColor">Added:</span> <span class="secondaryFontColor">{{ entry.createdAt | timeSince }}</span>
                     </div>
+                    <div class="entry-date cursorPointer" title="Display who voted" (click)="openVoterPanel(entry)">
+                        <span class="thirdFontColor">Votes:</span> <span class="secondaryFontColor">{{ entry.totalVotes }}</span>
+                    </div>
                 </div>
                 <div class="entry-image">
-                    <img *ngIf="entry.imgUrl" [src]="entry.imgUrl" [attr.loading]="'lazy'" [title]="entry.imgUrl"
-                        (error)="entry.imgUrl = ''" />
+                    <img *ngIf="entry.imgUrl" [src]="entry.imgUrl" [attr.loading]="'lazy'" [title]="entry.imgUrl" (error)="entry.imgUrl = ''" />
                 </div>
             </div>
 
-            <button (click)="upvote(entry)">Upvote ({{entry.upvotes}})</button>
-            <button (click)="downvote(entry)">Downvote ({{entry.downvotes}})</button>
+            <button (click)="upvote(entry)" [class]="(parentRef?.user?.id && entry.upvoters.includes(parentRef?.user?.id)) ? 'green' : ''">Upvote ({{entry.upvotes}})</button>
+            <button (click)="downvote(entry)" [class]="(parentRef?.user?.id && entry.downvoters.includes(parentRef?.user?.id)) ? 'red' : ''">Downvote ({{entry.downvotes}})</button>
             <button (click)="edit(entry)" *ngIf="parentRef?.user?.id == entry.userId">Edit</button>
         </li>
 
@@ -96,8 +104,7 @@
     <div class="edit-popup-body">
         <div class="form-group">
             <label for="titleEditInput">Title</label>
-            <input type="text" id="titleEditInput" #titleEditInput class="form-control" [value]="editingEntry.entry"
-                placeholder="Enter title">
+            <input type="text" id="titleEditInput" #titleEditInput class="form-control" [value]="editingEntry.entry" placeholder="Enter title">
         </div>
 
         <div class="form-group">
@@ -132,4 +139,31 @@
         <button class="btn-cancel" (click)="closeEditPanel()">Cancel</button>
         <button class="btn-save" (click)="editTop()">Save Changes</button>
     </div>
+</div>
+
+
+<div class="popupPanel menuPopupPanel" *ngIf="isMenuPanelOpen" (click)="closeMenuPanel()">
+    <div class="popupPanelTitle">Top categories :</div>
+    <div class="topicsGrid">
+        <div *ngFor="let topic of topCategories" (click)="addClickedTopic(topic.categoryName)">
+            <span class="matchingTopic topicName">
+                {{topic.categoryName}}
+                <span class="topicStoryCount topicCount">({{topic.entryCount}})</span>
+            </span>
+        </div>
+    </div>
+    <button id="closeOverlay" (click)="closeMenuPanel()">Cancel</button>
+</div>
+
+<div class="popupPanel" *ngIf="isVoterPanelOpen" (click)="closeVoterPanel()">
+    <div class="popupPanelTitle">Voters :</div>
+    <div *ngIf="selectedTopEntry != undefined">
+        <div *ngFor="let voter of selectedTopEntry.downvoters" class="largeAvatar">
+            <app-user-tag [userId]="voter" [displayMiniTag]="true" [inputtedParentRef]="parentRef"></app-user-tag>
+        </div>
+        <div *ngFor="let voter of selectedTopEntry.upvoters" class="largeAvatar">
+            <app-user-tag [userId]="voter" [displayMiniTag]="true" [inputtedParentRef]="parentRef"></app-user-tag>
+        </div>
+    </div>
+    <button id="closeOverlay" (click)="closeVoterPanel()">Cancel</button>
 </div>

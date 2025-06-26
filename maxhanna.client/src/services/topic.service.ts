@@ -14,7 +14,7 @@ export class TopicService {
         headers: {
           'Content-Type': 'application/json',
         },
-          body: JSON.stringify({ UserId: user?.id, Topic: new Topic(0, topic ?? "") }),
+        body: JSON.stringify({ UserId: user?.id, Topic: new Topic(0, topic ?? "") }),
       });
 
       return await response.json();
@@ -164,5 +164,5 @@ export class TopicService {
       console.error('Error getting top file topics:', error);
       return null;
     }
-  }
+  } 
 }
