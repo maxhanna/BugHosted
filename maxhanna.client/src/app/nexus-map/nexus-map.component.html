@@ -92,7 +92,7 @@
       <div *ngIf="selectedNexusBase?.user">
         <app-user-tag [user]="selectedNexusBase.user" [inputtedParentRef]="inputtedParentRef"
           [previousComponent]="'Nexus'" (userLoaded)="userTagLoaded($event)"></app-user-tag>
-
+        <div *ngIf="protectedPlayerIds.includes(selectedNexusBase?.user?.id)" class="redText smallFont">Beginner protection enabled.</div>
       </div>
       <div>
         <button

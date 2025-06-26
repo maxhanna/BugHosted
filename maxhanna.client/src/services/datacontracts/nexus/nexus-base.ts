@@ -20,5 +20,6 @@ export interface NexusBase {
   scoutLevel: number;
   wraithLevel: number;
   battlecruiserLevel: number;
-  glitcherLevel: number; 
+  glitcherLevel: number;
+  conquered: Date;
 }

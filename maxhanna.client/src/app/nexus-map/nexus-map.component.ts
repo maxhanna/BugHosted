@@ -71,6 +71,7 @@ export class NexusMapComponent extends ChildComponent {
   @Input() mineslvl1Src: string | undefined;
   @Input() flvl1Src: string | undefined;
   @Input() playerColors?: { [key: number]: string } = [];
+  @Input() protectedPlayerIds?: number[] | undefined;
 
 
 
@@ -392,6 +393,7 @@ export class NexusMapComponent extends ChildComponent {
       wraithLevel: 0,
       battlecruiserLevel: 0,
       glitcherLevel: 0,
+      conquered: new Date(),
     };
     if (this.engageModeCheckbox && this.engageModeCheckbox.nativeElement.checked && this.nexusAttackScreenComponent) {
       this.nexusAttackScreenComponent.engageAttackAllUnits();

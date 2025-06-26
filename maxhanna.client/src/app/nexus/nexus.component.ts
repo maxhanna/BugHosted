@@ -188,7 +188,8 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
   ]);
 
   playerColor = "chartreuse";
-  playerColors: { [key: number]: string } = [];
+  playerColors: { [key: number]: string } = []; 
+  protectedPlayerIds?: number[] | undefined;
 
   @ViewChild('upgradeMineButton') upgradeMineButton!: ElementRef<HTMLButtonElement>;
   @ViewChild('upgradeFactoryButton') upgradeFactoryButton!: ElementRef<HTMLButtonElement>;
@@ -2113,6 +2114,9 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
           this.mapData = res;
           this.currentPersonalBases = this.mapData.filter(x => x.user?.id == this.parentRef?.user?.id);
           this.numberOfPersonalBases = this.currentPersonalBases.length ?? 0;
+          if (!this.protectedPlayerIds) {
+            this.protectedPlayerIds = this.getUsersWithSingleRecentBase(this.mapData);
+          }
         }
       });
     }
@@ -2168,6 +2172,37 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
       acc[epoch].push(item);
       return acc;
     }, {});
+  }
+  getUsersWithSingleRecentBase(mapData: NexusBase[]): number[] {
+    const now = new Date();
+    const threeDaysAgo = new Date(now.getTime() - (3 * 24 * 60 * 60 * 1000));
+
+    // Group bases by user ID with proper typing
+    const basesByUser: { [key: number]: NexusBase[] } = {};
+
+    mapData.forEach(base => {
+      const userId = base?.user?.id ?? 0;
+      if (!basesByUser[userId]) {
+        basesByUser[userId] = [];
+      }
+      basesByUser[userId].push(base);
+    });
+
+    // Filter users with exactly one base conquered in last 3 days
+    const qualifyingUserIds: number[] = [];
+
+    for (const userId in basesByUser) {
+      const userBases = basesByUser[userId];
+
+      if (userBases.length === 1) {
+        const conqueredDate = new Date(userBases[0].conquered);
+        if (conqueredDate > threeDaysAgo) {
+          qualifyingUserIds.push(parseInt(userId));
+        }
+      }
+    }
+
+    return qualifyingUserIds;
   }
   
   debounceLoadNexusData = this.debounce(async () => {
