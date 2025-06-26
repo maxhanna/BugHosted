@@ -608,13 +608,16 @@ export class LineGraphComponent implements OnInit, OnChanges {
   }
 
   getChartOptions(): any {
-    const fontColor = this.getCSSVariableValue("--main-font-color")
-      ?? (this.darkMode ? '#ffffff' : '#000000');
-    const backgroundColor = this.coinSwitcher?.nativeElement?.value
-      ? (this.darkMode
-        ? this.getCSSVariableValue("--secondary-font-color") ?? '#ffffff'
-        : this.getCSSVariableValue("--third-font-color") ?? '#000000')
-      : undefined;
+    const fontColor = this.getCSSVariableValue("--main-font-color") ??
+      (this.darkMode ? '#ffffff' : '#000000');
+    const backgroundColor = this.coinSwitcher?.nativeElement?.value ?
+      (this.darkMode ? this.getCSSVariableValue("--secondary-font-color") ?? '#ffffff' :
+        this.getCSSVariableValue("--third-font-color") ?? '#000000') : undefined;
+
+    // Detect if we need logarithmic scale (for very small values)
+    const needsLogScale = this.lineChartData.some(dataset =>
+      dataset.data.some((value: number) => value !== null && Math.abs(value) < 0.001)
+    );
 
     return {
       responsive: true,
@@ -632,7 +635,30 @@ export class LineGraphComponent implements OnInit, OnChanges {
           grid: { color: fontColor, borderDash: [3, 3] }
         },
         y: {
-          ticks: { color: fontColor },
+          type: needsLogScale ? 'logarithmic' : 'linear',
+          ticks: {
+            color: fontColor,
+            callback: (value: number) => {
+              // Format very small numbers properly
+              if (needsLogScale || Math.abs(value) < 0.01) {
+                if (Math.abs(value) < 0.000001) {
+                  return value.toExponential(2);
+                }
+                if (Math.abs(value) < 0.001) {
+                  return value.toFixed(8).replace(/\.?0+$/, '');
+                }
+                return value.toFixed(6).replace(/\.?0+$/, '');
+              }
+              // Format large numbers with appropriate precision
+              if (Math.abs(value) >= 1000) {
+                return value.toLocaleString(undefined, {
+                  maximumFractionDigits: 2,
+                  minimumFractionDigits: 2
+                });
+              }
+              return value.toFixed(2);
+            }
+          },
           grid: { color: fontColor, borderDash: [3, 3] }
         }
       },
@@ -648,7 +674,32 @@ export class LineGraphComponent implements OnInit, OnChanges {
           backgroundColor: this.darkMode ? '#333' : '#fff',
           titleColor: this.darkMode ? '#fff' : '#000',
           bodyColor: this.darkMode ? '#ccc' : '#000',
-          displayColors: true
+          displayColors: true,
+          callbacks: {
+            label: (context: any) => {
+              let label = context.dataset.label || '';
+              if (label) {
+                label += ': ';
+              }
+              if (context.parsed.y !== null) {
+                const value = context.parsed.y;
+                // Format tooltip values appropriately
+                if (Math.abs(value) < 0.001) {
+                  label += value.toFixed(8);
+                } else if (Math.abs(value) < 1) {
+                  label += value.toFixed(6);
+                } else if (Math.abs(value) >= 1000) {
+                  label += value.toLocaleString(undefined, {
+                    maximumFractionDigits: 2,
+                    minimumFractionDigits: 2
+                  });
+                } else {
+                  label += value.toFixed(2);
+                }
+              }
+              return label;
+            }
+          }
         }
       },
       elements: {
