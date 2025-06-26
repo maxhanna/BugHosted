@@ -9,7 +9,7 @@
 <div class="map" *ngIf="mapData isMapRendered" #mapContainer>
   <div *ngFor="let row of grid; let y = index; trackBy: trackByIndex" class="row">
     <div *ngFor="let cell of row; let x = index; trackBy: trackByIndex"
-      [class]="'cell' + (isProtected(x, y) ? ' beginnerCell' : ''"
+      [class]="'cell' + (isProtected(x, y) ? ' beginnerCell' : '')"
       [attr.x]="x"
       [attr.y]="y">
       <div class="cell-content" (click)="selectCoordinates(x, y);">
