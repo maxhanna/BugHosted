@@ -84,7 +84,7 @@ export class UserTagComponent extends ChildComponent implements OnInit, OnDestro
       const offset = 5;
       // Check if tag would go off the right edge of the window
       if (newX + tagWidth > window.innerWidth) {
-        newX = event.clientX - tagWidth - offset; // Position to the left of cursor
+        newX = event.clientX - tagWidth; // Position to the left of cursor
       }
 
       // Check if tag would go off the bottom edge of the window
