@@ -111,12 +111,8 @@ export class UserTagComponent extends ChildComponent implements OnInit, OnDestro
       // If tag is off the top edge, center it vertically
       if (newY < 0) {
         newY = (window.innerHeight - tagHeight) / 2; // Center the tag
-      }
-
-      // Ensure final position is within bounds (sanity check)
-      newX = Math.max(0, Math.min(newX, window.innerWidth - tagWidth));
-      newY = Math.max(0, Math.min(newY, window.innerHeight - tagHeight));
-
+      } 
+      
       if (btn) {
         inputX.value = newX.toString();
         inputY.value = newY.toString();
