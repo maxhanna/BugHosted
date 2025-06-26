@@ -345,6 +345,7 @@ export class AppComponent implements OnInit, AfterViewInit {
 
     this.VCR.clear();
     this.componentsReferences = [];
+    this.isShowingUserTagPopup = false;
   }
 
 
