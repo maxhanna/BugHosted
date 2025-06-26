@@ -823,7 +823,7 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
       object: object,
       endTime: endTime,
       timeout: setTimeout(async () => {
-        this.addNotification(`${upgrade}${isUnit ? ' ' : ' upgrade '}completed.`);
+        this.addNotification(`${upgrade.replace('_', ' ')}${isUnit ? ' ' : ' upgrade '}completed.`);
 
         if (isUnit) {
           if (!this.nexusUnits) {
@@ -969,7 +969,7 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
   }
 
   private startUnitResearchTimer(research: string, time: number, object: object) {
-    this.startGenericTimer(this.researchTimers, research, time, object, `${research} research completed.`, () => {
+    this.startGenericTimer(this.researchTimers, research, time, object, `${research.replace('_', ' ')} research completed.`, () => {
       const unitId = this.getUnitIdFromType(research);
       this.nexusUnitUpgrades = this.nexusUnitUpgrades?.filter(x => x.unitIdUpgraded == unitId);
       if (this.nexusBase) {
@@ -1175,7 +1175,7 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
   }
 
   private handleUpgradeResponse(res: any): void {
-    this.addNotification(res);
+    this.addNotification(res.replace("_", " "));
     if (res.toLowerCase().includes("not enough gold")) {
       this.loadNexusData();
     }
