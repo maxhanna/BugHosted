@@ -45,21 +45,21 @@
 
 
   <div class="fileListDiv">
-    <div *ngFor="let file of uploadFileList; let i = index">
+    <div *ngFor="let file of uploadFileList; let i = index" class="fileUploadItem">
       <div class="fileUploadLineDiv">
-        <span>{{file.name}}</span>
-        <span *ngIf="uploadProgress[file.name]">
-          {{ uploadProgress[file.name] === 100 ? '✅' : (uploadProgress[file.name] + '%') }}
+        <span class="fileName">{{file.name}}</span>
+        <div class="progressContainer">
+          <div class="progressBar" [style.width.%]="uploadProgress[file.name] || 0"></div>
+        </div>
+        <span class="progressText">
+          {{uploadProgress[file.name] === 100 ? '✅' : (uploadProgress[file.name] || 0) + '%'}}
         </span>
-        <span *ngIf="!uploadProgress[file.name] && totalProgress">
-          0%
-        </span> 
         <span *ngIf="(!uploadProgress[file.name] || uploadProgress[file.name] == 0)" class="removeFileButton"
-         (click)="removeFile(file)" title="Remove file"></span>
+          (click)="removeFile(file)" title="Remove file"></span>
       </div>
     </div>
   </div>
-
+  
   <div class="fileUploaderButtons">
     <button type="submit" (click)="uploadSubmitClicked()" title="Upload file(s)" style="position:relative; top: -8px;">
       {{isUploading ? (getOverallProgress() == 100 ? 'Finalizing...' : getOverallProgress() + '%') : (uploadFileList.length > 0 ? '✅Upload' : '⏫' + uploadButtonText)}}

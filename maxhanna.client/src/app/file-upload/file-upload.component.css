@@ -159,8 +159,13 @@ button:disabled {
 .popupPanel {
   padding: 0;
 }
+.fileUploadItem {
+  margin-bottom: 8px;
+}
 .fileUploadLineDiv {
+  position: relative;
   display: flex;
+  align-items: center;
   justify-content: space-between;
   background: linear-gradient(135deg, var(--component-background-color), var(--secondary-component-background-color));
   border: var(--main-border);
@@ -170,4 +175,34 @@ button:disabled {
 .fileUploadLineDiv:hover {
   transform: scale(0.98);
   transition: transform 0.2s ease-in-out;
+}
+
+.progressContainer {
+  flex-grow: 1;
+  height: 24px;
+  background: var(--component-background-color);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.progressBar {
+  height: 100%;
+  background: linear-gradient(135deg, var(--component-background-color), var(--secondary-component-background-color));
+  transition: width 0.3s ease;
+  border-radius: 12px;
+}
+.fileName {
+  min-width: 150px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.progressText {
+  min-width: 40px;
+  text-align: right;
+}
+
+.removeFileButton {
+  cursor: pointer; 
 }
