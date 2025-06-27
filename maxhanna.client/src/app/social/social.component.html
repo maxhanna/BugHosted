@@ -47,24 +47,23 @@
         </select>
       </div>
       <div class="searchSocialsPanelContentDiv">
-        <label class="showPostsFromLabel">
-          Show Posts From:
-          <div class="selector" id="postSelector">
-            <span [class]="showPostsFromFilter == 'subscribed' ? 'active' : ''" (click)="showPostsFrom('subscribed')">Subscribed</span>
-            <span [class]="showPostsFromFilter == 'local' ? 'active' : ''"  (click)="showPostsFrom('local')">Local</span>
-            <span [class]="showPostsFromFilter == 'popular' ? 'active' : ''"  (click)="showPostsFrom('popular')">Popular</span>
-            <span [class]="showPostsFromFilter == 'all' ? 'active' : ''"  (click)="showPostsFrom('all')">All</span>
-          </div>
+        <label>
+          Show Hidden Posts?:
+          <select (change)="setFilterHidden($event)">
+            <option value="yes" [selected]="filter.hidden === 'yes'">Yes</option>
+            <option value="no" [selected]="filter.hidden === 'no'">No</option>
+          </select>
         </label>
       </div>
       <div class="searchSocialsPanelContentDiv">
         <label class="showPostsFromLabel">
           Show Posts From:
-          <div>
-            <span>Subscribed</span>
-            <span>Local</span>
-            <span>Popular</span>
-            <span>All</span>
+          <div class="selector" id="postSelector">
+            <span [class]="showPostsFromFilter == 'subscribed' ? 'active' : ''"
+              (click)="showPostsFrom('subscribed')">Subscribed</span>
+            <span [class]="showPostsFromFilter == 'local' ? 'active' : ''" (click)="showPostsFrom('local')">Local</span>
+            <span [class]="showPostsFromFilter == 'popular' ? 'active' : ''" (click)="showPostsFrom('popular')">Popular</span>
+            <span [class]="showPostsFromFilter == 'all' ? 'active' : ''" (click)="showPostsFrom('all')">All</span>
           </div>
         </label>
       </div>

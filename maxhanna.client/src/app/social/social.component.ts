@@ -1213,5 +1213,6 @@ Option 4: Yellow
 
   showPostsFrom(filter: string) {
     this.showPostsFromFilter = filter;
+    this.getStories();
   }
 }
