@@ -163,6 +163,14 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
   isMarketSentimentMaximized = false; 
   readonly sentimentPageSize = this.onMobile() ? 3 : 5;
   currentSentimentPage = 1;
+  availableIndicatorPairs = [
+    { value: 'BTC/USDC', display: 'BTC/USDC', fromCoin: 'XBT', toCoin: 'USDC' },
+    { value: 'ETH/USDC', display: 'ETH/USDC', fromCoin: 'ETH', toCoin: 'USDC' },
+    { value: 'XRP/USDC', display: 'XRP/USDC', fromCoin: 'XRP', toCoin: 'USDC' },
+    { value: 'DOGE/USDC', display: 'DOGE/USDC', fromCoin: 'XDG', toCoin: 'USDC' },
+    { value: 'SOL/USDC', display: 'SOL/USDC', fromCoin: 'SOL', toCoin: 'USDC' }
+  ]; 
+  selectedIndicatorPair = 'BTC/USDC';
   
   @ViewChild('scrollContainer', { static: true }) scrollContainer!: ElementRef;
   @ViewChild(LineGraphComponent) lineGraphComponent!: LineGraphComponent;
@@ -282,11 +290,8 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
       this.globalCryptoStats = res;
     });
     this.tradeService.getTopMarketCaps().then(res => { this.topMarketCaps = res; }); 
-    this.tradeService.getTradeIndicators("BTC", "USDC").then(res => {
-      if (res) {
-        this.tradeIndicators = res; 
-      }
-    });  
+    this.loadIndicators('XBT', 'USDC');  
+
     this.aiService.getMarketSentiment().then(res => {
       if (res) { 
         this.marketSentimentData = res; 
@@ -2787,6 +2792,30 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
   goToLogPageSelected(event: Event): void {
     const page = parseInt((event?.target as HTMLSelectElement).value);
     this.goToLogPage(page);
+  }
+
+  onIndicatorPairChange() {
+    const selected = this.availableIndicatorPairs.find(p => p.value === this.selectedIndicatorPair);
+    if (selected) {
+      this.loadIndicators(selected.fromCoin, selected.toCoin);
+    }
+  }
+
+  loadIndicators(fromCoin: string, toCoin: string) {
+    this.isLoading = true;
+    this.tradeService.getTradeIndicators(fromCoin, toCoin).then(res => {
+      if (res) {
+        this.tradeIndicators = res;
+        // Replace XBT with BTC for display if needed
+        if (this.tradeIndicators?.fromCoin === 'XBT') {
+          this.tradeIndicators.fromCoin = 'BTC';
+        }
+      }
+      this.isLoading = false;
+    }).catch(err => {
+      console.error('Error loading indicators:', err);
+      this.isLoading = false;
+    });
   }
 }
 
