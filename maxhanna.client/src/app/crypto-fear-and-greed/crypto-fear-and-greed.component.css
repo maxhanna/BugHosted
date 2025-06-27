@@ -22,3 +22,10 @@ text {
     paint-order: stroke fill;
     /* Ensures outline renders behind fill */
 }
+button {
+    padding: 6px 12px;
+    border: var(--main-border);
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: 600;
+}
