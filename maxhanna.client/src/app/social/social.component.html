@@ -136,6 +136,18 @@
         </label>
       </div>
 
+      <!-- compactness selector -->
+      <div class="menuPopupSection">
+        <label class="showPostsFromLabel">
+          Compact UI:
+          <select (change)="setCompactness($event)" [value]="compactness">
+            <option value="no" [selected]="compactness == 'no'">No - See Everything</option>
+            <option value="yes" [selected]="compactness == 'yes'">Yes - Thumbnails Only</option>
+            <option value="yess" [selected]="compactness == 'yess'">Yeeeeeessss - No Images, Only Text</option>
+          </select>
+        </label>
+      </div>
+
       <!-- search input area -->
       <div class="menuPopupSection">
         <input type="text" #search placeholder="Search the socials" (input)="debouncedSearch()" *ngIf="!user"
@@ -543,13 +555,13 @@
           </div>
           <div>
             <div class="textExpanderDiv"
-              *ngIf="!isExpanded('storyTextContainer'+story.id) && hasOverflow('storyTextContainer'+story.id)"
+              *ngIf="!isExpanded('storyTextContainer'+story.id) && hasOverflow('storyTextContainer'+story.id) && compactness.includes('yes')"
               (click)="toggleCollapse('storyTextContainer'+story.id)">
               <span class="smallExpander">
                 [Expand Text]
               </span>
             </div>
-            <div *ngIf="story.storyFiles && story.storyFiles.length > 0" class="attachmentsDiv">
+            <div *ngIf="story.storyFiles && story.storyFiles.length > 0 && (!hasOverflow('storyTextContainer'+story.id) || (isExpanded('storyTextContainer'+story.id) && hasOverflow('storyTextContainer'+story.id)))" class="attachmentsDiv">
               <div *ngFor="let file of story.storyFiles"
                 [class]="'attachment ' + (story.storyFiles.length > 1 ? 'multipleAttachments' : 'singleAttachment')">
                 <app-media-viewer [user]="file.user" [inputtedParentRef]="parentRef ?? parent" [currentDirectory]="file.directory"

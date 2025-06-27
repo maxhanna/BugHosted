@@ -83,6 +83,7 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
     hidden: this.showHiddenFiles ? 'yes' : 'no',
   };
   showPostsFromFilter = "all";
+  compactness = "yes";
   private storyUpdateInterval: any;
   private overflowCache: Record<string, boolean> = {};
 
@@ -934,6 +935,16 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
     const element = document.getElementById(elementId);
     if (!element) return false;
 
+    if (this.compactness.includes("yess")) {
+      const tgtStory = this.storyResponse?.stories?.find(x => x.id == parseInt(elementId.replace("storyTextContainer", "")));
+      if (tgtStory) {
+        if (tgtStory.storyFiles && tgtStory.storyFiles.length > 0) {
+          this.overflowCache[elementId] = true;
+          return this.overflowCache[elementId];
+        }
+      }
+    }
+
     const threshold = 400;
     const buffer = 20;
     this.overflowCache[elementId] = element.scrollHeight >= (threshold + buffer);
@@ -1214,5 +1225,9 @@ Option 4: Yellow
   showPostsFrom(filter: string) {
     this.showPostsFromFilter = filter;
     this.getStories();
+  }
+  setCompactness(event: Event) {
+    this.compactness = (event.target as HTMLSelectElement).value; 
+    console.log(this.compactness);
   }
 }
