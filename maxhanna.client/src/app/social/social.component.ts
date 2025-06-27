@@ -163,7 +163,7 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
         if (res) {
           this.isDisplayingNSFW = res.nsfwEnabled ?? false;
           this.compactness = res.compactness ?? "no";
-          this.showPostsFrom = res.showPostsFrom ?? "all";
+          this.showPostsFromFilter = res.showPostsFrom ?? "all";
         }
       });
     } 
