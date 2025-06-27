@@ -129,7 +129,7 @@
     </div>
     <div *ngIf="!isTradePanelOpen && tradeIndicators && !isLoading" class="sectionContainer indicators-container">
       <div class="sectionName" style="margin-bottom: 15px;">Trade Indicators for 
-        <select [value]="selectedIndicatorPair" (change)="onIndicatorPairChange()" class="pair-selector">
+        <select #tradeIndicatorSelect (change)="onIndicatorPairChange()" class="pair-selector">
           <option *ngFor="let pair of availableIndicatorPairs" [value]="pair.value">
             {{ pair.display }}
           </option>

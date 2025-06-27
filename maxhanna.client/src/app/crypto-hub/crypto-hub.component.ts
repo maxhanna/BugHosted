@@ -184,6 +184,7 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
   @ViewChild('btcConvertFIATSelect') btcConvertFIATSelect!: ElementRef<HTMLSelectElement>;
   @ViewChild('btcConvertCoinSelect') btcConvertCoinSelect!: ElementRef<HTMLSelectElement>;
   @ViewChild('selectedCurrencyDropdown') selectedCurrencyDropdown!: ElementRef<HTMLSelectElement>;
+  @ViewChild('tradeIndicatorSelect') tradeIndicatorSelect!: ElementRef<HTMLSelectElement>;
   @ViewChild('newWalletInput') newWalletInput!: ElementRef<HTMLInputElement>;
   @ViewChild('tradeFromCoinSelect') tradeFromCoinSelect!: ElementRef<HTMLSelectElement>;
   @ViewChild('tradeStrategySelect') tradeStrategySelect!: ElementRef<HTMLSelectElement>;
@@ -2795,7 +2796,7 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
   }
 
   onIndicatorPairChange() {
-    const selected = this.availableIndicatorPairs.find(p => p.value === this.selectedIndicatorPair);
+    const selected = this.availableIndicatorPairs.find(p => p.value === this.tradeIndicatorSelect.nativeElement.value);
     if (selected) {
       this.loadIndicators(selected.fromCoin, selected.toCoin);
     }
