@@ -126,6 +126,18 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
       this.openedStoryComments.push(this.storyId);
     } 
     this.parent?.addResizeListener();
+
+    const user = this.parent?.user ?? this.parentRef?.user;
+    if (user && user.id) {
+      await this.userService.getUserSettings(user.id).then(res => {
+        if (res) {
+          this.isDisplayingNSFW = res.nsfwEnabled ?? false;
+          this.compactness = res.compactness ?? "no";
+          this.showPostsFromFilter = res.showPostsFrom ?? "all";
+        }
+      });
+    } 
+
    // console.log("Initializing social component with storyId:", this.storyId, "and user:", this.user);
     const tmpStoryId = this.storyId;
     const tmpCommentId = this.commentId;
@@ -156,17 +168,7 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
         this.city = res.city;
       }
     })
-    this.changeComponentMainHeight();
-    const user = this.parent?.user ?? this.parentRef?.user;
-    if (user && user.id) {
-      this.userService.getUserSettings(user.id).then(res => {
-        if (res) {
-          this.isDisplayingNSFW = res.nsfwEnabled ?? false;
-          this.compactness = res.compactness ?? "no";
-          this.showPostsFromFilter = res.showPostsFrom ?? "all";
-        }
-      });
-    } 
+    this.changeComponentMainHeight(); 
   }
 
   private changeComponentMainHeight() {
