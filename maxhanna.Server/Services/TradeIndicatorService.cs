@@ -23,6 +23,10 @@ namespace maxhanna.Server.Services
 			("SOLUSDC", "SOL", "USDC", "Solana")
 		};
 
+		private readonly SemaphoreSlim _updateLock = new SemaphoreSlim(1, 1);
+		private bool _isUpdating = false; 
+		public bool IsUpdating => _isUpdating;
+
 		public TradeIndicatorService(IConfiguration config, Log log)
 		{
 			_config = config;
@@ -32,8 +36,17 @@ namespace maxhanna.Server.Services
 
 		public async Task<bool> UpdateIndicators()
 		{
+			// Check if already updating
+			if (!_updateLock.Wait(0))
+			{
+				_ = _log.Db("UpdateIndicators is already running, skipping this execution",
+						   null, "TISVC", outputToConsole: true);
+				return false;
+			}
+
 			try
 			{
+				_isUpdating = true;
 				using var connection = new MySqlConnection(_connectionString);
 				await connection.OpenAsync();
 
@@ -59,7 +72,6 @@ namespace maxhanna.Server.Services
 					_ = _log.Db($"Trade indicators updated for {coin.pair}: {(success ? "success" : "failed")}",
 							   null, "TISVC", outputToConsole: true);
 
-					// Delay between coins (except after the last one)
 					if (coin != _coinPairs[^1])
 					{
 						await Task.Delay(TimeSpan.FromMinutes(InterCoinDelayMinutes));
@@ -78,7 +90,13 @@ namespace maxhanna.Server.Services
 				_ = _log.Db($"Error updating trade indicators: {ex.Message}", null, "TISVC", outputToConsole: true);
 				return false;
 			}
+			finally
+			{
+				_isUpdating = false;
+				_updateLock.Release();
+			}
 		}
+
 
 		private async Task<bool> CanUpdateIndicators(MySqlConnection connection, string fromCoin, string toCoin)
 		{

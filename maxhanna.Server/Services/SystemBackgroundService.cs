@@ -94,8 +94,15 @@ namespace maxhanna.Server.Services
 			_miningApiService.UpdateWalletInDB(_config, _log);
 			lastWasCrypto = !lastWasCrypto;
 			await _newsService.GetAndSaveTopQuarterHourlyHeadlines(!lastWasCrypto ? "Cryptocurrency" : null);
-			await _profitService.CalculateDailyProfits(); 
-			await _indicatorService.UpdateIndicators();
+			await _profitService.CalculateDailyProfits();
+			if (!_indicatorService.IsUpdating)
+			{
+				await _indicatorService.UpdateIndicators();
+			}
+			else
+			{
+				_ = _log.Db("Skipping indicator update - already in progress", null, "TISVC", outputToConsole: true);
+			}
 		}
 
 		private async Task RunSixHourTasks()
