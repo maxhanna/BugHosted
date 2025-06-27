@@ -15,9 +15,8 @@
       <input type="submit" value="💾" (click)="addSong()" />
     </div>
   </fieldset>
-
+  <span class="subtleInfoSpan" (click)="openHelpPanel()">ℹ️Info</span>
   <div id="musicPlayerDiv" [class]="smallPlayer ? 'smallSongList' : 'normalSongList'">
-    <span class="subtleInfoSpan" (click)="openHelpPanel()">ℹ️Info</span>
     <div *ngIf="songs && songs.length > 0 && isMusicPlaying" [class]="smallPlayer ? 'smallIframeDiv' : 'iframeDiv'">
       <iframe *ngIf="!fileIdPlaylist" frameborder=0 id=musicVideo #musicVideo allow="autoplay"></iframe>
       <app-media-viewer #fileMediaViewer *ngIf="fileIdPlaying && fileIdPlaying" [inputtedParentRef]="parentRef"

@@ -10,9 +10,8 @@
   margin-left: auto;
   margin-right: auto;
   position: sticky;
-  top: -25px;
-  /* Stick to the top of the parent container */
-  z-index: 10;
+  top: -25px; 
+  z-index: 2;
 }
 
 .smallIframeDiv {
@@ -95,8 +94,7 @@ iframe {
 fieldset {
   border: 1px solid #ccc;
   border-radius: 5px;
-  padding: 10px;
-  margin-bottom: 20px;
+  padding: 10px; 
 }
 
 legend {
@@ -189,8 +187,8 @@ input[type="submit"]:hover {
   width: 0px;
   height: 0px;
   position: relative;
-  top: 150px;
-  left: calc(100% - 30px);
+  left: calc(100% - 60px);
+  top: 0px;
   cursor: pointer;
 }
 
