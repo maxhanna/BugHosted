@@ -17,6 +17,7 @@
   </fieldset>
 
   <div id="musicPlayerDiv" [class]="smallPlayer ? 'smallSongList' : 'normalSongList'">
+    <span class="subtleInfoSpan" (click)="openHelpPanel()">ℹ️Info</span>
     <div *ngIf="songs && songs.length > 0 && isMusicPlaying" [class]="smallPlayer ? 'smallIframeDiv' : 'iframeDiv'">
       <iframe *ngIf="!fileIdPlaylist" frameborder=0 id=musicVideo #musicVideo allow="autoplay"></iframe>
       <app-media-viewer #fileMediaViewer *ngIf="fileIdPlaying && fileIdPlaying" [inputtedParentRef]="parentRef"
@@ -83,4 +84,70 @@
       </div>
     </div>
   </div>
+</div>
+
+
+
+<!-- Help Popup -->
+<div class="popupPanel" *ngIf="showHelpPopup">
+  <div class="popupPanelTitle" style="margin-bottom:15px;">
+    Music Player Help
+  </div>
+  <div class="helpContent">
+    <h3>🎵 Music Player Features</h3>
+
+    <h4>🔹 Adding Songs</h4>
+    <p>To add songs to your playlist:</p>
+    <ol>
+      <li>Enter the song title in format "Artist - Song Title"</li>
+      <li>Either:
+        <ul>
+          <li>Paste a YouTube URL, OR</li>
+          <li>Upload an audio file using the media selector</li>
+        </ul>
+      </li>
+      <li>Click the 💾 save button or press Enter</li>
+    </ol>
+
+    <h4>🔹 Playing Music</h4>
+    <ul>
+      <li>Click any song in the list to play it</li>
+      <li>YouTube videos will play in the embedded player</li>
+      <li>Uploaded files will play in the audio player</li>
+      <li>Click ◼ to stop playback</li>
+      <li>Click ⚡ to play a random song</li>
+      <li>Click 🕸 to open the current YouTube video in a new tab</li>
+    </ul>
+
+    <h4>🔹 Managing Your Playlist</h4>
+    <ul>
+      <li><strong>Edit:</strong> Click ✏️ to edit a song title, then 💾 to save</li>
+      <li><strong>Delete:</strong> Click ❌ to remove a song</li>
+      <li><strong>Search:</strong> Use the search box to find specific songs</li>
+      <li><strong>Sort:</strong> Change the order using the dropdown:
+        <ul>
+          <li>Newest/Oldest - by added date</li>
+          <li>Alphanumeric - A-Z or Z-A</li>
+          <li>Random - shuffle your playlist</li>
+        </ul>
+      </li>
+    </ul>
+
+    <h4>🔹 View Options</h4>
+    <ul>
+      <li>Click the header to collapse/expand the song list</li>
+      <li>Toggle between YouTube and File songs using the radio buttons</li>
+      <li>Use pagination controls when you have more than 50 songs</li>
+    </ul>
+
+    <h4>🔹 Playback Features</h4>
+    <ul>
+      <li>YouTube videos will automatically play the rest of your playlist</li>
+      <li>Uploaded files will play sequentially through your file list</li>
+      <li>The player will automatically advance to the next song</li>
+    </ul>
+
+    <p class="note">Note: You must be logged in to add or edit songs.</p>
+  </div>
+  <button id="closeOverlay" (click)="closeHelpPanel()">Close</button>
 </div>

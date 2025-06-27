@@ -166,9 +166,8 @@ input[type="submit"]:hover {
 
 .pagination-button {
   padding: 5px 10px;
-  border: 1px solid #ccc;
-  border-radius: 3px;
-  background-color: #fff;
+  border: var(--main-border);
+  border-radius: 3px; 
   cursor: pointer;
   transition: background-color 0.2s;
 }
@@ -179,11 +178,50 @@ input[type="submit"]:hover {
 }
 
 .pagination-button:hover:not(:disabled) {
-  background-color: #e0e0e0;
+  background-color: var(--main-highlight-color);
 }
 
 .pagination-info {
-  font-size: 0.9em;
-  color: #333;
+  font-size: 0.9em; 
 }
- 
+
+.subtleInfoSpan {
+  width: 0px;
+  height: 0px;
+  position: relative;
+  top: 150px;
+  left: calc(100% - 30px);
+  cursor: pointer;
+}
+
+.helpContent {
+  max-height: 70vh;
+  overflow-y: auto;
+  padding: 0 15px;
+}
+
+.helpContent h3 {
+  margin-top: 0;
+  color: var(--third-font-color);
+}
+
+.helpContent h4 {
+  margin-bottom: 5px;
+  color: var(--secondary-font-color);
+}
+
+.helpContent ul,
+.helpContent ol {
+  margin-top: 5px;
+  padding-left: 20px;
+}
+
+.helpContent li {
+  margin-bottom: 5px;
+}
+
+.note {
+  font-style: italic;
+  color: var(--third-font-color);
+  margin-top: 15px;
+}

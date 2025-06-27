@@ -38,6 +38,7 @@ export class MusicComponent extends ChildComponent implements OnInit, AfterViewI
   isSongListCollapsed = false;
   selectedType: 'youtube' | 'file' = 'youtube';
   isEditing: number[] = [];
+  showHelpPopup = false;
 
   @Input() user?: User;
   @Input() songPlaylist?: Todo[];
@@ -366,5 +367,14 @@ export class MusicComponent extends ChildComponent implements OnInit, AfterViewI
         this.parentRef?.showNotification("Failed to update todo");
       }
     }
+  }
+
+  closeHelpPanel() {
+    this.showHelpPopup = false;
+    this.parentRef?.closeOverlay();
+  }
+  openHelpPanel() {
+    this.showHelpPopup = true;
+    this.parentRef?.showOverlay();
   }
 }
