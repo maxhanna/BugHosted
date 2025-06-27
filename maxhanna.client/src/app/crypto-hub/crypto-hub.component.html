@@ -127,7 +127,7 @@
         #currencyExchangeLineGraph (changeTimePeriodEvent)="changeTimePeriodEventOnCurrencyExchangeGraph($event)">
       </app-line-graph>
     </div>
-    <div *ngIf="!isTradePanelOpen && tradeIndicators && !isLoading" class="sectionContainer indicators-container">
+    <div *ngIf="!isTradePanelOpen && tradeIndicators" class="sectionContainer indicators-container">
       <div class="sectionName" style="margin-bottom: 15px;">Trade Indicators for 
         <select #tradeIndicatorSelect (change)="onIndicatorPairChange()" class="pair-selector">
           <option *ngFor="let pair of availableIndicatorPairs" [value]="pair.value" [selected]="pair.value === selectedIndicatorPair">
