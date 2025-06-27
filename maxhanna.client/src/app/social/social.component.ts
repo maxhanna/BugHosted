@@ -946,6 +946,16 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
       }
     }
 
+    if (this.compactness == "yes") {
+      const tgtStory = this.storyResponse?.stories?.find(x => x.id == parseInt(elementId.replace("storyTextContainer", "")));
+      if (tgtStory) {
+        if (tgtStory.metadata && tgtStory.metadata.length > 0) {
+          this.overflowCache[elementId] = true;
+          return this.overflowCache[elementId];
+        }
+      }
+    }
+
     const threshold = 400;
     const buffer = 20;
     this.overflowCache[elementId] = element.scrollHeight >= (threshold + buffer);
