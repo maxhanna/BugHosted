@@ -1050,12 +1050,49 @@ namespace maxhanna.Server.Controllers
 
 					await updateCmd.ExecuteNonQueryAsync();
 
-					return Ok(new { message = "Successfully updated Compactness setting."});
+					return Ok(new { message = "Successfully updated Compactness setting." });
 				}
 				catch (Exception ex)
 				{
 					_ = _log.Db("An error occurred while processing the update Compactness request. " + ex.Message, request.UserId, "USER", true);
 					return StatusCode(500, "An error occurred while processing the update compactness request.");
+				}
+				finally
+				{
+					conn.Close();
+				}
+			}
+		}
+
+
+
+		[HttpPost("/User/UpdateShowPostsFrom", Name = "UpdateShowPostsFrom")]
+		public async Task<IActionResult> UpdateShowPostsFrom([FromBody] UpdateCompactnessRequest request)
+		{
+			using (MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+			{
+				try
+				{
+					await conn.OpenAsync();
+
+					string updateSql = @"
+						INSERT INTO maxhanna.user_settings (user_id, show_posts_from)
+						VALUES (@userId, @showPostsFrom)
+						ON DUPLICATE KEY UPDATE 
+							show_posts_from = VALUES(show_posts_from);";
+
+					MySqlCommand updateCmd = new MySqlCommand(updateSql, conn);
+					updateCmd.Parameters.AddWithValue("@userId", request.UserId);
+					updateCmd.Parameters.AddWithValue("@showPostsFrom", request.Compactness);
+
+					await updateCmd.ExecuteNonQueryAsync();
+
+					return Ok(new { message = "Successfully updated ShowPostsFrom setting." });
+				}
+				catch (Exception ex)
+				{
+					_ = _log.Db("An error occurred while processing the update ShowPostsFrom request. " + ex.Message, request.UserId, "USER", true);
+					return StatusCode(500, "An error occurred while processing the update ShowPostsFrom request.");
 				}
 				finally
 				{
@@ -1144,7 +1181,7 @@ namespace maxhanna.Server.Controllers
 					await conn.OpenAsync();
 
 					string selectSql = @"
-						SELECT nsfw_enabled, ghost_read, compactness, notifications_enabled 
+						SELECT nsfw_enabled, ghost_read, compactness, show_posts_from, notifications_enabled 
 						FROM maxhanna.user_settings 
 						WHERE user_id = @userId;";
 
@@ -1163,14 +1200,16 @@ namespace maxhanna.Server.Controllers
 							userSettings.NsfwEnabled = reader.GetInt32("nsfw_enabled") == 1;
 							userSettings.GhostReadEnabled = reader.GetInt32("ghost_read") == 1;
 							userSettings.Compactness = reader.GetString("compactness") ?? "no";
+							userSettings.ShowPostsFrom = reader.GetString("show_posts_from") ?? "all";
 							userSettings.NotificationsEnabled = reader.IsDBNull("notifications_enabled") ? null : reader.GetInt32("notifications_enabled") == 1;
 						}
 						else
 						{
 							// If user settings are not found, return a default value (NSFW disabled)
 							userSettings.NsfwEnabled = false;
-							userSettings.GhostReadEnabled = false; 
-							userSettings.Compactness = "no";
+							userSettings.GhostReadEnabled = false;
+							userSettings.Compactness = "no"; 
+							userSettings.ShowPostsFrom = "all";
 						}
 					}
 

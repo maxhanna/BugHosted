@@ -163,6 +163,7 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
         if (res) {
           this.isDisplayingNSFW = res.nsfwEnabled ?? false;
           this.compactness = res.compactness ?? "no";
+          this.showPostsFrom = res.showPostsFrom ?? "all";
         }
       });
     } 
@@ -1235,6 +1236,11 @@ Option 4: Yellow
 
   showPostsFrom(filter: string) {
     this.showPostsFromFilter = filter;
+    this.userService.updateShowPostsFrom(this.parentRef?.user?.id ?? 0, this.showPostsFromFilter).then(res => {
+      if (res) {
+        this.parentRef?.showNotification(res.message);
+      }
+    }); 
     this.getStories();
   }
   setCompactness(event: Event) {
