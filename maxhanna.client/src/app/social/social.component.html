@@ -122,7 +122,20 @@
         </div>
 
       </div>
- 
+
+      <!-- local/popular/subscribed/all selector -->
+      <div class="menuPopupSection">
+        <label class="showPostsFromLabel">
+          Show Posts From:
+          <div class="selector" id="postSelector">
+            <span [class]="showPostsFromFilter == 'subscribed' ? 'active' : ''" (click)="showPostsFrom('subscribed')">Subscribed</span>
+            <span [class]="showPostsFromFilter == 'local' ? 'active' : ''" (click)="showPostsFrom('local')">Local</span>
+            <span [class]="showPostsFromFilter == 'popular' ? 'active' : ''" (click)="showPostsFrom('popular')">Popular</span>
+            <span [class]="showPostsFromFilter == 'all' ? 'active' : ''" (click)="showPostsFrom('all')">All</span>
+          </div>
+        </label>
+      </div>
+
       <!-- search input area -->
       <div class="menuPopupSection">
         <input type="text" #search placeholder="Search the socials" (input)="debouncedSearch()" *ngIf="!user"
