@@ -309,6 +309,23 @@ export class UserService {
       return null;
     }
   }
+
+  async updateCompactness(userId: number, compactness: string) {
+    try {
+      const response = await fetch('/user/updatecompactness', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ UserId: userId, Compactness: compactness }),
+      });
+
+      return await response.json();
+    } catch (error) {
+      return null;
+    }
+  }
+  
   async updateNSFW(userId: number, isAllowed: boolean) {
     try {
       const response = await fetch('/user/updatensfw', {

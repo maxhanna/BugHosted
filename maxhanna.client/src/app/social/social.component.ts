@@ -162,6 +162,7 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
       this.userService.getUserSettings(user.id).then(res => {
         if (res) {
           this.isDisplayingNSFW = res.nsfwEnabled ?? false;
+          this.compactness = res.compactness ?? "no";
         }
       });
     } 
@@ -1228,6 +1229,10 @@ Option 4: Yellow
   }
   setCompactness(event: Event) {
     this.compactness = (event.target as HTMLSelectElement).value; 
-    console.log(this.compactness);
+    this.userService.updateCompactness(this.parentRef?.user?.id ?? 0, this.compactness).then(res => { 
+      if (res) {
+        this.parentRef?.showNotification(res.message);
+      }
+    }); 
   }
 }
