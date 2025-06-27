@@ -17,7 +17,7 @@ namespace maxhanna.Server.Services
 		private readonly List<(string pair, string fromCoin, string toCoin, string coinName)> _coinPairs = new()
 		{
 			("XBTUSDC", "XBT", "USDC", "Bitcoin"),
-			("XRPUSDC", "XRP", "USDC", "Ripple"),
+			("XRPUSDC", "XRP", "USDC", "XRP"),
 			("XDGUSDC", "XDG", "USDC", "Dogecoin"),
 			("ETHUSDC", "ETH", "USDC", "Ethereum"),
 			("SOLUSDC", "SOL", "USDC", "Solana")
