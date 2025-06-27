@@ -2797,6 +2797,7 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
 
   onIndicatorPairChange() {
     const selected = this.availableIndicatorPairs.find(p => p.value === this.tradeIndicatorSelect.nativeElement.value);
+    this.selectedIndicatorPair = this.tradeIndicatorSelect.nativeElement.value;
     if (selected) {
       this.loadIndicators(selected.fromCoin, selected.toCoin);
     }
