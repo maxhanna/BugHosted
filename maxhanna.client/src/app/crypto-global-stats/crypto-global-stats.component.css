@@ -88,7 +88,7 @@
     margin: 10px 0;
 }
 
-.toggle-dominance-chart button {
+button {
     padding: 6px 12px;
     border: var(--main-border);
     border-radius: 4px;

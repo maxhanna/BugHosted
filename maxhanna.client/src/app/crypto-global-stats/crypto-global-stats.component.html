@@ -26,7 +26,7 @@
 
     <!-- === Dominance toggle & chart === -->
     <div class="toggle-dominance-chart">
-        <button (click)="showDominanceChart = !showDominanceChart" [ngClass]="{ alert: dominanceTrendBroken }">
+        <button (click)="showDominanceChart = !showDominanceChart" [class]="dominanceTrendBroken ? 'alert' : ''">
             {{ showDominanceChart ? 'Hide' : 'Show' }} 30-Day Dominance Trend
         </button>
     </div>

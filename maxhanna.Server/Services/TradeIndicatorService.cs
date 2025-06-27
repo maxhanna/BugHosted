@@ -39,8 +39,7 @@ namespace maxhanna.Server.Services
 			// Check if already updating
 			if (!_updateLock.Wait(0))
 			{
-				_ = _log.Db("UpdateIndicators is already running, skipping this execution",
-						   null, "TISVC", outputToConsole: true);
+				_ = _log.Db("UpdateIndicators is already running, skipping this execution", null, "TISVC", outputToConsole: true);
 				return false;
 			}
 
