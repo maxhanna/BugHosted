@@ -8,7 +8,7 @@ import { Topic } from './datacontracts/topics/topic';
   providedIn: 'root'
 })
 export class SocialService {
-  async getStories(userId?: number, search?: string, topics?: string, profileUserId?: number, storyId?: number, page: number = 1, pageSize: number = 10, showHiddenStories = false) {
+  async getStories(userId?: number, search?: string, topics?: string, profileUserId?: number, storyId?: number, page: number = 1, pageSize: number = 10, showHiddenStories = false, showPostsFromFilter: string = 'all') {
     let params = new URLSearchParams();
     if (search)
       params.append("search", search);
@@ -20,6 +20,9 @@ export class SocialService {
       params.append("pageSize", pageSize + '');
     if (showHiddenStories)
       params.append("showHiddenStories", showHiddenStories + '');
+    if (showPostsFromFilter && showPostsFromFilter !== 'all')
+      params.append("showPostsFromFilter", showPostsFromFilter);
+    
 
     try {
       const res = await fetch('/social' + (params.size > 0 ? ('?' + params) : ''), {

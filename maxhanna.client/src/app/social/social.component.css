@@ -962,3 +962,28 @@ singleAttachment {
   justify-content: space-between;
   width: 100%;
 }
+
+.showPostsFromLabel .selector {
+  display: flex;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  overflow: hidden;
+  width: fit-content;
+}
+
+.showPostsFromLabel .selector span {
+  padding: 8px 16px;
+  cursor: pointer;
+  background-color: #f0f0f0;
+  transition: background-color 0.2s, color 0.2s;
+  white-space: nowrap;
+}
+
+.showPostsFromLabel .selector span:not(:last-child) {
+  border-right: 1px solid #ccc;
+}
+
+.showPostsFromLabel .selector span.active {
+  background-color: #007bff;
+  color: white;
+}

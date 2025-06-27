@@ -42,11 +42,12 @@ namespace maxhanna.Server.Controllers
 			[FromQuery] string? topics,
 			[FromQuery] int page = 1,
 			[FromQuery] int pageSize = 10,
-			[FromQuery] bool showHiddenStories = false)
+			[FromQuery] bool showHiddenStories = false,
+			[FromQuery] string? showPostsFromFilter = "all")
 		{ 
 			try
 			{
-				var stories = await GetStoriesAsync(request, search, topics, page, pageSize, showHiddenStories);
+				var stories = await GetStoriesAsync(request, search, topics, page, pageSize, showHiddenStories, showPostsFromFilter);
 				return Ok(stories);
 			}
 			catch (Exception ex)
@@ -56,9 +57,10 @@ namespace maxhanna.Server.Controllers
 			}
 		}
 
-		private async Task<StoryResponse> GetStoriesAsync(GetStoryRequest request, string? search, string? topics, int page = 1, int pageSize = 10, bool showHiddenStories = false)
+		private async Task<StoryResponse> GetStoriesAsync(GetStoryRequest request, string? search, string? topics, int page = 1, int pageSize = 10, bool showHiddenStories = false, string? showPostsFromFilter = "all")
 		{
 			var whereClause = new StringBuilder(@" WHERE 1=1 ");
+			var orderByClause = " ORDER BY s.id DESC ";
 			var parameters = new Dictionary<string, object>();
 			if (request.UserId != 0)
 			{
@@ -147,6 +149,42 @@ namespace maxhanna.Server.Controllers
 			{
 				whereClause.Append(@" AND hs.story_id IS NULL ");
 			}
+			if (!string.IsNullOrEmpty(showPostsFromFilter) && showPostsFromFilter != "all")
+			{
+				if (showPostsFromFilter == "subscribed")
+				{
+					whereClause.Append(@" AND s.user_id IN (
+            SELECT receiver_id FROM friend_requests 
+            WHERE sender_id = @userId AND status = 'accepted'
+            UNION
+            SELECT sender_id FROM friend_requests 
+            WHERE receiver_id = @userId AND status = 'accepted'
+        ) ");
+				}
+				else if (showPostsFromFilter == "local")
+				{
+					whereClause.Append(@" AND (
+            s.country = (SELECT country FROM users WHERE id = @userId)
+            OR s.city = (SELECT city FROM users WHERE id = @userId)
+            OR ( -- Within 50km radius if you have coordinates
+                SELECT ST_Distance_Sphere(
+                    POINT(s.longitude, s.latitude),
+                    POINT(u.longitude, u.latitude)
+                ) 
+                FROM users u WHERE u.id = @userId
+            ) <= 50000
+        ) ");
+				}
+				else if (showPostsFromFilter == "popular")
+				{
+					// Order by popularity instead of filtering
+					// Remove the existing ORDER BY s.id DESC from your main query
+					orderByClause = @" ORDER BY 
+            (SELECT COUNT(*) FROM reactions WHERE story_id = s.id) DESC,
+            (SELECT COUNT(*) FROM comments WHERE story_id = s.id) DESC,
+            s.date DESC";
+				}
+			}
 			parameters.Add("@userId", request.UserId);
 
 
@@ -180,7 +218,7 @@ namespace maxhanna.Server.Controllers
 				LEFT JOIN story_metadata AS sm ON s.id = sm.story_id  
 					LEFT JOIN hidden_stories hs ON hs.story_id = s.id AND hs.user_id = @userId  
 				{whereClause}  
-				ORDER BY s.id DESC 
+    			{orderByClause} 
 				LIMIT @pageSize OFFSET @offset;";
 			//Console.WriteLine("sql: " + sql);
 			var storyResponse = new StoryResponse();

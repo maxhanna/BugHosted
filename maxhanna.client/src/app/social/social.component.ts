@@ -82,6 +82,7 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
   filter = {
     hidden: this.showHiddenFiles ? 'yes' : 'no',
   };
+  showPostsFromFilter = "all";
   private storyUpdateInterval: any;
   private overflowCache: Record<string, boolean> = {};
 
@@ -303,7 +304,8 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
       storyId,
       page,
       pageSize,
-      showHiddenStories
+      showHiddenStories,
+      this.showPostsFromFilter
     );
 
     if (res) {
@@ -1207,5 +1209,9 @@ Option 4: Yellow
         }
       });
     }
+  }
+
+  showPostsFrom(filter: string) {
+    this.showPostsFromFilter = filter;
   }
 }
