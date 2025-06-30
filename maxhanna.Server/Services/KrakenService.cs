@@ -668,7 +668,7 @@ public class KrakenService
 				_ = _log.Db("⚠️Failed to convert balance response to dictionary.", userId, "TRADE", true);
 				return null;
 			}
-			_ = _log.Db(string.Join(Environment.NewLine, balanceDictionary.Select(x => $"{x.Key}: {x.Value}")), userId, "TRADE", true);
+			//_ = _log.Db(string.Join(Environment.NewLine, balanceDictionary.Select(x => $"{x.Key}: {x.Value}")), userId, "TRADE", true);
 			_ = CreateWalletEntriesFromFetchedDictionary(balanceDictionary, userId);
 
 			return balanceDictionary;
@@ -1427,7 +1427,45 @@ public class KrakenService
 			{"ETH.F", "eth"},
 			{"SOL.F", "sol"},
 			{"SOL", "sol"},
-			// Add more mappings as needed
+			{"SUI", "sui"},
+			{"WIF", "wif"},
+			{"WIF.F", "wif"},
+			{"PENGU", "pengu"},
+			{"PEPE", "pepe"},
+			{"DOT", "dot"},
+			{"DOT.F", "dot"},
+			{"ADA", "ada"},
+			{"ADA.F", "ada"},
+			{"LTC", "ltc"},
+			{"LTC.F", "ltc"},
+			{"LINK", "link"},
+			{"LINK.F", "link"},
+			{"MATIC", "matic"},
+			{"MATIC.F", "matic"},
+			{"XLM", "xlm"},
+			{"XLM.F", "xlm"},
+			{"TRX", "trx"},
+			{"TRX.F", "trx"},
+			{"AVAX", "avax"},
+			{"AVAX.F", "avax"},
+			{"ATOM", "atom"},
+			{"ATOM.F", "atom"}, 
+			{"ALGO", "algo"},
+			{"ALGO.F", "algo"},
+			{"NEAR", "near"},
+			{"NEAR.F", "near"},
+			{"XMR", "xmr"},
+			{"XMR.F", "xmr"},
+			{"BCH", "bch"},
+			{"BCH.F", "bch"},
+			{"ZEC", "zec"},
+			{"ZEC.F", "zec"}, 
+			{"SHIB", "shib"},
+			{"SHIB.F", "shib"},
+			{"UNI", "uni"},
+			{"UNI.F", "uni"},
+			{"AAVE", "aave"},
+			{"AAVE.F", "aave"}, 
 		};
 
 		const string ensureWalletSqlTemplate = @"
@@ -3258,7 +3296,7 @@ public class KrakenService
 				} 
 			}  
 
-			_ = _log.Db($"Trade history for {tmpCoin}: {oppositeCount} {buyOrSell}s, prior {(buyOrSell == "buy" ? "sells" : "buys")}", userId, "TRADE", true);
+			//_ = _log.Db($"Trade history for {tmpCoin}: {oppositeCount} {buyOrSell}s, prior {(buyOrSell == "buy" ? "sells" : "buys")}", userId, "TRADE", true);
 			return  oppositeCount; // Return prior buys for sell, or consecutive buys for buy
 		}
 		catch (Exception ex)

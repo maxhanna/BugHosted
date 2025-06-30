@@ -17,7 +17,7 @@
         <input type="text" #titleInput placeholder="Title" class="form-input" />
         <div class="url-input-container">
             <input type="text" #urlInput placeholder="URL (optional)" class="form-input url-input" />
-            <button (click)="searchUrl()" class="url-search-button">
+            <button (click)="searchUrl()" class="url-search-button" *ngIf="urlInput.nativeElement.value && urlInput.nativeElement.value.trim() != '' && !isSearchingUrl">
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
                     stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <circle cx="11" cy="11" r="8"></circle>
@@ -111,7 +111,7 @@
             <div class="url-input-container">
                 <input type="text" id="urlEditInput" #urlEditInput class="form-control" [value]="editingEntry.url"
                     placeholder="https://example.com">
-                <button (click)="searchUrlForEdit()" class="url-search-button">
+                <button (click)="searchUrlForEdit()" class="url-search-button" *ngIf="urlEditInput.nativeElement.value && !isSearchingUrl">
                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
                         stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <circle cx="11" cy="11" r="8"></circle>
