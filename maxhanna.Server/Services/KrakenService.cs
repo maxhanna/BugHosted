@@ -2,8 +2,7 @@
 using MySqlConnector;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
-using System.Globalization;
-using System.Net;
+using System.Globalization; 
 using System.Security.Cryptography;
 using System.Text;
 
@@ -29,7 +28,7 @@ public class KrakenService
 	private static IConfiguration? _config;
 	private readonly string _baseAddr = "https://api.kraken.com/";
 	private long _lastNonce;
-	private readonly Log _log;
+	private readonly Log _log;  
 
 	public KrakenService(IConfiguration config, Log log)
 	{
@@ -443,9 +442,9 @@ public class KrakenService
 			}
 			else if (buyOrSell.ToLower() == "sell")
 			{
-				decimal adjustmentPerTrade = 0.15m;  // Reduce sell amount by 15% per prior buy
+				decimal adjustmentPerTrade = 0.05m;  // Reduce sell amount by 5% per prior buy
 				adjustmentFactor = 1m - (priorTradeCount * adjustmentPerTrade);
-				adjustmentFactor = Math.Max(0.7m, adjustmentFactor); // Cap reduction at 70% 
+				adjustmentFactor = Math.Max(0.2m, adjustmentFactor); // Cap reduction at 20% 
 				valueToTrade = valueToTrade * adjustmentFactor;
 				_ = _log.Db($"Reduced sell amount by {adjustmentFactor:P} due to {priorTradeCount} prior buys. New amount: {valueToTrade}", userId, "TRADE", true);
 			}
@@ -1742,6 +1741,7 @@ public class KrakenService
 					trade_value_cad = reader.GetFloat(reader.GetOrdinal("trade_value_cad")),
 					trade_value_usdc = reader.GetFloat(reader.GetOrdinal("trade_value_usdc")),
 					fees = reader.GetFloat(reader.GetOrdinal("fees")),
+					matching_trade_id = reader.IsDBNull(reader.GetOrdinal("matching_trade_id")) ? null : reader.GetInt32(reader.GetOrdinal("matching_trade_id")),
 				};
 
 				tradeRecords.Add(tradeRecord);
@@ -2488,9 +2488,9 @@ public class KrakenService
 
 		return false;
 	}
-	private List<PricePeak> FindPeaks(List<PriceData> prices)
+	private List<PriceData> FindPeaks(List<PriceData> prices)
 	{
-		var peaks = new List<PricePeak>();
+		var peaks = new List<PriceData>();
 
 		// Need at least 3 points to identify a peak
 		if (prices.Count < 3) return peaks;
@@ -2500,7 +2500,7 @@ public class KrakenService
 			// A peak is when the current price is higher than both neighbors
 			if (prices[i].Price > prices[i - 1].Price && prices[i].Price > prices[i + 1].Price)
 			{
-				peaks.Add(new PricePeak
+				peaks.Add(new PriceData
 				{
 					Price = prices[i].Price,
 					Timestamp = prices[i].Timestamp
@@ -3416,7 +3416,7 @@ public class KrakenService
 
 		return profitData;
 	}
-	
+
 	public async Task<IndicatorData?> GetIndicatorData(string fromCoin, string toCoin)
 	{
 		string tmpCoin = fromCoin.ToUpper();
@@ -3426,23 +3426,26 @@ public class KrakenService
 		try
 		{
 			var indicatorQuery = @"
-			SELECT 
-				200_day_moving_average,
-				200_day_moving_average_value,
-				14_day_moving_average,
-				14_day_moving_average_value,
-				21_day_moving_average,
-				21_day_moving_average_value,
-				rsi_14_day,
-				vwap_24_hour,
-				vwap_24_hour_value,
-				retracement_from_high,
-				retracement_from_high_value
-			FROM trade_indicators
-			WHERE from_coin = @FromCoin AND to_coin = @ToCoin LIMIT 1;";
+        SELECT 
+            200_day_moving_average,
+            200_day_moving_average_value,
+            14_day_moving_average,
+            14_day_moving_average_value,
+            21_day_moving_average,
+            21_day_moving_average_value,
+            rsi_14_day,
+            vwap_24_hour,
+            vwap_24_hour_value,
+            retracement_from_high,
+            retracement_from_high_value,
+            macd_histogram,
+            macd_line_value,
+            macd_signal_value
+        FROM trade_indicators
+        WHERE from_coin = @FromCoin AND to_coin = @ToCoin LIMIT 1;";
+
 			using var connection = new MySqlConnection(_config?.GetValue<string>("ConnectionStrings:maxhanna"));
 			await connection.OpenAsync();
-
 
 			using var command = new MySqlCommand(indicatorQuery, connection);
 			command.Parameters.AddWithValue("@FromCoin", tmpCoin);
@@ -3467,6 +3470,9 @@ public class KrakenService
 					VWAP24HourValue = reader.IsDBNull(reader.GetOrdinal("vwap_24_hour_value")) ? 0 : reader.GetDecimal("vwap_24_hour_value"),
 					RetracementFromHigh = reader.IsDBNull(reader.GetOrdinal("retracement_from_high")) ? false : reader.GetBoolean("retracement_from_high"),
 					RetracementFromHighValue = reader.IsDBNull(reader.GetOrdinal("retracement_from_high_value")) ? 0 : reader.GetDecimal("retracement_from_high_value"),
+					MACDHistogram = reader.IsDBNull(reader.GetOrdinal("macd_histogram")) ? false : reader.GetBoolean("macd_histogram"),
+					MACDLineValue = reader.IsDBNull(reader.GetOrdinal("macd_line_value")) ? 0 : reader.GetDecimal("macd_line_value"),
+					MACDSignalValue = reader.IsDBNull(reader.GetOrdinal("macd_signal_value")) ? 0 : reader.GetDecimal("macd_signal_value")
 				};
 			}
 
@@ -3479,6 +3485,190 @@ public class KrakenService
 		}
 	}
 
+	public async Task<List<MacdDataPoint>> GetMacdData(
+		string fromCoin,
+		string toCoin,
+		int days = 30,
+		int fastPeriod = 12,
+		int slowPeriod = 26,
+		int signalPeriod = 9)
+	{ 
+		string pair = NormalizeCoinPair(fromCoin, toCoin);
+		await _log.Db($"Fetching MACD data for pair: {pair}, Days: {days}, Fast: {fastPeriod}, Slow: {slowPeriod}, Signal: {signalPeriod}",
+			null, "TRADE", true);
+
+		// Fetch price history from Kraken API
+		var prices = await GetPriceHistoryForMACD(fromCoin, days);
+		if (prices == null || prices.Count == 0)
+		{
+			await _log.Db($"No price data returned for pair: {pair}, Days: {days}", null, "TRADE", true);
+			return new List<MacdDataPoint>();
+		}
+
+		// Calculate MACD components
+		List<double?>? closes = prices.Select(p => (double?)p.ValueUSD).ToList();
+		var timestamps = prices.Select(p => p.Timestamp).ToList();
+
+		var emaFast = CalculateEMA(closes, fastPeriod);
+		var emaSlow = CalculateEMA(closes, slowPeriod);
+
+		// Explicitly specify type arguments for Select to fix CS0411
+		var macdLine = emaFast.Select<double?, double?>((val, i) =>
+			val.HasValue && emaSlow[i].HasValue ? val.Value - emaSlow[i].GetValueOrDefault() : null).ToList();
+
+		var signalLine = CalculateEMA(macdLine, signalPeriod);
+
+		// Explicitly specify type arguments for Select to fix CS0411
+		var histogram = macdLine.Select<double?, double?>((val, i) =>
+			val.HasValue && signalLine[i].HasValue ? val.Value - signalLine[i].GetValueOrDefault() : null).ToList();
+
+		// Prepare response
+		var result = new List<MacdDataPoint>();
+		for (int i = 0; i < timestamps.Count; i++)
+		{
+			result.Add(new MacdDataPoint
+			{
+				Timestamp = timestamps[i], // ISO 8601 format
+				MacdLine = macdLine[i],
+				SignalLine = signalLine[i],
+				Histogram = histogram[i],
+				Price = closes[i]
+			});
+		}
+
+		await _log.Db($"Returning {result.Count} MACD data points for pair: {pair}", null, "TRADE", true);
+		return result;
+	}
+
+	private string NormalizeCoinPair(string fromCoin, string toCoin)
+	{
+		string normalizedFromCoin = fromCoin.ToUpper() switch
+		{
+			"BTC" => "XBT",
+			"BCH" => "XBC",
+			_ => fromCoin.ToUpper()
+		};
+		return $"{normalizedFromCoin}{toCoin.ToUpper()}"; // e.g., "XBTUSD"
+	}
+
+
+	private async Task<List<PricePoint>> GetPriceHistoryForMACD(string pair, int days)
+	{
+		try
+		{
+			// Map pair to coin name (e.g., XBT -> Bitcoin, ETH -> Ethereum)
+			var coinName = pair.ToUpper() switch
+			{
+				"XBT" => "Bitcoin",
+				"BTC" => "Bitcoin",
+				"ETH" => "Ethereum",
+				"DOGE" => "Dogecoin",
+				"SOL" => "Solana",
+				_ => pair // Default to pair if no mapping exists
+			};
+
+			// Calculate the start date for the query
+			var startDate = DateTime.UtcNow.AddDays(-days);
+
+			// SQL query to fetch price history
+			var priceQuery = @"
+				SELECT timestamp, value_usd
+				FROM (
+					SELECT timestamp, value_usd,
+						ROW_NUMBER() OVER (ORDER BY timestamp) as row_num
+					FROM coin_value
+					WHERE name = @CoinName AND timestamp >= @StartDate
+				) as numbered
+				WHERE row_num % 60 = 0  -- Take every 60th row (10min intervals)
+				ORDER BY timestamp
+				LIMIT 5000";
+
+			var prices = new List<PricePoint>();
+
+			using var connection = new MySqlConnection(_config?.GetValue<string>("ConnectionStrings:maxhanna"));
+			await connection.OpenAsync();
+
+			using var command = new MySqlCommand(priceQuery, connection);
+			command.Parameters.AddWithValue("@CoinName", coinName);
+			command.Parameters.AddWithValue("@StartDate", startDate);
+
+			using var reader = await command.ExecuteReaderAsync();
+
+			while (await reader.ReadAsync())
+			{
+				prices.Add(new PricePoint
+				{
+					Timestamp = reader.IsDBNull(reader.GetOrdinal("timestamp")) ? DateTime.UtcNow : reader.GetDateTime("timestamp"),
+					ValueUSD = reader.IsDBNull(reader.GetOrdinal("value_usd")) ? 0 : reader.GetDouble("value_usd")
+				});
+			}
+
+			if (!prices.Any())
+			{
+				await _log.Db($"No price data found for coin: {coinName}, Days: {days}", null, "TRADE", true);
+			}
+
+			return prices;
+		}
+		catch (Exception ex)
+		{
+			await _log.Db($"Error fetching price history for pair: {pair}, Days: {days}, {ex.Message}", null, "TRADE", true);
+			return new List<PricePoint>();
+		}
+	}
+
+	private List<double?> CalculateEMA(List<double?> prices, int period)
+	{
+		if (prices == null || prices.Count == 0 || period <= 0)
+		{
+			return new List<double?>(new double?[prices?.Count ?? 0]);
+		}
+
+		var ema = new List<double?>(new double?[prices.Count]);
+		double multiplier = 2.0 / (period + 1);
+		double? previousEma = null;
+
+		for (int i = 0; i < prices.Count; i++)
+		{
+			if (double.IsNaN(prices[i].GetValueOrDefault()) || double.IsInfinity(prices[i].GetValueOrDefault()))
+			{
+				ema[i] = null;
+				continue;
+			}
+
+			if (i < period - 1)
+			{
+				ema[i] = null; // Not enough data for EMA
+				continue;
+			}
+
+			if (i == period - 1)
+			{
+				// Use simple moving average for the first EMA value
+				var initialPrices = prices.Take(period).Where(p => !double.IsNaN(p.GetValueOrDefault()) && !double.IsInfinity(p.GetValueOrDefault())).ToList();
+				if (initialPrices.Count >= period)
+				{
+					previousEma = initialPrices.Average();
+					ema[i] = previousEma;
+				}
+				else
+				{
+					ema[i] = null;
+				}
+			}
+			else if (previousEma.HasValue)
+			{
+				ema[i] = (prices[i] * multiplier) + (previousEma.Value * (1 - multiplier));
+				previousEma = ema[i];
+			}
+			else
+			{
+				ema[i] = null;
+			}
+		}
+
+		return ema;
+	}
 	private async Task<bool> CheckForMissingFees(int userId, string coin, string strategy)
 	{
 		const string sql = @"
@@ -3683,84 +3873,4 @@ public class KrakenService
 			return Convert.ToBase64String(hashedBytes);
 		}
 	}
-}
-public class KrakenApiException : Exception
-{
-	public HttpStatusCode StatusCode { get; }
-	public string ResponseContent { get; }
-
-	public KrakenApiException(string message, HttpStatusCode statusCode, string responseContent)
-			: base(message)
-	{
-		StatusCode = statusCode;
-		ResponseContent = responseContent;
-	}
-}
-public class KrakenTrade
-{
-	public string? TradeId { get; set; }        // Trade transaction ID
-	public string? OrderId { get; set; }       // Order ID that this trade belongs to
-	public string? Pair { get; set; }          // Asset pair (e.g., "XBTUSDC")
-	public string? Type { get; set; }          // "buy" or "sell"
-	public decimal Price { get; set; }        // Price in quote currency
-	public decimal Volume { get; set; }       // Volume in base currency
-	public float Fee { get; set; }          // Fee amount in quote currency
-	public decimal Cost { get; set; }         // Total cost (price * volume) in quote currency
-	public DateTime Timestamp { get; set; }   // When the trade occurred 
-	public string? Margin { get; set; }        // Margin position ID (if margin trade)
-	public string? Misc { get; set; }          // Miscellaneous info
-	public string? PosTxId { get; set; }       // Position ID (for margin/derivatives)
-	public bool? HasDifference { get; set; } //internal for setting fees.
-}
-public class TradeRecord
-{
-	public int id { get; set; }
-	public int user_id { get; set; }
-	public required string from_currency { get; set; }
-	public required string to_currency { get; set; }
-	public float value { get; set; }
-	public DateTime timestamp { get; set; }
-	public string? coin_price_cad { get; set; }
-	public string? coin_price_usdc { get; set; }
-	public float trade_value_cad { get; set; }
-	public float trade_value_usdc { get; set; }
-	public float fees { get; set; }
-}
-public class VolumeData
-{
-	public decimal Volume { get; set; }
-	public decimal VolumeUSDC { get; set; }
-	public decimal ClosePrice { get; set; }
-	public DateTime? Timestamp { get; set; }
-}
-public class MomentumStrategy
-{
-	public int UserId { get; set; }
-	public required string FromCurrency { get; set; }
-	public required string ToCurrency { get; set; }
-	public decimal CoinPriceUsdc { get; set; }
-	public decimal BestCoinPriceUsdc { get; set; }
-	public int? MatchingTradeId { get; set; }
-	public DateTime? Timestamp { get; set; }
-}
-public class PriceData
-{
-	public decimal Price { get; set; }
-	public DateTime Timestamp { get; set; }
 } 
-public enum MarketCondition { Neutral, Runoff, Selloff }
-public class PricePeak
-{
-	public decimal Price { get; set; }
-	public DateTime Timestamp { get; set; }
-} 
-public class PositionData
-{
-	public string? Symbol { get; set; }
-	public string? Side { get; set; }
-	public decimal Size { get; set; }
-	public decimal Price { get; set; }
-	public decimal UnrealizedPnl { get; set; }
-	public bool HasStopLoss { get; set; }
-	public decimal? StopPrice { get; set; }
-}

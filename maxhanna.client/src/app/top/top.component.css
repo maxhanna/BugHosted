@@ -19,6 +19,11 @@
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
 }
 
+.add-entry-form input,
+.add-entry-form textarea {
+    border: var(--main-border);
+}
+
 .form-input {
     width: calc(100% - 30px);
     padding: 12px 15px;
@@ -198,47 +203,13 @@ button:not(#closeOverlay):hover {
     }
 }
 
-/* Edit Popup Overlay */
-.edit-popup-overlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background-color: rgba(0, 0, 0, 0.5);
-    z-index: 1000;
-    backdrop-filter: blur(4px);
-}
-
-/* Edit Popup Container */
 .edit-popup-container {
-    position: fixed;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    width: 90%;
-    max-width: 500px;
-    background-color: white;
-    border-radius: 12px;
-    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
-    z-index: 1001;
-    animation: popupFadeIn 0.3s ease-out;
-    overflow: hidden;
+    width: 100% !important;
+    height: 100% !important;
+    max-width: unset !important;
 }
 
-@keyframes popupFadeIn {
-    from {
-        opacity: 0;
-        transform: translate(-50%, -40%);
-    }
 
-    to {
-        opacity: 1;
-        transform: translate(-50%, -50%);
-    }
-}
-
-/* Popup Header */
 .edit-popup-header {
     display: flex;
     justify-content: space-between;
@@ -254,11 +225,9 @@ button:not(#closeOverlay):hover {
 }
 
 .close-popup-btn {
-    background: none;
-    border: none;
-    cursor: pointer;
-    padding: 5px;
-    color: #666;
+    top: 0px !important;
+    right: 0px !important;
+    color: white !important;
     transition: color 0.2s;
 }
 
@@ -269,6 +238,8 @@ button:not(#closeOverlay):hover {
 /* Popup Body */
 .edit-popup-body {
     padding: 20px;
+    max-width: 500px;
+    width: 100%;
 }
 
 .form-group {
@@ -365,6 +336,17 @@ textarea.form-control {
     width: 100%;
 }
 
+.picture-input-container {
+    border: var(--main-border);
+    border-radius: 6px;
+    padding: 10px;
+    display: flex;
+    justify-content: space-between;
+    gap: 20px;
+    font-size: small;
+    font-weight: lighter;
+}
+
 .url-search-button {
     position: absolute;
     right: 2px;
@@ -432,4 +414,52 @@ textarea.form-control {
     margin-left: 4px;
     background: rgba(0, 0, 0, 0.1);
     padding: 1px 4px;
-    border-radius: 8px; }
+    border-radius: 8px;
+}
+
+
+
+.fullscreen-media-overlay {
+    background-color: rgba(0, 0, 0, 0.85);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.fullscreen-media-wrapper {
+    position: relative;
+    max-width: 90vw;
+    max-height: 90vh;
+    background: #111;
+    padding: 20px;
+    border-radius: 12px;
+    overflow: auto;
+}
+
+.fullscreen-media-wrapper app-media-viewer {
+    width: 100%;
+    height: auto;
+}
+
+.fullscreen-media-wrapper .close-popup-btn {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    background: transparent;
+    border: none;
+    color: white;
+    cursor: pointer;
+    z-index: 10001;
+}
+
+.clickable-image {
+    cursor: pointer;
+    max-width: 100%;
+    max-height: 200px;
+    border-radius: 6px;
+    transition: transform 0.2s ease;
+}
+
+.clickable-image:hover {
+    transform: scale(1.02);
+}

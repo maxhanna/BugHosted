@@ -5,6 +5,7 @@ import { TopService } from '../../services/top.service';
 import { MetaData } from '../../services/datacontracts/social/story';
 import { TopicService } from '../../services/topic.service';
 import { TopicsComponent } from '../topics/topics.component'; 
+import { MediaSelectorComponent } from '../media-selector/media-selector.component';
 
 @Component({
   selector: 'app-top',
@@ -14,6 +15,8 @@ import { TopicsComponent } from '../topics/topics.component';
 })
 export class TopComponent extends ChildComponent implements OnInit {
   @ViewChild('topicComponent') topicComponent!: TopicsComponent;
+  @ViewChild('editFileSelector') editFileSelector!: MediaSelectorComponent;
+  @ViewChild('fileSelector') fileSelector!: MediaSelectorComponent;
   @ViewChild('categoryInput') categoryInput!: ElementRef<HTMLInputElement>;
   @ViewChild('titleInput') titleInput!: ElementRef<HTMLInputElement>;
   @ViewChild('urlInput') urlInput!: ElementRef<HTMLInputElement>;
@@ -33,6 +36,9 @@ export class TopComponent extends ChildComponent implements OnInit {
   isVoterPanelOpen = false;
   selectedTopEntry?: any = undefined;
   topCategories?:any = undefined;
+  expandedFileId?: number;
+  expandedImageUrl?: string;  
+  isPictureOverlayOpen = false;
 
   constructor(private topService: TopService, private topicService: TopicService) {
     super();
@@ -138,6 +144,7 @@ export class TopComponent extends ChildComponent implements OnInit {
       this.titleInput.nativeElement.value,
       this.urlInput.nativeElement.value,
       this.textInput.nativeElement.value,
+      this.fileSelector?.selectedFiles[0].id, 
       this.parentRef?.user?.id ?? 0
     ).then(
       (res) => {
@@ -145,6 +152,7 @@ export class TopComponent extends ChildComponent implements OnInit {
         this.titleInput.nativeElement.value = '';
         this.urlInput.nativeElement.value = '';
         this.textInput.nativeElement.value = '';
+        this.fileSelector?.removeAllFiles(); 
         this.loadTopEntries(); // Refresh the list after adding
       },
       (err) => {
@@ -183,6 +191,7 @@ export class TopComponent extends ChildComponent implements OnInit {
     this.isEditPanelOpen = false;
     this.editingEntry = undefined;
     this.parentRef?.closeOverlay();
+    this.isSearchingUrlForEdit = false;
   }
   editTop() {
     this.topService.editTop(
@@ -190,6 +199,7 @@ export class TopComponent extends ChildComponent implements OnInit {
       this.titleEditInput.nativeElement.value,
       this.urlEditInput.nativeElement.value,
       this.textEditInput.nativeElement.value,
+      this.editFileSelector.selectedFiles[0]?.id
     ).then(res => {
       if (res.message) {
         this.parentRef?.showNotification(res.message);
@@ -197,6 +207,10 @@ export class TopComponent extends ChildComponent implements OnInit {
       if (res.success) {
         this.loadTopEntries();
         this.closeEditPanel();
+        this.editFileSelector.removeAllFiles();
+        this.titleEditInput.nativeElement.value = '';
+        this.urlEditInput.nativeElement.value = '';
+        this.textEditInput.nativeElement.value = '';  
       }
     })
   }
@@ -288,5 +302,26 @@ export class TopComponent extends ChildComponent implements OnInit {
     } catch {
       this.parentRef?.showNotification("Error: Unable to share link!");
     }
+  }
+  expandPictureEvent(event: any) {
+    console.log("Expanding:", event);
+    if (event?.id) {
+      this.expandedFileId = event.id;
+      this.expandedImageUrl = undefined;
+    } else if (event?.imgUrl) {
+      this.expandedImageUrl = event.imgUrl;
+      this.expandedFileId = undefined;
+    } else if (typeof event === 'string') { 
+      this.expandedImageUrl = event;
+      this.expandedFileId = undefined;
+    }
+    this.isPictureOverlayOpen = true;
+    this.parentRef?.showOverlay(); // Optional
+  }
+  closePictureOverlay() {
+    this.isPictureOverlayOpen = false;
+    this.expandedFileId = undefined;
+    this.expandedImageUrl = undefined;
+    this.parentRef?.closeOverlay(); // Optional
   }
 }

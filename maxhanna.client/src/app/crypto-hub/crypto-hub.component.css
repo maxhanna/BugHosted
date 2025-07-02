@@ -1,7 +1,7 @@
 select,
 button {
   border-radius: 4px;
- 
+
   cursor: pointer;
 }
 
@@ -224,7 +224,7 @@ button {
   padding: 10px;
   margin-top: 15px;
   height: 35px;
-  white-space: nowrap; 
+  white-space: nowrap;
   -webkit-overflow-scrolling: touch;
   -ms-overflow-style: none;
   user-select: none;
@@ -255,6 +255,7 @@ button {
   background-color: var(--main-bg-color);
   border: none;
 }
+
 .marquee-container {
   width: 100%;
   overflow: hidden;
@@ -266,7 +267,7 @@ button {
   overflow-x: auto;
   display: flex;
   padding: 10px 0;
-  height: 35px; 
+  height: 35px;
   -webkit-overflow-scrolling: touch;
   -ms-overflow-style: none;
   scrollbar-width: none;
@@ -333,6 +334,14 @@ button {
 
 .maximizedTradePanel {
   padding: 10px;
+}
+
+.tradeBalancePairLabelContainer {
+  display: flex;
+  justify-content: space-evenly;
+  flex-wrap: wrap;
+  align-content: center;
+  align-items: center;
 }
 
 .tradeBalanceTable td,
@@ -586,8 +595,9 @@ div:not(.trade-panel-controls) .button-wrapper {
   cursor: pointer;
   text-shadow: 0px 0.50px 0.50px var(--secondary-font-color);
 }
+
 .period-type-section .section-header .popupPanelTitle {
-  display: inline-block;  
+  display: inline-block;
   padding: 8px 0px;
   font-size: 14px;
   font-weight: 500;
@@ -606,13 +616,13 @@ div:not(.trade-panel-controls) .button-wrapper {
   color: var(--main-link-color);
   box-shadow: 0 0 8px var(--main-highlight-color);
 }
- 
 
 
 
 
-.volume-depth-indicator { 
-  padding: 1rem; 
+
+.volume-depth-indicator {
+  padding: 1rem;
   border-radius: 8px;
 }
 
@@ -650,6 +660,7 @@ div:not(.trade-panel-controls) .button-wrapper {
   font-size: xx-small;
   color: #666;
 }
+
 @media only screen and (min-width : 1000px) {
   .volume-stats {
     font-size: small;
@@ -759,23 +770,24 @@ div:not(.trade-panel-controls) .button-wrapper {
   display: flex;
   justify-content: space-between;
   gap: 20px;
-} 
+}
+
 .logTypeFiltersWrapper span {
   cursor: pointer;
 }
 
-.indicators-container { 
-  padding: 5px;  
+.indicators-container {
+  padding: 5px;
 }
 
-.indicators-title {   
+.indicators-title {
   margin-bottom: 10px;
   text-align: center;
 }
 
 /* Grid Layout */
 .indicators-grid {
-  display: flex; 
+  display: flex;
   gap: 6px;
   flex-direction: row;
   flex-wrap: wrap;
@@ -792,13 +804,15 @@ div:not(.trade-panel-controls) .button-wrapper {
   justify-content: space-between;
 }
 
-.indicator-label {  
+.indicator-label {
   margin-bottom: 5px;
   text-align: center;
   font-size: small;
+  cursor: help;
+  position: relative;
 }
 
-.indicator-value { 
+.indicator-value {
   font-size: large;
   font-weight: bold;
   text-align: center;
@@ -815,11 +829,12 @@ div:not(.trade-panel-controls) .button-wrapper {
 
 .neutral {
   color: #fbbf24 !important;
-} 
- 
+}
+
 .vwap-value {
   color: var(--third-font-color);
-} 
+}
+
 .totalMarketCapTotalRow td {
   color: var(--third-font-color) !important;
   font-weight: bold;
@@ -832,16 +847,18 @@ div:not(.trade-panel-controls) .button-wrapper {
   cursor: pointer;
   text-decoration: underline;
   white-space: nowrap;
-} 
+}
 
 .sentiment-table th,
 .sentiment-table td {
   border: 1px solid #ccc;
   padding: 6px 8px;
 }
+
 .smallColumn {
   width: 50px;
 }
+
 /* Colours for score */
 .positive {
   color: green;
@@ -873,4 +890,64 @@ div:not(.trade-panel-controls) .button-wrapper {
   display: flex;
   gap: 12px;
   align-items: center;
+}
+
+
+
+
+.macd-popup {
+  max-width: 800px;
+  width: 90%;
+}
+
+.macd-graph-container {
+  height: 400px;
+  margin: 20px 0;
+}
+
+.macd-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 15px;
+  margin: 15px 0;
+  justify-content: center;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.legend-color {
+  display: inline-block;
+  width: 15px;
+  height: 15px;
+  border-radius: 3px;
+}
+
+.macd-line {
+  background-color: #3498db;
+  /* Blue for MACD line */
+}
+
+.signal-line {
+  background-color: #e67e22;
+  /* Orange for signal line */
+}
+
+.histogram-positive {
+  background-color: #2ecc71;
+  /* Green for positive histogram */
+}
+
+.histogram-negative {
+  background-color: #e74c3c;
+  /* Red for negative histogram */
+}
+
+.macd-description {
+  padding: 15px;
+  border-radius: 5px;
+  margin: 15px 0;
 }

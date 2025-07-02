@@ -179,7 +179,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
     if (!this._parent || !this._parent.user || this.navbarCollapsed) {
       return;
     }
-    this.isLoadingNotifications = true; 
+    this.isLoadingNotifications = true;
     try {
       const res = await this.notificationService.getNotifications(this._parent.user.id ?? 0) as UserNotification[];
       if (res) {
@@ -230,37 +230,47 @@ export class NavigationComponent implements OnInit, OnDestroy {
     }
     this.isLoadingTheme = false;
   }
-
   async getCalendarInfo() {
-    if (!this.user) { return; }
-    if (!this._parent.userSelectedNavigationItems.find(x => x.title == "Calendar")) { return; }
+    if (!this.user || !this._parent.userSelectedNavigationItems.some(x => x.title === "Calendar")) return;
+
     try {
       this.isLoadingCalendar = true;
-      let notificationCount = 0;
       const today = new Date();
-      const startDate = new Date(Date.UTC(today.getFullYear(), today.getMonth(), today.getDate()));
-      const endDate = new Date(startDate);
-      endDate.setUTCDate(startDate.getUTCDate() + 1);
+      today.setHours(0, 0, 0, 0);
+      const startDate = new Date(today);
+      startDate.setDate(today.getDate() - 1);
+      const res = await this.calendarService.getCalendarEntries(this.user.id, startDate, new Date(today.getTime() + 86400000));
 
-      const res = await this.calendarService.getCalendarEntries(this.user.id, startDate, endDate) as Array<CalendarEntry>;
-      if (res && res.length > 0) {
-        const isoDateOnly = (d: Date) => d.toISOString().split('T')[0];
-        const todayStr = isoDateOnly(startDate);
+      const notificationCount = res?.filter((entry: CalendarEntry) => entry.date && this.isRelevantEvent(entry, today)).length ?? 0;
 
-        res.forEach(entry => {
-          const entryStr = isoDateOnly(new Date(entry.date + 'Z')); // force UTC
-          if (entryStr === todayStr) {
-            notificationCount++;
-          }
-        }); 
-      }
-      this._parent.navigationItems.find(x => x.title == "Calendar")!.content = (notificationCount != 0 ? notificationCount + '' : '');
-      this.isLoadingCalendar = false;
+      this._parent.navigationItems.find(x => x.title === "Calendar")!.content = notificationCount ? notificationCount.toString() : '';
     } catch (error) {
       console.error('Error fetching calendar data:', error);
+    } finally {
       this.isLoadingCalendar = false;
     }
   }
+
+  private isRelevantEvent(entry: CalendarEntry, today: Date): boolean {
+    if (!entry.date) return false;
+    const entryDate = typeof entry.date === 'string' ? new Date(entry.date) : entry.date;
+    const type = entry.type?.toLowerCase() ?? '';
+
+    return this.isSameDate(entryDate, today) ||
+      this.isWeeklyEvent(type, entryDate, today) ||
+      this.isMonthlyEvent(type, entryDate, today) ||
+      this.isAnnualEvent(type, entryDate, today) ||
+      type === 'daily';
+  }
+
+  // Simplified comparison functions
+  private isSameDate = (d1: Date, d2: Date) => d1.toDateString() === d2.toDateString();
+  private isWeeklyEvent = (type: string, d1: Date, d2: Date) => type === 'weekly' && d1.getDay() === d2.getDay();
+  private isMonthlyEvent = (type: string, d1: Date, d2: Date) => type === 'monthly' && d1.getDate() === d2.getDate();
+  private isAnnualEvent = (type: string, d1: Date, d2: Date) =>
+    ['milestone', 'annually', 'birthday', 'newyears', 'anniversary', 'christmas'].includes(type) &&
+    d1.getMonth() === d2.getMonth() &&
+    d1.getDate() === d2.getDate();
 
   async getCurrentWeatherInfo() {
     if (!this._parent.user?.id || !this._parent.userSelectedNavigationItems.find(x => x.title == "Weather")) { return; }
@@ -409,7 +419,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
       this.fileService.getFileEntryById(theme.backgroundImage).then(res => {
         if (res) {
           const directLink = `https://bughosted.com/assets/Uploads/${(this._parent.getDirectoryName(res) != '.' ? this._parent.getDirectoryName(res) : '')}${res.fileName}`;
-          document.documentElement.style.setProperty('--main-background-image-url', `url(${directLink})`); 
+          document.documentElement.style.setProperty('--main-background-image-url', `url(${directLink})`);
           document.body.style.backgroundImage = `url(${directLink})`;
         } else {
           document.documentElement.style.setProperty('--main-background-image-url', `none`);
@@ -417,7 +427,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
         }
       });
     } else {
-      document.documentElement.style.setProperty('--main-background-image-url', `none`); 
+      document.documentElement.style.setProperty('--main-background-image-url', `none`);
       document.body.style.backgroundImage = `none`;
     }
     if (theme.backgroundColor) {

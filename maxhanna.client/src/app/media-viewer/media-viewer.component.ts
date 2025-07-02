@@ -15,6 +15,7 @@ import { Topic } from '../../services/datacontracts/topics/topic';
   standalone: false
 })
 export class MediaViewerComponent extends ChildComponent implements OnInit, OnDestroy {
+
   constructor(private fileService: FileService) {
     super();
     if (this.file) {
@@ -34,12 +35,15 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
   fS = '/';
   isFullscreenMode = false;
   isShowingMediaInformation = false;
-  isShowingFileViewers = false;
+  isShowingFileViewers = false; 
+  isEditingFileName = false;
+  editingTopics: number[] = [];
   @ViewChild('mediaContainer', { static: false }) mediaContainer!: ElementRef;
   @ViewChild('fullscreenOverlay', { static: false }) fullscreenOverlay!: ElementRef;
   @ViewChild('fullscreenImage', { static: false }) fullscreenImage!: ElementRef;
   @ViewChild('fullscreenVideo', { static: false }) fullscreenVideo!: ElementRef;
-  @ViewChild('fullscreenAudio', { static: false }) fullscreenAudio!: ElementRef;
+  @ViewChild('fullscreenAudio', { static: false }) fullscreenAudio!: ElementRef; 
+  @ViewChild('editFileNameInput', { static: false }) editFileNameInput!: ElementRef;
 
   @Input() displayExpander: boolean = true;
   @Input() displayExtraInfo: boolean = true;
@@ -316,7 +320,52 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
       }
     }
   }
-
+  editFileName(file: FileEntry) {
+    this.isEditingFileName = true; 
+  }
+  async saveFileName(file: FileEntry) {
+    const fileName = this.editFileNameInput.nativeElement.value.trim();
+    if (!fileName || fileName.length === 0) {
+      this.emittedNotification.emit("File name cannot be empty!");
+      return;
+    }
+    if (fileName === file.fileName) {
+      this.isEditingFileName = false;
+      return;
+    }
+    this.startLoading(); 
+    const res = await this.fileService.updateFileData(this.user?.id ?? this.inputtedParentRef?.user?.id ?? 0, { FileId: file.id, GivenFileName: fileName, Description: '', LastUpdatedBy: this.user || this.inputtedParentRef?.user || new User(0, "Anonymous") });
+    if (res) {
+      this.inputtedParentRef?.showNotification(res);
+      file.givenFileName = fileName;
+      this.isEditingFileName = false;
+    }
+    this.stopLoading();
+  }
+  async removeTopicFromFile(topic: Topic, file: FileEntry) {
+    const user = this.inputtedParentRef?.user ?? this.parentRef?.user;
+    if (user) {
+      file.topics = file.topics?.filter(x => x.id != topic.id);
+      await this.fileService.editTopics(user, file, file.topics ?? []);
+    }
+  }
+  editFileTopic(file: FileEntry) {
+    console.log(file);
+    console.log(this.editingTopics);
+    if (this.editingTopics.includes(file.id)) {
+      this.editingTopics = this.editingTopics.filter(x => x != file.id);
+    } else {
+      this.editingTopics.push(file.id);
+    }
+  }
+  async editFileTopicInDB(topics: Topic[], file: FileEntry) {
+    const user = this.inputtedParentRef?.user ?? this.parentRef?.user;
+    if (user) {
+      await this.fileService.editTopics(user, file, topics);
+      this.editingTopics = this.editingTopics.filter(x => x != file.id);
+      file.topics = topics;
+    }
+  }
   expandFile(file: any) {
     if (this.selectedFile) { this.expandClickedEvent.emit(this.selectedFile); }
     if (this.blockExpand) return;
@@ -541,4 +590,5 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
     console.log("Media ended");
     this.mediaEndedEvent.emit();
   }
+  
 }

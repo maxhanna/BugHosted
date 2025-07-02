@@ -4,14 +4,14 @@ import { Topic } from './datacontracts/topics/topic';
   providedIn: 'root'
 })
 export class TopService { 
-  async addEntryToCategory(topics: Topic[], entry: string, url?: string, text?: string, userId?: number) {
+  async addEntryToCategory(topics: Topic[], entry: string, url?: string, text?: string, picture?: number, userId?: number) {
     try {
       const response = await fetch(`/top/addentrytocategory`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ Topics: topics, Entry: entry, Url: url, Text: text, UserId: userId }),
+        body: JSON.stringify({ Topics: topics, Entry: entry, Url: url, Text: text, Picture: picture, UserId: userId }),
       });
 
       return await response.json();
@@ -20,14 +20,14 @@ export class TopService {
     }
   }
   
-  async editTop(entryId: number, title?: string, url?: string, text?: string) {
+  async editTop(entryId: number, title?: string, url?: string, text?: string, picture?: number) {
     try {
       const response = await fetch(`/top/edittop`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ EntryId: entryId, Title: title, Url: url, Text: text }),
+        body: JSON.stringify({ EntryId: entryId, Title: title, Url: url, Text: text, Picture: picture }),
       });
   
       return await response.json();

@@ -17,7 +17,7 @@
         <input type="text" #titleInput placeholder="Title" class="form-input" />
         <div class="url-input-container">
             <input type="text" #urlInput placeholder="URL (optional)" class="form-input url-input" />
-            <button (click)="searchUrl()" class="url-search-button" *ngIf="urlInput.nativeElement.value && urlInput.nativeElement.value.trim() != '' && !isSearchingUrl">
+            <button (click)="searchUrl()" class="url-search-button" *ngIf="!isSearchingUrl">
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
                     stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <circle cx="11" cy="11" r="8"></circle>
@@ -26,7 +26,16 @@
             </button>
         </div>
         <div>
-            <textarea #textInput placeholder="Text (optional)" class="form-input"></textarea>
+            <textarea #textInput placeholder="Description (optional)" class="form-input"></textarea>
+        </div>
+        <div class="picture-input-container">
+            <span>Picture (Optional):</span>
+            <span><app-media-selector 
+                [inputtedParentRef]="parentRef" 
+                [uploadButtonText]="'Select'"
+                [currentDirectory]="'Users/' + (parentRef?.user && parentRef?.user?.id != 0 ? parentRef?.user?.username : 'Anonymous')"
+                [user]="parentRef?.user"
+                [maxSelectedFiles]="1" #fileSelector></app-media-selector></span>
         </div>
         <button (click)="addToTop()" class="add-button">Add</button>
     </div>
@@ -68,7 +77,10 @@
                     </div>
                 </div>
                 <div class="entry-image">
-                    <img *ngIf="entry.imgUrl" [src]="entry.imgUrl" [attr.loading]="'lazy'" [title]="entry.imgUrl" (error)="entry.imgUrl = ''" />
+                    <img *ngIf="entry.imgUrl" [src]="entry.imgUrl" [attr.loading]="'lazy'" [title]="entry.imgUrl" (error)="entry.imgUrl = ''" class="clickable-image" (click)="expandPictureEvent(entry.imgUrl)" /> 
+                    <app-media-viewer *ngIf="entry.fileId" [fileId]="entry.fileId" [inputtedParentRef]="parentRef" [displayExtraInfo]="false"
+                        [showCommentSection]="false" [displayExpander]="false" [previousComponent]="previousComponent ?? 'Top'" [blockExpand]="true"
+                        (expandClickedEvent)="expandPictureEvent($event)"></app-media-viewer>
                 </div>
             </div>
 
@@ -84,13 +96,9 @@
 
     <button (click)="copyLink()" title="Share Link">📋Share</button>
 </div>
-
-
-<!-- Edit Popup Overlay -->
-<div class="edit-popup-overlay" *ngIf="isEditPanelOpen" (click)="closeEditPanel()"></div>
-
+ 
 <!-- Edit Popup Content -->
-<div class="edit-popup-container" *ngIf="isEditPanelOpen" (click)="$event.stopPropagation()">
+<div class="popupPanel edit-popup-container" *ngIf="isEditPanelOpen" (click)="$event.stopPropagation()">
     <div class="edit-popup-header">
         <h3>Edit Entry</h3>
         <button class="close-popup-btn" (click)="closeEditPanel()">
@@ -111,7 +119,7 @@
             <div class="url-input-container">
                 <input type="text" id="urlEditInput" #urlEditInput class="form-control" [value]="editingEntry.url"
                     placeholder="https://example.com">
-                <button (click)="searchUrlForEdit()" class="url-search-button" *ngIf="urlEditInput.nativeElement.value && !isSearchingUrl">
+                <button (click)="searchUrlForEdit()" class="url-search-button">
                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
                         stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <circle cx="11" cy="11" r="8"></circle>
@@ -131,6 +139,15 @@
             <label for="textEditInput">Description (optional)</label>
             <textarea id="textEditInput" #textEditInput class="form-control" rows="4" [value]="editingEntry.text"
                 placeholder="Enter description"></textarea>
+        </div>
+
+        <div class="picture-input-container">
+            <span>Picture (Optional):</span>
+            <span>
+                <app-media-selector [inputtedParentRef]="parentRef" [uploadButtonText]="'Select'"
+                    [currentDirectory]="'Users/' + (parentRef?.user && parentRef?.user?.id != 0 ? parentRef?.user?.username : 'Anonymous')"
+                    [user]="parentRef?.user" [maxSelectedFiles]="1" #editFileSelector></app-media-selector>
+            </span>
         </div>
     </div>
 
@@ -165,4 +182,25 @@
         </div>
     </div>
     <button id="closeOverlay" (click)="closeVoterPanel()">Cancel</button>
+</div>
+
+<!-- Fullscreen Media Viewer Overlay -->
+<div class="popupPanel fullscreen-media-overlay" *ngIf="isPictureOverlayOpen" (click)="closePictureOverlay()">
+    <div class="fullscreen-media-wrapper" (click)="$event.stopPropagation()">
+        <button class="close-popup-btn" id="closeOverlay"  (click)="closePictureOverlay()">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M18 6L6 18M6 6l12 12"></path>
+            </svg>
+        </button>
+
+        <!-- Media Viewer -->
+        <app-media-viewer *ngIf="expandedFileId" [fileId]="expandedFileId" [inputtedParentRef]="parentRef"
+            [displayExtraInfo]="false" [showCommentSection]="false" [displayExpander]="false" [previousComponent]="'Top'"
+            [blockExpand]="true">
+        </app-media-viewer>
+
+        <!-- Plain Image -->
+        <img *ngIf="expandedImageUrl" [src]="expandedImageUrl" alt="Expanded image"
+            style="max-width:100%; max-height:80vh; border-radius:12px;" />
+    </div>
 </div>

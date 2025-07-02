@@ -5,7 +5,7 @@
 
   <fieldset *ngIf="!user">
     <legend title="Add to the music list">Add to the music list</legend>
-    <div style="display: flex; justify-content: center; align-items: center; flex-wrap: wrap; gap: 3px;">
+    <div class="addSongInputFieldset">
       <input type="text" #titleInput placeholder="Artist - Song Title" (keyup.enter)="addSong()" />
       <input type="text" #urlInput placeholder="URL" (keyup.enter)="addSong()" />
       <app-media-selector #mediaSelector
@@ -59,11 +59,11 @@
             <tr *ngFor="let song of paginatedSongs" id="songId{{song.id!}}">
               <td (click)="play(song.url, song.fileId)" *ngIf="song.id" style="width:100%">
                 <span *ngIf="!isEditing.includes(song.id)">{{song.todo}}</span>
-                <textarea *ngIf="isEditing.includes(song.id)" [value]="song.todo" style="width:100%"></textarea>
+                <input type=text id="editSongNameInput" *ngIf="isEditing.includes(song.id)" [value]="song.todo" style="width:100%" />
               </td>
               <td style="width:0%; display:flex; gap: 5px;" *ngIf="!user && song.id">
                 <button (click)="editSong(song.id)" class="xxSmallFont cursorPointer">{{ isEditing.includes(song.id) ? '💾':'✏️'}}</button>
-                <input (click)="deleteSong(song.id)" value="❌" type="submit" class="xxSmallFont cursorPointer" /> 
+                <input (click)="deleteSong(song.id)" value="❌" type="submit" class="xxSmallFont cursorPointer" *ngIf="!isEditing.includes(song.id)" /> 
               </td>
             </tr>
           </tbody>

@@ -188,7 +188,7 @@ input[type="submit"]:hover {
   height: 0px;
   position: relative;
   left: calc(100% - 60px);
-  top: 0px;
+  top: -50px;
   cursor: pointer;
 }
 
@@ -222,4 +222,22 @@ input[type="submit"]:hover {
   font-style: italic;
   color: var(--third-font-color);
   margin-top: 15px;
+}
+
+.addSongInputFieldset {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 3px;
+  padding-right: 50px;
+  padding-left: 50px; 
+}
+
+#editSongNameInput {
+  width: calc(100% - 15px) !important;
+  border: var(--main-border); 
+  padding: 5px;
+  font-size: 0.9em; 
+  max-width: unset !important;
 }

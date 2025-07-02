@@ -491,7 +491,7 @@ romFileExtensions = [
 				headers: {
 					'Content-Type': 'application/json',
 				},
-				body: JSON.stringify({ Topics: topics, File: file, User: user }),
+				body: JSON.stringify({ Topics: topics, File: file, UserId: user.id }),
 			});
 
 			if (!res.ok) {

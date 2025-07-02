@@ -1403,6 +1403,7 @@ namespace maxhanna.Server.Controllers
 		public string? Symbol { get; set; }
 		public string? Name { get; set; }
 		public decimal ValueCAD { get; set; }
+		public decimal? ValueUSD { get; set; }
 		public DateTime Timestamp { get; set; }
 	}
 

@@ -5,6 +5,14 @@ import { CoinValue } from '../../services/datacontracts/crypto/coin-value';
 import { ExchangeRate } from '../../services/datacontracts/crypto/exchange-rate';
 import { ChartType } from 'chart.js';
 
+interface MacdDataPoint {
+  timestamp: string;
+  macdLine: number | null;
+  signalLine: number | null;
+  histogram: number | null;
+  price: number | null;
+}
+
 @Component({
   selector: 'app-line-graph',
   standalone: true,
@@ -18,17 +26,20 @@ export class LineGraphComponent implements OnInit, OnChanges {
   @Input() selectedCoin: string = '';
   @Input() selectedCurrency?: string = undefined;
   @Input() displayCoinSwitcher: boolean = true;
-  @Input() chartTypeInputted?: any = 'line';
-  @Input() chartTypeInputtedData2?: any = 'line';
+  @Input() chartTypeInputted?: ChartType = 'line';
+  @Input() chartTypeInputtedData2?: ChartType = 'line';
   @Input() width: number = 500;
   @Input() height: number = 300;
   @Input() secondaryDataLabel: string = "Secondary Data";
   @Input() darkMode = false;
   @Input() supportsXYZ = false;
   @Input() graphTitle: string = '';
-  @Input() type: "Crypto" | "Currency" | "Volume" = "Crypto";
-  @Input() selectedPeriod: '5min' | '15min' | '1h' | '6h' | '12h' | '1d' | '2d' | '5d' | '1m' | '2m' | '3m' | '6m' | '1y' | '2y' | '3y' | '5y' = '1d';
+  @Input() type: "Crypto" | "Currency" | "Volume" | "MACD" = "Crypto";
+  @Input() selectedPeriod: '5min' | '15min' | '1h' | '6h' | '12h' | '1d' | '2d' | '5d' | '1w' | '2w' | '3w' | '1m' | '2m' | '3m' | '6m' | '1y' | '2y' | '3y' | '5y' = '1d';
   @Input() showAverage: boolean = false;
+  @Input() showMacdLine: boolean = true; // Added for MACD
+  @Input() showSignalLine: boolean = true; // Added for MACD
+  @Input() showHistogram: boolean = true; // Added for MACD
   @Input() skipFiltering: boolean = false;
   @Output() fullscreenSelectedEvent = new EventEmitter<any>();
   @Output() changeTimePeriodEvent = new EventEmitter<any>();
@@ -62,15 +73,15 @@ export class LineGraphComponent implements OnInit, OnChanges {
   sliderMaxValue: number = 0;
   isShowingOptions = false;
   private readonly minSeparation: number = 1000; // 1 second
+
   get formattedSliderMin(): string {
     return this.formatTimestamp(new Date(this.sliderMinValue).toISOString(), true);
   }
 
-  // Getter for formatted slider max timestamp
   get formattedSliderMax(): string {
     return this.formatTimestamp(new Date(this.sliderMaxValue).toISOString(), true);
   }
-  
+
   ngOnInit() {
     if (!this.selectedPeriod) {
       if (this.type === "Volume") {
@@ -82,7 +93,9 @@ export class LineGraphComponent implements OnInit, OnChanges {
 
     this.lineChartOptions = this.getChartOptions();
     setTimeout(() => {
-      this.canvasDiv.nativeElement.style.backgroundColor = this.darkMode ? this.getCSSVariableValue("--secondary-component-background-color") ?? '#000000' : this.getCSSVariableValue("--component-background-color") ?? '#ffffff';
+      this.canvasDiv.nativeElement.style.backgroundColor = this.darkMode
+        ? this.getCSSVariableValue("--secondary-component-background-color") ?? '#000000'
+        : this.getCSSVariableValue("--component-background-color") ?? '#ffffff';
       this.initializeSlider();
       this.updateGraph(this.data);
     }, 50);
@@ -93,7 +106,7 @@ export class LineGraphComponent implements OnInit, OnChanges {
       this.initializeSlider();
       this.updateGraph(this.data);
     }
-    if ((changes['showAverage'] || changes['selectedPeriod'] || changes['selectedCoin']) &&
+    if ((changes['showAverage'] || changes['selectedPeriod'] || changes['selectedCoin'] || changes['showMacdLine'] || changes['showSignalLine'] || changes['showHistogram']) &&
       this.lineChartData.length > 0) {
       this.updateChartWithAverage();
       this.updateGraph(this.data);
@@ -121,6 +134,7 @@ export class LineGraphComponent implements OnInit, OnChanges {
       }
     }, 100);
   }
+
   updateSliderMin(event: Event) {
     const value = parseInt((event.target as HTMLInputElement).value);
     if (value >= this.sliderMaxValue - this.minSeparation) {
@@ -132,6 +146,7 @@ export class LineGraphComponent implements OnInit, OnChanges {
     this.updateHighlightedRange();
     this.updateGraph(this.data);
   }
+
   updateSliderMax(event: Event) {
     const value = parseInt((event.target as HTMLInputElement).value);
     if (value <= this.sliderMinValue + this.minSeparation) {
@@ -147,22 +162,21 @@ export class LineGraphComponent implements OnInit, OnChanges {
   getUniqueCoinNames(): string[] {
     const uniqueCoinNamesSet = new Set<string>();
     this.data?.forEach(item => {
-      if (this.type == "Crypto") {
-        uniqueCoinNamesSet.add(item.name);
-      } else if (this.type == "Currency") {
-        const name = (item as ExchangeRate).targetCurrency;
-        uniqueCoinNamesSet.add(name);
+      if (this.type === "Crypto" || this.type === "MACD") {
+        uniqueCoinNamesSet.add(item.name || this.selectedCoin);
+      } else if (this.type === "Currency") {
+        uniqueCoinNamesSet.add((item as ExchangeRate).targetCurrency);
       }
     });
     return Array.from(uniqueCoinNamesSet);
   }
+
   private updateHighlightedRange() {
     if (!this.sliderContainer) return;
 
     const sliderWidth = this.sliderContainer.nativeElement.offsetWidth - 40; // Adjust for 20px padding on each side
-    const range = this.sliderMax - this.sliderMin;
+    const range = this.sliderMax - this.sliderMin; // Corrected: Use sliderMax - sliderMin
 
-    // Avoid division by zero
     if (range <= 0) return;
 
     const minPercent = ((this.sliderMinValue - this.sliderMin) / range) * 100;
@@ -193,6 +207,9 @@ export class LineGraphComponent implements OnInit, OnChanges {
 
   changeChartType(newType?: EventTarget | null): void {
     const selectedType = (newType as HTMLSelectElement).value;
+    if (this.type === 'MACD' && selectedType === 'dot') {
+      return; // Prevent dot mode for MACD
+    }
     this.isDotModeData1 = selectedType === 'dot';
     if (this.validTypes.includes(selectedType as ChartType) || this.isDotModeData1) {
       this.chartTypeInputted = this.isDotModeData1 ? 'line' : selectedType as ChartType;
@@ -220,6 +237,8 @@ export class LineGraphComponent implements OnInit, OnChanges {
 
     // Apply period and coin filtering
     if (this.type === "Volume") {
+      filteredData = this.filterDataByPeriod(this.getDaysForPeriod(this.selectedPeriod));
+    } else if (this.type === "MACD") {
       filteredData = this.filterDataByPeriod(this.getDaysForPeriod(this.selectedPeriod));
     } else if (this.selectedCoin !== '') {
       filteredData = this.filterDataByPeriodAndCoin(this.selectedPeriod, this.selectedCoin);
@@ -255,7 +274,7 @@ export class LineGraphComponent implements OnInit, OnChanges {
       '#9c755f', '#bab0ac'
     ];
 
-    // Add timestamps from filteredData to chartLabelsSet
+    // Add timestamps to chartLabelsSet
     filteredData.forEach(item => chartLabelsSet.add(this.formatTimestamp(item.timestamp, true)));
 
     // Add timestamps from filteredData2 to chartLabelsSet
@@ -268,7 +287,93 @@ export class LineGraphComponent implements OnInit, OnChanges {
       return dateA.getTime() - dateB.getTime();
     });
 
-    if (this.type === "Volume") {
+    if (this.type === "MACD") {
+      // Handle MACD-specific data (MacdDataPoint)
+      const macdData = filteredData as MacdDataPoint[];
+
+      if (this.showMacdLine) {
+        datasets.push({
+          type: 'line',
+          label: 'MACD Line (12,26)',
+          data: sortedLabels.map(label => {
+            const item = macdData.find(d => this.formatTimestamp(d.timestamp, true) === label);
+            return item ? (item.macdLine ?? 0) : null;
+          }),
+          borderColor: '#007bff',
+          backgroundColor: 'transparent',
+          yAxisID: 'y',
+          pointRadius: this.isDotModeData1 ? 10 : 3,
+          pointHoverRadius: this.isDotModeData1 ? 12 : 6,
+          showLine: !this.isDotModeData1, // Controls whether to draw a line
+          borderWidth: this.isDotModeData1 ? 0 : 2,
+          tension: 0.2,
+          cubicInterpolationMode: 'monotone',
+          spanGaps: true
+        });
+      }
+
+      if (this.showSignalLine) {
+        datasets.push({
+          type: 'line',
+          label: 'Signal Line (9)',
+          data: sortedLabels.map(label => {
+            const item = macdData.find(d => this.formatTimestamp(d.timestamp, true) === label);
+            return item ? (item.signalLine ?? 0) : null;
+          }),
+          borderColor: '#ff9900',
+          backgroundColor: 'transparent',
+          yAxisID: 'y',
+          pointRadius: this.isDotModeData1 ? 10 : 3,
+          pointHoverRadius: this.isDotModeData1 ? 12 : 6,
+          showLine: !this.isDotModeData1,
+          borderWidth: this.isDotModeData1 ? 0 : 2,
+          tension: 0.2,
+          cubicInterpolationMode: 'monotone',
+          spanGaps: true
+        });
+      }
+
+      if (this.showHistogram) {
+        datasets.push({
+          type: 'bar',
+          label: 'Histogram',
+          data: sortedLabels.map(label => {
+            const item = macdData.find(d => this.formatTimestamp(d.timestamp, true) === label);
+            return item ? (item.histogram ?? 0) : null;
+          }),
+          backgroundColor: sortedLabels.map((label, index) => {
+            const item = macdData.find(d => this.formatTimestamp(d.timestamp, true) === label);
+            return item && (item.histogram ?? 0) >= 0 ? 'rgba(0, 200, 0, 0.5)' : 'rgba(200, 0, 0, 0.5)';
+          }),
+          borderColor: sortedLabels.map((label, index) => {
+            const item = macdData.find(d => this.formatTimestamp(d.timestamp, true) === label);
+            return item && (item.histogram ?? 0) >= 0 ? 'rgba(0, 200, 0, 1)' : 'rgba(200, 0, 0, 1)';
+          }),
+          yAxisID: 'y',
+          barPercentage: 0.4,
+          categoryPercentage: 0.5
+        });
+      }
+
+      datasets.push({
+        type: 'line',
+        label: `${this.selectedCoin} Price`,
+        data: sortedLabels.map(label => {
+          const item = macdData.find(d => this.formatTimestamp(d.timestamp, true) === label);
+          return item ? (item.price ?? 0) : null;
+        }),
+        borderColor: '#888',
+        backgroundColor: 'transparent',
+        yAxisID: 'y1',
+        pointRadius: this.isDotModeData1 ? 10 : 3,
+        pointHoverRadius: this.isDotModeData1 ? 12 : 6,
+        showLine: !this.isDotModeData1,
+        borderWidth: this.isDotModeData1 ? 0 : 2,
+        tension: 0.2,
+        cubicInterpolationMode: 'monotone',
+        spanGaps: true
+      });
+    } else if (this.type === "Volume") {
       const volumeConfig: any = {
         type: this.isDotModeData1 ? 'line' : this.chartTypeInputted ?? 'bar',
         data: filteredData.map(item => item.valueCAD),
@@ -288,6 +393,56 @@ export class LineGraphComponent implements OnInit, OnChanges {
       }
 
       datasets.push(volumeConfig);
+    } else {
+      let uniqueCoinNames: string[] = [];
+      if (this.type === "Crypto") {
+        uniqueCoinNames = Array.from(new Set(filteredData.map(item => item.name)));
+      } else if (this.type === "Currency") {
+        uniqueCoinNames = Array.from(new Set(filteredData.map(item => item.targetCurrency)));
+      }
+
+      if (uniqueCoinNames.length === 0) {
+        uniqueCoinNames = ["Value"];
+      }
+
+      uniqueCoinNames.forEach((coinName, index) => {
+        const coinFilteredData = filteredData.filter(item =>
+          this.type === "Crypto" ? item.name === coinName : item.targetCurrency === coinName
+        );
+
+        const coinData = sortedLabels.map(label => {
+          const matchingItem = coinFilteredData.find(item => this.formatTimestamp(item.timestamp, true) === label);
+          return matchingItem ? (matchingItem.valueCAD ?? matchingItem.value ?? matchingItem.rate) : null;
+        });
+
+        const colorIndex = index % colorPalette.length;
+        const baseColor = index === 0 ? (this.darkMode ? this.getCSSVariableValue("--main-link-color") : this.getCSSVariableValue("--third-font-color")) : colorPalette[colorIndex];
+
+        const datasetConfig: any = {
+          data: coinData,
+          label: `${coinName} Fluctuation ${this.type === "Crypto" && this.selectedCurrency ? `(${this.selectedCurrency}$)` : ""}`,
+          backgroundColor: this.hexToRgba(baseColor, 0.2),
+          borderColor: baseColor,
+          borderWidth: 2,
+          borderJoinStyle: "round",
+          tension: 0.2,
+          cubicInterpolationMode: 'monotone',
+          pointBackgroundColor: index === 0 ? (this.darkMode ? this.getCSSVariableValue("--main-font-color") : this.getCSSVariableValue("--main-highlight-color")) : '#ffffff',
+          pointBorderColor: baseColor,
+          pointRadius: 3,
+          pointHoverRadius: 5,
+          spanGaps: true
+        };
+
+        if (this.isDotModeData1) {
+          datasetConfig.showLine = false;
+          datasetConfig.pointRadius = 10;
+          datasetConfig.pointHoverRadius = 7;
+          datasetConfig.borderWidth = 0;
+        }
+
+        datasets.push(datasetConfig);
+      });
     }
 
     if (hasValidSecondaryData) {
@@ -321,58 +476,6 @@ export class LineGraphComponent implements OnInit, OnChanges {
       datasets.push(secondaryConfig);
     }
 
-    if (this.type !== "Volume") {
-      let uniqueCoinNames: string[] = [];
-      if (this.type == "Crypto") {
-        uniqueCoinNames = Array.from(new Set(filteredData.map(item => item.name)));
-      } else if (this.type == "Currency") {
-        uniqueCoinNames = Array.from(new Set(filteredData.map(item => item.targetCurrency)));
-      }
-
-      if (uniqueCoinNames.length === 0) {
-        uniqueCoinNames = ["Value"];
-      }
-
-      uniqueCoinNames.forEach((coinName, index) => {
-        const coinFilteredData = filteredData.filter(item =>
-          this.type == "Crypto" ? item.name === coinName : item.targetCurrency === coinName
-        );
-
-        const coinData = sortedLabels.map(label => {
-          const matchingItem = coinFilteredData.find(item => this.formatTimestamp(item.timestamp, true) === label);
-          return matchingItem ? (matchingItem.valueCAD ?? matchingItem.value ?? matchingItem.rate) : null;
-        });
-
-        const colorIndex = index % colorPalette.length;
-        const baseColor = index == 0 ? this.darkMode ? this.getCSSVariableValue("--main-link-color") : this.getCSSVariableValue("--third-font-color") : colorPalette[colorIndex];
-
-        const datasetConfig: any = {
-          data: coinData,
-          label: `${coinName} Fluctuation ${this.type == "Crypto" && this.selectedCurrency ? `(${this.selectedCurrency}$)` : ""}`,
-          backgroundColor: this.hexToRgba(baseColor, 0.2),
-          borderColor: baseColor,
-          borderWidth: 2,
-          borderJoinStyle: "round",
-          tension: 0.2,
-          cubicInterpolationMode: 'monotone',
-          pointBackgroundColor: index == 0 ? this.darkMode ? this.getCSSVariableValue("--main-font-color") : this.getCSSVariableValue("--main-highlight-color") : '#ffffff',
-          pointBorderColor: baseColor,
-          pointRadius: 3,
-          pointHoverRadius: 5,
-          spanGaps: true
-        };
-
-        if (this.isDotModeData1) {
-          datasetConfig.showLine = false;
-          datasetConfig.pointRadius = 10;
-          datasetConfig.pointHoverRadius = 7;
-          datasetConfig.borderWidth = 0;
-        }
-
-        datasets.push(datasetConfig);
-      });
-    }
-
     this.lineChartData = datasets;
     this.lineChartLabels = sortedLabels;
     this.updateChartWithAverage();
@@ -397,8 +500,8 @@ export class LineGraphComponent implements OnInit, OnChanges {
       console.warn(`Invalid timestamp: ${timestamp}`);
       return '';
     }
-    return `${date.getFullYear()}.${(date.getMonth() + 1).toString().padStart(2, '0')}.${date.getDate().toString().padStart(2, '0')} ${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}${(!omitSeconds ? ':'+date.getSeconds().toString().padStart(2, '0') : '')}`;
-  }  
+    return `${date.getFullYear()}.${(date.getMonth() + 1).toString().padStart(2, '0')}.${date.getDate().toString().padStart(2, '0')} ${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}${(!omitSeconds ? ':' + date.getSeconds().toString().padStart(2, '0') : '')}`;
+  }
 
   private filterDataByPeriodForSecondary(periodValue: number, data: any[]): any[] {
     const currentDate = new Date();
@@ -484,12 +587,12 @@ export class LineGraphComponent implements OnInit, OnChanges {
       cutoffDate.setDate(currentDate.getDate() - Math.round(periodValue));
     }
 
-    if (this.type == "Crypto") {
+    if (this.type === "Crypto" || this.type === "MACD") {
       return this.data.filter(item =>
         item.name === coinName &&
         new Date(item.timestamp) >= cutoffDate
       );
-    } else if (this.type == "Currency") {
+    } else if (this.type === "Currency") {
       return this.data.filter(item =>
         item.targetCurrency === coinName &&
         new Date(item.timestamp) >= cutoffDate
@@ -551,8 +654,9 @@ export class LineGraphComponent implements OnInit, OnChanges {
       let maxLength = 0;
 
       this.lineChartData.forEach(dataset => {
-        const numericData = dataset.data.map(Number);
-        totalSum += numericData.reduce((sum: any, value: any) => sum + value, 0);
+        if (dataset.label === 'Histogram') return; // Skip histogram for average
+        const numericData = dataset.data.map(Number).filter((val:any) => !isNaN(val));
+        totalSum += numericData.reduce((sum: number, value: number) => sum + value, 0);
         totalCount += numericData.length;
         maxLength = Math.max(maxLength, numericData.length);
       });
@@ -568,6 +672,7 @@ export class LineGraphComponent implements OnInit, OnChanges {
         fill: false,
         pointRadius: 0,
         type: 'line',
+        yAxisID: this.type === 'MACD' ? 'y1' : 'y',
         zIndex: 0
       };
 
@@ -600,7 +705,9 @@ export class LineGraphComponent implements OnInit, OnChanges {
   toggleDarkMode() {
     this.darkMode = !this.darkMode;
     this.lineChartOptions = this.getChartOptions();
-    this.canvasDiv.nativeElement.style.backgroundColor = this.darkMode ? this.getCSSVariableValue("--secondary-component-background-color") ?? '#000000' : this.getCSSVariableValue("--component-background-color") ?? '#ffffff';
+    this.canvasDiv.nativeElement.style.backgroundColor = this.darkMode
+      ? this.getCSSVariableValue("--secondary-component-background-color") ?? '#000000'
+      : this.getCSSVariableValue("--component-background-color") ?? '#ffffff';
     setTimeout(() => {
       this.chart?.chart?.update();
       this.updateGraph(this.data);
@@ -614,17 +721,18 @@ export class LineGraphComponent implements OnInit, OnChanges {
       (this.darkMode ? this.getCSSVariableValue("--secondary-font-color") ?? '#ffffff' :
         this.getCSSVariableValue("--third-font-color") ?? '#000000') : undefined;
 
-    // Detect if we need logarithmic scale (for very small values)
     const needsLogScale = this.lineChartData.some(dataset =>
       dataset.data.some((value: number) => value !== null && Math.abs(value) < 0.001)
     );
 
-    return {
+    const options: any = {
       responsive: true,
       maintainAspectRatio: false,
       backgroundColor,
       scales: {
         x: {
+          type: 'category',
+          time: { unit: this.getTimeUnit(this.selectedPeriod) },
           ticks: {
             color: fontColor,
             maxRotation: 45,
@@ -639,7 +747,6 @@ export class LineGraphComponent implements OnInit, OnChanges {
           ticks: {
             color: fontColor,
             callback: (value: number) => {
-              // Format very small numbers properly
               if (needsLogScale || Math.abs(value) < 0.01) {
                 if (Math.abs(value) < 0.000001) {
                   return value.toExponential(2);
@@ -649,7 +756,6 @@ export class LineGraphComponent implements OnInit, OnChanges {
                 }
                 return value.toFixed(6).replace(/\.?0+$/, '');
               }
-              // Format large numbers with appropriate precision
               if (Math.abs(value) >= 1000) {
                 return value.toLocaleString(undefined, {
                   maximumFractionDigits: 2,
@@ -683,7 +789,6 @@ export class LineGraphComponent implements OnInit, OnChanges {
               }
               if (context.parsed.y !== null) {
                 const value = context.parsed.y;
-                // Format tooltip values appropriately
                 if (Math.abs(value) < 0.001) {
                   label += value.toFixed(8);
                 } else if (Math.abs(value) < 1) {
@@ -729,10 +834,67 @@ export class LineGraphComponent implements OnInit, OnChanges {
             return this.isDotModeData1 ? 0 : 2;
           },
           hoverBorderWidth: 3,
-          tension: 0.2,
-        },
+          tension: 0.2
+        }
       }
     };
+
+    if (this.type === "MACD") {
+      options.scales.y1 = {
+        type: 'linear',
+        position: 'right',
+        title: { display: true, text: 'Price (USD)', color: fontColor },
+        grid: { display: false },
+        ticks: {
+          color: fontColor,
+          callback: (value: number) => value.toFixed(2)
+        }
+      };
+      options.scales.y = {
+        type: 'linear',
+        position: 'left',
+        title: { display: true, text: 'MACD/Signal', color: fontColor },
+        grid: { color: fontColor, borderDash: [3, 3] },
+        ticks: {
+          color: fontColor,
+          callback: (value: number) => value.toFixed(2)
+        }
+      };
+    }
+
+    return options;
+  }
+
+  private getTimeUnit(period: string): string {
+    switch (period) {
+      case '5min':
+      case '15min':
+        return 'minute';
+      case '1h':
+      case '6h':
+      case '12h':
+        return 'hour';
+      case '1d':
+      case '2d':
+      case '5d':
+        return 'day';
+      case '1w':
+      case '2w':
+      case '3w':
+        return 'week';
+      case '1m':
+      case '2m':
+      case '3m':
+      case '6m':
+        return 'month';
+      case '1y':
+      case '2y':
+      case '3y':
+      case '5y':
+        return 'year';
+      default:
+        return 'day';
+    }
   }
 
   getCSSVariableValue(variableName: string) {
@@ -744,7 +906,9 @@ export class LineGraphComponent implements OnInit, OnChanges {
     if (this.type === 'Volume') {
       return this.selectedPeriod ? `Volume (${this.formatPeriodDisplay()})` : 'Volume';
     }
-
+    if (this.type === 'MACD') {
+      return this.selectedPeriod ? `MACD (${this.selectedCoin} • ${this.formatPeriodDisplay()})` : `MACD (${this.selectedCoin})`;
+    }
     if (this.graphTitle) {
       return this.selectedCoin.includes('->')
         ? `$Bitcoin/${'$' + this.selectedCurrency} Value` + this.getPeriodSuffix()
@@ -790,7 +954,7 @@ export class LineGraphComponent implements OnInit, OnChanges {
 
   exportToCSV() {
     let filteredData = [];
-    if (this.type === "Volume") {
+    if (this.type === "Volume" || this.type === "MACD") {
       filteredData = this.filterDataByPeriod(this.getDaysForPeriod(this.selectedPeriod));
     } else if (this.selectedCoin !== '') {
       filteredData = this.filterDataByPeriodAndCoin(this.selectedPeriod, this.selectedCoin);
@@ -808,22 +972,36 @@ export class LineGraphComponent implements OnInit, OnChanges {
       filteredData2 = this.filterDataBySliderRange(filteredData2);
     }
 
-    const headers = ['Timestamp', 'Coin', 'Value', 'Currency', 'Secondary Value', 'Secondary Type'];
-    const rows = filteredData.map(item => {
-      const secondaryItem = filteredData2.find(s => s.timestamp === item.timestamp);
-      const coinName = this.type === "Crypto" ? item.name : this.type === "Currency" ? item.targetCurrency : 'Volume';
-      const value = item.valueCAD ?? item.value ?? item.rate ?? '';
-      const secondaryValue = secondaryItem ? (secondaryItem.valueCAD ?? secondaryItem.value ?? secondaryItem.rate ?? '') : '';
-      const secondaryType = secondaryItem ? secondaryItem.type ?? '' : '';
-      return [
+    let headers: string[] = [];
+    let rows: string[] = [];
+
+    if (this.type === "MACD") {
+      headers = ['Timestamp', 'MACD Line', 'Signal Line', 'Histogram', 'Price'];
+      rows = filteredData.map((item: MacdDataPoint) => [
         item.timestamp,
-        coinName,
-        value,
-        this.selectedCurrency || 'CAD',
-        secondaryValue,
-        secondaryType
-      ].map(field => `"${field}"`).join(',');
-    });
+        item.macdLine ?? '',
+        item.signalLine ?? '',
+        item.histogram ?? '',
+        item.price ?? ''
+      ].map(field => `"${field}"`).join(','));
+    } else {
+      headers = ['Timestamp', 'Coin', 'Value', 'Currency', 'Secondary Value', 'Secondary Type'];
+      rows = filteredData.map(item => {
+        const secondaryItem = filteredData2.find(s => s.timestamp === item.timestamp);
+        const coinName = this.type === "Crypto" ? item.name : this.type === "Currency" ? item.targetCurrency : 'Volume';
+        const value = item.valueCAD ?? item.value ?? item.rate ?? '';
+        const secondaryValue = secondaryItem ? (secondaryItem.valueCAD ?? secondaryItem.value ?? secondaryItem.rate ?? '') : '';
+        const secondaryType = secondaryItem ? secondaryItem.type ?? '' : '';
+        return [
+          item.timestamp,
+          coinName,
+          value,
+          this.selectedCurrency || 'CAD',
+          secondaryValue,
+          secondaryType
+        ].map(field => `"${field}"`).join(',');
+      });
+    }
 
     const csvContent = [headers.join(','), ...rows].join('\n');
 
@@ -838,6 +1016,7 @@ export class LineGraphComponent implements OnInit, OnChanges {
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
   }
+
   showOptions() {
     this.isShowingOptions = !this.isShowingOptions;
   }

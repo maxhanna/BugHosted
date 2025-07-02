@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+import { Injectable, signal } from '@angular/core';
 import { ProfitData } from './datacontracts/trade/profit-data';
 
 @Injectable({
@@ -98,7 +98,10 @@ export class TradeService {
     return this.post(`/trade/exitposition`, userId, 'json', encryptedUserId);
   }
   async getTradeIndicators(fromCoin: string, toCoin: string) {
-    return this.post(`/trade/gettradeindicators`, {FromCoin: fromCoin, ToCoin: toCoin}, 'json');
+    return this.post(`/trade/gettradeindicators`, { FromCoin: fromCoin, ToCoin: toCoin }, 'json');
+  }
+  async getMacdData(fromCoin: string, toCoin: string, days: number = 30, fastPeriod: number = 12, slowPeriod: number = 26, signalPeriod: number = 9) {
+    return this.post(`/trade/getmacddata`, { FromCoin: fromCoin, ToCoin: toCoin, Days: days, FastPeriod: fastPeriod, SlowPeriod: slowPeriod, SignalPeriod: signalPeriod }, 'json');
   }
   async getProfitData(userId: number, days = 100, encryptedUserId: string) {
     return this.post(`/trade/getprofitdata`, {UserId: userId, Days: days}, 'json', encryptedUserId);

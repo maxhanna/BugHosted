@@ -32,7 +32,7 @@
         {{ latest.classification }} ({{ latest.value }}/100)
         <div class="small">{{ latest.timestampUtc | date:'mediumDate' }}</div>
     </div>
-    <button class="cursorPointerUnderlined smallFont" (click)="showHistory = !showHistory">{{showHistory ? 'Hide' : 'Show'}} History</button>
+    <button class="cursorPointer smallFont" (click)="showHistory = !showHistory">{{showHistory ? 'Hide' : 'Show'}} History</button>
 </div>
 
 <!-- 7-day spark line -->

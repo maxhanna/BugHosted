@@ -47,7 +47,7 @@
           <td class="todoDate" [title]="(item.date?.toString() ?? '').replace('T',' ')">{{ item.date | timeSince }}</td>
           <td *ngIf="item.id" style="display:flex; gap: 5px; justify-content: space-around;">
             <button (click)="editTodo(item.id)" [title]="'Edit'" class="xxSmallFont cursorPointer">{{ isEditing.includes(item.id) ? '💾':'✏️'}}</button>
-            <input type="button" value="❌" [title]="'Delete'" (click)="deleteTodo(item.id!);" id="todoDeleteNo{{item.id}}" class="xxSmallFont cursorPointer" />
+            <input type="button" value="❌" [title]="'Delete'" (click)="deleteTodo(item.id!);" id="todoDeleteNo{{item.id}}" class="xxSmallFont cursorPointer" *ngIf="!isEditing.includes(item.id)" />
           </td>
         </tr>
       </tbody>
@@ -82,15 +82,20 @@
   <!-- New Shared Columns Display -->
   <div *ngIf="showSharedList" class="shared-columns-view">
     <div class="panel-title">Sharing Status</div>  
-    <div class="shared-section" *ngIf="this.sharedColumns.length > 0">
-      <h4>Shared With You:</h4>
+    <div class="shared-section" *ngIf="this.sharedColumns.length > 0"> 
       <div class="shared-user" *ngFor="let item of getSharedWithYou()">
+        
         <div>
-          <div>Column: {{item.columnName}}</div>
-          <div>Shared With {{item.sharedWith.split(',').length}} user{{item.sharedWith.split(',').length > 0 ? 's' : ''}}.</div>
-          <div style="display: flex;justify-content: space-between;"><span>Owner:</span><app-user-tag [userId]="item.ownerId" [inputtedParentRef]="parentRef" [displayHoverPicture]="true"></app-user-tag></div>
+          <div>Category: {{item.columnName}}</div>
+          <div class="smallFont">Shared With {{item.sharedWith.split(',').length}} user{{item.sharedWith.split(',').length > 0 ? 's' : ''}}.</div>
+
+          <app-user-tag [userId]="item.ownerId" [inputtedParentRef]="parentRef" 
+            [displayHoverPicture]="true" 
+            [displayMiniTag]="true">
+          </app-user-tag>
         </div>
-        <div style="display:flex; flex-direction: column; align-items: flex-end;">
+        
+        <div class="shareListButtons">
           <div>
             Enabled:
             <label class="toggle-switch">

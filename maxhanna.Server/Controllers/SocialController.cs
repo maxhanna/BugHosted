@@ -711,30 +711,30 @@ namespace maxhanna.Server.Controllers
 			// Construct SQL query with parameterized IN clause for story IDs
 			StringBuilder sqlBuilder = new StringBuilder();
 			sqlBuilder.AppendLine(@"
-        SELECT 
-            s.id AS story_id,
-            f.id AS file_id, 
-            f.file_name, 
-            f.folder_path, 
-            f.is_public, 
-            f.is_folder, 
-            f.shared_with, 
-            f.given_file_name,
-            f.description as file_data_description,
-            f.last_updated as file_data_updated,
-            f.upload_date AS file_date, 
-            fu.username AS file_username, 
-            f.user_id AS file_user_id
-        FROM 
-            stories AS s
-        LEFT JOIN 
-            story_files AS sf ON s.id = sf.story_id
-        LEFT JOIN 
-            file_uploads AS f ON sf.file_id = f.id 
-        LEFT JOIN 
-            users AS fu ON f.user_id = fu.id
-        WHERE 
-            s.id IN (");
+				SELECT 
+					s.id AS story_id,
+					f.id AS file_id, 
+					f.file_name, 
+					f.folder_path, 
+					f.is_public, 
+					f.is_folder, 
+					f.shared_with, 
+					f.given_file_name,
+					f.description as file_data_description,
+					f.last_updated as file_data_updated,
+					f.upload_date AS file_date, 
+					fu.username AS file_username, 
+					f.user_id AS file_user_id
+				FROM 
+					stories AS s
+				LEFT JOIN 
+					story_files AS sf ON s.id = sf.story_id
+				LEFT JOIN 
+					file_uploads AS f ON sf.file_id = f.id 
+				LEFT JOIN 
+					users AS fu ON f.user_id = fu.id
+				WHERE 
+					s.id IN (");
 
 			// Add placeholders for story IDs
 			for (int i = 0; i < storyIds.Count; i++)
@@ -747,10 +747,10 @@ namespace maxhanna.Server.Controllers
 			}
 
 			sqlBuilder.AppendLine(@")
-        GROUP BY 
-            s.id, f.id, f.file_name, f.folder_path, f.is_public, f.is_folder, f.shared_with,
-            f.given_file_name, file_data_description, file_data_updated,
-            f.upload_date, fu.username, f.user_id;");
+				GROUP BY 
+					s.id, f.id, f.file_name, f.folder_path, f.is_public, f.is_folder, f.shared_with,
+					f.given_file_name, file_data_description, file_data_updated,
+					f.upload_date, fu.username, f.user_id;");
 
 			// Execute the SQL query
 			using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
@@ -788,13 +788,9 @@ namespace maxhanna.Server.Controllers
 									IsFolder = rdr.GetBoolean("is_folder"),
 									Date = rdr.GetDateTime("file_date"),
 									FileComments = new List<FileComment>(),
-									FileData = new FileData()
-									{
-										FileId = rdr.IsDBNull(rdr.GetOrdinal("file_id")) ? 0 : rdr.GetInt32("file_id"),
-										GivenFileName = rdr.IsDBNull(rdr.GetOrdinal("given_file_name")) ? null : rdr.GetString("given_file_name"),
-										Description = rdr.IsDBNull(rdr.GetOrdinal("file_data_description")) ? null : rdr.GetString("file_data_description"),
-										LastUpdated = rdr.IsDBNull(rdr.GetOrdinal("file_data_updated")) ? null : rdr.GetDateTime("file_data_updated"),
-									}
+									GivenFileName = rdr.IsDBNull(rdr.GetOrdinal("given_file_name")) ? null : rdr.GetString("given_file_name"),
+									Description = rdr.IsDBNull(rdr.GetOrdinal("file_data_description")) ? null : rdr.GetString("file_data_description"),
+									LastUpdated = rdr.IsDBNull(rdr.GetOrdinal("file_data_updated")) ? null : rdr.GetDateTime("file_data_updated"),
 								};
 
 								story.StoryFiles!.Add(fileEntry);
@@ -1008,13 +1004,9 @@ namespace maxhanna.Server.Controllers
 										User = new User(rdr.IsDBNull("file_user_id") ? 0 : rdr.GetInt32("file_user_id"), rdr.IsDBNull("file_username") ? "Anonymous" : rdr.GetString("file_username")),
 										IsFolder = rdr.GetBoolean("comment_file_is_folder"),
 										Date = rdr.GetDateTime("comment_file_date"),
-										FileData = new FileData()
-										{
-											FileId = rdr.IsDBNull("comment_file_id") ? 0 : rdr.GetInt32("comment_file_id"),
-											GivenFileName = rdr.IsDBNull("comment_file_given_file_name") ? null : rdr.GetString("comment_file_given_file_name"),
-											Description = rdr.IsDBNull("comment_file_description") ? null : rdr.GetString("comment_file_description"),
-											LastUpdated = rdr.IsDBNull("comment_file_date") ? null : rdr.GetDateTime("comment_file_date"),
-										}
+										GivenFileName = rdr.IsDBNull("comment_file_given_file_name") ? null : rdr.GetString("comment_file_given_file_name"),
+										Description = rdr.IsDBNull("comment_file_description") ? null : rdr.GetString("comment_file_description"),
+										LastUpdated = rdr.IsDBNull("comment_file_date") ? null : rdr.GetDateTime("comment_file_date"),
 									};
 									if (comment.CommentFiles == null) { comment.CommentFiles = new List<FileEntry> { }; }
 									comment.CommentFiles.Add(fileEntry);

@@ -1197,7 +1197,7 @@ export class AppComponent implements OnInit, AfterViewInit {
     //console.log("User tag user loaded", user);
     this.popupUserTagUser = user;
     setTimeout(() => {
-      this.userTagPopupMediaViewer.reloadMedia(true);
+      this.userTagPopupMediaViewer?.reloadMedia(true);
     }, 50);
   }
   isUserOnline(lastSeen: string): boolean {

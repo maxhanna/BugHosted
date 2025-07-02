@@ -112,7 +112,8 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
     trade_value_cad: string,
     trade_value_usdc: string,
     fees: number,
-    timestamp: Date
+    timestamp: Date,
+    matching_trade_id: number | undefined,
   }[] = undefined;
   tradebotValuesForGraph: any;
   tradebotTradeValuesForMainGraph: { timestamp: Date; valueCAD: number }[] = [];
@@ -137,7 +138,7 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
   usdToSelectedCurrencyRate?: number;
   lastTradePercentage = 0;
   globalCryptoStats?: any = undefined;
-
+  indicatorCache = new Map<string, IndicatorData>(); 
   private tradeLogInterval: any = null;
   private coinAndVolumeRefreshInterval: any;
   lastTradebotTradeTimestamp: string = "";
@@ -171,7 +172,11 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
     { value: 'SOL/USDC', display: 'SOL/USDC', fromCoin: 'SOL', toCoin: 'USDC' }
   ]; 
   selectedIndicatorPair = 'BTC/USDC';
-  
+  bullishCoins: string[] = [];
+  isMacdPopupOpen = false;
+  macdGraphData: any[] = [];
+  selectedTradeBalanceId?: number;
+
   @ViewChild('scrollContainer', { static: true }) scrollContainer!: ElementRef;
   @ViewChild(LineGraphComponent) lineGraphComponent!: LineGraphComponent;
   @ViewChild(LineGraphComponent) simLineGraph!: LineGraphComponent;
@@ -290,8 +295,8 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
     this.coinValueService.getGlobalMetrics().then(res => {
       this.globalCryptoStats = res;
     });
-    this.tradeService.getTopMarketCaps().then(res => { this.topMarketCaps = res; }); 
-    this.loadIndicators('XBT', 'USDC');  
+    this.tradeService.getTopMarketCaps().then(res => { this.topMarketCaps = res; });
+    this.loadIndicators('XBT');
 
     this.aiService.getMarketSentiment().then(res => {
       if (res) { 
@@ -2733,6 +2738,8 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
       return { class: 'redText', label: 'Overbought' };
     } else if (rsi <= 30) {
       return { class: 'greenText', label: 'Oversold' };
+    } else if (rsi <= 70 && rsi >= 50) {
+      return { class: 'greenText', label: 'Bullish' };
     } else {
       return { class: '', label: 'Neutral' };
     }
@@ -2799,28 +2806,119 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
     const selected = this.availableIndicatorPairs.find(p => p.value === this.tradeIndicatorSelect.nativeElement.value);
     this.selectedIndicatorPair = this.tradeIndicatorSelect.nativeElement.value;
     if (selected) {
-      this.loadIndicators(selected.fromCoin, selected.toCoin);
+      this.loadIndicators(selected.fromCoin);
     }
   }
 
-  loadIndicators(fromCoin: string, toCoin: string) {
-    this.isLoading = true;
-    this.tradeService.getTradeIndicators(fromCoin, toCoin).then(res => {
-      if (res) {
-        this.tradeIndicators = res;
-        // Replace XBT with BTC for display if needed
-        if (this.tradeIndicators?.fromCoin === 'XBT') {
-          this.tradeIndicators.fromCoin = 'BTC';
+  async loadIndicators(fromCoin?: string) {
+    let tmpIndicatorNames: string[] = [];
+    tmpIndicatorNames.push("XBT", "XRP", "SOL", "XDG", "ETH"); 
+    // Check cache first
+    for(let x = 0; x < tmpIndicatorNames.length; x++) { 
+      const cacheKey = `${tmpIndicatorNames[x]}-USDC`;
+      if (this.indicatorCache.has(cacheKey)) {
+        if (tmpIndicatorNames[x] === fromCoin) {
+          this.tradeIndicators = this.indicatorCache.get(cacheKey)!;
         }
+        this.normalizeCoinName(); // in case of XBT => BTC replacement
+        continue;
       }
-      this.isLoading = false;
-    }).catch(err => {
-      console.error('Error loading indicators:', err);
-      this.isLoading = false;
-    });
-  }
-}
 
+      this.isLoading = true;
+
+      await this.tradeService.getTradeIndicators(tmpIndicatorNames[x], 'USDC').then(res => {
+        if (res) {
+          if (tmpIndicatorNames[x] === fromCoin) { 
+            this.tradeIndicators = res;
+          }
+          this.normalizeCoinName();  
+          if (res) {
+            this.indicatorCache.set(cacheKey, res);
+          }
+        }
+        this.isLoading = false;
+      }).catch(err => {
+        console.error('Error loading indicators:', err);
+        this.isLoading = false;
+      });
+    }
+
+    this.checkBullishIndicators(); 
+  }
+  private normalizeCoinName() {
+    if (this.tradeIndicators?.fromCoin === 'XBT') {
+      this.tradeIndicators.fromCoin = 'BTC';
+    }
+  }
+  checkBullishIndicators() {
+    this.bullishCoins = []; 
+    for (const [key, indicators] of this.indicatorCache.entries()) {
+      const [fromCoin, toCoin] = key.split('-');
+      const rsi = indicators.rsI14Day;
+      const rsiBullish =
+        (rsi < 30) ||     // Reversal zone
+        (rsi >= 50 && rsi <= 70); // Trending bullish
+      const hasSignal =
+        indicators.twoHundredDayMA &&
+        indicators.fourteenDayMA &&
+        indicators.twentyOneDayMA &&
+        rsiBullish &&
+        indicators.macdHistogram &&
+        indicators.vwaP24Hour;
+
+      if (hasSignal) {
+        this.bullishCoins.push(`${fromCoin}/${toCoin}`);
+      }
+    }
+  }
+  async openMacdPopup() {
+    this.isMacdPopupOpen = true; 
+    this.parentRef?.showOverlay();
+    await this.loadMacdGraphData();
+  }
+
+  closeMacdPopup() {
+    this.isMacdPopupOpen = false;
+    setTimeout(() => {
+      this.parentRef?.closeOverlay();
+    }, 50);
+    this.macdGraphData = []; // Clear data on close
+  }
+
+  async loadMacdGraphData() {
+    try { 
+      const days = 30; // Match backend default
+      const fastPeriod = 12; // Match backend default
+      const slowPeriod = 26; // Match backend default
+      const signalPeriod = 9; // Match backend default
+      const [fromCoin, toCoin] = this.selectedIndicatorPair.split('/'); 
+      const data = await this.tradeService.getMacdData(
+        fromCoin,
+        toCoin,
+        days,
+        fastPeriod,
+        slowPeriod,
+        signalPeriod
+      );
+      this.macdGraphData = data.map((point: any) => ({
+        timestamp: point.timestamp, // ISO string, e.g., "2025-07-01T00:00:00Z"
+        macdLine: point.macdLine != null ? Number(point.macdLine) : null,
+        signalLine: point.signalLine != null ? Number(point.signalLine) : null,
+        histogram: point.histogram != null ? Number(point.histogram) : null,
+        price: point.price != null ? Number(point.price) : null
+      })); 
+    } catch (error) {
+      console.error('Error loading MACD data:', error);
+      this.macdGraphData = []; 
+    }
+  } 
+  goToTradeId(tradeId: string) {
+    this.selectedTradeBalanceId = parseInt(tradeId.replace("tradeBalance", ""));
+    const element = document.getElementById(tradeId);
+    element?.scrollIntoView({ behavior: 'smooth', block: 'center' }); 
+  }
+  
+} 
 
 interface VolumeWarning {
   level: 'none' | 'mild' | 'severe';
@@ -2857,12 +2955,14 @@ interface IndicatorData {
   vwaP24Hour: boolean;
   vwaP24HourValue: number;
   retracementFromHigh: boolean;
-  retracementFromHighValue: number;
+  retracementFromHighValue: number; 
+  macdHistogram: boolean;
+  macdLineValue: number;
+  macdSignalValue: number;
 }
 export interface SentimentEntry {
   sentimentScore: number;
   analysis: string;
   createdUtc: Date;
   expanded?: boolean;    
-}
- 
+} 

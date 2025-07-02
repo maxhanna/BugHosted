@@ -3,8 +3,10 @@
 }
 
 ::ng-deep .fullscreen-overlay {
-  display: none; /* Hidden by default */
-  position: fixed; /* Sit on top of the page content */
+  display: none;
+  /* Hidden by default */
+  position: fixed;
+  /* Sit on top of the page content */
   top: 0;
   left: 0;
   width: 100%;
@@ -56,7 +58,7 @@
 }
 
 .mediaContainerWrapperDiv {
-  display: flex; 
+  display: flex;
   flex-direction: column;
   justify-content: center;
   align-items: center;
@@ -65,7 +67,7 @@
 }
 
 .mediaContainerDiv {
-  max-height: CALC(var(--vh, 1vh) * 60); 
+  max-height: CALC(var(--vh, 1vh) * 60);
   object-fit: contain;
 }
 
@@ -99,21 +101,32 @@
   color: var(--secondary-font-color);
 }
 
-  .noAutoLoadDiv span {
-    position: relative;
-    left: 0px;
-    top: 0px;
-  }
+.noAutoLoadDiv span {
+  position: relative;
+  left: 0px;
+  top: 0px;
+}
+
 .filetype {
-    font-size: xx-small;
+  font-size: xx-small;
 }
-.fileDataDiv { 
-  width:100vw;
+
+.fileDataDiv {
+  width: 100vw;
 }
+
 .fileDataComponentBackground {
   background-color: var(--component-background-color);
 }
+
 .fileViewerDiv {
   max-height: 400vh;
   overflow: auto;
+}
+
+.showInfoSpan {
+  height: 0px;
+  width: 0px;
+  white-space: nowrap;
+  position: relative;
 }

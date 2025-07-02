@@ -565,7 +565,8 @@
               <div *ngFor="let file of story.storyFiles"
                 [class]="'attachment ' + (story.storyFiles.length > 1 ? 'multipleAttachments' : 'singleAttachment')">
                 <app-media-viewer [user]="file.user" [inputtedParentRef]="parentRef ?? parent" [currentDirectory]="file.directory"
-                  [file]="file" [showCommentSection]="false" [showMediaInformation]="true" [displayExpander]="false" [displayExtraInfo]="false"
+                  [file]="file" [showCommentSection]="false" [showMediaInformation]="true" [displayExpander]="false" 
+                  [displayExtraInfo]="false" [showTopics]="false"
                   [autoplay]="false" [autoload]="true" [forceInviewLoad]="true" [previousComponent]="'Social'">
                 </app-media-viewer>
               </div>

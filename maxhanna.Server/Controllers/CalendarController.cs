@@ -45,7 +45,7 @@ namespace maxhanna.Server.Controllers
                                   OR 
                                   (Type = 'Monthly') -- Monthly on the same day of the month
                                   OR 
-                                  (Type IN ('Annually', 'Birthday', 'Milestone', 'Newyears', 'Christmas') AND MONTH(Date) = MONTH(@StartDate)) -- Annually on the same day and month
+                                  (Type IN ('Annually', 'Birthday', 'Milestone', 'Newyears', 'Christmas', 'Anniversary') AND MONTH(Date) = MONTH(@StartDate)) -- Annually on the same day and month
                                   OR 
                                   (Type IN ('Daily')) -- Daily regardless of month, year.
                               )

@@ -168,6 +168,7 @@ export class CalendarComponent extends ChildComponent implements OnInit {
       || type.toLowerCase() == "annually"
       || type.toLowerCase() == "birthday"
       || type.toLowerCase() == "newyears"
+      || type.toLowerCase() == "anniversary"
       || type.toLowerCase() == "christmas")
       && (date1.getMonth() === date2.getMonth() && date1.getDate() === date2.getDate());
   }

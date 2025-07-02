@@ -353,13 +353,13 @@ export class MusicComponent extends ChildComponent implements OnInit, AfterViewI
       this.isEditing.push(id);
     } else {
       const todoDiv = document.getElementById('songId' + id) as HTMLTableCellElement;
-      const textArea = todoDiv.getElementsByTagName("textarea")[0];
+      const textInput = document.getElementById("editSongNameInput") as HTMLInputElement;
 
       try {
-        await this.todoService.editTodo(id, textArea.value);
+        await this.todoService.editTodo(id, textInput.value);
         const todoIndex = this.songs.findIndex(todo => todo.id === id);
         if (todoIndex !== -1) {
-          this.songs[todoIndex].todo = textArea.value;
+          this.songs[todoIndex].todo = textInput.value;
         }
         this.isEditing = this.isEditing.filter(x => x !== id);
       } catch (error) {

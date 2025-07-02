@@ -123,9 +123,20 @@ export class TodoComponent extends ChildComponent implements OnInit, AfterViewIn
     if (!this.parentRef?.user?.id) return;
     this.startLoading();
     await this.todoService.deleteTodo(this.parentRef.user.id, id);
-    if (document.getElementById("todoNo" + id)) {
-      document.getElementById("todoNo" + id)!.style.textDecoration = "line-through";
-      document.getElementById("todoDeleteNo" + id)?.setAttribute("disabled", "true");
+    const row = document.getElementById("todoNo" + id) as HTMLTableRowElement;
+
+    if (row) {
+      row.style.textDecoration = "line-through"; 
+      const buttons = row.getElementsByTagName('button');
+      const inputButtons = row.getElementsByTagName('input');
+      for (let i = 0; i < buttons.length; i++) {
+        buttons[i].style.display = 'none';
+      } 
+      for (let i = 0; i < inputButtons.length; i++) {
+        if (inputButtons[i].type === 'button') {
+          inputButtons[i].style.display = 'none';
+        }
+      }
     }
     this.todoCount--;
     this.clearInputs();

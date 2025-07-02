@@ -82,7 +82,7 @@
         </div>
       </div>
     </div>
-    <div *ngIf="showMediaInformation" class="cursorPointer xxSmallFont" title="Information"><a (click)="showMediaInformationButtonClicked()">ℹ️Info</a></div>
+    <div *ngIf="showMediaInformation" class="cursorPointer xxSmallFont showInfoSpan" title="Information"><a (click)="showMediaInformationButtonClicked()">ℹ️Info</a></div>
 
   </div>
   <app-topics *ngIf="showTopics"
@@ -106,9 +106,15 @@
             {{selectedFile.isFolder ? 'Folder' : 'File'}} Name:
           </div>
           <div class="optionsStatsDescription">
-            {{selectedFile.fileName}}
+            <span *ngIf="!isEditingFileName">{{selectedFile.fileName}}</span>
+            <button (click)="isEditingFileName ? saveFileName(selectedFile) : editFileName(selectedFile)">✏️</button>
+            <input *ngIf="isEditingFileName" type="text" #editFileNameInput [value]="selectedFile.fileName"
+                   (keyup.enter)="saveFileName(selectedFile)"
+                   (blur)="saveFileName(selectedFile)"
+                   class="fileNameInput" />
           </div>
         </div>
+ 
         <div class="optionsStatsDiv" *ngIf="selectedFile.givenFileName">
           <div class="optionsStatsHeader">
             Given File Name:
@@ -135,14 +141,22 @@
             {{ (selectedFile.fileSize ?? 0) | fileSize}}
           </div>
         </div>
-
+ 
         <div class="optionsStatsDiv">
           <div class="optionsStatsHeader">
-            Topics:
+            Topics<span
+              *ngIf="selectedFile.user?.id == inputtedParentRef?.user?.id || selectedFile.user?.id == parentRef?.user?.id || parentRef?.user?.id == 1|| inputtedParentRef?.user?.id == 1"
+              (click)="editFileTopic(selectedFile)" class="cursorPointer" title="Edit File Topics">✏️</span>:
           </div>
           <div class="optionsStatsDescription">
+            <app-topics #topicComponent *ngIf="editingTopics.includes(selectedFile.id)" [isDropdown]="true" [user]="inputtedParentRef?.user ?? parentRef?.user"
+              [parent]="inputtedParentRef ?? parentRef" [attachedTopics]="selectedFile.topics"
+              (topicAdded)="editFileTopicInDB($event, selectedFile)">
+            </app-topics>
             <span *ngFor="let topic of selectedFile.topics" class="matchingTopic">
               {{topic.topicText}} 
+              <span title="Remove Topic From File" *ngIf="selectedFile && selectedFile.id && editingTopics.includes(selectedFile.id)"
+                (click)="removeTopicFromFile(topic, selectedFile); $event.stopPropagation()">❌</span>
             </span>
           </div>
         </div>
@@ -235,7 +249,8 @@
             Created By:
           </div>
           <div class="optionsStatsDescription">
-            <app-user-tag [user]="selectedFile.user"
+            <app-user-tag *ngIf="selectedFile.user"
+                          [user]="selectedFile.user"
                           [inputtedParentRef]="parentRef ?? inputtedParentRef"
                           [displayMiniTag]="true"
                           [displayHoverPicture]="true"

@@ -65,6 +65,7 @@ namespace maxhanna.Server.Services
 					success &= await UpdateRSI(connection, coin.fromCoin, coin.toCoin, coin.coinName);
 					success &= await UpdateVWAP(connection, coin.pair, coin.fromCoin, coin.toCoin);
 					success &= await UpdateRetracementFromHigh(connection, coin.fromCoin, coin.toCoin, coin.coinName);
+					success &= await UpdateMACD(connection, coin.fromCoin, coin.toCoin, coin.coinName);
 
 					overallSuccess &= success;
 
@@ -550,7 +551,100 @@ namespace maxhanna.Server.Services
 			_ = _log.Db($"Failed to update Retracement for {fromCoin}/{toCoin} after max retries", null, "TISVC", true);
 			return false;
 		}
+		private async Task<bool> UpdateMACD(MySqlConnection connection, string fromCoin, string toCoin, string coinName)
+		{
+			const int fastPeriod = 12;  // Standard MACD fast EMA
+			const int slowPeriod = 26;  // Standard MACD slow EMA
+			const int signalPeriod = 9; // Standard MACD signal line
 
+			// Step 1: Fetch historical prices (last 26+9=35 days)
+			var sql = @"
+				SELECT DATE(timestamp) as price_date, AVG(value_usd) as usd_price
+				FROM coin_value
+				WHERE name = @coinName
+				AND timestamp >= DATE_SUB(CURRENT_TIMESTAMP, INTERVAL 35 DAY)
+				GROUP BY DATE(timestamp)
+				ORDER BY price_date ASC;";
+
+			try
+			{
+				// Fetch data
+				using var cmd = new MySqlCommand(sql, connection);
+				cmd.Parameters.AddWithValue("@coinName", coinName);
+				using var reader = await cmd.ExecuteReaderAsync();
+
+				var prices = new List<decimal>();
+				while (await reader.ReadAsync())
+				{
+					prices.Add(reader.GetDecimal("usd_price"));
+				}
+				await reader.CloseAsync();
+
+				if (prices.Count < slowPeriod + signalPeriod)
+				{
+					_ = _log.Db($"Insufficient data for MACD calculation ({prices.Count} points)", null, "TISVC", true);
+					return false;
+				}
+
+				// Step 2: Calculate MACD components
+				var emaFast = CalculateEMA(prices, fastPeriod);
+				var emaSlow = CalculateEMA(prices, slowPeriod);
+				var macdLine = emaFast.Skip(slowPeriod - fastPeriod).Select((x, i) => x - emaSlow[i]).ToList();
+				var signalLine = CalculateEMA(macdLine, signalPeriod);
+				var histogram = macdLine.Skip(signalPeriod).Select((x, i) => x - signalLine[i]).ToList();
+
+				// Get latest values
+				decimal latestMacdLine = macdLine.Last();
+				decimal latestSignalLine = signalLine.Last();
+				decimal latestHistogram = histogram.Last();
+				bool isBullish = latestHistogram > 0;
+
+				// Step 3: Update database
+				const string updateSql = @"
+					INSERT INTO trade_indicators
+						(from_coin, to_coin, macd_histogram, macd_line_value, macd_signal_value, updated)
+					VALUES (@fromCoin, @toCoin, @isBullish, @macdLine, @signalLine, UTC_TIMESTAMP())
+					ON DUPLICATE KEY UPDATE
+						macd_histogram = @isBullish,
+						macd_line_value = @macdLine,
+						macd_signal_value = @signalLine,
+						updated = UTC_TIMESTAMP();";
+
+				using var updateCmd = new MySqlCommand(updateSql, connection);
+				updateCmd.Parameters.AddWithValue("@fromCoin", fromCoin);
+				updateCmd.Parameters.AddWithValue("@toCoin", toCoin);
+				updateCmd.Parameters.AddWithValue("@isBullish", isBullish ? 1 : 0);
+				updateCmd.Parameters.AddWithValue("@macdLine", latestMacdLine);
+				updateCmd.Parameters.AddWithValue("@signalLine", latestSignalLine);
+
+				await updateCmd.ExecuteNonQueryAsync();
+
+				_ = _log.Db($"MACD updated for {fromCoin}/{toCoin}: Histogram={latestHistogram:F4} (Bullish: {isBullish})",
+					   null, "TISVC", true);
+				return true;
+			}
+			catch (Exception ex)
+			{
+				_ = _log.Db($"Error calculating MACD for {fromCoin}/{toCoin}: {ex.Message}", null, "TISVC", true);
+				return false;
+			}
+		}
+
+		// Helper: Calculate Exponential Moving Average (EMA)
+		private List<decimal> CalculateEMA(List<decimal> prices, int period)
+		{
+			var ema = new List<decimal>();
+			decimal multiplier = 2m / (period + 1);
+			decimal initialSma = prices.Take(period).Average();
+			ema.Add(initialSma);
+
+			for (int i = period; i < prices.Count; i++)
+			{
+				decimal currentEma = (prices[i] - ema.Last()) * multiplier + ema.Last();
+				ema.Add(currentEma);
+			}
+			return ema;
+		}
 		private async Task<bool> IsPriceAboveMovingAverage(MySqlConnection connection, string coinName, decimal referencePrice)
 		{
 			var sql = @"

@@ -13,4 +13,7 @@ public class IndicatorData
 	public Decimal VWAP24HourValue { get; set; }
 	public Boolean RetracementFromHigh { get; set; }
 	public Decimal RetracementFromHighValue { get; set; }
+	public Boolean MACDHistogram { get; set; }
+	public Decimal MACDLineValue { get; set; }
+	public Decimal MACDSignalValue { get; set; }
 }

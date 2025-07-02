@@ -1,5 +1,4 @@
-using maxhanna.Server.Controllers.DataContracts.Topics;
-using maxhanna.Server.Controllers.DataContracts.Users;
+using maxhanna.Server.Controllers.DataContracts.Topics; 
 
 namespace maxhanna.Server.Controllers.DataContracts.Files
 {

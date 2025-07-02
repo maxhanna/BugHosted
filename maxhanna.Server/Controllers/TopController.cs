@@ -41,7 +41,7 @@ namespace maxhanna.Server.Controllers
 				await conn.OpenAsync();
 
 				string sql = @"
-					SELECT te.id, te.entry, te.category, te.url, te.text, te.user_id, te.created_at, sr.image_url 
+					SELECT te.id, te.entry, te.category, te.url, te.text, te.user_id, te.created_at, sr.image_url , te.file_id
 					FROM maxhanna.top_entries AS te 
 					LEFT JOIN maxhanna.search_results AS sr ON LOWER(sr.url) = te.url ";
 
@@ -80,6 +80,7 @@ namespace maxhanna.Server.Controllers
 							Text = reader.IsDBNull(reader.GetOrdinal("text")) ? null : reader.GetString(reader.GetOrdinal("text")),
 							Url = reader.IsDBNull(reader.GetOrdinal("url")) ? null : reader.GetString(reader.GetOrdinal("url")),
 							ImgUrl = reader.IsDBNull(reader.GetOrdinal("image_url")) ? null : reader.GetString(reader.GetOrdinal("image_url")),
+							FileId = reader.IsDBNull(reader.GetOrdinal("file_id")) ? (int?)null : reader.GetInt32(reader.GetOrdinal("file_id")),
 							UserId = reader.IsDBNull(reader.GetOrdinal("user_id")) ? (int?)null : reader.GetInt32(reader.GetOrdinal("user_id")),
 							CreatedAt = reader.GetDateTime(reader.GetOrdinal("created_at")),
 							TotalVotes = 0,
@@ -230,9 +231,9 @@ namespace maxhanna.Server.Controllers
 
 				// First check if vote exists
 				string checkSql = @"
-            SELECT vote_value 
-            FROM maxhanna.top_entry_votes
-            WHERE entry_id = @entryId AND user_id = @userId";
+					SELECT vote_value 
+					FROM maxhanna.top_entry_votes
+					WHERE entry_id = @entryId AND user_id = @userId";
 
 				using MySqlCommand checkCmd = new MySqlCommand(checkSql, conn);
 				checkCmd.Parameters.AddWithValue("@entryId", request.EntryId);
@@ -305,13 +306,14 @@ namespace maxhanna.Server.Controllers
 						   .ToArray();
 
 				string sql = @"
-					INSERT INTO maxhanna.top_entries (entry, category, url, text, user_id, created_at)
-					VALUES (@entry, @category, @url, @text, @userId, UTC_TIMESTAMP())";
+					INSERT INTO maxhanna.top_entries (entry, category, url, text, file_id, user_id, created_at)
+					VALUES (@entry, @category, @url, @text, @picture, @userId, UTC_TIMESTAMP())";
 
 				using MySqlCommand cmd = new MySqlCommand(sql, conn);
 				cmd.Parameters.AddWithValue("@entry", req.Entry);
 				cmd.Parameters.AddWithValue("@category", string.Join(", ", topicNames));
 				cmd.Parameters.AddWithValue("@text", req.Text ?? (object)DBNull.Value);
+				cmd.Parameters.AddWithValue("@picture", req.Picture ?? (object)DBNull.Value);
 				cmd.Parameters.AddWithValue("@url", req.Url ?? (object)DBNull.Value);
 				cmd.Parameters.AddWithValue("@userId", req.UserId ?? (object)DBNull.Value);
 
@@ -371,6 +373,10 @@ namespace maxhanna.Server.Controllers
 				if (req.Text != null) // Allow empty string
 				{
 					updates.Add($"text = {(string.IsNullOrEmpty(req.Text) ? "NULL" : $"'{MySqlHelper.EscapeString(req.Text)}'")}");
+				} 
+				if (req.Picture != null) // Allow empty string
+				{
+					updates.Add($"file_id = {req.Picture}");
 				}
 
 				// If nothing to update
@@ -381,9 +387,9 @@ namespace maxhanna.Server.Controllers
 
 				// Build final query
 				var updateSql = $@"
-            UPDATE maxhanna.top_entries 
-            SET {string.Join(", ", updates)}, updated_at = CURRENT_TIMESTAMP
-            WHERE id = {req.EntryId}";
+					UPDATE maxhanna.top_entries 
+					SET {string.Join(", ", updates)}, updated_at = CURRENT_TIMESTAMP
+					WHERE id = {req.EntryId}";
 
 				using MySqlCommand cmd = new MySqlCommand(updateSql, conn);
 				int rowsAffected = await cmd.ExecuteNonQueryAsync();
@@ -500,6 +506,7 @@ public class TopEntry
 	public string? Url { get; set; }
 	public string? Text { get; set; }
 	public string? ImgUrl { get; set; }
+	public int? FileId { get; set; }
 	public int? UserId { get; set; }
 	public DateTime CreatedAt { get; set; }
 	public int TotalVotes { get; set; }

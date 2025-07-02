@@ -8,6 +8,7 @@ namespace maxhanna.Server.Controllers.DataContracts.Top
 		public required Topic[] Topics { get; set; }
 		public string? Url { get; set; }
 		public string? Text { get; set; }
+		public int? Picture { get; set; }
 		public int? UserId { get; set; } 
 	} 
 }

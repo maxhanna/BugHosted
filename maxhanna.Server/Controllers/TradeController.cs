@@ -56,7 +56,7 @@ public class TradeController : ControllerBase
 		{
 			return StatusCode(500, "Error getting API key");
 		}
-	} 
+	}
 	[HttpPost("/Trade/StartBot", Name = "StartBot")]
 	public async Task<IActionResult> StartBot([FromBody] TradebotStatusRequest req, [FromHeader(Name = "Encrypted-UserId")] string encryptedUserId)
 	{
@@ -302,8 +302,52 @@ public class TradeController : ControllerBase
 
 	[HttpPost("/Trade/GetTradeIndicators", Name = "GetTradeIndicators")]
 	public async Task<IActionResult> GetTradeIndicators([FromBody] TradebotIndicatorRequest req)
-	{  
+	{
 		IndicatorData? ok = await _krakenService.GetIndicatorData(req.FromCoin, req.ToCoin);
-		return Ok(ok); 
+		return Ok(ok);
 	}
-}
+
+	[HttpPost("/Trade/GetMacdData", Name = "GetMacdData")]
+	public async Task<IActionResult> GetMacdData([FromBody] MacdDataRequest request)
+	{
+		try
+		{
+			// Validate inputs
+			if (string.IsNullOrWhiteSpace(request.FromCoin) || string.IsNullOrWhiteSpace(request.ToCoin))
+			{
+				_ = _log.Db($"Invalid coin pair: FromCoin={request.FromCoin}, ToCoin={request.ToCoin}", null, "TRADE", true);
+				return BadRequest("FromCoin and ToCoin are required.");
+			}
+			if (request.Days <= 0 || request.Days > 720) // Kraken OHLC limit: ~720 days
+			{
+				_ = _log.Db("Invalid Days: {Days}", request.Days);
+				return BadRequest("Days must be between 1 and 720.");
+			}
+			if (request.FastPeriod <= 0 || request.SlowPeriod <= 0 || request.SignalPeriod <= 0)
+			{
+				_ = _log.Db($"Invalid periods: Fast={request.FastPeriod}, Slow={request.SlowPeriod}, Signal={request.SignalPeriod}", null, "TRADE", true);
+				return BadRequest("MACD periods must be positive.");
+			}
+			if (request.SlowPeriod <= request.FastPeriod)
+			{
+				_ = _log.Db($"SlowPeriod ({request.SlowPeriod}) must be greater than FastPeriod ({request.FastPeriod})", null, "TRADE", true);
+				return BadRequest("SlowPeriod must be greater than FastPeriod.");
+			}
+
+			var result = await _krakenService.GetMacdData(
+				request.FromCoin,
+				request.ToCoin,
+				request.Days,
+				request.FastPeriod,
+				request.SlowPeriod,
+				request.SignalPeriod
+			);
+			return Ok(result);
+		}
+		catch (Exception ex)
+		{
+			_ = _log.Db($"Error getting MACD data for FromCoin: {request.FromCoin}, ToCoin: {request.ToCoin}, Days: {request.Days}", null, "TRADE", true);
+			return StatusCode(500, $"Error getting MACD data: {ex.Message}");
+		}
+	}
+}  

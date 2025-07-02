@@ -5,8 +5,7 @@ namespace maxhanna.Server.Controllers.DataContracts.Files
 {
 	public class FileEntry
 	{
-		public int Id { get; set; }
-		public FileData? FileData { get; set; }
+		public int Id { get; set; } 
 		public string? FileName { get; set; }
 		public string? GivenFileName { get; set; }
 		public string? Description { get; set; }

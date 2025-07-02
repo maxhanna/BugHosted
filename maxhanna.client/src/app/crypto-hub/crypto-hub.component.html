@@ -182,7 +182,7 @@
             14-Day RSI
           </span>
           <span class="indicator-value"
-            [class]="(tradeIndicators.rsI14Day < 30 || tradeIndicators.rsI14Day > 70) ? 'positive' : getRSIStatus(tradeIndicators.rsI14Day).class">
+            [class]="(tradeIndicators.rsI14Day < 30 || (tradeIndicators.rsI14Day >= 50 && tradeIndicators.rsI14Day <= 70)) ? 'positive' : getRSIStatus(tradeIndicators.rsI14Day).class">
             {{ tradeIndicators.rsI14Day | number:'1.2-2' }}
             <span class="rsi-label">({{ getRSIStatus(tradeIndicators.rsI14Day).label || 'Unknown' }})</span>
           </span>
@@ -205,18 +205,35 @@
         <!-- Retracement From High Boolean -->
         <div class="indicator-card">
           <div class="indicator-label"
-            title="How much the price has dropped from its recent high. Small values suggest strength.">
+            title="Shows how much the price has dropped from its 1-year high. Values below 15% indicate strength, while larger drops may suggest weakness.">
             Retracement From High
           </div>
           <div class="indicator-value" [class.positive]="tradeIndicators.retracementFromHigh">
-            {{ tradeIndicators.retracementFromHigh ? 'Yes' : 'No' }}
+            {{ tradeIndicators.retracementFromHigh ? 'Strong' : 'Weak' }}
           </div>
-          <div class="indicator-value" [class]="tradeIndicators.retracementFromHigh ? 'positive' : 'vwap-value'">
+          <div class="indicator-value" [class]="tradeIndicators.retracementFromHigh ? 'positive' : 'negative'">
             {{ tradeIndicators.retracementFromHighValue * 100 | number:'1.2-2' }}%
+            <span class="threshold-indicator" *ngIf="tradeIndicators.retracementFromHighValue > 0.15">
+              (Above 15% threshold)
+            </span>
           </div>
         </div>
 
-        <!-- Retracement From High Boolean -->
+        <!-- MACD Histogram Boolean -->
+        <div class="indicator-card" (click)="openMacdPopup()">
+          <div class="indicator-label"
+            title="MACD Histogram > 0 indicates bullish momentum (MACD line above signal line). Values show the distance between MACD and signal lines.">
+            MACD Histogram
+          </div>
+          <div class="indicator-value" [class.positive]="tradeIndicators.macdHistogram">
+            {{ tradeIndicators.macdHistogram ? 'Bullish' : 'Bearish' }}
+          </div>
+          <div class="indicator-value" [class]="tradeIndicators.macdHistogram ? 'positive' : 'negative'">
+            {{ (tradeIndicators.macdLineValue - tradeIndicators.macdSignalValue) | number:'1.4-4' }}
+          </div>
+        </div>
+
+        <!-- Sentiment Analysis Score -->
         <div [class]="'indicator-card' + (isMarketSentimentMaximized ? ' popupPanel' : '')" *ngIf="marketSentimentData != undefined" (click)="(isMarketSentimentMaximized ? '' : openMarketSentimentPopup())">
           <div class="indicator-label"
             title="How much the price has dropped from its recent high. Small values suggest strength.">
@@ -269,14 +286,20 @@
             <!-- CLOSE BUTTON -->
             <div style="text-align:right;margin-top:12px;">
               <button id="closeOverlay" (click)="closeMarketSentimentPopup()">OK</button>
-            </div>
-          
-          </div>
-          
-          
+            </div> 
+          </div> 
         </div>
-    
-      </div>
+
+        <!-- Retracement From High Boolean -->
+        <div class="indicator-card" *ngIf="bullishCoins.length > 0" title="Bullish indicator signals detected for these coins. Trade with caution!">
+          <div class="bullish-warning">
+            ⚠️ Bullish coin(s) detected: 
+          </div>
+          <div *ngFor="let pair of bullishCoins">
+           {{ pair.replace("XBT", "BTC") }} 
+          </div>
+        </div>
+      </div> 
     </div>
     <div *ngIf="!isTradePanelOpen" class="sectionContainer">
       <app-crypto-fear-and-greed [inputtedParentRef]="parentRef"></app-crypto-fear-and-greed>
@@ -567,22 +590,26 @@
           <table class="mainTable tradeBalanceTable">
             <thead>
               <tr>
-                <th class="xxSmallFont">From</th>
-                <th class="xxSmallFont">To</th>
+                <th class="xxSmallFont">ID</th>
+                <th class="xxSmallFont">Pair</th>
                 <th class="xxSmallFont">Value ($BTC)/($USDC)</th>
                 <th class="xxSmallFont">BTC Price</th>
                 <th class="xxSmallFont">Fees</th>
                 <th class="xxSmallFont">Timestamp</th>
+                <th class="xxSmallFont">Matched Trade</th>
               </tr>
             </thead>
             <tbody>
-              <tr *ngFor="let trade of tradebotBalances">
-                <td class="xxSmallFont tradeBalanceCurrencyLabel"
-                  [style.color]="trade.from_currency == 'XBT' ? '#a17f1a' : trade.from_currency == 'USDC' ? 'blue' : ''">
-                  {{ trade.from_currency }}</td>
-                <td class="xxSmallFont tradeBalanceCurrencyLabel"
-                  [style.color]="trade.to_currency == 'XBT' ? '#a17f1a' : trade.to_currency == 'USDC' ? 'blue' : ''">{{
-                  trade.to_currency }}</td>
+              <tr *ngFor="let trade of tradebotBalances" [id]="'tradeBalance'+trade.id" [class]="selectedTradeBalanceId == trade.id ? 'gradientBackground' : ''">
+                <td class="xxSmallFont">
+                  {{ trade.id }}
+                </td>
+                <td class="tradeBalanceCurrencyLabel"> 
+                  <span class="tradeBalancePairLabelContainer">
+                    <span class="xxSmallFont" [style.color]="trade.from_currency == 'XBT' ? '#a17f1a' : trade.from_currency == 'USDC' ? 'blue' : ''">{{trade.from_currency}}</span> /
+                    <span class="xxSmallFont" [style.color]="trade.to_currency == 'XBT' ? '#a17f1a' : trade.to_currency == 'USDC' ? 'blue' : ''">{{trade.to_currency}}</span>
+                  </span> 
+                </td>
                 <td class="smallFont" style="display:flex; justify-content: space-evenly; flex-wrap: wrap;"><span
                     style="margin-left:3px">{{ trade.value }}</span><span style="margin-right:3px"
                     class="thirdFontColor">{{ formatStringCanadianCurrency(trade.trade_value_usdc) }}</span></td>
@@ -590,6 +617,7 @@
                 <td class="xxSmallFont">{{ formatToCanadianCurrency(trade.fees) }}</td>
                 <td class="xxSmallFont" [title]="parentRef?.convertUtcToLocalTime(trade.timestamp)">{{
                   parentRef?.convertUtcToLocalTime(trade.timestamp) | timeSince }}</td>
+                <td class="xxSmallFont" [title]="trade.matching_trade_id" (click)="goToTradeId('tradeBalance'+trade.matching_trade_id)">{{ trade.matching_trade_id }}</td>
               </tr>
             </tbody>
           </table>
@@ -1346,4 +1374,48 @@
     <div>
       <button id="closeOverlay" (click)="closeTradeInformationPanel()">Close</button>
     </div>
+  </div>
+
+  <div *ngIf="isMacdPopupOpen" class="popupPanel macd-popup">
+    <div class="popupPanelTitle" title="MACD is a popular trend-following momentum indicator used in technical analysis to identify potential buy/sell signals. It consists of two lines: the MACD line (difference between 12-day and 26-day exponential moving averages) and the Signal line (9-day EMA of the MACD line). The histogram shows the difference between these two lines, indicating momentum strength.">
+      MACD Visualization ({{selectedIndicatorPair}})
+      <button class="close-button" (click)="closeMacdPopup()">×</button>
+    </div>
+  
+    <div class="macd-graph-container">
+      <app-line-graph [type]="'MACD'" [selectedCoin]="selectedIndicatorPair.split('/')[0]" [data]="macdGraphData"
+        [showHistogram]="true" [showSignalLine]="true" [showMacdLine]="true" [selectedPeriod]="'2w'">
+      </app-line-graph>
+    </div>
+  
+    <div class="macd-legend">
+      <div class="legend-item">
+        <span class="legend-color macd-line"></span>
+        <span>MACD Line (12,26)</span>
+      </div>
+      <div class="legend-item">
+        <span class="legend-color signal-line"></span>
+        <span>Signal Line (9)</span>
+      </div>
+      <div class="legend-item">
+        <span class="legend-color histogram-positive"></span>
+        <span>Bullish Histogram</span>
+      </div>
+      <div class="legend-item">
+        <span class="legend-color histogram-negative"></span>
+        <span>Bearish Histogram</span>
+      </div>
+    </div>
+  
+    <div class="macd-description gradientBackground">
+      <h3>MACD Interpretation</h3>
+      <ul>
+        <li><strong>Bullish Signal:</strong> When MACD (blue) crosses above Signal (orange)</li>
+        <li><strong>Bearish Signal:</strong> When MACD crosses below Signal</li>
+        <li><strong>Histogram:</strong> Shows distance between MACD and Signal lines</li>
+        <li><strong>Divergence:</strong> Price makes new highs/lows but MACD doesn't - potential reversal signal</li>
+      </ul>
+    </div>
+  
+    <button class="popup-close-button" id="closeOverlay" (click)="closeMacdPopup()">Close</button>
   </div>

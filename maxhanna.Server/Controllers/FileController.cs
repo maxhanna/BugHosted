@@ -360,7 +360,7 @@ LIMIT
 					}
 
 					GetFileReactions(fileEntries, connection, fileIds, commentIds, fileIdsParameters, commentIdsParameters);
-					GetFileTopics(fileEntries, connection, fileIds, fileIdsParameters);
+					GetFileTopics(fileEntries, connection, fileIds);
 					var result = GetDirectoryResults(user, directory, search, page, pageSize, fileEntries, fileTypeCondition, visibilityCondition, ownershipCondition, hiddenCondition, connection, searchCondition, extraParameters);
 
 					return Ok(result);
@@ -516,8 +516,7 @@ LIMIT
 				{
 					parent.Comments ??= new List<FileComment>();
 					parent.Comments.Add(comment);
-				}
-				// else skip � parent was likely filtered out or not included
+				} 
 			}
 		}
 
@@ -539,47 +538,55 @@ LIMIT
 			return result;
 		}
 
-		private static void GetFileTopics(List<FileEntry> fileEntries, MySqlConnection connection, List<int> fileIds, List<string> fileIdsParameters)
+		private static void GetFileTopics(List<FileEntry> fileEntries, MySqlConnection connection, List<int> fileIds)
 		{
-			// Fetch topics separately
-			var topicsCommand = new MySqlCommand($@"
-                        SELECT
-                            ft.file_id,
-                            ft.topic_id,
-														t.topic 
-                        FROM
-                            maxhanna.file_topics ft
-												LEFT JOIN topics t ON t.id = ft.topic_id 
-                        WHERE 1=1
-                        {(fileIds.Count > 0 ? "AND ft.file_id IN (" + string.Join(", ", fileIdsParameters) + ')' : string.Empty)};"
-			, connection);
+			var topicsCommand = new MySqlCommand();
+			topicsCommand.Connection = connection;
 
-			for (int i = 0; i < fileIds.Count; i++)
+			string whereClause = string.Empty;
+
+			if (fileIds.Count > 0)
 			{
-				topicsCommand.Parameters.AddWithValue($"@fileId{i}", fileIds[i]);
+				var parameterNames = new List<string>();
+				for (int i = 0; i < fileIds.Count; i++)
+				{
+					string paramName = $"@fileId{i}";
+					parameterNames.Add(paramName);
+					topicsCommand.Parameters.AddWithValue(paramName, fileIds[i]);
+				}
+
+				whereClause = "AND ft.file_id IN (" + string.Join(", ", parameterNames) + ")";
 			}
-			//_ = _log.Db(topicsCommand.CommandText);
+
+			topicsCommand.CommandText = $@"
+				SELECT
+					ft.file_id,
+					ft.topic_id,
+					t.topic 
+				FROM
+					maxhanna.file_topics ft
+				LEFT JOIN topics t ON t.id = ft.topic_id 
+				WHERE 1=1
+				{whereClause};";
+
 			using (var reader = topicsCommand.ExecuteReader())
 			{
 				while (reader.Read())
 				{
-					var fileIdV = reader.GetInt32("file_id");
-					var topicIdV = reader.GetInt32("topic_id");
-					var topicTextV = reader.GetString("topic");
-
+					int fileIdV = reader.GetInt32("file_id");
+					int topicIdV = reader.GetInt32("topic_id");
+					string topicTextV = reader.GetString("topic");
 
 					var fileEntry = fileEntries.FirstOrDefault(f => f.Id == fileIdV);
 					if (fileEntry != null)
 					{
-						if (fileEntry.Topics == null)
-						{
-							fileEntry.Topics = new List<Topic>();
-						}
+						fileEntry.Topics ??= new List<Topic>();
 						fileEntry.Topics.Add(new Topic(topicIdV, topicTextV));
 					}
 				}
 			}
 		}
+
 
 		private static void GetFileReactions(List<FileEntry> fileEntries, MySqlConnection connection, List<int> fileIds, List<int> commentIds, List<string> fileIdsParameters, List<string> commentIdsParameters)
 		{
@@ -818,7 +825,7 @@ LIMIT
                         SET given_file_name = @given_file_name,
                             description = @description,
                             last_updated_by_user_id = @last_updated_by_user_id,
-                            last_updated = CURRENT_TIMESTAMP
+                            last_updated = UTC_TIMESTAMP()
                         WHERE id = @file_id"
 					, connection);
 					command.Parameters.AddWithValue("@given_file_name", string.IsNullOrWhiteSpace(request.FileData.GivenFileName) ? (object)DBNull.Value : request.FileData.GivenFileName);
@@ -1371,6 +1378,7 @@ LIMIT
 		[HttpPost("/File/GetFileEntryById", Name = "GetFileEntryById")]
 		public async Task<IActionResult> GetFileEntryById([FromBody] int fileId)
 		{
+			FileEntry? fileEntry = null;
 			using (var connection = new MySqlConnection(_connectionString))
 			{
 				await connection.OpenAsync();
@@ -1442,17 +1450,10 @@ LIMIT
 						var accessCount = reader.GetInt32("access_count");
 						var date = reader.GetDateTime("date");
 
-						var fileData = new FileData
-						{
-							FileId = reader.IsDBNull(reader.GetOrdinal("fileId")) ? 0 : reader.GetInt32("fileId"),
-							GivenFileName = reader.IsDBNull(reader.GetOrdinal("given_file_name")) ? null : reader.GetString("given_file_name"),
-							Description = reader.IsDBNull(reader.GetOrdinal("description")) ? null : reader.GetString("description"),
-							LastUpdated = reader.IsDBNull(reader.GetOrdinal("file_data_updated")) ? null : reader.GetDateTime("file_data_updated")
-						};
 						int? fuDisplayPicId = reader.IsDBNull(reader.GetOrdinal("fileUserDisplayPicId")) ? null : reader.GetInt32("fileUserDisplayPicId");
 						int? fuBackgroundPicId = reader.IsDBNull(reader.GetOrdinal("fileUserBackgroundPicId")) ? null : reader.GetInt32("fileUserBackgroundPicId");
 
-						var fileEntry = new FileEntry
+						fileEntry = new FileEntry
 						{
 							Id = id,
 							FileName = reader.GetString("file_name"),
@@ -1463,12 +1464,14 @@ LIMIT
 							Directory = folderPath,
 							FileComments = new List<FileComment>(),
 							Date = date,
-							FileData = fileData,
 							Width = width,
 							Height = height,
 							FileSize = fileSize,
 							LastAccess = lastAccess,
-							AccessCount = accessCount
+							AccessCount = accessCount,
+							GivenFileName = reader.IsDBNull(reader.GetOrdinal("given_file_name")) ? null : reader.GetString("given_file_name"),
+							Description = reader.IsDBNull(reader.GetOrdinal("description")) ? null : reader.GetString("description"),
+							LastUpdated = reader.IsDBNull(reader.GetOrdinal("file_data_updated")) ? null : reader.GetDateTime("file_data_updated")
 						};
 
 						if (!reader.IsDBNull(reader.GetOrdinal("commentId")))
@@ -1502,10 +1505,17 @@ LIMIT
 								fileEntry.FileComments!.Add(fileComment);
 							} while (await reader.ReadAsync());
 						}
-
-						return Ok(fileEntry);
 					}
 				}
+				if (fileEntry != null)
+				{
+					GetFileTopics(
+						new List<FileEntry>() { fileEntry },
+						connection,
+						new List<int> { fileEntry.Id }
+					);
+					return Ok(fileEntry);
+				} 
 			}
 			return Ok();
 		}
@@ -1518,7 +1528,7 @@ LIMIT
 			{
 				string deleteSql = "DELETE FROM maxhanna.file_topics WHERE file_id = @FileId;";
 				string insertSql = @"INSERT INTO maxhanna.file_topics (file_id, topic_id) VALUES (@FileId, @TopicId);
-														 UPDATE maxhanna.file_uploads SET last_updated = UTC_TIMESTAMP(), last_updated_by_user_id = @UserId WHERE id = @FileId LIMIT 1;";
+									UPDATE maxhanna.file_uploads SET last_updated = UTC_TIMESTAMP(), last_updated_by_user_id = @UserId WHERE id = @FileId LIMIT 1;";
 
 				using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
 				{
@@ -1554,9 +1564,9 @@ LIMIT
 							await transaction.CommitAsync();
 							return Ok("File topics updated successfully.");
 						}
-						catch
+						catch (Exception ex)
 						{
-							// Rollback on error
+							_ = _log.Db("An error occurred while editing file topics." + ex.Message, null, "FILE", true);
 							await transaction.RollbackAsync();
 							throw;
 						}
@@ -2196,12 +2206,7 @@ LIMIT
 						var lastAccess = reader.GetDateTime("last_access");
 
 						var date = reader.GetDateTime("date");
-						var fileData = new FileData();
-						fileData.FileId = reader.IsDBNull(reader.GetOrdinal("fileId")) ? 0 : reader.GetInt32("fileId");
-						fileData.GivenFileName = reader.IsDBNull(reader.GetOrdinal("given_file_name")) ? null : reader.GetString("given_file_name");
-						fileData.Description = reader.IsDBNull(reader.GetOrdinal("description")) ? null : reader.GetString("description");
-						fileData.LastUpdated = reader.IsDBNull(reader.GetOrdinal("file_data_updated")) ? null : reader.GetDateTime("file_data_updated");
-
+					 
 
 						var fileEntry = new FileEntry();
 						fileEntry.Id = id;
@@ -2212,7 +2217,10 @@ LIMIT
 						fileEntry.IsFolder = isFolder;
 						fileEntry.FileComments = new List<FileComment>();
 						fileEntry.Date = date;
-						fileEntry.FileData = fileData;
+						fileEntry.GivenFileName = reader.IsDBNull(reader.GetOrdinal("given_file_name")) ? null : reader.GetString("given_file_name");
+						fileEntry.Description = reader.IsDBNull(reader.GetOrdinal("description")) ? null : reader.GetString("description");
+						fileEntry.LastUpdated = reader.IsDBNull(reader.GetOrdinal("file_data_updated")) ? null : reader.GetDateTime("file_data_updated");
+
 						fileEntry.Width = width;
 						fileEntry.Height = height;
 						fileEntry.FileSize = fileSize;
