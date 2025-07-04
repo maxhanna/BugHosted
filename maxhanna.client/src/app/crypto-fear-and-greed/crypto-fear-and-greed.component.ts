@@ -16,7 +16,7 @@ export class CryptoFearAndGreedComponent implements OnInit {
   @ViewChild('gaugeSvg', { static: false }) gaugeSvg!: ElementRef<SVGSVGElement>;
 
   constructor(private coinValueService: CoinValueService) {
-    this.coinValueService.fetchCryptoFearAndGreed(7).then(res => {
+    this.coinValueService.fetchCryptoFearAndGreed(365).then(res => {
       if (res) {
         this.points = res.indices;
         this.latest = res.indices[0];

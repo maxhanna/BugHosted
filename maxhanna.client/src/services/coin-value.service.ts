@@ -269,7 +269,7 @@ export class CoinValueService {
   }
 
 
-  async fetchCryptoFearAndGreed(daysAhead = 7, limit = 50) {
+  async fetchCryptoFearAndGreed(daysAhead = 365, limit = 50) {
     try {
       const url = new URL('/coinvalue/feargreedindex', window.location.origin);
 

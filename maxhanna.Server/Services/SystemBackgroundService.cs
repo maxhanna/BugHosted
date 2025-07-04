@@ -126,6 +126,8 @@ namespace maxhanna.Server.Services
 			await DeleteOldBattleReports();
 			await DeleteOldGuests();
 			await DeleteOldSearchResults();
+			await DeleteOldSentimentAnalysis();
+			await DeleteOldGlobalMetrics();
 			await DeleteNotificationRequests();
 			await DeleteHostAiRequests();
 			await DeleteOldCoinValueEntries();
@@ -1305,14 +1307,14 @@ namespace maxhanna.Server.Services
 			{
 				using (var conn = new MySqlConnection(_connectionString))
 				{
-					await conn.OpenAsync(); 
+					await conn.OpenAsync();
 					var deleteSql = @"
                         DELETE FROM search_results 
-						WHERE (title IS NULL OR title = '') 
-						AND (description IS NULL OR description = '') 
-						AND (author IS NULL OR author = '') 
-						AND (keywords IS NULL OR keywords = '') 
-						AND (image_url IS NULL OR image_url = '') 
+						WHERE title IS NULL 
+						AND description IS NULL
+						AND author IS NULL
+						AND keywords IS NULL
+						AND image_url IS NULL
 						AND response_code IS NULL
 						AND last_crawled < UTC_TIMESTAMP() - INTERVAL 30 DAY;";
 
@@ -1329,6 +1331,71 @@ namespace maxhanna.Server.Services
 			}
 		}
 
+		private async Task DeleteOldSentimentAnalysis()
+		{
+			try
+			{
+				using (var conn = new MySqlConnection(_connectionString))
+				{
+					await conn.OpenAsync();
+					var deleteSql = @"
+                        DELETE FROM market_sentiment_analysis 
+						WHERE created < UTC_TIMESTAMP() - INTERVAL 10 YEARS;";
+
+					using (var deleteCmd = new MySqlCommand(deleteSql, conn))
+					{
+						int affectedRows = await deleteCmd.ExecuteNonQueryAsync();
+						_ = _log.Db($"Deleted {affectedRows} market sentiment analysis records older than 10 years.", null);
+					}
+				}
+			}
+			catch (Exception ex)
+			{
+				_ = _log.Db("Error occurred while deleting market sentiment analysis records older than 10 years. " + ex.Message, null);
+			}
+		}
+		public async Task DeleteOldGlobalMetrics()
+		{
+			const string componentName = "METRICS_CLEANUP";
+
+			// Validate configuration
+			if (_config == null || string.IsNullOrEmpty(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+			{
+				_ = _log.Db("Configuration or connection string is missing.", null, componentName, true);
+				return;
+			}
+
+			// SQL query to delete global metrics records older than 10 years
+			const string sql = @"
+				DELETE FROM crypto_global_metrics 
+				WHERE timestamp_utc < UTC_TIMESTAMP() - INTERVAL 10 YEAR";
+
+			try
+			{
+				await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+				await conn.OpenAsync();
+
+				await using var cmd = new MySqlCommand(sql, conn);
+				int rowsAffected = await cmd.ExecuteNonQueryAsync();
+
+				if (rowsAffected > 0)
+				{
+					_ = _log.Db($"Deleted {rowsAffected} crypto global metrics records older than 10 years.", null, componentName, true);
+				}
+				else
+				{
+					_ = _log.Db("No crypto global metrics records found older than 10 years.", null, componentName, true);
+				}
+			}
+			catch (MySqlException ex)
+			{
+				_ = _log.Db($"Database error deleting old crypto global metrics records: {ex.Message}", null, componentName, true);
+			}
+			catch (Exception ex)
+			{
+				_ = _log.Db($"Unexpected error deleting old crypto global metrics records: {ex.Message}", null, componentName, true);
+			}
+		}
 		private async Task AssignTrophies()
 		{
 			int trophiesAssigned = 0;

@@ -125,7 +125,7 @@ public class KrakenService
 
 		if (strategy == "IND")
         {
-            return await HandleIndicatorStrategy(userId, coin, strategy, tmpCoin);
+            return await HandleIndicatorStrategy(userId, coin, strategy, tmpCoin, currentPrice);
         }
 
         // NO MOMENTUM DETECTED AS OF YET, Check if trade crosses spread thresholds
@@ -258,7 +258,7 @@ public class KrakenService
 		return false;
 	}
 
-    private async Task<bool> HandleIndicatorStrategy(int userId, string coin, string strategy, string tmpCoin)
+    private async Task<bool> HandleIndicatorStrategy(int userId, string coin, string strategy, string tmpCoin, decimal currentPrice)
     { 
         // Check if indicators are bullish.
         bool? isBullish = await CheckIfBullishSignalExists(tmpCoin, "USDC");
@@ -296,9 +296,11 @@ public class KrakenService
             return false;
         }
 
-        //create momentum strategy, set configured stoploss.
+		//create momentum strategy and set a configured stoploss.
+		await SetIndicatorTradeStopLoss(userId, tmpCoin, "USDC", 0.5m, currentPrice);
+		await AddMomentumEntry(userId, tmpCoin, "USDC", strategy, currentPrice, null);
 
-        return false;
+		return false;
     }
 
     private async Task<bool> ExecuteDownwardsMomentumStrategy(int userId, string coin, UserKrakenApiKey keys, decimal coinPriceCAD, decimal coinPriceUSDC, decimal? firstPriceToday, decimal lastPrice, decimal currentPrice, decimal spread, decimal spread2, MomentumStrategy DownwardsMomentum, string strategy)
@@ -1261,7 +1263,68 @@ public class KrakenService
 		}
 		return activeUsers;
 	}
+	public async Task SetIndicatorTradeStopLoss(int userId, string fromCoin, string toCoin, decimal stopLossPercentage, decimal currentPrice)
+	{
+		const string componentName = "INDICATOR";
 
+		// Validate inputs
+		if (string.IsNullOrEmpty(fromCoin) || string.IsNullOrEmpty(toCoin))
+		{
+			_ = _log.Db($"Invalid input parameters: fromCoin={fromCoin}, toCoin={toCoin}", userId, componentName, true);
+			return;
+		}
+		if (stopLossPercentage < 0)
+		{
+			_ = _log.Db($"Invalid stopLossPercentage: {stopLossPercentage}. Must be non-negative.", userId, componentName, true);
+			return;
+		}
+
+		// Validate configuration
+		if (_config == null || string.IsNullOrEmpty(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+		{
+			_ = _log.Db("Configuration or connection string is missing.", userId, componentName, true);
+			return;
+		} 
+		
+		try
+		{
+			await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+			await conn.OpenAsync();
+			decimal stopLossValue = currentPrice * (1 - stopLossPercentage / 100);
+
+			const string updateSql = @"
+                UPDATE trade_configuration
+                SET trade_stop_loss = @StopLossValue
+                WHERE user_id = @UserId
+                AND from_coin = @FromCoin
+                AND to_coin = @ToCoin
+                AND strategy = 'IND'";
+
+			await using var updateCmd = new MySqlCommand(updateSql, conn);
+			updateCmd.Parameters.Add("@UserId", MySqlDbType.Int32).Value = userId;
+			updateCmd.Parameters.Add("@FromCoin", MySqlDbType.VarChar).Value = fromCoin;
+			updateCmd.Parameters.Add("@ToCoin", MySqlDbType.VarChar).Value = toCoin;
+			updateCmd.Parameters.Add("@StopLossValue", MySqlDbType.Float).Value = stopLossValue;
+
+			int rowsAffected = await updateCmd.ExecuteNonQueryAsync();
+			if (rowsAffected > 0)
+			{
+				_ = _log.Db($"Set trade_stop_loss to {stopLossValue} for user {userId}, pair {fromCoin}/{toCoin}, strategy IND.", userId, componentName, true);
+			}
+			else
+			{
+				_ = _log.Db($"No trade configuration found to set trade_stop_loss for user {userId}, pair {fromCoin}/{toCoin}, strategy IND.", userId, componentName, true);
+			}
+		}
+		catch (MySqlException ex)
+		{
+			_ = _log.Db($"Database error setting trade_stop_loss for user {userId}, pair {fromCoin}/{toCoin}, strategy IND: {ex.Message}", userId, componentName, true);
+		}
+		catch (Exception ex)
+		{
+			_ = _log.Db($"Unexpected error setting trade_stop_loss for user {userId}, pair {fromCoin}/{toCoin}, strategy IND: {ex.Message}", userId, componentName, true);
+		}
+	}
 	private async Task<int?> GetActiveTradeCount(int userId, string coin, string strategy)
 	{
 		string tmpCoin = coin.ToUpper();
@@ -3072,6 +3135,10 @@ public class KrakenService
 			{ 
 				await StopBot(userId, tmpCoin);
 			}
+			if (strategy == "IND")
+			{
+				await ClearIndicatorTradeStopLoss(userId, tmpCoin, "USDC");
+			}
 			return true;
 		}
 		catch (Exception e)
@@ -3780,6 +3847,63 @@ public class KrakenService
 		}
 
 		return true;
+	}
+	public async Task ClearIndicatorTradeStopLoss(int userId, string fromCoin, string toCoin)
+	{
+		const string componentName = "INDICATOR";
+
+		// Validate inputs
+		if (string.IsNullOrEmpty(fromCoin) || string.IsNullOrEmpty(toCoin))
+		{
+			_ = _log.Db($"Invalid input parameters: fromCoin={fromCoin}, toCoin={toCoin}", userId, componentName, true);
+			return;
+		}
+
+		// Validate configuration
+		if (_config == null || string.IsNullOrEmpty(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+		{
+			_ = _log.Db("Configuration or connection string is missing.", userId, componentName, true);
+			return;
+		}
+
+		// SQL query to clear trade_stop_loss for IND strategy
+		const string sql = @"
+			UPDATE trade_configuration
+			SET trade_stop_loss = NULL
+			WHERE user_id = @UserId
+			AND from_coin = @FromCoin
+			AND to_coin = @ToCoin
+			AND strategy = 'IND' 
+			LIMIT 1;";
+
+		try
+		{
+			await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+			await conn.OpenAsync();
+
+			await using var cmd = new MySqlCommand(sql, conn);
+			cmd.Parameters.Add("@UserId", MySqlDbType.Int32).Value = userId;
+			cmd.Parameters.Add("@FromCoin", MySqlDbType.VarChar).Value = fromCoin;
+			cmd.Parameters.Add("@ToCoin", MySqlDbType.VarChar).Value = toCoin;
+
+			int rowsAffected = await cmd.ExecuteNonQueryAsync();
+			if (rowsAffected > 0)
+			{
+				_ = _log.Db($"Cleared trade_stop_loss for user {userId}, pair {fromCoin}/{toCoin}, strategy IND.", userId, componentName, true);
+			}
+			else
+			{
+				_ = _log.Db($"No trade configuration found to clear trade_stop_loss for user {userId}, pair {fromCoin}/{toCoin}, strategy IND.", userId, componentName, true);
+			}
+		}
+		catch (MySqlException ex)
+		{
+			_ = _log.Db($"Database error clearing trade_stop_loss for user {userId}, pair {fromCoin}/{toCoin}, strategy IND: {ex.Message}", userId, componentName, true);
+		}
+		catch (Exception ex)
+		{
+			_ = _log.Db($"Unexpected error clearing trade_stop_loss for user {userId}, pair {fromCoin}/{toCoin}, strategy IND: {ex.Message}", userId, componentName, true);
+		}
 	}
 	public async Task<decimal?> GetLastUnmatchedIndicatorTradeValue(int userId, string fromCurrency, string toCurrency)
 	{

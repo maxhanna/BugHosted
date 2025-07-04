@@ -819,7 +819,7 @@ namespace maxhanna.Server.Controllers
 		/// </summary>
 		[HttpPost("/CoinValue/FearGreedIndex", Name = "GetFearGreedIndex")]
 		public async Task<IActionResult> GetFearGreedIndex(
-			[FromQuery] int daysBack = 7,   // how many days to look backwards (inclusive)
+			[FromQuery] int daysBack = 364,   // how many days to look backwards (inclusive)
 			[FromQuery] int? limit = null)  // optional hard row cap
 		{
 			try

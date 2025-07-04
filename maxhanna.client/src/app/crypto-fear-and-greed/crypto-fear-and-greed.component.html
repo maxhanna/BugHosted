@@ -39,7 +39,7 @@
 <div style="margin-top:20px;" *ngIf="chartDataPoints && chartDataPoints.length > 0"
     [style.display]="showHistory ? 'block' : 'none'">
     <app-line-graph #lineGraphComponent [data]="chartDataPoints" [type]="'Crypto'" [graphTitle]="'Fear & Greed Index'"
-        [selectedPeriod]="'5d'" [skipFiltering]="true" [showAverage]="false"></app-line-graph>
+        [selectedPeriod]="'5d'" [showAverage]="false" [displayCoinSwitcher]="false"></app-line-graph>
 </div>
 
 <div class="popupPanel" *ngIf="isInfoPanelOpen">

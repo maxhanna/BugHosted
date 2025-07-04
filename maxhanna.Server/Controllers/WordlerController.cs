@@ -211,7 +211,7 @@ namespace maxhanna.Server.Controllers
                     WHERE 1=1 " +
 						(userId == null ? "AND DATE(ws.submitted) = DATE(@currentDate) " : String.Empty) +
 						(userId != null ? "AND ws.user_id = @UserId " : String.Empty) +
-						"ORDER BY DATE(ws.submitted) desc, ws.difficulty desc, ws.score asc, ws.time asc ";
+						"ORDER BY DATE(ws.submitted) desc, ws.difficulty desc, ws.score asc, ws.time asc LIMIT 20;";
 				using (var cmd = new MySqlCommand(sql, conn))
 				{
 					cmd.Parameters.AddWithValue("@currentDate", currentDate);

@@ -299,12 +299,14 @@
 
 <!-- File viewers Popup -->
 <div class="popupPanel" *ngIf="isShowingFileViewers">
-  <div class="popupPanelTitle popupPanelContents" style="margin-bottom:15px;">
+  <div class="popupPanelTitle popupPanelContents gradientBackground" style="margin-bottom:15px;">
     File Viewers
   </div> 
-  <div *ngFor="let viewer of fileViewers" class="fileViewerDiv">
-    <app-user-tag [user]="viewer" [inputtedParentRef]="parentRef ?? inputtedParentRef"
-    [displayHoverPicture]="true" [previousComponent]="previousComponent"></app-user-tag>
+  <div class="fileViewerDiv">
+    <div *ngFor="let viewer of fileViewers">
+      <app-user-tag [user]="viewer" [inputtedParentRef]="parentRef ?? inputtedParentRef" [displayHoverPicture]="true"
+        [previousComponent]="previousComponent" [displayMiniTag]="true"></app-user-tag>
+    </div> 
   </div> 
   <button id="closeOverlay" (click)="closeFileViewers()">Close</button>
 </div>
