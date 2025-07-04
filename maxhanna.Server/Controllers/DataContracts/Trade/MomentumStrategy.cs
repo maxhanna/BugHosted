@@ -6,5 +6,6 @@ public class MomentumStrategy
 	public decimal CoinPriceUsdc { get; set; }
 	public decimal BestCoinPriceUsdc { get; set; }
 	public int? MatchingTradeId { get; set; }
+	public required string Strategy { get; set; }
 	public DateTime? Timestamp { get; set; }
 }

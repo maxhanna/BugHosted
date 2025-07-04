@@ -66,6 +66,7 @@ namespace maxhanna.Server.Services
 					success &= await UpdateVWAP(connection, coin.pair, coin.fromCoin, coin.toCoin);
 					success &= await UpdateRetracementFromHigh(connection, coin.fromCoin, coin.toCoin, coin.coinName);
 					success &= await UpdateMACD(connection, coin.fromCoin, coin.toCoin, coin.coinName);
+					success &= await RecordSignalInterval(connection, coin.fromCoin, coin.toCoin);
 
 					overallSuccess &= success;
 
@@ -688,7 +689,103 @@ namespace maxhanna.Server.Services
 			_ = _log.Db($"Failed to check price for {coinName} after max retries", null, "TISVC", true);
 			return false;
 		}
+		private async Task<bool> RecordSignalInterval(MySqlConnection connection, string fromCoin, string toCoin)
+		{
+			try
+			{
+				// Fetch latest indicator values
+				//_ = _log.Db($"Recording signal interval for {fromCoin}/{toCoin}", null, "TISVC", true);
+				var selectSql = @"
+                    SELECT 200_day_moving_average, 14_day_moving_average, 21_day_moving_average,
+                           rsi_14_day, macd_histogram, vwap_24_hour
+                    FROM trade_indicators
+                    WHERE from_coin = @fromCoin AND to_coin = @toCoin
+                    ORDER BY updated DESC
+                    LIMIT 1";
 
+				using var selectCmd = new MySqlCommand(selectSql, connection);
+				selectCmd.Parameters.AddWithValue("@fromCoin", fromCoin);
+				selectCmd.Parameters.AddWithValue("@toCoin", toCoin);
+
+				using var reader = await selectCmd.ExecuteReaderAsync();
+				if (!await reader.ReadAsync())
+				{
+					_ = _log.Db($"No indicator data for {fromCoin}/{toCoin}", null, "TISVC", true);
+					return false;
+				}
+
+				bool twoHundredDayMA = reader.GetInt32("200_day_moving_average") == 1;
+				bool fourteenDayMA = reader.GetInt32("14_day_moving_average") == 1;
+				bool twentyOneDayMA = reader.GetInt32("21_day_moving_average") == 1;
+				decimal rsi = reader.GetDecimal("rsi_14_day");
+				bool macdHistogram = reader.GetInt32("macd_histogram") == 1;
+				bool vwap24Hour = reader.GetInt32("vwap_24_hour") == 1;
+				await reader.CloseAsync();
+
+				bool rsiBullish = rsi < 30 || (rsi >= 50 && rsi <= 70);
+				bool hasSignal = twoHundredDayMA && fourteenDayMA && twentyOneDayMA && rsiBullish && macdHistogram && vwap24Hour;
+
+				// Check the latest signal interval
+				var checkSql = @"
+                    SELECT end_time
+                    FROM signal_intervals
+                    WHERE from_coin = @fromCoin AND to_coin = @toCoin
+                    ORDER BY start_time DESC
+                    LIMIT 1";
+
+				using var checkCmd = new MySqlCommand(checkSql, connection);
+				checkCmd.Parameters.AddWithValue("@fromCoin", fromCoin);
+				checkCmd.Parameters.AddWithValue("@toCoin", toCoin);
+
+				var result = await checkCmd.ExecuteScalarAsync();
+				bool hasActiveInterval = result != null || result == DBNull.Value;
+
+				if (hasSignal)
+				{
+					if (!hasActiveInterval)
+					{
+						// Insert new interval
+						var insertSql = @"
+                            INSERT INTO signal_intervals (from_coin, to_coin, start_time, created_at)
+                            VALUES (@fromCoin, @toCoin, UTC_TIMESTAMP(), UTC_TIMESTAMP())";
+
+						using var insertCmd = new MySqlCommand(insertSql, connection);
+						insertCmd.Parameters.AddWithValue("@fromCoin", fromCoin);
+						insertCmd.Parameters.AddWithValue("@toCoin", toCoin);
+						await insertCmd.ExecuteNonQueryAsync();
+						_ = _log.Db($"Started new signal interval for {fromCoin}/{toCoin}", null, "TISVC", true);
+						return true;
+					}
+					else
+					{ // Else, interval is already active, do nothing
+						_ = _log.Db($"Signal interval currently active. No update necessary. {fromCoin}/{toCoin}", null, "TISVC", true);
+					}
+					return true;
+				}
+				else if (hasActiveInterval)
+				{
+					// Close the active interval
+					var updateSql = @"
+                        UPDATE signal_intervals
+                        SET end_time = UTC_TIMESTAMP()
+                        WHERE from_coin = @fromCoin AND to_coin = @toCoin AND end_time IS NULL";
+
+					using var updateCmd = new MySqlCommand(updateSql, connection);
+					updateCmd.Parameters.AddWithValue("@fromCoin", fromCoin);
+					updateCmd.Parameters.AddWithValue("@toCoin", toCoin);
+					await updateCmd.ExecuteNonQueryAsync();
+					_ = _log.Db($"Closed signal interval for {fromCoin}/{toCoin}", null, "TISVC", true);
+					return true;
+				}
+
+				return true;
+			}
+			catch (MySqlException ex)
+			{
+				_ = _log.Db($"Error recording signal interval for {fromCoin}/{toCoin}: {ex.Message}", null, "TISVC", true);
+				return false;
+			}
+		} 
 		private string GetCoinNameFromPair(string pair)
 		{
 			foreach (var coin in _coinPairs)

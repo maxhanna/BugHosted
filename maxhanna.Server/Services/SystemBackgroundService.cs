@@ -664,7 +664,7 @@ namespace maxhanna.Server.Services
 							continue; // Changed from return to continue to process other users
 						}
 
-						await _krakenService.MakeADCATrade(userId, crypto, keys);
+						await _krakenService.MakeATrade(userId, crypto, keys, "DCA");
 					}
 
 
@@ -678,7 +678,7 @@ namespace maxhanna.Server.Services
 							continue; // Changed from return to continue to process other users
 						}
 
-						await _krakenService.MakeAINDTrade(userId, crypto, keys);
+						await _krakenService.MakeATrade(userId, crypto, keys, "IND");
 					}
 
 					// Ensure at least 1 second between crypto iterations

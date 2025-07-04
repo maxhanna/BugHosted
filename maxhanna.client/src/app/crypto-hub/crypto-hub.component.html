@@ -228,7 +228,7 @@
           <div class="indicator-value" [class.positive]="tradeIndicators.macdHistogram">
             {{ tradeIndicators.macdHistogram ? 'Bullish' : 'Bearish' }}
           </div>
-          <div class="indicator-value" [class]="tradeIndicators.macdHistogram ? 'positive' : 'negative'">
+          <div class="indicator-value cursorPointerUnderlined" [class]="tradeIndicators.macdHistogram ? 'positive' : 'negative'">
             {{ (tradeIndicators.macdLineValue - tradeIndicators.macdSignalValue) | number:'1.4-4' }}
           </div>
         </div>
