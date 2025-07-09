@@ -98,7 +98,7 @@ export class LineGraphComponent implements OnInit, OnChanges {
         : this.getCSSVariableValue("--component-background-color") ?? '#ffffff';
       this.initializeSlider();
       this.updateGraph(this.data);
-    }, 50);
+    }, 500);
   }
 
   ngOnChanges(changes: SimpleChanges) {

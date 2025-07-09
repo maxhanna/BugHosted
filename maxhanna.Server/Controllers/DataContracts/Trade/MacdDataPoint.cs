@@ -1,8 +1,8 @@
 public class MacdDataPoint
 {
 	public DateTime Timestamp { get; set; }
-	public double? MacdLine { get; set; }
-	public double? SignalLine { get; set; }
-	public double? Histogram { get; set; }
-	public double? Price { get; set; }
+	public decimal? MacdLine { get; set; }
+	public decimal? SignalLine { get; set; }
+	public decimal? Histogram { get; set; }
+	public decimal? Price { get; set; }
 }

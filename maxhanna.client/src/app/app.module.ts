@@ -63,6 +63,7 @@ import { CurrencyShortenPipe } from './currency-shorten';
 import { CryptoCalendarComponent } from './crypto-calendar/crypto-calendar.component';
 import { CryptoFearAndGreedComponent } from './crypto-fear-and-greed/crypto-fear-and-greed.component';
 import { CryptoGlobalStatsComponent } from './crypto-global-stats/crypto-global-stats.component';
+import { CryptoBotConfigurationComponent } from './crypto-bot-configuration/crypto-bot-configuration.component';
 
 @NgModule({
   declarations: [
@@ -116,7 +117,8 @@ import { CryptoGlobalStatsComponent } from './crypto-global-stats/crypto-global-
     SpeechRecognitionComponent,
     TopComponent,
     NexusMovementComponent,
-    CryptoCalendarComponent, 
+    CryptoCalendarComponent,
+    CryptoBotConfigurationComponent, 
   ],
   bootstrap: [AppComponent],
   imports: [BrowserModule,

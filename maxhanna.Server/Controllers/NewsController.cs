@@ -26,15 +26,15 @@ namespace maxhanna.Server.Controllers
 
 		[HttpPost(Name = "GetAllNews")]
 		public async Task<ArticlesResult> GetAllNews(
-		[FromQuery] string? keywords,
+		[FromQuery] string? q,
 		[FromQuery] int page = 1,
 		[FromQuery] int pageSize = 50)
 		{
 			try
 			{
-				if (keywords != null)
+				if (q != null)
 				{
-					return await _newsService.GetArticlesFromDb(keywords, null, page, pageSize);
+					return await _newsService.GetArticlesFromDb(q, null, page, pageSize);
 				}
 				else
 				{

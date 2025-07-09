@@ -12,8 +12,7 @@
 }
 
 /* Form Elements */
-.add-entry-form,
-.popupPanel>div {
+.add-entry-form {
     padding: 20px;
     border-radius: 8px;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
@@ -462,4 +461,19 @@ textarea.form-control {
 
 .clickable-image:hover {
     transform: scale(1.02);
+}
+
+.voterList {
+    display: flex;
+    flex-direction: column;
+    flex-wrap: nowrap;
+    align-items: flex-start;
+    gap: 5px;
+    height: 120px;
+    max-width: 500px;
+    min-width: 275px;
+    overflow: auto;
+}
+.voterList div:hover {
+    background: linear-gradient(135deg, var(--component-background-color), var(--secondary-component-background-color));
 }

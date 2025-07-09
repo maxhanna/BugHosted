@@ -1,0 +1,183 @@
+<div class="optionsStatsDiv">
+    <div class="optionsStatsHeader" title="Select the strategy to configure">
+        Strategy:
+    </div>
+    <div class="optionsStatsDescription">
+        <select #tradeStrategySelect title="Select the strategy" (change)="tradeStrategySelectChange()">
+            <option value="DCA">DCA</option>
+            <option value="IND">Indicator</option>
+        </select>
+    </div>
+</div>
+
+<div class="optionsStatsDiv">
+    <div class="optionsStatsHeader" title="Coin you're trading from">From Coin</div>
+    <div class="optionsStatsDescription">
+        <select #tradeFromCoinSelect title="Select the coin you want to sell" (change)="tradeFromCoinSelectChange()">
+            <option value="XBT">BTC</option>
+            <option value="ETH" *ngIf="tradeStrategySelect.value == 'DCA'">ETH</option>
+            <option value="XRP" *ngIf="tradeStrategySelect.value == 'DCA'">XRP</option>
+            <option value="SOL" *ngIf="tradeStrategySelect.value == 'DCA'">SOL</option>
+            <option value="XDG" *ngIf="tradeStrategySelect.value == 'DCA'">XDG</option>
+        </select>
+    </div>
+</div>
+
+<div class="optionsStatsDiv">
+    <div class="optionsStatsHeader" title="Coin you're trading to">To Coin</div>
+    <div class="optionsStatsDescription">
+        <select #tradeToCoinSelect title="Select the coin you want to receive">
+            <option value="USDC">USDC</option>
+        </select>
+    </div>
+</div>
+
+<div class="optionsStatsDiv" >
+    <div class="optionsStatsHeader" title="Upper limit of the amount you can trade FROM">_MaximumFromTradeAmount
+    </div>
+    <div class="optionsStatsDescription">
+        <input type="number" #tradeMaximumFromTradeAmount title="Max amount of source coin per trade" />
+    </div>
+</div>
+
+<div class="optionsStatsDiv" >
+    <div class="optionsStatsHeader" title="Lower limit of the amount you can trade FROM">_MinimumFromTradeAmount
+    </div>
+    <div class="optionsStatsDescription">
+        <input type="number" #tradeMinimumFromTradeAmount title="Min amount of source coin per trade." />
+    </div>
+</div>
+
+<div class="optionsStatsDiv" >
+    <div class="optionsStatsHeader" title="Upper limit of the amount you can buy in USDC.">_MaximumUSDCTradeAmount
+    </div>
+    <div class="optionsStatsDescription">
+        <input type="number" #tradeMaximumToTradeAmount title="Max amount of USDC per trade." />
+    </div>
+</div>
+
+<div class="optionsStatsDiv" >
+    <div class="optionsStatsHeader" title="Only trade if spread exceeds this %">_TradeThreshold</div>
+    <div class="optionsStatsDescription">
+        <input type="number" #tradeTradeThreshold title="Minimum required spread (%) to trigger trade" />
+    </div>
+</div>
+
+<div class="optionsStatsDiv" >
+    <div class="optionsStatsHeader" title="Avoid trading too much of your total balance">_MaximumTradeBalanceRatio
+    </div>
+    <div class="optionsStatsDescription">
+        <input type="number" #tradeMaximumTradeBalanceRatio title="Max % of balance allowed to be traded" />
+    </div>
+</div>
+
+<div class="optionsStatsDiv" >
+    <div class="optionsStatsHeader" title="Trade only a fraction of available funds">_ValueTradePercentage</div>
+    <div class="optionsStatsDescription">
+        <input type="number" #tradeValueTradePercentage title="Percentage of balance used in each trade" />
+    </div>
+</div>
+
+<div class="optionsStatsDiv" >
+    <div class="optionsStatsHeader" title="Sell only a fraction of available funds">_ValueSellPercentage</div>
+    <div class="optionsStatsDescription">
+        <input type="number" #tradeValueSellPercentage title="Percentage of balance used in each trade" />
+    </div>
+</div>
+
+<div class="optionsStatsDiv" >
+    <div class="optionsStatsHeader" title="Don't start trade unless this minimum BTC amount is available">
+        _InitialMinimumFromAmountToStart</div>
+    <div class="optionsStatsDescription">
+        <input type="number" #tradeInitialMinimumFromAmountToStart
+            title="Minimum amount of FROM coin to start trading" />
+    </div>
+</div>
+<div class="optionsStatsDiv" >
+    <div class="optionsStatsHeader" title="Don't start trade unless this minimum USDC amount is available">
+        _InitialMinimumUSDCAmountToStart</div>
+    <div class="optionsStatsDescription">
+        <input type="number" #tradeInitialMinimumUSDCAmountToStart
+            title="Minimum amount of USDC coin to start trading" />
+    </div>
+</div>
+<div class="optionsStatsDiv" >
+    <div class="optionsStatsHeader"
+        title="The maximum initial USDC amount invested in a new coin to start trading. Set this to zero (0) to intially convert 50% of USDC to target coin or set this to a dollar value to convert the Mininimum between (50% of usdcBalance OR this maximum amount).">
+        _InitialMaximumUSDCAmountToStart</div>
+    <div class="optionsStatsDescription">
+        <input type="number" #tradeInitialMaximumUSDCAmountToStart
+            title="Maximum amount of USDC to spend to start trading. This is the math set for initial trade value: _InitialMaximumUSDCAmountToStart > 0 ? Math.Min(usdcBalance * 50%, _InitialMaximumUSDCAmountToStart) : (usdcBalance * 50%)" />
+    </div>
+</div>
+<div class="optionsStatsDiv" >
+    <div class="optionsStatsHeader" title="Always keep at least this much of the FROM coin">_MinimumFromReserves
+    </div>
+    <div class="optionsStatsDescription">
+        <input type="number" #tradeMinimumFromReserves title="Minimum reserve of source coin to keep" />
+    </div>
+</div>
+
+<div class="optionsStatsDiv" >
+    <div class="optionsStatsHeader" title="Always keep at least this much of the TO coin">_MinimumToReserves</div>
+    <div class="optionsStatsDescription">
+        <input type="number" #tradeMinimumToReserves title="Minimum reserve of target coin to keep" />
+    </div>
+</div>
+
+<div class="optionsStatsDiv" >
+    <div class="optionsStatsHeader"
+        title="The maximum times a trade type (buy/sell) can happen. Applies both per day, and per consecutive trade. *note: This number will be diminished during above average volume period to create openings to buy high or sell low.">
+        _MaximumTradeTypeOccurance
+    </div>
+    <div class="optionsStatsDescription">
+        <input type="number" #tradeTradeMaximumTypeOccurances title="Maximum occurance of either buy or sell." />
+    </div>
+</div>
+
+<div class="optionsStatsDiv" >
+    <div class="optionsStatsHeader" title="Maximum trade occurances during a volume spike.">
+        _VolumeSpikeMaxTradeOccurance
+    </div>
+    <div class="optionsStatsDescription">
+        <input type="number" #tradeVolumeSpikeMaxTradeOccurance title="Maximum trade occurances during volume spike." />
+    </div>
+</div>
+
+<div class="optionsStatsDiv" [style.display]="tradeStrategySelect.value == 'DCA' ? 'flex' : 'none'">
+    <div class="optionsStatsHeader"
+        title="Input a price point to liquidate your BTC (trade 100% BTC to USDC) at your defined price. Put the value in USDC.">
+        _StopLossExitPosition
+    </div>
+    <div class="optionsStatsDescription">
+        <input type="number" #tradeStopLoss
+            title="Minimum USDC value per {{tradeFromCoinSelect.value}} before liquidating {{tradeFromCoinSelect.value}} reserves." />
+    </div>
+</div>
+
+<div class="optionsStatsDiv" [style.display]="tradeStrategySelect.value == 'IND' ? 'flex' : 'none'">
+    <div class="optionsStatsHeader"
+        title="Input a price point to liquidate your BTC (trade 100% BTC to USDC) at your defined percentage. Put the value without the '%' sign.">
+        _StopLossExitPercentage
+    </div>
+    <div class="optionsStatsDescription">
+        <input type="number" #tradeStopLossPercentage
+            title="Minimum percentage value per {{tradeFromCoinSelect.value}} before liquidating {{tradeFromCoinSelect.value}} reserves." />
+    </div>
+</div>
+
+
+
+<div class="optionsStatsDiv">
+    <div class="optionsStatsHeader" title="Last time this configuration was updated">Updated</div>
+    <div class="optionsStatsDescription">
+        <span *ngIf="tradeConfigLastUpdated" title="Time of last save">{{tradeConfigLastUpdated}}</span>
+        <span *ngIf="!tradeConfigLastUpdated" title="No configuration has been saved yet">Never</span>
+    </div>
+</div>
+
+<div class="optionsStatsDiv">
+    <div class="optionsStatsHeader" title="Save current trade parameters">Save Configuration</div>
+    <button (click)="updateCoinConfiguration()" [disabled]="isLoading"
+        title="Click to save current configuration">💾Save</button>
+</div>

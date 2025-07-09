@@ -463,13 +463,14 @@ namespace maxhanna.Server.Controllers
 
 				// SQL query to get the latest values for each coin by symbol (or id)
 				string sql = @"
-            SELECT id, symbol, name, value_cad, timestamp
+					SELECT cv.id, cv.symbol, cv.name, cv.value_cad, cv.timestamp
+					FROM coin_value cv
+					JOIN (
+						SELECT name, MAX(timestamp) as max_timestamp
 						FROM coin_value
-						WHERE (name, timestamp) IN (
-								SELECT name, MAX(timestamp)
-								FROM coin_value
-								GROUP BY name
-						) LIMIT 100;";
+						GROUP BY name
+					) latest ON cv.name = latest.name AND cv.timestamp = latest.max_timestamp
+					LIMIT 100;";
 
 				MySqlCommand cmd = new MySqlCommand(sql, conn);
 				using (var reader = await cmd.ExecuteReaderAsync())

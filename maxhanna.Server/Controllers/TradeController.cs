@@ -19,7 +19,7 @@ public class TradeController : ControllerBase
 		try
 		{
 			if (req.UserId != 1 && !await _log.ValidateUserLoggedIn(req.UserId, encryptedUserId)) return StatusCode(500, "Access Denied.");
-			var time = await _krakenService.GetTradeHistory(req.UserId, req.Coin ?? "XBT", "DCA");
+			var time = await _krakenService.GetTradeHistory(req.UserId, req.Coin ?? "XBT", req.Strategy ?? "DCA");
 			return Ok(time);
 		}
 		catch (Exception ex)
@@ -63,7 +63,7 @@ public class TradeController : ControllerBase
 		try
 		{
 			if (!await _log.ValidateUserLoggedIn(req.UserId, encryptedUserId)) return StatusCode(500, "Access Denied.");
-			var result = await _krakenService.StartBot(req.UserId, req.Coin);
+			var result = await _krakenService.StartBot(req.UserId, req.Coin, req.Strategy ?? "DCA");
 			return Ok(result ? "Trading bot has started." : "Unable to start the trade bot.");
 		}
 		catch (Exception ex)
@@ -77,7 +77,7 @@ public class TradeController : ControllerBase
 		try
 		{
 			if (!await _log.ValidateUserLoggedIn(req.UserId, encryptedUserId)) return StatusCode(500, "Access Denied.");
-			var result = await _krakenService.StopBot(req.UserId, req.Coin);
+			var result = await _krakenService.StopBot(req.UserId, req.Coin, req.Strategy ?? "DCA");
 			return Ok(result ? "Trading bot has stopped." : "Unable to stop the trade bot.");
 		}
 		catch (Exception ex)
@@ -89,6 +89,7 @@ public class TradeController : ControllerBase
 	[HttpPost("/Trade/IsTradebotStarted", Name = "IsTradebotStarted")]
 	public async Task<IActionResult> IsTradebotStarted([FromBody] TradebotStatusRequest req, [FromHeader(Name = "Encrypted-UserId")] string encryptedUserId)
 	{
+		_ = _log.Db($"Checking if tradebot is started : {req.UserId} {req.Coin}, {req.Strategy}", req.UserId, "TRADE", true);
 		string tmpCoin = req.Coin.ToLower();
 		tmpCoin = tmpCoin == "xbt" ? "btc" : tmpCoin;
 		try
@@ -151,13 +152,29 @@ public class TradeController : ControllerBase
 	}
 
 	[HttpPost("/Trade/GetTradeLogs", Name = "GetTradeLogs")]
-	public async Task<IActionResult> GetTradeLogs([FromBody] int userId, [FromHeader(Name = "Encrypted-UserId")] string encryptedUserId)
+	public async Task<IActionResult> GetTradeLogs([FromBody] TradebotStatusRequest req, [FromHeader(Name = "Encrypted-UserId")] string encryptedUserId)
+	{
+		try
+		{
+			if (req.UserId != 1 && !await _log.ValidateUserLoggedIn(req.UserId, encryptedUserId)) return StatusCode(500, "Access Denied.");
+			List<Dictionary<string, object?>>? result = await _log.GetLogs(req.UserId, "TRADE", 2500, $"({req.Coin.Replace("BTC", "XBT")}:{req.UserId}:{req.Strategy})");
+			return Ok(result);
+		}
+		catch (Exception ex)
+		{
+			return StatusCode(500, "Error getting trade bot logs. " + ex.Message);
+		}
+	}
+
+	[HttpPost("/Trade/GetLastTradeLogs", Name = "GetLastTradeLogs")]
+	public async Task<IActionResult> GetLastTradeLogs([FromBody] int userId, [FromHeader(Name = "Encrypted-UserId")] string encryptedUserId)
 	{
 		try
 		{
 			if (userId != 1 && !await _log.ValidateUserLoggedIn(userId, encryptedUserId)) return StatusCode(500, "Access Denied.");
-			List<Dictionary<string, object?>>? result = await _log.GetLogs(userId, "TRADE", 2500);
-			return Ok(result);
+			List<Dictionary<string, object?>>? result = await _log.GetLogs(userId, "TRADE", 1);
+			string lastLog = result?.FirstOrDefault()?["comment"]?.ToString() ?? "No logs found.";
+			return Ok(lastLog);
 		}
 		catch (Exception ex)
 		{
@@ -250,7 +267,8 @@ public class TradeController : ControllerBase
 					req.MinimumToReserves ?? 0,
 					req.MaxTradeTypeOccurances ?? 0,
 					req.VolumeSpikeMaxTradeOccurance ?? 0,
-					req.TradeStopLoss ?? 0
+					req.TradeStopLoss ?? 0,
+					req.TradeStopLossPercentage ?? 0
 			);
 
 			return worked ? Ok(worked) : BadRequest("Something went wrong. Check input data.");

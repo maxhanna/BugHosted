@@ -5,27 +5,30 @@
 
 .mainComponent {
   margin-top: 50px;
-} 
+}
+
 .componentMain {
   width: 100vw;
-  overflow: unset; 
+  overflow: unset;
   border: unset !important;
 }
+
 @media only screen and (max-width: 667px) {
   .componentMain {
     width: 100vw !important;
   }
 }
+
 .gamesContainer {
   width: 100%;
   height: CALC(var(--vh, 1vh)* 100 - 65px);
   overflow: auto;
 }
- 
-  .gamesContainer select {
-    width: 100%;
-    text-align: center;
-  }
+
+.gamesContainer select {
+  width: 100%;
+  text-align: center;
+}
 
 .gameboy {
   margin-left: -2px;
@@ -33,16 +36,17 @@
   width: 100%;
   height: CALC(var(--vh, 1vh) * 100 - 55px);
   border-radius: 20px;
-  padding-top: 10px; 
+  padding-top: 10px;
   box-shadow: 0px -5px 0px var(--main-bg-color), 0px 5px 0px var(--main-bg-color);
   font-family: sans-serif;
+  user-select: none;
   -webkit-user-select: none;
   cursor: default;
 }
- 
 
 
-.screen-area { 
+
+.screen-area {
   width: 100%;
   image-rendering: pixelated;
   display: flex;
@@ -52,34 +56,39 @@
   align-content: center;
   flex-wrap: nowrap;
   flex-direction: row;
-} 
- 
+}
+
 
 .mainCanvas {
   width: 100vw;
   height: 60vh !important;
 }
 
-canvas:fullscreen, #fullscreenContainer:fullscreen {
+canvas:fullscreen,
+#fullscreenContainer:fullscreen {
   width: 100%;
   height: 100%;
 }
 
-canvas:-webkit-full-screen, #fullscreenContainer:-webkit-full-screen {
+canvas:-webkit-full-screen,
+#fullscreenContainer:-webkit-full-screen {
   width: 100%;
   height: 100%;
 }
 
-canvas:-moz-full-screen, #fullscreenContainer:-moz-full-screen {
+canvas:-moz-full-screen,
+#fullscreenContainer:-moz-full-screen {
   width: 100%;
   height: 100%;
 }
 
-canvas:-ms-fullscreen, #fullscreenContainer:-ms-fullscreen {
+canvas:-ms-fullscreen,
+#fullscreenContainer:-ms-fullscreen {
   width: 100%;
   height: 100%;
 }
-  /* Fullscreen-specific styles */
+
+/* Fullscreen-specific styles */
 .fullscreenControlsBottom {
   position: fixed;
   bottom: 10px;
@@ -88,6 +97,7 @@ canvas:-ms-fullscreen, #fullscreenContainer:-ms-fullscreen {
   width: 100%;
   padding: 0 10px;
 }
+
 .fullscreenControlsTop {
   position: fixed;
   top: 10px;
@@ -96,6 +106,7 @@ canvas:-ms-fullscreen, #fullscreenContainer:-ms-fullscreen {
   width: 100%;
   padding: 0 10px;
 }
+
 .fullscreenBtnTop {
   position: fixed;
   top: 10px;
@@ -104,6 +115,7 @@ canvas:-ms-fullscreen, #fullscreenContainer:-ms-fullscreen {
   padding: 0 10px;
   z-index: 9999;
 }
+
 .nintendo {
   padding: 0px 5px;
   width: 82px;
@@ -131,24 +143,24 @@ canvas:-ms-fullscreen, #fullscreenContainer:-ms-fullscreen {
   z-index: 5;
 }
 
-  .dpad > * {
-    width: 33%;
-    height: 33%;
-    position: absolute;
-    background-color: var(--main-bg-color);
-    cursor: pointer;
-  }
+.dpad>* {
+  width: 33%;
+  height: 33%;
+  position: absolute;
+  background-color: var(--main-bg-color);
+  cursor: pointer;
+}
 
-    .dpad > * i {
-      position: relative;
-      display: block;
-      margin: 0 auto;
-      text-align: center;
-      height: 100%;
-      font-size: 28px;
-      color: #333a4a;
-      text-shadow: 0px -0.5px 0px #aaa;
-    }
+.dpad>* i {
+  position: relative;
+  display: block;
+  margin: 0 auto;
+  text-align: center;
+  height: 100%;
+  font-size: 28px;
+  color: #333a4a;
+  text-shadow: 0px -0.5px 0px #aaa;
+}
 
 .up {
   top: calc(0% + 4px);
@@ -159,9 +171,10 @@ canvas:-ms-fullscreen, #fullscreenContainer:-ms-fullscreen {
   border-radius: 5px 5px 0px 0px;
 }
 
-  .up:active, .up.active {
-    background: linear-gradient(to top, #565e6a 0%, #333 100%);
-  } 
+.up:active,
+.up.active {
+  background: linear-gradient(to top, #565e6a 0%, #333 100%);
+}
 
 .right {
   top: 33%;
@@ -173,9 +186,10 @@ canvas:-ms-fullscreen, #fullscreenContainer:-ms-fullscreen {
   box-shadow: 0px -2px 0px #888 inset;
 }
 
-  .right:active, .right.active {
-    background: linear-gradient(to right, #565e6a 0%, #333 100%);
-  }
+.right:active,
+.right.active {
+  background: linear-gradient(to right, #565e6a 0%, #333 100%);
+}
 
 
 .down {
@@ -188,9 +202,10 @@ canvas:-ms-fullscreen, #fullscreenContainer:-ms-fullscreen {
   box-shadow: 0px -2px 0px #888 inset;
 }
 
-  .down:active, .down.active {
-    background: linear-gradient(to bottom, #565e6a 0%, #333 100%);
-  }
+.down:active,
+.down.active {
+  background: linear-gradient(to bottom, #565e6a 0%, #333 100%);
+}
 
 .left {
   top: 33%;
@@ -203,9 +218,10 @@ canvas:-ms-fullscreen, #fullscreenContainer:-ms-fullscreen {
 }
 
 
-  .left:active, .left.active {
-    background: linear-gradient(to left, #565e6a 0%, #333 100%);
-  }
+.left:active,
+.left.active {
+  background: linear-gradient(to left, #565e6a 0%, #333 100%);
+}
 
 .middle {
   top: 33%;
@@ -213,17 +229,17 @@ canvas:-ms-fullscreen, #fullscreenContainer:-ms-fullscreen {
   z-index: -5;
 }
 
-  .middle::after {
-    content: "";
-    position: absolute;
-    top: 20%;
-    left: 20%;
-    display: inline-block;
-    background: linear-gradient(to bottom, #333 30%, var(--secondary-font-color) 100%);
-    border-radius: 50%;
-    height: 60%;
-    width: 60%;
-  }
+.middle::after {
+  content: "";
+  position: absolute;
+  top: 20%;
+  left: 20%;
+  display: inline-block;
+  background: linear-gradient(to bottom, #333 30%, var(--secondary-font-color) 100%);
+  border-radius: 50%;
+  height: 60%;
+  width: 60%;
+}
 
 .up-down {
   background-color: #565e6a;
@@ -250,7 +266,10 @@ canvas:-ms-fullscreen, #fullscreenContainer:-ms-fullscreen {
   right: 95px;
   z-index: 30;
 }
-.a, .b, .c {
+
+.a,
+.b,
+.c {
   position: absolute;
   display: inline-block;
   font-size: 32px;
@@ -264,18 +283,25 @@ canvas:-ms-fullscreen, #fullscreenContainer:-ms-fullscreen {
   text-shadow: 0px -1px 1px #888;
   color: var(--secondary-font-color);
   text-align: center;
+  user-select: none;
   -webkit-user-select: none;
   cursor: pointer;
-  touch-action: manipulation; /* Ensures touch events are handled correctly */
+  touch-action: manipulation;
+  /* Ensures touch events are handled correctly */
 }
 
-  .a:active, .b:active, .c:active, .a.active, .b.active, .c.active {
-    box-shadow: -1px 1px 1px black, 0px 0px 5px black inset;
-    border-width: 0px;
-    line-height: 70px;
-    filter: brightness(85%);
-  }
-   
+.a:active,
+.b:active,
+.c:active,
+.a.active,
+.b.active,
+.c.active {
+  box-shadow: -1px 1px 1px black, 0px 0px 5px black inset;
+  border-width: 0px;
+  line-height: 70px;
+  filter: brightness(85%);
+}
+
 
 .a {
   top: -10px;
@@ -294,7 +320,7 @@ canvas:-ms-fullscreen, #fullscreenContainer:-ms-fullscreen {
   left: -10px;
 }
 
-.gameboy .start-select { 
+.gameboy .start-select {
   height: 60px;
   display: flex;
   justify-content: center;
@@ -306,7 +332,7 @@ canvas:-ms-fullscreen, #fullscreenContainer:-ms-fullscreen {
   left: 10px;
   z-index: 3;
 }
-  
+
 @media only screen and (max-height : 600px) {
   .start-select {
     top: CALC(var(--vh, 1vh) * 90 - 60px);
@@ -314,7 +340,8 @@ canvas:-ms-fullscreen, #fullscreenContainer:-ms-fullscreen {
   }
 }
 
-.start, .select {
+.start,
+.select {
   display: inline-block;
   color: var(--secondary-font-color);
   text-shadow: 0px -1px 0px #3436bf;
@@ -324,24 +351,28 @@ canvas:-ms-fullscreen, #fullscreenContainer:-ms-fullscreen {
   text-align: center;
 }
 
-  .start::before, .select::before {
-    content: "";
-    display: block;
-    margin: 0 auto;
-    width: 30px;
-    height: 10px;
-    margin-bottom: 5px;
-    border-radius: 40%;
-    background: linear-gradient(to bottom, #0b0a1c 0%, #0b0a1c 30%, #62636c 70%, var(--secondary-font-color) 100%);
-    background-repeat: no-repeat;
-    border: 2px solid #0b0a1c;
-    box-shadow: 0px -2px 1px #8482e9;
-    cursor: pointer;
-  }
+.start::before,
+.select::before {
+  content: "";
+  display: block;
+  margin: 0 auto;
+  width: 30px;
+  height: 10px;
+  margin-bottom: 5px;
+  border-radius: 40%;
+  background: linear-gradient(to bottom, #0b0a1c 0%, #0b0a1c 30%, #62636c 70%, var(--secondary-font-color) 100%);
+  background-repeat: no-repeat;
+  border: 2px solid #0b0a1c;
+  box-shadow: 0px -2px 1px #8482e9;
+  cursor: pointer;
+}
 
-  .start:active::before, .select:active::before, .start.active::before, .select.active::before {
-    background: linear-gradient(to bottom, #0b0a1c 0%, #0b0a1c 50%, var(--secondary-font-color) 100%);
-  } 
+.start:active::before,
+.select:active::before,
+.start.active::before,
+.select.active::before {
+  background: linear-gradient(to bottom, #0b0a1c 0%, #0b0a1c 50%, var(--secondary-font-color) 100%);
+}
 
 .up-triangle {
   position: absolute;
@@ -414,7 +445,10 @@ canvas:-ms-fullscreen, #fullscreenContainer:-ms-fullscreen {
   right: 7px;
 }
 
-.down-left, .down-right, .up-left, .up-right {
+.down-left,
+.down-right,
+.up-left,
+.up-right {
   position: absolute;
   background-color: transparent !important;
   margin: auto;
@@ -423,45 +457,49 @@ canvas:-ms-fullscreen, #fullscreenContainer:-ms-fullscreen {
   z-index: 3;
 }
 
-  .down-left::after, .down-right::after, .up-left::after, .up-right::after {
-    content: "";
-    position: absolute;
-    width: 0;
-    height: 0;
-    border-style: solid;
-  }
+.down-left::after,
+.down-right::after,
+.up-left::after,
+.up-right::after {
+  content: "";
+  position: absolute;
+  width: 0;
+  height: 0;
+  border-style: solid;
+}
 
-  .down-left::after {
-    border-width: 0 20px 20px 0;
-    border-color: transparent var(--secondary-font-color) transparent transparent;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%) rotate(180deg);
-  }
+.down-left::after {
+  border-width: 0 20px 20px 0;
+  border-color: transparent var(--secondary-font-color) transparent transparent;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) rotate(180deg);
+}
 
-  .up-left::after {
-    border-width: 20px 20px 0 0;
-    border-color: var(--main-font-color) transparent transparent transparent;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%) rotate(360deg);
-  }
+.up-left::after {
+  border-width: 20px 20px 0 0;
+  border-color: var(--main-font-color) transparent transparent transparent;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) rotate(360deg);
+}
 
-  .down-right::after {
-    border-width: 0 0 20px 20px;
-    border-color: transparent transparent var(--secondary-font-color) transparent;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-  }
+.down-right::after {
+  border-width: 0 0 20px 20px;
+  border-color: transparent transparent var(--secondary-font-color) transparent;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
 
-  .up-right::after {
-    border-width: 20px 0 0 20px;
-    border-color: var(--secondary-font-color) transparent transparent transparent;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-  }
+.up-right::after {
+  border-width: 20px 0 0 20px;
+  border-color: var(--secondary-font-color) transparent transparent transparent;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
 .controlVolume {
   font-size: xx-small;
   margin-left: 3px;
@@ -469,6 +507,7 @@ canvas:-ms-fullscreen, #fullscreenContainer:-ms-fullscreen {
   padding-left: 0px !important;
   padding-right: 0px !important;
 }
+
 /*
 .speaker {
   position: relative;
@@ -504,7 +543,8 @@ canvas:-ms-fullscreen, #fullscreenContainer:-ms-fullscreen {
     box-shadow: 0px 0px 2px var(--secondary-font-color) inset;
   }
 */
-.persistanceSpan, .uploadRomSpan {
+.persistanceSpan,
+.uploadRomSpan {
   padding: 2px;
   padding-left: 10px;
   padding-right: 10px;
@@ -542,11 +582,74 @@ canvas:-ms-fullscreen, #fullscreenContainer:-ms-fullscreen {
 .keyboardControlsSpan {
   cursor: help;
 }
+
 .popupPanel {
   width: 100vw;
-  height: CALC(var(--vh, 1vh) * 99); 
+  height: CALC(var(--vh, 1vh) * 99);
   z-index: 7;
 }
+
 .optionsStatsDiv {
   margin-top: 15px;
+}
+
+.explainWrapper {
+  max-width: 400px;
+}
+
+
+.toggle-switch {
+  position: relative;
+  display: inline-block;
+  width: 40px;
+  height: 20px;
+  margin-right: 10px;
+}
+
+.toggle-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.slider {
+  position: absolute;
+  cursor: pointer;
+  background-color: #ccc;
+  border-radius: 26px;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  transition: 0.4s;
+}
+
+.slider::before {
+  position: absolute;
+  content: "";
+  height: 20px;
+  width: 20px;
+  left: 0px;
+  bottom: 0px;
+  background-color: white;
+  border-radius: 50%;
+  transition: 0.4s;
+}
+
+input:checked+.slider {
+  background-color: #4caf50;
+}
+
+input:checked+.slider::before {
+  transform: translateX(20px);
+}
+
+.optionsStatsWrapperDiv {
+  height: unset !important;
+}
+
+.toggle-label {
+  font-weight: bold;
+  font-size: 14px;
+  vertical-align: middle;
 }

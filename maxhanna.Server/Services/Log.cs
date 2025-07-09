@@ -1,6 +1,7 @@
 ﻿using FirebaseAdmin.Messaging;
 using MySqlConnector;
 using System.Diagnostics;
+using System.Diagnostics.Tracing;
 using System.Security.Cryptography;
 using System.Text;
 public class Log
@@ -36,17 +37,26 @@ public class Log
 			Console.WriteLine($"[{DateTime.UtcNow}] {type}: {message}");
 		}
 	}
-	public async Task<List<Dictionary<string, object?>>> GetLogs(int? userId = null, string? component = null, int limit = 1000)
+	public async Task<List<Dictionary<string, object?>>> GetLogs(int? userId = null, string? component = null, int limit = 1000, string keywords = "")
 	{
 		var logs = new List<Dictionary<string, object?>>();
 
 		var sql = new StringBuilder("SELECT comment, component, user_id, timestamp FROM maxhanna.logs WHERE 1=1");
 
 		if (userId != null)
-			sql.Append(" AND user_id = @UserId");
+		{
+			sql.Append(" AND user_id = @UserId "); 
+		}
 
 		if (!string.IsNullOrEmpty(component))
-			sql.Append(" AND component = @Component");
+		{
+			sql.Append(" AND component = @Component "); 
+		}
+
+		if (!string.IsNullOrEmpty(keywords))
+		{ 
+			sql.Append(" AND comment like CONCAT('%', @Keywords, '%') ");
+		}
 
 		sql.Append(" ORDER BY timestamp DESC LIMIT @Limit;");
 
@@ -58,10 +68,17 @@ public class Log
 			using var cmd = new MySqlCommand(sql.ToString(), conn); 
 			cmd.Parameters.AddWithValue("@Limit", limit);
 			if (userId != null)
+			{ 
 				cmd.Parameters.AddWithValue("@UserId", userId);
-
+			}
 			if (!string.IsNullOrEmpty(component))
+			{
 				cmd.Parameters.AddWithValue("@Component", component);
+			}
+			if (!string.IsNullOrEmpty(keywords))
+			{
+				cmd.Parameters.AddWithValue("@Keywords", keywords);
+			}
 
 			using var reader = await cmd.ExecuteReaderAsync();
 

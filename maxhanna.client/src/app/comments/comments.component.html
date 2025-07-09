@@ -51,7 +51,7 @@
     </div>
     <div>
       <div class="commentContent">
-        <div [innerHTML]="createClickableUrls(comment.commentText)" [id]="'commentText'+comment.id" [style.display]="editingComments.includes(comment.id) ? 'none': 'block'"></div>
+        <div [innerHTML]="createClickableUrls(comment.commentText)" [id]="'commentText'+comment.id" class="commentTextDiv" [style.display]="editingComments.includes(comment.id) ? 'none': 'block'"></div>
         <div class="commentInputArea">
           <textarea class="commentTextArea"
                     [style.display]="editingComments.includes(comment.id) ? 'block' : 'none'"
@@ -117,7 +117,7 @@
             </button> 
           </div>
           <div class="commentContent">
-            <div [innerHTML]="createClickableUrls(subComment.commentText)"></div>
+            <div [innerHTML]="createClickableUrls(subComment.commentText)" class="commentTextDiv"></div>
 
             <div *ngFor="let file of subComment.commentFiles" class="commentMediaFile">
               <app-media-viewer [file]="file"

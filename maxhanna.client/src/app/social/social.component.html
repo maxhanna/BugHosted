@@ -429,16 +429,17 @@
 
     <!-- Story Input -->
     <div class="storyInputDiv" *ngIf="!showOnlyPost || user">
-      <div>
-        <textarea #story placeholder="Whats on your mind ?" class="foodForThought"></textarea>
+      <div class="storyMainInputDiv">
+        <input type="text" placeholder="What’s crawling your mind?" style="min-width:210px;" (click)="showPostInput = true;" *ngIf="!showPostInput">
+        <textarea #story placeholder="What’s crawling your mind?" class="foodForThought" *ngIf="showPostInput"></textarea>
       </div>
       <div class="mainFileUploaderAndTopicSelectorDiv">
-        <button (click)="post()">🗨️ Post</button>
+        <button (click)="showPostInput ? post() : (showPostInput = true)">🗨️ Post</button>
         <app-media-selector *ngIf="parentRef" #postMediaSelector
           [currentDirectory]="parentRef.user?.username ? 'Users/' + parentRef!.user!.username! : user?.username ? 'Users/' + user!.username! :  'Users/Anonymous'"
           [user]="parentRef.user" [inputtedParentRef]="parentRef"
           (selectFileEvent)="selectFile($event)"></app-media-selector>
-        <button (click)="showPostOptionsPanel()">
+        <button (click)="showPostOptionsPanel()" *ngIf="showPostInput">
           ⚙️Options
           <span class="xxSmallFont" *ngIf="getOptionsCount() > 0">
             ({{getOptionsCount()}})
@@ -454,25 +455,25 @@
             )
           </span>
         </button>
-        <button *ngIf="!onMobile()" class="storyControlFlairButton" (click)="insertBold();" title="Bold">
+        <button *ngIf="!onMobile() && showPostInput" class="storyControlFlairButton" (click)="insertBold();" title="Bold">
           <span style="font-weight:900">B</span>
         </button>
-        <button *ngIf="!onMobile()" class="storyControlFlairButton" (click)="insertItalics();" title="Italic">
+        <button *ngIf="!onMobile() && showPostInput" class="storyControlFlairButton" (click)="insertItalics();" title="Italic">
           <span style="font-style:italic">I</span>
         </button>
-        <button *ngIf="!onMobile()" class="storyControlFlairButton" (click)="insertBullet();" title="Bullet-point">
+        <button *ngIf="!onMobile() && showPostInput" class="storyControlFlairButton" (click)="insertBullet();" title="Bullet-point">
           <span>&bull;</span>
         </button>
-        <button *ngIf="!onMobile()" class="storyControlFlairButton" (click)="insertH2();" title="Header">
+        <button *ngIf="!onMobile() && showPostInput" class="storyControlFlairButton" (click)="insertH2();" title="Header">
           <span>##</span>
         </button>
-        <button *ngIf="!onMobile()" class="storyControlFlairButton" (click)="insertH3();" title="Sub-Header">
+        <button *ngIf="!onMobile() && showPostInput" class="storyControlFlairButton" (click)="insertH3();" title="Sub-Header">
           <span>###</span>
         </button>
-        <button *ngIf="!onMobile()" class="storyControlFlairButton" (click)="openInsertEmojiPanel();" title="Emoji">
+        <button *ngIf="!onMobile() && showPostInput" class="storyControlFlairButton" (click)="openInsertEmojiPanel();" title="Emoji">
           <span>😊</span>
         </button>
-        <button *ngIf="!onMobile()" class="storyControlFlairButton" (click)="insertPollSnippet();" title="Poll">
+        <button *ngIf="!onMobile() && showPostInput" class="storyControlFlairButton" (click)="insertPollSnippet();" title="Poll">
           <span>📊</span>
         </button>
       </div>
@@ -555,7 +556,7 @@
           </div>
           <div>
             <div class="textExpanderDiv"
-              *ngIf="!isExpanded('storyTextContainer'+story.id) && hasOverflow('storyTextContainer'+story.id) && compactness.includes('yes')"
+              *ngIf="!isExpanded('storyTextContainer'+story.id) && hasOverflow('storyTextContainer'+story.id)"
               (click)="toggleCollapse('storyTextContainer'+story.id)">
               <span class="smallExpander">
                 [Expand Text]

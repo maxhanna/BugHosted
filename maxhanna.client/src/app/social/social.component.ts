@@ -59,7 +59,7 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
   attachedFiles: FileEntry[] = [];
   attachedTopics: Array<Topic> = [];
   storyOverflowMap: { [key: string]: boolean } = {};
-
+  showPostInput = false;
   userProfileId?: number = undefined;
   wasFromSearchId = false;
 
@@ -133,7 +133,7 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
         if (res) {
           this.isDisplayingNSFW = res.nsfwEnabled ?? false;
           this.compactness = res.compactness ?? "no";
-          this.showPostsFromFilter = res.showPostsFrom ?? "all";
+          this.showPostsFromFilter = res.showPostsFrom ?? "all"; 
         }
       });
     } 
@@ -475,6 +475,7 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
       this.parentRef?.showNotification("An unexpected error occurred.");
     } finally {
       this.stopLoading();
+      this.showPostInput = false; 
     }
   }
 
@@ -932,13 +933,16 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
   } 
 
   hasOverflow(elementId: string): boolean {
+    if (this.compactness.includes("no")) {
+      return false;
+    }
     if (this.overflowCache[elementId] !== undefined) {
       return this.overflowCache[elementId];
     }
 
     const element = document.getElementById(elementId);
     if (!element) return false;
-
+    
     if (this.compactness.includes("yess")) {
       const tgtStory = this.storyResponse?.stories?.find(x => x.id == parseInt(elementId.replace("storyTextContainer", "")));
       if (tgtStory) {
@@ -949,7 +953,7 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
       }
     }
 
-    if (this.compactness == "yes") {
+    if (this.compactness.includes("yes")) {
       const tgtStory = this.storyResponse?.stories?.find(x => x.id == parseInt(elementId.replace("storyTextContainer", "")));
       if (tgtStory) {
         if (tgtStory.metadata && tgtStory.metadata.length > 0) {
@@ -1250,6 +1254,10 @@ Option 4: Yellow
     this.userService.updateCompactness(this.parentRef?.user?.id ?? 0, this.compactness).then(res => { 
       if (res) {
         this.parentRef?.showNotification(res.message);
+        this.overflowCache = {}; // Reset overflow cache
+        this.storyOverflowMap = {}; // Reset story overflow map
+        this.expanded = []; // Reset expanded stories
+        this.getStories();
       }
     }); 
   }

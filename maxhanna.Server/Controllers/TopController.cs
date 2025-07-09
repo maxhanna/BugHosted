@@ -419,7 +419,7 @@ namespace maxhanna.Server.Controllers
 				string sql = @$"
 					SELECT 
 						entry_id,
-						SUM(vote_value) AS total_votes,
+						SUM(ABS(vote_value)) AS total_votes,
 						COUNT(CASE WHEN vote_value = 1 THEN 1 END) AS upvotes,
 						COUNT(CASE WHEN vote_value = -1 THEN 1 END) AS downvotes
 					FROM maxhanna.top_entry_votes

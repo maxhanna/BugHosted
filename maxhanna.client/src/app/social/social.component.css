@@ -28,7 +28,7 @@
   flex-wrap: nowrap;
   align-content: center;
   justify-content: flex-start;
-  align-items: stretch;
+  align-items: center;
   padding: 5px;
 }
 
@@ -272,8 +272,14 @@ singleAttachment {
 .mainFileUploaderAndTopicSelectorDiv {
   display: flex;
   justify-content: flex-start;
-  width: 100%;
+  max-width: 100%;
   overflow: hidden; 
+}
+
+.storyMainInputDiv {
+  width: 100%;
+  display: flex;
+  justify-content: center;
 }
 
 .mainFileUploaderAndTopicSelectorDiv ::ng-deep button {
@@ -307,7 +313,7 @@ singleAttachment {
 }
 
 .storyTextContainer.collapsed {
-  max-height: 400px;
+  max-height: 150px;
   text-overflow: ellipsis;
   overflow: hidden;
   font-size: smaller;

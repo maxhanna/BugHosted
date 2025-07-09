@@ -306,6 +306,8 @@ button {
   height: CALC(var(--vh, 1vh) * 100 - 300px);
   overflow: auto;
   width: 100%;
+  border: var(--main-border);
+  border-radius: 4px;
 }
 
 @media only screen and (max-width : 600px) {
@@ -387,7 +389,7 @@ button {
   display: flex;
   flex-wrap: wrap;
   gap: 15px;
-  padding: 20px;
+  padding: 5px;
   background: linear-gradient(135deg, var(--component-background-color), var(--secondary-component-background-color));
   border: var(--main-border);
   border-radius: 8px;
@@ -474,12 +476,7 @@ div:not(.trade-panel-controls) .button-wrapper {
   div:not(.trade-panel-controls) .button-wrapper {
     max-width: 160px;
   }
-
-  .trade-panel-controls button.cursorPointer {
-    font-size: larger;
-    padding: 6px 10px;
-  }
-
+ 
   .trade-panel-controls .button-description {
     word-break: break-word;
   }
@@ -950,4 +947,9 @@ div:not(.trade-panel-controls) .button-wrapper {
   padding: 15px;
   border-radius: 5px;
   margin: 15px 0;
+}
+
+.logScreen {
+  background-color: var(--main-bg-color);
+  color: var(--main-link-color);
 }

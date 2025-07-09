@@ -55,8 +55,8 @@ export class TradeService {
     const url = 'https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=10&page=1';
     return this.get(url);
   }
-  async getTradeHistory(userId: number, encryptedUserId: string, coin?: string) {
-    return this.post(`/trade/gettradehistory`, { UserId: userId, Coin: coin ?? "XBT" }, 'json', encryptedUserId);
+  async getTradeHistory(userId: number, encryptedUserId: string, coin?: string, strategy?: string) {
+    return this.post(`/trade/gettradehistory`, { UserId: userId, Coin: coin ?? "XBT", Strategy: strategy ?? "DCA" }, 'json', encryptedUserId);
   } 
   async updateApiKey(userId: number, apiKey: string, privateKey: string, encryptedUserId: string) {
     return this.post(`/trade/updateapikey`, { UserId: userId, ApiKey: apiKey, PrivateKey: privateKey }, 'text', encryptedUserId);
@@ -64,14 +64,14 @@ export class TradeService {
   async hasApiKey(userId: number) {
     return this.post(`/trade/hasapikey`, userId, 'json');
   }
-  async startBot(userId: number, coin: string, encryptedUserId: string) {
-    return this.post(`/trade/startbot`, { UserId: userId, Coin: coin }, 'text', encryptedUserId);
+  async startBot(userId: number, coin: string, strategy: string, encryptedUserId: string) {
+    return this.post(`/trade/startbot`, { UserId: userId, Coin: coin, Strategy: strategy }, 'text', encryptedUserId);
   }
-  async stopBot(userId: number, coin: string, encryptedUserId: string) {
-    return this.post(`/trade/stopbot`, { UserId: userId, Coin: coin }, 'text', encryptedUserId);
+  async stopBot(userId: number, coin: string, strategy: string, encryptedUserId: string) {
+    return this.post(`/trade/stopbot`, { UserId: userId, Coin: coin, Strategy: strategy }, 'text', encryptedUserId);
   }
-  async isTradebotStarted(userId: number, coin: string, encryptedUserId: string) {
-    return this.post(`/trade/istradebotstarted`, {UserId: userId, Coin: coin }, 'text', encryptedUserId);
+  async isTradebotStarted(userId: number, coin: string, strategy: string, encryptedUserId: string) {
+    return this.post(`/trade/istradebotstarted`, {UserId: userId, Coin: coin, Strategy: strategy }, 'text', encryptedUserId);
   }  
   async upsertTradeConfiguration(config: any, encryptedUserId: string) {
     return this.post(`/trade/upserttradeconfiguration`, config, 'text', encryptedUserId);
@@ -82,8 +82,11 @@ export class TradeService {
   async getTradeConfiguration(userId: number, encryptedUserId: string, from?: string, to?: string, strategy?: string) {
     return this.post(`/trade/getconfiguration`, { UserId: userId, FromCoin: from, ToCoin: to, Strategy: strategy }, 'json', encryptedUserId);
   }
-  async getTradeLogs(userId: number, encryptedUserId: string) {
-    return this.post(`/trade/gettradelogs`, userId, 'json', encryptedUserId);
+  async getTradeLogs(userId: number, coin: string, strategy: string, encryptedUserId: string) {
+    return this.post(`/trade/gettradelogs`, { UserId: userId, Coin: coin, Strategy: strategy }, 'json', encryptedUserId);
+  }
+  async getLastTradeLogs(userId: number, encryptedUserId: string) {
+    return this.post(`/trade/getlasttradelogs`, userId, 'json', encryptedUserId);
   }
   async getTradeVolume(days?: number) {
     return this.post(`/trade/gettradevolume`, days, 'json');

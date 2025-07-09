@@ -560,11 +560,17 @@ namespace maxhanna.Server.Services
 
 			// Step 1: Fetch historical prices (last 26+9=35 days)
 			var sql = @"
-				SELECT DATE(timestamp) as price_date, AVG(value_usd) as usd_price
-				FROM coin_value
-				WHERE name = @coinName
-				AND timestamp >= DATE_SUB(CURRENT_TIMESTAMP, INTERVAL 35 DAY)
-				GROUP BY DATE(timestamp)
+				SELECT price_date, usd_price
+				FROM (
+					SELECT DATE(timestamp) as price_date, AVG(value_usd) as usd_price
+					FROM coin_value
+					WHERE name = @coinName
+					AND timestamp >= DATE_SUB(DATE(CURRENT_TIMESTAMP), INTERVAL 35 DAY)
+					AND timestamp < DATE(CURRENT_TIMESTAMP)
+					GROUP BY DATE(timestamp)
+					ORDER BY price_date ASC
+					LIMIT 35
+				) as subquery
 				ORDER BY price_date ASC;";
 
 			try
@@ -586,27 +592,30 @@ namespace maxhanna.Server.Services
 					_ = _log.Db($"Insufficient data for MACD calculation ({prices.Count} points)", null, "TISVC", true);
 					return false;
 				}
+				if (prices.Count != 35)
+				{
+					_ = _log.Db($"Expected 35 days, got {prices.Count} for {coinName}", null, "TISVC", true);
+					return false;
+				}
 
 				// Step 2: Calculate MACD components
 				var emaFast = CalculateEMA(prices, fastPeriod);
 				var emaSlow = CalculateEMA(prices, slowPeriod);
 				var macdLine = emaFast.Skip(slowPeriod - fastPeriod).Select((x, i) => x - emaSlow[i]).ToList();
 				var signalLine = CalculateEMA(macdLine, signalPeriod);
-				var histogram = macdLine.Skip(signalPeriod).Select((x, i) => x - signalLine[i]).ToList();
-
-				// Get latest values
 				decimal latestMacdLine = macdLine.Last();
 				decimal latestSignalLine = signalLine.Last();
-				decimal latestHistogram = histogram.Last();
-				bool isBullish = latestHistogram > 0;
+				decimal latestHistogram = latestMacdLine - latestSignalLine; // Direct calculation
+				bool isBullish = latestMacdLine > latestSignalLine;
 
 				// Step 3: Update database
 				const string updateSql = @"
 					INSERT INTO trade_indicators
-						(from_coin, to_coin, macd_histogram, macd_line_value, macd_signal_value, updated)
-					VALUES (@fromCoin, @toCoin, @isBullish, @macdLine, @signalLine, UTC_TIMESTAMP())
+						(from_coin, to_coin, macd_histogram, macd_bullish, macd_line_value, macd_signal_value, updated)
+					VALUES (@fromCoin, @toCoin, @histogram, @isBullish, @macdLine, @signalLine, UTC_TIMESTAMP())
 					ON DUPLICATE KEY UPDATE
-						macd_histogram = @isBullish,
+						macd_histogram = @histogram,
+						macd_bullish = @isBullish,
 						macd_line_value = @macdLine,
 						macd_signal_value = @signalLine,
 						updated = UTC_TIMESTAMP();";
@@ -614,14 +623,14 @@ namespace maxhanna.Server.Services
 				using var updateCmd = new MySqlCommand(updateSql, connection);
 				updateCmd.Parameters.AddWithValue("@fromCoin", fromCoin);
 				updateCmd.Parameters.AddWithValue("@toCoin", toCoin);
+				updateCmd.Parameters.AddWithValue("@histogram", latestHistogram);
 				updateCmd.Parameters.AddWithValue("@isBullish", isBullish ? 1 : 0);
 				updateCmd.Parameters.AddWithValue("@macdLine", latestMacdLine);
 				updateCmd.Parameters.AddWithValue("@signalLine", latestSignalLine);
 
 				await updateCmd.ExecuteNonQueryAsync();
 
-				_ = _log.Db($"MACD updated for {fromCoin}/{toCoin}: Histogram={latestHistogram:F4} (Bullish: {isBullish})",
-					   null, "TISVC", true);
+				_ = _log.Db($"MACD updated for {fromCoin}/{toCoin}: MACD Line={latestMacdLine:F8}, Signal Line={latestSignalLine:F8}, Histogram={latestHistogram:F8}, Bullish={isBullish}", null, "TISVC", true);
 				return true;
 			}
 			catch (Exception ex)
@@ -694,14 +703,13 @@ namespace maxhanna.Server.Services
 			try
 			{
 				// Fetch latest indicator values
-				//_ = _log.Db($"Recording signal interval for {fromCoin}/{toCoin}", null, "TISVC", true);
 				var selectSql = @"
-                    SELECT 200_day_moving_average, 14_day_moving_average, 21_day_moving_average,
-                           rsi_14_day, macd_histogram, vwap_24_hour
-                    FROM trade_indicators
-                    WHERE from_coin = @fromCoin AND to_coin = @toCoin
-                    ORDER BY updated DESC
-                    LIMIT 1";
+					SELECT 200_day_moving_average, 14_day_moving_average, 21_day_moving_average,
+						rsi_14_day, macd_bullish, vwap_24_hour
+					FROM trade_indicators
+					WHERE from_coin = @fromCoin AND to_coin = @toCoin
+					ORDER BY updated DESC
+					LIMIT 1";
 
 				using var selectCmd = new MySqlCommand(selectSql, connection);
 				selectCmd.Parameters.AddWithValue("@fromCoin", fromCoin);
@@ -718,27 +726,37 @@ namespace maxhanna.Server.Services
 				bool fourteenDayMA = reader.GetInt32("14_day_moving_average") == 1;
 				bool twentyOneDayMA = reader.GetInt32("21_day_moving_average") == 1;
 				decimal rsi = reader.GetDecimal("rsi_14_day");
-				bool macdHistogram = reader.GetInt32("macd_histogram") == 1;
+				bool macdBullish = reader.GetInt32("macd_bullish") == 1;
 				bool vwap24Hour = reader.GetInt32("vwap_24_hour") == 1;
 				await reader.CloseAsync();
 
 				bool rsiBullish = rsi < 30 || (rsi >= 50 && rsi <= 70);
-				bool hasSignal = twoHundredDayMA && fourteenDayMA && twentyOneDayMA && rsiBullish && macdHistogram && vwap24Hour;
+				bool hasSignal = twoHundredDayMA && fourteenDayMA && twentyOneDayMA && rsiBullish && macdBullish && vwap24Hour;
 
 				// Check the latest signal interval
 				var checkSql = @"
-                    SELECT end_time
-                    FROM signal_intervals
-                    WHERE from_coin = @fromCoin AND to_coin = @toCoin
-                    ORDER BY start_time DESC
-                    LIMIT 1";
+					SELECT end_time
+					FROM signal_intervals
+					WHERE from_coin = @fromCoin AND to_coin = @toCoin
+					ORDER BY start_time DESC
+					LIMIT 1";
 
 				using var checkCmd = new MySqlCommand(checkSql, connection);
 				checkCmd.Parameters.AddWithValue("@fromCoin", fromCoin);
 				checkCmd.Parameters.AddWithValue("@toCoin", toCoin);
 
-				var result = await checkCmd.ExecuteScalarAsync();
-				bool hasActiveInterval = result != null || result == DBNull.Value;
+				using var checkReader = await checkCmd.ExecuteReaderAsync();
+				bool hasActiveInterval = false;
+				DateTime? endTime = null;
+				if (await checkReader.ReadAsync())
+				{
+					if (!checkReader.IsDBNull(0)) // Check if end_time is not NULL
+					{
+						endTime = checkReader.GetDateTime(0);
+					}
+					hasActiveInterval = !endTime.HasValue; // True if end_time is NULL
+				}
+				await checkReader.CloseAsync();
 
 				if (hasSignal)
 				{
@@ -746,8 +764,8 @@ namespace maxhanna.Server.Services
 					{
 						// Insert new interval
 						var insertSql = @"
-                            INSERT INTO signal_intervals (from_coin, to_coin, start_time, created_at)
-                            VALUES (@fromCoin, @toCoin, UTC_TIMESTAMP(), UTC_TIMESTAMP())";
+							INSERT INTO signal_intervals (from_coin, to_coin, start_time, created_at)
+							VALUES (@fromCoin, @toCoin, UTC_TIMESTAMP(), UTC_TIMESTAMP())";
 
 						using var insertCmd = new MySqlCommand(insertSql, connection);
 						insertCmd.Parameters.AddWithValue("@fromCoin", fromCoin);
@@ -757,35 +775,46 @@ namespace maxhanna.Server.Services
 						return true;
 					}
 					else
-					{ // Else, interval is already active, do nothing
+					{
+						// Interval is already active, do nothing
 						_ = _log.Db($"Signal interval currently active. No update necessary. {fromCoin}/{toCoin}", null, "TISVC", true);
+						return true;
 					}
-					return true;
 				}
 				else if (hasActiveInterval)
 				{
 					// Close the active interval
 					var updateSql = @"
-                        UPDATE signal_intervals
-                        SET end_time = UTC_TIMESTAMP()
-                        WHERE from_coin = @fromCoin AND to_coin = @toCoin AND end_time IS NULL";
+						UPDATE signal_intervals
+						SET end_time = UTC_TIMESTAMP()
+						WHERE from_coin = @fromCoin AND to_coin = @toCoin AND end_time IS NULL";
 
 					using var updateCmd = new MySqlCommand(updateSql, connection);
 					updateCmd.Parameters.AddWithValue("@fromCoin", fromCoin);
 					updateCmd.Parameters.AddWithValue("@toCoin", toCoin);
-					await updateCmd.ExecuteNonQueryAsync();
-					_ = _log.Db($"Closed signal interval for {fromCoin}/{toCoin}", null, "TISVC", true);
+					int rowsAffected = await updateCmd.ExecuteNonQueryAsync();
+					if (rowsAffected > 0)
+					{
+						_ = _log.Db($"Closed signal interval for {fromCoin}/{toCoin}", null, "TISVC", true);
+					}
+					else
+					{
+						_ = _log.Db($"No open signal interval found to close for {fromCoin}/{toCoin}", null, "TISVC", true);
+					}
 					return true;
 				}
-
-				return true;
+				else
+				{
+					_ = _log.Db($"No signal and no active interval for {fromCoin}/{toCoin}. No action taken.", null, "TISVC", true);
+					return true;
+				}
 			}
 			catch (MySqlException ex)
 			{
 				_ = _log.Db($"Error recording signal interval for {fromCoin}/{toCoin}: {ex.Message}", null, "TISVC", true);
 				return false;
 			}
-		} 
+		}
 		private string GetCoinNameFromPair(string pair)
 		{
 			foreach (var coin in _coinPairs)

@@ -73,7 +73,7 @@
                         <span class="thirdFontColor">Added:</span> <span class="secondaryFontColor">{{ entry.createdAt | timeSince }}</span>
                     </div>
                     <div class="entry-date cursorPointer" title="Display who voted" (click)="openVoterPanel(entry)">
-                        <span class="thirdFontColor">Votes:</span> <span class="secondaryFontColor">{{ entry.totalVotes }}</span>
+                        <span class="thirdFontColor">Votes:</span> <span class="secondaryFontColor cursorPointerUnderlined">{{ entry.totalVotes }}</span>
                     </div>
                 </div>
                 <div class="entry-image">
@@ -173,12 +173,22 @@
 
 <div class="popupPanel" *ngIf="isVoterPanelOpen" (click)="closeVoterPanel()">
     <div class="popupPanelTitle">Voters :</div>
-    <div *ngIf="selectedTopEntry != undefined">
+    <div *ngIf="selectedTopEntry != undefined" class="voterList">
         <div *ngFor="let voter of selectedTopEntry.downvoters" class="largeAvatar">
-            <app-user-tag [userId]="voter" [displayMiniTag]="true" [inputtedParentRef]="parentRef"></app-user-tag>
+            <span *ngIf="voter">
+                <app-user-tag [userId]="voter" [displayMiniTag]="true" [inputtedParentRef]="parentRef"></app-user-tag>
+            </span>
+            <span *ngIf="voter == 0">
+                <app-user-tag [displayEmptyAvatar]="true" [displayMiniTag]="true" [inputtedParentRef]="parentRef"></app-user-tag>
+            </span>
         </div>
         <div *ngFor="let voter of selectedTopEntry.upvoters" class="largeAvatar">
-            <app-user-tag [userId]="voter" [displayMiniTag]="true" [inputtedParentRef]="parentRef"></app-user-tag>
+            <span *ngIf="voter">
+                <app-user-tag [userId]="voter" [displayMiniTag]="true" [inputtedParentRef]="parentRef"></app-user-tag>
+            </span>
+            <span *ngIf="voter == 0">
+                <app-user-tag [displayEmptyAvatar]="true" [displayMiniTag]="true" [inputtedParentRef]="parentRef"></app-user-tag>
+            </span>
         </div>
     </div>
     <button id="closeOverlay" (click)="closeVoterPanel()">Cancel</button>

@@ -12,7 +12,7 @@
                      [showFileSearchOptions]="false"
                      [canChangeDirectory]="false"
                      [canDragMove]="false"
-                     [displayFileActions]="false"
+                     [displayFileActions]="true"
                      [displayComments]="false"
                      [displayFileSize]="false"
                      [displayReactions]="false"
@@ -91,19 +91,21 @@
      ⌨️ Keyboard Controls: Arrows keys for movement; a = x, b = z, c = a, q for left trigger (gba), w for right trigger (gba) enter = start, shift = select.
      "></span>
   </div>
-  <div class="optionsStatsWrapperDiv">
+  <div class="optionsStatsWrapperDiv explainWrapper">
     <div class="optionsStatsDiv">
       <div class="optionsStatsHeader">
         Autosave:
       </div>
       <div class="optionsStatsDescription">
-        <label for="autosaveOn">On</label>
-        <input type="radio" id="autosaveOn" name="autosave" [checked]="autosave" (change)="autosave = true">
-
-        <label for="autosaveOff">Off</label>
-        <input type="radio" id="autosaveOff" name="autosave" [checked]="!autosave" (change)="autosave = false">
+        <label class="toggle-switch">
+          <input type="checkbox"
+          [checked]="autosave"
+          (change)="autosave = !autosave">
+          <span class="slider"></span>
+        </label>
+        <span class="toggle-label">{{ autosave ? 'On' : 'Off' }}</span>
       </div>
-    </div>
+      </div>
     <div class="optionsStatsDiv" *ngIf="!autosave">
       <div class="optionsStatsHeader">
         Save your game:
@@ -175,14 +177,14 @@
         Share Link
       </div>
       <div class="optionsStatsDescription uploadRomSpan upload-label controlVolume">
-        <button title="Share File" (click)="shareLink();">
+        <button title="Share this URL" (click)="shareLink();">
           ↗️Share
         </button>
       </div>
     </div>  
   </div>
 
-  <div class="optionsStatsWrapperDiv" *ngIf="!onMobile()">
+  <div class="optionsStatsWrapperDiv smallFont explainWrapper" *ngIf="!onMobile()">
     <div class="optionsStatsDiv">
       <div class="optionsStatsHeader">
         Controller: A
@@ -239,6 +241,9 @@
         Keyboard: Shift
       </div>
     </div>
+  </div>
+  <div class="smallFont secondaryFontColor"> 
+      Note: Most Gamepads/Controllers are fully supported and plug-and-play. 
   </div>
   <button id="closeOverlay" (click)="closeMenuPanel()">Close</button>
 </div>

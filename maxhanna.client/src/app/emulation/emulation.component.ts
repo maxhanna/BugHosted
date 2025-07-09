@@ -93,13 +93,14 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
     this.parentRef?.addResizeListener();
   }
   override async remove_me(componentTitle: string) {
-    this.stopEmulator();
-    this.isLoading = false;  // Ensure this is executed regardless of saveState result
-    if (this.parentRef && this.unique_key) {
-      this.parentRef.removeComponent(this.unique_key);
-    } else {
-      console.log("key not found: " + componentTitle);
-    }
+    await this.stopEmulator().then(() => {
+      this.isLoading = false;  // Ensure this is executed regardless of saveState result
+      if (this.parentRef && this.unique_key) {
+        this.parentRef.removeComponent(this.unique_key);
+      } else {
+        console.log("key not found: " + componentTitle);
+      }
+    }); 
   }
   async ngOnDestroy() {
     await this.clearAutosave();
