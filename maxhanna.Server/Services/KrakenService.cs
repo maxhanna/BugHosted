@@ -41,27 +41,27 @@ public class KrakenService
 
 	public async Task<bool> MakeATrade(int userId, string coin, UserKrakenApiKey keys, string strategy)
 	{
+		string tmpCoin = coin.ToUpper().Trim();
+		tmpCoin = tmpCoin == "BTC" ? "XBT" : tmpCoin;
+
 		// 1. Cooldown and system check
 		bool? updatedFeeResult = await UpdateFees(userId, coin, keys, strategy);
 		if (updatedFeeResult == null)
 		{
-			_ = _log.Db($"Unable to update fees. API Error most likely culprit. Trade Cancelled.", userId, "TRADE", true);
+			_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Unable to update fees. API Error most likely culprit. Trade Cancelled.", userId, "TRADE", true);
 			return false;
 		}
 		DateTime? started = await IsTradebotStarted(userId, coin, strategy);
 		if (started == null)
 		{
-			_ = _log.Db($"User has stopped the {coin}({strategy}) tradebot. Trade Cancelled.", userId, "TRADE", true);
+			_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) User has stopped the {coin}({strategy}) tradebot. Trade Cancelled.", userId, "TRADE", true);
 			return false;
 		}
-
-		string tmpCoin = coin.ToUpper().Trim();
-		tmpCoin = tmpCoin == "BTC" ? "XBT" : tmpCoin;
 
 		int? minutesSinceLastTrade = await GetMinutesSinceLastTrade(userId, coin, strategy);
 		if (minutesSinceLastTrade != null && minutesSinceLastTrade < 15)
 		{
-			_ = _log.Db($"User is in cooldown for another {(15 - minutesSinceLastTrade)} minutes. {coin}({strategy}) Trade Cancelled.", userId, "TRADE", true);
+			_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) User is in cooldown for another {(15 - minutesSinceLastTrade)} minutes. Trade Cancelled.", userId, "TRADE", true);
 			return false;
 		}
 		else
@@ -76,7 +76,7 @@ public class KrakenService
 		}
 		if (!ApplyTradeConfiguration(tc))
 		{
-			_ = _log.Db($"Null {coin} trade configuration. Trade Cancelled.", userId, "TRADE", true);
+			_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Null {coin} trade configuration. Trade Cancelled.", userId, "TRADE", true);
 			return false;
 		}
 
@@ -90,19 +90,19 @@ public class KrakenService
 		var coinPriceUSDC = await GetCoinPriceToUSDC(userId, coin, keys);
 		if (coinPriceUSDC == null)
 		{
-			_ = _log.Db($"No {coin}/USDC price found. Trade Cancelled.", userId, "TRADE", true);
+			_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) No {coin}/USDC price found. Trade Cancelled.", userId, "TRADE", true);
 			return false;
 		}
 		decimal? coinPriceCAD = await IsSystemUpToDate(userId, coin, coinPriceUSDC.Value);
 		if (coinPriceCAD == null)
 		{
-			_ = _log.Db("System is not up to date. Trade Cancelled.", userId, "TRADE", true);
+			_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) System is not up to date. Trade Cancelled.", userId, "TRADE", true);
 			return false;
 		}
 
 		if (coinPriceUSDC < _TradeStopLoss)
 		{
-			_ = _log.Db($"{strategy} Stop Loss ({_TradeStopLoss}) threshold breached (current price: {coinPriceUSDC}). Liquidating {coin} for USDC.", userId, "TRADE", true);
+			_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Stop Loss ({_TradeStopLoss}) threshold breached (current price: {coinPriceUSDC}). Liquidating {coin} for USDC.", userId, "TRADE", true);
 			return await ExitPosition(userId, coin, keys, strategy);
 		}
 
@@ -147,14 +147,14 @@ public class KrakenService
 			}
 			decimal coinBalance = balances.ContainsKey($"X{tmpCoin}") ? balances[$"X{tmpCoin}"] : 0;
 			decimal usdcBalance = balances.ContainsKey("USDC") ? balances["USDC"] : 0;
-			_ = _log.Db("USDC Balance: " + usdcBalance + "; Coin Balance: " + coinBalance, userId, "TRADE", true);
-			_ = _log.Db($"coinPriceCad: {coinPriceCAD}, coinPriceUSDC {coinPriceUSDC:F2}", userId, "TRADE", true);
-			_ = _log.Db($"spread1: {spread:P} || spread2 {spread2:P}. (currentPrice:{currentPrice}), (lastPrice:{lastPrice}), (firstPriceToday:{firstPriceToday.GetValueOrDefault()})", userId, "TRADE", true);
+			//_ = _log.Db("USDC Balance: " + usdcBalance + "; Coin Balance: " + coinBalance, userId, "TRADE", true);
+			//_ = _log.Db($"coinPriceCad: {coinPriceCAD}, coinPriceUSDC {coinPriceUSDC:F2}", userId, "TRADE", true);
+			//_ = _log.Db($"spread1: {spread:P} || spread2 {spread2:P}. (currentPrice:{currentPrice}), (lastPrice:{lastPrice}), (firstPriceToday:{firstPriceToday.GetValueOrDefault()})", userId, "TRADE", true);
 
 			if (spread >= _TradeThreshold || (firstPriceToday != null && spread2 >= _TradeThreshold))
 			{
 				string triggeredBy = spread >= _TradeThreshold ? "spread" : "spread2";
-				_ = _log.Db($"({tmpCoin}:{userId}) Trade triggered by: {triggeredBy} ({(triggeredBy == "spread2" ? spread2 : spread):P})", userId, "TRADE", true);
+				_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Trade triggered by: {triggeredBy} ({(triggeredBy == "spread2" ? spread2 : spread):P})", userId, "TRADE", true);
 
 				// If no last trade, check if we must equalize
 				if (isFirstTradeEver || lastTrade == null)
@@ -168,7 +168,7 @@ public class KrakenService
 							return await TradeHalfCoinForUSDC(userId, tmpCoin, keys, coinBalance, usdcBalance, coinPriceCAD.Value, coinPriceUSDC.Value, strategy);
 						}
 
-						_ = _log.Db($"No need to equalize funds. USDC Balance ({usdcBalance}) over minimum reserves ({_MinimumUSDCReserves}).", userId, "TRADE", true);
+						_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) No need to equalize funds. USDC Balance ({usdcBalance}) over minimum reserves ({_MinimumUSDCReserves}).", userId, "TRADE", true);
 					}
 					else
 					{
@@ -177,7 +177,7 @@ public class KrakenService
 							return await TradeHalfUSDCForCoin(userId, tmpCoin, keys, coinBalance, usdcBalance, coinPriceCAD.Value, coinPriceUSDC.Value, strategy);
 						}
 
-						_ = _log.Db($"No need to equalize funds. {tmpCoin} Balance ({coinBalance}) over minimum reserves ({_MinimumBTCReserves}).", userId, "TRADE", true);
+						_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) No need to equalize funds. {tmpCoin} Balance ({coinBalance}) over minimum reserves ({_MinimumBTCReserves}).", userId, "TRADE", true);
 					}
 				}
 
@@ -187,7 +187,7 @@ public class KrakenService
 				if (isPremiumCondition)
 				{ // Increase sell amount for premium opportunity  // take off a premium if the bot used a fallback trade price value.
 					coinToTrade = Math.Min(coinBalance * (tmpTradePerc + _ValueTradePercentagePremium), _MaximumBTCTradeAmount);
-					_ = _log.Db($"PREMIUM SELL OPPORTUNITY - Increasing trade size by 5%", userId, "TRADE", true);
+					_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) PREMIUM SELL OPPORTUNITY - Increasing trade size by 5%", userId, "TRADE", true);
 				}
 				else
 				{ // Normal trade amount // take off a premium if the bot used a fallback trade price value.
@@ -197,10 +197,10 @@ public class KrakenService
 				{
 					// Convert the Coin price to USD;  Now you can get the value of coinToTrade in USDC (1 USDC = 1 USD) 
 					decimal coinBalanceConverted = coinBalance * coinPriceUSDC.Value;
-					_ = _log.Db($"Converted coinBalanceValue in USDC: {coinBalanceConverted}", userId, "TRADE", true);
+					_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Converted coinBalanceValue in USDC: {coinBalanceConverted}", userId, "TRADE", true);
 					if (Is90PercentOfTotalWorth(coinBalanceConverted, coinToTrade.Value))
 					{
-						_ = _log.Db($"Trade to USDC is prevented. 90% of wallet is already in USDC. {coinToTrade} >= {(coinBalanceConverted + coinToTrade) * _MaximumTradeBalanceRatio}", userId, "TRADE", true);
+						_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Trade to USDC is prevented. 90% of wallet is already in USDC. {coinToTrade} >= {(coinBalanceConverted + coinToTrade) * _MaximumTradeBalanceRatio}", userId, "TRADE", true);
 						return false;
 					}
 					var spread2Message = firstPriceToday != null ? $"Spread2 : {spread2:P} " : "";
@@ -216,7 +216,7 @@ public class KrakenService
 				}
 				else
 				{
-					_ = _log.Db("⚠️Error fetching USDC exchange rates.", userId, "TRADE", true);
+					_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) ⚠️Error fetching USDC exchange rates.", userId, "TRADE", true);
 					return false;
 				}
 			}
@@ -765,11 +765,11 @@ public class KrakenService
 			//If reserves are low, you may want a larger range to avoid too many trades.
 			//If there is high market volatility, you could reduce the range to act more cautiously.  
 			bool isVolumeSpiking = await IsSignificantVolumeSpike(tmpCoin, from, to, userId);
-			int tradeRange = isVolumeSpiking ? _VolumeSpikeMaxTradeOccurance : _MaxTradeTypeOccurances;
+			int tradeRange = (buyOrSell == "buy" && isVolumeSpiking) ? _VolumeSpikeMaxTradeOccurance : _MaxTradeTypeOccurances;
 			bool shouldTradeBasedOnReserves = await ShouldTradeBasedOnRangeAndReserve(userId, from, to, buyOrSell, strategy, tradeRange, usdcBalance);
 			if (!shouldTradeBasedOnReserves)
 			{
-				_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) [ConsecutiveCheck] User has {buyOrSell} {from} {to} too many times in the last {tradeRange} trades (Based on {tmpCoin}/USDC reserves {(isVolumeSpiking ? " and volume spike" : "")}). ({strategy})Trade Cancelled.", userId, "TRADE", true);
+				_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) [ConsecutiveCheck] User has {buyOrSell} {from} {to} too many times in the last {tradeRange} trades (Based on {tmpCoin}/USDC reserves {(isVolumeSpiking ? "and volume spike" : "")}). ({strategy})Trade Cancelled.", userId, "TRADE", true);
 				return false;
 			}
 			int tradeRangeLimit = _MaxTradeTypeOccurances;
@@ -1289,7 +1289,7 @@ public class KrakenService
 		bool isRepeatedTrade = await IsRepeatedTradesInRange(userId, from, to, buyOrSell, strategy, range);
 		if (isRepeatedTrade)
 		{
-			_ = _log.Db($"[ConsecutiveCheck] Repeated too many ({strategy}) volume weighted trades ({buyOrSell} {from} {to} {range})", userId, "TRADE", true);
+			_ = _log.Db($"({from}:{userId}:{strategy}) [ConsecutiveCheck] Repeated({strategy}) trades ({buyOrSell} {from} {to} {range})", userId, "TRADE", true);
 		}
 		// Define threshold based on currency
 		decimal threshold = 0;
@@ -1307,10 +1307,10 @@ public class KrakenService
 			throw new ArgumentException("Unsupported currency type for balance check");
 		}
 		bool reservesLow = balance < threshold;
-		_ = _log.Db($"[reservesLow]={reservesLow} (Balance={balance}, Threshold={threshold}, Strategy={strategy})", userId, "TRADE", true);
+		_ = _log.Db($"({from}:{userId}:{strategy}) [reservesLow]={reservesLow} (Balance={balance}, Threshold={threshold}, Strategy={strategy})", userId, "TRADE", true);
 		if (reservesLow)
 		{
-			_ = _log.Db($"Reserves Are Low ({balance} < {threshold})", userId, "TRADE", true);
+			_ = _log.Db($"({from}:{userId}:{strategy}) Reserves Are Low ({balance} < {threshold})", userId, "TRADE", true);
 		}
 
 		// If the reserves are not low and not repeating too many trades, allow trade
@@ -3865,6 +3865,7 @@ public class KrakenService
 				WHERE user_id = @UserId 
 				AND (from_currency = @Coin OR to_currency = @Coin)
 				AND strategy = @Strategy
+				AND timestamp >= NOW() - INTERVAL 10 MINUTE
 				ORDER BY timestamp DESC 
 				LIMIT 20
 			) AS recent_trades

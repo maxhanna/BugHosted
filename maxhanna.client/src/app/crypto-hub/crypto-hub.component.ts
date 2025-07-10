@@ -112,7 +112,7 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
   tradebotValuesForGraph: any;
   tradebotTradeValuesForMainGraph: { timestamp: Date; valueCAD: number }[] = [];
   lineGraphInitialPeriod: '5min' | '15min' | '1h' | '6h' | '12h' | '1d' | '2d' | '5d' | '1m' | '2m' | '3m' | '6m' | '1y' | '2y' | '3y' | '5y' | 'max' = '6h';
-  exchangeRateGraphSelectedPeriod: '5min' | '15min' | '1h' | '6h' | '12h' | '1d' | '2d' | '5d' | '1m' | '2m' | '3m' | '6m' | '1y' | '2y' | '3y' | '5y' = '1y'
+  exchangeRateGraphSelectedPeriod: '5min' | '15min' | '1h' | '6h' | '12h' | '1d' | '2d' | '5d' | '1m' | '2m' | '3m' | '6m' | '1y' | '2y' | '3y' | '5y' | 'max' = '1y'
   tradebotSimulationGraphData: any[] = [];
   tradebotSimulationGraphData2: any[] = [];
   tradeSimParams = {

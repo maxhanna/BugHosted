@@ -35,7 +35,7 @@ export class LineGraphComponent implements OnInit, OnChanges {
   @Input() supportsXYZ = false;
   @Input() graphTitle: string = '';
   @Input() type: "Crypto" | "Currency" | "Volume" | "MACD" = "Crypto";
-  @Input() selectedPeriod: '5min' | '15min' | '1h' | '6h' | '12h' | '1d' | '2d' | '5d' | '1w' | '2w' | '3w' | '1m' | '2m' | '3m' | '6m' | '1y' | '2y' | '3y' | '5y' = '1d';
+  @Input() selectedPeriod: '5min' | '15min' | '1h' | '6h' | '12h' | '1d' | '2d' | '5d' | '1w' | '2w' | '3w' | '1m' | '2m' | '3m' | '6m' | '1y' | '2y' | '3y' | '5y' | 'max' = '1d';
   @Input() showAverage: boolean = false;
   @Input() showMacdLine: boolean = true; // Added for MACD
   @Input() showSignalLine: boolean = true; // Added for MACD
