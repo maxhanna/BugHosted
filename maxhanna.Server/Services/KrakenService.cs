@@ -64,9 +64,10 @@ public class KrakenService
 			_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) User is in cooldown for another {(15 - minutesSinceLastTrade)} minutes. Trade Cancelled.", userId, "TRADE", true);
 			return false;
 		}
-		else
+		else if (strategy != "DCA")
 		{
-			_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Minutes since last trade: {minutesSinceLastTrade} minutes.", userId, "TRADE", true);
+			var timeSince = _log.GetTimeSince(minutesSinceLastTrade, true);
+			_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Last trade: {timeSince}.", userId, "TRADE", true);
 		}
 
 		TradeConfiguration? tc = await GetTradeConfiguration(userId, fromCoin: tmpCoin, toCoin: "USDC", strategy);

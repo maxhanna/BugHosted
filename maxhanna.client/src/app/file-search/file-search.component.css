@@ -69,15 +69,32 @@
 
 .topPageControls {
   display: flex;
-  justify-content: center;
-  align-items: flex-end;
-  font-size: x-large;
-  align-content: center;
-  flex-wrap: nowrap;
   flex-direction: row;
+  align-items: center; 
+  justify-content: center;
   gap: clamp(10px, 3vw, 30px);
+  font-size: x-large;  
+  box-sizing: border-box; 
+  margin-bottom: 6px;
 }
 
+.topPageControls input {
+  font-size: medium;
+  padding: 6px 10px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  height: 30px;
+  box-sizing: border-box;
+  line-height: 1;
+}
+
+.totalPageDisplay {
+  min-width: 40px;
+  margin-left: 5px;
+  margin-right: 5px;
+  text-align: center;
+}
+ 
 @media only screen and (max-width : 355px) {
   .searchInput {
     display: inline-flex;
@@ -240,11 +257,7 @@
   width: 100%;
   overflow: auto;
 }
-
-.totalPageDisplay {
-  margin-left: 5px;
-  margin-right: 5px;
-}
+ 
 
 .fileOptionsStats div {
   padding: 5px;
@@ -312,6 +325,6 @@
 }
 
 .biggerDataDiv {
-  max-height: calc(var(--vh, 1vh) * 85);
+  max-height: calc(var(--vh, 1vh) * 89);
   overflow: auto;
 }

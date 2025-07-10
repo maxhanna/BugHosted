@@ -266,17 +266,30 @@ public class Log
 
 		return int.Parse(Encoding.UTF8.GetString(plaintextBytes));
 	}
-	
-	public string GetTimeSince(DateTime? timestamp, bool isUtc = true)
+
+	public string GetTimeSince(object? input, bool isUtc = true)
 	{
-		if (!timestamp.HasValue) return "just now";
+		if (input == null) return "just now";
 
-		TimeSpan elapsed = isUtc
-			? DateTime.UtcNow - timestamp.Value
-			: DateTime.Now - timestamp.Value;
+		TimeSpan elapsed;
 
-		return FormatElapsedTime(elapsed); // Reuse the same helper
-	}
+		if (input is int minutes)
+		{
+			elapsed = TimeSpan.FromMinutes(minutes);
+		}
+		else if (input is DateTime timestamp)
+		{
+			elapsed = isUtc
+				? DateTime.UtcNow - timestamp
+				: DateTime.Now - timestamp;
+		}
+		else
+		{
+			return "invalid input";
+		}
+
+		return FormatElapsedTime(elapsed);
+	} 
 
 	// Shared logic for formatting
 	private string FormatElapsedTime(TimeSpan elapsed)

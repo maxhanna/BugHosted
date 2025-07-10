@@ -13,7 +13,7 @@
 
         <button id="closeOverlay" class="doneButton cursorPointer" #doneButton (click)="done()" *ngIf="(displaySearch && selectedFiles.length > 0) ? true  : true">{{selectedFiles && selectedFiles.length > 0 ? 'Finished' : 'Cancel'}}</button>
       </div>
-      <div class="smallFont" *ngIf="maxSelectedFiles">
+      <div class="smallFont" *ngIf="maxSelectedFiles && !displaySearch">
         Maximum: {{maxSelectedFiles}} files.
       </div>
       <!-- SELECTED MEDIA FILES-->

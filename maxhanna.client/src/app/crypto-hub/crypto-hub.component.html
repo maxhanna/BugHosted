@@ -227,10 +227,10 @@
             title="MACD Histogram > 0 indicates bullish momentum (MACD line above signal line). Values show the distance between MACD and signal lines.">
             MACD Histogram
           </div>
-          <div class="indicator-value" [class.positive]="tradeIndicators.macdHistogram">
+          <div class="indicator-value" [class]="(tradeIndicators.macdLineValue - tradeIndicators.macdSignalValue) > 0 ? 'positive' : 'negative'">
             {{ (tradeIndicators.macdLineValue - tradeIndicators.macdSignalValue) > 0 ? 'Bullish' : 'Bearish' }}
           </div>
-          <div class="indicator-value cursorPointerUnderlined" [class]="tradeIndicators.macdHistogram ? 'positive' : 'negative'">
+          <div class="indicator-value cursorPointerUnderlined" [class]="(tradeIndicators.macdLineValue - tradeIndicators.macdSignalValue) > 0 ? 'positive' : 'negative'">
             {{ (tradeIndicators.macdLineValue - tradeIndicators.macdSignalValue) | number:'1.4-4' }}
           </div>
         </div>
