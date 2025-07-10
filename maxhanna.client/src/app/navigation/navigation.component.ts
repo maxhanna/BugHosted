@@ -111,8 +111,8 @@ export class NavigationComponent implements OnInit, OnDestroy {
     this.getCalendarInfo();
     this.getCryptoHubInfo();
     this.getNotificationInfo();
-    this.getWordlerStreakInfo();
-    this.getThemeInfo();
+    this.getWordlerStreakInfo(); 
+    this.getThemeInfo(); 
 
     this.notificationInfoInterval = setInterval(() => this.getNotificationInfo(), 60 * 1000); // every minute
     this.cryptoHubInterval = setInterval(() => this.getCryptoHubInfo(), 20 * 60 * 1000); // every 20 minutes
@@ -207,10 +207,10 @@ export class NavigationComponent implements OnInit, OnDestroy {
   }
 
   async getThemeInfo(userId?: number) {
-    if (this._parent?.user?.id && !userId) {
+    if (!this._parent?.user?.id && !userId) {
       this.applyDefaultTheme();
       return;
-    }
+    } 
     this.isLoadingTheme = true;
     try {
       const theme = await this.userService.getTheme(userId ?? this._parent?.user?.id ?? 0);
