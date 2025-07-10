@@ -305,3 +305,13 @@
   width: 100%;
   margin-bottom: 15px;
 }
+
+.smallerDataDiv {
+  max-height: calc((var(--vh, 1vh) * 50) - 100px);
+  overflow: auto;
+}
+
+.biggerDataDiv {
+  max-height: calc(var(--vh, 1vh) * 85);
+  overflow: auto;
+}
