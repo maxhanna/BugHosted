@@ -1,0 +1,80 @@
+.optionsStatsDiv {
+    display: flex;
+    flex-direction: column;
+    margin-bottom: 25px;
+    padding: 10px;
+    border-bottom: 1px solid #e0e0e0;
+}
+
+.optionsStatsHeader {
+    font-weight: bold;  
+}
+
+.optionsStatsDescription {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    text-align: unset !important;
+}
+
+.settingExplanation {
+    margin-top: 12px;
+    padding: 15px;
+    background: linear-gradient(135deg, var(--component-background-color), var(--secondary-component-background-color));
+    border-left: 5px solid var(--third-font-color);
+    font-size: 14px;
+    line-height: 1.7;
+    border-radius: 6px; 
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    cursor: pointer;
+    height: 30px;
+}
+
+.settingExplanation.expanded {
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+    height: unset !important;
+}
+
+.settingExplanation p {
+    margin: 8px 0;
+    text-overflow: ellipsis;
+    overflow: hidden;
+}
+
+.settingExplanation strong { 
+    font-weight: 600;
+}
+
+select,
+input[type="number"] {
+    padding: 8px;
+    font-size: 14px;
+    border: var(--main-border);
+    border-radius: 4px;
+    margin-bottom: 10px;
+}
+
+button {
+    padding: 8px 16px;    
+    cursor: pointer;
+}
+
+button:disabled {
+    background-color: #bdc3c7;
+    cursor: not-allowed;
+}
+
+@media (max-width: 768px) {
+    .optionsStatsDiv {
+        padding: 8px;
+    } 
+
+    .settingExplanation { 
+        padding: 10px;
+    }
+ 
+}

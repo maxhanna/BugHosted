@@ -576,8 +576,7 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
       const base = this.currentPersonalBases[index];
 
       if (base.user?.id === userId) {
-        if (withUnits) {
-          console.log("switching to next base with units");
+        if (withUnits) { 
           const baseUnits = this.allNexusUnits?.find(x => x.coordsX == base.coordsX && x.coordsY == base.coordsY);
           if (baseUnits && this.hasAnyUnits(baseUnits)) {
             nextBase = base;
@@ -1132,8 +1131,7 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
       }
 
       this.startLoading();
-      this.reinitializeByType("nexusBaseUpgrades");
-      console.log("upgrading " + upgrade);
+      this.reinitializeByType("nexusBaseUpgrades"); 
       switch (upgrade) {
         case 'mines':
           this.nexusBaseUpgrades!.minesUpgraded = new Date();
@@ -1741,8 +1739,7 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
       let notifList = this.parentRef?.notifications;
       if (notifList) {
         let index = notifList.findIndex(x => x.toLowerCase().includes("attack sent to"));
-        if (index !== -1) {
-          console.log("replacing existing attack notification", notifList[index]);
+        if (index !== -1) { 
           notifList[index] = notif;
         } else {
           this.parentRef?.showNotification(notif);

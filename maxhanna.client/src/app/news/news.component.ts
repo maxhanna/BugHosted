@@ -62,8 +62,7 @@ export class NewsComponent extends ChildComponent implements OnInit, OnDestroy {
     this.parentRef?.removeResizeListener();
   }
 
-  async loadNews(data?: ArticlesResult) {
-    console.log("loadNews called");
+  async loadNews(data?: ArticlesResult) { 
     this.startLoading();
     try {
       if (data) {
@@ -83,8 +82,7 @@ export class NewsComponent extends ChildComponent implements OnInit, OnDestroy {
           this.parentRef?.showNotification("No news data");
         }
       }
-    } catch (e){
-      console.log(e);
+    } catch (e){ 
       this.newsArticles = { articles: [], totalResults: 0,   };
       this.totalResults = 0;
       this.totalPages = 1;
@@ -95,8 +93,7 @@ export class NewsComponent extends ChildComponent implements OnInit, OnDestroy {
     }
     this.stopLoading();
   }
-  async searchByKeyword() {
-    console.log("searchByKeyword called");
+  async searchByKeyword() { 
     clearTimeout(this.debounceTimer);
     this.debounceTimer = setTimeout(async () => {
       try {
@@ -168,8 +165,7 @@ export class NewsComponent extends ChildComponent implements OnInit, OnDestroy {
           this.parentRef?.showNotification(res);
         }
       });
-    }
-    console.log(text);
+    } 
   }
   saveArticle(article: Article) {
     if (this.parentRef?.user?.id) {

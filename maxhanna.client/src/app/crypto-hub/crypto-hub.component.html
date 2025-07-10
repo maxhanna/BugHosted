@@ -184,9 +184,9 @@
             14-Day RSI
           </span>
           <span class="indicator-value"
-            [class]="(tradeIndicators.rsI14Day < 30 || (tradeIndicators.rsI14Day >= 50 && tradeIndicators.rsI14Day <= 70)) ? 'positive' : getRSIStatus(tradeIndicators.rsI14Day).class">
+            [class]="(tradeIndicators.rsI14Day < 30 || (tradeIndicators.rsI14Day >= 50 && tradeIndicators.rsI14Day <= 70)) ? 'positive' : 'negative'">
             {{ tradeIndicators.rsI14Day | number:'1.2-2' }}
-            <span class="rsi-label">({{ getRSIStatus(tradeIndicators.rsI14Day).label || 'Unknown' }})</span>
+            <div class="rsi-label">({{ getRSIStatus(tradeIndicators.rsI14Day).label || 'Unknown' }})</div>
           </span>
         </div>
     
@@ -210,10 +210,10 @@
             title="Shows how much the price has dropped from its 1-year high. Values below 15% indicate strength, while larger drops may suggest weakness.">
             Retracement From High
           </div>
-          <div class="indicator-value" [class.positive]="tradeIndicators.retracementFromHigh">
-            {{ tradeIndicators.retracementFromHigh ? 'Strong' : 'Weak' }}
+          <div class="indicator-value" [class]="tradeIndicators.retracementFromHighValue > 0 ? 'positive' : 'negative'">
+            {{ tradeIndicators.retracementFromHighValue > 0 ? 'Retracement' : 'New All-Time High' }}
           </div>
-          <div class="indicator-value" [class]="tradeIndicators.retracementFromHigh ? 'positive' : 'negative'">
+          <div class="indicator-value" [class]="tradeIndicators.retracementFromHighValue > 0  ? 'positive' : 'negative'">
             {{ tradeIndicators.retracementFromHighValue * 100 | number:'1.2-2' }}%
             <span class="threshold-indicator" *ngIf="tradeIndicators.retracementFromHighValue > 0.15">
               (Above 15% threshold)
@@ -228,7 +228,7 @@
             MACD Histogram
           </div>
           <div class="indicator-value" [class.positive]="tradeIndicators.macdHistogram">
-            {{ tradeIndicators.macdHistogram ? 'Bullish' : 'Bearish' }}
+            {{ (tradeIndicators.macdLineValue - tradeIndicators.macdSignalValue) > 0 ? 'Bullish' : 'Bearish' }}
           </div>
           <div class="indicator-value cursorPointerUnderlined" [class]="tradeIndicators.macdHistogram ? 'positive' : 'negative'">
             {{ (tradeIndicators.macdLineValue - tradeIndicators.macdSignalValue) | number:'1.4-4' }}
@@ -244,13 +244,12 @@
           <div class="indicator-value" [class]="marketSentimentData[0].sentimentScore > 50 ? 'positive' : 'negative'" *ngIf="!isMarketSentimentMaximized">
             {{ marketSentimentData[0].sentimentScore }}%
           </div>
-          <div [class]="'indicator-value' + (isMarketSentimentMaximized ? '' : ' marketSentimentAnalysis')" *ngIf="!isMarketSentimentMaximized">
+          <div [class]="(marketSentimentData[0].sentimentScore > 50 ? 'positive' : 'negative') + ' indicator-value' + (isMarketSentimentMaximized ? '' : ' marketSentimentAnalysis')" *ngIf="!isMarketSentimentMaximized">
             {{ marketSentimentData[0].analysis }}
           </div>
           
 
-          <div *ngIf="isMarketSentimentMaximized">
-          
+          <div *ngIf="isMarketSentimentMaximized"> 
             <!-- TABLE -->
             <table class="sentiment-table">
               <thead>
@@ -357,12 +356,12 @@
       [isDiscreete]="isDiscreete" [inputtedParentRef]="parentRef" [conversionRate]="latestCurrencyPriceRespectToCAD"
       [currency]="selectedCurrency" (closeMiningEvent)="closeMiningEvent()"></app-mining-rigs>
 
-    <div class="wallet sectionContainer" *ngIf="(wallet || btcWalletResponse)"
+    <div class="wallet sectionContainer" *ngIf="wallet"
       [style.display]="isTradePanelOpen ? 'none' : 'block'">
       <div class="sectionName cryptoWalletSectionHeader"
-        *ngIf="latestCurrencyPriceRespectToCAD && (wallet || btcWalletResponse)" style="margin-bottom:10px;">Crypto Wallet Balance(s):
+        *ngIf="latestCurrencyPriceRespectToCAD && wallet" style="margin-bottom:10px;">Crypto Wallet Balance(s):
       </div>
-      <table *ngIf="latestCurrencyPriceRespectToCAD && (wallet || btcWalletResponse?.currencies)" id="walletTable"
+      <table *ngIf="latestCurrencyPriceRespectToCAD && wallet" id="walletTable"
         class="mainTable">
         <thead *ngIf="wallet?.length">
           <tr>
@@ -872,8 +871,7 @@
           </div>
         </div>
       </div>
-      <div *ngIf="isTradePanelOpen" [style.marginTop]="isTradePanelOpen ? '15px' : ''"
-        style="display: flex; justify-content: space-between; width: 100%;">
+      <div *ngIf="isTradePanelOpen" [style.marginTop]="isTradePanelOpen ? '15px' : ''" class="tradePanelCloseButtonSection">
         <div *ngIf="isTradePanelOpen && canShowTradePanelInfo()">
           <div class="smallFont thirdFontColor">Consider buying me a coffee!</div>
           <div class="smallFont thirdFontColor"><span class="secondaryFontColor">BTC Address:</span>

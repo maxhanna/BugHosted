@@ -96,6 +96,155 @@ export class AppComponent implements OnInit, AfterViewInit {
     { ownership: 0, icon: "👤", title: "User", content: undefined },
     { ownership: 0, icon: "➕", title: "UpdateUserSettings", content: undefined },
   ];
+  navigationItemDescriptions: MenuItem[] = [
+    {
+      ownership: 0,
+      title: 'Bug-Wars',
+      content: `"Bug Wars" is a real-time strategy, massively multiplayer online game set in the near future. Create
+  your base and compete against others for control over the map!`
+    },
+    {
+      ownership: 0,
+      title: 'Files',
+      content: `A file system which is the backbone of the site.
+  Anything publicly available in the filesystem can be used as an attachment anywhere on the site or
+  shared publicly off-site for free!`
+    },
+    {
+      ownership: 0,
+      title: 'News',
+      content: `Get the latest news on any subject from multiple different sources (from both main and non-mainstream
+  news).`
+    },
+    {
+      ownership: 0,
+      title: 'Notifications',
+      content: `Notifications display for all components of this website. Get up to date information about your content.`
+    },
+    {
+      ownership: 0,
+      title: 'Weather',
+      content: `Get up to date weather information based on a location you supply or the automatically found location
+  based on your IP-Address!`
+    },
+    {
+      ownership: 0,
+      title: 'Todo',
+      content: `A todo list to keep yourself reminded of everything todo. Create your own lists and save reminders to
+  it!`
+    },
+    {
+      ownership: 0,
+      title: 'Music',
+      content: `A music list to keep track of your favourite youtube songs! Once added, the songs are displayed and a
+  playlist can be selected from your profile page!`
+    },
+    {
+      ownership: 0,
+      title: 'Crypto-Hub',
+      content: `Crypto Hub does many Crypto-related things.
+  <ul>
+    <li>Keeps track of crypto prices for the most popular coins.</li>
+    <li>Show your cryptocurrency wallet balance.</li>
+    <li>Manage your cryptocurrency mining rigs.</li>
+    <li>Manage your trade bot.</li>
+    <li>View trading logs.</li>
+  </ul>
+  <div class="smallFont">
+    Currently only supports the NiceHash API for mining rigs.
+    If you do not have any mining rigs set up, you can quickly get started using Nicehash.
+    Follow this <a href='http://nicehash.com' target="_blank">Link</a> for more info!
+  </div>`
+    },
+    {
+      ownership: 0,
+      title: 'HostAi',
+      content: `BugHosted's AI. Get information about anything instantly.`
+    },
+    {
+      ownership: 0,
+      title: 'Notepad',
+      content: `Jot down notes and share them with others. Saved news articles show up here.`
+    },
+    {
+      ownership: 0,
+      title: 'Contacts',
+      content: `Add your friends as contacts! Simply go to a person's profile page and click Add as Contact to keep
+  track of friends' contact information and profiles.`
+    },
+    {
+      ownership: 0,
+      title: 'Crawler',
+      content: `Our search engine with a full database of uncensored results. Index your website or search our
+  database of websites for any information that can be found on the web.`
+    },
+    {
+      ownership: 0,
+      title: 'Calendar',
+      content: `The Calendar helps you remember important things. Dont forget.`
+    },
+    {
+      ownership: 0,
+      title: 'Meta-Bots',
+      content: `Meta-Bots, our up and coming MMORPG.`
+    },
+    {
+      ownership: 0,
+      title: 'Social',
+      content: `Social platform.`
+    },
+    {
+      ownership: 0,
+      title: 'Meme',
+      content: `Share memes, use them in chat, on the socials or even as a display picture!`
+    },
+    {
+      ownership: 0,
+      title: 'Wordler',
+      content: `Can you defeat the Wordler? A word guessing game inspired from the NY Times website!`
+    },
+    {
+      ownership: 0,
+      title: 'Chat',
+      content: `Chat system to connect you with your friends or groups of friends.`
+    },
+    {
+      ownership: 0,
+      title: 'Favourites',
+      content: `Share and keep track of your favourite links.
+  Make a list of your favourites, other users can see and search for the links you added too! Track how
+  many people also added the favourite you created and see how popular your favourites are!`
+    },
+    {
+      ownership: 0,
+      title: 'Top100',
+      content: `Create lists in topics and rank them according to a user voting system! 
+  Use this to promote your favorite site, products, or just create a ranking list on any topic!`
+    },
+    {
+      ownership: 0,
+      title: 'Array',
+      content: `The Array transports users down a seemingly infinite array.
+  The further you go down the array, the more experience you gain.
+  Find items to make you stronger!
+  Fight other players for glory!`
+    },
+    {
+      ownership: 0,
+      title: 'Emulation',
+      content: `Our "Nostalgist" emulator allows users to play Gameboy (Color), Gameboy Advance, Nintendo, Super
+  Nintendo, Sega and more!
+  Simply upload roms and enjoy the autosaving feature! The game will automatically be saved to our
+  servers.
+  You may now restart from anywhere with any device!(Supports joysticks and fullscreen mode!)`
+    },
+    {
+      ownership: 0,
+      title: 'Theme',
+      content: `Change the site's theme! Share your theme with others or use a theme someone else has shared!`
+    }
+  ];
+  
   location?: { ip: string, city: string, country: string } = undefined;
   sessionToken?: string = undefined;
   userIdCache = new Map<string, number>()
@@ -157,7 +306,7 @@ export class AppComponent implements OnInit, AfterViewInit {
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('/firebase-messaging-sw.js')
         .then((registration) => {
-          console.log('Service Worker registered:', registration);
+          //console.log('Service Worker registered:', registration);
         })
         .catch((error) => {
           console.error('Service Worker registration failed:', error);
@@ -178,8 +327,7 @@ export class AppComponent implements OnInit, AfterViewInit {
           const storyId = this.router.url.toLowerCase().split('social/')[1]?.split('?')[0];
           this.createComponent("Social", { "storyId": storyId });
         }
-        else if (this.router.url.includes('User')) {
-          console.log("router has user");
+        else if (this.router.url.includes('User')) { 
           this.checkAndClearRouterOutlet();
           const userId = this.router.url.toLowerCase().split('user/')[1]?.split('?')[0].split('/')[0];
           const storyId = this.router.url.toLowerCase().split('user/')[1]?.split('/')[1];
@@ -271,7 +419,7 @@ export class AppComponent implements OnInit, AfterViewInit {
   }
 
   createComponent(componentType: string, inputs?: { [key: string]: any; }, previousComponentParameters?: { [key: string]: any; }) {
-    console.log("in create component : " + componentType);
+    //console.log("in create component : " + componentType);
     this.navigationComponent.minimizeNav();
     this.closeOverlay();
     this.replacePageTitleAndDescription(componentType, componentType);
@@ -422,8 +570,7 @@ export class AppComponent implements OnInit, AfterViewInit {
       await this.navigationComponent.getNotifications();
     }, 500);
   }
-  openModal(isModal?: boolean) {
-    console.log("open modal", isModal);
+  openModal(isModal?: boolean) { 
     this.isModalOpen = true;
     setTimeout(() => {
       if (isModal) {
@@ -436,8 +583,7 @@ export class AppComponent implements OnInit, AfterViewInit {
     }, 100);
   }
 
-  closeModal() {
-    console.log("close modal");
+  closeModal() { 
     this.isModalOpen = false;
     this.modalComponent.isCloseButtonVisible = true;
   }
@@ -775,7 +921,7 @@ export class AppComponent implements OnInit, AfterViewInit {
     let timestamp = (document.getElementById("scrollToQuoteDateInput") as HTMLInputElement).value;
     let message = (document.getElementById("scrollToQuoteMessageInput") as HTMLInputElement).value;
     if (!timestamp || !message) {
-      console.log("No message or timestamp found for quote.");
+      //console.log("No message or timestamp found for quote.");
       return;
     }
     message = decodeURIComponent(message);
@@ -790,11 +936,8 @@ export class AppComponent implements OnInit, AfterViewInit {
 
       if (
         (elementText.toLowerCase().includes(message.toLowerCase())
-          && (element.classList.contains('messageContainer') || element.classList.contains('commentContent'))
-        )
-        || elementTimestamp === timestamp) {
-        if (elementTimestamp === timestamp) console.log("found by timestamp")
-        else if (elementText.toLowerCase().includes(message.toLowerCase())) { console.log("found by message", element); }
+          && (element.classList.contains('messageContainer') || element.classList.contains('commentContent')))
+        || elementTimestamp === timestamp) { 
         foundMatch = true;
         element.scrollIntoView({ behavior: 'smooth', block: 'center' });
         break;
@@ -923,8 +1066,7 @@ export class AppComponent implements OnInit, AfterViewInit {
       return null;
     }
   }
-  createComponentButtonClicked() {
-    console.log("Here");
+  createComponentButtonClicked() { 
     const title = (document.getElementById("componentCreateName") as HTMLInputElement).value;
     if (title) { this.createComponent(title); }
   }
@@ -939,8 +1081,7 @@ export class AppComponent implements OnInit, AfterViewInit {
     window.open(url, '_blank');
     event?.stopPropagation();
   }
-  async indexLink(url: string) {
-    console.log("indexing link ", url);
+  async indexLink(url: string) { 
     this.crawlerService.indexLink(url);
   }
 
@@ -1123,7 +1264,7 @@ export class AppComponent implements OnInit, AfterViewInit {
   speakMessage(message: string) {
     if ('speechSynthesis' in window) {
       this.isSpeaking = true;
-      console.log("Speech synthesis is supported! ", message);
+      //console.log("Speech synthesis is supported! ", message);
       let cleanMessage = message.replace(/<\/?[^>]+(>|$)/g, "").replace(/[^\x20-\x7E]/g, "");
 
       // Replace "e.g.", "eg.", or "ex." (case-insensitive) with "example".
@@ -1144,7 +1285,7 @@ export class AppComponent implements OnInit, AfterViewInit {
       // Function to speak the segments sequentially.
       const speakSegments = (index: number) => {
         if (index >= segments.length) {
-          console.log("Finished speaking all segments.");
+          //console.log("Finished speaking all segments.");
           this.isSpeaking = false;
           return;
         }
@@ -1185,7 +1326,7 @@ export class AppComponent implements OnInit, AfterViewInit {
   stopSpeaking() {
     if ('speechSynthesis' in window) {
       window.speechSynthesis.cancel();
-      console.log("Speech stopped");
+     // console.log("Speech stopped");
       this.isSpeaking = false;
     }
   }
@@ -1218,5 +1359,9 @@ export class AppComponent implements OnInit, AfterViewInit {
 
     // Return true if last seen < 10 minutes ago
     return minutes < 10;
+  }
+  getMenuItemDescription(title: string): string {
+    const found = this.navigationItemDescriptions?.find(item => item.title === title);
+    return found?.content ?? 'No description available.';
   }
 }

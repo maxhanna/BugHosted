@@ -99,8 +99,7 @@
 
 }
 
-.popupUserTagInfo { 
-  text-shadow: 1px 1px var(--main-highlight-color);
+.popupUserTagInfo {  
   background: rgba(255, 255, 255, 0.4);
   padding: 4px 8px; /* Adjust as needed */
   border-radius: 4px; /* Optional: rounded corners */

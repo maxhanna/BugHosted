@@ -61,8 +61,7 @@ export class HostAiComponent extends ChildComponent implements OnInit, OnDestroy
     if (this.userWantsToChangeResponseLength(this.userMessage)) {
       this.userMessage = "";
       this.chatInput.nativeElement.value = "";
-      this.chatInput.nativeElement.focus();
-      console.log("returning because user changed response length");
+      this.chatInput.nativeElement.focus(); 
       return;
     }
 
@@ -423,7 +422,7 @@ console.log("Hello, world!");
   sayOutloud() {
     this.startedTalking = true; 
     this.cdr.detectChanges();  
-    console.log("Saying out loud: ", this.chatInput.nativeElement.value);
+   // console.log("Saying out loud: ", this.chatInput.nativeElement.value);
     this.speakMessage(this.chatInput.nativeElement.value ?? "", false)
   }
 }

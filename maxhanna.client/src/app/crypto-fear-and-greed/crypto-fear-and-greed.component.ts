@@ -75,8 +75,7 @@ export class CryptoFearAndGreedComponent implements OnInit {
       let el: Element | null = this.gaugeSvg.nativeElement; // Use Element to support SVGSVGElement and HTMLElement
       while (el) {
         const transform = getComputedStyle(el).transform;
-        const direction = getComputedStyle(el).direction;
-        console.log(`Element: ${el.tagName}, Transform: ${transform}, Direction: ${direction}`);
+        const direction = getComputedStyle(el).direction; 
         el = el.parentElement;
       }
     }
@@ -89,8 +88,7 @@ export class CryptoFearAndGreedComponent implements OnInit {
     const startX = 10;
     const startY = 100;
     const endX = 100 + radius * Math.cos(angle);
-    const endY = 100 - radius * Math.sin(angle);
-    console.log(`arcPath angle: ${angleDeg}°, endX: ${endX}, endY: ${endY}`);
+    const endY = 100 - radius * Math.sin(angle); 
     return `M ${startX} ${startY} A ${radius} ${radius} 0 ${this.fearGreedValue > 50 ? 1 : 0} 1 ${endX} ${endY}`;
   }
 

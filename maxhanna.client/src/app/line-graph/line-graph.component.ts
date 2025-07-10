@@ -58,6 +58,7 @@ export class LineGraphComponent implements OnInit, OnChanges {
   validTypes: ChartType[] = this.supportsXYZ
     ? ['line', 'bar', 'radar', 'doughnut', 'pie', 'polarArea', 'scatter', 'bubble']
     : ['line', 'bar', 'radar', 'doughnut', 'pie', 'polarArea'];
+  currentSecondaryData: { value: number | null, type: string }[] = [];
 
   @ViewChild('periodSelect') periodSelect!: ElementRef<HTMLSelectElement>;
   @ViewChild('canvasDiv') canvasDiv!: ElementRef<HTMLDivElement>;
@@ -446,7 +447,7 @@ export class LineGraphComponent implements OnInit, OnChanges {
     }
 
     if (hasValidSecondaryData) {
-      const secondaryData = sortedLabels.map(label => {
+      this.currentSecondaryData = sortedLabels.map(label => {
         const matchingTrade = filteredData2.find(item => this.formatTimestamp(item.timestamp, true) === label);
         if (matchingTrade) {
           return {
@@ -455,16 +456,39 @@ export class LineGraphComponent implements OnInit, OnChanges {
           };
         }
         return { value: null, type: 'grey' };
-      });
-
+      }); 
       const secondaryConfig: any = {
         type: this.isDotModeData2 ? 'line' : this.chartTypeInputtedData2 ?? 'line',
         label: this.secondaryDataLabel,
-        data: secondaryData.map(d => d.value),
-        backgroundColor: secondaryData.map(d => d.type === 'buy' ? 'green' : d.type === 'sell' ? 'red' : 'grey'),
-        borderColor: secondaryData.map(d => d.type === 'buy' ? 'green' : d.type === 'sell' ? 'red' : 'grey'),
-        pointBackgroundColor: secondaryData.map(d => d.type === 'buy' ? 'green' : d.type === 'sell' ? 'red' : 'grey'),
-        pointBorderColor: secondaryData.map(d => d.type === 'buy' ? 'green' : d.type === 'sell' ? 'red' : 'grey'),
+        data: this.currentSecondaryData.map(d => d.value),
+        backgroundColor: this.currentSecondaryData.map(d => {
+          if (d.type.includes('buy_DCA')) return 'green'; // Green for DCA buys
+          if (d.type.includes('sell_DCA')) return '#ff0000'; // Red for DCA sells
+          if (d.type.includes('buy_IND')) return '#0000ff'; // Blue for IND buys
+          if (d.type.includes('sell_IND')) return '#ff00ff'; // Magenta for IND sells
+          return 'grey'; // Default
+        }),
+        borderColor: this.currentSecondaryData.map(d => {
+          if (d.type.includes('buy_DCA')) return 'green';
+          if (d.type.includes('sell_DCA')) return '#ff0000';
+          if (d.type.includes('buy_IND')) return '#0000ff';
+          if (d.type.includes('sell_IND')) return '#ff00ff';
+          return 'grey';
+        }),
+        pointBackgroundColor: this.currentSecondaryData.map(d => {
+          if (d.type.includes('buy_DCA')) return 'green';
+          if (d.type.includes('sell_DCA')) return '#ff0000';
+          if (d.type.includes('buy_IND')) return '#0000ff';
+          if (d.type.includes('sell_IND')) return '#ff00ff';
+          return 'grey';
+        }),
+        pointBorderColor: this.currentSecondaryData.map(d => {
+          if (d.type.includes('buy_DCA')) return 'green';
+          if (d.type.includes('sell_DCA')) return '#ff0000';
+          if (d.type.includes('buy_IND')) return '#0000ff';
+          if (d.type.includes('sell_IND')) return '#ff00ff';
+          return 'grey';
+        }),
         borderWidth: 2,
         order: 1,
         spanGaps: true,
@@ -604,9 +628,9 @@ export class LineGraphComponent implements OnInit, OnChanges {
   private getDaysForPeriod(period: string): number {
     const periodRegex = /^(\d+)\s*(m|min|mins|minute|minutes|h|hour|hours|d|day|days|w|week|weeks|m|month|months|y|year|years)$/;
     const match = period.trim().toLowerCase().match(periodRegex);
-
+ 
     if (match) {
-      const value = parseInt(match[1], 10);
+      const value = parseInt(match[1], 10); 
       const unit = match[2];
 
       switch (unit) {
@@ -638,6 +662,10 @@ export class LineGraphComponent implements OnInit, OnChanges {
         default:
           return 1;
       }
+    }
+
+    if (period.toLowerCase().includes("max")) { 
+      return 10 * 365;
     }
 
     return 1;
@@ -784,23 +812,13 @@ export class LineGraphComponent implements OnInit, OnChanges {
           callbacks: {
             label: (context: any) => {
               let label = context.dataset.label || '';
-              if (label) {
-                label += ': ';
-              }
-              if (context.parsed.y !== null) {
-                const value = context.parsed.y;
-                if (Math.abs(value) < 0.001) {
-                  label += value.toFixed(8);
-                } else if (Math.abs(value) < 1) {
-                  label += value.toFixed(6);
-                } else if (Math.abs(value) >= 1000) {
-                  label += value.toLocaleString(undefined, {
-                    maximumFractionDigits: 2,
-                    minimumFractionDigits: 2
-                  });
-                } else {
-                  label += value.toFixed(2);
-                }
+              if (label === this.secondaryDataLabel && context.raw !== null) {
+                const dataPoint = this.currentSecondaryData[context.dataIndex];
+                const action = dataPoint.type.includes('buy') ? 'Buy' : 'Sell';
+                const strategy = dataPoint.type.includes('DCA') ? 'DCA' : 'IND';
+                label = `${action} (${strategy}): ${context.parsed.y}`;
+              } else if (label) {
+                label += ': ' + context.parsed.y;
               }
               return label;
             }

@@ -1,183 +1,429 @@
 <div class="optionsStatsDiv">
-    <div class="optionsStatsHeader" title="Select the strategy to configure">
-        Strategy:
-    </div>
+    <div class="optionsStatsHeader" title="Select the trading strategy to configure">Strategy:</div>
     <div class="optionsStatsDescription">
-        <select #tradeStrategySelect title="Select the strategy" (change)="tradeStrategySelectChange()">
+        <select #tradeStrategySelect
+            title="Choose the trading strategy you want to configure: DCA (Dollar Cost Averaging) for regular, timed investments to reduce volatility impact, or IND (Indicator-based) for trades triggered by market indicators."
+            (change)="tradeStrategySelectChange()">
             <option value="DCA">DCA</option>
             <option value="IND">Indicator</option>
         </select>
+        <div class="settingExplanation" (click)="toggleExplanation($event)">
+            <p><strong>What it does:</strong> This dropdown menu allows you to choose between two distinct trading
+                strategies: Dollar Cost Averaging (DCA) or Indicator-based (IND) trading. DCA involves making regular
+                investments at set intervals, regardless of market conditions, while IND uses technical market
+                indicators to decide when to buy or sell.</p>
+            <p><strong>Why it matters:</strong> Your choice here fundamentally shapes how your trading bot behaves. DCA
+                is ideal for long-term investors who want to mitigate the effects of market volatility by spreading out
+                their purchases over time. IND, on the other hand, is suited for traders who prefer to react to market
+                signals, potentially capitalizing on short-term price movements.</p>
+            <p><strong>How to use it:</strong> Select "DCA" if you’re aiming for a steady, disciplined investment
+                approach—think of it like setting up a recurring buy order to build your position gradually. Choose
+                "IND" if you’re comfortable with a more dynamic strategy that relies on market indicators (like moving
+                averages or RSI) to trigger trades. Your selection will determine which additional settings are
+                displayed below.</p>
+        </div>
     </div>
 </div>
 
 <div class="optionsStatsDiv">
-    <div class="optionsStatsHeader" title="Coin you're trading from">From Coin</div>
+    <div class="optionsStatsHeader" title="Cryptocurrency you’re trading from">From Coin</div>
     <div class="optionsStatsDescription">
-        <select #tradeFromCoinSelect title="Select the coin you want to sell" (change)="tradeFromCoinSelectChange()">
+        <select #tradeFromCoinSelect
+            title="Select the cryptocurrency you want to sell or trade from. For DCA, you can choose from multiple coins like BTC, ETH, etc.; for IND, it’s limited to BTC."
+            (change)="tradeFromCoinSelectChange()">
             <option value="XBT">BTC</option>
             <option value="ETH" *ngIf="tradeStrategySelect.value == 'DCA'">ETH</option>
             <option value="XRP" *ngIf="tradeStrategySelect.value == 'DCA'">XRP</option>
             <option value="SOL" *ngIf="tradeStrategySelect.value == 'DCA'">SOL</option>
             <option value="XDG" *ngIf="tradeStrategySelect.value == 'DCA'">XDG</option>
         </select>
+        <div class="settingExplanation" (click)="toggleExplanation($event)">
+            <p><strong>What it does:</strong> This dropdown lets you pick the cryptocurrency you’ll be selling or
+                trading from—essentially, the "source" coin in your trading pair. For DCA, you have a broader selection
+                (e.g., BTC, ETH, XRP), while IND restricts you to BTC only due to its strategy-specific requirements.
+            </p>
+            <p><strong>Why it matters:</strong> The coin you choose here defines one half of your trading pair and
+                influences how your funds are allocated. For example, selecting BTC means you’re trading BTC to USDC.
+                This choice also affects liquidity and volatility considerations, as different coins have different
+                market behaviors.</p>
+            <p><strong>How to use it:</strong> Pick the cryptocurrency you currently hold and want to trade. If you’re
+                using DCA, you might select ETH if that’s your primary holding, allowing you to diversify your trades.
+                For IND, you’re locked into BTC, so ensure you have sufficient BTC in your wallet. The options adjust
+                dynamically based on your strategy selection above.</p>
+        </div>
     </div>
 </div>
 
 <div class="optionsStatsDiv">
-    <div class="optionsStatsHeader" title="Coin you're trading to">To Coin</div>
+    <div class="optionsStatsHeader" title="Cryptocurrency you’re trading to">To Coin</div>
     <div class="optionsStatsDescription">
-        <select #tradeToCoinSelect title="Select the coin you want to receive">
+        <select #tradeToCoinSelect
+            title="Select the cryptocurrency you want to receive or trade to. Currently, only USDC is supported as the target coin.">
             <option value="USDC">USDC</option>
         </select>
+        <div class="settingExplanation" (click)="toggleExplanation($event)">
+            <p><strong>What it does:</strong> This dropdown specifies the cryptocurrency you’ll receive after a
+                trade—known as the "target" coin. Right now, it’s fixed to USDC, a stablecoin pegged to the U.S. dollar,
+                meaning all trades will convert your source coin into USDC.</p>
+            <p><strong>Why it matters:</strong> The target coin is where your investment ends up after each trade.
+                USDC’s stability makes it a safe haven compared to volatile cryptocurrencies, allowing you to lock in
+                gains or park funds without worrying about sudden price drops. It’s a critical piece of your strategy’s
+                endgame.</p>
+            <p><strong>How to use it:</strong> Since USDC is the only option currently, you don’t need to make a choice
+                here yet. In the future, if more target coins are added, you’d select based on your goals—like choosing
+                a growth coin (e.g., ETH) for reinvestment or a stablecoin like USDC for security. For now, it’s set to
+                USDC automatically.</p>
+        </div>
     </div>
 </div>
 
-<div class="optionsStatsDiv" >
-    <div class="optionsStatsHeader" title="Upper limit of the amount you can trade FROM">_MaximumFromTradeAmount
+<div class="optionsStatsDiv">
+    <div class="optionsStatsHeader" title="Maximum amount of the source coin per trade">Max Source Coin per Trade</div>
+    <div class="optionsStatsDescription">
+        <input type="number" #tradeMaximumFromTradeAmount
+            title="Set the maximum amount of the source coin (e.g., BTC) that can be traded in a single transaction." />
+        <div class="settingExplanation" (click)="toggleExplanation($event)">
+            <p><strong>What it does:</strong> This field sets an upper limit on how much of your source coin (e.g., BTC,
+                ETH) can be traded in a single transaction. It’s a cap on the size of each individual trade, measured in
+                units of the source coin you selected above.</p>
+            <p><strong>Why it matters:</strong> By capping trade size, you control risk exposure. If a trade goes south,
+                a smaller size limits your loss. It’s a safeguard against putting too much of your portfolio into one
+                move, especially in volatile markets where big trades can amplify gains—or losses.</p>
+            <p><strong>How to use it:</strong> Think about your total holdings and risk tolerance. If you have 1 BTC,
+                setting this to 0.1 BTC means no trade will use more than 10% of your stash. For a conservative
+                approach, keep it low (e.g., 0.05 BTC); for bolder moves, raise it (e.g., 0.2 BTC). Check your wallet
+                balance to ensure this value is realistic.</p>
+        </div>
+    </div>
+</div>
+
+<div class="optionsStatsDiv">
+    <div class="optionsStatsHeader" title="Minimum amount of the source coin per trade">Min Source Coin per Trade</div>
+    <div class="optionsStatsDescription">
+        <input type="number" #tradeMinimumFromTradeAmount
+            title="Set the minimum amount of the source coin (e.g., BTC) that must be traded in a single transaction." />
+        <div class="settingExplanation" (click)="toggleExplanation($event)">
+            <p><strong>What it does:</strong> This field establishes the smallest amount of your source coin (e.g., BTC)
+                that must be traded in any single transaction. It ensures trades aren’t so tiny that they’re
+                insignificant or cost-inefficient.</p>
+            <p><strong>Why it matters:</strong> Tiny trades can rack up fees that outweigh profits, especially with
+                transaction costs. This setting keeps your trades meaningful, ensuring each one aligns with your
+                strategy rather than cluttering your activity with negligible moves.</p>
+            <p><strong>How to use it:</strong> Set a value that’s small but practical. For BTC, 0.0001 BTC might be a
+                good minimum—enough to matter but not so big it restricts flexibility. If you’re trading a cheaper coin
+                like XDG, you might go higher (e.g., 10 XDG). Balance this with your maximum to create a sensible
+                trading range.</p>
+        </div>
+    </div>
+</div>
+
+<div class="optionsStatsDiv">
+    <div class="optionsStatsHeader" title="Maximum amount of USDC per buy trade">Max USDC per Buy Trade</div>
+    <div class="optionsStatsDescription">
+        <input type="number" #tradeMaximumToTradeAmount
+            title="Set the maximum amount of USDC that can be spent in a single buy transaction." />
+        <div class="settingExplanation" (click)="toggleExplanation($event)">
+            <p><strong>What it does:</strong> This field caps the amount of USDC you can spend in a single buy
+                transaction when purchasing your source coin. It’s a limit on how much stablecoin you’re willing to
+                deploy per trade.</p>
+            <p><strong>Why it matters:</strong> This protects your USDC balance from being drained too quickly. By
+                setting a ceiling, you avoid overcommitting to a single buy, which is crucial during price dips or when
+                managing a limited budget.</p>
+            <p><strong>How to use it:</strong> Base this on your USDC holdings and risk appetite. With $10,000 in USDC,
+                setting this to $1,000 keeps each buy at 10% of your stash. For smaller budgets (e.g., $500 total), try
+                $50 to stay cautious. Adjust as your balance or strategy evolves.</p>
+        </div>
+    </div>
+</div>
+
+<div class="optionsStatsDiv">
+    <div class="optionsStatsHeader" title="Minimum spread percentage to trigger a trade">Min Spread to Trigger Trade
     </div>
     <div class="optionsStatsDescription">
-        <input type="number" #tradeMaximumFromTradeAmount title="Max amount of source coin per trade" />
+        <input type="number" #tradeTradeThreshold
+            title="Specify the minimum percentage spread required to trigger a trade." />
+        <div class="settingExplanation" (click)="toggleExplanation($event)">
+            <p><strong>What it does:</strong> This field sets the minimum percentage difference (or "spread") between
+                the current market price and a reference price (e.g., last trade price or daily open) needed to trigger
+                a trade. It’s a filter to ensure trades only happen when there’s enough potential profit.</p>
+            <p><strong>Why it matters:</strong> Trading costs money—fees, slippage, etc. A higher threshold
+                ensures the price movement justifies those costs, avoiding trades that barely break even. It’s your
+                profitability gatekeeper, especially for frequent traders.</p>
+            <p><strong>How to use it:</strong> A value of 0.5% to 1% is common—e.g., if BTC is $50,000, a 1% threshold
+                means a $500 move triggers the trade. Set it higher (e.g., 2%) for bigger, less frequent wins, or lower
+                (e.g., 0.3%) for more action. Test it against past market data if possible. The default threshold for
+                triggering a trade is set at {{tradeTradeThreshold.value | number:'1.4-4'}}, which translates to {{
+                multiplyBy100(tradeTradeThreshold.value) | number:'1.2-2'}}%.</p>
+        </div>
     </div>
 </div>
 
-<div class="optionsStatsDiv" >
-    <div class="optionsStatsHeader" title="Lower limit of the amount you can trade FROM">_MinimumFromTradeAmount
+<div class="optionsStatsDiv">
+    <div class="optionsStatsHeader" title="Maximum percentage of total balance per trade">Max Balance Percentage per
+        Trade</div>
+    <div class="optionsStatsDescription">
+        <input type="number" #tradeMaximumTradeBalanceRatio
+            title="Define the maximum percentage of your total balance that can be used in a single trade." />
+        <div class="settingExplanation" (click)="toggleExplanation($event)">
+            <p><strong>What it does:</strong> This field limits the percentage of your total account balance (across all
+                coins) that can be used in any single trade. It’s a portfolio-level risk control, not just tied to one
+                coin.</p>
+            <p><strong>Why it matters:</strong> Overcommitting to one trade can wipe out your account if it fails. This
+                setting diversifies your risk, ensuring no single move bets the farm. It’s a big-picture safety net for
+                your trading capital.</p>
+            <p><strong>How to use it:</strong> A safe range is 10% to 20%—e.g., with a $10,000 balance, 10% caps trades
+                at $1,000. Conservative traders might use 5%, while aggressive ones might push to 25%. Align this with
+                your overall financial goals and comfort with loss. The default ratio is set at
+                {{tradeMaximumTradeBalanceRatio.value | number:'1.2-2'}},
+                which translates to {{ multiplyBy100(tradeMaximumTradeBalanceRatio.value) | number:'1.2-2'}}%.</p>
+        </div>
+    </div>
+</div>
+
+<div class="optionsStatsDiv">
+    <div class="optionsStatsHeader" title="Fraction of available funds to trade">Trade Percentage of Available Funds
     </div>
     <div class="optionsStatsDescription">
-        <input type="number" #tradeMinimumFromTradeAmount title="Min amount of source coin per trade." />
+        <input type="number" #tradeValueTradePercentage
+            title="Set what fraction of your available funds to use per trade." />
+        <div class="settingExplanation" (click)="toggleExplanation($event)">
+            <p><strong>What it does:</strong> This field determines what percentage of your available funds (e.g.,
+                unreserved USDC or source coin) is used for each trade. It’s a dynamic allocation tool based on what’s
+                free to trade at the moment.</p>
+            <p><strong>Why it matters:</strong> It controls trade size relative to your liquid funds, balancing
+                aggression and caution. A higher percentage means bigger trades but less buffer; a lower one keeps more
+                funds on the sidelines for flexibility.</p>
+            <p><strong>How to use it:</strong> Enter a decimal—e.g., 0.15 means 15% of available funds per trade. With
+                $1,000 free, that’s $150 per trade. Use 0.05 (5%) for slow and steady, or 0.3 (30%) for bolder plays.
+                Adjust based on market conditions and your cash flow. The default percentage is set at
+                {{tradeValueTradePercentage.value | number:'1.2-2'}},
+                which translates to {{ multiplyBy100(tradeValueTradePercentage.value) | number:'1.2-2'}}%.</p>
+        </div>
     </div>
 </div>
 
-<div class="optionsStatsDiv" >
-    <div class="optionsStatsHeader" title="Upper limit of the amount you can buy in USDC.">_MaximumUSDCTradeAmount
-    </div>
+<div class="optionsStatsDiv">
+    <div class="optionsStatsHeader" title="Fraction of holdings to sell">Sell Percentage per Trade</div>
     <div class="optionsStatsDescription">
-        <input type="number" #tradeMaximumToTradeAmount title="Max amount of USDC per trade." />
+        <input type="number" #tradeValueSellPercentage title="Set what fraction of your holdings to sell per trade." />
+        <div class="settingExplanation" (click)="toggleExplanation($event)">
+            <p><strong>What it does:</strong> This field sets the percentage of your source coin holdings
+                (e.g., BTC) to sell in each sell transaction. It’s about how much you offload at a time when taking profits 
+                or cutting losses.</p>
+            <p><strong>Why it matters:</strong> Selling too much at once can leave you with no position to benefit from
+                future gains; selling too little might not lock in enough profit. This setting fine-tunes your exit
+                strategy, balancing exposure and cash flow.</p>
+            <p><strong>How to use it:</strong> Use a decimal—e.g., 0.04 means selling 4% of your BTC per trade. With 1
+                BTC, that’s 0.04 BTC sold. Set 0.02 (2%) for gradual exits, or 0.1 (10%) for quicker liquidation. Pair
+                this with market trends to time your sales effectively. The default percentage is set at
+                {{tradeValueSellPercentage.value | number:'1.2-2'}},
+                which translates to {{ multiplyBy100(tradeValueSellPercentage.value) | number:'1.2-2'}}%.</p>
+        </div>
     </div>
 </div>
 
-<div class="optionsStatsDiv" >
-    <div class="optionsStatsHeader" title="Only trade if spread exceeds this %">_TradeThreshold</div>
-    <div class="optionsStatsDescription">
-        <input type="number" #tradeTradeThreshold title="Minimum required spread (%) to trigger trade" />
+<div class="optionsStatsDiv">
+    <div class="optionsStatsHeader" title="Minimum source coin amount to start trading">Min Source Coin to Start Trading
     </div>
-</div>
-
-<div class="optionsStatsDiv" >
-    <div class="optionsStatsHeader" title="Avoid trading too much of your total balance">_MaximumTradeBalanceRatio
-    </div>
-    <div class="optionsStatsDescription">
-        <input type="number" #tradeMaximumTradeBalanceRatio title="Max % of balance allowed to be traded" />
-    </div>
-</div>
-
-<div class="optionsStatsDiv" >
-    <div class="optionsStatsHeader" title="Trade only a fraction of available funds">_ValueTradePercentage</div>
-    <div class="optionsStatsDescription">
-        <input type="number" #tradeValueTradePercentage title="Percentage of balance used in each trade" />
-    </div>
-</div>
-
-<div class="optionsStatsDiv" >
-    <div class="optionsStatsHeader" title="Sell only a fraction of available funds">_ValueSellPercentage</div>
-    <div class="optionsStatsDescription">
-        <input type="number" #tradeValueSellPercentage title="Percentage of balance used in each trade" />
-    </div>
-</div>
-
-<div class="optionsStatsDiv" >
-    <div class="optionsStatsHeader" title="Don't start trade unless this minimum BTC amount is available">
-        _InitialMinimumFromAmountToStart</div>
     <div class="optionsStatsDescription">
         <input type="number" #tradeInitialMinimumFromAmountToStart
-            title="Minimum amount of FROM coin to start trading" />
+            title="Set the minimum amount of the source coin needed to start trading." />
+        <div class="settingExplanation" (click)="toggleExplanation($event)">
+            <p><strong>What it does:</strong> This field specifies the least amount of your source coin (e.g., BTC) you
+                need in your wallet to kick off trading. It’s the entry threshold for your bot to start executing
+                trades.</p>
+            <p><strong>Why it matters:</strong> Without enough starting capital, trades might be too small to matter or
+                might not even execute due to minimum order sizes on exchanges. This ensures your bot has enough fuel to
+                operate meaningfully from the get-go.</p>
+            <p><strong>How to use it:</strong> For BTC, 0.001 BTC might work—small but enough for a trade. For cheaper
+                coins like XDG, try 50 XDG. Check exchange minimums (e.g., 0.0005 BTC on some platforms) and set this
+                slightly above to avoid issues. Increase if you want bigger initial trades.</p>
+        </div>
     </div>
 </div>
-<div class="optionsStatsDiv" >
-    <div class="optionsStatsHeader" title="Don't start trade unless this minimum USDC amount is available">
-        _InitialMinimumUSDCAmountToStart</div>
+
+<div class="optionsStatsDiv">
+    <div class="optionsStatsHeader" title="Minimum USDC amount to start trading">Min USDC to Start Trading</div>
     <div class="optionsStatsDescription">
         <input type="number" #tradeInitialMinimumUSDCAmountToStart
-            title="Minimum amount of USDC coin to start trading" />
+            title="Set the minimum amount of USDC needed to start trading." />
+        <div class="settingExplanation" (click)="toggleExplanation($event)">
+            <p><strong>What it does:</strong> This field sets the minimum USDC balance required in your wallet before
+                trading begins. It’s the cash threshold your bot needs to start buying your source coin.</p>
+            <p><strong>Why it matters:</strong> Trading with too little USDC can lead to failed trades or insignificant
+                positions, especially after fees. This ensures you’ve got enough stablecoin to make a dent in the market
+                and cover initial costs.</p>
+            <p><strong>How to use it:</strong> Try $100 as a starting point—enough for a small BTC buy (e.g., 0.002 BTC
+                at $50,000). If you’re planning bigger trades, bump it to $500 or more. Check your exchange’s minimum
+                buy amounts and add a buffer for fees or price swings.</p>
+        </div>
     </div>
 </div>
-<div class="optionsStatsDiv" >
-    <div class="optionsStatsHeader"
-        title="The maximum initial USDC amount invested in a new coin to start trading. Set this to zero (0) to intially convert 50% of USDC to target coin or set this to a dollar value to convert the Mininimum between (50% of usdcBalance OR this maximum amount).">
-        _InitialMaximumUSDCAmountToStart</div>
+
+<div class="optionsStatsDiv">
+    <div class="optionsStatsHeader" title="Maximum initial USDC amount to start trading">Max Initial USDC to Start
+        Trading</div>
     <div class="optionsStatsDescription">
         <input type="number" #tradeInitialMaximumUSDCAmountToStart
-            title="Maximum amount of USDC to spend to start trading. This is the math set for initial trade value: _InitialMaximumUSDCAmountToStart > 0 ? Math.Min(usdcBalance * 50%, _InitialMaximumUSDCAmountToStart) : (usdcBalance * 50%)" />
-    </div>
-</div>
-<div class="optionsStatsDiv" >
-    <div class="optionsStatsHeader" title="Always keep at least this much of the FROM coin">_MinimumFromReserves
-    </div>
-    <div class="optionsStatsDescription">
-        <input type="number" #tradeMinimumFromReserves title="Minimum reserve of source coin to keep" />
-    </div>
-</div>
-
-<div class="optionsStatsDiv" >
-    <div class="optionsStatsHeader" title="Always keep at least this much of the TO coin">_MinimumToReserves</div>
-    <div class="optionsStatsDescription">
-        <input type="number" #tradeMinimumToReserves title="Minimum reserve of target coin to keep" />
+            title="Define the maximum initial USDC amount to invest when starting to trade a new coin." />
+        <div class="settingExplanation" (click)="toggleExplanation($event)">
+            <p><strong>What it does:</strong> This field caps the initial USDC investment when you begin trading a new
+                coin. If set to 0, it defaults to 50% of your USDC balance; otherwise, it uses the lesser of this value
+                or 50% of your balance.</p>
+            <p><strong>Why it matters:</strong> Jumping in with too much cash can expose you to early losses, especially
+                with untested coins or volatile markets. This setting limits your initial risk, giving you room to
+                assess performance before going all-in.</p>
+            <p><strong>How to use it:</strong> Set to $500 to cap your first trade, even if 50% of your $2,000 balance
+                is $1,000—your bot picks the lower amount. Leave it at 0 for the 50% default, or raise it (e.g., $1,000)
+                if you’re confident and well-funded. It’s your opening bet size.</p>
+        </div>
     </div>
 </div>
 
-<div class="optionsStatsDiv" >
-    <div class="optionsStatsHeader"
-        title="The maximum times a trade type (buy/sell) can happen. Applies both per day, and per consecutive trade. *note: This number will be diminished during above average volume period to create openings to buy high or sell low.">
-        _MaximumTradeTypeOccurance
-    </div>
+<div class="optionsStatsDiv">
+    <div class="optionsStatsHeader" title="Minimum reserve of the source coin">Min Source Coin Reserve</div>
     <div class="optionsStatsDescription">
-        <input type="number" #tradeTradeMaximumTypeOccurances title="Maximum occurance of either buy or sell." />
+        <input type="number" #tradeMinimumFromReserves
+            title="Specify the minimum amount of the source coin to always keep in reserve." />
+        <div class="settingExplanation" (click)="toggleExplanation($event)">
+            <p><strong>What it does:</strong> This field ensures a set amount of your source coin (e.g., BTC) stays
+                untouched by trading—it’s your reserve stash, never sold or traded unless manually overridden.</p>
+            <p><strong>Why it matters:</strong> Reserves act as a safety net. If markets crash or you need quick funds,
+                this untouchable amount keeps you in the game. It’s also handy for unexpected fees or holding a core
+                position long-term.</p>
+            <p><strong>How to use it:</strong> For BTC, 0.01 BTC might be a smart reserve—small but significant. With 1
+                BTC total, that’s 1% held back. Set higher (e.g., 0.05 BTC) if you’re risk-averse or lower (e.g., 0.005
+                BTC) if you want more to trade with. Match it to your comfort level.</p>
+        </div>
     </div>
 </div>
 
-<div class="optionsStatsDiv" >
-    <div class="optionsStatsHeader" title="Maximum trade occurances during a volume spike.">
-        _VolumeSpikeMaxTradeOccurance
-    </div>
+<div class="optionsStatsDiv">
+    <div class="optionsStatsHeader" title="Minimum reserve of the target coin">Min USDC Reserve</div>
     <div class="optionsStatsDescription">
-        <input type="number" #tradeVolumeSpikeMaxTradeOccurance title="Maximum trade occurances during volume spike." />
+        <input type="number" #tradeMinimumToReserves
+            title="Specify the minimum amount of USDC to always keep in reserve." />
+        <div class="settingExplanation" (click)="toggleExplanation($event)">
+            <p><strong>What it does:</strong> This field locks away a minimum amount of USDC that your bot won’t touch
+                for trading. It’s your stablecoin emergency fund, always available in your wallet.</p>
+            <p><strong>Why it matters:</strong> Having USDC on hand gives you flexibility—think sudden buying
+                opportunities, covering fees, or weathering a downturn without selling assets. It’s your cash buffer in
+                a volatile crypto world.</p>
+            <p><strong>How to use it:</strong> Set to $50 for a basic cushion with a $1,000 balance (5%). If you’ve got
+                $10,000, try $200 for more wiggle room. Keep it low if you’re aggressive, or higher if you like a safety
+                net. It’s your “don’t touch” cash pile.</p>
+        </div>
+    </div>
+</div>
+
+<div class="optionsStatsDiv">
+    <div class="optionsStatsHeader" title="Maximum number of buy/sell trades">Max Buy/Sell Trades</div>
+    <div class="optionsStatsDescription">
+        <input type="number" #tradeTradeMaximumTypeOccurances
+            title="Set the maximum number of times a trade type (buy or sell) can occur." />
+        <div class="settingExplanation" (click)="toggleExplanation($event)">
+            <p><strong>What it does:</strong> This field limits how many buy or sell trades your bot can execute within
+                a day or consecutively, depending on your bot’s rules. It applies separately to buys and sells—e.g., 5
+                buys and 5 sells max.</p>
+            <p><strong>Why it matters:</strong> Overtrading can lead to losses from fees or bad timing, especially in
+                choppy markets. This cap keeps your bot disciplined, preventing it from going wild during volatility and
+                burning through your funds.</p>
+            <p><strong>How to use it:</strong> Set to 5 for a balanced approach—5 buys and 5 sells daily or in a row.
+                Drop to 2 or 3 for caution, or raise to 10 if you’re chasing frequent action. Check your strategy’s pace
+                and market conditions to find the sweet spot.</p>
+        </div>
+    </div>
+</div>
+
+<div class="optionsStatsDiv">
+    <div class="optionsStatsHeader" title="Maximum trades during volume spikes">Max Trades During Volume Spikes</div>
+    <div class="optionsStatsDescription">
+        <input type="number" #tradeVolumeSpikeMaxTradeOccurance
+            title="Set a lower maximum for trade occurrences during volume spikes." />
+        <div class="settingExplanation" (click)="toggleExplanation($event)">
+            <p><strong>What it does:</strong> This field lowers the trade limit during high-volume market periods (e.g.,
+                sudden price jumps). It overrides the regular Max Buy/Sell Trades when the bot detects a volume
+                spike.</p>
+            <p><strong>Why it matters:</strong> High volume often means high volatility—great for gains, but risky for
+                losses. Cutting trades here protects you from erratic moves, letting the market settle before jumping
+                back in fully.</p>
+            <p><strong>How to use it:</strong> Set lower than your regular limit—e.g., 2 or 3 if your normal is 5. If
+                you’re at 10 normally, try 4 here. It’s your “calm down” switch for crazy market days. Tweak based on
+                how much chaos you can handle.</p>
+        </div>
     </div>
 </div>
 
 <div class="optionsStatsDiv" [style.display]="tradeStrategySelect.value == 'DCA' ? 'flex' : 'none'">
-    <div class="optionsStatsHeader"
-        title="Input a price point to liquidate your BTC (trade 100% BTC to USDC) at your defined price. Put the value in USDC.">
-        _StopLossExitPosition
-    </div>
+    <div class="optionsStatsHeader" title="Price to liquidate position in DCA">DCA Stop-Loss Price</div>
     <div class="optionsStatsDescription">
         <input type="number" #tradeStopLoss
-            title="Minimum USDC value per {{tradeFromCoinSelect.value}} before liquidating {{tradeFromCoinSelect.value}} reserves." />
+            title="For DCA, set a USDC price point to liquidate your entire BTC position." />
+        <div class="settingExplanation" (click)="toggleExplanation($event)">
+            <p><strong>What it does:</strong> Exclusive to DCA, this field sets a specific USDC price for BTC (or your
+                source coin) at which your bot sells everything if the price drops to or below this level. It’s your
+                hard stop to exit the position entirely.</p>
+            <p><strong>Why it matters:</strong> DCA builds positions over time, but a big crash can erase gains. This
+                stop-loss caps your downside, protecting your capital from a prolonged bear market or sudden
+                collapse—it’s your panic button with a price tag.</p>
+            <p><strong>How to use it:</strong> If your average BTC buy price is $50,000, set this 10% lower at $45,000
+                to limit losses. If BTC hits $45,000, it’s all sold to USDC. Set tighter (e.g., $48,000) for caution, or
+                looser (e.g., $40,000) for more risk tolerance. Track your average cost to set this smartly.</p>
+        </div>
     </div>
 </div>
 
 <div class="optionsStatsDiv" [style.display]="tradeStrategySelect.value == 'IND' ? 'flex' : 'none'">
-    <div class="optionsStatsHeader"
-        title="Input a price point to liquidate your BTC (trade 100% BTC to USDC) at your defined percentage. Put the value without the '%' sign.">
-        _StopLossExitPercentage
-    </div>
+    <div class="optionsStatsHeader" title="Percentage drop to liquidate in IND">IND Stop-Loss Percentage</div>
     <div class="optionsStatsDescription">
         <input type="number" #tradeStopLossPercentage
-            title="Minimum percentage value per {{tradeFromCoinSelect.value}} before liquidating {{tradeFromCoinSelect.value}} reserves." />
+            title="For IND, set a percentage drop from the purchase price to liquidate your BTC position." />
+        <div class="settingExplanation" (click)="toggleExplanation($event)">
+            <p><strong>What it does:</strong> For IND only, this field triggers a full sell-off of your BTC if its price
+                drops by this percentage from your purchase price. It’s a dynamic stop-loss tied to your entry point,
+                not a fixed price.</p>
+            <p><strong>Why it matters:</strong> IND relies on indicators for timing, but markets can defy signals. This
+                protects you from holding a losing position too long, automatically cutting losses when the trade sours
+                beyond your set limit.</p>
+            <p><strong>How to use it:</strong> Enter a number like 5 (no % sign)—if you bought BTC at $50,000, a 5% drop
+                to $47,500 triggers a sell. Use 3 for tight control, or 10 if you’re okay riding bigger dips. It’s your
+                “get out” rule based on your entry, so know your average buy price.</p>
+        </div>
     </div>
 </div>
-
-
 
 <div class="optionsStatsDiv">
     <div class="optionsStatsHeader" title="Last time this configuration was updated">Updated</div>
     <div class="optionsStatsDescription">
         <span *ngIf="tradeConfigLastUpdated" title="Time of last save">{{tradeConfigLastUpdated}}</span>
         <span *ngIf="!tradeConfigLastUpdated" title="No configuration has been saved yet">Never</span>
+        <div class="settingExplanation" (click)="toggleExplanation($event)">
+            <p><strong>What it does:</strong> This field shows the timestamp of when you last saved your trading
+                settings. It’s a read-only indicator, updating automatically after each save, or displays “Never” if you
+                haven’t saved yet.</p>
+            <p><strong>Why it matters:</strong> Keeping track of updates ensures you’re running the bot with your latest
+                intentions. If it’s been a while (or says “Never”), your settings might not match your current strategy,
+                risking outdated trades.</p>
+            <p><strong>How to use it:</strong> No input needed—it’s just info. Check it to confirm your changes are
+                live. If it’s old (e.g., weeks ago) and markets have shifted, review and save again. It’s your settings’
+                “last modified” label—use it to stay current.</p>
+        </div>
     </div>
 </div>
 
 <div class="optionsStatsDiv">
     <div class="optionsStatsHeader" title="Save current trade parameters">Save Configuration</div>
     <button (click)="updateCoinConfiguration()" [disabled]="isLoading"
-        title="Click to save current configuration">💾Save</button>
+        title="Click to save your current trading configuration settings">💾Save</button>
+    <div class="settingExplanation" (click)="toggleExplanation($event)">
+        <p><strong>What it does:</strong> This button saves all your current settings to the server, locking in your
+            trading configuration. It tells your bot exactly how to behave based on everything you’ve set
+            above—strategy, amounts, thresholds, etc.</p>
+        <p><strong>Why it matters:</strong> Without saving, your bot runs on old or default settings, which might not
+            align with your goals. This ensures your tweaks take effect, keeping your trades intentional and up-to-date
+            with your plan.</p>
+        <p><strong>How to use it:</strong> After adjusting settings, click “Save” to apply them. It’s disabled while
+            saving (to avoid double-clicks), so wait for it to reactivate. Save often—e.g., after major edits or market
+            shifts—to keep your bot in sync with your strategy.</p>
+    </div>
 </div>

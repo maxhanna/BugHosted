@@ -245,8 +245,7 @@ export class ReactionComponent extends ChildComponent implements OnInit {
 
 
   closeReactionDisplay() {
-    this.showReactionChoices = false;
-    console.log("closed");
+    this.showReactionChoices = false; 
     if (this.inputtedParentRef) {
       this.inputtedParentRef.closeOverlay();
     }

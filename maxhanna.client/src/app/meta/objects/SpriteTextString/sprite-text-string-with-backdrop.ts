@@ -74,10 +74,7 @@ export class SpriteTextStringWithBackdrop extends GameObject {
   }
 
   // Method to calculate and cache words for all text content
-  private cacheWords() {
-    console.log("Caching words for object:", this.objectSubject); // Debug
-    console.log("Object has name property:", 'name' in (this.objectSubject || {})); // Debug
-
+  private cacheWords() {  
     const subjectName = this.objectSubject?.name ? `${this.objectSubject.name}:` : "";
     const textContent = subjectName ? [subjectName, ...this.content] : this.content;
 

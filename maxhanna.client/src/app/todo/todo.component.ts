@@ -220,15 +220,13 @@ export class TodoComponent extends ChildComponent implements OnInit, AfterViewIn
     this.parentRef?.closeOverlay();
   }
   shareWith(user?: User) {
-    if (!this.parentRef?.user?.id || !user?.id) { return alert("You must be logged in to share a list."); }
-    console.log(user);
+    if (!this.parentRef?.user?.id || !user?.id) { return alert("You must be logged in to share a list."); } 
     this.todoService.shareListWith(this.parentRef.user.id, user.id, this.selectedType.nativeElement.value).then(res => {
       if (res) {
         this.parentRef?.showNotification(res);
         if (res.includes("successfully")) {
           if (this.sharedColumns.some((x: any) => x.columnName == this.selectedType.nativeElement.value  && x.ownerId == this.parentRef?.user?.id)) {
             const index = this.sharedColumns.findIndex((x: any) => x.columnName == this.selectedType.nativeElement.value && x.ownerId == this.parentRef?.user?.id);
-            console.log("fixing existing sharedColumn: ", this.sharedColumns[index]);
             this.sharedColumns[index].sharedWith += ", " + user.id;
           } else { 
             this.sharedColumns.push(
@@ -335,8 +333,7 @@ export class TodoComponent extends ChildComponent implements OnInit, AfterViewIn
     return this.todoTypes.includes(columnName);
   }
 
-  toggleSharedColumn(column: any): void {
-    console.log(this.todoTypes.includes(column.columnName), column);
+  toggleSharedColumn(column: any): void { 
     if (!column) return;
     if (this.todoTypes.includes(column.columnName)) {
       // Remove column logic

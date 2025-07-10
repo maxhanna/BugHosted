@@ -321,8 +321,7 @@ export class MusicComponent extends ChildComponent implements OnInit, AfterViewI
     this.selectedFile = fileEntry[0];
   }
 
-  mediaEndedEvent() {
-    console.log("Media ended event triggered.");
+  mediaEndedEvent() { 
     const currentId = this.fileIdPlaying;
     if (this.fileIdPlaylist && this.fileIdPlaylist.length > 0) {
       const currentIndex = this.fileIdPlaylist.indexOf(currentId!);

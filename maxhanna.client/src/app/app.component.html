@@ -66,7 +66,7 @@
   </div>
   <div class="user-tag-content-wrapper">
     <div style="display: flex; justify-content: space-between; gap:20px;">
-      <div class="popupUserTagAvatarAndName">
+      <div class="popupUserTagAvatarAndName blackFontColor">
         <app-user-tag [userId]="showUserTagUserId ? parseInteger(showUserTagUserId.value) : 0" [inputtedParentRef]="this"
           (userLoaded)="userTagUserLoaded($event)" [preventOpenProfile]="true" [hideName]="true"></app-user-tag>
           <div [class]="(popupUserTagUser?.username || 'Anonymous').length > 10 ? 'xxSmallFont'
@@ -77,7 +77,7 @@
             {{ (popupUserTagUser?.about?.currency ?? '') | currencyFlag }}
           </span>
       </div>
-      <div *ngIf="popupUserTagUser" class="popupUserTagInfo"> 
+      <div *ngIf="popupUserTagUser" class="popupUserTagInfo blackFontColor"> 
         <div [class]="(popupUserTagUser.about?.description?.length ?? 0) > 25 ? 'xxSmallFont' : ''">
           {{ popupUserTagUser.about?.description }}  
         </div>

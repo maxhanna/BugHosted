@@ -40,8 +40,7 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
   allHistoricalExchangeRateData?: ExchangeRate[] = [];
   allHistoricalExchangeRateDataForGraph?: ExchangeRate[] = [];
   fiatNames: string[] = [];
-  coinNames: string[] = [];
-  btcWalletResponse?: MiningWalletResponse = undefined;
+  coinNames: string[] = []; 
   btcToCadPrice = 0;
   selectedCoinToCadPrice = 0;
   isAddCryptoDivVisible = false;
@@ -58,18 +57,11 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
   hideHostAiMessageWallet = true;
   hideHostAiMessage = true;
   isWalletGraphFullscreened = false;
-  hostAiToggled = false;
-  popupHostAiToggled = false;
-  hasKrakenApi = false; 
-  dcaTradeBotStartedSince: undefined | Date = undefined;
-  xrpTradeBotStartedSince: undefined | Date = undefined;
-  solTradeBotStartedSince: undefined | Date = undefined;
-  xdgTradeBotStartedSince: undefined | Date = undefined;
-  ethTradeBotStartedSince: undefined | Date = undefined; 
+  hostAiToggled = false; 
+  hasKrakenApi = false;  
   showingTradeSettings = false;
   showingTradeLogs = false;
-  isTradePanelOpen = false;
-  isShowingTradeGraphWrapper = false;
+  isTradePanelOpen = false; 
   isShowingTradeValueGraph = false;
   tradeConfigLastUpdated?: Date = undefined;
   hasAnyTradeConfig = false;
@@ -119,7 +111,7 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
   }[] = undefined;
   tradebotValuesForGraph: any;
   tradebotTradeValuesForMainGraph: { timestamp: Date; valueCAD: number }[] = [];
-  lineGraphInitialPeriod: '5min' | '15min' | '1h' | '6h' | '12h' | '1d' | '2d' | '5d' | '1m' | '2m' | '3m' | '6m' | '1y' | '2y' | '3y' | '5y' = '6h';
+  lineGraphInitialPeriod: '5min' | '15min' | '1h' | '6h' | '12h' | '1d' | '2d' | '5d' | '1m' | '2m' | '3m' | '6m' | '1y' | '2y' | '3y' | '5y' | 'max' = '6h';
   exchangeRateGraphSelectedPeriod: '5min' | '15min' | '1h' | '6h' | '12h' | '1d' | '2d' | '5d' | '1m' | '2m' | '3m' | '6m' | '1y' | '2y' | '3y' | '5y' = '1y'
   tradebotSimulationGraphData: any[] = [];
   tradebotSimulationGraphData2: any[] = [];
@@ -188,8 +180,7 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
   selectedTradeBalanceId?: number;
   lastLogEntry?: string = undefined;
   selectedTradeLogCoin?: string;
-  selectedTradeLogStrategy?: string;
-  
+  selectedTradeLogStrategy?: string; 
   private conversionLock = false;
   private currentRates = {
     coin: { valueCAD: 0 },
@@ -224,11 +215,9 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
   @ViewChild('tradeBotSimDebugDivContainer') tradeBotSimDebugDivContainer!: ElementRef<HTMLDivElement>;
   @ViewChild('initialBtcUsd') initialBtcUsd!: ElementRef<HTMLInputElement>;
   @ViewChild('initialUsdc') initialUsdc!: ElementRef<HTMLInputElement>;
-  @ViewChild('initialBtcPrice') initialBtcPrice!: ElementRef<HTMLInputElement>;
   @ViewChild('tradeSpreadPct') tradeSpreadPct!: ElementRef<HTMLInputElement>;
   @ViewChild('tradeFeePct') tradeFeePct!: ElementRef<HTMLInputElement>;
   @ViewChild('tradeAmountPct') tradeAmountPct!: ElementRef<HTMLInputElement>;
-  @ViewChild('numOscillations') numOscillations!: ElementRef<HTMLInputElement>;
 
   @Output() coinSelected = new EventEmitter<string>();
 
@@ -256,6 +245,7 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
           if (res.valueCAD && !this.btcFiatConversion) {
             this.btcFiatConversion = res.valueCAD;
           }
+          this.handleConversion('BTC');
         }
       });
       this.getBTCWallets();
@@ -516,20 +506,26 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
     }, 60 * 1000);
   }
   private async getTradebotValuesForMainGraph(tradeUserId: number, sessionToken: string | undefined) {
-    await this.tradeService.getTradeHistory(tradeUserId, sessionToken ?? "", "XBT", "DCA").then(res => {
-      if (res) {
-        this.tradebotBalances = res;
-        this.tradebotTradeValuesForMainGraph = res.filter(
-            (x: any) => x.from_currency === "XBT" || x.to_currency === "XBT"
-          ).map((x: any) => {
-          return {
-            timestamp: x.timestamp,
-            valueCAD: parseFloat(x.coin_price_cad) * this.latestCurrencyPriceRespectToCAD,
-            type: x.from_currency == "XBT" ? 'sell' : 'buy'
-          };
-        });
-      }
-    });
+    const token = sessionToken ?? "";
+
+    // Fetch both strategies
+    const [dcaRes, indRes] = await Promise.all([
+      this.tradeService.getTradeHistory(tradeUserId, token, "XBT", "DCA"),
+      this.tradeService.getTradeHistory(tradeUserId, token, "XBT", "IND")
+    ]);
+
+    // Combine the results
+    const combined = [...(dcaRes ?? []), ...(indRes ?? [])];
+
+    // Set tradebotBalances
+    this.tradebotBalances = combined;
+
+    // Set formatted values for the graph
+    this.tradebotTradeValuesForMainGraph = combined.map((x: any) => ({
+      timestamp: x.timestamp,
+      valueCAD: parseFloat(x.coin_price_cad) * this.latestCurrencyPriceRespectToCAD,
+      type: `${x.from_currency === "XBT" ? "sell" : "buy"}_${x.strategy}`
+    }));
   }
 
   private async getUserCurrency() {
@@ -763,7 +759,7 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
 
       try {
         // Get input values (strip formatting)
-        const btcInput = parseFloat(this.convertBTCInput.nativeElement.value) || 0;
+        const btcInput = parseFloat(this.convertBTCInput.nativeElement.value) || 1;
         const fiatInput = parseFloat(this.convertFIATInput.nativeElement.value.replace(/[$,]/g, '')) || 0;
         const currencyInput = parseFloat(this.convertCurrencyInput.nativeElement.value.replace(/[$,]/g, '')) || 0;
         const satInput = parseInt(this.convertSATInput.nativeElement.value.replace(/,/g, ''), 10) || 0;
@@ -1836,8 +1832,7 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
   }
   private closeTradeDivs() {
     this.showingTradeLogs = false;
-    this.showingTradeSettings = false;
-    this.isShowingTradeGraphWrapper = false;
+    this.showingTradeSettings = false; 
     this.isShowingTradeValueGraph = false;
     this.isTradebotBalanceShowing = false;
     this.isShowingTradeSimulator = false;
@@ -1888,10 +1883,8 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
     return this.topMarketCaps?.reduce((sum: number, coin: any) => sum + coin.market_cap, 0) ?? 0;
   } 
 
-  showTradeGraphWrapper() {
-    const tmpStatus = this.isShowingTradeGraphWrapper;
-    this.closeTradeDivs();
-    this.isShowingTradeGraphWrapper = !tmpStatus;
+  showTradeGraphWrapper() { 
+    this.closeTradeDivs(); 
   }
   async showTradeValueGraph() {
     const tmpStatus = this.isShowingTradeValueGraph;
@@ -2258,7 +2251,7 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
   }
   async changeTimePeriodEventOnBTCHistoricalGraph(periodSelected: string) {
     this.startLoading();
-    this.lineGraphInitialPeriod = periodSelected as "5min" | "15min" | "1h" | "6h" | "12h" | "1d" | "2d" | "5d" | "1m" | "2m" | "3m" | "6m" | "1y" | "2y" | "3y" | "5y";
+    this.lineGraphInitialPeriod = periodSelected as "5min" | "15min" | "1h" | "6h" | "12h" | "1d" | "2d" | "5d" | "1m" | "2m" | "3m" | "6m" | "1y" | "2y" | "3y" | "5y" | "max";
     const hours = this.convertTimePeriodToHours(periodSelected);
     // Get current time in UTC
     const currentTime = new Date();
@@ -2306,7 +2299,7 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
     const targetCurrency = this.selectedCurrency ?? "USD";
     const selectedCurrency = this.selectedFiatConversionName;
     // Get data just once
-    console.log("Fetching exchange rates for graph with period:", periodSelected, "hours:", hours, "selectedCurrency:", selectedCurrency, "targetCurrency:", targetCurrency);
+    //console.log("Fetching exchange rates for graph with period:", periodSelected, "hours:", hours, "selectedCurrency:", selectedCurrency, "targetCurrency:", targetCurrency);
     const exchangeRates = await this.coinValueService.getAllExchangeRateValuesForGraph(new Date(), hours, targetCurrency);
        
     this.allHistoricalExchangeRateDataForGraph = exchangeRates; 
@@ -2434,6 +2427,9 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
           return 1;
       }
     }
+    if (period.toLowerCase().includes("max")) {
+      return 10 * 24 * 365;
+    }
     console.warn(`Invalid period format: ${period}`);
     return 1;
   }
@@ -2509,19 +2505,6 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
 
     if (!confirm(`Sell ${currentBTC.toFixed(8)} BTC for ${this.formatToCanadianCurrency(sellPreview)}?\n- BTC USDC Price: ${this.formatToCanadianCurrency(this.btcUSDRate ?? 0)}`)) { return alert("Cancelled"); }
     if (!confirm(`Selling ${currentBTC.toFixed(8)} BTC for ${this.formatToCanadianCurrency(sellPreview)}`)) { return alert("Cancelled"); }
-
-
-    // const sessionToken = await this.parentRef?.getSessionToken() ?? "";
-    // this.tradeService.exitPosition(userId, sessionToken).then(res => {
-    //   if (res) {
-    //     this.parentRef?.showNotification(res);
-    //     this.tradeBotStarted = false;
-    //     this.tradeBotStartedSince = undefined;
-    //   }
-    //   else {
-    //     this.parentRef?.showNotification("Error exiting position.");
-    //   }
-    // });
   }
   canShowTradePanelInfo() {
     return !this.isShowingTradeProfit && !this.showingTradeSettings && !this.showingTradeLogs && !this.isShowingTradeValueGraph && !this.isShowingTradeSimulator && !this.isTradeInformationOpen && !this.isTradebotBalanceShowing && !this.showingTradeLogs && !this.isShowingTradeValueGraph && !this.isShowingTradeSimulator && !this.isTradeInformationOpen;
@@ -2603,8 +2586,7 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
     }
   } 
   isTradeBotStarted(currency?: string, strategy: string = 'DCA'): boolean {
-    if (!currency || !strategy) return false;
-    console.log("isTradebotStarted? ", currency, strategy);
+    if (!currency || !strategy) return false; 
     return this.tradeBotStatus[currency]?.[strategy] || false;
   }
   getActiveTradeBots(): { currency: string, strategy: string, startedSince: string }[] {

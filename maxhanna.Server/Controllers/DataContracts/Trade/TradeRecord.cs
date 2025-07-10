@@ -4,6 +4,7 @@ public class TradeRecord
 	public int user_id { get; set; }
 	public required string from_currency { get; set; }
 	public required string to_currency { get; set; }
+	public string? strategy { get; set; }
 	public float value { get; set; }
 	public DateTime timestamp { get; set; }
 	public string? coin_price_cad { get; set; }

@@ -201,15 +201,13 @@ export class MiningRigsComponent extends ChildComponent implements OnChanges {
       parent.showNotification(text);
     } 
   }
-  getParentToCreateUserComponent() {
-    console.log("create user component");
+  getParentToCreateUserComponent() { 
     const parent = this.inputtedParentRef ?? this.parentRef;
     if (parent) {
       parent.createComponent("User");
     }
   }
-  goToUserSettingsComponent() {
-    console.log("create usersettings component");
+  goToUserSettingsComponent() { 
     const parent = this.inputtedParentRef ?? this.parentRef;
     if (parent) {
       parent?.createComponent('UpdateUserSettings', {

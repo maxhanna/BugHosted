@@ -704,6 +704,14 @@ fieldset {
   color: var(--main-link-color);
 }
 
+.blackFontColor {
+  color: black;
+} 
+
+.linkHighlights {
+  text-shadow: 0.5px 1px var(--main-link-color);
+}
+
 .centeredContainer {
   position: absolute;
   top: 50%;

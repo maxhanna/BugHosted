@@ -28,7 +28,7 @@ export class ChildComponent {
     if (this.previousComponent && this.parentRef) {
       this.previousComponent = this.parentRef.currentComponentParameters && this.parentRef.currentComponentParameters['previousComponent'] ? this.parentRef.currentComponentParameters['previousComponent'] : this.previousComponent;
       const prev = this.parentRef.currentComponent;
-      console.log(this.parentRef.currentComponent, this.parentRef.currentComponentParameters, this.previousComponent);
+      //console.log(this.parentRef.currentComponent, this.parentRef.currentComponentParameters, this.previousComponent);
       const params = this.parentRef.currentComponentParameters && this.parentRef.currentComponentParameters['userId'] ? { "previousComponent": prev, "userId": this.parentRef.currentComponentParameters['userId'] } : undefined;
       this.parentRef.currentComponentParameters = undefined;
 
@@ -144,17 +144,14 @@ export class ChildComponent {
       this.parentRef?.createComponent("User", { "userId": user.id, "previousComponent": previousComponent, "previousComponentParameters": previousComponentParameters });
     }
   }
-  sortTable(columnIndex: number, tableId: string): void {
-    console.log(columnIndex);
+  sortTable(columnIndex: number, tableId: string): void { 
     let isCustomSortPreventAsc = false;
     const table = document.getElementById(tableId) as HTMLTableElement;
     if (!table) return; 
     const rowsArray = Array.from(table.rows).slice(1); // Skip the header row
 
     // Update sort direction tracking first
-    const isAscending = !this.asc.some(([tbl, col]) => tbl === tableId && col === columnIndex);
-    console.log(isAscending);
-
+    const isAscending = !this.asc.some(([tbl, col]) => tbl === tableId && col === columnIndex); 
     // Regular expression to detect common date formats (ISO 8601)
     const dateRegex = /^\d{4}-\d{2}-\d{2}(?:[ T]\d{2}:\d{2}(?::\d{2})?)?$/;
     const customDateRegex = /(\d+)([a-zA-Z]+)/g; // Matches custom dates like 10m, 16d, 8h, etc.
@@ -242,11 +239,9 @@ export class ChildComponent {
 
     // Update sort direction tracking AFTER sorting
     if (isAscending && !isCustomSortPreventAsc) {
-      this.asc.push([tableId, columnIndex]);
-      console.log("updating ascening by pushing asc")
+      this.asc.push([tableId, columnIndex]); 
     } else if (!isCustomSortPreventAsc) {
-      this.asc = this.asc.filter(([tbl, col]) => !(tbl === tableId && col === columnIndex));
-      console.log("updating ascening by filtering out asc")
+      this.asc = this.asc.filter(([tbl, col]) => !(tbl === tableId && col === columnIndex)); 
     }
   } 
   isElementInViewport(el: HTMLElement): boolean {

@@ -869,8 +869,7 @@ export class NexusMapComponent extends ChildComponent {
       (buttonsToShow[x] as HTMLButtonElement).style.visibility = "";
     }
   }
-  userTagLoaded(user: User) {
-    console.log("User tag loaded", user);
+  userTagLoaded(user: User) { 
     this.cdr.markForCheck();
   }
   isProtected(x: number, y: number): boolean {

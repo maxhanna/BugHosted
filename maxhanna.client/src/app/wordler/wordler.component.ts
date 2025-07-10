@@ -162,7 +162,7 @@ export class WordlerComponent extends ChildComponent implements OnInit {
         }
       }
       this.scores = await this.wordlerService.getAllScores();
-    } catch { console.log("failed to add score"); }
+    } catch { console.log("Failed to add score"); }
   }
 
   async resetGame() {

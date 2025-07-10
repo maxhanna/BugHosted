@@ -228,7 +228,7 @@
     </div>
 
     <!-- Post Topics Popup -->
-    <div class="popupPanel largePopupPanel" *ngIf="isMobileTopicsPanelOpen && !showOnlyPost">
+    <div class="popupPanel largePopupPanel" *ngIf="isMobileTopicsPanelOpen">
       <div class="popupPanelTitle">Topics</div>
       <app-topics #topicComponent [isDropdown]="true" [user]="parentRef?.user" [parent]="parent ?? parentRef"
         [attachedTopics]="attachedTopics" (topicAdded)="onTopicAdded($event)">

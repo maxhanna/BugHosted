@@ -137,20 +137,16 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy, 
   }
   gameLoop = new GameLoop(this.update, this.render);
 
-  async pollForChanges() {
-    console.log("polling");
-    if (!this.hero?.id && this.parentRef?.user?.id) {
-      console.log("no heroid for polling, getting hero");
+  async pollForChanges() { 
+    if (!this.hero?.id && this.parentRef?.user?.id) { 
       const rz = await this.metaService.getHero(this.parentRef.user.id);
-      if (rz) {
-        console.log("reinitailizeing hero with ", rz);
+      if (rz) { 
         this.partyMembers = await this.metaService.getPartyMembers(rz.id) ?? [];
         this.mainScene.partyMembers = this.partyMembers;
         this.mainScene.inventory.partyMembers = this.partyMembers;
         this.mainScene.inventory.renderParty();
         await this.reinitializeHero(rz);
-      } else {
-        console.log("no hero, set level to char crteate");
+      } else { 
         this.mainScene.setLevel(new CharacterCreate());
         return;
       }

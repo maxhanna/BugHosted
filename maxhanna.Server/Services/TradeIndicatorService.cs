@@ -554,93 +554,106 @@ namespace maxhanna.Server.Services
 		}
 		private async Task<bool> UpdateMACD(MySqlConnection connection, string fromCoin, string toCoin, string coinName)
 		{
-			const int fastPeriod = 12;  // Standard MACD fast EMA
-			const int slowPeriod = 26;  // Standard MACD slow EMA
-			const int signalPeriod = 9; // Standard MACD signal line
+			const int fastPeriod = 12;  // Fast EMA: 12 intervals (60 minutes)
+			const int slowPeriod = 26;  // Slow EMA: 26 intervals (130 minutes)
+			const int signalPeriod = 9; // Signal line: 9 intervals (45 minutes)
 
-			// Step 1: Fetch historical prices (last 26+9=35 days)
+			// Step 1: Fetch historical prices for the last 30 hours (360 intervals of 5 minutes)
 			var sql = @"
-				SELECT price_date, usd_price
-				FROM (
-					SELECT DATE(timestamp) as price_date, AVG(value_usd) as usd_price
-					FROM coin_value
-					WHERE name = @coinName
-					AND timestamp >= DATE_SUB(DATE(CURRENT_TIMESTAMP), INTERVAL 35 DAY)
-					AND timestamp < DATE(CURRENT_TIMESTAMP)
-					GROUP BY DATE(timestamp)
-					ORDER BY price_date ASC
-					LIMIT 35
-				) as subquery
-				ORDER BY price_date ASC;";
+        SELECT price_date, usd_price
+        FROM (
+            SELECT 
+                DATE_FORMAT(timestamp, '%Y-%m-%d %H:%i:00') - 
+                INTERVAL (MINUTE(timestamp) % 5) MINUTE as price_date,
+                AVG(value_usd) as usd_price
+            FROM coin_value
+            WHERE name = @coinName
+            AND timestamp >= DATE_SUB(CURRENT_TIMESTAMP, INTERVAL 1800 MINUTE)
+            AND timestamp < CURRENT_TIMESTAMP
+            GROUP BY 
+                DATE_FORMAT(timestamp, '%Y-%m-%d %H:%i:00') - 
+                INTERVAL (MINUTE(timestamp) % 5) MINUTE
+            ORDER BY price_date ASC
+            LIMIT 360
+        ) as subquery
+        ORDER BY price_date ASC;";
 
-			try
+			for (int attempt = 1; attempt <= MaxRetries; attempt++)
 			{
-				// Fetch data
-				using var cmd = new MySqlCommand(sql, connection);
-				cmd.Parameters.AddWithValue("@coinName", coinName);
-				using var reader = await cmd.ExecuteReaderAsync();
-
-				var prices = new List<decimal>();
-				while (await reader.ReadAsync())
+				try
 				{
-					prices.Add(reader.GetDecimal("usd_price"));
+					// Fetch data
+					using var cmd = new MySqlCommand(sql, connection);
+					cmd.Parameters.AddWithValue("@coinName", coinName);
+					using var reader = await cmd.ExecuteReaderAsync();
+
+					var prices = new List<decimal>();
+					while (await reader.ReadAsync())
+					{
+						prices.Add(reader.GetDecimal("usd_price"));
+					}
+					await reader.CloseAsync();
+
+					if (prices.Count < slowPeriod + signalPeriod)
+					{
+						_ = _log.Db($"Insufficient data for MACD calculation for {fromCoin}/{toCoin} ({prices.Count} 5-minute intervals, need at least {slowPeriod + signalPeriod})",
+								   null, "TISVC", true);
+						return false;
+					}
+
+					// Step 2: Calculate MACD components
+					var emaFast = CalculateEMA(prices, fastPeriod);
+					var emaSlow = CalculateEMA(prices, slowPeriod);
+					var macdLine = emaFast.Skip(slowPeriod - fastPeriod).Select((x, i) => x - emaSlow[i]).ToList();
+					var signalLine = CalculateEMA(macdLine, signalPeriod);
+					decimal latestMacdLine = macdLine.Last();
+					decimal latestSignalLine = signalLine.Last();
+					decimal latestHistogram = latestMacdLine - latestSignalLine; // Direct calculation
+					bool isBullish = latestMacdLine > latestSignalLine;
+
+					// Step 3: Update database
+					const string updateSql = @"
+                INSERT INTO trade_indicators
+                    (from_coin, to_coin, macd_histogram, macd_bullish, macd_line_value, macd_signal_value, updated)
+                VALUES (@fromCoin, @toCoin, @histogram, @isBullish, @macdLine, @signalLine, UTC_TIMESTAMP())
+                ON DUPLICATE KEY UPDATE
+                    macd_histogram = @histogram,
+                    macd_bullish = @isBullish,
+                    macd_line_value = @macdLine,
+                    macd_signal_value = @signalLine,
+                    updated = UTC_TIMESTAMP();";
+
+					using var updateCmd = new MySqlCommand(updateSql, connection);
+					updateCmd.Parameters.AddWithValue("@fromCoin", fromCoin);
+					updateCmd.Parameters.AddWithValue("@toCoin", toCoin);
+					updateCmd.Parameters.AddWithValue("@histogram", latestHistogram);
+					updateCmd.Parameters.AddWithValue("@isBullish", isBullish ? 1 : 0);
+					updateCmd.Parameters.AddWithValue("@macdLine", latestMacdLine);
+					updateCmd.Parameters.AddWithValue("@signalLine", latestSignalLine);
+
+					await updateCmd.ExecuteNonQueryAsync();
+
+					_ = _log.Db($"MACD (5-minute intervals) updated for {fromCoin}/{toCoin}: MACD Line={latestMacdLine:F8}, Signal Line={latestSignalLine:F8}, Histogram={latestHistogram:F8}, Bullish={isBullish}",
+							   null, "TISVC", true);
+					return true;
 				}
-				await reader.CloseAsync();
-
-				if (prices.Count < slowPeriod + signalPeriod)
+				catch (MySqlException ex) when (ex.Number == 2013 && attempt < MaxRetries)
 				{
-					_ = _log.Db($"Insufficient data for MACD calculation ({prices.Count} points)", null, "TISVC", true);
+					_ = _log.Db($"Lost connection during MACD for {fromCoin}/{toCoin} (attempt {attempt}): {ex.Message}. Retrying...",
+							   null, "TISVC", true);
+					await Task.Delay(RetryDelayMs);
+				}
+				catch (Exception ex)
+				{
+					_ = _log.Db($"Error calculating MACD for {fromCoin}/{toCoin}: {ex.Message}", null, "TISVC", true);
 					return false;
 				}
-				if (prices.Count != 35)
-				{
-					_ = _log.Db($"Expected 35 days, got {prices.Count} for {coinName}", null, "TISVC", true);
-					return false;
-				}
-
-				// Step 2: Calculate MACD components
-				var emaFast = CalculateEMA(prices, fastPeriod);
-				var emaSlow = CalculateEMA(prices, slowPeriod);
-				var macdLine = emaFast.Skip(slowPeriod - fastPeriod).Select((x, i) => x - emaSlow[i]).ToList();
-				var signalLine = CalculateEMA(macdLine, signalPeriod);
-				decimal latestMacdLine = macdLine.Last();
-				decimal latestSignalLine = signalLine.Last();
-				decimal latestHistogram = latestMacdLine - latestSignalLine; // Direct calculation
-				bool isBullish = latestMacdLine > latestSignalLine;
-
-				// Step 3: Update database
-				const string updateSql = @"
-					INSERT INTO trade_indicators
-						(from_coin, to_coin, macd_histogram, macd_bullish, macd_line_value, macd_signal_value, updated)
-					VALUES (@fromCoin, @toCoin, @histogram, @isBullish, @macdLine, @signalLine, UTC_TIMESTAMP())
-					ON DUPLICATE KEY UPDATE
-						macd_histogram = @histogram,
-						macd_bullish = @isBullish,
-						macd_line_value = @macdLine,
-						macd_signal_value = @signalLine,
-						updated = UTC_TIMESTAMP();";
-
-				using var updateCmd = new MySqlCommand(updateSql, connection);
-				updateCmd.Parameters.AddWithValue("@fromCoin", fromCoin);
-				updateCmd.Parameters.AddWithValue("@toCoin", toCoin);
-				updateCmd.Parameters.AddWithValue("@histogram", latestHistogram);
-				updateCmd.Parameters.AddWithValue("@isBullish", isBullish ? 1 : 0);
-				updateCmd.Parameters.AddWithValue("@macdLine", latestMacdLine);
-				updateCmd.Parameters.AddWithValue("@signalLine", latestSignalLine);
-
-				await updateCmd.ExecuteNonQueryAsync();
-
-				_ = _log.Db($"MACD updated for {fromCoin}/{toCoin}: MACD Line={latestMacdLine:F8}, Signal Line={latestSignalLine:F8}, Histogram={latestHistogram:F8}, Bullish={isBullish}", null, "TISVC", true);
-				return true;
 			}
-			catch (Exception ex)
-			{
-				_ = _log.Db($"Error calculating MACD for {fromCoin}/{toCoin}: {ex.Message}", null, "TISVC", true);
-				return false;
-			}
+
+			_ = _log.Db($"Failed to update MACD for {fromCoin}/{toCoin} after max retries", null, "TISVC", true);
+			return false;
 		}
 
-		// Helper: Calculate Exponential Moving Average (EMA)
 		private List<decimal> CalculateEMA(List<decimal> prices, int period)
 		{
 			var ema = new List<decimal>();
@@ -705,7 +718,7 @@ namespace maxhanna.Server.Services
 				// Fetch latest indicator values
 				var selectSql = @"
 					SELECT 200_day_moving_average, 14_day_moving_average, 21_day_moving_average,
-						rsi_14_day, macd_bullish, vwap_24_hour
+						rsi_14_day, macd_bullish, vwap_24_hour, retracement_from_high
 					FROM trade_indicators
 					WHERE from_coin = @fromCoin AND to_coin = @toCoin
 					ORDER BY updated DESC
@@ -728,10 +741,11 @@ namespace maxhanna.Server.Services
 				decimal rsi = reader.GetDecimal("rsi_14_day");
 				bool macdBullish = reader.GetInt32("macd_bullish") == 1;
 				bool vwap24Hour = reader.GetInt32("vwap_24_hour") == 1;
+				bool retracement = reader.GetInt32("retracement_from_high") == 0;
 				await reader.CloseAsync();
 
 				bool rsiBullish = rsi < 30 || (rsi >= 50 && rsi <= 70);
-				bool hasSignal = twoHundredDayMA && fourteenDayMA && twentyOneDayMA && rsiBullish && macdBullish && vwap24Hour;
+				bool hasSignal = twoHundredDayMA && fourteenDayMA && twentyOneDayMA && rsiBullish && macdBullish && vwap24Hour && retracement;
 
 				// Check the latest signal interval
 				var checkSql = @"

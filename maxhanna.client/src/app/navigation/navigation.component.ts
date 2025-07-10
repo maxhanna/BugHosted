@@ -13,6 +13,7 @@ import { UserNotification } from '../../services/datacontracts/notification/user
 import { UserService } from '../../services/user.service';
 import { FileService } from '../../services/file.service';
 import { ExchangeRate } from '../../services/datacontracts/crypto/exchange-rate';
+import { MenuItem } from '../../services/datacontracts/user/menu-item';
 
 @Component({
   selector: 'app-navigation',
@@ -39,6 +40,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
   isLoadingWordlerStreak = false;
   isLoadingCalendar = false;
   numberOfNotifications = 0;
+  showAppSelectionHelp = false;
   defaultTheme = {
     backgroundColor: '#0e0e0e',
     componentBackgroundColor: '#202020',
@@ -72,6 +74,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
 
     setTimeout(() => {
       this.getNotifications();
+      this.displayAppSelectionHelp();
     }, 100)
   }
 
@@ -80,6 +83,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
     clearInterval(this.calendarInfoInterval);
     clearInterval(this.wordlerInfoInterval);
     clearInterval(this.notificationInfoInterval);
+    this.showAppSelectionHelp = false;
     this.clearNotifications();
   }
 
@@ -135,8 +139,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
     if (this.navbarCollapsed) {
       return;
     }
-
-    console.log("debouncedRestartNotifications");
+ 
     this.getNotificationInfo();
     this.getCryptoHubInfo();
     this.getCalendarInfo();
@@ -204,32 +207,39 @@ export class NavigationComponent implements OnInit, OnDestroy {
   }
 
   async getThemeInfo(userId?: number) {
-    if (!this._parent?.user?.id && !userId) return;
+    if (this._parent?.user?.id && !userId) {
+      this.applyDefaultTheme();
+      return;
+    }
     this.isLoadingTheme = true;
     try {
       const theme = await this.userService.getTheme(userId ?? this._parent?.user?.id ?? 0);
       if (theme && !theme.message) {
-        this.applyThemeToCSS(theme);
-      } else {
-        document.documentElement.style.setProperty('--main-background-image-url', this.defaultTheme.backgroundImage);
-        document.body.style.backgroundImage = ``;
-        document.documentElement.style.setProperty('--main-bg-color', this.defaultTheme.backgroundColor);
-        document.documentElement.style.setProperty('--component-background-color', this.defaultTheme.componentBackgroundColor);
-        document.documentElement.style.setProperty('--secondary-component-background-color', this.defaultTheme.secondaryComponentBackgroundColor);
-        document.documentElement.style.setProperty('--main-font-color', this.defaultTheme.fontColor);
-        document.documentElement.style.setProperty('--secondary-font-color', this.defaultTheme.secondaryFontColor);
-        document.documentElement.style.setProperty('--third-font-color', this.defaultTheme.thirdFontColor);
-        document.documentElement.style.setProperty('--main-highlight-color', this.defaultTheme.mainHighlightColor);
-        document.documentElement.style.setProperty('--main-highlight-color-quarter-opacity', this.defaultTheme.mainHighlightColorQuarterOpacity);
-        document.documentElement.style.setProperty('--main-link-color', this.defaultTheme.linkColor);
-        document.documentElement.style.setProperty('--main-font-size', `${this.defaultTheme.fontSize}px`);
-        document.documentElement.style.setProperty('--main-font-family', this.defaultTheme.fontFamily);
+        this.applyThemeToCSS(theme); 
+      } else { 
+        this.applyDefaultTheme();
       }
     } catch (error) {
       console.error('Error fetching theme data:', error);
     }
     this.isLoadingTheme = false;
   }
+  private applyDefaultTheme() {
+    document.documentElement.style.setProperty('--main-background-image-url', this.defaultTheme.backgroundImage);
+    document.body.style.backgroundImage = ``;
+    document.documentElement.style.setProperty('--main-bg-color', this.defaultTheme.backgroundColor);
+    document.documentElement.style.setProperty('--component-background-color', this.defaultTheme.componentBackgroundColor);
+    document.documentElement.style.setProperty('--secondary-component-background-color', this.defaultTheme.secondaryComponentBackgroundColor);
+    document.documentElement.style.setProperty('--main-font-color', this.defaultTheme.fontColor);
+    document.documentElement.style.setProperty('--secondary-font-color', this.defaultTheme.secondaryFontColor);
+    document.documentElement.style.setProperty('--third-font-color', this.defaultTheme.thirdFontColor);
+    document.documentElement.style.setProperty('--main-highlight-color', this.defaultTheme.mainHighlightColor);
+    document.documentElement.style.setProperty('--main-highlight-color-quarter-opacity', this.defaultTheme.mainHighlightColorQuarterOpacity);
+    document.documentElement.style.setProperty('--main-link-color', this.defaultTheme.linkColor);
+    document.documentElement.style.setProperty('--main-font-size', `${this.defaultTheme.fontSize}px`);
+    document.documentElement.style.setProperty('--main-font-family', this.defaultTheme.fontFamily);
+  }
+
   async getCalendarInfo() {
     if (!this.user || !this._parent.userSelectedNavigationItems.some(x => x.title === "Calendar")) return;
 
@@ -368,6 +378,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
     } else {
       this._parent.createComponent(title);
     }
+    this.showAppSelectionHelp = false;
     event.stopPropagation();
   }
 
@@ -463,5 +474,32 @@ export class NavigationComponent implements OnInit, OnDestroy {
     if (theme.fontFamily) {
       document.documentElement.style.setProperty('--main-font-family', theme.fontFamily);
     }
+  }
+  displayAppSelectionHelp() {
+    const hasSeenAppSelection = this._parent.getCookie('hasSeenAppSelectionPopup1');
+    const user = this._parent.user;
+    const now = new Date().getTime();
+    const oneDayMs = 24 * 60 * 60 * 1000;
+    let showAppSelector = false;
+
+    if (!hasSeenAppSelection) {
+      if (!user || !user.id || user.id === 0) {
+        showAppSelector = true;
+      } else if (user.created) {
+        //this.showAppSelectionHelp = true;
+        const createdAt = new Date(user.created).getTime();
+        if ((now - createdAt) < oneDayMs) {
+          showAppSelector = true;
+        }
+      }
+
+      if (showAppSelector) {
+        this.showAppSelectionHelp = true; // auto-trigger the UI section
+        this._parent.setCookie('hasSeenAppSelectionPopup1', 'true', 2); // remember for 2 days
+      }
+    }
+  }
+  descriptionsExist(item: string) {
+    return this._parent.navigationItemDescriptions.some((x:MenuItem) => x.title == item);
   }
 }

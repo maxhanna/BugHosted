@@ -303,7 +303,7 @@ button {
 }
 
 .tradeDataTable {
-  height: CALC(var(--vh, 1vh) * 100 - 300px);
+  height: CALC(var(--vh, 1vh) * 100 - 360px);
   overflow: auto;
   width: 100%;
   border: var(--main-border);
@@ -336,6 +336,15 @@ button {
 
 .maximizedTradePanel {
   padding: 10px;
+}
+
+.tradePanelCloseButtonSection {
+  display: flex;
+  justify-content: space-between;
+  width: 100%;
+  margin-top: 15px;
+  flex-wrap: wrap;
+  gap: 10px;
 }
 
 .tradeBalancePairLabelContainer {

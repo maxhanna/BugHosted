@@ -117,8 +117,7 @@ export class ThemesComponent extends ChildComponent implements OnInit, OnDestroy
   }
 
   // Update CSS variables dynamically
-  updateCSS(variable: string, event?: Event, variableValue?: any) {
-    console.log(variableValue);
+  updateCSS(variable: string, event?: Event, variableValue?: any) { 
     if (!event && !variableValue) return;
 
     const target = event?.target as HTMLInputElement;
@@ -300,8 +299,7 @@ export class ThemesComponent extends ChildComponent implements OnInit, OnDestroy
     clearTimeout(this.debounceTimer);
     this.debounceTimer = setTimeout(() => {
       const user = this.parentRef?.user;
-      if (user && user.id && updateServer) {
-        console.log("deleting selected theme user:", user.id);
+      if (user && user.id && updateServer) { 
         this.userService.deleteUserSelectedTheme(user.id).then(res => {
           if (res) {
             this.parentRef?.showNotification(res.message);

@@ -243,8 +243,7 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
     }, 60000);
 
     this.autosaveInterval = setInterval(async () => {
-      if (this.autosave && this.nostalgist && this.selectedRomName != '') {
-        console.log('Autosaving game state...');
+      if (this.autosave && this.nostalgist && this.selectedRomName != '') { 
         await this.saveState(true);
       }
     }, this.autosaveIntervalTime);

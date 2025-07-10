@@ -13,8 +13,7 @@ import { ChartOptions, ChartConfiguration } from 'chart.js';
 export class CryptoGlobalStatsComponent implements OnInit {
   @Input() set metrics(value: any) {
     if (value) {
-      this._metrics = value;
-      console.log(this.metrics);
+      this._metrics = value; 
       this.updateCharts();
     }
   }

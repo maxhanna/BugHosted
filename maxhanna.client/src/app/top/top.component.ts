@@ -44,19 +44,15 @@ export class TopComponent extends ChildComponent implements OnInit {
     super();
   } 
 
-  ngOnInit() {
-    console.log("init");
+  ngOnInit() { 
     const topicsFromUrl = this.getTopicsFromUrl();
 
-    if (topicsFromUrl.length > 0) {
-      console.log("Processing topics from URL:", topicsFromUrl);
+    if (topicsFromUrl.length > 0) { 
       setTimeout(() => {
-        this.processUrlTopics(topicsFromUrl).then(() => {
-          console.log("Topics processed from URL");
+        this.processUrlTopics(topicsFromUrl).then(() => { 
         });
       }, 50); 
-    } else {
-      console.log("No topics in URL, loading default entries");
+    } else { 
       this.loadTopEntries();
     }
     this.topService.getTopCategories().then((res: any) => {
@@ -130,8 +126,7 @@ export class TopComponent extends ChildComponent implements OnInit {
     );
   }
 
-  onTopicAdded(topic: Topic[]) {
-    console.log(topic);
+  onTopicAdded(topic: Topic[]) { 
     this.topicInputted = topic;
     this.loadTopEntries();
   }
@@ -255,8 +250,7 @@ export class TopComponent extends ChildComponent implements OnInit {
   }
   addClickedTopic(category: string) {
     // Remove any existing topic input
-    const trimmedCategory = category.trim();
-    console.log('Category clicked:', trimmedCategory); 
+    const trimmedCategory = category.trim(); 
     if (!this.topicComponent.attachedTopics?.find(x => x.topicText == trimmedCategory)) {
       this.topicService.getTopics(trimmedCategory, this.parentRef?.user).then(res => {
         if (res) { 
@@ -303,8 +297,7 @@ export class TopComponent extends ChildComponent implements OnInit {
       this.parentRef?.showNotification("Error: Unable to share link!");
     }
   }
-  expandPictureEvent(event: any) {
-    console.log("Expanding:", event);
+  expandPictureEvent(event: any) { 
     if (event?.id) {
       this.expandedFileId = event.id;
       this.expandedImageUrl = undefined;

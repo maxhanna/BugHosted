@@ -1,6 +1,6 @@
 <div class="componentMain {{ user ? 'componentMainFullHeight' : ''}}">
   <div class="closeButton" (click)="remove_me('UserComponent');" *ngIf="canClose || (!loginOnly && (parentRef?.user || user))"></div>
-  <div class="menuButton" (click)="showMenuPanel();" *ngIf="parentRef?.user"></div>
+  <div class="menuButton" (click)="showMenuPanel();" *ngIf="parentRef?.user || user"></div>
   <div *ngIf="previousComponent" [class]="'menuBackButton ' + (parentRef?.user ? 'menuBackButtonSpecial' : '')" (click)="backButtonPressed();"></div> 
   <div class="componentTitle" *ngIf="!loginOnly">{{user ? user.username : 'Login'}}</div>
 
@@ -21,47 +21,46 @@
   <div class="userProfileContents">
     <div class="profileHeader">
       <div class="profileHeaderContents">
-        <div class="largeAvatar"
-          *ngIf="!loginOnly && (user && this.parentRef && user.displayPictureFile) && (user?.displayPictureFile ?? this.parentRef?.user?.displayPictureFile)">
-          <app-media-viewer #displayPictureViewer [displayExpander]="false" [displayExtraInfo]="false"
+        <div *ngIf="!loginOnly && (user && parentRef && user.displayPictureFile) && (user?.displayPictureFile ?? this.parentRef?.user?.displayPictureFile)">
+          <app-media-viewer #displayPictureViewer (click)="openDisplayPicturePanel()" [displayExpander]="false" [displayExtraInfo]="false"
             [showCommentSection]="false" [inputtedParentRef]="inputtedParentRef ?? parentRef" [file]="user.displayPictureFile"
-            [currentDirectory]="user.displayPictureFile.directory" [user]="user"
+            [blockExpand]="user && user.id == parentRef.user?.id" [currentDirectory]="user.displayPictureFile.directory" [user]="user"
             [previousComponent]="previousComponent ?? 'User'">
           </app-media-viewer>
-          <div [class]="'secondaryFontColor profileHeaderInfo' + (onMobile() ? ' smallFont' : '')" [title]="user.username">{{user.username}}</div>
+          <div [class]="'profileHeaderInfo blackFontColor linkHighlights' + (onMobile() ? ' smallFont' : '')" [title]="user.username">{{user.username}}</div>
         </div>
         <div class="largeAvatar" *ngIf="!loginOnly && user && !user.displayPictureFile">
-          <app-user-tag></app-user-tag>
-          <div [class]="'smallFont secondaryFontColor profileHeaderInfo' + (onMobile() ? ' smallFont' : '')" [title]="user.username ?? 'Anonymous'">{{user.username ?? "Anonymous"}}</div>
+          <app-user-tag (click)="openDisplayPicturePanel()"></app-user-tag>
+          <div [class]="'blackFontColor linkHighlights profileHeaderInfo' + (onMobile() ? ' smallFont' : '')" [title]="user.username ?? 'Anonymous'">{{user.username ?? "Anonymous"}}</div>
         </div>
-        <div class="profileHeaderInfo profileHeaderBubble secondaryFontColor" *ngIf="!loginOnly && (parentRef?.user || user)">
+        <div class="profileHeaderInfo profileHeaderBubble blackFontColor linkHighlights" *ngIf="!loginOnly && (parentRef?.user || user)">
           <div class="profileHeaderUserDescription">
             {{user?.about?.description}}
           </div>
-          <div class="seperatedUserHeader" *ngIf="weatherLocation?.city || user?.about?.currency">
-            <div class="invertedHighlights xxSmallFont" title="Location">Location: </div>
+          <div class="seperatedUserHeader blackFontColor linkHighlights" *ngIf="weatherLocation?.city || user?.about?.currency">
+            <div class="xxSmallFont" title="Location">Location: </div>
             <div>{{weatherLocation?.city}} {{ (weatherLocation?.country ?? user?.about?.currency ?? '') | currencyFlag }}</div>
           </div>
-          <div class="seperatedUserHeader">
-            <div class="invertedHighlights xxSmallFont" title="Joined">Joined: </div>
+          <div class="seperatedUserHeader blackFontColor linkHighlights">
+            <div class="xxSmallFont" title="Joined">Joined: </div>
             <div [title]="(user && user.created ? (user.created | date: 'y/MM/d') : 'Unknown')"
-              class="smallFont cursorPointer">
+              class="smallFont">
               {{user && user.created ? getUtcTimeSince(user.created, 'day') : '0 days'}}
             </div>
           </div>
-          <div class="seperatedUserHeader">
-            <div class="invertedHighlights xxSmallFont" title="Last Seen">Last Seen: </div>
+          <div class="seperatedUserHeader blackFontColor linkHighlights">
+            <div class="xxSmallFont" title="Last Seen">Last Seen: </div>
             <div>
               <span *ngIf="user && user.lastSeen && isUserOnline(user.lastSeen | timeSince)" class="cursorPointer"
                 [title]="user.lastSeen | timeSince">
                 <span class="glowing onlineButton" title="Online">🟢</span> Online
               </span>
               <span *ngIf="user && user.lastSeen && !isUserOnline(user.lastSeen | timeSince)"
-                class="invertedHighlights smallFont" [title]="user.lastSeen">
+                class="smallFont" [title]="user.lastSeen">
                 {{ user.lastSeen | timeSince }}
               </span>
               <span *ngIf="!user?.lastSeen">
-                Unknown <span class="invertedHighlights xxSmallFont">(0 days)</span>
+                Unknown <span class="xxSmallFont">(0 days)</span>
               </span>
             </div>
           </div>
@@ -91,7 +90,7 @@
               <option *ngIf="user && user.id == parentRef?.user?.id" value="logout">🔑 Logout</option>
             </select>
           </div>
-          </div>
+        </div>
       </div>
       
     </div>
@@ -102,7 +101,7 @@
         <div *ngIf="!parentRef?.user">
           <div class="bughostedHeader">
             <div class="emptyUserTagLogo" *ngIf="!loginOnly">
-              <app-user-tag [displayEmptyAvatar]="true" [previousComponent]="previousComponent ?? 'User'"></app-user-tag>
+              <app-user-tag [displayEmptyAvatar]="true" [previousComponent]="previousComponent ?? 'User'" [hideName]="true"></app-user-tag>
             </div>
             <div class="bugHostedLogo" *ngIf="!loginOnly">
               BugH_sted
@@ -131,11 +130,11 @@
       </div>
     </div> 
     <!-- LATEST MEME -->
-    <div *ngIf="!user?.id && !loginOnly" style="display: flex;align-items: flex-start;justify-content: center;flex-wrap: wrap;" [class]="onMobile() ? 'gradientBackground':''">
+    <div *ngIf="!user?.id && !loginOnly" class="memeAndWordlerWrapper" [class]="onMobile() ? 'gradientBackground':''">
       <div *ngIf="latestMemeId">
         <div class="popupPanelTitle cursorPointerUnderlined" style="margin-top: 15px;"
           (click)="parentRef?.createComponent('Meme')">Latest Meme:</div>
-        <app-media-viewer [fileId]="latestMemeId" [inputtedParentRef]="parentRef"></app-media-viewer>
+        <app-media-viewer [fileId]="latestMemeId" [inputtedParentRef]="parentRef" [canScroll]="false"></app-media-viewer>
       </div>
       <!-- LATEST WORDLER SCORES -->
       <div *ngIf="wordlerHighScores && wordlerHighScores.length > 0">
@@ -143,11 +142,12 @@
           (click)="parentRef?.createComponent('Wordler')">Wordler Scores:</div>
         <table *ngIf="wordlerHighScores && wordlerHighScores.length > 0" class="mainTable scoreTable" id="scoreTable">
           <thead>
-            <tr>
+            <tr style="font-size:xx-small">
               <th (click)="sortTable(0, 'scoreTable')">User</th>
               <th (click)="sortTable(1, 'scoreTable')">Attempts</th>
               <th (click)="sortTable(2, 'scoreTable')">Time</th>
               <th (click)="sortTable(3, 'scoreTable')">Difficulty</th>
+              <th (click)="sortTable(4, 'scoreTable')">Submitted</th>
             </tr>
           </thead>
           <tbody>
@@ -159,9 +159,9 @@
                   [previousComponent]="'Wordler'"></app-user-tag>
               </td>
               <td>{{score.score}}</td>
-              <td>{{score.time}}</td>
-              <td>{{score.difficulty == 4 ? 'Easy Difficulty' : score.difficulty == 5 ? 'Medium Difficulty' : score.difficulty
-                == 6 ? 'Hard Difficulty' : 'Master Wordler'}}</td>
+              <td>{{score.time | timeFormat:'minify'}}</td>
+              <td>{{score.difficulty == 4 ? 'Easy' : score.difficulty == 5 ? 'Medium' : score.difficulty == 6 ? 'Hard' : 'Master Wordler'}}</td>
+              <td [title]="score.submitted">{{score.submitted | timeSince }}</td>
             </tr>
           </tbody>
         </table>
@@ -175,7 +175,7 @@
         Latest Post:
       </div>
       <app-social #socialComponent [showOnlyPost]="true" [user]="user" [storyId]="storyId ?? this.latestSocialStoryId"
-        [commentId]="commentId" [parent]="parentRef" [showTopicSelector]="false"></app-social>
+        [commentId]="commentId" [parent]="parentRef" [showTopicSelector]="false" [canScroll]="false"></app-social>
     </div>
 
     <div *ngIf="user && user.id == parentRef?.user?.id && parentRef?.user?.username?.includes('Guest')" class="xxSmallFont">Note: <span class="italics">Guest accounts will be deleted after 10 days.</span></div>
@@ -517,8 +517,6 @@
 </div>
 
 
-
-
 <!-- Menu Popup -->
 <div class="popupPanel" style="overflow: auto;" *ngIf="isMenuPanelOpen">
   <div class="popupPanelTitle popupPanelContents" style="margin-bottom:15px;">
@@ -539,4 +537,47 @@
     </div>
   </div>
   <button id="closeOverlay" (click)="closeMenuPanel()">Close</button>
+</div>
+
+<!-- Change Display Picture Popup -->
+<div class="popupPanel" style="overflow: auto;" *ngIf="isDisplayPicturePanelOpen">
+  <div class="popupPanelTitle popupPanelContents" style="margin-bottom:15px;">
+    Display Picture
+  </div>
+  <div class="displayPicturePopupDisplayDiv">
+    <span *ngIf="!user?.displayPictureFile"><app-user-tag [hideName]="true"></app-user-tag></span>
+    <span *ngIf="user?.displayPictureFile"><app-user-tag [user]="user" [inputtedParentRef]="parentRef" 
+      [displayHoverPicture]="true"  [hideName]="true"></app-user-tag></span>
+    <button (click)="changeDisplayPic()">Change Display Picture</button>
+  </div>
+
+  <div class="popupPanelTitle popupPanelContents" style="margin-bottom:15px;">
+    Background Picture
+  </div>
+  <div class="displayPicturePopupDisplayDiv">
+    <span *ngIf="parentRef?.user?.profileBackgroundPictureFile">
+      <app-media-viewer #backgroundPictureViewer [displayExpander]="false" [displayExtraInfo]="false"
+        [showCommentSection]="false"
+        [file]="parentRef?.user?.profileBackgroundPictureFile"
+        [user]="parentRef?.user" [inputtedParentRef]="parentRef" [previousComponent]="'User'">
+      </app-media-viewer>
+    </span>
+    <span *ngIf="!parentRef?.user?.profileBackgroundPictureFile" class="smallFont cursorPointerUnderlined" (click)="bgPicChanger.click()">Currently no profile background picture selected.</span>
+    <button (click)="changeBackgroundPic()" #bgPicChanger>Change Background Picture</button>
+  </div>
+  <button id="closeOverlay" (click)="closeDisplayPicturePanel()">Close</button>
+</div>
+
+<div class="media-selector-container" *ngIf="showDisplayPictureSelector">
+  <app-media-selector #displayPictureSelector [maxSelectedFiles]="1" [inputtedParentRef]="parentRef"
+    [user]="parentRef?.user" [currentDirectory]="'Users/'+parentRef?.user?.username"
+    (selectFileEvent)="avatarSelected($event)">
+  </app-media-selector>
+</div>
+
+<div class="media-selector-container" *ngIf="showBackgroundPictureSelector">
+  <app-media-selector #backgroundPictureSelector [maxSelectedFiles]="1" [inputtedParentRef]="parentRef"
+    [user]="parentRef?.user" [currentDirectory]="'Users/'+parentRef?.user?.username"
+    (selectFileEvent)="profileBackgroundSelected($event)">
+  </app-media-selector>
 </div>

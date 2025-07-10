@@ -118,7 +118,7 @@
               [previousComponent]="'Wordler'"></app-user-tag> 
           </td>
           <td>{{score.score}}</td>
-          <td>{{score.time}}</td>
+          <td>{{score.time | timeFormat:'minify'}}</td>
           <td>{{score.difficulty == 4 ? 'Easy Difficulty' : score.difficulty == 5 ? 'Medium Difficulty' : score.difficulty == 6 ? 'Hard Difficulty' : 'Master Wordler'}}</td>
         </tr>
       </tbody>
@@ -162,7 +162,7 @@
           <tbody>
             <tr *ngFor="let score of userWordlerScores">
               <td>{{score.score + 1}}</td>
-              <td>{{score.time}}</td>
+              <td>{{score.time | timeFormat:'minify'}}</td>
               <td>{{score.difficulty == 4 ? 'Easy' : score.difficulty == 5 ? 'Medium' : score.difficulty == 6 ? 'Hard' : 'Master Wordler'}}</td>
               <td>{{score.submitted | date: 'yyyy-MM-dd HH:mm' }}</td>
             </tr>

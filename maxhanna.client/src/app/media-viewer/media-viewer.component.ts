@@ -25,7 +25,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
   fileViewers?: User[] | undefined;
   selectedFileExtension = '';
   selectedFileSrc = '';
-  selectedFile: FileEntry | undefined;
+  selectedFile: FileEntry | undefined; 
   fileType = '';
   showThumbnail = false;
   showComments = true;
@@ -84,7 +84,16 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
   }
   onInView(isInView: boolean) {
     if (!this.forceInviewLoad || (this.forceInviewLoad && isInView && this.isComponentHeightSufficient())) {
-      this.fetchFileSrc();
+      this.fetchFileSrc().then(() => {
+        const urlContainsMedia = window.location.href.includes('/Media'); 
+        const file = this.file ?? this.selectedFile;
+        if (urlContainsMedia && (file?.fileName || file?.givenFileName)) {
+          this.selectedFileName = file.givenFileName ?? file.fileName ?? "MediaViewer";
+          if (file) {
+            this.inputtedParentRef?.replacePageTitleAndDescription(this.selectedFileName, this.selectedFileName);
+          }
+        }  
+      });
     } else {
       // Pause any media playback when not in view or height is insufficient
       if (this.mediaContainer && this.mediaContainer.nativeElement instanceof HTMLVideoElement) {
@@ -315,7 +324,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
       }
     } finally {
       this.stopLoading();
-      if (this.canScroll) {
+      if (this.canScroll) { 
         setTimeout(() => { document.getElementById('fileIdName' + fileId)?.scrollIntoView(); }, 100);
       }
     }
@@ -349,9 +358,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
       await this.fileService.editTopics(user, file, file.topics ?? []);
     }
   }
-  editFileTopic(file: FileEntry) {
-    console.log(file);
-    console.log(this.editingTopics);
+  editFileTopic(file: FileEntry) { 
     if (this.editingTopics.includes(file.id)) {
       this.editingTopics = this.editingTopics.filter(x => x != file.id);
     } else {

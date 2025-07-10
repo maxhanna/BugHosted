@@ -18,6 +18,9 @@ import { MetaService } from '../../services/meta.service';
 import { NotificationService } from '../../services/notification.service';
 import { SocialService } from '../../services/social.service';
 import { FileService } from '../../services/file.service';
+import { FileEntry } from '../../services/datacontracts/file/file-entry';
+import { target } from '../meta/helpers/fight';
+import { MediaSelectorComponent } from '../media-selector/media-selector.component';
 
 @Component({
   selector: 'app-user',
@@ -41,6 +44,8 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
   @ViewChild('loginPassword') loginPassword!: ElementRef<HTMLInputElement>;
   @ViewChild('profileControls') profileControls!: ElementRef<HTMLSelectElement>;
   @ViewChild(SocialComponent) socialComponent!: SocialComponent;
+  @ViewChild(MediaSelectorComponent) displayPictureSelector!: MediaSelectorComponent;
+  @ViewChild(MediaSelectorComponent) backgroundPictureSelector!: MediaSelectorComponent;
 
   updateUserDivVisible = true;
   notifications: Array<string> = [];
@@ -91,6 +96,9 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
   latestMemeId?: number = undefined;
   changedTheme = false;
   private originalBackgroundColor: string | null = null;
+  isDisplayPicturePanelOpen: boolean = false;
+  showDisplayPictureSelector = false;
+  showBackgroundPictureSelector = false;
 
   constructor(private userService: UserService,
     private nexusService: NexusService,
@@ -118,8 +126,7 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
   async ngOnInit() {
     if (this.inputtedParentRef) {
       this.parentRef = this.inputtedParentRef;
-    } 
-    console.log("ngOnInit UserComponent, userId: " + this.userId, this.commentId, this.storyId);
+    }  
     this.startLoading();
     this.usersCount = await this.userService.getUserCount();
     try {
@@ -168,8 +175,7 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
       this.getNumberOfNexusBases();
     }
     catch (error) { console.log((error as Error).message); }
-    this.stopLoading();
-    console.log("story id: "  + this.storyId);
+    this.stopLoading(); 
 
     document.addEventListener('DOMContentLoaded', function () {
       if (/iPhone|iPad|iPod/i.test(navigator.userAgent)) {
@@ -186,17 +192,29 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
   private async changeTheme() {
     if (this.user?.id != this.parentRef?.user?.id && this.user?.id !== undefined) {
       const theme = await this.userService.getTheme(this.user?.id);
-      if (theme && !theme.message) { 
-        console.log("got users: " + this.user?.id + " theme: " + theme);  
+      if (theme && !theme.message) {  
         this.parentRef?.navigationComponent.getThemeInfo(this.user.id ?? 0);
-        this.changedTheme = true;
+        this.changedTheme = true; 
+      }
+    }
+    if (this.user?.profileBackgroundPictureFile) {
+      const closeButton = document.getElementsByClassName('componentMain')[0].getElementsByClassName('closeButton')[0] as HTMLDivElement;
+      if (closeButton) {
+        closeButton.style.setProperty('text-shadow', '1px 1px var(--main-link-color)');
+      }
+      const titleComponent = document.getElementsByClassName('componentMain')[0].getElementsByClassName('componentTitle')[0] as HTMLDivElement;
+      if (titleComponent) {
+        titleComponent.style.setProperty('text-shadow', '1px 1px var(--main-link-color)');
+      }
+      const menuButton = document.getElementsByClassName('componentMain')[0].getElementsByClassName('menuButton')[0] as HTMLDivElement;
+      if (menuButton) {
+        menuButton.style.setProperty('text-shadow', '1px 1px var(--main-link-color)');
       }
     }
   }
 
   private setBackgroundImage() {
-    if (this.user?.profileBackgroundPictureFile?.id && !this.loginOnly) {
-      console.log("Setting background image for user: " + this.user?.id);
+    if (this.user?.profileBackgroundPictureFile?.id && !this.loginOnly) { 
       const element = document.querySelector('.componentMain') as HTMLDivElement;
       if (element) {
         // Store original value first
@@ -462,6 +480,7 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
     this.friends = [];
     this.user = undefined;
     this.parentRef?.showNotification("Logged out successfully, refresh in 100 milliseconds.");
+ 
     setTimeout(() => {
       window.location.reload();
     }, 100);
@@ -623,6 +642,7 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
     if (this.parentRef?.user) {
       this.parentRef.user = undefined;
     }
+    let success = false;
     let tmpUserName = this.loginUsername.nativeElement.value;
     if (guest) {
       tmpUserName = guest;
@@ -643,15 +663,18 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
           this.closeUserComponentEvent.emit(tmpUser);
         }
         this.latestSocialStoryId = undefined;
-      } else {
-        this.parentRef?.showNotification("Access denied");
+        success = true;
+      } else { 
+        this.parentRef?.showNotification("Access denied"); 
       }
 
     } catch (e) {
       this.parentRef?.showNotification("Login error: " + e);
     } finally {
-      this.justLoggedIn = true;
-      this.ngOnInit();
+      if (success) { 
+        this.justLoggedIn = true;
+        this.ngOnInit();
+      }
     }
   }
   getNewFriendRequestCount() {
@@ -833,5 +856,69 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
         this.closeFriendsPanel();
       }
     })
+  }
+  changeDisplayPic() {
+    this.closeDisplayPicturePanel();
+    this.showDisplayPictureSelector = true;
+    const targetParent = this.inputtedParentRef ?? this.parentRef;
+    targetParent?.showOverlay();
+
+    setTimeout(() => {
+      this.displayPictureSelector.toggleMediaChoices();
+    }, 50);
+  }
+
+  changeBackgroundPic() {
+    this.closeDisplayPicturePanel();
+    this.showBackgroundPictureSelector = true;
+    const targetParent = this.inputtedParentRef ?? this.parentRef;
+    targetParent?.showOverlay();
+
+    setTimeout(() => {
+      this.backgroundPictureSelector.toggleMediaChoices();
+    }, 50);
+  }
+  openDisplayPicturePanel() {
+    const targetParent = this.inputtedParentRef ?? this.parentRef;
+    if (!(this.user && this.user.id == this.parentRef?.user?.id)) {
+      return;
+    }
+    this.isDisplayPicturePanelOpen = true;
+    targetParent?.showOverlay();
+  }
+  closeDisplayPicturePanel() {
+    this.isDisplayPicturePanelOpen = false;
+    const targetParent = this.inputtedParentRef ?? this.parentRef;
+    targetParent?.closeOverlay();
+    setTimeout(() => {
+      if (!this.showBackgroundPictureSelector && !this.showDisplayPictureSelector) {
+        this.showBackgroundPictureSelector = false;
+        this.showDisplayPictureSelector = false;
+      }
+    });
+  } 
+  async avatarSelected(files: FileEntry[]) {
+    const targetParent = this.parentRef ?? this.inputtedParentRef;
+    if (files && files.length > 0 && targetParent?.user?.id) {
+      await this.userService.updateDisplayPicture(targetParent.user.id, files[0].id);
+      targetParent.user.displayPictureFile = files[0];
+      targetParent.deleteCookie("user");
+      targetParent.setCookie("user", JSON.stringify(targetParent.user), 10);
+      setTimeout(() => { this.ngOnInit(); }, 100);
+    }
+    this.showDisplayPictureSelector = false;
+    targetParent?.closeOverlay();
+  }
+  async profileBackgroundSelected(files: FileEntry[]) {
+    const targetParent = this.parentRef ?? this.inputtedParentRef;
+    if (files && files.length > 0 && targetParent?.user?.id) {
+      await this.userService.updateProfileBackgroundPicture(targetParent.user.id, files[0].id);
+      targetParent.user.profileBackgroundPictureFile = files[0];
+      targetParent.deleteCookie("user");
+      targetParent.setCookie("user", JSON.stringify(targetParent.user), 10);
+      setTimeout(() => { this.ngOnInit(); }, 100);
+    }
+    this.showBackgroundPictureSelector = false;
+    targetParent?.closeOverlay();
   }
 }

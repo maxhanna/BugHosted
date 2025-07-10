@@ -128,8 +128,7 @@ export class CryptoBotConfigurationComponent extends ChildComponent {
       this.tradeStopLoss.nativeElement.valueAsNumber = tv.tradeStopLoss;
       this.tradeStopLossPercentage.nativeElement.valueAsNumber = tv.tradeStopLossPercentage;
       this.tradeConfigLastUpdated = tv.updated;
-    } else {
-      console.log("No config, applying default.");
+    } else { 
       this.tradeConfigLastUpdated = undefined;
       this.setDefaultTradeConfiguration();
     }
@@ -194,5 +193,13 @@ export class CryptoBotConfigurationComponent extends ChildComponent {
 
   tradeStrategySelectChange() {
     this.getTradeConfiguration();
+  } 
+  toggleExplanation(event: Event) {
+    const target = event.currentTarget as HTMLElement;
+    target.classList.toggle('expanded');
+  } 
+  multiplyBy100(value: string) {
+    if (!value) return 0;
+    return parseFloat(value) * 100;
   }
 }

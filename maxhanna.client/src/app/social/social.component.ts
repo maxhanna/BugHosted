@@ -108,6 +108,7 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
   @Input() showTopicSelector: boolean = true;
   @Input() showOnlyPost: boolean = false;
   @Input() user?: User;
+  @Input() canScroll?: boolean = true;
   @Input() parent?: AppComponent;
 
   constructor(private socialService: SocialService,
@@ -195,7 +196,8 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
     }
   }
 
-  private scrollToInputtedCommentId(commentId?: number) { 
+  private scrollToInputtedCommentId(commentId?: number) {  
+    if (!this.canScroll) return;
     if (commentId) {
       setTimeout(() => {
         const subCommentElement = document.getElementById("subComment" + commentId);
@@ -593,6 +595,7 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
     }
   }
   scrollToStory(storyId?: number): void {
+    if (!this.canScroll) return;
     setTimeout(() => {
       if (storyId) {
         const storyContainer = document.getElementById(`storyDiv${storyId}`) as HTMLElement;
@@ -725,32 +728,30 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
     }
   }
   showMobileTopicsPanel() {
+    const parent = this.parent ?? this.parentRef;
     this.isMobileTopicsPanelOpen = true;
-    if (this.parentRef) {
-      this.parentRef.showOverlay();
+    if (parent) {
+      parent.showOverlay();
     }
   }
   closeMobileTopicsPanel() {
-    this.isMobileTopicsPanelOpen = false;
-    if (this.parentRef) {
-      this.parentRef.closeOverlay();
-    }
+    this.isMobileTopicsPanelOpen = false; 
+    const parent = this.parent ?? this.parentRef;
+    parent?.closeOverlay(); 
   }
   showMenuPanel() {
     if (this.isMenuPanelOpen) {
       this.closeMenuPanel();
       return;
     }
-    this.isMenuPanelOpen = true;
-    if (this.parentRef) {
-      this.parentRef.showOverlay();
-    }
+    this.isMenuPanelOpen = true; 
+    const parent = this.parent ?? this.parentRef;
+    parent?.showOverlay(); 
   }
   closeMenuPanel() {
-    this.isMenuPanelOpen = false;
-    if (this.parentRef) {
-      this.parentRef.closeOverlay();
-    }
+    this.isMenuPanelOpen = false; 
+    const parent = this.parent ?? this.parentRef;
+    parent?.closeOverlay(); 
   }
   showStoryOptionsPanel(story: Story) {
     if (this.isStoryOptionsPanelOpen) {
@@ -758,38 +759,33 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
       return;
     }
     this.optionStory = story;
-    this.isStoryOptionsPanelOpen = true;
-    if (this.parentRef) {
-      this.parentRef.showOverlay();
-    }
+    this.isStoryOptionsPanelOpen = true; 
+    const parent = this.parent ?? this.parentRef;
+    parent?.showOverlay(); 
   }
   closeStoryOptionsPanel() {
     this.isStoryOptionsPanelOpen = false;
     this.optionStory = undefined;
 
-    if (this.parentRef) {
-      this.parentRef.closeOverlay();
-    }
+    const parent = this.parent ?? this.parentRef;
+    parent?.closeOverlay(); 
   }
   showPostOptionsPanel() {
     if (this.isPostOptionsPanelOpen) {
-      this.closePostOptionsPanel();
-      if (this.parentRef) {
-        this.parentRef.closeOverlay();
-      }
+      this.closePostOptionsPanel(); 
+      const parent = this.parent ?? this.parentRef;
+      parent?.closeOverlay(); 
       return;
     }
     this.isPostOptionsPanelOpen = true;
-    if (this.parentRef) {
-      this.parentRef.showOverlay();
-    }
+
+    const parent = this.parent ?? this.parentRef;
+    parent?.showOverlay(); 
   }
   closePostOptionsPanel() {
-    this.isPostOptionsPanelOpen = false;
-
-    if (this.parentRef) {
-      this.parentRef.closeOverlay();
-    }
+    this.isPostOptionsPanelOpen = false; 
+    const parent = this.parent ?? this.parentRef;
+    parent?.closeOverlay(); 
   }
   openInsertEmojiPanel() {
     if (this.isEmojiPanelOpen) {

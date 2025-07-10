@@ -165,8 +165,7 @@ export class CrawlerComponent extends ChildComponent implements OnInit, OnDestro
     });
   }
 
-  onPageSizeChange() {
-    console.log("apge size changed");
+  onPageSizeChange() { 
     this.currentPage = 1;
     this.pageSize = parseInt(this.pageSizeDropdown.nativeElement.value);
     this.searchUrl(true);

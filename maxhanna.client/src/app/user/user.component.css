@@ -7,9 +7,11 @@
   text-overflow: ellipsis;
   width: calc(100% - 200px);
 }
+
 .componentMainFullHeight {
   height: CALC(var(--vh, 1vh) * 100 - 65px);
 }
+
 /* 
 @media only screen and (max-width : 667px) {
   .componentMain {
@@ -150,7 +152,8 @@
   text-align: right;
 }
 
-.profileHeader {width: 100%;
+.profileHeader {
+  width: 100%;
   margin-bottom: 10px;
   position: relative;
   z-index: 1;
@@ -183,15 +186,15 @@
   align-content: center;
   justify-content: center;
   align-items: center;
-  flex-wrap: nowrap; 
-  background: rgba(255, 255, 255, 0.4);
-    padding: 4px 8px;
-    /* Adjust as needed */
-    border-radius: 4px;
-    /* Optional: rounded corners */
+  flex-wrap: nowrap;
+  background: rgba(255, 255, 255, 0.7);
+  padding: 4px 8px;
+  /* Adjust as needed */
+  border-radius: 4px;
+  /* Optional: rounded corners */
 }
 
-.profileHeaderContents { 
+.profileHeaderContents {
   display: flex;
   flex-direction: row;
   align-items: center;
@@ -205,12 +208,12 @@
 
 .popupPanel {
   width: 320px;
-} 
+}
 
-  .aboutPopupPanel #closeOverlay {
-    margin-top: 20px;
-    margin-bottom: 15px;
-  }
+.aboutPopupPanel #closeOverlay {
+  margin-top: 20px;
+  margin-bottom: 15px;
+}
 
 .popupPanelTitle {
   display: flex;
@@ -247,7 +250,8 @@
   width: 95%;
 }
 
-.deletingFriendsList, .friendsRequestReceivedList {
+.deletingFriendsList,
+.friendsRequestReceivedList {
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -258,8 +262,8 @@
   max-height: 110px;
   overflow: auto;
   white-space: nowrap;
-} 
- 
+}
+
 .seperatedUserHeader {
   display: flex;
   flex-direction: row;
@@ -324,7 +328,7 @@
   max-height: 50px;
   border: 1px solid var(--main-link-color);
   border-radius: 12px;
-} 
+}
 
 .topProfileContainer {
   margin-top: 10px;
@@ -355,28 +359,36 @@
   justify-content: space-evenly;
   align-items: center;
   cursor: default;
-} 
+}
+
 .menuBackButtonSpecial {
-    right: 55px;
-    position: absolute;
-    top: 0px;
+  right: 55px;
+  position: absolute;
+  top: 0px;
 }
-#loginInput, #passwordInput {
-  font-size: 16px;  /* Critical for iOS - prevents zooming */
-  touch-action: manipulation; /* Disables double-tap zoom */
+
+#loginInput,
+#passwordInput {
+  font-size: 16px;
+  /* Critical for iOS - prevents zooming */
+  touch-action: manipulation;
+  /* Disables double-tap zoom */
 }
+
 @media screen and (max-width: 767px) {
-  #loginInput, #passwordInput {
-      font-size: 16px; 
-      touch-action: manipulation;  
-    } 
+
+  #loginInput,
+  #passwordInput {
+    font-size: 16px;
+    touch-action: manipulation;
+  }
 }
 
 
 
- 
+
 .popupPanelTitle {
-  display: flex; 
+  display: flex;
   align-items: center;
   padding: 0.5rem 0;
   font-weight: 600;
@@ -410,7 +422,7 @@
 /* Friends List Styles */
 .friendsListWrapperDiv {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); 
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
   padding: 0.5rem;
 }
 
@@ -425,10 +437,10 @@
 }
 
 .friendsListDiv:hover {
-  border-color: var(--main-highlight-color); 
+  border-color: var(--main-highlight-color);
   transform: translateY(-2px);
 }
- 
+
 /* Editing Mode Styles */
 .deletingFriendsListWrapper {
   display: flex;
@@ -443,7 +455,7 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 0.75rem; 
+  padding: 0.75rem;
   border-radius: 0.5rem;
   flex-direction: row;
   background: linear-gradient(135deg, var(--component-background-color), var(--secondary-component-background-color));
@@ -454,7 +466,7 @@
   display: flex;
   gap: 0.5rem;
 }
-   
+
 
 /* Empty States */
 .friendsPopupContainer>div[ngIf]:empty {
@@ -468,7 +480,7 @@
   top: 0;
   left: 0;
   width: 100vw;
-  height: 100vh; 
+  height: 100vh;
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
@@ -477,4 +489,33 @@
   /* Adjust opacity as needed */
   /*filter: blur(8px);*/
   /* Optional blur effect */
+}
+
+.memeAndWordlerWrapper {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.displayPicturePopupDisplayDiv {
+  display: flex;
+  justify-content: space-evenly;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  align-content: center;
+  width: 100%;
+  margin-bottom: 15px;
+}
+
+.media-selector-container {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0; 
+  z-index: 1000;  
+  max-height: 0px;
+  overflow-y: auto;
 }

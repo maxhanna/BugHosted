@@ -64,8 +64,7 @@ export class CommentsComponent extends ChildComponent implements OnInit {
     super.viewProfile(user);
   }
 
-  async addComment(comment: string) {
-    console.log("addComment", comment);
+  async addComment(comment: string) { 
     const parent = this.inputtedParentRef ?? this.parentRef;
     this.showCommentLoadingOverlay = true;
     clearTimeout(this.debounceTimer);
@@ -99,8 +98,7 @@ export class CommentsComponent extends ChildComponent implements OnInit {
     }, 2000);
   }
 
-  async addAsyncComment(comment: FileComment, currentDate: Date) {
-    console.log("addAsyncComment", comment);
+  async addAsyncComment(comment: FileComment, currentDate: Date) { 
     const parent = this.inputtedParentRef ?? this.parentRef;
     const user = parent?.user;
     parent?.updateLastSeen();
@@ -159,8 +157,7 @@ export class CommentsComponent extends ChildComponent implements OnInit {
       this.notificationService.createNotifications(notificationData);
     }
     const mentionnedUsers = await parent?.getUsersByUsernames(comment.commentText ?? "");
-    if (mentionnedUsers && mentionnedUsers.length > 0) {
-      console.log("mentionned:", mentionnedUsers);
+    if (mentionnedUsers && mentionnedUsers.length > 0) { 
       const mentionnedUserIds = mentionnedUsers.filter(x => !replyingToUser.filter((y: User) => y.id != x.id)).map(x => x.id);
       if (mentionnedUserIds.length > 0) {
         const notificationData: any = {
@@ -189,12 +186,10 @@ export class CommentsComponent extends ChildComponent implements OnInit {
   async deleteCommentAsync(comment: FileComment) {
     const parent = this.inputtedParentRef ?? this.parentRef;
     const user = parent?.user;
-    if (!user?.id || !parent) { return alert("You must be logged in to delete a comment!"); }
-    console.log("deleteCommentAsync", comment);
+    if (!user?.id || !parent) { return alert("You must be logged in to delete a comment!"); } 
     parent.updateLastSeen();
     const res = await this.commentService.deleteComment(user.id, comment.id);
-    if (res) {
-      console.log("deleteCommentAsync res", res);
+    if (res) { 
       this.commentList = this.commentList.filter(x => x.id != comment.id);
       const tgtSubcomment = document.getElementById('subComment' + comment.id);
       if (tgtSubcomment) {

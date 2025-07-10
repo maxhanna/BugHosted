@@ -1,15 +1,15 @@
 #navbar {
-  position: absolute;
+  /* position: absolute;
   top: 0px;
-  left: 0px;
-  max-height: CALC(var(--vh, 1vh) * 100);
+  left: 0px; */
+  /* max-height: CALC(var(--vh, 1vh) * 100); */
   display: flex;
   flex-wrap: wrap;
   flex-direction: unset;
   align-items: flex-start;
   align-content: flex-start;
   justify-content: space-evenly;
-  overflow: auto;
+  /* overflow: auto; */
   gap: 14px;
   transition: transform 0.3s ease;
   padding: 12px;
@@ -217,4 +217,61 @@ a {
 }
 .navLink:hover { 
   z-index: 2; 
+}
+
+.app-selection-help {
+  position: relative;
+  max-height: 50vh;
+  overflow-y: auto;
+  padding: 1.5rem;
+  border: var(--main-border);
+  border-radius: 10px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+  color: var(--main-text-color);
+  background: var(--background-color);
+  font-family: 'Segoe UI', sans-serif;
+  line-height: 1.4;
+}
+
+/* Close button top right */
+.closePopupBtn {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.75rem;
+  background: transparent;
+  border: none;
+  font-size: 1.5rem;
+  color: var(--main-text-color);
+  cursor: pointer;
+  transition: color 0.2s ease;
+}
+
+.closePopupBtn:hover {
+  color: var(--accent-color);
+}
+
+.help-title {
+  font-size: 1.4rem;
+  margin-bottom: 0.5rem;
+}
+
+.help-intro {
+  font-size: 1rem;
+  margin-bottom: 1rem;
+  color: var(--secondary-text-color);
+}
+
+.help-items {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.help-item {
+  padding: 0.5rem 0;
+  border-bottom: 1px solid var(--light-border);
+}
+
+.help-description {
+  margin-top: 0.25rem;
 }

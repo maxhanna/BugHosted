@@ -499,7 +499,7 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
         parent?.showNotification(`${title}: ${body}`);
       });
 
-      console.log('Current Notification Permission:', Notification.permission);
+      //console.log('Current Notification Permission:', Notification.permission);
       if (this.notificationsEnabled == undefined) {
         if (Notification.permission === 'default') {
           const permission = await Notification.requestPermission();
@@ -508,7 +508,7 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
             await this.subscribeToNotificationTopic(token);
             this.userService.updateNotificationsEnabled(parent.user.id, true);
           } else {
-            console.log('User declined notification permission');
+           //console.log('User declined notification permission');
             this.userService.updateNotificationsEnabled(parent.user.id, false);
           }
         } else if (Notification.permission === 'granted') {
@@ -516,11 +516,11 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
           await this.subscribeToNotificationTopic(token);
           this.userService.updateNotificationsEnabled(parent.user.id, true);
         } else {
-          console.log('User denied notification permission');
+          //console.log('User denied notification permission');
           this.userService.updateNotificationsEnabled(parent.user.id, false);
         }
       } else {
-        console.log("User has already enabled or disabled notifications.");
+        //console.log("User has already enabled or disabled notifications.");
       }
     } catch (error) {
       console.log('Error requesting notification permission:', error);
