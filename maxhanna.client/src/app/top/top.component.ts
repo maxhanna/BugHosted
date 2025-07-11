@@ -139,7 +139,7 @@ export class TopComponent extends ChildComponent implements OnInit {
       this.titleInput.nativeElement.value,
       this.urlInput.nativeElement.value,
       this.textInput.nativeElement.value,
-      this.fileSelector?.selectedFiles[0].id, 
+      this.fileSelector?.selectedFiles[0]?.id, 
       this.parentRef?.user?.id ?? 0
     ).then(
       (res) => {

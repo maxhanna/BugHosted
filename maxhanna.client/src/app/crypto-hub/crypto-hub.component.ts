@@ -1667,6 +1667,7 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
           symbol: "BTC",
           name: "BTC -> $" + this.selectedCurrency,
           valueCAD: btcValueInSelectedCurrency,
+          valueUSD: entry.valueUSD,
           timestamp: entry.timestamp
         };
 
@@ -2107,7 +2108,7 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
     } else {
       return 0;
     }
-  }
+  } 
  
   getCurrencyDisplayValue(currencyName?: string, currency?: Currency) {
     if (this.isDiscreete) return '***';
@@ -2115,16 +2116,31 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
     if (currencyName == "BTC") {
       return this.formatToCanadianCurrency(parseFloat(currency.totalBalance) * this.btcToCadPrice * this.latestCurrencyPriceRespectToCAD);
     } else { 
-      return this.formatToCanadianCurrency(parseFloat(currency.totalBalance) * (currency.fiatRate??1));
+      let tCName = (currencyName ?? "Bitcoin").toLowerCase();
+      if (tCName == "xdg") { tCName = "dogecoin" }
+      if (tCName == "eth") { tCName = "ethereum" }
+      if (tCName == "sol") { tCName = "solana" }
+ 
+      const crate = this.coinValueData?.find(x => x.name.toLowerCase() == tCName);
+       
+      return this.formatToCanadianCurrency(parseFloat(currency.totalBalance) * (crate?.valueUSD ?? 1) * (currency.fiatRate??1));
     }
   }
   getTotalCurrencyDisplayValue(total?: Total): string {
     if (this.isDiscreete) return '***';
     if (!total || !total.totalBalance || !this.latestCurrencyPriceRespectToCAD) return this.formatToCanadianCurrency(0);
     let tmpWalletCurrency = total.currency?.toLowerCase().replaceAll("total", "").trim();
-    const totalValue = tmpWalletCurrency == "btc" ? (parseFloat(total.totalBalance) * this.btcToCadPrice * this.latestCurrencyPriceRespectToCAD) : parseFloat(total.totalBalance) * (total.fiatRate ?? 1);
+    let tCName = (tmpWalletCurrency ?? "bitcoin").toLowerCase();
+    if (tCName == "xdg") { tCName = "dogecoin" }
+    if (tCName == "eth") { tCName = "ethereum" }
+    if (tCName == "sol") { tCName = "solana" }
+    const crate = this.coinValueData?.find(x => x.name.toLowerCase() == tCName);
+    const totalValue = tmpWalletCurrency == "btc" ? 
+      (parseFloat(total.totalBalance) * this.btcToCadPrice * this.latestCurrencyPriceRespectToCAD) 
+      : parseFloat(total.totalBalance) * (crate?.valueUSD ?? 1) * (total.fiatRate ?? 1);
     return this.formatToCanadianCurrency(totalValue);
   }
+  
   fullscreenSelectedInPopup(event?: any) {
     this.isWalletGraphFullscreened = !this.isWalletGraphFullscreened;
   }
@@ -2317,13 +2333,19 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
     await this.handleConversion('FIAT');
   } 
 
-  async getCryptoToCADRate(currency: string): Promise<number> {
-    let tmpC = currency;
+  async getCryptoToFIATRate(coin: string, fiatCurrency: string) {
+    let tmpC = coin;
     if (tmpC.toUpperCase() == "BTC") {
       tmpC = "Bitcoin";
     }
-    const rate = await this.coinValueService.getLatestCoinValuesByName(tmpC);
-    return rate?.valueCAD || 1; // Adjust based on your actual rate property
+    if (fiatCurrency == "CAD") { 
+      const rate = await this.coinValueService.getLatestCoinValuesByName(tmpC);
+      return rate?.valueCAD || 1; // Adjust based on your actual rate property
+    } else { 
+      const rate = await this.coinValueService.getLatestCoinValuesByName(tmpC);
+      const tRate = rate?.valueCAD || 1; 
+      return this.convertFromFIATToCryptoValue(fiatCurrency, tRate);
+    }
   }
 
   async getCurrencyConversionRate(baseCurrency: string, targetCurrency: string): Promise<number> {

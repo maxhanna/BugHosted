@@ -257,6 +257,11 @@ export class FileSearchComponent extends ChildComponent implements OnInit {
   getFileExtension(filename: string) {
     return this.fileService.getFileExtension(filename);
   }
+  selectFileNoPropagation(event: any, file: FileEntry) { 
+    if (!this.fileSearchMode) return;
+    event.stopPropagation(); 
+    return this.selectFile(file); 
+  }
   selectFile(file: FileEntry) {
     if (!file.isFolder && this.clearAfterSelectFile) {
       this.selectFileEvent.emit(file);

@@ -370,7 +370,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
     return parseInt(notifNumbers);
   }
 
-  goTo(title: string, event: any) {
+  goTo(title: string, event?: any) {
     if (title.toLowerCase() == "close menu") {
       this.toggleMenu();
     } else if (title == "UpdateUserSettings") {
@@ -485,8 +485,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
     if (!hasSeenAppSelection) {
       if (!user || !user.id || user.id === 0) {
         showAppSelector = true;
-      } else if (user.created) {
-        //this.showAppSelectionHelp = true;
+      } else if (user.created) { 
         const createdAt = new Date(user.created).getTime();
         if ((now - createdAt) < oneDayMs) {
           showAppSelector = true;

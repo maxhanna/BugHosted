@@ -182,6 +182,7 @@ namespace maxhanna.Server.Controllers
 							symbol, 
 							name, 
 							AVG(value_cad) as value_cad, 
+							AVG(value_usd) as value_usd, 
 							FROM_UNIXTIME(FLOOR(UNIX_TIMESTAMP(timestamp) / {TRUNCATE_LONG_TERM}) * {TRUNCATE_LONG_TERM}) as timestamp
 						FROM coin_value
 						WHERE timestamp >= @From 
@@ -198,6 +199,7 @@ namespace maxhanna.Server.Controllers
 							symbol, 
 							name, 
 							AVG(value_cad) as value_cad, 
+							AVG(value_usd) as value_usd, 
 							FROM_UNIXTIME(FLOOR(UNIX_TIMESTAMP(timestamp) / {TRUNCATE_YEAR}) * {TRUNCATE_YEAR}) as timestamp
 						FROM coin_value
 						WHERE timestamp >= @From 
@@ -214,6 +216,7 @@ namespace maxhanna.Server.Controllers
 							symbol, 
 							name, 
 							AVG(value_cad) as value_cad, 
+							AVG(value_usd) as value_usd, 
 							FROM_UNIXTIME(FLOOR(UNIX_TIMESTAMP(timestamp) / {TRUNCATE_MONTH}) * {TRUNCATE_MONTH}) as timestamp
 						FROM coin_value
 						WHERE timestamp >= @From 
@@ -230,6 +233,7 @@ namespace maxhanna.Server.Controllers
 							symbol, 
 							name, 
 							AVG(value_cad) as value_cad, 
+							AVG(value_usd) as value_usd, 
 							FROM_UNIXTIME(FLOOR(UNIX_TIMESTAMP(timestamp) / {TRUNCATE_WEEK}) * {TRUNCATE_WEEK}) as timestamp
 						FROM coin_value
 						WHERE timestamp >= @From 
@@ -246,6 +250,7 @@ namespace maxhanna.Server.Controllers
 							symbol, 
 							name, 
 							value_cad, 
+							value_usd, 
 							timestamp
 						FROM coin_value
 						WHERE 1=1 
@@ -272,6 +277,7 @@ namespace maxhanna.Server.Controllers
 							Symbol = reader.IsDBNull(reader.GetOrdinal("symbol")) ? null : reader.GetString(reader.GetOrdinal("symbol")),
 							Name = reader.IsDBNull(reader.GetOrdinal("name")) ? null : reader.GetString(reader.GetOrdinal("name")),
 							ValueCAD = reader.IsDBNull(reader.GetOrdinal("value_cad")) ? 0 : reader.GetDecimal(reader.GetOrdinal("value_cad")),
+							ValueUSD = reader.IsDBNull(reader.GetOrdinal("value_usd")) ? 0 : reader.GetDecimal(reader.GetOrdinal("value_usd")),
 							Timestamp = reader.GetDateTime("timestamp")
 						};
 						coinValues.Add(coinValue);
@@ -463,7 +469,7 @@ namespace maxhanna.Server.Controllers
 
 				// SQL query to get the latest values for each coin by symbol (or id)
 				string sql = @"
-					SELECT cv.id, cv.symbol, cv.name, cv.value_cad, cv.timestamp
+					SELECT cv.id, cv.symbol, cv.name, cv.value_cad, cv.value_usd, cv.timestamp
 					FROM coin_value cv
 					JOIN (
 						SELECT name, MAX(timestamp) as max_timestamp
@@ -483,6 +489,7 @@ namespace maxhanna.Server.Controllers
 							Symbol = reader.IsDBNull(reader.GetOrdinal("symbol")) ? null : reader.GetString(reader.GetOrdinal("symbol")),
 							Name = reader.IsDBNull(reader.GetOrdinal("name")) ? null : reader.GetString(reader.GetOrdinal("name")),
 							ValueCAD = reader.IsDBNull(reader.GetOrdinal("value_cad")) ? 0 : reader.GetDecimal(reader.GetOrdinal("value_cad")),
+							ValueUSD = reader.IsDBNull(reader.GetOrdinal("value_usd")) ? 0 : reader.GetDecimal(reader.GetOrdinal("value_usd")),
 							Timestamp = reader.GetDateTime(reader.GetOrdinal("timestamp"))
 						};
 						coinValues.Add(coinValue);
@@ -1311,6 +1318,7 @@ namespace maxhanna.Server.Controllers
 			if (userId == null) { return null; }
 			type = type.ToLower();
 			if (type != "btc" && type != "usdc" && type != "xrp" && type != "sol" && type != "xdg" && type != "eth") return null;
+ 
 			var wallet = new CryptoWallet
 			{
 				total = new Total
@@ -1329,6 +1337,48 @@ namespace maxhanna.Server.Controllers
 				using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
 				{
 					await conn.OpenAsync();
+
+
+					string userCurrency = "CAD"; // fallback
+					decimal coinToCad = 0;
+					decimal cadToUserCurrency = 1;
+
+					using (var currencyCmd = new MySqlCommand("SELECT currency FROM user_about WHERE user_id = @UserId", conn))
+					{
+						currencyCmd.Parameters.AddWithValue("@UserId", userId);
+						var result = await currencyCmd.ExecuteScalarAsync();
+						if (result != null && result != DBNull.Value)
+							userCurrency = result.ToString()!;
+					}
+					using (var coinCmd = new MySqlCommand(@"
+						SELECT value_cad 
+						FROM coin_value 
+						WHERE symbol = @Symbol 
+						ORDER BY timestamp DESC 
+						LIMIT 1", conn))
+					{
+						coinCmd.Parameters.AddWithValue("@Symbol", type.ToUpper());
+						var coinResult = await coinCmd.ExecuteScalarAsync();
+						if (coinResult != null && coinResult != DBNull.Value)
+							coinToCad = Convert.ToDecimal(coinResult);
+					}
+					if (userCurrency != "CAD")
+					{
+						using (var rateCmd = new MySqlCommand(@"
+							SELECT rate 
+							FROM exchange_rates 
+							WHERE base_currency = 'CAD' AND target_currency = @Target 
+							ORDER BY timestamp DESC 
+							LIMIT 1", conn))
+						{
+							rateCmd.Parameters.AddWithValue("@Target", userCurrency);
+							var rateResult = await rateCmd.ExecuteScalarAsync();
+							if (rateResult != null && rateResult != DBNull.Value)
+								cadToUserCurrency = Convert.ToDecimal(rateResult);
+						}
+					}
+
+					decimal fiatRate = coinToCad * cadToUserCurrency;
 
 					string sql = $@"
 						SELECT DISTINCT
@@ -1369,7 +1419,7 @@ namespace maxhanna.Server.Controllers
 									debt = "0",
 									pending = "0",
 									btcRate = 1,
-									fiatRate = null,
+									fiatRate = Convert.ToDouble(fiatRate),
 									status = "active"
 								};
 

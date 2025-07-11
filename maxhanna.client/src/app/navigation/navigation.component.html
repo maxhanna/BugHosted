@@ -1,24 +1,30 @@
-<div *ngIf="showAppSelectionHelp && !navbarCollapsed" class="app-selection-help gradientBackground">
+<div *ngIf="showAppSelectionHelp && !navbarCollapsed" class="app-selection-help">
   <button class="closePopupBtn" (click)="showAppSelectionHelp = false" title="Close Help">×</button>
 
-  <h2 class="help-title">👋 Welcome to BugHosted!</h2>
-  <p class="help-intro">
-    Here’s a quick overview of what you can do with the app. Click any of the items below in the navigation bar to
-    explore!
-  </p>
+  <div class="help-header gradientBackground">
+    <h2 class="help-title">👋 Welcome to BugHosted!</h2>
+    <p class="help-intro">
+      Here’s a quick overview of what you can do with the app. Click any of the items below in the navigation bar to
+      explore!
+    </p>
+  </div>
 
-  <div class="help-items">
-    <ng-container *ngFor="let item of _parent.navigationItems" class="help-item">
+  <div class="help-grid">
+    <ng-container *ngFor="let item of _parent.navigationItems">
       <ng-container *ngIf="descriptionsExist(item.title)">
-        <strong>{{ item.title }}</strong>
-        <div class="help-description" [innerHTML]="_parent.getMenuItemDescription(item.title)"></div>
-      </ng-container> 
+        <div class="help-card cursorPointer" (click)="goTo(item.title, undefined)">
+          <div class="card-title gradientBackground">{{ item.title }} {{item.icon}}</div>
+          <div class="help-description" [innerHTML]="_parent.getMenuItemDescription(item.title)"></div>
+        </div>
+      </ng-container>
     </ng-container>
   </div>
-  <div style="width:100%; text-align: center;">
-    <button style="margin-top: 10px;" (click)="showAppSelectionHelp = false">OK</button>
-  </div> 
+
+  <div class="help-footer">
+    <button class="okBtn" (click)="showAppSelectionHelp = false">OK</button>
+  </div>
 </div>
+
 <!--<button class="toggleNavButton" (click)="toggleMenu()" #toggleNavButton title="Close Navigation">📕</button>-->
 <div #navbar id="navbar" *ngIf="_parent && _parent.navigationItems && _parent.navigationItems.length > 0"> 
   <ng-container *ngFor="let item of _parent.navigationItems">

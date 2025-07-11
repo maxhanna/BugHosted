@@ -1,6 +1,6 @@
 
 <div class="fileActionCommands" *ngIf="!fileSearchMode">
-  <span class="{{(inputtedParentRef?.user?.id || parentRef?.user?.id) ? 'topSearchButtonDiv' : 'topSearchButtonDivSpecial'}} {{ (!showSpaceForNotifications && !showFileSearchOptions) ? 'noNotificationsSearchDiv' : '' }}" (click)="openSearchPanel();">🔍</span>
+  <span [class]="'topSearchButtonDiv' + ((!showSpaceForNotifications && !showFileSearchOptions) ? ' noNotificationsSearchDiv' : '')" (click)="openSearchPanel();">🔍</span>
   <span class="notificationTopButton" (click)="openSearchOptionsPanel();" *ngIf="showFileSearchOptions">⚙️</span>
 </div>
 
@@ -106,7 +106,7 @@
             <div *ngIf="!file.isFolder &&
                  (
                   (!autoload && viewMediaFile && openedFiles.includes(file.id)) || autoload || ((fileId ?? 0) == file.id)
-                 )" class="mediaViewDiv">
+                 )" class="mediaViewDiv" (click)="selectFileNoPropagation($event, file);">
               <app-media-viewer #mediaViewerComponent
                                 [user]="user"
                                 [file]="file"

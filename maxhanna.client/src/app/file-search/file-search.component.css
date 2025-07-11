@@ -325,6 +325,6 @@
 }
 
 .biggerDataDiv {
-  max-height: calc(var(--vh, 1vh) * 89);
+  max-height: calc(var(--vh, 1vh) * 85);
   overflow: auto;
 }

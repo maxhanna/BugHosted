@@ -756,7 +756,9 @@ public class KrakenService
 				return false;
 			}
 
-			if (await IsRepeatingTradesInDay(userId, from, to, buyOrSell, strategy, 5))
+			int threshold = 5;
+			int numberOfTradesToday = await NumberOfRepeatingTradesInDay(userId, from, strategy);
+			if (numberOfTradesToday >= threshold)
 			{
 				_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) TRADE CANCELLED: Too many repeated {buyOrSell} trades in the same day.", userId, "TRADE", outputToConsole: true);
 				return false;
@@ -782,7 +784,7 @@ public class KrakenService
 				return false;
 			}
 			bool withinTradeSequenceLimit = await CheckTradeFrequencyOccurance(userId, buyOrSell, strategy, _MaxTradeTypeOccurances);
-			if (!withinTradeSequenceLimit)
+			if (!withinTradeSequenceLimit && numberOfTradesToday > 0)
 			{
 				_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) User has {buyOrSell} {from} {to} too frequently ({_MaxTradeTypeOccurances - 1}) in the last {_MaxTradeTypeOccurances} occurances. Trade Cancelled.", userId, "TRADE", true);
 				return false;
@@ -1413,7 +1415,7 @@ public class KrakenService
 		}
 	}
 
-	private async Task<bool> IsRepeatingTradesInDay(int userId, string from, string to, string buyOrSell, string strategy, int threshold = 3)
+	private async Task<int> NumberOfRepeatingTradesInDay(int userId, string from, string strategy)
 	{
 		// Get today's date in UTC
 		DateTime todayUtc = DateTime.UtcNow.Date;
@@ -1442,14 +1444,14 @@ public class KrakenService
 
 			var count = Convert.ToInt32(await checkCmd.ExecuteScalarAsync());
 
-			bool result = count >= threshold;
-			_ = _log.Db($"[RepeatingTradesCheck] Today's ({strategy}) {buyOrSell} {from}/{to} count={count}, Threshold={threshold}, Result={result}", userId, "TRADE", true);
-			return result;
+			//bool result = count >= threshold;
+			//_ = _log.Db($"[RepeatingTradesCheck] Today's ({strategy}) {buyOrSell} {from}/{to} count={count}, Threshold={threshold}, Result={result}", userId, "TRADE", true);
+			return count;
 		}
 		catch (Exception ex)
 		{
 			_ = _log.Db("⚠️Error at [RepeatingTradesCheck]: " + ex.Message, userId, "TRADE", true);
-			return true;
+			return 0;
 		}
 	}
 

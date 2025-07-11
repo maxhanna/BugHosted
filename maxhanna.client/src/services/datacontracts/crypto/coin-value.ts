@@ -3,5 +3,6 @@ export interface CoinValue {
   symbol: string;
   name: string;
   valueCAD: number;
+  valueUSD: number;
   timestamp: string;
 } 

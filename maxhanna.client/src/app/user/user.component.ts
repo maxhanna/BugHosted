@@ -657,8 +657,8 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
         this.parentRef?.showNotification(`Access granted. Welcome ${(fromUserCreation ? 'to BugHosted' : 'back')} ${this.parentRef!.user?.username}`);
         this.parentRef?.getLocation();
         this.parentRef?.getSessionToken();
-        this.parentRef!.userSelectedNavigationItems = await this.userService.getUserMenu(tmpUser.id);
-
+        this.parentRef!.userSelectedNavigationItems = await this.userService.getUserMenu(tmpUser.id); 
+        this.resetNavigationAppSelectionHelp();
         if (this.loginOnly) { 
           this.closeUserComponentEvent.emit(tmpUser);
         }
@@ -677,6 +677,15 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
       }
     }
   }
+  private resetNavigationAppSelectionHelp() {
+    if (this.parentRef?.navigationComponent) { 
+      this.parentRef.navigationComponent.showAppSelectionHelp = false;
+      setTimeout(() => { if (this.parentRef?.navigationComponent) { 
+        this.parentRef.navigationComponent.displayAppSelectionHelp(); 
+      } }, 50);
+    }
+  }
+
   getNewFriendRequestCount() {
     const count = this.friendRequests.filter(x => x.status == 3).length;
     return count > 0 ? `(${count})` : '';
