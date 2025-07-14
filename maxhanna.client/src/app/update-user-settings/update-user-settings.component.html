@@ -233,14 +233,13 @@ but you can also set your own City for a more precise location."></span>
               <span class="slider round"></span>
             </label>
           </div>
-          <div class="selectableMenuIconDescriptions" *ngIf="icon.title === expandedIconTitle">
-            <div class="selectableMenuIconDescriptions" *ngIf="icon.title === expandedIconTitle">
-              <div [id]="icon.title + 'tddiv'">
-                <div [id]="icon.title + 'tddivdiv'" (click)="menuInformationZoom(icon.title + 'td')"
-                  [class]="parentRef && parentRef.isModalOpen ? '' : 'ellipsis'" [innerHTML]="parentRef?.getMenuItemDescription(icon.title)">
-                </div>
-              </div>     
-            </div>
+          <div class="selectableMenuIconDescriptions" *ngIf="icon.title === expandedIconTitle"> 
+            <div [id]="icon.title + 'tddiv'">
+              <div [id]="icon.title + 'tddivdiv'" (click)="menuInformationZoom(icon.title + 'td')"
+                [class]="parentRef && parentRef.isModalOpen ? '' : 'ellipsis'" 
+                [innerHTML]="parentRef?.getMenuItemDescription(icon.title)">
+              </div>
+            </div>      
           </div>
         </div>
       </div>

@@ -854,7 +854,17 @@ div:not(.trade-panel-controls) .button-wrapper {
   text-decoration: underline;
   white-space: nowrap;
 }
-
+.sentiment-table-wrapper {
+  max-height: 85vh;
+  overflow-y: auto;
+}
+.sentiment-table thead th {
+  position: sticky;
+  top: 0;
+  background: var(--main-highlight-color); 
+  color: var(--secondary-font-color);
+  z-index: 1;
+}
 .sentiment-table th,
 .sentiment-table td {
   border: 1px solid #ccc;

@@ -20,8 +20,8 @@
       <span class="avatarBug noAvatar {{(displayMiniTag || displayTinyPicture) ? 'miniAvatarBug' : ''}}">🪲</span>
     </div>
   </div>
-  <span [class]="(displayOnlyName ? '' : 'usernameSpan ') + ' username'"
-        *ngIf="!displayOnlyAvatar && !hideName">
+  <span [class]="(displayOnlyName ? '' : 'usernameSpan ') + ' username' + (containUsername ? ' miniUsernameSpan' : '')"
+        *ngIf="!displayOnlyAvatar && !hideName" [title]="displayMiniTag ? '' : displayEmptyAvatar && (!user || user.id == 0) ? 'Anonymous' : user?.username">
     {{displayEmptyAvatar && (!user || user.id == 0) ? 'Anonymous' : user?.username}}
   </span>
 </div>

@@ -2,6 +2,7 @@ import { Component, Input, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { BaseChartDirective } from 'ng2-charts';
 import { ChartOptions, ChartConfiguration } from 'chart.js';
+import { TradeService } from '../../services/trade.service';
 
 @Component({
   selector: 'app-crypto-global-stats',
@@ -11,6 +12,7 @@ import { ChartOptions, ChartConfiguration } from 'chart.js';
   styleUrls: ['./crypto-global-stats.component.css']
 })
 export class CryptoGlobalStatsComponent implements OnInit {
+  constructor(private tradeService: TradeService) {}
   @Input() set metrics(value: any) {
     if (value) {
       this._metrics = value; 
@@ -57,7 +59,7 @@ export class CryptoGlobalStatsComponent implements OnInit {
           label: (context: any) => {
             const label = context.label || '';
             const value = context.raw || 0;
-            const formattedValue = this.formatLargeNumber(value);
+            const formattedValue = this.formatNumber(value);
             const percentage = context.parsed || 0;
             return `${label}: ${formattedValue} (${percentage.toFixed(2)}%)`;
           }
@@ -87,7 +89,7 @@ export class CryptoGlobalStatsComponent implements OnInit {
         ticks: {
           color: this.mainFontColor,
           callback: (value: any) => {
-            return this.formatLargeNumber(value);
+            return this.formatNumber(value);
           }
         },
         grid: {
@@ -105,7 +107,7 @@ export class CryptoGlobalStatsComponent implements OnInit {
         ticks: {
           color: this.mainFontColor,
           callback: (value: any) => {
-            return this.formatLargeNumber(value);
+            return this.formatNumber(value);
           }
         },
         grid: {
@@ -131,7 +133,7 @@ export class CryptoGlobalStatsComponent implements OnInit {
           label: (context: any) => {
             const label = context.dataset.label || '';
             const value = context.raw || 0;
-            return `${label}: ${this.formatLargeNumber(value)}`;
+            return `${label}: ${this.formatNumber(value)}`;
           }
         }
       }
@@ -487,39 +489,10 @@ export class CryptoGlobalStatsComponent implements OnInit {
       this.dominanceTrendBroken = false;
     }
   }
-
-  /**
-   * Formats large numbers with appropriate units while preserving precision
-   * @param value The number to format
-   * @param decimals Number of decimal places to show
-   * @returns Formatted string
-   */
-  formatLargeNumber(value: number): string {
-    if (value == null || isNaN(value)) return 'N/A';
-
-    // For trillions: show 3 decimal places (e.g., 3.276T)
-    if (value >= 1e12) {
-      return '$' + (value / 1e12).toFixed(3) + 'T';
-    }
-    // For billions: show 2 decimal places (e.g., 276.54B)
-    if (value >= 1e9) {
-      return '$' + (value / 1e9).toFixed(2) + 'B';
-    }
-    // For millions: show full precision with comma separators (e.g., 542,123,456M)
-    if (value >= 1e6) {
-      return '$' + Math.floor(value).toLocaleString() + 'M';
-    }
-    // For thousands: show full number with comma separators (e.g., 123,456K)
-    if (value >= 1e3) {
-      return '$' + Math.floor(value).toLocaleString() + 'K';
-    }
-    // For numbers less than 1000: show with 2 decimal places
-    return '$' + value.toFixed(2);
-  }
-
+ 
   // Replace the existing formatNumber method with this one
   formatNumber(value: number | null | undefined): string {
-    return this.formatLargeNumber(value || 0);
+    return this.tradeService.formatLargeNumber(value || 0);
   }
 }
 

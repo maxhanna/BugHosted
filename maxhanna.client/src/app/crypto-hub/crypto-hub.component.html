@@ -30,19 +30,19 @@
           <input id="convertBTCInput" type="text" value="1" #convertBTCInput (input)="handleConversion('BTC')"
             placeholder="BTC amount" />
         </div>
-      
+
         <div class="BTCtoCADConversionDiv">
           <label for="convertCurrencyInput">{{selectedCurrency}}:</label>
           <input id="convertCurrencyInput" type="text" #convertCurrencyInput (input)="handleConversion('CURRENCY')"
             [placeholder]="selectedCurrency + ' amount'" />
         </div>
-      
-        <div class="BTCtoCADConversionDiv">
+
+        <div class="BTCtoCADConversionDiv" *ngIf="btcConvertCoinSelect?.nativeElement?.value == 'BTC'">
           <label for="convertSATInput">SAT:</label>
           <input id="convertSATInput" type="text" #convertSATInput (input)="handleConversion('SAT')"
             placeholder="Satoshi amount" />
         </div>
-      
+
         <div class="BTCtoCADConversionDiv" *ngIf="fiatNames && selectedFiatConversionName">
           <label for="convertFIATInput">
             <select #btcConvertFIATSelect (change)="fiatConvertSelectChange()">
@@ -130,18 +130,20 @@
       </app-line-graph>
     </div>
     <div *ngIf="!isTradePanelOpen && tradeIndicators" class="sectionContainer indicators-container">
-      <div class="sectionName" style="margin-bottom: 15px;">Trade Indicators for 
+      <div class="sectionName" style="margin-bottom: 15px;">Trade Indicators for
         <select #tradeIndicatorSelect (change)="onIndicatorPairChange()" class="pair-selector">
-          <option *ngFor="let pair of availableIndicatorPairs" [value]="pair.value" [selected]="pair.value === selectedIndicatorPair">
+          <option *ngFor="let pair of availableIndicatorPairs" [value]="pair.value"
+            [selected]="pair.value === selectedIndicatorPair">
             {{ pair.display }}
           </option>
         </select>
       </div>
-    
+
       <div class="indicators-grid">
         <!-- 200-Day MA -->
         <div class="indicator-card">
-          <span class="indicator-label" title="Measures long-term price trend. 'Yes' means price is above the 200-day average.">
+          <span class="indicator-label"
+            title="Measures long-term price trend. 'Yes' means price is above the 200-day average.">
             200-Day Moving Average
           </span>
           <span class="indicator-value" [class.positive]="tradeIndicators.twoHundredDayMA">
@@ -154,7 +156,8 @@
 
         <!-- 14-Day MA -->
         <div class="indicator-card">
-          <span class="indicator-label" title="Measures long-term price trend. 'Yes' means price is above the 14-day average.">
+          <span class="indicator-label"
+            title="Measures long-term price trend. 'Yes' means price is above the 14-day average.">
             14-Day Moving Average
           </span>
           <span class="indicator-value" [class.positive]="tradeIndicators.fourteenDayMA">
@@ -167,7 +170,8 @@
 
         <!-- 21-Day MA -->
         <div class="indicator-card">
-          <span class="indicator-label" title="Measures long-term price trend. 'Yes' means price is above the 21-day average.">
+          <span class="indicator-label"
+            title="Measures long-term price trend. 'Yes' means price is above the 21-day average.">
             21-Day Moving Average
           </span>
           <span class="indicator-value" [class.positive]="tradeIndicators.twentyOneDayMA">
@@ -177,7 +181,7 @@
             </div>
           </span>
         </div>
-    
+
         <!-- RSI -->
         <div class="indicator-card">
           <span class="indicator-label" title="Relative Strength Index. Over 70 = overbought, under 30 = oversold.">
@@ -189,7 +193,7 @@
             <div class="rsi-label">({{ getRSIStatus(tradeIndicators.rsI14Day).label || 'Unknown' }})</div>
           </span>
         </div>
-    
+
         <!-- VWAP Boolean -->
         <div class="indicator-card">
           <div class="indicator-label"
@@ -203,7 +207,22 @@
             {{ tradeIndicators.vwaP24HourValue | currency:'USD':'symbol':'1.2-2' }}
           </div>
         </div>
-    
+
+        <!-- Volume Above 20 Day Average -->
+        <div class="indicator-card">
+          <div class="indicator-label"
+            title="Volume is currently above its 20 day average value.">
+            Volume Above 20-Day Average
+          </div>
+          <div class="indicator-value" [class.positive]="tradeIndicators.volumeAbove20DayAverage">
+            {{ tradeIndicators.volumeAbove20DayAverage ? 'Yes' : 'No' }}
+          </div>
+          <div class="bold smallFont" [class]="tradeIndicators.volumeAbove20DayAverage ? 'positive' : 'negative'">
+            {{ formatLargeNumber(tradeIndicators.volume20DayAverageValue) }}
+            / {{ formatLargeNumber(tradeIndicators.currentVolumeValue) }}
+          </div>
+        </div>
+
         <!-- Retracement From High Boolean -->
         <div class="indicator-card">
           <div class="indicator-label"
@@ -213,7 +232,8 @@
           <div class="indicator-value" [class]="tradeIndicators.retracementFromHighValue > 0 ? 'positive' : 'negative'">
             {{ tradeIndicators.retracementFromHighValue > 0 ? 'Retracement' : 'New All-Time High' }}
           </div>
-          <div class="indicator-value" [class]="tradeIndicators.retracementFromHighValue > 0  ? 'positive' : 'negative'">
+          <div class="indicator-value"
+            [class]="tradeIndicators.retracementFromHighValue > 0  ? 'positive' : 'negative'">
             {{ tradeIndicators.retracementFromHighValue * 100 | number:'1.2-2' }}%
             <span class="threshold-indicator" *ngIf="tradeIndicators.retracementFromHighValue > 0.15">
               (Above 15% threshold)
@@ -227,80 +247,95 @@
             title="MACD Histogram > 0 indicates bullish momentum (MACD line above signal line). Values show the distance between MACD and signal lines.">
             MACD Histogram
           </div>
-          <div class="indicator-value" [class]="(tradeIndicators.macdLineValue - tradeIndicators.macdSignalValue) > 0 ? 'positive' : 'negative'">
+          <div class="indicator-value"
+            [class]="(tradeIndicators.macdLineValue - tradeIndicators.macdSignalValue) > 0 ? 'positive' : 'negative'">
             {{ (tradeIndicators.macdLineValue - tradeIndicators.macdSignalValue) > 0 ? 'Bullish' : 'Bearish' }}
           </div>
-          <div class="indicator-value cursorPointerUnderlined" [class]="(tradeIndicators.macdLineValue - tradeIndicators.macdSignalValue) > 0 ? 'positive' : 'negative'">
+          <div class="indicator-value cursorPointerUnderlined"
+            [class]="(tradeIndicators.macdLineValue - tradeIndicators.macdSignalValue) > 0 ? 'positive' : 'negative'">
             {{ (tradeIndicators.macdLineValue - tradeIndicators.macdSignalValue) | number:'1.4-4' }}
           </div>
         </div>
 
         <!-- Sentiment Analysis Score -->
-        <div [class]="'indicator-card' + (isMarketSentimentMaximized ? ' popupPanel' : '')" *ngIf="marketSentimentData != undefined" (click)="(isMarketSentimentMaximized ? '' : openMarketSentimentPopup())">
+        <div [class]="'indicator-card' + (isMarketSentimentMaximized ? ' popupPanel' : '')"
+          *ngIf="marketSentimentData != undefined"
+          (click)="(isMarketSentimentMaximized ? '' : openMarketSentimentPopup())">
           <div class="indicator-label"
             title="How much the price has dropped from its recent high. Small values suggest strength.">
             Sentiment Analysis Score
           </div>
-          <div class="indicator-value" [class]="marketSentimentData[0].sentimentScore > 50 ? 'positive' : 'negative'" *ngIf="!isMarketSentimentMaximized">
+          <div class="indicator-value" [class]="marketSentimentData[0].sentimentScore > 50 ? 'positive' : 'negative'"
+            *ngIf="!isMarketSentimentMaximized">
             {{ marketSentimentData[0].sentimentScore }}%
           </div>
-          <div [class]="(marketSentimentData[0].sentimentScore > 50 ? 'positive' : 'negative') + ' indicator-value' + (isMarketSentimentMaximized ? '' : ' marketSentimentAnalysis')" *ngIf="!isMarketSentimentMaximized">
+          <div
+            [class]="(marketSentimentData[0].sentimentScore > 50 ? 'positive' : 'negative') + ' indicator-value' + (isMarketSentimentMaximized ? '' : ' marketSentimentAnalysis')"
+            *ngIf="!isMarketSentimentMaximized">
             {{ marketSentimentData[0].analysis }}
           </div>
-          
 
-          <div *ngIf="isMarketSentimentMaximized"> 
+
+          <div *ngIf="isMarketSentimentMaximized">
             <!-- TABLE -->
-            <table class="sentiment-table">
-              <thead>
-                <tr>
-                  <th class="smallColumn">Score</th>
-                  <th>Analysis</th>
-                  <th class="smallColumn">Created</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr *ngFor="let item of sentimentPageData" (click)="toggleSentiment(item)" [class.clickable]="!isLatestSentiment(item)">
-                  <!-- Score -->
-                  <td class="smallColumn" [class.positive]="item.sentimentScore > 50" [class.negative]="item.sentimentScore <= 50">
-                    {{ item.sentimentScore }}%
-                  </td>
-          
-                  <!-- Analysis -->
-                  <td style="width: auto;" [class.ellipsis]="!isLatestSentiment(item) && !item.expanded">
-                    {{ item.analysis }}
-                  </td>
-                  <td class="smallColumn" [class.ellipsis]="!isLatestSentiment(item) && !item.expanded" [title]="item.createdUtc">
-                    {{ item.createdUtc | timeSince }}
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          
+            <div class="sentiment-table-wrapper">
+              <table class="sentiment-table">
+                <thead>
+                  <tr>
+                    <th class="smallColumn">Score</th>
+                    <th>Analysis</th>
+                    <th class="smallColumn">Created</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr *ngFor="let item of sentimentPageData" (click)="toggleSentiment(item)"
+                    [class.clickable]="!isLatestSentiment(item)">
+                    <!-- Score -->
+                    <td class="smallColumn" [class.positive]="item.sentimentScore > 50"
+                      [class.negative]="item.sentimentScore <= 50">
+                      {{ item.sentimentScore }}%
+                    </td>
+
+                    <!-- Analysis -->
+                    <td style="width: auto;" [class.ellipsis]="!isLatestSentiment(item) && !item.expanded">
+                      {{ item.analysis }}
+                    </td>
+                    <td class="smallColumn" [class.ellipsis]="!isLatestSentiment(item) && !item.expanded"
+                      [title]="item.createdUtc">
+                      {{ item.createdUtc | timeSince }}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+
             <!-- PAGINATION -->
             <div class="pager">
               <button (click)="prevSentimentPage()" [disabled]="currentSentimentPage === 1">Prev</button>
               <span>Page {{ currentSentimentPage }} / {{ totalSentimentPages }}</span>
-              <button (click)="nextSentimentPage()" [disabled]="currentSentimentPage === totalSentimentPages">Next</button>
+              <button (click)="nextSentimentPage()"
+                [disabled]="currentSentimentPage === totalSentimentPages">Next</button>
             </div>
-          
+
             <!-- CLOSE BUTTON -->
             <div style="text-align:right;margin-top:12px;">
               <button id="closeOverlay" (click)="closeMarketSentimentPopup()">OK</button>
-            </div> 
-          </div> 
+            </div>
+          </div>
         </div>
 
         <!-- Retracement From High Boolean -->
-        <div class="indicator-card" *ngIf="bullishCoins.length > 0" title="Bullish indicator signals detected for these coins. Trade with caution!">
+        <div class="indicator-card" *ngIf="bullishCoins.length > 0"
+          title="Bullish indicator signals detected for these coins. Trade with caution!">
           <div class="bullish-warning">
-            ⚠️ Bullish coin(s) detected: 
+            ⚠️ Bullish coin(s) detected:
           </div>
           <div *ngFor="let pair of bullishCoins">
-           {{ pair.replace("XBT", "BTC") }} 
+            {{ pair.replace("XBT", "BTC") }}
           </div>
         </div>
-      </div> 
+      </div>
     </div>
     <div *ngIf="!isTradePanelOpen" class="sectionContainer">
       <app-crypto-fear-and-greed [inputtedParentRef]="parentRef"></app-crypto-fear-and-greed>
@@ -345,7 +380,7 @@
         </tbody>
       </table>
     </div>
-    
+
     <ng-template #loading>
       <p *ngIf="!isTradePanelOpen">Loading coin market caps...</p>
     </ng-template>
@@ -356,13 +391,11 @@
       [isDiscreete]="isDiscreete" [inputtedParentRef]="parentRef" [conversionRate]="latestCurrencyPriceRespectToCAD"
       [currency]="selectedCurrency" (closeMiningEvent)="closeMiningEvent()"></app-mining-rigs>
 
-    <div class="wallet sectionContainer" *ngIf="wallet"
-      [style.display]="isTradePanelOpen ? 'none' : 'block'">
-      <div class="sectionName cryptoWalletSectionHeader"
-        *ngIf="latestCurrencyPriceRespectToCAD && wallet" style="margin-bottom:10px;">Crypto Wallet Balance(s):
+    <div class="wallet sectionContainer" *ngIf="wallet" [style.display]="isTradePanelOpen ? 'none' : 'block'">
+      <div class="sectionName cryptoWalletSectionHeader" *ngIf="latestCurrencyPriceRespectToCAD && wallet"
+        style="margin-bottom:10px;">Crypto Wallet Balance(s):
       </div>
-      <table *ngIf="latestCurrencyPriceRespectToCAD && wallet" id="walletTable"
-        class="mainTable">
+      <table *ngIf="latestCurrencyPriceRespectToCAD && wallet" id="walletTable" class="mainTable">
         <thead *ngIf="wallet?.length">
           <tr>
             <th (click)="areWalletAddressesHidden = !areWalletAddressesHidden"
@@ -444,7 +477,7 @@
               </div>
             </div>
             <div *ngIf="getActiveTradeBots().length === 0">
-              <p>No active trade bots.</p>      
+              <p>No active trade bots.</p>
             </div>
           </div>
           <div>
@@ -500,28 +533,32 @@
               <option value="SOL">Solana/USDC</option>
               <option value="XDG">Dogecoin/USDC</option>
             </select>
-            
+
             <select class="currency-select" #selectedTradebotStrategy (change)="currencySelectTradebotEngage()">
               <option value="DCA">DCA</option>
               <option value="IND">Indicator</option>
             </select>
-            
+
             <button class="cursorPointer"
               [disabled]="isTradeBotStarted(selectedTradebotCurrency?.value, selectedTradebotStrategy.value) || !hasKrakenApi"
-              (click)="startTradeBot(selectedTradebotCurrency?.value, selectedTradebotStrategy.value)" title="Start the tradebot.">
+              (click)="startTradeBot(selectedTradebotCurrency?.value, selectedTradebotStrategy.value)"
+              title="Start the tradebot.">
               Start {{selectedTradebotCurrency?.value}} {{selectedTradebotStrategy.value}}
             </button>
-            
-            <button class="cursorPointer" (click)="stopTradeBot(selectedTradebotCurrency?.value, selectedTradebotStrategy.value)"
+
+            <button class="cursorPointer"
+              (click)="stopTradeBot(selectedTradebotCurrency?.value, selectedTradebotStrategy.value)"
               title="Stop the tradebot."
               [disabled]="!isTradeBotStarted(selectedTradebotCurrency?.value, selectedTradebotStrategy.value) || !hasKrakenApi">
-              Stop {{selectedTradebotCurrency?.value}} {{selectedTradebotStrategy.value}}   
+              Stop {{selectedTradebotCurrency?.value}} {{selectedTradebotStrategy.value}}
             </button>
-          
+
             <p class="button-description" id="trades-desc" *ngIf="!isTradebotBalanceShowing">
-              {{isTradeBotStarted(selectedTradebotCurrency?.value) ? 'Stop' : 'Start'}} trading USDC and {{selectedTradebotCurrency?.value}} pair
-              {{selectedTradebotCurrency?.value === 'BTC' ? 'with ' + selectedTradebotStrategy.value + ' strategy' : ''}}.
-            </p>    
+              {{isTradeBotStarted(selectedTradebotCurrency?.value) ? 'Stop' : 'Start'}} trading USDC and
+              {{selectedTradebotCurrency?.value}} pair
+              {{selectedTradebotCurrency?.value === 'BTC' ? 'with ' + selectedTradebotStrategy.value + ' strategy' :
+              ''}}.
+            </p>
           </div>
 
 
@@ -569,14 +606,15 @@
               Runs a simulation of trading strategies with historical or random data to test performance.
             </p>
           </div>
-          <div class="button-wrapper" [title]="isTradeBotStarted(selectedTradebotCurrency?.nativeElement?.value, selectedTradebotStrategy?.nativeElement?.value) ? 'Disabled: Tradebot is running.' : ''"
+          <div class="button-wrapper"
+            [title]="isTradeBotStarted(selectedTradebotCurrency?.nativeElement?.value, selectedTradebotStrategy?.nativeElement?.value) ? 'Disabled: Tradebot is running.' : ''"
             *ngIf="canShowTradePanelInfo()">
             <button class="cursorPointer" (click)="enterPosition()"
               [title]="'Buy BTC On dip by splitting funds with _InitialMinimumFromAmountToStart (set in configuration).'+ hasKrakenApi ? '' : 'Disabled: No Kraken API keys found.'"
               id="enter-button" aria-describedby="enter-desc" [disabled]="!hasKrakenApi">
               Enter BTC Position
             </button>
-            <p class="button-description" id="enter-desc">  
+            <p class="button-description" id="enter-desc">
               Buys BTC using configured funds, starting a new trading position and starting the bot. See configuration
               under: _InitialMinimumFromAmountToStart.
             </p>
@@ -622,15 +660,15 @@
             </select>
             <select #tradeBalanceStrategySelector (change)="showTradeBalance(tradeBalanceCoinSelector.value)">
               <option value="DCA">DCA</option>
-              <option value="IND">Indicator</option> 
+              <option value="IND">Indicator</option>
             </select>
           </div>
-         
+
           <div class="xxSmallFont">
             Logs refresh every 30s.
           </div>
         </div>
-        <div *ngIf="isTradebotBalanceShowing" class="mainTableContainer tradeDataTable"> 
+        <div *ngIf="isTradebotBalanceShowing" class="mainTableContainer tradeDataTable">
           <table class="mainTable tradeBalanceTable">
             <thead>
               <tr>
@@ -644,15 +682,19 @@
               </tr>
             </thead>
             <tbody>
-              <tr *ngFor="let trade of tradebotBalances" [id]="'tradeBalance'+trade.id" [class]="selectedTradeBalanceId == trade.id ? 'gradientBackground' : ''">
+              <tr *ngFor="let trade of tradebotBalances" [id]="'tradeBalance'+trade.id"
+                [class]="selectedTradeBalanceId == trade.id ? 'gradientBackground' : ''">
                 <td class="xxSmallFont">
                   {{ trade.id }}
                 </td>
-                <td class="tradeBalanceCurrencyLabel"> 
+                <td class="tradeBalanceCurrencyLabel">
                   <span class="tradeBalancePairLabelContainer">
-                    <span class="xxSmallFont" [style.color]="trade.from_currency == 'XBT' ? '#a17f1a' : trade.from_currency == 'USDC' ? 'blue' : ''">{{trade.from_currency}}</span> /
-                    <span class="xxSmallFont" [style.color]="trade.to_currency == 'XBT' ? '#a17f1a' : trade.to_currency == 'USDC' ? 'blue' : ''">{{trade.to_currency}}</span>
-                  </span> 
+                    <span class="xxSmallFont"
+                      [style.color]="trade.from_currency == 'XBT' ? '#a17f1a' : trade.from_currency == 'USDC' ? 'blue' : ''">{{trade.from_currency}}</span>
+                    /
+                    <span class="xxSmallFont"
+                      [style.color]="trade.to_currency == 'XBT' ? '#a17f1a' : trade.to_currency == 'USDC' ? 'blue' : ''">{{trade.to_currency}}</span>
+                  </span>
                 </td>
                 <td class="smallFont" style="display:flex; justify-content: space-evenly; flex-wrap: wrap;">
                   <span style="margin-left:3px">
@@ -666,14 +708,17 @@
                 <td class="xxSmallFont">{{ formatToCanadianCurrency(trade.fees) }}</td>
                 <td class="xxSmallFont" [title]="parentRef?.convertUtcToLocalTime(trade.timestamp)">{{
                   parentRef?.convertUtcToLocalTime(trade.timestamp) | timeSince }}</td>
-                <td class="xxSmallFont" [title]="trade.matching_trade_id" (click)="goToTradeId('tradeBalance'+trade.matching_trade_id)">{{ trade.matching_trade_id }}</td>
+                <td class="xxSmallFont" [title]="trade.matching_trade_id"
+                  (click)="goToTradeId('tradeBalance'+trade.matching_trade_id)">{{ trade.matching_trade_id }}</td>
               </tr>
             </tbody>
           </table>
         </div>
       </div>
-      <div *ngIf="showingTradeSettings" class="optionsStatsWrapperDiv tradeDataTable" [style.opacity]="isLoading ? '25%' : ''" [style.maxWidth]="'500px'"> 
-        <app-crypto-bot-configuration #configurationComponent [inputtedParentRef]="parentRef" (updatedTradeConfig)="updatedTradeConfigEvent($event)"></app-crypto-bot-configuration>
+      <div *ngIf="showingTradeSettings" class="optionsStatsWrapperDiv tradeDataTable"
+        [style.opacity]="isLoading ? '25%' : ''" [style.maxWidth]="'500px'">
+        <app-crypto-bot-configuration #configurationComponent [inputtedParentRef]="parentRef"
+          (updatedTradeConfig)="updatedTradeConfigEvent($event)"></app-crypto-bot-configuration>
       </div>
       <div *ngIf="isShowingTradeValueGraph">
         <app-line-graph [type]="'Crypto'" [graphTitle]="'Trade Value'" [data]="tradebotValuesForGraph"
@@ -756,13 +801,13 @@
           </div>
         </div>
       </div>
- 
+
 
       <div *ngIf="showingTradeLogs" [style.opacity]="isLoading ? '25%' : ''">
         <div class="secondaryFontColor" style="width:100%; display: flex; justify-content: space-between;">
           <div class="logTypeFiltersWrapper">
             <span class="xxSmallFont">Filter: </span>
-            <select (change)="filterLogsFromEvent()" #tradeLogCoinFilter> 
+            <select (change)="filterLogsFromEvent()" #tradeLogCoinFilter>
               <option value="XBT">BTC</option>
               <option value="XRP">XRP</option>
               <option value="SOL">Solana</option>
@@ -770,7 +815,7 @@
             </select>
             <select (change)="filterLogsFromEvent()" #tradeLogStrategyFilter>
               <option value="DCA">DCA</option>
-              <option value="IND">Indicator</option> 
+              <option value="IND">Indicator</option>
             </select>
           </div>
           <div class="xxSmallFont">
@@ -789,7 +834,8 @@
             <tbody>
               <tr *ngFor="let log of paginatedLogs">
                 <td>{{ log.comment }}</td>
-                <td class="xxSmallFont" [title]="parentRef?.convertUtcToLocalTime(log.timestamp)">{{ parentRef?.convertUtcToLocalTime(log.timestamp) | timeSince }}</td>
+                <td class="xxSmallFont" [title]="parentRef?.convertUtcToLocalTime(log.timestamp)">{{
+                  parentRef?.convertUtcToLocalTime(log.timestamp) | timeSince }}</td>
               </tr>
             </tbody>
           </table>
@@ -801,14 +847,14 @@
       </div>
       <div style="text-align:center;" *ngIf="showingTradeLogs && tradeLogs && tradeLogs.length > 0">
         <button class="cursorPointer" (click)="prevLogPage()" [disabled]="currentLogPage === 1">Previous</button>
-      
+
         <span *ngIf="totalLogPages <= 10">
           <button *ngFor="let page of getLogPagesArray()" class="cursorPointer" (click)="goToLogPage(page)"
             [disabled]="page === currentLogPage" [class.active]="page === currentLogPage">
             {{ page }}
           </button>
         </span>
-      
+
         <span *ngIf="totalLogPages > 10">
           <select (change)="goToLogPageSelected($event)">
             <option *ngFor="let page of getLogPagesArray()" [value]="page" [selected]="page === currentLogPage">
@@ -816,9 +862,10 @@
             </option>
           </select>
         </span>
-      
+
         <span> of {{ totalLogPages }}</span>
-        <button class="cursorPointer" (click)="nextLogPage()" [disabled]="currentLogPage >= totalLogPages">Next</button></div>
+        <button class="cursorPointer" (click)="nextLogPage()" [disabled]="currentLogPage >= totalLogPages">Next</button>
+      </div>
       <div *ngIf="isShowingTradeSimulator && tradebotSimulationGraphData && tradebotSimulationGraphData.length > 0"
         class="tradeDataTable">
         <app-line-graph #simLineGraph [selectedPeriod]="'1d'" [data]="tradebotSimulationGraphData"
@@ -871,7 +918,8 @@
           </div>
         </div>
       </div>
-      <div *ngIf="isTradePanelOpen" [style.marginTop]="isTradePanelOpen ? '15px' : ''" class="tradePanelCloseButtonSection">
+      <div *ngIf="isTradePanelOpen" [style.marginTop]="isTradePanelOpen ? '15px' : ''"
+        class="tradePanelCloseButtonSection">
         <div *ngIf="isTradePanelOpen && canShowTradePanelInfo()">
           <div class="smallFont thirdFontColor">Consider buying me a coffee!</div>
           <div class="smallFont thirdFontColor"><span class="secondaryFontColor">BTC Address:</span>
@@ -908,11 +956,11 @@
     </div>
 
     <div *ngIf="!isTradePanelOpen && globalCryptoStats" class="sectionContainer">
-      <app-crypto-global-stats [metrics]="globalCryptoStats"></app-crypto-global-stats> 
-    </div> 
+      <app-crypto-global-stats [metrics]="globalCryptoStats"></app-crypto-global-stats>
+    </div>
     <div *ngIf="!isTradePanelOpen" class="sectionContainer">
       <app-crypto-calendar [inputtedParentRef]="parentRef"></app-crypto-calendar>
-    </div> 
+    </div>
   </div>
 
 
@@ -1254,17 +1302,18 @@
   </div>
 
   <div *ngIf="isMacdPopupOpen" class="popupPanel macd-popup">
-    <div class="popupPanelTitle" title="MACD is a popular trend-following momentum indicator used in technical analysis to identify potential buy/sell signals. It consists of two lines: the MACD line (difference between 12-day and 26-day exponential moving averages) and the Signal line (9-day EMA of the MACD line). The histogram shows the difference between these two lines, indicating momentum strength.">
+    <div class="popupPanelTitle"
+      title="MACD is a popular trend-following momentum indicator used in technical analysis to identify potential buy/sell signals. It consists of two lines: the MACD line (difference between 12-day and 26-day exponential moving averages) and the Signal line (9-day EMA of the MACD line). The histogram shows the difference between these two lines, indicating momentum strength.">
       MACD Visualization ({{selectedIndicatorPair}})
       <button class="close-button" (click)="closeMacdPopup()">×</button>
     </div>
-  
+
     <div class="macd-graph-container">
       <app-line-graph [type]="'MACD'" [selectedCoin]="selectedIndicatorPair.split('/')[0]" [data]="macdGraphData"
         [showHistogram]="true" [showSignalLine]="true" [showMacdLine]="true" [selectedPeriod]="'2w'">
       </app-line-graph>
     </div>
-  
+
     <div class="macd-legend">
       <div class="legend-item">
         <span class="legend-color macd-line"></span>
@@ -1283,7 +1332,7 @@
         <span>Bearish Histogram</span>
       </div>
     </div>
-  
+
     <div class="macd-description gradientBackground">
       <h3>MACD Interpretation</h3>
       <ul>
@@ -1293,6 +1342,6 @@
         <li><strong>Divergence:</strong> Price makes new highs/lows but MACD doesn't - potential reversal signal</li>
       </ul>
     </div>
-  
+
     <button class="popup-close-button" id="closeOverlay" (click)="closeMacdPopup()">Close</button>
   </div>

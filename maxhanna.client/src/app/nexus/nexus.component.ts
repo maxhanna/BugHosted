@@ -1448,6 +1448,7 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
   }
   closeWarehouse() {
     this.isWarehouseOpen = false;
+    this.showMoreWarehouseInfo = false;
   }
   getBuildingCountersLength() {
     return Object.keys(this.buildingTimers).length;
@@ -1478,6 +1479,9 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
           || x.building == "starport" && x.nextLevel == this.nexusBase?.starportLevel
           || x.building == "factory" && x.nextLevel == this.nexusBase?.factoryLevel
         );
+      }
+      if (this.nexusBase.engineeringBayLevel < 1) {
+        this.currentValidAvailableUpgrades = this.currentValidAvailableUpgrades.filter(x => x.building != "starport");
       }
       return this.currentValidAvailableUpgrades;
     } else {

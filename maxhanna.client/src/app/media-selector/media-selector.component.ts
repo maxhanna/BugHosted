@@ -24,6 +24,8 @@ export class MediaSelectorComponent implements OnDestroy {
   @Input() user?: User;
   @Input() maxSelectedFiles: number = 5;
   @Input() currentDirectory: string = "";
+  @Input() disabled: boolean = false;
+  @Input() takeAllSpace: boolean = false;
   @Input() uploadButtonText: string = "Upload";
   @Output() selectFileEvent = new EventEmitter<FileEntry[]>();
   @ViewChild('selectMediaDiv', { static: false }) selectMediaDiv!: ElementRef;
@@ -83,6 +85,7 @@ export class MediaSelectorComponent implements OnDestroy {
   }
   removeAllFiles() {
     this.selectedFiles = [];
+    this.maxFilesReached = false;
   }
   uploadCancelledEvent(cancelled: boolean) {
     if (this.displaySearchButton) {

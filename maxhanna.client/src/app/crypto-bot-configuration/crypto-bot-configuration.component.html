@@ -29,13 +29,13 @@
     <div class="optionsStatsHeader" title="Cryptocurrency you’re trading from">From Coin</div>
     <div class="optionsStatsDescription">
         <select #tradeFromCoinSelect
-            title="Select the cryptocurrency you want to sell or trade from. For DCA, you can choose from multiple coins like BTC, ETH, etc.; for IND, it’s limited to BTC."
+            title="Select the cryptocurrency you want to sell or trade from."
             (change)="tradeFromCoinSelectChange()">
             <option value="XBT">BTC</option>
-            <option value="ETH" *ngIf="tradeStrategySelect.value == 'DCA'">ETH</option>
-            <option value="XRP" *ngIf="tradeStrategySelect.value == 'DCA'">XRP</option>
-            <option value="SOL" *ngIf="tradeStrategySelect.value == 'DCA'">SOL</option>
-            <option value="XDG" *ngIf="tradeStrategySelect.value == 'DCA'">XDG</option>
+            <option value="ETH">ETH</option>
+            <option value="XRP">XRP</option>
+            <option value="SOL">SOL</option>
+            <option value="XDG">XDG</option>
         </select>
         <div class="settingExplanation" (click)="toggleExplanation($event)">
             <p><strong>What it does:</strong> This dropdown lets you pick the cryptocurrency you’ll be selling or

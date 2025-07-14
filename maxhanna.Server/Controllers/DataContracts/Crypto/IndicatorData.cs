@@ -5,7 +5,7 @@ public class IndicatorData
 	public Boolean TwoHundredDayMA { get; set; }
 	public Decimal TwoHundredDayMAValue { get; set; }
 	public Boolean FourteenDayMA { get; set; }
-	public Decimal FourteenDayMAValue { get; set; } 
+	public Decimal FourteenDayMAValue { get; set; }
 	public Boolean TwentyOneDayMA { get; set; }
 	public Decimal TwentyOneDayMAValue { get; set; }
 	public Decimal RSI14Day { get; set; }
@@ -15,5 +15,8 @@ public class IndicatorData
 	public Decimal RetracementFromHighValue { get; set; }
 	public Boolean MACDHistogram { get; set; }
 	public Decimal MACDLineValue { get; set; }
-	public Decimal MACDSignalValue { get; set; }
+	public Decimal MACDSignalValue { get; set; } 
+	public Boolean VolumeAbove20DayAverage { get; set; }
+	public Decimal Volume20DayAverageValue { get; set; }
+	public Decimal CurrentVolumeValue { get; set; }
 }

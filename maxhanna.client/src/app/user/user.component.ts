@@ -174,7 +174,10 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
       this.getNSFWValue();
       this.getNumberOfNexusBases();
     }
-    catch (error) { console.log((error as Error).message); }
+    catch (error) { console.log((error as Error).message); } 
+    if (!this.trophies) {
+      this.getTrophies();
+    }
     this.stopLoading(); 
 
     document.addEventListener('DOMContentLoaded', function () {
@@ -546,12 +549,7 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
         this.openFriendsPanel();
         break;
       case 'settings':
-        this.parentRef?.createComponent('UpdateUserSettings', {
-          showOnlySelectableMenuItems: false,
-          areSelectableMenuItemsExplained: false,
-          inputtedParentRef: this.parentRef,
-          previousComponent: "User"
-        });
+        this.openSettingsPanel();
         break;
       case 'logout':
         this.logout()
@@ -564,6 +562,15 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
     this.profileControls.nativeElement.selectedIndex = 0;
   }
 
+
+  openSettingsPanel() {
+    this.parentRef?.createComponent('UpdateUserSettings', {
+      showOnlySelectableMenuItems: false,
+      areSelectableMenuItemsExplained: false,
+      inputtedParentRef: this.parentRef,
+      previousComponent: "User"
+    });
+  }
 
   async addFriend(userToAdd: User) {
     const user = this.parentRef?.user;
@@ -737,9 +744,6 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
     if (parent) {
       parent.showOverlay();
     }
-    if (!this.trophies) {
-      this.getTrophies();
-    }
   }
   closeAboutPanel() {
     this.isAboutPanelOpen = false;
@@ -747,6 +751,10 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
     if (parent) {
       parent.closeOverlay();
     }
+    this.isTrophyExpanded = false;
+    this.isAboutExpanded = false;
+    this.isFriendRequestsExpanded = false;
+    this.isMusicContainerExpanded = false;
   }
   isFollowingUser() {
     const parent = this.parentRef ?? this.inputtedParentRef;
@@ -929,5 +937,11 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
     }
     this.showBackgroundPictureSelector = false;
     targetParent?.closeOverlay();
+  }
+  showTrophies() {
+    this.openAboutPanel();
+    setTimeout(() => {
+      this.isTrophyExpanded = true;
+    }, 50);
   }
 }

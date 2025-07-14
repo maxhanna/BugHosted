@@ -75,6 +75,9 @@ export class CryptoBotConfigurationComponent extends ChildComponent {
     if (invalidField) {
       return alert(`Invalid value for '${invalidField[0]}'.`);
     }
+    if ((fields?.TradeStopLossPercentage ?? 0) <= 0 && strategy == "IND") {
+      return alert(`Invalid value for 'TradeStopLossPercentage'. Value must be above 0.`); 
+    }
 
     const config = {
       UserId: this.inputtedParentRef.user.id,
@@ -137,7 +140,7 @@ export class CryptoBotConfigurationComponent extends ChildComponent {
   setDefaultTradeConfiguration() {
     this.tradeTradeMaximumTypeOccurances.nativeElement.valueAsNumber = 5;
     this.tradeStopLoss.nativeElement.valueAsNumber = 0;
-    this.tradeStopLossPercentage.nativeElement.valueAsNumber = 0;
+    this.tradeStopLossPercentage.nativeElement.valueAsNumber = 0.5;
     this.tradeVolumeSpikeMaxTradeOccurance.nativeElement.valueAsNumber = 1;
     this.tradeMinimumToReserves.nativeElement.valueAsNumber = 20;
     this.tradeMaximumToTradeAmount.nativeElement.valueAsNumber = 2000;
@@ -160,11 +163,11 @@ export class CryptoBotConfigurationComponent extends ChildComponent {
       this.tradeInitialMaximumUSDCAmountToStart.nativeElement.valueAsNumber = 50;
       this.tradeMinimumFromReserves.nativeElement.valueAsNumber = 20;
     } else if (this.tradeFromCoinSelect.nativeElement.value == "SOL" && this.tradeToCoinSelect.nativeElement.value == "USDC") {
-      this.tradeMinimumFromTradeAmount.nativeElement.valueAsNumber = 0.02;
       this.tradeMaximumFromTradeAmount.nativeElement.valueAsNumber = 0.5;
+      this.tradeMinimumFromTradeAmount.nativeElement.valueAsNumber = 0.02;
       this.tradeInitialMinimumFromAmountToStart.nativeElement.valueAsNumber = 0.05;
-      this.tradeInitialMinimumUSDCAmountToStart.nativeElement.valueAsNumber = 20;
-      this.tradeInitialMaximumUSDCAmountToStart.nativeElement.valueAsNumber = 50;
+      this.tradeInitialMinimumUSDCAmountToStart.nativeElement.valueAsNumber = 50;
+      this.tradeInitialMaximumUSDCAmountToStart.nativeElement.valueAsNumber = 150;
       this.tradeMinimumFromReserves.nativeElement.valueAsNumber = 0.00004;
     } else if (this.tradeFromCoinSelect.nativeElement.value == "XDG" && this.tradeToCoinSelect.nativeElement.value == "USDC") {
       this.tradeMinimumFromTradeAmount.nativeElement.valueAsNumber = 25;

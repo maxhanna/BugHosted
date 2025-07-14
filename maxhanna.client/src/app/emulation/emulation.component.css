@@ -46,7 +46,7 @@
 
 
 
-.screen-area {
+.screen-area { 
   width: 100%;
   image-rendering: pixelated;
   display: flex;

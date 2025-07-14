@@ -114,7 +114,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
     this.getWordlerStreakInfo(); 
     this.getThemeInfo(); 
 
-    this.notificationInfoInterval = setInterval(() => this.getNotificationInfo(), 60 * 1000); // every minute
+    this.notificationInfoInterval = setInterval(() => this.getNotificationInfo(), 20 * 1000); // every minute
     this.cryptoHubInterval = setInterval(() => this.getCryptoHubInfo(), 20 * 60 * 1000); // every 20 minutes
     this.calendarInfoInterval = setInterval(() => this.getCalendarInfo(), 20 * 60 * 1000); // every 20 minutes 
     this.wordlerInfoInterval = setInterval(() => this.getWordlerStreakInfo(), 60 * 60 * 1000); // every hour
@@ -183,15 +183,24 @@ export class NavigationComponent implements OnInit, OnDestroy {
       return;
     }
     this.isLoadingNotifications = true;
-    try {
+    try { 
       const res = await this.notificationService.getNotifications(this._parent.user.id ?? 0) as UserNotification[];
       if (res) {
+        const chatItem = this._parent.navigationItems.find(x => x.title === "Chat");
+        const content = chatItem?.content ?? "0";
+        const currentChatNotifCount = parseInt(content, 10) || 0;
+        console.log("chatCount:", currentChatNotifCount);
+
         this.numberOfNotifications = res.filter(x => x.isRead == false).length;
         this._parent.navigationItems.filter(x => x.title == "Notifications")[0].content = this.numberOfNotifications + "";
-
         if (this._parent.userSelectedNavigationItems.find(x => x.title == "Chat")) {
           const numberOfChatNotifs = res.filter(x => x.chatId && x.isRead == false).length;
+          console.log("numberOfChatNotifs: " + numberOfChatNotifs);
+
           if (numberOfChatNotifs) {
+            if (currentChatNotifCount < numberOfChatNotifs) {
+              this._parent.showNotification(`${numberOfChatNotifs - currentChatNotifCount} New chat message${numberOfChatNotifs > 1 ? 's' : ''}.`);
+            }
             this._parent.navigationItems.filter(x => x.title == "Chat")[0].content = numberOfChatNotifs + '';
           } else {
             this._parent.navigationItems.filter(x => x.title == "Chat")[0].content = '';
@@ -370,15 +379,20 @@ export class NavigationComponent implements OnInit, OnDestroy {
     return parseInt(notifNumbers);
   }
 
-  goTo(title: string, event?: any) {
+  goTo(title: string, event?: any) { 
     if (title.toLowerCase() == "close menu") {
       this.toggleMenu();
     } else if (title == "UpdateUserSettings") {
       this._parent.createComponent(title, { inputtedParentRef: this._parent });
-    } else {
+    } else if (title.toLowerCase() != "help") {
       this._parent.createComponent(title);
     }
-    this.showAppSelectionHelp = false;
+
+    if (title.toLowerCase() == "help") {
+      this.showAppSelectionHelp = true;
+    } else {
+      this.showAppSelectionHelp = false;
+    }
     event.stopPropagation();
   }
 

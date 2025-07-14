@@ -66,6 +66,7 @@ namespace maxhanna.Server.Services
 					success &= await UpdateVWAP(connection, coin.pair, coin.fromCoin, coin.toCoin);
 					success &= await UpdateRetracementFromHigh(connection, coin.fromCoin, coin.toCoin, coin.coinName);
 					success &= await UpdateMACD(connection, coin.fromCoin, coin.toCoin, coin.coinName);
+					success &= await UpdateVolumeAbove20DayAvg(connection, coin.pair, coin.fromCoin, coin.toCoin);
 					success &= await RecordSignalInterval(connection, coin.fromCoin, coin.toCoin);
 
 					overallSuccess &= success;
@@ -115,8 +116,8 @@ namespace maxhanna.Server.Services
 
 			if (result != null && result != DBNull.Value)
 			{
-				_ = _log.Db($"Trade indicators for {fromCoin}/{toCoin} updated within last 5 minutes, skipping update",
-						   null, "TISVC", outputToConsole: true);
+				// _ = _log.Db($"Trade indicators for {fromCoin}/{toCoin} updated within last 5 minutes, skipping update",
+				// 		   null, "TISVC", outputToConsole: true);
 				return false;
 			}
 			return true;
@@ -171,7 +172,7 @@ namespace maxhanna.Server.Services
 
 					await upd.ExecuteNonQueryAsync();
 
-					_ = _log.Db($"{fromCoin}/{toCoin} 200-DMA flag={isAboveMovingAvg}, value={maValue:F2}", null, "TISVC", true);
+					//_ = _log.Db($"{fromCoin}/{toCoin} 200-DMA flag={isAboveMovingAvg}, value={maValue:F2}", null, "TISVC", true);
 					return true;
 				}
 				catch (MySqlException ex) when (ex.Number == 2013 && attempt < MaxRetries)
@@ -235,7 +236,7 @@ namespace maxhanna.Server.Services
 
 					await upd.ExecuteNonQueryAsync();
 
-					_ = _log.Db($"{fromCoin}/{toCoin} 14-DMA flag={isAboveMovingAvg}, value={maValue:F2}", null, "TISVC", true);
+					//_ = _log.Db($"{fromCoin}/{toCoin} 14-DMA flag={isAboveMovingAvg}, value={maValue:F2}", null, "TISVC", true);
 					return true;
 				}
 				catch (MySqlException ex) when (ex.Number == 2013 && attempt < MaxRetries)
@@ -299,7 +300,7 @@ namespace maxhanna.Server.Services
 
 					await upd.ExecuteNonQueryAsync();
 
-					_ = _log.Db($"{fromCoin}/{toCoin} 21-DMA flag={isAboveMovingAvg}, value={maValue:F2}", null, "TISVC", true);
+					//_ = _log.Db($"{fromCoin}/{toCoin} 21-DMA flag={isAboveMovingAvg}, value={maValue:F2}", null, "TISVC", true);
 					return true;
 				}
 				catch (MySqlException ex) when (ex.Number == 2013 && attempt < MaxRetries)
@@ -375,7 +376,7 @@ namespace maxhanna.Server.Services
 					updateCmd.Parameters.AddWithValue("@rsi", rsi);
 
 					await updateCmd.ExecuteNonQueryAsync();
-					_ = _log.Db($"RSI updated for {fromCoin}/{toCoin}: rsi_14_day = {rsi:F2}", null, "TISVC", true);
+					//_ = _log.Db($"RSI updated for {fromCoin}/{toCoin}: rsi_14_day = {rsi:F2}", null, "TISVC", true);
 					return true;
 				}
 				catch (MySqlException ex) when (ex.Number == 2013 && attempt <= MaxRetries)
@@ -432,8 +433,8 @@ namespace maxhanna.Server.Services
 					updateCmd.Parameters.AddWithValue("@vwap", vwap);
 
 					await updateCmd.ExecuteNonQueryAsync();
-					_ = _log.Db($"VWAP updated for {pair}: vwap_24_hour = {isAboveVWAP}, vwap_24_hour_value = {vwap:F2}",
-							   null, "TISVC", true);
+					//_ = _log.Db($"VWAP updated for {pair}: vwap_24_hour = {isAboveVWAP}, vwap_24_hour_value = {vwap:F2}",
+					//		   null, "TISVC", true);
 					return true;
 				}
 				catch (MySqlException ex) when (ex.Number == 2013 && attempt < MaxRetries)
@@ -534,10 +535,10 @@ namespace maxhanna.Server.Services
 
 					await upd.ExecuteNonQueryAsync();
 
-					_ = _log.Db(
-						$"{fromCoin}/{toCoin} retracement updated: −{retracement:P2} " +
-						$"({(withinBand ? "within" : "outside")} {RetracementThreshold:P0} band)",
-						null, "TISVC", true);
+					// _ = _log.Db(
+					// 	$"{fromCoin}/{toCoin} retracement updated: −{retracement:P2} " +
+					// 	$"({(withinBand ? "within" : "outside")} {RetracementThreshold:P0} band)",
+					// 	null, "TISVC", true);
 
 					return true;
 				}
@@ -633,8 +634,8 @@ namespace maxhanna.Server.Services
 
 					await updateCmd.ExecuteNonQueryAsync();
 
-					_ = _log.Db($"MACD (5-minute intervals) updated for {fromCoin}/{toCoin}: MACD Line={latestMacdLine:F8}, Signal Line={latestSignalLine:F8}, Histogram={latestHistogram:F8}, Bullish={isBullish}",
-							   null, "TISVC", true);
+					// _ = _log.Db($"MACD (5-minute intervals) updated for {fromCoin}/{toCoin}: MACD Line={latestMacdLine:F8}, Signal Line={latestSignalLine:F8}, Histogram={latestHistogram:F8}, Bullish={isBullish}",
+					// 		   null, "TISVC", true);
 					return true;
 				}
 				catch (MySqlException ex) when (ex.Number == 2013 && attempt < MaxRetries)
@@ -709,6 +710,92 @@ namespace maxhanna.Server.Services
 			}
 
 			_ = _log.Db($"Failed to check price for {coinName} after max retries", null, "TISVC", true);
+			return false;
+		}
+		private async Task<bool> UpdateVolumeAbove20DayAvg(MySqlConnection connection, string pair, string fromCoin, string toCoin)
+		{
+			const string sql = @"
+				WITH DailyVolumes AS (
+					SELECT 
+						DATE(timestamp) AS volume_date,
+						SUM(volume_usdc) AS daily_volume
+					FROM trade_market_volumes
+					WHERE pair = @pair
+					AND timestamp >= DATE_SUB(CURRENT_TIMESTAMP, INTERVAL 21 DAY) -- 21 days to get 20 full days
+					GROUP BY DATE(timestamp)
+					ORDER BY volume_date DESC
+					LIMIT 20
+				),
+				CurrentVolume AS (
+					SELECT 
+						SUM(volume_usdc) AS current_volume
+					FROM trade_market_volumes
+					WHERE pair = @pair
+					AND timestamp >= DATE_SUB(CURRENT_TIMESTAMP, INTERVAL 24 HOUR)
+				)
+				SELECT 
+					AVG(daily_volume) AS avg_20_day_volume,
+					(SELECT current_volume FROM CurrentVolume) AS current_volume
+				FROM DailyVolumes;";
+
+			for (int attempt = 1; attempt <= MaxRetries; attempt++)
+			{
+				try
+				{
+					using var cmd = new MySqlCommand(sql, connection);
+					cmd.Parameters.AddWithValue("@pair", pair);
+
+					using var reader = await cmd.ExecuteReaderAsync();
+
+					if (!await reader.ReadAsync() || reader.IsDBNull(0) || reader.IsDBNull(1))
+					{
+						_ = _log.Db($"No data available for 20-day volume average calculation for {pair}",
+								   null, "TISVC", true);
+						await reader.CloseAsync();
+						return false;
+					}
+
+					decimal avg20DayVolume = reader.GetDecimal(0);
+					decimal currentVolume = reader.GetDecimal(1);
+					await reader.CloseAsync();
+
+					bool isAboveAverage = currentVolume > avg20DayVolume;
+
+					const string updateSql = @"
+						INSERT INTO trade_indicators
+							(from_coin, to_coin, 
+							volume_above_20_day_avg, volume_20_day_avg_value, current_volume_value, updated)
+						VALUES (@fromCoin, @toCoin, @isAbove, @avgValue, @currentValue, UTC_TIMESTAMP())
+						ON DUPLICATE KEY UPDATE
+							volume_above_20_day_avg = @isAbove,
+							volume_20_day_avg_value = @avgValue,
+							current_volume_value = @currentValue,
+							updated = UTC_TIMESTAMP();";
+
+					using var updateCmd = new MySqlCommand(updateSql, connection);
+					updateCmd.Parameters.AddWithValue("@fromCoin", fromCoin);
+					updateCmd.Parameters.AddWithValue("@toCoin", toCoin);
+					updateCmd.Parameters.AddWithValue("@isAbove", isAboveAverage ? 1 : 0);
+					updateCmd.Parameters.AddWithValue("@avgValue", avg20DayVolume);
+					updateCmd.Parameters.AddWithValue("@currentValue", currentVolume);
+
+					await updateCmd.ExecuteNonQueryAsync();
+
+					// _ = _log.Db($"Volume indicator updated for {pair}: " +
+					// 		   $"Current={currentVolume:F2}, 20-day Avg={avg20DayVolume:F2}, " +
+					// 		   $"Above Avg={(isAboveAverage ? "Yes" : "No")}",
+					// 		   null, "TISVC", true);
+					return true;
+				}
+				catch (MySqlException ex) when (ex.Number == 2013 && attempt < MaxRetries)
+				{
+					_ = _log.Db($"Lost connection during Volume20DayAvg for {pair} (attempt {attempt}): {ex.Message}. Retrying...",
+							   null, "TISVC", true);
+					await Task.Delay(RetryDelayMs);
+				}
+			}
+
+			_ = _log.Db($"Failed to update Volume20DayAvg for {pair} after max retries", null, "TISVC", true);
 			return false;
 		}
 		private async Task<bool> RecordSignalInterval(MySqlConnection connection, string fromCoin, string toCoin)

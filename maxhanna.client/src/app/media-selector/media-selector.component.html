@@ -1,5 +1,9 @@
-<div class="mediaSelectorDiv">
-  <button class="mediaSelectorButton cursorPointer" (click)="toggleMediaChoices()" [title]="viewMediaChoicesOpen ? 'Close Media Selector' : 'Select Media Files'">
+<div [class]="'mediaSelectorDiv' + (takeAllSpace ? ' mediaSelectorButtonFullWidthHeight' : '')">
+  <button 
+    [class]="'mediaSelectorButton cursorPointer' + (takeAllSpace ? ' mediaSelectorButtonFullWidthHeight' : '')" 
+    (click)="toggleMediaChoices()" 
+    [disabled]="disabled"
+    [title]="viewMediaChoicesOpen ? 'Close Media Selector' : 'Select Media Files'">
     🧷{{uploadButtonText}}
     <span style="font-size:smaller" *ngIf="selectedFiles && selectedFiles.length > 0">({{ selectedFiles.length }})</span>
   </button>
@@ -82,6 +86,7 @@
                            (userUploadFinishedEvent)="uploadFinishedEvent($event)"
                            (userUploadEvent)="uploadEvent($event)"
                            (userCancelEvent)="uploadCancelledEvent($event)"
+                           [maxSelectedFiles]="maxSelectedFiles"
                            [user]="user">
           </app-file-upload>
         </div>

@@ -32,6 +32,7 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
   displayC = true;
   isSearchVisible = true;
   isFullScreen = false;
+  showControls = this.onMobile();
   coreMapping: { [key: string]: string } = {
     'sgx': 'mednafen_supergrafx', // SuperGrafx
     'vb': 'mednafen_vb',        // Virtual Boy
@@ -73,6 +74,7 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
   currentVolume = 99;
   maxVolume = 99;
   actionDelay = 50;
+  unlockedCanvas: boolean = false;
   constructor(private romService: RomService, private fileService: FileService) { super(); }
 
   async ngOnInit() {  
@@ -169,7 +171,7 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
       backgroundColor: 'black',
       zIndex: '1',
       width: '100%',
-      height: (this.onMobile() ? '100%' : '60vh'),
+      height: (this.onMobile() ? '100%' : !this.showControls ? '100%' : '60vh'),
     }
     const core = this.coreMapping[fileType.toLowerCase()] || 'default_core'; // Replace 'default_core' with a fallback core if needed
 
@@ -201,6 +203,9 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
   }
 
   adjustVolumeIncrementally(targetVolume: number) {
+    if (!this.soundOn) {
+      this.toggleSound();
+    }
     const step = targetVolume > this.currentVolume ? 1 : -1;
     const steps = Math.abs(targetVolume - this.currentVolume);
 
@@ -436,7 +441,7 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
 
     if (!this.isFullScreen) {
       this.canvas.nativeElement
-
+      this.unlockedCanvas = true;
       if (this.onMobile()) {
         await elem.requestFullscreen();
       } else {
@@ -445,21 +450,17 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
     } else {
 
       if (document.exitFullscreen) {
-        document.exitFullscreen();
-
+        document.exitFullscreen(); 
+        this.unlockedCanvas = false;
       }
     }
   }
   getDisplayAB() {
-    const ft = this.currentFileType.toLowerCase().trim();
-    this.displayAB = ft != ''
-      && (this.segaFileTypes.includes(ft)
-        || this.gameboyFileTypes.includes(ft)
-        || ft == 'nes');
+    return true;
   }
   getDisplayC() {
     const ft = this.currentFileType.toLowerCase().trim();
-    this.displayC = ft != '' && this.segaFileTypes.includes(ft);
+    this.displayC = ft != '' && (this.segaFileTypes.includes(ft) || this.snesFileTypes.includes(ft));
   }
 
   getAllowedFileTypes(): string[] {

@@ -27,14 +27,14 @@
        [style.visibility]="selectedRomName ? 'visible' : 'hidden'"
        [style.height]="selectedRomName ? '' : '0px'">
 
-    <div class="screen-area">
-      <canvas id="mainCanvas" class="mainCanvas" #canvas slot="lcd"></canvas>
+    <div class="screen-area" [style.height]="!onMobile() ? '100%' : ''">
+      <canvas id="mainCanvas" [class]="unlockedCanvas ? '' : 'mainCanvas'" #canvas slot="lcd"></canvas>
     </div>
 
     <div class="nintendo"><span class="nintendoLogo">Hackboy</span></div>
 
     <div class="controls">
-      <div class="dpad" [style.visibility]="!selectedRomName ? 'hidden' : !parentRef?.isShowingOverlay ? 'visible' : 'hidden'">
+      <div class="dpad" [style.visibility]="!selectedRomName ? 'hidden' : !showControls ? 'hidden' : !parentRef?.isShowingOverlay ? 'visible' : 'hidden'">
         <div class="up-left">
           <div class="up-left-triangle"></div>
         </div>
@@ -63,15 +63,15 @@
         </div>
       </div>
       <div class="a-b" *ngIf="!parentRef?.isShowingOverlay">
-        <div class="b" [style.visibility]="!selectedRomName ? 'hidden' : displayAB ? 'visible' : 'hidden'">B</div>
-        <div class="a" [style.visibility]="!selectedRomName ? 'hidden' : displayAB ? 'visible' : 'hidden'">A</div>
-        <div class="c" [style.visibility]="!selectedRomName ? 'hidden' : displayC ? 'visible' : 'hidden'">C</div>
+        <div class="b" [style.visibility]="!selectedRomName ? 'hidden' : !showControls ? 'hidden' : displayAB ? 'visible' : 'hidden'">B</div>
+        <div class="a" [style.visibility]="!selectedRomName ? 'hidden' : !showControls ? 'hidden' : displayAB ? 'visible' : 'hidden'">A</div>
+        <div class="c" [style.visibility]="!selectedRomName ? 'hidden' : !showControls ? 'hidden' : displayC ? 'visible' : 'hidden'">C</div>
       </div>
     </div>
 
     <div class="start-select">
-      <div class="select">SELECT</div>
-      <div class="start">START</div>
+      <div class="select" [style.visibility]="!selectedRomName ? 'hidden' : !showControls ? 'hidden' : !parentRef?.isShowingOverlay ? 'visible' : 'hidden'">SELECT</div>
+      <div class="start" [style.visibility]="!selectedRomName ? 'hidden' : !showControls ? 'hidden' : !parentRef?.isShowingOverlay ? 'visible' : 'hidden'">START</div>
     </div>
   </div>
 
@@ -105,7 +105,7 @@
         </label>
         <span class="toggle-label">{{ autosave ? 'On' : 'Off' }}</span>
       </div>
-      </div>
+    </div>
     <div class="optionsStatsDiv" *ngIf="!autosave">
       <div class="optionsStatsHeader">
         Save your game:
@@ -162,13 +162,25 @@
         <input type="range" min="0" [max]="maxVolume" [value]="currentVolume" (input)="onVolumeChange($event)" title="Adjust volume levels">
       </div>
     </div>
+        <div class="optionsStatsDiv">
+          <div class="optionsStatsHeader">
+            Controls:
+          </div>
+          <div class="optionsStatsDescription">
+            <label class="toggle-switch">
+              <input type="checkbox" [checked]="showControls" (change)="showControls = !showControls">
+              <span class="slider"></span>
+            </label>
+            <span class="toggle-label">{{ showControls ? 'Display' : 'Hide' }}</span>
+          </div>
+        </div>
     <div class="optionsStatsDiv">
       <div class="optionsStatsHeader">
         Upload ROM file:
       </div>
       <div class="optionsStatsDescription uploadRomSpan upload-label controlVolume">
-        <app-file-upload [currentDirectory]="'/roms'" [user]="parentRef?.user!" [inputtedParentRef]="parentRef"
-          [uploadButtonText]="'Upload Rom(s)'">
+        <app-file-upload [currentDirectory]="'Roms'" [user]="parentRef?.user!" [inputtedParentRef]="parentRef"
+          [uploadButtonText]="'Upload Rom(s)'" [maxSelectedFiles]="100">
         </app-file-upload>
       </div>
     </div>
@@ -184,7 +196,7 @@
     </div>  
   </div>
 
-  <div class="optionsStatsWrapperDiv smallFont explainWrapper" *ngIf="!onMobile()">
+  <div class="optionsStatsWrapperDiv smallFont explainWrapper" *ngIf="!showControls && !onMobile()">
     <div class="optionsStatsDiv">
       <div class="optionsStatsHeader">
         Controller: A

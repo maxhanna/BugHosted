@@ -109,4 +109,27 @@ export class TradeService {
   async getProfitData(userId: number, days = 100, encryptedUserId: string) {
     return this.post(`/trade/getprofitdata`, {UserId: userId, Days: days}, 'json', encryptedUserId);
   }
+
+  /**
+   * Formats large numbers with appropriate units while preserving precision
+   * @param value The number to format 
+   * @returns Formatted string
+   */
+  formatLargeNumber(value: number): string {
+    if (value == null || isNaN(value)) return 'N/A';
+
+    if (value >= 1e12) {
+      return '$' + (value / 1e12).toFixed(3) + 'T';
+    }
+    if (value >= 1e9) {
+      return '$' + (value / 1e9).toFixed(2) + 'B';
+    }
+    if (value >= 1e6) {
+      return '$' + (value / 1e6).toFixed(2) + 'M';  // Fixed: Divide by 1e6
+    }
+    if (value >= 1e3) {
+      return '$' + (value / 1e3).toFixed(2) + 'K';  // Fixed: Divide by 1e3
+    }
+    return '$' + value.toFixed(2);
+  }
 }

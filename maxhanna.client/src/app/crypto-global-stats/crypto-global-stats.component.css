@@ -38,6 +38,10 @@
     background: linear-gradient(135deg, var(--component-background-color), var(--secondary-component-background-color));
     border-radius: 8px;
     text-align: center;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    align-items: center;
 }
 
 .metric-card h4 {

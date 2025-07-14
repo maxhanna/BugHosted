@@ -11,9 +11,18 @@
 
   <div class="help-grid">
     <ng-container *ngFor="let item of _parent.navigationItems">
-      <ng-container *ngIf="descriptionsExist(item.title)">
+      <ng-container *ngIf="descriptionsExist(item.title) && item.title != 'Help'">
         <div class="help-card cursorPointer" (click)="goTo(item.title, undefined)">
-          <div class="card-title gradientBackground">{{ item.title }} {{item.icon}}</div>
+          <div class="card-title gradientBackground">{{ item.title }} {{item.title != 'Weather' ? item.icon : ''}}
+            <ng-container *ngIf="item.icon !== '☀️' && item.title == 'Weather'">
+              <img [src]="item.icon" [title]="item.title" class="navLink" 
+                    (click)="goTo(item.title, $event)" *ngIf="item.icon" [style.width]="'25px'" />
+              <a class="navLink" (click)="goTo(item.title, $event)" [title]="item.title" *ngIf="!item.icon">☀️</a>
+            </ng-container>
+            <ng-container #defaultWeatherIcon *ngIf="item.icon == '☀️' && item.title == 'Weather'">
+              <a class="navLink" (click)="goTo(item.title, $event)" [title]="item.title">{{_parent.originalWeatherIcon}}</a>
+            </ng-container>
+          </div>
           <div class="help-description" [innerHTML]="_parent.getMenuItemDescription(item.title)"></div>
         </div>
       </ng-container>

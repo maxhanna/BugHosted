@@ -100,6 +100,12 @@ namespace maxhanna.Server.Controllers
 						break;
 					case "Filesize DESC":
 						orderBy = "ORDER BY file_size DESC";
+						break; 
+					case "Last Updated ASC":
+						orderBy = "ORDER BY f.last_updated ASC";
+						break;
+					case "Last Updated DESC":
+						orderBy = "ORDER BY f.last_updated DESC";
 						break;
 					case "Most Comments":
 						orderBy = "ORDER BY comment_count DESC";

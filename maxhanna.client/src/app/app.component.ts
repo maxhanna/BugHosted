@@ -95,6 +95,7 @@ export class AppComponent implements OnInit, AfterViewInit {
     { ownership: 0, icon: "🔔", title: "Notifications", content: undefined },
     { ownership: 0, icon: "👤", title: "User", content: undefined },
     { ownership: 0, icon: "➕", title: "UpdateUserSettings", content: undefined },
+    { ownership: 0, icon: "ℹ️", title: "Help", content: undefined },
   ];
   navigationItemDescriptions: MenuItem[] = [
     {
@@ -182,6 +183,11 @@ export class AppComponent implements OnInit, AfterViewInit {
       ownership: 0,
       title: 'Calendar',
       content: `The Calendar helps you remember important things. Dont forget.`
+    },
+    {
+      ownership: 0,
+      title: 'Help',
+      content: `Information on what every app can do displayed on screen.`
     },
     {
       ownership: 0,
@@ -392,19 +398,23 @@ export class AppComponent implements OnInit, AfterViewInit {
   }
   async getSelectedMenuItems() {
     if (!this.user) {
-      this.userSelectedNavigationItems = [
-        { ownership: 0, icon: "🌍", title: "Social", content: undefined },
-        { ownership: 0, icon: "🤣", title: "Meme", content: undefined },
-        { ownership: 0, icon: "🗨️", title: "Chat", content: undefined },
-        { ownership: 0, icon: "🧠", title: "Wordler", content: undefined },
-        { ownership: 0, icon: "🎮", title: "Emulation", content: undefined },
-        { ownership: 0, icon: "📁", title: "Files", content: undefined },
-        { ownership: 0, icon: "₿", title: "Crypto-Hub", content: undefined },
-        { ownership: 0, icon: "🔍", title: "Favourites", content: undefined },
-        { ownership: 0, icon: "🕸️", title: "Crawler", content: undefined },
-        { ownership: 0, icon: "🧐", title: "HostAi", content: undefined },
-        { ownership: 0, icon: "👤", title: "User", content: undefined },
+      const guestTitles = [
+        "Social",
+        "Meme",
+        "Chat",
+        "Wordler",
+        "Emulation",
+        "Files",
+        "Crypto-Hub",
+        "Favourites",
+        "Crawler",
+        "HostAi",
+        "User",
+        "Help",
       ];
+      this.userSelectedNavigationItems = this.navigationItems.filter(item =>
+        guestTitles.includes(item.title)
+      );
     } else {
       this.userSelectedNavigationItems = await this.userService.getUserMenu(this.user.id);
     }

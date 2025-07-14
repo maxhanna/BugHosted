@@ -7,7 +7,7 @@ import { HttpClient } from '@angular/common/http';
   providedIn: 'root'
 })
 export class AiService { 
-  async sendMessage(userId: number, skipSave = false, message: string, encryptedUserId: string, maxCount?: number) {
+  async sendMessage(userId: number, skipSave = false, message: string, encryptedUserId: string, maxCount?: number, fileId?: number) {
     try {
       const response = await fetch('/ai/sendmessagetoai', {
         method: 'POST',
@@ -15,7 +15,7 @@ export class AiService {
           'Content-Type': 'application/json',
           'Encrypted-UserId': encryptedUserId,
         },
-        body: JSON.stringify({ UserId: userId, Message: message, SkipSave: skipSave, MaxCount: maxCount ?? 0 }),
+        body: JSON.stringify({ UserId: userId, Message: message, SkipSave: skipSave, MaxCount: maxCount ?? 0, FileId: fileId }),
       }); 
       return response.json();
     } catch (error) {

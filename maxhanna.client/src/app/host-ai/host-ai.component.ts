@@ -4,6 +4,8 @@ import { ChildComponent } from '../child.component';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { User } from '../../services/datacontracts/user/user';
 import { SpeechRecognitionComponent } from '../speech-recognition/speech-recognition.component';
+import { FileEntry } from '../../services/datacontracts/file/file-entry';
+import { MediaSelectorComponent } from '../media-selector/media-selector.component';
 
 export class AIMessage { sender?: string; message: any };
 
@@ -14,6 +16,7 @@ export class AIMessage { sender?: string; message: any };
   standalone: false
 })
 export class HostAiComponent extends ChildComponent implements OnInit, OnDestroy {
+  selectedFile?: FileEntry;
   constructor(private aiService: AiService, private sanitizer: DomSanitizer, private cdr: ChangeDetectorRef) { super(); }
   userMessage: string = '';
   chatMessages: AIMessage[] = [];
@@ -31,6 +34,7 @@ export class HostAiComponent extends ChildComponent implements OnInit, OnDestroy
   @ViewChild('chatInput') chatInput!: ElementRef<HTMLInputElement>;
   @ViewChild('chatContainer') chatContainer!: ElementRef<HTMLDivElement>;
   @ViewChild(SpeechRecognitionComponent) speechRecognitionComponent?: SpeechRecognitionComponent;
+  @ViewChild(MediaSelectorComponent) fileSelector?: MediaSelectorComponent;
 
   ngOnInit() {
     this.parentRef?.addResizeListener();
@@ -51,7 +55,7 @@ export class HostAiComponent extends ChildComponent implements OnInit, OnDestroy
     const user = this.parentRef.user ?? new User(0);
     this.userMessage = this.chatInput.nativeElement.value.trim();
 
-    if (!this.userMessage.trim()) return alert("No message sent");
+    if (!this.userMessage.trim() && !this.selectedFile) return alert("No message sent");
 
     // Check for voice commands
     if (this.userWantsToForgetHistory(this.userMessage)) {
@@ -67,35 +71,37 @@ export class HostAiComponent extends ChildComponent implements OnInit, OnDestroy
 
     this.checkIfUserWantsToChangeResponseLengthToVerbose(this.userMessage); 
 
-    this.startLoading();
-    if (this.userMessage.trim()) {
+    this.startLoading(); 
       this.pushMessage({ sender: 'You', message: this.userMessage.replace('\n', "<br>") });
       this.parentRef.getSessionToken().then(sessionToken => {
-        this.aiService.sendMessage(user.id ?? 0, false, this.userMessage + this.engineeredText + JSON.stringify(this.savedMessageHistory) + ")", sessionToken, this.responseLength).then(
-          (response) => {
-            let reply = this.aiService.parseMessage(response.response ?? response.reply);
-            this.savedMessageHistory.push((response.response ?? response.reply));
-            this.pushMessage({ sender: this.hostName, message: reply });
-            this.chatInput.nativeElement.value = "";
+      this.aiService.sendMessage(user.id ?? 0, false, this.userMessage + this.engineeredText + JSON.stringify(this.savedMessageHistory) + ")", sessionToken, this.responseLength, this.selectedFile?.id).then(
+        (response) => {
+          let reply = this.aiService.parseMessage(response.response ?? response.reply);
+          this.savedMessageHistory.push((response.response ?? response.reply));
+          this.pushMessage({ sender: this.hostName, message: reply });
+          this.chatInput.nativeElement.value = "";
+          this.chatInput.nativeElement.focus();
+          this.savedMessageHistory.push(this.userMessage);
+          this.userMessage = '';
+          this.selectedFile = undefined;
+          this.fileSelector?.removeAllFiles();
+          this.stopLoading();
+        },
+        (error) => {
+          console.error(error);
+          this.pushMessage({ sender: 'System', message: error.reply });
+          this.chatInput.nativeElement.value = "";
+          setTimeout(() => {
             this.chatInput.nativeElement.focus();
-            this.savedMessageHistory.push(this.userMessage);
-            this.userMessage = '';
-            this.stopLoading();
-          },
-          (error) => {
-            console.error(error);
-            this.pushMessage({ sender: 'System', message: error.reply });
-            this.chatInput.nativeElement.value = "";
-            setTimeout(() => {
-              this.chatInput.nativeElement.focus();
-            }, 50);
-            this.savedMessageHistory.push(this.userMessage);
-            this.userMessage = '';
-            this.stopLoading();
-          }
-        );
-      });
-    }
+          }, 50);
+          this.savedMessageHistory.push(this.userMessage);
+          this.userMessage = '';
+          this.selectedFile = undefined;
+          this.fileSelector?.removeAllFiles();
+          this.stopLoading();
+        }
+      );
+    }); 
   }
 
   speechRecognitionEvent(transcript: string | undefined) {
@@ -108,13 +114,15 @@ export class HostAiComponent extends ChildComponent implements OnInit, OnDestroy
     } else {
       this.startedTalking = false;
     }
-  }
-
+  } 
   generateImage() {
     return alert("Feature not yet available");
   }
-
-  handleKeyDown(event: KeyboardEvent) {
+  refreshScreen() {
+    this.userMessage = this.chatInput.nativeElement.value.trim();
+    this.cdr.detectChanges();
+  }
+  handleKeyDown(event: KeyboardEvent) { 
     if (event.key === 'Enter') {
       if (event.shiftKey) {
         return;
@@ -122,7 +130,7 @@ export class HostAiComponent extends ChildComponent implements OnInit, OnDestroy
         event.preventDefault();
         this.sendMessage();
       }
-    }
+    }  
   }
 
   insertAtCursor(text: string): void {
@@ -424,5 +432,8 @@ console.log("Hello, world!");
     this.cdr.detectChanges();  
    // console.log("Saying out loud: ", this.chatInput.nativeElement.value);
     this.speakMessage(this.chatInput.nativeElement.value ?? "", false)
+  }
+ async selectFile(files: FileEntry[]) {
+    this.selectedFile = files.flatMap(fileArray => fileArray)[0];
   }
 }

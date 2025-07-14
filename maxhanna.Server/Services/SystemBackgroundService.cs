@@ -88,7 +88,7 @@ namespace maxhanna.Server.Services
 			await SpawnEncounterMetabots();
 		}
 		private async Task RunFiveMinuteTasks()
-		{ 
+		{
 			await UpdateLastBTCWalletInfo();
 			await FetchAndStoreCoinValues();
 			_miningApiService.UpdateWalletInDB(_config, _log);
@@ -102,7 +102,8 @@ namespace maxhanna.Server.Services
 			else
 			{
 				_ = _log.Db("Skipping indicator update - already in progress", null, "TISVC", outputToConsole: true);
-			}
+			}  
+			await _aiController.AnalyzeAndRenameFile();
 		}
 
 		private async Task RunSixHourTasks()

@@ -18,7 +18,8 @@ export class FileUploadComponent implements OnDestroy {
   @Input() inputtedParentRef?: AppComponent;
   @Input() uploadButtonText: string = '';
   @Input() showPrivatePublicOption: boolean = true;
-  @Input() allowedFileTypes: string = '';
+  @Input() allowedFileTypes: string = ''; 
+  @Input() maxSelectedFiles: number = 5;
 
   @Output() userUploadEvent = new EventEmitter<Array<File>>();
   @Output() userUploadFinishedEvent = new EventEmitter<FileEntry[]>();
@@ -75,6 +76,9 @@ export class FileUploadComponent implements OnDestroy {
     }
   }
   async uploadSubmitClicked() {
+    if (this.uploadFileList.length > this.maxSelectedFiles) {
+      return alert(`Cannot add more then ${this.maxSelectedFiles} files!`);
+    }
     if (this.getOverallProgress() > 0) {
       return;
     }

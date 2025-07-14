@@ -1,13 +1,3 @@
-/* .componentMain {
-  min-width: 350px; 
-} */
-.componentTitle {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  width: calc(100% - 200px);
-}
-
 .componentMainFullHeight {
   height: CALC(var(--vh, 1vh) * 100 - 65px);
 }
@@ -323,11 +313,28 @@
   text-align: center;
 }
 
-.trophy {
-  max-width: 50px;
+.profileLink {
+  width: 50px;
   max-height: 50px;
   border: 1px solid var(--main-link-color);
   border-radius: 12px;
+  font-size: 35px;
+  line-height: 50px;
+  cursor: pointer;
+}
+@supports (background: rgb(from red r g b)) {
+  .profileLink {
+    background: rgb(from var(--main-highlight-color) r g b / 25%);
+  }
+}
+
+.trophy {
+  width: 50px;
+  max-height: 50px;
+  border: 1px solid var(--main-link-color);
+  border-radius: 12px;
+  font-size: 35px;
+  line-height: 50px;
 }
 
 .topProfileContainer {
@@ -518,4 +525,14 @@
   z-index: 1000;  
   max-height: 0px;
   overflow-y: auto;
+}
+
+.userOptionsDiv {
+  display: flex;
+  align-content: center;
+  justify-content: center;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 10px;
 }

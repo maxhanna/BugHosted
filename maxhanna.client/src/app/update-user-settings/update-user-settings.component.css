@@ -201,18 +201,15 @@ input:checked + .slider:before {
 
   .sectionDescriptionSection:hover {
     border-bottom: 1px solid var(--main-link-color);
-  }
-
-.sectionHeaderLabel {
-}
+  } 
  
 .selectableIconMenuSection {
   border-top: var(--main-border);
 }
 
 .selectableMenuIconDescriptions {
-  padding: 20px;
-  font-size: smaller;
+  padding: 20px; 
+  color: var(--third-font-color);
 }
 
 .profilePictureSectionContainer {

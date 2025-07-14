@@ -31,7 +31,13 @@
   display: block;
   font-size:small;
   cursor: pointer;
+} 
+.miniUsernameSpan {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
+
 .username {
   color: var(--secondary-font-color);
 }

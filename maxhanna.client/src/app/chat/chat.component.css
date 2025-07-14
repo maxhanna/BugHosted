@@ -4,14 +4,7 @@
   min-height: 300px;
   min-width: 300px;
 }
-
-.componentTitle {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  width: calc(100% - 145px);
-}
-
+ 
 @media only screen and (min-width:800px) {
   .componentMain {
     min-width: 500px;

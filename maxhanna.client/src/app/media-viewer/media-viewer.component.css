@@ -1,7 +1,3 @@
-.componentTitle {
-  white-space: nowrap;
-}
-
 ::ng-deep .fullscreen-overlay {
   display: none;
   /* Hidden by default */

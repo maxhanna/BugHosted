@@ -33,7 +33,7 @@
 
 .resourceDiv {
   position: absolute;
-  top: CALC(var(--nexus-gamescreen-height) + 10px);
+  top: CALC(var(--nexus-gamescreen-height) + 27px);
   left: 50%;
   transform: translateX(-50%);
   max-width: 300px;
@@ -968,5 +968,5 @@
 .helpSnippet {
   font-size: large;
   font-weight: bolder;
-  padding: 20px;
+  padding: 0px 20px 5px 20px;
 }

@@ -400,7 +400,14 @@ export class ThemesComponent extends ChildComponent implements OnInit, OnDestroy
       this.warnUserToSave = (this.userSelectedTheme?.id !== this.originalThemeId);   
     }, 50); // timeout to make sure this is done after updateCSS. 
   }
-
+  openFontFamily() {
+    this.parentRef?.showOverlay();
+    this.fontFamilyExpanded = true;
+  }
+  closeFontFamily() {
+    this.parentRef?.closeOverlay();
+    this.fontFamilyExpanded = false;
+  }
 
   themeSearch() {
     const search = this.themeSearchInput.nativeElement.value;

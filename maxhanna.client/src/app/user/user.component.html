@@ -88,8 +88,31 @@
               <option *ngIf="user" value="userInfo">📝 {{ isAboutPanelOpen ? 'Hide ' : '' }} User Info</option>
               <option *ngIf="user && user.id == parentRef?.user?.id" value="settings">⚙️ Settings</option>
               <option *ngIf="user && user.id == parentRef?.user?.id" value="logout">🔑 Logout</option>
-            </select>
+            </select>  
           </div>
+          <div class="userOptionsDiv"> 
+            <div class="profileLink" *ngIf="trophies && trophies.length > 0 && user && user.id != parentRef?.user?.id" (click)="showTrophies()">
+              <app-media-viewer [displayExpander]="false" [displayExtraInfo]="false" [showCommentSection]="false"
+                [showTopics]="false" [blockExpand]="true" [file]="trophies[0].file"
+                [inputtedParentRef]="inputtedParentRef ?? parentRef" [previousComponent]="previousComponent ?? 'User'">
+              </app-media-viewer>
+            </div>
+            <div class="profileLink" (click)="openAboutPanel()" *ngIf="user && user.id != parentRef?.user?.id" title="Open 'About' Panel">
+              📝
+            </div>
+            <div class="profileLink" (click)="openChat()" *ngIf="user && user.id != parentRef?.user?.id" title="Open Chat">
+              🗨️
+            </div>
+            <div class="profileLink" (click)="openFriendsPanel()" *ngIf="user && user.id == parentRef?.user?.id" title="Open 'Friends' Panel">
+              👤
+            </div>
+            <div class="profileLink" (click)="openSettingsPanel()" *ngIf="user && user.id == parentRef?.user?.id" title="Open Settings">
+              ⚙️
+            </div>
+            <div class="profileLink" (click)="logout()" *ngIf="user && user.id == parentRef?.user?.id" title="Log Out">
+              🔑
+            </div>
+          </div> 
         </div>
       </div>
       
@@ -392,6 +415,7 @@
                 <app-media-viewer [displayExpander]="false"
                                   [displayExtraInfo]="false"
                                   [showCommentSection]="false"
+                                  [showTopics]="false"
                                   [file]="trophy.file"
                                   [inputtedParentRef]="inputtedParentRef ?? parentRef"
                                   [previousComponent]="previousComponent ?? 'User'">

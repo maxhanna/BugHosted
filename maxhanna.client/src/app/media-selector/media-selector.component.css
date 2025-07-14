@@ -55,6 +55,11 @@
   white-space: nowrap;
 }
 
+.mediaSelectorButtonFullWidthHeight {
+  width: 100%;
+  height: 100%;
+}
+
 .mediaFileName {
   display: inline-block;
   width: 10vw;
