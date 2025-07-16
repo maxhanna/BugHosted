@@ -36,15 +36,15 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
   isBTCWalletAddressesToggled = false;
   isAboutToggled = false;
   showAddBTCWalletAddressInput = false;
-  isNicehashApiKeysToggled = false;
-  isKrakenApiKeysToggled = false;
+  isApiKeysToggled = false;
+  showOnlyApiKeys = false; 
   selectableIcons: MenuItem[] = [];
   btcWalletAddresses?: string[];
   notifications: string[] = [];
   selectedCurrency = '';
   uniqueCurrencyNames: string[] = [];
   blockedUsers: User[] = [];
-  nhApiKeys?: NicehashApiKeys;
+  hasNhApiKeys?: boolean;
   hasKrakenKeys?: boolean;
   displayPictureFile?: FileEntry = this.parentRef?.user?.displayPictureFile;
   profileBackgroundPictureFile?: FileEntry = this.parentRef?.user?.profileBackgroundPictureFile;
@@ -102,8 +102,8 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
     this.isBlockedUsersToggled = false; 
     this.isDeleteAccountToggled = false;
     this.isAboutToggled = false;
-    this.isNicehashApiKeysToggled = this.showOnlyNicehashApiKeys ?? false;
-    this.isKrakenApiKeysToggled = this.showOnlyKrakenApiKeys ?? false;
+    this.isApiKeysToggled = this.showOnlyNicehashApiKeys ?? false;
+    this.isApiKeysToggled = this.showOnlyKrakenApiKeys ?? false;
 
     const user = this.inputtedParentRef?.user ?? this.parentRef?.user;
     if (user?.id) {
@@ -134,13 +134,29 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
   }
   async getNicehashApiKeys() {
     const user = this.parentRef?.user;
-    if (this.isNicehashApiKeysToggled && user?.id) {
-      this.nhApiKeys = await this.miningService.getNicehashApiInfo(user.id);
+    if (this.isApiKeysToggled && user?.id) {
+      this.hasNhApiKeys = await this.miningService.getNicehashApiInfo(user.id);
     }
   }
   async getKrakenApiKeys() {
-    if (this.isKrakenApiKeysToggled && this.parentRef?.user?.id && this.parentRef.user.id != 0) {
+    if (this.isApiKeysToggled && this.parentRef?.user?.id && this.parentRef.user.id != 0) {
       this.hasKrakenKeys = await this.tradeService.hasApiKey(this.parentRef.user.id);
+    }
+  }
+  async deleteNicehashApiKeys() {
+    if (!confirm("Are you sure?")) return;
+    const user = this.parentRef?.user;
+    if (this.isApiKeysToggled && user?.id) {
+      this.hasNhApiKeys = false;
+      await this.miningService.deleteNicehashApiInfo(user.id);
+    }
+  }
+  async deleteKrakenApiKeys() {
+    if (!confirm("Are you sure?")) return;
+    const user = this.parentRef?.user;
+    if (this.isApiKeysToggled && user?.id) {
+      this.hasKrakenKeys = false;
+      await this.miningService.deleteKrakenApiInfo(user.id);
     }
   }
   async getUniqueCurrencyNames() {
@@ -181,7 +197,7 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
   async updateKrakenAPIKeys() {
     const parent = this.inputtedParentRef ?? this.parentRef;
     const user = parent?.user;
-    if (this.isKrakenApiKeysToggled && user) {
+    if (this.isApiKeysToggled && user) {
       const krakenPrivateKey = this.krakenPrivateKey.nativeElement.value;
       const krakenApiKey = this.krakenApiKey.nativeElement.value; 
       try {
@@ -199,7 +215,7 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
   }
   async updateNHAPIKeys() {
     const user = this.parentRef?.user;
-    if (this.isNicehashApiKeysToggled && user?.id) {
+    if (this.isApiKeysToggled && user?.id) {
       let keys = new NicehashApiKeys();
       keys.orgId = this.orgId.nativeElement.value;
       keys.apiKey = this.apiKey.nativeElement.value;

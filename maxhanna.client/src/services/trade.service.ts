@@ -73,6 +73,9 @@ export class TradeService {
   async isTradebotStarted(userId: number, coin: string, strategy: string, encryptedUserId: string) {
     return this.post(`/trade/istradebotstarted`, {UserId: userId, Coin: coin, Strategy: strategy }, 'text', encryptedUserId);
   }  
+  async getAllTradebotStatuses(userId: number, encryptedUserId: string) {
+    return this.post(`/trade/getalltradebotstatuses`, userId, 'json', encryptedUserId);
+  }
   async upsertTradeConfiguration(config: any, encryptedUserId: string) {
     return this.post(`/trade/upserttradeconfiguration`, config, 'text', encryptedUserId);
   }

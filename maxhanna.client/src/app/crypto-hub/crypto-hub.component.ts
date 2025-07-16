@@ -101,6 +101,7 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
     from_currency: string,
     to_currency: string,
     value: string,
+    strategy: string,
     coin_price_cad: string,
     coin_price_usdc: string,
     trade_value_cad: string,
@@ -137,11 +138,7 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
   private tradeLogInterval: any = null;
   private coinAndVolumeRefreshInterval: any;
   private singleLineLogInterval: any;
-  lastTradebotTradeTimestamp: string = "";
-  lastTradebotTradeBuyOrSell: string = "";
-  lastTradebotTradeValue: string = "";
-  lastTradebotTradeValuePrice: string = "0";
-  lastTradebotTradePrice: string = "0";
+  lastTradebotTrade: any; 
   periodTypes = [
     { key: 'days', label: 'Daily Performance', periodKey: 'daily' },
     { key: 'weeks', label: 'Weekly Performance', periodKey: 'weekly' },
@@ -589,14 +586,14 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
     const parent = this.parentRef;
     if (parent && parent.user?.id) {
       const sessionToken = await parent.getSessionToken();
-      const currencies = ['BTC', 'XRP', 'SOL', 'XDG', 'ETH'];
-      const strategies = ['DCA', 'IND'];
+      // Make a single call to get all statuses
+      const allStatuses = await this.tradeService.getAllTradebotStatuses(parent.user.id, sessionToken);
 
-      for (const currency of currencies) {
-        for (const strategy of strategies) {
-          const res = await this.tradeService.isTradebotStarted(parent.user.id, currency, strategy, sessionToken);
-          this.tradeBotStartedSince[currency][strategy] = res as Date | undefined;
-          this.tradeBotStatus[currency][strategy] = !!res; // Set true if res exists, false otherwise
+      // Update local state with the response
+      for (const currency in allStatuses) {
+        for (const strategy in allStatuses[currency]) {
+          this.tradeBotStartedSince[currency][strategy] = allStatuses[currency][strategy] as Date | undefined;
+          this.tradeBotStatus[currency][strategy] = !!allStatuses[currency][strategy];
         }
       }
     } else {
@@ -617,6 +614,7 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
       };
     }
   }
+
   private async getBTCWallets() {
     this.wallet = this.wallet || [];
     const user = this.parentRef?.user;
@@ -1923,8 +1921,8 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
     this.tradebotValuesForGraph = this.tradebotBalances?.map(balance => {
       return {
         id: balance.id,
-        symbol: balance.to_currency.toUpperCase(), // or from_currency
-        name: this.getFullCoinName(balance.to_currency), // optional helper function
+        symbol: balance.to_currency.toUpperCase(),  
+        name: this.getFullCoinName(balance.to_currency),  
         valueCAD: parseFloat(balance.trade_value_cad),
         timestamp: new Date(balance.timestamp).toISOString(),
       } as CoinValue;
@@ -2485,14 +2483,19 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
     if (this.tradebotBalances && this.cadToUsdRate) {
       const value = this.tradebotBalances[0].value;
       const price = parseFloat(this.tradebotBalances[0].coin_price_usdc);
-      const buyOrSell = this.tradebotBalances[0].to_currency == "XBT" ? "Buy" : "Sell";
+      const buyOrSell = this.tradebotBalances[0].to_currency == "USDC" ? "Sell" : "Buy";
       const timestamp = this.getUtcTimeSince(this.tradebotBalances[0].timestamp);
       const vp = parseFloat(value) * price;
-      this.lastTradebotTradeTimestamp = timestamp;
-      this.lastTradebotTradeBuyOrSell = buyOrSell;
-      this.lastTradebotTradeValue = value;
-      this.lastTradebotTradeValuePrice = this.formatToCanadianCurrency(vp);
-      this.lastTradebotTradePrice = this.formatToCanadianCurrency(price);
+      this.lastTradebotTrade = {
+        'timestamp': timestamp, 
+        'buyOrSell': buyOrSell,
+        'value': value,
+        'fromCoin': this.tradebotBalances[0].from_currency,
+        'toCoin': this.tradebotBalances[0].to_currency, 
+        'valuePrice': this.formatToCanadianCurrency(vp), 
+        'tradePrice': this.formatToCanadianCurrency(price),
+        'strategy': this.tradebotBalances[0].strategy
+      };
     }
   }
   async enterPosition() {
@@ -2780,7 +2783,7 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
 
   async loadMacdGraphData() {
     try { 
-      const days = 30; // Match backend default
+      const days = 14; // Match backend default
       const fastPeriod = 12; // Match backend default
       const slowPeriod = 26; // Match backend default
       const signalPeriod = 9; // Match backend default

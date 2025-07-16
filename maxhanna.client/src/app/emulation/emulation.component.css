@@ -653,3 +653,10 @@ input:checked+.slider::before {
   font-size: 14px;
   vertical-align: middle;
 }
+
+.rebindingWrapper {
+  width: 240px;
+}
+.rebindingWrapper button:disabled {
+  color: black;
+}

@@ -56,6 +56,7 @@
                      [showPrivatePublicOption]="false"
                      [allowedFileTypes]="'image/*,video/*'"
                      [uploadButtonText]="'Upload Meme(s)'"
+                     [maxSelectedFiles]="100"
                      (userNotificationEvent)="uploadNotification($event);"
                      (userUploadEvent)="uploadFileListEvent($event);"
                      (userUploadFinishedEvent)="uploadFinished($event)"

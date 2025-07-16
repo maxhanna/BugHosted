@@ -800,54 +800,94 @@ namespace maxhanna.Server.Controllers
 				_ = _log.Db("FileId and FileName must be provided.", null, "AiController", true);
 				return;
 			}
-			string fileUrl = $"https://bughosted.com/File/{fileId}";
+
 			string lastMod = DateTime.UtcNow.ToString("yyyy-MM-dd");
+
+			// Define both URL forms
+			var urlPatterns = new[]
+			{
+				$"https://bughosted.com/File/{fileId}",
+				$"https://bughosted.com/Media/{fileId}"
+			};
 
 			await _sitemapLock.WaitAsync();
 			try
 			{
-				XDocument sitemap;
-
-				if (System.IO.File.Exists(_sitemapPath))
-				{
-					sitemap = XDocument.Load(_sitemapPath);
-				}
-				else
+				if (!System.IO.File.Exists(_sitemapPath))
 				{
 					_ = _log.Db("Sitemap not found, unable to update.", null, "AiController", true);
 					return;
 				}
+				var sitemap = XDocument.Load(_sitemapPath);
 
-				var urlElement = sitemap.Descendants(XName.Get("url", "http://www.sitemaps.org/schemas/sitemap/0.9"))
-								.FirstOrDefault(x => x.Element(XName.Get("loc", "http://www.sitemaps.org/schemas/sitemap/0.9"))?.Value == fileUrl);
+				// namespaces
+				XNamespace ns = "http://www.sitemaps.org/schemas/sitemap/0.9";
+				XNamespace vidNs = "http://www.google.com/schemas/sitemap-video/1.1";
+				XNamespace imgNs = "http://www.google.com/schemas/sitemap-image/1.1";
 
-				if (urlElement == null)
+				// ensure image namespace on root
+				var root = sitemap.Root;
+				if (root?.Attribute(XNamespace.Xmlns + "image") == null)
+					root?.SetAttributeValue(XNamespace.Xmlns + "image", imgNs.NamespaceName);
+
+				foreach (var fileUrl in urlPatterns)
 				{
-					_ = _log.Db($"No sitemap entry found for file {fileId}.", null, "AiController", true);
-					return;
+					// find existing <url> for this pattern
+					var urlElem = sitemap
+						.Descendants(ns + "url")
+						.FirstOrDefault(u => (string?)u.Element(ns + "loc") == fileUrl);
+
+					if (urlElem == null)
+					{
+						// create new <url> if missing
+						urlElem = new XElement(ns + "url",
+							new XElement(ns + "loc", fileUrl),
+							new XElement(ns + "lastmod", lastMod)
+						);
+						root?.Add(urlElem);
+					}
+					else
+					{
+						// update lastmod
+						urlElem.Element(ns + "lastmod")?.SetValue(lastMod);
+					}
+
+					// now update or add video vs. image block
+					var videoElement = urlElem.Element(vidNs + "video");
+					if (videoElement != null)
+					{
+						// update existing <video:video>
+						var descText = !string.IsNullOrEmpty(description) ? description : fileName;
+						videoElement.Element(vidNs + "title")?.SetValue(fileName);
+						videoElement.Element(vidNs + "description")?.SetValue(descText);
+					}
+					else
+					{
+						// treat as image
+						var imageElem = urlElem.Element(imgNs + "image");
+						var captionText = !string.IsNullOrEmpty(description) ? description : fileName;
+
+						if (imageElem != null)
+						{
+							// update existing
+							imageElem.Element(imgNs + "loc")?.SetValue(fileUrl);
+							imageElem.Element(imgNs + "title")?.SetValue(fileName);
+							imageElem.Element(imgNs + "caption")?.SetValue(captionText);
+						}
+						else
+						{
+							// create new <image:image>
+							imageElem = new XElement(imgNs + "image",
+								new XElement(imgNs + "loc", fileUrl),
+								new XElement(imgNs + "title", fileName),
+								new XElement(imgNs + "caption", captionText)
+							);
+							urlElem.Add(imageElem);
+						}
+					}
 				}
 
-				urlElement.Element(XName.Get("lastmod", "http://www.sitemaps.org/schemas/sitemap/0.9"))?.SetValue(lastMod);
-				XNamespace videoNamespace = "http://www.google.com/schemas/sitemap-video/1.1";
-
-				var videoElement = urlElement.Element(videoNamespace + "video");
-				if (videoElement != null)
-				{
-					// Update the title and description for the video
-					string desc = "";
-					if (!string.IsNullOrEmpty(description)) { desc = description; }
-					else if (!string.IsNullOrEmpty(fileName)) { desc = fileName; }
-					else { desc = "Updated video file description."; }
-
-					videoElement.Element(videoNamespace + "title")?.SetValue(fileName);
-					videoElement.Element(videoNamespace + "description")?.SetValue(desc);
-				}
-				else
-				{
-					_ = _log.Db("No <video:video> element found in sitemap for file.", null, "AiController", true);
-				}
-
-				// Save the updated sitemap
+				// persist changes
 				sitemap.Save(_sitemapPath);
 			}
 			catch (Exception ex)
@@ -859,6 +899,9 @@ namespace maxhanna.Server.Controllers
 				_sitemapLock.Release();
 			}
 		}
+
+
+
 
 		private static readonly SemaphoreSlim _sitemapLock = new(1, 1);
 		private readonly string _sitemapPath = Path.Combine(Directory.GetCurrentDirectory(), "../maxhanna.Client/src/sitemap.xml");

@@ -1,31 +1,19 @@
 <div [class]="'mainComponent ' + !selectedRomName ? 'componentMain' : ''">
-  <div class="closeButton" (click)="ngOnDestroy(); remove_me('GbcComponent');"></div>
+  <div class="closeButton" (click)="remove_me('EmulationComponent');"></div>
   <div class="menuButton" (click)="showMenuPanel();"></div>
   <div class="componentTitle">Emulation</div>
   <div class="gamesContainer {{ !selectedRomName ? 'expanded' : '' }}" *ngIf="isSearchVisible">
-    <app-file-search [user]="parentRef?.user"
-                     [inputtedParentRef]="parentRef"
-                     [currentDirectory]="'roms/'"
-                     [clearAfterSelectFile]="true"
-                     [allowedFileTypes]="getAllowedFileTypes()"
-                     [showPrivatePublicOption]="false"
-                     [showFileSearchOptions]="false"
-                     [canChangeDirectory]="false"
-                     [canDragMove]="false"
-                     [displayFileActions]="true"
-                     [displayComments]="false"
-                     [displayFileSize]="false"
-                     [displayReactions]="false"
-                     (selectFileEvent)="loadRom($event)">
+    <app-file-search [user]="parentRef?.user" [inputtedParentRef]="parentRef" [currentDirectory]="'roms/'"
+      [clearAfterSelectFile]="true" [allowedFileTypes]="getAllowedFileTypes()" [showPrivatePublicOption]="false"
+      [showFileSearchOptions]="false" [canChangeDirectory]="false" [canDragMove]="false" [displayFileActions]="true"
+      [displayComments]="false" [displayFileSize]="false" [displayReactions]="false"
+      (selectFileEvent)="loadRom($event)">
     </app-file-search>
   </div>
 
 
-  <div class="gameboy"
-       id="GameBoy"
-       #fullscreenContainer
-       [style.visibility]="selectedRomName ? 'visible' : 'hidden'"
-       [style.height]="selectedRomName ? '' : '0px'">
+  <div class="gameboy" id="GameBoy" #fullscreenContainer [style.visibility]="selectedRomName ? 'visible' : 'hidden'"
+    [style.height]="selectedRomName ? '' : '0px'">
 
     <div class="screen-area" [style.height]="!onMobile() ? '100%' : ''">
       <canvas id="mainCanvas" [class]="unlockedCanvas ? '' : 'mainCanvas'" #canvas slot="lcd"></canvas>
@@ -34,7 +22,8 @@
     <div class="nintendo"><span class="nintendoLogo">Hackboy</span></div>
 
     <div class="controls">
-      <div class="dpad" [style.visibility]="!selectedRomName ? 'hidden' : !showControls ? 'hidden' : !parentRef?.isShowingOverlay ? 'visible' : 'hidden'">
+      <div class="dpad"
+        [style.visibility]="!selectedRomName ? 'hidden' : !showControls ? 'hidden' : !parentRef?.isShowingOverlay ? 'visible' : 'hidden'">
         <div class="up-left">
           <div class="up-left-triangle"></div>
         </div>
@@ -63,15 +52,25 @@
         </div>
       </div>
       <div class="a-b" *ngIf="!parentRef?.isShowingOverlay">
-        <div class="b" [style.visibility]="!selectedRomName ? 'hidden' : !showControls ? 'hidden' : displayAB ? 'visible' : 'hidden'">B</div>
-        <div class="a" [style.visibility]="!selectedRomName ? 'hidden' : !showControls ? 'hidden' : displayAB ? 'visible' : 'hidden'">A</div>
-        <div class="c" [style.visibility]="!selectedRomName ? 'hidden' : !showControls ? 'hidden' : displayC ? 'visible' : 'hidden'">C</div>
+        <div class="b"
+          [style.visibility]="!selectedRomName ? 'hidden' : !showControls ? 'hidden' : displayAB ? 'visible' : 'hidden'">
+          B</div>
+        <div class="a"
+          [style.visibility]="!selectedRomName ? 'hidden' : !showControls ? 'hidden' : displayAB ? 'visible' : 'hidden'">
+          A</div>
+        <div class="c"
+          [style.visibility]="!selectedRomName ? 'hidden' : !showControls ? 'hidden' : displayC ? 'visible' : 'hidden'">
+          C</div>
       </div>
     </div>
 
     <div class="start-select">
-      <div class="select" [style.visibility]="!selectedRomName ? 'hidden' : !showControls ? 'hidden' : !parentRef?.isShowingOverlay ? 'visible' : 'hidden'">SELECT</div>
-      <div class="start" [style.visibility]="!selectedRomName ? 'hidden' : !showControls ? 'hidden' : !parentRef?.isShowingOverlay ? 'visible' : 'hidden'">START</div>
+      <div class="select"
+        [style.visibility]="!selectedRomName ? 'hidden' : !showControls ? 'hidden' : !parentRef?.isShowingOverlay ? 'visible' : 'hidden'">
+        SELECT</div>
+      <div class="start"
+        [style.visibility]="!selectedRomName ? 'hidden' : !showControls ? 'hidden' : !parentRef?.isShowingOverlay ? 'visible' : 'hidden'">
+        START</div>
     </div>
   </div>
 
@@ -83,8 +82,7 @@
 <div class="popupPanel" style="overflow: auto;" *ngIf="isMenuPanelOpen">
   <div class="popupPanelTitle" style="margin-bottom:15px;">
     Emulation Menu
-    <span class="helperSpanTitle"
-          title="This emulator autosaves every minute and when the game closes (ie: when you navigate away from this page).
+    <span class="helperSpanTitle" (click)="showHelpText = !showHelpText" title="This emulator autosaves every minute and when the game closes (ie: when you navigate away from this page).
      ◻️ : Toggle fullscreen mode.
      🛑 : Click on this to power off the emulator (if autosave is selected, this will also save your progress).
      🔊/🔇 : Click on this to mute/unmute the audio.
@@ -92,15 +90,13 @@
      "></span>
   </div>
   <div class="optionsStatsWrapperDiv explainWrapper">
-    <div class="optionsStatsDiv">
+    <div class="optionsStatsDiv" *ngIf="!showControlBindings">
       <div class="optionsStatsHeader">
         Autosave:
       </div>
       <div class="optionsStatsDescription">
         <label class="toggle-switch">
-          <input type="checkbox"
-          [checked]="autosave"
-          (change)="autosave = !autosave">
+          <input type="checkbox" [checked]="autosave" (change)="autosave = !autosave">
           <span class="slider"></span>
         </label>
         <span class="toggle-label">{{ autosave ? 'On' : 'Off' }}</span>
@@ -130,12 +126,13 @@
         <span class="uploadRomSpan upload-label" #stopButton (click)="stopEmulator()" title="Power Off">🛑</span>
       </div>
     </div>
-    <div class="optionsStatsDiv">
+    <div class="optionsStatsDiv" *ngIf="!showControlBindings">
       <div class="optionsStatsHeader">
         Fullscreen:
       </div>
       <div class="optionsStatsDescription">
-        <div class="uploadRomSpan upload-label" id="fullscreenBtn" (click)="toggleFullscreen()" title="Fullscreen mode">◻️</div>
+        <div class="uploadRomSpan upload-label" id="fullscreenBtn" (click)="toggleFullscreen()" title="Fullscreen mode">
+          ◻️</div>
       </div>
     </div>
     <div class="optionsStatsDiv" *ngIf="nostalgist">
@@ -146,45 +143,59 @@
         <button (click)="nostalgist.restart()">Reset</button>
       </div>
     </div>
-    <div class="optionsStatsDiv">
+    <div class="optionsStatsDiv" *ngIf="!showControlBindings">
       <div class="optionsStatsHeader">
         Mute/Unmute:
       </div>
       <div class="optionsStatsDescription">
-        <span class="uploadRomSpan upload-label" (click)="toggleSound()" title="Toggle audio">{{ soundOn ? '🔊' : '🔇' }}</span>
+        <span class="uploadRomSpan upload-label" (click)="toggleSound()" title="Toggle audio">{{ soundOn ? '🔊' : '🔇'
+          }}</span>
       </div>
     </div>
-    <div class="optionsStatsDiv">
+    <div class="optionsStatsDiv" *ngIf="!showControlBindings">
       <div class="optionsStatsHeader">
         Volume:
       </div>
       <div class="optionsStatsDescription uploadRomSpan upload-label controlVolume">
-        <input type="range" min="0" [max]="maxVolume" [value]="currentVolume" (input)="onVolumeChange($event)" title="Adjust volume levels">
+        <input type="range" min="0" [max]="maxVolume" [value]="currentVolume" (input)="onVolumeChange($event)"
+          title="Adjust volume levels">
       </div>
     </div>
-        <div class="optionsStatsDiv">
-          <div class="optionsStatsHeader">
-            Controls:
-          </div>
-          <div class="optionsStatsDescription">
-            <label class="toggle-switch">
-              <input type="checkbox" [checked]="showControls" (change)="showControls = !showControls">
-              <span class="slider"></span>
-            </label>
-            <span class="toggle-label">{{ showControls ? 'Display' : 'Hide' }}</span>
-          </div>
-        </div>
-    <div class="optionsStatsDiv">
+    <div class="optionsStatsDiv" *ngIf="!showControlBindings">
+      <div class="optionsStatsHeader">
+        Controls:
+      </div>
+      <div class="optionsStatsDescription">
+        <label class="toggle-switch">
+          <input type="checkbox" [checked]="showControls" (change)="showControls = !showControls">
+          <span class="slider"></span>
+        </label>
+        <span class="toggle-label">{{ showControls ? 'Display' : 'Hide' }}</span>
+      </div>
+    </div>
+    <div class="optionsStatsDiv" *ngIf="!onMobile()">
+      <div class="optionsStatsHeader">
+        Rebind Controls:
+      </div>
+      <div class="optionsStatsDescription">
+        <label class="toggle-switch">
+          <input type="checkbox" [checked]="showControlBindings" (change)="showControlBindings = !showControlBindings">
+          <span class="slider"></span>
+        </label>
+        <span class="toggle-label">{{ showControlBindings ? 'Show' : 'Hide' }}</span>
+      </div>
+    </div>
+    <div class="optionsStatsDiv" *ngIf="!showControlBindings">
       <div class="optionsStatsHeader">
         Upload ROM file:
       </div>
       <div class="optionsStatsDescription uploadRomSpan upload-label controlVolume">
         <app-file-upload [currentDirectory]="'Roms'" [user]="parentRef?.user!" [inputtedParentRef]="parentRef"
-          [uploadButtonText]="'Upload Rom(s)'" [maxSelectedFiles]="100">
+          [uploadButtonText]="'Upload Rom(s)'" [maxSelectedFiles]="100" [allowedFileTypes]="allowedFileTypes">
         </app-file-upload>
       </div>
     </div>
-    <div class="optionsStatsDiv">
+    <div class="optionsStatsDiv" *ngIf="!showControlBindings">
       <div class="optionsStatsHeader">
         Share Link
       </div>
@@ -193,69 +204,42 @@
           ↗️Share
         </button>
       </div>
-    </div>  
+    </div>
   </div>
-
-  <div class="optionsStatsWrapperDiv smallFont explainWrapper" *ngIf="!showControls && !onMobile()">
-    <div class="optionsStatsDiv">
-      <div class="optionsStatsHeader">
-        Controller: A
-      </div>
-      <div class="optionsStatsDescription">
-        Keyboard: X
-      </div>
+  <div *ngIf="showHelpText" class="helpTextBox gradientBackground"
+    style="margin-top: 10px; padding: 10px; border: 1px solid #ccc;">
+    This emulator autosaves every minute and when the game closes.<br><br>
+    ◻️ : Toggle fullscreen mode.<br>
+    🛑 : Click on this to power off the emulator (if autosave is selected, this will also save your progress).<br>
+    🔊/🔇 : Click on this to mute/unmute the audio.<br>
+    <div style="padding: 20px;">
+      ⌨️ Emulator Keybindings / Keyboard Controls<br><br>
+      A: {{ getKeybinding('a') }}<br>
+      B: {{ getKeybinding('b') }}<br>
+      C: {{ getKeybinding('c') }}<br>
+      Q (Left Trigger - GBA): {{ getKeybinding('l') }}<br>
+      W (Right Trigger - GBA): {{ getKeybinding('r') }}<br>
+      Start: {{ getKeybinding('start') }}<br>
+      Select: {{ getKeybinding('select') }}<br>
     </div>
-    <div class="optionsStatsDiv">
-      <div class="optionsStatsHeader">
-        Controller: B
-      </div>
-      <div class="optionsStatsDescription">
-        Keyboard: Z
-      </div>
+    <div style="width: 100%; text-align: center;">
+      <button (click)="showHelpText = !showHelpText;">OK</button>
     </div>
-    <div class="optionsStatsDiv">
+  </div>
+  <div *ngIf="!showControls && !onMobile() && !showHelpText && showControlBindings" class="optionsStatsWrapperDiv rebindingWrapper"> 
+    <div class="optionsStatsDiv smallFont explainWrapper" *ngFor="let entry of keybindingEntriesList">
       <div class="optionsStatsHeader">
-        Controller: C
+        Bind: {{ entry[0].toUpperCase() }}
       </div>
       <div class="optionsStatsDescription">
-        Keyboard: A
-      </div>
-    </div>
-    <div class="optionsStatsDiv">
-      <div class="optionsStatsHeader">
-        Controller: Left Trigger <span class="xxSmallFont">(GBA)</span>
-      </div>
-      <div class="optionsStatsDescription">
-        Keyboard: Q
-      </div>
-    </div>
-    <div class="optionsStatsDiv">
-      <div class="optionsStatsHeader">
-        Controller: Right Trigger <span class="xxSmallFont">(GBA)</span>
-      </div>
-      <div class="optionsStatsDescription">
-        Keyboard: W
-      </div>
-    </div>
-    <div class="optionsStatsDiv">
-      <div class="optionsStatsHeader">
-        Controller: START
-      </div>
-      <div class="optionsStatsDescription">
-        Keyboard: Enter
-      </div>
-    </div>
-    <div class="optionsStatsDiv">
-      <div class="optionsStatsHeader">
-        Controller: SELECT
-      </div>
-      <div class="optionsStatsDescription">
-        Keyboard: Shift
+        <button (click)="waitingForKey = entry[0]" [disabled]="waitingForKey !== null">
+          {{ waitingForKey === entry[0] ? 'Press a key...' : entry[1] }}
+        </button>
       </div>
     </div>
   </div>
-  <div class="smallFont secondaryFontColor"> 
-      Note: Most Gamepads/Controllers are fully supported and plug-and-play. 
+  <div class="smallFont secondaryFontColor">
+    Note: Most Gamepads/Controllers are fully supported and plug-and-play.
   </div>
   <button id="closeOverlay" (click)="closeMenuPanel()">Close</button>
 </div>

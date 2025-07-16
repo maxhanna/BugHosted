@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Mvc;
 using MySqlConnector;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using SixLabors.ImageSharp.Formats.Bmp;
 using System.Collections.ObjectModel;
 using System.Text.Json;
 
@@ -26,7 +27,7 @@ namespace maxhanna.Server.Controllers
 
 		[HttpPost("/Mining/GetNicehashApiCredentials", Name = "GetNicehashApiCredentials")]
 		public async Task<Dictionary<string, string>> GetNicehashCredentials([FromBody] int userId)
-		{ 
+		{
 			var credentials = new Dictionary<string, string>();
 
 			try
@@ -51,7 +52,7 @@ namespace maxhanna.Server.Controllers
 							}
 						}
 					}
-				} 
+				}
 			}
 			catch (Exception ex)
 			{
@@ -60,6 +61,82 @@ namespace maxhanna.Server.Controllers
 			}
 
 			return credentials;
+		}
+
+
+		[HttpPost("/Mining/GetHasNicehashApiCredentials", Name = "GetHasNicehashApiCredentials")]
+		public async Task<bool> GetHasNicehashApiCredentials([FromBody] int userId)
+		{
+			try
+			{
+				using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+				{
+					await conn.OpenAsync();
+
+					string sql = "SELECT 1 FROM maxhanna.nicehash_api_keys WHERE ownership = @Owner LIMIT 1;";
+					using (var cmd = new MySqlCommand(sql, conn))
+					{
+						cmd.Parameters.AddWithValue("@Owner", userId);
+						var result = await cmd.ExecuteScalarAsync();
+						return result != null;
+					}
+				}
+			}
+			catch (Exception ex)
+			{
+				_ = _log.Db("Error occurred while checking Nicehash credentials. " + ex.Message, userId, "MINING", true);
+				throw;
+			}
+		}
+
+		[HttpPost("/Mining/DeleteNicehashApiCredentials", Name = "DeleteNicehashApiCredentials")]
+		public async Task<bool> DeleteNicehashApiCredentials([FromBody] int userId)
+		{
+			try
+			{
+				using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+				{
+					await conn.OpenAsync();
+
+					string sql = "DELETE FROM maxhanna.nicehash_api_keys WHERE ownership = @Owner LIMIT 1;";
+					using (var cmd = new MySqlCommand(sql, conn))
+					{
+						cmd.Parameters.AddWithValue("@Owner", userId);
+						var result = await cmd.ExecuteScalarAsync();
+						return result != null;
+					}
+				}
+			}
+			catch (Exception ex)
+			{
+				_ = _log.Db("Error occurred while checking Nicehash credentials. " + ex.Message, userId, "MINING", true);
+				throw;
+			}
+		}
+
+		[HttpPost("/Mining/DeleteKrakenApiCredentials", Name = "DeleteKrakenApiCredentials")]
+		public async Task<bool> DeleteKrakenApiCredentials([FromBody] int userId)
+		{
+			try
+			{
+				using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+				{
+					await conn.OpenAsync();
+
+					string sql = "DELETE FROM maxhanna.user_kraken_api_keys WHERE user_id = @Owner LIMIT 1;";
+					using (var cmd = new MySqlCommand(sql, conn))
+					{
+						cmd.Parameters.AddWithValue("@Owner", userId);
+						var result = await cmd.ExecuteScalarAsync();
+						return result != null;
+					}
+				}
+			}
+			catch (Exception ex)
+			{
+				_ = _log.Db("Error occurred while deleting Kraken credentials. " + ex.Message, userId, "MINING", true);
+				throw;
+			}
 		}
 
 		[HttpPut("/Mining/UpdateNicehashApiCredentials", Name = "UpdateNicehashApiCredentials")]

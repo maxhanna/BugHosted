@@ -33,41 +33,56 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
   isSearchVisible = true;
   isFullScreen = false;
   showControls = this.onMobile();
-  coreMapping: { [key: string]: string } = {
-    'sgx': 'mednafen_supergrafx', // SuperGrafx
-    'vb': 'mednafen_vb',        // Virtual Boy
-    'ws': 'mednafen_wswan',     // WonderSwan
-    'wsc': 'mednafen_wswan',    // WonderSwan Color
-    'gba': 'mgba',              // Game Boy Advance
-    'gbc': 'mgba',              // Game Boy Color
-    'gb': 'mgba',               // Game Boy
-    'gen': 'genesis_plus_gx',   // Sega Genesis/Mega Drive
-    'md': 'genesis_plus_gx',    // Sega Mega Drive (alternate extension)
-    'smd': 'genesis_plus_gx',   // Sega Genesis/Mega Drive
-    '32x': 'genesis_plus_gx',   // Sega 32X
-    'sms': 'genesis_plus_gx',   // Sega Master System
-    'gg': 'genesis_plus_gx',    // Sega Game Gear
+  readonly coreMapping: { [key: string]: string } = {
+    'gba': 'mgba',               // Game Boy Advance
+    'gbc': 'mgba',           // Game Boy Color
+    'gb': 'mgba',            // Game Boy
     'nes': 'fceumm',             // Nintendo Entertainment System
-    'fds': 'fceux',             // Famicom Disk System
-    'sfc': 'snes9x',            // Super Famicom
-    'smc': 'snes9x',            // Super Nintendo (alternate extension)
-    'snes': 'snes9x',           // Super Nintendo
-    'nds': 'desmume',           // Nintendo DS
+    'sfc': 'snes9x',             // Super Famicom
+    'smc': 'snes9x',             // Super Nintendo (alternate extension)
+    'snes': 'snes9x',            // Super Nintendo
+    'vb': 'mednafen_vb',         // Virtual Boy
+    'ws': 'mednafen_wswan',      // WonderSwan
+    'wsc': 'mednafen_wswan',     // WonderSwan Color
+
+    // Sega
+    'gen': 'genesis_plus_gx',    // Sega Genesis / Mega Drive
+    'md': 'genesis_plus_gx',     // Sega Mega Drive (alternate extension)
+    'smd': 'genesis_plus_gx',    // Sega Genesis / Mega Drive
+    '32x': 'genesis_plus_gx',    // Sega 32X
+    'sms': 'genesis_plus_gx',    // Sega Master System
+    'gg': 'genesis_plus_gx',     // Sega Game Gear
+
+    // PC Engine / TurboGrafx
+    'pce': 'mednafen_pce_fast',  // PC Engine / TurboGrafx-16
+    'sgx': 'mednafen_supergrafx',// SuperGrafx
+
+    // Neo Geo Pocket
+    'ngp': 'mednafen_ngp',       // Neo Geo Pocket
+    'ngpc': 'mednafen_ngp',      // Neo Geo Pocket Color
+
+    // Arcade (FBA/MAME)
+    'zip': 'mame2003_plus',      // Arcade ZIP (fallback to MAME 2003 Plus)
+    'fba': 'fbalpha2012',        // Final Burn Alpha general
+    'fba_cps1': 'fbalpha2012_cps1', // Capcom CPS1
+    'fba_cps2': 'fbalpha2012_cps2', // Capcom CPS2
+    'fba_neogeo': 'fbalpha2012_neogeo', // Neo Geo
   };
-  segaFileTypes: string[] = Object.entries(this.coreMapping)
+  readonly allowedFileTypes = Object.keys(this.coreMapping).map(ext => `.${ext}`).join(','); 
+  readonly segaFileTypes: string[] = Object.entries(this.coreMapping)
     .filter(([key, value]) => value.includes('genesis'))
     .map(([key, value]) => key);
-  snesFileTypes: string[] = Object.entries(this.coreMapping)
+  readonly snesFileTypes: string[] = Object.entries(this.coreMapping)
     .filter(([key, value]) => value.includes('snes'))
     .map(([key, value]) => key);
-  gameboyFileTypes: string[] = Object.entries(this.coreMapping)
+  readonly gameboyFileTypes: string[] = Object.entries(this.coreMapping)
     .filter(([key, value]) => key.includes('gb'))
     .map(([key, value]) => key);
   oldCanvasWidth = 0;
   oldCanvasHeight = 0;
   oldSpeakerDisplay = '';
   controlsSet = false;
-
+  showHelpText =  false;
   autosaveInterval: any;
   autosaveIntervalTime: number = 60000; // 1 minute in milliseconds
   autosave = true;
@@ -75,6 +90,35 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
   maxVolume = 99;
   actionDelay = 50;
   unlockedCanvas: boolean = false;
+  keybindings: { [action: string]: string } = {
+    a: 'x',
+    b: 'z',
+    c: 'a',
+    start: 'Enter',
+    select: 'Shift',
+    l: 'q',
+    r: 'w',
+    up: 'ArrowUp',
+    down: 'ArrowDown',
+    left: 'ArrowLeft',
+    right: 'ArrowRight'
+  };  
+  readonly defaultKeybindings: { [action: string]: string } = {
+    a: 'x',
+    b: 'z',
+    c: 'a',
+    l: 'q', // left trigger
+    r: 'w', // right trigger
+    start: 'Enter',
+    select: 'Shift',
+    up: 'ArrowUp',
+    down: 'ArrowDown',
+    left: 'ArrowLeft',
+    right: 'ArrowRight'
+  };
+  waitingForKey: string | null = null;
+  showControlBindings = false;
+
   constructor(private romService: RomService, private fileService: FileService) { super(); }
 
   async ngOnInit() {  
@@ -93,26 +137,47 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
     
     this.parentRef?.setViewportScalability(false);
     this.parentRef?.addResizeListener();
-  }
-  override async remove_me(componentTitle: string) {
-    await this.stopEmulator().then(() => {
-      this.isLoading = false;  // Ensure this is executed regardless of saveState result
-      if (this.parentRef && this.unique_key) {
-        this.parentRef.removeComponent(this.unique_key);
-      } else {
-        console.log("key not found: " + componentTitle);
-      }
-    }); 
-  }
+  } 
   async ngOnDestroy() {
-    await this.clearAutosave();
-    this.nostalgist?.exit();
-    this.nostalgist = undefined;
-    this.parentRef?.setViewportScalability(true);
-    this.parentRef?.removeResizeListener();
+    await this.stopEmulator().then(async () => {
+      this.isLoading = false; 
+      this.nostalgist = undefined;
+      this.parentRef?.setViewportScalability(true);
+      this.parentRef?.removeResizeListener();  
+    });  
   }
   setupEventListeners() {
     document.addEventListener('keydown', (event) => {
+      if (this.waitingForKey) {
+        event.preventDefault();
+        const newKey = event.key;
+        this.keybindings[this.waitingForKey] = newKey;
+        this.waitingForKey = null;
+        this.parentRef?.showNotification(`Bound to "${newKey}"`);
+        return;
+      }
+
+      // Check if key matches any binding
+      const pressedKey = event.key;
+      const action = Object.entries(this.keybindings).find(([_, val]) => val === pressedKey)?.[0];
+
+      if (action) {
+        this.nostalgist?.pressDown(action);
+        event.preventDefault(); // prevent default browser action
+      }
+    });
+
+    document.addEventListener('keyup', (event) => {
+      const releasedKey = event.key;
+      const action = Object.entries(this.keybindings).find(([_, val]) => val === releasedKey)?.[0];
+
+      if (action) {
+        this.nostalgist?.pressUp(action);
+        event.preventDefault();
+      }
+    });
+
+    document.addEventListener('keydown', (event) => { 
       if (event.key === 'Escape' || event.key === 'Esc') { 
         if (this.isFullScreen) { 
           this.toggleFullscreen();
@@ -186,8 +251,9 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
 
     await this.nostalgist.launchEmulator();
     setTimeout(() => {
-      this.nostalgist?.sendCommand('MUTE');
-      this.soundOn = false;
+      if (!this.soundOn) { 
+        this.nostalgist?.sendCommand('MUTE');
+      }
     }, 1);
     this.setHTMLControls();
     this.setupAutosave();
@@ -465,6 +531,14 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
 
   getAllowedFileTypes(): string[] {
     return this.fileService.romFileExtensions;
+  }
+
+  get keybindingEntriesList() {
+    return Object.entries(this.keybindings);
+  }
+
+  getKeybinding(action: string): string {
+    return this.keybindings[action] || this.defaultKeybindings[action] || 'Unbound';
   }
 
   showMenuPanel() {

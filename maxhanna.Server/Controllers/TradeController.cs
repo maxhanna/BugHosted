@@ -86,6 +86,24 @@ public class TradeController : ControllerBase
 		}
 	}
 
+	[HttpPost("/Trade/GetAllTradebotStatuses", Name = "GetAllTradebotStatuses")]
+	public async Task<IActionResult> GetAllTradebotStatuses([FromBody] int UserId, [FromHeader(Name = "Encrypted-UserId")] string encryptedUserId)
+	{
+		_ = _log.Db($"Getting all tradebot statuses for user: {UserId}", UserId, "TRADE", true);
+
+		try
+		{
+			if (!await _log.ValidateUserLoggedIn(UserId, encryptedUserId))
+				return StatusCode(500, "Access Denied.");
+
+			var result = await _krakenService.GetAllTradebotStatuses(UserId);
+			return Ok(result);
+		}
+		catch (Exception ex)
+		{
+			return StatusCode(500, "Error getting trade bot statuses. " + ex.Message);
+		}
+	}
 	[HttpPost("/Trade/IsTradebotStarted", Name = "IsTradebotStarted")]
 	public async Task<IActionResult> IsTradebotStarted([FromBody] TradebotStatusRequest req, [FromHeader(Name = "Encrypted-UserId")] string encryptedUserId)
 	{

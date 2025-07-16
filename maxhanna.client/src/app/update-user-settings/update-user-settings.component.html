@@ -245,58 +245,56 @@ but you can also set your own City for a more precise location."></span>
       </div>
     </div>
 
-    <!--NICEHASH API-->
-    <div
-      (click)="(showOnlyNicehashApiKeys ? '' : (isNicehashApiKeysToggled = !isNicehashApiKeysToggled)); getNicehashApiKeys()"
-      *ngIf="!showOnlyKrakenApiKeys && !showOnlyWeatherLocation && !showOnlySelectableMenuItems && parentRef?.user"
-      class="sectionHeaderDiv">
-      <div class="sectionHeaderLabel popupPanelTitle">
-        <div><span class="helperSpanTitle"
-            title="These API Keys enable Nicehash support. A system for mining cryptocurrency."></span></div>
-        <div class="settingsSectionHeaderTitle">Nicehash API Keys</div>
-      </div>
-      <div style="text-align:right;">
-        <button (click)="updateNHAPIKeys()" title="Update settings" [disabled]="!isNicehashApiKeysToggled"
-          *ngIf="isNicehashApiKeysToggled || showOnlyKrakenApiKeys">💾Save</button>
-      </div>
-    </div>
-    <div *ngIf="isNicehashApiKeysToggled || showOnlyNicehashApiKeys"
-      class="krakenApiKeyWrapperDiv sectionDescriptionDiv">
-      <div class="apiKeyInputWrapper sectionDescriptionSection">
-        <div>OrgId:</div>
-        <div><input type="text" placeholder="Org Id" #orgId [value]="nhApiKeys?.orgId ?? ''" /></div>
-      </div>
-      <div class="apiKeyInputWrapper sectionDescriptionSection">
-        <div>ApiKey:</div>
-        <div><input type="text" placeholder="API Key" #apiKey [value]="nhApiKeys?.apiKey ?? ''" /></div>
-      </div>
-      <div class="apiKeyInputWrapper sectionDescriptionSection">
-        <div>ApiSecret:</div>
-        <div><input type="text" placeholder="API Secret" #apiSecret [value]="nhApiKeys?.apiSecret ?? ''" /></div>
-      </div>
-    </div>
 
-    <!--KRAKEN API-->
-    <div (click)="(showOnlyKrakenApiKeys ? '' : (isKrakenApiKeysToggled = !isKrakenApiKeysToggled)); getKrakenApiKeys()"
-      *ngIf="showOnlyKrakenApiKeys || (!showOnlyNicehashApiKeys && !showOnlyWeatherLocation && !showOnlySelectableMenuItems && parentRef?.user)"
+
+    <div (click)="(showOnlyApiKeys ? '' : (isApiKeysToggled = !isApiKeysToggled)); getNicehashApiKeys(); getKrakenApiKeys()"
+      *ngIf="(showOnlyApiKeys || (!showOnlyWeatherLocation && !showOnlySelectableMenuItems && parentRef?.user))"
       class="sectionHeaderDiv">
+    
       <div class="sectionHeaderLabel popupPanelTitle">
-        <div><span class="helperSpanTitle"
-            title="These API Keys enable Trade bot support. A system for automatically trading cryptocurrency."></span>
+        <div>
+          <span class="helperSpanTitle"
+            title="Configure your NiceHash and Kraken API keys here to enable crypto mining and trading support."></span>
         </div>
-        <div class="settingsSectionHeaderTitle">Kraken API Keys</div>
+        <div class="settingsSectionHeaderTitle">Crypto API Keys</div>
       </div>
+    
       <div style="text-align:right;">
-        <button (click)="updateKrakenAPIKeys()" title="Update settings" [disabled]="!isKrakenApiKeysToggled"
-          *ngIf="isKrakenApiKeysToggled || showOnlyKrakenApiKeys">💾Save</button>
+        <button (click)="updateNHAPIKeys(); updateKrakenAPIKeys()" title="Update both NiceHash and Kraken settings"
+          [disabled]="!isApiKeysToggled" *ngIf="isApiKeysToggled || showOnlyApiKeys">💾Save All</button>
       </div>
     </div>
-    <div *ngIf="showOnlyKrakenApiKeys || isKrakenApiKeysToggled" class="krakenApiKeyWrapperDiv sectionDescriptionDiv">
+    
+    <div *ngIf="isApiKeysToggled || showOnlyApiKeys" class="sectionDescriptionDiv">
+    
+      <!-- NICEHASH KEYS -->
+      <div class="sectionSubHeader">NiceHash API Keys</div>
+      <div class="apiKeyInputWrapper sectionDescriptionSection">
+        <div>OrgId<span *ngIf="hasNhApiKeys" title="Key is saved. For security purposes, we cannot show the saved API key."
+          class="cursorPointer glowing onlineButton"> 🟢</span>:</div>
+        <div><input type="text" placeholder="Org Id {{hasNhApiKeys ? '(Overwriting)' : ''}}" /></div>
+      </div>
+      <div class="apiKeyInputWrapper sectionDescriptionSection">
+        <div>ApiKey<span *ngIf="hasNhApiKeys" title="Key is saved. For security purposes, we cannot show the saved API key."
+          class="cursorPointer glowing onlineButton"> 🟢</span>:</div>
+        <div><input type="text" placeholder="API Key {{hasNhApiKeys ? '(Overwriting)' : ''}}" #apiKey /></div>
+      </div>
+      <div class="apiKeyInputWrapper sectionDescriptionSection">
+        <div>ApiSecret<span *ngIf="hasNhApiKeys" title="Key is saved. For security purposes, we cannot show the saved API key."
+          class="cursorPointer glowing onlineButton"> 🟢</span>:</div>
+        <div><input type="text" placeholder="API Secret {{hasNhApiKeys ? '(Overwriting)' : ''}}" #apiSecret /></div>
+      </div>
+      <div class="apiKeyInputWrapper sectionDescriptionSection">
+        <div>Delete Nicehash Keys:</div>
+        <div><button (click)="deleteNicehashApiKeys()">Delete</button></div>
+      </div>
+     
+      <!-- KRAKEN KEYS -->
+      <div class="sectionSubHeader">Kraken API Keys</div>
       <div class="apiKeyInputWrapper sectionDescriptionSection">
         <div>
-          Api Key<span *ngIf="hasKrakenKeys"
-            title="Key is saved. For security purposes, we cannot show the saved API key."
-            class="cursorPointer glowing onlineButton">🟢</span>:
+          Api Key<span *ngIf="hasKrakenKeys" title="Key is saved. For security purposes, we cannot show the saved API key."
+            class="cursorPointer glowing onlineButton"> 🟢</span>:
         </div>
         <div><input type="text" placeholder="API Key {{hasKrakenKeys ? '(Overwriting)' : ''}}" #krakenApiKey /></div>
       </div>
@@ -304,22 +302,22 @@ but you can also set your own City for a more precise location."></span>
         <div>
           Private Key<span *ngIf="hasKrakenKeys"
             title="Key is saved. For security purposes, we cannot show the saved API key."
-            class="cursorPointer glowing onlineButton">🟢</span>:
+            class="cursorPointer glowing onlineButton"> 🟢</span>:
         </div>
         <div><input type="text" placeholder="Private Key {{hasKrakenKeys ? '(Overwriting)' : ''}}" #krakenPrivateKey />
         </div>
       </div>
       <div class="apiKeyInputWrapper sectionDescriptionSection">
-        <div>
-          Information:
-        </div>
-        <div>
-          <button (click)="showKrakenHelpPanel()">Help</button>
-        </div>
+        <div>Information:</div>
+        <div><button (click)="showKrakenHelpPanel()">Help</button></div>
       </div>
+      <div class="apiKeyInputWrapper sectionDescriptionSection">
+        <div>Delete Kraken Keys:</div>
+        <div><button (click)="deleteKrakenApiKeys()">Delete</button></div>
+      </div>
+    
     </div>
-
-
+ 
 
     <!--BTC Wallet Addresses-->
     <div (click)="isBTCWalletAddressesToggled = !isBTCWalletAddressesToggled; getBTCWalletAddresses()"

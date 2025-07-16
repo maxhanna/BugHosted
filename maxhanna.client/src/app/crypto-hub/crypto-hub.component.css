@@ -968,6 +968,12 @@ div:not(.trade-panel-controls) .button-wrapper {
   margin: 15px 0;
 }
 
+.macd-closeButton {
+  position: absolute;
+  top: 10px;
+  right: 15px;
+}
+
 .logScreen {
   background-color: var(--main-bg-color);
   color: var(--main-link-color);

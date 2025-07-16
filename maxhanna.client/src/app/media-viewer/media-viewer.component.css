@@ -1,3 +1,6 @@
+.componentTitle {
+  position: unset !important;
+}
 ::ng-deep .fullscreen-overlay {
   display: none;
   /* Hidden by default */

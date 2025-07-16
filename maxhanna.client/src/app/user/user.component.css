@@ -311,6 +311,7 @@
   align-content: center;
   flex-wrap: nowrap;
   text-align: center;
+  font-size: small;
 }
 
 .profileLink {
@@ -321,7 +322,11 @@
   font-size: 35px;
   line-height: 50px;
   cursor: pointer;
+  display: flex;
+  justify-content: center;
+  text-shadow: 1px 1px var(--main-link-color);
 }
+
 @supports (background: rgb(from red r g b)) {
   .profileLink {
     background: rgb(from var(--main-highlight-color) r g b / 25%);
@@ -521,8 +526,8 @@
   position: fixed;
   bottom: 0;
   left: 0;
-  right: 0; 
-  z-index: 1000;  
+  right: 0;
+  z-index: 1000;
   max-height: 0px;
   overflow-y: auto;
 }

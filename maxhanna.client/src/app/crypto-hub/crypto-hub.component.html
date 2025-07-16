@@ -1,5 +1,5 @@
 <div class="componentMain">
-  <div class="closeButton" (click)="remove_me('CoinWalletComponent');"></div>
+  <div class="closeButton" (click)="remove_me('CryptoHubComponent');"></div>
   <div class="menuButton" (click)="showMenuPanel();"></div>
   <div class="componentTitle">Crypto Hub</div>
   <div [class]="noMining ? 'noMiningHubSection' : !isTradePanelOpen ? 'hubSection' : ''"
@@ -486,11 +486,11 @@
             <div
               *ngIf="tradebotBalances && tradebotBalances.length > 0 && tradebotBalances[tradebotBalances.length - 1]">
               <span class="sectionName">Last:</span>
-              <span class="thirdFontColor smallFont">
-                <span>
-                  <span class="xxSmallFont">[{{lastTradebotTradeTimestamp}}]</span>
-                  {{lastTradebotTradeBuyOrSell}}:{{lastTradebotTradeValue}}({{lastTradebotTradeValuePrice}}) &#64;
-                  {{lastTradebotTradePrice}}
+              <span>
+                <span *ngIf="lastTradebotTrade">
+                  <span class="xxSmallFont">[{{ lastTradebotTrade['timestamp'] }}]</span> {{lastTradebotTrade['fromCoin']}}|{{lastTradebotTrade['toCoin']}} {{ lastTradebotTrade['strategy'] }} 
+                  <span [class]="'thirdFontColor' + (lastTradebotTrade['buyOrSell'] == 'Sell' ? ' negative' : ' positive')">{{lastTradebotTrade['value']}}</span>(<span [class]="lastTradebotTrade['buyOrSell'] != 'Sell' ? 'negative' : 'positive'">{{lastTradebotTrade['valuePrice']}}</span>) &#64;
+                  {{lastTradebotTrade['tradePrice']}}
                 </span>
                 <span *ngIf="lastTradePercentage !== null"
                   [title]="lastTradePercentage >= 0 ? 'Price has increased by ' + lastTradePercentage.toFixed(2) + '% since last trade.' : 'Price has decreased by ' + lastTradePercentage.toFixed(2) + '% since last trade.'"
@@ -1305,7 +1305,7 @@
     <div class="popupPanelTitle"
       title="MACD is a popular trend-following momentum indicator used in technical analysis to identify potential buy/sell signals. It consists of two lines: the MACD line (difference between 12-day and 26-day exponential moving averages) and the Signal line (9-day EMA of the MACD line). The histogram shows the difference between these two lines, indicating momentum strength.">
       MACD Visualization ({{selectedIndicatorPair}})
-      <button class="close-button" (click)="closeMacdPopup()">×</button>
+      <button class="close-button macd-closeButton" (click)="closeMacdPopup()">×</button>
     </div>
 
     <div class="macd-graph-container">
@@ -1334,8 +1334,8 @@
     </div>
 
     <div class="macd-description gradientBackground">
-      <h3>MACD Interpretation</h3>
-      <ul>
+      <div class="popupPanelTitle">MACD Interpretation</div>
+      <ul class="smallFont">
         <li><strong>Bullish Signal:</strong> When MACD (blue) crosses above Signal (orange)</li>
         <li><strong>Bearish Signal:</strong> When MACD crosses below Signal</li>
         <li><strong>Histogram:</strong> Shows distance between MACD and Signal lines</li>

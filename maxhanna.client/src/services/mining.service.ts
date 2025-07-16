@@ -103,7 +103,38 @@ export class MiningService {
   }
   async getNicehashApiInfo(userId: number) {
     try {
-      const response = await fetch(`/mining/getnicehashapicredentials`, {
+      const response = await fetch(`/mining/gethasnicehashapicredentials`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(userId),
+      });
+
+      return await response.json();
+    } catch (error) {
+      return null;
+    }
+  }
+
+  async deleteNicehashApiInfo(userId: number) {
+    try {
+      const response = await fetch(`/mining/deletenicehashapicredentials`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(userId),
+      });
+
+      return await response.json();
+    } catch (error) {
+      return null;
+    }
+  }
+  async deleteKrakenApiInfo(userId: number) {
+    try {
+      const response = await fetch(`/mining/deletekrakenapicredentials`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

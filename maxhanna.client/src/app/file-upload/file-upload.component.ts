@@ -59,7 +59,32 @@ export class FileUploadComponent implements OnDestroy {
         this.inputtedParentRef.showOverlay();
       }
 
-      this.uploadFileList = Array.from(this.fileInput.nativeElement.files as FileList);
+      const selectedFiles = Array.from(this.fileInput.nativeElement.files as FileList);
+      let considerFileTypes = this.allowedFileTypes.trim() != '';
+     
+      const allowedTypes = this.allowedFileTypes
+        .split(',')
+        .map(t => t.trim().toLowerCase())
+        .filter(t => t.length > 0);
+
+      const validFiles = selectedFiles.filter(file => {
+        if (!considerFileTypes) return true;
+        const mimeType = file.type.toLowerCase();
+        const ext = '.' + file.name.split('.').pop()?.toLowerCase();
+
+        return allowedTypes.includes(mimeType) || allowedTypes.includes(ext);
+      });
+
+      if (considerFileTypes && validFiles.length === 0) {
+        alert('None of the selected files match the allowed file types.');
+        return;
+      }
+
+      if (validFiles.length > this.maxSelectedFiles) {
+        alert(`Cannot add more than ${this.maxSelectedFiles} files! Took the first ${this.maxSelectedFiles} valid files for upload.`);
+      }
+
+      this.uploadFileList = validFiles.slice(0, this.maxSelectedFiles);
       this.userUploadEvent.emit(this.uploadFileList);
     }
   }
@@ -77,7 +102,8 @@ export class FileUploadComponent implements OnDestroy {
   }
   async uploadSubmitClicked() {
     if (this.uploadFileList.length > this.maxSelectedFiles) {
-      return alert(`Cannot add more then ${this.maxSelectedFiles} files!`);
+      alert(`Cannot add more then ${this.maxSelectedFiles} files! Took the first ${this.maxSelectedFiles} files for upload.`);
+      this.uploadFileList = this.uploadFileList.slice(0, this.maxSelectedFiles); 
     }
     if (this.getOverallProgress() > 0) {
       return;

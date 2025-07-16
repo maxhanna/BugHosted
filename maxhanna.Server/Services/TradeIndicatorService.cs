@@ -900,13 +900,13 @@ namespace maxhanna.Server.Services
 					}
 					else
 					{
-						_ = _log.Db($"No open signal interval found to close for {fromCoin}/{toCoin}", null, "TISVC", true);
+						//_ = _log.Db($"No open signal interval found to close for {fromCoin}/{toCoin}", null, "TISVC", true);
 					}
 					return true;
 				}
 				else
 				{
-					_ = _log.Db($"No signal and no active interval for {fromCoin}/{toCoin}. No action taken.", null, "TISVC", true);
+					//_ = _log.Db($"No signal and no active interval for {fromCoin}/{toCoin}. No action taken.", null, "TISVC", true);
 					return true;
 				}
 			}
