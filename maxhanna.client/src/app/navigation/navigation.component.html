@@ -20,7 +20,7 @@
               <a class="navLink" (click)="goTo(item.title, $event)" [title]="item.title" *ngIf="!item.icon">☀️</a>
             </ng-container>
             <ng-container #defaultWeatherIcon *ngIf="item.icon == '☀️' && item.title == 'Weather'">
-              <a class="navLink" (click)="goTo(item.title, $event)" [title]="item.title">{{_parent.originalWeatherIcon}}</a>
+              <a (click)="goTo(item.title, $event)" [title]="item.title">{{_parent.originalWeatherIcon}}</a>
             </ng-container>
           </div>
           <div class="help-description" [innerHTML]="_parent.getMenuItemDescription(item.title)"></div>
@@ -30,7 +30,7 @@
   </div>
 
   <div class="help-footer">
-    <button class="okBtn" (click)="showAppSelectionHelp = false">OK</button>
+    <button class="okBtn cursorPointer" (click)="showAppSelectionHelp = false">OK</button>
   </div>
 </div>
 

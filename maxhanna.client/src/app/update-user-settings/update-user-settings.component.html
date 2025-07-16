@@ -260,19 +260,19 @@ but you can also set your own City for a more precise location."></span>
       </div>
     
       <div style="text-align:right;">
-        <button (click)="updateNHAPIKeys(); updateKrakenAPIKeys()" title="Update both NiceHash and Kraken settings"
-          [disabled]="!isApiKeysToggled" *ngIf="isApiKeysToggled || showOnlyApiKeys">💾Save All</button>
+        <button (click)="updateNHAPIKeys(); updateKrakenAPIKeys(); $event.stopPropagation()" title="Update both NiceHash and Kraken settings"
+          [disabled]="!isApiKeysToggled" *ngIf="isApiKeysToggled || showOnlyApiKeys">💾Save</button>
       </div>
     </div>
     
     <div *ngIf="isApiKeysToggled || showOnlyApiKeys" class="sectionDescriptionDiv">
     
       <!-- NICEHASH KEYS -->
-      <div class="sectionSubHeader">NiceHash API Keys</div>
+      <div class="sectionSubHeader smaller">NiceHash API Keys</div>
       <div class="apiKeyInputWrapper sectionDescriptionSection">
         <div>OrgId<span *ngIf="hasNhApiKeys" title="Key is saved. For security purposes, we cannot show the saved API key."
           class="cursorPointer glowing onlineButton"> 🟢</span>:</div>
-        <div><input type="text" placeholder="Org Id {{hasNhApiKeys ? '(Overwriting)' : ''}}" /></div>
+        <div><input type="text" placeholder="Org Id {{hasNhApiKeys ? '(Overwriting)' : ''}}" #orgId /></div>
       </div>
       <div class="apiKeyInputWrapper sectionDescriptionSection">
         <div>ApiKey<span *ngIf="hasNhApiKeys" title="Key is saved. For security purposes, we cannot show the saved API key."
@@ -290,7 +290,7 @@ but you can also set your own City for a more precise location."></span>
       </div>
      
       <!-- KRAKEN KEYS -->
-      <div class="sectionSubHeader">Kraken API Keys</div>
+      <div class="sectionSubHeader smaller">Kraken API Keys</div>
       <div class="apiKeyInputWrapper sectionDescriptionSection">
         <div>
           Api Key<span *ngIf="hasKrakenKeys" title="Key is saved. For security purposes, we cannot show the saved API key."

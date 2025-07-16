@@ -657,42 +657,39 @@ namespace maxhanna.Server.Controllers
 
 
 		[HttpDelete("/User/DeleteUser", Name = "DeleteUser")]
-		public async Task<IActionResult> DeleteUser([FromBody] User user, [FromHeader(Name = "Encrypted-UserId")] string encryptedUserIdHeader)
+		public async Task<IActionResult> DeleteUser([FromBody] int userId, [FromHeader(Name = "Encrypted-UserId")] string encryptedUserIdHeader)
 		{
-			_ = _log.Db($"DELETE /User with ID: {user.Id}", user.Id, "USER", true);
-			if (user == null || user.Id == null || user.Id == 0 || user.Id == 1)
+			_ = _log.Db($"DELETE /User with ID: {userId}", userId, "USER", true);
+			if (userId == 0 || userId == 1)
 			{
-				return BadRequest("Who do you think you are?");
+				return BadRequest("Who do you fucking think you are?");
 			}
-			if (!await _log.ValidateUserLoggedIn(user.Id.Value, encryptedUserIdHeader)) return StatusCode(500, "Access Denied.");
+			if (!await _log.ValidateUserLoggedIn(userId, encryptedUserIdHeader)) return StatusCode(500, "Access Denied.");
 
 			MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
 			try
 			{
-				conn.Open();
-
-				// Check if the user with the provided ID exists
+				conn.Open(); 
 				string selectSql = "SELECT * FROM maxhanna.users WHERE id = @Id";
 				MySqlCommand selectCmd = new MySqlCommand(selectSql, conn);
-				selectCmd.Parameters.AddWithValue("@Id", user.Id);
+				selectCmd.Parameters.AddWithValue("@Id", userId);
 
 				using (var reader = await selectCmd.ExecuteReaderAsync())
 				{
 					if (!reader.Read())
-					{
-						// User with the provided ID not found
+					{ 
 						return NotFound();
 					}
 				}
 
-				await DeleteUserFiles(user, conn);
+				await DeleteUserFiles(userId, conn);
 
 				string deleteSql = "DELETE FROM maxhanna.users WHERE id = @Id";
 				MySqlCommand deleteCmd = new MySqlCommand(deleteSql, conn);
-				deleteCmd.Parameters.AddWithValue("@Id", user.Id);
+				deleteCmd.Parameters.AddWithValue("@Id", userId);
 
 				int rowsAffected = await deleteCmd.ExecuteNonQueryAsync();
-				await RemoveFromSitemapAsync(user.Id ?? 0);
+				await RemoveFromSitemapAsync(userId);
 
 				if (rowsAffected > 0)
 				{
@@ -706,7 +703,7 @@ namespace maxhanna.Server.Controllers
 			}
 			catch (Exception ex)
 			{
-				_ = _log.Db("An error occurred while processing the DELETE request. " + ex.Message, user.Id, "USER", true);
+				_ = _log.Db("An error occurred while processing the DELETE request. " + ex.Message, userId, "USER", true);
 				return StatusCode(500, "An error occurred while processing the request.");
 			}
 			finally
@@ -854,11 +851,23 @@ namespace maxhanna.Server.Controllers
 			}
 		}
 
-		private async Task DeleteUserFiles(User user, MySqlConnection conn)
+		private async Task DeleteUserFiles(int userId, MySqlConnection conn)
 		{
+			string username = string.Empty;
+			string getUserSql = "SELECT username FROM maxhanna.users WHERE id = @UserId";
+			using (var getUserCmd = new MySqlCommand(getUserSql, conn))
+			{
+				getUserCmd.Parameters.AddWithValue("@UserId", userId);
+				var result = await getUserCmd.ExecuteScalarAsync();
+				if (result != null)
+				{
+					username = result.ToString() ?? string.Empty;
+				}
+			}
+
 			string selectFilesSql = "SELECT file_name, folder_path FROM maxhanna.file_uploads WHERE user_id = @UserId";
 			MySqlCommand selectFilesCmd = new MySqlCommand(selectFilesSql, conn);
-			selectFilesCmd.Parameters.AddWithValue("@UserId", user.Id);
+			selectFilesCmd.Parameters.AddWithValue("@UserId", userId);
 			List<string> filePaths = new List<string>();
 			using (var reader = await selectFilesCmd.ExecuteReaderAsync())
 			{
@@ -877,7 +886,7 @@ namespace maxhanna.Server.Controllers
 					System.IO.File.Delete(filePath);
 				}
 			}
-			var tmpPath = Path.Combine(_baseTarget + "Users/", user.Username!);
+			var tmpPath = Path.Combine(_baseTarget + "Users/", username);
 			if (tmpPath.Contains(_baseTarget + "Users/") && tmpPath.TrimEnd('/') != (_baseTarget + "Users") && Directory.Exists(tmpPath))
 			{
 				Directory.Delete(tmpPath, true);

@@ -978,3 +978,15 @@ div:not(.trade-panel-controls) .button-wrapper {
   background-color: var(--main-bg-color);
   color: var(--main-link-color);
 }
+
+
+.data-tool-select {
+  margin-right: 10px;
+  padding: 5px;
+  font-size: 14px;
+}
+
+.button-wrapper {
+  margin-bottom: 10px;
+}
+ 

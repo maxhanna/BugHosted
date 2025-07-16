@@ -210,8 +210,7 @@
 
         <!-- Volume Above 20 Day Average -->
         <div class="indicator-card">
-          <div class="indicator-label"
-            title="Volume is currently above its 20 day average value.">
+          <div class="indicator-label" title="Volume is currently above its 20 day average value.">
             Volume Above 20-Day Average
           </div>
           <div class="indicator-value" [class.positive]="tradeIndicators.volumeAbove20DayAverage">
@@ -463,18 +462,26 @@
           <div *ngIf="tradeBotStartedSince">
             <div *ngIf="getActiveTradeBots().length > 0">
               <div class="sectionName" *ngIf="!isTradePanelOpen">Active Trade Bots</div>
-              <ul *ngIf="!isTradePanelOpen">
-                <li *ngFor="let bot of getActiveTradeBots()">
-                  {{ bot.currency }} - {{ bot.strategy }}: Running Since
-                  <span class="thirdFontColor smallFont">{{ bot.startedSince }}</span>
-                </li>
-              </ul>
-              <div *ngIf="isTradePanelOpen">
-                <div *ngFor="let bot of getActiveTradeBots()">
-                  {{ bot.currency }} - {{ bot.strategy }}: Running Since
-                  <span class="thirdFontColor smallFont">{{ bot.startedSince }}</span>
+
+              <ng-container *ngIf="groupedBotsDisplay() as botGroups">
+                <ul *ngIf="!isTradePanelOpen">
+                  <li *ngFor="let group of botGroups">
+                    {{ group.strategy }}:
+                    <span class="thirdFontColor smallFont">
+                      {{ group.currencies.join(', ') }} (Running since {{ group.startedSince }})
+                    </span>
+                  </li>
+                </ul>
+
+                <div *ngIf="isTradePanelOpen">
+                  <div *ngFor="let group of botGroups">
+                    {{ group.strategy }}:
+                    <span class="thirdFontColor smallFont">
+                      {{ group.currencies.join(', ') }} (Running since {{ group.startedSince }})
+                    </span>
+                  </div>
                 </div>
-              </div>
+              </ng-container>
             </div>
             <div *ngIf="getActiveTradeBots().length === 0">
               <p>No active trade bots.</p>
@@ -488,8 +495,12 @@
               <span class="sectionName">Last:</span>
               <span>
                 <span *ngIf="lastTradebotTrade">
-                  <span class="xxSmallFont">[{{ lastTradebotTrade['timestamp'] }}]</span> {{lastTradebotTrade['fromCoin']}}|{{lastTradebotTrade['toCoin']}} {{ lastTradebotTrade['strategy'] }} 
-                  <span [class]="'thirdFontColor' + (lastTradebotTrade['buyOrSell'] == 'Sell' ? ' negative' : ' positive')">{{lastTradebotTrade['value']}}</span>(<span [class]="lastTradebotTrade['buyOrSell'] != 'Sell' ? 'negative' : 'positive'">{{lastTradebotTrade['valuePrice']}}</span>) &#64;
+                  <span class="xxSmallFont">[{{ lastTradebotTrade['timestamp'] }}]</span>
+                  {{lastTradebotTrade['fromCoin']}}|{{lastTradebotTrade['toCoin']}} {{ lastTradebotTrade['strategy'] }}
+                  <span
+                    [class]="'thirdFontColor' + (lastTradebotTrade['buyOrSell'] == 'Sell' ? ' negative' : ' positive')">{{lastTradebotTrade['value']}}</span>(<span
+                    [class]="lastTradebotTrade['buyOrSell'] != 'Sell' ? 'negative' : 'positive'">{{lastTradebotTrade['valuePrice']}}</span>)
+                  &#64;
                   {{lastTradebotTrade['tradePrice']}}
                 </span>
                 <span *ngIf="lastTradePercentage !== null"
@@ -588,24 +599,7 @@
               Shows detailed logs of bot actions, such as trade decisions and errors, with pagination.
             </p>
           </div>
-          <div class="button-wrapper" *ngIf="canShowTradePanelInfo() || isShowingTradeValueGraph">
-            <button class="cursorPointer" (click)="showTradeValueGraph()" id="graph-button"
-              aria-describedby="graph-desc">
-              {{isShowingTradeValueGraph ? 'Hide' : 'Show'}} Trade Value Graph
-            </button>
-            <p class="button-description" id="graph-desc" *ngIf="!isShowingTradeValueGraph">
-              Plots trade values over time to visualize bot performance and profitability.
-            </p>
-          </div>
-          <div class="button-wrapper" *ngIf="canShowTradePanelInfo() || isShowingTradeSimulator">
-            <button class="cursorPointer" (click)="showTradeSimulationPanel()" id="sim-button"
-              aria-describedby="sim-desc">
-              {{isShowingTradeSimulator ? 'Hide' : 'Show'}} Tradebot Simulation
-            </button>
-            <p class="button-description" id="sim-desc" *ngIf="!isShowingTradeSimulator">
-              Runs a simulation of trading strategies with historical or random data to test performance.
-            </p>
-          </div>
+
           <div class="button-wrapper"
             [title]="isTradeBotStarted(selectedTradebotCurrency?.nativeElement?.value, selectedTradebotStrategy?.nativeElement?.value) ? 'Disabled: Tradebot is running.' : ''"
             *ngIf="canShowTradePanelInfo()">
@@ -619,6 +613,7 @@
               under: _InitialMinimumFromAmountToStart.
             </p>
           </div>
+
           <div class="button-wrapper" [title]="!tradeBotStatus['BTC'] ? 'Disabled: Tradebot is not running.' : ''"
             *ngIf="canShowTradePanelInfo()">
             <button class="cursorPointer" (click)="exitPosition()"
@@ -630,15 +625,39 @@
               Sells all BTC at market price, closing the current trading position and stopping the bot.
             </p>
           </div>
-          <div class="button-wrapper" *ngIf="canShowTradePanelInfo() || isShowingTradeProfit">
-            <button class="cursorPointer" (click)="!isShowingTradeProfit ? showProfit() : hideProfit()"
-              [title]="'Show Tradebot Profit.'" id="profit-button" aria-describedby="profit-desc">
-              {{isShowingTradeProfit ? 'Hide' : 'Show'}} Profit And Loss
+
+          <div class="button-wrapper" *ngIf="canShowTradePanelInfo() || (isShowingTradeProfit || isShowingTradeValueGraph || isShowingTradeSimulator)"> 
+            <button class="cursorPointer" (click)="toggleSelectedDataTool(toolSelect?.value)">
+              {{ getToolVisibility(toolSelect?.value) ? 'Hide' : 'Show' }}
+              {{ getToolLabel(toolSelect?.value) }}
             </button>
-            <p class="button-description" id="profit-desc" *ngIf="!isShowingTradeProfit">
-              Shows all profit and loss from the tradebot, including fees and other costs.
-            </p>
+            <select #toolSelect class="data-tool-select" (change)="tradePanelToolSelectChange()" [style.visibility]="(isShowingTradeProfit || isShowingTradeValueGraph || isShowingTradeSimulator) ? 'hidden' : 'visible'">
+              <option value="profit">Profit and Loss</option>
+              <option value="graph">Trade Value Graph</option>
+              <option value="sim">Tradebot Simulation</option>
+            </select>
+            <!-- Conditional content -->
+            <div *ngIf="!isShowingTradeProfit && !isShowingTradeValueGraph && !isShowingTradeSimulator">
+              <div *ngIf="toolSelect?.value == 'profit'" class="button-wrapper">
+                <p class="button-description">
+                  Shows all profit and loss from the tradebot, including fees and other costs.
+                </p>
+              </div>
+
+              <div *ngIf="toolSelect?.value == 'graph'" class="button-wrapper">
+                <p class="button-description">
+                  Plots trade values over time to visualize bot performance and profitability.
+                </p>
+              </div>
+
+              <div *ngIf="toolSelect?.value == 'sim'" class="button-wrapper">
+                <p class="button-description">
+                  Runs a simulation of trading strategies with historical or random data to test performance.
+                </p>
+              </div>
+            </div>
           </div>
+
           <div class="button-wrapper" *ngIf="canShowTradePanelInfo()">
             <button class="cursorPointer" (click)="showTradeInformationPanel()" id="info-button"
               aria-describedby="info-desc">

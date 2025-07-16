@@ -316,17 +316,14 @@ a {
 
 /* Footer */
 .help-footer {
-  padding: 1rem 2rem;
+  padding: 12px 2rem;
   text-align: center;
   border-top: 1px solid var(--light-border);
   background: var(--component-background-color);
 }
 
-.okBtn {
-  padding: 0.6rem 1.4rem;
-  font-size: 1rem;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;  
-  transition: background 0.2s;
+.okBtn { 
+  padding-left: 10px;
+  padding-right: 10px;
+  font-size: 1rem;   
 } 

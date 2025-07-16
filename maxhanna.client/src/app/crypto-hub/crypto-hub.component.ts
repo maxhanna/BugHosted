@@ -184,6 +184,12 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
     fiatToCAD: 1,
     currencyToCAD: 1
   };
+  isDataToolVisible: Record<ToolKey, boolean> = {
+    profit: false,
+    graph: false,
+    sim: false
+  };
+ 
 
   @ViewChild('scrollContainer', { static: true }) scrollContainer!: ElementRef;
   @ViewChild(LineGraphComponent) lineGraphComponent!: LineGraphComponent;
@@ -200,7 +206,8 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
   @ViewChild('tradeLogStrategyFilter') tradeLogStrategyFilter!: ElementRef<HTMLSelectElement>;
   @ViewChild('tradeLogCoinFilter') tradeLogCoinFilter!: ElementRef<HTMLSelectElement>;
   @ViewChild('tradeBalanceCoinSelector') tradeBalanceCoinSelector!: ElementRef<HTMLSelectElement>;
-  @ViewChild('tradeBalanceStrategySelector') tradeBalanceStrategySelector!: ElementRef<HTMLSelectElement>; 
+  @ViewChild('tradeBalanceStrategySelector') tradeBalanceStrategySelector!: ElementRef<HTMLSelectElement>;
+  @ViewChild('toolSelect') toolSelect?: ElementRef<HTMLSelectElement>; 
   
   @ViewChild('selectedCurrencyDropdown') selectedCurrencyDropdown!: ElementRef<HTMLSelectElement>;
   @ViewChild('selectedTradebotCurrency') selectedTradebotCurrency?: ElementRef<HTMLSelectElement>;
@@ -235,28 +242,32 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
       this.startSingleLineLogPolling();
       await this.getUserCurrency();
       this.getCurrencyNames(); 
-      await this.coinValueService.getLatestCoinValuesByName("Bitcoin").then(res => { 
-        if (res) {
-          this.btcToCadPrice = res.valueCAD;
-          this.selectedCoinToCadPrice = res.valueCAD;
-          if (res.valueCAD && !this.btcFiatConversion) {
-            this.btcFiatConversion = res.valueCAD;
+      await this.coinValueService.getLatestCoinValues().then((res: CoinValue[]) => {
+        // Process Bitcoin data
+        const bitcoinData = res.find(x => x.name === "Bitcoin");
+        if (bitcoinData) {
+          this.btcToCadPrice = bitcoinData.valueCAD;
+          this.selectedCoinToCadPrice = bitcoinData.valueCAD;
+          if (bitcoinData.valueCAD && !this.btcFiatConversion) {
+            this.btcFiatConversion = bitcoinData.valueCAD;
           }
           this.handleConversion('BTC');
         }
-      });
-      this.getBTCWallets();
-      this.getIsTradebotStarted();
-      this.coinValueService.getLatestCoinValues().then((res: CoinValue[]) => {
+
+        // Process all coin data
         this.coinValueData = res;
-        this.coinNames = res.map(x => x.name.replace("Bitcoin", "BTC")).filter((name, index, arr) => arr.indexOf(name) === index).sort();
+        this.coinNames = res.map(x => x.name.replace("Bitcoin", "BTC"))
+          .filter((name, index, arr) => arr.indexOf(name) === index)
+          .sort();
         this.startAutoScroll();
       });
+      this.getBTCWallets();
+      this.getIsTradebotStarted(); 
       this.getExchangeRateData();
       await this.getKrakenApiInfo();  
       await this.getLatestCurrencyPriceRespectToCAD(); 
       await this.getLatestCurrencyPriceRespectToFIAT();
-      const { sessionToken, tradeUserId } = await this.refreshCoinAndVolumeGraph();
+      await this.refreshCoinAndVolumeGraph();
       this.startCoinAndVolumePolling();   
     } catch (error) {
       console.error('Error fetching coin values:', error);
@@ -1884,14 +1895,10 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
     this.showingTradeSettings = !tmpStatus;
     if (this.showingTradeSettings) {
       await this.getLastCoinConfigurationUpdated(this.configurationComponent?.tradeFromCoinSelect?.nativeElement?.value ?? "BTC");
-      setTimeout(async () => {
-        if (!this.hasAnyTradeConfig) {
-          this.configurationComponent?.setDefaultTradeConfiguration();
-        } else {
-          this.startLoading();
-          await this.configurationComponent?.getTradeConfiguration();
-          this.stopLoading();
-        }
+      setTimeout(async () => { 
+        this.startLoading();
+        await this.configurationComponent?.getTradeConfiguration();
+        this.stopLoading(); 
       }, 500); 
     }
   }
@@ -2470,7 +2477,7 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
     return 1;
   }
   getLastTradePercentage() {
-    if (this.tradebotBalances && this.cadToUsdRate && this.btcUSDRate) {
+    if (this.tradebotBalances && this.tradebotBalances.length > 0 && this.cadToUsdRate && this.btcUSDRate) {
       const price = parseFloat(this.tradebotBalances[0].coin_price_usdc);
       const rate = this.btcUSDRate ?? 1;
       this.lastTradePercentage = ((rate - price) / price) * 100; 
@@ -2480,7 +2487,7 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
   }
 
   getLastTradebotTradeDisplay() {
-    if (this.tradebotBalances && this.cadToUsdRate) {
+    if (this.tradebotBalances && this.tradebotBalances.length > 0 && this.cadToUsdRate) {
       const value = this.tradebotBalances[0].value;
       const price = parseFloat(this.tradebotBalances[0].coin_price_usdc);
       const buyOrSell = this.tradebotBalances[0].to_currency == "USDC" ? "Sell" : "Buy";
@@ -2821,6 +2828,70 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
   formatLargeNumber(number: number) {
     return this.tradeService.formatLargeNumber(number);
   }
+  tradePanelToolSelectChange() {
+    this.changeDetectorRef.detectChanges();
+  }
+  getToolVisibility(tool?: string): boolean {
+    if (!tool) return false;
+    return this.isDataToolVisible[tool as ToolKey];
+  }
+
+  toggleSelectedDataTool(tool?: string): void {
+    const key = tool as ToolKey;
+    this.isDataToolVisible[key] = !this.isDataToolVisible[key];
+    if (key == "profit") {
+      if (!this.isShowingTradeProfit) {
+        this.showProfit()
+      } else { this.hideProfit() }
+    } else if (key == 'sim') {
+      if (!this.isShowingTradeSimulator) {
+        this.showTradeSimulationPanel()
+      } else { this.closeTradeSimulationPanel() }
+    }
+    else if (key == 'graph') { 
+      this.showTradeValueGraph(); 
+    }
+    setTimeout(() => {
+      this.changeDetectorRef.detectChanges();
+    }, 50);
+  }
+
+  getToolLabel(tool?: string): string {
+    switch (tool) {
+      case 'profit': return 'Profit and Loss';
+      case 'graph': return 'Trade Value Graph';
+      case 'sim': return 'Tradebot Simulation';
+      default: return '';
+    }
+  }
+  groupedBotsDisplay() {
+    const groups: { strategy: string, currencies: string[], startedSince: string }[] = [];
+    const bots = this.getActiveTradeBots();
+
+    // Group bots by strategy
+    const strategyMap = new Map<string, { currencies: string[], startedSince: string }>();
+
+    bots.forEach(bot => {
+      if (!strategyMap.has(bot.strategy)) {
+        strategyMap.set(bot.strategy, {
+          currencies: [],
+          startedSince: bot.startedSince
+        });
+      }
+      strategyMap.get(bot.strategy)!.currencies.push(bot.currency);
+    });
+
+    // Convert map to array
+    strategyMap.forEach((value, key) => {
+      groups.push({
+        strategy: key,
+        currencies: value.currencies,
+        startedSince: value.startedSince
+      });
+    });
+
+    return groups;
+  }
 } 
 
 interface VolumeWarning {
@@ -2872,3 +2943,4 @@ export interface SentimentEntry {
   createdUtc: Date;
   expanded?: boolean;    
 } 
+type ToolKey = 'profit' | 'graph' | 'sim';

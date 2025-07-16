@@ -253,3 +253,6 @@ input:checked+.slider:before {
 .settingsSectionHeaderTitle {
   cursor: pointer;
 }
+.sectionSubHeader { 
+  margin-top: 5px;
+}

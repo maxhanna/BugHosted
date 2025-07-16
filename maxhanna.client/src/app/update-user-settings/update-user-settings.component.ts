@@ -4,7 +4,7 @@ import { MiningService } from '../../services/mining.service';
 import { WeatherService } from '../../services/weather.service';
 import { UserService } from '../../services/user.service';
 import { ChildComponent } from '../child.component';
-import { NicehashApiKeys } from '../../services/datacontracts/crypto/nicehash-api-keys'; 
+import { NicehashApiKeys } from '../../services/datacontracts/crypto/nicehash-api-keys';
 import { MediaViewerComponent } from '../media-viewer/media-viewer.component';
 import { FileEntry } from '../../services/datacontracts/file/file-entry';
 import { UserAbout } from '../../services/datacontracts/user/user-about';
@@ -21,23 +21,23 @@ import { initializeApp } from 'firebase/app';
 import { getMessaging, getToken, onMessage, Messaging } from "firebase/messaging";
 
 @Component({
-    selector: 'app-update-user-settings',
-    templateUrl: './update-user-settings.component.html',
-    styleUrl: './update-user-settings.component.css',
-    standalone: false
+  selector: 'app-update-user-settings',
+  templateUrl: './update-user-settings.component.html',
+  styleUrl: './update-user-settings.component.css',
+  standalone: false
 })
 export class UpdateUserSettingsComponent extends ChildComponent implements OnInit {
   updateUserDivVisible = true;
   isGeneralToggled = false;
   isMenuIconsToggled = false;
-  isWeatherLocationToggled = false; 
-  isBlockedUsersToggled = false; 
+  isWeatherLocationToggled = false;
+  isBlockedUsersToggled = false;
   isDeleteAccountToggled = false;
   isBTCWalletAddressesToggled = false;
   isAboutToggled = false;
   showAddBTCWalletAddressInput = false;
   isApiKeysToggled = false;
-  showOnlyApiKeys = false; 
+  showOnlyApiKeys = false;
   selectableIcons: MenuItem[] = [];
   btcWalletAddresses?: string[];
   notifications: string[] = [];
@@ -61,13 +61,13 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
   @Input() showOnlyWeatherLocation? = false;
   @Input() showOnlyKrakenApiKeys? = false;
   @Input() showOnlyNicehashApiKeys? = false;
-  @Input() areSelectableMenuItemsExplained? = true; 
+  @Input() areSelectableMenuItemsExplained? = true;
 
   @ViewChild('updatedUsername') updatedUsername!: ElementRef<HTMLInputElement>;
   @ViewChild('updatedPassword') updatedPassword!: ElementRef<HTMLInputElement>;
   @ViewChild('orgId') orgId!: ElementRef<HTMLInputElement>;
   @ViewChild('apiKey') apiKey!: ElementRef<HTMLInputElement>;
-  @ViewChild('apiSecret') apiSecret!: ElementRef<HTMLInputElement>; 
+  @ViewChild('apiSecret') apiSecret!: ElementRef<HTMLInputElement>;
   @ViewChild('krakenApiKey') krakenApiKey!: ElementRef<HTMLInputElement>;
   @ViewChild('krakenPrivateKey') krakenPrivateKey!: ElementRef<HTMLInputElement>;
   @ViewChild('weatherLocationCityInput') weatherLocationCityInput!: ElementRef<HTMLInputElement>;
@@ -98,8 +98,8 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
     this.updateUserDivVisible = true;
     this.isGeneralToggled = false;
     this.isMenuIconsToggled = false;
-    this.isWeatherLocationToggled = false; 
-    this.isBlockedUsersToggled = false; 
+    this.isWeatherLocationToggled = false;
+    this.isBlockedUsersToggled = false;
     this.isDeleteAccountToggled = false;
     this.isAboutToggled = false;
     this.isApiKeysToggled = this.showOnlyNicehashApiKeys ?? false;
@@ -109,21 +109,20 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
     if (user?.id) {
       this.userService.getUserSettings(user.id).then(res => {
         if (res) {
-          this.isDisplayingNSFW = res.nsfwEnabled ?? false; 
+          this.isDisplayingNSFW = res.nsfwEnabled ?? false;
         }
       });
-    } 
+    }
     if (user) {
       this.userService.getUserSettings(user.id ?? 0).then((res?: UserSettings) => {
         if (res) {
           this.isPushNotificationsEnabled = res.notificationsEnabled;
           if (this.isPushNotificationsEnabled == undefined || this.isPushNotificationsEnabled) {
             this.requestNotificationPermission();
-          } 
+          }
         }
       })
     }
-
 
     this.getUniqueCurrencyNames();
 
@@ -148,7 +147,12 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
     const user = this.parentRef?.user;
     if (this.isApiKeysToggled && user?.id) {
       this.hasNhApiKeys = false;
-      await this.miningService.deleteNicehashApiInfo(user.id);
+      await this.miningService.deleteNicehashApiInfo(user.id).then((res) => {
+        this.inputtedParentRef?.showNotification(res);
+        this.orgId.nativeElement.value = '';
+        this.apiKey.nativeElement.value = '';
+        this.apiSecret.nativeElement.value = '';
+      });
     }
   }
   async deleteKrakenApiKeys() {
@@ -156,7 +160,11 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
     const user = this.parentRef?.user;
     if (this.isApiKeysToggled && user?.id) {
       this.hasKrakenKeys = false;
-      await this.miningService.deleteKrakenApiInfo(user.id);
+      await this.miningService.deleteKrakenApiInfo(user.id).then((res) => {
+        this.inputtedParentRef?.showNotification(res);
+        this.krakenPrivateKey.nativeElement.value = '';
+        this.krakenApiKey.nativeElement.value = '';
+      });
     }
   }
   async getUniqueCurrencyNames() {
@@ -164,18 +172,18 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
       const res = await this.coinService.getUniqueCurrencyNames() as string[];
       if (res) {
         this.uniqueCurrencyNames = res;
-      } 
+      }
     } catch (error) {
       console.error('Error fetching currency values:', error);
       this.uniqueCurrencyNames = [];
     }
   }
   async updateUserAbout() {
-    const parent = this.inputtedParentRef ? this.inputtedParentRef : this.parentRef; 
+    const parent = this.inputtedParentRef ? this.inputtedParentRef : this.parentRef;
     const user = parent?.user;
 
     if (!user?.id) return;
-    let about = new UserAbout(); 
+    let about = new UserAbout();
     about.userId = user.id;
     about.description = this.updatedDescription.nativeElement.value != '' ? this.updatedDescription.nativeElement.value : undefined;
     about.phone = this.updatedPhone.nativeElement.value != '' ? this.updatedPhone.nativeElement.value : undefined;
@@ -199,17 +207,32 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
     const user = parent?.user;
     if (this.isApiKeysToggled && user) {
       const krakenPrivateKey = this.krakenPrivateKey.nativeElement.value;
-      const krakenApiKey = this.krakenApiKey.nativeElement.value; 
-      try {
-        parent?.getSessionToken().then(sessionToken => {
-          this.tradeService.updateApiKey(user.id ?? 0, krakenApiKey, krakenPrivateKey, sessionToken).then(res => {
-            if (res) {
-              this.parentRef?.showNotification(res);
-            }
+      const krakenApiKey = this.krakenApiKey.nativeElement.value;
+      if (krakenPrivateKey && krakenApiKey) {
+        const minValidLength = 30;
+        const invalidFields = [];
+        if (krakenPrivateKey.length < minValidLength) invalidFields.push('Private Key');
+        if (krakenApiKey.length < minValidLength) invalidFields.push('API Key');
+
+        if (invalidFields.length > 0) {
+          return alert(`The following Kraken API fields are too short (minimum ${minValidLength} characters):\n\n${invalidFields.join('\n')}`);
+        }
+
+        try {
+          parent?.getSessionToken().then(sessionToken => {
+            this.tradeService.updateApiKey(user.id ?? 0, krakenApiKey, krakenPrivateKey, sessionToken).then(res => {
+              if (res) {
+                this.parentRef?.showNotification(res);
+                setTimeout(() => { this.ngOnInit(); }, 50);
+              }
+            });
           });
-        });
-      } catch (error) {
-        console.log(error);
+        } catch (error) {
+          console.log(error);
+        }
+      }
+      else if ((krakenApiKey && !krakenPrivateKey) || (!krakenApiKey && krakenPrivateKey)) {
+        return alert("Incomplete Kraken API key entry. Fill in both API and Private Key values to save.");
       }
     }
   }
@@ -222,13 +245,26 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
       keys.apiSecret = this.apiSecret.nativeElement.value;
       keys.ownership = this.parentRef?.user!.id;
 
-      try {
-        await this.miningService.updateNicehashApiInfo(user.id, keys);
-        this.parentRef?.showNotification("Nicehash API Keys updated successfully");
-      } catch {
-        this.parentRef?.showNotification("Error while updating Nicehash API Keys!");
+      if (keys.orgId && keys.apiKey && keys.apiSecret) {
+        const minValidLength = 30;
+        const invalidFields = [];
+        if (keys.orgId.length < minValidLength) invalidFields.push('Organization ID');
+        if (keys.apiSecret.length < minValidLength) invalidFields.push('API Secret');
+        if (keys.apiKey.length < minValidLength) invalidFields.push('API Key');
+
+        if (invalidFields.length > 0) {
+          return alert(`The following Nicehash API fields are too short (minimum ${minValidLength} characters):\n\n${invalidFields.join('\n')}`);
+        }
+        try {
+          await this.miningService.updateNicehashApiInfo(user.id, keys);
+          this.parentRef?.showNotification("Nicehash API Keys updated successfully");
+          setTimeout(() => { this.ngOnInit(); }, 50);
+        } catch {
+          this.parentRef?.showNotification("Error while updating Nicehash API Keys!");
+        }
+      } else if ((!keys.orgId || !keys.apiKey || !keys.apiSecret) && (keys.orgId || keys.apiKey || keys.apiSecret)) {
+        return alert("Incomplete Nicehash API key entry. Fill in All 3 API key, Org ID and API Secret values to save.");
       }
-      this.ngOnInit();
     }
   }
 
@@ -256,7 +292,7 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
               if (weatherLocation && (this.userService.isValidIpAddress(weatherLocation.location) || weatherLocation.location?.trim() === '')) {
                 await this.weatherService.updateWeatherLocation(this.parentRef.user.id, locationData.ip, locationData.city, locationData.country);
               }
-            } 
+            }
           }
         }
 
@@ -268,25 +304,25 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
     }
   }
 
-  async profileBackgroundSelected(files: FileEntry[]) { 
+  async profileBackgroundSelected(files: FileEntry[]) {
     const targetParent = this.inputtedParentRef ?? this.parentRef;
     if (files && files.length > 0 && targetParent?.user?.id) {
       await this.userService.updateProfileBackgroundPicture(targetParent.user.id, files[0].id);
       targetParent.user.profileBackgroundPictureFile = files[0];
       targetParent.deleteCookie("user");
       targetParent.setCookie("user", JSON.stringify(targetParent.user), 10);
-      this.ngOnInit(); 
+      this.ngOnInit();
     }
   }
 
   async avatarSelected(files: FileEntry[]) {
     const targetParent = this.inputtedParentRef ?? this.parentRef;
     if (files && files.length > 0 && targetParent?.user?.id) {
-      await this.userService.updateDisplayPicture(targetParent.user.id, files[0].id); 
+      await this.userService.updateDisplayPicture(targetParent.user.id, files[0].id);
       targetParent.user.displayPictureFile = files[0];
       targetParent.deleteCookie("user");
       targetParent.setCookie("user", JSON.stringify(targetParent.user), 10);
-      this.ngOnInit(); 
+      this.ngOnInit();
     }
   }
 
@@ -315,20 +351,18 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
   }
 
   async deleteUser() {
-    const parent = this.parentRef ?? this.inputtedParentRef; 
-    if (!parent) return alert("Parent cannot be null");
-    const cookie = parent.getCookie("user");
+    const parent = this.parentRef ?? this.inputtedParentRef;
+    if (!parent) return alert("Parent cannot be null"); 
     const sessionToken = await parent.getSessionToken();
-    if (cookie) {
-      if (confirm("Are you sure you wish to delete your account? This will also delete all your saved data, chats, etc.")) {
-        const tmpUser = JSON.parse(cookie) as User;
+    if (parent.user?.id) {
+      if (confirm("Are you sure you wish to delete your account? This will also delete all your saved data, chats, etc.")) { 
         try {
-          const res = await this.userService.deleteUser(tmpUser.id ?? 0, sessionToken);
+          const res = await this.userService.deleteUser(parent.user?.id ?? 0, sessionToken);
           parent.showNotification(res["message"]);
           parent.deleteCookie("user");
-          window.location.reload(); 
+          window.location.reload();
         } catch (error) {
-          parent.showNotification(`Error deleting user ${tmpUser.username}`);
+          parent.showNotification(`Error deleting user ${parent.user?.username}`);
         }
       }
     } else { return alert("You must be logged in first!"); }
@@ -359,16 +393,16 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
     } else if (parent) {
       parent.userSelectedNavigationItems!.push(new MenuItem(parent.user?.id ?? 0, title));
       if (!parent.user || !parent.user.id) {
-        parent.showNotification("You must be logged in to persist menu selections."); 
+        parent.showNotification("You must be logged in to persist menu selections.");
       } else if (parent && parent.user) {
         this.userService.addMenuItem(parent.user.id, [title]).then(res => {
           if (res) {
             parent.showNotification(res);
           }
         });
-      } 
+      }
     }
-  } 
+  }
   toggleIconDescription(title: string): void {
     this.expandedIconTitle = this.expandedIconTitle === title ? null : title;
   }
@@ -473,7 +507,7 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
     this.startLoading();
     if (user?.id) {
       this.userService.getBlockedUsers(user.id).then(res => {
-        if (res) { 
+        if (res) {
           this.blockedUsers = res;
         }
       });
@@ -496,56 +530,56 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
     })
   }
   async requestNotificationPermission() {
-      const parent = this.inputtedParentRef ?? this.parentRef;
-      if (!parent?.user || !parent.user.id) {
-        return;
-      } 
-      try {
-        const firebaseConfig = {
-          apiKey: "AIzaSyAR5AbDVyw2RmW4MCLL2aLVa2NLmf3W-Xc",
-          authDomain: "bughosted.firebaseapp.com",
-          projectId: "bughosted",
-          storageBucket: "bughosted.firebasestorage.app",
-          messagingSenderId: "288598058428",
-          appId: "1:288598058428:web:a4605e4d8eea73eac137b9",
-          measurementId: "G-MPRXZ6WVE9"
-        };
-        this.app = initializeApp(firebaseConfig); 
-        this.messaging = await getMessaging(this.app); 
-        onMessage(this.messaging, (payload: any) => {
-         const parent = this.inputtedParentRef ?? this.parentRef;
-         const body = payload.notification.body;
-         const title = payload.notification.title;
-         parent?.showNotification(`${title}: ${body}`);
-        });
-  
-        console.log('Current Notification Permission:', Notification.permission);
-        if (this.isPushNotificationsEnabled == undefined) {
-          if (Notification.permission === 'default') {
-            const permission = await Notification.requestPermission();
-            if (permission === "granted") {
-              const token = await getToken(this.messaging, { vapidKey: "BOdqEEb-xWiCvKqILbKr92U6ETC3O0SmpbpAtulpvEqNMMRq79_0JidqqPgrzOLDo_ZnW3Xh7PNMwzP9uBQSCyA" });
-              await this.subscribeToNotificationTopic(token);
-              this.userService.updateNotificationsEnabled(parent.user.id, true);
-            } else {
-              console.log('User declined notification permission');
-              this.userService.updateNotificationsEnabled(parent.user.id, false);
-            }
-          } else if (Notification.permission === 'granted') {
+    const parent = this.inputtedParentRef ?? this.parentRef;
+    if (!parent?.user || !parent.user.id) {
+      return;
+    }
+    try {
+      const firebaseConfig = {
+        apiKey: "AIzaSyAR5AbDVyw2RmW4MCLL2aLVa2NLmf3W-Xc",
+        authDomain: "bughosted.firebaseapp.com",
+        projectId: "bughosted",
+        storageBucket: "bughosted.firebasestorage.app",
+        messagingSenderId: "288598058428",
+        appId: "1:288598058428:web:a4605e4d8eea73eac137b9",
+        measurementId: "G-MPRXZ6WVE9"
+      };
+      this.app = initializeApp(firebaseConfig);
+      this.messaging = await getMessaging(this.app);
+      onMessage(this.messaging, (payload: any) => {
+        const parent = this.inputtedParentRef ?? this.parentRef;
+        const body = payload.notification.body;
+        const title = payload.notification.title;
+        parent?.showNotification(`${title}: ${body}`);
+      });
+
+      console.log('Current Notification Permission:', Notification.permission);
+      if (this.isPushNotificationsEnabled == undefined) {
+        if (Notification.permission === 'default') {
+          const permission = await Notification.requestPermission();
+          if (permission === "granted") {
             const token = await getToken(this.messaging, { vapidKey: "BOdqEEb-xWiCvKqILbKr92U6ETC3O0SmpbpAtulpvEqNMMRq79_0JidqqPgrzOLDo_ZnW3Xh7PNMwzP9uBQSCyA" });
             await this.subscribeToNotificationTopic(token);
             this.userService.updateNotificationsEnabled(parent.user.id, true);
           } else {
-            console.log('User denied notification permission');
+            console.log('User declined notification permission');
             this.userService.updateNotificationsEnabled(parent.user.id, false);
           }
+        } else if (Notification.permission === 'granted') {
+          const token = await getToken(this.messaging, { vapidKey: "BOdqEEb-xWiCvKqILbKr92U6ETC3O0SmpbpAtulpvEqNMMRq79_0JidqqPgrzOLDo_ZnW3Xh7PNMwzP9uBQSCyA" });
+          await this.subscribeToNotificationTopic(token);
+          this.userService.updateNotificationsEnabled(parent.user.id, true);
         } else {
-          console.log("User has already enabled or disabled notifications.");
+          console.log('User denied notification permission');
+          this.userService.updateNotificationsEnabled(parent.user.id, false);
         }
-      } catch (error) {
-        console.log('Error requesting notification permission:', error);
+      } else {
+        console.log("User has already enabled or disabled notifications.");
       }
+    } catch (error) {
+      console.log('Error requesting notification permission:', error);
     }
+  }
   private async subscribeToNotificationTopic(token: string) {
     const parent = this.inputtedParentRef ?? this.parentRef;
     if (parent?.user?.id) {
@@ -556,13 +590,13 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
     if (this.previousComponent) {
       this.parentRef?.createComponent(this.previousComponent);
     }
-    else  if (!this.showOnlySelectableMenuItems) {
+    else if (!this.showOnlySelectableMenuItems) {
       this.parentRef?.createComponent('User');
     } else {
       this.remove_me('UpdateUserProfile');
     }
   }
-  updatePushNotifications() { 
+  updatePushNotifications() {
     if (!this.parentRef?.user?.id) return;
     this.isPushNotificationsEnabled = this.pushNotificationsCheckmark.nativeElement.checked;
     this.userService.updateNotificationsEnabled(this.parentRef.user.id, this.isPushNotificationsEnabled).then(res => {

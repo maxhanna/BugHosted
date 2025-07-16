@@ -721,81 +721,32 @@ public class KrakenService
 						_ = _log.Db($"({tmpCoin.Replace("BTC", "XBT")}:{userId}:{strategy}) Profit threshold surpassed. " +
 													 $"Current profit: {indSpread:P} (threshold: {_TradeThreshold:P}). " +
 													 $"Verifying dynamic exit conditions.",
-													 userId, "TRADE", true); 
-						decimal baseThreshold, maxThreshold;
-						const decimal spreadSensitivity = 1.5m;
-						const decimal volatilityFactor = 1.5m;
-						const decimal volumeSpikeSensitivity = 0.7m; // Reduce threshold by 30% when volume spikes
-
-						if (tmpCoin == "XBT")
+													 userId, "TRADE", true);  
+				 
+						var balances = await GetBalance(userId, tmpCoin, keys);
+						if (balances == null)
 						{
-							baseThreshold = Math.Max(40.0m, coinPriceUSDC * 0.00025m); // e.g., $100 at $200,000
-							maxThreshold = baseThreshold * 3.0m; // e.g., $600 
-						}
-						else
-						{
-							// Elastic band: Volatility-based threshold using spread as proxy
-							decimal volatility = coinPriceUSDC * Math.Abs(indSpread) * 2.0m; // Scale spread impact
-							baseThreshold = Math.Max(volatility, 0.01m); // Minimum $0.01 for low-priced coins
-							maxThreshold = baseThreshold * 3.0m; // 3x for upper bound 
-						}
-
-						bool isVolumeSpiking = await IsSignificantVolumeSpike(tmpCoin, tmpCoin, "USDC", userId);
-						decimal volumeAdjustment = isVolumeSpiking ? volumeSpikeSensitivity : 1.0m;
-						if (isVolumeSpiking)
-						{
-							_ = _log.Db($"({tmpCoin.Replace("BTC", "XBT")}:{userId}:{strategy}) Volume spike detected. Reducing threshold sensitivity by {volumeSpikeSensitivity:P}.", userId, "TRADE", true);
-						}
-
-						decimal spreadImpact = Math.Abs(indSpread) * spreadSensitivity;
-						decimal volatilityImpact = (Math.Abs(indSpread) / _TradeThreshold) * volatilityFactor;
-						decimal dynamicThreshold = baseThreshold * Math.Max(1, spreadImpact + volatilityImpact) * volumeAdjustment;
-						dynamicThreshold = Math.Min(dynamicThreshold, maxThreshold);
-						decimal thresholdPrice = upwardsMomentum.BestCoinPriceUsdc - dynamicThreshold;
-						decimal percentageDrop = (dynamicThreshold / upwardsMomentum.BestCoinPriceUsdc) * 100;
-
-						_ = _log.Db($"({tmpCoin.Replace("BTC", "XBT")}:{userId}:{strategy}) Dynamic Exit Conditions: " +
-								   $"Best Price: {upwardsMomentum.BestCoinPriceUsdc:F2}$, " +
-								   $"Threshold: {dynamicThreshold:F2}$ ({percentageDrop:F2}% drop), " +
-								   $"Sell Trigger Price: {thresholdPrice:F2}$",
-								   userId, "TRADE", true);
-
-						bool priceDroppedBelowThreshold = coinPriceUSDC < (upwardsMomentum.BestCoinPriceUsdc - dynamicThreshold);
-						if (priceDroppedBelowThreshold)
-						{
-							var balances = await GetBalance(userId, tmpCoin, keys);
-							if (balances == null)
-							{
-								_ = _log.Db($"({tmpCoin.Replace("BTC", "XBT")}:{userId}:{strategy}) Failed to get wallet balances. Trade Cancelled.", userId, "TRADE", true);
-								return false;
-							}
-							decimal coinBalance = balances.ContainsKey($"X{tmpCoin}") ? balances[$"X{tmpCoin}"] : 0;
-							decimal usdcBalance = balances.ContainsKey("USDC") ? balances["USDC"] : 0;
-
-							_ = _log.Db($"({tmpCoin.Replace("BTC", "XBT")}:{userId}:{strategy}) Exit Condition Met: " +
-															  $"Current Price ({coinPriceUSDC:F2}$) dropped below trigger price ({thresholdPrice:F2}$). " +
-															  $"USDC Balance: {usdcBalance}; Btc Balance: {coinBalance}" + 
-															  $"Executing sell order.",
-															  userId, "TRADE", true); 
-							await ExecuteTrade(userId, tmpCoin, keys, FormatBTC(Convert.ToDecimal(lastTrade.value)), "sell", coinBalance, usdcBalance, coinPriceCAD, coinPriceUSDC, strategy, lastTrade.id, null);
-							if (await DeleteMomentumStrategy(userId, tmpCoin, "USDC", strategy))
-							{
-								_ = _log.Db($"({tmpCoin.Replace("BTC", "XBT")}:{userId}:{strategy}) Deleted Momentum strategy.", userId, "TRADE", true);
-							}
-							else
-							{
-								_ = _log.Db($"⚠️({tmpCoin.Replace("BTC", "XBT")}:{userId}:{strategy}) Error deleting momentum strategy!", userId, "TRADE", true);
-							}
-							return true;
-						}
-						else
-						{
-							_ = _log.Db($"({tmpCoin.Replace("BTC", "XBT")}:{userId}:{strategy}) Exit Condition Not Met: " +
-									   $"Current Price ({coinPriceUSDC:F2}$) still above trigger price ({thresholdPrice:F2}$) " +
-									   $"by {coinPriceUSDC - thresholdPrice:F2}$. Waiting.",
-									   userId, "TRADE", true);
+							_ = _log.Db($"({tmpCoin.Replace("BTC", "XBT")}:{userId}:{strategy}) Failed to get wallet balances. Trade Cancelled.", userId, "TRADE", true);
 							return false;
 						}
+						decimal coinBalance = balances.ContainsKey($"X{tmpCoin}") ? balances[$"X{tmpCoin}"] : 0;
+						decimal usdcBalance = balances.ContainsKey("USDC") ? balances["USDC"] : 0;
+
+						_ = _log.Db($"({tmpCoin.Replace("BTC", "XBT")}:{userId}:{strategy}) Exit Condition Met: " +
+															$"USDC Balance: {usdcBalance}; Btc Balance: {coinBalance}" + 
+															$"Executing sell order.",
+															userId, "TRADE", true); 
+						await ExecuteTrade(userId, tmpCoin, keys, FormatBTC(Convert.ToDecimal(lastTrade.value)), "sell", coinBalance, usdcBalance, coinPriceCAD, coinPriceUSDC, strategy, lastTrade.id, null);
+						if (await DeleteMomentumStrategy(userId, tmpCoin, "USDC", strategy))
+						{
+							_ = _log.Db($"({tmpCoin.Replace("BTC", "XBT")}:{userId}:{strategy}) Deleted Momentum strategy.", userId, "TRADE", true);
+						}
+						else
+						{
+							_ = _log.Db($"⚠️({tmpCoin.Replace("BTC", "XBT")}:{userId}:{strategy}) Error deleting momentum strategy!", userId, "TRADE", true);
+						}
+						return true;
+						
 					}
 					else
 					{
@@ -1967,21 +1918,20 @@ public class KrakenService
 			{
 				var tradeRecord = new TradeRecord
 				{
-					id = reader.GetInt32(reader.GetOrdinal("id")),
-					user_id = reader.GetInt32(reader.GetOrdinal("user_id")),
-					from_currency = reader.GetString(reader.GetOrdinal("from_currency")),
-					to_currency = reader.GetString(reader.GetOrdinal("to_currency")),
-					strategy = reader.IsDBNull(reader.GetOrdinal("strategy")) ? null : reader.GetString(reader.GetOrdinal("strategy")),
-					value = reader.GetFloat(reader.GetOrdinal("value")),
-					timestamp = reader.GetDateTime(reader.GetOrdinal("timestamp")),
-					coin_price_cad = reader.GetString(reader.GetOrdinal("coin_price_cad")),
-					coin_price_usdc = reader.GetString(reader.GetOrdinal("coin_price_usdc")),
-					trade_value_cad = reader.GetFloat(reader.GetOrdinal("trade_value_cad")),
-					trade_value_usdc = reader.GetFloat(reader.GetOrdinal("trade_value_usdc")),
-					fees = reader.GetFloat(reader.GetOrdinal("fees")),
-					matching_trade_id = reader.IsDBNull(reader.GetOrdinal("matching_trade_id")) ? null : reader.GetInt32(reader.GetOrdinal("matching_trade_id")),
+					id = reader.IsDBNull(reader.GetOrdinal("id")) ? 0 : reader.GetInt32(reader.GetOrdinal("id")),
+					user_id = reader.IsDBNull(reader.GetOrdinal("user_id")) ? 0 : reader.GetInt32(reader.GetOrdinal("user_id")),
+					from_currency = reader.IsDBNull(reader.GetOrdinal("from_currency")) ? "null" : reader.GetString(reader.GetOrdinal("from_currency")),
+					to_currency = reader.IsDBNull(reader.GetOrdinal("to_currency")) ? "null" : reader.GetString(reader.GetOrdinal("to_currency")),
+					strategy = reader.IsDBNull(reader.GetOrdinal("strategy")) ? "null" : reader.GetString(reader.GetOrdinal("strategy")),
+					value = reader.IsDBNull(reader.GetOrdinal("value")) ? (float)0 : reader.GetFloat(reader.GetOrdinal("value")),
+					timestamp = reader.IsDBNull(reader.GetOrdinal("timestamp")) ? DateTime.Now : reader.GetDateTime(reader.GetOrdinal("timestamp")),
+					coin_price_cad = reader.IsDBNull(reader.GetOrdinal("coin_price_cad")) ? null : reader.GetString(reader.GetOrdinal("coin_price_cad")),
+					coin_price_usdc = reader.IsDBNull(reader.GetOrdinal("coin_price_usdc")) ? null : reader.GetString(reader.GetOrdinal("coin_price_usdc")),
+					trade_value_cad = reader.IsDBNull(reader.GetOrdinal("trade_value_cad")) ? 0 : reader.GetFloat(reader.GetOrdinal("trade_value_cad")),
+					trade_value_usdc = reader.IsDBNull(reader.GetOrdinal("trade_value_usdc")) ? 0 : reader.GetFloat(reader.GetOrdinal("trade_value_usdc")),
+					fees = reader.IsDBNull(reader.GetOrdinal("fees")) ? 0: reader.GetFloat(reader.GetOrdinal("fees")),
+					matching_trade_id = reader.IsDBNull(reader.GetOrdinal("matching_trade_id")) ? (int?)null : reader.GetInt32(reader.GetOrdinal("matching_trade_id"))
 				};
-
 				tradeRecords.Add(tradeRecord);
 			}
 		}
