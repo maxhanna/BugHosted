@@ -14,7 +14,7 @@ export class CryptoBotConfigurationComponent extends ChildComponent {
   @Input() inputtedParentRef?: AppComponent;
   @Output() updatedTradeConfig = new EventEmitter<string>();
 
-  @ViewChild('tradeFromCoinSelect') tradeFromCoinSelect!: ElementRef<HTMLSelectElement>;
+  @ViewChild('tradeFromCoinSelect') tradeFromCoinSelect?: ElementRef<HTMLSelectElement>;
   @ViewChild('tradeStrategySelect') tradeStrategySelect!: ElementRef<HTMLSelectElement>;
   @ViewChild('tradeToCoinSelect') tradeToCoinSelect!: ElementRef<HTMLSelectElement>;
   @ViewChild('tradeMaximumFromTradeAmount') tradeMaximumFromTradeAmount!: ElementRef<HTMLInputElement>;
@@ -43,7 +43,7 @@ export class CryptoBotConfigurationComponent extends ChildComponent {
       return alert("You must be logged in to save your configuration.");
     }
 
-    const getVal = (el: ElementRef) => el.nativeElement?.value?.toString().trim();
+    const getVal = (el?: ElementRef) => el?.nativeElement?.value.toString().trim() ?? "XBT";
     const parseNum = (val: string | null) => val !== null && val !== '' ? parseFloat(val) : null;
 
     const fromCoin = getVal(this.tradeFromCoinSelect);
@@ -95,6 +95,7 @@ export class CryptoBotConfigurationComponent extends ChildComponent {
         if (result) {
           this.inputtedParentRef?.showNotification(`Updated (${fromCoin}|${toCoin}:${strategy}) configuration: ${result}`);
           this.updatedTradeConfig.emit(fromCoin);
+          this.tradeConfigLastUpdated = new Date();
         } else {
           this.inputtedParentRef?.showNotification(`Error updating (${fromCoin}|${toCoin}:${strategy}) configuration.`);
         }
@@ -112,10 +113,10 @@ export class CryptoBotConfigurationComponent extends ChildComponent {
     if (!userId || !sessionToken) { return alert("You must be logged in to get settings."); }
     const fromCoin = this.tradeFromCoinSelect?.nativeElement?.value ?? "BTC";
     const toCoin = this.tradeToCoinSelect?.nativeElement?.value ?? "USDC";
-    const dcaOrIndicator = this.tradeStrategySelect?.nativeElement?.value ?? "DCA";
+    const strategy = this.tradeStrategySelect?.nativeElement?.value ?? "DCA";
     
-    const tv = await this.tradeService.getTradeConfiguration(userId, sessionToken, fromCoin, toCoin, dcaOrIndicator);
-    if (tv && tv.length > 0) {
+    const tv = await this.tradeService.getTradeConfiguration(userId, sessionToken, fromCoin, toCoin, strategy);
+    if (tv && tv.userId) {
       this.applyTradeConfiguration(tv); 
     } else { 
       // If current user doesn't have a config, try to get default config from user 1
@@ -125,10 +126,10 @@ export class CryptoBotConfigurationComponent extends ChildComponent {
         defaultSessionToken,
         fromCoin,
         toCoin,
-        dcaOrIndicator
+        strategy
       ); 
       if (defaultConfig) {
-        this.applyTradeConfiguration(defaultConfig);
+        this.applyTradeConfiguration(defaultConfig, true);
       } else { 
         this.setDefaultTradeConfiguration();
       }
@@ -136,7 +137,7 @@ export class CryptoBotConfigurationComponent extends ChildComponent {
     }
   }
 
-  private applyTradeConfiguration(config: any) {
+  private applyTradeConfiguration(config: any, removeUserSpecificData = false) {
     this.tradeMaximumTradeBalanceRatio.nativeElement.valueAsNumber = config.maximumTradeBalanceRatio;
     this.tradeTradeThreshold.nativeElement.valueAsNumber = config.tradeThreshold;
     this.tradeMinimumFromTradeAmount.nativeElement.valueAsNumber = config.minimumFromTradeAmount;
@@ -153,7 +154,9 @@ export class CryptoBotConfigurationComponent extends ChildComponent {
     this.tradeVolumeSpikeMaxTradeOccurance.nativeElement.valueAsNumber = config.volumeSpikeMaxTradeOccurance;
     this.tradeStopLoss.nativeElement.valueAsNumber = config.tradeStopLoss;
     this.tradeStopLossPercentage.nativeElement.valueAsNumber = config.tradeStopLossPercentage;
-    this.tradeConfigLastUpdated = config.updated;
+    if (!removeUserSpecificData) { 
+      this.tradeConfigLastUpdated = config.updated;
+    }
   }
 
   setDefaultTradeConfiguration() {
@@ -173,7 +176,7 @@ export class CryptoBotConfigurationComponent extends ChildComponent {
     this.tradeMaximumTradeBalanceRatio.nativeElement.valueAsNumber = 0.9;
 
     // Set coin-specific defaults
-    const fromCoin = this.tradeFromCoinSelect.nativeElement.value;
+    const fromCoin = this.tradeFromCoinSelect?.nativeElement?.value ?? "XBT";
     const toCoin = this.tradeToCoinSelect.nativeElement.value;
 
     if (fromCoin === "XBT" && toCoin === "USDC") {

@@ -37,7 +37,12 @@ export class NotificationsComponent extends ChildComponent implements OnInit, On
 
   app?: any;
   messaging?: any;
-  unreadNotifications = 0;
+  unreadNotifications = 0; 
+
+  currentPage = 1;
+  itemsPerPage = 10;
+  totalPages = 1;
+  paginatedNotifications: UserNotification[] = [];
 
   private pollingInterval: any;
 
@@ -56,13 +61,14 @@ export class NotificationsComponent extends ChildComponent implements OnInit, On
       clearInterval(this.pollingInterval); // Clear the interval when component is destroyed
     }
   }
-  private async getNotifications() {  
-    if (this.parentRef?.user?.id) { 
+  private async getNotifications() {
+    if (this.parentRef?.user?.id) {
       this.startLoading();
       await this.notificationService.getNotifications(this.parentRef.user.id).then(res => {
         if (res) {
-          this.notifications = res; 
-          this.unreadNotifications = this.notifications?.filter(x => x.isRead == false).length; 
+          this.notifications = res;
+          this.unreadNotifications = this.notifications?.filter(x => x.isRead == false).length;
+          this.updatePagination();  
         }
       });
       this.stopLoading();
@@ -76,6 +82,45 @@ export class NotificationsComponent extends ChildComponent implements OnInit, On
         console.error('Error fetching notifications:', error);
       }
     }, 30000); // Poll every 30 seconds
+  }
+
+
+  private updatePagination() {
+    if (!this.notifications) {
+      this.paginatedNotifications = [];
+      return;
+    }
+
+    this.totalPages = Math.ceil(this.notifications.length / this.itemsPerPage);
+
+    // Ensure currentPage is within valid bounds
+    if (this.currentPage > this.totalPages) {
+      this.currentPage = this.totalPages > 0 ? this.totalPages : 1;
+    }
+
+    const startIndex = (this.currentPage - 1) * this.itemsPerPage;
+    const endIndex = startIndex + this.itemsPerPage;
+    this.paginatedNotifications = this.notifications.slice(startIndex, endIndex);
+  }
+
+  nextPage() {
+    if (this.currentPage < this.totalPages) {
+      this.currentPage++;
+      this.updatePagination();
+    }
+  }
+
+  previousPage() {
+    if (this.currentPage > 1) {
+      this.currentPage--;
+      this.updatePagination();
+    }
+  }
+
+  onItemsPerPageChange() { 
+    this.itemsPerPage = Number(this.itemsPerPage);
+    this.currentPage = 1; // Reset to first page when items per page changes
+    this.updatePagination();
   }
 
   removeMe(type: string) { 
@@ -156,6 +201,7 @@ export class NotificationsComponent extends ChildComponent implements OnInit, On
         this.unreadNotifications = 0;
         this.notifications = [];
       }
+      this.updatePagination();
       parent.navigationComponent.setNotificationNumber(this.unreadNotifications);
     }
   }

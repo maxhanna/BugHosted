@@ -77,8 +77,8 @@
     </div>
 </div>
 
-<div class="optionsStatsDiv">
-    <div class="optionsStatsHeader" title="Maximum amount of the source coin per trade">Max Source Coin per Trade</div>
+<div class="optionsStatsDiv" [style.display]="tradeStrategySelect.value == 'IND' ? 'none' : 'flex'">
+    <div class="optionsStatsHeader" title="Maximum amount of the source coin per trade">Max {{tradeFromCoinSelect?.value}} per Trade</div>
     <div class="optionsStatsDescription">
         <input type="number" #tradeMaximumFromTradeAmount
             title="Set the maximum amount of the source coin (e.g., BTC) that can be traded in a single transaction." />
@@ -97,8 +97,8 @@
     </div>
 </div>
 
-<div class="optionsStatsDiv">
-    <div class="optionsStatsHeader" title="Minimum amount of the source coin per trade">Min Source Coin per Trade</div>
+<div class="optionsStatsDiv" [style.display]="tradeStrategySelect.value == 'IND' ? 'none' : 'flex'">
+    <div class="optionsStatsHeader" title="Minimum amount of the source coin per trade">Min {{tradeFromCoinSelect?.value}} per Trade</div>
     <div class="optionsStatsDescription">
         <input type="number" #tradeMinimumFromTradeAmount
             title="Set the minimum amount of the source coin (e.g., BTC) that must be traded in a single transaction." />
@@ -118,7 +118,7 @@
 </div>
 
 <div class="optionsStatsDiv">
-    <div class="optionsStatsHeader" title="Maximum amount of USDC per buy trade">Max USDC per Buy Trade</div>
+    <div class="optionsStatsHeader" title="Maximum amount of USDC per buy trade">Max {{tradeToCoinSelect?.value}} per Buy Trade</div>
     <div class="optionsStatsDescription">
         <input type="number" #tradeMaximumToTradeAmount
             title="Set the maximum amount of USDC that can be spent in a single buy transaction." />
@@ -158,7 +158,7 @@
     </div>
 </div>
 
-<div class="optionsStatsDiv">
+<div class="optionsStatsDiv" [style.display]="tradeStrategySelect.value == 'IND' ? 'none' : 'flex'">
     <div class="optionsStatsHeader" title="Maximum percentage of total balance per trade">Max Balance Percentage per
         Trade</div>
     <div class="optionsStatsDescription">
@@ -202,7 +202,7 @@
     </div>
 </div>
 
-<div class="optionsStatsDiv">
+<div class="optionsStatsDiv" [style.display]="tradeStrategySelect.value == 'IND' ? 'none' : 'flex'">
     <div class="optionsStatsHeader" title="Fraction of holdings to sell">Sell Percentage per Trade</div>
     <div class="optionsStatsDescription">
         <input type="number" #tradeValueSellPercentage title="Set what fraction of your holdings to sell per trade." />
@@ -222,8 +222,8 @@
     </div>
 </div>
 
-<div class="optionsStatsDiv">
-    <div class="optionsStatsHeader" title="Minimum source coin amount to start trading">Min Source Coin to Start Trading
+<div class="optionsStatsDiv" [style.display]="tradeStrategySelect.value == 'IND' ? 'none' : 'flex'">
+    <div class="optionsStatsHeader" title="Minimum source coin amount to start trading">Min {{tradeFromCoinSelect?.value}} to Start Trading
     </div>
     <div class="optionsStatsDescription">
         <input type="number" #tradeInitialMinimumFromAmountToStart
@@ -242,8 +242,8 @@
     </div>
 </div>
 
-<div class="optionsStatsDiv">
-    <div class="optionsStatsHeader" title="Minimum USDC amount to start trading">Min USDC to Start Trading</div>
+<div class="optionsStatsDiv" [style.display]="tradeStrategySelect.value == 'IND' ? 'none' : 'flex'">
+    <div class="optionsStatsHeader" title="Minimum USDC amount to start trading">Min {{tradeToCoinSelect?.value}} to Start Trading</div>
     <div class="optionsStatsDescription">
         <input type="number" #tradeInitialMinimumUSDCAmountToStart
             title="Set the minimum amount of USDC needed to start trading." />
@@ -260,8 +260,8 @@
     </div>
 </div>
 
-<div class="optionsStatsDiv">
-    <div class="optionsStatsHeader" title="Maximum initial USDC amount to start trading">Max Initial USDC to Start
+<div class="optionsStatsDiv" [style.display]="tradeStrategySelect.value == 'IND' ? 'none' : 'flex'">
+    <div class="optionsStatsHeader" title="Maximum initial USDC amount to start trading">Max Initial {{tradeToCoinSelect?.value}} to Start
         Trading</div>
     <div class="optionsStatsDescription">
         <input type="number" #tradeInitialMaximumUSDCAmountToStart
@@ -280,8 +280,8 @@
     </div>
 </div>
 
-<div class="optionsStatsDiv">
-    <div class="optionsStatsHeader" title="Minimum reserve of the source coin">Min Source Coin Reserve</div>
+<div class="optionsStatsDiv" [style.display]="tradeStrategySelect.value == 'IND' ? 'none' : 'flex'">
+    <div class="optionsStatsHeader" title="Minimum reserve of the source coin">Min {{tradeFromCoinSelect?.value}} Reserve</div>
     <div class="optionsStatsDescription">
         <input type="number" #tradeMinimumFromReserves
             title="Specify the minimum amount of the source coin to always keep in reserve." />
@@ -298,8 +298,8 @@
     </div>
 </div>
 
-<div class="optionsStatsDiv">
-    <div class="optionsStatsHeader" title="Minimum reserve of the target coin">Min USDC Reserve</div>
+<div class="optionsStatsDiv" [style.display]="tradeStrategySelect.value == 'IND' ? 'none' : 'flex'">
+    <div class="optionsStatsHeader" title="Minimum reserve of the target coin">Min {{tradeToCoinSelect?.value}} Reserve</div>
     <div class="optionsStatsDescription">
         <input type="number" #tradeMinimumToReserves
             title="Specify the minimum amount of USDC to always keep in reserve." />
@@ -323,7 +323,7 @@
             title="Set the maximum number of times a trade type (buy or sell) can occur." />
         <div class="settingExplanation" (click)="toggleExplanation($event)">
             <p><strong>What it does:</strong> This field limits how many buy or sell trades your bot can execute within
-                a day or consecutively, depending on your bot’s rules. It applies separately to buys and sells—e.g., 5
+                a day or consecutively, depending on your bot’s rules. (For the Indicator strategy, its per 2 hours.) It applies separately to buys and sells—e.g., 5
                 buys and 5 sells max.</p>
             <p><strong>Why it matters:</strong> Overtrading can lead to losses from fees or bad timing, especially in
                 choppy markets. This cap keeps your bot disciplined, preventing it from going wild during volatility and
@@ -335,7 +335,7 @@
     </div>
 </div>
 
-<div class="optionsStatsDiv">
+<div class="optionsStatsDiv" [style.display]="tradeStrategySelect.value == 'IND' ? 'none' : 'flex'">
     <div class="optionsStatsHeader" title="Maximum trades during volume spikes">Max Trades During Volume Spikes</div>
     <div class="optionsStatsDescription">
         <input type="number" #tradeVolumeSpikeMaxTradeOccurance
@@ -355,7 +355,7 @@
 </div>
 
 <div class="optionsStatsDiv" [style.display]="tradeStrategySelect.value == 'DCA' ? 'flex' : 'none'">
-    <div class="optionsStatsHeader" title="Price to liquidate position in DCA">DCA Stop-Loss Price</div>
+    <div class="optionsStatsHeader" title="Price to liquidate position in DCA">Stop-Loss Price</div>
     <div class="optionsStatsDescription">
         <input type="number" #tradeStopLoss
             title="For DCA, set a USDC price point to liquidate your entire BTC position." />
@@ -368,7 +368,8 @@
                 collapse—it’s your panic button with a price tag.</p>
             <p><strong>How to use it:</strong> If your average BTC buy price is $50,000, set this 10% lower at $45,000
                 to limit losses. If BTC hits $45,000, it’s all sold to USDC. Set tighter (e.g., $48,000) for caution, or
-                looser (e.g., $40,000) for more risk tolerance. Track your average cost to set this smartly.</p>
+                looser (e.g., $40,000) for more risk tolerance. Set it to 0 to have no stop-loss. 
+                Track your average cost to set this smartly.</p>
         </div>
     </div>
 </div>
@@ -379,10 +380,10 @@
         <input type="number" #tradeStopLossPercentage
             title="For IND, set a percentage drop from the purchase price to liquidate your BTC position." />
         <div class="settingExplanation" (click)="toggleExplanation($event)">
-            <p><strong>What it does:</strong> For IND only, this field triggers a full sell-off of your BTC if its price
+            <p><strong>What it does:</strong> For the indicator strategy only, this field triggers a full sell-off of your BTC if its price
                 drops by this percentage from your purchase price. It’s a dynamic stop-loss tied to your entry point,
                 not a fixed price.</p>
-            <p><strong>Why it matters:</strong> IND relies on indicators for timing, but markets can defy signals. This
+            <p><strong>Why it matters:</strong> The indicator strategy relies on indicators for timing, but markets can defy signals. This
                 protects you from holding a losing position too long, automatically cutting losses when the trade sours
                 beyond your set limit.</p>
             <p><strong>How to use it:</strong> Enter a number like 5 (no % sign)—if you bought BTC at $50,000, a 5% drop

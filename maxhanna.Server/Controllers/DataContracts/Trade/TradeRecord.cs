@@ -13,4 +13,5 @@ public class TradeRecord
 	public float trade_value_usdc { get; set; }
 	public float fees { get; set; }
 	public int? matching_trade_id { get; set; }
+	public bool is_reserved { get; set; }
 }

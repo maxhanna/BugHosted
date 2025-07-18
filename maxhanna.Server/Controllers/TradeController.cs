@@ -29,6 +29,24 @@ public class TradeController : ControllerBase
 		}
 	}
 
+
+	[HttpPost("/Trade/GetLatestTradeHistory", Name = "GetLatestTradeHistory")]
+	public async Task<IActionResult> GetLatestTradeHistory([FromBody] int UserId, [FromHeader(Name = "Encrypted-UserId")] string encryptedUserId)
+	{
+		try
+		{
+			if (UserId != 1 && !await _log.ValidateUserLoggedIn(UserId, encryptedUserId)) return StatusCode(500, "Access Denied.");
+			var time = await _krakenService.GetLatestTradeHistory(UserId);
+			return Ok(time);
+		}
+		catch (Exception ex)
+		{
+			_ = _log.Db("Error fetching trade history. " + ex.Message, UserId, "TRADE", true);
+			return StatusCode(500, "Error fetching trade history.");
+		}
+	}
+
+
 	[HttpPost("/Trade/UpdateApiKey", Name = "UpdateApiKey")]
 	public async Task<IActionResult> UpdateApiKey([FromBody] UpdateApiKeyRequest request, [FromHeader(Name = "Encrypted-UserId")] string encryptedUserId)
 	{

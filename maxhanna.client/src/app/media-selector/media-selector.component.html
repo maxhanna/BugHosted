@@ -50,7 +50,8 @@
       <!-- file searching display -->
 
       <div *ngIf="displaySearch && !maxFilesReached" class="fileSearchDiv">
-        <app-file-search [user]="user"
+        <app-file-search #fileSearchComponent
+                         [user]="user"
                          [inputtedParentRef]="inputtedParentRef"
                          [currentDirectory]="currentDirectory"
                          [clearAfterSelectFile]="true"
@@ -74,11 +75,14 @@
        
       <!-- SEARCH/UPLOAD buttons -->
       <div class="searchUploadButtonChoiceDiv" *ngIf="!maxFilesReached">
-        <button (click)="displaySearch ? closeSearchDiv($event) : displaySearchDiv()" title="Search for files" class="cursorPointer" [style]="displaySearch ? 'position:relative; top:-10px;' : ''">
+        <button id="closeOverlay" (click)="displaySearch ? closeSearchDiv($event) : displaySearchDiv()"  
+          title="Search for files" class="cursorPointer" 
+          [style]="displaySearch ? 'position:relative; top:-10px;' : ''">
           {{displaySearch ? 'Close Search' : ('🔍Search' )}}
         </button>
         <div *ngIf="!displaySearch">
           <app-file-upload #fileUploadComponent
+                           [allowedFileTypes]="allowedFileTypes"
                            [uploadButtonText]="uploadButtonText || 'Upload'"
                            [inputtedParentRef]="inputtedParentRef"
                            [showPrivatePublicOption]="false"

@@ -60,24 +60,28 @@ export class FileUploadComponent implements OnDestroy {
       }
 
       const selectedFiles = Array.from(this.fileInput.nativeElement.files as FileList);
-      let considerFileTypes = this.allowedFileTypes.trim() != '';
-     
-      const allowedTypes = this.allowedFileTypes
-        .split(',')
-        .map(t => t.trim().toLowerCase())
-        .filter(t => t.length > 0);
 
-      const validFiles = selectedFiles.filter(file => {
-        if (!considerFileTypes) return true;
-        const mimeType = file.type.toLowerCase();
-        const ext = '.' + file.name.split('.').pop()?.toLowerCase();
+      const considerFileTypes = this.allowedFileTypes.trim() !== '';
+      let validFiles: File[];
 
-        return allowedTypes.includes(mimeType) || allowedTypes.includes(ext);
-      });
+      if (!considerFileTypes) {
+        validFiles = selectedFiles;
+      } else {
+        const allowedTypes = this.allowedFileTypes
+          .split(',')
+          .map(t => t.trim().toLowerCase())
+          .filter(t => t.length > 0);
 
-      if (considerFileTypes && validFiles.length === 0) {
-        alert('None of the selected files match the allowed file types.');
-        return;
+        validFiles = selectedFiles.filter(file => {
+          const mimeType = file.type.toLowerCase();
+          const ext = '.' + file.name.split('.').pop()?.toLowerCase();
+          return allowedTypes.includes(mimeType) || allowedTypes.includes(ext);
+        });
+
+        if (validFiles.length === 0) {
+          alert('None of the selected files match the allowed file types.');
+          return;
+        }
       }
 
       if (validFiles.length > this.maxSelectedFiles) {

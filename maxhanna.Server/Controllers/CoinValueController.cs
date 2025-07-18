@@ -685,7 +685,7 @@ namespace maxhanna.Server.Controllers
 
 				if (latestTimestamp != null)
 				{
-					string sql = @"SELECT id, symbol, name, value_cad, timestamp FROM coin_value WHERE LOWER(name) = LOWER(@name) AND timestamp = @latestTimestamp LIMIT 1";
+					string sql = @"SELECT id, symbol, name, value_cad, value_usd, timestamp FROM coin_value WHERE LOWER(name) = LOWER(@name) AND timestamp = @latestTimestamp LIMIT 1";
 					MySqlCommand cmd = new MySqlCommand(sql, conn);
 					cmd.Parameters.AddWithValue("@name", name);
 					cmd.Parameters.AddWithValue("@latestTimestamp", latestTimestamp);
@@ -699,6 +699,7 @@ namespace maxhanna.Server.Controllers
 								Symbol = reader.IsDBNull(reader.GetOrdinal("symbol")) ? null : reader.GetString(reader.GetOrdinal("symbol")),
 								Name = reader.IsDBNull(reader.GetOrdinal("name")) ? null : reader.GetString(reader.GetOrdinal("name")),
 								ValueCAD = reader.IsDBNull(reader.GetOrdinal("value_cad")) ? 0 : reader.GetDecimal(reader.GetOrdinal("value_cad")),
+								ValueUSD = reader.IsDBNull(reader.GetOrdinal("value_usd")) ? 0 : reader.GetDecimal(reader.GetOrdinal("value_usd")),
 								Timestamp = reader.GetDateTime(reader.GetOrdinal("timestamp"))
 							};
 							return tmpCoinValue;

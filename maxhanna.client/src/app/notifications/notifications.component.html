@@ -25,40 +25,66 @@
       </div>
       <div class="closeButton" id="closeOverlay" (click)="showNotifications = false;  (inputtedParentRef ? inputtedParentRef.closeOverlay() : '')" *ngIf="minimalInterface"></div>
     </div>
+
     <div [class]="'notificationsListContainer ' + (minimalInterface ? 'notificationsList' : '')" *ngIf="notifications && notifications.length > 0">
-      <div *ngFor="let notification of notifications" class="notificationListItem" [style.opacity]="notification.isRead ? '50%' : '100%'">
-        <div class="nliLeftDiv">
-          <app-user-tag [user]="notification.fromUser" 
-            [inputtedParentRef]="inputtedParentRef ?? parentRef"
-            [previousComponent]="previousComponent" 
-            [displayHoverPicture]="true"></app-user-tag>
+      <div class="pagination-controls" *ngIf="notifications && notifications.length > itemsPerPage">
+        <div class="items-per-page-selector">
+          <label>Items per page:</label>
+          <select [value]="itemsPerPage" (change)="itemsPerPage = $any($event.target).value; onItemsPerPageChange()">
+            <option value="5">5</option>
+            <option value="10">10</option>
+            <option value="20">20</option>
+            <option value="50">50</option>
+          </select>
         </div>
-        <div class="nliRightDiv">
-          <button title="Delete Notification" (click)="delete(notification)" class="deleteNotificationButton">❌</button>
-          <button title="Read Notification" (click)="read(notification)" class="readNotificationButton">{{notification.isRead ? 'Unread' : '👀'}}</button>
-          <div *ngIf="notification.fileId" (click)="goToFileId(notification)" class="usernameProfileLink cursorPointerUnderlined fileId">
-            <strong>File ID:</strong> {{ notification.fileId }}
+        <div class="page-navigation">
+          <button (click)="previousPage()" [disabled]="currentPage === 1">Previous</button>
+          <span>Page {{currentPage}} of {{totalPages}}</span>
+          <button (click)="nextPage()" [disabled]="currentPage === totalPages">Next</button>
+        </div>
+      </div>
+      <div class="notificationsListSubContainer">
+        <div *ngFor="let notification of paginatedNotifications" class="notificationListItem"
+          [style.opacity]="notification.isRead ? '50%' : '100%'">
+          <div class="nliLeftDiv">
+            <app-user-tag [user]="notification.fromUser" [inputtedParentRef]="inputtedParentRef ?? parentRef"
+              [previousComponent]="previousComponent" [displayHoverPicture]="true"></app-user-tag>
           </div>
-          <div *ngIf="notification.storyId" (click)="notification.userProfileId ? viewProfileByNotification(notification) : goToStoryId(notification)" class="usernameProfileLink cursorPointerUnderlined fileId">
-            <strong>Post ID:</strong> {{ notification.storyId }}
-          </div>
-          <div *ngIf="notification.commentId" (click)="notification.userProfileId ? viewProfileByNotification(notification) : goToCommentId(notification)" class="usernameProfileLink cursorPointerUnderlined fileId">
-            <strong>Comment ID:</strong> {{ notification.commentId }}
-          </div>
-          <div *ngIf="notification.userProfileId" (click)="viewProfileByNotification(notification)" class="usernameProfileLink cursorPointerUnderlined fileId">
-            <strong>Profile ID:</strong> {{ notification.userProfileId }}
-          </div>
-          <div *ngIf="notification.chatId && notification.fromUser" (click)="goToChat(notification)" class="usernameProfileLink cursorPointerUnderlined fileId">
-            <strong>Chat Notification</strong>
-          </div>
-          <div class="notificationText cursorPointer" (click)="notificationTextClick(notification)">
-            <strong>{{ notification.text }}</strong>
-          </div>
-          <div class="date notificationText" (click)="notificationTextClick(notification)">
-            <strong>Time:</strong> {{ getUtcTimeSince(notification?.date) }}
+          <div class="nliRightDiv">
+            <button title="Delete Notification" (click)="delete(notification)" class="deleteNotificationButton">❌</button>
+            <button title="Read Notification" (click)="read(notification)" class="readNotificationButton">{{notification.isRead
+              ? 'Unread' : '👀'}}</button>
+            <div *ngIf="notification.fileId" (click)="goToFileId(notification)"
+              class="usernameProfileLink cursorPointerUnderlined fileId">
+              <strong>File ID:</strong> {{ notification.fileId }}
+            </div>
+            <div *ngIf="notification.storyId"
+              (click)="notification.userProfileId ? viewProfileByNotification(notification) : goToStoryId(notification)"
+              class="usernameProfileLink cursorPointerUnderlined fileId">
+              <strong>Post ID:</strong> {{ notification.storyId }}
+            </div>
+            <div *ngIf="notification.commentId"
+              (click)="notification.userProfileId ? viewProfileByNotification(notification) : goToCommentId(notification)"
+              class="usernameProfileLink cursorPointerUnderlined fileId">
+              <strong>Comment ID:</strong> {{ notification.commentId }}
+            </div>
+            <div *ngIf="notification.userProfileId" (click)="viewProfileByNotification(notification)"
+              class="usernameProfileLink cursorPointerUnderlined fileId">
+              <strong>Profile ID:</strong> {{ notification.userProfileId }}
+            </div>
+            <div *ngIf="notification.chatId && notification.fromUser" (click)="goToChat(notification)"
+              class="usernameProfileLink cursorPointerUnderlined fileId">
+              <strong>Chat Notification</strong>
+            </div>
+            <div class="notificationText cursorPointer" (click)="notificationTextClick(notification)">
+              <strong>{{ notification.text }}</strong>
+            </div>
+            <div class="date notificationText" (click)="notificationTextClick(notification)">
+              <strong>Time:</strong> {{ getUtcTimeSince(notification?.date) }}
+            </div>
           </div>
         </div>
-      </div> 
+      </div>
     </div>
     <div *ngIf="notifications && notifications.length == 0" class="noNotificationsDiv">
       <div class="noNotificationsWrapperSpan">

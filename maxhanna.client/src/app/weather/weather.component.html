@@ -89,12 +89,12 @@
   <div *ngIf="weather.current" class="currentWeatherStats optionsStatsWrapperDiv">
     <div class="optionsStatsDiv">
       <div class="optionsStatsHeader" title="Degrees in Celsius">Degrees °C:</div>
-      <div class="optionsStatsDescription" title="Temperature and 'Feels Like' (in Celsius)">{{
+      <div class="optionsStatsDescription secondaryFontColor" title="Temperature and 'Feels Like' (in Celsius)">{{
         weather.current.temp_c.toFixed(0) }}° ({{ weather.current.feelslike_c }}°)</div>
     </div>
     <div class="optionsStatsDiv">
       <div class="optionsStatsHeader" title="Degrees in Fahrenheit">Degrees °F:</div>
-      <div class="optionsStatsDescription" title="Temperature and 'Feels Like' (in Fahrenheit)">{{
+      <div class="optionsStatsDescription secondaryFontColor" title="Temperature and 'Feels Like' (in Fahrenheit)">{{
         weather.current.temp_f.toFixed(0) }}° ({{ weather.current.feelslike_f }}°)</div>
     </div>
     <div class="optionsStatsDiv">
@@ -121,7 +121,7 @@
     <table class="mainTable">
       <tbody *ngIf="weather.forecast">
         <tr class="mainBgColor">
-          <th title="Forecast Date">Forecast</th>
+          <th title="Forecast Date">📅</th>
           <th title="Degrees in Celsius">°C</th>
           <th title="Degrees in Fahrenheit">°F</th>
           <th></th>
@@ -136,12 +136,18 @@
                 {{ day.date }}
               </span>
             </td>
-            <td title="Temperature in Celsius"><span [class.collapsible]="!isCollapsed(day.date)"
-                [class.collapsed]="isCollapsed(day.date)">{{ calculateAverage(day.hour, 'temp_c') }}° ({{
-                calculateAverage(day.hour, 'feelslike_c') }}°)</span></td>
-            <td title="Temperature in Fahrenheit"><span [class.collapsible]="!isCollapsed(day.date)"
-                [class.collapsed]="isCollapsed(day.date)">{{ calculateAverage(day.hour, 'temp_f') }}° ({{
-                calculateAverage(day.hour, 'feelslike_f') }}°)</span></td>
+            <td title="Temperature in Celsius">
+              <span [class.collapsible]="!isCollapsed(day.date)"
+                [class.collapsed]="isCollapsed(day.date)" class="secondaryFontColor">
+                {{ calculateAverage(day.hour, 'temp_c') }}° ({{ calculateAverage(day.hour, 'feelslike_c') }}°)
+              </span>
+            </td>
+            <td title="Temperature in Fahrenheit">
+              <span [class.collapsible]="!isCollapsed(day.date)"
+                [class.collapsed]="isCollapsed(day.date)" class="secondaryFontColor">
+                {{ calculateAverage(day.hour, 'temp_f') }}° ({{ calculateAverage(day.hour, 'feelslike_f') }}°)
+              </span>
+            </td>
             <td [title]="calculateAverage(day.hour, 'conditionText')"><span [class.collapsible]="!isCollapsed(day.date)"
                 [class.collapsed]="isCollapsed(day.date)"><img
                   [src]="calculateAverage(day.hour, 'conditionIcon')" /></span></td>
@@ -155,8 +161,8 @@
           <ng-container *ngIf="!isCollapsed(day.date)">
             <tr *ngFor="let hour of day.hour" [class]="{'highlight': isCurrentHour(hour.time)}">
               <td>{{ hour.time.split(' ')[1] }}</td>
-              <td title="Temperature in Celsius">{{ hour.temp_c }}° ({{hour.feelslike_c}}°)</td>
-              <td title="Temperature in Fahrenheit">{{ hour.temp_f }} ({{hour.feelslike_f}}°)</td>
+              <td title="Temperature in Celsius" class="secondaryFontColor">{{ hour.temp_c }}° ({{hour.feelslike_c}}°)</td>
+              <td title="Temperature in Fahrenheit" class="secondaryFontColor">{{ hour.temp_f }} ({{hour.feelslike_f}}°)</td>
               <td [title]="hour.condition.text"><img class=smallConditionIcon [src]="hour.condition.icon" /></td>
               <td title="Wind speed in Kilometers per Hour">{{ hour.wind_kph }}</td>
               <td title="Humidity %">{{ hour.humidity }}</td>

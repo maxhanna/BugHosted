@@ -19,6 +19,7 @@ namespace maxhanna.Server.Controllers
 		private readonly Log _log;
 		private readonly IConfiguration _config;
 		private readonly HttpClient _httpClient;
+		private static readonly SemaphoreSlim _analyzeLock = new SemaphoreSlim(1, 1); 
 
 		public AiController(Log log, IConfiguration config)
 		{
@@ -580,6 +581,11 @@ namespace maxhanna.Server.Controllers
 
 		public async Task<IActionResult> AnalyzeAndRenameFile()
 		{
+			if (!await _analyzeLock.WaitAsync(0)) // non-blocking wait
+			{
+				_ = _log.Db("AnalyzeAndRenameFile skipped because a previous operation is still in progress.", null, "AiController", true);
+				return Conflict(new { Message = "Analyze and rename is already running." });
+			}
 			try
 			{
 				_ = _log.Db("Analyzing and renaming a random file.", null, "AiController", true);
@@ -631,6 +637,10 @@ namespace maxhanna.Server.Controllers
 			{
 				_ = _log.Db($"Error in AnalyzeAndRenameFile: {ex.Message}", null, "AiController", true);
 				return StatusCode(500, new { Message = "Internal server error" });
+			}
+			finally
+			{
+				_analyzeLock.Release();
 			}
 		}
 

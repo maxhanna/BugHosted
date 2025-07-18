@@ -693,8 +693,8 @@
               <tr>
                 <th class="xxSmallFont">ID</th>
                 <th class="xxSmallFont">Pair</th>
-                <th class="xxSmallFont">Value ($BTC)/($USDC)</th>
-                <th class="xxSmallFont">BTC Price</th>
+                <th class="xxSmallFont">Value (${{tradeBalanceCoinSelector?.nativeElement?.value}})/($USDC)</th>
+                <th class="xxSmallFont">{{tradeBalanceCoinSelector?.nativeElement?.value}} Price</th>
                 <th class="xxSmallFont">Fees</th>
                 <th class="xxSmallFont">Timestamp</th>
                 <th class="xxSmallFont">Matched Trade</th>
@@ -723,12 +723,13 @@
                     {{ formatStringCanadianCurrency(trade.trade_value_usdc) }}
                   </span>
                 </td>
-                <td class="xxSmallFont">{{ formatStringCanadianCurrency(trade.coin_price_usdc) }}</td>
-                <td class="xxSmallFont">{{ formatToCanadianCurrency(trade.fees) }}</td>
+                <td class="xxSmallFont secondaryFontColor">{{ formatStringCanadianCurrency(trade.coin_price_usdc) }}</td>
+                <td class="xxSmallFont negative">{{ formatToCanadianCurrency(trade.fees) }}</td>
                 <td class="xxSmallFont" [title]="parentRef?.convertUtcToLocalTime(trade.timestamp)">{{
                   parentRef?.convertUtcToLocalTime(trade.timestamp) | timeSince }}</td>
-                <td class="xxSmallFont" [title]="trade.matching_trade_id"
-                  (click)="goToTradeId('tradeBalance'+trade.matching_trade_id)">{{ trade.matching_trade_id }}</td>
+                <td class="xxSmallFont" [title]="trade.matching_trade_id" (click)="goToTradeId('tradeBalance'+trade.matching_trade_id)">
+                  {{ trade.matching_trade_id ?? (trade.is_reserved ? 'Reserved': '') }}
+                </td>
               </tr>
             </tbody>
           </table>
@@ -829,6 +830,7 @@
             <select (change)="filterLogsFromEvent()" #tradeLogCoinFilter>
               <option value="XBT">BTC</option>
               <option value="XRP">XRP</option>
+              <option value="ETH">Ethereum</option>
               <option value="SOL">Solana</option>
               <option value="XDG">Dogecoin</option>
             </select>

@@ -3,6 +3,7 @@ import { AppComponent } from '../app.component';
 import { FileEntry } from '../../services/datacontracts/file/file-entry';
 import { User } from '../../services/datacontracts/user/user';
 import { FileUploadComponent } from '../file-upload/file-upload.component';
+import { FileSearchComponent } from '../file-search/file-search.component';
 
 
 @Component({
@@ -17,8 +18,7 @@ export class MediaSelectorComponent implements OnDestroy {
   maxFilesReached = false;
   viewMediaChoicesOpen = false;
   imageFileExtensions = ["jpg", "jpeg", "png", "gif", "bmp", "tiff", "svg", "webp"];
-  videoFileExtensions = ["mp4", "mov", "avi", "wmv", "webm", "flv"];
-  allowedFileExtensions = this.imageFileExtensions.concat(this.videoFileExtensions);
+  videoFileExtensions = ["mp4", "mov", "avi", "wmv", "webm", "flv"]; 
   selectedFiles: FileEntry[] = [];
   @Input() inputtedParentRef?: AppComponent;
   @Input() user?: User;
@@ -26,12 +26,14 @@ export class MediaSelectorComponent implements OnDestroy {
   @Input() currentDirectory: string = "";
   @Input() disabled: boolean = false;
   @Input() takeAllSpace: boolean = false;
+  @Input() allowedFileTypes: string = '';
   @Input() uploadButtonText: string = "Upload";
   @Output() selectFileEvent = new EventEmitter<FileEntry[]>();
   @ViewChild('selectMediaDiv', { static: false }) selectMediaDiv!: ElementRef;
   @ViewChild('mediaButton', { static: false }) mediaButton!: ElementRef;
   @ViewChild('doneButton') doneButton!: ElementRef<HTMLButtonElement>;
   @ViewChild(FileUploadComponent) fileUploadComponent!: FileUploadComponent;
+  @ViewChild(FileSearchComponent) fileSearchComponent!: FileSearchComponent;
 
 
   constructor() {
@@ -63,8 +65,18 @@ export class MediaSelectorComponent implements OnDestroy {
     this.viewMediaChoicesOpen = false;
   }
   closeSearchDiv(event: Event) {
-    this.displaySearch = false;
-    this.viewMediaChoicesOpen = true;
+    console.log("closing closeSearchDiv");
+    if (this.fileSearchComponent) {
+      this.fileSearchComponent.closeSearchPanel();  
+      console.log("closing search panel");
+    }
+    if (!this.viewMediaChoicesOpen && !this.fileSearchComponent?.isSearchPanelOpen) {
+      console.log("close media selector");
+      this.closeMediaSelector();
+    } else { 
+      this.displaySearch = false;
+      this.viewMediaChoicesOpen = true;
+    }
   }
   selectFile(file: FileEntry) {
     if (this.selectedFiles.length > this.maxSelectedFiles) {
@@ -143,5 +155,8 @@ export class MediaSelectorComponent implements OnDestroy {
     if (this.inputtedParentRef) {
       this.inputtedParentRef.closeOverlay();
     } 
+    if (this.fileSearchComponent) {
+      this.fileSearchComponent.closeSearchPanel();
+    }
   }
 }

@@ -57,6 +57,9 @@ export class TradeService {
   }
   async getTradeHistory(userId: number, encryptedUserId: string, coin?: string, strategy?: string) {
     return this.post(`/trade/gettradehistory`, { UserId: userId, Coin: coin ?? "XBT", Strategy: strategy ?? "DCA" }, 'json', encryptedUserId);
+  }  
+  async getLatestTradeHistory(userId: number, encryptedUserId: string) {
+    return this.post(`/trade/getlatesttradehistory`, userId, 'json', encryptedUserId);
   } 
   async updateApiKey(userId: number, apiKey: string, privateKey: string, encryptedUserId: string) {
     return this.post(`/trade/updateapikey`, { UserId: userId, ApiKey: apiKey, PrivateKey: privateKey }, 'text', encryptedUserId);

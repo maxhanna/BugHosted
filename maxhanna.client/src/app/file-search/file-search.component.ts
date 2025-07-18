@@ -282,14 +282,15 @@ export class FileSearchComponent extends ChildComponent implements OnInit {
   previousPage() {
     if (this.currentPage > 1) {
       this.currentPage--;
-      this.getDirectory();
+      this.getDirectory().then(() => { this.scrollToTop(); });
     }
   }
 
   async nextPage() {
     if (this.currentPage < this.totalPages) {
       this.currentPage++;
-      await this.getDirectory();
+      await this.getDirectory().then(() => { this.scrollToTop(); });
+      
     }
   }
   async appendNextPage() {
@@ -746,7 +747,19 @@ export class FileSearchComponent extends ChildComponent implements OnInit {
       this.scrollToPrevious();
     }
   }
- 
+  scrollToTop() {
+    setTimeout(() => {
+      const container2 = document.getElementsByClassName("smallerDataDiv")[0];
+      if (container2) { 
+        container2.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+      const container = document.getElementsByClassName("directoryDisplayDiv")[0];
+      if (container) {
+        container.scrollIntoView({ behavior: 'smooth', block: 'start' }); 
+      } 
+    }, 100);
+   
+  }
   scrollToNext(): void {
     let allComps = document.getElementsByClassName("fileNameDiv");
     let tgtComp = undefined;
@@ -811,12 +824,19 @@ export class FileSearchComponent extends ChildComponent implements OnInit {
     return count;
   }
   changeSearchTermsFromPopup() {
-    this.searchTerms = this.popupSearch.nativeElement.value.trim();
-    this.getDirectory();
+    clearTimeout(this.debounceTimer);
+    this.debounceTimer = setTimeout(() => {
+      this.searchTerms = this.popupSearch.nativeElement.value.trim();
+      this.getDirectory();
+    }, 500); 
   }
   changeSearchTermsFromSearchInput() { 
-    this.searchTerms = this.search.nativeElement.value.trim();
-    this.getDirectory();
+    clearTimeout(this.debounceTimer);
+    this.debounceTimer = setTimeout(() => {
+      this.searchTerms = this.search.nativeElement.value.trim();
+      this.getDirectory();
+    }, 500); 
+    
   }
   setSortOption(event: Event): void {
     const target = event.target as HTMLSelectElement;

@@ -262,8 +262,7 @@ fieldset {
 .mainTable {
   width: 100%;
   background-color: var(--secondary-component-background-color);
-  border-collapse: collapse;
-  color: var(--secondary-font-color);
+  border-collapse: collapse; 
 }
 
 .mainTable thead th {
@@ -313,30 +312,7 @@ fieldset {
 
 .mainTable tbody tr:hover td:first-child::after {
   right: 0;
-}
-
-.mainTable a:link,
-.mainTable a:visited {
-  color: var(--main-font-color);
-  text-decoration: none;
-}
-
-.mainTable a:hover {
-  color: #FF00FF;
-  text-decoration: underline;
-}
-
-.mainTable a:active {
-  color: #0000FF;
-}
-
-.mainTable td:first-child {
-  color: var(--main-font-color);
-}
-
-.mainTable td:nth-child(2) {
-  color: var(--main-font-color);
-}
+} 
 
 .mainTable th {
   border-collapse: collapse;

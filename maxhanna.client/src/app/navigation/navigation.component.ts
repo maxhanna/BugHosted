@@ -188,14 +188,12 @@ export class NavigationComponent implements OnInit, OnDestroy {
       if (res) {
         const chatItem = this._parent.navigationItems.find(x => x.title === "Chat");
         const content = chatItem?.content ?? "0";
-        const currentChatNotifCount = parseInt(content, 10) || 0;
-        console.log("chatCount:", currentChatNotifCount);
+        const currentChatNotifCount = parseInt(content, 10) || 0; 
 
         this.numberOfNotifications = res.filter(x => x.isRead == false).length;
         this._parent.navigationItems.filter(x => x.title == "Notifications")[0].content = this.numberOfNotifications + "";
         if (this._parent.userSelectedNavigationItems.find(x => x.title == "Chat")) {
           const numberOfChatNotifs = res.filter(x => x.chatId && x.isRead == false).length;
-          console.log("numberOfChatNotifs: " + numberOfChatNotifs);
 
           if (numberOfChatNotifs) {
             if (currentChatNotifCount < numberOfChatNotifs) {

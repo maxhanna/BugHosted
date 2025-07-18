@@ -128,7 +128,7 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
     document.addEventListener('fullscreenchange', () => {
       if (!document.fullscreenElement) {
         this.canvas.nativeElement.style.width = "100%";
-        this.canvas.nativeElement.style.height = "325px";
+        this.canvas.nativeElement.style.height = this.onMobile() ? "90vh" : "325px";
         this.canvas.nativeElement.width = this.canvas.nativeElement.offsetWidth;
         this.canvas.nativeElement.height = 325;
       }
@@ -236,7 +236,7 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
       backgroundColor: 'black',
       zIndex: '1',
       width: '100%',
-      height: (this.onMobile() ? '100%' : !this.showControls ? '100%' : '60vh'),
+      height: (this.onMobile() && this.showControls ? '60vh' : !this.showControls ? '100%' : '60vh'),
     }
     const core = this.coreMapping[fileType.toLowerCase()] || 'default_core'; // Replace 'default_core' with a fallback core if needed
 
@@ -507,10 +507,13 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
 
     if (!this.isFullScreen) {
       this.canvas.nativeElement
-      this.unlockedCanvas = true;
       if (this.onMobile()) {
-        await elem.requestFullscreen();
+        if (!this.showControls) {
+          this.unlockedCanvas = true;
+        }
+        await elem.requestFullscreen(); 
       } else {
+        this.unlockedCanvas = true;
         await canvas!.requestFullscreen();
       }
     } else {
