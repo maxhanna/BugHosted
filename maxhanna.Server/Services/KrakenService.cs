@@ -634,6 +634,7 @@ public class KrakenService
 					_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) USDC Balance: {usdcBalance}; {tmpCoin} Balance: {coinBalance}", userId, "TRADE", true);
 
 					decimal? coinToTrade;
+					int? fundingTransactionId = null;
 					List<TradeRecord> valueMatchingTrades = await GetProfitableOpenBuyPositionsAsync(userId, tmpCoin, strategy, coinPriceUSDC, _TradeThreshold);
 					if (valueMatchingTrades.Count > 0)
 					{
@@ -642,18 +643,31 @@ public class KrakenService
 					}
 					else
 					{
-						_ = _log.Db($"({tmpCoin}:{userId}:{strategy})⚠️ No matching buy price at this depth!", userId, "TRADE", true);
-						var isPremiumCondition = dynamicThreshold > premiumThreshold;
-						if (isPremiumCondition)
+						TradeRecord? fundingTransaction = await GetLatestReservedTransaction(userId, tmpCoin, strategy, coinPriceUSDC, _TradeThreshold);
+						if (fundingTransaction != null)
 						{
-							coinToTrade = coinBalance * (_ValueSellPercentage + _ValueTradePercentagePremium);
-							_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) [PREMIUM SELL OPPORTUNITY] dynamicThreshold:{dynamicThreshold:F2} > {premiumThreshold:F2}. Increasing trade size by {_ValueTradePercentagePremium:P}", userId, "TRADE", true);
+							_ = _log.Db($"({tmpCoin}:{userId}:{strategy})⚠️ No matching buy price at this depth!", userId, "TRADE", true);
+							var isPremiumCondition = dynamicThreshold > premiumThreshold;
+							if (isPremiumCondition)
+							{
+								coinToTrade = Convert.ToDecimal(fundingTransaction.value) * (_ValueSellPercentage + _ValueTradePercentagePremium);
+								_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) [PREMIUM SELL OPPORTUNITY] dynamicThreshold:{dynamicThreshold:F2} > {premiumThreshold:F2}. Increasing trade size by {_ValueTradePercentagePremium:P}", userId, "TRADE", true);
+							}
+							else
+							{
+								coinToTrade = coinBalance * _ValueSellPercentage;
+							}
+							coinToTrade = await AdjustToPriors(userId, tmpCoin, coinToTrade.Value, "sell", strategy);
+							fundingTransactionId = fundingTransaction.id;
 						}
 						else
 						{
-							coinToTrade = coinBalance * _ValueSellPercentage;
+							_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) No matching funding transactions at this buy level. Trade Cancelled.", userId, "TRADE", true);
+							await DeleteMomentumStrategy(userId, tmpCoin, "USDC", strategy);
+							return false;
 						}
-						coinToTrade = await AdjustToPriors(userId, tmpCoin, coinToTrade.Value, "sell", strategy);
+
+
 					}
 					if (coinBalance < coinToTrade.GetValueOrDefault(0))
 					{
@@ -674,8 +688,8 @@ public class KrakenService
 
 					decimal coinValueInUsdc = coinToTrade.Value * coinPriceUSDC;
 					var spread2Message = firstPriceToday != null ? $"Spread2: {spread2:P} " : "";
-					_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Spread is +{spread:P}, {spread2Message}(c:{coinPriceUSDC}-l:{lastPrice}), selling {coinToTrade} {tmpCoin} for USDC ({coinValueInUsdc}) matching trade ID: {upwardsMomentum.MatchingTradeId}.", userId, "TRADE", true);
-					await ExecuteTrade(userId, tmpCoin, keys, FormatBTC(coinToTrade.Value), "sell", coinBalance, usdcBalance, coinPriceCAD, coinPriceUSDC, strategy, null, valueMatchingTrades);
+					_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Spread is +{spread:P}, {spread2Message}(c:{coinPriceUSDC}-l:{lastPrice}), selling {coinToTrade} {tmpCoin} for USDC ({coinValueInUsdc}) matching trade ID: {upwardsMomentum.MatchingTradeId}{(fundingTransactionId != null ? $", Funding transaction: {fundingTransactionId}" : "")}.", userId, "TRADE", true);
+					await ExecuteTrade(userId, tmpCoin, keys, FormatBTC(coinToTrade.Value), "sell", coinBalance, usdcBalance, coinPriceCAD, coinPriceUSDC, strategy, fundingTransactionId, valueMatchingTrades);
 					await DeleteMomentumStrategy(userId, tmpCoin, "USDC", strategy);
 					return true;
 				}
@@ -818,13 +832,13 @@ public class KrakenService
 
 		try
 		{ 
-			int threshold = 5;
+			//int threshold = 5;
 			int numberOfTradesToday = await NumberOfRepeatingTradesInDay(userId, from, to, strategy);
-			if (numberOfTradesToday >= threshold)
-			{
-				_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) TRADE CANCELLED: Too many ({threshold}) repeated {buyOrSell} trades in the same day.", userId, "TRADE", outputToConsole: true);
-				return false;
-			}
+			// if (numberOfTradesToday >= threshold)
+			// {
+			// 	_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) TRADE CANCELLED: Too many ({threshold}) repeated {buyOrSell} trades in the same day.", userId, "TRADE", outputToConsole: true);
+			// 	return false;
+			// }
 
 			//Contextual Adjustments: If you’re trading based on certain market conditions(e.g., high volatility or low reserves), you might want to adjust the range dynamically. For example
 			//If reserves are low, you may want a larger range to avoid too many trades.
@@ -4191,7 +4205,7 @@ public class KrakenService
 			AND th.strategy = @Strategy 
 			AND th.matching_trade_id IS NULL 
 			AND th.is_reserved = 0 
-			AND ((@CurrentPrice - th.coin_price_usdc) / th.coin_price_usdc) > @TradeThreshold;"; 
+			AND ((@CurrentPrice - th.coin_price_usdc) / th.coin_price_usdc) > @TradeThreshold;";
 		try
 		{
 			await using var conn = new MySqlConnection(_config?.GetValue<string>("ConnectionStrings:maxhanna"));
@@ -4231,6 +4245,59 @@ public class KrakenService
 			_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Error getting profitable open buy positions: {ex.Message}", userId, "TRADE", true);
 			return new List<TradeRecord>();
 		}
+	}
+
+
+	private async Task<TradeRecord?> GetLatestReservedTransaction(int userId, string coin, string strategy, decimal coinPriceUSD, decimal tradeThreshold)
+	{
+		string tmpCoin = coin.ToUpper() == "BTC" ? "XBT" : coin.ToUpper();
+		string sql = @"SELECT *
+			FROM trade_history 
+			WHERE user_id = @UserId
+			AND from_currency = 'USDC'
+			AND to_currency = @ToCur 
+			AND strategy = @Strategy 
+			AND matching_trade_id IS NULL 
+			AND is_reserved = 1 
+			AND ((@CurrentPrice - th.coin_price_usdc) / th.coin_price_usdc) > @TradeThreshold;";
+		try
+		{
+			await using var conn = new MySqlConnection(_config?.GetValue<string>("ConnectionStrings:maxhanna"));
+			await conn.OpenAsync();
+
+			await using var cmd = new MySqlCommand(sql, conn);
+			cmd.Parameters.AddWithValue("@UserId", userId);
+			cmd.Parameters.AddWithValue("@ToCur", tmpCoin);
+			cmd.Parameters.AddWithValue("@CurrentPrice", coinPriceUSD);
+			cmd.Parameters.AddWithValue("@Strategy", strategy);
+			cmd.Parameters.AddWithValue("@TradeThreshold", tradeThreshold);
+
+			await using var reader = await cmd.ExecuteReaderAsync();
+			while (await reader.ReadAsync())
+			{
+				return new TradeRecord
+				{
+					id = reader.GetInt32("id"),
+					user_id = reader.GetInt32("user_id"),
+					from_currency = reader.GetString("from_currency"),
+					to_currency = reader.GetString("to_currency"),
+					value = reader.GetFloat("value"),
+					timestamp = reader.GetDateTime("timestamp"),
+					coin_price_cad = reader.GetString("coin_price_cad"),
+					coin_price_usdc = reader.GetString("coin_price_usdc"),
+					strategy = reader.GetString("strategy"),
+					trade_value_cad = reader.GetFloat("trade_value_cad"),
+					trade_value_usdc = reader.GetFloat("trade_value_usdc"),
+					is_reserved = reader.GetBoolean("is_reserved")
+				};
+			}
+		}
+		catch (Exception ex)
+		{
+			_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Error getting profitable open buy positions: {ex.Message}", userId, "TRADE", true);
+			return null;
+		}
+		return null;
 	}
 	private async Task<bool> CheckIfCanTradeAndIntervalOpen(int userId, string fromCoin, string toCoin, string strategy)
 	{

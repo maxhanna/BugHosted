@@ -552,7 +552,9 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
     const combined = [...(dcaRes ?? []), ...(indRes ?? [])];
 
     // Set tradebotBalances
-    this.tradebotBalances = combined;
+    if (!this.tradebotBalances) { 
+      this.tradebotBalances = combined;
+    }
 
     // Set formatted values for the graph
     this.tradebotTradeValuesForMainGraph = combined.map((x: any) => ({

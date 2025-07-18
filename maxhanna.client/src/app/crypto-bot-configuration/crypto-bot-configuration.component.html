@@ -317,14 +317,14 @@
 </div>
 
 <div class="optionsStatsDiv">
-    <div class="optionsStatsHeader" title="Maximum number of buy/sell trades">Max Buy/Sell Trades</div>
+    <div class="optionsStatsHeader" title="Maximum number of buy/sell trades">Max Consecutive Buy/Sell Trades</div>
     <div class="optionsStatsDescription">
         <input type="number" #tradeTradeMaximumTypeOccurances
             title="Set the maximum number of times a trade type (buy or sell) can occur." />
         <div class="settingExplanation" (click)="toggleExplanation($event)">
-            <p><strong>What it does:</strong> This field limits how many buy or sell trades your bot can execute within
-                a day or consecutively, depending on your bot’s rules. (For the Indicator strategy, its per 2 hours.) It applies separately to buys and sells—e.g., 5
-                buys and 5 sells max.</p>
+            <p><strong>What it does:</strong> This field limits how many buy or sell trades your bot can execute consecutively, 
+                depending on your bot’s rules. For the Indicator strategy, its per 2 hours. For the DCA strategy, it applies separately to buys and sells
+                —e.g., Max {{tradeTradeMaximumTypeOccurances.value}} consecutive buys or {{tradeTradeMaximumTypeOccurances.value}} consecutive sells.</p>
             <p><strong>Why it matters:</strong> Overtrading can lead to losses from fees or bad timing, especially in
                 choppy markets. This cap keeps your bot disciplined, preventing it from going wild during volatility and
                 burning through your funds.</p>
@@ -394,37 +394,12 @@
 </div>
 
 <div class="optionsStatsDiv">
-    <div class="optionsStatsHeader" title="Last time this configuration was updated">Updated</div>
-    <div class="optionsStatsDescription">
-        <span *ngIf="tradeConfigLastUpdated" title="Time of last save">{{tradeConfigLastUpdated}}</span>
-        <span *ngIf="!tradeConfigLastUpdated" title="No configuration has been saved yet">Never</span>
-        <div class="settingExplanation" (click)="toggleExplanation($event)">
-            <p><strong>What it does:</strong> This field shows the timestamp of when you last saved your trading
-                settings. It’s a read-only indicator, updating automatically after each save, or displays “Never” if you
-                haven’t saved yet.</p>
-            <p><strong>Why it matters:</strong> Keeping track of updates ensures you’re running the bot with your latest
-                intentions. If it’s been a while (or says “Never”), your settings might not match your current strategy,
-                risking outdated trades.</p>
-            <p><strong>How to use it:</strong> No input needed—it’s just info. Check it to confirm your changes are
-                live. If it’s old (e.g., weeks ago) and markets have shifted, review and save again. It’s your settings’
-                “last modified” label—use it to stay current.</p>
-        </div>
-    </div>
-</div>
-
-<div class="optionsStatsDiv">
-    <div class="optionsStatsHeader" title="Save current trade parameters">Save Configuration</div>
+    <div class="optionsStatsHeader" title="Last time this configuration was updated">Last Updated:&nbsp;
+        <span style="font-weight: 400;">
+            <span *ngIf="tradeConfigLastUpdated" title="Time of last save">{{tradeConfigLastUpdated}}</span>
+            <span *ngIf="!tradeConfigLastUpdated" title="No configuration has been saved yet">Never</span>
+        </span>
+    </div> 
     <button (click)="updateCoinConfiguration()" [disabled]="isLoading"
-        title="Click to save your current trading configuration settings">💾Save</button>
-    <div class="settingExplanation" (click)="toggleExplanation($event)">
-        <p><strong>What it does:</strong> This button saves all your current settings to the server, locking in your
-            trading configuration. It tells your bot exactly how to behave based on everything you’ve set
-            above—strategy, amounts, thresholds, etc.</p>
-        <p><strong>Why it matters:</strong> Without saving, your bot runs on old or default settings, which might not
-            align with your goals. This ensures your tweaks take effect, keeping your trades intentional and up-to-date
-            with your plan.</p>
-        <p><strong>How to use it:</strong> After adjusting settings, click “Save” to apply them. It’s disabled while
-            saving (to avoid double-clicks), so wait for it to reactivate. Save often—e.g., after major edits or market
-            shifts—to keep your bot in sync with your strategy.</p>
-    </div>
+        title="Click to save your current trading configuration settings">💾Save</button> 
 </div>
