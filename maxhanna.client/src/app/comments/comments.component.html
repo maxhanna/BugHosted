@@ -117,7 +117,22 @@
             </button> 
           </div>
           <div class="commentContent">
-            <div [innerHTML]="createClickableUrls(subComment.commentText)" class="commentTextDiv"></div>
+            <div [innerHTML]="createClickableUrls(subComment.commentText)" class="commentTextDiv"
+             [style.display]="editingComments.includes(subComment.id) ? 'none' : 'block'"></div>
+            <!-- EDIT SUBCOMMENT -->
+            <div class="commentInputArea">
+              <textarea class="commentTextArea" [style.display]="editingComments.includes(subComment.id) ? 'block' : 'none'"
+                [id]="'commentTextTextarea'+subComment.id">{{subComment.commentText}}</textarea> 
+              <button style="white-space:nowrap" [id]="'commentTextEditConfirmButton' + subComment.id" (click)="confirmEditComment(subComment)"
+                *ngIf="editingComments.includes(subComment.id)">
+                <span class="commentEditSpans commentAcceptEdit"
+                  [style.display]="editingComments.includes(subComment.id) ? 'block' : 'none'"
+                  [id]="'commentAcceptButtonSpan' + subComment.id">✔️</span>
+                ✏️Edit
+              </button>
+            </div>
+            <!-- END OF EDIT SUBCOMMENT-->
+
 
             <div *ngFor="let file of subComment.commentFiles" class="commentMediaFile">
               <app-media-viewer [file]="file"

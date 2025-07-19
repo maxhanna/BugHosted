@@ -27,8 +27,8 @@
             <input placeholder="Search" #searchInput (keyup)="search()" [style.visibility]="todos && todos.length > 1 ? 'visible' : 'hidden'" />
             <button (click)="search()" [style.visibility]="todos && todos.length > 1 ? 'visible' : 'hidden'">🔍</button>
           </th>
-          <th (click)="sortTable(1, 'todoTable')">🔗</th>
-          <th (click)="sortTable(2, 'todoTable')">📅</th>
+          <th (click)="sortTable(1, 'todoTable')" title="Link">🔗</th>
+          <th (click)="sortTable(2, 'todoTable')" title="Created">📅</th>
           <th></th>
         </tr>
       </thead>
@@ -43,7 +43,11 @@
               [showCommentSection]="false" [showMediaInformation]="true" [displayExpander]="true"
               [displayExtraInfo]="true"></app-media-viewer>
           </td>
-          <td><a (click)="visitUrl(item.url)" *ngIf="item.url" [title]="item.url">🔗</a></td>
+          <td>
+            <a (click)="visitUrl(item.url)" *ngIf="item.url" [title]="item.url" class="cursorPointer">
+              <button class="xxSmallFont cursorPointer" [title]="'Navigate to: ' + item.url">🔗</button>
+            </a>
+          </td>
           <td class="todoDate" [title]="(item.date?.toString() ?? '').replace('T',' ')">{{ item.date | timeSince }}</td>
           <td *ngIf="item.id" style="display:flex; gap: 5px; justify-content: space-around;">
             <button (click)="editTodo(item.id)" [title]="'Edit'" class="xxSmallFont cursorPointer">{{ isEditing.includes(item.id) ? '💾':'✏️'}}</button>

@@ -49,7 +49,7 @@ namespace maxhanna.Server.Controllers
 
 		[HttpPost("/News/GetDefaultSearch", Name = "GetDefaultSearch")]
 		public async Task<IActionResult> GetDefaultSearch([FromBody] int UserId)
-		{  
+		{
 			string defaultSearch = "";
 
 			try
@@ -88,13 +88,13 @@ namespace maxhanna.Server.Controllers
 
 		[HttpPost("/News/SaveDefaultSearch", Name = "SaveDefaultSearch")]
 		public async Task<IActionResult> SaveDefaultSearch([FromBody] SaveDefaultSearchRequest request)
-		{ 
+		{
 			try
 			{
 				string sql = @"
-            INSERT INTO maxhanna.user_default_search (user_id, default_search)
-            VALUES (@user_id, @default_search)
-            ON DUPLICATE KEY UPDATE default_search = VALUES(default_search);"; // MySQL syntax
+					INSERT INTO maxhanna.user_default_search (user_id, default_search)
+					VALUES (@user_id, @default_search)
+					ON DUPLICATE KEY UPDATE default_search = VALUES(default_search);";
 
 				using (var connection = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
 				{
@@ -103,7 +103,7 @@ namespace maxhanna.Server.Controllers
 					{
 						cmd.Parameters.AddWithValue("@user_id", request.UserId);
 						cmd.Parameters.AddWithValue("@default_search", request.Search);
-						await cmd.ExecuteNonQueryAsync(); // Async execution
+						await cmd.ExecuteNonQueryAsync();
 					}
 				}
 

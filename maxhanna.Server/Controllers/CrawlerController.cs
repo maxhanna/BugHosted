@@ -102,7 +102,7 @@ namespace maxhanna.Server.Controllers
 							id DESC";
 
 					string checkUrlQuery = $@"
-						SELECT id, url, title, description, author, keywords, image_url, failed, response_code 
+						SELECT id, url, title, description, author, keywords, image_url, failed, response_code  
 						FROM search_results 
 						WHERE {whereCondition} 
 						{orderByClause}
@@ -117,7 +117,7 @@ namespace maxhanna.Server.Controllers
 
 					using (var command = new MySqlCommand(checkUrlQuery, connection))
 					{
-						AddParametersToCrawlerQuery(request, pageSize, offset, searchAll, command); 
+						AddParametersToCrawlerQuery(request, pageSize, offset, searchAll, command);
 						using (var reader = await command.ExecuteReaderAsync())
 						{
 							while (reader.Read())
@@ -138,12 +138,12 @@ namespace maxhanna.Server.Controllers
 
 					// Get total count
 					using (var countCommand = new MySqlCommand(totalCountQuery, connection))
-                    {
-                        AddParametersToCrawlerQuery(request, pageSize, offset, searchAll, countCommand); 
-                        totalResults = Convert.ToInt32(await countCommand.ExecuteScalarAsync());
-                    }
+					{
+						AddParametersToCrawlerQuery(request, pageSize, offset, searchAll, countCommand);
+						totalResults = Convert.ToInt32(await countCommand.ExecuteScalarAsync());
+					}
 
-                    _ = _log.Db($"Found {results.Count} results before searching manually", null, "CRAWLERCTRL", true);
+					_ = _log.Db($"Found {results.Count} results before searching manually", null, "CRAWLERCTRL", true);
 
 					int scrapedResults = 0;
 					if (request.SkipScrape == null || request.SkipScrape == false)
@@ -178,6 +178,8 @@ namespace maxhanna.Server.Controllers
 					var allResults = results.ToList();
 
 					allResults = GetOrderedResultsForWeb(request, allResults);
+					allResults = await AddFavouriteCountsAsync(allResults);
+
 
 					// Return the results along with the total count for pagination
 					return Ok(new { Results = allResults, TotalResults = totalResults + scrapedResults });
@@ -197,9 +199,9 @@ namespace maxhanna.Server.Controllers
 			}
 		}
 
-        private void AddParametersToCrawlerQuery(CrawlerRequest request, int pageSize, int offset, bool searchAll, MySqlCommand command)
-        {
-            command.Parameters.AddWithValue("@searchAll", searchAll);
+		private void AddParametersToCrawlerQuery(CrawlerRequest request, int pageSize, int offset, bool searchAll, MySqlCommand command)
+		{
+			command.Parameters.AddWithValue("@searchAll", searchAll);
 			command.Parameters.AddWithValue("@urlHash", searchAll ? DBNull.Value : _webCrawler.GetUrlHash(request.Url ?? ""));
 			command.Parameters.AddWithValue("@urlHashWithSlash", searchAll ? DBNull.Value : _webCrawler.GetUrlHash(request.Url?.TrimEnd('/') + '/' ?? ""));
 			command.Parameters.AddWithValue("@urlHashWithoutSlash", searchAll ? DBNull.Value : _webCrawler.GetUrlHash(request.Url?.TrimEnd('/') ?? ""));
@@ -208,19 +210,19 @@ namespace maxhanna.Server.Controllers
 			command.Parameters.AddWithValue("@urlWithoutSlash", searchAll ? DBNull.Value : request.Url?.TrimEnd('/') ?? "");
 
 			command.Parameters.AddWithValue("@search", request.Url?.ToLower());
-            string baseDomain = NormalizeBaseDomain(request.Url?.ToLower() ?? "");
-            command.Parameters.AddWithValue("@baseDomain", baseDomain);
-            command.Parameters.AddWithValue("@searchLike", $"%{request.Url?.ToLower()}%");
-            command.Parameters.AddWithValue("@pageSize", pageSize);
-            command.Parameters.AddWithValue("@offset", offset);
+			string baseDomain = NormalizeBaseDomain(request.Url?.ToLower() ?? "");
+			command.Parameters.AddWithValue("@baseDomain", baseDomain);
+			command.Parameters.AddWithValue("@searchLike", $"%{request.Url?.ToLower()}%");
+			command.Parameters.AddWithValue("@pageSize", pageSize);
+			command.Parameters.AddWithValue("@offset", offset);
 			command.Parameters.AddWithValue("@searchWithSlash", $"%{request.Url?.ToLower()}/%");
 			command.Parameters.AddWithValue("@searchWithoutSlash", $"%{request.Url?.ToLower().TrimEnd('/')}%");
 			command.Parameters.AddWithValue("@searchWithWildcard", $"%{request.Url?.ToLower()}%");
-            command.Parameters.AddWithValue("@searchIsDomain",
-                Uri.CheckHostName(request.Url?.Replace("https://", "").Replace("http://", "").Split('/')[0]) != UriHostNameType.Unknown);
-        }
+			command.Parameters.AddWithValue("@searchIsDomain",
+				Uri.CheckHostName(request.Url?.Replace("https://", "").Replace("http://", "").Split('/')[0]) != UriHostNameType.Unknown);
+		}
 
-        private string NormalizeBaseDomain(string url)
+		private string NormalizeBaseDomain(string url)
 		{
 			try
 			{
@@ -365,6 +367,75 @@ namespace maxhanna.Server.Controllers
 			{
 				return NotFound("No storage statistics available");
 			}
+		}
+
+		private async Task<List<Metadata>?> AddFavouriteCountsAsync(List<Metadata> searchResults)
+		{
+			if (searchResults == null || searchResults.Count == 0)
+				return searchResults;
+
+			var connectionString = _config.GetValue<string>("ConnectionStrings:maxhanna");
+
+			// Collect all URLs
+			var urls = searchResults
+				.Select(r => r.Url?.Trim().ToLower())
+				.Where(url => !string.IsNullOrEmpty(url))
+				.Distinct()
+				.ToList();
+
+			// Build a dictionary to map url -> favourite count
+			var favouriteCounts = new Dictionary<string, int>();
+
+			using (var connection = new MySqlConnection(connectionString))
+			{
+				await connection.OpenAsync();
+
+				// Build parameterized IN clause
+				var parameters = new List<string>();
+				for (int i = 0; i < urls.Count; i++)
+				{
+					parameters.Add($"@url{i}");
+				}
+				string inClause = string.Join(",", parameters);
+
+				string query = $@"
+					SELECT f.url, COUNT(DISTINCT fs.user_id) AS favourite_count
+					FROM favourites f
+					JOIN favourites_selected fs ON fs.favourite_id = f.id
+					WHERE f.url IN ({inClause})
+					GROUP BY f.url;
+				";
+
+				using (var command = new MySqlCommand(query, connection))
+				{
+					for (int i = 0; i < urls.Count; i++)
+					{
+						command.Parameters.AddWithValue($"@url{i}", urls[i]);
+					}
+
+					using (var reader = await command.ExecuteReaderAsync())
+					{
+						while (await reader.ReadAsync())
+						{
+							string url = reader.GetString("url").Trim().ToLower();
+							int count = reader.GetInt32("favourite_count");
+							favouriteCounts[url] = count;
+						}
+					}
+				}
+			}
+
+			// Inject favourite counts into original results
+			foreach (var result in searchResults)
+			{
+				var normalizedUrl = result.Url?.Trim().ToLower();
+				if (normalizedUrl != null && favouriteCounts.ContainsKey(normalizedUrl))
+				{
+					result.FavouriteCount = favouriteCounts[normalizedUrl];
+				}
+			}
+
+			return searchResults;
 		}
 	}
 }

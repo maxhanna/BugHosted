@@ -108,13 +108,13 @@ namespace maxhanna.Server.Controllers
 			if (!string.IsNullOrEmpty(search))
 			{
 				whereClause.Append(
-						$@" AND (
-                MATCH(s.story_text) AGAINST(@searchTerm IN NATURAL LANGUAGE MODE)  
-								OR s.story_text LIKE CONCAT('%', @searchTerm, '%')
-                OR s.city LIKE CONCAT('%', @searchTerm, '%')
-                OR s.country LIKE CONCAT('%', @searchTerm, '%')
-                OR username LIKE CONCAT('%', @searchTerm, '%')
-            ) "
+								$@" AND (
+						MATCH(s.story_text) AGAINST(@searchTerm IN NATURAL LANGUAGE MODE)  
+										OR s.story_text LIKE CONCAT('%', @searchTerm, '%')
+						OR s.city LIKE CONCAT('%', @searchTerm, '%')
+						OR s.country LIKE CONCAT('%', @searchTerm, '%')
+						OR username LIKE CONCAT('%', @searchTerm, '%')
+					) "
 				);
 				parameters.Add("@searchTerm", search);
 			}
@@ -129,10 +129,10 @@ namespace maxhanna.Server.Controllers
 				for (int i = 0; i < topicIds.Count; i++)
 				{
 					whereClause.Append($@" AND EXISTS (
-                SELECT 1 FROM story_topics st2 
-                LEFT JOIN topics t2 ON st2.topic_id = t2.id 
-                WHERE st2.story_id = s.id AND t2.id = @topic_id_{i}
-            ) ");
+						SELECT 1 FROM story_topics st2 
+						LEFT JOIN topics t2 ON st2.topic_id = t2.id 
+						WHERE st2.story_id = s.id AND t2.id = @topic_id_{i}
+					) ");
 					parameters.Add($"@topic_id_{i}", topicIds[i].Id);
 				}
 			}
@@ -154,35 +154,35 @@ namespace maxhanna.Server.Controllers
 				if (showPostsFromFilter == "subscribed")
 				{
 					whereClause.Append(@" AND s.user_id IN (
-            SELECT receiver_id FROM friend_requests 
-            WHERE sender_id = @userId AND status = 'accepted'
-            UNION
-            SELECT sender_id FROM friend_requests 
-            WHERE receiver_id = @userId AND status = 'accepted'
-        ) ");
+						SELECT receiver_id FROM friend_requests 
+						WHERE sender_id = @userId AND status = 'accepted'
+						UNION
+						SELECT sender_id FROM friend_requests 
+						WHERE receiver_id = @userId AND status = 'accepted'
+					) ");
 				}
 				else if (showPostsFromFilter == "local")
 				{
 					whereClause.Append(@" AND (
-            s.country = (SELECT country FROM users WHERE id = @userId)
-            OR s.city = (SELECT city FROM users WHERE id = @userId)
-            OR ( -- Within 50km radius if you have coordinates
-                SELECT ST_Distance_Sphere(
-                    POINT(s.longitude, s.latitude),
-                    POINT(u.longitude, u.latitude)
-                ) 
-                FROM users u WHERE u.id = @userId
-            ) <= 50000
-        ) ");
+						s.country = (SELECT country FROM users WHERE id = @userId)
+						OR s.city = (SELECT city FROM users WHERE id = @userId)
+						OR ( -- Within 50km radius if you have coordinates
+							SELECT ST_Distance_Sphere(
+								POINT(s.longitude, s.latitude),
+								POINT(u.longitude, u.latitude)
+							) 
+							FROM users u WHERE u.id = @userId
+						) <= 50000
+					) ");
 				}
 				else if (showPostsFromFilter == "popular")
 				{
 					// Order by popularity instead of filtering
 					// Remove the existing ORDER BY s.id DESC from your main query
 					orderByClause = @" ORDER BY 
-            (SELECT COUNT(*) FROM reactions WHERE story_id = s.id) DESC,
-            (SELECT COUNT(*) FROM comments WHERE story_id = s.id) DESC,
-            s.date DESC";
+						(SELECT COUNT(*) FROM reactions WHERE story_id = s.id) DESC,
+						(SELECT COUNT(*) FROM comments WHERE story_id = s.id) DESC,
+						s.date DESC";
 				}
 			}
 			parameters.Add("@userId", request.UserId);
@@ -824,58 +824,61 @@ namespace maxhanna.Server.Controllers
 			// Construct SQL query with parameterized IN clause for story IDs
 			StringBuilder sqlBuilder = new StringBuilder();
 			sqlBuilder.AppendLine(@$"
-    SELECT 
-        c.id AS comment_id,
-        c.story_id AS story_id,
-        c.user_id AS comment_user_id,
-        c.city AS comment_city,
-        c.country AS comment_country,
-        c.ip AS comment_ip,
-        u.username AS comment_username,
-        udpfu.id as profileFileId,
-        udpfu.file_name as profileFileName,
-        udpfu.folder_path as profileFileFolder,
-        c.comment,
-        c.date,
-        cf.file_id AS comment_file_id,
-        f.file_name AS comment_file_name,
-        f.folder_path AS comment_file_folder_path,
-        f.is_public AS comment_file_visibility,
-        f.shared_with AS comment_file_shared_with,
-        f.is_folder AS comment_file_is_folder,
-        f.upload_date AS comment_file_date,
-        fu.id AS file_user_id,
-        fu.username AS file_username,
-        f.given_file_name as comment_file_given_file_name,
-        f.description as comment_file_description,
-        f.last_updated as comment_file_date,
-        r.id AS reaction_id,
-        r.type AS reaction_type,
-        r.user_id AS reaction_user_id,
-        ru.username AS reaction_username,
-        r.timestamp AS reaction_time,
-        c.comment_id AS parent_comment_id
-    FROM 
-        comments AS c
-    LEFT JOIN 
-        users AS u ON c.user_id = u.id
-    LEFT JOIN 
-        user_display_pictures AS udp ON udp.user_id = u.id
-    LEFT JOIN 
-        file_uploads AS udpfu ON udp.file_id = udpfu.id
-    LEFT JOIN 
-        comment_files AS cf ON cf.comment_id = c.id
-    LEFT JOIN 
-        file_uploads AS f ON cf.file_id = f.id 
-    LEFT JOIN 
-        users AS fu ON f.user_id = fu.id
-    LEFT JOIN 
-        reactions AS r ON c.id = r.comment_id
-    LEFT JOIN 
-        users AS ru ON r.user_id = ru.id   
-    WHERE 1=1 
-	{whereC} AND
-         c.story_id IN (");
+				SELECT 
+					c.id AS comment_id,
+					c.story_id AS story_id,
+					c.user_id AS comment_user_id,
+					c.city AS comment_city,
+					c.country AS comment_country,
+					c.ip AS comment_ip,
+					u.username AS comment_username,
+					udpfu.id as profileFileId,
+					udpfu.file_name as profileFileName,
+					udpfu.folder_path as profileFileFolder,
+					c.comment,
+					c.date,
+					cf.file_id AS comment_file_id,
+					f.file_name AS comment_file_name,
+					f.folder_path AS comment_file_folder_path,
+					f.is_public AS comment_file_visibility,
+					f.shared_with AS comment_file_shared_with,
+					f.is_folder AS comment_file_is_folder,
+					f.upload_date AS comment_file_date,
+					fu.id AS file_user_id,
+					fu.username AS file_username,
+					f.given_file_name as comment_file_given_file_name,
+					f.description as comment_file_description,
+					f.last_updated as comment_file_date,
+					r.id AS reaction_id,
+					r.type AS reaction_type,
+					r.user_id AS reaction_user_id,
+					ru.username AS reaction_username,
+					rudp.file_id AS reaction_display_picture_file_id,
+					r.timestamp AS reaction_time,
+					c.comment_id AS parent_comment_id
+				FROM 
+					comments AS c
+				LEFT JOIN 
+					users AS u ON c.user_id = u.id
+				LEFT JOIN 
+					user_display_pictures AS udp ON udp.user_id = u.id
+				LEFT JOIN 
+					file_uploads AS udpfu ON udp.file_id = udpfu.id
+				LEFT JOIN 
+					comment_files AS cf ON cf.comment_id = c.id
+				LEFT JOIN 
+					file_uploads AS f ON cf.file_id = f.id 
+				LEFT JOIN 
+					users AS fu ON f.user_id = fu.id
+				LEFT JOIN 
+					reactions AS r ON c.id = r.comment_id
+				LEFT JOIN 
+					users AS ru ON r.user_id = ru.id   
+				LEFT JOIN 
+					user_display_pictures AS rudp ON rudp.user_id = ru.id   
+				WHERE 1=1 
+				{whereC} AND
+					c.story_id IN (");
 
 			// Add placeholders for story IDs
 			for (int i = 0; i < storyIds.Count; i++)
@@ -888,7 +891,7 @@ namespace maxhanna.Server.Controllers
 			}
 
 			sqlBuilder.AppendLine(@")
-		OR c.comment_id IN (SELECT id FROM comments AS z WHERE z.story_id IN (");
+				OR c.comment_id IN (SELECT id FROM comments AS z WHERE z.story_id IN (");
 			for (int i = 0; i < storyIds.Count; i++)
 			{
 				sqlBuilder.Append("@storyId" + i);
@@ -898,10 +901,10 @@ namespace maxhanna.Server.Controllers
 				}
 			}
 			sqlBuilder.AppendLine(@"))
-    GROUP BY c.id, r.id, r.type, ru.id, r.type, ru.username, r.timestamp, 
-    udpfu.file_name, udpfu.folder_path, cf.file_id, 
-    f.file_name, f.folder_path, f.is_public, f.shared_with, f.is_folder,
-    f.upload_date, fu.id, fu.username, f.given_file_name, f.description, f.last_updated");
+				GROUP BY c.id, r.id, r.type, ru.id, r.type, ru.username, r.timestamp, 
+				udpfu.file_name, udpfu.folder_path, cf.file_id, 
+				f.file_name, f.folder_path, f.is_public, f.shared_with, f.is_folder,
+				f.upload_date, fu.id, fu.username, f.given_file_name, f.description, f.last_updated");
 
 			// Execute the SQL query
 			using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
@@ -971,13 +974,18 @@ namespace maxhanna.Server.Controllers
 									var reactionType = rdr.GetString("reaction_type");
 									var reactionUserId = rdr.GetInt32("reaction_user_id");
 									var reactionUserName = rdr.GetString("reaction_username");
+									int? reactionUserDisplayPictureFileId = rdr.IsDBNull(rdr.GetOrdinal("reaction_display_picture_file_id")) ? null : rdr.GetInt32("reaction_display_picture_file_id");
 									var reactionTime = rdr.GetDateTime("reaction_time");
 
 									// Check if the reaction already exists for the comment
 									var existingReaction = comment.Reactions?.FirstOrDefault(r => r.Id == reactionId);
 									if (existingReaction == null)
 									{
-										User reactionUser = new User(reactionUserId, reactionUserName);
+										User reactionUser = new User(
+											reactionUserId,
+											reactionUserName,
+											reactionUserDisplayPictureFileId != null ? new FileEntry(reactionUserDisplayPictureFileId.Value) : null
+										);
 										if (comment.Reactions == null)
 										{
 											comment.Reactions = new List<Reaction>();

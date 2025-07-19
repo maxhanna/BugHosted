@@ -32,4 +32,5 @@ export class MetaData {
   keywords?: string;
   imageUrl?: string;
   httpStatus?: number;
+  favouriteCount?: number;
 }

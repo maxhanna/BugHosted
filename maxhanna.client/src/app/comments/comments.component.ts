@@ -218,6 +218,7 @@ export class CommentsComponent extends ChildComponent implements OnInit {
   }
 
   editComment(comment: FileComment) {
+    console.log(comment);
     if (!this.editingComments.includes(comment.id)) {
       this.editingComments.push(comment.id);
     } else {
@@ -226,16 +227,19 @@ export class CommentsComponent extends ChildComponent implements OnInit {
     this.closeOptionsPanel();
   }
   async confirmEditComment(comment: FileComment) {
-    let message = (document.getElementById('commentTextTextarea' + comment.id) as HTMLTextAreaElement).value;
+    let message = (document.getElementById('commentTextTextarea' + comment.id) as HTMLTextAreaElement).value.trim();
     this.editingComments = this.editingComments.filter(x => x != comment.id);
-    if (document.getElementById('commentText' + comment.id) && this.inputtedParentRef && this.inputtedParentRef.user) {
-      this.parentRef?.updateLastSeen();
-      this.commentService.editComment(this.inputtedParentRef?.user?.id ?? 0, comment.id, message).then(res => {
+    const parent = this.parentRef ?? this.inputtedParentRef;
+    if (message && parent?.user) {
+      parent.updateLastSeen();
+      this.commentService.editComment(parent.user.id ?? 0, comment.id, message).then(res => {
         if (res) {
-          this.inputtedParentRef?.showNotification(res);
+          parent.showNotification(res);
         }
       });
       comment.commentText = message;
+    } else {
+      alert("Error, contact an administrator.");
     }
   }
   getTextForDOM(text: string, component_id: number) {

@@ -37,12 +37,17 @@
             </div>
             <div class="descriptionDiv cursorPointer metadataTitleLinkFavouriteWrapper">
               <a (click)="visitExternalLink(metadata.url)">{{ metadata.url }}</a>
-              <button (click)="parentRef?.addFavourite(metadata.url, metadata.imageUrl, metadata.title)" title="Add to Favourites" *ngIf="!onlySearch">❤️</button>
+              <button (click)="parentRef?.addFavourite(metadata.url, metadata.imageUrl, metadata.title)" title="Add to Favourites" *ngIf="!onlySearch">
+                ❤️<span class="smallFont" *ngIf="metadata.favouriteCount">[{{metadata.favouriteCount}}]</span>
+              </button>
             </div>
             <div *ngIf="metadata.description && !onlySearch" class="descriptionDiv descriptClass" [innerHTML]="getSanitizedDescription(metadata.description)"></div>
             <div *ngIf="metadata.author && !onlySearch" class="descriptionDiv authorClass" [innerHTML]="getSanitizedDescription(metadata.author)"></div>
             <div *ngIf="metadata.httpStatus" class="descriptionDiv authorClass">
               {{ metadata.httpStatus }}  {{ getHttpStatusMeaning(metadata.httpStatus) }}
+            </div>
+            <div *ngIf="metadata.favouriteCount" class="descriptionDiv keywordsClass" [title]="'Favourited by ' + metadata.favouriteCount + ' users'">
+              ❤️ Favourited by {{metadata.favouriteCount}} Users. 
             </div>
             <div *ngIf="metadata.keywords" class="descriptionDiv keywordsClass" [innerHTML]="getSanitizedDescription(metadata.keywords)"></div>
           </div>

@@ -851,14 +851,14 @@ public class KrakenService
 				_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) [ConsecutiveCheck] User has {buyOrSell} {from} {to} too many times in the last {tradeRange} trades (Based on {tmpCoin}/USDC reserves {(isVolumeSpiking ? "and volume spike" : "")}). ({strategy})Trade Cancelled.", userId, "TRADE", true);
 				return false;
 			}
-			int tradeRangeLimit = _MaxTradeTypeOccurances;
-			int daySpanCheck = 1;
-			bool withinLimit = await HasExceededTradeLimitInTimeWindow(userId, from, to, buyOrSell, strategy, tradeRangeLimit, TimeSpan.FromDays(daySpanCheck));
-			if (!withinLimit)
-			{
-				_ = _log.Db($"User has {buyOrSell} {from} {to} too frequently ({tradeRangeLimit}) in the last {daySpanCheck} day{((daySpanCheck > 1 || daySpanCheck == 0) ? "s" : "")}. Trade Cancelled.", userId, "TRADE", true);
-				return false;
-			}
+			//int tradeRangeLimit = _MaxTradeTypeOccurances;
+			//int daySpanCheck = 1;
+			// bool withinLimit = await HasExceededTradeLimitInTimeWindow(userId, from, to, buyOrSell, strategy, tradeRangeLimit, TimeSpan.FromDays(daySpanCheck));
+			// if (!withinLimit)
+			// {
+			// 	_ = _log.Db($"User has {buyOrSell} {from} {to} too frequently ({tradeRangeLimit}) in the last {daySpanCheck} day{((daySpanCheck > 1 || daySpanCheck == 0) ? "s" : "")}. Trade Cancelled.", userId, "TRADE", true);
+			// 	return false;
+			// }
 			bool withinTradeSequenceLimit = await CheckTradeFrequencyOccurance(userId, buyOrSell, strategy, _MaxTradeTypeOccurances);
 			if (!withinTradeSequenceLimit && numberOfTradesToday > 0)
 			{

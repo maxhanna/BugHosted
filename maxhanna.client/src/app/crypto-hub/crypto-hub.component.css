@@ -808,6 +808,7 @@ div:not(.trade-panel-controls) .button-wrapper {
   flex-direction: column;
   align-items: center;
   justify-content: space-between;
+  border: var(--main-border);
 }
 
 .indicator-label {
