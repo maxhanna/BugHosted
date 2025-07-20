@@ -149,7 +149,7 @@ public class WebCrawler
 	};
 
 
-	private readonly TimeSpan _requestInterval = TimeSpan.FromSeconds(20);
+	private readonly TimeSpan _requestInterval = TimeSpan.FromSeconds(7);
 	private DateTime _lastRequestTime = DateTime.MinValue;
 	private static SemaphoreSlim scrapeSemaphore = new SemaphoreSlim(1, 1);
 	private readonly SemaphoreSlim _asyncScrapeSemaphore = new SemaphoreSlim(1, 1); // Semaphore to limit to one execution at a time per URL
@@ -207,7 +207,7 @@ public class WebCrawler
 					var tmpDomain = NormalizeUrl(domain);
 					//Console.WriteLine("Background scraping : " + tmpDomain);
 					await StartScrapingAsync(tmpDomain);
-					await Task.Delay(TimeSpan.FromSeconds(10)); // Delay between domains
+					await Task.Delay(TimeSpan.FromSeconds(7)); // Delay between domains
 				}
 				catch (Exception ex)
 				{

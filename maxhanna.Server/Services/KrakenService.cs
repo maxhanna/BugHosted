@@ -31,7 +31,21 @@ public class KrakenService
 	private long _lastNonce;
 	private readonly Log _log;
 	private static readonly Dictionary<string, string> CoinMappingsForDB = new Dictionary<string, string> { { "XBT", "btc" }, { "XXBT", "btc" }, { "BTC", "btc" }, { "USDC", "usdc" }, { "XRP", "xrp" }, { "XXRP", "xrp" }, { "XXDG", "xdg" }, { "XETH", "eth" }, { "ETH", "eth" }, { "ETH.F", "eth" }, { "SOL.F", "sol" }, { "SOL", "sol" }, { "SUI", "sui" }, { "WIF", "wif" }, { "WIF.F", "wif" }, { "PENGU", "pengu" }, { "PEPE", "pepe" }, { "DOT", "dot" }, { "DOT.F", "dot" }, { "ADA", "ada" }, { "ADA.F", "ada" }, { "LTC", "ltc" }, { "LTC.F", "ltc" }, { "LINK", "link" }, { "LINK.F", "link" }, { "MATIC", "matic" }, { "MATIC.F", "matic" }, { "XLM", "xlm" }, { "XLM.F", "xlm" }, { "TRX", "trx" }, { "TRX.F", "trx" }, { "AVAX", "avax" }, { "AVAX.F", "avax" }, { "ATOM", "atom" }, { "ATOM.F", "atom" }, { "ALGO", "algo" }, { "ALGO.F", "algo" }, { "NEAR", "near" }, { "NEAR.F", "near" }, { "XMR", "xmr" }, { "XMR.F", "xmr" }, { "BCH", "bch" }, { "BCH.F", "bch" }, { "ZEC", "zec" }, { "ZEC.F", "zec" }, { "SHIB", "shib" }, { "SHIB.F", "shib" }, { "UNI", "uni" }, { "UNI.F", "uni" }, { "AAVE", "aave" }, { "AAVE.F", "aave" }, { "ZUSD", "usd" }, { "ZCAD", "cad" } };
+	private static readonly Dictionary<string, string> CoinNameMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+	{
+		{ "BTC", "Bitcoin" }, 
+		{ "ETH", "Ethereum" },
+		{ "XDG", "Dogecoin" },
+		{ "SOL", "Solana" }
+	};
 
+	private static readonly Dictionary<string, string> CoinSymbols = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+	{
+		{ "Bitcoin", "₿" },
+		{ "Ethereum", "Ξ" },
+		{ "Dogecoin", "Ɖ" },
+		{ "Solana", "◎" }
+	};
 	public KrakenService(IConfiguration config, Log log)
 	{
 		_config = config;
@@ -1829,32 +1843,39 @@ public class KrakenService
 
 	private async Task<decimal?> IsSystemUpToDate(int userId, string coin, decimal coinPriceUSDC)
 	{
-		string tmpCoinName = coin.ToUpper();
-		tmpCoinName = coin == "BTC" || coin == "XBT" ? "Bitcoin" : coin;
-		var checkSql = @$"
-			SELECT value_cad 
-			FROM maxhanna.coin_value 
-			WHERE name = '{tmpCoinName}'
-			AND timestamp >= UTC_TIMESTAMP() - INTERVAL 1 MINUTE
-			ORDER BY ID DESC LIMIT 1;";
-
+		string tmpCoin = coin == "XBT" ? "BTC" : coin;
+		//_ = _log.Db($"Checking IsSystemUpToDate for coin: {tmpCoin}", userId, "TRADE", true);
 		try
 		{
 			using (var conn = new MySqlConnection(_config?.GetValue<string>("ConnectionStrings:maxhanna")))
 			{
 				await conn.OpenAsync();
+ 
+				string normalizedCoinName = CoinNameMap.TryGetValue(tmpCoin.ToUpperInvariant(), out var mappedName) ? mappedName : tmpCoin;
+				string symbol = CoinSymbols.TryGetValue(normalizedCoinName, out var knownSymbol) ? knownSymbol : "";
+
+
+				string checkSql = @$"
+					SELECT value_cad 
+					FROM maxhanna.coin_value 
+					WHERE name = @CoinName
+					AND timestamp >= UTC_TIMESTAMP() - INTERVAL 1 MINUTE
+					ORDER BY ID DESC LIMIT 1;";
 
 				// Check if there's a recent price in the database
 				using (var checkCmd = new MySqlCommand(checkSql, conn))
 				{
+					checkCmd.Parameters.AddWithValue("@CoinName", normalizedCoinName);
+
 					var result = await checkCmd.ExecuteScalarAsync();
 					if (result != null && decimal.TryParse(result.ToString(), out var valueCad))
 					{
-						return valueCad; // Return recent price from database
+						//_ = _log.Db($"Returning recent {tmpCoin} rate from database.", userId, "TRADE", true);
+						return valueCad;
 					}
 				}
 
-				// Fetch CAD/USD exchange rate from exchange_rates table
+				// Fetch CAD/USD exchange rate
 				var exchangeRateSql = @"
 					SELECT rate 
 					FROM exchange_rates 
@@ -1867,7 +1888,7 @@ public class KrakenService
 					var rateResult = await rateCmd.ExecuteScalarAsync();
 					if (rateResult != null && decimal.TryParse(rateResult.ToString(), out var cadToUsdRate))
 					{
-						usdToCadRate = 1m / cadToUsdRate; // Convert CAD/USD to USD/CAD
+						usdToCadRate = 1m / cadToUsdRate;
 					}
 					else
 					{
@@ -1876,22 +1897,28 @@ public class KrakenService
 					}
 				}
 
-				// Calculate BTC price in CAD
 				decimal coinPriceCad = coinPriceUSDC * usdToCadRate;
 
-				// Store the calculated price in the database
 				var insertSql = @$"
-                INSERT INTO maxhanna.coin_value (symbol, name, value_cad, value_usd, timestamp)
-                VALUES ('{(tmpCoinName == "Bitcoin" ? "₿" : "")}', '{tmpCoinName}', @ValueCad, @ValueUsd, UTC_TIMESTAMP());";
+					INSERT INTO maxhanna.coin_value (symbol, name, value_cad, value_usd, timestamp)
+					VALUES (@Symbol, @CoinName, @ValueCad, @ValueUsd, UTC_TIMESTAMP());";
 
+				// _ = _log.Db(
+				// 	$"[Symbol Resolution] Raw Coin Input: '{coin}' | Upper: '{tmpCoin}' | Normalized Name: '{normalizedCoinName}' | Final Symbol: '{symbol}'",
+				// 	userId,
+				// 	"TRADE",
+				// 	outputToConsole: true
+				//);
 				using (var insertCmd = new MySqlCommand(insertSql, conn))
 				{
+					insertCmd.Parameters.AddWithValue("@Symbol", symbol);
+					insertCmd.Parameters.AddWithValue("@CoinName", normalizedCoinName);
 					insertCmd.Parameters.AddWithValue("@ValueCad", coinPriceCad);
 					insertCmd.Parameters.AddWithValue("@ValueUsd", coinPriceUSDC);
 					await insertCmd.ExecuteNonQueryAsync();
+					//_ = _log.Db($"Inserted new data for {tmpCoin} with symbol {symbol} into database.", userId, "TRADE", true); 
 				}
 
-				// _ = _log.Db($"Calculated and stored {coin} price: {coinPriceCad} CAD", userId, "TRADE", true);
 				return coinPriceCad;
 			}
 		}
@@ -1906,6 +1933,7 @@ public class KrakenService
 			return null;
 		}
 	}
+
 	public async Task<TradeRecord?> GetLastTrade(int userId, string coin, string strategy)
 	{
 		string tmpCoin = coin.ToUpper();
@@ -2434,27 +2462,18 @@ public class KrakenService
 	}
 	public async Task<decimal?> GetCoinPriceToUSDC(int userId, string coin, UserKrakenApiKey keys)
 	{
-		string tmpCoin = coin.ToUpperInvariant();
-		tmpCoin = tmpCoin == "BTC" ? "XBT" : tmpCoin;
+		string inputCoin = coin?.ToUpperInvariant() ?? "";
+		inputCoin = (inputCoin == "Bitcoin" || inputCoin == "XBT") ? "BTC" : inputCoin;
 
-		// Step 1: Map coin symbol to name in DB
-		var coinNameMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
-		{
-			["BTC"] = "Bitcoin",
-			["XBT"] = "Bitcoin",
-			["ETH"] = "Ethereum",
-			["SOL"] = "Solana",
-			["XDG"] = "Dogecoin",
-			["XRP"] = "XRP"
-		};
+		string tmpCoin = inputCoin == "BTC" ? "XBT" : inputCoin;
 
-		if (!coinNameMap.TryGetValue(tmpCoin, out var coinName))
-		{
-			await _log.Db($"⚠️ Unknown coin symbol: {tmpCoin}", userId, "TRADE", true);
-			return null;
-		}
+		// Normalize coin name
+		string normalizedName = CoinNameMap.TryGetValue(inputCoin, out var mappedName) ? mappedName : inputCoin;
+		string symbol = CoinSymbols.TryGetValue(normalizedName, out var resolvedSymbol) ? resolvedSymbol : "";
 
-		// Step 2: Try to get cached value from DB (last 10 seconds)
+		//_ = _log.Db($"🔍 Input: {coin}, Mapped Name: {normalizedName}, Resolved Symbol: {symbol}", userId, "TRADE", true);
+
+		// Step 1: Try to get cached value from DB (last 10 seconds)
 		try
 		{
 			using var conn = new MySqlConnection(_config?.GetValue<string>("ConnectionStrings:maxhanna"));
@@ -2468,20 +2487,21 @@ public class KrakenService
 				LIMIT 1;";
 
 			using var cmd = new MySqlCommand(query, conn);
-			cmd.Parameters.AddWithValue("@CoinName", coinName);
+			cmd.Parameters.AddWithValue("@CoinName", normalizedName);
 
 			var result = await cmd.ExecuteScalarAsync();
 			if (result != null && decimal.TryParse(result.ToString(), out var dbPrice))
 			{
+				//_ = _log.Db($"✅ Cache hit for {normalizedName}: ${dbPrice}", userId, "TRADE", true);
 				return dbPrice;
 			}
 		}
 		catch (Exception ex)
 		{
-			await _log.Db($"⚠️ DB error fetching cached coin value for {coinName}: {ex.Message}", userId, "TRADE", true);
+			_ = _log.Db($"⚠️ DB error fetching cached coin value for {normalizedName}: {ex.Message}", userId, "TRADE", true);
 		}
 
-		// Step 3: Fallback to Kraken API
+		// Step 2: Fallback to Kraken API
 		try
 		{
 			string pair = $"{tmpCoin}USDC";
@@ -2489,27 +2509,27 @@ public class KrakenService
 
 			if (response == null || !response.ContainsKey("result"))
 			{
-				await _log.Db($"❌ Kraken response missing 'result' for {pair}", userId, "TRADE", true);
+				_ = _log.Db($"❌ Kraken response missing 'result' for {pair}", userId, "TRADE", true);
 				return null;
 			}
 
 			var result = (JObject)response["result"];
 			if (!result.ContainsKey(pair))
 			{
-				await _log.Db($"❌ Kraken result missing pair: {pair}", userId, "TRADE", true);
+				_ = _log.Db($"❌ Kraken result missing pair: {pair}", userId, "TRADE", true);
 				return null;
 			}
 
 			var askArray = result[pair]?["a"]?.ToObject<JArray>();
 			if (askArray == null || askArray.Count < 1)
 			{
-				await _log.Db($"❌ Kraken ask price missing or invalid for {coin}", userId, "TRADE", true);
+				_ = _log.Db($"❌ Kraken ask price missing or invalid for {coin}", userId, "TRADE", true);
 				return null;
 			}
 
 			var askPrice = askArray[0].ToObject<decimal>();
 
-			// Optional: insert this value into your DB for caching
+			// Step 3: Optional - Insert into DB for future cache
 			try
 			{
 				using var connInsert = new MySqlConnection(_config?.GetValue<string>("ConnectionStrings:maxhanna"));
@@ -2518,36 +2538,39 @@ public class KrakenService
 				decimal? coinPriceCAD = await ConvertFiatAsync("USD", "CAD", askPrice);
 				if (coinPriceCAD == null)
 				{
-					await _log.Db($"⚠️ Failed to insert new coin value for {coinName}: Cannot convert {askPrice} to CAD!", userId, "TRADE", true);
+					await _log.Db($"⚠️ Could not convert {askPrice} USD to CAD for {normalizedName}", userId, "TRADE", true);
 					return askPrice;
 				}
-				var insertCmd = new MySqlCommand(@"
-				INSERT INTO coin_value (symbol, name, value_usd, value_cad, timestamp)
-				VALUES (@Symbol, @Name, @Price, @PriceCAD, UTC_TIMESTAMP());", connInsert);
 
 				decimal roundedAskPrice = askPrice > 1m ? Math.Round(askPrice, 2) : askPrice;
-				decimal roundedCoinPriceCAD = coinPriceCAD.Value > 1m ? Math.Round(coinPriceCAD.Value, 2) : coinPriceCAD.Value;
-				insertCmd.Parameters.AddWithValue("@Symbol", tmpCoin);
-				insertCmd.Parameters.AddWithValue("@Name", coinName);
+				decimal roundedCad = coinPriceCAD.Value > 1m ? Math.Round(coinPriceCAD.Value, 2) : coinPriceCAD.Value;
+
+				var insertCmd = new MySqlCommand(@"
+					INSERT INTO coin_value (symbol, name, value_usd, value_cad, timestamp)
+					VALUES (@Symbol, @Name, @Price, @PriceCAD, UTC_TIMESTAMP());", connInsert);
+
+				insertCmd.Parameters.AddWithValue("@Symbol", symbol);
+				insertCmd.Parameters.AddWithValue("@Name", normalizedName);
 				insertCmd.Parameters.AddWithValue("@Price", roundedAskPrice);
-				insertCmd.Parameters.AddWithValue("@PriceCAD", roundedCoinPriceCAD);
+				insertCmd.Parameters.AddWithValue("@PriceCAD", roundedCad);
 
 				await insertCmd.ExecuteNonQueryAsync();
-				//await _log.Db($"Inserted new coin value for {coinName}: USD${roundedAskPrice}/CAD${roundedCoinPriceCAD}!", userId, "TRADE", true); 
+				//_ = _log.Db($"💾 Inserted price for {normalizedName}: USD${roundedAskPrice} / CAD${roundedCad} (Symbol: {symbol})", userId, "TRADE", true);
 			}
 			catch (Exception insertEx)
 			{
-				await _log.Db($"⚠️ Failed to insert new coin value for {coinName}: {insertEx.Message}", userId, "TRADE", true);
+				_ = _log.Db($"⚠️ Failed to insert new coin value for {normalizedName}: {insertEx.Message}", userId, "TRADE", true);
 			}
 
 			return askPrice;
 		}
 		catch (Exception ex)
 		{
-			await _log.Db($"⚠️ Error fetching {coin} price from Kraken: {ex.Message}", userId, "TRADE", true);
+			_ = _log.Db($"⚠️ Error fetching {coin} price from Kraken: {ex.Message}", userId, "TRADE", true);
 			return null;
 		}
 	}
+
 	public async Task<Dictionary<string, object>?> MakeRequestAsync(int userId, UserKrakenApiKey keys, string endpoint, string publicOrPrivate, Dictionary<string, string>? postData = null)
 	{
 		try

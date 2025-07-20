@@ -35,7 +35,26 @@ namespace maxhanna.Server.Services
 
 		private static readonly SemaphoreSlim _tradeLock = new SemaphoreSlim(1, 1);
 		private static readonly System.Diagnostics.Stopwatch _tradeTimer = new System.Diagnostics.Stopwatch();
-
+		private static readonly Dictionary<string, string> CoinNameMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+		{
+			{ "BTC", "Bitcoin" },
+			{ "XBT", "Bitcoin" },
+			{ "ETH", "Ethereum" },
+			{ "XDG", "Dogecoin" },
+			{ "SOL", "Solana" }
+		};
+		private static readonly Dictionary<string, string> CoinSymbols = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+		{
+			{ "Bitcoin", "₿" },
+			{ "XBT", "₿" },
+			{ "BTC", "₿" },
+			{ "Ethereum", "Ξ" },
+			{ "ETH", "Ξ" },
+			{ "Dogecoin", "Ɖ" },
+			{ "XDG", "Ɖ" },
+			{ "Solana", "◎" },
+			{ "SOL", "◎" },
+		};
 
 		public SystemBackgroundService(Log log, IConfiguration config, WebCrawler webCrawler, AiController aiController, KrakenService krakenService,
 										NewsService newsService, ProfitCalculationService profitService,
@@ -52,7 +71,7 @@ namespace maxhanna.Server.Services
 			_newsService = newsService;
 			_profitService = profitService;
 			_indicatorService = indicatorService;
- 
+
 			_tenSecondTimer = new Timer(async _ => await Run10SecondTasks(), null, Timeout.Infinite, Timeout.Infinite);
 			_halfMinuteTimer = new Timer(async _ => await Run30SecondTasks(), null, Timeout.Infinite, Timeout.Infinite);
 			// _minuteTimer = new Timer(async _ => await FetchWebsiteMetadata(), null, Timeout.Infinite, Timeout.Infinite);
@@ -594,33 +613,7 @@ namespace maxhanna.Server.Services
 				}
 			}
 			this.isCrawling = false;
-		}
-		private record CoinValueRow(int Id, DateTime Timestamp, decimal ValueCad);
-
-		private async Task<CoinValueRow?> GetNextUnprocessedRow(MySqlConnection connection)
-        {
-            const string sql = @"
-                SELECT id, timestamp, value_cad 
-                FROM coin_value 
-                WHERE value_usd IS NULL
-                ORDER BY timestamp ASC
-                LIMIT 1
-                FOR UPDATE SKIP LOCKED";
-
-            using var cmd = new MySqlCommand(sql, connection);
-            using var reader = await cmd.ExecuteReaderAsync();
-
-            if (await reader.ReadAsync())
-            {
-                return new CoinValueRow(
-                    reader.GetInt32("id"),
-                    reader.GetDateTime("timestamp"),
-                    reader.GetDecimal("value_cad"));
-            }
-
-            return null;
-        }
-  
+		} 
 		private async Task MakeCryptoTrade()
 		{
 			// Try to acquire the lock, return immediately if already locked
@@ -1541,37 +1534,52 @@ namespace maxhanna.Server.Services
 
 						foreach (var coin in coinData)
 						{
-							var checkSql = @"
-								SELECT COUNT(*) FROM coin_value 
-								WHERE symbol = @Symbol 
-								AND timestamp >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 1 MINUTE)";
-
-							using (var checkCmd = new MySqlCommand(checkSql, conn))
+							if (coin != null)
 							{
-								checkCmd.Parameters.AddWithValue("@Symbol", coin.symbol);
-								var recentEntries = Convert.ToInt32(await checkCmd.ExecuteScalarAsync());
+								string rawSymbol = coin?.symbol?.ToUpper() ?? "";
+								string coinNameSafe = coin?.name ?? "";
+								decimal coinRateSafe = Convert.ToDecimal(coin?.rate ?? 0);
+								string normalizedName = (CoinNameMap.TryGetValue(coinNameSafe, out var mappedName) ? mappedName : coinNameSafe) ?? "";
+								string symbol = CoinSymbols.TryGetValue(normalizedName, out var knownSymbol) ? knownSymbol : "";
+								// _ = _log.Db(
+								// 	$"Raw Symbol: '{rawSymbol}' | Coin Name: '{coinNameSafe}' | Normalized Name: '{normalizedName}' | Final Symbol: '{symbol}' | Rate: {coinRateSafe}",
+								// 	null,
+								// 	"COINSVC",
+								// 	outputToConsole: true
+								//);
+								var checkSql = @"
+									SELECT 1 FROM coin_value 
+									WHERE name = @Name 
+									AND timestamp >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 1 MINUTE)
+									LIMIT 1";
 
-								if (recentEntries == 0)
+								using (var checkCmd = new MySqlCommand(checkSql, conn))
 								{
-									// Calculate value_cad using the exchange rate (USD to CAD)
-									decimal valueCad = cadUsdRate != 0 ? Convert.ToDecimal(coin.rate) / cadUsdRate : Convert.ToDecimal(coin.rate); // Avoid division by zero
+									checkCmd.Parameters.AddWithValue("@Name", normalizedName);
+									var recentEntries = Convert.ToInt32(await checkCmd.ExecuteScalarAsync());
 
-									var insertSql = @"
+									if (recentEntries == 0 && coinRateSafe != 0)
+									{
+										// Calculate value_cad using the exchange rate (USD to CAD)
+										decimal valueCad = cadUsdRate != 0 ? coinRateSafe / cadUsdRate : coinRateSafe;
+
+										var insertSql = @"
 										INSERT INTO coin_value (symbol, name, value_cad, value_usd, timestamp) 
 										VALUES (@Symbol, @Name, @ValueCAD, @ValueUSD, UTC_TIMESTAMP())";
 
-									using (var insertCmd = new MySqlCommand(insertSql, conn))
-									{
-										insertCmd.Parameters.AddWithValue("@Symbol", coin.symbol);
-										insertCmd.Parameters.AddWithValue("@Name", coin.name);
-										insertCmd.Parameters.AddWithValue("@ValueCAD", valueCad);
-										insertCmd.Parameters.AddWithValue("@ValueUSD", coin.rate);
-										insertCmd.Parameters.AddWithValue("@Timestamp", DateTime.UtcNow);
+										using (var insertCmd = new MySqlCommand(insertSql, conn))
+										{
+											insertCmd.Parameters.AddWithValue("@Symbol", symbol);
+											insertCmd.Parameters.AddWithValue("@Name", normalizedName);
+											insertCmd.Parameters.AddWithValue("@ValueCAD", valueCad);
+											insertCmd.Parameters.AddWithValue("@ValueUSD", coinRateSafe);
+											insertCmd.Parameters.AddWithValue("@Timestamp", DateTime.UtcNow);
 
-										await insertCmd.ExecuteNonQueryAsync();
+											await insertCmd.ExecuteNonQueryAsync();
+										}
 									}
 								}
-							}
+							} 
 						}
 					}
 
