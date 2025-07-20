@@ -1202,7 +1202,7 @@ public class WebCrawler
 					{
 						_lastRequestTime = DateTime.Now;
 						Metadata? metaData = null; 
-						//_ = _log.Db($"(Crawler:{delayedUrlsQueue.Count()}#{urlsToScrapeQueue.Count()})Scraping: " + $"{ShortenUrl(url)}", null, "CRAWLER", true);
+						_ = _log.Db($"({delayedUrlsQueue.Count()}#{urlsToScrapeQueue.Count()}) Scraping: " + $"{ShortenUrl(url)}", null, "CRAWLER", true);
 						metaData = await ScrapeUrlData(url);
 						if (metaData != null && !IsMetadataCompletelyEmpty(metaData))
 						{

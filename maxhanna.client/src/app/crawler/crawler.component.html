@@ -47,7 +47,7 @@
               {{ metadata.httpStatus }}  {{ getHttpStatusMeaning(metadata.httpStatus) }}
             </div>
             <div *ngIf="metadata.favouriteCount" class="descriptionDiv keywordsClass" [title]="'Favourited by ' + metadata.favouriteCount + ' users'">
-              ❤️ Favourited by {{metadata.favouriteCount}} Users. 
+              ❤️ Favourited by {{metadata.favouriteCount}} User{{metadata.favouriteCount > 1 ? 's' : ''}}. 
             </div>
             <div *ngIf="metadata.keywords" class="descriptionDiv keywordsClass" [innerHTML]="getSanitizedDescription(metadata.keywords)"></div>
           </div>

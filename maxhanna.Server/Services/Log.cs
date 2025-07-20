@@ -34,7 +34,7 @@ public class Log
 
 		if (outputToConsole)
 		{
-			Console.WriteLine($"[{DateTime.UtcNow}] {type}: {message}");
+			Console.WriteLine($"[{DateTime.Now.ToShortTimeString()}] {type}: {message}");
 		}
 	}
 	public async Task<List<Dictionary<string, object?>>> GetLogs(int? userId = null, string? component = null, int limit = 1000, string keywords = "")

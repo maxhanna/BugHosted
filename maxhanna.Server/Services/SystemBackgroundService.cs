@@ -25,7 +25,7 @@ namespace maxhanna.Server.Services
 		private readonly IConfiguration _config; // needed for apiKey 
 		private Timer _tenSecondTimer;
 		private Timer _halfMinuteTimer;
-		private Timer _minuteTimer;
+		// private Timer _minuteTimer;
 		private Timer _fiveMinuteTimer;
 		private Timer _hourlyTimer;
 		private Timer _sixHourTimer;
@@ -55,7 +55,7 @@ namespace maxhanna.Server.Services
  
 			_tenSecondTimer = new Timer(async _ => await Run10SecondTasks(), null, Timeout.Infinite, Timeout.Infinite);
 			_halfMinuteTimer = new Timer(async _ => await Run30SecondTasks(), null, Timeout.Infinite, Timeout.Infinite);
-			_minuteTimer = new Timer(async _ => await FetchWebsiteMetadata(), null, Timeout.Infinite, Timeout.Infinite);
+			// _minuteTimer = new Timer(async _ => await FetchWebsiteMetadata(), null, Timeout.Infinite, Timeout.Infinite);
 			_fiveMinuteTimer = new Timer(async _ => await RunFiveMinuteTasks(), null, Timeout.Infinite, Timeout.Infinite);
 			_hourlyTimer = new Timer(async _ => await RunHourlyTasks(), null, Timeout.Infinite, Timeout.Infinite);
 			_sixHourTimer = new Timer(async _ => await RunSixHourTasks(), null, Timeout.Infinite, Timeout.Infinite);
@@ -67,7 +67,7 @@ namespace maxhanna.Server.Services
 			// Start all timers  
 			_tenSecondTimer.Change(TimeSpan.Zero, TimeSpan.FromSeconds(10));
 			_halfMinuteTimer.Change(TimeSpan.Zero, TimeSpan.FromSeconds(30));
-			_minuteTimer.Change(TimeSpan.Zero, TimeSpan.FromMinutes(1));
+			// _minuteTimer.Change(TimeSpan.Zero, TimeSpan.FromMinutes(1));
 			_fiveMinuteTimer.Change(TimeSpan.Zero, TimeSpan.FromMinutes(5));
 			_hourlyTimer.Change(TimeSpan.Zero, TimeSpan.FromHours(1));
 			_sixHourTimer.Change(TimeSpan.Zero, TimeSpan.FromHours(6));
@@ -86,6 +86,7 @@ namespace maxhanna.Server.Services
 		private async Task Run30SecondTasks()
 		{
 			await SpawnEncounterMetabots();
+			await FetchWebsiteMetadata();
 		}
 		private async Task RunFiveMinuteTasks()
 		{
@@ -149,7 +150,7 @@ namespace maxhanna.Server.Services
 		public override async Task StopAsync(CancellationToken cancellationToken)
 		{
 			_halfMinuteTimer?.Change(Timeout.Infinite, Timeout.Infinite);
-			_minuteTimer?.Change(Timeout.Infinite, Timeout.Infinite);
+			// _minuteTimer?.Change(Timeout.Infinite, Timeout.Infinite);
 			_fiveMinuteTimer?.Change(Timeout.Infinite, Timeout.Infinite);
 			_hourlyTimer?.Change(Timeout.Infinite, Timeout.Infinite);
 			_sixHourTimer?.Change(Timeout.Infinite, Timeout.Infinite);

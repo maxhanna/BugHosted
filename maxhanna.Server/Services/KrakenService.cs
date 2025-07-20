@@ -287,10 +287,7 @@ public class KrakenService
 		string thresholdDiffStr = thresholdDiff.ToString("F2") + "%";
 		string thresholdDiff2Str = thresholdDiff2?.ToString("F2") + "%" ?? "N/A";
 
-		string logMessage = $@"({tmpCoin}:{userId}:{strategy}) L:{lastPrice:F2} - C:{currentPrice:F2} - Spread: {spreadStr} | {thresholdDiffStr} from threshold
-{(firstPriceToday != null ? @$"
-- First Price Today: {firstPriceStr} - Spread2: {spread2Str} | {thresholdDiff2Str} from threshold" : "")}";
-
+		string logMessage = $@"({tmpCoin}:{userId}:{strategy}) L:{lastPrice:F2} - C:{currentPrice:F2} - Spread: {spreadStr} | {thresholdDiffStr} from threshold {(firstPriceToday != null ? @$" - First Price Today: {firstPriceStr} - Spread2: {spread2Str} | {thresholdDiff2Str} from threshold" : "")}";
 		_ = _log.Db(logMessage.Trim(), userId, "TRADE", true);
 	}
 
@@ -356,14 +353,14 @@ public class KrakenService
 	}
 	private async Task<bool> ExecuteDownwardsMomentumStrategy(int userId, string coin, UserKrakenApiKey keys, decimal coinPriceCAD, decimal coinPriceUSDC, decimal? firstPriceToday, decimal lastPrice, decimal spread, decimal spread2, MomentumStrategy DownwardsMomentum, string strategy)
 	{
-		_ = _log.Db($"{DownwardsMomentum.FromCurrency}|{DownwardsMomentum.ToCurrency} Downwards momentum ({strategy})strategy detected. Verifying momentum data from starting price: {DownwardsMomentum.StartingCoinPriceUsdc}.", userId, "TRADE", true);
 		string tmpCoin = coin.ToUpper();
 		tmpCoin = tmpCoin == "BTC" ? "XBT" : tmpCoin;
+		decimal triggeredBySpread = Math.Abs(spread) >= _TradeThreshold ? spread : spread2; 
+		_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Downwards momentum strategy detected. Verifying momentum data. Current Price : {coinPriceUSDC}. Starting price: {DownwardsMomentum.StartingCoinPriceUsdc}. Triggered by spread: {triggeredBySpread}", userId, "TRADE", true);
+
 		// Is spread still respected?
 		if (Math.Abs(spread) >= _TradeThreshold || Math.Abs(spread2) >= _TradeThreshold)
-		{
-			decimal triggeredBySpread = Math.Abs(spread) >= _TradeThreshold ? spread : spread2;
-
+		{  
 			// Threshold calculations
 			decimal baseThreshold, maxThreshold, premiumThreshold;
 			const decimal spreadSensitivity = 1.5m;
@@ -537,7 +534,7 @@ public class KrakenService
 			if (Math.Abs(spread) >= _TradeThreshold || Math.Abs(spread2) >= _TradeThreshold)
 			{
 				decimal triggeredBySpread = Math.Abs(spread) >= _TradeThreshold ? spread : spread2;
-				_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Upwards momentum detected. Triggered by spread: {triggeredBySpread:P}",
+				_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Upwards momentum detected. Current Price: {coinPriceUSDC}. Starting Price: {upwardsMomentum.StartingCoinPriceUsdc}. Triggered by spread: {triggeredBySpread:P}",
 					userId, "TRADE", true);
 
 				decimal baseThreshold, maxThreshold, premiumThreshold;
@@ -2693,7 +2690,7 @@ public class KrakenService
 		}
 		catch (Exception ex)
 		{
-			await _log.Db($"🔥 Error during fiat conversion: {ex.Message}");
+			await _log.Db($"🔥 Error during fiat conversion: {ex.Message}", outputToConsole: true);
 			return null;
 		}
 	}
@@ -2831,9 +2828,9 @@ public class KrakenService
 		}
 		catch (Exception ex)
 		{
-			await _log.Db("⚠️GetTradeConfiguration Exception: " + ex.Message, userId, "TRADE", true);
+			await _log.Db($"({fromCoin}:{userId}:{strategy}) ⚠️GetTradeConfiguration Exception: " + ex.Message, userId, "TRADE", true);
 		}
-		await _log.Db($"⚠️GetTradeConfiguration No trade configuration for : {fromCoin}/{toCoin}:{strategy}", userId, "TRADE", true);
+		await _log.Db($"({fromCoin}:{userId}:{strategy}) ⚠️GetTradeConfiguration No trade configuration for : {fromCoin}/{toCoin}:{strategy}", userId, "TRADE", true);
 		return null;
 	}
 	public async Task<bool> UpsertTradeConfiguration(int userId, string fromCoin,
@@ -3008,7 +3005,7 @@ public class KrakenService
 		}
 		catch (Exception ex)
 		{
-			_ = _log.Db($"⚠️Error checking first {tmpCoinName}({strategy}) price with trade condition: {ex.Message}", userId, "TRADE", true);
+			_ = _log.Db($"({tmpCoinName}:{userId}:{strategy}) ⚠️Error checking first {tmpCoinName}({strategy}) price with trade condition: {ex.Message}", userId, "TRADE", true);
 			return null;
 		}
 	}
@@ -3024,9 +3021,7 @@ public class KrakenService
 		{
 			if (IsNearPrice(prices.Last().Price, peak.Price, 0.02m) &&
 					IsAfterPeakTime(prices.Last().Timestamp, peak.Timestamp, 30, 90))
-			{
-				// Only make async call if other conditions are met
-				_ = _log.Db("Inside After_Peak condition", outputToConsole: true);
+			{ 
 				if (await IsVolumeDecliningSince(coin, peak.Timestamp))
 				{
 					return true;
@@ -3078,7 +3073,7 @@ public class KrakenService
 		}
 		catch (Exception ex)
 		{
-			_ = _log.Db($"⚠️({from}:{userId}:{strategy}) Error creating momentum entry: " + ex.Message, userId, "TRADE", true);
+			_ = _log.Db($"({from}:{userId}:{strategy}) ⚠️ Error creating momentum entry: " + ex.Message, userId, "TRADE", true);
 			return false;
 		}
 		return true;
