@@ -16,16 +16,27 @@
   font-size: x-small;
   white-space: nowrap !important;
 }
-
 .mainTableContainer {
   overflow: auto;
-  max-height: CALC(var(--vh, 1vh) * 100 - 130px);
+  max-height: CALC(var(--vh, 1vh) * 100 - 150px);
+}
+.mainTableContainerMobile {
+  overflow: auto;
+  max-height: CALC(var(--vh, 1vh) * 100 - 240px);
 }
 
 @media only screen and (max-width : 600px) {
   .mainTableContainer {
     max-height: CALC(var(--vh, 1vh) * 100 - 170px);
   }
+}
+
+.actionTd {
+  display: flex;
+  gap: 5px;
+  justify-content: space-around;
+  width: 90px;
+  flex-wrap: wrap;
 }
 
 .addTodoInputFieldset {
@@ -100,11 +111,6 @@
 #closeOverlay:active {
   transform: translateY(0);
 }
-
-
-
-
-
 
 .shareListButtons {
   display: flex;

@@ -999,7 +999,7 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
     this.generateSimulationData();
 
     setTimeout(() => {
-      this.isShowingTradeSimulator = true;
+      this.isShowingTradeSimulator = true;  
       this.stopLoading();
     }, 50);
   }
@@ -1841,35 +1841,39 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
   async checkBalance() {
     if (this.isTradebotBalanceShowing) {
       this.isTradebotBalanceShowing = false;
+      console.log("closing balance");
       return;
-    } else if (this.tradebotBalances && !this.isTradebotBalanceShowing) {
-      this.closeTradeDivs();
-      this.isTradebotBalanceShowing = true;
-      return;
-    }
-    if (this.tradebotBalances) {
-      return;
-    }
-    this.closeTradeDivs();
-    if (!this.tradebotBalances) {
-      this.startLoading();
-      this.isTradebotBalanceShowing = true;
-      const sessionToken = await this.parentRef?.getSessionToken() ?? "";
-      await this.tradeService.getTradeHistory(this.parentRef?.user?.id ?? 1, sessionToken).then(res => {
-        if (res) {
-          this.tradebotBalances = res;
-        }
-        this.stopLoading();
-      });
-    }
+    } 
+    let selectedCurrency = this.selectedTradebotCurrency?.nativeElement?.value;
+    let selectedStrategy = this.selectedTradebotStrategy?.nativeElement?.value; 
+    this.startLoading(); 
+    this.closeTradeDivs(); 
+    const sessionToken = await this.parentRef?.getSessionToken() ?? "";
+    await this.tradeService.getTradeHistory(this.parentRef?.user?.id ?? 1, sessionToken, selectedCurrency, selectedStrategy).then(res => {
+      if (res) {
+        this.tradebotBalances = res;
+        this.isTradebotBalanceShowing = true;
+        setTimeout(() => {
+          if (this.tradeBalanceCoinSelector?.nativeElement) {
+            this.tradeBalanceCoinSelector.nativeElement.value = selectedCurrency ?? "BTC";
+          }
+          if (this.tradeBalanceStrategySelector?.nativeElement) {
+            this.tradeBalanceStrategySelector.nativeElement.value = selectedStrategy ?? "DCA";
+          }
+        }, 50);
+      } else {
+        this.parentRef?.showNotification("Error, cannot get balances!");
+      }
+      this.stopLoading();
+    }); 
   }
-  private closeTradeDivs() {
+  closeTradeDivs() {
     this.showingTradeLogs = false;
     this.showingTradeSettings = false;
     this.isShowingTradeValueGraph = false;
     this.isTradebotBalanceShowing = false;
     this.isShowingTradeSimulator = false;
-    this.isShowingTradeProfit = false;
+    this.isShowingTradeProfit = false; 
   }
 
   async openTradeFullscreen() {
@@ -1959,7 +1963,9 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
     };
     return map[symbol.toUpperCase()] || symbol;
   }
-  async showTradeLogs() {
+  async showTradeLogs() { 
+    let selectedCurrency = this.selectedTradebotCurrency?.nativeElement?.value;
+    let selectedStrategy = this.selectedTradebotStrategy?.nativeElement?.value; 
     if (!this.isTradePanelOpen) {
       this.openTradeFullscreen();
       setTimeout(() => {
@@ -1973,7 +1979,7 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
       this.showingTradeLogs = !wasShowingLogs;
       if (this.showingTradeLogs) {
         this.startLoading();
-        await this.startTradeLogPolling(); // Start polling if showing logs
+        await this.startTradeLogPolling(selectedCurrency, selectedStrategy); // Start polling if showing logs
         this.stopLoading();
       } else {
         this.stopTradeLogPolling(); // Stop polling if hiding logs
@@ -1981,17 +1987,17 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
     }, 50);
 
   }
-  private async startTradeLogPolling() {
+  private async startTradeLogPolling(selectedCoin?: string, selectedStrategy?: string) {
     // Clear any existing interval to avoid duplicates
     this.stopTradeLogPolling();
 
     // Initial fetch
-    await this.fetchTradeLogs();
+    await this.fetchTradeLogs(selectedCoin, selectedStrategy);
 
     // Start polling every 60 seconds
     this.tradeLogInterval = setInterval(async () => {
       if (this.showingTradeLogs && this.currentLogPage <= 2) {
-        await this.fetchTradeLogs();
+        await this.fetchTradeLogs(selectedCoin, selectedStrategy);
       }
     }, 30 * 1000); // 30 seconds
   }
@@ -2016,11 +2022,11 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
     this.setPaginatedLogs();
     this.stopLoading();
   }
-  private async fetchTradeLogs() {
+  private async fetchTradeLogs(selectedCoin?: string, selectedStrategy?: string) {
     try {
-      this.startLoading();
-      const coin = this.tradeLogCoinFilter?.nativeElement?.value;
-      const strategy = this.tradeLogStrategyFilter?.nativeElement?.value;
+      this.startLoading(); 
+      const coin = selectedCoin ?? this.tradeLogCoinFilter?.nativeElement?.value;
+      const strategy = selectedStrategy ?? this.tradeLogStrategyFilter?.nativeElement?.value;
       const sessionToken = await this.parentRef?.getSessionToken() ?? "";
       this.tradeLogs = await this.tradeService.getTradeLogs(
         this.hasKrakenApi ? this.parentRef?.user?.id ?? 1 : 1,
@@ -2028,7 +2034,15 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
         strategy ?? this.selectedTradeLogStrategy ?? "DCA",
         sessionToken
       );
-      this.setPaginatedLogs();
+      this.setPaginatedLogs(); 
+      setTimeout(() => {
+        if (selectedCoin && this.tradeLogCoinFilter?.nativeElement) {
+          this.tradeLogCoinFilter.nativeElement.value = selectedCoin;
+        }
+        if (selectedStrategy && this.tradeLogStrategyFilter?.nativeElement) {
+          this.tradeLogStrategyFilter.nativeElement.value = selectedStrategy;
+        }
+      });
       if (this.currentLogPage <= 1) {
         const comment = this.tradeLogs[0].comment;
         await this.convertLogIntoCurrentPriceData(comment ?? "");
@@ -2520,9 +2534,15 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
       };
     }
   }
-  async enterPosition() {
+  async enterPosition() { 
+    if (!this.hasKrakenApi) {
+      return alert("You must have Kraken API keys configured.");
+    }
     const userId = this.parentRef?.user?.id;
-    if (!userId || userId == 0 || !this.parentRef) return alert("You must be logged in to enter position.");
+    if (!userId || userId == 0 || !this.parentRef) return alert("You must be logged in to enter position."); 
+    let selectedCurrency = this.selectedTradebotCurrency?.nativeElement.value;
+    if (!selectedCurrency) { return alert("A currency must be selected!"); } 
+    this.startLoading();
     let purchasePreview, btcPurchaseAmount;
     const krakenUsdcCurrencyWallet = (this.wallet ?? [])
       .flatMap(walletItem => walletItem.currencies || [])
@@ -2534,40 +2554,75 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
       return alert("Either you have no USDC available or wallet data has not yet fully loaded. Verify and retry.");
     }
     const sessionToken = await this.parentRef.getSessionToken();
-    const tc = await this.tradeService.getTradeConfiguration(userId, sessionToken ?? "", "BTC", "USDC", "DCA");
+    const tc = await this.tradeService.getTradeConfiguration(userId, sessionToken ?? "", selectedCurrency, "USDC", "DCA");
     if (tc) {
       purchasePreview = parseFloat(tc.valueTradePercentage) * currentUSDC;
       btcPurchaseAmount = purchasePreview / (this.btcUSDRate ?? 0);
     } else {
-      return alert("No trade configuration for BTC / USDC pairs. Cancelled.");
+      return alert(`No trade configuration for ${selectedCurrency} / USDC pairs. Cancelled.`);
     }
     if (!purchasePreview || !btcPurchaseAmount) {
       return alert("Data integrity issue or no USDC to trade. Try again");
     }
-    if (!confirm(`Purchase ${btcPurchaseAmount.toFixed(8)} BTC for ${this.formatToCanadianCurrency(purchasePreview)}?\n- Trade Percentage: ${(tc.valueTradePercentage * 100)}%\n- BTC USDC Price: ${this.formatToCanadianCurrency(this.btcUSDRate ?? 0)}\n- USDC: ${this.formatToCanadianCurrency(currentUSDC)}`)) { return alert("Cancelled"); }
-    if (!confirm(`Purchasing ${btcPurchaseAmount.toFixed(8)} BTC for ${this.formatToCanadianCurrency(purchasePreview)}.`)) { return alert("Cancelled"); }
-    this.tradeService.enterPosition(userId, sessionToken).then(res => {
+
+    const coinNameMap: { [key: string]: string } = {
+      ETH: "Ethereum",
+      XDG: "Dogecoin",
+      BTC: "Bitcoin",
+      XBT: "Bitcoin",
+      SOL: "Solana"
+    };
+
+    let tmpCoinName = coinNameMap[selectedCurrency] || selectedCurrency;
+    let currencyRate = await this.getCurrencyConversionRate(tmpCoinName, "USDC"); 
+    let coinPrice = this.formatToCanadianCurrency(currencyRate ?? 0);
+    this.stopLoading();
+    if (!confirm(`Purchase ${btcPurchaseAmount.toFixed(8)} ${selectedCurrency} for ${this.formatToCanadianCurrency(purchasePreview)}?\n- Trade Percentage: ${(tc.valueTradePercentage * 100)}%\n- ${selectedCurrency} USDC Price: ${coinPrice}\n- USDC: ${this.formatToCanadianCurrency(currentUSDC)}`)) { return alert("Cancelled"); }
+    if (!confirm(`Purchasing ${btcPurchaseAmount.toFixed(8)} ${selectedCurrency} for ${this.formatToCanadianCurrency(purchasePreview)}.`)) { return alert("Cancelled"); }
+    this.tradeService.enterPosition(userId, selectedCurrency, sessionToken).then(res => {
       if (res) {
-        this.parentRef?.showNotification("Position entered.");
+        this.parentRef?.showNotification(`${selectedCurrency} Position entered.`);
       } else {
-        this.parentRef?.showNotification("Error entering position.");
+        this.parentRef?.showNotification(`Error entering ${selectedCurrency} position.`);
       }
     });
   }
   async exitPosition() {
     const userId = this.parentRef?.user?.id;
+    let selectedCurrency = this.selectedTradebotCurrency?.nativeElement.value;
+    if (!selectedCurrency) { return alert("A currency must be selected!"); }  
     if (!userId || userId == 0) return alert("You must be logged in to exit your position.");
+    this.startLoading();
     const krakenBTCCurrencyWallet = (this.wallet ?? [])
       .flatMap(walletItem => walletItem.currencies || [])
       .filter(currency =>
-        currency.address === "Kraken" && currency.currency === "BTC"
+        currency.address === "Kraken" && currency.currency === selectedCurrency
       )[0];
-    let currentBTC = parseFloat(krakenBTCCurrencyWallet?.totalBalance ?? "0");
-    let sellPreview = currentBTC * (this.btcUSDRate ?? 0);
+    let currentBTC = parseFloat(krakenBTCCurrencyWallet?.totalBalance ?? "0"); 
 
+    const coinNameMap: { [key: string]: string } = {
+      ETH: "Ethereum",
+      XDG: "Dogecoin",
+      BTC: "Bitcoin",
+      XBT: "Bitcoin",
+      SOL: "Solana"
+    };
 
-    if (!confirm(`Sell ${currentBTC.toFixed(8)} BTC for ${this.formatToCanadianCurrency(sellPreview)}?\n- BTC USDC Price: ${this.formatToCanadianCurrency(this.btcUSDRate ?? 0)}`)) { return alert("Cancelled"); }
-    if (!confirm(`Selling ${currentBTC.toFixed(8)} BTC for ${this.formatToCanadianCurrency(sellPreview)}`)) { return alert("Cancelled"); }
+    let tmpCoinName = coinNameMap[selectedCurrency] || selectedCurrency;
+    let currencyRate = await this.getCurrencyConversionRate(tmpCoinName, "USDC"); 
+    let sellPreview = currentBTC * (currencyRate ?? 0);
+    this.stopLoading();
+    if (!confirm(`Sell ${currentBTC.toFixed(8)} ${selectedCurrency} for ${this.formatToCanadianCurrency(sellPreview)}?\n- ${selectedCurrency} USDC Price: ${this.formatToCanadianCurrency(currencyRate ?? 0)}`)) { return alert("Cancelled"); }
+    if (!confirm(`Selling ${currentBTC.toFixed(8)} ${selectedCurrency} for ${this.formatToCanadianCurrency(sellPreview)}`)) { return alert("Cancelled"); }
+    
+    const sessionToken = await this.parentRef?.getSessionToken() ?? "";
+    this.tradeService.exitPosition(userId, selectedCurrency, sessionToken).then(res => {
+      if (res) {
+        this.parentRef?.showNotification(`${selectedCurrency} Position Exited.`);
+      } else {
+        this.parentRef?.showNotification(`Error exiting ${selectedCurrency} position.`);
+      }
+    });
   }
   canShowTradePanelInfo() {
     return !this.isShowingTradeProfit && !this.showingTradeSettings && !this.showingTradeLogs && !this.isShowingTradeValueGraph && !this.isShowingTradeSimulator && !this.isTradeInformationOpen && !this.isTradebotBalanceShowing && !this.showingTradeLogs && !this.isShowingTradeValueGraph && !this.isShowingTradeSimulator && !this.isTradeInformationOpen;
@@ -2579,11 +2634,11 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
     } else {
       const sessionToken = await this.parentRef?.getSessionToken() ?? "";
       await this.getProfitData(!this.hasKrakenApi ? 1 : (this.parentRef?.user?.id ?? 1), sessionToken);
-      this.isShowingTradeProfit = true;
+      this.isShowingTradeProfit = true; 
     }
   }
   hideProfit() {
-    this.isShowingTradeProfit = false;
+    this.isShowingTradeProfit = false; 
     this.closeTradeDivs();
   }
   toggleProfitSection(section: string): void {
@@ -2856,15 +2911,19 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
     this.isDataToolVisible[key] = !this.isDataToolVisible[key];
     if (key == "profit") {
       if (!this.isShowingTradeProfit) {
-        this.showProfit()
+        this.closeTradeInformationPanel();
+        setTimeout(() => { this.showProfit(); }, 50);
       } else { this.hideProfit() }
-    } else if (key == 'sim') {
-      if (!this.isShowingTradeSimulator) {
-        this.showTradeSimulationPanel()
+    } 
+    else if (key == 'sim') {
+      if (!this.isShowingTradeSimulator) { 
+        this.closeTradeInformationPanel();
+        setTimeout(() => { this.showTradeSimulationPanel(); }, 50); 
       } else { this.closeTradeSimulationPanel() }
     }
     else if (key == 'graph') {
-      this.showTradeValueGraph();
+      this.closeTradeInformationPanel();
+      setTimeout(() => { this.showTradeValueGraph(); }, 50);  
     }
     setTimeout(() => {
       this.changeDetectorRef.detectChanges();

@@ -75,9 +75,10 @@
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
-  padding: 15px;
-  border-radius: 8px;
-  overflow: hidden;
+  /* padding: 15px; */
+  border: var(--main-border);
+  /* border-radius: 8px;
+  overflow: hidden; */
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
 }
 
@@ -89,6 +90,7 @@
   bottom: 0;
   background-color: rgba(0, 0, 0, 0.5);
   z-index: 0;
+  overflow: hidden;
 }
 
 .user-tag-content-wrapper {

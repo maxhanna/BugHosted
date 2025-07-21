@@ -302,6 +302,11 @@ button {
   border-right: none;
 }
 
+.aboutTable {
+  height: CALC(var(--vh, 1vh) * 100 - 360px);
+  overflow: auto; 
+  border: var(--main-border); 
+}
 .tradeDataTable {
   height: CALC(var(--vh, 1vh) * 100 - 360px);
   overflow: auto;

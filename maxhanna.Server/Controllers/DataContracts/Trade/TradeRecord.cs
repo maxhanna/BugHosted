@@ -7,8 +7,8 @@ public class TradeRecord
 	public string? strategy { get; set; }
 	public float value { get; set; }
 	public DateTime timestamp { get; set; }
-	public string? coin_price_cad { get; set; }
-	public string? coin_price_usdc { get; set; }
+	public float? coin_price_cad { get; set; }
+	public float? coin_price_usdc { get; set; }
 	public float trade_value_cad { get; set; }
 	public float trade_value_usdc { get; set; }
 	public float fees { get; set; }

@@ -41,7 +41,7 @@
           <div class="messageContent" [attr.data-timestamp]="message.timestamp">
             <div [innerHTML]="getTextForDOM(decryptContent(message.content))" *ngIf="!isEditing.includes(message.id)"></div>
             <div *ngIf="isEditing.includes(message.id)">
-              <textarea [id]="'editTextArea' + message.id">{{decryptContent(message.content)}}</textarea>
+              <textarea [id]="'editTextArea' + message.id" style="width:100%">{{decryptContent(message.content)}}</textarea>
             </div>
   
             <div class="xxSmallFont thirdFontColor" *ngIf="message.editDate" [title]="message.editDate">
@@ -53,9 +53,15 @@
                 [inputtedParentRef]="parentRef" [currentReactions]="message.reactions"
                 [previousComponent]="'Chat'"></app-reaction>
               <button title="Quote Chat Message" (click)="quote(message)">🗨️Quote</button>
-              <button *ngIf="message.sender.id === (parentRef?.user?.id ?? 0) && (isEditing.includes(message.id) || isEditing.length == 0)" title="Edit Chat Message"
-                (click)="isEditing.includes(message.id) ? acceptEdit(message) : edit(message)">
+              <button
+                *ngIf="message.sender.id === (parentRef?.user?.id ?? 0) && (isEditing.includes(message.id) || isEditing.length == 0)"
+                title="Edit Chat Message" (click)="isEditing.includes(message.id) ? acceptEdit(message) : edit(message)">
                 ✏️{{ isEditing.includes(message.id) ? ' Accept' : '' }}
+              </button>
+              <button
+                *ngIf="message.sender.id === (parentRef?.user?.id ?? 0) && isEditing.includes(message.id)"
+                title="Cancel Edit Chat Message" (click)="stopEdit(message)">
+                ❌Cancel
               </button>
             </div>
   

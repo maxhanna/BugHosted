@@ -31,21 +31,8 @@ public class KrakenService
 	private long _lastNonce;
 	private readonly Log _log;
 	private static readonly Dictionary<string, string> CoinMappingsForDB = new Dictionary<string, string> { { "XBT", "btc" }, { "XXBT", "btc" }, { "BTC", "btc" }, { "USDC", "usdc" }, { "XRP", "xrp" }, { "XXRP", "xrp" }, { "XXDG", "xdg" }, { "XETH", "eth" }, { "ETH", "eth" }, { "ETH.F", "eth" }, { "SOL.F", "sol" }, { "SOL", "sol" }, { "SUI", "sui" }, { "WIF", "wif" }, { "WIF.F", "wif" }, { "PENGU", "pengu" }, { "PEPE", "pepe" }, { "DOT", "dot" }, { "DOT.F", "dot" }, { "ADA", "ada" }, { "ADA.F", "ada" }, { "LTC", "ltc" }, { "LTC.F", "ltc" }, { "LINK", "link" }, { "LINK.F", "link" }, { "MATIC", "matic" }, { "MATIC.F", "matic" }, { "XLM", "xlm" }, { "XLM.F", "xlm" }, { "TRX", "trx" }, { "TRX.F", "trx" }, { "AVAX", "avax" }, { "AVAX.F", "avax" }, { "ATOM", "atom" }, { "ATOM.F", "atom" }, { "ALGO", "algo" }, { "ALGO.F", "algo" }, { "NEAR", "near" }, { "NEAR.F", "near" }, { "XMR", "xmr" }, { "XMR.F", "xmr" }, { "BCH", "bch" }, { "BCH.F", "bch" }, { "ZEC", "zec" }, { "ZEC.F", "zec" }, { "SHIB", "shib" }, { "SHIB.F", "shib" }, { "UNI", "uni" }, { "UNI.F", "uni" }, { "AAVE", "aave" }, { "AAVE.F", "aave" }, { "ZUSD", "usd" }, { "ZCAD", "cad" } };
-	private static readonly Dictionary<string, string> CoinNameMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
-	{
-		{ "BTC", "Bitcoin" }, 
-		{ "ETH", "Ethereum" },
-		{ "XDG", "Dogecoin" },
-		{ "SOL", "Solana" }
-	};
-
-	private static readonly Dictionary<string, string> CoinSymbols = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
-	{
-		{ "Bitcoin", "₿" },
-		{ "Ethereum", "Ξ" },
-		{ "Dogecoin", "Ɖ" },
-		{ "Solana", "◎" }
-	};
+	private static readonly Dictionary<string, string> CoinNameMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) {	{ "BTC", "Bitcoin" }, { "ETH", "Ethereum" }, { "XDG", "Dogecoin" },	{ "SOL", "Solana" } };
+	private static readonly Dictionary<string, string> CoinSymbols = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) { { "Bitcoin", "₿" },	{ "Ethereum", "Ξ" }, { "Dogecoin", "Ɖ" }, { "Solana", "◎" } };
 	public KrakenService(IConfiguration config, Log log)
 	{
 		_config = config;
@@ -124,7 +111,7 @@ public class KrakenService
 		decimal? firstPriceToday = await GetFirstCoinPriceTodayIfNoRecentTrades(coin, userId, strategy);
 
 		// 3. Calculate spread
-		decimal.TryParse(lastTrade?.coin_price_usdc, out decimal lastPrice);
+		decimal lastPrice = Convert.ToDecimal(lastTrade?.coin_price_usdc);
 		decimal currentPrice = coinPriceUSDC.Value;
 		decimal spread = isFirstTradeEver ? 0 : (currentPrice - lastPrice) / lastPrice;
 		decimal spread2 = firstPriceToday != null ? (currentPrice - firstPriceToday.Value) / firstPriceToday.Value : 0;
@@ -150,7 +137,7 @@ public class KrakenService
 			return await HandleIndicatorStrategy(userId, coin, strategy, tmpCoin, currentPrice, coinPriceCAD.Value, keys);
 		}
 
-		LogSpreads(userId, strategy, tmpCoin, firstPriceToday, lastPrice, currentPrice, spread, spread2);
+		LogSpreads(userId, strategy, tmpCoin, firstPriceToday, lastPrice, currentPrice, spread, spread2, isFirstTradeEver);
 		// NO MOMENTUM DETECTED AS OF YET, Check if trade crosses spread thresholds
 		if (Math.Abs(spread) >= _TradeThreshold || Math.Abs(spread2) >= _TradeThreshold)
         {
@@ -175,10 +162,8 @@ public class KrakenService
 
                 // If no last trade, check if we must equalize
                 if (isFirstTradeEver || lastTrade == null || coinBalance <= _MinimumBTCReserves || usdcBalance <= _MinimumUSDCReserves || coinBalanceConverted < _InitialMinimumUSDCAmountToStart)
-                {
-                    bool isBTC = tmpCoin == "XBT" || tmpCoin == "BTC";
-
-                    if (isBTC)
+                {  
+                    if (tmpCoin == "XBT" || tmpCoin == "BTC" || tmpCoin == "Bitcoin")
                     {
                         if (usdcBalance <= _MinimumUSDCReserves)
                         {
@@ -282,13 +267,14 @@ public class KrakenService
 	private void LogSpreads(
 	int userId,
 	string strategy,
-	string tmpCoin, 
+	string tmpCoin,
 	decimal? firstPriceToday,
 	decimal lastPrice,
 	decimal currentPrice,
 	decimal spread,
-	decimal spread2)
-	{ 
+	decimal spread2,
+	bool isFirstTradeEver)
+	{
 		string firstPriceStr = firstPriceToday?.ToString("F2") ?? "N/A";
 		string spreadStr = spread.ToString("P2");
 		string spread2Str = firstPriceToday != null ? spread2.ToString("P2") : "N/A";
@@ -301,7 +287,7 @@ public class KrakenService
 		string thresholdDiffStr = thresholdDiff.ToString("F2") + "%";
 		string thresholdDiff2Str = thresholdDiff2?.ToString("F2") + "%" ?? "N/A";
 
-		string logMessage = $@"({tmpCoin}:{userId}:{strategy}) L:{lastPrice:F2} - C:{currentPrice:F2} - Spread: {spreadStr} | {thresholdDiffStr} from threshold {(firstPriceToday != null ? @$" - First Price Today: {firstPriceStr} - Spread2: {spread2Str} | {thresholdDiff2Str} from threshold" : "")}";
+		string logMessage = $@"({tmpCoin}:{userId}:{strategy}) L:{lastPrice:F2} - C:{currentPrice:F2} - Spread: {spreadStr} | {thresholdDiffStr} from threshold {(firstPriceToday != null ? @$" - First Price Today: {firstPriceStr} - Spread2: {spread2Str} | {thresholdDiff2Str} from threshold" : "")}.{(isFirstTradeEver ? " (isFirstTradeEver: true)" : "")}";
 		_ = _log.Db(logMessage.Trim(), userId, "TRADE", true);
 	}
 
@@ -370,7 +356,7 @@ public class KrakenService
 		string tmpCoin = coin.ToUpper();
 		tmpCoin = tmpCoin == "BTC" ? "XBT" : tmpCoin;
 		decimal triggeredBySpread = Math.Abs(spread) >= _TradeThreshold ? spread : spread2; 
-		_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Downwards momentum strategy detected. Verifying momentum data. Current Price : {coinPriceUSDC}. Starting price: {DownwardsMomentum.StartingCoinPriceUsdc}. Triggered by spread: {triggeredBySpread}", userId, "TRADE", true);
+		_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Downwards momentum strategy detected. Verifying momentum data. Current Price : {coinPriceUSDC}. Starting price: {DownwardsMomentum.StartingCoinPriceUsdc}. Best price: {DownwardsMomentum.BestCoinPriceUsdc}. Triggered by spread: {triggeredBySpread:P}", userId, "TRADE", true);
 
 		// Is spread still respected?
 		if (Math.Abs(spread) >= _TradeThreshold || Math.Abs(spread2) >= _TradeThreshold)
@@ -548,7 +534,7 @@ public class KrakenService
 			if (Math.Abs(spread) >= _TradeThreshold || Math.Abs(spread2) >= _TradeThreshold)
 			{
 				decimal triggeredBySpread = Math.Abs(spread) >= _TradeThreshold ? spread : spread2;
-				_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Upwards momentum detected. Current Price: {coinPriceUSDC}. Starting Price: {upwardsMomentum.StartingCoinPriceUsdc}. Triggered by spread: {triggeredBySpread:P}",
+				_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Upwards momentum detected. Current Price: {coinPriceUSDC}. Starting Price: {upwardsMomentum.StartingCoinPriceUsdc}. Best Price: {upwardsMomentum.BestCoinPriceUsdc}. Triggered by spread: {triggeredBySpread:P}",
 					userId, "TRADE", true);
 
 				decimal baseThreshold, maxThreshold, premiumThreshold;
@@ -620,7 +606,7 @@ public class KrakenService
 							   userId, "TRADE", true);
 					return false;
 				}
-				else if (dynamicThreshold > 0)
+				else 
 				{
 					_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Executing momentum sell: {coinPriceUSDC:F2}. " +
 							   $"Trigger price: Best={sellTriggerBest:F2}. " +
@@ -704,14 +690,14 @@ public class KrakenService
 					await DeleteMomentumStrategy(userId, tmpCoin, "USDC", strategy);
 					return true;
 				}
-				else
-				{
-					await UpdateMomentumEntry(userId, tmpCoin, tmpCoin, "USDC", coinPriceUSDC, strategy);
-					_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Threshold ({dynamicThreshold:F2} still respected. " +
-							   $"Waiting. (Current:{coinPriceUSDC:F2} vs Best trigger:{sellTriggerBest:F2} = {coinPriceUSDC - sellTriggerBest:F2})",
-							   userId, "TRADE", true);
-					return false;
-				}
+				// else
+				// {
+				// 	await UpdateMomentumEntry(userId, tmpCoin, tmpCoin, "USDC", coinPriceUSDC, strategy);
+				// 	_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Threshold {dynamicThreshold:F2} still respected. " +
+				// 			   $"Waiting. (Current:{coinPriceUSDC:F2} vs Best trigger:{sellTriggerBest:F2} = {coinPriceUSDC - sellTriggerBest:F2})",
+				// 			   userId, "TRADE", true);
+				// 	return false;
+				// }
 			}
 			else
 			{
@@ -940,7 +926,7 @@ public class KrakenService
 
 		if (usdcBalance > _MinimumUSDCReserves)
 		{
-			_ = _log.Db($"No need to equalize funds. USDC Balance ({usdcBalance}) over minimum reserves ({_MinimumUSDCReserves}).", userId, "TRADE", true);
+			_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) No need to equalize funds. USDC Balance ({usdcBalance}) over minimum reserves ({_MinimumUSDCReserves}).", userId, "TRADE", true);
 			return false;
 		}
 
@@ -1961,8 +1947,8 @@ public class KrakenService
 					to_currency = reader.GetString(reader.GetOrdinal("to_currency")),
 					value = reader.GetFloat(reader.GetOrdinal("value")),
 					timestamp = reader.GetDateTime(reader.GetOrdinal("timestamp")),
-					coin_price_cad = reader.GetString(reader.GetOrdinal("coin_price_cad")),
-					coin_price_usdc = reader.GetString(reader.GetOrdinal("coin_price_usdc")),
+					coin_price_cad = reader.GetFloat(reader.GetOrdinal("coin_price_cad")),
+					coin_price_usdc = reader.GetFloat(reader.GetOrdinal("coin_price_usdc")),
 					trade_value_cad = reader.GetFloat(reader.GetOrdinal("trade_value_cad")),
 					trade_value_usdc = reader.GetFloat(reader.GetOrdinal("trade_value_usdc"))
 				};
@@ -2006,8 +1992,8 @@ public class KrakenService
 					strategy = reader.IsDBNull(reader.GetOrdinal("strategy")) ? "null" : reader.GetString(reader.GetOrdinal("strategy")),
 					value = reader.IsDBNull(reader.GetOrdinal("value")) ? (float)0 : reader.GetFloat(reader.GetOrdinal("value")),
 					timestamp = reader.IsDBNull(reader.GetOrdinal("timestamp")) ? DateTime.Now : reader.GetDateTime(reader.GetOrdinal("timestamp")),
-					coin_price_cad = reader.IsDBNull(reader.GetOrdinal("coin_price_cad")) ? null : reader.GetString(reader.GetOrdinal("coin_price_cad")),
-					coin_price_usdc = reader.IsDBNull(reader.GetOrdinal("coin_price_usdc")) ? null : reader.GetString(reader.GetOrdinal("coin_price_usdc")),
+					coin_price_cad = reader.IsDBNull(reader.GetOrdinal("coin_price_cad")) ? 0 : reader.GetFloat(reader.GetOrdinal("coin_price_cad")),
+					coin_price_usdc = reader.IsDBNull(reader.GetOrdinal("coin_price_usdc")) ? 0 : reader.GetFloat(reader.GetOrdinal("coin_price_usdc")),
 					trade_value_cad = reader.IsDBNull(reader.GetOrdinal("trade_value_cad")) ? 0 : reader.GetFloat(reader.GetOrdinal("trade_value_cad")),
 					trade_value_usdc = reader.IsDBNull(reader.GetOrdinal("trade_value_usdc")) ? 0 : reader.GetFloat(reader.GetOrdinal("trade_value_usdc")),
 					fees = reader.IsDBNull(reader.GetOrdinal("fees")) ? 0 : reader.GetFloat(reader.GetOrdinal("fees")),
@@ -2051,8 +2037,8 @@ public class KrakenService
 					strategy = reader.IsDBNull(reader.GetOrdinal("strategy")) ? "null" : reader.GetString(reader.GetOrdinal("strategy")),
 					value = reader.IsDBNull(reader.GetOrdinal("value")) ? (float)0 : reader.GetFloat(reader.GetOrdinal("value")),
 					timestamp = reader.IsDBNull(reader.GetOrdinal("timestamp")) ? DateTime.Now : reader.GetDateTime(reader.GetOrdinal("timestamp")),
-					coin_price_cad = reader.IsDBNull(reader.GetOrdinal("coin_price_cad")) ? null : reader.GetString(reader.GetOrdinal("coin_price_cad")),
-					coin_price_usdc = reader.IsDBNull(reader.GetOrdinal("coin_price_usdc")) ? null : reader.GetString(reader.GetOrdinal("coin_price_usdc")),
+					coin_price_cad = reader.IsDBNull(reader.GetOrdinal("coin_price_cad")) ? 0 : reader.GetFloat(reader.GetOrdinal("coin_price_cad")),
+					coin_price_usdc = reader.IsDBNull(reader.GetOrdinal("coin_price_usdc")) ? 0 : reader.GetFloat(reader.GetOrdinal("coin_price_usdc")),
 					trade_value_cad = reader.IsDBNull(reader.GetOrdinal("trade_value_cad")) ? 0 : reader.GetFloat(reader.GetOrdinal("trade_value_cad")),
 					trade_value_usdc = reader.IsDBNull(reader.GetOrdinal("trade_value_usdc")) ? 0 : reader.GetFloat(reader.GetOrdinal("trade_value_usdc")),
 					fees = reader.IsDBNull(reader.GetOrdinal("fees")) ? 0 : reader.GetFloat(reader.GetOrdinal("fees")),
@@ -2981,8 +2967,11 @@ public class KrakenService
 		string tmpCoin = coin.ToUpper();
 		tmpCoin = tmpCoin == "BTC" ? "XBT" : tmpCoin;
 
-		string tmpCoinName = coin.ToUpper();
-		tmpCoinName = coin == "BTC" ? "Bitcoin" : coin == "XBT" ? "Bitcoin" : coin;
+		string tmpCoinForLookup = coin.ToUpper();
+		tmpCoinForLookup = tmpCoinForLookup == "XBT" ? "BTC" : tmpCoinForLookup;
+		
+		string tmpCoinName = CoinNameMap.TryGetValue(tmpCoinForLookup, out var mappedName) ? mappedName : tmpCoin;
+
 		try
 		{
 			using var connection = new MySqlConnection(_config?.GetValue<string>("ConnectionStrings:maxhanna"));
@@ -3296,7 +3285,7 @@ public class KrakenService
 			if (result != null && result != DBNull.Value)
 			{
 				matchingBuyId = Convert.ToInt32(result);
-				_ = _log.Db($"({coinSymbol}:{userId}:{strategy})Found matching buy order {matchingBuyId} at {sellPrice} (buy price <= {maxBuyPrice}).", userId, "TRADE", true);
+				_ = _log.Db($"({coinSymbol}:{userId}:{strategy}) Found matching buy order {matchingBuyId} at {sellPrice} (buy price <= {maxBuyPrice}).", userId, "TRADE", true);
 			}
 		}
 		catch (Exception ex)
@@ -4216,14 +4205,14 @@ public class KrakenService
 	{
 		string tmpCoin = coin.ToUpper() == "BTC" ? "XBT" : coin.ToUpper();
 		string sql = @"SELECT *
-			FROM trade_history th
-			WHERE th.user_id = @UserId
-			AND th.from_currency = 'USDC'
-			AND th.to_currency = @ToCur 
-			AND th.strategy = @Strategy 
-			AND th.matching_trade_id IS NULL 
-			AND th.is_reserved = 0 
-			AND ((@CurrentPrice - th.coin_price_usdc) / th.coin_price_usdc) > @TradeThreshold;";
+			FROM trade_history
+			WHERE user_id = @UserId
+			AND from_currency = 'USDC'
+			AND to_currency = @ToCur 
+			AND strategy = @Strategy 
+			AND matching_trade_id IS NULL 
+			AND is_reserved = 0 
+			AND ((@CurrentPrice - coin_price_usdc) / coin_price_usdc) > @TradeThreshold;";
 		try
 		{
 			await using var conn = new MySqlConnection(_config?.GetValue<string>("ConnectionStrings:maxhanna"));
@@ -4248,8 +4237,8 @@ public class KrakenService
 					to_currency = reader.GetString("to_currency"),
 					value = reader.GetFloat("value"),
 					timestamp = reader.GetDateTime("timestamp"),
-					coin_price_cad = reader.GetString("coin_price_cad"),
-					coin_price_usdc = reader.GetString("coin_price_usdc"),
+					coin_price_cad = reader.GetFloat("coin_price_cad"),
+					coin_price_usdc = reader.GetFloat("coin_price_usdc"),
 					strategy = reader.GetString("strategy"),
 					trade_value_cad = reader.GetFloat("trade_value_cad"),
 					trade_value_usdc = reader.GetFloat("trade_value_usdc"),
@@ -4260,7 +4249,7 @@ public class KrakenService
 		}
 		catch (Exception ex)
 		{
-			_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Error getting profitable open buy positions: {ex.Message}", userId, "TRADE", true);
+			_ = _log.Db($@"({tmpCoin}:{userId}:{strategy}) Error getting profitable open buy positions. Data: tradeThreshold:{tradeThreshold}, coinPriceUSD: {coinPriceUSD}. Message: {ex.Message}", userId, "TRADE", true);
 			return new List<TradeRecord>();
 		}
 	}
@@ -4301,8 +4290,8 @@ public class KrakenService
 					to_currency = reader.GetString("to_currency"),
 					value = reader.GetFloat("value"),
 					timestamp = reader.GetDateTime("timestamp"),
-					coin_price_cad = reader.GetString("coin_price_cad"),
-					coin_price_usdc = reader.GetString("coin_price_usdc"),
+					coin_price_cad = reader.GetFloat("coin_price_cad"),
+					coin_price_usdc = reader.GetFloat("coin_price_usdc"),
 					strategy = reader.GetString("strategy"),
 					trade_value_cad = reader.GetFloat("trade_value_cad"),
 					trade_value_usdc = reader.GetFloat("trade_value_usdc"),

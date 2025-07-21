@@ -35,30 +35,16 @@ namespace maxhanna.Server.Services
 
 		private static readonly SemaphoreSlim _tradeLock = new SemaphoreSlim(1, 1);
 		private static readonly System.Diagnostics.Stopwatch _tradeTimer = new System.Diagnostics.Stopwatch();
-		private static readonly Dictionary<string, string> CoinNameMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
-		{
-			{ "BTC", "Bitcoin" },
-			{ "XBT", "Bitcoin" },
-			{ "ETH", "Ethereum" },
-			{ "XDG", "Dogecoin" },
-			{ "SOL", "Solana" }
+		private static readonly Dictionary<string, string> CoinNameMap = new(StringComparer.OrdinalIgnoreCase) {
+			{ "BTC", "Bitcoin" }, { "XBT", "Bitcoin" }, { "ETH", "Ethereum" }, { "XDG", "Dogecoin" }, { "SOL", "Solana" }
 		};
-		private static readonly Dictionary<string, string> CoinSymbols = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
-		{
-			{ "Bitcoin", "₿" },
-			{ "XBT", "₿" },
-			{ "BTC", "₿" },
-			{ "Ethereum", "Ξ" },
-			{ "ETH", "Ξ" },
-			{ "Dogecoin", "Ɖ" },
-			{ "XDG", "Ɖ" },
-			{ "Solana", "◎" },
-			{ "SOL", "◎" },
-		};
+		private static readonly Dictionary<string, string> CoinSymbols = new(StringComparer.OrdinalIgnoreCase) {
+			{ "Bitcoin", "₿" }, { "XBT", "₿" }, { "BTC", "₿" }, { "Ethereum", "Ξ" }, { "ETH", "Ξ" },
+			{ "Dogecoin", "Ɖ" }, { "XDG", "Ɖ" }, { "Solana", "◎" }, { "SOL", "◎" }
+		}; 
 
-		public SystemBackgroundService(Log log, IConfiguration config, WebCrawler webCrawler, AiController aiController, KrakenService krakenService,
-										NewsService newsService, ProfitCalculationService profitService,
-										TradeIndicatorService indicatorService)
+		public SystemBackgroundService(Log log, IConfiguration config, WebCrawler webCrawler, AiController aiController,
+			KrakenService krakenService, NewsService newsService, ProfitCalculationService profitService, TradeIndicatorService indicatorService)
 		{
 			_config = config;
 			_connectionString = config.GetValue<string>("ConnectionStrings:maxhanna")!;
@@ -615,8 +601,7 @@ namespace maxhanna.Server.Services
 			this.isCrawling = false;
 		} 
 		private async Task MakeCryptoTrade()
-		{
-			// Try to acquire the lock, return immediately if already locked
+		{ 
 			if (!await _tradeLock.WaitAsync(0))
 			{
 				return;
@@ -624,24 +609,36 @@ namespace maxhanna.Server.Services
 
 			try
 			{
-				UserKrakenApiKey? ownerkeys = await _krakenService.GetApiKey(1);
-				if (ownerkeys == null || string.IsNullOrEmpty(ownerkeys.ApiKey) || string.IsNullOrEmpty(ownerkeys.PrivateKey))
+				// 1. Get owner keys with ConfigureAwait(false)
+				UserKrakenApiKey? ownerKeys = await _krakenService.GetApiKey(1).ConfigureAwait(false);
+				if (ownerKeys?.ApiKey == null || ownerKeys.PrivateKey == null)
 				{
-					await _log.Db("No Kraken API keys found for userId: 1", 1, "SYSTEM", true);
+					await _log.Db("No Kraken API keys found for userId: 1", 1, "SYSTEM", true).ConfigureAwait(false);
 					return;
 				}
-
+ 
 				try
 				{
-					await SaveVolumeDataAsync(1, "XBTUSDC", ownerkeys);
-					await SaveVolumeDataAsync(1, "XRPUSDC", ownerkeys);
-					await SaveVolumeDataAsync(1, "XDGUSDC", ownerkeys);
-					await SaveVolumeDataAsync(1, "ETHUSDC", ownerkeys);
-					await SaveVolumeDataAsync(1, "SOLUSDC", ownerkeys);
+					var volumePairs = new[] { "XBTUSDC", "XRPUSDC", "XDGUSDC", "ETHUSDC", "SOLUSDC" };
+					var volumeTasks = new List<Task>();
+
+					foreach (var pair in volumePairs)
+					{
+						volumeTasks.Add(SaveVolumeDataAsync(1, pair, ownerKeys).ContinueWith(t =>
+						{
+							if (t.IsFaulted)
+							{
+								_ = _log.Db($"Volume save failed for {pair}: {t.Exception?.InnerException?.Message}",
+										  1, "TRADE", true);
+							}
+						}));
+					}
+
+					await Task.WhenAll(volumeTasks).ConfigureAwait(false);
 				}
 				catch (Exception ex)
 				{
-					await _log.Db("Exception while getting volumes before trading : " + ex.Message, null);
+					await _log.Db($"Volume data error: {ex.Message}", 1, "TRADE", true).ConfigureAwait(false);
 					return;
 				}
 

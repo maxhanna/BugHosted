@@ -6,6 +6,7 @@ import { User } from '../../services/datacontracts/user/user';
 import { FileEntry } from '../../services/datacontracts/file/file-entry';
 import { MediaSelectorComponent } from '../media-selector/media-selector.component';
 import { MediaViewerComponent } from '../media-viewer/media-viewer.component';
+import { AppComponent } from '../app.component';
 
 @Component({
   selector: 'app-music',
@@ -41,8 +42,8 @@ export class MusicComponent extends ChildComponent implements OnInit, AfterViewI
   showHelpPopup = false;
 
   @Input() user?: User;
-  @Input() songPlaylist?: Todo[];
   @Input() smallPlayer = false;
+  @Input() inputtedParentRef?: AppComponent;
   @Output() gotPlaylistEvent = new EventEmitter<Array<Todo>>();
 
   constructor(private todoService: TodoService) { super(); }
@@ -65,16 +66,16 @@ export class MusicComponent extends ChildComponent implements OnInit, AfterViewI
   }
 
   async getSongList() {
-    if (this.songPlaylist && this.songPlaylist.length > 0) {
-      this.songs = [...this.songPlaylist]; // Create a copy to avoid modifying input
-    } else {
-      const user = this.user ?? this.parentRef?.user;
-      if (!user?.id) return;
-      const tmpSongs = await this.todoService.getTodo(user.id, "Music");
-      this.youtubeSongs = tmpSongs.filter((song: Todo) => this.parentRef?.isYoutubeUrl(song.url));
-      this.fileSongs = tmpSongs.filter((song: Todo) => !this.parentRef?.isYoutubeUrl(song.url));
-      this.songs = this.selectedType === 'file' ? [...this.fileSongs] : [...this.youtubeSongs];
-    }
+    const parent = this.inputtedParentRef ?? this.parentRef;
+    const user = this.user ?? parent?.user;
+    console.log("getting song list for user ", user);
+    if (!user?.id || !parent) return;
+    const tmpSongs = await this.todoService.getTodo(user.id, "Music");
+    this.youtubeSongs = tmpSongs.filter((song: Todo) => parent.isYoutubeUrl(song.url));
+    this.fileSongs = tmpSongs.filter((song: Todo) => !parent.isYoutubeUrl(song.url));
+    this.songs = this.selectedType === 'file' ? [...this.fileSongs] : [...this.youtubeSongs];
+
+    console.log("got songs ", this.songs);
     this.updatePaginatedSongs();
     this.gotPlaylistEvent.emit(this.songs);
   }
@@ -280,6 +281,7 @@ export class MusicComponent extends ChildComponent implements OnInit, AfterViewI
   }
 
   trimYoutubeUrl(url: string) {
+    if (!url || url.trim() == '') return '';
     if (url.includes("youtu.be")) {
       return url.substring(url.indexOf("youtu.be/") + 9, url.length);
     }

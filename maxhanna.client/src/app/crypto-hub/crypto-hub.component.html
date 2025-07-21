@@ -468,7 +468,7 @@
                   <li *ngFor="let group of botGroups">
                     {{ group.strategy }}:
                     <span class="thirdFontColor smallFont">
-                      {{ group.currencies.join(', ') }} (Running since {{ group.startedSince }})
+                      {{ group.currencies.join(', ') }} (Runtime: {{ group.startedSince | timeSince }})
                     </span>
                   </li>
                 </ul>
@@ -477,7 +477,7 @@
                   <div *ngFor="let group of botGroups">
                     {{ group.strategy }}:
                     <span class="thirdFontColor smallFont">
-                      {{ group.currencies.join(', ') }} (Running since {{ group.startedSince }})
+                      {{ group.currencies.join(', ') }} (Runtime: {{ group.startedSince | timeSince }})
                     </span>
                   </div>
                 </div>
@@ -604,12 +604,12 @@
             [title]="isTradeBotStarted(selectedTradebotCurrency?.nativeElement?.value, selectedTradebotStrategy?.nativeElement?.value) ? 'Disabled: Tradebot is running.' : ''"
             *ngIf="canShowTradePanelInfo()">
             <button class="cursorPointer" (click)="enterPosition()"
-              [title]="'Buy BTC On dip by splitting funds with _InitialMinimumFromAmountToStart (set in configuration).'+ hasKrakenApi ? '' : 'Disabled: No Kraken API keys found.'"
+              [title]="'Buy '+selectedTradebotCurrency?.nativeElement?.value+' On dip by splitting funds with _InitialMinimumFromAmountToStart (set in configuration).'+ hasKrakenApi ? '' : 'Disabled: No Kraken API keys found.'"
               id="enter-button" aria-describedby="enter-desc" [disabled]="!hasKrakenApi">
-              Enter BTC Position
+              Enter {{selectedTradebotCurrency?.nativeElement?.value}} Position
             </button>
             <p class="button-description" id="enter-desc">
-              Buys BTC using configured funds, starting a new trading position and starting the bot. See configuration
+              Buys {{selectedTradebotCurrency?.nativeElement?.value}} using configured funds, starting a new trading position and starting the bot. See configuration
               under: _InitialMinimumFromAmountToStart.
             </p>
           </div>
@@ -617,45 +617,19 @@
           <div class="button-wrapper" [title]="!tradeBotStatus['BTC'] ? 'Disabled: Tradebot is not running.' : ''"
             *ngIf="canShowTradePanelInfo()">
             <button class="cursorPointer" (click)="exitPosition()"
-              [title]="'Sell all BTC at current price and exit BTC position. ' + hasKrakenApi ? '' : 'Disabled: No Kraken API keys found.' + tradeBotStatus['BTC'] ? '' : 'Disabled: Tradebot not started.'"
+              [title]="'Sell all '+selectedTradebotCurrency?.nativeElement?.value+' at current price and exit '+selectedTradebotCurrency?.nativeElement?.value+' position. ' + hasKrakenApi ? '' : 'Disabled: No Kraken API keys found.' + tradeBotStatus['BTC'] ? '' : 'Disabled: Tradebot not started.'"
               id="exit-button" aria-describedby="exit-desc" [disabled]="!hasKrakenApi || !tradeBotStatus['BTC']">
-              Exit BTC Position
+              Exit {{selectedTradebotCurrency?.nativeElement?.value}} Position
             </button>
             <p class="button-description" id="exit-desc">
-              Sells all BTC at market price, closing the current trading position and stopping the bot.
+              Sells all {{selectedTradebotCurrency?.nativeElement?.value}} at market price, closing the current trading position and stopping the bot.
             </p>
           </div>
 
-          <div class="button-wrapper" *ngIf="canShowTradePanelInfo() || (isShowingTradeProfit || isShowingTradeValueGraph || isShowingTradeSimulator)"> 
-            <button class="cursorPointer" (click)="toggleSelectedDataTool(toolSelect?.value)">
-              {{ getToolVisibility(toolSelect?.value) ? 'Hide' : 'Show' }}
-              {{ getToolLabel(toolSelect?.value) }}
-            </button>
-            <select #toolSelect class="data-tool-select" (change)="tradePanelToolSelectChange()" [style.visibility]="(isShowingTradeProfit || isShowingTradeValueGraph || isShowingTradeSimulator) ? 'hidden' : 'visible'">
-              <option value="profit">Profit and Loss</option>
-              <option value="graph">Trade Value Graph</option>
-              <option value="sim">Tradebot Simulation</option>
-            </select>
-            <!-- Conditional content -->
-            <div *ngIf="!isShowingTradeProfit && !isShowingTradeValueGraph && !isShowingTradeSimulator">
-              <div *ngIf="toolSelect?.value == 'profit'" class="button-wrapper">
-                <p class="button-description">
-                  Shows all profit and loss from the tradebot, including fees and other costs.
-                </p>
-              </div>
-
-              <div *ngIf="toolSelect?.value == 'graph'" class="button-wrapper">
-                <p class="button-description">
-                  Plots trade values over time to visualize bot performance and profitability.
-                </p>
-              </div>
-
-              <div *ngIf="toolSelect?.value == 'sim'" class="button-wrapper">
-                <p class="button-description">
-                  Runs a simulation of trading strategies with historical or random data to test performance.
-                </p>
-              </div>
-            </div>
+          <div class="button-wrapper" *ngIf="(isShowingTradeProfit || isShowingTradeValueGraph || isShowingTradeSimulator)">
+            <button class="cursorPointer" (click)="closeTradeDivs()">
+              Hide {{ isShowingTradeProfit ? 'Profit' : isShowingTradeValueGraph ? 'Graph' : isShowingTradeSimulator ? 'Sim' : '' }}
+            </button> 
           </div>
 
           <div class="button-wrapper" *ngIf="canShowTradePanelInfo()">
@@ -1074,10 +1048,40 @@
   </div>
 
   <div *ngIf="isTradeInformationOpen" class="popupPanel">
-    <div class="popupPanelTitle">
-      <h1>About the Tradebot</h1>
-    </div>
-    <div class="tradeDataTable">
+    <div class="button-wrapper">
+      <select #toolSelect class="data-tool-select" (change)="tradePanelToolSelectChange()">
+        <option value="about">About the Tradebot</option>
+        <option value="profit">Profit and Loss</option>
+        <option value="graph">Trade Value Graph</option>
+        <option value="sim">Tradebot Simulation</option>
+      </select>
+      <button class="cursorPointer" (click)="toggleSelectedDataTool(toolSelect?.value)" *ngIf="toolSelect.value != 'about'">
+        {{ getToolVisibility(toolSelect?.value) ? 'Hide' : 'Show' }}
+        {{ getToolLabel(toolSelect?.value) }}
+      </button>
+      <!-- Conditional content -->
+      <div *ngIf="!isShowingTradeProfit && !isShowingTradeValueGraph && !isShowingTradeSimulator">
+        <div *ngIf="toolSelect?.value == 'profit'" class="button-wrapper">
+          <p class="button-description">
+            Shows all profit and loss from the tradebot, including fees and other costs.
+          </p>
+        </div>
+    
+        <div *ngIf="toolSelect?.value == 'graph'" class="button-wrapper">
+          <p class="button-description">
+            Plots trade values over time to visualize bot performance and profitability.
+          </p>
+        </div>
+    
+        <div *ngIf="toolSelect?.value == 'sim'" class="button-wrapper">
+          <p class="button-description">
+            Runs a simulation of trading strategies with historical or random data to test performance.
+          </p>
+        </div>
+      </div>
+    </div> 
+ 
+    <div class="aboutTable" *ngIf="toolSelect.value == 'about'">
       <section>
         <h2>Overview</h2>
         <p>The Kraken TradeBot is an automated trading system designed to execute intelligent BTC/USDC trades on the

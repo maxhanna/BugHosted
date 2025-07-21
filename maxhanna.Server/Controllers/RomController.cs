@@ -70,8 +70,10 @@ namespace maxhanna.Server.Controllers
 					}
 
 					string newFilename = "";
+					bool isSaveFile = false;
 					if (file.FileName.Contains(".sav"))
 					{
+						isSaveFile = true;
 						string filenameWithoutExtension = Path.GetFileNameWithoutExtension(file.FileName);
 						newFilename = filenameWithoutExtension + "_" + userId + Path.GetExtension(file.FileName).Replace("\\", "/");
 					}
@@ -115,10 +117,9 @@ namespace maxhanna.Server.Controllers
 							_ = _log.Db($"Uploaded rom file: {file.FileName}, Size: {file.Length} bytes, Path: {filePath}", userId, "ROM", true);
 
 						}
-						else
+						else if (!isSaveFile)
 						{
-							_ = _log.Db($"Rom file already exists: {file.FileName}, Size: {file.Length} bytes, Path: {filePath}", userId, "ROM", true);
-
+							_ = _log.Db($"Rom file already exists: {file.FileName}, Size: {file.Length} bytes, Path: {filePath}", userId, "ROM", true); 
 						}
 					}
 

@@ -54,7 +54,7 @@ export class ContactService {
   }
   async updateContact(userId: number, contact: Contact) {
     try {
-      const response = await fetch(`/contact/${contact.id}`, {
+      const response = await fetch(`/contact?id=${contact.id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',

@@ -54,7 +54,7 @@
           </label>
         </div>
 
-        <table id="songListTable" class="mainTable">
+        <table id="songListTable" class="mainTable" *ngIf="paginatedSongs && paginatedSongs.length > 0">
           <tbody>
             <tr *ngFor="let song of paginatedSongs" id="songId{{song.id!}}">
               <td (click)="play(song.url, song.fileId)" *ngIf="song.id" style="width:100%">
@@ -68,6 +68,7 @@
             </tr>
           </tbody>
         </table>
+        <div *ngIf="paginatedSongs && paginatedSongs.length == 0">No music added yet!</div>
 
         <div class="pagination-controls" *ngIf="songs.length > itemsPerPage">
           <button [disabled]="currentPage === 1" (click)="goToPreviousPage()" class="pagination-button">

@@ -317,16 +317,16 @@ public class TradeController : ControllerBase
 	}
 
 	[HttpPost("/Trade/EnterPosition", Name = "EnterPosition")]
-	public async Task<IActionResult> EnterPosition([FromBody] int userId, [FromHeader(Name = "Encrypted-UserId")] string encryptedUserId)
+	public async Task<IActionResult> EnterPosition([FromBody] TradebotStatusRequest req, [FromHeader(Name = "Encrypted-UserId")] string encryptedUserId)
 	{
-		if (userId == 0)
+		if (req.UserId == 0)
 		{
 			return BadRequest("You must be logged in.");
 		}
 		try
 		{
-			if (!await _log.ValidateUserLoggedIn(userId, encryptedUserId)) return StatusCode(500, "Access Denied.");
-			bool ok = await _krakenService.EnterPosition(userId, "BTC");
+			if (!await _log.ValidateUserLoggedIn(req.UserId, encryptedUserId)) return StatusCode(500, "Access Denied.");
+			bool ok = await _krakenService.EnterPosition(req.UserId, req.Coin);
 			return Ok(ok);
 		}
 		catch (Exception ex)
@@ -336,16 +336,16 @@ public class TradeController : ControllerBase
 	}
 
 	[HttpPost("/Trade/ExitPosition", Name = "ExitPosition")]
-	public async Task<IActionResult> ExitPosition([FromBody] int userId, [FromHeader(Name = "Encrypted-UserId")] string encryptedUserId)
+	public async Task<IActionResult> ExitPosition([FromBody] TradebotStatusRequest req, [FromHeader(Name = "Encrypted-UserId")] string encryptedUserId)
 	{
-		if (userId == 0)
+		if (req.UserId == 0)
 		{
 			return BadRequest("You must be logged in.");
 		}
 		try
 		{
-			if (!await _log.ValidateUserLoggedIn(userId, encryptedUserId)) return StatusCode(500, "Access Denied.");
-			bool ok = await _krakenService.ExitPosition(userId, "BTC", null, "XXX");
+			if (!await _log.ValidateUserLoggedIn(req.UserId, encryptedUserId)) return StatusCode(500, "Access Denied.");
+			bool ok = await _krakenService.ExitPosition(req.UserId, req.Coin, null, "XXX");
 			return Ok(ok);
 		}
 		catch (Exception ex)

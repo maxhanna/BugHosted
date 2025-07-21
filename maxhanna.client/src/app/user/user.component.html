@@ -430,15 +430,15 @@
       </div>
     </div>
     <!-- MUSIC -->
-    <div class="topProfileContainer" id="musicProfileContainer">
+    <div class="topProfileContainer" id="musicProfileContainer" *ngIf="songPlaylist && songPlaylist.length > 0">
       <label style="display:flex; gap: 10px;">
         <button (click)="expandDiv('musicProfileContainer');">{{isMusicContainerExpanded ? '-' : '+'}}</button>
         <span class="cursorPointerUnderlined">Music ({{songPlaylist.length}})</span>
       </label>
       <div *ngIf="isMusicContainerExpanded">
         <app-music *ngIf="isMusicContainerExpanded"
-                   [user]="user"
-                   [songPlaylist]="songPlaylist"
+                   [user]="user" 
+                   [inputtedParentRef]="inputtedParentRef ?? parentRef"
                    [smallPlayer]="true"
                    (gotPlaylistEvent)="gotPlaylistEvent($event)">
         </app-music>

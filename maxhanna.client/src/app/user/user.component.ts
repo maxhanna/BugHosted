@@ -292,8 +292,7 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
     const user = this.user ?? this.parentRef?.user;
     if (!user?.id) return;
     try {
-      const res = await this.todoService.getTodo(user.id, "Music");
-
+      const res = await this.todoService.getTodo(user.id, "Music"); 
       if (res) {
         this.songPlaylist = res;
       }

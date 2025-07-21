@@ -601,9 +601,14 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
     const user = this.inputtedParentRef?.user ?? this.parentRef?.user;
     return this.currentChatUsers?.filter(x => x.id != user?.id);
   }
-  async edit(message: Message) { 
+  async edit(message: Message) {
     if (!this.isEditing.some(id => id === message.id)) {
       this.isEditing.push(message.id);
+    }
+  }
+  async stopEdit(message: Message) {
+    if (this.isEditing.some(id => id === message.id)) {
+      this.isEditing = this.isEditing.filter(x => x != message.id);
     }
   }
   async acceptEdit(message: Message) { 

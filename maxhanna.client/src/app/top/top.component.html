@@ -6,7 +6,7 @@
     </div>
     <div style="width:100%; text-align: center;"> 
         <div class="smallFont categoryTitle" *ngIf="!topicComponent.attachedTopics || !topicComponent.attachedTopics.length">
-            To add a new entry, first choose a topic.
+            Choose a topic:
         </div>
     </div>
     <app-topics #topicComponent [isDropdown]="true" [user]="parentRef?.user" [parent]="parentRef" (topicAdded)="onTopicAdded($event)">

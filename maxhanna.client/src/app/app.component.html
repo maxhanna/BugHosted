@@ -78,7 +78,8 @@
           </span>
       </div>
       <div *ngIf="popupUserTagUser" class="popupUserTagInfo blackFontColor"> 
-        <div [class]="(popupUserTagUser.about?.description?.length ?? 0) > 25 ? 'xxSmallFont' : ''">
+        <div [class]="(popupUserTagUser.about?.description?.length ?? 0) > 55 ? 'xxSmallFont' :
+          (popupUserTagUser.about?.description?.length ?? 0) > 25 ? 'smallFont' : ''">
           {{ popupUserTagUser.about?.description }}  
         </div>
         <div class="xxSmallFont">Last Seen: </div>

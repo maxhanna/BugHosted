@@ -373,6 +373,10 @@
   cursor: default;
 }
 
+.aboutContainer .optionsStatsWrapperDiv {
+  height: unset !important;
+}
+
 .menuBackButtonSpecial {
   right: 55px;
   position: absolute;

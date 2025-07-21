@@ -100,11 +100,11 @@ export class TradeService {
   async getTradeVolumeForGraph(from?: Date, hourRange?: number) {
     return this.post(`/trade/gettradevolumeforgraph`, { From: from, HourRange: hourRange }, 'json');
   } 
-  async enterPosition(userId: number, encryptedUserId: string) {
-    return this.post(`/trade/enterposition`, userId, 'json', encryptedUserId);
+  async enterPosition(userId: number, coin: string, encryptedUserId: string) {
+    return this.post(`/trade/enterposition`, { UserId: userId, Coin: coin }, 'json', encryptedUserId);
   }
-  async exitPosition(userId: number, encryptedUserId: string) {
-    return this.post(`/trade/exitposition`, userId, 'json', encryptedUserId);
+  async exitPosition(userId: number, coin: string, encryptedUserId: string) {
+    return this.post(`/trade/exitposition`, { UserId: userId, Coin: coin }, 'json', encryptedUserId);
   }
   async getTradeIndicators(fromCoin: string, toCoin: string) {
     return this.post(`/trade/gettradeindicators`, { FromCoin: fromCoin, ToCoin: toCoin }, 'json');

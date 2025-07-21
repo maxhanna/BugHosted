@@ -1734,9 +1734,15 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
     }
   }
   getGlitcherStats() {
-    if (this.units)
-      return this.units.find(x => x.unitType == "glitcher");
-    else return undefined;
+    if (this.units) { 
+      let stats = this.units.find(x => x.unitType == "glitcher");
+      if (stats) { 
+        stats.cost = this.numberOfPersonalBases * stats.cost;
+        this.numberOfPersonalBases
+        return stats;
+      }
+    }
+    return undefined;
   }
   addNotification(notif?: string) {
     if (notif && notif.toLowerCase().includes("attack sent to")) {

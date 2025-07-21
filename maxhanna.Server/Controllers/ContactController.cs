@@ -145,7 +145,7 @@ namespace maxhanna.Server.Controllers
 		}
 
 		[HttpPut("/Contact", Name = "UpdateContact")]
-		public async Task<IActionResult> UpdateContact(int id, [FromBody] CreateContact req)
+		public async Task<IActionResult> UpdateContact([FromQuery] int id, [FromBody] CreateContact req)
 		{ 
 			MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
 

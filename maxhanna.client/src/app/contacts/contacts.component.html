@@ -29,8 +29,8 @@
       </tr>
       <tr>
         <td colspan="2" class="saveCancelButtonTd">
-          <button type="button" (click)="addNewContact()" title="Save New Contact">💾</button>
-          <button type="button" (click)="showNewContactForm = false" title="Cancel">❌</button>
+          <button type="button" (click)="addNewContact()" title="Save New Contact">💾Save</button>
+          <button type="button" (click)="showNewContactForm = false" title="Cancel">❌Close</button>
         </td>
       </tr>
     </table>
@@ -54,7 +54,12 @@
           <td class="noTMI">{{ getContactPhone(contact) }}</td>
           <td>{{ getContactBirthday(contact)  | date: 'MMM dd, yyyy' }}</td>
           <td class="noTMI">{{ getContactNotes(contact) }}</td>
-          <td><span class="noTMI">{{ getContactEmail(contact) }}</span> <a *ngIf="contact.user?.about?.email != '' ? contact.user?.about?.email : contact.email" [href]="'mailto:' + contact.user?.about?.email" (click)="$event.stopPropagation();"><label>📧</label></a></td>
+          <td class="cursorPointer">
+            <a *ngIf="getContactEmail(contact)" [href]="'mailto:' + getContactEmail(contact)" (click)="$event.stopPropagation();">
+              <span class="noTMI">{{ getContactEmail(contact) }}</span>&nbsp;
+              <label>📧</label>
+            </a>
+          </td>
           <td style="width:0%;"><button (click)="deleteContact(contact.id!);$event.stopPropagation();" style="z-index:2" title="Delete Contact">❌</button></td>
         </tr>
       </tbody>
@@ -65,8 +70,8 @@
     No contacts found.
   </div>
 
-  <div class="editContactForm" *ngIf="selectedContact">
-    <label class="editContactLabel">Edit Contact</label>
+  <div class="popupPanel" *ngIf="selectedContact">
+    <label class="editContactLabel popupPanelTitle">Edit Contact</label>
     <table class="editContactTable">
       <tr>
         <td><label for="name">Name:</label></td>
@@ -90,8 +95,8 @@
       </tr>
       <tr>
         <td colspan="2" class="saveCancelButtonTd">
-          <button type="button" (click)="saveContact()" title="Save">💾</button>
-          <button type="button" (click)="selectedContact = undefined" title="Cancel">❌</button>
+          <button type="button" (click)="saveContact()" title="Save">💾Save</button>
+          <button type="button" (click)="selectedContact = undefined; parentRef?.closeOverlay();" title="Cancel" id="closeOverlay">❌Close</button>
         </td>
       </tr>
     </table>

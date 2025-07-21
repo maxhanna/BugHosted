@@ -84,6 +84,7 @@ export class ContactsComponent extends ChildComponent implements OnInit {
       await this.contactService.updateContact(userId, this.selectedContact);
 
       this.selectedContact = undefined;
+      this.parentRef?.closeOverlay();
     }
   }
   async deleteContact(id: number) {
@@ -102,8 +103,10 @@ export class ContactsComponent extends ChildComponent implements OnInit {
   selectContact(contact: Contact) {
     if (this.selectedContact && this.selectedContact == contact) {
       this.selectedContact = undefined;
+      this.parentRef?.closeOverlay();
     } else {
       this.selectedContact = contact;
+      this.parentRef?.showOverlay();
     } 
     setTimeout(() => {
       const el = document.getElementsByClassName("editContactForm")[0] as HTMLElement;
