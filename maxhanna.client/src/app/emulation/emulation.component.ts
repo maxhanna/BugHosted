@@ -33,6 +33,7 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
   isSearchVisible = true;
   isFullScreen = false;
   showControls = this.onMobile();
+  private currentKeyListeners: { type: string; listener: EventListener }[] = []; 
   readonly coreMapping: { [key: string]: string } = {
     'gba': 'mgba',               // Game Boy Advance
     'gbc': 'mgba',           // Game Boy Color

@@ -99,7 +99,7 @@
           <input type="checkbox" [checked]="autosave" (change)="autosave = !autosave">
           <span class="slider"></span>
         </label>
-        <span class="toggle-label">{{ autosave ? 'On' : 'Off' }}</span>
+        <span class="toggle-label" (click)="autosave = !autosave">{{ autosave ? 'On' : 'Off' }}</span>
       </div>
     </div>
     <div class="optionsStatsDiv" *ngIf="!autosave">
@@ -132,7 +132,8 @@
       </div>
       <div class="optionsStatsDescription">
         <div class="uploadRomSpan upload-label" id="fullscreenBtn" (click)="toggleFullscreen()" title="Fullscreen mode">
-          ◻️</div>
+          ◻️
+        </div>
       </div>
     </div>
     <div class="optionsStatsDiv" *ngIf="nostalgist">
@@ -161,7 +162,7 @@
           title="Adjust volume levels">
       </div>
     </div>
-    <div class="optionsStatsDiv" *ngIf="!showControlBindings">
+    <div class="optionsStatsDiv" *ngIf="!showControlBindings"> 
       <div class="optionsStatsHeader">
         Controls:
       </div>
@@ -170,7 +171,7 @@
           <input type="checkbox" [checked]="showControls" (change)="showControls = !showControls">
           <span class="slider"></span>
         </label>
-        <span class="toggle-label">{{ showControls ? 'Display' : 'Hide' }}</span>
+        <span class="toggle-label" (click)="showControls = !showControls">{{ showControls ? 'Display' : 'Hide' }}</span>
       </div>
     </div>
     <div class="optionsStatsDiv" *ngIf="!onMobile()">
@@ -182,7 +183,7 @@
           <input type="checkbox" [checked]="showControlBindings" (change)="showControlBindings = !showControlBindings">
           <span class="slider"></span>
         </label>
-        <span class="toggle-label">{{ showControlBindings ? 'Show' : 'Hide' }}</span>
+        <span class="toggle-label" (click)="showControlBindings = !showControlBindings">{{ showControlBindings ? 'Show' : 'Hide' }}</span>
       </div>
     </div>
     <div class="optionsStatsDiv" *ngIf="!showControlBindings">
@@ -226,7 +227,7 @@
       <button (click)="showHelpText = !showHelpText;">OK</button>
     </div>
   </div>
-  <div *ngIf="!showControls && !onMobile() && !showHelpText && showControlBindings" class="optionsStatsWrapperDiv rebindingWrapper"> 
+  <div *ngIf="showControlBindings" class="optionsStatsWrapperDiv rebindingWrapper"> 
     <div class="optionsStatsDiv smallFont explainWrapper" *ngFor="let entry of keybindingEntriesList">
       <div class="optionsStatsHeader">
         Bind: {{ entry[0].toUpperCase() }}

@@ -510,17 +510,14 @@ canvas:-ms-fullscreen,
  
 .persistanceSpan,
 .uploadRomSpan {
-  padding: 2px;
-  padding-left: 10px;
-  padding-right: 10px;
+  padding: 2px; 
 }
 
 .persistanceSpan {
   float: left;
 }
 
-.uploadRomSpan {
-  float: right;
+.uploadRomSpan { 
   line-height: 20px;
 }
 
@@ -542,6 +539,7 @@ canvas:-ms-fullscreen,
 .upload-label {
   cursor: pointer;
   text-align: center;
+  font-size: x-large;
 }
 
 .keyboardControlsSpan {

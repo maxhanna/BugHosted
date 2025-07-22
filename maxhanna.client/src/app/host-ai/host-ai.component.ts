@@ -17,6 +17,7 @@ export class AIMessage { sender?: string; message: any };
 })
 export class HostAiComponent extends ChildComponent implements OnInit, OnDestroy {
   selectedFile?: FileEntry;
+  isShowingHelpPopup: boolean = false;
   constructor(private aiService: AiService, private sanitizer: DomSanitizer, private cdr: ChangeDetectorRef) { super(); }
   userMessage: string = '';
   chatMessages: AIMessage[] = [];
@@ -60,20 +61,20 @@ export class HostAiComponent extends ChildComponent implements OnInit, OnDestroy
     // Check for voice commands
     if (this.userWantsToForgetHistory(this.userMessage)) {
       this.savedMessageHistory = [];
-      this.parentRef.showNotification("Memory cleared."); 
-    } 
+      this.parentRef.showNotification("Memory cleared.");
+    }
     if (this.userWantsToChangeResponseLength(this.userMessage)) {
       this.userMessage = "";
       this.chatInput.nativeElement.value = "";
-      this.chatInput.nativeElement.focus(); 
+      this.chatInput.nativeElement.focus();
       return;
     }
 
-    this.checkIfUserWantsToChangeResponseLengthToVerbose(this.userMessage); 
+    this.checkIfUserWantsToChangeResponseLengthToVerbose(this.userMessage);
 
-    this.startLoading(); 
-      this.pushMessage({ sender: 'You', message: this.userMessage.replace('\n', "<br>") });
-      this.parentRef.getSessionToken().then(sessionToken => {
+    this.startLoading();
+    this.pushMessage({ sender: 'You', message: this.userMessage.replace('\n', "<br>") });
+    this.parentRef.getSessionToken().then(sessionToken => {
       this.aiService.sendMessage(user.id ?? 0, false, this.userMessage + this.engineeredText + JSON.stringify(this.savedMessageHistory) + ")", sessionToken, this.responseLength, this.selectedFile?.id).then(
         (response) => {
           let reply = this.aiService.parseMessage(response.response ?? response.reply);
@@ -101,7 +102,7 @@ export class HostAiComponent extends ChildComponent implements OnInit, OnDestroy
           this.stopLoading();
         }
       );
-    }); 
+    });
   }
 
   speechRecognitionEvent(transcript: string | undefined) {
@@ -114,7 +115,7 @@ export class HostAiComponent extends ChildComponent implements OnInit, OnDestroy
     } else {
       this.startedTalking = false;
     }
-  } 
+  }
   generateImage() {
     return alert("Feature not yet available");
   }
@@ -122,7 +123,7 @@ export class HostAiComponent extends ChildComponent implements OnInit, OnDestroy
     this.userMessage = this.chatInput.nativeElement.value.trim();
     this.cdr.detectChanges();
   }
-  handleKeyDown(event: KeyboardEvent) { 
+  handleKeyDown(event: KeyboardEvent) {
     if (event.key === 'Enter') {
       if (event.shiftKey) {
         return;
@@ -130,7 +131,7 @@ export class HostAiComponent extends ChildComponent implements OnInit, OnDestroy
         event.preventDefault();
         this.sendMessage();
       }
-    }  
+    }
   }
 
   insertAtCursor(text: string): void {
@@ -172,9 +173,9 @@ console.log("Hello, world!");
   speakMessage(message: string, listenAfter = true) {
     if (!this.startedTalking) {
       return;
-    } 
+    }
     if ('speechSynthesis' in window) {
-      console.log("Speech synthesis is supported! ", message); 
+      console.log("Speech synthesis is supported! ", message);
       let cleanMessage = message.replace(/<\/?[^>]+(>|$)/g, "").replace(/[^\x20-\x7E]/g, "");
 
       // Replace "e.g.", "eg.", or "ex." (case-insensitive) with "example".
@@ -223,9 +224,9 @@ console.log("Hello, world!");
           utterance.voice = naturalVoice || voices[0];
         }
 
-        utterance.onend = () => { 
+        utterance.onend = () => {
           if (this.startedTalking) {
-            setTimeout(() => speakSegments(index + 1), 0); 
+            setTimeout(() => speakSegments(index + 1), 0);
           }
         };
 
@@ -237,10 +238,10 @@ console.log("Hello, world!");
     } else {
       console.log("Speech synthesis is NOT supported in this browser.");
       this.startedTalking = false;
-      this.cdr.detectChanges();  
+      this.cdr.detectChanges();
     }
   }
- 
+
   private startListening() {
     this.stopListening();
     setTimeout(() => {
@@ -253,7 +254,7 @@ console.log("Hello, world!");
 
   stopTalking() {
     this.startedTalking = false;
-    this.cdr.detectChanges();  
+    this.cdr.detectChanges();
     setTimeout(() => {
       speechSynthesis.cancel();
 
@@ -269,7 +270,7 @@ console.log("Hello, world!");
 
   stopListening() {
     this.startedTalking = false;
-    this.cdr.detectChanges(); 
+    this.cdr.detectChanges();
   }
 
   userWantsToStopVoice(message: string): boolean {
@@ -355,10 +356,10 @@ console.log("Hello, world!");
     ];
 
     for (const pattern of responseLengthPatterns) {
-      if (pattern.test(lowerMessage)) {  
+      if (pattern.test(lowerMessage)) {
         this.responseLength = 450;
-        this.parentRef?.showNotification(`Response length changed to Medium.`); 
-        return true; 
+        this.parentRef?.showNotification(`Response length changed to Medium.`);
+        return true;
       }
     }
     return false;
@@ -418,7 +419,7 @@ console.log("Hello, world!");
   listenToChatMessage(message: AIMessage) {
     if (!this.startedTalking) {
       this.startedTalking = true;
-      this.cdr.detectChanges();  
+      this.cdr.detectChanges();
       setTimeout(() => {
         this.speakMessage(message.message, false);
       }, 20);
@@ -426,14 +427,22 @@ console.log("Hello, world!");
       this.startedTalking = false;
       this.stopTalking();
     }
-  } 
+  }
   sayOutloud() {
-    this.startedTalking = true; 
-    this.cdr.detectChanges();  
-   // console.log("Saying out loud: ", this.chatInput.nativeElement.value);
+    this.startedTalking = true;
+    this.cdr.detectChanges();
+    // console.log("Saying out loud: ", this.chatInput.nativeElement.value);
     this.speakMessage(this.chatInput.nativeElement.value ?? "", false)
   }
- async selectFile(files: FileEntry[]) {
+  async selectFile(files: FileEntry[]) {
     this.selectedFile = files.flatMap(fileArray => fileArray)[0];
+  }
+  showHelpPopup() {
+    this.isShowingHelpPopup = true;
+    this.parentRef?.showOverlay();
+  }
+  closeHelpPopup() {
+    this.isShowingHelpPopup = false;
+    this.parentRef?.closeOverlay();
   }
 }

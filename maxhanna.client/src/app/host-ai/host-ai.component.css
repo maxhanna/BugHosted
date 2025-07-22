@@ -140,3 +140,42 @@ ol, ul {
   justify-content: center;
 }
  
+.help-popup { 
+  padding: 20px;
+  border-radius: 10px;
+  max-width: 600px;
+  max-height: 80vh;
+  overflow-y: auto;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+}
+
+.help-section {
+  margin-bottom: 20px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid var(--main-border-color);
+}
+
+.help-section h3 {
+  color: var(--third-font-color);
+  margin-top: 0;
+}
+
+.help-section h4 {
+  color: var(--secondary-font-color);;
+  margin-bottom: 10px;
+}
+
+.help-section ul {
+  padding-left: 20px;
+}
+
+.help-section li {
+  margin-bottom: 8px;
+}
+
+.close-button {  
+  padding: 10px 20px; 
+  cursor: pointer;
+  font-size: 16px;
+  margin-top: 10px;
+} 

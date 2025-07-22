@@ -1855,7 +1855,7 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
         this.isTradebotBalanceShowing = true;
         setTimeout(() => {
           if (this.tradeBalanceCoinSelector?.nativeElement) {
-            this.tradeBalanceCoinSelector.nativeElement.value = selectedCurrency ?? "BTC";
+            this.tradeBalanceCoinSelector.nativeElement.value = selectedCurrency?.replace("BTC", "XBT") ?? "XBT"; 
           }
           if (this.tradeBalanceStrategySelector?.nativeElement) {
             this.tradeBalanceStrategySelector.nativeElement.value = selectedStrategy ?? "DCA";
@@ -1997,7 +1997,7 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
     // Start polling every 60 seconds
     this.tradeLogInterval = setInterval(async () => {
       if (this.showingTradeLogs && this.currentLogPage <= 2) {
-        await this.fetchTradeLogs(selectedCoin, selectedStrategy);
+        await this.fetchTradeLogs();
       }
     }, 30 * 1000); // 30 seconds
   }
@@ -2037,7 +2037,7 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
       this.setPaginatedLogs(); 
       setTimeout(() => {
         if (selectedCoin && this.tradeLogCoinFilter?.nativeElement) {
-          this.tradeLogCoinFilter.nativeElement.value = selectedCoin;
+          this.tradeLogCoinFilter.nativeElement.value = selectedCoin.replace("BTC", "XBT").replace("Bitcoin","XBT");
         }
         if (selectedStrategy && this.tradeLogStrategyFilter?.nativeElement) {
           this.tradeLogStrategyFilter.nativeElement.value = selectedStrategy;

@@ -10,7 +10,8 @@
         <div>
           <strong>{{ message.sender }}:</strong>
           <span class="message" [innerHTML]="message.message"></span>
-          <button *ngIf="message.sender === hostName" (click)="listenToChatMessage(message)">{{startedTalking ? '🤐' : '🔊'}}</button>
+          <button *ngIf="message.sender === hostName" (click)="listenToChatMessage(message)">{{startedTalking ? '🤐' :
+            '🔊'}}</button>
         </div>
       </div>
       <div class="loadingResponseDiv" *ngIf="isLoading">Loading...</div>
@@ -18,30 +19,26 @@
     <div *ngIf="!isLoading && (!chatMessages || chatMessages.length == 0)" class="emptyHostAiMessage">
       <div>{{ greetingMessage() }}{{ parentRef?.user?.username ? ', ' + parentRef!.user!.username : '' }}.</div>
 
-      <div>Start by typing a message <span *ngIf="!speechRecognitionUnavailable">or by pressing on the microphone</span>.</div>
+      <div>Start by typing a message <span *ngIf="!speechRecognitionUnavailable">or by pressing on the
+          microphone</span>.</div>
       <div *ngIf="speechRecognitionUnavailable">(Speech recognition unavailable on this browser).</div>
+      <div><button (click)="showHelpPopup()">Help</button></div>
     </div>
 
-    <div class="input-container"> 
-      <textarea [value]="userMessage"  
-                (input)="refreshScreen()"
-                (keydown)="handleKeyDown($event)"
-                placeholder="Type your message..." rows="1" #chatInput [disabled]="isLoading"></textarea>
-      <button (click)="sayOutloud()" *ngIf="!startedTalking" [disabled]="isLoading || !userMessage.trim()" title="Repeat out loud.">🔊</button>
-      <app-speech-recognition 
-        [disabled]="isLoading || startedTalking"
+    <div class="input-container">
+      <textarea [value]="userMessage" (input)="refreshScreen()" (keydown)="handleKeyDown($event)"
+        placeholder="Type your message..." rows="1" #chatInput [disabled]="isLoading"></textarea>
+      <button (click)="sayOutloud()" *ngIf="!startedTalking" [disabled]="isLoading || !userMessage.trim()"
+        title="Repeat out loud.">🔊</button>
+      <app-speech-recognition [disabled]="isLoading || startedTalking"
         (speechRecognitionEvent)="speechRecognitionEvent($event)"
         (speechRecognitionStopListeningEvent)="stopListening()"
         (speechRecognitionNotSupportedEvent)="speechRecognitionNotSupportedEvent($event)">
       </app-speech-recognition>
       <button (click)="stopTalking()" *ngIf="startedTalking" [disabled]="isLoading">🤐</button>
-      <app-media-selector #fileSelector
-        [disabled]="isLoading"
+      <app-media-selector #fileSelector [disabled]="isLoading"
         [currentDirectory]="'Users/' + (parentRef?.user && parentRef?.user?.id != 0 ? parentRef?.user!.username : 'Anonymous')"
-        [takeAllSpace]="true"
-        [user]="parentRef?.user" 
-        [inputtedParentRef]="parentRef" 
-        [maxSelectedFiles]="1"
+        [takeAllSpace]="true" [user]="parentRef?.user" [inputtedParentRef]="parentRef" [maxSelectedFiles]="1"
         (selectFileEvent)="selectFile($event)">
       </app-media-selector>
       <button (click)="sendMessage()" [disabled]="isLoading || (!userMessage.trim() && !selectedFile)">Send</button>
@@ -52,7 +49,7 @@
 <div class="popupPanel" *ngIf="isMenuOpen">
   <div class="popupPanelTitle">
     <span>Menu</span>
-  </div> 
+  </div>
   <div class="menuOptionDiv">
     <div>
       Response length:
@@ -67,9 +64,80 @@
     <div>
       <button (click)="clearMemory()" title="Clear interaction history">Clear Memory</button>
     </div>
-   
+
   </div>
   <div>
     <button id="closeOverlay" (click)="closeMenuPanel()">Close</button>
   </div>
+</div>
+
+
+
+
+<div class="popupPanel" style="overflow: auto;" *ngIf="isShowingHelpPopup">
+  <div class="popupPanelTitle" style="margin-bottom:15px;">About HostAI</div>
+  <div class="help-popup gradientBackground">
+    <div class="help-section">
+      <h3>What is HostAI?</h3>
+      <p>
+        HostAI is your intelligent conversational assistant that can:
+      </p>
+      <ul>
+        <li>Answer questions and provide information</li>
+        <li>Analyze and discuss uploaded media files</li>
+        <li>Remember context from previous messages</li>
+        <li>Provide both brief summaries and detailed explanations</li>
+        <li>Read responses aloud using text-to-speech</li>
+      </ul>
+    </div>
+
+    <div class="help-section">
+      <h3>How to Use</h3>
+
+      <h4>Basic Interaction</h4>
+      <ul>
+        <li><strong>Type</strong> your message in the input box and press Enter</li>
+        <li><strong>Shift+Enter</strong> for a new line</li>
+        <li><strong>Click the microphone</strong> to speak your message</li>
+        <li><strong>Upload files</strong> to discuss images or videos</li>
+      </ul>
+
+      <h4>Voice Commands</h4>
+      <ul>
+        <li><strong>"Forget everything"</strong> - Clear conversation memory</li>
+        <li><strong>"Stop" or "Cancel"</strong> - End voice interaction</li>
+        <li><strong>"Be detailed"</strong> - Request longer responses</li>
+        <li><strong>"Response length 100"</strong> - Set specific answer length</li>
+      </ul>
+
+      <h4>Response Length Options</h4>
+      <p>Control how detailed answers are:</p>
+      <ul>
+        <li><strong>Short (200 chars)</strong>: Brief, concise answers</li>
+        <li><strong>Medium (450 chars)</strong>: Balanced explanations</li>
+        <li><strong>Long (600 chars)</strong>: In-depth responses</li>
+        <li><strong>Unlimited</strong>: Full-length answers</li>
+      </ul>
+    </div>
+
+    <div class="help-section">
+      <h3>Tips & Tricks</h3>
+      <ul>
+        <li>The AI remembers your conversation history within a session</li>
+        <li>Click the speaker icon on any message to hear it read aloud</li>
+        <li>Upload images/videos to ask questions about visual content</li>
+        <li>Use natural language - you don't need special commands</li>
+        <li>For code discussions, wrap code in triple backticks ```</li>
+      </ul>
+    </div>
+
+    <div class="help-section">
+      <h3>Examples</h3>
+      <p><strong>"Explain quantum computing simply"</strong></p>
+      <p><strong>"What's in this image?"</strong> (with file attached)</p>
+      <p><strong>"Give me a detailed analysis of..."</strong></p>
+      <p><strong>"Response length 50"</strong> (for very short answers)</p>
+    </div>
+  </div>
+  <button id="closeOverlay" class="close-button" (click)="closeHelpPopup()">Got It!</button>
 </div>

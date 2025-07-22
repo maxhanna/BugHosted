@@ -697,9 +697,9 @@
                     {{ formatStringCanadianCurrency(trade.trade_value_usdc) }}
                   </span>
                 </td>
-                <td class="xxSmallFont secondaryFontColor">{{ formatStringCanadianCurrency(trade.coin_price_usdc) }}</td>
-                <td class="xxSmallFont negative">{{ formatToCanadianCurrency(trade.fees) }}</td>
-                <td class="xxSmallFont" [title]="parentRef?.convertUtcToLocalTime(trade.timestamp)">{{
+                <td [class]="'secondaryFontColor' + (onMobile() ? ' xxSmallFont' : '')">{{ formatStringCanadianCurrency(trade.coin_price_usdc) }}</td>
+                <td [class]="'negative' + (onMobile() ? ' xxSmallFont' : '')">{{ formatToCanadianCurrency(trade.fees) }}</td>
+                <td [class]="'secondaryFontColor' + (onMobile() ? ' xxSmallFont' : '')" [title]="parentRef?.convertUtcToLocalTime(trade.timestamp)">{{
                   parentRef?.convertUtcToLocalTime(trade.timestamp) | timeSince }}</td>
                 <td class="xxSmallFont" [title]="trade.matching_trade_id" (click)="goToTradeId('tradeBalance'+trade.matching_trade_id)">
                   {{ trade.matching_trade_id ?? (trade.is_reserved ? 'Reserved': '') }}

@@ -211,11 +211,20 @@ public class KrakenService
                         bool isValidTrade = await ValidateTrade(userId, tmpCoin, tmpCoin, "USDC", "sell", usdcBalance, strategy);
                         if (isValidTrade)
                         {
-                            _ = _log.Db($"Spread is +{spread:P}, {spread2Message}(c:{currentPrice}-l:{lastPrice}), selling {coinToTrade} {tmpCoin} for USDC possibility opened. Balance: {coinBalance} Switching to momentum strategy.", userId, "TRADE", true);
+                            _ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Spread is +{spread:P}, {spread2Message}(c:{currentPrice}-l:{lastPrice}). Balance: {coinBalance} {tmpCoin}.", userId, "TRADE", true);
                             int? matchingBuyOrderId = await FindMatchingBuyOrder(userId, tmpCoin, strategy, coinPriceUSDC.Value);
-
-                            await AddMomentumEntry(userId, tmpCoin, "USDC", strategy, coinPriceUSDC.Value, matchingBuyOrderId);
-                            return false;
+							TradeRecord? fundingTransaction = await GetLatestReservedTransaction(userId, tmpCoin, strategy, coinPriceUSDC.Value, _TradeThreshold);
+							if (matchingBuyOrderId == null && fundingTransaction == null)
+							{
+								_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) No matching buy or reserve transactions at this depth!. Trade Cancelled.", userId, "TRADE", true);
+								return false;
+							}
+							else
+							{
+								_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Switching to momentum strategy.", userId, "TRADE", true);
+								await AddMomentumEntry(userId, tmpCoin, "USDC", strategy, coinPriceUSDC.Value, matchingBuyOrderId);
+								return false;
+							}
                         }
                     }
                 }
@@ -442,7 +451,7 @@ public class KrakenService
 				}
 				decimal coinBalance = GetCoinBalanceFromDictionaryAndKey(balances, tmpCoin);
 				decimal usdcBalance = GetCoinBalanceFromDictionaryAndKey(balances, "USDC");
-				decimal usdcValueToTrade = 0;
+				decimal usdcValueToTrade;
 				var isPremiumCondition = dynamicThreshold > premiumThreshold;
 				var tmpTradePerc = firstPriceToday != null ? _ValueTradePercentage - _ValueTradePercentagePremium : _ValueTradePercentage;
 
@@ -640,10 +649,10 @@ public class KrakenService
 					}
 					else
 					{
+						_ = _log.Db($"({tmpCoin}:{userId}:{strategy})⚠️ No matching open positions at this depth! Looking for reserve transactions...", userId, "TRADE", true);
 						TradeRecord? fundingTransaction = await GetLatestReservedTransaction(userId, tmpCoin, strategy, coinPriceUSDC, _TradeThreshold);
 						if (fundingTransaction != null)
 						{
-							_ = _log.Db($"({tmpCoin}:{userId}:{strategy})⚠️ No matching buy price at this depth!", userId, "TRADE", true);
 							var isPremiumCondition = dynamicThreshold > premiumThreshold;
 							if (isPremiumCondition)
 							{
@@ -652,19 +661,18 @@ public class KrakenService
 							}
 							else
 							{
-								coinToTrade = coinBalance * _ValueSellPercentage;
+								coinToTrade = Convert.ToDecimal(fundingTransaction.value) * _ValueSellPercentage;
 							}
 							coinToTrade = await AdjustToPriors(userId, tmpCoin, coinToTrade.Value, "sell", strategy);
 							fundingTransactionId = fundingTransaction.id;
+							_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Using the reserves matching this trade depth (trade id: {fundingTransactionId}).", userId, "TRADE", true);
 						}
 						else
 						{
 							_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) No matching funding transactions at this buy level. Trade Cancelled.", userId, "TRADE", true);
 							await DeleteMomentumStrategy(userId, tmpCoin, "USDC", strategy);
 							return false;
-						}
-
-
+						} 
 					}
 					if (coinBalance < coinToTrade.GetValueOrDefault(0))
 					{
@@ -1384,7 +1392,7 @@ public class KrakenService
 			throw new ArgumentException("Unsupported currency type for balance check");
 		}
 		bool reservesLow = balance < threshold;
-		_ = _log.Db($"({from}:{userId}:{strategy}) [reservesLow]={reservesLow} (Balance={balance}, Threshold={threshold}, Strategy={strategy})", userId, "TRADE", true);
+		//_ = _log.Db($"({from}:{userId}:{strategy}) [reservesLow]={reservesLow} (Balance={balance}, Threshold={threshold}, Strategy={strategy})", userId, "TRADE", true);
 		if (reservesLow)
 		{
 			_ = _log.Db($"({from}:{userId}:{strategy}) Reserves Are Low ({balance} < {threshold})", userId, "TRADE", true);
@@ -1618,8 +1626,8 @@ public class KrakenService
 			: currentCoinPriceInCAD;
 
 		var insertSql = $@"
-			INSERT INTO maxhanna.trade_history (user_id, from_currency, to_currency, value, timestamp, coin_price_cad, coin_price_usdc, coin_balance, usdc_balance, is_reserved, strategy{(matchingTradeId != null ? ", matching_trade_id" : "")}) 
-			VALUES (@UserId, @From, @To, @Value, UTC_TIMESTAMP(), @CoinValueCad, @CoinValueUSDC, @CoinBalance, @UsdcBalance, @IsReserved, @Strategy{(matchingTradeId != null ? ", @MatchingTradeId" : "")});
+			INSERT INTO maxhanna.trade_history (user_id, from_currency, to_currency, value, timestamp, coin_price_cad, coin_price_usdc, coin_balance, usdc_balance, is_reserved, strategy{(matchingTradeId != null && !isReserved ? ", matching_trade_id" : "")}) 
+			VALUES (@UserId, @From, @To, @Value, UTC_TIMESTAMP(), @CoinValueCad, @CoinValueUSDC, @CoinBalance, @UsdcBalance, @IsReserved, @Strategy{(matchingTradeId != null && !isReserved ? ", @MatchingTradeId" : "")});
 			SELECT LAST_INSERT_ID();";
 
 		try
@@ -1639,7 +1647,7 @@ public class KrakenService
 			insertCmd.Parameters.Add("@UsdcBalance", MySqlDbType.Decimal).Value = usdcBalance;
 			insertCmd.Parameters.Add("@Strategy", MySqlDbType.VarChar).Value = strategy;
 			insertCmd.Parameters.Add("@IsReserved", MySqlDbType.Bool).Value = isReserved;
-			if (matchingTradeId != null)
+			if (matchingTradeId != null && !isReserved)
 			{
 				insertCmd.Parameters.Add("@MatchingTradeId", MySqlDbType.Int32).Value = matchingTradeId;
 			}
@@ -1656,7 +1664,7 @@ public class KrakenService
 					const string updateSql = @"
 						UPDATE maxhanna.trade_history 
 						SET matching_trade_id = @NewTradeId 
-						WHERE id = @MatchingTradeId;";
+						WHERE id = @MatchingTradeId AND is_reserved = 0;";
 					await using var updateCmd = new MySqlCommand(updateSql, conn);
 					updateCmd.Parameters.Add("@NewTradeId", MySqlDbType.Int32).Value = newId;
 					updateCmd.Parameters.Add("@MatchingTradeId", MySqlDbType.Int32).Value = matchingTradeId;
@@ -1671,7 +1679,7 @@ public class KrakenService
 						const string updateSql = @"
 						UPDATE maxhanna.trade_history 
 						SET matching_trade_id = @NewTradeId 
-						WHERE id = @MatchingTradeId;";
+						WHERE id = @MatchingTradeId AND is_reserved = 0;";
 						await using var updateCmd = new MySqlCommand(updateSql, conn);
 						updateCmd.Parameters.Add("@NewTradeId", MySqlDbType.Int32).Value = newId;
 						updateCmd.Parameters.Add("@MatchingTradeId", MySqlDbType.Int32).Value = matchingTradeRecords[x].id;
@@ -1681,7 +1689,7 @@ public class KrakenService
 					const string updateOriginalTradeSQL = @"
 						UPDATE maxhanna.trade_history 
 						SET matching_trade_id = @MatchingTradeId 
-						WHERE id = @NewTradeId;";
+						WHERE id = @NewTradeId AND is_reserved = 0;";
 					await using var updateOriginalTradeCmd = new MySqlCommand(updateOriginalTradeSQL, conn);
 					updateOriginalTradeCmd.Parameters.Add("@NewTradeId", MySqlDbType.Int32).Value = newId;
 					updateOriginalTradeCmd.Parameters.Add("@MatchingTradeId", MySqlDbType.Int32).Value = matchingTradeRecords[0].id;
@@ -2997,12 +3005,13 @@ public class KrakenService
 			if (tradeCount == 0)
 			{
 				var priceQuery = $@"
-                SELECT value_usd 
-                FROM maxhanna.coin_value 
-                WHERE name = '{tmpCoinName}'
-                AND DATE(timestamp) = CURDATE()
-                ORDER BY timestamp ASC 
-                LIMIT 1;";
+					SELECT value_usd 
+					FROM maxhanna.coin_value 
+					WHERE name = '{tmpCoinName}'
+					AND timestamp >= CURDATE()
+					AND timestamp < CURDATE() + INTERVAL 1 DAY
+					ORDER BY timestamp ASC 
+					LIMIT 1;";
 
 				using var priceCmd = new MySqlCommand(priceQuery, connection);
 				var result = await priceCmd.ExecuteScalarAsync();
@@ -3017,7 +3026,7 @@ public class KrakenService
 		}
 		catch (Exception ex)
 		{
-			_ = _log.Db($"({tmpCoinName}:{userId}:{strategy}) ⚠️Error checking first {tmpCoinName}({strategy}) price with trade condition: {ex.Message}", userId, "TRADE", true);
+			_ = _log.Db($"({tmpCoinName}:{userId}:{strategy}) ⚠️ Error checking first {tmpCoinName}({strategy}) price with trade condition: {ex.Message}", userId, "TRADE", true);
 			return null;
 		}
 	}
@@ -4266,7 +4275,7 @@ public class KrakenService
 			AND strategy = @Strategy 
 			AND matching_trade_id IS NULL 
 			AND is_reserved = 1 
-			AND ((@CurrentPrice - th.coin_price_usdc) / th.coin_price_usdc) > @TradeThreshold;";
+			AND ((@CurrentPrice - coin_price_usdc) / coin_price_usdc) > @TradeThreshold;";
 		try
 		{
 			await using var conn = new MySqlConnection(_config?.GetValue<string>("ConnectionStrings:maxhanna"));
@@ -4301,8 +4310,7 @@ public class KrakenService
 		}
 		catch (Exception ex)
 		{
-			_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Error getting profitable open buy positions: {ex.Message}", userId, "TRADE", true);
-			return null;
+			_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Error getting latest reserved transaction: {ex.Message}", userId, "TRADE", true); 
 		}
 		return null;
 	}
