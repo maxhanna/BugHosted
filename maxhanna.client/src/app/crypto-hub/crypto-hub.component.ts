@@ -42,6 +42,10 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
   fiatNames: string[] = [];
   coinNames: string[] = [];
   btcToCadPrice = 0;
+  solToCadPrice = 0;
+  xdgToCadPrice = 0;
+  xrpToCadPrice = 0;
+  ethToCadPrice = 0;
   selectedCoinToCadPrice = 0;
   isAddCryptoDivVisible = false;
   areWalletAddressesHidden = true;
@@ -264,6 +268,22 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
             this.btcFiatConversion = bitcoinData.valueCAD;
           }
           this.handleConversion('BTC');
+        }
+        const solData = res.find(x => x.name === "Solana");
+        if (solData) {
+          this.solToCadPrice = solData.valueCAD;
+        }
+        const xrpData = res.find(x => x.name === "XRP");
+        if (xrpData) {
+          this.xrpToCadPrice = xrpData.valueCAD;
+        }
+        const xdgData = res.find(x => x.name === "Dogecoin");
+        if (xdgData) {
+          this.xdgToCadPrice = xdgData.valueCAD;
+        }
+        const ethData = res.find(x => x.name === "Ethereum");
+        if (ethData) {
+          this.ethToCadPrice = ethData.valueCAD;
         }
 
         // Process all coin data
@@ -2965,6 +2985,28 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
     });
 
     return groups;
+  }
+  getActiveTradebotCoins(): string[] {
+    const activeCoins = ['BTC']; // Always include BTC
+    const activeBots = this.getActiveTradeBots();
+
+    if (activeBots.some(bot => bot.currency === 'ETH')) activeCoins.push('ETH');
+    if (activeBots.some(bot => bot.currency === 'SOL')) activeCoins.push('SOL');
+    if (activeBots.some(bot => bot.currency === 'XRP')) activeCoins.push('XRP');
+    if (activeBots.some(bot => bot.currency === 'XDG')) activeCoins.push('DOGE');
+
+    return activeCoins;
+  }
+
+  getTradebotCoinPrice(coin: string): number {
+    switch (coin) {
+      case 'BTC': return this.btcToCadPrice;
+      case 'ETH': return this.ethToCadPrice;
+      case 'SOL': return this.solToCadPrice;
+      case 'XRP': return this.xrpToCadPrice;
+      case 'DOGE': return this.xdgToCadPrice;
+      default: return 0;
+    }
   }
 }
 

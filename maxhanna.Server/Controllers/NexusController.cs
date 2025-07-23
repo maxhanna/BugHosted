@@ -1467,7 +1467,7 @@ namespace maxhanna.Server.Controllers
                     FROM nexus_bases b 
                     WHERE user_id = @UserId
                     AND b.{building}_level < (SELECT MAX(building_level) + 2 FROM nexus_base_upgrade_stats WHERE building_type = (SELECT id FROM nexus_building_types WHERE type = '{building}'))
-                    AND b.gold > (SELECT cost FROM nexus_base_upgrade_stats WHERE building_type = (SELECT id FROM nexus_building_types WHERE type = '{building}') AND building_level = b.{building}_level)";
+                    AND b.gold >= (SELECT cost FROM nexus_base_upgrade_stats WHERE building_type = (SELECT id FROM nexus_building_types WHERE type = '{building}') AND building_level = b.{building}_level)";
 
 				MySqlCommand cmdSql = new MySqlCommand(sql, connection, transaction);
 				cmdSql.Parameters.AddWithValue("@UserId", userId);

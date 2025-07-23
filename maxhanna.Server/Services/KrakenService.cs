@@ -841,7 +841,9 @@ public class KrakenService
 		try
 		{ 
 			//int threshold = 5;
-			int numberOfTradesToday = await NumberOfRepeatingTradesInDay(userId, from, to, strategy);
+			int numberOfTradesToday = await NumberOfTradesToday(userId, from, strategy);
+			_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) User has traded {tmpCoin} {numberOfTradesToday} times today.", userId, "TRADE", true);
+
 			// if (numberOfTradesToday >= threshold)
 			// {
 			// 	_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) TRADE CANCELLED: Too many ({threshold}) repeated {buyOrSell} trades in the same day.", userId, "TRADE", outputToConsole: true);
@@ -1156,7 +1158,7 @@ public class KrakenService
 			if (DateTime.UtcNow - lastCheckTime < _rateLimitDuration)
 			{
 				//_ = _log.Db($"Rate limit hit for fee update check (user {userId})", userId, "TRADE", true);
-				return null;
+				return false;
 			}
 		} 
 
@@ -1321,7 +1323,7 @@ public class KrakenService
 			}
 		}
 
-		_ = _log.Db($"No matching {tmpCoin} Kraken trade found", dbTrade.user_id, "TRADE", true);
+		//_ = _log.Db($"No matching {tmpCoin} Kraken trade found", dbTrade.user_id, "TRADE", true);
 		return null;
 	}
 
@@ -1511,15 +1513,14 @@ public class KrakenService
 		}
 	}
 
-	private async Task<int> NumberOfRepeatingTradesInDay(int userId, string from, string to, string strategy)
+	private async Task<int> NumberOfTradesToday(int userId, string from, string strategy)
 	{ 
 		var checkSql = @"
 			SELECT COUNT(*) 
 			FROM maxhanna.trade_history
 			WHERE user_id = @UserId 
 			AND strategy = @Strategy
-			AND from_currency = @FromCurrency
-			AND to_currency = @ToCurrency
+			AND (from_currency = @FromCurrency OR to_currency = @FromCurrency)
 			AND timestamp >= UTC_DATE()
 			AND timestamp <  UTC_DATE() + INTERVAL 1 DAY;";
 
@@ -1531,8 +1532,7 @@ public class KrakenService
 			using var checkCmd = new MySqlCommand(checkSql, conn);
 			checkCmd.Parameters.AddWithValue("@UserId", userId);
 			checkCmd.Parameters.AddWithValue("@Strategy", strategy);
-			checkCmd.Parameters.AddWithValue("@FromCurrency", from);
-			checkCmd.Parameters.AddWithValue("@ToCurrency", to);
+			checkCmd.Parameters.AddWithValue("@FromCurrency", from); 
 
 			var count = Convert.ToInt32(await checkCmd.ExecuteScalarAsync());
 

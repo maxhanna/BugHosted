@@ -21,7 +21,7 @@
 
 .gamesContainer {
   width: 100%;
-  height: CALC(var(--vh, 1vh)* 100 - 65px);
+  height: calc(var(--vh, 1vh) * 100 - 65px);
   overflow: auto;
 }
 
@@ -34,7 +34,7 @@
   margin-left: -2px;
   overflow: hidden;
   width: 100%;
-  height: CALC(var(--vh, 1vh) * 100 - 55px);
+  height: calc(var(--vh, 1vh) * 100 - 55px);
   border-radius: 20px;
   padding-top: 10px;
   box-shadow: 0px -5px 0px var(--main-bg-color), 0px 5px 0px var(--main-bg-color);
@@ -44,20 +44,17 @@
   cursor: default;
 }
 
-
-
-.screen-area { 
+.screen-area {
   width: 100%;
   image-rendering: pixelated;
   display: flex;
-  background-color: black;
+  /* background-color: black; */
   align-items: center;
   justify-content: center;
   align-content: center;
   flex-wrap: nowrap;
   flex-direction: row;
 }
-
 
 .mainCanvas {
   width: 100vw;
@@ -67,28 +64,42 @@
 canvas:fullscreen,
 #fullscreenContainer:fullscreen {
   width: 100%;
-  height: 100%;
+  height: calc(100% - 100px); /* Leave space for controls */
+  margin-bottom: 100px; /* Space for controls */
 }
 
 canvas:-webkit-full-screen,
 #fullscreenContainer:-webkit-full-screen {
   width: 100%;
-  height: 100%;
+  height: calc(100% - 100px);
+  margin-bottom: 100px;
 }
 
 canvas:-moz-full-screen,
 #fullscreenContainer:-moz-full-screen {
   width: 100%;
-  height: 100%;
+  height: calc(100% - 100px);
+  margin-bottom: 100px;
 }
 
 canvas:-ms-fullscreen,
 #fullscreenContainer:-ms-fullscreen {
   width: 100%;
-  height: 100%;
+  height: calc(100% - 100px);
+  margin-bottom: 100px;
 }
 
-/* Fullscreen-specific styles */
+:fullscreen .controls,
+:-webkit-full-screen .controls,
+:-moz-full-screen .controls,
+:-ms-fullscreen .controls {
+  position: fixed;
+  bottom: 20px;
+  left: 0;
+  right: 0;
+  z-index: 1000;
+}
+
 .fullscreenControlsBottom {
   position: fixed;
   bottom: 10px;
@@ -131,8 +142,17 @@ canvas:-ms-fullscreen,
 .controls {
   display: flex;
   justify-content: space-between;
-  position: absolute;
-  top: CALC(var(--vh, 1vh) * 85 - 160px);
+  position: fixed; 
+  pointer-events: auto;
+  z-index: 1000;
+  /* top: calc(var(--vh, 1vh) * 85 - 160px); */
+  bottom: 100px;
+}
+
+.controls.snes-controls {
+  justify-content: space-between;
+  align-items: flex-end;
+  padding: 0 20px;
 }
 
 .dpad {
@@ -147,7 +167,7 @@ canvas:-ms-fullscreen,
   width: 33%;
   height: 33%;
   position: absolute;
-  background-color: var(--main-bg-color);
+  /* background-color: var(--main-bg-color); */
   cursor: pointer;
 }
 
@@ -191,7 +211,6 @@ canvas:-ms-fullscreen,
   background: linear-gradient(to right, #565e6a 0%, #333 100%);
 }
 
-
 .down {
   top: calc(66% - 4px);
   left: 33%;
@@ -217,7 +236,6 @@ canvas:-ms-fullscreen,
   box-shadow: 0px -2px 0px #888 inset;
 }
 
-
 .left:active,
 .left.active {
   background: linear-gradient(to left, #565e6a 0%, #333 100%);
@@ -241,34 +259,34 @@ canvas:-ms-fullscreen,
   width: 60%;
 }
 
-.up-down {
-  background-color: #565e6a;
-  border: var(--main-border);
-  border-radius: 5px;
-  width: 20px;
-  height: 60px;
-}
-
-.left-right {
-  background-color: #565e6a;
-  border: var(--main-border);
-  border-radius: 5px;
-  width: 60px;
-  height: 20px;
-}
-
-.a-b {
+ 
+.face-buttons {
   position: fixed;
-  display: inline-block;
-  width: 120px;
-  height: 90px;
-  top: CALC(var(--vh, 1vh) * 80 - 100px);
-  right: 95px;
+  display: grid;
+  grid-template-columns: 70px 70px;
+  grid-template-rows: 70px 70px;
+  gap: 10px;
+  /* top: calc(var(--vh, 1vh) * 80 - 100px); */
+  bottom: 100px;
+  right: 20px;
+  z-index: 30;
+}
+
+.shoulder-buttons {
+  position: absolute;
+  display: flex;
+  justify-content: space-between;
+  width: calc(100vw - 40px);
+  top: -40px;
   z-index: 30;
 }
 
 .a,
 .b,
+.x,
+.y,
+.l,
+.r,
 .c {
   position: absolute;
   display: inline-block;
@@ -277,7 +295,7 @@ canvas:-ms-fullscreen,
   height: 65px;
   line-height: 65px;
   border-radius: 50%;
-  background-color: var(--main-bg-color);
+  /* background-color: var(--main-bg-color); */
   border-bottom: 2px solid #888;
   box-shadow: -1px 1px 5px black, 0px 0px 5px black inset;
   text-shadow: 0px -1px 1px #888;
@@ -287,14 +305,21 @@ canvas:-ms-fullscreen,
   -webkit-user-select: none;
   cursor: pointer;
   touch-action: manipulation;
-  /* Ensures touch events are handled correctly */
 }
 
 .a:active,
 .b:active,
+.x:active,
+.y:active,
+.l:active,
+.r:active,
 .c:active,
 .a.active,
 .b.active,
+.x.active,
+.y.active,
+.l.active,
+.r.active,
 .c.active {
   box-shadow: -1px 1px 1px black, 0px 0px 5px black inset;
   border-width: 0px;
@@ -302,44 +327,65 @@ canvas:-ms-fullscreen,
   filter: brightness(85%);
 }
 
-
-.a {
-  top: -10px;
-  right: -60%;
+.r:active, .r.active, .l:active, .l.active {
+  line-height: 50px !important;
 }
 
+.a {
+  grid-column: 2;
+  grid-row: 2;
+}
 .b {
-  top: 15px;
-  left: 55px;
+  grid-column: 2;
+  grid-row: 1;
+}
+
+.x {
+  grid-column: 1;
+  grid-row: 1;
+}
+
+.y {
+  grid-column: 1;
+  grid-row: 2;
+}
+
+.l {
+  left: 10px;
+  border-radius: 10px;
+  width: 80px;
+  height: 40px;
+  line-height: 40px;
+  font-size: 24px;
+}
+
+.r {
+  right: 10px;
+  border-radius: 10px;
+  width: 80px;
+  height: 40px;
+  line-height: 40px;
+  font-size: 24px;
 }
 
 .c {
-  position: relative;
-  display: inline-block;
-  top: 74px;
-  left: -10px;
-}
-
-.gameboy .start-select {
-  height: 60px;
-  display: flex;
-  justify-content: center;
+  grid-column: 1;
+  grid-row: 1;
 }
 
 .start-select {
+  height: 60px;
+  display: flex;
+  justify-content: center;
   position: absolute;
-  top: CALC(var(--vh, 1vh) * 95 - 60px);
-  left: 10px;
+  /* top: calc(var(--vh, 1vh) * 95 - 60px);
+  left: 10px; */
+  bottom: 10px;
+  left: 35px;
   z-index: 3;
 }
 
-@media only screen and (max-height : 600px) {
-  .start-select {
-    top: CALC(var(--vh, 1vh) * 90 - 60px);
-    left: CALC(50vw - 60px);
-  }
-}
-
+ 
 .start,
 .select {
   display: inline-block;
@@ -507,17 +553,17 @@ canvas:-ms-fullscreen,
   padding-left: 0px !important;
   padding-right: 0px !important;
 }
- 
+
 .persistanceSpan,
 .uploadRomSpan {
-  padding: 2px; 
+  padding: 2px;
 }
 
 .persistanceSpan {
   float: left;
 }
 
-.uploadRomSpan { 
+.uploadRomSpan {
   line-height: 20px;
 }
 
@@ -548,7 +594,7 @@ canvas:-ms-fullscreen,
 
 .popupPanel {
   width: 100vw;
-  height: CALC(var(--vh, 1vh) * 99);
+  height: calc(var(--vh, 1vh) * 99);
   z-index: 7;
 }
 
@@ -559,7 +605,6 @@ canvas:-ms-fullscreen,
 .explainWrapper {
   max-width: 400px;
 }
-
 
 .toggle-switch {
   position: relative;
@@ -620,6 +665,7 @@ input:checked+.slider::before {
 .rebindingWrapper {
   width: 240px;
 }
+
 .rebindingWrapper button:disabled {
   color: black;
 }

@@ -520,10 +520,11 @@
               }" (click)="onSmallLogClick()">{{lastLogEntry}}</span>
             </div>
             <div *ngIf="isTradePanelOpen">
-              <span class="sectionName">Current Price:</span>
-              <span class="thirdFontColor smallFont">
-                <span>
-                  {{ this.formatToCanadianCurrency(this.btcToCadPrice * (this.latestCurrencyPriceRespectToCAD)) }}
+              <span class="sectionName">Current Prices:</span>
+              <span class="smallFont">
+                <span *ngFor="let coin of getActiveTradebotCoins(); let last = last">
+                  <span class="thirdFontColor">{{ coin }}:</span> {{
+                  formatToCanadianCurrency(getTradebotCoinPrice(coin)) }}<span *ngIf="!last"> | </span>
                 </span>
               </span>
             </div>
@@ -609,7 +610,8 @@
               Enter {{selectedTradebotCurrency?.nativeElement?.value}} Position
             </button>
             <p class="button-description" id="enter-desc">
-              Buys {{selectedTradebotCurrency?.nativeElement?.value}} using configured funds, starting a new trading position and starting the bot. See configuration
+              Buys {{selectedTradebotCurrency?.nativeElement?.value}} using configured funds, starting a new trading
+              position and starting the bot. See configuration
               under: _InitialMinimumFromAmountToStart.
             </p>
           </div>
@@ -622,14 +624,17 @@
               Exit {{selectedTradebotCurrency?.nativeElement?.value}} Position
             </button>
             <p class="button-description" id="exit-desc">
-              Sells all {{selectedTradebotCurrency?.nativeElement?.value}} at market price, closing the current trading position and stopping the bot.
+              Sells all {{selectedTradebotCurrency?.nativeElement?.value}} at market price, closing the current trading
+              position and stopping the bot.
             </p>
           </div>
 
-          <div class="button-wrapper" *ngIf="(isShowingTradeProfit || isShowingTradeValueGraph || isShowingTradeSimulator)">
+          <div class="button-wrapper"
+            *ngIf="(isShowingTradeProfit || isShowingTradeValueGraph || isShowingTradeSimulator)">
             <button class="cursorPointer" (click)="closeTradeDivs()">
-              Hide {{ isShowingTradeProfit ? 'Profit' : isShowingTradeValueGraph ? 'Graph' : isShowingTradeSimulator ? 'Sim' : '' }}
-            </button> 
+              Hide {{ isShowingTradeProfit ? 'Profit' : isShowingTradeValueGraph ? 'Graph' : isShowingTradeSimulator ?
+              'Sim' : '' }}
+            </button>
           </div>
 
           <div class="button-wrapper" *ngIf="canShowTradePanelInfo()">
@@ -697,11 +702,15 @@
                     {{ formatStringCanadianCurrency(trade.trade_value_usdc) }}
                   </span>
                 </td>
-                <td [class]="'secondaryFontColor' + (onMobile() ? ' xxSmallFont' : '')">{{ formatStringCanadianCurrency(trade.coin_price_usdc) }}</td>
-                <td [class]="'negative' + (onMobile() ? ' xxSmallFont' : '')">{{ formatToCanadianCurrency(trade.fees) }}</td>
-                <td [class]="'secondaryFontColor' + (onMobile() ? ' xxSmallFont' : '')" [title]="parentRef?.convertUtcToLocalTime(trade.timestamp)">{{
+                <td [class]="'secondaryFontColor' + (onMobile() ? ' xxSmallFont' : '')">{{
+                  formatStringCanadianCurrency(trade.coin_price_usdc) }}</td>
+                <td [class]="'negative' + (onMobile() ? ' xxSmallFont' : '')">{{ formatToCanadianCurrency(trade.fees) }}
+                </td>
+                <td [class]="'secondaryFontColor' + (onMobile() ? ' xxSmallFont' : '')"
+                  [title]="parentRef?.convertUtcToLocalTime(trade.timestamp)">{{
                   parentRef?.convertUtcToLocalTime(trade.timestamp) | timeSince }}</td>
-                <td class="xxSmallFont" [title]="trade.matching_trade_id" (click)="goToTradeId('tradeBalance'+trade.matching_trade_id)">
+                <td class="xxSmallFont" [title]="trade.matching_trade_id"
+                  (click)="goToTradeId('tradeBalance'+trade.matching_trade_id)">
                   {{ trade.matching_trade_id ?? (trade.is_reserved ? 'Reserved': '') }}
                 </td>
               </tr>
@@ -1055,7 +1064,8 @@
         <option value="graph">Trade Value Graph</option>
         <option value="sim">Tradebot Simulation</option>
       </select>
-      <button class="cursorPointer" (click)="toggleSelectedDataTool(toolSelect?.value)" *ngIf="toolSelect.value != 'about'">
+      <button class="cursorPointer" (click)="toggleSelectedDataTool(toolSelect?.value)"
+        *ngIf="toolSelect.value != 'about'">
         {{ getToolVisibility(toolSelect?.value) ? 'Hide' : 'Show' }}
         {{ getToolLabel(toolSelect?.value) }}
       </button>
@@ -1066,21 +1076,21 @@
             Shows all profit and loss from the tradebot, including fees and other costs.
           </p>
         </div>
-    
+
         <div *ngIf="toolSelect?.value == 'graph'" class="button-wrapper">
           <p class="button-description">
             Plots trade values over time to visualize bot performance and profitability.
           </p>
         </div>
-    
+
         <div *ngIf="toolSelect?.value == 'sim'" class="button-wrapper">
           <p class="button-description">
             Runs a simulation of trading strategies with historical or random data to test performance.
           </p>
         </div>
       </div>
-    </div> 
- 
+    </div>
+
     <div class="aboutTable" *ngIf="toolSelect.value == 'about'">
       <section>
         <h2>Overview</h2>

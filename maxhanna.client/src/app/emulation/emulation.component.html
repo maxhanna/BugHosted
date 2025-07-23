@@ -1,7 +1,7 @@
-<div [class]="'mainComponent ' + !selectedRomName ? 'componentMain' : ''">
-  <div class="closeButton" (click)="remove_me('EmulationComponent');"></div>
-  <div class="menuButton" (click)="showMenuPanel();"></div>
-  <div class="componentTitle">Emulation</div>
+<div class="componentMain" [style.paddingTop]="isFullScreen ? '0px' : null">
+  <div class="closeButton" (click)="remove_me('EmulationComponent');" *ngIf="!isFullScreen"></div>
+  <div class="menuButton" (click)="showMenuPanel();" *ngIf="!isFullScreen"></div>
+  <div class="componentTitle" *ngIf="!isFullScreen">Emulation</div>
   <div class="gamesContainer {{ !selectedRomName ? 'expanded' : '' }}" *ngIf="isSearchVisible">
     <app-file-search [user]="parentRef?.user" [inputtedParentRef]="parentRef" [currentDirectory]="'roms/'"
       [clearAfterSelectFile]="true" [allowedFileTypes]="getAllowedFileTypes()" [showPrivatePublicOption]="false"
@@ -11,17 +11,16 @@
     </app-file-search>
   </div>
 
-
   <div class="gameboy" id="GameBoy" #fullscreenContainer [style.visibility]="selectedRomName ? 'visible' : 'hidden'"
-    [style.height]="selectedRomName ? '' : '0px'">
+    [style.height]="selectedRomName ? (isFullScreen ? '100vh' : '') : '0px'">
 
     <div class="screen-area" [style.height]="!onMobile() ? '100%' : ''">
-      <canvas id="mainCanvas" [class]="unlockedCanvas ? '' : 'mainCanvas'" #canvas slot="lcd"></canvas>
+      <canvas id="mainCanvas" #canvas slot="lcd"></canvas>
     </div>
 
     <div class="nintendo"><span class="nintendoLogo">Hackboy</span></div>
 
-    <div class="controls">
+    <div class="controls" [ngClass]="{'snes-controls': isSnesGame()}">
       <div class="dpad"
         [style.visibility]="!selectedRomName ? 'hidden' : !showControls ? 'hidden' : !parentRef?.isShowingOverlay ? 'visible' : 'hidden'">
         <div class="up-left">
@@ -48,19 +47,28 @@
         <div class="down-right">
           <div class="down-right-triangle"></div>
         </div>
-        <div class="middle">
-        </div>
+        <div class="middle"></div>
       </div>
-      <div class="a-b" *ngIf="!parentRef?.isShowingOverlay">
+      <div class="face-buttons" *ngIf="!parentRef?.isShowingOverlay && isSnesGame()">
+        <div class="x" [style.visibility]="!selectedRomName ? 'hidden' : !showControls ? 'hidden' : 'visible'">X</div>
+        <div class="y" [style.visibility]="!selectedRomName ? 'hidden' : !showControls ? 'hidden' : 'visible'">Y</div>
+        <div class="a" [style.visibility]="!selectedRomName ? 'hidden' : !showControls ? 'hidden' : 'visible'">A</div>
+        <div class="b" [style.visibility]="!selectedRomName ? 'hidden' : !showControls ? 'hidden' : 'visible'">B</div>
+      </div>
+      <div class="face-buttons" *ngIf="!parentRef?.isShowingOverlay && !isSnesGame()">
         <div class="b"
-          [style.visibility]="!selectedRomName ? 'hidden' : !showControls ? 'hidden' : displayAB ? 'visible' : 'hidden'">
+          [style.visibility]="!selectedRomName ? 'hidden' : !showControls ? 'hidden' :  'visible'  ">
           B</div>
         <div class="a"
-          [style.visibility]="!selectedRomName ? 'hidden' : !showControls ? 'hidden' : displayAB ? 'visible' : 'hidden'">
+          [style.visibility]="!selectedRomName ? 'hidden' : !showControls ? 'hidden' :  'visible'  ">
           A</div>
         <div class="c"
-          [style.visibility]="!selectedRomName ? 'hidden' : !showControls ? 'hidden' : displayC ? 'visible' : 'hidden'">
+          [style.visibility]="!selectedRomName ? 'hidden' : !showControls ? 'hidden' : isSegaGame() ? 'visible' : 'hidden'">
           C</div>
+      </div>
+      <div class="shoulder-buttons" *ngIf="!parentRef?.isShowingOverlay && (isSnesGame() || isGbaGame() || isSegaGame())">
+        <div class="l" [style.visibility]="!selectedRomName ? 'hidden' : !showControls ? 'hidden' : 'visible'">L</div>
+        <div class="r" [style.visibility]="!selectedRomName ? 'hidden' : !showControls ? 'hidden' : 'visible'">R</div>
       </div>
     </div>
 
@@ -73,27 +81,22 @@
         START</div>
     </div>
   </div>
-
 </div>
-
-
 
 <!-- Menu Popup -->
 <div class="popupPanel" style="overflow: auto;" *ngIf="isMenuPanelOpen">
   <div class="popupPanelTitle" style="margin-bottom:15px;">
     Emulation Menu
-    <span class="helperSpanTitle" (click)="showHelpText = !showHelpText" title="This emulator autosaves every minute and when the game closes (ie: when you navigate away from this page).
+    <span class="helperSpanTitle" (click)="showHelpText = !showHelpText"
+      title="This emulator autosaves every minute and when the game closes (ie: when you navigate away from this page).
      ◻️ : Toggle fullscreen mode.
      🛑 : Click on this to power off the emulator (if autosave is selected, this will also save your progress).
      🔊/🔇 : Click on this to mute/unmute the audio.
-     ⌨️ Keyboard Controls: Arrows keys for movement; a = x, b = z, c = a, q for left trigger (gba), w for right trigger (gba) enter = start, shift = select.
-     "></span>
+     ⌨️ Keyboard Controls: Arrows keys for movement; a = x, b = z, x = s, y = a, l = q, r = w, enter = start, shift = select (SNES); a = x, b = z, c = a, q for left trigger, w for right trigger, enter = start, shift = select (non-SNES)."></span>
   </div>
   <div class="optionsStatsWrapperDiv explainWrapper">
     <div class="optionsStatsDiv" *ngIf="!showControlBindings">
-      <div class="optionsStatsHeader">
-        Autosave:
-      </div>
+      <div class="optionsStatsHeader">Autosave:</div>
       <div class="optionsStatsDescription">
         <label class="toggle-switch">
           <input type="checkbox" [checked]="autosave" (change)="autosave = !autosave">
@@ -103,69 +106,52 @@
       </div>
     </div>
     <div class="optionsStatsDiv" *ngIf="!autosave">
-      <div class="optionsStatsHeader">
-        Save your game:
-      </div>
+      <div class="optionsStatsHeader">Save your game:</div>
       <div class="optionsStatsDescription">
         <span class="uploadRomSpan upload-label" (click)="saveState(false)" title="Save your game">💾</span>
       </div>
     </div>
     <div class="optionsStatsDiv" *ngIf="lastSaved">
-      <div class="optionsStatsHeader">
-        Last Saved:
-      </div>
+      <div class="optionsStatsHeader">Last Saved:</div>
       <div class="optionsStatsDescription">
         {{ lastSaved | date: 'HH:mm' }} ({{ daysSinceDate(lastSaved) }})
       </div>
     </div>
     <div class="optionsStatsDiv" *ngIf="!isSearchVisible">
-      <div class="optionsStatsHeader">
-        Stop the emulator:
-      </div>
+      <div class="optionsStatsHeader">Stop the emulator:</div>
       <div class="optionsStatsDescription">
         <span class="uploadRomSpan upload-label" #stopButton (click)="stopEmulator()" title="Power Off">🛑</span>
       </div>
     </div>
     <div class="optionsStatsDiv" *ngIf="!showControlBindings">
-      <div class="optionsStatsHeader">
-        Fullscreen:
-      </div>
+      <div class="optionsStatsHeader">Fullscreen:</div>
       <div class="optionsStatsDescription">
         <div class="uploadRomSpan upload-label" id="fullscreenBtn" (click)="toggleFullscreen()" title="Fullscreen mode">
-          ◻️
-        </div>
+          ◻️</div>
       </div>
     </div>
     <div class="optionsStatsDiv" *ngIf="nostalgist">
-      <div class="optionsStatsHeader">
-        Reset game:
-      </div>
+      <div class="optionsStatsHeader">Reset game:</div>
       <div class="optionsStatsDescription">
         <button (click)="nostalgist.restart()">Reset</button>
       </div>
     </div>
     <div class="optionsStatsDiv" *ngIf="!showControlBindings">
-      <div class="optionsStatsHeader">
-        Mute/Unmute:
-      </div>
+      <div class="optionsStatsHeader">Mute/Unmute:</div>
       <div class="optionsStatsDescription">
         <span class="uploadRomSpan upload-label" (click)="toggleSound()" title="Toggle audio">{{ soundOn ? '🔊' : '🔇'
           }}</span>
       </div>
     </div>
     <div class="optionsStatsDiv" *ngIf="!showControlBindings">
-      <div class="optionsStatsHeader">
-        Volume:
-      </div>
+      <div class="optionsStatsHeader">Volume:</div>
       <div class="optionsStatsDescription uploadRomSpan upload-label controlVolume">
         <input type="range" min="0" [max]="maxVolume" [value]="currentVolume" (input)="onVolumeChange($event)"
           title="Adjust volume levels">
       </div>
     </div>
-    <div class="optionsStatsDiv" *ngIf="!showControlBindings"> 
-      <div class="optionsStatsHeader">
-        Controls:
-      </div>
+    <div class="optionsStatsDiv" *ngIf="!showControlBindings">
+      <div class="optionsStatsHeader">Controls:</div>
       <div class="optionsStatsDescription">
         <label class="toggle-switch">
           <input type="checkbox" [checked]="showControls" (change)="showControls = !showControls">
@@ -175,21 +161,18 @@
       </div>
     </div>
     <div class="optionsStatsDiv" *ngIf="!onMobile()">
-      <div class="optionsStatsHeader">
-        Rebind Controls:
-      </div>
+      <div class="optionsStatsHeader">Rebind Controls:</div>
       <div class="optionsStatsDescription">
         <label class="toggle-switch">
           <input type="checkbox" [checked]="showControlBindings" (change)="showControlBindings = !showControlBindings">
           <span class="slider"></span>
         </label>
-        <span class="toggle-label" (click)="showControlBindings = !showControlBindings">{{ showControlBindings ? 'Show' : 'Hide' }}</span>
+        <span class="toggle-label" (click)="showControlBindings = !showControlBindings">{{ showControlBindings ? 'Show'
+          : 'Hide' }}</span>
       </div>
     </div>
     <div class="optionsStatsDiv" *ngIf="!showControlBindings">
-      <div class="optionsStatsHeader">
-        Upload ROM file:
-      </div>
+      <div class="optionsStatsHeader">Upload ROM file:</div>
       <div class="optionsStatsDescription uploadRomSpan upload-label controlVolume">
         <app-file-upload [currentDirectory]="'Roms'" [user]="parentRef?.user!" [inputtedParentRef]="parentRef"
           [uploadButtonText]="'Upload Rom(s)'" [maxSelectedFiles]="100" [allowedFileTypes]="allowedFileTypes">
@@ -197,13 +180,9 @@
       </div>
     </div>
     <div class="optionsStatsDiv" *ngIf="!showControlBindings">
-      <div class="optionsStatsHeader">
-        Share Link
-      </div>
+      <div class="optionsStatsHeader">Share Link</div>
       <div class="optionsStatsDescription uploadRomSpan upload-label controlVolume">
-        <button title="Share this URL" (click)="shareLink();">
-          ↗️Share
-        </button>
+        <button title="Share this URL" (click)="shareLink();">↗️Share</button>
       </div>
     </div>
   </div>
@@ -215,23 +194,33 @@
     🔊/🔇 : Click on this to mute/unmute the audio.<br>
     <div style="padding: 20px;">
       ⌨️ Emulator Keybindings / Keyboard Controls<br><br>
-      A: {{ getKeybinding('a') }}<br>
-      B: {{ getKeybinding('b') }}<br>
-      C: {{ getKeybinding('c') }}<br>
-      Q (Left Trigger - GBA): {{ getKeybinding('l') }}<br>
-      W (Right Trigger - GBA): {{ getKeybinding('r') }}<br>
-      Start: {{ getKeybinding('start') }}<br>
-      Select: {{ getKeybinding('select') }}<br>
+      <ng-container *ngIf="isSnesGame()">
+        A: {{ getKeybinding('a') }}<br>
+        B: {{ getKeybinding('b') }}<br>
+        X: {{ getKeybinding('x') }}<br>
+        Y: {{ getKeybinding('y') }}<br>
+        L: {{ getKeybinding('l') }}<br>
+        R: {{ getKeybinding('r') }}<br>
+        Start: {{ getKeybinding('start') }}<br>
+        Select: {{ getKeybinding('select') }}<br>
+      </ng-container>
+      <ng-container *ngIf="!isSnesGame()">
+        A: {{ getKeybinding('a') }}<br>
+        B: {{ getKeybinding('b') }}<br>
+        C: {{ getKeybinding('c') }}<br>
+        Q (Left Trigger): {{ getKeybinding('l') }}<br>
+        W (Right Trigger): {{ getKeybinding('r') }}<br>
+        Start: {{ getKeybinding('start') }}<br>
+        Select: {{ getKeybinding('select') }}<br>
+      </ng-container>
     </div>
     <div style="width: 100%; text-align: center;">
       <button (click)="showHelpText = !showHelpText;">OK</button>
     </div>
   </div>
-  <div *ngIf="showControlBindings" class="optionsStatsWrapperDiv rebindingWrapper"> 
+  <div *ngIf="showControlBindings" class="optionsStatsWrapperDiv rebindingWrapper">
     <div class="optionsStatsDiv smallFont explainWrapper" *ngFor="let entry of keybindingEntriesList">
-      <div class="optionsStatsHeader">
-        Bind: {{ entry[0].toUpperCase() }}
-      </div>
+      <div class="optionsStatsHeader">Bind: {{ entry[0].toUpperCase() }}</div>
       <div class="optionsStatsDescription">
         <button (click)="waitingForKey = entry[0]" [disabled]="waitingForKey !== null">
           {{ waitingForKey === entry[0] ? 'Press a key...' : entry[1] }}
