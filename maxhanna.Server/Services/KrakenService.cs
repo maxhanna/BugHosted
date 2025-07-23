@@ -2,6 +2,7 @@
 using MySqlConnector;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using System.Collections.Concurrent;
 using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
@@ -33,6 +34,8 @@ public class KrakenService
 	private static readonly Dictionary<string, string> CoinMappingsForDB = new Dictionary<string, string> { { "XBT", "btc" }, { "XXBT", "btc" }, { "BTC", "btc" }, { "USDC", "usdc" }, { "XRP", "xrp" }, { "XXRP", "xrp" }, { "XXDG", "xdg" }, { "XETH", "eth" }, { "ETH", "eth" }, { "ETH.F", "eth" }, { "SOL.F", "sol" }, { "SOL", "sol" }, { "SUI", "sui" }, { "WIF", "wif" }, { "WIF.F", "wif" }, { "PENGU", "pengu" }, { "PEPE", "pepe" }, { "DOT", "dot" }, { "DOT.F", "dot" }, { "ADA", "ada" }, { "ADA.F", "ada" }, { "LTC", "ltc" }, { "LTC.F", "ltc" }, { "LINK", "link" }, { "LINK.F", "link" }, { "MATIC", "matic" }, { "MATIC.F", "matic" }, { "XLM", "xlm" }, { "XLM.F", "xlm" }, { "TRX", "trx" }, { "TRX.F", "trx" }, { "AVAX", "avax" }, { "AVAX.F", "avax" }, { "ATOM", "atom" }, { "ATOM.F", "atom" }, { "ALGO", "algo" }, { "ALGO.F", "algo" }, { "NEAR", "near" }, { "NEAR.F", "near" }, { "XMR", "xmr" }, { "XMR.F", "xmr" }, { "BCH", "bch" }, { "BCH.F", "bch" }, { "ZEC", "zec" }, { "ZEC.F", "zec" }, { "SHIB", "shib" }, { "SHIB.F", "shib" }, { "UNI", "uni" }, { "UNI.F", "uni" }, { "AAVE", "aave" }, { "AAVE.F", "aave" }, { "ZUSD", "usd" }, { "ZCAD", "cad" } };
 	private static readonly Dictionary<string, string> CoinNameMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) {	{ "BTC", "Bitcoin" }, { "ETH", "Ethereum" }, { "XDG", "Dogecoin" },	{ "SOL", "Solana" } };
 	private static readonly Dictionary<string, string> CoinSymbols = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) { { "Bitcoin", "₿" },	{ "Ethereum", "Ξ" }, { "Dogecoin", "Ɖ" }, { "Solana", "◎" } };
+	private static readonly ConcurrentDictionary<int, DateTime> _userLastCheckTimes = new ConcurrentDictionary<int, DateTime>();
+	private static readonly TimeSpan _rateLimitDuration = TimeSpan.FromMinutes(1);
 	public KrakenService(IConfiguration config, Log log)
 	{
 		_config = config;
@@ -216,7 +219,7 @@ public class KrakenService
 							TradeRecord? fundingTransaction = await GetLatestReservedTransaction(userId, tmpCoin, strategy, coinPriceUSDC.Value, _TradeThreshold);
 							if (matchingBuyOrderId == null && fundingTransaction == null)
 							{
-								_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) No matching buy or reserve transactions at this depth!. Trade Cancelled.", userId, "TRADE", true);
+								_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) No matching buy or reserve transactions at this depth. Trade Cancelled.", userId, "TRADE", true);
 								return false;
 							}
 							else
@@ -1148,6 +1151,15 @@ public class KrakenService
 	{
 		string tmpCoin = coin.ToUpper();
 		tmpCoin = tmpCoin == "BTC" ? "XBT" : tmpCoin;
+		if (_userLastCheckTimes.TryGetValue(userId, out var lastCheckTime))
+		{
+			if (DateTime.UtcNow - lastCheckTime < _rateLimitDuration)
+			{
+				//_ = _log.Db($"Rate limit hit for fee update check (user {userId})", userId, "TRADE", true);
+				return null;
+			}
+		} 
+
 		bool updated = false;
 
 		// 0. First check if there are any trades needing fee updates (top 20 recent trades)
@@ -1159,6 +1171,8 @@ public class KrakenService
 		}
 		try
 		{
+			_userLastCheckTimes.AddOrUpdate(userId, DateTime.UtcNow, (id, oldTime) => DateTime.UtcNow);
+
 			// 1. Get all trades from Kraken for both XBTUSDC and USDCXBT pairs
 			var krakenTradesBuySide = await GetUserTradesFromKraken(userId, keys, $"{tmpCoin}USDC");
 			if (krakenTradesBuySide == null || krakenTradesBuySide.Count == 0) return null;
