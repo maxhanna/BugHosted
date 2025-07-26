@@ -31,10 +31,8 @@ namespace maxhanna.Server.Services
 		private Timer _sixHourTimer;
 		private Timer _dailyTimer;
 		private bool isCrawling = false;
-		private bool lastWasCrypto = false;
-
-		private static readonly SemaphoreSlim _tradeLock = new SemaphoreSlim(1, 1);
-		private static readonly System.Diagnostics.Stopwatch _tradeTimer = new System.Diagnostics.Stopwatch();
+		private bool lastWasCrypto = false; 
+		private static readonly SemaphoreSlim _tradeLock = new SemaphoreSlim(1, 1); 
 		private static readonly Dictionary<string, string> CoinNameMap = new(StringComparer.OrdinalIgnoreCase) {
 			{ "BTC", "Bitcoin" }, { "XBT", "Bitcoin" }, { "ETH", "Ethereum" }, { "XDG", "Dogecoin" }, { "SOL", "Solana" }
 		};
@@ -94,7 +92,8 @@ namespace maxhanna.Server.Services
 			await FetchWebsiteMetadata();
 		}
 		private async Task RunFiveMinuteTasks()
-		{
+		{ 
+			await FetchAndStoreTopMarketCaps();
 			await UpdateLastBTCWalletInfo();
 			await FetchAndStoreCoinValues();
 			_miningApiService.UpdateWalletInDB(_config, _log);
@@ -144,7 +143,7 @@ namespace maxhanna.Server.Services
 			await DeleteOldNews();
 			await DeleteOldTradeVolumeEntries();
 			await _log.DeleteOldLogs();
-			await _log.BackupDatabase();
+			await _log.BackupDatabase(); 
 		}
 		private TimeSpan CalculateNextDailyRun()
 		{
@@ -599,9 +598,9 @@ namespace maxhanna.Server.Services
 				}
 			}
 			this.isCrawling = false;
-		} 
+		}
 		private async Task MakeCryptoTrade()
-		{ 
+		{
 			if (!await _tradeLock.WaitAsync(0))
 			{
 				return;
@@ -609,14 +608,14 @@ namespace maxhanna.Server.Services
 
 			try
 			{
-				// 1. Get owner keys with ConfigureAwait(false)
+				// Get owner keys
 				UserKrakenApiKey? ownerKeys = await _krakenService.GetApiKey(1).ConfigureAwait(false);
 				if (ownerKeys?.ApiKey == null || ownerKeys.PrivateKey == null)
 				{
 					await _log.Db("No Kraken API keys found for userId: 1", 1, "SYSTEM", true).ConfigureAwait(false);
 					return;
 				}
- 
+
 				try
 				{
 					var volumePairs = new[] { "XBTUSDC", "XRPUSDC", "XDGUSDC", "ETHUSDC", "SOLUSDC" };
@@ -629,7 +628,7 @@ namespace maxhanna.Server.Services
 							if (t.IsFaulted)
 							{
 								_ = _log.Db($"Volume save failed for {pair}: {t.Exception?.InnerException?.Message}",
-										  1, "TRADE", true);
+											1, "TRADE", true);
 							}
 						}));
 					}
@@ -641,51 +640,64 @@ namespace maxhanna.Server.Services
 					await _log.Db($"Volume data error: {ex.Message}", 1, "TRADE", true).ConfigureAwait(false);
 					return;
 				}
+ 
+				// Collect trade task delegates
+				var tradeTaskDelegates = new List<(Func<Task> TaskDelegate, string Crypto, int UserId, string Strategy)>();
+				var cryptocurrencies = new[] { "BTC", "XRP", "SOL", "XDG", "ETH" };
+				var strategies = new[] { "DCA", "IND" };
 
-				_tradeTimer.Restart();
-
-				foreach (var crypto in new[] { "BTC", "XRP", "SOL", "XDG", "ETH" })
+				foreach (var crypto in cryptocurrencies)
 				{
-					var iterationStart = _tradeTimer.Elapsed;
-
-					var activeDCAUsers = await _krakenService.GetActiveTradeBotUsers(crypto, "DCA", null); 
-					foreach (var userId in activeDCAUsers)
+					foreach (var strategy in strategies)
 					{
-						UserKrakenApiKey? keys = await _krakenService.GetApiKey(userId);
-						if (keys == null || string.IsNullOrEmpty(keys.ApiKey) || string.IsNullOrEmpty(keys.PrivateKey))
+						var activeUsers = await _krakenService.GetActiveTradeBotUsers(crypto, strategy, null);
+						foreach (var userId in activeUsers)
 						{
-							await _log.Db("No Kraken API keys found for this user", userId, "SYSTEM", true);
-							continue; // Changed from return to continue to process other users
+							UserKrakenApiKey? keys = await _krakenService.GetApiKey(userId);
+							if (keys == null || string.IsNullOrEmpty(keys.ApiKey) || string.IsNullOrEmpty(keys.PrivateKey))
+							{
+								await _log.Db($"No Kraken API keys found for userId: {userId}", userId, "SYSTEM", true);
+								continue;
+							}
+
+							// Capture keys in a local variable to avoid closure issues
+							UserKrakenApiKey capturedKeys = keys;
+							tradeTaskDelegates.Add((
+								() => _krakenService.MakeATrade(userId, crypto, capturedKeys, strategy),
+								crypto,
+								userId,
+								strategy
+							));
 						}
-
-						await _krakenService.MakeATrade(userId, crypto, keys, "DCA");
-					}
-
-
-					var activeINDUsers = await _krakenService.GetActiveTradeBotUsers(crypto, "IND", null); 
-					foreach (var userId in activeINDUsers)
-					{
-						UserKrakenApiKey? keys = await _krakenService.GetApiKey(userId);
-						if (keys == null || string.IsNullOrEmpty(keys.ApiKey) || string.IsNullOrEmpty(keys.PrivateKey))
-						{
-							await _log.Db("No Kraken API keys found for this user", userId, "SYSTEM", true);
-							continue; // Changed from return to continue to process other users
-						}
-
-						await _krakenService.MakeATrade(userId, crypto, keys, "IND");
-					}
-
-					// Ensure at least 1 second between crypto iterations
-					var elapsed = _tradeTimer.Elapsed - iterationStart;
-					if (elapsed < TimeSpan.FromSeconds(1))
-					{
-						await Task.Delay(TimeSpan.FromSeconds(1) - elapsed);
 					}
 				}
+
+				// Process tasks sequentially with 0.5-second delay
+				//await _log.Db($"Starting execution of {tradeTaskDelegates.Count} trade tasks", null, "TRADE", true);
+				foreach (var (taskDelegate, crypto, userId, strategy) in tradeTaskDelegates)
+				{
+					var startTime = DateTime.UtcNow;
+					//await _log.Db($"Executing trade for userId={userId}, crypto={crypto}, strategy={strategy} at {startTime:u}", userId, "TRADE", true);
+					try
+					{
+						await taskDelegate().ConfigureAwait(false);
+					}
+					catch (Exception ex)
+					{
+						await _log.Db($"Error executing trade for userId={userId}, crypto={crypto}, strategy={strategy}: {ex.Message}", userId, "TRADE", true);
+					}
+
+					var endTime = DateTime.UtcNow;
+					var elapsedMs = (endTime - startTime).TotalMilliseconds;
+					//await _log.Db($"Trade for userId={userId}, crypto={crypto}, strategy={strategy} completed in {elapsedMs:F2}ms", userId, "TRADE", true);
+					await Task.Delay(500).ConfigureAwait(false);
+				}
+
+				//await _log.Db($"Completed execution of {tradeTaskDelegates.Count} trade tasks", null, "TRADE", true);
 			}
 			catch (Exception ex)
 			{
-				await _log.Db($"Exception while trading: {ex.Message}", null);
+				await _log.Db($"Exception while trading: {ex.Message}", null, "TRADE", true);
 			}
 			finally
 			{
@@ -1153,6 +1165,157 @@ namespace maxhanna.Server.Services
 				_ = _log.Db("Database connection error: " + ex.Message, null, outputToConsole: true);
 			}
 		}
+
+		private async Task FetchAndStoreTopMarketCaps()
+		{
+			await _log.Db("Fetching top market caps from CoinMarketCap...", null, "MCS", outputToConsole: true);
+
+			try
+			{
+				await using var conn = new MySqlConnection(_connectionString);
+				await conn.OpenAsync();
+
+				// Check if we have recent data (within last 24 hours)
+				const string recentCheckSql = @"
+					SELECT 1 FROM coin_market_caps 
+					WHERE recorded_at >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 24 HOUR)
+					LIMIT 1;";
+
+				await using var checkCmd = new MySqlCommand(recentCheckSql, conn);
+				if (await checkCmd.ExecuteScalarAsync() != null)
+				{
+					await _log.Db("Recent market cap data already exists (within last 24 hours), skipping update.", null, "MCS", outputToConsole: true);
+					return;
+				}
+
+				// Fetch CoinMarketCap API key
+				var apiKey = _config.GetValue<string>("CoinMarketCap:ApiKey");
+				if (string.IsNullOrWhiteSpace(apiKey))
+				{
+					await _log.Db("CoinMarketCap API key missing", null, "MCS", outputToConsole: true);
+					return;
+				}
+
+				// Fetch top 30 coins by market cap from CoinMarketCap
+				const string url = "https://pro-api.coinmarketcap.com/v1/cryptocurrency/listings/latest?start=1&limit=30&convert=USD";
+				var request = new HttpRequestMessage
+				{
+					Method = HttpMethod.Get,
+					RequestUri = new Uri(url),
+				};
+				request.Headers.Add("X-CMC_PRO_API_KEY", apiKey);
+				request.Headers.Add("Accepts", "application/json");
+
+				var response = await _httpClient.SendAsync(request);
+				response.EnsureSuccessStatusCode();
+				var responseContent = await response.Content.ReadAsStringAsync();
+				var root = Newtonsoft.Json.Linq.JObject.Parse(responseContent);
+				var coins = root["data"]?.ToObject<List<Dictionary<string, object>>>();
+
+				if (coins == null || coins.Count == 0)
+				{
+					await _log.Db("No market cap data found in CoinMarketCap response", null, "MCS", outputToConsole: true);
+					return;
+				}
+
+				// Fetch yesterday's data for comparison
+				var yesterday = DateTime.UtcNow.AddDays(-1);
+				const string yesterdayDataSql = @"
+					SELECT coin_id, market_cap_usd
+					FROM coin_market_caps
+					WHERE recorded_at >= DATE_SUB(@yesterday, INTERVAL 1 HOUR)
+					AND recorded_at < DATE_ADD(@yesterday, INTERVAL 1 HOUR)";
+
+				var yesterdayData = new Dictionary<string, decimal>();
+				await using (var yesterdayCmd = new MySqlCommand(yesterdayDataSql, conn))
+				{
+					yesterdayCmd.Parameters.AddWithValue("@yesterday", yesterday.Date);
+					await using var reader = await yesterdayCmd.ExecuteReaderAsync();
+					while (await reader.ReadAsync())
+					{
+						yesterdayData[reader.GetString("coin_id")] = reader.GetDecimal("market_cap_usd");
+					}
+				}
+
+				// Fetch CAD/USD exchange rate
+				decimal cadUsdRate = 0.705m; // Fallback rate
+				const string rateSql = @"
+					SELECT rate
+					FROM exchange_rates
+					WHERE base_currency = 'CAD' AND target_currency = 'USD'
+					ORDER BY timestamp DESC
+					LIMIT 1";
+
+				await using (var rateCmd = new MySqlCommand(rateSql, conn))
+				{
+					var rateResult = await rateCmd.ExecuteScalarAsync();
+					if (rateResult != null && rateResult != DBNull.Value)
+					{
+						cadUsdRate = Convert.ToDecimal(rateResult);
+					}
+					else
+					{
+						await _log.Db("No recent CAD/USD exchange rate found, using fallback rate 0.705", null, "MCS", outputToConsole: true);
+					}
+				}
+
+				foreach (var coin in coins)
+				{
+					if (coin == null) continue;
+
+					string coinId = coin["id"]?.ToString() ?? "";
+					string rawSymbol = coin["symbol"]?.ToString()?.ToUpper() ?? "";
+					string coinNameSafe = coin["name"]?.ToString() ?? "";
+					var quote = (Newtonsoft.Json.Linq.JObject)coin["quote"];
+					var usdData = (Newtonsoft.Json.Linq.JObject?)quote["USD"];
+					if (usdData != null)
+					{
+
+						decimal marketCapSafe = Convert.ToDecimal(usdData["market_cap"] ?? 0);
+						decimal priceSafe = Convert.ToDecimal(usdData["price"] ?? 0);
+						decimal priceChangePercentage = Convert.ToDecimal(usdData["percent_change_24h"] ?? 0);
+						string normalizedName = CoinNameMap.TryGetValue(coinNameSafe, out var mappedName) ? mappedName : coinNameSafe;
+						string symbol = CoinSymbols.TryGetValue(normalizedName, out var knownSymbol) ? knownSymbol : rawSymbol;
+
+						// Calculate 24h inflow change
+						decimal yesterdayMarketCap = yesterdayData.TryGetValue(coinId, out var ymc) ? ymc : marketCapSafe;
+						decimal inflowChange = marketCapSafe - yesterdayMarketCap;
+
+						// Calculate CAD values
+						decimal marketCapCad = cadUsdRate != 0 ? marketCapSafe / cadUsdRate : marketCapSafe;
+						decimal priceCad = cadUsdRate != 0 ? priceSafe / cadUsdRate : priceSafe;
+
+						const string insertSql = @"
+							INSERT INTO coin_market_caps (
+								coin_id, symbol, name, market_cap_usd, market_cap_cad, price_usd, price_cad,
+								price_change_percentage_24h, inflow_change_24h, recorded_at
+							) VALUES (
+								@CoinId, @Symbol, @Name, @MarketCapUsd, @MarketCapCad, @PriceUsd, @PriceCad,
+								@PriceChangePercentage24h, @InflowChange24h, UTC_TIMESTAMP()
+							)";
+
+						await using (var insertCmd = new MySqlCommand(insertSql, conn))
+						{
+							insertCmd.Parameters.AddWithValue("@CoinId", coinId);
+							insertCmd.Parameters.AddWithValue("@Symbol", symbol);
+							insertCmd.Parameters.AddWithValue("@Name", normalizedName);
+							insertCmd.Parameters.AddWithValue("@MarketCapUsd", marketCapSafe);
+							insertCmd.Parameters.AddWithValue("@MarketCapCad", marketCapCad);
+							insertCmd.Parameters.AddWithValue("@PriceUsd", priceSafe);
+							insertCmd.Parameters.AddWithValue("@PriceCad", priceCad);
+							insertCmd.Parameters.AddWithValue("@PriceChangePercentage24h", priceChangePercentage);
+							insertCmd.Parameters.AddWithValue("@InflowChange24h", inflowChange);
+							await insertCmd.ExecuteNonQueryAsync();
+						}
+					} 
+				} 
+				await _log.Db($"Successfully stored {coins.Count} top market cap records", null, "MCS", outputToConsole: true);
+			}
+			catch (Exception ex)
+			{
+				await _log.Db($"Error fetching/storing market caps: {ex.Message}", null, "MCS", outputToConsole: true);
+			}
+		}
 		private async Task<int> GetBotTypeId(string botTypeName, MySqlConnection conn, MySqlTransaction transaction)
 		{
 			string query = "SELECT type FROM meta_encounter_bot_type WHERE bot_name = @BotName LIMIT 1;";
@@ -1399,44 +1562,58 @@ namespace maxhanna.Server.Services
 					await conn.OpenAsync();
 
 					var trophyCriteria = new Dictionary<string, string>
-						{
-								{ "Chat Master 50", "SELECT sender AS user_id FROM messages GROUP BY sender HAVING COUNT(*) >= 50" },
-								{ "Chat Master 100", "SELECT sender AS user_id FROM messages GROUP BY sender HAVING COUNT(*) >= 100" },
-								{ "Chat Master 150", "SELECT sender AS user_id FROM messages GROUP BY sender HAVING COUNT(*) >= 150" },
-								{ "Uploader 50", "SELECT user_id FROM file_uploads GROUP BY user_id HAVING COUNT(*) >= 50" },
-								{ "Uploader 100", "SELECT user_id FROM file_uploads GROUP BY user_id HAVING COUNT(*) >= 100" },
-								{ "Uploader 150", "SELECT user_id FROM file_uploads GROUP BY user_id HAVING COUNT(*) >= 150" },
-								{ "Topic Creator 1", "SELECT created_by_user_id AS user_id FROM topics GROUP BY created_by_user_id HAVING COUNT(*) >= 1" },
-								{ "Topic Creator 3", "SELECT created_by_user_id AS user_id FROM topics GROUP BY created_by_user_id HAVING COUNT(*) >= 3" },
-								{ "Topic Creator 10", "SELECT created_by_user_id AS user_id FROM topics GROUP BY created_by_user_id HAVING COUNT(*) >= 10" },
-								{ "Social Poster 10", "SELECT user_id FROM stories GROUP BY user_id HAVING COUNT(*) >= 10" },
-								{ "Social Poster 50", "SELECT user_id FROM stories GROUP BY user_id HAVING COUNT(*) >= 50" },
-								{ "Social Poster 100", "SELECT user_id FROM stories GROUP BY user_id HAVING COUNT(*) >= 100" },
-								{ "2024 User", "SELECT id AS user_id FROM users WHERE YEAR(last_seen) = 2024" },
-								{ "2025 User", "SELECT id AS user_id FROM users WHERE YEAR(last_seen) = 2025" },
-								{ "2026 User", "SELECT id AS user_id FROM users WHERE YEAR(last_seen) = 2026" },
-								{ "2027 User", "SELECT id AS user_id FROM users WHERE YEAR(last_seen) = 2027" },
-								{ "2028 User", "SELECT id AS user_id FROM users WHERE YEAR(last_seen) = 2028" },
-								{ "2029 User", "SELECT id AS user_id FROM users WHERE YEAR(last_seen) = 2029" },
-						};
-
+					{
+						{ "Chat Master 50", "SELECT sender AS user_id FROM messages GROUP BY sender HAVING COUNT(*) >= 50" },
+						{ "Chat Master 100", "SELECT sender AS user_id FROM messages GROUP BY sender HAVING COUNT(*) >= 100" },
+						{ "Chat Master 150", "SELECT sender AS user_id FROM messages GROUP BY sender HAVING COUNT(*) >= 150" },
+						{ "Uploader 50", "SELECT user_id FROM file_uploads GROUP BY user_id HAVING COUNT(*) >= 50" },
+						{ "Uploader 100", "SELECT user_id FROM file_uploads GROUP BY user_id HAVING COUNT(*) >= 100" },
+						{ "Uploader 150", "SELECT user_id FROM file_uploads GROUP BY user_id HAVING COUNT(*) >= 150" },
+						{ "Topic Creator 1", "SELECT created_by_user_id AS user_id FROM topics GROUP BY created_by_user_id HAVING COUNT(*) >= 1" },
+						{ "Topic Creator 3", "SELECT created_by_user_id AS user_id FROM topics GROUP BY created_by_user_id HAVING COUNT(*) >= 3" },
+						{ "Topic Creator 10", "SELECT created_by_user_id AS user_id FROM topics GROUP BY created_by_user_id HAVING COUNT(*) >= 10" },
+						{ "Social Poster 10", "SELECT user_id FROM stories GROUP BY user_id HAVING COUNT(*) >= 10" },
+						{ "Social Poster 50", "SELECT user_id FROM stories GROUP BY user_id HAVING COUNT(*) >= 50" },
+						{ "Social Poster 100", "SELECT user_id FROM stories GROUP BY user_id HAVING COUNT(*) >= 100" },
+						{ "Bug Wars Ensign", "SELECT user_id FROM maxhanna.nexus_bases GROUP BY user_id HAVING COUNT(*) >= 1" },
+						{ "Bug Wars Chief", "SELECT user_id FROM maxhanna.nexus_bases GROUP BY user_id HAVING COUNT(*) >= 5" },
+						{ "Bug Wars Commander", "SELECT user_id FROM maxhanna.nexus_bases GROUP BY user_id HAVING COUNT(*) >= 15" },
+						{ "Bug Wars Colonel", "SELECT user_id FROM maxhanna.nexus_bases GROUP BY user_id HAVING COUNT(*) >= 150" },
+						{ "Bug Wars General", "SELECT user_id FROM maxhanna.nexus_bases GROUP BY user_id HAVING COUNT(*) >= 1500" },
+						{ "Bug Wars Emperor", "SELECT user_id FROM maxhanna.nexus_bases GROUP BY user_id HAVING COUNT(*) >= 2500" },
+						{ "2024 User", "SELECT id AS user_id FROM users WHERE YEAR(last_seen) = 2024" },
+						{ "2025 User", "SELECT id AS user_id FROM users WHERE YEAR(last_seen) = 2025" },
+						{ "2026 User", "SELECT id AS user_id FROM users WHERE YEAR(last_seen) = 2026" },
+						{ "2027 User", "SELECT id AS user_id FROM users WHERE YEAR(last_seen) = 2027" },
+						{ "2028 User", "SELECT id AS user_id FROM users WHERE YEAR(last_seen) = 2028" },
+						{ "2029 User", "SELECT id AS user_id FROM users WHERE YEAR(last_seen) = 2029" },
+						{ "Array Scout", "SELECT user_id FROM array_characters WHERE ABS(position) > 10" },
+						{ "Array Navigator", "SELECT user_id FROM array_characters WHERE ABS(position) > 100" },
+						{ "Array Pathfinder", "SELECT user_id FROM array_characters WHERE ABS(position) > 1000" },
+						{ "Array Voyager", "SELECT user_id FROM array_characters WHERE ABS(position) > 10000" },
+						{ "Array Conqueror", "SELECT user_id FROM array_characters WHERE ABS(position) > 100000" },
+						{ "Meta-Fighter", "SELECT DISTINCT u.id AS user_id FROM users u JOIN meta_hero mh ON u.id=mh.user_id JOIN meta_bot mb ON mh.id=mb.hero_id WHERE mb.level>5" },
+						{ "Novice Meta-Fighter", "SELECT DISTINCT u.id AS user_id FROM users u JOIN meta_hero mh ON u.id=mh.user_id JOIN meta_bot mb ON mh.id=mb.hero_id WHERE mb.level>10" },
+						{ "Elite Meta-Fighter", "SELECT DISTINCT u.id AS user_id FROM users u JOIN meta_hero mh ON u.id=mh.user_id JOIN meta_bot mb ON mh.id=mb.hero_id WHERE mb.level>20" },
+						{ "Legendary Meta-Fighter", "SELECT DISTINCT u.id AS user_id FROM users u JOIN meta_hero mh ON u.id=mh.user_id JOIN meta_bot mb ON mh.id=mb.hero_id WHERE mb.level>30" },
+					};
 					foreach (var trophy in trophyCriteria)
 					{
 						var sql = $@"
-                    INSERT INTO user_trophy (user_id, trophy_id)
-                    SELECT u.user_id, tt.id
-                    FROM ({trophy.Value}) u
-                    JOIN user_trophy_type tt ON tt.name = @TrophyName
-                    LEFT JOIN user_trophy ut ON ut.user_id = u.user_id AND ut.trophy_id = tt.id
-                    WHERE ut.user_id IS NULL;
+							INSERT INTO user_trophy (user_id, trophy_id)
+							SELECT u.user_id, tt.id
+							FROM ({trophy.Value}) u
+							JOIN user_trophy_type tt ON tt.name = @TrophyName
+							LEFT JOIN user_trophy ut ON ut.user_id = u.user_id AND ut.trophy_id = tt.id
+							WHERE ut.user_id IS NULL;
 
-                    INSERT INTO notifications (user_id, user_profile_id, text)
-                    SELECT u.user_id, u.user_id, CONCAT('You have been awarded the trophy: ', @TrophyName)
-                    FROM ({trophy.Value}) u
-                    JOIN user_trophy_type tt ON tt.name = @TrophyName
-                    LEFT JOIN user_trophy ut ON ut.user_id = u.user_id AND ut.trophy_id = tt.id
-                    WHERE ut.user_id IS NULL;
-                ";
+							INSERT INTO notifications (user_id, user_profile_id, text)
+							SELECT u.user_id, u.user_id, CONCAT('You have been awarded the trophy: ', @TrophyName)
+							FROM ({trophy.Value}) u
+							JOIN user_trophy_type tt ON tt.name = @TrophyName
+							LEFT JOIN user_trophy ut ON ut.user_id = u.user_id AND ut.trophy_id = tt.id
+							WHERE ut.user_id IS NULL;
+						";
 
 						using (var cmd = new MySqlCommand(sql, conn))
 						{
@@ -1809,10 +1986,10 @@ public class CryptoEvent
 
 	[JsonProperty("proof")]
 	public string? Proof { get; set; }
- 
+
 	public string? TitleText => Title?.English;
 }
-
+  
 public class EventTitle
 {
 	[JsonProperty("en")]

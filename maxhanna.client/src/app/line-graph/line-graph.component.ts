@@ -1038,4 +1038,12 @@ export class LineGraphComponent implements OnInit, OnChanges {
   showOptions() {
     this.isShowingOptions = !this.isShowingOptions;
   }
+
+  scrollToGraph(): void {
+    if (this.canvasDiv) {
+      this.canvasDiv.nativeElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    } else {
+      console.warn('canvasDiv is not available');
+    }
+  }
 }

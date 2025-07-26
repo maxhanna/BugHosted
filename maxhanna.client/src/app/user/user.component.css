@@ -293,15 +293,15 @@
 }
 
 .trophyContainerWrapper {
-  display: flex;
-  flex-wrap: wrap;
-  flex-direction: row;
-  align-content: center;
-  justify-content: center;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(70px, 1fr));
   gap: 20px;
+  justify-content: center;
+  align-content: center;
 }
 
 .trophyContainer {
+  box-sizing: border-box;
   display: flex;
   flex-direction: column;
   padding: 5px 10px;
@@ -335,11 +335,12 @@
 
 .trophy {
   width: 50px;
-  max-height: 50px;
+  height: 50px;
   border: 1px solid var(--main-link-color);
-  border-radius: 12px;
-  font-size: 35px;
-  line-height: 50px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .topProfileContainer {

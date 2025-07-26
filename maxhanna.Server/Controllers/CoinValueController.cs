@@ -1314,12 +1314,69 @@ namespace maxhanna.Server.Controllers
 			}
 		}
 
+		[HttpGet("/CoinValue/GetLatestCoinMarketCaps", Name = "GetLatestCoinMarketCaps")]
+		public async Task<List<CoinMarketCap>> GetLatestCoinMarketCaps()
+		{
+			var coinMarketCaps = new List<CoinMarketCap>();
+
+			MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+			try
+			{
+				await conn.OpenAsync();
+
+				// Get the latest 30 coin market caps, ensuring distinct coins by coin_id
+				string sql = @"
+					SELECT coin_id, symbol, name, market_cap_usd, market_cap_cad, price_usd, price_cad, 
+						price_change_percentage_24h, inflow_change_24h, recorded_at
+					FROM coin_market_caps
+					WHERE recorded_at IN (
+						SELECT MAX(recorded_at)
+						FROM coin_market_caps
+						GROUP BY coin_id
+					)
+					ORDER BY market_cap_usd DESC
+					LIMIT 30";
+
+				MySqlCommand cmd = new MySqlCommand(sql, conn);
+				using (var reader = await cmd.ExecuteReaderAsync())
+				{
+					while (await reader.ReadAsync())
+					{
+						var coinMarketCap = new CoinMarketCap
+						{
+							CoinId = reader.IsDBNull(reader.GetOrdinal("coin_id")) ? null : reader.GetString(reader.GetOrdinal("coin_id")),
+							Symbol = reader.IsDBNull(reader.GetOrdinal("symbol")) ? null : reader.GetString(reader.GetOrdinal("symbol")),
+							Name = reader.IsDBNull(reader.GetOrdinal("name")) ? null : reader.GetString(reader.GetOrdinal("name")),
+							MarketCapUSD = reader.IsDBNull(reader.GetOrdinal("market_cap_usd")) ? 0 : reader.GetDecimal(reader.GetOrdinal("market_cap_usd")),
+							MarketCapCAD = reader.IsDBNull(reader.GetOrdinal("market_cap_cad")) ? 0 : reader.GetDecimal(reader.GetOrdinal("market_cap_cad")),
+							PriceUSD = reader.IsDBNull(reader.GetOrdinal("price_usd")) ? 0 : reader.GetDecimal(reader.GetOrdinal("price_usd")),
+							PriceCAD = reader.IsDBNull(reader.GetOrdinal("price_cad")) ? 0 : reader.GetDecimal(reader.GetOrdinal("price_cad")),
+							PriceChangePercentage24h = reader.IsDBNull(reader.GetOrdinal("price_change_percentage_24h")) ? 0 : reader.GetDecimal(reader.GetOrdinal("price_change_percentage_24h")),
+							InflowChange24h = reader.IsDBNull(reader.GetOrdinal("inflow_change_24h")) ? 0 : reader.GetDecimal(reader.GetOrdinal("inflow_change_24h")),
+							RecordedAt = reader.GetDateTime(reader.GetOrdinal("recorded_at"))
+						};
+						coinMarketCaps.Add(coinMarketCap);
+					}
+				}
+			}
+			catch (Exception ex)
+			{
+				_ = _log.Db($"An error occurred while trying to get the latest coin market caps: {ex.Message}", null, "MCS", true);
+			}
+			finally
+			{
+				await conn.CloseAsync();
+			}
+
+			return coinMarketCaps;
+		}
+
 		private async Task<CryptoWallet?> GetWalletFromDb(int? userId, string type)
 		{
 			if (userId == null) { return null; }
 			type = type.ToLower();
 			if (type != "btc" && type != "usdc" && type != "xrp" && type != "sol" && type != "xdg" && type != "eth") return null;
- 
+
 			var wallet = new CryptoWallet
 			{
 				total = new Total

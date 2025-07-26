@@ -149,7 +149,8 @@
           <span class="indicator-value" [class.positive]="tradeIndicators.twoHundredDayMA">
             {{ tradeIndicators.twoHundredDayMA ? 'Yes' : 'No' }}
             <div class="indicator-value" [class]="tradeIndicators.twoHundredDayMA ? 'positive' : 'vwap-value'">
-              {{ tradeIndicators.twoHundredDayMAValue | currency:'USD':'symbol':'1.2-2' }}
+              {{ getConvertedCurrencyValueRespectToFiat(tradeIndicators.twoHundredDayMAValue) |
+              currencySymbol:(selectedCurrency):true }}
             </div>
           </span>
         </div>
@@ -163,7 +164,8 @@
           <span class="indicator-value" [class.positive]="tradeIndicators.fourteenDayMA">
             {{ tradeIndicators.fourteenDayMA ? 'Yes' : 'No' }}
             <div class="indicator-value" [class]="tradeIndicators.fourteenDayMA ? 'positive' : 'vwap-value'">
-              {{ tradeIndicators.fourteenDayMAValue | currency:'USD':'symbol':'1.2-2' }}
+              {{ getConvertedCurrencyValueRespectToFiat(tradeIndicators.fourteenDayMAValue) |
+              currencySymbol:(selectedCurrency):true }}
             </div>
           </span>
         </div>
@@ -177,7 +179,8 @@
           <span class="indicator-value" [class.positive]="tradeIndicators.twentyOneDayMA">
             {{ tradeIndicators.twentyOneDayMA ? 'Yes' : 'No' }}
             <div class="indicator-value" [class]="tradeIndicators.twentyOneDayMA ? 'positive' : 'vwap-value'">
-              {{ tradeIndicators.twentyOneDayMAValue | currency:'USD':'symbol':'1.2-2' }}
+              {{ getConvertedCurrencyValueRespectToFiat(tradeIndicators.twentyOneDayMAValue) |
+              currencySymbol:(selectedCurrency):true }}
             </div>
           </span>
         </div>
@@ -204,7 +207,8 @@
             {{ tradeIndicators.vwaP24Hour ? 'Yes' : 'No' }}
           </div>
           <div class="indicator-value" [class]="tradeIndicators.vwaP24Hour ? 'positive' : 'vwap-value'">
-            {{ tradeIndicators.vwaP24HourValue | currency:'USD':'symbol':'1.2-2' }}
+            {{ getConvertedCurrencyValueRespectToFiat(tradeIndicators.vwaP24HourValue) |
+            currencySymbol:(selectedCurrency):true }}
           </div>
         </div>
 
@@ -217,8 +221,10 @@
             {{ tradeIndicators.volumeAbove20DayAverage ? 'Yes' : 'No' }}
           </div>
           <div class="bold smallFont" [class]="tradeIndicators.volumeAbove20DayAverage ? 'positive' : 'negative'">
-            {{ formatLargeNumber(tradeIndicators.volume20DayAverageValue) }}
-            / {{ formatLargeNumber(tradeIndicators.currentVolumeValue) }}
+            {{ getConvertedCurrencyValueRespectToFiat(tradeIndicators.volume20DayAverageValue) |
+            currencySymbol:(selectedCurrency):false }}
+            / {{ getConvertedCurrencyValueRespectToFiat(tradeIndicators.currentVolumeValue) |
+            currencySymbol:(selectedCurrency):false }}
           </div>
         </div>
 
@@ -339,53 +345,13 @@
     <div *ngIf="!isTradePanelOpen" class="sectionContainer">
       <app-crypto-fear-and-greed [inputtedParentRef]="parentRef"></app-crypto-fear-and-greed>
     </div>
-    <div *ngIf="!isTradePanelOpen && topMarketCaps?.length > 0; else loading" class="sectionContainer">
-      <table class="mainTable">
-        <thead>
-          <tr>
-            <th></th>
-            <th>Price</th>
-            <th>24h %</th>
-            <th>Market Cap</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr *ngFor="let coin of topMarketCaps" (click)="selectCoin(coin.name)">
-            <td [class]="'cursorPointer' + onMobile() ? ' smallFont' : ''">
-              <img [src]="coin.image" alt="{{coin.name}}" width="24" height="24" />
-              <span>
-                {{ coin.name }}
-                <span *ngIf="coin.name.toLowerCase() != coin.symbol.toLowerCase()"
-                  [class]="onMobile() ? 'xxSmallFont' : ''">
-                  ({{ coin.symbol.toUpperCase() }})
-                </span>
-              </span>
-            </td>
-            <td [class]="onMobile() ? 'xxSmallFont' : ''">
-              ${{ coin.current_price | number:'1.2-2' }}
-            </td>
-            <td [style.color]="coin.price_change_percentage_24h >= 0 ? 'green' : 'red'"
-              [class]="onMobile() ? 'xxSmallFont' : ''">
-              {{ coin.price_change_percentage_24h | number:'1.2-2' }}%
-            </td>
-            <td [class]="onMobile() ? 'xxSmallFont' : ''">
-              {{ coin.market_cap | currencyShorten:onMobile() }}
-            </td>
-          </tr>
-          <tr class="totalMarketCapTotalRow">
-            <td colspan="3" [class]="onMobile() ? 'xxSmallFont' : ''"><strong>Total Market Capital:</strong></td>
-            <td>{{ (globalCryptoStats?.latest?.totalMarketCap ?? totalMarketCap) | currencyShorten }}</td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-
-    <ng-template #loading>
-      <p *ngIf="!isTradePanelOpen">Loading coin market caps...</p>
-    </ng-template>
+    <div *ngIf="!isTradePanelOpen" class="sectionContainer">
+      <div class="sectionName" style="margin-bottom: 15px; margin-top: 8px;">Top 30 Coin Market Caps</div>
+      <app-crypto-market-caps #cryptoMarketCapsComponent [selectedCurrency]="selectedCurrency" [conversionRate]="latestCurrencyPriceRespectToCAD" (selectCoin)="selectCoin($event)"></app-crypto-market-caps>
+    </div> 
   </div>
   <div [class]="isTradePanelOpen ? 'fullScreenTradePanelDiv' : 'hubSection miningHubSection'"
-    *ngIf="latestCurrencyPriceRespectToCAD && latestCurrencyPriceRespectToCAD != 0">
+    *ngIf="latestCurrencyPriceRespectToCAD && latestCurrencyPriceRespectToCAD != 0 && selectedCurrency">
     <app-mining-rigs [style.display]="isTradePanelOpen ? 'none' : 'block'" #miningRigComponent
       [isDiscreete]="isDiscreete" [inputtedParentRef]="parentRef" [conversionRate]="latestCurrencyPriceRespectToCAD"
       [currency]="selectedCurrency" (closeMiningEvent)="closeMiningEvent()"></app-mining-rigs>
@@ -394,14 +360,14 @@
       <div class="sectionName cryptoWalletSectionHeader" *ngIf="latestCurrencyPriceRespectToCAD && wallet"
         style="margin-bottom:10px;">Crypto Wallet Balance(s):
       </div>
-      <table *ngIf="latestCurrencyPriceRespectToCAD && wallet" id="walletTable" class="mainTable">
+      <table *ngIf="latestCurrencyPriceRespectToCAD && wallet && selectedCurrency" id="walletTable" class="mainTable">
         <thead *ngIf="wallet?.length">
           <tr>
             <th (click)="areWalletAddressesHidden = !areWalletAddressesHidden"
               class="cursorPointerUnderlined normalBtcAddress">Address</th>
             <th (click)="sortTable(1, 'walletTable')">Currency</th>
             <th (click)="sortTable(2, 'walletTable')">Total Balance</th>
-            <th (click)="sortTable(3, 'walletTable')" title="Fiat rate">${{selectedCurrency}}</th>
+            <th (click)="sortTable(3, 'walletTable')" title="Fiat rate">{{ null | currencySymbol:(selectedCurrency) }}{{selectedCurrency}}</th>
             <th (click)="sortTable(4, 'walletTable')" title="Wallet data"></th>
           </tr>
         </thead>
@@ -412,7 +378,7 @@
               <td></td>
               <td>{{ subWallet.total?.currency }}</td>
               <td>{{ isDiscreete ? '***' : subWallet.total?.totalBalance }}</td>
-              <td>{{ isDiscreete ? '***' : getTotalCurrencyDisplayValue(subWallet.total) }}</td>
+              <td>{{ (isDiscreete ? '***' : getTotalCurrencyDisplayValue(subWallet.total)) | currencySymbol:selectedCurrency:true }}</td>
               <td></td>
             </tr>
           </ng-container>
@@ -425,7 +391,8 @@
               </td>
               <td>{{ currency.currency }}</td>
               <td>{{ isDiscreete ? '***' : currency.totalBalance }}</td>
-              <td>{{ isDiscreete ? '***' : getCurrencyDisplayValue(currency.currency, currency) }}</td>
+              <td>{{ (isDiscreete ? '***' : getCurrencyValue(currency.currency, currency)) |
+                currencySymbol:selectedCurrency:true }}</td>
               <td title="Wallet data" class="cursorPointer" (click)="showWalletData(currency)">ℹ️</td>
             </tr>
           </ng-container>
@@ -495,19 +462,28 @@
               <span class="sectionName">Last:</span>
               <span>
                 <span *ngIf="lastTradebotTrade">
-                  <span class="xxSmallFont">[{{ lastTradebotTrade['timestamp'] }}]</span>
-                  {{lastTradebotTrade['fromCoin']}}|{{lastTradebotTrade['toCoin']}} {{ lastTradebotTrade['strategy'] }}
-                  <span
-                    [class]="'thirdFontColor' + (lastTradebotTrade['buyOrSell'] == 'Sell' ? ' negative' : ' positive')">{{lastTradebotTrade['value']}}</span>(<span
-                    [class]="lastTradebotTrade['buyOrSell'] != 'Sell' ? 'negative' : 'positive'">{{lastTradebotTrade['valuePrice']}}</span>)
-                  &#64;
-                  {{lastTradebotTrade['tradePrice']}}
-                </span>
-                <span *ngIf="lastTradePercentage !== null"
-                  [title]="lastTradePercentage >= 0 ? 'Price has increased by ' + lastTradePercentage.toFixed(2) + '% since last trade.' : 'Price has decreased by ' + lastTradePercentage.toFixed(2) + '% since last trade.'"
-                  class="cursorPointer xxSmallFont" [class.positive-percent]="lastTradePercentage >= 0"
-                  [class.negative-percent]="lastTradePercentage < 0">
-                  ({{ lastTradePercentage.toFixed(2) }}%)
+                  <span [class]="onMobile() ? 'xxSmallFont' : ''" [title]="lastTradebotTrade['timestamp']">[{{ lastTradebotTrade['timestamp'] }}]</span>
+      <span [class]="lastTradebotTrade['buyOrSell'] === 'Sell' ? 'negative' : 'positive'">
+        {{ lastTradebotTrade['buyOrSell'] === 'Buy' ?
+        'Buy ' + lastTradebotTrade['value'] + ' ' + lastTradebotTrade['toCoin'] :
+        'Sold ' + lastTradebotTrade['value'] + ' ' + lastTradebotTrade['fromCoin'] }}
+      </span>|
+      <span [class]="lastTradebotTrade['buyOrSell'] === 'Buy' ? 'negative' : 'positive'">
+        {{ lastTradebotTrade['buyOrSell'] === 'Buy' ?
+        'Cost: ' + lastTradebotTrade['valuePrice'] + ' ' + lastTradebotTrade['fromCoin'] :
+        'Received: ' + lastTradebotTrade['valuePrice'] + ' ' + lastTradebotTrade['toCoin'] }}
+      </span>
+      <span class="smallFont thirdFontColor">
+&#64; {{ lastTradebotTrade['tradePrice'] }} per {{ lastTradebotTrade['buyOrSell'] === 'Buy' ?
+lastTradebotTrade['toCoin'] : lastTradebotTrade['fromCoin'] }}
+({{ lastTradebotTrade['strategy'] }})
+      </span>
+                  <span *ngIf="lastTradePercentage !== null"
+                    [title]="lastTradePercentage >= 0 ? 'Price has increased by ' + lastTradePercentage.toFixed(2) + '% since last trade.' : 'Price has decreased by ' + lastTradePercentage.toFixed(2) + '% since last trade.'"
+                    class="cursorPointer xxSmallFont" [class.positive-percent]="lastTradePercentage >= 0"
+                    [class.negative-percent]="lastTradePercentage < 0">
+                    ({{ lastTradePercentage.toFixed(2) }}%)
+                  </span>
                 </span>
               </span>
             </div>
@@ -519,12 +495,13 @@
                 'cursorPointerUnderlined': !showingTradeLogs
               }" (click)="onSmallLogClick()">{{lastLogEntry}}</span>
             </div>
-            <div *ngIf="isTradePanelOpen">
+            <div *ngIf="isTradePanelOpen && selectedCurrency">
               <span class="sectionName">Current Prices:</span>
               <span class="smallFont">
                 <span *ngFor="let coin of getActiveTradebotCoins(); let last = last">
-                  <span class="thirdFontColor">{{ coin }}:</span> {{
-                  formatToCanadianCurrency(getTradebotCoinPrice(coin)) }}<span *ngIf="!last"> | </span>
+                  <span class="thirdFontColor">{{ coin }}:</span>
+                  &nbsp;{{ getTradebotCoinPrice(coin) | currencySymbol:(selectedCurrency):true }}
+                  <span *ngIf="!last"> | </span>
                 </span>
               </span>
             </div>
@@ -707,9 +684,11 @@
                 <td [class]="'negative' + (onMobile() ? ' xxSmallFont' : '')">{{ formatToCanadianCurrency(trade.fees) }}
                 </td>
                 <td [class]="'secondaryFontColor' + (onMobile() ? ' xxSmallFont' : '')"
-                  [title]="parentRef?.convertUtcToLocalTime(trade.timestamp)">{{
-                  parentRef?.convertUtcToLocalTime(trade.timestamp) | timeSince }}</td>
-                <td class="xxSmallFont" [title]="trade.matching_trade_id"
+                  [title]="parentRef?.convertUtcToLocalTime(trade.timestamp)">
+                  <span *ngIf="!onMobile()">{{parentRef?.convertUtcToLocalTime(trade.timestamp)}}&nbsp;-&nbsp;</span>
+                  {{ parentRef?.convertUtcToLocalTime(trade.timestamp) | timeSince }}
+                </td>
+                <td [class]="onMobile() ? 'xxSmallFont' : ''" [title]="trade.matching_trade_id"
                   (click)="goToTradeId('tradeBalance'+trade.matching_trade_id)">
                   {{ trade.matching_trade_id ?? (trade.is_reserved ? 'Reserved': '') }}
                 </td>
@@ -718,9 +697,12 @@
           </table>
         </div>
       </div>
-      <div *ngIf="showingTradeSettings" class="optionsStatsWrapperDiv tradeDataTable"
-        [style.opacity]="isLoading ? '25%' : ''" [style.maxWidth]="'500px'">
+      <div
+        *ngIf="showingTradeSettings && btcToCadPrice && solToCadPrice && xrpToCadPrice && xdgToCadPrice && ethToCadPrice"
+        [style.opacity]="isLoading ? '25%' : ''">
         <app-crypto-bot-configuration #configurationComponent [inputtedParentRef]="parentRef"
+          [btcToCadPrice]="btcToCadPrice" [solToCadPrice]="solToCadPrice" [xrpToCadPrice]="xrpToCadPrice"
+          [xdgToCadPrice]="xdgToCadPrice" [ethToCadPrice]="ethToCadPrice"
           (updatedTradeConfig)="updatedTradeConfigEvent($event)"></app-crypto-bot-configuration>
       </div>
       <div *ngIf="isShowingTradeValueGraph">
@@ -959,8 +941,10 @@
       Something went wrong, please refresh this component after a while.
     </div>
 
-    <div *ngIf="!isTradePanelOpen && globalCryptoStats" class="sectionContainer">
-      <app-crypto-global-stats [metrics]="globalCryptoStats"></app-crypto-global-stats>
+    <div *ngIf="!isTradePanelOpen && globalCryptoStats && selectedCurrency" class="sectionContainer">
+      <app-crypto-global-stats [selectedCurrency]="selectedCurrency"
+        [latestCurrencyPriceRespectToFIAT]="latestCurrencyPriceRespectToFIAT"
+        [metrics]="globalCryptoStats"></app-crypto-global-stats>
     </div>
     <div *ngIf="!isTradePanelOpen" class="sectionContainer">
       <app-crypto-calendar [inputtedParentRef]="parentRef"></app-crypto-calendar>

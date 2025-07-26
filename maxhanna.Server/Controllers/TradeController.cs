@@ -345,7 +345,7 @@ public class TradeController : ControllerBase
 		try
 		{
 			if (!await _log.ValidateUserLoggedIn(req.UserId, encryptedUserId)) return StatusCode(500, "Access Denied.");
-			bool ok = await _krakenService.ExitPosition(req.UserId, req.Coin, null, "XXX");
+			bool ok = await _krakenService.ExitPosition(req.UserId, req.Coin, null, null);
 			return Ok(ok);
 		}
 		catch (Exception ex)

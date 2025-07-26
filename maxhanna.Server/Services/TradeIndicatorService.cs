@@ -455,26 +455,20 @@ namespace maxhanna.Server.Services
 			const int HighLookbackDays = 365;             // 0 = use ALL data
 
 			var highSql = $@"
-                SELECT MAX(daily_price) FROM (
-                    SELECT DATE(timestamp) AS d,
-                        AVG(value_usd)  AS daily_price
-                    FROM   coin_value
-                    WHERE  name       = @coinName
-                    {(HighLookbackDays > 0
-									? "AND timestamp >= DATE_SUB(CURRENT_TIMESTAMP, INTERVAL @Days DAY)"
-									: string.Empty)}
-                    GROUP  BY DATE(timestamp)
-                ) t;";
+                SELECT MAX(value_usd)   
+				FROM coin_value
+				WHERE name = @coinName
+				{(HighLookbackDays > 0
+				? "AND timestamp >= DATE_SUB(CURRENT_TIMESTAMP, INTERVAL @Days DAY)"
+				: string.Empty)}
+				LIMIT 1;";
 
 			const string curSql = @"
-                SELECT AVG(value_usd)
-                FROM   coin_value
-                WHERE  name = @coinName
-                AND  timestamp = (
-                        SELECT MAX(timestamp)
-                        FROM   coin_value
-                        WHERE  name = @coinName
-                    );";
+                SELECT value_usd
+				FROM   coin_value
+				WHERE  name = @coinName
+				ORDER  BY timestamp DESC
+				LIMIT  1;";
 
 			for (int attempt = 1; attempt <= MaxRetries; attempt++)
 			{

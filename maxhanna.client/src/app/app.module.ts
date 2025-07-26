@@ -60,10 +60,12 @@ import { TimeFormatPipe } from './time-format.pipe';
 import { TimeSincePipe } from './time-since.pipe';
 import { NexusMovementComponent } from './nexus-movement/nexus-movement.component';
 import { CurrencyShortenPipe } from './currency-shorten';
+import { CurrencySymbolPipe } from './currency-symbol';
 import { CryptoCalendarComponent } from './crypto-calendar/crypto-calendar.component';
 import { CryptoFearAndGreedComponent } from './crypto-fear-and-greed/crypto-fear-and-greed.component';
 import { CryptoGlobalStatsComponent } from './crypto-global-stats/crypto-global-stats.component';
 import { CryptoBotConfigurationComponent } from './crypto-bot-configuration/crypto-bot-configuration.component';
+import { CryptoMarketCapsComponent } from './crypto-market-caps/crypto-market-caps.component';
 
 @NgModule({
   declarations: [
@@ -110,7 +112,7 @@ import { CryptoBotConfigurationComponent } from './crypto-bot-configuration/cryp
     MetaComponent,
     ClickableUrlsPipe,
     CurrencyFlagPipe,
-    CurrencyShortenPipe, 
+    CurrencyShortenPipe,  
     HostAiComponent,
     ThemesComponent,
     CrawlerComponent,
@@ -118,7 +120,8 @@ import { CryptoBotConfigurationComponent } from './crypto-bot-configuration/cryp
     TopComponent,
     NexusMovementComponent,
     CryptoCalendarComponent,
-    CryptoBotConfigurationComponent, 
+    CryptoBotConfigurationComponent,
+    CryptoMarketCapsComponent, 
   ],
   bootstrap: [AppComponent],
   imports: [BrowserModule,
@@ -128,6 +131,7 @@ import { CryptoBotConfigurationComponent } from './crypto-bot-configuration/cryp
     FileSizePipe, 
     AppRoutingModule,
     CryptoFearAndGreedComponent,
+    CurrencySymbolPipe,
     CryptoGlobalStatsComponent],
   exports: [
     InViewDirective,
@@ -136,6 +140,7 @@ import { CryptoBotConfigurationComponent } from './crypto-bot-configuration/cryp
     TimeSincePipe,
     CurrencyFlagPipe,
     CurrencyShortenPipe,
+    CurrencySymbolPipe,
     FileSizePipe
   ],
   providers: [

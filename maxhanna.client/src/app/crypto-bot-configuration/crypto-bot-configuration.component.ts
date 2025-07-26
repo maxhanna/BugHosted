@@ -12,6 +12,11 @@ import { ChildComponent } from '../child.component';
 export class CryptoBotConfigurationComponent extends ChildComponent {
   constructor(private tradeService: TradeService) { super(); }
   @Input() inputtedParentRef?: AppComponent;
+  @Input() btcToCadPrice?: number;
+  @Input() ethToCadPrice?: number;
+  @Input() xrpToCadPrice?: number;
+  @Input() xdgToCadPrice?: number;
+  @Input() solToCadPrice?: number;
   @Output() updatedTradeConfig = new EventEmitter<string>();
 
   @ViewChild('tradeFromCoinSelect') tradeFromCoinSelect?: ElementRef<HTMLSelectElement>;
@@ -51,18 +56,32 @@ export class CryptoBotConfigurationComponent extends ChildComponent {
     const strategy = getVal(this.tradeStrategySelect);
 
     if (!fromCoin) return alert("Invalid 'From' coin.");
-    if (!toCoin) return alert("Invalid 'To' coin.");
+    if (!toCoin) return alert("Invalid 'To' coin."); 
+    const minCoinAmount = this.getMinimumCryptoAmount(fromCoin, 5);
+
+    const minFromAmount = parseNum(getVal(this.tradeMinimumFromTradeAmount)) ?? 0;
+    if (minFromAmount < minCoinAmount) {
+      return alert(`Min ${fromCoin} per Trade must be greater than ${minCoinAmount}.`);
+    }
+    const minFromAmountToStart = parseNum(getVal(this.tradeInitialMinimumFromAmountToStart)) ?? 0;
+    if (minFromAmountToStart < minCoinAmount) { 
+      return alert(`Min ${fromCoin} to Start must be greater than ${minCoinAmount}.`);
+    }
+    const minToAmountToStart = parseNum(getVal(this.tradeInitialMinimumUSDCAmountToStart)) ?? 0;
+    if (minToAmountToStart < 5) {
+      return alert(`Min USDC to Start must be greater than 5.`); 
+    }
 
     const fields = {
       MaximumFromTradeAmount: parseNum(getVal(this.tradeMaximumFromTradeAmount)),
-      MinimumFromTradeAmount: parseNum(getVal(this.tradeMinimumFromTradeAmount)),
+      MinimumFromTradeAmount: minFromAmount,
       TradeThreshold: parseNum(getVal(this.tradeTradeThreshold)),
       MaximumTradeBalanceRatio: parseNum(getVal(this.tradeMaximumTradeBalanceRatio)),
       MaximumToTradeAmount: parseNum(getVal(this.tradeMaximumToTradeAmount)),
       ValueTradePercentage: parseNum(getVal(this.tradeValueTradePercentage)),
       ValueSellPercentage: parseNum(getVal(this.tradeValueSellPercentage)),
-      InitialMinimumFromAmountToStart: parseNum(getVal(this.tradeInitialMinimumFromAmountToStart)),
-      InitialMinimumUSDCAmountToStart: parseNum(getVal(this.tradeInitialMinimumUSDCAmountToStart)),
+      InitialMinimumFromAmountToStart: minFromAmountToStart,
+      InitialMinimumUSDCAmountToStart: minToAmountToStart,
       InitialMaximumUSDCAmountToStart: parseNum(getVal(this.tradeInitialMaximumUSDCAmountToStart)),
       MinimumFromReserves: parseNum(getVal(this.tradeMinimumFromReserves)),
       MinimumToReserves: parseNum(getVal(this.tradeMinimumToReserves)),
@@ -229,12 +248,62 @@ export class CryptoBotConfigurationComponent extends ChildComponent {
   tradeStrategySelectChange() {
     this.getTradeConfiguration();
   } 
+ 
   toggleExplanation(event: Event) {
     const target = event.currentTarget as HTMLElement;
-    target.classList.toggle('expanded');
-  } 
+    const explanation = target.closest('.config-box')?.querySelector('.config-explanation');
+
+    if (explanation) {
+      explanation.classList.toggle('expanded');
+
+      // Rotate the info icon when expanded
+      const icon = target.querySelector('.info-icon');
+      if (icon) {
+        if (explanation.classList.contains('expanded')) {
+          icon.classList.add('expanded');
+        } else {
+          icon.classList.remove('expanded');
+        }
+      }
+    }
+  }
   multiplyBy100(value: string) {
     if (!value) return 0;
     return parseFloat(value) * 100;
+  }
+  normalizeCoinName(coin?: string) {
+    if (coin == "XBT") {
+      return "Bitcoin";
+    }
+    if (coin == "XDG") {
+      return "Dogecoin";
+    }
+    if (coin == "SOL") {
+      return "Solana";
+    }
+    if (coin == "ETH") {
+      return "Ethereum";
+    }
+    return coin;
+  }
+  getMinimumCryptoAmount(coinSymbol: string, minFiatAmount: number = 5): number { 
+    const priceMap: Record<string, number | undefined> = {
+      btc: this.btcToCadPrice,
+      xbt: this.btcToCadPrice,
+      eth: this.ethToCadPrice,
+      ethereum: this.ethToCadPrice,
+      xrp: this.xrpToCadPrice,
+      xdg: this.xdgToCadPrice,
+      dogecoin: this.xdgToCadPrice,
+      sol: this.solToCadPrice,
+      solana: this.solToCadPrice
+    };
+
+    const coinPrice = priceMap[coinSymbol.toLowerCase()];
+
+    if (!coinPrice || coinPrice <= 0) return 0; // Handle missing/negative prices
+
+    const cryptoAmount = minFiatAmount / coinPrice;
+    return parseFloat(cryptoAmount.toFixed(8)); // Standard crypto precision
   }
 }

@@ -42,21 +42,20 @@
         <!-- Always Visible -->
         <div class="metric-card">
             <h4>Total Market Cap</h4>
-            <p>{{ formatNumber(metrics.latest?.totalMarketCap) }}</p>
+            <p>{{ getConvertedCurrencyValueRespectToFiat(metrics.latest?.totalMarketCap) | currencySymbol:(selectedCurrency):false }}</p>
         </div>
         <div class="metric-card">
             <h4>24h Volume</h4>
-            <p>{{ formatNumber(metrics.latest?.totalVolume24h) }}</p>
+            <p>{{ getConvertedCurrencyValueRespectToFiat(metrics.latest?.totalVolume24h) | currencySymbol:(selectedCurrency):false }}</p>
         </div>
-        <div class="metric-card">
-            <h4>Active Cryptocurrencies</h4>
-            <p>{{ formatNumber(metrics.latest?.activeCryptocurrencies) }}</p>
-        </div>
-        <div class="metric-card">
-            <h4>Active Exchanges</h4>
-            <p>{{ formatNumber(metrics.latest?.activeExchanges) }}</p>
-        </div>
-
+            <div class="metric-card">
+                <h4>Active Cryptocurrencies</h4>
+                <p>{{ metrics.latest?.activeCryptocurrencies }}</p>
+            </div>
+            <div class="metric-card">
+                <h4>Active Exchanges</h4>
+                <p>{{ metrics.latest?.activeExchanges }}</p>
+            </div>
         <!-- Conditionally Visible Extra Metrics -->
         <ng-container *ngIf="showExtraMetrics">
             <div class="metric-card">
@@ -69,31 +68,31 @@
             </div>
             <div class="metric-card">
                 <h4>Altcoin Market Cap</h4>
-                <p>{{ formatNumber(metrics.latest?.altcoinMarketCap) }}</p>
+                <p>{{ getConvertedCurrencyValueRespectToFiat(metrics.latest?.altcoinMarketCap) | currencySymbol:(selectedCurrency):false }}</p>
             </div>
             <div class="metric-card">
                 <h4>Altcoin 24h Volume</h4>
-                <p>{{ formatNumber(metrics.latest?.altcoinVolume24h) }}</p>
+                <p>{{ getConvertedCurrencyValueRespectToFiat(metrics.latest?.altcoinVolume24h) | currencySymbol:(selectedCurrency):false }}</p>
             </div>
             <div class="metric-card">
                 <h4>DeFi Market Cap</h4>
-                <p>{{ formatNumber(metrics.latest?.defiMarketCap) }}</p>
+                <p>{{ getConvertedCurrencyValueRespectToFiat(metrics.latest?.defiMarketCap) | currencySymbol:(selectedCurrency):false }}</p>
             </div>
             <div class="metric-card">
                 <h4>DeFi 24h Volume</h4>
-                <p>{{ formatNumber(metrics.latest?.defiVolume24h) }}</p>
+                <p>{{ getConvertedCurrencyValueRespectToFiat(metrics.latest?.defiVolume24h) | currencySymbol:(selectedCurrency):false }}</p>
             </div>
             <div class="metric-card">
                 <h4>Stablecoin Market Cap</h4>
-                <p>{{ formatNumber(metrics.latest?.stablecoinMarketCap) }}</p>
+                <p>{{ getConvertedCurrencyValueRespectToFiat(metrics.latest?.stablecoinMarketCap) | currencySymbol:(selectedCurrency):false }}</p>
             </div>
             <div class="metric-card">
                 <h4>Stablecoin 24h Volume</h4>
-                <p>{{ formatNumber(metrics.latest?.stablecoinVolume24h) }}</p>
+                <p>{{ getConvertedCurrencyValueRespectToFiat(metrics.latest?.stablecoinVolume24h) | currencySymbol:(selectedCurrency):false }}</p>
             </div>
             <div class="metric-card">
                 <h4>Derivatives 24h Volume</h4>
-                <p>{{ formatNumber(metrics.latest?.derivativesVolume24h) }}</p>
+                <p>{{ getConvertedCurrencyValueRespectToFiat(metrics.latest?.derivativesVolume24h) | currencySymbol:(selectedCurrency):false }}</p>
             </div>
             <div class="metric-card">
                 <h4>Active Market Pairs</h4>

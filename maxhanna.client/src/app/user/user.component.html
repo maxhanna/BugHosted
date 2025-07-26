@@ -408,7 +408,7 @@
         <div *ngIf="isTrophyExpanded" class="trophyContainerWrapper">
           <div *ngFor="let trophy of trophies">
             <div class="trophyContainer">
-              <div class="trophy" [style.backgroundColor]="
+              <div class="trophy cursorPointer" [style.backgroundColor]="
                    trophy.name == 'Bug Hunter' ? 'mediumblue'
                    : trophy.name == 'Owner' ? 'crimson'
                    : 'default'">
@@ -421,7 +421,7 @@
                                   [previousComponent]="previousComponent ?? 'User'">
                 </app-media-viewer>
               </div>
-              <div>
+              <div class="thirdFontColor" [title]="trophy.name">
                 {{trophy.name}}
               </div>
             </div>

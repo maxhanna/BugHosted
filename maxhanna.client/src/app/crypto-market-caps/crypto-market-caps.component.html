@@ -1,0 +1,34 @@
+<div class="market-caps-container" *ngIf="coinMarketCaps && coinMarketCaps.length > 0 && conversionRate">
+    <table class="market-caps-table mainTable" id="marketCapsTable">
+        <thead>
+            <tr>
+                <th (click)="sortTable(0, 'marketCapsTable')">Name</th>
+                <th (click)="sortTable(1, 'marketCapsTable')" [title]="'Price ' + selectedCurrency">Price</th>
+                <th (click)="sortTable(2, 'marketCapsTable')" [title]="'Market Cap ' + selectedCurrency">Market Cap</th>
+                <th (click)="sortTable(3, 'marketCapsTable')" title="24h Price Change (%)">Price &Delta;</th>
+                <th (click)="sortTable(4, 'marketCapsTable')" title="24h Inflow Change (USD)">Inflow</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr *ngFor="let coin of (expand ? coinMarketCaps : coinMarketCaps.slice(0, 10)); index as i"
+                (click)="selectCoin.emit(coin.name)">
+                <td><span [class]="'thirdFontColor' + (onMobile() ? ' xxSmallFont' : '')">{{ i + 1 }}.</span> {{
+                    coin.name }} <span class="secondaryFontColor smallFont">[{{ coin.symbol }}]</span></td>
+                <td [title]="coin.priceCAD * conversionRate">{{ coin.priceCAD * conversionRate |
+                    currencySymbol:selectedCurrency:false }}</td>
+                <td [title]="coin.marketCapCAD * conversionRate">{{ coin.marketCapCAD * conversionRate |
+                    currencySymbol:selectedCurrency:false }}</td>
+                <td [class]="coin.priceChangePercentage24h >= 0 ? 'positive' : 'negative'">
+                    {{ coin.priceChangePercentage24h | number:'1.2-2' }}%
+                </td>
+                <td [title]="coin.inflowChange24h" [class]="coin.inflowChange24h >= 0 ? 'positive' : 'negative'">
+                    {{ coin.inflowChange24h | currencySymbol:selectedCurrency:false }}
+                </td>
+            </tr>
+        </tbody>
+    </table>
+    <button (click)="expand = !expand">Expand</button>
+</div>
+<div *ngIf="isLoading && !(coinMarketCaps && coinMarketCaps.length > 0 && conversionRate)">
+    Loading Market Caps...
+</div>

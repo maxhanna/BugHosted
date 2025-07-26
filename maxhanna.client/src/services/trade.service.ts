@@ -50,11 +50,7 @@ export class TradeService {
       console.error(error);
       return error.message ?? 'Unexpected error';
     }
-  } 
-  async getTopMarketCaps(): Promise<any> {
-    const url = 'https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=10&page=1';
-    return this.get(url);
-  }
+  }  
   async getTradeHistory(userId: number, encryptedUserId: string, coin?: string, strategy?: string) {
     return this.post(`/trade/gettradehistory`, { UserId: userId, Coin: coin ?? "XBT", Strategy: strategy ?? "DCA" }, 'json', encryptedUserId);
   }  

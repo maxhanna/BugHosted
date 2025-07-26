@@ -1,18 +1,21 @@
-import { Component, Input, OnInit } from '@angular/core';
+import { Component, Input, OnInit } from '@angular/core'; 
+import { ChartOptions, ChartConfiguration } from 'chart.js';
+import { TradeService } from '../../services/trade.service'; 
 import { CommonModule } from '@angular/common';
 import { BaseChartDirective } from 'ng2-charts';
-import { ChartOptions, ChartConfiguration } from 'chart.js';
-import { TradeService } from '../../services/trade.service';
+import { CurrencySymbolPipe } from '../currency-symbol';
 
 @Component({
   selector: 'app-crypto-global-stats',
-  standalone: true,
-  imports: [BaseChartDirective, CommonModule],
+  standalone: true, 
   templateUrl: './crypto-global-stats.component.html',
-  styleUrls: ['./crypto-global-stats.component.css']
+  styleUrls: ['./crypto-global-stats.component.css'],
+  imports: [BaseChartDirective, CommonModule, CurrencySymbolPipe],
 })
 export class CryptoGlobalStatsComponent implements OnInit {
-  constructor(private tradeService: TradeService) {}
+  constructor(private tradeService: TradeService) { }
+  @Input() latestCurrencyPriceRespectToFIAT: number = 0;
+  @Input() selectedCurrency: string = "USD";
   @Input() set metrics(value: any) {
     if (value) {
       this._metrics = value; 
@@ -492,7 +495,11 @@ export class CryptoGlobalStatsComponent implements OnInit {
  
   // Replace the existing formatNumber method with this one
   formatNumber(value: number | null | undefined): string {
-    return this.tradeService.formatLargeNumber(value || 0);
+    return this.tradeService.formatLargeNumber(value || 0).replaceAll("$", "");
+  }
+  getConvertedCurrencyValueRespectToFiat(value?: number) {
+    if (!value) return 0;
+    else return parseFloat((value * (this.latestCurrencyPriceRespectToFIAT ?? 1)).toFixed(2));
   }
 }
 

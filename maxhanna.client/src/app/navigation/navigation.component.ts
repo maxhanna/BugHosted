@@ -31,6 +31,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
   private wordlerInfoInterval: any;
   private lastCollapseTime: Date | null = null;
   private readonly COLLAPSE_COOLDOWN_MS = 60 * 1000;
+  tradeNotifsCount = 0;
   navbarReady = false;
   navbarCollapsed: boolean = false;
   isBTCRising = true;
@@ -186,10 +187,15 @@ export class NavigationComponent implements OnInit, OnDestroy {
     try { 
       const res = await this.notificationService.getNotifications(this._parent.user.id ?? 0) as UserNotification[];
       if (res) {
+        const currentTradeNotifsCount = res.filter(x => x.text?.includes("Executed Trade") && x.isRead == false).length;
+        const latestTradeNotif = res.find(x => x.text?.includes("Executed Trade") && x.isRead == false);
+        if (currentTradeNotifsCount > this.tradeNotifsCount) {
+          this._parent.showNotification(latestTradeNotif?.text);
+        }
+        this.tradeNotifsCount = currentTradeNotifsCount;
         const chatItem = this._parent.navigationItems.find(x => x.title === "Chat");
-        const content = chatItem?.content ?? "0";
-        const currentChatNotifCount = parseInt(content, 10) || 0; 
-
+        const chatItemContent = chatItem?.content ?? "0";
+        const currentChatNotifCount = parseInt(chatItemContent, 10) || 0;  
         this.numberOfNotifications = res.filter(x => x.isRead == false).length;
         this._parent.navigationItems.filter(x => x.title == "Notifications")[0].content = this.numberOfNotifications + "";
         if (this._parent.userSelectedNavigationItems.find(x => x.title == "Chat")) {

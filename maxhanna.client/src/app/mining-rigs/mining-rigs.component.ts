@@ -152,7 +152,7 @@ export class MiningRigsComponent extends ChildComponent implements OnChanges {
         break;
       }
     }
-    return this.rate != 1 ? this.formatToCanadianCurrency(this.rate * totalWeeklyEarnings) + ' ' + this.currency : totalWeeklyEarnings + ' BTC';
+    return this.rate != 1 ? this.formatToCanadianCurrency(this.rate * totalWeeklyEarnings).replaceAll("$", "") : totalWeeklyEarnings + ' BTC';
   }
   calculateAverageDailyEarnings(): string {
     let totalDailyEarnings = 0;
@@ -160,7 +160,7 @@ export class MiningRigsComponent extends ChildComponent implements OnChanges {
       totalDailyEarnings += earnings.totalEarnings;
     }
     const averageDailyEarnings = totalDailyEarnings / this.dailyEarnings.length;
-    return this.rate != 1 ? this.formatToCanadianCurrency(this.rate * averageDailyEarnings) + ' ' + this.currency : averageDailyEarnings + ' BTC';
+    return this.rate != 1 ? this.formatToCanadianCurrency(this.rate * averageDailyEarnings).replaceAll("$", "") : averageDailyEarnings + ' BTC';
   }
   toggleDeviceDataVisibility(rig: MiningRig): void {
     if (this.miningRigDevices && this.miningRigDevices == rig.devices) {

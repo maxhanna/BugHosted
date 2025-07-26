@@ -10,6 +10,7 @@ import { AiService } from '../../services/ai.service';
 import { TradeService } from '../../services/trade.service';
 import { ProfitData } from '../../services/datacontracts/trade/profit-data';
 import { CryptoBotConfigurationComponent } from '../crypto-bot-configuration/crypto-bot-configuration.component';
+import { CryptoMarketCapsComponent } from '../crypto-market-caps/crypto-market-caps.component';
 
 
 @Component({
@@ -163,8 +164,7 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
     { key: 'days', label: 'Daily Performance', periodKey: 'daily' },
     { key: 'weeks', label: 'Weekly Performance', periodKey: 'weekly' },
     { key: 'months', label: 'Monthly Performance', periodKey: 'monthly' }
-  ];
-  topMarketCaps?: any;
+  ]; 
   tradeBotStatus: { [key: string]: { [strategy: string]: boolean } } = {
     BTC: { DCA: false, IND: false },
     XRP: { DCA: false, IND: false },
@@ -215,6 +215,7 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
   @ViewChild(LineGraphComponent) simLineGraph!: LineGraphComponent;
   @ViewChild(LineGraphComponent) currencyExchangeLineGraph!: LineGraphComponent;
   @ViewChild(CryptoBotConfigurationComponent) configurationComponent!: CryptoBotConfigurationComponent;
+  @ViewChild(CryptoMarketCapsComponent) cryptoMarketCapsComponent!: CryptoMarketCapsComponent;
   @ViewChild('miningRigComponent') miningRigComponent!: MiningRigsComponent;
   @ViewChild('convertSATInput') convertSATInput!: ElementRef<HTMLInputElement>;
   @ViewChild('convertCurrencyInput') convertCurrencyInput!: ElementRef<HTMLInputElement>;
@@ -240,7 +241,6 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
   @ViewChild('tradeAmountPct') tradeAmountPct!: ElementRef<HTMLInputElement>;
 
   @Output() coinSelected = new EventEmitter<string>();
-
   constructor(
     private coinValueService: CoinValueService,
     private aiService: AiService,
@@ -315,8 +315,7 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
     });
     this.coinValueService.getGlobalMetrics().then(res => {
       this.globalCryptoStats = res;
-    });
-    this.tradeService.getTopMarketCaps().then(res => { this.topMarketCaps = res; });
+    }); 
     this.loadIndicators('XBT');
 
     this.aiService.getMarketSentiment().then(res => {
@@ -530,9 +529,8 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
       this.btcToCadPrice = priceInCAD;
       
       this.getLastTradebotTradeDisplay().then(() => this.getLastTradePercentage());
-       
-      const selectedCurrencyToFiatRate = await this.getCurrencyExchangeRate("CAD", this.selectedCurrency);
-      this.convertCurrencyInput.nativeElement.value = (this.btcToCadPrice / selectedCurrencyToFiatRate) + "";
+        
+      this.convertCurrencyInput.nativeElement.value = (this.btcToCadPrice / this.latestCurrencyPriceRespectToCAD) + "";
       this.handleConversion("BTC");
     }
   }
@@ -595,8 +593,7 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
 
           } else {
             this.selectedCurrency = res;
-            this.selectedFiatConversionName = this.selectedCurrency == 'USD' ? "CAD" : "USD";
-
+            this.selectedFiatConversionName = res == 'USD' ? "CAD" : "USD"; 
           }
         }
       });
@@ -801,7 +798,14 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
     this.currentSelectedCoin = tmpCoinName;
     // console.log(this.currentSelectedCoin);
     this.coinSelected.emit(this.currentSelectedCoin);
-    setTimeout(() => { this.changeTimePeriodEventOnBTCHistoricalGraph('6h') }, 50);
+    this.btcConvertCoinSelect.nativeElement.value = this.currentSelectedCoin === "Bitcoin" ? "BTC" : this.currentSelectedCoin;
+
+    setTimeout(() => { 
+      this.changeTimePeriodEventOnBTCHistoricalGraph('6h');
+      this.coinConvertSelectChange(false);
+    }, 50);
+ 
+    this.lineGraphComponent.scrollToGraph();
   }
 
   async handleConversion(source: 'BTC' | 'FIAT' | 'CURRENCY' | 'SAT') {
@@ -931,10 +935,13 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
       currency: 'CAD',
     }).format(parseFloat(value));
   }
+
   formatToCanadianCurrency(value: number): string {
     return new Intl.NumberFormat('en-CA', {
       style: 'currency',
       currency: 'CAD',
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 8 // Support small values like Pepe Coin
     }).format(value);
   }
   saveNewCryptoWallet() {
@@ -975,6 +982,10 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
   getConvertedCurrencyValue(cadValue?: number) {
     if (!cadValue) return 0;
     else return parseFloat((cadValue * (this.latestCurrencyPriceRespectToCAD ?? 1)).toFixed(2));
+  }
+  getConvertedCurrencyValueRespectToFiat(cadValue?: number) {
+    if (!cadValue) return 0;
+    else return parseFloat((cadValue * (this.latestCurrencyPriceRespectToFIAT ?? 1)).toFixed(2));
   }
   getConvertedCurrencyValueByString(cadValue?: string) {
     if (!cadValue) return 0;
@@ -1917,13 +1928,21 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
   }
   async showTradeSettings() {
     if (!this.parentRef?.user?.id) { return alert("You must be logged in to save settings."); }
-    const tmpStatus = this.showingTradeSettings;
+    const tmpStatus = this.showingTradeSettings; 
+    let selectedCurrency = this.selectedTradebotCurrency?.nativeElement?.value ?? "XBT";
+    let selectedStrategy = this.selectedTradebotStrategy?.nativeElement?.value ?? "DCA"; 
+    selectedCurrency = selectedCurrency.replace("BTC", "XBT");
     this.closeTradeDivs();
-    this.showingTradeSettings = !tmpStatus;
+    this.showingTradeSettings = !tmpStatus; 
+
     if (this.showingTradeSettings) {
-      await this.getLastCoinConfigurationUpdated(this.configurationComponent?.tradeFromCoinSelect?.nativeElement?.value ?? "BTC");
+      await this.getLastCoinConfigurationUpdated(selectedCurrency, "USDC", selectedStrategy);
       setTimeout(async () => {
         this.startLoading();
+        if (this.configurationComponent.tradeFromCoinSelect?.nativeElement) { 
+          this.configurationComponent.tradeFromCoinSelect.nativeElement.value = selectedCurrency;
+          this.configurationComponent.tradeStrategySelect.nativeElement.value = selectedStrategy;
+        } 
         await this.configurationComponent?.getTradeConfiguration();
         this.stopLoading();
       }, 500);
@@ -1933,7 +1952,7 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
     this.tradeConfigLastUpdated = new Date();
   }
   get totalMarketCap(): number {
-    return this.topMarketCaps?.reduce((sum: number, coin: any) => sum + coin.market_cap, 0) ?? 0;
+    return this.cryptoMarketCapsComponent?.totalMarketCap ?? 0;
   }
 
   showTradeGraphWrapper() {
@@ -2171,26 +2190,28 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
       return 0;
     }
   }
-
-  getCurrencyDisplayValue(currencyName?: string, currency?: Currency) {
-    if (this.isDiscreete) return '***';
-    if (!currency || !currency.totalBalance || !this.latestCurrencyPriceRespectToCAD) return this.formatToCanadianCurrency(0);
+ 
+  getCurrencyValue(currencyName?: string, currency?: Currency) : number { 
+    if (!currency || !currency.totalBalance || !this.latestCurrencyPriceRespectToCAD) return 0;
     if (currencyName == "BTC") {
-      return this.formatToCanadianCurrency(parseFloat(currency.totalBalance) * this.btcToCadPrice * this.latestCurrencyPriceRespectToCAD);
+      return parseFloat(currency.totalBalance) * this.btcToCadPrice * this.latestCurrencyPriceRespectToCAD;
     } else {
       let tCName = (currencyName ?? "Bitcoin").toLowerCase();
       if (tCName == "xdg") { tCName = "dogecoin" }
       if (tCName == "eth") { tCName = "ethereum" }
       if (tCName == "sol") { tCName = "solana" }
 
-      const crate = this.coinValueData?.find(x => x.name.toLowerCase() == tCName);
-
-      return this.formatToCanadianCurrency(parseFloat(currency.totalBalance) * (crate?.valueUSD ?? 1) * (currency.fiatRate ?? 1));
+      const crate = this.coinValueData?.find(x => x.name.toLowerCase() == tCName); 
+      return parseFloat(currency.totalBalance) * (crate?.valueUSD ?? 1) * (currency.fiatRate ?? 1);
     }
   }
+  getCurrencyDisplayValue(currencyName?: string, currency?: Currency) {
+    return this.formatToCanadianCurrency(this.getCurrencyValue(currencyName, currency)).replaceAll("$", "");
+  }
+
   getTotalCurrencyDisplayValue(total?: Total): string {
     if (this.isDiscreete) return '***';
-    if (!total || !total.totalBalance || !this.latestCurrencyPriceRespectToCAD) return this.formatToCanadianCurrency(0);
+    if (!total || !total.totalBalance || !this.latestCurrencyPriceRespectToCAD) return this.formatToCanadianCurrency(0).replaceAll("$", "");
     let tmpWalletCurrency = total.currency?.toLowerCase().replaceAll("total", "").trim();
     let tCName = (tmpWalletCurrency ?? "bitcoin").toLowerCase();
     if (tCName == "xdg") { tCName = "dogecoin" }
@@ -2200,7 +2221,7 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
     const totalValue = tmpWalletCurrency == "btc" ?
       (parseFloat(total.totalBalance) * this.btcToCadPrice * this.latestCurrencyPriceRespectToCAD)
       : parseFloat(total.totalBalance) * (crate?.valueUSD ?? 1) * (total.fiatRate ?? 1);
-    return this.formatToCanadianCurrency(totalValue);
+    return this.formatToCanadianCurrency(totalValue).replaceAll("$", "");
   }
 
   fullscreenSelectedInPopup(event?: any) {
@@ -2287,11 +2308,11 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
       alert("Server Error, Try again later.");
     }
   }
-  async getLastCoinConfigurationUpdated(from?: string, to?: string) {
+  async getLastCoinConfigurationUpdated(from?: string, to?: string, strat?: string) {
     if (!this.parentRef?.user?.id || this.tradeConfigLastUpdated) return;
     const fromCoin = from ?? this.configurationComponent?.tradeFromCoinSelect?.nativeElement.value ?? "BTC";
     const toCoin = to ?? this.configurationComponent?.tradeToCoinSelect?.nativeElement.value ?? "USDC";
-    const strategy = to ?? this.configurationComponent?.tradeStrategySelect?.nativeElement.value ?? "DCA";
+    const strategy = strat ?? this.configurationComponent?.tradeStrategySelect?.nativeElement.value ?? "DCA";
     const sessionToken = await this.parentRef.getSessionToken();
     this.hasAnyTradeConfig = false;
 
@@ -2380,10 +2401,12 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
     this.stopLoading();
   }
 
-  async coinConvertSelectChange() {
+  async coinConvertSelectChange(doSelectCoin: boolean = true) {
     this.selectedCoinConversionName = this.btcConvertCoinSelect.nativeElement.value;
     await this.handleConversion('BTC');
-    this.selectCoin(this.selectedCoinConversionName);
+    if (doSelectCoin) { 
+      this.selectCoin(this.selectedCoinConversionName);
+    }
   }
 
   async fiatConvertSelectChange() {
@@ -2851,12 +2874,13 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
       const rsiBullish =
         (rsi < 30) ||     // Reversal zone
         (rsi >= 50 && rsi <= 70); // Trending bullish
+      const macdBullish = (indicators.macdLineValue - indicators.macdSignalValue) > 0;
       const hasSignal =
         indicators.twoHundredDayMA &&
         indicators.fourteenDayMA &&
         indicators.twentyOneDayMA &&
         rsiBullish &&
-        indicators.macdHistogram &&
+        macdBullish &&
         indicators.vwaP24Hour;
 
       if (hasSignal) {
@@ -3000,11 +3024,11 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
 
   getTradebotCoinPrice(coin: string): number {
     switch (coin) {
-      case 'BTC': return this.btcToCadPrice;
-      case 'ETH': return this.ethToCadPrice;
-      case 'SOL': return this.solToCadPrice;
-      case 'XRP': return this.xrpToCadPrice;
-      case 'DOGE': return this.xdgToCadPrice;
+      case 'BTC': return this.btcToCadPrice * (this.latestCurrencyPriceRespectToCAD ?? 1);
+      case 'ETH': return this.ethToCadPrice * (this.latestCurrencyPriceRespectToCAD ?? 1);
+      case 'SOL': return this.solToCadPrice * (this.latestCurrencyPriceRespectToCAD ?? 1);
+      case 'XRP': return this.xrpToCadPrice * (this.latestCurrencyPriceRespectToCAD ?? 1);
+      case 'DOGE': return this.xdgToCadPrice * (this.latestCurrencyPriceRespectToCAD ?? 1);
       default: return 0;
     }
   }

@@ -1,0 +1,20 @@
+.positive {
+    color: #28a745; 
+}
+
+.negative {
+    color: #dc3545; 
+}
+.market-caps-table th {
+    font-size: small;
+}
+@media (max-width: 768px) {
+    .market-caps-table {
+        font-size: 12px;
+    }
+
+    .market-caps-table th,
+    .market-caps-table td {
+        padding: 8px;
+    }
+}

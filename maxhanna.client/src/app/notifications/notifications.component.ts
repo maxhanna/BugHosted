@@ -223,6 +223,9 @@ export class NotificationsComponent extends ChildComponent implements OnInit, On
         this.notifications?.forEach(x => x.isRead = true);
         this.unreadNotifications = 0;
         await this.notificationService.readNotifications(parent.user.id ?? 0, undefined);
+        if (this.parentRef?.navigationComponent) {
+          this.parentRef.navigationComponent.tradeNotifsCount = 0;
+        }
       }
       parent.navigationComponent.setNotificationNumber(this.unreadNotifications, notification);
     }
@@ -231,6 +234,9 @@ export class NotificationsComponent extends ChildComponent implements OnInit, On
     console.log("Notification text clicked: ", notification);
     if (!notification.isRead) { 
       this.read(notification, true);
+      if (notification.text?.includes('Executed Trade') && this.parentRef?.navigationComponent) {
+        this.parentRef.navigationComponent.tradeNotifsCount--;
+      }
     } 
     if (notification.text?.toLowerCase().includes('captured') || notification.text?.includes('base at')) {
       this.parentRef?.createComponent('Bug-Wars');
@@ -238,6 +244,8 @@ export class NotificationsComponent extends ChildComponent implements OnInit, On
       this.parentRef?.createComponent('Bug-Wars');
     } else if (notification.text?.includes('Shared a note')) {
       this.parentRef?.createComponent('Notepad');
+    } else if (notification.text?.includes('Executed Trade')) {
+      this.parentRef?.createComponent('Crypto-Hub');
     } else if (notification.fileId) {
       this.goToFileId(notification)
     } else if (notification.storyId) {
