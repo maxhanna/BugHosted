@@ -27,7 +27,7 @@
             </tr>
         </tbody>
     </table>
-    <button (click)="expand = !expand">Expand</button>
+    <button class="expandButton" (click)="expand = !expand">{{ expand ? 'Collapse' : 'Expand' }}</button>
 </div>
 <div *ngIf="isLoading && !(coinMarketCaps && coinMarketCaps.length > 0 && conversionRate)">
     Loading Market Caps...

@@ -1,13 +1,15 @@
 .positive {
-    color: #28a745; 
+    color: #28a745;
 }
 
 .negative {
-    color: #dc3545; 
+    color: #dc3545;
 }
+
 .market-caps-table th {
     font-size: small;
 }
+
 @media (max-width: 768px) {
     .market-caps-table {
         font-size: 12px;
@@ -17,4 +19,12 @@
     .market-caps-table td {
         padding: 8px;
     }
+}
+
+.expandButton {
+    position: relative;
+    left: calc(50% - 35px);
+    width: 70px;
+    margin-top: 5px;
+    margin-bottom: 5px;
 }

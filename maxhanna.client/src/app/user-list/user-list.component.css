@@ -1,11 +1,12 @@
 .chatNotificationNumber {
-  font-size: 14px; 
+  font-size: 14px;
   color: var(--secondary-font-color);
-  font-weight:bold;
+  font-weight: bold;
 }
 
 .chatIcon {
-  margin-right: 4px; /* Adjust spacing between the emoji and the username */
+  margin-right: 4px;
+  /* Adjust spacing between the emoji and the username */
   margin-top: 2px;
   font-size: small;
   white-space: nowrap;
@@ -24,29 +25,37 @@
   justify-content: space-between;
   align-items: center;
 }
+
 .userList .user ::ng-deep * {
   font-size: unset;
 }
+
 .userAvatars {
   display: flex;
   align-items: center;
   justify-content: center;
   align-content: center;
   flex-wrap: nowrap;
-  flex-direction: row; 
+  flex-direction: row;
+  gap: 5px;
 }
+
 .users {
   display: flex;
   gap: 10px;
+  align-items: center;
 }
+
 .user {
-    width:100%;
-    display: flex;
-    margin-right: 10px;
+  width: 100%;
+  display: flex;
+  margin-right: 10px;
 }
+
 .username {
   color: var(--secondary-font-color);
 }
+
 .searchDiv {
   flex-direction: column;
   align-content: center;
@@ -54,16 +63,19 @@
   align-items: center;
   flex-wrap: nowrap;
 }
+
 .searchResults {
-    margin-top: 10px;
+  margin-top: 10px;
 }
+
 .prevChatMessages {
-    color: var(--secondary-font-color);
-    text-align:center;
-    margin-top: 20px;
-} 
-.popupPanel { 
-  width: 320px; 
+  color: var(--secondary-font-color);
+  text-align: center;
+  margin-top: 20px;
+}
+
+.popupPanel {
+  width: 320px;
 }
 
 .popupPanelTitle {
@@ -71,29 +83,38 @@
   width: 100%;
   justify-content: space-evenly;
 }
- 
+
 
 .searchUsersSpan {
   cursor: pointer;
   margin-left: 10px;
 }
+
 .popupPanelTitle {
   margin-bottom: 20px;
 }
+
 .popupPanel button {
   margin-top: 20px;
 }
+
 .searchPopup {
   max-height: CALC(var(--vh, 1vh) * 100 - 60px);
 }
 
 .onlineButton {
-  height:0px;
-  width:0px;
+  height: 0px;
+  width: 0px;
   display: flex;
   justify-content: center;
   align-items: center;
   align-content: center;
   margin-left: 10px;
   font-size: xx-small !important;
+}
+
+.titleContainer {
+  display: flex;
+  align-items: center;
+  justify-content: space-evenly;
 }

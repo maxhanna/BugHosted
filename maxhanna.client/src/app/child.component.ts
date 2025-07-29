@@ -139,7 +139,7 @@ export class ChildComponent {
   }
 
   viewProfile(user?: User, previousComponent?: string, previousComponentParameters?: any) {
-    if (user && user.id != 0) {
+    if (user && user.id && user.username != "Anonymous" && user.username != "Unknown") {
       this.parentRef?.closeOverlay();
       this.parentRef?.createComponent("User", { "userId": user.id, "previousComponent": previousComponent, "previousComponentParameters": previousComponentParameters });
     }

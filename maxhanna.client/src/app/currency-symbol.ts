@@ -31,8 +31,7 @@ export class CurrencySymbolPipe implements PipeTransform {
       const formatted = numericValue.toLocaleString('en-US', {
         minimumFractionDigits: 2,
         maximumFractionDigits: 12 // Increased for small values
-      });
-      console.debug(`CurrencySymbolPipe: showFull output=${symbol}${formatted}`);
+      }); 
       return `${symbol}${formatted}`;
     }
 
@@ -72,8 +71,7 @@ export class CurrencySymbolPipe implements PipeTransform {
         maximumFractionDigits: 8 // Higher precision for fractional values
       });
     }
-
-    console.debug(`CurrencySymbolPipe: Output=${symbol}${formattedValue}`);
+ 
     return `${symbol}${formattedValue}`;
   }
 

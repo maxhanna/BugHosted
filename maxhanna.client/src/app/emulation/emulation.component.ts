@@ -137,7 +137,7 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
 
   async ngOnDestroy() {
     await this.stopEmulator().then(async () => {
-      this.isLoading = false;
+      this.stopLoading();
       this.nostalgist = undefined;
       this.parentRef?.setViewportScalability(true);
       this.parentRef?.removeResizeListener();

@@ -177,7 +177,7 @@ public class KrakenService
                     }
                     else
                     {
-                        if (coinBalance <= _MinimumBTCReserves || coinBalanceConverted < _InitialMinimumUSDCAmountToStart)
+                        if (coinBalance <= _MinimumBTCReserves)
                         {
                             return await TradeHalfUSDCForCoin(userId, tmpCoin, keys, coinBalance, usdcBalance, coinPriceCAD.Value, coinPriceUSDC.Value, strategy);
                         }

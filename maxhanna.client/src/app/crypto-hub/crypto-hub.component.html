@@ -347,8 +347,9 @@
     </div>
     <div *ngIf="!isTradePanelOpen" class="sectionContainer">
       <div class="sectionName" style="margin-bottom: 15px; margin-top: 8px;">Top 30 Coin Market Caps</div>
-      <app-crypto-market-caps #cryptoMarketCapsComponent [selectedCurrency]="selectedCurrency" [conversionRate]="latestCurrencyPriceRespectToCAD" (selectCoin)="selectCoin($event)"></app-crypto-market-caps>
-    </div> 
+      <app-crypto-market-caps #cryptoMarketCapsComponent [selectedCurrency]="selectedCurrency"
+        [conversionRate]="latestCurrencyPriceRespectToCAD" (selectCoin)="selectCoin($event)"></app-crypto-market-caps>
+    </div>
   </div>
   <div [class]="isTradePanelOpen ? 'fullScreenTradePanelDiv' : 'hubSection miningHubSection'"
     *ngIf="latestCurrencyPriceRespectToCAD && latestCurrencyPriceRespectToCAD != 0 && selectedCurrency">
@@ -367,7 +368,8 @@
               class="cursorPointerUnderlined normalBtcAddress">Address</th>
             <th (click)="sortTable(1, 'walletTable')">Currency</th>
             <th (click)="sortTable(2, 'walletTable')">Total Balance</th>
-            <th (click)="sortTable(3, 'walletTable')" title="Fiat rate">{{ null | currencySymbol:(selectedCurrency) }}{{selectedCurrency}}</th>
+            <th (click)="sortTable(3, 'walletTable')" title="Fiat rate">{{ null | currencySymbol:(selectedCurrency)
+              }}{{selectedCurrency}}</th>
             <th (click)="sortTable(4, 'walletTable')" title="Wallet data"></th>
           </tr>
         </thead>
@@ -378,7 +380,8 @@
               <td></td>
               <td>{{ subWallet.total?.currency }}</td>
               <td>{{ isDiscreete ? '***' : subWallet.total?.totalBalance }}</td>
-              <td>{{ (isDiscreete ? '***' : getTotalCurrencyDisplayValue(subWallet.total)) | currencySymbol:selectedCurrency:true }}</td>
+              <td>{{ (isDiscreete ? '***' : getTotalCurrencyDisplayValue(subWallet.total)) |
+                currencySymbol:selectedCurrency:true }}</td>
               <td></td>
             </tr>
           </ng-container>
@@ -459,25 +462,26 @@
               <div *ngIf="hasKrakenApi">Average Sell Price: <span class="thirdFontColor smallFont">{{formatToCanadianCurrency(weightedAveragePrices[1])}}</span></div> -->
             <div
               *ngIf="tradebotBalances && tradebotBalances.length > 0 && tradebotBalances[tradebotBalances.length - 1]">
-              <span class="sectionName">Last:</span>
+              <span class="sectionName">Last:&nbsp;</span>
               <span>
                 <span *ngIf="lastTradebotTrade">
-                  <span [class]="onMobile() ? 'xxSmallFont' : ''" [title]="lastTradebotTrade['timestamp']">[{{ lastTradebotTrade['timestamp'] }}]</span>
-      <span [class]="lastTradebotTrade['buyOrSell'] === 'Sell' ? 'negative' : 'positive'">
-        {{ lastTradebotTrade['buyOrSell'] === 'Buy' ?
-        'Buy ' + lastTradebotTrade['value'] + ' ' + lastTradebotTrade['toCoin'] :
-        'Sold ' + lastTradebotTrade['value'] + ' ' + lastTradebotTrade['fromCoin'] }}
-      </span>|
-      <span [class]="lastTradebotTrade['buyOrSell'] === 'Buy' ? 'negative' : 'positive'">
-        {{ lastTradebotTrade['buyOrSell'] === 'Buy' ?
-        'Cost: ' + lastTradebotTrade['valuePrice'] + ' ' + lastTradebotTrade['fromCoin'] :
-        'Received: ' + lastTradebotTrade['valuePrice'] + ' ' + lastTradebotTrade['toCoin'] }}
-      </span>
-      <span class="smallFont thirdFontColor">
-&#64; {{ lastTradebotTrade['tradePrice'] }} per {{ lastTradebotTrade['buyOrSell'] === 'Buy' ?
-lastTradebotTrade['toCoin'] : lastTradebotTrade['fromCoin'] }}
-({{ lastTradebotTrade['strategy'] }})
-      </span>
+                  <span [class]="onMobile() ? 'xxSmallFont' : ''" [title]="lastTradebotTrade['timestamp']">[{{
+                    lastTradebotTrade['timestamp'] }}]</span>
+                  <span [class]="lastTradebotTrade['buyOrSell'] === 'Sell' ? 'negative' : 'positive'">
+                    {{ lastTradebotTrade['buyOrSell'] === 'Buy' ?
+                    'Buy ' + lastTradebotTrade['value'] + ' ' + lastTradebotTrade['toCoin'] :
+                    'Sold ' + lastTradebotTrade['value'] + ' ' + lastTradebotTrade['fromCoin'] }}
+                  </span>|
+                  <span [class]="lastTradebotTrade['buyOrSell'] === 'Buy' ? 'negative' : 'positive'">
+                    {{ lastTradebotTrade['buyOrSell'] === 'Buy' ?
+                    'Cost: ' + lastTradebotTrade['valuePrice'] + ' ' + lastTradebotTrade['fromCoin'] :
+                    'Received: ' + lastTradebotTrade['valuePrice'] + ' ' + lastTradebotTrade['toCoin'] }}
+                  </span>
+                  <span class="smallFont thirdFontColor">
+                    &#64; {{ lastTradebotTrade['tradePrice'] }} per {{ lastTradebotTrade['buyOrSell'] === 'Buy' ?
+                    lastTradebotTrade['toCoin'] : lastTradebotTrade['fromCoin'] }}
+                    ({{ lastTradebotTrade['strategy'] }})
+                  </span>
                   <span *ngIf="lastTradePercentage !== null"
                     [title]="lastTradePercentage >= 0 ? 'Price has increased by ' + lastTradePercentage.toFixed(2) + '% since last trade.' : 'Price has decreased by ' + lastTradePercentage.toFixed(2) + '% since last trade.'"
                     class="cursorPointer xxSmallFont" [class.positive-percent]="lastTradePercentage >= 0"
@@ -488,7 +492,7 @@ lastTradebotTrade['toCoin'] : lastTradebotTrade['fromCoin'] }}
               </span>
             </div>
             <div *ngIf="lastLogEntry" [ngClass]="{'logScreen': !showingTradeLogs, 'bold': true}">
-              <span class="sectionName">Log:</span> <span [ngClass]="{
+              <span class="sectionName">Log:&nbsp;</span> <span [ngClass]="{
                 'thirdFontColor': true,
                 'italics': true,
                 'smallFont': true,
@@ -496,7 +500,7 @@ lastTradebotTrade['toCoin'] : lastTradebotTrade['fromCoin'] }}
               }" (click)="onSmallLogClick()">{{lastLogEntry}}</span>
             </div>
             <div *ngIf="isTradePanelOpen && selectedCurrency">
-              <span class="sectionName">Current Prices:</span>
+              <span class="sectionName">Current Prices:&nbsp;</span>
               <span class="smallFont">
                 <span *ngFor="let coin of getActiveTradebotCoins(); let last = last">
                   <span class="thirdFontColor">{{ coin }}:</span>
@@ -680,7 +684,7 @@ lastTradebotTrade['toCoin'] : lastTradebotTrade['fromCoin'] }}
                   </span>
                 </td>
                 <td [class]="'secondaryFontColor' + (onMobile() ? ' xxSmallFont' : '')">{{
-                  formatStringCanadianCurrency(trade.coin_price_usdc) }}</td>
+                  trade.coin_price_usdc | currencySymbol:(selectedCurrency):true }}</td>
                 <td [class]="'negative' + (onMobile() ? ' xxSmallFont' : '')">{{ formatToCanadianCurrency(trade.fees) }}
                 </td>
                 <td [class]="'secondaryFontColor' + (onMobile() ? ' xxSmallFont' : '')"

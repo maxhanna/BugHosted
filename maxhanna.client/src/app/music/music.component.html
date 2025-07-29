@@ -17,16 +17,18 @@
   </fieldset>
   <span class="subtleInfoSpan" (click)="openHelpPanel()">ℹ️Info</span>
   <div id="musicPlayerDiv" [class]="smallPlayer ? 'smallSongList' : 'normalSongList'">
-    <div *ngIf="songs && songs.length > 0 && isMusicPlaying" [class]="smallPlayer ? 'smallIframeDiv' : 'iframeDiv'">
+    <div id="iframeDiv" *ngIf="songs && songs.length > 0 && isMusicPlaying" [class]="isFullscreen ? 'popupPanel fullscreen' : (smallPlayer ? ' smallIframeDiv' : ' iframeDiv')">
       <iframe *ngIf="!fileIdPlaylist" frameborder=0 id=musicVideo #musicVideo allow="autoplay"></iframe>
       <app-media-viewer #fileMediaViewer *ngIf="fileIdPlaying && fileIdPlaying" [inputtedParentRef]="parentRef"
         [autoplay]="true" [autoload]="true" [loop]="false" [muted]="false" [showCommentSection]="false"
         [previousComponent]="'Music'" (mediaEndedEvent)="mediaEndedEvent()"></app-media-viewer>
+      <button title="Shrink Fullscreen" (click)="closeFullscreen()" id="closeOverlay" *ngIf="isFullscreen">Shrink</button>
     </div>
     <div class="musicControls">
-      <label id="stopMusicButton" (click)="stopMusic()">◼</label>
-      <label id="followLinkButton" *ngIf="!fileIdPlaylist" (click)="followLink()">🕸</label>
-      <label (click)="randomSong()">⚡</label>
+      <label id="stopMusicButton" (click)="stopMusic()" title="Stop">🛑</label>
+      <label id="fullscreenMusicButton" (click)="fullscreen()" title="Expand Fullscreen">◼</label>
+      <label id="followLinkButton" *ngIf="!fileIdPlaylist" (click)="followLink()" title="Open in Youtube">🕸</label>
+      <label (click)="randomSong()" title="Random Song">⚡</label>
     </div>
 
     <div id="songlist">
@@ -53,21 +55,25 @@
             Files
           </label>
         </div>
-
-        <table id="songListTable" class="mainTable" *ngIf="paginatedSongs && paginatedSongs.length > 0">
-          <tbody>
-            <tr *ngFor="let song of paginatedSongs" id="songId{{song.id!}}">
-              <td (click)="play(song.url, song.fileId)" *ngIf="song.id" style="width:100%">
-                <span *ngIf="!isEditing.includes(song.id)">{{song.todo}}</span>
-                <input type=text id="editSongNameInput" *ngIf="isEditing.includes(song.id)" [value]="song.todo" style="width:100%" />
-              </td>
-              <td style="width:0%; display:flex; gap: 5px;" *ngIf="!user && song.id">
-                <button (click)="editSong(song.id)" class="xxSmallFont cursorPointer">{{ isEditing.includes(song.id) ? '💾':'✏️'}}</button>
-                <input (click)="deleteSong(song.id)" value="❌" type="submit" class="xxSmallFont cursorPointer" *ngIf="!isEditing.includes(song.id)" /> 
-              </td>
-            </tr>
-          </tbody>
-        </table>
+        <div class="mainTableContainer">
+          <table id="songListTable" class="mainTable" *ngIf="paginatedSongs && paginatedSongs.length > 0">
+            <tbody>
+              <tr *ngFor="let song of paginatedSongs" id="songId{{song.id!}}">
+                <td (click)="play(song.url, song.fileId)" *ngIf="song.id" style="width:100%">
+                  <span *ngIf="!isEditing.includes(song.id)">{{song.todo}}</span>
+                  <input type=text id="editSongNameInput" *ngIf="isEditing.includes(song.id)" [value]="song.todo"
+                    style="width:100%" />
+                </td>
+                <td style="width:0%; display:flex; gap: 5px;" *ngIf="!user && song.id">
+                  <button (click)="editSong(song.id)" class="xxSmallFont cursorPointer">{{ isEditing.includes(song.id) ?
+                    '💾':'✏️'}}</button>
+                  <input (click)="deleteSong(song.id)" value="❌" type="submit" class="xxSmallFont cursorPointer"
+                    *ngIf="!isEditing.includes(song.id)" />
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div> 
         <div *ngIf="paginatedSongs && paginatedSongs.length == 0">No music added yet!</div>
 
         <div class="pagination-controls" *ngIf="songs.length > itemsPerPage">
@@ -115,6 +121,7 @@
       <li>YouTube videos will play in the embedded player</li>
       <li>Uploaded files will play in the audio player</li>
       <li>Click ◼ to stop playback</li>
+      <li>Click 🛑 to stop playback</li>
       <li>Click ⚡ to play a random song</li>
       <li>Click 🕸 to open the current YouTube video in a new tab</li>
     </ul>

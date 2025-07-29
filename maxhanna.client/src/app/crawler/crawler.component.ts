@@ -213,6 +213,13 @@ export class CrawlerComponent extends ChildComponent implements OnInit, OnDestro
     this.urlInput.nativeElement.value = '*';
     this.searchUrl(true);
   }
+  addFavourite(url?: string, imageUrl?: string, title?: string) {
+    const targetData = this.searchMetadata.find(x => x.url === url);
+    if (targetData) {
+      targetData.favouriteCount = (targetData.favouriteCount || 0) + 1;
+    }
+    this.parentRef?.addFavourite(url, imageUrl, title);
+  }
   getHttpStatusMeaning(status: number): string {
     switch (status) {
       case 200:

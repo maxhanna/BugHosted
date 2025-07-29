@@ -43,8 +43,8 @@
   </div>
 </div>
 <div class="searchResults" *ngIf="!isSearchPanelOpen">
-  <div class="prevChatMessages popupPanelTitle" *ngIf="!searchOnly">
-    {{ isFriendsChecked ? 'Friends' : 'User' }} List
+  <div class="prevChatMessages popupPanelTitle titleContainer" *ngIf="!searchOnly">
+    {{ isFriendsChecked ? 'Friends' : 'User' }} List <span class="smallFont thirdFontColor">({{ getOnlineUserCount() }} online)</span>
   </div>
   <div *ngFor="let user of users" class="userList" (click)="closeOverlayOnClick(user);">
     <span class="user"> 
@@ -70,8 +70,8 @@
     No Users to Display.
   </div>
   <div *ngIf="messageRows && messageRows.length > 0 && isFriendsChecked && !friendsOnly && !sharingSearch && !hidePreviousMessages">
-    <div class="prevChatMessages popupPanelTitle" *ngIf="messageRows.length > 0">
-      Previous Messages
+    <div class="prevChatMessages popupPanelTitle titleContainer" *ngIf="messageRows.length > 0">
+      Previous Messages <span class="smallFont thirdFontColor">({{ getOnlineUserCountFromMessageRows() }} online)</span>
     </div>
     <div *ngFor="let row of messageRows" (click)="openChatById(row.chatId);" class="userList">
       <div class="users"> 

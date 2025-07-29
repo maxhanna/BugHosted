@@ -153,6 +153,22 @@ export class NotificationsComponent extends ChildComponent implements OnInit, On
     }
     if (!notification.isRead) { this.read(notification, true); }
   }
+  goToCryptoHub(notification?: UserNotification) { 
+    let selectedCoin = notification?.text?.match(/\b(XBT|XRP|SOL|ETH|XDG)\b/i)?.[0] || 'Bitcoin';
+    if (selectedCoin == "XBT" || selectedCoin == "BTC") {
+      selectedCoin = "Bitcoin";
+    }
+    if (selectedCoin == "SOL") {
+      selectedCoin = "Solana";
+    }
+    if (selectedCoin == "XDG") {
+      selectedCoin = "Dogecoin";
+    }
+    if (selectedCoin == "ETH") {
+      selectedCoin = "Ethereum";
+    }
+    this.createComponent("Crypto-Hub", { currentSelectedCoin: selectedCoin }); 
+  }
   goToChat(notification?: UserNotification) {
     if (!notification?.chatId) return alert("Error: Must select a user to chat!");
     if (!notification.isRead) { this.read(notification, true); }
@@ -244,8 +260,8 @@ export class NotificationsComponent extends ChildComponent implements OnInit, On
       this.parentRef?.createComponent('Bug-Wars');
     } else if (notification.text?.includes('Shared a note')) {
       this.parentRef?.createComponent('Notepad');
-    } else if (notification.text?.includes('Executed Trade')) {
-      this.parentRef?.createComponent('Crypto-Hub');
+    } else if (notification.text?.includes('Executed Trade')) { 
+      this.goToCryptoHub(notification);
     } else if (notification.fileId) {
       this.goToFileId(notification)
     } else if (notification.storyId) {

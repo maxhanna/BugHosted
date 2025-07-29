@@ -1326,16 +1326,55 @@ namespace maxhanna.Server.Controllers
 
 				// Get the latest 30 coin market caps, ensuring distinct coins by coin_id
 				string sql = @"
-					SELECT coin_id, symbol, name, market_cap_usd, market_cap_cad, price_usd, price_cad, 
-						price_change_percentage_24h, inflow_change_24h, recorded_at
-					FROM coin_market_caps
-					WHERE recorded_at IN (
-						SELECT MAX(recorded_at)
+					WITH latest_market_caps AS (
+					SELECT 
+						c1.coin_id, 
+						c1.symbol, 
+						c1.name, 
+						c1.market_cap_usd, 
+						c1.market_cap_cad, 
+						c1.price_usd AS mc_price_usd,
+						c1.price_cad AS mc_price_cad,
+						c1.price_change_percentage_24h, 
+						c1.inflow_change_24h, 
+						c1.recorded_at
+					FROM coin_market_caps c1
+					INNER JOIN (
+						SELECT coin_id, MAX(recorded_at) as max_time
 						FROM coin_market_caps
 						GROUP BY coin_id
-					)
-					ORDER BY market_cap_usd DESC
-					LIMIT 30";
+					) c2 ON c1.coin_id = c2.coin_id AND c1.recorded_at = c2.max_time
+					ORDER BY c1.market_cap_usd DESC
+					LIMIT 30
+				),
+				latest_coin_values AS (
+					SELECT 
+						v1.name,
+						v1.value_usd,
+						v1.value_cad,
+						v1.timestamp
+					FROM coin_value v1
+					INNER JOIN (
+						SELECT name, MAX(timestamp) as max_time
+						FROM coin_value
+						GROUP BY name
+					) v2 ON v1.name = v2.name AND v1.timestamp = v2.max_time
+				)
+				SELECT 
+					mc.coin_id, 
+					mc.symbol, 
+					mc.name, 
+					mc.market_cap_usd, 
+					mc.market_cap_cad, 
+					COALESCE(cv.value_usd, mc.mc_price_usd) AS price_usd,
+					COALESCE(cv.value_cad, mc.mc_price_cad) AS price_cad,
+					mc.price_change_percentage_24h, 
+					mc.inflow_change_24h, 
+					mc.recorded_at,
+					cv.timestamp AS price_timestamp
+				FROM latest_market_caps mc
+				LEFT JOIN latest_coin_values cv ON mc.name = cv.name
+				ORDER BY mc.market_cap_usd DESC;";
 
 				MySqlCommand cmd = new MySqlCommand(sql, conn);
 				using (var reader = await cmd.ExecuteReaderAsync())

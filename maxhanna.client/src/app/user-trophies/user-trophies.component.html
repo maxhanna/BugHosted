@@ -1,0 +1,18 @@
+<div class="trophyContainerWrapper" *ngIf="trophies && trophies.length > 0">
+    <div *ngFor="let trophy of trophies">
+        <div class="trophyContainer cursorPointer" *ngIf="trophy.name">
+            <div class="trophy cursorPointer" [style.backgroundColor]="
+           trophy.name == 'Bug Hunter' ? 'mediumblue'
+           : trophy.name == 'Owner' ? 'crimson'
+           : 'default'">
+                <app-media-viewer [displayExpander]="false" [displayExtraInfo]="false" [showCommentSection]="false"
+                    [showTopics]="false" [file]="trophy.file" [inputtedParentRef]="inputtedParentRef ?? parentRef"
+                    [previousComponent]="previousComponent ?? 'User'">
+                </app-media-viewer>
+            </div>
+            <div class="thirdFontColor" [title]="trophyDescriptions[trophy.name] || 'No description available'">
+                {{trophy.name}}
+            </div>
+        </div>
+    </div>
+</div>

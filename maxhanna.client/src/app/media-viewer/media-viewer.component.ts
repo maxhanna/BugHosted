@@ -81,6 +81,8 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
         (componentContainers[i] as HTMLDivElement).style.backgroundColor = "var(--component-background-color)";
       }
     } 
+    this.setupBackButtonListener();
+    this.setupEscapeKeyListener();
   }
   onInView(isInView: boolean) {
     if (!this.forceInviewLoad || (this.forceInviewLoad && isInView && this.isComponentHeightSufficient())) {
@@ -173,6 +175,31 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
         this.abortFileRequestController.abort("Component is destroyed");
       }
     } catch (e) { }
+    window.removeEventListener('popstate', this.handleBackButton);
+    window.removeEventListener('keydown', this.handleEscapeKey);
+  }
+  
+  private handleBackButton = (event: PopStateEvent) => {
+    if (this.isFullscreenMode) {
+      event.preventDefault();  
+      this.shrink(); 
+      window.history.pushState(null, '', window.location.href);
+    }
+  };
+ 
+  private handleEscapeKey = (event: KeyboardEvent) => {
+    if (this.isFullscreenMode && event.key === 'Escape') {
+      this.shrink();  
+    }
+  };
+ 
+  private setupBackButtonListener() { 
+    window.history.pushState(null, '', window.location.href);
+    window.addEventListener('popstate', this.handleBackButton);
+  }
+ 
+  private setupEscapeKeyListener() {
+    window.addEventListener('keydown', this.handleEscapeKey);
   }
   /**
  * Reloads the media in the component by resetting and fetching the file source again

@@ -405,27 +405,12 @@
           <button (click)="expandDiv('trophyContainer');">{{isTrophyExpanded ? '-' : '+'}}</button>
           <span class="cursorPointerUnderlined">Trophies ({{trophies?.length ?? 0}})</span>
         </label>  
-        <div *ngIf="isTrophyExpanded" class="trophyContainerWrapper">
-          <div *ngFor="let trophy of trophies">
-            <div class="trophyContainer">
-              <div class="trophy cursorPointer" [style.backgroundColor]="
-                   trophy.name == 'Bug Hunter' ? 'mediumblue'
-                   : trophy.name == 'Owner' ? 'crimson'
-                   : 'default'">
-                <app-media-viewer [displayExpander]="false"
-                                  [displayExtraInfo]="false"
-                                  [showCommentSection]="false"
-                                  [showTopics]="false"
-                                  [file]="trophy.file"
-                                  [inputtedParentRef]="inputtedParentRef ?? parentRef"
-                                  [previousComponent]="previousComponent ?? 'User'">
-                </app-media-viewer>
-              </div>
-              <div class="thirdFontColor" [title]="trophy.name">
-                {{trophy.name}}
-              </div>
-            </div>
-          </div>
+        <div *ngIf="isTrophyExpanded">
+          <app-user-trophies 
+            [inputtedParentRef]="inputtedParentRef ?? parentRef" 
+            [trophies]="trophies" 
+            [previousComponent]="previousComponent">
+          </app-user-trophies>
         </div>
       </div>
     </div>

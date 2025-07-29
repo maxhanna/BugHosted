@@ -387,7 +387,7 @@ console.log("Hello, world!");
 
   changeResponseLength(event: Event) {
     this.responseLength = parseInt((event.target as HTMLSelectElement).value);
-    if (this.responseLength == 0) {
+    if (this.responseLength == 0 || !this.responseLength) {
       this.responseLength = undefined;
     }
   }

@@ -6,7 +6,7 @@
     Chat
     <span *ngIf="currentChatUsers">
       with
-      <span *ngFor="let user of getChatUsersWithoutSelf(); let i = index" (click)="viewProfile(user, 'Chat')"
+      <span *ngFor="let user of getChatUsersWithoutSelf(); let i = index" (click)="user?.id ? viewProfile(user, 'Chat') : ''"
         class="cursorPointer"><span *ngIf="i > 0">, </span>{{user.username}}</span>
     </span>
   </div>

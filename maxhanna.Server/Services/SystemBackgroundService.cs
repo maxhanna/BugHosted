@@ -25,7 +25,7 @@ namespace maxhanna.Server.Services
 		private readonly IConfiguration _config; // needed for apiKey 
 		private Timer _tenSecondTimer;
 		private Timer _halfMinuteTimer;
-		// private Timer _minuteTimer;
+		private Timer _minuteTimer;
 		private Timer _fiveMinuteTimer;
 		private Timer _hourlyTimer;
 		private Timer _sixHourTimer;
@@ -58,7 +58,7 @@ namespace maxhanna.Server.Services
 
 			_tenSecondTimer = new Timer(async _ => await Run10SecondTasks(), null, Timeout.Infinite, Timeout.Infinite);
 			_halfMinuteTimer = new Timer(async _ => await Run30SecondTasks(), null, Timeout.Infinite, Timeout.Infinite);
-			// _minuteTimer = new Timer(async _ => await FetchWebsiteMetadata(), null, Timeout.Infinite, Timeout.Infinite);
+			_minuteTimer = new Timer(async _ => await RunOneMinuteTasks(), null, Timeout.Infinite, Timeout.Infinite);
 			_fiveMinuteTimer = new Timer(async _ => await RunFiveMinuteTasks(), null, Timeout.Infinite, Timeout.Infinite);
 			_hourlyTimer = new Timer(async _ => await RunHourlyTasks(), null, Timeout.Infinite, Timeout.Infinite);
 			_sixHourTimer = new Timer(async _ => await RunSixHourTasks(), null, Timeout.Infinite, Timeout.Infinite);
@@ -70,7 +70,7 @@ namespace maxhanna.Server.Services
 			// Start all timers  
 			_tenSecondTimer.Change(TimeSpan.Zero, TimeSpan.FromSeconds(10));
 			_halfMinuteTimer.Change(TimeSpan.Zero, TimeSpan.FromSeconds(30));
-			// _minuteTimer.Change(TimeSpan.Zero, TimeSpan.FromMinutes(1));
+			_minuteTimer.Change(TimeSpan.Zero, TimeSpan.FromMinutes(1));
 			_fiveMinuteTimer.Change(TimeSpan.Zero, TimeSpan.FromMinutes(5));
 			_hourlyTimer.Change(TimeSpan.Zero, TimeSpan.FromHours(1));
 			_sixHourTimer.Change(TimeSpan.Zero, TimeSpan.FromHours(6));
@@ -91,8 +91,12 @@ namespace maxhanna.Server.Services
 			await SpawnEncounterMetabots();
 			await FetchWebsiteMetadata();
 		}
-		private async Task RunFiveMinuteTasks()
+		private async Task RunOneMinuteTasks()
 		{ 
+			await _aiController.AnalyzeAndRenameFile();
+		}
+		private async Task RunFiveMinuteTasks()
+		{
 			await FetchAndStoreTopMarketCaps();
 			await UpdateLastBTCWalletInfo();
 			await FetchAndStoreCoinValues();
@@ -107,10 +111,13 @@ namespace maxhanna.Server.Services
 			else
 			{
 				_ = _log.Db("Skipping indicator update - already in progress", null, "TISVC", outputToConsole: true);
-			}  
-			await _aiController.AnalyzeAndRenameFile();
+			}
+		}  
+		private async Task RunHourlyTasks()
+		{
+			await AssignTrophies();
+			await _aiController.ProvideMarketAnalysis();
 		}
-
 		private async Task RunSixHourTasks()
 		{
 			await FetchExchangeRates();
@@ -119,14 +126,7 @@ namespace maxhanna.Server.Services
 			await FetchAndStoreCryptoEvents();
 			await FetchAndStoreFearGreedAsync();
 			await FetchAndStoreGlobalMetricsAsync();
-		}
-
-		private async Task RunHourlyTasks()
-		{
-			await AssignTrophies();
-			await _aiController.ProvideMarketAnalysis();
-		}
-
+		} 
 		private async Task RunDailyTasks()
 		{
 			await DeleteOldBattleReports();
@@ -154,7 +154,7 @@ namespace maxhanna.Server.Services
 		public override async Task StopAsync(CancellationToken cancellationToken)
 		{
 			_halfMinuteTimer?.Change(Timeout.Infinite, Timeout.Infinite);
-			// _minuteTimer?.Change(Timeout.Infinite, Timeout.Infinite);
+			 _minuteTimer?.Change(Timeout.Infinite, Timeout.Infinite);
 			_fiveMinuteTimer?.Change(Timeout.Infinite, Timeout.Infinite);
 			_hourlyTimer?.Change(Timeout.Infinite, Timeout.Infinite);
 			_sixHourTimer?.Change(Timeout.Infinite, Timeout.Infinite);
@@ -1174,21 +1174,27 @@ namespace maxhanna.Server.Services
 			{
 				await using var conn = new MySqlConnection(_connectionString);
 				await conn.OpenAsync();
-
-				// Check if we have recent data (within last 24 hours)
+ 
 				const string recentCheckSql = @"
-					SELECT 1 FROM coin_market_caps 
+					SELECT recorded_at FROM coin_market_caps 
 					WHERE recorded_at >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 24 HOUR)
+					ORDER BY recorded_at DESC
 					LIMIT 1;";
 
 				await using var checkCmd = new MySqlCommand(recentCheckSql, conn);
-				if (await checkCmd.ExecuteScalarAsync() != null)
+				var lastUpdateTime = await checkCmd.ExecuteScalarAsync() as DateTime?;
+
+				if (lastUpdateTime.HasValue)
 				{
-					await _log.Db("Recent market cap data already exists (within last 24 hours), skipping update.", null, "MCS", outputToConsole: true);
+					var nextUpdateTime = lastUpdateTime.Value.AddHours(24);
+					var timeLeft = nextUpdateTime - DateTime.UtcNow;
+
+					await _log.Db($"Recent market cap data already exists. Next update in {timeLeft.Hours} hours and {timeLeft.Minutes} minutes.",
+								  null, "MCS", outputToConsole: true);
 					return;
 				}
 
-				// Fetch CoinMarketCap API key
+				// Fetch API key
 				var apiKey = _config.GetValue<string>("CoinMarketCap:ApiKey");
 				if (string.IsNullOrWhiteSpace(apiKey))
 				{
@@ -1196,7 +1202,7 @@ namespace maxhanna.Server.Services
 					return;
 				}
 
-				// Fetch top 30 coins by market cap from CoinMarketCap
+				// Fetch top 30 coins
 				const string url = "https://pro-api.coinmarketcap.com/v1/cryptocurrency/listings/latest?start=1&limit=30&convert=USD";
 				var request = new HttpRequestMessage
 				{
@@ -1217,28 +1223,30 @@ namespace maxhanna.Server.Services
 					await _log.Db("No market cap data found in CoinMarketCap response", null, "MCS", outputToConsole: true);
 					return;
 				}
-
-				// Fetch yesterday's data for comparison
-				var yesterday = DateTime.UtcNow.AddDays(-1);
-				const string yesterdayDataSql = @"
+ 
+				const string historicalDataSql = @"
 					SELECT coin_id, market_cap_usd
 					FROM coin_market_caps
-					WHERE recorded_at >= DATE_SUB(@yesterday, INTERVAL 1 HOUR)
-					AND recorded_at < DATE_ADD(@yesterday, INTERVAL 1 HOUR)";
-
-				var yesterdayData = new Dictionary<string, decimal>();
-				await using (var yesterdayCmd = new MySqlCommand(yesterdayDataSql, conn))
+					WHERE recorded_at BETWEEN UTC_TIMESTAMP() - INTERVAL 48 HOUR 
+										AND UTC_TIMESTAMP() - INTERVAL 24 HOUR
+					ORDER BY recorded_at DESC";  
+				var historicalData = new Dictionary<string, decimal>();
+				await using (var historicalCmd = new MySqlCommand(historicalDataSql, conn))
 				{
-					yesterdayCmd.Parameters.AddWithValue("@yesterday", yesterday.Date);
-					await using var reader = await yesterdayCmd.ExecuteReaderAsync();
+					await using var reader = await historicalCmd.ExecuteReaderAsync();
 					while (await reader.ReadAsync())
 					{
-						yesterdayData[reader.GetString("coin_id")] = reader.GetDecimal("market_cap_usd");
+						// FIX 2: Only take the first/latest record per coin
+						var coinId = reader.GetString("coin_id");
+						if (!historicalData.ContainsKey(coinId))
+						{
+							historicalData[coinId] = reader.GetDecimal("market_cap_usd");
+						}
 					}
 				}
 
 				// Fetch CAD/USD exchange rate
-				decimal cadUsdRate = 0.705m; // Fallback rate
+				decimal cadUsdRate = 0.705m;
 				const string rateSql = @"
 					SELECT rate
 					FROM exchange_rates
@@ -1270,15 +1278,23 @@ namespace maxhanna.Server.Services
 					var usdData = (Newtonsoft.Json.Linq.JObject?)quote["USD"];
 					if (usdData != null)
 					{
-
 						decimal marketCapSafe = Convert.ToDecimal(usdData["market_cap"] ?? 0);
 						decimal priceSafe = Convert.ToDecimal(usdData["price"] ?? 0);
 						decimal priceChangePercentage = Convert.ToDecimal(usdData["percent_change_24h"] ?? 0);
 						string normalizedName = CoinNameMap.TryGetValue(coinNameSafe, out var mappedName) ? mappedName : coinNameSafe;
 						string symbol = CoinSymbols.TryGetValue(normalizedName, out var knownSymbol) ? knownSymbol : rawSymbol;
+ 
+						decimal yesterdayMarketCap = marketCapSafe;  
+						if (historicalData.TryGetValue(coinId, out var histCap))
+						{
+							yesterdayMarketCap = histCap;
+						}
+						else
+						{
+							await _log.Db($"No historical data found for {coinNameSafe} ({coinId}), using current cap", null, "MCS", outputToConsole: true);
+						}
 
-						// Calculate 24h inflow change
-						decimal yesterdayMarketCap = yesterdayData.TryGetValue(coinId, out var ymc) ? ymc : marketCapSafe;
+						// Calculate 24h inflow change (now non-zero!)
 						decimal inflowChange = marketCapSafe - yesterdayMarketCap;
 
 						// Calculate CAD values
@@ -1307,8 +1323,8 @@ namespace maxhanna.Server.Services
 							insertCmd.Parameters.AddWithValue("@InflowChange24h", inflowChange);
 							await insertCmd.ExecuteNonQueryAsync();
 						}
-					} 
-				} 
+					}
+				}
 				await _log.Db($"Successfully stored {coins.Count} top market cap records", null, "MCS", outputToConsole: true);
 			}
 			catch (Exception ex)

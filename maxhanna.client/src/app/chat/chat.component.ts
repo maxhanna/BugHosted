@@ -637,5 +637,5 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
         this.closeChat();
       }
     });
-  }
+  }  
 }

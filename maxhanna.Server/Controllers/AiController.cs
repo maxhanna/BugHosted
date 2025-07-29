@@ -26,6 +26,7 @@ namespace maxhanna.Server.Controllers
 			_log = log;
 			_config = config;
 			_httpClient = new HttpClient();
+			_httpClient.Timeout = TimeSpan.FromMinutes(5);
 		}
 
 
@@ -356,11 +357,9 @@ namespace maxhanna.Server.Controllers
 				return "";
 			}
 		}
-
 		private async Task<string> DescribeMediaContent(FileEntry file, bool detailed = true)
 		{
-			const string tempThumbnailDir = @"E:\Dev\maxhanna\maxhanna.Server\TempThumbnails";
-			var tempThumbnailPaths = new List<string>();
+			const string tempThumbnailDir = @"E:\Dev\maxhanna\maxhanna.Server\TempThumbnails"; 
 			try
 			{
 				var filePath = Path.Combine(file.Directory ?? string.Empty, file.FileName ?? string.Empty);
@@ -374,17 +373,21 @@ namespace maxhanna.Server.Controllers
 				var base64Images = new List<string>();
 				var videoTypes = new[] { "mp4", "mov", "webm", "avi", "mkv" };
 				bool isVideo = file.FileType != null && videoTypes.Contains(file.FileType.ToLower());
+				bool hasMultipleFrames = false;
 
 				if (isVideo)
 				{
-					// Video processing (unchanged)
+					// Improved video frame capture
 					double durationSec = file.Duration.GetValueOrDefault(10);
-					var capturePoints = new[] { 0.1, 0.3, 0.5, 0.7, 0.9 }.Select(p => TimeSpan.FromSeconds(durationSec * p));
+					hasMultipleFrames = durationSec > 2; // Only capture multiple frames for longer videos
+
+					var capturePoints = hasMultipleFrames
+						? new[] { 0.15, 0.3, 0.5, 0.7, 0.85 } // Avoid start/end artifacts
+						: new[] { 0.5 }; // Single frame for short videos
 
 					foreach (var t in capturePoints)
 					{
-						var thumbPath = Path.Combine(tempThumbnailDir, $"{Guid.NewGuid()}.jpg");
-						tempThumbnailPaths.Add(thumbPath);
+						var thumbPath = Path.Combine(tempThumbnailDir, $"{Guid.NewGuid()}.jpg"); 
 
 						var ffmpegArgs = $"-i \"{filePath}\" -ss {t} -vframes 1 -q:v 2 \"{thumbPath}\"";
 						var proc = Process.Start(new ProcessStartInfo("ffmpeg", ffmpegArgs)
@@ -393,6 +396,7 @@ namespace maxhanna.Server.Controllers
 							UseShellExecute = false,
 							CreateNoWindow = true
 						});
+
 						if (proc != null)
 						{
 							await proc.WaitForExitAsync();
@@ -407,57 +411,37 @@ namespace maxhanna.Server.Controllers
 								_ = _log.Db($"FFmpeg thumbnail failed: {err}", null, "AiController", true);
 							}
 						}
-						else
-						{
-							_ = _log.Db($"FFmpeg thumbnail failed: Failed to start process.", null, "AiController", true);
-						}
 					}
 				}
 				else
 				{
-					// IMAGE PROCESSING: Convert all image formats to JPEG
-					var jpegPath = Path.Combine(tempThumbnailDir, $"{Guid.NewGuid()}.jpg");
-					tempThumbnailPaths.Add(jpegPath);
-
-					// Convert image to JPEG using FFmpeg
-					var ffmpegArgs = $"-i \"{filePath}\" -q:v 2 \"{jpegPath}\"";
-					var proc = Process.Start(new ProcessStartInfo("ffmpeg", ffmpegArgs)
+					// Image processing - directly read if possible
+					try
 					{
-						RedirectStandardError = true,
-						UseShellExecute = false,
-						CreateNoWindow = true
-					});
-
-					if (proc != null)
-					{
-						await proc.WaitForExitAsync();
-						if (proc.ExitCode == 0 && System.IO.File.Exists(jpegPath))
-						{
-							var bytes = await System.IO.File.ReadAllBytesAsync(jpegPath);
-							base64Images.Add(Convert.ToBase64String(bytes));
-							_ = _log.Db($"Converted {file.FileType} image to JPEG: {jpegPath}", null, "AiController", true);
-						}
-						else
-						{
-							var err = await proc.StandardError.ReadToEndAsync();
-							_ = _log.Db($"Image conversion failed: {err}", null, "AiController", true);
-
-							// Fallback to direct read if conversion fails
-							try
-							{
-								var bytes = await System.IO.File.ReadAllBytesAsync(filePath);
-								base64Images.Add(Convert.ToBase64String(bytes));
-								_ = _log.Db($"Used original image as fallback", null, "AiController", true);
-							}
-							catch (Exception ex)
-							{
-								_ = _log.Db($"Image read fallback failed: {ex.Message}", null, "AiController", true);
-							}
-						}
+						var bytes = await System.IO.File.ReadAllBytesAsync(filePath);
+						base64Images.Add(Convert.ToBase64String(bytes));
 					}
-					else
+					catch
 					{
-						_ = _log.Db($"FFmpeg thumbnail failed: Failed to start process.", null, "AiController", true);
+						// Fallback to conversion if direct read fails
+						var jpegPath = Path.Combine(tempThumbnailDir, $"{Guid.NewGuid()}.jpg"); 
+						var ffmpegArgs = $"-i \"{filePath}\" -q:v 2 \"{jpegPath}\"";
+						var proc = Process.Start(new ProcessStartInfo("ffmpeg", ffmpegArgs)
+						{
+							RedirectStandardError = true,
+							UseShellExecute = false,
+							CreateNoWindow = true
+						});
+
+						if (proc != null)
+						{
+							await proc.WaitForExitAsync();
+							if (proc.ExitCode == 0 && System.IO.File.Exists(jpegPath))
+							{
+								var bytes = await System.IO.File.ReadAllBytesAsync(jpegPath);
+								base64Images.Add(Convert.ToBase64String(bytes));
+							}
+						}
 					}
 				}
 
@@ -467,23 +451,11 @@ namespace maxhanna.Server.Controllers
 					return string.Empty;
 				}
 
-				// Build prompt
+				// Build content-focused prompt
 				string prompt = detailed
-					? base64Images.Count > 1
-						? "Analyze these sequential video frames collectively. Describe: "
-						  + "1. **Text content** (extract and paraphrase any visible text in each panel) "
-						  + "2. **Visual style** (art style, colors, exaggerated expressions, or common meme formats) "
-						  + "3. **Narrative progression**: How elements change/develop between frames "
-						  + "4. **Possible meaning or humor** (satire, reaction, cultural reference, etc.) "
-						  + "Combine into a cohesive 3-4 sentence summary, noting if it's a known meme format (e.g., 'Distracted Boyfriend', 'Two Buttons')."
-						: "Analyze this single image. Include:\n"
-						+ "1. **Key elements**: Subjects, objects, text, style\n"
-						+ "2. **Context**: Possible purpose (meme, infographic, etc.)\n"
-						+ "3. **Tone/Intent**: Humor, emotion, or message\n" 
-						+ "Provide a 2-3 sentence description that captures both text and visuals."
-					: base64Images.Count > 1
-						? "Summarize this in 3-5 words, focusing on its topic or punchline (e.g., 'Woman yelling at cat')."
-						: "Summarize this in 2-5 words (e.g., 'Wojak crying', 'Mocking SpongeBob').";
+					? BuildDetailedPrompt(base64Images.Count > 1, hasMultipleFrames)
+					: BuildConcisePrompt(base64Images.Count > 1);
+
 				// Send to Ollama
 				var payload = new
 				{
@@ -496,8 +468,7 @@ namespace maxhanna.Server.Controllers
 				using var req = new HttpRequestMessage(HttpMethod.Post, "http://localhost:11434/api/generate")
 				{
 					Content = new StringContent(JsonSerializer.Serialize(payload),
-					Encoding.UTF8,
-					"application/json")
+						Encoding.UTF8, "application/json")
 				};
 
 				var resp = await _httpClient.SendAsync(req);
@@ -505,7 +476,7 @@ namespace maxhanna.Server.Controllers
 
 				var body = await resp.Content.ReadAsStringAsync();
 				var parsed = JsonSerializer.Deserialize<JsonElement>(body);
-				return parsed.GetProperty("response").GetString()?.Trim() ?? string.Empty;
+				return RemoveMediaReferences(parsed.GetProperty("response").GetString()?.Trim() ?? string.Empty);
 			}
 			catch (Exception ex)
 			{
@@ -517,6 +488,60 @@ namespace maxhanna.Server.Controllers
 				CleanupTempThumbnails(tempThumbnailDir);
 			}
 		}
+
+		// New helper methods
+		private string BuildDetailedPrompt(bool multipleFrames, bool isLongVideo)
+		{
+			if (multipleFrames)
+			{
+				return isLongVideo
+					? "Analyze these key moments from a video: "
+					  + "1. Identify any text (transcribe exactly) "
+					  + "2. Describe actions, expressions, and scene changes "
+					  + "3. Note visual style and meme patterns "
+					  + "4. Explain humor or cultural references "
+					  + "Combine into a narrative summary (maximum 250 words) without mentioning it's from a video."
+					: "Describe this scene: "
+					  + "1. Transcribe all visible text exactly "
+					  + "2. Identify subjects, actions, and expressions "
+					  + "3. Note visual style and potential meme formats "
+					  + "4. Explain context and meaning "
+					  + "Respond as if describing real life without media references (maximum 250 words).";
+			}
+
+			return "Describe this visual content: "
+				+ "1. Transcribe all text exactly as it appears "
+				+ "2. Identify key elements and their arrangement "
+				+ "3. Note visual style and potential meme format "
+				+ "4. Explain context and meaning "
+				+ "Respond as if describing real life without mentioning it's an image (maximum 250 words).";
+		}
+
+		private string BuildConcisePrompt(bool multipleFrames)
+		{
+			return multipleFrames
+				? "Summarize in 3-5 words focusing on the main action or punchline (e.g., 'cat jumps unexpectedly')."
+				: "Summarize in 2-5 words focusing on key elements (e.g., 'angry frog with sign').";
+		}
+
+		private string RemoveMediaReferences(string response)
+		{
+			// Remove common media-type references
+			var patterns = new[] {
+				"image of", "images of", "video of", "videos of",
+				"this image", "this video", "these images", "these frames",
+				"in the picture", "in the clip", "in these shots"
+			};
+
+			foreach (var pattern in patterns)
+			{
+				response = System.Text.RegularExpressions.Regex.Replace(response, pattern, "", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+			}
+
+			// Remove leading articles/prepositions
+			return System.Text.RegularExpressions.Regex.Replace(response, @"^(the|a|an|this|these)\s+", "", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+		}
+ 
 
 		public async Task<string?> DescribeMedia([FromBody] int fileEntryId)
 		{
@@ -598,17 +623,20 @@ namespace maxhanna.Server.Controllers
 
 					const string selectSql = @"
 						SELECT 
-							id,  
-							file_name AS FileName,
-							folder_path AS Directory,
-							file_type AS FileType,
-							duration as Duration
+							id, file_name, folder_path, file_type, duration
 						FROM file_uploads
 						WHERE given_file_name IS NULL
-						AND file_name REGEXP '^[0-9]+\.[a-zA-Z0-9]+$'
-						AND file_type IN ('jpg','jpeg','png','gif','bmp','webp','mp4','mov','webm','avi','mkv','flv')
+						AND folder_path = 'E:/Dev/maxhanna/maxhanna.client/src/assets/Uploads/Meme/'
+						AND file_type IN ('jpg','jpeg','png','gif','bmp','webp','mp4','mov','webm','avi','mkv','flv') 
+						AND (
+							(file_name LIKE '%.%' AND file_name NOT LIKE '%-%' AND file_name NOT LIKE '% %')
+							AND (
+								file_name REGEXP '^[0-9]+\\.[a-zA-Z0-9]+$'  -- Pure numeric
+								OR file_name REGEXP '^\\w+_\\w+\\.[a-zA-Z0-9]+$'  -- Alphanumeric + underscore
+							)
+						) 
 						ORDER BY RAND()
-						LIMIT 1";
+						LIMIT 1;";
 
 					using var cmd = new MySqlCommand(selectSql, conn);
 					using var reader = await cmd.ExecuteReaderAsync();
@@ -617,10 +645,10 @@ namespace maxhanna.Server.Controllers
 						fileToRename = new FileEntry
 						{
 							Id = reader.GetInt32("id"),
-							FileName = reader.GetString("FileName"),
-							Directory = reader.GetString("Directory"),
-							FileType = reader.GetString("FileType"),
-							Duration = reader.IsDBNull(reader.GetOrdinal("Duration")) ? null : reader.GetInt32(reader.GetOrdinal("Duration")),
+							FileName = reader.GetString("file_name"),
+							Directory = reader.GetString("folder_path"),
+							FileType = reader.GetString("file_type"),
+							Duration = reader.IsDBNull(reader.GetOrdinal("duration")) ? null : reader.GetInt32(reader.GetOrdinal("duration")),
 						};
 					}
 				}

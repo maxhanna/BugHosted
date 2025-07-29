@@ -369,6 +369,59 @@ namespace maxhanna.Server.Controllers
 			}
 		}
 
+		[HttpGet("/Crawler/SearchYoutube", Name = "SearchYoutube")]
+		public async Task<IActionResult> SearchYoutube([FromQuery] string keyword)
+		{
+			if (string.IsNullOrWhiteSpace(keyword))
+				return BadRequest("Keyword is required");
+
+			var apiKey = _config.GetValue<string>("Youtube:ApiKey");
+			if (string.IsNullOrEmpty(apiKey))
+				return StatusCode(500, "YouTube API key not configured");
+
+			var searchResults = await SearchYoutubeVideosAsync(keyword, apiKey);
+			if (searchResults == null || searchResults.Count == 0)
+				return NotFound("No YouTube videos found");
+
+			return Ok(searchResults);
+		}
+		private async Task<List<YoutubeVideo>> SearchYoutubeVideosAsync(string keyword, string apiKey)
+		{
+			var videos = new List<YoutubeVideo>();
+			var httpClient = new HttpClient();
+
+			string requestUrl = $"https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&maxResults=10&q={Uri.EscapeDataString(keyword)}&key={apiKey}";
+
+			var response = await httpClient.GetAsync(requestUrl);
+			if (!response.IsSuccessStatusCode)
+				return videos;
+
+			var content = await response.Content.ReadAsStringAsync();
+
+			using var doc = System.Text.Json.JsonDocument.Parse(content);
+			if (doc.RootElement.TryGetProperty("items", out System.Text.Json.JsonElement items))
+			{
+				foreach (var item in items.EnumerateArray())
+				{
+					if (!item.TryGetProperty("id", out var idElem) ||
+						!idElem.TryGetProperty("videoId", out var videoIdElem)) continue;
+
+					var snippet = item.GetProperty("snippet");
+
+					videos.Add(new YoutubeVideo
+					{
+						VideoId = videoIdElem.GetString() ?? "",
+						Title = snippet.GetProperty("title").GetString() ?? "",
+						Description = snippet.GetProperty("description").GetString() ?? "",
+						ThumbnailUrl = snippet.GetProperty("thumbnails").GetProperty("default").GetProperty("url").GetString() ?? ""
+					});
+				}
+			}
+
+			return videos;
+		}
+
+
 		private async Task<List<Metadata>?> AddFavouriteCountsAsync(List<Metadata> searchResults)
 		{
 			if (searchResults == null || searchResults.Count == 0)
@@ -438,4 +491,4 @@ namespace maxhanna.Server.Controllers
 			return searchResults;
 		}
 	}
-}
+} 

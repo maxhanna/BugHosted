@@ -37,7 +37,7 @@
             </div>
             <div class="descriptionDiv cursorPointer metadataTitleLinkFavouriteWrapper">
               <a (click)="visitExternalLink(metadata.url)">{{ metadata.url }}</a>
-              <button (click)="parentRef?.addFavourite(metadata.url, metadata.imageUrl, metadata.title)" title="Add to Favourites" *ngIf="!onlySearch">
+              <button (click)="addFavourite(metadata.url, metadata.imageUrl, metadata.title)" title="Add to Favourites" *ngIf="!onlySearch">
                 ❤️<span class="smallFont" *ngIf="metadata.favouriteCount">[{{metadata.favouriteCount}}]</span>
               </button>
             </div>

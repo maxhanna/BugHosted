@@ -1,4 +1,4 @@
-import { ChangeDetectorRef, Component, ElementRef, EventEmitter, OnDestroy, OnInit, Output, ViewChild } from '@angular/core';
+import { ChangeDetectorRef, Component, ElementRef, EventEmitter, Input, OnDestroy, OnInit, Output, ViewChild } from '@angular/core';
 import { ChildComponent } from '../child.component';
 import { Currency, MiningWalletResponse, Total } from '../../services/datacontracts/crypto/mining-wallet-response';
 import { CoinValue } from '../../services/datacontracts/crypto/coin-value';
@@ -22,7 +22,6 @@ import { CryptoMarketCapsComponent } from '../crypto-market-caps/crypto-market-c
 export class CryptoHubComponent extends ChildComponent implements OnInit, OnDestroy {
   wallet?: MiningWalletResponse[] | undefined;
   btcFiatConversion?: number = 0;
-  currentSelectedCoin: string = 'Bitcoin';
   selectedCurrency?: string = undefined;
   selectedFiatConversionName?: string = "USD";
   selectedCoinConversionName: string = "BTC";
@@ -240,6 +239,7 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
   @ViewChild('tradeFeePct') tradeFeePct!: ElementRef<HTMLInputElement>;
   @ViewChild('tradeAmountPct') tradeAmountPct!: ElementRef<HTMLInputElement>;
 
+  @Input() currentSelectedCoin: string = 'Bitcoin';
   @Output() coinSelected = new EventEmitter<string>();
   constructor(
     private coinValueService: CoinValueService,
@@ -301,28 +301,31 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
       await this.getLatestCurrencyPriceRespectToFIAT();
       await this.refreshCoinAndVolumeGraph();
       this.startCoinAndVolumePolling();
+      this.getCurrencyToCadRate("usd").then(res => {
+        this.cadToUsdRate = res;
+        this.btcUSDRate = this.btcToCadPrice / this.cadToUsdRate;
+        this.selectedCoinUSDRate = this.selectedCoinToCadPrice / this.cadToUsdRate;
+        setTimeout(() => {
+          this.getLastTradebotTradeDisplay().then(() => this.getLastTradePercentage());
+        }, 50);
+      });
+      this.coinValueService.getGlobalMetrics().then(res => {
+        this.globalCryptoStats = res;
+      });
+      this.loadIndicators('XBT'); 
+      this.aiService.getMarketSentiment().then(res => {
+        if (res) {
+          this.marketSentimentData = res;
+        }
+      });
+      if (this.currentSelectedCoin != "Bitcoin") {
+        setTimeout(() => { 
+          this.selectCoin(this.currentSelectedCoin);
+        }, 1000);
+      } 
     } catch (error) {
       console.error('Error fetching coin values:', error);
-    }
-
-    this.getCurrencyToCadRate("usd").then(res => {
-      this.cadToUsdRate = res;
-      this.btcUSDRate = this.btcToCadPrice / this.cadToUsdRate;
-      this.selectedCoinUSDRate = this.selectedCoinToCadPrice / this.cadToUsdRate;
-      setTimeout(() => {
-        this.getLastTradebotTradeDisplay().then(() => this.getLastTradePercentage()); 
-      }, 50);
-    });
-    this.coinValueService.getGlobalMetrics().then(res => {
-      this.globalCryptoStats = res;
-    }); 
-    this.loadIndicators('XBT');
-
-    this.aiService.getMarketSentiment().then(res => {
-      if (res) {
-        this.marketSentimentData = res;
-      }
-    });
+    } 
     this.stopLoading();
   }
   private getProfitData(tradeUserId: number, sessionToken: string | undefined) {
@@ -538,7 +541,7 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
   private stopSingleLineLogPolling() {
     clearInterval(this.singleLineLogInterval);
   }
-  private startCoinAndVolumePolling() {
+  private async startCoinAndVolumePolling() {
     this.coinAndVolumeRefreshInterval = setInterval(async () => {
       const hours = this.convertTimePeriodToHours(this.lineGraphInitialPeriod);
       if (hours < 24 * 4) { // dont refresh constantly for big data sets
@@ -2002,7 +2005,8 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
     };
     return map[symbol.toUpperCase()] || symbol;
   }
-  async showTradeLogs() { 
+  async showTradeLogs() {
+    this.stopTradeLogPolling();
     let selectedCurrency = this.selectedTradebotCurrency?.nativeElement?.value;
     let selectedStrategy = this.selectedTradebotStrategy?.nativeElement?.value; 
     if (!this.isTradePanelOpen) {
@@ -2020,9 +2024,7 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
         this.startLoading();
         await this.startTradeLogPolling(selectedCurrency, selectedStrategy); // Start polling if showing logs
         this.stopLoading();
-      } else {
-        this.stopTradeLogPolling(); // Stop polling if hiding logs
-      }
+      }  
     }, 50);
 
   }
@@ -2035,17 +2037,20 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
 
     // Start polling every 60 seconds
     this.tradeLogInterval = setInterval(async () => {
-      if (this.showingTradeLogs && this.currentLogPage <= 2) {
+      if (this.showingTradeLogs && this.currentLogPage <= 2 && !this.isLoading) {
         await this.fetchTradeLogs();
       }
     }, 30 * 1000); // 30 seconds
   }
   filterLogsFromEvent() {
+    this.stopTradeLogPolling();
     const strategy = this.tradeLogStrategyFilter?.nativeElement?.value;
     const coin = this.tradeLogCoinFilter?.nativeElement?.value;
+    this.currentLogPage = 1;
     this.selectedTradeLogCoin = coin;
     this.selectedTradeLogStrategy = strategy;
     this.filterLogs(this.selectedTradeLogCoin, this.selectedTradeLogStrategy);
+    this.startTradeLogPolling();
   }
   async filterLogs(coin?: string, strategy?: string) {
     this.startLoading();
@@ -2840,7 +2845,7 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
         continue;
       }
 
-      this.isLoading = true;
+      this.startLoading();
 
       await this.tradeService.getTradeIndicators(tmpIndicatorNames[x], 'USDC').then(res => {
         if (res) {
@@ -2852,10 +2857,10 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
             this.indicatorCache.set(cacheKey, res);
           }
         }
-        this.isLoading = false;
+        this.stopLoading();
       }).catch(err => {
         console.error('Error loading indicators:', err);
-        this.isLoading = false;
+        this.stopLoading();
       });
     }
 

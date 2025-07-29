@@ -12,12 +12,12 @@
 }
 .deleteNotificationButton {
   position: absolute;
-  top: 0px;
+  bottom: 0px;
   right: 0px;
 }
 .readNotificationButton {
   position: absolute;
-  top: 0px;
+  bottom: 0px;
   right: 70px;
 }
 .fileId {
@@ -89,7 +89,7 @@
   display: flex;
   position: relative;
   margin-bottom: 10px;
-  padding: 20px;
+  padding: 8px 15px 26px 15px;
   max-width: 500px;
 }
 @media only screen and (max-width : 1000px) {
@@ -101,6 +101,9 @@
   .notificationListItem {
     width: 500px;
   }
+}
+.nliLeftDiv .largeAvatar {
+  font-size: xxx-large;
 }
 
 .notificationText {
@@ -209,3 +212,10 @@
   padding: 5px 10px;  
 }
  
+.noNotifsTitle1 {
+  color: var(--secondary-font-color);
+}
+.noNotifsTitle2 {
+  color: var(--third-font-color); 
+  margin-top: 20px;
+}

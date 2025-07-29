@@ -1,7 +1,5 @@
-/* Main Container */
 .componentMain {
-    height: calc(var(--vh, 1vh) * 100 - 60px);
-    padding: 20px;
+    height: calc(var(--vh, 1vh) * 100 - 60px); 
 }
 
 
@@ -122,9 +120,8 @@ button:not(#closeOverlay):hover {
 }
 
 .entry-details,
-.entry-date {
-    font-size: 13px;
-    margin-bottom: 5px;
+.entry-date { 
+    margin-bottom: 10px;
 }
 
 .thirdFontColor {
@@ -186,11 +183,7 @@ button:not(#closeOverlay):hover {
 }
 
 /* Responsive Adjustments */
-@media (max-width: 600px) {
-    .componentMain {
-        padding: 15px;
-    }
-
+@media (max-width: 600px) {  
     .entry-card {
         padding: 15px;
     }

@@ -61,4 +61,20 @@ export class CrawlerService {
       return null;
     }
   }
+  async searchYoutube(keyword: string) {
+    try {
+      const response = await fetch(`/crawler/searchyoutube?keyword=${encodeURIComponent(keyword)}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      return await response.json();
+    } catch (error) {
+      console.error("YouTube search failed", error);
+      return null;
+    }
+  }
+
 }

@@ -66,6 +66,8 @@ import { CryptoFearAndGreedComponent } from './crypto-fear-and-greed/crypto-fear
 import { CryptoGlobalStatsComponent } from './crypto-global-stats/crypto-global-stats.component';
 import { CryptoBotConfigurationComponent } from './crypto-bot-configuration/crypto-bot-configuration.component';
 import { CryptoMarketCapsComponent } from './crypto-market-caps/crypto-market-caps.component';
+import { UserTrophiesComponent } from './user-trophies/user-trophies.component';
+import { YoutubeSearchComponent } from './youtube-search/youtube-search.component';
 
 @NgModule({
   declarations: [
@@ -121,7 +123,9 @@ import { CryptoMarketCapsComponent } from './crypto-market-caps/crypto-market-ca
     NexusMovementComponent,
     CryptoCalendarComponent,
     CryptoBotConfigurationComponent,
-    CryptoMarketCapsComponent, 
+    CryptoMarketCapsComponent,
+    UserTrophiesComponent,
+    YoutubeSearchComponent, 
   ],
   bootstrap: [AppComponent],
   imports: [BrowserModule,

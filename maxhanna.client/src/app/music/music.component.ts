@@ -1,4 +1,5 @@
-import { AfterContentChecked, AfterViewInit, Component, ElementRef, EventEmitter, Input, OnInit, Output, ViewChild } from '@angular/core';
+import { AfterContentChecked, AfterViewInit, Component, ElementRef, EventEmitter, HostListener, Input, OnInit, Output, ViewChild } from '@angular/core';
+import { Location } from '@angular/common'; 
 import { ChildComponent } from '../child.component';
 import { Todo } from '../../services/datacontracts/todo';
 import { TodoService } from '../../services/todo.service';
@@ -40,13 +41,29 @@ export class MusicComponent extends ChildComponent implements OnInit, AfterViewI
   selectedType: 'youtube' | 'file' = 'youtube';
   isEditing: number[] = [];
   showHelpPopup = false;
+  isFullscreen = false;
 
   @Input() user?: User;
   @Input() smallPlayer = false;
   @Input() inputtedParentRef?: AppComponent;
   @Output() gotPlaylistEvent = new EventEmitter<Array<Todo>>();
 
-  constructor(private todoService: TodoService) { super(); }
+  constructor(private todoService: TodoService, private location: Location) {
+    super(); 
+    this.location.subscribe(() => {
+      if (this.isFullscreen) {
+        this.closeFullscreen();
+      }
+    });
+  }
+
+  @HostListener('document:keydown.escape', ['$event'])
+  handleEscapeKey(event: KeyboardEvent) {
+    if (this.isFullscreen) {
+      this.closeFullscreen();
+      event.preventDefault(); 
+    }
+  }
 
   async ngOnInit() {
     await this.getSongList();
@@ -280,6 +297,21 @@ export class MusicComponent extends ChildComponent implements OnInit, AfterViewI
     this.isMusicControlsDisplayed(false);
   }
 
+  fullscreen() { 
+    const parent = this.inputtedParentRef ?? this.parentRef;  
+    if (!parent?.isShowingOverlay && !this.smallPlayer) { 
+      parent?.showOverlay();
+    }
+    this.isFullscreen = true;   
+  }
+  closeFullscreen() {
+    this.isFullscreen = false;
+    const parent = this.inputtedParentRef ?? this.parentRef;
+    if (parent && !this.smallPlayer) {
+      parent.closeOverlay();
+    }
+  }
+
   trimYoutubeUrl(url: string) {
     if (!url || url.trim() == '') return '';
     if (url.includes("youtu.be")) {
@@ -299,7 +331,8 @@ export class MusicComponent extends ChildComponent implements OnInit, AfterViewI
     const elements = [
       document.getElementById("stopMusicButton"),
       document.getElementById("followLinkButton"),
-      document.getElementById("openPlaylistButton")
+      document.getElementById("openPlaylistButton"),
+      document.getElementById("fullscreenMusicButton"),
     ];
     elements.forEach(el => {
       if (el) el.style.display = setter ? "inline-block" : "none";

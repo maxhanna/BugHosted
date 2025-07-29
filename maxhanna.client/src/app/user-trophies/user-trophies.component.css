@@ -1,0 +1,21 @@
+.trophyContainerWrapper {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(70px, 1fr));
+    gap: 20px;
+    justify-content: center;
+    align-content: center;
+}
+
+.trophyContainer {
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    padding: 5px 10px;
+    max-width: 70px;
+    justify-content: center;
+    align-items: center;
+    align-content: center;
+    flex-wrap: nowrap;
+    text-align: center;
+    font-size: small;
+}
