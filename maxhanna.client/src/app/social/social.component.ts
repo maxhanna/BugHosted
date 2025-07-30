@@ -561,21 +561,15 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
   goToLink(story?: Story, metadataUrl?: string) {
     if (story && story.storyText) {
       const goodUrl = metadataUrl ?? this.extractUrl(story.storyText);
-      if (goodUrl) {
-        const videoId = this.extractYouTubeVideoId(metadataUrl ?? story.storyText);
-        if (videoId) {
-          (document.getElementById('youtubeVideoIdInput') as HTMLInputElement).value = videoId;
-          this.parentRef?.playYoutubeVideo();
-        } else {
-          window.open(goodUrl, '_blank');
-        }
+      if (goodUrl) { 
+        this.parentRef?.visitExternalLink(goodUrl); 
       }
     }
     else {
       if (story && story.metadata) {
         const tmpUrl = story.metadata[0].imageUrl;
         if (tmpUrl) {
-          window.open(tmpUrl, '_blank');
+          this.parentRef?.visitExternalLink(tmpUrl); 
         }
       }
     }

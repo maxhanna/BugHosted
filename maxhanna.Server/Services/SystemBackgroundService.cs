@@ -125,7 +125,8 @@ namespace maxhanna.Server.Services
 			await _profitService.CalculateMonthlyProfits();
 			await FetchAndStoreCryptoEvents();
 			await FetchAndStoreFearGreedAsync();
-			await FetchAndStoreGlobalMetricsAsync();
+			await FetchAndStoreGlobalMetricsAsync(); 
+			await _log.DeleteOldLogs();
 		} 
 		private async Task RunDailyTasks()
 		{
@@ -142,7 +143,6 @@ namespace maxhanna.Server.Services
 			await _newsService.PostDailyMemeAsync();
 			await DeleteOldNews();
 			await DeleteOldTradeVolumeEntries();
-			await _log.DeleteOldLogs();
 			await _log.BackupDatabase(); 
 		}
 		private TimeSpan CalculateNextDailyRun()
@@ -1603,6 +1603,11 @@ namespace maxhanna.Server.Services
 						{ "2027 User", "SELECT id AS user_id FROM users WHERE YEAR(last_seen) = 2027" },
 						{ "2028 User", "SELECT id AS user_id FROM users WHERE YEAR(last_seen) = 2028" },
 						{ "2029 User", "SELECT id AS user_id FROM users WHERE YEAR(last_seen) = 2029" },
+						{ "Wordler Beginner", "SELECT user_id FROM wordler_scores GROUP BY user_id HAVING COUNT(*) >= 3" },
+						{ "Wordler Expert", "SELECT user_id FROM wordler_scores GROUP BY user_id HAVING COUNT(*) >= 30" },
+						{ "Master Wordler", "SELECT user_id FROM wordler_scores GROUP BY user_id HAVING COUNT(*) >= 100" }, 
+						{ "Wordler Legend", "SELECT user_id FROM wordler_scores GROUP BY user_id HAVING COUNT(*) >= 1000" },
+						{ "Wordler God", "SELECT user_id FROM wordler_scores GROUP BY user_id HAVING COUNT(*) >= 10000" },
 						{ "Array Scout", "SELECT user_id FROM array_characters WHERE ABS(position) > 10" },
 						{ "Array Navigator", "SELECT user_id FROM array_characters WHERE ABS(position) > 100" },
 						{ "Array Pathfinder", "SELECT user_id FROM array_characters WHERE ABS(position) > 1000" },

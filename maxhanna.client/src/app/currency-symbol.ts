@@ -6,33 +6,33 @@ import { Pipe, PipeTransform } from '@angular/core';
 })
 export class CurrencySymbolPipe implements PipeTransform {
   transform(
-    value: number | string | null | undefined, // Make value optional
+    value: number | string | null | undefined,
     currencyCode: string = 'USD',
     showFull?: boolean
   ): string {
     const symbol = this.getCurrencySymbol(currencyCode);
 
-    // If value is null/undefined, return ONLY the symbol
     if (value === null || value === undefined) {
       return symbol;
     }
 
-    // Convert string to number if necessary, preserving precision
     const numericValue = typeof value === 'string' ? parseFloat(value) : value;
 
-    // Handle invalid numbers
     if (isNaN(numericValue)) {
       console.warn(`CurrencySymbolPipe: Invalid number for value=${value}, currencyCode=${currencyCode}`);
       return `${symbol}0`;
-    } 
-    
-    // Logic for showFull
+    }
+
+    // Handle negative values first
+    const isNegative = numericValue < 0;
+    const absoluteValue = Math.abs(numericValue);
+
     if (showFull) {
-      const formatted = numericValue.toLocaleString('en-US', {
+      const formatted = absoluteValue.toLocaleString('en-US', {
         minimumFractionDigits: 2,
-        maximumFractionDigits: 12 // Increased for small values
-      }); 
-      return `${symbol}${formatted}`;
+        maximumFractionDigits: 12
+      });
+      return `${isNegative ? '-' : ''}${symbol}${formatted}`;
     }
 
     const trillion = 1_000_000_000_000;
@@ -43,36 +43,33 @@ export class CurrencySymbolPipe implements PipeTransform {
 
     let formattedValue: string;
 
-    // Handle large values (>= 1 million)
-    if (numericValue >= trillion) {
-      formattedValue = (numericValue / trillion).toFixed(3) + 'T';
-    } else if (numericValue >= billion) {
-      formattedValue = (numericValue / billion).toFixed(3) + 'B';
-    } else if (numericValue >= million) {
-      formattedValue = (numericValue / million).toFixed(3) + 'M';
+    if (absoluteValue >= trillion) {
+      formattedValue = (absoluteValue / trillion).toFixed(3) + 'T';
+    } else if (absoluteValue >= billion) {
+      formattedValue = (absoluteValue / billion).toFixed(3) + 'B';
+    } else if (absoluteValue >= million) {
+      formattedValue = (absoluteValue / million).toFixed(3) + 'M';
     }
-    // Handle values >= 1 and < 1 million
-    else if (numericValue >= one) {
-      formattedValue = numericValue.toLocaleString('en-US', {
+    else if (absoluteValue >= one) {
+      formattedValue = absoluteValue.toLocaleString('en-US', {
         minimumFractionDigits: 2,
-        maximumFractionDigits: 2 // Limit to 2 decimals for values >= 1
+        maximumFractionDigits: 2
       });
     }
-    // Handle fractional penny values (< 0.01)
-    else if (numericValue > 0 && numericValue < penny) {
-      // Use toFixed(12) for high precision, trim trailing zeros and leading "0."
-      formattedValue = numericValue.toFixed(12).replace(/^0\./, '.').replace(/0+$/, '');
-      formattedValue = `0${formattedValue}`; // Ensure leading "0." for readability
+    else if (absoluteValue > 0 && absoluteValue < penny) {
+      formattedValue = absoluteValue.toFixed(12)
+        .replace(/^0\./, '.')
+        .replace(/0+$/, '');
+      formattedValue = `0${formattedValue}`;
     }
-    // Handle values >= 0.01 and < 1
     else {
-      formattedValue = numericValue.toLocaleString('en-US', {
+      formattedValue = absoluteValue.toLocaleString('en-US', {
         minimumFractionDigits: 2,
-        maximumFractionDigits: 8 // Higher precision for fractional values
+        maximumFractionDigits: 8
       });
     }
- 
-    return `${symbol}${formattedValue}`;
+
+    return `${isNegative ? '-' : ''}${symbol}${formattedValue}`;
   }
 
   private getCurrencySymbol(currencyCode: string): string {

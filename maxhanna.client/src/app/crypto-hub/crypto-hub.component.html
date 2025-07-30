@@ -1,5 +1,5 @@
 <div class="componentMain">
-  <div class="closeButton" (click)="remove_me('CryptoHubComponent');"></div>
+  <div class="closeButton" (click)="isTradePanelOpen ? closeTradeFullscreen() : remove_me('CryptoHubComponent');"></div>
   <div class="menuButton" (click)="showMenuPanel();"></div>
   <div class="componentTitle">Crypto Hub</div>
   <div [class]="noMining ? 'noMiningHubSection' : !isTradePanelOpen ? 'hubSection' : ''"
@@ -57,8 +57,8 @@
       </div>
     </div>
     <div class="graphContainerDiv sectionContainer" [style.display]="isTradePanelOpen ? 'none' : 'block'">
-      <ng-container *ngIf="allHistoricalData">
-        <app-line-graph #lineGraphComponent [type]="'Crypto'" [selectedCurrency]="selectedCurrency"
+      <ng-container *ngIf="allHistoricalData && selectedCurrency">
+        <app-line-graph #lineGraphComponent [type]="'Crypto'" [selectedCurrency]="selectedCurrency" [selectedCurrencyDisplay]="getCurrencySymbol(selectedCurrency)"
           [selectedPeriod]="lineGraphInitialPeriod" [data]="allHistoricalData" [data2]="tradebotTradeValuesForMainGraph"
           [chartTypeInputtedData2]="'line'" [isDotModeData2]="true" [selectedCoin]="currentSelectedCoin"
           [secondaryDataLabel]="'Tradebot Action (Red:Sell/Green:Buy)'" [displayCoinSwitcher]="false"
@@ -702,12 +702,12 @@
         </div>
       </div>
       <div
-        *ngIf="showingTradeSettings && btcToCadPrice && solToCadPrice && xrpToCadPrice && xdgToCadPrice && ethToCadPrice"
+        *ngIf="showingTradeSettings && cadToSelectedCurrencyRate && btcToCadPrice && solToCadPrice && xrpToCadPrice && xdgToCadPrice && ethToCadPrice"
         [style.opacity]="isLoading ? '25%' : ''">
         <app-crypto-bot-configuration #configurationComponent [inputtedParentRef]="parentRef"
-          [btcToCadPrice]="btcToCadPrice" [solToCadPrice]="solToCadPrice" [xrpToCadPrice]="xrpToCadPrice"
-          [xdgToCadPrice]="xdgToCadPrice" [ethToCadPrice]="ethToCadPrice"
-          (updatedTradeConfig)="updatedTradeConfigEvent($event)"></app-crypto-bot-configuration>
+          [btcToCadPrice]="btcToCadPrice * cadToSelectedCurrencyRate" [solToCadPrice]="solToCadPrice * cadToSelectedCurrencyRate" [xrpToCadPrice]="xrpToCadPrice * cadToSelectedCurrencyRate"
+          [xdgToCadPrice]="xdgToCadPrice * cadToSelectedCurrencyRate" [ethToCadPrice]="ethToCadPrice * cadToSelectedCurrencyRate"
+          [selectedCurrency]="selectedCurrency" (updatedTradeConfig)="updatedTradeConfigEvent($event)"></app-crypto-bot-configuration>
       </div>
       <div *ngIf="isShowingTradeValueGraph">
         <app-line-graph [type]="'Crypto'" [graphTitle]="'Trade Value'" [data]="tradebotValuesForGraph"

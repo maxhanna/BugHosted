@@ -68,6 +68,7 @@ import { CryptoBotConfigurationComponent } from './crypto-bot-configuration/cryp
 import { CryptoMarketCapsComponent } from './crypto-market-caps/crypto-market-caps.component';
 import { UserTrophiesComponent } from './user-trophies/user-trophies.component';
 import { YoutubeSearchComponent } from './youtube-search/youtube-search.component';
+import { DecodeHtmlPipe } from './decode-html.pipe';
 
 @NgModule({
   declarations: [
@@ -125,7 +126,7 @@ import { YoutubeSearchComponent } from './youtube-search/youtube-search.componen
     CryptoBotConfigurationComponent,
     CryptoMarketCapsComponent,
     UserTrophiesComponent,
-    YoutubeSearchComponent, 
+    YoutubeSearchComponent,
   ],
   bootstrap: [AppComponent],
   imports: [BrowserModule,
@@ -135,7 +136,8 @@ import { YoutubeSearchComponent } from './youtube-search/youtube-search.componen
     FileSizePipe, 
     AppRoutingModule,
     CryptoFearAndGreedComponent,
-    CurrencySymbolPipe,
+    CurrencySymbolPipe, 
+    DecodeHtmlPipe,
     CryptoGlobalStatsComponent],
   exports: [
     InViewDirective,

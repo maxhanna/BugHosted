@@ -105,6 +105,24 @@
         </div>
     </div>
 
+    <!-- Max From Coin Balance (DCA only) -->
+    <div class="config-box" [style.display]="tradeStrategySelect.value == 'IND' ? 'none' : 'flex'">
+        <div class="config-header">
+            <span>Max {{normalizeCoinName(tradeFromCoinSelect?.value)}} Balance</span>
+            <span class="info-icon" (click)="toggleExplanation($event)">i</span>
+        </div>
+        <input type="number" #tradeMaximumFromBalance
+            (input)="onMaxFromBalanceChange()"
+            title="Set the maximum amount of the source coin (e.g., BTC) that the balance sheet can have." />
+        <div class="config-explanation">
+            <p><strong>What it does:</strong> This field sets an upper limit on your source coin (e.g., BTC,
+                ETH). It is measured in {{tradeFromCoinSelect?.value}}. Your current settings are worth: {{selectedCurrency}}{{ MaxFromBalanceEnteredPrice | currencySymbol:(selectedCurrency):false }}{{MaxFromBalanceEnteredPrice == 0 ? ' (uncapped)' : ''}}.</p>
+            <p><strong>Why it matters:</strong> By capping the balance, you control how much of your portfolio is dedicated to a certain coin.</p>
+            <p><strong>How to use it:</strong> Think about your total holdings and risk tolerance. If you only want to hold 500$ worth of 
+                {{tradeFromCoinSelect?.value}} then you should set this to {{ 500 / getCoinPrice(tradeFromCoinSelect?.value) }}. Set this to 0 to keep this uncapped.</p>
+        </div>
+    </div>
+
     <!-- Min From Coin per Trade (DCA only) -->
     <div class="config-box" [style.display]="tradeStrategySelect.value == 'IND' ? 'none' : 'flex'">
         <div class="config-header">
@@ -151,7 +169,7 @@
     <!-- Min Spread to Trigger Trade -->
     <div class="config-box">
         <div class="config-header">
-            <span>Min Spread to Trigger</span>
+            <span>Spread Trigger</span>
             <span class="info-icon" (click)="toggleExplanation($event)">i</span>
         </div>
         <input type="number" #tradeTradeThreshold
@@ -169,64 +187,18 @@
                 triggering a trade is set at {{tradeTradeThreshold.value | number:'1.4-4'}}, which translates to {{
                 multiplyBy100(tradeTradeThreshold.value) | number:'1.2-2'}}%.</p>
         </div>
-    </div>
-
-    <!-- Max Balance Percentage per Trade (DCA only) -->
-    <div class="config-box" [style.display]="tradeStrategySelect.value == 'IND' ? 'none' : 'flex'">
-        <div class="config-header">
-            <span>Max Balance % per Trade</span>
-            <span class="info-icon" (click)="toggleExplanation($event)">i</span>
-        </div>
-        <input type="number" #tradeMaximumTradeBalanceRatio
-            title="Define the maximum percentage of your total balance that can be used in a single trade." />
-        <div class="config-explanation">
-            <p><strong>What it does:</strong> This field limits the percentage of your total account balance (across all
-                coins) that can be used in any single trade. It's a portfolio-level risk control, not just tied to one
-                coin.</p>
-            <p><strong>Why it matters:</strong> Overcommitting to one trade can wipe out your account if it fails. This
-                setting diversifies your risk, ensuring no single move bets the farm. It's a big-picture safety net for
-                your trading capital.</p>
-            <p><strong>How to use it:</strong> A safe range is 10% to 20%—e.g., with a $10,000 balance, 10% caps trades
-                at $1,000. Conservative traders might use 5%, while aggressive ones might push to 25%. Align this with
-                your overall financial goals and comfort with loss. The default ratio is set at
-                {{tradeMaximumTradeBalanceRatio.value | number:'1.2-2'}}, which translates to {{
-                multiplyBy100(tradeMaximumTradeBalanceRatio.value) | number:'1.2-2'}}%.</p>
-        </div>
-    </div>
-
-    <!-- Trade Percentage of Available Funds -->
-    <div class="config-box">
-        <div class="config-header">
-            <span>Trade % of Funds</span>
-            <span class="info-icon" (click)="toggleExplanation($event)">i</span>
-        </div>
-        <input type="number" #tradeValueTradePercentage
-            title="Set what fraction of your available funds to use per trade." />
-        <div class="config-explanation">
-            <p><strong>What it does:</strong> This field determines what percentage of your available funds (e.g.,
-                unreserved USDC or source coin) is used for each trade. It's a dynamic allocation tool based on what's
-                free to trade at the moment.</p>
-            <p><strong>Why it matters:</strong> It controls trade size relative to your liquid funds, balancing
-                aggression and caution. A higher percentage means bigger trades but less buffer; a lower one keeps more
-                funds on the sidelines for flexibility.</p>
-            <p><strong>How to use it:</strong> Enter a decimal—e.g., 0.15 means 15% of available funds per trade. With
-                $1,000 free, that's $150 per trade. Use 0.05 (5%) for slow and steady, or 0.3 (30%) for bolder plays.
-                Adjust based on market conditions and your cash flow. The default percentage is set at
-                {{tradeValueTradePercentage.value | number:'1.2-2'}}, which translates to {{
-                multiplyBy100(tradeValueTradePercentage.value) | number:'1.2-2'}}%.</p>
-        </div>
-    </div>
+    </div> 
 
     <!-- Sell Percentage per Trade (DCA only) -->
     <div class="config-box" [style.display]="tradeStrategySelect.value == 'IND' ? 'none' : 'flex'">
         <div class="config-header">
-            <span>Sell % per Unmatched Trade</span>
+            <span>Sell % of Reserves</span>
             <span class="info-icon" (click)="toggleExplanation($event)">i</span>
         </div>
-        <input type="number" #tradeValueSellPercentage title="Set what fraction of your reserved holdings to sell per trade." />
+        <input type="number" #tradeReserveSellPercentage title="Set what fraction of your reserved holdings to sell per trade." />
         <div class="config-explanation">
             <p><strong>What it does:</strong> This field sets the percentage of your source coin holdings (e.g., {{normalizeCoinName(tradeFromCoinSelect?.value)}} reserves) to
-                sell in each sell transaction. It's about how much you offload at a time when taking profits or cutting
+                sell in each sell transaction when you have no matching buy trades to match. It's about how much you offload at a time when taking profits or cutting
                 losses.</p>
             <p><strong>Why it matters:</strong> Selling too much at once can leave you with no position to benefit from
                 future gains; selling too little might not lock in enough profit. This setting fine-tunes your exit
@@ -234,112 +206,28 @@
             <p><strong>How to use it:</strong> Use a decimal—e.g., 0.04 means selling 4% of your {{normalizeCoinName(tradeFromCoinSelect?.value)}} per trade. With 1
                 {{tradeFromCoinSelect?.value?.replace('XBT', 'BTC')}, that's 0.04 {{normalizeCoinName(tradeFromCoinSelect?.value)}} sold. Set 0.02 (2%) for gradual exits, or 0.1 (10%) for quicker liquidation. Pair
                 this with market trends to time your sales effectively. The default percentage is set at
-                {{tradeValueSellPercentage.value | number:'1.2-2'}}, which translates to {{
-                multiplyBy100(tradeValueSellPercentage.value) | number:'1.2-2'}}%.</p>
+                {{tradeReserveSellPercentage.value | number:'1.2-2'}}, which translates to {{
+                multiplyBy100(tradeReserveSellPercentage.value) | number:'1.2-2'}}%.</p>
         </div>
     </div>
-
-    <!-- Min From Coin to Start Trading (DCA only) -->
-    <div class="config-box" [style.display]="tradeStrategySelect.value == 'IND' ? 'none' : 'flex'">
-        <div class="config-header">
-            <span>Min {{normalizeCoinName(tradeFromCoinSelect?.value)}} to Start</span>
-            <span class="info-icon" (click)="toggleExplanation($event)">i</span>
-        </div>
-        <input type="number" #tradeInitialMinimumFromAmountToStart 
-            title="Set the minimum amount of the source coin needed to start trading." />
-        <div class="config-explanation">
-            <p><strong>What it does:</strong> This field specifies the least amount of your source coin (e.g., {{tradeFromCoinSelect?.value?.replace('XBT', 'BTC')}) you
-                need in your wallet to kick off trading. It's the entry threshold for your bot to start executing
-                trades.</p>
-            <p><strong>Why it matters:</strong> Without enough starting capital, trades might be too small to matter or
-                might not even execute due to minimum order sizes on exchanges. This ensures your bot has enough fuel to
-                operate meaningfully from the get-go.</p>
-            <p><strong>How to use it:</strong> For BTC, 0.001 BTC might work—small but enough for a trade. For cheaper
-                coins like XDG, try 50 XDG. Check exchange minimums (e.g., 0.0005 BTC on some platforms) and set this
-                slightly above to avoid issues. Increase if you want bigger initial trades. Make this above {{getMinimumCryptoAmount(tradeFromCoinSelect?.value ?? "BTC", 5)}}.</p>
-        </div>
-    </div>
+ 
 
     <!-- Min USDC to Start Trading (DCA only) -->
     <div class="config-box" [style.display]="tradeStrategySelect.value == 'IND' ? 'none' : 'flex'">
         <div class="config-header">
-            <span>Min {{tradeToCoinSelect?.value}} to Start</span>
+            <span>${{tradeToCoinSelect?.value}} Value of {{tradeFromCoinSelect?.value}} Reserves</span>
             <span class="info-icon" (click)="toggleExplanation($event)">i</span>
         </div>
-        <input type="number" #tradeInitialMinimumUSDCAmountToStart min="5"
-            title="Set the minimum amount of USDC needed to start trading." />
+        <input type="number" #tradeCoinReserveUSDCValue min="5"
+            title="Set the minimum amount of USDC needed to reserve and start trading." />
         <div class="config-explanation">
             <p><strong>What it does:</strong> This field sets the minimum USDC balance required in your wallet before
-                trading begins. It's the cash threshold your bot needs to start buying your source coin.</p>
-            <p><strong>Why it matters:</strong> Trading with too little USDC can lead to failed trades or insignificant
-                positions, especially after fees. This ensures you've got enough stablecoin to make a dent in the market
-                and cover initial costs.</p>
-            <p><strong>How to use it:</strong> Try $100 as a starting point—enough for a small {{normalizeCoinName(tradeFromCoinSelect?.value)}} buy (e.g., 0.002 BTC
-                at $50,000). If you're planning bigger trades, bump it to $500 or more. Check your exchange's minimum
+                trading begins/creating a reserve. It's the cash reserve your bot will use when all trades have been matched and if price keeps rising beyond.</p>
+            <p><strong>Why it matters:</strong> This ensures you've got enough stablecoin to 1- start trading and 2- cover your reserves.</p>
+            <p><strong>How to use it:</strong> Try $100 as a starting point—enough for a small {{normalizeCoinName(tradeFromCoinSelect?.value)}} buy. If you're planning bigger trades, bump it to $500 or more. Check your exchange's minimum
                 buy amounts and add a buffer for fees or price swings. Make this above 5.</p>
         </div>
-    </div>
-
-    <!-- Max USDC To Reserve (DCA only) -->
-    <div class="config-box" [style.display]="tradeStrategySelect.value == 'IND' ? 'none' : 'flex'">
-        <div class="config-header">
-            <span>Max {{tradeToCoinSelect?.value}} To Reserve</span>
-            <span class="info-icon" (click)="toggleExplanation($event)">i</span>
-        </div>
-        <input type="number" #tradeInitialMaximumUSDCAmountToStart
-            title="Define the maximum initial USDC amount to invest when starting to trade a new coin." />
-        <div class="config-explanation">
-            <p><strong>What it does:</strong> This field caps the initial USDC investment when you begin trading a new
-                coin. If set to 0, it defaults to 50% of your USDC balance; otherwise, it uses the lesser of this value
-                or 50% of your balance.</p>
-            <p><strong>Why it matters:</strong> Jumping in with too much cash can expose you to early losses, especially
-                with untested coins or volatile markets. This setting limits your initial risk, giving you room to
-                assess performance before going all-in.</p>
-            <p><strong>How to use it:</strong> Set to $500 to cap your first trade, even if 50% of your $2,000 balance
-                is $1,000—your bot picks the lower amount. Leave it at 0 for the 50% default, or raise it (e.g., $1,000)
-                if you're confident and well-funded. It's your opening bet size.</p>
-        </div>
-    </div>
-
-    <!-- Min From Coin Reserve (DCA only) -->
-    <div class="config-box" [style.display]="tradeStrategySelect.value == 'IND' ? 'none' : 'flex'">
-        <div class="config-header">
-            <span>Min {{normalizeCoinName(tradeFromCoinSelect?.value)}} Reserve</span>
-            <span class="info-icon" (click)="toggleExplanation($event)">i</span>
-        </div>
-        <input type="number" #tradeMinimumFromReserves
-            title="Specify the minimum amount of the source coin to always keep in reserve." />
-        <div class="config-explanation">
-            <p><strong>What it does:</strong> This field ensures a set amount of your {{normalizeCoinName(tradeFromCoinSelect?.value)}} coin stays
-                untouched by trading—it's your reserve stash, never sold or traded unless manually overridden.</p>
-            <p><strong>Why it matters:</strong> Reserves act as a safety net. If markets crash or you need quick funds,
-                this untouchable amount keeps you in the game. It's also handy for unexpected fees or holding a core
-                position long-term.</p>
-            <p><strong>How to use it:</strong> For BTC, 0.01 BTC might be a smart reserve—small but significant. With 1
-                BTC total, that's 1% held back. Set higher (e.g., 0.05 BTC) if you're risk-averse or lower (e.g., 0.005
-                BTC) if you want more to trade with. Match it to your comfort level.</p>
-        </div>
-    </div>
-
-    <!-- Min USDC Reserve (DCA only) -->
-    <div class="config-box" [style.display]="tradeStrategySelect.value == 'IND' ? 'none' : 'flex'">
-        <div class="config-header">
-            <span>Min {{tradeToCoinSelect?.value}} Reserve</span>
-            <span class="info-icon" (click)="toggleExplanation($event)">i</span>
-        </div>
-        <input type="number" #tradeMinimumToReserves
-            title="Specify the minimum amount of USDC to always keep in reserve." />
-        <div class="config-explanation">
-            <p><strong>What it does:</strong> This field locks away a minimum amount of USDC that your bot won't touch
-                for trading. It's your stablecoin emergency fund, always available in your wallet.</p>
-            <p><strong>Why it matters:</strong> Having USDC on hand gives you flexibility—think sudden buying
-                opportunities, covering fees, or weathering a downturn without selling assets. It's your cash buffer in
-                a volatile crypto world.</p>
-            <p><strong>How to use it:</strong> Set to $50 for a basic cushion with a $1,000 balance (5%). If you've got
-                $10,000, try $200 for more wiggle room. Keep it low if you're aggressive, or higher if you like a safety
-                net. It's your "don't touch" cash pile.</p>
-        </div>
-    </div>
+    </div>  
 
     <!-- Max Consecutive Buy/Sell Trades -->
     <div class="config-box">

@@ -21,7 +21,10 @@
 <div class="overlay" *ngIf="isShowingOverlay" (click)="closeOverlay()"></div>
 <div class="popupPanel" *ngIf="isShowingYoutubePopup">
   <iframe id="youtubeIframe"></iframe>
-  <button id="closeOverlay" (click)="closeYoutubePopup()">Close</button>
+  <div style="margin-top: 10px; text-align: center;">
+    <button id="closeOverlay" (click)="closeYoutubePopup()">❌ Close</button>
+    <button (click)="fullscreenYoutubePopup()">◼ Fullscreen</button>
+  </div>
 </div>
 
 <!-- POLL POPUP PANEL -->
@@ -127,7 +130,7 @@
 <input type="hidden" id="pollQuestion" />
 <button type="button" id="pollCheckClickedButton" style="display: none;" (click)="handlePollCheckClicked()"></button>
 <button type="button" id="pollDeleteButton" style="display: none;" (click)="handlePollDeleteClicked()"></button>
-<button type="button" id="showUserTagButton" style="display: none;" (click)="isShowingUserTagPopup = !isShowingUserTagPopup"></button>
+<button type="button" id="showUserTagButton" style="display: none;" (click)="showUserTagPopup()"></button>
 <button type="button" id="hideUserTagButton" style="display: none;" (click)="isShowingUserTagPopup = false"></button>
 <input type="hidden" id="showUserTagX" #showUserTagX />
 <input type="hidden" id="showUserTagY" #showUserTagY />

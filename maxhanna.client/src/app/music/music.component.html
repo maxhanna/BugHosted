@@ -42,7 +42,8 @@
             <option *ngFor="let order of orders" [value]="order">{{order}}</option>
           </select><br />
           Search: <input placeholder="Keyword" #searchInput (input)="onSearchEnter()" />
-          <input type="submit" value="🔍" (click)="searchForSong()" />
+          <input type="submit" value="🔍" title="Search Music Playlist" (click)="searchForSong()" />
+          <input type="submit" value="▶️" title="Search YouTube" (click)="showYoutubeSearch()" *ngIf="selectedType === 'youtube'" />
         </div>
         <div class="musicTypeSelector">
           <label>
@@ -72,9 +73,19 @@
                 </td>
               </tr>
             </tbody>
-          </table>
+          </table> 
+          <div *ngIf="isShowingYoutubeSearch" class="popupPanel">
+            <app-youtube-search 
+            [inputtedParentRef]="inputtedParentRef ?? parentRef" 
+            [keyword]="searchInput.value"
+            (selectVideoEvent)="selectYoutubeVideoEvent($event)"></app-youtube-search>
+            <button id="closeOverlay" (click)="closeYoutubeSearch()" style="margin-top:10px;">Close</button>
+          </div> 
         </div> 
-        <div *ngIf="paginatedSongs && paginatedSongs.length == 0">No music added yet!</div>
+        <div *ngIf="(paginatedSongs && paginatedSongs.length == 0) || searchInput.value != ''" class="extraMainDataInfo">
+          <span *ngIf="paginatedSongs && paginatedSongs.length == 0">No music added yet!</span>
+          <button (click)="showYoutubeSearch()">Search Youtube</button>
+        </div>
 
         <div class="pagination-controls" *ngIf="songs.length > itemsPerPage">
           <button [disabled]="currentPage === 1" (click)="goToPreviousPage()" class="pagination-button">

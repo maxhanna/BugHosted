@@ -273,4 +273,17 @@ export class ChildComponent {
   log(text: any) {
     console.log(text);
   }
+  getCurrencySymbol(currencyCode: string): string {
+    const symbols: Record<string, string> = {
+      USD: '$',
+      CAD: '$',
+      GBP: '£',
+      EUR: '€',
+      JPY: '¥',
+      AUD: '$',
+      CNY: '¥',
+      INR: '₹'
+    };
+    return symbols[currencyCode.toUpperCase()] || '$';
+  }
 }

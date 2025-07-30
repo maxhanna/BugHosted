@@ -254,3 +254,9 @@ input[type="submit"]:hover {
   padding-left: 10px;
   padding-right: 10px;
 }
+.extraMainDataInfo {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 5px;
+}

@@ -10,4 +10,5 @@ public class CoinMarketCap
 	public decimal PriceChangePercentage24h { get; set; }
 	public decimal InflowChange24h { get; set; }
 	public DateTime RecordedAt { get; set; }
+	public DateTime? PriceTimestamp { get; set; }
 }

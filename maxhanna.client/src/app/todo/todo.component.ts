@@ -202,14 +202,7 @@ export class TodoComponent extends ChildComponent implements OnInit, AfterViewIn
     this.selectedFile = selectedFile[0];
   }
   visitUrl(url: string) {
-    if (this.parentRef?.isYoutubeUrl(url)) {
-      const videoId = this.parentRef.getYouTubeVideoId(url);
-      if (videoId) {
-        this.parentRef.playYoutubeVideo(videoId);
-      }
-    } else { 
-      this.parentRef?.visitExternalLink(url);
-    }
+    this.parentRef?.visitExternalLink(url); 
   }
   openShareListPanel() {
     this.isShareListPanelOpen = true;

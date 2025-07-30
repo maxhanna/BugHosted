@@ -105,6 +105,8 @@ public class Log
 
 	public async Task<bool> ValidateUserLoggedIn(int userId, string encryptedUserId)
 	{
+		string? callingMethodName = new System.Diagnostics.StackTrace().GetFrame(1)?.GetMethod()?.Name;
+
 		try
 		{
 			const string sql = "SELECT 1 FROM maxhanna.users WHERE id = @UserId AND LAST_SEEN > UTC_TIMESTAMP() - INTERVAL 60 MINUTE;";
@@ -119,19 +121,19 @@ public class Log
 			bool access = await reader.ReadAsync();
 			if (!access)
 			{
-				_ = Db($"ValidateUserLoggedIn ACCESS DENIED userId:{userId}. User seen > 60 minutes.", userId, "SYSTEM", true);
+				_ = Db($"ValidateUserLoggedIn ACCESS DENIED userId:{userId}. User seen > 60 minutes.{(!string.IsNullOrEmpty(callingMethodName) ? " Calling method: " + callingMethodName : "")}", userId, "SYSTEM", true);
 				return false;
 			} 
 			int decryptedUserId = DecryptUserId(encryptedUserId);
 			if (decryptedUserId != userId) {
-				_ = Db($"ValidateUserLoggedIn ACCESS DENIED userId:{userId}. Decryption key mismatch.", userId, "SYSTEM", true);
+				_ = Db($"ValidateUserLoggedIn ACCESS DENIED userId:{userId}. Decryption key mismatch.{(!string.IsNullOrEmpty(callingMethodName) ? " Calling method: " + callingMethodName : "")}", userId, "SYSTEM", true);
 				return false;
 			}
 			return true;
 		}
 		catch (Exception ex)
 		{
-			_ = Db("ValidateUserLoggedIn Exception: " + ex.Message, null, "SYSTEM", true);
+			_ = Db("ValidateUserLoggedIn Exception: " + ex.Message + $".{(!string.IsNullOrEmpty(callingMethodName) ? " Calling method: " + callingMethodName : "")}", null, "SYSTEM", true);
 			return false;
 		}
 	}
@@ -141,7 +143,7 @@ public class Log
 		{
 			const string sql = @"
 			DELETE FROM maxhanna.logs 
-			WHERE timestamp < UTC_TIMESTAMP() - INTERVAL 10 DAY;";
+			WHERE timestamp < UTC_TIMESTAMP() - INTERVAL 1 DAY;";
 
 			using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
 			await conn.OpenAsync();
@@ -149,7 +151,7 @@ public class Log
 			using var cmd = new MySqlCommand(sql, conn);
 			int rowsAffected = await cmd.ExecuteNonQueryAsync();
 
-			//_ = Db($"Deleted {rowsAffected} old log(s)", null, "SYSTEM", true);
+			_ = Db($"Deleted {rowsAffected} old log(s)", null, "SYSTEM", true);
 			return true;
 		}
 		catch (Exception ex)

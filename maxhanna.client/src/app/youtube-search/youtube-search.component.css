@@ -1,0 +1,86 @@
+.youtube-popup-panel { 
+    max-width: 600px;
+    max-height: 80vh;
+    overflow-y: auto;
+    padding: 16px;  
+    border-radius: 12px;
+    box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+}
+
+.stickySearchBar {
+    position: sticky;
+    top: 0;
+    padding: 8px 8px;
+    z-index: 1000;
+    display: flex;
+    gap: 8px;
+    border: var(--main-border);
+    border-radius: 8px;
+}
+
+.searchInput {
+    flex: 1;
+    padding: 8px; 
+}
+
+.searchButton {
+    padding: 8px 12px;  
+    cursor: pointer;
+    font-weight: bold;
+}
+
+.statusText {
+    text-align: center;
+    margin: 12px 0;
+    font-style: italic; 
+}
+
+.resultsContainer {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    padding-top: 10px;
+    max-height: 40vh;
+    overflow: auto;
+    margin: 0px 10px;
+}
+
+.videoCard {
+    background: var(--secondary-component-background-color);
+    padding: 12px;
+    border-radius: 8px;
+    transition: background-color 0.2s ease;
+    border: var(--main-border);
+}
+
+.videoCard:hover {
+    background-color: var(--component-background-color);
+}
+
+.buttonRow {
+    margin: 8px 0;
+}
+
+.playlistButton {
+    background-color: #00c853;
+    color: white; 
+    padding: 6px 12px; 
+    cursor: pointer;
+}
+.playlistButton:hover {
+    background-color: #35d67e; 
+}
+.thumbnailLink {
+    display: inline-block;
+    margin-top: 8px;
+}
+
+.videoThumbnail {
+    max-width: 100%;
+    border-radius: 6px;
+    transition: transform 0.2s ease;
+}
+
+.videoThumbnail:hover {
+    transform: scale(1.03);
+}

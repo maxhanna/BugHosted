@@ -22,7 +22,20 @@ export class CryptoMarketCapsComponent extends ChildComponent implements OnInit 
       }  
     );
   } 
-
+  getYesterdayPrice(currentPrice: number, percentageChange: number) {
+    if (percentageChange === 0 || currentPrice === 0) {
+      return currentPrice.toString();
+    } 
+    const yesterdayPrice = currentPrice / (1 + (percentageChange / 100)); 
+    return yesterdayPrice;
+  }
+  getPreviousMarketCap(currentMarketCap: number, inflowChange: number) {
+    if (inflowChange === 0) {
+      return currentMarketCap;
+    } 
+    const previousMarketCap = currentMarketCap - inflowChange; 
+    return previousMarketCap;
+  }
   get totalMarketCap(): number {
     return this.coinMarketCaps?.reduce((sum: number, coin: any) => sum + coin.market_cap_usd, 0) ?? 0;
   }

@@ -42,6 +42,7 @@ export class MusicComponent extends ChildComponent implements OnInit, AfterViewI
   isEditing: number[] = [];
   showHelpPopup = false;
   isFullscreen = false;
+  isShowingYoutubeSearch = false;
 
   @Input() user?: User;
   @Input() smallPlayer = false;
@@ -91,8 +92,7 @@ export class MusicComponent extends ChildComponent implements OnInit, AfterViewI
     this.youtubeSongs = tmpSongs.filter((song: Todo) => parent.isYoutubeUrl(song.url));
     this.fileSongs = tmpSongs.filter((song: Todo) => !parent.isYoutubeUrl(song.url));
     this.songs = this.selectedType === 'file' ? [...this.fileSongs] : [...this.youtubeSongs];
-
-    console.log("got songs ", this.songs);
+ 
     this.updatePaginatedSongs();
     this.gotPlaylistEvent.emit(this.songs);
   }
@@ -297,18 +297,32 @@ export class MusicComponent extends ChildComponent implements OnInit, AfterViewI
     this.isMusicControlsDisplayed(false);
   }
 
-  fullscreen() { 
-    const parent = this.inputtedParentRef ?? this.parentRef;  
-    if (!parent?.isShowingOverlay && !this.smallPlayer) { 
-      parent?.showOverlay();
-    }
-    this.isFullscreen = true;   
+  fullscreen() {   
+    const youtubePopup = document.getElementById('musicVideo');
+    if (youtubePopup) {
+      if (document.fullscreenElement) {
+        document.exitFullscreen();
+      } else {
+        youtubePopup.requestFullscreen().catch(err => {
+          console.error("Error attempting to enable full-screen mode:", err);
+        }); 
+        this.isFullscreen = true;
+      }
+    } else {
+      console.error("YouTube popup element not found.");
+    } 
   }
   closeFullscreen() {
+    const youtubePopup = document.getElementById('musicVideo');
+    if (youtubePopup) {
+      if (document.fullscreenElement) {
+        document.exitFullscreen();
+      } 
+    }
     this.isFullscreen = false;
-    const parent = this.inputtedParentRef ?? this.parentRef;
-    if (parent && !this.smallPlayer) {
-      parent.closeOverlay();
+    if (!this.smallPlayer) {
+      const parent = this.inputtedParentRef ?? this.parentRef;
+      parent?.closeOverlay();
     }
   }
 
@@ -410,5 +424,20 @@ export class MusicComponent extends ChildComponent implements OnInit, AfterViewI
   openHelpPanel() {
     this.showHelpPopup = true;
     this.parentRef?.showOverlay();
+  }
+  showYoutubeSearch() {
+    this.isShowingYoutubeSearch = true; 
+    this.parentRef?.showOverlay();
+  }
+  closeYoutubeSearch() {
+    this.isShowingYoutubeSearch = false; 
+    this.parentRef?.closeOverlay();
+  }
+  selectYoutubeVideoEvent(video: any) {
+    console.log(video);
+    this.urlInput.nativeElement.value = video.url;
+    this.titleInput.nativeElement.value = video.title;
+    this.addSong(); 
+    this.closeYoutubeSearch();
   }
 }

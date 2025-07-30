@@ -25,6 +25,7 @@ export class LineGraphComponent implements OnInit, OnChanges {
   @Input() data2: any[] = [];
   @Input() selectedCoin: string = '';
   @Input() selectedCurrency?: string = undefined;
+  @Input() selectedCurrencyDisplay?: string = undefined;
   @Input() displayCoinSwitcher: boolean = true;
   @Input() chartTypeInputted?: ChartType = 'line';
   @Input() chartTypeInputtedData2?: ChartType = 'line';
@@ -37,9 +38,9 @@ export class LineGraphComponent implements OnInit, OnChanges {
   @Input() type: "Crypto" | "Currency" | "Volume" | "MACD" = "Crypto";
   @Input() selectedPeriod: '5min' | '15min' | '1h' | '6h' | '12h' | '1d' | '2d' | '5d' | '1w' | '2w' | '3w' | '1m' | '2m' | '3m' | '6m' | '1y' | '2y' | '3y' | '5y' | 'max' = '1d';
   @Input() showAverage: boolean = false;
-  @Input() showMacdLine: boolean = true; // Added for MACD
-  @Input() showSignalLine: boolean = true; // Added for MACD
-  @Input() showHistogram: boolean = true; // Added for MACD
+  @Input() showMacdLine: boolean = true;
+  @Input() showSignalLine: boolean = true;
+  @Input() showHistogram: boolean = true;
   @Input() skipFiltering: boolean = false;
   @Output() fullscreenSelectedEvent = new EventEmitter<any>();
   @Output() changeTimePeriodEvent = new EventEmitter<any>();
@@ -58,7 +59,7 @@ export class LineGraphComponent implements OnInit, OnChanges {
   validTypes: ChartType[] = this.supportsXYZ
     ? ['line', 'bar', 'radar', 'doughnut', 'pie', 'polarArea', 'scatter', 'bubble']
     : ['line', 'bar', 'radar', 'doughnut', 'pie', 'polarArea'];
-  currentSecondaryData: { value: number | null, type: string }[] = [];
+  currentSecondaryData: { priceCAD: number | null, tradeValueCAD: string | null, type: string }[] = [];
 
   @ViewChild('periodSelect') periodSelect!: ElementRef<HTMLSelectElement>;
   @ViewChild('canvasDiv') canvasDiv!: ElementRef<HTMLDivElement>;
@@ -176,7 +177,7 @@ export class LineGraphComponent implements OnInit, OnChanges {
     if (!this.sliderContainer) return;
 
     const sliderWidth = this.sliderContainer.nativeElement.offsetWidth - 40; // Adjust for 20px padding on each side
-    const range = this.sliderMax - this.sliderMin; // Corrected: Use sliderMax - sliderMin
+    const range = this.sliderMax - this.sliderMin;
 
     if (range <= 0) return;
 
@@ -305,7 +306,7 @@ export class LineGraphComponent implements OnInit, OnChanges {
           yAxisID: 'y',
           pointRadius: this.isDotModeData1 ? 10 : 3,
           pointHoverRadius: this.isDotModeData1 ? 12 : 6,
-          showLine: !this.isDotModeData1, // Controls whether to draw a line
+          showLine: !this.isDotModeData1,
           borderWidth: this.isDotModeData1 ? 0 : 2,
           tension: 0.2,
           cubicInterpolationMode: 'monotone',
@@ -448,25 +449,29 @@ export class LineGraphComponent implements OnInit, OnChanges {
 
     if (hasValidSecondaryData) {
       this.currentSecondaryData = sortedLabels.map(label => {
-        const matchingTrade = filteredData2.find(item => this.formatTimestamp(item.timestamp, true) === label);
+        const matchingTrade = filteredData2.find(item => this.formatTimestamp(item.timestamp, true) === label); 
         if (matchingTrade) {
+          const precision = (matchingTrade.tradeValueCAD ?? null) < 1 ? 8 : 2;
+          const tradeValue = matchingTrade.tradeValueCAD.toFixed(precision) + (this.selectedCurrencyDisplay ?? '$');
           return {
-            value: matchingTrade.valueCAD ?? matchingTrade.value ?? matchingTrade.rate,
+            priceCAD: matchingTrade.priceCAD ?? null,
+            tradeValueCAD: tradeValue,
             type: matchingTrade.type ?? 'grey'
           };
         }
-        return { value: null, type: 'grey' };
-      }); 
+        return { priceCAD: null, tradeValueCAD: null, type: 'grey' };
+      });
+
       const secondaryConfig: any = {
         type: this.isDotModeData2 ? 'line' : this.chartTypeInputtedData2 ?? 'line',
         label: this.secondaryDataLabel,
-        data: this.currentSecondaryData.map(d => d.value),
+        data: this.currentSecondaryData.map(d => d.priceCAD),
         backgroundColor: this.currentSecondaryData.map(d => {
-          if (d.type.includes('buy_DCA')) return 'green'; // Green for DCA buys
-          if (d.type.includes('sell_DCA')) return '#ff0000'; // Red for DCA sells
-          if (d.type.includes('buy_IND')) return '#0000ff'; // Blue for IND buys
-          if (d.type.includes('sell_IND')) return '#ff00ff'; // Magenta for IND sells
-          return 'grey'; // Default
+          if (d.type.includes('buy_DCA')) return 'green';
+          if (d.type.includes('sell_DCA')) return '#ff0000';
+          if (d.type.includes('buy_IND')) return '#0000ff';
+          if (d.type.includes('sell_IND')) return '#ff00ff';
+          return 'grey';
         }),
         borderColor: this.currentSecondaryData.map(d => {
           if (d.type.includes('buy_DCA')) return 'green';
@@ -628,9 +633,9 @@ export class LineGraphComponent implements OnInit, OnChanges {
   private getDaysForPeriod(period: string): number {
     const periodRegex = /^(\d+)\s*(m|min|mins|minute|minutes|h|hour|hours|d|day|days|w|week|weeks|m|month|months|y|year|years)$/;
     const match = period.trim().toLowerCase().match(periodRegex);
- 
+
     if (match) {
-      const value = parseInt(match[1], 10); 
+      const value = parseInt(match[1], 10);
       const unit = match[2];
 
       switch (unit) {
@@ -664,7 +669,7 @@ export class LineGraphComponent implements OnInit, OnChanges {
       }
     }
 
-    if (period.toLowerCase().includes("max")) { 
+    if (period.toLowerCase().includes("max")) {
       return 10 * 365;
     }
 
@@ -683,7 +688,7 @@ export class LineGraphComponent implements OnInit, OnChanges {
 
       this.lineChartData.forEach(dataset => {
         if (dataset.label === 'Histogram') return; // Skip histogram for average
-        const numericData = dataset.data.map(Number).filter((val:any) => !isNaN(val));
+        const numericData = dataset.data.map(Number).filter((val: any) => !isNaN(val));
         totalSum += numericData.reduce((sum: number, value: number) => sum + value, 0);
         totalCount += numericData.length;
         maxLength = Math.max(maxLength, numericData.length);
@@ -812,13 +817,17 @@ export class LineGraphComponent implements OnInit, OnChanges {
           callbacks: {
             label: (context: any) => {
               let label = context.dataset.label || '';
-              if (label === this.secondaryDataLabel && context.raw !== null) {
+              if (label === this.secondaryDataLabel && context.dataIndex < this.currentSecondaryData.length) {
                 const dataPoint = this.currentSecondaryData[context.dataIndex];
-                const action = dataPoint.type.includes('buy') ? 'Buy' : 'Sell';
-                const strategy = dataPoint.type.includes('DCA') ? 'DCA' : 'IND';
-                label = `${action} (${strategy}): ${context.parsed.y}`;
+                if (dataPoint.priceCAD !== null && dataPoint.tradeValueCAD !== null) {
+                  const action = dataPoint.type.includes('buy') ? 'Buy' : 'Sell';
+                  const strategy = dataPoint.type.includes('DCA') ? 'DCA' : 'IND';
+                  const price = dataPoint.priceCAD.toFixed(2);
+                  const tradeValue = dataPoint.tradeValueCAD;
+                  label = `${action} (${strategy}): Price ${price}, Value ${tradeValue}`;
+                }
               } else if (label) {
-                label += ': ' + context.parsed.y;
+                label += ': ' + context.parsed.y.toFixed(2);
               }
               return label;
             }

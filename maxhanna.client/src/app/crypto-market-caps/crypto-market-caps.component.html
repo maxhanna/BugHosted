@@ -18,10 +18,12 @@
                     currencySymbol:selectedCurrency:false }}</td>
                 <td [title]="coin.marketCapCAD * conversionRate">{{ coin.marketCapCAD * conversionRate |
                     currencySymbol:selectedCurrency:false }}</td>
-                <td [class]="coin.priceChangePercentage24h >= 0 ? 'positive' : 'negative'">
+                <td [class]="coin.priceChangePercentage24h >= 0 ? 'positive' : 'negative'"
+                    title="Yesterday: {{ getYesterdayPrice(coin.priceUSD, coin.priceChangePercentage24h) | currencySymbol:selectedCurrency:false }}">
                     {{ coin.priceChangePercentage24h | number:'1.2-2' }}%
                 </td>
-                <td [title]="coin.inflowChange24h" [class]="coin.inflowChange24h >= 0 ? 'positive' : 'negative'">
+                <td [class]="coin.inflowChange24h >= 0 ? 'positive' : 'negative'"
+                    title="Yesterday: {{ getPreviousMarketCap(coin.marketCapUSD, coin.inflowChange24h) | currencySymbol:selectedCurrency:false}}">
                     {{ coin.inflowChange24h | currencySymbol:selectedCurrency:false }}
                 </td>
             </tr>

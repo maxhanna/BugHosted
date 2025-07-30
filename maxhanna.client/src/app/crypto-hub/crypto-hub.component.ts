@@ -131,7 +131,7 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
     matching_trade_id: number | undefined,
   } = undefined;
   tradebotValuesForGraph: any;
-  tradebotTradeValuesForMainGraph: { timestamp: Date; valueCAD: number }[] = [];
+  tradebotTradeValuesForMainGraph: { timestamp: string | Date; priceCAD: number; tradeValueCAD: number; type: string }[] = [];
   lineGraphInitialPeriod: '5min' | '15min' | '1h' | '6h' | '12h' | '1d' | '2d' | '5d' | '1m' | '2m' | '3m' | '6m' | '1y' | '2y' | '3y' | '5y' | 'max' = '6h';
   exchangeRateGraphSelectedPeriod: '5min' | '15min' | '1h' | '6h' | '12h' | '1d' | '2d' | '5d' | '1m' | '2m' | '3m' | '6m' | '1y' | '2y' | '3y' | '5y' | 'max' = '1y'
   tradebotSimulationGraphData: any[] = [];
@@ -152,6 +152,7 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
   btcUSDRate?: number;
   selectedCoinUSDRate?: number;
   usdToSelectedCurrencyRate?: number;
+  cadToSelectedCurrencyRate?: number;
   lastTradePercentage = 0;
   globalCryptoStats?: any = undefined;
   indicatorCache = new Map<string, IndicatorData>();
@@ -183,11 +184,11 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
   readonly sentimentPageSize = this.onMobile() ? 3 : 5;
   currentSentimentPage = 1;
   availableIndicatorPairs = [
-    { value: 'BTC/USDC', display: 'BTC/USDC', fromCoin: 'XBT', toCoin: 'USDC' },
-    { value: 'ETH/USDC', display: 'ETH/USDC', fromCoin: 'ETH', toCoin: 'USDC' },
-    { value: 'XRP/USDC', display: 'XRP/USDC', fromCoin: 'XRP', toCoin: 'USDC' },
-    { value: 'DOGE/USDC', display: 'DOGE/USDC', fromCoin: 'XDG', toCoin: 'USDC' },
-    { value: 'SOL/USDC', display: 'SOL/USDC', fromCoin: 'SOL', toCoin: 'USDC' }
+    { value: 'BTC/USDC', display: 'BTC/USDC', fromCoin: 'XBT', fromCoinLongName: 'Bitcoin', toCoin: 'USDC' },
+    { value: 'ETH/USDC', display: 'ETH/USDC', fromCoin: 'ETH', fromCoinLongName: 'Ethereum', toCoin: 'USDC' },
+    { value: 'XRP/USDC', display: 'XRP/USDC', fromCoin: 'XRP', fromCoinLongName: 'XRP', toCoin: 'USDC' },
+    { value: 'DOGE/USDC', display: 'DOGE/USDC', fromCoin: 'XDG', fromCoinLongName: 'Dogecoin', toCoin: 'USDC' },
+    { value: 'SOL/USDC', display: 'SOL/USDC', fromCoin: 'SOL', fromCoinLongName: 'Solana', toCoin: 'USDC' }
   ];
   selectedIndicatorPair = 'BTC/USDC';
   bullishCoins: string[] = [];
@@ -511,32 +512,17 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
     this.lastLogEntry = await this.tradeService.getLastTradeLogs(
       this.hasKrakenApi ? this.parentRef?.user?.id ?? 1 : 1,
       sessionToken
-    );
-    await this.convertLogIntoCurrentPriceData(this.lastLogEntry ?? "");
+    ); 
     this.singleLineLogInterval = setInterval(async () => {
       const sessionToken = await this.parentRef?.getSessionToken() ?? "";
       this.lastLogEntry = await this.tradeService.getLastTradeLogs(
         this.hasKrakenApi ? this.parentRef?.user?.id ?? 1 : 1,
         sessionToken
-      );
-      await this.convertLogIntoCurrentPriceData(this.lastLogEntry ?? "");
+      ); 
     }, 10 * 1000)
   }
 
-  private async convertLogIntoCurrentPriceData(log: string) {
-    const currentPriceMatch = log.match(/C:(\d+(\.\d+)?)/); 
-    if (currentPriceMatch) {
-      const currentPrice = parseFloat(currentPriceMatch[1]);
-      this.btcUSDRate = currentPrice;
-      const priceInCAD = currentPrice * (this.cadToUsdRate ?? 1);
-      this.btcToCadPrice = priceInCAD;
-      
-      this.getLastTradebotTradeDisplay().then(() => this.getLastTradePercentage());
-        
-      this.convertCurrencyInput.nativeElement.value = (this.btcToCadPrice / this.latestCurrencyPriceRespectToCAD) + "";
-      this.handleConversion("BTC");
-    }
-  }
+ 
 
   private stopSingleLineLogPolling() {
     clearInterval(this.singleLineLogInterval);
@@ -577,12 +563,18 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
       this.tradebotBalances = combined;
     }
 
-    // Set formatted values for the graph
-    this.tradebotTradeValuesForMainGraph = combined.map((x: any) => ({
-      timestamp: x.timestamp,
-      valueCAD: parseFloat(x.coin_price_cad) * this.latestCurrencyPriceRespectToCAD,
-      type: `${x.from_currency != "USDC" ? "sell" : "buy"}_${x.strategy}`
-    }));
+
+    this.tradebotTradeValuesForMainGraph = combined.map((x: any) => {
+      const isSell = x.from_currency !== "USDC"; 
+      const priceCAD = parseFloat(x.coin_price_cad) * this.latestCurrencyPriceRespectToCAD;
+      const tradeValueCAD = x.value * priceCAD;  
+      return {
+        timestamp: x.timestamp,
+        priceCAD, // Price level of the trade
+        tradeValueCAD,
+        type: `${isSell ? "sell" : "buy"}_${x.strategy}`
+      };
+    });
   }
 
   private async getUserCurrency() {
@@ -732,6 +724,10 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
       this.usdToSelectedCurrencyRate = await this.getCurrencyExchangeRate(this.selectedCurrency ?? "USD", "USD");
     }
 
+    if (!this.cadToSelectedCurrencyRate) {
+      this.getCurrencyExchangeRate(this.selectedCurrency ?? "USD", "CAD").then(res => this.cadToSelectedCurrencyRate = res);
+    }
+
     if (krakenUsdcCurrencyWallet) {
       krakenUsdcCurrencyWallet.fiatRate = this.usdToSelectedCurrencyRate;
       if (krakenUsdcTotalCurrencyWallet) {
@@ -803,10 +799,21 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
     this.coinSelected.emit(this.currentSelectedCoin);
     this.btcConvertCoinSelect.nativeElement.value = this.currentSelectedCoin === "Bitcoin" ? "BTC" : this.currentSelectedCoin;
 
+    let changeIndicators = false;
+    const defaultCoins = ['Bitcoin', 'Solana', 'XRP', 'Dogecoin', 'Ethereum'];
+    if (defaultCoins.includes(this.currentSelectedCoin)) {
+      const targetCoin = this.availableIndicatorPairs.filter(x => x.fromCoinLongName == this.currentSelectedCoin)[0].fromCoin;
+      this.tradeIndicatorSelect.nativeElement.value = `${targetCoin}/USDC`;
+      changeIndicators = true;
+    }  
+
     setTimeout(() => { 
       this.changeTimePeriodEventOnBTCHistoricalGraph('6h');
       this.coinConvertSelectChange(false);
-    }, 50);
+      if (changeIndicators) {
+        this.onIndicatorPairChange();
+      }
+    }, 50); 
  
     this.lineGraphComponent.scrollToGraph();
   }
@@ -1025,7 +1032,7 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
     const tv = await this.tradeService.getTradeConfiguration(userId, sessionToken ?? "", undefined, undefined, "DCA");
     if (tv) {
       this.tradeSimParams.tradeThreshold = tv.tradeThreshold;
-      this.tradeSimParams.tradePercentage = tv.valueTradePercentage;
+      this.tradeSimParams.tradePercentage = tv.maximumToTradeAmount;
     }
     //load the panel
     this.closeTradeDivs();
@@ -2086,11 +2093,7 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
         if (selectedStrategy && this.tradeLogStrategyFilter?.nativeElement) {
           this.tradeLogStrategyFilter.nativeElement.value = selectedStrategy;
         }
-      });
-      if (this.currentLogPage <= 1) {
-        const comment = this.tradeLogs[0].comment;
-        await this.convertLogIntoCurrentPriceData(comment ?? "");
-      }
+      }); 
     } catch (error) {
       console.error('Failed to fetch trade logs:', error);
     } finally {
@@ -2209,7 +2212,8 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
       const crate = this.coinValueData?.find(x => x.name.toLowerCase() == tCName); 
       return parseFloat(currency.totalBalance) * (crate?.valueUSD ?? 1) * (currency.fiatRate ?? 1);
     }
-  }
+  } 
+
   getCurrencyDisplayValue(currencyName?: string, currency?: Currency) {
     return this.formatToCanadianCurrency(this.getCurrencyValue(currencyName, currency)).replaceAll("$", "");
   }
@@ -2591,7 +2595,7 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
     let selectedCurrency = this.selectedTradebotCurrency?.nativeElement.value;
     if (!selectedCurrency) { return alert("A currency must be selected!"); } 
     this.startLoading();
-    let purchasePreview, btcPurchaseAmount;
+    let btcPurchaseAmount;
     const krakenUsdcCurrencyWallet = (this.wallet ?? [])
       .flatMap(walletItem => walletItem.currencies || [])
       .filter(currency =>
@@ -2603,15 +2607,7 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
     }
     const sessionToken = await this.parentRef.getSessionToken();
     const tc = await this.tradeService.getTradeConfiguration(userId, sessionToken ?? "", selectedCurrency, "USDC", "DCA");
-    if (tc) {
-      purchasePreview = parseFloat(tc.valueTradePercentage) * currentUSDC;
-      btcPurchaseAmount = purchasePreview / (this.btcUSDRate ?? 0);
-    } else {
-      return alert(`No trade configuration for ${selectedCurrency} / USDC pairs. Cancelled.`);
-    }
-    if (!purchasePreview || !btcPurchaseAmount) {
-      return alert("Data integrity issue or no USDC to trade. Try again");
-    }
+   
 
     const coinNameMap: { [key: string]: string } = {
       ETH: "Ethereum",
@@ -2624,9 +2620,20 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
     let tmpCoinName = coinNameMap[selectedCurrency] || selectedCurrency;
     let currencyRate = await this.getCurrencyConversionRate(tmpCoinName, "USDC"); 
     let coinPrice = this.formatToCanadianCurrency(currencyRate ?? 0);
+    let btcPurchaseCost = currencyRate;
+    if (tc) {
+      btcPurchaseAmount = tc.maximumToTradeAmount;
+      btcPurchaseAmount = Math.min(btcPurchaseAmount, currentUSDC) / currencyRate; 
+      btcPurchaseCost = Math.min(btcPurchaseAmount, currentUSDC) * currencyRate;
+    } else {
+      return alert(`No trade configuration for ${selectedCurrency} / USDC pairs. Cancelled.`);
+    }
+    if (!btcPurchaseAmount) {
+      return alert(`Data integrity issue or no USDC to trade. Try again. btcPurchaseAmount: ${btcPurchaseAmount}, currentUSDC: ${currentUSDC}, btcUSDRate: ${this.btcUSDRate}`);
+    }
     this.stopLoading();
-    if (!confirm(`Purchase ${btcPurchaseAmount.toFixed(8)} ${selectedCurrency} for ${this.formatToCanadianCurrency(purchasePreview)}?\n- Trade Percentage: ${(tc.valueTradePercentage * 100)}%\n- ${selectedCurrency} USDC Price: ${coinPrice}\n- USDC: ${this.formatToCanadianCurrency(currentUSDC)}`)) { return alert("Cancelled"); }
-    if (!confirm(`Purchasing ${btcPurchaseAmount.toFixed(8)} ${selectedCurrency} for ${this.formatToCanadianCurrency(purchasePreview)}.`)) { return alert("Cancelled"); }
+    if (!confirm(`Purchase ${btcPurchaseAmount.toFixed(8)} ${selectedCurrency} for ${this.formatToCanadianCurrency(btcPurchaseCost)}?\n- ${selectedCurrency} USDC Price: ${coinPrice}\n- USDC Balance: ${this.formatToCanadianCurrency(currentUSDC)}`)) { return alert("Cancelled"); }
+    if (!confirm(`Purchasing ${btcPurchaseAmount.toFixed(8)} ${selectedCurrency} for ${this.formatToCanadianCurrency(btcPurchaseCost)}.`)) { return alert("Cancelled"); }
     this.tradeService.enterPosition(userId, selectedCurrency, sessionToken).then(res => {
       if (res) {
         this.parentRef?.showNotification(`${selectedCurrency} Position entered.`);

@@ -48,7 +48,12 @@ export class UserTrophiesComponent extends ChildComponent {
     'Meta-Fighter': 'Owns a Meta Bot with level greater than 5.',
     'Novice Meta-Fighter': 'Owns a Meta Bot with level greater than 10.',
     'Elite Meta-Fighter': 'Owns a Meta Bot with level greater than 20.',
-    'Legendary Meta-Fighter': 'Owns a Meta Bot with level greater than 30.',
+    'Legendary Meta-Fighter': 'Owns a Meta Bot with level greater than 30.', 
+    'Wordler Beginner': 'Played 3 or more Wordler games.',
+    'Wordler Expert': 'Played 30 or more Wordler games.',
+    'Master Wordler': 'Played 100 or more Wordler games.',
+    'Wordler Legend': 'Played 1000 or more Wordler games.',
+    'Wordler God': 'Played 10000 or more Wordler games.',
     'Bug Hunter': 'Reported and verified a significant bug in the system.',
     'Owner': 'Owner or administrator of the platform.'
   }; 

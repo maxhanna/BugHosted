@@ -1,18 +1,29 @@
-<div>
-    <input [value]="keyword" placeholder="Search YouTube..." />
-    <button (click)="search()">Search</button>
-</div>
+<div class="youtube-popup-panel gradientBackground">
+    <div class="stickySearchBar">
+        <input #searchInput [value]="keyword" placeholder="Search YouTube..." class="searchInput" />
+        <button (click)="search()" class="searchButton">🔍 Search</button>
+    </div>
 
-<div *ngIf="isLoading">Loading...</div>
+    <div *ngIf="isLoading" class="statusText">Loading...</div>
 
-<div *ngIf="!isLoading && videos.length === 0">
-    No videos found.
-</div>
+    <div *ngIf="!isLoading && videos.length === 0 && hasSearched" class="statusText">
+        No videos found.
+    </div>
 
-<div *ngFor="let video of videos">
-    <h3>{{ video.title }}</h3>
-    <p>{{ video.description }}</p>
-    <a [href]="video.url" target="_blank">
-        <img [src]="video.thumbnailUrl" alt="{{ video.title }}" />
-    </a>
+    <div *ngIf="!isLoading && videos.length === 0 && !hasSearched" class="statusText thirdFontColor">
+        Use the input above to search YouTube.
+    </div>
+
+    <div class="resultsContainer">
+        <div *ngFor="let video of videos" class="videoCard">
+            <h3>{{ video.title | decodeHtml }}</h3>
+            <p>{{ video.description }}</p>
+            <div class="buttonRow">
+                <button (click)="selectVideo(video)" class="playlistButton">➕ Add to Music Playlist</button>
+            </div>
+            <a (click)="inputtedParentRef?.visitExternalLink(video.url)" class="thumbnailLink">
+                <img [src]="video.thumbnailUrl" alt="{{ video.title }}" class="videoThumbnail" />
+            </a>
+        </div>
+    </div>
 </div>

@@ -81,8 +81,6 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
         (componentContainers[i] as HTMLDivElement).style.backgroundColor = "var(--component-background-color)";
       }
     } 
-    this.setupBackButtonListener();
-    this.setupEscapeKeyListener();
   }
   onInView(isInView: boolean) {
     if (!this.forceInviewLoad || (this.forceInviewLoad && isInView && this.isComponentHeightSufficient())) {
@@ -199,6 +197,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
   }
  
   private setupEscapeKeyListener() {
+    console.log("set up escape listener");
     window.addEventListener('keydown', this.handleEscapeKey);
   }
   /**
@@ -434,6 +433,9 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
     if (parent) {
       parent.hideBodyOverflow();
     }
+
+    this.setupBackButtonListener();
+    this.setupEscapeKeyListener();
   }
 
   shrink() {
@@ -453,9 +455,10 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
     if (parent) {
       parent.restoreBodyOverflow();
     }
-  }
 
-
+    window.removeEventListener('popstate', this.handleBackButton);
+    window.removeEventListener('keydown', this.handleEscapeKey);
+  } 
 
   async download(file: FileEntry, force: boolean) {
 
