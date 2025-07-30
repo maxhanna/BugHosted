@@ -670,8 +670,12 @@ export class AppComponent implements OnInit, AfterViewInit {
     this.isShowingOverlay = false;
     this.restoreBodyOverflow();
   }
-
-
+  showUserTagPopup() {
+    clearTimeout(this.debounceTimer);
+    this.debounceTimer = setTimeout(async () => {
+      this.isShowingUserTagPopup = true;
+    }, 500);
+  }
   openUserSettings(previousComponent?: string) {
     this.createComponent('UpdateUserSettings', {
       showOnlySelectableMenuItems: false,
@@ -1086,9 +1090,18 @@ export class AppComponent implements OnInit, AfterViewInit {
     this.indexLink(url);
   }
   visitExternalLink(url?: string) {
-    if (!url) return;
+    if (!url) return; 
     this.indexLink(url);
-    window.open(url, '_blank');
+    
+    if (this.isYoutubeUrl(url)) {
+      const videoId = this.getYouTubeVideoId(url);
+      if (videoId) {
+        this.playYoutubeVideo(videoId);
+      }
+    } else {
+      window.open(url, '_blank');
+    }
+    
     event?.stopPropagation();
   }
   async indexLink(url: string) { 
@@ -1373,5 +1386,19 @@ export class AppComponent implements OnInit, AfterViewInit {
   getMenuItemDescription(title: string): string {
     const found = this.navigationItemDescriptions?.find(item => item.title === title);
     return found?.content ?? 'No description available.';
+  }
+  fullscreenYoutubePopup() {
+    const youtubePopup = document.getElementById('youtubeIframe');
+    if (youtubePopup) {
+      if (document.fullscreenElement) {
+        document.exitFullscreen();
+      } else {
+        youtubePopup.requestFullscreen().catch(err => {
+          console.error("Error attempting to enable full-screen mode:", err);
+        });
+      }
+    } else {
+      console.error("YouTube popup element not found.");
+    }
   }
 }
