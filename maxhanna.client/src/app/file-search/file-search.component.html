@@ -98,7 +98,7 @@
                 <div *ngIf="displayFileActions"
                      (click)="showOptionsPanel(file); $event.stopPropagation();"
                      class="fileOptionsAction fileOptionsCogIcon"
-                     [title]="'Show Options for ' + (file.givenFileName && file.givenFileName != '' ? file.givenFileName : getFileWithoutExtension(file.fileName ?? ''))">
+                     [title]="'Show Options for \'' + (file.givenFileName && file.givenFileName != '' ? file.givenFileName : getFileWithoutExtension(file.fileName ?? '')) + '\' file.'">
                   ⚙️
                 </div> 
               </div>
@@ -162,6 +162,14 @@
     <button title="Hide File" (click)="hide(optionsFile);">
       🙈Hide
     </button> 
+    <button (click)="addToFavourites(optionsFile)"
+      title="Add '{{optionsFile.givenFileName ?? optionsFile.fileName}}' to favourites.">
+      ❤️ Add To Favourites
+    </button>
+    <button *ngIf="isVideoFile(optionsFile)" (click)="addFileToMusicPlaylist(optionsFile)"
+      title="Add '{{optionsFile.givenFileName ?? optionsFile.fileName}}' to music playlist.">
+      ➕ Add To Music Playlist
+    </button>
   </div>
   <div *ngIf="optionsFile && optionsFile.id && editingTopics.includes(optionsFile.id)">
     <app-topics #topicComponent
@@ -342,31 +350,61 @@
 </div>
 
 <!-- Search Popup -->
-<div class="popupPanel searchPopup" *ngIf="isSearchPanelOpen">
-  <div class="popupPanelTitle">🔍Search Files</div>
-  <div>
-    <input #popupSearch (input)="changeSearchTermsFromPopup()" placeholder="Search {{ currentDirectory }}" [value]="searchTerms" />
-    <div *ngIf="directory">Result(s): {{ directory.totalCount }}</div>
+<div class="popupPanel" *ngIf="isSearchPanelOpen"> 
+  <div class="search-header">
+    <h2 class="search-title">
+      <i class="icon-search"></i> Search Files
+    </h2>
+    <button class="close-btn" (click)="closeSearchPanel()">
+      <i class="icon-close"></i>
+    </button>
   </div>
-  <div>
-    <select (change)="setSortOption($event)">
-      <option value="Latest" [selected]="sortOption === 'Latest'">Latest</option>
-      <option value="Oldest" [selected]="sortOption === 'Oldest'">Oldest</option>
-      <option value="Random" [selected]="sortOption === 'Random'">Random</option>
-      <option value="Most Views" [selected]="sortOption === 'Most Views'">Most Views</option>
-      <option value="Filesize ASC" [selected]="sortOption === 'Filesize ASC'">Filesize Ascending</option>
-      <option value="Filesize DESC" [selected]="sortOption === 'Filesize DESC'">Filesize Descending</option>
-      <option value="Last Updated ASC" [selected]="sortOption === 'Last Updated ASC'">Last Updated Ascending</option>
-      <option value="Last Updated DESC" [selected]="sortOption === 'Last Updated DESC'">Last Updated Descending</option>
-      <option value="Most Comments" [selected]="sortOption === 'Most Comments'">Most Comments</option>
-      <option value="A-Z" [selected]="sortOption === 'A-Z'">A-Z (Alphabetical)</option>
-      <option value="Z-A" [selected]="sortOption === 'Z-A'">Z-A (Reverse Alphabetical)</option>
-    </select>
+
+  <div class="search-input-group">
+    <input #popupSearch (input)="changeSearchTermsFromPopup()" class="search-input"
+      placeholder="Search {{ currentDirectory }}..." [value]="searchTerms" />
+    <span class="search-results-count">{{ directory?.totalCount || 0 }} results</span>
   </div>
-  <div class="smallFont">Deliniate with quotes " to search for exact search terms. Use space ( ) or commas (,) to find seperate keywords.</div>
-  <div>
-    <button id="closeOverlay" (click)="closeSearchPanel()">Ok</button>
+
+  <div class="search-filters">
+    <div class="filter-group">
+      <label for="sort-select" class="filter-label">Sort by:</label>
+      <select id="sort-select" class="filter-select" (change)="setSortOption($event)">
+        <option value="Latest" [selected]="sortOption === 'Latest'">Latest</option>
+        <option value="Oldest" [selected]="sortOption === 'Oldest'">Oldest</option>
+        <option value="Random" [selected]="sortOption === 'Random'">Random</option>
+        <option value="Most Views" [selected]="sortOption === 'Most Views'">Most Views</option>
+        <option value="Filesize ASC" [selected]="sortOption === 'Filesize ASC'">Filesize (Small → Large)</option>
+        <option value="Filesize DESC" [selected]="sortOption === 'Filesize DESC'">Filesize (Large → Small)</option>
+        <option value="Last Updated ASC" [selected]="sortOption === 'Last Updated ASC'">Last Updated (Old → New)
+        </option>
+        <option value="Last Updated DESC" [selected]="sortOption === 'Last Updated DESC'">Last Updated (New → Old)
+        </option>
+        <option value="Most Comments" [selected]="sortOption === 'Most Comments'">Most Comments</option>
+        <option value="A-Z" [selected]="sortOption === 'A-Z'">Name (A → Z)</option>
+        <option value="Z-A" [selected]="sortOption === 'Z-A'">Name (Z → A)</option>
+      </select>
+    </div>
   </div>
+
+  <div>
+    Show favourites only?
+    <button class="toggle-switch" (click)="showFavouritesToggled()"> 
+       {{ showFavouritesOnly ? 'On' : 'Off' }} 
+    </button> 
+  </div>
+
+  <div class="search-tips gradientBackground">
+    <p class="tip-text">
+      <i class="icon-info"></i>
+      <strong>Search tips:</strong> Use quotes <code>"</code> for exact matches.
+      Separate keywords with spaces or commas.
+    </p>
+  </div>
+
+  <div class="search-actions">
+    <button class="btn-primary" id="closeOverlay" (click)="closeSearchPanel()">Close</button>
+  </div> 
 </div>
 
 

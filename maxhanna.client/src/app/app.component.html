@@ -70,15 +70,17 @@
   <div class="user-tag-content-wrapper">
     <div style="display: flex; justify-content: space-between; gap:20px;">
       <div class="popupUserTagAvatarAndName blackFontColor">
-        <app-user-tag [userId]="showUserTagUserId ? parseInteger(showUserTagUserId.value) : 0" [inputtedParentRef]="this"
-          (userLoaded)="userTagUserLoaded($event)" [preventOpenProfile]="true" [hideName]="true"></app-user-tag>
-          <div [class]="(popupUserTagUser?.username || 'Anonymous').length > 10 ? 'xxSmallFont'
-                      : (popupUserTagUser?.username || 'Anonymous').length > 5 ? 'smallFont' : ''">
-            <span class="popupUserTagInfo">{{popupUserTagUser?.username ?? "Anonymous"}}</span> 
-          </div>
-          <span class="seperatedUserHeader" *ngIf="popupUserTagUser?.about?.currency">
-            {{ (popupUserTagUser?.about?.currency ?? '') | currencyFlag }}
-          </span>
+        <div style="height:50px; width:50px; overflow:hidden; display:inline-block;">
+          <app-user-tag [userId]="showUserTagUserId ? parseInteger(showUserTagUserId.value) : 0" [inputtedParentRef]="this"
+            (userLoaded)="userTagUserLoaded($event)" [preventOpenProfile]="true" [hideName]="true">
+          </app-user-tag>
+        </div>
+        <div style="margin-top:5px;" [class]="'popupUserTagInfo ' + ((popupUserTagUser?.username || 'Anonymous').length > 10 ? 'xxSmallFont'
+                    : (popupUserTagUser?.username || 'Anonymous').length > 5 ? 'smallFont' : '')">
+          <span>
+            {{popupUserTagUser?.username ?? "Anonymous"}}
+          </span>  
+        </div>
       </div>
       <div *ngIf="popupUserTagUser" class="popupUserTagInfo blackFontColor"> 
         <div [class]="(popupUserTagUser.about?.description?.length ?? 0) > 55 ? 'xxSmallFont' :
@@ -105,6 +107,9 @@
             class="smallFont cursorPointer">
             {{(popupUserTagUser && popupUserTagUser.created ? popupUserTagUser.created : '0 days') | timeSince}}
           </div>
+        </div>
+        <div class="seperatedUserHeader smallFont" *ngIf="popupUserTagUser.about?.currency"> 
+          {{ (popupUserTagUser.about?.currency ?? '') | currencyFlag }} 
         </div>
       </div>
     </div>

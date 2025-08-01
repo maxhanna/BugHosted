@@ -46,12 +46,12 @@
           <input type="submit" value="▶️" title="Search YouTube" (click)="showYoutubeSearch()" *ngIf="selectedType === 'youtube'" />
         </div>
         <div class="musicTypeSelector">
-          <label>
+          <label class="smallFont">
             <input type="radio" name="songType" (click)="selectType('youtube')"
               [checked]="selectedType === 'youtube'" />
             YouTube
           </label>
-          <label>
+          <label class="smallFont">
             <input type="radio" name="songType" (click)="selectType('file')" [checked]="selectedType === 'file'" />
             Files
           </label>

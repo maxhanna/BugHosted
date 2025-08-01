@@ -209,6 +209,7 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
     graph: false,
     sim: false
   };
+  numberOfTrades?: number = undefined;
 
   @ViewChild('scrollContainer', { static: true }) scrollContainer!: ElementRef;
   @ViewChild(LineGraphComponent) lineGraphComponent!: LineGraphComponent;
@@ -779,26 +780,20 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
     this.noMining = true;
   }
   async selectCoin(coinName?: string) {
-    if (!coinName) return;
-    if (!coinName.includes("BTC") && !coinName.includes("Bitcoin")) {
-      this.tradebotTradeValuesForMainGraph = [];
-    } else {
-      if (!this.tradebotTradeValuesForMainGraph || this.tradebotTradeValuesForMainGraph.length == 0) {
-        const userId = this.parentRef?.user?.id ?? 1;
-        const sessionToken = await this.parentRef?.getSessionToken();
-        await this.getTradebotValuesForMainGraph(userId, sessionToken);
-      }
-    }
+    if (!coinName) return; 
     let tmpCoinName = coinName === "Total BTC" || coinName === "BTC" ? "Bitcoin" : coinName;
     tmpCoinName = tmpCoinName.toLowerCase().includes("total") ? tmpCoinName.replace("Total ", "") : tmpCoinName;
     tmpCoinName = tmpCoinName == "SOL" ? 'Solana' : tmpCoinName;
     tmpCoinName = tmpCoinName == "XDG" ? 'Dogecoin' : tmpCoinName;
     tmpCoinName = tmpCoinName == "ETH" ? 'Ethereum' : tmpCoinName;
-    this.currentSelectedCoin = tmpCoinName;
-    // console.log(this.currentSelectedCoin);
-    this.coinSelected.emit(this.currentSelectedCoin);
-    this.btcConvertCoinSelect.nativeElement.value = this.currentSelectedCoin === "Bitcoin" ? "BTC" : this.currentSelectedCoin;
-
+    this.currentSelectedCoin = tmpCoinName; 
+    this.btcConvertCoinSelect.nativeElement.value = tmpCoinName.replace("BTC", "Bitcoin");
+    this.selectedCoinConversionName = this.btcConvertCoinSelect.nativeElement.value; 
+    this.conversionLock = false;
+    const userId = this.parentRef?.user?.id ?? 1;
+    const sessionToken = await this.parentRef?.getSessionToken();
+    this.getTradebotValuesForMainGraph(userId, sessionToken);
+    
     let changeIndicators = false;
     const defaultCoins = ['Bitcoin', 'Solana', 'XRP', 'Dogecoin', 'Ethereum'];
     if (defaultCoins.includes(this.currentSelectedCoin)) {
@@ -809,7 +804,7 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
 
     setTimeout(() => { 
       this.changeTimePeriodEventOnBTCHistoricalGraph('6h');
-      this.coinConvertSelectChange(false);
+      this.coinConvertSelectChange(this.currentSelectedCoin, false);
       if (changeIndicators) {
         this.onIndicatorPairChange();
       }
@@ -865,13 +860,10 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
     }, 300);
   }
 
-  private async updateRates() {
-    // Get coin rate
-    let selectCoin = this.selectedCoinConversionName;
-    if (selectCoin === "BTC") selectCoin = "Bitcoin";
+  private async updateRates() { 
+    let selectCoin = this.btcConvertCoinSelect.nativeElement.value.replace("BTC", "Bitcoin"); 
     const cRes = await this.coinValueService.getLatestCoinValuesByName(selectCoin); 
-    this.currentRates.coin = cRes as CoinValue;
-
+    this.currentRates.coin = cRes as CoinValue; 
     // Get fiat rate
     const ceRes = await this.coinValueService.getLatestCurrencyValuesByName(this.selectedFiatConversionName) as ExchangeRate;
     this.currentRates.fiatToCAD = ceRes?.rate || 1;
@@ -1930,6 +1922,9 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
       this.stopAutoScroll();
       this.stopSingleLineLogPolling();
       this.stopCoinAndVolumePolling();
+      if (!this.numberOfTrades) {
+        this.getNumberOfTrades();
+      }
     }
   }
   closeTradeFullscreen() {
@@ -2410,12 +2405,14 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
     this.stopLoading();
   }
 
-  async coinConvertSelectChange(doSelectCoin: boolean = true) {
-    this.selectedCoinConversionName = this.btcConvertCoinSelect.nativeElement.value;
-    await this.handleConversion('BTC');
-    if (doSelectCoin) { 
-      this.selectCoin(this.selectedCoinConversionName);
-    }
+  async coinConvertSelectChange(selectedCoin?: string, doSelectCoin: boolean = true) {
+    this.selectedCoinConversionName = selectedCoin?.replace("Bitcoin", "BTC") ?? this.btcConvertCoinSelect.nativeElement.value;
+    setTimeout(async ()=>{
+      await this.handleConversion('BTC');
+      if (doSelectCoin) {
+        this.selectCoin(this.selectedCoinConversionName);
+      }
+    });
   }
 
   async fiatConvertSelectChange() {
@@ -3042,6 +3039,17 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
       case 'XRP': return this.xrpToCadPrice * (this.latestCurrencyPriceRespectToCAD ?? 1);
       case 'DOGE': return this.xdgToCadPrice * (this.latestCurrencyPriceRespectToCAD ?? 1);
       default: return 0;
+    }
+  }
+  private getNumberOfTrades() {
+    const parent = this.parentRef;
+    const user = parent?.user;
+    if (user?.id) {
+      this.tradeService.getNumberOfTrades(user.id).then(res => {
+        if (res) {
+          this.numberOfTrades = res ?? 0;
+        }
+      });
     }
   }
 }

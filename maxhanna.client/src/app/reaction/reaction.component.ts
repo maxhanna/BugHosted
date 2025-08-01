@@ -19,7 +19,7 @@ import { ChildComponent } from '../child.component';
 export class ReactionComponent extends ChildComponent implements OnInit {
   @ViewChild('reactionFilter') reactionFilter!: ElementRef;
 
-  reactionsDisplay = '';
+  reactionsDisplay: Reaction[] = [];
   reactionCount = 0;
   showReactionChoices = false;
   showReactions = false;
@@ -225,7 +225,7 @@ export class ReactionComponent extends ChildComponent implements OnInit {
 
     if (this.currentReactions && this.currentReactions.length > 0) {
       this.reactionCount = this.currentReactions.length;
-      this.reactionsDisplay = this.currentReactions.map(x => this.replaceReactionType(x.type)).join(',');
+      this.reactionsDisplay = this.currentReactions;
       const foundReaction = this.currentReactions.find(x => (x.user?.id ?? 0) === (this.user?.id ?? 0));
       if (foundReaction) {
         this.userReaction = foundReaction.type ?? '';

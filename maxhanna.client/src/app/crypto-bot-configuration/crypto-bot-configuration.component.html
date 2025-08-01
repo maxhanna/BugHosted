@@ -82,29 +82,7 @@
                 USDC automatically.</p>
         </div>
     </div>
-
-    <!-- Max From Coin per Trade (DCA only) -->
-    <div class="config-box" [style.display]="tradeStrategySelect.value == 'IND' ? 'none' : 'flex'">
-        <div class="config-header">
-            <span>Max {{normalizeCoinName(tradeFromCoinSelect?.value)}} per Trade</span>
-            <span class="info-icon" (click)="toggleExplanation($event)">i</span>
-        </div>
-        <input type="number" #tradeMaximumFromTradeAmount
-            title="Set the maximum amount of the source coin (e.g., BTC) that can be traded in a single transaction." />
-        <div class="config-explanation">
-            <p><strong>What it does:</strong> This field sets an upper limit on how much of your source coin (e.g., BTC,
-                ETH) can be traded in a single transaction. It's a cap on the size of each individual trade, measured in
-                units of the source coin you selected above.</p>
-            <p><strong>Why it matters:</strong> By capping trade size, you control risk exposure. If a trade goes south,
-                a smaller size limits your loss. It's a safeguard against putting too much of your portfolio into one
-                move, especially in volatile markets where big trades can amplify gains—or losses.</p>
-            <p><strong>How to use it:</strong> Think about your total holdings and risk tolerance. If you have 1 BTC,
-                setting this to 0.1 BTC means no trade will use more than 10% of your stash. For a conservative
-                approach, keep it low (e.g., 0.05 BTC); for bolder moves, raise it (e.g., 0.2 BTC). Check your wallet
-                balance to ensure this value is realistic.</p>
-        </div>
-    </div>
-
+ 
     <!-- Max From Coin Balance (DCA only) -->
     <div class="config-box" [style.display]="tradeStrategySelect.value == 'IND' ? 'none' : 'flex'">
         <div class="config-header">
@@ -112,11 +90,14 @@
             <span class="info-icon" (click)="toggleExplanation($event)">i</span>
         </div>
         <input type="number" #tradeMaximumFromBalance
-            (input)="onMaxFromBalanceChange()"
+            (input)="detectChange()"
             title="Set the maximum amount of the source coin (e.g., BTC) that the balance sheet can have." />
+        <div *ngIf="tradeMaximumFromBalance.value" class="currentSettings">
+            Worth: {{selectedCurrency}}{{ MaxFromBalanceEnteredPrice | currencySymbol:(selectedCurrency):false }}{{MaxFromBalanceEnteredPrice == 0 ? ' (uncapped)' : ''}}
+        </div>
         <div class="config-explanation">
             <p><strong>What it does:</strong> This field sets an upper limit on your source coin (e.g., BTC,
-                ETH). It is measured in {{tradeFromCoinSelect?.value}}. Your current settings are worth: {{selectedCurrency}}{{ MaxFromBalanceEnteredPrice | currencySymbol:(selectedCurrency):false }}{{MaxFromBalanceEnteredPrice == 0 ? ' (uncapped)' : ''}}.</p>
+                ETH). It is measured in {{tradeFromCoinSelect?.value}}.</p>
             <p><strong>Why it matters:</strong> By capping the balance, you control how much of your portfolio is dedicated to a certain coin.</p>
             <p><strong>How to use it:</strong> Think about your total holdings and risk tolerance. If you only want to hold 500$ worth of 
                 {{tradeFromCoinSelect?.value}} then you should set this to {{ 500 / getCoinPrice(tradeFromCoinSelect?.value) }}. Set this to 0 to keep this uncapped.</p>
@@ -130,7 +111,11 @@
             <span class="info-icon" (click)="toggleExplanation($event)">i</span>
         </div>
         <input type="number" #tradeMinimumFromTradeAmount
+            (input)="detectChange()"
             title="Set the minimum amount of the source coin (e.g., BTC) that must be traded in a single transaction." />
+            <div *ngIf="tradeMinimumFromTradeAmount.value" class="currentSettings">
+                Worth: {{selectedCurrency}}{{ MinFromTradeEnteredPrice | currencySymbol:(selectedCurrency):false }}
+            </div>
         <div class="config-explanation">
             <p><strong>What it does:</strong> This field establishes the smallest amount of your source coin (e.g., BTC)
                 that must be traded in any single transaction. It ensures trades aren't so tiny that they're
@@ -141,7 +126,8 @@
             <p><strong>How to use it:</strong> Set a value that's small but practical. For BTC, 0.0001 BTC might be a
                 good minimum—enough to matter but not so big it restricts flexibility. If you're trading a cheaper coin
                 like XDG, you might go higher (e.g., 10 XDG). Balance this with your maximum to create a sensible
-                trading range. Make this above {{getMinimumCryptoAmount(tradeFromCoinSelect?.value ?? "BTC", 5)}}.</p>
+                trading range. Make this above {{getMinimumCryptoAmount(tradeFromCoinSelect?.value ?? "BTC", 5)}}, 
+                so it can be worth atleast 5$USD.</p>
         </div>
     </div>
 
@@ -195,7 +181,13 @@
             <span>Sell % of Reserves</span>
             <span class="info-icon" (click)="toggleExplanation($event)">i</span>
         </div>
-        <input type="number" #tradeReserveSellPercentage title="Set what fraction of your reserved holdings to sell per trade." />
+        <input type="number" 
+            (input)="detectChange()" 
+            #tradeReserveSellPercentage
+            title="Set what fraction of your reserved holdings to sell per trade." />
+        <div *ngIf="tradeReserveSellPercentage.value" class="currentSettings">
+            Worth: {{selectedCurrency}}{{ TradeReserveSellPercentUSDValue | currencySymbol:(selectedCurrency):false }}
+        </div>
         <div class="config-explanation">
             <p><strong>What it does:</strong> This field sets the percentage of your source coin holdings (e.g., {{normalizeCoinName(tradeFromCoinSelect?.value)}} reserves) to
                 sell in each sell transaction when you have no matching buy trades to match. It's about how much you offload at a time when taking profits or cutting
@@ -203,10 +195,10 @@
             <p><strong>Why it matters:</strong> Selling too much at once can leave you with no position to benefit from
                 future gains; selling too little might not lock in enough profit. This setting fine-tunes your exit
                 strategy, balancing exposure and cash flow.</p>
-            <p><strong>How to use it:</strong> Use a decimal—e.g., 0.04 means selling 4% of your {{normalizeCoinName(tradeFromCoinSelect?.value)}} per trade. With 1
-                {{tradeFromCoinSelect?.value?.replace('XBT', 'BTC')}, that's 0.04 {{normalizeCoinName(tradeFromCoinSelect?.value)}} sold. Set 0.02 (2%) for gradual exits, or 0.1 (10%) for quicker liquidation. Pair
+            <p><strong>How to use it:</strong> Use a decimal—e.g., 0.04 means selling 4% of your {{ normalizeCoinName(tradeFromCoinSelect?.value) }} per trade. With 1
+                {{tradeFromCoinSelect?.value?.replace('XBT', 'BTC')}}, that's 0.04 {{normalizeCoinName(tradeFromCoinSelect?.value)}} sold. Set 0.02 (2%) for gradual exits, or 0.1 (10%) for quicker liquidation. Pair
                 this with market trends to time your sales effectively. The default percentage is set at
-                {{tradeReserveSellPercentage.value | number:'1.2-2'}}, which translates to {{
+                {{ tradeReserveSellPercentage.value | number:'1.2-2'}}, which translates to {{
                 multiplyBy100(tradeReserveSellPercentage.value) | number:'1.2-2'}}%.</p>
         </div>
     </div>
@@ -215,10 +207,13 @@
     <!-- Min USDC to Start Trading (DCA only) -->
     <div class="config-box" [style.display]="tradeStrategySelect.value == 'IND' ? 'none' : 'flex'">
         <div class="config-header">
-            <span>${{tradeToCoinSelect?.value}} Value of {{tradeFromCoinSelect?.value}} Reserves</span>
+            <span>{{tradeToCoinSelect?.value}} Value of {{tradeFromCoinSelect?.value}} Reserves</span>
             <span class="info-icon" (click)="toggleExplanation($event)">i</span>
         </div>
-        <input type="number" #tradeCoinReserveUSDCValue min="5"
+        <input type="number" 
+            (input)="detectChange()"
+            #tradeCoinReserveUSDCValue 
+            min="5"
             title="Set the minimum amount of USDC needed to reserve and start trading." />
         <div class="config-explanation">
             <p><strong>What it does:</strong> This field sets the minimum USDC balance required in your wallet before

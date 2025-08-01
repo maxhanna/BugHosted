@@ -525,3 +525,26 @@
   gap: 5px;
   margin-top: 10px;
 }
+
+.userPersonalizationPopupPanel {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.userPersonalizationPopupPanelSection {
+  padding: 5px;
+  margin-bottom: 8px;
+  background: linear-gradient(135deg, var(--component-background-color), var(--secondary-component-background-color));
+  border: var(--main-border);
+  border-radius: 8px;
+  width: calc(100% - 20px);
+}
+
+.emptyAvatarContainer {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  align-content: center;
+}

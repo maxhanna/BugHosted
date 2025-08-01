@@ -970,3 +970,10 @@
   font-weight: bolder;
   padding: 0px 20px 5px 20px;
 }
+
+.trainingLimitInfo {
+  height: 0px;
+  position: relative;
+  top: -8px;
+  font-size: small;
+}

@@ -12,6 +12,8 @@ import { Topic } from '../../services/datacontracts/topics/topic';
 import { Meta, Title } from '@angular/platform-browser';
 import { UserService } from '../../services/user.service';
 import { FileComment } from '../../services/datacontracts/file/file-comment';
+import { Todo } from '../../services/datacontracts/todo';
+import { TodoService } from '../../services/todo.service';
 
 
 @Component({
@@ -51,6 +53,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit {
   @Output() userNotificationEvent = new EventEmitter<string>();
   @Output() expandClickedEvent = new EventEmitter<FileEntry>();
  
+  showFavouritesOnly = false;
   sortOption: string = 'Latest';
   showData = true;
   showShareUserList = false;
@@ -93,7 +96,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit {
   @ViewChild(MediaViewerComponent) mediaViewerComponent!: MediaViewerComponent;
 
 
-  constructor(private fileService: FileService, private userService: UserService, private route: ActivatedRoute) {
+  constructor(private fileService: FileService, private userService: UserService, private todoService: TodoService, private route: ActivatedRoute) {
     super(); 
     this.previousComponent = "Files";
   }
@@ -154,7 +157,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit {
     }
   }
 
-  async getDirectory(file?: string, fileId?: number, append?: boolean) {
+  async getDirectory(file?: string, fileId?: number, append?: boolean) { 
     this.startLoading(); 
      
     this.showData = true;
@@ -171,6 +174,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit {
         (this.allowedFileTypes && this.allowedFileTypes.length > 0 ? this.allowedFileTypes : new Array<string>()),
         this.filter.hidden == 'all' ? true : false,
         this.sortOption,
+        this.showFavouritesOnly
       ).then(res => {
         if (append && this.directory && this.directory.data) { 
           this.directory.data = this.directory.data.concat(
@@ -193,7 +197,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit {
           this.showUpFolderRow = (this.currentDirectory && this.currentDirectory.trim() !== "") ? true : false;
 
           if (this.directory && this.directory.page) {
-            this.currentPage = this.directory.page!;
+            this.currentPage = this.directory.page ?? 1;
           }
           if (this.directory && this.directory.totalCount) {
             this.totalPages = Math.ceil(this.directory.totalCount / this.maxResults);
@@ -244,7 +248,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit {
     } catch (error) {
       this.userNotificationEvent.emit((error as Error).message);
     }
-    this.stopLoading();
+    this.stopLoading(); 
   }
 
   debounceSearch() {
@@ -294,10 +298,14 @@ export class FileSearchComponent extends ChildComponent implements OnInit {
     }
   }
   async appendNextPage() {
-    if (this.currentPage < this.totalPages) {
-      this.currentPage++;
-      await this.getDirectory(undefined, undefined, true);
-    }
+    clearTimeout(this.debounceTimer);
+    this.debounceTimer = setTimeout(() => {
+      if (!this.isLoading && this.currentPage < this.totalPages) {
+        console.log("Appending next page...");
+        this.currentPage++;
+        this.getDirectory(undefined, undefined, true);
+      }
+    }, 500);
   }
 
   searchDirectory() {
@@ -507,7 +515,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit {
     await this.getDirectory();
   }
   reinitializePages() {
-    this.currentPage = this.defaultCurrentPage;
+    this.currentPage = 1;
     this.maxResults = 50;
     this.totalPages = this.defaultTotalPages;
   }
@@ -859,5 +867,40 @@ export class FileSearchComponent extends ChildComponent implements OnInit {
     this.isShowingFileViewers = false;
     const parent = this.inputtedParentRef ?? this.parentRef;
     parent?.closeOverlay();
+  }
+  isVideoFile(fileEntry: FileEntry) {  
+    return this.fileService.videoFileExtensions.includes(this.fileService.getFileExtension(fileEntry.fileName ?? '')); 
+  }
+  async addFileToMusicPlaylist(fileEntry: FileEntry) {
+    const parent = this.inputtedParentRef ?? this.parentRef;
+    const user = parent?.user;
+    if (!user?.id || !fileEntry || !fileEntry.id) {
+      return alert("Error: Cannot add file to music playlist without logging in or a valid file entry.");
+    }
+  
+    let tmpTodo = new Todo();
+    tmpTodo.type = "music"; 
+    tmpTodo.todo = (fileEntry.givenFileName ?? fileEntry.fileName ?? `Video ID:${fileEntry.id}`).trim();
+    tmpTodo.fileId = fileEntry.id;
+    tmpTodo.date = new Date();  
+    const resTodo = await this.todoService.createTodo(user.id, tmpTodo);
+    if (resTodo) {
+      parent?.showNotification(`Added ${tmpTodo.todo} to music playlist.`);
+    }
+  }
+  showFavouritesToggled() {
+    this.showFavouritesOnly = !this.showFavouritesOnly;
+    this.debounceSearch();     
+  }
+  addToFavourites(fileEntry: FileEntry) {
+    const user = this.inputtedParentRef?.user ?? this.parentRef?.user;
+    if (!user || !user.id) {
+      return alert("You must be logged in to use this feature!");
+    }
+    this.fileService.toggleFavourite(user.id, fileEntry.id).then(res => {
+      if (res) {
+        this.userNotificationEvent.emit(res.action + " successfully!"); 
+      } 
+    });
   }
 }

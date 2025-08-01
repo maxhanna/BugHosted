@@ -4,7 +4,7 @@
       <app-user-tag [user]="getTmpUserForUserId(key.split('-')[0])" 
       [inputtedParentRef]="inputtedParentRef" 
       [displayOnlyName]="true"
-      [previousComponent]="'Nexus'"></app-user-tag>
+      [previousComponent]="'Bug-Wars'"></app-user-tag>
       <span class="cursorPointer" (click)="openMapEmitter.emit(key.split('-')[1])">
         <span class="invertedHighlights">{{'{' + key.split('-')[1] + '} ' }}</span>
         <span class="invertedHighlights">{{ getBaseNameForCoords(key.split('-')[1].split(',')[0],key.split('-')[1].split(',')[1]) }}</span>
@@ -80,7 +80,7 @@
           <td><app-user-tag [user]="defence.originUser" 
             [inputtedParentRef]="inputtedParentRef" 
             [displayOnlyName]="true"
-            [previousComponent]="'Nexus'"></app-user-tag></td>
+            [previousComponent]="'Bug-Wars'"></app-user-tag></td>
           <td [class]="defence.marineTotal > 0 ? '' : 'greyText'">{{defence.marineTotal}}</td>
           <td [class]="defence.goliathTotal > 0 ? '' : 'greyText'">{{defence.goliathTotal}}</td>
           <td [class]="defence.siegeTankTotal > 0 ? '' : 'greyText'">{{defence.siegeTankTotal}}</td>

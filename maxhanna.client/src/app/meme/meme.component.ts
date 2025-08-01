@@ -98,8 +98,12 @@ export class MemeComponent extends ChildComponent implements OnInit, OnDestroy  
     });
   }  
   onLoadMoreInView(isInView: boolean) {
-    if (isInView && this.fileSearchComponent.currentPage < this.fileSearchComponent.totalPages) {
-      this.fileSearchComponent.appendNextPage();
-    }
+    clearTimeout(this.debounceTimer);
+    this.debounceTimer = setTimeout(() => {
+      if (isInView && this.fileSearchComponent.currentPage < this.fileSearchComponent.totalPages) {
+        this.fileSearchComponent.appendNextPage();
+      }
+    }, 500); 
+    
   }
 }

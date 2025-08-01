@@ -363,9 +363,8 @@
       *ngIf="flvl1Src && flvl2Src && flvl3Src && nexusBase && isFactoryOpen" loading="lazy" decoding="asynchronous" />
     <div *ngIf="isFactoryOpen" class="factoryScreen">
       <div (click)="showMoreFactoryInfo = !showMoreFactoryInfo" class="xxSmallFont subtleInfoDiv">ℹ️Info </div>
-      <div *ngIf="calculateCurrentSupply() > 0 && !showMoreFactoryInfo" class="helpSnippet">
-        Upgrade the Factory to train more units simultaneously. Current training limit: <span
-          class="redText">{{nexusBase?.factoryLevel ?? 0}}</span>
+      <div *ngIf="calculateCurrentSupply() > 0 && !showMoreFactoryInfo" class="trainingLimitInfo">
+        Current training limit: <span class="redText">{{nexusBase?.factoryLevel ?? 0}}</span>
       </div>
       <div *ngIf="calculateCurrentSupply() == 0 && !showMoreFactoryInfo" class="redText">You require more supply.</div>
       <div *ngIf="calculateCurrentSupply() == 0 && !showMoreFactoryInfo">Upgrade the Supply Depot to train more units.
@@ -414,8 +413,8 @@
       </div>
       <div *ngIf="showMoreFactoryInfo">
         <div>Use your factories to train ground units.</div>
-        <div class="notification">Ground units can shoot both air and ground units but each unit has its own specialty.
-        </div>
+        <div class="notification">Upgrade the Factory to train more units simultaneously.</div>
+        <div class="notification">Ground units can shoot both air and ground units but each unit has its own specialty.</div>
         <div class="notification">Marines and Goliaths have an affinity for air damage.</div>
         <div class="notification">Siege Tanks are strongest against ground units.</div>
         <div class="flexCentered mainInfoSection">Available units:</div>
@@ -454,9 +453,8 @@
       decoding="asynchronous" />
     <div *ngIf="isStarportOpen" class="starportScreen">
       <div (click)="showMoreStarportInfo = !showMoreStarportInfo" class="xxSmallFont subtleInfoDiv">ℹ️Info </div> 
-      <div *ngIf="calculateCurrentSupply() > 0 && !showMoreStarportInfo" class="helpSnippet">
-        Upgrade the Starport to train more units simultaneously. Current training limit: 
-        <span class="redText">{{nexusBase?.starportLevel ?? 0}}</span>
+      <div *ngIf="calculateCurrentSupply() > 0 && !showMoreStarportInfo" class="trainingLimitInfo">
+        Current training limit: <span class="redText">{{nexusBase?.starportLevel ?? 0}}</span>
       </div>
       <div *ngIf="calculateCurrentSupply() == 0 && !showMoreStarportInfo" class="redText">You require more supply.</div>
       <div *ngIf="calculateCurrentSupply() == 0 && !showMoreStarportInfo">Upgrade the Supply Depot to train more units.
@@ -505,8 +503,8 @@
       </div>
       <div *ngIf="showMoreStarportInfo">
         <div>Use your starports to train air units.</div>
-        <div class="notification">Air units can shoot both air and ground units but each unit has its own specialty.
-        </div>
+        <div class="notification">Upgrade the Starport to train more units simultaneously.</div>
+        <div class="notification">Air units can shoot both air and ground units but each unit has its own specialty.</div>
         <div class="notification">Battlecruisers and Wraith are great at dealing damage.</div>
         <div class="notification">Scouts are used to detect enemy units and buildings. When sent alone in combat, only
           scouts can defend against other scouts.</div>

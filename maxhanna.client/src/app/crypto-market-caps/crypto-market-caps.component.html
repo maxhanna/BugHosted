@@ -2,18 +2,19 @@
     <table class="market-caps-table mainTable" id="marketCapsTable">
         <thead>
             <tr>
-                <th (click)="sortTable(0, 'marketCapsTable')">Name</th>
-                <th (click)="sortTable(1, 'marketCapsTable')" [title]="'Price ' + selectedCurrency">Price</th>
-                <th (click)="sortTable(2, 'marketCapsTable')" [title]="'Market Cap ' + selectedCurrency">Market Cap</th>
-                <th (click)="sortTable(3, 'marketCapsTable')" title="24h Price Change (%)">Price &Delta;</th>
-                <th (click)="sortTable(4, 'marketCapsTable')" title="24h Inflow Change (USD)">Inflow</th>
+                <th (click)="sortTable(0, 'marketCapsTable')" class="xxSmallFont thirdFontColor">Rank</th>
+                <th (click)="sortTable(1, 'marketCapsTable')">Name</th>
+                <th (click)="sortTable(2, 'marketCapsTable')" [title]="'Price ' + selectedCurrency">Price</th>
+                <th (click)="sortTable(3, 'marketCapsTable')" [title]="'Market Cap ' + selectedCurrency">Market Cap</th>
+                <th (click)="sortTable(4, 'marketCapsTable')" title="24h Price Change (%)">Price &Delta;</th>
+                <th (click)="sortTable(5, 'marketCapsTable')" title="24h Inflow Change (USD)">Inflow</th>
             </tr>
         </thead>
         <tbody>
             <tr *ngFor="let coin of (expand ? coinMarketCaps : coinMarketCaps.slice(0, 10)); index as i"
                 (click)="selectCoin.emit(coin.name)">
-                <td><span [class]="'thirdFontColor' + (onMobile() ? ' xxSmallFont' : '')">{{ i + 1 }}.</span> {{
-                    coin.name }} <span class="secondaryFontColor smallFont">[{{ coin.symbol }}]</span></td>
+                <td [class]="'thirdFontColor' + (onMobile() ? ' xxSmallFont' : '')">{{ i + 1 }}</td>
+                <td>{{ coin.name }} <span class="secondaryFontColor smallFont">[{{ coin.symbol }}]</span></td>
                 <td [title]="coin.priceCAD * conversionRate">{{ coin.priceCAD * conversionRate |
                     currencySymbol:selectedCurrency:false }}</td>
                 <td [title]="coin.marketCapCAD * conversionRate">{{ coin.marketCapCAD * conversionRate |

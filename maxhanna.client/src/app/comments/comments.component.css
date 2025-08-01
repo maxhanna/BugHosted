@@ -236,3 +236,19 @@
 .commentTextDiv {
   padding-top: 5px;
 }
+
+
+
+
+
+.toggle-subcomments { 
+  cursor: pointer;
+  padding: 2px 5px;
+  margin-left: 5px;
+  font-size: 0.8em;
+}
+
+.toggle-subcomments:hover { 
+  border-radius: 3px;
+}
+ 

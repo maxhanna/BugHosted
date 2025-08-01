@@ -23,6 +23,7 @@ export class CommentsComponent extends ChildComponent implements OnInit {
   editingComments: number[] = []
   replyingToCommentIds: number[] = []
   selectedFiles: FileEntry[] = [];
+  minimizedComments: Set<number> = new Set<number>();
 
   @ViewChild('addCommentInput') addCommentInput!: ElementRef<HTMLInputElement>;
 
@@ -367,6 +368,13 @@ export class CommentsComponent extends ChildComponent implements OnInit {
           this.sendNotifications(comment, text, repliedUsers, id); 
         }
       }
+    }
+  }
+  toggleSubcomments(commentId: number) {
+    if (this.minimizedComments.has(commentId)) {
+      this.minimizedComments.delete(commentId);
+    } else {
+      this.minimizedComments.add(commentId);
     }
   }
 }

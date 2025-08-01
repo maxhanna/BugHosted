@@ -51,7 +51,8 @@ namespace maxhanna.Server.Controllers
 		[FromQuery] int? fileId = null,
 		[FromQuery] List<string>? fileType = null,
 		[FromQuery] bool showHidden = false,
-		[FromQuery] string sortOption = "Latest")
+		[FromQuery] string sortOption = "Latest",
+		[FromQuery] bool showFavouritesOnly = false)
 		{
 			if (string.IsNullOrEmpty(directory))
 			{
@@ -80,6 +81,9 @@ namespace maxhanna.Server.Controllers
 				string hiddenCondition = showHidden
 								? "" // If showHidden is true, don't filter out hidden files
 								: $" AND f.id NOT IN (SELECT file_id FROM maxhanna.hidden_files WHERE user_id = @userId) ";
+				string favouritesCondition = showFavouritesOnly
+					? " AND f.id IN (SELECT file_id FROM file_favourites WHERE user_id = @userId) "
+					: "";
 				string orderBy = "";
 				switch (sortOption)
 				{
@@ -162,6 +166,7 @@ namespace maxhanna.Server.Controllers
                             {visibilityCondition} 
                             {ownershipCondition} 
                             {hiddenCondition}
+							{favouritesCondition}
                             {where}
                     ) AS numbered_results
                     WHERE id >= @fileId",  // For DESC order we use >=
@@ -185,7 +190,7 @@ namespace maxhanna.Server.Controllers
 						offset = Math.Max(0, filePosition - desiredPositionInPage - 1);
 
 						// Ensure we don't go past the total count
-						var totalCount = GetResultCount(user, directory, search, fileTypeCondition,
+						var totalCount = GetResultCount(user, directory, search, favouritesCondition, fileTypeCondition,
 								visibilityCondition, ownershipCondition, hiddenCondition,
 								connection, (await GetWhereCondition(search, user)).Item1,
 								(await GetWhereCondition(search, user)).Item2);
@@ -252,6 +257,7 @@ WHERE
     {visibilityCondition} 
     {ownershipCondition} 
     {hiddenCondition} 
+	{favouritesCondition} 
 GROUP BY
     f.id,
     f.file_name,
@@ -367,7 +373,7 @@ LIMIT
 
 					GetFileReactions(fileEntries, connection, fileIds, commentIds, fileIdsParameters, commentIdsParameters);
 					GetFileTopics(fileEntries, connection, fileIds);
-					var result = GetDirectoryResults(user, directory, search, page, pageSize, fileEntries, fileTypeCondition, visibilityCondition, ownershipCondition, hiddenCondition, connection, searchCondition, extraParameters);
+					var result = GetDirectoryResults(user, directory, search, page, pageSize, fileEntries, favouritesCondition, fileTypeCondition, visibilityCondition, ownershipCondition, hiddenCondition, connection, searchCondition, extraParameters);
 
 					return Ok(result);
 				}
@@ -526,11 +532,11 @@ LIMIT
 			}
 		}
 
-		private Object GetDirectoryResults(User? user, string directory, string? search, int page, int pageSize, List<FileEntry> fileEntries, string fileTypeCondition, string visibilityCondition, string ownershipCondition, string hiddenCondition, MySqlConnection connection, string searchCondition, List<MySqlParameter> extraParameters)
+		private Object GetDirectoryResults(User? user, string directory, string? search, int page, int pageSize, List<FileEntry> fileEntries, string favouritesCondition, string fileTypeCondition, string visibilityCondition, string ownershipCondition, string hiddenCondition, MySqlConnection connection, string searchCondition, List<MySqlParameter> extraParameters)
 		{
 			// Get the total count of files for pagination
 			int totalCount = GetResultCount(user,
-				directory, search, fileTypeCondition, visibilityCondition,
+				directory, search, favouritesCondition, fileTypeCondition, visibilityCondition,
 				ownershipCondition, hiddenCondition, connection, searchCondition,
 				extraParameters);
 			var result = new
@@ -684,7 +690,7 @@ LIMIT
 			}
 		}
 
-		private static int GetResultCount(User? user, string directory, string? search, string fileTypeCondition, string visibilityCondition, string ownershipCondition, string hiddenCondition, MySqlConnection connection, string searchCondition, List<MySqlParameter> extraParameters)
+		private static int GetResultCount(User? user, string directory, string? search, string favouritesCondition, string fileTypeCondition, string visibilityCondition, string ownershipCondition, string hiddenCondition, MySqlConnection connection, string searchCondition, List<MySqlParameter> extraParameters)
 		{
 			var totalCountCommand = new MySqlCommand(
 					$@"SELECT COUNT(*) 
@@ -703,7 +709,8 @@ LIMIT
                         {fileTypeCondition}
                         {visibilityCondition}
                         {ownershipCondition}
-                        {hiddenCondition};"
+                        {hiddenCondition}
+						{favouritesCondition};"
 			 , connection);
 			foreach (var param in extraParameters)
 			{
@@ -2611,6 +2618,98 @@ LIMIT
 			{
 				_ = _log.Db("An error occurred while sharing the file. " + ex.Message, request.User1Id, "FILE", true);
 				return StatusCode(500, "An error occurred while sharing the file.");
+			}
+		}
+
+		[HttpPost("/File/GetUserFavorites/{userId}", Name = "GetUserFavorites")]
+		public async Task<IActionResult> GetUserFavorites(int userId)
+		{
+			try
+			{
+				using (var connection = new MySqlConnection(_connectionString))
+				{
+					await connection.OpenAsync();
+
+					var command = new MySqlCommand(@"
+                    SELECT file_id 
+                    FROM file_favourites 
+                    WHERE user_id = @user_id",
+					connection);
+					command.Parameters.AddWithValue("@user_id", userId);
+
+					var favorites = new List<int>();
+					using (var reader = await command.ExecuteReaderAsync())
+					{
+						while (await reader.ReadAsync())
+						{
+							favorites.Add(reader.GetInt32("file_id"));
+						}
+					}
+
+					return Ok(favorites);
+				}
+			}
+			catch (Exception ex)
+			{
+				_ = _log.Db($"An error occurred while fetching user favorites. {ex.Message}", userId, "FILE", true);
+				return StatusCode(500, "An error occurred while fetching favorites.");
+			}
+		}
+
+		[HttpPost("/File/ToggleFavorite/", Name = "ToggleFavorite")] 
+		public async Task<IActionResult> ToggleFavorite([FromBody] FavoriteRequest request)
+		{
+			try
+			{
+				using (var connection = new MySqlConnection(_connectionString))
+				{
+					await connection.OpenAsync();
+
+					// First check if the favorite exists
+					var checkCommand = new MySqlCommand(@"
+                    SELECT COUNT(*) 
+                    FROM file_favourites 
+                    WHERE user_id = @user_id AND file_id = @file_id",
+					connection);
+					checkCommand.Parameters.AddWithValue("@user_id", request.UserId);
+					checkCommand.Parameters.AddWithValue("@file_id", request.FileId);
+
+					var exists = Convert.ToInt32(await checkCommand.ExecuteScalarAsync()) > 0;
+
+					if (exists)
+					{
+						// Remove favorite
+						var deleteCommand = new MySqlCommand(@"
+                        DELETE FROM file_favourites 
+                        WHERE user_id = @user_id AND file_id = @file_id",
+						connection);
+						deleteCommand.Parameters.AddWithValue("@user_id", request.UserId);
+						deleteCommand.Parameters.AddWithValue("@file_id", request.FileId);
+
+						await deleteCommand.ExecuteNonQueryAsync();
+						_ = _log.Db($"Removed file {request.FileId} from favorites for user {request.UserId}", request.UserId, "FILE", true);
+						return Ok(new { action = "removed" });
+					}
+					else
+					{
+						// Add favorite
+						var insertCommand = new MySqlCommand(@"
+                        INSERT INTO file_favourites (user_id, file_id)
+                        VALUES (@user_id, @file_id)",
+						connection);
+						insertCommand.Parameters.AddWithValue("@user_id", request.UserId);
+						insertCommand.Parameters.AddWithValue("@file_id", request.FileId);
+
+						await insertCommand.ExecuteNonQueryAsync();
+						_ = _log.Db($"Added file {request.FileId} to favorites for user {request.UserId}", request.UserId, "FILE", true);
+						return Ok(new { action = "added" });
+					}
+				}
+			}
+			catch (Exception ex)
+			{
+				_ = _log.Db($"An error occurred while toggling favorite. {ex.Message}", request.UserId, "FILE", true);
+				return StatusCode(500, "An error occurred while toggling favorite.");
 			}
 		}
 

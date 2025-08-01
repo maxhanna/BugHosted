@@ -555,6 +555,7 @@ fieldset {
   transform: translate(-50%, -50%);
   background: var(--secondary-component-background-color);
   z-index: 4 !important;
+  border: var(--main-border);
   border-radius: 8px;
   overflow: auto;
   padding: 20px;
@@ -624,7 +625,7 @@ fieldset {
   display: flex;
   flex-direction: column;
   flex-wrap: nowrap;
-  width: 100%;
+  width: calc(100% - 20px);
   height: 300px;
   overflow: auto;
 }
@@ -633,6 +634,7 @@ fieldset {
   display: flex;
   justify-content: space-between;
   border-bottom: 1px dotted var(--main-font-color);
+  width: calc(100% - 10px);
 }
 
 .optionsStatsDiv:hover {
@@ -857,4 +859,18 @@ fieldset {
   margin-bottom: 5px;
   margin-top: 5px;
   cursor: pointer;
+}
+
+.toggle-switch {
+  position: relative;
+  display: inline-block;
+  width: 40px;
+  height: 20px;
+  margin-right: 10px;
+}
+
+.toggle-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
 }

@@ -21,6 +21,7 @@ import { FileService } from '../../services/file.service';
 import { FileEntry } from '../../services/datacontracts/file/file-entry';
 import { target } from '../meta/helpers/fight';
 import { MediaSelectorComponent } from '../media-selector/media-selector.component';
+import { TradeService } from '../../services/trade.service';
 
 @Component({
   selector: 'app-user',
@@ -81,6 +82,7 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
   songPlaylist: Todo[] = [];
   trophies?: Trophy[] = undefined;
   numberOfNexusBases: number = 0;
+  numberOfTrades: number = 0;
   wordlerStreak: number = 0;
   bestWordlerStreak: number = 0;
   metaBotLevelsSum: number = 0;
@@ -102,6 +104,7 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
 
   constructor(private userService: UserService,
     private nexusService: NexusService,
+    private tradeService: TradeService,
     private contactService: ContactService,
     private weatherService: WeatherService,
     private notificationService: NotificationService,
@@ -173,6 +176,7 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
       }
       this.getNSFWValue();
       this.getNumberOfNexusBases();
+      this.getNumberOfTrades();
     }
     catch (error) { console.log((error as Error).message); } 
     if (!this.trophies) {
@@ -193,31 +197,70 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
 
 
   private async changeTheme() {
+    // First reset to default settings
+    this.resetToDefaultTheme();
+
+    // Then apply new theme if conditions are met
     if (this.user?.id != this.parentRef?.user?.id && this.user?.id !== undefined) {
       const theme = await this.userService.getTheme(this.user?.id);
-      if (theme && !theme.message) {  
+      if (theme && !theme.message) {
         this.parentRef?.navigationComponent.getThemeInfo(this.user.id ?? 0);
-        this.changedTheme = true; 
+        this.changedTheme = true;
       }
     }
+
+    // Apply profile background effects if they exist
     if (this.user?.profileBackgroundPictureFile) {
-      const closeButton = document.getElementsByClassName('componentMain')[0].getElementsByClassName('closeButton')[0] as HTMLDivElement;
-      if (closeButton) {
-        closeButton.style.setProperty('text-shadow', '1px 1px var(--main-link-color)');
+      this.applyProfileBackgroundEffects();
+    }
+  }
+
+  private resetToDefaultTheme() {
+    // Reset background
+    this.restoreBackground();
+
+    // Reset text shadows and other theme-specific styles
+    const resetElements = [
+      ...Array.from(document.getElementsByClassName('closeButton')),
+      ...Array.from(document.getElementsByClassName('componentTitle')),
+      ...Array.from(document.getElementsByClassName('menuButton'))
+    ];
+
+    resetElements.forEach(element => {
+      if (element instanceof HTMLElement) {
+        element.style.removeProperty('text-shadow');
       }
-      const titleComponent = document.getElementsByClassName('componentMain')[0].getElementsByClassName('componentTitle')[0] as HTMLDivElement;
-      if (titleComponent) {
-        titleComponent.style.setProperty('text-shadow', '1px 1px var(--main-link-color)');
-      }
-      const menuButton = document.getElementsByClassName('componentMain')[0].getElementsByClassName('menuButton')[0] as HTMLDivElement;
-      if (menuButton) {
-        menuButton.style.setProperty('text-shadow', '1px 1px var(--main-link-color)');
-      }
+    });
+
+    // Reset any other theme-specific properties
+    const mainElement = document.querySelector('.componentMain') as HTMLDivElement;
+    if (mainElement) {
+      mainElement.style.removeProperty('--main-link-color');
+      // Add any other CSS variables you need to reset
+    }
+
+    this.changedTheme = false;
+  }
+
+  private applyProfileBackgroundEffects() {
+    const closeButton = document.getElementsByClassName('componentMain')[0]?.getElementsByClassName('closeButton')[0] as HTMLDivElement;
+    if (closeButton) {
+      closeButton.style.setProperty('text-shadow', '1px 1px var(--main-link-color)');
+    }
+
+    const titleComponent = document.getElementsByClassName('componentMain')[0]?.getElementsByClassName('componentTitle')[0] as HTMLDivElement;
+    if (titleComponent) {
+      titleComponent.style.setProperty('text-shadow', '1px 1px var(--main-link-color)');
+    }
+
+    const menuButton = document.getElementsByClassName('componentMain')[0]?.getElementsByClassName('menuButton')[0] as HTMLDivElement;
+    if (menuButton) {
+      menuButton.style.setProperty('text-shadow', '1px 1px var(--main-link-color)');
     }
   }
 
   private setBackgroundImage() {
-    if (this.user?.profileBackgroundPictureFile?.id && !this.loginOnly) { 
+    if (this.user?.profileBackgroundPictureFile?.id && !this.loginOnly) {
       const element = document.querySelector('.componentMain') as HTMLDivElement;
       if (element) {
         // Store original value first
@@ -802,6 +845,17 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
       this.nexusService.getNumberOfBases(user.id).then(res => {
         if (res) {
           this.numberOfNexusBases = res ?? 0;
+        }
+      });
+    }
+  }
+  private getNumberOfTrades() {
+    const parent = this.inputtedParentRef ?? this.parentRef;
+    const user = this.user ?? parent?.user;
+    if (user?.id) {
+      this.tradeService.getNumberOfTrades(user.id).then(res => {
+        if (res) {
+          this.numberOfTrades = res ?? 0;
         }
       });
     }

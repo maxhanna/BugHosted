@@ -21,7 +21,7 @@ export class UserTagComponent extends ChildComponent implements OnInit, OnDestro
   @Input() displayLargeAvatar = false;
   @Input() displayMiniTag = false;
   @Input() preventOpenProfile = false;
-  @Input() preventExpandPicture = true; 
+  @Input() preventExpandPicture = true;
   @Input() containUsername = false;
   @Input() hideName = false;
   @Input() displayTinyPicture = false;

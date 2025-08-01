@@ -17,7 +17,7 @@ import { UserService } from '../../services/user.service';
 import { TodoService } from '../../services/todo.service';
 import { Todo } from '../../services/datacontracts/todo';
 import { NotificationService } from '../../services/notification.service';
-import { SafeHtml } from '@angular/platform-browser';
+import { FileService } from '../../services/file.service';
 
 @Pipe({
   name: 'clickableUrls',
@@ -115,6 +115,7 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
     private topicService: TopicService,
     private userService: UserService,
     private todoService: TodoService,
+    private fileService: FileService,
     private notificationService: NotificationService) {
     super();
   }
@@ -126,9 +127,9 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
     if (this.storyId) { 
       this.openedStoryComments.push(this.storyId);
     } 
-    this.parent?.addResizeListener();
+    this.parentRef?.addResizeListener();
 
-    const user = this.parent?.user ?? this.parentRef?.user;
+    const user = this.parentRef?.user;
     if (user && user.id) {
       await this.userService.getUserSettings(user.id).then(res => {
         if (res) {
@@ -227,16 +228,16 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
       if (document.getElementsByClassName('storyInputDiv')[0]) { 
         (document.getElementsByClassName('storyInputDiv')[0] as HTMLDivElement).style.marginTop = "0px";
       }
-      if (document.getElementsByClassName('componentMain')[0]) { 
-        (document.getElementsByClassName('componentMain')[0] as HTMLDivElement).style.border = "unset";
-      }
+      // if (document.getElementsByClassName('componentMain')[0]) { 
+      //   (document.getElementsByClassName('componentMain')[0] as HTMLDivElement).style.border = "unset";
+      // }
     }
     if (this.showOnlyPost) {
       this.componentMain.nativeElement.style.paddingTop = "0px";
       this.componentMain.nativeElement.classList.add("mobileMaxHeight");
-      if (document.getElementsByClassName('componentMain')[0]) { 
-        (document.getElementsByClassName('componentMain')[0] as HTMLDivElement).style.border = "unset";
-      }
+      // if (document.getElementsByClassName('componentMain')[0]) { 
+      //   (document.getElementsByClassName('componentMain')[0] as HTMLDivElement).style.border = "unset";
+      // }
     }
   }
   async delete(story: Story) {
@@ -864,6 +865,22 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
   isYoutubeUrl(url?: string): boolean {
     return this.parentRef?.isYoutubeUrl(url) ?? false;
   }
+  async addFileToMusicPlaylist(fileEntry: FileEntry) { 
+    const user = this.parentRef?.user;
+    if (!user?.id || !fileEntry || !fileEntry.id) {
+      return alert("Error: Cannot add file to music playlist without logging in or a valid file entry.");
+    }
+ 
+    let tmpTodo = new Todo();
+    tmpTodo.type = "music"; 
+    tmpTodo.todo = (fileEntry.givenFileName ?? fileEntry.fileName ?? `Video ID:${fileEntry.id}`).trim();
+    tmpTodo.fileId = fileEntry.id;
+    tmpTodo.date = new Date(); // Ensure date is set for sorting
+    const resTodo = await this.todoService.createTodo(user.id, tmpTodo);
+    if (resTodo) {
+      this.parentRef?.showNotification(`Added ${tmpTodo.todo} to music playlist.`);
+    }
+  }
   async addToMusicPlaylist(story?: Story, metadata?: MetaData, event?: Event) {
     if (!story || !story.metadata || !this.parentRef?.user?.id) return;
     const url = this.extractUrl(story.storyText);
@@ -1250,5 +1267,10 @@ Option 4: Yellow
         this.getStories();
       }
     }); 
+  }
+  getVideoStoryFiles(story: Story) { 
+    return story.storyFiles?.filter(file => {  
+      return this.fileService.videoFileExtensions.includes(this.fileService.getFileExtension(file.fileName ?? ''));
+    });
   }
 }

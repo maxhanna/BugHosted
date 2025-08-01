@@ -453,8 +453,8 @@ namespace maxhanna.Server.Controllers
 
 				// Build content-focused prompt
 				string prompt = detailed
-					? BuildDetailedPrompt(base64Images.Count > 1, hasMultipleFrames)
-					: BuildConcisePrompt(base64Images.Count > 1);
+					? BuildDetailedPrompt(base64Images.Count > 1)
+					: BuildConcisePrompt();
 
 				// Send to Ollama
 				var payload = new
@@ -489,39 +489,23 @@ namespace maxhanna.Server.Controllers
 			}
 		}
 
-		// New helper methods
-		private string BuildDetailedPrompt(bool multipleFrames, bool isLongVideo)
+		private string BuildDetailedPrompt(bool multipleFrames)
 		{
+			string basePrompt = "Describe the scene or action depicted, focusing on the main subjects, their interactions, and the overall context. ";
 			if (multipleFrames)
 			{
-				return isLongVideo
-					? "Analyze these key moments from a video: "
-					  + "1. Identify any text (transcribe exactly) "
-					  + "2. Describe actions, expressions, and scene changes "
-					  + "3. Note visual style and meme patterns "
-					  + "4. Explain humor or cultural references "
-					  + "Combine into a narrative summary (maximum 250 words) without mentioning it's from a video."
-					: "Describe this scene: "
-					  + "1. Transcribe all visible text exactly "
-					  + "2. Identify subjects, actions, and expressions "
-					  + "3. Note visual style and potential meme formats "
-					  + "4. Explain context and meaning "
-					  + "Respond as if describing real life without media references (maximum 250 words).";
+				basePrompt += "Consider the sequence of events across the frames. ";
 			}
-
-			return "Describe this visual content: "
-				+ "1. Transcribe all text exactly as it appears "
-				+ "2. Identify key elements and their arrangement "
-				+ "3. Note visual style and potential meme format "
-				+ "4. Explain context and meaning "
-				+ "Respond as if describing real life without mentioning it's an image (maximum 250 words).";
+			basePrompt += "Do not mention that this is from an image or video. Describe it as if you are observing it directly. ";
+			basePrompt += "If there is text, transcribe it exactly. ";
+			basePrompt += "Do not include comments about your capabilities or limitations. ";
+			basePrompt += "Keep the description under 250 words.";
+			return basePrompt;
 		}
 
-		private string BuildConcisePrompt(bool multipleFrames)
+		private string BuildConcisePrompt()
 		{
-			return multipleFrames
-				? "Summarize in 3-5 words focusing on the main action or punchline (e.g., 'cat jumps unexpectedly')."
-				: "Summarize in 2-5 words focusing on key elements (e.g., 'angry frog with sign').";
+			return "Summarize the main subject or action in 2-5 words, without mentioning media type or your capabilities.";
 		}
 
 		private string RemoveMediaReferences(string response)

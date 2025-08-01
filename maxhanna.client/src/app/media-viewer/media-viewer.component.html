@@ -28,7 +28,7 @@
         *ngIf="imageFileExtensionsIncludes(this.selectedFileExtension)" [src]="selectedFileSrc"
         [attr.title]="title ? title : null" class="media" />
       <video #mediaContainer *ngIf="videoFileExtensionsIncludes(this.selectedFileExtension)" [src]="selectedFileSrc"
-        controls playsinline preload="auto" [autoplay]="autoplay" [loop]="loop" [muted]="muted"
+        [controls]="displayControls" playsinline preload="auto" [autoplay]="autoplay" [loop]="loop" [muted]="muted"
         (touchend)="togglePlay(mediaContainer)" (play)="togglePlay(mediaContainer)" (ended)="onMediaEnded()"
         class="video media">
       </video>

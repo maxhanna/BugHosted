@@ -52,7 +52,7 @@
               <app-reaction [messageId]="message.id" [user]="parentRef?.user" [component]="message"
                 [inputtedParentRef]="parentRef" [currentReactions]="message.reactions"
                 [previousComponent]="'Chat'"></app-reaction>
-              <button title="Quote Chat Message" (click)="quote(message)">🗨️Quote</button>
+              <button *ngIf="!isEditing.length" title="Quote Chat Message" (click)="quote(message)">🗨️Quote</button>
               <button
                 *ngIf="message.sender.id === (parentRef?.user?.id ?? 0) && (isEditing.includes(message.id) || isEditing.length == 0)"
                 title="Edit Chat Message" (click)="isEditing.includes(message.id) ? acceptEdit(message) : edit(message)">
@@ -83,7 +83,7 @@
         </div>
       </div>
   
-      <div class="messageInput">
+      <div class="messageInput" [style]="isEditing.length > 0 ? 'display: none' : ''">
         <textarea placeholder="Type a message" #newMessage (keydown.enter)="sendMessage()"></textarea>
         <div>
           <app-media-selector #attachmentSelector

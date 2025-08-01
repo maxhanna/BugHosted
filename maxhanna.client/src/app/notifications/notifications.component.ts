@@ -246,8 +246,7 @@ export class NotificationsComponent extends ChildComponent implements OnInit, On
       parent.navigationComponent.setNotificationNumber(this.unreadNotifications, notification);
     }
   }
-  notificationTextClick(notification: UserNotification) {
-    console.log("Notification text clicked: ", notification);
+  notificationTextClick(notification: UserNotification) { 
     if (!notification.isRead) { 
       this.read(notification, true);
       if (notification.text?.includes('Executed Trade') && this.parentRef?.navigationComponent) {

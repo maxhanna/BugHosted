@@ -76,7 +76,7 @@
 }
 @media only screen and (min-width: 667px) {
   .notificationsListContainer {
-    padding: 5px;
+    padding: 10px;
   }
 }
 .notificationsList {

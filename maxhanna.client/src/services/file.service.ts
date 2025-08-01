@@ -11,32 +11,32 @@ import { Topic } from './datacontracts/topics/topic';
 export class FileService {
 	constructor(private http: HttpClient) { }
 
-videoFileExtensions = [
-	"mp4", "mov", "avi", "wmv", "webm", "flv", "mkv", "m4v", "mpg", "mpeg", "3gp", "3g2", "asf", "rm",
-	"rmvb", "swf", "vob", "ts", "mts", "m2ts", "mxf", "ogv", "divx", "xvid", "dv", "drc", "f4v", "f4p",
-	"f4a", "f4b", "mjp", "mjpg", "ogm", "nut", "bik", "roq", "viv", "vp6", "vp7"
-];
+	videoFileExtensions = [
+		"mp4", "mov", "avi", "wmv", "webm", "flv", "mkv", "m4v", "mpg", "mpeg", "3gp", "3g2", "asf", "rm",
+		"rmvb", "swf", "vob", "ts", "mts", "m2ts", "mxf", "ogv", "divx", "xvid", "dv", "drc", "f4v", "f4p",
+		"f4a", "f4b", "mjp", "mjpg", "ogm", "nut", "bik", "roq", "viv", "vp6", "vp7"
+	];
 
-audioFileExtensions = [
-	"mp3", "wav", "ogg", "flac", "aac", "aiff", "alac", "amr", "ape", "au", "dss", "gsm", "m4a", "m4b",
-	"m4p", "mid", "midi", "mpa", "mpc", "oga", "opus", "ra", "sln", "tta", "voc", "vox", "wma", "wv",
-	"kar", "sid", "spx", "txw", "asx", "cda", "mod", "it", "s3m", "xm", "uax"
-];
+	audioFileExtensions = [
+		"mp3", "wav", "ogg", "flac", "aac", "aiff", "alac", "amr", "ape", "au", "dss", "gsm", "m4a", "m4b",
+		"m4p", "mid", "midi", "mpa", "mpc", "oga", "opus", "ra", "sln", "tta", "voc", "vox", "wma", "wv",
+		"kar", "sid", "spx", "txw", "asx", "cda", "mod", "it", "s3m", "xm", "uax"
+	];
 
-imageFileExtensions = [
-	"jpg", "jpeg", "png", "gif", "bmp", "tiff", "svg", "webp", "heif", "heic", "ico", "psd", "raw",
-	"cr2", "nef", "orf", "sr2", "arw", "dng", "rw2", "pef", "raf", "3fr", "ari", "bay", "cap", "dcr",
-	"drf", "eip", "erf", "fff", "iiq", "k25", "kdc", "mdc", "mos", "mrw", "nrw", "obm", "ptx", "r3d",
-	"rwl", "srf", "srw", "x3f", "avif", "jxr", "hdp", "wdp", "cur", "jp2", "jpx", "j2k", "jpf", "ras",
-	"emf", "wmf", "dib"
-];
+	imageFileExtensions = [
+		"jpg", "jpeg", "png", "gif", "bmp", "tiff", "svg", "webp", "heif", "heic", "ico", "psd", "raw",
+		"cr2", "nef", "orf", "sr2", "arw", "dng", "rw2", "pef", "raf", "3fr", "ari", "bay", "cap", "dcr",
+		"drf", "eip", "erf", "fff", "iiq", "k25", "kdc", "mdc", "mos", "mrw", "nrw", "obm", "ptx", "r3d",
+		"rwl", "srf", "srw", "x3f", "avif", "jxr", "hdp", "wdp", "cur", "jp2", "jpx", "j2k", "jpf", "ras",
+		"emf", "wmf", "dib"
+	];
 
-romFileExtensions = [
-	"sgx", "vb", "ws", "wsc", "gba", "gbc", "gb", "gen", "md", "smd", "32x", "sms", "gg", "nes", "fds",
-	"sfc", "smc", "snes", "nds", "n64", "z64", "v64", "gcm", "iso", "cdi", "chd", "cue", "ccd", "mdf",
-	"pbp", "bin", "img", "dsk", "adf", "st", "ipf", "d64", "t64", "tap", "prg", "crt", "g64", "nib",
-	"d81", "d82", "atr", "xfd", "cas", "sap", "tzx", "pzx", "zx"
-];
+	romFileExtensions = [
+		"sgx", "vb", "ws", "wsc", "gba", "gbc", "gb", "gen", "md", "smd", "32x", "sms", "gg", "nes", "fds",
+		"sfc", "smc", "snes", "nds", "n64", "z64", "v64", "gcm", "iso", "cdi", "chd", "cue", "ccd", "mdf",
+		"pbp", "bin", "img", "dsk", "adf", "st", "ipf", "d64", "t64", "tap", "prg", "crt", "g64", "nib",
+		"d81", "d82", "atr", "xfd", "cas", "sap", "tzx", "pzx", "zx"
+	];
 
 
 	async getDirectory(
@@ -51,6 +51,7 @@ romFileExtensions = [
 		fileType?: Array<string>,
 		showHidden?: boolean,
 		sortOption?: string,
+		showFavouritesOnly?: boolean
 	) {
 		// Create a URLSearchParams object
 		const params = new URLSearchParams();
@@ -62,6 +63,7 @@ romFileExtensions = [
 		params.append('page', page ? page.toString() : '1');
 		params.append('pageSize', pageSize ? pageSize.toString() : '100');
 		params.append('sortOption', sortOption ? sortOption : 'Latest');
+		params.append('showFavouritesOnly', showFavouritesOnly ? showFavouritesOnly.toString() + '' : 'false');
 		if (search) params.append('search', search);
 		if (fileId) params.append('fileId', fileId.toString());
 		if (fileType) params.append('fileType', fileType.join(','));
@@ -133,8 +135,8 @@ romFileExtensions = [
 			const response = await fetch(`/file/getlatestmemeid`, {
 				method: 'GET',
 				headers: {
-					'Content-Type': 'application/json', 
-				}, 
+					'Content-Type': 'application/json',
+				},
 			});
 
 			return await response.text();
@@ -147,7 +149,7 @@ romFileExtensions = [
 			const response = await fetch(`/file/getfile/${encodeURIComponent(file)}`, {
 				method: 'POST',
 				headers: {
-					'Content-Type': 'application/json', 
+					'Content-Type': 'application/json',
 					'Cache-Control': 'max-age=31536000',
 				},
 				signal: options?.signal,
@@ -174,17 +176,17 @@ romFileExtensions = [
 		}
 	}
 
-  async getFileById(fileId: number, sessionToken: string, options?: { signal: AbortSignal }, userId?: number) {
+	async getFileById(fileId: number, sessionToken: string, options?: { signal: AbortSignal }, userId?: number) {
 		try {
 			const response = await fetch(`/file/getfilebyid/${encodeURIComponent(fileId)}`, {
 				method: 'POST',
 				headers: {
 					'Content-Type': 'application/json',
-          'Cache-Control': 'max-age=31536000',
-          'Encrypted-UserId': sessionToken,
-				}, 
-        signal: options?.signal,
-        body: JSON.stringify(userId)
+					'Cache-Control': 'max-age=31536000',
+					'Encrypted-UserId': sessionToken,
+				},
+				signal: options?.signal,
+				body: JSON.stringify(userId)
 			});
 
 			if (options?.signal?.aborted) {
@@ -309,7 +311,7 @@ romFileExtensions = [
 		}
 	}
 	uploadFileWithProgress(formData: FormData, directory: string | undefined, isPublic: boolean, userId?: number, compress?: boolean): Observable<HttpEvent<any>> {
-    formData.append('userId', userId ? userId + "" : "0");
+		formData.append('userId', userId ? userId + "" : "0");
 		formData.append('isPublic', isPublic + "");
 
 		let dir = '';
@@ -360,8 +362,8 @@ romFileExtensions = [
 				method: 'POST',
 				headers: {
 					'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(userId),
+				},
+				body: JSON.stringify(userId),
 			});
 
 			return await response.text();
@@ -406,7 +408,7 @@ romFileExtensions = [
 				headers: {
 					'Content-Type': 'application/json',
 				},
-				body: JSON.stringify({UserId: userId, FileId: fileId, FileCount: fileCount ?? 1}),
+				body: JSON.stringify({ UserId: userId, FileId: fileId, FileCount: fileCount ?? 1 }),
 			});
 
 			return await response.json();
@@ -502,18 +504,37 @@ romFileExtensions = [
 			console.error('Error editing file:', error);
 			return 'Error editing file';
 		}
-  }
-  formatFileSize(bytes: number, decimalPoint: number = 2): string {
-    if (bytes === 0) return '0 Bytes';
+	}
+	async toggleFavourite(userId: number, fileId: number) {
+		try {
+			const res = await fetch('/file/togglefavorite', {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json',
+				},
+				body: JSON.stringify({ UserId: userId, FileId: fileId }),
+			});
 
-    const k = 1024;
-    const dm = decimalPoint <= 0 ? 0 : decimalPoint;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+			if (!res.ok) {
+				return 'Error favouriting file';
+			}
+			return res.json();
+		} catch (error) {
+			console.error('Error editing file:', error);
+			return 'Error favouriting file';
+		}
+	}
+	formatFileSize(bytes: number, decimalPoint: number = 2): string {
+		if (bytes === 0) return '0 Bytes';
 
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
+		const k = 1024;
+		const dm = decimalPoint <= 0 ? 0 : decimalPoint;
+		const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
 
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
-  }
+		const i = Math.floor(Math.log(bytes) / Math.log(k));
+
+		return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+	}
 	customDecodeURIComponent(encodedString: string): string {
 		return encodedString.replace(/%([0-9a-fA-F]{2})/g, (match, hex) => {
 			// Convert hex to a character
@@ -528,5 +549,5 @@ romFileExtensions = [
 				return match;
 			}
 		});
-	} 
+	}
 }

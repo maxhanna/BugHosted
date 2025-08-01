@@ -1,7 +1,7 @@
 <div class="reactionsContainer" id="reactionsContainer">
   <div class="addReactionDiv cursorPointer reactionsDisplaySpan" (click)="showReactionsOnClick()" 
   *ngIf="currentReactions && currentReactions.length > 0 && (!userHasReacted() || currentReactions.length > 1)">
-    {{reactionsDisplay}}
+    <span *ngFor="let reaction of reactionsDisplay" [title]="reaction.type?.replaceAll('_', ' ')">{{replaceReactionType(reaction.type)}}</span>
   </div>
  
   <button class="addReactionButton" (click)="reactionButtonOnClick($event)" [id]="'addReactionSpan_' + reactionId"

@@ -109,7 +109,10 @@ export class TradeService {
     return this.post(`/trade/getmacddata`, { FromCoin: fromCoin, ToCoin: toCoin, Days: days, FastPeriod: fastPeriod, SlowPeriod: slowPeriod, SignalPeriod: signalPeriod }, 'json');
   }
   async getProfitData(userId: number, days = 100, encryptedUserId: string) {
-    return this.post(`/trade/getprofitdata`, {UserId: userId, Days: days}, 'json', encryptedUserId);
+    return this.post(`/trade/getprofitdata`, { UserId: userId, Days: days }, 'json', encryptedUserId);
+  }
+  async getNumberOfTrades(userId: number) {
+    return this.post(`/trade/getnumberoftrades`, userId, 'text');
   }
 
   /**

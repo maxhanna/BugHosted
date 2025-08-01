@@ -246,11 +246,7 @@
 .fileSearchDiv {
   max-height: CALC(100% - 30px);
 }
-
-.popupPanel {
-  width: 300px;
-  height: 380px;
-}
+ 
 
 .fileOptionsStats {
   height: 300px;
@@ -328,3 +324,128 @@
   max-height: calc(var(--vh, 1vh) * 85);
   overflow: auto;
 }
+
+
+
+ 
+
+.search-popup-card {   
+  width: calc(90% - 42px);
+  max-width: 500px;
+  padding: 24px; 
+}
+
+.search-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.search-title {
+  margin: 0;
+  font-size: 1.5rem;
+  color: #333;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.close-btn {
+  background: none;
+  border: none;
+  font-size: 1.2rem;
+  cursor: pointer;
+  color: #666;
+  transition: color 0.2s;
+}
+
+.close-btn:hover {
+  color: #333;
+}
+
+.search-input-group {
+  margin-bottom: 20px;
+  position: relative;
+}
+
+.search-input {
+  width: calc(100% - 32px);
+  padding: 12px 16px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  font-size: 1rem;
+  transition: border 0.2s;
+}
+
+.search-input:focus {
+  outline: none;
+  border-color: #4a90e2;
+  box-shadow: 0 0 0 2px rgba(74, 144, 226, 0.2);
+}
+
+.search-results-count {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 0.85rem;
+  color: #666;
+  background: rgba(255, 255, 255, 0.9);
+  padding: 0 8px;
+}
+
+.search-filters {
+  margin-bottom: 20px;
+}
+
+.filter-group {
+  margin-bottom: 15px;
+}
+
+.filter-label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: 500;
+  color: #444;
+}
+
+.filter-select {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  background-color: white;
+  font-size: 0.95rem;
+}
+
+.search-tips { 
+  padding: 12px;
+  border-radius: 6px;
+  margin-bottom: 20px;
+}
+
+.tip-text {
+  margin: 0;
+  font-size: 0.85rem; 
+}
+
+.tip-text code {
+  background: #e9ecef;
+  padding: 2px 4px;
+  border-radius: 3px;
+  font-family: monospace;
+}
+
+.search-actions {
+  display: flex;
+  justify-content: flex-end;
+  width: 100%;
+}
+
+.btn-primary { 
+  padding: 10px 20px; 
+  cursor: pointer;
+  font-weight: 500; 
+}
+ 

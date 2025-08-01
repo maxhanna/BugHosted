@@ -153,13 +153,23 @@ namespace maxhanna.Server.Controllers
 			{
 				if (showPostsFromFilter == "subscribed")
 				{
-					whereClause.Append(@" AND s.user_id IN (
-						SELECT receiver_id FROM friend_requests 
-						WHERE sender_id = @userId AND status = 'accepted'
-						UNION
-						SELECT sender_id FROM friend_requests 
-						WHERE receiver_id = @userId AND status = 'accepted'
-					) ");
+					whereClause.Append(@" 
+					AND (
+						s.user_id IN (
+							SELECT receiver_id FROM friend_requests 
+							WHERE sender_id = @userId AND status = 'accepted'
+							UNION
+							SELECT sender_id FROM friend_requests 
+							WHERE receiver_id = @userId AND status = 'accepted'
+						)
+						OR EXISTS (
+							SELECT 1
+							FROM story_topics st
+							JOIN topic_favourite tf ON st.topic_id = tf.topic_id
+							WHERE st.story_id = s.id AND tf.user_id = @userId
+						)
+					)
+					");
 				}
 				else if (showPostsFromFilter == "local")
 				{

@@ -4,8 +4,7 @@ public class TradeConfiguration
 	public string? Strategy { get; set; } = string.Empty;
 	public string? FromCoin { get; set; } = string.Empty;
 	public string? ToCoin { get; set; } = string.Empty;
-	public decimal? MaximumFromBalance { get; set; }
-	public decimal? MaximumFromTradeAmount { get; set; }
+	public decimal? MaximumFromBalance { get; set; } 
 	public decimal? MinimumFromTradeAmount { get; set; }
 	public decimal? MaximumToTradeAmount { get; set; }
 	public decimal? TradeThreshold { get; set; }  

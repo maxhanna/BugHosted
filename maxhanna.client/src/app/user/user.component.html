@@ -29,7 +29,7 @@
           </app-media-viewer>
           <div [class]="'profileHeaderInfo blackFontColor linkHighlights' + (onMobile() ? ' smallFont' : '')" [title]="user.username">{{user.username}}</div>
         </div>
-        <div class="largeAvatar" *ngIf="!loginOnly && user && !user.displayPictureFile">
+        <div class="largeAvatar emptyAvatarContainer" *ngIf="!loginOnly && user && !user.displayPictureFile">
           <app-user-tag (click)="openDisplayPicturePanel()"></app-user-tag>
           <div [class]="'blackFontColor linkHighlights profileHeaderInfo' + (onMobile() ? ' smallFont' : '')" [title]="user.username ?? 'Anonymous'">{{user.username ?? "Anonymous"}}</div>
         </div>
@@ -162,7 +162,7 @@
       <!-- LATEST WORDLER SCORES -->
       <div *ngIf="wordlerHighScores && wordlerHighScores.length > 0">
         <div class="popupPanelTitle cursorPointerUnderlined" style="margin-top: 15px;"
-          (click)="parentRef?.createComponent('Wordler')">Wordler Scores:</div>
+          (click)="parentRef?.createComponent('Wordler')">Today's Wordler Scores:</div>
         <table *ngIf="wordlerHighScores && wordlerHighScores.length > 0" class="mainTable scoreTable" id="scoreTable">
           <thead>
             <tr style="font-size:xx-small">
@@ -195,7 +195,7 @@
     <div *ngIf="(this.latestSocialStoryId || storyId || user?.id) && !loginOnly && !isLoading">
       <div *ngIf="this.latestSocialStoryId && (!user || !parentRef?.user)" class="popupPanelTitle cursorPointerUnderlined" style="margin-top: 15px;"
         (click)="parentRef?.createComponent('Social')">
-        Latest Post:
+        Latest Social Post:
       </div>
       <app-social #socialComponent [showOnlyPost]="true" [user]="user" [storyId]="storyId ?? this.latestSocialStoryId"
         [commentId]="commentId" [parent]="parentRef" [showTopicSelector]="false" [canScroll]="false"></app-social>
@@ -386,6 +386,15 @@
               </div>
             </div>
 
+            <div class="optionsStatsDiv" *ngIf="numberOfTrades > 0">
+              <div class="optionsStatsHeader">
+                Crypto-Hub₿ Trades:
+              </div>
+              <div class="optionsStatsDescription">
+                {{numberOfTrades}} Trades.
+              </div>
+            </div>
+
             <div class="optionsStatsDiv">
               <div class="optionsStatsHeader">
                 Share Profile :
@@ -549,31 +558,40 @@
 </div>
 
 <!-- Change Display Picture Popup -->
-<div class="popupPanel" style="overflow: auto;" *ngIf="isDisplayPicturePanelOpen">
-  <div class="popupPanelTitle popupPanelContents" style="margin-bottom:15px;">
-    Display Picture
+<div class="popupPanel userPersonalizationPopupPanel" style="overflow: auto;" *ngIf="isDisplayPicturePanelOpen">
+  <div class="userPersonalizationPopupPanelSection">
+      <div class="popupPanelTitle popupPanelContents" style="margin-bottom:15px;">
+        Display Picture
+      </div>
+      <div class="displayPicturePopupDisplayDiv">
+        <span *ngIf="!user?.displayPictureFile">
+          <app-user-tag [hideName]="true" [displayHoverPicture]="false"></app-user-tag>
+        </span>
+        <span *ngIf="user?.displayPictureFile">
+          <app-user-tag [user]="user" [inputtedParentRef]="parentRef" [displayHoverPicture]="false" [hideName]="true"></app-user-tag>
+        </span>
+        <button (click)="changeDisplayPic()">Change Display Picture</button>
+      </div>
   </div>
-  <div class="displayPicturePopupDisplayDiv">
-    <span *ngIf="!user?.displayPictureFile"><app-user-tag [hideName]="true"></app-user-tag></span>
-    <span *ngIf="user?.displayPictureFile"><app-user-tag [user]="user" [inputtedParentRef]="parentRef" 
-      [displayHoverPicture]="true"  [hideName]="true"></app-user-tag></span>
-    <button (click)="changeDisplayPic()">Change Display Picture</button>
+  <div class="userPersonalizationPopupPanelSection">
+    <div class="popupPanelTitle popupPanelContents" style="margin-bottom:15px;">
+      Background Picture
+    </div>
+    <div class="displayPicturePopupDisplayDiv">
+      <span *ngIf="parentRef?.user?.profileBackgroundPictureFile">
+        <app-media-viewer #backgroundPictureViewer [displayExpander]="false" [displayExtraInfo]="false"
+          [showCommentSection]="false" [file]="parentRef?.user?.profileBackgroundPictureFile" [user]="parentRef?.user"
+          [inputtedParentRef]="parentRef" [previousComponent]="'User'">
+        </app-media-viewer>
+      </span>
+      <span *ngIf="!parentRef?.user?.profileBackgroundPictureFile" class="smallFont cursorPointerUnderlined"
+        (click)="bgPicChanger.click()">
+        Currently no profile background picture selected.
+      </span>
+      <button (click)="changeBackgroundPic()" #bgPicChanger>Change Background Picture</button>
+    </div>
   </div>
 
-  <div class="popupPanelTitle popupPanelContents" style="margin-bottom:15px;">
-    Background Picture
-  </div>
-  <div class="displayPicturePopupDisplayDiv">
-    <span *ngIf="parentRef?.user?.profileBackgroundPictureFile">
-      <app-media-viewer #backgroundPictureViewer [displayExpander]="false" [displayExtraInfo]="false"
-        [showCommentSection]="false"
-        [file]="parentRef?.user?.profileBackgroundPictureFile"
-        [user]="parentRef?.user" [inputtedParentRef]="parentRef" [previousComponent]="'User'">
-      </app-media-viewer>
-    </span>
-    <span *ngIf="!parentRef?.user?.profileBackgroundPictureFile" class="smallFont cursorPointerUnderlined" (click)="bgPicChanger.click()">Currently no profile background picture selected.</span>
-    <button (click)="changeBackgroundPic()" #bgPicChanger>Change Background Picture</button>
-  </div>
   <button id="closeOverlay" (click)="closeDisplayPicturePanel()">Close</button>
 </div>
 

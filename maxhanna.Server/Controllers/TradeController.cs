@@ -290,12 +290,11 @@ public class TradeController : ControllerBase
 					to,
 					req.Strategy ?? "DCA",
 					req.MaximumFromBalance ?? 0,
-					req.MaximumFromTradeAmount ?? 0,
 					req.MinimumFromTradeAmount ?? 0,
-					req.TradeThreshold ?? 0, 
-					req.MaximumToTradeAmount ?? 0, 
-					req.ReserveSellPercentage ?? 0, 
-					req.CoinReserveUSDCValue ?? 0, 
+					req.TradeThreshold ?? 0,
+					req.MaximumToTradeAmount ?? 0,
+					req.ReserveSellPercentage ?? 0,
+					req.CoinReserveUSDCValue ?? 0,
 					req.MaxTradeTypeOccurances ?? 0,
 					req.VolumeSpikeMaxTradeOccurance ?? 0,
 					req.TradeStopLoss ?? 0,
@@ -398,5 +397,15 @@ public class TradeController : ControllerBase
 			_ = _log.Db($"Error getting MACD data for FromCoin: {request.FromCoin}, ToCoin: {request.ToCoin}, Days: {request.Days}", null, "TRADE", true);
 			return StatusCode(500, $"Error getting MACD data: {ex.Message}");
 		}
+	}
+
+	[HttpPost("/Trade/GetNumberOfTrades", Name = "GetNumberOfTrades")]
+	public async Task<int> GetNumberOfTrades([FromBody] int userId)
+	{ 
+		if (userId == 0)
+		{
+			return 0;
+		} 
+		return await _krakenService.GetNumberOfTrades(userId);  
 	}
 }  

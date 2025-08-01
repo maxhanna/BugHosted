@@ -510,6 +510,13 @@
               </span>
             </div>
 
+            <div *ngIf="isTradePanelOpen && numberOfTrades">
+              <span class="sectionName">Number of Trades:&nbsp;</span>
+              <span class="smallFont thirdFontColor"> 
+                  {{ numberOfTrades }}
+              </span>
+            </div>
+
           </div>
           <span class="cursorPointerUnderlined" (click)="createUpdateUserComponent();"
             *ngIf="!hasKrakenApi && parentRef?.user?.id"> Set Up Kraken API Keys </span>
@@ -555,7 +562,7 @@
           </div>
 
 
-          <div class="button-wrapper" *ngIf="hasKrakenApi && (canShowTradePanelInfo() || showingTradeSettings)">
+          <div class="button-wrapper" *ngIf="(canShowTradePanelInfo() || showingTradeSettings)">
             <button class="cursorPointer" (click)="showTradeSettings()" id="config-button"
               aria-describedby="config-desc">
               {{showingTradeSettings ? 'Hide' : 'Show'}} Configuration

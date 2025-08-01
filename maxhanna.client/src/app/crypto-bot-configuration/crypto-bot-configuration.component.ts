@@ -25,7 +25,6 @@ export class CryptoBotConfigurationComponent extends ChildComponent {
   @ViewChild('tradeFromCoinSelect') tradeFromCoinSelect?: ElementRef<HTMLSelectElement>;
   @ViewChild('tradeStrategySelect') tradeStrategySelect!: ElementRef<HTMLSelectElement>;
   @ViewChild('tradeToCoinSelect') tradeToCoinSelect!: ElementRef<HTMLSelectElement>;
-  @ViewChild('tradeMaximumFromTradeAmount') tradeMaximumFromTradeAmount!: ElementRef<HTMLInputElement>;
   @ViewChild('tradeMaximumToTradeAmount') tradeMaximumToTradeAmount!: ElementRef<HTMLInputElement>;
   @ViewChild('tradeMinimumFromTradeAmount') tradeMinimumFromTradeAmount!: ElementRef<HTMLInputElement>;
   @ViewChild('tradeMinimumToTradeAmount') tradeMinimumToTradeAmount!: ElementRef<HTMLInputElement>;
@@ -70,8 +69,13 @@ export class CryptoBotConfigurationComponent extends ChildComponent {
       return alert(`Invalid 'Maximum ${this.normalizeCoinName(fromCoin)} Balance' value. Set value to 0 to disable.`);
     }
 
+    const sellPercOfReserveValue = this.TradeReserveSellPercentUSDValue;
+    if (sellPercOfReserveValue < 5) {
+      return alert(`Reserve Sell Percentage must be worth more than 5$USD.`);
+    }
+
+
     const fields = {
-      MaximumFromTradeAmount: parseNum(getVal(this.tradeMaximumFromTradeAmount)),
       MinimumFromTradeAmount: minFromAmount,
       TradeThreshold: parseNum(getVal(this.tradeTradeThreshold)),
       MaximumToTradeAmount: parseNum(getVal(this.tradeMaximumToTradeAmount)),
@@ -136,8 +140,17 @@ export class CryptoBotConfigurationComponent extends ChildComponent {
 
   get MaxFromBalanceEnteredPrice() {
     return parseFloat(this.tradeMaximumFromBalance?.nativeElement?.value || '1') * this.getCoinPrice(this.tradeFromCoinSelect?.nativeElement?.value ?? '0');
+  } 
+
+  get MinFromTradeEnteredPrice() {
+    return parseFloat(this.tradeMinimumFromTradeAmount?.nativeElement?.value || '1') * this.getCoinPrice(this.tradeFromCoinSelect?.nativeElement?.value ?? '0');
   }
-  onMaxFromBalanceChange() { 
+
+  get TradeReserveSellPercentUSDValue() {
+    return parseFloat(this.tradeReserveSellPercentage?.nativeElement?.value || '1') * parseFloat(this.tradeCoinReserveUSDCValue?.nativeElement?.value ?? '0');
+  }
+  
+  detectChange() { 
     this.cdRef.detectChanges();    
   }
 
@@ -175,7 +188,6 @@ export class CryptoBotConfigurationComponent extends ChildComponent {
   private applyTradeConfiguration(config: any, removeUserSpecificData = false) {
     this.tradeTradeThreshold.nativeElement.valueAsNumber = config.tradeThreshold;
     this.tradeMinimumFromTradeAmount.nativeElement.valueAsNumber = config.minimumFromTradeAmount;
-    this.tradeMaximumFromTradeAmount.nativeElement.valueAsNumber = config.maximumFromTradeAmount;
     this.tradeMaximumToTradeAmount.nativeElement.valueAsNumber = config.maximumToTradeAmount;
     this.tradeReserveSellPercentage.nativeElement.valueAsNumber = config.reserveSellPercentage;
     this.tradeCoinReserveUSDCValue.nativeElement.valueAsNumber = config.coinReserveUSDCValue;
@@ -207,28 +219,22 @@ export class CryptoBotConfigurationComponent extends ChildComponent {
 
     if (fromCoin === "XBT" && toCoin === "USDC") {
       this.tradeMinimumFromTradeAmount.nativeElement.valueAsNumber = 0.00005;
-      this.tradeMaximumFromTradeAmount.nativeElement.valueAsNumber = 0.005;
       this.tradeCoinReserveUSDCValue.nativeElement.valueAsNumber = 200;
     } else if (fromCoin === "XRP" && toCoin === "USDC") {
       this.tradeMinimumFromTradeAmount.nativeElement.valueAsNumber = 2;
-      this.tradeMaximumFromTradeAmount.nativeElement.valueAsNumber = 50;
       this.tradeCoinReserveUSDCValue.nativeElement.valueAsNumber = 25;
     } else if (fromCoin === "SOL" && toCoin === "USDC") {
-      this.tradeMaximumFromTradeAmount.nativeElement.valueAsNumber = 0.5;
       this.tradeMinimumFromTradeAmount.nativeElement.valueAsNumber = 0.02;
       this.tradeCoinReserveUSDCValue.nativeElement.valueAsNumber = 50;
     } else if (fromCoin === "XDG" && toCoin === "USDC") {
       this.tradeMinimumFromTradeAmount.nativeElement.valueAsNumber = 25;
-      this.tradeMaximumFromTradeAmount.nativeElement.valueAsNumber = 100;
       this.tradeCoinReserveUSDCValue.nativeElement.valueAsNumber = 25;
     } else if (fromCoin === "ETH" && toCoin === "USDC") {
       this.tradeMinimumFromTradeAmount.nativeElement.valueAsNumber = 0.00005;
-      this.tradeMaximumFromTradeAmount.nativeElement.valueAsNumber = 0.005;
       this.tradeCoinReserveUSDCValue.nativeElement.valueAsNumber = 200;
     } else {
       // Default fallback values
       this.tradeMinimumFromTradeAmount.nativeElement.valueAsNumber = 0.00005;
-      this.tradeMaximumFromTradeAmount.nativeElement.valueAsNumber = 0.005;
       this.tradeCoinReserveUSDCValue.nativeElement.valueAsNumber = 200;
     }
   }

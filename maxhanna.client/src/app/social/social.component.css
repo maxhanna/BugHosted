@@ -457,11 +457,7 @@ singleAttachment {
   display: flex;
   width: 100%;
   justify-content: space-evenly;
-}
-
-.largePopupPanel {
-  height: 50%;
-}
+} 
 
 .editingTextAreaButtonWrapperDiv {
   display: flex;
@@ -916,7 +912,7 @@ singleAttachment {
   padding-top: 10px;
 }
 
-.menuPopupPanel .topTopicsSection {
+.topTopicsSection {
   display: flex;
   gap: 10px;
   flex-wrap: wrap;
@@ -970,7 +966,7 @@ singleAttachment {
 
 .showPostsFromLabel .selector {
   display: flex;
-  border: 1px solid #ccc;
+  border: var(--main-border);
   border-radius: 8px;
   overflow: hidden;
   width: fit-content;
@@ -979,16 +975,35 @@ singleAttachment {
 .showPostsFromLabel .selector span {
   padding: 8px 16px;
   cursor: pointer;
-  background-color: #f0f0f0;
+  background-color: var(--main-highlight-color);
   transition: background-color 0.2s, color 0.2s;
   white-space: nowrap;
 }
 
 .showPostsFromLabel .selector span:not(:last-child) {
-  border-right: 1px solid #ccc;
+  border-right: 1px solid var(--secondary-component-background-color);
 }
 
 .showPostsFromLabel .selector span.active {
-  background-color: #007bff;
-  color: white;
+  background-color: var(--main-highlight-color-quarter-opacity);
+  color: var(--secondary-font-color);
+}
+.reducedFileName {
+  font-size: 10px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100px;
+  display: inline-block;
+  vertical-align: middle;
+}
+
+.popupSectionContainer {
+  width: calc(100% - 20px);
+  border: var(--main-border);
+  border-radius: 8px;
+  padding: 8px;
+}
+.popupSectionContainer > div:not(:last-child) {
+  margin-bottom: 30px;
 }

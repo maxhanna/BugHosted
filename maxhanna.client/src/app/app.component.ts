@@ -82,7 +82,7 @@ export class AppComponent implements OnInit, AfterViewInit {
     { ownership: 0, icon: "📅", title: "Calendar", content: undefined },
     { ownership: 0, icon: "☀️", title: "Weather", content: '' },
     { ownership: 0, icon: "✔️", title: "Todo", content: undefined },
-    { ownership: 0, icon: "🎼", title: "Music", content: undefined },
+    { ownership: 0, icon: "🎵", title: "Music", content: undefined },
     { ownership: 0, icon: "🗒️", title: "Notepad", content: undefined },
     { ownership: 0, icon: "📇", title: "Contacts", content: undefined },
     { ownership: 0, icon: "📰", title: "News", content: undefined },
