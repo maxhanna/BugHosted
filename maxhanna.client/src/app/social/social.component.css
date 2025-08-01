@@ -600,8 +600,7 @@ singleAttachment {
   margin: 5px;
 }
 
-.emojiFilterInputDiv,
-.emojiFilterCloseOverlayButton {
+.emojiFilterInputDiv {
   text-align: center;
   margin: 15px;
 }
@@ -715,25 +714,7 @@ singleAttachment {
   font-size: 1.5rem;
   font-weight: 600;
   color: var(--primary-font-color);
-}
-
-.menuPopupPanel .closeButton {
-  background: none;
-  border: none;
-  cursor: pointer;
-  padding: 5px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--secondary-font-color);
-  transition: all 0.2s ease;
-}
-
-.menuPopupPanel .closeButton:hover {
-  background: rgba(0, 0, 0, 0.05);
-  color: var(--primary-font-color);
-}
+} 
 
 .menuPopupPanel .userProfileSection {
   display: flex;
@@ -1006,4 +987,24 @@ singleAttachment {
 }
 .popupSectionContainer > div:not(:last-child) {
   margin-bottom: 30px;
+}
+.showPostFromHelpInfoButton {
+  width: 100%;
+  height: 5px;
+  position: relative; 
+  text-align: right;
+  font-size: small;
+  cursor: pointer;
+}
+.showPostFromHelpInfoButton:hover {
+  text-decoration: underline;
+  text-decoration-color: var(--main-link-color);
+}
+.showPostFromHelpInfo {
+  width: 100%; 
+  font-size: smaller;
+  color: var(--third-font-color);
+}
+.showPostFromHelpInfo strong {
+  color: var(--secondary-font-color);
 }

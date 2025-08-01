@@ -62,6 +62,7 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
   showPostInput = false;
   userProfileId?: number = undefined;
   wasFromSearchId = false;
+  isShowingPostFromHelpInfo = false;
 
   fileType: string | undefined;
   abortAttachmentRequestController: AbortController | null = null;

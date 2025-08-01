@@ -57,3 +57,6 @@
 .loremDiv2 {
   box-shadow: 0px 30px 33px -33px var(--primary-font-color);
 }
+.custom-select {
+  min-width: 300px;
+}

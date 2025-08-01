@@ -58,9 +58,8 @@
 
   <!-- Display selected article details -->
   <div *ngIf="selectedArticle" class="articlePopupPanel">
-    <div class="articleTitle selectedArticleTitle">{{ selectedArticle.title }}</div>
+    <div class="popupPanelTitle selectedArticleTitle">{{ selectedArticle.title }}</div>
     <div class="selectedArticleContent">
-      <div class="closeButton articleCloseButton" (click)="selectedArticle = undefined"></div>
       <div class="articleContent" [innerHTML]="selectedArticle.content"></div>
       <div class="articleContent" [innerHTML]="selectedArticle.description"></div>
       <div class="articleDetails">
@@ -78,6 +77,7 @@
       <button (click)="openSource(selectedArticle.url)">📰Read</button>
       <button (click)="parentRef?.addFavourite(selectedArticle.url, selectedArticle.urlToImage, selectedArticle.source.name)" title="Add to Favourites" class="cursorPointer">❤️</button>
     </div>
+    <div class="closeButton" (click)="selectedArticle = undefined"></div>
   </div>
 
   <div *ngIf="newsArticles == null || !newsArticles">

@@ -53,7 +53,7 @@
       <option *ngFor="let coin of getUniqueCoinNames()" [value]="coin" [selected]="selectedCoin === coin">{{ coin }}
       </option>
     </select>
-    <button [style.display]="isShowingOptions ? 'inline-block' : 'none'" (click)="openFullscreen();">{{fullscreenMode ?
+    <button [style.display]="isShowingOptions ? 'inline-block' : 'none'" (click)="openFullscreen();" class="{{fullscreenMode ? 'closeButton' : ''}}">{{fullscreenMode ?
       'Close ' : ''}}Full Screen</button>
     <button [style.display]="isShowingOptions ? 'inline-block' : 'none'" (click)="toggleDarkMode()">
       {{ darkMode ? 'Light Mode' : 'Dark Mode' }}

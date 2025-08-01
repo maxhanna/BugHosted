@@ -6,25 +6,34 @@
     color: #dc3545;
 }
 
-.market-caps-table th {
-    font-size: small;
-}
 
-@media (max-width: 768px) {
-    .market-caps-table {
-        font-size: 12px;
-    }
-
-    .market-caps-table th,
-    .market-caps-table td {
-        padding: 8px;
-    }
-}
 
 .expandButton {
-    position: relative;
-    left: calc(50% - 35px);
     width: 70px;
     margin-top: 5px;
     margin-bottom: 5px;
+}
+
+.mainTable {
+    width: calc(100% - 20px);
+}
+
+.mainTable td {
+    height: 35px;
+}
+
+.mainTableContainer {
+    overflow: auto;
+    width: 100%;
+    display: flex;
+    max-height: 80vh;
+    margin-bottom: 8px;
+    align-items: stretch;
+    justify-content: space-around;
+}
+.popupPanel {
+    padding: 0px !important;
+}
+.popupPanelTitleExpanded {
+    margin-top: 20px;
 }

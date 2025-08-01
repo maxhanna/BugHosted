@@ -1,0 +1,238 @@
+<section>
+    <h2>Overview</h2>
+    <p>The Kraken TradeBot is an automated trading system designed to execute intelligent BTC/USDC trades on the
+        Kraken exchange based on market conditions and user-defined parameters. It implements a dollar-cost averaging
+        (DCA) strategy with premium trade detection during optimal market windows.</p>
+</section>
+
+<section>
+    <h2>Key Features</h2>
+
+    <div class="feature-box">
+        <h3>1. Automated Trading Strategy</h3>
+        <ul>
+            <li><strong>Threshold-based trading</strong>: Executes trades when price movements exceed your configured
+                threshold (default: 0.7%)</li>
+            <li><strong>Spread calculation</strong>: Compares current price to last trade price to determine trade
+                direction</li>
+            <li><strong>Balanced portfolio</strong>: Maintains target allocations between BTC and USDC</li>
+        </ul>
+    </div>
+
+    <div class="feature-box">
+        <h3>2. Premium Trade Detection</h3>
+        <p>The bot identifies optimal trading windows using:</p>
+        <ul>
+            <li><strong>Price peak analysis</strong>: Detects local maxima in BTC price</li>
+            <li><strong>Volume trends</strong>: Identifies declining volume patterns after peaks</li>
+            <li><strong>Timing windows</strong>: Only trades within 30-90 minutes after detected peaks</li>
+            <li><strong>Premium bonuses</strong>: Increases trade sizes by 5% during premium windows</li>
+        </ul>
+    </div>
+
+    <div class="feature-box">
+        <h3>3. Safety Mechanisms</h3>
+        <ul>
+            <li><strong>Price discrepancy checks</strong>: Aborts trades if price differences exceed 10%</li>
+            <li><strong>Cooldown periods</strong>: 15-minute minimum between trades</li>
+            <li><strong>Reserve requirements</strong>: Maintains minimum balances (0.0004 BTC, 20 USDC)</li>
+            <li><strong>Portfolio balance limits</strong>: Prevents >90% allocation to either asset</li>
+        </ul>
+    </div>
+
+    <div class="feature-box">
+        <h3>4. Customizable Configuration</h3>
+        <p>Users can adjust:</p>
+        <ul>
+            <li>Trade thresholds and amounts</li>
+            <li>Portfolio allocation ratios</li>
+            <li>Minimum/maximum trade sizes</li>
+            <li>Reserve requirements</li>
+        </ul>
+    </div>
+</section>
+
+<section>
+    <h2>How It Works</h2>
+
+    <h3>Trading Logic Flow</h3>
+    <div class="flow-chart">
+        <div class="flow-step"><strong>System Checks</strong> - Verifies tradebot is active, checks cooldown timer,
+            validates system data is current</div>
+        <div class="flow-step"><strong>Market Analysis</strong> - Gets latest BTC price and compares to last trade,
+            calculates price spread percentage, checks for premium trading conditions</div>
+        <div class="flow-step"><strong>Trade Execution</strong> - For positive spreads (price up): Sells BTC for USDC.
+            For negative spreads (price down): Buys BTC with USDC. Adjusts trade sizes during premium windows.</div>
+        <div class="flow-step"><strong>Post-Trade</strong> - Records trade in history, updates wallet balances, begins
+            cooldown timer</div>
+    </div>
+
+    <h3>Premium Window Detection</h3>
+    <p>The bot identifies premium trading opportunities when:</p>
+    <ol>
+        <li>BTC price is within 2% of a recent peak</li>
+        <li>30-90 minutes have passed since the peak</li>
+        <li>Trading volume shows consistent decline across time segments</li>
+    </ol>
+</section>
+
+<section>
+    <h2>User Configuration Options</h2>
+
+    <h3>Trade Parameters</h3>
+    <table class="mainTable">
+        <thead>
+            <tr>
+                <th>Parameter</th>
+                <th>Default</th>
+                <th>Description</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>Trade Threshold</td>
+                <td>0.007 (0.7%)</td>
+                <td>Minimum price movement to trigger trade</td>
+            </tr>
+            <tr>
+                <td>Base Trade Percentage</td>
+                <td>15%</td>
+                <td>Percentage of balance to trade normally</td>
+            </tr>
+            <tr>
+                <td>Premium Bonus</td>
+                <td>5%</td>
+                <td>Additional percentage during premium windows</td>
+            </tr>
+            <tr>
+                <td>Max BTC Trade</td>
+                <td>0.005 BTC</td>
+                <td>Maximum BTC amount per trade</td>
+            </tr>
+            <tr>
+                <td>Max USDC Trade</td>
+                <td>$2000</td>
+                <td>Maximum USDC amount per trade</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <h3>Safety Parameters</h3>
+    <table class="mainTable">
+        <thead>
+            <tr>
+                <th>Parameter</th>
+                <th>Default</th>
+                <th>Description</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>Price Discrepancy Limit</td>
+                <td>10%</td>
+                <td>Maximum allowed price difference</td>
+            </tr>
+            <tr>
+                <td>Min BTC Reserve</td>
+                <td>0.0004 BTC</td>
+                <td>Minimum BTC balance to maintain</td>
+            </tr>
+            <tr>
+                <td>Min USDC Reserve</td>
+                <td>$20</td>
+                <td>Minimum USDC balance to maintain</td>
+            </tr>
+            <tr>
+                <td>Max Allocation Ratio</td>
+                <td>90%</td>
+                <td>Prevent >90% in either asset</td>
+            </tr>
+        </tbody>
+    </table>
+</section>
+
+<section>
+    <h2>Getting Started</h2>
+
+    <ol>
+        <li>
+            <strong>API Setup</strong>
+            <ul>
+                <li>Provide your Kraken API keys with trading permissions</li>
+                <li>Ensure proper permissions are set (query funds, create orders)</li>
+            </ul>
+        </li>
+        <li>
+            <strong>Initial Configuration</strong>
+            <ul>
+                <li>Set your preferred trade parameters</li>
+                <li>Define safety limits appropriate for your portfolio size</li>
+            </ul>
+        </li>
+        <li>
+            <strong>First Run</strong>
+            <ul>
+                <li>Bot will equalize funds if starting from scratch</li>
+                <li>Initial trades may be larger to establish position</li>
+            </ul>
+        </li>
+        <li>
+            <strong>Monitoring</strong>
+            <ul>
+                <li>Review trade history regularly</li>
+                <li>Adjust parameters as needed based on performance</li>
+            </ul>
+        </li>
+    </ol>
+</section>
+
+<section>
+    <h2>Best Practices</h2>
+
+    <div class="note">
+        <h3>Start Small</h3>
+        <ul>
+            <li>Begin with smaller trade percentages to test the bot</li>
+            <li>Gradually increase as you gain confidence</li>
+        </ul>
+    </div>
+
+    <div class="note">
+        <h3>Monitor Performance</h3>
+        <ul>
+            <li>Review weekly trade summaries</li>
+            <li>Watch for consistent premium window detection</li>
+        </ul>
+    </div>
+
+    <div class="note">
+        <h3>Adjust for Volatility</h3>
+        <ul>
+            <li>Consider reducing trade sizes during high volatility</li>
+            <li>Increase thresholds if getting too many trades</li>
+        </ul>
+    </div>
+
+    <div class="note">
+        <h3>Maintain Reserves</h3>
+        <ul>
+            <li>Ensure minimum reserves are adequate for your portfolio size</li>
+            <li>Replenish funds if balances get too low</li>
+        </ul>
+    </div>
+</section>
+
+<section>
+    <h2>Troubleshooting</h2>
+
+    <div class="warning">
+        <h3>Common Issues:</h3>
+        <ul>
+            <li><strong>API Errors</strong>: Verify key permissions and connectivity</li>
+            <li><strong>No Trades</strong>: Check if price movements exceed your threshold</li>
+            <li><strong>Small Balances</strong>: Ensure you have sufficient funds above minimums</li>
+            <li><strong>Frequent Trades</strong>: Adjust cooldown timer or increase threshold</li>
+        </ul>
+        <p>For additional support, consult the trade logs which detail every decision the bot makes.</p>
+    </div>
+</section>

@@ -138,7 +138,7 @@ export class FavouritesComponent extends ChildComponent implements OnInit {
           tmpLinkUrl = targetData.url;
           this.parentRef?.setModalBody(`
             Crawler search results found and added this link to favourites:
-            <img src='${imageUrl}' (error)="fav.imageUrl = ''" /> <br />
+            ${imageUrl ? `<img src='${imageUrl}' (error)="fav.imageUrl = ''" /> <br />` : ``}
             Found Title: ${name} <br />
             Found URL: ${tmpLinkUrl} <br />
           `);
@@ -271,12 +271,24 @@ export class FavouritesComponent extends ChildComponent implements OnInit {
 
   visitExternalLink(fav: Favourite) {
     this.favoriteService.visit(fav.id);
-    this.parentRef?.visitExternalLink(fav.url);
+    this.parentRef?.indexLink(fav.url);
   }
 
   orderChanged(event?: any, value?: string) {
     this.currentOrder = value ?? event.target.value;
     this.loadFavorites(this.linkInput.nativeElement.value);
+  }
+
+  showSearchPopup() {
+    this.isSearchingUrl = !this.isSearchingUrl;
+    if (this.isSearchingUrl) {
+      this.parentRef?.showOverlay();
+    }
+  }
+
+  closeSearchPopup() {
+    this.isSearchingUrl = false;
+    this.parentRef?.closeOverlay();
   }
 
   showMenuPanel() {
@@ -295,8 +307,8 @@ export class FavouritesComponent extends ChildComponent implements OnInit {
       this.isSearchingEditUrl = false;
     } 
     else if (this.isSearchingUrl) {
-      this.linkInput.nativeElement.value = meta.url ?? "";
-      this.isSearchingUrl = false;
+      this.linkInput.nativeElement.value = meta.url ?? ""; 
+      this.closeSearchPopup();
     }
   }
 }

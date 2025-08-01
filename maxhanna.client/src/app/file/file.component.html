@@ -17,7 +17,7 @@
 </div>
 
 <!-- Menu Popup -->
-<div class="fileMenuPopupPanel" *ngIf="isMenuPanelOpen">
+<div class="popupPanel" *ngIf="isMenuPanelOpen">
   <div class="popupPanelTitle popupPanelContent" style="margin-bottom:15px;">
     Filesystem Menu
   </div>
@@ -68,5 +68,5 @@
     </div>
   </div>
 
-  <button id="closeOverlay" (click)="closeMenuPanel()">Close</button>
+  <button id="closeOverlay" class="closeButton" (click)="closeMenuPanel()">Close</button>
 </div> 

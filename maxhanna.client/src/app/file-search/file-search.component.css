@@ -123,14 +123,10 @@
   color: var(--secondary-font-color);
 }
 
-.filters {
-  display: flex;
-  flex-direction: column;
-  flex-wrap: nowrap;
-  align-content: center;
-  justify-content: space-evenly;
+.filters { 
+  margin: 15px;
+  width: 280px;
   align-items: center;
-  margin-top: 15px;
 }
 
 .fileTypeSpan {
@@ -279,7 +275,7 @@
   border-bottom: 1px dotted;
 }
 
-.fileOptionsPopup .filters div{
+.fileOptionsPopup .filters div:not(:first-child){
   margin-top: 15px;
 }
 
@@ -406,16 +402,14 @@
 .filter-label {
   display: block;
   margin-bottom: 8px;
-  font-weight: 500;
-  color: #444;
+  font-weight: 500; 
 }
 
 .filter-select {
   width: 100%;
   padding: 10px 12px;
-  border: 1px solid #ddd;
-  border-radius: 6px;
-  background-color: white;
+  border: var(--main-border);
+  border-radius: 6px; 
   font-size: 0.95rem;
 }
 
@@ -431,7 +425,7 @@
 }
 
 .tip-text code {
-  background: #e9ecef;
+  background: var(--main-highlight-color);
   padding: 2px 4px;
   border-radius: 3px;
   font-family: monospace;
@@ -449,3 +443,13 @@
   font-weight: 500; 
 }
  
+.searchFilesPopupContainer {
+  width: calc(100% - 20px);
+  display: flex;
+  align-items: stretch;
+  flex-direction: column;
+}
+.fileOptionsStatsWrapperDiv {
+  border: var(--main-border);
+  border-radius: 8px;
+}

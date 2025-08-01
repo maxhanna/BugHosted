@@ -65,10 +65,8 @@
       <button (click)="clearMemory()" title="Clear interaction history">Clear Memory</button>
     </div>
 
-  </div>
-  <div>
-    <button id="closeOverlay" (click)="closeMenuPanel()">Close</button>
-  </div>
+  </div> 
+  <button id="closeOverlay" (click)="closeMenuPanel()" class="closeButton">Close</button> 
 </div>
 
 
@@ -139,5 +137,5 @@
       <p><strong>"Response length 50"</strong> (for very short answers)</p>
     </div>
   </div>
-  <button id="closeOverlay" class="close-button" (click)="closeHelpPopup()">Got It!</button>
+  <button id="closeOverlay" class="close-button closeButton" (click)="closeHelpPopup()">Got It!</button>
 </div>

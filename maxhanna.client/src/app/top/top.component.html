@@ -161,7 +161,7 @@
             </span>
         </div>
     </div>
-    <button id="closeOverlay" (click)="closeMenuPanel()">Cancel</button>
+    <button id="closeOverlay" (click)="closeMenuPanel()" class="closeButton">Cancel</button>
 </div>
 
 <div class="popupPanel" *ngIf="isVoterPanelOpen" (click)="closeVoterPanel()">
@@ -184,7 +184,7 @@
             </span>
         </div>
     </div>
-    <button id="closeOverlay" (click)="closeVoterPanel()">Cancel</button>
+    <button id="closeOverlay" (click)="closeVoterPanel()" class="closeButton">Cancel</button>
 </div>
 
 <!-- Fullscreen Media Viewer Overlay -->

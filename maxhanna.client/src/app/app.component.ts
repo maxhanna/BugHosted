@@ -651,22 +651,23 @@ export class AppComponent implements OnInit, AfterViewInit {
     this.isShowingOverlay = true;
     this.hideBodyOverflow();
   }
-  closeOverlay() {
-    const closeButtons = document.querySelectorAll<HTMLButtonElement>("#closeOverlay");
+  closeOverlay(clickButton = true) {
+    if (clickButton) {
+      const closeButtons = document.querySelectorAll<HTMLButtonElement>("#closeOverlay");
 
-    closeButtons.forEach((button) => {
-      const style = window.getComputedStyle(button);
-      const isVisible =
-        button.offsetParent !== null && // Not display: none or detached
-        style.visibility !== 'hidden' &&
-        style.display !== 'none' &&
-        style.opacity !== '0';
+      closeButtons.forEach((button) => {
+        const style = window.getComputedStyle(button);
+        const isVisible =
+          button.offsetParent !== null && // Not display: none or detached
+          style.visibility !== 'hidden' &&
+          style.display !== 'none' &&
+          style.opacity !== '0';
 
-      if (isVisible) {
-        button.click();
-      }
-    });
-
+        if (isVisible) {
+          button.click();
+        }
+      });
+    } 
     this.isShowingOverlay = false;
     this.restoreBodyOverflow();
   }

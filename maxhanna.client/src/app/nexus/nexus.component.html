@@ -398,7 +398,7 @@
                   (click)="purchaseUnit(unit.unitId)">✔️</button>
               </td>
             </tr>
-            <tr>
+            <tr class="unitCostTr">
               <td></td>
               <td class="smallFont" colspan="3">
                 <span class="goldText">📀{{ ((unit.purchasedValue ? unit.purchasedValue : 1) * unit.cost) }}</span>
@@ -488,7 +488,7 @@
                   (click)="purchaseUnit(unit.unitId)">✔️</button>
               </td>
             </tr>
-            <tr>
+            <tr class="unitCostTr">
               <td></td>
               <td class="smallFont" colspan="3">
                 <span class="goldText">📀{{ ((unit.purchasedValue ? unit.purchasedValue : 1) * unit.cost) }}</span>

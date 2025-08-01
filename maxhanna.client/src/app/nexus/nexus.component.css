@@ -977,3 +977,9 @@
   top: -8px;
   font-size: small;
 }
+
+.unitCostTr {
+  height: 0px;
+  position: relative;
+  top: -15px;
+}

@@ -108,7 +108,7 @@ namespace maxhanna.Server.Controllers
 			if (!string.IsNullOrEmpty(search))
 			{
 				whereClause.Append(
-								$@" AND (
+				$@" AND (
 						MATCH(s.story_text) AGAINST(@searchTerm IN NATURAL LANGUAGE MODE)  
 										OR s.story_text LIKE CONCAT('%', @searchTerm, '%')
 						OR s.city LIKE CONCAT('%', @searchTerm, '%')
@@ -175,14 +175,7 @@ namespace maxhanna.Server.Controllers
 				{
 					whereClause.Append(@" AND (
 						s.country = (SELECT country FROM users WHERE id = @userId)
-						OR s.city = (SELECT city FROM users WHERE id = @userId)
-						OR ( -- Within 50km radius if you have coordinates
-							SELECT ST_Distance_Sphere(
-								POINT(s.longitude, s.latitude),
-								POINT(u.longitude, u.latitude)
-							) 
-							FROM users u WHERE u.id = @userId
-						) <= 50000
+						OR s.city = (SELECT city FROM users WHERE id = @userId) 
 					) ");
 				}
 				else if (showPostsFromFilter == "popular")

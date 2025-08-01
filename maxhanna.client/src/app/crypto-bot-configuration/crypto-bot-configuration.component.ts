@@ -109,7 +109,7 @@ export class CryptoBotConfigurationComponent extends ChildComponent {
     const sessionToken = await this.inputtedParentRef.getSessionToken();
     this.tradeService.upsertTradeConfiguration(config, sessionToken)
       .then((result: any) => {
-        if (result && !result.includes("Access Denied")) {
+        if (result && result != "Access Denied") {
           this.inputtedParentRef?.showNotification(`Updated (${fromCoin}|${toCoin}:${strategy}) configuration: ${result}`);
           this.updatedTradeConfig.emit(fromCoin);
           this.tradeConfigLastUpdated = new Date();

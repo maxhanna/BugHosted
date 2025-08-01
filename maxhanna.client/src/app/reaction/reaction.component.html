@@ -24,23 +24,20 @@
       (click)="searchForReaction()">🔍Search</button>
   </div>
 
-  <div class="reactionChoices">
+  <div class="reactionChoices gradientBackground">
     <div class="reactionChoice" *ngFor="let reaction of filteredReactions" (click)="selectReaction(reaction.type)"
       [title]="reaction.label">
       {{reaction.emoji}}
     </div>
-  </div>
-  <div>
-    <button id="closeOverlay" (click)="closeReactionDisplay()">Close</button>
-  </div>
+  </div> 
+  <button id="closeOverlay" class="closeButton" (click)="closeReactionDisplay()">Close</button> 
 </div>
 
 <div *ngIf="showReactions" class="popupPanel">
-  <div class="showReactionsPopupPanelTitleWrapperDiv">
-    <span class="popupPanelTitle">Reactions ({{currentReactions?.length ?? 0}}) </span>
-    <button id="closeOverlay" (click)="closeReactionsPanel()">Close</button>
+  <div class="popupPanelTitle">
+   Reactions ({{currentReactions?.length ?? 0}}) 
   </div>
-  <div class="reactionsOverlayWrapper optionsStatsWrapperDiv">
+  <div class="reactionsOverlayWrapper optionsStatsWrapperDiv gradientBackground">
     <div *ngFor="let reaction of currentReactions" class="reactedReactionDiv optionsStatsDiv">
       <div class="optionsStatsHeader">
         <app-user-tag [user]="reaction.user" [inputtedParentRef]="inputtedParentRef" [displayMiniTag]="true"
@@ -52,4 +49,5 @@
       </div>
     </div>
   </div>
+  <button id="closeOverlay" (click)="closeReactionsPanel()" class="closeButton">Close</button> 
 </div>

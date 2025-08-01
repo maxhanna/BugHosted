@@ -55,17 +55,15 @@
   </div>
 </div>
 <div class="popupPanel" *ngIf="isEditListPanelOpen">
-  <div class="popupPanelTitle">Edit list</div>
+  <div class="popupPanelTitle">Edit Lists</div>
   <div>
     <div *ngFor="let type of todoTypes">{{type}} <span class="cursorPointer" (click)="hideColumn(type)">[❌]</span></div>
   </div>
   <div>
     <input #addNewColumnInput />
     <button (click)="addColumn()">Add</button>
-  </div>
-  <div>
-    <button id="closeOverlay" (click)="closeEditListPanel()">Close</button>
-  </div>
+  </div> 
+  <button id="closeOverlay" (click)="closeEditListPanel()" class="closeButton">Close</button> 
 </div>
 
 <div class="popupPanel" *ngIf="isShareListPanelOpen">

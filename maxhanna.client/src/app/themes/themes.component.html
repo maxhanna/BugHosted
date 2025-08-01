@@ -68,10 +68,11 @@
       <label for="fontFamily" class="cursorPointer" (click)="openFontFamily();">Font Family:</label>
       <div *ngIf="!fontFamilyExpanded" class="cursorPointerUnderlined" (click)="openFontFamily();">{{getComputedStyleValue('--main-font-family')}}</div>
       <div class="custom-select popupPanel" *ngIf="fontFamilyExpanded">
+        <div class="popupPanelTitle">Font Select:</div>
         <div *ngFor="let font of fonts" (click)="updateCSS('--main-font-family', undefined, font.value)" class="cursorPointerUnderlined" [ngStyle]="{ 'font-family': font.value }">
           {{ font.label }}
         </div>
-        <button (click)="closeFontFamily()" id="closeOverlay" style="margin-top:15px;">Done</button>
+        <button (click)="closeFontFamily()" id="closeOverlay" class="closeButton" style="margin-top:15px;">Done</button>
       </div>
     </div>
   </div>

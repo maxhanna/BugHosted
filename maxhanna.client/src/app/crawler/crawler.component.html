@@ -33,10 +33,13 @@
         <div *ngFor="let metadata of group.links; let i = index" [class]="(group.showSubdomains || i === 0) ? 'groupLinkWrapperDiv' : ''">
           <div class="groupLinkDataWrapperDiv" *ngIf="group.showSubdomains || i === 0">
             <div *ngIf="metadata.title" class="descriptionDiv titleClass cursorPointerUnderlined">
-              <a *ngIf="metadata.url" (click)="visitExternalLink(metadata.url)" [innerHTML]="getSanitizedDescription(metadata.title)"></a>
+              <a *ngIf="metadata.url" (click)="visitExternalLink(metadata.url)" [attr.href]="!onlySearch ? metadata.url : null"
+                [attr.target]="!onlySearch ? '_blank' : null" [innerHTML]="getSanitizedDescription(metadata.title)">
+              </a>
             </div>
             <div class="descriptionDiv cursorPointer metadataTitleLinkFavouriteWrapper">
-              <a (click)="visitExternalLink(metadata.url)">{{ metadata.url }}</a>
+              <a (click)="visitExternalLink(metadata.url)" [attr.href]="!onlySearch ? metadata.url : null"
+               [attr.target]="!onlySearch ? '_blank' : null">{{ metadata.url }}</a>
               <button (click)="addFavourite(metadata.url, metadata.imageUrl, metadata.title)" title="Add to Favourites" *ngIf="!onlySearch">
                 ❤️<span class="smallFont" *ngIf="metadata.favouriteCount">[{{metadata.favouriteCount}}]</span>
               </button>
@@ -53,10 +56,13 @@
           </div>
           <div class="imageUrlPictureDiv" *ngIf="group.showSubdomains || i === 0">
             <a *ngIf="metadata.imageUrl && (i === 0 || metadata.imageUrl !== group.links[0].imageUrl)"
-               (click)="visitExternalLink(metadata.url)">
+               (click)="visitExternalLink(metadata.url)"
+               [title]="metadata.title"
+               [attr.href]="!onlySearch ? metadata.url : null"
+               [attr.target]="!onlySearch ? '_blank' : null">
               <img [src]="metadata.imageUrl"
                    [attr.loading]="'lazy'"
-                   [title]="metadata.imageUrl"
+                   [title]="metadata.title"
                    (error)="metadata.imageUrl = ''" />
             </a>
           </div>
@@ -77,9 +83,7 @@
 
 <!-- Menu Popup -->
 <div class="popupPanel" *ngIf="isMenuOpen">
-  <div class="popupPanelTitle">
-    <span>Menu</span>
-  </div>
+  <div class="popupPanelTitle">Menu</div>
   <div style="display: flex; gap: 15px; margin: 20px;">
     <label for="pageSize">Results per page:</label>
     <select id="pageSize" [value]="pageSize" (change)="onPageSizeChange()" #pageSizeDropdown>
@@ -131,8 +135,6 @@
       </div>
     </div>
   </div>
-  <div>Note: You can index your website by searching for it.</div> 
-  <div>
-    <button id="closeOverlay" (click)="closeMenuPanel()">Close</button>
-  </div>
+  <div>Note: You can index your website by searching for it.</div>  
+  <button id="closeOverlay" (click)="closeMenuPanel()" class="closeButton">Close</button> 
 </div>

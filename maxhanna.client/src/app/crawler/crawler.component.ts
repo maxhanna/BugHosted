@@ -65,7 +65,7 @@ export class CrawlerComponent extends ChildComponent implements OnInit, OnDestro
         this.urlSelectedEvent.emit(tgtMetadata);
       }
     }  
-    this.parentRef?.visitExternalLink(url); 
+    this.parentRef?.indexLink(url); 
   }
   async searchUrl(skipScrape?: boolean) {
     (document.getElementsByClassName("componentContainer")[0] as HTMLDivElement)?.classList.remove("centeredContainer"); 

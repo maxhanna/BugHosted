@@ -9,23 +9,27 @@
   <div class="favouritesControlsDiv">
     <div class="search-input-container">
       <input #linkInput placeholder="URL" (input)="linkUrlInput()" />
-      <button class="search-button" (click)="isSearchingUrl = !isSearchingUrl" *ngIf="!isLoading && linkInput.value" title="Search with Crawler">
+      <button class="search-button" (click)="showSearchPopup()" *ngIf="!isLoading && linkInput.value" title="Search with Crawler">
         🔍
       </button>
     </div>
     <button (click)="addLink()" *ngIf="showNameImageInput" [disabled]="isLoading">💾Create</button>
   </div>
   <div *ngIf="isSearchingUrl" class="popupPanel">
+    <div class="popupPanelTitle">Crawler:</div>
     <app-crawler [url]="linkInput.value" [onlySearch]="true" (urlSelectedEvent)="urlSelectedEvent($event)"></app-crawler>
-    <button id="closeOverlay">Close</button>
+    <button id="closeOverlay" class="closeButton" (click)="closeSearchPopup()">Close</button>
   </div>
   <div class="topLinks">
     <div *ngIf="favorites.length > 0">
       <div class="miniTitle">{{ showingLatestLinks ? 'Latest' : 'Your' }} Links:</div>
       <div class="favouriteListWrapper">
-        <div *ngFor="let fav of favorites" class="favouriteDiv" [title]="fav.url"
-          [style.border]="showEditLinks && fav.isUserFavourite ? '1px solid' : ''">
-          <a (click)="visitExternalLink(fav)">
+        <div *ngFor="let fav of favorites"
+          [title]="fav.url"
+          class="favouriteDiv"
+          [style.border]="showEditLinks && fav.isUserFavourite ? '1px solid' : ''"
+          [style.boxShadow]="showEditLinks && fav.isUserFavourite ? '1px 1px 4px var(--main-link-color)' : ''">
+          <a (click)="visitExternalLink(fav)" href="{{fav.url}}" target="_blank" [title]="fav.url">
             <div class="favImage" [title]="fav.name">
               <img [src]="fav.imageUrl" *ngIf="fav.imageUrl" (error)="fav.imageUrl = ''" />
               <div class="emptyFavImage" *ngIf="!fav.imageUrl" [title]="fav.url"></div>
@@ -114,7 +118,7 @@
       <div class="optionsStatsHeader">Created By:</div>
       <div class="optionsStatsDescription">
         <app-user-tag [user]="editingCreatedBy" [displayMiniTag]="true" [inputtedParentRef]="parentRef"
-          displayHoverPicture]="true"
+          [displayHoverPicture]="true"
           [previousComponent]="'Favourites'"></app-user-tag>
       </div>
     </div>
@@ -138,10 +142,8 @@
       <div class="optionsStatsHeader">Permanently Delete:</div>
       <div class="optionsStatsDescription"><button (click)="permanentlyDelete(editingFavourite)">❌Delete</button></div>
     </div>
-  </div>
-  <div>
-    <button id="closeOverlay" (click)="closeEditPanel()">Close</button>
-  </div>
+  </div> 
+  <button id="closeOverlay" (click)="closeEditPanel()" class="closeButton">Close</button> 
 </div>
 
 <!-- Menu Popup -->
@@ -149,7 +151,7 @@
   <div class="popupPanelTitle" style="margin-bottom:15px;">
     Menu
   </div>
-  <div class="optionsStatsWrapperDiv chatMenuPopupWrapperDiv">
+  <div class="chatMenuPopupWrapperDiv">
     <div class="optionsStatsDiv" *ngIf="totalCount > pageSize">
       <div class="optionsStatsHeader">
         Page:
@@ -186,8 +188,6 @@
         </select>
       </div>
     </div>
-  </div>
-  <div class="chatMenuPopupCloseDiv">
-    <button id="closeOverlay" (click)="closeMenuPanel()">Close</button>
-  </div>
+  </div> 
+  <button id="closeOverlay" (click)="closeMenuPanel()" class="closeButton">Close</button> 
 </div>

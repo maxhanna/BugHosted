@@ -54,45 +54,7 @@
   color: var(--secondary-font-color);
 }
 
-
-.popupPanel {
-  position: fixed;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  width: 90%;
-  max-width: 500px;
-  border-radius: 12px;
-  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
-  padding: 25px;
-  z-index: 1000;
-  animation: fadeIn 0.3s ease-out;
-  border: 1px solid rgba(0, 0, 0, 0.1);
-  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-}
-
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translate(-50%, -45%);
-  }
-
-  to {
-    opacity: 1;
-    transform: translate(-50%, -50%);
-  }
-}
-
-.popupPanel>div:first-child {  
-  width: calc(100% - 30px);
-}
-
-.popupPanel [style*="max-height:500px"] {
-  margin: 15px 0;
-  border-radius: 8px;
-  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.1);
-}
-
+   
 .shareErrorMessage {
   padding: 15px;
   background: #fff8f8;
@@ -103,15 +65,7 @@
   font-size: 0.95rem;
   line-height: 1.5;
 }
-
-#closeOverlay:hover {
-  transform: translateY(-2px);
-}
-
-#closeOverlay:active {
-  transform: translateY(0);
-}
-
+ 
 .shareListButtons {
   display: flex;
   flex-direction: row;

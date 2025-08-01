@@ -7,6 +7,10 @@
   text-align: center;
   max-height: CALC(var(--vh, 1vh) * 100 - 201px);
   overflow: auto;
+  border: var(--main-border);
+  margin: 10px;
+  border-radius: 8px;
+  background-color: var(--main-highlight-color);
 }
 
 .favouritesTitle {
@@ -25,6 +29,11 @@
   cursor: pointer;
   white-space: nowrap;
 }
+
+.favouriteDiv:active {
+  transform: translateY(2px);
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.2);
+} 
 
 .favName {
   width: 125px;

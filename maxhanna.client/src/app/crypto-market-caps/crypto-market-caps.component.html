@@ -1,36 +1,39 @@
-<div class="market-caps-container" *ngIf="coinMarketCaps && coinMarketCaps.length > 0 && conversionRate">
-    <table class="market-caps-table mainTable" id="marketCapsTable">
-        <thead>
-            <tr>
-                <th (click)="sortTable(0, 'marketCapsTable')" class="xxSmallFont thirdFontColor">Rank</th>
-                <th (click)="sortTable(1, 'marketCapsTable')">Name</th>
-                <th (click)="sortTable(2, 'marketCapsTable')" [title]="'Price ' + selectedCurrency">Price</th>
-                <th (click)="sortTable(3, 'marketCapsTable')" [title]="'Market Cap ' + selectedCurrency">Market Cap</th>
-                <th (click)="sortTable(4, 'marketCapsTable')" title="24h Price Change (%)">Price &Delta;</th>
-                <th (click)="sortTable(5, 'marketCapsTable')" title="24h Inflow Change (USD)">Inflow</th>
-            </tr>
-        </thead>
-        <tbody>
-            <tr *ngFor="let coin of (expand ? coinMarketCaps : coinMarketCaps.slice(0, 10)); index as i"
-                (click)="selectCoin.emit(coin.name)">
-                <td [class]="'thirdFontColor' + (onMobile() ? ' xxSmallFont' : '')">{{ i + 1 }}</td>
-                <td>{{ coin.name }} <span class="secondaryFontColor smallFont">[{{ coin.symbol }}]</span></td>
-                <td [title]="coin.priceCAD * conversionRate">{{ coin.priceCAD * conversionRate |
-                    currencySymbol:selectedCurrency:false }}</td>
-                <td [title]="coin.marketCapCAD * conversionRate">{{ coin.marketCapCAD * conversionRate |
-                    currencySymbol:selectedCurrency:false }}</td>
-                <td [class]="coin.priceChangePercentage24h >= 0 ? 'positive' : 'negative'"
-                    title="Yesterday: {{ getYesterdayPrice(coin.priceUSD, coin.priceChangePercentage24h) | currencySymbol:selectedCurrency:false }}">
-                    {{ coin.priceChangePercentage24h | number:'1.2-2' }}%
-                </td>
-                <td [class]="coin.inflowChange24h >= 0 ? 'positive' : 'negative'"
-                    title="Yesterday: {{ getPreviousMarketCap(coin.marketCapUSD, coin.inflowChange24h) | currencySymbol:selectedCurrency:false}}">
-                    {{ coin.inflowChange24h | currencySymbol:selectedCurrency:false }}
-                </td>
-            </tr>
-        </tbody>
-    </table>
-    <button class="expandButton" (click)="expand = !expand">{{ expand ? 'Collapse' : 'Expand' }}</button>
+<div class="{{expand ? 'popupPanel' : ''}}" *ngIf="coinMarketCaps && coinMarketCaps.length > 0 && conversionRate" style="display:flex; align-items: center; flex-direction: column;">
+    <div class="popupPanelTitle {{expand ? 'popupPanelTitleExpanded':''}}" style="width:100%; text-align: center;">{{!onMobile() ? 'Coin ':''}}Market Capital</div>
+    <div class="mainTableContainer">
+        <table class="mainTable" id="marketCapsTable">
+            <thead>
+                <tr>
+                    <th (click)="sortTable(0, 'marketCapsTable')" class="xxSmallFont thirdFontColor">Rank</th>
+                    <th (click)="sortTable(1, 'marketCapsTable')">Name</th>
+                    <th (click)="sortTable(2, 'marketCapsTable')" [title]="'Price ' + selectedCurrency">Price</th>
+                    <th (click)="sortTable(3, 'marketCapsTable')" [title]="'Market Cap ' + selectedCurrency">Market Cap</th>
+                    <th (click)="sortTable(4, 'marketCapsTable')" title="24h Price Change (%)">Price &Delta;</th>
+                    <th (click)="sortTable(5, 'marketCapsTable')" title="24h Inflow Change (USD)">Inflow</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr *ngFor="let coin of (expand ? coinMarketCaps : coinMarketCaps.slice(0, 10)); index as i"
+                    (click)="marketCapClick(coin.name)">
+                    <td [class]="'thirdFontColor' + (onMobile() ? ' xxSmallFont' : '')">{{ i + 1 }}</td>
+                    <td>{{ coin.name }} <span class="secondaryFontColor smallFont">[{{ coin.symbol }}]</span></td>
+                    <td [title]="coin.priceCAD * conversionRate">{{ coin.priceCAD * conversionRate | currencySymbol:selectedCurrency:false }}</td>
+                    <td [title]="coin.marketCapCAD * conversionRate">{{ coin.marketCapCAD * conversionRate | currencySymbol:selectedCurrency:false }}</td>
+                    <td [class]="coin.priceChangePercentage24h >= 0 ? 'positive' : 'negative'"
+                        title="Yesterday: {{ getYesterdayPrice(coin.priceUSD, coin.priceChangePercentage24h) | currencySymbol:selectedCurrency:false }}">
+                        {{ coin.priceChangePercentage24h | number:'1.2-2' }}%
+                    </td>
+                    <td [class]="coin.inflowChange24h >= 0 ? 'positive' : 'negative'"
+                        title="Yesterday: {{ getPreviousMarketCap(coin.marketCapUSD, coin.inflowChange24h) | currencySymbol:selectedCurrency:false}}">
+                        {{ coin.inflowChange24h | currencySymbol:selectedCurrency:false }}
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+    <button [class]="expand ? 'closeButton' : 'expandButton'" (click)="showPopup()" id="closeOverlay">
+        {{ expand ? 'Collapse' : 'Expand' }}
+    </button>
 </div>
 <div *ngIf="isLoading && !(coinMarketCaps && coinMarketCaps.length > 0 && conversionRate)">
     Loading Market Caps...
