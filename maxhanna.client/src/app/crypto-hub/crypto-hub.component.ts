@@ -2948,6 +2948,11 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
       this.showTradeLogs();
     }
   }
+  closeCryptoBotConfigEmitter() {
+    setTimeout(() => {
+      this.closeTradeDivs();
+    }, 50);
+  }
   formatLargeNumber(number: number) {
     return this.tradeService.formatLargeNumber(number);
   }

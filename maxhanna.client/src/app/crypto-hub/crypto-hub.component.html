@@ -714,7 +714,7 @@
         <app-crypto-bot-configuration #configurationComponent [inputtedParentRef]="parentRef"
           [btcToCadPrice]="btcToCadPrice * cadToSelectedCurrencyRate" [solToCadPrice]="solToCadPrice * cadToSelectedCurrencyRate" [xrpToCadPrice]="xrpToCadPrice * cadToSelectedCurrencyRate"
           [xdgToCadPrice]="xdgToCadPrice * cadToSelectedCurrencyRate" [ethToCadPrice]="ethToCadPrice * cadToSelectedCurrencyRate"
-          [selectedCurrency]="selectedCurrency" (updatedTradeConfig)="updatedTradeConfigEvent($event)"></app-crypto-bot-configuration>
+          [selectedCurrency]="selectedCurrency" (updatedTradeConfig)="updatedTradeConfigEvent($event)" (closeEventEmitter)="closeCryptoBotConfigEmitter()"></app-crypto-bot-configuration>
       </div>
       <div *ngIf="isShowingTradeValueGraph">
         <app-line-graph [type]="'Crypto'" [graphTitle]="'Trade Value'" [data]="tradebotValuesForGraph"

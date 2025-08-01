@@ -21,6 +21,7 @@ export class CryptoBotConfigurationComponent extends ChildComponent {
   @Input() solToCadPrice?: number;
   @Input() selectedCurrency?: string;
   @Output() updatedTradeConfig = new EventEmitter<string>();
+  @Output() closeEventEmitter = new EventEmitter<void>();
 
   @ViewChild('tradeFromCoinSelect') tradeFromCoinSelect?: ElementRef<HTMLSelectElement>;
   @ViewChild('tradeStrategySelect') tradeStrategySelect!: ElementRef<HTMLSelectElement>;
@@ -108,17 +109,22 @@ export class CryptoBotConfigurationComponent extends ChildComponent {
     const sessionToken = await this.inputtedParentRef.getSessionToken();
     this.tradeService.upsertTradeConfiguration(config, sessionToken)
       .then((result: any) => {
-        if (result) {
+        if (result && !result.includes("Access Denied")) {
           this.inputtedParentRef?.showNotification(`Updated (${fromCoin}|${toCoin}:${strategy}) configuration: ${result}`);
           this.updatedTradeConfig.emit(fromCoin);
           this.tradeConfigLastUpdated = new Date();
+        } else if (result) {
+          this.inputtedParentRef?.showNotification(`Error updating (${fromCoin}|${toCoin}:${strategy}) configuration: ${result}.`);
         } else {
-          this.inputtedParentRef?.showNotification(`Error updating (${fromCoin}|${toCoin}:${strategy}) configuration.`);
+          this.inputtedParentRef?.showNotification(`Error updating (${fromCoin}|${toCoin}:${strategy}) configuration.`); 
         }
       })
       .catch((err: any) => {
-        console.error(err);
-        this.inputtedParentRef?.showNotification('Failed to update configuration.');
+        console.error("Update config failed:", err);
+        const message = err?.message === "Access Denied"
+          ? "Access Denied. Please re-login."
+          : "Failed to update configuration.";
+        this.inputtedParentRef?.showNotification(message);
       });
   }
 
@@ -164,7 +170,7 @@ export class CryptoBotConfigurationComponent extends ChildComponent {
     const strategy = this.tradeStrategySelect?.nativeElement?.value ?? "DCA";
 
     const tv = await this.tradeService.getTradeConfiguration(userId, sessionToken, fromCoin, toCoin, strategy);
-    if (tv && tv.userId) {
+    if (tv?.userId) {
       this.applyTradeConfiguration(tv);
     } else {
       // If current user doesn't have a config, try to get default config from user 1
@@ -176,12 +182,13 @@ export class CryptoBotConfigurationComponent extends ChildComponent {
         toCoin,
         strategy
       );
-      if (defaultConfig) {
+      if (defaultConfig && !defaultConfig.includes("Access Denied")) {
         this.applyTradeConfiguration(defaultConfig, true);
-      } else {
-        this.setDefaultTradeConfiguration();
-      }
-
+      } else if (defaultConfig && defaultConfig.includes("Access Denied")) {
+        this.inputtedParentRef?.showNotification(`Error getting (${fromCoin}|${toCoin}:${strategy}) configuration: ${defaultConfig}`); 
+        this.closeEventEmitter.emit();
+        return;
+      } else { this.setDefaultTradeConfiguration(); } 
     }
   }
 
