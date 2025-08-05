@@ -20,7 +20,7 @@
   </fieldset>
 
   <div [class]="onMobile() ? 'mainTableContainerMobile' : 'mainTableContainer'" [style.opacity]="!isLoading ? '1' : '0.5'">
-    <table class="mainTable" id="todoTable">
+    <table [class]="isEditing.length ? '' : 'mainTable'" id="todoTable">
       <thead>
         <tr>
           <th>
@@ -32,11 +32,21 @@
         </tr>
       </thead>
       <tbody *ngIf="todos.length > 0">
-        <tr *ngFor="let item of todos" id="todoNo{{item.id}}">
-          <td *ngIf="item.id">
+        <tr *ngFor="let item of todos" id="todoNo{{item.id}}" [class]="isEditing.includes(item) && !isExpandedEditFile ? 'popupPanel' : ''">
+          <td *ngIf="item.id" [style]="isEditing.includes(item) ? 'width: calc(100% - 10px); margin-top: 10px;' : ''">
+            <div *ngIf="isEditing.includes(item)" class="popupPanelTitle">Edit {{selectedType.value}}</div>
             <div>
-              <span class="todoText" *ngIf="!isEditing.includes(item.id)">{{ item.todo }}</span>
-              <textarea *ngIf="isEditing.includes(item.id)" [value]="item.todo" id="todoEditingTextarea" style="width:100%"></textarea>
+              <span class="todoText" *ngIf="!isEditing.includes(item)">{{ item.todo }}</span>
+              <div *ngIf="isEditing.includes(item)">
+                Text: <textarea [value]="item.todo" id="todoEditingTextarea" style="width:calc(100% - 10px)"></textarea>
+              </div><div *ngIf="isEditing.includes(item)">
+                URL: <textarea *ngIf="isEditing.includes(item)" [value]="item.url" id="todoEditingUrlTextarea"
+                  style="width:calc(100% - 10px)"></textarea>
+              </div>
+              <div *ngIf="isEditing.includes(item)">
+                File: <app-media-selector #todoEditingFile [inputtedParentRef]="parentRef" 
+                (expandFileSelectorEvent)="expandedEditFile($event)"></app-media-selector>
+              </div>
             </div>
             <app-media-viewer *ngIf="item.fileId" [fileId]="item.fileId" [inputtedParentRef]="parentRef"
               [showCommentSection]="false" [showMediaInformation]="true" [displayExpander]="true"
@@ -44,9 +54,10 @@
           </td> 
           <td class="todoDate" [title]="(item.date?.toString() ?? '').replace('T',' ')">{{ item.date | timeSince }}</td>
           <td *ngIf="item.id" class="actionTd">
-            <button (click)="visitUrl(item.url)" *ngIf="item.url" class="xxSmallFont cursorPointer" [title]="'Navigate to: ' + item.url">🔗</button>
-            <button (click)="editTodo(item.id)" [title]="'Edit'" class="xxSmallFont cursorPointer">{{ isEditing.includes(item.id) ? '💾':'✏️'}}</button>
-            <input type="button" value="❌" [title]="'Delete'" (click)="deleteTodo(item.id!);" id="todoDeleteNo{{item.id}}" class="xxSmallFont cursorPointer" *ngIf="!isEditing.includes(item.id)" />
+            <button (click)="visitUrl(item.url)" *ngIf="item.url && !isEditing?.length" class="xxSmallFont cursorPointer" [title]="'Navigate to: ' + item.url">🔗</button>
+            <button (click)="editTodo(item)" [title]="'Edit'" class="xxSmallFont cursorPointer" *ngIf="!isEditing?.length">{{ isEditing.includes(item) ? '💾':'✏️'}}</button>
+            <button (click)="closeEditPopup()" [title]="'Edit'" class="closeButton cursorPointer" *ngIf="isEditing.includes(item)" id="closeOverlay">💾Update</button>
+            <input type="button" value="❌" [title]="'Delete'" (click)="deleteTodo(item.id!);" id="todoDeleteNo{{item.id}}" class="xxSmallFont cursorPointer" *ngIf="!isEditing?.length" />
           </td>
         </tr>
       </tbody>
@@ -105,26 +116,7 @@
           </div>
         </div>
       </div>
-    </div>
-
-    <!-- Shared By Current User -->
-    <!-- <div class="shared-section" *ngIf="this.sharedColumns.length > 0">
-      <h4>You've Shared:</h4>
-      <div class="shared-user" *ngFor="let column of getSharedUsers()"> 
-        <div>
-          <div>Column: {{column.columnName}}</div>
-          <div>Shared With {{column.sharedWith.split(',').length}} user{{column.sharedWith.split(',').length > 0 ? 's' : ''}}.</div>
-          <div style="display: flex;justify-content: space-between;"><span>Owner:</span><app-user-tag [userId]="column.ownerId" [inputtedParentRef]="parentRef" [displayHoverPicture]="true"></app-user-tag></div>
-        </div>
-        <div class="shared-with">
-          <div>Users:</div>
-          <div *ngFor="let userId of column.sharedWith.split(',')" class="sharedWithUser">
-            <app-user-tag [userId]="userId" [inputtedParentRef]="parentRef" [displayHoverPicture]="true"></app-user-tag>
-            <button class="unshare-btn" (click)="unshare(column.columnName, userId)">Remove</button>
-          </div>
-        </div> 
-      </div>
-    </div> -->
+    </div> 
 
     <div *ngIf="this.sharedColumns.length === 0">
       <p>Currently no lists shared with anyone</p>

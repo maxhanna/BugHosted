@@ -78,6 +78,7 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
   isTradeInformationOpen = false;
   isShowingTradeSimulator = false;
   isShowingTradeProfit = false;
+  showMacdHelp = false;
   tradeIndicators?: IndicatorData;
   openProfitSections: { [key: string]: boolean } = {
     days: false,
@@ -2906,7 +2907,7 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
   closeMacdPopup() {
     this.isMacdPopupOpen = false;
     setTimeout(() => {
-      this.parentRef?.closeOverlay();
+      this.parentRef?.closeOverlay(false);
     }, 50);
     this.macdGraphData = []; // Clear data on close
   }
@@ -2938,10 +2939,16 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
       this.macdGraphData = [];
     }
   }
-  goToTradeId(tradeId: string) {
-    this.selectedTradeBalanceId = parseInt(tradeId.replace("tradeBalance", ""));
-    const element = document.getElementById(tradeId);
-    element?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  goToTradeId(tradeId?: number) {
+    this.selectedTradeBalanceId = tradeId; 
+    this.changeDetectorRef.detectChanges();
+    
+    setTimeout(() => { 
+      const element = document.getElementById("tradeBalance" + tradeId);
+      element?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 50);
+    
+    console.log("go to trade: ", tradeId);
   }
   onSmallLogClick() {
     if (!this.showingTradeLogs) {

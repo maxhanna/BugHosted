@@ -260,10 +260,11 @@
  
 .infoContainer {
   width: 100%;
-  display: flex; 
-  justify-content: center;
+  display: flex;
+  justify-content: space-around;
   align-items: center;
   flex-wrap: wrap;
+  margin-top: 10px;
 }
 .selectedBaseNameOnMap {
   max-width: 130px;

@@ -127,7 +127,6 @@ namespace maxhanna.Server.Controllers
 			}
 		}
 
-
 		[HttpPost("/Todo/Edit", Name = "EditTodo")]
 		public async Task<IActionResult> Edit([FromBody] EditTodo req)
 		{
@@ -136,17 +135,36 @@ namespace maxhanna.Server.Controllers
 			{
 				conn.Open();
 				string sql = @"
-                    UPDATE 
-                        maxhanna.todo
-                    SET todo = @Todo 
+					UPDATE 
+						maxhanna.todo
+					SET 
+						todo = @Todo,
+						url = CASE 
+							WHEN @Url IS NULL THEN NULL
+							WHEN @Url = '' THEN NULL
+							ELSE @Url
+						END,
+						file_id = CASE 
+							WHEN @FileId IS NULL THEN NULL
+							WHEN @FileId = '' THEN NULL
+							ELSE @FileId
+						END
 					WHERE id = @Id
 					LIMIT 1;";
+
 				MySqlCommand cmd = new MySqlCommand(sql, conn);
 				cmd.Parameters.AddWithValue("@Todo", req.content);
-				cmd.Parameters.AddWithValue("@Id", req.id); 
-				var result = await cmd.ExecuteScalarAsync(); 
+				cmd.Parameters.AddWithValue("@Id", req.id);
+
+				// Handle URL parameter - convert empty string or undefined to NULL
+				object urlValue = string.IsNullOrEmpty(req.url) ? DBNull.Value : (object)req.url;
+				cmd.Parameters.AddWithValue("@Url", urlValue);
+
+				object fileIdValue = req.fileId == null ? DBNull.Value : req.fileId;
+				cmd.Parameters.AddWithValue("@FileId", fileIdValue);
+
+				var result = await cmd.ExecuteScalarAsync();
 				return Ok($"{req.id} Edit successful.");
-				
 			}
 			catch (Exception ex)
 			{

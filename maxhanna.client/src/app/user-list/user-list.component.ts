@@ -9,6 +9,7 @@ import { FriendService } from '../../services/friend.service';
 import { Pipe, PipeTransform } from '@angular/core';
 import { Message } from '../../services/datacontracts/chat/message';
 import { TimeSincePipe } from '../time-since.pipe';
+import { e } from '@angular/core/weak_ref.d-Bp6cSy-X';
 
 
 @Component({
@@ -221,11 +222,13 @@ export class UserListComponent extends ChildComponent implements OnInit, OnDestr
     // }, 50);
   }
   closeSearchPanel() {
-    this.isSearchPanelOpen = false;
-    const parent = this.parentRef ?? this.inputtedParentRef;
-    if (parent) {
-      parent.closeOverlay();
+    console.log("close search poanel");
+    if (!this.sharingSearch) { 
+      this.isSearchPanelOpen = false;
+    } else {
+      this.userClickEvent.emit();
     }
+    this.usersSearched = []; 
   }
   getCommaSeparatedGroupChatUserNames(users: User | User[], includeCurrentUser?: boolean): string {
     return this.chatService.getCommaSeparatedGroupChatUserNames(users, this.user, includeCurrentUser);

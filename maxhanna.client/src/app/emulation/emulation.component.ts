@@ -27,11 +27,12 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
   romDirectory: FileEntry[] = [];
   soundOn = false;
   lastSaved?: Date;
-  currentFileType = ''; 
+  currentFileType = '';
   isSearchVisible = true;
   isFullScreen = false;
   showControls = this.onMobile();
   private currentKeyListeners: { type: string; listener: EventListener }[] = [];
+  private touchControls: Map<number, string[]> = new Map(); // touchId to array of joypadIndices
   readonly coreMapping: { [key: string]: string } = {
     'gba': 'mgba',
     'gbc': 'mgba',
@@ -125,8 +126,8 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
     this.overrideGetUserMedia();
     this.setupEventListeners();
     document.addEventListener('fullscreenchange', () => {
-      if (!document.fullscreenElement) { 
-        this.canvas.nativeElement.style.height = (this.onMobile() ? '60vh' : '100vh'); 
+      if (!document.fullscreenElement) {
+        this.canvas.nativeElement.style.height = (this.onMobile() ? '60vh' : '100vh');
         console.log("set canvas height: " + this.canvas.nativeElement.style.height);
       }
       this.isFullScreen = !this.isFullScreen;
@@ -141,6 +142,11 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
       this.nostalgist = undefined;
       this.parentRef?.setViewportScalability(true);
       this.parentRef?.removeResizeListener();
+      // Release all inputs
+      this.touchControls.forEach((controls) => {
+        controls.forEach(control => this.nostalgist?.pressUp(control));
+      });
+      this.touchControls.clear();
     });
   }
 
@@ -206,7 +212,11 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
     this.isSearchVisible = true;
     this.currentFileType = '';
     this.selectedRomName = '';
-    this.controlsSet = false; 
+    this.controlsSet = false;
+    this.touchControls.forEach((controls) => {
+      controls.forEach(control => this.nostalgist?.pressUp(control));
+    });
+    this.touchControls.clear();
     this.closeMenuPanel();
   }
 
@@ -227,7 +237,7 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
     const fileType = this.currentFileType = file?.fileType ?? this.fileService.getFileExtension(file?.fileName!);
     const style = {
       backgroundColor: 'unset',
-      zIndex: '1', 
+      zIndex: '1',
       height: (this.onMobile() ? '60vh' : '100vh'),
     };
     const core = this.coreMapping[fileType.toLowerCase()] || 'default_core';
@@ -246,7 +256,7 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
       }
     }, 1);
     this.setHTMLControls();
-    this.setupAutosave(); 
+    this.setupAutosave();
     this.stopLoading();
   }
 
@@ -315,7 +325,7 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
   getFileExtension(fileName: string) {
     this.fileService.getFileExtension(fileName).toLowerCase();
   }
- 
+
   toggleSound() {
     if (!this.soundOn) {
       this.nostalgist?.sendCommand("MUTE");
@@ -334,12 +344,12 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
   isGbaGame(): boolean {
     const ft = this.currentFileType.toLowerCase().trim();
     return this.gameboyAdvancedFileTypes.includes(ft);
-  } 
+  }
 
   isSegaGame(): boolean {
     const ft = this.currentFileType.toLowerCase().trim();
     return this.segaFileTypes.includes(ft);
-  } 
+  }
 
   setHTMLControls() {
     if (this.controlsSet) {
@@ -348,63 +358,64 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
       this.controlsSet = true;
     }
     const addPressReleaseEvents = (elementClass: string, joypadIndex: string) => {
-      const element = document.getElementsByClassName(elementClass)[0];
-      if (!element) return;
-      if (this.elementListenerMap.get(element)) {
-        return;
-      }
+      const element = document.getElementsByClassName(elementClass)[0] as HTMLElement;
+      if (!element || this.elementListenerMap.get(element)) return;
       this.elementListenerMap.set(element, true);
-      element.addEventListener("mousedown", () => {
+
+      element.addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        const touch = e.changedTouches[0];
+        const touchId = touch.identifier;
+        this.touchControls.set(touchId, [joypadIndex]);
         this.nostalgist?.pressDown(joypadIndex);
+        element.classList.add('active');
+        if ('vibrate' in navigator) {
+          navigator.vibrate(50);
+        }
+      }, { passive: false });
+
+      element.addEventListener('touchend', (e) => {
+        e.preventDefault();
+        const touch = e.changedTouches[0];
+        const touchId = touch.identifier;
+        const controls = this.touchControls.get(touchId);
+        if (controls) {
+          controls.forEach(control => this.nostalgist?.pressUp(control));
+          this.touchControls.delete(touchId);
+          element.classList.remove('active');
+        }
+      }, { passive: false });
+
+      element.addEventListener('touchcancel', (e) => {
+        e.preventDefault();
+        const touch = e.changedTouches[0];
+        const touchId = touch.identifier;
+        const controls = this.touchControls.get(touchId);
+        if (controls) {
+          controls.forEach(control => this.nostalgist?.pressUp(control));
+          this.touchControls.delete(touchId);
+          element.classList.remove('active');
+        }
+      }, { passive: false });
+
+      element.addEventListener('mousedown', () => {
+        this.nostalgist?.pressDown(joypadIndex);
+        element.classList.add('active');
       });
+
       const handleMouseUp = () => {
         this.nostalgist?.pressUp(joypadIndex);
+        element.classList.remove('active');
       };
-      element.addEventListener("mouseup", handleMouseUp);
-      document.addEventListener("mouseup", (event) => {
+
+      element.addEventListener('mouseup', handleMouseUp);
+      document.addEventListener('mouseup', (event) => {
         if (event.target !== element) {
           handleMouseUp();
         }
       });
-      element.addEventListener("touchstart", (e) => {
-        e.preventDefault();
-        this.nostalgist?.pressDown(joypadIndex);
-      }, { passive: false });
-      element.addEventListener("touchend", (e) => {
-        e.preventDefault();
-        this.nostalgist?.pressUp(joypadIndex);
-        element.classList.remove('active');
-      }, { passive: false });
-      let startX: number, startY: number;
-      element.addEventListener("touchstart", (e) => {
-        startX = (e as TouchEvent).touches[0].clientX;
-        startY = (e as TouchEvent).touches[0].clientY;
-        element.classList.add('active');
-      });
-      element.addEventListener("touchmove", (e) => {
-        e.preventDefault();
-        const touchEvent = e as TouchEvent;
-        const touch = touchEvent.touches[0];
-        const currentX = touch.clientX;
-        const currentY = touch.clientY;
-        const deltaX = currentX - startX;
-        const deltaY = currentY - startY;
-        const threshold = 10;
-        if (Math.abs(deltaX) > Math.abs(deltaY)) {
-          if (deltaX > threshold) {
-            this.nostalgist!.pressDown('right');
-          } else if (deltaX < -threshold) {
-            this.nostalgist!.pressDown('left');
-          }
-        } else {
-          if (deltaY > threshold) {
-            this.nostalgist!.pressDown('down');
-          } else if (deltaY < -threshold) {
-            this.nostalgist!.pressDown('up');
-          }
-        }
-      }, { passive: false });
     };
+
     addPressReleaseEvents("start", "start");
     addPressReleaseEvents("select", "select");
     if (this.isSnesGame()) {
@@ -414,12 +425,12 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
       addPressReleaseEvents("y", "y");
     } else {
       addPressReleaseEvents("a", "a");
-      addPressReleaseEvents("b", "b"); 
+      addPressReleaseEvents("b", "b");
     }
     if (this.isSegaGame()) {
       addPressReleaseEvents("c", "c");
     }
-    if (this.isSnesGame() || this.isGbaGame() || this.isSegaGame()) { 
+    if (this.isSnesGame() || this.isGbaGame() || this.isSegaGame()) {
       addPressReleaseEvents("l", "l");
       addPressReleaseEvents("r", "r");
     }
@@ -434,38 +445,76 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
   }
 
   addDirectionalListeners(element: HTMLElement, direction: string, secondaryDirection?: string) {
+    const directions = [direction];
+    if (secondaryDirection) directions.push(secondaryDirection);
+
+    element.addEventListener('touchstart', (e) => {
+      e.preventDefault();
+      const touch = e.changedTouches[0];
+      const touchId = touch.identifier;
+      this.touchControls.set(touchId, directions);
+      directions.forEach(dir => this.nostalgist?.pressDown(dir));
+      element.classList.add('active');
+      if ('vibrate' in navigator) {
+        navigator.vibrate(50);
+      }
+    }, { passive: false });
+
+    element.addEventListener('touchend', (e) => {
+      e.preventDefault();
+      const touch = e.changedTouches[0];
+      const touchId = touch.identifier;
+      const controls = this.touchControls.get(touchId);
+      if (controls) {
+        controls.forEach(control => this.nostalgist?.pressUp(control));
+        this.touchControls.delete(touchId);
+        element.classList.remove('active');
+      }
+    }, { passive: false });
+
+    element.addEventListener('touchcancel', (e) => {
+      e.preventDefault();
+      const touch = e.changedTouches[0];
+      const touchId = touch.identifier;
+      const controls = this.touchControls.get(touchId);
+      if (controls) {
+        controls.forEach(control => this.nostalgist?.pressUp(control));
+        this.touchControls.delete(touchId);
+        element.classList.remove('active');
+      }
+    }, { passive: false });
+
     const pressDown = (primaryDirection: string, secondaryDirection?: string) => {
       this.nostalgist?.pressDown(primaryDirection);
       if (secondaryDirection) {
         this.nostalgist?.pressDown(secondaryDirection);
       }
     };
+
     const pressUp = (primaryDirection: string, secondaryDirection?: string) => {
       this.nostalgist?.pressUp(primaryDirection);
       if (secondaryDirection) {
         this.nostalgist?.pressUp(secondaryDirection);
       }
     };
-    const handleMouseDownOrTouchStart = (e: Event) => {
-      e.preventDefault();
+
+    const handleMouseDown = () => {
       pressDown(direction, secondaryDirection);
+      element.classList.add('active');
     };
-    const handleMouseUpOrTouchEnd = (e: Event) => {
-      e.preventDefault();
+
+    const handleMouseUp = () => {
       pressUp(direction, secondaryDirection);
+      element.classList.remove('active');
     };
-    element.addEventListener("mousedown", handleMouseDownOrTouchStart);
-    element.addEventListener("touchstart", handleMouseDownOrTouchStart, { passive: false });
-    document.addEventListener("mouseup", (event) => {
+
+    element.addEventListener('mousedown', handleMouseDown);
+    element.addEventListener('mouseup', handleMouseUp);
+    document.addEventListener('mouseup', (event) => {
       if (event.target === element) {
-        handleMouseUpOrTouchEnd(event);
+        handleMouseUp();
       }
     });
-    document.addEventListener("touchend", (event) => {
-      if ((event as TouchEvent).target === element) {
-        handleMouseUpOrTouchEnd(event);
-      }
-    }, { passive: false });
   }
 
   overrideGetUserMedia() {
@@ -481,14 +530,7 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
     this.closeMenuPanel();
     const elem = this.fullscreenContainer.nativeElement;
     const canvas = this.nostalgist?.getCanvas();
-    const controls = document.getElementsByClassName('controls')[0];
-    const nintendo = document.getElementsByClassName('nintendo')[0] as HTMLDivElement;
-    const startSelect = document.getElementsByClassName('start-select')[0];
-    // if (this.onMobile()) {
-    //   controls.classList.toggle('fullscreenControlsBottom');
-    //   startSelect.classList.toggle('fullscreenControlsTop');
-    // }
-    if (!this.isFullScreen) { 
+    if (!this.isFullScreen) {
       if (this.onMobile()) {
         if (!this.showControls) {
           this.unlockedCanvas = true;
@@ -498,13 +540,9 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
         this.unlockedCanvas = true;
         await canvas!.requestFullscreen();
       }
-
-      // Ensure controls are visible in fullscreen if they should be
       if (this.showControls) {
         const controls = document.querySelector('.controls') as HTMLElement;
-        if (controls) {
-          controls.style.visibility = 'visible';
-        }
+        if (controls) controls.style.visibility = 'visible';
       }
     } else {
       if (document.exitFullscreen) {
@@ -512,7 +550,7 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
         this.unlockedCanvas = false;
       }
     }
-  } 
+  }
 
   getAllowedFileTypes(): string[] {
     return this.fileService.romFileExtensions;
@@ -535,6 +573,10 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
     if (this.parentRef) {
       this.parentRef.showOverlay();
     }
+    this.touchControls.forEach((controls) => {
+      controls.forEach(control => this.nostalgist?.pressUp(control));
+    });
+    this.touchControls.clear();
   }
 
   closeMenuPanel() {

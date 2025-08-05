@@ -63,12 +63,6 @@ textarea {
     text-align: center;
   }
 
-.userList {
-  max-height: 200px;
-  overflow-y:auto;
-  padding: 15px;
-  border: 2px solid;
-}
 .searchBar {  
     padding: 15px;
     display: flex;

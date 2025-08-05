@@ -26,7 +26,7 @@ public class KrakenService
 	private long _lastNonce;
 	private readonly Log _log;
 	private static readonly Dictionary<string, string> CoinMappingsForDB = new Dictionary<string, string> { { "XBT", "btc" }, { "XXBT", "btc" }, { "BTC", "btc" }, { "USDC", "usdc" }, { "XRP", "xrp" }, { "XXRP", "xrp" }, { "XXDG", "xdg" }, { "XETH", "eth" }, { "ETH", "eth" }, { "ETH.F", "eth" }, { "SOL.F", "sol" }, { "SOL", "sol" }, { "SUI", "sui" }, { "WIF", "wif" }, { "WIF.F", "wif" }, { "PENGU", "pengu" }, { "PEPE", "pepe" }, { "DOT", "dot" }, { "DOT.F", "dot" }, { "ADA", "ada" }, { "ADA.F", "ada" }, { "LTC", "ltc" }, { "LTC.F", "ltc" }, { "LINK", "link" }, { "LINK.F", "link" }, { "MATIC", "matic" }, { "MATIC.F", "matic" }, { "XLM", "xlm" }, { "XLM.F", "xlm" }, { "TRX", "trx" }, { "TRX.F", "trx" }, { "AVAX", "avax" }, { "AVAX.F", "avax" }, { "ATOM", "atom" }, { "ATOM.F", "atom" }, { "ALGO", "algo" }, { "ALGO.F", "algo" }, { "NEAR", "near" }, { "NEAR.F", "near" }, { "XMR", "xmr" }, { "XMR.F", "xmr" }, { "BCH", "bch" }, { "BCH.F", "bch" }, { "ZEC", "zec" }, { "ZEC.F", "zec" }, { "SHIB", "shib" }, { "SHIB.F", "shib" }, { "UNI", "uni" }, { "UNI.F", "uni" }, { "AAVE", "aave" }, { "AAVE.F", "aave" }, { "ZUSD", "usd" }, { "ZCAD", "cad" } };
-	private static readonly Dictionary<string, string> CoinNameMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) { { "BTC", "Bitcoin" }, { "ETH", "Ethereum" }, { "XDG", "Dogecoin" }, { "SOL", "Solana" } };
+	private static readonly Dictionary<string, string> CoinNameMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) { { "BTC", "Bitcoin" }, { "XBT", "Bitcoin" }, { "ETH", "Ethereum" }, { "XDG", "Dogecoin" }, { "SOL", "Solana" } };
 	private static readonly Dictionary<string, string> CoinSymbols = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) { { "Bitcoin", "₿" }, { "Ethereum", "Ξ" }, { "Dogecoin", "Ɖ" }, { "Solana", "◎" } };
 	private static readonly ConcurrentDictionary<int, DateTime> _userLastCheckTimes = new ConcurrentDictionary<int, DateTime>();
 	private static readonly TimeSpan _rateLimitDuration = TimeSpan.FromMinutes(1);
@@ -57,9 +57,10 @@ public class KrakenService
 		}
 
 		int? minutesSinceLastTrade = await GetMinutesSinceLastTrade(userId, coin, strategy);
-		if (minutesSinceLastTrade != null && minutesSinceLastTrade < 15)
+		int tradeTimeLimit = strategy == "HFT" ? 1 : 15;
+		if (minutesSinceLastTrade != null && minutesSinceLastTrade < tradeTimeLimit)
 		{
-			_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) User is in cooldown for another {(15 - minutesSinceLastTrade)} minutes. Trade Cancelled.", userId, "TRADE", true);
+			_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) User is in cooldown for another {(tradeTimeLimit - minutesSinceLastTrade)} minutes. Trade Cancelled.", userId, "TRADE", true);
 			return false;
 		}
 		else if (minutesSinceLastTrade != null)
@@ -134,10 +135,10 @@ public class KrakenService
 		{
 			return await HandleIndicatorStrategy(userId, coin, strategy, tmpCoin, currentPrice, coinPriceCAD.Value, keys);
 		}
-
+		decimal spreadThreshold = strategy == "HFT" ?  0.0001m : _TradeThreshold;
 		LogSpreads(userId, strategy, tmpCoin, firstPriceToday, lastPrice, currentPrice, spread, spread2, isFirstTradeEver);
 		// NO MOMENTUM DETECTED AS OF YET, Check if trade crosses spread thresholds
-		if (Math.Abs(spread) >= _TradeThreshold || Math.Abs(spread2) >= _TradeThreshold)
+		if (Math.Abs(spread) >= spreadThreshold || Math.Abs(spread2) >= spreadThreshold)
 		{
 			// // 4. Now we know a trade is needed - fetch balances 
 			var balances = await GetBalance(userId, tmpCoin, keys);
@@ -152,26 +153,67 @@ public class KrakenService
 			//_ = _log.Db("USDC Balance: " + usdcBalance + "; Coin Balance: " + coinBalance, userId, "TRADE", true);
 			//_ = _log.Db($"coinPriceCad: {coinPriceCAD}, coinPriceUSDC {coinPriceUSDC:F2}", userId, "TRADE", true); 
 
-			if (spread >= _TradeThreshold || (firstPriceToday != null && spread2 >= _TradeThreshold))
-			{
-				string triggeredBy = spread >= _TradeThreshold ? "spread" : "spread2";
-				decimal coinBalanceConverted = coinBalance * coinPriceUSDC.Value;
-				_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Trade (Sell) triggered by: {triggeredBy} ({(triggeredBy == "spread2" ? spread2 : spread):P})", userId, "TRADE", true);
+			if (spread >= spreadThreshold || (firstPriceToday != null && spread2 >= spreadThreshold))
+            {   // DCA|IND: Selling, HFT: Buying
+                string triggeredBy = spread >= spreadThreshold ? "spread" : "spread2";
+                decimal coinBalanceConverted = coinBalance * coinPriceUSDC.Value;
+				string buyOrSell = strategy == "HFT" ? "Buy" : "Sell";
+                _ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Trade ({buyOrSell}) triggered by: {triggeredBy} ({(triggeredBy == "spread2" ? spread2 : spread):P})", userId, "TRADE", true);
 
-				if ((isFirstTradeEver || lastTrade == null) && (coinBalanceConverted <= 0 || coinBalance < _MinimumBTCTradeAmount))
-				{
-					return await CreateCoinReserveWithUSDC(userId, tmpCoin, keys, coinBalance, usdcBalance, coinPriceCAD.Value, coinPriceUSDC.Value, strategy);
-				}
+                if (CheckIfReservesNeeded(strategy, isFirstTradeEver, lastTrade, coinBalance, coinBalanceConverted))
+                {
+                    return await CreateCoinReserveWithUSDC(userId, tmpCoin, keys, coinBalance, usdcBalance, coinPriceCAD.Value, coinPriceUSDC.Value, strategy);
+                }
 
-				if (coinBalance > 0)
+                if (coinBalance > 0)
+                {
+                    var spread2Message = firstPriceToday != null ? $"Spread2 : {spread2:P} " : "";
+                    bool isValidTrade = await ValidateTrade(userId, tmpCoin, tmpCoin, "USDC", "sell", usdcBalance, coinBalance, strategy);
+                    if (isValidTrade)
+                    {
+                        _ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Spread is +{spread:P}, {spread2Message}(c:{currentPrice}-l:{lastPrice}). Balance: {coinBalance} {tmpCoin}.", userId, "TRADE", true);
+						if (strategy == "HFT")
+						{
+							
+						}
+						else
+						{
+							int? matchingBuyOrderId = await FindMatchingBuyOrder(userId, tmpCoin, strategy, coinPriceUSDC.Value, spreadThreshold);
+							TradeRecord? fundingTransaction = await GetLatestReservedTransaction(userId, tmpCoin, strategy, coinPriceUSDC.Value, spreadThreshold);
+							if (matchingBuyOrderId == null && fundingTransaction == null)
+							{
+								_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) No matching buy or reserve transactions at this depth. Trade Cancelled.", userId, "TRADE", true);
+								return false;
+							}
+							else
+							{
+								_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Switching to momentum strategy.", userId, "TRADE", true);
+								await AddMomentumEntry(userId, tmpCoin, "USDC", strategy, coinPriceUSDC.Value, matchingBuyOrderId);
+								return false;
+							}
+						} 
+                    }
+                }
+                else
+                {
+                    _ = _log.Db($"({tmpCoin}:{userId}:{strategy}) ⚠️ Error, User has no {tmpCoin} (coinBalance: {coinBalance}) to trade.", userId, "TRADE", true);
+                    return false;
+                }
+            }
+            if (spread <= -spreadThreshold || (firstPriceToday != null && spread2 <= -spreadThreshold))
+			{ // DCA|IND: Buying, HFT: Selling
+				string triggeredBy = spread <= -spreadThreshold ? "spread" : "spread2";
+				string buyOrSell = strategy == "HFT" ? "Sell" : "Buy";
+
+				_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Trade ({buyOrSell}) triggered by: {triggeredBy} {(triggeredBy == "spread2" ? spread2 : spread):P}", userId, "TRADE", true);
+
+				bool isValidTrade = await ValidateTrade(userId, tmpCoin, "USDC", tmpCoin, "buy", usdcBalance, coinBalance, strategy);
+				if (isValidTrade)
 				{
-					var spread2Message = firstPriceToday != null ? $"Spread2 : {spread2:P} " : "";
-					bool isValidTrade = await ValidateTrade(userId, tmpCoin, tmpCoin, "USDC", "sell", usdcBalance, coinBalance, strategy);
-					if (isValidTrade)
+					if (strategy == "HFT")
 					{
-						_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Spread is +{spread:P}, {spread2Message}(c:{currentPrice}-l:{lastPrice}). Balance: {coinBalance} {tmpCoin}.", userId, "TRADE", true);
-						int? matchingBuyOrderId = await FindMatchingBuyOrder(userId, tmpCoin, strategy, coinPriceUSDC.Value);
-						TradeRecord? fundingTransaction = await GetLatestReservedTransaction(userId, tmpCoin, strategy, coinPriceUSDC.Value, _TradeThreshold);
+						int? matchingBuyOrderId = await FindMatchingBuyOrder(userId, tmpCoin, strategy, coinPriceUSDC.Value, spreadThreshold);
+						TradeRecord? fundingTransaction = await GetLatestReservedTransaction(userId, tmpCoin, strategy, coinPriceUSDC.Value, spreadThreshold);
 						if (matchingBuyOrderId == null && fundingTransaction == null)
 						{
 							_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) No matching buy or reserve transactions at this depth. Trade Cancelled.", userId, "TRADE", true);
@@ -184,36 +226,31 @@ public class KrakenService
 							return false;
 						}
 					}
-				}
-				else
-				{
-					_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) ⚠️ Error, User has no {tmpCoin} (coinBalance: {coinBalance}) to trade.", userId, "TRADE", true);
-					return false;
-				}
-			}
-			if (spread <= -_TradeThreshold || (firstPriceToday != null && spread2 <= -_TradeThreshold))
-			{
-				string triggeredBy = spread <= -_TradeThreshold ? "spread" : "spread2";
-				_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Trade (Buy) triggered by: {triggeredBy} {(triggeredBy == "spread2" ? spread2 : spread):P}", userId, "TRADE", true);
-
-				bool isValidTrade = await ValidateTrade(userId, tmpCoin, "USDC", tmpCoin, "buy", usdcBalance, coinBalance, strategy);
-				if (isValidTrade)
-				{
-					if (usdcBalance > 0)
+					else
 					{
-						var spread2Message = firstPriceToday != null ? $"Spread2: {spread2:P} " : "";
-						_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Spread is {spread:P} {spread2Message} (c:{currentPrice}-l:{lastPrice}), buying {tmpCoin}.", userId, "TRADE", true);
+						if (usdcBalance > 0)
+						{
+							var spread2Message = firstPriceToday != null ? $"Spread2: {spread2:P} " : "";
+							_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Spread is {spread:P} {spread2Message} (c:{currentPrice}-l:{lastPrice}), buying {tmpCoin}.", userId, "TRADE", true);
 
-						await AddMomentumEntry(userId, "USDC", tmpCoin, strategy, coinPriceUSDC.Value, null);
-						return false;
-					}
+							await AddMomentumEntry(userId, "USDC", tmpCoin, strategy, coinPriceUSDC.Value, null);
+							return false;
+						}
+					} 
 				}
 			}
 		}
 		return false;
 	}
 
-	private void LogSpreads(
+    private static bool CheckIfReservesNeeded(string strategy, bool isFirstTradeEver, TradeRecord? lastTrade, decimal coinBalance, decimal coinBalanceConverted)
+    {
+        return strategy != "HFT"
+			&& (isFirstTradeEver || lastTrade == null)
+			&& (coinBalanceConverted <= 0 || coinBalance < _MinimumBTCTradeAmount);
+    }
+
+    private void LogSpreads(
 		int userId,
 		string strategy,
 		string tmpCoin,
@@ -956,7 +993,7 @@ public class KrakenService
 
 		try
 		{
-			if (buyOrSell == "buy" && _MaximumBTCBalance > 0 && coinBalance >= _MaximumBTCBalance)
+			if (buyOrSell.ToLower() == "buy" && _MaximumBTCBalance > 0 && coinBalance >= _MaximumBTCBalance)
 			{
 				_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) User has too much {tmpCoin} ({coinBalance} / {_MaximumBTCBalance}) in their wallet. Trade Cancelled.", userId, "TRADE", true);
 				return false;
@@ -966,20 +1003,23 @@ public class KrakenService
 			_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) User has traded {tmpCoin} {numberOfTradesToday} times today.", userId, "TRADE", true);
 
 			bool isVolumeSpiking = await IsSignificantVolumeSpike(tmpCoin, from, to, userId);
-			int tradeRange = (buyOrSell == "buy" && isVolumeSpiking) ? _VolumeSpikeMaxTradeOccurance : _MaxTradeTypeOccurances;
-			bool isRepeatedTrades = await IsRepeatedTradesInRange(userId, from, to, buyOrSell, strategy, tradeRange);
-			if (isRepeatedTrades)
+			int tradeRange = (buyOrSell.ToLower() == "buy" && isVolumeSpiking) ? _VolumeSpikeMaxTradeOccurance : _MaxTradeTypeOccurances;
+			if (strategy != "HFT")
 			{
-				_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) [ConsecutiveCheck] User has {buyOrSell} {from} {to} too many times in the last {tradeRange} trades (Based on {tmpCoin}/USDC reserves {(isVolumeSpiking ? "and volume spike" : "")}). ({strategy})Trade Cancelled.", userId, "TRADE", true);
-				return false;
-			}
+				bool isRepeatedTrades = await IsRepeatedTradesInRange(userId, from, to, buyOrSell.ToLower(), strategy, tradeRange);
+				if (isRepeatedTrades)
+				{
+					_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) [ConsecutiveCheck] User has {buyOrSell} {from} {to} too many times in the last {tradeRange} trades (Based on {tmpCoin}/USDC reserves {(isVolumeSpiking ? "and volume spike" : "")}). ({strategy})Trade Cancelled.", userId, "TRADE", true);
+					return false;
+				}
 
-			bool withinTradeSequenceLimit = await CheckTradeFrequencyOccurance(userId, buyOrSell, strategy, _MaxTradeTypeOccurances);
-			if (!withinTradeSequenceLimit && numberOfTradesToday > 0)
-			{
-				_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) User has {buyOrSell} {from} {to} too frequently ({_MaxTradeTypeOccurances - 1}) in the last {_MaxTradeTypeOccurances} occurances. Trade Cancelled.", userId, "TRADE", true);
-				return false;
-			}
+				bool withinTradeSequenceLimit = await CheckTradeFrequencyOccurance(userId, buyOrSell.ToLower(), strategy, _MaxTradeTypeOccurances);
+				if (!withinTradeSequenceLimit && numberOfTradesToday > 0)
+				{
+					_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) User has {buyOrSell} {from} {to} too frequently ({_MaxTradeTypeOccurances - 1}) in the last {_MaxTradeTypeOccurances} occurances. Trade Cancelled.", userId, "TRADE", true);
+					return false;
+				}
+			} 
 		}
 		catch (Exception ex)
 		{
@@ -1774,18 +1814,18 @@ public class KrakenService
 				await using var createNotificationCmd = new MySqlCommand(createNotificationSql, conn);
 				createNotificationCmd.Parameters.AddWithValue("@UserId", userId);
 				string buyOrSell = to == "USDC" ? "Sell" : "Buy";
-				decimal tradeValue = decimal.Round(Convert.ToDecimal(amount) * currentCoinPriceInUSDC, 2);
+				decimal tradeValue = Convert.ToDecimal(amount) * currentCoinPriceInUSDC;
 				string content;
 				string toCoinName = CoinNameMap.TryGetValue(to, out var toname) ? toname : to;
 				string fromCoinName = CoinNameMap.TryGetValue(from, out var fromname) ? fromname : from;
 
 				if (buyOrSell == "Buy")
 				{ // Buy: Spent [USDC], Bought [Coin]
-					content = $"Executed Trade: Buy {amount} {toCoinName}, Cost: {tradeValue} {from} @ {currentCoinPriceInUSDC} per {to} ({strategy});";
+					content = $"Executed Trade: Buy {amount} {toCoinName}, Cost: {tradeValue} {from} @ {currentCoinPriceInUSDC} per {to.Replace("XBT", "BTC").Replace("XDG","Doge")} ({strategy});";
 				}
 				else
 				{ // Sell: Sold [Coin], Received [USDC]
-					content = $"Executed Trade: Sold {amount} {fromCoinName}, Received {tradeValue} {to} @ {currentCoinPriceInUSDC} per {from} ({strategy})";
+					content = $"Executed Trade: Sold {amount} {fromCoinName}, Received {tradeValue} {to} @ {currentCoinPriceInUSDC} per {from.Replace("XBT", "BTC").Replace("XDG", "Doge")} ({strategy})";
 				}
 				createNotificationCmd.Parameters.AddWithValue("@Content", content);
 				await createNotificationCmd.ExecuteNonQueryAsync();
@@ -3318,13 +3358,13 @@ public class KrakenService
 		}
 		return momentumStrategy;
 	}
-	private async Task<int?> FindMatchingBuyOrder(int userId, string coinSymbol, string strategy, decimal sellPrice, MySqlConnection? conn = null)
+	private async Task<int?> FindMatchingBuyOrder(int userId, string coinSymbol, string strategy, decimal sellPrice, decimal spreadThreshold, MySqlConnection? conn = null)
 	{
 		bool shouldDisposeConnection = conn == null;
 		int? matchingBuyId = null;
 
 		// Calculate maximum buy price for 0.84% profit
-		decimal maxBuyPrice = sellPrice / (1m + _TradeThreshold); // Ensures at least 0.84% profit
+		decimal maxBuyPrice = sellPrice / (1m + spreadThreshold); // Ensures at least 0.84% profit
 
 		const string sql = @"
 			SELECT id 

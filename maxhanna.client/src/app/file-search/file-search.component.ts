@@ -47,6 +47,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit {
   @Input() showSpaceForNotifications = false;
   @Input() showHiddenFiles: boolean = true;
   @Input() showTopics: boolean = true;
+  @Input() captureNotifications: boolean = false;
   @Input() currentPage = this.defaultCurrentPage; 
   @Output() selectFileEvent = new EventEmitter<FileEntry>();
   @Output() currentDirectoryChangeEvent = new EventEmitter<string>();
@@ -139,18 +140,21 @@ export class FileSearchComponent extends ChildComponent implements OnInit {
     }, 1000);
   }
   async delete(file: FileEntry) {
+    const parent = this.inputtedParentRef ?? this.parentRef;
+    const user = parent?.user ?? this.user;
+
     if (confirm(`Delete : ${file.fileName} ?`)) {
       this.startLoading();
       try {
-        const response = await this.fileService.deleteFile(this.user?.id ?? 0, file);
+        const response = await this.fileService.deleteFile(user?.id ?? 0, file);
         if (response) {
-          this.userNotificationEvent.emit(response);
+          this.notifyUser(response); 
           if (response.includes("successfully")) {
             this.directory!.data = this.directory?.data!.filter(res => res.fileName != file.fileName);
           }
         }
       } catch (ex) {
-        this.userNotificationEvent.emit(`Failed to delete ${file.fileName}!`);
+        this.notifyUser(`Failed to delete ${file.fileName}!`); 
       }
       this.stopLoading();
       this.closeOptionsPanel();
@@ -246,7 +250,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit {
 
       });
     } catch (error) {
-      this.userNotificationEvent.emit((error as Error).message);
+      this.notifyUser((error as Error).message); 
     }
     this.stopLoading(); 
   }
@@ -341,7 +345,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit {
 
     const res = await this.fileService.updateFileData(this.user.id ?? 0, { FileId: fileId, GivenFileName: text, Description: '', LastUpdatedBy: this.user || this.inputtedParentRef?.user || new User(0, "Anonymous") });
     if (res) {
-      this.userNotificationEvent.emit(res);
+      this.notifyUser(res); 
       this.isEditing = this.isEditing.filter(x => x != fileId);
     }
     setTimeout(() => {
@@ -479,13 +483,13 @@ export class FileSearchComponent extends ChildComponent implements OnInit {
         const user = this.inputtedParentRef?.user ?? this.parentRef?.user; 
         const userId = user?.id ?? 0;
         const res = await this.fileService.moveFile(inputFile, destinationFolder, userId);
-        this.userNotificationEvent.emit(res!);
+        this.notifyUser(res!); 
         if (!res!.includes("error")) {
           this.directory!.data = this.directory!.data!.filter(x => x.fileName != this.draggedFilename);
         }
       } catch (ex) {
         console.error(ex);
-        this.userNotificationEvent.emit(`Failed to move ${this.draggedFilename} to ${currDir + this.destinationFilename}!`);
+        this.notifyUser(`Failed to move ${this.draggedFilename} to ${currDir + this.destinationFilename}!`);
       }
       this.stopLoading();
     } else {
@@ -557,7 +561,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit {
     this.closeOptionsPanel();
   }
   emittedNotification(event: string) {
-    this.userNotificationEvent.emit(event);
+    this.notifyUser(event);
   }
   showOptionsPanel(file: FileEntry) {
     if (this.isOptionsPanelOpen) {
@@ -706,15 +710,20 @@ export class FileSearchComponent extends ChildComponent implements OnInit {
     } else return '.';
   }
   updateFileVisibility(file: FileEntry) {
+    const parent = this.inputtedParentRef ?? this.parentRef; 
     file.visibility = file.visibility == "Private" ? "Public" : "Private";
-    const user = this.inputtedParentRef?.user ?? this.parentRef?.user ?? new User(0, "Anonymous");
-    this.fileService.updateFileVisibility(user?.id ?? 0, file.visibility == "Private" ? false : true, file.id);
+    const user = parent?.user ?? new User(0, "Anonymous");
+    this.fileService.updateFileVisibility(user?.id ?? 0, file.visibility == "Private" ? false : true, file.id).then(res => {
+      parent?.showNotification(res ?? "File visibility updated.");
+    });
   }
   hide(file: FileEntry) {
     const parent = this.inputtedParentRef ?? this.parentRef;
     const user = parent?.user;
     if (parent && user && user.id) {
-      this.fileService.hideFile(file.id, user.id);
+      this.fileService.hideFile(file.id, user.id).then(res => {
+        parent.showNotification(res);
+      });
     }
   }
   private replacePageTitleAndDescription() {
@@ -893,14 +902,27 @@ export class FileSearchComponent extends ChildComponent implements OnInit {
     this.debounceSearch();     
   }
   addToFavourites(fileEntry: FileEntry) {
-    const user = this.inputtedParentRef?.user ?? this.parentRef?.user;
+    const parent = this.inputtedParentRef ?? this.parentRef;
+    const user = parent?.user;
     if (!user || !user.id) {
       return alert("You must be logged in to use this feature!");
     }
     this.fileService.toggleFavourite(user.id, fileEntry.id).then(res => {
       if (res) {
         this.userNotificationEvent.emit(res.action + " successfully!"); 
+        if (!this.captureNotifications) { 
+          parent.showNotification(res.action + " successfully!");
+        }
       } 
+      
     });
+  }
+
+  notifyUser(message: string) {
+    this.userNotificationEvent.emit(message);
+    const parent = this.inputtedParentRef ?? this.parentRef
+    if (!this.captureNotifications) {
+      parent?.showNotification(message);
+    }
   }
 }

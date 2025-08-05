@@ -38,6 +38,8 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
   isShowingFileViewers = false; 
   isEditingFileName = false;
   editingTopics: number[] = [];
+  isVideoBuffering = false;
+
   @ViewChild('mediaContainer', { static: false }) mediaContainer!: ElementRef;
   @ViewChild('fullscreenOverlay', { static: false }) fullscreenOverlay!: ElementRef;
   @ViewChild('fullscreenImage', { static: false }) fullscreenImage!: ElementRef;
@@ -628,5 +630,15 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
     console.log("Media ended");
     this.mediaEndedEvent.emit();
   }
-  
+  onVideoWaiting() {
+    this.isVideoBuffering = true;
+  }
+
+  onVideoCanPlay() {
+    this.isVideoBuffering = false;
+  }
+
+  onVideoStalled() {
+    this.isVideoBuffering = true;
+  }
 }

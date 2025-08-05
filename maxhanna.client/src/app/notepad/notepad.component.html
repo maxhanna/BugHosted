@@ -1,10 +1,11 @@
 <div class="componentMain">
   <div class="closeButton" (click)="remove_me('NotepadComponent');"></div> 
   <div class="componentTitle">Notepad</div>
-  <div class="userList" *ngIf="isPanelExpanded"> 
+  <div class="popupPanel" *ngIf="isPanelExpanded"> 
     <div class="sharedWithWrapperDiv">
-      <div>
-        Share Note (id# {{ noteId.value }})? <span *ngIf="splitNoteOwnershipUsers && splitNoteOwnershipUsers.length > 0">Currently shared with:</span>
+      <div class="popupPanelTitle">
+        Share Note (id# {{ noteId.value }})? 
+        <div *ngIf="splitNoteOwnershipUsers && splitNoteOwnershipUsers.length > 0" class="smallFont">Currently shared with:</div>
       </div>
       <div *ngFor="let user of splitNoteOwnershipUsers">
         <app-user-tag [user]="user" 

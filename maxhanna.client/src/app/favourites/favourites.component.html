@@ -45,8 +45,8 @@
             ➕
           </button>
           <div class="editOrDeleteSpanWrapper" *ngIf="showEditLinks && fav.isUserFavourite">
-            <span (click)="openEditPanel(fav)" class="cursorPointerUnderlined smallFont">[Edit]</span>
-            <span (click)="deleteFav(fav)" class="cursorPointerUnderlined smallFont">[Delete]</span>
+            <button (click)="openEditPanel(fav)" class="cursorPointer smallFont" title="Edit">✏️</button>
+            <button (click)="deleteFav(fav)" class="cursorPointer smallFont" title="Delete">❌</button>
           </div>
         </div>
       </div>

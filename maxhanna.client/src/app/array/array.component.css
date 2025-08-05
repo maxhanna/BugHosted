@@ -128,20 +128,22 @@
     display:flex;
     justify-content:center;
     align-content:center;
+    flex-wrap: wrap;
 }
 .inventoryItem {
     height:50px;
     width:50px;
 }
-.inventoryDiv, inventoryItemsDiv { 
+.inventoryDiv { 
   height:255px;
   overflow: auto;
   display: flex;
   align-items: flex-start;
   align-content: flex-start;
   justify-content: space-evenly;
-  justify-items: center;
-  flex-flow: column wrap;
+  justify-items: center; 
+  flex-direction: column;
+  flex-wrap: nowrap;
 }
 .ranksExpander {
     font-size: xx-small;

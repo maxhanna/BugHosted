@@ -92,10 +92,9 @@
   </div>
 
   <div *ngIf="hideRanks" (click)="hideRanks = !hideRanks" class="usernameProfileLink rankingDiv">Show Ranks</div>
-  <div *ngIf="!hideRanks" class="rankingDiv {{isNexusPosition(hero.position!) ? '' : 'rankingDivOffNexus'}}"
+  <div *ngIf="!hideRanks || isRanksExpanded" class="{{isRanksExpanded ? 'popupPanel' : 'rankingDiv'}} {{isNexusPosition(hero.position!) ? '' : 'rankingDivOffNexus'}}"
     #rankingDiv>
-    <span class="usernameProfileLink" (click)="hideRanks = !hideRanks">Ranks</span> <span (click)="expandRanks()"
-      class="ranksExpander">[{{isRanksExpanded ? 'shrink' : 'expand'}}]</span>
+    <span class="usernameProfileLink cursorPointerUnderline" (click)="hideRanks = !hideRanks" [class]="isRanksExpanded ? 'popupPanelTitle' : ''">Ranks</span> 
     <table>
       <thead>
         <tr>
@@ -120,8 +119,10 @@
         </tr>
       </tbody>
     </table>
+    <button id="closeOverlay" class="closeButton" *ngIf="isRanksExpanded" (click)="shrinkRanks()">Ok</button>
   </div>
   <div class="arrayHelpButtonsWrapper">
+    <button (click)="expandRanks()" *ngIf="!isRanksExpanded" title="Shows all rankings">🦸Ranks</button>
     <button (click)="copyLink()" title="Share Link">📋Share</button>
     <button (click)="openHelpPanel()" title="Share Link">ℹ️Help</button>
   </div>

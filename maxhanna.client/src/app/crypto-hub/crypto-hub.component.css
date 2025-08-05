@@ -205,11 +205,7 @@ button {
   margin-top: 20px;
   margin-bottom: 20px;
   height: unset !important;
-}
-
-.walletPanelCloseDiv {
-  margin: 20px 20px 0px 20px;
-}
+} 
 
 .aiMessage {
   max-height: 150px;
@@ -304,9 +300,10 @@ button {
 
 .aboutTable {
   height: CALC(var(--vh, 1vh) * 100 - 360px);
-  overflow: auto; 
-  border: var(--main-border); 
+  overflow: auto;
+  border: var(--main-border);
 }
+
 .tradeDataTable {
   height: CALC(var(--vh, 1vh) * 100 - 360px);
   overflow: auto;
@@ -490,7 +487,7 @@ div:not(.trade-panel-controls) .button-wrapper {
   div:not(.trade-panel-controls) .button-wrapper {
     max-width: 160px;
   }
- 
+
   .trade-panel-controls .button-description {
     word-break: break-word;
   }
@@ -860,17 +857,21 @@ div:not(.trade-panel-controls) .button-wrapper {
   text-decoration: underline;
   white-space: nowrap;
 }
+
 .sentiment-table-wrapper {
-  max-height: 85vh;
+  max-height: 75vh;
   overflow-y: auto;
+  margin-top: 10px;
 }
+
 .sentiment-table thead th {
   position: sticky;
   top: 0;
-  background: var(--main-highlight-color); 
+  background: var(--main-highlight-color);
   color: var(--secondary-font-color);
   z-index: 1;
 }
+
 .sentiment-table th,
 .sentiment-table td {
   border: 1px solid #ccc;
@@ -924,7 +925,7 @@ div:not(.trade-panel-controls) .button-wrapper {
 
 .macd-graph-container {
   height: 400px;
-  margin: 20px 0;
+  margin-bottom: 20px;
 }
 
 .macd-legend {
@@ -995,4 +996,3 @@ div:not(.trade-panel-controls) .button-wrapper {
 .button-wrapper {
   margin-bottom: 10px;
 }
- 

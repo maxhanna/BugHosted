@@ -1,7 +1,7 @@
 <div class="componentMain">
   <div class="closeButton" (click)="isTradePanelOpen ? closeTradeFullscreen() : remove_me('CryptoHubComponent');"></div>
-  <div class="menuButton" (click)="showMenuPanel();"></div>
-  <div class="componentTitle">Crypto Hub</div>
+  <div class="menuButton" (click)="showMenuPanel();" *ngIf="!isTradePanelOpen"></div>
+  <div class="componentTitle">{{!isTradePanelOpen ? 'Crypto Hub' : 'Active Trade Bots'}}</div>
   <div [class]="noMining ? 'noMiningHubSection' : !isTradePanelOpen ? 'hubSection' : ''"
     [style.display]="isTradePanelOpen ? 'none' : 'block'">
     <div class="cryptoHubConverterAndCoinWatchWrapper" [style.display]="isTradePanelOpen ? 'none' : 'block'">
@@ -266,9 +266,9 @@
         <div [class]="'indicator-card' + (isMarketSentimentMaximized ? ' popupPanel' : '')"
           *ngIf="marketSentimentData != undefined"
           (click)="(isMarketSentimentMaximized ? '' : openMarketSentimentPopup())">
-          <div class="indicator-label"
+          <div [class]="isMarketSentimentMaximized ? 'popupPanelTitle' : 'indicator-label'"
             title="How much the price has dropped from its recent high. Small values suggest strength.">
-            Sentiment Analysis Score
+            {{(!onMobile() || !isMarketSentimentMaximized) ? 'Sentiment ' : ''}}Analysis
           </div>
           <div class="indicator-value" [class]="marketSentimentData[0].sentimentScore > 50 ? 'positive' : 'negative'"
             *ngIf="!isMarketSentimentMaximized">
@@ -302,7 +302,7 @@
                     </td>
 
                     <!-- Analysis -->
-                    <td style="width: auto;" [class.ellipsis]="!isLatestSentiment(item) && !item.expanded">
+                    <td style="width: auto;" [class]="onMobile() ? 'smallFont' : ''" [class.ellipsis]="!isLatestSentiment(item) && !item.expanded">
                       {{ item.analysis }}
                     </td>
                     <td class="smallColumn" [class.ellipsis]="!isLatestSentiment(item) && !item.expanded"
@@ -325,7 +325,7 @@
 
             <!-- CLOSE BUTTON -->
             <div style="text-align:right;margin-top:12px;">
-              <button id="closeOverlay" (click)="closeMarketSentimentPopup()">OK</button>
+              <button id="closeOverlay" (click)="closeMarketSentimentPopup()" class="closeButton">OK</button>
             </div>
           </div>
         </div>
@@ -374,13 +374,11 @@
         </thead>
         <tbody *ngFor="let subWallet of wallet">
           <ng-container>
-            <tr (click)="selectCoin(subWallet.total?.currency)" class="walletTotalHeaderRow">
-              <!--<tr (click)="selectCoin(wallet.total?.currency)">-->
+            <tr class="walletTotalHeaderRow"> 
               <td></td>
-              <td>{{ subWallet.total?.currency }}</td>
+              <td (click)="selectCoin(subWallet.total?.currency)" >{{ subWallet.total?.currency }}</td>
               <td>{{ isDiscreete ? '***' : subWallet.total?.totalBalance }}</td>
-              <td>{{ (isDiscreete ? '***' : getTotalCurrencyDisplayValue(subWallet.total)) |
-                currencySymbol:selectedCurrency:true }}</td>
+              <td>{{ (isDiscreete ? '***' : getTotalCurrencyDisplayValue(subWallet.total)) | currencySymbol:selectedCurrency:true }}</td>
               <td></td>
             </tr>
           </ng-container>
@@ -388,13 +386,11 @@
             <tr (click)="selectCoin(currency.currency)">
               <td (click)="areWalletAddressesHidden = !areWalletAddressesHidden"
                 [class]="'cursorPointerUnderlined ' + (areWalletAddressesHidden ? 'hiddenBtcAddress' : 'normalBtcAddress')">
-                {{ isDiscreete && currency.address ? currency.address.substring(0,3) + '***' +
-                currency.address.substring(currency.address.length - 3, currency.address.length) : currency.address }}
+                {{ isDiscreete && currency.address ? currency.address.substring(0,3) + '***' + currency.address.substring(currency.address.length - 3, currency.address.length) : currency.address }}
               </td>
-              <td>{{ currency.currency }}</td>
+              <td (click)="selectCoin(currency.currency)" >{{ currency.currency }}</td>
               <td>{{ isDiscreete ? '***' : currency.totalBalance }}</td>
-              <td>{{ (isDiscreete ? '***' : getCurrencyValue(currency.currency, currency)) |
-                currencySymbol:selectedCurrency:true }}</td>
+              <td>{{ (isDiscreete ? '***' : getCurrencyValue(currency.currency, currency)) | currencySymbol:selectedCurrency:true }}</td>
               <td title="Wallet data" class="cursorPointer" (click)="showWalletData(currency)">ℹ️</td>
             </tr>
           </ng-container>
@@ -416,21 +412,18 @@
     <div class="{{isTradePanelOpen ? 'maximizedTradePanel' : 'sectionContainer'}}"
       [style]="showingTradeSettings ? 'display: flex; flex-direction: column; align-items: center;' : ''">
       <div class="titleFont">
-        <div style="width:100%;">
-          <div>
-            <span class="sectionName">
-              <span class="cursorPointer warning-text"
-                title="We take no responsibility in how you use this trade bot nor what you do with any of this information.">⚠️</span>
-              Trade Bot
-            </span>
-            <button class="cursorPointer" (click)="openTradeFullscreen()" *ngIf="!isTradePanelOpen">
-              Maximize View
-            </button>
-          </div>
-
+        <div style="width:100%;">  
           <div *ngIf="tradeBotStartedSince">
             <div *ngIf="getActiveTradeBots().length > 0">
-              <div class="sectionName" *ngIf="!isTradePanelOpen">Active Trade Bots</div>
+              <div class="sectionName" *ngIf="!isTradePanelOpen">
+                Active Trade Bots
+                <div>
+                  <button class="cursorPointer" (click)="openTradeFullscreen()" *ngIf="!isTradePanelOpen"
+                  title="We take no responsibility in how you use this trade bot nor what you do with any of this information.">
+                    Maximize View
+                  </button>
+                </div> 
+              </div>
 
               <ng-container *ngIf="groupedBotsDisplay() as botGroups">
                 <ul *ngIf="!isTradePanelOpen">
@@ -667,8 +660,8 @@
               </tr>
             </thead>
             <tbody>
-              <tr *ngFor="let trade of tradebotBalances" [id]="'tradeBalance'+trade.id"
-                [class]="selectedTradeBalanceId == trade.id ? 'gradientBackground' : ''">
+              <tr *ngFor="let trade of tradebotBalances" [id]="'tradeBalance'+trade.id" 
+                [style.background]="selectedTradeBalanceId == trade.id ? 'var(--main-highlight-color)' : ''">
                 <td class="xxSmallFont">
                   {{ trade.id }}
                 </td>
@@ -699,7 +692,7 @@
                   {{ parentRef?.convertUtcToLocalTime(trade.timestamp) | timeSince }}
                 </td>
                 <td [class]="onMobile() ? 'xxSmallFont' : ''" [title]="trade.matching_trade_id"
-                  (click)="goToTradeId('tradeBalance'+trade.matching_trade_id)">
+                  (click)="goToTradeId(trade.matching_trade_id)">
                   {{ trade.matching_trade_id ?? (trade.is_reserved ? 'Reserved': '') }}
                 </td>
               </tr>
@@ -990,7 +983,7 @@
       </div>
     </div>
     <div>
-      <button id="closeOverlay" (click)="closeMenuPanel()">Close</button>
+      <button id="closeOverlay" (click)="closeMenuPanel()" class="closeButton">Close</button>
     </div>
   </div>
 
@@ -1044,10 +1037,8 @@
       *ngIf="(finishedGeneratingAiWalletMessage && !hideHostAiMessageWallet) || getAiMessage(currentlySelectedCurrency?.address)">
       <span [innerHTML]="getAiMessage(currentlySelectedCurrency?.address)"></span>
     </div>
-
-    <div class="walletPanelCloseDiv">
-      <button id="closeOverlay" (click)="closeWalletPanel()">Close</button>
-    </div>
+ 
+    <button id="closeOverlay" (click)="closeWalletPanel()" class="closeButton" style="margin: 20px 20px 0px 20px;">Close</button> 
   </div>
 
   <div *ngIf="isTradeInformationOpen" class="popupPanel">
@@ -1094,17 +1085,16 @@
   <div *ngIf="isMacdPopupOpen" class="popupPanel macd-popup">
     <div class="popupPanelTitle"
       title="MACD is a popular trend-following momentum indicator used in technical analysis to identify potential buy/sell signals. It consists of two lines: the MACD line (difference between 12-day and 26-day exponential moving averages) and the Signal line (9-day EMA of the MACD line). The histogram shows the difference between these two lines, indicating momentum strength.">
-      MACD Visualization ({{selectedIndicatorPair}})
-      <button class="close-button macd-closeButton" (click)="closeMacdPopup()">×</button>
+      MACD Visualization <span [class]="onMobile() ? 'smallFont' : ''">({{selectedIndicatorPair}})</span> 
     </div>
 
-    <div class="macd-graph-container">
+    <div class="macd-graph-container" *ngIf="!showMacdHelp">
       <app-line-graph [type]="'MACD'" [selectedCoin]="selectedIndicatorPair.split('/')[0]" [data]="macdGraphData"
         [showHistogram]="true" [showSignalLine]="true" [showMacdLine]="true" [selectedPeriod]="'2w'">
       </app-line-graph>
     </div>
 
-    <div class="macd-legend">
+    <div class="macd-legend" *ngIf="!showMacdHelp">
       <div class="legend-item">
         <span class="legend-color macd-line"></span>
         <span>MACD Line (12,26)</span>
@@ -1123,7 +1113,7 @@
       </div>
     </div>
 
-    <div class="macd-description gradientBackground">
+    <div class="macd-description gradientBackground" *ngIf="showMacdHelp">
       <div class="popupPanelTitle">MACD Interpretation</div>
       <ul class="smallFont">
         <li><strong>Bullish Signal:</strong> When MACD (blue) crosses above Signal (orange)</li>
@@ -1132,6 +1122,8 @@
         <li><strong>Divergence:</strong> Price makes new highs/lows but MACD doesn't - potential reversal signal</li>
       </ul>
     </div>
-
-    <button class="popup-close-button" id="closeOverlay" (click)="closeMacdPopup()">Close</button>
+    <div style="display: flex; justify-content: center; align-items: center; gap: 5px;">
+      <button (click)="showMacdHelp = !showMacdHelp">Help</button>
+      <button class="closeButton" id="closeOverlay" (click)="closeMacdPopup()">Close</button>
+    </div>
   </div>

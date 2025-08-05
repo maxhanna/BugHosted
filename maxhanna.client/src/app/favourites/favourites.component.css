@@ -58,7 +58,8 @@
   align-content: center;
   border: var(--main-border);
   border-radius: 4px;
-  background: linear-gradient(135deg, var(--component-background-color), var(--secondary-component-background-color));
+  background: linear-gradient(135deg, var(--component-background-color), var(--secondary-component-background-color)); 
+  box-shadow: 3px 2px 6px var(--main-highlight-color-quarter-opacity);
 }
 
 .favouriteDiv img,

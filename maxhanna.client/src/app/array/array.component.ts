@@ -315,14 +315,18 @@ export class ArrayComponent extends ChildComponent implements OnInit, OnDestroy 
     await this.refreshHeroData();
     this.isUserComponentClosed = true; 
   }
-
+  shrinkRanks() {
+    this.isRanksExpanded = false;
+    this.parentRef?.closeOverlay();
+  }
   expandRanks() {
     this.isRanksExpanded = !this.isRanksExpanded;
-    if (!this.isRanksExpanded) {
-      this.rankingDiv.nativeElement.classList.remove("expanded");
-    } else {
-      this.rankingDiv.nativeElement.classList.add("expanded");
-    }
+    this.parentRef?.showOverlay();
+    // if (!this.isRanksExpanded) {
+    //   this.rankingDiv.nativeElement.classList.remove("expanded");
+    // } else {
+    //   this.rankingDiv.nativeElement.classList.add("expanded");
+    // }
   } 
   openHelpPanel() {
     this.isHelpPanelOpen = true;

@@ -1,5 +1,5 @@
 import { AfterViewInit, ChangeDetectionStrategy, Component, ElementRef, OnDestroy, OnInit, ViewChild } from '@angular/core';
-import { ChildComponent } from '../child.component'; 
+import { ChildComponent } from '../child.component';
 import { Todo } from '../../services/datacontracts/todo';
 import { TodoService } from '../../services/todo.service';
 import { MediaSelectorComponent } from '../media-selector/media-selector.component';
@@ -10,7 +10,7 @@ import { User } from '../../services/datacontracts/user/user';
   selector: 'app-todo',
   templateUrl: './todo.component.html',
   styleUrl: './todo.component.css',
-  standalone: false, 
+  standalone: false,
 })
 export class TodoComponent extends ChildComponent implements OnInit, AfterViewInit, OnDestroy {
   todos: Array<Todo> = [];
@@ -21,16 +21,18 @@ export class TodoComponent extends ChildComponent implements OnInit, AfterViewIn
   isEditListPanelOpen = false;
   isShareListPanelOpen = false;
   userColumns: string[] = [];
-  isEditing: number[] = [];
+  isEditing: Todo[] = [];
   todoPlaceholder = "";
   selectedFile?: FileEntry;
   showSharedList = false;
+  isExpandedEditFile = false;
 
   @ViewChild('todoInput') todoInput!: ElementRef<HTMLInputElement>;
   @ViewChild('urlInput') urlInput!: ElementRef<HTMLInputElement>;
   @ViewChild('selectedType') selectedType!: ElementRef<HTMLSelectElement>;
   @ViewChild('searchInput') searchInput!: ElementRef<HTMLInputElement>;
   @ViewChild('mediaSelector') mediaSelector!: MediaSelectorComponent;
+  @ViewChild('todoEditingFile') todoEditingFile!: MediaSelectorComponent;
   @ViewChild('addNewColumnInput') addNewColumnInput!: ElementRef<HTMLInputElement>;
 
   constructor(private todoService: TodoService) {
@@ -59,7 +61,7 @@ export class TodoComponent extends ChildComponent implements OnInit, AfterViewIn
         if (res) {
           this.sharedColumns = res;
         }
-      }); 
+      });
     }
 
     this.clearInputs();
@@ -112,7 +114,7 @@ export class TodoComponent extends ChildComponent implements OnInit, AfterViewIn
     tmpTodo.fileId = this.selectedFile?.id;
 
     await this.todoService.createTodo(this.parentRef.user.id, tmpTodo);
-    
+
     this.mediaSelector.removeAllFiles();
     this.selectedFile = undefined;
 
@@ -126,12 +128,12 @@ export class TodoComponent extends ChildComponent implements OnInit, AfterViewIn
     const row = document.getElementById("todoNo" + id) as HTMLTableRowElement;
 
     if (row) {
-      row.style.textDecoration = "line-through"; 
+      row.style.textDecoration = "line-through";
       const buttons = row.getElementsByTagName('button');
       const inputButtons = row.getElementsByTagName('input');
       for (let i = 0; i < buttons.length; i++) {
         buttons[i].style.display = 'none';
-      } 
+      }
       for (let i = 0; i < inputButtons.length; i++) {
         if (inputButtons[i].type === 'button') {
           inputButtons[i].style.display = 'none';
@@ -177,7 +179,7 @@ export class TodoComponent extends ChildComponent implements OnInit, AfterViewIn
         if (res) {
           this.parentRef?.showNotification(res);
           this.todoTypes.push(type);
-          if (this.addNewColumnInput && this.addNewColumnInput.nativeElement) { 
+          if (this.addNewColumnInput && this.addNewColumnInput.nativeElement) {
             this.addNewColumnInput.nativeElement.value = "";
           }
         }
@@ -202,7 +204,7 @@ export class TodoComponent extends ChildComponent implements OnInit, AfterViewIn
     this.selectedFile = selectedFile[0];
   }
   visitUrl(url: string) {
-    this.parentRef?.visitExternalLink(url); 
+    this.parentRef?.visitExternalLink(url);
   }
   openShareListPanel() {
     this.isShareListPanelOpen = true;
@@ -213,15 +215,15 @@ export class TodoComponent extends ChildComponent implements OnInit, AfterViewIn
     this.parentRef?.closeOverlay();
   }
   shareWith(user?: User) {
-    if (!this.parentRef?.user?.id || !user?.id) { return alert("You must be logged in to share a list."); } 
+    if (!this.parentRef?.user?.id || !user?.id) { return alert("You must be logged in to share a list."); }
     this.todoService.shareListWith(this.parentRef.user.id, user.id, this.selectedType.nativeElement.value).then(res => {
       if (res) {
         this.parentRef?.showNotification(res);
         if (res.includes("successfully")) {
-          if (this.sharedColumns.some((x: any) => x.columnName == this.selectedType.nativeElement.value  && x.ownerId == this.parentRef?.user?.id)) {
+          if (this.sharedColumns.some((x: any) => x.columnName == this.selectedType.nativeElement.value && x.ownerId == this.parentRef?.user?.id)) {
             const index = this.sharedColumns.findIndex((x: any) => x.columnName == this.selectedType.nativeElement.value && x.ownerId == this.parentRef?.user?.id);
             this.sharedColumns[index].sharedWith += ", " + user.id;
-          } else { 
+          } else {
             this.sharedColumns.push(
               {
                 ownerId: this.parentRef?.user?.id,
@@ -262,7 +264,7 @@ export class TodoComponent extends ChildComponent implements OnInit, AfterViewIn
               ...col,
               sharedWith: col.sharedWith.split(',')
                 .map((id: string) => id.trim())
-                .filter((id:string) => id !== userId.toString())
+                .filter((id: string) => id !== userId.toString())
                 .join(', ')
             };
           }
@@ -313,20 +315,20 @@ export class TodoComponent extends ChildComponent implements OnInit, AfterViewIn
   }
   getSharedWithYou() {
     return this.sharedColumns.filter(column => {
-      return column.shareDirection == "shared_with_me" && column.ownerId != this.parentRef?.user?.id; 
+      return column.shareDirection == "shared_with_me" && column.ownerId != this.parentRef?.user?.id;
     });
   }
   getSharedUsers() {
-    return this.sharedColumns.filter(x => x.shareDirection == "shared_by_me" &&  x.ownerId == this.parentRef?.user?.id);
+    return this.sharedColumns.filter(x => x.shareDirection == "shared_by_me" && x.ownerId == this.parentRef?.user?.id);
   }
- 
+
   currentUserColumns: string[] = []; // List of column names the user has added
 
   isColumnAdded(columnName: string): boolean {
     return this.todoTypes.includes(columnName);
   }
 
-  toggleSharedColumn(column: any): void { 
+  toggleSharedColumn(column: any): void {
     if (!column) return;
     if (this.todoTypes.includes(column.columnName)) {
       // Remove column logic
@@ -341,7 +343,7 @@ export class TodoComponent extends ChildComponent implements OnInit, AfterViewIn
     // Call your API to add the column to user's list
     // Then update currentUserColumns   
     await this.addColumn(column.columnName);
-  //  await this.shareWith(new User(column.ownerId));
+    //  await this.shareWith(new User(column.ownerId));
   }
 
   removeColumn(columnName: string): void {
@@ -354,25 +356,58 @@ export class TodoComponent extends ChildComponent implements OnInit, AfterViewIn
     this.selectedType.nativeElement.value = column.columnName;
     this.isShareListPanelOpen = true;
   }
-  async editTodo(id?: number) {
-    if (!id) return;
-    if (!this.isEditing.includes(id)) {
-      this.isEditing.push(id);
+  async editTodo(todo?: Todo) {
+    if (!todo || !todo.id) return;
+    const id = todo.id;
+    if (!this.isEditing.find(x => x.id == todo.id)) {
+      this.parentRef?.showOverlay();
+      this.isEditing.push(todo); 
+      setTimeout(() => {
+        if (todo.fileId) {
+          const fileEntry = { id: todo.fileId } as FileEntry;
+          this.todoEditingFile.selectFile(fileEntry);
+          this.todoEditingFile.viewMediaChoicesOpen = false;
+        }
+      }, 50);
+      return;
     } else {
       const todoDiv = document.getElementById('todoNo' + id) as HTMLDivElement;
-      const textArea = todoDiv.getElementsByTagName("textarea")[0];
+      const text = (document.getElementById("todoEditingTextarea") as HTMLTextAreaElement).value.trim();
+      const url = (document.getElementById('todoEditingUrlTextarea') as HTMLTextAreaElement).value.trim();
+      const fileId = this.todoEditingFile.selectedFiles[0]?.id ?? undefined;
 
-      try { 
-        await this.todoService.editTodo(id, textArea.value).then(res => { if (res) { this.parentRef?.showNotification(res); }}); 
+      try {
+        await this.todoService.editTodo(id, text, url, fileId).then(res => {
+          if (res) {
+            this.parentRef?.showNotification(res);
+            this.parentRef?.closeOverlay(false);
+            this.isExpandedEditFile = false;
+          }
+        });
         const todoIndex = this.todos.findIndex(todo => todo.id === id);
         if (todoIndex !== -1) {
-          this.todos[todoIndex].todo = textArea.value;  
-        } 
-        this.isEditing = this.isEditing.filter(x => x !== id);
+          this.todos[todoIndex].todo = text;
+          this.todos[todoIndex].url = url;
+          this.todos[todoIndex].fileId = fileId;
+        }
+        this.isEditing = this.isEditing.filter(x => x.id !== id);
       } catch (error) {
         console.error("Error updating todo:", error);
         this.parentRef?.showNotification("Failed to update todo");
       }
     }
+  }
+  closeEditPopup() {
+    clearTimeout(this.debounceTimer);
+    this.debounceTimer = setTimeout(async () => {
+      if (this.parentRef) { 
+        this.parentRef.closeOverlay(false);
+      }
+      this.editTodo(this.isEditing[0]);
+    }, 50); 
+  }
+  expandedEditFile(value : boolean) {
+    console.log("expandedEditFile", value);
+    this.isExpandedEditFile = value;
   }
 }

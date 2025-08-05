@@ -60,11 +60,13 @@ export class NotepadComponent extends ChildComponent implements OnInit, OnDestro
   }
   shareNoteButtonClick() {
     this.isPanelExpanded = !this.isPanelExpanded;
+    this.parentRef?.showOverlay();
     this.getUsers(); 
   }
   async shareNote(withUser?: User) {
     if (!withUser?.id || !this.parentRef?.user?.id) {
       this.isPanelExpanded = false;
+      this.parentRef?.closeOverlay();
       return;
     }
     if (confirm(`Share note with ${withUser.username}?`)) {

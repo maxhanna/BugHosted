@@ -2279,7 +2279,7 @@ LIMIT
 			}
 			return null;
 		}
-
+		
 		[HttpPost("/File/Hide/", Name = "HideFile")]
 		public async Task<IActionResult> HideFile([FromBody] HideFileRequest request)
 		{
@@ -2289,28 +2289,48 @@ LIMIT
 				{
 					await connection.OpenAsync();
 					using (var transaction = await connection.BeginTransactionAsync())
-					{
-						// Insert into hidden_files table (no permission check)
-						var hideCommand = new MySqlCommand(
-								"INSERT INTO maxhanna.hidden_files (user_id, file_id) VALUES (@userId, @fileId) ON DUPLICATE KEY UPDATE updated = CURRENT_TIMESTAMP",
+					{ 
+						var checkCommand = new MySqlCommand(
+							"SELECT COUNT(*) FROM maxhanna.hidden_files WHERE user_id = @userId AND file_id = @fileId",
+							connection, transaction);
+						checkCommand.Parameters.AddWithValue("@userId", request.UserId);
+						checkCommand.Parameters.AddWithValue("@fileId", request.FileId);
+
+						var isHidden = Convert.ToInt32(await checkCommand.ExecuteScalarAsync()) > 0;
+
+						if (isHidden)
+						{ 
+							var unhideCommand = new MySqlCommand(
+								"DELETE FROM maxhanna.hidden_files WHERE user_id = @userId AND file_id = @fileId",
 								connection, transaction);
-						hideCommand.Parameters.AddWithValue("@userId", request.UserId);
-						hideCommand.Parameters.AddWithValue("@fileId", request.FileId);
+							unhideCommand.Parameters.AddWithValue("@userId", request.UserId);
+							unhideCommand.Parameters.AddWithValue("@fileId", request.FileId);
 
-						await hideCommand.ExecuteNonQueryAsync();
-						_ = _log.Db($"File {request.FileId} hidden for user {request.UserId}", request.UserId, "FILE");
+							await unhideCommand.ExecuteNonQueryAsync();
+							_ = _log.Db($"File {request.FileId} unhidden for user {request.UserId}", request.UserId, "FILE");
+						}
+						else
+						{ 
+							var hideCommand = new MySqlCommand(
+								"INSERT INTO maxhanna.hidden_files (user_id, file_id) VALUES (@userId, @fileId)",
+								connection, transaction);
+							hideCommand.Parameters.AddWithValue("@userId", request.UserId);
+							hideCommand.Parameters.AddWithValue("@fileId", request.FileId);
 
-						// Commit transaction
+							await hideCommand.ExecuteNonQueryAsync();
+							_ = _log.Db($"File {request.FileId} hidden for user {request.UserId}", request.UserId, "FILE");
+						}
+ 
 						await transaction.CommitAsync();
+
+						return Ok(isHidden ? "File unhidden successfully." : "File hidden successfully.");
 					}
 				}
-
-				return Ok("File hidden successfully.");
 			}
 			catch (Exception ex)
 			{
-				_ = _log.Db("An error occurred while hiding the file. " + ex.Message, request.UserId, "FILE", true);
-				return StatusCode(500, "An error occurred while hiding the file.");
+				_ = _log.Db("An error occurred while toggling file visibility. " + ex.Message, request.UserId, "FILE", true);
+				return StatusCode(500, "An error occurred while toggling file visibility.");
 			}
 		}
 

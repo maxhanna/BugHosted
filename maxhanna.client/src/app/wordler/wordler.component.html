@@ -133,8 +133,7 @@
 </div>
 
 <!-- Menu Popup -->
-<div class="popupPanel" style="overflow: auto;" *ngIf="isMenuPanelOpen">
-
+<div class="popupPanel" style="overflow: auto;" *ngIf="isMenuPanelOpen"> 
   <div class="popupPanelTitle mainPopupTitle">
     The Wordler
   </div>
@@ -173,5 +172,5 @@
     </div>
   </div>
 
-  <button id="closeOverlay" (click)="closeMenuPanel()">Close</button>
+  <button id="closeOverlay" class="closeButton" (click)="closeMenuPanel()">Close</button>
 </div>

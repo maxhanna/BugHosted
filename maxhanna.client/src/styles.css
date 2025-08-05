@@ -247,14 +247,12 @@ fieldset {
   }
 
 
-  .mainTable td {
-    max-width: 100px !important;
+  .mainTable td { 
     word-wrap: break-word;
     text-overflow: ellipsis;
   }
 
-  .mainTable input {
-    max-width: 100px !important;
+  .mainTable input { 
     word-wrap: break-word;
     text-overflow: ellipsis;
   }
@@ -532,6 +530,9 @@ fieldset {
 
 .gradientBackground {
   background: linear-gradient(135deg, var(--component-background-color), var(--secondary-component-background-color));
+}
+.highlightBackgroundColor {
+  background-color: var(--main-highlight-color);
 }
 
 .onlineButton {

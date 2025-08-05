@@ -101,12 +101,9 @@
 <!-- Chat Members Popup -->
 <div class="popupPanel" *ngIf="isDisplayingChatMembersPanel">
   <div class="popupPanelTitle">
-    <span>Chat Members</span>
-    <div>
-      <button id="closeOverlay" (click)="closeChatMembersPanel()">Close</button>
-    </div>
+    Chat Members
   </div>
-  <div class="addChatMembersList">
+  <div class="addChatMembersList gradientBackground">
     <div *ngFor="let chatMember of currentChatUsers" class="addChatMemberLi">
       <app-user-tag [user]="chatMember" [inputtedParentRef]="parentRef ?? inputtedParentRef" [displayMiniTag]="true"
         [displayHoverPicture]="true"
@@ -116,15 +113,15 @@
   <div style="width: 100%; margin-top: 5px; text-align: center; max-height: 250px; overflow: auto">
     Add Chat Member(s) :
     <div style="max-height:200px; width: 100%; overflow:auto; display: inline;">
-      <app-user-list [searchOnly]="true" [inputtedParentRef]="inputtedParentRef ?? parentRef"
-        (groupChatEvent)="addChatMember($event)"></app-user-list>
+      <app-user-list [searchOnly]="true" [inputtedParentRef]="inputtedParentRef ?? parentRef" (groupChatEvent)="addChatMember($event)"></app-user-list>
     </div>
-  </div>
+  </div> 
+  <button id="closeOverlay" (click)="closeChatMembersPanel()" class="closeButton" style="margin-top: 10px;">Close</button> 
 </div>
 
 
 <!-- Menu Popup -->
-<div class="popupPanel" *ngIf="isMenuPanelOpen">
+<div class="popupPanel chatMenuPopupPanel" *ngIf="isMenuPanelOpen">
   <div class="popupPanelTitle" style="margin-bottom:15px;">
     Chat Menu
   </div>

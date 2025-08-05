@@ -1,32 +1,13 @@
 <!-- Search Popup -->
 <!-- <div class="{{searchOnly ? '' : 'popupPanel searchPopup'}}" *ngIf="isSearchPanelOpen"> -->
-<div *ngIf="isSearchPanelOpen">
-  <div class="popupPanelTitle">Search Users</div>
-  <div>
-    <input #searchInput (keyup)="searchUsers()" placeholder="🔍Search for Users" />
-    <div class="searchPopupUserListWrapper">
-      <div>
-        Result(s): {{ usersSearched.length }}
-      </div>
-      <div *ngFor="let user of usersSearched" class="userList" (click)="closeOverlayOnClick(user);">
-        <span class="user">
-          <app-user-tag [user]="user" [inputtedParentRef]="inputtedParentRef ?? parentRef" [displayMiniTag]="true"
-            [preventOpenProfile]="true" [preventExpandPicture]="true"></app-user-tag>
-          <span *ngIf="parentRef?.isUserOnline(user.lastSeen | timeSince)" class="glowing onlineButton"
-            [title]="'Online Since: ' + (user.lastSeen | timeSince)" [style.top]="'10px'">🟢</span>
-        </span>
-        <span class="chatIcon" *ngIf="getChatNotificationsByUserId(user.id)">
-          💬
-          <span class="chatNotificationNumber">
-            {{ getChatNotificationsByUserId(user.id) }}
-          </span>
-        </span>
-      </div>
+<div class="popupPanelTitle" *ngIf="isSearchPanelOpen">Search Users</div>
+  <div class="searchDiv" [style.display]="searchOnly ? 'inline-flex' : 'flex'">
+  <div *ngIf="isSearchPanelOpen">
+    <div>
+      <input #searchInput (keyup)="searchUsers()" placeholder="🔍Search for Users" /> 
     </div>
-  </div>
-</div>
-<div class="searchDiv" [style.display]="searchOnly ? 'inline-flex' : 'flex'" *ngIf="!isSearchPanelOpen">
-  <div *ngIf="displayRadioFilters">
+  </div> 
+  <div *ngIf="displayRadioFilters && !isSearchPanelOpen">
     Show:
     <label>
       <input type="radio" name="userFilter" value="friends" (change)="filterUsers()" #friendsRadio [checked]="displayOnlyFriends" />
@@ -39,7 +20,27 @@
   </div> 
   <div> 
     <button (click)="openSearchPanel()" class="searchUsersSpan" title="Search All Users" *ngIf="!isSearchPanelOpen">🔍Search</button>
-    <button (click)="userClickEvent.emit()" class="searchUsersSpan" title="Cancel" *ngIf="sharingSearch && !isSearchPanelOpen">❌Cancel</button>
+    <button (click)="closeSearchPanel()" class="searchUsersSpan" title="Cancel" *ngIf="!sharingSearch && isSearchPanelOpen">❌Cancel</button>
+    <button (click)="closeSearchPanel()" class="searchUsersSpan" title="Cancel" *ngIf="sharingSearch" id="closeOverlay">❌Cancel</button>
+  </div>
+</div>
+<div class="searchPopupUserListWrapper" *ngIf="isSearchPanelOpen" [class]="sharingSearch ? 'sharingSearchUserList' : ''" >
+  <div>
+    Result(s): {{ usersSearched.length }}
+  </div>
+  <div *ngFor="let user of usersSearched" class="userList" (click)="closeOverlayOnClick(user);">
+    <span class="user">
+      <app-user-tag [user]="user" [inputtedParentRef]="inputtedParentRef ?? parentRef" [displayMiniTag]="true"
+        [preventOpenProfile]="true" [preventExpandPicture]="true"></app-user-tag>
+      <span *ngIf="parentRef?.isUserOnline(user.lastSeen | timeSince)" class="glowing onlineButton"
+        [title]="'Online Since: ' + (user.lastSeen | timeSince)" [style.top]="'10px'">🟢</span>
+    </span>
+    <span class="chatIcon" *ngIf="getChatNotificationsByUserId(user.id)">
+      💬
+      <span class="chatNotificationNumber">
+        {{ getChatNotificationsByUserId(user.id) }}
+      </span>
+    </span>
   </div>
 </div>
 <div class="searchResults" *ngIf="!isSearchPanelOpen">

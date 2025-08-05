@@ -440,7 +440,7 @@
     </div>
   </div>
   <div>
-    <button id="closeOverlay" (click)="closeAboutPanel()">Close</button>
+    <button id="closeOverlay" (click)="closeAboutPanel()" class="closeButton">Close</button>
   </div>
 </div>
 
@@ -448,7 +448,7 @@
 <div class="popupPanel" *ngIf="isFriendsPanelOpen">
   <div class="popupPanelTitle friendsPopupPanelTitle">
     <span (click)="showingFriendsList = !showingFriendsList" class="cursorPointer">
-      {{ isEditingFriends ? 'Deleting ' : ''}}Friends{{ showingFriendsList ? ":" : ` [${friends.length}]`}}
+      Friends{{ showingFriendsList ? ":" : ` [${friends.length}]`}}
     </span>
     <span *ngIf="showingFriendsList && (!userId || userId == parentRef?.user?.id)"
           (click)="isEditingFriends = !isEditingFriends"
@@ -528,10 +528,8 @@
       </div>
 
     </div>
-  </div>
-  <div>
-    <button id="closeOverlay" (click)="closeFriendsPanel()">Close</button>
-  </div>
+  </div> 
+  <button id="closeOverlay" (click)="closeFriendsPanel()" class="closeButton">Close</button> 
 </div>
 
 
@@ -554,7 +552,7 @@
       </label>
     </div>
   </div>
-  <button id="closeOverlay" (click)="closeMenuPanel()">Close</button>
+  <button id="closeOverlay" (click)="closeMenuPanel()" class="closeButton" style="margin-top: 10px">Close</button>
 </div>
 
 <!-- Change Display Picture Popup -->

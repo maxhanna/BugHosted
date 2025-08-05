@@ -18,9 +18,8 @@ export class CurrencySymbolPipe implements PipeTransform {
 
     const numericValue = typeof value === 'string' ? parseFloat(value) : value;
 
-    if (isNaN(numericValue)) {
-      console.warn(`CurrencySymbolPipe: Invalid number for value=${value}, currencyCode=${currencyCode}`);
-      return `${symbol}0`;
+    if (isNaN(numericValue) || numericValue == 0) { 
+      return `${symbol}0.00`;
     }
 
     // Handle negative values first
@@ -28,10 +27,7 @@ export class CurrencySymbolPipe implements PipeTransform {
     const absoluteValue = Math.abs(numericValue);
 
     if (showFull) {
-      const formatted = absoluteValue.toLocaleString('en-US', {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 12
-      });
+      const formatted = absoluteValue.toFixed(numericValue >= 1 ? 2 : 8);
       return `${isNegative ? '-' : ''}${symbol}${formatted}`;
     }
 

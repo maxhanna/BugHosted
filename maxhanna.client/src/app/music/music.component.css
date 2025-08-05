@@ -85,7 +85,7 @@ iframe {
 }
 
 .normalSongList {
-  height: CALC(var(--vh, 1vh) * 100 - 145px);
+  height: CALC(var(--vh, 1vh) * 100 - 150px);
 }
  
  
@@ -240,5 +240,10 @@ input[type="submit"] {
   display: flex;
   justify-content: center;
   align-items: center;
+  gap: 5px;
+}
+.actionTd {
+  width: 0%;
+  display: flex;
   gap: 5px;
 }

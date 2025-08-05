@@ -26,7 +26,7 @@
                      [autoload]="memeId ? false : true"
                      [displayTotal]="false"
                      [showFileSearchOptions]="false"
-                     [showSpaceForNotifications]="true"
+                     [showSpaceForNotifications]="parentRef?.user?.id ? true : false"
                      [showHiddenFiles]="false"
                      [currentPage]="currentMemePage" 
                      [previousComponent]="'Meme'"

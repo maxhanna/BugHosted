@@ -595,10 +595,7 @@ singleAttachment {
   margin-top: 10px;
   margin-bottom: 5px;
 }
-
-.menuPopupSection {
-  margin: 5px;
-}
+ 
 
 .emojiFilterInputDiv {
   text-align: center;
@@ -1007,4 +1004,15 @@ singleAttachment {
 }
 .showPostFromHelpInfo strong {
   color: var(--secondary-font-color);
+}
+
+.menuContactUiLabel {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  align-content: center;
+  flex-direction: row;
+  gap: 10px;
+  flex-wrap: wrap;
 }

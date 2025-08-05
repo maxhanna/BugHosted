@@ -22,15 +22,18 @@
     <div *ngIf="!autoload" class="noAutoLoadDiv" (click)="forceLoad()">
       <span class="clickToLoadText">Click here to load media</span>
     </div>
-    <div *ngIf="isLoading && autoload" class="loading-spinner">Loading...</div>
+    <div *ngIf="isLoading && autoload" class="loading-spinner">
+      <div class="spinner"></div>
+      Loading media...
+    </div>
     <div *ngIf="autoload && selectedFileSrc != ''" class="mediaDiv">
       <img #mediaContainer (click)="expandFile({url: selectedFile, extension: selectedFileExtension})"
         *ngIf="imageFileExtensionsIncludes(this.selectedFileExtension)" [src]="selectedFileSrc"
         [attr.title]="title ? title : null" class="media" />
       <video #mediaContainer *ngIf="videoFileExtensionsIncludes(this.selectedFileExtension)" [src]="selectedFileSrc"
-        [controls]="displayControls" playsinline preload="auto" [autoplay]="autoplay" [loop]="loop" [muted]="muted"
-        (touchend)="togglePlay(mediaContainer)" (play)="togglePlay(mediaContainer)" (ended)="onMediaEnded()"
-        class="video media">
+        [controls]="displayControls" [autoplay]="autoplay" [loop]="loop" [muted]="muted" (waiting)="onVideoWaiting()"
+        (canplay)="onVideoCanPlay()" (stalled)="onVideoStalled()" (touchend)="togglePlay(mediaContainer)"
+        (play)="togglePlay(mediaContainer)" (ended)="onMediaEnded()" playsinline preload="auto" class="video media">
       </video>
       <audio #mediaContainer *ngIf="audioFileExtensionsIncludes(this.selectedFileExtension)" [src]="selectedFileSrc"
         controls preload="auto" [autoplay]="false" [muted]="muted" [loop]="loop" (touchend)="togglePlay(mediaContainer)"
@@ -60,7 +63,8 @@
         </div>
       </div>
     </div>
-    <div *ngIf="showMediaInformation" class="cursorPointer xxSmallFont showInfoSpan" title="Information"><a (click)="showMediaInformationButtonClicked()">ℹ️Info</a></div>
+    <div *ngIf="showMediaInformation" class="cursorPointer xxSmallFont showInfoSpan" title="Information"><a
+        (click)="showMediaInformationButtonClicked()">ℹ️Info</a></div>
   </div>
   <app-topics *ngIf="showTopics" [isDropdown]="false" [user]="inputtedParentRef?.user ?? parentRef?.user"
     [parent]="inputtedParentRef ?? parentRef" [attachedTopics]="file?.topics ?? selectedFile?.topics"
@@ -68,7 +72,9 @@
   </app-topics>
   <div [style]="isShowingMediaInformation ? 'padding:20px;' : ''"
     [class]="isShowingMediaInformation ? 'popupPanel' : ''">
-    <div *ngIf="(isShowingMediaInformation && selectedFile) || (isLoadedFromURL && selectedFile && (selectedFile.fileName || selectedFile.givenFileName))" class="optionsStatsWrapperDiv"> 
+    <div
+      *ngIf="(isShowingMediaInformation && selectedFile) || (isLoadedFromURL && selectedFile && (selectedFile.fileName || selectedFile.givenFileName))"
+      class="optionsStatsWrapperDiv">
       <div class="optionsStatsDiv">
         <div class="optionsStatsHeader">Id:</div>
         <div class="optionsStatsDescription">

@@ -4,7 +4,7 @@
   min-height: 300px;
   min-width: 300px;
 }
- 
+
 @media only screen and (min-width:800px) {
   .componentMain {
     min-width: 500px;
@@ -25,17 +25,18 @@
   display: none;
 }
 
-  .userPanel.expanded {
-    width: 100%;
-    height: CALC(var(--vh, 1vh) * 100 - 60px);
-    display: block;
-  }
+.userPanel.expanded {
+  width: 100%;
+  height: CALC(var(--vh, 1vh) * 100 - 60px);
+  display: block;
+}
 
 
 .chatArea {
   margin-left: 0;
   width: 100%;
 }
+
 /*
   .chatArea.expanded {
     width: 0px;
@@ -69,9 +70,9 @@
   text-align: right;
 }
 
-  .align-right * {
-    border-color: var(--secondary-font-color);
-  }
+.align-right * {
+  border-color: var(--secondary-font-color);
+}
 
 .messageContainer {
   display: flex;
@@ -112,13 +113,14 @@
   justify-content: center;
   align-items: center;
 }
-  .messageInput textarea {
-    width: calc(100% - 170px);
-  }
 
-  .messageInput input {
-    min-width: CALC(100% - 200px);
-  }
+.messageInput textarea {
+  width: calc(100% - 170px);
+}
+
+.messageInput input {
+  min-width: CALC(100% - 200px);
+}
 
 
 input[type="text"] {
@@ -173,25 +175,26 @@ input[type="text"] {
   gap: 20px;
 }
 
-  .reactionDiv button, .otherPersonsReactionDiv button {
-    cursor: pointer;
-    background-color: var(--main-highlight-color);
-    color: var(--secondary-font-color);
-    border-color: var(--main-highlight-color);
-  }
+.reactionDiv button,
+.otherPersonsReactionDiv button {
+  cursor: pointer;
+  background-color: var(--main-highlight-color);
+  color: var(--secondary-font-color);
+  border-color: var(--main-highlight-color);
+}
 
-  .chatUserConnected {
-    cursor: pointer;
-  }
+.chatUserConnected {
+  cursor: pointer;
+}
 
-  .chatUserConnected span {
-    text-decoration: underline;
-  }
+.chatUserConnected span {
+  text-decoration: underline;
+}
 
-  .chatUserConnected:not(:last-of-type)::after {
-    content: ",";
-    margin-right: 5px;
-  }
+.chatUserConnected:not(:last-of-type)::after {
+  content: ",";
+  margin-right: 5px;
+}
 
 .pagination-controls {
   white-space: nowrap;
@@ -199,8 +202,8 @@ input[type="text"] {
   text-overflow: ellipsis;
 }
 
-.popupPanel {
-  width: 320px;
+.chatMenuPopupPanel {
+  max-width: 420px;
 }
 
 .popupPanelTitle {
@@ -211,37 +214,36 @@ input[type="text"] {
 
 .addChatMembersList {
   margin-top: 15px;
-  height: 80px;
+  max-height: 100px;
   overflow: auto;
-  display: flex;
-  flex-direction: row;
-  flex-wrap: wrap;
-  align-content: space-between;
-  justify-content: space-around;
-  align-items: flex-start;
   gap: 10px;
+  width: calc(100% - 20px);
+  border: var(--main-border);
+  border-radius: 8px;
 }
 
 .addChatMemberLi {
-  display: flex;
-  flex-direction: row;
-  flex-wrap: nowrap;
-  align-content: center;
-  justify-content: center;
-  align-items: center; 
+  width: 100%; 
+}
+.addChatMemberLi:not(:last-child) { 
   border-bottom: var(--main-border);
-} 
-.receiverSeen, .userSeen {
+}
+
+.receiverSeen,
+.userSeen {
   font-size: xx-small;
   cursor: pointer;
   margin-left: 5px;
 }
+
 .chatMenuPopupWrapperDiv {
-  height: unset !important; 
+  height: unset !important;
 }
-  .chatMenuPopupWrapperDiv .optionsStatsDiv {
-    margin-bottom: 15px;
-  }
-  .chatMenuPopupCloseDiv {
-    margin: 20px 20px 0px 20px;
-  }
+
+.chatMenuPopupWrapperDiv .optionsStatsDiv {
+  margin-bottom: 15px;
+}
+
+.chatMenuPopupCloseDiv {
+  margin: 20px 20px 0px 20px;
+}

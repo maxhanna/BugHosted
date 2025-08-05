@@ -96,11 +96,11 @@
             <app-user-tag [user]="parentRef?.user" [inputtedParentRef]="parentRef ?? parent"
               [displayHoverPicture]="true" [previousComponent]="'Social'"></app-user-tag>
           </div>
-          <div class="smallFont thirdFontColor"
+          <!-- <div class="smallFont thirdFontColor"
             style="display: flex; flex-direction: column; align-content: center; justify-content: space-around; padding-left: 15px; font-family: var(--title-font-family);">
             <div>{{city}},</div>
             <div>{{country}}</div>
-          </div>
+          </div> -->
         </div>
 
         <div
@@ -131,8 +131,7 @@
         </div>
 
       </div>
-
-      <!-- local/popular/subscribed/all selector -->
+<!--  
       <div class="menuPopupSection">
         <label class="showPostsFromLabel">
           Show Posts From:
@@ -153,11 +152,11 @@
           <div class="showPostFromHelpInfoButton" (click)="isShowingPostFromHelpInfo = !isShowingPostFromHelpInfo">
             ℹ️{{isShowingPostFromHelpInfo ? 'Hide ' : ''}}Info</div>
         </label>
-      </div>
+      </div> -->
 
       <!-- compactness selector -->
       <div class="menuPopupSection">
-        <label class="showPostsFromLabel">
+        <label class="showPostsFromLabel menuContactUiLabel">
           Compact UI:
           <select (change)="setCompactness($event)" [value]="compactness">
             <option value="no" [selected]="compactness == 'no'">No - See Everything</option>
@@ -166,8 +165,7 @@
           </select>
         </label>
       </div>
-
-      <!-- search input area -->
+<!--  
       <div class="menuPopupSection">
         <input type="text" #search placeholder="Search the socials" (input)="debouncedSearch()" *ngIf="!user"
           [value]="userSearch" />
@@ -185,8 +183,7 @@
           [attachedTopics]="attachedTopics" (topicAdded)="onTopicAdded($event)">
         </app-topics>
       </div>
-
-      <!-- Top Topic Selector -->
+ 
       <div class="menuPopupSection topTopicsSection">
         <div class="topTopicTitle" *ngIf="showTopicSelector">
           Top Topics:
@@ -196,7 +193,7 @@
           <span class="matchingTopic topicName">{{topic.topicName}}<span
               class="topicStoryCount topicCount">({{topic.storyCount}})</span></span>
         </div>
-      </div>
+      </div> -->
 
       <button id="closeOverlay" (click)="closeMenuPanel()" class="closeButton">Close</button>
     </div>
@@ -437,7 +434,7 @@
           </div>
           <div class="optionsStatsDiv" *ngIf="isYoutubeUrl(metadata.url)">
             <div class="optionsStatsHeader">
-              ➕ Add "<span class="reducedFileName">{{metadata.title?.replace(' - YouTube', '')}}</span>" to Music
+              ➕ Add <span class="reducedFileName" *ngIf="!onMobile()">"{{metadata.title?.replace(' - YouTube', '')}}"</span> to Music
               Playlist?
             </div>
             <div class="optionsStatsDescription">
@@ -448,7 +445,7 @@
         </div>
         <div class="optionsStatsDiv" *ngFor="let videoFile of getVideoStoryFiles(optionStory)">
           <div class="optionsStatsHeader">
-            ➕ Add "<span class="reducedFileName">{{videoFile.givenFileName ?? videoFile.fileName}}</span>" to Music
+            ➕ Add <span class="reducedFileName" *ngIf="!onMobile()">"{{videoFile.givenFileName ?? videoFile.fileName}}"</span> to Music
             Playlist?
           </div>
           <div class="optionsStatsDescription">

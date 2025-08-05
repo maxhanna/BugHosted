@@ -1,6 +1,6 @@
 <div class=componentMain>
   <div class="menuButton" (click)="openMenu();"></div>
-  <div class="closeButton" (click)="remove_me('NexusComponent');"></div>
+  <div class="closeButton" (click)="mapComponent?.zoomedOut ? mapComponent?.zoomIn() : isMapOpen ? toggleScreen('map', false) : isSupportOpen ? toggleScreen('support', false) : isBasesOpen ? toggleScreen('bases', false) : isReportsOpen ? toggleScreen('reports', false) : isMovementOpen ? toggleScreen('movement', false) : remove_me('NexusComponent');"></div>
   <div class="componentTitle">Bug Wars</div>
   <div *ngIf="serverDown">We are sorry, server is currently down. Please be patient while we bring it back online.</div>
   <div *ngIf="!serverDown && !isUserComponentOpen && parentRef && parentRef.user && isUserNew && !isLoading"
@@ -319,7 +319,7 @@
         Worker slots allow you to upgrade more buildings simultaneously.
       </div>
       <div class="upgradeProgressDisplayP">
-        Current upgrade limit : {{nexusBase.commandCenterLevel + 1}}
+        Current upgrade limit : {{getBuildingUpgradeLimit()}}
       </div>
       <div *ngIf="!isDisplayingCommandCenterHelp">
         Player Color : <input type="color" #playerColorInput [value]="'#'+playerColor" (change)="setPlayerColor()" />
@@ -716,8 +716,7 @@
               class="upgradeButton">
               {{ getBuildingTimerForBuilding(upgrade.building) ?
               formatTimer(getBuildingTimerForBuilding(upgrade.building).endTime) : ((nexusBase && nexusBase.gold <
-                upgrade.cost) || (this.nexusBase && this.getBuildingCountersLength()>= this.nexusBase.commandCenterLevel
-                + 1)) ? '⛔' : '🔧' }}
+                upgrade.cost) || (this.nexusBase && canUpgradeBuildings())) ? '⛔' : '🔧' }}
             </button>
           </td>
         </tr>

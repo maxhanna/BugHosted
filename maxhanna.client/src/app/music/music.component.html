@@ -57,19 +57,28 @@
           </label>
         </div>
         <div class="mainTableContainer">
-          <table id="songListTable" class="mainTable" *ngIf="paginatedSongs && paginatedSongs.length > 0">
+          <table id="songListTable" [class]="isEditing.length ? '' : 'mainTable'" id="todoTable" *ngIf="paginatedSongs && paginatedSongs.length > 0">
             <tbody>
-              <tr *ngFor="let song of paginatedSongs" id="songId{{song.id!}}">
-                <td (click)="play(song.url, song.fileId)" *ngIf="song.id" style="width:100%">
+              <tr *ngFor="let song of paginatedSongs" id="songId{{song.id!}}" [class]="isEditing.includes(song.id ?? 0) ? 'popupPanel' : ''">
+                <td (click)="play(song.url, song.fileId)" *ngIf="song.id" style="width: calc(100% - 10px)">
                   <span *ngIf="!isEditing.includes(song.id)">{{song.todo}}</span>
-                  <input type=text id="editSongNameInput" *ngIf="isEditing.includes(song.id)" [value]="song.todo"
-                    style="width:100%" />
+                  <div *ngIf="isEditing.includes(song.id)" class="popupPanelTitle">Edit Song</div>
+                  <div>
+                    <span *ngIf="isEditing.includes(song.id)">Title:&nbsp;</span>
+                    <textarea type=text id="editSongNameInput" *ngIf="isEditing.includes(song.id)" [value]="song.todo" style="width:100%"></textarea>
+                  </div>
+                  <div>
+                    <span *ngIf="isEditing.includes(song.id)">Url:&nbsp;</span>
+                    <textarea type=text id="editSongUrlInput" *ngIf="isEditing.includes(song.id)" [value]="song.url" style="width:100%"></textarea>
+                  </div> 
                 </td>
-                <td style="width:0%; display:flex; gap: 5px;" *ngIf="!user && song.id">
-                  <button (click)="editSong(song.id)" class="xxSmallFont cursorPointer">{{ isEditing.includes(song.id) ?
-                    '💾':'✏️'}}</button>
+                <td [class]="isEditing.length ? '' : 'actionTd'" *ngIf="!user && song.id">
+                  <button (click)="editSong(song.id)" class="xxSmallFont cursorPointer" *ngIf="!isEditing.length">{{ isEditing.includes(song.id) ?
+                    '💾':'✏️'}}</button> 
+                  <button (click)="closeEditPopup()" [title]="'Edit'" class="cursorPointer closeButton"
+                      *ngIf="isEditing.includes(song.id)" id="closeOverlay">💾Update</button>
                   <input (click)="deleteSong(song.id)" value="❌" type="submit" class="xxSmallFont cursorPointer"
-                    *ngIf="!isEditing.includes(song.id)" />
+                    *ngIf="!isEditing.length" />
                 </td>
               </tr>
             </tbody>

@@ -29,6 +29,7 @@ export class MediaSelectorComponent implements OnDestroy {
   @Input() allowedFileTypes: string = '';
   @Input() uploadButtonText: string = "Upload";
   @Output() selectFileEvent = new EventEmitter<FileEntry[]>();
+  @Output() expandFileSelectorEvent = new EventEmitter<boolean>();
   @ViewChild('selectMediaDiv', { static: false }) selectMediaDiv!: ElementRef;
   @ViewChild('mediaButton', { static: false }) mediaButton!: ElementRef;
   @ViewChild('doneButton') doneButton!: ElementRef<HTMLButtonElement>;
@@ -50,9 +51,11 @@ export class MediaSelectorComponent implements OnDestroy {
     this.viewMediaChoicesOpen = !this.viewMediaChoicesOpen;
     if (this.inputtedParentRef) {
       if (this.viewMediaChoicesOpen) {
+        this.expandFileSelectorEvent.emit(this.viewMediaChoicesOpen);
         this.inputtedParentRef.showOverlay();
       } else {
         this.inputtedParentRef.closeOverlay();
+        this.expandFileSelectorEvent.emit(this.viewMediaChoicesOpen);
       } 
     }
     if (this.selectMediaDiv) {

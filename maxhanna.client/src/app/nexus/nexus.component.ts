@@ -197,7 +197,7 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
   @ViewChild('baseNameInput') baseNameInput!: ElementRef<HTMLInputElement>;
   @ViewChild('playerColorInput') playerColorInput!: ElementRef<HTMLInputElement>;
   @ViewChild('mapComponentDiv') mapComponentDiv!: ElementRef<HTMLDivElement>;
-  @ViewChild(NexusMapComponent) mapComponent!: NexusMapComponent;
+  @ViewChild(NexusMapComponent) mapComponent?: NexusMapComponent;
   @ViewChild(NexusBasesComponent) nexusBasesComponent!: NexusBasesComponent;
   @ViewChild(NexusReportsComponent) nexusReportsComponent!: NexusReportsComponent;
 
@@ -1119,7 +1119,7 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
   async upgradeBuilding(upgrade: string) {
     if (this.parentRef?.user?.id && this.nexusBase && this.nexusAvailableUpgrades) {
 
-      if (this.getBuildingCountersLength() >= this.nexusBase.commandCenterLevel + 1) {
+      if (this.canUpgradeBuildings()) {
         return alert("Upgrade your Command Center for more worker slots");
       } else if (this.nexusBaseUpgrades && this.nexusBaseUpgrades[(upgrade + 'Upgraded') as keyof NexusBaseUpgrades]) {
         return alert("You must wait until the upgrade finishes");
@@ -1676,8 +1676,8 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
             if (!this.mapData) {
               this.fetchMapData().then(() => {
                 setTimeout(() => {
-                  if (this.mapData && isOpen && !this.mapComponent.isMapRendered) {
-                    this.mapComponent.setMapData();
+                  if (this.mapData && isOpen && !this.mapComponent?.isMapRendered) {
+                    this.mapComponent?.setMapData();
                     setTimeout(() => {
                       if (this.nexusBase && !this.preventMapScrolling && this.mapComponent) {
                         this.mapComponent.scrollToCoordinates(this.nexusBase.coordsX, this.nexusBase.coordsY);
@@ -1687,8 +1687,8 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
                 }, 50); 
               })
             }
-            else if (this.mapData && isOpen && !this.mapComponent.isMapRendered) {
-              this.mapComponent.setMapData();
+            else if (this.mapData && isOpen && !this.mapComponent?.isMapRendered) {
+              this.mapComponent?.setMapData();
               setTimeout(() => {
                 if (this.nexusBase && !this.preventMapScrolling && this.mapComponent) {
                   this.mapComponent.scrollToCoordinates(this.nexusBase.coordsX, this.nexusBase.coordsY); 
@@ -2214,7 +2214,12 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
 
     return qualifyingUserIds;
   }
-  
+  canUpgradeBuildings() {
+    return this.getBuildingCountersLength() >= Math.max(this.nexusBase?.commandCenterLevel ?? 0, 1);
+  }
+  getBuildingUpgradeLimit() {
+    return Math.max(this.nexusBase?.commandCenterLevel ?? 0, 1);
+  }
   debounceLoadNexusData = this.debounce(async () => {
     this.loadNexusData();
   }, 1000);

@@ -1601,7 +1601,7 @@ namespace maxhanna.Server.Controllers
 			if (currentUpgrades?.SupplyDepotUpgraded != null) upgradeCount++;
 			if (currentUpgrades?.WarehouseUpgraded != null) upgradeCount++;
 
-			if (upgradeCount >= (nbase.CommandCenterLevel + 1))
+			if (upgradeCount >= Math.Max(nbase.CommandCenterLevel, 1))
 			{
 				return false;
 			}
@@ -1631,38 +1631,41 @@ namespace maxhanna.Server.Controllers
 			try
 			{
 				string sql = $@"
-                    SELECT 
-                        b.*, 
-                        (SELECT id FROM nexus_unit_types WHERE type = @Unit) as unitId,
-                        FLOOR(b.gold / (SELECT cost FROM nexus_unit_stats WHERE unit_id = (SELECT id FROM nexus_unit_types WHERE type = @Unit))) AS maxByGold, 
-                        FLOOR((b.supply_depot_level * 2500 - b.supply) / 
-                              (SELECT supply FROM nexus_unit_stats WHERE unit_id = (SELECT id FROM nexus_unit_types WHERE type = @Unit))) AS maxBySupply, 
-                        LEAST(
-                            FLOOR(b.gold / (SELECT cost FROM nexus_unit_stats WHERE unit_id = (SELECT id FROM nexus_unit_types WHERE type = @Unit))),
-                            FLOOR((b.supply_depot_level * 2500 - b.supply) / 
-                                  (SELECT supply FROM nexus_unit_stats WHERE unit_id = (SELECT id FROM nexus_unit_types WHERE type = @Unit)))
-                        ) AS qtyPurchased, 
-                        b.gold - LEAST(
-                            FLOOR(b.gold / (SELECT cost FROM nexus_unit_stats WHERE unit_id = (SELECT id FROM nexus_unit_types WHERE type = @Unit))),
-                            FLOOR((b.supply_depot_level * 2500 - b.supply) / 
-                                  (SELECT supply FROM nexus_unit_stats WHERE unit_id = (SELECT id FROM nexus_unit_types WHERE type = @Unit)))
-                        ) * (SELECT cost FROM nexus_unit_stats WHERE unit_id = (SELECT id FROM nexus_unit_types WHERE type = @Unit)) AS adjustedGold, 
-                        LEAST(
-                            FLOOR(b.gold / (SELECT cost FROM nexus_unit_stats WHERE unit_id = (SELECT id FROM nexus_unit_types WHERE type = @Unit))),
-                            FLOOR((b.supply_depot_level * 2500 - b.supply) / 
-                                  (SELECT supply FROM nexus_unit_stats WHERE unit_id = (SELECT id FROM nexus_unit_types WHERE type = @Unit)))
-                        ) * (SELECT supply FROM nexus_unit_stats WHERE unit_id = (SELECT id FROM nexus_unit_types WHERE type = @Unit)) AS supplyCost 
-                    FROM 
-                        nexus_bases b 
-                    LEFT JOIN 
-                        nexus_units u ON b.coords_x = u.coords_x AND b.coords_y = u.coords_y
-                    WHERE 
-                        b.user_id = @UserId
-                        AND b.gold > (SELECT cost FROM nexus_unit_stats WHERE unit_id = (SELECT id FROM nexus_unit_types WHERE type = @Unit))
-                        AND b.factory_level >= (SELECT factory_level FROM nexus_unit_stats WHERE unit_id = (SELECT id FROM nexus_unit_types WHERE type = @Unit))
-                        AND b.starport_level >= (SELECT starport_level FROM nexus_unit_stats WHERE unit_id = (SELECT id FROM nexus_unit_types WHERE type = @Unit))
-                        AND b.engineering_bay_level >= (SELECT engineering_bay_level FROM nexus_unit_stats WHERE unit_id = (SELECT id FROM nexus_unit_types WHERE type = @Unit))
-                        AND (@Unit != 'glitcher' OR u.glitcher_total = 0);";
+    SELECT 
+        b.*, 
+        (SELECT id FROM nexus_unit_types WHERE type = @Unit) as unitId,
+        FLOOR(b.gold / (SELECT cost FROM nexus_unit_stats WHERE unit_id = (SELECT id FROM nexus_unit_types WHERE type = @Unit))) AS maxByGold, 
+        FLOOR((b.supply_depot_level * 2500 - b.supply) / 
+              (SELECT supply FROM nexus_unit_stats WHERE unit_id = (SELECT id FROM nexus_unit_types WHERE type = @Unit))) AS maxBySupply, 
+        LEAST(
+            FLOOR(b.gold / (SELECT cost FROM nexus_unit_stats WHERE unit_id = (SELECT id FROM nexus_unit_types WHERE type = @Unit))),
+            FLOOR((b.supply_depot_level * 2500 - b.supply) / 
+                  (SELECT supply FROM nexus_unit_stats WHERE unit_id = (SELECT id FROM nexus_unit_types WHERE type = @Unit)))
+        ) AS qtyPurchased, 
+        b.gold - LEAST(
+            FLOOR(b.gold / (SELECT cost FROM nexus_unit_stats WHERE unit_id = (SELECT id FROM nexus_unit_types WHERE type = @Unit))),
+            FLOOR((b.supply_depot_level * 2500 - b.supply) / 
+                  (SELECT supply FROM nexus_unit_stats WHERE unit_id = (SELECT id FROM nexus_unit_types WHERE type = @Unit)))
+        ) * (SELECT cost FROM nexus_unit_stats WHERE unit_id = (SELECT id FROM nexus_unit_types WHERE type = @Unit)) AS adjustedGold, 
+        LEAST(
+            FLOOR(b.gold / (SELECT cost FROM nexus_unit_stats WHERE unit_id = (SELECT id FROM nexus_unit_types WHERE type = @Unit))),
+            FLOOR((b.supply_depot_level * 2500 - b.supply) / 
+                  (SELECT supply FROM nexus_unit_stats WHERE unit_id = (SELECT id FROM nexus_unit_types WHERE type = @Unit)))
+        ) * (SELECT supply FROM nexus_unit_stats WHERE unit_id = (SELECT id FROM nexus_unit_types WHERE type = @Unit)) AS supplyCost 
+    FROM 
+        nexus_bases b 
+    LEFT JOIN 
+        nexus_units u ON b.coords_x = u.coords_x AND b.coords_y = u.coords_y
+    LEFT JOIN 
+        nexus_unit_purchases up ON b.coords_x = up.coords_x AND b.coords_y = up.coords_y 
+                              AND up.unit_id_purchased = (SELECT id FROM nexus_unit_types WHERE type = 'glitcher')
+    WHERE 
+        b.user_id = @UserId
+        AND b.gold > (SELECT cost FROM nexus_unit_stats WHERE unit_id = (SELECT id FROM nexus_unit_types WHERE type = @Unit))
+        AND b.factory_level >= (SELECT factory_level FROM nexus_unit_stats WHERE unit_id = (SELECT id FROM nexus_unit_types WHERE type = @Unit))
+        AND b.starport_level >= (SELECT starport_level FROM nexus_unit_stats WHERE unit_id = (SELECT id FROM nexus_unit_types WHERE type = @Unit))
+        AND b.engineering_bay_level >= (SELECT engineering_bay_level FROM nexus_unit_stats WHERE unit_id = (SELECT id FROM nexus_unit_types WHERE type = @Unit))
+        AND (@Unit != 'glitcher' OR (COALESCE(u.glitcher_total, 0) = 0 AND up.id IS NULL));";  // <-- New check
 				MySqlCommand cmdSql = new MySqlCommand(sql, connection, transaction);
 				cmdSql.Parameters.AddWithValue("@UserId", userId);
 				cmdSql.Parameters.AddWithValue("@Unit", unit);
@@ -1701,7 +1704,10 @@ namespace maxhanna.Server.Controllers
 						decimal adjustedGold = reader.GetDecimal("adjustedGold");
 						int supply = reader.GetInt32("supply") + reader.GetInt32("supplyCost");
 						int qtyPurchased = reader.GetInt32("qtyPurchased");
-
+						if (unit == "glitcher")
+						{
+							qtyPurchased = Math.Min(qtyPurchased, 1); // Never more than 1
+						}
 						baseUpdates[(nexusBase.CoordsX, nexusBase.CoordsY)] = (nexusBase, unitId, adjustedGold, supply, qtyPurchased);
 					}
 				}
@@ -4625,7 +4631,7 @@ namespace maxhanna.Server.Controllers
                 WHERE user_id = @userId
                   AND from_user_id = @senderId
                   AND user_profile_id = @senderId
-                  AND (date >= (NOW() - INTERVAL 1 DAY))
+                  AND (date >= (UTC_TIMESTAMP() - INTERVAL 1 DAY))
                   AND text LIKE 'Captured%';";
 
 			await using var selectCmd = new MySqlCommand(selectCountSql, conn, transaction);
@@ -4639,7 +4645,7 @@ namespace maxhanna.Server.Controllers
 				// Insert a new notification if none exists
 				string insertSql = $@"
                     INSERT INTO maxhanna.notifications (user_id, from_user_id, user_profile_id, text, date)
-                    VALUES (@userId, @senderId, @senderId, 'Captured {notificationType} at {baseCoords}!', NOW());";
+                    VALUES (@userId, @senderId, @senderId, 'Captured {notificationType} at {baseCoords}!', UTC_TIMESTAMP());";
 
 				await using var insertCmd = new MySqlCommand(insertSql, conn, transaction);
 				insertCmd.Parameters.AddWithValue("@userId", userId);
@@ -4660,7 +4666,7 @@ namespace maxhanna.Server.Controllers
                     WHERE user_id = @userId 
                       AND from_user_id = @senderId 
                       AND user_profile_id = @senderId 
-                      AND (date >= (NOW() - INTERVAL 1 DAY))
+                      AND (date >= (UTC_TIMESTAMP() - INTERVAL 1 DAY))
                       AND text LIKE 'Captured%'
                     LIMIT 1;";
 

@@ -397,22 +397,30 @@ export class MusicComponent extends ChildComponent implements OnInit, AfterViewI
 
   async editSong(id?: number) {
     if (!id) return;
-    if (!this.isEditing.includes(id)) {
+    const parent = this.inputtedParentRef ?? this.parentRef;
+    if (!this.isEditing.includes(id)) { 
+      parent?.showOverlay();
       this.isEditing.push(id);
     } else {
       const todoDiv = document.getElementById('songId' + id) as HTMLTableCellElement;
       const textInput = document.getElementById("editSongNameInput") as HTMLInputElement;
+      const urlInput = document.getElementById("editSongUrlInput") as HTMLInputElement;
 
       try {
-        await this.todoService.editTodo(id, textInput.value);
+        await this.todoService.editTodo(id, textInput.value, urlInput?.value).then(res => {
+          if (res) { 
+            parent?.showNotification(res);
+          }
+        });
         const todoIndex = this.songs.findIndex(todo => todo.id === id);
         if (todoIndex !== -1) {
           this.songs[todoIndex].todo = textInput.value;
-        }
+        } 
+        parent?.closeOverlay();
         this.isEditing = this.isEditing.filter(x => x !== id);
       } catch (error) {
         console.error("Error updating todo:", error);
-        this.parentRef?.showNotification("Failed to update todo");
+        parent?.showNotification("Failed to update todo");
       }
     }
   }
@@ -439,5 +447,14 @@ export class MusicComponent extends ChildComponent implements OnInit, AfterViewI
     this.titleInput.nativeElement.value = video.title;
     this.addSong(); 
     this.closeYoutubeSearch();
+  }
+  closeEditPopup() {
+    clearTimeout(this.debounceTimer);
+    this.debounceTimer = setTimeout(async () => {
+      if (this.parentRef) {
+        this.parentRef.closeOverlay();
+      }
+      this.editSong(this.isEditing[0]);
+    }, 50);
   }
 }
