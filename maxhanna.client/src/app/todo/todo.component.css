@@ -13,8 +13,7 @@
 }
 
 .todoDate {
-  font-size: x-small;
-  white-space: nowrap !important;
+  font-size: x-small; 
 }
 .mainTableContainer {
   overflow: auto;
@@ -29,13 +28,15 @@
   .mainTableContainer {
     max-height: CALC(var(--vh, 1vh) * 100 - 170px);
   }
+    .todoDate {
+      font-size: xx-small;
+    }
 }
 
 .actionTd {
   display: flex;
   gap: 5px;
-  justify-content: space-around;
-  width: 90px;
+  justify-content: space-around; 
   flex-wrap: wrap;
 }
 

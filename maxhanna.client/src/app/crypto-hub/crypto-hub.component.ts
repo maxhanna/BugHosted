@@ -3064,6 +3064,12 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
       });
     }
   }
+  showHideAddWalletDiv() {
+    if (!this.parentRef?.user?.id) {
+      return alert("Please log in to use this feature and keep track of your crypto wallets.");
+    }
+    this.isAddCryptoDivVisible = !this.isAddCryptoDivVisible;
+  }
 }
 
 interface VolumeWarning {

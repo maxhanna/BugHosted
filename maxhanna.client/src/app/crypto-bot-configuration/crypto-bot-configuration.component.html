@@ -10,10 +10,11 @@
             (change)="tradeStrategySelectChange()">
             <option value="DCA">DCA</option>
             <option value="IND">Indicator</option>
+            <option value="HFT">High Frequency</option>
         </select>
         <div class="config-explanation">
             <p><strong>What it does:</strong> This dropdown menu allows you to choose between two distinct trading
-                strategies: Dollar Cost Averaging (DCA) or Indicator-based (IND) trading. DCA involves making regular
+                strategies: Dollar Cost Averaging (DCA), Indicator-based (IND) or High-Frequency (HFT) trading. DCA involves making regular
                 investments at set intervals, regardless of market conditions, while IND uses technical market
                 indicators to decide when to buy or sell.</p>
             <p><strong>Why it matters:</strong> Your choice here fundamentally shapes how your trading bot behaves. DCA
@@ -23,8 +24,8 @@
             <p><strong>How to use it:</strong> Select "DCA" if you're aiming for a steady, disciplined investment
                 approach—think of it like setting up a recurring buy order to build your position gradually. Choose
                 "IND" if you're comfortable with a more dynamic strategy that relies on market indicators (like moving
-                averages or RSI) to trigger trades. Your selection will determine which additional settings are
-                displayed below.</p>
+                averages or RSI) to trigger trades. HFT is our most aggressive strategy, buying as price rises and selling as it falls.
+                Your selection will determine which additional settings are displayed below.</p>
         </div>
     </div>
 
@@ -132,7 +133,7 @@
     </div>
 
     <!-- Max USDC per Buy Trade -->
-    <div class="config-box">
+    <div class="config-box" [style.display]="tradeStrategySelect.value == 'HFT' ? 'none' : 'flex'">
         <div class="config-header">
             <span>Max {{tradeToCoinSelect?.value}} per Buy</span>
             <span class="info-icon" (click)="toggleExplanation($event)">i</span>
@@ -176,7 +177,7 @@
     </div> 
 
     <!-- Sell Percentage per Trade (DCA only) -->
-    <div class="config-box" [style.display]="tradeStrategySelect.value == 'IND' ? 'none' : 'flex'">
+    <div class="config-box" [style.display]="(tradeStrategySelect.value == 'IND' || tradeStrategySelect.value == 'HFT') ? 'none' : 'flex'">
         <div class="config-header">
             <span>Sell % of Reserves</span>
             <span class="info-icon" (click)="toggleExplanation($event)">i</span>
@@ -205,7 +206,7 @@
  
 
     <!-- Min USDC to Start Trading (DCA only) -->
-    <div class="config-box" [style.display]="tradeStrategySelect.value == 'IND' ? 'none' : 'flex'">
+    <div class="config-box" [style.display]="(tradeStrategySelect.value == 'IND' || tradeStrategySelect.value == 'HFT') ? 'none' : 'flex'">
         <div class="config-header">
             <span>{{tradeToCoinSelect?.value}} Value of {{tradeFromCoinSelect?.value}} Reserves</span>
             <span class="info-icon" (click)="toggleExplanation($event)">i</span>
@@ -225,7 +226,7 @@
     </div>  
 
     <!-- Max Consecutive Buy/Sell Trades -->
-    <div class="config-box">
+    <div class="config-box" [style.display]="tradeStrategySelect.value == 'HFT' ? 'none' : 'flex'">
         <div class="config-header">
             <span>Max Consecutive Trades</span>
             <span class="info-icon" (click)="toggleExplanation($event)">i</span>
@@ -247,7 +248,7 @@
     </div>
 
     <!-- Max Trades During Volume Spikes (DCA only) -->
-    <div class="config-box" [style.display]="tradeStrategySelect.value == 'IND' ? 'none' : 'flex'">
+    <div class="config-box" [style.display]="(tradeStrategySelect.value == 'IND' || tradeStrategySelect.value == 'HFT') ? 'none' : 'flex'">
         <div class="config-header">
             <span>Max Trades During Spikes</span>
             <span class="info-icon" (click)="toggleExplanation($event)">i</span>

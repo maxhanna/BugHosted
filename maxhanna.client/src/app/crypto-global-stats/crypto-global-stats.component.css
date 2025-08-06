@@ -1,10 +1,7 @@
-.global-stats-container {
-    padding: 10px;
-}
-
 .title {
-    margin-bottom: 20px;
+    margin-bottom: 10px;
     text-align: center;
+    padding:10px;
 }
 
 .metrics-grid {
@@ -105,4 +102,13 @@ button {
     background: #b60d0d; 
     color: #fff;
     font-weight: 700; 
+}
+
+
+.sectionName {
+    font-family: var(--section-font-family);
+    font-weight: bolder; 
+    text-align: center;
+    padding: 10px;
+    width: calc(100% - 20px) !important;
 }

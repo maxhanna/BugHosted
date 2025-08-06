@@ -62,7 +62,7 @@ export class CryptoBotConfigurationComponent extends ChildComponent {
       return alert(`Min ${fromCoin} per Trade must be greater than ${minCoinAmount}.`);
     }
     const coinReserveUSDCValue = parseNum(getVal(this.tradeCoinReserveUSDCValue)) ?? 0;
-    if (coinReserveUSDCValue < 5) {
+    if (coinReserveUSDCValue < 5 && strategy != "HFT") {
       return alert(`Coin Reserve must be greater than 5$.`);
     }
     const maxFromBalance = getVal(this.tradeMaximumFromBalance);
@@ -71,7 +71,7 @@ export class CryptoBotConfigurationComponent extends ChildComponent {
     }
 
     const sellPercOfReserveValue = this.TradeReserveSellPercentUSDValue;
-    if (sellPercOfReserveValue < 5) {
+    if (sellPercOfReserveValue < 5 && strategy != "HFT") {
       return alert(`Reserve Sell Percentage must be worth more than 5$USD.`);
     }
 
@@ -168,7 +168,7 @@ export class CryptoBotConfigurationComponent extends ChildComponent {
     const fromCoin = this.tradeFromCoinSelect?.nativeElement?.value ?? "BTC";
     const toCoin = this.tradeToCoinSelect?.nativeElement?.value ?? "USDC";
     const strategy = this.tradeStrategySelect?.nativeElement?.value ?? "DCA";
-
+    this.applyTradeConfiguration(undefined, true);
     const tv = await this.tradeService.getTradeConfiguration(userId, sessionToken, fromCoin, toCoin, strategy);
     if (tv?.userId) {
       this.applyTradeConfiguration(tv);
@@ -193,31 +193,53 @@ export class CryptoBotConfigurationComponent extends ChildComponent {
   }
 
   private applyTradeConfiguration(config: any, removeUserSpecificData = false) {
-    this.tradeTradeThreshold.nativeElement.valueAsNumber = config.tradeThreshold;
-    this.tradeMinimumFromTradeAmount.nativeElement.valueAsNumber = config.minimumFromTradeAmount;
-    this.tradeMaximumToTradeAmount.nativeElement.valueAsNumber = config.maximumToTradeAmount;
-    this.tradeReserveSellPercentage.nativeElement.valueAsNumber = config.reserveSellPercentage;
-    this.tradeCoinReserveUSDCValue.nativeElement.valueAsNumber = config.coinReserveUSDCValue;
-    this.tradeTradeMaximumTypeOccurances.nativeElement.valueAsNumber = config.maxTradeTypeOccurances;
-    this.tradeVolumeSpikeMaxTradeOccurance.nativeElement.valueAsNumber = config.volumeSpikeMaxTradeOccurance;
-    this.tradeMaximumFromBalance.nativeElement.valueAsNumber = config.maximumFromBalance;
-    this.tradeStopLoss.nativeElement.valueAsNumber = config.tradeStopLoss;
-    this.tradeStopLossPercentage.nativeElement.valueAsNumber = config.tradeStopLossPercentage;
+    // Default values (modify these as needed)
+    const defaults = {
+      tradeThreshold: 0,
+      minimumFromTradeAmount: 0,
+      maximumToTradeAmount: 0,
+      reserveSellPercentage: 0,
+      coinReserveUSDCValue: 0,
+      maxTradeTypeOccurances: 0,
+      volumeSpikeMaxTradeOccurance: 0,
+      maximumFromBalance: 0,
+      tradeStopLoss: 0,
+      tradeStopLossPercentage: 0,
+      updated: new Date() // Default last updated time
+    };
+
+    // Use config if provided, otherwise use defaults
+    const effectiveConfig = config || defaults;
+
+    // Apply values
+    this.tradeTradeThreshold.nativeElement.valueAsNumber = effectiveConfig.tradeThreshold;
+    this.tradeMinimumFromTradeAmount.nativeElement.valueAsNumber = effectiveConfig.minimumFromTradeAmount;
+    this.tradeMaximumToTradeAmount.nativeElement.valueAsNumber = effectiveConfig.maximumToTradeAmount;
+    this.tradeReserveSellPercentage.nativeElement.valueAsNumber = effectiveConfig.reserveSellPercentage;
+    this.tradeCoinReserveUSDCValue.nativeElement.valueAsNumber = effectiveConfig.coinReserveUSDCValue;
+    this.tradeTradeMaximumTypeOccurances.nativeElement.valueAsNumber = effectiveConfig.maxTradeTypeOccurances;
+    this.tradeVolumeSpikeMaxTradeOccurance.nativeElement.valueAsNumber = effectiveConfig.volumeSpikeMaxTradeOccurance;
+    this.tradeMaximumFromBalance.nativeElement.valueAsNumber = effectiveConfig.maximumFromBalance;
+    this.tradeStopLoss.nativeElement.valueAsNumber = effectiveConfig.tradeStopLoss;
+    this.tradeStopLossPercentage.nativeElement.valueAsNumber = effectiveConfig.tradeStopLossPercentage;
+
     if (!removeUserSpecificData) {
-      this.tradeConfigLastUpdated = config.updated;
+      this.tradeConfigLastUpdated = effectiveConfig.updated;
     }
   }
 
   setDefaultTradeConfiguration() {
     this.tradeConfigLastUpdated = undefined;
-
+    const selectedStrategy = this.tradeStrategySelect.nativeElement.value ?? "DCA";
     // Set common defaults
-    this.tradeTradeMaximumTypeOccurances.nativeElement.valueAsNumber = 5;
-    this.tradeStopLoss.nativeElement.valueAsNumber = 0;
-    this.tradeStopLossPercentage.nativeElement.valueAsNumber = 0.5;
-    this.tradeVolumeSpikeMaxTradeOccurance.nativeElement.valueAsNumber = 1;
-    this.tradeMaximumToTradeAmount.nativeElement.valueAsNumber = 2000;
-    this.tradeReserveSellPercentage.nativeElement.valueAsNumber = 0.075;
+    if (selectedStrategy != "HFT") { 
+      this.tradeTradeMaximumTypeOccurances.nativeElement.valueAsNumber = 5;
+      this.tradeStopLoss.nativeElement.valueAsNumber = 0;
+      this.tradeStopLossPercentage.nativeElement.valueAsNumber = 0.5;
+      this.tradeVolumeSpikeMaxTradeOccurance.nativeElement.valueAsNumber = 1;
+      this.tradeMaximumToTradeAmount.nativeElement.valueAsNumber = 2000;
+      this.tradeReserveSellPercentage.nativeElement.valueAsNumber = 0.075;
+    }
     this.tradeTradeThreshold.nativeElement.valueAsNumber = 0.0085;
 
     // Set coin-specific defaults
@@ -237,12 +259,15 @@ export class CryptoBotConfigurationComponent extends ChildComponent {
       this.tradeMinimumFromTradeAmount.nativeElement.valueAsNumber = 25;
       this.tradeCoinReserveUSDCValue.nativeElement.valueAsNumber = 25;
     } else if (fromCoin === "ETH" && toCoin === "USDC") {
-      this.tradeMinimumFromTradeAmount.nativeElement.valueAsNumber = 0.00005;
+      this.tradeMinimumFromTradeAmount.nativeElement.valueAsNumber = 0.0015;
       this.tradeCoinReserveUSDCValue.nativeElement.valueAsNumber = 200;
     } else {
       // Default fallback values
       this.tradeMinimumFromTradeAmount.nativeElement.valueAsNumber = 0.00005;
       this.tradeCoinReserveUSDCValue.nativeElement.valueAsNumber = 200;
+    }
+    if (selectedStrategy == "HFT") { 
+      this.tradeCoinReserveUSDCValue.nativeElement.valueAsNumber = 0;
     }
   }
 

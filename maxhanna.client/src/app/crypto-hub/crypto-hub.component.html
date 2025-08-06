@@ -65,6 +65,8 @@
           (changeTimePeriodEvent)="changeTimePeriodEventOnBTCHistoricalGraph($event)">
         </app-line-graph>
       </ng-container>
+    </div>
+    <div class="graphContainerDiv sectionContainer" [style.display]="isTradePanelOpen ? 'none' : 'block'">
       <ng-container *ngIf="volumeData">
         <app-line-graph [selectedCurrency]="'Volume'" [type]="'Volume'" [chartTypeInputted]="'bar'" [showAverage]="true"
           [displayCoinSwitcher]="false" [selectedPeriod]="'6h'" [data]="volumeData"
@@ -72,53 +74,55 @@
         </app-line-graph>
       </ng-container>
     </div>
-    <div class="sectionContainer volume-depth-indicator" [style.display]="isTradePanelOpen ? 'none' : 'block'"
-      *ngIf="volumeData">
-      <div class="sectionName">Volume Comparison</div>
-      <div class="volume-bars">
-        <div class="btc-bar" [style.width.%]="volumeDisplayData?.btcPercentage || 0">
-          <span class="volume-value">
-            {{ volumeDisplayData?.btc | number:'1.4-4' }} BTC
-          </span>
-        </div>
-        <div class="usdc-bar" [style.width.%]="volumeDisplayData?.usdcPercentage || 0">
-          <span class="volume-value">
-            {{ volumeDisplayData?.usdc | number:'1.0-0' }} USDC
-          </span>
-        </div>
-      </div>
-      <div class="volume-stats">
-        <div>
-          <strong>BTC:</strong>
-          {{ volumeDisplayData?.btc | number:'1.4-4' }} BTC ≈
-          {{ volumeDisplayData?.btcInUSDC | number:'1.0-0' }} USDC
-        </div>
-        <div>
-          <strong>USDC:</strong>
-          {{ volumeDisplayData?.usdc | number:'1.0-0' }} USDC
-        </div>
-        <div *ngIf="volumeDisplayData?.btcPrice">
-          <strong>BTC Price:</strong>
-          {{ volumeDisplayData?.btcPrice | number:'1.0-0' }} USDC
-        </div>
-        <div *ngIf="volumeDisplayData?.ratio">
-          <strong>{{ volumeDisplayData?.dominanceDescription }}:</strong>
-          1 BTC volume ≈ {{ volumeDisplayData?.ratio }}x USDC volume
-        </div>
+    <div class="sectionContainer" [style.display]="isTradePanelOpen ? 'none' : 'block'" *ngIf="volumeData">
+      <div class="sectionName gradientBackground" style="padding:10px;">Volume Comparison</div>
+      <div class="volume-depth-indicator">
+<div class="volume-bars">
+  <div class="btc-bar" [style.width.%]="volumeDisplayData?.btcPercentage || 0">
+    <span class="volume-value">
+      {{ volumeDisplayData?.btc | number:'1.4-4' }} BTC
+    </span>
+  </div>
+  <div class="usdc-bar" [style.width.%]="volumeDisplayData?.usdcPercentage || 0">
+    <span class="volume-value">
+      {{ volumeDisplayData?.usdc | number:'1.0-0' }} USDC
+    </span>
+  </div>
+</div>
+<div class="volume-stats">
+  <div>
+    <strong>BTC:</strong>
+    {{ volumeDisplayData?.btc | number:'1.4-4' }} BTC ≈
+    {{ volumeDisplayData?.btcInUSDC | number:'1.0-0' }} USDC
+  </div>
+  <div>
+    <strong>USDC:</strong>
+    {{ volumeDisplayData?.usdc | number:'1.0-0' }} USDC
+  </div>
+  <div *ngIf="volumeDisplayData?.btcPrice">
+    <strong>BTC Price:</strong>
+    {{ volumeDisplayData?.btcPrice | number:'1.0-0' }} USDC
+  </div>
+  <div *ngIf="volumeDisplayData?.ratio">
+    <strong>{{ volumeDisplayData?.dominanceDescription }}:</strong>
+    1 BTC volume ≈ {{ volumeDisplayData?.ratio }}x USDC volume
+  </div>
 
-        <!-- Warning displays - can show both if needed -->
-        <div *ngIf="volumeDisplayData?.warnings?.usdc?.level !== 'none'"
-          [class.usdc-mild-warning]="volumeDisplayData?.warnings?.usdc?.level === 'mild'"
-          [class.usdc-severe-warning]="volumeDisplayData?.warnings?.usdc?.level === 'severe'">
-          ⚠️ {{ volumeDisplayData?.warnings?.usdc?.description }}
-        </div>
+  <!-- Warning displays - can show both if needed -->
+  <div *ngIf="volumeDisplayData?.warnings?.usdc?.level !== 'none'"
+    [class.usdc-mild-warning]="volumeDisplayData?.warnings?.usdc?.level === 'mild'"
+    [class.usdc-severe-warning]="volumeDisplayData?.warnings?.usdc?.level === 'severe'">
+    ⚠️ {{ volumeDisplayData?.warnings?.usdc?.description }}
+  </div>
 
-        <div *ngIf="volumeDisplayData?.warnings?.btc?.level !== 'none'"
-          [class.btc-mild-warning]="volumeDisplayData?.warnings?.btc?.level === 'mild'"
-          [class.btc-severe-warning]="volumeDisplayData?.warnings?.btc?.level === 'severe'">
-          ⚠️ {{ volumeDisplayData?.warnings?.btc?.description }}
-        </div>
+  <div *ngIf="volumeDisplayData?.warnings?.btc?.level !== 'none'"
+    [class.btc-mild-warning]="volumeDisplayData?.warnings?.btc?.level === 'mild'"
+    [class.btc-severe-warning]="volumeDisplayData?.warnings?.btc?.level === 'severe'">
+    ⚠️ {{ volumeDisplayData?.warnings?.btc?.description }}
+  </div>
+</div>
       </div>
+      
     </div>
     <div *ngIf="allHistoricalExchangeRateDataForGraph && allHistoricalExchangeRateDataForGraph.length > 0"
       class="graphContainerDiv sectionContainer" [style.display]="isTradePanelOpen ? 'none' : 'block'">
@@ -130,7 +134,7 @@
       </app-line-graph>
     </div>
     <div *ngIf="!isTradePanelOpen && tradeIndicators" class="sectionContainer indicators-container">
-      <div class="sectionName" style="margin-bottom: 15px;">Trade Indicators for
+      <div class="sectionName gradientBackground" style="margin-bottom: 15px; padding: 10px;">Trade Indicators for
         <select #tradeIndicatorSelect (change)="onIndicatorPairChange()" class="pair-selector">
           <option *ngFor="let pair of availableIndicatorPairs" [value]="pair.value"
             [selected]="pair.value === selectedIndicatorPair">
@@ -343,6 +347,7 @@
       </div>
     </div>
     <div *ngIf="!isTradePanelOpen" class="sectionContainer">
+      <div class="sectionName gradientBackground" style="padding: 10px;">Fear And Greed Index</div>
       <app-crypto-fear-and-greed [inputtedParentRef]="parentRef"></app-crypto-fear-and-greed>
     </div>
     <div *ngIf="!isTradePanelOpen" class="sectionContainer"> 
@@ -352,53 +357,60 @@
   </div>
   <div [class]="isTradePanelOpen ? 'fullScreenTradePanelDiv' : 'hubSection miningHubSection'"
     *ngIf="latestCurrencyPriceRespectToCAD && latestCurrencyPriceRespectToCAD != 0 && selectedCurrency">
-    <app-mining-rigs [style.display]="isTradePanelOpen ? 'none' : 'block'" #miningRigComponent
-      [isDiscreete]="isDiscreete" [inputtedParentRef]="parentRef" [conversionRate]="latestCurrencyPriceRespectToCAD"
-      [currency]="selectedCurrency" (closeMiningEvent)="closeMiningEvent()"></app-mining-rigs>
-
+    <div class="sectionContainer" [style.display]="isTradePanelOpen ? 'none' : 'block'">
+      <app-mining-rigs #miningRigComponent [isDiscreete]="isDiscreete" [inputtedParentRef]="parentRef"
+        [conversionRate]="latestCurrencyPriceRespectToCAD" [currency]="selectedCurrency"
+        (closeMiningEvent)="closeMiningEvent()"></app-mining-rigs>
+    </div> 
     <div class="wallet sectionContainer" *ngIf="wallet" [style.display]="isTradePanelOpen ? 'none' : 'block'">
-      <div class="sectionName cryptoWalletSectionHeader" *ngIf="latestCurrencyPriceRespectToCAD && wallet"
-        style="margin-bottom:10px;">Crypto Wallet Balance(s):
+      <div class="sectionName cryptoWalletSectionHeader gradientBackground" *ngIf="latestCurrencyPriceRespectToCAD && wallet"
+        style="padding: 10px;">Crypto Wallets
       </div>
-      <table *ngIf="latestCurrencyPriceRespectToCAD && wallet && selectedCurrency" id="walletTable" class="mainTable">
-        <thead *ngIf="wallet?.length">
-          <tr>
-            <th (click)="areWalletAddressesHidden = !areWalletAddressesHidden"
-              class="cursorPointerUnderlined normalBtcAddress">Address</th>
-            <th (click)="sortTable(1, 'walletTable')">Currency</th>
-            <th (click)="sortTable(2, 'walletTable')">Total Balance</th>
-            <th (click)="sortTable(3, 'walletTable')" title="Fiat rate">{{ null | currencySymbol:(selectedCurrency)
-              }}{{selectedCurrency}}</th>
-            <th (click)="sortTable(4, 'walletTable')" title="Wallet data"></th>
-          </tr>
-        </thead>
-        <tbody *ngFor="let subWallet of wallet">
-          <ng-container>
-            <tr class="walletTotalHeaderRow"> 
-              <td></td>
-              <td (click)="selectCoin(subWallet.total?.currency)" >{{ subWallet.total?.currency }}</td>
-              <td>{{ isDiscreete ? '***' : subWallet.total?.totalBalance }}</td>
-              <td>{{ (isDiscreete ? '***' : getTotalCurrencyDisplayValue(subWallet.total)) | currencySymbol:selectedCurrency:true }}</td>
-              <td></td>
-            </tr>
-          </ng-container>
-          <ng-container *ngFor="let currency of subWallet?.currencies">
-            <tr (click)="selectCoin(currency.currency)">
-              <td (click)="areWalletAddressesHidden = !areWalletAddressesHidden"
-                [class]="'cursorPointerUnderlined ' + (areWalletAddressesHidden ? 'hiddenBtcAddress' : 'normalBtcAddress')">
-                {{ isDiscreete && currency.address ? currency.address.substring(0,3) + '***' + currency.address.substring(currency.address.length - 3, currency.address.length) : currency.address }}
-              </td>
-              <td (click)="selectCoin(currency.currency)" >{{ currency.currency }}</td>
-              <td>{{ isDiscreete ? '***' : currency.totalBalance }}</td>
-              <td>{{ (isDiscreete ? '***' : getCurrencyValue(currency.currency, currency)) | currencySymbol:selectedCurrency:true }}</td>
-              <td title="Wallet data" class="cursorPointer" (click)="showWalletData(currency)">ℹ️</td>
-            </tr>
-          </ng-container>
-        </tbody>
-      </table>
+      <div style="padding: 0px 10px">
+<table *ngIf="latestCurrencyPriceRespectToCAD && wallet && selectedCurrency" id="walletTable" class="mainTable">
+  <thead *ngIf="wallet?.length">
+    <tr>
+      <th (click)="areWalletAddressesHidden = !areWalletAddressesHidden"
+        class="cursorPointerUnderlined normalBtcAddress">Address</th>
+      <th (click)="sortTable(1, 'walletTable')">Currency</th>
+      <th (click)="sortTable(2, 'walletTable')">Total Balance</th>
+      <th (click)="sortTable(3, 'walletTable')" title="Fiat rate">{{ null | currencySymbol:(selectedCurrency)
+        }}{{selectedCurrency}}</th>
+      <th (click)="sortTable(4, 'walletTable')" title="Wallet data"></th>
+    </tr>
+  </thead>
+  <tbody *ngFor="let subWallet of wallet">
+    <ng-container>
+      <tr class="walletTotalHeaderRow">
+        <td></td>
+        <td (click)="selectCoin(subWallet.total?.currency)">{{ subWallet.total?.currency }}</td>
+        <td>{{ isDiscreete ? '***' : subWallet.total?.totalBalance }}</td>
+        <td>{{ (isDiscreete ? '***' : getTotalCurrencyDisplayValue(subWallet.total)) |
+          currencySymbol:selectedCurrency:true }}</td>
+        <td></td>
+      </tr>
+    </ng-container>
+    <ng-container *ngFor="let currency of subWallet?.currencies">
+      <tr (click)="selectCoin(currency.currency)">
+        <td (click)="areWalletAddressesHidden = !areWalletAddressesHidden"
+          [class]="'cursorPointerUnderlined ' + (areWalletAddressesHidden ? 'hiddenBtcAddress' : 'normalBtcAddress')">
+          {{ isDiscreete && currency.address ? currency.address.substring(0,3) + '***' +
+          currency.address.substring(currency.address.length - 3, currency.address.length) : currency.address }}
+        </td>
+        <td (click)="selectCoin(currency.currency)">{{ currency.currency }}</td>
+        <td>{{ isDiscreete ? '***' : currency.totalBalance }}</td>
+        <td>{{ (isDiscreete ? '***' : getCurrencyValue(currency.currency, currency)) |
+          currencySymbol:selectedCurrency:true }}</td>
+        <td title="Wallet data" class="cursorPointer" (click)="showWalletData(currency)">ℹ️</td>
+      </tr>
+    </ng-container>
+  </tbody>
+</table>
+      </div> 
       <div style="margin-top: 10px;">
-        <span class="cursorPointerUnderlined" (click)="isAddCryptoDivVisible = !isAddCryptoDivVisible">✚ Add a crypto
-          wallet</span>
+        <span class="cursorPointerUnderlined" (click)="showHideAddWalletDiv()">
+          ✚ Add a crypto wallet
+        </span>
         <div *ngIf="isAddCryptoDivVisible">
           <input type="text" #newWalletInput (keyup.enter)="saveNewCryptoWallet()" />
           <select>
@@ -413,18 +425,17 @@
       [style]="showingTradeSettings ? 'display: flex; flex-direction: column; align-items: center;' : ''">
       <div class="titleFont">
         <div style="width:100%;">  
-          <div *ngIf="tradeBotStartedSince">
-            <div *ngIf="getActiveTradeBots().length > 0">
-              <div class="sectionName" *ngIf="!isTradePanelOpen">
-                Active Trade Bots
-                <div>
-                  <button class="cursorPointer" (click)="openTradeFullscreen()" *ngIf="!isTradePanelOpen"
-                  title="We take no responsibility in how you use this trade bot nor what you do with any of this information.">
-                    Maximize View
-                  </button>
-                </div> 
-              </div>
-
+          <div class="sectionName gradientBackground" *ngIf="!isTradePanelOpen">
+            Active Trade Bots
+            <div>
+              <button class="cursorPointer" (click)="openTradeFullscreen()" *ngIf="!isTradePanelOpen"
+                title="We take no responsibility in how you use this trade bot nor what you do with any of this information.">
+                Maximize View
+              </button>
+            </div>
+          </div>
+          <div *ngIf="tradeBotStartedSince"> 
+            <div *ngIf="getActiveTradeBots().length > 0"> 
               <ng-container *ngIf="groupedBotsDisplay() as botGroups">
                 <ul *ngIf="!isTradePanelOpen">
                   <li *ngFor="let group of botGroups">

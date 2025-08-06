@@ -1,8 +1,8 @@
 <div>
-  <div *ngIf="miningRigs.length > 0" class="miningStatusTable">
-    <div class="sectionName">
-      Mining Rigs:
-    </div>
+  <div class="sectionName gradientBackground">
+    Mining Rigs:
+  </div>
+  <div *ngIf="miningRigs.length > 0" class="miningStatusTable"> 
     <div class="currentProfitabilityDiv">
       <label *ngIf="showLocal" (click)="showLocal = !showLocal">Local Profitability: <span class="currentProfitabilitySpan thirdFontColor">{{ (isDiscreete ? '***' : rate != 1 ? formatToCanadianCurrency(rate * localProfitability).replaceAll("$", "") : localProfitability + " BTC") | currencySymbol:(currency):true }}</span></label>
       <label *ngIf="!showLocal" (click)="showLocal = !showLocal">Actual Profitability: <span class="currentProfitabilitySpan thirdFontColor">{{ (isDiscreete ? '***' : rate != 1 ? formatToCanadianCurrency(rate * actualProfitability).replaceAll("$", "") : actualProfitability + " BTC") | currencySymbol:(currency):true }}</span></label>

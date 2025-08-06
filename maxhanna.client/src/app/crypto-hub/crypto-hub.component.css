@@ -26,7 +26,6 @@ button {
 .wallet {
   overflow: auto;
   border: 1px solid dashed;
-  padding: 10px;
 }
 
 .wallet table {
@@ -44,9 +43,8 @@ button {
 }
 
 .sectionName {
-  font-family: Courier New, Arial;
+  font-family: var(--section-font-family);
   font-weight: bolder;
-  text-shadow: 0px 0.50px 0.50px var(--secondary-font-color);
   text-align: center;
 }
 
@@ -78,12 +76,8 @@ button {
     display: flex !important;
   }
 
-  .noMiningHubSection {
-    display: inline-flex;
-    flex-direction: column;
-    width: CALC(100% - 10px);
-    margin-left: auto;
-    margin-right: auto;
+  .noMiningHubSection { 
+    width: CALC(100% - 25px); 
   }
 }
 
@@ -91,6 +85,7 @@ button {
 .sectionContainer {
   border: 1px solid;
   margin-top: 20px;
+  border-radius: 2px;
 }
 
 
@@ -205,7 +200,7 @@ button {
   margin-top: 20px;
   margin-bottom: 20px;
   height: unset !important;
-} 
+}
 
 .aiMessage {
   max-height: 150px;
@@ -626,11 +621,8 @@ div:not(.trade-panel-controls) .button-wrapper {
 }
 
 
-
-
-
 .volume-depth-indicator {
-  padding: 1rem;
+  padding: 5px;
   border-radius: 8px;
 }
 
@@ -980,12 +972,7 @@ div:not(.trade-panel-controls) .button-wrapper {
   top: 10px;
   right: 15px;
 }
-
-.logScreen {
-  background-color: var(--main-bg-color);
-  color: var(--main-link-color);
-}
-
+  
 
 .data-tool-select {
   margin-right: 10px;

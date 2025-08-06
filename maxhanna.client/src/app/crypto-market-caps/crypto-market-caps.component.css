@@ -37,3 +37,10 @@
 .popupPanelTitleExpanded {
     margin-top: 20px;
 }
+.sectionName {
+    font-family: var(--section-font-family);
+    font-weight: bolder; 
+    text-align: center;
+    padding: 10px;
+    width: calc(100% - 20px) !important;
+}

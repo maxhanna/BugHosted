@@ -38,126 +38,83 @@ public class KrakenService
 	}
 
 	public async Task<bool> MakeATrade(int userId, string coin, UserKrakenApiKey keys, string strategy)
-	{
-		string tmpCoin = coin.ToUpper().Trim();
-		tmpCoin = tmpCoin == "BTC" ? "XBT" : tmpCoin;
+    {
+        string tmpCoin = coin.ToUpper().Trim();
+        tmpCoin = tmpCoin == "BTC" ? "XBT" : tmpCoin;
 
-		// 1. Cooldown and system check
-		bool? updatedFeeResult = await UpdateFees(userId, coin, keys, strategy);
-		if (updatedFeeResult == null)
-		{
-			_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Unable to update fees. API Error most likely culprit. Trade Cancelled.", userId, "TRADE", true);
-			return false;
-		}
-		DateTime? started = await IsTradebotStarted(userId, coin, strategy);
-		if (started == null)
-		{
-			_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) User has stopped the {coin}({strategy}) tradebot. Trade Cancelled.", userId, "TRADE", true);
-			return false;
-		}
+        // 1. Cooldown and system check 
+        if (await IsTradeCooldown(userId, coin, strategy, tmpCoin, keys))
+        {
+            return false;
+        } 
+        TradeConfiguration? tc = await GetTradeConfiguration(userId, fromCoin: tmpCoin, toCoin: "USDC", strategy); 
+        if (!ValidateAndApplyConfig(userId, coin, strategy, tmpCoin, tc))
+        {
+            return false;
+        }
 
-		int? minutesSinceLastTrade = await GetMinutesSinceLastTrade(userId, coin, strategy);
-		int tradeTimeLimit = strategy == "HFT" ? 1 : 15;
-		if (minutesSinceLastTrade != null && minutesSinceLastTrade < tradeTimeLimit)
-		{
-			_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) User is in cooldown for another {(tradeTimeLimit - minutesSinceLastTrade)} minutes. Trade Cancelled.", userId, "TRADE", true);
-			return false;
-		}
-		else if (minutesSinceLastTrade != null)
-		{
-			var timeSince = _log.GetTimeSince(minutesSinceLastTrade, true);
-			_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Last trade: {timeSince}.", userId, "TRADE", true);
-		}
+        // 2. Get last trade info
+        bool isFirstTradeEver = false;
+        TradeRecord? lastTrade = await GetLastTrade(userId, coin, strategy);
+        if (lastTrade == null)
+        {
+            _ = _log.Db($"({tmpCoin}:{userId}:{strategy}) No trade history.", userId, "TRADE", true);
+            isFirstTradeEver = true;
+        }
+        var coinPriceUSDC = await GetCoinPriceToUSDC(userId, coin, keys);
+        decimal? coinPriceCAD = await IsSystemUpToDate(userId, coin, coinPriceUSDC.Value);
+        if (!CheckPriceValidity(userId, coin, strategy, tmpCoin, coinPriceUSDC, coinPriceCAD))
+        {
+            return false;
+        }
 
-		TradeConfiguration? tc = await GetTradeConfiguration(userId, fromCoin: tmpCoin, toCoin: "USDC", strategy);
-		if (!ValidateTradeConfiguration(tc, userId) || tc == null)
-		{
-			return false;
-		}
-		if (!ApplyTradeConfiguration(tc))
-		{
-			_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Null {coin} trade configuration. Trade Cancelled.", userId, "TRADE", true);
-			return false;
-		}
+        if (coinPriceUSDC < _TradeStopLoss)
+        {
+            _ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Stop Loss ({_TradeStopLoss}) threshold breached (current price: {coinPriceUSDC}). Liquidating {coin} for USDC.", userId, "TRADE", true);
+            return await ExitPosition(userId, coin, keys, strategy);
+        }
 
-		// 2. Get last trade info
-		bool isFirstTradeEver = false;
-		TradeRecord? lastTrade = await GetLastTrade(userId, coin, strategy);
-		if (lastTrade == null)
-		{
-			_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) No trade history.", userId, "TRADE", true);
-			isFirstTradeEver = true;
-		}
-		var coinPriceUSDC = await GetCoinPriceToUSDC(userId, coin, keys);
-		if (coinPriceUSDC == null)
-		{
-			_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) No {coin}/USDC price found. Trade Cancelled.", userId, "TRADE", true);
-			return false;
-		}
-		decimal? coinPriceCAD = await IsSystemUpToDate(userId, coin, coinPriceUSDC.Value);
-		if (coinPriceCAD == null)
-		{
-			_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) System is not up to date. Trade Cancelled.", userId, "TRADE", true);
-			return false;
-		}
+        // 3. Calculate spread
+        (decimal? firstPriceToday, decimal lastPrice, decimal currentPrice, decimal spread, decimal spread2) = await CalculateSpread(userId, coin, strategy, isFirstTradeEver, lastTrade, coinPriceUSDC.Value);
 
-		if (coinPriceUSDC < _TradeStopLoss)
-		{
-			_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Stop Loss ({_TradeStopLoss}) threshold breached (current price: {coinPriceUSDC}). Liquidating {coin} for USDC.", userId, "TRADE", true);
-			return await ExitPosition(userId, coin, keys, strategy);
-		}
+        MomentumStrategy? UpwardsMomentum = await GetMomentumStrategy(userId, tmpCoin, "USDC", strategy);
+        if (UpwardsMomentum != null && UpwardsMomentum.Timestamp != null)
+        {
+            return await ExecuteUpwardsMomentumStrategy(userId, tmpCoin, keys, coinPriceCAD.Value, coinPriceUSDC.Value, firstPriceToday, lastPrice, spread, spread2, UpwardsMomentum, strategy);
+        }
 
-		decimal? firstPriceToday = await GetFirstCoinPriceTodayIfNoRecentTrades(coin, userId, strategy);
+        //check the downards momentum strategy
+        MomentumStrategy? DownwardsMomentum = await GetMomentumStrategy(userId, "USDC", tmpCoin, strategy); //if trying to buy, its because downwards trend.
+        if (DownwardsMomentum != null && DownwardsMomentum.Timestamp != null)
+        {
+            return await ExecuteDownwardsMomentumStrategy(userId, tmpCoin, keys, coinPriceCAD.Value, coinPriceUSDC.Value, firstPriceToday, lastPrice, spread, spread2, DownwardsMomentum, strategy);
+        }
 
-		// 3. Calculate spread
-		decimal lastPrice = Convert.ToDecimal(lastTrade?.coin_price_usdc);
-		decimal currentPrice = coinPriceUSDC.Value;
-		decimal spread = isFirstTradeEver ? 0 : (currentPrice - lastPrice) / lastPrice;
-		decimal spread2 = firstPriceToday != null ? (currentPrice - firstPriceToday.Value) / firstPriceToday.Value : 0;
-		//_ = _log.Db($"Current Price: {currentPrice}. Last Price: {lastPrice}. Spread: {spread}. Evaluating first price today? {(firstPriceToday != null ? $"true. Spread2: {spread2}." : "false.")}", userId, "TRADE", true);
+        if (strategy == "IND")
+        {
+            return await HandleIndicatorStrategy(userId, coin, strategy, tmpCoin, currentPrice, coinPriceCAD.Value, keys);
+        }
+        decimal spreadThreshold = strategy == "HFT" ? 0.0001m : _TradeThreshold;
+        LogSpreads(userId, strategy, tmpCoin, firstPriceToday, lastPrice, currentPrice, spread, spread2, isFirstTradeEver);
+        // NO MOMENTUM DETECTED AS OF YET, Check if trade crosses spread thresholds
+        if (Math.Abs(spread) >= spreadThreshold || Math.Abs(spread2) >= spreadThreshold)
+        {
+            // // 4. Now we know a trade is needed - fetch balances 
+            var balances = await GetBalance(userId, tmpCoin, keys);
+            if (balances == null)
+            {
+                _ = _log.Db("Failed to get wallet balances", userId, "TRADE");
+                return false;
+            }
 
-		//Check the upwards momentum strategy before proceeding.
-		//if trying to sell, get momentum from btc to usdc.
-		MomentumStrategy? UpwardsMomentum = await GetMomentumStrategy(userId, tmpCoin, "USDC", strategy);
-		if (UpwardsMomentum != null && UpwardsMomentum.Timestamp != null)
-		{
-			return await ExecuteUpwardsMomentumStrategy(userId, tmpCoin, keys, coinPriceCAD.Value, coinPriceUSDC.Value, firstPriceToday, lastPrice, spread, spread2, UpwardsMomentum, strategy);
-		}
+            decimal coinBalance = GetCoinBalanceFromDictionaryAndKey(balances, tmpCoin);
+            decimal usdcBalance = GetCoinBalanceFromDictionaryAndKey(balances, "USDC");
 
-		//check the downards momentum strategy
-		MomentumStrategy? DownwardsMomentum = await GetMomentumStrategy(userId, "USDC", tmpCoin, strategy); //if trying to buy, its because downwards trend.
-		if (DownwardsMomentum != null && DownwardsMomentum.Timestamp != null)
-		{
-			return await ExecuteDownwardsMomentumStrategy(userId, tmpCoin, keys, coinPriceCAD.Value, coinPriceUSDC.Value, firstPriceToday, lastPrice, spread, spread2, DownwardsMomentum, strategy);
-		}
-
-		if (strategy == "IND")
-		{
-			return await HandleIndicatorStrategy(userId, coin, strategy, tmpCoin, currentPrice, coinPriceCAD.Value, keys);
-		}
-		decimal spreadThreshold = strategy == "HFT" ?  0.0001m : _TradeThreshold;
-		LogSpreads(userId, strategy, tmpCoin, firstPriceToday, lastPrice, currentPrice, spread, spread2, isFirstTradeEver);
-		// NO MOMENTUM DETECTED AS OF YET, Check if trade crosses spread thresholds
-		if (Math.Abs(spread) >= spreadThreshold || Math.Abs(spread2) >= spreadThreshold)
-		{
-			// // 4. Now we know a trade is needed - fetch balances 
-			var balances = await GetBalance(userId, tmpCoin, keys);
-			if (balances == null)
-			{
-				_ = _log.Db("Failed to get wallet balances", userId, "TRADE");
-				return false;
-			}
-
-			decimal coinBalance = GetCoinBalanceFromDictionaryAndKey(balances, tmpCoin);
-			decimal usdcBalance = GetCoinBalanceFromDictionaryAndKey(balances, "USDC");
-			//_ = _log.Db("USDC Balance: " + usdcBalance + "; Coin Balance: " + coinBalance, userId, "TRADE", true);
-			//_ = _log.Db($"coinPriceCad: {coinPriceCAD}, coinPriceUSDC {coinPriceUSDC:F2}", userId, "TRADE", true); 
-
-			if (spread >= spreadThreshold || (firstPriceToday != null && spread2 >= spreadThreshold))
+            if (spread >= spreadThreshold || (firstPriceToday != null && spread2 >= spreadThreshold))
             {   // DCA|IND: Selling, HFT: Buying
                 string triggeredBy = spread >= spreadThreshold ? "spread" : "spread2";
                 decimal coinBalanceConverted = coinBalance * coinPriceUSDC.Value;
-				string buyOrSell = strategy == "HFT" ? "Buy" : "Sell";
+                string buyOrSell = strategy == "HFT" ? "Buy" : "Sell";
                 _ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Trade ({buyOrSell}) triggered by: {triggeredBy} ({(triggeredBy == "spread2" ? spread2 : spread):P})", userId, "TRADE", true);
 
                 if (CheckIfReservesNeeded(strategy, isFirstTradeEver, lastTrade, coinBalance, coinBalanceConverted))
@@ -172,26 +129,14 @@ public class KrakenService
                     if (isValidTrade)
                     {
                         _ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Spread is +{spread:P}, {spread2Message}(c:{currentPrice}-l:{lastPrice}). Balance: {coinBalance} {tmpCoin}.", userId, "TRADE", true);
-						if (strategy == "HFT")
-						{
-							
-						}
-						else
-						{
-							int? matchingBuyOrderId = await FindMatchingBuyOrder(userId, tmpCoin, strategy, coinPriceUSDC.Value, spreadThreshold);
-							TradeRecord? fundingTransaction = await GetLatestReservedTransaction(userId, tmpCoin, strategy, coinPriceUSDC.Value, spreadThreshold);
-							if (matchingBuyOrderId == null && fundingTransaction == null)
-							{
-								_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) No matching buy or reserve transactions at this depth. Trade Cancelled.", userId, "TRADE", true);
-								return false;
-							}
-							else
-							{
-								_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Switching to momentum strategy.", userId, "TRADE", true);
-								await AddMomentumEntry(userId, tmpCoin, "USDC", strategy, coinPriceUSDC.Value, matchingBuyOrderId);
-								return false;
-							}
-						} 
+                        if (strategy == "HFT")
+                        {
+                            return await HandleHFTBuying(userId, coin, keys, strategy, tmpCoin, coinPriceCAD.Value, currentPrice, coinBalance, usdcBalance);
+                        }
+                        else
+                        {
+                            return await HandleSell(userId, strategy, tmpCoin, coinPriceUSDC.Value, spreadThreshold);
+                        }
                     }
                 }
                 else
@@ -201,47 +146,96 @@ public class KrakenService
                 }
             }
             if (spread <= -spreadThreshold || (firstPriceToday != null && spread2 <= -spreadThreshold))
-			{ // DCA|IND: Buying, HFT: Selling
-				string triggeredBy = spread <= -spreadThreshold ? "spread" : "spread2";
-				string buyOrSell = strategy == "HFT" ? "Sell" : "Buy";
+            { // DCA|IND: Buying, HFT: Selling
+                string triggeredBy = spread <= -spreadThreshold ? "spread" : "spread2";
+                string buyOrSell = strategy == "HFT" ? "Sell" : "Buy";
 
-				_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Trade ({buyOrSell}) triggered by: {triggeredBy} {(triggeredBy == "spread2" ? spread2 : spread):P}", userId, "TRADE", true);
+                _ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Trade ({buyOrSell}) triggered by: {triggeredBy} {(triggeredBy == "spread2" ? spread2 : spread):P}", userId, "TRADE", true);
 
-				bool isValidTrade = await ValidateTrade(userId, tmpCoin, "USDC", tmpCoin, "buy", usdcBalance, coinBalance, strategy);
-				if (isValidTrade)
-				{
-					if (strategy == "HFT")
-					{
-						int? matchingBuyOrderId = await FindMatchingBuyOrder(userId, tmpCoin, strategy, coinPriceUSDC.Value, spreadThreshold);
-						TradeRecord? fundingTransaction = await GetLatestReservedTransaction(userId, tmpCoin, strategy, coinPriceUSDC.Value, spreadThreshold);
-						if (matchingBuyOrderId == null && fundingTransaction == null)
-						{
-							_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) No matching buy or reserve transactions at this depth. Trade Cancelled.", userId, "TRADE", true);
-							return false;
-						}
-						else
-						{
-							_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Switching to momentum strategy.", userId, "TRADE", true);
-							await AddMomentumEntry(userId, tmpCoin, "USDC", strategy, coinPriceUSDC.Value, matchingBuyOrderId);
-							return false;
-						}
-					}
-					else
-					{
-						if (usdcBalance > 0)
-						{
-							var spread2Message = firstPriceToday != null ? $"Spread2: {spread2:P} " : "";
-							_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Spread is {spread:P} {spread2Message} (c:{currentPrice}-l:{lastPrice}), buying {tmpCoin}.", userId, "TRADE", true);
+                bool isValidTrade = await ValidateTrade(userId, tmpCoin, "USDC", tmpCoin, "buy", usdcBalance, coinBalance, strategy);
+                if (isValidTrade)
+                {
+                    if (strategy == "HFT")
+                    {
+                        return await HandleHFTSelling(userId, keys, strategy, tmpCoin, coinPriceCAD.Value, currentPrice, coinBalance, usdcBalance);
+                    }
+                    else
+                    {
+                        return await HandleBuy(userId, strategy, tmpCoin, coinPriceUSDC.Value, firstPriceToday, lastPrice, currentPrice, spread, spread2, usdcBalance);
+                    }
+                }
+            }
+        }
+        return false;
+    }
 
-							await AddMomentumEntry(userId, "USDC", tmpCoin, strategy, coinPriceUSDC.Value, null);
-							return false;
-						}
-					} 
-				}
-			}
+
+    private async Task<bool> HandleBuy(int userId, string strategy, string tmpCoin, decimal coinPriceUSDC, decimal? firstPriceToday, decimal lastPrice, decimal currentPrice, decimal spread, decimal spread2, decimal usdcBalance)
+    {
+        if (usdcBalance > 0)
+        {
+            var spread2Message = firstPriceToday != null ? $"Spread2: {spread2:P} " : "";
+            _ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Spread is {spread:P} {spread2Message} (c:{currentPrice}-l:{lastPrice}), buying {tmpCoin}.", userId, "TRADE", true);
+
+            await AddMomentumEntry(userId, "USDC", tmpCoin, strategy, coinPriceUSDC, null);
+        }
+        return false;
+    }
+
+    private async Task<bool> HandleSell(int userId, string strategy, string tmpCoin, decimal coinPriceUSDC, decimal spreadThreshold)
+    {
+        int? matchingBuyOrderId = await FindMatchingBuyOrder(userId, tmpCoin, strategy, coinPriceUSDC);
+        TradeRecord? fundingTransaction = await GetLatestReservedTransaction(userId, tmpCoin, strategy, coinPriceUSDC, spreadThreshold);
+        if (matchingBuyOrderId == null && fundingTransaction == null)
+        {
+            _ = _log.Db($"({tmpCoin}:{userId}:{strategy}) No matching buy or reserve transactions at this depth. Trade Cancelled.", userId, "TRADE", true);
+            return false;
+        }
+        else
+        {
+            _ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Switching to momentum strategy.", userId, "TRADE", true);
+            await AddMomentumEntry(userId, tmpCoin, "USDC", strategy, coinPriceUSDC, matchingBuyOrderId);
+            return false;
+        }
+    }
+
+    private async Task<bool> HandleHFTBuying(int userId, string coin, UserKrakenApiKey keys, string strategy, string tmpCoin, decimal coinPriceCAD, decimal currentPrice, decimal coinBalance, decimal usdcBalance)
+    {
+        decimal coinToTrade = _MinimumBTCTradeAmount;
+		if (coinToTrade > coinBalance)
+		{
+			_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Not enough {coin} ({FormatBTC(coinToTrade)}) for a buy. Trade Cancelled.", userId, "TRADE", true);
+			return false;
 		}
-		return false;
-	}
+        _ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Buying {FormatBTC(coinToTrade)} {coin}.", userId, "TRADE", true);
+        await ExecuteTrade(userId, tmpCoin, keys, FormatBTC(coinToTrade), "buy", coinBalance, usdcBalance, coinPriceCAD, currentPrice, strategy, null, null);
+        return true;
+    }
+
+    private async Task<bool> HandleHFTSelling(int userId, UserKrakenApiKey keys, string strategy, string tmpCoin, decimal coinPriceCAD, decimal currentPrice, decimal coinBalance, decimal usdcBalance)
+    {
+        List<TradeRecord> valueMatchingTrades = await GetProfitableOpenBuyPositionsAsync(userId, tmpCoin, strategy, currentPrice, _TradeThreshold);
+        if (valueMatchingTrades.Count > 0)
+        {
+            decimal coinToTrade = Math.Min(valueMatchingTrades.Sum(trade => Convert.ToDecimal(trade.value)), coinBalance); 
+            if (coinToTrade > 0 && coinToTrade >= _MinimumBTCTradeAmount)
+			{
+				_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Summed {valueMatchingTrades.Count} profitable open buy positions for {coinToTrade} {tmpCoin}.", userId, "TRADE", true);
+				await ExecuteTrade(userId, tmpCoin, keys, FormatBTC(coinToTrade), "sell", coinBalance, usdcBalance, coinPriceCAD, currentPrice, strategy, null, valueMatchingTrades);
+				return true;
+			}
+			else
+			{
+				_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Summed {valueMatchingTrades.Count} profitable open buy positions for {coinToTrade} {tmpCoin}, however they did not exceed the Minimum Trade Amount ({_MinimumBTCTradeAmount}). Trade Cancelled.", userId, "TRADE", true);
+				return false;
+			}
+        }
+        else
+        {
+            _ = _log.Db($"({tmpCoin}:{userId}:{strategy}) No matching open positions at this depth. Waiting.", userId, "TRADE", true);
+        }
+        return false;
+    }
 
     private static bool CheckIfReservesNeeded(string strategy, bool isFirstTradeEver, TradeRecord? lastTrade, decimal coinBalance, decimal coinBalanceConverted)
     {
@@ -1001,11 +995,11 @@ public class KrakenService
 
 			int numberOfTradesToday = await NumberOfTradesToday(userId, from, strategy);
 			_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) User has traded {tmpCoin} {numberOfTradesToday} times today.", userId, "TRADE", true);
-
-			bool isVolumeSpiking = await IsSignificantVolumeSpike(tmpCoin, from, to, userId);
-			int tradeRange = (buyOrSell.ToLower() == "buy" && isVolumeSpiking) ? _VolumeSpikeMaxTradeOccurance : _MaxTradeTypeOccurances;
+			
 			if (strategy != "HFT")
 			{
+				bool isVolumeSpiking = await IsSignificantVolumeSpike(tmpCoin, from, to, userId);
+				int tradeRange = (buyOrSell.ToLower() == "buy" && isVolumeSpiking) ? _VolumeSpikeMaxTradeOccurance : _MaxTradeTypeOccurances;
 				bool isRepeatedTrades = await IsRepeatedTradesInRange(userId, from, to, buyOrSell.ToLower(), strategy, tradeRange);
 				if (isRepeatedTrades)
 				{
@@ -1934,6 +1928,43 @@ public class KrakenService
 		}
 	}
 
+	private async Task<int?> GetSecondsSinceLastTrade(int userId, string coin, string strategy)
+	{
+		try
+		{
+			string normalizedCoin = string.IsNullOrWhiteSpace(coin)
+				? string.Empty
+				: coin.ToUpper() == "BTC" ? "XBT" : coin.ToUpper();
+
+			string condition = strategy == "IND"
+				? "AND (from_currency = @Coin AND to_currency = 'USDC')"
+				: "AND (from_currency = @Coin OR to_currency = @Coin)";
+
+			string sql = $@"
+            SELECT TIMESTAMPDIFF(SECOND, MAX(timestamp), UTC_TIMESTAMP())
+            FROM maxhanna.trade_history
+            WHERE user_id = @UserId
+            {condition}
+            AND strategy = @Strategy;";
+
+			using var conn = new MySqlConnection(_config?.GetValue<string>("ConnectionStrings:maxhanna"));
+			await conn.OpenAsync();
+
+			using var cmd = new MySqlCommand(sql, conn);
+			cmd.Parameters.AddWithValue("@UserId", userId);
+			cmd.Parameters.AddWithValue("@Coin", normalizedCoin);
+			cmd.Parameters.AddWithValue("@Strategy", strategy);
+
+			var result = await cmd.ExecuteScalarAsync();
+			return result != DBNull.Value ? Convert.ToInt32(result) : (int?)null;
+		}
+		catch (Exception ex)
+		{
+			_ = _log.Db($"⚠️Error checking {coin?.ToUpper() ?? "UNKNOWN"} trade history: {ex.Message}",
+					   userId, "TRADE", true);
+			return null;
+		}
+	}
 	private async Task<int?> GetMinutesSinceLastTrade(int userId, string coin, string strategy)
 	{
 		string tmpCoin = coin.ToUpper();
@@ -3358,13 +3389,13 @@ public class KrakenService
 		}
 		return momentumStrategy;
 	}
-	private async Task<int?> FindMatchingBuyOrder(int userId, string coinSymbol, string strategy, decimal sellPrice, decimal spreadThreshold, MySqlConnection? conn = null)
+	private async Task<int?> FindMatchingBuyOrder(int userId, string coinSymbol, string strategy, decimal sellPrice, MySqlConnection? conn = null)
 	{
 		bool shouldDisposeConnection = conn == null;
 		int? matchingBuyId = null;
 
 		// Calculate maximum buy price for 0.84% profit
-		decimal maxBuyPrice = sellPrice / (1m + spreadThreshold); // Ensures at least 0.84% profit
+		decimal maxBuyPrice = sellPrice / (1m + _TradeThreshold); // Ensures at least 0.84% profit
 
 		const string sql = @"
 			SELECT id 
@@ -4715,6 +4746,97 @@ public class KrakenService
 		await _log.Db($"Returning {result.Count} MACD data points for pair: {pair}. Latest point: {result.LastOrDefault()?.Timestamp}",
 			null, "TRADE", true);
 		return result;
+	}
+
+
+	private bool ValidateAndApplyConfig(int userId, string coin, string strategy, string tmpCoin, TradeConfiguration? tc)
+	{
+		if (!ValidateTradeConfiguration(tc, userId) || tc == null)
+		{
+			return false;
+		}
+		if (!ApplyTradeConfiguration(tc))
+		{
+			_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Null {coin} trade configuration. Trade Cancelled.", userId, "TRADE", true);
+			return false;
+		}
+
+		return true;
+	}
+
+	private bool CheckPriceValidity(int userId, string coin, string strategy, string tmpCoin, decimal? coinPriceUSDC, decimal? coinPriceCAD)
+	{
+		if (coinPriceUSDC == null)
+		{
+			_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) No {coin}/USDC price found. Trade Cancelled.", userId, "TRADE", true);
+			return false;
+		}
+		if (coinPriceCAD == null)
+		{
+			_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) System is not up to date. Trade Cancelled.", userId, "TRADE", true);
+			return false;
+		}
+
+		return true;
+	}
+
+	private async Task<bool> IsTradeCooldown(int userId, string coin, string strategy, string tmpCoin, UserKrakenApiKey keys)
+	{
+		bool? updatedFeeResult = await UpdateFees(userId, coin, keys, strategy);
+		if (updatedFeeResult == null)
+		{
+			_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Unable to update fees. API Error most likely culprit. Trade Cancelled.", userId, "TRADE", true);
+			return true;
+		}
+		DateTime? started = await IsTradebotStarted(userId, coin, strategy);
+		if (started == null)
+		{
+			_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) User has stopped the {coin}({strategy}) tradebot. Trade Cancelled.", userId, "TRADE", true);
+			return true;
+		}
+		//TODO : For HFT, make it a 5 second limit.
+		if (strategy == "HFT")
+		{
+			int? secondsSinceLastTrade = await GetSecondsSinceLastTrade(userId, coin, strategy);
+			int tradeCooldownSeconds = 10;
+			if (secondsSinceLastTrade != null && secondsSinceLastTrade < tradeCooldownSeconds)
+			{
+				_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) User is in cooldown for another {(tradeCooldownSeconds - secondsSinceLastTrade)} seconds. Trade Cancelled.", userId, "TRADE", true);
+				return true;
+			}
+			else if (secondsSinceLastTrade != null)
+			{
+				var timeSince = _log.GetTimeSince(secondsSinceLastTrade, true);
+				_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Last trade: {timeSince}.", userId, "TRADE", true);
+			}
+		}
+		else
+		{
+			int? minutesSinceLastTrade = await GetMinutesSinceLastTrade(userId, coin, strategy);
+			int tradeCooldownMinutes = 15;
+			if (minutesSinceLastTrade != null && minutesSinceLastTrade < tradeCooldownMinutes)
+			{
+				_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) User is in cooldown for another {(tradeCooldownMinutes - minutesSinceLastTrade)} minutes. Trade Cancelled.", userId, "TRADE", true);
+				return true;
+			}
+			else if (minutesSinceLastTrade != null)
+			{
+				var timeSince = _log.GetTimeSince(minutesSinceLastTrade, true);
+				_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Last trade: {timeSince}.", userId, "TRADE", true);
+			}
+		} 
+
+		return false;
+	}
+
+	private async Task<(decimal? firstPriceToday, decimal lastPrice, decimal currentPrice, decimal spread, decimal spread2)> CalculateSpread(int userId, string coin, string strategy, bool isFirstTradeEver, TradeRecord? lastTrade, decimal coinPriceUSDC)
+	{
+		decimal? firstPriceToday = await GetFirstCoinPriceTodayIfNoRecentTrades(coin, userId, strategy);
+		decimal lastPrice = Convert.ToDecimal(lastTrade?.coin_price_usdc);
+		decimal currentPrice = coinPriceUSDC;
+		decimal spread = isFirstTradeEver ? 0 : (currentPrice - lastPrice) / lastPrice;
+		decimal spread2 = firstPriceToday != null ? (currentPrice - firstPriceToday.Value) / firstPriceToday.Value : 0;
+		return (firstPriceToday, lastPrice, currentPrice, spread, spread2);
 	}
 
 	private async Task<List<PricePoint>> GetPriceHistoryForMACD(string pair, int days, int maxDataPoints = 1000)

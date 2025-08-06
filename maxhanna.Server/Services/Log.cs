@@ -269,48 +269,50 @@ public class Log
 		return int.Parse(Encoding.UTF8.GetString(plaintextBytes));
 	}
 
-	public string GetTimeSince(object? input, bool isUtc = true)
+	public string GetTimeSince(object? input, bool isUtc = true, bool inputIsSeconds = false)
 	{
 		if (input == null) return "just now";
 
 		TimeSpan elapsed;
 
-		if (input is int minutes)
+		switch (input)
 		{
-			elapsed = TimeSpan.FromMinutes(minutes);
-		}
-		else if (input is DateTime timestamp)
-		{
-			elapsed = isUtc
-				? DateTime.UtcNow - timestamp
-				: DateTime.Now - timestamp;
-		}
-		else
-		{
-			return "invalid input";
+			case int timeUnits:
+				elapsed = inputIsSeconds
+					? TimeSpan.FromSeconds(timeUnits)
+					: TimeSpan.FromMinutes(timeUnits);
+				break;
+
+			case DateTime timestamp:
+				elapsed = isUtc
+					? DateTime.UtcNow - timestamp
+					: DateTime.Now - timestamp;
+				break;
+
+			case TimeSpan timeSpan:
+				elapsed = timeSpan;
+				break;
+
+			default:
+				return "invalid input";
 		}
 
 		return FormatElapsedTime(elapsed);
-	} 
+	}
 
-	// Shared logic for formatting
+
 	private string FormatElapsedTime(TimeSpan elapsed)
 	{
-		if (elapsed.TotalSeconds < 0)
-			return "just now";
+		if (elapsed.TotalSeconds < 1) return "just now";
+		if (elapsed.TotalSeconds < 60) return $"{elapsed.Seconds}s ago";
+		if (elapsed.TotalMinutes < 60) return $"{elapsed.Minutes}m ago";
+		if (elapsed.TotalHours < 24) return $"{elapsed.Hours}h ago";
+		if (elapsed.TotalDays < 30) return $"{elapsed.Days}d ago";
 
-		if (elapsed.TotalSeconds < 60)
-			return $"{(int)elapsed.TotalSeconds} second{(elapsed.TotalSeconds < 2 ? "" : "s")} ago";
+		int months = (int)(elapsed.TotalDays / 30);
+		if (months < 12) return $"{months}mo ago";
 
-		if (elapsed.TotalMinutes < 60)
-			return $"{(int)elapsed.TotalMinutes} minute{(elapsed.TotalMinutes < 2 ? "" : "s")} ago";
-
-		if (elapsed.TotalHours < 24)
-		{
-			// Check TotalHours (double) before casting to int
-			return $"{(int)elapsed.TotalHours} hour{(elapsed.TotalHours < 2 ? "" : "s")} ago";
-		}
-
-		return $"{(int)elapsed.TotalDays} day{(elapsed.TotalDays < 2 ? "" : "s")} ago";
+		int years = months / 12;
+		return $"{years}y ago";
 	}
 }
