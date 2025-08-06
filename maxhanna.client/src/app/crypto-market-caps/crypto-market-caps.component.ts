@@ -41,6 +41,10 @@ export class CryptoMarketCapsComponent extends ChildComponent implements OnInit 
   get totalMarketCap(): number {
     return this.coinMarketCaps?.reduce((sum: number, coin: any) => sum + coin.market_cap_usd, 0) ?? 0;
   }
+  closePopup() {
+    this.expand = false;
+    this.inputtedParentRef?.closeOverlay(false);
+  }
   showPopup() {
     this.expand = !this.expand;
   

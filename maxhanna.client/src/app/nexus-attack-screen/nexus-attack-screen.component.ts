@@ -131,13 +131,21 @@ export class NexusAttackScreenComponent extends ChildComponent {
 
 
   private createNexusAttack() {
-    if (!this.originBase || !this.selectedNexus || !this.unitStats) return undefined;
+    if (!this.originBase || !this.selectedNexus || !this.unitStats || !this.nexusAvailableUnits) return undefined;
 
     const unitCounts: { [key: string]: number } = {};
     for (let i = 0; i < this.unitStats.length; i++) {
       const unit = this.unitStats[i];
-      if (unit.sentValue) {
+      if (unit.sentValue && unit.sentValue > 0) {
         unitCounts[unit.unitType] = unit.sentValue;
+
+        // Subtract the sent units from available units
+        const unitTypeKey = unit.unitType === 'siege_tank' ? 'siegeTank' : unit.unitType;
+        const totalKey = `${unitTypeKey}Total` as keyof NexusUnits;
+        this.nexusAvailableUnits[totalKey] = Math.max(
+          0,
+          (this.nexusAvailableUnits[totalKey] as number) - unit.sentValue
+        );
       }
     }
 
@@ -145,7 +153,7 @@ export class NexusAttackScreenComponent extends ChildComponent {
       this.unitStats[i].sentValue = 0;
     }
 
-    this.nexusAvailableUnits = undefined;
+    //this.nexusAvailableUnits = undefined;
     return {
       originCoordsX: this.originBase.coordsX,
       originCoordsY: this.originBase.coordsY,

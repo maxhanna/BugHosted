@@ -294,14 +294,13 @@ export class CoinValueService {
     }
   }
 
-
   async getLatestCoinMarketCaps() {
     try {
       const response = await fetch(`/coinvalue/getlatestcoinmarketcaps`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
-        }, 
+        },
       });
 
       return await response.json();
@@ -309,6 +308,22 @@ export class CoinValueService {
       return null;
     }
   }
+
+  async getMonthlyBitcoinPerformance() {
+    try {
+      const response = await fetch(`/coinvalue/bitcoinmonthlyperformance`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      return await response.json();
+    } catch (error) {
+      return null;
+    }
+  }
+
   async getBTCWallet(userId: number, encryptedUserId: string) {
     try {
       const response = await fetch('/coinvalue/btcwallet/getbtcwalletdata', {

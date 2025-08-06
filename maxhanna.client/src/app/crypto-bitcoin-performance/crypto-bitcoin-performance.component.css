@@ -1,0 +1,123 @@
+.loading-message,
+.error-message {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 2rem;
+}
+
+.error-message {
+    color: #d32f2f;
+}
+
+.positive {
+    color: #28a745;
+}
+
+.negative {
+    color: #dc3545;
+}
+
+.neutral {
+    color: #666;
+}
+
+.sectionName {
+    font-family: var(--section-font-family);
+    font-weight: bolder;
+    text-align: center;
+    padding: 10px;
+    width: calc(100% - 20px) !important;
+}
+
+.mainTableContainer {
+    overflow: auto;
+    width: calc(100% - 20px);
+    display: flex;
+    max-height: 80vh;
+    margin-bottom: 8px;
+    align-items: stretch;
+    justify-content: space-around;
+}
+
+.performance-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-direction: column;
+}
+
+
+.popupPerformanceContainer {
+    width: 100%;
+    overflow: auto;
+    text-align: center;
+}
+
+.compressedTableContainer {
+    overflow: auto;
+    width: calc(100% - 20px);
+    max-height: 80vh;
+    margin-bottom: 8px;
+    text-align: center;
+}
+
+.compressedTable th,
+.compressedTable td {
+    text-align: center;
+    border: var(--main-border);
+}
+
+.compressedTable {
+    border-collapse: collapse;
+    width: 100%;
+}
+
+.compressedTable th:first-child,
+.compressedTable td:first-child {
+    position: sticky;
+    left: 0;
+    z-index: 10;
+    border: var(--main-border);
+}
+
+
+/* Ensure header stays on top when scrolling vertically */
+.compressedTable thead th {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+}
+
+/* Special case when both first column and header */
+.compressedTable thead th:first-child {
+    z-index: 30;
+}
+
+.table-scroll-container {
+    overflow: auto;
+    max-height: 80vh;
+    width: 100%;
+}
+
+.popupPerformanceContainer .table-scroll-container {
+    max-height: 70vh;
+}
+
+.price-change {
+    font-weight: 500;
+    padding: 4px;
+}
+
+.expanded-details {
+    font-size: 0.8em;
+    text-align: left;
+    margin-top: 4px;
+    padding: 4px;
+    border-radius: 4px;
+} 
+ 
+.month-cell.empty .price-change {
+    font-style: italic;
+}

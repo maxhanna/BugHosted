@@ -6,8 +6,6 @@
     color: #dc3545;
 }
 
-
-
 .expandButton {
     width: 70px;
     margin-top: 5px;
@@ -31,15 +29,18 @@
     align-items: stretch;
     justify-content: space-around;
 }
+
 .popupPanel {
     padding: 0px !important;
 }
+
 .popupPanelTitleExpanded {
     margin-top: 20px;
 }
+
 .sectionName {
     font-family: var(--section-font-family);
-    font-weight: bolder; 
+    font-weight: bolder;
     text-align: center;
     padding: 10px;
     width: calc(100% - 20px) !important;

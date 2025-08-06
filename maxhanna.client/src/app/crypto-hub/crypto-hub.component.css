@@ -575,13 +575,11 @@ div:not(.trade-panel-controls) .button-wrapper {
 }
 
 .positive {
-  color: #28a745;
-  /* Green for positive profit */
+  color: #28a745; 
 }
 
 .negative {
-  color: #dc3545;
-  /* Red for negative profit */
+  color: #dc3545; 
 }
 
 .cumulative-row {

@@ -1,0 +1,63 @@
+<div [class]="expanded ? 'popupPanel' : ''" style="text-align: center;">
+    <div [class]="expanded ? 'popupPanelTitle' : 'sectionName gradientBackground'">Bitcoin Monthly Performance</div>
+    <div [class]="expanded ? 'popupPerformanceContainer' : 'performance-container'">
+        <div *ngIf="isLoading" class="loading-message">
+            <span>Loading performance data...</span>
+        </div>
+
+        <div *ngIf="error" class="error-message">
+            <span>Failed to load performance data. Please try again later.</span>
+        </div>
+
+        <div *ngIf="!isLoading && !error" [class]="expanded ? '' : 'compressedTableContainer'">
+            <div class="table-scroll-container"> 
+                <table class="mainTable compressedTable">
+                    <thead>
+                        <tr [class]="onMobile() ? 'xxSmallFont' : 'smallFont'">
+                            <th class="gradientBackground">Year</th>
+                            <th *ngFor="let month of [1,2,3,4,5,6,7,8,9,10,11,12]"
+                                [title]="'Bitcoin performance for ' + getMonthName(month)">
+                                {{getMonthName(month)}}
+                            </th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr *ngFor="let yearData of groupedByYear">
+                            <td class="gradientBackground">{{yearData.year}}</td>
+                            <td *ngFor="let month of [1,2,3,4,5,6,7,8,9,10,11,12]">
+                                <ng-container *ngIf="getMonthData(yearData.months, month) as monthData">
+                                    <div class="month-cell" [class.empty]="!monthData.priceChangePercentage">
+                                        <div class="price-change"
+                                            [class]="getChangeClass(monthData.priceChangePercentage)"
+                                            [title]="'Price change: ' + formatPercentage(monthData.priceChangePercentage)">
+                                            {{formatPercentage(monthData.priceChangePercentage)}}
+                                        </div>
+                                        <div *ngIf="expanded" class="expanded-details">
+                                            <div title="Price at the beginning of the month">
+                                                Start: {{ ((monthData?.startPriceUSD ?? 0) * conversionRate) |
+                                                currencySymbol:selectedCurrency:false }}
+                                            </div>
+                                            <div title="Price at the end of the month">
+                                                End: {{ ((monthData?.endPriceUSD ?? 0) * conversionRate) |
+                                                currencySymbol:selectedCurrency:false }}
+                                            </div>
+                                            <div title="Market capitalization change percentage">
+                                                MCap Δ: {{formatPercentage(monthData.marketCapChangePercentage)}}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </ng-container>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    <button class="expand-button" (click)="toggleExpanded()" *ngIf="!expanded" title="Show detailed monthly statistics">
+        Show Details
+    </button>
+    <button class="expand-button closeButton" (click)="closeExpanded()" *ngIf="expanded" id="closeOverlay">
+        Hide Details
+    </button>
+</div>

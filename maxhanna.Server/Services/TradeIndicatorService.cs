@@ -24,7 +24,7 @@ namespace maxhanna.Server.Services
 		};
 
 		private readonly SemaphoreSlim _updateLock = new SemaphoreSlim(1, 1);
-		private bool _isUpdating = false; 
+		private bool _isUpdating = false;
 		public bool IsUpdating => _isUpdating;
 
 		public TradeIndicatorService(IConfiguration config, Log log)
@@ -68,6 +68,7 @@ namespace maxhanna.Server.Services
 					success &= await UpdateMACD(connection, coin.fromCoin, coin.toCoin, coin.coinName);
 					success &= await UpdateVolumeAbove20DayAvg(connection, coin.pair, coin.fromCoin, coin.toCoin);
 					success &= await RecordSignalInterval(connection, coin.fromCoin, coin.toCoin);
+					success &= await UpdateBitcoinMonthlyPerformance(connection);
 
 					overallSuccess &= success;
 
@@ -909,6 +910,188 @@ namespace maxhanna.Server.Services
 				_ = _log.Db($"Error recording signal interval for {fromCoin}/{toCoin}: {ex.Message}", null, "TISVC", true);
 				return false;
 			}
+		}
+		private async Task<bool> UpdateBitcoinMonthlyPerformance(MySqlConnection connection)
+		{
+			const string coinName = "Bitcoin";
+			var currentDate = DateTime.UtcNow;
+
+			// Only process previous months (not current month)
+			var processingDate = currentDate.AddMonths(-1);
+			var processingYear = processingDate.Year;
+			var processingMonth = processingDate.Month;
+
+			// Check if we've already processed this month
+			var checkSql = @"
+				SELECT 1 FROM bitcoin_monthly_performance 
+				WHERE year = @year AND month = @month
+				LIMIT 1;";
+
+			using (var checkCmd = new MySqlCommand(checkSql, connection))
+			{
+				checkCmd.Parameters.AddWithValue("@year", processingYear);
+				checkCmd.Parameters.AddWithValue("@month", processingMonth);
+
+				var result = await checkCmd.ExecuteScalarAsync();
+				if (result != null)
+				{
+					return true; // Already processed
+				}
+			}
+
+			try
+			{
+				// Get price data - use full month range
+				var startDate = new DateTime(processingYear, processingMonth, 1);
+				var endDate = startDate.AddMonths(1).AddDays(-1);
+
+				// Get first day price
+				var (startPrice, endPrice) = await GetMonthlyPriceData(connection, coinName, processingYear, processingMonth);
+				var (startCap, endCap) = await GetMonthlyMarketCapData(connection, coinName, processingYear, processingMonth);
+
+				if (startPrice == 0 || endPrice == 0)
+				{
+					_ = _log.Db($"Incomplete price data for Bitcoin monthly performance {processingMonth}/{processingYear}",
+							   null, "TISVC", true);
+					return false;
+				}
+
+				// Calculate percentages
+				decimal priceChangePct = ((endPrice - startPrice) / startPrice) * 100;
+				decimal marketCapChangePct = (startCap > 0 && endCap > 0) ?
+					((endCap - startCap) / startCap) * 100 : 0;
+
+				// Insert or update the record
+				var updateSql = @"
+					INSERT INTO bitcoin_monthly_performance 
+						(year, month, 
+						start_price_usd, end_price_usd,
+						start_market_cap_usd, end_market_cap_usd,
+						price_change_percentage, market_cap_change_percentage, 
+						last_updated)
+					VALUES (@year, @month, 
+							@startPrice, @endPrice,
+							@startCap, @endCap,
+							@priceChangePct, @marketCapChangePct, 
+							UTC_TIMESTAMP())
+					ON DUPLICATE KEY UPDATE 
+						start_price_usd = @startPrice,
+						end_price_usd = @endPrice,
+						start_market_cap_usd = @startCap,
+						end_market_cap_usd = @endCap,
+						price_change_percentage = @priceChangePct,
+						market_cap_change_percentage = @marketCapChangePct,
+						last_updated = UTC_TIMESTAMP()";
+
+				using (var updateCmd = new MySqlCommand(updateSql, connection))
+				{
+					updateCmd.Parameters.AddWithValue("@year", processingYear);
+					updateCmd.Parameters.AddWithValue("@month", processingMonth);
+					updateCmd.Parameters.AddWithValue("@startPrice", startPrice);
+					updateCmd.Parameters.AddWithValue("@endPrice", endPrice);
+					updateCmd.Parameters.AddWithValue("@startCap", startCap);
+					updateCmd.Parameters.AddWithValue("@endCap", endCap);
+					updateCmd.Parameters.AddWithValue("@priceChangePct", priceChangePct);
+					updateCmd.Parameters.AddWithValue("@marketCapChangePct", marketCapChangePct);
+
+					await updateCmd.ExecuteNonQueryAsync();
+				}
+
+				_ = _log.Db($"Updated Bitcoin monthly performance for {processingMonth}/{processingYear}: " +
+						   $"Price {startPrice:F2}→{endPrice:F2} ({priceChangePct:F2}%), " +
+						   $"Market Cap {(startCap > 0 ? startCap.ToString("F2") : "N/A")}→" +
+						   $"{(endCap > 0 ? endCap.ToString("F2") : "N/A")} " +
+						   $"({(startCap > 0 && endCap > 0 ? marketCapChangePct.ToString("F2") : "N/A")}%)",
+						   null, "TISVC", true);
+				return true;
+			}
+			catch (Exception ex)
+			{
+				_ = _log.Db($"Error updating Bitcoin monthly performance: {ex.Message}", null, "TISVC", true);
+				return false;
+			}
+		}
+
+		private async Task<(decimal startPrice, decimal endPrice)> GetMonthlyPriceData(
+			MySqlConnection connection, string coinName, int year, int month)
+		{
+			var startDate = new DateTime(year, month, 1);
+			var endDate = startDate.AddMonths(1).AddDays(-1);
+
+			// Get first day price
+			var firstDaySql = @"
+				SELECT value_usd FROM coin_value 
+				WHERE name = @coinName AND timestamp >= @startDate 
+				ORDER BY timestamp ASC LIMIT 1";
+
+			// Get last day price (or most recent if month isn't complete)
+			var lastDaySql = @"
+				SELECT value_usd FROM coin_value 
+				WHERE name = @coinName AND timestamp <= @endDate 
+				ORDER BY timestamp DESC LIMIT 1";
+
+			decimal startPrice = 0, endPrice = 0;
+
+			using (var firstDayCmd = new MySqlCommand(firstDaySql, connection))
+			{
+				firstDayCmd.Parameters.AddWithValue("@coinName", coinName);
+				firstDayCmd.Parameters.AddWithValue("@startDate", startDate);
+				var result = await firstDayCmd.ExecuteScalarAsync();
+				if (result != null && result != DBNull.Value)
+					startPrice = Convert.ToDecimal(result);
+			}
+
+			using (var lastDayCmd = new MySqlCommand(lastDaySql, connection))
+			{
+				lastDayCmd.Parameters.AddWithValue("@coinName", coinName);
+				lastDayCmd.Parameters.AddWithValue("@endDate", endDate);
+				var result = await lastDayCmd.ExecuteScalarAsync();
+				if (result != null && result != DBNull.Value)
+					endPrice = Convert.ToDecimal(result);
+			}
+
+			return (startPrice, endPrice);
+		}
+
+		private async Task<(decimal startCap, decimal endCap)> GetMonthlyMarketCapData(
+			MySqlConnection connection, string coinName, int year, int month)
+		{
+			var startDate = new DateTime(year, month, 1);
+			var endDate = startDate.AddMonths(1).AddDays(-1);
+
+			// Get first day market cap
+			var firstDaySql = @"
+				SELECT market_cap_usd FROM coin_market_caps 
+				WHERE name = @coinName AND recorded_at >= @startDate 
+				ORDER BY recorded_at ASC LIMIT 1";
+
+			// Get last day market cap (or most recent if month isn't complete)
+			var lastDaySql = @"
+				SELECT market_cap_usd FROM coin_market_caps 
+				WHERE name = @coinName AND recorded_at <= @endDate 
+				ORDER BY recorded_at DESC LIMIT 1";
+
+			decimal startCap = 0, endCap = 0;
+
+			using (var firstDayCmd = new MySqlCommand(firstDaySql, connection))
+			{
+				firstDayCmd.Parameters.AddWithValue("@coinName", coinName);
+				firstDayCmd.Parameters.AddWithValue("@startDate", startDate);
+				var result = await firstDayCmd.ExecuteScalarAsync();
+				if (result != null && result != DBNull.Value)
+					startCap = Convert.ToDecimal(result);
+			}
+
+			using (var lastDayCmd = new MySqlCommand(lastDaySql, connection))
+			{
+				lastDayCmd.Parameters.AddWithValue("@coinName", coinName);
+				lastDayCmd.Parameters.AddWithValue("@endDate", endDate);
+				var result = await lastDayCmd.ExecuteScalarAsync();
+				if (result != null && result != DBNull.Value)
+					endCap = Convert.ToDecimal(result);
+			}
+
+			return (startCap, endCap);
 		}
 		private string GetCoinNameFromPair(string pair)
 		{

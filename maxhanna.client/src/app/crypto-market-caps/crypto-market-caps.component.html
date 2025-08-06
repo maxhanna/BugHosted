@@ -31,9 +31,8 @@
             </tbody>
         </table>
     </div>
-    <button [class]="expand ? 'closeButton' : 'expandButton'" (click)="showPopup()" id="closeOverlay">
-        {{ expand ? 'Collapse' : 'Expand' }}
-    </button>
+    <button class="expandButton" (click)="showPopup()" *ngIf="!expand">Expand</button>
+    <button class="closeButton" (click)="closePopup()" id="closeOverlay" *ngIf="expand">Collapse</button>
 </div>
 <div *ngIf="isLoading && !(coinMarketCaps && coinMarketCaps.length > 0 && conversionRate)">
     Loading Market Caps...

@@ -1314,6 +1314,55 @@ namespace maxhanna.Server.Controllers
 			}
 		}
 
+		[HttpGet("/CoinValue/BitcoinMonthlyPerformance/", Name = "GetBitcoinMonthlyPerformance")]
+		public async Task<List<BitcoinMonthlyPerformance>> GetBitcoinMonthlyPerformance()
+		{
+			var performanceData = new List<BitcoinMonthlyPerformance>();
+
+			MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+			try
+			{
+				await conn.OpenAsync();
+
+				string sql = @"
+					SELECT *
+					FROM bitcoin_monthly_performance
+					ORDER BY year DESC, month DESC";
+
+				MySqlCommand cmd = new MySqlCommand(sql, conn);
+				using (var reader = await cmd.ExecuteReaderAsync())
+				{
+					while (await reader.ReadAsync())
+					{
+						var performance = new BitcoinMonthlyPerformance
+						{
+							Id = reader.GetInt32(reader.GetOrdinal("id")),
+							Year = reader.GetInt32(reader.GetOrdinal("year")),
+							Month = reader.GetInt32(reader.GetOrdinal("month")),
+							StartPriceUSD = reader.IsDBNull(reader.GetOrdinal("start_price_usd")) ? null : (decimal?)reader.GetDecimal(reader.GetOrdinal("start_price_usd")),
+							EndPriceUSD = reader.IsDBNull(reader.GetOrdinal("end_price_usd")) ? null : (decimal?)reader.GetDecimal(reader.GetOrdinal("end_price_usd")),
+							StartMarketCapUSD = reader.IsDBNull(reader.GetOrdinal("start_market_cap_usd")) ? null : (decimal?)reader.GetDecimal(reader.GetOrdinal("start_market_cap_usd")),
+							EndMarketCapUSD = reader.IsDBNull(reader.GetOrdinal("end_market_cap_usd")) ? null : (decimal?)reader.GetDecimal(reader.GetOrdinal("end_market_cap_usd")),
+							PriceChangePercentage = reader.IsDBNull(reader.GetOrdinal("price_change_percentage")) ? null : (decimal?)reader.GetDecimal(reader.GetOrdinal("price_change_percentage")),
+							MarketCapChangePercentage = reader.IsDBNull(reader.GetOrdinal("market_cap_change_percentage")) ? null : (decimal?)reader.GetDecimal(reader.GetOrdinal("market_cap_change_percentage")),
+							LastUpdated = reader.GetDateTime(reader.GetOrdinal("last_updated"))
+						};
+						performanceData.Add(performance);
+					}
+				}
+			}
+			catch (Exception ex)
+			{
+				_ = _log.Db("An error occurred while trying to get Bitcoin monthly performance data. " + ex.Message, null, "BITCOIN_PERF", true);
+			}
+			finally
+			{
+				await conn.CloseAsync();
+			}
+
+			return performanceData;
+		}
+
 		[HttpGet("/CoinValue/GetLatestCoinMarketCaps", Name = "GetLatestCoinMarketCaps")]
 		public async Task<List<CoinMarketCap>> GetLatestCoinMarketCaps()
 		{

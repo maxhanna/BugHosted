@@ -1889,7 +1889,9 @@ LIMIT
 				await conversion.Start();
 
 				var afterFileSize = new FileInfo(convertedFilePath).Length;
-				_ = _log.Db($"GIF to WebP conversion: before [fileName={file.FileName}, fileType={Path.GetExtension(file.FileName)}, fileSize={beforeFileSize} bytes] after [fileName={convertedFileName}, fileType={Path.GetExtension(convertedFileName)}, fileSize={afterFileSize} bytes]", null, "FILE", true);
+				long fileSizeDifference = beforeFileSize - afterFileSize;
+
+				_ = _log.Db($"GIF to WebP conversion: [fileName={file.FileName}, fileType={Path.GetExtension(file.FileName)}, fileSize={beforeFileSize} bytes, compression={fileSizeDifference} bytes]", null, "FILE", true);
 
 				(width, height) = await GetMediaDimensions(convertedFilePath);
 			}
@@ -1935,7 +1937,8 @@ LIMIT
 					var afterFileSize = new FileInfo(convertedFilePath).Length;
 					width = image.Width;
 					height = image.Height;
-					_ = _log.Db($"Image to WebP conversion: before [fileName={file.FileName}, fileType={Path.GetExtension(file.FileName)}, fileSize={beforeFileSize} bytes] after [fileName={convertedFileName}, fileType={Path.GetExtension(convertedFileName)}, fileSize={afterFileSize} bytes]", null, "FILE", true);
+					long fileSizeDifference = beforeFileSize - afterFileSize;
+					_ = _log.Db($"Image to WebP conversion: [fileName={file.FileName}, fileType={Path.GetExtension(file.FileName)}, fileSize={beforeFileSize} bytes, compression={fileSizeDifference} bytes]", null, "FILE", true);
 				}
 			}
 			catch (Exception ex)
@@ -1984,7 +1987,8 @@ LIMIT
 					width = videoStream.Width;
 					height = videoStream.Height;
 				}
-				_ = _log.Db($"Video to WebM conversion: before [fileName={file.FileName}, fileType={Path.GetExtension(file.FileName)}, fileSize={beforeFileSize} bytes] after [fileName={convertedFileName}, fileType={Path.GetExtension(convertedFileName)}, fileSize={afterFileSize} bytes]", null, "FILE", true);
+				long fileSizeDifference = beforeFileSize - afterFileSize;
+				_ = _log.Db($"Video to WebM conversion: [fileName={file.FileName}, fileType={Path.GetExtension(file.FileName)}, fileSize={afterFileSize} bytes, compressed={fileSizeDifference} bytes]", null, "FILE", true);
 				if (beforeFileSize > afterFileSize)
 				{
 					System.IO.File.Delete(inputFilePath);
