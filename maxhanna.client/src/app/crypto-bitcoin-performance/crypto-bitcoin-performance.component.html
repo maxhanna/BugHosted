@@ -9,7 +9,7 @@
             <span>Failed to load performance data. Please try again later.</span>
         </div>
 
-        <div *ngIf="!isLoading && !error" [class]="expanded ? '' : 'compressedTableContainer'">
+        <div *ngIf="!isLoading && !error && conversionRate" [class]="expanded ? '' : 'compressedTableContainer'">
             <div class="table-scroll-container"> 
                 <table class="mainTable compressedTable">
                     <thead>
@@ -34,15 +34,18 @@
                                         </div>
                                         <div *ngIf="expanded" class="expanded-details">
                                             <div title="Price at the beginning of the month">
-                                                Start: {{ ((monthData?.startPriceUSD ?? 0) * conversionRate) |
-                                                currencySymbol:selectedCurrency:false }}
+                                                {{ ((monthData?.startPriceUSD ?? 0) * conversionRate) | currencySymbol:selectedCurrency:false }}
                                             </div>
                                             <div title="Price at the end of the month">
-                                                End: {{ ((monthData?.endPriceUSD ?? 0) * conversionRate) |
-                                                currencySymbol:selectedCurrency:false }}
-                                            </div>
-                                            <div title="Market capitalization change percentage">
+                                                &rarr; {{ ((monthData?.endPriceUSD ?? 0) * conversionRate) | currencySymbol:selectedCurrency:false }}
+                                            </div><div title="Market capitalization change percentage">
                                                 MCap Δ: {{formatPercentage(monthData.marketCapChangePercentage)}}
+                                            </div>
+                                            <div title="Market capitalization at the start of the month">
+                                                {{ ((monthData?.startMarketCapUSD ?? 0) * conversionRate) | currencySymbol:selectedCurrency:false }}
+                                            </div>
+                                            <div title="Market capitalization at the end of the month">
+                                                &rarr; {{ ((monthData?.endMarketCapUSD ?? 0) * conversionRate) | currencySymbol:selectedCurrency:false }}
                                             </div>
                                         </div>
                                     </div>
@@ -54,10 +57,10 @@
             </div>
         </div>
     </div>
-    <button class="expand-button" (click)="toggleExpanded()" *ngIf="!expanded" title="Show detailed monthly statistics">
-        Show Details
+    <button class="expand-button" (click)="toggleExpanded()" *ngIf="!expanded" title="Show detailed monthly statistics" style="margin-bottom: 5px;">
+        Expand
     </button>
-    <button class="expand-button closeButton" (click)="closeExpanded()" *ngIf="expanded" id="closeOverlay">
-        Hide Details
+    <button class="expand-button closeButton" (click)="closeExpanded()" *ngIf="expanded" id="closeOverlay" style="margin-top:10px;">
+        Close
     </button>
 </div>

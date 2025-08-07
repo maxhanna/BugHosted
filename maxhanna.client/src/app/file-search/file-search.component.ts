@@ -1,5 +1,5 @@
 
-import { Component, ElementRef, EventEmitter, HostListener, Input, OnInit, Output, QueryList, ViewChild, ViewChildren } from '@angular/core';
+import { AfterViewInit, Component, ElementRef, EventEmitter, HostListener, Input, OnDestroy, OnInit, Output, QueryList, ViewChild, ViewChildren } from '@angular/core';
 import { FileService } from '../../services/file.service';
 import { DirectoryResults } from '../../services/datacontracts/file/directory-results';
 import { ChildComponent } from '../child.component';
@@ -22,7 +22,7 @@ import { TodoService } from '../../services/todo.service';
     styleUrl: './file-search.component.css',
     standalone: false
 })
-export class FileSearchComponent extends ChildComponent implements OnInit {
+export class FileSearchComponent extends ChildComponent implements OnInit, AfterViewInit, OnDestroy {
   defaultCurrentPage = 1;
   @Input() currentDirectory = '';
   @Input() clearAfterSelectFile = false;
@@ -85,12 +85,15 @@ export class FileSearchComponent extends ChildComponent implements OnInit {
     hidden: this.showHiddenFiles ? 'all' : 'unhidden',
     ownership: 'all'
   };
-  isDisplayingNSFW = false;
+  isDisplayingNSFW = false; 
+  private windowScrollHandler: Function;
+  private containerScrollHandler: Function;
 
   @ViewChild('search') search!: ElementRef<HTMLInputElement>;
   @ViewChild('popupSearch') popupSearch!: ElementRef<HTMLInputElement>;
   @ViewChild('folderVisibility') folderVisibility!: ElementRef<HTMLSelectElement>;
   @ViewChild('shareUserListDiv') shareUserListDiv!: ElementRef<HTMLDivElement>;
+  @ViewChild('fileContainer') fileContainer!: ElementRef;
   @ViewChildren('fileNameDiv') fileHeaders!: QueryList<ElementRef>;
   @ViewChildren('nsfwCheckmark') nsfwCheckmark!: ElementRef<HTMLInputElement>;
 
@@ -100,6 +103,8 @@ export class FileSearchComponent extends ChildComponent implements OnInit {
   constructor(private fileService: FileService, private userService: UserService, private todoService: TodoService, private route: ActivatedRoute) {
     super(); 
     this.previousComponent = "Files";
+    this.windowScrollHandler = this.debounce(this.onWindowScroll.bind(this), 200);
+    this.containerScrollHandler = this.debounce(this.onContainerScroll.bind(this), 200);
   }
 
   async ngOnInit() {
@@ -128,7 +133,58 @@ export class FileSearchComponent extends ChildComponent implements OnInit {
       }
     });
     await this.getDirectory();
-  } 
+  }
+  
+  ngAfterViewInit() {
+    // Attach window scroll listener
+    window.addEventListener('scroll', this.windowScrollHandler as EventListener);
+    console.log('Window scroll event listener registered');
+
+    // Attach container scroll listener if fileContainer exists
+    if (this.fileContainer?.nativeElement) {
+      this.fileContainer.nativeElement.addEventListener('scroll', this.containerScrollHandler as EventListener);
+      console.log('fileContainer scroll event listener registered');
+    } else {
+      console.error('fileContainer is not defined');
+    }
+  }
+
+  ngOnDestroy() {
+    // Remove window scroll listener
+    window.removeEventListener('scroll', this.windowScrollHandler as EventListener);
+    console.log('Window scroll event listener removed');
+
+    // Remove container scroll listener if fileContainer exists
+    if (this.fileContainer?.nativeElement) {
+      this.fileContainer.nativeElement.removeEventListener('scroll', this.containerScrollHandler as EventListener);
+      console.log('fileContainer scroll event listener removed');
+    }
+  }
+  
+  onWindowScroll() {
+    console.log('Window scroll event triggered');
+    const threshold = 100;
+    const atBottom =
+      window.innerHeight + window.scrollY >=
+      document.documentElement.scrollHeight - threshold;
+
+    if (atBottom && !this.isLoading && this.currentPage < this.totalPages) {
+      console.log('Reached bottom of page, loading next page...');
+      this.appendNextPage();
+    }
+  }
+
+  onContainerScroll() {
+    console.log('fileContainer scroll event triggered');
+    const element = this.fileContainer.nativeElement;
+    const threshold = 100;
+    const atBottom = element.scrollHeight - element.scrollTop <= element.clientHeight + threshold;
+
+    if (atBottom && !this.isLoading && this.currentPage < this.totalPages) {
+      console.log('Reached bottom of fileContainer, loading next page...');
+      this.appendNextPage();
+    }
+  }
 
   scrollToFile(fileId: string) {
     setTimeout(() => { 
@@ -301,15 +357,12 @@ export class FileSearchComponent extends ChildComponent implements OnInit {
       
     }
   }
-  async appendNextPage() {
-    clearTimeout(this.debounceTimer);
-    this.debounceTimer = setTimeout(() => {
-      if (!this.isLoading && this.currentPage < this.totalPages) {
-        console.log("Appending next page...");
-        this.currentPage++;
-        this.getDirectory(undefined, undefined, true);
-      }
-    }, 500);
+  async appendNextPage() { 
+    if (this.currentPage < this.totalPages) {
+      console.log("Appending next page...");
+      this.currentPage++;
+      this.getDirectory(undefined, undefined, true);
+    } 
   }
 
   searchDirectory() {
@@ -924,5 +977,14 @@ export class FileSearchComponent extends ChildComponent implements OnInit {
     if (!this.captureNotifications) {
       parent?.showNotification(message);
     }
+  }
+  loadMoreInView() { 
+    if (this.debounceTimer) {
+      return;  
+    }
+    clearTimeout(this.debounceTimer);
+    this.debounceTimer = setTimeout(() => {
+      this.appendNextPage();
+    }, 500); 
   }
 }

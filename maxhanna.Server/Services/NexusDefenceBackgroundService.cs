@@ -191,7 +191,7 @@ namespace maxhanna.Server.Services
 			}
 			catch (Exception ex)
 			{
-				Console.WriteLine("GetNexusBaseByDefenceId Query ERROR: " + ex.Message);
+				_ = _log.Db("GetNexusBaseByDefenceId Query ERROR: " + ex.Message, null, "NDBS", true);
 			}
 
 			return tmpBase;

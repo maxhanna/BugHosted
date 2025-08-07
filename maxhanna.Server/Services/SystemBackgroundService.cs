@@ -644,7 +644,7 @@ namespace maxhanna.Server.Services
 				// Collect trade task delegates
 				var tradeTaskDelegates = new List<(Func<Task> TaskDelegate, string Crypto, int UserId, string Strategy)>();
 				var cryptocurrencies = new[] { "BTC", "XRP", "SOL", "XDG", "ETH" };
-				var strategies = new[] { "DCA", "IND" };
+				var strategies = new[] { "HFT", "DCA", "IND" };
 
 				foreach (var crypto in cryptocurrencies)
 				{

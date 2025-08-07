@@ -29,16 +29,22 @@ export class CryptoBitcoinPerformanceComponent extends ChildComponent implements
   groupedByYear: any[] = [];
 
   @Input() inputtedParentRef?: AppComponent;
-  @Input() conversionRate: number = 1;
+  @Input() conversionRate?: number = undefined;
   @Input() selectedCurrency: string = "USD";
   
   constructor(private coinValueService: CoinValueService) { super(); }
 
-  ngOnInit(): void {
+  async ngOnInit() {
+    if (!this.conversionRate) {
+      this.conversionRate = await this.coinValueService.getCurrencyConversionRate("USD", this.selectedCurrency);
+      if (!this.conversionRate) {
+        this.conversionRate = 1;
+      }
+    }
     this.loadPerformanceData();
   }
 
-  loadPerformanceData(): void {
+  loadPerformanceData() {
     this.startLoading();
     this.error = false;
 

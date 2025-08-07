@@ -92,17 +92,12 @@
         </div>
         <div class="volume-stats">
           <div>
-            <strong>BTC:</strong>
             {{ volumeDisplayData?.btc | number:'1.4-4' }} BTC ≈
-            {{ volumeDisplayData?.btcInUSDC | number:'1.0-0' }} USDC
-          </div>
-          <div>
-            <strong>USDC:</strong>
-            {{ volumeDisplayData?.usdc | number:'1.0-0' }} USDC
-          </div>
+            {{ volumeDisplayData?.btcInUSDC | number:'1.0-0' }}$
+          </div> 
           <div *ngIf="volumeDisplayData?.btcPrice">
             <strong>BTC Price:</strong>
-            {{ volumeDisplayData?.btcPrice | number:'1.0-0' }} USDC
+            {{ volumeDisplayData?.btcPrice | number:'1.0-0' }}$
           </div>
           <div *ngIf="volumeDisplayData?.ratio">
             <strong>{{ volumeDisplayData?.dominanceDescription }}:</strong>
@@ -358,8 +353,7 @@
         (selectCoin)="selectCoin($event)"></app-crypto-market-caps>
     </div>
     <div *ngIf="!isTradePanelOpen && latestCurrencyPriceRespectToCAD && selectedCurrency" class="sectionContainer">
-      <app-crypto-bitcoin-performance [inputtedParentRef]="parentRef" [conversionRate]="latestCurrencyPriceRespectToCAD"
-        [selectedCurrency]="selectedCurrency"></app-crypto-bitcoin-performance>
+      <app-crypto-bitcoin-performance [inputtedParentRef]="parentRef" [selectedCurrency]="selectedCurrency"></app-crypto-bitcoin-performance>
     </div>
   </div>
   <div [class]="isTradePanelOpen ? 'fullScreenTradePanelDiv' : 'hubSection miningHubSection'"
@@ -369,11 +363,11 @@
         [conversionRate]="latestCurrencyPriceRespectToCAD" [currency]="selectedCurrency"
         (closeMiningEvent)="closeMiningEvent()"></app-mining-rigs>
     </div>
-    <div class="wallet sectionContainer" *ngIf="wallet" [style.display]="isTradePanelOpen ? 'none' : 'block'">
+    <div class="sectionContainer" *ngIf="wallet" [style.display]="isTradePanelOpen ? 'none' : 'block'">
       <div class="sectionName cryptoWalletSectionHeader gradientBackground"
         *ngIf="latestCurrencyPriceRespectToCAD && wallet" style="padding: 10px;">Crypto Wallets
       </div>
-      <div style="padding: 0px 10px">
+      <div style="padding: 0px 10px" class="wallet">
         <table *ngIf="latestCurrencyPriceRespectToCAD && wallet && selectedCurrency" id="walletTable" class="mainTable">
           <thead *ngIf="wallet?.length">
             <tr>
@@ -399,7 +393,7 @@
             </ng-container>
             <ng-container *ngFor="let currency of subWallet?.currencies">
               <tr (click)="selectCoin(currency.currency)">
-                <td (click)="areWalletAddressesHidden = !areWalletAddressesHidden"
+                <td (click)="areWalletAddressesHidden = !areWalletAddressesHidden; $event.stopPropagation();"
                   [class]="'cursorPointerUnderlined ' + (areWalletAddressesHidden ? 'hiddenBtcAddress' : 'normalBtcAddress')">
                   {{ isDiscreete && currency.address ? currency.address.substring(0,3) + '***' +
                   currency.address.substring(currency.address.length - 3, currency.address.length) : currency.address }}
@@ -408,16 +402,16 @@
                 <td>{{ isDiscreete ? '***' : currency.totalBalance }}</td>
                 <td>{{ (isDiscreete ? '***' : getCurrencyValue(currency.currency, currency)) |
                   currencySymbol:selectedCurrency:true }}</td>
-                <td title="Wallet data" class="cursorPointer" (click)="showWalletData(currency)">ℹ️</td>
+                <td title="Wallet data" class="cursorPointer" (click)="showWalletData(currency); $event.stopPropagation();">ℹ️</td>
               </tr>
             </ng-container>
           </tbody>
         </table>
       </div>
-      <div style="margin-top: 10px;">
-        <span class="cursorPointerUnderlined" (click)="showHideAddWalletDiv()">
-          ✚ Add a crypto wallet
-        </span>
+      <div style="margin-top: 10px; margin-bottom:5px; text-align: center;">
+        <button (click)="showHideAddWalletDiv()">
+          ✚ Add a Crypto Wallet
+        </button>
         <div *ngIf="isAddCryptoDivVisible">
           <input type="text" #newWalletInput (keyup.enter)="saveNewCryptoWallet()" />
           <select>
@@ -501,7 +495,7 @@
                 </span>
               </span>
             </div>
-            <div *ngIf="lastLogEntry" [ngClass]="{'logScreen': !showingTradeLogs, 'bold': true}">
+            <div *ngIf="lastLogEntry && canShowTradePanelInfo()" [ngClass]="{'logScreen': !showingTradeLogs, 'bold': true}">
               <span class="sectionName">Log:&nbsp;</span> <span [ngClass]="{
                 'thirdFontColor': true,
                 'italics': true,
@@ -520,7 +514,7 @@
               </span>
             </div>
 
-            <div *ngIf="isTradePanelOpen && numberOfTrades">
+            <div *ngIf="isTradePanelOpen && numberOfTrades && canShowTradePanelInfo()">
               <span class="sectionName">Number of Trades:&nbsp;</span>
               <span class="smallFont thirdFontColor">
                 {{ numberOfTrades }}
@@ -546,6 +540,7 @@
 
             <select class="currency-select" #selectedTradebotStrategy (change)="currencySelectTradebotEngage()">
               <option value="DCA">DCA</option>
+              <option value="HFT">High-Frequency</option>
               <option value="IND">Indicator</option>
             </select>
 
@@ -563,11 +558,9 @@
               Stop {{selectedTradebotCurrency?.value}} {{selectedTradebotStrategy.value}}
             </button>
 
-            <p class="button-description" id="trades-desc" *ngIf="!isTradebotBalanceShowing">
+            <p class="button-description" id="trades-desc" *ngIf="!isTradebotBalanceShowing && selectedTradebotCurrency?.value">
               {{isTradeBotStarted(selectedTradebotCurrency?.value) ? 'Stop' : 'Start'}} trading USDC and
-              {{selectedTradebotCurrency?.value}} pair
-              {{selectedTradebotCurrency?.value === 'BTC' ? 'with ' + selectedTradebotStrategy.value + ' strategy' :
-              ''}}.
+              {{selectedTradebotCurrency?.value}} pair with {{selectedTradebotStrategy.value}} strategy.
             </p>
           </div>
 
@@ -657,6 +650,7 @@
             <select #tradeBalanceStrategySelector (change)="showTradeBalance(tradeBalanceCoinSelector.value)">
               <option value="DCA">DCA</option>
               <option value="IND">Indicator</option>
+              <option value="HFT">High-Frequency</option>
             </select>
           </div>
 
@@ -826,6 +820,7 @@
             </select>
             <select (change)="filterLogsFromEvent()" #tradeLogStrategyFilter>
               <option value="DCA">DCA</option>
+              <option value="HFT">High-Frequency</option>
               <option value="IND">Indicator</option>
             </select>
           </div>

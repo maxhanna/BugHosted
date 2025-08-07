@@ -470,14 +470,18 @@ export class LineGraphComponent implements OnInit, OnChanges {
           if (d.type.includes('buy_DCA')) return 'green';
           if (d.type.includes('sell_DCA')) return '#ff0000';
           if (d.type.includes('buy_IND')) return '#0000ff';
-          if (d.type.includes('sell_IND')) return '#ff00ff';
+          if (d.type.includes('sell_IND')) return '#ff00ff'; 
+          if (d.type.includes('buy_HFT')) return '#00ff95';
+          if (d.type.includes('sell_HFT')) return '#5f0024';
           return 'grey';
         }),
         borderColor: this.currentSecondaryData.map(d => {
           if (d.type.includes('buy_DCA')) return 'green';
           if (d.type.includes('sell_DCA')) return '#ff0000';
           if (d.type.includes('buy_IND')) return '#0000ff';
-          if (d.type.includes('sell_IND')) return '#ff00ff';
+          if (d.type.includes('sell_IND')) return '#ff00ff'; 
+          if (d.type.includes('buy_HFT')) return '#00ff95';
+          if (d.type.includes('sell_HFT')) return '#5f0024';
           return 'grey';
         }),
         pointBackgroundColor: this.currentSecondaryData.map(d => {
@@ -485,6 +489,8 @@ export class LineGraphComponent implements OnInit, OnChanges {
           if (d.type.includes('sell_DCA')) return '#ff0000';
           if (d.type.includes('buy_IND')) return '#0000ff';
           if (d.type.includes('sell_IND')) return '#ff00ff';
+          if (d.type.includes('buy_HFT')) return '#00ff95';
+          if (d.type.includes('sell_HFT')) return '#5f0024';
           return 'grey';
         }),
         pointBorderColor: this.currentSecondaryData.map(d => {
@@ -492,6 +498,8 @@ export class LineGraphComponent implements OnInit, OnChanges {
           if (d.type.includes('sell_DCA')) return '#ff0000';
           if (d.type.includes('buy_IND')) return '#0000ff';
           if (d.type.includes('sell_IND')) return '#ff00ff';
+          if (d.type.includes('buy_HFT')) return '#00ff95';
+          if (d.type.includes('sell_HFT')) return '#5f0024';
           return 'grey';
         }),
         borderWidth: 2,
@@ -821,7 +829,7 @@ export class LineGraphComponent implements OnInit, OnChanges {
                 const dataPoint = this.currentSecondaryData[context.dataIndex];
                 if (dataPoint.priceCAD !== null && dataPoint.tradeValueCAD !== null) {
                   const action = dataPoint.type.includes('buy') ? 'Buy' : 'Sell';
-                  const strategy = dataPoint.type.includes('DCA') ? 'DCA' : 'IND';
+                  const strategy = dataPoint.type.includes('DCA') ? 'DCA' : dataPoint.type.includes('IND') ? 'IND' : 'HFT';
                   const price = dataPoint.priceCAD.toFixed(2);
                   const tradeValue = dataPoint.tradeValueCAD;
                   label = `${action} (${strategy}): Price ${price}, Value ${tradeValue}`;

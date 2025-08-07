@@ -148,6 +148,7 @@ button {
   max-width: 50px;
   text-overflow: ellipsis;
   overflow: hidden;
+  white-space: nowrap;
 }
 
 .selectedCurrencyDropdownWrapper {
@@ -656,7 +657,7 @@ div:not(.trade-panel-controls) .button-wrapper {
   display: flex;
   justify-content: space-between;
   font-size: xx-small;
-  color: #666;
+  color: var(--third-font-color);
 }
 
 @media only screen and (min-width : 1000px) {

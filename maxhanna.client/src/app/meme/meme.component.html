@@ -31,10 +31,7 @@
                      [currentPage]="currentMemePage" 
                      [previousComponent]="'Meme'"
                      (userNotificationEvent)="uploadNotification($event);">
-    </app-file-search>
-    <div class="loadMoreResultsDiv" *ngIf="!isLoading && !fileSearchComponent.isLoading && fileSearchComponent.currentPage < fileSearchComponent.totalPages && fileSearchComponent.directory?.data?.length">
-      <button (click)="fileSearchComponent.appendNextPage(); $event.preventDefault()" appInView (inView)="onLoadMoreInView($event)">Load More Results</button>
-    </div>
+    </app-file-search> 
   </div>
 </div>
  

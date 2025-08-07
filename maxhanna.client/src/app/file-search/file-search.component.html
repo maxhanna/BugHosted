@@ -26,7 +26,7 @@
   </span>
 </div>
 
-<div *ngIf="showData" [class]="fileSearchMode && !onMobile() ? 'smallerDataDiv' : fileSearchMode && onMobile() ? 'biggerDataDiv' : ''">
+<div [class]="fileSearchMode && !onMobile() ? 'smallerDataDiv' : fileSearchMode && onMobile() ? 'biggerDataDiv' : ''" #fileContainer [id]="!fileSearchMode ? 'fileContainer' : ''">
   <div *ngIf="displayTotal && !search?.nativeElement?.value" class="totalDisplay">
     <span class="currentDirectorySpan" *ngIf="!search?.nativeElement?.value">
       Current Directory:
@@ -131,6 +131,9 @@
             </div>
           </div>
         </ng-container>
+        <div *ngIf="!isLoading && currentPage < totalPages && directory?.data?.length">
+          <button (click)="appendNextPage(); $event.preventDefault()">Load More Results</button>
+        </div>
       </div>
     </div>
     <div *ngIf="isLoading || !directory">
@@ -139,7 +142,7 @@
     <div *ngIf="!isLoading && directory && directory.totalCount == 0">
       Empty.
     </div>
-  </div>
+  </div> 
 </div>
 <!-- File Options Popup -->
 <div class="popupPanel" *ngIf="isOptionsPanelOpen && optionsFile">
@@ -397,10 +400,8 @@
       </p>
     </div>
   </div>
- 
-  <div class="search-actions">
-    <button class="closeButton" id="closeOverlay" (click)="closeSearchPanel()">Close</button>
-  </div> 
+  
+  <button class="closeButton" id="closeOverlay" (click)="closeSearchPanel()">Close</button> 
 </div>
 
 

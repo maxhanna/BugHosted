@@ -65,7 +65,8 @@ export class MediaSelectorComponent implements OnDestroy {
 
   displaySearchDiv() {
     this.displaySearch = true;
-    this.viewMediaChoicesOpen = false;
+    this.viewMediaChoicesOpen = false; 
+    this.selectMediaDiv.nativeElement.classList.remove("open");
   }
   closeSearchDiv(event: Event) {
     console.log("closing closeSearchDiv");

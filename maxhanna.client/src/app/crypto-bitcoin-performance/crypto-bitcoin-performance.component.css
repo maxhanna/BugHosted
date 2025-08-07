@@ -78,7 +78,7 @@
 .compressedTable td:first-child {
     position: sticky;
     left: 0;
-    z-index: 10;
+    z-index: 1;
     border: var(--main-border);
 }
 
@@ -87,12 +87,12 @@
 .compressedTable thead th {
     position: sticky;
     top: 0;
-    z-index: 20;
+    z-index: 1;
 }
 
 /* Special case when both first column and header */
 .compressedTable thead th:first-child {
-    z-index: 30;
+    z-index: 1;
 }
 
 .table-scroll-container {

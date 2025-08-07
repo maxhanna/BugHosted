@@ -167,18 +167,18 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
     { key: 'months', label: 'Monthly Performance', periodKey: 'monthly' }
   ]; 
   tradeBotStatus: { [key: string]: { [strategy: string]: boolean } } = {
-    BTC: { DCA: false, IND: false },
-    XRP: { DCA: false, IND: false },
-    SOL: { DCA: false, IND: false },
-    XDG: { DCA: false, IND: false },
-    ETH: { DCA: false, IND: false }
+    BTC: { DCA: false, IND: false, HFT: false },
+    XRP: { DCA: false, IND: false, HFT: false },
+    SOL: { DCA: false, IND: false, HFT: false },
+    XDG: { DCA: false, IND: false, HFT: false },
+    ETH: { DCA: false, IND: false, HFT: false }
   };
   tradeBotStartedSince: { [key: string]: { [strategy: string]: Date | undefined } } = {
-    BTC: { DCA: undefined, IND: undefined },
-    XRP: { DCA: undefined, IND: undefined },
-    SOL: { DCA: undefined, IND: undefined },
-    XDG: { DCA: undefined, IND: undefined },
-    ETH: { DCA: undefined, IND: undefined }
+    BTC: { DCA: undefined, IND: undefined, HFT: undefined },
+    XRP: { DCA: undefined, IND: undefined, HFT: undefined },
+    SOL: { DCA: undefined, IND: undefined, HFT: undefined },
+    XDG: { DCA: undefined, IND: undefined, HFT: undefined },
+    ETH: { DCA: undefined, IND: undefined, HFT: undefined }
   };
   marketSentimentData?: any;
   isMarketSentimentMaximized = false;
@@ -304,7 +304,7 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
       await this.getLatestCurrencyPriceRespectToFIAT();
       await this.refreshCoinAndVolumeGraph();
       this.startCoinAndVolumePolling();
-      this.getCurrencyToCadRate("usd").then(res => {
+      this.coinValueService.getCurrencyToCadRate("usd").then(res => {
         this.cadToUsdRate = res;
         this.btcUSDRate = this.btcToCadPrice / this.cadToUsdRate;
         this.selectedCoinUSDRate = this.selectedCoinToCadPrice / this.cadToUsdRate;
@@ -408,7 +408,7 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
   async updateVolumeDisplayData(res: any) {
     if (!res || res.length === 0) return;
 
-    const usdRate = await this.getCurrencyConversionRate("CAD", "USD") ?? 1;
+    const usdRate = await this.coinValueService.getCurrencyConversionRate("CAD", "USD") ?? 1;
     // Calculate BTC price first
     const btcPrice = (this.btcToCadPrice ?? 1) * usdRate;
     const latestData = res[res.length - 1];
@@ -552,13 +552,14 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
       const replacement = COIN_REPLACEMENTS.find(r => r.from.test(selectedCoin));
       selectedCoin = replacement ? replacement.to : selectedCoin;
     }
-    const [dcaRes, indRes] = await Promise.all([
+    const [dcaRes, indRes, hftRes] = await Promise.all([
       this.tradeService.getTradeHistory(tradeUserId, token, selectedCoin, "DCA"),
-      this.tradeService.getTradeHistory(tradeUserId, token, selectedCoin, "IND")
+      this.tradeService.getTradeHistory(tradeUserId, token, selectedCoin, "IND"),
+      this.tradeService.getTradeHistory(tradeUserId, token, selectedCoin, "HFT")
     ]);
 
     // Combine the results
-    const combined = [...(dcaRes ?? []), ...(indRes ?? [])];
+    const combined = [...(dcaRes ?? []), ...(indRes ?? []), ...(hftRes ?? [])];
 
     // Set tradebotBalances
     if (!this.tradebotBalances) { 
@@ -637,18 +638,18 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
     } else {
       // Initialize all statuses to false if no user is logged in
       this.tradeBotStatus = {
-        BTC: { DCA: false, IND: false },
-        XRP: { DCA: false, IND: false },
-        SOL: { DCA: false, IND: false },
-        XDG: { DCA: false, IND: false },
-        ETH: { DCA: false, IND: false }
+        BTC: { DCA: false, IND: false, HFT: false },
+        XRP: { DCA: false, IND: false, HFT: false },
+        SOL: { DCA: false, IND: false, HFT: false },
+        XDG: { DCA: false, IND: false, HFT: false },
+        ETH: { DCA: false, IND: false, HFT: false }
       };
       this.tradeBotStartedSince = {
-        BTC: { DCA: undefined, IND: undefined },
-        XRP: { DCA: undefined, IND: undefined },
-        SOL: { DCA: undefined, IND: undefined },
-        XDG: { DCA: undefined, IND: undefined },
-        ETH: { DCA: undefined, IND: undefined }
+        BTC: { DCA: undefined, IND: undefined, HFT: undefined },
+        XRP: { DCA: undefined, IND: undefined, HFT: undefined },
+        SOL: { DCA: undefined, IND: undefined, HFT: undefined },
+        XDG: { DCA: undefined, IND: undefined, HFT: undefined },
+        ETH: { DCA: undefined, IND: undefined, HFT: undefined }
       };
     }
   }
@@ -723,11 +724,11 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
     }
 
     if (!this.usdToSelectedCurrencyRate) {
-      this.usdToSelectedCurrencyRate = await this.getCurrencyExchangeRate(this.selectedCurrency ?? "USD", "USD");
+      this.usdToSelectedCurrencyRate = await this.coinValueService.getFIATExchangeRate(this.selectedCurrency ?? "USD", "USD");
     }
 
     if (!this.cadToSelectedCurrencyRate) {
-      this.getCurrencyExchangeRate(this.selectedCurrency ?? "USD", "CAD").then(res => this.cadToSelectedCurrencyRate = res);
+      this.coinValueService.getFIATExchangeRate(this.selectedCurrency ?? "USD", "CAD").then(res => this.cadToSelectedCurrencyRate = res);
     }
 
     if (krakenUsdcCurrencyWallet) {
@@ -798,8 +799,8 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
     let changeIndicators = false;
     const defaultCoins = ['Bitcoin', 'Solana', 'XRP', 'Dogecoin', 'Ethereum'];
     if (defaultCoins.includes(this.currentSelectedCoin)) {
-      const targetCoin = this.availableIndicatorPairs.filter(x => x.fromCoinLongName == this.currentSelectedCoin)[0].fromCoin;
-      this.tradeIndicatorSelect.nativeElement.value = `${targetCoin}/USDC`;
+      const targetCoin = this.availableIndicatorPairs.filter(x => x.fromCoinLongName == this.currentSelectedCoin)[0].value;
+      this.tradeIndicatorSelect.nativeElement.value = targetCoin;
       changeIndicators = true;
     }  
 
@@ -2435,68 +2436,7 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
       return this.convertFromFIATToCryptoValue(fiatCurrency, tRate);
     }
   }
-
-  async getCurrencyConversionRate(baseCurrency: string, targetCurrency: string): Promise<number> {
-    // If same currency, return 1
-    if (baseCurrency === targetCurrency) {
-      return 1;
-    }
-
-    try {
-      // Get base currency to CAD rate
-      const baseToCadRate = await this.getCurrencyToCadRate(baseCurrency);
-
-      // Get target currency to CAD rate
-      const targetToCadRate = await this.getCurrencyToCadRate(targetCurrency);
-
-      // Calculate conversion rate: (1 unit of baseCurrency in CAD) / (1 unit of targetCurrency in CAD)
-      return baseToCadRate / targetToCadRate;
-    } catch (error) {
-      console.error('Error getting conversion rate:', error);
-      return 1; // Fallback to 1:1 if there's an error
-    }
-  }
-
-  private async getCurrencyToCadRate(currency: string): Promise<number> {
-    if (currency === 'CAD') {
-      return 1;
-    }
-
-    // Check if it's a cryptocurrency
-    if (currency != "USD" && currency != "GBP" && currency != "EUR") {
-      const crypto = await this.coinValueService.getLatestCoinValuesByName(currency);
-      if (crypto && crypto.name) {
-        return crypto.valueCAD || 1;
-      }
-    }
-
-    // Handle fiat currencies
-    const exchangeRate = await this.coinValueService.getLatestCurrencyValuesByName(currency);
-    if (exchangeRate) {
-      // If the rate is CAD → target, we need to invert it
-      if (exchangeRate.baseCurrency === 'CAD') {
-        return 1 / exchangeRate.rate;
-      }
-      // If it's target → CAD, use directly
-      return exchangeRate.rate;
-    }
-
-    return 1; // Fallback rate
-  }
-  private async getCurrencyExchangeRate(targetFiat: string, baseCurrency: string = this.selectedCurrency ?? ""): Promise<number> {
-    if (!baseCurrency) return 1;
-    targetFiat = targetFiat.replace("BTC", "Bitcoin");
-
-    // If converting to same currency, rate is 1
-    if (targetFiat === baseCurrency) return 1;
-    const cadToTarget = await this.coinValueService.getLatestCurrencyValuesByName(targetFiat);
-    const cadToBase = await this.coinValueService.getLatestCurrencyValuesByName(baseCurrency) ?? { rate: 1 } as ExchangeRate;
-    if (cadToTarget) {
-      return cadToTarget.rate / cadToBase.rate;
-    }
-
-    return 1;
-  }
+ 
 
   convertTimePeriodToHours(period: string): number {
     const periodRegex = /^(\d+)\s*(m|min|mins|minute|minutes|h|hour|hours|d|day|days|w|week|weeks|m|month|months|y|year|years)$/;
@@ -2616,7 +2556,7 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
     };
 
     let tmpCoinName = coinNameMap[selectedCurrency] || selectedCurrency;
-    let currencyRate = await this.getCurrencyConversionRate(tmpCoinName, "USDC"); 
+    let currencyRate = await this.coinValueService.getCurrencyConversionRate(tmpCoinName, "USDC"); 
     let coinPrice = this.formatToCanadianCurrency(currencyRate ?? 0);
     let btcPurchaseCost = currencyRate;
     if (tc) {
@@ -2662,7 +2602,7 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
     };
 
     let tmpCoinName = coinNameMap[selectedCurrency] || selectedCurrency;
-    let currencyRate = await this.getCurrencyConversionRate(tmpCoinName, "USDC"); 
+    let currencyRate = await this.coinValueService.getCurrencyConversionRate(tmpCoinName, "USDC"); 
     let sellPreview = currentBTC * (currencyRate ?? 0);
     this.stopLoading();
     if (!confirm(`Sell ${currentBTC.toFixed(8)} ${selectedCurrency} for ${this.formatToCanadianCurrency(sellPreview)}?\n- ${selectedCurrency} USDC Price: ${this.formatToCanadianCurrency(currencyRate ?? 0)}`)) { return alert("Cancelled"); }

@@ -50,17 +50,21 @@
       </thead>
       <tbody>
         <tr *ngFor="let contact of contacts" (click)="selectContact(contact)">
-          <td><span (click)="viewProfile(contact.user, 'Contacts')" [class]="contact.user?.id != 0 ? 'usernameProfileLink cursorPointerUnderlined' : ''">{{ contact.name }}</span></td>
+          <td><span (click)="viewProfile(contact.user, 'Contacts')"
+              [class]="contact.user?.id != 0 ? 'usernameProfileLink cursorPointerUnderlined' : ''">{{ contact.name
+              }}</span></td>
           <td class="noTMI">{{ getContactPhone(contact) }}</td>
-          <td>{{ getContactBirthday(contact)  | date: 'MMM dd, yyyy' }}</td>
+          <td>{{ getContactBirthday(contact) | date: 'MMM dd, yyyy' }}</td>
           <td class="noTMI">{{ getContactNotes(contact) }}</td>
           <td class="cursorPointer">
-            <a *ngIf="getContactEmail(contact)" [href]="'mailto:' + getContactEmail(contact)" (click)="$event.stopPropagation();">
+            <a *ngIf="getContactEmail(contact)" [href]="'mailto:' + getContactEmail(contact)"
+              (click)="$event.stopPropagation();">
               <span class="noTMI">{{ getContactEmail(contact) }}</span>&nbsp;
               <label>📧</label>
             </a>
           </td>
-          <td style="width:0%;"><button (click)="deleteContact(contact.id!);$event.stopPropagation();" style="z-index:2" title="Delete Contact">❌</button></td>
+          <td style="width:0%;"><button (click)="deleteContact(contact.id!);$event.stopPropagation();" style="z-index:2"
+              title="Delete Contact">❌</button></td>
         </tr>
       </tbody>
     </table>
@@ -72,34 +76,40 @@
 
   <div class="popupPanel" *ngIf="selectedContact">
     <label class="editContactLabel popupPanelTitle">Edit Contact</label>
-    <table class="editContactTable">
-      <tr>
-        <td><label for="name">Name:</label></td>
-        <td><input type="text" #name [value]="selectedContact.name" class="longInput" required></td>
-      </tr>
-      <tr>
-        <td><label for="phone">Phone:</label></td>
-        <td><input type="text" #phone [placeholder]="getContactPhone(selectedContact)" [value]="getContactPhone(selectedContact)"></td>
-      </tr>
-      <tr>
-        <td><label for="birthday">Birthday:</label></td>
-        <td><input type="date" #birthday [value]="formatDate(getContactBirthday(selectedContact))"></td>
-      </tr>
-      <tr>
-        <td><label for="notes">Notes:</label></td>
-        <td><textarea #notes [placeholder]="getContactNotes(selectedContact)" [value]="getContactNotes(selectedContact)" class="longInput"></textarea></td>
-      </tr>
-      <tr>
-        <td><label for="email">Email:</label></td>
-        <td><input type="email" #email [placeholder]="getContactEmail(selectedContact)" [value]="getContactEmail(selectedContact)" class="longInput"></td>
-      </tr>
-      <tr>
-        <td colspan="2" class="saveCancelButtonTd">
-          <button (click)="saveContact()" title="Save">💾Save</button>
-          <button class="closeButton" (click)="selectedContact = undefined; parentRef?.closeOverlay();" title="Cancel" id="closeOverlay">❌Close</button>
-        </td>
-      </tr>
-    </table>
+    <div class="editContactTableWrapper">
+      <table class="editContactTable">
+        <tr>
+          <td><label for="name">Name:</label></td>
+          <td><input type="text" #name [value]="selectedContact.name" required></td>
+        </tr>
+        <tr>
+          <td><label for="phone">Phone:</label></td>
+          <td><input type="text" #phone [placeholder]="getContactPhone(selectedContact)"
+              [value]="getContactPhone(selectedContact)"></td>
+        </tr>
+        <tr>
+          <td><label for="birthday">Birthday:</label></td>
+          <td><input type="date" #birthday [value]="formatDate(getContactBirthday(selectedContact))"></td>
+        </tr>
+        <tr>
+          <td><label for="notes">Notes:</label></td>
+          <td><textarea #notes [placeholder]="getContactNotes(selectedContact)"
+              [value]="getContactNotes(selectedContact)"></textarea></td>
+        </tr>
+        <tr>
+          <td><label for="email">Email:</label></td>
+          <td><input type="email" #email [placeholder]="getContactEmail(selectedContact)"
+              [value]="getContactEmail(selectedContact)"></td>
+        </tr>
+        <tr>
+          <td colspan="2" class="saveCancelButtonTd">
+            <button (click)="saveContact()" title="Save">💾Save</button>
+            <button class="closeButton" (click)="selectedContact = undefined; parentRef?.closeOverlay();" title="Cancel"
+              id="closeOverlay">❌Close</button>
+          </td>
+        </tr>
+      </table>
+    </div>
   </div>
 
 </div>

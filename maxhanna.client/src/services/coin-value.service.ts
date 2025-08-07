@@ -167,7 +167,7 @@ export class CoinValueService {
 
         headers: {
           'Content-Type': 'application/json',
-        }, 
+        },
       });
 
       return await response.json();
@@ -275,7 +275,7 @@ export class CoinValueService {
 
       // Add query parameters
       url.searchParams.append('daysAhead', daysAhead.toString());
-      url.searchParams.append('limit', limit.toString()); 
+      url.searchParams.append('limit', limit.toString());
 
       const response = await fetch(url.toString(), {
         method: 'POST', // It uses POST even though it reads data
@@ -377,6 +377,70 @@ export class CoinValueService {
     } catch (error) {
       return [];
     }
+  }
+
+
+  async getFIATExchangeRate(targetFiat: string, baseCurrency: string): Promise<number> {
+    if (!baseCurrency) return 1;
+    targetFiat = targetFiat.replace("BTC", "Bitcoin");
+
+    // If converting to same currency, rate is 1
+    if (targetFiat === baseCurrency) return 1;
+    const cadToTarget = await this.getLatestCurrencyValuesByName(targetFiat);
+    const cadToBase = await this.getLatestCurrencyValuesByName(baseCurrency) ?? { rate: 1 } as ExchangeRate;
+    if (cadToTarget) {
+      return cadToTarget.rate / cadToBase.rate;
+    }
+
+    return 1;
+  }
+
+  async getCurrencyConversionRate(baseCurrency: string, targetCurrency: string): Promise<number> {
+    // If same currency, return 1
+    if (baseCurrency === targetCurrency) {
+      return 1;
+    }
+
+    try {
+      // Get base currency to CAD rate
+      const baseToCadRate = await this.getCurrencyToCadRate(baseCurrency);
+
+      // Get target currency to CAD rate
+      const targetToCadRate = await this.getCurrencyToCadRate(targetCurrency);
+
+      // Calculate conversion rate: (1 unit of baseCurrency in CAD) / (1 unit of targetCurrency in CAD)
+      return baseToCadRate / targetToCadRate;
+    } catch (error) {
+      console.error('Error getting conversion rate:', error);
+      return 1; // Fallback to 1:1 if there's an error
+    }
+  }
+
+  async getCurrencyToCadRate(currency: string): Promise<number> {
+    if (currency === 'CAD') {
+      return 1;
+    }
+
+    // Check if it's a cryptocurrency
+    if (currency != "USD" && currency != "GBP" && currency != "EUR") {
+      const crypto = await this.getLatestCoinValuesByName(currency);
+      if (crypto && crypto.name) {
+        return crypto.valueCAD || 1;
+      }
+    }
+
+    // Handle fiat currencies
+    const exchangeRate = await this.getLatestCurrencyValuesByName(currency);
+    if (exchangeRate) {
+      // If the rate is CAD → target, we need to invert it
+      if (exchangeRate.baseCurrency === 'CAD') {
+        return 1 / exchangeRate.rate;
+      }
+      // If it's target → CAD, use directly
+      return exchangeRate.rate;
+    }
+
+    return 1; // Fallback rate
   }
 }
 

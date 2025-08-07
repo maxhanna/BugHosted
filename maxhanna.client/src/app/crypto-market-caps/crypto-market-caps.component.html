@@ -9,7 +9,7 @@
                     <th (click)="sortTable(2, 'marketCapsTable')" [title]="'Price ' + selectedCurrency">Price</th>
                     <th (click)="sortTable(3, 'marketCapsTable')" [title]="'Market Cap ' + selectedCurrency">Market Cap</th>
                     <th (click)="sortTable(4, 'marketCapsTable')" title="24h Price Change (%)">Price &Delta;</th>
-                    <th (click)="sortTable(5, 'marketCapsTable')" title="24h Inflow Change (USD)">Inflow</th>
+                    <th (click)="sortTable(5, 'marketCapsTable')" title="24h Inflow Change (USD)" *ngIf="!onMobile() || expand">Inflow</th>
                 </tr>
             </thead>
             <tbody>
@@ -23,7 +23,8 @@
                         title="Yesterday: {{ getYesterdayPrice(coin.priceUSD, coin.priceChangePercentage24h) | currencySymbol:selectedCurrency:false }}">
                         {{ coin.priceChangePercentage24h | number:'1.2-2' }}%
                     </td>
-                    <td [class]="coin.inflowChange24h >= 0 ? 'positive' : 'negative'"
+                    <td *ngIf="!onMobile() || expand"
+                        [class]="coin.inflowChange24h >= 0 ? 'positive' : 'negative'"
                         title="Yesterday: {{ getPreviousMarketCap(coin.marketCapUSD, coin.inflowChange24h) | currencySymbol:selectedCurrency:false}}">
                         {{ coin.inflowChange24h | currencySymbol:selectedCurrency:false }}
                     </td>
