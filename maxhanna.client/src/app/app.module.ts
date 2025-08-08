@@ -71,6 +71,7 @@ import { YoutubeSearchComponent } from './youtube-search/youtube-search.componen
 import { DecodeHtmlPipe } from './decode-html.pipe';
 import { CryptoTradebotInformationComponent } from './crypto-tradebot-information/crypto-tradebot-information.component';
 import { CryptoBitcoinPerformanceComponent } from './crypto-bitcoin-performance/crypto-bitcoin-performance.component';
+import { CryptoWalletsComponent } from './crypto-wallets/crypto-wallets.component';
 
 @NgModule({
   declarations: [
@@ -131,6 +132,7 @@ import { CryptoBitcoinPerformanceComponent } from './crypto-bitcoin-performance/
     YoutubeSearchComponent,
     CryptoTradebotInformationComponent,
     CryptoBitcoinPerformanceComponent,
+    CryptoWalletsComponent,
   ],
   bootstrap: [AppComponent],
   imports: [BrowserModule,
