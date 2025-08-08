@@ -1,0 +1,16 @@
+.normalBtcAddress,
+.hiddenBtcAddress {
+    text-align: left !important;
+}
+
+.hiddenBtcAddress {
+    max-width: 50px;
+    text-overflow: ellipsis;
+    overflow: hidden;
+    white-space: nowrap;
+}
+.sectionName {
+    font-family: var(--section-font-family);
+    font-weight: bolder;
+    text-align: center;
+}

@@ -10,8 +10,7 @@ namespace maxhanna.Server.Controllers
 	public class CoinValueController : ControllerBase
 	{
 		private Log _log;
-		private readonly IConfiguration _config;
-		private const int TRUNCATE_DAY = 120; // 2 minutes for <= 1 day
+		private readonly IConfiguration _config; 
 		private const int TRUNCATE_WEEK = 900; // 15 minutes for > 1 day and <= 1 week
 		private const int TRUNCATE_MONTH = 3600; // 1 hour for > 1 week and <= 1 month
 		private const int TRUNCATE_YEAR = 14400; // 4 hours for > 1 month and <= 1 year
@@ -19,6 +18,7 @@ namespace maxhanna.Server.Controllers
 		private const double HOURS_IN_WEEK = 168; // 7 days * 24 hours
 		private const double HOURS_IN_MONTH = 720; // 30 days * 24 hours
 		private const double HOURS_IN_YEAR = 8760; // 365 days * 24 hours
+		private static readonly Dictionary<string, string> CoinNameMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) { { "BTC", "Bitcoin" }, { "XBT", "Bitcoin" }, { "ETH", "Ethereum" }, { "XDG", "Dogecoin" }, { "SOL", "Solana" } };
 
 		public CoinValueController(Log log, IConfiguration config)
 		{
@@ -67,7 +67,7 @@ namespace maxhanna.Server.Controllers
 		}
 
 		[HttpPost("/CoinValue/GetWalletBalanceData", Name = "GetWalletBalanceData")]
-		public async Task<List<CoinValue>> GetWalletBalanceData([FromBody] string walletAddress)
+		public async Task<List<CoinValue>> GetWalletBalanceData([FromBody] GetWalletDataRequest req)
 		{
 			var coinValues = new List<CoinValue>();
 
@@ -76,18 +76,21 @@ namespace maxhanna.Server.Controllers
 			{
 				await conn.OpenAsync();
 
-				string sql = @"
+				string currency = req.Currency.ToLower();
+				if (currency == "xbt") { currency = "btc"; }
+
+				string sql = $@"
 					SELECT 
 							wi.id AS wallet_id,
-							wi.btc_address,
+							wi.{currency}_address,
 							wb.balance, 
 							wb.fetched_at
-					FROM user_btc_wallet_info wi
-					LEFT JOIN user_btc_wallet_balance wb 
+					FROM user_{currency}_wallet_info wi
+					LEFT JOIN user_{currency}_wallet_balance wb 
 							ON wi.id = wb.wallet_id
-					WHERE wi.btc_address = @WalletAddress";
+					WHERE wi.{currency}_address = @WalletAddress";
 				MySqlCommand cmd = new MySqlCommand(sql, conn);
-				cmd.Parameters.AddWithValue("@WalletAddress", walletAddress);
+				cmd.Parameters.AddWithValue("@WalletAddress", req.WalletAddress); 
 
 				using (var reader = await cmd.ExecuteReaderAsync())
 				{
@@ -95,9 +98,8 @@ namespace maxhanna.Server.Controllers
 					{
 						var coinValue = new CoinValue
 						{
-							Id = reader.GetInt32(reader.GetOrdinal("wallet_id")),
-							Symbol = "BTC",
-							Name = "Bitcoin",
+							Id = reader.GetInt32(reader.GetOrdinal("wallet_id")), 
+							Name = req.Currency,
 							ValueCAD = reader.IsDBNull(reader.GetOrdinal("balance")) ? 0 : reader.GetDecimal(reader.GetOrdinal("balance")),
 							Timestamp = reader.GetDateTime(reader.GetOrdinal("fetched_at"))
 						};
@@ -1150,12 +1152,12 @@ namespace maxhanna.Server.Controllers
 
 						// Define the base SQL command with parameters for insertion
 						cmd.CommandText = @"
-                    INSERT INTO user_btc_wallet_info 
-                    (user_id, btc_address, last_fetched) 
-                    VALUES (@UserId, @BtcAddress, UTC_TIMESTAMP())
-                    ON DUPLICATE KEY UPDATE 
-                        btc_address = VALUES(btc_address),
-                        last_fetched = VALUES(last_fetched);";
+							INSERT INTO user_btc_wallet_info 
+							(user_id, btc_address, last_fetched) 
+							VALUES (@UserId, @BtcAddress, UTC_TIMESTAMP())
+							ON DUPLICATE KEY UPDATE 
+								btc_address = VALUES(btc_address),
+								last_fetched = VALUES(last_fetched);";
 
 						// Add parameters
 						cmd.Parameters.AddWithValue("@UserId", request.UserId);
@@ -1498,9 +1500,7 @@ namespace maxhanna.Server.Controllers
 
 		private async Task<CryptoWallet?> GetWalletFromDb(int? userId, string type)
 		{
-			if (userId == null) { return null; }
-			type = type.ToLower();
-			if (type != "btc" && type != "usdc" && type != "xrp" && type != "sol" && type != "xdg" && type != "eth") return null;
+			if (userId == null) { return null; } 
 
 			var wallet = new CryptoWallet
 			{
@@ -1536,11 +1536,12 @@ namespace maxhanna.Server.Controllers
 					using (var coinCmd = new MySqlCommand(@"
 						SELECT value_cad 
 						FROM coin_value 
-						WHERE symbol = @Symbol 
+						WHERE name = @Name 
 						ORDER BY timestamp DESC 
 						LIMIT 1", conn))
 					{
-						coinCmd.Parameters.AddWithValue("@Symbol", type.ToUpper());
+						string tmpCoinName = CoinNameMap.TryGetValue(type.ToUpper(), out var toname) ? toname : type; 
+						coinCmd.Parameters.AddWithValue("@Name", tmpCoinName);
 						var coinResult = await coinCmd.ExecuteScalarAsync();
 						if (coinResult != null && coinResult != DBNull.Value)
 							coinToCad = Convert.ToDecimal(coinResult);

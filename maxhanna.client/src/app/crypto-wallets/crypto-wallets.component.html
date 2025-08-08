@@ -1,0 +1,112 @@
+<div class="sectionName gradientBackground" style="padding: 10px;">Crypto Wallets</div>
+<div style="padding: 0px 10px" class="wallet">
+    <table *ngIf="wallet && selectedCurrency" id="walletTable" class="mainTable">
+        <thead *ngIf="wallet?.length">
+            <tr>
+                <th (click)="areWalletAddressesHidden = !areWalletAddressesHidden"
+                    class="cursorPointerUnderlined normalBtcAddress">Address</th>
+                <th (click)="sortTable(1, 'walletTable')">Currency</th>
+                <th (click)="sortTable(2, 'walletTable')">Total Balance</th>
+                <th (click)="sortTable(3, 'walletTable')" title="Fiat rate">{{ null | currencySymbol:(selectedCurrency)
+                    }}{{selectedCurrency}}</th>
+                <th (click)="sortTable(4, 'walletTable')" title="Wallet data"></th>
+            </tr>
+        </thead>
+        <tbody *ngFor="let subWallet of wallet">
+            <ng-container>
+                <tr class="walletTotalHeaderRow">
+                    <td></td>
+                    <td (click)="selectCoin.emit(subWallet.total?.currency)">{{ subWallet.total?.currency }}</td>
+                    <td>{{ isDiscreete ? '***' : subWallet.total?.totalBalance }}</td>
+                    <td>{{ (isDiscreete ? '***' : getTotalCurrencyDisplayValue(subWallet)) | currencySymbol:selectedCurrency:true }}</td>
+                    <td></td>
+                </tr>
+            </ng-container>
+            <ng-container *ngFor="let currency of subWallet?.currencies">
+                <tr (click)="selectCoin.emit(currency.currency)">
+                    <td (click)="areWalletAddressesHidden = !areWalletAddressesHidden; $event.stopPropagation();"
+                        [class]="'cursorPointerUnderlined ' + (areWalletAddressesHidden ? 'hiddenBtcAddress' : 'normalBtcAddress')">
+                        {{ isDiscreete && currency.address ? currency.address.substring(0,3) + '***' +
+                        currency.address.substring(currency.address.length - 3, currency.address.length) :
+                        currency.address }}
+                    </td>
+                    <td (click)="selectCoin.emit(currency.currency)">{{ currency.currency }}</td>
+                    <td>{{ isDiscreete ? '***' : currency.totalBalance }}</td>
+                    <td>{{ (isDiscreete ? '***' : getCurrencyValue(currency)) | currencySymbol:selectedCurrency:true }}</td>
+                    <td title="Wallet data" class="cursorPointer"
+                        (click)="showWalletData(currency); $event.stopPropagation();">ℹ️</td>
+                </tr>
+            </ng-container>
+        </tbody>
+    </table>
+</div>
+<div style="margin-top: 10px; margin-bottom:5px; text-align: center;">
+    <button (click)="showHideAddWalletDiv()">
+        ✚ Add a Crypto Wallet
+    </button>
+    <div *ngIf="isAddCryptoDivVisible">
+        <input type="text" #newWalletInput (keyup.enter)="saveNewCryptoWallet()" />
+        <select>
+            <option>BTC</option>
+        </select>
+        <button (click)="saveNewCryptoWallet()">💾Save</button>
+    </div>
+</div>
+
+
+
+<div *ngIf="isWalletPanelOpen" class="popupPanel {{isWalletGraphFullscreened ? 'fullscreenPopupPanel' : ''}}">
+    <div class="popupPanelTitle walletPopupTitle">
+        Wallet ℹ️
+        <div *ngIf="currentlySelectedCurrency">{{currentlySelectedCurrency.address}}</div>
+    </div>
+
+    <div class="optionsStatsWrapperDiv walletPopupWrapperDiv" *ngIf="currentlySelectedCurrency">
+        <div class="optionsStatsDiv">
+            <div class="optionsStatsHeader">Currency:</div>
+            <div class="optionsStatsDescription">
+                {{currentlySelectedCurrency.currency}}
+            </div>
+        </div>
+        <div class="optionsStatsDiv">
+            <div class="optionsStatsHeader">Total:</div>
+            <div class="optionsStatsDescription">
+                {{currentlySelectedCurrency.totalBalance}}
+            </div>
+        </div>
+        <div class="optionsStatsDiv">
+            <div class="optionsStatsHeader">Value:</div>
+            <div class="optionsStatsDescription" *ngIf="currentlySelectedCurrency.currency == 'USDC'">
+                {{ currentlySelectedCurrency.totalBalance | currencySymbol:selectedCurrency:true }}
+            </div>
+            <div class="optionsStatsDescription" *ngIf="currentlySelectedCurrency.currency != 'USDC'">
+                {{ getTotalWalletBalance() | currencySymbol:selectedCurrency:true }}
+            </div>
+        </div>
+    </div>
+
+    <div
+        *ngIf="allWalletBalanceData && allWalletBalanceData.length > 0 && currentlySelectedCurrency && currentlySelectedCurrency?.address != 'Nicehash Wallet'">
+        <app-line-graph #walletDataLineGraphComponent  
+            [selectedCurrency]="currentlySelectedCurrency.currency"
+            [selectedPeriod]="'5d'"
+            [graphTitle]="currentlySelectedCurrency.currency + ' Value'"
+            [data]="allWalletBalanceData" (fullscreenSelectedEvent)="fullscreenSelectedInPopup($event)">
+        </app-line-graph>
+    </div>
+    <!-- <div class="popupPanelTitle cursorPointer" (click)="hideHostAiMessageWallet = !hideHostAiMessageWallet">
+        <span class="warning-text"
+            title="This is not actual financial advice. This is based off AI and the data presented to it from your wallet. We take no responsibility in what you do with this information.">⚠️</span>
+        HostAI: <button (click)="generateWalletAiMessage(); hideHostAiMessageWallet = !hideHostAiMessageWallet;"
+            *ngIf="!finishedGeneratingAiWalletMessage && !getAiMessage(currentlySelectedCurrency?.address)"
+            [disabled]="isLoading">Generate Analysis</button>
+    </div> -->
+    <!-- <div *ngIf="!finishedGeneratingAiWalletMessage && isLoading">Generating...</div>
+    <div class="aiMessage"
+        *ngIf="(finishedGeneratingAiWalletMessage && !hideHostAiMessageWallet) || getAiMessage(currentlySelectedCurrency?.address)">
+        <span [innerHTML]="getAiMessage(currentlySelectedCurrency?.address)"></span>
+    </div> -->
+
+    <button id="closeOverlay" (click)="closeWalletPanel()" class="closeButton"
+        style="margin: 20px 20px 0px 20px;">Close</button>
+</div>

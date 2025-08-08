@@ -891,10 +891,10 @@ namespace maxhanna.Server.Controllers
 					if (count == 0) // Only insert if no recent notification exists
 					{
 						string insertSql = @"
-                    INSERT INTO maxhanna.notifications
-                        (user_id, from_user_id, chat_id, text, date)
-                    VALUES
-                        (@Receiver, @Sender, @ChatId, @Content, UTC_TIMESTAMP());";
+							INSERT INTO maxhanna.notifications
+								(user_id, from_user_id, chat_id, text, date)
+							VALUES
+								(@Receiver, @Sender, @ChatId, @Content, UTC_TIMESTAMP());";
 
 						using (var insertCommand = new MySqlCommand(insertSql, conn))
 						{
@@ -1064,31 +1064,24 @@ namespace maxhanna.Server.Controllers
 			return sendFirebaseNotification;
 		}
 		private async Task<bool> ShouldSendFirebaseNotificationForChat(MySqlConnection conn, NotificationRequest request)
-		{
-			if (request.ChatId == null)
-			{
-				return false;
-			}
-
+		{ 
 			foreach (var receiverUserId in request.ToUserIds)
 			{
 				if (receiverUserId == request.FromUserId) continue;
 
 				string checkSql = @"
-            SELECT COUNT(*) 
-            FROM maxhanna.notifications
-            WHERE user_id = @Receiver
-                AND chat_id = @ChatId
-                AND chat_id IS NOT NULL
-                AND date >= UTC_TIMESTAMP() - INTERVAL 10 MINUTE;";
+					SELECT COUNT(*) 
+					FROM maxhanna.notifications
+					WHERE user_id = @Receiver 
+						AND chat_id IS NOT NULL
+						AND date >= UTC_TIMESTAMP() - INTERVAL 10 MINUTE;";
 
 				using (var checkCommand = new MySqlCommand(checkSql, conn))
 				{
-					checkCommand.Parameters.AddWithValue("@Receiver", receiverUserId);
-					checkCommand.Parameters.AddWithValue("@ChatId", request.ChatId);
+					checkCommand.Parameters.AddWithValue("@Receiver", receiverUserId); 
 					var count = Convert.ToInt32(await checkCommand.ExecuteScalarAsync());
 
-					if (count == 0)
+					if (count <= 1)
 					{
 						return true; // Send Firebase notification if no recent notification exists
 					}

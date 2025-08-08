@@ -139,17 +139,6 @@ button {
   padding: 10px;
 }
 
-.normalBtcAddress,
-.hiddenBtcAddress {
-  text-align: left !important;
-}
-
-.hiddenBtcAddress {
-  max-width: 50px;
-  text-overflow: ellipsis;
-  overflow: hidden;
-  white-space: nowrap;
-}
 
 .selectedCurrencyDropdownWrapper {
   display: flex;

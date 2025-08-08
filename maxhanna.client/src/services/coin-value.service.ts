@@ -44,14 +44,14 @@ export class CoinValueService {
     }
   }
 
-  async getWalletBalanceData(walletAddress: string) {
+  async getWalletBalanceData(walletAddress: string, currency: string, userId: number) {
     try {
       const response = await fetch(`/coinvalue/getwalletbalancedata`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(walletAddress),
+        body: JSON.stringify({WalletAddress: walletAddress, Currency: currency, UserId: userId}),
       });
 
       return await response.json();

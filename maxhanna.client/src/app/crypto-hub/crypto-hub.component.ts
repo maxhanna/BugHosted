@@ -19,7 +19,7 @@ import { CryptoMarketCapsComponent } from '../crypto-market-caps/crypto-market-c
   styleUrl: './crypto-hub.component.css',
   standalone: false
 })
-export class CryptoHubComponent extends ChildComponent implements OnInit, OnDestroy {
+export class CryptoHubComponent extends ChildComponent implements OnInit, OnDestroy { 
   wallet?: MiningWalletResponse[] | undefined;
   btcFiatConversion?: number = 0;
   selectedCurrency?: string = undefined;
@@ -28,7 +28,7 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
   profitData: ProfitData[] = [];
   noMining = false;
   isDiscreete = false;
-  coinValueData?: CoinValue[];
+  latestCoinValueData?: CoinValue[];
   allHistoricalData?: CoinValue[] = [];
   volumeData?: any[] = undefined;
   totalBTCVolume: number = 0;
@@ -47,8 +47,6 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
   xrpToCadPrice = 0;
   ethToCadPrice = 0;
   selectedCoinToCadPrice = 0;
-  isAddCryptoDivVisible = false;
-  areWalletAddressesHidden = true;
   isMenuPanelOpen = false;
   isWalletPanelOpen = false;
   latestCurrencyPriceRespectToCAD = 0;
@@ -60,7 +58,7 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
   aiMessages: { addr: string, message: string }[] = [];
   hideHostAiMessageWallet = true;
   hideHostAiMessage = true;
-  isWalletGraphFullscreened = false;
+  isGraphFullscreenedInPopup = false;
   hostAiToggled = false;
   hasKrakenApi = false;
   showingTradeSettings = false;
@@ -234,7 +232,6 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
   @ViewChild('selectedTradebotCurrency') selectedTradebotCurrency?: ElementRef<HTMLSelectElement>;
   @ViewChild('selectedTradebotStrategy') selectedTradebotStrategy?: ElementRef<HTMLSelectElement>;
   @ViewChild('tradeIndicatorSelect') tradeIndicatorSelect!: ElementRef<HTMLSelectElement>;
-  @ViewChild('newWalletInput') newWalletInput!: ElementRef<HTMLInputElement>;
   @ViewChild('tradeBotSimDebugDivContainer') tradeBotSimDebugDivContainer!: ElementRef<HTMLDivElement>;
   @ViewChild('initialBtcUsd') initialBtcUsd!: ElementRef<HTMLInputElement>;
   @ViewChild('initialUsdc') initialUsdc!: ElementRef<HTMLInputElement>;
@@ -290,13 +287,13 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
         }
 
         // Process all coin data
-        this.coinValueData = res;
+        this.latestCoinValueData = res;
         this.coinNames = res.map(x => x.name.replace("Bitcoin", "BTC"))
           .filter((name, index, arr) => arr.indexOf(name) === index)
           .sort();
         this.startAutoScroll();
-      });
-      this.getBTCWallets();
+      }); 
+      
       this.getIsTradebotStarted();
       this.getExchangeRateData();
       await this.getKrakenApiInfo();
@@ -365,9 +362,16 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
     }
   }
 
-  private async getExchangeRateData() {
-    //await this.coinValueService.getAllExchangeRateValues().then(res => { this.allHistoricalExchangeRateData = res; });
-    this.changeTimePeriodEventOnCurrencyExchangeGraph(this.exchangeRateGraphSelectedPeriod);
+  private async getExchangeRateData() { 
+    await this.changeTimePeriodEventOnCurrencyExchangeGraph(this.exchangeRateGraphSelectedPeriod); 
+
+    if (!this.usdToSelectedCurrencyRate) {
+      this.usdToSelectedCurrencyRate = await this.coinValueService.getFIATExchangeRate(this.selectedCurrency ?? "USD", "USD");
+    }
+
+    if (!this.cadToSelectedCurrencyRate) {
+      this.coinValueService.getFIATExchangeRate(this.selectedCurrency ?? "USD", "CAD").then(res => this.cadToSelectedCurrencyRate = res);
+    }
   }
   private async refreshCoinAndVolumeGraph() {
     const hours = this.convertTimePeriodToHours(this.lineGraphInitialPeriod);
@@ -654,118 +658,6 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
     }
   }
 
-  private async getBTCWallets() {
-    this.wallet = this.wallet || [];
-    const user = this.parentRef?.user;
-    const token = await this.parentRef?.getSessionToken();
-    if (user?.id) {
-      await this.coinValueService.getWallet(user.id, token ?? "").then(res => {
-        if (res && res.length > 0) {
-          this.wallet = res;
-        }
-      });
-    }
-
-    if (this.wallet) {
-      for (let type of this.wallet) {
-        type.total = {
-          currency: "Total " + (type.total && type.total.currency ? type.total.currency.toUpperCase() : ""),
-          totalBalance: (type.currencies ?? [])
-            .filter(x => x.currency?.toUpperCase() === (type.total && type.total.currency ? type.total.currency.toUpperCase() : ""))
-            .reduce((sum, curr) => sum + Number(curr.totalBalance || 0), 0)
-            .toString(),
-          available: (type.currencies ?? [])
-            .filter(x => x.currency?.toUpperCase() === (type.total && type.total.currency ? type.total.currency.toUpperCase() : ""))
-            .reduce((sum, curr) => sum + Number(curr.available || 0), 0)
-            .toString(),
-        };
-      }
-    }
-    const krakenUsdcCurrencyWallet = this.wallet
-      .flatMap(walletItem => walletItem.currencies || [])
-      .filter(currency =>
-        currency.address === "Kraken" && currency.currency === "USDC"
-      )[0];
-    const krakenXrpCurrencyWallet = this.wallet
-      .flatMap(walletItem => walletItem.currencies || [])
-      .filter(currency =>
-        currency.address === "Kraken" && currency.currency === "XRP"
-      )[0];
-    const krakenSolCurrencyWallet = this.wallet
-      .flatMap(walletItem => walletItem.currencies || [])
-      .filter(currency =>
-        currency.address === "Kraken" && currency.currency === "SOL"
-      )[0];
-    const krakenDogeCurrencyWallet = this.wallet
-      .flatMap(walletItem => walletItem.currencies || [])
-      .filter(currency =>
-        currency.address === "Kraken" && currency.currency === "XDG"
-      )[0];
-    const krakenEthCurrencyWallet = this.wallet
-      .flatMap(walletItem => walletItem.currencies || [])
-      .filter(currency =>
-        currency.address === "Kraken" && currency.currency === "ETH"
-      )[0];
-    const krakenBtcCurrencyWallet = this.wallet
-      .flatMap(walletItem => walletItem.currencies || [])
-      .filter(currency =>
-        currency.address === "Kraken" && currency.currency === "BTC"
-      )[0];
-    const krakenUsdcTotalCurrencyWallet = this.wallet.filter(x => x.total?.currency?.toLowerCase().includes("usdc"))[0]?.total;
-    const krakenXrpTotalCurrencyWallet = this.wallet.filter(x => x.total?.currency?.toLowerCase().includes("xrp"))[0]?.total;
-    const krakenSolTotalCurrencyWallet = this.wallet.filter(x => x.total?.currency?.toLowerCase().includes("sol"))[0]?.total;
-    const krakenDogeTotalCurrencyWallet = this.wallet.filter(x => x.total?.currency?.toLowerCase().includes("xdg"))[0]?.total;
-    const krakenEthTotalCurrencyWallet = this.wallet.filter(x => x.total?.currency?.toLowerCase().includes("eth"))[0]?.total;
-    if (krakenBtcCurrencyWallet && krakenBtcCurrencyWallet.totalBalance) {
-      this.tradeSimParams.initialBtc = parseFloat(krakenBtcCurrencyWallet.totalBalance ?? "");
-    }
-    if (krakenUsdcCurrencyWallet && krakenUsdcCurrencyWallet.totalBalance) {
-      this.tradeSimParams.initialUsd = parseFloat(krakenUsdcCurrencyWallet.totalBalance ?? "");
-    }
-
-    if (!this.usdToSelectedCurrencyRate) {
-      this.usdToSelectedCurrencyRate = await this.coinValueService.getFIATExchangeRate(this.selectedCurrency ?? "USD", "USD");
-    }
-
-    if (!this.cadToSelectedCurrencyRate) {
-      this.coinValueService.getFIATExchangeRate(this.selectedCurrency ?? "USD", "CAD").then(res => this.cadToSelectedCurrencyRate = res);
-    }
-
-    if (krakenUsdcCurrencyWallet) {
-      krakenUsdcCurrencyWallet.fiatRate = this.usdToSelectedCurrencyRate;
-      if (krakenUsdcTotalCurrencyWallet) {
-        krakenUsdcTotalCurrencyWallet.fiatRate = this.usdToSelectedCurrencyRate;
-      }
-    }
-
-    if (krakenXrpCurrencyWallet) {
-      krakenXrpCurrencyWallet.fiatRate = this.usdToSelectedCurrencyRate;
-      if (krakenXrpTotalCurrencyWallet) {
-        krakenXrpTotalCurrencyWallet.fiatRate = this.usdToSelectedCurrencyRate;
-      }
-    }
-
-    if (krakenEthCurrencyWallet) {
-      krakenEthCurrencyWallet.fiatRate = this.usdToSelectedCurrencyRate;
-      if (krakenEthTotalCurrencyWallet) {
-        krakenEthTotalCurrencyWallet.fiatRate = this.usdToSelectedCurrencyRate;
-      }
-    }
-
-    if (krakenDogeCurrencyWallet) {
-      krakenDogeCurrencyWallet.fiatRate = this.usdToSelectedCurrencyRate;
-      if (krakenDogeTotalCurrencyWallet) {
-        krakenDogeTotalCurrencyWallet.fiatRate = this.usdToSelectedCurrencyRate;
-      }
-    }
-
-    if (krakenSolCurrencyWallet) {
-      krakenSolCurrencyWallet.fiatRate = this.usdToSelectedCurrencyRate;
-      if (krakenSolTotalCurrencyWallet) {
-        krakenSolTotalCurrencyWallet.fiatRate = this.usdToSelectedCurrencyRate;
-      }
-    }
-  }
 
   multiplyValues(number1: any, number2: any): number {
     if (number1 && number2) {
@@ -948,27 +840,7 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
       maximumFractionDigits: 8 // Support small values like Pepe Coin
     }).format(value);
   }
-  saveNewCryptoWallet() {
-    const user = this.parentRef?.user;
-    if (!user?.id) return alert("You must be signed in to add a wallet.");
-    const walletInfo = this.newWalletInput.nativeElement.value;
 
-    // General Bitcoin address validation regex
-    const btcAddressRegex = /^(1|3|bc1)[a-zA-Z0-9]{25,42}$/;
-    if (walletInfo) {
-      if (btcAddressRegex.test(walletInfo)) {
-        this.parentRef?.getSessionToken().then(sessionToken => {
-          this.coinValueService.updateBTCWalletAddresses(user?.id ?? 0, [walletInfo], sessionToken);
-        });
-
-      } else {
-        alert('Invalid Bitcoin address. Please check for invalid characters.');
-      }
-    }
-
-    this.isAddCryptoDivVisible = false;
-    this.ngOnInit();
-  }
 
   private formatWithCommas(value: number): string {
     return value.toLocaleString('en-US');
@@ -1644,19 +1516,7 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
         this.stopLoading();
       });
     }, 500);
-  }
-  async showWalletData(currency: Currency) {
-    if (!currency.address) { return alert("No BTC Wallet address to look up."); }
-    this.showWalletPanel();
-    this.currentlySelectedCurrency = currency;
-
-    await this.coinValueService.getWalletBalanceData(currency.address).then(res => {
-      if (res) {
-        this.allWalletBalanceData = res;
-        this.processWalletBalances();
-      }
-    });
-  }
+  } 
 
   private async generateAiMessage(walletAddress: string, data: any) {
     const tgtMessage = this.aiMessages.find(x => x.addr === walletAddress);
@@ -1699,50 +1559,6 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
     return response;
   }
 
-  showWalletPanel() {
-    if (this.isWalletPanelOpen) {
-      this.closeWalletPanel();
-      return;
-    }
-    this.isWalletPanelOpen = true;
-    if (this.parentRef) {
-      this.parentRef.showOverlay();
-    }
-  }
-  closeWalletPanel() {
-    this.isWalletPanelOpen = false;
-    this.finishedGeneratingAiWalletMessage = false;
-    this.hideHostAiMessageWallet = true;
-    if (this.parentRef) {
-      this.parentRef.closeOverlay();
-    }
-  }
-  async processWalletBalances() {
-    if (!this.allWalletBalanceData) return;
-    const additionalEntries: CoinValue[] = [];
-    const currExRate = this.allHistoricalExchangeRateData && this.allHistoricalExchangeRateData[0] ? this.allHistoricalExchangeRateData[0].targetCurrency : undefined;
-
-    for (const entry of this.allWalletBalanceData) {
-      const closestRate = this.findClosestHistoricalExchangeRate(entry.timestamp, this.selectedCurrency, currExRate ?? "USD") ?? 1;
-      const closestBtcRate = this.findClosestBTCRate(entry.timestamp) ?? 1;
-
-      if (closestRate !== null) {
-        let btcValueInSelectedCurrency = entry.valueCAD * closestBtcRate * closestRate;
-
-        const newEntry: CoinValue = {
-          id: entry.id,
-          symbol: "BTC",
-          name: "BTC -> $" + this.selectedCurrency,
-          valueCAD: btcValueInSelectedCurrency,
-          valueUSD: entry.valueUSD,
-          timestamp: entry.timestamp
-        };
-
-        additionalEntries.push(newEntry);
-      }
-    }
-    this.allWalletBalanceData.push(...additionalEntries);
-  }
   findClosestHistoricalExchangeRate(
     timestamp: string,
     targetCurrency?: string,
@@ -1946,7 +1762,7 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
       await this.getLastCoinConfigurationUpdated(selectedCurrency, "USDC", selectedStrategy);
       setTimeout(async () => {
         this.startLoading();
-        if (this.configurationComponent.tradeFromCoinSelect?.nativeElement) { 
+        if (this.configurationComponent?.tradeFromCoinSelect?.nativeElement) { 
           this.configurationComponent.tradeFromCoinSelect.nativeElement.value = selectedCurrency;
           this.configurationComponent.tradeStrategySelect.nativeElement.value = selectedStrategy;
         } 
@@ -2196,44 +2012,7 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
     }
   }
  
-  getCurrencyValue(currencyName?: string, currency?: Currency) : number { 
-    if (!currency || !currency.totalBalance || !this.latestCurrencyPriceRespectToCAD) return 0;
-    if (currencyName == "BTC") {
-      return parseFloat(currency.totalBalance) * this.btcToCadPrice * this.latestCurrencyPriceRespectToCAD;
-    } else {
-      let tCName = (currencyName ?? "Bitcoin").toLowerCase();
-      if (tCName == "xdg") { tCName = "dogecoin" }
-      if (tCName == "eth") { tCName = "ethereum" }
-      if (tCName == "sol") { tCName = "solana" }
-
-      const crate = this.coinValueData?.find(x => x.name.toLowerCase() == tCName); 
-      return parseFloat(currency.totalBalance) * (crate?.valueUSD ?? 1) * (currency.fiatRate ?? 1);
-    }
-  } 
-
-  getCurrencyDisplayValue(currencyName?: string, currency?: Currency) {
-    return this.formatToCanadianCurrency(this.getCurrencyValue(currencyName, currency)).replaceAll("$", "");
-  }
-
-  getTotalCurrencyDisplayValue(total?: Total): string {
-    if (this.isDiscreete) return '***';
-    if (!total || !total.totalBalance || !this.latestCurrencyPriceRespectToCAD) return this.formatToCanadianCurrency(0).replaceAll("$", "");
-    let tmpWalletCurrency = total.currency?.toLowerCase().replaceAll("total", "").trim();
-    let tCName = (tmpWalletCurrency ?? "bitcoin").toLowerCase();
-    if (tCName == "xdg") { tCName = "dogecoin" }
-    if (tCName == "eth") { tCName = "ethereum" }
-    if (tCName == "sol") { tCName = "solana" }
-    const crate = this.coinValueData?.find(x => x.name.toLowerCase() == tCName);
-    const totalValue = tmpWalletCurrency == "btc" ?
-      (parseFloat(total.totalBalance) * this.btcToCadPrice * this.latestCurrencyPriceRespectToCAD)
-      : parseFloat(total.totalBalance) * (crate?.valueUSD ?? 1) * (total.fiatRate ?? 1);
-    return this.formatToCanadianCurrency(totalValue).replaceAll("$", "");
-  }
-
-  fullscreenSelectedInPopup(event?: any) {
-    this.isWalletGraphFullscreened = !this.isWalletGraphFullscreened;
-  }
-
+ 
   async startTradeBot(coin?: string, strategy: string | undefined = this.selectedTradebotStrategy?.nativeElement?.value) {
     if (!coin) return alert("Error: No coin selected!");
     const user = this.parentRef?.user;
@@ -2681,8 +2460,8 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
     }
   }
   get loopedData() {
-    if (!this.coinValueData || this.coinValueData.length === 0) return [];
-    return [...this.coinValueData, this.coinValueData[0]]; // duplicate the first item at the end
+    if (!this.latestCoinValueData || this.latestCoinValueData.length === 0) return [];
+    return [...this.latestCoinValueData, this.latestCoinValueData[0]]; // duplicate the first item at the end
   }
 
   getRSIStatus(rsi: number): { class: string; label: string } {
@@ -3003,12 +2782,9 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
         }
       });
     }
-  }
-  showHideAddWalletDiv() {
-    if (!this.parentRef?.user?.id) {
-      return alert("Please log in to use this feature and keep track of your crypto wallets.");
-    }
-    this.isAddCryptoDivVisible = !this.isAddCryptoDivVisible;
+  }  
+  fullscreenSelectedInPopup(event?: any) {
+    this.isGraphFullscreenedInPopup = !this.isGraphFullscreenedInPopup;
   }
 }
 
