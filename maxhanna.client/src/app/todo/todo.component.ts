@@ -25,7 +25,8 @@ export class TodoComponent extends ChildComponent implements OnInit, AfterViewIn
   todoPlaceholder = "";
   selectedFile?: FileEntry;
   showSharedList = false;
-  isExpandedEditFile = false;
+  isExpandedEditFile = false; 
+  hasEditedTodo = false;
 
   @ViewChild('todoInput') todoInput!: ElementRef<HTMLInputElement>;
   @ViewChild('urlInput') urlInput!: ElementRef<HTMLInputElement>;
@@ -123,6 +124,7 @@ export class TodoComponent extends ChildComponent implements OnInit, AfterViewIn
   }
   async deleteTodo(id: number) {
     if (!this.parentRef?.user?.id) return;
+    this.closeEditPopup(false);
     this.startLoading();
     await this.todoService.deleteTodo(this.parentRef.user.id, id);
     const row = document.getElementById("todoNo" + id) as HTMLTableRowElement;
@@ -357,7 +359,8 @@ export class TodoComponent extends ChildComponent implements OnInit, AfterViewIn
     this.isShareListPanelOpen = true;
   }
   async editTodo(todo?: Todo) {
-    if (!todo || !todo.id) return;
+    if (!todo || !todo.id) return; 
+    this.hasEditedTodo = false;
     const id = todo.id;
     if (!this.isEditing.find(x => x.id == todo.id)) {
       this.parentRef?.showOverlay();
@@ -397,13 +400,17 @@ export class TodoComponent extends ChildComponent implements OnInit, AfterViewIn
       }
     }
   }
-  closeEditPopup() {
+  closeEditPopup(shouldEdit = true) {
     clearTimeout(this.debounceTimer);
     this.debounceTimer = setTimeout(async () => {
       if (this.parentRef) { 
         this.parentRef.closeOverlay(false);
       }
-      this.editTodo(this.isEditing[0]);
+      if (this.hasEditedTodo && shouldEdit) { 
+        this.editTodo(this.isEditing[0]);
+      } else {
+        this.isEditing = []; 
+      }
     }, 50); 
   }
   expandedEditFile(value : boolean) {

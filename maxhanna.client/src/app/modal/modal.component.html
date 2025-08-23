@@ -1,15 +1,14 @@
 <div class="modal-overlay" (click)="isModal ? $event.preventDefault() : closeModal()">
-  <div class="modal" (click)="$event.stopPropagation()">
+  <div class="modal {{hasGamingFont ? 'gamingFont' : ''}}" (click)="$event.stopPropagation()">
     <div class="modal-header">
-      <h2 class="modal-title">{{ modalTitle }}</h2>
-      <button (click)="closeModal()" *ngIf="isCloseButtonVisible">✕</button>
+      <h2 class="modal-title popupPanelTitle">{{ modalTitle }}</h2> 
     </div>
     <div class="modal-body" #modalBody>
       <!-- Your modal content goes here -->
       <ng-content></ng-content>
     </div>
     <div class="modal-footer">
-      <button (click)="closeModal()" *ngIf="isCloseButtonVisible">Close</button>
+      <button (click)="closeModal()" *ngIf="isCloseButtonVisible" class="closeButton">Close</button>
       <button (click)="confirmAction()" *ngIf="hasConfirmButton">Confirm</button>
     </div>
   </div>

@@ -198,7 +198,7 @@ fieldset {
 }
 
 .componentTitle {
-  width: calc(100% - 160px);
+  width: calc(100% - 200px);
   font-family: var(--title-font-family);
   font-weight: bolder;
   position: absolute;
@@ -431,26 +431,7 @@ fieldset {
   font-size: small;
   cursor: pointer;
 }
-
-.helperSpanTitle {
-  display: inline-block;
-  width: 10.5px;
-  height: 10.5px;
-  line-height: 10.5px;
-  text-align: center;
-  font-size: small;
-  border-radius: 50%;
-  border: var(--main-border);
-  background-color: var(--main-bg-color);
-  color: var(--primary-font-color);
-  position: relative;
-  cursor: pointer;
-}
-
-.helperSpanTitle:before {
-  content: 'ℹ️';
-}
-
+ 
 .avatar {
   max-width: 50px;
   max-height: 50px;
@@ -491,7 +472,9 @@ fieldset {
 .smallFont {
   font-size: small;
 }
-
+.xSmallFont {
+  font-size: x-small !important;
+}
 .xxSmallFont {
   font-size: xx-small !important;
 }

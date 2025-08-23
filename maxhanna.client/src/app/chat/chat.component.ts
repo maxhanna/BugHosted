@@ -56,7 +56,7 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
   constructor(private chatService: ChatService, private notificationService: NotificationService, private userService: UserService) {
     super();
 
-    const parent = this.parentRef ?? this.inputtedParentRef;
+    const parent = this.inputtedParentRef ?? this.parentRef;
     parent?.addResizeListener();
   }
 
@@ -492,12 +492,12 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
       };
       this.app = initializeApp(firebaseConfig);
       this.messaging = await getMessaging(this.app);
-      onMessage(this.messaging, (payload: any) => {
-        const parent = this.inputtedParentRef ?? this.parentRef;
-        const body = payload.notification.body;
-        const title = payload.notification.title;
-        parent?.showNotification(`${title}: ${body}`);
-      });
+      // onMessage(this.messaging, (payload: any) => {
+      //   const parent = this.inputtedParentRef ?? this.parentRef;
+      //   const body = payload.notification.body;
+      //   const title = payload.notification.title;
+      //   parent?.showNotification(`${title}: ${body}`);
+      // });
 
       //console.log('Current Notification Permission:', Notification.permission);
       if (this.notificationsEnabled == undefined) {

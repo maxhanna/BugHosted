@@ -1,4 +1,4 @@
-import { Component, Input, OnDestroy, OnInit } from '@angular/core';
+import { Component, Input, OnChanges, OnDestroy, OnInit } from '@angular/core';
 import { NotificationService } from '../../services/notification.service';
 import { ChildComponent } from '../child.component';
 import { UserNotification } from '../../services/datacontracts/notification/user-notification';
@@ -16,7 +16,7 @@ import { FileComment } from '../../services/datacontracts/file/file-comment';
     styleUrl: './notifications.component.css',
     standalone: false
 })
-export class NotificationsComponent extends ChildComponent implements OnInit, OnDestroy {
+export class NotificationsComponent extends ChildComponent implements OnInit, OnDestroy, OnChanges {
   constructor(private notificationService: NotificationService, private commentService: CommentService, private location: Location) {
     super();
     const parent = this.inputtedParentRef ?? this.parentRef;
@@ -43,6 +43,9 @@ export class NotificationsComponent extends ChildComponent implements OnInit, On
   itemsPerPage = 10;
   totalPages = 1;
   paginatedNotifications: UserNotification[] = [];
+  filterCategory: string = 'All';
+  categories: { name: string, count: number }[] = [];
+
 
   private pollingInterval: any;
 
@@ -52,6 +55,7 @@ export class NotificationsComponent extends ChildComponent implements OnInit, On
     }
     this.getNotifications();
     this.startPolling();
+    this.scrollToTopNotification();
   }
 
   ngOnDestroy() {
@@ -61,6 +65,10 @@ export class NotificationsComponent extends ChildComponent implements OnInit, On
       clearInterval(this.pollingInterval); // Clear the interval when component is destroyed
     }
   }
+  ngOnChanges() {
+    this.updateCategories();
+  }
+
   private async getNotifications() {
     if (this.parentRef?.user?.id) {
       this.startLoading();
@@ -68,6 +76,7 @@ export class NotificationsComponent extends ChildComponent implements OnInit, On
         if (res) {
           this.notifications = res;
           this.unreadNotifications = this.notifications?.filter(x => x.isRead == false).length;
+          this.updateCategories(false);
           this.updatePagination();  
         }
       });
@@ -86,12 +95,17 @@ export class NotificationsComponent extends ChildComponent implements OnInit, On
 
 
   private updatePagination() {
-    if (!this.notifications) {
+    // Use filteredNotifications instead of notifications
+    const notificationsToPaginate = this.filterCategory === 'All' ? this.notifications : this.notifications?.filter(n => this.getNotificationCategory(n) === this.filterCategory) || [];
+
+    if (!notificationsToPaginate || notificationsToPaginate.length === 0) {
       this.paginatedNotifications = [];
+      this.totalPages = 1;
+      this.currentPage = 1;
       return;
     }
 
-    this.totalPages = Math.ceil(this.notifications.length / this.itemsPerPage);
+    this.totalPages = Math.ceil(notificationsToPaginate.length / this.itemsPerPage);
 
     // Ensure currentPage is within valid bounds
     if (this.currentPage > this.totalPages) {
@@ -100,7 +114,7 @@ export class NotificationsComponent extends ChildComponent implements OnInit, On
 
     const startIndex = (this.currentPage - 1) * this.itemsPerPage;
     const endIndex = startIndex + this.itemsPerPage;
-    this.paginatedNotifications = this.notifications.slice(startIndex, endIndex);
+    this.paginatedNotifications = notificationsToPaginate.slice(startIndex, endIndex);
   }
 
   nextPage() {
@@ -108,12 +122,25 @@ export class NotificationsComponent extends ChildComponent implements OnInit, On
       this.currentPage++;
       this.updatePagination();
     }
+    this.scrollToTopNotification();
   }
 
   previousPage() {
     if (this.currentPage > 1) {
       this.currentPage--;
       this.updatePagination();
+    }
+    this.scrollToTopNotification();
+  }
+
+
+  private scrollToTopNotification() {
+    const notificationsListSubContainer = document.getElementsByClassName("notificationsListSubContainer")[0];
+    if (notificationsListSubContainer) {
+      notificationsListSubContainer.scrollTo({
+        top: 0,
+        behavior: 'smooth'
+      });
     }
   }
 
@@ -154,19 +181,20 @@ export class NotificationsComponent extends ChildComponent implements OnInit, On
     if (!notification.isRead) { this.read(notification, true); }
   }
   goToCryptoHub(notification?: UserNotification) { 
-    let selectedCoin = notification?.text?.match(/\b(XBT|XRP|SOL|ETH|XDG)\b/i)?.[0] || 'Bitcoin';
+    let selectedCoin = notification?.text?.match(/\b(XBT|BTC|XRP|SOL|ETH|XDG|Doge|Dogecoin|Ethereum|Solana)\b/i)?.[0] || 'Bitcoin';
     if (selectedCoin == "XBT" || selectedCoin == "BTC") {
       selectedCoin = "Bitcoin";
     }
-    if (selectedCoin == "SOL") {
+    else if (selectedCoin == "SOL" || selectedCoin == "Solana") {
       selectedCoin = "Solana";
     }
-    if (selectedCoin == "XDG") {
+    else if (selectedCoin == "XDG" || selectedCoin == "Doge" || selectedCoin == "Dogecoin") {
       selectedCoin = "Dogecoin";
     }
-    if (selectedCoin == "ETH") {
+    else if (selectedCoin == "ETH" || selectedCoin == "Ethereum") {
       selectedCoin = "Ethereum";
     }
+    console.log("opening crypto hub with ", selectedCoin);
     this.createComponent("Crypto-Hub", { currentSelectedCoin: selectedCoin }); 
   }
   goToChat(notification?: UserNotification) {
@@ -202,50 +230,92 @@ export class NotificationsComponent extends ChildComponent implements OnInit, On
 
     alert("No parent component");
   }
-
   async delete(notification?: UserNotification) {
     const parent = this.inputtedParentRef ?? this.parentRef;
-    if (parent && parent.user) {
-      await this.notificationService.deleteNotification(parent.user.id ?? 0, notification?.id);
-      if (notification && this.notifications) {
-        this.notifications = this.notifications.filter(x => x.id != notification.id);
-        if (!notification.isRead) {
-          this.unreadNotifications--;
-        }
-      }  
-      if (!notification) {
-        this.unreadNotifications = 0;
-        this.notifications = [];
+    if (!parent || !parent.user || !this.notifications) return;
+
+    if (notification) {
+      // Single notification delete - ensure ID exists
+      if (notification.id === undefined) return;
+
+      await this.notificationService.deleteNotifications(parent.user.id ?? 0, [notification.id]);
+      this.notifications = this.notifications.filter(x => x.id !== notification.id);
+      if (!notification.isRead) {
+        this.unreadNotifications--;
       }
-      this.updatePagination();
-      parent.navigationComponent.setNotificationNumber(this.unreadNotifications);
+    } else {
+      // Delete all or filtered notifications
+      let notificationsToDelete = [...this.notifications];
+      if (this.filterCategory !== 'All') {
+        notificationsToDelete = notificationsToDelete.filter(n => this.getNotificationCategory(n) === this.filterCategory);
+      }
+
+      // Get only valid IDs
+      const validNotifications = notificationsToDelete.filter(n => n.id !== undefined);
+      const ids = validNotifications.map(n => n.id as number); // Safe cast since we filtered undefined
+
+      if (ids.length > 0) {
+        await this.notificationService.deleteNotifications(parent.user.id ?? 0, ids);
+
+        // Remove deleted notifications
+        const idSet = new Set(ids);
+        this.notifications = this.notifications.filter(n => !idSet.has(n.id as number));
+
+        // Update unread count
+        this.unreadNotifications -= validNotifications.filter(n => !n.isRead).length;
+      }
     }
+
+    this.updateCategories(false);
+    this.updatePagination();
+    parent.navigationComponent.setNotificationNumber(this.unreadNotifications);
   }
+
   async read(notification?: UserNotification, forceRead: boolean = false) {
     const parent = this.inputtedParentRef ?? this.parentRef;
-    if (parent && parent.user) {
-      if (notification && notification.id) {
-        if (notification.isRead && !forceRead) {
-          notification.isRead = false;
-          this.unreadNotifications++;
-          await this.notificationService.unreadNotifications(parent.user.id ?? 0, [notification.id]);
-        } else if (!notification.isRead) {
-          notification.isRead = true;
-          this.unreadNotifications--;
-          console.log("reading notification: ", notification.id);
-          await this.notificationService.readNotifications(parent.user.id ?? 0, [notification.id]);
-        }
-      } else {
-        this.notifications?.forEach(x => x.isRead = true);
-        this.unreadNotifications = 0;
-        await this.notificationService.readNotifications(parent.user.id ?? 0, undefined);
+    if (!parent || !parent.user || !this.notifications) return;
+
+    if (notification) {
+      // Single notification read/unread - ensure ID exists
+      if (notification.id === undefined) return;
+
+      if (notification.isRead && !forceRead) {
+        notification.isRead = false;
+        this.unreadNotifications++;
+        await this.notificationService.unreadNotifications(parent.user.id ?? 0, [notification.id]);
+      } else if (!notification.isRead) {
+        notification.isRead = true;
+        this.unreadNotifications--;
+        await this.notificationService.readNotifications(parent.user.id ?? 0, [notification.id]);
+      }
+    } else {
+      // Read all or filtered notifications
+      let notificationsToRead = [...this.notifications];
+      if (this.filterCategory !== 'All') {
+        notificationsToRead = notificationsToRead.filter(n => this.getNotificationCategory(n) === this.filterCategory);
+      }
+
+      // Get only valid unread notifications
+      const unreadNotifications = notificationsToRead
+        .filter(n => !n.isRead && n.id !== undefined);
+
+      if (unreadNotifications.length > 0) {
+        const ids = unreadNotifications.map(n => n.id as number);  
+        await this.notificationService.readNotifications(parent.user.id ?? 0, ids);
+ 
+        unreadNotifications.forEach(n => n.isRead = true);
+        this.unreadNotifications -= unreadNotifications.length;
+
         if (this.parentRef?.navigationComponent) {
           this.parentRef.navigationComponent.tradeNotifsCount = 0;
         }
       }
-      parent.navigationComponent.setNotificationNumber(this.unreadNotifications, notification);
     }
+
+    this.updateCategories(false);
+    parent.navigationComponent.setNotificationNumber(this.unreadNotifications, notification);
   }
+ 
   notificationTextClick(notification: UserNotification) { 
     if (!notification.isRead) { 
       this.read(notification, true);
@@ -263,6 +333,8 @@ export class NotificationsComponent extends ChildComponent implements OnInit, On
       this.goToCryptoHub(notification);
     } else if (notification.fileId) {
       this.goToFileId(notification)
+    } else if (notification.userProfileId) {
+      this.viewProfileByNotification(notification);
     } else if (notification.storyId) {
       this.goToStoryId(notification)
     } else if (notification.chatId) {
@@ -299,9 +371,9 @@ export class NotificationsComponent extends ChildComponent implements OnInit, On
       this.app = initializeApp(firebaseConfig);
       this.messaging = await getMessaging(this.app);
 
-      onMessage(this.messaging, (payload: any) => {
-        alert(`${payload}`);
-      });
+      // onMessage(this.messaging, (payload: any) => {
+      //   alert(`${payload}`);
+      // });
 
       console.log('Current Notification Permission:', Notification.permission);
 
@@ -336,6 +408,71 @@ export class NotificationsComponent extends ChildComponent implements OnInit, On
   }
 
   getShowReadAll() {
-    return this.notifications && this.notifications.length > 0 && this.notifications.some(x => !x.isRead);
+    if (!this.notifications || this.notifications.length === 0) return false;
+
+    if (this.filterCategory === 'All') {
+      return this.notifications.some(x => !x.isRead);
+    } else {
+      return this.notifications.some(x => !x.isRead && this.getNotificationCategory(x) === this.filterCategory);
+    }
+  }
+
+  updateCategories(resetFilter: boolean = true) {
+    if (!this.notifications) {
+      this.categories = [{ name: 'All', count: 0 }];
+      if (resetFilter) this.filterCategory = 'All';
+      return;
+    }
+
+    // Store current counts before update
+    const currentCounts = new Map(this.categories.map(c => [c.name, c.count]));
+
+    // Calculate new counts
+    const newCounts: { [key: string]: number } = { All: this.notifications.length };
+    this.notifications.forEach(n => {
+      const category = this.getNotificationCategory(n);
+      newCounts[category] = (newCounts[category] || 0) + 1;
+    });
+
+    // Update categories while preserving order and existing objects where possible
+    const newCategories = this.categories.map(c => {
+      return { ...c, count: newCounts[c.name] || 0 };
+    });
+
+    // Add any new categories that weren't there before
+    Object.keys(newCounts).forEach(name => {
+      if (!newCategories.some(c => c.name === name)) {
+        newCategories.push({ name, count: newCounts[name] });
+      }
+    });
+
+    this.categories = newCategories;
+ 
+    if (resetFilter) {
+      this.filterCategory = 'All';
+    }
+  }
+  getNotificationCategory(notification: UserNotification): string {
+    const text = notification.text?.toLowerCase() || '';
+
+    if (text.includes('executed trade')) return 'Crypto-Hub';
+    if (text.includes('chat')) return 'Chat';
+    if (!text.includes('profile') && (text.includes('post') || text.includes('comment'))) return 'Social';
+    if (text.includes('profile') || text.includes('friend request') || text.includes('following')) return 'User';
+    if (text.includes('bugwars') || text.includes('captured')) return 'Bug-Wars';
+    if (text.includes('shared a note')) return 'Notepad';
+
+    return 'Other';
+  }
+  get filteredNotifications(): UserNotification[] {
+    if (this.filterCategory === 'All') return this.paginatedNotifications;
+    return this.paginatedNotifications.filter(n => this.getNotificationCategory(n) === this.filterCategory);
+  }
+  onFilterChange(event: Event): void {
+    this.currentPage = 1;
+    const select = event.target as HTMLSelectElement;
+    this.filterCategory = select.value;  
+    this.updatePagination();
+     
   }
 }

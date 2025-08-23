@@ -242,8 +242,7 @@ input[type="submit"] {
   align-items: center;
   gap: 5px;
 }
-.actionTd {
-  width: 0%;
+.actionTd { 
   display: flex;
   gap: 5px;
 }

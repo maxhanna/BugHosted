@@ -120,17 +120,35 @@ namespace maxhanna.Server.Controllers
 				{
 					await connection.OpenAsync();
 
-					string sql = $@"
-                        DELETE FROM maxhanna.notifications WHERE user_id = @UserId
-                        {(req.NotificationId != null ? " AND id = @NotificationId LIMIT 1" : "")};
-                    ";
-
-					using (var command = new MySqlCommand(sql, connection))
+					string sql;
+					using (var command = new MySqlCommand())
 					{
-						command.Parameters.AddWithValue("@UserId", req.UserId);
-						if (req.NotificationId != null)
+						command.Connection = connection;
+
+						if (req.NotificationIds != null && req.NotificationIds.Length > 0)
 						{
-							command.Parameters.AddWithValue("@NotificationId", req.NotificationId);
+							// Build IN clause dynamically
+							var paramNames = req.NotificationIds
+								.Select((id, index) => $"@id{index}")
+								.ToArray();
+
+							sql = $@"DELETE FROM maxhanna.notifications
+                             WHERE user_id = @UserId AND id IN ({string.Join(",", paramNames)})";
+
+							command.CommandText = sql;
+							command.Parameters.AddWithValue("@UserId", req.UserId);
+
+							for (int i = 0; i < req.NotificationIds.Length; i++)
+							{
+								command.Parameters.AddWithValue($"@id{i}", req.NotificationIds[i]);
+							}
+						}
+						else
+						{
+							// Delete all notifications for user
+							sql = @"DELETE FROM maxhanna.notifications WHERE user_id = @UserId";
+							command.CommandText = sql;
+							command.Parameters.AddWithValue("@UserId", req.UserId);
 						}
 
 						await command.ExecuteNonQueryAsync();
@@ -142,7 +160,7 @@ namespace maxhanna.Server.Controllers
 				_ = _log.Db("An error occurred while deleting the notifications. " + ex.Message, req.UserId, "NOTIFICATION", true);
 				return StatusCode(500, "An error occurred while deleting the notifications.");
 			}
-			return Ok(req.NotificationId != null ? "Notification deleted." : "All notifications deleted.");
+			return Ok(req.NotificationIds != null ? "Notifications deleted." : "All notifications deleted.");
 		}
 
 

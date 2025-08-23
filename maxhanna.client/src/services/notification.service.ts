@@ -37,8 +37,8 @@ export class NotificationService {
   async getNotifications(userId: number): Promise<UserNotification[]> {
     return await this.fetchData('/notification', userId);
   }
-  async deleteNotification(userId: number, notificationId?: number): Promise<string> {
-    return await this.fetchData('/notification/delete', { UserId: userId, NotificationId: notificationId });
+  async deleteNotifications(userId: number, notificationIds?: number[]): Promise<string> {
+    return await this.fetchData('/notification/delete', { UserId: userId, NotificationIds: notificationIds });
   }
   async readNotifications(userId: number, notificationIds?: number[]): Promise<string> {
     return await this.fetchData('/notification/read', { UserId: userId, NotificationIds: notificationIds });

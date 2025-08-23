@@ -1,4 +1,4 @@
-import { Component, ElementRef, OnInit, ViewChild } from '@angular/core';
+import { ChangeDetectorRef, Component, ElementRef, OnInit, ViewChild } from '@angular/core';
 import { ChildComponent } from '../child.component';
 import { Topic } from '../../services/datacontracts/topics/topic';
 import { TopService } from '../../services/top.service';
@@ -40,7 +40,7 @@ export class TopComponent extends ChildComponent implements OnInit {
   expandedImageUrl?: string;  
   isPictureOverlayOpen = false;
 
-  constructor(private topService: TopService, private topicService: TopicService) {
+  constructor(private topService: TopService, private topicService: TopicService, private cd: ChangeDetectorRef) {
     super();
   } 
 
@@ -316,5 +316,8 @@ export class TopComponent extends ChildComponent implements OnInit {
     this.expandedFileId = undefined;
     this.expandedImageUrl = undefined;
     this.parentRef?.closeOverlay(); // Optional
+  }
+  onUrlInputChange(event: Event) {
+    this.cd.detectChanges();
   }
 }

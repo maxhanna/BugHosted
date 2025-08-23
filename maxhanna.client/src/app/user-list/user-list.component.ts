@@ -52,11 +52,12 @@ export class UserListComponent extends ChildComponent implements OnInit, OnDestr
 
 
   constructor(private userService: UserService, private chatService: ChatService, private friendService: FriendService, private injector: Injector) {
-    super();
+    super(); 
   }
   async ngOnInit() {
     if (this.inputtedParentRef) {
-      this.parentRef = this.inputtedParentRef; 
+      this.parentRef = this.inputtedParentRef;  
+      this.parentRef?.addResizeListener();
     }
     if (!this.searchOnly) {
       this.getChatNotifications();

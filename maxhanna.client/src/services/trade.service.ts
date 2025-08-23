@@ -50,9 +50,18 @@ export class TradeService {
       console.error(error);
       return error.message ?? 'Unexpected error';
     }
-  }  
-  async getTradeHistory(userId: number, encryptedUserId: string, coin?: string, strategy?: string) {
-    return this.post(`/trade/gettradehistory`, { UserId: userId, Coin: coin ?? "XBT", Strategy: strategy ?? "DCA" }, 'json', encryptedUserId);
+  }
+  async getTradeHistory(userId: number, encryptedUserId: string, coin?: string, strategy?: string, hours?: number, page?: number, pageSize?: number) {
+    return this.post(`/trade/gettradehistory`, { UserId: userId, Coin: coin ?? "XBT", Strategy: strategy ?? "DCA", Hours: hours, Page: page, PageSize: pageSize }, 'json', encryptedUserId);
+  }
+  async getTradeById(userId: number, tradeId: number, encryptedUserId: string) {
+    return this.post(`/trade/gettradebyid`, { UserId: userId, TradeId: tradeId }, 'json', encryptedUserId);
+  }
+  async getPageForTradeId(userId: number, tradeId: number, tradesPerPage: number, coin: string, strategy: string, encryptedUserId: string) {
+    return this.post(`/trade/getpagefortradeid`, { UserId: userId, TradeId: tradeId, TradesPerPage: tradesPerPage, Coin: coin, Strategy: strategy }, 'json', encryptedUserId);
+  }
+  async getTradesForPage(userId: number, pageNumber: number, tradesPerPage: number, coin: string, strategy: string, encryptedUserId: string) {
+    return this.post(`/trade/gettradesforpage`, { UserId: userId, PageNumber: pageNumber, TradesPerPage: tradesPerPage, Coin: coin, Strategy: strategy }, 'json', encryptedUserId);
   }  
   async getLatestTradeHistory(userId: number, encryptedUserId: string) {
     return this.post(`/trade/getlatesttradehistory`, userId, 'json', encryptedUserId);

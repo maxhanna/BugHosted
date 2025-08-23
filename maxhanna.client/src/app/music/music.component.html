@@ -17,8 +17,8 @@
   </fieldset>
   <span class="subtleInfoSpan" (click)="openHelpPanel()">ℹ️Info</span>
   <div id="musicPlayerDiv" [class]="smallPlayer ? 'smallSongList' : 'normalSongList'">
-    <div id="iframeDiv" *ngIf="songs && songs.length > 0 && isMusicPlaying" [class]="isFullscreen ? 'popupPanel fullscreen' : (smallPlayer ? ' smallIframeDiv' : ' iframeDiv')">
-      <iframe *ngIf="!fileIdPlaylist" frameborder=0 id=musicVideo #musicVideo allow="autoplay"></iframe>
+    <div id="iframeDiv" [style.visibility]="songs && songs.length > 0 && isMusicPlaying ? 'visible' : 'hidden'" [class]="isFullscreen ? 'popupPanel fullscreen' : (smallPlayer ? ' smallIframeDiv' : ' iframeDiv')">
+      <iframe [style.visibility]="!fileIdPlaylist ? 'visible' : 'hidden'" frameborder=0 id=musicVideo #musicVideo allow="autoplay"></iframe>
       <app-media-viewer #fileMediaViewer *ngIf="fileIdPlaying && fileIdPlaying" [inputtedParentRef]="parentRef"
         [autoplay]="true" [autoload]="true" [loop]="false" [muted]="false" [showCommentSection]="false"
         [previousComponent]="'Music'" (mediaEndedEvent)="mediaEndedEvent()"></app-media-viewer>
@@ -60,25 +60,26 @@
           <table id="songListTable" [class]="isEditing.length ? '' : 'mainTable'" id="todoTable" *ngIf="paginatedSongs && paginatedSongs.length > 0">
             <tbody>
               <tr *ngFor="let song of paginatedSongs" id="songId{{song.id!}}" [class]="isEditing.includes(song.id ?? 0) ? 'popupPanel' : ''">
-                <td (click)="play(song.url, song.fileId)" *ngIf="song.id" style="width: calc(100% - 10px)">
+                <td (click)="play(song.url, song.fileId)" *ngIf="song.id" [style.width]="isEditing.includes(song.id) ? '' : '100%'">
                   <span *ngIf="!isEditing.includes(song.id)">{{song.todo}}</span>
                   <div *ngIf="isEditing.includes(song.id)" class="popupPanelTitle">Edit Song</div>
                   <div>
                     <span *ngIf="isEditing.includes(song.id)">Title:&nbsp;</span>
-                    <textarea type=text id="editSongNameInput" *ngIf="isEditing.includes(song.id)" [value]="song.todo" style="width:100%"></textarea>
+                    <textarea type=text id="editSongNameInput" 
+                      *ngIf="isEditing.includes(song.id)" [value]="song.todo" style="width:100%" (input)="hasEditedSong = true;"></textarea>
                   </div>
                   <div>
                     <span *ngIf="isEditing.includes(song.id)">Url:&nbsp;</span>
-                    <textarea type=text id="editSongUrlInput" *ngIf="isEditing.includes(song.id)" [value]="song.url" style="width:100%"></textarea>
+                    <textarea type=text id="editSongUrlInput" 
+                      *ngIf="isEditing.includes(song.id)" [value]="song.url" style="width:100%" (input)="hasEditedSong = true;"></textarea>
                   </div> 
                 </td>
-                <td [class]="isEditing.length ? '' : 'actionTd'" *ngIf="!user && song.id">
+                <td class="actionTd" *ngIf="!user && song.id">
                   <button (click)="editSong(song.id)" class="xxSmallFont cursorPointer" *ngIf="!isEditing.length">{{ isEditing.includes(song.id) ?
                     '💾':'✏️'}}</button> 
                   <button (click)="closeEditPopup()" [title]="'Edit'" class="cursorPointer closeButton"
                       *ngIf="isEditing.includes(song.id)" id="closeOverlay">💾Update</button>
-                  <input (click)="deleteSong(song.id)" value="❌" type="submit" class="xxSmallFont cursorPointer"
-                    *ngIf="!isEditing.length" />
+                  <button (click)="deleteSong(song.id)" class="cursorPointer" *ngIf="isEditing.includes(song.id)">❌Delete</button>
                 </td>
               </tr>
             </tbody>
@@ -105,6 +106,9 @@
           </span>
           <button [disabled]="currentPage === totalPages" (click)="goToNextPage()" class="pagination-button">
             Next
+          </button>
+          <button (click)="scrollToTop()" class="pagination-button">
+            Scroll Up
           </button>
         </div>
       </div>

@@ -36,23 +36,30 @@
               <app-user-tag [user]="message.sender" [inputtedParentRef]="parentRef" [previousComponent]="'Chat'"
                 [displayHoverPicture]="true" [containUsername]="true"></app-user-tag>
             </div>
-          </div>
-  
+          </div> 
           <div class="messageContent" [attr.data-timestamp]="message.timestamp">
             <div [innerHTML]="getTextForDOM(decryptContent(message.content))" *ngIf="!isEditing.includes(message.id)"></div>
             <div *ngIf="isEditing.includes(message.id)">
               <textarea [id]="'editTextArea' + message.id" style="width:100%">{{decryptContent(message.content)}}</textarea>
-            </div>
-  
+            </div> 
             <div class="xxSmallFont thirdFontColor" *ngIf="message.editDate" [title]="message.editDate">
               Editied: {{message.editDate | timeSince}}
             </div>
-  
+
+            <div *ngFor="let file of message.files"
+              [style.marginTop]="(message.files && message.files.length > 0) ? '10px' : ''"
+              [style.marginBottom]="(message.files && message.files.length > 0) ? '15px' : ''">
+              <app-media-viewer [file]="file" [currentDirectory]="file.directory" [inputtedParentRef]="parentRef"
+                [displayExtraInfo]="false" [displayExpander]="false" [showMediaInformation]="true" [showCommentSection]="false"
+                [user]="parentRef?.user" [autoplay]="false" [autoload]="true" [previousComponent]="'Chat'">
+              </app-media-viewer>
+            </div>
+
             <div class="reactionDiv">
               <app-reaction [messageId]="message.id" [user]="parentRef?.user" [component]="message"
                 [inputtedParentRef]="parentRef" [currentReactions]="message.reactions"
                 [previousComponent]="'Chat'"></app-reaction>
-              <button *ngIf="!isEditing.length" title="Quote Chat Message" (click)="quote(message)">🗨️Quote</button>
+              <button *ngIf="!isEditing.length" title="Quote Chat Message" (click)="quote(message)">🗨️</button>
               <button
                 *ngIf="message.sender.id === (parentRef?.user?.id ?? 0) && (isEditing.includes(message.id) || isEditing.length == 0)"
                 title="Edit Chat Message" (click)="isEditing.includes(message.id) ? acceptEdit(message) : edit(message)">
@@ -63,15 +70,7 @@
                 title="Cancel Edit Chat Message" (click)="stopEdit(message)">
                 ❌Cancel
               </button>
-            </div>
-  
-            <div *ngFor="let file of message.files"
-              [style.marginTop]="message.files && message.files.length > 0 ? 'margin-top: 10px' : ''">
-              <app-media-viewer [file]="file" [currentDirectory]="file.directory" [inputtedParentRef]="parentRef"
-                [displayExtraInfo]="false" [displayExpander]="false" [showMediaInformation]="true" [showCommentSection]="false" [user]="parentRef?.user"
-                [autoplay]="false" [autoload]="true" [previousComponent]="'Chat'">
-              </app-media-viewer>
-            </div>
+            </div> 
           </div> 
         </div>
   
@@ -88,7 +87,8 @@
         <div>
           <app-media-selector #attachmentSelector
             [currentDirectory]="'Users/' + (parentRef?.user && parentRef?.user?.id != 0 ? parentRef?.user?.username : 'Anonymous')"
-            [user]="parentRef?.user" [inputtedParentRef]="parentRef" (selectFileEvent)="selectFile($event)">
+            [uploadButtonText]="'Attach'" [user]="parentRef?.user" [inputtedParentRef]="parentRef" 
+            (selectFileEvent)="selectFile($event)">
           </app-media-selector>
         </div>
         <button (click)="sendMessage()">🗨️Send</button>

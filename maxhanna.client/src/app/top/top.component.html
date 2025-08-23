@@ -16,8 +16,8 @@
         <div class="categoryTitle">Add entry:</div>
         <input type="text" #titleInput placeholder="Title" class="form-input" />
         <div class="url-input-container">
-            <input type="text" #urlInput placeholder="URL (optional)" class="form-input url-input" />
-            <button (click)="searchUrl()" class="url-search-button" *ngIf="!isSearchingUrl">
+            <input type="text" #urlInput placeholder="URL (optional)" class="form-input url-input" (input)="onUrlInputChange($event)" />
+            <button (click)="searchUrl()" class="url-search-button" *ngIf="!isSearchingUrl && urlInput.value.trim().length">
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
                     stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <circle cx="11" cy="11" r="8"></circle>
@@ -98,9 +98,8 @@
 </div>
  
 <!-- Edit Popup Content -->
-<div class="popupPanel edit-popup-container" *ngIf="isEditPanelOpen" (click)="$event.stopPropagation()"> 
-    <div class="popupPanelTitle">Edit Entry</div>  
-    <div class="closeButton" (click)="closeEditPanel()"></div>
+<div class="popupPanel" *ngIf="isEditPanelOpen" (click)="$event.stopPropagation()"> 
+    <div class="popupPanelTitle">Edit Entry</div>   
     <div class="edit-popup-body">
         <div class="form-group">
             <label for="titleEditInput">Title</label>
@@ -110,9 +109,13 @@
         <div class="form-group">
             <label for="urlEditInput">URL (optional)</label>
             <div class="url-input-container">
-                <input type="text" id="urlEditInput" #urlEditInput class="form-control" [value]="editingEntry.url"
+                <input type="text" 
+                    id="urlEditInput" #urlEditInput 
+                    (input)="onUrlInputChange($event)"
+                    class="form-control" 
+                    [value]="editingEntry.url" 
                     placeholder="https://example.com">
-                <button (click)="searchUrlForEdit()" class="url-search-button">
+                <button (click)="searchUrlForEdit()" class="url-search-button" *ngIf="urlEditInput.value.trim() != ''">
                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
                         stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <circle cx="11" cy="11" r="8"></circle>
@@ -145,8 +148,8 @@
     </div>
 
     <div class="edit-popup-footer">
-        <button class="btn-cancel" (click)="closeEditPanel()">Cancel</button>
-        <button class="btn-save" (click)="editTop()">Save Changes</button>
+        <button class="closeButton" (click)="closeEditPanel()" id="closeOverlay">Cancel</button>
+        <button (click)="editTop()">Save</button>
     </div>
 </div>
 

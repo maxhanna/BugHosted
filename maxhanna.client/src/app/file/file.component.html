@@ -21,41 +21,34 @@
 <div class="popupPanel" *ngIf="isMenuPanelOpen">
   <div class="popupPanelTitle popupPanelContent" style="margin-bottom:15px;">
     Filesystem Menu
-  </div>
-  <div>
-    For your browsing convenience on Desktop, you may use the J and K buttons on your keyboard to scroll through files.
-  </div>
-  <div class="popupPanelContent">
-    <div *ngIf="!user" class="uploadAndNewFolderButtonDiv">
+  </div> 
+  <div *ngIf="!user && canUploadToFolder()" class="uploadAndNewFolderButtonDiv popupPanelContent"> 
+    <button (click)="showMakeDirectoryPrompt=true;" title="Make a New Folder">📂New Folder</button>
 
-      <button (click)="showMakeDirectoryPrompt=true;" title="Make a New Folder" *ngIf="canUploadToFolder()">📂New Folder</button>
+    <app-file-upload (userUploadEvent)="uploadInitiate();"
+                      (userUploadFinishedEvent)="uploadFinished($event)"
+                      (userNotificationEvent)="uploadNotification($event);"
+                      (userCancelEvent)="cancelMakeDirectoryOrFile();"
+                      [currentDirectory]="currentDirectory"
+                      [user]="parentRef?.user!"
+                      [inputtedParentRef]="parentRef"
+                      [uploadButtonText]="'Upload File(s)'"
+                      [showPrivatePublicOption]="isUploadInitiate ? true : false"
+                      *ngIf="canUploadToFolder()">
+    </app-file-upload>
 
-      <app-file-upload (userUploadEvent)="uploadInitiate();"
-                       (userUploadFinishedEvent)="uploadFinished($event)"
-                       (userNotificationEvent)="uploadNotification($event);"
-                       (userCancelEvent)="cancelMakeDirectoryOrFile();"
-                       [currentDirectory]="currentDirectory"
-                       [user]="parentRef?.user!"
-                       [inputtedParentRef]="parentRef"
-                       [uploadButtonText]="'Upload File(s)'"
-                       [showPrivatePublicOption]="isUploadInitiate ? true : false"
-                       *ngIf="canUploadToFolder()">
-      </app-file-upload>
-
-      <div *ngIf="showMakeDirectoryPrompt">
-        <input placeholder="Folder Name" #makeFolderName />
-        <label>
-          <select #folderVisibility [value]="createVisibility" (change)="createVisibilityOnChange()">
-            <option value="public">Public</option>
-            <option value="private">Private</option>
-          </select>
-        </label>
-        <button (click)="makeDirectory()">Create Folder</button>
-        <button (click)="cancelMakeDirectoryOrFile()">Cancel</button>
-      </div>
+    <div *ngIf="showMakeDirectoryPrompt">
+      <input placeholder="Folder Name" #makeFolderName />
+      <label>
+        <select #folderVisibility [value]="createVisibility" (change)="createVisibilityOnChange()">
+          <option value="public">Public</option>
+          <option value="private">Private</option>
+        </select>
+      </label>
+      <button (click)="makeDirectory()">Create Folder</button>
+      <button (click)="cancelMakeDirectoryOrFile()">Cancel</button>
     </div>
-
-  </div>
+  </div>  
 
   <div class="popupPanelContent">
     <div class="popupPanelTitle">
@@ -68,6 +61,8 @@
       </span>
     </div>
   </div>
-
+  <div class="browserInstructions">
+    For your browsing convenience on Desktop, you may use the J and K buttons on your keyboard to scroll through files.
+  </div>
   <button id="closeOverlay" class="closeButton" (click)="closeMenuPanel()">Close</button>
 </div> 

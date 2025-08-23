@@ -39,8 +39,8 @@
         ⚙️
       </button>
       <div class="cursorPointer smallFont commentCountWrapper">
-        <button (click)="showSubComments(comment.id)" title="Reply to this comment">
-          Reply
+        <button (click)="showSubComments(comment.id)" title="Reply to this comment" [style.display]="(editingComments.includes(comment.id) || !replyingToCommentIds.length || replyingToCommentIds.includes(comment.id)) ? 'inline-block' : 'none'">
+          {{replyingToCommentIds.includes(comment.id) ? 'Cancel' : 'Reply'}}
         </button>
         <button *ngIf="comment.comments?.length" (click)="toggleSubcomments(comment.id)" class="toggle-subcomments"
           title="Toggle subcomments">
@@ -55,7 +55,7 @@
         <div [innerHTML]="createClickableUrls(comment.commentText)" [id]="'commentText'+comment.id"
           class="commentTextDiv" [style.display]="editingComments.includes(comment.id) ? 'none': 'block'"></div>
         <div class="commentInputArea">
-          <textarea class="commentTextArea" [style.display]="editingComments.includes(comment.id) ? 'block' : 'none'"
+          <textarea class="commentTextArea" [style.display]="editingComments.includes(comment.id) && !replyingToCommentIds.length ? 'block' : 'none'"
             [id]="'commentTextTextarea'+comment.id">{{comment.commentText}}</textarea>
 
           <div class="commentInputArea" *ngIf="replyingToCommentIds.includes(comment.id)">
@@ -152,7 +152,7 @@
   <div *ngIf="!showCommentLoadingOverlay" class="addCommentInputDiv">
     <textarea
       [placeholder]='comment_id ? "Reply " + component.user.username : commentList && commentList.length > 0 ? "💭Comment..." : "🗨️FIRST Comment!"'
-      [style.display]="editingComments.length ? 'none' : 'block'" #addCommentInput
+      [style.display]="editingComments.length || replyingToCommentIds.length ? 'none' : 'block'" #addCommentInput
       [id]="'addCommentTextArea'+comment_id" class="addCommentTextArea"
       (keyup.enter)="startLoadingComment();"></textarea>
     <button (click)="startLoadingComment();" class="commentSubmit"
@@ -184,7 +184,7 @@
       ✏️ {{editingComments.includes(optionsComment.id) ? 'Cancel ': ''}}Edit
     </button>
     <button class="commentOptionButton" (click)="quote(optionsComment)">
-      Quote
+      🗨️Quote
     </button>
     <button (click)="inputtedParentRef?.speakMessage(optionsComment.commentText ?? '')"
       *ngIf="!inputtedParentRef?.isSpeaking">

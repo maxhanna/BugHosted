@@ -4,9 +4,11 @@
   </div>
   <div class="notificationArea" (click)="notifications = [];">
     <div *ngFor="let notif of notifications"
-         [innerHTML]="notif"
          title="Click to clear notifications"
-         class=" notification notificationBubble"></div>
+         class="notificationBubble">
+        <div class="notifClosePopupButtonDiv"><button class="closePopupBtn" (click)="notifications = [];" title="Clear Notifications">×</button></div>
+        <div>🪲{{notif}}</div>
+    </div>
   </div>
 
 

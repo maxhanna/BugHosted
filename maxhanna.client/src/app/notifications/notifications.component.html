@@ -15,12 +15,22 @@
           <div *ngIf="unreadNotifications" class="unreadNotifications">({{unreadNotifications}} unread)</div>
         </div>
         <div class="notificationsCountHeaderButtons">
-          <button (click)="delete()" *ngIf="notifications && notifications.length > 0">
-            ❌ Clear {{notifications && notifications.length > 1 ? 'All ' : '' }}
-          </button>
-          <button (click)="read()" *ngIf="getShowReadAll()">
-            👀 Read {{notifications && notifications.length > 1 ? 'All ' : '' }}
-          </button>
+        <button (click)="delete()" *ngIf="notifications && notifications.length > 0">
+          ❌ Clear {{notifications && notifications.length > 1 ? 'All '
+          : '' }} {{filterCategory !== 'All' ? filterCategory + ' ' : '' }}
+        </button>
+        <button (click)="read()" *ngIf="getShowReadAll()">
+          👀 Read {{notifications && notifications.length > 1 ? 'All '
+          : '' }} {{filterCategory !== 'All' ? filterCategory + ' ' : '' }}
+        </button>
+        </div>
+        <div class="filter-container" *ngIf="notifications && notifications.length && !isLoading">
+          <div><label for="notifFilter" class="smallFont">Filter by:</label></div>
+          <select id="notifFilter" [value]="filterCategory" (change)="onFilterChange($event)">
+            <option *ngFor="let c of categories" [value]="c.name" [selected]="c.name === filterCategory">
+              {{ c.name }} ({{ c.count }})
+            </option>
+          </select>
         </div>
       </div>
       <div class="closeButton" id="closeOverlay" (click)="showNotifications = false;  (inputtedParentRef ? inputtedParentRef.closeOverlay() : '')" *ngIf="minimalInterface"></div>
@@ -38,13 +48,15 @@
           </select>
         </div>
         <div class="page-navigation">
-          <button (click)="previousPage()" [disabled]="currentPage === 1">Previous</button>
-          <span>Page {{currentPage}} of {{totalPages}}</span>
+          <button (click)="previousPage()" [disabled]="currentPage === 1">{{onMobile() ? 'Prev' : 'Previous'}}</button>
+          <span>{{onMobile() ? '' : 'Page '}}{{currentPage}} {{onMobile() ? '/' : 'of'}} {{totalPages}}</span>
           <button (click)="nextPage()" [disabled]="currentPage === totalPages">Next</button>
-        </div>
-      </div>
+        </div> 
+      </div> 
+
+
       <div class="notificationsListSubContainer">
-        <div *ngFor="let notification of paginatedNotifications" [class]="'notificationListItem' + (!notification.isRead ? ' gradientBackground' : '')"
+        <div *ngFor="let notification of filteredNotifications" [class]="'notificationListItem' + (!notification.isRead ? ' gradientBackground' : '')"
           [style.opacity]="notification.isRead ? '50%' : '100%'">
           <div class="nliLeftDiv" *ngIf="!notification?.text?.includes('Executed Trade')">
             <app-user-tag [user]="notification.fromUser" [inputtedParentRef]="inputtedParentRef ?? parentRef"

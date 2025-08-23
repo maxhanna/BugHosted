@@ -423,6 +423,7 @@ singleAttachment {
   align-items: center;
   gap: 40px;
   margin-top: 5px;
+  margin-bottom: 5px;
 }
 
 .expandSpan {
@@ -612,20 +613,13 @@ singleAttachment {
   align-items: flex-start;
 }
 
-.postOptionButtonWrapper .postOptionButtons,
+/* .postOptionButtonWrapper .postOptionButtons,
 .postOptionButtonWrapper .postOptionButtons ::ng-deep * button {
-  text-align: center;
-  /* background-color: unset;
-  color: var(--secondary-font-color); */
-  /* min-width: 35px; */
+  text-align: center; 
   display: flex;
   align-items: center;
-  height: 100%;
-  /* flex-wrap: nowrap;
-  text-shadow: 1px 1px var(--secondary-font-color); 
-  align-content: center;
-  justify-content: center; */
-}
+  height: 100%; 
+} */
 
 .postOptionButtons,
 .postOptionButtons ::ng-deep * span {
@@ -634,16 +628,14 @@ singleAttachment {
 
  .postOptionButtonWrapper {
   display: flex;
-  flex-wrap: nowrap; /*
-  align-items: center;
-  align-content: flex-start;
-  justify-content: space-evenly; */
+  flex-wrap: nowrap;
+  text-shadow: 1px 1px var(--main-link-color); 
 } 
 
 .showPostOptionButton {
   cursor: pointer;
-  display: flex;
-  align-items: center; 
+  /* display: flex;
+  align-items: center;  */
 }
 
 .mobilePostButtonOptions {

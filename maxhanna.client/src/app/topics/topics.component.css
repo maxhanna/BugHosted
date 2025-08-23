@@ -25,10 +25,7 @@ input {
   justify-content: center;
   align-items: center;
 }
-
-.topicSpanDiv {
-}
-
+ 
 .addTopicButton {
   visibility: hidden;
   border: var(--main-border);
@@ -61,6 +58,34 @@ input {
   align-items: center;
   background-color: var(--secondary-component-background-color);
   cursor: pointer;
+}
+
+.dropdownMenuTopic:hover, .dropdownMenuTopic:active {
+  outline: var(--main-border); 
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s ease;
+  position: relative;
+}
+
+.dropdownMenuTopic:hover::after, .dropdownMenuTopic:active::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 2px;
+  background-color: var(--third-font-color);
+  animation: underline 0.3s ease;
+}
+
+@keyframes underline {
+  from {
+    width: 0;
+  }
+
+  to {
+    width: 100%;
+  }
 }
 
 .removeTopicButton {

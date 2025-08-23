@@ -12,12 +12,16 @@ export class ModalComponent {
   @Input() isCloseButtonVisible: boolean = false;
   @Input() modalTitle: string = "";
   @Input() isModal: boolean = true;
+  @Input() hasGamingFont: boolean = true;
   @Input() hasConfirmButton: boolean = false;
   
   @ViewChild('modalBody') modalBody!: ElementRef<HTMLDivElement>;
 
-  setModalBody(msg: any) {  
+  setModalBody(msg: any) {
     this.modalBody.nativeElement.innerHTML = msg;
+  }
+  setModalHeader(msg: any) {
+    this.modalTitle = msg;
   }
   closeModal() { 
     this.close.emit();

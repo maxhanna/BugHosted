@@ -29,35 +29,15 @@ button {
 .fileUploadInputs {
   margin: 20px;
 }
-
-.popupPanel {
-  width: 99vw;
-  height: CALC(var(--vh, 1vh) * 100);
-  padding: 0px !important;
-  overflow: hidden !important;
-}
-
+ 
 .popupPanelContents {
   padding: 20px;
 }
+ 
 
-
-.memePopupPanel {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: CALC(100vw - 40px);
-  height: CALC(var(--vh, 1vh) * 100 - 40px);
-  background: var(--secondary-component-background-color);
-  z-index: 4 !important;
-  border-radius: 8px;
-  overflow: auto;
-  padding: 20px;
-  display: flex;
-  flex-direction: column;
-  flex-wrap: nowrap;
-  align-content: center;
-  justify-content: space-evenly;
-  align-items: center;
-  cursor: default;
+.browsingInstructions {
+  border-top: 1px solid var(--main-border-color);
+  padding: 10px;
+  margin: 5px 0px;
+  color: var(--third-font-color);
 }

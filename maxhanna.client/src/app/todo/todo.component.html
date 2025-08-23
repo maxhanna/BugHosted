@@ -27,38 +27,41 @@
             <input placeholder="Search" #searchInput (keyup)="search()" />
             <button (click)="search()">🔍</button>
           </th> 
-          <th (click)="sortTable(2, 'todoTable')" title="Created">📅</th>
           <th></th>
+          <th (click)="sortTable(2, 'todoTable')" title="Created">📅</th>
         </tr>
       </thead>
       <tbody *ngIf="todos.length > 0">
-        <tr *ngFor="let item of todos" id="todoNo{{item.id}}" [class]="isEditing.includes(item) && !isExpandedEditFile ? 'popupPanel' : ''">
+        <tr *ngFor="let item of todos" id="todoNo{{item.id}}" [class]="isEditing.includes(item) && !isExpandedEditFile ? 'popupPanel' : ''" (click)="isEditing.includes(item) ? '' : editTodo(item)">
           <td *ngIf="item.id" [style]="isEditing.includes(item) ? 'width: calc(100% - 10px); margin-top: 10px;' : ''">
             <div *ngIf="isEditing.includes(item)" class="popupPanelTitle">Edit {{selectedType.value}}</div>
             <div>
               <span class="todoText" *ngIf="!isEditing.includes(item)">{{ item.todo }}</span>
               <div *ngIf="isEditing.includes(item)">
-                Text: <textarea [value]="item.todo" id="todoEditingTextarea" style="width:calc(100% - 10px)"></textarea>
+                Text: <textarea [value]="item.todo" id="todoEditingTextarea" style="width:calc(100% - 10px)" (input)="hasEditedTodo = true"></textarea>
               </div><div *ngIf="isEditing.includes(item)">
                 URL: <textarea *ngIf="isEditing.includes(item)" [value]="item.url" id="todoEditingUrlTextarea"
-                  style="width:calc(100% - 10px)"></textarea>
+                  style="width:calc(100% - 10px)" (input)="hasEditedTodo = true"></textarea>
               </div>
               <div *ngIf="isEditing.includes(item)">
                 File: <app-media-selector #todoEditingFile [inputtedParentRef]="parentRef" 
+                (selectFileEvent)="hasEditedTodo = true"
                 (expandFileSelectorEvent)="expandedEditFile($event)"></app-media-selector>
               </div>
             </div>
             <app-media-viewer *ngIf="item.fileId" [fileId]="item.fileId" [inputtedParentRef]="parentRef"
-              [showCommentSection]="false" [showMediaInformation]="true" [displayExpander]="true"
-              [displayExtraInfo]="true"></app-media-viewer>
+              [showCommentSection]="false" [showMediaInformation]="false" [displayExpander]="true"
+              [displayExtraInfo]="false"></app-media-viewer>
           </td> 
-          <td class="todoDate" [title]="(item.date?.toString() ?? '').replace('T',' ')">{{ item.date | timeSince }}</td>
           <td *ngIf="item.id" class="actionTd">
-            <button (click)="visitUrl(item.url)" *ngIf="item.url && !isEditing?.length" class="xxSmallFont cursorPointer" [title]="'Navigate to: ' + item.url">🔗</button>
-            <button (click)="editTodo(item)" [title]="'Edit'" class="xxSmallFont cursorPointer" *ngIf="!isEditing?.length">{{ isEditing.includes(item) ? '💾':'✏️'}}</button>
-            <button (click)="closeEditPopup()" [title]="'Edit'" class="closeButton cursorPointer" *ngIf="isEditing.includes(item)" id="closeOverlay">💾Update</button>
-            <input type="button" value="❌" [title]="'Delete'" (click)="deleteTodo(item.id!);" id="todoDeleteNo{{item.id}}" class="xxSmallFont cursorPointer" *ngIf="!isEditing?.length" />
+            <button (click)="visitUrl(item.url); $event.preventDefault();" *ngIf="item.url && !isEditing?.length"
+              class="xxSmallFont cursorPointer" [title]="'Navigate to: ' + item.url">🔗</button>
+            <button (click)="closeEditPopup(); $event.preventDefault();" [title]="'Edit'" class="closeButton cursorPointer"
+              *ngIf="isEditing.includes(item)" id="closeOverlay">💾Update</button>
+            <button (click)="deleteTodo(item.id!); $event.preventDefault();" [title]="'Delete'" id="todoDeleteNo{{item.id}}"
+              class="cursorPointer" *ngIf="isEditing.includes(item)">❌Delete</button>
           </td>
+          <td class="todoDate" [title]="(item.date?.toString() ?? '').replace('T',' ')">{{ item.date | timeSince }}</td> 
         </tr>
       </tbody>
     </table><div *ngIf="todos.length <= 0 && !isLoading">Nothing in this list yet!</div>

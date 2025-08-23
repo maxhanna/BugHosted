@@ -36,15 +36,12 @@
 </div>
  
 <!-- Menu Popup -->
-<div class="memePopupPanel" *ngIf="isMenuPanelOpen">
+<div class="popupPanel" *ngIf="isMenuPanelOpen">
   <div class="popupPanelTitle popupPanelContents" style="margin-bottom:15px;">
     Meme Menu
   </div>
-  <div>
-    For your browsing convenience on Desktop, you may use the J and K buttons on your keyboard to scroll through memes.
-    <div>
-      Display NSFW?: <input type="checkbox" #nsfwCheckmark [checked]="isDisplayingNSFW" (click)="updateNSFW($event)" />
-    </div>
+  <div *ngIf="parentRef?.user?.id">
+    Display NSFW?: <input type="checkbox" #nsfwCheckmark [checked]="isDisplayingNSFW" (click)="updateNSFW($event)" />
   </div>
   <div class="fileUploadInputs">
     <app-file-upload [currentDirectory]="'Meme'"
@@ -70,6 +67,9 @@
         <span class="topicFileCount">({{topic.fileCount}})</span>
       </span>
     </div>
+  </div>
+  <div class="browsingInstructions">
+    For your browsing convenience on Desktop, you may use the J and K buttons on your keyboard to scroll through memes.
   </div>
   <button id="closeOverlay" (click)="closeMenuPanel()" class="closeButton">Close</button>
 </div>

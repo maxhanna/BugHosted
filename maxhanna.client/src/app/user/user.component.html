@@ -539,7 +539,7 @@
     User Menu
   </div>
   <div>
-    <div>
+    <div *ngIf="parentRef?.user?.id">
       Display NSFW?: <input type="checkbox" #nsfwCheckmark [checked]="isDisplayingNSFW" (click)="updateNSFW($event)" />
     </div>
     <div>

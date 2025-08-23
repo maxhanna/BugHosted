@@ -19,6 +19,7 @@ export class CryptoWalletsComponent extends ChildComponent implements OnInit {
   isAddCryptoDivVisible = false;
   isWalletGraphFullscreened = false;
   areWalletAddressesHidden = true;
+  expandedWalletCurrency: string | null = null;
 
   constructor(private coinValueService: CoinValueService) { super(); }
 
@@ -68,13 +69,13 @@ export class CryptoWalletsComponent extends ChildComponent implements OnInit {
     });
   }
   getCurrencyValue(currency?: Currency): number {
-    if (!currency || !currency.totalBalance) return 0; 
-    return parseFloat(currency.totalBalance) * (currency.fiatRate ?? 1); 
-  } 
+    if (!currency || !currency.totalBalance) return 0;
+    return parseFloat(currency.totalBalance) * (currency.fiatRate ?? 1);
+  }
 
   getTotalCurrencyDisplayValue(wallet?: MiningWalletResponse) {
     if (this.isDiscreete) return '***';
-    if (!wallet || !wallet.total || !wallet.total.totalBalance) return 0; 
+    if (!wallet || !wallet.total || !wallet.total.totalBalance) return 0;
     const fiatRate = wallet.currencies ? (wallet.currencies[0].fiatRate ?? 1) : 1;
     return parseFloat(wallet.total.totalBalance) * fiatRate;
   }
@@ -107,39 +108,42 @@ export class CryptoWalletsComponent extends ChildComponent implements OnInit {
     this.isAddCryptoDivVisible = !this.isAddCryptoDivVisible;
   }
 
-  
-    private async getBTCWallets() { 
-      const user = this.inputtedParentRef?.user;
-      const token = await this.inputtedParentRef?.getSessionToken();
-      if (user?.id) {
-        await this.coinValueService.getWallet(user.id, token ?? "").then(res => {
-          if (res && res.length > 0) {
-            this.wallet = res;
-          }
-        });
-      }
-  
-      if (this.wallet) {
-        for (let type of this.wallet) {
-          console.log(type);
-          type.total = {
-            currency: "Total " + type?.total?.currency?.toUpperCase(),
-            totalBalance: (type.currencies ?? [])
-              .filter(x => x.currency?.toUpperCase() === type?.total?.currency?.toUpperCase())
-              .reduce((sum, curr) => sum + Number(curr.totalBalance || 0), 0)
-              .toString(),
-            available: (type.currencies ?? [])
-              .filter(x => x.currency?.toUpperCase() === type?.total?.currency?.toUpperCase())
-              .reduce((sum, curr) => sum + Number(curr.available || 0), 0)
-              .toString(),
-            fiatRate: (type.currencies ? type.currencies[0].fiatRate : 1)
-          };
+
+  private async getBTCWallets() {
+    const user = this.inputtedParentRef?.user;
+    const token = await this.inputtedParentRef?.getSessionToken();
+    if (user?.id) {
+      await this.coinValueService.getWallet(user.id, token ?? "").then(res => {
+        if (res && res.length > 0) {
+          this.wallet = res;
         }
+      });
+    }
+
+    if (this.wallet) {
+      for (let type of this.wallet) {
+        type.total = {
+          currency: "Total " + type?.total?.currency?.toUpperCase(),
+          totalBalance: (type.currencies ?? [])
+            .filter(x => x.currency?.toUpperCase() === type?.total?.currency?.toUpperCase())
+            .reduce((sum, curr) => sum + Number(curr.totalBalance || 0), 0)
+            .toString(),
+          available: (type.currencies ?? [])
+            .filter(x => x.currency?.toUpperCase() === type?.total?.currency?.toUpperCase())
+            .reduce((sum, curr) => sum + Number(curr.available || 0), 0)
+            .toString(),
+          fiatRate: (type.currencies ? type.currencies[0].fiatRate : 1)
+        };
       }
-       
-      this.gotWallet.emit(this.wallet);
     }
-    getTotalWalletBalance() {
-      return (parseFloat(this.currentlySelectedCurrency?.totalBalance ?? "0")) * (this.currentlySelectedCurrency?.fiatRate ?? 1)
-    }
+
+    this.gotWallet.emit(this.wallet);
+  }
+  getTotalWalletBalance() {
+    return (parseFloat(this.currentlySelectedCurrency?.totalBalance ?? "0")) * (this.currentlySelectedCurrency?.fiatRate ?? 1)
+  }
+  toggleWallet(currency?: string) {
+    if (!currency) return;
+    this.expandedWalletCurrency = this.expandedWalletCurrency === currency ? null : currency;
+  }
 }

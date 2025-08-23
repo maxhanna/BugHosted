@@ -100,7 +100,7 @@ namespace maxhanna.Server.Services
 				var keys = await _krakenService.GetApiKey(userId);
 				if (keys == null) return;
 
-				var balances = await _krakenService.GetBalance(userId, "BTC", keys);
+				var balances = await _krakenService.GetBalance(userId, "BTC", "XXX", keys);
 				if (balances == null) return;
 
 				var btcBalance = balances.GetValueOrDefault("XXBT", 0);

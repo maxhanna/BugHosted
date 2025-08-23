@@ -9,9 +9,7 @@
 }
 
 .addReactionButton {
-  cursor: pointer;
-  background-color: unset;
-  color: var(--secondary-font-color);
+  cursor: pointer;  
 }
 
 .addReactionSpan {
@@ -23,17 +21,9 @@
 .addReactionSpanNoBorder {
   white-space: nowrap;
   padding-right: 5px;
-  cursor: pointer;
-  text-shadow: 1px 1px black;
-  /* display: flex;
-  align-items: baseline; */
+  cursor: pointer; 
 }
-
-.addReactionSpanNoBorder {
-  position: relative;
-  top: -1px;
-}
-
+ 
 .reactionWrapper {
   display: flex;
   align-items: center;

@@ -54,13 +54,8 @@ export class CryptoBotConfigurationComponent extends ChildComponent {
     const strategy = getVal(this.tradeStrategySelect);
 
     if (!fromCoin) return alert("Invalid 'From' coin.");
-    if (!toCoin) return alert("Invalid 'To' coin.");
-    const minCoinAmount = this.getMinimumCryptoAmount(fromCoin, 5);
-
-    const minFromAmount = parseNum(getVal(this.tradeMinimumFromTradeAmount)) ?? 0;
-    if (minFromAmount < minCoinAmount) {
-      return alert(`Min ${fromCoin} per Trade must be greater than ${minCoinAmount}.`);
-    }
+    if (!toCoin) return alert("Invalid 'To' coin."); 
+ 
     const coinReserveUSDCValue = parseNum(getVal(this.tradeCoinReserveUSDCValue)) ?? 0;
     if (coinReserveUSDCValue < 5 && strategy != "HFT") {
       return alert(`Coin Reserve must be greater than 5$.`);
@@ -77,7 +72,7 @@ export class CryptoBotConfigurationComponent extends ChildComponent {
 
 
     const fields = {
-      MinimumFromTradeAmount: minFromAmount,
+      MinimumFromTradeAmount: parseNum(getVal(this.tradeMinimumFromTradeAmount)) ?? 0,
       TradeThreshold: parseNum(getVal(this.tradeTradeThreshold)),
       MaximumToTradeAmount: parseNum(getVal(this.tradeMaximumToTradeAmount)),
       ReserveSellPercentage: parseNum(getVal(this.tradeReserveSellPercentage)),
@@ -109,14 +104,14 @@ export class CryptoBotConfigurationComponent extends ChildComponent {
     const sessionToken = await this.inputtedParentRef.getSessionToken();
     this.tradeService.upsertTradeConfiguration(config, sessionToken)
       .then((result: any) => {
-        if (result && result != "Access Denied") {
+        if (result === true || (typeof result === "string" && result !== "Access Denied" && !result.toLowerCase().includes("minimum trade amount"))) {
           this.inputtedParentRef?.showNotification(`Updated (${fromCoin}|${toCoin}:${strategy}) configuration: ${result}`);
           this.updatedTradeConfig.emit(fromCoin);
           this.tradeConfigLastUpdated = new Date();
         } else if (result) {
-          this.inputtedParentRef?.showNotification(`Error updating (${fromCoin}|${toCoin}:${strategy}) configuration: ${result}.`);
+          this.inputtedParentRef?.showNotification(`Error updating (${fromCoin}|${toCoin}:${strategy}): ${result}`);
         } else {
-          this.inputtedParentRef?.showNotification(`Error updating (${fromCoin}|${toCoin}:${strategy}) configuration.`); 
+          this.inputtedParentRef?.showNotification(`Error updating (${fromCoin}|${toCoin}:${strategy}).`); 
         }
       })
       .catch((err: any) => {

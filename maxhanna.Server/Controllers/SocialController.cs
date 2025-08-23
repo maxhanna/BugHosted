@@ -1088,7 +1088,7 @@ namespace maxhanna.Server.Controllers
 							// Fetch the last inserted ID
 							int storyId = (int)cmd.LastInsertedId;
 							if (request.userId != null) { 
-								await NotifyFollowers(request.userId, storyId);
+								await NotifyFollowers(request.userId, request.story.ProfileUserId, storyId);
 							}
 							// Insert attached files into story_files table
 							if (request.story.StoryFiles != null && request.story.StoryFiles.Count > 0)
@@ -1480,7 +1480,7 @@ namespace maxhanna.Server.Controllers
 			}
 			return "Deleted metadata";
 		}
-		private async Task<bool> NotifyFollowers(int? userId, int storyId)
+		private async Task<bool> NotifyFollowers(int? userId, int? userProfileId, int storyId)
 		{
 			if (userId == null || userId == 0) return false;
 
@@ -1536,10 +1536,10 @@ namespace maxhanna.Server.Controllers
 					if (validFollowerIds.Count > 0)
 					{
 						string notificationText = "New post.";
-						string insertSql = @"
-                    INSERT INTO notifications 
-                    (user_id, from_user_id, story_id, text, date, is_read) 
-                    VALUES (@userId, @fromUserId, @storyId, @text, UTC_TIMESTAMP(), 0)";
+						string insertSql = $@"
+							INSERT INTO notifications 
+							(user_id, from_user_id, {(userProfileId != null ? "user_profile_id," : "")} story_id, text, date, is_read) 
+							VALUES (@userId, @fromUserId, {(userProfileId != null ? $"{userProfileId}," : "")}, @storyId, @text, UTC_TIMESTAMP(), 0)";
 
 						foreach (var followerId in validFollowerIds)
 						{

@@ -17,9 +17,13 @@
   backdrop-filter: blur(4px);
 }
 
+.gamingFont {
+  font-family: fontRetroGaming, monospace;
+}
+
 .modal {
   background-color: var(--secondary-component-background-color);
-  padding: 20px;
+  padding: 0px 20px 20px 20px;
   border-radius: 4px;
   width: 320px;
   max-height: 80vh;
@@ -29,8 +33,7 @@
     0 0 20px 8px rgba(0, 0, 0, 0.7);
   z-index: 2;
   overflow: hidden;
-  font-family: fontRetroGaming, monospace;
-  border: 2px solid #000;
+  border: 2px solid var(--main-border);
   position: relative;
 }
 
@@ -41,37 +44,18 @@
   left: 0;
   right: 0;
   height: 4px;
-  background: linear-gradient(90deg,
-      var(--main-highlight-color, #ff00ff) 0%,
-      #00ffff 50%,
-      var(--main-highlight-color, #ff00ff) 100%);
+  background: linear-gradient(135deg, var(--component-background-color), var(--secondary-component-background-color));
 }
 
 .modal-body {
   max-height: calc(80vh - 100px);
   overflow-y: auto;
   word-break: break-word;
-  padding: 15px 0;
-  color: #e0e0e0;
+  padding: 15px 0; 
   line-height: 1.4;
-  font-size: 16px;
-  scrollbar-width: thin;
-  scrollbar-color: var(--main-highlight-color, #ff00ff) #333;
+  font-size: 16px; 
   object-fit: contain;
-}
-
-.modal-body::-webkit-scrollbar {
-  width: 8px;
-}
-
-.modal-body::-webkit-scrollbar-track {
-  background: #333;
-}
-
-.modal-body::-webkit-scrollbar-thumb {
-  background-color: var(--main-highlight-color, #ff00ff);
-  border-radius: 4px;
-}
+} 
 
 .modal-header,
 .modal-footer {
@@ -82,40 +66,19 @@
 }
 
 .modal-header {
-  border-bottom: 2px solid var(--main-highlight-color, #ff00ff);
+  border-bottom: 1px solid var(--main-border-color, #ff00ff);
   margin-bottom: 10px;
+  padding: 20px 50px 20px 50px;
 }
 
-.modal-footer {
-  border-top: 2px solid var(--main-highlight-color, #ff00ff);
-  margin-top: 10px;
+.modal-footer { 
   padding-top: 15px;
-}
+} 
 
-.modal-header button,
-.modal-footer button { 
-  border: 2px solid var(--main-highlight-color, #ff00ff); 
-  cursor: pointer;
-  font-size: 16px;
-  padding: 5px 15px;
-  font-family: fontRetroGaming, monospace;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-  transition: all 0.2s;
-}
-
-.modal-header button:hover,
-.modal-footer button:hover {
-  background: var(--main-highlight-color, #ff00ff);
-  color: #000;
-  text-shadow: 0 0 5px #fff;
-}
-
-.modal-title {
-  color: var(--main-highlight-color, #ff00ff);
-  font-size: 20px;
+.modal-title { 
+  font-size: large;
   text-transform: uppercase;
   letter-spacing: 2px;
   margin: 0;
-  text-shadow: 0 0 5px rgba(255, 0, 255, 0.5);
-}
+  text-shadow: 0 0 5px var(--main-link-color);
+} 

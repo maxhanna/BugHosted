@@ -1,14 +1,6 @@
 .componentMain {
-  width: 99vw;
+  min-width: 300px;
 }
-
-
-@media only screen and (max-device-width:800px) {
-  .componentMain {
-    max-width: 98vw !important;
-  }
-}
-
 .folder {
   color: black;
   cursor: pointer;
@@ -191,4 +183,11 @@ tr[draggable] {
 
 .popupPanelContent {
   padding: 20px;
+}
+
+.browserInstructions {
+  border-top: 1px solid var(--main-border-color);
+  padding: 10px;
+  margin: 5px 0px;
+  color: var(--third-font-color);
 }

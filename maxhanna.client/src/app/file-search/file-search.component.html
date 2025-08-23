@@ -162,14 +162,14 @@
     <button title="Delete File" (click)="delete(optionsFile);" *ngIf="shouldShowEditButton(optionsFile)">
       ❌Delete
     </button>
-    <button title="Hide File" (click)="hide(optionsFile);">
+    <button title="Hide File" (click)="hide(optionsFile);" *ngIf="userIsLoggedIn()">
       🙈Hide
     </button> 
-    <button (click)="addToFavourites(optionsFile)"
+    <button (click)="addToFavourites(optionsFile)" *ngIf="userIsLoggedIn()"
       title="Add '{{optionsFile.givenFileName ?? optionsFile.fileName}}' to favourites.">
       ❤️ Add To Favourites
     </button>
-    <button *ngIf="isVideoFile(optionsFile)" (click)="addFileToMusicPlaylist(optionsFile)"
+    <button *ngIf="isVideoFile(optionsFile) && userIsLoggedIn()" (click)="addFileToMusicPlaylist(optionsFile)"
       title="Add '{{optionsFile.givenFileName ?? optionsFile.fileName}}' to music playlist.">
       ➕ Add To Music Playlist
     </button>
@@ -385,7 +385,7 @@
       </div>
     </div>
     
-    <div>
+    <div *ngIf="userIsLoggedIn()">
       Show favourites only?
       <button class="toggle-switch" (click)="showFavouritesToggled()">
         {{ showFavouritesOnly ? 'On' : 'Off' }}
@@ -410,7 +410,7 @@
   <div class="popupPanelTitle">File Options</div>
   <div class="gradientBackground searchFilesPopupContainer"> 
     <div class="filters" *ngIf="showPrivatePublicOption && showData">
-      <div>
+      <div *ngIf="userIsLoggedIn()">
         <label>
           Show Hidden Files?:
           <select (change)="setFilterHidden($event)">
@@ -439,7 +439,7 @@
           </select>
         </label>
       </div>
-      <div>
+      <div *ngIf="userIsLoggedIn()">
         <label>
           Display NSFW?: <input type="checkbox" #nsfwCheckmark [checked]="isDisplayingNSFW" (click)="updateNSFW($event)" />
         </label>

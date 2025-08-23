@@ -76,8 +76,8 @@ button {
     display: flex !important;
   }
 
-  .noMiningHubSection { 
-    width: CALC(100% - 25px); 
+  .noMiningHubSection {
+    width: CALC(100% - 25px);
   }
 }
 
@@ -351,13 +351,6 @@ button {
   background-color: white;
 }
 
-@media only screen and (min-width : 700px) {
-
-  .tradeBalanceTable .xxSmallFont,
-  .tradeBalanceTable .smallFont {
-    font-size: var(--main-font-size);
-  }
-}
 
 .tradeBotSimDebugDivWrapper {
   max-height: 200px;
@@ -565,11 +558,11 @@ div:not(.trade-panel-controls) .button-wrapper {
 }
 
 .positive {
-  color: #28a745; 
+  color: #28a745;
 }
 
 .negative {
-  color: #dc3545; 
+  color: #dc3545;
 }
 
 .cumulative-row {
@@ -752,6 +745,15 @@ div:not(.trade-panel-controls) .button-wrapper {
   font-size: 12px;
   font-weight: bold;
   text-shadow: 1px 1px 1px rgba(0, 0, 0, 0.5);
+}
+
+.logFiltersWrapper {
+  display: flex;
+  flex-direction: column;
+  flex-wrap: nowrap;
+  align-content: center;
+  justify-content: center;
+  align-items: center;
 }
 
 .logTypeFiltersWrapper {
@@ -960,7 +962,7 @@ div:not(.trade-panel-controls) .button-wrapper {
   top: 10px;
   right: 15px;
 }
-  
+
 
 .data-tool-select {
   margin-right: 10px;
@@ -970,4 +972,32 @@ div:not(.trade-panel-controls) .button-wrapper {
 
 .button-wrapper {
   margin-bottom: 10px;
+}
+
+
+.tradeHistoryTableWrapper {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.tradeHistoryTableCoinSelectWrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: nowrap;
+}
+
+.pagination-controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 10px;
+}
+
+.pagination-controls button {
+  padding: 5px 10px;
 }

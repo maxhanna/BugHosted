@@ -18,9 +18,10 @@ public class TradeController : ControllerBase
 	{
 		try
 		{
-			if (req.UserId != 1 && !await _log.ValidateUserLoggedIn(req.UserId, encryptedUserId)) return StatusCode(500, "Access Denied.");
-			var time = await _krakenService.GetTradeHistory(req.UserId, req.Coin ?? "XBT", req.Strategy ?? "DCA");
-			return Ok(time);
+			if (req.UserId != 1 && !await _log.ValidateUserLoggedIn(req.UserId, encryptedUserId))
+				return StatusCode(500, "Access Denied.");
+			var history = await _krakenService.GetTradeHistory(req.UserId, req.Coin ?? "XBT", req.Strategy ?? "DCA", req.Hours, req.Page, req.PageSize);
+			return Ok(history);
 		}
 		catch (Exception ex)
 		{
@@ -45,7 +46,65 @@ public class TradeController : ControllerBase
 			return StatusCode(500, "Error fetching trade history.");
 		}
 	}
+	[HttpPost("/Trade/GetPageForTradeId", Name = "GetPageForTradeId")]
+	public async Task<IActionResult> GetPageForTradeId([FromBody] GetPageForTradeIdRequest request,
+			[FromHeader(Name = "Encrypted-UserId")] string encryptedUserId)
+	{
+		try
+		{
+			if (request.UserId != 1 && !await _log.ValidateUserLoggedIn(request.UserId, encryptedUserId))
+				return StatusCode(500, "Access Denied.");
 
+			var pageInfo = await _krakenService.GetPageForTradeId(request.UserId, request.TradeId, request.TradesPerPage, request.Coin, request.Strategy);
+			if (pageInfo == null)
+				return StatusCode(404, $"Trade ID {request.TradeId} not found.");
+
+			return Ok(pageInfo);
+		}
+		catch (Exception ex)
+		{
+			await _log.Db($"Error fetching page for trade ID {request.TradeId}. {ex.Message}", request.UserId, "TRADE", true);
+			return StatusCode(500, "Error fetching page for trade ID.");
+		}
+	}
+
+	[HttpPost("/Trade/GetTradesForPage", Name = "GetTradesForPage")]
+	public async Task<IActionResult> GetTradesForPage([FromBody] GetTradesForPageRequest request,
+		[FromHeader(Name = "Encrypted-UserId")] string encryptedUserId)
+	{
+		try
+		{
+			if (request.UserId != 1 && !await _log.ValidateUserLoggedIn(request.UserId, encryptedUserId))
+				return StatusCode(500, "Access Denied.");
+
+			var trades = await _krakenService.GetTradesForPage(request.UserId, request.PageNumber, request.TradesPerPage, request.Coin, request.Strategy);
+			return Ok(trades);
+		}
+		catch (Exception ex)
+		{
+			await _log.Db($"Error fetching trades for page {request.PageNumber}. {ex.Message}", request.UserId, "TRADE", true);
+			return StatusCode(500, "Error fetching trades for page.");
+		}
+	}
+
+	[HttpPost("/Trade/GetTradeById", Name = "GetTradeById")]
+	public async Task<IActionResult> GetTradeById([FromBody] TradeByIdRequest req, [FromHeader(Name = "Encrypted-UserId")] string encryptedUserId)
+	{
+		try
+		{
+			if (req.UserId != 1 && !await _log.ValidateUserLoggedIn(req.UserId, encryptedUserId))
+				return StatusCode(500, "Access Denied.");
+			var trade = await _krakenService.GetTradeById(req.UserId, req.TradeId);
+			if (trade == null)
+				return NotFound($"Trade ID {req.TradeId} not found.");
+			return Ok(trade);
+		}
+		catch (Exception ex)
+		{
+			_ = _log.Db("Error fetching trade by ID. " + ex.Message, req.UserId, "TRADE", true);
+			return StatusCode(500, "Error fetching trade by ID.");
+		}
+	}
 
 	[HttpPost("/Trade/UpdateApiKey", Name = "UpdateApiKey")]
 	public async Task<IActionResult> UpdateApiKey([FromBody] UpdateApiKeyRequest request, [FromHeader(Name = "Encrypted-UserId")] string encryptedUserId)
@@ -283,6 +342,31 @@ public class TradeController : ControllerBase
 		{
 			if (!await _log.ValidateUserLoggedIn(req.UserId, encryptedUserId))
 				return StatusCode(500, "Access Denied.");
+
+			string normalizedFrom = from.ToUpper() == "BTC" ? "XBT" : from.ToUpper();
+			string pair = $"{normalizedFrom}{to.ToUpper()}";
+
+			// Fetch user's API keys
+			var keys = await _krakenService.GetApiKey(userId);
+			if (keys == null)
+			{
+				return BadRequest("Unable to fetch API keys. Please set up your Kraken credentials.");
+			}
+
+			// Fetch minimum order volume
+			decimal? minVolume = await _krakenService.GetMinOrderVolume(pair, keys, userId);
+			if (minVolume == null)
+			{
+				return BadRequest("Unable to fetch minimum order volume from Kraken. Please try again later.");
+			}
+
+			// Validate minimum_from_trade_amount
+			decimal requestedMin = req.MinimumFromTradeAmount ?? 0;
+			if (requestedMin > 0 && requestedMin < minVolume.Value)
+			{
+				return BadRequest($"Minimum trade amount ({requestedMin}) is below Kraken's minimum for {pair} ({minVolume.Value}).");
+			}
+
 
 			var worked = await _krakenService.UpsertTradeConfiguration(
 					userId,

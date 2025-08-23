@@ -1125,27 +1125,30 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
 
     return count;
   }
-  selectDivText = (element: HTMLElement) => {
-    const range = document.createRange();
-    range.selectNode(element);
-    window.getSelection()?.removeAllRanges();
-    window.getSelection()?.addRange(range);
+  copyDivText = async (element: HTMLElement) => {
+    try {
+      const text = element.innerText;
+      await navigator.clipboard.writeText(text);
+      this.parentRef?.showNotification("Text copied to Clipboard!");
+    } catch (err) {
+      console.error('Failed to copy text: ', err);
+      alert('Failed to copy text. Please select and copy manually.');
+    }
   };
-  selectAllText(storyId?: number) {
+
+  copyAllText(storyId?: number) {
     if (!storyId) {
       alert("Post Id is null");
       return;
     }
     this.closePostOptionsPanel();
-    // Attempt to select text immediately
     const el = document.getElementById("storyText" + storyId);
     if (!el) {
       console.warn(`Element with ID storyText${storyId} not found.`);
       alert(`Post with ID ${storyId} not found.`);
       return;
     } else {
-      el.focus();
-      this.selectDivText(el);
+      this.copyDivText(el);
     }
   }
   async updateNSFW(event: Event) {

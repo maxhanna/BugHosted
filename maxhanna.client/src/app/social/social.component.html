@@ -91,7 +91,7 @@
 
       <div style="display: flex; justify-content: flex-start; align-content: center; align-items: center;"
         class="menuPopupSection">
-        <div class="userProfileSection">
+        <div class="userProfileSection" *ngIf="parentRef?.user?.id">
           <div class="avatarContainer">
             <app-user-tag [user]="parentRef?.user" [inputtedParentRef]="parentRef ?? parent"
               [displayHoverPicture]="true" [previousComponent]="'Social'"></app-user-tag>
@@ -113,7 +113,7 @@
             </select>
           </div>
 
-          <div class="menuPopupSection menuPopupMiniOptions">
+          <div class="menuPopupSection menuPopupMiniOptions" *ngIf="parentRef?.user?.id">
             <span title="Not Safe For Work (adult) posts">NSFW:</span>
             <select (change)="onNSFWChange($event)">
               <option value="yes" [selected]="isDisplayingNSFW">Show</option>
@@ -121,7 +121,7 @@
             </select>
           </div>
 
-          <div class="menuPopupSection menuPopupMiniOptions">
+          <div class="menuPopupSection menuPopupMiniOptions" *ngIf="parentRef?.user?.id">
             <span>Hidden Posts?:</span>
             <select (change)="setFilterHidden($event)">
               <option value="yes" [selected]="filter.hidden === 'yes'">Show</option>
@@ -328,7 +328,7 @@
       </div>
       <div class="storyOptionsPopupButtons" style="margin-bottom: 15px;">
         <button (click)="copyLink(optionStory.id)" title="Share Link" style="display:inline-block">📋Share</button>
-        <button (click)="selectAllText(optionStory.id)" title="Select all text" style="display:inline-block">📄Select
+        <button (click)="copyAllText(optionStory.id)" title="Copy all text" style="display:inline-block">📋Copy
           Text</button>
         <button (click)="edit(optionStory)" *ngIf="optionStory.user?.id == parentRef?.user?.id" title="Edit Post Text"
           style="display:inline-block">
@@ -356,7 +356,7 @@
         </button>
       </div>
 
-      <div class="optionsStatsWrapperDiv">
+      <div class="optionsStatsWrapperDiv gradientBackground">
         <div class="optionsStatsDiv">
           <div class="optionsStatsHeader">
             Story Id:
@@ -538,9 +538,9 @@
                 [userProfileId]="userProfileId" [component]="story" [showSpan]="true"
                 [currentReactions]="story.reactions" [previousComponent]="'Social'"></app-reaction>
             </span>
-            <span class="showCommentSpan" (click)="showComments(story.id)">
+            <!-- <span class="showCommentSpan" (click)="showComments(story.id)">
               <span class="commentBubbleIcon">🗨️{{getTotalCommentCount(story.storyComments)}}</span>
-            </span>
+            </span> -->
             <span (click)="showStoryOptionsPanel(story);" class="postOptionButtons showPostOptionButton"
               title="Show post options">
               ⚙️

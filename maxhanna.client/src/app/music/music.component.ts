@@ -1,5 +1,5 @@
 import { AfterContentChecked, AfterViewInit, Component, ElementRef, EventEmitter, HostListener, Input, OnInit, Output, ViewChild } from '@angular/core';
-import { Location } from '@angular/common'; 
+import { Location } from '@angular/common';
 import { ChildComponent } from '../child.component';
 import { Todo } from '../../services/datacontracts/todo';
 import { TodoService } from '../../services/todo.service';
@@ -43,6 +43,7 @@ export class MusicComponent extends ChildComponent implements OnInit, AfterViewI
   showHelpPopup = false;
   isFullscreen = false;
   isShowingYoutubeSearch = false;
+  hasEditedSong = false;
 
   @Input() user?: User;
   @Input() smallPlayer = false;
@@ -50,7 +51,7 @@ export class MusicComponent extends ChildComponent implements OnInit, AfterViewI
   @Output() gotPlaylistEvent = new EventEmitter<Array<Todo>>();
 
   constructor(private todoService: TodoService, private location: Location) {
-    super(); 
+    super();
     this.location.subscribe(() => {
       if (this.isFullscreen) {
         this.closeFullscreen();
@@ -62,7 +63,7 @@ export class MusicComponent extends ChildComponent implements OnInit, AfterViewI
   handleEscapeKey(event: KeyboardEvent) {
     if (this.isFullscreen) {
       this.closeFullscreen();
-      event.preventDefault(); 
+      event.preventDefault();
     }
   }
 
@@ -92,7 +93,7 @@ export class MusicComponent extends ChildComponent implements OnInit, AfterViewI
     this.youtubeSongs = tmpSongs.filter((song: Todo) => parent.isYoutubeUrl(song.url));
     this.fileSongs = tmpSongs.filter((song: Todo) => !parent.isYoutubeUrl(song.url));
     this.songs = this.selectedType === 'file' ? [...this.fileSongs] : [...this.youtubeSongs];
- 
+
     this.updatePaginatedSongs();
     this.gotPlaylistEvent.emit(this.songs);
   }
@@ -124,7 +125,8 @@ export class MusicComponent extends ChildComponent implements OnInit, AfterViewI
   goToPreviousPage() {
     if (this.currentPage > 1) {
       this.currentPage--;
-      this.updatePaginatedSongs();
+      this.updatePaginatedSongs(); 
+      this.scrollToTop();
     }
   }
 
@@ -132,6 +134,7 @@ export class MusicComponent extends ChildComponent implements OnInit, AfterViewI
     if (this.currentPage < this.totalPages) {
       this.currentPage++;
       this.updatePaginatedSongs();
+      this.scrollToTop();
     }
   }
 
@@ -185,6 +188,7 @@ export class MusicComponent extends ChildComponent implements OnInit, AfterViewI
       document.getElementById("songId" + id)!.style.textDecoration = "line-through";
     }
     this.clearInputs();
+    this.closeEditPopup(false);
   }
 
   selectType(type: 'youtube' | 'file') {
@@ -297,7 +301,7 @@ export class MusicComponent extends ChildComponent implements OnInit, AfterViewI
     this.isMusicControlsDisplayed(false);
   }
 
-  fullscreen() {   
+  fullscreen() {
     const youtubePopup = document.getElementById('musicVideo');
     if (youtubePopup) {
       if (document.fullscreenElement) {
@@ -305,19 +309,19 @@ export class MusicComponent extends ChildComponent implements OnInit, AfterViewI
       } else {
         youtubePopup.requestFullscreen().catch(err => {
           console.error("Error attempting to enable full-screen mode:", err);
-        }); 
+        });
         this.isFullscreen = true;
       }
     } else {
       console.error("YouTube popup element not found.");
-    } 
+    }
   }
   closeFullscreen() {
     const youtubePopup = document.getElementById('musicVideo');
     if (youtubePopup) {
       if (document.fullscreenElement) {
         document.exitFullscreen();
-      } 
+      }
     }
     this.isFullscreen = false;
     if (!this.smallPlayer) {
@@ -370,7 +374,7 @@ export class MusicComponent extends ChildComponent implements OnInit, AfterViewI
     this.selectedFile = fileEntry[0];
   }
 
-  mediaEndedEvent() { 
+  mediaEndedEvent() {
     const currentId = this.fileIdPlaying;
     if (this.fileIdPlaylist && this.fileIdPlaylist.length > 0) {
       const currentIndex = this.fileIdPlaylist.indexOf(currentId!);
@@ -398,7 +402,8 @@ export class MusicComponent extends ChildComponent implements OnInit, AfterViewI
   async editSong(id?: number) {
     if (!id) return;
     const parent = this.inputtedParentRef ?? this.parentRef;
-    if (!this.isEditing.includes(id)) { 
+    this.hasEditedSong = false;
+    if (!this.isEditing.includes(id)) {
       parent?.showOverlay();
       this.isEditing.push(id);
     } else {
@@ -408,14 +413,14 @@ export class MusicComponent extends ChildComponent implements OnInit, AfterViewI
 
       try {
         await this.todoService.editTodo(id, textInput.value, urlInput?.value).then(res => {
-          if (res) { 
+          if (res) {
             parent?.showNotification(res);
           }
         });
         const todoIndex = this.songs.findIndex(todo => todo.id === id);
         if (todoIndex !== -1) {
           this.songs[todoIndex].todo = textInput.value;
-        } 
+        }
         parent?.closeOverlay();
         this.isEditing = this.isEditing.filter(x => x !== id);
       } catch (error) {
@@ -434,27 +439,39 @@ export class MusicComponent extends ChildComponent implements OnInit, AfterViewI
     this.parentRef?.showOverlay();
   }
   showYoutubeSearch() {
-    this.isShowingYoutubeSearch = true; 
+    this.isShowingYoutubeSearch = true;
     this.parentRef?.showOverlay();
   }
   closeYoutubeSearch() {
-    this.isShowingYoutubeSearch = false; 
+    this.isShowingYoutubeSearch = false;
     this.parentRef?.closeOverlay();
   }
   selectYoutubeVideoEvent(video: any) {
     console.log(video);
     this.urlInput.nativeElement.value = video.url;
     this.titleInput.nativeElement.value = video.title;
-    this.addSong(); 
+    this.addSong();
     this.closeYoutubeSearch();
   }
-  closeEditPopup() {
+  closeEditPopup(editSong = true) {
     clearTimeout(this.debounceTimer);
     this.debounceTimer = setTimeout(async () => {
       if (this.parentRef) {
-        this.parentRef.closeOverlay();
+        this.parentRef.closeOverlay(false);
       }
-      this.editSong(this.isEditing[0]);
+      if (this.hasEditedSong && editSong) { 
+        this.editSong(this.isEditing[0]);
+      } else {
+        this.isEditing = [];
+      }
     }, 50);
+  }
+  scrollToTop() {
+    const div = document.getElementsByClassName("musicControls")[0] as HTMLDivElement;
+    if (div) {  
+      div.scrollIntoView({ behavior: 'smooth', block: 'start' }); 
+    } else {
+      console.log("Div not found!");
+    }
   }
 }

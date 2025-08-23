@@ -175,7 +175,7 @@
   align-items: center;
   white-space: nowrap;
   font-size: small;
-  margin-right: 15px;
+  margin-right: 5px;
 }
 
 .directoryDisplayDiv {
@@ -188,7 +188,7 @@
   overflow: auto;
   display: flex;
   flex-direction: column;
-  max-height: calc(100vh - 100px);
+  max-height: CALC(var(--vh, 1vh) * 100 - 100px);
 }
 
 .draggableDiv {
@@ -289,8 +289,7 @@
 }
 
 .fileOptionsAction {
-  cursor: pointer;
-  font-size: 16px;
+  cursor: pointer; 
   display: flex;
   align-items: center;
   justify-content: center;

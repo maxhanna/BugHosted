@@ -87,14 +87,15 @@
 <div class="popupPanel" style="overflow: auto;" *ngIf="isMenuPanelOpen">
   <div class="popupPanelTitle" style="margin-bottom:15px;">
     Emulation Menu
-    <span class="helperSpanTitle" (click)="showHelpText = !showHelpText"
+    <span (click)="showHelpText = !showHelpText"
+      class="cursorPointer"
       title="This emulator autosaves every minute and when the game closes (ie: when you navigate away from this page).
      ◻️ : Toggle fullscreen mode.
      🛑 : Click on this to power off the emulator (if autosave is selected, this will also save your progress).
      🔊/🔇 : Click on this to mute/unmute the audio.
-     ⌨️ Keyboard Controls: Arrows keys for movement; a = x, b = z, x = s, y = a, l = q, r = w, enter = start, shift = select (SNES); a = x, b = z, c = a, q for left trigger, w for right trigger, enter = start, shift = select (non-SNES)."></span>
+     ⌨️ Keyboard Controls: Arrows keys for movement; a = x, b = z, x = s, y = a, l = q, r = w, enter = start, shift = select (SNES); a = x, b = z, c = a, q for left trigger, w for right trigger, enter = start, shift = select (non-SNES).">ℹ️</span>
   </div>
-  <div class="optionsStatsWrapperDiv explainWrapper">
+  <div class="optionsStatsWrapperDiv explainWrapper" *ngIf="!showHelpText">
     <div class="optionsStatsDiv" *ngIf="!showControlBindings">
       <div class="optionsStatsHeader">Autosave:</div>
       <div class="optionsStatsDescription">
@@ -171,6 +172,17 @@
           : 'Hide' }}</span>
       </div>
     </div>
+        <div class="optionsStatsDiv" *ngIf="onMobile()">
+          <div class="optionsStatsHeader">Haptic Feedback:</div>
+          <div class="optionsStatsDescription">
+            <label class="toggle-switch">
+              <input type="checkbox" [checked]="hapticFeedbackEnabled" (change)="hapticFeedbackEnabled = !hapticFeedbackEnabled">
+              <span class="slider"></span>
+            </label>
+            <span class="toggle-label" (click)="hapticFeedbackEnabled = !hapticFeedbackEnabled">{{ hapticFeedbackEnabled ? 'Enabled'
+              : 'Disabled' }}</span>
+          </div>
+        </div>
     <div class="optionsStatsDiv" *ngIf="!showControlBindings">
       <div class="optionsStatsHeader">Upload ROM file:</div>
       <div class="optionsStatsDescription uploadRomSpan upload-label controlVolume">

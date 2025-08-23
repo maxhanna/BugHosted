@@ -474,6 +474,7 @@ export class AppComponent implements OnInit, AfterViewInit {
   removeComponent(key: number) {
     if (!this.VCR || this.VCR.length < 1) return;
     this.replacePageTitleAndDescription("Bug Hosted", "Bug Hosted");
+    this.removeResizeListener();
     history.pushState({ page: "" }, "", "/");
 
     const componentRef = this.componentsReferences.find(
@@ -580,7 +581,7 @@ export class AppComponent implements OnInit, AfterViewInit {
       await this.navigationComponent.getNotifications();
     }, 500);
   }
-  openModal(isModal?: boolean) { 
+  openModal(isModal?: boolean, hasGamingFont?: boolean) { 
     this.isModalOpen = true;
     setTimeout(() => {
       if (isModal) {
@@ -589,7 +590,8 @@ export class AppComponent implements OnInit, AfterViewInit {
       } else if (!isModal || isModal === undefined) {
         this.isModal = false;
         this.modalComponent.isModal = false;
-      }
+      } 
+      this.modalComponent.hasGamingFont = hasGamingFont ?? true; 
     }, 100);
   }
 
@@ -605,7 +607,15 @@ export class AppComponent implements OnInit, AfterViewInit {
       this.modalComponent.setModalBody(msg);
     }, 100);
   }
-  updateHeight() {
+  setModalHeader(msg: any) {
+    if (!this.isModalOpen) {
+      this.isModalOpen = true;
+    }
+    setTimeout(() => {
+      this.modalComponent.setModalHeader(msg);
+    }, 100);
+  }
+  updateHeight() { 
     const vh = window.innerHeight * 0.01;
     document.documentElement.style.setProperty('--vh', `${vh}px`);
   }

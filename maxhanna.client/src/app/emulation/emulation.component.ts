@@ -30,6 +30,7 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
   currentFileType = '';
   isSearchVisible = true;
   isFullScreen = false;
+  hapticFeedbackEnabled = this.onMobile();
   showControls = this.onMobile();
   private currentKeyListeners: { type: string; listener: EventListener }[] = [];
   private touchControls: Map<number, string[]> = new Map(); // touchId to array of joypadIndices
@@ -369,7 +370,7 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
         this.touchControls.set(touchId, [joypadIndex]);
         this.nostalgist?.pressDown(joypadIndex);
         element.classList.add('active');
-        if ('vibrate' in navigator) {
+        if (this.hapticFeedbackEnabled && 'vibrate' in navigator) {
           navigator.vibrate(50);
         }
       }, { passive: false });

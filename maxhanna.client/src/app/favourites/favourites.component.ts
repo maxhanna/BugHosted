@@ -112,9 +112,9 @@ export class FavouritesComponent extends ChildComponent implements OnInit {
     }
     this.parentRef?.closeOverlay();
     this.isSearchingUrl = false;
-    this.startLoading();
-
+    this.startLoading(); 
     if (fav) {
+      fav.userCount++;
       const res = await this.favoriteService.addFavourite(user.id, fav.id);
       if (res) {
         this.parentRef?.showNotification(res);
@@ -136,22 +136,22 @@ export class FavouritesComponent extends ChildComponent implements OnInit {
           imageUrl = targetData.imageUrl;
           name = targetData.title;
           tmpLinkUrl = targetData.url;
-          this.parentRef?.setModalBody(`
-            Crawler search results found and added this link to favourites:
-            ${imageUrl ? `<img src='${imageUrl}' (error)="fav.imageUrl = ''" /> <br />` : ``}
-            Found Title: ${name} <br />
-            Found URL: ${tmpLinkUrl} <br />
+          this.parentRef?.setModalHeader("Added to favourites:"); 
+          this.parentRef?.setModalBody(` 
+            ${imageUrl ? `<small>Image:</small><br /><span style='margin-left: 10px; text-align: right; width: calc(100% - 20px); display: block;'><img src='${imageUrl}' (error)="fav.imageUrl = ''" /></span><br />` : ``}
+            <small>Title:</small><br /><span style='margin-left: 10px; text-align: right; width: calc(100% - 20px); display: block;'>${name}</span> <br />
+            <small>URL:</small><br /><span style='margin-left: 10px; text-align: right; width: calc(100% - 20px); display: block;'>${tmpLinkUrl}</span>
           `);
-          setTimeout(() => this.parentRef?.openModal(), 50);
+          setTimeout(() => this.parentRef?.openModal(undefined, false), 50);
         } else {
           if (!tmpLinkUrl.toLowerCase().includes("https") && !tmpLinkUrl.toLowerCase().includes("http")) {
             tmpLinkUrl = "https://" + tmpLinkUrl;
             name = tmpLinkUrl;
           }
+          this.parentRef?.setModalHeader("Added to favourites:");
           this.parentRef?.setModalBody(`
-            Added link to favourites.<br />
-            Title: ${name} <br />
-            URL: ${tmpLinkUrl} <br />
+            <small>Title:</small><br /><span style='margin-left: 10px; text-align: right; width: calc(100% - 20px); display: block;'>${name}</span> <br />
+            <small>URL:</small><br /><span style='margin-left: 10px; text-align: right; width: calc(100% - 20px); display: block;'>${tmpLinkUrl}</span>
           `);
           setTimeout(() => this.parentRef?.openModal(), 50);
         }
@@ -174,6 +174,7 @@ export class FavouritesComponent extends ChildComponent implements OnInit {
 
     this.resetInputs();
     this.showNameImageInput = false;
+    this.linkInput.nativeElement.value = "";
     this.stopLoading();
   }
 

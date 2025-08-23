@@ -353,11 +353,11 @@ but you can also set your own City for a more precise location."></span>
       class="sectionHeaderDiv">
       <div class="sectionHeaderLabel popupPanelTitle">
         <div><span class="helperSpanTitle" title="Delete your account"></span></div>
-        <div class="settingsSectionHeaderTitle">Delete your account?</div>
+        <div class="settingsSectionHeaderTitle">Delete Your Account?</div>
       </div>
       <div style="text-align:right;">
-        <button (click)="deleteUser()" title="Delete your account?" [disabled]="!isDeleteAccountToggled"
-          *ngIf="isDeleteAccountToggled">🗑️</button>
+        <button (click)="deleteUser()" title="ARE YOU SURE you want to DELETE YOUR ACCOUNT?" 
+          [disabled]="!isDeleteAccountToggled" class="cursorPointer" *ngIf="isDeleteAccountToggled">🗑️</button>
       </div>
     </div>
     <div style="text-align:center; margin: 5px;">

@@ -1,6 +1,5 @@
 .componentContainer {
-  display: flex;
-  height: 100%;
+  display: flex; 
   flex-wrap: wrap;
   justify-content: space-evenly;
   align-items: flex-start;
@@ -47,6 +46,25 @@
   border-radius: 12px;
   border: 2px solid var(--main-link-color);
   font-size: larger;
+}
+.notifClosePopupButtonDiv {
+  position: relative;
+  top: -20px;
+  left: calc(100% - 5px); 
+  width: 0px;
+  height: 0px;
+}
+.closePopupBtn {
+  background: transparent;
+  border: none;
+  font-size: 1.6rem;
+  color: var(--main-text-color);
+  cursor: pointer;
+  transition: transform 0.2s ease; 
+}
+
+.closePopupBtn:hover {
+  transform: rotate(90deg);
 }
 
 .notificationBubble:not(:first-of-type) {

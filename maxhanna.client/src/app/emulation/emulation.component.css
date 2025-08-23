@@ -591,13 +591,7 @@ canvas:-ms-fullscreen,
 .keyboardControlsSpan {
   cursor: help;
 }
-
-.popupPanel {
-  width: 100vw;
-  height: calc(var(--vh, 1vh) * 99);
-  z-index: 7;
-}
-
+  
 .optionsStatsDiv {
   margin-top: 15px;
 }

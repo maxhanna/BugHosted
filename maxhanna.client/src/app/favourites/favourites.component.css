@@ -210,3 +210,10 @@
   opacity: 0.5;
   cursor: not-allowed;
 }
+
+.spacerSpan {
+  margin-left: 10px;
+  text-align: right;
+  width: calc(100% - 20px);
+  display: block;
+}
