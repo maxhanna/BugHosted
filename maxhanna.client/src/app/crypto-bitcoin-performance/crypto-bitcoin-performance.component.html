@@ -1,5 +1,5 @@
 <div [class]="expanded ? 'popupPanel' : ''" style="text-align: center;">
-    <div [class]="expanded ? 'popupPanelTitle' : 'sectionName gradientBackground'">Bitcoin Monthly Performance</div>
+    <div [class]="expanded ? 'popupPanelTitle' : 'sectionName gradientBackground'">{{realSelectedCoin}} Monthly Performance</div>
     <div [class]="expanded ? 'popupPerformanceContainer' : 'performance-container'">
         <div *ngIf="isLoading" class="loading-message">
             <span>Loading performance data...</span>

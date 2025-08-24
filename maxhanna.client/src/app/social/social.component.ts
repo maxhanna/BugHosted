@@ -87,7 +87,7 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
   compactness = "yes";
   private storyUpdateInterval: any;
   private overflowCache: Record<string, boolean> = {};
-
+  canLoad = false;
 
   city: string | undefined;
   country: string | undefined;
@@ -122,12 +122,13 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
   }
 
   async ngOnInit() {
+    this.startLoading();
     if (this.parent) {
       this.parentRef = this.parent;
     }
-    if (this.storyId) { 
+    if (this.storyId) {
       this.openedStoryComments.push(this.storyId);
-    } 
+    }
     this.parentRef?.addResizeListener();
 
     const user = this.parentRef?.user;
@@ -136,15 +137,15 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
         if (res) {
           this.isDisplayingNSFW = res.nsfwEnabled ?? false;
           this.compactness = res.compactness ?? "no";
-          this.showPostsFromFilter = res.showPostsFrom ?? "all"; 
+          this.showPostsFromFilter = res.showPostsFrom ?? "all";
         }
       });
-    } 
+    }
 
-   // console.log("Initializing social component with storyId:", this.storyId, "and user:", this.user);
+    // console.log("Initializing social component with storyId:", this.storyId, "and user:", this.user);
     const tmpStoryId = this.storyId;
     const tmpCommentId = this.commentId;
-    this.getStories().then(() => {
+    await this.getStories().then(() => {
       if (tmpStoryId) {
         const tgtStory = this.storyResponse?.stories?.find((story) => story.id == tmpStoryId);
         if (tgtStory) {
@@ -171,7 +172,8 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
         this.city = res.city;
       }
     })
-    this.changeComponentMainHeight(); 
+    this.changeComponentMainHeight();
+    this.stopLoading();
   }
 
   private changeComponentMainHeight() {
@@ -198,17 +200,17 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
     }
   }
 
-  private scrollToInputtedCommentId(commentId?: number) {  
+  private scrollToInputtedCommentId(commentId?: number) {
     if (!this.canScroll) return;
     if (commentId) {
       setTimeout(() => {
         const subCommentElement = document.getElementById("subComment" + commentId);
         if (subCommentElement) {
-          subCommentElement.scrollIntoView({ behavior: 'smooth', block: 'start' }); 
+          subCommentElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
         } else {
           const parentCommentElement = document.getElementById("commentText" + commentId);
           if (parentCommentElement) {
-            parentCommentElement.scrollIntoView({ behavior: 'smooth', block: 'start' }); 
+            parentCommentElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
           }
         }
       }, 1000);
@@ -226,19 +228,13 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
       this.userProfileId = this.user.id;
       this.componentMain.nativeElement.style.paddingTop = "0px";
       this.componentMain.nativeElement.classList.add("mobileMaxHeight");
-      if (document.getElementsByClassName('storyInputDiv')[0]) { 
+      if (document.getElementsByClassName('storyInputDiv')[0]) {
         (document.getElementsByClassName('storyInputDiv')[0] as HTMLDivElement).style.marginTop = "0px";
       }
-      // if (document.getElementsByClassName('componentMain')[0]) { 
-      //   (document.getElementsByClassName('componentMain')[0] as HTMLDivElement).style.border = "unset";
-      // }
     }
     if (this.showOnlyPost) {
       this.componentMain.nativeElement.style.paddingTop = "0px";
       this.componentMain.nativeElement.classList.add("mobileMaxHeight");
-      // if (document.getElementsByClassName('componentMain')[0]) { 
-      //   (document.getElementsByClassName('componentMain')[0] as HTMLDivElement).style.border = "unset";
-      // }
     }
   }
   async delete(story: Story) {
@@ -298,8 +294,8 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
   }
 
   async getStories(page: number = 1, pageSize: number = 25, keywords?: string, topics?: string, append?: boolean, showHiddenStories = false) {
-    this.startLoading();
-
+    this.startLoading(); 
+    this.canLoad = false;
     const search = keywords ?? this.search?.nativeElement.value;
     const userId = this.user?.id;
     let storyId = this.getSearchStoryId();
@@ -334,6 +330,9 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
       this.totalPagesArray = Array.from({ length: this.totalPages }, (_, index) => index + 1);
       this.setPollResultsIfVoted(res);
     }
+    setTimeout(() => {
+      this.canLoad = true;
+    }, 1000);
     this.stopLoading();
   }
 
@@ -365,7 +364,7 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
     if (this.searchIdInput?.nativeElement.value) {
       storyId = parseInt(this.searchIdInput.nativeElement.value);
     } else if (this.storyId) {
-      storyId = this.storyId; 
+      storyId = this.storyId;
       this.wasFromSearchId = true;
     }
     this.storyId = undefined;
@@ -373,11 +372,11 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
   }
 
   updatePollsInDOM(delayMs: number = 1000): void {
-    if (!this.storyResponse?.polls?.length) { 
+    if (!this.storyResponse?.polls?.length) {
       return;
     }
 
-    setTimeout(() => {  
+    setTimeout(() => {
       this.storyResponse?.polls?.forEach(poll => {
         const componentId = poll.componentId; // e.g., storyText717
         const pollContainer = document.getElementById(componentId);
@@ -422,7 +421,7 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
         </div>`;
 
         // Update the DOM
-        pollContainer.innerHTML = pollHtml; 
+        pollContainer.innerHTML = pollHtml;
       });
     }, delayMs);
   }
@@ -458,7 +457,7 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
         }
         if (parent) {
           const mentionnedUsers = await parent.getUsersByUsernames(storyText);
-          if (mentionnedUsers && mentionnedUsers.length > 0) { 
+          if (mentionnedUsers && mentionnedUsers.length > 0) {
             const notificationData: any = {
               fromUserId: user.id,
               toUserIds: mentionnedUsers.map(x => x.id),
@@ -479,7 +478,7 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
       this.parentRef?.showNotification("An unexpected error occurred.");
     } finally {
       this.stopLoading();
-      this.showPostInput = false; 
+      this.showPostInput = false;
     }
   }
 
@@ -563,15 +562,15 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
   goToLink(story?: Story, metadataUrl?: string) {
     if (story && story.storyText) {
       const goodUrl = metadataUrl ?? this.extractUrl(story.storyText);
-      if (goodUrl) { 
-        this.parentRef?.visitExternalLink(goodUrl); 
+      if (goodUrl) {
+        this.parentRef?.visitExternalLink(goodUrl);
       }
     }
     else {
       if (story && story.metadata) {
         const tmpUrl = story.metadata[0].imageUrl;
         if (tmpUrl) {
-          this.parentRef?.visitExternalLink(tmpUrl); 
+          this.parentRef?.visitExternalLink(tmpUrl);
         }
       }
     }
@@ -731,23 +730,23 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
     }
   }
   closeMobileTopicsPanel() {
-    this.isMobileTopicsPanelOpen = false; 
+    this.isMobileTopicsPanelOpen = false;
     const parent = this.parent ?? this.parentRef;
-    parent?.closeOverlay(); 
+    parent?.closeOverlay();
   }
   showMenuPanel() {
     if (this.isMenuPanelOpen) {
       this.closeMenuPanel();
       return;
     }
-    this.isMenuPanelOpen = true; 
+    this.isMenuPanelOpen = true;
     const parent = this.parent ?? this.parentRef;
-    parent?.showOverlay(); 
+    parent?.showOverlay();
   }
   closeMenuPanel() {
-    this.isMenuPanelOpen = false; 
+    this.isMenuPanelOpen = false;
     const parent = this.parent ?? this.parentRef;
-    parent?.closeOverlay(); 
+    parent?.closeOverlay();
   }
   showStoryOptionsPanel(story: Story) {
     if (this.isStoryOptionsPanelOpen) {
@@ -755,33 +754,33 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
       return;
     }
     this.optionStory = story;
-    this.isStoryOptionsPanelOpen = true; 
+    this.isStoryOptionsPanelOpen = true;
     const parent = this.parent ?? this.parentRef;
-    parent?.showOverlay(); 
+    parent?.showOverlay();
   }
   closeStoryOptionsPanel() {
     this.isStoryOptionsPanelOpen = false;
     this.optionStory = undefined;
 
     const parent = this.parent ?? this.parentRef;
-    parent?.closeOverlay(); 
+    parent?.closeOverlay();
   }
   showPostOptionsPanel() {
     if (this.isPostOptionsPanelOpen) {
-      this.closePostOptionsPanel(); 
+      this.closePostOptionsPanel();
       const parent = this.parent ?? this.parentRef;
-      parent?.closeOverlay(); 
+      parent?.closeOverlay();
       return;
     }
     this.isPostOptionsPanelOpen = true;
 
     const parent = this.parent ?? this.parentRef;
-    parent?.showOverlay(); 
+    parent?.showOverlay();
   }
   closePostOptionsPanel() {
-    this.isPostOptionsPanelOpen = false; 
+    this.isPostOptionsPanelOpen = false;
     const parent = this.parent ?? this.parentRef;
-    parent?.closeOverlay(); 
+    parent?.closeOverlay();
   }
   openInsertEmojiPanel() {
     if (this.isEmojiPanelOpen) {
@@ -866,14 +865,14 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
   isYoutubeUrl(url?: string): boolean {
     return this.parentRef?.isYoutubeUrl(url) ?? false;
   }
-  async addFileToMusicPlaylist(fileEntry: FileEntry) { 
+  async addFileToMusicPlaylist(fileEntry: FileEntry) {
     const user = this.parentRef?.user;
     if (!user?.id || !fileEntry || !fileEntry.id) {
       return alert("Error: Cannot add file to music playlist without logging in or a valid file entry.");
     }
- 
+
     let tmpTodo = new Todo();
-    tmpTodo.type = "music"; 
+    tmpTodo.type = "music";
     tmpTodo.todo = (fileEntry.givenFileName ?? fileEntry.fileName ?? `Video ID:${fileEntry.id}`).trim();
     tmpTodo.fileId = fileEntry.id;
     tmpTodo.date = new Date(); // Ensure date is set for sorting
@@ -938,9 +937,10 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
     const youtubeMatch = url.match(youtubeRegex);
 
     return youtubeMatch?.[1] ?? '';
-  } 
+  }
 
   hasOverflow(elementId: string): boolean {
+    if (this.isLoading||!this.canLoad) return false;
     if (this.compactness.includes("no")) {
       return false;
     }
@@ -950,7 +950,7 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
 
     const element = document.getElementById(elementId);
     if (!element) return false;
-    
+
     if (this.compactness.includes("yess")) {
       const tgtStory = this.storyResponse?.stories?.find(x => x.id == parseInt(elementId.replace("storyTextContainer", "")));
       if (tgtStory) {
@@ -979,15 +979,21 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
   }
 
   async loadMorePosts() {
-    this.currentPage++;
-    await this.getStories(this.currentPage + 1, 10, undefined, undefined, true);
+    if (this.isLoading || !this.canLoad) return;
+    this.canLoad = false;
+    console.log("firing loadMorePosts()");
+    clearTimeout(this.debounceTimer);
+    this.debounceTimer = setTimeout(async () => {
+      this.currentPage++;
+      this.getStories(this.currentPage + 1, 10, undefined, undefined, true)
+    }, 500);
   }
   debouncedSearch() {
     this.userSearch = this.search.nativeElement.value;
     clearTimeout(this.searchTimeout);
     this.searchTimeout = setTimeout(() => this.searchStories(this.attachedTopics, true), 500);
   }
-  
+
   insertTag(tag: string, componentId?: string) {
     let targetInput = componentId
       ? document.getElementById(componentId) as HTMLInputElement
@@ -1257,12 +1263,12 @@ Option 4: Yellow
       if (res) {
         this.parentRef?.showNotification(res.message);
       }
-    }); 
+    });
     this.getStories();
   }
   setCompactness(event: Event) {
-    this.compactness = (event.target as HTMLSelectElement).value; 
-    this.userService.updateCompactness(this.parentRef?.user?.id ?? 0, this.compactness).then(res => { 
+    this.compactness = (event.target as HTMLSelectElement).value;
+    this.userService.updateCompactness(this.parentRef?.user?.id ?? 0, this.compactness).then(res => {
       if (res) {
         this.parentRef?.showNotification(res.message);
         this.overflowCache = {}; // Reset overflow cache
@@ -1270,10 +1276,10 @@ Option 4: Yellow
         this.expanded = []; // Reset expanded stories
         this.getStories();
       }
-    }); 
+    });
   }
-  getVideoStoryFiles(story: Story) { 
-    return story.storyFiles?.filter(file => {  
+  getVideoStoryFiles(story: Story) {
+    return story.storyFiles?.filter(file => {
       return this.fileService.videoFileExtensions.includes(this.fileService.getFileExtension(file.fileName ?? ''));
     });
   }

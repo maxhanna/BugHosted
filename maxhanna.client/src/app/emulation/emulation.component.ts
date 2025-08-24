@@ -240,6 +240,7 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
       backgroundColor: 'unset',
       zIndex: '1',
       height: (this.onMobile() ? '60vh' : '100vh'),
+      width: (this.onMobile() ? '97vw' : '100vw')
     };
     const core = this.coreMapping[fileType.toLowerCase()] || 'default_core';
     this.nostalgist = await Nostalgist.launch({

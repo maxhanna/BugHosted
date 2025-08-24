@@ -350,7 +350,7 @@
         (selectCoin)="selectCoin($event)"></app-crypto-market-caps>
     </div>
     <div *ngIf="!isTradePanelOpen && latestCurrencyPriceRespectToCAD && selectedCurrency" class="sectionContainer">
-      <app-crypto-bitcoin-performance [inputtedParentRef]="parentRef" [selectedCurrency]="selectedCurrency"></app-crypto-bitcoin-performance>
+      <app-crypto-bitcoin-performance [inputtedParentRef]="parentRef" [selectedCurrency]="selectedCurrency" [selectedCoin]="currentSelectedCoin"></app-crypto-bitcoin-performance>
     </div>
   </div>
   <div [class]="isTradePanelOpen ? 'fullScreenTradePanelDiv' : 'hubSection miningHubSection'"

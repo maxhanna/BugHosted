@@ -705,12 +705,10 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
 
     console.log("currently selected coin : ", this.currentSelectedCoin);
 
-    this.btcConvertCoinSelect.nativeElement.value = tmpCoinName.replace("BTC", "Bitcoin");
+    this.btcConvertCoinSelect.nativeElement.value = this.currentSelectedCoin.replace("BTC", "Bitcoin");
     this.selectedCoinConversionName = this.btcConvertCoinSelect.nativeElement.value;
-    this.conversionLock = false;
-    const userId = this.parentRef?.user?.id ?? 1;
-    const sessionToken = await this.parentRef?.getSessionToken();
-    //await this.getTradebotValuesForMainGraph(userId, sessionToken);
+    this.conversionLock = false; 
+    this.handleConversion("BTC", true);
 
     let changeIndicators = false;
     const defaultCoins = ['Bitcoin', 'Solana', 'XRP', 'Dogecoin', 'Ethereum'];
@@ -731,14 +729,14 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
     this.lineGraphComponent.scrollToGraph();
   }
 
-  async handleConversion(source: 'BTC' | 'FIAT' | 'CURRENCY' | 'SAT') {
+  async handleConversion(source: 'BTC' | 'FIAT' | 'CURRENCY' | 'SAT', runInstantly: boolean = false) {
     if (this.conversionLock) return;
 
     // Clear any pending debounce
     clearTimeout(this.debounceTimer);
 
-    // Set debounce timer
-    this.debounceTimer = setTimeout(async () => {
+    // Define the conversion logic
+    const performConversion = async () => {
       this.conversionLock = true;
 
       try {
@@ -747,12 +745,11 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
         const fiatInput = parseFloat(this.convertFIATInput.nativeElement.value.replace(/[$,]/g, '')) || 0;
         const currencyInput = parseFloat(this.convertCurrencyInput.nativeElement.value.replace(/[$,]/g, '')) || 0;
         let satInput = 1;
-        setTimeout(() => {
-          if (this.btcConvertCoinSelect.nativeElement.value == "BTC" && this.convertSATInput?.nativeElement) {
-            satInput = parseInt(this.convertSATInput.nativeElement.value.replace(/,/g, ''), 10) || 0;
-          }
-        }, 500);
-       
+
+        // Handle SAT input synchronously
+        if (this.btcConvertCoinSelect.nativeElement.value === 'BTC' && this.convertSATInput?.nativeElement) {
+          satInput = parseInt(this.convertSATInput.nativeElement.value.replace(/,/g, ''), 10) || 0;
+        }
 
         // Get current rates
         await this.updateRates();
@@ -764,6 +761,7 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
           case 'FIAT': sourceValue = fiatInput; break;
           case 'CURRENCY': sourceValue = currencyInput; break;
           case 'SAT': sourceValue = satInput; break;
+          default: throw new Error('Invalid source');
         }
 
         // Calculate all values
@@ -774,11 +772,21 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
       } catch (error) {
         console.error('Conversion error:', error);
       } finally {
+        // Delay unlocking to ensure UI stability
         setTimeout(() => {
           this.conversionLock = false;
         }, 500);
       }
-    }, 300);
+    };
+
+    // Run instantly or with debounce
+    if (runInstantly) {
+      await performConversion();
+    } else {
+      this.debounceTimer = setTimeout(async () => {
+        await performConversion();
+      }, 300);
+    }
   }
 
   private async updateRates() {
@@ -2199,8 +2207,9 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
   async coinConvertSelectChange(selectedCoin?: string, doSelectCoin: boolean = true) {
     this.selectedCoinConversionName = selectedCoin?.replace("Bitcoin", "BTC") ?? this.btcConvertCoinSelect.nativeElement.value;
     setTimeout(async () => {
-      await this.handleConversion('BTC');
-      if (doSelectCoin) {
+      if (!doSelectCoin) { 
+        await this.handleConversion('BTC', true);
+      } else {
         this.selectCoin(this.selectedCoinConversionName);
       }
     });
@@ -2208,7 +2217,7 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
 
   async fiatConvertSelectChange() {
     this.selectedFiatConversionName = this.btcConvertFIATSelect.nativeElement.value;
-    await this.handleConversion('FIAT');
+    await this.handleConversion('FIAT', true);
   }
 
   async getCryptoToFIATRate(coin: string, fiatCurrency: string) {

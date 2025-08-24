@@ -1,4 +1,4 @@
-public class BitcoinMonthlyPerformance
+public class CoinMonthlyPerformance
 {
 	public int Id { get; set; }
 	public int Year { get; set; }

@@ -137,11 +137,12 @@ namespace maxhanna.Server.Services
 			await DeleteNotificationRequests();
 			await DeleteHostAiRequests();
 			await DeleteOldCoinValueEntries();
+			await DeleteOldNews();
+			await DeleteOldTradeVolumeEntries();
+			await DeleteOldCoinMarketCaps();
 			await _newsService.CreateDailyCryptoNewsStoryAsync();
 			await _newsService.CreateDailyNewsStoryAsync();
 			await _newsService.PostDailyMemeAsync();
-			await DeleteOldNews();
-			await DeleteOldTradeVolumeEntries();
 			await _log.BackupDatabase(); 
 		}
 		private TimeSpan CalculateNextDailyRun()
@@ -1879,6 +1880,21 @@ namespace maxhanna.Server.Services
 					int rowsAffected = await deleteOldCmd.ExecuteNonQueryAsync();
 					_ = _log.Db($"Deleted {rowsAffected} coin value entries older than 10 years.");
 				}
+			}
+		}
+		private async Task DeleteOldCoinMarketCaps()
+		{
+			using (var conn = new MySqlConnection(_connectionString))
+			{
+				await conn.OpenAsync();
+
+				var deleteSql = @"DELETE FROM maxhanna.coin_market_caps where recorded_at < DATE_SUB(UTC_TIMESTAMP(), INTERVAL 5 YEAR);";
+
+				using (var deleteCmd = new MySqlCommand(deleteSql, conn))
+				{
+					int rowsAffected = await deleteCmd.ExecuteNonQueryAsync();
+					_ = _log.Db($"Deleted {rowsAffected} old coin market capitals older than 5 years.");
+				} 
 			}
 		}
 		private async Task DeleteOldTradeVolumeEntries()

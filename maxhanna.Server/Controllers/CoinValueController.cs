@@ -1316,10 +1316,10 @@ namespace maxhanna.Server.Controllers
 			}
 		}
 
-		[HttpGet("/CoinValue/BitcoinMonthlyPerformance/", Name = "GetBitcoinMonthlyPerformance")]
-		public async Task<List<BitcoinMonthlyPerformance>> GetBitcoinMonthlyPerformance()
+		[HttpPost("/CoinValue/BitcoinMonthlyPerformance/", Name = "GetBitcoinMonthlyPerformance")]
+		public async Task<List<CoinMonthlyPerformance>> GetBitcoinMonthlyPerformance([FromBody] string coin)
 		{
-			var performanceData = new List<BitcoinMonthlyPerformance>();
+			var performanceData = new List<CoinMonthlyPerformance>();
 
 			MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
 			try
@@ -1328,15 +1328,17 @@ namespace maxhanna.Server.Controllers
 
 				string sql = @"
 					SELECT *
-					FROM bitcoin_monthly_performance
+					FROM coin_monthly_performance
+					WHERE coin = @Name
 					ORDER BY year DESC, month DESC";
 
 				MySqlCommand cmd = new MySqlCommand(sql, conn);
+				cmd.Parameters.AddWithValue("@Name", coin);
 				using (var reader = await cmd.ExecuteReaderAsync())
 				{
 					while (await reader.ReadAsync())
 					{
-						var performance = new BitcoinMonthlyPerformance
+						var performance = new CoinMonthlyPerformance
 						{
 							Id = reader.GetInt32(reader.GetOrdinal("id")),
 							Year = reader.GetInt32(reader.GetOrdinal("year")),

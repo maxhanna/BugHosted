@@ -529,7 +529,7 @@
             <app-user-tag [user]="story.user" [inputtedParentRef]="parentRef ?? parent" [displayMiniTag]="true"
               [displayHoverPicture]="true" [previousComponent]="'Social'"></app-user-tag>
           </span>
-          <div class="storyDate" [title]="(story.date?.toString() ?? '')">
+          <div *ngIf="!isLoading && canLoad" class="storyDate" [title]="(story.date?.toString() ?? '')">
             {{ story.date | timeSince }}
           </div>
           <div class="postOptionButtonWrapper">

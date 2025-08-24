@@ -1,4 +1,4 @@
-import { Component, Input, OnInit } from '@angular/core';
+import { Component, Input, OnInit, SimpleChanges } from '@angular/core';
 import { ChildComponent } from '../child.component';
 import { CoinValueService } from '../../services/coin-value.service';
 import { AppComponent } from '../app.component';
@@ -27,10 +27,12 @@ export class CryptoBitcoinPerformanceComponent extends ChildComponent implements
   error = false;
   expanded = false;
   groupedByYear: any[] = [];
+  realSelectedCoin = "Bitcoin";
 
   @Input() inputtedParentRef?: AppComponent;
   @Input() conversionRate?: number = undefined;
   @Input() selectedCurrency: string = "USD";
+  @Input() selectedCoin: string = "Bitcoin";
   
   constructor(private coinValueService: CoinValueService) { super(); }
 
@@ -44,11 +46,21 @@ export class CryptoBitcoinPerformanceComponent extends ChildComponent implements
     this.loadPerformanceData();
   }
 
+  ngOnChanges(changes: SimpleChanges): void {
+    if (changes['selectedCoin'] && !changes['selectedCoin'].firstChange) {
+      if (this.selectedCoin == "Bitcoin" || this.selectedCoin == "XRP" 
+        || this.selectedCoin == "Solana" || this.selectedCoin == "Dogecoin"
+        || this.selectedCoin == "Ethereum")
+      this.realSelectedCoin = this.selectedCoin;
+      this.loadPerformanceData();
+    }
+  }
+
   loadPerformanceData() {
     this.startLoading();
     this.error = false;
 
-    this.coinValueService.getMonthlyBitcoinPerformance().then(
+    this.coinValueService.getMonthlyBitcoinPerformance(this.realSelectedCoin).then(
       (data: BitcoinMonthlyPerformance[]) => {
         this.performanceData = data;
         this.transformData();

@@ -309,13 +309,14 @@ export class CoinValueService {
     }
   }
 
-  async getMonthlyBitcoinPerformance() {
+  async getMonthlyBitcoinPerformance(coin: string) {
     try {
       const response = await fetch(`/coinvalue/bitcoinmonthlyperformance`, {
-        method: 'GET',
+        method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
+        body: JSON.stringify(coin),
       });
 
       return await response.json();
