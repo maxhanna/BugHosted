@@ -1,0 +1,8 @@
+<app-line-graph #lineGraphComponent *ngIf="allHistoricalData && selectedCurrency" [type]="'Crypto'" [selectedCurrency]="selectedCurrency"
+    [selectedCurrencyDisplay]="getCurrencySymbol(selectedCurrency)" [selectedPeriod]="lineGraphInitialPeriod"
+    [data]="allHistoricalData" [data2]="tradebotTradeValuesForMainGraph" [chartTypeInputtedData2]="'line'"
+    [isDotModeData2]="true" [selectedCoin]="currentSelectedCoin"
+    [secondaryDataLabel]="'Tradebot Action (Red:Sell/Green:Buy)'" [displayCoinSwitcher]="false"
+    [timeLeft]="timeLeft"
+    (changeTimePeriodEvent)="changeTimePeriodEventOnBTCHistoricalGraph($event)">
+</app-line-graph>

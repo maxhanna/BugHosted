@@ -1,0 +1,65 @@
+<div class="secondaryFontColor" class="paginationContainer">
+    <div class="logFiltersWrapper">
+        <div class="logTypeFiltersWrapper"> 
+            <select (change)="filterLogsFromEvent()" #tradeLogCoinFilter [value]="selectedCoin">
+                <option value="XBT">BTC</option>
+                <option value="XRP">XRP</option>
+                <option value="ETH">{{onMobile() ? 'ETH' : 'Ethereum'}}</option>
+                <option value="SOL">{{onMobile() ? 'SOL' : 'Solana'}}</option>
+                <option value="XDG">{{onMobile() ? 'DOGE': 'Dogecoin'}}</option>
+            </select>
+            <select (change)="filterLogsFromEvent()" #tradeLogStrategyFilter [value]="selectedStrategy">
+                <option value="DCA">DCA</option>
+                <option value="HFT">{{onMobile() ? 'HFT' : 'High-Frequency'}}</option>
+                <option value="IND">{{onMobile() ? 'IND' : 'Indicator'}}</option>
+            </select>
+        </div>
+        <div class="xxSmallFont">
+            Refresh in {{timeLeft}}s.
+        </div>
+    </div>
+    <div *ngIf="tradeLogs && tradeLogs.length > 0" class="pagination-controls">
+        <button class="cursorPointer" (click)="prevLogPage()" [disabled]="currentLogPage === 1">{{onMobile() ? 'Prev' :
+            'Previous'}}</button>
+
+        <span *ngIf="totalLogPages <= 10">
+            <button *ngFor="let page of getLogPagesArray()" class="cursorPointer" (click)="goToLogPage(page)"
+                [disabled]="page === currentLogPage" [class.active]="page === currentLogPage">
+                {{ page }}
+            </button>
+        </span>
+
+        <span *ngIf="totalLogPages > 10">
+            <select (change)="goToLogPageSelected($event)">
+                <option *ngFor="let page of getLogPagesArray()" [value]="page" [selected]="page === currentLogPage">
+                    {{ page }}
+                </option>
+            </select>
+        </span>
+
+        <span>{{onMobile() ? '/' : 'of'}} {{ totalLogPages }}</span>
+        <button class="cursorPointer" (click)="nextLogPage()" [disabled]="currentLogPage >= totalLogPages">Next</button>
+    </div>
+</div>
+
+<div *ngIf="tradeLogs && tradeLogs.length > 0; else noLogs" class="mainTableContainer tradeDataTable">
+    <table class="smallFont mainTable">
+        <thead>
+            <tr>
+                <th class="xxSmallFont">Comment</th>
+                <th class="xxSmallFont">Time</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr *ngFor="let log of tradeLogs">
+                <td>{{ log.comment }}</td>
+                <td class="xxSmallFont" [title]="inputtedParentRef.convertUtcToLocalTime(log.timestamp)">{{
+                    inputtedParentRef.convertUtcToLocalTime(log.timestamp) | timeSince }}</td>
+            </tr>
+        </tbody>
+    </table>
+</div>
+<ng-template #noLogs>
+    <p *ngIf="!isLoading">No logs found.</p>
+    <p *ngIf="isLoading">Loading...</p>
+</ng-template>

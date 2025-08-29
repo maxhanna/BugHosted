@@ -529,6 +529,7 @@ namespace maxhanna.Server.Services
                         ON DUPLICATE KEY UPDATE
                             retracement_from_high       = @flag,
                             retracement_from_high_value = @val,
+							high_price_value 			= @highPrice,
                             updated                     = UTC_TIMESTAMP();";
 
 					using var upd = new MySqlCommand(updateSql, connection);
@@ -536,13 +537,9 @@ namespace maxhanna.Server.Services
 					upd.Parameters.AddWithValue("@to", toCoin);
 					upd.Parameters.AddWithValue("@flag", withinBand ? 1 : 0);
 					upd.Parameters.AddWithValue("@val", retracement);
+					upd.Parameters.AddWithValue("@highPrice", priorHigh);
 
-					await upd.ExecuteNonQueryAsync();
-
-					// _ = _log.Db(
-					// 	$"{fromCoin}/{toCoin} retracement updated: −{retracement:P2} " +
-					// 	$"({(withinBand ? "within" : "outside")} {RetracementThreshold:P0} band)",
-					// 	null, "TISVC", true);
+					await upd.ExecuteNonQueryAsync(); 
 
 					return true;
 				}

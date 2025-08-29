@@ -1,0 +1,34 @@
+<div *ngFor="let bot of uniqueCurrencyBots; let i = index" class="grouping">
+    <ng-container *ngIf="shouldShowComponent(i, 'graph'); else graphPlaceholder">
+        <app-crypto-coin-graph-viewer #coinGraphViewer [inputtedParentRef]="inputtedParentRef"
+            [currentSelectedCoin]="getNominalCoinName(bot.currency)" [selectedCurrency]="selectedCurrency"
+            [latestCurrencyPriceRespectToCAD]="latestCurrencyPriceRespectToCAD"></app-crypto-coin-graph-viewer>
+    </ng-container>
+    <ng-template #graphPlaceholder>
+        <div class="component-placeholder"></div>
+    </ng-template>
+
+    <div *ngFor="let strategyBot of groupedBotsByCurrency(bot.currency); let j = index">
+        <div [class]="onMobile() ? 'logsAndTradeHistoryMobile' : 'logsAndTradeHistory'">
+            <ng-container *ngIf="shouldShowComponent(i + j, 'logs'); else logsPlaceholder">
+                <div class="tradeLogsContainer">
+                    <app-crypto-trade-logs #tradeLogs [inputtedParentRef]="inputtedParentRef"
+                        [hasKrakenApi]="hasKrakenApi" [defaultCoin]="bot.currency"
+                        [defaultStrategy]="strategyBot.strategy"></app-crypto-trade-logs>
+                </div>
+            </ng-container>
+            <ng-template #logsPlaceholder>
+                <div class="component-placeholder"></div>
+            </ng-template>
+
+            <ng-container *ngIf="shouldShowComponent(i + j, 'history'); else historyPlaceholder">
+                <app-crypto-trade-history #tradeHistory [inputtedParentRef]="inputtedParentRef"
+                    [selectedCurrency]="selectedCurrency" [defaultCoin]="bot.currency"
+                    [defaultStrategy]="strategyBot.strategy"></app-crypto-trade-history>
+            </ng-container>
+            <ng-template #historyPlaceholder>
+                <div class="component-placeholder"></div>
+            </ng-template>
+        </div>
+    </div>
+</div>

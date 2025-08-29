@@ -1,6 +1,6 @@
 <div class="graphContainer {{fullscreenMode ? 'popupPanel fullscreenPopupPanel' : ''}}">
   <div class="graphTitle sectionName gradientBackground">
-    {{ getGraphTitle() }}
+    {{ getGraphTitle() }} <span *ngIf="timeLeft" class="xxSmallFont">(Refresh in {{timeLeft}}s)</span>
   </div>
   <div class="graphOptions">
     <select #periodSelect (change)="changeGraphPeriod($event)" [value]="selectedPeriod"

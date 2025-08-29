@@ -298,8 +298,9 @@ button {
 }
 
 @media only screen and (max-width : 600px) {
-  tradeDataTable {
-    height: CALC(var(--vh, 1vh) * 100 - 315px);
+  .tradeDataTable {
+    height: unset !important;
+    max-height: CALC(var(--vh, 1vh) * 100 - 315px);
   }
 }
 
@@ -332,23 +333,6 @@ button {
   margin-top: 15px;
   flex-wrap: wrap;
   gap: 10px;
-}
-
-.tradeBalancePairLabelContainer {
-  display: flex;
-  justify-content: space-evenly;
-  flex-wrap: wrap;
-  align-content: center;
-  align-items: center;
-}
-
-.tradeBalanceTable td,
-.tradeBalanceTable th {
-  text-align: center;
-}
-
-.tradeBalanceCurrencyLabel {
-  background-color: white;
 }
 
 
@@ -747,25 +731,6 @@ div:not(.trade-panel-controls) .button-wrapper {
   text-shadow: 1px 1px 1px rgba(0, 0, 0, 0.5);
 }
 
-.logFiltersWrapper {
-  display: flex;
-  flex-direction: column;
-  flex-wrap: nowrap;
-  align-content: center;
-  justify-content: center;
-  align-items: center;
-}
-
-.logTypeFiltersWrapper {
-  display: flex;
-  justify-content: space-between;
-  gap: 20px;
-}
-
-.logTypeFiltersWrapper span {
-  cursor: pointer;
-}
-
 .indicators-container {
   padding: 5px;
 }
@@ -972,32 +937,4 @@ div:not(.trade-panel-controls) .button-wrapper {
 
 .button-wrapper {
   margin-bottom: 10px;
-}
-
-
-.tradeHistoryTableWrapper {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.tradeHistoryTableCoinSelectWrapper {
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-  align-items: center;
-  justify-content: center;
-  flex-wrap: nowrap;
-}
-
-.pagination-controls {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  padding: 10px;
-}
-
-.pagination-controls button {
-  padding: 5px 10px;
-}
+} 

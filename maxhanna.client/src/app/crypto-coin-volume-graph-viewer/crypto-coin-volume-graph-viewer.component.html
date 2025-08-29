@@ -1,0 +1,6 @@
+<ng-container *ngIf="volumeData">
+    <app-line-graph [selectedCurrency]="'Volume'" [type]="'Volume'" [chartTypeInputted]="'bar'" [showAverage]="true"
+        [displayCoinSwitcher]="false" [selectedPeriod]="'6h'" [data]="volumeData"
+        (changeTimePeriodEvent)="changeTimePeriodEventOnVolumeGraph($event)">
+    </app-line-graph>
+</ng-container>

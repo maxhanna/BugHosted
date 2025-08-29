@@ -37,38 +37,40 @@ public class Log
 			Console.WriteLine($"[{DateTime.Now.ToShortTimeString()}] {type}: {message}");
 		}
 	}
-	public async Task<List<Dictionary<string, object?>>> GetLogs(int? userId = null, string? component = null, int limit = 1000, string keywords = "")
+	public async Task<List<Dictionary<string, object?>>> GetLogs(int? userId = null, string? component = null, int limit = 1000, string keywords = "", int page = 1)
 	{
 		var logs = new List<Dictionary<string, object?>>();
+		int offset = (page - 1) * limit;
 
 		var sql = new StringBuilder("SELECT comment, component, user_id, timestamp FROM maxhanna.logs WHERE 1=1");
 
 		if (userId != null)
 		{
-			sql.Append(" AND user_id = @UserId "); 
+			sql.Append(" AND user_id = @UserId ");
 		}
 
 		if (!string.IsNullOrEmpty(component))
 		{
-			sql.Append(" AND component = @Component "); 
+			sql.Append(" AND component = @Component ");
 		}
 
 		if (!string.IsNullOrEmpty(keywords))
-		{ 
-			sql.Append(" AND comment like CONCAT('%', @Keywords, '%') ");
+		{
+			sql.Append(" AND comment LIKE CONCAT('%', @Keywords, '%') ");
 		}
 
-		sql.Append(" ORDER BY timestamp DESC LIMIT @Limit;");
+		sql.Append(" ORDER BY timestamp DESC LIMIT @Limit OFFSET @Offset;");
 
 		try
 		{
 			using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
 			await conn.OpenAsync();
 
-			using var cmd = new MySqlCommand(sql.ToString(), conn); 
+			using var cmd = new MySqlCommand(sql.ToString(), conn);
 			cmd.Parameters.AddWithValue("@Limit", limit);
+			cmd.Parameters.AddWithValue("@Offset", offset);
 			if (userId != null)
-			{ 
+			{
 				cmd.Parameters.AddWithValue("@UserId", userId);
 			}
 			if (!string.IsNullOrEmpty(component))
@@ -101,6 +103,54 @@ public class Log
 		}
 
 		return logs;
+	}
+
+	public async Task<int> GetLogsCount(int? userId = null, string? component = null, string keywords = "")
+	{
+		var sql = new StringBuilder("SELECT COUNT(*) FROM maxhanna.logs WHERE 1=1");
+
+		if (userId != null)
+		{
+			sql.Append(" AND user_id = @UserId ");
+		}
+
+		if (!string.IsNullOrEmpty(component))
+		{
+			sql.Append(" AND component = @Component ");
+		}
+
+		if (!string.IsNullOrEmpty(keywords))
+		{
+			sql.Append(" AND comment LIKE CONCAT('%', @Keywords, '%') ");
+		}
+
+		try
+		{
+			using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+			await conn.OpenAsync();
+
+			using var cmd = new MySqlCommand(sql.ToString(), conn);
+			if (userId != null)
+			{
+				cmd.Parameters.AddWithValue("@UserId", userId);
+			}
+			if (!string.IsNullOrEmpty(component))
+			{
+				cmd.Parameters.AddWithValue("@Component", component);
+			}
+			if (!string.IsNullOrEmpty(keywords))
+			{
+				cmd.Parameters.AddWithValue("@Keywords", keywords);
+			}
+
+			var result = await cmd.ExecuteScalarAsync();
+			return Convert.ToInt32(result);
+		}
+		catch (Exception ex)
+		{
+			Console.WriteLine("GetLogsCount Exception: " + ex.Message);
+			return 0;
+		}
 	}
 
 	public async Task<bool> ValidateUserLoggedIn(int userId, string encryptedUserId)

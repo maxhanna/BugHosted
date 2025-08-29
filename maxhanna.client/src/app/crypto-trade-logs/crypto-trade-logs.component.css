@@ -1,0 +1,53 @@
+.logFiltersWrapper {
+    display: flex;
+    flex-direction: column;
+    flex-wrap: nowrap;
+    align-content: center;
+    justify-content: center;
+    align-items: center;
+}
+
+.logTypeFiltersWrapper {
+    display: flex;
+    justify-content: space-between;
+    gap: 5px;
+    flex-wrap: wrap;
+}
+
+.logTypeFiltersWrapper span {
+    cursor: pointer;
+}
+
+.tradeDataTable {
+    height: CALC(var(--vh, 1vh) * 100 - 360px);
+    overflow: auto;
+    border: var(--main-border);
+    border-radius: 4px;
+}
+
+@media only screen and (max-width : 600px) {
+    .tradeDataTable {
+        height: unset !important;
+        max-height: CALC(var(--vh, 1vh) * 100 - 315px);
+        width: calc(100% - 15px);
+    }
+}
+
+.paginationContainer {
+    width: 100%;
+    display: flex;
+    justify-content: space-between; 
+}
+
+.pagination-controls {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 10px;
+    text-align: center;
+}
+
+.pagination-controls button {
+    padding: 5px 10px;
+}

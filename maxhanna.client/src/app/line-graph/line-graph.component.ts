@@ -44,6 +44,9 @@ export class LineGraphComponent implements OnInit, OnChanges {
   @Input() skipFiltering: boolean = false;
   @Output() fullscreenSelectedEvent = new EventEmitter<any>();
   @Output() changeTimePeriodEvent = new EventEmitter<any>();
+  @Input() isDotModeData1 = false;
+  @Input() isDotModeData2 = false;
+  @Input() timeLeft?: number;
 
   lineChartData: any[] = [];
   lineChartLabels: any[] = [];
@@ -54,8 +57,6 @@ export class LineGraphComponent implements OnInit, OnChanges {
   lineChartLegend = true;
   defaultBorder = undefined;
   fullscreenMode = false;
-  @Input() isDotModeData1 = false;
-  @Input() isDotModeData2 = false;
   validTypes: ChartType[] = this.supportsXYZ
     ? ['line', 'bar', 'radar', 'doughnut', 'pie', 'polarArea', 'scatter', 'bubble']
     : ['line', 'bar', 'radar', 'doughnut', 'pie', 'polarArea'];
@@ -98,8 +99,8 @@ export class LineGraphComponent implements OnInit, OnChanges {
       this.canvasDiv.nativeElement.style.backgroundColor = this.darkMode
         ? this.getCSSVariableValue("--secondary-component-background-color") ?? '#000000'
         : this.getCSSVariableValue("--component-background-color") ?? '#ffffff';
-      this.initializeSlider();
-      this.updateGraph(this.data);
+      // this.initializeSlider();
+      // this.updateGraph(this.data);
     }, 500);
   }
 
@@ -108,7 +109,7 @@ export class LineGraphComponent implements OnInit, OnChanges {
       this.initializeSlider();
       this.updateGraph(this.data);
     }
-    if ((changes['showAverage'] || changes['selectedPeriod'] || changes['selectedCoin'] || changes['showMacdLine'] || changes['showSignalLine'] || changes['showHistogram']) &&
+    else if ((changes['showAverage'] || changes['selectedPeriod'] || changes['selectedCoin'] || changes['showMacdLine'] || changes['showSignalLine'] || changes['showHistogram']) &&
       this.lineChartData.length > 0) {
       this.updateChartWithAverage();
       this.updateGraph(this.data);
@@ -803,7 +804,7 @@ export class LineGraphComponent implements OnInit, OnChanges {
                   minimumFractionDigits: 2
                 });
               }
-              return value.toFixed(2);
+              return value;
             }
           },
           grid: { color: fontColor, borderDash: [3, 3] }
@@ -830,12 +831,12 @@ export class LineGraphComponent implements OnInit, OnChanges {
                 if (dataPoint.priceCAD !== null && dataPoint.tradeValueCAD !== null) {
                   const action = dataPoint.type.includes('buy') ? 'Buy' : 'Sell';
                   const strategy = dataPoint.type.includes('DCA') ? 'DCA' : dataPoint.type.includes('IND') ? 'IND' : 'HFT';
-                  const price = dataPoint.priceCAD.toFixed(2);
+                  const price = dataPoint.priceCAD;
                   const tradeValue = dataPoint.tradeValueCAD;
                   label = `${action} (${strategy}): Price ${price}, Value ${tradeValue}`;
                 }
               } else if (label) {
-                label += ': ' + context.parsed.y.toFixed(2);
+                label += ': ' + context.parsed.y;
               }
               return label;
             }
@@ -882,7 +883,7 @@ export class LineGraphComponent implements OnInit, OnChanges {
         grid: { display: false },
         ticks: {
           color: fontColor,
-          callback: (value: number) => value.toFixed(2)
+          callback: (value: number) => value
         }
       };
       options.scales.y = {
@@ -892,7 +893,7 @@ export class LineGraphComponent implements OnInit, OnChanges {
         grid: { color: fontColor, borderDash: [3, 3] },
         ticks: {
           color: fontColor,
-          callback: (value: number) => value.toFixed(2)
+          callback: (value: number) => value
         }
       };
     }

@@ -469,7 +469,7 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
           }
           parent.showNotification(results.message ?? "Story posted successfully!");
         }
-
+        this.showPostInput = false;
       } else {
         parent?.showNotification("An unexpected error occurred.");
       }
@@ -478,7 +478,6 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
       this.parentRef?.showNotification("An unexpected error occurred.");
     } finally {
       this.stopLoading();
-      this.showPostInput = false;
     }
   }
 

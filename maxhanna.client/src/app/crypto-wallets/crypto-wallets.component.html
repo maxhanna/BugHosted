@@ -15,7 +15,7 @@
             <tr class="walletTotalHeaderRow" (click)="toggleWallet(subWallet.total?.currency)" class="cursorPointer">
                 <td *ngIf="expandedWalletCurrency"></td>
                 <td (click)="selectCoin.emit(subWallet.total?.currency)">{{ subWallet.total?.currency }}</td>
-                <td>{{ isDiscreete ? '***' : subWallet.total?.totalBalance }}</td>
+                <td>{{ isDiscreete ? '***' : getValue(subWallet.total?.totalBalance) }}</td>
                 <td>{{ (isDiscreete ? '***' : getTotalCurrencyDisplayValue(subWallet)) | currencySymbol:selectedCurrency:true }}</td>
                 <td></td>
             </tr> 
@@ -28,7 +28,7 @@
                         : currency.address }}
                     </td>
                     <td>{{ currency.currency }}</td>
-                    <td>{{ isDiscreete ? '***' : currency.totalBalance }}</td>
+                    <td>{{ isDiscreete ? '***' : getValue(currency.totalBalance) }}</td>
                     <td>{{ (isDiscreete ? '***' : getCurrencyValue(currency)) | currencySymbol:selectedCurrency:true }}</td>
                     <td title="Wallet data" class="cursorPointer" (click)="showWalletData(currency); $event.stopPropagation();">ℹ️
                     </td>

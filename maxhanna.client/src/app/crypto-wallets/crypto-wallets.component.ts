@@ -68,16 +68,24 @@ export class CryptoWalletsComponent extends ChildComponent implements OnInit {
       }
     });
   }
+
+  getValue(value?: string) {
+    if (!value) return 0;
+    return parseFloat(value) < 1 ? parseFloat(value).toFixed(8) : value; 
+  }
+
   getCurrencyValue(currency?: Currency): number {
     if (!currency || !currency.totalBalance) return 0;
-    return parseFloat(currency.totalBalance) * (currency.fiatRate ?? 1);
+    const value = parseFloat(currency.totalBalance) * (currency.fiatRate ?? 1);
+    return value < 1 ? parseFloat(value.toFixed(8)) : value;
   }
 
   getTotalCurrencyDisplayValue(wallet?: MiningWalletResponse) {
     if (this.isDiscreete) return '***';
     if (!wallet || !wallet.total || !wallet.total.totalBalance) return 0;
     const fiatRate = wallet.currencies ? (wallet.currencies[0].fiatRate ?? 1) : 1;
-    return parseFloat(wallet.total.totalBalance) * fiatRate;
+    const value = parseFloat(wallet.total.totalBalance) * fiatRate;
+    return value < 1 ? parseFloat(value.toFixed(8)) : value;
   }
 
 

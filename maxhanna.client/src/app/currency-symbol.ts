@@ -18,16 +18,17 @@ export class CurrencySymbolPipe implements PipeTransform {
 
     const numericValue = typeof value === 'string' ? parseFloat(value) : value;
 
-    if (isNaN(numericValue) || numericValue == 0) { 
+    if (isNaN(numericValue) || numericValue === 0) {
       return `${symbol}0.00`;
     }
 
-    // Handle negative values first
+    // Handle negative values
     const isNegative = numericValue < 0;
     const absoluteValue = Math.abs(numericValue);
 
     if (showFull) {
-      const formatted = absoluteValue.toFixed(numericValue >= 1 ? 2 : 8);
+      const decimalPlaces = Math.max(2, this.getDecimalPlaces(value));
+      const formatted = absoluteValue.toFixed(numericValue >= 1 ? 2 : Math.min(decimalPlaces, 8));
       return `${isNegative ? '-' : ''}${symbol}${formatted}`;
     }
 
@@ -45,23 +46,22 @@ export class CurrencySymbolPipe implements PipeTransform {
       formattedValue = (absoluteValue / billion).toFixed(3) + 'B';
     } else if (absoluteValue >= million) {
       formattedValue = (absoluteValue / million).toFixed(3) + 'M';
-    }
-    else if (absoluteValue >= one) {
+    } else if (absoluteValue >= one) {
       formattedValue = absoluteValue.toLocaleString('en-US', {
         minimumFractionDigits: 2,
         maximumFractionDigits: 2
       });
-    }
-    else if (absoluteValue > 0 && absoluteValue < penny) {
+    } else if (absoluteValue > 0 && absoluteValue < penny) {
       formattedValue = absoluteValue.toFixed(12)
         .replace(/^0\./, '.')
         .replace(/0+$/, '');
       formattedValue = `0${formattedValue}`;
-    }
-    else {
+    } else {
+      // Use the actual decimal places from the input, cap at 4 for backend consistency
+      const decimalPlaces = Math.max(2, this.getDecimalPlaces(value));
       formattedValue = absoluteValue.toLocaleString('en-US', {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 8
+        minimumFractionDigits: Math.min(decimalPlaces, 2), // Ensure at least 2 decimals
+        maximumFractionDigits: Math.min(decimalPlaces, 4)  // Respect backend's 4-decimal limit
       });
     }
 
@@ -80,5 +80,19 @@ export class CurrencySymbolPipe implements PipeTransform {
       INR: '₹'
     };
     return symbols[currencyCode.toUpperCase()] || '$';
+  }
+
+  private getDecimalPlaces(value: number | string): number {
+    // Convert to string to analyze decimal places
+    let valueStr = typeof value === 'number' ? value.toString() : value;
+
+    // Handle scientific notation (e.g., 1e-7)
+    if (/e/i.test(valueStr)) {
+      valueStr = parseFloat(valueStr).toFixed(12); // Convert scientific notation to fixed decimal
+    }
+
+    // Split on decimal point and get the decimal part
+    const decimalPart = valueStr.split('.')[1];
+    return decimalPart ? decimalPart.length : 0;
   }
 }

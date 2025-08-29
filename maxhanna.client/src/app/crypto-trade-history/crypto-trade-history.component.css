@@ -1,0 +1,65 @@
+.tradeBalancePairLabelContainer {
+    display: flex;
+    justify-content: space-evenly;
+    flex-wrap: wrap;
+    align-content: center;
+    align-items: center;
+}
+
+.tradeBalanceTable td,
+.tradeBalanceTable th {
+    text-align: center;
+}
+
+.tradeBalanceCurrencyLabel {
+    background-color: white;
+}
+
+.tradeHistoryTableWrapper {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.tradeHistoryTableCoinSelectWrapper {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: nowrap;
+}
+
+.pagination-controls {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 10px;
+}
+
+.pagination-controls button {
+    padding: 5px 10px;
+}
+
+.tradeDataTable {
+    height: CALC(var(--vh, 1vh) * 100 - 360px);
+    overflow: auto; 
+    border: var(--main-border);
+    border-radius: 4px;
+}
+
+@media only screen and (max-width : 600px) {
+    .tradeDataTable {
+        height: unset !important;
+        max-height: CALC(var(--vh, 1vh) * 100 - 315px); 
+    }
+}
+
+.positive {
+    color: #28a745;
+}
+
+.negative {
+    color: #dc3545;
+}

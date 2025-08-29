@@ -1157,9 +1157,12 @@ export class AppComponent implements OnInit, AfterViewInit {
     event?.stopPropagation();
   } 
   async updateLastSeenPeriodically() {
-    setInterval(() => {
-      this.updateLastSeen();
-    }, 60 * 60 * 1000);
+    setTimeout(() => {
+      const shouldRefresh = confirm("Security has timed you out. Would you like to refresh the page?");
+      if (shouldRefresh) {
+        window.location.reload();
+      }
+    }, 60 * 60 * 1000); // 1 hour
   }
   async updateLastSeen(user?: User) {
     const tmpUser = user ?? this.user;

@@ -93,8 +93,8 @@ export class TradeService {
   async getTradeConfiguration(userId: number, encryptedUserId: string, from?: string, to?: string, strategy?: string) {
     return this.post(`/trade/getconfiguration`, { UserId: userId, FromCoin: from, ToCoin: to, Strategy: strategy }, 'json', encryptedUserId);
   }
-  async getTradeLogs(userId: number, coin: string, strategy: string, encryptedUserId: string) {
-    return this.post(`/trade/gettradelogs`, { UserId: userId, Coin: coin, Strategy: strategy }, 'json', encryptedUserId);
+  async getTradeLogs(userId: number, coin: string, strategy: string, encryptedUserId: string, page: number, pageSize: number) {
+    return this.post(`/trade/gettradelogs`, { UserId: userId, Coin: coin, Strategy: strategy, Page: page, PageSize: pageSize }, 'json', encryptedUserId);
   }
   async getLastTradeLogs(userId: number, encryptedUserId: string) {
     return this.post(`/trade/getlasttradelogs`, userId, 'json', encryptedUserId);
@@ -105,11 +105,11 @@ export class TradeService {
   async getTradeVolumeForGraph(from?: Date, hourRange?: number) {
     return this.post(`/trade/gettradevolumeforgraph`, { From: from, HourRange: hourRange }, 'json');
   } 
-  async enterPosition(userId: number, coin: string, encryptedUserId: string) {
-    return this.post(`/trade/enterposition`, { UserId: userId, Coin: coin }, 'json', encryptedUserId);
+  async enterPosition(userId: number, coin: string, strategy: string, encryptedUserId: string) {
+    return this.post(`/trade/enterposition`, { UserId: userId, Coin: coin, Strategy: strategy }, 'json', encryptedUserId);
   }
-  async exitPosition(userId: number, coin: string, encryptedUserId: string) {
-    return this.post(`/trade/exitposition`, { UserId: userId, Coin: coin }, 'json', encryptedUserId);
+  async exitPosition(userId: number, coin: string, strategy: string, encryptedUserId: string) {
+    return this.post(`/trade/exitposition`, { UserId: userId, Coin: coin, Strategy: strategy }, 'json', encryptedUserId);
   }
   async getTradeIndicators(fromCoin: string, toCoin: string) {
     return this.post(`/trade/gettradeindicators`, { FromCoin: fromCoin, ToCoin: toCoin }, 'json');
@@ -123,7 +123,52 @@ export class TradeService {
   async getNumberOfTrades(userId: number) {
     return this.post(`/trade/getnumberoftrades`, userId, 'text');
   }
+  
+  convertTimePeriodToHours(period: string): number {
+    const periodRegex = /^(\d+)\s*(m|min|mins|minute|minutes|h|hour|hours|d|day|days|w|week|weeks|m|month|months|y|year|years)$/;
+    const match = period.trim().toLowerCase().match(periodRegex);
 
+    if (match) {
+      const value = parseInt(match[1], 10);
+      const unit = match[2];
+
+      switch (unit) {
+        case 'min':
+        case 'mins':
+        case 'minute':
+        case 'minutes':
+          return value / 60; // Minutes to hours
+        case 'h':
+        case 'hour':
+        case 'hours':
+          return value; // Hours
+        case 'd':
+        case 'day':
+        case 'days':
+          return value * 24;
+        case 'w':
+        case 'week':
+        case 'weeks':
+          return value * 24 * 7;
+        case 'm':
+        case 'month':
+        case 'months':
+          return value * 24 * 30;
+        case 'y':
+        case 'year':
+        case 'years':
+          return value * 24 * 365;
+        default:
+          console.warn(`Unknown period unit: ${unit}`);
+          return 1;
+      }
+    }
+    if (period.toLowerCase().includes("max")) {
+      return 10 * 24 * 365;
+    }
+    console.warn(`Invalid period format: ${period}`);
+    return 1;
+  }
   /**
    * Formats large numbers with appropriate units while preserving precision
    * @param value The number to format 

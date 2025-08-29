@@ -1,0 +1,95 @@
+<div class="tradeHistoryTableWrapper">
+    <div class="tradeHistoryTableCoinSelectWrapper">
+        <div>
+            <select #tradeBalanceCoinSelector [value]="selectedCoin" (change)="onCoinChange($event)">
+                <option value="XBT">BTC</option>
+                <option value="XRP">XRP</option>
+                <option value="ETH">{{onMobile() ? 'ETH' : 'Ethereum'}}</option>
+                <option value="SOL">{{onMobile() ? 'SOL' : 'Solana'}}</option>
+                <option value="XDG">{{onMobile() ? 'DOGE': 'Dogecoin'}}</option>
+            </select>
+            <select #tradeBalanceStrategySelector [value]="selectedStrategy" (change)="onStrategyChange($event)">
+                <option value="DCA">DCA</option>
+                <option value="IND">{{ onMobile() ? 'IND' : 'Indicator' }}</option>
+                <option value="HFT">{{ onMobile() ? 'HFT' : 'High-Frequency' }}</option>
+            </select>
+        </div>
+        <div class="xxSmallFont">
+            Refresh in {{timeLeft}}s.
+        </div>
+    </div>
+    <!-- Pagination Controls -->
+    <div class="pagination-controls" style="text-align: center;">
+        <button (click)="prevTradePage()" [disabled]="currentTradePage === 1">
+            {{ onMobile() ? 'Prev' : 'Previous' }}
+        </button>
+        <select (change)="goToTradePageSelected($event)">
+            <option *ngFor="let page of getTradePagesArray()" [value]="page" [selected]="page === currentTradePage">
+                {{ page }}
+            </option>
+        </select>
+        <span>{{ onMobile() ? '/' : 'of' }} {{ totalTradePages }}</span>
+        <button (click)="nextTradePage()" [disabled]="currentTradePage === totalTradePages">Next</button>
+    </div>
+</div>
+<div class="mainTableContainer tradeDataTable">
+    <table class="mainTable tradeBalanceTable">
+        <thead>
+            <tr>
+                <th [class]="onMobile() ? 'xxSmallFont' : 'smallFont'">ID</th>
+                <th [class]="onMobile() ? 'xxSmallFont' : 'smallFont'">Pair</th>
+                <th [class]="onMobile() ? 'xxSmallFont' : 'smallFont'">Value ({{ selectedCoin }}|$)</th>
+                <th [class]="onMobile() ? 'xxSmallFont' : 'smallFont'">{{ selectedCoin }} Price</th>
+                <th [class]="onMobile() ? 'xxSmallFont' : 'smallFont'">Fees</th>
+                <th [class]="onMobile() ? 'xxSmallFont' : 'smallFont'">Timestamp</th>
+                <th [class]="onMobile() ? 'xxSmallFont' : 'smallFont'">Matched Trade</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr *ngFor="let trade of paginatedTradebotBalances; trackBy: trackByTradeId"
+                [id]="'tradeBalance' + trade.id"
+                [style.background]="selectedTradeBalanceId == trade.id ? 'var(--main-highlight-color)' : ''">
+                <td [class]="onMobile() ? 'xxSmallFont' : 'smallFont'">
+                    {{ trade.id }}
+                </td>
+                <td class="tradeBalanceCurrencyLabel">
+                    <span class="tradeBalancePairLabelContainer">
+                        <span [class]="onMobile() ? 'xxSmallFont' : 'smallFont'"
+                            [style.color]="trade.from_currency == 'XBT' ? '#a17f1a' : trade.from_currency == 'USDC' ? 'blue' : ''">
+                            {{ trade.from_currency }}
+                        </span>
+                        /
+                        <span [class]="onMobile() ? 'xxSmallFont' : 'smallFont'"
+                            [style.color]="trade.to_currency == 'XBT' ? '#a17f1a' : trade.to_currency == 'USDC' ? 'blue' : ''">
+                            {{ trade.to_currency }}
+                        </span>
+                    </span>
+                </td>
+                <td class="smallFont" style="display:flex; justify-content: space-evenly; flex-wrap: wrap;">
+                    <span style="margin-left:3px">
+                        {{ trade.value }}
+                    </span>
+                    <span style="margin-right:3px" [class]="trade.to_currency == 'USDC' ? 'negative' : 'positive'">
+                        {{ trade.trade_value_usdc | currencySymbol:(selectedCurrency):true }}
+                    </span>
+                </td>
+                <td [class]="'secondaryFontColor' + (onMobile() ? ' xxSmallFont' : '')">
+                    {{ trade.coin_price_usdc | currencySymbol:(selectedCurrency):true }}
+                </td>
+                <td [class]="'negative' + (onMobile() ? ' xxSmallFont' : '')">
+                    {{ trade.fees | currencySymbol:(selectedCurrency):true }}
+                </td>
+                <td [class]="'secondaryFontColor' + (onMobile() ? ' xxSmallFont' : '')"
+                    [title]="inputtedParentRef.convertUtcToLocalTime(trade.timestamp)">
+                    <span *ngIf="!onMobile()">{{ inputtedParentRef.convertUtcToLocalTime(trade.timestamp)
+                        }}&nbsp;-&nbsp;</span>
+                    {{ inputtedParentRef.convertUtcToLocalTime(trade.timestamp) | timeSince }}
+                </td>
+                <td [class]="onMobile() ? 'xxSmallFont' : ''" [title]="trade.matching_trade_id"
+                    (click)="goToTradeId(trade.matching_trade_id)">
+                    {{ trade.matching_trade_id ?? (trade.is_reserved ? 'Reserved' : '') }}
+                </td>
+            </tr>
+        </tbody>
+    </table>
+</div>

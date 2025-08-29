@@ -56,65 +56,57 @@
         </div>
       </div>
     </div>
-    <div class="graphContainerDiv sectionContainer" [style.display]="isTradePanelOpen ? 'none' : 'block'">
-      <ng-container *ngIf="allHistoricalData && selectedCurrency && firstLoadTradeBalance && tradebotTradeValuesForMainGraph">
-        <app-line-graph #lineGraphComponent [type]="'Crypto'" [selectedCurrency]="selectedCurrency"
-          [selectedCurrencyDisplay]="getCurrencySymbol(selectedCurrency)" [selectedPeriod]="lineGraphInitialPeriod"
-          [data]="allHistoricalData" [data2]="tradebotTradeValuesForMainGraph" [chartTypeInputtedData2]="'line'"
-          [isDotModeData2]="true" [selectedCoin]="currentSelectedCoin"
-          [secondaryDataLabel]="'Tradebot Action (Red:Sell/Green:Buy)'" [displayCoinSwitcher]="false"
-          (changeTimePeriodEvent)="changeTimePeriodEventOnBTCHistoricalGraph($event)">
-        </app-line-graph>
-      </ng-container>
+    <div class="graphContainerDiv sectionContainer" [style.display]="isTradePanelOpen ? 'none' : 'block'" *ngIf="parentRef && selectedCurrency && currentSelectedCoin && latestCurrencyPriceRespectToCAD"> 
+      <app-crypto-coin-graph-viewer 
+        #coinGraphViewer
+        [inputtedParentRef]="parentRef" 
+        [currentSelectedCoin]="currentSelectedCoin"
+        [selectedCurrency]="selectedCurrency"
+        [latestCurrencyPriceRespectToCAD]="latestCurrencyPriceRespectToCAD"></app-crypto-coin-graph-viewer> 
     </div>
     <div class="graphContainerDiv sectionContainer" [style.display]="isTradePanelOpen ? 'none' : 'block'">
-      <ng-container *ngIf="volumeData">
-        <app-line-graph [selectedCurrency]="'Volume'" [type]="'Volume'" [chartTypeInputted]="'bar'" [showAverage]="true"
-          [displayCoinSwitcher]="false" [selectedPeriod]="'6h'" [data]="volumeData"
-          (changeTimePeriodEvent)="changeTimePeriodEventOnVolumeGraph($event)">
-        </app-line-graph>
-      </ng-container>
+      <app-crypto-coin-volume-graph-viewer></app-crypto-coin-volume-graph-viewer>
     </div>
-    <div class="sectionContainer" [style.display]="isTradePanelOpen ? 'none' : 'block'" *ngIf="volumeData">
+    <div class="sectionContainer" [style.display]="isTradePanelOpen ? 'none' : 'block'" *ngIf="volumeDisplayData">
       <div class="sectionName gradientBackground" style="padding:10px;">Volume Comparison</div>
       <div class="volume-depth-indicator">
         <div class="volume-bars">
-          <div class="btc-bar" [style.width.%]="volumeDisplayData?.btcPercentage || 0">
+          <div class="btc-bar" [style.width.%]="volumeDisplayData.btcPercentage || 0">
             <span class="volume-value">
-              {{ volumeDisplayData?.btc | number:'1.4-4' }} BTC
+              {{ volumeDisplayData.btc | number:'1.4-4' }} BTC
             </span>
           </div>
-          <div class="usdc-bar" [style.width.%]="volumeDisplayData?.usdcPercentage || 0">
+          <div class="usdc-bar" [style.width.%]="volumeDisplayData.usdcPercentage || 0">
             <span class="volume-value">
-              {{ volumeDisplayData?.usdc | number:'1.0-0' }} USDC
+              {{ volumeDisplayData.usdc | number:'1.0-0' }} USDC
             </span>
           </div>
         </div>
         <div class="volume-stats">
           <div>
-            {{ volumeDisplayData?.btc | number:'1.4-4' }} BTC ≈
-            {{ volumeDisplayData?.btcInUSDC | number:'1.0-0' }}$
+            {{ volumeDisplayData.btc | number:'1.4-4' }} BTC ≈
+            {{ volumeDisplayData.btcInUSDC | number:'1.0-0' }}$
           </div> 
-          <div *ngIf="volumeDisplayData?.btcPrice">
+          <div *ngIf="volumeDisplayData.btcPrice">
             <strong>BTC Price:</strong>
-            {{ volumeDisplayData?.btcPrice | number:'1.0-0' }}$
+            {{ volumeDisplayData.btcPrice | number:'1.0-0' }}$
           </div>
-          <div *ngIf="volumeDisplayData?.ratio">
-            <strong>{{ volumeDisplayData?.dominanceDescription }}:</strong>
-            1 BTC volume ≈ {{ volumeDisplayData?.ratio }}x USDC volume
+          <div *ngIf="volumeDisplayData.ratio">
+            <strong>{{ volumeDisplayData.dominanceDescription }}:</strong>
+            1 BTC volume ≈ {{ volumeDisplayData.ratio }}x USDC volume
           </div>
 
           <!-- Warning displays - can show both if needed -->
-          <div *ngIf="volumeDisplayData?.warnings?.usdc?.level !== 'none'"
-            [class.usdc-mild-warning]="volumeDisplayData?.warnings?.usdc?.level === 'mild'"
-            [class.usdc-severe-warning]="volumeDisplayData?.warnings?.usdc?.level === 'severe'">
-            ⚠️ {{ volumeDisplayData?.warnings?.usdc?.description }}
+          <div *ngIf="volumeDisplayData.warnings.usdc.level !== 'none'"
+            [class.usdc-mild-warning]="volumeDisplayData.warnings.usdc.level === 'mild'"
+            [class.usdc-severe-warning]="volumeDisplayData.warnings.usdc.level === 'severe'">
+            ⚠️ {{ volumeDisplayData.warnings.usdc.description }}
           </div>
 
-          <div *ngIf="volumeDisplayData?.warnings?.btc?.level !== 'none'"
-            [class.btc-mild-warning]="volumeDisplayData?.warnings?.btc?.level === 'mild'"
-            [class.btc-severe-warning]="volumeDisplayData?.warnings?.btc?.level === 'severe'">
-            ⚠️ {{ volumeDisplayData?.warnings?.btc?.description }}
+          <div *ngIf="volumeDisplayData.warnings.btc.level !== 'none'"
+            [class.btc-mild-warning]="volumeDisplayData.warnings.btc.level === 'mild'"
+            [class.btc-severe-warning]="volumeDisplayData.warnings.btc.level === 'severe'">
+            ⚠️ {{ volumeDisplayData.warnings.btc.description }}
           </div>
         </div>
       </div>
@@ -237,12 +229,13 @@
           <div class="indicator-value" [class]="tradeIndicators.retracementFromHighValue > 0 ? 'positive' : 'negative'">
             {{ tradeIndicators.retracementFromHighValue > 0 ? 'Retracement' : 'New All-Time High' }}
           </div>
-          <div class="indicator-value"
+          <div class="bold smallFont"
             [class]="tradeIndicators.retracementFromHighValue > 0  ? 'positive' : 'negative'">
             {{ tradeIndicators.retracementFromHighValue * 100 | number:'1.2-2' }}%
             <span class="threshold-indicator" *ngIf="tradeIndicators.retracementFromHighValue > 0.15">
               (Above 15% threshold)
-            </span>
+            </span> /
+            <span>{{ getConvertedCurrencyValueRespectToFiat(tradeIndicators.highPriceValue) | currencySymbol:(selectedCurrency):true}}</span>
           </div>
         </div>
 
@@ -411,8 +404,7 @@
           <div>
             <!-- <div *ngIf="hasKrakenApi">Average Buy Price: <span class="thirdFontColor smallFont">{{formatToCanadianCurrency(weightedAveragePrices[0])}}</span></div>
               <div *ngIf="hasKrakenApi">Average Sell Price: <span class="thirdFontColor smallFont">{{formatToCanadianCurrency(weightedAveragePrices[1])}}</span></div> -->
-            <div
-              *ngIf="tradebotBalances && tradebotBalances.length > 0 && tradebotBalances[tradebotBalances.length - 1]">
+            <div>
               <span class="sectionName">Last:&nbsp;</span>
               <span>
                 <span *ngIf="lastTradebotTrade" class="smallFont">
@@ -440,6 +432,7 @@
                     ({{ lastTradePercentage.toFixed(2) }}%)
                   </span>
                 </span>
+                <span *ngIf="!lastTradebotTrade" class="smallFont">No trades.</span>
               </span>
             </div>
             <div *ngIf="lastLogEntry && canShowTradePanelInfo()" [ngClass]="{'logScreen': !showingTradeLogs, 'bold': true}">
@@ -522,20 +515,30 @@
             </p>
           </div>
           <div class="button-wrapper" *ngIf="canShowTradePanelInfo() || isTradebotBalanceShowing">
-            <button class="cursorPointer" (click)="isTradebotBalanceShowing ? hideBalance() : checkBalance()" [disabled]="isLoading" id="trades-button"
-              aria-describedby="trades-desc">
+            <button class="cursorPointer" (click)="isTradebotBalanceShowing ? hideBalance() : checkBalance()"
+              [disabled]="isLoading" id="trades-button" aria-describedby="trades-desc">
               {{isTradebotBalanceShowing ? 'Hide' : 'Show'}} Trades
             </button>
             <p class="button-description" id="trades-desc" *ngIf="!isTradebotBalanceShowing">
               Displays a table of recent trades, including BTC/USDC transactions, prices, and fees.
             </p>
           </div>
+
           <div class="button-wrapper" *ngIf="canShowTradePanelInfo() || showingTradeLogs">
             <button class="cursorPointer" (click)="showTradeLogs()" id="logs-button" aria-describedby="logs-desc" [style.marginBottom]="onMobile() ? '10px' : ''">
               {{showingTradeLogs ? 'Hide' : 'Show'}} Logs
             </button>
             <p class="button-description" id="logs-desc" *ngIf="!showingTradeLogs">
               Shows detailed logs of bot actions, such as trade decisions and errors, with pagination.
+            </p>
+          </div>
+
+          <div class="button-wrapper" *ngIf="canShowTradePanelInfo() || isTradeLiveViewShowing">
+            <button class="cursorPointer" (click)="!isTradeLiveViewShowing ? showTradeLiveView() : hideTradeLiveView()" [disabled]="isLoading">
+              {{isTradeLiveViewShowing ? 'Hide' : 'Show'}} Live Trade View
+            </button>
+            <p class="button-description" id="trades-desc" *ngIf="!isTradeLiveViewShowing">
+              Displays a live trading view.
             </p>
           </div>
 
@@ -585,92 +588,18 @@
             </p>
           </div>
         </div>
-        <div *ngIf="isTradebotBalanceShowing" class="tradeHistoryTableWrapper">
-          <div class="tradeHistoryTableCoinSelectWrapper">
-            <div>
-              <select #tradeBalanceCoinSelector (change)="currentTradePage = 1; checkBalance()">
-                <option value="XBT">BTC</option>
-                <option value="ETH">ETH</option>
-                <option value="XRP">XRP</option>
-                <option value="SOL">SOL</option>
-                <option value="XDG">XDG</option>
-              </select>
-              <select #tradeBalanceStrategySelector (change)="currentTradePage = 1; checkBalance()">
-                <option value="DCA">DCA</option>
-                <option value="IND">{{onMobile() ? 'IND' : 'Indicator'}}</option>
-                <option value="HFT">{{onMobile() ? 'HFT' : 'High-Frequency'}}</option>
-              </select>
-            </div>
-            <div class="xxSmallFont">
-              Logs refresh every 30s.
-            </div>
-          </div>
-          <!-- Pagination Controls -->
-          <div class="pagination-controls" style="margin-top: 10px; text-align: center;">
-            <button (click)="prevTradePage()" [disabled]="currentTradePage === 1">{{onMobile() ? 'Prev' : 'Previous'}}</button>
-            <select (change)="goToTradePageSelected($event)">
-              <option *ngFor="let page of getTradePagesArray()" [value]="page" [selected]="page === currentTradePage">
-                {{ page }}
-              </option>
-            </select>
-            <span>{{onMobile() ? '/' : 'of'}} {{ totalTradePages }}</span>
-            <button (click)="nextTradePage()" [disabled]="currentTradePage === totalTradePages">Next</button> 
-          </div> 
-        </div>
-        <div *ngIf="isTradebotBalanceShowing" class="mainTableContainer tradeDataTable">
-          <table class="mainTable tradeBalanceTable">
-            <thead>
-              <tr>
-                <th [class]="onMobile() ? 'xxSmallFont' : 'smallFont'">ID</th>
-                <th [class]="onMobile() ? 'xxSmallFont' : 'smallFont'">Pair</th>
-                <th [class]="onMobile() ? 'xxSmallFont' : 'smallFont'">Value
-                  ({{tradeBalanceCoinSelector?.nativeElement?.value}}|$)</th>
-                <th [class]="onMobile() ? 'xxSmallFont' : 'smallFont'">{{tradeBalanceCoinSelector?.nativeElement?.value}} Price
-                </th>
-                <th [class]="onMobile() ? 'xxSmallFont' : 'smallFont'">Fees</th>
-                <th [class]="onMobile() ? 'xxSmallFont' : 'smallFont'">Timestamp</th>
-                <th [class]="onMobile() ? 'xxSmallFont' : 'smallFont'">Matched Trade</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr *ngFor="let trade of paginatedTradebotBalances; trackBy: trackByTradeId" [id]="'tradeBalance'+trade.id"
-                [style.background]="selectedTradeBalanceId == trade.id ? 'var(--main-highlight-color)' : ''">
-                <td [class]="onMobile() ? 'xxSmallFont' : 'smallFont'">
-                  {{ trade.id }}
-                </td>
-                <td class="tradeBalanceCurrencyLabel">
-                  <span class="tradeBalancePairLabelContainer">
-                    <span [class]="onMobile() ? 'xxSmallFont' : 'smallFont'"
-                      [style.color]="trade.from_currency == 'XBT' ? '#a17f1a' : trade.from_currency == 'USDC' ? 'blue' : ''">{{trade.from_currency}}</span>
-                    /
-                    <span [class]="onMobile() ? 'xxSmallFont' : 'smallFont'"
-                      [style.color]="trade.to_currency == 'XBT' ? '#a17f1a' : trade.to_currency == 'USDC' ? 'blue' : ''">{{trade.to_currency}}</span>
-                  </span>
-                </td>
-                <td class="smallFont" style="display:flex; justify-content: space-evenly; flex-wrap: wrap;">
-                  <span style="margin-left:3px">
-                    {{ trade.value }}
-                  </span>
-                  <span style="margin-right:3px" [class]="trade.to_currency == 'USDC' ? 'negative' : 'positive'">
-                    {{ formatStringCanadianCurrency(trade.trade_value_usdc) }}
-                  </span>
-                </td>
-                <td [class]="'secondaryFontColor' + (onMobile() ? ' xxSmallFont' : '')">{{
-                  trade.coin_price_usdc | currencySymbol:(selectedCurrency):true }}</td>
-                <td [class]="'negative' + (onMobile() ? ' xxSmallFont' : '')">{{ formatToCanadianCurrency(trade.fees) }}
-                </td>
-                <td [class]="'secondaryFontColor' + (onMobile() ? ' xxSmallFont' : '')"
-                  [title]="parentRef?.convertUtcToLocalTime(trade.timestamp)">
-                  <span *ngIf="!onMobile()">{{parentRef?.convertUtcToLocalTime(trade.timestamp)}}&nbsp;-&nbsp;</span>
-                  {{ parentRef?.convertUtcToLocalTime(trade.timestamp) | timeSince }}
-                </td>
-                <td [class]="onMobile() ? 'xxSmallFont' : ''" [title]="trade.matching_trade_id"
-                  (click)="goToTradeId(trade.matching_trade_id)">
-                  {{ trade.matching_trade_id ?? (trade.is_reserved ? 'Reserved': '') }}
-                </td>
-              </tr>
-            </tbody>
-          </table> 
+        <div *ngIf="isTradebotBalanceShowing && parentRef && selectedCurrency && !isLoading">
+          <app-crypto-trade-history [inputtedParentRef]="parentRef" [selectedCurrency]="selectedCurrency"
+            [defaultCoin]="selectedTradebotCurrency?.nativeElement?.value ?? 'BTC'"
+            [defaultStrategy]="selectedTradebotStrategy?.nativeElement?.value ?? 'DCA'"></app-crypto-trade-history>
+        </div> 
+        <div *ngIf="isTradeLiveViewShowing && parentRef && selectedCurrency && latestCurrencyPriceRespectToCAD">
+          <app-crypto-live-trade-view 
+          [activeTradeBots]="getActiveTradeBots()"
+          [inputtedParentRef]="parentRef" 
+          [selectedCurrency]="selectedCurrency" 
+          [latestCurrencyPriceRespectToCAD]="latestCurrencyPriceRespectToCAD"
+          [hasKrakenApi]="hasKrakenApi"></app-crypto-live-trade-view>
         </div>
       </div>
       <div
@@ -766,79 +695,15 @@
             </div>
           </div>
         </div>
-      </div>
-
-
-      <div *ngIf="showingTradeLogs" [style.opacity]="isLoading ? '25%' : ''">
-        <div class="secondaryFontColor" style="width:100%; display: flex; justify-content: space-between;">
-          <div class="logFiltersWrapper">
-            <div class="logTypeFiltersWrapper">
-              <span class="xxSmallFont" *ngIf="!onMobile()">Filter: </span>
-              <select (change)="filterLogsFromEvent()" #tradeLogCoinFilter>
-                <option value="XBT">BTC</option>
-                <option value="XRP">XRP</option>
-                <option value="ETH">Ethereum</option>
-                <option value="SOL">Solana</option>
-                <option value="XDG">Dogecoin</option>
-              </select>
-              <select (change)="filterLogsFromEvent()" #tradeLogStrategyFilter>
-                <option value="DCA">DCA</option>
-                <option value="HFT">{{onMobile() ? 'HFT' : 'High-Frequency'}}</option>
-                <option value="IND">{{onMobile() ? 'IND' : 'Indicator'}}</option>
-              </select>
-            </div>
-            <div class="xxSmallFont">
-              Logs refresh every 30s.
-            </div>
-          </div>
-          <div style="text-align:center;" *ngIf="showingTradeLogs && tradeLogs && tradeLogs.length > 0">
-            <button class="cursorPointer" (click)="prevLogPage()" [disabled]="currentLogPage === 1">{{onMobile() ? 'Prev' : 'Previous'}}</button>
-          
-            <span *ngIf="totalLogPages <= 10">
-              <button *ngFor="let page of getLogPagesArray()" class="cursorPointer" (click)="goToLogPage(page)"
-                [disabled]="page === currentLogPage" [class.active]="page === currentLogPage">
-                {{ page }}
-              </button>
-            </span>
-          
-            <span *ngIf="totalLogPages > 10">
-              <select (change)="goToLogPageSelected($event)">
-                <option *ngFor="let page of getLogPagesArray()" [value]="page" [selected]="page === currentLogPage">
-                  {{ page }}
-                </option>
-              </select>
-            </span>
-          
-            <span>{{onMobile() ? '/' : 'of'}} {{ totalLogPages }}</span>
-            <button class="cursorPointer" (click)="nextLogPage()" [disabled]="currentLogPage >= totalLogPages">Next</button>
-          </div> 
-        </div>
-
-        <div *ngIf="tradeLogs.length > 0; else noLogs" class="mainTableContainer tradeDataTable">
-          <table class="smallFont mainTable">
-            <thead>
-              <tr>
-                <th class="xxSmallFont">Comment</th>
-                <th class="xxSmallFont">Time</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr *ngFor="let log of paginatedLogs">
-                <td>{{ log.comment }}</td>
-                <td class="xxSmallFont" [title]="parentRef?.convertUtcToLocalTime(log.timestamp)">{{
-                  parentRef?.convertUtcToLocalTime(log.timestamp) | timeSince }}</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-        <ng-template #noLogs>
-          <p *ngIf="!isLoading">No logs found.</p>
-          <p *ngIf="isLoading">Loading...</p>
-        </ng-template>
       </div> 
       
-      <div *ngIf="isShowingTradeSimulator && tradebotSimulationGraphData && tradebotSimulationGraphData.length > 0"
-        class="tradeDataTable">
+      <div *ngIf="showingTradeLogs && parentRef && !isLoading" [style.opacity]="isLoading ? '25%' : ''">
+        <app-crypto-trade-logs [inputtedParentRef]="parentRef" [hasKrakenApi]="hasKrakenApi"
+            [defaultCoin]="selectedTradebotCurrency?.nativeElement?.value ?? 'BTC'"
+            [defaultStrategy]="selectedTradebotStrategy?.nativeElement?.value ?? 'DCA'"></app-crypto-trade-logs>
+      </div> 
+      
+      <div *ngIf="isShowingTradeSimulator && tradebotSimulationGraphData && tradebotSimulationGraphData.length > 0" class="tradeDataTable">
         <app-line-graph #simLineGraph [selectedPeriod]="'1d'" [data]="tradebotSimulationGraphData"
           [data2]="tradebotSimulationGraphData2" [graphTitle]="'Simulated Price Variation'" [skipFiltering]="true"
           [selectedCoin]="'Bitcoin'" [chartTypeInputted]="'line'" [chartTypeInputtedData2]="'line'"

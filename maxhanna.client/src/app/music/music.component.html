@@ -18,7 +18,14 @@
   <span class="subtleInfoSpan" (click)="openHelpPanel()">ℹ️Info</span>
   <div id="musicPlayerDiv" [class]="smallPlayer ? 'smallSongList' : 'normalSongList'">
     <div id="iframeDiv" [style.visibility]="songs && songs.length > 0 && isMusicPlaying ? 'visible' : 'hidden'" [class]="isFullscreen ? 'popupPanel fullscreen' : (smallPlayer ? ' smallIframeDiv' : ' iframeDiv')">
-      <iframe [style.visibility]="!fileIdPlaylist ? 'visible' : 'hidden'" frameborder=0 id=musicVideo #musicVideo allow="autoplay"></iframe>
+      <iframe 
+        [style.visibility]="!fileIdPlaylist ? 'visible' : 'hidden'"
+        [style.width]="fileIdPlaylist ? '0px' : '100%'"
+        [style.height]="fileIdPlaylist ? '0px' : '100%'"
+        frameborder=0
+        id=musicVideo 
+        #musicVideo 
+        allow="autoplay"></iframe>
       <app-media-viewer #fileMediaViewer *ngIf="fileIdPlaying && fileIdPlaying" [inputtedParentRef]="parentRef"
         [autoplay]="true" [autoload]="true" [loop]="false" [muted]="false" [showCommentSection]="false"
         [previousComponent]="'Music'" (mediaEndedEvent)="mediaEndedEvent()"></app-media-viewer>

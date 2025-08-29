@@ -251,9 +251,24 @@ public class TradeController : ControllerBase
 	{
 		try
 		{
-			if (req.UserId != 1 && !await _log.ValidateUserLoggedIn(req.UserId, encryptedUserId)) return StatusCode(500, "Access Denied.");
-			List<Dictionary<string, object?>>? result = await _log.GetLogs(req.UserId, "TRADE", 2500, $"({req.Coin.Replace("BTC", "XBT")}:{req.UserId}:{req.Strategy})");
-			return Ok(result);
+			if (req.UserId != 1 && !await _log.ValidateUserLoggedIn(req.UserId, encryptedUserId))
+				return StatusCode(500, "Access Denied.");
+
+			var result = await _log.GetLogs(
+				req.UserId,
+				"TRADE",
+				req.PageSize ?? 2500,
+				$"({req.Coin.Replace("BTC", "XBT")}:{req.UserId}:{req.Strategy})",
+				req.Page ?? 1
+			);
+
+			var totalCount = await _log.GetLogsCount(
+				req.UserId,
+				"TRADE",
+				$"({req.Coin.Replace("BTC", "XBT")}:{req.UserId}:{req.Strategy})"
+			);
+
+			return Ok(new { logs = result, total = totalCount });
 		}
 		catch (Exception ex)
 		{
@@ -404,7 +419,7 @@ public class TradeController : ControllerBase
 		try
 		{
 			if (!await _log.ValidateUserLoggedIn(req.UserId, encryptedUserId)) return StatusCode(500, "Access Denied.");
-			bool ok = await _krakenService.EnterPosition(req.UserId, req.Coin);
+			bool ok = await _krakenService.EnterPosition(req.UserId, req.Coin, req.Strategy ?? "XXX");
 			return Ok(ok);
 		}
 		catch (Exception ex)
@@ -423,7 +438,7 @@ public class TradeController : ControllerBase
 		try
 		{
 			if (!await _log.ValidateUserLoggedIn(req.UserId, encryptedUserId)) return StatusCode(500, "Access Denied.");
-			bool ok = await _krakenService.ExitPosition(req.UserId, req.Coin, null, null);
+			bool ok = await _krakenService.ExitPosition(req.UserId, req.Coin, req.Strategy);
 			return Ok(ok);
 		}
 		catch (Exception ex)
