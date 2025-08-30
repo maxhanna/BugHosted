@@ -138,7 +138,7 @@ public class KrakenService
 				{
 					if (usdcBalance < (coinPriceUSDC.Value * _MinimumBTCTradeAmount))
 					{
-						_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Insufficient balance to trade! coinBalance : {coinBalance} and usdcBalance : {usdcBalance} must be greater than {_MinimumBTCTradeAmount * coinPriceUSDC.Value} USDC respectively. Review configuration if this amount is incorrect. Trade Cancelled.", userId, "TRADE", true);
+						_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Insufficient balance to trade! usdcBalance : {usdcBalance} must be greater than {_MinimumBTCTradeAmount * coinPriceUSDC.Value} USDC. Review configuration if this amount is incorrect. Trade Cancelled.", userId, "TRADE", true);
 						return false;
 					}
 					var spread2Message = firstPriceToday != null ? $"Spread2 : {spread2:P} " : "";

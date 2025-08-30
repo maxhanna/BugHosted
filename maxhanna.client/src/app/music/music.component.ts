@@ -1,4 +1,4 @@
-import { AfterContentChecked, AfterViewInit, Component, ElementRef, EventEmitter, HostListener, Input, OnInit, Output, ViewChild } from '@angular/core';
+import { AfterContentChecked, AfterViewInit, ChangeDetectorRef, Component, ElementRef, EventEmitter, HostListener, Input, OnInit, Output, ViewChild } from '@angular/core';
 import { Location } from '@angular/common';
 import { ChildComponent } from '../child.component';
 import { Todo } from '../../services/datacontracts/todo';
@@ -86,8 +86,7 @@ export class MusicComponent extends ChildComponent implements OnInit, AfterViewI
 
   async getSongList() {
     const parent = this.inputtedParentRef ?? this.parentRef;
-    const user = this.user ?? parent?.user;
-    console.log("getting song list for user ", user);
+    const user = this.user ?? parent?.user; 
     if (!user?.id || !parent) return;
     const tmpSongs = await this.todoService.getTodo(user.id, "Music");
     this.youtubeSongs = tmpSongs.filter((song: Todo) => parent.isYoutubeUrl(song.url));
@@ -125,7 +124,7 @@ export class MusicComponent extends ChildComponent implements OnInit, AfterViewI
   goToPreviousPage() {
     if (this.currentPage > 1) {
       this.currentPage--;
-      this.updatePaginatedSongs(); 
+      this.updatePaginatedSongs();
       this.scrollToTop();
     }
   }
@@ -191,13 +190,14 @@ export class MusicComponent extends ChildComponent implements OnInit, AfterViewI
     this.closeEditPopup(false);
   }
 
-  selectType(type: 'youtube' | 'file') {
+  selectType(type: 'youtube' | 'file') { 
     this.selectedType = type;
     this.songs = type === 'file' ? [...this.fileSongs] : [...this.youtubeSongs];
     this.fileIdPlaylist = type === 'file' ? this.fileSongs.map(song => song.fileId!).filter(id => id !== undefined) : undefined;
     this.currentPage = 1;
     this.updatePaginatedSongs();
     this.reorderTable(undefined, this.orderSelect?.nativeElement.value || 'Newest');
+    this.stopMusic(); 
   }
 
   play(url?: string, fileId?: number) {
@@ -216,8 +216,10 @@ export class MusicComponent extends ChildComponent implements OnInit, AfterViewI
     } else if (fileId) {
       this.fileIdPlaying = fileId;
       setTimeout(() => {
-        this.fileMediaViewer.resetSelectedFile();
-        this.fileMediaViewer.setFileSrcById(fileId);
+        if (this.fileMediaViewer) { 
+          this.fileMediaViewer.resetSelectedFile();
+          this.fileMediaViewer.setFileSrcById(fileId);
+        }
       }, 50);
     }
     this.isMusicControlsDisplayed(true);
@@ -299,6 +301,10 @@ export class MusicComponent extends ChildComponent implements OnInit, AfterViewI
     this.isMusicPlaying = false;
     this.musicVideo.nativeElement.src = "";
     this.isMusicControlsDisplayed(false);
+    if (this.fileMediaViewer) { 
+      this.fileMediaViewer.resetSelectedFile();
+    }
+    this.fileIdPlaying = undefined;
   }
 
   fullscreen() {
@@ -446,8 +452,7 @@ export class MusicComponent extends ChildComponent implements OnInit, AfterViewI
     this.isShowingYoutubeSearch = false;
     this.parentRef?.closeOverlay();
   }
-  selectYoutubeVideoEvent(video: any) {
-    console.log(video);
+  selectYoutubeVideoEvent(video: any) { 
     this.urlInput.nativeElement.value = video.url;
     this.titleInput.nativeElement.value = video.title;
     this.addSong();
@@ -459,7 +464,7 @@ export class MusicComponent extends ChildComponent implements OnInit, AfterViewI
       if (this.parentRef) {
         this.parentRef.closeOverlay(false);
       }
-      if (this.hasEditedSong && editSong) { 
+      if (this.hasEditedSong && editSong) {
         this.editSong(this.isEditing[0]);
       } else {
         this.isEditing = [];
@@ -468,10 +473,20 @@ export class MusicComponent extends ChildComponent implements OnInit, AfterViewI
   }
   scrollToTop() {
     const div = document.getElementsByClassName("musicControls")[0] as HTMLDivElement;
-    if (div) {  
-      div.scrollIntoView({ behavior: 'smooth', block: 'start' }); 
+    if (div) {
+      div.scrollIntoView({ behavior: 'smooth', block: 'start' });
     } else {
       console.log("Div not found!");
     }
+  }
+  get playerClasses(): string {
+    if (this.isFullscreen) return 'popupPanel fullscreen';
+    if (this.smallPlayer) return 'smallIframeDiv';
+    if (this.onMobile()) return 'mobileIframeDiv';
+    return 'iframeDiv';
+  }
+
+  get isVisible(): boolean {
+    return !!(this.songs && this.songs.length > 0 && this.isMusicPlaying);
   }
 }

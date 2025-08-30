@@ -415,7 +415,9 @@ export class LineGraphComponent implements OnInit, OnChanges {
 
         const coinData = sortedLabels.map(label => {
           const matchingItem = coinFilteredData.find(item => this.formatTimestamp(item.timestamp, true) === label);
-          return matchingItem ? (matchingItem.valueCAD ?? matchingItem.value ?? matchingItem.rate) : null;
+          const value = matchingItem ? (matchingItem.valueCAD ?? matchingItem.value ?? matchingItem.rate) : null;
+          // Format to 2 decimal places for Currency type
+          return this.type === "Currency" && value !== null ? Number(value.toFixed(2)) : value;
         });
 
         const colorIndex = index % colorPalette.length;
@@ -450,7 +452,7 @@ export class LineGraphComponent implements OnInit, OnChanges {
 
     if (hasValidSecondaryData) {
       this.currentSecondaryData = sortedLabels.map(label => {
-        const matchingTrade = filteredData2.find(item => this.formatTimestamp(item.timestamp, true) === label); 
+        const matchingTrade = filteredData2.find(item => this.formatTimestamp(item.timestamp, true) === label);
         if (matchingTrade) {
           const precision = (matchingTrade.tradeValueCAD ?? null) < 1 ? 8 : 2;
           const tradeValue = matchingTrade.tradeValueCAD.toFixed(precision) + (this.selectedCurrencyDisplay ?? '$');
@@ -471,7 +473,7 @@ export class LineGraphComponent implements OnInit, OnChanges {
           if (d.type.includes('buy_DCA')) return 'green';
           if (d.type.includes('sell_DCA')) return '#ff0000';
           if (d.type.includes('buy_IND')) return '#0000ff';
-          if (d.type.includes('sell_IND')) return '#ff00ff'; 
+          if (d.type.includes('sell_IND')) return '#ff00ff';
           if (d.type.includes('buy_HFT')) return '#00ff95';
           if (d.type.includes('sell_HFT')) return '#5f0024';
           return 'grey';
@@ -480,7 +482,7 @@ export class LineGraphComponent implements OnInit, OnChanges {
           if (d.type.includes('buy_DCA')) return 'green';
           if (d.type.includes('sell_DCA')) return '#ff0000';
           if (d.type.includes('buy_IND')) return '#0000ff';
-          if (d.type.includes('sell_IND')) return '#ff00ff'; 
+          if (d.type.includes('sell_IND')) return '#ff00ff';
           if (d.type.includes('buy_HFT')) return '#00ff95';
           if (d.type.includes('sell_HFT')) return '#5f0024';
           return 'grey';
@@ -789,6 +791,9 @@ export class LineGraphComponent implements OnInit, OnChanges {
           ticks: {
             color: fontColor,
             callback: (value: number) => {
+              if (this.type === "Currency") {
+                return value.toFixed(2); // Always 2 decimal places for Currency
+              }
               if (needsLogScale || Math.abs(value) < 0.01) {
                 if (Math.abs(value) < 0.000001) {
                   return value.toExponential(2);

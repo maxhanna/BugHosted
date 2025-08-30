@@ -76,7 +76,7 @@ export class CoinValueService {
   }
 
 
-  async getAllExchangeRateValuesForGraph(from?: Date, hourRange?: number, currency?: string) {
+  async getAllExchangeRateValuesForGraph(from?: Date, hourRange?: number, currency?: string): Promise<ExchangeRate[] | undefined> {
     try {
       const response = await fetch(`/currencyvalue/getallforgraph`, {
         method: 'POST',
@@ -88,7 +88,7 @@ export class CoinValueService {
 
       return await response.json();
     } catch (error) {
-      return null;
+      return undefined;
     }
   }
 

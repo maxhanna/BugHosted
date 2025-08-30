@@ -166,7 +166,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
       this.abortFileRequestController.abort("Component is destroyed");
     }
     this.selectedFile = undefined;
-    this.selectedFileSrc = "";
+    this.selectedFileSrc = ""; 
     this.selectedFileName = "";
     this.selectedFileExtension = "";
   }

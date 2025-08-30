@@ -95,8 +95,15 @@ export class NotificationsComponent extends ChildComponent implements OnInit, On
 
 
   private updatePagination() {
-    // Use filteredNotifications instead of notifications
-    const notificationsToPaginate = this.filterCategory === 'All' ? this.notifications : this.notifications?.filter(n => this.getNotificationCategory(n) === this.filterCategory) || [];
+    let notificationsToPaginate;
+
+    if (this.filterCategory === 'All') {
+      notificationsToPaginate = this.notifications || [];
+    } else if (this.filterCategory === 'Unread') {
+      notificationsToPaginate = this.notifications?.filter(n => !n.isRead) || [];
+    } else {
+      notificationsToPaginate = this.notifications?.filter(n => this.getNotificationCategory(n) === this.filterCategory) || [];
+    }
 
     if (!notificationsToPaginate || notificationsToPaginate.length === 0) {
       this.paginatedNotifications = [];
@@ -246,7 +253,10 @@ export class NotificationsComponent extends ChildComponent implements OnInit, On
     } else {
       // Delete all or filtered notifications
       let notificationsToDelete = [...this.notifications];
-      if (this.filterCategory !== 'All') {
+
+      if (this.filterCategory === 'Unread') {
+        notificationsToDelete = notificationsToDelete.filter(n => !n.isRead);
+      } else if (this.filterCategory !== 'All') {
         notificationsToDelete = notificationsToDelete.filter(n => this.getNotificationCategory(n) === this.filterCategory);
       }
 
@@ -270,7 +280,6 @@ export class NotificationsComponent extends ChildComponent implements OnInit, On
     this.updatePagination();
     parent.navigationComponent.setNotificationNumber(this.unreadNotifications);
   }
-
   async read(notification?: UserNotification, forceRead: boolean = false) {
     const parent = this.inputtedParentRef ?? this.parentRef;
     if (!parent || !parent.user || !this.notifications) return;
@@ -291,7 +300,10 @@ export class NotificationsComponent extends ChildComponent implements OnInit, On
     } else {
       // Read all or filtered notifications
       let notificationsToRead = [...this.notifications];
-      if (this.filterCategory !== 'All') {
+
+      if (this.filterCategory === 'Unread') {
+        notificationsToRead = notificationsToRead.filter(n => !n.isRead);
+      } else if (this.filterCategory !== 'All') {
         notificationsToRead = notificationsToRead.filter(n => this.getNotificationCategory(n) === this.filterCategory);
       }
 
@@ -300,9 +312,9 @@ export class NotificationsComponent extends ChildComponent implements OnInit, On
         .filter(n => !n.isRead && n.id !== undefined);
 
       if (unreadNotifications.length > 0) {
-        const ids = unreadNotifications.map(n => n.id as number);  
+        const ids = unreadNotifications.map(n => n.id as number);
         await this.notificationService.readNotifications(parent.user.id ?? 0, ids);
- 
+
         unreadNotifications.forEach(n => n.isRead = true);
         this.unreadNotifications -= unreadNotifications.length;
 
@@ -315,7 +327,7 @@ export class NotificationsComponent extends ChildComponent implements OnInit, On
     this.updateCategories(false);
     parent.navigationComponent.setNotificationNumber(this.unreadNotifications, notification);
   }
- 
+
   notificationTextClick(notification: UserNotification) { 
     if (!notification.isRead) { 
       this.read(notification, true);
@@ -412,6 +424,8 @@ export class NotificationsComponent extends ChildComponent implements OnInit, On
 
     if (this.filterCategory === 'All') {
       return this.notifications.some(x => !x.isRead);
+    } else if (this.filterCategory === 'Unread') {
+      return true; // Always show "Read All" when filtering unread notifications
     } else {
       return this.notifications.some(x => !x.isRead && this.getNotificationCategory(x) === this.filterCategory);
     }
@@ -419,7 +433,7 @@ export class NotificationsComponent extends ChildComponent implements OnInit, On
 
   updateCategories(resetFilter: boolean = true) {
     if (!this.notifications) {
-      this.categories = [{ name: 'All', count: 0 }];
+      this.categories = [{ name: 'All', count: 0 }, { name: 'Unread', count: 0 }];
       if (resetFilter) this.filterCategory = 'All';
       return;
     }
@@ -428,7 +442,11 @@ export class NotificationsComponent extends ChildComponent implements OnInit, On
     const currentCounts = new Map(this.categories.map(c => [c.name, c.count]));
 
     // Calculate new counts
-    const newCounts: { [key: string]: number } = { All: this.notifications.length };
+    const newCounts: { [key: string]: number } = {
+      All: this.notifications.length,
+      Unread: this.notifications.filter(n => !n.isRead).length
+    };
+
     this.notifications.forEach(n => {
       const category = this.getNotificationCategory(n);
       newCounts[category] = (newCounts[category] || 0) + 1;
@@ -447,11 +465,12 @@ export class NotificationsComponent extends ChildComponent implements OnInit, On
     });
 
     this.categories = newCategories;
- 
+
     if (resetFilter) {
       this.filterCategory = 'All';
     }
   }
+
   getNotificationCategory(notification: UserNotification): string {
     const text = notification.text?.toLowerCase() || '';
 
@@ -466,6 +485,7 @@ export class NotificationsComponent extends ChildComponent implements OnInit, On
   }
   get filteredNotifications(): UserNotification[] {
     if (this.filterCategory === 'All') return this.paginatedNotifications;
+    if (this.filterCategory === 'Unread') return this.paginatedNotifications.filter(n => !n.isRead);
     return this.paginatedNotifications.filter(n => this.getNotificationCategory(n) === this.filterCategory);
   }
   onFilterChange(event: Event): void {

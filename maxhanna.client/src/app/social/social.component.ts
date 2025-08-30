@@ -60,6 +60,7 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
   attachedTopics: Array<Topic> = [];
   storyOverflowMap: { [key: string]: boolean } = {};
   showPostInput = false;
+  showComponentSelector = false;
   userProfileId?: number = undefined;
   wasFromSearchId = false;
   isShowingPostFromHelpInfo = false;
@@ -294,7 +295,7 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
   }
 
   async getStories(page: number = 1, pageSize: number = 25, keywords?: string, topics?: string, append?: boolean, showHiddenStories = false) {
-    this.startLoading(); 
+    this.startLoading();
     this.canLoad = false;
     const search = keywords ?? this.search?.nativeElement.value;
     const userId = this.user?.id;
@@ -939,7 +940,7 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
   }
 
   hasOverflow(elementId: string): boolean {
-    if (this.isLoading||!this.canLoad) return false;
+    if (this.isLoading || !this.canLoad) return false;
     if (this.compactness.includes("no")) {
       return false;
     }
@@ -987,12 +988,71 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
       this.getStories(this.currentPage + 1, 10, undefined, undefined, true)
     }, 500);
   }
+
   debouncedSearch() {
     this.userSearch = this.search.nativeElement.value;
     clearTimeout(this.searchTimeout);
     this.searchTimeout = setTimeout(() => this.searchStories(this.attachedTopics, true), 500);
   }
 
+  getNavigationItems() {
+    const parent = this.parentRef ?? this.parent;
+    return parent?.navigationItems || [];
+  }
+
+  // Method to open component selector
+  openComponentSelector() {
+    this.closeAllPopups();
+    this.showComponentSelector = true;
+    const parent = this.parent ?? this.parentRef;
+    parent?.showOverlay();
+  }
+
+  closeComponentSelector() {
+    this.showComponentSelector = false;
+    const parent = this.parent ?? this.parentRef;
+    parent?.closeOverlay();
+  }
+
+  insertComponent(componentTitle: string) {
+    const componentTag = `||component:${componentTitle}||`;
+    this.insertCustomText(componentTag);
+    this.closeComponentSelector();
+  }
+
+  insertCustomText(text: string, componentId?: string) {
+    let targetInput = componentId
+      ? document.getElementById(componentId) as HTMLInputElement
+      : this.story.nativeElement;
+
+    if (!targetInput) return;
+
+    const start = targetInput.selectionStart || 0;
+    const end = targetInput.selectionEnd || 0;
+
+    // Insert the text at cursor position
+    targetInput.value = targetInput.value.substring(0, start) +
+      text +
+      targetInput.value.substring(end);
+
+    // Set cursor after the inserted text
+    targetInput.selectionStart = start + text.length;
+    targetInput.selectionEnd = start + text.length;
+    targetInput.focus();
+  }
+
+  closeAllPopups() {
+    this.isMenuPanelOpen = false;
+    this.isStoryOptionsPanelOpen = false;
+    this.isPostOptionsPanelOpen = false;
+    this.isEmojiPanelOpen = false;
+    this.isSearchSocialsPanelOpen = false;
+    this.isMobileTopicsPanelOpen = false;
+    this.showComponentSelector = false; // Add this line
+
+    const parent = this.parent ?? this.parentRef;
+    parent?.closeOverlay();
+  }
   insertTag(tag: string, componentId?: string) {
     let targetInput = componentId
       ? document.getElementById(componentId) as HTMLInputElement

@@ -113,8 +113,7 @@
 
     </div>
     <div *ngIf="allHistoricalExchangeRateDataForGraph && allHistoricalExchangeRateDataForGraph.length > 0"
-      class="graphContainerDiv sectionContainer" [style.display]="isTradePanelOpen ? 'none' : 'block'">
-
+      class="graphContainerDiv sectionContainer" [style.display]="isTradePanelOpen ? 'none' : 'block'"> 
       <app-line-graph [type]="'Currency'" [selectedCoin]="selectedCurrency ?? 'CAD'" [displayCoinSwitcher]="false"
         [selectedCurrency]="selectedFiatConversionName" [showAverage]="true"
         [selectedPeriod]="exchangeRateGraphSelectedPeriod" [data]="allHistoricalExchangeRateDataForGraph!"

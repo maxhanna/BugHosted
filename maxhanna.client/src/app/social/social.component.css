@@ -54,10 +54,11 @@
 }
 
 .storyContainer {
-  overflow: hidden; 
+  overflow: hidden;
   background-color: var(--component-background-color);
-  margin-top: 5px; 
-} 
+  margin-top: 5px;
+}
+
 .storyText {
   width: 100%;
   padding: 5px;
@@ -78,8 +79,7 @@
   align-items: center;
   flex-wrap: nowrap;
   flex-direction: row;
-  cursor: pointer;
-  white-space: nowrap;
+  cursor: pointer; 
 }
 
 .topicStoryCount {
@@ -89,7 +89,7 @@
 
 .topTopicTitle {
   display: inline-block;
-  padding: 5px; 
+  padding: 5px;
 }
 
 .hidden {
@@ -146,7 +146,7 @@
 }
 
 .attachment {
-  display: inline-block; 
+  display: inline-block;
 }
 
 singleAttachment {
@@ -223,13 +223,13 @@ singleAttachment {
   width: 100%;
 }
 
-.showCommentSpan { 
+.showCommentSpan {
   cursor: pointer;
   white-space: nowrap;
   min-width: 35px;
   margin-right: clamp(0px, 5vw, 20px);
   display: flex;
-  align-items: center; 
+  align-items: center;
   justify-content: center;
 }
 
@@ -273,7 +273,7 @@ singleAttachment {
   display: flex;
   justify-content: flex-start;
   max-width: 100%;
-  overflow: hidden; 
+  overflow: hidden;
 }
 
 .storyMainInputDiv {
@@ -458,7 +458,7 @@ singleAttachment {
   display: flex;
   width: 100%;
   justify-content: space-evenly;
-} 
+}
 
 .editingTextAreaButtonWrapperDiv {
   display: flex;
@@ -591,12 +591,12 @@ singleAttachment {
 }
 
 .searchSocialsPanelContentDiv {
-  width: 100%; 
+  width: 100%;
   text-align: left;
   margin-top: 10px;
   margin-bottom: 5px;
 }
- 
+
 
 .emojiFilterInputDiv {
   text-align: center;
@@ -626,11 +626,11 @@ singleAttachment {
   font-size: var(--main-font-size);
 }
 
- .postOptionButtonWrapper {
+.postOptionButtonWrapper {
   display: flex;
   flex-wrap: nowrap;
-  text-shadow: 1px 1px var(--main-link-color); 
-} 
+  text-shadow: 1px 1px var(--main-link-color);
+}
 
 .showPostOptionButton {
   cursor: pointer;
@@ -659,16 +659,21 @@ singleAttachment {
   text-align: center;
   width: 65px;
 }
+
 .menuBackButtonSpecial {
-  right: 55px; 
+  right: 55px;
 }
+
 .menuBackButtonSpecialUser {
   right: 107px;
 }
-.menuBackButtonSpecial, .menuBackButtonSpecialUser {
+
+.menuBackButtonSpecial,
+.menuBackButtonSpecialUser {
   position: absolute;
   top: 0px;
 }
+
 .removeTopicButton {
   width: 15px;
   height: 15px;
@@ -683,7 +688,7 @@ singleAttachment {
 
 
 /* Highly specific CSS selectors for .menuPopupPanel */
-.menuPopupPanel.popupPanel {   
+.menuPopupPanel.popupPanel {
   box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
   padding: 20px;
   display: flex;
@@ -703,11 +708,11 @@ singleAttachment {
   font-size: 1.5rem;
   font-weight: 600;
   color: var(--primary-font-color);
-} 
+}
 
 .menuPopupPanel .userProfileSection {
   display: flex;
-  align-items: center; 
+  align-items: center;
   padding: 12px;
   background: rgba(var(--main-highlight-color-rgb), 0.1);
   border-radius: 8px;
@@ -928,6 +933,7 @@ singleAttachment {
   padding: 1px 4px;
   border-radius: 8px;
 }
+
 .menuPopupMiniOptions {
   display: flex;
   justify-content: space-between;
@@ -958,6 +964,7 @@ singleAttachment {
   background-color: var(--main-highlight-color-quarter-opacity);
   color: var(--secondary-font-color);
 }
+
 .reducedFileName {
   font-size: 10px;
   white-space: nowrap;
@@ -974,26 +981,31 @@ singleAttachment {
   border-radius: 8px;
   padding: 8px;
 }
-.popupSectionContainer > div:not(:last-child) {
+
+.popupSectionContainer>div:not(:last-child) {
   margin-bottom: 30px;
 }
+
 .showPostFromHelpInfoButton {
   width: 100%;
   height: 5px;
-  position: relative; 
+  position: relative;
   text-align: right;
   font-size: small;
   cursor: pointer;
 }
+
 .showPostFromHelpInfoButton:hover {
   text-decoration: underline;
   text-decoration-color: var(--main-link-color);
 }
+
 .showPostFromHelpInfo {
-  width: 100%; 
+  width: 100%;
   font-size: smaller;
   color: var(--third-font-color);
 }
+
 .showPostFromHelpInfo strong {
   color: var(--secondary-font-color);
 }
@@ -1007,4 +1019,50 @@ singleAttachment {
   flex-direction: row;
   gap: 10px;
   flex-wrap: wrap;
+}
+
+.componentSelectorPanel {
+  min-width: 300px;
+}
+
+.componentList {
+  max-height: 30vh;
+  overflow-y: auto;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 10px;
+  width: 500px;
+  margin-top: 10px;
+}
+
+@media only screen and (max-width : 600px) {
+  .componentList {
+    width: 300px;
+  }
+}
+
+.componentsItem {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.2s;
+  text-align: center;
+}
+
+.componentsItem:hover {
+  background: linear-gradient(135deg, var(--component-background-color), var(--secondary-component-background-color));
+}
+
+.componentsIcon {
+  font-size: 24px;
+  margin-bottom: 8px;
+}
+
+.componentsTitle {
+  font-size: 14px;
+  color: var(--third-font-color);
+  word-break: break-word;
 }

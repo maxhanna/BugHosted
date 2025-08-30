@@ -95,12 +95,7 @@
           <div class="avatarContainer">
             <app-user-tag [user]="parentRef?.user" [inputtedParentRef]="parentRef ?? parent"
               [displayHoverPicture]="true" [previousComponent]="'Social'"></app-user-tag>
-          </div>
-          <!-- <div class="smallFont thirdFontColor"
-            style="display: flex; flex-direction: column; align-content: center; justify-content: space-around; padding-left: 15px; font-family: var(--title-font-family);">
-            <div>{{city}},</div>
-            <div>{{country}}</div>
-          </div> -->
+          </div> 
         </div>
 
         <div
@@ -128,31 +123,8 @@
               <option value="no" [selected]="filter.hidden === 'no'">Hide</option>
             </select>
           </div>
-        </div>
-
+        </div> 
       </div>
-<!--  
-      <div class="menuPopupSection">
-        <label class="showPostsFromLabel">
-          Show Posts From:
-          <div class="selector" id="postSelector">
-            <span [class]="showPostsFromFilter == 'subscribed' ? 'active' : ''"
-              (click)="showPostsFrom('subscribed')">Subscribed</span>
-            <span [class]="showPostsFromFilter == 'local' ? 'active' : ''" (click)="showPostsFrom('local')">Local</span>
-            <span [class]="showPostsFromFilter == 'popular' ? 'active' : ''"
-              (click)="showPostsFrom('popular')">Popular</span>
-            <span [class]="showPostsFromFilter == 'all' ? 'active' : ''" (click)="showPostsFrom('all')">All</span>
-          </div>
-          <div class="showPostFromHelpInfo" *ngIf="isShowingPostFromHelpInfo">
-            <p><strong>Subscribed:</strong> Posts from communities or users you've subscribed to.</p>
-            <p><strong>Local:</strong> Posts created by users in your local region or country.</p>
-            <p><strong>Popular:</strong> Trending posts with high engagement across the platform.</p>
-            <p><strong>All:</strong> Every public post, regardless of location or subscription.</p>
-          </div>
-          <div class="showPostFromHelpInfoButton" (click)="isShowingPostFromHelpInfo = !isShowingPostFromHelpInfo">
-            ℹ️{{isShowingPostFromHelpInfo ? 'Hide ' : ''}}Info</div>
-        </label>
-      </div> -->
 
       <!-- compactness selector -->
       <div class="menuPopupSection">
@@ -164,37 +136,7 @@
             <option value="yess" [selected]="compactness == 'yess'">Yeeeeeessss - No Images, Only Text</option>
           </select>
         </label>
-      </div>
-<!--  
-      <div class="menuPopupSection">
-        <input type="text" #search placeholder="Search the socials" (input)="debouncedSearch()" *ngIf="!user"
-          [value]="userSearch" />
-        <input type="submit" (click)="searchStories()" value="🔍" *ngIf="!user" />
-        <div (click)="clearSearchInput()">
-          <span *ngIf="userSearch">
-            Current Search :
-            {{userSearch}} ❌
-          </span>
-        </div>
-      </div>
-
-      <div class="menuPopupSection">
-        <app-topics #topicComponent [isDropdown]="true" [user]="parentRef?.user" [parent]="parent ?? parentRef"
-          [attachedTopics]="attachedTopics" (topicAdded)="onTopicAdded($event)">
-        </app-topics>
-      </div>
- 
-      <div class="menuPopupSection topTopicsSection">
-        <div class="topTopicTitle" *ngIf="showTopicSelector">
-          Top Topics:
-        </div>
-        <div *ngFor="let topic of topTopics | slice:0:15" (click)="topTopicClicked(topic.topicName, topic.topicId)"
-          class="topicsGrid">
-          <span class="matchingTopic topicName">{{topic.topicName}}<span
-              class="topicStoryCount topicCount">({{topic.storyCount}})</span></span>
-        </div>
-      </div> -->
-
+      </div> 
       <button id="closeOverlay" (click)="closeMenuPanel()" class="closeButton">Close</button>
     </div>
 
@@ -238,6 +180,9 @@
         <button class="storyControlFlairButton" (click)="insertPollSnippet();" title="Poll">
           <span>📊</span>
         </button>
+        <button class="storyControlFlairButton" (click)="openComponentSelector();" title="Insert Component">
+          <span>🧩</span>
+        </button> 
       </div>
       <button id="closeOverlay" (click)="closePostOptionsPanel()" class="closeButton">Close</button> 
     </div>
@@ -317,9 +262,22 @@
           </span>
         </div>
       </div>
-      <button id="closeOverlay" class="closeButton " (click)="closeInsertEmojiPanel()">Close</button>
+      <button id="closeOverlay" class="closeButton" (click)="closeInsertEmojiPanel()">Close</button>
     </div>
 
+    <!-- Component Selector Popup -->
+    <div *ngIf="showComponentSelector" class="popupPanel componentSelectorPanel">
+      <div class="popupHeader">
+        <div class="popupPanelTitle">Select Component</div>
+      </div>
+      <div class="componentList">
+        <div *ngFor="let item of getNavigationItems()" class="componentsItem" (click)="insertComponent(item.title)">
+          <span class="componentsIcon">{{item.title != 'Weather' ? item.icon : '☀️'}}</span>
+          <span class="componentsTitle">{{item.title}}</span>
+        </div>
+      </div>
+      <button class="closeButton" id="closeOverlay" style="margin-top: 10px;" (click)="closeComponentSelector()">Close</button>
+    </div>
 
     <!-- Story Options Popup -->
     <div class="popupPanel storyOptionsPopup" *ngIf="isStoryOptionsPanelOpen && optionStory">
@@ -515,6 +473,9 @@
         <button *ngIf="!onMobile() && showPostInput" class="storyControlFlairButton" (click)="insertPollSnippet();"
           title="Poll">
           <span>📊</span>
+        </button>
+        <button *ngIf="!onMobile() && showPostInput" class="storyControlFlairButton" (click)="openComponentSelector();" title="Insert Component">
+          <span>🧩</span>
         </button>
       </div>
     </div>

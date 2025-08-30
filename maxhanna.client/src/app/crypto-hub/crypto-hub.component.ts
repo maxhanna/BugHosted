@@ -1865,8 +1865,12 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
     // Get data just once
     //console.log("Fetching exchange rates for graph with period:", periodSelected, "hours:", hours, "selectedCurrency:", selectedCurrency, "targetCurrency:", targetCurrency);
     const exchangeRates = await this.coinValueService.getAllExchangeRateValuesForGraph(new Date(), hours, targetCurrency);
-
-    this.allHistoricalExchangeRateDataForGraph = exchangeRates;
+    const formattedRates = (exchangeRates ?? []).map(rate => {
+      const formattedRate = Number(rate.rate.toFixed(2));
+      return { ...rate, rate: formattedRate };
+    });
+    console.log(formattedRates);
+    this.allHistoricalExchangeRateDataForGraph = formattedRates;
     this.stopLoading();
   }
 
@@ -2457,5 +2461,5 @@ export interface SentimentEntry {
   analysis: string;
   createdUtc: Date;
   expanded?: boolean;
-}
+} 
 type ToolKey = 'profit' | 'graph' | 'sim';
