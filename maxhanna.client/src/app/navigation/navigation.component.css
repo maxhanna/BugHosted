@@ -198,10 +198,10 @@ a {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 8px;
-  pointer-events: none;
+  gap: 8px; 
   padding: 16px;
   z-index: 1000;
+  cursor: pointer;
 }
 
 .navLink:hover { 

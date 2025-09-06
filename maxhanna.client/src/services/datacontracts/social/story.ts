@@ -20,6 +20,7 @@ export class Story {
   profileUserId?: number | undefined;
   city?: string | undefined;
   country?: string | undefined;
+  ip?: string | undefined;
   reactions?: Array<Reaction> | undefined;
   timeSince?: string; 
   hidden?: boolean; 

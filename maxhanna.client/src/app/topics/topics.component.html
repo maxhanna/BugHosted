@@ -1,27 +1,24 @@
-<div class="topicSelector" (click)="isDropdown ? clearSearch() : topicClicked.emit(attachedTopics)">
+<div class="topicSelector" (click)="isDropdown ? clearSearch() : ''">
   <div *ngIf="isDropdown">
-    <input type="text"
-           #newTopic
-           placeholder="Choose a Topic"
-           (keyup)="searchTopics(newTopic.value, true)"
-           (click)="searchInputClick()"
-           (blur)="cancelSearch(500)"
-           id="chooseTopicInput"
-           autocomplete="off"> 
-    <button (click)="addTopic()" #addTopicButton class="addTopicButton" *ngIf="showAddTopicButton" >Add Topic</button>
+    <input type="text" #newTopic placeholder="Choose a Topic" (keyup)="searchTopics(newTopic.value, true)"
+      (click)="searchInputClick()" (blur)="cancelSearch(500)" id="chooseTopicInput" autocomplete="off">
+    <button (click)="addTopic()" #addTopicButton class="addTopicButton" *ngIf="showAddTopicButton">Add Topic</button>
   </div>
-  
+
   <div *ngIf="matchingTopics.length > 0 && isDropdown" class="dropdownMenu" id="dropdownMenu">
-    <div *ngFor="let topic of matchingTopics" (click)="selectTopic(topic)" class="dropdownMenuTopic">{{topic.topicText}}</div>
+    <div *ngFor="let topic of matchingTopics" (click)="selectTopic(topic)" class="dropdownMenuTopic">
+      {{topic.topicText}}</div>
   </div>
   <div *ngIf="attachedTopics">
-    <span *ngFor="let topic of attachedTopics" class="matchingTopic" (click)="isDropdown ? removeTopic(topic) : ''">
+    <span *ngFor="let topic of attachedTopics" class="matchingTopic"
+      (click)="isDropdown ? removeTopic(topic) : topicClicked.emit([topic])">
       {{topic.topicText}}
-      <button class="removeTopicButton" *ngIf="isDropdown">❌</button>
+      <button class="coloredBgButton" *ngIf="isDropdown">❌</button>
     </span>
   </div>
 </div>
 <div *ngIf="matchingTopics.length > 0 && !isDropdown">
-  <span *ngFor="let topic of matchingTopics" (click)="selectTopic(topic)" class="matchingTopic">{{ topic.topicText }}</span>
-</div>  
+  <span *ngFor="let topic of matchingTopics" (click)="topicClicked.emit([topic])" class="matchingTopic">{{
+    topic.topicText }}</span>
+</div>
 <button id="closeOverlay" style="display:none" *ngIf="isDropdownShowing" (click)="cancelSearch()"></button>

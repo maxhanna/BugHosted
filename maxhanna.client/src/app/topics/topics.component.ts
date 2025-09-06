@@ -50,9 +50,8 @@ export class TopicsComponent extends ChildComponent {
       }
     }
   }
-  removeTopic(topic: Topic) {
-    this.attachedTopics = this.attachedTopics?.filter(x => x.id != topic.id);
-    this.topicAdded.emit(this.attachedTopics);
+  removeTopic(topic: Topic) { 
+    this.topicClicked.emit([topic]);
   }
   removeAllTopics() {
     this.attachedTopics = [];

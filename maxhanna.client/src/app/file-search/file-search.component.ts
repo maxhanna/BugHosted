@@ -727,11 +727,31 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     this.searchTerms = topic;
     await this.getDirectory();
   }
-  async fileTopicClicked(topic: Topic[]) {
-    this.searchTerms = topic.map(t => t.topicText).join(',');
+  async fileTopicClicked(topics: Topic[]) { 
+    if (topics) { 
+      let terms = this.searchTerms
+        .split(",")
+        .map(x => x.trim())
+        .filter(x => x.length > 0);
 
+      for (let topic of topics) {
+        const idx = terms.indexOf(topic.topicText);
+        if (idx >= 0) { 
+          terms.splice(idx, 1);
+        } else { 
+          terms.push(topic.topicText);
+        }
+      }
+ 
+      this.searchTerms = terms.join(",");
+    }
+    this.currentPage = 1;
+    this.scrollToTop();
     this.closeOptionsPanel();
-    await this.getDirectory();
+    setTimeout(async () => {
+      await this.getDirectory();
+    }, 200);
+    
   }
   async removeTopicFromFile(topic: Topic, file: FileEntry) {
     const user = this.inputtedParentRef?.user ?? this.parentRef?.user;

@@ -371,10 +371,9 @@ public class NewsService
 			string marker = "📰 [b]Daily News Update![/b]";
 			string checkSql = $@"
             SELECT COUNT(*) FROM stories
-            WHERE user_id = {newsServiceAccountNo} AND DATE(`date`) = CURDATE()
-            AND story_text LIKE CONCAT('%', @marker, '%');";
+            WHERE user_id = {newsServiceAccountNo} AND DATE(`date`) = CURDATE();";
 
-			if (await CheckIfDailyNewsStoryAlreadyExists(conn, transaction, marker, checkSql))
+			if (await CheckIfDailyNewsStoryAlreadyExists(conn, transaction, checkSql))
 			{
 				await _log.Db("Daily news story already exists. Skipping creation.", null, "NEWSSERVICE");
 				return;
@@ -412,7 +411,7 @@ public class NewsService
 
 			// Build the story string using only the most relevant article 
 			sb.AppendLine($"[*][b]{selectedArticle.Title}[/b]\nRead more: {selectedArticle.Url} [/*]");
-			string fullStoryText = sb.ToString().Trim();
+			string fullStoryText = _log.EncryptContent(sb.ToString().Trim(), newsServiceAccountNo + "");
 
 			// Save the description tokens of selected article for file-matching
 			var selectedArticleTokens = TokenizeText(selectedArticle.Description);
@@ -515,9 +514,9 @@ public class NewsService
 			}
 
 			// Create the story text
-			var storyText = $@"📢 [b]Top Daily Meme![/b]
+			var storyText = _log.EncryptContent($@"📢 [b]Top Daily Meme![/b]
 <a href='https://bughosted.com/Memes/{topMeme.Id}'>https://bughosted.com/Memes/{topMeme.Id}</a>
-Posted by user @{topMeme.Username}<br><small>Daily top memes are selected based on highest number of comments and reactions.</small>";
+Posted by user @{topMeme.Username}<br><small>Daily top memes are selected based on highest number of comments and reactions.</small>", memeServiceAccountNo + "");
 
 			// Insert the story
 			await InsertMemeStoryAsync(conn, transaction, storyText, topMeme.Id, memeServiceAccountNo);
@@ -569,7 +568,6 @@ Posted by user @{topMeme.Username}<br><small>Daily top memes are selected based 
                 FROM story_files sf
                 JOIN stories s ON s.id = sf.story_id
                 WHERE s.user_id = @serviceAccountId
-                AND s.story_text LIKE '%Daily Meme%'
                 ORDER BY s.date DESC 
             )
         GROUP BY fu.id, fu.file_name, fu.given_file_name, fu.user_id, fuu.username
@@ -649,11 +647,10 @@ Posted by user @{topMeme.Username}<br><small>Daily top memes are selected based 
 		return tokenFrequency.OrderByDescending(kv => kv.Value).First().Key;
 	}
 
-	private async Task<bool> CheckIfDailyNewsStoryAlreadyExists(MySqlConnection conn, MySqlTransaction transaction, string marker, string checkSql)
+	private async Task<bool> CheckIfDailyNewsStoryAlreadyExists(MySqlConnection conn, MySqlTransaction transaction, string checkSql)
 	{
 		await using (var checkCmd = new MySqlCommand(checkSql, conn, transaction))
-		{
-			checkCmd.Parameters.AddWithValue("@marker", marker);
+		{ 
 			var exists = Convert.ToInt32(await checkCmd.ExecuteScalarAsync()) > 0;
 			if (exists)
 			{
@@ -778,12 +775,11 @@ Posted by user @{topMeme.Username}<br><small>Daily top memes are selected based 
 			string marker = "📰 [b]Crypto News Update![/b]";
 			string checkSql = $@"
 				SELECT COUNT(*) FROM stories
-				WHERE user_id = {cryptoNewsServiceAccountNo} AND DATE(`date`) = CURDATE()
-				AND story_text LIKE CONCAT('%', @marker, '%');
+				WHERE user_id = {cryptoNewsServiceAccountNo} AND DATE(`date`) = CURDATE();
 			";
 
 
-			if (await CheckIfDailyNewsStoryAlreadyExists(conn, transaction, marker, checkSql))
+			if (await CheckIfDailyNewsStoryAlreadyExists(conn, transaction, checkSql))
 			{
 				await _log.Db("Daily crypto news story already exists. Skipping creation.", null, "NEWSSERVICE");
 				return;
@@ -801,7 +797,7 @@ Posted by user @{topMeme.Username}<br><small>Daily top memes are selected based 
 			sb.AppendLine($"[*][b]{topArticlesResult.Title}[/b]\nRead more: {topArticlesResult.Url} [/*]");
 		 
 
-			string fullStoryText = sb.ToString().Trim();
+			string fullStoryText = _log.EncryptContent(sb.ToString().Trim(), cryptoNewsServiceAccountNo + "");
 			var selectedArticleTokens = TokenizeText(fullStoryText);
 			// Insert the story into the 'stories' table (for the news service account)
 			await CreateNewsPosts(conn, transaction, fullStoryText, selectedArticleTokens, cryptoNewsServiceAccountNo);

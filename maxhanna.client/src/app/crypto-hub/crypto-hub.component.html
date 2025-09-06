@@ -229,11 +229,8 @@
             {{ tradeIndicators.retracementFromHighValue > 0 ? 'Retracement' : 'New All-Time High' }}
           </div>
           <div class="bold smallFont"
-            [class]="tradeIndicators.retracementFromHighValue > 0  ? 'positive' : 'negative'">
-            {{ tradeIndicators.retracementFromHighValue * 100 | number:'1.2-2' }}%
-            <span class="threshold-indicator" *ngIf="tradeIndicators.retracementFromHighValue > 0.15">
-              (Above 15% threshold)
-            </span> /
+            [class]="tradeIndicators.retracementFromHighValue > 0.05  ? 'positive' : 'negative'">
+            {{ tradeIndicators.retracementFromHighValue * 100 | number:'1.2-2' }}% /
             <span>{{ getConvertedCurrencyValueRespectToFiat(tradeIndicators.highPriceValue) | currencySymbol:(selectedCurrency):true}}</span>
           </div>
         </div>

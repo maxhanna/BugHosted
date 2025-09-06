@@ -22,7 +22,7 @@ import { UserComponent } from './user/user.component';
 import { ChatComponent } from './chat/chat.component';
 import { UserListComponent } from './user-list/user-list.component';
 import { MemeComponent } from './meme/meme.component';
-import { ClickableUrlsPipe, SocialComponent } from './social/social.component';
+import { SocialComponent } from './social/social.component';
 import { FileUploadComponent } from './file-upload/file-upload.component';
 import { NewsComponent } from './news/news.component';
 import { TopicsComponent } from './topics/topics.component';
@@ -77,6 +77,9 @@ import { CryptoTradeLogsComponent } from './crypto-trade-logs/crypto-trade-logs.
 import { CryptoCoinGraphViewerComponent } from './crypto-coin-graph-viewer/crypto-coin-graph-viewer.component';
 import { CryptoCoinVolumeGraphViewerComponent } from './crypto-coin-volume-graph-viewer/crypto-coin-volume-graph-viewer.component';
 import { CryptoLiveTradeViewComponent } from './crypto-live-trade-view/crypto-live-trade-view.component';
+import { TextFormattingToolbarComponent } from './text-formatting-toolbar/text-formatting-toolbar.component';
+import { TextInputComponent } from './text-input/text-input.component';
+import { ClickableUrlsPipe } from './clickable-url.pipe';
 
 @NgModule({
   declarations: [
@@ -143,6 +146,8 @@ import { CryptoLiveTradeViewComponent } from './crypto-live-trade-view/crypto-li
     CryptoCoinGraphViewerComponent,
     CryptoCoinVolumeGraphViewerComponent,
     CryptoLiveTradeViewComponent,
+    TextFormattingToolbarComponent,
+    TextInputComponent,
   ],
   bootstrap: [AppComponent],
   imports: [BrowserModule,
@@ -156,13 +161,12 @@ import { CryptoLiveTradeViewComponent } from './crypto-live-trade-view/crypto-li
     DecodeHtmlPipe,
     CryptoGlobalStatsComponent],
   exports: [
-    InViewDirective,
-    ClickableUrlsPipe,
+    InViewDirective, 
     TimeFormatPipe,
     TimeSincePipe,
     CurrencyFlagPipe,
     CurrencyShortenPipe,
-    CurrencySymbolPipe,
+    CurrencySymbolPipe, 
     FileSizePipe
   ],
   providers: [

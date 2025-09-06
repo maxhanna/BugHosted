@@ -76,7 +76,7 @@
                   {{file.isFolder ? '📁' : ''}}{{ file?.givenFileName ?? getFileWithoutExtension(file.fileName ?? '')}}
                 </span>
               </span>
-              <div class="fileExtras fileOptionsAction">
+              <div class="fileExtras fileOptionsActionWrapper">
                 <app-reaction *ngIf="displayReactions && !file.isFolder"
                               [user]="user"
                               [inputtedParentRef]="inputtedParentRef ?? parentRef"
@@ -86,21 +86,18 @@
                               [previousComponent]="previousComponent"
                               (click)="$event.stopPropagation()">
                 </app-reaction>
-                <div *ngIf="displayComments && !file.isFolder" class="fileOptionsAction fileOptionsChatBubble" (click)="openFileWithComments(file); $event.stopPropagation()">
+                <div *ngIf="displayComments && !file.isFolder" class="fileOptionsAction fileOptionsChatBubble coloredBgButton" (click)="openFileWithComments(file); $event.stopPropagation()">
                   🗨️ <span>{{getTotalCommentCount(file.fileComments)}}</span>
-                </div>
-                <div class="typeTd" (click)="selectFile(file); $event.stopPropagation();" *ngIf="displayFileType">
-                  <span [class]="file.visibility == 'Private' ? 'private':''"
-                        title="This is a private file.">
-                    {{file.visibility == 'Private' ? '🔒' : ''}}
-                  </span>
-                </div>
+                </div> 
                 <div *ngIf="displayFileActions"
                      (click)="showOptionsPanel(file); $event.stopPropagation();"
-                     class="fileOptionsAction fileOptionsCogIcon"
+                     class="fileOptionsAction fileOptionsCogIcon coloredBgButton"
                      [title]="'Show Options for \'' + (file.givenFileName && file.givenFileName != '' ? file.givenFileName : getFileWithoutExtension(file.fileName ?? '')) + '\' file.'">
                   ⚙️
                 </div> 
+                <div class="typeTd fileOptionsAction" (click)="selectFile(file); $event.stopPropagation();" *ngIf="displayFileType && file.visibility == 'Private'" title="This is a private file.">
+                  🔒
+                </div>
               </div>
             </div>
             <div *ngIf="!file.isFolder &&

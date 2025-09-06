@@ -140,144 +140,6 @@
       <button id="closeOverlay" (click)="closeMenuPanel()" class="closeButton">Close</button>
     </div>
 
-    <!-- Post Options Popup -->
-    <div class="popupPanel" *ngIf="isPostOptionsPanelOpen">
-      <div class="popupPanelTitle">
-        <span>Post Options</span>
-      </div>
-      <div class="smallFont createdByStoryOptionsDiv">
-        These affect the post created.
-      </div>
-      <div>
-        <label>
-          <input type="checkbox" (change)="eachAttachmentSeperatePost = !eachAttachmentSeperatePost"
-            [checked]="eachAttachmentSeperatePost" />
-          Each Attachment In A Seperate Post.
-          <span class="smallFont">
-            Creates a post for every file attachment attached.
-          </span>
-        </label>
-      </div>
-      <div *ngIf="onMobile()" class="mobilePostButtonOptions">
-        <button class="storyControlFlairButton" (click)="insertBold();" title="Bold">
-          <span style="font-weight:900">B</span>old
-        </button>
-        <button class="storyControlFlairButton" (click)="insertItalics();" title="Italic">
-          <span style="font-style:italic">I</span>talics
-        </button>
-        <button class="storyControlFlairButton" (click)="insertBullet();" title="Bullet-point">
-          <span>&bull;</span> Bullet
-        </button>
-        <button class="storyControlFlairButton" (click)="insertH2();" title="Header">
-          <span>##</span> Header
-        </button>
-        <button class="storyControlFlairButton" (click)="insertH3();" title="Sub-Header">
-          <span>###</span> Sub
-        </button>
-        <button class="storyControlFlairButton" (click)="openInsertEmojiPanel();" title="Emoji">
-          <span>😊</span>
-        </button>
-        <button class="storyControlFlairButton" (click)="insertPollSnippet();" title="Poll">
-          <span>📊</span>
-        </button>
-        <button class="storyControlFlairButton" (click)="openComponentSelector();" title="Insert Component">
-          <span>🧩</span>
-        </button> 
-      </div>
-      <button id="closeOverlay" (click)="closePostOptionsPanel()" class="closeButton">Close</button> 
-    </div>
-
-    <!-- Post Topics Popup -->
-    <div class="popupPanel" *ngIf="isMobileTopicsPanelOpen">
-      <div class="popupPanelTitle">Topics</div>
-      <app-topics #topicComponent [isDropdown]="true" [user]="parentRef?.user" [parent]="parent ?? parentRef"
-        [attachedTopics]="attachedTopics" (topicAdded)="onTopicAdded($event)">
-      </app-topics>
-      <div class="popupSectionContainer gradientBackground">
-        <div>
-          <div class="topTopicTitle" *ngIf="showTopicSelector">
-            Favourite Topics:
-          </div>
-          <div *ngFor="let topic of favTopics" (click)="topTopicClicked(topic.topicText, topic.id)"
-            class="topTopicsDiv">
-            <span class="matchingTopic">
-              {{topic.topicText}}
-              <button class="removeTopicButton" (click)="removeFavTopic(topic); $event.stopPropagation();">❌</button>
-            </span>
-          </div>
-          <div *ngIf="favTopics.length == 0">No favourites yet.</div>
-          <div *ngIf="attachedTopics.length > 0">
-            <ng-container *ngIf="getNonFavoriteTopics().length > 0">
-              <button (click)="addFavouriteTopic()">
-                Add
-                <span *ngFor="let aTopic of getNonFavoriteTopics(); let last = last">
-                  <span class="matchingTopic">{{aTopic.topicText}}</span>
-                  {{last ? '' : ', '}}
-                </span>
-                to favourites
-              </button>
-            </ng-container>
-          </div>
-        </div>
-
-        <div>
-          <div class="topTopicTitle" *ngIf="showTopicSelector">
-            Ignored Topics: <span *ngIf="ignoredTopics.length == 0" class="thirdFontColor">No ignored topics.</span>
-          </div>
-          <div *ngFor="let topic of ignoredTopics" (click)="topTopicClicked(topic.topicText, topic.id)"
-            class="topTopicsDiv">
-            <span class="matchingTopic">
-              {{topic.topicText}}
-              <button class="removeTopicButton"
-                (click)="removeIgnoredTopic(topic); $event.stopPropagation();">❌</button>
-            </span>
-          </div>
-        </div>
-        <div class="topTopicsSection">
-          <div class="topTopicTitle" *ngIf="showTopicSelector">
-            Top Topics:
-          </div>
-          <div *ngFor="let topic of topTopics | slice:0:15" (click)="topTopicClicked(topic.topicName, topic.topicId)"
-            class="topicsGrid">
-            <span class="matchingTopic">
-              {{topic.topicName}}
-              <span class="topicStoryCount">({{topic.storyCount}})</span>
-            </span>
-          </div>
-        </div>
-      </div>
-      <button id="closeOverlay" (click)="closeMobileTopicsPanel()" class="closeButton">Close</button>
-    </div>
-
-    <!-- Emoji picker Popup -->
-    <div class="popupPanel" *ngIf="isEmojiPanelOpen && !showOnlyPost">
-      <div>
-        <div class="emojiFilterInputDiv">
-          <input id="emojiFilter" #emojiFilter placeholder="🔍Search" (input)="searchForEmoji($event)" />
-        </div>
-        <div class="emojiFilterContainer">
-          <span *ngFor="let emoji of filteredEmojis | keyvalue" (click)="insertEmoji(emoji.value)"
-            style="cursor: pointer; font-size: 24px; margin: 5px;" [title]="emoji.key">
-            {{ emoji.value }}
-          </span>
-        </div>
-      </div>
-      <button id="closeOverlay" class="closeButton" (click)="closeInsertEmojiPanel()">Close</button>
-    </div>
-
-    <!-- Component Selector Popup -->
-    <div *ngIf="showComponentSelector" class="popupPanel componentSelectorPanel">
-      <div class="popupHeader">
-        <div class="popupPanelTitle">Select Component</div>
-      </div>
-      <div class="componentList">
-        <div *ngFor="let item of getNavigationItems()" class="componentsItem" (click)="insertComponent(item.title)">
-          <span class="componentsIcon">{{item.title != 'Weather' ? item.icon : '☀️'}}</span>
-          <span class="componentsTitle">{{item.title}}</span>
-        </div>
-      </div>
-      <button class="closeButton" id="closeOverlay" style="margin-top: 10px;" (click)="closeComponentSelector()">Close</button>
-    </div>
 
     <!-- Story Options Popup -->
     <div class="popupPanel storyOptionsPopup" *ngIf="isStoryOptionsPanelOpen && optionStory">
@@ -335,13 +197,17 @@
               <span
                 *ngIf="optionStory.storyTopics && optionStory.storyTopics.length > 0 && optionStory.id && !editingTopics.includes(optionStory.id)">
                 <span *ngFor="let topic of optionStory.storyTopics" class="matchingTopic"
-                  (click)="editingTopics.includes(optionStory.id) ? removeTopicFromStory(topic, optionStory) : topicClicked(topic);">
+                  (click)="editingTopics.includes(optionStory.id) ? removeTopicsFromStory([topic], optionStory) : topicClicked([topic]);">
                   {{topic.topicText}}
                 </span>
               </span>
               <div *ngIf="optionStory && optionStory.id && editingTopics.includes(optionStory.id)">
-                <app-topics #topicComponent [isDropdown]="true" [user]="parentRef?.user" [parent]="parent ?? parentRef"
-                  [attachedTopics]="optionStory.storyTopics" (topicAdded)="editStoryTopic($event, optionStory)">
+                <app-topics #topicComponent 
+                  [isDropdown]="true" 
+                  [user]="parentRef?.user" [parent]="parent ?? parentRef"
+                  [attachedTopics]="optionStory.storyTopics" 
+                  (topicAdded)="editStoryTopic($event, optionStory)"
+                  (topicClicked)="removeTopicsFromStory($event, optionStory)">
                 </app-topics>
               </div>
             </div>
@@ -418,69 +284,19 @@
 
     <!-- Story Input -->
     <div class="storyInputDiv" *ngIf="!showOnlyPost || user">
-      <div class="storyMainInputDiv">
-        <input type="text" placeholder="What’s crawling your mind?" style="min-width:210px;"
-          (click)="showPostInput = true;" *ngIf="!showPostInput">
-        <textarea #story placeholder="What’s crawling your mind?" class="foodForThought"
-          *ngIf="showPostInput"></textarea>
-      </div>
-      <div class="mainFileUploaderAndTopicSelectorDiv">
-        <button (click)="showPostInput ? post() : (showPostInput = true)">🗨️ Post</button>
-        <app-media-selector *ngIf="parentRef" #postMediaSelector
-          [currentDirectory]="parentRef.user?.username ? 'Users/' + parentRef!.user!.username! : user?.username ? 'Users/' + user!.username! :  'Users/Anonymous'"
-          [user]="parentRef.user" [inputtedParentRef]="parentRef"
-          (selectFileEvent)="selectFile($event)"></app-media-selector>
-        <button (click)="showPostOptionsPanel()" *ngIf="showPostInput">
-          ⚙️Options
-          <span class="xxSmallFont" *ngIf="getOptionsCount() > 0">
-            ({{getOptionsCount()}})
-          </span>
-        </button>
-        <button class="mainTopicSelectionsHeaderButton" (click)="showMobileTopicsPanel()">
-          Topics<span class="matchingTopicsInsideButtonWrapper" *ngIf="attachedTopics && attachedTopics.length > 0">
-            (
-            <span *ngFor="let topic of attachedTopics; let i = index" class="matchingTopic"
-              title="{{topic.topicText}} : Click to remove topic">
-              {{topic.topicText}}
-            </span>
-            )
-          </span>
-        </button>
-        <button *ngIf="!onMobile() && showPostInput" class="storyControlFlairButton" (click)="insertBold();"
-          title="Bold">
-          <span style="font-weight:900">B</span>
-        </button>
-        <button *ngIf="!onMobile() && showPostInput" class="storyControlFlairButton" (click)="insertItalics();"
-          title="Italic">
-          <span style="font-style:italic">I</span>
-        </button>
-        <button *ngIf="!onMobile() && showPostInput" class="storyControlFlairButton" (click)="insertBullet();"
-          title="Bullet-point">
-          <span>&bull;</span>
-        </button>
-        <button *ngIf="!onMobile() && showPostInput" class="storyControlFlairButton" (click)="insertH2();"
-          title="Header">
-          <span>##</span>
-        </button>
-        <button *ngIf="!onMobile() && showPostInput" class="storyControlFlairButton" (click)="insertH3();"
-          title="Sub-Header">
-          <span>###</span>
-        </button>
-        <button *ngIf="!onMobile() && showPostInput" class="storyControlFlairButton" (click)="openInsertEmojiPanel();"
-          title="Emoji">
-          <span>😊</span>
-        </button>
-        <button *ngIf="!onMobile() && showPostInput" class="storyControlFlairButton" (click)="insertPollSnippet();"
-          title="Poll">
-          <span>📊</span>
-        </button>
-        <button *ngIf="!onMobile() && showPostInput" class="storyControlFlairButton" (click)="openComponentSelector();" title="Insert Component">
-          <span>🧩</span>
-        </button>
-      </div>
+      <div class="storyMainInputDiv"> 
+          <app-text-input 
+          [inputtedParentRef]="parentRef ?? parent"
+          [type]="'Social'"
+          [profileUser]="user"
+          [attachedTopics]="attachedTopics"
+          (topicAdded)="searchStories($event)"
+          (topicClicked)="topicClicked($event)"
+          (topicIgnored)="searchStories()"
+          (contentPosted)="contentPosted($event)"></app-text-input>
+      </div> 
     </div>
-
-    <!-- POST -->
+ 
     <div id="mainTableDiv" [class]="!user ? 'storyContainerWrapper' : ''"
       *ngIf="storyResponse && storyResponse.stories && storyResponse.stories.length > 0">
       <div *ngFor="let story of storyResponse?.stories" [id]="'storyDiv'+story.id" class="storyContainer">
@@ -496,16 +312,13 @@
           <div class="postOptionButtonWrapper">
             <span class="postOptionButtons">
               <app-reaction [storyId]="story.id" [user]="parentRef?.user" [inputtedParentRef]="parentRef"
-                [userProfileId]="userProfileId" [component]="story" [showSpan]="true"
+                [userProfileId]="userProfileId" [component]="story" [showSpan]="false"
                 [currentReactions]="story.reactions" [previousComponent]="'Social'"></app-reaction>
-            </span>
-            <!-- <span class="showCommentSpan" (click)="showComments(story.id)">
-              <span class="commentBubbleIcon">🗨️{{getTotalCommentCount(story.storyComments)}}</span>
-            </span> -->
-            <span (click)="showStoryOptionsPanel(story);" class="postOptionButtons showPostOptionButton"
+            </span> 
+            <button (click)="showStoryOptionsPanel(story);" class="postOptionButtons showPostOptionButton coloredBgButton"
               title="Show post options">
               ⚙️
-            </span>
+            </button>
           </div>
         </div>
         <div *ngIf="story && story.id && (story.storyText || isEditing.includes(story.id) || story.storyFiles)"
@@ -515,43 +328,20 @@
             [id]="'storyTextContainer'+story.id" (click)="toggleCollapse('storyTextContainer'+story.id)">
             <div class="storyContentDiv">
               <div class="storyText" [style.display]="isEditing.includes(story.id) ? 'none' : 'block'"
-                [style.opacity]="isLoading ? 0.5 : 1" [innerHtml]="getTextForDOM(story.storyText, story.id)"
+                [style.opacity]="isLoading ? 0.5 : 1" [innerHtml]="getTextForDOM(decryptText(story.storyText, story.user.id), story.id)"
                 [id]="'storyText' + story.id"></div>
 
               <textarea [id]="'storyTextTextarea' + story.id"
                 [style.width]="isEditing.includes(story.id) ? '100%' : '0'"
-                [style.display]="isEditing.includes(story.id) ? 'block' : 'none'">{{story.storyText}}</textarea>
+                [style.display]="isEditing.includes(story.id) ? 'block' : 'none'">{{decryptText(story.storyText, story.user.id)}}</textarea>
               <div class="editingTextAreaButtonWrapperDiv">
                 <button [id]="'storyTextEditConfirmButton' + story.id" (click)="editStory(story)"
                   [style.display]="isEditing.includes(story.id) ? 'block' : 'none'">
                   <span class="storyEditSpans storyAcceptEdit" [id]="'storyAcceptEditButtonSpan' + story.id">✔️</span>
                   ✏️Edit
                 </button>
-                <button [style.display]="isEditing.includes(story.id) ? 'block' : 'none'"
-                  class="mainTopicSelectionsHeaderButton" (click)="insertBold('storyTextTextarea' + story.id);"
-                  title="Bold">
-                  <span style="font-weight:900">B</span>
-                </button>
-                <button [style.display]="isEditing.includes(story.id) ? 'block' : 'none'"
-                  class="mainTopicSelectionsHeaderButton" (click)="insertItalics('storyTextTextarea' + story.id);"
-                  title="Italic">
-                  <span style="font-style:italic">I</span>
-                </button>
-                <button [style.display]="isEditing.includes(story.id) ? 'block' : 'none'"
-                  class="mainTopicSelectionsHeaderButton" (click)="insertBullet('storyTextTextarea' + story.id);"
-                  title="Bullet-point">
-                  <span>&bull;</span>
-                </button>
-                <button [style.display]="isEditing.includes(story.id) ? 'block' : 'none'"
-                  class="mainTopicSelectionsHeaderButton" (click)="insertH2('storyTextTextarea' + story.id);"
-                  title="Header">
-                  <span>##</span>
-                </button>
-                <button [style.display]="isEditing.includes(story.id) ? 'block' : 'none'"
-                  class="mainTopicSelectionsHeaderButton" (click)="insertH3('storyTextTextarea' + story.id);"
-                  title="Sub-Header">
-                  <span>###</span>
-                </button>
+                <app-text-formatting-toolbar [style.display]="isEditing.includes(story.id) ? 'block' : 'none'" [inputtedParentRef]="parentRef ?? parent"
+                  [parentId]="'storyTextTextarea' + story.id"></app-text-formatting-toolbar>
               </div>
             </div>
           </div>
@@ -578,7 +368,7 @@
             </div>
             <div class="reactionTopicsAndExpanderDiv reactionTopics">
               <span *ngIf="story.storyTopics && story.storyTopics.length > 0">
-                <span *ngFor="let topic of story.storyTopics" class="matchingTopic" (click)="topicClicked(topic)">
+                <span *ngFor="let topic of story.storyTopics" class="matchingTopic" (click)="topicClicked([topic])">
                   {{topic.topicText}}
                 </span>
               </span>
@@ -601,8 +391,11 @@
           <div>
             <app-comments *ngIf="story" [inputtedParentRef]="parentRef" [type]="'Social'"
               [showComments]="openedStoryComments.includes(story?.id ?? 0)" [showCommentsHeader]="true"
-              [component_id]="story.id!" [component]="story" [userProfileId]="userProfileId"
-              [previousComponent]="'Social'" [commentList]="story!.storyComments!"
+              [component_id]="story.id!" 
+              [component]="story" 
+              [userProfile]="user"
+              [previousComponent]="'Social'" 
+              [commentList]="story!.storyComments!"
               (commentAddedEvent)="commentAddedEvent($event)" (commentHeaderClickedEvent)="showComments(story.id)"
               (commentRemovedEvent)="commentRemovedEvent($event)">
             </app-comments>

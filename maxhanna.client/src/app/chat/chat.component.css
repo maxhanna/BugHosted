@@ -37,15 +37,11 @@
   width: 100%;
 }
 
-/*
-  .chatArea.expanded {
-    width: 0px;
-  }*/
+.messageInputInnerDiv { 
+  display: flex;
+  flex-direction: column; 
+}  
 
-/*.userPanel.expanded ~ .chatArea {
-  margin-left: 100px;
-}
-*/
 .chatHeader {
   margin: 4px;
   display: flex;
@@ -112,20 +108,7 @@
   align-content: center;
   justify-content: center;
   align-items: center;
-}
-
-.messageInput textarea {
-  width: calc(100% - 170px);
-}
-
-.messageInput input {
-  min-width: CALC(100% - 200px);
-}
-
-
-input[type="text"] {
-  touch-action: manipulation;
-}
+}   
 
 .profileTag {
   margin-left: unset !important;

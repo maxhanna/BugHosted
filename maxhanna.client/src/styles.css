@@ -614,17 +614,16 @@ fieldset {
 }
 
 .matchingTopic {
-  display: inline-flex;
-  padding: 5px;
-  padding-top: 6px;
-  line-height: 12px;
+  display: inline-flex; 
   border-radius: 4px;
+  padding: 2px 5px 2px 5px;
   background-color: var(--main-highlight-color);
   cursor: pointer;
   border: var(--main-border);
   color: var(--secondary-font-color);
-  align-items: center;
+  align-items: flex-end;
   gap: 8px;
+  font-size: small;
 }
 
 
@@ -744,12 +743,8 @@ fieldset {
   text-decoration: underline;
 }
 
-.poll-container {
-  border: var(--main-border);
-  border-radius: 8px;
-  padding-left: 15px;
-  padding-right: 15px;
-  padding-top: 15px;
+.poll-container {  
+  padding: 15px 15px 0px 15px; 
 }
 
 .poll-question {
@@ -880,4 +875,16 @@ fieldset {
   opacity: 0;
   width: 0;
   height: 0;
+}
+
+.coloredBgButton {
+  background: linear-gradient(to bottom, var(--main-highlight-color), transparent);
+  color: var(--main-link-color);
+  border: 0;
+  transition: transform 0.1s ease;
+}
+.coloredBgButton:active {
+    background: linear-gradient(to top, var(--main-highlight-color), transparent);
+    transform: translateY(2px);
+    box-shadow: 0 1px 1px rgba(0, 0, 0, 0.2);
 }

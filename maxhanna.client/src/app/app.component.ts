@@ -258,9 +258,10 @@ export class AppComponent implements OnInit, AfterViewInit {
   pollQuestion = "";
   pollResults: any = null;
   isShowingUserTagPopup = false;
+  isShowingSecurityPopup = false;
   popupUserTagUser?: User;
   isSpeaking = false;
-
+  private securityTimeout: any = null;  
   private componentMap: { [key: string]: any; } = {
     "Navigation": NavigationComponent,
     "Favourites": FavouritesComponent,
@@ -1157,12 +1158,17 @@ export class AppComponent implements OnInit, AfterViewInit {
     event?.stopPropagation();
   } 
   async updateLastSeenPeriodically() {
-    setTimeout(() => {
-      const shouldRefresh = confirm("Security has timed you out. Would you like to refresh the page?");
-      if (shouldRefresh) {
-        window.location.reload();
-      }
+    if (this.securityTimeout) {
+      clearTimeout(this.securityTimeout);
+    }
+    this.securityTimeout = setTimeout(() => {
+      this.isShowingSecurityPopup = true;
+      this.showOverlay();
     }, 60 * 60 * 1000); // 1 hour
+  } 
+  closeSecurityPopup() {
+    this.isShowingSecurityPopup = false;
+    this.closeOverlay();
   }
   async updateLastSeen(user?: User) {
     const tmpUser = user ?? this.user;
@@ -1171,6 +1177,7 @@ export class AppComponent implements OnInit, AfterViewInit {
       this.userService.updateLastSeen(tmpUser.id);
       tmpUser.lastSeen = new Date();
     }
+    this.updateLastSeenPeriodically();
   }
   async isServerUp(): Promise<number> {
     try {

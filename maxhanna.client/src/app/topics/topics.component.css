@@ -9,22 +9,7 @@
 }
 input {
   width: 170px;
-}
-
-.matchingTopic {
-  height: 20px;
-  display: inline-flex;
-  padding: -4px 5px;
-  border-radius: 4px;
-  background-color: var(--main-highlight-color);
-  cursor: pointer;
-  border: var(--main-border);
-  flex-direction: row;
-  flex-wrap: nowrap;
-  align-content: center;
-  justify-content: center;
-  align-items: center;
-}
+} 
  
 .addTopicButton {
   visibility: hidden;
@@ -88,15 +73,6 @@ input {
   }
 }
 
-.removeTopicButton {
-  width: 15px;
-  height: 15px;
-  font-size: xx-small;
-  border: 0;
-  padding: 0;
-  vertical-align: middle;
-  background-color: var(--secondary-font-color);
-}
 #chooseTopicInput, .addTopicButton {
   z-index: 2;
   position: relative;

@@ -11,27 +11,12 @@ import { StoryResponse } from '../../services/datacontracts/social/story-respons
 import { FileEntry } from '../../services/datacontracts/file/file-entry';
 import { User } from '../../services/datacontracts/user/user';
 import { MediaSelectorComponent } from '../media-selector/media-selector.component';
-import { FileComment } from '../../services/datacontracts/file/file-comment';
-import { Pipe, PipeTransform } from '@angular/core';
+import { FileComment } from '../../services/datacontracts/file/file-comment'; 
 import { UserService } from '../../services/user.service';
 import { TodoService } from '../../services/todo.service';
-import { Todo } from '../../services/datacontracts/todo';
-import { NotificationService } from '../../services/notification.service';
-import { FileService } from '../../services/file.service';
-
-@Pipe({
-  name: 'clickableUrls',
-  standalone: false
-})
-export class ClickableUrlsPipe implements PipeTransform {
-  transform(value?: string): string {
-    if (!value) {
-      return '';
-    }
-    // Your existing createClickableUrls logic here
-    return value.replace(/(https?:\/\/[^\s]+)/g, '<a href="$1" target="_blank">$1</a>');
-  }
-}
+import { Todo } from '../../services/datacontracts/todo'; 
+import { FileService } from '../../services/file.service'; 
+import { EncryptionService } from '../../services/encryption.service';
 
 @Component({
   selector: 'app-social',
@@ -51,11 +36,9 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
   isSearchSocialsPanelOpen = false;
   isMenuPanelOpen = false;
   isStoryOptionsPanelOpen = false;
-  isPostOptionsPanelOpen = false;
-  isEmojiPanelOpen = false;
+  isPostOptionsPanelOpen = false; 
   isEditing: number[] = [];
   editingTopics: number[] = [];
-  eachAttachmentSeperatePost = false;
   attachedFiles: FileEntry[] = [];
   attachedTopics: Array<Topic> = [];
   storyOverflowMap: { [key: string]: boolean } = {};
@@ -70,9 +53,6 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
   notifications: String[] = [];
   expanded: string[] = [];
   attachedSearchTopics: Array<Topic> = [];
-  topTopics: TopicRank[] = [];
-  favTopics: Topic[] = [];
-  ignoredTopics: Topic[] = [];
 
   currentPage: number = 1;
   totalPages: number = 1;
@@ -88,10 +68,10 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
   compactness = "yes";
   private storyUpdateInterval: any;
   private overflowCache: Record<string, boolean> = {};
-  canLoad = false;
-
+  canLoad = false; 
   city: string | undefined;
   country: string | undefined;
+  ignoredTopics: Topic[] = [];
 
   @ViewChild('story') story!: ElementRef<HTMLInputElement>;
   @ViewChild('pageSelect') pageSelect!: ElementRef<HTMLSelectElement>;
@@ -118,7 +98,7 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
     private userService: UserService,
     private todoService: TodoService,
     private fileService: FileService,
-    private notificationService: NotificationService) {
+    private encryptionService: EncryptionService) {
     super();
   }
 
@@ -157,15 +137,7 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
         }
       }
     });
-    this.topicService.getTopStoryTopics().then(res => {
-      if (res) {
-        this.topTopics = res;
-      }
-    });
-    if (this.parentRef?.user?.id) {
-      this.topicService.getFavTopics(this.parentRef.user).then(res => this.favTopics = res);
-      this.topicService.getIgnoredTopics(this.parentRef.user).then(res => this.ignoredTopics = res);
-    }
+   
 
     this.parentRef?.getLocation().then(res => {
       if (res) {
@@ -191,7 +163,7 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
   }
 
   private changePageTitleAndDescription(tgtStory: Story) {
-    const storyText = tgtStory.storyText;
+    const storyText = this.decryptText(tgtStory.storyText, tgtStory.user.id);
     if (storyText && !this.showOnlyPost) {
       const titleAndDescrip = this.parentRef?.replacePageTitleAndDescription(storyText.trim(), storyText);
       const script = document.createElement('script');
@@ -271,7 +243,7 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
   }
   async editStory(story: Story) {
     const message = (document.getElementById('storyTextTextarea' + story.id) as HTMLTextAreaElement).value;
-    story.storyText = message;
+    story.storyText = this.encryptionService.encryptContent(message, story.user.id + "");
     if (document.getElementById('storyText' + story.id) && this.parentRef?.user?.id) {
       this.parentRef.updateLastSeen();
       const sessionToken = await this.parentRef.getSessionToken();
@@ -300,7 +272,7 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
     const search = keywords ?? this.search?.nativeElement.value;
     const userId = this.user?.id;
     let storyId = this.getSearchStoryId();
-
+    console.log("get stories topics:", topics)
     this.parentRef?.updateLastSeen();
     const res = await this.socialService.getStories(
       this.parentRef?.user?.id,
@@ -425,62 +397,7 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
         pollContainer.innerHTML = pollHtml;
       });
     }, delayMs);
-  }
-
-  async post() {
-    const storyText = this.story.nativeElement.value?.trim() || ''; // Ensure it's a string
-    if (!storyText && (!this.attachedFiles || this.attachedFiles.length === 0)) {
-      alert("Story can't be empty!");
-      return;
-    }
-    this.startLoading();
-
-    try {
-      const parent = this.parentRef ?? this.parent;
-      const user = parent?.user ?? new User(0, "Anonymous");
-
-      const results = this.eachAttachmentSeperatePost
-        ? await this.postEachFileAsSeparateStory(user, storyText)
-        : await this.postSingleStory(user, storyText);
-
-      if (results) {
-        this.clearStoryInputs();
-        this.getStories();
-        this.topicComponent?.removeAllTopics();
-        if (this.user && this.user.id) {
-          const notificationData: any = {
-            fromUserId: user.id,
-            toUserIds: [this.user.id],
-            message: "New post on your profile!",
-            userProfileId: this.user.id
-          };
-          this.notificationService.createNotifications(notificationData);
-        }
-        if (parent) {
-          const mentionnedUsers = await parent.getUsersByUsernames(storyText);
-          if (mentionnedUsers && mentionnedUsers.length > 0) {
-            const notificationData: any = {
-              fromUserId: user.id,
-              toUserIds: mentionnedUsers.map(x => x.id),
-              message: "You were mentionned!",
-              userProfileId: this.user?.id,
-              storyId: results.storyId,
-            };
-            this.notificationService.createNotifications(notificationData);
-          }
-          parent.showNotification(results.message ?? "Story posted successfully!");
-        }
-        this.showPostInput = false;
-      } else {
-        parent?.showNotification("An unexpected error occurred.");
-      }
-    } catch (error) {
-      console.error("Error while posting story:", error);
-      this.parentRef?.showNotification("An unexpected error occurred.");
-    } finally {
-      this.stopLoading();
-    }
-  }
+  } 
 
   private createStory(user: User, storyText: string, files: FileEntry[]): Story {
     const parent = this.parent ?? this.parentRef;
@@ -520,16 +437,7 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
 
     return await Promise.all(promises);
   }
-
-  private clearStoryInputs(): void {
-    this.attachedFiles = [];
-    this.attachedTopics = [];
-    this.postMediaSelector.selectedFiles = [];
-    this.mediaSelectorComponent.closeMediaSelector();
-    this.story.nativeElement.value = '';
-    this.eachAttachmentSeperatePost = false;
-  }
-
+ 
   async editStoryTopic(topics: Topic[], story: Story) {
     const user = this.parentRef?.user ?? this.parent?.user;
     if (user) {
@@ -541,12 +449,12 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
     }
   }
 
-  async removeTopicFromStory(topic: Topic, story: Story) {
-    let topics = story.storyTopics?.filter(x => x.id != topic.id);
-    if (!topics) {
-      topics = [];
-    }
-    await this.editStoryTopic(topics, story);
+  async removeTopicsFromStory(topicsToRemove: Topic[], story: Story) { 
+    let updatedTopics = story.storyTopics?.filter(
+      x => !topicsToRemove.some(t => t.id === x.id)
+    ) ?? [];
+
+    await this.editStoryTopic(updatedTopics, story);
   }
 
   removeAttachment(fileId: number) {
@@ -607,19 +515,7 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
     if (!url) return false;
     return url.includes("ytimg");
   }
-  addFavouriteTopic() {
-    if (this.parentRef?.user?.id) {
-      const topicIds = this.attachedTopics.map(x => x.id);
-      this.topicService.addFavTopic(this.parentRef.user.id, topicIds).then(res => {
-        if (res) {
-          this.parentRef?.showNotification(res.message);
-          if (res.success) {
-            this.favTopics = res.allFavoriteTopics;
-          }
-        }
-      });
-    }
-  }
+
   onTopicAdded(topics?: Array<Topic>) {
     if (topics) {
       this.currentPage = 1;
@@ -628,21 +524,25 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
       this.scrollToStory();
       this.closeMenuPanel();
       this.closePostOptionsPanel();
-      this.closeStoryOptionsPanel();
-      this.closeMobileTopicsPanel();
+      this.closeStoryOptionsPanel(); 
     }
   }
   removeTopic(topic: Topic) {
     this.attachedTopics = this.attachedTopics.filter(x => x.id != topic.id);
     this.searchStories(this.attachedTopics);
-    this.scrollToStory();
-    this.closeMobileTopicsPanel();
+    this.scrollToStory(); 
   }
-  topicClicked(topic: Topic) {
-    if (this.attachedTopics.some(x => x.id == topic.id)) {
-      return;
+  topicClicked(topics?: Topic[]) { 
+    if (topics) {
+      for (let topic of topics) {
+        if (this.attachedTopics.find(x => x.id == topic.id)) {
+          this.attachedTopics = this.attachedTopics.filter(x => x.id != topic.id);
+        } else {
+          this.attachedTopics.push(topic);
+        }
+      } 
     }
-    this.attachedTopics.push(topic);
+    this.currentPage = 1; 
     this.onTopicAdded(this.attachedTopics);
     this.scrollToStory();
   }
@@ -722,18 +622,7 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
       this.parentRef.closeOverlay();
     }
   }
-  showMobileTopicsPanel() {
-    const parent = this.parent ?? this.parentRef;
-    this.isMobileTopicsPanelOpen = true;
-    if (parent) {
-      parent.showOverlay();
-    }
-  }
-  closeMobileTopicsPanel() {
-    this.isMobileTopicsPanelOpen = false;
-    const parent = this.parent ?? this.parentRef;
-    parent?.closeOverlay();
-  }
+ 
   showMenuPanel() {
     if (this.isMenuPanelOpen) {
       this.closeMenuPanel();
@@ -782,35 +671,13 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
     const parent = this.parent ?? this.parentRef;
     parent?.closeOverlay();
   }
-  openInsertEmojiPanel() {
-    if (this.isEmojiPanelOpen) {
-      this.closeInsertEmojiPanel();
-      return;
-    }
-    this.isEmojiPanelOpen = true;
-    const parent = this.parent ?? this.parentRef;
-    if (parent) {
-      parent.showOverlay();
-      this.filteredEmojis = { ...parent.emojiMap };
-    }
-  }
-  closeInsertEmojiPanel() {
-    this.isEmojiPanelOpen = false;
-
-    if (this.parentRef) {
-      this.parentRef.closeOverlay();
-    }
-  }
+  
   isEditButtonVisible(storyId?: number) {
     if (!storyId) return false;
     const element = document.getElementById('storyTextEditConfirmButton' + storyId) as HTMLTextAreaElement;
     return element?.style.display === 'block';
   }
-  getOptionsCount() {
-    let count = 0;
-    if (this.eachAttachmentSeperatePost) count++;
-    return count;
-  }
+
   showComments(storyId?: number) {
     const storyKey = storyId ?? 0;
 
@@ -995,138 +862,21 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
     this.searchTimeout = setTimeout(() => this.searchStories(this.attachedTopics, true), 500);
   }
 
-  getNavigationItems() {
-    const parent = this.parentRef ?? this.parent;
-    return parent?.navigationItems || [];
-  }
-
-  // Method to open component selector
-  openComponentSelector() {
-    this.closeAllPopups();
-    this.showComponentSelector = true;
-    const parent = this.parent ?? this.parentRef;
-    parent?.showOverlay();
-  }
-
-  closeComponentSelector() {
-    this.showComponentSelector = false;
-    const parent = this.parent ?? this.parentRef;
-    parent?.closeOverlay();
-  }
-
-  insertComponent(componentTitle: string) {
-    const componentTag = `||component:${componentTitle}||`;
-    this.insertCustomText(componentTag);
-    this.closeComponentSelector();
-  }
-
-  insertCustomText(text: string, componentId?: string) {
-    let targetInput = componentId
-      ? document.getElementById(componentId) as HTMLInputElement
-      : this.story.nativeElement;
-
-    if (!targetInput) return;
-
-    const start = targetInput.selectionStart || 0;
-    const end = targetInput.selectionEnd || 0;
-
-    // Insert the text at cursor position
-    targetInput.value = targetInput.value.substring(0, start) +
-      text +
-      targetInput.value.substring(end);
-
-    // Set cursor after the inserted text
-    targetInput.selectionStart = start + text.length;
-    targetInput.selectionEnd = start + text.length;
-    targetInput.focus();
-  }
-
-  closeAllPopups() {
-    this.isMenuPanelOpen = false;
-    this.isStoryOptionsPanelOpen = false;
-    this.isPostOptionsPanelOpen = false;
-    this.isEmojiPanelOpen = false;
-    this.isSearchSocialsPanelOpen = false;
-    this.isMobileTopicsPanelOpen = false;
-    this.showComponentSelector = false; // Add this line
-
-    const parent = this.parent ?? this.parentRef;
-    parent?.closeOverlay();
-  }
-  insertTag(tag: string, componentId?: string) {
-    let targetInput = componentId
-      ? document.getElementById(componentId) as HTMLInputElement
-      : this.story.nativeElement;
-
-    if (!targetInput) return;
-
-    const start = targetInput.selectionStart || 0;
-    const end = targetInput.selectionEnd || 0;
-    const selectedText = targetInput.value.substring(start, end);
-
-    let newText: string;
-    let cursorOffset: number;
-
-    if (selectedText) {
-      // Wrap selected text
-      if (tag.startsWith('#')) {
-        // For headings
-        newText = targetInput.value.substring(0, start) +
-          `${tag} ${selectedText}` +
-          targetInput.value.substring(end);
-        cursorOffset = start + tag.length + selectedText.length + 4; // After header text
-      } else {
-        // For other tags
-        newText = targetInput.value.substring(0, start) +
-          `[${tag}]${selectedText}[/${tag}]` +
-          targetInput.value.substring(end);
-        cursorOffset = start + tag.length * 2 + selectedText.length + 4; // After closing tag
-      }
-    } else {
-      // Insert empty tag
-      if (tag.startsWith('#')) {
-        // For headings
-        newText = targetInput.value.substring(0, end) +
-          `${tag} ` +  // Space after header
-          targetInput.value.substring(end);
-        cursorOffset = end + tag.length + 3; // After header marker and space
-      } else {
-        // For other tags
-        newText = targetInput.value.substring(0, end) +
-          `[${tag}][/${tag}]` +
-          targetInput.value.substring(end);
-        cursorOffset = end + tag.length + 2; // Between tags
-      }
+  ignoreTopic(topic: Topic) {
+    if (this.parentRef?.user?.id) {
+      this.topicService.addIgnoredTopic(this.parentRef.user.id, [topic.id]).then(res => {
+        if (res) {
+          this.parentRef?.showNotification(res.message);
+          if (res.success) {
+            this.ignoredTopics = res.allIgnoredTopics;
+            this.closePostOptionsPanel();
+            this.getStories();
+          }
+        }
+      });
     }
+  } 
 
-    // Apply changes
-    targetInput.value = newText;
-    this.closePostOptionsPanel();
-
-    // Set cursor position
-    targetInput.setSelectionRange(cursorOffset, cursorOffset);
-    targetInput.focus();
-  }
-
-  insertBold(componentId?: string) {
-    this.insertTag('b', componentId);
-  }
-  insertItalics(componentId?: string) {
-    this.insertTag('i', componentId);
-  }
-  insertBullet(componentId?: string) {
-    this.insertTag('*', componentId);
-  }
-  insertH2(componentId?: string) {
-    this.insertTag('## ', componentId);
-  }
-  insertH3(componentId?: string) {
-    this.insertTag('### ', componentId);
-  }
-  insertEmoji(emoji: string) {
-    this.story.nativeElement.value += emoji;
-    this.closeInsertEmojiPanel();
-  }
   getTextForDOM(text?: string, componentId?: any) {
     const parent = this.parent ?? this.parentRef;
     return parent?.getTextForDOM(text, "storyText" + componentId);
@@ -1244,77 +994,7 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
       }
     });
   }
-  insertPollSnippet() {
-    const pollTemplate = `
-[Poll]
-Question: What's your favorite color?
-Option 1: Red
-Option 2: Blue
-Option 3: Green
-Option 4: Yellow
-[/Poll]
-  `.trim();
-
-    // Assuming you have a reference to your textarea
-    const textarea = this.story.nativeElement;
-    const currentPos = textarea.selectionStart ?? 0;
-    const currentValue = textarea.value;
-
-    // Insert the template at cursor position
-    textarea.value = currentValue.substring(0, currentPos) +
-      pollTemplate +
-      currentValue.substring(currentPos);
-
-    // Set cursor after the inserted template
-    textarea.selectionStart = currentPos + pollTemplate.length;
-    textarea.selectionEnd = currentPos + pollTemplate.length;
-    textarea.focus();
-  }
-  getNonFavoriteTopics(): Topic[] {
-    if (!this.attachedTopics || !this.favTopics) return [];
-
-    return this.attachedTopics.filter(attachedTopic =>
-      !this.favTopics.some(favTopic => favTopic.id === attachedTopic.id)
-    );
-  }
-  removeFavTopic(topic: Topic) {
-    if (this.parentRef?.user?.id) {
-      this.topicService.removeFavTopic(this.parentRef.user.id, [topic.id]).then(res => {
-        if (res) {
-          this.parentRef?.showNotification(res.message);
-          if (res.success) {
-            this.favTopics = res.remainingFavoriteTopics;
-          }
-        }
-      });
-    }
-  }
-  ignoreTopic(topic: Topic) {
-    if (this.parentRef?.user?.id) {
-      this.topicService.addIgnoredTopic(this.parentRef.user.id, [topic.id]).then(res => {
-        if (res) {
-          this.parentRef?.showNotification(res.message);
-          if (res.success) {
-            this.ignoredTopics = res.allIgnoredTopics;
-            this.closePostOptionsPanel();
-            this.getStories();
-          }
-        }
-      });
-    }
-  }
-  removeIgnoredTopic(topic: Topic) {
-    if (this.parentRef?.user?.id) {
-      this.topicService.removeIgnoredTopic(this.parentRef.user.id, [topic.id]).then(res => {
-        if (res) {
-          this.parentRef?.showNotification(res.message);
-          if (res.success) {
-            this.ignoredTopics = res.remainingIgnoredTopics;
-          }
-        }
-      });
-    }
-  }
+  
 
   showPostsFrom(filter: string) {
     this.showPostsFromFilter = filter;
@@ -1341,5 +1021,11 @@ Option 4: Yellow
     return story.storyFiles?.filter(file => {
       return this.fileService.videoFileExtensions.includes(this.fileService.getFileExtension(file.fileName ?? ''));
     });
+  }
+  contentPosted(event: { results: any, originalContent: string }) {
+    this.getStories();
+  }
+  decryptText(encryptedText: any, parentId: any): string {
+    return this.encryptionService.decryptContent(encryptedText, parentId + "");
   }
 }

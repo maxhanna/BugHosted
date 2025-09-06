@@ -89,10 +89,18 @@ iframe {
 }
 
 .normalSongList {
-  height: CALC(var(--vh, 1vh) * 100 - 40vh);
+  height: CALC(var(--vh, 1vh) * 100 - 235px);
 }
- 
- 
+@media only screen and (min-width:400px) {
+  .normalSongList {
+    height: CALC(var(--vh, 1vh) * 100 - 210px);
+  }
+}
+@media only screen and (min-width:600px) {
+  .normalSongList {
+    height: CALC(var(--vh, 1vh) * 100 - 185px);
+  }
+} 
 
 fieldset {
   border: var(--main-border);

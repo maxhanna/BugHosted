@@ -18,6 +18,7 @@ export class CommentService {
     country?: string,
     ip?: string) {
     if ((fileId && storyId && commentId) || (!fileId && !storyId && !commentId)) {
+      alert("Error: Must supply exactly one of FileId, StoryId, or CommentId");
       return "Error: No Id supplied";
     }
     try {

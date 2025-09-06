@@ -1,0 +1,60 @@
+.mainFileUploaderAndTopicSelectorDiv {
+    display: flex;
+}
+
+textarea,
+input {
+    width: calc(100% - 10px);
+}
+
+.topicsGrid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.topicTag {
+    display: flex;
+    align-items: center;
+    background: rgba(var(--main-highlight-color-rgb), 0.1);
+    padding: 4px 8px;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.topicTag:hover {
+    background: rgba(var(--main-highlight-color-rgb), 0.2);
+}
+
+.topTopicTitle {
+    font-size: small;
+}
+
+.topicName {
+    font-size: 0.8rem;
+    color: var(--primary-font-color);
+}
+
+.topicCount {
+    font-size: 0.7rem;
+    color: var(--secondary-font-color);
+    margin-left: 4px;
+    background: rgba(0, 0, 0, 0.1);
+    padding: 1px 4px;
+    border-radius: 8px;
+}
+
+.topTopicsSection:not(:last-child) {
+    margin-bottom: 10px;
+}
+
+.topTopicsSection {
+    display: flex;
+    gap: 2px;
+    flex-wrap: wrap;
+}
+
+.closeButton {
+    margin-top: 10px;
+}

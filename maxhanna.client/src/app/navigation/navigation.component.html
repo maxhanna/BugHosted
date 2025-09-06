@@ -15,8 +15,8 @@
         <div class="help-card cursorPointer" (click)="goTo(item.title, undefined)">
           <div class="card-title gradientBackground">{{ item.title }} {{item.title != 'Weather' ? item.icon : ''}}
             <ng-container *ngIf="item.icon !== '☀️' && item.title == 'Weather'">
-              <img [src]="item.icon" [title]="item.title" class="navLink" 
-                    (click)="goTo(item.title, $event)" *ngIf="item.icon" [style.width]="'25px'" />
+              <img [src]="item.icon" [title]="item.title" class="navLink" (click)="goTo(item.title, $event)"
+                *ngIf="item.icon" [style.width]="'25px'" />
               <a class="navLink" (click)="goTo(item.title, $event)" [title]="item.title" *ngIf="!item.icon">☀️</a>
             </ng-container>
             <ng-container #defaultWeatherIcon *ngIf="item.icon == '☀️' && item.title == 'Weather'">
@@ -35,61 +35,59 @@
 </div>
 
 <!--<button class="toggleNavButton" (click)="toggleMenu()" #toggleNavButton title="Close Navigation">📕</button>-->
-<div #navbar id="navbar" *ngIf="_parent && _parent.navigationItems && _parent.navigationItems.length > 0"> 
+<div #navbar id="navbar" *ngIf="_parent && _parent.navigationItems && _parent.navigationItems.length > 0">
   <ng-container *ngFor="let item of _parent.navigationItems">
     <div *ngIf="(menuIconsIncludes(item.title)) 
          || item.title === 'User'
          || (!navbarCollapsed && item.title === 'UpdateUserSettings')" class="navLinkDiv">
-      <span class="navbarNotificationSpan {{item.content && item.content.length > 10 ? 'largeNotificationSpan' : ''}}" (click)="goTo(item.title, $event)" [title]="item.title">
+      <span class="navbarNotificationSpan {{item.content && item.content.length > 10 ? 'largeNotificationSpan' : ''}}"
+        (click)="goTo(item.title, $event)" [title]="item.title">
         <span (click)="goTo(item.title, $event)" [title]="item.title">{{item.content! || ''}}</span>
       </span>
- 
+
       <ng-container *ngIf="item.title === 'Weather' || item.title == 'User'; else otherItems">
         <ng-container *ngIf="item.title == 'Weather'">
-          <ng-container *ngIf="item.icon !== '☀️'"> 
-            <img [src]="item.icon" [title]="item.title" class="navLink weatherPic" (click)="goTo(item.title, $event)" *ngIf="item.icon" />
+          <ng-container *ngIf="item.icon !== '☀️'">
+            <img [src]="item.icon" [title]="item.title" class="navLink weatherPic" (click)="goTo(item.title, $event)"
+              *ngIf="item.icon" />
             <a class="navLink" (click)="goTo(item.title, $event)" [title]="item.title" *ngIf="!item.icon">☀️</a>
           </ng-container>
-          <ng-container #defaultWeatherIcon *ngIf="item.icon == '☀️'"> 
-            <a class="navLink" (click)="goTo(item.title, $event)" [title]="item.title">{{_parent.originalWeatherIcon}}</a>
+          <ng-container #defaultWeatherIcon *ngIf="item.icon == '☀️'">
+            <a class="navLink" (click)="goTo(item.title, $event)"
+              [title]="item.title">{{_parent.originalWeatherIcon}}</a>
           </ng-container>
         </ng-container>
 
         <ng-container *ngIf="item.title == 'User'">
-          <ng-container *ngIf="user && _parent && user?.displayPictureFile?.id"> 
+          <ng-container *ngIf="user && _parent && user?.displayPictureFile?.id">
             <a class="navLink" (click)="goTo(item.title, $event)" [title]="item.title">
-              <app-media-viewer [file]="user.displayPictureFile"
-                                [inputtedParentRef]="_parent"
-                                [displayExtraInfo]="false"
-                                [showCommentSection]="false"
-                                [user]="_parent.user"
-                                [autoplay]="true"
-                                [title]="item.title" 
-                                [displayExpander]="false"
-                                [blockExpand]="true">
+              <app-media-viewer [file]="user.displayPictureFile" [inputtedParentRef]="_parent"
+                [displayExtraInfo]="false" [showCommentSection]="false" [user]="_parent.user" [autoplay]="true"
+                [title]="item.title" [displayExpander]="false" [blockExpand]="true">
               </app-media-viewer>
             </a>
-             
+
           </ng-container>
-          <ng-container *ngIf="!user?.displayPictureFile?.id"> 
-            <a class="navLink" (click)="goTo(item.title, $event)" [title]="item.title">{{ item.icon!.substring(0, 3) }}</a>
+          <ng-container *ngIf="!user?.displayPictureFile?.id">
+            <a class="navLink" (click)="goTo(item.title, $event)" [title]="item.title">{{ item.icon!.substring(0, 3)
+              }}</a>
           </ng-container>
         </ng-container>
       </ng-container>
 
 
-      <ng-template #otherItems> 
+      <ng-template #otherItems>
         <!-- for notifications, u need glowing if notifications -->
         <a [class]="'navLink htmlIcon ' + (item && (item.title === 'Notifications' || item.title === 'Calendar' || item.title === 'Chat') && item.content && parseNumber(item.content) > 0 ? 'glowing' : (item.title === 'Crypto-Hub' && !isBTCRising) ? 'redTitle' : 'greenTitle')"
-           (click)="goTo(item.title, $event)"
-           [title]="item.title">
+          (click)="goTo(item.title, $event)" [title]="item.title">
           {{ item.icon!.substring(0, 3) }}
-        </a> 
+        </a>
       </ng-template>
     </div>
   </ng-container>
 </div>
-<div class="loading-notification-container">
+<div class="loading-notification-container" (click)="closeNotifications()"
+  *ngIf="isLoadingNotifications || isLoadingTheme || isLoadingCryptoHub || isLoadingWordlerStreak || isLoadingCalendar">
   <div *ngIf="isLoadingNotifications" class="loadingNotification">Loading Notifications...</div>
   <div *ngIf="isLoadingTheme" class="loadingNotification">Loading Theme...</div>
   <div *ngIf="isLoadingCryptoHub" class="loadingNotification">Loading Crypto Hub...</div>

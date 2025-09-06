@@ -1,5 +1,5 @@
 ﻿using maxhanna.Server.Controllers;
-using maxhanna.Server.Controllers.DataContracts.Crypto; 
+using maxhanna.Server.Controllers.DataContracts.Crypto;
 using maxhanna.Server.Controllers.Helpers;
 using MySqlConnector;
 using Newtonsoft.Json;
@@ -30,15 +30,15 @@ namespace maxhanna.Server.Services
 		private Timer _sixHourTimer;
 		private Timer _dailyTimer;
 		private bool isCrawling = false;
-		private bool lastWasCrypto = false; 
-		private static readonly SemaphoreSlim _tradeLock = new SemaphoreSlim(1, 1); 
+		private bool lastWasCrypto = false;
+		private static readonly SemaphoreSlim _tradeLock = new SemaphoreSlim(1, 1);
 		private static readonly Dictionary<string, string> CoinNameMap = new(StringComparer.OrdinalIgnoreCase) {
 			{ "BTC", "Bitcoin" }, { "XBT", "Bitcoin" }, { "ETH", "Ethereum" }, { "XDG", "Dogecoin" }, { "SOL", "Solana" }
 		};
 		private static readonly Dictionary<string, string> CoinSymbols = new(StringComparer.OrdinalIgnoreCase) {
 			{ "Bitcoin", "₿" }, { "XBT", "₿" }, { "BTC", "₿" }, { "Ethereum", "Ξ" }, { "ETH", "Ξ" },
 			{ "Dogecoin", "Ɖ" }, { "XDG", "Ɖ" }, { "Solana", "◎" }, { "SOL", "◎" }
-		}; 
+		};
 
 		public SystemBackgroundService(Log log, IConfiguration config, WebCrawler webCrawler, AiController aiController,
 			KrakenService krakenService, NewsService newsService, ProfitCalculationService profitService, TradeIndicatorService indicatorService)
@@ -80,10 +80,10 @@ namespace maxhanna.Server.Services
 			{
 				await Task.Delay(1000, stoppingToken);
 			}
-		} 
+		}
 		private async Task Run10SecondTasks()
 		{
-			await MakeCryptoTrade(); 
+			await MakeCryptoTrade();
 		}
 		private async Task Run30SecondTasks()
 		{
@@ -91,7 +91,7 @@ namespace maxhanna.Server.Services
 			await FetchWebsiteMetadata();
 		}
 		private async Task RunOneMinuteTasks()
-		{ 
+		{
 			await _aiController.AnalyzeAndRenameFile();
 		}
 		private async Task RunFiveMinuteTasks()
@@ -111,7 +111,7 @@ namespace maxhanna.Server.Services
 			{
 				_ = _log.Db("Skipping indicator update - already in progress", null, "TISVC", outputToConsole: true);
 			}
-		}  
+		}
 		private async Task RunHourlyTasks()
 		{
 			await AssignTrophies();
@@ -124,9 +124,9 @@ namespace maxhanna.Server.Services
 			await _profitService.CalculateMonthlyProfits();
 			await FetchAndStoreCryptoEvents();
 			await FetchAndStoreFearGreedAsync();
-			await FetchAndStoreGlobalMetricsAsync(); 
+			await FetchAndStoreGlobalMetricsAsync();
 			await _log.DeleteOldLogs();
-		} 
+		}
 		private async Task RunDailyTasks()
 		{
 			await DeleteOldBattleReports();
@@ -143,7 +143,7 @@ namespace maxhanna.Server.Services
 			await _newsService.CreateDailyCryptoNewsStoryAsync();
 			await _newsService.CreateDailyNewsStoryAsync();
 			await _newsService.PostDailyMemeAsync();
-			await _log.BackupDatabase(); 
+			await _log.BackupDatabase();
 		}
 		private TimeSpan CalculateNextDailyRun()
 		{
@@ -154,7 +154,7 @@ namespace maxhanna.Server.Services
 		public override async Task StopAsync(CancellationToken cancellationToken)
 		{
 			_halfMinuteTimer?.Change(Timeout.Infinite, Timeout.Infinite);
-			 _minuteTimer?.Change(Timeout.Infinite, Timeout.Infinite);
+			_minuteTimer?.Change(Timeout.Infinite, Timeout.Infinite);
 			_fiveMinuteTimer?.Change(Timeout.Infinite, Timeout.Infinite);
 			_hourlyTimer?.Change(Timeout.Infinite, Timeout.Infinite);
 			_sixHourTimer?.Change(Timeout.Infinite, Timeout.Infinite);
@@ -214,7 +214,7 @@ namespace maxhanna.Server.Services
 			var dataToken = root["data"];                 // object, not an array, for “latest”
 			var indexValue = dataToken?["value"]?.ToObject<int>() ?? 0;
 			var classification = dataToken?["value_classification"]?.ToObject<string>();
-			var timestampUtc = dataToken?["timestamp"]?.ToObject<DateTime>() ?? DateTime.UtcNow; 
+			var timestampUtc = dataToken?["timestamp"]?.ToObject<DateTime>() ?? DateTime.UtcNow;
 			// 4. Insert / update
 			await using var conn = new MySqlConnection(_connectionString);
 			await conn.OpenAsync();
@@ -640,7 +640,7 @@ namespace maxhanna.Server.Services
 					await _log.Db($"Volume data error: {ex.Message}", 1, "TRADE", true).ConfigureAwait(false);
 					return;
 				}
- 
+
 				// Collect trade task delegates
 				var tradeTaskDelegates = new List<(Func<Task> TaskDelegate, string Crypto, int UserId, string Strategy)>();
 				var cryptocurrencies = new[] { "BTC", "XRP", "SOL", "XDG", "ETH" };
@@ -704,7 +704,6 @@ namespace maxhanna.Server.Services
 				_tradeLock.Release();
 			}
 		}
-
 		private async Task UpdateLastBTCWalletInfo()
 		{
 			try
@@ -966,7 +965,7 @@ namespace maxhanna.Server.Services
 		{
 			int spawnCount = 0;
 			try
-			{ 
+			{
 				await using MySqlConnection conn = new MySqlConnection(_connectionString);
 				await conn.OpenAsync();
 
@@ -1005,8 +1004,8 @@ namespace maxhanna.Server.Services
 
 					// Respawn each dead metabot
 					if (deadEncounters.Count > 0)
-					{ 
-						var random = new Random(); 
+					{
+						var random = new Random();
 						foreach (var encounter in deadEncounters)
 						{
 							// Check if bot already exists
@@ -1044,7 +1043,7 @@ namespace maxhanna.Server.Services
 								_ = _log.Db($"Invalid bot type '{selectedBotType}' for hero {encounter.HeroId}. Skipping.", null, outputToConsole: true);
 								continue;
 							}
- 
+
 							// Insert new metabot and get its ID
 							int newBotId = 0;
 							try
@@ -1092,7 +1091,7 @@ namespace maxhanna.Server.Services
                                 SELECT damage_mod_min, damage_mod_max, skill 
                                 FROM meta_bot_part_type 
                                 WHERE id = @PartTypeId;";
- 
+
 									int damageMod = 0;
 									string? skill = null;
 
@@ -1147,7 +1146,7 @@ namespace maxhanna.Server.Services
 								await updateCmd.ExecuteNonQueryAsync();
 							}
 							spawnCount++;
-						//	_ = _log.Db($"Respawned {selectedBotType} (ID: {newBotId}, HeroID: {encounter.HeroId}) at {encounter.Map}({encounter.CoordsX},{encounter.CoordsY})", null, outputToConsole: true);
+							//	_ = _log.Db($"Respawned {selectedBotType} (ID: {newBotId}, HeroID: {encounter.HeroId}) at {encounter.Map}({encounter.CoordsX},{encounter.CoordsY})", null, outputToConsole: true);
 						}
 					}
 
@@ -1174,7 +1173,7 @@ namespace maxhanna.Server.Services
 			{
 				await using var conn = new MySqlConnection(_connectionString);
 				await conn.OpenAsync();
- 
+
 				const string recentCheckSql = @"
 					SELECT recorded_at FROM coin_market_caps 
 					WHERE recorded_at >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 24 HOUR)
@@ -1223,13 +1222,13 @@ namespace maxhanna.Server.Services
 					await _log.Db("No market cap data found in CoinMarketCap response", null, "MCS", outputToConsole: true);
 					return;
 				}
- 
+
 				const string historicalDataSql = @"
 					SELECT coin_id, market_cap_usd
 					FROM coin_market_caps
 					WHERE recorded_at BETWEEN UTC_TIMESTAMP() - INTERVAL 48 HOUR 
 										AND UTC_TIMESTAMP() - INTERVAL 24 HOUR
-					ORDER BY recorded_at DESC";  
+					ORDER BY recorded_at DESC";
 				var historicalData = new Dictionary<string, decimal>();
 				await using (var historicalCmd = new MySqlCommand(historicalDataSql, conn))
 				{
@@ -1283,8 +1282,8 @@ namespace maxhanna.Server.Services
 						decimal priceChangePercentage = Convert.ToDecimal(usdData["percent_change_24h"] ?? 0);
 						string normalizedName = CoinNameMap.TryGetValue(coinNameSafe, out var mappedName) ? mappedName : coinNameSafe;
 						string symbol = CoinSymbols.TryGetValue(normalizedName, out var knownSymbol) ? knownSymbol : rawSymbol;
- 
-						decimal yesterdayMarketCap = marketCapSafe;  
+
+						decimal yesterdayMarketCap = marketCapSafe;
 						if (historicalData.TryGetValue(coinId, out var histCap))
 						{
 							yesterdayMarketCap = histCap;
@@ -1412,7 +1411,7 @@ namespace maxhanna.Server.Services
 					using (var deleteCmd = new MySqlCommand(deleteSql, connection))
 					{
 						await deleteCmd.ExecuteNonQueryAsync();
-					} 
+					}
 					if (exchangeData.Rates == null || exchangeData.Rates.Count == 0)
 					{
 						_ = _log.Db("No exchange rates found in the response.", null);
@@ -1583,20 +1582,20 @@ namespace maxhanna.Server.Services
 						{ "Active Trader", "SELECT user_id FROM trade_history GROUP BY user_id HAVING COUNT(*) >= 25" },
 						{ "Frequent Trader", "SELECT user_id FROM trade_history GROUP BY user_id HAVING COUNT(*) >= 100" },
 						{ "Trade Addict", "SELECT user_id FROM trade_history GROUP BY user_id HAVING COUNT(*) >= 500" },
-						{ "Trade Master", "SELECT user_id FROM trade_history GROUP BY user_id HAVING COUNT(*) >= 1000" }, 
+						{ "Trade Master", "SELECT user_id FROM trade_history GROUP BY user_id HAVING COUNT(*) >= 1000" },
 						{ "$100 Portfolio", "SELECT user_id FROM trade_history GROUP BY user_id HAVING MAX(portfolio_value) >= 100" },
 						{ "$1K Portfolio", "SELECT user_id FROM trade_history GROUP BY user_id HAVING MAX(portfolio_value) >= 1000" },
 						{ "$10K Portfolio", "SELECT user_id FROM trade_history GROUP BY user_id HAVING MAX(portfolio_value) >= 10000" },
-						{ "$100K Portfolio", "SELECT user_id FROM trade_history GROUP BY user_id HAVING MAX(portfolio_value) >= 100000" }, 
-						{ "DCA Strategist", "SELECT user_id FROM trade_history WHERE strategy = 'DCA' GROUP BY user_id HAVING COUNT(*) >= 10" },   
+						{ "$100K Portfolio", "SELECT user_id FROM trade_history GROUP BY user_id HAVING MAX(portfolio_value) >= 100000" },
+						{ "DCA Strategist", "SELECT user_id FROM trade_history WHERE strategy = 'DCA' GROUP BY user_id HAVING COUNT(*) >= 10" },
 						{ "BTC Veteran", "SELECT user_id FROM trade_history WHERE from_currency = 'BTC' OR to_currency = 'BTC' GROUP BY user_id HAVING COUNT(*) >= 10" },
 						{ "ETH Veteran", "SELECT user_id FROM trade_history WHERE from_currency = 'ETH' OR to_currency = 'ETH' GROUP BY user_id HAVING COUNT(*) >= 10" },
-						{ "Altcoin Explorer", "SELECT user_id FROM trade_history WHERE from_currency NOT IN ('BTC','ETH','USDC') OR to_currency NOT IN ('BTC','ETH','USDC') GROUP BY user_id HAVING COUNT(*) >= 10" }, 
+						{ "Altcoin Explorer", "SELECT user_id FROM trade_history WHERE from_currency NOT IN ('BTC','ETH','USDC') OR to_currency NOT IN ('BTC','ETH','USDC') GROUP BY user_id HAVING COUNT(*) >= 10" },
 						{ "First Profit", "SELECT user_id FROM trade_history GROUP BY user_id HAVING SUM(trade_value_usdc) > 0" },
-						{ "Consistent Profits", "SELECT user_id FROM (SELECT user_id, DATE(timestamp) AS day, SUM(trade_value_usdc) AS daily_pnl FROM trade_history GROUP BY user_id, day) AS daily WHERE daily_pnl > 0 GROUP BY user_id HAVING COUNT(*) >= 5" }, 
+						{ "Consistent Profits", "SELECT user_id FROM (SELECT user_id, DATE(timestamp) AS day, SUM(trade_value_usdc) AS daily_pnl FROM trade_history GROUP BY user_id, day) AS daily WHERE daily_pnl > 0 GROUP BY user_id HAVING COUNT(*) >= 5" },
 						{ "7-Day Streak", "SELECT user_id FROM (SELECT user_id, DATE(timestamp) AS day FROM trade_history GROUP BY user_id, day) AS days GROUP BY user_id HAVING COUNT(DISTINCT day) >= 7" },
 						{ "30-Day Streak", "SELECT user_id FROM (SELECT user_id, DATE(timestamp) AS day FROM trade_history GROUP BY user_id, day) AS days GROUP BY user_id HAVING COUNT(DISTINCT day) >= 30" },
-						{ "Year-Round Trader", "SELECT user_id FROM trade_history GROUP BY user_id HAVING COUNT(DISTINCT MONTH(timestamp)) >= 12" }, 
+						{ "Year-Round Trader", "SELECT user_id FROM trade_history GROUP BY user_id HAVING COUNT(DISTINCT MONTH(timestamp)) >= 12" },
 						{ "Chat Master 50", "SELECT sender AS user_id FROM messages GROUP BY sender HAVING COUNT(*) >= 50" },
 						{ "Chat Master 100", "SELECT sender AS user_id FROM messages GROUP BY sender HAVING COUNT(*) >= 100" },
 						{ "Chat Master 150", "SELECT sender AS user_id FROM messages GROUP BY sender HAVING COUNT(*) >= 150" },
@@ -1623,7 +1622,7 @@ namespace maxhanna.Server.Services
 						{ "2029 User", "SELECT id AS user_id FROM users WHERE YEAR(last_seen) = 2029" },
 						{ "Wordler Beginner", "SELECT user_id FROM wordler_scores GROUP BY user_id HAVING COUNT(*) >= 3" },
 						{ "Wordler Expert", "SELECT user_id FROM wordler_scores GROUP BY user_id HAVING COUNT(*) >= 30" },
-						{ "Master Wordler", "SELECT user_id FROM wordler_scores GROUP BY user_id HAVING COUNT(*) >= 100" }, 
+						{ "Master Wordler", "SELECT user_id FROM wordler_scores GROUP BY user_id HAVING COUNT(*) >= 100" },
 						{ "Wordler Legend", "SELECT user_id FROM wordler_scores GROUP BY user_id HAVING COUNT(*) >= 1000" },
 						{ "Wordler God", "SELECT user_id FROM wordler_scores GROUP BY user_id HAVING COUNT(*) >= 10000" },
 						{ "Array Scout", "SELECT user_id FROM array_characters WHERE ABS(position) > 10" },
@@ -1792,7 +1791,7 @@ namespace maxhanna.Server.Services
 										}
 									}
 								}
-							} 
+							}
 						}
 					}
 
@@ -1894,7 +1893,7 @@ namespace maxhanna.Server.Services
 				{
 					int rowsAffected = await deleteCmd.ExecuteNonQueryAsync();
 					_ = _log.Db($"Deleted {rowsAffected} old coin market capitals older than 5 years.");
-				} 
+				}
 			}
 		}
 		private async Task DeleteOldTradeVolumeEntries()
@@ -1948,7 +1947,7 @@ namespace maxhanna.Server.Services
 					}
 				}
 			}
-		} 
+		}
 	}
 	public class CoinResponse
 	{
@@ -2043,7 +2042,7 @@ public class CryptoEvent
 
 	public string? TitleText => Title?.English;
 }
-  
+
 public class EventTitle
 {
 	[JsonProperty("en")]

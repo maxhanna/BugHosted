@@ -1,0 +1,74 @@
+button {
+    display: inline-block !important;
+}
+.menuContactUiLabel {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    align-content: center;
+    flex-direction: row;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.componentSelectorPanel {
+    min-width: 300px;
+}
+
+.componentList {
+    max-height: 30vh;
+    overflow-y: auto;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    gap: 10px;
+    width: 500px;
+    margin-top: 10px;
+}
+
+@media only screen and (max-width : 600px) {
+    .componentList {
+        width: 300px;
+    }
+}
+
+.componentsItem {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 12px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background 0.2s;
+    text-align: center;
+}
+
+.componentsItem:hover {
+    background: linear-gradient(135deg, var(--component-background-color), var(--secondary-component-background-color));
+}
+
+.componentsIcon {
+    font-size: 24px;
+    margin-bottom: 8px;
+}
+
+.componentsTitle {
+    font-size: 14px;
+    color: var(--third-font-color);
+    word-break: break-word;
+}
+
+.emojiFilterInputDiv {
+    text-align: center;
+    margin: 15px;
+}
+
+.emojiFilterContainer {
+    max-height: CALC(var(--vh, 1vh)* 70);
+    overflow: auto;
+    display: flex;
+    flex-wrap: wrap;
+    align-content: flex-start;
+    justify-content: space-evenly;
+    align-items: flex-start;
+}

@@ -519,4 +519,12 @@ export class NavigationComponent implements OnInit, OnDestroy {
   descriptionsExist(item: string) {
     return this._parent.navigationItemDescriptions.some((x:MenuItem) => x.title == item);
   }
+  closeNotifications() {
+    console.log('closing');
+    this.isLoadingCryptoHub = false;
+    this.isLoadingNotifications = false;
+    this.isLoadingTheme = false;
+    this.isLoadingWordlerStreak = false;
+    this.isLoadingCalendar = false; 
+  }
 }

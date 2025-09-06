@@ -4,7 +4,7 @@
     <span *ngFor="let reaction of reactionsDisplay" [title]="reaction.type?.replaceAll('_', ' ')">{{replaceReactionType(reaction.type)}}</span>
   </div>
  
-  <button class="addReactionButton {{storyId ? 'xSmallFont' : ''}}" (click)="reactionButtonOnClick($event)" [id]="'addReactionSpan_' + reactionId"
+  <button class="addReactionButton {{coloredBg ? 'coloredBgButton' : ''}}" (click)="reactionButtonOnClick($event)" [id]="'addReactionSpan_' + reactionId"
     [title]="(userHasReacted() ? 'Change' : 'Add') + ' Reaction'" *ngIf="!showSpan">
     {{userHasReacted() ? replaceReactionType(userReaction) : '✚'}} 
   </button>

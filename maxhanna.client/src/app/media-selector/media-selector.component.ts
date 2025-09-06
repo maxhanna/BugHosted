@@ -28,6 +28,8 @@ export class MediaSelectorComponent implements OnDestroy {
   @Input() takeAllSpace: boolean = false;
   @Input() allowedFileTypes: string = '';
   @Input() uploadButtonText: string = "Upload";
+  @Input() closeInitialPopup: boolean = false;
+  @Input() parentId?: string;
   @Output() selectFileEvent = new EventEmitter<FileEntry[]>();
   @Output() expandFileSelectorEvent = new EventEmitter<boolean>();
   @ViewChild('selectMediaDiv', { static: false }) selectMediaDiv!: ElementRef;
@@ -48,19 +50,24 @@ export class MediaSelectorComponent implements OnDestroy {
   }
 
   toggleMediaChoices() {
-    this.viewMediaChoicesOpen = !this.viewMediaChoicesOpen;
-    if (this.inputtedParentRef) {
-      if (this.viewMediaChoicesOpen) {
-        this.expandFileSelectorEvent.emit(this.viewMediaChoicesOpen);
-        this.inputtedParentRef.showOverlay();
-      } else {
-        this.inputtedParentRef.closeOverlay();
-        this.expandFileSelectorEvent.emit(this.viewMediaChoicesOpen);
-      } 
+    if (this.closeInitialPopup) { 
+      this.inputtedParentRef?.closeOverlay();
     }
-    if (this.selectMediaDiv) {
-      this.selectMediaDiv.nativeElement.classList.toggle("open");
-    }
+    setTimeout(() => {
+      this.viewMediaChoicesOpen = !this.viewMediaChoicesOpen;
+      if (this.inputtedParentRef) {
+        if (this.viewMediaChoicesOpen) {
+          this.expandFileSelectorEvent.emit(this.viewMediaChoicesOpen);
+          this.inputtedParentRef.showOverlay();
+        } else {
+          this.inputtedParentRef.closeOverlay();
+          this.expandFileSelectorEvent.emit(this.viewMediaChoicesOpen);
+        } 
+      }
+      if (this.selectMediaDiv) {
+        this.selectMediaDiv.nativeElement.classList.toggle("open");
+      }
+    }, 100);
   }
 
   displaySearchDiv() {
@@ -161,6 +168,14 @@ export class MediaSelectorComponent implements OnDestroy {
     } 
     if (this.fileSearchComponent) {
       this.fileSearchComponent.closeSearchPanel();
+    }
+    if (this.closeInitialPopup && this.parentId) {
+      setTimeout(() => {
+        if (this.parentId) { 
+          console.log("clicking parentId button: " + this.parentId);
+          document.getElementById(this.parentId)?.click();
+        }
+      }, 100); 
     }
   }
 }

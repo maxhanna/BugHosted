@@ -59,15 +59,19 @@
               <app-reaction [messageId]="message.id" [user]="parentRef?.user" [component]="message"
                 [inputtedParentRef]="parentRef" [currentReactions]="message.reactions"
                 [previousComponent]="'Chat'"></app-reaction>
-              <button *ngIf="!isEditing.length" title="Quote Chat Message" (click)="quote(message)">🗨️</button>
+              <button *ngIf="!isEditing.length" title="Quote Chat Message" (click)="quote(message)" class="coloredBgButton">🗨️</button>
               <button
                 *ngIf="message.sender.id === (parentRef?.user?.id ?? 0) && (isEditing.includes(message.id) || isEditing.length == 0)"
-                title="Edit Chat Message" (click)="isEditing.includes(message.id) ? acceptEdit(message) : edit(message)">
+                title="Edit Chat Message" 
+                class="coloredBgButton"
+                (click)="isEditing.includes(message.id) ? acceptEdit(message) : edit(message)">
                 ✏️{{ isEditing.includes(message.id) ? ' Accept' : '' }}
               </button>
               <button
                 *ngIf="message.sender.id === (parentRef?.user?.id ?? 0) && isEditing.includes(message.id)"
-                title="Cancel Edit Chat Message" (click)="stopEdit(message)">
+                class="coloredBgButton"
+                title="Cancel Edit Chat Message" 
+                (click)="stopEdit(message)">
                 ❌Cancel
               </button>
             </div> 
@@ -82,20 +86,17 @@
         </div>
       </div>
   
-      <div class="messageInput" [style]="isEditing.length > 0 ? 'display: none' : ''">
-        <textarea placeholder="Type a message" #newMessage (keydown.enter)="sendMessage()"></textarea>
-        <div>
-          <app-media-selector #attachmentSelector
-            [currentDirectory]="'Users/' + (parentRef?.user && parentRef?.user?.id != 0 ? parentRef?.user?.username : 'Anonymous')"
-            [uploadButtonText]="'Attach'" [user]="parentRef?.user" [inputtedParentRef]="parentRef" 
-            (selectFileEvent)="selectFile($event)">
-          </app-media-selector>
-        </div>
-        <button (click)="sendMessage()">🗨️Send</button>
+      <div [style]="isEditing.length > 0 ? 'display: none' : ''">
+          <app-text-input #chatInput
+            [inputtedParentRef]="parentRef ?? inputtedParentRef"
+            [type]="'Chat'" 
+            [quoteMessage]="quoteMessage"
+            [chatId]="currentChatId"
+            [currentChatUsers]="currentChatUsers"
+            (contentPosted)="chatMessagePosted($event)"></app-text-input>
       </div>
     </div>
-    </div>
- 
+  </div> 
 </div>
 
 <!-- Chat Members Popup -->

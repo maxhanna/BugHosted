@@ -62,40 +62,44 @@
   </div>
 </div>
 <!-- USER TAG POPUP PANEL -->
-<div class="popupPanel userTagPopupPanel" [style.left.px]="showUserTagX ? showUserTagX.value : 0" [style.top.px]="showUserTagY ? showUserTagY.value : 0"
-  *ngIf="isShowingUserTagPopup" (click)="isShowingUserTagPopup = false;" (touchend)="isShowingUserTagPopup = false;">
+<div class="popupPanel userTagPopupPanel" [style.left.px]="showUserTagX ? showUserTagX.value : 0"
+  [style.top.px]="showUserTagY ? showUserTagY.value : 0" *ngIf="isShowingUserTagPopup"
+  (click)="isShowingUserTagPopup = false;" (touchend)="isShowingUserTagPopup = false;">
   <div class="user-tag-background-overlay" *ngIf="popupUserTagUser?.profileBackgroundPictureFile">
-    <app-media-viewer #userTagPopupMediaViewer [displayExpander]="false" [displayExtraInfo]="false" [showCommentSection]="false" 
-      [inputtedParentRef]="this" [file]="popupUserTagUser?.profileBackgroundPictureFile">
+    <app-media-viewer #userTagPopupMediaViewer [displayExpander]="false" [displayExtraInfo]="false"
+      [showCommentSection]="false" [inputtedParentRef]="this" [file]="popupUserTagUser?.profileBackgroundPictureFile">
     </app-media-viewer>
   </div>
   <div class="user-tag-content-wrapper">
     <div style="display: flex; justify-content: space-between; gap:20px;">
       <div class="popupUserTagAvatarAndName blackFontColor">
         <div style="height:50px; width:50px; overflow:hidden; display:inline-block;">
-          <app-user-tag [userId]="showUserTagUserId ? parseInteger(showUserTagUserId.value) : 0" [inputtedParentRef]="this"
-            (userLoaded)="userTagUserLoaded($event)" [preventOpenProfile]="true" [hideName]="true">
+          <app-user-tag [userId]="showUserTagUserId ? parseInteger(showUserTagUserId.value) : 0"
+            [inputtedParentRef]="this" (userLoaded)="userTagUserLoaded($event)" [preventOpenProfile]="true"
+            [hideName]="true">
           </app-user-tag>
         </div>
         <div style="margin-top:5px;" [class]="'popupUserTagInfo ' + ((popupUserTagUser?.username || 'Anonymous').length > 10 ? 'xxSmallFont'
                     : (popupUserTagUser?.username || 'Anonymous').length > 5 ? 'smallFont' : '')">
           <span>
             {{popupUserTagUser?.username ?? "Anonymous"}}
-          </span>  
+          </span>
         </div>
       </div>
-      <div *ngIf="popupUserTagUser" class="popupUserTagInfo blackFontColor"> 
+      <div *ngIf="popupUserTagUser" class="popupUserTagInfo blackFontColor">
         <div [class]="(popupUserTagUser.about?.description?.length ?? 0) > 55 ? 'xxSmallFont' :
           (popupUserTagUser.about?.description?.length ?? 0) > 25 ? 'smallFont' : ''">
-          {{ popupUserTagUser.about?.description }}  
+          {{ popupUserTagUser.about?.description }}
         </div>
         <div class="xxSmallFont">Last Seen: </div>
         <div>
-          <span *ngIf="popupUserTagUser && popupUserTagUser.lastSeen && isUserOnline(popupUserTagUser.lastSeen | timeSince)"
+          <span
+            *ngIf="popupUserTagUser && popupUserTagUser.lastSeen && isUserOnline(popupUserTagUser.lastSeen | timeSince)"
             class="cursorPointer" [title]="popupUserTagUser.lastSeen | timeSince">
             <span class="glowing onlineButton">🟢</span> Online
           </span>
-          <span *ngIf="popupUserTagUser && popupUserTagUser.lastSeen && !isUserOnline(popupUserTagUser.lastSeen | timeSince)">
+          <span
+            *ngIf="popupUserTagUser && popupUserTagUser.lastSeen && !isUserOnline(popupUserTagUser.lastSeen | timeSince)">
             {{ popupUserTagUser.lastSeen | timeSince }}
           </span>
           <span *ngIf="!popupUserTagUser?.lastSeen">
@@ -110,12 +114,20 @@
             {{(popupUserTagUser && popupUserTagUser.created ? popupUserTagUser.created : '0 days') | timeSince}}
           </div>
         </div>
-        <div class="seperatedUserHeader smallFont" *ngIf="popupUserTagUser.about?.currency"> 
-          {{ (popupUserTagUser.about?.currency ?? '') | currencyFlag }} 
+        <div class="seperatedUserHeader smallFont" *ngIf="popupUserTagUser.about?.currency">
+          {{ (popupUserTagUser.about?.currency ?? '') | currencyFlag }}
         </div>
       </div>
     </div>
-  </div> 
+  </div>
+</div>
+<!-- Security Alert POPUP PANEL -->
+<div class="popupPanel securityPopup" *ngIf="isShowingSecurityPopup">
+  <div class="popupPanelTitle">Security Warning</div>
+  <div>The security token has expired. ⚠️<br>Would you like to refresh the security token?</div>
+  <div style="margin-top: 10px; display: flex; gap: 15px">
+    <button class="closeButton" id="closeOverlay" (click)="closeSecurityPopup()">Close</button>
+    <button (click)="updateLastSeen(); closeSecurityPopup();">Refresh</button></div>
 </div>
 
 <input type="hidden" id="hiddenUrlToVisit" />

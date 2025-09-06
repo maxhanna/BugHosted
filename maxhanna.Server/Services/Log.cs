@@ -173,9 +173,10 @@ public class Log
 			{
 				_ = Db($"ValidateUserLoggedIn ACCESS DENIED userId:{userId}. User seen > 60 minutes.{(!string.IsNullOrEmpty(callingMethodName) ? " Calling method: " + callingMethodName : "")}", userId, "SYSTEM", true);
 				return false;
-			} 
+			}
 			int decryptedUserId = DecryptUserId(encryptedUserId);
-			if (decryptedUserId != userId) {
+			if (decryptedUserId != userId)
+			{
 				_ = Db($"ValidateUserLoggedIn ACCESS DENIED userId:{userId}. Decryption key mismatch.{(!string.IsNullOrEmpty(callingMethodName) ? " Calling method: " + callingMethodName : "")}", userId, "SYSTEM", true);
 				return false;
 			}
@@ -365,4 +366,36 @@ public class Log
 		int years = months / 12;
 		return $"{years}y ago";
 	}
+	public string EncryptContent(string message, string password = "defaultPassword")
+	{
+		try
+		{ 
+			byte[] msgBytes = System.Text.Encoding.UTF8.GetBytes(message);
+			byte[] pwdBytes = System.Text.Encoding.UTF8.GetBytes(password);
+
+			byte[] result = new byte[msgBytes.Length];
+
+			for (int i = 0; i < msgBytes.Length; i++)
+			{
+				// Cycle password bytes
+				byte pwdByte = pwdBytes[i % pwdBytes.Length];
+
+				// Multi-layer transformation
+				int transformed = msgBytes[i] ^ pwdByte; // XOR with password
+				transformed = (transformed + 7) % 256;   // Add constant
+				transformed = ((transformed << 4) | (transformed >> 4)) & 0xFF; // Rotate bits
+
+				result[i] = (byte)transformed;
+			}
+
+			// Convert to hex string for easy storage
+			return BitConverter.ToString(result).Replace("-", "").ToLower();
+		}
+		catch (Exception ex)
+		{
+			Console.WriteLine("Encryption error: " + ex.Message);
+			return message;
+		}
+	}
+
 }

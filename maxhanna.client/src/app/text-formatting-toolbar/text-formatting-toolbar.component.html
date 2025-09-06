@@ -1,0 +1,56 @@
+<button *ngIf="!hide" class="storyControlFlairButton" (click)="insertBold();" title="Bold">
+    <span style="font-weight:900">B</span>
+</button>
+<button *ngIf="!hide" class="storyControlFlairButton" (click)="insertItalics();" title="Italic">
+    <span style="font-style:italic">I</span>
+</button>
+<button *ngIf="!hide" class="storyControlFlairButton" (click)="insertBullet();" title="Bullet-point">
+    <span>&bull;</span>
+</button>
+<button *ngIf="!hide" class="storyControlFlairButton" (click)="insertH2();" title="Header">
+    <span>##</span>
+</button>
+<button *ngIf="!hide" class="storyControlFlairButton" (click)="insertH3();" title="Sub-Header">
+    <span>###</span>
+</button>
+<button *ngIf="!hide" class="storyControlFlairButton" (click)="openInsertEmojiPanel();" title="Emoji">
+    <span>😊</span>
+</button>
+<button *ngIf="!hide" class="storyControlFlairButton" (click)="insertPollSnippet();" title="Poll">
+    <span>📊</span>
+</button>
+<button *ngIf="!hide" class="storyControlFlairButton" (click)="openComponentSelector();" title="Insert Component">
+    <span>🧩</span>
+</button>
+
+
+<!-- Emoji picker Popup -->
+<div class="popupPanel" *ngIf="isEmojiPanelOpen">
+    <div>
+        <div class="emojiFilterInputDiv">
+            <input id="emojiFilter" #emojiFilter placeholder="🔍Search" (input)="searchForEmoji($event)" />
+        </div>
+        <div class="emojiFilterContainer">
+            <span *ngFor="let emoji of filteredEmojis | keyvalue" (click)="insertEmoji(emoji.value)"
+                style="cursor: pointer; font-size: 24px; margin: 5px;" [title]="emoji.key">
+                {{ emoji.value }}
+            </span>
+        </div>
+    </div>
+    <button id="closeOverlay" class="closeButton" (click)="closeInsertEmojiPanel()">Close</button>
+</div>
+
+<!-- Component Selector Popup -->
+<div *ngIf="showComponentSelector" class="popupPanel componentSelectorPanel">
+    <div class="popupHeader">
+        <div class="popupPanelTitle">Select Component</div>
+    </div>
+    <div class="componentList">
+        <div *ngFor="let item of getNavigationItems()" class="componentsItem" (click)="insertComponent(item.title)">
+            <span class="componentsIcon">{{item.title != 'Weather' ? item.icon : '☀️'}}</span>
+            <span class="componentsTitle">{{item.title}}</span>
+        </div>
+    </div>
+    <button class="closeButton" id="closeOverlay" style="margin-top: 10px;"
+        (click)="closeComponentSelector()">Close</button>
+</div>

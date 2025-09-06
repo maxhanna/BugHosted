@@ -11,6 +11,7 @@ import { NotificationService } from '../../services/notification.service';
 import { MediaSelectorComponent } from '../media-selector/media-selector.component';
 import { UserService } from '../../services/user.service';
 import { UserSettings } from '../../services/datacontracts/user/user-settings';
+import { EncryptionService } from '../../services/encryption.service';
 
 @Component({
   selector: 'app-chat',
@@ -24,22 +25,10 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
   currentChatUsers: User[] | undefined = undefined;
   currentChatId?: number;
   chatHistory: Message[] = [];
-  attachedFiles: FileEntry[] = [];
   selectedUsers: User[] = []
   isEditing: number[] = [];
-  @ViewChild('newMessage') newMessage!: ElementRef<HTMLTextAreaElement>;
-  @ViewChild('chatWindow') chatWindow!: ElementRef;
-  @ViewChild('changePageMenuSelect') changePageMenuSelect!: ElementRef<HTMLSelectElement>;
-  @ViewChild(MediaSelectorComponent) attachmentSelector!: MediaSelectorComponent;
+  showPostInput = false;
   hasManuallyScrolled = false;
-  private pollingInterval: any;
-  private isChangingPage = false;
-
-  @Input() selectedUser?: User;
-  @Input() chatId?: number;
-  @Input() inputtedParentRef?: AppComponent;
-  @Output() closeChatEvent = new EventEmitter<void>();
-
   pageNumber = 1;
   pageSize = 10;
   totalPages = 1;
@@ -52,16 +41,33 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
   ghostReadEnabled = false;
   notificationsEnabled?: boolean = undefined;
   firstMessageDetails: { content: string } | null = null;
+  quoteMessage = "";
+  private pollingInterval: any;
+  private isChangingPage = false;
 
-  constructor(private chatService: ChatService, private notificationService: NotificationService, private userService: UserService) {
+  @ViewChild('newMessage') newMessage!: ElementRef<HTMLTextAreaElement>;
+  @ViewChild('newMessageTmpInput') newMessageTmpInput!: ElementRef<HTMLInputElement>;
+  @ViewChild('chatWindow') chatWindow!: ElementRef;
+  @ViewChild('changePageMenuSelect') changePageMenuSelect!: ElementRef<HTMLSelectElement>;
+  @ViewChild(MediaSelectorComponent) attachmentSelector!: MediaSelectorComponent;
+
+  @Input() selectedUser?: User;
+  @Input() chatId?: number;
+  @Input() inputtedParentRef?: AppComponent;
+  @Output() closeChatEvent = new EventEmitter<void>();
+
+  constructor(
+    private chatService: ChatService,
+    private notificationService: NotificationService,
+    private userService: UserService,
+    private encryptionService: EncryptionService) {
     super();
 
     const parent = this.inputtedParentRef ?? this.parentRef;
     parent?.addResizeListener();
   }
 
-  async ngOnInit() {
-    let notificationsEnabled = false;
+  async ngOnInit() { 
     if (this.selectedUser) {
       if (this.inputtedParentRef) {
         this.parentRef = this.inputtedParentRef;
@@ -145,7 +151,7 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
       );
       if (res && res.status && res.status == "404") {
         if (this.chatHistory.length > 0) {
-          this.chatHistory = []; 
+          this.chatHistory = [];
         }
         return;
       }
@@ -162,7 +168,7 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
             // Update only if content or relevant fields differ
             const existing = updatedChatHistory[existingIndex];
             if (
-              existing.content !== incomingMessage.content || existing.timestamp !== incomingMessage.timestamp  
+              existing.content !== incomingMessage.content || existing.timestamp !== incomingMessage.timestamp
             ) {
               updatedChatHistory[existingIndex] = { ...incomingMessage };
               hasChanges = true;
@@ -185,7 +191,7 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
           this.pageNumber = res.currentPage;
           if (!this.currentChatId && res.messages[0]?.chatId) {
             this.currentChatId = res.messages[0].chatId;
- 
+
             if (this.firstMessageDetails) {
               const encryptedContent = this.encryptContent(this.firstMessageDetails.content);
               if (encryptedContent !== res.messages[0].content) {
@@ -207,7 +213,7 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
               this.firstMessageDetails = null;
             }
           }
-          this.scrollToBottomIfNeeded(); 
+          this.scrollToBottomIfNeeded();
         }
         this.isChangingPage = false;
       }
@@ -336,54 +342,6 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
     parent?.closeOverlay();
   }
 
-  async sendMessage() {
-    if (!this.currentChatUsers || this.currentChatUsers.length == 0) return;
-    let msg = this.newMessage.nativeElement.value.trim();
-    if (msg && this.parentRef) {
-      msg = this.parentRef.replaceEmojisInMessage(msg);
-    }
-    if (msg.trim() == "" && (!this.attachedFiles || this.attachedFiles.length == 0)) {
-      return alert("Message content cannot be empty.");
-    }
-    const originalContent = msg; 
-    msg = this.encryptContent(msg);
-    let chatUsersIds: number[] = [];
-    this.currentChatUsers.forEach(x => chatUsersIds.push(x.id ?? 0));
-    if (this.parentRef && this.parentRef.user && !this.currentChatUsers.find(x => x.id == this.parentRef?.user?.id)) {
-      chatUsersIds.push(this.parentRef.user?.id ?? 0);
-    }
-    try {
-      setTimeout(() => {
-        this.newMessage.nativeElement.value = '';
-        this.newMessage.nativeElement.innerHTML = '';
-        this.newMessage.nativeElement.textContent = '';
-      }, 10);
-      await this.chatService.sendMessage(this.parentRef?.user?.id ?? 0, chatUsersIds, this.currentChatId, msg, this.attachedFiles);
-      if (!this.currentChatId) {
-        this.firstMessageDetails = { content: originalContent };
-      }
-      this.removeAllAttachments();
-      this.attachedFiles = [];
-      await this.getMessageHistory().then(x => {
-        setTimeout(() => {
-          this.chatWindow.nativeElement.scrollTop = this.chatWindow.nativeElement.scrollHeight;
-        }, 250);
-      });
-      this.notificationService.createNotifications(
-        { fromUserId: this.parentRef?.user?.id ?? 0, toUserIds: chatUsersIds.filter(x => x != (this.parentRef?.user?.id ?? 0)), message: 'New chat message!', chatId: this.currentChatId }
-      );
-    } catch (error) {
-      console.error(error);
-    }
-  }
-  private removeAllAttachments() {
-    this.attachedFiles = [];
-    this.attachmentSelector.removeAllFiles();
-  }
-
-  selectFile(files: FileEntry[]) {
-    this.attachedFiles = files;
-  }
   userSelectClickEvent(users: User[] | undefined) {
     if (!users) this.selectedUsers = [];
     else this.selectedUsers = users;
@@ -455,9 +413,10 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
       return value;
     });
   }
+
   encryptContent(msg: string) {
     try {
-      return this.chatService.encryptContent(msg, this.currentChatId ? this.currentChatId + "" : undefined);
+      return this.encryptionService.encryptContent(msg, this.currentChatId ? this.currentChatId + "" : undefined);
     } catch (error) {
       console.error('Encryption error:', error);
       return msg;
@@ -466,7 +425,7 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
 
   decryptContent(encryptedContent: string) {
     try {
-      return this.chatService.decryptContent(encryptedContent, this.currentChatId ? this.currentChatId + "" : undefined);
+      return this.encryptionService.decryptContent(encryptedContent, this.currentChatId ? this.currentChatId + "" : undefined);
     } catch (error) {
       console.error('Decryption error:', error);
       return encryptedContent;
@@ -478,8 +437,6 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
     if (!parent?.user || !parent.user.id) {
       return;
     }
-    const currentUrl = window.location.href;
-
     try {
       const firebaseConfig = {
         apiKey: "AIzaSyAR5AbDVyw2RmW4MCLL2aLVa2NLmf3W-Xc",
@@ -492,14 +449,6 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
       };
       this.app = initializeApp(firebaseConfig);
       this.messaging = await getMessaging(this.app);
-      // onMessage(this.messaging, (payload: any) => {
-      //   const parent = this.inputtedParentRef ?? this.parentRef;
-      //   const body = payload.notification.body;
-      //   const title = payload.notification.title;
-      //   parent?.showNotification(`${title}: ${body}`);
-      // });
-
-      //console.log('Current Notification Permission:', Notification.permission);
       if (this.notificationsEnabled == undefined) {
         if (Notification.permission === 'default') {
           const permission = await Notification.requestPermission();
@@ -508,7 +457,7 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
             await this.subscribeToNotificationTopic(token);
             this.userService.updateNotificationsEnabled(parent.user.id, true);
           } else {
-           //console.log('User declined notification permission');
+            //console.log('User declined notification permission');
             this.userService.updateNotificationsEnabled(parent.user.id, false);
           }
         } else if (Notification.permission === 'granted') {
@@ -539,11 +488,7 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
   }
 
   quote(message: Message) {
-    if (this.newMessage.nativeElement.value.trim() != "") {
-      this.newMessage.nativeElement.value += "\n ";
-    }
-    const parent = this.inputtedParentRef ?? this.parentRef;
-    this.newMessage.nativeElement.value += `[Quoting {${message.sender.username}|${message.sender.id}|${message.timestamp}}: ${this.decryptContent(message.content)}] \n`;
+    this.quoteMessage = `[Quoting {${message.sender.username}|${message.sender.id}|${message.timestamp}}: ${this.decryptContent(message.content)}] \n`;
     setTimeout(() => {
       if (this.newMessage && this.newMessage.nativeElement) {
         const input = this.newMessage.nativeElement;
@@ -611,7 +556,7 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
       this.isEditing = this.isEditing.filter(x => x != message.id);
     }
   }
-  async acceptEdit(message: Message) { 
+  async acceptEdit(message: Message) {
     if (this.isEditing.some(id => id === message.id)) {
       this.isEditing = this.isEditing.filter(x => x != message.id);
     }
@@ -637,5 +582,31 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
         this.closeChat();
       }
     });
-  }  
+  }
+  openPostInputPopup() {
+    const msg = this.newMessageTmpInput.nativeElement.value;
+    this.showPostInput = true;
+    this.parentRef?.showOverlay();
+    setTimeout(() => {
+      this.newMessage.nativeElement.value = msg;
+      this.newMessage.nativeElement.focus();
+    }, 50);
+  }
+  closePostInputPopup() {
+    console.log("closing post input popup");
+    const msg = this.newMessage.nativeElement.value;
+    this.showPostInput = false;
+    this.parentRef?.closeOverlay();
+    setTimeout(() => {
+      this.newMessageTmpInput.nativeElement.value = msg;
+    }, 50);
+  }
+
+  async chatMessagePosted(event: { results: any, originalContent: string }) {
+    await this.getMessageHistory().then(x => {
+      setTimeout(() => {
+        this.chatWindow.nativeElement.scrollTop = this.chatWindow.nativeElement.scrollHeight;
+      }, 250);
+    });
+  }
 }

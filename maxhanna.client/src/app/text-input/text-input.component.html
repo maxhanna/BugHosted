@@ -1,0 +1,126 @@
+<div class="storyMainInputDiv">
+    <input type="text" placeholder="What’s crawling your mind?" style="min-width:210px;" (click)="prepPostTextArea()"
+        *ngIf="!showPostInput" #postInput id="postInput">
+    <textarea #story placeholder="What’s crawling your mind?" class="foodForThought" *ngIf="showPostInput"
+        #postTextArea id="postTextArea" (keydown)="onKeyDown($event)"></textarea>
+</div>
+<div class="mainFileUploaderAndTopicSelectorDiv">
+    <button (click)="post()">🗨️ Post</button>
+    <app-media-selector *ngIf="inputtedParentRef" #mediaSelector
+        [currentDirectory]="inputtedParentRef.user?.username ? 'Users/' + inputtedParentRef!.user!.username! : 'Users/Anonymous'"
+        [user]="inputtedParentRef.user" [inputtedParentRef]="inputtedParentRef"
+        (selectFileEvent)="selectFile($event)"></app-media-selector>
+    <button (click)="showPostOptionsPanel()" *ngIf="showPostInput">
+        ⚙️Options
+        <span class="xxSmallFont" *ngIf="getOptionsCount() > 0">
+            ({{getOptionsCount()}})
+        </span>
+    </button>
+    <button class="mainTopicSelectionsHeaderButton" (click)="showTopicsPanel()" *ngIf="type == 'Social'">
+        🗂️Topics<span class="matchingTopicsInsideButtonWrapper" *ngIf="attachedTopics && attachedTopics.length > 0">
+            (
+            <span *ngFor="let topic of attachedTopics; let i = index" class="matchingTopic"
+                title="{{topic.topicText}} : Click to remove topic" style="padding:0">
+                {{topic.topicText}}
+            </span>
+            )
+        </span>
+    </button>
+    <app-text-formatting-toolbar
+     *ngIf="showPostInput && !onMobile()"
+     [inputtedParentRef]="inputtedParentRef" 
+     [parent]="textarea"
+     (isExpandingEmojiPanel)="onExpandingEmojiPanel($event)"
+     (isExpandingComponentPanel)="onExpandingComponentPanel($event)"></app-text-formatting-toolbar>
+</div>
+
+
+<!-- Post Options Popup -->
+<div [class]="(isAppFormattingOptionsOpen || isComponentPanelOpen) ? '' : 'popupPanel'" *ngIf="isPostOptionsPanelOpen || isAppFormattingOptionsOpen || isComponentPanelOpen">
+    <div class="popupPanelTitle">
+        <span>Post Options</span>
+    </div>
+    <div class="smallFont createdByStoryOptionsDiv">
+        These affect the post created.
+    </div>
+    <div>
+        <label>
+            <input type="checkbox" (change)="eachAttachmentSeperatePost = !eachAttachmentSeperatePost"
+                [checked]="eachAttachmentSeperatePost" />
+            Each Attachment In A Seperate Post.
+            <span class="smallFont">
+                Creates a post for every file attachment attached.
+            </span>
+        </label>
+    </div>
+    <div *ngIf="onMobile() || isAppFormattingOptionsOpen" class="mobilePostButtonOptions">
+        <app-text-formatting-toolbar 
+        [inputtedParentRef]="inputtedParentRef" 
+        [parent]="textarea"
+        (isExpandingEmojiPanel)="onExpandingEmojiPanel($event)"
+        (isExpandingComponentPanel)="onExpandingComponentPanel($event)"></app-text-formatting-toolbar>
+    </div>
+    <button id="closeOverlay" (click)="closePostOptionsPanel()" class="closeButton">Close</button>
+</div>
+
+<!-- Post Topics Popup -->
+<div class="popupPanel" *ngIf="isTopicsPanelOpen">
+    <div class="popupPanelTitle">Topics 🗂️</div>
+    <div style="margin-bottom:15px;">
+        <app-topics #topicSelector [isDropdown]="true" [user]="inputtedParentRef?.user" [parent]="inputtedParentRef"
+            [attachedTopics]="attachedTopics" (topicAdded)="topicAdded.emit($event)" (topicClicked)="clickedTopic($event)">
+        </app-topics>
+    </div>
+    <div class="popupSectionContainer gradientBackground">
+        <div class="topTopicsSection">
+            <div class="topTopicTitle" *ngIf="showTopicSelector">
+                Favourite Topics:
+            </div>
+            <div *ngFor="let topic of favTopics" (click)="clickedTopic([topic])" class="topicsGrid">
+                <span class="matchingTopic">
+                    {{topic.topicText}}
+                    <span class="coloredBgButton"
+                        (click)="removeFavTopic(topic); $event.stopPropagation();">❌</span>
+                </span>
+            </div>
+            <div *ngIf="favTopics.length == 0">No favourites yet.</div>
+            <div *ngIf="attachedTopics.length > 0">
+                <ng-container *ngIf="getNonFavoriteTopics().length > 0">
+                    <button (click)="addFavouriteTopic()">
+                        Add
+                        <span *ngFor="let aTopic of getNonFavoriteTopics(); let last = last">
+                            <span class="matchingTopic">{{aTopic.topicText}}</span>
+                            {{last ? '' : ', '}}
+                        </span>
+                        to favourites
+                    </button>
+                </ng-container>
+            </div>
+        </div>
+
+        <div class="topTopicsSection">
+            <div class="topTopicTitle" *ngIf="showTopicSelector">
+                Ignored Topics: <span *ngIf="ignoredTopics.length == 0" class="thirdFontColor">No ignored topics.</span>
+            </div>
+            <div *ngFor="let topic of ignoredTopics" (click)="clickedTopic([topic])" class="topicsGrid">
+                <span class="matchingTopic">
+                    {{topic.topicText}}
+                    <span class="coloredBgButton"
+                        (click)="removeIgnoredTopic(topic); $event.stopPropagation();">❌</span>
+                </span>
+            </div>
+        </div>
+        <div class="topTopicsSection">
+            <div class="topTopicTitle" *ngIf="showTopicSelector">
+                Top Topics:
+            </div>
+            <div *ngFor="let topic of topTopics | slice:0:15" (click)="clickedTopicRank(topic)" class="topicsGrid">
+                <span class="matchingTopic">
+                    {{topic.topicName}}
+                    <span class="topicStoryCount">({{topic.storyCount}})</span>
+                </span>
+            </div>
+        </div>
+    </div>
+    <button id="closeOverlay" (click)="closeTopicsPanel()" class="closeButton">Close</button>
+</div>

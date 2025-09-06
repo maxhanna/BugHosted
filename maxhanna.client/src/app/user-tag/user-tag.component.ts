@@ -31,6 +31,7 @@ export class UserTagComponent extends ChildComponent implements OnInit, OnDestro
 
   popupTop: number = 0;
   popupLeft: number = 0;
+  hoverTimer: any; 
 
   constructor(private userService: UserService) { super(); }
   async ngOnInit() {
@@ -72,48 +73,41 @@ export class UserTagComponent extends ChildComponent implements OnInit, OnDestro
 
   onUserTagHover(event: any) {
     if (!this.user?.id) return;
-    clearTimeout(this.debounceTimer);
-    this.debounceTimer = setTimeout(async () => {
+    clearTimeout(this.hoverTimer);
+    this.hoverTimer = setTimeout(() => {
       const btn = document.getElementById("showUserTagButton");
       const inputX = document.getElementById("showUserTagX") as HTMLInputElement;
       const inputY = document.getElementById("showUserTagY") as HTMLInputElement;
-      (document.getElementById("showUserTagUserId") as HTMLInputElement).value = this.user?.id?.toString() || '0';
+      (document.getElementById("showUserTagUserId") as HTMLInputElement).value =
+        this.user?.id?.toString() || "0";
+
       let newX = event.clientX + 150;
       let newY = event.clientY + 30;
       const tagWidth = 200;
       const tagHeight = 80;
       const offset = 5;
-      // Check if tag would go off the right edge of the window
+
+      // prevent going off-screen
       if (newX + tagWidth > window.innerWidth) {
-        newX = event.clientX - tagWidth; // Position to the left of cursor
+        newX = event.clientX - tagWidth;
       }
-
-      // Check if tag would go off the bottom edge of the window
       if (newY + tagHeight > window.innerHeight) {
-        newY = event.clientY - tagHeight - offset; // Position above cursor
+        newY = event.clientY - tagHeight - offset;
       }
-
-      // Ensure the tag doesn't go off the left edge
-      if (newX < 0) {
-        newX = offset;
-      }
-
-      // Ensure the tag doesn't go off the top edge
-      if (newY < 0) {
-        newY = offset;
-      }
-
+      if (newX < 0) newX = offset;
+      if (newY < 0) newY = offset;
 
       if (btn) {
-        inputX.value = newX;
-        inputY.value = newY;
+        inputX.value = newX.toString();
+        inputY.value = newY.toString();
         btn.click();
       }
-    }, 500);
-
+    }, 1000);  
   }
+
   onUserTagLeave() {
-    if (!this.user?.id) return;
+    if (!this.user?.id) return; 
+    clearTimeout(this.hoverTimer); 
     const btn = document.getElementById("hideUserTagButton");
     if (btn) {
       btn.click();

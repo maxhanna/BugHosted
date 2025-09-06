@@ -125,6 +125,7 @@ export class ReactionComponent extends ChildComponent implements OnInit {
   @Input() showSpan: boolean = false;
   @Input() showSpanBorder: boolean = false;
   @Input() currentReactions?: Reaction[] = []; 
+  @Input() coloredBg = true;
   constructor(private reactionService: ReactionService, private notificationService: NotificationService) { super(); }
 
   ngOnInit() {
