@@ -243,6 +243,7 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
   }
 
   private applyProfileBackgroundEffects() {
+    if (this.loginOnly) return;
     const closeButton = document.getElementsByClassName('componentMain')[0]?.getElementsByClassName('closeButton')[0] as HTMLDivElement;
     if (closeButton) {
       closeButton.style.setProperty('text-shadow', '1px 1px var(--main-link-color)');

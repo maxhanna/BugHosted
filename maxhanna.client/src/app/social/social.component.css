@@ -269,27 +269,9 @@ singleAttachment {
   color: var(--secondary-font-color);
 }
 
-.mainFileUploaderAndTopicSelectorDiv {
-  display: flex;
-  justify-content: flex-start;
-  max-width: 100%;
-  overflow: hidden;
-}
-
 .storyMainInputDiv {
   width: 100%;
   display: flex;
-  justify-content: center;
-}
-
-.mainFileUploaderAndTopicSelectorDiv ::ng-deep button {
-  cursor: pointer;
-  height: 23px !important;
-  line-height: 12px;
-  min-width: 70px;
-  white-space: nowrap;
-  display: flex;
-  align-items: center;
   justify-content: center;
 }
 

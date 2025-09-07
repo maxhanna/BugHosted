@@ -58,3 +58,15 @@ input {
 .closeButton {
     margin-top: 10px;
 }
+
+.mainFileUploaderAndTopicSelectorDiv {
+    display: flex;
+    justify-content: flex-start;
+    align-items: flex-start;
+    max-width: 100%; 
+}
+
+.mainFileUploaderAndTopicSelectorDiv ::ng-deep button {
+    cursor: pointer;
+    height: 23px !important; 
+}

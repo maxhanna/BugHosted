@@ -11,7 +11,7 @@ using System.Data;
 using System.Diagnostics;
 using System.Net;
 using System.Xml.Linq;
-using Xabe.FFmpeg; 
+using Xabe.FFmpeg;
 
 namespace maxhanna.Server.Controllers
 {
@@ -104,7 +104,7 @@ namespace maxhanna.Server.Controllers
 						break;
 					case "Filesize DESC":
 						orderBy = "ORDER BY file_size DESC";
-						break; 
+						break;
 					case "Last Updated ASC":
 						orderBy = "ORDER BY f.last_updated ASC";
 						break;
@@ -387,6 +387,15 @@ LIMIT
 		private static void GetFileComments(List<FileEntry> fileEntries, MySqlConnection connection, List<int> fileIds, List<int> commentIds, List<string> fileIdsParameters)
 		{
 			var commentsCommand = new MySqlCommand($@"
+WITH RECURSIVE comment_tree (id) AS (
+  SELECT id
+  FROM maxhanna.comments
+  WHERE file_id IN ({string.Join(", ", fileIdsParameters)})
+  UNION ALL
+  SELECT c.id
+  FROM maxhanna.comments c
+  JOIN comment_tree ct ON c.comment_id = ct.id
+)
 		SELECT 
 			fc.id AS commentId,
 			fc.file_id AS commentFileId,
@@ -420,10 +429,7 @@ LIMIT
 		LEFT JOIN maxhanna.comment_files cf ON fc.id = cf.comment_id
 		LEFT JOIN maxhanna.file_uploads cf2 ON cf.file_id = cf2.id
 		LEFT JOIN maxhanna.users cfu2 ON cfu2.id = cf2.user_id
-		WHERE 1=1
-			{((fileIds.Count > 0 || fileIdsParameters.Count > 0) ? " AND " : "")}
-			{(fileIds.Count > 0 ? $"fc.file_id IN ({string.Join(", ", fileIdsParameters)})" : "")}
-			{(fileIdsParameters.Count > 0 ? $" {(fileIds.Count > 0 ? " OR " : " AND ")} fc.comment_id IN (SELECT id FROM comments AS z WHERE z.file_id IN ({string.Join(",", fileIdsParameters)}))" : "")};", connection);
+		WHERE fc.id IN (SELECT id FROM comment_tree);", connection);
 
 			for (int i = 0; i < fileIds.Count; i++)
 			{
@@ -450,36 +456,55 @@ LIMIT
 				var commentUserDisplayPicFileName = reader.IsDBNull(reader.GetOrdinal("commentUserDisplayPicFileName")) ? null : reader.GetString("commentUserDisplayPicFileName");
 				var commentUserDisplayPicFolderPath = reader.IsDBNull(reader.GetOrdinal("commentUserDisplayPicFolderPath")) ? null : reader.GetString("commentUserDisplayPicFolderPath");
 
-				var comment = new FileComment
+				FileComment? comment;
+				if (!allCommentsById.TryGetValue(commentId, out comment))
 				{
-					Id = commentId,
-					FileId = fileIdValue,
-					CommentId = commentParentId,
-					User = new User(
-						reader.GetInt32("commentUserId"),
-						reader.GetString("commentUsername"),
-						null,
-						new FileEntry
-						{
-							Id = commentUserDisplayPicId ?? 0,
-							FileName = commentUserDisplayPicFileName,
-							Directory = commentUserDisplayPicFolderPath
-						},
-						new FileEntry
-						{
-							Id = commentUserProfileBackgroundPicId ?? 0,
-						},
-						null, null, null
-					),
-					CommentText = reader.GetString("commentText"),
-					Date = reader.GetDateTime("commentDate"),
-					City = commentCity,
-					Country = commentCountry,
-					Ip = commentIp
-				};
+					comment = new FileComment
+					{
+						Id = commentId,
+						FileId = fileIdValue,
+						CommentId = commentParentId,
+						User = new User(
+							reader.GetInt32("commentUserId"),
+							reader.GetString("commentUsername"),
+							null,
+							new FileEntry
+							{
+								Id = commentUserDisplayPicId ?? 0,
+								FileName = commentUserDisplayPicFileName,
+								Directory = commentUserDisplayPicFolderPath
+							},
+							new FileEntry
+							{
+								Id = commentUserProfileBackgroundPicId ?? 0,
+							},
+							null, null, null
+						),
+						CommentText = reader.GetString("commentText"),
+						Date = reader.GetDateTime("commentDate"),
+						City = commentCity,
+						Country = commentCountry,
+						Ip = commentIp
+					};
 
-				commentIds.Add(commentId);
+					allCommentsById[comment.Id] = comment;
+					commentIds.Add(commentId);
 
+					if (commentParentId.HasValue)
+					{
+						childComments.Add((comment, commentParentId.Value));
+					}
+
+					var fileEntryMatch = fileEntries.FirstOrDefault(f => f.Id == fileIdValue);
+					if (fileEntryMatch != null)
+					{
+						if (fileEntryMatch.FileComments == null)
+						{
+							fileEntryMatch.FileComments = new List<FileComment>();
+						}
+						fileEntryMatch.FileComments!.Add(comment);
+					}
+				}
 				var fileEntryId = reader.IsDBNull(reader.GetOrdinal("commentFileEntryId")) ? (int?)null : reader.GetInt32("commentFileEntryId");
 
 				if (fileEntryId.HasValue)
@@ -500,24 +525,8 @@ LIMIT
 						FileSize = reader.GetInt32("commentFileEntrySize")
 					};
 
-					comment.CommentFiles!.Add(fileEntry);
-				}
-
-				allCommentsById[comment.Id] = comment;
-
-				if (commentParentId.HasValue)
-				{
-					childComments.Add((comment, commentParentId.Value));
-				}
-
-				var fileEntryMatch = fileEntries.FirstOrDefault(f => f.Id == fileIdValue);
-				if (fileEntryMatch != null)
-				{
-					if (fileEntryMatch.FileComments == null)
-					{
-						fileEntryMatch.FileComments = new List<FileComment>();
-					}
-					fileEntryMatch.FileComments!.Add(comment);
+					comment.CommentFiles ??= new List<FileEntry>();
+					comment.CommentFiles.Add(fileEntry);
 				}
 			}
 
@@ -528,7 +537,7 @@ LIMIT
 				{
 					parent.Comments ??= new List<FileComment>();
 					parent.Comments.Add(comment);
-				} 
+				}
 			}
 		}
 
@@ -762,7 +771,8 @@ LIMIT
                 WHERE t.topic = 'NSFW' AND ft.file_id = f.id
             )";
 			}
-			if (user != null) {
+			if (user != null)
+			{
 				int userId = user.Id ?? 0;
 				searchCondition += $@" 
 				AND NOT EXISTS (
@@ -771,7 +781,7 @@ LIMIT
 					OR (ub.user_id = f.user_id AND ub.blocked_user_id = {userId})
 				) ";
 			}
-			
+
 
 			if (string.IsNullOrWhiteSpace(search))
 				return (searchCondition, new List<MySqlParameter>());
@@ -926,16 +936,16 @@ LIMIT
 				// Database operations
 				var relativePath = filePath.Replace(_baseTarget, "").TrimStart(Path.DirectorySeparatorChar);
 				var fileName = Path.GetFileName(filePath);
-				var folderPath = filePath.Replace(fileName, ""); 
+				var folderPath = filePath.Replace(fileName, "");
 				using (var connection = new MySqlConnection(_connectionString))
 				{
 					await connection.OpenAsync();
 					Console.WriteLine("Database connection opened successfully");
- 
+
 					using (var transaction = await connection.BeginTransactionAsync())
 					{
 						try
-						{ 
+						{
 							var updateCmd = new MySqlCommand(@"
 									UPDATE file_uploads 
 									SET last_access = UTC_TIMESTAMP(), 
@@ -954,7 +964,7 @@ LIMIT
 							{
 								Console.WriteLine("No records updated in file_uploads - file not registered?");
 							}
- 
+
 							if (userId.HasValue)
 							{
 								var insertCmd = new MySqlCommand(@"
@@ -970,15 +980,15 @@ LIMIT
 								insertCmd.Parameters.AddWithValue("@FolderPath", folderPath);
 								insertCmd.Parameters.AddWithValue("@UserId", userId.Value);
 
-								int rowsInserted = await insertCmd.ExecuteNonQueryAsync(); 
+								int rowsInserted = await insertCmd.ExecuteNonQueryAsync();
 							}
 
-							await transaction.CommitAsync(); 
+							await transaction.CommitAsync();
 						}
 						catch (Exception dbEx)
 						{
-							await transaction.RollbackAsync(); 
-							await _log.Db($"Database error: {dbEx.Message}", null, "FILE", true); 
+							await transaction.RollbackAsync();
+							await _log.Db($"Database error: {dbEx.Message}", null, "FILE", true);
 						}
 					}
 				}
@@ -987,17 +997,17 @@ LIMIT
 				try
 				{
 					var fileStream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read, 4096, FileOptions.Asynchronous);
-					string contentType = GetContentType(Path.GetExtension(filePath)); 
+					string contentType = GetContentType(Path.GetExtension(filePath));
 					return File(fileStream, contentType, Path.GetFileName(filePath));
 				}
 				catch (IOException ioEx)
-				{ 
+				{
 					await _log.Db($"File streaming error: {ioEx.Message}", null, "FILE", true);
 					return StatusCode(500, "Error accessing the file");
 				}
 			}
 			catch (Exception ex)
-			{ 
+			{
 				await _log.Db($"Global error: {ex.Message}", null, "FILE", true);
 				return StatusCode(500, "An unexpected error occurred");
 			}
@@ -1528,7 +1538,7 @@ LIMIT
 						new List<int> { fileEntry.Id }
 					);
 					return Ok(fileEntry);
-				} 
+				}
 			}
 			return Ok();
 		}
@@ -2223,7 +2233,7 @@ LIMIT
 						var lastAccess = reader.GetDateTime("last_access");
 
 						var date = reader.GetDateTime("date");
-					 
+
 
 						var fileEntry = new FileEntry();
 						fileEntry.Id = id;
@@ -2252,10 +2262,10 @@ LIMIT
 								var commentUserId = reader.GetInt32("commentUserId");
 								var commentUsername = reader.GetString("commentUsername");
 								var commentText = reader.GetString("commentText");
- 
+
 								int? displayPicId = reader.IsDBNull(reader.GetOrdinal("commentUserDisplayPicId")) ? null : reader.GetInt32("commentUserDisplayPicId");
 								FileEntry? dpFileEntry = displayPicId != null ? new FileEntry() { Id = (Int32)(displayPicId) } : null;
- 
+
 								int? backgroundPicId = reader.IsDBNull(reader.GetOrdinal("commentUserBackgroundPicId")) ? null : reader.GetInt32("commentUserBackgroundPicId");
 								FileEntry? bgFileEntry = backgroundPicId != null ? new FileEntry() { Id = (Int32)(backgroundPicId) } : null;
 
@@ -2283,7 +2293,7 @@ LIMIT
 			}
 			return null;
 		}
-		
+
 		[HttpPost("/File/Hide/", Name = "HideFile")]
 		public async Task<IActionResult> HideFile([FromBody] HideFileRequest request)
 		{
@@ -2293,7 +2303,7 @@ LIMIT
 				{
 					await connection.OpenAsync();
 					using (var transaction = await connection.BeginTransactionAsync())
-					{ 
+					{
 						var checkCommand = new MySqlCommand(
 							"SELECT COUNT(*) FROM maxhanna.hidden_files WHERE user_id = @userId AND file_id = @fileId",
 							connection, transaction);
@@ -2303,7 +2313,7 @@ LIMIT
 						var isHidden = Convert.ToInt32(await checkCommand.ExecuteScalarAsync()) > 0;
 
 						if (isHidden)
-						{ 
+						{
 							var unhideCommand = new MySqlCommand(
 								"DELETE FROM maxhanna.hidden_files WHERE user_id = @userId AND file_id = @fileId",
 								connection, transaction);
@@ -2314,7 +2324,7 @@ LIMIT
 							_ = _log.Db($"File {request.FileId} unhidden for user {request.UserId}", request.UserId, "FILE");
 						}
 						else
-						{ 
+						{
 							var hideCommand = new MySqlCommand(
 								"INSERT INTO maxhanna.hidden_files (user_id, file_id) VALUES (@userId, @fileId)",
 								connection, transaction);
@@ -2324,7 +2334,7 @@ LIMIT
 							await hideCommand.ExecuteNonQueryAsync();
 							_ = _log.Db($"File {request.FileId} hidden for user {request.UserId}", request.UserId, "FILE");
 						}
- 
+
 						await transaction.CommitAsync();
 
 						return Ok(isHidden ? "File unhidden successfully." : "File hidden successfully.");
@@ -2680,7 +2690,7 @@ LIMIT
 			}
 		}
 
-		[HttpPost("/File/ToggleFavorite/", Name = "ToggleFavorite")] 
+		[HttpPost("/File/ToggleFavorite/", Name = "ToggleFavorite")]
 		public async Task<IActionResult> ToggleFavorite([FromBody] FavoriteRequest request)
 		{
 			try
@@ -2811,8 +2821,8 @@ LIMIT
 
 				await command.ExecuteNonQueryAsync();
 			}
-		} 
-		
+		}
+
 		[HttpPost("/File/Batch/", Name = "ExecuteBatch")]
 		public IActionResult ExecuteBatch([FromBody] User user, [FromQuery] string? inputFile)
 		{

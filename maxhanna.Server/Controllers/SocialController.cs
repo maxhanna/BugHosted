@@ -3,7 +3,7 @@ using HtmlAgilityPack;
 using maxhanna.Server.Controllers.DataContracts;
 using maxhanna.Server.Controllers.DataContracts.Files;
 using maxhanna.Server.Controllers.DataContracts.Metadata;
-using maxhanna.Server.Controllers.DataContracts.Social; 
+using maxhanna.Server.Controllers.DataContracts.Social;
 using maxhanna.Server.Controllers.DataContracts.Topics;
 using maxhanna.Server.Controllers.DataContracts.Users;
 using Microsoft.AspNetCore.Mvc;
@@ -44,7 +44,7 @@ namespace maxhanna.Server.Controllers
 			[FromQuery] int pageSize = 10,
 			[FromQuery] bool showHiddenStories = false,
 			[FromQuery] string? showPostsFromFilter = "all")
-		{ 
+		{
 			try
 			{
 				var stories = await GetStoriesAsync(request, search, topics, page, pageSize, showHiddenStories, showPostsFromFilter);
@@ -235,7 +235,7 @@ namespace maxhanna.Server.Controllers
 					foreach (var param in parameters)
 					{
 						countCmd.Parameters.AddWithValue(param.Key, param.Value);
-					} 
+					}
 					storyResponse.TotalCount = Convert.ToInt32(await countCmd.ExecuteScalarAsync());
 				}
 				using (var cmd = new MySqlCommand(sql, conn))
@@ -245,37 +245,37 @@ namespace maxhanna.Server.Controllers
 					foreach (var param in parameters)
 					{
 						cmd.Parameters.AddWithValue(param.Key, param.Value);
-					} 
+					}
 					using (var rdr = await cmd.ExecuteReaderAsync())
 					{
 						while (await rdr.ReadAsync())
 						{
 							int storyId = rdr.GetInt32("story_id");
 							if (!storyDictionary.TryGetValue(storyId, out var story))
-                            {
-                                int? displayPicId = rdr.IsDBNull(rdr.GetOrdinal("displayPictureFileId")) ? null : rdr.GetInt32("displayPictureFileId");
-                                string? displayPicFolderPath = rdr.IsDBNull(rdr.GetOrdinal("displayPictureFileFolderPath")) ? null : rdr.GetString("displayPictureFileFolderPath");
-                                string? displayPicFileFileName = rdr.IsDBNull(rdr.GetOrdinal("displayPictureFileFileName")) ? null : rdr.GetString("displayPictureFileFileName");
-                                FileEntry? dpFileEntry = displayPicId != null ? new FileEntry { Id = (int)displayPicId, Directory = displayPicFolderPath, FileName = displayPicFileFileName } : null;
-                                Metadata? metadata = attachStoryMetadataDbData(rdr);
-                                story = new Story
-                                {
-                                    Id = storyId,
-                                    User = new User(rdr.GetInt32("user_id"), rdr.GetString("username"), null, dpFileEntry, null, null, null),
-                                    StoryText = rdr.GetString("story_text"),
-                                    Date = rdr.GetDateTime("date"),
-                                    City = rdr.IsDBNull(rdr.GetOrdinal("city")) ? null : rdr.GetString("city"),
-                                    Country = rdr.IsDBNull(rdr.GetOrdinal("country")) ? null : rdr.GetString("country"),
-                                    CommentsCount = rdr.GetInt32("comments_count"),
-                                    Metadata = metadata != null ? new List<Metadata>() { metadata } : new List<Metadata>(),
-                                    StoryFiles = new List<FileEntry>(),
-                                    StoryComments = new List<FileComment>(),
-                                    StoryTopics = new List<Topic>(),
-                                    Reactions = new List<Reaction>(),
-                                    Hidden = rdr.IsDBNull(rdr.GetOrdinal("hidden")) ? false : rdr.GetBoolean("hidden"),
-                                };
-                                storyDictionary[storyId] = story;
-                            } 
+							{
+								int? displayPicId = rdr.IsDBNull(rdr.GetOrdinal("displayPictureFileId")) ? null : rdr.GetInt32("displayPictureFileId");
+								string? displayPicFolderPath = rdr.IsDBNull(rdr.GetOrdinal("displayPictureFileFolderPath")) ? null : rdr.GetString("displayPictureFileFolderPath");
+								string? displayPicFileFileName = rdr.IsDBNull(rdr.GetOrdinal("displayPictureFileFileName")) ? null : rdr.GetString("displayPictureFileFileName");
+								FileEntry? dpFileEntry = displayPicId != null ? new FileEntry { Id = (int)displayPicId, Directory = displayPicFolderPath, FileName = displayPicFileFileName } : null;
+								Metadata? metadata = attachStoryMetadataDbData(rdr);
+								story = new Story
+								{
+									Id = storyId,
+									User = new User(rdr.GetInt32("user_id"), rdr.GetString("username"), null, dpFileEntry, null, null, null),
+									StoryText = rdr.GetString("story_text"),
+									Date = rdr.GetDateTime("date"),
+									City = rdr.IsDBNull(rdr.GetOrdinal("city")) ? null : rdr.GetString("city"),
+									Country = rdr.IsDBNull(rdr.GetOrdinal("country")) ? null : rdr.GetString("country"),
+									CommentsCount = rdr.GetInt32("comments_count"),
+									Metadata = metadata != null ? new List<Metadata>() { metadata } : new List<Metadata>(),
+									StoryFiles = new List<FileEntry>(),
+									StoryComments = new List<FileComment>(),
+									StoryTopics = new List<Topic>(),
+									Reactions = new List<Reaction>(),
+									Hidden = rdr.IsDBNull(rdr.GetOrdinal("hidden")) ? false : rdr.GetBoolean("hidden"),
+								};
+								storyDictionary[storyId] = story;
+							}
 						}
 					}
 				}
@@ -494,7 +494,7 @@ namespace maxhanna.Server.Controllers
 			var options = new List<PollOption>();
 			if (string.IsNullOrEmpty(storyText) || !storyText.Contains("[Poll]") || !storyText.Contains("[/Poll]"))
 			{
-			//	Console.WriteLine("No valid poll found in story text.");
+				//	Console.WriteLine("No valid poll found in story text.");
 				return options;
 			}
 
@@ -566,7 +566,7 @@ namespace maxhanna.Server.Controllers
 			return metadata;
 		}
 
-        private async Task FetchAndAttachTopicsAsync(List<Story> stories)
+		private async Task FetchAndAttachTopicsAsync(List<Story> stories)
 		{
 			if (stories.Count == 0)
 			{
@@ -679,7 +679,7 @@ namespace maxhanna.Server.Controllers
 									Username = rdr.IsDBNull("user_name") ? string.Empty : rdr.GetString("user_name"),
 									DisplayPictureFile = udpFileEntry
 								},
-								CommentId = rdr.IsDBNull("comment_id") ? null : rdr.GetInt32("comment_id"), 
+								CommentId = rdr.IsDBNull("comment_id") ? null : rdr.GetInt32("comment_id"),
 								Type = rdr.IsDBNull("reaction_type") ? string.Empty : rdr.GetString("reaction_type"),
 								Timestamp = rdr.IsDBNull("reaction_timestamp") ? DateTime.MinValue : rdr.GetDateTime("reaction_timestamp")
 							};
@@ -769,7 +769,7 @@ namespace maxhanna.Server.Controllers
 					}
 
 					using (var rdr = await cmd.ExecuteReaderAsync())
-					{ 
+					{
 						while (await rdr.ReadAsync())
 						{
 							int storyId = rdr.IsDBNull("story_id") ? 0 : rdr.GetInt32("story_id");
@@ -826,6 +826,24 @@ namespace maxhanna.Server.Controllers
 			}
 			// Construct SQL query with parameterized IN clause for story IDs
 			StringBuilder sqlBuilder = new StringBuilder();
+			sqlBuilder.AppendLine(@"WITH RECURSIVE comment_tree (id) AS (");
+			sqlBuilder.AppendLine(@"  SELECT id");
+			sqlBuilder.AppendLine(@"  FROM comments");
+			sqlBuilder.AppendLine(@"  WHERE story_id IN (");
+			for (int i = 0; i < storyIds.Count; i++)
+			{
+				sqlBuilder.Append("@storyId" + i);
+				if (i < storyIds.Count - 1)
+				{
+					sqlBuilder.Append(", ");
+				}
+			}
+			sqlBuilder.AppendLine(@")");
+			sqlBuilder.AppendLine(@"  UNION ALL");
+			sqlBuilder.AppendLine(@"  SELECT c.id");
+			sqlBuilder.AppendLine(@"  FROM comments c");
+			sqlBuilder.AppendLine(@"  JOIN comment_tree ct ON c.comment_id = ct.id");
+			sqlBuilder.AppendLine(@")");
 			sqlBuilder.AppendLine(@$"
 				SELECT 
 					c.id AS comment_id,
@@ -879,35 +897,13 @@ namespace maxhanna.Server.Controllers
 					users AS ru ON r.user_id = ru.id   
 				LEFT JOIN 
 					user_display_pictures AS rudp ON rudp.user_id = ru.id   
-				WHERE 1=1 
-				{whereC} AND
-					c.story_id IN (");
-
-			// Add placeholders for story IDs
-			for (int i = 0; i < storyIds.Count; i++)
-			{
-				sqlBuilder.Append("@storyId" + i);
-				if (i < storyIds.Count - 1)
-				{
-					sqlBuilder.Append(", ");
-				}
-			}
-
-			sqlBuilder.AppendLine(@")
-				OR c.comment_id IN (SELECT id FROM comments AS z WHERE z.story_id IN (");
-			for (int i = 0; i < storyIds.Count; i++)
-			{
-				sqlBuilder.Append("@storyId" + i);
-				if (i < storyIds.Count - 1)
-				{
-					sqlBuilder.Append(", ");
-				}
-			}
-			sqlBuilder.AppendLine(@"))
+				WHERE c.id IN (SELECT id FROM comment_tree)
+				{whereC} 
 				GROUP BY c.id, r.id, r.type, ru.id, r.type, ru.username, r.timestamp, 
 				udpfu.file_name, udpfu.folder_path, cf.file_id, 
 				f.file_name, f.folder_path, f.is_public, f.shared_with, f.is_folder,
-				f.upload_date, fu.id, fu.username, f.given_file_name, f.description, f.last_updated");
+				f.upload_date, fu.id, fu.username, f.given_file_name, f.description, f.last_updated
+				ORDER BY c.id ASC;");
 
 			// Execute the SQL query
 			using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
@@ -922,7 +918,7 @@ namespace maxhanna.Server.Controllers
 					for (int i = 0; i < storyIds.Count; i++)
 					{
 						cmd.Parameters.AddWithValue("@storyId" + i, storyIds[i]);
-					} 
+					}
 					using (var rdr = await cmd.ExecuteReaderAsync())
 					{
 						var allComments = new List<FileComment>();
@@ -942,87 +938,87 @@ namespace maxhanna.Server.Controllers
 							var date = rdr.GetDateTime("date");
 
 							var story = stories.FirstOrDefault(s => s.Id == storyId);
- 
-								// Check if the comment already exists for the story
-								var comment = allComments.FirstOrDefault(c => c.Id == commentId);
-								if (comment == null)
+
+							// Check if the comment already exists for the story
+							var comment = allComments.FirstOrDefault(c => c.Id == commentId);
+							if (comment == null)
+							{
+								int? displayPicId = rdr.IsDBNull(rdr.GetOrdinal("profileFileId")) ? null : rdr.GetInt32("profileFileId");
+								string? displayPicFolderPath = rdr.IsDBNull(rdr.GetOrdinal("profileFileFolder")) ? null : rdr.GetString("profileFileFolder");
+								string? displayPicFileFileName = rdr.IsDBNull(rdr.GetOrdinal("profileFileName")) ? null : rdr.GetString("profileFileName");
+								FileEntry? dpFileEntry = displayPicId != null ? new FileEntry() { Id = (Int32)(displayPicId), Directory = displayPicFolderPath, FileName = displayPicFileFileName } : null;
+
+								comment = new FileComment
 								{
-									int? displayPicId = rdr.IsDBNull(rdr.GetOrdinal("profileFileId")) ? null : rdr.GetInt32("profileFileId");
-									string? displayPicFolderPath = rdr.IsDBNull(rdr.GetOrdinal("profileFileFolder")) ? null : rdr.GetString("profileFileFolder");
-									string? displayPicFileFileName = rdr.IsDBNull(rdr.GetOrdinal("profileFileName")) ? null : rdr.GetString("profileFileName");
-									FileEntry? dpFileEntry = displayPicId != null ? new FileEntry() { Id = (Int32)(displayPicId), Directory = displayPicFolderPath, FileName = displayPicFileFileName } : null;
+									Id = commentId,
+									CommentText = commentText,
+									StoryId = storyId,
+									User = new User(cuserId, userName, null, dpFileEntry, null, null, null),
+									Date = date,
+									City = commentCity,
+									Country = commentCountry,
+									Ip = commentIp,
+									CommentFiles = new List<FileEntry>(),
+									Reactions = new List<Reaction>(), // Initialize reactions list
+									Comments = new List<FileComment>() // Initialize subcomments list
+								};
 
-									comment = new FileComment
-									{
-										Id = commentId,
-										CommentText = commentText,
-										StoryId = storyId,
-										User = new User(cuserId, userName, null, dpFileEntry, null, null, null),
-										Date = date,
-										City = commentCity,
-										Country = commentCountry,
-										Ip = commentIp,
-										CommentFiles = new List<FileEntry>(),
-										Reactions = new List<Reaction>(), // Initialize reactions list
-										Comments = new List<FileComment>() // Initialize subcomments list
-									};
+								allComments.Add(comment);
+							}
 
-									allComments.Add(comment);
-								}
+							// Handle comment reactions
+							if (!rdr.IsDBNull("reaction_id"))
+							{
+								var reactionId = rdr.GetInt32("reaction_id");
+								var reactionType = rdr.GetString("reaction_type");
+								var reactionUserId = rdr.GetInt32("reaction_user_id");
+								var reactionUserName = rdr.GetString("reaction_username");
+								int? reactionUserDisplayPictureFileId = rdr.IsDBNull(rdr.GetOrdinal("reaction_display_picture_file_id")) ? null : rdr.GetInt32("reaction_display_picture_file_id");
+								var reactionTime = rdr.GetDateTime("reaction_time");
 
-								// Handle comment reactions
-								if (!rdr.IsDBNull("reaction_id"))
+								// Check if the reaction already exists for the comment
+								var existingReaction = comment.Reactions?.FirstOrDefault(r => r.Id == reactionId);
+								if (existingReaction == null)
 								{
-									var reactionId = rdr.GetInt32("reaction_id");
-									var reactionType = rdr.GetString("reaction_type");
-									var reactionUserId = rdr.GetInt32("reaction_user_id");
-									var reactionUserName = rdr.GetString("reaction_username");
-									int? reactionUserDisplayPictureFileId = rdr.IsDBNull(rdr.GetOrdinal("reaction_display_picture_file_id")) ? null : rdr.GetInt32("reaction_display_picture_file_id");
-									var reactionTime = rdr.GetDateTime("reaction_time");
-
-									// Check if the reaction already exists for the comment
-									var existingReaction = comment.Reactions?.FirstOrDefault(r => r.Id == reactionId);
-									if (existingReaction == null)
+									User reactionUser = new User(
+										reactionUserId,
+										reactionUserName,
+										reactionUserDisplayPictureFileId != null ? new FileEntry(reactionUserDisplayPictureFileId.Value) : null
+									);
+									if (comment.Reactions == null)
 									{
-										User reactionUser = new User(
-											reactionUserId,
-											reactionUserName,
-											reactionUserDisplayPictureFileId != null ? new FileEntry(reactionUserDisplayPictureFileId.Value) : null
-										);
-										if (comment.Reactions == null)
-										{
-											comment.Reactions = new List<Reaction>();
-										}
-										comment.Reactions.Add(new Reaction
-										{
-											Id = reactionId,
-											Type = reactionType,
-											Timestamp = reactionTime,
-											User = reactionUser
-										});
+										comment.Reactions = new List<Reaction>();
 									}
-								} 
-								// Check if there is a file associated with the comment
-								if (!rdr.IsDBNull("comment_file_id"))
-								{
-									var fileEntry = new FileEntry
+									comment.Reactions.Add(new Reaction
 									{
-										Id = rdr.GetInt32("comment_file_id"),
-										FileName = rdr.IsDBNull("comment_file_name") ? null : rdr.GetString("comment_file_name"),
-										Directory = rdr.IsDBNull("comment_file_folder_path") ? _baseTarget : rdr.GetString("comment_file_folder_path"),
-										Visibility = rdr.IsDBNull("comment_file_visibility") ? null : rdr.GetBoolean("comment_file_visibility") ? "Public" : "Private",
-										SharedWith = rdr.IsDBNull("comment_file_shared_with") ? null : rdr.GetString("comment_file_shared_with"),
-										User = new User(rdr.IsDBNull("file_user_id") ? 0 : rdr.GetInt32("file_user_id"), rdr.IsDBNull("file_username") ? "Anonymous" : rdr.GetString("file_username")),
-										IsFolder = rdr.GetBoolean("comment_file_is_folder"),
-										Date = rdr.GetDateTime("comment_file_date"),
-										GivenFileName = rdr.IsDBNull("comment_file_given_file_name") ? null : rdr.GetString("comment_file_given_file_name"),
-										Description = rdr.IsDBNull("comment_file_description") ? null : rdr.GetString("comment_file_description"),
-										LastUpdated = rdr.IsDBNull("comment_file_date") ? null : rdr.GetDateTime("comment_file_date"),
-									};
-									if (comment.CommentFiles == null) { comment.CommentFiles = new List<FileEntry> { }; }
-									comment.CommentFiles.Add(fileEntry);
+										Id = reactionId,
+										Type = reactionType,
+										Timestamp = reactionTime,
+										User = reactionUser
+									});
 								}
-					 
+							}
+							// Check if there is a file associated with the comment
+							if (!rdr.IsDBNull("comment_file_id"))
+							{
+								var fileEntry = new FileEntry
+								{
+									Id = rdr.GetInt32("comment_file_id"),
+									FileName = rdr.IsDBNull("comment_file_name") ? null : rdr.GetString("comment_file_name"),
+									Directory = rdr.IsDBNull("comment_file_folder_path") ? _baseTarget : rdr.GetString("comment_file_folder_path"),
+									Visibility = rdr.IsDBNull("comment_file_visibility") ? null : rdr.GetBoolean("comment_file_visibility") ? "Public" : "Private",
+									SharedWith = rdr.IsDBNull("comment_file_shared_with") ? null : rdr.GetString("comment_file_shared_with"),
+									User = new User(rdr.IsDBNull("file_user_id") ? 0 : rdr.GetInt32("file_user_id"), rdr.IsDBNull("file_username") ? "Anonymous" : rdr.GetString("file_username")),
+									IsFolder = rdr.GetBoolean("comment_file_is_folder"),
+									Date = rdr.GetDateTime("comment_file_date"),
+									GivenFileName = rdr.IsDBNull("comment_file_given_file_name") ? null : rdr.GetString("comment_file_given_file_name"),
+									Description = rdr.IsDBNull("comment_file_description") ? null : rdr.GetString("comment_file_description"),
+									LastUpdated = rdr.IsDBNull("comment_file_date") ? null : rdr.GetDateTime("comment_file_date"),
+								};
+								if (comment.CommentFiles == null) { comment.CommentFiles = new List<FileEntry> { }; }
+								comment.CommentFiles.Add(fileEntry);
+							}
+
 							if (parentCommentId.HasValue)
 							{
 								var parentComment = allComments.FirstOrDefault(c => c.Id == parentCommentId.Value);
@@ -1087,7 +1083,8 @@ namespace maxhanna.Server.Controllers
 						{
 							// Fetch the last inserted ID
 							int storyId = (int)cmd.LastInsertedId;
-							if (request.userId != null) { 
+							if (request.userId != null)
+							{
 								await NotifyFollowers(request.userId, request.story.ProfileUserId, storyId);
 							}
 							// Insert attached files into story_files table
@@ -1250,7 +1247,7 @@ namespace maxhanna.Server.Controllers
 
 		[HttpPost("/Social/Edit-Topics", Name = "EditTopics")]
 		public async Task<IActionResult> EditTopics([FromBody] DataContracts.Social.EditTopicRequest request)
-		{ 
+		{
 			try
 			{
 				string deleteSql = "DELETE FROM maxhanna.story_topics WHERE story_id = @StoryId;";
@@ -1300,7 +1297,7 @@ namespace maxhanna.Server.Controllers
 			}
 			catch (Exception ex)
 			{
-				_ = _log.Db("An error occurred while editing story topics." +ex.Message, null, "SOCIAL", true);
+				_ = _log.Db("An error occurred while editing story topics." + ex.Message, null, "SOCIAL", true);
 				return StatusCode(500, "An error occurred while editing story topics.");
 			}
 		}
@@ -1313,7 +1310,7 @@ namespace maxhanna.Server.Controllers
 			{
 				using (var connection = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
 				{
-					await connection.OpenAsync(); 
+					await connection.OpenAsync();
 					using (var transaction = await connection.BeginTransactionAsync())
 					{
 						// Insert into hidden_files table (no permission check)
@@ -1323,11 +1320,11 @@ namespace maxhanna.Server.Controllers
 						hideCommand.Parameters.AddWithValue("@userId", request.UserId);
 						hideCommand.Parameters.AddWithValue("@storyId", request.StoryId);
 
-						await hideCommand.ExecuteNonQueryAsync(); 
+						await hideCommand.ExecuteNonQueryAsync();
 						// Commit transaction
 						await transaction.CommitAsync();
 					}
-				} 
+				}
 				return Ok("Post hidden successfully.");
 			}
 			catch (Exception ex)
@@ -1408,11 +1405,11 @@ namespace maxhanna.Server.Controllers
 		public async Task<IActionResult> SetMetadata([FromBody] MetadataRequest request, int? storyId)
 		{
 			try
-			{ 
+			{
 				if (request.Url != null)
 				{
 					if (storyId != null && storyId != 0)
-					{ 
+					{
 						await DeleteMetadata(storyId);
 						for (int i = 0; i < request.Url.Length; i++)
 						{
@@ -1449,7 +1446,7 @@ namespace maxhanna.Server.Controllers
 
 						await cmd.ExecuteNonQueryAsync();
 					}
-				} 
+				}
 			}
 			catch
 			{
@@ -1591,7 +1588,8 @@ namespace maxhanna.Server.Controllers
 						Topic = $"notification{followerId}"
 					};
 
-					string response = await FirebaseMessaging.DefaultInstance.SendAsync(firebaseMessage); 				}
+					string response = await FirebaseMessaging.DefaultInstance.SendAsync(firebaseMessage);
+				}
 				catch (Exception ex)
 				{
 					_ = _log.Db($"Failed to send story notification to {followerId}: {ex.Message}", fromUserId, "SOCIAL");
@@ -1670,7 +1668,7 @@ namespace maxhanna.Server.Controllers
 						new XElement(ns + "changefreq", "daily"),
 						new XElement(ns + "priority", "0.8")
 				);
- 				sitemap.Root?.Add(newUrlElement);
+				sitemap.Root?.Add(newUrlElement);
 
 				sitemap.Save(_sitemapPath);
 			}
@@ -1680,7 +1678,7 @@ namespace maxhanna.Server.Controllers
 			}
 		}
 		private async Task<bool> DeletePollsByStoryId(int storyId)
-		{ 
+		{
 			try
 			{
 				string sql = "DELETE FROM poll_votes WHERE component_id = @storyId";
@@ -1690,14 +1688,14 @@ namespace maxhanna.Server.Controllers
 					await conn.OpenAsync();
 
 					using (var cmd = new MySqlCommand(sql, conn))
-					{ 
+					{
 						cmd.Parameters.AddWithValue("@storyId", "storyText" + storyId);
 
 						int rowsAffected = await cmd.ExecuteNonQueryAsync();
 
 						if (rowsAffected == 1)
 						{
-						 
+
 							return true;
 						}
 						else
@@ -1716,7 +1714,7 @@ namespace maxhanna.Server.Controllers
 
 		private async Task RemoveFromSitemapAsync(int targetId)
 		{
-			string targetUrl = $"https://bughosted.com/Social/{targetId}"; 
+			string targetUrl = $"https://bughosted.com/Social/{targetId}";
 			await _sitemapLock.WaitAsync();
 			try
 			{
@@ -1737,13 +1735,13 @@ namespace maxhanna.Server.Controllers
 						targetElement.Remove();
 						sitemap.Save(_sitemapPath);
 						_ = _log.Db($"Removed {targetUrl} from sitemap!", null, "SOCIAL", true);
-					} 
+					}
 				}
 			}
 			finally
 			{
 				_sitemapLock.Release();
 			}
-		} 
+		}
 	}
 }

@@ -419,6 +419,18 @@ export class NotificationsComponent extends ChildComponent implements OnInit, On
     }
   }
 
+  getShowClearAll() {
+    if (!this.notifications || this.notifications.length === 0) return false;
+
+    if (this.filterCategory === 'All') {
+      return this.notifications.length > 0;
+    } else if (this.filterCategory === 'Unread') {
+      return true; // Always show "Read All" when filtering unread notifications
+    } else {
+      return this.notifications.some(x => this.getNotificationCategory(x) === this.filterCategory);
+    }
+  }
+
   getShowReadAll() {
     if (!this.notifications || this.notifications.length === 0) return false;
 

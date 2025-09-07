@@ -15,7 +15,7 @@
           <div *ngIf="unreadNotifications" class="unreadNotifications">({{unreadNotifications}} unread)</div>
         </div>
         <div class="notificationsCountHeaderButtons">
-        <button (click)="delete()" *ngIf="notifications && notifications.length > 0">
+        <button (click)="delete()" *ngIf="getShowClearAll()">
           ❌ Clear {{notifications && notifications.length > 1 ? 'All '
           : '' }} {{filterCategory !== 'All' ? filterCategory + ' ' : '' }}
         </button>

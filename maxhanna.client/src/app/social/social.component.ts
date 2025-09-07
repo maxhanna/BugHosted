@@ -1028,4 +1028,15 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
   decryptText(encryptedText: any, parentId: any): string {
     return this.encryptionService.decryptContent(encryptedText, parentId + "");
   }
+  copyFileLink(file: FileEntry) {
+    const parent = this.parent ?? this.parentRef;
+    const link = `https://bughosted.com/${file?.directory?.includes("Meme") ? 'Memes' : 'File'}/${file?.id}`;
+    try {
+      navigator.clipboard.writeText(link);
+      parent?.showNotification(`${link} copied to clipboard!`);
+    } catch {
+      parent?.showNotification("Error: Unable to share link!");
+      console.log("Error: Unable to share link!");
+    }
+  }
 }

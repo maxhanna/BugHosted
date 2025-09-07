@@ -46,13 +46,8 @@
 .cell-content {
   width: 50px;
   height: 50px; 
-  background-color: #150f0f;
-  /* box-shadow: 0 0 0 1px black; */
-}
-/* .cell-content:hover {
-  transform: scale(1.05);
-  box-shadow: inset 0 0 0 1px var(--main-link-color);
-} */
+  background-color: #150f0f; 
+} 
 
 .cell-content-coords {
   position: relative;

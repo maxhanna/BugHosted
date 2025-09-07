@@ -22,12 +22,13 @@ export class CommentsComponent extends ChildComponent implements OnInit {
   isOptionsPanelOpen = false;
   optionsComment: FileComment | undefined;
   editingComments: number[] = []
-  replyingToCommentIds: number[] = []
   selectedFiles: FileEntry[] = [];
   minimizedComments: Set<number> = new Set<number>();
-  quoteMessage = "";
   commentCount = 0; 
-
+  activeCommentId: number | null = null;
+  breadcrumbComments: FileComment[] = [];
+  originalCommentList: FileComment[] = [];
+  
   @ViewChild('addCommentInput') addCommentInput!: ElementRef<HTMLInputElement>; 
   @ViewChild('subCommentComponent') subCommentComponent!: CommentsComponent;
   @ViewChild('commentInputAreaMediaSelector') commentInputAreaMediaSelector!: MediaSelectorComponent;
@@ -37,18 +38,23 @@ export class CommentsComponent extends ChildComponent implements OnInit {
   @Input() showComments = false;
   @Input() showCommentsHeader = true;
   @Input() type: "" | "Social" | "File" | "Comment" = "";
+  @Input() quoteMessage = "";
   @Input() component_id: number = 0;
   @Input() component: any = undefined;
   @Input() comment_id?: number = undefined;
   @Input() userProfile?: User = undefined;
   @Input() automaticallyShowSubComments = true;
   @Input() canReply = true;
-  @Input() debpth = 0;
+  @Input() depth = 0; 
+  @Input() replyingToCommentId?: number;
   @Output() commentAddedEvent = new EventEmitter<FileComment>();
   @Output() commentRemovedEvent = new EventEmitter<FileComment>();
   @Output() commentHeaderClickedEvent = new EventEmitter<boolean>(this.showComments);
   @Output() subCommentCountUpdatedEvent = new EventEmitter<any>();
- 
+  @Output() quoteMessageEvent = new EventEmitter<string>();
+  @Output() replyingToCommentEvent = new EventEmitter<number>();
+  @Output() togglingSubComments = new EventEmitter<number>();
+
   constructor(
     private commentService: CommentService, 
     private encryptionService: EncryptionService)
@@ -60,7 +66,7 @@ export class CommentsComponent extends ChildComponent implements OnInit {
   }
 
   ngOnInit() {
-
+    this.clearSubCommentsToggled();
   }
 
   override viewProfile(user: User) {
@@ -107,7 +113,8 @@ export class CommentsComponent extends ChildComponent implements OnInit {
       this.editingComments = this.editingComments.filter(x => x !== comment.id);
     }
     this.closeOptionsPanel();
-    this.replyingToCommentIds = [];
+    this.replyingToCommentId = undefined;
+    this.replyingToCommentEvent.emit();
   }
 
   async confirmEditComment(comment: FileComment) {
@@ -164,11 +171,15 @@ export class CommentsComponent extends ChildComponent implements OnInit {
   }
 
   showSubComments(commentId: number) {
-    if (this.replyingToCommentIds.includes(commentId)) {
-      this.replyingToCommentIds = this.replyingToCommentIds.filter(x => x != commentId);
-      return;
+    if (this.replyingToCommentId === commentId) {
+      // Cancel reply
+      this.replyingToCommentId = undefined;
+      this.replyingToCommentEvent.emit(undefined);
+    } else {
+      // Set new active reply
+      this.replyingToCommentId = commentId;
+      this.replyingToCommentEvent.emit(commentId);
     }
-    this.replyingToCommentIds.push(commentId);
   }
   commentHeaderClicked() {
     this.showComments = !this.showComments;
@@ -179,8 +190,18 @@ export class CommentsComponent extends ChildComponent implements OnInit {
     if (parent) {
       parent.closeOverlay();
     }
-    const commentText = this.encryptionService.decryptContent(comment.commentText?.trim() || "", comment.user.id + "");
-    this.quoteMessage = `[Quoting {${comment.user.username}|${comment.user.id}|${comment.date}}: ${commentText}] \n`; 
+
+    const commentText = this.encryptionService.decryptContent(
+      comment.commentText?.trim() || "",
+      comment.user.id + ""
+    );
+
+    const message = `[Quoting {${comment.user.username}|${comment.user.id}|${comment.date}}: ${commentText}] \n`; 
+    this.setQuoteMessage(message);
+    this.quoteMessageEvent.emit(message);
+  }
+  setQuoteMessage(message: string) {
+    this.quoteMessage = message;
   }
   getTotalCommentCount(): number {
     if (!this.commentList || this.commentList.length === 0) return 0;
@@ -204,12 +225,12 @@ export class CommentsComponent extends ChildComponent implements OnInit {
 
     return count;
   }
- 
-  toggleSubcomments(commentId: number) {
-    if (this.minimizedComments.has(commentId)) {
-      this.minimizedComments.delete(commentId);
-    } else {
-      this.minimizedComments.add(commentId);
+  
+  clearSubCommentsToggled(commentId?: number) {
+    if (this.depth > 0) {
+      for (let c of this.commentList) { 
+        this.minimizedComments.add(c.id);
+      }
     }
   }
   
@@ -222,9 +243,76 @@ export class CommentsComponent extends ChildComponent implements OnInit {
       if (!parentComment.comments) { parentComment.comments = []; }
       parentComment.comments.push(commentAdded);
     }
-    this.replyingToCommentIds = [];
+    this.replyingToCommentId = undefined;
+    this.replyingToCommentEvent.emit(this.replyingToCommentId);
+  }
+  expandComment(comment: FileComment) {
+    // Store the current state before expanding
+    if (this.breadcrumbComments.length === 0) {
+      this.originalCommentList = [...this.commentList];
+    }
+
+    this.breadcrumbComments.push(comment);
+    this.activeCommentId = comment.id;
+    this.commentList = comment.comments || [];
+  }
+  navigateToComment(commentId: number | null) {
+    if (commentId === null) {
+      // Navigate back to the top level
+      this.commentList = this.originalCommentList;
+      this.breadcrumbComments = [];
+      this.activeCommentId = null;
+      return;
+    }
+
+    // Find the index of the comment in the breadcrumb
+    const index = this.breadcrumbComments.findIndex(c => c.id === commentId);
+    if (index !== -1) {
+      // Truncate the breadcrumb from this point
+      this.breadcrumbComments = this.breadcrumbComments.slice(0, index + 1);
+
+      // Start from the original list and traverse through the hierarchy
+      let currentLevel = this.originalCommentList;
+      let targetLevel = [...this.originalCommentList];
+
+      // Traverse through the breadcrumb path to reach the target level
+      for (let i = 0; i <= index; i++) {
+        const breadcrumb = this.breadcrumbComments[i];
+        const found = currentLevel.find(c => c.id === breadcrumb.id);
+
+        if (found && found.comments) {
+          currentLevel = found.comments;
+          if (i < index) {
+            targetLevel = found.comments;
+          }
+        }
+      }
+
+      this.commentList = targetLevel;
+      this.activeCommentId = commentId;
+    }
   }
 
+  // Modify the toggleSubcomments method to handle breadcrumb navigation
+  toggleSubcomments(commentId: number) {
+    if (this.depth === 0) {
+      // For top-level comments, use breadcrumb navigation
+      const comment = this.commentList.find(c => c.id === commentId);
+      if (comment) {
+        this.expandComment(comment);
+      }
+    } else {
+      // For nested comments, use the existing behavior
+      this.togglingSubComments.emit(commentId);
+      setTimeout(() => {
+        if (this.minimizedComments.has(commentId)) {
+          this.minimizedComments.delete(commentId);
+        } else {
+          this.minimizedComments.add(commentId);
+        }
+      }, 500);
+    }
+  }
   decryptText(encryptedText: any, parentId: any): string { 
     return this.encryptionService.decryptContent(encryptedText, parentId + "");
   }

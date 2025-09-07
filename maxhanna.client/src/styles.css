@@ -152,13 +152,13 @@ fieldset {
 
 .menuBackButton::before {
   content: '⤺';
-  right: 50px;
+  right: 106px;
   text-shadow: 1px 1px var(--main-link-color);
 }
 
 .refreshButton::before,
 .menuButton::before {
-  left: 0px;
+  right: 53px;
 }
 
 .closeButton::before {
@@ -179,12 +179,12 @@ fieldset {
 }
 
 .notificationTopButton {
-  right: 53px !important;
+  right: 106px !important;
   text-shadow: 1px 1px var(--main-link-color);
 }
 
 .topSearchButtonDiv {
-  right: 105px;
+  right: 159px;
   text-shadow: 1px 1px var(--main-link-color);
 }
 
@@ -198,19 +198,22 @@ fieldset {
 }
 
 .componentTitle {
-  width: calc(100% - 200px);
+  padding-left: 10px;
+  width: calc(100% - 10px);
   font-family: var(--title-font-family);
   font-weight: bolder;
   position: absolute;
   font-size: 25px;
   line-height: 50px;
   top: 0px;
-  left: 55px;
+  left: 0px;
   display: block;
-  text-shadow: 0px 0.50px 0.50px var(--secondary-font-color);
+  /* text-shadow: 0px 0.50px 0.50px var(--secondary-font-color); */
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  box-shadow: 0.5px 0.5px var(--main-border-color);
+  background: linear-gradient(135deg, var(--component-background-color), var(--secondary-component-background-color));
 }
 
 .mainTableDiv {
@@ -247,12 +250,12 @@ fieldset {
   }
 
 
-  .mainTable td { 
+  .mainTable td {
     word-wrap: break-word;
     text-overflow: ellipsis;
   }
 
-  .mainTable input { 
+  .mainTable input {
     word-wrap: break-word;
     text-overflow: ellipsis;
   }
@@ -431,7 +434,7 @@ fieldset {
   font-size: small;
   cursor: pointer;
 }
- 
+
 .avatar {
   max-width: 50px;
   max-height: 50px;
@@ -472,9 +475,11 @@ fieldset {
 .smallFont {
   font-size: small;
 }
+
 .xSmallFont {
   font-size: x-small !important;
 }
+
 .xxSmallFont {
   font-size: xx-small !important;
 }
@@ -514,6 +519,7 @@ fieldset {
 .gradientBackground {
   background: linear-gradient(135deg, var(--component-background-color), var(--secondary-component-background-color));
 }
+
 .highlightBackgroundColor {
   background-color: var(--main-highlight-color);
 }
@@ -614,7 +620,7 @@ fieldset {
 }
 
 .matchingTopic {
-  display: inline-flex; 
+  display: inline-flex;
   border-radius: 4px;
   padding: 2px 5px 2px 5px;
   background-color: var(--main-highlight-color);
@@ -725,10 +731,6 @@ fieldset {
   color: black;
 }
 
-.linkHighlights {
-  text-shadow: 0.5px 1px var(--main-link-color);
-}
-
 .centeredContainer {
   position: absolute;
   top: 30%;
@@ -743,8 +745,8 @@ fieldset {
   text-decoration: underline;
 }
 
-.poll-container {  
-  padding: 15px 15px 0px 15px; 
+.poll-container {
+  padding: 15px 15px 0px 15px;
 }
 
 .poll-question {
@@ -883,8 +885,9 @@ fieldset {
   border: 0;
   transition: transform 0.1s ease;
 }
+
 .coloredBgButton:active {
-    background: linear-gradient(to top, var(--main-highlight-color), transparent);
-    transform: translateY(2px);
-    box-shadow: 0 1px 1px rgba(0, 0, 0, 0.2);
+  background: linear-gradient(to top, var(--main-highlight-color), transparent);
+  transform: translateY(2px);
+  box-shadow: 0 1px 1px rgba(0, 0, 0, 0.2);
 }

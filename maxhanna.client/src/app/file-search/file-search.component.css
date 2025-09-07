@@ -189,7 +189,7 @@
   overflow: auto;
   display: flex;
   flex-direction: column;
-  max-height: CALC(var(--vh, 1vh) * 100 - 100px);
+  max-height: CALC(var(--vh, 1vh) * 100 - 110px);
 }
 
 .draggableDiv {
@@ -313,7 +313,7 @@
 } 
 
 .noNotificationsSearchDiv {
-  right: 53px !important;
+  right: 106px !important;
 }
 
 .fileViewerDiv {

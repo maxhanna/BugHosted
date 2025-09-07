@@ -49,10 +49,8 @@ export class TopicsComponent extends ChildComponent {
         this.addTopicButton.nativeElement.style.visibility = "hidden";
       }
     }
-  }
-  removeTopic(topic: Topic) { 
-    this.topicClicked.emit([topic]);
-  }
+  } 
+  
   removeAllTopics() {
     this.attachedTopics = [];
     this.topicAdded.emit(this.attachedTopics);

@@ -11,10 +11,27 @@
     ) {{showComments ? '-' : '+'}}
   </span>
 </div>
+
+<!-- Breadcrumb Navigation (only shown when viewing subcomments) -->
+<div *ngIf="breadcrumbComments.length > 0" class="breadcrumb-nav gradientBackground">
+  <span class="breadcrumb-item" (click)="navigateToComment(null)">All Comments</span>
+  <span *ngFor="let breadcrumb of breadcrumbComments; let i = index" class="breadcrumb-item">
+    <span class="breadcrumb-separator">›</span>
+    <span *ngIf="i < breadcrumbComments.length - 1" class="breadcrumb-link" (click)="navigateToComment(breadcrumb.id)">
+      {{ breadcrumb.user.username }}
+    </span>
+    <span *ngIf="i === breadcrumbComments.length - 1" class="breadcrumb-current">
+      {{ breadcrumb.user.username }}
+    </span>
+  </span>
+  </div>
+
 <div class="comments-section"
   *ngIf="commentList && commentList.length > 0 && (showComments || (comment_id && automaticallyShowSubComments))"
   [style.maxHeight]="comment_id ? '' : '300px'">
-  <div *ngFor="let comment of commentList!" class="commentListDiv borderPaddedComment" [style.paddingLeft]="comment_id ? '40px' : '20px'">
+
+  <div *ngFor="let comment of commentList!" class="commentListDiv borderPaddedComment"
+    [style.paddingLeft]="comment_id ? '40px' : '20px'">
     <div class="commentContentAndAvatarContainerDiv" [attr.data-timestamp]="comment.date">
       <div class="commentAvatar usernameProfileLink">
         <app-user-tag [user]="comment.user" [inputtedParentRef]="inputtedParentRef" [displayMiniTag]="true"
@@ -28,30 +45,29 @@
           {{ comment.date | timeSince }}
         </ng-template>
       </div>
-      <div class="commentReaction">
-        <app-reaction [commentId]="comment.id" [component]="comment" [fileId]="comment.fileId"
-          [storyId]="comment.storyId" [userProfileId]="userProfile?.id" [user]="inputtedParentRef?.user"
-          [inputtedParentRef]="inputtedParentRef" [currentReactions]="comment.reactions"
-          [previousComponent]="previousComponent">
-        </app-reaction>
-      </div>
-      <button class="commentOptionButton coloredBgButton" (click)="showOptionsPanel(comment)">
-        ⚙️
-      </button>
-      <div class="cursorPointer smallFont commentCountWrapper">
-        <button (click)="showSubComments(comment.id)" 
-          title="Reply to this comment"
-          class="coloredBgButton"
-          [style.display]="(editingComments.includes(comment.id) || !replyingToCommentIds.length || replyingToCommentIds.includes(comment.id)) ? 'inline-block' : 'none'">
-          {{replyingToCommentIds.includes(comment.id) ? 'Cancel' : 'Reply'}}
+      <div class="commentActions">
+        <div class="commentReaction">
+          <app-reaction [commentId]="comment.id" [component]="comment" [fileId]="comment.fileId"
+            [storyId]="comment.storyId" [userProfileId]="userProfile?.id" [user]="inputtedParentRef?.user"
+            [inputtedParentRef]="inputtedParentRef" [currentReactions]="comment.reactions"
+            [previousComponent]="previousComponent">
+          </app-reaction>
+        </div>
+        <button class="commentOptionButton coloredBgButton" (click)="showOptionsPanel(comment)">
+          ⚙️
         </button>
-        <button *ngIf="comment.comments?.length" (click)="toggleSubcomments(comment.id)" class="toggle-subcomments coloredBgButton"
-          title="Toggle subcomments">
-          {{!minimizedComments.has(comment.id) ? '▼' : '▶'}}
-          ({{comment.comments?.length}})
-        </button>
+        <div class="cursorPointer smallFont commentCountWrapper">
+          <button (click)="showSubComments(comment.id)" title="Reply to this comment" class="coloredBgButton"
+            [style.display]="replyingToCommentId && replyingToCommentId !== comment.id ? 'none' : 'inline-block'">
+            {{replyingToCommentId == comment.id ? 'Cancel' : 'Reply'}}
+          </button>
+          <button *ngIf="comment.comments?.length" (click)="expandComment(comment)"
+            class="toggle-subcomments coloredBgButton" title="View subcomments">
+            {{!minimizedComments.has(comment.id) ? '▼' : '▶'}}
+            ({{comment.comments?.length}})
+          </button>
+        </div>
       </div>
-
     </div>
     <div>
       <div class="commentContent">
@@ -65,25 +81,15 @@
             [previousComponent]="previousComponent"></app-media-viewer>
         </div>
         <div class="commentInputArea">
-          <div class="borderPaddedComment" *ngIf="editingComments.includes(comment.id) && !replyingToCommentIds.length">
-            <textarea class="commentTextArea" 
+          <div class="borderPaddedComment" *ngIf="editingComments.includes(comment.id) && !replyingToCommentId">
+            <textarea class="commentTextArea"
               [id]="'commentTextTextarea'+comment.id">{{decryptText(comment.commentText, comment.user.id)}}</textarea>
           </div>
 
-          <div class="commentInputArea borderPaddedComment" *ngIf="replyingToCommentIds.includes(comment.id)">
-            <!-- <textarea [id]="'commentReplyInput'+comment.id" *ngIf="!editingComments.includes(comment.id)"
-              class="commentReplyInputTextArea"></textarea>
-            <app-media-selector #commentInputAreaMediaSelector
-              [style.display]="editingComments.length ? 'none' : 'block'"
-              [currentDirectory]="'Users/' + (inputtedParentRef?.user && inputtedParentRef?.user?.id != 0 ? inputtedParentRef?.user!.username : 'Anonymous')"
-              [user]="inputtedParentRef?.user" [inputtedParentRef]="inputtedParentRef"
-              (selectFileEvent)="selectFile($event)"></app-media-selector>
-            <button (click)="replyToComment(comment)">🗨️Reply</button> -->
-
+          <div class="commentInputArea borderPaddedComment" *ngIf="replyingToCommentId == comment.id">
             <app-text-input [inputtedParentRef]="inputtedParentRef" [type]="'Comment'" [commentParent]="comment"
               [quoteMessage]="quoteMessage" [profileUser]="userProfile"
               (contentPosted)="commentPosted($event, comment)"></app-text-input>
-
           </div>
           <button [id]="'commentTextEditConfirmButton' + comment.id" (click)="confirmEditComment(comment)"
             *ngIf="editingComments.includes(comment.id)">
@@ -93,77 +99,38 @@
             ✏️Edit
           </button>
         </div>
-        <div *ngIf="!minimizedComments.has(comment.id) || replyingToCommentIds.includes(comment.id)"
-          class="subcomments-container" (click)="toggleSubcomments(comment.id)">
-          <div *ngFor="let subComment of comment.comments" class="subComment" [id]="'subComment' + subComment.id"
-            (click)="$event.stopPropagation()">
-            <div class="commentContentAndAvatarContainerDiv" [attr.data-timestamp]="subComment.date">
-              <div class="commentAvatar usernameProfileLink">
-                <app-user-tag [user]="subComment.user" [inputtedParentRef]="inputtedParentRef"
-                  [displayHoverPicture]="true" [displayMiniTag]="true"
-                  [previousComponent]="previousComponent"></app-user-tag>
-              </div>
-              <div class="commentDate" [title]="(subComment.date?.toString() ?? '').replace('T',' ')">
-                <ng-container *ngIf="onMobile(); else fullTime">
-                  {{ (subComment.date | timeSince).split(' ')[0] }}
-                </ng-container>
-                <ng-template #fullTime>
-                  {{ subComment.date | timeSince }}
-                </ng-template>
-              </div>
-              <div class="commentReaction">
-                <app-reaction [commentId]="subComment.id" [storyId]="subComment.storyId" [fileId]="subComment.fileId"
-                  [component]="subComment" [userProfileId]="userProfile?.id" [user]="inputtedParentRef?.user"
-                  [inputtedParentRef]="inputtedParentRef" [currentReactions]="subComment.reactions"
-                  [previousComponent]="previousComponent">
-                </app-reaction>
-              </div>
-              <button class="commentOptionButton coloredBgButton" (click)="showOptionsPanel(subComment)">
-                ⚙️
-              </button>
-            </div>
-            <div class="commentContent">
-              <div [innerHTML]="createClickableUrls(decryptText(subComment.commentText, subComment.user.id))"
-                class="commentTextDiv" [style.display]="editingComments.includes(subComment.id) ? 'none' : 'block'">
-              </div>
-              <!-- EDIT SUBCOMMENT -->
-              <div class="commentInputArea">
-                <textarea class="commentTextArea"
-                  [style.display]="editingComments.includes(subComment.id) ? 'block' : 'none'"
-                  [id]="'commentTextTextarea'+subComment.id">{{decryptText(subComment.commentText, subComment.user.id)}}</textarea>
-                <button style="white-space:nowrap" [id]="'commentTextEditConfirmButton' + subComment.id"
-                  (click)="confirmEditComment(subComment)" *ngIf="editingComments.includes(subComment.id)">
-                  <span class="commentEditSpans commentAcceptEdit"
-                    [style.display]="editingComments.includes(subComment.id) ? 'block' : 'none'"
-                    [id]="'commentAcceptButtonSpan' + subComment.id">✔️</span>
-                  ✏️Edit
-                </button>
-              </div>
-              <!-- END OF EDIT SUBCOMMENT-->
 
-
-              <div *ngFor="let file of subComment.commentFiles" class="commentMediaFile">
-                <app-media-viewer [file]="file" [user]="subComment.user" [currentDirectory]="file.directory"
-                  [inputtedParentRef]="inputtedParentRef" [displayExtraInfo]="false" [autoplay]="false"
-                  [autoload]="true" [showCommentSection]="false" [showMediaInformation]="true"
-                  [previousComponent]="previousComponent">
-                </app-media-viewer>
-              </div>
-            </div>
+        <!-- Inline subcomments (only shown if not using breadcrumb navigation) -->
+        <div *ngIf="!activeCommentId && !minimizedComments.has(comment.id)" class="subcomments-container" >
+          <div *ngFor="let subComment of comment.comments" class="subComment" [id]="'subComment' + subComment.id">
+            <app-comments [inputtedParentRef]="inputtedParentRef ?? parentRef" [type]="'Comment'"
+              [showCommentsHeader]="false" 
+              [comment_id]="subComment.id" 
+              [automaticallyShowSubComments]="true"
+              [commentList]="[subComment]" 
+              [depth]="depth + 1" 
+              [quoteMessage]="quoteMessage"
+              [replyingToCommentId]="replyingToCommentId"
+              (replyingToCommentEvent)="replyingToCommentId = $event; replyingToCommentEvent.emit($event)"
+              (quoteMessageEvent)="depth == 0 ? setQuoteMessage($event) : quoteMessageEvent.emit($event)"
+              (commentAddedEvent)="commentAddedEvent.emit($event)"
+              (commentRemovedEvent)="commentRemovedEvent.emit($event)"
+              (togglingSubComments)="clearSubCommentsToggled($event)"></app-comments>
           </div>
         </div>
       </div>
     </div>
   </div>
 </div>
-<div class="{{comment_id ? 'replyInputArea' : 'commentsInputArea'}}"
-  *ngIf="(showComments || (comment_id && automaticallyShowSubComments))" [id]="'commentInputAreaDiv' + component_id">
+
+<div *ngIf="(showComments || (comment_id && automaticallyShowSubComments))"
+  class="{{comment_id ? 'replyInputArea' : 'commentsInputArea'}}" [id]="'commentInputAreaDiv' + component_id">
   <div *ngIf="showCommentLoadingOverlay" class="loadingCommentOverlay">
     Loading comments...
   </div>
-  <div *ngIf="!showCommentLoadingOverlay && !editingComments.length && !replyingToCommentIds.length"
+  <div *ngIf="!depth && !showCommentLoadingOverlay && !editingComments.length && !replyingToCommentId"
     class="addCommentInputDiv">
-   
+
     <app-text-input [inputtedParentRef]="inputtedParentRef" [type]="'Comment'" [commentParent]="component"
       [quoteMessage]="quoteMessage" [profileUser]="userProfile"
       (contentPosted)="commentPosted($event)"></app-text-input>

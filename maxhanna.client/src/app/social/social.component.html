@@ -267,14 +267,27 @@
             </div>
           </div>
         </div>
-        <div class="optionsStatsDiv" *ngFor="let videoFile of getVideoStoryFiles(optionStory)">
+        <div class="optionsStatsDiv" *ngFor="let videoFile of getVideoStoryFiles(optionStory)"> 
           <div class="optionsStatsHeader">
-            ➕ Add <span class="reducedFileName" *ngIf="!onMobile()">"{{videoFile.givenFileName ?? videoFile.fileName}}"</span> to Music
-            Playlist?
+            <div style="display:flex; flex-direction: column;"> 
+              <div>File: {{videoFile.givenFileName ?? videoFile.fileName}}</div> 
+              <div>
+                ➕ Add{{" "}}
+                <span class="reducedFileName" *ngIf="!onMobile()">"{{videoFile.givenFileName ?? videoFile.fileName}}"</span>
+                {{" "}}to Music Playlist?
+              </div>
+              <div>📋Copy link to Clipboard?</div>
+            </div> 
           </div>
           <div class="optionsStatsDescription">
-            <button (click)="addFileToMusicPlaylist(videoFile);"
-              title="Save '{{videoFile.givenFileName ?? videoFile.fileName}}' to your Music Playlist">💾Save</button>
+            <div style="display:flex; flex-direction: column;">
+              <div style="height: 20px;"></div>
+              <div>
+                <button (click)="addFileToMusicPlaylist(videoFile);"
+                  title="Save '{{videoFile.givenFileName ?? videoFile.fileName}}' to your Music Playlist">➕Save</button>
+              </div>
+              <div><button (click)="copyFileLink(videoFile)">📋Share</button></div>
+            </div> 
           </div>
         </div>
       </div>
@@ -389,14 +402,17 @@
             </div>
           </div>
           <div>
-            <app-comments *ngIf="story" [inputtedParentRef]="parentRef" [type]="'Social'"
+            <app-comments *ngIf="story" 
+              [inputtedParentRef]="parentRef" 
+              [type]="'Social'"
               [showComments]="openedStoryComments.includes(story?.id ?? 0)" [showCommentsHeader]="true"
               [component_id]="story.id!" 
               [component]="story" 
               [userProfile]="user"
               [previousComponent]="'Social'" 
               [commentList]="story!.storyComments!"
-              (commentAddedEvent)="commentAddedEvent($event)" (commentHeaderClickedEvent)="showComments(story.id)"
+              (commentAddedEvent)="commentAddedEvent($event)" 
+              (commentHeaderClickedEvent)="showComments(story.id)"
               (commentRemovedEvent)="commentRemovedEvent($event)">
             </app-comments>
           </div>

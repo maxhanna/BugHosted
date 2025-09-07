@@ -4,7 +4,7 @@ import { Topic } from '../../services/datacontracts/topics/topic';
 import { TopService } from '../../services/top.service';
 import { MetaData } from '../../services/datacontracts/social/story';
 import { TopicService } from '../../services/topic.service';
-import { TopicsComponent } from '../topics/topics.component'; 
+import { TopicsComponent } from '../topics/topics.component';
 import { MediaSelectorComponent } from '../media-selector/media-selector.component';
 
 @Component({
@@ -20,39 +20,39 @@ export class TopComponent extends ChildComponent implements OnInit {
   @ViewChild('categoryInput') categoryInput!: ElementRef<HTMLInputElement>;
   @ViewChild('titleInput') titleInput!: ElementRef<HTMLInputElement>;
   @ViewChild('urlInput') urlInput!: ElementRef<HTMLInputElement>;
-  @ViewChild('textInput') textInput!: ElementRef<HTMLInputElement>; 
+  @ViewChild('textInput') textInput!: ElementRef<HTMLInputElement>;
   @ViewChild('titleEditInput') titleEditInput!: ElementRef<HTMLInputElement>;
   @ViewChild('urlEditInput') urlEditInput!: ElementRef<HTMLInputElement>;
-  @ViewChild('textEditInput') textEditInput!: ElementRef<HTMLInputElement>; 
+  @ViewChild('textEditInput') textEditInput!: ElementRef<HTMLInputElement>;
 
   topicInputted?: Topic[];
   topEntries: any[] = []; // Changed to array for better typing
   errorMessage: string | null = null;
   editingEntry?: any;
   isEditPanelOpen = false;
-  isSearchingUrl = false; 
+  isSearchingUrl = false;
   isSearchingUrlForEdit = false;
   isMenuPanelOpen = false;
   isVoterPanelOpen = false;
   selectedTopEntry?: any = undefined;
-  topCategories?:any = undefined;
+  topCategories?: any = undefined;
   expandedFileId?: number;
-  expandedImageUrl?: string;  
+  expandedImageUrl?: string;
   isPictureOverlayOpen = false;
 
   constructor(private topService: TopService, private topicService: TopicService, private cd: ChangeDetectorRef) {
     super();
-  } 
+  }
 
-  ngOnInit() { 
+  ngOnInit() {
     const topicsFromUrl = this.getTopicsFromUrl();
 
-    if (topicsFromUrl.length > 0) { 
+    if (topicsFromUrl.length > 0) {
       setTimeout(() => {
-        this.processUrlTopics(topicsFromUrl).then(() => { 
+        this.processUrlTopics(topicsFromUrl).then(() => {
         });
-      }, 50); 
-    } else { 
+      }, 50);
+    } else {
       this.loadTopEntries();
     }
     this.topService.getTopCategories().then((res: any) => {
@@ -116,6 +116,12 @@ export class TopComponent extends ChildComponent implements OnInit {
     this.topService.getTop(this.topicInputted).then(
       (res) => {
         this.topEntries = res || [];
+        setTimeout(() => {
+          document.getElementsByClassName("componentMain")[0].scrollTo({
+            top: 0,
+            behavior: 'smooth'
+          });
+        }, 50);
         this.stopLoading();
       },
       (err) => {
@@ -126,9 +132,28 @@ export class TopComponent extends ChildComponent implements OnInit {
     );
   }
 
-  onTopicAdded(topic: Topic[]) { 
-    this.topicInputted = topic;
-    this.loadTopEntries();
+  onTopicAdded(topics: Topic[]) {
+    if (!this.topicInputted) {
+      this.topicInputted = [];
+    }
+
+    for (let topic of topics) {
+      let found = false;
+
+      for (let i = 0; i < this.topicInputted.length; i++) {
+        if (this.topicInputted[i].id === topic.id) {
+          this.topicInputted.splice(i, 1);
+          found = true;
+          break;
+        }
+      }
+
+      if (!found) {
+        this.topicInputted.push(topic);
+      }
+    }
+    console.log(topics, this.topicInputted);
+    setTimeout(() => { this.loadTopEntries(); }, 50);
   }
   addToTop() {
     if (!this.topicInputted) return alert("You must select a topic!");
@@ -139,7 +164,7 @@ export class TopComponent extends ChildComponent implements OnInit {
       this.titleInput.nativeElement.value,
       this.urlInput.nativeElement.value,
       this.textInput.nativeElement.value,
-      this.fileSelector?.selectedFiles[0]?.id, 
+      this.fileSelector?.selectedFiles[0]?.id,
       this.parentRef?.user?.id ?? 0
     ).then(
       (res) => {
@@ -147,7 +172,7 @@ export class TopComponent extends ChildComponent implements OnInit {
         this.titleInput.nativeElement.value = '';
         this.urlInput.nativeElement.value = '';
         this.textInput.nativeElement.value = '';
-        this.fileSelector?.removeAllFiles(); 
+        this.fileSelector?.removeAllFiles();
         this.loadTopEntries(); // Refresh the list after adding
       },
       (err) => {
@@ -160,14 +185,14 @@ export class TopComponent extends ChildComponent implements OnInit {
   upvote(entry: any) {
     this.topService.vote(entry.id, this.parentRef?.user?.id ?? 0, true).then(res => {
       if (res.success) {
-        this.parentRef?.showNotification("Voted successfully"); 
+        this.parentRef?.showNotification("Voted successfully");
         this.loadTopEntries();
       } else {
         this.parentRef?.showNotification("Error, please try again");
       }
     });
   }
-  downvote(entry: any){
+  downvote(entry: any) {
     this.topService.vote(entry.id, this.parentRef?.user?.id ?? 0, false).then(res => {
       if (res.success) {
         this.parentRef?.showNotification("Voted successfully");
@@ -205,28 +230,28 @@ export class TopComponent extends ChildComponent implements OnInit {
         this.editFileSelector.removeAllFiles();
         this.titleEditInput.nativeElement.value = '';
         this.urlEditInput.nativeElement.value = '';
-        this.textEditInput.nativeElement.value = '';  
+        this.textEditInput.nativeElement.value = '';
       }
     })
   }
-  searchUrl(){
-    if (this.urlInput.nativeElement.value) { 
+  searchUrl() {
+    if (this.urlInput.nativeElement.value) {
       this.isSearchingUrl = true;
     }
   }
-  searchUrlForEdit() { 
-    if (this.urlEditInput.nativeElement.value) { 
+  searchUrlForEdit() {
+    if (this.urlEditInput.nativeElement.value) {
       this.isSearchingUrlForEdit = true;
     }
   }
-  
-  urlSelectedEvent(meta: MetaData) { 
-    if (this.isSearchingUrlForEdit) { 
+
+  urlSelectedEvent(meta: MetaData) {
+    if (this.isSearchingUrlForEdit) {
       this.urlEditInput.nativeElement.value = meta.url ?? "";
       this.isSearchingUrlForEdit = false;
-    } else { 
+    } else {
       this.urlInput.nativeElement.value = meta.url ?? "";
-      this.isSearchingUrl = false; 
+      this.isSearchingUrl = false;
     }
   }
   closeSearchPanel() {
@@ -242,25 +267,19 @@ export class TopComponent extends ChildComponent implements OnInit {
     } else {
       this.isSearchingUrl = false;
     }
-  } 
-  
+  }
+
   getCategories(categoryString: string): string[] {
     if (!categoryString) return [];
     return categoryString.split(',');
   }
   addClickedTopic(category: string) {
     // Remove any existing topic input
-    const trimmedCategory = category.trim(); 
+    const trimmedCategory = category.trim();
     if (!this.topicComponent.attachedTopics?.find(x => x.topicText == trimmedCategory)) {
       this.topicService.getTopics(trimmedCategory, this.parentRef?.user).then(res => {
-        if (res) { 
-          this.topicComponent.selectTopic(res[0]); 
-          setTimeout(() => {
-            document.getElementsByClassName("componentMain")[0].scrollTo({
-              top: 0,
-              behavior: 'smooth'
-            });
-          }, 50);
+        if (res) {
+          this.onTopicAdded(res);
         }
       })
     }
@@ -287,7 +306,7 @@ export class TopComponent extends ChildComponent implements OnInit {
 
   copyLink() {
     const topics = this.topicComponent.attachedTopics;
-    const encodedTopics = topics?.map(topic => encodeURIComponent(topic.topicText)).join(','); 
+    const encodedTopics = topics?.map(topic => encodeURIComponent(topic.topicText)).join(',');
     const link = `https://bughosted.com/Top` + (encodedTopics ? `?topics=${encodedTopics}` : '');
 
     try {
@@ -297,14 +316,14 @@ export class TopComponent extends ChildComponent implements OnInit {
       this.parentRef?.showNotification("Error: Unable to share link!");
     }
   }
-  expandPictureEvent(event: any) { 
+  expandPictureEvent(event: any) {
     if (event?.id) {
       this.expandedFileId = event.id;
       this.expandedImageUrl = undefined;
     } else if (event?.imgUrl) {
       this.expandedImageUrl = event.imgUrl;
       this.expandedFileId = undefined;
-    } else if (typeof event === 'string') { 
+    } else if (typeof event === 'string') {
       this.expandedImageUrl = event;
       this.expandedFileId = undefined;
     }

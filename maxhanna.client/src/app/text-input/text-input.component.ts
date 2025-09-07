@@ -45,7 +45,8 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
   @Input() type?: "Social" | "Comment" | "Chat"; 
   @Input() chatId?: number;
   @Input() currentChatUsers?: User[];
-  @Input() quoteMessage?: string;
+  @Input() quoteMessage?: string; 
+  @Input() enterToPost: boolean = false;
   @Output() contentPosted = new EventEmitter<{results: any, content: any, originalContent: string}>();
   @Output() selectFileEvent = new EventEmitter<FileEntry[]>();
   @Output() topicClicked = new EventEmitter<Topic[] | undefined>();
@@ -84,13 +85,18 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
     if (changes['quoteMessage'] && changes['quoteMessage'].currentValue) {
       const quote = changes['quoteMessage'].currentValue;
       const current = this.textarea?.value || '';
-      if (this.textarea) { 
+      console.log("quoteMessage changed: ", this.quoteMessage);
+
+      this.textarea.click();
+
+      setTimeout(() => {
         this.textarea.value = quote + current;
-      }
-      this.quoteMessage = undefined;
-      setTimeout(() => this.textarea.click(), 100);
+        this.textarea.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        this.textarea.focus();
+        this.quoteMessage = undefined;
+      }, 100);
     }
-  }
+  } 
   
   async post() {
     console.log("Posting...");
@@ -480,12 +486,36 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
       this.textarea.value = savedVal;
     }, 100); 
   }
-  onKeyDown(event: KeyboardEvent) {  
-    if (event.ctrlKey && event.key === 'Enter') { // Ctrl + Enter
-      event.preventDefault(); // prevent unwanted newline
-      this.post();
+  onKeyDown(event: KeyboardEvent) {
+    if (this.enterToPost) {
+      if (event.key === 'Enter' && !event.ctrlKey && !event.shiftKey) {
+        event.preventDefault();
+        this.post();
+      }
+      else if (event.ctrlKey && event.key === 'Enter') { 
+        event.preventDefault();
+        const textarea = this.textarea;
+        const start = textarea.selectionStart ?? 0;
+        const end = textarea.selectionEnd ?? 0;
+        textarea.value =
+          textarea.value.substring(0, start) + "\n" + textarea.value.substring(end);
+        textarea.selectionStart = textarea.selectionEnd = start + 1;
+      }
+    } else {
+      if (event.ctrlKey && event.key === 'Enter') {
+        event.preventDefault();
+        this.post();
+      }
+    } 
+    this.hapticFeedback();
+  }
+
+  private hapticFeedback() {
+    if (this.onMobile() && "vibrate" in navigator) {
+      navigator.vibrate(30);
     }
   }
+  
   onExpandingEmojiPanel(event: boolean) {
     this.closePostOptionsPanel(); 
     this.isAppFormattingOptionsOpen = event;  
