@@ -10,6 +10,7 @@ import { NotificationService } from '../../services/notification.service';
 import { MediaSelectorComponent } from '../media-selector/media-selector.component';
 import { ChatService } from '../../services/chat.service';
 import { EncryptionService } from '../../services/encryption.service';
+import { TextToSpeechService } from '../../services/text-to-speech.service';
 
 @Component({
   selector: 'app-comments',
@@ -58,7 +59,8 @@ export class CommentsComponent extends ChildComponent implements OnInit {
 
   constructor(
     private commentService: CommentService,
-    private encryptionService: EncryptionService) {
+    private encryptionService: EncryptionService,
+    private textToSpeechService: TextToSpeechService) {
     super();
     if (!this.inputtedParentRef && this.parentRef) {
       this.inputtedParentRef = this.parentRef;
@@ -325,5 +327,14 @@ export class CommentsComponent extends ChildComponent implements OnInit {
   }
   decryptText(encryptedText: any, parentId: any): string {
     return this.encryptionService.decryptContent(encryptedText, parentId + "");
+  }
+  speakMessage(message: string) {
+    this.textToSpeechService.speakMessage(message);
+  }
+  stopSpeaking() {
+    this.textToSpeechService.stopSpeaking();
+  }
+  isTextToSpeechSpeaking() {
+    return this.textToSpeechService.isSpeaking;
   }
 }

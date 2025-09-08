@@ -36,7 +36,8 @@ import { CrawlerService } from '../services/crawler.service';
 import { FavouriteService } from '../services/favourite.service';
 import { FileService } from '../services/file.service';
 import { TopComponent } from './top/top.component';
-import { PollService } from '../services/poll.service'; 
+import { PollService } from '../services/poll.service';
+import { TextToSpeechService } from '../services/text-to-speech.service';
 
 
 @Component({
@@ -238,7 +239,7 @@ export class AppComponent implements OnInit, AfterViewInit {
     {
       ownership: 0,
       title: 'Emulation',
-      content: `Our "Nostalgist" emulator allows users to play Gameboy (Color), Gameboy Advance, Nintendo, Super
+      content: `Our emulator allows users to play Gameboy (Color), Gameboy Advance, Nintendo, Super
   Nintendo, Sega and more!
   Simply upload roms and enjoy the autosaving feature! The game will automatically be saved to our
   servers.
@@ -250,7 +251,7 @@ export class AppComponent implements OnInit, AfterViewInit {
       content: `Change the site's theme! Share your theme with others or use a theme someone else has shared!`
     }
   ];
-  
+
   location?: { ip: string, city: string, country: string } = undefined;
   sessionToken?: string = undefined;
   userIdCache = new Map<string, number>()
@@ -261,7 +262,7 @@ export class AppComponent implements OnInit, AfterViewInit {
   isShowingSecurityPopup = false;
   popupUserTagUser?: User;
   isSpeaking = false;
-  private securityTimeout: any = null;  
+  private securityTimeout: any = null;
   private componentMap: { [key: string]: any; } = {
     "Navigation": NavigationComponent,
     "Favourites": FavouritesComponent,
@@ -334,7 +335,7 @@ export class AppComponent implements OnInit, AfterViewInit {
           const storyId = this.router.url.toLowerCase().split('social/')[1]?.split('?')[0];
           this.createComponent("Social", { "storyId": storyId });
         }
-        else if (this.router.url.includes('User')) { 
+        else if (this.router.url.includes('User')) {
           this.checkAndClearRouterOutlet();
           const userId = this.router.url.toLowerCase().split('user/')[1]?.split('?')[0].split('/')[0];
           const storyId = this.router.url.toLowerCase().split('user/')[1]?.split('/')[1];
@@ -582,7 +583,7 @@ export class AppComponent implements OnInit, AfterViewInit {
       await this.navigationComponent.getNotifications();
     }, 500);
   }
-  openModal(isModal?: boolean, hasGamingFont?: boolean) { 
+  openModal(isModal?: boolean, hasGamingFont?: boolean) {
     this.isModalOpen = true;
     setTimeout(() => {
       if (isModal) {
@@ -591,12 +592,12 @@ export class AppComponent implements OnInit, AfterViewInit {
       } else if (!isModal || isModal === undefined) {
         this.isModal = false;
         this.modalComponent.isModal = false;
-      } 
-      this.modalComponent.hasGamingFont = hasGamingFont ?? true; 
+      }
+      this.modalComponent.hasGamingFont = hasGamingFont ?? true;
     }, 100);
   }
 
-  closeModal() { 
+  closeModal() {
     this.isModalOpen = false;
     this.modalComponent.isCloseButtonVisible = true;
   }
@@ -616,7 +617,7 @@ export class AppComponent implements OnInit, AfterViewInit {
       this.modalComponent.setModalHeader(msg);
     }, 100);
   }
-  updateHeight() { 
+  updateHeight() {
     const vh = window.innerHeight * 0.01;
     document.documentElement.style.setProperty('--vh', `${vh}px`);
   }
@@ -678,7 +679,7 @@ export class AppComponent implements OnInit, AfterViewInit {
           button.click();
         }
       });
-    } 
+    }
     this.isShowingOverlay = false;
     this.restoreBodyOverflow();
   }
@@ -963,7 +964,7 @@ export class AppComponent implements OnInit, AfterViewInit {
       if (
         (elementText.toLowerCase().includes(message.toLowerCase())
           && (element.classList.contains('messageContainer') || element.classList.contains('commentContent')))
-        || elementTimestamp === timestamp) { 
+        || elementTimestamp === timestamp) {
         foundMatch = true;
         element.scrollIntoView({ behavior: 'smooth', block: 'center' });
         break;
@@ -1092,7 +1093,7 @@ export class AppComponent implements OnInit, AfterViewInit {
       return null;
     }
   }
-  createComponentButtonClicked() { 
+  createComponentButtonClicked() {
     const title = (document.getElementById("componentCreateName") as HTMLInputElement).value;
     if (title) { this.createComponent(title); }
   }
@@ -1102,9 +1103,9 @@ export class AppComponent implements OnInit, AfterViewInit {
     this.indexLink(url);
   }
   visitExternalLink(url?: string) {
-    if (!url) return; 
+    if (!url) return;
     this.indexLink(url);
-    
+
     if (this.isYoutubeUrl(url)) {
       const videoId = this.getYouTubeVideoId(url);
       if (videoId) {
@@ -1113,10 +1114,10 @@ export class AppComponent implements OnInit, AfterViewInit {
     } else {
       window.open(url, '_blank');
     }
-    
+
     event?.stopPropagation();
   }
-  async indexLink(url: string) { 
+  async indexLink(url: string) {
     this.crawlerService.indexLink(url);
   }
 
@@ -1156,7 +1157,7 @@ export class AppComponent implements OnInit, AfterViewInit {
     });
 
     event?.stopPropagation();
-  } 
+  }
   async updateLastSeenPeriodically() {
     if (this.securityTimeout) {
       clearTimeout(this.securityTimeout);
@@ -1165,7 +1166,7 @@ export class AppComponent implements OnInit, AfterViewInit {
       this.isShowingSecurityPopup = true;
       this.showOverlay();
     }, 60 * 60 * 1000); // 1 hour
-  } 
+  }
   closeSecurityPopup() {
     this.isShowingSecurityPopup = false;
     this.closeOverlay();
@@ -1305,75 +1306,7 @@ export class AppComponent implements OnInit, AfterViewInit {
       this.showNotification("User not found!");
     }
   }
-  speakMessage(message: string) {
-    if ('speechSynthesis' in window) {
-      this.isSpeaking = true;
-      //console.log("Speech synthesis is supported! ", message);
-      let cleanMessage = message.replace(/<\/?[^>]+(>|$)/g, "").replace(/[^\x20-\x7E]/g, "");
-
-      // Replace "e.g.", "eg.", or "ex." (case-insensitive) with "example".
-      cleanMessage = cleanMessage.replace(/\b(e\.g\.|eg\.|ex\.)\b/gi, "example");
-
-      // Remove parentheses and their contents.
-      cleanMessage = cleanMessage.replace(/\(.*?\)/g, '');
-
-      // Split the message into segments based on punctuation.
-      // This regular expression captures groups of characters ending with punctuation.
-      const segments: string[] = [];
-      const regex = /[^,;:\-\.]+[,:;\-\.]*/g;
-      let match: RegExpExecArray | null;
-      while ((match = regex.exec(cleanMessage)) !== null) {
-        segments.push(match[0].trim());
-      }
-
-      // Function to speak the segments sequentially.
-      const speakSegments = (index: number) => {
-        if (index >= segments.length) {
-          //console.log("Finished speaking all segments.");
-          this.isSpeaking = false;
-          return;
-        }
-
-        const segment = segments[index];
-        const utterance = new SpeechSynthesisUtterance(segment);
-        utterance.lang = 'en-US';
-        utterance.pitch = 0.8; // Lower than the default for a more natural tone.
-        utterance.rate = 1.2;    // Normal speaking rate.
-        utterance.volume = 1;
-
-        // Choose a preferred voice if available.
-        const voices = window.speechSynthesis.getVoices();
-        if (voices.length > 0) {
-          const naturalVoice = voices.find(voice =>
-            voice.name.toLowerCase().includes('mark') ||
-            voice.name.toLowerCase().includes('zira') ||
-            voice.name.toLowerCase().includes('microsoft')
-          );
-          utterance.voice = naturalVoice || voices[0];
-        }
-
-        utterance.onend = () => {
-
-          setTimeout(() => speakSegments(index + 1), 0);
-
-        };
-
-        window.speechSynthesis.speak(utterance);
-      };
-
-      // Start the recursive speaking of segments.
-      speakSegments(0);
-    } else {
-      console.log("Speech synthesis is NOT supported in this browser.");
-    }
-  }
-  stopSpeaking() {
-    if ('speechSynthesis' in window) {
-      window.speechSynthesis.cancel();
-     // console.log("Speech stopped");
-      this.isSpeaking = false;
-    }
-  }
+  
   parseInteger(value: any): number {
     const parsedValue = parseInt(value, 10);
     return isNaN(parsedValue) ? 0 : parsedValue;

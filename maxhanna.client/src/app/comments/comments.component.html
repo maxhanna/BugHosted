@@ -161,11 +161,10 @@
     <button class="commentOptionButton" (click)="quote(optionsComment)">
       🗨️Quote
     </button>
-    <button (click)="inputtedParentRef?.speakMessage(optionsComment.commentText ?? '')"
-      *ngIf="!inputtedParentRef?.isSpeaking">
+    <button (click)="speakMessage(decryptText(optionsComment.commentText ?? '', optionsComment.user.id))" *ngIf="!isTextToSpeechSpeaking()">
       🔊Read Outloud
     </button>
-    <button (click)="inputtedParentRef?.stopSpeaking()" *ngIf="inputtedParentRef?.isSpeaking">
+    <button (click)="stopSpeaking()" *ngIf="isTextToSpeechSpeaking()">
       🤐Stop Reading Outloud
     </button>
   </div>

@@ -17,6 +17,7 @@ import { TodoService } from '../../services/todo.service';
 import { Todo } from '../../services/datacontracts/todo'; 
 import { FileService } from '../../services/file.service'; 
 import { EncryptionService } from '../../services/encryption.service';
+import { TextToSpeechService } from '../../services/text-to-speech.service';
 
 @Component({
   selector: 'app-social',
@@ -98,7 +99,8 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
     private userService: UserService,
     private todoService: TodoService,
     private fileService: FileService,
-    private encryptionService: EncryptionService) {
+    private encryptionService: EncryptionService,
+    private textToSpeechService: TextToSpeechService) {
     super();
   }
 
@@ -1038,5 +1040,14 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
       parent?.showNotification("Error: Unable to share link!");
       console.log("Error: Unable to share link!");
     }
+  }
+  speakMessage(message: string) {
+    this.textToSpeechService.speakMessage(message);
+  }
+  stopSpeaking() {
+    this.textToSpeechService.stopSpeaking();
+  }
+  isTextToSpeechSpeaking() {
+    return this.textToSpeechService.isSpeaking;
   }
 }

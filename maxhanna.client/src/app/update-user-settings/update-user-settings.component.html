@@ -226,7 +226,7 @@ but you can also set your own City for a more precise location."></span>
         <div *ngFor="let icon of selectableIcons" class="selectableIconMenuSection">
           <div [class]="'selectableMenuIconTitles' + (icon.title === expandedIconTitle ? ' selectableMenuIconTitlesExpanded' : '') " (click)="toggleIconDescription(icon.title)">
             <span class="cursorPointer">
-              {{ icon.title == 'Weather' ? '☀️' : icon.icon }}<span class=appTitle>{{ icon.title }}</span>
+              {{ icon.title == 'Weather' ? '☀️' : icon.icon }}<span class="appTitle">{{ icon.title }}</span>
             </span>
             <label class="switch" (click)="selectMenuIcon(icon.title); $event.stopPropagation();">
               <input type="checkbox" [checked]="menuIconsIncludes(icon.title)" />

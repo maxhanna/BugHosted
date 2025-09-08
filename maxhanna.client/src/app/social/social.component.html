@@ -165,10 +165,10 @@
           title="Delete Post" style="display:inline-block">
           ❌Delete
         </button>
-        <button (click)="parentRef?.speakMessage(optionStory.storyText ?? '')" *ngIf="!parentRef?.isSpeaking">
+        <button (click)="speakMessage(decryptText(optionStory.storyText ?? '', optionStory.user.id))" *ngIf="!isTextToSpeechSpeaking()">
           🔊Read Outloud
         </button>
-        <button (click)="parentRef?.stopSpeaking()" *ngIf="parentRef?.isSpeaking">
+        <button (click)="stopSpeaking()" *ngIf="isTextToSpeechSpeaking()">
           🤐Stop Reading Outloud
         </button>
         <button *ngFor="let topic of optionStory.storyTopics" (click)="ignoreTopic(topic)">
@@ -290,9 +290,8 @@
             </div> 
           </div>
         </div>
-      </div>
-
-      <button id="closeOverlay" (click)="closeStoryOptionsPanel()" class="closeButton">Close</button>
+      </div> 
+      <button id="closeOverlay" (click)="closeStoryOptionsPanel()" class="closeButton" style="margin-top: 8px;">Close</button>
     </div>
 
     <!-- Story Input -->

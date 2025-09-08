@@ -92,7 +92,7 @@ td {
 .appTitle {
   font-family: Courier New, Arial;
   font-weight: bolder;
-  text-shadow: 0px 0.50px 0.50px var(--secondary-font-color);
+  /* text-shadow: 0px 0.50px 0.50px var(--secondary-font-color); */
   padding-left: 10px;
 }
 
