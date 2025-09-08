@@ -156,7 +156,7 @@ td {
 }
 
 .selectableMenuIconDescriptions, .selectableMenuIconTitles {
-  transition: all 0.3s ease;
+  transition: all 0.4s ease;
 }
 
 .selectableMenuIconDescriptions:hover,
