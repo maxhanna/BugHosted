@@ -146,10 +146,31 @@ td {
 .selectableIconMenuSection {
   border-top: var(--main-border);
 }
-
 .selectableMenuIconDescriptions {
   padding: 20px;
-  color: var(--third-font-color);
+  color: var(--third-font-color); 
+}
+
+.selectableMenuIconTitlesExpanded {
+  background: linear-gradient(135deg, var(--component-background-color), var(--secondary-component-background-color));
+}
+
+.selectableMenuIconDescriptions, .selectableMenuIconTitles {
+  transition: all 0.3s ease;
+}
+
+.selectableMenuIconDescriptions:hover,
+.selectableMenuIconTitles:hover {
+  outline: 1px solid var(--secondary-font-color);
+  background: linear-gradient(135deg, var(--component-background-color), var(--secondary-component-background-color));
+}
+
+.selectableMenuIconDescriptions:nth-child(even),
+.selectableMenuIconTitles:nth-child(even) {
+  border-bottom: 1px solid;
+  border-top: 1px solid;
+  border-color: var(--main-highlight-color);
+  background-color: var(--secondary-bg-color);
 }
 
 .profilePictureSectionContainer {

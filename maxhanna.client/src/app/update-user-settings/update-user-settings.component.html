@@ -224,11 +224,11 @@ but you can also set your own City for a more precise location."></span>
     <div *ngIf="showOnlySelectableMenuItems || isMenuIconsToggled" class="sectionDescriptionDiv">
       <div class="menuIconTable menuIconTableContainer" *ngIf="selectableIcons">
         <div *ngFor="let icon of selectableIcons" class="selectableIconMenuSection">
-          <div class="selectableMenuIconTitles">
-            <span (click)="toggleIconDescription(icon.title)" class="cursorPointer">
+          <div [class]="'selectableMenuIconTitles' + (icon.title === expandedIconTitle ? ' selectableMenuIconTitlesExpanded' : '') " (click)="toggleIconDescription(icon.title)">
+            <span class="cursorPointer">
               {{ icon.title == 'Weather' ? '☀️' : icon.icon }}<span class=appTitle>{{ icon.title }}</span>
             </span>
-            <label class="switch" (click)="selectMenuIcon(icon.title); $event.preventDefault();">
+            <label class="switch" (click)="selectMenuIcon(icon.title); $event.stopPropagation();">
               <input type="checkbox" [checked]="menuIconsIncludes(icon.title)" />
               <span class="slider round"></span>
             </label>
@@ -244,7 +244,6 @@ but you can also set your own City for a more precise location."></span>
         </div>
       </div>
     </div>
-
 
 
     <div (click)="(showOnlyApiKeys ? '' : (isApiKeysToggled = !isApiKeysToggled)); getNicehashApiKeys(); getKrakenApiKeys()"

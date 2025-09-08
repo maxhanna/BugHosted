@@ -294,13 +294,8 @@
 .breadcrumb-separator {
   margin: 0 8px;
   color: var(--main-highlight-color);
-}
+} 
 
-.breadcrumb-link {
-  color: var(--main-link-color);
-  cursor: pointer;
-}
-
-.breadcrumb-link:hover {
+.linkedComponent:hover {
   text-decoration: underline;
 }

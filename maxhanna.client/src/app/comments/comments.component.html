@@ -14,10 +14,10 @@
 
 <!-- Breadcrumb Navigation (only shown when viewing subcomments) -->
 <div *ngIf="breadcrumbComments.length > 0" class="breadcrumb-nav gradientBackground">
-  <span class="breadcrumb-item" (click)="navigateToComment(null)">All Comments</span>
+  <span class="breadcrumb-item linkedComponent" (click)="navigateToComment(null)">All Comments</span>
   <span *ngFor="let breadcrumb of breadcrumbComments; let i = index" class="breadcrumb-item">
     <span class="breadcrumb-separator">›</span>
-    <span *ngIf="i < breadcrumbComments.length - 1" class="breadcrumb-link" (click)="navigateToComment(breadcrumb.id)">
+    <span *ngIf="i < breadcrumbComments.length - 1" class="linkedComponent" (click)="navigateToComment(breadcrumb.id)">
       {{ breadcrumb.user.username }}
     </span>
     <span *ngIf="i === breadcrumbComments.length - 1" class="breadcrumb-current">
@@ -64,7 +64,7 @@
           <button *ngIf="comment.comments?.length" (click)="expandComment(comment)"
             class="toggle-subcomments coloredBgButton" title="View subcomments">
             {{!minimizedComments.has(comment.id) ? '▼' : '▶'}}
-            ({{comment.comments?.length}})
+            ({{getTotalCommentCount(comment)}})
           </button>
         </div>
       </div>
@@ -100,10 +100,14 @@
           </button>
         </div>
 
-        <!-- Inline subcomments (only shown if not using breadcrumb navigation) -->
-        <div *ngIf="!activeCommentId && !minimizedComments.has(comment.id)" class="subcomments-container" >
+<div
+  *ngIf="!minimizedComments.has(comment.id) && (!activeBreadcrumbCommentId || activeBreadcrumbCommentId === comment.id)"
+  class="subcomments-container">
+
           <div *ngFor="let subComment of comment.comments" class="subComment" [id]="'subComment' + subComment.id">
-            <app-comments [inputtedParentRef]="inputtedParentRef ?? parentRef" [type]="'Comment'"
+            <app-comments   
+              [inputtedParentRef]="inputtedParentRef ?? parentRef" 
+              [type]="'Comment'"
               [showCommentsHeader]="false" 
               [comment_id]="subComment.id" 
               [automaticallyShowSubComments]="true"

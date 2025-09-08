@@ -59,7 +59,7 @@ body {
   overscroll-behavior-x: none;
 }
 
-a {
+a, .linkedComponent {
   color: var(--main-link-color);
   font-family: Gadugi, Arial, Helvetica;
   padding: 1px;
@@ -73,15 +73,15 @@ textarea {
   font-size: var(--main-font-size);
 }
 
-a:visited {
+a:visited, .linkedComponent {
   color: var(--main-link-color);
 }
 
-a:active {
+a:active, .linkedComponent {
   color: var(--secondary-font-color);
 }
 
-a:hover {
+a:hover, .linkedComponent {
   border-radius: 5px;
   border-bottom: 1px dotted var(--main-font-color);
 }
@@ -189,7 +189,7 @@ fieldset {
 }
 
 .topSearchButtonDivSpecial {
-  right: 53px;
+  right: 106px;
   text-shadow: 1px 1px var(--main-link-color);
 }
 
@@ -713,7 +713,7 @@ fieldset {
 .linkedComponent {
   color: var(--main-link-color);
   cursor: pointer;
-}
+} 
 
 .secondaryFontColor {
   color: var(--secondary-font-color);
