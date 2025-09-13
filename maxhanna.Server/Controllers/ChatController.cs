@@ -409,6 +409,7 @@ namespace maxhanna.Server.Controllers
                             r.id AS reaction_id,
                             r.user_id AS reaction_user_id,
                             reactionuser.username AS reaction_username,
+							reactionuserdisplaypicture.file_id as reaction_display_picture_file,
                             r.timestamp AS reaction_timestamp,
                             r.type, 
                             f.id as file_id,
@@ -432,6 +433,8 @@ namespace maxhanna.Server.Controllers
                             maxhanna.reactions AS r ON m.id = r.message_id
                         LEFT JOIN 
                             maxhanna.users AS reactionuser ON reactionuser.id = r.user_id
+                        LEFT JOIN 
+                            maxhanna.user_display_pictures AS reactionuserdisplaypicture ON reactionuserdisplaypicture.user_id = reactionuser.id
                         LEFT JOIN
                             maxhanna.message_files mf ON m.id = mf.message_id
                         LEFT JOIN
@@ -507,9 +510,10 @@ namespace maxhanna.Server.Controllers
 										{
 											Id = Convert.ToInt32(reader["reaction_id"]),
 											User = new User(
-														reader.IsDBNull(reader.GetOrdinal("reaction_user_id")) ? 0 : Convert.ToInt32(reader["reaction_user_id"]),
-														reader.IsDBNull(reader.GetOrdinal("reaction_username")) ? "Anonymous" : reader.GetString("reaction_username")
-												),
+												reader.IsDBNull(reader.GetOrdinal("reaction_user_id")) ? 0 : Convert.ToInt32(reader["reaction_user_id"]),
+												reader.IsDBNull(reader.GetOrdinal("reaction_username")) ? "Anonymous" : reader.GetString("reaction_username"),
+												reader.IsDBNull(reader.GetOrdinal("reaction_display_picture_file")) ? null : new FileEntry(reader.GetInt32("reaction_display_picture_file"))
+											),
 											MessageId = messageId,
 											Timestamp = Convert.ToDateTime(reader["reaction_timestamp"]),
 											Type = reader["type"].ToString()
@@ -555,20 +559,20 @@ namespace maxhanna.Server.Controllers
 						await conn.OpenAsync();
 
 						string updateSql = @"
-                        UPDATE maxhanna.messages 
-												SET seen = CASE 
-														WHEN (SELECT ghost_read FROM user_settings WHERE user_id = @SenderId) = 1 THEN seen
-														WHEN seen IS NULL THEN @SenderId
-														WHEN seen NOT LIKE CONCAT('%', @SenderId, '%') THEN CONCAT(seen, ',', @SenderId)
-														ELSE seen
-												END
-												WHERE chat_id = @ChatId 
-												AND sender != @SenderId;
+							UPDATE maxhanna.messages 
+							SET seen = CASE 
+									WHEN (SELECT ghost_read FROM user_settings WHERE user_id = @SenderId) = 1 THEN seen
+									WHEN seen IS NULL THEN @SenderId
+									WHEN seen NOT LIKE CONCAT('%', @SenderId, '%') THEN CONCAT(seen, ',', @SenderId)
+									ELSE seen
+							END
+							WHERE chat_id = @ChatId 
+							AND sender != @SenderId;
 
-												UPDATE maxhanna.notifications 
-												SET is_read = 1 
-												WHERE user_id = @SenderId 
-												AND chat_id = @ChatId;";
+							UPDATE maxhanna.notifications 
+							SET is_read = 1 
+							WHERE user_id = @SenderId 
+							AND chat_id = @ChatId;";
 
 						MySqlCommand updateCmd = new MySqlCommand(updateSql, conn);
 						updateCmd.Parameters.AddWithValue("@ChatId", (int)chatId);
@@ -733,11 +737,11 @@ namespace maxhanna.Server.Controllers
 
 		[HttpPost("/Chat/Edit", Name = "EditChatMessage")]
 		public async Task<IActionResult> EditChatMessage([FromBody] EditChatRequest request)
-		{ 
+		{
 			MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
 			try
 			{
-				conn.Open(); 
+				conn.Open();
 				string sql = "UPDATE maxhanna.messages SET content = @Content, edit_date = UTC_TIMESTAMP() WHERE id = @MessageId AND sender = @UserId LIMIT 1;";
 
 				MySqlCommand cmd = new MySqlCommand(sql, conn);
@@ -757,7 +761,7 @@ namespace maxhanna.Server.Controllers
 			finally
 			{
 				conn.Close();
-			} 
+			}
 		}
 
 		[HttpPost("/Chat/LeaveChat", Name = "LeaveChat")]

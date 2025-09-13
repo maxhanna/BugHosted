@@ -1,4 +1,4 @@
-import { Component, ElementRef, EventEmitter, Input, OnChanges, OnDestroy, OnInit, Output, SimpleChanges, ViewChild } from '@angular/core';
+import { Component, ElementRef, EventEmitter, Input, OnChanges, OnDestroy, OnInit, Output, SimpleChanges, ViewChild, Renderer2 } from '@angular/core';
 import { AppComponent } from '../app.component';
 import { ChildComponent } from '../child.component';
 import { User } from '../../services/datacontracts/user/user';
@@ -31,9 +31,11 @@ export class UserTagComponent extends ChildComponent implements OnInit, OnDestro
 
   popupTop: number = 0;
   popupLeft: number = 0;
-  hoverTimer: any; 
+  isHovering = false;
+  hoverTimer: any;
 
-  constructor(private userService: UserService) { super(); }
+  constructor(private userService: UserService, private renderer: Renderer2, private el: ElementRef) { super(); }
+
   async ngOnInit() {
     this.parentRef = this.inputtedParentRef;
     if (this.user && this.user.id && !this.user.username) {
@@ -52,6 +54,7 @@ export class UserTagComponent extends ChildComponent implements OnInit, OnDestro
       });
     }
   }
+
   ngOnDestroy() {
     this.onUserTagLeave();
   }
@@ -67,50 +70,65 @@ export class UserTagComponent extends ChildComponent implements OnInit, OnDestro
 
       setTimeout(() => {
         this.profileImageViewer.fetchFileSrc();
-      }, 10)
+      }, 10);
     }
   }
 
-  onUserTagHover(event: any) {
-    if (!this.user?.id) return;
+  onUserTagHover(event: MouseEvent) {
+    if (!this.user?.id || !this.displayHoverPicture) return; 
+    this.isHovering = true; 
+
+    const btn = document.getElementById("showUserTagButton");
+    const inputX = document.getElementById("showUserTagX") as HTMLInputElement;
+    const inputY = document.getElementById("showUserTagY") as HTMLInputElement;
+    (document.getElementById("showUserTagUserId") as HTMLInputElement).value =
+      this.user?.id?.toString() || "0"; 
+
+    let newX = event.clientX + 150;
+    let newY = event.clientY + 30;
+    const tagWidth = 200;
+    const tagHeight = 80;
+    const offset = 5;
+
+    // Prevent going off-screen
+    if (newX + tagWidth > window.innerWidth) {
+      newX = event.clientX - tagWidth;
+    }
+    if (newY + tagHeight > window.innerHeight) {
+      newY = event.clientY - tagHeight - offset;
+    }
+    if (newX < 0) newX = offset;
+    if (newY < 0) newY = offset;
+
+
+    if (btn) {
+      inputX.value = newX.toString();
+      inputY.value = newY.toString();
+      btn.click();
+    } else {
+      console.warn('DOM elements for user tag not found');
+    }
+
     clearTimeout(this.hoverTimer);
-    this.hoverTimer = setTimeout(() => {
-      const btn = document.getElementById("showUserTagButton");
-      const inputX = document.getElementById("showUserTagX") as HTMLInputElement;
-      const inputY = document.getElementById("showUserTagY") as HTMLInputElement;
-      (document.getElementById("showUserTagUserId") as HTMLInputElement).value =
-        this.user?.id?.toString() || "0";
-
-      let newX = event.clientX + 150;
-      let newY = event.clientY + 30;
-      const tagWidth = 200;
-      const tagHeight = 80;
-      const offset = 5;
-
-      // prevent going off-screen
-      if (newX + tagWidth > window.innerWidth) {
-        newX = event.clientX - tagWidth;
+    this.hoverTimer = setTimeout(() => { 
+      if (!this.isHovering) {
+        this.onUserTagLeave();
       }
-      if (newY + tagHeight > window.innerHeight) {
-        newY = event.clientY - tagHeight - offset;
-      }
-      if (newX < 0) newX = offset;
-      if (newY < 0) newY = offset;
-
-      if (btn) {
-        inputX.value = newX.toString();
-        inputY.value = newY.toString();
-        btn.click();
-      }
-    }, 1000);  
+    }, 1000);
   }
 
   onUserTagLeave() {
-    if (!this.user?.id) return; 
-    clearTimeout(this.hoverTimer); 
-    const btn = document.getElementById("hideUserTagButton");
-    if (btn) {
-      btn.click();
-    }
+    if (!this.user?.id) return;  
+
+    setTimeout(() => {
+      this.isHovering = false;
+      clearTimeout(this.hoverTimer);
+      const btn = document.getElementById("hideUserTagButton");
+      if (btn) {
+        btn.click();
+      } else {
+        console.warn('hideUserTagButton not found');
+      }
+    }, 500);
   }
 }

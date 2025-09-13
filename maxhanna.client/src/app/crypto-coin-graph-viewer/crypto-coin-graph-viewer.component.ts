@@ -57,8 +57,7 @@ export class CryptoCoinGraphViewerComponent extends ChildComponent implements On
     this.stopPolling();
   }
 
-  async changeTimePeriodEventOnBTCHistoricalGraph(periodSelected: string) { 
-    console.log("change time period event ", this.currentSelectedCoin);
+  async changeTimePeriodEventOnBTCHistoricalGraph(periodSelected: string) {
     this.startLoading();
     this.stopPolling();
     this.lineGraphInitialPeriod = periodSelected as "5min" | "15min" | "1h" | "6h" | "12h" | "1d" | "2d" | "5d" | "1m" | "2m" | "3m" | "6m" | "1y" | "2y" | "3y" | "5y" | "max";
@@ -76,7 +75,11 @@ export class CryptoCoinGraphViewerComponent extends ChildComponent implements On
             x.valueCAD = 0;
           }
         });
-        this.startPolling();
+        if (hours < 336) { 
+          this.startPolling();
+        } else {
+          this.timeLeft = 999;
+        }
       }
       this.changeDetectorRef.detectChanges();
     });
@@ -102,8 +105,7 @@ export class CryptoCoinGraphViewerComponent extends ChildComponent implements On
     }
     const period = this.lineGraphComponent.selectedPeriod;
     const hours = this.tradeService.convertTimePeriodToHours(period);
-
-    console.log("Getting tradebot values for main graph", selectedCoin, period, hours);
+ 
     const [dcaRes, indRes, hftRes] = await Promise.all([
       this.tradeService.getTradeHistory(tradeUserId, token, selectedCoin, "DCA", hours),
       this.tradeService.getTradeHistory(tradeUserId, token, selectedCoin, "IND", hours),

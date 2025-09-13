@@ -12,8 +12,13 @@
   </div>
 
   <div class="profileBackgroundContainer" *ngIf="user?.profileBackgroundPictureFile">
-    <app-media-viewer [displayExpander]="false" [displayExtraInfo]="false" [showCommentSection]="false"
-      [inputtedParentRef]="inputtedParentRef ?? parentRef" [file]="user?.profileBackgroundPictureFile"
+    <app-media-viewer 
+      [displayExpander]="false" 
+      [displayExtraInfo]="false" 
+      [showCommentSection]="false"
+      [showTopics]="false"
+      [inputtedParentRef]="inputtedParentRef ?? parentRef" 
+      [file]="user?.profileBackgroundPictureFile"
       [previousComponent]="previousComponent ?? 'User'">
     </app-media-viewer>
   </div> 
@@ -22,9 +27,17 @@
     <div class="profileHeader">
       <div class="profileHeaderContents">
         <div *ngIf="!loginOnly && (user && parentRef && user.displayPictureFile) && (user?.displayPictureFile ?? this.parentRef?.user?.displayPictureFile)">
-          <app-media-viewer #displayPictureViewer (click)="openDisplayPicturePanel()" [displayExpander]="false" [displayExtraInfo]="false"
-            [showCommentSection]="false" [inputtedParentRef]="inputtedParentRef ?? parentRef" [file]="user.displayPictureFile"
-            [blockExpand]="user && user.id == parentRef.user?.id" [currentDirectory]="user.displayPictureFile.directory" [user]="user"
+          <app-media-viewer #displayPictureViewer 
+            (click)="openDisplayPicturePanel()"
+            [displayExpander]="false" 
+            [displayExtraInfo]="false"
+            [showTopics]="false"
+            [showCommentSection]="false" 
+            [inputtedParentRef]="inputtedParentRef ?? parentRef" 
+            [file]="user.displayPictureFile"
+            [blockExpand]="user && user.id == parentRef.user?.id" 
+            [currentDirectory]="user.displayPictureFile.directory"
+            [user]="user"
             [previousComponent]="previousComponent ?? 'User'">
           </app-media-viewer>
           <div [class]="'profileHeaderInfo blackFontColor linkHighlights' + (onMobile() ? ' smallFont' : '')" [title]="user.username">{{user.username}}</div>
@@ -577,7 +590,7 @@
     </div>
     <div class="displayPicturePopupDisplayDiv">
       <span *ngIf="parentRef?.user?.profileBackgroundPictureFile">
-        <app-media-viewer #backgroundPictureViewer [displayExpander]="false" [displayExtraInfo]="false"
+        <app-media-viewer #backgroundPictureViewer [displayExpander]="false" [displayExtraInfo]="false" [showTopics]="false"
           [showCommentSection]="false" [file]="parentRef?.user?.profileBackgroundPictureFile" [user]="parentRef?.user"
           [inputtedParentRef]="parentRef" [previousComponent]="'User'">
         </app-media-viewer>

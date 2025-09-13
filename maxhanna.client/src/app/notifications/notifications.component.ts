@@ -11,10 +11,10 @@ import { CommentService } from '../../services/comment.service';
 import { FileComment } from '../../services/datacontracts/file/file-comment';
 
 @Component({
-    selector: 'app-notifications',
-    templateUrl: './notifications.component.html',
-    styleUrl: './notifications.component.css',
-    standalone: false
+  selector: 'app-notifications',
+  templateUrl: './notifications.component.html',
+  styleUrl: './notifications.component.css',
+  standalone: false
 })
 export class NotificationsComponent extends ChildComponent implements OnInit, OnDestroy, OnChanges {
   constructor(private notificationService: NotificationService, private commentService: CommentService, private location: Location) {
@@ -30,14 +30,15 @@ export class NotificationsComponent extends ChildComponent implements OnInit, On
   }
 
   @Input() minimalInterface? = false;
-  @Input() inputtedParentRef?: AppComponent; 
+  @Input() inputtedParentRef?: AppComponent;
 
   showNotifications = false;
   notifications?: UserNotification[] = [];
+  searchQuery: string = '';
 
   app?: any;
   messaging?: any;
-  unreadNotifications = 0; 
+  unreadNotifications = 0;
 
   currentPage = 1;
   itemsPerPage = 10;
@@ -46,11 +47,10 @@ export class NotificationsComponent extends ChildComponent implements OnInit, On
   filterCategory: string = 'All';
   categories: { name: string, count: number }[] = [];
 
-
   private pollingInterval: any;
 
   ngOnInit() {
-    if (this.inputtedParentRef && !this.parentRef) { 
+    if (this.inputtedParentRef && !this.parentRef) {
       this.parentRef = this.inputtedParentRef;
     }
     this.getNotifications();
@@ -77,7 +77,7 @@ export class NotificationsComponent extends ChildComponent implements OnInit, On
           this.notifications = res;
           this.unreadNotifications = this.notifications?.filter(x => x.isRead == false).length;
           this.updateCategories(false);
-          this.updatePagination();  
+          this.updatePagination();
         }
       });
       this.stopLoading();
@@ -93,7 +93,6 @@ export class NotificationsComponent extends ChildComponent implements OnInit, On
     }, 30000); // Poll every 30 seconds
   }
 
-
   private updatePagination() {
     let notificationsToPaginate;
 
@@ -103,6 +102,14 @@ export class NotificationsComponent extends ChildComponent implements OnInit, On
       notificationsToPaginate = this.notifications?.filter(n => !n.isRead) || [];
     } else {
       notificationsToPaginate = this.notifications?.filter(n => this.getNotificationCategory(n) === this.filterCategory) || [];
+    }
+
+    // Apply search filter if searchQuery exists
+    if (this.searchQuery.trim()) {
+      const searchTerm = this.searchQuery.toLowerCase().trim();
+      notificationsToPaginate = notificationsToPaginate.filter(n =>
+        n.text?.toLowerCase().includes(searchTerm)
+      );
     }
 
     if (!notificationsToPaginate || notificationsToPaginate.length === 0) {
@@ -140,7 +147,6 @@ export class NotificationsComponent extends ChildComponent implements OnInit, On
     this.scrollToTopNotification();
   }
 
-
   private scrollToTopNotification() {
     const notificationsListSubContainer = document.getElementsByClassName("notificationsListSubContainer")[0];
     if (notificationsListSubContainer) {
@@ -151,13 +157,20 @@ export class NotificationsComponent extends ChildComponent implements OnInit, On
     }
   }
 
-  onItemsPerPageChange() { 
+  onItemsPerPageChange() {
     this.itemsPerPage = Number(this.itemsPerPage);
-    this.currentPage = 1; // Reset to first page when items per page changes
+    this.currentPage = 1;
     this.updatePagination();
   }
 
-  removeMe(type: string) { 
+  onSearchChange(event: Event) {
+    const input = event.target as HTMLInputElement;
+    this.searchQuery = input.value + "";
+    this.currentPage = 1;
+    this.updatePagination();
+  }
+
+  removeMe(type: string) {
     if (this.inputtedParentRef) {
       this.inputtedParentRef.removeAllComponents();
     } else {
@@ -181,13 +194,13 @@ export class NotificationsComponent extends ChildComponent implements OnInit, On
     if (notification.userProfileId) {
       this.location.replaceState("/User/" + notification.userProfileId);
       this.createComponent("User", { "userId": notification.userProfileId, "previousComponent": this.previousComponent });
-    } else { 
+    } else {
       this.location.replaceState("/Social/" + notification.storyId);
       this.createComponent("Social", { "storyId": notification.storyId, "previousComponent": this.previousComponent });
     }
     if (!notification.isRead) { this.read(notification, true); }
   }
-  goToCryptoHub(notification?: UserNotification) { 
+  goToCryptoHub(notification?: UserNotification) {
     let selectedCoin = notification?.text?.match(/\b(XBT|BTC|XRP|SOL|ETH|XDG|Doge|Dogecoin|Ethereum|Solana)\b/i)?.[0] || 'Bitcoin';
     if (selectedCoin == "XBT" || selectedCoin == "BTC") {
       selectedCoin = "Bitcoin";
@@ -202,7 +215,7 @@ export class NotificationsComponent extends ChildComponent implements OnInit, On
       selectedCoin = "Ethereum";
     }
     console.log("opening crypto hub with ", selectedCoin);
-    this.createComponent("Crypto-Hub", { currentSelectedCoin: selectedCoin }); 
+    this.createComponent("Crypto-Hub", { currentSelectedCoin: selectedCoin });
   }
   goToChat(notification?: UserNotification) {
     if (!notification?.chatId) return alert("Error: Must select a user to chat!");
@@ -215,19 +228,19 @@ export class NotificationsComponent extends ChildComponent implements OnInit, On
     const userProfileId = notification.userProfileId;
     if (userProfileId && userProfileId != 0) {
       const storyId = notification.storyId;
-      const commentId = notification.commentId; 
+      const commentId = notification.commentId;
       this.parentRef?.closeOverlay();
-      this.parentRef?.createComponent("User", { 
+      this.parentRef?.createComponent("User", {
         "userId": userProfileId,
         "storyId": storyId,
         "commentId": commentId,
-        "previousComponent": this.previousComponent,  
-      }); 
+        "previousComponent": this.previousComponent,
+      });
     }
   }
   async goToCommentId(notification?: UserNotification) {
     if (!notification || !notification.commentId) return;
-    if (!notification.isRead) { this.read(notification, true); }  
+    if (!notification.isRead) { this.read(notification, true); }
     if (notification.storyId) {
       return this.goToStoryId(notification);
     }
@@ -328,20 +341,20 @@ export class NotificationsComponent extends ChildComponent implements OnInit, On
     parent.navigationComponent.setNotificationNumber(this.unreadNotifications, notification);
   }
 
-  notificationTextClick(notification: UserNotification) { 
-    if (!notification.isRead) { 
+  notificationTextClick(notification: UserNotification) {
+    if (!notification.isRead) {
       this.read(notification, true);
       if (notification.text?.includes('Executed Trade') && this.parentRef?.navigationComponent) {
         this.parentRef.navigationComponent.tradeNotifsCount--;
       }
-    } 
+    }
     if (notification.text?.toLowerCase().includes('captured') || notification.text?.includes('base at')) {
       this.parentRef?.createComponent('Bug-Wars');
     } else if (notification.text?.includes('BugWars')) {
       this.parentRef?.createComponent('Bug-Wars');
     } else if (notification.text?.includes('Shared a note')) {
       this.parentRef?.createComponent('Notepad');
-    } else if (notification.text?.includes('Executed Trade')) { 
+    } else if (notification.text?.includes('Executed Trade')) {
       this.goToCryptoHub(notification);
     } else if (notification.fileId) {
       this.goToFileId(notification)
@@ -383,10 +396,6 @@ export class NotificationsComponent extends ChildComponent implements OnInit, On
       this.app = initializeApp(firebaseConfig);
       this.messaging = await getMessaging(this.app);
 
-      // onMessage(this.messaging, (payload: any) => {
-      //   alert(`${payload}`);
-      // });
-
       console.log('Current Notification Permission:', Notification.permission);
 
       if (Notification.permission === 'default') {
@@ -410,8 +419,7 @@ export class NotificationsComponent extends ChildComponent implements OnInit, On
     }
   }
 
-
-  private async subscribeToNotificationTopic(token: string) { 
+  private async subscribeToNotificationTopic(token: string) {
     if (this.parentRef?.user?.id) {
       this.notificationService.subscribeToTopic(this.parentRef.user.id, token, "notification" + this.parentRef.user.id).then(res => {
         console.log(res);
@@ -503,8 +511,7 @@ export class NotificationsComponent extends ChildComponent implements OnInit, On
   onFilterChange(event: Event): void {
     this.currentPage = 1;
     const select = event.target as HTMLSelectElement;
-    this.filterCategory = select.value;  
+    this.filterCategory = select.value;
     this.updatePagination();
-     
   }
 }

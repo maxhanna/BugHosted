@@ -269,12 +269,6 @@ singleAttachment {
   color: var(--secondary-font-color);
 }
 
-.storyMainInputDiv {
-  width: 100%;
-  display: flex;
-  justify-content: center;
-}
-
 .searchInputs {
   display: flex;
   justify-content: center;
@@ -460,12 +454,6 @@ singleAttachment {
   display: inline-flex;
 }
 
-.mainTopicSelectionsHeaderButton {
-  display: inline-block;
-  white-space: nowrap;
-  min-width: 20px;
-}
-
 .storyControlFlairButton {
   display: inline-block;
   white-space: nowrap;
@@ -473,12 +461,6 @@ singleAttachment {
   font-size: xx-small;
   min-width: unset !important;
   max-width: unset !important;
-}
-
-.matchingTopicsInsideButtonWrapper {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 .youtubePlaceholderImageContainer {
@@ -597,29 +579,7 @@ singleAttachment {
 .showPostOptionButton {
     cursor: pointer; 
     font-size: small;  
-}
- 
-.mobilePostButtonOptions {
-  cursor: pointer;
-  height: 23px !important;
-  line-height: 12px;
-  min-width: 70px;
-  white-space: nowrap;
-  display: flex;
-  justify-content: center;
-  width: 100%;
-  align-content: center;
-  flex-wrap: nowrap;
-  flex-direction: row;
-  align-items: stretch;
-  margin-top: 20px;
-  margin-bottom: 20px;
-}
-
-.mobilePostButtonOptions button {
-  text-align: center;
-  width: 65px;
-}
+} 
 
 .menuBackButtonSpecial {
   right: 53px;

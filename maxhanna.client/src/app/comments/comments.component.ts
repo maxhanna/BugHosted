@@ -337,4 +337,16 @@ export class CommentsComponent extends ChildComponent implements OnInit {
   isTextToSpeechSpeaking() {
     return this.textToSpeechService.isSpeaking;
   }
+  async copyAllText(comment: FileComment) { 
+    this.closeOptionsPanel();
+    const parent = this.inputtedParentRef ?? this.parentRef;
+    try {
+      const text = this.decryptText(comment.commentText, comment.user.id);
+      await navigator.clipboard.writeText(text);
+      parent?.showNotification("Text copied to Clipboard!");
+    } catch (err) {
+      console.error('Failed to copy text: ', err);
+      parent?.showNotification('Failed to copy text. Please select and copy manually.');
+    }
+  } 
 }

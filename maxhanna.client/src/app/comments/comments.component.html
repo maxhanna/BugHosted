@@ -161,6 +161,9 @@
     <button class="commentOptionButton" (click)="quote(optionsComment)">
       🗨️Quote
     </button>
+    <button (click)="copyAllText(optionsComment)" title="Copy all text">
+      📋Copy Text
+    </button>
     <button (click)="speakMessage(decryptText(optionsComment.commentText ?? '', optionsComment.user.id))" *ngIf="!isTextToSpeechSpeaking()">
       🔊Read Outloud
     </button>

@@ -834,9 +834,9 @@
     <div class="button-wrapper">
       <select #toolSelect class="data-tool-select" (change)="tradePanelToolSelectChange()">
         <option value="about">About the Tradebot</option>
-        <option value="profit">Profit and Loss</option>
+        <!-- <option value="profit">Profit and Loss</option>
         <option value="graph">Trade Value Graph</option>
-        <option value="sim">Tradebot Simulation</option>
+        <option value="sim">Tradebot Simulation</option> -->
       </select>
       <button class="cursorPointer" (click)="toggleSelectedDataTool(toolSelect?.value)"
         *ngIf="toolSelect.value != 'about'">

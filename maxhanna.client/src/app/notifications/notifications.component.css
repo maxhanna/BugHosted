@@ -3,31 +3,38 @@
     width: unset;
   }
 }
-.deleteNotificationButton, .readNotificationButton {
+
+.deleteNotificationButton,
+.readNotificationButton {
   width: 65px;
   height: 25px;
   display: flex;
   align-items: center;
   justify-content: center;
 }
+
 .deleteNotificationButton {
   position: absolute;
   bottom: 0px;
   right: 0px;
 }
+
 .readNotificationButton {
   position: absolute;
   bottom: 0px;
   right: 70px;
 }
+
 .fileId {
   line-height: 30px;
-  text-align:left;
+  text-align: left;
 }
+
 .date {
   font-size: small;
 }
-.minimalPopupPanel { 
+
+.minimalPopupPanel {
   padding: 50px 0px 0px 0px !important;
 }
 
@@ -38,52 +45,60 @@
     width: 100vw;
     max-width: unset;
     transform: translate(-50%, -50%);
-    top: 50%; 
-    left:50%;
+    top: 50%;
+    left: 50%;
     border-radius: 0px;
   }
-} 
+}
+
 .notificationsDisplay button {
   cursor: pointer;
 }
+
 .notificationsDisplay {
   display: flex;
-  z-index: 3; 
-/*  height: CALC(var(--vh, 1vh) * 100 - 70px);
-*/  flex-wrap: nowrap;
+  z-index: 3;
+  /*  height: CALC(var(--vh, 1vh) * 100 - 70px);
+*/
+  flex-wrap: nowrap;
   text-shadow: 0 0 black;
   font-size: var(--main-font-size);
 }
+
 @media only screen and (max-width : 900px) {
   .notificationsDisplay {
     flex-flow: column wrap;
     justify-content: space-between;
   }
 }
- 
+
 .notificationsListContainer {
   overflow-y: auto;
   overflow-x: hidden;
   height: CALC(var(--vh, 1vh) * 100 - 230px);
   display: flex;
   flex-direction: column;
-  align-items: center; 
+  align-items: center;
 }
+
 .notificationsListSubContainer {
   overflow-y: auto;
   overflow-x: hidden;
   height: CALC(var(--vh, 1vh) * 100 - 300px);
 }
+
 @media only screen and (min-width: 667px) {
   .notificationsListContainer {
     padding: 10px;
   }
 }
+
 .notificationsList {
   overflow-y: auto;
-  overflow-x: hidden; 
+  overflow-x: hidden;
   width: 100%;
 }
+
 .notificationListItem {
   border: var(--main-border);
   display: flex;
@@ -92,47 +107,55 @@
   padding: 8px 15px 26px 15px;
   max-width: 500px;
 }
+
 @media only screen and (max-width : 1000px) {
   .notificationListItem {
     width: 80vw;
   }
 }
-@media only screen and (min-width : 1000px) { 
+
+@media only screen and (min-width : 1000px) {
   .notificationListItem {
     width: 500px;
   }
 }
+
 .nliLeftDiv .largeAvatar {
   font-size: xxx-large;
 }
 
 .notificationText {
-  text-overflow: ellipsis; 
+  text-overflow: ellipsis;
   overflow: hidden;
   text-align: left;
 }
+
 .notificationsCountHeader {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   align-content: center;
-  flex-wrap: nowrap; 
-  text-align: center; 
+  flex-wrap: nowrap;
+  text-align: center;
 }
+
 @media only screen and (min-width: 667px) {
   .notificationsCountHeader {
     padding: 15px 0px 0px 15px;
   }
 }
+
 .notificationsCountHeaderButtons {
   display: flex;
   gap: 20px;
   margin: 20px;
 }
+
 .notificationsCountHeaderButtons button {
   white-space: nowrap;
 }
+
 .noNotificationsDiv {
   display: flex;
   flex-direction: column;
@@ -146,6 +169,7 @@
   min-height: 300px;
   padding: 10px;
 }
+
 .noNotificationsWrapperSpan {
   display: flex;
   flex-wrap: wrap;
@@ -174,6 +198,7 @@
   align-items: flex-start;
   justify-content: space-evenly;
 }
+
 .unreadNotifications {
   font-size: initial;
   text-align: center;
@@ -212,16 +237,45 @@
 }
 
 .page-navigation button {
-  padding: 5px 10px;  
+  padding: 5px 10px;
 }
- 
+
 .noNotifsTitle1 {
   color: var(--secondary-font-color);
 }
+
 .noNotifsTitle2 {
-  color: var(--third-font-color); 
+  color: var(--third-font-color);
   margin-top: 20px;
 }
+
 .filter-container {
   margin-bottom: 5px;
+}
+
+.filter-container label {
+  color: var(--third-font-color);
+  text-decoration: underline;
+  text-decoration-color: var(--secondary-font-color);
+}
+
+@media only screen and (max-width: 667px) {
+  .filter-container {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    flex-wrap: nowrap;  
+    text-align: left;
+  }
+
+  .filter-container>div {
+    border: var(--main-border);
+    max-width: 50%;
+    overflow: hidden;
+  }
+
+  .filter-container input {
+    max-width: calc(100% - 10px);
+  }
 }

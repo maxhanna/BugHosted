@@ -19,12 +19,18 @@
   <div class="chatArea" [class]="isPanelExpanded ? 'expanded' : ''">
     <div *ngIf="currentChatUsers">
       <div class="chatWindow" *ngIf="chatHistory" #chatWindow (scroll)="onScroll();">
+        <div *ngIf="pageNumber < totalPages" 
+          appInView (inView)="loadPreviousPage()" 
+          style="width: 100%; text-align: center;" 
+          class="smallFont secondaryFontColor"> 
+          <span>Current Page: {{pageNumber}}</span><span *ngIf="isLoadingPreviousPage">{{" "}}Loading...</span>
+        </div>
+
         <div *ngFor="let message of chatHistory"
          [class.messageContainer]="true" 
          [class.otherPersonsMessage]="message.sender.id !== (parentRef?.user?.id ?? 0)"
          [style.flexDirection]="message.sender.id != (parentRef?.user?.id ?? 0) ? 'row-reverse' : 'row'">
-  
-          <!-- Combined message template -->
+   
           <span class="messageTimestamp">
             {{ getUtcTimestampString(message.timestamp) }}
             <span class="userSeen" *ngIf="message.seen" [title]="'Seen by:' + message.seen">👀</span>

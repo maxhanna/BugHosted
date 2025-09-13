@@ -44,6 +44,9 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
   quoteMessage = "";
   private pollingInterval: any;
   private isChangingPage = false;
+  private isInitialLoad = false;
+  isLoadingPreviousPage = false;
+  private inviewDebounceTimeout: any;
 
   @ViewChild('newMessage') newMessage!: ElementRef<HTMLTextAreaElement>;
   @ViewChild('newMessageTmpInput') newMessageTmpInput!: ElementRef<HTMLInputElement>;
@@ -121,9 +124,7 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
 
   scrollToBottomIfNeeded() {
     if (this.chatWindow) {
-      const chatWindow = this.chatWindow.nativeElement;
-
-      // Using requestAnimationFrame to ensure the scroll happens after the DOM is fully painted
+      const chatWindow = this.chatWindow.nativeElement; 
       requestAnimationFrame(() => {
         setTimeout(() => {
           if (!this.hasManuallyScrolled) {
@@ -216,6 +217,9 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
           this.scrollToBottomIfNeeded();
         }
         this.isChangingPage = false;
+        setTimeout(() => {
+          this.isInitialLoad = true;
+        }, 1000);
       }
     } catch (error) {
       console.error('Error fetching message history:', error);
@@ -281,6 +285,7 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
     this.showUserList = false;
     this.chatHistory = [];
     this.currentChatId = undefined;
+    this.isInitialLoad = false;
     users = this.filterUniqueUsers(users);
     const user = this.getChatUsers(users);
     if (!this.currentChatUsers) return;
@@ -306,14 +311,13 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
     }
     setTimeout(() => {
       this.scrollToBottomIfNeeded();
-      this.pollForMessages();
+      this.pollForMessages(); 
+      this.isInitialLoad = true;
     }, 410);
     this.togglePanel();
 
     this.stopLoading();
   }
-
-
 
   private getChatUsers(users: User[]) {
     const user = this.parentRef?.user ? this.parentRef.user : new User(0, "Anonymous");
@@ -340,6 +344,52 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
 
     const parent = this.inputtedParentRef ?? this.parentRef;
     parent?.closeOverlay();
+  }
+
+  async loadPreviousPage() {
+    if (!this.isInitialLoad || this.isLoadingPreviousPage || this.pageNumber >= this.totalPages) {
+      return; // Prevent loading during initial load, while already loading, or if no more pages
+    }
+
+    // Debounce to prevent rapid triggers
+    if (this.inviewDebounceTimeout) {
+      clearTimeout(this.inviewDebounceTimeout);
+    }
+
+    this.inviewDebounceTimeout = setTimeout(async () => {
+      this.isLoadingPreviousPage = true;
+      const currentScrollHeight = this.chatWindow.nativeElement.scrollHeight;
+      const currentScrollTop = this.chatWindow.nativeElement.scrollTop;
+
+      try {
+        const previousPage = this.pageNumber + 1; // Load the next page (older messages)
+        const res = await this.chatService.getMessageHistory(
+          this.parentRef?.user?.id ?? 0,
+          this.currentChatUsers!.map(x => x?.id ?? 0),
+          this.currentChatId,
+          previousPage,
+          this.pageSize
+        );
+
+        if (res && res.messages) {
+          const newMessages = (res.messages as Message[]).reverse();
+          this.chatHistory = [...newMessages, ...this.chatHistory]; // Prepend new messages
+          this.pageNumber = res.currentPage;
+          this.totalPages = res.totalPages;
+          this.totalPagesArray = Array(this.totalPages).fill(0).map((_, i) => i + 1);
+
+          // Adjust scroll position to keep the same messages in view
+          requestAnimationFrame(() => {
+            const newScrollHeight = this.chatWindow.nativeElement.scrollHeight;
+            this.chatWindow.nativeElement.scrollTop = currentScrollTop + (newScrollHeight - currentScrollHeight);
+          });
+        }
+      } catch (error) {
+        console.error('Error loading previous page:', error);
+      } finally {
+        this.isLoadingPreviousPage = false;
+      }
+    }, 200); // 200ms debounce
   }
 
   userSelectClickEvent(users: User[] | undefined) {

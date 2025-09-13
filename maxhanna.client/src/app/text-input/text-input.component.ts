@@ -42,18 +42,18 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
   @Input() parentClass? = "";
   @Input() attachedTopics: Array<Topic> = [];
   @Input() showTopicSelector: boolean = true;
-  @Input() type?: "Social" | "Comment" | "Chat"; 
+  @Input() type?: "Social" | "Comment" | "Chat";
   @Input() chatId?: number;
   @Input() currentChatUsers?: User[];
-  @Input() quoteMessage?: string; 
+  @Input() quoteMessage?: string;
   @Input() enterToPost: boolean = false;
-  @Output() contentPosted = new EventEmitter<{results: any, content: any, originalContent: string}>();
+  @Output() contentPosted = new EventEmitter<{ results: any, content: any, originalContent: string }>();
   @Output() selectFileEvent = new EventEmitter<FileEntry[]>();
   @Output() topicClicked = new EventEmitter<Topic[] | undefined>();
   @Output() topicAdded = new EventEmitter<Topic[]>();
   @Output() topicIgnored = new EventEmitter<Topic[]>();
 
-  @ViewChild('mediaSelector') mediaSelector!: MediaSelectorComponent; 
+  @ViewChild('mediaSelector') mediaSelector!: MediaSelectorComponent;
   @ViewChild('topicSelector') topicSelector!: TopicsComponent;
   @ViewChild('postInput') postInput!: ElementRef<HTMLInputElement>;
   @ViewChild('postTextArea') postTextArea!: ElementRef<HTMLTextAreaElement>;
@@ -68,6 +68,7 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
   isAppFormattingOptionsOpen = false;
   isComponentPanelOpen = false;
   topTopics: TopicRank[] = [];
+  showHelpPopup = false;
 
   ngOnInit() {
     if (this.inputtedParentRef?.user?.id && this.type == "Social") {
@@ -96,8 +97,8 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
         this.quoteMessage = undefined;
       }, 100);
     }
-  } 
-  
+  }
+
   async post() {
     console.log("Posting...");
     const text = this.textarea.value?.trim() || '';
@@ -110,7 +111,7 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
     }
 
     this.startLoading();
-    try { 
+    try {
       const parent = this.inputtedParentRef ?? this.parentRef;
       const user = parent?.user ?? new User(0, "Anonymous");
       let originalContent = "";
@@ -118,14 +119,12 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
       const sessionToken = await parent?.getSessionToken();
       let results = undefined;
       let content = undefined;
-      if (this.type == "Social") 
-      {
+      if (this.type == "Social") {
         content = await this.createStory();
         originalContent = content.originalContent;
         results = await this.socialService.postStory(user.id ?? 0, content.story, sessionToken ?? "");
-      } 
-      else if (this.type == "Comment") 
-      {
+      }
+      else if (this.type == "Comment") {
         console.log("type is comment and creating comment");
         content = await this.createComment();
         originalContent = content.originalContent;
@@ -141,9 +140,8 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
           content.comment.country,
           content.comment.ip,
         );
-      } 
-      else if (this.type == "Chat") 
-      {
+      }
+      else if (this.type == "Chat") {
         content = await this.createChatMessage();
         originalContent = content.originalContent;
         results = await this.chatService.sendMessage(user?.id ?? 0, content.chatUsersIdsArray, this.chatId, content.msg, this.attachedFiles);
@@ -157,7 +155,7 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
         this.clearInputs();
         const resultData = { results: results, content: content, originalContent: originalContent };
         this.contentPosted.emit(resultData);
-        this.createNotifications(resultData); 
+        this.createNotifications(resultData);
         this.showPostInput = false;
       } else {
         parent?.showNotification("Error: No response from server.");
@@ -171,15 +169,15 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
   }
 
   get textarea(): HTMLTextAreaElement | HTMLInputElement {
-    let element: HTMLTextAreaElement | HTMLInputElement | null = null; 
-     
-    element = this.postTextArea?.nativeElement; 
-    if (!element) {  
+    let element: HTMLTextAreaElement | HTMLInputElement | null = null;
+
+    element = this.postTextArea?.nativeElement;
+    if (!element) {
       element = this.postInput?.nativeElement;
     }
- 
+
     if (!element) {
-      console.warn('Textarea element not found'); 
+      console.warn('Textarea element not found');
     }
 
     return element;
@@ -187,10 +185,10 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
   async createNotifications(results: { results: any, originalContent: string }) {
     const parent = this.inputtedParentRef ?? this.parentRef;
     const user = parent?.user;
-    if (parent && user) {  
-      const replyingToUser = this.commentParent?.user; 
+    if (parent && user) {
+      const replyingToUser = this.commentParent?.user;
       const { isStory, isFile, isComment } = this.getParentType();
-      
+
       if (this.profileUser?.id && this.profileUser.id != user.id) {
         const notificationData: any = {
           fromUserId: user.id,
@@ -217,14 +215,14 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
         let notificationMessage = results.results;
         if (results.results.message) {
           notificationMessage = results.results.message;
-        } 
+        }
         parent.showNotification(notificationMessage);
       }
       if (this.type == "Comment") {
         const fromUserId = user?.id ?? 0;
         const toUserIds = [replyingToUser?.id ?? 0].filter(id => id != fromUserId);
         if (replyingToUser?.id && toUserIds.length > 0) {
-          let message = results.originalContent.length > 50 ? results.originalContent.slice(0, 50) + "…" : results.originalContent; 
+          let message = results.originalContent.length > 50 ? results.originalContent.slice(0, 50) + "…" : results.originalContent;
           const notificationData = {
             fromUserId: fromUserId,
             toUserIds: toUserIds,
@@ -234,18 +232,18 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
             commentId: isComment ? this.commentParent?.id : undefined,
             userProfileId: this.profileUser?.id,
           };
-          this.notificationService.createNotifications(notificationData); 
+          this.notificationService.createNotifications(notificationData);
         }
         if (isComment) {
           //send it to everyone else involved in the thread except the user who made the comment and replyingToUser
         }
       }
       if (this.type == "Chat") {
-        this.notificationService.createNotifications({ 
-          fromUserId: user?.id ?? 0, 
-          toUserIds: this.currentChatUsers!.filter(x => x.id != (user?.id ?? 0)).map(x => x.id ?? 0), 
-          message: 'New chat message!', 
-          chatId: this.chatId 
+        this.notificationService.createNotifications({
+          fromUserId: user?.id ?? 0,
+          toUserIds: this.currentChatUsers!.filter(x => x.id != (user?.id ?? 0)).map(x => x.id ?? 0),
+          message: 'New chat message!',
+          chatId: this.chatId
         });
       }
     }
@@ -256,7 +254,7 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
     this.attachedTopics = [];
     this.textarea.value = '';
     this.eachAttachmentSeperatePost = false;
-    this.mediaSelector.removeAllFiles(); 
+    this.mediaSelector.removeAllFiles();
     this.topicSelector?.removeAllTopics();
   }
   showTopicsPanel() {
@@ -310,7 +308,7 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
   }
 
   addFavouriteTopic() {
-    const parent = this.inputtedParentRef ?? this.parentRef; 
+    const parent = this.inputtedParentRef ?? this.parentRef;
     if (parent?.user?.id) {
       const topicIds = this.attachedTopics?.map(x => x.id);
       this.topicService.addFavTopic(parent.user.id, topicIds).then(res => {
@@ -338,7 +336,7 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
     );
   }
   removeFavTopic(topic: Topic) {
-    const parent = this.inputtedParentRef ?? this.parentRef; 
+    const parent = this.inputtedParentRef ?? this.parentRef;
     if (parent?.user?.id) {
       this.topicService.removeFavTopic(parent.user.id, [topic.id]).then(res => {
         if (res) {
@@ -351,7 +349,7 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
     }
   }
   ignoreTopic(topic: Topic) {
-    const parent = this.inputtedParentRef ?? this.parentRef; 
+    const parent = this.inputtedParentRef ?? this.parentRef;
     if (parent?.user?.id) {
       this.topicService.addIgnoredTopic(parent.user.id, [topic.id]).then(res => {
         if (res) {
@@ -367,7 +365,7 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
     }
   }
 
-  private async createComment(): Promise<{comment: FileComment, originalContent: string}> {
+  private async createComment(): Promise<{ comment: FileComment, originalContent: string }> {
     const parent = this.inputtedParentRef ?? this.parentRef;
     const commentsWithEmoji = parent?.replaceEmojisInMessage(this.textarea.value?.trim() || '') || '';
 
@@ -380,7 +378,7 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
     const currentDate = new Date();
     const location = await parent?.getLocation();
     const tmpComment = new FileComment();
-    
+
     tmpComment.user = parent?.user ?? new User(0, "Anonymous");
     tmpComment.commentText = this.encryptContent(commentsWithEmoji);
     tmpComment.date = currentDate;
@@ -392,7 +390,7 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
     tmpComment.city = location?.city;
     tmpComment.userProfileId = this.profileUser?.id;
     tmpComment.ip = location?.ip;
-    return {comment: tmpComment, originalContent: commentsWithEmoji};
+    return { comment: tmpComment, originalContent: commentsWithEmoji };
   }
 
   private getParentType() {
@@ -441,14 +439,14 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
         city: location?.city,
         country: location?.country,
         ip: location?.ip,
-      }, 
+      },
       originalContent: originalContent
     };
   }
 
   async createChatMessage(): Promise<{ msg: string, chatUsersIdsArray: number[], originalContent: string }> {
     const parent = this.inputtedParentRef ?? this.parentRef;
-    const user = parent?.user; 
+    const user = parent?.user;
     const originalContent = parent?.replaceEmojisInMessage(this.textarea.value?.trim() || '') ?? '';
     const msg = this.encryptContent(originalContent);
     let chatUsersIds = new Set(this.currentChatUsers!.map(u => u.id ?? 0));
@@ -471,9 +469,10 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
       }
       if (!id) {
         return msg;
-      } 
+      }
       return this.encryptionService.encryptContent(msg, id + "");
-    } catch (error) {``
+    } catch (error) {
+      ``
       console.error('Encryption error:', error);
       return msg;
     }
@@ -484,15 +483,18 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
     setTimeout(() => {
       this.textarea.focus();
       this.textarea.value = savedVal;
-    }, 100); 
+    }, 100);
   }
   onKeyDown(event: KeyboardEvent) {
     if (this.enterToPost) {
       if (event.key === 'Enter' && !event.ctrlKey && !event.shiftKey) {
         event.preventDefault();
-        this.post();
+        clearTimeout(this.debounceTimer);
+        this.debounceTimer = setTimeout(() => {
+          this.post();
+        }, 100);
       }
-      else if (event.ctrlKey && event.key === 'Enter') { 
+      else if (event.ctrlKey && event.key === 'Enter') {
         event.preventDefault();
         const textarea = this.textarea;
         const start = textarea.selectionStart ?? 0;
@@ -504,9 +506,12 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
     } else {
       if (event.ctrlKey && event.key === 'Enter') {
         event.preventDefault();
-        this.post();
+        clearTimeout(this.debounceTimer);
+        this.debounceTimer = setTimeout(() => {
+          this.post();
+        }, 100);
       }
-    } 
+    }
     this.hapticFeedback();
   }
 
@@ -515,22 +520,31 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
       navigator.vibrate(30);
     }
   }
-  
+
   onExpandingEmojiPanel(event: boolean) {
-    this.closePostOptionsPanel(); 
-    this.isAppFormattingOptionsOpen = event;  
-  }
-  onExpandingComponentPanel(event:boolean) {
     this.closePostOptionsPanel();
-    this.isComponentPanelOpen = event; 
-  } 
+    this.isAppFormattingOptionsOpen = event;
+  }
+  onExpandingComponentPanel(event: boolean) {
+    this.closePostOptionsPanel();
+    this.isComponentPanelOpen = event;
+  }
   clickedTopic(event: Topic[] | undefined) {
-    console.log(event);
     this.topicClicked.emit(event);
     this.closeTopicsPanel();
   }
   clickedTopicRank(event: TopicRank) {
     this.topicClicked.emit([{ id: event.topicId, topicText: event.topicName } as Topic]);
     this.closeTopicsPanel();
+  }
+  showHelp() {
+    this.closePostOptionsPanel();
+    const parent = this.inputtedParentRef ?? this.parentRef;
+    setTimeout(() => { this.showHelpPopup = true; parent?.showOverlay(); }, 50);
+  }
+  closeHelp() {
+    this.showHelpPopup = false; 
+    const parent = this.inputtedParentRef ?? this.parentRef;
+    parent?.closeOverlay();
   }
 }

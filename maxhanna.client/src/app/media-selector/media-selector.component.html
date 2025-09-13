@@ -17,32 +17,30 @@
 
         <button id="closeOverlay" class="doneButton cursorPointer" #doneButton (click)="done()" *ngIf="(displaySearch && selectedFiles.length > 0) ? true  : true">{{selectedFiles && selectedFiles.length > 0 ? 'Finished' : 'Cancel'}}</button>
       </div>
-      <div class="smallFont" *ngIf="maxSelectedFiles && !displaySearch">
+      <div class="smallFont maximumFilesTitle" *ngIf="maxSelectedFiles && !displaySearch">
         Maximum: {{maxSelectedFiles}} files.
       </div>
       <!-- SELECTED MEDIA FILES-->
       <div [class]="selectedFiles && selectedFiles.length > 0 ? 'mediaChoices' : ''" [style.display]="selectedFiles && selectedFiles.length > 0 ? 'block' : 'none'">
-        <div *ngIf="viewMediaChoicesOpen">
-          <div class="attachmentChoiceContainer" *ngIf="selectedFiles && selectedFiles.length > 0">
-            <div *ngFor="let file of selectedFiles">
-              <div class="smallContainerForMedia">
-                <div>
-                  <div><button (click)="removeFile(file)">Remove {{file.fileName}}</button></div>
-                </div>
-                <app-media-viewer [user]="user"
-                                  [inputtedParentRef]="inputtedParentRef"
-                                  [currentDirectory]="file.directory"
-                                  [file]="file"
-                                  [showCommentSection]="false"
-                                  [showTopics]="false"
-                                  [displayExtraInfo]="false"
-                                  [displayExpander]="false"
-                                  [autoplay]="false" 
-                                  (expandClickedEvent)="removeFile(file)">
-                </app-media-viewer>
-              </div>
+        <div *ngIf="viewMediaChoicesOpen && selectedFiles && selectedFiles.length > 0" class="attachmentChoiceContainer">
+         
+          <div *ngFor="let file of selectedFiles" class="smallContainerForMedia"> 
+            <div>
+              <div><button (click)="removeFile(file)">Remove {{file.fileName}}</button></div>
             </div>
-          </div>
+            <app-media-viewer [user]="user"
+                              [inputtedParentRef]="inputtedParentRef"
+                              [currentDirectory]="file.directory"
+                              [file]="file"
+                              [showCommentSection]="false"
+                              [showTopics]="false"
+                              [displayExtraInfo]="false"
+                              [displayExpander]="false"
+                              [autoplay]="false" 
+                              (expandClickedEvent)="removeFile(file)">
+            </app-media-viewer>
+            
+          </div> 
 
         </div>
       </div>

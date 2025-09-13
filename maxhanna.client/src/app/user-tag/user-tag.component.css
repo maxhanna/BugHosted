@@ -41,6 +41,11 @@
 .username {
   color: var(--secondary-font-color);
 }
+.userTag,
+.displayPicture,
+app-media-viewer {
+  pointer-events: auto;
+}
 .userTag {
   width: 50px;
   max-height: 80px;

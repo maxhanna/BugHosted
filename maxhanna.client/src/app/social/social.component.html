@@ -148,8 +148,9 @@
       </div>
       <div class="storyOptionsPopupButtons" style="margin-bottom: 15px;">
         <button (click)="copyLink(optionStory.id)" title="Share Link" style="display:inline-block">📋Share</button>
-        <button (click)="copyAllText(optionStory.id)" title="Copy all text" style="display:inline-block">📋Copy
-          Text</button>
+        <button (click)="copyAllText(optionStory.id)" title="Copy all text" style="display:inline-block">
+          📋Copy Text
+        </button>
         <button (click)="edit(optionStory)" *ngIf="optionStory.user?.id == parentRef?.user?.id" title="Edit Post Text"
           style="display:inline-block">
           <span class="storyEditSpans storyRejectEdit"
@@ -295,18 +296,16 @@
     </div>
 
     <!-- Story Input -->
-    <div class="storyInputDiv" *ngIf="!showOnlyPost || user">
-      <div class="storyMainInputDiv"> 
-          <app-text-input 
-          [inputtedParentRef]="parentRef ?? parent"
-          [type]="'Social'"
-          [profileUser]="user"
-          [attachedTopics]="attachedTopics"
-          (topicAdded)="searchStories($event)"
-          (topicClicked)="topicClicked($event)"
-          (topicIgnored)="searchStories()"
-          (contentPosted)="contentPosted($event)"></app-text-input>
-      </div> 
+    <div class="storyInputDiv" *ngIf="!showOnlyPost || user"> 
+        <app-text-input 
+        [inputtedParentRef]="parentRef ?? parent"
+        [type]="'Social'"
+        [profileUser]="user"
+        [attachedTopics]="attachedTopics"
+        (topicAdded)="searchStories($event)"
+        (topicClicked)="topicClicked($event)"
+        (topicIgnored)="searchStories()"
+        (contentPosted)="contentPosted($event)"></app-text-input> 
     </div>
  
     <div id="mainTableDiv" [class]="!user ? 'storyContainerWrapper' : ''"

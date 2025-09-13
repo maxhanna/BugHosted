@@ -1,23 +1,27 @@
-<div class="storyMainInputDiv">
-    <input type="text" placeholder="What’s crawling your mind?" style="min-width:210px;" (click)="prepPostTextArea()"
+<div class="mainInputDiv">
+    <input type="text" placeholder="What’s crawling your mind?" (click)="prepPostTextArea()"
         *ngIf="!showPostInput" #postInput id="postInput">
     <textarea #story placeholder="What’s crawling your mind?" class="foodForThought" *ngIf="showPostInput"
         #postTextArea id="postTextArea" (keydown)="onKeyDown($event)"></textarea>
 </div>
 <div class="mainFileUploaderAndTopicSelectorDiv">
-    <button (click)="post()">🗨️ Post</button>
+    <button (click)="post()">🗨️Post</button>
     <app-media-selector *ngIf="inputtedParentRef" #mediaSelector
         [currentDirectory]="inputtedParentRef.user?.username ? 'Users/' + inputtedParentRef!.user!.username! : 'Users/Anonymous'"
-        [user]="inputtedParentRef.user" [inputtedParentRef]="inputtedParentRef"
+        [user]="inputtedParentRef.user" 
+        [inputtedParentRef]="inputtedParentRef"
+        [uploadButtonText]="(!showPostInput && (!onMobile() || (mediaSelector && !mediaSelector.selectedFiles.length)) && (!onMobile() || !attachedTopics.length)) ? 'Upload' : onMobile() ? '' : 'Upload'"
         (selectFileEvent)="selectFile($event)"></app-media-selector>
     <button (click)="showPostOptionsPanel()" *ngIf="showPostInput">
-        ⚙️Options
+        ⚙️{{ (!showPostInput && (!onMobile() || (mediaSelector && !mediaSelector.selectedFiles.length)) && (!onMobile() ||
+        !attachedTopics.length)) ? 'Options' : onMobile() ? '' : 'Options'}}
         <span class="xxSmallFont" *ngIf="getOptionsCount() > 0">
             ({{getOptionsCount()}})
         </span>
-    </button>
+    </button> 
     <button class="mainTopicSelectionsHeaderButton" (click)="showTopicsPanel()" *ngIf="type == 'Social'">
-        🗂️Topics<span class="matchingTopicsInsideButtonWrapper" *ngIf="attachedTopics && attachedTopics.length > 0">
+        🗂️{{ (!showPostInput && (!onMobile() || (mediaSelector && !mediaSelector.selectedFiles.length)) && (!onMobile() || !attachedTopics.length)) ? 'Topics' : onMobile() ? '' : 'Topics'}}
+        <span class="matchingTopicsInsideButtonWrapper" *ngIf="attachedTopics && attachedTopics.length > 0">
             (
             <span *ngFor="let topic of attachedTopics; let i = index" class="matchingTopic"
                 title="{{topic.topicText}} : Click to remove topic" style="padding:0">
@@ -40,21 +44,18 @@
 <div [class]="(isAppFormattingOptionsOpen || isComponentPanelOpen) ? '' : 'popupPanel'" *ngIf="isPostOptionsPanelOpen || isAppFormattingOptionsOpen || isComponentPanelOpen">
     <div class="popupPanelTitle">
         <span>Post Options</span>
-    </div>
-    <div class="smallFont createdByStoryOptionsDiv">
-        These affect the post created.
-    </div>
-    <div>
-        <label>
+    </div> 
+    <div class="mobileOptionsTitle">Uploads</div>
+    <div class="postOptionsCheckboxes">
+        <label title="Creates a post for every file attachment attached." *ngIf="(mediaSelector && mediaSelector.selectedFiles.length > 1)">
             <input type="checkbox" (change)="eachAttachmentSeperatePost = !eachAttachmentSeperatePost"
                 [checked]="eachAttachmentSeperatePost" />
-            Each Attachment In A Seperate Post.
-            <span class="smallFont">
-                Creates a post for every file attachment attached.
-            </span>
+            Each Attachment In A Seperate Post. 
         </label>
+        <span *ngIf="mediaSelector && mediaSelector.selectedFiles.length <= 1">Attach more files to see upload options</span>
     </div>
-    <div *ngIf="onMobile() || isAppFormattingOptionsOpen" class="mobilePostButtonOptions">
+    <div class="mobileOptionsTitle" *ngIf="onMobile() || isAppFormattingOptionsOpen" style="margin-top: 20px;">Text Formatting</div>
+    <div *ngIf="onMobile() || isAppFormattingOptionsOpen" class="mobilePostButtonOptions"> 
         <app-text-formatting-toolbar 
         style="display:flex; height: 25px;"
         [inputtedParentRef]="inputtedParentRef" 
@@ -62,7 +63,10 @@
         (isExpandingEmojiPanel)="onExpandingEmojiPanel($event)"
         (isExpandingComponentPanel)="onExpandingComponentPanel($event)"></app-text-formatting-toolbar>
     </div>
-    <button id="closeOverlay" (click)="closePostOptionsPanel()" class="closeButton">Close</button>
+    <div style="display: flex; justify-content: center; align-items: center; gap: 10px;">
+        <button id="helpButton" (click)="showHelp()" class="helpButton" style="margin-top:10px">ℹ️ Help</button>
+        <button id="closeOverlay" (click)="closePostOptionsPanel()" class="closeButton">Close</button>
+    </div>
 </div>
 
 <!-- Post Topics Popup -->
@@ -125,4 +129,74 @@
         </div>
     </div>
     <button id="closeOverlay" (click)="closeTopicsPanel()" class="closeButton">Close</button>
+</div>
+<!-- Help Popup -->
+<div class="popupPanel" *ngIf="showHelpPopup">
+    <div class="popupPanelTitle">Help: Options & Formatting</div>
+    <div class="helpContent">
+        <p><strong>Post Options Panel Help:</strong></p>
+        <ol>
+            <li>
+                <strong>Uploads Section:</strong>
+                <ul>
+                    <li><strong>"Each Attachment In A Separate Post" Checkbox:</strong> When checked, each attached file
+                        will be posted as a separate post instead of combining them into one post. This option is
+                        visible only when multiple files are attached via the "Upload" button.</li>
+                    <li><strong>Attaching Files:</strong> Click the "Upload" button in the main interface to select
+                        files from your device. Supported file types depend on the platform configuration.</li>
+                </ul>
+            </li>
+            <li>
+                <strong>Text Formatting Section:</strong> (Available on mobile or when the formatting toolbar is
+                expanded)
+                <ul>
+                    <li><strong>Purpose:</strong> The text formatting toolbar enhances your post with styling and
+                        additional elements.</li>
+                    <li><strong>Features:</strong>
+                        <ul>
+                            <li><strong>Bold, Italic, Underline:</strong> Highlight or emphasize text by selecting it
+                                and clicking the respective buttons.</li>
+                            <li><strong>Emojis:</strong> Insert emojis by opening the emoji panel and selecting one to
+                                add to your post.</li>
+                            <li><strong>Other Components:</strong> Insert links, images, or other supported elements (if
+                                enabled) to enrich your content.</li>
+                        </ul>
+                    </li>
+                    <li><strong>Usage:</strong> Select text in the textarea, then click a formatting button to apply the
+                        style or insert an element.</li>
+                </ul>
+            </li>
+            <li>
+                <strong>General Usage:</strong>
+                <ul>
+                    <li><strong>Textarea:</strong> Type your post or comment content in the textarea that appears after
+                        clicking the input field.</li>
+                    <li><strong>Topics:</strong> Categorize your post by selecting topics from the Topics panel
+                        (accessible via the 🗂️ button).</li>
+                    <li><strong>Posting:</strong> Click the "Post" button to submit your content.</li>
+                    <li><strong>Options:</strong> Use the ⚙️ Options button to access this panel for upload settings or
+                        text formatting.</li>
+                </ul>
+            </li>
+            <li>
+                <strong>Closing the Panel:</strong>
+                <ul>
+                    <li>Click the "Close" button to return to the main interface.</li>
+                </ul>
+            </li>
+        </ol>
+        <div style="text-align: center;">
+            For further assistance, contact:{{" "}}
+            <div style="display: inline-block">
+                <app-user-tag 
+                    [userId]="1" 
+                    [inputtedParentRef]="inputtedParentRef" 
+                    [displayMiniTag]="true"
+                    [displayHoverPicture]="true">
+                </app-user-tag>
+            </div>
+            {{" "}}or refer to the application documentation.
+        </div>
+    </div>
+    <button id="closeOverlay" (click)="closeHelp()" class="closeButton">Close</button>
 </div>

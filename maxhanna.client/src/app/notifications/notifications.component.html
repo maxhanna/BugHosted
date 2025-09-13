@@ -1,8 +1,10 @@
 <div *ngIf="minimalInterface" class="cursorPointer" (click)="toggleNotifications()">
-  <span [class]="'notificationTopButton ' + (notifications && notifications.length > 0 && unreadNotifications > 0 ? 'glowing' : '')">🔔</span>
+  <span
+    [class]="'notificationTopButton ' + (notifications && notifications.length > 0 && unreadNotifications > 0 ? 'glowing' : '')">🔔</span>
 </div>
 
-<div [class]="minimalInterface ? 'popupPanel minimalPopupPanel' : 'componentMain'" *ngIf="!minimalInterface || showNotifications">
+<div [class]="minimalInterface ? 'popupPanel minimalPopupPanel' : 'componentMain'"
+  *ngIf="!minimalInterface || showNotifications">
   <div class="closeButton" (click)="removeMe('Notifications')" *ngIf="!minimalInterface"></div>
   <div class="refreshButton" (click)="ngOnInit();" *ngIf="!minimalInterface"></div>
   <div class="componentTitle" *ngIf="!minimalInterface">Notifications</div>
@@ -15,28 +17,37 @@
           <div *ngIf="unreadNotifications" class="unreadNotifications">({{unreadNotifications}} unread)</div>
         </div>
         <div class="notificationsCountHeaderButtons">
-        <button (click)="delete()" *ngIf="getShowClearAll()">
-          ❌ Clear {{notifications && notifications.length > 1 ? 'All '
-          : '' }} {{filterCategory !== 'All' ? filterCategory + ' ' : '' }}
-        </button>
-        <button (click)="read()" *ngIf="getShowReadAll()">
-          👀 Read {{notifications && notifications.length > 1 ? 'All '
-          : '' }} {{filterCategory !== 'All' ? filterCategory + ' ' : '' }}
-        </button>
+          <button (click)="delete()" *ngIf="getShowClearAll()">
+            ❌ Clear {{notifications && notifications.length > 1 ? 'All '
+            : '' }} {{filterCategory !== 'All' ? filterCategory + ' ' : '' }}
+          </button>
+          <button (click)="read()" *ngIf="getShowReadAll()">
+            👀 Read {{notifications && notifications.length > 1 ? 'All '
+            : '' }} {{filterCategory !== 'All' ? filterCategory + ' ' : '' }}
+          </button>
         </div>
         <div class="filter-container" *ngIf="notifications && notifications.length && !isLoading">
-          <div><label for="notifFilter" class="smallFont">Filter by:</label></div>
-          <select id="notifFilter" [value]="filterCategory" (change)="onFilterChange($event)">
-            <option *ngFor="let c of categories" [value]="c.name" [selected]="c.name === filterCategory">
-              {{ c.name }} ({{ c.count }})
-            </option>
-          </select>
+          <div>
+            <div><label for="notifFilter" class="smallFont">Filter by:</label></div>
+            <select id="notifFilter" [value]="filterCategory" (change)="onFilterChange($event)">
+              <option *ngFor="let c of categories" [value]="c.name" [selected]="c.name === filterCategory">
+                {{ c.name }} ({{ c.count }})
+              </option>
+            </select>
+          </div>
+          <div>
+            <div><label for="searchNotifications" class="smallFont">Search:</label></div>
+            <input id="searchNotifications" type="text" (input)="onSearchChange($event)" placeholder="Search notifications..." />
+          </div> 
         </div>
       </div>
-      <div class="closeButton" id="closeOverlay" (click)="showNotifications = false;  (inputtedParentRef ? inputtedParentRef.closeOverlay() : '')" *ngIf="minimalInterface"></div>
+      <div class="closeButton" id="closeOverlay"
+        (click)="showNotifications = false;  (inputtedParentRef ? inputtedParentRef.closeOverlay() : '')"
+        *ngIf="minimalInterface"></div>
     </div>
 
-    <div [class]="'notificationsListContainer ' + (minimalInterface ? 'notificationsList' : '')" *ngIf="notifications && notifications.length > 0">
+    <div [class]="'notificationsListContainer ' + (minimalInterface ? 'notificationsList' : '')"
+      *ngIf="notifications && notifications.length > 0">
       <div class="pagination-controls" *ngIf="notifications && notifications.length > itemsPerPage">
         <div class="items-per-page-selector">
           <label>Items per page:</label>
@@ -51,12 +62,12 @@
           <button (click)="previousPage()" [disabled]="currentPage === 1">{{onMobile() ? 'Prev' : 'Previous'}}</button>
           <span>{{onMobile() ? '' : 'Page '}}{{currentPage}} {{onMobile() ? '/' : 'of'}} {{totalPages}}</span>
           <button (click)="nextPage()" [disabled]="currentPage === totalPages">Next</button>
-        </div> 
-      </div> 
-
+        </div>
+      </div>
 
       <div class="notificationsListSubContainer">
-        <div *ngFor="let notification of filteredNotifications" [class]="'notificationListItem' + (!notification.isRead ? ' gradientBackground' : '')"
+        <div *ngFor="let notification of filteredNotifications"
+          [class]="'notificationListItem' + (!notification.isRead ? ' gradientBackground' : '')"
           [style.opacity]="notification.isRead ? '50%' : '100%'">
           <div class="nliLeftDiv" *ngIf="!notification?.text?.includes('Executed Trade')">
             <app-user-tag [user]="notification.fromUser" [inputtedParentRef]="inputtedParentRef ?? parentRef"
@@ -66,8 +77,10 @@
             <span class="largeAvatar cursorPointer" (click)="notificationTextClick(notification)">&#x20BF;</span>
           </div>
           <div class="nliRightDiv">
-            <button title="Delete Notification" (click)="delete(notification)" class="deleteNotificationButton">❌</button>
-            <button title="Read Notification" (click)="read(notification)" class="readNotificationButton">{{notification.isRead
+            <button title="Delete Notification" (click)="delete(notification)"
+              class="deleteNotificationButton">❌</button>
+            <button title="Read Notification" (click)="read(notification)"
+              class="readNotificationButton">{{notification.isRead
               ? 'Unread' : '👀'}}</button>
             <div *ngIf="notification.fileId" (click)="goToFileId(notification)"
               class="usernameProfileLink cursorPointerUnderlined fileId">
@@ -104,14 +117,13 @@
     <div *ngIf="notifications && notifications.length == 0" class="noNotificationsDiv">
       <div class="noNotificationsWrapperSpan">
         <div class="popupPanelTitle noNotifsTitle1">You don't have any notifications.</div>
-        <div class="noNotifsTitle2">Notifications will appear when users interact with you or your content.</div> 
-      </div> 
-      <button
-           id="closeOverlay"
-           (click)="inputtedParentRef ? inputtedParentRef.closeOverlay() : removeMe('Notifications')">Close</button> 
+        <div class="noNotifsTitle2">Notifications will appear when users interact with you or your content.</div>
+      </div>
+      <button id="closeOverlay"
+        (click)="inputtedParentRef ? inputtedParentRef.closeOverlay() : removeMe('Notifications')">Close</button>
     </div>
   </div>
   <div *ngIf="isLoading">
     Loading...
   </div>
-</div> 
+</div>

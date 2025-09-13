@@ -792,11 +792,11 @@ export class LineGraphComponent implements OnInit, OnChanges {
             color: fontColor,
             callback: (value: number) => {
               if (this.type === "Currency") {
-                return value.toFixed(2); // Always 2 decimal places for Currency
+                return value.toFixed(2);
               }
               if (needsLogScale || Math.abs(value) < 0.01) {
                 if (Math.abs(value) < 0.000001) {
-                  return value.toExponential(2);
+                  return value;
                 }
                 if (Math.abs(value) < 0.001) {
                   return value.toFixed(8).replace(/\.?0+$/, '');
