@@ -71,7 +71,7 @@
     </div>
     <div>
       <div class="commentContent">
-        <div [innerHTML]="createClickableUrls(decryptText(comment.commentText, comment.user.id))"
+        <div [innerHTML]="createClickableUrls(comment.commentText)"
           [id]="'commentText'+comment.id" class="commentTextDiv"
           [style.display]="editingComments.includes(comment.id) ? 'none': 'block'"></div>
         <div *ngFor="let file of comment.commentFiles" class="commentMediaFile">
@@ -83,7 +83,7 @@
         <div class="commentInputArea">
           <div class="borderPaddedComment" *ngIf="editingComments.includes(comment.id) && !replyingToCommentId">
             <textarea class="commentTextArea"
-              [id]="'commentTextTextarea'+comment.id">{{decryptText(comment.commentText, comment.user.id)}}</textarea>
+              [id]="'commentTextTextarea'+comment.id">{{comment.commentText}}</textarea>
           </div>
 
           <div class="commentInputArea borderPaddedComment" *ngIf="replyingToCommentId == comment.id">
@@ -164,7 +164,7 @@
     <button (click)="copyAllText(optionsComment)" title="Copy all text">
       📋Copy Text
     </button>
-    <button (click)="speakMessage(decryptText(optionsComment.commentText ?? '', optionsComment.user.id))" *ngIf="!isTextToSpeechSpeaking()">
+    <button (click)="speakMessage(optionsComment.commentText)" *ngIf="!isTextToSpeechSpeaking()">
       🔊Read Outloud
     </button>
     <button (click)="stopSpeaking()" *ngIf="isTextToSpeechSpeaking()">
@@ -204,6 +204,10 @@
         {{optionsComment.city}}
       </div>
     </div>
+  </div>
+  <div class="xxSmallFont thirdFontColor" style="margin-top:12px;"> We take your privacy seriously. Every message you send is
+    encrypted before it leaves your device or our servers and remains encrypted until it reaches its intended recipient,
+    ensuring your data stays private and secure.
   </div>
   <button title="Close the options panel" id="closeOverlay" (click)="closeOptionsPanel()" class="closeButton"
     style="margin-top:8px;">Close</button>

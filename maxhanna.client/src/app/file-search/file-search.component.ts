@@ -17,10 +17,10 @@ import { TodoService } from '../../services/todo.service';
 
 
 @Component({
-    selector: 'app-file-search',
-    templateUrl: './file-search.component.html',
-    styleUrl: './file-search.component.css',
-    standalone: false
+  selector: 'app-file-search',
+  templateUrl: './file-search.component.html',
+  styleUrl: './file-search.component.css',
+  standalone: false
 })
 export class FileSearchComponent extends ChildComponent implements OnInit, AfterViewInit, OnDestroy {
   defaultCurrentPage = 1;
@@ -48,12 +48,12 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   @Input() showHiddenFiles: boolean = true;
   @Input() showTopics: boolean = true;
   @Input() captureNotifications: boolean = false;
-  @Input() currentPage = this.defaultCurrentPage; 
+  @Input() currentPage = this.defaultCurrentPage;
   @Output() selectFileEvent = new EventEmitter<FileEntry>();
   @Output() currentDirectoryChangeEvent = new EventEmitter<string>();
   @Output() userNotificationEvent = new EventEmitter<string>();
   @Output() expandClickedEvent = new EventEmitter<FileEntry>();
- 
+
   showFavouritesOnly = false;
   sortOption: string = 'Latest';
   showData = true;
@@ -61,7 +61,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   isSearchPanelOpen = false;
   isSearchOptionsPanelOpen = false;
   isOptionsPanelOpen = false;
-  isShowingFileViewers = false; 
+  isShowingFileViewers = false;
   showCommentsInOpenedFiles: number[] = [];
   fileViewers?: User[] | undefined;
 
@@ -85,7 +85,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     hidden: this.showHiddenFiles ? 'all' : 'unhidden',
     ownership: 'all'
   };
-  isDisplayingNSFW = false; 
+  isDisplayingNSFW = false;
   private windowScrollHandler: Function;
   private containerScrollHandler: Function;
 
@@ -101,7 +101,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
 
 
   constructor(private fileService: FileService, private userService: UserService, private todoService: TodoService, private route: ActivatedRoute) {
-    super(); 
+    super();
     this.previousComponent = "Files";
     this.windowScrollHandler = this.debounce(this.onWindowScroll.bind(this), 200);
     this.containerScrollHandler = this.debounce(this.onContainerScroll.bind(this), 200);
@@ -112,7 +112,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     if (user?.id) {
       this.userService.getUserSettings(user.id).then(res => {
         if (res) {
-          this.isDisplayingNSFW = res.nsfwEnabled ?? false; 
+          this.isDisplayingNSFW = res.nsfwEnabled ?? false;
         }
       });
     }
@@ -134,7 +134,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     });
     await this.getDirectory();
   }
-  
+
   ngAfterViewInit() {
     // Attach window scroll listener
     window.addEventListener('scroll', this.windowScrollHandler as EventListener);
@@ -160,7 +160,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
       // console.log('fileContainer scroll event listener removed');
     }
   }
-  
+
   onWindowScroll() {
     // console.log('Window scroll event triggered');
     const threshold = 100;
@@ -187,7 +187,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   }
 
   scrollToFile(fileId: string) {
-    setTimeout(() => { 
+    setTimeout(() => {
       const element = document.getElementById('fileIdName' + fileId);
       if (element) {
         element.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -204,22 +204,22 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
       try {
         const response = await this.fileService.deleteFile(user?.id ?? 0, file);
         if (response) {
-          this.notifyUser(response); 
+          this.notifyUser(response);
           if (response.includes("successfully")) {
             this.directory!.data = this.directory?.data!.filter(res => res.fileName != file.fileName);
           }
         }
       } catch (ex) {
-        this.notifyUser(`Failed to delete ${file.fileName}!`); 
+        this.notifyUser(`Failed to delete ${file.fileName}!`);
       }
       this.stopLoading();
       this.closeOptionsPanel();
     }
   }
 
-  async getDirectory(file?: string, fileId?: number, append?: boolean) { 
-    this.startLoading(); 
-     
+  async getDirectory(file?: string, fileId?: number, append?: boolean) {
+    this.startLoading();
+
     this.showData = true;
     try {
       const res = await this.fileService.getDirectory(
@@ -236,7 +236,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
         this.sortOption,
         this.showFavouritesOnly
       ).then(res => {
-        if (append && this.directory && this.directory.data) { 
+        if (append && this.directory && this.directory.data) {
           this.directory.data = this.directory.data.concat(
             res.data.filter(
               (d: FileEntry) =>
@@ -247,7 +247,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
           );
         } else {
           this.directory = res;
-        
+
           if (this.directory && this.directory.currentDirectory) {
             this.currentDirectory = this.directory.currentDirectory;
           } else {
@@ -255,22 +255,28 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
           }
           this.currentDirectoryChangeEvent.emit(this.currentDirectory);
           this.showUpFolderRow = (this.currentDirectory && this.currentDirectory.trim() !== "") ? true : false;
+          if (this.directory) {
+            if (this.directory.page) {
+              this.currentPage = this.directory.page ?? 1;
+            } else {
+              this.currentPage = 1;
+            }
 
-          if (this.directory && this.directory.page) {
-            this.currentPage = this.directory.page ?? 1;
-          }
-          if (this.directory && this.directory.totalCount) {
-            this.totalPages = Math.ceil(this.directory.totalCount / this.maxResults);
-          }
+            if (this.directory.totalCount) {
+              this.totalPages = Math.ceil(this.directory.totalCount / this.maxResults);
+            } else {
+              this.totalPages = 1;
+            }
 
-          if (this.fileId && this.fileId !== null && this.fileId !== '0' && this.directory && this.directory.data!.find(x => x.id == parseInt(this.fileId!))) {
-            this.scrollToFile(this.fileId!);
+            if (this.fileId && this.fileId !== null && this.fileId !== '0' && this.directory.data!.find(x => x.id == parseInt(this.fileId!))) {
+              this.scrollToFile(this.fileId!);
+            }
           }
+         
 
           if (this.currentDirectory.toLowerCase() !== "meme/"
             && this.currentDirectory.toLowerCase() !== "roms/"
-            && this.directory && this.directory.data)
-          {
+            && this.directory && this.directory.data) {
             this.directory.data.sort((a, b) => {
               if (a.isFolder !== b.isFolder) {
                 return a.isFolder ? -1 : 1;
@@ -306,31 +312,31 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
 
       });
     } catch (error) {
-      this.notifyUser((error as Error).message); 
+      this.notifyUser((error as Error).message);
     }
-    this.stopLoading(); 
+    this.stopLoading();
   }
 
   debounceSearch() {
-    clearTimeout(this.debounceTimer);  
+    clearTimeout(this.debounceTimer);
     this.debounceTimer = setTimeout(() => {
-      this.getDirectory();   
-    }, 500); 
-  } 
+      this.getDirectory();
+    }, 500);
+  }
 
   getFileExtension(filename: string) {
     return this.fileService.getFileExtension(filename);
   }
-  selectFileNoPropagation(event: any, file: FileEntry) { 
+  selectFileNoPropagation(event: any, file: FileEntry) {
     if (!this.fileSearchMode) return;
-    event.stopPropagation(); 
-    return this.selectFile(file); 
+    event.stopPropagation();
+    return this.selectFile(file);
   }
   selectFile(file: FileEntry) {
     if (!file.isFolder && this.clearAfterSelectFile) {
       this.selectFileEvent.emit(file);
       this.showData = false;
-      if (this.search?.nativeElement && file.fileName) { 
+      if (this.search?.nativeElement && file.fileName) {
         this.search.nativeElement.value = file.fileName;
       }
     } else {
@@ -354,15 +360,15 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     if (this.currentPage < this.totalPages) {
       this.currentPage++;
       await this.getDirectory().then(() => { this.scrollToTop(); });
-      
+
     }
   }
-  async appendNextPage() { 
+  async appendNextPage() {
     if (this.currentPage < this.totalPages) {
       console.log("Appending next page...");
       this.currentPage++;
       this.getDirectory(undefined, undefined, true);
-    } 
+    }
   }
 
   searchDirectory() {
@@ -392,13 +398,13 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     if (!this.user) { return alert("You must be logged in to use this feature!"); }
 
     if (!text || text.trim() == '') {
-      this.isEditing = this.isEditing.filter(x => x != fileId); 
+      this.isEditing = this.isEditing.filter(x => x != fileId);
       return;
     }
 
     const res = await this.fileService.updateFileData(this.user.id ?? 0, { FileId: fileId, GivenFileName: text, Description: '', LastUpdatedBy: this.user || this.inputtedParentRef?.user || new User(0, "Anonymous") });
     if (res) {
-      this.notifyUser(res); 
+      this.notifyUser(res);
       this.isEditing = this.isEditing.filter(x => x != fileId);
     }
     setTimeout(() => {
@@ -533,10 +539,10 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
       const destinationFolder = specDir ?? (currDir + this.destinationFilename);
       this.startLoading();
       try {
-        const user = this.inputtedParentRef?.user ?? this.parentRef?.user; 
+        const user = this.inputtedParentRef?.user ?? this.parentRef?.user;
         const userId = user?.id ?? 0;
         const res = await this.fileService.moveFile(inputFile, destinationFolder, userId);
-        this.notifyUser(res!); 
+        this.notifyUser(res!);
         if (!res!.includes("error")) {
           this.directory!.data = this.directory!.data!.filter(x => x.fileName != this.draggedFilename);
         }
@@ -597,7 +603,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   }
   getFileWithoutExtension(fileName: string) {
     return this.fileService.getFileWithoutExtension(fileName);
-  } 
+  }
   shareFile(user?: User) {
     if (!user?.id) return;
     if (this.selectedSharedFile && this.user) {
@@ -627,7 +633,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
 
     if (parent) {
       parent.showOverlay();
-    } 
+    }
   }
   closeOptionsPanel() {
     this.isOptionsPanelOpen = false;
@@ -635,7 +641,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     const parent = this.inputtedParentRef ?? this.parentRef;
     if (parent) {
       parent.closeOverlay();
-    } 
+    }
   }
   shouldShowEditButton(optionsFile: any): boolean {
     if (!optionsFile?.user?.id || !this.user?.id || this.currentDirectory === 'Users/') {
@@ -727,8 +733,8 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     this.searchTerms = topic;
     await this.getDirectory();
   }
-  async fileTopicClicked(topics: Topic[]) { 
-    if (topics) { 
+  async fileTopicClicked(topics: Topic[]) {
+    if (topics) {
       let terms = this.searchTerms
         .split(",")
         .map(x => x.trim())
@@ -736,13 +742,13 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
 
       for (let topic of topics) {
         const idx = terms.indexOf(topic.topicText);
-        if (idx >= 0) { 
+        if (idx >= 0) {
           terms.splice(idx, 1);
-        } else { 
+        } else {
           terms.push(topic.topicText);
         }
       }
- 
+
       this.searchTerms = terms.join(",");
     }
     this.currentPage = 1;
@@ -751,7 +757,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     setTimeout(async () => {
       await this.getDirectory();
     }, 200);
-    
+
   }
   async removeTopicFromFile(topic: Topic, file: FileEntry) {
     const user = this.inputtedParentRef?.user ?? this.parentRef?.user;
@@ -783,7 +789,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     } else return '.';
   }
   updateFileVisibility(file: FileEntry) {
-    const parent = this.inputtedParentRef ?? this.parentRef; 
+    const parent = this.inputtedParentRef ?? this.parentRef;
     file.visibility = file.visibility == "Private" ? "Public" : "Private";
     const user = parent?.user ?? new User(0, "Anonymous");
     this.fileService.updateFileVisibility(user?.id ?? 0, file.visibility == "Private" ? false : true, file.id).then(res => {
@@ -804,12 +810,12 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
       const tgtFile = this.directory.data.find((file: FileEntry) => file.id == parseInt(this.fileId!));
       if (tgtFile) {
         const title = tgtFile.givenFileName ?? tgtFile.fileName ?? "Bughosted File";
-        const image = `https://bughosted.com/assets/Uploads/${(this.getDirectoryName(tgtFile) != '.' ? this.getDirectoryName(tgtFile) : '') + tgtFile.fileName }`;
+        const image = `https://bughosted.com/assets/Uploads/${(this.getDirectoryName(tgtFile) != '.' ? this.getDirectoryName(tgtFile) : '') + tgtFile.fileName}`;
         if (title) {
           const parent = this.inputtedParentRef ?? this.parentRef;
           if (parent) {
             parent.replacePageTitleAndDescription(title, title, image);
-          } 
+          }
         }
       }
     }
@@ -823,12 +829,12 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     this.userService.updateNSFW(user.id, isChecked).then(res => {
       if (res) {
         parent?.showNotification(res);
-        this.getDirectory();   
+        this.getDirectory();
       }
     });
   }
   @HostListener('window:keydown', ['$event'])
-  handleKeyboardEvent(event: KeyboardEvent): void { 
+  handleKeyboardEvent(event: KeyboardEvent): void {
     if ((event?.target as HTMLDivElement).id.includes("editFileName")) return;
 
     if (event.key === 'k' || event.key === 'K') {
@@ -840,15 +846,15 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   scrollToTop() {
     setTimeout(() => {
       const container2 = document.getElementsByClassName("smallerDataDiv")[0];
-      if (container2) { 
+      if (container2) {
         container2.scrollIntoView({ behavior: 'smooth', block: 'start' });
       }
       const container = document.getElementsByClassName("directoryDisplayDiv")[0];
       if (container) {
-        container.scrollIntoView({ behavior: 'smooth', block: 'start' }); 
-      } 
+        container.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
     }, 100);
-   
+
   }
   scrollToNext(): void {
     let allComps = document.getElementsByClassName("fileNameDiv");
@@ -859,7 +865,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
         tgtComp = allComps[x];
         tgtCompIndex = x;
       }
-    } 
+    }
     const nextIndex = tgtCompIndex + 1;
 
     if (nextIndex < allComps.length) {
@@ -868,10 +874,10 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
       const lmrDivs = document.getElementsByClassName("loadMoreResultsDiv");
       if (lmrDivs) {
         const lmrDivElement = lmrDivs[0];
-        if (lmrDivElement) { 
+        if (lmrDivElement) {
           lmrDivElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
         }
-      } 
+      }
     }
   }
 
@@ -883,8 +889,8 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
       if (this.isElementInViewport(allComps[x] as HTMLElement)) {
         tgtComp = allComps[x];
         tgtCompIndex = x;
-      }  
-    }  
+      }
+    }
     const prevIndex = tgtCompIndex - 2;
 
     if (prevIndex >= 0) {
@@ -918,20 +924,20 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     this.debounceTimer = setTimeout(() => {
       this.searchTerms = this.popupSearch.nativeElement.value.trim();
       this.getDirectory();
-    }, 500); 
+    }, 500);
   }
-  changeSearchTermsFromSearchInput() { 
+  changeSearchTermsFromSearchInput() {
     clearTimeout(this.debounceTimer);
     this.debounceTimer = setTimeout(() => {
       this.searchTerms = this.search.nativeElement.value.trim();
       this.getDirectory();
-    }, 500); 
-    
+    }, 500);
+
   }
   setSortOption(event: Event): void {
     const target = event.target as HTMLSelectElement;
     this.sortOption = target.value;
-    this.getDirectory(); 
+    this.getDirectory();
     setTimeout(() => {
       this.closeSearchPanel();
     }, 50);
@@ -950,8 +956,10 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     const parent = this.inputtedParentRef ?? this.parentRef;
     parent?.closeOverlay();
   }
-  isVideoFile(fileEntry: FileEntry) {  
-    return this.fileService.videoFileExtensions.includes(this.fileService.getFileExtension(fileEntry.fileName ?? '')); 
+  isVideoFile(fileEntry: FileEntry) {
+    let fileType = fileEntry.fileType ?? this.fileService.getFileExtension(fileEntry.fileName ?? ''); 
+    fileType = fileType.replace(".", "");
+    return this.fileService.videoFileExtensions.includes(fileType) || this.fileService.audioFileExtensions.includes(fileType);
   }
   async addFileToMusicPlaylist(fileEntry: FileEntry) {
     const parent = this.inputtedParentRef ?? this.parentRef;
@@ -959,12 +967,12 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     if (!user?.id || !fileEntry || !fileEntry.id) {
       return alert("Error: Cannot add file to music playlist without logging in or a valid file entry.");
     }
-  
+
     let tmpTodo = new Todo();
-    tmpTodo.type = "music"; 
+    tmpTodo.type = "music";
     tmpTodo.todo = (fileEntry.givenFileName ?? fileEntry.fileName ?? `Video ID:${fileEntry.id}`).trim();
     tmpTodo.fileId = fileEntry.id;
-    tmpTodo.date = new Date();  
+    tmpTodo.date = new Date();
     const resTodo = await this.todoService.createTodo(user.id, tmpTodo);
     if (resTodo) {
       parent?.showNotification(`Added ${tmpTodo.todo} to music playlist.`);
@@ -972,7 +980,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   }
   showFavouritesToggled() {
     this.showFavouritesOnly = !this.showFavouritesOnly;
-    this.debounceSearch();     
+    this.debounceSearch();
   }
   addToFavourites(fileEntry: FileEntry) {
     const parent = this.inputtedParentRef ?? this.parentRef;
@@ -982,12 +990,12 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     }
     this.fileService.toggleFavourite(user.id, fileEntry.id).then(res => {
       if (res) {
-        this.userNotificationEvent.emit(res.action + " successfully!"); 
-        if (!this.captureNotifications) { 
+        this.userNotificationEvent.emit(res.action + " successfully!");
+        if (!this.captureNotifications) {
           parent.showNotification(res.action + " successfully!");
         }
-      } 
-      
+      }
+
     });
   }
 
@@ -998,17 +1006,33 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
       parent?.showNotification(message);
     }
   }
-  loadMoreInView() { 
+  loadMoreInView() {
     if (this.debounceTimer) {
-      return;  
+      return;
     }
     clearTimeout(this.debounceTimer);
     this.debounceTimer = setTimeout(() => {
       this.appendNextPage();
-    }, 500); 
+    }, 500);
   }
   userIsLoggedIn() {
     const parent = this.inputtedParentRef ?? this.parentRef;
     return parent?.user?.id ? true : false;
+  }
+  getBreadcrumbSegments(): string[] {
+    if (!this.currentDirectory || this.currentDirectory.trim() === '') {
+      return [];
+    }
+    return this.currentDirectory.replace(/\/$/, '').split('/');
+  }
+  getBreadcrumbPath(index: number): string {
+    const segments = this.getBreadcrumbSegments();
+    return segments.slice(0, index + 1).join('/') + '/';
+  }
+  navigateToDirectory(directory: string): void {
+    this.currentPage = this.defaultCurrentPage;
+    this.currentDirectory = directory;
+    this.currentDirectoryChangeEvent.emit(this.currentDirectory);
+    this.getDirectory();
   }
 }

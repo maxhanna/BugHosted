@@ -95,7 +95,7 @@ namespace maxhanna.Server.Services
 			await _aiController.AnalyzeAndRenameFile();
 		}
 		private async Task RunFiveMinuteTasks()
-		{
+		{ 
 			await FetchAndStoreTopMarketCaps();
 			await UpdateLastBTCWalletInfo();
 			await FetchAndStoreCoinValues();
@@ -111,11 +111,13 @@ namespace maxhanna.Server.Services
 			{
 				_ = _log.Db("Skipping indicator update - already in progress", null, "TISVC", outputToConsole: true);
 			}
-		}
+		} 
+
 		private async Task RunHourlyTasks()
 		{
 			await AssignTrophies();
 			await _aiController.ProvideMarketAnalysis();
+			await _log.DeleteOldLogs();
 		}
 		private async Task RunSixHourTasks()
 		{
@@ -125,7 +127,6 @@ namespace maxhanna.Server.Services
 			await FetchAndStoreCryptoEvents();
 			await FetchAndStoreFearGreedAsync();
 			await FetchAndStoreGlobalMetricsAsync();
-			await _log.DeleteOldLogs();
 		}
 		private async Task RunDailyTasks()
 		{

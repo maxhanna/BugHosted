@@ -386,50 +386,53 @@ LIMIT
 		}
 		private static void GetFileComments(List<FileEntry> fileEntries, MySqlConnection connection, List<int> fileIds, List<int> commentIds, List<string> fileIdsParameters)
 		{
+			if (!fileIdsParameters.Any())
+				return;
+				
 			var commentsCommand = new MySqlCommand($@"
-WITH RECURSIVE comment_tree (id) AS (
-  SELECT id
-  FROM maxhanna.comments
-  WHERE file_id IN ({string.Join(", ", fileIdsParameters)})
-  UNION ALL
-  SELECT c.id
-  FROM maxhanna.comments c
-  JOIN comment_tree ct ON c.comment_id = ct.id
-)
-		SELECT 
-			fc.id AS commentId,
-			fc.file_id AS commentFileId,
-			fc.user_id AS commentUserId,
-			fc.date AS commentDate,
-			fc.city AS commentCity,
-			fc.country AS commentCountry,
-			fc.ip AS commentIp,
-			fc.comment_id as comment_parent_id,
-			uc.username AS commentUsername,
-			ucudp.tag_background_file_id AS commentUserProfileBackgroundPicId,
-			ucudpfu.id AS commentUserDisplayPicId,
-			ucudpfu.file_name AS commentUserDisplayPicFileName,
-			ucudpfu.folder_path AS commentUserDisplayPicFolderPath,
-			fc.comment AS commentText,
-			cf.file_id AS commentFileEntryId,
-			cf2.file_name AS commentFileEntryName,
-			cf2.folder_path AS commentFileEntryFolderPath,
-			cf2.is_public AS commentFileEntryIsPublic,
-			cf2.is_folder AS commentFileEntryIsFolder,
-			cf2.user_id AS commentFileEntryUserId,
-			cfu2.username AS commentFileEntryUserName,
-			cf2.file_type AS commentFileEntryType,
-			cf2.file_size AS commentFileEntrySize,
-			cf2.upload_date AS commentFileEntryDate
-		FROM
-			maxhanna.comments fc
-		LEFT JOIN maxhanna.users uc ON fc.user_id = uc.id
-		LEFT JOIN maxhanna.user_display_pictures ucudp ON ucudp.user_id = uc.id
-		LEFT JOIN maxhanna.file_uploads ucudpfu ON ucudp.file_id = ucudpfu.id
-		LEFT JOIN maxhanna.comment_files cf ON fc.id = cf.comment_id
-		LEFT JOIN maxhanna.file_uploads cf2 ON cf.file_id = cf2.id
-		LEFT JOIN maxhanna.users cfu2 ON cfu2.id = cf2.user_id
-		WHERE fc.id IN (SELECT id FROM comment_tree);", connection);
+				WITH RECURSIVE comment_tree (id) AS (
+				SELECT id
+				FROM maxhanna.comments
+				WHERE file_id IN ({string.Join(", ", fileIdsParameters)})
+				UNION ALL
+				SELECT c.id
+				FROM maxhanna.comments c
+				JOIN comment_tree ct ON c.comment_id = ct.id
+				)
+				SELECT 
+					fc.id AS commentId,
+					fc.file_id AS commentFileId,
+					fc.user_id AS commentUserId,
+					fc.date AS commentDate,
+					fc.city AS commentCity,
+					fc.country AS commentCountry,
+					fc.ip AS commentIp,
+					fc.comment_id as comment_parent_id,
+					uc.username AS commentUsername,
+					ucudp.tag_background_file_id AS commentUserProfileBackgroundPicId,
+					ucudpfu.id AS commentUserDisplayPicId,
+					ucudpfu.file_name AS commentUserDisplayPicFileName,
+					ucudpfu.folder_path AS commentUserDisplayPicFolderPath,
+					fc.comment AS commentText,
+					cf.file_id AS commentFileEntryId,
+					cf2.file_name AS commentFileEntryName,
+					cf2.folder_path AS commentFileEntryFolderPath,
+					cf2.is_public AS commentFileEntryIsPublic,
+					cf2.is_folder AS commentFileEntryIsFolder,
+					cf2.user_id AS commentFileEntryUserId,
+					cfu2.username AS commentFileEntryUserName,
+					cf2.file_type AS commentFileEntryType,
+					cf2.file_size AS commentFileEntrySize,
+					cf2.upload_date AS commentFileEntryDate
+				FROM
+					maxhanna.comments fc
+				LEFT JOIN maxhanna.users uc ON fc.user_id = uc.id
+				LEFT JOIN maxhanna.user_display_pictures ucudp ON ucudp.user_id = uc.id
+				LEFT JOIN maxhanna.file_uploads ucudpfu ON ucudp.file_id = ucudpfu.id
+				LEFT JOIN maxhanna.comment_files cf ON fc.id = cf.comment_id
+				LEFT JOIN maxhanna.file_uploads cf2 ON cf.file_id = cf2.id
+				LEFT JOIN maxhanna.users cfu2 ON cfu2.id = cf2.user_id
+				WHERE fc.id IN (SELECT id FROM comment_tree);", connection);
 
 			for (int i = 0; i < fileIds.Count; i++)
 			{
@@ -1413,6 +1416,7 @@ WITH RECURSIVE comment_tree (id) AS (
                 f.is_public, 
                 f.is_folder, 
                 f.folder_path, 
+                f.file_type, 
                 f.width, 
                 f.height, 
 				f.file_size,
@@ -1448,7 +1452,7 @@ WITH RECURSIVE comment_tree (id) AS (
             WHERE 
                 f.id = @fileId 
             GROUP BY 
-                f.id, u.username, f.file_name, f.is_public, f.is_folder, f.folder_path, f.user_id, 
+                f.id, u.username, f.file_name, f.is_public, f.is_folder, f.folder_path, f.file_type, f.user_id, 
                 fc.id, uc.username, fc.comment, f.given_file_name, f.description, 
                 f.last_updated, udp.file_id 
             LIMIT 1;",
@@ -1469,6 +1473,7 @@ WITH RECURSIVE comment_tree (id) AS (
 						int fileSize = reader.IsDBNull(reader.GetOrdinal("file_size")) ? 0 : reader.GetInt32("file_size");
 						var isFolder = reader.GetBoolean("is_folder");
 						var folderPath = reader.GetString("folder_path");
+						var fileType = reader.GetString("file_type");
 						var lastAccess = reader.GetDateTime("last_access");
 						var accessCount = reader.GetInt32("access_count");
 						var date = reader.GetDateTime("date");
@@ -1485,6 +1490,7 @@ WITH RECURSIVE comment_tree (id) AS (
 							User = new User(user_id, userName, (fuDisplayPicId != null ? new FileEntry(fuDisplayPicId.Value) : null), (fuBackgroundPicId != null ? new FileEntry(fuBackgroundPicId.Value) : null)),
 							IsFolder = isFolder,
 							Directory = folderPath,
+							FileType = fileType,
 							FileComments = new List<FileComment>(),
 							Date = date,
 							Width = width,
@@ -2146,7 +2152,7 @@ WITH RECURSIVE comment_tree (id) AS (
 				Duration = duration,
 			};
 		}
-		private async Task<FileEntry?> GetConflictingFile(int userId, Microsoft.AspNetCore.Http.IFormFile file, string folderPath, bool isPublic)
+		private async Task<FileEntry?> GetConflictingFile(int userId, IFormFile file, string folderPath, bool isPublic)
 		{
 			var convertedFileName = "";
 			if (IsImageFile(file))
@@ -2170,6 +2176,8 @@ WITH RECURSIVE comment_tree (id) AS (
 						@"SELECT 
                         f.id AS fileId, 
                         f.file_name, 
+                        f.folder_path, 
+                        f.file_type, 
                         f.is_public, 
                         f.is_folder, 
                         f.width, 
@@ -2208,7 +2216,7 @@ WITH RECURSIVE comment_tree (id) AS (
                             FIND_IN_SET(@userId, f.shared_with) > 0
                         ) 
                     GROUP BY 
-                        f.id, u.username, f.file_name, f.is_public, f.is_folder, f.user_id, fc.id, uc.username, fc.comment, f.given_file_name, f.description, f.last_updated, udp.file_id 
+                        f.id, u.username, f.file_name, f.folder_path, f.file_type, f.is_public, f.is_folder, f.user_id, fc.id, uc.username, fc.comment, f.given_file_name, f.description, f.last_updated, udp.file_id 
                     LIMIT 1;",
 						connection);
 
@@ -2224,7 +2232,8 @@ WITH RECURSIVE comment_tree (id) AS (
 					{
 						var id = reader.GetInt32("fileId");
 						var user_id = reader.GetInt32("user_id");
-						var userName = reader.GetString("username");
+						var userName = reader.GetString("username"); 
+						var fileType = reader.IsDBNull(reader.GetOrdinal("file_type")) ? string.Empty : reader.GetString("file_type");
 						var shared_with = reader.IsDBNull(reader.GetOrdinal("shared_with")) ? string.Empty : reader.GetString("shared_with");
 						int? width = reader.IsDBNull(reader.GetOrdinal("width")) ? null : reader.GetInt32("width");
 						int? height = reader.IsDBNull(reader.GetOrdinal("height")) ? null : reader.GetInt32("height");
@@ -2242,6 +2251,7 @@ WITH RECURSIVE comment_tree (id) AS (
 						fileEntry.SharedWith = shared_with;
 						fileEntry.User = new User(user_id, userName);
 						fileEntry.IsFolder = isFolder;
+						fileEntry.FileType = fileType;
 						fileEntry.FileComments = new List<FileComment>();
 						fileEntry.Date = date;
 						fileEntry.GivenFileName = reader.IsDBNull(reader.GetOrdinal("given_file_name")) ? null : reader.GetString("given_file_name");

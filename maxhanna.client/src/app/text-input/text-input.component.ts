@@ -102,7 +102,7 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
   async post() {
     console.log("Posting...");
     const text = this.textarea.value?.trim() || '';
-    this.attachedFiles = this.mediaSelector?.selectedFiles;
+    this.attachedFiles = this.mediaSelector?.selectedFiles ?? [];
     this.attachedTopics = this.topicSelector?.attachedTopics ?? this.attachedTopics;
 
     if (!text && (!this.attachedFiles || this.attachedFiles.length === 0)) {
@@ -114,54 +114,63 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
     try {
       const parent = this.inputtedParentRef ?? this.parentRef;
       const user = parent?.user ?? new User(0, "Anonymous");
-      let originalContent = "";
       parent?.updateLastSeen();
       const sessionToken = await parent?.getSessionToken();
-      let results = undefined;
-      let content = undefined;
-      if (this.type == "Social") {
-        content = await this.createStory();
-        originalContent = content.originalContent;
-        results = await this.socialService.postStory(user.id ?? 0, content.story, sessionToken ?? "");
-      }
-      else if (this.type == "Comment") {
-        console.log("type is comment and creating comment");
-        content = await this.createComment();
-        originalContent = content.originalContent;
-        results = await this.commentService.addComment(
-          content.comment.commentText ?? "",
-          user?.id,
-          content.comment.fileId,
-          content.comment.storyId,
-          content.comment.commentId,
-          content.comment.userProfileId ?? this.profileUser?.id,
-          content.comment.commentFiles,
-          content.comment.city,
-          content.comment.country,
-          content.comment.ip,
-        );
-      }
-      else if (this.type == "Chat") {
-        content = await this.createChatMessage();
-        originalContent = content.originalContent;
-        results = await this.chatService.sendMessage(user?.id ?? 0, content.chatUsersIdsArray, this.chatId, content.msg, this.attachedFiles);
+
+      // Handle attachments based on eachAttachmentSeperatePost
+      const filesToPost = this.eachAttachmentSeperatePost && this.attachedFiles.length > 0
+        ? this.attachedFiles.map(file => [file]) // Separate each file into its own array
+        : [this.attachedFiles]; // Single array with all files (or empty array if no files)
+
+      // Ensure at least one post is made even if there are no files
+      if (filesToPost.length === 0) {
+        filesToPost.push([]);
       }
 
-      // const results = this.eachAttachmentSeperatePost
-      //   ? await this.postEachFileAsSeparateStory(user, text)
-      //   : await this.postSingleStory(user, text);
+      for (const files of filesToPost) {
+        let results = undefined;
+        let content = undefined;
+        let originalContent = "";
 
-      if (results) {
-        this.clearInputs();
-        const resultData = { results: results, content: content, originalContent: originalContent };
-        this.contentPosted.emit(resultData);
-        this.createNotifications(resultData);
-        this.showPostInput = false;
-      } else {
-        parent?.showNotification("Error: No response from server.");
+        if (this.type == "Social") {
+          content = await this.createStory(files);
+          originalContent = content.originalContent;
+          results = await this.socialService.postStory(user.id ?? 0, content.story, sessionToken ?? "");
+        } else if (this.type == "Comment") {
+          console.log("type is comment and creating comment");
+          content = await this.createComment(files);
+          originalContent = content.originalContent;
+          results = await this.commentService.addComment(
+            content.comment.commentText ?? "",
+            user?.id,
+            content.comment.fileId,
+            content.comment.storyId,
+            content.comment.commentId,
+            content.comment.userProfileId ?? this.profileUser?.id,
+            content.comment.commentFiles,
+            content.comment.city,
+            content.comment.country,
+            content.comment.ip,
+          );
+        } else if (this.type == "Chat") {
+          content = await this.createChatMessage(files);
+          originalContent = content.originalContent;
+          results = await this.chatService.sendMessage(user?.id ?? 0, content.chatUsersIdsArray, this.chatId, content.msg, files);
+        }
+
+        if (results) {
+          const resultData = { results: results, content: content, originalContent: originalContent };
+          this.contentPosted.emit(resultData);
+          this.createNotifications(resultData);
+        } else {
+          parent?.showNotification("Error: No response from server.");
+        }
       }
+
+      this.clearInputs();
+      this.showPostInput = false;
     } catch (error) {
-      console.error("Error while posting story:", error);
+      console.error("Error while posting:", error);
       this.parentRef?.showNotification("An unexpected error occurred.");
     } finally {
       this.stopLoading();
@@ -365,34 +374,6 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
     }
   }
 
-  private async createComment(): Promise<{ comment: FileComment, originalContent: string }> {
-    const parent = this.inputtedParentRef ?? this.parentRef;
-    const commentsWithEmoji = parent?.replaceEmojisInMessage(this.textarea.value?.trim() || '') || '';
-
-    const { isStory, isFile, isComment } = this.getParentType();
-
-    console.log("Creating comment for:", this.commentParent);
-    console.log("Is Story:", isStory, "Is File:", isFile, "Is Comment:", isComment);
-
-    const filesToSend = this.attachedFiles;
-    const currentDate = new Date();
-    const location = await parent?.getLocation();
-    const tmpComment = new FileComment();
-
-    tmpComment.user = parent?.user ?? new User(0, "Anonymous");
-    tmpComment.commentText = this.encryptContent(commentsWithEmoji);
-    tmpComment.date = currentDate;
-    tmpComment.fileId = isFile ? this.commentParent?.id : undefined;
-    tmpComment.storyId = isStory ? this.commentParent?.id : undefined;
-    tmpComment.commentId = isComment ? this.commentParent?.id : undefined;
-    tmpComment.commentFiles = filesToSend;
-    tmpComment.country = location?.country;
-    tmpComment.city = location?.city;
-    tmpComment.userProfileId = this.profileUser?.id;
-    tmpComment.ip = location?.ip;
-    return { comment: tmpComment, originalContent: commentsWithEmoji };
-  }
-
   private getParentType() {
     if (!this.commentParent) {
       return { isStory: false, isFile: false, isComment: false };
@@ -416,8 +397,7 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
     return { isStory, isFile, isComment };
   }
 
-
-  private async createStory(): Promise<{ story: Story, originalContent: string }> {
+  private async createStory(files?: FileEntry[]): Promise<{ story: Story, originalContent: string }> {
     const parent = this.inputtedParentRef ?? this.parentRef;
     const location = await parent?.getLocation();
     const originalContent = parent?.replaceEmojisInMessage(this.textarea.value?.trim() || '') ?? '';
@@ -433,7 +413,7 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
         commentsCount: 0,
         storyComments: undefined,
         metadata: undefined,
-        storyFiles: this.attachedFiles,
+        storyFiles: files ?? this.attachedFiles,
         storyTopics: this.attachedTopics,
         profileUserId: this.profileUser?.id,
         city: location?.city,
@@ -444,7 +424,33 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
     };
   }
 
-  async createChatMessage(): Promise<{ msg: string, chatUsersIdsArray: number[], originalContent: string }> {
+  private async createComment(files?: FileEntry[]): Promise<{ comment: FileComment, originalContent: string }> {
+    const parent = this.inputtedParentRef ?? this.parentRef;
+    const commentsWithEmoji = parent?.replaceEmojisInMessage(this.textarea.value?.trim() || '') || '';
+    const { isStory, isFile, isComment } = this.getParentType();
+
+    console.log("Creating comment for:", this.commentParent);
+    console.log("Is Story:", isStory, "Is File:", isFile, "Is Comment:", isComment);
+
+    const currentDate = new Date();
+    const location = await parent?.getLocation();
+    const tmpComment = new FileComment();
+
+    tmpComment.user = parent?.user ?? new User(0, "Anonymous");
+    tmpComment.commentText = this.encryptContent(commentsWithEmoji);
+    tmpComment.date = currentDate;
+    tmpComment.fileId = isFile ? this.commentParent?.id : undefined;
+    tmpComment.storyId = isStory ? this.commentParent?.id : undefined;
+    tmpComment.commentId = isComment ? this.commentParent?.id : undefined;
+    tmpComment.commentFiles = files ?? this.attachedFiles;
+    tmpComment.country = location?.country;
+    tmpComment.city = location?.city;
+    tmpComment.userProfileId = this.profileUser?.id;
+    tmpComment.ip = location?.ip;
+    return { comment: tmpComment, originalContent: commentsWithEmoji };
+  }
+
+  private async createChatMessage(files?: FileEntry[]): Promise<{ msg: string, chatUsersIdsArray: number[], originalContent: string }> {
     const parent = this.inputtedParentRef ?? this.parentRef;
     const user = parent?.user;
     const originalContent = parent?.replaceEmojisInMessage(this.textarea.value?.trim() || '') ?? '';
@@ -456,6 +462,7 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
     const chatUsersIdsArray = [...chatUsersIds];
     return { msg, chatUsersIdsArray, originalContent };
   }
+
 
   encryptContent(msg: string) {
     try {
@@ -543,7 +550,7 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
     setTimeout(() => { this.showHelpPopup = true; parent?.showOverlay(); }, 50);
   }
   closeHelp() {
-    this.showHelpPopup = false; 
+    this.showHelpPopup = false;
     const parent = this.inputtedParentRef ?? this.parentRef;
     parent?.closeOverlay();
   }

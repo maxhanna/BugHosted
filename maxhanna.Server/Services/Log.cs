@@ -369,7 +369,7 @@ public class Log
 	public string EncryptContent(string message, string password = "defaultPassword")
 	{
 		try
-		{ 
+		{
 			byte[] msgBytes = System.Text.Encoding.UTF8.GetBytes(message);
 			byte[] pwdBytes = System.Text.Encoding.UTF8.GetBytes(password);
 
@@ -395,6 +395,47 @@ public class Log
 		{
 			Console.WriteLine("Encryption error: " + ex.Message);
 			return message;
+		}
+	}
+
+	public string DecryptContent(string hexMessage, string password = "defaultPassword")
+	{
+		try
+		{
+			// Convert hex string to byte array
+			byte[] msgBytes = new byte[hexMessage.Length / 2];
+			for (int i = 0; i < hexMessage.Length; i += 2)
+			{
+				msgBytes[i / 2] = Convert.ToByte(hexMessage.Substring(i, 2), 16);
+			}
+
+			byte[] pwdBytes = System.Text.Encoding.UTF8.GetBytes(password);
+			byte[] result = new byte[msgBytes.Length];
+
+			for (int i = 0; i < msgBytes.Length; i++)
+			{
+				// Cycle password bytes
+				byte pwdByte = pwdBytes[i % pwdBytes.Length];
+
+				// Reverse transformations in opposite order
+				int transformed = msgBytes[i];
+				// Reverse bit rotation: (transformed << 4) | (transformed >> 4)
+				transformed = ((transformed >> 4) | (transformed << 4)) & 0xFF;
+				// Reverse addition: subtract 7 (modulo 256)
+				transformed = (transformed - 7 + 256) % 256;
+				// Reverse XOR with password
+				transformed = transformed ^ pwdByte;
+
+				result[i] = (byte)transformed;
+			}
+
+			// Convert result bytes to string
+			return System.Text.Encoding.UTF8.GetString(result);
+		}
+		catch (Exception ex)
+		{
+			Console.WriteLine("Decryption error: " + ex.Message);
+			return hexMessage;
 		}
 	}
 

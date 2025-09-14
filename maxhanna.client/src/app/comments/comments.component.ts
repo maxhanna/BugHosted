@@ -69,6 +69,9 @@ export class CommentsComponent extends ChildComponent implements OnInit {
 
   ngOnInit() {
     this.clearSubCommentsToggled();
+    if (this.depth == 0) { 
+      this.decryptCommentsRecursively(this.commentList);
+    }
   }
 
   override viewProfile(user: User) {
@@ -131,7 +134,7 @@ export class CommentsComponent extends ChildComponent implements OnInit {
           parent.showNotification(res);
         }
       });
-      comment.commentText = message;
+      comment.commentText = this.encryptionService.decryptContent(message, comment.user.id + "");
     } else {
       alert("Error, contact an administrator.");
     }
@@ -193,10 +196,7 @@ export class CommentsComponent extends ChildComponent implements OnInit {
       parent.closeOverlay();
     }
 
-    const commentText = this.encryptionService.decryptContent(
-      comment.commentText?.trim() || "",
-      comment.user.id + ""
-    );
+    const commentText = comment.commentText?.trim();
 
     const message = `[Quoting {${comment.user.username}|${comment.user.id}|${comment.date}}: ${commentText}] \n`;
     this.setQuoteMessage(message);
@@ -233,8 +233,7 @@ export class CommentsComponent extends ChildComponent implements OnInit {
 
 
   clearSubCommentsToggled(commentId?: number) {
-    if (this.depth > 0) {
-      console.log("clearing subcomments", commentId);
+    if (this.depth > 0) { 
       for (let c of this.commentList) {
         if (c.id == commentId) continue;
         this.minimizedComments.add(c.id);
@@ -245,6 +244,7 @@ export class CommentsComponent extends ChildComponent implements OnInit {
   commentPosted(event: { results: any, content: any, originalContent: string }, parentComment?: FileComment) {
     const commentAdded = event.content.comment as FileComment;
     commentAdded.id = parseInt(event.results.split(" ")[0]);
+    commentAdded.commentText = this.encryptionService.decryptContent(commentAdded.commentText ?? "", commentAdded.user.id + "");
     if (!parentComment) {
       this.commentAddedEvent.emit(commentAdded);
     } else {
@@ -324,11 +324,8 @@ export class CommentsComponent extends ChildComponent implements OnInit {
     if (!this.commentList) return [];
     if (!this.activeBreadcrumbCommentId) return this.commentList;
     return this.commentList.filter(c => c.id === this.activeBreadcrumbCommentId);
-  }
-  decryptText(encryptedText: any, parentId: any): string {
-    return this.encryptionService.decryptContent(encryptedText, parentId + "");
-  }
-  speakMessage(message: string) {
+  } 
+  speakMessage(message?: string) {
     this.textToSpeechService.speakMessage(message);
   }
   stopSpeaking() {
@@ -341,12 +338,31 @@ export class CommentsComponent extends ChildComponent implements OnInit {
     this.closeOptionsPanel();
     const parent = this.inputtedParentRef ?? this.parentRef;
     try {
-      const text = this.decryptText(comment.commentText, comment.user.id);
-      await navigator.clipboard.writeText(text);
+      const text = comment.commentText;
+      await navigator.clipboard.writeText(text ?? "");
       parent?.showNotification("Text copied to Clipboard!");
     } catch (err) {
       console.error('Failed to copy text: ', err);
       parent?.showNotification('Failed to copy text. Please select and copy manually.');
     }
   } 
+  private decryptCommentsRecursively(comments: FileComment[]): void {
+    comments.forEach(comment => {
+      if (comment.commentText) {
+        try {
+          comment.commentText = this.encryptionService.decryptContent(
+            comment.commentText,
+            comment.user.id + ""
+          );
+        } catch (ex) {
+          console.error(`Failed to decrypt comment ID ${comment.id}: ${ex}`);
+        }
+      }
+
+      // Recurse into child comments if they exist
+      if (comment.comments && comment.comments.length > 0) {
+        this.decryptCommentsRecursively(comment.comments);
+      }
+    });
+  }
 }

@@ -342,6 +342,7 @@ singleAttachment {
   border: var(--main-border);
   border-bottom-left-radius: 8px;
   border-bottom-right-radius: 8px;
+  border-top: 0;
 }
 
 .storyContainerWrapper {
@@ -354,6 +355,7 @@ singleAttachment {
   padding-left: 10px;
   padding-right: 10px;
   border: var(--main-border);
+  border-bottom: 0;
   background: linear-gradient(to bottom, var(--main-highlight-color), transparent);
   border-top-left-radius: 8px;
   border-top-right-radius: 8px;
@@ -563,17 +565,18 @@ singleAttachment {
   align-items: center;
   height: 100%; 
 } */
-
-.postOptionButtons,
-.postOptionButtons ::ng-deep * span {
-  font-size: var(--main-font-size);
-}
-
+  
 .postOptionButtonWrapper {
   display: flex;
   flex-wrap: nowrap;
   align-items: center;
   gap: 1px;
+}
+
+button.postOptionButtons,
+.postOptionButtons ::ng-deep * button,
+.postOptionButtons ::ng-deep * span {
+  height: 25px;
 }
 
 .showPostOptionButton {

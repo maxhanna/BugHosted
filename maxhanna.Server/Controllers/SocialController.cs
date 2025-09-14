@@ -289,7 +289,10 @@ namespace maxhanna.Server.Controllers
 			await FetchAndAttachPollVotesAsync(storyResponse);
 			storyResponse.CurrentPage = page;
 			storyResponse.PageCount = (int)Math.Ceiling((double)storyResponse.TotalCount / pageSize);
-
+			storyResponse.Stories.ForEach(s =>
+			{
+				s.StoryText = _log.EncryptContent(s.StoryText ?? "", s.User?.Id + "");
+			});
 			return storyResponse;
 		}
 
@@ -719,6 +722,7 @@ namespace maxhanna.Server.Controllers
 					f.id AS file_id, 
 					f.file_name, 
 					f.folder_path, 
+					f.file_type, 
 					f.is_public, 
 					f.is_folder, 
 					f.shared_with, 
@@ -751,7 +755,7 @@ namespace maxhanna.Server.Controllers
 
 			sqlBuilder.AppendLine(@")
 				GROUP BY 
-					s.id, f.id, f.file_name, f.folder_path, f.is_public, f.is_folder, f.shared_with,
+					s.id, f.id, f.file_name, f.folder_path, f.file_type, f.is_public, f.is_folder, f.shared_with,
 					f.given_file_name, file_data_description, file_data_updated,
 					f.upload_date, fu.username, f.user_id;");
 
@@ -782,6 +786,7 @@ namespace maxhanna.Server.Controllers
 									Id = rdr.GetInt32("file_id"),
 									FileName = rdr.IsDBNull(rdr.GetOrdinal("file_name")) ? null : rdr.GetString("file_name"),
 									Directory = rdr.IsDBNull(rdr.GetOrdinal("folder_path")) ? _baseTarget : rdr.GetString("folder_path"),
+									FileType = rdr.IsDBNull(rdr.GetOrdinal("file_type")) ? _baseTarget : rdr.GetString("file_type"),
 									Visibility = rdr.GetBoolean("is_public") ? "Public" : "Private",
 									SharedWith = rdr.IsDBNull(rdr.GetOrdinal("shared_with")) ? null : rdr.GetString("shared_with"),
 									User = new User(
@@ -861,6 +866,7 @@ namespace maxhanna.Server.Controllers
 					cf.file_id AS comment_file_id,
 					f.file_name AS comment_file_name,
 					f.folder_path AS comment_file_folder_path,
+					f.file_type AS comment_file_file_type,
 					f.is_public AS comment_file_visibility,
 					f.shared_with AS comment_file_shared_with,
 					f.is_folder AS comment_file_is_folder,
@@ -901,7 +907,7 @@ namespace maxhanna.Server.Controllers
 				{whereC} 
 				GROUP BY c.id, r.id, r.type, ru.id, r.type, ru.username, r.timestamp, 
 				udpfu.file_name, udpfu.folder_path, cf.file_id, 
-				f.file_name, f.folder_path, f.is_public, f.shared_with, f.is_folder,
+				f.file_name, f.folder_path, f.file_type, f.is_public, f.shared_with, f.is_folder,
 				f.upload_date, fu.id, fu.username, f.given_file_name, f.description, f.last_updated
 				ORDER BY c.id ASC;");
 
@@ -1006,6 +1012,7 @@ namespace maxhanna.Server.Controllers
 									Id = rdr.GetInt32("comment_file_id"),
 									FileName = rdr.IsDBNull("comment_file_name") ? null : rdr.GetString("comment_file_name"),
 									Directory = rdr.IsDBNull("comment_file_folder_path") ? _baseTarget : rdr.GetString("comment_file_folder_path"),
+									FileType = rdr.IsDBNull("comment_file_file_type") ? _baseTarget : rdr.GetString("comment_file_file_type"),
 									Visibility = rdr.IsDBNull("comment_file_visibility") ? null : rdr.GetBoolean("comment_file_visibility") ? "Public" : "Private",
 									SharedWith = rdr.IsDBNull("comment_file_shared_with") ? null : rdr.GetString("comment_file_shared_with"),
 									User = new User(rdr.IsDBNull("file_user_id") ? 0 : rdr.GetInt32("file_user_id"), rdr.IsDBNull("file_username") ? "Anonymous" : rdr.GetString("file_username")),
@@ -1070,7 +1077,7 @@ namespace maxhanna.Server.Controllers
 					using (var cmd = new MySqlCommand(sql, conn))
 					{
 						cmd.Parameters.AddWithValue("@userId", request.userId);
-						cmd.Parameters.AddWithValue("@storyText", request.story.StoryText);
+						cmd.Parameters.AddWithValue("@storyText", _log.DecryptContent(request.story.StoryText ?? "", (request.userId ?? 0) + ""));
 						cmd.Parameters.AddWithValue("@profileUserId", request.story.ProfileUserId.HasValue && request.story.ProfileUserId != 0
 							? request.story.ProfileUserId.Value
 							: (object)DBNull.Value);

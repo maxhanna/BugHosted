@@ -281,19 +281,25 @@
   align-items: center;
   justify-content: center;
   gap: 5px;
-}
+} 
 
+.commentActions button,
+.commentReaction,
+.commentReaction ::ng-deep * button,
+.commentReaction ::ng-deep * span {
+  height: 23px;
+}
 
 .breadcrumb-nav {
   padding: 10px 15px; 
   border-radius: 4px;
   margin-bottom: 15px;
   font-size: 14px;
-}
+} 
 
 .breadcrumb-item {
   display: inline-flex;
-  align-items: center;
+  align-items: center; 
 }
 
 .breadcrumb-separator {

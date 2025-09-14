@@ -137,6 +137,11 @@
           </select>
         </label>
       </div> 
+
+      <div class="menuPopupSection xxSmallFont thirdFontColor"> We take your privacy seriously. Every message you send is
+        encrypted before it leaves your device or our servers and remains encrypted until it reaches its intended recipient, ensuring your
+        data stays private and secure. 
+      </div>
       <button id="closeOverlay" (click)="closeMenuPanel()" class="closeButton">Close</button>
     </div>
 
@@ -166,7 +171,7 @@
           title="Delete Post" style="display:inline-block">
           ❌Delete
         </button>
-        <button (click)="speakMessage(decryptText(optionStory.storyText ?? '', optionStory.user.id))" *ngIf="!isTextToSpeechSpeaking()">
+        <button (click)="speakMessage(optionStory.storyText)" *ngIf="!isTextToSpeechSpeaking()">
           🔊Read Outloud
         </button>
         <button (click)="stopSpeaking()" *ngIf="isTextToSpeechSpeaking()">
@@ -339,12 +344,12 @@
             [id]="'storyTextContainer'+story.id" (click)="toggleCollapse('storyTextContainer'+story.id)">
             <div class="storyContentDiv">
               <div class="storyText" [style.display]="isEditing.includes(story.id) ? 'none' : 'block'"
-                [style.opacity]="isLoading ? 0.5 : 1" [innerHtml]="getTextForDOM(decryptText(story.storyText, story.user.id), story.id)"
+                [style.opacity]="isLoading ? 0.5 : 1" [innerHtml]="getTextForDOM(story.storyText, story.id)"
                 [id]="'storyText' + story.id"></div>
 
               <textarea [id]="'storyTextTextarea' + story.id"
                 [style.width]="isEditing.includes(story.id) ? '100%' : '0'"
-                [style.display]="isEditing.includes(story.id) ? 'block' : 'none'">{{decryptText(story.storyText, story.user.id)}}</textarea>
+                [style.display]="isEditing.includes(story.id) ? 'block' : 'none'">{{story.storyText}}</textarea>
               <div class="editingTextAreaButtonWrapperDiv">
                 <button [id]="'storyTextEditConfirmButton' + story.id" (click)="editStory(story)"
                   [style.display]="isEditing.includes(story.id) ? 'block' : 'none'">

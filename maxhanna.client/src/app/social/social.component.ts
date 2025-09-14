@@ -124,15 +124,13 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
         }
       });
     }
-
-    // console.log("Initializing social component with storyId:", this.storyId, "and user:", this.user);
+ 
     const tmpStoryId = this.storyId;
     const tmpCommentId = this.commentId;
     await this.getStories().then(() => {
       if (tmpStoryId) {
         const tgtStory = this.storyResponse?.stories?.find((story) => story.id == tmpStoryId);
-        if (tgtStory) {
-          //console.log("Target story found:", tgtStory);
+        if (tgtStory) { 
           this.scrollToStory(tgtStory.id);
           this.scrollToInputtedCommentId(tmpCommentId);
           this.changePageTitleAndDescription(tgtStory);
@@ -273,8 +271,7 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
     this.canLoad = false;
     const search = keywords ?? this.search?.nativeElement.value;
     const userId = this.user?.id;
-    let storyId = this.getSearchStoryId();
-    console.log("get stories topics:", topics)
+    let storyId = this.getSearchStoryId(); 
     this.parentRef?.updateLastSeen();
     const res = await this.socialService.getStories(
       this.parentRef?.user?.id,
@@ -288,8 +285,17 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
       this.showPostsFromFilter
     );
 
-    if (res) {
-      if (append && res.stories && this.storyResponse?.stories) {
+    if (res && res.stories) {
+      res.stories.forEach(story => {
+        if (story.storyText && story.user?.id) {
+          try {
+            story.storyText = this.encryptionService.decryptContent(story.storyText, story.user.id + "");
+          } catch (ex) {
+            console.error(`Failed to decrypt story ID ${story.id}: ${ex}`); 
+          }
+        }
+      });
+      if (append && this.storyResponse?.stories) {
         this.storyResponse.stories = this.storyResponse.stories.concat(
           res.stories.filter(
             (story) =>
@@ -849,8 +855,7 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
 
   async loadMorePosts() {
     if (this.isLoading || !this.canLoad) return;
-    this.canLoad = false;
-    console.log("firing loadMorePosts()");
+    this.canLoad = false; 
     clearTimeout(this.debounceTimer);
     this.debounceTimer = setTimeout(async () => {
       this.currentPage++;
@@ -1037,11 +1042,10 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
       navigator.clipboard.writeText(link);
       parent?.showNotification(`${link} copied to clipboard!`);
     } catch {
-      parent?.showNotification("Error: Unable to share link!");
-      console.log("Error: Unable to share link!");
+      parent?.showNotification("Error: Unable to share link!"); 
     }
   }
-  speakMessage(message: string) {
+  speakMessage(message?: string) {
     this.textToSpeechService.speakMessage(message);
   }
   stopSpeaking() {

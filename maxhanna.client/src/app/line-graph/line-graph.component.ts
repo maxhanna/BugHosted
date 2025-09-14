@@ -794,20 +794,23 @@ export class LineGraphComponent implements OnInit, OnChanges {
               if (this.type === "Currency") {
                 return value.toFixed(2);
               }
-              if (needsLogScale || Math.abs(value) < 0.01) {
+              else if (needsLogScale || Math.abs(value) < 0.01) {
                 if (Math.abs(value) < 0.000001) {
                   return value;
                 }
-                if (Math.abs(value) < 0.001) {
+                else if (Math.abs(value) < 0.001) {
                   return value.toFixed(8).replace(/\.?0+$/, '');
                 }
                 return value.toFixed(6).replace(/\.?0+$/, '');
               }
-              if (Math.abs(value) >= 1000) {
+              else if (Math.abs(value) >= 1000) {
                 return value.toLocaleString(undefined, {
                   maximumFractionDigits: 2,
                   minimumFractionDigits: 2
                 });
+              }
+              else if (Math.abs(value) >= 0.01) {
+                return value.toFixed(4).replace(/\.?0+$/, '');
               }
               return value;
             }

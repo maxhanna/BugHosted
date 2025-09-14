@@ -255,6 +255,32 @@
             [previousComponent]="previousComponent"></app-user-tag>
         </div>
       </div>
+    <div class="optionsStatsDiv" *ngIf="selectedFile && isVideoOrAudio(selectedFile)">
+      <div class="optionsStatsHeader">
+        Add To Music Playlist:
+      </div>
+      <div class="optionsStatsDescription">
+        <button *ngIf="inputtedParentRef?.user?.id" (click)="addFileToMusicPlaylist(selectedFile)"
+          title="Add '{{selectedFile.givenFileName ?? selectedFile.fileName}}' to music playlist.">
+          ➕ Add To Music Playlist
+        </button>
+        <span *ngIf="!inputtedParentRef?.user?.id">You must be logged in.</span>
+      </div>
+    </div>
+    <div class="optionsStatsDiv" *ngIf="selectedFile">
+      <div class="optionsStatsHeader">
+        Share:
+      </div>
+      <div class="optionsStatsDescription">
+        <button (click)="copyLink(selectedFile)"
+          title="Copy link to '{{selectedFile.givenFileName ?? selectedFile.fileName}}' in clipboard.">
+          📋Share
+        </button>
+        <span *ngIf="!inputtedParentRef?.user?.id">You must be logged in.</span>
+      </div>
+    </div>
+
+
     </div>
     <app-comments *ngIf="(selectedFile || file) && showCommentSection" [inputtedParentRef]="inputtedParentRef"
       [type]="'File'" [showComments]="showCommentSectionOnLoad" [showCommentsHeader]="showCommentSectionHeader"

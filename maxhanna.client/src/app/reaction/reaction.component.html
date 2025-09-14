@@ -6,12 +6,12 @@
  
   <button class="addReactionButton {{coloredBg ? 'coloredBgButton' : ''}}" (click)="reactionButtonOnClick($event)" [id]="'addReactionSpan_' + reactionId"
     [title]="(userHasReacted() ? 'Change' : 'Add') + ' Reaction'" *ngIf="!showSpan">
-    {{userHasReacted() ? replaceReactionType(userReaction) : '✚'}} 
+    {{userHasReacted() ? replaceReactionType(userReaction) : '🫥'}} 
   </button>
   <span [class]="showSpanBorder ? 'addReactionSpan' : 'addReactionSpanNoBorder'"
     (click)="reactionButtonOnClick($event)" [id]="'addReactionSpan_' + reactionId"
     [title]="(userHasReacted() ? 'Change' : 'Add') + ' Reaction'" *ngIf="showSpan">
-    {{userHasReacted() ? replaceReactionType(userReaction) : '✚'}} 
+    {{userHasReacted() ? replaceReactionType(userReaction) : '🫥'}} 
   </span> 
 </div>
 

@@ -300,12 +300,19 @@
   flex-direction: row;
   flex-wrap: nowrap;
   margin-left: 5px;
+  align-items: center;
 }
 
-.fileOptionsAction {
+.fileOptionsAction, 
+.fileOptionsActionWrapper ::ng-deep * button,
+.fileOptionsActionWrapper ::ng-deep span:not(.reactionsDisplaySpan span) 
+{
   width: 25px;
   height: 25px;
+  display: flex;
   align-items: center;
+  justify-content: center;
+  align-content: center;
 }
 
 .fileOptionsChatBubble {
@@ -479,4 +486,9 @@
   position: fixed;
   bottom: 0px;
   margin: 0 auto;
-} 
+}  
+
+.currentDirectorySpan a {
+  font-style: normal;
+}
+ 

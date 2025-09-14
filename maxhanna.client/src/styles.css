@@ -64,8 +64,7 @@ a, .linkedComponent {
   font-family: Gadugi, Arial, Helvetica;
   padding: 1px;
   text-align: center;
-  text-decoration: none;
-  font-style: italic;
+  text-decoration: none; 
   word-break: break-word;
 }
 
@@ -743,6 +742,7 @@ fieldset {
   font-weight: bold;
   cursor: pointer;
   text-decoration: underline;
+  font-style: italic;
 }
 
 .poll-container {

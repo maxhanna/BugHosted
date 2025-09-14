@@ -30,7 +30,23 @@
   <div *ngIf="displayTotal && !search?.nativeElement?.value" class="totalDisplay">
     <span class="currentDirectorySpan" *ngIf="!search?.nativeElement?.value">
       Current Directory:
-      <span class="invertedHighlights">{{currentDirectory || '.'}}</span>
+      <span> 
+        <ng-container *ngIf="currentDirectory === ''; else rootLink">
+          <span>./</span>
+        </ng-container>
+        <ng-template #rootLink>
+          <a (click)="navigateToDirectory('')" class="cursorPointer">./</a>
+        </ng-template>
+        <ng-container *ngFor="let segment of getBreadcrumbSegments(); let i = index">
+          <ng-container *ngIf="i < getBreadcrumbSegments().length - 1">
+            <a (click)="navigateToDirectory(getBreadcrumbPath(i))" class="cursorPointer">{{segment}}</a>
+            <span>/</span>
+          </ng-container>
+          <ng-container *ngIf="i === getBreadcrumbSegments().length - 1">
+            <span>{{segment}}</span>
+          </ng-container>
+        </ng-container>
+      </span>
     </span>
 
     Total: {{ directory ? directory.totalCount : 0 }}
@@ -87,7 +103,7 @@
                               (click)="$event.stopPropagation()">
                 </app-reaction>
                 <div *ngIf="displayComments && !file.isFolder" class="fileOptionsAction fileOptionsChatBubble coloredBgButton" (click)="openFileWithComments(file); $event.stopPropagation()">
-                  🗨️ <span>{{getTotalCommentCount(file.fileComments)}}</span>
+                  🗨️{{getTotalCommentCount(file.fileComments)}}
                 </div> 
                 <div *ngIf="displayFileActions"
                      (click)="showOptionsPanel(file); $event.stopPropagation();"

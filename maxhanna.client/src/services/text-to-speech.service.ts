@@ -7,7 +7,8 @@ import { Injectable } from '@angular/core';
 export class TextToSpeechService {
   isSpeaking = false;
   
-  speakMessage(message: string) {
+  speakMessage(message?: string) {
+    if (!message) return;
     if ('speechSynthesis' in window) {
       this.isSpeaking = true;
       //console.log("Speech synthesis is supported! ", message);

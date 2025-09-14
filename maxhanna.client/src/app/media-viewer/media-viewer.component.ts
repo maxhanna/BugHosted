@@ -6,6 +6,8 @@ import { FileEntry } from '../../services/datacontracts/file/file-entry';
 import { User } from '../../services/datacontracts/user/user';
 import { FileComment } from '../../services/datacontracts/file/file-comment';
 import { Topic } from '../../services/datacontracts/topics/topic';
+import { Todo } from '../../services/datacontracts/todo';
+import { TodoService } from '../../services/todo.service';
 
 
 @Component({
@@ -16,7 +18,7 @@ import { Topic } from '../../services/datacontracts/topics/topic';
 })
 export class MediaViewerComponent extends ChildComponent implements OnInit, OnDestroy {
 
-  constructor(private fileService: FileService) {
+  constructor(private fileService: FileService, private todoService: TodoService) {
     super();
     if (this.file) {
       this.selectedFile = this.file;
@@ -264,8 +266,9 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
     this.autoload = true;
     this.ngOnInit();
   }
-  copyLink() {
-    const link = `https://bughosted.com/${this.file?.directory?.includes("Meme") ? 'Memes' : 'File'}/${this.file?.id ?? this.selectedFile!.id}`;
+  copyLink(fileEntry?: FileEntry) {
+    const file = fileEntry ?? this.file ?? this.selectedFile;
+    const link = `https://bughosted.com/${file?.directory?.includes("Meme") ? 'Memes' : 'File'}/${file?.id}`;
     try {
       navigator.clipboard.writeText(link);
       this.emittedNotification.emit(`${link} copied to clipboard!`);
@@ -641,4 +644,27 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
   onVideoStalled() {
     this.isVideoBuffering = true;
   }
+  isVideoOrAudio(fileEntry: FileEntry) {
+    let fileType = fileEntry.fileType ?? this.fileService.getFileExtension(fileEntry.fileName ?? '');
+    fileType = fileType.replace(".", "");
+    console.log(fileType);
+    return this.fileService.videoFileExtensions.includes(fileType) || this.fileService.audioFileExtensions.includes(fileType);
+  }
+  async addFileToMusicPlaylist(fileEntry: FileEntry) {
+      const parent = this.inputtedParentRef ?? this.parentRef;
+      const user = parent?.user;
+      if (!user?.id || !fileEntry || !fileEntry.id) {
+        return alert("Error: Cannot add file to music playlist without logging in or a valid file entry.");
+      }
+
+      let tmpTodo = new Todo();
+      tmpTodo.type = "music";
+      tmpTodo.todo = (fileEntry.givenFileName ?? fileEntry.fileName ?? `Video ID:${fileEntry.id}`).trim();
+      tmpTodo.fileId = fileEntry.id;
+      tmpTodo.date = new Date();
+      const resTodo = await this.todoService.createTodo(user.id, tmpTodo);
+      if (resTodo) {
+        parent?.showNotification(`Added ${tmpTodo.todo} to music playlist.`);
+      }
+    }
 }

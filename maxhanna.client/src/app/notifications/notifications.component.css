@@ -255,8 +255,6 @@
 
 .filter-container label {
   color: var(--third-font-color);
-  text-decoration: underline;
-  text-decoration-color: var(--secondary-font-color);
 }
 
 @media only screen and (max-width: 667px) {
