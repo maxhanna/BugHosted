@@ -411,7 +411,7 @@ public class NewsService
 
 			// Build the story string using only the most relevant article 
 			sb.AppendLine($"[*][b]{selectedArticle.Title}[/b]\nRead more: {selectedArticle.Url} [/*]");
-			string fullStoryText = _log.EncryptContent(sb.ToString().Trim(), newsServiceAccountNo + "");
+			string fullStoryText = sb.ToString().Trim();
 
 			// Save the description tokens of selected article for file-matching
 			var selectedArticleTokens = TokenizeText(selectedArticle.Description);
@@ -514,9 +514,9 @@ public class NewsService
 			}
 
 			// Create the story text
-			var storyText = _log.EncryptContent($@"📢 [b]Top Daily Meme![/b]
+			var storyText = $@"📢 [b]Top Daily Meme![/b]
 <a href='https://bughosted.com/Memes/{topMeme.Id}'>https://bughosted.com/Memes/{topMeme.Id}</a>
-Posted by user @{topMeme.Username}<br><small>Daily top memes are selected based on highest number of comments and reactions.</small>", memeServiceAccountNo + "");
+Posted by user @{topMeme.Username}<br><small>Daily top memes are selected based on highest number of comments and reactions.</small>";
 
 			// Insert the story
 			await InsertMemeStoryAsync(conn, transaction, storyText, topMeme.Id, memeServiceAccountNo);
@@ -797,7 +797,7 @@ Posted by user @{topMeme.Username}<br><small>Daily top memes are selected based 
 			sb.AppendLine($"[*][b]{topArticlesResult.Title}[/b]\nRead more: {topArticlesResult.Url} [/*]");
 		 
 
-			string fullStoryText = _log.EncryptContent(sb.ToString().Trim(), cryptoNewsServiceAccountNo + "");
+			string fullStoryText = sb.ToString().Trim();
 			var selectedArticleTokens = TokenizeText(fullStoryText);
 			// Insert the story into the 'stories' table (for the news service account)
 			await CreateNewsPosts(conn, transaction, fullStoryText, selectedArticleTokens, cryptoNewsServiceAccountNo);

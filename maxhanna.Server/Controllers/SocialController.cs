@@ -905,7 +905,7 @@ namespace maxhanna.Server.Controllers
 					user_display_pictures AS rudp ON rudp.user_id = ru.id   
 				WHERE c.id IN (SELECT id FROM comment_tree)
 				{whereC} 
-				GROUP BY c.id, r.id, r.type, ru.id, r.type, ru.username, r.timestamp, 
+				GROUP BY c.id, r.id, r.type, ru.id, ru.username, r.timestamp, 
 				udpfu.file_name, udpfu.folder_path, cf.file_id, 
 				f.file_name, f.folder_path, f.file_type, f.is_public, f.shared_with, f.is_folder,
 				f.upload_date, fu.id, fu.username, f.given_file_name, f.description, f.last_updated
@@ -1023,7 +1023,10 @@ namespace maxhanna.Server.Controllers
 									LastUpdated = rdr.IsDBNull("comment_file_date") ? null : rdr.GetDateTime("comment_file_date"),
 								};
 								if (comment.CommentFiles == null) { comment.CommentFiles = new List<FileEntry> { }; }
-								comment.CommentFiles.Add(fileEntry);
+								if (!comment.CommentFiles.Any(f => f.Id == fileEntry.Id))
+								{
+									comment.CommentFiles.Add(fileEntry);
+								}
 							}
 
 							if (parentCommentId.HasValue)
@@ -1035,7 +1038,10 @@ namespace maxhanna.Server.Controllers
 									{
 										parentComment.Comments = new List<FileComment>();
 									}
-									parentComment.Comments.Add(comment);
+									if (!parentComment.Comments.Any(c => c.Id == comment.Id))
+									{
+										parentComment.Comments.Add(comment);
+									}
 								}
 								// else
 								// {
