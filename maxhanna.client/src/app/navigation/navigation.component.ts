@@ -493,7 +493,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
       document.documentElement.style.setProperty('--main-font-family', theme.fontFamily);
     }
   }
-  displayAppSelectionHelp() {
+  displayAppSelectionHelp(force = false) {
     const hasSeenAppSelection = this._parent.getCookie('hasSeenAppSelectionPopup1');
     const user = this._parent.user;
     const now = new Date().getTime();
@@ -501,9 +501,13 @@ export class NavigationComponent implements OnInit, OnDestroy {
     let showAppSelector = false;
 
     if (!hasSeenAppSelection) {
-      if (!user || !user.id || user.id === 0) {
+      if (force) {
         showAppSelector = true;
-      } else if (user.created) { 
+      }
+      else if (!user || !user.id || user.id === 0) {
+        showAppSelector = true;
+      } 
+      else if (user.created) { 
         const createdAt = new Date(user.created).getTime();
         if ((now - createdAt) < oneDayMs) {
           showAppSelector = true;

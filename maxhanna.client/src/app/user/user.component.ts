@@ -651,6 +651,7 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
   async createUser(guest?: boolean) { 
     let tmpUserName = this.loginUsername.nativeElement.value;
     const tmpPassword = this.loginPassword.nativeElement.value;
+    const parent = this.parentRef ?? this.inputtedParentRef;
     if (guest && tmpUserName.trim() == "") {
       tmpUserName = "Guest" + Math.random().toString().slice(2, 5);
     }
@@ -662,21 +663,24 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
         const resCreateUser = await this.userService.createUser(tmpUser);
         if (resCreateUser && !resCreateUser.toLowerCase().includes("error")) {
           tmpUser.id = parseInt(resCreateUser!);
-          await this.userService.addMenuItem(tmpUser.id, ["Social", "Meme", "Wordler", "Files", "Emulation", "Bug-Wars", "Crypto-Hub", "Notifications"]);
-          await this.login(guest ? tmpUserName : undefined, true);
-          if (!this.loginOnly) {
-            this.parentRef?.openUserSettings('User');
-          }
-          this.parentRef?.getLocation();
+          await this.userService.addMenuItem(tmpUser.id, ["Social", "Meme", "Wordler", "Files", "Emulation", "Bug-Wars", "Crypto-Hub", "Notifications", "Help"]);
+          await this.login(guest ? tmpUserName : undefined, true); 
+          parent?.getLocation();
+          setTimeout(() => {
+            if (parent) {
+              parent.navigationComponent.displayAppSelectionHelp(true);
+            }
+            this.remove_me("User");
+          }, 50);
         } else {
-          this.parentRef?.showNotification(`${JSON.parse(resCreateUser!)["message"]}`);
+          parent?.showNotification(`${JSON.parse(resCreateUser!)["message"]}`);
         }
       } catch (error: any) {
         const message = error["message"];
         if (message.includes("409")) {
-          this.parentRef?.showNotification(`User already exists`);
+          parent?.showNotification(`User already exists`);
         } else {
-          this.parentRef?.showNotification(`Error: ${message}`);
+          parent?.showNotification(`Error: ${message}`);
         }
       }
     }
