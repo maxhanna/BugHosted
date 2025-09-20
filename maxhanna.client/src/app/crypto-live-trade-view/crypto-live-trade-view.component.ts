@@ -103,7 +103,7 @@ export class CryptoLiveTradeViewComponent extends ChildComponent implements Afte
     else return tmpCoin;
   }
 
-  initializeVisibility() {
+  initializeVisibility() { 
     this.visibleComponents.graph.clear();
     this.visibleComponents.logs.clear();
     this.visibleComponents.history.clear();

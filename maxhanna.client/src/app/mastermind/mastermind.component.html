@@ -1,0 +1,69 @@
+<div class="componentMain">
+    <div class="closeButton" (click)="remove_me('MastermindComponent')"></div>
+    <div class="menuButton" (click)="showMenuPanel();"></div>
+    <div class="componentTitle">Mastermind</div>
+
+    <div class="mastermindResultsDiv">
+        <div *ngIf="isLoading">Loading...</div>
+        <div *ngIf="gameOver">
+            <div *ngIf="gameWon" class="win">You cracked the code!</div>
+            <div *ngIf="!gameWon" class="lose">
+                Out of tries! The code was:
+                <span *ngFor="let c of sequence" [style.background]="c" class="peg">{{c}}</span>
+            </div>
+            <button (click)="startNewGame()">Play Again</button>
+        </div>
+        <div *ngIf="!gameOver && !isLoading">
+            <div>Tries left: {{triesLeft}}</div>
+            <div class="guess-row" style="display: flex; gap: 12px; margin-bottom: 12px;">
+                <span *ngFor="let color of currentGuess; let i = index">
+                    <span class="color-square selectable-peg" (click)="cycleColor(i)"
+                                [style.background]="color || '#eee'"
+                                [style.border]="color ? '2px solid ' + color : '2px dashed #aaa'"
+                                style="width:40px;height:40px;display:inline-block;cursor:pointer;vertical-align:middle;text-align:center;line-height:40px;font-size:22px;border-radius:6px;box-shadow:0 1px 4px rgba(0,0,0,0.08);">
+                        <span *ngIf="!color" style="color:#888;">?</span>
+                    </span>
+                </span>
+                <button (click)="submitGuess()" style="margin-left:16px;">Submit</button>
+            </div>
+        </div>
+        <div class="guesses">
+            <div *ngFor="let guess of guesses; let i = index" class="guess-row">
+                <span *ngFor="let c of guess.colors" [style.background]="c" class="peg"></span>
+                <span class="feedback">Black: {{guess.feedback.black}}, White: {{guess.feedback.white}}</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Menu Popup -->
+<div class="popupPanel mmPopup" *ngIf="isMenuPanelOpen">
+    <div class="popupPanelTitle popupPanelContents" style="margin-bottom:15px;">
+        Mastermind Menu
+    </div>
+    <div class="popupPanelContents">
+        <div class="popupPanelTitle">
+            Best Scores:
+        </div>
+        <div *ngIf="bestScores && bestScores.length > 0">
+            <table class="scoreTable">
+                <thead>
+                    <tr>
+                        <th>User</th>
+                        <th>Score</th>
+                        <th>Tries</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr *ngFor="let score of bestScores">
+                        <td>{{score.username}}</td>
+                        <td>{{score.score}}</td>
+                        <td>{{score.tries}}</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        <div *ngIf="!bestScores || bestScores.length === 0">No scores yet!</div>
+    </div>
+    <button id="closeOverlay" (click)="closeMenuPanel()" class="closeButton">Close</button>
+</div>

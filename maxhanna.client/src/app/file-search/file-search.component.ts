@@ -86,11 +86,13 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     ownership: 'all'
   };
   isDisplayingNSFW = false;
+  fileTypeFilter = "";
   private windowScrollHandler: Function;
   private containerScrollHandler: Function;
 
   @ViewChild('search') search!: ElementRef<HTMLInputElement>;
   @ViewChild('popupSearch') popupSearch!: ElementRef<HTMLInputElement>;
+  @ViewChild('fileTypeFilterInput') fileTypeFilterInput!: ElementRef<HTMLInputElement>;
   @ViewChild('folderVisibility') folderVisibility!: ElementRef<HTMLSelectElement>;
   @ViewChild('shareUserListDiv') shareUserListDiv!: ElementRef<HTMLDivElement>;
   @ViewChild('fileContainer') fileContainer!: ElementRef;
@@ -219,7 +221,19 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
 
   async getDirectory(file?: string, fileId?: number, append?: boolean) {
     this.startLoading();
-
+    let fileTypes: string[] = [];
+    const filterArr = this.fileTypeFilter.split(',').map(t => t.trim().toLowerCase()).filter(t => t);
+    if (this.allowedFileTypes && this.allowedFileTypes.length > 0) {
+      if (filterArr.length > 0) {
+        fileTypes = this.allowedFileTypes.filter(type => filterArr.includes(type));
+      } else {
+        fileTypes = this.allowedFileTypes;
+      }
+    } else if (filterArr.length > 0) {
+      fileTypes = filterArr;
+    } else {
+      fileTypes = [];
+    }
     this.showData = true;
     try {
       const res = await this.fileService.getDirectory(
@@ -231,7 +245,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
         this.maxResults,
         this.searchTerms,
         fileId,
-        (this.allowedFileTypes && this.allowedFileTypes.length > 0 ? this.allowedFileTypes : new Array<string>()),
+        fileTypes,
         this.filter.hidden == 'all' ? true : false,
         this.sortOption,
         this.showFavouritesOnly
@@ -386,10 +400,14 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     this.filter.hidden = target.value;
     this.getDirectory();
   }
-  editFileKeyUp(event: KeyboardEvent, fileId: number) {
+  async editFileKeyUp(event: KeyboardEvent, fileId: number) {
+    if (!this.isEditing.length) return;
     const text = (event.target as HTMLInputElement).value;
     if (event.key === 'Enter') {
-      this.editFile(fileId, text);
+      console.log(event);
+      event.preventDefault();   
+      await this.editFile(fileId, text);  
+      this.isEditing = [];
     } else {
       event.stopPropagation();
     }
@@ -990,10 +1008,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     }
     this.fileService.toggleFavourite(user.id, fileEntry.id).then(res => {
       if (res) {
-        this.userNotificationEvent.emit(res.action + " successfully!");
-        if (!this.captureNotifications) {
-          parent.showNotification(res.action + " successfully!");
-        }
+        this.notifyUser(res.action + " successfully!");
       }
 
     });
@@ -1001,8 +1016,8 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
 
   notifyUser(message: string) {
     this.userNotificationEvent.emit(message);
-    const parent = this.inputtedParentRef ?? this.parentRef
     if (!this.captureNotifications) {
+      const parent = this.inputtedParentRef ?? this.parentRef
       parent?.showNotification(message);
     }
   }
@@ -1033,6 +1048,10 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     this.currentPage = this.defaultCurrentPage;
     this.currentDirectory = directory;
     this.currentDirectoryChangeEvent.emit(this.currentDirectory);
+    this.getDirectory();
+  }
+  onFiletypeFilterChange() { 
+    this.fileTypeFilter = this.fileTypeFilterInput.nativeElement.value;
     this.getDirectory();
   }
 }

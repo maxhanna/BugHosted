@@ -243,12 +243,14 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
   }
   async editStory(story: Story) {
     const message = (document.getElementById('storyTextTextarea' + story.id) as HTMLTextAreaElement).value;
+    const ogMessage = message + "";
     story.storyText = this.encryptionService.encryptContent(message, story.user.id + "");
     if (document.getElementById('storyText' + story.id) && this.parentRef?.user?.id) {
       this.parentRef.updateLastSeen();
       const sessionToken = await this.parentRef.getSessionToken();
-      this.socialService.editStory(this.parentRef.user.id, story, sessionToken);
+      await this.socialService.editStory(this.parentRef.user.id, story, sessionToken);
       this.isEditing = this.isEditing.filter(x => x != story.id);
+      setTimeout(() => { story.storyText = ogMessage }, 10);
     }
   }
   async searchStories(searchTopics?: Array<Topic>, debounced?: boolean) {

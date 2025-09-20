@@ -16,6 +16,7 @@ export class CryptoTradeHistoryComponent extends ChildComponent implements After
   @Input() selectedCurrency!: string;
   @Input() defaultCoin?: string;
   @Input() defaultStrategy?: string;
+  @Input() hasKrakenApi?: boolean;
 
   @ViewChild('tradeBalanceCoinSelector') tradeBalanceCoinSelector!: ElementRef<HTMLSelectElement>;
   @ViewChild('tradeBalanceStrategySelector') tradeBalanceStrategySelector!: ElementRef<HTMLSelectElement>;
@@ -65,13 +66,14 @@ export class CryptoTradeHistoryComponent extends ChildComponent implements After
     this.stopTradeHistoryPolling();
   }
 
-  async checkBalance() { 
+  async checkBalance() {
     this.stopTradeHistoryPolling();
     this.startLoading();
+    const userId = this.hasKrakenApi ? this.inputtedParentRef.user?.id ?? 1 : 1;
     const sessionToken = await this.inputtedParentRef?.getSessionToken() ?? '';
     await this.tradeService
       .getTradeHistory(
-        this.inputtedParentRef?.user?.id ?? 1,
+        userId,
         sessionToken,
         this.selectedCoin,
         this.selectedStrategy,
@@ -93,13 +95,13 @@ export class CryptoTradeHistoryComponent extends ChildComponent implements After
   }
 
   startTradeHistoryPolling() {
-    this.timeLeft = 30; 
+    this.timeLeft = 30;
     this.tradeHistoryInterval = setInterval(async () => {
       this.timeLeft--;
-      if (this.timeLeft == 0) { 
+      if (this.timeLeft == 0) {
         this.checkBalance();
         this.timeLeft = 30;
-      } else { 
+      } else {
         this.changeDetectorRef.detectChanges();
       }
     }, 1000 * 1);
@@ -111,7 +113,7 @@ export class CryptoTradeHistoryComponent extends ChildComponent implements After
 
   setPaginatedTrades() {
     this.paginatedTradebotBalances = this.tradebotBalances || [];
-    this.changeDetectorRef.detectChanges(); 
+    this.changeDetectorRef.detectChanges();
   }
 
   onCoinChange(event: Event) {
@@ -129,7 +131,7 @@ export class CryptoTradeHistoryComponent extends ChildComponent implements After
   scrollUpTradePage() {
     document.getElementsByClassName("mainTableContainer")[0].scrollTop = 0;
   }
-  
+
   nextTradePage() {
     if (this.currentTradePage < this.totalTradePages) {
       this.currentTradePage++;
@@ -137,7 +139,7 @@ export class CryptoTradeHistoryComponent extends ChildComponent implements After
       this.scrollUpTradePage();
     }
   }
- 
+
   prevTradePage() {
     if (this.currentTradePage > 1) {
       this.currentTradePage--;
@@ -145,7 +147,7 @@ export class CryptoTradeHistoryComponent extends ChildComponent implements After
       this.scrollUpTradePage();
     }
   }
- 
+
   goToTradePage(page: number) {
     if (page >= 1 && page <= this.totalTradePages) {
       this.currentTradePage = page;
@@ -153,17 +155,17 @@ export class CryptoTradeHistoryComponent extends ChildComponent implements After
       this.scrollUpTradePage();
     }
   }
- 
+
   getTradePagesArray(): number[] {
     return Array.from({ length: this.totalTradePages }, (_, i) => i + 1);
   }
- 
+
   goToTradePageSelected(event: Event) {
     const page = parseInt((event.target as HTMLSelectElement).value);
     this.goToTradePage(page)
     this.scrollUpTradePage();
   }
-  
+
   async goToTradeId(tradeId?: number) {
     if (!tradeId) return;
 
@@ -187,7 +189,7 @@ export class CryptoTradeHistoryComponent extends ChildComponent implements After
         }, 100);
       } else {
         const sessionToken = await this.inputtedParentRef.getSessionToken() ?? '';
-        const userId = this.inputtedParentRef.user?.id ?? 1;
+        const userId = this.hasKrakenApi ? this.inputtedParentRef.user?.id ?? 1 : 1;
         const pageInfo = await this.tradeService.getPageForTradeId(
           userId,
           tradeId,

@@ -396,6 +396,10 @@
           <option value="Z-A" [selected]="sortOption === 'Z-A'">Name (Z → A)</option>
         </select>
       </div>
+      <div class="filter-group">
+  <label for="filetype-input" class="filter-label">Filetype:</label>
+  <input id="filetype-input" class="filter-input" type="text" [value]="fileTypeFilter" #fileTypeFilterInput (input)="onFiletypeFilterChange()" placeholder="e.g. jpg, mp4, pdf" />
+      </div>
     </div>
     
     <div *ngIf="userIsLoggedIn()">

@@ -159,3 +159,15 @@ Accept: application/json
 POST {{maxhanna.Server_HostAddress}}/Poll/
 Accept: application/json
 ###
+GET {{maxhanna.Server_HostAddress}}/Mastermind/
+Accept: application/json
+###
+POST {{maxhanna.Server_HostAddress}}/Mastermind/
+Accept: application/json
+###
+GET {{maxhanna.Server_HostAddress}}/Art/
+Accept: application/json
+###
+POST {{maxhanna.Server_HostAddress}}/Art/
+Accept: application/json
+###

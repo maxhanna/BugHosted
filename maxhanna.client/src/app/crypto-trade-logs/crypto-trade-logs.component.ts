@@ -57,8 +57,9 @@ export class CryptoTradeLogsComponent extends ChildComponent implements AfterVie
       const coin = selectedCoin ?? this.tradeLogCoinFilter?.nativeElement?.value;
       const strategy = selectedStrategy ?? this.tradeLogStrategyFilter?.nativeElement?.value;
       const sessionToken = await this.inputtedParentRef.getSessionToken() ?? "";
+      const userId = this.hasKrakenApi ? this.inputtedParentRef.user?.id ?? 1 : 1;
       const response = await this.tradeService.getTradeLogs(
-        this.hasKrakenApi ? this.inputtedParentRef.user?.id ?? 1 : 1,
+        userId,
         coin ?? this.selectedCoin ?? "BTC",
         strategy ?? this.selectedStrategy ?? "DCA",
         sessionToken,

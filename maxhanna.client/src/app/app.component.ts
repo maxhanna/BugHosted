@@ -38,6 +38,8 @@ import { FileService } from '../services/file.service';
 import { TopComponent } from './top/top.component';
 import { PollService } from '../services/poll.service';
 import { TextToSpeechService } from '../services/text-to-speech.service';
+import { MastermindComponent } from './mastermind/mastermind.component';
+import { ArtComponent } from './art/art.component';
 
 
 @Component({
@@ -79,6 +81,8 @@ export class AppComponent implements OnInit, AfterViewInit {
     { ownership: 0, icon: "🎮", title: "Emulation", content: undefined },
     { ownership: 0, icon: "⚔️", title: "Array", content: undefined },
     { ownership: 0, icon: "🧠", title: "Wordler", content: undefined },
+    { ownership: 0, icon: "M", title: "Mastermind", content: undefined },
+    { ownership: 0, icon: "A", title: "Art", content: undefined },
     { ownership: 0, icon: "📁", title: "Files", content: undefined },
     { ownership: 0, icon: "📅", title: "Calendar", content: undefined },
     { ownership: 0, icon: "☀️", title: "Weather", content: '' },
@@ -212,6 +216,16 @@ export class AppComponent implements OnInit, AfterViewInit {
     },
     {
       ownership: 0,
+      title: 'Art',
+      content: `Submit your art to the site and have others appraise your work!`
+    },
+    {
+      ownership: 0,
+      title: 'Mastermind',
+      content: `The classic Mastermind game! A color sequence guessing game inspired from the original board game.`
+    },
+    {
+      ownership: 0,
       title: 'Chat',
       content: `Chat system to connect you with your friends or groups of friends.`
     },
@@ -278,6 +292,8 @@ export class AppComponent implements OnInit, AfterViewInit {
     "Bug-Wars": NexusComponent,
     "Meta-Bots": MetaComponent,
     "Wordler": WordlerComponent,
+    "Mastermind": MastermindComponent,
+    "Art": ArtComponent,
     "News": NewsComponent,
     "Crypto-Hub": CryptoHubComponent,
     "User": UserComponent,

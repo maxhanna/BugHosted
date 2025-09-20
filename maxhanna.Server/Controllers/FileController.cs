@@ -1358,7 +1358,14 @@ LIMIT
 						{
 							if (IsGifFile(file))
 							{
-								(convertedFilePath, width, height, duration) = await ConvertGifToWebp(file, uploadDirectory);
+								// (convertedFilePath, width, height, duration) = await ConvertGifToWebp(file, uploadDirectory);
+								if (!System.IO.File.Exists(filePath))
+								{
+									using (var stream = new FileStream(filePath, FileMode.Create))
+									{
+										await file.CopyToAsync(stream);
+									}
+								}
 							}
 							else if (IsImageFile(file) && !IsWebPFile(file))
 							{

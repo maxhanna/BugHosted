@@ -1,27 +1,29 @@
 <div class="reactionsContainer" id="reactionsContainer">
-  <div class="addReactionDiv cursorPointer reactionsDisplaySpan" (click)="showReactionsOnClick()" 
-  *ngIf="currentReactions && currentReactions.length > 0 && (!userHasReacted() || currentReactions.length > 1)">
-    <span *ngFor="let reaction of reactionsDisplay" [title]="reaction.type?.replaceAll('_', ' ')">{{replaceReactionType(reaction.type)}}</span>
+  <div class="addReactionDiv cursorPointer reactionsDisplaySpan" (click)="showReactionsOnClick()"
+    *ngIf="currentReactions && currentReactions.length > 0 && (!userHasReacted() || currentReactions.length > 1)">
+    <span *ngFor="let reaction of reactionsDisplay"
+      [title]="reaction.type?.replaceAll('_', ' ')">{{replaceReactionType(reaction.type)}}</span>
   </div>
- 
-  <button class="addReactionButton {{coloredBg ? 'coloredBgButton' : ''}}" (click)="reactionButtonOnClick($event)" [id]="'addReactionSpan_' + reactionId"
-    [title]="(userHasReacted() ? 'Change' : 'Add') + ' Reaction'" *ngIf="!showSpan">
-    {{userHasReacted() ? replaceReactionType(userReaction) : '🫥'}} 
+
+  <button class="addReactionButton {{coloredBg ? 'coloredBgButton' : ''}}" (click)="reactionButtonOnClick($event)"
+    [id]="'addReactionSpan_' + reactionId" [title]="(userHasReacted() ? 'Change' : 'Add') + ' Reaction'"
+    *ngIf="!showSpan">
+    {{userHasReacted() ? replaceReactionType(userReaction) : '🙂'}}
   </button>
-  <span [class]="showSpanBorder ? 'addReactionSpan' : 'addReactionSpanNoBorder'"
-    (click)="reactionButtonOnClick($event)" [id]="'addReactionSpan_' + reactionId"
-    [title]="(userHasReacted() ? 'Change' : 'Add') + ' Reaction'" *ngIf="showSpan">
-    {{userHasReacted() ? replaceReactionType(userReaction) : '🫥'}} 
-  </span> 
+  <span [class]="showSpanBorder ? 'addReactionSpan' : 'addReactionSpanNoBorder'" (click)="reactionButtonOnClick($event)"
+    [id]="'addReactionSpan_' + reactionId" [title]="(userHasReacted() ? 'Change' : 'Add') + ' Reaction'"
+    *ngIf="showSpan">
+    {{userHasReacted() ? replaceReactionType(userReaction) : '🙂'}}
+  </span>
 </div>
 
 <div *ngIf="showReactionChoices" class="popupPanel" id="reactionChoicesDiv">
   <div class="popupPanelTitle">
     Reaction Choices
-  </div>
+  </div> 
   <div class="searchInputDiv">
     <input #reactionFilter placeholder="Filter/Search" (input)="searchForReaction()" /><button
-      (click)="searchForReaction()">🔍Search</button>
+      (click)="searchForReaction()">🔍 Search</button>
   </div>
 
   <div class="reactionChoices gradientBackground">
@@ -29,25 +31,37 @@
       [title]="reaction.label">
       {{reaction.emoji}}
     </div>
-  </div> 
-  <button id="closeOverlay" class="closeButton" (click)="closeReactionDisplay()">Close</button> 
+  </div>
+  <button id="closeOverlay" class="closeButton" (click)="closeReactionDisplay()">Close</button>
 </div>
 
 <div *ngIf="showReactions" class="popupPanel">
   <div class="popupPanelTitle">
-   Reactions ({{currentReactions?.length ?? 0}}) 
-  </div>
-  <div class="reactionsOverlayWrapper optionsStatsWrapperDiv gradientBackground">
-    <div *ngFor="let reaction of currentReactions" class="reactedReactionDiv optionsStatsDiv">
-      <div class="optionsStatsHeader">
-        <app-user-tag [user]="reaction.user" [inputtedParentRef]="inputtedParentRef" [displayMiniTag]="true"
-          [previousComponent]="previousComponent"></app-user-tag>
-        <span class="xxSmallFont thirdFontColor" style="margin-left: 5px" [title]="reaction.timestamp">{{reaction.timestamp | timeSince}}</span>
-      </div>
-      <div class="optionsStatsDescription">
-        <span class="reactionTypeSpan" [title]="reaction.type">{{replaceReactionType(reaction.type)}}</span>
+    Reactions ({{filteredCurrentReactions.length}})
+  </div> 
+  <div class="reactionSummary"> 
+    <div class="summaryList">
+      <div *ngFor="let summary of getReactionSummary()"
+        [class]="'summaryItem' + (activeSummaryType == summary.type ? ' activeSummaryType' : '')"
+        (click)="filterByReactionType(summary.type)" [title]="summary.type.replaceAll('_', ' ')">
+        {{replaceReactionType(summary.type)}} ({{summary.count}})
       </div>
     </div>
   </div>
-  <button id="closeOverlay" (click)="closeReactionsPanel()" class="closeButton">Close</button> 
+  <div class="reactionsOverlayWrapper optionsStatsWrapperDiv gradientBackground">
+    <div *ngFor="let reaction of filteredCurrentReactions" class="reactedReactionDiv optionsStatsDiv">
+      <div>
+        <app-user-tag [user]="reaction.user" [inputtedParentRef]="inputtedParentRef" [displayMiniTag]="true"
+          [previousComponent]="previousComponent"></app-user-tag>
+      </div>
+      <div>
+        <span class="reactionTypeSpan" [title]="reaction.type">{{replaceReactionType(reaction.type)}}</span>
+      </div>
+      <div>
+        <span class="xxSmallFont thirdFontColor timesinceTimestamp" [title]="reaction.timestamp">{{reaction.timestamp |
+          timeSince}}</span>
+      </div>
+    </div>
+  </div>
+  <button id="closeOverlay" (click)="closeReactionsPanel()" class="closeButton">Close</button>
 </div>

@@ -1,3 +1,6 @@
+<div *ngIf="uniqueCurrencyBots.length == 0" class="secondaryFontColor" style="padding:10px; text-align: center;">
+    You must start a tradebot to get a live trade view.
+</div>
 <div *ngFor="let bot of uniqueCurrencyBots; let i = index" class="grouping">
     <ng-container *ngIf="shouldShowComponent(i, 'graph'); else graphPlaceholder">
         <app-crypto-coin-graph-viewer #coinGraphViewer [inputtedParentRef]="inputtedParentRef"
@@ -22,8 +25,11 @@
             </ng-template>
 
             <ng-container *ngIf="shouldShowComponent(i + j, 'history'); else historyPlaceholder">
-                <app-crypto-trade-history #tradeHistory [inputtedParentRef]="inputtedParentRef"
-                    [selectedCurrency]="selectedCurrency" [defaultCoin]="bot.currency"
+                <app-crypto-trade-history #tradeHistory 
+                    [inputtedParentRef]="inputtedParentRef"
+                    [hasKrakenApi]="hasKrakenApi"
+                    [selectedCurrency]="selectedCurrency" 
+                    [defaultCoin]="bot.currency"
                     [defaultStrategy]="strategyBot.strategy"></app-crypto-trade-history>
             </ng-container>
             <ng-template #historyPlaceholder>

@@ -16,10 +16,11 @@ import { ChildComponent } from '../child.component';
     styleUrl: './reaction.component.css',
     standalone: false
 })
-export class ReactionComponent extends ChildComponent implements OnInit {
+export class ReactionComponent extends ChildComponent implements OnInit { 
   @ViewChild('reactionFilter') reactionFilter!: ElementRef;
 
   reactionsDisplay: Reaction[] = [];
+  filteredCurrentReactions: Reaction[] = [];
   reactionCount = 0;
   showReactionChoices = false;
   showReactions = false;
@@ -270,6 +271,7 @@ export class ReactionComponent extends ChildComponent implements OnInit {
   showReactionsOnClick() {
     if (!this.reactionCount) return;
     this.showReactions = true;
+      this.filteredCurrentReactions = this.currentReactions ?? [];
     if (this.inputtedParentRef) {
       this.inputtedParentRef.showOverlay();
     }
@@ -313,5 +315,34 @@ export class ReactionComponent extends ChildComponent implements OnInit {
       reaction.label.toLowerCase().includes(lowerSearch) ||
       reaction.type.toLowerCase().includes(lowerSearch)
     );
+  }
+  getReactionSummary() {
+    const summary: { [key: string]: number } = {};
+    this.currentReactions?.forEach((reaction: Reaction) => {
+      if (reaction.type) {
+        summary[reaction.type] = (summary[reaction.type] || 0) + 1;
+      }
+    });
+    return Object.entries(summary).map(([type, count]) => ({ type, count }));
+  }
+  filterByReactionType(type: string) {
+    // Toggle filter: if already filtered by this type, reset; otherwise, filter
+    if (
+      this.filteredCurrentReactions.length === this.currentReactions?.filter(r => r.type === type).length &&
+      this.filteredCurrentReactions.every(r => r.type === type)
+    ) {
+      this.filteredCurrentReactions = this.currentReactions ?? [];
+    } else {
+      this.filteredCurrentReactions = this.currentReactions?.filter(reaction => reaction.type === type) ?? [];
+    }
+  }
+  get activeSummaryType(): string | null {
+    if (
+      this.filteredCurrentReactions.length > 0 &&
+      this.filteredCurrentReactions.every(r => r.type === this.filteredCurrentReactions[0].type)
+    ) {
+      return this.filteredCurrentReactions[0].type ?? null;
+    }
+    return null;
   }
 }

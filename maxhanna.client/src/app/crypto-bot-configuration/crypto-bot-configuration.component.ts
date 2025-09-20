@@ -177,7 +177,8 @@ export class CryptoBotConfigurationComponent extends ChildComponent {
         toCoin,
         strategy
       );
-      if (defaultConfig && !defaultConfig.includes("Access Denied")) {
+      console.log(defaultConfig);
+      if (defaultConfig && defaultConfig.fromCoin) {
         this.applyTradeConfiguration(defaultConfig, true);
       } else if (defaultConfig && defaultConfig.includes("Access Denied")) {
         this.inputtedParentRef?.showNotification(`Error getting (${fromCoin}|${toCoin}:${strategy}) configuration: ${defaultConfig}`); 

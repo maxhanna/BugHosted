@@ -25,7 +25,7 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
   gbColorGamesList: Array<string> = [];
   pokemonGamesList: Array<string> = [];
   romDirectory: FileEntry[] = [];
-  soundOn = false;
+  soundOn = true;
   lastSaved?: Date;
   currentFileType = '';
   isSearchVisible = true;

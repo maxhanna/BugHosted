@@ -400,7 +400,7 @@
           <div>
             <!-- <div *ngIf="hasKrakenApi">Average Buy Price: <span class="thirdFontColor smallFont">{{formatToCanadianCurrency(weightedAveragePrices[0])}}</span></div>
               <div *ngIf="hasKrakenApi">Average Sell Price: <span class="thirdFontColor smallFont">{{formatToCanadianCurrency(weightedAveragePrices[1])}}</span></div> -->
-            <div>
+            <div *ngIf="lastTradebotTrade && lastTradebotTrade['value']">
               <span class="sectionName">Last:&nbsp;</span>
               <span>
                 <span *ngIf="lastTradebotTrade" class="smallFont">
@@ -501,7 +501,7 @@
           </div>
 
 
-          <div class="button-wrapper" *ngIf="(canShowTradePanelInfo() || showingTradeSettings)">
+          <div class="button-wrapper" *ngIf="(canShowTradePanelInfo() || showingTradeSettings) && hasKrakenApi">
             <button class="cursorPointer" (click)="showTradeSettings()" id="config-button"
               aria-describedby="config-desc">
               {{showingTradeSettings ? 'Hide' : 'Show'}} Configuration
@@ -540,7 +540,7 @@
 
           <div class="button-wrapper"
             [title]="isTradeBotStarted(selectedTradebotCurrency?.nativeElement?.value, selectedTradebotStrategy?.nativeElement?.value) ? 'Disabled: Tradebot is running.' : ''"
-            *ngIf="canShowTradePanelInfo()">
+            *ngIf="canShowTradePanelInfo() && hasKrakenApi">
             <button class="cursorPointer" (click)="enterPosition()"
               [title]="'Buy '+selectedTradebotCurrency?.nativeElement?.value+' On dip by splitting funds with _InitialMinimumFromAmountToStart (set in configuration).'+ hasKrakenApi ? '' : 'Disabled: No Kraken API keys found.'"
               id="enter-button" aria-describedby="enter-desc" [disabled]="!hasKrakenApi">
@@ -554,7 +554,7 @@
           </div>
 
           <div class="button-wrapper" [title]="!tradeBotStatus['BTC'] ? 'Disabled: Tradebot is not running.' : ''"
-            *ngIf="canShowTradePanelInfo()">
+            *ngIf="canShowTradePanelInfo() && hasKrakenApi">
             <button class="cursorPointer" (click)="exitPosition()"
               [title]="'Sell all '+selectedTradebotCurrency?.nativeElement?.value+' at current price and exit '+selectedTradebotCurrency?.nativeElement?.value+' position. ' + hasKrakenApi ? '' : 'Disabled: No Kraken API keys found.' + tradeBotStatus['BTC'] ? '' : 'Disabled: Tradebot not started.'"
               id="exit-button" aria-describedby="exit-desc" [disabled]="!hasKrakenApi || !tradeBotStatus['BTC']">
@@ -585,7 +585,10 @@
           </div>
         </div>
         <div *ngIf="isTradebotBalanceShowing && parentRef && selectedCurrency && !isLoading">
-          <app-crypto-trade-history [inputtedParentRef]="parentRef" [selectedCurrency]="selectedCurrency"
+          <app-crypto-trade-history
+            [inputtedParentRef]="parentRef" 
+            [hasKrakenApi]="hasKrakenApi"
+            [selectedCurrency]="selectedCurrency"
             [defaultCoin]="selectedTradebotCurrency?.nativeElement?.value ?? 'BTC'"
             [defaultStrategy]="selectedTradebotStrategy?.nativeElement?.value ?? 'DCA'"></app-crypto-trade-history>
         </div> 

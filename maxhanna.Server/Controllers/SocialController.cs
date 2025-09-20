@@ -1226,7 +1226,7 @@ namespace maxhanna.Server.Controllers
 					{
 						cmd.Parameters.AddWithValue("@UserId", request.userId);
 						cmd.Parameters.AddWithValue("@StoryId", request.story.Id);
-						cmd.Parameters.AddWithValue("@Text", request.story.StoryText);
+						cmd.Parameters.AddWithValue("@Text", _log.DecryptContent(request.story.StoryText ?? "", request.story.User?.Id + ""));
 
 						int rowsAffected = await cmd.ExecuteNonQueryAsync();
 

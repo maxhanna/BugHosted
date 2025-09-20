@@ -9,7 +9,7 @@
 }
 
 .addReactionButton {
-  cursor: pointer;  
+  cursor: pointer;
 }
 
 .addReactionSpan {
@@ -21,9 +21,9 @@
 .addReactionSpanNoBorder {
   white-space: nowrap;
   padding-right: 5px;
-  cursor: pointer; 
+  cursor: pointer;
 }
- 
+
 .reactionWrapper {
   display: flex;
   align-items: center;
@@ -45,20 +45,20 @@
 }
 
 .reactionChoices {
-    display: flex;
-    width: calc(100% - 5px);
-    flex-direction: row;
-    flex-wrap: wrap;
-    align-content: stretch;
-    justify-content: center;
-    align-items: stretch;
-    gap: 20px;
-    font-size: xx-large;
-    line-height: 50px;
-    height: CALC(var(--vh, 1vh) * 70);
-    overflow: auto;
-    border: var(--main-border);
-    border-radius: 8px;
+  display: flex;
+  width: calc(100% - 5px);
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-content: stretch;
+  justify-content: center;
+  align-items: stretch;
+  gap: 20px;
+  font-size: xx-large;
+  line-height: 50px;
+  height: CALC(var(--vh, 1vh) * 70);
+  overflow: auto;
+  border: var(--main-border);
+  border-radius: 8px;
 }
 
 .reactionsContainer {
@@ -71,7 +71,7 @@
   border: 0;
   margin: 0;
   align-items: center;
-  align-content: center; 
+  align-content: center;
 }
 
 .reactionsDisplaySpan {
@@ -99,7 +99,7 @@
 
 
 .reactionTypeSpan {
-  font-size: 30px;
+  font-size: large;
 }
 
 .popupPanel button {
@@ -111,10 +111,6 @@
   height: 300px;
   width: 320px;
   overflow: auto;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 20px;
   border: var(--main-border);
   border-radius: 8px;
 }
@@ -138,11 +134,12 @@
 .reactedReactionDiv {
   display: flex;
   justify-content: space-between !important;
-  align-content: stretch !important;
-  align-items: center !important;
-  width: 100%;
-  flex-wrap: wrap !important;
-  flex-direction: row-reverse !important;
+  width: calc(100% - 10px);
+  flex-direction: row;
+  padding-left: 5px;
+  padding-right: 5px;
+  padding-top: 2px;
+  padding-bottom: 2px;
 }
 
 .showReactionsPopupPanelTitleWrapperDiv {
@@ -152,4 +149,39 @@
   justify-content: center;
   align-content: center;
   flex-direction: column;
+}
+
+.timesinceTimestamp {
+  margin-left: 5px;
+  display: flex;
+  align-items: center;
+}
+
+
+
+
+.reactionSummary {
+  padding: 10px;
+  margin-bottom: 10px;
+}
+
+.summaryList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.summaryItem {
+  padding: 5px 10px;
+  border: var(--main-border);
+  border-radius: 12px;
+  font-size: 0.9em;
+  cursor: pointer;
+}
+
+.summaryItem:hover,
+.activeSummaryType {
+  color: var(--secondary-font-color);
+  background-color: var(--third-font-color);
+  transform: scale(1.05);
 }

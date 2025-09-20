@@ -80,6 +80,8 @@ import { CryptoLiveTradeViewComponent } from './crypto-live-trade-view/crypto-li
 import { TextFormattingToolbarComponent } from './text-formatting-toolbar/text-formatting-toolbar.component';
 import { TextInputComponent } from './text-input/text-input.component';
 import { ClickableUrlsPipe } from './clickable-url.pipe';
+import { MastermindComponent } from './mastermind/mastermind.component';
+import { ArtComponent } from './art/art.component';
 
 @NgModule({
   declarations: [
@@ -148,6 +150,8 @@ import { ClickableUrlsPipe } from './clickable-url.pipe';
     CryptoLiveTradeViewComponent,
     TextFormattingToolbarComponent,
     TextInputComponent,
+    MastermindComponent,
+    ArtComponent,
   ],
   bootstrap: [AppComponent],
   imports: [BrowserModule,
