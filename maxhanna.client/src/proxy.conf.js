@@ -37,6 +37,7 @@ const PROXY_CONFIG = [
       "/poll",
       "/mastermind",
       "/art",
+      "/viral",
     ],
     target,
     changeOrigin: true, // This helps with certain CORS issues and forwards headers correctly 

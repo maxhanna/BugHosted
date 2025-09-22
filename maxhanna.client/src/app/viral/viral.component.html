@@ -1,64 +1,109 @@
 <div class="componentMain" #componentMain>
-	<div class="menuButton" (click)="togglePopupMenu()"></div> 
+	<div class="menuButton" (click)="togglePopupMenu()"></div>
 	<div class="closeButton" (click)="remove_me('ViralComponent');"></div>
 	<!--<div class="refreshButton" (click)="ngOnInit();"></div>-->
 	<div class="componentTitle">Viral</div>
 	<div class="gameCanvasContainer">
-		<canvas #gameCanvas id="gameCanvas" class="gameCanvas" width=320 height="220"></canvas> 
+		<canvas #gameCanvas id="gameCanvas" class="gameCanvas" width=320 height="220"></canvas>
 	</div>
 	<div class="chatArea">
 		<div class="chatInputDiv">
-			<input type="text" [placeholder]=" 'Chat'" #chatInput id="chatInput" class="chatInput" (keydown)="lockMovementForChat()" (change)="lockMovementForChat()" />
+			<input type="text" [placeholder]=" 'Chat'" #chatInput id="chatInput" class="chatInput"
+				(keydown)="lockMovementForChat()" (change)="lockMovementForChat()" />
 		</div>
 	</div>
 	<div class="inputArea">
+		<div class="controls">
 			<div class="controls">
-				<div class="controls">
-					<div *ngIf="!useJoystick" class="dpad">
-						<!-- Dpad buttons as before -->
-						<div class="up-left" (mousedown)="mainScene.input.handleControl('UP_LEFT', 'press')" (mouseup)="mainScene.input.handleControl('UP_LEFT', 'release')" (touchstart)="mainScene.input.handleControl('UP_LEFT', 'press', $event)" (touchend)="mainScene.input.handleControl('UP_LEFT', 'release', $event)" (touchcancel)="mainScene.input.handleControl('UP_LEFT', 'release', $event)"><div class="up-left-triangle"></div></div>
-						<div class="up" (mousedown)="mainScene.input.handleControl('UP', 'press')" (mouseup)="mainScene.input.handleControl('UP', 'release')" (touchstart)="mainScene.input.handleControl('UP', 'press', $event)" (touchend)="mainScene.input.handleControl('UP', 'release', $event)" (touchcancel)="mainScene.input.handleControl('UP', 'release', $event)"><div class="up-triangle"></div></div>
-						<div class="up-right" (mousedown)="mainScene.input.handleControl('UP_RIGHT', 'press')" (mouseup)="mainScene.input.handleControl('UP_RIGHT', 'release')" (touchstart)="mainScene.input.handleControl('UP_RIGHT', 'press', $event)" (touchend)="mainScene.input.handleControl('UP_RIGHT', 'release', $event)" (touchcancel)="mainScene.input.handleControl('UP_RIGHT', 'release', $event)"><div class="up-right-triangle"></div></div>
-						<div class="right" (mousedown)="mainScene.input.handleControl('RIGHT', 'press')" (mouseup)="mainScene.input.handleControl('RIGHT', 'release')" (touchstart)="mainScene.input.handleControl('RIGHT', 'press', $event)" (touchend)="mainScene.input.handleControl('RIGHT', 'release', $event)" (touchcancel)="mainScene.input.handleControl('RIGHT', 'release', $event)"><div class="right-triangle"></div></div>
-						<div class="down" (mousedown)="mainScene.input.handleControl('DOWN', 'press')" (mouseup)="mainScene.input.handleControl('DOWN', 'release')" (touchstart)="mainScene.input.handleControl('DOWN', 'press', $event)" (touchend)="mainScene.input.handleControl('DOWN', 'release', $event)" (touchcancel)="mainScene.input.handleControl('DOWN', 'release', $event)"><div class="down-triangle"></div></div>
-						<div class="down-left" (mousedown)="mainScene.input.handleControl('DOWN_LEFT', 'press')" (mouseup)="mainScene.input.handleControl('DOWN_LEFT', 'release')" (touchstart)="mainScene.input.handleControl('DOWN_LEFT', 'press', $event)" (touchend)="mainScene.input.handleControl('DOWN_LEFT', 'release', $event)" (touchcancel)="mainScene.input.handleControl('DOWN_LEFT', 'release', $event)"><div class="down-left-triangle"></div></div>
-						<div class="left" (mousedown)="mainScene.input.handleControl('LEFT', 'press')" (mouseup)="mainScene.input.handleControl('LEFT', 'release')" (touchstart)="mainScene.input.handleControl('LEFT', 'press', $event)" (touchend)="mainScene.input.handleControl('LEFT', 'release', $event)" (touchcancel)="mainScene.input.handleControl('LEFT', 'release', $event)"><div class="left-triangle"></div></div>
-						<div class="down-right" (mousedown)="mainScene.input.handleControl('DOWN_RIGHT', 'press')" (mouseup)="mainScene.input.handleControl('DOWN_RIGHT', 'release')" (touchstart)="mainScene.input.handleControl('DOWN_RIGHT', 'press', $event)" (touchend)="mainScene.input.handleControl('DOWN_RIGHT', 'release', $event)" (touchcancel)="mainScene.input.handleControl('DOWN_RIGHT', 'release', $event)"><div class="down-right-triangle"></div></div>
-						<div class="middle"></div>
+				<div *ngIf="!useJoystick" class="dpad">
+					<!-- Dpad buttons as before -->
+					<div class="up-left" (mousedown)="mainScene.input.handleControl('UP_LEFT', 'press')"
+						(mouseup)="mainScene.input.handleControl('UP_LEFT', 'release')"
+						(touchstart)="mainScene.input.handleControl('UP_LEFT', 'press', $event)"
+						(touchend)="mainScene.input.handleControl('UP_LEFT', 'release', $event)"
+						(touchcancel)="mainScene.input.handleControl('UP_LEFT', 'release', $event)">
+						<div class="up-left-triangle"></div>
 					</div>
-					<div *ngIf="useJoystick" class="joystick">
-							<div id="joystick-base" class="joystick-base"
-								(mousedown)="mainScene.input.onJoystickStart($event)"
-								(touchstart)="mainScene.input.onJoystickStart($event)"
-								[style.position]="'relative'"
-								[style.width.px]="mainScene.input.joystickRadius*2"
-								[style.height.px]="mainScene.input.joystickRadius*2">
-								<div class="joystick-knob"
-									[style.left.px]="mainScene.input.joystickKnob.x - mainScene.input.knobRadius"
-									[style.top.px]="mainScene.input.joystickKnob.y - mainScene.input.knobRadius"
-									[style.width.px]="mainScene.input.knobRadius*2"
-									[style.height.px]="mainScene.input.knobRadius*2"
-									[style.position]="'absolute'"
-									[style.touchAction]="'none'"
-								></div>
-							</div>
+					<div class="up" (mousedown)="mainScene.input.handleControl('UP', 'press')"
+						(mouseup)="mainScene.input.handleControl('UP', 'release')"
+						(touchstart)="mainScene.input.handleControl('UP', 'press', $event)"
+						(touchend)="mainScene.input.handleControl('UP', 'release', $event)"
+						(touchcancel)="mainScene.input.handleControl('UP', 'release', $event)">
+						<div class="up-triangle"></div>
+					</div>
+					<div class="up-right" (mousedown)="mainScene.input.handleControl('UP_RIGHT', 'press')"
+						(mouseup)="mainScene.input.handleControl('UP_RIGHT', 'release')"
+						(touchstart)="mainScene.input.handleControl('UP_RIGHT', 'press', $event)"
+						(touchend)="mainScene.input.handleControl('UP_RIGHT', 'release', $event)"
+						(touchcancel)="mainScene.input.handleControl('UP_RIGHT', 'release', $event)">
+						<div class="up-right-triangle"></div>
+					</div>
+					<div class="right" (mousedown)="mainScene.input.handleControl('RIGHT', 'press')"
+						(mouseup)="mainScene.input.handleControl('RIGHT', 'release')"
+						(touchstart)="mainScene.input.handleControl('RIGHT', 'press', $event)"
+						(touchend)="mainScene.input.handleControl('RIGHT', 'release', $event)"
+						(touchcancel)="mainScene.input.handleControl('RIGHT', 'release', $event)">
+						<div class="right-triangle"></div>
+					</div>
+					<div class="down" (mousedown)="mainScene.input.handleControl('DOWN', 'press')"
+						(mouseup)="mainScene.input.handleControl('DOWN', 'release')"
+						(touchstart)="mainScene.input.handleControl('DOWN', 'press', $event)"
+						(touchend)="mainScene.input.handleControl('DOWN', 'release', $event)"
+						(touchcancel)="mainScene.input.handleControl('DOWN', 'release', $event)">
+						<div class="down-triangle"></div>
+					</div>
+					<div class="down-left" (mousedown)="mainScene.input.handleControl('DOWN_LEFT', 'press')"
+						(mouseup)="mainScene.input.handleControl('DOWN_LEFT', 'release')"
+						(touchstart)="mainScene.input.handleControl('DOWN_LEFT', 'press', $event)"
+						(touchend)="mainScene.input.handleControl('DOWN_LEFT', 'release', $event)"
+						(touchcancel)="mainScene.input.handleControl('DOWN_LEFT', 'release', $event)">
+						<div class="down-left-triangle"></div>
+					</div>
+					<div class="left" (mousedown)="mainScene.input.handleControl('LEFT', 'press')"
+						(mouseup)="mainScene.input.handleControl('LEFT', 'release')"
+						(touchstart)="mainScene.input.handleControl('LEFT', 'press', $event)"
+						(touchend)="mainScene.input.handleControl('LEFT', 'release', $event)"
+						(touchcancel)="mainScene.input.handleControl('LEFT', 'release', $event)">
+						<div class="left-triangle"></div>
+					</div>
+					<div class="down-right" (mousedown)="mainScene.input.handleControl('DOWN_RIGHT', 'press')"
+						(mouseup)="mainScene.input.handleControl('DOWN_RIGHT', 'release')"
+						(touchstart)="mainScene.input.handleControl('DOWN_RIGHT', 'press', $event)"
+						(touchend)="mainScene.input.handleControl('DOWN_RIGHT', 'release', $event)"
+						(touchcancel)="mainScene.input.handleControl('DOWN_RIGHT', 'release', $event)">
+						<div class="down-right-triangle"></div>
+					</div>
+					<div class="middle"></div>
+				</div>
+				<div *ngIf="useJoystick" class="joystick">
+					<div id="joystick-base" class="joystick-base" (mousedown)="mainScene.input.onJoystickStart($event)"
+						(touchstart)="mainScene.input.onJoystickStart($event)" [style.position]="'relative'"
+						[style.width.px]="mainScene.input.joystickRadius*2"
+						[style.height.px]="mainScene.input.joystickRadius*2">
+						<div class="joystick-knob"
+							[style.left.px]="mainScene.input.joystickKnob.x - mainScene.input.knobRadius"
+							[style.top.px]="mainScene.input.joystickKnob.y - mainScene.input.knobRadius"
+							[style.width.px]="mainScene.input.knobRadius*2"
+							[style.height.px]="mainScene.input.knobRadius*2" [style.position]="'absolute'"
+							[style.touchAction]="'none'"></div>
 					</div>
 				</div>
 			</div>
+		</div>
 		<div class="controls">
 			<div class="a-b">
 				<div class="b" (mouseup)='mainScene.input.pressB()'>B</div>
 				<div class="a" (mouseup)='mainScene.input.pressA()'>A</div>
 			</div>
-			<div class="start" (mouseup)='mainScene.input.pressStart()' >START</div>
-		</div> 
+			<div class="start" (mouseup)='mainScene.input.pressStart()'>START</div>
+		</div>
 	</div>
 </div>
 
 
 <div *ngIf="showPopupMenu" class="popupPanel">
-    <div class="popupPanelTitle">Settings</div>
-    <button (click)="setControlType('dpad')">Use D-Pad</button>
-    <button (click)="setControlType('joystick')">Use Joystick</button>
-    <button (click)="togglePopupMenu()">Close</button>
+	<div class="popupPanelTitle">Settings</div>
+	<button (click)="setControlType('dpad')">Use D-Pad</button>
+	<button (click)="setControlType('joystick')">Use Joystick</button>
+	<button (click)="togglePopupMenu()">Close</button>
 </div>
