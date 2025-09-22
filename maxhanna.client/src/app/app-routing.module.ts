@@ -26,8 +26,10 @@ const routes: Routes = [
   { path: 'Crawler/:url', component: AppComponent },
   { path: 'Crawler', component: AppComponent },
   { path: 'Emulator', component: AppComponent },
+  { path: 'Emulation', component: AppComponent },
   { path: 'Emu', component: AppComponent },
   { path: 'Top', component: AppComponent },
+  { path: 'Mastermind', component: AppComponent },
 ];
 
 @NgModule({

@@ -161,8 +161,11 @@ export class FileComponent extends ChildComponent implements OnInit, OnDestroy {
       this.stopLoading();
     }
   } 
-  canUploadToFolder() { 
-    return !this.showMakeDirectoryPrompt && !(this.currentDirectory == '' && this.parentRef?.user?.id != 1) && !(this.currentDirectory == 'Users/');
+  canUploadToFolder() {  
+    const isRootAndNotAdmin = (this.currentDirectory === '' && this.parentRef?.user?.id !== 1);
+    const isUsersFolder = this.currentDirectory === 'Users/';
+ 
+    return !(isRootAndNotAdmin || isUsersFolder);
   }
   showMenuPanel() {
     if (this.isMenuPanelOpen) {

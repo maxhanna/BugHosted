@@ -42,6 +42,7 @@
 .smallContainerForMedia {
   text-align: center;
   border: var(--main-border);
+  height: 100%;
 }
 
 .smallContainerForMedia button {
@@ -76,7 +77,8 @@
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
-} 
+}
+
 .attachmentChoiceContainer {
   display: flex;
   justify-content: center;

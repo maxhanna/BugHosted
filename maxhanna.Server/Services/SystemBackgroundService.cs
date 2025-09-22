@@ -1635,6 +1635,65 @@ namespace maxhanna.Server.Services
 						{ "Novice Meta-Fighter", "SELECT DISTINCT u.id AS user_id FROM users u JOIN meta_hero mh ON u.id=mh.user_id JOIN meta_bot mb ON mh.id=mb.hero_id WHERE mb.level>10" },
 						{ "Elite Meta-Fighter", "SELECT DISTINCT u.id AS user_id FROM users u JOIN meta_hero mh ON u.id=mh.user_id JOIN meta_bot mb ON mh.id=mb.hero_id WHERE mb.level>20" },
 						{ "Legendary Meta-Fighter", "SELECT DISTINCT u.id AS user_id FROM users u JOIN meta_hero mh ON u.id=mh.user_id JOIN meta_bot mb ON mh.id=mb.hero_id WHERE mb.level>30" },
+						{ "Mastermind Fastest Win", @"
+							SELECT user_id FROM mastermind_scores 
+							WHERE time = (SELECT MIN(time) FROM mastermind_scores WHERE score > 0 AND DATE(submitted) = DATE(UTC_DATE())) 
+							  AND score > 0 AND DATE(submitted) = DATE(UTC_DATE()) 
+							  AND NOT EXISTS (
+								  SELECT 1 FROM user_trophy ut 
+								  JOIN user_trophy_type tt ON ut.trophy_id = tt.id 
+								  WHERE ut.user_id = mastermind_scores.user_id AND tt.name = 'Mastermind Fastest Win'
+							  )
+							LIMIT 1
+						" },
+						{ "Mastermind Most Wins", @"
+							SELECT user_id FROM (
+								SELECT user_id, COUNT(*) AS win_count FROM mastermind_scores 
+								WHERE score > 0 AND DATE(submitted) = DATE(UTC_DATE()) 
+								GROUP BY user_id ORDER BY win_count DESC LIMIT 1
+							) mw 
+							WHERE NOT EXISTS (
+								SELECT 1 FROM user_trophy ut 
+								JOIN user_trophy_type tt ON ut.trophy_id = tt.id 
+								WHERE ut.user_id = mw.user_id AND tt.name = 'Mastermind Most Wins'
+							)
+						" },
+						{ "Mastermind 10 Wins", @"
+							SELECT user_id FROM (
+								SELECT user_id, COUNT(*) AS win_count FROM mastermind_scores 
+								WHERE score > 0 
+								GROUP BY user_id HAVING win_count >= 10
+							) mw 
+							WHERE NOT EXISTS (
+								SELECT 1 FROM user_trophy ut 
+								JOIN user_trophy_type tt ON ut.trophy_id = tt.id 
+								WHERE ut.user_id = mw.user_id AND tt.name = 'Mastermind 10 Wins'
+							)
+						" },
+						{ "Mastermind 100 Wins", @"
+							SELECT user_id FROM (
+								SELECT user_id, COUNT(*) AS win_count FROM mastermind_scores 
+								WHERE score > 0 
+								GROUP BY user_id HAVING win_count >= 100
+							) mw 
+							WHERE NOT EXISTS (
+								SELECT 1 FROM user_trophy ut 
+								JOIN user_trophy_type tt ON ut.trophy_id = tt.id 
+								WHERE ut.user_id = mw.user_id AND tt.name = 'Mastermind 100 Wins'
+							)
+						" },
+						{ "Mastermind 1000 Wins", @"
+							SELECT user_id FROM (
+								SELECT user_id, COUNT(*) AS win_count FROM mastermind_scores 
+								WHERE score > 0 
+								GROUP BY user_id HAVING win_count >= 1000
+							) mw 
+							WHERE NOT EXISTS (
+								SELECT 1 FROM user_trophy ut 
+								JOIN user_trophy_type tt ON ut.trophy_id = tt.id 
+								WHERE ut.user_id = mw.user_id AND tt.name = 'Mastermind 1000 Wins'
+							)
+						" },
 					};
 					foreach (var trophy in trophyCriteria)
 					{

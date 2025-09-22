@@ -22,38 +22,20 @@
 			[currentPage]="currentArtPage"
 			[previousComponent]="'Art'">
 		</app-file-search>
-	</div>
-
-	<div class="mediaSelectorDiv">
-		<app-media-selector
-			[user]="parentRef?.user"
-			[inputtedParentRef]="parentRef"
-			[currentDirectory]="'Art/'" 
-			[uploadButtonText]="'Upload Art'"
-			[maxSelectedFiles]="20">
-		</app-media-selector>
-	</div>
+	</div> 
 </div>
 
 <!-- Menu Popup -->
-<div class="popupPanel" *ngIf="isMenuPanelOpen">
+<div class="popupPanel artMenuPopup" *ngIf="isMenuPanelOpen">
 	<div class="popupPanelTitle popupPanelContents" style="margin-bottom:15px;">
 		Art Menu
 	</div>
 	<div class="fileUploadInputs">
-		<app-media-selector
-			[user]="parentRef?.user"
-			[inputtedParentRef]="parentRef"
-			[currentDirectory]="'Art/'" 
-			[uploadButtonText]="'Upload Art'"
-			[maxSelectedFiles]="20">
-		</app-media-selector>
-	</div>
-	<div class="popupPanelContents">
-		<div class="popupPanelTitle">
-			Search Art:
-		</div>
-	<input type="text" placeholder="Search Art..." (input)="onSearchArtInput($event, fileSearchComponent)" />
-	</div>
+		<app-file-upload [currentDirectory]="'Art'" [user]="parentRef?.user" [inputtedParentRef]="parentRef"
+			[showPrivatePublicOption]="true" [uploadButtonText]="'Upload Art'" [maxSelectedFiles]="100"
+			(userNotificationEvent)="uploadNotification($event);" (userUploadEvent)="uploadFileListEvent($event);"
+			(userUploadFinishedEvent)="uploadFinished($event)" (userCancelEvent)="uploadCancelEvent($event);" id="fileUploader">
+		</app-file-upload>
+	</div> 
 	<button id="closeOverlay" (click)="closeMenuPanel()" class="closeButton">Close</button>
 </div>

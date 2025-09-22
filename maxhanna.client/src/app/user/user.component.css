@@ -382,10 +382,7 @@
     font-size: 16px;
     touch-action: manipulation;
   }
-}
-
-
-
+} 
 
 .popupPanelTitle {
   display: flex;
@@ -494,7 +491,7 @@
 .memeAndWordlerWrapper {
   display: flex;
   align-items: flex-start;
-  justify-content: center;
+  justify-content: space-evenly;
   flex-wrap: wrap;
   gap: 10px;
 }

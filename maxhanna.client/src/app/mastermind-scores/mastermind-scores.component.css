@@ -1,0 +1,28 @@
+.scoreDiv {
+    max-height: 20vh;
+    overflow: auto;
+}
+
+.scoreTable {
+    width: 100%;
+}
+
+.regularTitle {
+    color: var(--third-font-color);
+    text-align: center;
+    font-weight: bold;
+}
+
+.userPopupPanelTitle {
+    display: flex;
+    align-items: center;
+    padding: 0.5rem 0;
+    font-weight: 600;
+    border-bottom: 1px solid var(--main-border-color);
+    margin-bottom: 1rem;
+    cursor: pointer;
+    text-decoration: underline;
+}
+.mainTable th {
+    font-size: small;
+}

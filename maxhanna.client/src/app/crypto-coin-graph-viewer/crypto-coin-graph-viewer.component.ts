@@ -75,7 +75,7 @@ export class CryptoCoinGraphViewerComponent extends ChildComponent implements On
             x.valueCAD = 0;
           }
         });
-        if (hours < 336) { 
+        if (hours <= 24) { 
           this.startPolling();
         } else {
           this.timeLeft = 999;

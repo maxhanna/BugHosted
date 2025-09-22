@@ -945,6 +945,9 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     }, 500);
   }
   changeSearchTermsFromSearchInput() {
+    console.log("this.currentPage:", this.currentPage);
+    this.currentPage = 1;
+    this.scrollToTop();
     clearTimeout(this.debounceTimer);
     this.debounceTimer = setTimeout(() => {
       this.searchTerms = this.search.nativeElement.value.trim();

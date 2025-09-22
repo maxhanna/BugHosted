@@ -11,8 +11,8 @@ import { Trophy } from '../../services/datacontracts/user/trophy';
   styleUrl: './user-trophies.component.css'
 })
 export class UserTrophiesComponent extends ChildComponent {
-  constructor() {super();}  
-  @Input() inputtedParentRef?: AppComponent | undefined; 
+  constructor() { super(); }
+  @Input() inputtedParentRef?: AppComponent | undefined;
   @Input() trophies?: Trophy[] = undefined;
 
   trophyDescriptions: { [key: string]: string } = {
@@ -20,17 +20,17 @@ export class UserTrophiesComponent extends ChildComponent {
     'Active Trader': 'Executed 25 or more trades with the tradebot.',
     'Frequent Trader': 'Executed 100 or more trades with the tradebot.',
     'Trade Addict': 'Executed 500 or more trades with the tradebot.',
-    'Trade Master': 'Executed 1000 or more trades with the tradebot.', 
+    'Trade Master': 'Executed 1000 or more trades with the tradebot.',
     '$100 Portfolio': 'Achieved a portfolio value of $100 or more.',
     '$1K Portfolio': 'Achieved a portfolio value of $1,000 or more.',
     '$10K Portfolio': 'Achieved a portfolio value of $10,000 or more.',
-    '$100K Portfolio': 'Achieved a portfolio value of $100,000 or more.', 
+    '$100K Portfolio': 'Achieved a portfolio value of $100,000 or more.',
     'DCA Strategist': 'Executed 10 or more Dollar-Cost Averaging (DCA) strategy trades.',
     'BTC Veteran': 'Executed 10 or more trades involving Bitcoin (BTC).',
     'ETH Veteran': 'Executed 10 or more trades involving Ethereum (ETH).',
-    'Altcoin Explorer': 'Executed 10 or more trades involving altcoins (non-BTC/ETH).', 
+    'Altcoin Explorer': 'Executed 10 or more trades involving altcoins (non-BTC/ETH).',
     'First Profit': 'Achieved a positive net profit from trading.',
-    'Consistent Profits': 'Had 5 or more days with positive trading profits.', 
+    'Consistent Profits': 'Had 5 or more days with positive trading profits.',
     '7-Day Streak': 'Traded on 7 or more consecutive days.',
     '30-Day Streak': 'Traded on 30 or more consecutive days.',
     'Year-Round Trader': 'Traded in every month of the year.',
@@ -66,13 +66,18 @@ export class UserTrophiesComponent extends ChildComponent {
     'Meta-Fighter': 'Owns a Meta Bot with level greater than 5.',
     'Novice Meta-Fighter': 'Owns a Meta Bot with level greater than 10.',
     'Elite Meta-Fighter': 'Owns a Meta Bot with level greater than 20.',
-    'Legendary Meta-Fighter': 'Owns a Meta Bot with level greater than 30.', 
+    'Legendary Meta-Fighter': 'Owns a Meta Bot with level greater than 30.',
     'Wordler Beginner': 'Played 3 or more Wordler games.',
     'Wordler Expert': 'Played 30 or more Wordler games.',
     'Master Wordler': 'Played 100 or more Wordler games.',
     'Wordler Legend': 'Played 1000 or more Wordler games.',
     'Wordler God': 'Played 10000 or more Wordler games.',
     'Bug Hunter': 'Reported and verified a significant bug in the system.',
-    'Owner': 'Owner or administrator of the platform.'
-  }; 
+    'Owner': 'Owner or administrator of the platform.',
+    'Mastermind Fastest Win': 'Achieved the fastest Mastermind win time for the day. Awarded only once per user.',
+    'Mastermind Most Wins': 'Achieved the most Mastermind wins in a single day. Awarded only once per user.',
+    'Mastermind 10 Wins': 'Won 10 games of Mastermind. Awarded only once per user.',
+    'Mastermind 100 Wins': 'Won 100 games of Mastermind. Awarded only once per user.',
+    'Mastermind 1000 Wins': 'Won 1000 games of Mastermind. Awarded only once per user.',
+  };
 }

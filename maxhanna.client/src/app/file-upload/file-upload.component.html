@@ -46,10 +46,11 @@
 
   <div class="fileListDiv">
     <div *ngFor="let file of uploadFileList; let i = index" class="fileUploadItem">
-      <div class="fileUploadLineDiv">
-        <span class="fileName">{{file.name}}</span>
+      <div class="fileUploadLineDiv"> 
         <div class="progressContainer">
-          <div class="progressBar" [style.width.%]="uploadProgress[file.name] || 0"></div>
+          <div class="progressBar" [style.width.%]="uploadProgress[file.name] || 0">
+            <span class="fileName">{{file.name}}</span>
+          </div>
         </div>
         <span class="progressText">
           {{uploadProgress[file.name] === 100 ? '✅' : (uploadProgress[file.name] || 0) + '%'}}

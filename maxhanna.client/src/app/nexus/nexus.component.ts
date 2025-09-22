@@ -1480,7 +1480,7 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
           || x.building == "factory" && x.nextLevel == this.nexusBase?.factoryLevel
         );
       }
-      if (this.nexusBase.engineeringBayLevel < 1) {
+      if (this.nexusBase.engineeringBayLevel < 1 || this.nexusBase.factoryLevel < 1) {
         this.currentValidAvailableUpgrades = this.currentValidAvailableUpgrades.filter(x => x.building != "starport");
       }
       return this.currentValidAvailableUpgrades;

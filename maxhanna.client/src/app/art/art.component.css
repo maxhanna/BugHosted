@@ -1,4 +1,6 @@
-/* Art Gallery Styles */
+.componentMain {
+	min-width: 300px;
+}
 .art-main {
 	max-width: 700px;
 	margin: 0 auto;
@@ -49,4 +51,9 @@
 }
 .art-source button:hover {
 	background: #ddd;
+}
+
+.artMenuPopup {
+	min-width: 400px;
+	min-height: 60vh;
 }

@@ -81,8 +81,8 @@ export class AppComponent implements OnInit, AfterViewInit {
     { ownership: 0, icon: "🎮", title: "Emulation", content: undefined },
     { ownership: 0, icon: "⚔️", title: "Array", content: undefined },
     { ownership: 0, icon: "🧠", title: "Wordler", content: undefined },
-    { ownership: 0, icon: "M", title: "Mastermind", content: undefined },
-    { ownership: 0, icon: "A", title: "Art", content: undefined },
+    { ownership: 0, icon: "🎯", title: "Mastermind", content: undefined },
+    { ownership: 0, icon: "🖼️", title: "Art", content: undefined },
     { ownership: 0, icon: "📁", title: "Files", content: undefined },
     { ownership: 0, icon: "📅", title: "Calendar", content: undefined },
     { ownership: 0, icon: "☀️", title: "Weather", content: '' },
@@ -382,7 +382,7 @@ export class AppComponent implements OnInit, AfterViewInit {
         }
         else if (this.router.url.toLowerCase().includes('emu')) {
           this.checkAndClearRouterOutlet();
-          this.createComponent('Emulator');
+          this.createComponent('Emulation');
         }
         else if (this.router.url.includes('War')) {
           this.checkAndClearRouterOutlet();
@@ -399,6 +399,10 @@ export class AppComponent implements OnInit, AfterViewInit {
         else if (this.router.url.includes('Top')) {
           this.checkAndClearRouterOutlet();
           this.createComponent('Top100');
+        }
+        else if (this.router.url.includes('Mastermind')) {
+          this.checkAndClearRouterOutlet();
+          this.createComponent('Mastermind');
         }
         else if (this.router.url.includes('Crypto') || this.router.url.includes('Cryptocurrency') || this.router.url.includes('Defi')) {
           this.checkAndClearRouterOutlet();

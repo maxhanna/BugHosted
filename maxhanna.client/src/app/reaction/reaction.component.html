@@ -22,8 +22,8 @@
     Reaction Choices
   </div> 
   <div class="searchInputDiv">
-    <input #reactionFilter placeholder="Filter/Search" (input)="searchForReaction()" /><button
-      (click)="searchForReaction()">🔍 Search</button>
+    <input #reactionFilter placeholder="Filter/Search" (input)="searchForReaction()" />
+    <button (click)="searchForReaction()" class="reactionSearchButton">🔍 Search</button>
   </div>
 
   <div class="reactionChoices gradientBackground">
@@ -55,11 +55,11 @@
           [previousComponent]="previousComponent"></app-user-tag>
       </div>
       <div>
-        <span class="reactionTypeSpan" [title]="reaction.type">{{replaceReactionType(reaction.type)}}</span>
-      </div>
-      <div>
         <span class="xxSmallFont thirdFontColor timesinceTimestamp" [title]="reaction.timestamp">{{reaction.timestamp |
           timeSince}}</span>
+      </div>
+      <div>
+        <span class="reactionTypeSpan" [title]="reaction.type">{{replaceReactionType(reaction.type)}}</span>
       </div>
     </div>
   </div>

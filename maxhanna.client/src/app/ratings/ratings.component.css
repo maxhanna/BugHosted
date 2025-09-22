@@ -1,0 +1,65 @@
+.componentMain {
+    min-width: 300px;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+    padding: 16px;
+    background: #fff;
+}
+
+.componentTitle {
+    font-size: 1.5em;
+    font-weight: bold;
+    margin-bottom: 12px;
+}
+
+.menuButton {
+    position: absolute;
+    top: 12px;
+    right: 48px;
+    width: 32px;
+    height: 32px;
+    background: url('/assets/menu.svg') no-repeat center center;
+    cursor: pointer;
+}
+
+.closeButton {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    width: 32px;
+    height: 32px;
+    background: url('/assets/close.svg') no-repeat center center;
+    cursor: pointer;
+}
+
+.ratingBar {
+    display: flex;
+    gap: 8px;
+    margin: 24px 0 12px 0;
+    justify-content: center;
+}
+
+.star {
+    font-size: 2em;
+    color: #ccc;
+    cursor: pointer;
+    transition: color 0.2s;
+}
+
+.star.selected {
+    color: gold;
+}
+
+.ratingValue {
+    text-align: center;
+    font-size: 1.1em;
+    margin-top: 8px;
+}
+
+.popupPanel.mmPopup {
+    min-width: 300px;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+    background: #fff;
+    padding: 16px;
+}

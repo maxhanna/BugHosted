@@ -17,28 +17,131 @@ namespace maxhanna.Server.Controllers
             _connectionString = config.GetValue<string>("ConnectionStrings:maxhanna") ?? "";
         }
 
-        [HttpGet("GetBestScores")]
-        public async Task<IActionResult> GetBestScores()
+        [HttpGet("GetBestScoresToday")]
+        public async Task<IActionResult> GetBestScoresToday([FromQuery] int count = 20)
         {
             var scores = new List<MastermindScore>();
             using (var conn = new MySqlConnector.MySqlConnection(_connectionString))
             {
                 await conn.OpenAsync();
-                string sql = @"SELECT id, user_id, score, tries, time, submitted FROM mastermind_scores ORDER BY score DESC, tries ASC, time ASC LIMIT 10";
+                string sql = @"
+                    SELECT
+                        ms.id,
+                        ms.user_id,
+                        ms.score,
+                        ms.tries,
+                        ms.time,
+                        ms.submitted,
+                        u.username,
+                        u.created,
+                        u.last_seen,
+                        dp.id as dp_id,
+                        dp.file_name as dp_file_name,
+                        dp.folder_path as dp_directory,
+                        dp.file_type as dp_file_type
+                    FROM mastermind_scores ms
+                    JOIN users u ON ms.user_id = u.id
+                    LEFT JOIN user_display_pictures udp ON u.id = udp.user_id
+                    LEFT JOIN file_uploads dp ON udp.file_id = dp.id
+                    WHERE DATE(ms.submitted) = CURDATE()
+                    ORDER BY ms.score DESC, ms.tries ASC, ms.time ASC
+                    LIMIT @Count
+                ";
                 using (var cmd = new MySqlConnector.MySqlCommand(sql, conn))
-                using (var reader = await cmd.ExecuteReaderAsync())
                 {
-                    while (await reader.ReadAsync())
+                    cmd.Parameters.AddWithValue("@Count", count);
+                    using (var reader = await cmd.ExecuteReaderAsync())
                     {
-                        scores.Add(new MastermindScore
+                        while (await reader.ReadAsync())
                         {
-                            Id = reader.GetInt32(0),
-                            UserId = reader.GetInt32(1),
-                            Score = reader.GetInt32(2),
-                            Tries = reader.GetInt32(3),
-                            Time = reader.GetInt32(4),
-                            Submitted = reader.GetDateTime(5)
-                        });
+                            var user = new maxhanna.Server.Controllers.DataContracts.Users.User
+                            {
+                                Id = reader.GetInt32("user_id"),
+                                Username = reader.GetString("username"),
+                                Created = reader.GetDateTime("created"),
+                                LastSeen = reader.GetDateTime("last_seen"), 
+                                DisplayPictureFile = reader.IsDBNull(reader.GetOrdinal("dp_id")) ? null : new maxhanna.Server.Controllers.DataContracts.Files.FileEntry {
+                                    Id = reader.GetInt32("dp_id"),
+                                    FileName = reader.GetString("dp_file_name"),
+                                    Directory = reader.GetString("dp_directory"),
+                                    FileType = reader.GetString("dp_file_type")
+                                }
+                            };
+                            scores.Add(new MastermindScore
+                            {
+                                Id = reader.GetInt32("id"),
+                                User = user,
+                                Score = reader.GetInt32("score"),
+                                Tries = reader.GetInt32("tries"),
+                                Time = reader.GetInt32("time"),
+                                Submitted = reader.GetDateTime("submitted")
+                            });
+                        }
+                    }
+                }
+            }
+            return Ok(scores);
+        }
+
+        [HttpGet("GetBestScores")]
+        public async Task<IActionResult> GetBestScores([FromQuery] int count = 10)
+        {
+            var scores = new List<MastermindScore>();
+            using (var conn = new MySqlConnector.MySqlConnection(_connectionString))
+            {
+                await conn.OpenAsync();
+                string sql = @"
+                    SELECT
+                        ms.id,
+                        ms.user_id,
+                        ms.score,
+                        ms.tries,
+                        ms.time,
+                        ms.submitted,
+                        u.username,
+                        u.created,
+                        u.last_seen,
+                        dp.id as dp_id,
+                        dp.file_name as dp_file_name,
+                        dp.folder_path as dp_directory,
+                        dp.file_type as dp_file_type
+                    FROM mastermind_scores ms
+                    JOIN users u ON ms.user_id = u.id
+                    LEFT JOIN user_display_pictures udp ON u.id = udp.user_id
+                    LEFT JOIN file_uploads dp ON udp.file_id = dp.id
+                    ORDER BY ms.score DESC, ms.tries ASC, ms.time ASC
+                    LIMIT @Count
+                ";
+                using (var cmd = new MySqlConnector.MySqlCommand(sql, conn))
+                {
+                    cmd.Parameters.AddWithValue("@Count", count);
+                    using (var reader = await cmd.ExecuteReaderAsync())
+                    {
+                        while (await reader.ReadAsync())
+                        {
+                            var user = new maxhanna.Server.Controllers.DataContracts.Users.User
+                            {
+                                Id = reader.GetInt32("user_id"),
+                                Username = reader.GetString("username"),
+                                Created = reader.GetDateTime("created"),
+                                LastSeen = reader.GetDateTime("last_seen"),
+                                DisplayPictureFile = reader.IsDBNull(reader.GetOrdinal("dp_id")) ? null : new maxhanna.Server.Controllers.DataContracts.Files.FileEntry {
+                                    Id = reader.GetInt32("dp_id"),
+                                    FileName = reader.GetString("dp_file_name"),
+                                    Directory = reader.GetString("dp_directory"),
+                                    FileType = reader.GetString("dp_file_type")
+                                }
+                            };
+                            scores.Add(new MastermindScore
+                            {
+                                Id = reader.GetInt32("id"),
+                                User = user,
+                                Score = reader.GetInt32("score"),
+                                Tries = reader.GetInt32("tries"),
+                                Time = reader.GetInt32("time"),
+                                Submitted = reader.GetDateTime("submitted")
+                            });
+                        }
                     }
                 }
             }
@@ -160,10 +263,14 @@ namespace maxhanna.Server.Controllers
                         cmd.ExecuteNonQuery();
                     }
                     // Delete guesses for finished game
-                    string deleteGuesses = @"DELETE FROM mastermind_guesses WHERE game_id IN (SELECT id FROM mastermind_games WHERE is_finished=1)";
+                    string deleteGuesses = @"DELETE FROM mastermind_guesses WHERE game_id IN (
+                        SELECT id FROM mastermind_games WHERE is_finished=1 AND user_id=@UserId AND difficulty=@Difficulty AND sequence_length=@SequenceLength
+                    )";
                     using (var cmd = new MySqlConnector.MySqlCommand(deleteGuesses, conn))
                     {
                         cmd.Parameters.AddWithValue("@UserId", score.UserId);
+                        cmd.Parameters.AddWithValue("@Difficulty", score.Difficulty);
+                        cmd.Parameters.AddWithValue("@SequenceLength", score.SequenceLength);
                         cmd.ExecuteNonQuery();
                     }
                 }
@@ -409,14 +516,15 @@ namespace maxhanna.Server.Controllers
 
     public class MastermindScore
     {
-        public int Id { get; set; }
-        public int UserId { get; set; }
-        public string Difficulty { get; set; } = "easy";
-        public int SequenceLength { get; set; } = 4;
-        public int Score { get; set; }
-        public int Tries { get; set; }
-        public int Time { get; set; } // seconds
-        public DateTime Submitted { get; set; }
+    public int Id { get; set; }
+    public int UserId { get; set; }
+    public maxhanna.Server.Controllers.DataContracts.Users.User? User { get; set; }
+    public string Difficulty { get; set; } = "easy";
+    public int SequenceLength { get; set; } = 4;
+    public int Score { get; set; }
+    public int Tries { get; set; }
+    public int Time { get; set; } // seconds
+    public DateTime Submitted { get; set; }
     }
 
     public class MastermindGuessRequest

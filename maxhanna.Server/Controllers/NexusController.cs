@@ -1591,6 +1591,10 @@ namespace maxhanna.Server.Controllers
 			{
 				return false;
 			}
+			if (building == "starport" && (nbase.EngineeringBayLevel < 1 || nbase.FactoryLevel < 1))
+			{
+				return false;
+			}
 			int upgradeCount = 0;
 
 			if (currentUpgrades?.EngineeringBayUpgraded != null) upgradeCount++;

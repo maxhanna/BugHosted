@@ -1,0 +1,65 @@
+<ng-container *ngIf="showBestScores && bestScores">
+    <div [class]="(showUserHeader ? 'popupPanelTitle userPopupPanelTitle' : (showHeaderTitles ? 'popupPanelTitle' : 'regularTitle'))">
+        Best{{showUserHeader ? " Mastermind " : " "}}Scores (All Time):
+    </div>
+    <div *ngIf="bestScores && bestScores.length > 0" class="scoreDiv">
+        <table class="mainTable">
+            <thead>
+                <tr>
+                    <th>User</th>
+                    <th>Difficulty</th>
+                    <th>Tries</th>
+                    <th>Time</th>
+                    <th>Date</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr *ngFor="let score of bestScores">
+                    <td>
+                        <app-user-tag [user]="score.user" [displayMiniTag]="true"
+                            [inputtedParentRef]="parentRef"></app-user-tag>
+                    </td>
+                    <td>{{score.score}}</td>
+                    <td>{{score.tries}}</td>
+                    <td>{{score.time}}</td>
+                    <td>{{score.submitted | timeSince}}</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+    <div *ngIf="!bestScores || bestScores.length === 0">No scores yet!</div>
+</ng-container>
+<ng-container *ngIf="showBestScoresToday && bestScoresToday">
+    <div
+     (click)="showUserHeader ? openMastermind() : null"
+     [class]="(showUserHeader ? 'popupPanelTitle userPopupPanelTitle' : (showHeaderTitles ? 'popupPanelTitle' : 'regularTitle'))"
+     [style]="showBestScores ? 'margin-top:18px;' : ''">
+     Today's{{showUserHeader ? " Mastermind " : " "}}Scores:
+    </div>
+    <div *ngIf="bestScoresToday && bestScoresToday.length > 0" class="scoreDiv">
+        <table class="mainTable">
+            <thead>
+                <tr>
+                    <th>User</th>
+                    <th>Difficulty</th>
+                    <th>Tries</th>
+                    <th>Time</th>
+                    <th>Date</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr *ngFor="let score of bestScoresToday">
+                    <td>
+                        <app-user-tag [user]="score.user" [displayMiniTag]="true"
+                            [inputtedParentRef]="parentRef"></app-user-tag>
+                    </td>
+                    <td>{{score.score}}</td>
+                    <td>{{score.tries}}</td>
+                    <td>{{score.time}}</td>
+                    <td>{{score.submitted | timeSince}}</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+    <div *ngIf="!bestScoresToday || bestScoresToday.length === 0">No scores yet today!</div>
+</ng-container>

@@ -1,0 +1,31 @@
+
+<div class="ratingBar">
+    <span *ngFor="let star of [1,2,3,4,5]; let i = index" 
+            (click)="setRating(star)"
+            [class.selected]="star <= rating"
+            class="star">&#9733;</span>
+</div>
+<div class="ratingValue">Your rating: {{rating}}</div>
+ 
+<!-- Menu Popup -->
+<div class="popupPanel mmPopup" *ngIf="isMenuPanelOpen">
+	<div class="popupPanelTitle popupPanelContents" style="margin-bottom:15px;">
+		Ratings Menu
+	</div>
+	<div class="popupPanelContents">
+		<div *ngIf="ratings && ratings.length > 0; else noRatings">
+			<div class="ratingsList">
+				<div *ngFor="let r of ratings" class="ratingEntry">
+					<span class="ratingUser">{{r.user_id}}</span>
+					<span class="ratingStars">
+						<span *ngFor="let s of [1,2,3,4,5]" [class.selected]="s <= r.rating" class="star">&#9733;</span>
+					</span>
+				</div>
+			</div>
+		</div>
+		<ng-template #noRatings>
+			<div>No ratings yet.</div>
+		</ng-template>
+	</div>
+	<button id="closeOverlay" (click)="closeMenuPanel()" class="closeButton">Close</button>
+</div>

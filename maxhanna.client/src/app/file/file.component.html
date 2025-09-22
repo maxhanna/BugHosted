@@ -23,7 +23,7 @@
     Filesystem Menu
   </div> 
   <div *ngIf="!user && canUploadToFolder()" class="uploadAndNewFolderButtonDiv popupPanelContent"> 
-    <button (click)="showMakeDirectoryPrompt=true;" title="Make a New Folder">📂New Folder</button>
+    <button (click)="showMakeDirectoryPrompt=true;" title="Make a New Folder" *ngIf="!showMakeDirectoryPrompt">📂New Folder</button>
 
     <app-file-upload (userUploadEvent)="uploadInitiate();"
                       (userUploadFinishedEvent)="uploadFinished($event)"
@@ -34,7 +34,7 @@
                       [inputtedParentRef]="parentRef"
                       [uploadButtonText]="'Upload File(s)'"
                       [showPrivatePublicOption]="isUploadInitiate ? true : false"
-                      *ngIf="canUploadToFolder()">
+                      *ngIf="canUploadToFolder() && !showMakeDirectoryPrompt">
     </app-file-upload>
 
     <div *ngIf="showMakeDirectoryPrompt">

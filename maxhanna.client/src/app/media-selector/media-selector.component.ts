@@ -7,10 +7,10 @@ import { FileSearchComponent } from '../file-search/file-search.component';
 
 
 @Component({
-    selector: 'app-media-selector',
-    templateUrl: './media-selector.component.html',
-    styleUrl: './media-selector.component.css',
-    standalone: false
+  selector: 'app-media-selector',
+  templateUrl: './media-selector.component.html',
+  styleUrl: './media-selector.component.css',
+  standalone: false
 })
 export class MediaSelectorComponent implements OnDestroy {
   displaySearchButton = false;
@@ -18,7 +18,7 @@ export class MediaSelectorComponent implements OnDestroy {
   maxFilesReached = false;
   viewMediaChoicesOpen = false;
   imageFileExtensions = ["jpg", "jpeg", "png", "gif", "bmp", "tiff", "svg", "webp"];
-  videoFileExtensions = ["mp4", "mov", "avi", "wmv", "webm", "flv"]; 
+  videoFileExtensions = ["mp4", "mov", "avi", "wmv", "webm", "flv"];
   selectedFiles: FileEntry[] = [];
   @Input() inputtedParentRef?: AppComponent;
   @Input() user?: User;
@@ -50,7 +50,7 @@ export class MediaSelectorComponent implements OnDestroy {
   }
 
   toggleMediaChoices() {
-    if (this.closeInitialPopup) { 
+    if (this.closeInitialPopup) {
       this.inputtedParentRef?.closeOverlay();
     }
     setTimeout(() => {
@@ -62,7 +62,7 @@ export class MediaSelectorComponent implements OnDestroy {
         } else {
           this.inputtedParentRef.closeOverlay();
           this.expandFileSelectorEvent.emit(this.viewMediaChoicesOpen);
-        } 
+        }
       }
       if (this.selectMediaDiv) {
         this.selectMediaDiv.nativeElement.classList.toggle("open");
@@ -72,19 +72,19 @@ export class MediaSelectorComponent implements OnDestroy {
 
   displaySearchDiv() {
     this.displaySearch = true;
-    this.viewMediaChoicesOpen = false; 
-    this.selectMediaDiv.nativeElement.classList.remove("open");
+    this.viewMediaChoicesOpen = false;
+    this.selectMediaDiv?.nativeElement?.classList?.remove("open");
   }
   closeSearchDiv(event: Event) {
     console.log("closing closeSearchDiv");
     if (this.fileSearchComponent) {
-      this.fileSearchComponent.closeSearchPanel();  
+      this.fileSearchComponent.closeSearchPanel();
       console.log("closing search panel");
     }
     if (!this.viewMediaChoicesOpen && !this.fileSearchComponent?.isSearchPanelOpen) {
       console.log("close media selector");
       this.closeMediaSelector();
-    } else { 
+    } else {
       this.displaySearch = false;
       this.viewMediaChoicesOpen = true;
     }
@@ -95,16 +95,16 @@ export class MediaSelectorComponent implements OnDestroy {
     }
     this.selectedFiles.push(file);
     this.displaySearch = false;
-    this.viewMediaChoicesOpen = true; 
-    this.maxFilesReached = (this.selectedFiles.length >= this.maxSelectedFiles); 
+    this.viewMediaChoicesOpen = true;
+    this.maxFilesReached = (this.selectedFiles.length >= this.maxSelectedFiles);
   }
   expandClickedEvent(file: FileEntry) {
     return this.selectFile(file);
   }
   removeFile(file: FileEntry) {
     this.selectedFiles = this.selectedFiles.filter(x => x != file);
-    this.selectFileEvent.emit(this.selectedFiles); 
-    this.maxFilesReached = (this.selectedFiles.length >= this.maxSelectedFiles); 
+    this.selectFileEvent.emit(this.selectedFiles);
+    this.maxFilesReached = (this.selectedFiles.length >= this.maxSelectedFiles);
   }
   removeAllFiles() {
     this.selectedFiles = [];
@@ -138,7 +138,7 @@ export class MediaSelectorComponent implements OnDestroy {
         this.selectedFiles = files;
       }
 
-      this.maxFilesReached = (this.selectedFiles.length >= this.maxSelectedFiles); 
+      this.maxFilesReached = (this.selectedFiles.length >= this.maxSelectedFiles);
     }
 
     if (this.displaySearchButton) {
@@ -165,17 +165,17 @@ export class MediaSelectorComponent implements OnDestroy {
     this.displaySearch = false;
     if (this.inputtedParentRef) {
       this.inputtedParentRef.closeOverlay();
-    } 
+    }
     if (this.fileSearchComponent) {
       this.fileSearchComponent.closeSearchPanel();
     }
     if (this.closeInitialPopup && this.parentId) {
       setTimeout(() => {
-        if (this.parentId) { 
+        if (this.parentId) {
           console.log("clicking parentId button: " + this.parentId);
           document.getElementById(this.parentId)?.click();
         }
-      }, 100); 
+      }, 100);
     }
   }
 }

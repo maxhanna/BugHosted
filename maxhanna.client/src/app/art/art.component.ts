@@ -2,6 +2,9 @@ import { ElementRef, ViewChild, Input } from '@angular/core';
 import { Component, OnInit } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { ChildComponent } from '../child.component';
+import { FileEntry } from '../../services/datacontracts/file/file-entry';
+import { MediaSelectorComponent } from '../media-selector/media-selector.component';
+import { FileSearchComponent } from '../file-search/file-search.component';
 
 interface ArtPiece {
   id: number;
@@ -18,13 +21,16 @@ interface ArtPiece {
   templateUrl: './art.component.html',
   styleUrls: ['./art.component.css']
 })
-export class ArtComponent extends ChildComponent implements OnInit { 
+export class ArtComponent extends ChildComponent implements OnInit {
+  constructor(private http: HttpClient) { super(); }
+
+  @ViewChild(MediaSelectorComponent) attachmentSelector!: MediaSelectorComponent;
+  @ViewChild(FileSearchComponent) fileSearchComponent!: FileSearchComponent;
+
   isMenuPanelOpen = false;
   currentArtPage = 1;  
   artPieces: ArtPiece[] = []; 
-
-  constructor(private http: HttpClient) { super(); }
-
+ 
   ngOnInit() {
     this.loadArt();
   }
@@ -80,5 +86,22 @@ export class ArtComponent extends ChildComponent implements OnInit {
     const value = (event.target as HTMLInputElement).value;
     fileSearchComponent.searchTerms = value;
     fileSearchComponent.getDirectory();
+  }
+  uploadArt(files: FileEntry[]) { 
+    setTimeout(() => {
+      this.attachmentSelector.removeAllFiles();
+    }, 40);
+  }
+
+  uploadFinished(files: FileEntry[]) {
+    this.fileSearchComponent.handleUploadedFiles(files);
+  }
+  uploadNotification(event: string) {
+    this.parentRef?.showNotification(event);
+  }
+
+  uploadFileListEvent(event: File[]) {
+  }
+  uploadCancelEvent(isCancelled: boolean) {
   }
 }
