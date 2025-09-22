@@ -29,6 +29,7 @@ const routes: Routes = [
   { path: 'Emulation', component: AppComponent },
   { path: 'Emu', component: AppComponent },
   { path: 'Top', component: AppComponent },
+  { path: 'Viral', component: AppComponent },
   { path: 'Mastermind', component: AppComponent },
 ];
 

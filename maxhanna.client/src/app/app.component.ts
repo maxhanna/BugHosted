@@ -37,9 +37,9 @@ import { FavouriteService } from '../services/favourite.service';
 import { FileService } from '../services/file.service';
 import { TopComponent } from './top/top.component';
 import { PollService } from '../services/poll.service';
-import { TextToSpeechService } from '../services/text-to-speech.service';
 import { MastermindComponent } from './mastermind/mastermind.component';
 import { ArtComponent } from './art/art.component';
+import { ViralComponent } from './viral/viral.component';
 
 
 @Component({
@@ -93,6 +93,7 @@ export class AppComponent implements OnInit, AfterViewInit {
     { ownership: 0, icon: "📰", title: "News", content: undefined },
     { ownership: 0, icon: "₿", title: "Crypto-Hub", content: undefined },
     { ownership: 0, icon: "🔍", title: "Favourites", content: undefined },
+    { ownership: 0, icon: "🦠", title: "Viral", content: undefined },
     { ownership: 0, icon: "💯", title: "Top100", content: undefined },
     { ownership: 0, icon: "🎨", title: "Theme", content: undefined },
     { ownership: 0, icon: "🧐", title: "HostAi", content: undefined },
@@ -244,6 +245,11 @@ export class AppComponent implements OnInit, AfterViewInit {
     },
     {
       ownership: 0,
+      title: 'Viral',
+      content: `A microscopic game.`
+    },
+    {
+      ownership: 0,
       title: 'Array',
       content: `The Array transports users down a seemingly infinite array.
   The further you go down the array, the more experience you gain.
@@ -305,6 +311,7 @@ export class AppComponent implements OnInit, AfterViewInit {
     "Crawler": CrawlerComponent,
     "Meme": MemeComponent,
     "Top100": TopComponent,
+    "Viral": ViralComponent,
     "Notifications": NotificationsComponent,
     "UpdateUserSettings": UpdateUserSettingsComponent
   };
@@ -399,6 +406,10 @@ export class AppComponent implements OnInit, AfterViewInit {
         else if (this.router.url.includes('Top')) {
           this.checkAndClearRouterOutlet();
           this.createComponent('Top100');
+        } 
+        else if (this.router.url.includes('Viral')) {
+          this.checkAndClearRouterOutlet();
+          this.createComponent('Viral');
         }
         else if (this.router.url.includes('Mastermind')) {
           this.checkAndClearRouterOutlet();
