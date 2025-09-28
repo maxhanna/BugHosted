@@ -39,7 +39,7 @@ import { TopComponent } from './top/top.component';
 import { PollService } from '../services/poll.service';
 import { MastermindComponent } from './mastermind/mastermind.component';
 import { ArtComponent } from './art/art.component';
-import { ViralComponent } from './viral/viral.component';
+import { EnderComponent } from './ender/ender.component';
 
 
 @Component({
@@ -93,7 +93,7 @@ export class AppComponent implements OnInit, AfterViewInit {
     { ownership: 0, icon: "📰", title: "News", content: undefined },
     { ownership: 0, icon: "₿", title: "Crypto-Hub", content: undefined },
     { ownership: 0, icon: "🔍", title: "Favourites", content: undefined },
-    { ownership: 0, icon: "🦠", title: "Viral", content: undefined },
+  { ownership: 0, icon: "👽", title: "Ender", content: undefined },
     { ownership: 0, icon: "💯", title: "Top100", content: undefined },
     { ownership: 0, icon: "🎨", title: "Theme", content: undefined },
     { ownership: 0, icon: "🧐", title: "HostAi", content: undefined },
@@ -245,7 +245,7 @@ export class AppComponent implements OnInit, AfterViewInit {
     },
     {
       ownership: 0,
-      title: 'Viral',
+      title: 'Ender',
       content: `A microscopic game.`
     },
     {
@@ -311,7 +311,7 @@ export class AppComponent implements OnInit, AfterViewInit {
     "Crawler": CrawlerComponent,
     "Meme": MemeComponent,
     "Top100": TopComponent,
-    "Viral": ViralComponent,
+  "Ender": EnderComponent,
     "Notifications": NotificationsComponent,
     "UpdateUserSettings": UpdateUserSettingsComponent
   };
@@ -407,9 +407,9 @@ export class AppComponent implements OnInit, AfterViewInit {
           this.checkAndClearRouterOutlet();
           this.createComponent('Top100');
         } 
-        else if (this.router.url.includes('Viral')) {
+        else if (this.router.url.includes('Ender')) {
           this.checkAndClearRouterOutlet();
-          this.createComponent('Viral');
+          this.createComponent('Ender');
         }
         else if (this.router.url.includes('Mastermind')) {
           this.checkAndClearRouterOutlet();

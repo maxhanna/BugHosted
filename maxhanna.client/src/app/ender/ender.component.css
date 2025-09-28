@@ -1,0 +1,219 @@
+@font-face {
+  font-family: fontRetroGaming;
+  src: url("../../assets/metabots/retro-gaming.ttf")
+}
+
+html,
+body {
+  image-rendering: pixelated;
+  padding: 0;
+  margin: 0;
+  user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  -khtml-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+}
+
+.componentMain {
+  width: CALC(100vw - 3px) !important;
+  height: CALC(var(--vh, 1vh) * 100 - 58px);
+  overflow: hidden;
+  user-select: none;
+  display: flex;
+  flex-direction: column;
+  touch-action: none;
+  user-select: none;
+}
+
+.gameCanvas {
+  border: var(--main-border);
+  display: block;
+  background-color: black;
+  width: 100%;
+  max-width: CALC(var(--vh, 1vh) * 100 * (1024 / 910));
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.chatInputDiv {
+  display: flex;
+  justify-content: center;
+  align-content: center;
+}
+
+.chatInput {
+  width: 350px;
+  max-width: 50%;
+  font-family: fontRetroGaming;
+  border-radius: 20px;
+}
+
+.colorInput {
+  position: fixed;
+  right: CALC(50% - 125px);
+  top: CALC(50% - 15px);
+  display: none;
+  z-index: 102;
+}
+
+.inputArea {
+  display: flex;
+  justify-content: space-between;
+}
+
+.controls {
+  display: flex;
+  justify-content: space-between;
+}
+
+.controls,
+.dpad,
+.dpad>*,
+.a,
+.b,
+.start {
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.dpad {
+  position: fixed;
+  bottom: 10px;
+  left: 10px;
+  display: inline-block;
+  width: 160px;
+  height: 160px;
+  z-index: 5;
+}
+
+.dpad>* {
+  width: 36%;
+  height: 34%;
+  position: absolute;
+  background-color: #0e0e0e7a;
+  cursor: pointer;
+}
+
+.dpad .middle {
+  width: 60px;
+  height: 60px;
+}
+
+.up {
+  left: 33%;
+  border-top: 4px solid black;
+  border-left: 4px solid black;
+  border-right: 4px solid black;
+  border-radius: 5px 5px 0px 0px;
+}
+
+.up:active,
+.up.active {
+  background: linear-gradient(to top, rgba(86, 94, 106, 0.8) 0%, rgba(51, 51, 51, 0.8) 100%);
+}
+
+.right {
+  top: 33%;
+  left: calc(70%);
+  border-top: 4px solid black;
+  border-bottom: 4px solid black;
+  border-right: 4px solid black;
+  border-radius: 0px 5px 5px 0px;
+  box-shadow: 0px -2px 0px #888 inset;
+}
+
+.right:active,
+.right.active {
+  background: linear-gradient(to right, rgba(86, 94, 106, 0.8) 0%, rgba(51, 51, 51, 0.8) 100%);
+}
+
+.down {
+  top: calc(70%);
+  left: 33%;
+  border-left: 4px solid black;
+  border-bottom: 4px solid black;
+  border-right: 4px solid black;
+  border-radius: 0px 0px 5px 5px;
+  box-shadow: 0px -2px 0px #888 inset;
+}
+
+.down:active,
+.down.active {
+  background: linear-gradient(to bottom, rgba(86, 94, 106, 0.8) 0%, rgba(51, 51, 51, 0.8) 100%);
+}
+
+.left {
+  top: 33%;
+  left: -2%;
+  border-top: 4px solid black;
+  border-bottom: 4px solid black;
+  border-left: 4px solid black;
+  border-radius: 5px 0px 0px 5px;
+  box-shadow: 0px -2px 0px #888 inset;
+}
+
+.left:active,
+.left.active {
+  background: linear-gradient(to left, rgba(86, 94, 106, 0.8) 0%, rgba(51, 51, 51, 0.8) 100%);
+}
+
+.middle {
+  top: 33%;
+  left: 33%;
+  z-index: -5;
+}
+
+.a-b {
+  position: absolute;
+  bottom: 10px;
+  right: 100px;
+  display: inline-block;
+  width: 120px;
+  height: 90px;
+}
+
+.a,
+.b {
+  position: absolute;
+  display: inline-block;
+  font-size: 32px;
+  width: 65px;
+  height: 65px;
+  line-height: 65px;
+  border-radius: 50%;
+  background-color: #0e0e0e7a;
+  border-bottom: 2px solid #888;
+  box-shadow: -1px 1px 5px black, 0px 0px 5px black inset;
+  text-shadow: 0px -1px 1px #888;
+  color: var(--secondary-font-color);
+  text-align: center;
+  cursor: pointer;
+}
+
+.a:active,
+.b:active,
+.c:active,
+.a.active,
+.b.active,
+.c.active {
+  box-shadow: -1px 1px 1px black, 0px 0px 5px black inset;
+  border-width: 0px;
+  line-height: 70px;
+  filter: brightness(85%);
+}
+
+.a {
+  top: -10px;
+  right: -60%;
+}
+
+.b {
+  top: 15px;
+  left: 55px;
+}

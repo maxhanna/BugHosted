@@ -68,6 +68,8 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
   hasAnyTradeConfig = false;
   fullscreenTimeout = false;
   isTradeInformationOpen = false;
+  // When trade panel is open this toggles hiding the info column
+  isTradeInfoHidden = false;
   isShowingTradeSimulator = false;
   isShowingTradeProfit = false;
   showMacdHelp = false;
@@ -221,6 +223,15 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
     private tradeService: TradeService,
     private changeDetectorRef: ChangeDetectorRef,) {
     super();
+  }
+ 
+  toggleTradeInfo(event?: MouseEvent) {
+    if (!this.isTradePanelOpen) return;
+    if (event && event.target) {
+      const tag = (event.target as HTMLElement).tagName.toLowerCase();
+      if (['button', 'input', 'select', 'a', 'textarea', 'label'].includes(tag)) return;
+    }
+    this.isTradeInfoHidden = !this.isTradeInfoHidden;
   }
   async ngOnInit() {
     this.startLoading();

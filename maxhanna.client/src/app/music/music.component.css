@@ -171,18 +171,13 @@ input[type="submit"] {
   padding: 5px 10px;
   border: var(--main-border);
   border-radius: 3px; 
-  cursor: pointer;
-  transition: background-color 0.2s;
+  cursor: pointer; 
 }
 
 .pagination-button:disabled {
   cursor: not-allowed;
   opacity: 0.5;
-}
-
-.pagination-button:hover:not(:disabled) {
-  background-color: var(--main-highlight-color);
-}
+} 
 
 .pagination-info {
   font-size: 0.9em; 

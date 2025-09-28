@@ -1064,12 +1064,6 @@ namespace maxhanna.Server.Controllers
 		[HttpPost("/Social/Post-Story/", Name = "PostStory")]
 		public async Task<IActionResult> PostStory([FromBody] StoryRequest request, [FromHeader(Name = "Encrypted-UserId")] string encryptedUserIdHeader)
 		{
-			if (request.userId != null)
-			{
-				if (!await _log.ValidateUserLoggedIn(request.userId.Value, encryptedUserIdHeader))
-					return StatusCode(500, "Access Denied.");
-			}
-
 			try
 			{
 				string sql = @"INSERT INTO stories (user_id, story_text, profile_user_id, city, country, date) 

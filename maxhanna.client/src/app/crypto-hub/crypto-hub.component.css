@@ -399,6 +399,17 @@ div:not(.trade-panel-controls) .button-wrapper {
   width: 100%;
   text-align: center;
 }
+ 
+.trade-info-column {
+  transition: width 0.25s ease;
+  overflow: hidden;
+  cursor: pointer;
+  padding: 10px;
+}
+ 
+.trade-info-column.collapsed {
+  min-width: 40px;
+}
 
 .trade-panel-controls button.cursorPointer:hover {
   background-color: var(--main-highlight-color-quarter-opacity);
@@ -938,3 +949,10 @@ div:not(.trade-panel-controls) .button-wrapper {
 .button-wrapper {
   margin-bottom: 10px;
 } 
+
+.tradebotInfoPanelContainer {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  justify-content: space-between;
+}

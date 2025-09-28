@@ -82,7 +82,7 @@ button:disabled {
 
 .uploadFilesTitle {
   font-family: var(--title-font-family);
-  width: 100%; 
+  width: calc(100% - 24px); 
   font-size: large; 
   gap: 35px;
   margin-bottom: 15px;

@@ -85,7 +85,7 @@ import { ArtComponent } from './art/art.component';
 import { MastermindScoresComponent } from './mastermind-scores/mastermind-scores.component';
 import { ShareButtonComponent } from './share-button/share-button.component';
 import { RatingsComponent } from './ratings/ratings.component';
-import { ViralComponent } from './viral/viral.component';
+import { EnderComponent } from './ender/ender.component';
 
 @NgModule({
   declarations: [
@@ -159,7 +159,7 @@ import { ViralComponent } from './viral/viral.component';
     MastermindScoresComponent,
     ShareButtonComponent,
     RatingsComponent,
-    ViralComponent,
+    EnderComponent,
   ],
   bootstrap: [AppComponent],
   imports: [BrowserModule,

@@ -154,4 +154,9 @@ export class TopicsComponent extends ChildComponent {
       this.isDropdownShowing = false;
     }, timeout ?? 0);
   }
+  focusInput() {
+    setTimeout(() => {
+      this.newTopic.nativeElement.focus();
+    }, 10);
+  }    
 }

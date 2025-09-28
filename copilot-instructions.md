@@ -27,6 +27,11 @@
 - Validate all user input before processing.
 - Document API endpoints with comments.
 
+## Editing Style for Adding Methods
+- When adding new methods to an existing class, append them at the end of the class body (just before the final closing brace) rather than inserting them at the top of the class. This preserves the original logical ordering and minimizes merge conflicts.
+- If adding multiple related helper methods, group them together near other helpers (still placed at the end) and add a short comment header describing their purpose.
+- For TypeScript/Angular components follow the same approach: append new component methods/properties to the end of the class in the TypeScript file.
+
 ## Error Handling
 - After every edit, check for compile and lint errors.
 - If errors are found, fix them before proceeding with further changes.

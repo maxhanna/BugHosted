@@ -8,6 +8,7 @@ import { FileComment } from '../../services/datacontracts/file/file-comment';
 import { Topic } from '../../services/datacontracts/topics/topic';
 import { Todo } from '../../services/datacontracts/todo';
 import { TodoService } from '../../services/todo.service';
+import { TopicsComponent } from '../topics/topics.component';
 
 
 @Component({
@@ -27,7 +28,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
   fileViewers?: User[] | undefined;
   selectedFileExtension = '';
   selectedFileSrc = '';
-  selectedFile: FileEntry | undefined; 
+  selectedFile: FileEntry | undefined;
   fileType = '';
   showThumbnail = false;
   showComments = true;
@@ -37,7 +38,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
   fS = '/';
   isFullscreenMode = false;
   isShowingMediaInformation = false;
-  isShowingFileViewers = false; 
+  isShowingFileViewers = false;
   isEditingFileName = false;
   editingTopics: number[] = [];
   isVideoBuffering = false;
@@ -46,8 +47,9 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
   @ViewChild('fullscreenOverlay', { static: false }) fullscreenOverlay!: ElementRef;
   @ViewChild('fullscreenImage', { static: false }) fullscreenImage!: ElementRef;
   @ViewChild('fullscreenVideo', { static: false }) fullscreenVideo!: ElementRef;
-  @ViewChild('fullscreenAudio', { static: false }) fullscreenAudio!: ElementRef; 
+  @ViewChild('fullscreenAudio', { static: false }) fullscreenAudio!: ElementRef;
   @ViewChild('editFileNameInput', { static: false }) editFileNameInput!: ElementRef;
+  @ViewChild(TopicsComponent) topicComponent!: TopicsComponent;
 
   @Input() displayExpander: boolean = true;
   @Input() displayExtraInfo: boolean = true;
@@ -72,32 +74,32 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
   @Input() user?: User;
   @Input() inputtedParentRef?: AppComponent;
   @Input() isLoadedFromURL = false;
-  @Input() showMediaInformation = false; 
+  @Input() showMediaInformation = false;
   @Output() emittedNotification = new EventEmitter<string>();
   @Output() commentHeaderClickedEvent = new EventEmitter<boolean>();
   @Output() expandClickedEvent = new EventEmitter<FileEntry>();
   @Output() topicClickedEvent = new EventEmitter<Topic[]>();
   @Output() mediaEndedEvent = new EventEmitter<void>();
 
-  async ngOnInit() { 
+  async ngOnInit() {
     if (this.isLoadedFromURL) {
       const componentContainers = document.getElementsByClassName("componentContainer");
       for (let i = 0; i < componentContainers.length; i++) {
         (componentContainers[i] as HTMLDivElement).style.backgroundColor = "var(--component-background-color)";
       }
-    } 
+    }
   }
   onInView(isInView: boolean) {
     if (!this.forceInviewLoad || (this.forceInviewLoad && isInView && this.isComponentHeightSufficient())) {
       this.fetchFileSrc().then(() => {
-        const urlContainsMedia = window.location.href.includes('/Media'); 
+        const urlContainsMedia = window.location.href.includes('/Media');
         const file = this.file ?? this.selectedFile;
         if (urlContainsMedia && (file?.fileName || file?.givenFileName)) {
           this.selectedFileName = file.givenFileName ?? file.fileName ?? "MediaViewer";
           if (file) {
             this.inputtedParentRef?.replacePageTitleAndDescription(this.selectedFileName, this.selectedFileName);
           }
-        }  
+        }
       });
     } else {
       // Pause any media playback when not in view or height is insufficient
@@ -143,7 +145,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
         return;
       } else {
         this.setFileSrcById(this.selectedFile.id);
-      } 
+      }
     }
     else if (this.file) {
       const fileObject = Array.isArray(this.file) && this.file.length > 0 ? this.file[0] : this.file;
@@ -168,7 +170,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
       this.abortFileRequestController.abort("Component is destroyed");
     }
     this.selectedFile = undefined;
-    this.selectedFileSrc = ""; 
+    this.selectedFileSrc = "";
     this.selectedFileName = "";
     this.selectedFileExtension = "";
   }
@@ -181,26 +183,26 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
     window.removeEventListener('popstate', this.handleBackButton);
     window.removeEventListener('keydown', this.handleEscapeKey);
   }
-  
+
   private handleBackButton = (event: PopStateEvent) => {
     if (this.isFullscreenMode) {
-      event.preventDefault();  
-      this.shrink(); 
+      event.preventDefault();
+      this.shrink();
       window.history.pushState(null, '', window.location.href);
     }
   };
- 
+
   private handleEscapeKey = (event: KeyboardEvent) => {
     if (this.isFullscreenMode && event.key === 'Escape') {
-      this.shrink();  
+      this.shrink();
     }
   };
- 
-  private setupBackButtonListener() { 
+
+  private setupBackButtonListener() {
     window.history.pushState(null, '', window.location.href);
     window.addEventListener('popstate', this.handleBackButton);
   }
- 
+
   private setupEscapeKeyListener() {
     console.log("set up escape listener");
     window.addEventListener('keydown', this.handleEscapeKey);
@@ -344,7 +346,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
           setTimeout(() => {
             if (this.mediaContainer && this.mediaContainer.nativeElement) {
               //this.mediaContainer.nativeElement.muted = true;
-             // this.mediaContainer.nativeElement.loop = true;
+              // this.mediaContainer.nativeElement.loop = true;
             }
           }, 50);
         };
@@ -356,13 +358,13 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
       }
     } finally {
       this.stopLoading();
-      if (this.canScroll) { 
+      if (this.canScroll) {
         setTimeout(() => { document.getElementById('fileIdName' + fileId)?.scrollIntoView(); }, 100);
       }
     }
   }
   editFileName(file: FileEntry) {
-    this.isEditingFileName = true; 
+    this.isEditingFileName = true;
   }
   async saveFileName(file: FileEntry) {
     const fileName = this.editFileNameInput.nativeElement.value.trim();
@@ -374,7 +376,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
       this.isEditingFileName = false;
       return;
     }
-    this.startLoading(); 
+    this.startLoading();
     const res = await this.fileService.updateFileData(this.user?.id ?? this.inputtedParentRef?.user?.id ?? 0, { FileId: file.id, GivenFileName: fileName, Description: '', LastUpdatedBy: this.user || this.inputtedParentRef?.user || new User(0, "Anonymous") });
     if (res) {
       this.inputtedParentRef?.showNotification(res);
@@ -390,11 +392,14 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
       await this.fileService.editTopics(user, file, file.topics ?? []);
     }
   }
-  editFileTopic(file: FileEntry) { 
+  editFileTopic(file: FileEntry) {
     if (this.editingTopics.includes(file.id)) {
       this.editingTopics = this.editingTopics.filter(x => x != file.id);
     } else {
       this.editingTopics.push(file.id);
+      setTimeout(() => {
+        this.topicComponent.focusInput();
+      }, 10);
     }
   }
   async editFileTopicInDB(topics: Topic[], file: FileEntry) {
@@ -464,7 +469,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
 
     window.removeEventListener('popstate', this.handleBackButton);
     window.removeEventListener('keydown', this.handleEscapeKey);
-  } 
+  }
 
   async download(file: FileEntry, force: boolean) {
 
@@ -483,11 +488,11 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
         directoryValue = fileEntry.directory;
       }
     }
- 
+
     let target = (directoryValue ?? "").replace(/\\/g, "/");
     target += ((directoryValue ?? "").length > 0 && (directoryValue ?? "")[(directoryValue ?? "").length - 1] === this.fS) ? file.fileName : (directoryValue ?? "").length > 0 ? this.fS + file.fileName : file.fileName;
 
-    console.log(target,directoryValue);
+    console.log(target, directoryValue);
     try {
       this.startLoading();
       this.emittedNotification.emit(`Downloading ${file.fileName}`);
@@ -608,11 +613,11 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
     }
     console.log(this.selectedFile);
   }
-  closeMediaInformationButtonClicked() { 
+  closeMediaInformationButtonClicked() {
     const parent = this.inputtedParentRef ?? this.parentRef;
     if (this.isShowingMediaInformation) {
       parent?.closeOverlay();
-    }  
+    }
     setTimeout(() => { this.isShowingMediaInformation = false; }, 50);
   }
   getFileViewers(fileId: number) {
@@ -625,7 +630,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
     });
   }
   closeFileViewers() {
-    this.isShowingFileViewers = false; 
+    this.isShowingFileViewers = false;
     const parent = this.inputtedParentRef ?? this.parentRef;
     parent?.closeOverlay();
   }
@@ -651,20 +656,20 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
     return this.fileService.videoFileExtensions.includes(fileType) || this.fileService.audioFileExtensions.includes(fileType);
   }
   async addFileToMusicPlaylist(fileEntry: FileEntry) {
-      const parent = this.inputtedParentRef ?? this.parentRef;
-      const user = parent?.user;
-      if (!user?.id || !fileEntry || !fileEntry.id) {
-        return alert("Error: Cannot add file to music playlist without logging in or a valid file entry.");
-      }
-
-      let tmpTodo = new Todo();
-      tmpTodo.type = "music";
-      tmpTodo.todo = (fileEntry.givenFileName ?? fileEntry.fileName ?? `Video ID:${fileEntry.id}`).trim();
-      tmpTodo.fileId = fileEntry.id;
-      tmpTodo.date = new Date();
-      const resTodo = await this.todoService.createTodo(user.id, tmpTodo);
-      if (resTodo) {
-        parent?.showNotification(`Added ${tmpTodo.todo} to music playlist.`);
-      }
+    const parent = this.inputtedParentRef ?? this.parentRef;
+    const user = parent?.user;
+    if (!user?.id || !fileEntry || !fileEntry.id) {
+      return alert("Error: Cannot add file to music playlist without logging in or a valid file entry.");
     }
+
+    let tmpTodo = new Todo();
+    tmpTodo.type = "music";
+    tmpTodo.todo = (fileEntry.givenFileName ?? fileEntry.fileName ?? `Video ID:${fileEntry.id}`).trim();
+    tmpTodo.fileId = fileEntry.id;
+    tmpTodo.date = new Date();
+    const resTodo = await this.todoService.createTodo(user.id, tmpTodo);
+    if (resTodo) {
+      parent?.showNotification(`Added ${tmpTodo.todo} to music playlist.`);
+    }
+  }
 }

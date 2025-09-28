@@ -8,7 +8,6 @@ namespace maxhanna.Server.Controllers
     {
         private readonly string _connectionString;
         private static readonly string[] COLORS = new[] { "red", "blue", "green", "yellow", "purple", "orange" };
-        private static readonly int SEQUENCE_LENGTH = 4;
         private const int MAX_TRIES = 10;
         private static readonly Random rand = new Random();
 
@@ -245,14 +244,13 @@ namespace maxhanna.Server.Controllers
                         Submitted = DateTime.UtcNow
                     };
                     // Always save score when game is finished
-                    string sql = @"INSERT INTO mastermind_scores (user_id, score, tries, time, submitted) VALUES (@UserId, @Score, @Tries, @Time, @Submitted)";
+                    string sql = @"INSERT INTO mastermind_scores (user_id, score, tries, time, submitted) VALUES (@UserId, @Score, @Tries, @Time, UTC_TIMESTAMP())";
                     using (var cmd = new MySqlConnector.MySqlCommand(sql, conn))
                     {
                         cmd.Parameters.AddWithValue("@UserId", score.UserId);
                         cmd.Parameters.AddWithValue("@Score", score.Score);
                         cmd.Parameters.AddWithValue("@Tries", score.Tries);
-                        cmd.Parameters.AddWithValue("@Time", score.Time);
-                        cmd.Parameters.AddWithValue("@Submitted", score.Submitted);
+                        cmd.Parameters.AddWithValue("@Time", score.Time); 
                         cmd.ExecuteNonQuery();
                     }
                     // Mark game as finished
@@ -284,14 +282,13 @@ namespace maxhanna.Server.Controllers
             using (var conn = new MySqlConnector.MySqlConnection(_connectionString))
             {
                 await conn.OpenAsync();
-                string sql = @"INSERT INTO mastermind_scores (user_id, score, tries, time, submitted) VALUES (@UserId, @Score, @Tries, @Time, @Submitted)";
+                string sql = @"INSERT INTO mastermind_scores (user_id, score, tries, time, submitted) VALUES (@UserId, @Score, @Tries, @Time, UTC_TIMESTAMP())";
                 using (var cmd = new MySqlConnector.MySqlCommand(sql, conn))
                 {
                     cmd.Parameters.AddWithValue("@UserId", score.UserId);
                     cmd.Parameters.AddWithValue("@Score", score.Score);
                     cmd.Parameters.AddWithValue("@Tries", score.Tries);
-                    cmd.Parameters.AddWithValue("@Time", score.Time);
-                    cmd.Parameters.AddWithValue("@Submitted", DateTime.UtcNow);
+                    cmd.Parameters.AddWithValue("@Time", score.Time); 
                     await cmd.ExecuteNonQueryAsync();
                 }
             }
@@ -381,9 +378,7 @@ namespace maxhanna.Server.Controllers
                         cmd.Parameters.AddWithValue("@SequenceLength", state.SequenceLength);
                         await cmd.ExecuteNonQueryAsync();
                     }
-                }
-
-                // ...existing code...
+                } 
             }
             return Ok();
         }

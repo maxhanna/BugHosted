@@ -360,8 +360,16 @@
 
     <div class="{{isTradePanelOpen ? 'maximizedTradePanel' : 'sectionContainer'}}"
       [style]="showingTradeSettings ? 'display: flex; flex-direction: column; align-items: center;' : ''">
-      <div class="titleFont">
-        <div style="width:100%;">
+      <div class="titleFont {{!onMobile() ? 'tradebotInfoPanelContainer' : ''}}" 
+        [style.display]="isTradePanelOpen && isTradeInfoHidden ? 'block' : 'flex'"
+        [style.flexWrap]="isTradePanelOpen && isTradeInfoHidden ? 'wrap' : 'nowrap'">
+        <button *ngIf="isTradeInfoHidden" (click)="toggleTradeInfo()">Show Tradebot Info</button>
+        <div 
+          [style.width]="isTradePanelOpen && !onMobile() ? (isTradeInfoHidden ? '0%' : '30%') : '100%'"
+          [style.height]="isTradePanelOpen && !onMobile() ? (isTradeInfoHidden ? '20px' : '100%') : '100%'"
+          class="trade-info-column"
+          (click)="toggleTradeInfo($event)"
+          [title]="isTradePanelOpen ? (isTradeInfoHidden ? 'Click to expand trade info' : 'Click to hide trade info') : ''">
           <div class="sectionName gradientBackground" *ngIf="!isTradePanelOpen">
             Active Trade Bots
             <div>
@@ -437,7 +445,7 @@
                 'italics': true,
                 'smallFont': true,
                 'cursorPointerUnderlined': !showingTradeLogs
-              }" (click)="onSmallLogClick()">{{lastLogEntry}}</span>
+              }" (click)="onSmallLogClick(); $event.stopPropagation();">{{lastLogEntry}}</span>
             </div>
             <div *ngIf="isTradePanelOpen && selectedCurrency">
               <span class="sectionName">Current Prices:&nbsp;</span>

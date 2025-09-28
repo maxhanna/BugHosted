@@ -277,22 +277,22 @@
           <div class="optionsStatsHeader">
             <div style="display:flex; flex-direction: column;"> 
               <div>File: {{videoFile.givenFileName ?? videoFile.fileName}}</div> 
-              <div>
+              <div (click)="addFileToMusicPlaylist(videoFile);" style="cursor:pointer;">
                 ➕ Add{{" "}}
                 <span class="reducedFileName" *ngIf="!onMobile()">"{{videoFile.givenFileName ?? videoFile.fileName}}"</span>
                 {{" "}}to Music Playlist?
               </div>
-              <div>📋Copy link to Clipboard?</div>
+              <div (click)="copyFileLink(videoFile)" style="cursor:pointer;">📋Copy link to Clipboard?</div>
             </div> 
           </div>
           <div class="optionsStatsDescription">
             <div style="display:flex; flex-direction: column;">
               <div style="height: 20px;"></div>
               <div>
-                <button (click)="addFileToMusicPlaylist(videoFile);"
+                <button style="width:70px" (click)="addFileToMusicPlaylist(videoFile);"
                   title="Save '{{videoFile.givenFileName ?? videoFile.fileName}}' to your Music Playlist">➕Save</button>
               </div>
-              <div><button (click)="copyFileLink(videoFile)">📋Share</button></div>
+              <div><button style="width:70px" (click)="copyFileLink(videoFile)">📋Share</button></div>
             </div> 
           </div>
         </div>
