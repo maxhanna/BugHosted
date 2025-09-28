@@ -419,7 +419,7 @@ fieldset {
 }
 
 .cursorPointerUnderlined {
-  cursor: pointer;
+  cursor: pointer !important;
   text-decoration: underline;
 }
 

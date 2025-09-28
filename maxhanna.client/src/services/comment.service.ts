@@ -94,20 +94,4 @@ export class CommentService {
       throw error;
     }
   }
-  async getCommentDataByIds(commentId: number) {
-    try {
-      const response = await fetch(`/comment/getcommentdata`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify( commentId ),
-      });
-
-      return await response.json();
-    } catch (error) {
-      throw error;
-    }
-  }
-
 }

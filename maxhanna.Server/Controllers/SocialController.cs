@@ -283,7 +283,7 @@ namespace maxhanna.Server.Controllers
 
 			storyResponse.Stories = storyDictionary.Values.ToList();
 			await AttachCommentsToStoriesAsync(request.UserId, storyResponse.Stories);
-			await AttachFilesToStoriesAsync(storyResponse.Stories);
+			await AttachFilesToStoriesAsync(request.UserId, storyResponse.Stories);
 			await FetchAndAttachTopicsAsync(storyResponse.Stories);
 			await FetchAndAttachReactionsAsync(storyResponse.Stories);
 			await FetchAndAttachPollVotesAsync(storyResponse);
@@ -703,7 +703,7 @@ namespace maxhanna.Server.Controllers
 		}
 
 
-		private async Task AttachFilesToStoriesAsync(List<Story> stories)
+	private async Task AttachFilesToStoriesAsync(int userId, List<Story> stories)
 		{
 			// Extract all unique story IDs from the list of stories
 			var storyIds = stories.Select(s => s.Id).Distinct().ToList();
@@ -731,7 +731,11 @@ namespace maxhanna.Server.Controllers
 					f.last_updated as file_data_updated,
 					f.upload_date AS file_date, 
 					fu.username AS file_username, 
-					f.user_id AS file_user_id
+					f.user_id AS file_user_id,
+					f.last_access AS last_access,
+					f.access_count AS access_count,
+					(SELECT COUNT(*) FROM file_favourites ff WHERE ff.file_id = f.id) AS favourite_count,
+					(EXISTS(SELECT 1 FROM file_favourites ff2 WHERE ff2.file_id = f.id AND ff2.user_id = @userId)) AS is_favourited
 				FROM 
 					stories AS s
 				LEFT JOIN 
@@ -753,11 +757,11 @@ namespace maxhanna.Server.Controllers
 				}
 			}
 
-			sqlBuilder.AppendLine(@")
+				sqlBuilder.AppendLine(@")
 				GROUP BY 
 					s.id, f.id, f.file_name, f.folder_path, f.file_type, f.is_public, f.is_folder, f.shared_with,
 					f.given_file_name, file_data_description, file_data_updated,
-					f.upload_date, fu.username, f.user_id;");
+					f.upload_date, fu.username, f.user_id, f.last_access, f.access_count;");
 
 			// Execute the SQL query
 			using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
@@ -771,6 +775,8 @@ namespace maxhanna.Server.Controllers
 					{
 						cmd.Parameters.AddWithValue("@storyId" + i, storyIds[i]);
 					}
+					// Bind userId for per-user is_favourited check
+					cmd.Parameters.AddWithValue("@userId", userId);
 
 					using (var rdr = await cmd.ExecuteReaderAsync())
 					{
@@ -799,6 +805,10 @@ namespace maxhanna.Server.Controllers
 									GivenFileName = rdr.IsDBNull(rdr.GetOrdinal("given_file_name")) ? null : rdr.GetString("given_file_name"),
 									Description = rdr.IsDBNull(rdr.GetOrdinal("file_data_description")) ? null : rdr.GetString("file_data_description"),
 									LastUpdated = rdr.IsDBNull(rdr.GetOrdinal("file_data_updated")) ? null : rdr.GetDateTime("file_data_updated"),
+									LastAccess = rdr.IsDBNull(rdr.GetOrdinal("last_access")) ? (DateTime?)null : rdr.GetDateTime("last_access"),
+									AccessCount = rdr.IsDBNull(rdr.GetOrdinal("access_count")) ? 0 : rdr.GetInt32("access_count"),
+									FavouriteCount = rdr.IsDBNull(rdr.GetOrdinal("favourite_count")) ? 0 : rdr.GetInt32("favourite_count"),
+									IsFavourited = rdr.IsDBNull(rdr.GetOrdinal("is_favourited")) ? false : rdr.GetBoolean("is_favourited"),
 								};
 
 								story.StoryFiles!.Add(fileEntry);

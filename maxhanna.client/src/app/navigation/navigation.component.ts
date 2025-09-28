@@ -444,8 +444,9 @@ export class NavigationComponent implements OnInit, OnDestroy {
     }
   }
   applyThemeToCSS(theme: any) {
-    if (theme.backgroundImage) {
-      this.fileService.getFileEntryById(theme.backgroundImage).then(res => {
+      if (theme.backgroundImage) {
+      const requesterId = this._parent?.user?.id;
+      this.fileService.getFileEntryById(theme.backgroundImage, requesterId).then(res => {
         if (res) {
           const directLink = `https://bughosted.com/assets/Uploads/${(this._parent.getDirectoryName(res) != '.' ? this._parent.getDirectoryName(res) : '')}${res.fileName}`;
           document.documentElement.style.setProperty('--main-background-image-url', `url(${directLink})`);

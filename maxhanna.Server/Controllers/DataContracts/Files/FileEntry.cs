@@ -28,6 +28,8 @@ namespace maxhanna.Server.Controllers.DataContracts.Files
 		public List<Topic>? Topics { get; set; }
 		public DateTime? LastAccess { get; set; }
 		public int AccessCount { get; set; } = 0;
+		public int FavouriteCount { get; set; } = 0;
+		public bool IsFavourited { get; set; } = false;
 
 		public FileEntry() { }
 		public FileEntry(int id)

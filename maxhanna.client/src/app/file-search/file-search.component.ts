@@ -62,9 +62,10 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   isSearchOptionsPanelOpen = false;
   isOptionsPanelOpen = false;
   isShowingFileViewers = false;
+  isShowingFileFavouriters = false;
   showCommentsInOpenedFiles: number[] = [];
   fileViewers?: User[] | undefined;
-
+  fileFavouriters?: User[] | undefined;
   optionsFile: FileEntry | undefined;
   directory?: DirectoryResults;
   defaultTotalPages = 1;
@@ -661,6 +662,38 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
       parent.closeOverlay();
     }
   }
+  async addToFavourites(optionsFile: FileEntry) {
+    const parent = this.inputtedParentRef ?? this.parentRef;
+    const user = parent?.user ?? this.user;
+    if (!user || !user.id) return alert('You must be logged in to favourite files.');
+    this.startLoading();
+    try {
+      const res: any = await this.fileService.toggleFavourite(user.id, optionsFile.id);
+      if (res) {
+        // server returns updated favourite count and whether user favourited
+        optionsFile.favouriteCount = res.favouriteCount ?? optionsFile.favouriteCount ?? 0;
+        optionsFile.isFavourited = res.isFavourited ?? !optionsFile.isFavourited;
+      }
+    } catch (ex) {
+      console.error(ex);
+    }
+    this.stopLoading();
+  }
+
+  async getFavouritedBy(file: FileEntry) {
+    const parent = this.inputtedParentRef ?? this.parentRef;
+    parent?.closeOverlay();
+    try {
+      const list: any[] = await this.fileService.getFavouritedBy(file.id);
+      parent?.showOverlay();
+      this.fileFavouriters = list;
+      this.isShowingFileFavouriters = true;
+    } catch (ex) {
+      console.error(ex);
+      parent?.showOverlay();
+      this.notifyUser('Failed to fetch favourites');
+    }
+  }
   shouldShowEditButton(optionsFile: any): boolean {
     if (!optionsFile?.user?.id || !this.user?.id || this.currentDirectory === 'Users/') {
       return false;
@@ -977,6 +1010,12 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     const parent = this.inputtedParentRef ?? this.parentRef;
     parent?.closeOverlay();
   }
+  closeFileFavouriters() {
+    this.fileFavouriters = undefined;
+    this.isShowingFileFavouriters = false; 
+    const parent = this.inputtedParentRef ?? this.parentRef;
+    parent?.closeOverlay();
+  }
   isVideoFile(fileEntry: FileEntry) {
     let fileType = fileEntry.fileType ?? this.fileService.getFileExtension(fileEntry.fileName ?? ''); 
     fileType = fileType.replace(".", "");
@@ -1003,19 +1042,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     this.showFavouritesOnly = !this.showFavouritesOnly;
     this.debounceSearch();
   }
-  addToFavourites(fileEntry: FileEntry) {
-    const parent = this.inputtedParentRef ?? this.parentRef;
-    const user = parent?.user;
-    if (!user || !user.id) {
-      return alert("You must be logged in to use this feature!");
-    }
-    this.fileService.toggleFavourite(user.id, fileEntry.id).then(res => {
-      if (res) {
-        this.notifyUser(res.action + " successfully!");
-      }
-
-    });
-  }
+  // Note: templates call the async addToFavourites(optionsFile) above.
 
   notifyUser(message: string) {
     this.userNotificationEvent.emit(message);

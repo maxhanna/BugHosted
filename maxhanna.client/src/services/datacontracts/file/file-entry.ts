@@ -23,6 +23,8 @@ export class FileEntry {
   height?: number;
   reactions?: Array<Reaction>;
   topics?: Array<Topic>;
+  favouriteCount?: number;
+  isFavourited?: boolean;
     
   constructor(id: number, fileName?: string, directory?: string, visibility?: string, sharedWith?: string,
     user?: User, isFolder?: boolean, comments?: Array<FileComment>, date?: Date,
@@ -44,7 +46,9 @@ export class FileEntry {
     this.fileType = fileType;
     this.width = width;
     this.height = height;
-    this.reactions = reactions;
+  this.reactions = reactions;
+  this.favouriteCount = 0;
+  this.isFavourited = false;
     this.lastAccess = lastAccess;
     this.accessCount = accessCount;
   } 

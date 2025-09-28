@@ -386,9 +386,10 @@ export class FileService {
 			return null;
 		}
 	}
-	async getFileEntryById(fileId: number) {
+	async getFileEntryById(fileId: number, userId?: number) {
 		try {
-			const response = await fetch(`/file/getfileentrybyid`, {
+			const query = userId ? `?userId=${encodeURIComponent(userId)}` : '';
+			const response = await fetch(`/file/getfileentrybyid${query}`, {
 				method: 'POST',
 				headers: {
 					'Content-Type': 'application/json',
@@ -522,6 +523,20 @@ export class FileService {
 		} catch (error) {
 			console.error('Error editing file:', error);
 			return 'Error favouriting file';
+		}
+	}
+	async getFavouritedBy(fileId: number) {
+		try {
+			const res = await fetch('/file/getfavouritedby', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify(fileId),
+			});
+			if (!res.ok) throw new Error('Failed to fetch');
+			return await res.json();
+		} catch (error) {
+			console.error(error);
+			return [];
 		}
 	}
 	formatFileSize(bytes: number, decimalPoint: number = 2): string {

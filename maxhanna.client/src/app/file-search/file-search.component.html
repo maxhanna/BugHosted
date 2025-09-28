@@ -102,9 +102,14 @@
                               [previousComponent]="previousComponent"
                               (click)="$event.stopPropagation()">
                 </app-reaction>
-                <div *ngIf="displayComments && !file.isFolder" class="fileOptionsAction fileOptionsChatBubble coloredBgButton" (click)="openFileWithComments(file); $event.stopPropagation()">
+                <div *ngIf="displayComments && !file.isFolder" class="fileOptionsAction fileOptionsChatBubble coloredBgButton"
+                  (click)="openFileWithComments(file); $event.stopPropagation()">
                   🗨️{{getTotalCommentCount(file.fileComments)}}
-                </div> 
+                </div>
+                <div *ngIf="!file.isFolder && file.favouriteCount" class="fileOptionsAction fileOptionsChatBubble coloredBgButton"
+                  (click)="getFavouritedBy(file); $event.stopPropagation()">
+                  ❤️{{file.favouriteCount}}
+                </div>
                 <div *ngIf="displayFileActions"
                      (click)="showOptionsPanel(file); $event.stopPropagation();"
                      class="fileOptionsAction fileOptionsCogIcon coloredBgButton"
@@ -179,9 +184,10 @@
       🙈Hide
     </button> 
     <button (click)="addToFavourites(optionsFile)" *ngIf="userIsLoggedIn()"
-      title="Add '{{optionsFile.givenFileName ?? optionsFile.fileName}}' to favourites.">
-      ❤️ Add To Favourites
-    </button>
+      [title]="optionsFile.isFavourited ? ('Remove from favourites') : ('Add ' + (optionsFile.givenFileName ?? optionsFile.fileName) + ' to favourites')">
+      <span *ngIf="!optionsFile.isFavourited">❤️ Add To Favourites</span>
+      <span *ngIf="optionsFile.isFavourited">🧡 Remove From Favourites</span>
+    </button> 
     <button *ngIf="isVideoFile(optionsFile) && userIsLoggedIn()" (click)="addFileToMusicPlaylist(optionsFile)"
       title="Add '{{optionsFile.givenFileName ?? optionsFile.fileName}}' to music playlist.">
       ➕ Add To Music Playlist
@@ -250,6 +256,12 @@
       </div>
       <div class="optionsStatsDescription cursorPointerUnderlined linkFontColor" (click)="getFileViewers(optionsFile.id)">
         {{optionsFile.accessCount}}
+      </div>
+    </div>
+    <div *ngIf="optionsFile?.favouriteCount !== undefined" class="optionsStatsDiv">
+      <div class="optionsStatsHeader">Favourites:</div>
+      <div class="optionsStatsDescription cursorPointerUnderlined linkFontColor" (click)="getFavouritedBy(optionsFile)">
+        {{optionsFile.favouriteCount}}
       </div>
     </div>
     <div class="optionsStatsDiv" *ngIf="optionsFile.fileSize !== undefined">
@@ -472,10 +484,24 @@
     File Viewers
   </div>
   <div class="fileViewerDiv">
-    <div *ngFor="let viewer of fileViewers">
+    <div *ngFor="let viewer of fileViewers" style="height: 30px;">
       <app-user-tag [user]="viewer" [inputtedParentRef]="parentRef ?? inputtedParentRef" [displayHoverPicture]="true"
         [previousComponent]="previousComponent" [displayMiniTag]="true"></app-user-tag>
-    </div> 
+    </div>
   </div>
   <button id="closeOverlay" (click)="closeFileViewers()">Close</button>
+</div>
+
+<!-- File favouriters Popup --> 
+<div class="popupPanel" *ngIf="isShowingFileFavouriters">
+  <div class="popupPanelTitle popupPanelContents gradientBackground" style="margin-bottom:15px;">
+    File Favouriters
+  </div>
+  <div class="fileViewerDiv">
+    <div *ngFor="let viewer of fileFavouriters" style="height: 30px;">
+      <app-user-tag [user]="viewer" [inputtedParentRef]="parentRef ?? inputtedParentRef" [displayHoverPicture]="true"
+        [previousComponent]="previousComponent" [displayMiniTag]="true"></app-user-tag>
+    </div>
+  </div>
+  <button id="closeOverlay" (click)="closeFileFavouriters()">Close</button>
 </div>

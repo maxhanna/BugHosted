@@ -26,6 +26,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
     }
   }
   fileViewers?: User[] | undefined;
+  fileFavouriters?: User[] | undefined;
   selectedFileExtension = '';
   selectedFileSrc = '';
   selectedFile: FileEntry | undefined;
@@ -39,6 +40,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
   isFullscreenMode = false;
   isShowingMediaInformation = false;
   isShowingFileViewers = false;
+  isShowingFileFavouriters = false;
   isEditingFileName = false;
   editingTopics: number[] = [];
   isVideoBuffering = false;
@@ -303,8 +305,9 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
       return;
     }
 
-    if (!this.selectedFile?.givenFileName && !this.selectedFile?.fileName) {
-      this.fileService.getFileEntryById(fileId).then(res => {
+      if (!this.selectedFile?.givenFileName && !this.selectedFile?.fileName) {
+      const requesterId = this.parentRef?.user?.id ?? this.inputtedParentRef?.user?.id;
+      this.fileService.getFileEntryById(fileId, requesterId).then(res => {
         if (res) {
           this.selectedFile = res;
         }
@@ -480,10 +483,11 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
     if (!parent) return;
     const session = await parent.getSessionToken();
 
-    let directoryValue = this.currentDirectory;
+  let directoryValue = this.currentDirectory;
     if (!directoryValue) {
 
-      const fileEntry = await this.fileService.getFileEntryById(file.id);
+      const requesterId = this.parentRef?.user?.id ?? this.inputtedParentRef?.user?.id;
+      const fileEntry = await this.fileService.getFileEntryById(file.id, requesterId);
       if (fileEntry) {
         directoryValue = fileEntry.directory;
       }
@@ -629,9 +633,30 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
       this.isShowingFileViewers = true;
     });
   }
+  async getFavouritedBy(fileId: number) {
+    const parent = this.inputtedParentRef ?? this.parentRef;
+    parent?.closeOverlay();
+    try {
+      const list: any[] = await this.fileService.getFavouritedBy(fileId);
+      parent?.showOverlay();
+      this.fileFavouriters = list;
+      this.isShowingFileFavouriters = true;
+    } catch (ex) {
+      console.error(ex);
+      parent?.showOverlay();
+      this.inputtedParentRef?.showNotification?.('Failed to get favourited by list');
+    }
+  }
   closeFileViewers() {
     this.isShowingFileViewers = false;
     const parent = this.inputtedParentRef ?? this.parentRef;
+    this.fileViewers = undefined;
+    parent?.closeOverlay();
+  }
+  closeFileFavouriters() {
+    this.isShowingFileFavouriters = false;
+    const parent = this.inputtedParentRef ?? this.parentRef;
+    this.fileFavouriters = undefined;
     parent?.closeOverlay();
   }
   onMediaEnded() {
@@ -648,6 +673,24 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
 
   onVideoStalled() {
     this.isVideoBuffering = true;
+  }
+  async toggleFavourite(file: FileEntry) {
+    const parent = this.inputtedParentRef ?? this.parentRef;
+    const user = parent?.user;
+    if (!user?.id) { return alert('You must be logged in to favourite files.'); }
+    try {
+      this.startLoading();
+      const res: any = await this.fileService.toggleFavourite(user.id, file.id);
+      if (res) {
+        file.favouriteCount = res.favouriteCount ?? file.favouriteCount ?? 0;
+        file.isFavourited = res.isFavourited ?? !file.isFavourited;
+        parent?.showNotification?.((file.isFavourited ? 'Added to favourites' : 'Removed from favourites'));
+      }
+    } catch (ex) {
+      console.error(ex);
+    } finally {
+      this.stopLoading();
+    }
   }
   isVideoOrAudio(fileEntry: FileEntry) {
     let fileType = fileEntry.fileType ?? this.fileService.getFileExtension(fileEntry.fileName ?? '');

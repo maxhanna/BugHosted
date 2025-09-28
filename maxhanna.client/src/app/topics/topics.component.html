@@ -18,7 +18,8 @@
   </div>
 </div>
 <div *ngIf="matchingTopics.length > 0 && !isDropdown">
-  <span *ngFor="let topic of matchingTopics" (click)="topicClicked.emit([topic])" class="matchingTopic">{{
-    topic.topicText }}</span>
+  <span *ngFor="let topic of matchingTopics" (click)="topicClicked.emit([topic])" class="matchingTopic">
+    {{ topic.topicText }}
+  </span>
 </div>
 <button id="closeOverlay" style="display:none" *ngIf="isDropdownShowing" (click)="cancelSearch()"></button>

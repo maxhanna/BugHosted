@@ -243,7 +243,8 @@ export class ThemesComponent extends ChildComponent implements OnInit, OnDestroy
     this.attachedFiles = files;
     const fileId = this.attachedFiles && this.attachedFiles[0] ? this.attachedFiles[0].id : null;
     if (fileId) {
-      this.fileService.getFileEntryById(fileId).then(res => {
+      const requesterId = this.parentRef?.user?.id;
+      this.fileService.getFileEntryById(fileId, requesterId).then(res => {
         if (res) {
           const directLink = `https://bughosted.com/assets/Uploads/${(this.getDirectoryName(res) != '.' ? this.getDirectoryName(res) : '')}${res.fileName}`;
           this.updateCSS('--main-background-image-url', undefined, directLink);
@@ -378,7 +379,8 @@ export class ThemesComponent extends ChildComponent implements OnInit, OnDestroy
 
     // Handle background image
     if (selectedTheme.backgroundImage) {
-      this.fileService.getFileEntryById(selectedTheme.backgroundImage).then(res => {
+      const requesterId = this.parentRef?.user?.id;
+      this.fileService.getFileEntryById(selectedTheme.backgroundImage, requesterId).then(res => {
         if (res) {
           this.selectBackgroundImage(res);
           const directLink = `https://bughosted.com/assets/Uploads/${(this.getDirectoryName(res) != '.' ? this.getDirectoryName(res) : '')}${res.fileName}`;
@@ -444,7 +446,8 @@ export class ThemesComponent extends ChildComponent implements OnInit, OnDestroy
 
   private replenishBackroundImageSelection(res: any, blockSavePrompt = false) {
     if (res.backgroundImage) {
-      this.fileService.getFileEntryById(res.backgroundImage).then(feRes => {
+      const requesterId = this.parentRef?.user?.id;
+      this.fileService.getFileEntryById(res.backgroundImage, requesterId).then(feRes => {
         if (feRes) {
           this.selectBackgroundImage(feRes, blockSavePrompt);
         }

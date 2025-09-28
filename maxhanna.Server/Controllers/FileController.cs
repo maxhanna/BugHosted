@@ -229,7 +229,9 @@ namespace maxhanna.Server.Controllers
     f.width AS width,
     f.height AS height,
     f.last_access AS last_access,
-    f.access_count AS access_count,
+	f.access_count AS access_count,
+	(SELECT COUNT(*) FROM file_favourites ff WHERE ff.file_id = f.id) AS favourite_count,
+	(EXISTS(SELECT 1 FROM file_favourites ff2 WHERE ff2.file_id = f.id AND ff2.user_id = @userId)) AS is_favourited,
     COUNT(c.id) AS comment_count
 FROM
     maxhanna.file_uploads f 
@@ -282,7 +284,7 @@ GROUP BY
     f.width,
     f.height,
     f.last_access,
-    f.access_count
+							f.access_count
 {orderBy}
 LIMIT
     @pageSize OFFSET @offset;"
@@ -348,6 +350,8 @@ LIMIT
 								Height = reader.IsDBNull("height") ? null : reader.GetInt32("height"),
 								LastAccess = reader.IsDBNull("last_access") ? null : reader.GetDateTime("last_access"),
 								AccessCount = reader.IsDBNull("access_count") ? 0 : reader.GetInt32("access_count"),
+								FavouriteCount = reader.IsDBNull("favourite_count") ? 0 : reader.GetInt32("favourite_count"),
+								IsFavourited = reader.IsDBNull("is_favourited") ? false : reader.GetBoolean("is_favourited"),
 							};
 
 							fileEntries.Add(fileEntry);
@@ -377,6 +381,40 @@ LIMIT
 
 					return Ok(result);
 				}
+			}
+			catch (Exception ex)
+			{
+				_ = _log.Db($"error:{ex}", null, "FILE", true);
+				return StatusCode(500, ex.Message);
+			}
+		}
+
+		[HttpPost("/File/GetFavouritedBy", Name = "GetFavouritedBy")]
+		public IActionResult GetFavouritedBy([FromBody] int fileId)
+		{
+			try
+			{
+				using var connection = new MySqlConnection(_connectionString);
+				connection.Open();
+				var cmd = new MySqlCommand(@"SELECT u.id, u.username, udp.file_id AS displayPictureFileId
+					FROM file_favourites ff
+					JOIN users u ON ff.user_id = u.id
+					LEFT JOIN user_display_pictures udp ON udp.user_id = u.id
+					WHERE ff.file_id = @fileId", connection);
+				cmd.Parameters.AddWithValue("@fileId", fileId);
+				var list = new List<object>();
+				using var reader = cmd.ExecuteReader();
+				while (reader.Read())
+				{
+					list.Add(
+						new User(
+							reader.GetInt32("id"),
+							reader.IsDBNull("username") ? "" : reader.GetString("username"),
+							reader.IsDBNull("displayPictureFileId") ? null : new FileEntry(reader.GetInt32("displayPictureFileId")
+						)
+					));
+				}
+				return Ok(list);
 			}
 			catch (Exception ex)
 			{
@@ -1409,7 +1447,7 @@ LIMIT
 		}
 
 		[HttpPost("/File/GetFileEntryById", Name = "GetFileEntryById")]
-		public async Task<IActionResult> GetFileEntryById([FromBody] int fileId)
+		public async Task<IActionResult> GetFileEntryById([FromBody] int fileId, [FromQuery] int? userId = null)
 		{
 			FileEntry? fileEntry = null;
 			using (var connection = new MySqlConnection(_connectionString))
@@ -1437,9 +1475,11 @@ LIMIT
                 fc.comment AS commentText,  
                 f.given_file_name,
                 f.description,
-                f.last_updated as file_data_updated,
-                f.last_access as last_access,
+				f.last_updated as file_data_updated,
+				f.last_access as last_access,
 				f.access_count as access_count,
+				(SELECT COUNT(*) FROM maxhanna.file_favourites ff WHERE ff.file_id = f.id) AS favourite_count,
+				(EXISTS(SELECT 1 FROM maxhanna.file_favourites ff2 WHERE ff2.file_id = f.id AND ff2.user_id = @userId)) AS is_favourited,
                 udp.file_id AS commentUserDisplayPicId,
                 udp.tag_background_file_id AS commentUserBackgroundPicId,
                 udpf.file_id AS fileUserDisplayPicId,
@@ -1461,11 +1501,12 @@ LIMIT
             GROUP BY 
                 f.id, u.username, f.file_name, f.is_public, f.is_folder, f.folder_path, f.file_type, f.user_id, 
                 fc.id, uc.username, fc.comment, f.given_file_name, f.description, 
-                f.last_updated, udp.file_id 
+				f.last_updated, udp.file_id, f.last_access, f.access_count 
             LIMIT 1;",
 						connection);
 
 				command.Parameters.AddWithValue("@fileId", fileId);
+				command.Parameters.AddWithValue("@userId", userId ?? 0);
 
 				using (var reader = await command.ExecuteReaderAsync())
 				{
@@ -1481,8 +1522,10 @@ LIMIT
 						var isFolder = reader.GetBoolean("is_folder");
 						var folderPath = reader.GetString("folder_path");
 						var fileType = reader.GetString("file_type");
-						var lastAccess = reader.GetDateTime("last_access");
-						var accessCount = reader.GetInt32("access_count");
+						var lastAccess = reader.IsDBNull(reader.GetOrdinal("last_access")) ? (DateTime?)null : reader.GetDateTime("last_access");
+						var accessCount = reader.IsDBNull(reader.GetOrdinal("access_count")) ? 0 : reader.GetInt32("access_count");
+						var favouriteCount = reader.IsDBNull(reader.GetOrdinal("favourite_count")) ? 0 : reader.GetInt32("favourite_count");
+						var isFavourited = reader.IsDBNull(reader.GetOrdinal("is_favourited")) ? false : reader.GetBoolean("is_favourited");
 						var date = reader.GetDateTime("date");
 
 						int? fuDisplayPicId = reader.IsDBNull(reader.GetOrdinal("fileUserDisplayPicId")) ? null : reader.GetInt32("fileUserDisplayPicId");
@@ -1492,6 +1535,8 @@ LIMIT
 						{
 							Id = id,
 							FileName = reader.GetString("file_name"),
+							FavouriteCount = favouriteCount,
+								IsFavourited = isFavourited,
 							Visibility = reader.GetBoolean("is_public") ? "Public" : "Private",
 							SharedWith = shared_with,
 							User = new User(user_id, userName, (fuDisplayPicId != null ? new FileEntry(fuDisplayPicId.Value) : null), (fuBackgroundPicId != null ? new FileEntry(fuBackgroundPicId.Value) : null)),

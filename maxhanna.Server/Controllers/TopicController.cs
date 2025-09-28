@@ -41,14 +41,14 @@ namespace maxhanna.Server.Controllers
 								FROM maxhanna.topics t
 								LEFT JOIN maxhanna.topic_favourite tf 
 									ON t.id = tf.topic_id AND tf.user_id = @userId
-								ORDER BY is_favorite DESC, t.topic ASC
-								LIMIT 20";
+								ORDER BY is_favorite DESC, t.creation_date DESC, t.topic ASC
+								LIMIT 200";
 						}
 						else
 						{
 							// Get top 20 alphabetically when no user ID
 							sql = @"SELECT id, topic FROM maxhanna.topics 
-                            ORDER BY topic ASC LIMIT 20";
+                            ORDER BY creation_date DESC, topic ASC LIMIT 200";
 						}
 					}
 					else
