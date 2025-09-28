@@ -40,8 +40,7 @@ public class KrakenService
 		_config = config;
 		_log = log;
 		_httpClient = new HttpClient();
-	}
-
+	} 
 	public async Task<bool> MakeATrade(int userId, string coin, UserKrakenApiKey keys, string strategy)
     {
         string tmpCoin = coin.ToUpper().Trim();
@@ -5541,8 +5540,14 @@ public class KrakenService
 
 		return false;
 	}
- 
-	private async Task<(decimal? firstPriceToday, decimal lastPrice, decimal currentPrice, decimal spread, decimal spread2)> CalculateSpread(int userId, string coin, string strategy, bool isFirstTradeEver, TradeRecord? lastTrade, decimal coinPriceUSDC)
+
+	private async Task<
+		(decimal? firstPriceToday,
+		decimal lastPrice,
+		decimal currentPrice,
+		decimal spread,
+		decimal spread2)>
+		CalculateSpread(int userId, string coin, string strategy, bool isFirstTradeEver, TradeRecord? lastTrade, decimal coinPriceUSDC)
 	{
 		// Normalize coin symbol (BTC -> XBT)
 		string tmpCoin = coin.ToUpper() == "BTC" ? "XBT" : coin.ToUpper();
@@ -5580,6 +5585,52 @@ public class KrakenService
 		//_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Spread calc: lastPrice={lastPrice}, currentPrice={currentPrice}, spread={spread:P}, spread2={spread2:P}, firstPriceToday={firstPriceToday}, lastCheckedPrice={lastCheckedPrice}", userId, "TRADE", true);
 
 		return (firstPriceToday, lastPrice, currentPrice, spread, spread2);
+	}
+	
+	/// <summary>
+	/// Returns a list of active tradebot users ranked by number of trades.
+	/// Optional filters: strategy and date range (from/to). If null, returns overall counts.
+	/// </summary>
+	public async Task<List<(int UserId, long TradeCount)>> GetTopActiveUsersByTradeCount(string? strategy = null, DateTime? from = null, DateTime? to = null, int limit = 50)
+	{
+		var results = new List<(int, long)>();
+		try
+		{
+			using var conn = new MySqlConnection(_config?.GetValue<string>("ConnectionStrings:maxhanna"));
+			await conn.OpenAsync();
+
+			var whereClauses = new List<string>();
+			if (!string.IsNullOrWhiteSpace(strategy)) whereClauses.Add("strategy = @strategy");
+			if (from.HasValue) whereClauses.Add("timestamp >= @from");
+			if (to.HasValue) whereClauses.Add("timestamp <= @to");
+
+			var whereSql = whereClauses.Count > 0 ? "WHERE " + string.Join(" AND ", whereClauses) : "";
+
+			var sql = $@"
+				SELECT user_id, COUNT(*) AS trades
+				FROM trade_history
+				{whereSql}
+				GROUP BY user_id
+				ORDER BY trades DESC
+				LIMIT @limit;";
+
+			using var cmd = new MySqlCommand(sql, conn);
+			cmd.Parameters.AddWithValue("@limit", limit);
+			if (!string.IsNullOrWhiteSpace(strategy)) cmd.Parameters.AddWithValue("@strategy", strategy);
+			if (from.HasValue) cmd.Parameters.AddWithValue("@from", from.Value);
+			if (to.HasValue) cmd.Parameters.AddWithValue("@to", to.Value);
+
+			using var reader = await cmd.ExecuteReaderAsync();
+			while (await reader.ReadAsync())
+			{
+				results.Add((reader.GetInt32("user_id"), reader.GetInt64("trades")));
+			}
+		}
+		catch (Exception ex)
+		{
+			await _log.Db($"Error fetching top active users by trade count: {ex.Message}", type: "TRADE", outputToConsole: true);
+		}
+		return results;
 	}
 
 	private async Task<List<PricePoint>> GetPriceHistoryForMACD(string pair, int days, int maxDataPoints = 1000)
