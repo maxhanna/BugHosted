@@ -399,6 +399,16 @@ div:not(.trade-panel-controls) .button-wrapper {
   width: 100%;
   text-align: center;
 }
+
+.live-trade-view-container {
+  max-height: CALC(var(--vh, 1vh) * 100 - 150px);
+  overflow: auto;
+}
+@media (max-width: 768px) {
+  .live-trade-view-container {
+      max-height: CALC(var(--vh, 1vh) * 100 - 315px);
+  }
+}
  
 .trade-info-column {
   transition: width 0.25s ease;
@@ -408,7 +418,10 @@ div:not(.trade-panel-controls) .button-wrapper {
 }
  
 .trade-info-column.collapsed {
-  min-width: 40px;
+  width: 0px;
+  height: 0px;
+  overflow: hidden;
+  padding: 0;
 }
 
 .trade-panel-controls button.cursorPointer:hover {

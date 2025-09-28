@@ -1,0 +1,11 @@
+<div *ngIf="hasUsers" class="crypto-top-traders-container">
+	<div class="sectionName">Top Active Users</div>
+	<ol class="top-traders-list">
+		<li *ngFor="let u of topActiveUsers | slice:0:20">
+			<span>
+                <app-user-tag [userId]="u.userId" [displayMiniTag]="true" [inputtedParentRef]="inputtedParentRef"></app-user-tag>
+            </span> 
+            <span>— {{u.trades}} trades</span>
+		</li>
+	</ol>
+</div>

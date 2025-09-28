@@ -118,6 +118,8 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
   tradebotValuesForGraph: any;
   exchangeRateGraphSelectedPeriod: '5min' | '15min' | '1h' | '6h' | '12h' | '1d' | '2d' | '5d' | '1m' | '2m' | '3m' | '6m' | '1y' | '2y' | '3y' | '5y' | 'max' = '1y'
   tradebotSimulationGraphData: any[] = [];
+  // Top active users by trades
+  topActiveUsersByTrades: { userId: number, trades: number }[] = [];
   tradebotSimulationGraphData2: any[] = [];
   tradeSimParams = {
     initialBtc: 0.02085,               // Starting BTC amount
@@ -224,15 +226,7 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
     private changeDetectorRef: ChangeDetectorRef,) {
     super();
   }
- 
-  toggleTradeInfo(event?: MouseEvent) {
-    if (!this.isTradePanelOpen) return;
-    if (event && event.target) {
-      const tag = (event.target as HTMLElement).tagName.toLowerCase();
-      if (['button', 'input', 'select', 'a', 'textarea', 'label'].includes(tag)) return;
-    }
-    this.isTradeInfoHidden = !this.isTradeInfoHidden;
-  }
+
   async ngOnInit() {
     this.startLoading();
     try {
@@ -2420,7 +2414,16 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
   }
   fullscreenSelectedInPopup(event?: any) {
     this.isGraphFullscreenedInPopup = !this.isGraphFullscreenedInPopup;
-  }
+  } 
+  
+  toggleTradeInfo(event?: MouseEvent) {
+    if (!this.isTradePanelOpen) return;
+    if (event && event.target) {
+      const tag = (event.target as HTMLElement).tagName.toLowerCase();
+      if (['button', 'input', 'select', 'a', 'textarea', 'label'].includes(tag)) return;
+    }
+    this.isTradeInfoHidden = !this.isTradeInfoHidden;
+  } 
 }
 
 interface VolumeWarning {

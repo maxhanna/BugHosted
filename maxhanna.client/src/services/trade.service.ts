@@ -105,6 +105,9 @@ export class TradeService {
   async getTradeVolumeForGraph(from?: Date, hourRange?: number) {
     return this.post(`/trade/gettradevolumeforgraph`, { From: from, HourRange: hourRange }, 'json');
   } 
+  async getTopActiveUsersByTradeCount(strategy?: string, from?: Date, to?: Date, limit: number = 50) {
+    return this.post(`/trade/gettopactiveusersbytradecount`, { Strategy: strategy, From: from, To: to, Limit: limit }, 'json');
+  }
   async enterPosition(userId: number, coin: string, strategy: string, encryptedUserId: string) {
     return this.post(`/trade/enterposition`, { UserId: userId, Coin: coin, Strategy: strategy }, 'json', encryptedUserId);
   }

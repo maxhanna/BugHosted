@@ -19,7 +19,7 @@
 }
 
 .tradeDataTable {
-    height: CALC(var(--vh, 1vh) * 100 - 360px);
+    max-height: CALC(var(--vh, 1vh) * 100 - 360px);
     overflow: auto;
     border: var(--main-border);
     border-radius: 4px;

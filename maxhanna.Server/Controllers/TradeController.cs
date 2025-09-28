@@ -324,6 +324,21 @@ public class TradeController : ControllerBase
 		}
 	}
 
+	[HttpPost("/Trade/GetTopActiveUsersByTradeCount", Name = "GetTopActiveUsersByTradeCount")]
+	public async Task<IActionResult> GetTopActiveUsersByTradeCount([FromBody] TopActiveUsersRequest request)
+	{
+		try
+		{
+			var list = await _krakenService.GetTopActiveUsersByTradeCount(request.Strategy, request.From, request.To, request.Limit);
+			return Ok(list.Select(x => new { userId = x.UserId, trades = x.TradeCount }));
+		}
+		catch (Exception ex)
+		{
+			await _log.Db($"Error fetching top active users: {ex.Message}", 0, "TRADE", true);
+			return StatusCode(500, "Error fetching top active users");
+		}
+	}
+
 	[HttpPost("/Trade/GetTradeVolumeForGraph", Name = "GetTradeVolumeForGraph")]
 	public async Task<IActionResult> GetTradeVolumeForGraph([FromBody] GraphRangeRequest request)
 	{
