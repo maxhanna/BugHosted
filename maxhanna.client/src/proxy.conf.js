@@ -38,6 +38,7 @@ const PROXY_CONFIG = [
       "/mastermind",
       "/art",
       "/ender",
+      "/search",
     ],
     target,
     changeOrigin: true, // This helps with certain CORS issues and forwards headers correctly 

@@ -55,6 +55,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   @Output() expandClickedEvent = new EventEmitter<FileEntry>();
 
   showFavouritesOnly = false;
+  trendingSearches: string[] = [];
   sortOption: string = 'Latest';
   showData = true;
   showShareUserList = false;
@@ -336,7 +337,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     clearTimeout(this.debounceTimer);
     this.debounceTimer = setTimeout(() => {
       this.getDirectory();
-    }, 500);
+    }, 1000);
   }
 
   getFileExtension(filename: string) {
@@ -750,6 +751,10 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     setTimeout(() => {
       this.popupSearch.nativeElement.focus();
     }, 50);
+    // load trending searches for files
+    this.fileService.getTrending('file', 5).then(res => {
+      this.trendingSearches = Array.isArray(res) ? res.map((r: any) => r.query) : [];
+    }).catch(() => { this.trendingSearches = []; });
   }
   closeSearchPanel() {
     this.isSearchPanelOpen = false;
@@ -782,7 +787,11 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   }
   async searchFiles(topic: string) {
     this.searchTerms = topic;
-    await this.getDirectory();
+    await this.getDirectory(); 
+    try {
+      const user = this.inputtedParentRef?.user ?? this.parentRef?.user;
+      await this.fileService.recordSearch(topic, 'file', user?.id);
+    } catch { }
   }
   async fileTopicClicked(topics: Topic[]) {
     if (topics) {
@@ -975,6 +984,11 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     this.debounceTimer = setTimeout(() => {
       this.searchTerms = this.popupSearch.nativeElement.value.trim();
       this.getDirectory();
+      // record search as user typed and executed
+      try {
+        const user = this.inputtedParentRef?.user ?? this.parentRef?.user;
+        this.fileService.recordSearch(this.searchTerms, 'file', user?.id);
+      } catch { }
     }, 500);
   }
   changeSearchTermsFromSearchInput() {
@@ -1041,8 +1055,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   showFavouritesToggled() {
     this.showFavouritesOnly = !this.showFavouritesOnly;
     this.debounceSearch();
-  }
-  // Note: templates call the async addToFavourites(optionsFile) above.
+  } 
 
   notifyUser(message: string) {
     this.userNotificationEvent.emit(message);

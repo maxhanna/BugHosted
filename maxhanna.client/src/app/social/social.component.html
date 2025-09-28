@@ -26,11 +26,18 @@
           <div class="smallFont">
             Search in : Text, City, Country and Username.
           </div>
-          <input type="text" #search placeholder="Search the socials" (input)="debouncedSearch()" *ngIf="!user"
-            [value]="userSearch" />
+            <input type="text" #search placeholder="Search the socials" (input)="debouncedSearch()" *ngIf="!user"
+              [value]="userSearch" />
           <input type="submit" (click)="debouncedSearch()" value="🔍" *ngIf="!user" />
           <div *ngIf="search && search.nativeElement.value != ''" style="text-align:center;">Results :
             {{storyResponse?.stories?.length ?? 0}}</div>
+          <div *ngIf="trendingSearches && trendingSearches.length" class="trending-searches">
+            <div class="trending-header">Trending:</div>
+            <div class="trending-list">
+              <button class="trending-chip" *ngFor="let t of trendingSearches"
+                (click)="search.nativeElement.value = t; debouncedSearch();">{{t}}</button>
+            </div>
+          </div>
         </div>
         <div class="searchSocialsPanelContentDiv">
           <div class="smallFont">

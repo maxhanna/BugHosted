@@ -36,6 +36,7 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
   isMobileTopicsPanelOpen = false;
   isSearchSocialsPanelOpen = false;
   isMenuPanelOpen = false;
+  trendingSearches: string[] = [];
   isStoryOptionsPanelOpen = false;
   isPostOptionsPanelOpen = false; 
   isEditing: number[] = [];
@@ -624,6 +625,11 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
       this.parentRef.showOverlay();
     }
 
+    // fetch trending social searches
+    this.fileService.getTrending('social', 5).then(res => {
+      this.trendingSearches = Array.isArray(res) ? res.map((r: any) => r.query) : [];
+    }).catch(() => { this.trendingSearches = []; });
+
     setTimeout(() => { this.search.nativeElement.focus(); }, 50);
   }
   closeSearchSocialsPanel() {
@@ -868,7 +874,13 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
   debouncedSearch() {
     this.userSearch = this.search.nativeElement.value;
     clearTimeout(this.searchTimeout);
-    this.searchTimeout = setTimeout(() => this.searchStories(this.attachedTopics, true), 500);
+    this.searchTimeout = setTimeout(() => {
+      this.searchStories(this.attachedTopics, true);
+      try {
+        const user = this.parent?.user ?? this.parentRef?.user; 
+        this.fileService.recordSearch(this.userSearch, 'social', user?.id);
+      } catch { }
+    }, 1000);
   }
 
   ignoreTopic(topic: Topic) {

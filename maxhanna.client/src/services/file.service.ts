@@ -539,6 +539,31 @@ export class FileService {
 			return [];
 		}
 	}
+
+	// Record a search query (type optional: 'file' | 'social')
+	async recordSearch(query: string, type?: string, userId?: number) {
+		try {
+			await fetch('/search/record', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ Query: query, Type: type, UserId: userId }),
+			});
+		} catch (e) {
+			console.error('Failed to record search', e);
+		}
+	}
+
+	async getTrending(type?: string, limit: number = 5) {
+		try {
+			const url = '/search/trending' + (type ? `?type=${encodeURIComponent(type)}&limit=${limit}` : `?limit=${limit}`);
+			const res = await fetch(url, { method: 'GET' });
+			if (!res.ok) throw new Error('Failed to fetch trending');
+			return await res.json();
+		} catch (e) {
+			console.error('Failed to fetch trending', e);
+			return [];
+		}
+	}
 	formatFileSize(bytes: number, decimalPoint: number = 2): string {
 		if (bytes === 0) return '0 Bytes';
 

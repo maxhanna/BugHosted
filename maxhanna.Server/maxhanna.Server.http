@@ -176,4 +176,10 @@ Accept: application/json
 ###
 POST {{maxhanna.Server_HostAddress}}/Ender/
 Accept: application/json
+### 
+GET {{maxhanna.Server_HostAddress}}/Search/
+Accept: application/json
+###
+POST {{maxhanna.Server_HostAddress}}/Search/
+Accept: application/json
 ###

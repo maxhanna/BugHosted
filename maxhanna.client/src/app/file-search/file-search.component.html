@@ -388,6 +388,12 @@
         placeholder="Search {{ currentDirectory }}..." [value]="searchTerms" />
       <span class="search-results-count">{{ directory?.totalCount || 0 }} results</span>
     </div>
+      <div *ngIf="trendingSearches && trendingSearches.length" class="trending-searches">
+        <div class="trending-header">Trending:</div>
+        <div class="trending-list">
+          <button class="trending-chip" *ngFor="let t of trendingSearches" (click)="searchFiles(t)">{{t}}</button>
+        </div>
+      </div>
     
     <div class="search-filters">
       <div class="filter-group">
