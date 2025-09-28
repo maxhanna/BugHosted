@@ -263,7 +263,6 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
       });
       if (this.currentSelectedCoin && this.currentSelectedCoin != "Bitcoin") {
         setTimeout(() => {
-          console.log("selecting coin : ", this.currentSelectedCoin);
           this.selectCoin(this.currentSelectedCoin);
         }, 1000);
       }
@@ -568,8 +567,6 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
     tmpCoinName = tmpCoinName == "XDG" ? 'Dogecoin' : tmpCoinName;
     tmpCoinName = tmpCoinName == "ETH" ? 'Ethereum' : tmpCoinName;
     this.currentSelectedCoin = tmpCoinName;
-
-    console.log("currently selected coin : ", this.currentSelectedCoin);
 
     this.btcConvertCoinSelect.nativeElement.value = this.currentSelectedCoin.replace("BTC", "Bitcoin");
     this.selectedCoinConversionName = this.btcConvertCoinSelect.nativeElement.value;
@@ -2415,7 +2412,7 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
   fullscreenSelectedInPopup(event?: any) {
     this.isGraphFullscreenedInPopup = !this.isGraphFullscreenedInPopup;
   } 
-  
+
   toggleTradeInfo(event?: MouseEvent) {
     if (!this.isTradePanelOpen) return;
     if (event && event.target) {

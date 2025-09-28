@@ -19,7 +19,7 @@
             ({{getOptionsCount()}})
         </span>
     </button> 
-    <button class="mainTopicSelectionsHeaderButton" (click)="showTopicsPanel()" *ngIf="type == 'Social'">
+    <button class="mainTopicSelectionsHeaderButton" [class.highlight]="highlightTopicsButton" (click)="showTopicsPanel(); highlightTopicsButton = false" *ngIf="type == 'Social'">
         🗂️{{ (!showPostInput && (!onMobile() || (mediaSelector && !mediaSelector.selectedFiles.length)) && (!onMobile() || !attachedTopics.length)) ? 'Topics' : onMobile() ? '' : 'Topics'}}
         <span class="matchingTopicsInsideButtonWrapper" *ngIf="attachedTopics && attachedTopics.length > 0">
             (
@@ -74,7 +74,7 @@
     <div class="popupPanelTitle">Topics 🗂️</div>
     <div style="margin-bottom:15px;">
         <app-topics #topicSelector [isDropdown]="true" [user]="inputtedParentRef?.user" [parent]="inputtedParentRef"
-            [attachedTopics]="attachedTopics" (topicAdded)="topicAdded.emit($event)" (topicClicked)="clickedTopic($event)">
+            [attachedTopics]="attachedTopics" (topicAdded)="onTopicAdded($event)" (topicClicked)="onTopicClicked($event)">
         </app-topics>
     </div>
     <div class="popupSectionContainer gradientBackground">

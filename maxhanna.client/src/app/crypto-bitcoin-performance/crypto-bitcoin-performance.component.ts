@@ -43,6 +43,8 @@ export class CryptoBitcoinPerformanceComponent extends ChildComponent implements
         this.conversionRate = 1;
       }
     }
+
+    this.realSelectedCoin = this.selectedCoin;
     this.loadPerformanceData();
   }
 

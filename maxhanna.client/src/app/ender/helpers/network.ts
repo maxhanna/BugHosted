@@ -240,15 +240,7 @@ export function subscribeToMainGameEvents(object: any) {
     const skill = params.selection.split(/\d/)[0];
     const dmg = params.selection.split(' ').slice(-2, -1)[0];
     let targetPart = undefined;
-    for (let part of parts) {
-      //console.log("Checking part:", part); // Debugging: log the part being checked
-      //console.log("skill:", skill); // Debugging: log the skill
-      //console.log("part.skill.name:", part.skill.name); // Debugging: log part.skill.name
-      //console.log("dmg:", dmg); // Debugging: log dmg value
-      //console.log("part.damageMod:", part.damageMod); // Debugging: log part.damageMod
-      //console.log("params.selectedPart:", params.selectedPart); // Debugging: log params.selectedPart
-      //console.log("part.partName:", part.partName); // Debugging: log part.partName
-
+    for (let part of parts) {  
       if (part.skill.name.trim() === skill.trim() && part.damageMod === parseInt(dmg) && part.partName.trim() === params.selectedPart.trim()) {
         targetPart = part; 
         break;
@@ -257,7 +249,6 @@ export function subscribeToMainGameEvents(object: any) {
     let oldPart = undefined;
     const metabotSelected = object.metaHero.metabots.find((b: MetaBot) => b.id === params.selectedMetabotId);
 
-   // console.log("Selected a bot part : ", params, skill, dmg, parts, targetPart);
     if (metabotSelected && targetPart) {
       targetPart.metabotId = params.selectedMetabotId;
       if (targetPart.partName === LEFT_ARM) {

@@ -86,7 +86,6 @@ export class CryptoCoinGraphViewerComponent extends ChildComponent implements On
     this.stopLoading();
   }
   private async getTradebotValuesForMainGraph(tradeUserId: number, sessionToken: string | undefined) {
-    console.log("getting tradebot values");
     const token = sessionToken ?? "";
     const COIN_REPLACEMENTS = [
       { from: /^BTC$/i, to: 'XBT' },
@@ -121,7 +120,6 @@ export class CryptoCoinGraphViewerComponent extends ChildComponent implements On
     const [dcaRes, indRes, hftRes] = results; 
     const combined = [...(dcaRes.trades ?? []), ...(indRes.trades ?? []), ...(hftRes.trades ?? [])];
 
-    console.log("got combined: ", combined);
     this.tradebotBalances = combined;
     if (!combined.length) {
       setTimeout(() => {

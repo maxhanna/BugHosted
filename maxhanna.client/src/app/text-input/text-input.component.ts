@@ -69,6 +69,7 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
   isComponentPanelOpen = false;
   topTopics: TopicRank[] = [];
   showHelpPopup = false;
+  highlightTopicsButton = false;
 
   ngOnInit() {
     if (this.inputtedParentRef?.user?.id && this.type == "Social") {
@@ -98,12 +99,35 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
       }, 100);
     }
   }
+ 
+  onTopicAdded(event: Topic[] | undefined) {
+    this.attachedTopics = event ?? [];
+    this.topicAdded.emit(this.attachedTopics);
+    this.highlightTopicsButton = this.getButtonHighlightState();
+    console.log("topic added");
+  }
+
+  onTopicClicked(event: Topic[] | undefined) {
+    this.highlightTopicsButton = this.getButtonHighlightState();
+    this.attachedTopics = event ?? [];
+    this.topicClicked.emit(this.attachedTopics);
+    console.log("topic clicked");
+  }
 
   async post() {
     console.log("Posting...");
     const text = this.textarea.value?.trim() || '';
     this.attachedFiles = this.mediaSelector?.selectedFiles ?? [];
     this.attachedTopics = this.topicSelector?.attachedTopics ?? this.attachedTopics;
+
+    if (this.type === 'Social' && !this.profileUser && (!this.attachedTopics || this.attachedTopics.length === 0)) {
+      const parent = this.inputtedParentRef ?? this.parentRef;
+      parent?.showNotification?.('Please select at least one topic before posting to the feed.');
+      this.highlightTopicsButton = true;
+      this.isTopicsPanelOpen = true;
+      parent?.showOverlay();
+      return;
+    }
 
     if (!text && (!this.attachedFiles || this.attachedFiles.length === 0)) {
       alert("Message contents are empty!");
@@ -539,10 +563,12 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
   clickedTopic(event: Topic[] | undefined) {
     this.topicClicked.emit(event);
     this.closeTopicsPanel();
+    this.highlightTopicsButton = this.getButtonHighlightState();
   }
   clickedTopicRank(event: TopicRank) {
     this.topicClicked.emit([{ id: event.topicId, topicText: event.topicName } as Topic]);
     this.closeTopicsPanel();
+    this.highlightTopicsButton = this.getButtonHighlightState();
   }
   showHelp() {
     this.closePostOptionsPanel();
@@ -553,5 +579,8 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
     this.showHelpPopup = false;
     const parent = this.inputtedParentRef ?? this.parentRef;
     parent?.closeOverlay();
+  }
+  getButtonHighlightState(): boolean {
+    return this.type == "Social" && !this.profileUser && !(this.attachedTopics && this.attachedTopics.length > 0);
   }
 }
