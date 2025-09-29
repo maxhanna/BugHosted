@@ -317,6 +317,7 @@ export class UserService {
       return undefined;
     }
   }
+  
   async updateLastSeen(userId: number) {
     try {
       const response = await fetch('/user/updatelastseen', {
@@ -327,10 +328,7 @@ export class UserService {
         body: JSON.stringify(userId),
       });
 
-      if (response.ok) {
-        return await response.json() as StreakInfo;
-      }
-      return null;
+      return await response.json();
     } catch (error) {
       return null;
     }
