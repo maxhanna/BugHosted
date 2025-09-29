@@ -1397,8 +1397,13 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
       if (res && (res.Reply || res.reply || res.response)) {
         const raw = (res.Reply ?? res.reply ?? res.response) as string;
         const parsed = this.aiService.parseMessage(raw);
-        // push under addr '1' so the template (which calls getAiMessage('1')) will display this message
         this.aiMessages.push({ addr: '1', message: parsed });
+        this.hideHostAiMessage = false;
+        try {
+          this.changeDetectorRef.detectChanges();
+        } catch (e) {
+          // swallow - change detection may not be necessary in some lifecycle states
+        }
       }
     } catch (err) {
       console.error('AnalyzeCoin error', err);
