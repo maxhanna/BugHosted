@@ -1389,6 +1389,7 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
   }
   generateGeneralAiMessage() {
     this.startLoading();
+    this.finishedGeneratingAiMessage = false;
     (async () => {
       try {
         const coinName = this.getFullCoinName(this.currentSelectedCoin?.toUpperCase() ?? 'BTC');
@@ -1403,6 +1404,7 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
         console.error('AnalyzeCoin error', err);
       } finally {
         this.stopLoading();
+        this.finishedGeneratingAiMessage = true;
       }
     })();
     // this.finishedGeneratingAiMessage = false;
@@ -1441,13 +1443,8 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
         }
       })();
     }, 500);
-  }
-
-  private async generateAiMessage(walletAddress: string, data: any) {
-    // This method is now replaced by server-side AnalyzeWallet; keep for compatibility but no-op.
-    return null;
-  }
-
+  } 
+  
   findClosestHistoricalExchangeRate(
     timestamp: string,
     targetCurrency?: string,
