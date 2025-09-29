@@ -136,6 +136,53 @@ export class TextFormattingToolbarComponent extends ChildComponent {
     targetInput.selectionEnd = start + text.length;
     targetInput.focus();
   }
+  /**
+   * Insert a link using the format [label][url].
+   * If the user has text selected it will use that as the label and wrap it.
+   * Otherwise it will insert a placeholder label and the provided url.
+   */
+  insertLink(componentId?: string) {
+    let targetInput = componentId
+      ? document.getElementById(componentId) as HTMLInputElement
+      : this.textarea;
+
+    if (!targetInput) return;
+
+    const start = targetInput.selectionStart || 0;
+    const end = targetInput.selectionEnd || 0;
+    const selectedText = targetInput.value.substring(start, end);
+
+    // Ask for URL
+    const url = window.prompt('Enter URL (include http(s)://)', 'https://www.example.com');
+    if (!url) return; // cancelled
+
+    let insertText: string;
+    let cursorPos = start;
+
+    if (selectedText) {
+      // Wrap selected text
+      insertText = `[${selectedText}][${url}]`;
+      targetInput.value = targetInput.value.substring(0, start) + insertText + targetInput.value.substring(end);
+      cursorPos = start + insertText.length;
+    } else {
+      // Insert placeholder
+      const placeholder = 'text';
+      insertText = `[${placeholder}][${url}]`;
+      targetInput.value = targetInput.value.substring(0, start) + insertText + targetInput.value.substring(start);
+      // place caret between [ and ] of the placeholder to let user edit
+      const placeholderStart = start + 1; // after '['
+      const placeholderEnd = placeholderStart + placeholder.length;
+      targetInput.selectionStart = placeholderStart;
+      targetInput.selectionEnd = placeholderEnd;
+      targetInput.focus();
+      return;
+    }
+
+    // set cursor after inserted text
+    targetInput.selectionStart = cursorPos;
+    targetInput.selectionEnd = cursorPos;
+    targetInput.focus();
+  }
   insertTag(tag: string, componentId?: string) {
     let targetInput = componentId
       ? document.getElementById(componentId) as HTMLInputElement

@@ -813,6 +813,8 @@ export class AppComponent implements OnInit, AfterViewInit {
   getTextForDOM(text?: string, component_id?: any) {
     if (!text) return "";
     text = this.processPolls(text, component_id);
+    // Decode custom [label][url] link syntax into HTML anchors before other processing
+    text = this.decodeInlineLinks(text);
 
     const youtubeRegex = /(https?:\/\/(?:www\.|m\.)?(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)([\w-]{11})|youtu\.be\/([\w-]{11}))(?:\S+)?)/g;
 
@@ -1371,6 +1373,62 @@ export class AppComponent implements OnInit, AfterViewInit {
   getMenuItemDescription(title: string): string {
     const found = this.navigationItemDescriptions?.find(item => item.title === title);
     return found?.content ?? 'No description available.';
+  }
+  /**
+   * Convert occurrences of [label][url] in a string into HTML anchor tags.
+   */
+  decodeInlineLinks(text: string): string {
+    if (!text) return text;
+    const linkRegex = /\[([^\]]+)\]\[([^\]]+)\]/g;
+    return text.replace(linkRegex, (match, label, url) => {
+      const safeUrl = this.ensureUrlHasProtocol(url);
+      return `<a href="${safeUrl}" target="_blank" rel="noopener noreferrer">${label}</a>`;
+    });
+  }
+
+  ensureUrlHasProtocol(url: string): string {
+    if (!url) return url;
+    if (/^https?:\/\//i.test(url)) return url;
+    return 'https://' + url;
+  }
+
+  /**
+   * Walk text nodes inside a root element and replace [label][url] patterns with anchor elements in-place.
+   */
+  decodeLinksInElement(root: HTMLElement) {
+    if (!root) return;
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null);
+    const nodesToProcess: Text[] = [];
+    let node: Node | null;
+    while ((node = walker.nextNode())) {
+      if (node && node.nodeType === Node.TEXT_NODE && /\[[^\]]+\]\[[^\]]+\]/.test(node.nodeValue || '')) {
+        nodesToProcess.push(node as Text);
+      }
+    }
+
+    nodesToProcess.forEach(textNode => {
+      const parent = textNode.parentNode as HTMLElement;
+      if (!parent) return;
+      const parts = (textNode.nodeValue || '').split(/(\[[^\]]+\]\[[^\]]+\])/g);
+      const fragment = document.createDocumentFragment();
+      parts.forEach(part => {
+        if (!part) return;
+        const m = part.match(/^\[([^\]]+)\]\[([^\]]+)\]$/);
+        if (m) {
+          const label = m[1];
+          const url = this.ensureUrlHasProtocol(m[2]);
+          const a = document.createElement('a');
+          a.href = url;
+          a.target = '_blank';
+          a.rel = 'noopener noreferrer';
+          a.textContent = label;
+          fragment.appendChild(a);
+        } else {
+          fragment.appendChild(document.createTextNode(part));
+        }
+      });
+      parent.replaceChild(fragment, textNode);
+    });
   }
   fullscreenYoutubePopup() {
     const youtubePopup = document.getElementById('youtubeIframe');
