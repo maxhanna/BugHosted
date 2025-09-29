@@ -569,3 +569,9 @@ body {
 .ucPopupPanel {
   background-color: var(--component-background-color);
 }
+
+.topRankTableContainer {
+  max-height: 30vh;
+  overflow: auto;
+  padding: 5px;
+}
