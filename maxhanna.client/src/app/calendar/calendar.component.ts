@@ -188,6 +188,8 @@ export class CalendarComponent extends ChildComponent implements OnInit {
       } catch (error) {
         console.error('Error updating calendar entry:', error);
         this.parentRef?.showNotification('Failed to update calendar entry');
+      } finally { 
+        this.closeEditPopupCalendar();
       }
     }
   }
@@ -337,6 +339,7 @@ export class CalendarComponent extends ChildComponent implements OnInit {
       this.selectedCalendarEntries = this.selectedCalendarEntries!.filter((x) => x != cal);
       await this.calendarService.deleteCalendarEntry(this.parentRef?.user?.id, cal);
       this.setCalendarDates(this.now);
+      this.closeEditPopupCalendar();
     } catch (error) {
       console.error("Error deleting calendar entry:", error);
       throw error;
