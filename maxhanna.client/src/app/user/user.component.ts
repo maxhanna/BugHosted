@@ -156,14 +156,8 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
         this.loadContactsData();
         this.loadLocation(this.user);
         this.getIsBeingFollowedByUser();
-        this.getIsUserBlocked(this.user);
-
-        const streakRes = await this.userService.getLoginStreak(this.user.id ?? 0).then(streakRes => {
-          if (streakRes) {
-            this.userLoginStreakCurrent = streakRes.CurrentStreak ?? 0;
-            this.userLoginStreakLongest = streakRes.LongestStreak ?? 0;
-          }
-        });
+        this.getIsUserBlocked(this.user); 
+        this.getUserLoginStreak();
 
         if (this.user.id == this.parentRef?.user?.id && this.user.id != 0 && this.user.id !== undefined) {
           this.notificationService.getStoppedNotifications(this.user.id).then(res => this.stoppedNotifications = res);
@@ -205,6 +199,15 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
     });
   }
 
+
+  private getUserLoginStreak() {
+    this.userService.getLoginStreak(this.user?.id ?? 0).then(streakRes => {
+      if (streakRes) {
+        this.userLoginStreakCurrent = streakRes.CurrentStreak ?? 0;
+        this.userLoginStreakLongest = streakRes.LongestStreak ?? 0;
+      }
+    });
+  }
 
   private async changeTheme() {
     // First reset to default settings
