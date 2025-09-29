@@ -1,6 +1,6 @@
 import { Component, ElementRef, EventEmitter, Input, OnDestroy, OnInit, Output, ViewChild } from '@angular/core';
 import { ChildComponent } from '../child.component';
-import { StreakInfo, UserService } from '../../services/user.service';
+import { UserService } from '../../services/user.service';
 import { WeatherService } from '../../services/weather.service';
 import { FriendService } from '../../services/friend.service';
 import { ContactService } from '../../services/contact.service';
@@ -203,8 +203,8 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
   private getUserLoginStreak() {
     this.userService.getLoginStreak(this.user?.id ?? 0).then(streakRes => {
       if (streakRes) {
-        this.userLoginStreakCurrent = streakRes.CurrentStreak ?? 0;
-        this.userLoginStreakLongest = streakRes.LongestStreak ?? 0;
+        this.userLoginStreakCurrent = streakRes.currentStreak ?? 0;
+        this.userLoginStreakLongest = streakRes.longestStreak ?? 0;
       }
     });
   }

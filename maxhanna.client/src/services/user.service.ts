@@ -7,8 +7,8 @@ import { HttpClient } from '@angular/common/http';
 import { UserSettings } from './datacontracts/user/user-settings';
 
 export interface StreakInfo {
-  CurrentStreak: number;
-  LongestStreak: number;
+  currentStreak: number;
+  longestStreak: number;
 }
 
 @Injectable({
@@ -102,9 +102,9 @@ export class UserService {
       if (response.ok) {
         return await response.json() as StreakInfo;
       }
-      return { CurrentStreak: 0, LongestStreak: 0 } as StreakInfo;
+      return { currentStreak: 0, longestStreak: 0 } as StreakInfo;
     } catch (error) {
-      return { CurrentStreak: 0, LongestStreak: 0 } as StreakInfo;
+      return { currentStreak: 0, longestStreak: 0 } as StreakInfo;
     }
   }
   async getAllUsers(userId?: number, search?: string) {
@@ -317,7 +317,7 @@ export class UserService {
       return undefined;
     }
   }
-  
+
   async updateLastSeen(userId: number) {
     try {
       const response = await fetch('/user/updatelastseen', {
