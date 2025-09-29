@@ -281,7 +281,9 @@ export class NavigationComponent implements OnInit, OnDestroy {
 
     return this.isSameDate(entryDate, today) ||
       this.isWeeklyEvent(type, entryDate, today) ||
+      this.isBiWeeklyEvent(type, entryDate, today) ||
       this.isMonthlyEvent(type, entryDate, today) ||
+      this.isBiMonthlyEvent(type, entryDate, today) ||
       this.isAnnualEvent(type, entryDate, today) ||
       type === 'daily';
   }
@@ -289,11 +291,31 @@ export class NavigationComponent implements OnInit, OnDestroy {
   // Simplified comparison functions
   private isSameDate = (d1: Date, d2: Date) => d1.toDateString() === d2.toDateString();
   private isWeeklyEvent = (type: string, d1: Date, d2: Date) => type === 'weekly' && d1.getDay() === d2.getDay();
+  private isBiWeeklyEvent = (type: string, d1: Date, d2: Date) => {
+    if (type !== 'biweekly') return false;
+    if (d1.getDay() !== d2.getDay()) return false;
+    const diffWeeks = Math.floor((d2.getTime() - d1.getTime()) / (7 * 24 * 60 * 60 * 1000));
+    return diffWeeks % 2 === 0;
+  }
   private isMonthlyEvent = (type: string, d1: Date, d2: Date) => type === 'monthly' && d1.getDate() === d2.getDate();
+  private isBiMonthlyEvent = (type: string, d1: Date, d2: Date) => {
+    if (type !== 'bimonthly') return false;
+    const sameDay = d1.getDate() === d2.getDate();
+    const lastDayFallback = this.isLastDayFallback(d1, d2);
+    if (!sameDay && !lastDayFallback) return false;
+    const yearsDiff = d2.getFullYear() - d1.getFullYear();
+    const monthsDiff = yearsDiff * 12 + (d2.getMonth() - d1.getMonth());
+    return monthsDiff % 2 === 0;
+  }
   private isAnnualEvent = (type: string, d1: Date, d2: Date) =>
     ['milestone', 'annually', 'birthday', 'newyears', 'anniversary', 'christmas'].includes(type) &&
     d1.getMonth() === d2.getMonth() &&
     d1.getDate() === d2.getDate();
+
+  private isLastDayFallback(original: Date, target: Date): boolean {
+    const lastDayTarget = new Date(target.getFullYear(), target.getMonth() + 1, 0).getDate();
+    return original.getDate() > lastDayTarget && target.getDate() === lastDayTarget;
+  }
 
   async getCurrentWeatherInfo() {
     if (!this._parent.user?.id || !this._parent.userSelectedNavigationItems.find(x => x.title == "Weather")) { return; }
