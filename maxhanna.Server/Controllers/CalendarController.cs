@@ -1,3 +1,5 @@
+using System;
+using System.Linq;
 using maxhanna.Server.Controllers.DataContracts.Calendar;
 using maxhanna.Server.Controllers.DataContracts.Users;
 using Microsoft.AspNetCore.Mvc;
@@ -21,7 +23,7 @@ namespace maxhanna.Server.Controllers
 
 		[HttpPost(Name = "GetCalendar")]
 		public async Task<IActionResult> Get([FromBody] int userId, [FromQuery] DateTime startDate, [FromQuery] DateTime endDate)
-		{ 
+		{
 			if (startDate > endDate)
 			{
 				_ = _log.Db("An error occurred while fetching calendar entries. StartDate > EndDate", userId, "CALENDAR");
@@ -35,52 +37,44 @@ namespace maxhanna.Server.Controllers
 				{
 					await conn.OpenAsync();
 
-					string sql =
-						@"SELECT Id, Type, Note, Date, Ownership FROM maxhanna.calendar 
-                            WHERE Ownership = @Owner 
-                              AND (
-                                  (Date BETWEEN @StartDate AND @EndDateWithTime) -- Specific date range
-                                  OR 
-											  (Type = 'Weekly' AND DATE_FORMAT(Date, '%w') = DATE_FORMAT(@StartDate, '%w')) -- Weekly on the same day of the week
-											  OR 
-											  (Type = 'BiWeekly' AND DATE_FORMAT(Date, '%w') = DATE_FORMAT(@StartDate, '%w') AND MOD(TIMESTAMPDIFF(WEEK, Date, @StartDate), 2) = 0) -- Every 2 weeks on the same weekday
-											  OR
-											  (Type = 'Monthly') -- Monthly on the same day of the month
-											  OR
-																				(Type = 'BiMonthly' AND MOD(TIMESTAMPDIFF(MONTH, Date, @StartDate), 2) = 0
-																					AND (
-																						DAY(Date) = DAY(@StartDate) -- same day of month
-																						OR
-																						-- original day is beyond the last day of the target month, and the target date is the last day of month
-																						(DAY(Date) > DAY(LAST_DAY(@StartDate)) AND DAY(@StartDate) = DAY(LAST_DAY(@StartDate)))
-																					)
-																				) -- Every 2 months on same day (or last-day fallback)
-                                  OR 
-                                  (Type IN ('Annually', 'Birthday', 'Milestone', 'Newyears', 'Christmas', 'Anniversary') AND MONTH(Date) = MONTH(@StartDate)) -- Annually on the same day and month
-                                  OR 
-                                  (Type IN ('Daily')) -- Daily regardless of month, year.
-                              )
-                          UNION 
-                          SELECT 
-                              user_id AS Id, 
-                              'birthday' AS Type, 
-                              description AS Note, 
-                              birthday AS Date, 
-                              @Owner AS Ownership 
-                          FROM user_about 
-                          WHERE 
-                              user_id = @Owner 
-                              AND 
-                              MONTH(birthday) = MONTH(@StartDate) 
-                              AND 
-                              DAY(birthday) = DAY(@StartDate);";
+					// Fetch all calendar rows for the owner that are either within the requested range
+					// or are recurring types which we'll evaluate in C# for occurrences inside the range.
+					// SQL-based selection: pick explicit entries in range or recurring templates matching the requested startDate
+					string sql = @"
+							SELECT Id, Type, Note, Date, Ownership FROM maxhanna.calendar
+							WHERE Ownership = @Owner
+								AND (
+									(Date BETWEEN @StartDate AND @EndDateWithTime) -- explicit entries in the range
+									OR (Type = 'Weekly' AND DATE_FORMAT(Date, '%w') = DATE_FORMAT(@StartDate, '%w')) -- same weekday
+									OR (Type = 'BiWeekly' AND DATE_FORMAT(Date, '%w') = DATE_FORMAT(@StartDate, '%w') AND MOD(TIMESTAMPDIFF(WEEK, Date, @StartDate), 2) = 0) -- every 2 weeks on same weekday
+									OR (Type = 'Monthly' AND DAY(Date) = DAY(@StartDate)) -- same day of month
+									OR (
+											Type = 'BiMonthly' AND MOD(TIMESTAMPDIFF(MONTH, Date, @StartDate), 2) = 0
+											AND (
+												DAY(Date) = DAY(@StartDate)
+												OR (DAY(Date) > DAY(LAST_DAY(@StartDate)) AND DAY(@StartDate) = DAY(LAST_DAY(@StartDate)))
+											)
+									) -- every 2 months on same day or last-day fallback
+									OR (Type IN ('Annually','Birthday','Milestone','Newyears','Christmas','Anniversary') AND MONTH(Date) = MONTH(@StartDate) AND DAY(Date) = DAY(@StartDate)) -- annually same month/day
+									OR (Type = 'Daily') -- daily
+								)
+							UNION
+							SELECT user_id AS Id,
+											'Birthday' AS Type,
+											description AS Note,
+											birthday AS Date,
+											@Owner AS Ownership
+							FROM user_about
+							WHERE user_id = @Owner
+								AND MONTH(birthday) = MONTH(@StartDate)
+								AND DAY(birthday) = DAY(@StartDate);
+					";
 
 					using (var cmd = new MySqlCommand(sql, conn))
 					{
 						cmd.Parameters.AddWithValue("@Owner", userId);
 						cmd.Parameters.AddWithValue("@StartDate", startDate);
 						cmd.Parameters.AddWithValue("@EndDateWithTime", endDate.AddDays(1).AddSeconds(-1)); // Adds 23:59:59
-
 
 						using (var rdr = await cmd.ExecuteReaderAsync())
 						{
@@ -90,9 +84,11 @@ namespace maxhanna.Server.Controllers
 							}
 						}
 					}
+
 				}
 
-				return Ok(entries); // Return list of entries if successful
+				// Return the SQL-selected entries directly (query includes recurring templates and birthday union)
+				return Ok(entries);
 			}
 			catch (Exception ex)
 			{
@@ -103,7 +99,7 @@ namespace maxhanna.Server.Controllers
 
 		[HttpPost("/Calendar/Create", Name = "CreateCalendarEntry")]
 		public async Task<IActionResult> Post([FromBody] CreateCalendarEntry req)
-		{  
+		{
 			MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
 			try
 			{
@@ -115,10 +111,10 @@ namespace maxhanna.Server.Controllers
 				cmd.Parameters.AddWithValue("@Type", req.calendarEntry.Type);
 				cmd.Parameters.AddWithValue("@Note", req.calendarEntry.Note);
 				cmd.Parameters.AddWithValue("@Date", req.calendarEntry.Date);
-				cmd.Parameters.AddWithValue("@Owner", req.userId); 
+				cmd.Parameters.AddWithValue("@Owner", req.userId);
 				await cmd.ExecuteNonQueryAsync();
 				return Ok();
-				 
+
 			}
 			catch (Exception ex)
 			{
@@ -133,7 +129,7 @@ namespace maxhanna.Server.Controllers
 
 		[HttpDelete("{id}", Name = "DeleteCalendarEntry")]
 		public async Task<IActionResult> Delete([FromBody] int userId, int id)
-		{ 
+		{
 			MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
 			try
 			{
@@ -157,7 +153,7 @@ namespace maxhanna.Server.Controllers
 			catch (Exception ex)
 			{
 				_ = _log.Db("An error occurred while processing the DELETE request. " + ex.Message, userId, "CALENDAR");
-				return StatusCode(500, "An error occurred while processing the request."); 
+				return StatusCode(500, "An error occurred while processing the request.");
 			}
 			finally
 			{
