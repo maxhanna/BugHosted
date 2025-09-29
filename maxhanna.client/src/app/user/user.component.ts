@@ -1,6 +1,6 @@
 import { Component, ElementRef, EventEmitter, Input, OnDestroy, OnInit, Output, ViewChild } from '@angular/core';
 import { ChildComponent } from '../child.component';
-import { UserService } from '../../services/user.service';
+import { StreakInfo, UserService } from '../../services/user.service';
 import { WeatherService } from '../../services/weather.service';
 import { FriendService } from '../../services/friend.service';
 import { ContactService } from '../../services/contact.service';
@@ -131,13 +131,13 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
   async ngOnInit() {
     if (this.inputtedParentRef) {
       this.parentRef = this.inputtedParentRef;
-    }  
+    }
     this.startLoading();
     this.usersCount = await this.userService.getUserCount();
     try {
-      if (this.userId) { 
+      if (this.userId) {
         const res = await this.userService.getUserById(this.userId);
-        if (res) { 
+        if (res) {
           this.user = res as User;
           if (this.socialComponent) {
             this.socialComponent.user = this.user;
@@ -157,12 +157,13 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
         this.loadLocation(this.user);
         this.getIsBeingFollowedByUser();
         this.getIsUserBlocked(this.user);
-           
-        const streakRes: any = await this.userService.updateLastSeen(this.user.id ?? 0);
-        if (streakRes) {
-          this.userLoginStreakCurrent = streakRes.CurrentStreak ?? 0;
-          this.userLoginStreakLongest = streakRes.LongestStreak ?? 0;
-        }  
+
+        const streakRes = await this.userService.getLoginStreak(this.user.id ?? 0).then(streakRes => {
+          if (streakRes) {
+            this.userLoginStreakCurrent = streakRes.CurrentStreak ?? 0;
+            this.userLoginStreakLongest = streakRes.LongestStreak ?? 0;
+          }
+        });
 
         if (this.user.id == this.parentRef?.user?.id && this.user.id != 0 && this.user.id !== undefined) {
           this.notificationService.getStoppedNotifications(this.user.id).then(res => this.stoppedNotifications = res);
@@ -170,7 +171,7 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
         this.changeTheme();
         this.setBackgroundImage();
       }
-      if (!this.user) { 
+      if (!this.user) {
         const lidRes = await this.socialService.getLatestStoryId();
         if (lidRes) {
           this.latestSocialStoryId = parseInt(lidRes);
@@ -181,17 +182,17 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
           this.latestMemeId = parseInt(lmRes);
         }
       } else {
-        this.latestSocialStoryId = undefined; 
+        this.latestSocialStoryId = undefined;
       }
       this.getNSFWValue();
       this.getNumberOfNexusBases();
       this.getNumberOfTrades();
     }
-    catch (error) { console.log((error as Error).message); } 
+    catch (error) { console.log((error as Error).message); }
     if (!this.trophies) {
       this.getTrophies();
     }
-    this.stopLoading(); 
+    this.stopLoading();
 
     document.addEventListener('DOMContentLoaded', function () {
       if (/iPhone|iPad|iPod/i.test(navigator.userAgent)) {
@@ -314,10 +315,10 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
         parent.navigationComponent.getNotifications();
       }
     }
-    if (this.changedTheme) {  
+    if (this.changedTheme) {
       this.parentRef?.navigationComponent.getThemeInfo(this.parentRef.user?.id ?? 0);
       this.restoreBackground();
-    } 
+    }
   }
 
   override remove_me(title: string) {
@@ -345,7 +346,7 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
     const user = this.user ?? this.parentRef?.user;
     if (!user?.id) return;
     try {
-      const res = await this.todoService.getTodo(user.id, "Music"); 
+      const res = await this.todoService.getTodo(user.id, "Music");
       if (res) {
         this.songPlaylist = res;
       }
@@ -363,12 +364,12 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
     } catch (e) { }
   }
   async loadWordlerData() {
-    const user = this.user ?? this.parentRef?.user; 
+    const user = this.user ?? this.parentRef?.user;
     if (user?.id) {
       try {
         const wsRes = await this.wordlerService.getBestConsecutiveDayStreak(user.id);
         if (wsRes) {
-          this.bestWordlerStreak = parseInt(wsRes); 
+          this.bestWordlerStreak = parseInt(wsRes);
         }
 
         const wsRes2 = await this.wordlerService.getTodaysDayStreak(user.id);
@@ -414,10 +415,10 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
 
   }
 
-  expandDiv(event: string) { 
+  expandDiv(event: string) {
     const isOpen = event === "aboutContainer" ? this.isAboutExpanded
       : event === "musicProfileContainer" ? this.isMusicContainerExpanded
-        : this.isTrophyExpanded; 
+        : this.isTrophyExpanded;
 
 
     if (event === "aboutContainer") {
@@ -535,7 +536,7 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
     this.friends = [];
     this.user = undefined;
     this.parentRef?.showNotification("Logged out successfully, refresh in 100 milliseconds.");
- 
+
     setTimeout(() => {
       window.location.reload();
     }, 100);
@@ -657,7 +658,7 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
     }
   }
 
-  async createUser(guest?: boolean) { 
+  async createUser(guest?: boolean) {
     let tmpUserName = this.loginUsername.nativeElement.value;
     const tmpPassword = this.loginPassword.nativeElement.value;
     const parent = this.parentRef ?? this.inputtedParentRef;
@@ -673,7 +674,7 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
         if (resCreateUser && !resCreateUser.toLowerCase().includes("error")) {
           tmpUser.id = parseInt(resCreateUser!);
           await this.userService.addMenuItem(tmpUser.id, ["Social", "Meme", "Wordler", "Files", "Emulation", "Bug-Wars", "Crypto-Hub", "Notifications", "Help"]);
-          await this.login(guest ? tmpUserName : undefined, true); 
+          await this.login(guest ? tmpUserName : undefined, true);
           parent?.getLocation();
           setTimeout(() => {
             if (parent) {
@@ -701,7 +702,7 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
     }
   }
 
-  async login(guest?: string, fromUserCreation?: boolean) { 
+  async login(guest?: string, fromUserCreation?: boolean) {
     if (this.parentRef?.user) {
       this.parentRef.user = undefined;
     }
@@ -720,32 +721,34 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
         this.parentRef?.showNotification(`Access granted. Welcome ${(fromUserCreation ? 'to BugHosted' : 'back')} ${this.parentRef!.user?.username}`);
         this.parentRef?.getLocation();
         this.parentRef?.getSessionToken();
-        this.parentRef!.userSelectedNavigationItems = await this.userService.getUserMenu(tmpUser.id); 
+        this.parentRef!.userSelectedNavigationItems = await this.userService.getUserMenu(tmpUser.id);
         this.resetNavigationAppSelectionHelp();
-        if (this.loginOnly) { 
+        if (this.loginOnly) {
           this.closeUserComponentEvent.emit(tmpUser);
         }
         this.latestSocialStoryId = undefined;
         success = true;
-      } else { 
-        this.parentRef?.showNotification("Access denied"); 
+      } else {
+        this.parentRef?.showNotification("Access denied");
       }
 
     } catch (e) {
       this.parentRef?.showNotification("Login error: " + e);
     } finally {
-      if (success) { 
+      if (success) {
         this.justLoggedIn = true;
         this.ngOnInit();
       }
     }
   }
   private resetNavigationAppSelectionHelp() {
-    if (this.parentRef?.navigationComponent) { 
+    if (this.parentRef?.navigationComponent) {
       this.parentRef.navigationComponent.showAppSelectionHelp = false;
-      setTimeout(() => { if (this.parentRef?.navigationComponent) { 
-        this.parentRef.navigationComponent.displayAppSelectionHelp(); 
-      } }, 50);
+      setTimeout(() => {
+        if (this.parentRef?.navigationComponent) {
+          this.parentRef.navigationComponent.displayAppSelectionHelp();
+        }
+      }, 50);
     }
   }
 
@@ -980,7 +983,7 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
         this.showDisplayPictureSelector = false;
       }
     });
-  } 
+  }
   async avatarSelected(files: FileEntry[]) {
     const targetParent = this.parentRef ?? this.inputtedParentRef;
     if (files && files.length > 0 && targetParent?.user?.id) {
