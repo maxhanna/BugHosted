@@ -259,11 +259,8 @@ export class CalendarComponent extends ChildComponent implements OnInit {
     if (t !== "bimonthly") return false;
     const sameDay = date1.getDate() === date2.getDate();
     const fallback = this.isLastDayFallback(date1, date2);
-    if (!sameDay && !fallback) return false; 
-    // bimonthly: difference in months should be even
-    const yearsDiff = date2.getFullYear() - date1.getFullYear();
-    const monthsDiff = yearsDiff * 12 + (date2.getMonth() - date1.getMonth());
-    return monthsDiff % 2 === 0;
+    if (!sameDay && !fallback) return false;  
+    return true;
   }
 
   private isLastDayFallback(original: Date, target: Date): boolean {
