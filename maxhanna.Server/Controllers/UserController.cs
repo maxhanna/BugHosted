@@ -714,7 +714,7 @@ namespace maxhanna.Server.Controllers
 
 
 		[HttpPost("/User/UpdateLastSeen", Name = "UpdateLastSeen")]
-		public async void UpdateLastSeen([FromBody] int userId)
+		public async Task<IActionResult> UpdateLastSeen([FromBody] int userId)
 		{
 			string? connectionString = _config?.GetValue<string>("ConnectionStrings:maxhanna");
 
@@ -723,20 +723,118 @@ namespace maxhanna.Server.Controllers
 				try
 				{
 					await conn.OpenAsync();
-					string sql = @"
-                    UPDATE maxhanna.users 
-                    SET last_seen = UTC_TIMESTAMP() 
-                    WHERE id = @UserId;";
 
-					using (MySqlCommand cmd = new MySqlCommand(sql, conn))
+					// 1) Update users.last_seen to current UTC timestamp
+					string updateUserSql = @"
+					UPDATE maxhanna.users 
+					SET last_seen = UTC_TIMESTAMP() 
+					WHERE id = @UserId;";
+
+					using (MySqlCommand cmd = new MySqlCommand(updateUserSql, conn))
 					{
 						cmd.Parameters.AddWithValue("@UserId", userId);
-						await cmd.ExecuteReaderAsync();
+						await cmd.ExecuteNonQueryAsync();
 					}
+
+					// 2) Compute and update streaks in user_login_streaks table
+					// We'll use UTC date for comparisons
+					DateTime utcNow = DateTime.UtcNow.Date; // Date only (midnight UTC)
+					string selectSql = @"
+						SELECT id, last_seen_date, current_streak, longest_streak
+						FROM maxhanna.user_login_streaks
+						WHERE user_id = @UserId
+						LIMIT 1;";
+
+					int currentStreak = 1;
+					int longestStreak = 1;
+
+					using (MySqlCommand selectCmd = new MySqlCommand(selectSql, conn))
+					{
+						selectCmd.Parameters.AddWithValue("@UserId", userId);
+						using (var reader = await selectCmd.ExecuteReaderAsync())
+						{
+							if (await reader.ReadAsync())
+							{
+								var id = reader.GetInt32("id");
+								DateTime lastSeenDate = reader.IsDBNull(reader.GetOrdinal("last_seen_date")) ? DateTime.MinValue : reader.GetDateTime("last_seen_date");
+								currentStreak = reader.IsDBNull(reader.GetOrdinal("current_streak")) ? 1 : reader.GetInt32("current_streak");
+								longestStreak = reader.IsDBNull(reader.GetOrdinal("longest_streak")) ? 1 : reader.GetInt32("longest_streak");
+
+								// Compare lastSeenDate to utcNow
+								var daysDiff = (utcNow - lastSeenDate.Date).Days;
+								if (daysDiff == 0)
+								{
+									// Already updated today; do nothing
+								}
+								else if (daysDiff == 1)
+								{
+									// Consecutive day => increment
+									currentStreak += 1;
+									if (currentStreak > longestStreak) longestStreak = currentStreak;
+
+									string updateStreakSql = @"
+										UPDATE maxhanna.user_login_streaks
+										SET current_streak = @CurrentStreak, longest_streak = @LongestStreak, last_seen_date = @LastSeenDate, updated_at = UTC_TIMESTAMP()
+										WHERE id = @Id;";
+
+									using (MySqlCommand updateCmd = new MySqlCommand(updateStreakSql, conn))
+									{
+										updateCmd.Parameters.AddWithValue("@CurrentStreak", currentStreak);
+										updateCmd.Parameters.AddWithValue("@LongestStreak", longestStreak);
+										updateCmd.Parameters.AddWithValue("@LastSeenDate", utcNow);
+										updateCmd.Parameters.AddWithValue("@Id", id);
+										await updateCmd.ExecuteNonQueryAsync();
+									}
+								}
+								else
+								{
+									// Gap of >1 day -> reset to 1
+									currentStreak = 1;
+									string resetSql = @"
+										UPDATE maxhanna.user_login_streaks
+										SET current_streak = 1, last_seen_date = @LastSeenDate, updated_at = UTC_TIMESTAMP()
+										WHERE id = @Id;";
+									using (MySqlCommand resetCmd = new MySqlCommand(resetSql, conn))
+									{
+										resetCmd.Parameters.AddWithValue("@LastSeenDate", utcNow);
+										resetCmd.Parameters.AddWithValue("@Id", id);
+										await resetCmd.ExecuteNonQueryAsync();
+									}
+								}
+							}
+							else
+							{
+								// No row exists -> insert initial streak row
+								currentStreak = 1;
+								longestStreak = 1;
+								string insertSql = @"
+									INSERT INTO maxhanna.user_login_streaks (user_id, last_seen_date, current_streak, longest_streak, created_at, updated_at)
+									VALUES (@UserId, @LastSeenDate, @CurrentStreak, @LongestStreak, UTC_TIMESTAMP(), UTC_TIMESTAMP());";
+
+								using (MySqlCommand insertCmd = new MySqlCommand(insertSql, conn))
+								{
+									insertCmd.Parameters.AddWithValue("@UserId", userId);
+									insertCmd.Parameters.AddWithValue("@LastSeenDate", utcNow);
+									insertCmd.Parameters.AddWithValue("@CurrentStreak", currentStreak);
+									insertCmd.Parameters.AddWithValue("@LongestStreak", longestStreak);
+									await insertCmd.ExecuteNonQueryAsync();
+								}
+							}
+						}
+					}
+
+					// Return the streak info to the client
+					var result = new { CurrentStreak = currentStreak, LongestStreak = longestStreak };
+					return Ok(result);
 				}
 				catch (Exception ex)
 				{
 					_ = _log.Db("An error occurred while processing the UpdateLastSeen request. " + ex.Message, userId, "USER", true);
+					return StatusCode(500, "An error occurred while processing the UpdateLastSeen request.");
+				}
+				finally
+				{
+					conn.Close();
 				}
 			}
 		}
