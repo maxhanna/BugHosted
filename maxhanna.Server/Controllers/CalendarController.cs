@@ -153,5 +153,40 @@ namespace maxhanna.Server.Controllers
 				conn.Close();
 			}
 		}
+
+		[HttpPost("/Calendar/Edit", Name = "EditCalendarEntry")]
+		public async Task<IActionResult> Edit([FromBody] EditCalendarEntry req)
+		{
+			MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+			try
+			{
+				conn.Open();
+				string sql = @"
+					UPDATE maxhanna.calendar
+					SET Type = @Type,
+						Note = @Note,
+						Date = @Date
+					WHERE Id = @Id AND Ownership = @Owner
+					LIMIT 1;";
+				MySqlCommand cmd = new MySqlCommand(sql, conn);
+				cmd.Parameters.AddWithValue("@Type", req.calendarEntry.Type);
+				cmd.Parameters.AddWithValue("@Note", req.calendarEntry.Note);
+				cmd.Parameters.AddWithValue("@Date", req.calendarEntry.Date);
+				cmd.Parameters.AddWithValue("@Id", req.calendarEntry.Id);
+				cmd.Parameters.AddWithValue("@Owner", req.userId);
+				int rows = await cmd.ExecuteNonQueryAsync();
+				if (rows > 0) return Ok();
+				return NotFound();
+			}
+			catch (Exception ex)
+			{
+				_ = _log.Db("An error occurred while processing the Edit request." + ex.Message, req.userId, "CALENDAR");
+				return StatusCode(500, "An error occurred while processing the edit request.");
+			}
+			finally
+			{
+				conn.Close();
+			}
+		}
 	}
 }

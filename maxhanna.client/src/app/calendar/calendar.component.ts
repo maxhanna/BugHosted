@@ -33,6 +33,8 @@ export class CalendarComponent extends ChildComponent implements OnInit {
   monthForwardFromNow = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 1);
   calendarEntries: CalendarEntry[] = [];
   selectedCalendarEntries?: CalendarEntry[] = undefined;
+  isEditingEntry: CalendarEntry[] = [];
+  hasEditedCalendarEntry = false;
   currentDate: Date = new Date();
   selectedDate?: CalendarDate = undefined;
   selectedMonth?: string;
@@ -134,6 +136,70 @@ export class CalendarComponent extends ChildComponent implements OnInit {
       return 0;
     });
     this.currentDate = new Date(selectedDate.date!);
+  }
+  async editCalendarEntry(entry?: CalendarEntry) {
+    if (!entry || !entry.id) return;
+    this.hasEditedCalendarEntry = false;
+    const id = entry.id;
+    if (!this.isEditingEntry.find(x => x.id == entry.id)) {
+      this.parentRef?.showOverlay();
+      this.isEditingEntry.push(entry);
+      return;
+    } else {
+      // read values from DOM textarea/select inputs and send update
+      const timeElem = document.getElementById('calendarEditingTime') as HTMLInputElement;
+      const noteElem = document.getElementById('calendarEditingNote') as HTMLInputElement;
+      const typeElem = document.getElementById('calendarEditingType') as HTMLSelectElement;
+      const time = timeElem?.value ?? '00:00';
+      const note = noteElem?.value ?? '';
+      const type = typeElem?.value ?? entry.type;
+
+      // build updated CalendarEntry
+      const updated = new (entry as any).constructor() as CalendarEntry;
+      updated.id = entry.id;
+      const currentDate = new Date(entry.date!);
+      const [hours, minutes] = time.split(':').map(Number);
+      currentDate.setHours(hours, minutes);
+      // convert to UTC like create does
+      const utcDate = new Date(currentDate.getTime() - (currentDate.getTimezoneOffset() * 60000));
+      updated.date = utcDate;
+      updated.note = note;
+      updated.type = type;
+
+      try {
+        await this.calendarService.editCalendarEntry(this.parentRef?.user?.id, updated).then(res => {
+          if (res) {
+            this.parentRef?.showNotification('Calendar entry updated');
+            this.parentRef?.closeOverlay(false);
+          }
+        });
+
+        // update local copy
+        const idx = this.calendarEntries.findIndex(c => c.id === id);
+        if (idx !== -1) {
+          this.calendarEntries[idx].note = updated.note;
+          this.calendarEntries[idx].type = updated.type;
+          this.calendarEntries[idx].date = updated.date;
+        }
+        this.isEditingEntry = this.isEditingEntry.filter(x => x.id !== id);
+        await this.refreshCalendar();
+      } catch (error) {
+        console.error('Error updating calendar entry:', error);
+        this.parentRef?.showNotification('Failed to update calendar entry');
+      }
+    }
+  }
+  closeEditPopupCalendar(shouldEdit = true) {
+    setTimeout(async () => {
+      if (this.parentRef) {
+        this.parentRef.closeOverlay(false);
+      }
+      if (this.hasEditedCalendarEntry && shouldEdit) {
+        this.editCalendarEntry(this.isEditingEntry[0]);
+      } else {
+        this.isEditingEntry = [];
+      }
+    }, 50);
   }
   async validateNoteEntry() {
     if (!this.selectedDate || !this.selectedDate.date) {

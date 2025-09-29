@@ -84,12 +84,23 @@
       {{selectedDate!.date!.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }) }}
     </div>
     <table style="width:100%;" *ngIf="selectedCalendarEntries!.length > 0">
-      <tr *ngFor="let cal of selectedCalendarEntries">
+      <tr *ngFor="let cal of selectedCalendarEntries" id="calNo{{cal.id}}" [class]="isEditingEntry.includes(cal) ? 'popupPanel' : ''" (click)="isEditingEntry.includes(cal) ? '' : editCalendarEntry(cal)">
         <td style="width:70px;">{{cal.date | date:'shortTime'}}</td>
         <td>
-          {{ cal.type !== "Milestone" ? cal.note : (cal.date ? '(' + cal.date.toString().substring(0, cal.date.toString().indexOf('-')) + ') ' + cal.note : cal.note) }}
+          <div *ngIf="!isEditingEntry.includes(cal)">{{ cal.type !== "Milestone" ? cal.note : (cal.date ? '(' + cal.date.toString().substring(0, cal.date.toString().indexOf('-')) + ') ' + cal.note : cal.note) }}</div>
+          <div *ngIf="isEditingEntry.includes(cal)">
+            Time: <input id="calendarEditingTime" type="time" [value]="(cal.date | date:'HH:mm')" (input)="hasEditedCalendarEntry = true" />
+            <div>Note: <input id="calendarEditingNote" type="text" [value]="cal.note" (input)="hasEditedCalendarEntry = true" /></div>
+            <div>Type: <select id="calendarEditingType" (change)="hasEditedCalendarEntry = true">
+                <option *ngFor="let t of getEventTypes()" [selected]="t === cal.type">{{t}}</option>
+            </select></div>
+          </div>
         </td>
-        <td style="width:35px;"><input type="button" value="❌" (click)="deleteCalendarEntry(cal!);" /></td>
+        <td style="width:35px;">
+          <button *ngIf="!isEditingEntry.includes(cal)" (click)="deleteCalendarEntry(cal!); $event.preventDefault();">❌</button>
+          <button *ngIf="isEditingEntry.includes(cal)" (click)="closeEditPopupCalendar(); $event.preventDefault();">💾Update</button>
+          <button *ngIf="isEditingEntry.includes(cal)" (click)="deleteCalendarEntry(cal!); $event.preventDefault();">❌Delete</button>
+        </td>
       </tr>
     </table>
     <div *ngIf="selectedCalendarEntries!.length == 0">No entries</div>
