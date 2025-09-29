@@ -96,9 +96,8 @@
             </select></div>
           </div>
         </td>
-        <td style="width:35px;">
-          <button *ngIf="!isEditingEntry.includes(cal)" (click)="deleteCalendarEntry(cal!); $event.preventDefault();">❌</button>
-          <button *ngIf="isEditingEntry.includes(cal)" (click)="closeEditPopupCalendar(); $event.preventDefault();">💾Update</button>
+        <td style="width:35px; display:flex; gap: 5px;">
+          <button *ngIf="isEditingEntry.includes(cal)" (click)="closeEditPopupCalendar(); $event.preventDefault();" id="closeOverlay">💾Update</button>
           <button *ngIf="isEditingEntry.includes(cal)" (click)="deleteCalendarEntry(cal!); $event.preventDefault();">❌Delete</button>
         </td>
       </tr>
