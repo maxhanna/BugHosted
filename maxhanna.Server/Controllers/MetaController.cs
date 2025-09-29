@@ -539,10 +539,10 @@ namespace maxhanna.Server.Controllers
 									displayPic = new FileEntry(rdr.GetInt32(rdr.GetOrdinal("display_picture_file_id")));
 								}
 
-								Users.User? ownerUser = null;
+								User? ownerUser = null;
 								if (!rdr.IsDBNull(rdr.GetOrdinal("user_id")))
 								{
-									ownerUser = new Users.User(
+									ownerUser = new User(
 										id: rdr.GetInt32(rdr.GetOrdinal("user_id")),
 										username: rdr.IsDBNull(rdr.GetOrdinal("username")) ? "Anonymous" : rdr.GetString(rdr.GetOrdinal("username")),
 										displayPictureFile: displayPic
@@ -605,10 +605,10 @@ namespace maxhanna.Server.Controllers
 									displayPic = new FileEntry(rdr.GetInt32(rdr.GetOrdinal("display_picture_file_id")));
 								}
 
-								Users.User? ownerUser = null;
+								User? ownerUser = null;
 								if (!rdr.IsDBNull(rdr.GetOrdinal("userId")))
 								{
-									ownerUser = new Users.User(
+									ownerUser = new User(
 										id: rdr.GetInt32(rdr.GetOrdinal("userId")),
 										username: rdr.IsDBNull(rdr.GetOrdinal("username")) ? "Anonymous" : rdr.GetString(rdr.GetOrdinal("username")),
 										displayPictureFile: displayPic
