@@ -36,10 +36,6 @@ namespace maxhanna.Server.Controllers
 				using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
 				{
 					await conn.OpenAsync();
-
-					// Fetch all calendar rows for the owner that are either within the requested range
-					// or are recurring types which we'll evaluate in C# for occurrences inside the range.
-					// SQL-based selection: pick explicit entries in range or recurring templates matching the requested startDate
 					string sql = @"
 							SELECT Id, Type, Note, Date, Ownership FROM maxhanna.calendar
 							WHERE Ownership = @Owner
@@ -48,12 +44,11 @@ namespace maxhanna.Server.Controllers
 									OR (Type = 'Weekly' AND DATE_FORMAT(Date, '%w') = DATE_FORMAT(@StartDate, '%w')) -- same weekday
 									OR (Type = 'BiWeekly' AND DATE_FORMAT(Date, '%w') = DATE_FORMAT(@StartDate, '%w') AND MOD(TIMESTAMPDIFF(WEEK, Date, @StartDate), 2) = 0) -- every 2 weeks on same weekday
 									OR (Type = 'Monthly' AND DAY(Date) = DAY(@StartDate)) -- same day of month
-									OR (
-											Type = 'BiMonthly' AND MOD(TIMESTAMPDIFF(MONTH, Date, @StartDate), 2) = 0
-											AND (
-												DAY(Date) = DAY(@StartDate)
-												OR (DAY(Date) > DAY(LAST_DAY(@StartDate)) AND DAY(@StartDate) = DAY(LAST_DAY(@StartDate)))
-											)
+									OR (Type = 'BiMonthly' AND MOD(TIMESTAMPDIFF(MONTH, Date, @StartDate), 2) = 0
+										AND (
+											DAY(Date) = DAY(@StartDate)
+											OR (DAY(Date) > DAY(LAST_DAY(@StartDate)) AND DAY(@StartDate) = DAY(LAST_DAY(@StartDate)))
+										)
 									) -- every 2 months on same day or last-day fallback
 									OR (Type IN ('Annually','Birthday','Milestone','Newyears','Christmas','Anniversary') AND MONTH(Date) = MONTH(@StartDate) AND DAY(Date) = DAY(@StartDate)) -- annually same month/day
 									OR (Type = 'Daily') -- daily
