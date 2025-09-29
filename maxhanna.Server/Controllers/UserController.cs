@@ -29,6 +29,46 @@ namespace maxhanna.Server.Controllers
 			_baseTarget = _config.GetValue<string>("ConnectionStrings:baseUploadPath") ?? "";
 		}
 
+		[HttpGet("/User/GetLoginStreak/{userId}", Name = "GetLoginStreak")]
+		public async Task<IActionResult> GetLoginStreak(int userId)
+		{
+			MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+			try
+			{
+				await conn.OpenAsync();
+
+				string sql = @"SELECT current_streak, longest_streak FROM maxhanna.user_login_streaks WHERE user_id = @UserId LIMIT 1;";
+
+				using (var cmd = new MySqlCommand(sql, conn))
+				{
+					cmd.Parameters.AddWithValue("@UserId", userId);
+					using (var reader = await cmd.ExecuteReaderAsync())
+					{
+						if (await reader.ReadAsync())
+						{
+							int current = reader.IsDBNull(0) ? 0 : reader.GetInt32(0);
+							int longest = reader.IsDBNull(1) ? 0 : reader.GetInt32(1);
+							return Ok(new { CurrentStreak = current, LongestStreak = longest });
+						}
+						else
+						{
+							// No streak info yet for this user
+							return Ok(new { CurrentStreak = 0, LongestStreak = 0 });
+						}
+					}
+				}
+			}
+			catch (Exception ex)
+			{
+				_ = _log.Db("An error occurred while processing the GetLoginStreak request. " + ex.Message, userId, "USER", true);
+				return StatusCode(500, "An error occurred while processing the GetLoginStreak request.");
+			}
+			finally
+			{
+				conn.Close();
+			}
+		}
+
 		[HttpGet(Name = "GetUserCount")]
 		public async Task<IActionResult> GetUserCount()
 		{

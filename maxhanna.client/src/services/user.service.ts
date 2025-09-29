@@ -89,6 +89,24 @@ export class UserService {
       return null;
     }
   }
+
+  async getLoginStreak(userId: number) {
+    try {
+      const response = await fetch(`/user/getloginstreak/${userId}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (response.ok) {
+        return await response.json() as StreakInfo;
+      }
+      return { CurrentStreak: 0, LongestStreak: 0 } as StreakInfo;
+    } catch (error) {
+      return { CurrentStreak: 0, LongestStreak: 0 } as StreakInfo;
+    }
+  }
   async getAllUsers(userId?: number, search?: string) {
     try {
       const response = await fetch('/user/getallusers', {

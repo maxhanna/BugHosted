@@ -86,6 +86,8 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
   wordlerStreak: number = 0;
   bestWordlerStreak: number = 0;
   metaBotLevelsSum: number = 0;
+  userLoginStreakCurrent: number = 0;
+  userLoginStreakLongest: number = 0;
   weatherLocation?: { city: string; country: string } = undefined;
   isUserBlocked = false;
   stoppedNotifications: number[] = [];
@@ -155,6 +157,13 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
         this.loadLocation(this.user);
         this.getIsBeingFollowedByUser();
         this.getIsUserBlocked(this.user);
+           
+        const streakRes: any = await this.userService.updateLastSeen(this.user.id ?? 0);
+        if (streakRes) {
+          this.userLoginStreakCurrent = streakRes.CurrentStreak ?? 0;
+          this.userLoginStreakLongest = streakRes.LongestStreak ?? 0;
+        }  
+
         if (this.user.id == this.parentRef?.user?.id && this.user.id != 0 && this.user.id !== undefined) {
           this.notificationService.getStoppedNotifications(this.user.id).then(res => this.stoppedNotifications = res);
         }
