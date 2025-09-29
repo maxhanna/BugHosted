@@ -1387,64 +1387,52 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
 
     setTimeout(() => this.fullscreenTimeout = false, 500);
   }
-  generateGeneralAiMessage() {
+  async generateGeneralAiMessage() {
     this.startLoading();
-    this.finishedGeneratingAiMessage = false;
-    (async () => {
-      try {
-        const coinName = this.getFullCoinName(this.currentSelectedCoin?.toUpperCase() ?? 'BTC');
-        const sessionToken = await this.parentRef?.getSessionToken() ?? "";
-        const res = await this.aiService.analyzeCoin(this.parentRef?.user?.id ?? 0, coinName, sessionToken ?? "", 600);
-        if (res && (res.Reply || res.reply || res.response)) {
-          const raw = (res.Reply ?? res.reply ?? res.response) as string;
-          const parsed = this.aiService.parseMessage(raw);
-          this.aiMessages.push({ addr: coinName, message: parsed });
-        }
-      } catch (err) {
-        console.error('AnalyzeCoin error', err);
-      } finally {
-        this.stopLoading();
-        this.finishedGeneratingAiMessage = true;
+    this.finishedGeneratingAiMessage = false; 
+    try {
+      const coinName = this.getFullCoinName(this.currentSelectedCoin?.toUpperCase() ?? 'BTC');
+      const sessionToken = await this.parentRef?.getSessionToken() ?? "";
+      const res = await this.aiService.analyzeCoin(this.parentRef?.user?.id ?? 0, coinName, sessionToken ?? "", 600);
+      if (res && (res.Reply || res.reply || res.response)) {
+        const raw = (res.Reply ?? res.reply ?? res.response) as string;
+        const parsed = this.aiService.parseMessage(raw);
+        this.aiMessages.push({ addr: coinName, message: parsed });
       }
-    })();
-    // this.finishedGeneratingAiMessage = false;
-    // clearTimeout(this.debounceTimer);
-    // this.debounceTimer = setTimeout(() => {
-    //   const coinValueBTCData = this.allHistoricalTradeSimData?.filter(x => x.name === "Bitcoin");
-    //   this.generateAiMessage("1", coinValueBTCData).then(res => {
-    //     this.finishedGeneratingAiMessage = true;
-    //     this.hideHostAiMessage = false;
-    //     this.stopLoading();
-    //   });
-    // }, 500);
+    } catch (err) {
+      console.error('AnalyzeCoin error', err);
+    } finally {
+      this.stopLoading();
+      this.finishedGeneratingAiMessage = true;
+    } 
   }
   async generateWalletAiMessage() {
     this.startLoading();
     this.finishedGeneratingAiWalletMessage = false;
     clearTimeout(this.debounceTimer);
-    this.debounceTimer = setTimeout(() => {
+    this.debounceTimer = setTimeout(async () => {
       this.finishedGeneratingAiWalletMessage = false;
-      (async () => {
-        try {
-          const walletAddr = this.currentlySelectedCurrency?.address ?? "";
-          const sessionToken = await this.parentRef?.getSessionToken() ?? "";
-          const res = await this.aiService.analyzeWallet(this.parentRef?.user?.id ?? 0, walletAddr, this.currentlySelectedCurrency?.currency ?? 'btc', sessionToken ?? "", 600);
-          if (res && (res.Reply || res.reply || res.response)) {
-            const raw = (res.Reply ?? res.reply ?? res.response) as string;
-            const parsed = this.aiService.parseMessage(raw);
-            this.aiMessages.push({ addr: walletAddr ?? "1", message: parsed });
-          }
-        } catch (err) {
-          console.error('AnalyzeWallet error', err);
-        } finally {
-          this.finishedGeneratingAiWalletMessage = true;
-          this.hideHostAiMessageWallet = false;
-          this.stopLoading();
+
+      try {
+        const walletAddr = this.currentlySelectedCurrency?.address ?? "";
+        const sessionToken = await this.parentRef?.getSessionToken() ?? "";
+        const res = await this.aiService.analyzeWallet(this.parentRef?.user?.id ?? 0, walletAddr, this.currentlySelectedCurrency?.currency ?? 'btc', sessionToken ?? "", 600);
+        if (res && (res.Reply || res.reply || res.response)) {
+          const raw = (res.Reply ?? res.reply ?? res.response) as string;
+          const parsed = this.aiService.parseMessage(raw);
+          this.aiMessages.push({ addr: walletAddr ?? "1", message: parsed });
         }
-      })();
+      } catch (err) {
+        console.error('AnalyzeWallet error', err);
+      } finally {
+        this.finishedGeneratingAiWalletMessage = true;
+        this.hideHostAiMessageWallet = false;
+        this.stopLoading();
+      }
+    
     }, 500);
   } 
-  
+
   findClosestHistoricalExchangeRate(
     timestamp: string,
     targetCurrency?: string,
