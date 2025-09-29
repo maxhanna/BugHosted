@@ -1389,8 +1389,22 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
   }
   generateGeneralAiMessage() {
     this.startLoading();
-    alert("Feature under construction.");
-    this.stopLoading();
+    (async () => {
+      try {
+        const coinName = this.getFullCoinName(this.currentSelectedCoin?.toUpperCase() ?? 'BTC');
+        const sessionToken = await this.parentRef?.getSessionToken() ?? "";
+        const res = await this.aiService.analyzeCoin(this.parentRef?.user?.id ?? 0, coinName, sessionToken ?? "", 600);
+        if (res && (res.Reply || res.reply || res.response)) {
+          const raw = (res.Reply ?? res.reply ?? res.response) as string;
+          const parsed = this.aiService.parseMessage(raw);
+          this.aiMessages.push({ addr: coinName, message: parsed });
+        }
+      } catch (err) {
+        console.error('AnalyzeCoin error', err);
+      } finally {
+        this.stopLoading();
+      }
+    })();
     // this.finishedGeneratingAiMessage = false;
     // clearTimeout(this.debounceTimer);
     // this.debounceTimer = setTimeout(() => {
@@ -1408,53 +1422,30 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
     clearTimeout(this.debounceTimer);
     this.debounceTimer = setTimeout(() => {
       this.finishedGeneratingAiWalletMessage = false;
-      this.generateAiMessage(this.currentlySelectedCurrency?.address ?? "", this.allWalletBalanceData).then(res => {
-        this.finishedGeneratingAiWalletMessage = true;
-        this.hideHostAiMessageWallet = false;
-        this.stopLoading();
-      });
+      (async () => {
+        try {
+          const walletAddr = this.currentlySelectedCurrency?.address ?? "";
+          const sessionToken = await this.parentRef?.getSessionToken() ?? "";
+          const res = await this.aiService.analyzeWallet(this.parentRef?.user?.id ?? 0, walletAddr, this.currentlySelectedCurrency?.currency ?? 'btc', sessionToken ?? "", 600);
+          if (res && (res.Reply || res.reply || res.response)) {
+            const raw = (res.Reply ?? res.reply ?? res.response) as string;
+            const parsed = this.aiService.parseMessage(raw);
+            this.aiMessages.push({ addr: walletAddr ?? "1", message: parsed });
+          }
+        } catch (err) {
+          console.error('AnalyzeWallet error', err);
+        } finally {
+          this.finishedGeneratingAiWalletMessage = true;
+          this.hideHostAiMessageWallet = false;
+          this.stopLoading();
+        }
+      })();
     }, 500);
   }
 
   private async generateAiMessage(walletAddress: string, data: any) {
-    const tgtMessage = this.aiMessages.find(x => x.addr === walletAddress);
-    let response = undefined;
-    if (!tgtMessage && walletAddress != "Nicehash Wallet") {
-      let latest = data?.slice(-250) || [];
-      let message = "";
-      const today = new Date();
-      const fiveDaysAgo = new Date(today);
-      fiveDaysAgo.setDate(today.getDate() - 5);
-      const todayStr = today.toLocaleDateString('en-US');
-      const fiveDaysAgoStr = fiveDaysAgo.toLocaleDateString('en-US');
-      if (walletAddress === "1") {
-        message = `Analyze the following Bitcoin wallet balance data: ${JSON.stringify(latest)}. 
-            Focus on trends, volatility, and price action over the last 5 days (${fiveDaysAgoStr} to ${todayStr}).  
-            Identify:
-            - Recent trends (uptrend, downtrend, or consolidation).
-            - Volatility and major price swings.
-            - Potential buy or sell signals based on expert trading strategies. 
-            Provide a recommendation: Should I buy, sell, or hold today? Justify your answer with relevant analysis.
-            Avoid any disclaimers or unnecessary commentary. Avoid reiterating the prompt.`;
-      } else {
-        message = `Analyze the following Bitcoin wallet balance data: ${JSON.stringify(latest)}. 
-        Focus on trends, volatility, and price action over the last 5 days (${fiveDaysAgoStr} to ${todayStr}).  
-            Identify:
-            - Recent trends (uptrend, downtrend, or consolidation).
-            - Volatility and major price swings.
-            - Potential buy or sell signals based on expert trading strategies.  
-            Provide a recommendation on whether to buy, sell, or hold today, with clear justification based on the trends and price action in the last 5 days.
-            Avoid any disclaimers or unnecessary commentary. Avoid reiterating the prompt.`;
-      }
-      const sessionToken = await this.parentRef?.getSessionToken();
-      await this.aiService.sendMessage(this.parentRef?.user?.id ?? 0, true, message, sessionToken ?? "", 600).then(res => {
-        if (res && res.response) {
-          response = this.aiService.parseMessage(res.response) ?? "Error.";
-          this.aiMessages.push({ addr: walletAddress ?? "1", message: response });
-        }
-      });
-    }
-    return response;
+    // This method is now replaced by server-side AnalyzeWallet; keep for compatibility but no-op.
+    return null;
   }
 
   findClosestHistoricalExchangeRate(

@@ -58,6 +58,42 @@ export class AiService {
       return null;
     }
   }
+
+  async analyzeWallet(userId: number, walletAddress: string, currency: string | undefined, encryptedUserId: string, maxCount?: number) {
+    try {
+      const body = { UserId: userId, WalletAddress: walletAddress, Currency: currency ?? 'btc', MaxCount: maxCount ?? 600, SkipSave: false };
+      const response = await fetch('/ai/analyzewallet', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Encrypted-UserId': encryptedUserId,
+        },
+        body: JSON.stringify(body),
+      });
+      return await response.json();
+    } catch (error) {
+      console.error('Error calling AnalyzeWallet:', error);
+      throw error;
+    }
+  }
+
+  async analyzeCoin(userId: number, coin: string, encryptedUserId: string, maxCount?: number) {
+    try {
+      const body = { UserId: userId, Coin: coin, MaxCount: maxCount ?? 600, SkipSave: false };
+      const response = await fetch('/ai/analyzecoin', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Encrypted-UserId': encryptedUserId,
+        },
+        body: JSON.stringify(body),
+      });
+      return await response.json();
+    } catch (error) {
+      console.error('Error calling AnalyzeCoin:', error);
+      throw error;
+    }
+  }
   
 
   parseMessage(message: string): string {

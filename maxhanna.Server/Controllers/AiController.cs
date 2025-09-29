@@ -1,4 +1,4 @@
-using Google.Apis.Auth.OAuth2;
+	using Google.Apis.Auth.OAuth2;
 using maxhanna.Server.Controllers.DataContracts.Array;
 using maxhanna.Server.Controllers.DataContracts.Files;
 using maxhanna.Server.Controllers.DataContracts.Users;
@@ -18,13 +18,15 @@ namespace maxhanna.Server.Controllers
 	{
 		private readonly Log _log;
 		private readonly IConfiguration _config;
+		private readonly KrakenService _krakenService;
 		private readonly HttpClient _httpClient;
 		private static readonly SemaphoreSlim _analyzeLock = new SemaphoreSlim(1, 1); 
 
-		public AiController(Log log, IConfiguration config)
+		public AiController(Log log, IConfiguration config, KrakenService krakenService)
 		{
 			_log = log;
 			_config = config;
+			_krakenService = krakenService;
 			_httpClient = new HttpClient();
 			_httpClient.Timeout = TimeSpan.FromMinutes(5);
 		}
@@ -204,6 +206,175 @@ namespace maxhanna.Server.Controllers
 			return Ok(snapshots);                      // 200 – JSON array
 		}
 
+		[HttpPost("/Ai/AnalyzeWallet", Name = "AnalyzeWallet")]
+		public async Task<IActionResult> AnalyzeWallet([FromBody] AnalyzeWalletRequest request, [FromHeader(Name = "Encrypted-UserId")] string encryptedUserIdHeader)
+		{
+			try
+			{
+				if (request.UserId != 0)
+				{
+					if (!await _log.ValidateUserLoggedIn(request.UserId, encryptedUserIdHeader))
+						return StatusCode(500, "Access Denied.");
+				}
+
+				// rate limit
+				if (await HasExceededUsageLimit("text", request.UserId))
+					return StatusCode(429, new { Reply = "You have exceeded the maximum number of text requests for this hour." });
+
+				// Fetch recent wallet balance data server-side
+				var body = new { WalletAddress = request.WalletAddress, Currency = request.Currency ?? "btc" };
+				// Use internal CoinValueController GetWalletBalanceData logic by querying DB directly here for simplicity
+				List<object> latest = new List<object>();
+				await using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+				{
+					await conn.OpenAsync();
+					string currency = (request.Currency ?? "btc").ToLower();
+					if (currency == "xbt") currency = "btc";
+
+					string sql = $@"
+						SELECT wb.balance, wb.fetched_at
+						FROM user_{currency}_wallet_info wi
+						LEFT JOIN user_{currency}_wallet_balance wb ON wi.id = wb.wallet_id
+						WHERE wi.{currency}_address = @WalletAddress
+						ORDER BY wb.fetched_at DESC
+						LIMIT 250";
+
+					using var cmd = new MySqlCommand(sql, conn);
+					cmd.Parameters.AddWithValue("@WalletAddress", request.WalletAddress);
+					using var reader = await cmd.ExecuteReaderAsync();
+					while (await reader.ReadAsync())
+					{
+						latest.Add(new { balance = reader.GetDecimal("balance"), timestamp = reader.GetDateTime("fetched_at") });
+					}
+				}
+
+				if (latest.Count == 0)
+					return NotFound("No wallet balance data found for that address.");
+
+				// Build prompt
+				var prompt = $"Analyze the following {request.Currency ?? "BTC"} wallet balance data: {System.Text.Json.JsonSerializer.Serialize(latest)}. " +
+							 "Focus on trends, volatility, and price action over the last 5 days. Identify: - Recent trends (uptrend, downtrend, or consolidation). - Volatility and major swings. - Potential buy or sell signals with justification. Avoid disclaimers.";
+
+				// Update usage count
+				if (!request.SkipSave) await UpdateUserRequestCount(request.UserId, prompt, "text");
+
+				// Call Ollama like SendMessageToAi
+				string url = "http://localhost:11434/api/generate";
+				object requestBody = new
+				{
+					model = "gemma3",
+					prompt = prompt,
+					stream = false,
+					max_tokens = request.MaxCount
+				};
+
+				var jsonContent = new StringContent(JsonSerializer.Serialize(requestBody), Encoding.UTF8, "application/json");
+				using var httpReq = new HttpRequestMessage(HttpMethod.Post, url) { Content = jsonContent };
+				var ollamaResponse = await _httpClient.SendAsync(httpReq, HttpCompletionOption.ResponseHeadersRead);
+				var respBody = await ollamaResponse.Content.ReadAsStringAsync();
+				if (!ollamaResponse.IsSuccessStatusCode)
+				{
+					_ = _log.Db($"Ollama API error {(int)ollamaResponse.StatusCode}: {respBody}", null, "AiController", true);
+					return StatusCode((int)ollamaResponse.StatusCode, new { Reply = $"Ollama API returned {(int)ollamaResponse.StatusCode}", Details = respBody });
+				}
+				var parsed = JsonSerializer.Deserialize<JsonElement>(respBody);
+				var fullResponse = parsed.GetProperty("response").GetString() ?? string.Empty;
+				return Ok(new { Reply = fullResponse });
+			}
+			catch (Exception ex)
+			{
+				_ = _log.Db($"Error in AnalyzeWallet: {ex.Message}", null, "AiController", true);
+				return StatusCode(500, new { Reply = "Internal server error." });
+			}
+		}
+
+		[HttpPost("/Ai/AnalyzeCoin", Name = "AnalyzeCoin")]
+		public async Task<IActionResult> AnalyzeCoin([FromBody] AnalyzeCoinRequest request, [FromHeader(Name = "Encrypted-UserId")] string encryptedUserIdHeader)
+		{
+			try
+			{
+				if (request.UserId != 0)
+				{
+					if (!await _log.ValidateUserLoggedIn(request.UserId, encryptedUserIdHeader))
+						return StatusCode(500, "Access Denied.");
+				}
+
+				if (await HasExceededUsageLimit("text", request.UserId))
+					return StatusCode(429, new { Reply = "You have exceeded the maximum number of text requests for this hour." });
+
+				// Fetch recent coin price history (last 250 points)
+				List<object> history = new List<object>();
+				await using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+				{
+					await conn.OpenAsync();
+					string sql = @"SELECT value_cad as value, timestamp FROM coin_value WHERE LOWER(name) = @Name ORDER BY timestamp DESC LIMIT 250";
+					using var cmd = new MySqlCommand(sql, conn);
+					cmd.Parameters.AddWithValue("@Name", request.Coin);
+					using var reader = await cmd.ExecuteReaderAsync();
+					while (await reader.ReadAsync())
+					{
+						history.Add(new { value = reader.GetDecimal("value"), timestamp = reader.GetDateTime("timestamp") });
+					}
+				}
+
+				if (history.Count == 0)
+					return NotFound("No coin price history found for that coin.");
+
+				// Fetch market volume data for the last 5 hours via KrakenService and include it in the prompt
+				List<object> recentVolumes = new List<object>();
+				try
+				{
+					// KrakenService stores trade volumes per pair (e.g., BTCUSDC). Request last 300 minutes (5 hours).
+					var vols = await _krakenService.GetTradeMarketVolumesAsync(request.Coin.ToUpper(), "USDC", null, minutes: 300);
+					foreach (var v in vols)
+					{
+						recentVolumes.Add(new
+						{
+							timestamp = v.Timestamp,
+							volume = v.Volume,
+							volume_usdc = v.VolumeUSDC,
+							close_price = v.ClosePrice
+						});
+					}
+				}
+				catch (Exception ex)
+				{
+					_ = _log.Db($"Error fetching trade market volumes via KrakenService: {ex.Message}", null, "AiController", true);
+				}
+
+				var prompt = $"Analyze the following {request.Coin} price history: {System.Text.Json.JsonSerializer.Serialize(history)}. " +
+					$"Also consider this market volume snapshot for the last 5 hours: {System.Text.Json.JsonSerializer.Serialize(recentVolumes)}. " +
+					"Focus on trends, volatility, major swings, and provide a short recommendation (buy/sell/hold) with justification. In your analysis, explicitly consider volume spikes and how they affect volatility and trade signals. Avoid disclaimers.";
+
+				if (!request.SkipSave) await UpdateUserRequestCount(request.UserId, prompt, "text");
+
+				string url = "http://localhost:11434/api/generate";
+				object requestBody = new
+				{
+					model = "gemma3",
+					prompt = prompt,
+					stream = false,
+					max_tokens = request.MaxCount
+				};
+				var jsonContent = new StringContent(JsonSerializer.Serialize(requestBody), Encoding.UTF8, "application/json");
+				using var httpReq = new HttpRequestMessage(HttpMethod.Post, url) { Content = jsonContent };
+				var ollamaResponse = await _httpClient.SendAsync(httpReq, HttpCompletionOption.ResponseHeadersRead);
+				var respBody = await ollamaResponse.Content.ReadAsStringAsync();
+				if (!ollamaResponse.IsSuccessStatusCode)
+				{
+					_ = _log.Db($"Ollama API error {(int)ollamaResponse.StatusCode}: {respBody}", null, "AiController", true);
+					return StatusCode((int)ollamaResponse.StatusCode, new { Reply = $"Ollama API returned {(int)ollamaResponse.StatusCode}", Details = respBody });
+				}
+				var parsed = JsonSerializer.Deserialize<JsonElement>(respBody);
+				var fullResponse = parsed.GetProperty("response").GetString() ?? string.Empty;
+				return Ok(new { Reply = fullResponse });
+			}
+			catch (Exception ex)
+			{
+				_ = _log.Db($"Error in AnalyzeCoin: {ex.Message}", null, "AiController", true);
+				return StatusCode(500, new { Reply = "Internal server error." });
+			}
+		}
 
 
 		/// <summary>
@@ -934,6 +1105,21 @@ namespace maxhanna.Server.Controllers
 			public int? FileId { get; set; }
 			public required bool SkipSave { get; set; }
 			public required int MaxCount { get; set; }
+		}
+		public class AnalyzeWalletRequest
+		{
+			public required int UserId { get; set; }
+			public required string WalletAddress { get; set; }
+			public string? Currency { get; set; } // e.g., btc, usdc
+			public int MaxCount { get; set; } = 600;
+			public bool SkipSave { get; set; } = false;
+		}
+		public class AnalyzeCoinRequest
+		{
+			public required int UserId { get; set; }
+			public required string Coin { get; set; }
+			public int MaxCount { get; set; } = 600;
+			public bool SkipSave { get; set; } = false;
 		}
 		public class MarketSentimentRequest
 		{
