@@ -223,23 +223,43 @@ export class CalendarComponent extends ChildComponent implements OnInit {
   }
   private isWeeklyEventOnSameDate = (type: string, date1: Date, date2: Date): boolean => {
     const t = type.toLowerCase();
-    if (t !== "weekly" && t !== "biweekly") {
+    if (t !== "weekly") {
       return false;
     }
     const sameDayOfWeek = date1.getDay() === date2.getDay();
     if (!sameDayOfWeek) return false;
-    if (t === "weekly") return true;
+    return true; 
+  }
+  
+  private isBiWeeklyEventOnSameDate = (type: string, date1: Date, date2: Date): boolean => {
+    const t = type.toLowerCase();
+    if (t !== "biweekly") {
+      return false;
+    }
+    const sameDayOfWeek = date1.getDay() === date2.getDay();
+    if (!sameDayOfWeek) return false; 
     // biweekly: difference in weeks between the two dates should be even
     const diffWeeks = Math.floor((date2.getTime() - date1.getTime()) / (7 * 24 * 60 * 60 * 1000));
     return diffWeeks % 2 === 0;
   }
   private isMonthlyEventOnSameDate = (type: string, date1: Date, date2: Date): boolean => {
     const t = type.toLowerCase();
-    if (t !== "monthly" && t !== "bimonthly") return false;
+    if (t !== "monthly") return false;
     const sameDay = date1.getDate() === date2.getDate();
     const fallback = this.isLastDayFallback(date1, date2);
     if (!sameDay && !fallback) return false;
     if (t === "monthly") return true;
+    // bimonthly: difference in months should be even
+    const yearsDiff = date2.getFullYear() - date1.getFullYear();
+    const monthsDiff = yearsDiff * 12 + (date2.getMonth() - date1.getMonth());
+    return monthsDiff % 2 === 0;
+  }
+  private isBiMonthlyEventOnSameDate = (type: string, date1: Date, date2: Date): boolean => {
+    const t = type.toLowerCase();
+    if (t !== "bimonthly") return false;
+    const sameDay = date1.getDate() === date2.getDate();
+    const fallback = this.isLastDayFallback(date1, date2);
+    if (!sameDay && !fallback) return false; 
     // bimonthly: difference in months should be even
     const yearsDiff = date2.getFullYear() - date1.getFullYear();
     const monthsDiff = yearsDiff * 12 + (date2.getMonth() - date1.getMonth());
@@ -292,7 +312,9 @@ export class CalendarComponent extends ChildComponent implements OnInit {
     return ce && ce.date && ce.type && (
       this.isSameDate(new Date(ce.date), tmpNow)
       || this.isWeeklyEventOnSameDate(ce.type, new Date(ce.date), tmpNow)
+      || this.isBiWeeklyEventOnSameDate(ce.type, new Date(ce.date), tmpNow)
       || this.isMonthlyEventOnSameDate(ce.type, new Date(ce.date), tmpNow)
+      || this.isBiMonthlyEventOnSameDate(ce.type, new Date(ce.date), tmpNow)
       || this.isAnnualEventOnSameDate(ce.type, new Date(ce.date), tmpNow)
       || this.isDaily(ce.type)
     );
