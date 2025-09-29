@@ -2,6 +2,7 @@
   <div class="closeButton" (click)="remove_me('MetaComponent');"></div>
   <!--<div class="refreshButton" (click)="ngOnInit();"></div>-->
   <div class="componentTitle">Meta-Bots</div>
+  <div class="menuButton" (click)="showMenuPanel()"></div>
 <!-- 
   <div *ngIf="isLoading" class="loadingModal">The game is loading...</div>
   <div *ngIf="serverDown">We are sorry, server is currently down. Please be patient while we bring it back online.</div> -->
@@ -115,4 +116,51 @@
             [canClose]="false"
             (closeUserComponentEvent)="closeUserComponent($event)"
             [loginReasonMessage]="'You must log in to play Meta-Bots.'"></app-user>
+</div>
+
+<!-- Menu Popup -->
+<div class="popupPanel" style="overflow: auto;" *ngIf="isMenuPanelOpen">
+  <div class="popupPanelTitle mainPopupTitle">Meta-Bots Highscores</div>
+  <div class="metaHighscoresSection">
+    <div class="popupPanelTitle">Top Metabots</div>
+    <table *ngIf="topMetabots && topMetabots.length > 0" class="scoreTable">
+      <thead>
+        <tr><th>Rank</th><th>Bot Id</th><th>Hero</th><th>Level</th><th>Exp</th></tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let bot of topMetabots; let i = index">
+          <td>{{i + 1}}</td>
+          <td>{{bot.botId}}</td>
+          <td>
+            <app-user-tag [user]="bot.owner" [inputtedParentRef]="parentRef" [displayMiniTag]="true" [displayHoverPicture]="true"></app-user-tag>
+            {{bot.heroName}}
+          </td>
+          <td>{{bot.level}}</td>
+          <td>{{bot.exp}}</td>
+        </tr>
+      </tbody>
+    </table>
+    <div *ngIf="!topMetabots || topMetabots.length == 0">No metabots yet.</div>
+
+    <div class="popupPanelTitle" style="margin-top:12px;">Top Heroes</div>
+    <table *ngIf="topHeroes && topHeroes.length > 0" class="scoreTable">
+      <thead>
+        <tr><th>Rank</th><th>Hero</th><th>User</th><th>Total Levels</th><th>Bot Count</th></tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let h of topHeroes; let i = index">
+          <td>{{i + 1}}</td>
+          <td>{{h.heroName}}</td>
+          <td>
+            <app-user-tag [user]="h.owner" [inputtedParentRef]="parentRef" [displayMiniTag]="true" [displayHoverPicture]="true"></app-user-tag>
+          </td>
+          <td>{{h.totalMetabotLevels}}</td>
+          <td>{{h.botCount}}</td>
+        </tr>
+      </tbody>
+    </table>
+    <div *ngIf="!topHeroes || topHeroes.length == 0">No heroes yet.</div>
+  </div>
+
+  <button id="closeOverlay" class="closeButton" (click)="closeMenuPanel()">Close</button>
 </div>

@@ -4,7 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using MySqlConnector;
 using System;
 using System.Text;
-using System.Text.Json; 
+using System.Text.Json;
 
 namespace maxhanna.Server.Controllers
 {
@@ -41,12 +41,12 @@ namespace maxhanna.Server.Controllers
 		{
 			_log = log;
 			_config = config;
-			_connectionString = config.GetValue<string>("ConnectionStrings:maxhanna") ?? ""; 
+			_connectionString = config.GetValue<string>("ConnectionStrings:maxhanna") ?? "";
 		}
 
 		[HttpPost("/Meta", Name = "GetHero")]
 		public async Task<IActionResult> GetHero([FromBody] int userId)
-		{ 
+		{
 			using (var connection = new MySqlConnection(_connectionString))
 			{
 				await connection.OpenAsync();
@@ -70,7 +70,7 @@ namespace maxhanna.Server.Controllers
 
 		[HttpPost("/Meta/FetchGameData", Name = "FetchGameData")]
 		public async Task<IActionResult> FetchGameData([FromBody] MetaHero hero)
-		{ 
+		{
 			using (var connection = new MySqlConnection(_connectionString))
 			{
 				await connection.OpenAsync();
@@ -79,8 +79,8 @@ namespace maxhanna.Server.Controllers
 					try
 					{
 						hero = await UpdateHeroInDB(hero, connection, transaction);
-						MetaHero[]? heroes = await GetNearbyPlayers(hero, connection, transaction); 
-						MetaBot[]? enemyBots = await GetEncounterMetaBots(connection, transaction, hero.Map); 
+						MetaHero[]? heroes = await GetNearbyPlayers(hero, connection, transaction);
+						MetaBot[]? enemyBots = await GetEncounterMetaBots(connection, transaction, hero.Map);
 						List<MetaEvent> events = await GetEventsFromDb(hero.Map, hero.Id, connection, transaction);
 						await transaction.CommitAsync();
 						return Ok(new
@@ -103,7 +103,7 @@ namespace maxhanna.Server.Controllers
 
 		[HttpPost("/Meta/FetchInventoryData", Name = "FetchInventoryData")]
 		public async Task<IActionResult> FetchInventoryData([FromBody] int heroId)
-		{ 
+		{
 			using (var connection = new MySqlConnection(_connectionString))
 			{
 				await connection.OpenAsync();
@@ -131,7 +131,7 @@ namespace maxhanna.Server.Controllers
 
 		[HttpPost("/Meta/UpdateEvents", Name = "UpdateEvents")]
 		public async Task<IActionResult> UpdateEvents([FromBody] MetaEvent metaEvent)
-		{ 
+		{
 			using (var connection = new MySqlConnection(_connectionString))
 			{
 				await connection.OpenAsync();
@@ -139,7 +139,7 @@ namespace maxhanna.Server.Controllers
 				{
 					try
 					{
-						await UpdateEventsInDB(metaEvent, connection, transaction); 
+						await UpdateEventsInDB(metaEvent, connection, transaction);
 						await PerformEventChecks(metaEvent, connection, transaction);
 
 						await transaction.CommitAsync();
@@ -156,7 +156,7 @@ namespace maxhanna.Server.Controllers
 
 		[HttpPost("/Meta/DeleteEvent", Name = "DeleteEvent")]
 		public async Task<IActionResult> DeleteEvent([FromBody] DeleteEventRequest req)
-		{ 
+		{
 			using (var connection = new MySqlConnection(_connectionString))
 			{
 				await connection.OpenAsync();
@@ -185,7 +185,7 @@ namespace maxhanna.Server.Controllers
 
 		[HttpPost("/Meta/UpdateInventory", Name = "UpdateInventory")]
 		public async Task<IActionResult> UpdateInventory([FromBody] UpdateMetaHeroInventoryRequest request)
-		{ 
+		{
 			if (request.HeroId != 0)
 			{
 				using (var connection = new MySqlConnection(_connectionString))
@@ -213,7 +213,7 @@ namespace maxhanna.Server.Controllers
 
 		[HttpPost("/Meta/Create", Name = "CreateHero")]
 		public async Task<IActionResult> CreateHero([FromBody] CreateMetaHeroRequest req)
-		{ 
+		{
 			using (var connection = new MySqlConnection(_connectionString))
 			{
 				await connection.OpenAsync();
@@ -259,7 +259,7 @@ namespace maxhanna.Server.Controllers
 
 		[HttpPost("/Meta/CreateBot", Name = "CreateBot")]
 		public async Task<IActionResult> CreateBot([FromBody] MetaBot bot)
-		{  
+		{
 			using (var connection = new MySqlConnection(_connectionString))
 			{
 				await connection.OpenAsync();
@@ -268,7 +268,7 @@ namespace maxhanna.Server.Controllers
 					try
 					{
 						if (bot.HeroId < 0)
-						{ 
+						{
 							string checkSql = "SELECT COUNT(*) FROM maxhanna.meta_bot WHERE hero_id = @HeroId;";
 							int existingBotCount = 0;
 
@@ -276,10 +276,10 @@ namespace maxhanna.Server.Controllers
 							{
 								command.Parameters.AddWithValue("@HeroId", bot.HeroId);
 
-								existingBotCount = Convert.ToInt32(await command.ExecuteScalarAsync()); 
-							}  
+								existingBotCount = Convert.ToInt32(await command.ExecuteScalarAsync());
+							}
 							if (Convert.ToInt32(existingBotCount) > 0)
-							{   
+							{
 								await transaction.CommitAsync();
 								_ = _log.Db("A bot with the same hero_id already exists.", null, "META", true);
 								return BadRequest("A bot with the same hero_id already exists.");
@@ -302,10 +302,11 @@ namespace maxhanna.Server.Controllers
 						};
 
 						long? botId = await this.ExecuteInsertOrUpdateOrDeleteAsync(sql, parametersForInsert, connection, transaction);
-						if (botId == null) {
+						if (botId == null)
+						{
 							_ = _log.Db("Exception: Failed to create metabot, BotId IS NULL.", null, "META", true);
 							throw new Exception("Failed to create MetaBot");
-						} 
+						}
 						await transaction.CommitAsync();
 
 						MetaBot heroBot = new MetaBot
@@ -316,7 +317,7 @@ namespace maxhanna.Server.Controllers
 							Name = bot.Name,
 							Hp = bot.Hp,
 							Type = bot.Type,
-							IsDeployed = bot.IsDeployed, 
+							IsDeployed = bot.IsDeployed,
 							Head = bot.Head,
 							Legs = bot.Legs,
 							LeftArm = bot.LeftArm,
@@ -340,7 +341,7 @@ namespace maxhanna.Server.Controllers
 
 		[HttpPost("/Meta/UpdateBotParts", Name = "UpdateBotParts")]
 		public async Task<IActionResult> UpdateBotParts([FromBody] UpdateBotPartsRequest req)
-		{ 
+		{
 			if (req.Parts == null || req.Parts.Length == 0)
 			{
 				return BadRequest("No parts to update.");
@@ -385,7 +386,7 @@ namespace maxhanna.Server.Controllers
 
 		[HttpPost("/Meta/EquipPart", Name = "EquipPart")]
 		public async Task<IActionResult> EquipPart([FromBody] EquipPartRequest req)
-		{ 
+		{
 			using (var connection = new MySqlConnection(_connectionString))
 			{
 				await connection.OpenAsync();
@@ -504,10 +505,141 @@ namespace maxhanna.Server.Controllers
 			}
 		}
 
+		[HttpPost("/Meta/GetMetabotHighscores", Name = "GetMetabotHighscores")]
+		public async Task<IActionResult> GetMetabotHighscores([FromBody] int count)
+		{
+			// Returns top `count` metabots ordered by level desc, then exp desc
+			try
+			{
+				using (var connection = new MySqlConnection(_connectionString))
+				{
+					await connection.OpenAsync();
+					string sql = @"SELECT mb.id as botId, mb.hero_id as heroId, mb.level, mb.exp,
+										   mh.user_id as ownerUserId, mh.name as heroName,
+										   u.id as user_id, u.username as username, udpfl.id as display_picture_file_id
+								   FROM maxhanna.meta_bot mb
+								   LEFT JOIN maxhanna.meta_hero mh ON mh.id = mb.hero_id
+								   LEFT JOIN maxhanna.users u ON u.id = mh.user_id
+								   LEFT JOIN maxhanna.user_display_pictures udp ON udp.user_id = u.id
+								   LEFT JOIN maxhanna.file_uploads udpfl ON udp.file_id = udpfl.id
+								   ORDER BY mb.level DESC, mb.exp DESC
+								   LIMIT @Count;";
+
+					using (var cmd = new MySqlCommand(sql, connection))
+					{
+						cmd.Parameters.AddWithValue("@Count", Math.Max(1, count));
+						using (var rdr = await cmd.ExecuteReaderAsync())
+						{
+							var results = new List<object>();
+							while (await rdr.ReadAsync())
+							{
+								FileEntry? displayPic = null;
+								if (!rdr.IsDBNull(rdr.GetOrdinal("display_picture_file_id")))
+								{
+									displayPic = new FileEntry(rdr.GetInt32(rdr.GetOrdinal("display_picture_file_id")));
+								}
+
+								Users.User? ownerUser = null;
+								if (!rdr.IsDBNull(rdr.GetOrdinal("user_id")))
+								{
+									ownerUser = new Users.User(
+										id: rdr.GetInt32(rdr.GetOrdinal("user_id")),
+										username: rdr.IsDBNull(rdr.GetOrdinal("username")) ? "Anonymous" : rdr.GetString(rdr.GetOrdinal("username")),
+										displayPictureFile: displayPic
+									);
+								}
+
+								results.Add(new
+								{
+									botId = rdr.GetInt32(rdr.GetOrdinal("botId")),
+									heroId = rdr.IsDBNull(rdr.GetOrdinal("heroId")) ? (int?)null : rdr.GetInt32(rdr.GetOrdinal("heroId")),
+									level = rdr.IsDBNull(rdr.GetOrdinal("level")) ? 0 : rdr.GetInt32(rdr.GetOrdinal("level")),
+									exp = rdr.IsDBNull(rdr.GetOrdinal("exp")) ? 0 : rdr.GetInt32(rdr.GetOrdinal("exp")),
+									owner = ownerUser,
+									heroName = rdr.IsDBNull(rdr.GetOrdinal("heroName")) ? null : rdr.GetString(rdr.GetOrdinal("heroName"))
+								});
+							}
+							return Ok(results);
+						}
+					}
+				}
+			}
+			catch (Exception ex)
+			{
+				_ = _log.Db("Error fetching metabot highscores: " + ex.Message, null, "META");
+				return StatusCode(500, "An error occurred fetching metabot highscores.");
+			}
+		}
+
+		[HttpPost("/Meta/GetHeroHighscores", Name = "GetHeroHighscores")]
+		public async Task<IActionResult> GetHeroHighscores([FromBody] int count)
+		{
+			// Returns top `count` heroes by sum of their metabots' levels (highest combined metabot levels)
+			try
+			{
+				using (var connection = new MySqlConnection(_connectionString))
+				{
+					await connection.OpenAsync();
+					string sql = @"SELECT mh.id AS heroId, mh.user_id AS userId, mh.name AS heroName, COALESCE(SUM(mb.level),0) AS totalMetabotLevels, COALESCE(COUNT(mb.id),0) AS botCount,
+										   u.username as username, udpfl.id as display_picture_file_id
+								   FROM maxhanna.meta_hero mh
+								   LEFT JOIN maxhanna.meta_bot mb ON mb.hero_id = mh.id
+								   LEFT JOIN maxhanna.users u ON u.id = mh.user_id
+								   LEFT JOIN maxhanna.user_display_pictures udp ON udp.user_id = u.id
+								   LEFT JOIN maxhanna.file_uploads udpfl ON udp.file_id = udpfl.id
+								   GROUP BY mh.id, mh.user_id, mh.name, u.username, udpfl.id
+								   ORDER BY totalMetabotLevels DESC
+								   LIMIT @Count;";
+
+					using (var cmd = new MySqlCommand(sql, connection))
+					{
+						cmd.Parameters.AddWithValue("@Count", Math.Max(1, count));
+						using (var rdr = await cmd.ExecuteReaderAsync())
+						{
+							var results = new List<object>();
+							while (await rdr.ReadAsync())
+							{
+								FileEntry? displayPic = null;
+								if (!rdr.IsDBNull(rdr.GetOrdinal("display_picture_file_id")))
+								{
+									displayPic = new FileEntry(rdr.GetInt32(rdr.GetOrdinal("display_picture_file_id")));
+								}
+
+								Users.User? ownerUser = null;
+								if (!rdr.IsDBNull(rdr.GetOrdinal("userId")))
+								{
+									ownerUser = new Users.User(
+										id: rdr.GetInt32(rdr.GetOrdinal("userId")),
+										username: rdr.IsDBNull(rdr.GetOrdinal("username")) ? "Anonymous" : rdr.GetString(rdr.GetOrdinal("username")),
+										displayPictureFile: displayPic
+									);
+								}
+
+								results.Add(new
+								{
+									heroId = rdr.GetInt32(rdr.GetOrdinal("heroId")),
+									owner = ownerUser,
+									heroName = rdr.IsDBNull(rdr.GetOrdinal("heroName")) ? null : rdr.GetString(rdr.GetOrdinal("heroName")),
+									totalMetabotLevels = rdr.IsDBNull(rdr.GetOrdinal("totalMetabotLevels")) ? 0 : rdr.GetInt32(rdr.GetOrdinal("totalMetabotLevels")),
+									botCount = rdr.IsDBNull(rdr.GetOrdinal("botCount")) ? 0 : rdr.GetInt32(rdr.GetOrdinal("botCount"))
+								});
+							}
+							return Ok(results);
+						}
+					}
+				}
+			}
+			catch (Exception ex)
+			{
+				_ = _log.Db("Error fetching hero highscores: " + ex.Message, null, "META");
+				return StatusCode(500, "An error occurred fetching hero highscores.");
+			}
+		}
+
 
 		[HttpPost("/Meta/SellBotParts", Name = "SellBotParts")]
 		public async Task<IActionResult> SellBotParts([FromBody] SellBotPartsRequest req)
-		{ 
+		{
 			if (req.PartIds == null || req.PartIds?.Length == 0)
 			{
 				return BadRequest("No Metabot Parts to sell.");
@@ -554,7 +686,7 @@ namespace maxhanna.Server.Controllers
 
 
 		private async Task<MetaHero> UpdateHeroInDB(MetaHero hero, MySqlConnection connection, MySqlTransaction transaction)
-		{ 
+		{
 			string sql = @"UPDATE maxhanna.meta_hero 
                             SET coordsX = @CoordsX, 
                                 coordsY = @CoordsY, 
@@ -574,7 +706,7 @@ namespace maxhanna.Server.Controllers
 								{ "@Speed", hero.Speed },
 								{ "@HeroId", hero.Id }
 						};
-			await this.ExecuteInsertOrUpdateOrDeleteAsync(sql, parameters, connection, transaction); 
+			await this.ExecuteInsertOrUpdateOrDeleteAsync(sql, parameters, connection, transaction);
 
 			return hero;
 		}
@@ -582,7 +714,7 @@ namespace maxhanna.Server.Controllers
 		{
 			try
 			{
-				string sql = 
+				string sql =
 					@"UPDATE maxhanna.meta_bot 
 						SET hp = @HP,  
 								exp = @Exp,
@@ -606,7 +738,7 @@ namespace maxhanna.Server.Controllers
 			catch (Exception ex)
 			{
 				_ = _log.Db("UpdateMetabotInDb failure: " + ex.ToString(), null, "META", true);
-			} 
+			}
 		}
 
 		private async Task UpdateEventsInDB(MetaEvent @event, MySqlConnection connection, MySqlTransaction transaction)
@@ -629,7 +761,7 @@ namespace maxhanna.Server.Controllers
 			catch (Exception ex)
 			{
 				_ = _log.Db("UpdateEventsInDb failed : " + ex.ToString(), null, "META", true);
-			} 
+			}
 		}
 
 		private async Task UpdateInventoryInDB(UpdateMetaHeroInventoryRequest request, MySqlConnection connection, MySqlTransaction transaction)
@@ -652,7 +784,7 @@ namespace maxhanna.Server.Controllers
 				};
 
 				await this.ExecuteInsertOrUpdateOrDeleteAsync(sql, parameters, connection, transaction);
-			} 
+			}
 		}
 
 		private async Task<List<MetaEvent>> GetEventsFromDb(string map, int heroId, MySqlConnection connection, MySqlTransaction transaction)
@@ -1251,8 +1383,8 @@ namespace maxhanna.Server.Controllers
 				{
 						{ "@botId", metabotId },
 				};
-			 
-				await this.ExecuteInsertOrUpdateOrDeleteAsync(sql, parameters, connection, transaction); 
+
+				await this.ExecuteInsertOrUpdateOrDeleteAsync(sql, parameters, connection, transaction);
 			}
 			catch (Exception ex)
 			{
@@ -1277,7 +1409,7 @@ namespace maxhanna.Server.Controllers
 				{
 					parameters.Add("@botId", metabotId.Value);
 				}
-				await this.ExecuteInsertOrUpdateOrDeleteAsync(sql, parameters, connection, transaction); 
+				await this.ExecuteInsertOrUpdateOrDeleteAsync(sql, parameters, connection, transaction);
 			}
 			catch (Exception ex)
 			{
@@ -1286,7 +1418,7 @@ namespace maxhanna.Server.Controllers
 		}
 
 		private async Task DestroyMetabot(int heroId, int? metabotId, MySqlConnection connection, MySqlTransaction transaction)
-		{ 
+		{
 			try
 			{
 				string sql;
@@ -1329,20 +1461,20 @@ namespace maxhanna.Server.Controllers
 		}
 
 		private async Task PerformEventChecks(MetaEvent metaEvent, MySqlConnection connection, MySqlTransaction transaction)
-		{ 
+		{
 			if (metaEvent != null && metaEvent.Data != null && metaEvent.EventType == "TARGET_LOCKED")
-			{ 
+			{
 				string lockKey = $"{metaEvent.Data["sourceId"]}:{metaEvent.Data["targetId"]}";
 
 				if (!activeLocks.ContainsKey(lockKey))
 				{
-					_ = _log.Db($"Starting DPS for {lockKey}", null, "META", true); 
+					_ = _log.Db($"Starting DPS for {lockKey}", null, "META", true);
 					var sourceId = metaEvent.Data["sourceId"];
 					var targetId = metaEvent.Data["targetId"];
-					var ctsSource = new CancellationTokenSource();  
-					activeLocks[lockKey] = ctsSource; 
-					 
-					_ = StartDamageOverTimeForBot(sourceId, targetId, ctsSource.Token); 
+					var ctsSource = new CancellationTokenSource();
+					activeLocks[lockKey] = ctsSource;
+
+					_ = StartDamageOverTimeForBot(sourceId, targetId, ctsSource.Token);
 				}
 			}
 			else if (metaEvent != null && metaEvent.EventType == "TARGET_UNLOCK" && metaEvent.Data != null && metaEvent.Data.TryGetValue("sourceId", out var sourceId))
@@ -1384,7 +1516,7 @@ namespace maxhanna.Server.Controllers
 				else
 				{
 					_ = _log.Db("No batch data found for UPDATE_ENCOUNTER_POSITION", null, "META", true);
-				} 
+				}
 			}
 			else if (metaEvent != null && metaEvent.Data != null && metaEvent.EventType == "UPDATE_ENCOUNTER_POSITION")
 			{
@@ -1423,20 +1555,20 @@ namespace maxhanna.Server.Controllers
 					if (metaBotJson.TryGetProperty("id", out var idElement))
 					{
 						int metabotId = idElement.GetInt32();
-						await DeployMetabot(metabotId, connection, transaction); 
+						await DeployMetabot(metabotId, connection, transaction);
 					}
 				}
 			}
 			else if (metaEvent != null && metaEvent.EventType == "CALL_BOT_BACK")
 			{
 				int heroId = metaEvent.HeroId;
-				await CallBackMetabot(heroId, null, connection, transaction); 
+				await CallBackMetabot(heroId, null, connection, transaction);
 			}
 			else if (metaEvent != null && metaEvent.EventType == "BOT_DESTROYED")
 			{
 				int heroId = metaEvent.HeroId;
-				await DestroyMetabot(heroId, null, connection, transaction); 
-			} 
+				await DestroyMetabot(heroId, null, connection, transaction);
+			}
 		}
 
 		private static void StopAttackDamageOverTimeForBot(int? sourceId, int? targetId)
@@ -1448,7 +1580,7 @@ namespace maxhanna.Server.Controllers
 				// Cancel DPS for both source and target
 				activeLocks[lockKey].Cancel();
 				activeLocks.Remove(lockKey);
-			} 
+			}
 		}
 
 		private async Task StartDamageOverTimeForBot(string sourceId, string targetId, CancellationToken cancellationToken)
@@ -1775,17 +1907,17 @@ namespace maxhanna.Server.Controllers
 		private async Task Unparty(int heroId, MySqlConnection connection, MySqlTransaction transaction)
 		{
 			try
-			{ 
+			{
 				const string deleteQuery = @"
 					DELETE FROM meta_hero_party 
 					WHERE meta_hero_id_1 IN (@heroId) OR meta_hero_id_2 IN (@heroId)";
 
 				using (var deleteCommand = new MySqlCommand(deleteQuery, connection, transaction))
-				{ 
-					deleteCommand.Parameters.AddWithValue("@heroId", heroId); 
+				{
+					deleteCommand.Parameters.AddWithValue("@heroId", heroId);
 					await deleteCommand.ExecuteNonQueryAsync();
 				}
- 
+
 				// Log success
 				await _log.Db($"Successfully updated party with {heroId}", null, "META", false);
 			}
@@ -1802,9 +1934,9 @@ namespace maxhanna.Server.Controllers
 		}
 
 		private async Task HandleDeadMetabot(string map, MetaBot? winnerBot, MetaBot? deadBot, MySqlConnection connection, MySqlTransaction transaction)
-		{ 
+		{
 			if (deadBot == null) return;
-			MetaEvent tmpEvent = new MetaEvent(0, 
+			MetaEvent tmpEvent = new MetaEvent(0,
 				deadBot.HeroId,
 				DateTime.Now,
 				"BOT_DESTROYED",
@@ -1815,26 +1947,26 @@ namespace maxhanna.Server.Controllers
 			await DestroyMetabot(deadBot.HeroId, deadBot.Id, connection, transaction);
 			if (winnerBot?.HeroId > 0)
 			{
-				await AwardExpToPlayer(winnerBot, deadBot, connection, transaction); 
+				await AwardExpToPlayer(winnerBot, deadBot, connection, transaction);
 			}
 		}
 
 		private async Task AwardExpToPlayer(MetaBot player, MetaBot enemy, MySqlConnection connection, MySqlTransaction transaction)
-		{ 
+		{
 			player.Exp += enemy.Level;
 			int expForNextLevel = CalculateExpForNextLevel(player);
-		  
+
 			while (player.Exp >= expForNextLevel)
 			{
 				player.Exp -= expForNextLevel; // Subtract the required experience for leveling up
 				player.Level++;
 				expForNextLevel = CalculateExpForNextLevel(player);
-			} 
+			}
 			await UpdateMetabotInDB(player, connection, transaction);
 		}
 
 		private int CalculateExpForNextLevel(MetaBot player)
-		{ 
+		{
 			return (player.Level + 1) * 15;
 		}
 		private MetaBotPart GetLastUsedPart(string tableName, string idColumn, int id, MySqlConnection connection, MySqlTransaction? transaction)
@@ -1892,7 +2024,7 @@ namespace maxhanna.Server.Controllers
 		{
 			// 1. Calculate damage for both bots using the same formula
 			int appliedDamageToDefender = CalculateDamage(attackingBot, defendingBot, attackingPart);
-			 
+
 			// 2. Apply damage to both bots in the database
 			string updateSql = @"
 				UPDATE maxhanna.meta_bot_part SET last_used = NOW() WHERE metabot_id = @SourceId AND part_name = @PartName;
@@ -1913,9 +2045,9 @@ namespace maxhanna.Server.Controllers
 				command.Parameters.AddWithValue("@SourceId", attackingBot.Id);
 				command.Parameters.AddWithValue("@PartName", attackingPart.PartName);
 				command.ExecuteNonQuery();
-			}   
+			}
 			_ = _log.Db($"{attackingBot.Id}({attackingBot.Hp}) dealt {appliedDamageToDefender} damage to {defendingBot.Id}({defendingBot.Hp})! {DateTime.Now.ToString()} part: {attackingPart.PartName}", null, "META", true);
- 		}
+		}
 
 		private int CalculateDamage(MetaBot attacker, MetaBot defender, MetaBotPart attackingPart)
 		{
@@ -1933,7 +2065,7 @@ namespace maxhanna.Server.Controllers
 			}
 
 			// 2. Base Damage Calculation
-			int baseDamage = (int)(attacker.Level * attackingPart.DamageMod * typeMultiplier); 
+			int baseDamage = (int)(attacker.Level * attackingPart.DamageMod * typeMultiplier);
 
 			// 3. Defense Calculation (defense equals defender's level, mitigating level% of damage)
 			float defenseMultiplier = defender.Level / 100f; // e.g., level 298 = 2.98
@@ -1945,13 +2077,13 @@ namespace maxhanna.Server.Controllers
 			// 5. Critical Hit Chance (10% chance)
 			if (new Random().NextDouble() < 0.1)
 			{
-				finalDamage = (int)(finalDamage * 1.5f); 
-				_ = _log.Db($"{attacker.Name} scored a critical hit!", null, "META", true); 
+				finalDamage = (int)(finalDamage * 1.5f);
+				_ = _log.Db($"{attacker.Name} scored a critical hit!", null, "META", true);
 			}
 
 			// Ensure minimum damage of 1
 			return Math.Max(1, finalDamage);
-		} 
+		}
 		private async Task<long?> ExecuteInsertOrUpdateOrDeleteAsync(string sql, Dictionary<string, object?> parameters, MySqlConnection? connection = null, MySqlTransaction? transaction = null)
 		{
 			string cmdText = "";
@@ -2001,7 +2133,7 @@ namespace maxhanna.Server.Controllers
 				}
 			}
 			catch (Exception ex)
-			{ 
+			{
 				_ = _log.Db("Update ERROR: " + ex.Message, null, "META", true);
 				_ = _log.Db(cmdText, null, "META", true);
 				foreach (var param in parameters)

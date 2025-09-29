@@ -8,7 +8,7 @@ import { MetaEvent } from './datacontracts/meta/meta-event';
 import { InventoryItem } from '../app/meta/objects/InventoryItem/inventory-item';
 import { MetaBot } from './datacontracts/meta/meta-bot';
 import { MetaBotPart } from './datacontracts/meta/meta-bot-part';
- 
+
 @Injectable({
   providedIn: 'root'
 })
@@ -42,10 +42,10 @@ export class MetaService {
 
   async getHero(userId: number): Promise<MetaHero | undefined> {
     return this.fetchData('/meta', userId);
-  } 
+  }
   async getPartyMembers(userId: number): Promise<{ heroId: number, name: string, color?: string }[] | undefined> {
     return this.fetchData('/meta/getuserpartymembers', userId);
-  } 
+  }
   async createHero(userId: number, name: string): Promise<MetaHero | undefined> {
     return this.fetchData('/meta/create', { UserId: userId, Name: name });
   }
@@ -64,9 +64,9 @@ export class MetaService {
   async fetchGameData(hero: MetaHero): Promise<{ map: number, position: Vector2, heroes: MetaHero[], chat: MetaChat[], events: MetaEvent[] } | undefined> {
     return this.fetchData('/meta/fetchgamedata', hero);
   }
-  async fetchInventoryData(heroId: number): Promise<{inventory: InventoryItem[], parts: MetaBotPart[]}> {
+  async fetchInventoryData(heroId: number): Promise<{ inventory: InventoryItem[], parts: MetaBotPart[] }> {
     return this.fetchData('/meta/fetchinventorydata', heroId);
-  } 
+  }
   async deleteEvent(eventId: number) {
     return this.fetchData('/meta/deleteevent', { EventId: eventId });
   }
@@ -76,7 +76,15 @@ export class MetaService {
   async updateInventory(heroId: number, name: string, image: string, category: string) {
     return this.fetchData('/meta/updateinventory', { HeroId: heroId, Name: name, Image: image, Category: category });
   }
-  async updateBotParts(heroId: number, parts: MetaBotPart[]) { 
+  async updateBotParts(heroId: number, parts: MetaBotPart[]) {
     return this.fetchData('/meta/updatebotparts', { HeroId: heroId, parts: parts });
+  }
+
+  async getMetabotHighscores(count: number = 50) {
+    return this.fetchData('/meta/getmetabothighscores', count);
+  }
+
+  async getHeroHighscores(count: number = 50) {
+    return this.fetchData('/meta/getherohighscores', count);
   }
 }

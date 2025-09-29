@@ -64,6 +64,7 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy, 
   ctx!: CanvasRenderingContext2D;
   pollSeconds = 1;
   isUserComponentOpen = false;
+  isMenuPanelOpen = false;
 
   mainScene?: any;
   metaHero: MetaHero;
@@ -82,6 +83,8 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy, 
   isShopMenuOpened = false;
   hideStartButton = false;
   serverDown? = false;
+  topMetabots: any[] = [];
+  topHeroes: any[] = [];
 
 
   private currentChatTextbox?: ChatSpriteTextString | undefined; 
@@ -105,7 +108,6 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy, 
     window.addEventListener("resize", this.adjustCanvasSize);
     this.adjustCanvasSize();
   }
-
 
   ngOnDestroy() {
     clearInterval(this.pollingInterval);
@@ -620,5 +622,30 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy, 
       this.mainScene.input.setChatInput(this.chatInput.nativeElement);
       this.stopLoading();
     }, 500);
+  }
+  
+  async showMenuPanel() {
+    if (this.isMenuPanelOpen) {
+      this.closeMenuPanel();
+      return;
+    }
+    this.isMenuPanelOpen = true;
+    if (this.parentRef) {
+      this.parentRef.showOverlay();
+    }
+    
+    try {
+      this.topMetabots = await this.metaService.getMetabotHighscores(50) ?? [];
+    } catch (e) { this.topMetabots = []; }
+    try {
+      this.topHeroes = await this.metaService.getHeroHighscores(50) ?? [];
+    } catch (e) { this.topHeroes = []; }
+  }
+
+  closeMenuPanel() {
+    this.isMenuPanelOpen = false;
+    if (this.parentRef) {
+      this.parentRef.closeOverlay();
+    }
   }
 }
