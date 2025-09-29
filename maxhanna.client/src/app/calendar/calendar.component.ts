@@ -52,6 +52,8 @@ export class CalendarComponent extends ChildComponent implements OnInit {
     'Daily': '⏰',
     'Milestone': '📀',
     'Anniversary': '🌹',
+    'BiWeekly': '🔁',
+    'BiMonthly': '🔂',
   };
   monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
   years: number[] = [];
@@ -220,14 +222,35 @@ export class CalendarComponent extends ChildComponent implements OnInit {
       date1.getFullYear() === date2.getFullYear());
   }
   private isWeeklyEventOnSameDate = (type: string, date1: Date, date2: Date): boolean => {
-    if (type.toLowerCase() !== "weekly") {
+    const t = type.toLowerCase();
+    if (t !== "weekly" && t !== "biweekly") {
       return false;
     }
     const sameDayOfWeek = date1.getDay() === date2.getDay();
-    return sameDayOfWeek;
+    if (!sameDayOfWeek) return false;
+    if (t === "weekly") return true;
+    // biweekly: difference in weeks between the two dates should be even
+    const diffWeeks = Math.floor((date2.getTime() - date1.getTime()) / (7 * 24 * 60 * 60 * 1000));
+    return diffWeeks % 2 === 0;
   }
   private isMonthlyEventOnSameDate = (type: string, date1: Date, date2: Date): boolean => {
-    return type.toLowerCase() == "monthly" && date1.getDate() === date2.getDate();
+    const t = type.toLowerCase();
+    if (t !== "monthly" && t !== "bimonthly") return false;
+    const sameDay = date1.getDate() === date2.getDate();
+    const fallback = this.isLastDayFallback(date1, date2);
+    if (!sameDay && !fallback) return false;
+    if (t === "monthly") return true;
+    // bimonthly: difference in months should be even
+    const yearsDiff = date2.getFullYear() - date1.getFullYear();
+    const monthsDiff = yearsDiff * 12 + (date2.getMonth() - date1.getMonth());
+    return monthsDiff % 2 === 0;
+  }
+
+  private isLastDayFallback(original: Date, target: Date): boolean {
+    // If original day is greater than last day of target month and target is the last day of its month,
+    // treat as a match for last-day-of-month fallback
+    const lastDayTarget = new Date(target.getFullYear(), target.getMonth() + 1, 0).getDate();
+    return original.getDate() > lastDayTarget && target.getDate() === lastDayTarget;
   }
   private isAnnualEventOnSameDate = (type: string, date1: Date, date2: Date): boolean => {
     return (type.toLowerCase() == "milestone"
@@ -381,7 +404,8 @@ export class CalendarComponent extends ChildComponent implements OnInit {
   }
   async onMonthChange() {
     this.selectedMonth = this.selectedMonthDropdown.nativeElement.value; 
-    this.now = new Date((this.selectedYear ?? new Date().getFullYear()), this.monthNames.indexOf(this.selectedMonth), 1); 
+    const monthIndex = this.selectedMonth ? this.monthNames.indexOf(this.selectedMonth) : new Date().getMonth();
+    this.now = new Date((this.selectedYear ?? new Date().getFullYear()), monthIndex, 1); 
     setTimeout(() => { 
       const tmpNow = new Date(this.now);
       this.now = new Date(tmpNow.setMonth(tmpNow.getMonth()));
@@ -392,7 +416,7 @@ export class CalendarComponent extends ChildComponent implements OnInit {
   }
   async onYearChange() {
     this.selectedYear = parseInt(this.selectedYearDropdown.nativeElement.value);
-    const selectMonth = (this.selectedMonth ? this.monthNames.indexOf(this.selectedMonth) + 1 : new Date().getMonth());
+    const selectMonth = (this.selectedMonth ? this.monthNames.indexOf(this.selectedMonth) : new Date().getMonth());
     this.now = new Date((this.selectedYear ?? new Date().getFullYear()), selectMonth, 1); 
     const tmpNow = new Date(this.now);
     this.now = new Date(tmpNow.setMonth(tmpNow.getMonth() - 1));

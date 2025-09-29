@@ -41,9 +41,20 @@ namespace maxhanna.Server.Controllers
                               AND (
                                   (Date BETWEEN @StartDate AND @EndDateWithTime) -- Specific date range
                                   OR 
-                                  (Type = 'Weekly' AND DATE_FORMAT(Date, '%w') = DATE_FORMAT(@StartDate, '%w')) -- Weekly on the same day of the week
-                                  OR 
-                                  (Type = 'Monthly') -- Monthly on the same day of the month
+											  (Type = 'Weekly' AND DATE_FORMAT(Date, '%w') = DATE_FORMAT(@StartDate, '%w')) -- Weekly on the same day of the week
+											  OR 
+											  (Type = 'BiWeekly' AND DATE_FORMAT(Date, '%w') = DATE_FORMAT(@StartDate, '%w') AND MOD(TIMESTAMPDIFF(WEEK, Date, @StartDate), 2) = 0) -- Every 2 weeks on the same weekday
+											  OR
+											  (Type = 'Monthly') -- Monthly on the same day of the month
+											  OR
+																				(Type = 'BiMonthly' AND MOD(TIMESTAMPDIFF(MONTH, Date, @StartDate), 2) = 0
+																					AND (
+																						DAY(Date) = DAY(@StartDate) -- same day of month
+																						OR
+																						-- original day is beyond the last day of the target month, and the target date is the last day of month
+																						(DAY(Date) > DAY(LAST_DAY(@StartDate)) AND DAY(@StartDate) = DAY(LAST_DAY(@StartDate)))
+																					)
+																				) -- Every 2 months on same day (or last-day fallback)
                                   OR 
                                   (Type IN ('Annually', 'Birthday', 'Milestone', 'Newyears', 'Christmas', 'Anniversary') AND MONTH(Date) = MONTH(@StartDate)) -- Annually on the same day and month
                                   OR 
