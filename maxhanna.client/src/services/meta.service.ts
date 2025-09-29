@@ -1,6 +1,5 @@
 
-import { Injectable } from '@angular/core';
-import { User } from './datacontracts/user/user';
+import { Injectable } from '@angular/core'; 
 import { MetaHero } from './datacontracts/meta/meta-hero';
 import { MetaChat } from './datacontracts/meta/meta-chat';
 import { Vector2 } from './datacontracts/meta/vector2';
@@ -79,11 +78,9 @@ export class MetaService {
   async updateBotParts(heroId: number, parts: MetaBotPart[]) {
     return this.fetchData('/meta/updatebotparts', { HeroId: heroId, parts: parts });
   }
-
   async getMetabotHighscores(count: number = 50) {
     return this.fetchData('/meta/getmetabothighscores', count);
-  }
-
+  } 
   async getHeroHighscores(count: number = 50) {
     return this.fetchData('/meta/getherohighscores', count);
   }
