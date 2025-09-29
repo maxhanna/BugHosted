@@ -523,6 +523,7 @@ namespace maxhanna.Server.Controllers
 								   LEFT JOIN maxhanna.users u ON u.id = mh.user_id
 								   LEFT JOIN maxhanna.user_display_pictures udp ON udp.user_id = u.id
 								   LEFT JOIN maxhanna.file_uploads udpfl ON udp.file_id = udpfl.id
+								   WHERE mh.name IS NOT NULL
 								   ORDER BY mb.level DESC, mb.exp DESC
 								   LIMIT @Count;";
 
@@ -588,6 +589,7 @@ namespace maxhanna.Server.Controllers
 								   LEFT JOIN maxhanna.users u ON u.id = mh.user_id
 								   LEFT JOIN maxhanna.user_display_pictures udp ON udp.user_id = u.id
 								   LEFT JOIN maxhanna.file_uploads udpfl ON udp.file_id = udpfl.id
+								   WHERE mh.name IS NOT NULL
 								   GROUP BY mh.id, mh.user_id, mh.name, u.username, udpfl.id
 								   ORDER BY totalMetabotLevels DESC
 								   LIMIT @Count;";
