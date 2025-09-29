@@ -44,12 +44,7 @@ namespace maxhanna.Server.Controllers
 									OR (Type = 'Weekly' AND DATE_FORMAT(Date, '%w') = DATE_FORMAT(@StartDate, '%w')) -- same weekday
 									OR (Type = 'BiWeekly') -- every 2 weeks
 									OR (Type = 'Monthly') -- every month
-									OR (Type = 'BiMonthly' AND MOD(TIMESTAMPDIFF(MONTH, Date, @StartDate), 2) = 0
-										AND (
-											DAY(Date) = DAY(@StartDate)
-											OR (DAY(Date) > DAY(LAST_DAY(@StartDate)) AND DAY(@StartDate) = DAY(LAST_DAY(@StartDate)))
-										)
-									) -- every 2 months on same day or last-day fallback
+									OR (Type = 'BiMonthly' AND MOD(TIMESTAMPDIFF(MONTH, Date, @StartDate), 2) = 0) -- every 2 months
 									OR (Type IN ('Annually','Birthday','Milestone','Newyears','Christmas','Anniversary') AND MONTH(Date) = MONTH(@StartDate)) -- annually same month
 									OR (Type = 'Daily') -- daily
 								)
