@@ -77,6 +77,13 @@
               </span>
             </div>
           </div>
+          <div class="seperatedUserHeader blackFontColor linkHighlights" *ngIf="(userLoginStreakCurrent || userLoginStreakLongest) && !loginOnly">
+            <div class="xxSmallFont" title="Login Streak">Streak: </div>
+            <div class="smallFont">
+              <span *ngIf="userLoginStreakCurrent">{{userLoginStreakCurrent}} day{{userLoginStreakCurrent > 1 ? 's' : ''}} current</span>
+              <span *ngIf="userLoginStreakLongest"> • Best: {{userLoginStreakLongest}} day{{userLoginStreakLongest > 1 ? 's' : ''}}</span>
+            </div>
+          </div>
         
           <div class="profileControls" *ngIf="user || parentRef?.user">
             <select (change)="onProfileControlsChange()" #profileControls class="profileControlsSelector">

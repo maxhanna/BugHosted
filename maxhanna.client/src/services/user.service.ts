@@ -6,6 +6,11 @@ import { UserAbout } from './datacontracts/user/user-about';
 import { HttpClient } from '@angular/common/http';
 import { UserSettings } from './datacontracts/user/user-settings';
 
+export interface StreakInfo {
+  CurrentStreak: number;
+  LongestStreak: number;
+}
+
 @Injectable({
   providedIn: 'root'
 })
@@ -304,7 +309,10 @@ export class UserService {
         body: JSON.stringify(userId),
       });
 
-      return await response.json();
+      if (response.ok) {
+        return await response.json() as StreakInfo;
+      }
+      return null;
     } catch (error) {
       return null;
     }
