@@ -43,6 +43,7 @@ export class Resources {
       counterNoLedge: `${this.dir}counternoledge.png`,
       criticalhit: `${this.dir}criticalhit.png`,
       deer: `${this.dir}deer.png`,
+      enderFloor: `${this.dir}enderfloor.png`,
       exit: `${this.dir}exit.png`,
       exit2: `${this.dir}exit2.png`,
       fireextinguisher: `${this.dir}fireextinguisher.png`,

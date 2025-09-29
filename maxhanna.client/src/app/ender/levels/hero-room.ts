@@ -19,13 +19,19 @@ export class HeroRoomLevel extends Level {
       this.itemsFound = params.itemsFound;
     }
 
- 
-    const floor = new Sprite(
-      { resource: resources.images["bedroomFloor"], frameSize: new Vector2(320, 220) }
-    );
-    floor.drawLayer = BASE;
-    this.addChild(floor);
-     
+    for (let y = 0; y < 21; y++) {
+      for (let x = 0; x < 21; x++) { 
+        const floor = new Sprite(
+          { 
+            resource: resources.images["enderFloor"], 
+            position: new Vector2(gridCells(x * 2), gridCells(y * 2)),
+            frameSize: new Vector2(32, 32) 
+          }
+        );
+        floor.drawLayer = BASE;
+        this.addChild(floor);
+      }
+    }
 
     this.walls = new Set();
     //walls 

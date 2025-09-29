@@ -133,6 +133,7 @@ namespace maxhanna.Server.Services
 			await DeleteOldBattleReports();
 			await DeleteOldGuests();
 			await DeleteOldSearchResults();
+			await DeleteOldSearchQueries();
 			await DeleteOldSentimentAnalysis();
 			await DeleteOldGlobalMetrics();
 			await DeleteNotificationRequests();
@@ -1499,6 +1500,30 @@ namespace maxhanna.Server.Services
 			catch (Exception ex)
 			{
 				_ = _log.Db("Error occurred while deleting old search results. " + ex.Message, null);
+			}
+		}
+
+		private async Task DeleteOldSearchQueries()
+		{
+			try
+			{
+				using (var conn = new MySqlConnection(_connectionString))
+				{
+					await conn.OpenAsync();
+					var deleteSql = @"
+						DELETE FROM search_queries
+						WHERE created_at < UTC_TIMESTAMP() - INTERVAL 7 DAY;";
+
+					using (var deleteCmd = new MySqlCommand(deleteSql, conn))
+					{
+						int affectedRows = await deleteCmd.ExecuteNonQueryAsync();
+						_ = _log.Db($"Deleted {affectedRows} search queries older than 7 days.", null);
+					}
+				}
+			}
+			catch (Exception ex)
+			{
+				_ = _log.Db("Error occurred while deleting old search queries. " + ex.Message, null);
 			}
 		}
 

@@ -6,7 +6,10 @@
 </div>
 <div class="mainFileUploaderAndTopicSelectorDiv">
     <button (click)="post()">🗨️Post</button>
-    <app-media-selector *ngIf="inputtedParentRef" #mediaSelector
+    <app-media-selector 
+        *ngIf="inputtedParentRef"
+        #mediaSelector
+        [maxSelectedFiles]="30"
         [currentDirectory]="inputtedParentRef.user?.username ? 'Users/' + inputtedParentRef!.user!.username! : 'Users/Anonymous'"
         [user]="inputtedParentRef.user" 
         [inputtedParentRef]="inputtedParentRef"
