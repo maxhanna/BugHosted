@@ -1,63 +1,56 @@
 <div class="componentMain {{ user ? 'componentMainFullHeight' : ''}}">
-  <div class="closeButton" (click)="remove_me('UserComponent');" *ngIf="canClose || (!loginOnly && (parentRef?.user || user))"></div>
+  <div class="closeButton" (click)="remove_me('UserComponent');"
+    *ngIf="canClose || (!loginOnly && (parentRef?.user || user))"></div>
   <div class="menuButton" (click)="showMenuPanel();" *ngIf="parentRef?.user || user"></div>
-  <div *ngIf="previousComponent" [class]="'menuBackButton ' + (parentRef?.user ? 'menuBackButtonSpecial' : '')" (click)="backButtonPressed();"></div> 
+  <div *ngIf="previousComponent" [class]="'menuBackButton ' + (parentRef?.user ? 'menuBackButtonSpecial' : '')"
+    (click)="backButtonPressed();"></div>
   <div class="componentTitle" *ngIf="!loginOnly">{{user ? user.username : 'Login'}}</div>
 
   <div *ngIf="parentRef?.user">
-    <app-notifications [minimalInterface]="true"
-                       [inputtedParentRef]="parentRef"
-                       [previousComponent]="'User'">
+    <app-notifications [minimalInterface]="true" [inputtedParentRef]="parentRef" [previousComponent]="'User'">
     </app-notifications>
   </div>
 
   <div class="profileBackgroundContainer" *ngIf="user?.profileBackgroundPictureFile">
-    <app-media-viewer 
-      [displayExpander]="false" 
-      [displayExtraInfo]="false" 
-      [showCommentSection]="false"
-      [showTopics]="false"
-      [inputtedParentRef]="inputtedParentRef ?? parentRef" 
-      [file]="user?.profileBackgroundPictureFile"
-      [previousComponent]="previousComponent ?? 'User'">
+    <app-media-viewer [displayExpander]="false" [displayExtraInfo]="false" [showCommentSection]="false"
+      [showTopics]="false" [inputtedParentRef]="inputtedParentRef ?? parentRef"
+      [file]="user?.profileBackgroundPictureFile" [previousComponent]="previousComponent ?? 'User'">
     </app-media-viewer>
-  </div> 
+  </div>
 
   <div class="userProfileContents">
     <div class="profileHeader">
       <div class="profileHeaderContents">
-        <div *ngIf="!loginOnly && (user && parentRef && user.displayPictureFile) && (user?.displayPictureFile ?? this.parentRef?.user?.displayPictureFile)">
-          <app-media-viewer #displayPictureViewer 
-            (click)="openDisplayPicturePanel()"
-            [displayExpander]="false" 
-            [displayExtraInfo]="false"
-            [showTopics]="false"
-            [showCommentSection]="false" 
-            [inputtedParentRef]="inputtedParentRef ?? parentRef" 
-            [file]="user.displayPictureFile"
-            [blockExpand]="user && user.id == parentRef.user?.id" 
-            [currentDirectory]="user.displayPictureFile.directory"
-            [user]="user"
-            [previousComponent]="previousComponent ?? 'User'">
+        <div
+          *ngIf="!loginOnly && (user && parentRef && user.displayPictureFile) && (user?.displayPictureFile ?? this.parentRef?.user?.displayPictureFile)">
+          <app-media-viewer #displayPictureViewer (click)="openDisplayPicturePanel()" [displayExpander]="false"
+            [displayExtraInfo]="false" [showTopics]="false" [showCommentSection]="false"
+            [inputtedParentRef]="inputtedParentRef ?? parentRef" [file]="user.displayPictureFile"
+            [blockExpand]="user && user.id == parentRef.user?.id" [currentDirectory]="user.displayPictureFile.directory"
+            [user]="user" [previousComponent]="previousComponent ?? 'User'">
           </app-media-viewer>
-          <div [class]="'profileHeaderInfo blackFontColor linkHighlights' + (onMobile() ? ' smallFont' : '')" [title]="user.username">{{user.username}}</div>
+          <div [class]="'profileHeaderInfo blackFontColor linkHighlights' + (onMobile() ? ' smallFont' : '')"
+            [title]="user.username">{{user.username}}</div>
         </div>
         <div class="largeAvatar emptyAvatarContainer" *ngIf="!loginOnly && user && !user.displayPictureFile">
           <app-user-tag (click)="openDisplayPicturePanel()"></app-user-tag>
-          <div [class]="'blackFontColor linkHighlights profileHeaderInfo' + (onMobile() ? ' smallFont' : '')" [title]="user.username ?? 'Anonymous'">{{user.username ?? "Anonymous"}}</div>
+          <div [class]="'blackFontColor linkHighlights profileHeaderInfo' + (onMobile() ? ' smallFont' : '')"
+            [title]="user.username ?? 'Anonymous'">{{user.username ?? "Anonymous"}}</div>
         </div>
-        <div class="profileHeaderInfo profileHeaderBubble blackFontColor linkHighlights" *ngIf="!loginOnly && (parentRef?.user || user)">
+        <div class="profileHeaderInfo profileHeaderBubble blackFontColor linkHighlights"
+          *ngIf="!loginOnly && (parentRef?.user || user)">
           <div class="profileHeaderUserDescription">
             {{user?.about?.description}}
           </div>
-          <div class="seperatedUserHeader blackFontColor linkHighlights" *ngIf="weatherLocation?.city || user?.about?.currency">
+          <div class="seperatedUserHeader blackFontColor linkHighlights"
+            *ngIf="weatherLocation?.city || user?.about?.currency">
             <div class="xxSmallFont" title="Location">Location: </div>
-            <div>{{weatherLocation?.city}} {{ (weatherLocation?.country ?? user?.about?.currency ?? '') | currencyFlag }}</div>
+            <div>{{weatherLocation?.city}} {{ (weatherLocation?.country ?? user?.about?.currency ?? '') | currencyFlag
+              }}</div>
           </div>
           <div class="seperatedUserHeader blackFontColor linkHighlights">
             <div class="xxSmallFont" title="Joined">Joined: </div>
-            <div [title]="(user && user.created ? (user.created | date: 'y/MM/d') : 'Unknown')"
-              class="smallFont">
+            <div [title]="(user && user.created ? (user.created | date: 'y/MM/d') : 'Unknown')" class="smallFont">
               {{user && user.created ? getUtcTimeSince(user.created, 'day') : '0 days'}}
             </div>
           </div>
@@ -68,8 +61,8 @@
                 [title]="user.lastSeen | timeSince">
                 <span class="glowing onlineButton" title="Online">🟢</span> Online
               </span>
-              <span *ngIf="user && user.lastSeen && !isUserOnline(user.lastSeen | timeSince)"
-                class="smallFont" [title]="user.lastSeen">
+              <span *ngIf="user && user.lastSeen && !isUserOnline(user.lastSeen | timeSince)" class="smallFont"
+                [title]="user.lastSeen">
                 {{ user.lastSeen | timeSince }}
               </span>
               <span *ngIf="!user?.lastSeen">
@@ -77,14 +70,17 @@
               </span>
             </div>
           </div>
-          <div class="seperatedUserHeader blackFontColor linkHighlights" *ngIf="(userLoginStreakCurrent || userLoginStreakLongest) && !loginOnly">
+          <div class="seperatedUserHeader blackFontColor linkHighlights"
+            *ngIf="(userLoginStreakCurrent || userLoginStreakLongest) && !loginOnly">
             <div class="xxSmallFont" title="Login Streak">Streak: </div>
             <div class="smallFont">
-              <span *ngIf="userLoginStreakCurrent">Current: {{userLoginStreakCurrent}} day{{userLoginStreakCurrent > 1 ? 's' : ''}}</span>
-              <span *ngIf="userLoginStreakLongest"> • Best: {{userLoginStreakLongest}} day{{userLoginStreakLongest > 1 ? 's' : ''}}</span>
+              <span *ngIf="userLoginStreakCurrent">Current: {{userLoginStreakCurrent}} day{{userLoginStreakCurrent > 1 ?
+                's' : ''}}</span>
+              <span *ngIf="userLoginStreakLongest"> • Best: {{userLoginStreakLongest}} day{{userLoginStreakLongest > 1 ?
+                's' : ''}}</span>
             </div>
           </div>
-        
+
           <div class="profileControls" *ngIf="user || parentRef?.user">
             <select (change)="onProfileControlsChange()" #profileControls class="profileControlsSelector">
               <option selected disabled>Options</option>
@@ -98,44 +94,51 @@
               <option
                 *ngIf="user && user != parentRef?.user && (user && parentRef?.user?.username != user.username) && isFollowingUser()"
                 value="unfollow">👤 Unfollow</option>
-              <option *ngIf="user && parentRef && parentRef.user && user.id != parentRef.user.id && !contactsContains(user)"
+              <option
+                *ngIf="user && parentRef && parentRef.user && user.id != parentRef.user.id && !contactsContains(user)"
                 value="addContact">📇 Add Contact</option>
               <option *ngIf="user && parentRef && parentRef.user && user.id != parentRef.user.id"
-                value="{{isUserBlocked ? 'unblockContact' : 'blockContact'}}">{{isUserBlocked ? '👤 Unblock' : '⛔ Block'}} User
+                value="{{isUserBlocked ? 'unblockContact' : 'blockContact'}}">{{isUserBlocked ? '👤 Unblock' : '⛔
+                Block'}} User
               </option>
               <option value="showFriends">👤 Show Friends</option>
               <option *ngIf="user" value="chat">🗨️ Chat</option>
               <option *ngIf="user" value="userInfo">📝 {{ isAboutPanelOpen ? 'Hide ' : '' }} User Info</option>
               <option *ngIf="user && user.id == parentRef?.user?.id" value="settings">⚙️ Settings</option>
               <option *ngIf="user && user.id == parentRef?.user?.id" value="logout">🔑 Logout</option>
-            </select>  
+            </select>
           </div>
-          <div class="userOptionsDiv"> 
-            <div class="profileLink" *ngIf="trophies && trophies.length > 0 && user && user.id != parentRef?.user?.id" (click)="showTrophies()">
+          <div class="userOptionsDiv">
+            <div class="profileLink" *ngIf="trophies && trophies.length > 0 && user && user.id != parentRef?.user?.id"
+              (click)="showTrophies()">
               <app-media-viewer [displayExpander]="false" [displayExtraInfo]="false" [showCommentSection]="false"
                 [showTopics]="false" [blockExpand]="true" [file]="trophies[0].file"
                 [inputtedParentRef]="inputtedParentRef ?? parentRef" [previousComponent]="previousComponent ?? 'User'">
               </app-media-viewer>
             </div>
-            <div class="profileLink" (click)="openAboutPanel()" *ngIf="user && user.id != parentRef?.user?.id" title="Open 'About' Panel">
+            <div class="profileLink" (click)="openAboutPanel()" *ngIf="user && user.id != parentRef?.user?.id"
+              title="Open 'About' Panel">
               📝
             </div>
-            <div class="profileLink" (click)="openChat()" *ngIf="user && user.id != parentRef?.user?.id" title="Open Chat">
+            <div class="profileLink" (click)="openChat()" *ngIf="user && user.id != parentRef?.user?.id"
+              title="Open Chat">
               🗨️
             </div>
-            <div class="profileLink" (click)="openFriendsPanel()" *ngIf="user && user.id == parentRef?.user?.id" title="Open 'Friends' Panel">
+            <div class="profileLink" (click)="openFriendsPanel()" *ngIf="user && user.id == parentRef?.user?.id"
+              title="Open 'Friends' Panel">
               👤
             </div>
-            <div class="profileLink" (click)="openSettingsPanel()" *ngIf="user && user.id == parentRef?.user?.id" title="Open Settings">
+            <div class="profileLink" (click)="openSettingsPanel()" *ngIf="user && user.id == parentRef?.user?.id"
+              title="Open Settings">
               ⚙️
             </div>
             <div class="profileLink" (click)="logout()" *ngIf="user && user.id == parentRef?.user?.id" title="Log Out">
               🔑
             </div>
-          </div> 
+          </div>
         </div>
       </div>
-      
+
     </div>
 
     <!--LOGIN AREA-->
@@ -144,14 +147,17 @@
         <div *ngIf="!parentRef?.user">
           <div class="bughostedHeader">
             <div class="emptyUserTagLogo" *ngIf="!loginOnly">
-              <app-user-tag [displayEmptyAvatar]="true" [previousComponent]="previousComponent ?? 'User'" [hideName]="true"></app-user-tag>
+              <app-user-tag [displayEmptyAvatar]="true" [previousComponent]="previousComponent ?? 'User'"
+                [hideName]="true"></app-user-tag>
             </div>
             <div class="bugHostedLogo" *ngIf="!loginOnly">
               BugH_sted
             </div>
             <div class="welcomeMessage" *ngIf="!loginOnly">
               <p class="welcomeTitle">Social... <small>and anti-social</small> Community🪲</p>
-              <p class="welcomeTitle">{{ !usersCount && !isLoading ? '' : 'Total users: ' }}<span [class]="!usersCount && !isLoading ? 'redText' : ''">{{usersCount && !isLoading ? usersCount : !usersCount && !isLoading ? 'Server is down!' : 'Unknown Error'}}</span></p>
+              <p class="welcomeTitle">{{ !usersCount && !isLoading ? '' : 'Total users: ' }}<span
+                  [class]="!usersCount && !isLoading ? 'redText' : ''">{{usersCount && !isLoading ? usersCount :
+                  !usersCount && !isLoading ? 'Server is down!' : 'Unknown Error'}}</span></p>
             </div>
 
             <div *ngIf="loginOnly" class="loginOnlyInstructionDiv">
@@ -160,7 +166,8 @@
 
             <div class="loginDiv">
               <input type="text" id="loginInput" placeholder="Username" #loginUsername (keydown.enter)="login()" />
-              <input type="password" id="passwordInput" placeholder="Password" #loginPassword (keydown.enter)="login()" />
+              <input type="password" id="passwordInput" placeholder="Password" #loginPassword
+                (keydown.enter)="login()" />
               <div>
                 <input type="submit" value="🔑 Login" (click)="login()" />
                 <input type="submit" value="👤➕ Create User" (click)="createUser()" />
@@ -168,17 +175,18 @@
               </div>
             </div>
           </div>
-          <div *ngIf="!usersCount && !isLoading">Server down</div> 
+          <div *ngIf="!usersCount && !isLoading">Server down</div>
         </div>
       </div>
-    </div> 
+    </div>
     <!-- LATEST MEME -->
     <div *ngIf="!user?.id && !loginOnly" class="memeAndWordlerWrapper" [class]="onMobile() ? 'gradientBackground':''">
       <div *ngIf="latestMemeId">
         <div class="popupPanelTitle cursorPointerUnderlined" style="margin-top: 15px;"
           (click)="parentRef?.createComponent('Meme')">Latest Meme:</div>
-        <app-media-viewer [fileId]="latestMemeId" [inputtedParentRef]="parentRef" [canScroll]="false"></app-media-viewer>
-      </div> 
+        <app-media-viewer [fileId]="latestMemeId" [inputtedParentRef]="parentRef"
+          [canScroll]="false"></app-media-viewer>
+      </div>
       <div>
         <!-- LATEST MASTERMIND SCORES -->
         <app-mastermind-scores [showBestScores]="false" [showBestScoresToday]="true" [showUserHeader]="true"
@@ -206,19 +214,21 @@
                 </td>
                 <td>{{score.score}}</td>
                 <td>{{score.time | timeFormat:'minify'}}</td>
-                <td>{{score.difficulty == 4 ? 'Easy' : score.difficulty == 5 ? 'Medium' : score.difficulty == 6 ? 'Hard' :
+                <td>{{score.difficulty == 4 ? 'Easy' : score.difficulty == 5 ? 'Medium' : score.difficulty == 6 ? 'Hard'
+                  :
                   'Master Wordler'}}</td>
                 <td [title]="score.submitted">{{score.submitted | timeSince }}</td>
               </tr>
             </tbody>
           </table>
         </div>
-      </div> 
-    </div> 
-    
+      </div>
+    </div>
+
     <!-- SOCIAL -->
     <div *ngIf="(this.latestSocialStoryId || storyId || user?.id) && !loginOnly && !isLoading">
-      <div *ngIf="this.latestSocialStoryId && (!user || !parentRef?.user)" class="popupPanelTitle cursorPointerUnderlined" style="margin-top: 15px;"
+      <div *ngIf="this.latestSocialStoryId && (!user || !parentRef?.user)"
+        class="popupPanelTitle cursorPointerUnderlined" style="margin-top: 15px;"
         (click)="parentRef?.createComponent('Social')">
         Latest Social Post:
       </div>
@@ -226,8 +236,10 @@
         [commentId]="commentId" [parent]="parentRef" [showTopicSelector]="false" [canScroll]="false"></app-social>
     </div>
 
-    <div *ngIf="user && user.id == parentRef?.user?.id && parentRef?.user?.username?.includes('Guest')" class="xxSmallFont">Note: <span class="italics">Guest accounts will be deleted after 10 days.</span></div>
-    <p *ngIf="!loginOnly && !user" class="moreInfoTitle welcomeTitle cursorPointerUnderlined" (click)="isAboutOpen = !isAboutOpen">{{ !isAboutOpen ? 'Click here for more' : 'Show less'}} information</p>
+    <div *ngIf="user && user.id == parentRef?.user?.id && parentRef?.user?.username?.includes('Guest')"
+      class="xxSmallFont">Note: <span class="italics">Guest accounts will be deleted after 10 days.</span></div>
+    <p *ngIf="!loginOnly && !user" class="moreInfoTitle welcomeTitle cursorPointerUnderlined"
+      (click)="isAboutOpen = !isAboutOpen">{{ !isAboutOpen ? 'Click here for more' : 'Show less'}} information</p>
     <div *ngIf="isAboutOpen" class="aboutSiteDiv">
       <ul>
         <li>
@@ -263,7 +275,7 @@
         <div>We are comitted to an open and free internet.</div>
         <div>Visit our public <a href="https://github.com/maxhanna/BugHosted">GitHub repository</a>.</div>
       </div>
-    
+
       <div class="aboutPictureContainer">
         <app-media-viewer [fileId]="6373" [inputtedParentRef]="parentRef" [displayExtraInfo]="false"
           [showCommentSection]="false" [displayExpander]="false" [previousComponent]="previousComponent ?? 'User'">
@@ -418,61 +430,37 @@
               <div class="optionsStatsDescription">
                 {{numberOfTrades}} Trades.
               </div>
-            </div> 
-              <div class="optionsStatsDiv">
-                <div class="optionsStatsHeader">
-                  <div class="optionsStatsLink" (click)="parentRef?.createComponent('Mastermind')">Mastermind</div>
-                </div>
-                <div class="optionsStatsDescription">{{numberOfMastermindGames ?? '—'}}</div>
+            </div>
+            <div class="optionsStatsDiv">
+              <div class="optionsStatsHeader">
+                <div class="optionsStatsLink" (click)="parentRef?.createComponent('Mastermind')">Mastermind</div>
               </div>
-              <div class="optionsStatsDiv">
-                <div class="optionsStatsHeader">
-                  <div class="optionsStatsLink" (click)="parentRef?.createComponent('Meta-Bots')">Metabots</div>
-                </div>
-                <div class="optionsStatsDescription">{{metaBotLevelsSum ?? '—'}}</div>
+              <div class="optionsStatsDescription">{{numberOfMastermindGames ?? '—'}}</div>
+            </div>
+            <div class="optionsStatsDiv">
+              <div class="optionsStatsHeader">
+                <div class="optionsStatsLink" (click)="parentRef?.createComponent('Files')">Files</div>
               </div>
-              <div class="optionsStatsDiv">
-                <div class="optionsStatsHeader">
-                  <div class="optionsStatsLink" (click)="parentRef?.createComponent('Wordler')">Wordler</div>
-                </div>
-                <div class="optionsStatsDescription">{{wordlerHighScores?.length ?? '—'}}</div>
+              <div class="optionsStatsDescription">{{numberOfFilesUploaded ?? '—'}}</div>
+            </div>
+            <div class="optionsStatsDiv">
+              <div class="optionsStatsHeader">
+                <div class="optionsStatsLink" (click)="parentRef?.createComponent('Memes')">Memes</div>
               </div>
-              <div class="optionsStatsDiv">
-                <div class="optionsStatsHeader">
-                  <div class="optionsStatsLink" (click)="parentRef?.createComponent('Bug-Wars')">BugWars Bases</div>
-                </div>
-                <div class="optionsStatsDescription">{{numberOfNexusBases ?? '—'}}</div>
+              <div class="optionsStatsDescription">{{numberOfMemesUploaded ?? '—'}}</div>
+            </div>
+            <div class="optionsStatsDiv">
+              <div class="optionsStatsHeader">
+                <div class="optionsStatsLink" (click)="parentRef?.createComponent('Art')">Art</div>
               </div>
-              <div class="optionsStatsDiv">
-                <div class="optionsStatsHeader">
-                  <div class="optionsStatsLink" (click)="parentRef?.createComponent('Crypto-Hub')">Crypto Trades</div>
-                </div>
-                <div class="optionsStatsDescription">{{numberOfTrades ?? '—'}}</div>
+              <div class="optionsStatsDescription">{{numberOfArtUploaded ?? '—'}}</div>
+            </div>
+            <div class="optionsStatsDiv">
+              <div class="optionsStatsHeader">
+                <div class="optionsStatsLink" (click)="parentRef?.createComponent('Favourites')">Favourites</div>
               </div>
-              <div class="optionsStatsDiv">
-                <div class="optionsStatsHeader">
-                  <div class="optionsStatsLink" (click)="parentRef?.createComponent('Files')">Files</div>
-                </div>
-                <div class="optionsStatsDescription">{{numberOfFilesUploaded ?? '—'}}</div>
-              </div>
-              <div class="optionsStatsDiv">
-                <div class="optionsStatsHeader">
-                  <div class="optionsStatsLink" (click)="parentRef?.createComponent('Memes')">Memes</div>
-                </div>
-                <div class="optionsStatsDescription">{{numberOfMemesUploaded ?? '—'}}</div>
-              </div>
-              <div class="optionsStatsDiv">
-                <div class="optionsStatsHeader">
-                  <div class="optionsStatsLink" (click)="parentRef?.createComponent('Art')">Art</div>
-                </div>
-                <div class="optionsStatsDescription">{{numberOfArtUploaded ?? '—'}}</div>
-              </div>
-              <div class="optionsStatsDiv">
-                <div class="optionsStatsHeader">
-                  <div class="optionsStatsLink" (click)="parentRef?.createComponent('Favourites')">Favourites</div>
-                </div>
-                <div class="optionsStatsDescription">{{numberOfFavouritesCreated ?? '—'}}</div>
-              </div>
+              <div class="optionsStatsDescription">{{numberOfFavouritesCreated ?? '—'}}</div>
+            </div>
             <div class="optionsStatsDiv">
               <div class="optionsStatsHeader">
                 Share Profile :
@@ -491,11 +479,9 @@
         <label style="display:flex; gap: 10px;">
           <button (click)="expandDiv('trophyContainer');">{{isTrophyExpanded ? '-' : '+'}}</button>
           <span class="cursorPointerUnderlined">Trophies ({{trophies?.length ?? 0}})</span>
-        </label>  
+        </label>
         <div *ngIf="isTrophyExpanded">
-          <app-user-trophies 
-            [inputtedParentRef]="inputtedParentRef ?? parentRef" 
-            [trophies]="trophies" 
+          <app-user-trophies [inputtedParentRef]="inputtedParentRef ?? parentRef" [trophies]="trophies"
             [previousComponent]="previousComponent">
           </app-user-trophies>
         </div>
@@ -508,11 +494,8 @@
         <span class="cursorPointerUnderlined">Music ({{songPlaylist.length}})</span>
       </label>
       <div *ngIf="isMusicContainerExpanded">
-        <app-music *ngIf="isMusicContainerExpanded"
-                   [user]="user" 
-                   [inputtedParentRef]="inputtedParentRef ?? parentRef"
-                   [smallPlayer]="true"
-                   (gotPlaylistEvent)="gotPlaylistEvent($event)">
+        <app-music *ngIf="isMusicContainerExpanded" [user]="user" [inputtedParentRef]="inputtedParentRef ?? parentRef"
+          [smallPlayer]="true" (gotPlaylistEvent)="gotPlaylistEvent($event)">
         </app-music>
       </div>
     </div>
@@ -529,8 +512,7 @@
       Friends{{ showingFriendsList ? ":" : ` [${friends.length}]`}}
     </span>
     <span *ngIf="showingFriendsList && (!userId || userId == parentRef?.user?.id)"
-          (click)="isEditingFriends = !isEditingFriends"
-          class="smallFont cursorPointer">
+      (click)="isEditingFriends = !isEditingFriends" class="smallFont cursorPointer">
       [{{ isEditingFriends ? 'cancel' : 'edit' }}]
     </span>
   </div>
@@ -539,9 +521,8 @@
     <div *ngIf="friends" class="friendsListWrapperDiv">
       <div *ngFor="let friend of friends" class="friendsListDiv">
         <div (click)="viewProfile(friend, 'User')" class="usernameProfileLink">
-          <app-user-tag [user]="friend" [inputtedParentRef]="parentRef"  
-          [displayHoverPicture]="true"
-          [previousComponent]="previousComponent ?? 'User'"></app-user-tag>
+          <app-user-tag [user]="friend" [inputtedParentRef]="parentRef" [displayHoverPicture]="true"
+            [previousComponent]="previousComponent ?? 'User'"></app-user-tag>
         </div>
       </div>
 
@@ -550,37 +531,39 @@
     <div *ngIf="!isLoading && (!friends || friends.length == 0)">Friends list is empty.</div>
   </div>
 
-  <div *ngIf="!isEditingFriends && friendRequestsSent.length > 0" 
-    class="followingFriendsPanelTitle popupPanelTitle cursorPointer" 
+  <div *ngIf="!isEditingFriends && friendRequestsSent.length > 0"
+    class="followingFriendsPanelTitle popupPanelTitle cursorPointer"
     (click)="showingFollowingList = !showingFollowingList">
     Following{{ showingFollowingList ? ":" : ` [${friendRequestsSent.length}]`}}
   </div>
-  <div *ngIf="!isEditingFriends && friendRequestsSent.length > 0 && showingFollowingList" class="friendsPopupContainer mainFriendsPopupDiv">
+  <div *ngIf="!isEditingFriends && friendRequestsSent.length > 0 && showingFollowingList"
+    class="friendsPopupContainer mainFriendsPopupDiv">
     <div *ngFor="let friendReq of friendRequestsSent" class="friendsListDiv friendsRequestReceivedList">
       <div class="usernameProfileLink">
         <app-user-tag [user]="friendReq.receiver" [inputtedParentRef]="parentRef" [displayMiniTag]="true"
-        [displayHoverPicture]="true" [previousComponent]="previousComponent ?? 'User'"></app-user-tag>
+          [displayHoverPicture]="true" [previousComponent]="previousComponent ?? 'User'"></app-user-tag>
       </div>
       <div class="friendshipRequestActionDiv" *ngIf="!userId || userId == parentRef?.user?.id">
-        <button (click)="preventNotifications(friendReq)" class="cursorPointer"
-          title="Prevent Notifications" *ngIf="!stoppedNotifications.includes(friendReq.receiver.id ?? 0)">🔔</button>
-        <button (click)="allowNotifications(friendReq)" class="cursorPointer" 
-          title="Allow Notifications" *ngIf="stoppedNotifications.includes(friendReq.receiver.id ?? 0)">❌🔔</button>
+        <button (click)="preventNotifications(friendReq)" class="cursorPointer" title="Prevent Notifications"
+          *ngIf="!stoppedNotifications.includes(friendReq.receiver.id ?? 0)">🔔</button>
+        <button (click)="allowNotifications(friendReq)" class="cursorPointer" title="Allow Notifications"
+          *ngIf="stoppedNotifications.includes(friendReq.receiver.id ?? 0)">❌🔔</button>
         <button (click)="deleteFriendshipRequest(friendReq)" class="cursorPointer" title="Unfollow">❌</button>
       </div>
     </div>
   </div>
 
-  <div *ngIf="!isEditingFriends && friendRequestsReceived.length > 0" 
-    class="followingFriendsPanelTitle popupPanelTitle cursorPointer" 
+  <div *ngIf="!isEditingFriends && friendRequestsReceived.length > 0"
+    class="followingFriendsPanelTitle popupPanelTitle cursorPointer"
     (click)="showingFollowersList = !showingFollowersList">
     Followers{{ showingFollowersList ? ":" : ` [${friendRequestsReceived.length}]`}}
   </div>
-  <div *ngIf="!isEditingFriends && friendRequestsReceived.length > 0 && showingFollowersList" class="friendsPopupContainer mainFriendsPopupDiv">
+  <div *ngIf="!isEditingFriends && friendRequestsReceived.length > 0 && showingFollowersList"
+    class="friendsPopupContainer mainFriendsPopupDiv">
     <div *ngFor="let friendReq of friendRequestsReceived" class="friendsListDiv friendsRequestReceivedList">
       <div class="usernameProfileLink">
         <app-user-tag [user]="friendReq.sender" [inputtedParentRef]="parentRef" [displayMiniTag]="true"
-        [displayHoverPicture]="true" [previousComponent]="previousComponent ?? 'User'"></app-user-tag>
+          [displayHoverPicture]="true" [previousComponent]="previousComponent ?? 'User'"></app-user-tag>
       </div>
       <div class="friendshipRequestActionDiv" *ngIf="!userId || userId == parentRef?.user?.id">
         <button (click)="acceptFriendshipRequest(friendReq)" class="cursorPointer" title="Follow Back User">➕</button>
@@ -596,7 +579,7 @@
       <div *ngFor="let friend of friends" class="friendsListDiv deletingFriendsList">
         <div>
           <app-user-tag [user]="friend" [inputtedParentRef]="parentRef" [displayMiniTag]="true"
-          [displayHoverPicture]="true" [previousComponent]="previousComponent ?? 'User'"></app-user-tag>
+            [displayHoverPicture]="true" [previousComponent]="previousComponent ?? 'User'"></app-user-tag>
         </div>
         <div *ngIf="!userId || userId == parentRef?.user?.id">
           <span title="Remove Friend" (click)="removeFriend(friend)" class="cursorPointer">
@@ -606,8 +589,8 @@
       </div>
 
     </div>
-  </div> 
-  <button id="closeOverlay" (click)="closeFriendsPanel()" class="closeButton">Close</button> 
+  </div>
+  <button id="closeOverlay" (click)="closeFriendsPanel()" class="closeButton">Close</button>
 </div>
 
 
@@ -636,18 +619,19 @@
 <!-- Change Display Picture Popup -->
 <div class="popupPanel userPersonalizationPopupPanel" style="overflow: auto;" *ngIf="isDisplayPicturePanelOpen">
   <div class="userPersonalizationPopupPanelSection">
-      <div class="popupPanelTitle popupPanelContents" style="margin-bottom:15px;">
-        Display Picture
-      </div>
-      <div class="displayPicturePopupDisplayDiv">
-        <span *ngIf="!user?.displayPictureFile">
-          <app-user-tag [hideName]="true" [displayHoverPicture]="false"></app-user-tag>
-        </span>
-        <span *ngIf="user?.displayPictureFile">
-          <app-user-tag [user]="user" [inputtedParentRef]="parentRef" [displayHoverPicture]="false" [hideName]="true"></app-user-tag>
-        </span>
-        <button (click)="changeDisplayPic()">Change Display Picture</button>
-      </div>
+    <div class="popupPanelTitle popupPanelContents" style="margin-bottom:15px;">
+      Display Picture
+    </div>
+    <div class="displayPicturePopupDisplayDiv">
+      <span *ngIf="!user?.displayPictureFile">
+        <app-user-tag [hideName]="true" [displayHoverPicture]="false"></app-user-tag>
+      </span>
+      <span *ngIf="user?.displayPictureFile">
+        <app-user-tag [user]="user" [inputtedParentRef]="parentRef" [displayHoverPicture]="false"
+          [hideName]="true"></app-user-tag>
+      </span>
+      <button (click)="changeDisplayPic()">Change Display Picture</button>
+    </div>
   </div>
   <div class="userPersonalizationPopupPanelSection">
     <div class="popupPanelTitle popupPanelContents" style="margin-bottom:15px;">
@@ -655,9 +639,9 @@
     </div>
     <div class="displayPicturePopupDisplayDiv">
       <span *ngIf="parentRef?.user?.profileBackgroundPictureFile">
-        <app-media-viewer #backgroundPictureViewer [displayExpander]="false" [displayExtraInfo]="false" [showTopics]="false"
-          [showCommentSection]="false" [file]="parentRef?.user?.profileBackgroundPictureFile" [user]="parentRef?.user"
-          [inputtedParentRef]="parentRef" [previousComponent]="'User'">
+        <app-media-viewer #backgroundPictureViewer [displayExpander]="false" [displayExtraInfo]="false"
+          [showTopics]="false" [showCommentSection]="false" [file]="parentRef?.user?.profileBackgroundPictureFile"
+          [user]="parentRef?.user" [inputtedParentRef]="parentRef" [previousComponent]="'User'">
         </app-media-viewer>
       </span>
       <span *ngIf="!parentRef?.user?.profileBackgroundPictureFile" class="smallFont cursorPointerUnderlined"
