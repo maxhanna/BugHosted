@@ -1,18 +1,21 @@
 .componentMain {
   max-width: 90vw;
   height: CALC(var(--vh, 1vh) * 100 - 60px);
-} 
+}
+
 @media only screen and (max-width : 667px) {
   .componentMain {
     width: 98vw;
     max-width: unset;
   }
 }
-@media only screen and (min-width : 660px) { 
+
+@media only screen and (min-width : 660px) {
   .noteInputTextArea {
     min-width: 60vw;
   }
 }
+
 textarea {
   margin-left: auto;
   margin-right: auto;
@@ -21,54 +24,58 @@ textarea {
   display: block;
   height: CALC(100% - 205px);
 }
-.buttonFields{
-    text-align:right;
-    border:0;
+
+.buttonFields {
+  text-align: right;
+  border: 0;
 }
+
 .notesCarousel {
   text-align: center;
   min-width: 300px;
   width: 100%;
   height: 100px;
- 
-}
-  .notesCarousel div {
-    overflow-y: hidden;
-    overflow-x: auto;
-    display: flex;
-    flex-direction: row;
-    flex-wrap: nowrap;
-    justify-content: flex-start;
-    align-items: flex-start;
-    align-content: center;
-    gap: 5px;
-  }
 
-  .notesCarousel div label {
-    flex-shrink: 0;
-    box-shadow: inset 0px 10px 0px 0px rgba(248,255,148,1);
-    padding-top: 6px;
-    overflow: hidden;
-    resize: none;
-    display: inline-block;
-    width: 80px !important;
-    height: 65px;
-    border-size: 0px;
-    border-radius: 4px;
-    background-color: #ffff4f;
-    color: navy;
-    border-size: 1px;
-    border-style: inset;
-    font-size: 16px;
-    text-align: center;
-  }
-
-.searchBar {  
-    padding: 15px;
-    display: flex;
-    align-content:center;
-    justify-content:center;
 }
+
+.notesCarousel div {
+  overflow-y: hidden;
+  overflow-x: auto;
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  justify-content: flex-start;
+  align-items: flex-start;
+  align-content: center;
+  gap: 5px;
+}
+
+.notesCarousel div label {
+  flex-shrink: 0;
+  box-shadow: inset 0px 10px 0px 0px rgba(248, 255, 148, 1);
+  padding-top: 6px;
+  overflow: hidden;
+  resize: none;
+  display: inline-block;
+  width: 80px !important;
+  height: 65px;
+  border-size: 0px;
+  border-radius: 4px;
+  background-color: #ffff4f;
+  color: navy;
+  border-size: 1px;
+  border-style: inset;
+  font-size: 16px;
+  text-align: center;
+}
+
+.searchBar {
+  padding: 15px;
+  display: flex;
+  align-content: center;
+  justify-content: center;
+}
+
 .sharedWithWrapperDiv {
   text-align: center;
   display: flex;
@@ -78,4 +85,16 @@ textarea {
   align-items: center;
   flex-wrap: nowrap;
   gap: 10px;
+}
+
+.poppedUpCarouselleArea {
+  max-width: 70vw;
+  overflow: auto;
+  padding: 20px;
+  display: flex;
+  flex-wrap: wrap;
+  flex-direction: row;
+  align-items: flex-start;
+  height: 30vh;
+  text-align: unset;
 }
