@@ -381,5 +381,35 @@ namespace maxhanna.Server.Controllers
 				return StatusCode(500, "An error occurred while removing favourite.");
 			}
 		}
+
+		[HttpGet("/Favourite/GetFavouritesCount", Name = "GetFavouritesCount")]
+		public async Task<IActionResult> GetFavouritesCount([FromQuery] int? userId)
+		{
+			try
+			{
+				using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+				{
+					await conn.OpenAsync();
+					string sql;
+					if (userId.HasValue)
+						sql = "SELECT COUNT(*) FROM favourites WHERE created_by = @UserId;";
+					else
+						sql = "SELECT COUNT(*) FROM favourites;";
+					using (var cmd = new MySqlCommand(sql, conn))
+					{
+						if (userId.HasValue) cmd.Parameters.AddWithValue("@UserId", userId.Value);
+						var result = await cmd.ExecuteScalarAsync();
+						int count = 0;
+						if (result != null && int.TryParse(result.ToString(), out int tmp)) count = tmp;
+						return Ok(count);
+					}
+				}
+			}
+			catch (Exception ex)
+			{
+				_ = _log.Db("Error fetching favourites count: " + ex.Message, null, "FAV", true);
+				return StatusCode(500, 0);
+			}
+		}
 	}
 }

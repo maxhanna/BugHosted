@@ -18,6 +18,8 @@ import { MetaService } from '../../services/meta.service';
 import { NotificationService } from '../../services/notification.service';
 import { SocialService } from '../../services/social.service';
 import { FileService } from '../../services/file.service';
+import { MastermindService } from '../../services/mastermind.service';
+import { FavouriteService } from '../../services/favourite.service';
 import { FileEntry } from '../../services/datacontracts/file/file-entry';
 import { target } from '../meta/helpers/fight';
 import { MediaSelectorComponent } from '../media-selector/media-selector.component';
@@ -83,6 +85,11 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
   trophies?: Trophy[] = undefined;
   numberOfNexusBases: number = 0;
   numberOfTrades: number = 0;
+  numberOfMastermindGames?: number = undefined;
+  numberOfFilesUploaded?: number = undefined;
+  numberOfMemesUploaded?: number = undefined;
+  numberOfArtUploaded?: number = undefined;
+  numberOfFavouritesCreated?: number = undefined;
   wordlerStreak: number = 0;
   bestWordlerStreak: number = 0;
   metaBotLevelsSum: number = 0;
@@ -116,6 +123,8 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
     private metaService: MetaService,
     private socialService: SocialService,
     private fileService: FileService,
+    private mastermindService: MastermindService,
+    private favouriteService: FavouriteService,
   ) {
     super();
     setTimeout(() => {
@@ -181,6 +190,8 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
       this.getNSFWValue();
       this.getNumberOfNexusBases();
       this.getNumberOfTrades();
+      // load additional counts if available from services
+      this.loadExtraCounts();
     }
     catch (error) { console.log((error as Error).message); }
     if (!this.trophies) {
@@ -197,6 +208,52 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
         });
       }
     });
+  }
+
+  private async loadExtraCounts() {
+    const user = this.user ?? this.parentRef?.user ?? this.inputtedParentRef?.user;
+    if (!user || !user.id) return;
+    // Prefer using injected services which call the new backend endpoints.
+    try {
+      if (this.mastermindService && typeof this.mastermindService.getNumberOfGames === 'function') {
+        this.numberOfMastermindGames = await this.mastermindService.getNumberOfGames(user.id);
+      } else {
+        // fallback to previously implemented dynamic lookup
+        const mastermindGetter = (this as any).mastermindService?.getNumberOfGames ?? (this as any).mastermindService?.getGamesCount;
+        if (mastermindGetter) {
+          const mm = await mastermindGetter.call((this as any).mastermindService, user.id);
+          this.numberOfMastermindGames = mm ?? undefined;
+        }
+      }
+    } catch (e) { /* ignore */ }
+
+    try {
+      if (this.fileService && typeof this.fileService.getNumberOfFiles === 'function') {
+        this.numberOfFilesUploaded = await this.fileService.getNumberOfFiles(user.id);
+      }
+      if (this.fileService && typeof this.fileService.getNumberOfMemes === 'function') {
+        this.numberOfMemesUploaded = await this.fileService.getNumberOfMemes(user.id);
+      }
+      if (this.fileService && typeof this.fileService.getNumberOfArt === 'function') {
+        this.numberOfArtUploaded = await this.fileService.getNumberOfArt(user.id);
+      }
+      // fallback: if getLatestMemeId exists, use it as an indicator (not a count)
+      if ((this.numberOfMemesUploaded === undefined || this.numberOfMemesUploaded === null) && typeof this.fileService.getLatestMemeId === 'function') {
+        const lm = await this.fileService.getLatestMemeId();
+        this.numberOfMemesUploaded = lm ? 1 : 0;
+      }
+    } catch (e) { }
+
+    try {
+      if (this.favouriteService && typeof this.favouriteService.getFavouritesCount === 'function') {
+        this.numberOfFavouritesCreated = await this.favouriteService.getFavouritesCount(user.id);
+      } else {
+        const favSvc = (this.parentRef as any)?.favouriteService ?? (this as any).favouriteService;
+        if (favSvc && typeof favSvc.getFavouritesCount === 'function') {
+          this.numberOfFavouritesCreated = await favSvc.getFavouritesCount(user.id);
+        }
+      }
+    } catch (e) { }
   }
 
 

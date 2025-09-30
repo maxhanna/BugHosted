@@ -54,4 +54,17 @@ export class MastermindService {
   async exitGame(userId: number): Promise<any> {
     return await this.post('/mastermind/exitgame', userId);
   }
+
+  async getNumberOfGames(userId: number): Promise<number> {
+    try {
+      // API returns a plain number
+      const response = await fetch(`/mastermind/getnumberofgames?userId=${userId}`, { method: 'GET' });
+      if (!response.ok) return 0;
+      const txt = await response.text();
+      const n = parseInt(txt as string);
+      return isNaN(n) ? 0 : n;
+    } catch (e) {
+      return 0;
+    }
+  }
 }

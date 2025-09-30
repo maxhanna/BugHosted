@@ -112,4 +112,17 @@ export class FavouriteService {
       return null;
     }
   }
+
+  async getFavouritesCount(userId?: number) {
+    try {
+      const url = userId ? `/favourite/getfavouritescount?userId=${userId}` : `/favourite/getfavouritescount`;
+      const response = await fetch(url, { method: 'GET' });
+      if (!response.ok) return 0;
+      const txt = await response.text();
+      const n = parseInt(txt as string);
+      return isNaN(n) ? 0 : n;
+    } catch (e) {
+      return 0;
+    }
+  }
 }

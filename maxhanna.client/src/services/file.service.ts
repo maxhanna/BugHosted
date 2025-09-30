@@ -144,6 +144,36 @@ export class FileService {
 			return null;
 		}
 	}
+
+	async getNumberOfFiles(userId: number) {
+		try {
+			const response = await fetch(`/file/getnumberoffiles?userId=${userId}`, { method: 'GET' });
+			if (!response.ok) return 0;
+			const txt = await response.text();
+			const n = parseInt(txt);
+			return isNaN(n) ? 0 : n;
+		} catch (e) { return 0; }
+	}
+
+	async getNumberOfMemes(userId: number) {
+		try {
+			const response = await fetch(`/file/getnumberofmemes?userId=${userId}`, { method: 'GET' });
+			if (!response.ok) return 0;
+			const txt = await response.text();
+			const n = parseInt(txt);
+			return isNaN(n) ? 0 : n;
+		} catch (e) { return 0; }
+	}
+
+	async getNumberOfArt(userId: number) {
+		try {
+			const response = await fetch(`/file/getnumberofart?userId=${userId}`, { method: 'GET' });
+			if (!response.ok) return 0;
+			const txt = await response.text();
+			const n = parseInt(txt);
+			return isNaN(n) ? 0 : n;
+		} catch (e) { return 0; }
+	}
 	async getFile(file: string, options?: { signal: AbortSignal }, user?: User) {
 		try {
 			const response = await fetch(`/file/getfile/${encodeURIComponent(file)}`, {

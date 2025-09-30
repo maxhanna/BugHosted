@@ -147,8 +147,32 @@ namespace maxhanna.Server.Controllers
             return Ok(scores);
         }
 
-        [HttpGet("GetSequence")]
-
+        [HttpGet("GetNumberOfGames")]
+        public async Task<IActionResult> GetNumberOfGames([FromQuery] int userId)
+        {
+            try
+            {
+                using (var conn = new MySqlConnector.MySqlConnection(_connectionString))
+                {
+                    await conn.OpenAsync();
+                    string sql = "SELECT COUNT(*) FROM mastermind_scores WHERE user_id = @UserId;";
+                    using (var cmd = new MySqlConnector.MySqlCommand(sql, conn))
+                    {
+                        cmd.Parameters.AddWithValue("@UserId", userId);
+                        var result = await cmd.ExecuteScalarAsync();
+                        int count = 0;
+                        if (result != null && int.TryParse(result.ToString(), out int tmp)) count = tmp;
+                        return Ok(count);
+                    }
+                }
+            }
+            catch (Exception)
+            {
+                // Return 0 on error to keep the frontend resilient
+                return StatusCode(500, 0);
+            }
+        }
+ 
         [HttpPost("SubmitGuess")]
         public IActionResult SubmitGuess([FromBody] MastermindGuessRequest req)
         {

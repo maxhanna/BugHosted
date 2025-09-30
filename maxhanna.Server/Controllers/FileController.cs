@@ -1602,6 +1602,85 @@ LIMIT
 		}
 
 
+		[HttpGet("/File/GetNumberOfFiles", Name = "GetNumberOfFiles")]
+		public async Task<IActionResult> GetNumberOfFiles([FromQuery] int userId)
+		{
+			try
+			{
+				using (var conn = new MySqlConnection(_connectionString))
+				{
+					await conn.OpenAsync();
+					string sql = "SELECT COUNT(*) FROM file_uploads WHERE uploaded_by = @UserId;";
+					using (var cmd = new MySqlCommand(sql, conn))
+					{
+						cmd.Parameters.AddWithValue("@UserId", userId);
+						var result = await cmd.ExecuteScalarAsync();
+						int count = 0;
+						if (result != null && int.TryParse(result.ToString(), out int tmp)) count = tmp;
+						return Ok(count);
+					}
+				}
+			}
+			catch (Exception ex)
+			{
+				_ = _log.Db("Error fetching file count: " + ex.Message, null, "FILE", true);
+				return StatusCode(500, 0);
+			}
+		}
+
+		[HttpGet("/File/GetNumberOfMemes", Name = "GetNumberOfMemes")]
+		public async Task<IActionResult> GetNumberOfMemes([FromQuery] int userId)
+		{
+			try
+			{
+				using (var conn = new MySqlConnection(_connectionString))
+				{
+					await conn.OpenAsync();
+					string sql = "SELECT COUNT(*) FROM file_uploads WHERE uploaded_by = @UserId AND file_type = 'meme';";
+					using (var cmd = new MySqlCommand(sql, conn))
+					{
+						cmd.Parameters.AddWithValue("@UserId", userId);
+						var result = await cmd.ExecuteScalarAsync();
+						int count = 0;
+						if (result != null && int.TryParse(result.ToString(), out int tmp)) count = tmp;
+						return Ok(count);
+					}
+				}
+			}
+			catch (Exception ex)
+			{
+				_ = _log.Db("Error fetching meme count: " + ex.Message, null, "FILE", true);
+				return StatusCode(500, 0);
+			}
+		}
+
+		[HttpGet("/File/GetNumberOfArt", Name = "GetNumberOfArt")]
+		public async Task<IActionResult> GetNumberOfArt([FromQuery] int userId)
+		{
+			try
+			{
+				using (var conn = new MySqlConnection(_connectionString))
+				{
+					await conn.OpenAsync();
+					string sql = "SELECT COUNT(*) FROM file_uploads WHERE uploaded_by = @UserId AND file_type = 'art';";
+					using (var cmd = new MySqlCommand(sql, conn))
+					{
+						cmd.Parameters.AddWithValue("@UserId", userId);
+						var result = await cmd.ExecuteScalarAsync();
+						int count = 0;
+						if (result != null && int.TryParse(result.ToString(), out int tmp)) count = tmp;
+						return Ok(count);
+					}
+				}
+			}
+			catch (Exception ex)
+			{
+				_ = _log.Db("Error fetching art count: " + ex.Message, null, "FILE", true);
+				return StatusCode(500, 0);
+			}
+		}
+
+
 		[HttpPost("/File/Edit-Topics", Name = "EditFileTopics")]
 		public async Task<IActionResult> EditFileTopics([FromBody] EditTopicRequest request)
 		{
