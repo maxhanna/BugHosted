@@ -4,6 +4,7 @@
 
 
 @media only screen and (max-width : 667px) {
+
   /* needed else the socials get ugly scrollbars */
   .componentMain {
     width: unset !important;
@@ -313,9 +314,11 @@
     background: rgb(from var(--main-highlight-color) r g b / 25%);
   }
 }
+
 .linkHighlights {
   text-shadow: 0.5px 1px var(--main-link-color);
 }
+
 .trophy {
   width: 50px;
   height: 50px;
@@ -382,7 +385,7 @@
     font-size: 16px;
     touch-action: manipulation;
   }
-} 
+}
 
 .popupPanelTitle {
   display: flex;
@@ -548,4 +551,13 @@
   justify-content: center;
   align-items: center;
   align-content: center;
+}
+
+.loginStreakWrapper {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-content: center;
+  justify-content: flex-end;
+  align-items: center;
 }

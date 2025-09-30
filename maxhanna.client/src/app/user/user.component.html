@@ -73,7 +73,7 @@
           <div class="seperatedUserHeader blackFontColor linkHighlights"
             *ngIf="(userLoginStreakCurrent || userLoginStreakLongest) && !loginOnly">
             <div class="xxSmallFont" title="Login Streak">Streak: </div>
-            <div class="smallFont">
+            <div class="smallFont loginStreakWrapper">
               <span *ngIf="userLoginStreakCurrent">Current: {{userLoginStreakCurrent}} day{{userLoginStreakCurrent > 1 ?
                 's' : ''}}</span>
               <span *ngIf="userLoginStreakLongest"> • Best: {{userLoginStreakLongest}} day{{userLoginStreakLongest > 1 ?
