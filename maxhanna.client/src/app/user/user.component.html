@@ -389,7 +389,8 @@
 
             <div class="optionsStatsDiv" *ngIf="bestWordlerStreak > 0">
               <div class="optionsStatsHeader">
-                Wordler🧠 Best streak:
+                <span class="componentsIcon">{{ parentRef?.getIconByTitle('Wordler') }}</span>
+                Wordler Best streak:
               </div>
               <div class="optionsStatsDescription">
                 {{bestWordlerStreak}} consecutive days.
@@ -398,7 +399,8 @@
 
             <div class="optionsStatsDiv" *ngIf="wordlerStreak > 0">
               <div class="optionsStatsHeader">
-                Wordler🧠 Current streak:
+                <span class="componentsIcon">{{ parentRef?.getIconByTitle('Wordler') }}</span>
+                Wordler Current streak:
               </div>
               <div class="optionsStatsDescription">
                 {{wordlerStreak}} consecutive days.
@@ -407,7 +409,8 @@
 
             <div class="optionsStatsDiv" *ngIf="metaBotLevelsSum > 0">
               <div class="optionsStatsHeader">
-                Metabot🤖 levels:
+                <span class="componentsIcon">{{ parentRef?.getIconByTitle('Meta-Bots') }}</span>
+                Metabot levels:
               </div>
               <div class="optionsStatsDescription">
                 {{metaBotLevelsSum}} total levels.
@@ -416,7 +419,8 @@
 
             <div class="optionsStatsDiv" *ngIf="numberOfNexusBases > 0">
               <div class="optionsStatsHeader">
-                BugWars🏅 Bases:
+                <span class="componentsIcon">{{ parentRef?.getIconByTitle('Bug-Wars') }}</span>
+                BugWars Bases:
               </div>
               <div class="optionsStatsDescription">
                 {{numberOfNexusBases}} bases.
@@ -425,7 +429,8 @@
 
             <div class="optionsStatsDiv" *ngIf="numberOfTrades > 0">
               <div class="optionsStatsHeader">
-                Crypto-Hub₿ Trades:
+                <span class="componentsIcon">{{ parentRef?.getIconByTitle('Crypto-Hub') }}</span>
+                Crypto-Hub Trades:
               </div>
               <div class="optionsStatsDescription">
                 {{numberOfTrades}} Trades.
@@ -433,33 +438,48 @@
             </div>
             <div class="optionsStatsDiv">
               <div class="optionsStatsHeader">
-                <div class="optionsStatsLink" (click)="parentRef?.createComponent('Mastermind')">Mastermind</div>
+                <div class="optionsStatsLink" (click)="parentRef?.createComponent('Mastermind')">
+                  <span class="componentsIcon">{{ parentRef?.getIconByTitle('Mastermind') }}</span>
+                  Mastermind
+                </div>
               </div>
-              <div class="optionsStatsDescription">{{numberOfMastermindGames ?? '—'}}</div>
+              <div class="optionsStatsDescription">{{numberOfMastermindGames ?? '—'}} games</div>
             </div>
             <div class="optionsStatsDiv">
               <div class="optionsStatsHeader">
-                <div class="optionsStatsLink" (click)="parentRef?.createComponent('Files')">Files</div>
+                <div class="optionsStatsLink" (click)="parentRef?.createComponent('Files')">
+                  <span class="componentsIcon">{{ parentRef?.getIconByTitle('Files') }}</span>
+                  Files
+                </div>
               </div>
-              <div class="optionsStatsDescription">{{numberOfFilesUploaded ?? '—'}}</div>
+              <div class="optionsStatsDescription">{{numberOfFilesUploaded ?? '—'}} files</div>
             </div>
             <div class="optionsStatsDiv">
               <div class="optionsStatsHeader">
-                <div class="optionsStatsLink" (click)="parentRef?.createComponent('Memes')">Memes</div>
+                <div class="optionsStatsLink" (click)="parentRef?.createComponent('Memes')">
+                  <span class="componentsIcon">{{ parentRef?.getIconByTitle('Meme') }}</span>
+                  Memes
+                </div>
               </div>
-              <div class="optionsStatsDescription">{{numberOfMemesUploaded ?? '—'}}</div>
+              <div class="optionsStatsDescription">{{numberOfMemesUploaded ?? '—'}} memes</div>
             </div>
             <div class="optionsStatsDiv">
               <div class="optionsStatsHeader">
-                <div class="optionsStatsLink" (click)="parentRef?.createComponent('Art')">Art</div>
+                <div class="optionsStatsLink" (click)="parentRef?.createComponent('Art')">
+                  <span class="componentsIcon">{{ parentRef?.getIconByTitle('Art') }}</span>
+                  Art
+                </div>
               </div>
-              <div class="optionsStatsDescription">{{numberOfArtUploaded ?? '—'}}</div>
+              <div class="optionsStatsDescription">{{numberOfArtUploaded ?? '—'}} art</div>
             </div>
             <div class="optionsStatsDiv">
               <div class="optionsStatsHeader">
-                <div class="optionsStatsLink" (click)="parentRef?.createComponent('Favourites')">Favourites</div>
+                <div class="optionsStatsLink" (click)="parentRef?.createComponent('Favourites')">
+                  <span class="componentsIcon">{{ parentRef?.getIconByTitle('Favourites') }}</span>
+                  Favourites
+                </div>
               </div>
-              <div class="optionsStatsDescription">{{numberOfFavouritesCreated ?? '—'}}</div>
+              <div class="optionsStatsDescription">{{numberOfFavouritesCreated ?? '—'}} favourites</div>
             </div>
             <div class="optionsStatsDiv">
               <div class="optionsStatsHeader">
