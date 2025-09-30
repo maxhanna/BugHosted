@@ -419,41 +419,59 @@
                 {{numberOfTrades}} Trades.
               </div>
             </div> 
-              <div class="optionsStatsSmall">
-                <div class="optionsStatsLink" (click)="parentRef?.createComponent('Mastermind')">Mastermind</div>
-                <div class="optionsStatsCount">{{numberOfMastermindGames ?? '—'}}</div>
+              <div class="optionsStatsDiv">
+                <div class="optionsStatsHeader">
+                  <div class="optionsStatsLink" (click)="parentRef?.createComponent('Mastermind')">Mastermind</div>
+                </div>
+                <div class="optionsStatsDescription">{{numberOfMastermindGames ?? '—'}}</div>
               </div>
-              <div class="optionsStatsSmall">
-                <div class="optionsStatsLink" (click)="parentRef?.createComponent('Meta Bot')">Metabots</div>
-                <div class="optionsStatsCount">{{metaBotLevelsSum ?? '—'}}</div>
+              <div class="optionsStatsDiv">
+                <div class="optionsStatsHeader">
+                  <div class="optionsStatsLink" (click)="parentRef?.createComponent('Meta Bot')">Metabots</div>
+                </div>
+                <div class="optionsStatsDescription">{{metaBotLevelsSum ?? '—'}}</div>
               </div>
-              <div class="optionsStatsSmall">
-                <div class="optionsStatsLink" (click)="parentRef?.createComponent('Wordler')">Wordler</div>
-                <div class="optionsStatsCount">{{wordlerHighScores?.length ?? '—'}}</div>
+              <div class="optionsStatsDiv">
+                <div class="optionsStatsHeader">
+                  <div class="optionsStatsLink" (click)="parentRef?.createComponent('Wordler')">Wordler</div>
+                </div>
+                <div class="optionsStatsDescription">{{wordlerHighScores?.length ?? '—'}}</div>
               </div>
-              <div class="optionsStatsSmall">
-                <div class="optionsStatsLink" (click)="parentRef?.createComponent('Bug-Wars')">BugWars Bases</div>
-                <div class="optionsStatsCount">{{numberOfNexusBases ?? '—'}}</div>
+              <div class="optionsStatsDiv">
+                <div class="optionsStatsHeader">
+                  <div class="optionsStatsLink" (click)="parentRef?.createComponent('Bug-Wars')">BugWars Bases</div>
+                </div>
+                <div class="optionsStatsDescription">{{numberOfNexusBases ?? '—'}}</div>
               </div>
-              <div class="optionsStatsSmall">
-                <div class="optionsStatsLink" (click)="parentRef?.createComponent('Crypto-Hub')">Crypto Trades</div>
-                <div class="optionsStatsCount">{{numberOfTrades ?? '—'}}</div>
+              <div class="optionsStatsDiv">
+                <div class="optionsStatsHeader">
+                  <div class="optionsStatsLink" (click)="parentRef?.createComponent('Crypto-Hub')">Crypto Trades</div>
+                </div>
+                <div class="optionsStatsDescription">{{numberOfTrades ?? '—'}}</div>
               </div>
-              <div class="optionsStatsSmall">
-                <div class="optionsStatsLink" (click)="parentRef?.createComponent('Files')">Files</div>
-                <div class="optionsStatsCount">{{numberOfFilesUploaded ?? '—'}}</div>
+              <div class="optionsStatsDiv">
+                <div class="optionsStatsHeader">
+                  <div class="optionsStatsLink" (click)="parentRef?.createComponent('Files')">Files</div>
+                </div>
+                <div class="optionsStatsDescription">{{numberOfFilesUploaded ?? '—'}}</div>
               </div>
-              <div class="optionsStatsSmall">
-                <div class="optionsStatsLink" (click)="parentRef?.createComponent('Memes')">Memes</div>
-                <div class="optionsStatsCount">{{numberOfMemesUploaded ?? '—'}}</div>
+              <div class="optionsStatsDiv">
+                <div class="optionsStatsHeader">
+                  <div class="optionsStatsLink" (click)="parentRef?.createComponent('Memes')">Memes</div>
+                </div>
+                <div class="optionsStatsDescription">{{numberOfMemesUploaded ?? '—'}}</div>
               </div>
-              <div class="optionsStatsSmall">
-                <div class="optionsStatsLink" (click)="parentRef?.createComponent('Art')">Art</div>
-                <div class="optionsStatsCount">{{numberOfArtUploaded ?? '—'}}</div>
+              <div class="optionsStatsDiv">
+                <div class="optionsStatsHeader">
+                  <div class="optionsStatsLink" (click)="parentRef?.createComponent('Art')">Art</div>
+                </div>
+                <div class="optionsStatsDescription">{{numberOfArtUploaded ?? '—'}}</div>
               </div>
-              <div class="optionsStatsSmall">
-                <div class="optionsStatsLink" (click)="parentRef?.createComponent('Favourites')">Favourites</div>
-                <div class="optionsStatsCount">{{numberOfFavouritesCreated ?? '—'}}</div>
+              <div class="optionsStatsDiv">
+                <div class="optionsStatsHeader">
+                  <div class="optionsStatsLink" (click)="parentRef?.createComponent('Favourites')">Favourites</div>
+                </div>
+                <div class="optionsStatsDescription">{{numberOfFavouritesCreated ?? '—'}}</div>
               </div>
             <div class="optionsStatsDiv">
               <div class="optionsStatsHeader">
