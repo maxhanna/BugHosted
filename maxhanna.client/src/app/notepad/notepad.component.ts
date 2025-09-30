@@ -26,6 +26,8 @@ export class NotepadComponent extends ChildComponent implements OnInit, OnDestro
 
   noteInputValue: string = ''; // Initialize with an empty string
   isPanelExpanded: boolean = false;
+  // whether the notes carousel is popped out as a popup
+  isCarouselPopped: boolean = false;
   users: User[] = [];
   selectedNote?: Note;
   splitNoteOwnershipUsers: User[] = [];
@@ -62,6 +64,17 @@ export class NotepadComponent extends ChildComponent implements OnInit, OnDestro
     this.isPanelExpanded = !this.isPanelExpanded;
     this.parentRef?.showOverlay();
     this.getUsers(); 
+  }
+
+  toggleCarouselPopup() {
+    this.isCarouselPopped = !this.isCarouselPopped;
+    try {
+      if (this.isCarouselPopped) {
+        this.parentRef?.showOverlay();
+      } else {
+        this.parentRef?.closeOverlay();
+      }
+    } catch { }
   }
   async shareNote(withUser?: User) {
     if (!withUser?.id || !this.parentRef?.user?.id) {

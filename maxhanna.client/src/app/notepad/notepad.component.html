@@ -34,9 +34,15 @@
     <input placeholder="Search" #searchInput (keyup)="search()" />
     <button (click)="search()">🔍</button>
   </div>
-  <div class="notesCarousel">
-    <div> 
+  <div [class]="isCarouselPopped ? 'notesCarousel popupPanel' : 'notesCarousel'">
+    <div>
       <label *ngFor="let note of notes" (click)="getNote(note.id!)">{{ note.note }}</label>
     </div>
+    <div *ngIf="isCarouselPopped" class="closeButton" (click)="toggleCarouselPopup()"></div>
+  </div>
+
+  <!-- Toggle button to pop the carousel out -->
+  <div style="margin-top:8px;">
+    <button (click)="toggleCarouselPopup()">{{ isCarouselPopped ? 'Close Notes' : 'Pop Notes' }}</button>
   </div>
 </div>
