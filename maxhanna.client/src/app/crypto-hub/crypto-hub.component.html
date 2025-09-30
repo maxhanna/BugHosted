@@ -801,7 +801,7 @@
           <span *ngIf="!finishedGeneratingAiMessage && isLoading">Generating...</span>
         </button>
       </div>
-      <div class="aiMessage" *ngIf="finishedGeneratingAiMessage && !hideHostAiMessage">
+      <div class="aiMessage" *ngIf="!hideHostAiMessage">
         <span [innerHTML]="getAiMessage('1')"></span>
       </div>
     </div>
