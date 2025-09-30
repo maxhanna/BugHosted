@@ -36,7 +36,6 @@ const PROXY_CONFIG = [
       "/top",
       "/poll",
       "/mastermind",
-      "/art",
       "/ender",
       "/search",
     ],

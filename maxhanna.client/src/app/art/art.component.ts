@@ -31,31 +31,14 @@ export class ArtComponent extends ChildComponent implements OnInit {
   currentArtPage = 1;  
   artPieces: ArtPiece[] = []; 
  
-  ngOnInit() {
-    this.loadArt();
+  ngOnInit() { 
   }
-
-  loadArt() {
-    this.isLoading = true;
-    this.http.get<ArtPiece[]>('/art/getall').subscribe(res => {
-      this.artPieces = res;
-      this.isLoading = false;
-    }, err => {
-      this.isLoading = false;
-    });
-  }
+ 
 
   startEdit(art: ArtPiece) {
     art.editing = true;
     art.newUsername = art.username;
-  }
-
-  saveEdit(art: ArtPiece) {
-    this.http.post<ArtPiece>('/art/editsource?id=' + art.id + '&username=' + encodeURIComponent(art.newUsername || ''), {}).subscribe(res => {
-      art.username = res.username;
-      art.editing = false;
-    });
-  }
+  } 
 
   cancelEdit(art: ArtPiece) {
     art.editing = false;
