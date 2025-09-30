@@ -1610,7 +1610,7 @@ LIMIT
 				using (var conn = new MySqlConnection(_connectionString))
 				{
 					await conn.OpenAsync();
-					string sql = "SELECT COUNT(*) FROM file_uploads WHERE uploaded_by = @UserId;";
+					string sql = "SELECT COUNT(*) FROM file_uploads WHERE user_id = @UserId;";
 					using (var cmd = new MySqlCommand(sql, conn))
 					{
 						cmd.Parameters.AddWithValue("@UserId", userId);
@@ -1636,7 +1636,7 @@ LIMIT
 				using (var conn = new MySqlConnection(_connectionString))
 				{
 					await conn.OpenAsync();
-					string sql = "SELECT COUNT(*) FROM file_uploads WHERE uploaded_by = @UserId AND folder_path = 'E:/Dev/maxhanna/maxhanna.client/src/assets/Uploads/Meme/';";
+					string sql = "SELECT COUNT(*) FROM file_uploads WHERE user_id = @UserId AND folder_path = 'E:/Dev/maxhanna/maxhanna.client/src/assets/Uploads/Meme/';";
 					using (var cmd = new MySqlCommand(sql, conn))
 					{
 						cmd.Parameters.AddWithValue("@UserId", userId);
@@ -1662,7 +1662,7 @@ LIMIT
 				using (var conn = new MySqlConnection(_connectionString))
 				{
 					await conn.OpenAsync();
-					string sql = "SELECT COUNT(*) FROM file_uploads WHERE uploaded_by = @UserId AND folder_path = 'E:/Dev/maxhanna/maxhanna.client/src/assets/Uploads/Art/';";
+					string sql = "SELECT COUNT(*) FROM file_uploads WHERE user_id = @UserId AND folder_path = 'E:/Dev/maxhanna/maxhanna.client/src/assets/Uploads/Art/';";
 					using (var cmd = new MySqlCommand(sql, conn))
 					{
 						cmd.Parameters.AddWithValue("@UserId", userId);
