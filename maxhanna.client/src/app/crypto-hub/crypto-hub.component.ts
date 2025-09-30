@@ -1527,7 +1527,18 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
    
   getAiMessage(walletAddr?: string) {
     if (!walletAddr) return "";
-    return this.aiMessages.find(x => x.addr === walletAddr)?.message;
+    const msg = this.aiMessages.find(x => x.addr === walletAddr)?.message;
+    if (msg) return msg;
+    // If asking for the general host AI message (addr === '1') and none exists yet,
+    // return a short description of the feature so the container isn't empty.
+    if (walletAddr === '1') {
+      return `<div class="ai-placeholder">
+                <strong>Host AI</strong> — automatic analysis of the currently selected coin.
+                Click <em>Generate Analysis</em> to fetch a short buy/sell/hold recommendation
+                with supporting reasoning based on recent price and volume data.
+              </div>`;
+    }
+    return "";
   }
   hideBalance() {
     this.isTradebotBalanceShowing = false;
