@@ -39,6 +39,6 @@
     <div [class]="isCarouselPopped ? 'poppedUpCarouselleArea' : ''">
       <label *ngFor="let note of notes" (click)="getNote(note.id!)">{{ note.note }}</label>
     </div>
-    <div *ngIf="isCarouselPopped" class="closeButton" (click)="toggleCarouselPopup()"></div>
+    <div *ngIf="isCarouselPopped" class="closeButton" (click)="toggleCarouselPopup()" id="closeOverlay"></div>
   </div> 
 </div>
