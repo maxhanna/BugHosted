@@ -171,7 +171,6 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
           };
           results = await this.socialService.postStory(user.id ?? 0, content.story, sessionToken ?? "");
         } else if (this.type == "Comment") {
-          console.log("type is comment and creating comment");
           content = await this.createComment(files);
           originalContent = content.originalContent;
           derivedIds = {
@@ -180,6 +179,7 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
             fileId: content.comment?.fileId ?? undefined,
             commentId: content.comment?.commentId ?? undefined
           };
+          console.log("type is comment and creating comment",derivedIds);
           results = await this.commentService.addComment(
             content.comment.commentText ?? "",
             user?.id,
