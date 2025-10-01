@@ -95,6 +95,9 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
         this.textarea.value = quote + current;
         this.textarea.scrollIntoView({ behavior: 'smooth', block: 'center' });
         this.textarea.focus();
+        setTimeout(() => {
+          this.textarea.scrollTop = this.textarea.scrollHeight;
+        }, 50);
         this.quoteMessage = undefined;
       }, 100);
     }
@@ -156,14 +159,27 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
         let content = undefined;
         let originalContent = "";
 
+        let derivedIds: { userProfileId?: number, storyId?: number, fileId?: number, commentId?: number } | undefined = undefined;
         if (this.type == "Social") {
           content = await this.createStory(files);
           originalContent = content.originalContent;
+          derivedIds = {
+            userProfileId: content.story?.profileUserId ?? this.profileUser?.id ?? this.inputtedParentRef?.user?.id,
+            storyId: content.story?.id ?? undefined,
+            fileId: content.story?.fileId ?? undefined,
+            commentId: undefined
+          };
           results = await this.socialService.postStory(user.id ?? 0, content.story, sessionToken ?? "");
         } else if (this.type == "Comment") {
           console.log("type is comment and creating comment");
           content = await this.createComment(files);
           originalContent = content.originalContent;
+          derivedIds = {
+            userProfileId: content.comment?.userProfileId ?? this.profileUser?.id ?? this.inputtedParentRef?.user?.id,
+            storyId: content.comment?.storyId ?? undefined,
+            fileId: content.comment?.fileId ?? undefined,
+            commentId: content.comment?.commentId ?? undefined
+          };
           results = await this.commentService.addComment(
             content.comment.commentText ?? "",
             user?.id,
@@ -179,13 +195,14 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
         } else if (this.type == "Chat") {
           content = await this.createChatMessage(files);
           originalContent = content.originalContent;
+          derivedIds = {};
           results = await this.chatService.sendMessage(user?.id ?? 0, content.chatUsersIdsArray, this.chatId, content.msg, files);
         }
 
         if (results) {
           const resultData = { results: results, content: content, originalContent: originalContent };
           this.contentPosted.emit(resultData);
-          this.createNotifications(resultData);
+          this.createNotifications(resultData, derivedIds);
         } else {
           parent?.showNotification("Error: No response from server.");
         }
@@ -213,9 +230,9 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
       console.warn('Textarea element not found');
     }
 
-    return element;
+    return element!;
   }
-  async createNotifications(results: { results: any, originalContent: string }) {
+  async createNotifications(results: { results: any, originalContent: string }, ids?: { userProfileId?: number, storyId?: number, fileId?: number, commentId?: number }) {
     const parent = this.inputtedParentRef ?? this.parentRef;
     const user = parent?.user;
     if (parent && user) {
@@ -227,7 +244,7 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
           fromUserId: user.id,
           toUserIds: [this.profileUser.id],
           message: "New post on your profile!",
-          userProfileId: this.profileUser.id
+          userProfileId: ids?.userProfileId ?? this.profileUser.id
         };
         this.notificationService.createNotifications(notificationData);
       }
@@ -237,11 +254,11 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
           const notificationData: any = {
             fromUserId: user.id,
             toUserIds: mentionnedUsers.map(x => x.id),
-            message: "You were mentionned!",
-            userProfileId: this.inputtedParentRef?.user?.id,
-            storyId: results.results.storyId,
-            fileId: isFile ? this.commentParent?.id : undefined,
-            commentId: isComment ? this.commentParent?.id : undefined,
+            message: "You were mentioned!",
+            userProfileId: ids?.userProfileId ?? this.inputtedParentRef?.user?.id,
+            storyId: ids?.storyId ?? results.results?.storyId ?? (isStory ? this.commentParent?.id : undefined),
+            fileId: ids?.fileId ?? results.results?.fileId ?? (isFile ? this.commentParent?.id : undefined),
+            commentId: ids?.commentId ?? results.results?.commentId ?? (isComment ? this.commentParent?.id : undefined),
           };
           this.notificationService.createNotifications(notificationData);
         }
@@ -260,10 +277,10 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
             fromUserId: fromUserId,
             toUserIds: toUserIds,
             message: message,
-            storyId: isStory ? this.commentParent?.id : undefined,
-            fileId: isFile ? this.commentParent?.id : undefined,
-            commentId: isComment ? this.commentParent?.id : undefined,
-            userProfileId: this.profileUser?.id,
+            storyId: ids?.storyId ?? results.results?.storyId ?? (isStory ? this.commentParent?.id : undefined),
+            fileId: ids?.fileId ?? results.results?.fileId ?? (isFile ? this.commentParent?.id : undefined),
+            commentId: ids?.commentId ?? results.results?.commentId ?? (isComment ? this.commentParent?.id : undefined),
+            userProfileId: ids?.userProfileId ?? this.profileUser?.id,
           };
           this.notificationService.createNotifications(notificationData);
         }
