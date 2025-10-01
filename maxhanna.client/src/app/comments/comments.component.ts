@@ -48,6 +48,7 @@ export class CommentsComponent extends ChildComponent implements OnInit {
   @Input() automaticallyShowSubComments = true;
   @Input() canReply = true;
   @Input() depth = 0;
+  @Input() storyId: number = undefined;
   @Input() replyingToCommentId?: number;
   @Output() commentAddedEvent = new EventEmitter<FileComment>();
   @Output() commentRemovedEvent = new EventEmitter<FileComment>();
@@ -69,7 +70,7 @@ export class CommentsComponent extends ChildComponent implements OnInit {
 
   ngOnInit() {
     this.clearSubCommentsToggled();
-    if (this.depth == 0) { 
+    if (this.depth == 0) {
       this.decryptCommentsRecursively(this.commentList);
     }
   }
@@ -233,7 +234,7 @@ export class CommentsComponent extends ChildComponent implements OnInit {
 
 
   clearSubCommentsToggled(commentId?: number) {
-    if (this.depth > 0) { 
+    if (this.depth > 0) {
       for (let c of this.commentList) {
         if (c.id == commentId) continue;
         this.minimizedComments.add(c.id);
@@ -302,7 +303,7 @@ export class CommentsComponent extends ChildComponent implements OnInit {
       this.activeBreadcrumbCommentId = commentId;
     }
   }
-  
+
   toggleSubcomments(commentId: number) {
     if (this.depth === 0) {
       const comment = this.commentList.find(c => c.id === commentId);
@@ -319,12 +320,12 @@ export class CommentsComponent extends ChildComponent implements OnInit {
         }
       }, 500);
     }
-  } 
+  }
   get filteredComments(): FileComment[] {
     if (!this.commentList) return [];
     if (!this.activeBreadcrumbCommentId) return this.commentList;
     return this.commentList.filter(c => c.id === this.activeBreadcrumbCommentId);
-  } 
+  }
   speakMessage(message?: string) {
     this.textToSpeechService.speakMessage(message);
   }
@@ -334,7 +335,7 @@ export class CommentsComponent extends ChildComponent implements OnInit {
   isTextToSpeechSpeaking() {
     return this.textToSpeechService.isSpeaking;
   }
-  async copyAllText(comment: FileComment) { 
+  async copyAllText(comment: FileComment) {
     this.closeOptionsPanel();
     const parent = this.inputtedParentRef ?? this.parentRef;
     try {
@@ -345,7 +346,7 @@ export class CommentsComponent extends ChildComponent implements OnInit {
       console.error('Failed to copy text: ', err);
       parent?.showNotification('Failed to copy text. Please select and copy manually.');
     }
-  } 
+  }
   private decryptCommentsRecursively(comments: FileComment[]): void {
     comments.forEach(comment => {
       if (comment.commentText) {

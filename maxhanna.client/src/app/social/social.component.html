@@ -421,6 +421,7 @@
               [userProfile]="user"
               [previousComponent]="'Social'" 
               [commentList]="story!.storyComments!"
+              [storyId]="story.id"
               (commentAddedEvent)="commentAddedEvent($event)" 
               (commentHeaderClickedEvent)="showComments(story.id)"
               (commentRemovedEvent)="commentRemovedEvent($event)">

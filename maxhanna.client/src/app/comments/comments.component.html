@@ -24,7 +24,7 @@
       {{ breadcrumb.user.username }}
     </span>
   </span>
-  </div>
+</div>
 
 <div class="comments-section"
   *ngIf="commentList && commentList.length > 0 && (showComments || (comment_id && automaticallyShowSubComments))"
@@ -71,9 +71,8 @@
     </div>
     <div>
       <div class="commentContent">
-        <div [innerHTML]="createClickableUrls(comment.commentText)"
-          [id]="'commentText'+comment.id" class="commentTextDiv"
-          [style.display]="editingComments.includes(comment.id) ? 'none': 'block'"></div>
+        <div [innerHTML]="createClickableUrls(comment.commentText)" [id]="'commentText'+comment.id"
+          class="commentTextDiv" [style.display]="editingComments.includes(comment.id) ? 'none': 'block'"></div>
         <div *ngFor="let file of comment.commentFiles" class="commentMediaFile">
           <app-media-viewer [file]="file" [user]="comment.user" [currentDirectory]="file.directory"
             [inputtedParentRef]="inputtedParentRef" [displayExtraInfo]="false" [autoplay]="false" [autoload]="true"
@@ -82,8 +81,7 @@
         </div>
         <div class="commentInputArea">
           <div class="borderPaddedComment" *ngIf="editingComments.includes(comment.id) && !replyingToCommentId">
-            <textarea class="commentTextArea"
-              [id]="'commentTextTextarea'+comment.id">{{comment.commentText}}</textarea>
+            <textarea class="commentTextArea" [id]="'commentTextTextarea'+comment.id">{{comment.commentText}}</textarea>
           </div>
 
           <div class="commentInputArea borderPaddedComment" *ngIf="replyingToCommentId == comment.id">
@@ -100,21 +98,15 @@
           </button>
         </div>
 
-<div
-  *ngIf="!minimizedComments.has(comment.id) && (!activeBreadcrumbCommentId || activeBreadcrumbCommentId === comment.id)"
-  class="subcomments-container">
+        <div
+          *ngIf="!minimizedComments.has(comment.id) && (!activeBreadcrumbCommentId || activeBreadcrumbCommentId === comment.id)"
+          class="subcomments-container">
 
           <div *ngFor="let subComment of comment.comments" class="subComment" [id]="'subComment' + subComment.id">
-            <app-comments   
-              [inputtedParentRef]="inputtedParentRef ?? parentRef" 
-              [type]="'Comment'"
-              [showCommentsHeader]="false" 
-              [comment_id]="subComment.id" 
-              [automaticallyShowSubComments]="true"
-              [commentList]="[subComment]" 
-              [depth]="depth + 1" 
-              [quoteMessage]="quoteMessage"
-              [replyingToCommentId]="replyingToCommentId"
+            <app-comments [inputtedParentRef]="inputtedParentRef ?? parentRef" [type]="'Comment'"
+              [showCommentsHeader]="false" [storyId]="storyId" [comment_id]="subComment.id"
+              [automaticallyShowSubComments]="true" [commentList]="[subComment]" [depth]="depth + 1"
+              [quoteMessage]="quoteMessage" [replyingToCommentId]="replyingToCommentId"
               (replyingToCommentEvent)="replyingToCommentId = $event; replyingToCommentEvent.emit($event)"
               (quoteMessageEvent)="depth == 0 ? setQuoteMessage($event) : quoteMessageEvent.emit($event)"
               (commentAddedEvent)="commentAddedEvent.emit($event)"
@@ -136,7 +128,7 @@
     class="addCommentInputDiv">
 
     <app-text-input [inputtedParentRef]="inputtedParentRef" [type]="'Comment'" [commentParent]="component"
-      [quoteMessage]="quoteMessage" [profileUser]="userProfile"
+      [quoteMessage]="quoteMessage" [profileUser]="userProfile" [storyId]="storyId"
       (contentPosted)="commentPosted($event)"></app-text-input>
   </div>
   <div *ngIf="selectedFiles.length > 0">{{selectedFiles.length}} file{{selectedFiles.length > 1 ? 's' : ''}} attached.
@@ -205,7 +197,8 @@
       </div>
     </div>
   </div>
-  <div class="xxSmallFont thirdFontColor" style="margin-top:12px;"> We take your privacy seriously. Every message you send is
+  <div class="xxSmallFont thirdFontColor" style="margin-top:12px;"> We take your privacy seriously. Every message you
+    send is
     encrypted before it leaves your device or our servers and remains encrypted until it reaches its intended recipient,
     ensuring your data stays private and secure.
   </div>

@@ -39,6 +39,7 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
   @Input() country?: string;
   @Input() hide = false;
   @Input() parentId? = "";
+  @Input() storyId?: number = undefined
   @Input() parentClass? = "";
   @Input() attachedTopics: Array<Topic> = [];
   @Input() showTopicSelector: boolean = true;
@@ -179,7 +180,7 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
             fileId: content.comment?.fileId ?? undefined,
             commentId: content.comment?.commentId ?? undefined
           };
-          console.log("type is comment and creating comment",derivedIds);
+          console.log("type is comment and creating comment", derivedIds);
           results = await this.commentService.addComment(
             content.comment.commentText ?? "",
             user?.id,
@@ -258,7 +259,7 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
             toUserIds: mentionedUserIds,
             message: "You were mentioned!",
             userProfileId: ids?.userProfileId ?? undefined,
-            storyId: ids?.storyId ?? results.results?.storyId ?? (isStory ? this.commentParent?.id : undefined),
+            storyId: this.storyId ?? ids?.storyId ?? results.results?.storyId ?? (isStory ? this.commentParent?.id : undefined),
             fileId: ids?.fileId ?? results.results?.fileId ?? (isFile ? this.commentParent?.id : undefined),
             commentId: ids?.commentId ?? results.results?.commentId ?? (isComment ? this.commentParent?.id : undefined),
           };
@@ -281,7 +282,7 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
               fromUserId: fromUserId,
               toUserIds: filteredToUserIds,
               message: message,
-              storyId: ids?.storyId ?? results.results?.storyId ?? (isStory ? this.commentParent?.id : undefined),
+              storyId: this.storyId ?? ids?.storyId ?? results.results?.storyId ?? (isStory ? this.commentParent?.id : undefined),
               fileId: ids?.fileId ?? results.results?.fileId ?? (isFile ? this.commentParent?.id : undefined),
               commentId: ids?.commentId ?? results.results?.commentId ?? (isComment ? this.commentParent?.id : undefined),
               userProfileId: ids?.userProfileId ?? this.profileUser?.id,
@@ -302,12 +303,12 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
                   collect(sub);
                 }
               }
-            }; 
+            };
             collect(threadRoot);
 
             const posterId = user?.id ?? 0;
             if (posterId) participantIds.delete(posterId);
-            if (replyingToUser?.id) participantIds.delete(replyingToUser.id); 
+            if (replyingToUser?.id) participantIds.delete(replyingToUser.id);
             for (const m of mentionedSet) participantIds.delete(m);
 
             const notifyIds = Array.from(participantIds).filter(id => typeof id === 'number' && id > 0);
@@ -317,7 +318,7 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
                 fromUserId: posterId,
                 toUserIds: notifyIds,
                 message,
-                storyId: ids?.storyId ?? results.results?.storyId ?? (isStory ? this.commentParent?.id : undefined),
+                storyId: this.storyId ?? ids?.storyId ?? results.results?.storyId ?? (isStory ? this.commentParent?.id : undefined),
                 fileId: ids?.fileId ?? results.results?.fileId ?? (isFile ? this.commentParent?.id : undefined),
                 commentId: ids?.commentId ?? results.results?.commentId ?? (isComment ? this.commentParent?.id : undefined),
                 userProfileId: ids?.userProfileId ?? this.profileUser?.id,
@@ -521,7 +522,7 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
     tmpComment.commentText = this.encryptContent(commentsWithEmoji);
     tmpComment.date = currentDate;
     tmpComment.fileId = isFile ? this.commentParent?.id : undefined;
-    tmpComment.storyId = isStory ? this.commentParent?.id : undefined;
+    tmpComment.storyId = this.storyId ?? (isStory ? this.commentParent?.id : undefined);
     tmpComment.commentId = isComment ? this.commentParent?.id : undefined;
     tmpComment.commentFiles = files ?? this.attachedFiles;
     tmpComment.country = location?.country;
