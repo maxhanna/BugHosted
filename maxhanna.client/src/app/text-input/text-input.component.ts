@@ -164,7 +164,7 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
           content = await this.createStory(files);
           originalContent = content.originalContent;
           derivedIds = {
-            userProfileId: content.story?.profileUserId ?? this.profileUser?.id ?? this.inputtedParentRef?.user?.id,
+            userProfileId: content.story?.profileUserId ?? this.profileUser?.id ?? undefined,
             storyId: content.story?.id ?? undefined,
             fileId: content.story?.fileId ?? undefined,
             commentId: undefined
@@ -175,7 +175,7 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
           content = await this.createComment(files);
           originalContent = content.originalContent;
           derivedIds = {
-            userProfileId: content.comment?.userProfileId ?? this.profileUser?.id ?? this.inputtedParentRef?.user?.id,
+            userProfileId: content.comment?.userProfileId ?? this.profileUser?.id ?? undefined,
             storyId: content.comment?.storyId ?? undefined,
             fileId: content.comment?.fileId ?? undefined,
             commentId: content.comment?.commentId ?? undefined
