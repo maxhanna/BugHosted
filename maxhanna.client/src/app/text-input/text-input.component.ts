@@ -257,7 +257,7 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
             fromUserId: user.id,
             toUserIds: mentionedUserIds,
             message: "You were mentioned!",
-            userProfileId: ids?.userProfileId ?? this.inputtedParentRef?.user?.id,
+            userProfileId: ids?.userProfileId ?? undefined,
             storyId: ids?.storyId ?? results.results?.storyId ?? (isStory ? this.commentParent?.id : undefined),
             fileId: ids?.fileId ?? results.results?.fileId ?? (isFile ? this.commentParent?.id : undefined),
             commentId: ids?.commentId ?? results.results?.commentId ?? (isComment ? this.commentParent?.id : undefined),
