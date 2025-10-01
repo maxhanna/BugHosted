@@ -264,7 +264,7 @@
     justify-content: center;
     gap: 5px;
     flex-wrap: nowrap;  
-    text-align: left;
+    text-align: center;
   }
 
   .filter-container>div {
