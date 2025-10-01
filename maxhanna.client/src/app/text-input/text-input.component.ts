@@ -102,7 +102,7 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
       }, 100);
     }
   }
- 
+
   onTopicAdded(event: Topic[] | undefined) {
     this.attachedTopics = event ?? [];
     this.topicAdded.emit(this.attachedTopics);
@@ -236,10 +236,13 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
     const parent = this.inputtedParentRef ?? this.parentRef;
     const user = parent?.user;
     if (parent && user) {
+      const mentionedUsers = (this.type == "Social" || this.type == "Comment") ? await parent.getUsersByUsernames(results.originalContent) || [] : [];
+      const mentionedUserIds = (mentionedUsers || []).map(x => x.id).filter((id): id is number => typeof id === 'number' && id > 0);
+      const mentionedSet = new Set<number>(mentionedUserIds as number[]);
       const replyingToUser = this.commentParent?.user;
       const { isStory, isFile, isComment } = this.getParentType();
 
-      if (this.profileUser?.id && this.profileUser.id != user.id) {
+      if (this.profileUser?.id && this.profileUser.id != user.id && !mentionedSet.has(this.profileUser.id)) {
         const notificationData: any = {
           fromUserId: user.id,
           toUserIds: [this.profileUser.id],
@@ -249,11 +252,10 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
         this.notificationService.createNotifications(notificationData);
       }
       if (this.type == "Social" || this.type == "Comment") {
-        const mentionnedUsers = await parent.getUsersByUsernames(results.originalContent);
-        if (mentionnedUsers && mentionnedUsers.length > 0) {
+        if (mentionedUsers && mentionedUsers.length > 0) {
           const notificationData: any = {
             fromUserId: user.id,
-            toUserIds: mentionnedUsers.map(x => x.id),
+            toUserIds: mentionedUserIds,
             message: "You were mentioned!",
             userProfileId: ids?.userProfileId ?? this.inputtedParentRef?.user?.id,
             storyId: ids?.storyId ?? results.results?.storyId ?? (isStory ? this.commentParent?.id : undefined),
@@ -272,20 +274,58 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
         const fromUserId = user?.id ?? 0;
         const toUserIds = [replyingToUser?.id ?? 0].filter(id => id != fromUserId);
         if (replyingToUser?.id && toUserIds.length > 0) {
-          let message = results.originalContent.length > 50 ? results.originalContent.slice(0, 50) + "…" : results.originalContent;
-          const notificationData = {
-            fromUserId: fromUserId,
-            toUserIds: toUserIds,
-            message: message,
-            storyId: ids?.storyId ?? results.results?.storyId ?? (isStory ? this.commentParent?.id : undefined),
-            fileId: ids?.fileId ?? results.results?.fileId ?? (isFile ? this.commentParent?.id : undefined),
-            commentId: ids?.commentId ?? results.results?.commentId ?? (isComment ? this.commentParent?.id : undefined),
-            userProfileId: ids?.userProfileId ?? this.profileUser?.id,
-          };
-          this.notificationService.createNotifications(notificationData);
+          const filteredToUserIds = toUserIds.filter(id => !mentionedSet.has(id));
+          if (filteredToUserIds.length > 0) {
+            let message = results.originalContent.length > 50 ? results.originalContent.slice(0, 50) + "…" : results.originalContent;
+            const notificationData = {
+              fromUserId: fromUserId,
+              toUserIds: filteredToUserIds,
+              message: message,
+              storyId: ids?.storyId ?? results.results?.storyId ?? (isStory ? this.commentParent?.id : undefined),
+              fileId: ids?.fileId ?? results.results?.fileId ?? (isFile ? this.commentParent?.id : undefined),
+              commentId: ids?.commentId ?? results.results?.commentId ?? (isComment ? this.commentParent?.id : undefined),
+              userProfileId: ids?.userProfileId ?? this.profileUser?.id,
+            };
+            this.notificationService.createNotifications(notificationData);
+          }
         }
-        if (isComment) {
-          //send it to everyone else involved in the thread except the user who made the comment and replyingToUser
+        if (isComment) { // send it to everyone else involved in the thread except the user who made the comment, the replyingToUser, and any mentioned users
+          try {
+            const threadRoot = this.commentParent as FileComment | undefined;
+            const participantIds = new Set<number>();
+
+            const collect = (c?: FileComment) => {
+              if (!c) return;
+              if (c.user?.id) participantIds.add(c.user.id);
+              if (c.comments && c.comments.length) {
+                for (const sub of c.comments) {
+                  collect(sub);
+                }
+              }
+            }; 
+            collect(threadRoot);
+
+            const posterId = user?.id ?? 0;
+            if (posterId) participantIds.delete(posterId);
+            if (replyingToUser?.id) participantIds.delete(replyingToUser.id); 
+            for (const m of mentionedSet) participantIds.delete(m);
+
+            const notifyIds = Array.from(participantIds).filter(id => typeof id === 'number' && id > 0);
+            if (notifyIds.length > 0) {
+              const message = results.originalContent.length > 50 ? results.originalContent.slice(0, 50) + '…' : results.originalContent;
+              this.notificationService.createNotifications({
+                fromUserId: posterId,
+                toUserIds: notifyIds,
+                message,
+                storyId: ids?.storyId ?? results.results?.storyId ?? (isStory ? this.commentParent?.id : undefined),
+                fileId: ids?.fileId ?? results.results?.fileId ?? (isFile ? this.commentParent?.id : undefined),
+                commentId: ids?.commentId ?? results.results?.commentId ?? (isComment ? this.commentParent?.id : undefined),
+                userProfileId: ids?.userProfileId ?? this.profileUser?.id,
+              });
+            }
+          } catch (e) {
+            console.warn('Failed to notify thread participants:', e);
+          }
         }
       }
       if (this.type == "Chat") {
