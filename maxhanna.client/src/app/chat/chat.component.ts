@@ -270,53 +270,85 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
         const tgt = document.getElementById(poll.componentId);
         if (!tgt) continue;
 
-  // Build poll container similar to SocialComponent.updatePollsInDOM
-  // Ensure the global hidden pollQuestion is set to this poll's question when interacting with this poll
-  const safeQuestion = (poll.question || '').toString().replace(/'/g, "");
-  let html = `<div class="poll-container" data-component-id="${poll.componentId}" onClick="document.getElementById('pollQuestion').value='${safeQuestion}';">`;
+        // Build poll container similar to SocialComponent.updatePollsInDOM
+        // Ensure the global hidden pollQuestion is set to this poll's question when interacting with this poll
+        const safeQuestion = (poll.question || '').toString().replace(/'/g, "");
+
+        // Determine whether the current user has already voted on this poll
+        const currentUser = this.inputtedParentRef?.user ?? this.parentRef?.user;
+        const currentUserId = currentUser?.id ?? 0;
+        const currentUserName = currentUser?.username ?? '';
+        let hasCurrentUserVoted = false;
+        try {
+          if (poll.userVotes && poll.userVotes.length) {
+            for (const v of poll.userVotes) {
+              if (!v) continue;
+              // check multiple possible id/username shapes
+              if (v.userId && +v.userId === +currentUserId) { hasCurrentUserVoted = true; break; }
+              if (v.UserId && +v.UserId === +currentUserId) { hasCurrentUserVoted = true; break; }
+              if (v.id && +v.id === +currentUserId) { hasCurrentUserVoted = true; break; }
+              if (v.user && v.user.id && +v.user.id === +currentUserId) { hasCurrentUserVoted = true; break; }
+              const uname = (v.username || v.Username || (v.user && v.user.username) || '').toString();
+              if (uname && currentUserName && uname.toLowerCase() === currentUserName.toLowerCase()) { hasCurrentUserVoted = true; break; }
+            }
+          }
+        } catch { hasCurrentUserVoted = false; }
+
+        let html = `<div class="poll-container" data-component-id="${poll.componentId}" onClick="document.getElementById('pollQuestion').value='${safeQuestion}';">`;
         html += `<div class="poll-question">${poll.question}</div>`;
-        html += `<div class="poll-options">`;
-        const totalVotes = poll.totalVotes ?? poll.TotalVotes ?? (poll.userVotes ? poll.userVotes.length : 0);
-        for (const [i, opt] of (poll.options || []).entries()) {
-          const pct = opt.percentage ?? opt.Percentage ?? 0;
-          const votes = opt.voteCount ?? opt.VoteCount ?? 0;
-          const pollId = `poll_${poll.componentId}_${i}`;
-          html += `
+
+        // If the current user hasn't voted, show only voting controls (options) without results
+        if (!hasCurrentUserVoted) {
+          html += `<div class="poll-options">`;
+          for (const [i, opt] of (poll.options || []).entries()) {
+            const optText = (opt && (opt.text || opt.Text || opt.value || opt.Value || opt)) ?? '';
+            const escapedOpt = ('' + optText).replace(/'/g, "");
+            html += `<div class="poll-option"><button class="poll-vote-button" onclick="document.getElementById('pollQuestion').value='${safeQuestion}';document.getElementById('pollComponentId').value='${poll.componentId}';document.getElementById('pollCheckId').value='${escapedOpt}';document.getElementById('pollCheckClickedButton').click();">Vote: ${optText}</button></div>`;
+          }
+          html += `</div>`;
+          // Do not show totals, bars, or voter list when user hasn't voted
+        } else {
+          // User has voted: show results, totals and voters (existing behavior)
+          html += `<div class="poll-options">`;
+          const totalVotes = poll.totalVotes ?? poll.TotalVotes ?? (poll.userVotes ? poll.userVotes.length : 0);
+          for (const [i, opt] of (poll.options || []).entries()) {
+            const pct = opt.percentage ?? opt.Percentage ?? 0;
+            const votes = opt.voteCount ?? opt.VoteCount ?? 0;
+            const pollId = `poll_${poll.componentId}_${i}`;
+            const optText = (opt && (opt.text || opt.Text || opt.value || opt.Value || opt)) ?? '';
+            html += `
             <div class="poll-option">
-              <div class="poll-option-text">${opt.text}</div>
+              <div class="poll-option-text">${optText}</div>
               <div class="poll-result">
                 <div class="poll-bar" style="width: ${pct}%"></div>
                 <span class="poll-stats">${votes} votes (${pct}%)</span>
               </div>
             </div>`;
-        }
-        html += `</div>`;
-
-        // Total votes
-        html += `<div class="poll-total">Total Votes: ${totalVotes}</div>`;
-
-        // Voter list (show who voted with @username links)
-        if (poll.userVotes && poll.userVotes.length) {
-          html += `<div class="poll-voters">Voted: `;
-          const voters = [] as string[];
-          for (const v of poll.userVotes) {
-            try {
-              const uname = v.username || v.Username || v.Username;
-              if (!uname) continue;
-              // clickable username span mimics app.component mention behavior
-              const safeName = ('' + uname).replace(/'/g, "");
-              voters.push(`<span class=\"userMentionSpan\" onClick=\"document.getElementById('userMentionInput').value='${safeName}';document.getElementById('userMentionButton').click()\">@${safeName}</span>`);
-            } catch {
-              continue;
-            }
           }
-          html += voters.join(' ');
           html += `</div>`;
-        }
 
-        // Delete vote control if current user has voted
-        const hasVoted = poll.userVotes && poll.userVotes.length > 0;
-        if (hasVoted) {
+          // Total votes
+          html += `<div class="poll-total">Total Votes: ${totalVotes}</div>`;
+
+          // Voter list (show who voted with @username links)
+          if (poll.userVotes && poll.userVotes.length) {
+            html += `<div class="poll-voters">Voted: `;
+            const voters = [] as string[];
+            for (const v of poll.userVotes) {
+              try {
+                const uname = v.username || v.Username || (v.user && v.user.username) || '';
+                if (!uname) continue;
+                const safeName = ('' + uname).replace(/'/g, "");
+                voters.push(`<span class=\"userMentionSpan\" onClick=\"document.getElementById('userMentionInput').value='${safeName}';document.getElementById('userMentionButton').click()\">@${safeName}</span>`);
+              } catch {
+                continue;
+              }
+            }
+            html += voters.join(' ');
+            html += `</div>`;
+          }
+
+          // Delete vote control if current user has voted
           html += `<div class="pollControls"><button onclick="document.getElementById('pollQuestion').value='${safeQuestion}';document.getElementById('pollComponentId').value='${poll.componentId}';document.getElementById('pollDeleteButton').click();">Delete vote</button></div>`;
         }
 
