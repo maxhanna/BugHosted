@@ -303,7 +303,9 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
           for (const [i, opt] of (poll.options || []).entries()) {
             const optText = (opt && (opt.text || opt.Text || opt.value || opt.Value || opt)) ?? '';
             const escapedOpt = ('' + optText).replace(/'/g, "");
-            html += `<div class="poll-option"><button class="poll-vote-button" onclick="document.getElementById('pollQuestion').value='${safeQuestion}';document.getElementById('pollComponentId').value='${poll.componentId}';document.getElementById('pollCheckId').value='${escapedOpt}';document.getElementById('pollCheckClickedButton').click();">Vote: ${optText}</button></div>`;
+            const inputId = `poll_${poll.componentId}_${i}`;
+            // Use checkbox inputs (same interaction pattern as before) wired to global hidden inputs
+            html += `<div class="poll-option"><label><input type="checkbox" id="${inputId}" onclick="document.getElementById('pollQuestion').value='${safeQuestion}';document.getElementById('pollComponentId').value='${poll.componentId}';document.getElementById('pollCheckId').value='${escapedOpt}';document.getElementById('pollCheckClickedButton').click();"> ${optText}</label></div>`;
           }
           html += `</div>`;
           // Do not show totals, bars, or voter list when user hasn't voted
