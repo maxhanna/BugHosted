@@ -741,25 +741,85 @@ namespace maxhanna.Server.Controllers
 		}
 		private async Task<bool> TryResolveFileNotification(MySqlConnection conn, NotificationRequest request)
 		{
-			if (request.FileId == null) return false; 
-			string notificationSql = $@"
-					INSERT INTO maxhanna.notifications (user_id, from_user_id, file_id, text, date, user_profile_id)
-					VALUES ((SELECT user_id FROM maxhanna.file_uploads WHERE id = @file_id), @user_id, @file_id, @comment, UTC_TIMESTAMP(), @userProfileId);
+			if (request.FileId == null) return false;
 
-					INSERT INTO maxhanna.notifications (user_id, from_user_id, file_id, text)
-					SELECT DISTINCT user_id, @user_id, @file_id, @comment
-					FROM maxhanna.comments
-					WHERE file_id = @file_id AND user_id <> @user_id";
-
-			using (var cmd = new MySqlCommand(notificationSql, conn))
+			try
 			{
-				cmd.Parameters.AddWithValue("@user_id", request.FromUserId);
-				cmd.Parameters.AddWithValue("@comment", request.Message);
-				cmd.Parameters.AddWithValue("@userProfileId", request.UserProfileId ?? (object)DBNull.Value);
-				cmd.Parameters.AddWithValue("@file_id", request.FileId);
-				await cmd.ExecuteNonQueryAsync();
+				// 1. Resolve file owner explicitly so we can safely skip if missing (prevents NULL insert)
+				int? ownerId = null;
+				using (var ownerCmd = new MySqlCommand("SELECT user_id FROM maxhanna.file_uploads WHERE id = @file_id LIMIT 1;", conn))
+				{
+					ownerCmd.Parameters.AddWithValue("@file_id", request.FileId);
+					var result = await ownerCmd.ExecuteScalarAsync();
+					if (result != null && result != DBNull.Value)
+					{
+						ownerId = Convert.ToInt32(result);
+					}
+				}
+
+				if (ownerId == null)
+				{
+					_ = _log.Db($"Skipping file notification - file not found or owner missing for file_id {request.FileId}.", request.FromUserId, "NOTIFICATION", true);
+					return false; // Can't notify without a target owner
+				}
+
+				// 2. Notify file owner (but not if they are the sender)
+				if (ownerId != request.FromUserId)
+				{
+					// Optional: respect user block / rate limits
+					if (await CanUserNotifyAsync(request.FromUserId, ownerId.Value))
+					{
+						string insertOwnerSql = @"INSERT INTO maxhanna.notifications (user_id, from_user_id, file_id, text, date, user_profile_id)
+							VALUES (@owner_id, @from_user_id, @file_id, @comment, UTC_TIMESTAMP(), @userProfileId);";
+						using (var ownerInsert = new MySqlCommand(insertOwnerSql, conn))
+						{
+							ownerInsert.Parameters.AddWithValue("@owner_id", ownerId.Value);
+							ownerInsert.Parameters.AddWithValue("@from_user_id", request.FromUserId);
+							ownerInsert.Parameters.AddWithValue("@file_id", request.FileId);
+							ownerInsert.Parameters.AddWithValue("@comment", request.Message);
+							ownerInsert.Parameters.AddWithValue("@userProfileId", request.UserProfileId ?? (object)DBNull.Value);
+							await ownerInsert.ExecuteNonQueryAsync();
+						}
+					}
+				}
+
+				// 3. Notify distinct previous commenters (exclude sender & owner & avoid duplicates)
+				string insertCommentersSql = @"INSERT INTO maxhanna.notifications (user_id, from_user_id, file_id, text, date, user_profile_id)
+					SELECT DISTINCT c.user_id, @from_user_id, @file_id, @comment, UTC_TIMESTAMP(), @userProfileId
+					FROM maxhanna.comments c
+					WHERE c.file_id = @file_id
+						AND c.user_id <> @from_user_id
+						AND c.user_id <> @owner_id
+						AND NOT EXISTS (
+							SELECT 1 FROM maxhanna.notifications n
+							WHERE n.user_id = c.user_id
+								AND n.file_id = @file_id
+								AND n.from_user_id = @from_user_id
+								AND n.text = @comment
+						);";
+
+				using (var commentersInsert = new MySqlCommand(insertCommentersSql, conn))
+				{
+					commentersInsert.Parameters.AddWithValue("@from_user_id", request.FromUserId);
+					commentersInsert.Parameters.AddWithValue("@file_id", request.FileId);
+					commentersInsert.Parameters.AddWithValue("@comment", request.Message);
+					commentersInsert.Parameters.AddWithValue("@userProfileId", request.UserProfileId ?? (object)DBNull.Value);
+					commentersInsert.Parameters.AddWithValue("@owner_id", ownerId.Value);
+					await commentersInsert.ExecuteNonQueryAsync();
+				}
+
+				return true;
 			}
-			return true;
+			catch (MySqlException sqlEx)
+			{
+				_ = _log.Db($"Error creating file notification (file_id={request.FileId}): {sqlEx.Message}", request.FromUserId, "NOTIFICATION", true);
+				return false;
+			}
+			catch (Exception ex)
+			{
+				_ = _log.Db($"Unexpected error creating file notification (file_id={request.FileId}): {ex.Message}", request.FromUserId, "NOTIFICATION", true);
+				return false;
+			}
 		}
 
 		private async Task<bool> TryResolveCommentNotification(MySqlConnection conn, NotificationRequest request)
