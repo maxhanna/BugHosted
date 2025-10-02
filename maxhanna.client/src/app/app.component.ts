@@ -1385,9 +1385,12 @@ export class AppComponent implements OnInit, AfterViewInit {
   
   decodeInlineLinks(text: string): string {
     if (!text) return text;
-  // Do not match patterns where the second bracket starts with '/' or '*' (these are used for closing tags like [/*])
-  const linkRegex = /\[([^\]]+)\]\[((?![\/\*])[^\]]+)\]/g;
-  return text.replace(linkRegex, (match, label, url) => {
+    const forbidden = new Set(['b','/b','i','/i','*','/*']);
+    const linkRegex = /\[([^\]]+)\]\[([^\]]+)\]/g;
+    return text.replace(linkRegex, (match, label, url) => {
+      if (!url) return match;
+      const key = (url + '').trim().toLowerCase();
+      if (forbidden.has(key)) return match; // skip formatting tokens
       const safeUrl = this.ensureUrlHasProtocol(url);
       return `<a href="${safeUrl}" target="_blank" rel="noopener noreferrer">${label}</a>`;
     });
@@ -1404,7 +1407,7 @@ export class AppComponent implements OnInit, AfterViewInit {
     const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null);
     const nodesToProcess: Text[] = [];
     let node: Node | null;
-    const inlineTest = /\[([^\]]+)\]\[((?![\/\*])[^\]]+)\]/;
+    const inlineTest = /\[([^\]]+)\]\[([^\]]+)\]/;
     while ((node = walker.nextNode())) {
       if (node && node.nodeType === Node.TEXT_NODE && inlineTest.test(node.nodeValue || '')) {
         nodesToProcess.push(node as Text);
@@ -1414,14 +1417,20 @@ export class AppComponent implements OnInit, AfterViewInit {
     nodesToProcess.forEach(textNode => {
       const parent = textNode.parentNode as HTMLElement;
       if (!parent) return;
-      const parts = (textNode.nodeValue || '').split(/(\[[^\]]+\]\[((?![\/\*])[^\]]+)\])/g);
+      const forbidden = new Set(['b','/b','i','/i','*','/*']);
+      const parts = (textNode.nodeValue || '').split(/(\[[^\]]+\]\[[^\]]+\])/g);
       const fragment = document.createDocumentFragment();
       parts.forEach(part => {
         if (!part) return;
-        const m = part.match(/^\[([^\]]+)\]\[((?![\/\*])[^\]]+)\]$/);
+        const m = part.match(/^\[([^\]]+)\]\[([^\]]+)\]$/);
         if (m) {
           const label = m[1];
-          const url = this.ensureUrlHasProtocol(m[2]);
+          const rawUrl = m[2];
+          if (forbidden.has((rawUrl + '').trim().toLowerCase())) {
+            fragment.appendChild(document.createTextNode(part));
+            return;
+          }
+          const url = this.ensureUrlHasProtocol(rawUrl);
           const a = document.createElement('a');
           a.href = url;
           a.target = '_blank';
