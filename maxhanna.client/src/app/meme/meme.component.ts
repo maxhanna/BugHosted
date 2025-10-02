@@ -26,7 +26,7 @@ export class MemeComponent extends ChildComponent implements OnInit, OnDestroy  
   @ViewChild(FileSearchComponent) fileSearchComponent!: FileSearchComponent;
   @ViewChild('nsfwCheckmark') nsfwCheckmark!: ElementRef<HTMLInputElement>;
 
-  @Input() memeId: number | null = null;
+  @Input() memeId?: number | undefined = undefined;
   
   constructor(private route: ActivatedRoute, private topicService: TopicService, private userService: UserService) {
     super();
