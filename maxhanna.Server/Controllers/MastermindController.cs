@@ -23,6 +23,9 @@ namespace maxhanna.Server.Controllers
             using (var conn = new MySqlConnector.MySqlConnection(_connectionString))
             {
                 await conn.OpenAsync();
+                // NOTE: Scores are stored with UTC_TIMESTAMP() when inserted. Use a half-open UTC range
+                // so we don't apply a function to the column (better for potential indexing) and ensure
+                // the definition of "today" is in UTC.
                 string sql = @"
                     SELECT
                         ms.id,
@@ -42,7 +45,7 @@ namespace maxhanna.Server.Controllers
                     JOIN users u ON ms.user_id = u.id
                     LEFT JOIN user_display_pictures udp ON u.id = udp.user_id
                     LEFT JOIN file_uploads dp ON udp.file_id = dp.id
-                    WHERE DATE(ms.submitted) = CURDATE()
+                    WHERE ms.submitted >= UTC_DATE() AND ms.submitted < UTC_DATE() + INTERVAL 1 DAY
                     ORDER BY ms.score DESC, ms.tries ASC, ms.time ASC
                     LIMIT @Count
                 ";
@@ -66,6 +69,7 @@ namespace maxhanna.Server.Controllers
                                     FileType = reader.GetString("dp_file_type")
                                 }
                             };
+                            var submittedUtc = DateTime.SpecifyKind(reader.GetDateTime("submitted"), DateTimeKind.Utc);
                             scores.Add(new MastermindScore
                             {
                                 Id = reader.GetInt32("id"),
@@ -73,7 +77,7 @@ namespace maxhanna.Server.Controllers
                                 Score = reader.GetInt32("score"),
                                 Tries = reader.GetInt32("tries"),
                                 Time = reader.GetInt32("time"),
-                                Submitted = reader.GetDateTime("submitted")
+                                Submitted = submittedUtc
                             });
                         }
                     }
@@ -131,6 +135,7 @@ namespace maxhanna.Server.Controllers
                                     FileType = reader.GetString("dp_file_type")
                                 }
                             };
+                            var submittedUtc = DateTime.SpecifyKind(reader.GetDateTime("submitted"), DateTimeKind.Utc);
                             scores.Add(new MastermindScore
                             {
                                 Id = reader.GetInt32("id"),
@@ -138,7 +143,7 @@ namespace maxhanna.Server.Controllers
                                 Score = reader.GetInt32("score"),
                                 Tries = reader.GetInt32("tries"),
                                 Time = reader.GetInt32("time"),
-                                Submitted = reader.GetDateTime("submitted")
+                                Submitted = submittedUtc
                             });
                         }
                     }
