@@ -936,17 +936,43 @@ LIMIT
 				int endIndex = text.IndexOf("[/Poll]");
 				if (endIndex < startIndex) return options;
 				string pollContent = text.Substring(startIndex, endIndex - startIndex).Trim();
-				var lines = pollContent.Split(new[] { '\n' }, StringSplitOptions.RemoveEmptyEntries);
-				foreach (var line in lines)
+				// Normalize CRLF and split
+				pollContent = pollContent.Replace("\r\n", "\n").Replace("\r", "\n");
+				var rawLines = pollContent.Split('\n');
+				bool hasExplicitQuestion = rawLines.Any(l => l.Trim().StartsWith("Question:", StringComparison.OrdinalIgnoreCase));
+				string? derivedQuestionLine = null;
+				if (!hasExplicitQuestion)
 				{
-					if (line.Trim().StartsWith("Option:", StringComparison.OrdinalIgnoreCase))
+					// Use same heuristic as DeriveQuestionFallback to avoid counting the first non-option line as an option
+					foreach (var rl in rawLines)
 					{
-						string optionText = line.Substring("Option:".Length).Trim();
-						if (!string.IsNullOrEmpty(optionText))
-						{
-							options.Add(new PollOption { Id = optionText, Text = optionText });
-						}
+						var t = rl.Trim();
+						if (string.IsNullOrEmpty(t)) continue;
+						if (t.StartsWith("Option:", StringComparison.OrdinalIgnoreCase)) continue;
+						derivedQuestionLine = t;
+						break;
 					}
+				}
+				var dedupe = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+				foreach (var rl in rawLines)
+				{
+					var line = rl.Trim();
+					if (string.IsNullOrEmpty(line)) continue;
+					if (line.Equals(derivedQuestionLine, StringComparison.OrdinalIgnoreCase)) continue; // skip derived question
+					if (line.StartsWith("Question:", StringComparison.OrdinalIgnoreCase)) continue; // skip explicit question directive
+					string optionText;
+					if (line.StartsWith("Option:", StringComparison.OrdinalIgnoreCase))
+					{
+						optionText = line.Substring("Option:".Length).Trim();
+						if (string.IsNullOrEmpty(optionText)) continue;
+					}
+					else
+					{
+						// Treat any remaining non-question, non-empty line as an option
+						optionText = line;
+					}
+					if (!dedupe.Add(optionText)) continue;
+					options.Add(new PollOption { Id = optionText, Text = optionText });
 				}
 				return options;
 			}
