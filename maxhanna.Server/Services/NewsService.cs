@@ -1,6 +1,6 @@
-﻿using NewsAPI.Constants;
-using NewsAPI.Models;
-using NewsAPI;
+﻿using maxhanna.Server.Controllers.DataContracts.News;
+using maxhanna.Server.Helpers;
+using System.Text.Json;
 using MySqlConnector;
 using System.Text.RegularExpressions;
 using System.Text;
@@ -111,28 +111,37 @@ public class NewsService
 	private const string MemeFolderPath = "E:/Dev/maxhanna/maxhanna.client/src/assets/Uploads/Meme/";
 
 
-	public NewsService(IConfiguration config, Log log)
+	private readonly NewsHttpClient _newsHttp;
+	public NewsService(IConfiguration config, Log log, NewsHttpClient newsHttp)
 	{
 		_config = config;
 		_log = log; 
+		_newsHttp = newsHttp;
 	}
 	public async Task<ArticlesResult?> GetTopHeadlines(string? keywords)
 	{
 		try
 		{
-			var newsApiClient = new NewsApiClient("f782cf1b4d3349dd86ef8d9ac53d0440");
-			ArticlesResult? articlesResponse = new ArticlesResult();
-			TopHeadlinesRequest hr = new TopHeadlinesRequest
-			{
-				Language = Languages.EN,
-				Q = keywords 
-			};
-			articlesResponse = await newsApiClient.GetTopHeadlinesAsync(hr);
-
-			if (articlesResponse.Status == Statuses.Ok)
-			{
-				return articlesResponse;
-			}
+				var articlesResponse = await _newsHttp.GetTopHeadlinesAsync(keywords, "en");
+				if (articlesResponse != null && string.Equals(articlesResponse.Status, "ok", StringComparison.OrdinalIgnoreCase))
+				{
+					// Map DTO ArticlesResult to the NewsApi-like ArticlesResult used elsewhere
+					return new ArticlesResult
+					{
+						Status = "ok",
+						TotalResults = articlesResponse.TotalResults,
+						Articles = articlesResponse.Articles?.Select(a => new Article
+						{
+							Title = a.Title,
+							Description = a.Description,
+							Url = a.Url,
+							PublishedAt = a.PublishedAt,
+							UrlToImage = a.UrlToImage,
+							Content = a.Content,
+							Author = a.Author
+						}).ToList() ?? new List<Article>()
+					};
+				}
 		}
 		catch (Exception ex)
 		{
@@ -146,13 +155,24 @@ public class NewsService
 		Console.WriteLine("Getting top crypto headlines");
 		try
 		{
-			var newsApiClient = new NewsApiClient("f782cf1b4d3349dd86ef8d9ac53d0440"); 
-			ArticlesResult? articlesResponse = await newsApiClient.GetTopHeadlinesAsync(new TopHeadlinesRequest
-			{
-				Language = Languages.EN, 
-			});
-			Console.WriteLine("Number of results: " + articlesResponse.Articles.Count);
-			return articlesResponse;
+				var articlesResponse = await _newsHttp.GetTopHeadlinesAsync(null, "en");
+				if (articlesResponse == null) return null;
+				Console.WriteLine("Number of results: " + (articlesResponse.Articles?.Count ?? 0));
+				return new ArticlesResult
+				{
+					Status = articlesResponse.Status,
+					TotalResults = articlesResponse.TotalResults,
+					Articles = articlesResponse.Articles?.Select(a => new Article
+					{
+						Title = a.Title,
+						Description = a.Description,
+						Url = a.Url,
+						PublishedAt = a.PublishedAt,
+						UrlToImage = a.UrlToImage,
+						Content = a.Content,
+						Author = a.Author
+					}).ToList() ?? new List<Article>()
+				};
 			
 		}
 		catch (Exception ex)
@@ -183,7 +203,7 @@ public class NewsService
 
 			var articlesResult = await GetTopHeadlines(keyword);
 
-			if (articlesResult?.Status != Statuses.Ok || articlesResult.Articles == null)
+			if (articlesResult?.Status != NewsStatuses.Ok || articlesResult.Articles == null)
 			{
 				await _log.Db("Failed to fetch top headlines", null, "NEWSSERVICE", false);
 				return false;
@@ -249,7 +269,7 @@ public class NewsService
 	{
 		var result = new ArticlesResult
 		{
-			Status = Statuses.Ok,
+			Status = NewsStatuses.Ok,
 			Articles = new List<Article>()
 		};
 
@@ -316,7 +336,7 @@ public class NewsService
 					Description = reader["description"]?.ToString(),
 					Url = reader["url"]?.ToString(),
 					PublishedAt = reader["published_at"] as DateTime?,
-					Source = new Source
+					Source = new ApiSource
 					{
 						Id = "local-db",
 						Name = reader["url"]?.ToString() ?? reader["author"]?.ToString(),
@@ -337,10 +357,10 @@ public class NewsService
 		catch (Exception ex)
 		{
 			await _log.Db($"Exception in GetArticlesFromDb (keywords: {keywords}, hours: {hours}): {ex.Message}", null, "NEWSSERVICE", true);
-			result.Status = Statuses.Error;
+			result.Status = NewsStatuses.Error;
 			result.Error = new Error
 			{
-				Code = NewsAPI.Constants.ErrorCodes.UnexpectedError,
+				Code = "UnexpectedError",
 				Message = ex.Message
 			};
 		}
@@ -414,7 +434,7 @@ public class NewsService
 			string fullStoryText = sb.ToString().Trim();
 
 			// Save the description tokens of selected article for file-matching
-			var selectedArticleTokens = TokenizeText(selectedArticle.Description);
+			var selectedArticleTokens = TokenizeText(selectedArticle?.Description ?? string.Empty);
 			// Insert the story into the 'stories' table (for the news service account)
 			await CreateNewsPosts(conn, transaction, fullStoryText, selectedArticleTokens, newsServiceAccountNo);
 			await _log.Db("Daily news story created successfully on both service account and user profile.", null, "NEWSSERVICE");
@@ -625,13 +645,15 @@ Posted by user @{topMeme.Username}<br><small>Daily top memes are selected based 
 		fileCmd.Parameters.AddWithValue("@fileId", fileId);
 		await fileCmd.ExecuteNonQueryAsync();
 	}
-	private string GetMostFrequentWord(ArticlesResult topArticlesResult, out List<(Article Article, List<string> Tokens)> articleTokenMap)
+	private string GetMostFrequentWord(ArticlesResult? topArticlesResult, out List<(Article Article, List<string> Tokens)> articleTokenMap)
 	{
 		var tokenFrequency = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
 		articleTokenMap = new List<(Article Article, List<string> Tokens)>();
+		if (topArticlesResult?.Articles == null) return string.Empty;
+
 		foreach (var article in topArticlesResult.Articles)
 		{
-			var tokens = TokenizeText(article.Description);
+			var tokens = TokenizeText(article.Description ?? string.Empty);
 			articleTokenMap.Add((article, tokens));
 
 			foreach (var token in tokens)
@@ -842,7 +864,7 @@ Posted by user @{topMeme.Username}<br><small>Daily top memes are selected based 
 					Description = reader["description"]?.ToString(),
 					Url = reader["url"]?.ToString(),
 					PublishedAt = reader["published_at"] as DateTime?,
-					Source = new Source { Id = "local-db", Name = "SavedHeadline" },
+					Source = new ApiSource { Id = "local-db", Name = "SavedHeadline" },
 					Author = reader["author"]?.ToString(),
 					Content = reader["content"]?.ToString(),
 					UrlToImage = reader["url_to_image"]?.ToString()

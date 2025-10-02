@@ -2,9 +2,7 @@ using maxhanna.Server.Controllers.DataContracts.Users;
 using maxhanna.Server.Controllers.DataContracts.Weather;
 using Microsoft.AspNetCore.Mvc;
 using MySqlConnector;
-using NewsAPI;
-using NewsAPI.Constants;
-using NewsAPI.Models;
+using maxhanna.Server.Controllers.DataContracts.News;
 using static maxhanna.Server.Controllers.AiController;
 
 namespace maxhanna.Server.Controllers

@@ -27,6 +27,7 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
 builder.Services.AddHttpClient();
+builder.Services.AddHttpClient<NewsHttpClient>();
 builder.Services.AddHostedService<SystemBackgroundService>();
 builder.Services.AddHostedService<NexusAttackBackgroundService>();
 builder.Services.AddHostedService<NexusGoldUpdateBackgroundService>();
