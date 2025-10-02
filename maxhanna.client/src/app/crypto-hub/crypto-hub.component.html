@@ -56,13 +56,11 @@
         </div>
       </div>
     </div>
-    <div class="graphContainerDiv sectionContainer" [style.display]="isTradePanelOpen ? 'none' : 'block'" *ngIf="parentRef && selectedCurrency && currentSelectedCoin && latestCurrencyPriceRespectToCAD"> 
-      <app-crypto-coin-graph-viewer 
-        #coinGraphViewer
-        [inputtedParentRef]="parentRef" 
-        [currentSelectedCoin]="currentSelectedCoin"
-        [selectedCurrency]="selectedCurrency"
-        [latestCurrencyPriceRespectToCAD]="latestCurrencyPriceRespectToCAD"></app-crypto-coin-graph-viewer> 
+    <div class="graphContainerDiv sectionContainer" [style.display]="isTradePanelOpen ? 'none' : 'block'"
+      *ngIf="parentRef && selectedCurrency && currentSelectedCoin && latestCurrencyPriceRespectToCAD">
+      <app-crypto-coin-graph-viewer #coinGraphViewer [inputtedParentRef]="parentRef"
+        [currentSelectedCoin]="currentSelectedCoin" [selectedCurrency]="selectedCurrency"
+        [latestCurrencyPriceRespectToCAD]="latestCurrencyPriceRespectToCAD"></app-crypto-coin-graph-viewer>
     </div>
     <div class="graphContainerDiv sectionContainer" [style.display]="isTradePanelOpen ? 'none' : 'block'">
       <app-crypto-coin-volume-graph-viewer></app-crypto-coin-volume-graph-viewer>
@@ -86,7 +84,7 @@
           <div>
             {{ volumeDisplayData.btc | number:'1.4-4' }} BTC ≈
             {{ volumeDisplayData.btcInUSDC | number:'1.0-0' }}$
-          </div> 
+          </div>
           <div *ngIf="volumeDisplayData.btcPrice">
             <strong>BTC Price:</strong>
             {{ volumeDisplayData.btcPrice | number:'1.0-0' }}$
@@ -113,7 +111,7 @@
 
     </div>
     <div *ngIf="allHistoricalExchangeRateDataForGraph && allHistoricalExchangeRateDataForGraph.length > 0"
-      class="graphContainerDiv sectionContainer" [style.display]="isTradePanelOpen ? 'none' : 'block'"> 
+      class="graphContainerDiv sectionContainer" [style.display]="isTradePanelOpen ? 'none' : 'block'">
       <app-line-graph [type]="'Currency'" [selectedCoin]="selectedCurrency ?? 'CAD'" [displayCoinSwitcher]="false"
         [selectedCurrency]="selectedFiatConversionName" [showAverage]="true"
         [selectedPeriod]="exchangeRateGraphSelectedPeriod" [data]="allHistoricalExchangeRateDataForGraph!"
@@ -231,7 +229,8 @@
           <div class="bold smallFont"
             [class]="tradeIndicators.retracementFromHighValue > 0.05  ? 'positive' : 'negative'">
             {{ tradeIndicators.retracementFromHighValue * 100 | number:'1.2-2' }}% /
-            <span>{{ getConvertedCurrencyValueRespectToFiat(tradeIndicators.highPriceValue) | currencySymbol:(selectedCurrency):true}}</span>
+            <span>{{ getConvertedCurrencyValueRespectToFiat(tradeIndicators.highPriceValue) |
+              currencySymbol:(selectedCurrency):true}}</span>
           </div>
         </div>
 
@@ -302,17 +301,19 @@
                   </tr>
                 </tbody>
               </table>
-            </div> 
- 
-            <div class="pager">
-              <button (click)="prevSentimentPage()" [disabled]="currentSentimentPage === 1">Prev</button>
-              <span>Page {{ currentSentimentPage }} / {{ totalSentimentPages }}</span>
-              <button (click)="nextSentimentPage()"
-                [disabled]="currentSentimentPage === totalSentimentPages">Next</button>
             </div>
- 
-            <div style="text-align:right;margin-top:12px;">
-              <button id="closeOverlay" (click)="closeMarketSentimentPopup()" class="closeButton">OK</button>
+
+            <div style="display:flex; flex-direction: row; flex-wrap: nowrap; justify-items: space-between;">
+              <div class="pager">
+                <button (click)="prevSentimentPage()" [disabled]="currentSentimentPage === 1">Prev</button>
+                <span>Page {{ currentSentimentPage }} / {{ totalSentimentPages }}</span>
+                <button (click)="nextSentimentPage()"
+                  [disabled]="currentSentimentPage === totalSentimentPages">Next</button>
+              </div>
+
+              <div style="text-align:right;margin-top:12px;">
+                <button id="closeOverlay" (click)="closeMarketSentimentPopup()" class="closeButton">OK</button>
+              </div>
             </div>
           </div>
         </div>
@@ -339,7 +340,8 @@
         (selectCoin)="selectCoin($event)"></app-crypto-market-caps>
     </div>
     <div *ngIf="!isTradePanelOpen && latestCurrencyPriceRespectToCAD && selectedCurrency" class="sectionContainer">
-      <app-crypto-bitcoin-performance [inputtedParentRef]="parentRef" [selectedCurrency]="selectedCurrency" [selectedCoin]="currentSelectedCoin"></app-crypto-bitcoin-performance>
+      <app-crypto-bitcoin-performance [inputtedParentRef]="parentRef" [selectedCurrency]="selectedCurrency"
+        [selectedCoin]="currentSelectedCoin"></app-crypto-bitcoin-performance>
     </div>
   </div>
   <div [class]="isTradePanelOpen ? 'fullScreenTradePanelDiv' : 'hubSection miningHubSection'"
@@ -350,25 +352,20 @@
         (closeMiningEvent)="closeMiningEvent()"></app-mining-rigs>
     </div>
     <div class="sectionContainer" *ngIf="selectedCurrency" [style.display]="isTradePanelOpen ? 'none' : 'block'">
-      <app-crypto-wallets 
-      [inputtedParentRef]="parentRef" 
-      [selectedCurrency]="selectedCurrency"
-      [latestCoinValueData]="latestCoinValueData"
-      [isDiscreete]="isDiscreete"
-      (gotWallet)="wallet = $event"></app-crypto-wallets>
+      <app-crypto-wallets [inputtedParentRef]="parentRef" [selectedCurrency]="selectedCurrency"
+        [latestCoinValueData]="latestCoinValueData" [isDiscreete]="isDiscreete"
+        (gotWallet)="wallet = $event"></app-crypto-wallets>
     </div>
 
     <div class="{{isTradePanelOpen ? 'maximizedTradePanel' : 'sectionContainer'}}"
       [style]="showingTradeSettings ? 'display: flex; flex-direction: column; align-items: center;' : ''">
-      <div class="titleFont {{!onMobile() ? 'tradebotInfoPanelContainer' : ''}}" 
+      <div class="titleFont {{!onMobile() ? 'tradebotInfoPanelContainer' : ''}}"
         [style.display]="isTradePanelOpen && isTradeInfoHidden ? 'block' : 'flex'"
         [style.flexWrap]="(isTradePanelOpen && isTradeInfoHidden) ? 'wrap' : (onMobile() ? 'wrap' : 'nowrap')">
         <button *ngIf="isTradeInfoHidden && isTradePanelOpen" (click)="toggleTradeInfo()">Show Tradebot Info</button>
-        <div 
-          [style.width]="(isTradePanelOpen && !onMobile()) ? (isTradeInfoHidden ? '0px' : '30%') : '100%'"
-          [style.height]="(isTradePanelOpen && !onMobile()) ? (isTradeInfoHidden ? '0px' : '100%') : '100%'" 
-          class="trade-info-column{{isTradeInfoHidden ? ' collapsed' : ''}}"
-          (click)="toggleTradeInfo($event)"
+        <div [style.width]="(isTradePanelOpen && !onMobile()) ? (isTradeInfoHidden ? '0px' : '30%') : '100%'"
+          [style.height]="(isTradePanelOpen && !onMobile()) ? (isTradeInfoHidden ? '0px' : '100%') : '100%'"
+          class="trade-info-column{{isTradeInfoHidden ? ' collapsed' : ''}}" (click)="toggleTradeInfo($event)"
           [title]="isTradePanelOpen ? (isTradeInfoHidden ? 'Click to expand trade info' : 'Click to hide trade info') : ''">
           <div class="sectionName gradientBackground" *ngIf="!isTradePanelOpen">
             Active Trade Bots
@@ -439,7 +436,8 @@
                 <span *ngIf="!lastTradebotTrade" class="smallFont">No trades.</span>
               </span>
             </div>
-            <div *ngIf="lastLogEntry && canShowTradePanelInfo()" [ngClass]="{'logScreen': !showingTradeLogs, 'bold': true}">
+            <div *ngIf="lastLogEntry && canShowTradePanelInfo()"
+              [ngClass]="{'logScreen': !showingTradeLogs, 'bold': true}">
               <span class="sectionName">Log:&nbsp;</span> <span [ngClass]="{
                 'thirdFontColor': true,
                 'italics': true,
@@ -464,7 +462,7 @@
                 {{ numberOfTrades }}
               </span>
             </div>
- 
+
             <div *ngIf="isTradePanelOpen">
               <app-crypto-top-traders [inputtedParentRef]="parentRef"></app-crypto-top-traders>
             </div>
@@ -475,7 +473,7 @@
           <span class="cursorPointerUnderlined" (click)="createUserComponent();"
             *ngIf="!hasKrakenApi && !parentRef?.user?.id"> Log in to use the bot.</span>
         </div>
-        <div *ngIf="isTradePanelOpen && canShowTradePanelInfo()" [class.trade-panel-controls]="canShowTradePanelInfo()"> 
+        <div *ngIf="isTradePanelOpen && canShowTradePanelInfo()" [class.trade-panel-controls]="canShowTradePanelInfo()">
           <div class="button-wrapper" *ngIf="canShowTradePanelInfo()">
             <select class="currency-select" #selectedTradebotCurrency (change)="currencySelectTradebotEngage()">
               <option value="BTC">Bitcoin/USDC</option>
@@ -505,7 +503,8 @@
               Stop {{selectedTradebotCurrency?.value}} {{selectedTradebotStrategy.value}}
             </button>
 
-            <p class="button-description" id="trades-desc" *ngIf="!isTradebotBalanceShowing && selectedTradebotCurrency?.value">
+            <p class="button-description" id="trades-desc"
+              *ngIf="!isTradebotBalanceShowing && selectedTradebotCurrency?.value">
               {{isTradeBotStarted(selectedTradebotCurrency?.value) ? 'Stop' : 'Start'}} trading USDC and
               {{selectedTradebotCurrency?.value}} pair with {{selectedTradebotStrategy.value}} strategy.
             </p>
@@ -522,8 +521,9 @@
             </p>
           </div>
           <div class="button-wrapper" *ngIf="canShowTradePanelInfo() || isTradebotBalanceShowing">
-            <button class="cursorPointer" *ngIf="!isTradebotBalanceShowing" (click)="isTradebotBalanceShowing ? hideBalance() : checkBalance()"
-              [disabled]="isLoading" id="trades-button" aria-describedby="trades-desc">
+            <button class="cursorPointer" *ngIf="!isTradebotBalanceShowing"
+              (click)="isTradebotBalanceShowing ? hideBalance() : checkBalance()" [disabled]="isLoading"
+              id="trades-button" aria-describedby="trades-desc">
               {{isTradebotBalanceShowing ? 'Hide' : 'Show'}} Trades
             </button>
             <p class="button-description" id="trades-desc" *ngIf="!isTradebotBalanceShowing">
@@ -532,7 +532,8 @@
           </div>
 
           <div class="button-wrapper" *ngIf="canShowTradePanelInfo() || showingTradeLogs">
-            <button class="cursorPointer" *ngIf="!showingTradeLogs" (click)="showTradeLogs()" id="logs-button" aria-describedby="logs-desc" [style.marginBottom]="onMobile() ? '10px' : ''">
+            <button class="cursorPointer" *ngIf="!showingTradeLogs" (click)="showTradeLogs()" id="logs-button"
+              aria-describedby="logs-desc" [style.marginBottom]="onMobile() ? '10px' : ''">
               {{showingTradeLogs ? 'Hide' : 'Show'}} Logs
             </button>
             <p class="button-description" id="logs-desc" *ngIf="!showingTradeLogs">
@@ -541,7 +542,8 @@
           </div>
 
           <div class="button-wrapper" *ngIf="canShowTradePanelInfo() || isTradeLiveViewShowing">
-            <button class="cursorPointer" *ngIf="!isTradeLiveViewShowing" (click)="!isTradeLiveViewShowing ? showTradeLiveView() : hideTradeLiveView()" [disabled]="isLoading">
+            <button class="cursorPointer" *ngIf="!isTradeLiveViewShowing"
+              (click)="!isTradeLiveViewShowing ? showTradeLiveView() : hideTradeLiveView()" [disabled]="isLoading">
               Show Live Trade View
             </button>
             <p class="button-description" id="trades-desc" *ngIf="!isTradeLiveViewShowing">
@@ -596,24 +598,20 @@
           </div>
         </div>
         <div *ngIf="isTradebotBalanceShowing && parentRef && selectedCurrency && !isLoading" style="width:100%">
-          <app-crypto-trade-history
-            [inputtedParentRef]="parentRef" 
-            [hasKrakenApi]="hasKrakenApi"
+          <app-crypto-trade-history [inputtedParentRef]="parentRef" [hasKrakenApi]="hasKrakenApi"
             [selectedCurrency]="selectedCurrency"
             [defaultCoin]="selectedTradebotCurrency?.nativeElement?.value ?? 'BTC'"
             [defaultStrategy]="selectedTradebotStrategy?.nativeElement?.value ?? 'DCA'"></app-crypto-trade-history>
-        </div> 
-        <div *ngIf="isTradeLiveViewShowing && parentRef && selectedCurrency && latestCurrencyPriceRespectToCAD" class="live-trade-view-container">
-          <app-crypto-live-trade-view 
-          [activeTradeBots]="getActiveTradeBots()"
-          [inputtedParentRef]="parentRef" 
-          [selectedCurrency]="selectedCurrency" 
-          [latestCurrencyPriceRespectToCAD]="latestCurrencyPriceRespectToCAD"
-          [hasKrakenApi]="hasKrakenApi"></app-crypto-live-trade-view>
+        </div>
+        <div *ngIf="isTradeLiveViewShowing && parentRef && selectedCurrency && latestCurrencyPriceRespectToCAD"
+          class="live-trade-view-container">
+          <app-crypto-live-trade-view [activeTradeBots]="getActiveTradeBots()" [inputtedParentRef]="parentRef"
+            [selectedCurrency]="selectedCurrency" [latestCurrencyPriceRespectToCAD]="latestCurrencyPriceRespectToCAD"
+            [hasKrakenApi]="hasKrakenApi"></app-crypto-live-trade-view>
         </div>
         <div
           *ngIf="showingTradeSettings && cadToSelectedCurrencyRate && btcToCadPrice && solToCadPrice && xrpToCadPrice && xdgToCadPrice && ethToCadPrice"
-          [style.opacity]="isLoading ? '25%' : ''"  style="width:100%">
+          [style.opacity]="isLoading ? '25%' : ''" style="width:100%">
           <app-crypto-bot-configuration #configurationComponent [inputtedParentRef]="parentRef"
             [btcToCadPrice]="btcToCadPrice * cadToSelectedCurrencyRate"
             [solToCadPrice]="solToCadPrice * cadToSelectedCurrencyRate"
@@ -624,13 +622,14 @@
             (closeEventEmitter)="closeCryptoBotConfigEmitter()"></app-crypto-bot-configuration>
         </div>
         <div *ngIf="isShowingTradeValueGraph" style="width:100%">
-          <app-line-graph [type]="'Crypto'" [graphTitle]="'Trade Value'" [data]="tradebotValuesForGraph" [selectedPeriod]="'5y'"
-            [showAverage]="true" (fullscreenSelectedEvent)="fullscreenSelectedInPopup($event)">
+          <app-line-graph [type]="'Crypto'" [graphTitle]="'Trade Value'" [data]="tradebotValuesForGraph"
+            [selectedPeriod]="'5y'" [showAverage]="true" (fullscreenSelectedEvent)="fullscreenSelectedInPopup($event)">
           </app-line-graph>
         </div>
-        
-        
-        <div *ngIf="isShowingTradeProfit && profitData?.length" class="profit-container tradeDataTable"  style="width:100%">
+
+
+        <div *ngIf="isShowingTradeProfit && profitData?.length" class="profit-container tradeDataTable"
+          style="width:100%">
           <div *ngFor="let type of periodTypes" class="period-type-section">
             <div class="section-header" (click)="toggleProfitSection(type.key)">
               <div class="popupPanelTitle">{{ type.label }} <span class="toggle-icon">{{ isProfitSectionOpen(type.key) ?
@@ -646,53 +645,53 @@
                     {{ (period.periodEnd | date:'MMM d, y') || 'Present' }}
                   </span>
                 </div>
-        
+
                 <div class="profit-values">
                   <div class="value-row">
                     <span>Starting Balance:</span>
                     <span>{{ period.startUsdc | currency }} + {{ period.startBtc }} BTC</span>
                   </div>
-        
+
                   <div class="value-row">
                     <span>Starting Net Worth:</span>
                     <span>{{ (period.startUsdc ?? 0) + ((period.startBtc ?? 0) * (period.startBtcPriceUsdc ?? 0)) |
                       currency }}
                       USD</span>
                   </div>
-        
+
                   <div class="value-row">
                     <span>BTC Price:</span>
                     <span>{{ period.startBtcPriceUsdc | currency }}</span>
                   </div>
-        
+
                   <div class="value-row">
                     <span>Ending Balance:</span>
                     <span>{{ period.endUsdc | currency }} + {{ period.endBtc }} BTC</span>
                   </div>
-        
+
                   <div class="value-row" *ngIf="period.endBtcPriceUsdc">
                     <span>Ending BTC Price:</span>
                     <span>{{ period.endBtcPriceUsdc | currency }}</span>
                   </div>
-        
+
                   <div class="value-row" *ngIf="period.endUsdc && period.endBtc && period.endBtcPriceUsdc">
                     <span>Ending Net Worth:</span>
                     <span>{{ period.endUsdc + (period.endBtc * period.endBtcPriceUsdc) | currency }} USD</span>
                   </div>
-        
+
                   <div class="value-row profit-row" [class.positive]="period.profitUsdc && period.profitUsdc > 0"
                     [class.negative]="period.profitUsdc && period.profitUsdc < 0">
                     <span>Profit:</span>
                     <span>{{ period.profitUsdc | currency:'USD':'symbol':'1.2-10' }}</span>
                   </div>
-        
+
                   <div class="value-row profit-row"
                     [class.positive]="period.absoluteProfitUsdc && period.absoluteProfitUsdc > 0"
                     [class.negative]="period.absoluteProfitUsdc && period.absoluteProfitUsdc < 0">
                     <span>Absolute Profit:</span>
                     <span>{{ period.absoluteProfitUsdc | currency }}</span>
                   </div>
-        
+
                   <div class="value-row profit-row"
                     [class.positive]="period.cumulativeProfitUsdc && period.cumulativeProfitUsdc > 0"
                     [class.negative]="period.cumulativeProfitUsdc && period.cumulativeProfitUsdc < 0">
@@ -704,19 +703,20 @@
             </div>
           </div>
         </div>
-        
-        <div *ngIf="showingTradeLogs && parentRef && !isLoading" style="width:100%" [style.opacity]="isLoading ? '25%' : ''">
+
+        <div *ngIf="showingTradeLogs && parentRef && !isLoading" style="width:100%"
+          [style.opacity]="isLoading ? '25%' : ''">
           <app-crypto-trade-logs [inputtedParentRef]="parentRef" [hasKrakenApi]="hasKrakenApi"
             [defaultCoin]="selectedTradebotCurrency?.nativeElement?.value ?? 'BTC'"
             [defaultStrategy]="selectedTradebotStrategy?.nativeElement?.value ?? 'DCA'"></app-crypto-trade-logs>
         </div>
-        
+
         <div *ngIf="isShowingTradeSimulator && tradebotSimulationGraphData && tradebotSimulationGraphData.length > 0"
           class="tradeDataTable" style="width:100%">
           <app-line-graph #simLineGraph [selectedPeriod]="'1d'" [data]="tradebotSimulationGraphData"
             [data2]="tradebotSimulationGraphData2" [graphTitle]="'Simulated Price Variation'" [skipFiltering]="true"
-            [selectedCoin]="'Bitcoin'" [chartTypeInputted]="'line'" [chartTypeInputtedData2]="'line'" [isDotModeData2]="true"
-            [type]="'Crypto'"></app-line-graph>
+            [selectedCoin]="'Bitcoin'" [chartTypeInputted]="'line'" [chartTypeInputtedData2]="'line'"
+            [isDotModeData2]="true" [type]="'Crypto'"></app-line-graph>
           <button (click)="randomizeTradingSimGraph()">Randomize</button>
           <button (click)="randomizeTradingSimGraphWithRandomDayThisWeek()">Random Day This Week</button>
           <button (click)="randomizeTradingSimGraphWithRandomWeekData()">Random Week</button>
@@ -728,13 +728,13 @@
               style="display: flex; flex-direction: column; flex-wrap: nowrap; align-content: center; justify-content: center; align-items: center; text-align: center;">
               <div>
                 <label>Initial BTC (USD)</label>
-                <input [value]="tradeSimParams.initialBtc" (change)="updateSimTradeVars()" type="number" min="100" max="100000"
-                  required #initialBtcUsd>
+                <input [value]="tradeSimParams.initialBtc" (change)="updateSimTradeVars()" type="number" min="100"
+                  max="100000" required #initialBtcUsd>
               </div>
               <div>
                 <label>Initial USDC</label>
-                <input [value]="tradeSimParams.initialUsd" (change)="updateSimTradeVars()" type="number" min="100" max="100000"
-                  required #initialUsdc>
+                <input [value]="tradeSimParams.initialUsd" (change)="updateSimTradeVars()" type="number" min="100"
+                  max="100000" required #initialUsdc>
               </div>
               <div>
                 <label>Trade Spread (%)</label>
@@ -756,15 +756,16 @@
               *ngIf="tradeBotSimDebug && tradeBotSimDebug.length > 0">
               <button (click)="scrollToBottomOfTradebotSimDebug()">Scroll to bottom</button>
               <div *ngFor="let string of tradeBotSimDebug">
-                <div *ngIf="string && (string.includes('[SELL]') || string.includes('[BUY]'))" style="height:25px;"></div>
+                <div *ngIf="string && (string.includes('[SELL]') || string.includes('[BUY]'))" style="height:25px;">
+                </div>
                 <div>{{ string }}</div>
               </div>
               <button (click)="scrollToTopOfTradebotSimDebug()">Scroll to top</button>
             </div>
           </div>
         </div>
-      </div> 
-      
+      </div>
+
       <div *ngIf="isTradePanelOpen" [style.marginTop]="isTradePanelOpen ? '15px' : ''"
         class="tradePanelCloseButtonSection">
         <div *ngIf="isTradePanelOpen && canShowTradePanelInfo()">
@@ -775,16 +776,19 @@
         <button class="cursorPointer" (click)="openTradeFullscreen()">
           {{isTradePanelOpen ? 'Minimize' : 'Maximize'}} View
         </button>
-        <button class="cursorPointer" *ngIf="isTradeLiveViewShowing" (click)="hideTradeLiveView()" [disabled]="isLoading">
+        <button class="cursorPointer" *ngIf="isTradeLiveViewShowing" (click)="hideTradeLiveView()"
+          [disabled]="isLoading">
           Hide Live Trade View
-        </button><button class="cursorPointer" *ngIf="isTradebotBalanceShowing" (click)="hideBalance()" [disabled]="isLoading">
+        </button><button class="cursorPointer" *ngIf="isTradebotBalanceShowing" (click)="hideBalance()"
+          [disabled]="isLoading">
           Hide Trades
-        </button><button class="cursorPointer" *ngIf="showingTradeLogs" (click)="showTradeLogs()" [disabled]="isLoading">
+        </button><button class="cursorPointer" *ngIf="showingTradeLogs" (click)="showTradeLogs()"
+          [disabled]="isLoading">
           Hide Logs
         </button>
         <button class="cursorPointer" *ngIf="showingTradeSettings" (click)="showTradeSettings()" [disabled]="isLoading">
           Hide Configuration
-        </button> 
+        </button>
       </div>
 
     </div>
@@ -854,7 +858,7 @@
     <div>
       <button id="closeOverlay" (click)="closeMenuPanel()" class="closeButton">Close</button>
     </div>
-  </div> 
+  </div>
 
   <div *ngIf="isTradeInformationOpen" class="popupPanel">
     <div class="button-wrapper">
