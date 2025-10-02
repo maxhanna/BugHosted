@@ -783,7 +783,14 @@ fieldset {
 }
 
 .poll-option-text {
-  width: 100%;
+  width: auto;
+  flex: 1 1 auto;
+  display: block;
+} 
+
+.commentContent .poll-option {
+  margin-bottom: unset !important;
+  align-items: center !important;
 }
 
 .poll-bar {
