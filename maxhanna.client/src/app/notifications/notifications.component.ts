@@ -188,7 +188,7 @@ export class NotificationsComponent extends ChildComponent implements OnInit, On
   goToFileId(notification: UserNotification) {
     this.location.replaceState("/File/" + notification.fileId);
     if (!notification.isRead) { this.read(notification, true); }
-    this.createComponent("Files", { "fileId": notification.fileId, "previousComponent": this.previousComponent });
+    this.createComponent("Files", { "fileId": notification.fileId, "commentId": notification.commentId, "previousComponent": this.previousComponent });
   }
   goToStoryId(notification: UserNotification) {
     if (notification.userProfileId) {
@@ -245,7 +245,7 @@ export class NotificationsComponent extends ChildComponent implements OnInit, On
       return this.goToStoryId(notification);
     }
     if (notification.fileId) {
-      return this.goToFileId(notification);
+  return this.goToFileId(notification); // commentId already forwarded in goToFileId
     }
 
     alert("No parent component");

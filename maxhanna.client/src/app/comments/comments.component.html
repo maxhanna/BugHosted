@@ -107,6 +107,7 @@
               [showCommentsHeader]="false" [storyId]="storyId" [fileId]="fileId" [comment_id]="subComment.id"
               [automaticallyShowSubComments]="true" [commentList]="[subComment]" [depth]="depth + 1"
               [quoteMessage]="quoteMessage" [replyingToCommentId]="replyingToCommentId"
+              [scrollToCommentId]="scrollToCommentId"
               (replyingToCommentEvent)="replyingToCommentId = $event; replyingToCommentEvent.emit($event)"
               (quoteMessageEvent)="depth == 0 ? setQuoteMessage($event) : quoteMessageEvent.emit($event)"
               (commentAddedEvent)="commentAddedEvent.emit($event)"

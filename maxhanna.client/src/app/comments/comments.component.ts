@@ -124,15 +124,20 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
       } catch { /* ignore */ }
       return;
     }
-    // If element not found yet, attempt to expand ancestor chain (only at root depth)
-    if (this.depth === 0 && !this._expandedForComment.has(this.scrollToCommentId)) {
+    // If element not found yet, attempt to expand ancestor chain (any depth)
+    if (!this._expandedForComment.has(this.scrollToCommentId)) {
       const path = this.findCommentPath(this.scrollToCommentId, this.commentList);
       if (path && path.length) {
-        // Ensure each ancestor is un-minimized so its sub-tree renders
+        // Un-minimize all ancestors
         for (const ancestor of path.slice(0, -1)) {
           if (this.minimizedComments.has(ancestor.id)) {
             this.minimizedComments.delete(ancestor.id);
           }
+          // Attempt to click any expand button in DOM if present (breadcrumb or toggle button)
+          const expandBtn = document.querySelector(`button.toggle-subcomments[collected-id='${ancestor.id}']`) as HTMLButtonElement
+            || Array.from(document.querySelectorAll('button.toggle-subcomments'))
+              .find(b => b.textContent?.includes('(') && b.parentElement?.parentElement?.parentElement?.querySelector(`#commentText${ancestor.id}`));
+          try { expandBtn?.click(); } catch { }
         }
         this._expandedForComment.add(this.scrollToCommentId);
       }
