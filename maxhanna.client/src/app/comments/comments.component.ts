@@ -145,9 +145,6 @@ export class CommentsComponent extends ChildComponent implements OnInit {
     const parent = this.inputtedParentRef ?? this.parentRef;
     if (!parent) return "Error fetching parent component.";
 
-    // Normalize component id: allow callers to pass a number (e.g., 123)
-    // or a pre-prefixed string (e.g., 'commentText123'). Ensure we
-    // always forward a properly prefixed component id to the parent.
     let componentIdStr: string;
     if (component_id === null || component_id === undefined || component_id === '') {
       componentIdStr = '';

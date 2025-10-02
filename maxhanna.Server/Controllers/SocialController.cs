@@ -394,6 +394,36 @@ namespace maxhanna.Server.Controllers
 								});
 							}
 							//Console.WriteLine($"Poll votes fetched successfully. Found votes for {pollData.Count} components: {string.Join(",", pollData.Keys)}");
+							// Log poll component ids for debugging (helps verify commentText{id} mappings)
+							try
+							{
+								_ = _log.Db($"Poll votes fetched for components ({pollData.Count}): {string.Join(',', pollData.Keys)}", null, "SOCIAL", true);
+							}
+							catch { }
+
+							// Normalize poll data keys (merge keys like "commentTextcommentText1065" -> "commentText1065")
+							Dictionary<string, List<PollVote>> normalizedPollData = new();
+							string NormalizeComponentId(string compId)
+							{
+								if (string.IsNullOrEmpty(compId)) return compId;
+								var prefixes = new[] { "commentText", "storyText", "messageText" };
+								foreach (var p in prefixes)
+								{
+									var idx = compId.LastIndexOf(p, StringComparison.OrdinalIgnoreCase);
+									if (idx >= 0)
+									{
+										return compId.Substring(idx);
+									}
+								}
+								return compId;
+							}
+
+							foreach (var kv in pollData)
+							{
+								var canonical = NormalizeComponentId(kv.Key);
+								if (!normalizedPollData.ContainsKey(canonical)) normalizedPollData[canonical] = new List<PollVote>();
+								normalizedPollData[canonical].AddRange(kv.Value);
+							}
 
 							// Attach poll data to stories and comments
 							storyResponse.Polls = new List<Poll>();
@@ -409,12 +439,16 @@ namespace maxhanna.Server.Controllers
 
 									if (!string.IsNullOrEmpty(question) && options.Any())
 									{
+										// Prefer direct lookup in pollData, fall back to normalized map
+										var votes = pollData.TryGetValue(componentId, out var vlist) ? vlist : null;
+										if ((votes == null || votes.Count == 0) && normalizedPollData.TryGetValue(componentId, out var nv)) votes = nv;
+
 										var poll = new Poll
 										{
 											ComponentId = componentId,
 											Question = question,
 											Options = options,
-											UserVotes = pollData.TryGetValue(componentId, out var votes) ? votes : new List<PollVote>(),
+											UserVotes = votes ?? new List<PollVote>(),
 											TotalVotes = votes?.Count ?? 0,
 											CreatedAt = story.Date
 										};
@@ -450,7 +484,9 @@ namespace maxhanna.Server.Controllers
 													// If comment contains explicit poll markup, build from options; otherwise, if there are recorded votes, synthesize options from votes.
 													if (!string.IsNullOrEmpty(cQuestion) && cOptions.Any())
 													{
-														var cvotesLocal = pollData.TryGetValue(cComponentId, out var cvotesFound) ? cvotesFound : new List<PollVote>();
+														var cvotesLocal = pollData.TryGetValue(cComponentId, out var cvotesFound) ? cvotesFound : null;
+														if ((cvotesLocal == null || cvotesLocal.Count == 0) && normalizedPollData.TryGetValue(cComponentId, out var ncv)) cvotesLocal = ncv;
+														cvotesLocal ??= new List<PollVote>();
 														var cpoll = new Poll
 														{
 															ComponentId = cComponentId,
