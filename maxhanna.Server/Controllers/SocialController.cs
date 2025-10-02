@@ -318,19 +318,32 @@ namespace maxhanna.Server.Controllers
 				WHERE pv.component_id IN ({0})
 				ORDER BY pv.timestamp DESC;";
 
-			// Build a list of component IDs to query: storyText{storyId} and commentText{commentId}
+			// Helper to recursively flatten all nested comments
+			static IEnumerable<FileComment> FlattenComments(IEnumerable<FileComment> roots)
+			{
+				foreach (var c in roots)
+				{
+					yield return c;
+					if (c.Comments != null && c.Comments.Count > 0)
+					{
+						foreach (var sub in FlattenComments(c.Comments))
+						{
+							yield return sub;
+						}
+					}
+				}
+			}
+
+			// Build a list of component IDs to query: storyText{storyId} and commentText{commentId} (including nested)
 			var componentIds = new List<string>();
 			foreach (var s in storyResponse.Stories)
 			{
 				componentIds.Add($"storyText{s.Id}");
-				if (s.StoryComments != null)
+				if (s.StoryComments != null && s.StoryComments.Count > 0)
 				{
-					foreach (var c in s.StoryComments)
+					foreach (var c in FlattenComments(s.StoryComments))
 					{
-						if (c != null)
-						{
-							componentIds.Add($"commentText{c.Id}");
-						}
+						componentIds.Add($"commentText{c.Id}");
 					}
 				}
 			}
@@ -425,7 +438,7 @@ namespace maxhanna.Server.Controllers
 								normalizedPollData[canonical].AddRange(kv.Value);
 							}
 
-											// Attach poll data to stories and comments
+											// Attach poll data to stories and comments (including nested)
 											storyResponse.Polls = new List<Poll>(); // keep legacy aggregated list for backward compatibility
 											foreach (var story in storyResponse.Stories)
 							{
@@ -472,11 +485,11 @@ namespace maxhanna.Server.Controllers
 											storyResponse.Polls.Add(poll); // legacy aggregate
 									}
 
-									// Comment-level polls (for all comments attached to this story)
+									// Comment-level polls (for all comments attached to this story, recursively)
 									if (story.StoryComments != null && story.StoryComments.Count > 0)
 									{
-										foreach (var comment in story.StoryComments)
-										{
+                                    foreach (var comment in FlattenComments(story.StoryComments))
+                                    {
 											try
 											{
 												string commentText = _log.DecryptContent(comment.CommentText ?? string.Empty, ((comment.User?.Id ?? 0) + ""));

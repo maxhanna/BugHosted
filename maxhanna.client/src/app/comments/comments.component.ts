@@ -73,6 +73,13 @@ export class CommentsComponent extends ChildComponent implements OnInit {
     this.clearSubCommentsToggled();
     if (this.depth == 0) {
       this.decryptCommentsRecursively(this.commentList);
+      // After initial decrypt, attempt to render any existing poll results for these comments
+      try { 
+        for(let comment of this.commentList) {
+          const polls = comment.polls ?? [];
+          this.updateCommentPollsInDOM(polls);
+        }
+      } catch { }
     }
   }
 
