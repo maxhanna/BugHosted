@@ -141,7 +141,7 @@
                                 [forceInviewLoad]="true"
                                 [previousComponent]="previousComponent"
                                 [commentId]="commentId"
-                                [fileId]="fileId"
+                                [fileId]="file.id"
                                 (emittedNotification)="emittedNotification($event)"
                                 (commentHeaderClickedEvent)="addOrRemoveIdFromOpenedComments(file.id, $event)"
                                 (expandClickedEvent)="expandClickedEvent.emit($event)"
