@@ -270,8 +270,10 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
         const tgt = document.getElementById(poll.componentId);
         if (!tgt) continue;
 
-        // Build poll container similar to SocialComponent.updatePollsInDOM
-        let html = `<div class="poll-container" data-component-id="${poll.componentId}">`;
+  // Build poll container similar to SocialComponent.updatePollsInDOM
+  // Ensure the global hidden pollQuestion is set to this poll's question when interacting with this poll
+  const safeQuestion = (poll.question || '').toString().replace(/'/g, "");
+  let html = `<div class="poll-container" data-component-id="${poll.componentId}" onClick="document.getElementById('pollQuestion').value='${safeQuestion}';">`;
         html += `<div class="poll-question">${poll.question}</div>`;
         html += `<div class="poll-options">`;
         const totalVotes = poll.totalVotes ?? poll.TotalVotes ?? (poll.userVotes ? poll.userVotes.length : 0);
@@ -315,7 +317,7 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
         // Delete vote control if current user has voted
         const hasVoted = poll.userVotes && poll.userVotes.length > 0;
         if (hasVoted) {
-          html += `<div class="pollControls"><button onclick="document.getElementById('pollComponentId').value='${poll.componentId}';document.getElementById('pollDeleteButton').click();">Delete vote</button></div>`;
+          html += `<div class="pollControls"><button onclick="document.getElementById('pollQuestion').value='${safeQuestion}';document.getElementById('pollComponentId').value='${poll.componentId}';document.getElementById('pollDeleteButton').click();">Delete vote</button></div>`;
         }
 
         html += '</div>';
