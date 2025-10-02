@@ -747,6 +747,7 @@ fieldset {
 
 .poll-container {
   padding: 15px 15px 0px 15px;
+  width: 100%;
 }
 
 .poll-question {
