@@ -653,7 +653,9 @@ namespace maxhanna.Server.Controllers
 									{
 										try
 										{
-											string content = _log.DecryptContent(msg.Content ?? string.Empty, (msg.Sender?.Id ?? 0) + "");
+											// Chat messages are encrypted client-side using the chatId as the password.
+											// Decrypt using chatId to recover any embedded poll markup.
+											string content = _log.DecryptContent(msg.Content ?? string.Empty, (msg.ChatId).ToString());
 											string question = ExtractPollQuestion(content);
 											List<DataContracts.Social.PollOption> options = ExtractPollOptions(content);
 											string compId = "messageText" + msg.Id;
