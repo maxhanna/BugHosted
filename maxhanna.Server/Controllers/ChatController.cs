@@ -653,7 +653,7 @@ namespace maxhanna.Server.Controllers
 									{
 										try
 										{
-											string content = msg.Content ?? string.Empty;
+											string content = _log.DecryptContent(msg.Content ?? string.Empty, (msg.Sender?.Id ?? 0) + "");
 											string question = ExtractPollQuestion(content);
 											List<DataContracts.Social.PollOption> options = ExtractPollOptions(content);
 											string compId = "messageText" + msg.Id;
