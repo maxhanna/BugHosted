@@ -105,6 +105,7 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
   }
   private tryScrollToRequestedComment() {
     if (!this.scrollToCommentId) return;
+    console.log("scrolling to commentid: ", this.scrollToCommentId);
     const targetId = 'commentText' + this.scrollToCommentId;
     const el = document.getElementById(targetId) || document.getElementById('subComment' + this.scrollToCommentId);
     if (el) {
