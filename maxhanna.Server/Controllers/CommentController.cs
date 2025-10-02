@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Mvc;
 using MySqlConnector;
 using System.Data;
 using System.Text;
+using System.Collections.Generic;
 
 namespace maxhanna.Server.Controllers
 {
@@ -46,44 +47,53 @@ namespace maxhanna.Server.Controllers
 					await conn.OpenAsync();
 
 					int insertedId = 0;
-					string column;
-					int? idValue;
 
+					// Build dynamic column list for optional parent ids (file_id, story_id, comment_id)
+					var columns = new List<string>();
+					var paramNames = new List<string>();
 					if (request.FileId != null)
 					{
-						column = "file_id";
-						idValue = request.FileId;
+						columns.Add("file_id");
+						paramNames.Add("@fileId");
 					}
-					else if (request.StoryId != null)
+					if (request.StoryId != null)
 					{
-						column = "story_id";
-						idValue = request.StoryId;
+						columns.Add("story_id");
+						paramNames.Add("@storyId");
 					}
-					else if (request.CommentId != null)
+					if (request.CommentId != null)
 					{
-						column = "comment_id";
-						idValue = request.CommentId;
+						columns.Add("comment_id");
+						paramNames.Add("@commentId");
 					}
-					else
+
+					if (columns.Count == 0)
 					{
 						return BadRequest("Either file_id, story_id, or comment_id must be provided.");
 					}
+
+					var columnsSql = ", " + string.Join(", ", columns);
+					var paramsSql = ", " + string.Join(", ", paramNames);
+
 					string sql = $@"
 						INSERT INTO maxhanna.comments 
-						(user_id, {column}, comment, user_profile_id, date, city, country, ip) 
+						(user_id{columnsSql}, comment, user_profile_id, date, city, country, ip) 
 						VALUES 
-						(@user_id, @id, @comment, @userProfileId, UTC_TIMESTAMP(), @city, @country, @ip); 
+						(@user_id{paramsSql}, @comment, @userProfileId, UTC_TIMESTAMP(), @city, @country, @ip); 
 						SELECT LAST_INSERT_ID();";
 
 					using (var cmd = new MySqlCommand(sql, conn))
 					{
 						cmd.Parameters.AddWithValue("@user_id", request.UserId);
+						// add optional parent id params only when present
+						if (request.FileId != null) cmd.Parameters.AddWithValue("@fileId", request.FileId);
+						if (request.StoryId != null) cmd.Parameters.AddWithValue("@storyId", request.StoryId);
+						if (request.CommentId != null) cmd.Parameters.AddWithValue("@commentId", request.CommentId);
 						cmd.Parameters.AddWithValue("@comment", request.Comment);
 						cmd.Parameters.AddWithValue("@userProfileId", request.UserProfileId ?? (object)DBNull.Value);
 						cmd.Parameters.AddWithValue("@city", request.City);
 						cmd.Parameters.AddWithValue("@country", request.Country);
 						cmd.Parameters.AddWithValue("@ip", request.Ip);
-						cmd.Parameters.AddWithValue($"@id", idValue);
 
 
 						using (var reader = await cmd.ExecuteReaderAsync())
