@@ -823,8 +823,7 @@ LIMIT
 					}
 				}
 
-				if (pollData.Count == 0) return; // no votes; we still may synthesize polls from markup below though
-
+				// Even if there are no votes yet, still attempt to parse poll markup so client can render poll questions/options.
 				foreach (var comment in allComments)
 				{
 					try
@@ -833,6 +832,13 @@ LIMIT
 						string question = ExtractPollQuestion(decrypted);
 						var options = ExtractPollOptions(decrypted);
 						string componentId = $"commentText{comment.Id}";
+
+						// If we have options but no explicit 'Question:' line, derive a question from first non-option line inside the block.
+						if (string.IsNullOrEmpty(question) && options.Any())
+						{
+							var derived = DeriveQuestionFallback(decrypted);
+							if (!string.IsNullOrWhiteSpace(derived)) question = derived;
+						}
 
 						if (!string.IsNullOrEmpty(question) && options.Any())
 						{
@@ -869,7 +875,7 @@ LIMIT
 							var synthesized = new Poll
 							{
 								ComponentId = componentId,
-								Question = "Poll",
+								Question = string.IsNullOrEmpty(question) ? "Poll" : question, // keep derived question if we found one
 								Options = optionGroups,
 								UserVotes = recordedVotes,
 								TotalVotes = total,
@@ -940,6 +946,31 @@ LIMIT
 				return options;
 			}
 			catch { return options; }
+		}
+
+		// Fallback: derive a question when [Poll] block lacks an explicit Question: line.
+		private string DeriveQuestionFallback(string text)
+		{
+			if (string.IsNullOrEmpty(text) || !text.Contains("[Poll]") || !text.Contains("[/Poll]")) return string.Empty;
+			try
+			{
+				int startIndex = text.IndexOf("[Poll]") + 6;
+				int endIndex = text.IndexOf("[/Poll]");
+				if (endIndex < startIndex) return string.Empty;
+				string pollContent = text.Substring(startIndex, endIndex - startIndex).Trim();
+				var lines = pollContent.Split('\n');
+				foreach (var raw in lines)
+				{
+					var line = raw.Trim();
+					if (string.IsNullOrEmpty(line)) continue;
+					if (line.StartsWith("Option:", StringComparison.OrdinalIgnoreCase)) continue;
+					if (line.StartsWith("Question:", StringComparison.OrdinalIgnoreCase)) continue; // already handled elsewhere
+					// Use this as a derived question.
+					return line.Length > 140 ? line.Substring(0, 140).Trim() : line;
+				}
+			}
+			catch { }
+			return string.Empty;
 		}
 
 		private static int GetResultCount(User? user, string directory, string? search, string favouritesCondition, string fileTypeCondition, string visibilityCondition, string ownershipCondition, string hiddenCondition, MySqlConnection connection, string searchCondition, List<MySqlParameter> extraParameters)
