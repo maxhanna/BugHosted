@@ -307,7 +307,7 @@
       [component]="selectedFile || file"
       [commentList]="file?.fileComments ?? selectedFile?.fileComments ?? []" 
       [previousComponent]="previousComponent"
-      [fileId]="file?.id ?? selectedFile?.id ?? file?.id"
+      [fileId]="fileId ?? file?.id ?? selectedFile?.id ?? file?.id"
       [scrollToCommentId]="commentId"
       (commentAddedEvent)="commentAddedEvent($event)"
       (commentHeaderClickedEvent)="commentHeaderClickedEvent.emit($event)">
