@@ -957,6 +957,7 @@ namespace maxhanna.Server.Controllers
 			sqlBuilder.AppendLine(@"WITH RECURSIVE comment_tree (id) AS (");
 			sqlBuilder.AppendLine(@"  SELECT id");
 			sqlBuilder.AppendLine(@"  FROM comments");
+			// Anchor only top-level comments (those without a parent comment_id).
 			sqlBuilder.AppendLine(@"  WHERE story_id IN (");
 			for (int i = 0; i < storyIds.Count; i++)
 			{
@@ -966,7 +967,7 @@ namespace maxhanna.Server.Controllers
 					sqlBuilder.Append(", ");
 				}
 			}
-			sqlBuilder.AppendLine(@")");
+			sqlBuilder.AppendLine(@") AND comment_id IS NULL");
 			sqlBuilder.AppendLine(@"  UNION ALL");
 			sqlBuilder.AppendLine(@"  SELECT c.id");
 			sqlBuilder.AppendLine(@"  FROM comments c");
@@ -1080,6 +1081,7 @@ namespace maxhanna.Server.Controllers
 								comment = new FileComment
 								{
 									Id = commentId,
+									CommentId = parentCommentId,
 									CommentText = commentText,
 									StoryId = storyId,
 									User = new User(cuserId, userName, null, dpFileEntry, null, null, null),
@@ -1174,10 +1176,13 @@ namespace maxhanna.Server.Controllers
 							}
 						}
 
-						// Assign all comments to the respective story
+						// Attach all comments for each story (including nested subcomments)
+						// while preserving parent->child nesting via parentComment.Comments above.
 						foreach (var story in stories)
 						{
-							story.StoryComments = allComments.Where(c => c.StoryId == story.Id).ToList();
+							story.StoryComments = allComments
+								.Where(c => c.StoryId == story.Id)
+								.ToList();
 						}
 					}
 				}
