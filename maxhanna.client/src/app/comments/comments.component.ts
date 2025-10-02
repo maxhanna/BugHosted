@@ -115,19 +115,11 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
         // Instead of highlighting, automatically click the reply button to expose subcomments/reply UI
         const targetIdNum = this.scrollToCommentId;
         if (targetIdNum != null) {
-          const replyBtn = document.getElementById('replyButton' + targetIdNum) as HTMLButtonElement | null;
+          const replyBtn = document.getElementById('expandButton' + targetIdNum) as HTMLButtonElement | null;
           if (replyBtn) {
-            console.log('[DeepLink] Auto-clicking reply button for', targetIdNum);
-            try { replyBtn.click(); } catch (e) { console.warn('[DeepLink] Failed to click reply button', e); }
-          } else {
-            const expandBtn = document.getElementById('expandButton' + targetIdNum) as HTMLButtonElement | null;
-            if (expandBtn) {
-              console.log('[DeepLink] Reply button not found; clicking expand button for', targetIdNum);
-              try { expandBtn.click(); } catch (e) { console.warn('[DeepLink] Failed to click expand button', e); }
-            } else {
-              console.log('[DeepLink] No reply/expand button found for target', targetIdNum);
-            }
-          }
+            console.log('[DeepLink] Auto-clicking expandButton button for', targetIdNum);
+            try { replyBtn.click(); } catch (e) { console.warn('[DeepLink] Failed to click expandButton button', e); }
+          } 
         }
         // Only act once per requested id
         this.scrollToCommentId = undefined;
@@ -150,9 +142,9 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
           const expandBtn = document.getElementById('expandButton' + ancestor.id) as HTMLButtonElement | null;
           if (expandBtn) {
             console.log('[DeepLink] Clicking expand button for', ancestor.id);
-            setTimeout(() => {
-              try { expandBtn.click(); } catch (e) { console.warn('[DeepLink] Expand click failed', e); }
-            }, 50);
+            
+            try { expandBtn.click(); } catch (e) { console.warn('[DeepLink] Expand click failed', e); }
+            
           } 
         }
         this._expandedForComment.add(this.scrollToCommentId);
