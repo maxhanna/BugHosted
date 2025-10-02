@@ -59,12 +59,13 @@ body {
   overscroll-behavior-x: none;
 }
 
-a, .linkedComponent {
+a,
+.linkedComponent {
   color: var(--main-link-color);
   font-family: Gadugi, Arial, Helvetica;
   padding: 1px;
   text-align: center;
-  text-decoration: none; 
+  text-decoration: none;
   word-break: break-word;
 }
 
@@ -72,15 +73,18 @@ textarea {
   font-size: var(--main-font-size);
 }
 
-a:visited, .linkedComponent {
+a:visited,
+.linkedComponent {
   color: var(--main-link-color);
 }
 
-a:active, .linkedComponent {
+a:active,
+.linkedComponent {
   color: var(--secondary-font-color);
 }
 
-a:hover, .linkedComponent {
+a:hover,
+.linkedComponent {
   border-radius: 5px;
   border-bottom: 1px dotted var(--main-font-color);
 }
@@ -712,7 +716,7 @@ fieldset {
 .linkedComponent {
   color: var(--main-link-color);
   cursor: pointer;
-} 
+}
 
 .secondaryFontColor {
   color: var(--secondary-font-color);
@@ -746,7 +750,16 @@ fieldset {
 }
 
 .poll-container {
-  padding: 15px 15px 0px 15px; 
+  padding: 15px 15px 0px 15px;
+  display: flex;
+  flex-direction: column;
+  align-content: center;
+  justify-content: center;
+  align-items: flex-start;
+}
+
+.messageContainer .poll-container {
+  width: 100%;
 }
 
 .poll-question {
@@ -780,12 +793,6 @@ fieldset {
 .poll-error {
   color: red;
   font-style: italic;
-}
-
-.poll-option-text {
-  width: auto;
-  flex: 1 1 auto;
-  display: block;
 } 
 
 .commentContent .poll-option {
