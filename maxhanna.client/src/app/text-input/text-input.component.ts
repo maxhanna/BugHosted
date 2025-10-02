@@ -38,7 +38,6 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
   @Input() city?: string;
   @Input() country?: string;
   @Input() hide = false;
-  // legacy: parentId removed in favor of explicit numeric commentId
   @Input() storyId?: number = undefined
   @Input() commentId?: number = undefined
   @Input() chatId?: number;
@@ -168,8 +167,8 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
           originalContent = content.originalContent;
           derivedIds = {
             userProfileId: content.story?.profileUserId ?? this.profileUser?.id ?? undefined,
-            storyId: content.story?.id ?? undefined,
-            fileId: content.story?.fileId ?? undefined,
+            storyId: this.storyId ?? content.story?.id ?? undefined,
+            fileId: this.fileId ?? content.story?.fileId ?? undefined,
             commentId: undefined
           };
           results = await this.socialService.postStory(user.id ?? 0, content.story, sessionToken ?? "");
@@ -531,14 +530,9 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
     tmpComment.user = parent?.user ?? new User(0, "Anonymous");
     tmpComment.commentText = this.encryptContent(commentsWithEmoji);
     tmpComment.date = currentDate;
-    tmpComment.fileId = isFile ? this.commentParent?.id : undefined;
+    tmpComment.fileId = this.fileId ?? (isFile ? this.commentParent?.id : undefined);
     tmpComment.storyId = this.storyId ?? (isStory ? this.commentParent?.id : undefined);
-    // Prefer explicit numeric commentId input if provided (covers cases where commentParent may be a minimal object)
-    if (typeof this.commentId === 'number' && !isNaN(this.commentId) && this.commentId > 0) {
-      tmpComment.commentId = this.commentId;
-    } else {
-      tmpComment.commentId = isComment ? this.commentParent?.id : undefined;
-    }
+    tmpComment.commentId = this.commentId ?? (isComment ? this.commentParent?.id : undefined);
     tmpComment.commentFiles = files ?? this.attachedFiles;
     tmpComment.country = location?.country;
     tmpComment.city = location?.city;

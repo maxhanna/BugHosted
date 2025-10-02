@@ -49,6 +49,7 @@ export class CommentsComponent extends ChildComponent implements OnInit {
   @Input() canReply = true;
   @Input() depth = 0;
   @Input() storyId?: number = undefined;
+  @Input() fileId?: number = undefined;
   @Input() replyingToCommentId?: number;
   @Output() commentAddedEvent = new EventEmitter<FileComment>();
   @Output() commentRemovedEvent = new EventEmitter<FileComment>();

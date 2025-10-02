@@ -71,7 +71,7 @@
     </div>
     <div>
       <div class="commentContent">
-  <div [innerHTML]="createClickableUrls(comment.commentText, comment.id)" [id]="'commentText'+comment.id"
+        <div [innerHTML]="createClickableUrls(comment.commentText, comment.id)" [id]="'commentText'+comment.id"
           class="commentTextDiv" [style.display]="editingComments.includes(comment.id) ? 'none': 'block'"></div>
         <div *ngFor="let file of comment.commentFiles" class="commentMediaFile">
           <app-media-viewer [file]="file" [user]="comment.user" [currentDirectory]="file.directory"
@@ -104,7 +104,7 @@
 
           <div *ngFor="let subComment of comment.comments" class="subComment" [id]="'subComment' + subComment.id">
             <app-comments [inputtedParentRef]="inputtedParentRef ?? parentRef" [type]="'Comment'"
-              [showCommentsHeader]="false" [storyId]="storyId" [comment_id]="subComment.id"
+              [showCommentsHeader]="false" [storyId]="storyId" [fileId]="fileId" [comment_id]="subComment.id"
               [automaticallyShowSubComments]="true" [commentList]="[subComment]" [depth]="depth + 1"
               [quoteMessage]="quoteMessage" [replyingToCommentId]="replyingToCommentId"
               (replyingToCommentEvent)="replyingToCommentId = $event; replyingToCommentEvent.emit($event)"
@@ -128,8 +128,7 @@
     class="addCommentInputDiv">
 
     <app-text-input [inputtedParentRef]="inputtedParentRef" [type]="'Comment'" [commentParent]="component"
-      [quoteMessage]="quoteMessage" [profileUser]="userProfile" 
-      [storyId]="storyId"
+      [quoteMessage]="quoteMessage" [profileUser]="userProfile" [storyId]="storyId" [fileId]="fileId"
       (contentPosted)="commentPosted($event)"></app-text-input>
   </div>
   <div *ngIf="selectedFiles.length > 0">{{selectedFiles.length}} file{{selectedFiles.length > 1 ? 's' : ''}} attached.
