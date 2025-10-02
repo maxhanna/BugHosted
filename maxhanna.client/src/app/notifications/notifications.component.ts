@@ -192,11 +192,11 @@ export class NotificationsComponent extends ChildComponent implements OnInit, On
   }
   goToStoryId(notification: UserNotification) {
     if (notification.userProfileId) {
-      this.location.replaceState("/User/" + notification.userProfileId);
+      //this.location.replaceState("/User/" + notification.userProfileId);
       this.createComponent("User", { "userId": notification.userProfileId, "previousComponent": this.previousComponent });
     } else {
-      this.location.replaceState("/Social/" + notification.storyId);
-      this.createComponent("Social", { "storyId": notification.storyId, "previousComponent": this.previousComponent });
+      //this.location.replaceState("/Social/" + notification.storyId);
+      this.createComponent("Social", { "storyId": notification.storyId, "commentId": notification.commentId, "previousComponent": this.previousComponent });
     }
     if (!notification.isRead) { this.read(notification, true); }
   }
