@@ -73,11 +73,11 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
   ngOnInit() {
     this.clearSubCommentsToggled();
     if (this.depth == 0) {
-      this.decryptCommentsRecursively(this.commentList); 
+      this.decryptCommentsRecursively(this.commentList);
     }
   }
 
-  ngAfterViewInit(): void { 
+  ngAfterViewInit(): void {
     this.scheduleCommentPollRender();
   }
 
@@ -276,12 +276,12 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
     // After a new comment is added, try to update any polls in the DOM for this comment
     this.scheduleCommentPollRender();
   }
-  
-  private scheduleCommentPollRender() { 
-    setTimeout(() => { 
-      this.updateCommentPollsInDOM(); 
-    }, 120);  
-  } 
+
+  private scheduleCommentPollRender() {
+    setTimeout(() => {
+      this.updateCommentPollsInDOM();
+    }, 120);
+  }
 
   private collectAllCommentPolls(): Poll[] {
     const result: Poll[] = [];
@@ -291,7 +291,7 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
         if (c.comments && c.comments.length) recurse(c.comments);
       }
     };
-    try { recurse(this.commentList || []); } catch {}
+    try { recurse(this.commentList || []); } catch { }
     return result;
   }
 
@@ -323,7 +323,7 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
 
         // Only attempt to strip original markup once unless no container yet
         if (!tgt.getAttribute('data-poll-cleaned') || !existingContainer) {
-          try { this.stripPollMarkupFromElement(tgt, question, optionTexts); } catch {}
+          try { this.stripPollMarkupFromElement(tgt, question, optionTexts); } catch { }
         }
 
         // Determine vote status
@@ -332,34 +332,27 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
           if (poll.userVotes?.length) {
             for (const v of poll.userVotes) {
               if (!v) continue;
-              if ((v.userId && v.userId === currentUserId)) { hasCurrentUserVoted = true; break; }
+              if ((v.userId && v.userId === currentUserId)) {
+                hasCurrentUserVoted = true;
+                break;
+              }
               const uname = (v.username || '').toString();
-              if (uname && currentUserName && uname.toLowerCase() === currentUserName.toLowerCase()) { hasCurrentUserVoted = true; break; }
+              if (uname
+                && currentUserName
+                && uname.toLowerCase() === currentUserName.toLowerCase()) {
+                hasCurrentUserVoted = true;
+                break;
+              }
             }
           }
         } catch { hasCurrentUserVoted = false; }
 
-        let html = '<div class="pollResults">';
-        html += `<div class="pollQuestion">${question}</div>`;
+        let html = '';
 
-        if (!hasCurrentUserVoted) {
-          html += `<div class="poll-options">`;
-          if (poll.options?.length) {
-            for (const [i, opt] of poll.options.entries()) {
-              const optText = opt.text ?? '';
-              const escapedOpt = ('' + optText).replace(/'/g, "");
-              const pollId = `poll_${poll.componentId}_${i}`;
-              const inputId = `poll-option-${pollId}`;
-              html += `
-                <div class="poll-option">
-                  <input type="checkbox" value="${escapedOpt}" id="${inputId}" name="${inputId}"
-                    onClick="document.getElementById('pollCheckId').value='${inputId}';document.getElementById('pollQuestion').value='${question}';document.getElementById('pollComponentId').value='${poll.componentId}';document.getElementById('pollCheckClickedButton').click()">
-                  <label for="${inputId}" onclick="document.getElementById('pollCheckId').value='${inputId}';document.getElementById('pollQuestion').value='${question}';document.getElementById('pollComponentId').value='${poll.componentId}';document.getElementById('pollCheckClickedButton').click()">${optText}</label>
-                </div>`;
-            }
-          }
-          html += `</div>`;
-        } else {
+        if (hasCurrentUserVoted) {
+          console.log("debug: user has voted", poll);
+          html += '<div class="pollResults">'
+          html += `<div class="pollQuestion">${question}</div>`;
           let totalVotes = 0;
           if (poll.options?.length) {
             for (const opt of poll.options) {
@@ -385,9 +378,9 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
             html += '</div>';
           }
           html += `<div class="pollControls"><button onclick="(function(){var pc=document.getElementById('pollComponentId'); if(pc) pc.value='${poll.componentId}'; var pq=document.getElementById('pollQuestion'); if(pq) pq.value='${this.escapeHtmlAttribute(question)}'; document.getElementById('pollDeleteButton').click();})();">Delete vote</button></div>`;
+          html += '</div>';        
         }
 
-        html += '</div>';
         let pollContainer: HTMLElement | null = existingContainer as HTMLElement | null;
         try {
           if (!pollContainer) {
@@ -399,7 +392,7 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
           pollContainer.innerHTML = html;
           tgt.setAttribute('data-poll-cleaned', '1');
         } catch {
-          try { tgt.innerHTML = html; tgt.setAttribute('data-poll-cleaned', '1'); } catch {}
+          try { tgt.innerHTML = html; tgt.setAttribute('data-poll-cleaned', '1'); } catch { }
         }
 
         try {
@@ -407,7 +400,7 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
           const pc = document.getElementById('pollComponentId') as HTMLInputElement | null;
           if (pq) pq.value = question;
           if (pc) pc.value = poll.componentId;
-        } catch {}
+        } catch { }
       } catch (ex) {
         // Continue with other polls
         // console.warn('Error rendering comment poll', poll?.componentId, ex);
