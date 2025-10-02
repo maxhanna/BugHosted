@@ -164,7 +164,7 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
   }
 
   private changePageTitleAndDescription(tgtStory: Story) {
-    const storyText = this.decryptText(tgtStory.storyText, tgtStory.user.id);
+    const storyText = tgtStory.storyText;
     if (storyText && !this.showOnlyPost) {
       const titleAndDescrip = this.parentRef?.replacePageTitleAndDescription(storyText.trim(), storyText);
       const script = document.createElement('script');
