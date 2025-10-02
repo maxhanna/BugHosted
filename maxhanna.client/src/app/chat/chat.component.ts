@@ -270,21 +270,54 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
         const tgt = document.getElementById(poll.componentId);
         if (!tgt) continue;
 
-        let html = '<div class="pollResults">';
-        html += `<div class="pollQuestion">${poll.question}</div>`;
-        for (const opt of poll.options) {
-          const pct = opt.percentage ?? 0;
-          const votes = opt.voteCount ?? 0;
+        // Build poll container similar to SocialComponent.updatePollsInDOM
+        let html = `<div class="poll-container" data-component-id="${poll.componentId}">`;
+        html += `<div class="poll-question">${poll.question}</div>`;
+        html += `<div class="poll-options">`;
+        const totalVotes = poll.totalVotes ?? poll.TotalVotes ?? (poll.userVotes ? poll.userVotes.length : 0);
+        for (const [i, opt] of (poll.options || []).entries()) {
+          const pct = opt.percentage ?? opt.Percentage ?? 0;
+          const votes = opt.voteCount ?? opt.VoteCount ?? 0;
+          const pollId = `poll_${poll.componentId}_${i}`;
           html += `
-            <div class="pollOption">
-              <div class="pollOptionText">${opt.text} <span class="pollVotes">(${votes} votes, ${pct}%)</span></div>
-              <div class="pollBarContainer"><div class="pollBar" style="width:${pct}%"></div></div>
+            <div class="poll-option">
+              <div class="poll-option-text">${opt.text}</div>
+              <div class="poll-result">
+                <div class="poll-bar" style="width: ${pct}%"></div>
+                <span class="poll-stats">${votes} votes (${pct}%)</span>
+              </div>
             </div>`;
         }
+        html += `</div>`;
+
+        // Total votes
+        html += `<div class="poll-total">Total Votes: ${totalVotes}</div>`;
+
+        // Voter list (show who voted with @username links)
+        if (poll.userVotes && poll.userVotes.length) {
+          html += `<div class="poll-voters">Voted: `;
+          const voters = [] as string[];
+          for (const v of poll.userVotes) {
+            try {
+              const uname = v.username || v.Username || v.Username;
+              if (!uname) continue;
+              // clickable username span mimics app.component mention behavior
+              const safeName = ('' + uname).replace(/'/g, "");
+              voters.push(`<span class=\"userMentionSpan\" onClick=\"document.getElementById('userMentionInput').value='${safeName}';document.getElementById('userMentionButton').click()\">@${safeName}</span>`);
+            } catch {
+              continue;
+            }
+          }
+          html += voters.join(' ');
+          html += `</div>`;
+        }
+
+        // Delete vote control if current user has voted
         const hasVoted = poll.userVotes && poll.userVotes.length > 0;
         if (hasVoted) {
           html += `<div class="pollControls"><button onclick="document.getElementById('pollComponentId').value='${poll.componentId}';document.getElementById('pollDeleteButton').click();">Delete vote</button></div>`;
         }
+
         html += '</div>';
         tgt.innerHTML = html;
       } catch (ex) {
