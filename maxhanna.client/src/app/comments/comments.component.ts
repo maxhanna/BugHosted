@@ -291,47 +291,75 @@ export class CommentsComponent extends ChildComponent implements OnInit {
         const tgt = document.getElementById(poll.componentId);
         if (!tgt) continue;
 
-        // Build the poll result HTML (match the structure used by SocialComponent.updatePollsInDOM)
-        let html = '<div class="pollResults">';
-        // Ensure question is present
         const question = poll.question ?? '';
+
+        // Determine if current user has voted on this poll
+        const currentUser = this.inputtedParentRef?.user ?? this.parentRef?.user;
+        const currentUserId = currentUser?.id ?? 0;
+        const currentUserName = currentUser?.username ?? '';
+        let hasCurrentUserVoted = false;
+        try {
+          if (poll.userVotes && poll.userVotes.length) {
+            for (const v of poll.userVotes) {
+              if (!v) continue;
+              if ((v.userId && +v.userId === +currentUserId) || (v.UserId && +v.UserId === +currentUserId)) { hasCurrentUserVoted = true; break; }
+              if ((v.id && +v.id === +currentUserId) || (v.user && v.user.id && +v.user.id === +currentUserId)) { hasCurrentUserVoted = true; break; }
+              const uname = (v.username || v.Username || (v.user && v.user.username) || '').toString();
+              if (uname && currentUserName && uname.toLowerCase() === currentUserName.toLowerCase()) { hasCurrentUserVoted = true; break; }
+            }
+          }
+        } catch { hasCurrentUserVoted = false; }
+
+        let html = '<div class="pollResults">';
         html += `<div class="pollQuestion">${question}</div>`;
 
-        // Options with bars and counts
-        let totalVotes = 0;
-        if (poll.options && poll.options.length) {
-          for (const opt of poll.options) {
-            const pct = opt.percentage ?? 0;
-            const votes = opt.voteCount ?? 0;
-            totalVotes += votes;
-            html += `
-              <div class="pollOption">
-                <div class="pollOptionText">${opt.text} <span class="pollVotes">(${votes} votes, ${pct}%)</span></div>
-                <div class="pollBarContainer"><div class="pollBar" style="width:${pct}%"></div></div>
-              </div>`;
+        if (!hasCurrentUserVoted) {
+          // Render checkboxes (same structure as SocialComponent) so clicking registers a vote immediately
+          html += `<div class="poll-options">`;
+          if (poll.options && poll.options.length) {
+            for (const [i, opt] of (poll.options || []).entries()) {
+              const optText = (opt && (opt.text || opt.Text || opt.value || opt.Value || opt)) ?? '';
+              const escapedOpt = ('' + optText).replace(/'/g, "");
+              const pollId = `poll_${poll.componentId}_${i}`;
+              const inputId = `poll-option-${pollId}`;
+              html += `
+                <div class="poll-option">
+                  <input type="checkbox" value="${escapedOpt}" id="${inputId}" name="${inputId}"
+                    onClick="document.getElementById('pollCheckId').value='${inputId}';document.getElementById('pollQuestion').value='${question}';document.getElementById('pollComponentId').value='${poll.componentId}';document.getElementById('pollCheckClickedButton').click()">
+                  <label for="${inputId}" onclick="document.getElementById('pollCheckId').value='${inputId}';document.getElementById('pollQuestion').value='${question}';document.getElementById('pollComponentId').value='${poll.componentId}';document.getElementById('pollCheckClickedButton').click()">${optText}</label>
+                </div>`;
+            }
           }
-        }
-
-        // Total votes
-        html += `<div class="pollTotal">Total votes: ${totalVotes}</div>`;
-
-        // Voter list (show @username spans like Social/Chat)
-        if (poll.userVotes && poll.userVotes.length > 0) {
-          html += '<div class="pollVoters">Voters: ';
-          const voterSpans: string[] = [];
-          for (const v of poll.userVotes) {
-            const uname = v.username ?? v.userName ?? v.user_name ?? '';
-            // Clicking the name should populate the mention input (if present)
-            voterSpans.push(`<span class=\"pollVoter\" onclick=\"(function(){var mi=document.getElementById('mentionInput'); if(mi) mi.value='@${uname}';})();\">@${uname}</span>`);
+          html += `</div>`;
+        } else {
+          // User has voted: show results + voters
+          let totalVotes = 0;
+          if (poll.options && poll.options.length) {
+            for (const opt of poll.options) {
+              const pct = opt.percentage ?? 0;
+              const votes = opt.voteCount ?? 0;
+              totalVotes += votes;
+              html += `
+                <div class="pollOption">
+                  <div class="pollOptionText">${opt.text} <span class="pollVotes">(${votes} votes, ${pct}%)</span></div>
+                  <div class="pollBarContainer"><div class="pollBar" style="width:${pct}%"></div></div>
+                </div>`;
+            }
           }
-          html += voterSpans.join(', ');
-          html += '</div>';
-        }
+          html += `<div class="pollTotal">Total votes: ${totalVotes}</div>`;
 
-        // Add delete vote button if user has voted (use same id pattern)
-        const hasVoted = poll.userVotes && poll.userVotes.length > 0;
-        if (hasVoted) {
-          // Set the pollQuestion and component id when delete is clicked so backend receives the real question
+          if (poll.userVotes && poll.userVotes.length > 0) {
+            html += '<div class="pollVoters">Voters: ';
+            const voterSpans: string[] = [];
+            for (const v of poll.userVotes) {
+              const uname = v.username ?? v.userName ?? v.user_name ?? (v.user && v.user.username) ?? '';
+              voterSpans.push(`<span class=\"pollVoter\" onclick=\"(function(){var mi=document.getElementById('mentionInput'); if(mi) mi.value='@${uname}';})();\">@${uname}</span>`);
+            }
+            html += voterSpans.join(', ');
+            html += '</div>';
+          }
+
+          // Delete control
           html += `<div class="pollControls"><button onclick="(function(){var pc=document.getElementById('pollComponentId'); if(pc) pc.value='${poll.componentId}'; var pq=document.getElementById('pollQuestion'); if(pq) pq.value='${this.escapeHtmlAttribute(question)}'; document.getElementById('pollDeleteButton').click();})();">Delete vote</button></div>`;
         }
 
@@ -339,15 +367,13 @@ export class CommentsComponent extends ChildComponent implements OnInit {
 
         tgt.innerHTML = html;
 
-        // Also pre-populate the hidden pollQuestion and pollComponentId for vote actions so the UI preserves the real question
+        // Pre-populate hidden inputs
         try {
           const pq = document.getElementById('pollQuestion') as HTMLInputElement | null;
           const pc = document.getElementById('pollComponentId') as HTMLInputElement | null;
           if (pq) pq.value = question;
           if (pc) pc.value = poll.componentId;
-        } catch (e) {
-          // ignore
-        }
+        } catch (e) {}
       } catch (ex) {
         console.warn('Error updating poll for', poll.componentId, ex);
         continue;

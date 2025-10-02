@@ -86,7 +86,7 @@
 
           <div class="commentInputArea borderPaddedComment" *ngIf="replyingToCommentId == comment.id">
             <app-text-input [inputtedParentRef]="inputtedParentRef" [type]="'Comment'" [commentParent]="comment"
-              [quoteMessage]="quoteMessage" [profileUser]="userProfile"
+              [quoteMessage]="quoteMessage" [profileUser]="userProfile" [storyId]="storyId"
               (contentPosted)="commentPosted($event, comment)"></app-text-input>
           </div>
           <button [id]="'commentTextEditConfirmButton' + comment.id" (click)="confirmEditComment(comment)"
