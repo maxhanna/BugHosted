@@ -133,11 +133,9 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
           if (this.minimizedComments.has(ancestor.id)) {
             this.minimizedComments.delete(ancestor.id);
           }
-          // Attempt to click any expand button in DOM if present (breadcrumb or toggle button)
-          const expandBtn = document.querySelector(`button.toggle-subcomments[collected-id='${ancestor.id}']`) as HTMLButtonElement
-            || Array.from(document.querySelectorAll('button.toggle-subcomments'))
-              .find(b => b.textContent?.includes('(') && b.parentElement?.parentElement?.parentElement?.querySelector(`#commentText${ancestor.id}`));
-          try { expandBtn?.click(); } catch { }
+          // Attempt to trigger UI expansion by clicking its reply button (ensures sub-tree renders) if present
+          const replyBtn = document.getElementById('replyButton' + ancestor.id) as HTMLButtonElement | null;
+          try { replyBtn?.click(); } catch { }
         }
         this._expandedForComment.add(this.scrollToCommentId);
       }

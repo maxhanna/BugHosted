@@ -57,7 +57,8 @@
           ⚙️
         </button>
         <div class="cursorPointer smallFont commentCountWrapper">
-          <button (click)="showSubComments(comment.id)" title="Reply to this comment" class="coloredBgButton"
+          <button (click)="showSubComments(comment.id)" title="Reply to this comment" class="coloredBgButton comment-reply-button"
+            [id]="'replyButton'+comment.id"
             [style.display]="replyingToCommentId && replyingToCommentId !== comment.id ? 'none' : 'inline-block'">
             {{replyingToCommentId == comment.id ? 'Cancel' : 'Reply'}}
           </button>
