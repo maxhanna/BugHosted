@@ -13,6 +13,7 @@ using System.Diagnostics;
 using System.Net;
 using System.Xml.Linq;
 using Xabe.FFmpeg;
+using System.Text.RegularExpressions;
 
 namespace maxhanna.Server.Controllers
 {
@@ -858,10 +859,15 @@ LIMIT
 								TotalVotes = votesForComponent.Count,
 								CreatedAt = comment.Date
 							};
-							var voteCounts = poll.UserVotes.GroupBy(v => v.Value).ToDictionary(g => g.Key, g => g.Count());
+							// Normalize and aggregate votes by cleaned token
+							var voteCounts = poll.UserVotes
+								.GroupBy(v => NormalizePollToken(v.Value))
+								.ToDictionary(g => g.Key, g => g.Count());
 							foreach (var opt in poll.Options)
 							{
-								int vc = voteCounts.TryGetValue(opt.Text, out var c) ? c : 0;
+								var key = NormalizePollToken(opt.Text);
+								int vc = voteCounts.TryGetValue(key, out var c) ? c : 0;
+								opt.Text = key; // store cleaned text for consistent client display
 								opt.VoteCount = vc;
 								opt.Percentage = poll.TotalVotes > 0 ? (int)Math.Round((double)vc / poll.TotalVotes * 100) : 0;
 							}
@@ -871,7 +877,8 @@ LIMIT
 						else if (!options.Any() && pollData.TryGetValue(componentId, out var recordedVotes) && recordedVotes.Count > 0)
 						{
 							// Synthesize poll from votes when no markup present
-							var optionGroups = recordedVotes.GroupBy(v => v.Value)
+							var optionGroups = recordedVotes
+								.GroupBy(v => NormalizePollToken(v.Value))
 								.Select(g => new PollOption { Id = g.Key, Text = g.Key, VoteCount = g.Count() })
 								.ToList();
 							int total = recordedVotes.Count;
@@ -1002,6 +1009,21 @@ LIMIT
 			}
 			catch { }
 			return string.Empty;
+		}
+
+		// Normalize poll option / vote strings (remove leading labels like 'Option 1:' or numeric bullets)
+		private static string NormalizePollToken(string raw)
+		{
+			if (string.IsNullOrWhiteSpace(raw)) return string.Empty;
+			var cleaned = raw.Trim();
+			// Patterns:
+			// Option 1: Text
+			// Option: Text
+			// 1) Text / 1. Text / 1 - Text
+			cleaned = Regex.Replace(cleaned, @"^Option\s+\d+\s*:\s*", string.Empty, RegexOptions.IgnoreCase);
+			cleaned = Regex.Replace(cleaned, @"^Option\s*:\s*", string.Empty, RegexOptions.IgnoreCase);
+			cleaned = Regex.Replace(cleaned, @"^\d+\s*([).:-])\s*", string.Empty); // numeric bullet variants
+			return cleaned.Trim();
 		}
 
 		private static int GetResultCount(User? user, string directory, string? search, string favouritesCondition, string fileTypeCondition, string visibilityCondition, string ownershipCondition, string hiddenCondition, MySqlConnection connection, string searchCondition, List<MySqlParameter> extraParameters)
