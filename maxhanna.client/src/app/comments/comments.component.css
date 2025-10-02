@@ -312,10 +312,10 @@
 }
 
 .poll-option-text {
-  width: unset;
+  width: unset !important;
 }
 
 .poll-option {
-  margin-bottom: unset;
-  align-items: center;
+  margin-bottom: unset !important;
+  align-items: center !important;
 }
