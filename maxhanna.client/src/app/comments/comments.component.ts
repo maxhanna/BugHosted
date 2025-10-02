@@ -150,16 +150,10 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
           const expandBtn = document.getElementById('expandButton' + ancestor.id) as HTMLButtonElement | null;
           if (expandBtn) {
             console.log('[DeepLink] Clicking expand button for', ancestor.id);
-            try { expandBtn.click(); } catch (e) { console.warn('[DeepLink] Expand click failed', e); }
-          } else {
-            const replyBtn = document.getElementById('replyButton' + ancestor.id) as HTMLButtonElement | null;
-            if (replyBtn) {
-              console.log('[DeepLink] Fallback clicking reply button for', ancestor.id);
-              try { replyBtn.click(); } catch (e) { console.warn('[DeepLink] Reply click failed', e); }
-            } else {
-              console.log('[DeepLink] No expand/reply button found for ancestor', ancestor.id);
-            }
-          }
+            setTimeout(() => {
+              try { expandBtn.click(); } catch (e) { console.warn('[DeepLink] Expand click failed', e); }
+            }, 50);
+          } 
         }
         this._expandedForComment.add(this.scrollToCommentId);
       }
