@@ -337,6 +337,9 @@ namespace maxhanna.Server.Controllers
 			// Replace with filtered list
 			request.ToUserIds = validRecipients.ToArray();
 
+			// Normalize any 0 identifiers to null to prevent FK violations (client sometimes sends 0)
+			NormalizeRequestIds(request);
+
 			bool notificationProcessed = false;
 			bool sendFirebaseNotification = false;
 			request.Message = RemoveQuotedBlocks(request.Message);
@@ -824,10 +827,10 @@ namespace maxhanna.Server.Controllers
 
 		private async Task<bool> TryResolveCommentNotification(MySqlConnection conn, NotificationRequest request)
 		{
-			if (request.CommentId == null) return false;
+            if (request.CommentId == null || request.CommentId <= 0) return false;
 
-			bool hasStory = request.StoryId != null;
-			bool hasFile = request.FileId != null;
+			bool hasStory = request.StoryId.HasValue && request.StoryId > 0;
+			bool hasFile = request.FileId.HasValue && request.FileId > 0;
 
 			// Track all user IDs to notify
 			var userIdsToNotify = new HashSet<int>();
@@ -1240,6 +1243,21 @@ namespace maxhanna.Server.Controllers
 			}
 
 			return null;
+		}
+
+		private void NormalizeRequestIds(NotificationRequest request)
+		{
+			// Convert any zero values to null so they are treated as absent
+			if (request.FileId.HasValue && request.FileId.Value <= 0) request.FileId = null;
+			if (request.StoryId.HasValue && request.StoryId.Value <= 0) request.StoryId = null;
+			if (request.CommentId.HasValue && request.CommentId.Value <= 0) request.CommentId = null;
+			if (request.ChatId.HasValue && request.ChatId.Value <= 0) request.ChatId = null;
+			if (request.UserProfileId.HasValue && request.UserProfileId.Value <= 0) request.UserProfileId = null;
+
+			// Remove any 0 recipients
+			request.ToUserIds = request.ToUserIds.Where(id => id > 0).ToArray();
+
+			_ = _log.Db($"Normalized IDs -> FileId:{request.FileId?.ToString() ?? "null"} StoryId:{request.StoryId?.ToString() ?? "null"} CommentId:{request.CommentId?.ToString() ?? "null"} ChatId:{request.ChatId?.ToString() ?? "null"} UserProfileId:{request.UserProfileId?.ToString() ?? "null"}", request.FromUserId, "NOTIFICATION");
 		}
 	}
 }
