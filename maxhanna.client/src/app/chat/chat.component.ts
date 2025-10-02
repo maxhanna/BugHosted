@@ -303,9 +303,15 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
           for (const [i, opt] of (poll.options || []).entries()) {
             const optText = (opt && (opt.text || opt.Text || opt.value || opt.Value || opt)) ?? '';
             const escapedOpt = ('' + optText).replace(/'/g, "");
-            const inputId = `poll_${poll.componentId}_${i}`;
-            // Use checkbox inputs (same interaction pattern as SocialComponent) wired to global hidden inputs
-            html += `<div class="poll-option"><label><input type="checkbox" id="${inputId}" onclick="document.getElementById('pollQuestion').value='${safeQuestion}';document.getElementById('pollComponentId').value='${poll.componentId}';document.getElementById('pollCheckId').value='${inputId}';document.getElementById('pollCheckClickedButton').click();"> ${optText}</label></div>`;
+            const pollId = `poll_${poll.componentId}_${i}`;
+            const inputId = `poll-option-${pollId}`;
+            // Use checkbox inputs (same markup & id conventions as SocialComponent) wired to global hidden inputs
+            html += `
+              <div class="poll-option">
+                <input type="checkbox" value="${escapedOpt}" id="${inputId}" name="${inputId}"
+                  onClick="document.getElementById('pollCheckId').value='${inputId}';document.getElementById('pollQuestion').value='${safeQuestion}';document.getElementById('pollComponentId').value='${poll.componentId}';document.getElementById('pollCheckClickedButton').click()">
+                <label for="${inputId}" onclick="document.getElementById('pollCheckId').value='${inputId}';document.getElementById('pollQuestion').value='${safeQuestion}';document.getElementById('pollComponentId').value='${poll.componentId}';document.getElementById('pollCheckClickedButton').click()">${optText}</label>
+              </div>`;
           }
           html += `</div>`;
           // Do not show totals, bars, or voter list when user hasn't voted
