@@ -422,6 +422,7 @@
               [previousComponent]="'Social'" 
               [commentList]="story!.storyComments!"
               [storyId]="story.id"
+              [scrollToCommentId]="commentId"
               (commentAddedEvent)="commentAddedEvent($event)" 
               (commentHeaderClickedEvent)="showComments(story.id)"
               (commentRemovedEvent)="commentRemovedEvent($event)">

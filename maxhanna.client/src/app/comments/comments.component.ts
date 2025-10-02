@@ -1,4 +1,4 @@
-import { Component, ElementRef, EventEmitter, Input, OnInit, Output, ViewChild, AfterViewInit } from '@angular/core';
+import { Component, ElementRef, EventEmitter, Input, OnInit, Output, ViewChild, AfterViewInit, OnChanges, SimpleChanges } from '@angular/core';
 import { AppComponent } from '../app.component';
 import { CommentService } from '../../services/comment.service';
 import { ChildComponent } from '../child.component';
@@ -19,7 +19,7 @@ import { Poll } from '../../services/datacontracts/social/poll';
   styleUrl: './comments.component.css',
   standalone: false
 })
-export class CommentsComponent extends ChildComponent implements OnInit, AfterViewInit {
+export class CommentsComponent extends ChildComponent implements OnInit, AfterViewInit, OnChanges {
   showCommentLoadingOverlay = false;
   isOptionsPanelOpen = false;
   optionsComment: FileComment | undefined;
@@ -52,6 +52,8 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
   @Input() storyId?: number = undefined;
   @Input() fileId?: number = undefined;
   @Input() replyingToCommentId?: number;
+  // New: if provided, component will attempt to scroll to this comment's element id (commentText{ID})
+  @Input() scrollToCommentId?: number;
   @Output() commentAddedEvent = new EventEmitter<FileComment>();
   @Output() commentRemovedEvent = new EventEmitter<FileComment>();
   @Output() commentHeaderClickedEvent = new EventEmitter<boolean>(this.showComments);
@@ -79,6 +81,67 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
 
   ngAfterViewInit(): void {
     this.scheduleCommentPollRender();
+    this.tryScrollToRequestedComment();
+  }
+
+  ngOnChanges(changes: SimpleChanges): void {
+    if (changes['scrollToCommentId'] && !changes['scrollToCommentId'].firstChange) {
+      // Defer to allow DOM update
+      setTimeout(() => this.tryScrollToRequestedComment(), 100);
+    }
+  }
+
+  private _scrollAttemptCount = 0;
+  private _expandedForComment: Set<number> = new Set<number>();
+  private findCommentPath(targetId: number, list: FileComment[]): FileComment[] | null {
+    for (const c of list) {
+      if (c.id === targetId) return [c];
+      if (c.comments && c.comments.length) {
+        const subPath = this.findCommentPath(targetId, c.comments);
+        if (subPath) return [c, ...subPath];
+      }
+    }
+    return null;
+  }
+  private tryScrollToRequestedComment() {
+    if (!this.scrollToCommentId) return;
+    const targetId = 'commentText' + this.scrollToCommentId;
+    const el = document.getElementById(targetId) || document.getElementById('subComment' + this.scrollToCommentId);
+    if (el) {
+      try {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        // Temporary highlight
+        const originalTransition = (el as HTMLElement).style.transition;
+        (el as HTMLElement).style.transition = 'background-color 0.6s ease';
+        const originalBg = (el as HTMLElement).style.backgroundColor;
+        (el as HTMLElement).style.backgroundColor = 'rgba(255, 255, 0, 0.4)';
+        setTimeout(() => {
+          (el as HTMLElement).style.backgroundColor = originalBg;
+          (el as HTMLElement).style.transition = originalTransition;
+        }, 1800);
+        // Only scroll once per requested id
+        this.scrollToCommentId = undefined;
+      } catch { /* ignore */ }
+      return;
+    }
+    // If element not found yet, attempt to expand ancestor chain (only at root depth)
+    if (this.depth === 0 && !this._expandedForComment.has(this.scrollToCommentId)) {
+      const path = this.findCommentPath(this.scrollToCommentId, this.commentList);
+      if (path && path.length) {
+        // Ensure each ancestor is un-minimized so its sub-tree renders
+        for (const ancestor of path.slice(0, -1)) {
+          if (this.minimizedComments.has(ancestor.id)) {
+            this.minimizedComments.delete(ancestor.id);
+          }
+        }
+        this._expandedForComment.add(this.scrollToCommentId);
+      }
+    }
+    // Retry a few times in case nested components haven't rendered yet
+    if (this._scrollAttemptCount < 10) {
+      this._scrollAttemptCount++;
+      setTimeout(() => this.tryScrollToRequestedComment(), 200);
+    }
   }
 
   override viewProfile(user: User) {
