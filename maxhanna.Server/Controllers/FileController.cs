@@ -577,12 +577,21 @@ LIMIT
 			}
 
 			// Second pass: assign child comments to their parent
+			// Only nest comments that do NOT have a fileId (mirrors SocialController logic for stories)
 			foreach (var (comment, parentId) in childComments)
 			{
+				if (comment.FileId != 0)
+				{
+					// This is a top-level file comment; don't attach under parent even if comment_parent_id is set.
+					continue;
+				}
 				if (allCommentsById.TryGetValue(parentId, out var parent))
 				{
 					parent.Comments ??= new List<FileComment>();
-					parent.Comments.Add(comment);
+					if (!parent.Comments.Any(c => c.Id == comment.Id))
+					{
+						parent.Comments.Add(comment);
+					}
 				}
 			}
 		}
