@@ -24,5 +24,7 @@ namespace maxhanna.Server.Controllers.DataContracts.Chat
 		public List<Reaction>? Reactions { get; set; }
 		public List<FileEntry> Files { get; set; } = new List<FileEntry>();
 		public DateTime? EditDate { get; set; }
+		// Optional polls attached to this chat message (if any)
+		public List<maxhanna.Server.Controllers.DataContracts.Social.Poll>? Polls { get; set; }
 	}
 }

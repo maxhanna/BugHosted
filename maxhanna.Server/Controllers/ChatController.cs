@@ -2,6 +2,7 @@ using maxhanna.Server.Controllers.DataContracts;
 using maxhanna.Server.Controllers.DataContracts.Chat;
 using maxhanna.Server.Controllers.DataContracts.Files;
 using maxhanna.Server.Controllers.DataContracts.Users;
+using maxhanna.Server.Controllers.DataContracts.Social;
 using Microsoft.AspNetCore.Mvc;
 using MySqlConnector;
 using System.Data;
@@ -647,8 +648,7 @@ namespace maxhanna.Server.Controllers
 										});
 									}
 
-									// Build Poll objects and attach to a list
-									var polls = new List<DataContracts.Social.Poll>();
+									// Build Poll objects and attach them directly to their ChatMessage.Polls
 									foreach (var msg in messages)
 									{
 										try
@@ -676,8 +676,10 @@ namespace maxhanna.Server.Controllers
 													option.VoteCount = voteCount;
 													option.Percentage = poll.TotalVotes > 0 ? (int)Math.Round((double)voteCount / poll.TotalVotes * 100) : 0;
 												}
-												polls.Add(poll);
-										}
+												// attach to the message
+												msg.Polls = msg.Polls ?? new List<DataContracts.Social.Poll>();
+												msg.Polls.Add(poll);
+											}
 										}
 										catch (Exception ex)
 										{
@@ -685,14 +687,6 @@ namespace maxhanna.Server.Controllers
 											continue;
 										}
 									}
-
-									// attach polls to response via an anonymous wrapper later
-									// store polls in a dictionary on messages by componentId? we'll include as top-level Polls
-									// For now, add to a dynamic bag stored in HttpContext.Items so we can include in response below
-									// But simpler: attach to messages as a new property via a small map and include in response
-									// We'll include a top-level "Polls" list alongside Messages to mirror Social response
-
-									HttpContext.Items["ChatPolls"] = polls;
 								}
 							}
 						}
@@ -710,15 +704,13 @@ namespace maxhanna.Server.Controllers
 					int safePageSize = pageSize > 0 ? pageSize : 10;
 					safePageNumber = safePageNumber > totalPages ? totalPages : safePageNumber;
 
-					var pollsFromContext = HttpContext.Items.ContainsKey("ChatPolls") ? HttpContext.Items["ChatPolls"] as List<DataContracts.Social.Poll> : null;
 					var response = new
 					{
 						Messages = safeMessages,
 						CurrentPage = safePageNumber,
 						PageSize = safePageSize,
 						TotalPages = totalPages,
-						TotalRecords = totalRecords,
-						Polls = pollsFromContext
+						TotalRecords = totalRecords
 					};
 
 					return Ok(response);
@@ -844,6 +836,102 @@ namespace maxhanna.Server.Controllers
 			finally
 			{
 				conn.Close();
+			}
+		}
+
+		private string ExtractPollQuestion(string storyText)
+		{
+			if (string.IsNullOrEmpty(storyText) || !storyText.Contains("[Poll]") || !storyText.Contains("[/Poll]"))
+			{
+				//Console.WriteLine("No valid poll found in story text.");
+				return string.Empty;
+			}
+
+			try
+			{
+				// Extract the poll section
+				int startIndex = storyText.IndexOf("[Poll]") + 6;
+				int endIndex = storyText.IndexOf("[/Poll]");
+				if (endIndex < startIndex)
+				{
+					_ = _log.Db("Malformed poll: [/Poll] tag missing or before [Poll].", null, "SOCIAL", true);
+					return string.Empty;
+				}
+
+				string pollContent = storyText.Substring(startIndex, endIndex - startIndex).Trim();
+				var lines = pollContent.Split(new[] { '\n' }, StringSplitOptions.RemoveEmptyEntries);
+
+				foreach (var line in lines)
+				{
+					if (line.Trim().StartsWith("Question:", StringComparison.OrdinalIgnoreCase))
+					{
+						return line.Substring("Question:".Length).Trim();
+					}
+				}
+
+				//Console.WriteLine("No question found in poll content.");
+				return string.Empty;
+			}
+			catch (Exception ex)
+			{
+				_ = _log.Db($"Error extracting poll question: {ex.Message}", null, "SOCIAL", true);
+				return string.Empty;
+			}
+		}
+
+		private List<PollOption> ExtractPollOptions(string storyText)
+		{
+			var options = new List<PollOption>();
+			if (string.IsNullOrEmpty(storyText) || !storyText.Contains("[Poll]") || !storyText.Contains("[/Poll]"))
+			{
+				//	Console.WriteLine("No valid poll found in story text.");
+				return options;
+			}
+
+			try
+			{
+				// Extract the poll section
+				int startIndex = storyText.IndexOf("[Poll]") + 6;
+				int endIndex = storyText.IndexOf("[/Poll]");
+				if (endIndex < startIndex)
+				{
+					_ = _log.Db("Malformed poll: [/Poll] tag missing or before [Poll].", null, "SOCIAL", true);
+					return options;
+				}
+
+				string pollContent = storyText.Substring(startIndex, endIndex - startIndex).Trim();
+				var lines = pollContent.Split(new[] { '\n' }, StringSplitOptions.RemoveEmptyEntries);
+
+				foreach (var line in lines)
+				{
+					if (line.Trim().StartsWith("Option ", StringComparison.OrdinalIgnoreCase))
+					{
+						var parts = line.Split(':', 2);
+						if (parts.Length == 2)
+						{
+							string optionId = parts[0].Replace("Option ", "", StringComparison.OrdinalIgnoreCase).Trim();
+							string optionText = parts[1].Trim();
+							if (!string.IsNullOrEmpty(optionText))
+							{
+								options.Add(new PollOption
+								{
+									Id = optionId, // e.g., "1", "2"
+									Text = optionText, // e.g., "Social", "Crypto"
+									VoteCount = 0,
+									Percentage = 0
+								});
+							}
+						}
+					}
+				}
+
+				//Console.WriteLine($"Extracted {options.Count} poll options.");
+				return options;
+			}
+			catch (Exception ex)
+			{
+				_ = _log.Db($"Error extracting poll options: {ex.Message}", null, "SOCIAL", true);
+				return options;
 			}
 		}
 
