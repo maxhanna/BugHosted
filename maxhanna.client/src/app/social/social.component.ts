@@ -321,23 +321,25 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
   }
 
   private setPollResultsIfVoted(res: StoryResponse) {
-    if (res.polls?.length && res.stories?.length) {
-      res.stories?.forEach(story => {
-        const poll = res.polls?.find(p => p.componentId === `storyText${story.id}`);
-        if (poll && story.storyText?.includes('[Poll]')) {
-          if (poll.userVotes.some(x => x.userId === this.parentRef?.user?.id)) {
-            const pollRegex = /\[Poll\](.*?)\[\/Poll\]/s;
-            const match = story.storyText?.match(pollRegex);
-            if (match) {
-              poll.options.forEach(option => {
-                story.storyText = story.storyText?.replace(option.text, `${option.text} (${option.voteCount} votes, ${option.percentage}%)`);
-              });
+    if (res.stories?.length) {
+      res.stories.forEach(story => {
+        // Prefer story-level polls if provided, fallback to aggregated response polls
+        const storyPolls = story.polls && story.polls.length ? story.polls : res.polls?.filter(p => p.componentId === `storyText${story.id}`) || [];
+        storyPolls.forEach(poll => {
+          if (poll && story.storyText?.includes('[Poll]')) {
+            if (poll.userVotes.some(x => x.userId === this.parentRef?.user?.id)) {
+              const pollRegex = /\[Poll\](.*?)\[\/Poll\]/s;
+              const match = story.storyText?.match(pollRegex);
+              if (match) {
+                poll.options.forEach(option => {
+                  story.storyText = story.storyText?.replace(option.text, `${option.text} (${option.voteCount} votes, ${option.percentage}%)`);
+                });
+              }
+              story.storyText += `<button onclick=\"document.getElementById('pollComponentId').value='storyText${story.id}';document.getElementById('pollDeleteButton').click()\" class=\"deletePollVoteButton\">Delete Vote</button>`;
+              story.storyText += `<div class=voterSpan>Voters(${poll.userVotes.length}): ${poll.userVotes.map(x => '@' + x.username).join(', ')}</div>`;
             }
-            //Show who voted.
-            story.storyText += `<button onclick="document.getElementById('pollComponentId').value='storyText${story.id}';document.getElementById('pollDeleteButton').click()" class="deletePollVoteButton">Delete Vote</button>`;
-            story.storyText += `<div class=voterSpan>Voters(${poll.userVotes.length}): ${poll.userVotes.map(x => '@' + x.username).join(', ')}</div>`;
           }
-        }
+        });
       });
     }
   }

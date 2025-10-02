@@ -1,4 +1,5 @@
 using maxhanna.Server.Controllers.DataContracts.Users;
+using maxhanna.Server.Controllers.DataContracts.Social; // For Poll
 
 namespace maxhanna.Server.Controllers.DataContracts.Files
 {
@@ -18,5 +19,7 @@ namespace maxhanna.Server.Controllers.DataContracts.Files
 		public List<FileEntry>? CommentFiles { get; set; } = new List<FileEntry>();
 		public List<FileComment>? Comments { get; set; } = new List<FileComment>();
 		public List<Reaction>? Reactions { get; set; }
+		// New: Polls associated with this comment (if the comment contains a poll markup or votes)
+		public List<Poll>? Polls { get; set; }
 	}
 }

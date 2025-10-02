@@ -23,13 +23,15 @@ namespace maxhanna.Server.Controllers.DataContracts.Social
 		public string? Country { get; set; }
 		public bool? Hidden { get; set; }
 		public List<Reaction>? Reactions { get; set; }
+		// New: Polls detected within this story's text or synthesized from votes
+		public List<Poll>? Polls { get; set; }
 
 		public Story() { }
 
 		public Story(int id, User user, string storyText, int? fileId,
-				DateTime date, int upvotes, int downvotes, int commentsCount, List<Metadata.Metadata>? metaData,
-				List<FileEntry> storyFiles, List<FileComment> storyComments, List<Topic> storyTopics,
-				int? profileUserId, string? city, string? country, bool? hidden, List<Reaction>? reactions)
+			DateTime date, int upvotes, int downvotes, int commentsCount, List<Metadata.Metadata>? metaData,
+			List<FileEntry> storyFiles, List<FileComment> storyComments, List<Topic> storyTopics,
+			int? profileUserId, string? city, string? country, bool? hidden, List<Reaction>? reactions, List<Poll>? polls = null)
 		{
 			Id = id;
 			User = user;
@@ -48,6 +50,7 @@ namespace maxhanna.Server.Controllers.DataContracts.Social
 			Country = country;
 			Hidden = hidden;
 			Reactions = reactions;
+			Polls = polls;
 		}
 	}
 }

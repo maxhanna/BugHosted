@@ -3,6 +3,7 @@ import { FileEntry } from "../file/file-entry";
 import { Reaction } from "../reactions/reaction";
 import { Topic } from "../topics/topic";
 import { User } from "../user/user"; 
+import { Poll } from "./poll";
 
 export class Story {
   id: number | undefined;
@@ -24,6 +25,8 @@ export class Story {
   reactions?: Array<Reaction> | undefined;
   timeSince?: string; 
   hidden?: boolean; 
+    // New: polls associated with this story
+    polls?: Array<Poll> | undefined;
 } 
 export class MetaData {
   url?: string;

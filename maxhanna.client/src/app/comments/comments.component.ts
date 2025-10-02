@@ -280,10 +280,25 @@ export class CommentsComponent extends ChildComponent implements OnInit {
     }
   }
 
-  // Update comment poll HTML in the DOM when poll results are available in the storyResponse
+  // Update comment poll HTML in the DOM when poll results are available either in aggregated list or attached to each comment
   updateCommentPollsInDOM(polls: any[]) {
-    if (!polls || polls.length === 0) return;
-    for (const poll of polls) {
+    // Merge in-line comment polls if not already passed
+    const inlineCommentPolls: any[] = [];
+    try {
+      this.commentList.forEach(c => {
+        if (c.polls && c.polls.length) {
+          c.polls.forEach(p => inlineCommentPolls.push(p));
+        }
+        if (c.comments && c.comments.length) {
+          c.comments.forEach(sc => {
+            if (sc.polls && sc.polls.length) sc.polls.forEach(p => inlineCommentPolls.push(p));
+          });
+        }
+      });
+    } catch {}
+    const allPolls = [...(polls || []), ...inlineCommentPolls];
+    if (!allPolls.length) return;
+    for (const poll of allPolls) {
       try {
         if (!poll || !poll.componentId) continue;
         // We're only interested in comment component IDs here

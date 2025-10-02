@@ -425,9 +425,9 @@ namespace maxhanna.Server.Controllers
 								normalizedPollData[canonical].AddRange(kv.Value);
 							}
 
-							// Attach poll data to stories and comments
-							storyResponse.Polls = new List<Poll>();
-							foreach (var story in storyResponse.Stories)
+											// Attach poll data to stories and comments
+											storyResponse.Polls = new List<Poll>(); // keep legacy aggregated list for backward compatibility
+											foreach (var story in storyResponse.Stories)
 							{
 								try
 								{
@@ -437,7 +437,7 @@ namespace maxhanna.Server.Controllers
 									List<PollOption> options = ExtractPollOptions(storyText);
 									string componentId = $"storyText{story.Id}";
 
-									if (!string.IsNullOrEmpty(question) && options.Any())
+										if (!string.IsNullOrEmpty(question) && options.Any())
 									{
 										// Prefer direct lookup in pollData, fall back to normalized map
 										var votes = pollData.TryGetValue(componentId, out var vlist) ? vlist : null;
@@ -466,7 +466,10 @@ namespace maxhanna.Server.Controllers
 												: 0;
 										}
 
-										storyResponse.Polls.Add(poll);
+											// Assign to story-level polls collection
+											if (story.Polls == null) story.Polls = new List<Poll>();
+											story.Polls.Add(poll);
+											storyResponse.Polls.Add(poll); // legacy aggregate
 									}
 
 									// Comment-level polls (for all comments attached to this story)
@@ -510,7 +513,10 @@ namespace maxhanna.Server.Controllers
 																: 0;
 														}
 
-														storyResponse.Polls.Add(cpoll);
+																// Attach to comment object
+																if (comment.Polls == null) comment.Polls = new List<Poll>();
+																comment.Polls.Add(cpoll);
+																storyResponse.Polls.Add(cpoll); // legacy aggregate
 													}
 													else
 													{
@@ -537,7 +543,10 @@ namespace maxhanna.Server.Controllers
 																CreatedAt = comment.Date
 															};
 
-															storyResponse.Polls.Add(synthesized);
+																	// Attach synthesized poll to comment
+																	if (comment.Polls == null) comment.Polls = new List<Poll>();
+																	comment.Polls.Add(synthesized);
+																	storyResponse.Polls.Add(synthesized); // legacy aggregate
 														}
 													}
 											}
@@ -896,7 +905,7 @@ namespace maxhanna.Server.Controllers
 						while (await rdr.ReadAsync())
 						{
 							int storyId = rdr.IsDBNull("story_id") ? 0 : rdr.GetInt32("story_id");
-							var story = stories.FirstOrDefault(s => s.Id == storyId);
+							Story? story = stories.FirstOrDefault(s => s.Id == storyId);
 
 							if (story != null && !rdr.IsDBNull("file_id"))
 							{
