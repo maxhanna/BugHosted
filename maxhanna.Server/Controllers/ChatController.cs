@@ -657,25 +657,66 @@ namespace maxhanna.Server.Controllers
 											string question = ExtractPollQuestion(content);
 											List<DataContracts.Social.PollOption> options = ExtractPollOptions(content);
 											string compId = "messageText" + msg.Id;
-											if (!string.IsNullOrEmpty(question) && options.Any())
+
+											// Try to get any votes for this component id
+											var votes = pollData.TryGetValue(compId, out var v) ? v : new List<DataContracts.Social.PollVote>();
+
+											// If we have explicit poll markup, use it. Otherwise, if there are votes recorded, construct
+											// poll options from distinct vote values so we can show aggregated results even for encrypted messages.
+											bool hasExplicitPoll = !string.IsNullOrEmpty(question) && options.Any();
+											bool hasVotes = votes != null && votes.Any();
+
+											if (hasExplicitPoll || hasVotes)
 											{
-												var votes = pollData.TryGetValue(compId, out var v) ? v : new List<DataContracts.Social.PollVote>();
 												var poll = new DataContracts.Social.Poll
+													{
+														ComponentId = compId,
+														Question = hasExplicitPoll ? question : "Poll",
+														Options = new List<DataContracts.Social.PollOption>(),
+														UserVotes = votes ?? new List<DataContracts.Social.PollVote>(),
+														TotalVotes = votes?.Count ?? 0,
+														CreatedAt = msg.Timestamp
+													};
+
+												if (hasExplicitPoll)
 												{
-													ComponentId = compId,
-													Question = question,
-													Options = options,
-													UserVotes = votes,
-													TotalVotes = votes?.Count ?? 0,
-													CreatedAt = msg.Timestamp
-												};
-												var voteCounts = poll.UserVotes.GroupBy(v => v.Value).ToDictionary(g => g.Key, g => g.Count());
-												foreach (var option in poll.Options)
-												{
-													int voteCount = voteCounts.FirstOrDefault(kvp => kvp.Key.Equals(option.Text, StringComparison.OrdinalIgnoreCase)).Value;
-													option.VoteCount = voteCount;
-													option.Percentage = poll.TotalVotes > 0 ? (int)Math.Round((double)voteCount / poll.TotalVotes * 100) : 0;
+													// Use parsed options and then populate counts
+													poll.Options = options;
 												}
+												else
+												{
+													// Build options from distinct vote values
+													var grouped = (votes ?? Enumerable.Empty<DataContracts.Social.PollVote>()).GroupBy(x => x.Value).Select(g => new
+													{
+														Text = g.Key,
+														Count = g.Count()
+													}).ToList();
+													int idCounter = 1;
+													foreach (var g in grouped)
+													{
+														poll.Options.Add(new DataContracts.Social.PollOption
+														{
+															Id = idCounter.ToString(),
+															Text = g.Text,
+															VoteCount = g.Count,
+															Percentage = poll.TotalVotes > 0 ? (int)Math.Round((double)g.Count / poll.TotalVotes * 100) : 0
+														});
+														idCounter++;
+													}
+												}
+
+												// If we used explicit options, compute counts and percentages from votes
+												if (hasExplicitPoll && poll.UserVotes != null)
+												{
+													var voteCounts = poll.UserVotes.GroupBy(v => v.Value).ToDictionary(g => g.Key, g => g.Count());
+													foreach (var option in poll.Options)
+													{
+														int voteCount = voteCounts.FirstOrDefault(kvp => kvp.Key.Equals(option.Text, StringComparison.OrdinalIgnoreCase)).Value;
+														option.VoteCount = voteCount;
+														option.Percentage = poll.TotalVotes > 0 ? (int)Math.Round((double)voteCount / poll.TotalVotes * 100) : 0;
+													}
+												}
+
 												// attach to the message
 												msg.Polls = msg.Polls ?? new List<DataContracts.Social.Poll>();
 												msg.Polls.Add(poll);
