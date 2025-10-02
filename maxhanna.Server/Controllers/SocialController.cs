@@ -1181,7 +1181,7 @@ namespace maxhanna.Server.Controllers
 						foreach (var story in stories)
 						{
 							story.StoryComments = allComments
-								.Where(c => c.StoryId == story.Id)
+								.Where(c => c.StoryId == story.Id && c.CommentId == null)
 								.ToList();
 						}
 					}
