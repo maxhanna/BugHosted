@@ -447,33 +447,63 @@ namespace maxhanna.Server.Controllers
 												List<PollOption> cOptions = ExtractPollOptions(commentText);
 												string cComponentId = $"commentText{comment.Id}";
 
-												if (!string.IsNullOrEmpty(cQuestion) && cOptions.Any())
-												{
-													var cpoll = new Poll
+													// If comment contains explicit poll markup, build from options; otherwise, if there are recorded votes, synthesize options from votes.
+													if (!string.IsNullOrEmpty(cQuestion) && cOptions.Any())
 													{
-														ComponentId = cComponentId,
-														Question = cQuestion,
-														Options = cOptions,
-														UserVotes = pollData.TryGetValue(cComponentId, out var cvotes) ? cvotes : new List<PollVote>(),
-														TotalVotes = cvotes?.Count ?? 0,
-														CreatedAt = comment.Date
-													};
+														var cvotesLocal = pollData.TryGetValue(cComponentId, out var cvotesFound) ? cvotesFound : new List<PollVote>();
+														var cpoll = new Poll
+														{
+															ComponentId = cComponentId,
+															Question = cQuestion,
+															Options = cOptions,
+															UserVotes = cvotesLocal,
+															TotalVotes = cvotesLocal?.Count ?? 0,
+															CreatedAt = comment.Date
+														};
 
-													var cvoteCounts = cpoll.UserVotes
-														.GroupBy(v => v.Value)
-														.ToDictionary(g => g.Key, g => g.Count());
+														var cvoteCounts = cpoll.UserVotes
+															.GroupBy(v => v.Value)
+															.ToDictionary(g => g.Key, g => g.Count());
 
-													foreach (var option in cpoll.Options)
-													{
-														int voteCount = cvoteCounts.FirstOrDefault(kvp => kvp.Key.Equals(option.Text, StringComparison.OrdinalIgnoreCase)).Value;
-														option.VoteCount = voteCount;
-														option.Percentage = cpoll.TotalVotes > 0
-															? (int)Math.Round((double)voteCount / cpoll.TotalVotes * 100)
-															: 0;
+														foreach (var option in cpoll.Options)
+														{
+															int voteCount = cvoteCounts.FirstOrDefault(kvp => kvp.Key.Equals(option.Text, StringComparison.OrdinalIgnoreCase)).Value;
+															option.VoteCount = voteCount;
+															option.Percentage = cpoll.TotalVotes > 0
+																? (int)Math.Round((double)voteCount / cpoll.TotalVotes * 100)
+																: 0;
+														}
+
+														storyResponse.Polls.Add(cpoll);
 													}
+													else
+													{
+														// Fallback: if no markup but there are votes recorded for this component, synthesize a poll from distinct vote values
+														if (pollData.TryGetValue(cComponentId, out var recordedVotes) && recordedVotes != null && recordedVotes.Count > 0)
+														{
+															var optionGroups = recordedVotes.GroupBy(v => v.Value)
+																.Select(g => new PollOption { Id = g.Key, Text = g.Key, VoteCount = g.Count(), Percentage = 0 })
+																.ToList();
 
-													storyResponse.Polls.Add(cpoll);
-												}
+															int total = recordedVotes.Count;
+															foreach (var opt in optionGroups)
+															{
+																opt.Percentage = total > 0 ? (int)Math.Round((double)opt.VoteCount / total * 100) : 0;
+															}
+
+															var synthesized = new Poll
+															{
+																ComponentId = cComponentId,
+																Question = "Poll",
+																Options = optionGroups,
+																UserVotes = recordedVotes,
+																TotalVotes = total,
+																CreatedAt = comment.Date
+															};
+
+															storyResponse.Polls.Add(synthesized);
+														}
+													}
 											}
 											catch (Exception ex)
 											{
