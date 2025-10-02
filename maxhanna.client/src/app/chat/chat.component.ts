@@ -218,12 +218,19 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
         }
         this.isChangingPage = false;
         setTimeout(() => {
-          // After messages load, update any poll results in DOM if the parent has poll data
+          // After messages load, update any poll results in DOM. Prefer server-provided polls in the response.
           try {
-            const parent = this.inputtedParentRef ?? this.parentRef;
-            const anyParent: any = parent as any;
-            if (anyParent && anyParent.storyResponse && anyParent.storyResponse.polls) {
-              this.updateChatPollsInDOM(anyParent.storyResponse.polls);
+            // Server may include polls as top-level property 'Polls' or 'polls'
+            const serverPolls = (res && (res.Polls || res.polls)) ? (res.Polls || res.polls) : null;
+            if (serverPolls && serverPolls.length) {
+              this.updateChatPollsInDOM(serverPolls);
+            } else {
+              // Fallback: if parent.storyResponse has polls (e.g., when viewing a story page), use those
+              const parent = this.inputtedParentRef ?? this.parentRef;
+              const anyParent: any = parent as any;
+              if (anyParent && anyParent.storyResponse && anyParent.storyResponse.polls) {
+                this.updateChatPollsInDOM(anyParent.storyResponse.polls);
+              }
             }
           } catch (e) {
             // ignore
@@ -268,7 +275,7 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
         }
         const hasVoted = poll.userVotes && poll.userVotes.length > 0;
         if (hasVoted) {
-          html += `<div class="pollControls"><button onclick="(window as any).handlePollDeleteClicked && (window as any).handlePollDeleteClicked('${poll.componentId.replace(/[^0-9]/g, '')}', '${poll.componentId}')">Delete vote</button></div>`;
+          html += `<div class="pollControls"><button onclick="document.getElementById('pollComponentId').value='${poll.componentId}';document.getElementById('pollDeleteButton').click();">Delete vote</button></div>`;
         }
         html += '</div>';
         tgt.innerHTML = html;
@@ -347,6 +354,13 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
     setTimeout(() => {
       this.scrollToBottomIfNeeded();
       this.pollForMessages(); 
+      // If server returned polls with this initial openChat response, inject them
+      try {
+        const serverPolls = (res && (res.Polls || res.polls)) ? (res.Polls || res.polls) : null;
+        if (serverPolls && serverPolls.length) {
+          this.updateChatPollsInDOM(serverPolls);
+        }
+      } catch { }
       this.isInitialLoad = true;
     }, 410);
     this.togglePanel();

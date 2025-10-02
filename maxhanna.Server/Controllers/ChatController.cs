@@ -592,6 +592,117 @@ namespace maxhanna.Server.Controllers
 			}
 			if (messages.Count > 0)
 			{
+				// Fetch and attach poll votes for chat messages (component ids: messageText{messageId})
+				try
+				{
+					var componentIds = messages.Select(m => "messageText" + m.Id).Distinct().ToList();
+					if (componentIds.Count > 0)
+					{
+						string pollSql = @"
+							SELECT 
+								pv.id, pv.user_id, pv.component_id, pv.value, pv.timestamp,
+								u.username,
+								udpfu.folder_path AS display_picture_folder,
+								udpfu.file_name AS display_picture_filename
+							FROM poll_votes pv
+							JOIN users u ON pv.user_id = u.id
+							LEFT JOIN user_display_pictures udp ON udp.user_id = u.id
+							LEFT JOIN file_uploads udpfu ON udp.file_id = udpfu.id
+							WHERE pv.component_id IN ({0})
+							ORDER BY pv.timestamp DESC;";
+						var parameterPlaceholders = string.Join(",", componentIds.Select((_, i) => "@compId" + i));
+						pollSql = string.Format(pollSql, parameterPlaceholders);
+
+						using (var conn2 = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+						{
+							await conn2.OpenAsync();
+							using (var pollCmd = new MySqlCommand(pollSql, conn2))
+							{
+								for (int i = 0; i < componentIds.Count; i++)
+								{
+									pollCmd.Parameters.AddWithValue("@compId" + i, componentIds[i]);
+								}
+
+								using (var pollRdr = await pollCmd.ExecuteReaderAsync())
+								{
+									var pollData = new Dictionary<string, List<DataContracts.Social.PollVote>>();
+									while (await pollRdr.ReadAsync())
+									{
+										var componentId = pollRdr.GetString("component_id");
+										if (!pollData.ContainsKey(componentId)) pollData[componentId] = new List<DataContracts.Social.PollVote>();
+										string? displayPicPath = null;
+										if (!pollRdr.IsDBNull(pollRdr.GetOrdinal("display_picture_folder")) && !pollRdr.IsDBNull(pollRdr.GetOrdinal("display_picture_filename")))
+										{
+											displayPicPath = $"{pollRdr.GetString("display_picture_folder")}/{pollRdr.GetString("display_picture_filename")}";
+										}
+										pollData[componentId].Add(new DataContracts.Social.PollVote
+										{
+											Id = pollRdr.GetInt32("id"),
+											UserId = pollRdr.GetInt32("user_id"),
+											ComponentId = componentId,
+											Value = pollRdr.GetString("value"),
+											Timestamp = pollRdr.GetDateTime("timestamp"),
+											Username = pollRdr.GetString("username"),
+											DisplayPicture = displayPicPath
+										});
+									}
+
+									// Build Poll objects and attach to a list
+									var polls = new List<DataContracts.Social.Poll>();
+									foreach (var msg in messages)
+									{
+										try
+										{
+											string content = msg.Content ?? string.Empty;
+											string question = ExtractPollQuestion(content);
+											List<DataContracts.Social.PollOption> options = ExtractPollOptions(content);
+											string compId = "messageText" + msg.Id;
+											if (!string.IsNullOrEmpty(question) && options.Any())
+											{
+												var votes = pollData.TryGetValue(compId, out var v) ? v : new List<DataContracts.Social.PollVote>();
+												var poll = new DataContracts.Social.Poll
+												{
+													ComponentId = compId,
+													Question = question,
+													Options = options,
+													UserVotes = votes,
+													TotalVotes = votes?.Count ?? 0,
+													CreatedAt = msg.Timestamp
+												};
+												var voteCounts = poll.UserVotes.GroupBy(v => v.Value).ToDictionary(g => g.Key, g => g.Count());
+												foreach (var option in poll.Options)
+												{
+													int voteCount = voteCounts.FirstOrDefault(kvp => kvp.Key.Equals(option.Text, StringComparison.OrdinalIgnoreCase)).Value;
+													option.VoteCount = voteCount;
+													option.Percentage = poll.TotalVotes > 0 ? (int)Math.Round((double)voteCount / poll.TotalVotes * 100) : 0;
+												}
+												polls.Add(poll);
+										}
+										}
+										catch (Exception ex)
+										{
+											_ = _log.Db($"Error processing message {msg.Id} for chat {chatId}: {ex.Message}\nStack Trace: {ex.StackTrace}", null, "CHAT", true);
+											continue;
+										}
+									}
+
+									// attach polls to response via an anonymous wrapper later
+									// store polls in a dictionary on messages by componentId? we'll include as top-level Polls
+									// For now, add to a dynamic bag stored in HttpContext.Items so we can include in response below
+									// But simpler: attach to messages as a new property via a small map and include in response
+									// We'll include a top-level "Polls" list alongside Messages to mirror Social response
+
+									HttpContext.Items["ChatPolls"] = polls;
+								}
+							}
+						}
+					}
+				}
+				catch (Exception ex)
+				{
+					_ = _log.Db("Error fetching chat poll votes: " + ex.Message, null, "CHAT", true);
+				}
+
 				try
 				{
 					var safeMessages = messages ?? new List<ChatMessage>();
@@ -599,13 +710,15 @@ namespace maxhanna.Server.Controllers
 					int safePageSize = pageSize > 0 ? pageSize : 10;
 					safePageNumber = safePageNumber > totalPages ? totalPages : safePageNumber;
 
+					var pollsFromContext = HttpContext.Items.ContainsKey("ChatPolls") ? HttpContext.Items["ChatPolls"] as List<DataContracts.Social.Poll> : null;
 					var response = new
 					{
 						Messages = safeMessages,
 						CurrentPage = safePageNumber,
 						PageSize = safePageSize,
 						TotalPages = totalPages,
-						TotalRecords = totalRecords
+						TotalRecords = totalRecords,
+						Polls = pollsFromContext
 					};
 
 					return Ok(response);

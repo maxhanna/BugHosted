@@ -71,7 +71,7 @@
     </div>
     <div>
       <div class="commentContent">
-        <div [innerHTML]="createClickableUrls(comment.commentText)" [id]="'commentText'+comment.id"
+  <div [innerHTML]="createClickableUrls(comment.commentText, comment.id)" [id]="'commentText'+comment.id"
           class="commentTextDiv" [style.display]="editingComments.includes(comment.id) ? 'none': 'block'"></div>
         <div *ngFor="let file of comment.commentFiles" class="commentMediaFile">
           <app-media-viewer [file]="file" [user]="comment.user" [currentDirectory]="file.directory"

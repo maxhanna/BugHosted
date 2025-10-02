@@ -143,13 +143,17 @@ export class CommentsComponent extends ChildComponent implements OnInit {
 
   getTextForDOM(text: string, component_id: number) {
     const parent = this.inputtedParentRef ?? this.parentRef;
+    // Ensure we pass the same component id string used in the DOM: commentText{commentId}
+    const componentIdStr = 'commentText' + (component_id ?? '');
     if (parent) {
-      return parent.getTextForDOM(text, component_id);
+      return parent.getTextForDOM(text, componentIdStr);
     } else return "Error fetching parent component.";
   }
 
-  createClickableUrls(text?: string): SafeHtml {
-    return this.getTextForDOM(text ?? "", this.component_id);
+  createClickableUrls(text?: string, commentId?: number): SafeHtml {
+    // If a specific comment id is provided, pass that through as the component id so polls use commentText{commentId}
+    const componentIdToUse = commentId !== undefined ? ('commentText' + commentId) : ('commentText' + (this.component_id ?? ''));
+    return this.getTextForDOM(text ?? "", componentIdToUse as any);
   }
 
   showOptionsPanel(comment: FileComment) {
@@ -294,7 +298,8 @@ export class CommentsComponent extends ChildComponent implements OnInit {
         // Add delete vote button if user has voted (use same id pattern)
         const hasVoted = poll.userVotes && poll.userVotes.length > 0;
         if (hasVoted) {
-          html += `<div class="pollControls"><button onclick="(window as any).handlePollDeleteClicked && (window as any).handlePollDeleteClicked('${poll.componentId.replace('commentText', '')}', '${poll.componentId}')">Delete vote</button></div>`;
+          // Use the global hidden input + delete button pattern to trigger deletion with correct component id
+          html += `<div class="pollControls"><button onclick="document.getElementById('pollComponentId').value='${poll.componentId}';document.getElementById('pollDeleteButton').click();">Delete vote</button></div>`;
         }
 
         html += '</div>';

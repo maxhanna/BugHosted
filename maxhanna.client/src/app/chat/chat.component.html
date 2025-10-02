@@ -6,8 +6,9 @@
     Chat
     <span *ngIf="currentChatUsers">
       with
-      <span *ngFor="let user of getChatUsersWithoutSelf(); let i = index" (click)="user?.id ? viewProfile(user, 'Chat') : ''"
-        class="cursorPointer"><span *ngIf="i > 0">, </span>{{user.username}}</span>
+      <span *ngFor="let user of getChatUsersWithoutSelf(); let i = index"
+        (click)="user?.id ? viewProfile(user, 'Chat') : ''" class="cursorPointer"><span *ngIf="i > 0">,
+        </span>{{user.username}}</span>
     </span>
   </div>
 
@@ -19,35 +20,34 @@
   <div class="chatArea" [class]="isPanelExpanded ? 'expanded' : ''">
     <div *ngIf="currentChatUsers">
       <div class="chatWindow" *ngIf="chatHistory" #chatWindow (scroll)="onScroll();">
-        <div *ngIf="pageNumber < totalPages" 
-          appInView (inView)="loadPreviousPage()" 
-          style="width: 100%; text-align: center;" 
-          class="smallFont secondaryFontColor"> 
+        <div *ngIf="pageNumber < totalPages" appInView (inView)="loadPreviousPage()"
+          style="width: 100%; text-align: center;" class="smallFont secondaryFontColor">
           <span>Current Page: {{pageNumber}}</span><span *ngIf="isLoadingPreviousPage">{{" "}}Loading...</span>
         </div>
 
-        <div *ngFor="let message of chatHistory"
-         [class.messageContainer]="true" 
-         [class.otherPersonsMessage]="message.sender.id !== (parentRef?.user?.id ?? 0)"
-         [style.flexDirection]="message.sender.id != (parentRef?.user?.id ?? 0) ? 'row-reverse' : 'row'">
-   
+        <div *ngFor="let message of chatHistory" [attr.id]="'messageText' + message.id" [class.messageContainer]="true"
+          [class.otherPersonsMessage]="message.sender.id !== (parentRef?.user?.id ?? 0)"
+          [style.flexDirection]="message.sender.id != (parentRef?.user?.id ?? 0) ? 'row-reverse' : 'row'">
+
           <span class="messageTimestamp">
             {{ getUtcTimestampString(message.timestamp) }}
             <span class="userSeen" *ngIf="message.seen" [title]="'Seen by:' + message.seen">👀</span>
           </span>
-  
+
           <!-- Profile tag on left for receiver, right for sender -->
-          <div class="profileTag" >
+          <div class="profileTag">
             <div class="usernameProfileLink">
               <app-user-tag [user]="message.sender" [inputtedParentRef]="parentRef" [previousComponent]="'Chat'"
                 [displayHoverPicture]="true" [containUsername]="true"></app-user-tag>
             </div>
-          </div> 
+          </div>
           <div class="messageContent" [attr.data-timestamp]="message.timestamp">
-            <div [innerHTML]="getTextForDOM(decryptContent(message.content))" *ngIf="!isEditing.includes(message.id)"></div>
+            <div [innerHTML]="getTextForDOM(decryptContent(message.content), 'messageText' + message.id)"
+              *ngIf="!isEditing.includes(message.id)"></div>
             <div *ngIf="isEditing.includes(message.id)">
-              <textarea [id]="'editTextArea' + message.id" style="width:100%">{{decryptContent(message.content)}}</textarea>
-            </div> 
+              <textarea [id]="'editTextArea' + message.id"
+                style="width:100%">{{decryptContent(message.content)}}</textarea>
+            </div>
             <div class="xxSmallFont thirdFontColor" *ngIf="message.editDate" [title]="message.editDate">
               Editied: {{message.editDate | timeSince}}
             </div>
@@ -56,8 +56,9 @@
               [style.marginTop]="(message.files && message.files.length > 0) ? '10px' : ''"
               [style.marginBottom]="(message.files && message.files.length > 0) ? '15px' : ''">
               <app-media-viewer [file]="file" [currentDirectory]="file.directory" [inputtedParentRef]="parentRef"
-                [displayExtraInfo]="false" [displayExpander]="false" [showMediaInformation]="true" [showCommentSection]="false"
-                [user]="parentRef?.user" [autoplay]="false" [autoload]="true" [previousComponent]="'Chat'">
+                [displayExtraInfo]="false" [displayExpander]="false" [showMediaInformation]="true"
+                [showCommentSection]="false" [user]="parentRef?.user" [autoplay]="false" [autoload]="true"
+                [previousComponent]="'Chat'">
               </app-media-viewer>
             </div>
 
@@ -65,25 +66,22 @@
               <app-reaction [messageId]="message.id" [user]="parentRef?.user" [component]="message"
                 [inputtedParentRef]="parentRef" [currentReactions]="message.reactions"
                 [previousComponent]="'Chat'"></app-reaction>
-              <button *ngIf="!isEditing.length" title="Quote Chat Message" (click)="quote(message)" class="coloredBgButton">🗨️</button>
+              <button *ngIf="!isEditing.length" title="Quote Chat Message" (click)="quote(message)"
+                class="coloredBgButton">🗨️</button>
               <button
                 *ngIf="message.sender.id === (parentRef?.user?.id ?? 0) && (isEditing.includes(message.id) || isEditing.length == 0)"
-                title="Edit Chat Message" 
-                class="coloredBgButton"
+                title="Edit Chat Message" class="coloredBgButton"
                 (click)="isEditing.includes(message.id) ? acceptEdit(message) : edit(message)">
                 ✏️{{ isEditing.includes(message.id) ? ' Accept' : '' }}
               </button>
-              <button
-                *ngIf="message.sender.id === (parentRef?.user?.id ?? 0) && isEditing.includes(message.id)"
-                class="coloredBgButton"
-                title="Cancel Edit Chat Message" 
-                (click)="stopEdit(message)">
+              <button *ngIf="message.sender.id === (parentRef?.user?.id ?? 0) && isEditing.includes(message.id)"
+                class="coloredBgButton" title="Cancel Edit Chat Message" (click)="stopEdit(message)">
                 ❌Cancel
               </button>
-            </div> 
-          </div> 
+            </div>
+          </div>
         </div>
-  
+
         <div *ngIf="(!chatHistory || chatHistory.length == 0) && !isLoading">
           ZZzzz. Empty chat!
         </div>
@@ -91,19 +89,14 @@
           Loading chat...
         </div>
       </div>
-  
+
       <div [style]="isEditing.length > 0 ? 'display: none' : ''">
-          <app-text-input #chatInput
-            [inputtedParentRef]="parentRef ?? inputtedParentRef"
-            [type]="'Chat'" 
-            [quoteMessage]="quoteMessage"
-            [chatId]="currentChatId"
-            [currentChatUsers]="currentChatUsers"
-            [enterToPost]="true"
-            (contentPosted)="chatMessagePosted($event)"></app-text-input>
+        <app-text-input #chatInput [inputtedParentRef]="parentRef ?? inputtedParentRef" [type]="'Chat'"
+          [quoteMessage]="quoteMessage" [chatId]="currentChatId" [currentChatUsers]="currentChatUsers"
+          [enterToPost]="true" (contentPosted)="chatMessagePosted($event)"></app-text-input>
       </div>
     </div>
-  </div> 
+  </div>
 </div>
 
 <!-- Chat Members Popup -->
@@ -114,17 +107,18 @@
   <div class="addChatMembersList gradientBackground">
     <div *ngFor="let chatMember of currentChatUsers" class="addChatMemberLi">
       <app-user-tag [user]="chatMember" [inputtedParentRef]="parentRef ?? inputtedParentRef" [displayMiniTag]="true"
-        [displayHoverPicture]="true"
-        [previousComponent]="'Chat'"></app-user-tag>
+        [displayHoverPicture]="true" [previousComponent]="'Chat'"></app-user-tag>
     </div>
   </div>
   <div style="width: 100%; margin-top: 5px; text-align: center; max-height: 250px; overflow: auto">
     Add Chat Member(s) :
     <div style="max-height:200px; width: 100%; overflow:auto; display: inline;">
-      <app-user-list [searchOnly]="true" [inputtedParentRef]="inputtedParentRef ?? parentRef" (groupChatEvent)="addChatMember($event)"></app-user-list>
+      <app-user-list [searchOnly]="true" [inputtedParentRef]="inputtedParentRef ?? parentRef"
+        (groupChatEvent)="addChatMember($event)"></app-user-list>
     </div>
-  </div> 
-  <button id="closeOverlay" (click)="closeChatMembersPanel()" class="closeButton" style="margin-top: 10px;">Close</button> 
+  </div>
+  <button id="closeOverlay" (click)="closeChatMembersPanel()" class="closeButton"
+    style="margin-top: 10px;">Close</button>
 </div>
 
 
@@ -172,7 +166,9 @@
     </div>
   </div>
   <div class="smallFont thirdFontColor">
-    Note: Chat messages are end-to-end encrypted with quantum-resistant encryption. We take your privacy seriously. That means your chat messages leave your computer securely encrypted over the internet, and kept encrypted in our database. No one but you and the recipient(s) can read these messages. 
+    Note: Chat messages are end-to-end encrypted with quantum-resistant encryption. We take your privacy seriously. That
+    means your chat messages leave your computer securely encrypted over the internet, and kept encrypted in our
+    database. No one but you and the recipient(s) can read these messages.
   </div>
   <div class="chatMenuPopupCloseDiv">
     <button id="closeOverlay" (click)="closeMenuPanel()">Close</button>
