@@ -1168,16 +1168,9 @@ namespace maxhanna.Server.Controllers
 										parentComment.Comments.Add(comment);
 									}
 								}
-								// else
-								// {
-								// 	// Optionally, log this if the parent comment is missing
-								// 	Console.WriteLine($"Parent comment with ID {parentCommentId.Value} not found for comment ID {commentId}");
-								// }
 							}
 						}
 
-						// Attach all comments for each story (including nested subcomments)
-						// while preserving parent->child nesting via parentComment.Comments above.
 						foreach (var story in stories)
 						{
 							story.StoryComments = allComments
