@@ -1,34 +1,7 @@
 import { FileEntry } from "../file/file-entry";
 import { Reaction } from "../reactions/reaction";
-import { User } from "../user/user";
-
-export interface PollOption {
-  id?: string;
-  text?: string;
-  voteCount?: number;
-  percentage?: number;
-}
-
-export interface PollVote {
-  id?: number;
-  userId?: number;
-  componentId?: string;
-  value?: string;
-  timestamp?: Date;
-  username?: string;
-  displayPicture?: string | null;
-}
-
-export interface Poll {
-  componentId?: string;
-  question?: string;
-  options?: PollOption[];
-  userVotes?: PollVote[];
-  totalVotes?: number;
-  createdAt?: Date;
-}
-
- 
+import { Poll } from "../social/poll";
+import { User } from "../user/user"; 
 
 export class Message {
   id: number;
