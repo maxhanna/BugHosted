@@ -321,27 +321,24 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
   }
 
   private setPollResultsIfVoted(res: StoryResponse) {
-    if (res.stories?.length) {
-      res.stories.forEach(story => {
-        // Prefer story-level polls if provided, fallback to aggregated response polls
-        const storyPolls = story.polls && story.polls.length ? story.polls : res.polls?.filter(p => p.componentId === `storyText${story.id}`) || [];
-        storyPolls.forEach(poll => {
-          if (poll && story.storyText?.includes('[Poll]')) {
-            if (poll.userVotes.some(x => x.userId === this.parentRef?.user?.id)) {
-              const pollRegex = /\[Poll\](.*?)\[\/Poll\]/s;
-              const match = story.storyText?.match(pollRegex);
-              if (match) {
-                poll.options.forEach(option => {
-                  story.storyText = story.storyText?.replace(option.text, `${option.text} (${option.voteCount} votes, ${option.percentage}%)`);
-                });
-              }
-              story.storyText += `<button onclick=\"document.getElementById('pollComponentId').value='storyText${story.id}';document.getElementById('pollDeleteButton').click()\" class=\"deletePollVoteButton\">Delete Vote</button>`;
-              story.storyText += `<div class=voterSpan>Voters(${poll.userVotes.length}): ${poll.userVotes.map(x => '@' + x.username).join(', ')}</div>`;
-            }
+    if (!res.stories?.length) return;
+    res.stories.forEach(story => {
+      const storyPolls = story.polls || [];
+      storyPolls.forEach(poll => {
+        if (!poll || !story.storyText?.includes('[Poll]')) return;
+        if (poll.userVotes.some(x => x.userId === this.parentRef?.user?.id)) {
+          const pollRegex = /\[Poll\](.*?)\[\/Poll\]/s;
+          const match = story.storyText?.match(pollRegex);
+          if (match) {
+            poll.options.forEach(option => {
+              story.storyText = story.storyText?.replace(option.text, `${option.text} (${option.voteCount} votes, ${option.percentage}%)`);
+            });
           }
-        });
+          story.storyText += `<button onclick=\"document.getElementById('pollComponentId').value='storyText${story.id}';document.getElementById('pollDeleteButton').click()\" class=\"deletePollVoteButton\">Delete Vote</button>`;
+          story.storyText += `<div class=voterSpan>Voters(${poll.userVotes.length}): ${poll.userVotes.map(x => '@' + x.username).join(', ')}</div>`;
+        }
       });
-    }
+    });
   }
 
   private getSearchStoryId() {
@@ -358,56 +355,26 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
   }
 
   updatePollsInDOM(delayMs: number = 1000): void {
-    if (!this.storyResponse?.polls?.length) {
-      return;
-    }
-
+    // Now polls are per-story only; iterate each story's polls
+    if (!this.storyResponse?.stories?.length) return;
     setTimeout(() => {
-      this.storyResponse?.polls?.forEach(poll => {
-        const componentId = poll.componentId; // e.g., storyText717
-        const pollContainer = document.getElementById(componentId);
-
-        if (!pollContainer) {
-          console.warn(`Poll container for ${componentId} not found in DOM.`);
-          return;
-        }
-
-        // Generate poll result HTML
-        let pollHtml = `<div class="poll-container" data-component-id="${componentId}">
-          <div class="poll-question">${poll.question}</div>
-          <div class="poll-options">`;
-
-        poll.options.forEach((option, index) => {
-          const percentage = option.percentage;
-          const voteCount = option.voteCount;
-          const pollId = `poll_${componentId}_${index}`; // Unique ID for this poll option
-
-          pollHtml += `
-            <div class="poll-option">
-              <input type="checkbox" value="${option.text}" id="poll-option-${pollId}" name="poll-options-${pollId}"
-                onClick="document.getElementById('pollCheckId').value='poll-option-${pollId}';
-                         document.getElementById('pollQuestion').value='${poll.question}';
-                         document.getElementById('pollComponentId').value='${componentId}';
-                         document.getElementById('pollCheckClickedButton').click()">
-              <label for="poll-option-${pollId}" onClick="document.getElementById('pollCheckId').value='poll-option-${pollId}';
-                         document.getElementById('pollQuestion').value='${poll.question}';
-                         document.getElementById('pollComponentId').value='${componentId}';
-                         document.getElementById('pollCheckClickedButton').click()">
-                ${option.text}
-              </label>
-              <div class="poll-result">
-                <div class="poll-bar" style="width: ${percentage}%"></div>
-                <span class="poll-stats">${voteCount} votes (${percentage}%)</span>
-              </div>
-            </div>`;
+      this.storyResponse?.stories?.forEach(s => {
+        (s.polls || []).forEach(poll => {
+          const componentId = poll.componentId;
+          const pollContainer = document.getElementById(componentId);
+          if (!pollContainer) return;
+          let pollHtml = `<div class="poll-container" data-component-id="${componentId}">`+
+            `<div class=\"poll-question\">${poll.question}</div><div class=\"poll-options\">`;
+          poll.options.forEach((option, index) => {
+            const percentage = option.percentage;
+            const voteCount = option.voteCount;
+            const pollId = `poll_${componentId}_${index}`;
+            pollHtml += `
+              <div class=\"poll-option\">\n\n\t<input type=\"checkbox\" value=\"${option.text}\" id=\"poll-option-${pollId}\" name=\"poll-options-${pollId}\" onClick=\"document.getElementById('pollCheckId').value='poll-option-${pollId}';document.getElementById('pollQuestion').value='${poll.question}';document.getElementById('pollComponentId').value='${componentId}';document.getElementById('pollCheckClickedButton').click()\">\n\t<label for=\"poll-option-${pollId}\" onClick=\"document.getElementById('pollCheckId').value='poll-option-${pollId}';document.getElementById('pollQuestion').value='${poll.question}';document.getElementById('pollComponentId').value='${componentId}';document.getElementById('pollCheckClickedButton').click()\">${option.text}</label>\n\t<div class=\"poll-result\">\n\t  <div class=\"poll-bar\" style=\"width: ${percentage}%\"></div>\n\t  <span class=\"poll-stats\">${voteCount} votes (${percentage}%)</span>\n\t</div>\n\t</div>`;
+          });
+          pollHtml += `</div><div class=\"poll-total\">Total Votes: ${poll.totalVotes}</div></div>`;
+          pollContainer.innerHTML = pollHtml;
         });
-
-        pollHtml += `</div>
-          <div class="poll-total">Total Votes: ${poll.totalVotes}</div>
-        </div>`;
-
-        // Update the DOM
-        pollContainer.innerHTML = pollHtml;
       });
     }, delayMs);
   } 

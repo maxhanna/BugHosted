@@ -438,8 +438,7 @@ namespace maxhanna.Server.Controllers
 								normalizedPollData[canonical].AddRange(kv.Value);
 							}
 
-											// Attach poll data to stories and comments (including nested)
-											storyResponse.Polls = new List<Poll>(); // keep legacy aggregated list for backward compatibility
+											// Attach poll data directly to stories/comments (no aggregate list)
 											foreach (var story in storyResponse.Stories)
 							{
 								try
@@ -482,7 +481,6 @@ namespace maxhanna.Server.Controllers
 											// Assign to story-level polls collection
 											if (story.Polls == null) story.Polls = new List<Poll>();
 											story.Polls.Add(poll);
-											storyResponse.Polls.Add(poll); // legacy aggregate
 									}
 
 									// Comment-level polls (for all comments attached to this story, recursively)
@@ -529,7 +527,6 @@ namespace maxhanna.Server.Controllers
 																// Attach to comment object
 																if (comment.Polls == null) comment.Polls = new List<Poll>();
 																comment.Polls.Add(cpoll);
-																storyResponse.Polls.Add(cpoll); // legacy aggregate
 													}
 													else
 													{
@@ -559,7 +556,6 @@ namespace maxhanna.Server.Controllers
 																	// Attach synthesized poll to comment
 																	if (comment.Polls == null) comment.Polls = new List<Poll>();
 																	comment.Polls.Add(synthesized);
-																	storyResponse.Polls.Add(synthesized); // legacy aggregate
 														}
 													}
 											}

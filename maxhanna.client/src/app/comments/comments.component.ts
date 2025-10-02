@@ -74,11 +74,8 @@ export class CommentsComponent extends ChildComponent implements OnInit {
     if (this.depth == 0) {
       this.decryptCommentsRecursively(this.commentList);
       // After initial decrypt, attempt to render any existing poll results for these comments
-      try { 
-        for(let comment of this.commentList) {
-          const polls = comment.polls ?? [];
-          this.updateCommentPollsInDOM(polls);
-        }
+      try {
+        this.updateCommentPollsInDOM([]);
       } catch { }
     }
   }
@@ -277,20 +274,15 @@ export class CommentsComponent extends ChildComponent implements OnInit {
     this.replyingToCommentEvent.emit(this.replyingToCommentId);
     // After a new comment is added, try to update any polls in the DOM for this comment
     try {
-      const parent = this.inputtedParentRef ?? this.parentRef;
-      const anyParent: any = parent as any;
-      if (anyParent && anyParent.storyResponse && anyParent.storyResponse.polls) {
-        this.updateCommentPollsInDOM(anyParent.storyResponse.polls);
-      }
-    } catch (e) {
-      console.warn('Failed to update comment polls in DOM', e);
-    }
+      // Directly render using polls attached to each comment (legacy aggregate removed)
+      this.updateCommentPollsInDOM([]);
+    } catch {}
   }
 
   // Update comment poll HTML in the DOM when poll results are available either in aggregated list or attached to each comment
   updateCommentPollsInDOM(polls: any[]) {
     // Merge in-line comment polls if not already passed
-    const inlineCommentPolls: any[] = [];
+  const inlineCommentPolls: any[] = [];
     try {
       this.commentList.forEach(c => {
         if (c.polls && c.polls.length) {
@@ -303,7 +295,7 @@ export class CommentsComponent extends ChildComponent implements OnInit {
         }
       });
     } catch {}
-    const allPolls = [...(polls || []), ...inlineCommentPolls];
+  const allPolls = [...inlineCommentPolls];
     if (!allPolls.length) return;
     for (const poll of allPolls) {
       try {
