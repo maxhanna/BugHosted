@@ -50,7 +50,7 @@ export class FileComponent extends ChildComponent implements OnInit, OnDestroy {
   topTopics: TopicRank[] = []; 
 
   @Input() user?: User;
-  @Input() fileId: string | null = null;
+  @Input() fileId: number | null = null;
 
   @ViewChild('directoryInput') directoryInput!: ElementRef<HTMLInputElement>;
   @ViewChild('fileInput') fileInput!: ElementRef<HTMLInputElement>;
