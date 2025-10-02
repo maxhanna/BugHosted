@@ -1,4 +1,4 @@
-import { Component, ElementRef, EventEmitter, Input, OnInit, Output, ViewChild } from '@angular/core';
+import { Component, ElementRef, EventEmitter, Input, OnInit, Output, ViewChild, AfterViewInit } from '@angular/core';
 import { AppComponent } from '../app.component';
 import { CommentService } from '../../services/comment.service';
 import { ChildComponent } from '../child.component';
@@ -18,7 +18,7 @@ import { TextToSpeechService } from '../../services/text-to-speech.service';
   styleUrl: './comments.component.css',
   standalone: false
 })
-export class CommentsComponent extends ChildComponent implements OnInit {
+export class CommentsComponent extends ChildComponent implements OnInit, AfterViewInit {
   showCommentLoadingOverlay = false;
   isOptionsPanelOpen = false;
   optionsComment: FileComment | undefined;
@@ -73,11 +73,14 @@ export class CommentsComponent extends ChildComponent implements OnInit {
     this.clearSubCommentsToggled();
     if (this.depth == 0) {
       this.decryptCommentsRecursively(this.commentList);
-      // After initial decrypt, attempt to render any existing poll results for these comments
-      try {
-        this.updateCommentPollsInDOM([]);
-      } catch { }
+      // Schedule poll rendering after view init lifecycle completes
+      this.scheduleCommentPollRender();
     }
+  }
+
+  ngAfterViewInit(): void {
+    // Secondary schedule in case comments arrive slightly after init
+    this.scheduleCommentPollRender();
   }
 
   override viewProfile(user: User) {
@@ -273,53 +276,77 @@ export class CommentsComponent extends ChildComponent implements OnInit {
     this.replyingToCommentId = undefined;
     this.replyingToCommentEvent.emit(this.replyingToCommentId);
     // After a new comment is added, try to update any polls in the DOM for this comment
-    try {
-      // Directly render using polls attached to each comment (legacy aggregate removed)
-      this.updateCommentPollsInDOM([]);
-    } catch {}
+    this.scheduleCommentPollRender();
   }
 
-  // Update comment poll HTML in the DOM when poll results are available either in aggregated list or attached to each comment
-  updateCommentPollsInDOM(polls: any[]) {
-    // Merge in-line comment polls if not already passed
-  const inlineCommentPolls: any[] = [];
-    try {
-      this.commentList.forEach(c => {
-        if (c.polls && c.polls.length) {
-          c.polls.forEach(p => inlineCommentPolls.push(p));
-        }
-        if (c.comments && c.comments.length) {
-          c.comments.forEach(sc => {
-            if (sc.polls && sc.polls.length) sc.polls.forEach(p => inlineCommentPolls.push(p));
-          });
-        }
-      });
-    } catch {}
-  const allPolls = [...inlineCommentPolls];
-    if (!allPolls.length) return;
-    for (const poll of allPolls) {
+  // Schedules poll rendering with a few retries to handle async DOM creation
+  private pollRenderAttempts = 0;
+  private readonly maxPollRenderAttempts = 6;
+  private scheduleCommentPollRender() {
+    if (this.pollRenderAttempts > this.maxPollRenderAttempts) return;
+    setTimeout(() => {
       try {
-        if (!poll || !poll.componentId) continue;
-        // We're only interested in comment component IDs here
-        if (!poll.componentId.startsWith('commentText')) continue;
+        this.updateCommentPollsInDOM();
+      } finally {
+        this.pollRenderAttempts++;
+        // If not all polls found (some still missing targets) retry
+        if (this.pollRenderAttempts <= this.maxPollRenderAttempts && this.hasUnrenderedPollTargets()) {
+          this.scheduleCommentPollRender();
+        }
+      }
+    }, this.pollRenderAttempts * 120); // incremental backoff
+  }
 
+  private hasUnrenderedPollTargets(): boolean {
+    const polls = this.collectAllCommentPolls();
+    for (const p of polls) {
+      if (!p || !p.componentId) continue;
+      if (!p.componentId.startsWith('commentText')) continue;
+      const tgt = document.getElementById(p.componentId);
+      if (!tgt) return true; // element not yet in DOM
+      // if element exists but no inserted container yet
+      const existing = tgt.parentElement?.querySelector('.comment-poll-container');
+      if (!existing) return true;
+    }
+    return false;
+  }
+
+  private collectAllCommentPolls(): any[] {
+    const result: any[] = [];
+    const recurse = (comments: FileComment[]) => {
+      for (const c of comments) {
+        if (c.polls && c.polls.length) result.push(...c.polls);
+        if (c.comments && c.comments.length) recurse(c.comments);
+      }
+    };
+    try { recurse(this.commentList || []); } catch {}
+    return result;
+  }
+
+  // Update comment poll HTML in the DOM using polls attached directly to each comment
+  updateCommentPollsInDOM() {
+    const polls = this.collectAllCommentPolls();
+    if (!polls.length) return;
+    const currentUser = this.inputtedParentRef?.user ?? this.parentRef?.user;
+    const currentUserId = currentUser?.id ?? 0;
+    const currentUserName = currentUser?.username ?? '';
+
+    for (const poll of polls) {
+      try {
+        if (!poll?.componentId || !poll.componentId.startsWith('commentText')) continue;
         const tgt = document.getElementById(poll.componentId);
-        if (!tgt) continue;
-
+        if (!tgt) continue; // wait for retry
         const question = poll.question ?? '';
 
-        // Determine if current user has voted on this poll
-        const currentUser = this.inputtedParentRef?.user ?? this.parentRef?.user;
-        const currentUserId = currentUser?.id ?? 0;
-        const currentUserName = currentUser?.username ?? '';
+        // Determine vote status
         let hasCurrentUserVoted = false;
         try {
-          if (poll.userVotes && poll.userVotes.length) {
+          if (poll.userVotes?.length) {
             for (const v of poll.userVotes) {
               if (!v) continue;
               if ((v.userId && +v.userId === +currentUserId) || (v.UserId && +v.UserId === +currentUserId)) { hasCurrentUserVoted = true; break; }
-              if ((v.id && +v.id === +currentUserId) || (v.user && v.user.id && +v.user.id === +currentUserId)) { hasCurrentUserVoted = true; break; }
-              const uname = (v.username || v.Username || (v.user && v.user.username) || '').toString();
+              if ((v.id && +v.id === +currentUserId) || (v.user?.id && +v.user.id === +currentUserId)) { hasCurrentUserVoted = true; break; }
+              const uname = (v.username || v.Username || v.user?.username || '').toString();
               if (uname && currentUserName && uname.toLowerCase() === currentUserName.toLowerCase()) { hasCurrentUserVoted = true; break; }
             }
           }
@@ -329,10 +356,9 @@ export class CommentsComponent extends ChildComponent implements OnInit {
         html += `<div class="pollQuestion">${question}</div>`;
 
         if (!hasCurrentUserVoted) {
-          // Render checkboxes (same structure as SocialComponent) so clicking registers a vote immediately
           html += `<div class="poll-options">`;
-          if (poll.options && poll.options.length) {
-            for (const [i, opt] of (poll.options || []).entries()) {
+          if (poll.options?.length) {
+            for (const [i, opt] of poll.options.entries()) {
               const optText = (opt && (opt.text || opt.Text || opt.value || opt.Value || opt)) ?? '';
               const escapedOpt = ('' + optText).replace(/'/g, "");
               const pollId = `poll_${poll.componentId}_${i}`;
@@ -347,9 +373,8 @@ export class CommentsComponent extends ChildComponent implements OnInit {
           }
           html += `</div>`;
         } else {
-          // User has voted: show results + voters
           let totalVotes = 0;
-          if (poll.options && poll.options.length) {
+          if (poll.options?.length) {
             for (const opt of poll.options) {
               const pct = opt.percentage ?? 0;
               const votes = opt.voteCount ?? 0;
@@ -362,53 +387,42 @@ export class CommentsComponent extends ChildComponent implements OnInit {
             }
           }
           html += `<div class="pollTotal">Total votes: ${totalVotes}</div>`;
-
-          if (poll.userVotes && poll.userVotes.length > 0) {
+          if (poll.userVotes?.length) {
             html += '<div class="pollVoters">Voters: ';
             const voterSpans: string[] = [];
             for (const v of poll.userVotes) {
-              const uname = v.username ?? v.userName ?? v.user_name ?? (v.user && v.user.username) ?? '';
+              const uname = v.username ?? v.userName ?? v.user_name ?? v.user?.username ?? '';
               voterSpans.push(`<span class=\"pollVoter\" onclick=\"(function(){var mi=document.getElementById('mentionInput'); if(mi) mi.value='@${uname}';})();\">@${uname}</span>`);
             }
             html += voterSpans.join(', ');
             html += '</div>';
           }
-
-          // Delete control
           html += `<div class="pollControls"><button onclick="(function(){var pc=document.getElementById('pollComponentId'); if(pc) pc.value='${poll.componentId}'; var pq=document.getElementById('pollQuestion'); if(pq) pq.value='${this.escapeHtmlAttribute(question)}'; document.getElementById('pollDeleteButton').click();})();">Delete vote</button></div>`;
         }
 
         html += '</div>';
-
-        // Insert poll HTML into a dedicated container after the comment text to avoid breaking comment nesting
         let pollContainer: HTMLElement | null = null;
         try {
           pollContainer = tgt.parentElement?.querySelector('.comment-poll-container') as HTMLElement | null;
           if (!pollContainer) {
             pollContainer = document.createElement('div');
             pollContainer.className = 'comment-poll-container';
-            // insert after tgt
-            if (tgt.parentNode) {
-              tgt.parentNode.insertBefore(pollContainer, tgt.nextSibling);
-            }
+            if (tgt.parentNode) tgt.parentNode.insertBefore(pollContainer, tgt.nextSibling);
           }
-          if (pollContainer) {
-            pollContainer.innerHTML = html;
-          }
-        } catch (e) {
-          // fallback: replace tgt content if insertion fails
-          try { tgt.innerHTML = html; } catch {} 
+          pollContainer.innerHTML = html;
+        } catch {
+          try { tgt.innerHTML = html; } catch {}
         }
 
-        // Pre-populate hidden inputs
         try {
           const pq = document.getElementById('pollQuestion') as HTMLInputElement | null;
           const pc = document.getElementById('pollComponentId') as HTMLInputElement | null;
           if (pq) pq.value = question;
           if (pc) pc.value = poll.componentId;
-        } catch (e) {}
+        } catch {}
       } catch (ex) {
-        console.warn('Error updating poll for', poll.componentId, ex);
+        // Continue with other polls
+        // console.warn('Error rendering comment poll', poll?.componentId, ex);
         continue;
       }
     }
