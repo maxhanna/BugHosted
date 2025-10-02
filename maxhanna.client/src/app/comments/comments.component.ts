@@ -284,32 +284,72 @@ export class CommentsComponent extends ChildComponent implements OnInit {
 
         // Build the poll result HTML (match the structure used by SocialComponent.updatePollsInDOM)
         let html = '<div class="pollResults">';
-        html += `<div class="pollQuestion">${poll.question}</div>`;
-        for (const opt of poll.options) {
-          const pct = opt.percentage ?? 0;
-          const votes = opt.voteCount ?? 0;
-          html += `
-            <div class="pollOption">
-              <div class="pollOptionText">${opt.text} <span class="pollVotes">(${votes} votes, ${pct}%)</span></div>
-              <div class="pollBarContainer"><div class="pollBar" style="width:${pct}%"></div></div>
-            </div>`;
+        // Ensure question is present
+        const question = poll.question ?? '';
+        html += `<div class="pollQuestion">${question}</div>`;
+
+        // Options with bars and counts
+        let totalVotes = 0;
+        if (poll.options && poll.options.length) {
+          for (const opt of poll.options) {
+            const pct = opt.percentage ?? 0;
+            const votes = opt.voteCount ?? 0;
+            totalVotes += votes;
+            html += `
+              <div class="pollOption">
+                <div class="pollOptionText">${opt.text} <span class="pollVotes">(${votes} votes, ${pct}%)</span></div>
+                <div class="pollBarContainer"><div class="pollBar" style="width:${pct}%"></div></div>
+              </div>`;
+          }
+        }
+
+        // Total votes
+        html += `<div class="pollTotal">Total votes: ${totalVotes}</div>`;
+
+        // Voter list (show @username spans like Social/Chat)
+        if (poll.userVotes && poll.userVotes.length > 0) {
+          html += '<div class="pollVoters">Voters: ';
+          const voterSpans: string[] = [];
+          for (const v of poll.userVotes) {
+            const uname = v.username ?? v.userName ?? v.user_name ?? '';
+            // Clicking the name should populate the mention input (if present)
+            voterSpans.push(`<span class=\"pollVoter\" onclick=\"(function(){var mi=document.getElementById('mentionInput'); if(mi) mi.value='@${uname}';})();\">@${uname}</span>`);
+          }
+          html += voterSpans.join(', ');
+          html += '</div>';
         }
 
         // Add delete vote button if user has voted (use same id pattern)
         const hasVoted = poll.userVotes && poll.userVotes.length > 0;
         if (hasVoted) {
-          // Use the global hidden input + delete button pattern to trigger deletion with correct component id
-          html += `<div class="pollControls"><button onclick="document.getElementById('pollComponentId').value='${poll.componentId}';document.getElementById('pollDeleteButton').click();">Delete vote</button></div>`;
+          // Set the pollQuestion and component id when delete is clicked so backend receives the real question
+          html += `<div class="pollControls"><button onclick="(function(){var pc=document.getElementById('pollComponentId'); if(pc) pc.value='${poll.componentId}'; var pq=document.getElementById('pollQuestion'); if(pq) pq.value='${this.escapeHtmlAttribute(question)}'; document.getElementById('pollDeleteButton').click();})();">Delete vote</button></div>`;
         }
 
         html += '</div>';
 
         tgt.innerHTML = html;
+
+        // Also pre-populate the hidden pollQuestion and pollComponentId for vote actions so the UI preserves the real question
+        try {
+          const pq = document.getElementById('pollQuestion') as HTMLInputElement | null;
+          const pc = document.getElementById('pollComponentId') as HTMLInputElement | null;
+          if (pq) pq.value = question;
+          if (pc) pc.value = poll.componentId;
+        } catch (e) {
+          // ignore
+        }
       } catch (ex) {
         console.warn('Error updating poll for', poll.componentId, ex);
         continue;
       }
     }
+  }
+
+  // Helper to escape single quotes/double quotes for inline attribute usage
+  private escapeHtmlAttribute(input: string): string {
+    if (!input) return '';
+    return input.replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/\"/g, '\\\"');
   }
   expandComment(comment: FileComment) {
     if (this.depth === 0) {
