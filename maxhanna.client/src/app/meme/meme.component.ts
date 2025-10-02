@@ -26,11 +26,12 @@ export class MemeComponent extends ChildComponent implements OnInit, OnDestroy  
   @ViewChild(FileSearchComponent) fileSearchComponent!: FileSearchComponent;
   @ViewChild('nsfwCheckmark') nsfwCheckmark!: ElementRef<HTMLInputElement>;
 
-  @Input() memeId: string | null = null;
+  @Input() memeId: number | null = null;
+  
   constructor(private route: ActivatedRoute, private topicService: TopicService, private userService: UserService) {
     super();
-    this.route.paramMap.subscribe(params => {
-      this.memeId = params.get('memeId');
+    this.route.paramMap.subscribe((params: any) => {
+      this.memeId = +params.get('memeId');
     });
     this.topicService.getTopFileTopics().then(res => { if (res) { this.topTopics = res; } }); 
   }
