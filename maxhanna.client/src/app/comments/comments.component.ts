@@ -343,13 +343,17 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
         if (!poll?.componentId || !poll.componentId.startsWith('commentText')) continue;
         const tgt = document.getElementById(poll.componentId);
         if (!tgt) continue; // wait for retry
+        // If we've already cleaned & rendered a poll container for this comment, just update existing container
+        const existingContainer = tgt.parentElement?.querySelector(`.comment-poll-container[data-poll-for="${poll.componentId}"]`);
         const question = poll.question ?? '';
 
-        // Remove original question/options text from the comment content to prevent duplication
-        try {
-          const optionTexts: string[] = Array.isArray(poll.options) ? poll.options.map((o: any) => (o && (o.text || o.Text || o.value || o.Value || o)) ?? '').filter((s: string) => !!s) : [];
-          this.removeOriginalPollTextFromElement(tgt, question, optionTexts);
-        } catch {}
+        // Collect option texts for cleanup
+        const optionTexts: string[] = Array.isArray(poll.options) ? poll.options.map((o: any) => (o && (o.text || o.Text || o.value || o.Value || o)) ?? '').filter((s: string) => !!s) : [];
+
+        // Only attempt to strip original markup once unless no container yet
+        if (!tgt.getAttribute('data-poll-cleaned') || !existingContainer) {
+          try { this.stripPollMarkupFromElement(tgt, question, optionTexts); } catch {}
+        }
 
         // Determine vote status
         let hasCurrentUserVoted = false;
@@ -414,17 +418,18 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
         }
 
         html += '</div>';
-        let pollContainer: HTMLElement | null = null;
+        let pollContainer: HTMLElement | null = existingContainer as HTMLElement | null;
         try {
-          pollContainer = tgt.parentElement?.querySelector('.comment-poll-container') as HTMLElement | null;
           if (!pollContainer) {
             pollContainer = document.createElement('div');
             pollContainer.className = 'comment-poll-container';
+            pollContainer.setAttribute('data-poll-for', poll.componentId);
             if (tgt.parentNode) tgt.parentNode.insertBefore(pollContainer, tgt.nextSibling);
           }
           pollContainer.innerHTML = html;
+          tgt.setAttribute('data-poll-cleaned', '1');
         } catch {
-          try { tgt.innerHTML = html; } catch {}
+          try { tgt.innerHTML = html; tgt.setAttribute('data-poll-cleaned', '1'); } catch {}
         }
 
         try {
@@ -441,29 +446,56 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
     }
   }
 
-  // Attempts to strip original poll lines (question + option lines) from the comment's displayed text before we append the rendered poll block
-  private removeOriginalPollTextFromElement(el: HTMLElement, question: string, optionTexts: string[]) {
+  // Robustly strip poll lines from the original comment content
+  private stripPollMarkupFromElement(el: HTMLElement, question: string, optionTexts: string[]) {
     if (!el) return;
-    let html = el.innerHTML;
-    if (!html) return;
-    const escapeRegex = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const candidates = [question, ...optionTexts].filter(Boolean).sort((a, b) => b.length - a.length);
-    for (const c of candidates) {
-      const esc = escapeRegex(c.trim());
-      if (!esc) continue;
-      // Remove variants within <p>, followed by <br>, or standalone text
-      const patterns: RegExp[] = [
-        new RegExp(`<p[^>]*>\s*${esc}\s*</p>`, 'gi'),
-        new RegExp(`${esc}\s*<br\s*/?>`, 'gi'),
-        new RegExp(`<br\s*/?>\s*${esc}`, 'gi'),
-        new RegExp(`${esc}`, 'gi')
-      ];
-      for (const r of patterns) {
-        html = html.replace(r, '');
+    const q = (question || '').trim().toLowerCase();
+    const opts = new Set(optionTexts.map(o => (o || '').trim().toLowerCase()).filter(Boolean));
+
+    // If element already cleaned, skip
+    if (el.getAttribute('data-poll-cleaned') === '1') return;
+
+    // Strategy:
+    // 1. Try removing child nodes that exactly match question/option text.
+    // 2. If a single text node contains all poll lines, rebuild it without those lines.
+    const nodesToRemove: ChildNode[] = [];
+    el.childNodes.forEach(n => {
+      const text = (n.textContent || '').trim().toLowerCase();
+      if (!text) return;
+      if (text === q || opts.has(text)) nodesToRemove.push(n);
+    });
+    if (nodesToRemove.length) {
+      nodesToRemove.forEach(n => n.parentNode?.removeChild(n));
+    } else if (el.childNodes.length === 1) {
+      const single = el.childNodes[0];
+      const raw = (single.textContent || '');
+      const lines = raw.split(/\r?\n|<br\s*\/?>/i);
+      if (lines.some(l => l.trim().toLowerCase() === q) && lines.some(l => opts.has(l.trim().toLowerCase()))) {
+        const kept = lines.filter(l => {
+          const low = l.trim().toLowerCase();
+          if (!low) return false;
+          if (low === q) return false;
+          if (opts.has(low)) return false;
+          return true;
+        });
+        (single as any).textContent = kept.join('\n');
       }
     }
-    // Collapse repeated breaks/spaces
-    html = html.replace(/(<br\s*\/?>\s*){3,}/gi, '<br>');
+
+    // Secondary pass: regex removal inside innerHTML if artifacts remain
+    let html = el.innerHTML;
+    const escapeRegex = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const removeLine = (val: string) => {
+      if (!val) return;
+      const esc = escapeRegex(val.trim());
+      // remove paragraphs containing it
+      html = html.replace(new RegExp(`<p[^>]*>\\s*${esc}\\s*</p>`, 'gi'), '');
+      // remove standalone occurrences followed/preceded by breaks
+      html = html.replace(new RegExp(`${esc}\\s*<br\\s*/?>`, 'gi'), '');
+      html = html.replace(new RegExp(`<br\\s*/?>\\s*${esc}`, 'gi'), '');
+    };
+    removeLine(question);
+    optionTexts.forEach(removeLine);
     el.innerHTML = html;
   }
 
