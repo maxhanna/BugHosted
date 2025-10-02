@@ -38,13 +38,15 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
   @Input() city?: string;
   @Input() country?: string;
   @Input() hide = false;
-  @Input() parentId? = "";
+  // legacy: parentId removed in favor of explicit numeric commentId
   @Input() storyId?: number = undefined
+  @Input() commentId?: number = undefined
+  @Input() chatId?: number;
+  @Input() fileId?: number;
   @Input() parentClass? = "";
   @Input() attachedTopics: Array<Topic> = [];
   @Input() showTopicSelector: boolean = true;
   @Input() type?: "Social" | "Comment" | "Chat";
-  @Input() chatId?: number;
   @Input() currentChatUsers?: User[];
   @Input() quoteMessage?: string;
   @Input() enterToPost: boolean = false;
@@ -176,17 +178,17 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
           originalContent = content.originalContent;
           derivedIds = {
             userProfileId: content.comment?.userProfileId ?? this.profileUser?.id ?? undefined,
-            storyId: content.comment?.storyId ?? undefined,
-            fileId: content.comment?.fileId ?? undefined,
-            commentId: content.comment?.commentId ?? undefined
+            storyId: this.storyId ?? content.comment?.storyId ?? undefined,
+            fileId: this.fileId ?? content.comment?.fileId ?? undefined,
+            commentId: this.commentId ?? content.comment?.commentId ?? undefined
           };
           console.log("type is comment and creating comment", derivedIds);
           results = await this.commentService.addComment(
             content.comment.commentText ?? "",
             user?.id,
-            content.comment.fileId,
-            content.comment.storyId,
-            content.comment.commentId,
+            this.fileId ?? content.comment.fileId,
+            this.storyId ?? content.comment.storyId,
+            this.commentId ?? content.comment.commentId,
             content.comment.userProfileId ?? this.profileUser?.id,
             content.comment.commentFiles,
             content.comment.city,
@@ -531,7 +533,12 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
     tmpComment.date = currentDate;
     tmpComment.fileId = isFile ? this.commentParent?.id : undefined;
     tmpComment.storyId = this.storyId ?? (isStory ? this.commentParent?.id : undefined);
-    tmpComment.commentId = isComment ? this.commentParent?.id : undefined;
+    // Prefer explicit numeric commentId input if provided (covers cases where commentParent may be a minimal object)
+    if (typeof this.commentId === 'number' && !isNaN(this.commentId) && this.commentId > 0) {
+      tmpComment.commentId = this.commentId;
+    } else {
+      tmpComment.commentId = isComment ? this.commentParent?.id : undefined;
+    }
     tmpComment.commentFiles = files ?? this.attachedFiles;
     tmpComment.country = location?.country;
     tmpComment.city = location?.city;

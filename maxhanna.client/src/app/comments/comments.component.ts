@@ -365,7 +365,25 @@ export class CommentsComponent extends ChildComponent implements OnInit {
 
         html += '</div>';
 
-        tgt.innerHTML = html;
+        // Insert poll HTML into a dedicated container after the comment text to avoid breaking comment nesting
+        let pollContainer: HTMLElement | null = null;
+        try {
+          pollContainer = tgt.parentElement?.querySelector('.comment-poll-container') as HTMLElement | null;
+          if (!pollContainer) {
+            pollContainer = document.createElement('div');
+            pollContainer.className = 'comment-poll-container';
+            // insert after tgt
+            if (tgt.parentNode) {
+              tgt.parentNode.insertBefore(pollContainer, tgt.nextSibling);
+            }
+          }
+          if (pollContainer) {
+            pollContainer.innerHTML = html;
+          }
+        } catch (e) {
+          // fallback: replace tgt content if insertion fails
+          try { tgt.innerHTML = html; } catch {} 
+        }
 
         // Pre-populate hidden inputs
         try {
