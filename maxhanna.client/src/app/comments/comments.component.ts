@@ -141,19 +141,31 @@ export class CommentsComponent extends ChildComponent implements OnInit {
     }
   }
 
-  getTextForDOM(text: string, component_id: number) {
+  getTextForDOM(text: string, component_id: any) {
     const parent = this.inputtedParentRef ?? this.parentRef;
-    // Ensure we pass the same component id string used in the DOM: commentText{commentId}
-    const componentIdStr = 'commentText' + (component_id ?? '');
-    if (parent) {
-      return parent.getTextForDOM(text, componentIdStr);
-    } else return "Error fetching parent component.";
+    if (!parent) return "Error fetching parent component.";
+
+    // Normalize component id: allow callers to pass a number (e.g., 123)
+    // or a pre-prefixed string (e.g., 'commentText123'). Ensure we
+    // always forward a properly prefixed component id to the parent.
+    let componentIdStr: string;
+    if (component_id === null || component_id === undefined || component_id === '') {
+      componentIdStr = '';
+    } else if (typeof component_id === 'number') {
+      componentIdStr = 'commentText' + component_id;
+    } else if (typeof component_id === 'string') {
+      componentIdStr = component_id.startsWith('commentText') ? component_id : 'commentText' + component_id;
+    } else {
+      componentIdStr = String(component_id);
+    }
+
+    return parent.getTextForDOM(text, componentIdStr);
   }
 
   createClickableUrls(text?: string, commentId?: number): SafeHtml {
-    // If a specific comment id is provided, pass that through as the component id so polls use commentText{commentId}
-    const componentIdToUse = commentId !== undefined ? ('commentText' + commentId) : ('commentText' + (this.component_id ?? ''));
-    return this.getTextForDOM(text ?? "", componentIdToUse as any);
+    // Pass the raw numeric id when available so getTextForDOM can normalize it.
+    const idToPass = commentId !== undefined ? commentId : (this.component_id ?? undefined);
+    return this.getTextForDOM(text ?? "", idToPass as any);
   }
 
   showOptionsPanel(comment: FileComment) {

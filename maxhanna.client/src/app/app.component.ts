@@ -892,8 +892,22 @@ export class AppComponent implements OnInit, AfterViewInit {
 
   private processPolls(text: string, component_id: any): string {
     const pollRegex = /\[Poll\](.*?)\[\/Poll\]/gs;
+    const normalizeComponentId = (comp: any) => {
+      if (!comp && comp !== 0) return '';
+      const s = String(comp);
+      const prefixes = ['commentText', 'storyText', 'messageText'];
+      foreachPrefix:
+      for (const p of prefixes) {
+        const idx = s.lastIndexOf(p);
+        if (idx >= 0) {
+          return s.substring(idx);
+        }
+      }
+      return s;
+    };
 
     return text.replace(pollRegex, (match: string, content: string): string => {
+      const normalizedComponentId = normalizeComponentId(component_id);
       // Generate a unique ID for this poll
       const pollId = `poll_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
@@ -924,8 +938,8 @@ export class AppComponent implements OnInit, AfterViewInit {
         if (!option.includes("votes, ")) {
           pollHtml += `
             <div class="poll-option">
-                <input type="checkbox" value="${option}" id="poll-option-${pollId}-${index}" name="poll-options-${pollId}" onClick="document.getElementById('pollCheckId').value='poll-option-${pollId}-${index}';document.getElementById('pollQuestion').value='${this.htmlEncodeForInput(question)}';document.getElementById('pollComponentId').value='${component_id}';document.getElementById('pollCheckClickedButton').click()">
-                <label for="poll-option-${pollId}-${index}" onClick="document.getElementById('pollCheckId').value='poll-option-${pollId}-${index}';document.getElementById('pollQuestion').value='${this.htmlEncodeForInput(question)}';document.getElementById('pollComponentId').value='${component_id}';document.getElementById('pollCheckClickedButton').click()">${option}</label>
+                <input type="checkbox" value="${option}" id="poll-option-${pollId}-${index}" name="poll-options-${pollId}" onClick="document.getElementById('pollCheckId').value='poll-option-${pollId}-${index}';document.getElementById('pollQuestion').value='${this.htmlEncodeForInput(question)}';document.getElementById('pollComponentId').value='${normalizedComponentId}';document.getElementById('pollCheckClickedButton').click()">
+                <label for="poll-option-${pollId}-${index}" onClick="document.getElementById('pollCheckId').value='poll-option-${pollId}-${index}';document.getElementById('pollQuestion').value='${this.htmlEncodeForInput(question)}';document.getElementById('pollComponentId').value='${normalizedComponentId}';document.getElementById('pollCheckClickedButton').click()">${option}</label>
             </div>
           `;
         } else {
