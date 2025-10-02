@@ -41,7 +41,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   @Input() displayReactions: boolean = true;
   @Input() autoload: boolean = false;
   @Input() canDragMove: boolean = true;
-  @Input() fileId: number | null = null;
+  @Input() fileId?: number | undefined = undefined;
   @Input() commentId?: number;
   @Input() displayTotal = true;
   @Input() showFileSearchOptions = true;
