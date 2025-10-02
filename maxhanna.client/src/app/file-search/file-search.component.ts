@@ -124,15 +124,15 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
 
     this.allowedFileTypes = this.allowedFileTypes.map(type => type.toLowerCase());
     if (this.fileId) {
-      await this.getDirectory(undefined, parseInt(this.fileId));
+      await this.getDirectory(undefined, this.fileId);
       this.replacePageTitleAndDescription();
       return;
     }
 
-    this.route.paramMap.subscribe(async params => {
-      this.fileId = params.get('fileId');
+    this.route.paramMap.subscribe(async (params: any) => {
+      this.fileId = +params.get('fileId');
       if (this.fileId && this.fileId != null) {
-        await this.getDirectory(undefined, parseInt(this.fileId));
+        await this.getDirectory(undefined, this.fileId);
         this.replacePageTitleAndDescription();
         return;
       }
@@ -191,7 +191,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     }
   }
 
-  scrollToFile(fileId: string) {
+  scrollToFile(fileId: number) {
     setTimeout(() => {
       const element = document.getElementById('fileIdName' + fileId);
       if (element) {
@@ -285,7 +285,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
               this.totalPages = 1;
             }
 
-            if (this.fileId && this.fileId !== null && this.fileId !== '0' && this.directory.data!.find(x => x.id == parseInt(this.fileId!))) {
+            if (this.fileId && this.fileId !== null && this.fileId !== 0 && this.directory.data!.find(x => x.id == this.fileId!)) {
               this.scrollToFile(this.fileId!);
             }
           }
@@ -868,7 +868,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   }
   private replacePageTitleAndDescription() {
     if (this.directory && this.directory.data && this.directory.data.length > 0) {
-      const tgtFile = this.directory.data.find((file: FileEntry) => file.id == parseInt(this.fileId!));
+      const tgtFile = this.directory.data.find((file: FileEntry) => file.id == this.fileId);
       if (tgtFile) {
         const title = tgtFile.givenFileName ?? tgtFile.fileName ?? "Bughosted File";
         const image = `https://bughosted.com/assets/Uploads/${(this.getDirectoryName(tgtFile) != '.' ? this.getDirectoryName(tgtFile) : '') + tgtFile.fileName}`;
