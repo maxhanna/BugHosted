@@ -442,7 +442,7 @@ namespace maxhanna.Server.Controllers
 										{
 											try
 											{
-												string commentText = comment.CommentText ?? string.Empty;
+												string commentText = _log.DecryptContent(comment.CommentText ?? string.Empty, ((comment.User?.Id ?? 0) + ""));
 												string cQuestion = ExtractPollQuestion(commentText);
 												List<PollOption> cOptions = ExtractPollOptions(commentText);
 												string cComponentId = $"commentText{comment.Id}";
