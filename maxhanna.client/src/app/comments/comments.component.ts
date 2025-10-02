@@ -327,16 +327,29 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
   updateCommentPollsInDOM() {
     const polls = this.collectAllCommentPolls();
     if (!polls.length) return;
+    // Deduplicate by componentId to avoid double-rendering
+    const pollsMap = new Map<string, any>();
+    for (const p of polls) {
+      if (!p?.componentId) continue;
+      if (!p.componentId.startsWith('commentText')) continue;
+      if (!pollsMap.has(p.componentId)) pollsMap.set(p.componentId, p);
+    }
     const currentUser = this.inputtedParentRef?.user ?? this.parentRef?.user;
     const currentUserId = currentUser?.id ?? 0;
     const currentUserName = currentUser?.username ?? '';
 
-    for (const poll of polls) {
+    for (const poll of pollsMap.values()) {
       try {
         if (!poll?.componentId || !poll.componentId.startsWith('commentText')) continue;
         const tgt = document.getElementById(poll.componentId);
         if (!tgt) continue; // wait for retry
         const question = poll.question ?? '';
+
+        // Remove original question/options text from the comment content to prevent duplication
+        try {
+          const optionTexts: string[] = Array.isArray(poll.options) ? poll.options.map((o: any) => (o && (o.text || o.Text || o.value || o.Value || o)) ?? '').filter((s: string) => !!s) : [];
+          this.removeOriginalPollTextFromElement(tgt, question, optionTexts);
+        } catch {}
 
         // Determine vote status
         let hasCurrentUserVoted = false;
@@ -426,6 +439,32 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
         continue;
       }
     }
+  }
+
+  // Attempts to strip original poll lines (question + option lines) from the comment's displayed text before we append the rendered poll block
+  private removeOriginalPollTextFromElement(el: HTMLElement, question: string, optionTexts: string[]) {
+    if (!el) return;
+    let html = el.innerHTML;
+    if (!html) return;
+    const escapeRegex = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const candidates = [question, ...optionTexts].filter(Boolean).sort((a, b) => b.length - a.length);
+    for (const c of candidates) {
+      const esc = escapeRegex(c.trim());
+      if (!esc) continue;
+      // Remove variants within <p>, followed by <br>, or standalone text
+      const patterns: RegExp[] = [
+        new RegExp(`<p[^>]*>\s*${esc}\s*</p>`, 'gi'),
+        new RegExp(`${esc}\s*<br\s*/?>`, 'gi'),
+        new RegExp(`<br\s*/?>\s*${esc}`, 'gi'),
+        new RegExp(`${esc}`, 'gi')
+      ];
+      for (const r of patterns) {
+        html = html.replace(r, '');
+      }
+    }
+    // Collapse repeated breaks/spaces
+    html = html.replace(/(<br\s*\/?>\s*){3,}/gi, '<br>');
+    el.innerHTML = html;
   }
 
   // Helper to escape single quotes/double quotes for inline attribute usage
