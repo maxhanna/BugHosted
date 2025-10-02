@@ -109,6 +109,7 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
     const el = document.getElementById(targetId) || document.getElementById('subComment' + this.scrollToCommentId);
     if (el) {
       try {
+        console.log('[DeepLink] Found target element', targetId, 'after attempts', this._scrollAttemptCount);
         el.scrollIntoView({ behavior: 'smooth', block: 'center' });
         // Temporary highlight
         const originalTransition = (el as HTMLElement).style.transition;
@@ -127,23 +128,45 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
     // If element not found yet, attempt to expand ancestor chain (any depth)
     if (!this._expandedForComment.has(this.scrollToCommentId)) {
       const path = this.findCommentPath(this.scrollToCommentId, this.commentList);
+      console.log('[DeepLink] Path lookup for', this.scrollToCommentId, '=>', path?.map(p => p.id));
       if (path && path.length) {
         // Un-minimize all ancestors
         for (const ancestor of path.slice(0, -1)) {
+          console.log('[DeepLink] Ensuring ancestor visible', ancestor.id);
           if (this.minimizedComments.has(ancestor.id)) {
             this.minimizedComments.delete(ancestor.id);
+            console.log('[DeepLink] Removed minimized state for', ancestor.id);
           }
-          // Attempt to trigger UI expansion by clicking its reply button (ensures sub-tree renders) if present
-          const replyBtn = document.getElementById('replyButton' + ancestor.id) as HTMLButtonElement | null;
-          try { replyBtn?.click(); } catch { }
+          // Prefer explicit expand button if present
+          const expandBtn = document.getElementById('expandButton' + ancestor.id) as HTMLButtonElement | null;
+          if (expandBtn) {
+            console.log('[DeepLink] Clicking expand button for', ancestor.id);
+            try { expandBtn.click(); } catch (e) { console.warn('[DeepLink] Expand click failed', e); }
+          } else {
+            const replyBtn = document.getElementById('replyButton' + ancestor.id) as HTMLButtonElement | null;
+            if (replyBtn) {
+              console.log('[DeepLink] Fallback clicking reply button for', ancestor.id);
+              try { replyBtn.click(); } catch (e) { console.warn('[DeepLink] Reply click failed', e); }
+            } else {
+              console.log('[DeepLink] No expand/reply button found for ancestor', ancestor.id);
+            }
+          }
         }
         this._expandedForComment.add(this.scrollToCommentId);
       }
+      else {
+        console.log('[DeepLink] No path found in current commentList for', this.scrollToCommentId, 'at depth', this.depth);
+      }
     }
     // Retry a few times in case nested components haven't rendered yet
-    if (this._scrollAttemptCount < 10) {
+    const maxAttempts = 20;
+    if (this._scrollAttemptCount < maxAttempts) {
       this._scrollAttemptCount++;
-      setTimeout(() => this.tryScrollToRequestedComment(), 200);
+      const delay = 150 + (this._scrollAttemptCount * 50);
+      console.log('[DeepLink] Retry', this._scrollAttemptCount, 'delay', delay, 'ms for', this.scrollToCommentId);
+      setTimeout(() => this.tryScrollToRequestedComment(), delay);
+    } else {
+      console.warn('[DeepLink] Gave up after', this._scrollAttemptCount, 'attempts for', this.scrollToCommentId);
     }
   }
 

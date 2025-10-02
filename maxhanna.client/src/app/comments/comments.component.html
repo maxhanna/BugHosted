@@ -63,7 +63,7 @@
             {{replyingToCommentId == comment.id ? 'Cancel' : 'Reply'}}
           </button>
           <button *ngIf="comment.comments?.length" (click)="expandComment(comment)"
-            class="toggle-subcomments coloredBgButton" title="View subcomments">
+            class="toggle-subcomments coloredBgButton" title="View subcomments" [id]="'expandButton'+comment.id">
             {{!minimizedComments.has(comment.id) ? '▼' : '▶'}}
             ({{getTotalCommentCount(comment)}})
           </button>
