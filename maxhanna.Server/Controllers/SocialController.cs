@@ -402,7 +402,7 @@ namespace maxhanna.Server.Controllers
 								try
 								{
 									// Story-level poll
-									string storyText = story.StoryText ?? string.Empty;
+									string storyText = _log.DecryptContent(story.StoryText ?? string.Empty, ((story.User?.Id ?? 0) + ""));
 									string question = ExtractPollQuestion(storyText);
 									List<PollOption> options = ExtractPollOptions(storyText);
 									string componentId = $"storyText{story.Id}";
