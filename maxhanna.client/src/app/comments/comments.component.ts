@@ -314,10 +314,17 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
       try {
         const tgt = document.getElementById(poll.componentId);
         if (!tgt) continue; // wait for retry
+        // If we've already cleaned & rendered a poll container for this comment, just update existing container
+        const existingContainer = tgt.parentElement?.querySelector(`.comment-poll-container[data-poll-for="${poll.componentId}"]`);
         const question = poll.question ?? '';
 
         // Collect option texts for cleanup
         const optionTexts: string[] = Array.isArray(poll.options) ? poll.options.map((o: any) => (o && (o.text || o.Text || o.value || o.Value || o)) ?? '').filter((s: string) => !!s) : [];
+
+        // Only attempt to strip original markup once unless no container yet
+        if (!tgt.getAttribute('data-poll-cleaned') || !existingContainer) {
+          try { this.stripPollMarkupFromElement(tgt, question, optionTexts); } catch { }
+        }
 
         // Determine vote status
         let hasCurrentUserVoted = false;
@@ -340,41 +347,52 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
           }
         } catch { hasCurrentUserVoted = false; }
 
+        let html = '';
+
         if (hasCurrentUserVoted) {
-          // Strip original poll markup then replace entire comment content with results
-          if (!tgt.getAttribute('data-poll-cleaned')) {
-            try { this.stripPollMarkupFromElement(tgt, question, optionTexts); } catch {}
-          }
-          let html = '';
-          html += '<div class="pollResults">';
-            html += `<div class="pollQuestion">${question}</div>`;
-            let totalVotes = 0;
-            if (poll.options?.length) {
-              for (const opt of poll.options) {
-                const pct = opt.percentage ?? 0;
-                const votes = opt.voteCount ?? 0;
-                totalVotes += votes;
-                html += `
+          console.log("debug: user has voted", poll);
+          html += '<div class="pollResults">'
+          html += `<div class="pollQuestion">${question}</div>`;
+          let totalVotes = 0;
+          if (poll.options?.length) {
+            for (const opt of poll.options) {
+              const pct = opt.percentage ?? 0;
+              const votes = opt.voteCount ?? 0;
+              totalVotes += votes;
+              html += `
                 <div class="pollOption">
-                  <div class="pollOptionText">${opt.text} <span class=\"pollVotes\">(${votes} votes, ${pct}%)</span></div>
-                  <div class=\"pollBarContainer\"><div class=\"pollBar\" style=\"width:${pct}%\"></div></div>
+                  <div class="pollOptionText">${opt.text} <span class="pollVotes">(${votes} votes, ${pct}%)</span></div>
+                  <div class="pollBarContainer"><div class="pollBar" style="width:${pct}%"></div></div>
                 </div>`;
-              }
             }
-            html += `<div class="pollTotal">Total votes: ${totalVotes}</div>`;
-            if (poll.userVotes?.length) {
-              html += '<div class="pollVoters">Voters: ';
-              const voterSpans: string[] = [];
-              for (const v of poll.userVotes) {
-                const uname = v.username ?? '';
-                voterSpans.push(`<span class=\"pollVoter\" onclick=\"(function(){var mi=document.getElementById('mentionInput'); if(mi) mi.value='@${uname}';})();\">@${uname}</span>`);
-              }
-              html += voterSpans.join(', ');
-              html += '</div>';
+          }
+          html += `<div class="pollTotal">Total votes: ${totalVotes}</div>`;
+          if (poll.userVotes?.length) {
+            html += '<div class="pollVoters">Voters: ';
+            const voterSpans: string[] = [];
+            for (const v of poll.userVotes) {
+              const uname = v.username ?? '';
+              voterSpans.push(`<span class=\"pollVoter\" onclick=\"(function(){var mi=document.getElementById('mentionInput'); if(mi) mi.value='@${uname}';})();\">@${uname}</span>`);
             }
-            html += `<div class="pollControls"><button onclick=\"(function(){var pc=document.getElementById('pollComponentId'); if(pc) pc.value='${poll.componentId}'; var pq=document.getElementById('pollQuestion'); if(pq) pq.value='${this.escapeHtmlAttribute(question)}'; document.getElementById('pollDeleteButton').click();})();\">Delete vote</button></div>`;
-          html += '</div>';
-          try { tgt.innerHTML = html; tgt.setAttribute('data-poll-cleaned','1'); } catch {}
+            html += voterSpans.join(', ');
+            html += '</div>';
+          }
+          html += `<div class="pollControls"><button onclick="(function(){var pc=document.getElementById('pollComponentId'); if(pc) pc.value='${poll.componentId}'; var pq=document.getElementById('pollQuestion'); if(pq) pq.value='${this.escapeHtmlAttribute(question)}'; document.getElementById('pollDeleteButton').click();})();">Delete vote</button></div>`;
+          html += '</div>';        
+        }
+
+        let pollContainer: HTMLElement | null = existingContainer as HTMLElement | null;
+        try {
+          if (!pollContainer) {
+            pollContainer = document.createElement('div');
+            pollContainer.className = 'comment-poll-container';
+            pollContainer.setAttribute('data-poll-for', poll.componentId);
+            if (tgt.parentNode) tgt.parentNode.insertBefore(pollContainer, tgt.nextSibling);
+          }
+          pollContainer.innerHTML = html;
+          tgt.setAttribute('data-poll-cleaned', '1');
+        } catch {
+          try { tgt.innerHTML = html; tgt.setAttribute('data-poll-cleaned', '1'); } catch { }
         }
 
         try {
