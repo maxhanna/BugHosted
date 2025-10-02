@@ -840,8 +840,13 @@ LIMIT
 							if (!string.IsNullOrWhiteSpace(derived)) question = derived;
 						}
 
-						if (!string.IsNullOrEmpty(question) && options.Any())
+						if (options.Any())
 						{
+							if (string.IsNullOrWhiteSpace(question))
+							{
+								// Provide a default label but still preserve all options
+								question = "Poll";
+							}
 							pollData.TryGetValue(componentId, out var votesForComponent);
 							votesForComponent ??= new List<PollVote>();
 							var poll = new Poll
@@ -863,7 +868,7 @@ LIMIT
 							comment.Polls ??= new List<Poll>();
 							comment.Polls.Add(poll);
 						}
-						else if (pollData.TryGetValue(componentId, out var recordedVotes) && recordedVotes.Count > 0)
+						else if (!options.Any() && pollData.TryGetValue(componentId, out var recordedVotes) && recordedVotes.Count > 0)
 						{
 							// Synthesize poll from votes when no markup present
 							var optionGroups = recordedVotes.GroupBy(v => v.Value)
