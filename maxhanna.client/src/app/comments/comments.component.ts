@@ -11,6 +11,7 @@ import { MediaSelectorComponent } from '../media-selector/media-selector.compone
 import { ChatService } from '../../services/chat.service';
 import { EncryptionService } from '../../services/encryption.service';
 import { TextToSpeechService } from '../../services/text-to-speech.service';
+import { Poll } from '../../services/datacontracts/social/poll';
 
 @Component({
   selector: 'app-comments',
@@ -72,14 +73,11 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
   ngOnInit() {
     this.clearSubCommentsToggled();
     if (this.depth == 0) {
-      this.decryptCommentsRecursively(this.commentList);
-      // Schedule poll rendering after view init lifecycle completes
-      this.scheduleCommentPollRender();
+      this.decryptCommentsRecursively(this.commentList); 
     }
   }
 
-  ngAfterViewInit(): void {
-    // Secondary schedule in case comments arrive slightly after init
+  ngAfterViewInit(): void { 
     this.scheduleCommentPollRender();
   }
 
@@ -278,41 +276,15 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
     // After a new comment is added, try to update any polls in the DOM for this comment
     this.scheduleCommentPollRender();
   }
+  
+  private scheduleCommentPollRender() { 
+    setTimeout(() => { 
+      this.updateCommentPollsInDOM(); 
+    }, 120);  
+  } 
 
-  // Schedules poll rendering with a few retries to handle async DOM creation
-  private pollRenderAttempts = 0;
-  private readonly maxPollRenderAttempts = 6;
-  private scheduleCommentPollRender() {
-    if (this.pollRenderAttempts > this.maxPollRenderAttempts) return;
-    setTimeout(() => {
-      try {
-        this.updateCommentPollsInDOM();
-      } finally {
-        this.pollRenderAttempts++;
-        // If not all polls found (some still missing targets) retry
-        if (this.pollRenderAttempts <= this.maxPollRenderAttempts && this.hasUnrenderedPollTargets()) {
-          this.scheduleCommentPollRender();
-        }
-      }
-    }, this.pollRenderAttempts * 120); // incremental backoff
-  }
-
-  private hasUnrenderedPollTargets(): boolean {
-    const polls = this.collectAllCommentPolls();
-    for (const p of polls) {
-      if (!p || !p.componentId) continue;
-      if (!p.componentId.startsWith('commentText')) continue;
-      const tgt = document.getElementById(p.componentId);
-      if (!tgt) return true; // element not yet in DOM
-      // if element exists but no inserted container yet
-      const existing = tgt.parentElement?.querySelector('.comment-poll-container');
-      if (!existing) return true;
-    }
-    return false;
-  }
-
-  private collectAllCommentPolls(): any[] {
-    const result: any[] = [];
+  private collectAllCommentPolls(): Poll[] {
+    const result: Poll[] = [];
     const recurse = (comments: FileComment[]) => {
       for (const c of comments) {
         if (c.polls && c.polls.length) result.push(...c.polls);
@@ -328,7 +300,7 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
     const polls = this.collectAllCommentPolls();
     if (!polls.length) return;
     // Deduplicate by componentId to avoid double-rendering
-    const pollsMap = new Map<string, any>();
+    const pollsMap = new Map<string, Poll>();
     for (const p of polls) {
       if (!p?.componentId) continue;
       if (!p.componentId.startsWith('commentText')) continue;
@@ -340,7 +312,6 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
 
     for (const poll of pollsMap.values()) {
       try {
-        if (!poll?.componentId || !poll.componentId.startsWith('commentText')) continue;
         const tgt = document.getElementById(poll.componentId);
         if (!tgt) continue; // wait for retry
         // If we've already cleaned & rendered a poll container for this comment, just update existing container
@@ -361,9 +332,8 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
           if (poll.userVotes?.length) {
             for (const v of poll.userVotes) {
               if (!v) continue;
-              if ((v.userId && +v.userId === +currentUserId) || (v.UserId && +v.UserId === +currentUserId)) { hasCurrentUserVoted = true; break; }
-              if ((v.id && +v.id === +currentUserId) || (v.user?.id && +v.user.id === +currentUserId)) { hasCurrentUserVoted = true; break; }
-              const uname = (v.username || v.Username || v.user?.username || '').toString();
+              if ((v.userId && v.userId === currentUserId)) { hasCurrentUserVoted = true; break; }
+              const uname = (v.username || '').toString();
               if (uname && currentUserName && uname.toLowerCase() === currentUserName.toLowerCase()) { hasCurrentUserVoted = true; break; }
             }
           }
@@ -376,7 +346,7 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
           html += `<div class="poll-options">`;
           if (poll.options?.length) {
             for (const [i, opt] of poll.options.entries()) {
-              const optText = (opt && (opt.text || opt.Text || opt.value || opt.Value || opt)) ?? '';
+              const optText = opt.text ?? '';
               const escapedOpt = ('' + optText).replace(/'/g, "");
               const pollId = `poll_${poll.componentId}_${i}`;
               const inputId = `poll-option-${pollId}`;
@@ -408,7 +378,7 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
             html += '<div class="pollVoters">Voters: ';
             const voterSpans: string[] = [];
             for (const v of poll.userVotes) {
-              const uname = v.username ?? v.userName ?? v.user_name ?? v.user?.username ?? '';
+              const uname = v.username ?? '';
               voterSpans.push(`<span class=\"pollVoter\" onclick=\"(function(){var mi=document.getElementById('mentionInput'); if(mi) mi.value='@${uname}';})();\">@${uname}</span>`);
             }
             html += voterSpans.join(', ');
