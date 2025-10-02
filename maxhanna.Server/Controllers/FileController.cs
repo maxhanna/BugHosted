@@ -3,6 +3,7 @@ using maxhanna.Server.Controllers.DataContracts;
 using maxhanna.Server.Controllers.DataContracts.Files;
 using maxhanna.Server.Controllers.DataContracts.Topics;
 using maxhanna.Server.Controllers.DataContracts.Users;
+using maxhanna.Server.Controllers.DataContracts.Social; // Polls
 using Microsoft.AspNetCore.Mvc;
 using MySqlConnector;
 using Newtonsoft.Json;
@@ -368,6 +369,9 @@ LIMIT
 					}
 
 					GetFileComments(fileEntries, connection, fileIds, commentIds, fileIdsParameters);
+
+					// Attach polls to file entry comments (mirrors SocialController poll attachment)
+					await FetchAndAttachPollVotesToFileComments(fileEntries);
 
 					var commentIdsParameters = new List<string>();
 					for (int i = 0; i < commentIds.Count; i++)
@@ -738,6 +742,204 @@ LIMIT
 					}
 				}
 			}
+		}
+
+		// Poll attachment for file comments (adapted from SocialController.FetchAndAttachPollVotesAsync)
+		private async Task FetchAndAttachPollVotesToFileComments(List<FileEntry> fileEntries)
+		{
+			try
+			{
+				// Flatten all comments across all file entries
+				IEnumerable<FileComment> FlattenComments(IEnumerable<FileComment> roots)
+				{
+					foreach (var c in roots)
+					{
+						yield return c;
+						if (c.Comments != null && c.Comments.Count > 0)
+						{
+							foreach (var nested in FlattenComments(c.Comments)) yield return nested;
+						}
+					}
+				}
+
+				var allComments = fileEntries
+					.Where(f => f.FileComments != null && f.FileComments.Count > 0)
+					.SelectMany(f => FlattenComments(f.FileComments!))
+					.ToList();
+
+				if (allComments.Count == 0) return;
+
+				// Build component IDs for comments (commentText{commentId})
+				var componentIds = allComments.Select(c => $"commentText{c.Id}").Distinct().ToList();
+				if (componentIds.Count == 0) return;
+
+				// Prepare SQL with dynamic parameters
+				var parameterPlaceholders = componentIds.Select((_, i) => $"@compId{i}");
+				string pollSql = $@"SELECT 
+					pv.id, pv.user_id, pv.component_id, pv.value, pv.timestamp,
+					u.username,
+					udpfu.folder_path AS display_picture_folder,
+					udpfu.file_name AS display_picture_filename
+				FROM poll_votes pv
+				JOIN users u ON pv.user_id = u.id
+				LEFT JOIN user_display_pictures udp ON udp.user_id = u.id
+				LEFT JOIN file_uploads udpfu ON udp.file_id = udpfu.id
+				WHERE pv.component_id IN ({string.Join(",", parameterPlaceholders)})
+				ORDER BY pv.timestamp DESC;";
+
+				var pollData = new Dictionary<string, List<PollVote>>(StringComparer.OrdinalIgnoreCase);
+
+				using (var conn = new MySqlConnector.MySqlConnection(_connectionString))
+				{
+					await conn.OpenAsync();
+					using (var cmd = new MySqlConnector.MySqlCommand(pollSql, conn))
+					{
+						for (int i = 0; i < componentIds.Count; i++)
+						{
+							cmd.Parameters.AddWithValue($"@compId{i}", componentIds[i]);
+						}
+						using (var rdr = await cmd.ExecuteReaderAsync())
+						{
+							while (await rdr.ReadAsync())
+							{
+								string componentId = rdr.IsDBNull(rdr.GetOrdinal("component_id")) ? string.Empty : rdr.GetString("component_id");
+								if (string.IsNullOrEmpty(componentId)) continue;
+								if (!pollData.ContainsKey(componentId)) pollData[componentId] = new List<PollVote>();
+								var vote = new PollVote
+								{
+									Id = rdr.IsDBNull(rdr.GetOrdinal("id")) ? 0 : rdr.GetInt32("id"),
+									UserId = rdr.IsDBNull(rdr.GetOrdinal("user_id")) ? 0 : rdr.GetInt32("user_id"),
+									ComponentId = componentId,
+									Value = rdr.IsDBNull(rdr.GetOrdinal("value")) ? string.Empty : rdr.GetString("value"),
+									Timestamp = rdr.IsDBNull(rdr.GetOrdinal("timestamp")) ? DateTime.MinValue : rdr.GetDateTime("timestamp"),
+									Username = rdr.IsDBNull(rdr.GetOrdinal("username")) ? string.Empty : rdr.GetString("username"),
+									DisplayPicture = (rdr.IsDBNull(rdr.GetOrdinal("display_picture_folder")) || rdr.IsDBNull(rdr.GetOrdinal("display_picture_filename")))
+										? null
+										: $"/assets/Uploads/{rdr.GetString("display_picture_folder")}{rdr.GetString("display_picture_filename")}"
+								};
+								pollData[componentId].Add(vote);
+							}
+						}
+					}
+				}
+
+				if (pollData.Count == 0) return; // no votes; we still may synthesize polls from markup below though
+
+				foreach (var comment in allComments)
+				{
+					try
+					{
+						string decrypted = _log.DecryptContent(comment.CommentText ?? string.Empty, ((comment.User?.Id ?? 0) + ""));
+						string question = ExtractPollQuestion(decrypted);
+						var options = ExtractPollOptions(decrypted);
+						string componentId = $"commentText{comment.Id}";
+
+						if (!string.IsNullOrEmpty(question) && options.Any())
+						{
+							pollData.TryGetValue(componentId, out var votesForComponent);
+							votesForComponent ??= new List<PollVote>();
+							var poll = new Poll
+							{
+								ComponentId = componentId,
+								Question = question,
+								Options = options,
+								UserVotes = votesForComponent,
+								TotalVotes = votesForComponent.Count,
+								CreatedAt = comment.Date
+							};
+							var voteCounts = poll.UserVotes.GroupBy(v => v.Value).ToDictionary(g => g.Key, g => g.Count());
+							foreach (var opt in poll.Options)
+							{
+								int vc = voteCounts.TryGetValue(opt.Text, out var c) ? c : 0;
+								opt.VoteCount = vc;
+								opt.Percentage = poll.TotalVotes > 0 ? (int)Math.Round((double)vc / poll.TotalVotes * 100) : 0;
+							}
+							comment.Polls ??= new List<Poll>();
+							comment.Polls.Add(poll);
+						}
+						else if (pollData.TryGetValue(componentId, out var recordedVotes) && recordedVotes.Count > 0)
+						{
+							// Synthesize poll from votes when no markup present
+							var optionGroups = recordedVotes.GroupBy(v => v.Value)
+								.Select(g => new PollOption { Id = g.Key, Text = g.Key, VoteCount = g.Count() })
+								.ToList();
+							int total = recordedVotes.Count;
+							foreach (var o in optionGroups)
+								o.Percentage = total > 0 ? (int)Math.Round((double)o.VoteCount / total * 100) : 0;
+							var synthesized = new Poll
+							{
+								ComponentId = componentId,
+								Question = "Poll",
+								Options = optionGroups,
+								UserVotes = recordedVotes,
+								TotalVotes = total,
+								CreatedAt = comment.Date
+							};
+							comment.Polls ??= new List<Poll>();
+							comment.Polls.Add(synthesized);
+						}
+					}
+					catch (Exception innerEx)
+					{
+						_ = _log.Db($"Error processing file comment {comment.Id}: {innerEx.Message}", null, "FILE", true);
+						continue;
+					}
+				}
+			}
+			catch (Exception ex)
+			{
+				_ = _log.Db($"Error in FetchAndAttachPollVotesToFileComments: {ex.Message}\nStack: {ex.StackTrace}", null, "FILE", true);
+			}
+		}
+
+		// Reuse SocialController poll parsing helpers (duplicated for isolation)
+		private string ExtractPollQuestion(string text)
+		{
+			if (string.IsNullOrEmpty(text) || !text.Contains("[Poll]") || !text.Contains("[/Poll]")) return string.Empty;
+			try
+			{
+				int startIndex = text.IndexOf("[Poll]") + 6;
+				int endIndex = text.IndexOf("[/Poll]");
+				if (endIndex < startIndex) return string.Empty;
+				string pollContent = text.Substring(startIndex, endIndex - startIndex).Trim();
+				var lines = pollContent.Split(new[] { '\n' }, StringSplitOptions.RemoveEmptyEntries);
+				foreach (var line in lines)
+				{
+					if (line.Trim().StartsWith("Question:", StringComparison.OrdinalIgnoreCase))
+					{
+						return line.Substring("Question:".Length).Trim();
+					}
+				}
+				return string.Empty;
+			}
+			catch { return string.Empty; }
+		}
+
+		private List<PollOption> ExtractPollOptions(string text)
+		{
+			var options = new List<PollOption>();
+			if (string.IsNullOrEmpty(text) || !text.Contains("[Poll]") || !text.Contains("[/Poll]")) return options;
+			try
+			{
+				int startIndex = text.IndexOf("[Poll]") + 6;
+				int endIndex = text.IndexOf("[/Poll]");
+				if (endIndex < startIndex) return options;
+				string pollContent = text.Substring(startIndex, endIndex - startIndex).Trim();
+				var lines = pollContent.Split(new[] { '\n' }, StringSplitOptions.RemoveEmptyEntries);
+				foreach (var line in lines)
+				{
+					if (line.Trim().StartsWith("Option:", StringComparison.OrdinalIgnoreCase))
+					{
+						string optionText = line.Substring("Option:".Length).Trim();
+						if (!string.IsNullOrEmpty(optionText))
+						{
+							options.Add(new PollOption { Id = optionText, Text = optionText });
+						}
+					}
+				}
+				return options;
+			}
+			catch { return options; }
 		}
 
 		private static int GetResultCount(User? user, string directory, string? search, string favouritesCondition, string fileTypeCondition, string visibilityCondition, string ownershipCondition, string hiddenCondition, MySqlConnection connection, string searchCondition, List<MySqlParameter> extraParameters)
@@ -1682,7 +1884,7 @@ LIMIT
 
 
 		[HttpPost("/File/Edit-Topics", Name = "EditFileTopics")]
-		public async Task<IActionResult> EditFileTopics([FromBody] EditTopicRequest request)
+		public async Task<IActionResult> EditFileTopics([FromBody] maxhanna.Server.Controllers.DataContracts.Files.EditTopicRequest request)
 		{
 			try
 			{
