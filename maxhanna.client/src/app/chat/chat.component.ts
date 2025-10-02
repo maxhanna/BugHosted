@@ -218,6 +218,16 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
         }
         this.isChangingPage = false;
         setTimeout(() => {
+          // After messages load, update any poll results in DOM if the parent has poll data
+          try {
+            const parent = this.inputtedParentRef ?? this.parentRef;
+            const anyParent: any = parent as any;
+            if (anyParent && anyParent.storyResponse && anyParent.storyResponse.polls) {
+              this.updateChatPollsInDOM(anyParent.storyResponse.polls);
+            }
+          } catch (e) {
+            // ignore
+          }
           this.isInitialLoad = true;
         }, 1000);
       }
@@ -234,15 +244,40 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
     });
   }
 
-  private playSoundIfNewMessage(newMessages: Message[]) {
-    const user = this.inputtedParentRef?.user ?? this.parentRef?.user ?? new User(0, "Anonymous");
-    const receivedNewMessages = newMessages.length > 0 && newMessages.some(x => x.sender.id != user.id);
+  updateChatPollsInDOM(polls: any[]) {
+    if (!polls || polls.length === 0) return;
+    for (const poll of polls) {
+      try {
+        if (!poll || !poll.componentId) continue;
+        // chat messages may not use a consistent prefix, but many use message content without id; we'll target any element with that id
+        if (!poll.componentId.startsWith('messageText') && !poll.componentId.startsWith('chatMessage')) continue;
 
-    if (receivedNewMessages) {
-      console.log("playing sound!", new Date());
-      const notificationSound = new Audio("https://bughosted.com/assets/Uploads/Users/Max/arcade-ui-30-229499.mp4");
-      notificationSound.play().catch(error => console.error("Error playing notification sound:", error));
+        const tgt = document.getElementById(poll.componentId);
+        if (!tgt) continue;
+
+        let html = '<div class="pollResults">';
+        html += `<div class="pollQuestion">${poll.question}</div>`;
+        for (const opt of poll.options) {
+          const pct = opt.percentage ?? 0;
+          const votes = opt.voteCount ?? 0;
+          html += `
+            <div class="pollOption">
+              <div class="pollOptionText">${opt.text} <span class="pollVotes">(${votes} votes, ${pct}%)</span></div>
+              <div class="pollBarContainer"><div class="pollBar" style="width:${pct}%"></div></div>
+            </div>`;
+        }
+        const hasVoted = poll.userVotes && poll.userVotes.length > 0;
+        if (hasVoted) {
+          html += `<div class="pollControls"><button onclick="(window as any).handlePollDeleteClicked && (window as any).handlePollDeleteClicked('${poll.componentId.replace(/[^0-9]/g, '')}', '${poll.componentId}')">Delete vote</button></div>`;
+        }
+        html += '</div>';
+        tgt.innerHTML = html;
+      } catch (ex) {
+        console.warn('Error updating chat poll for', poll.componentId, ex);
+        continue;
+      }
     }
+  // poll injection only; notification handling happens elsewhere
   }
 
   onScroll() {

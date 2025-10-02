@@ -318,17 +318,31 @@ namespace maxhanna.Server.Controllers
 				WHERE pv.component_id IN ({0})
 				ORDER BY pv.timestamp DESC;";
 
-			var storyIds = storyResponse.Stories.Select(s => $"storyText{s.Id}").ToList();
-			if (storyIds.Count == 0)
+			// Build a list of component IDs to query: storyText{storyId} and commentText{commentId}
+			var componentIds = new List<string>();
+			foreach (var s in storyResponse.Stories)
 			{
-				//Console.WriteLine("No stories found to fetch poll votes for.");
+				componentIds.Add($"storyText{s.Id}");
+				if (s.StoryComments != null)
+				{
+					foreach (var c in s.StoryComments)
+					{
+						if (c != null)
+						{
+							componentIds.Add($"commentText{c.Id}");
+						}
+					}
+				}
+			}
+
+			componentIds = componentIds.Distinct().ToList();
+			if (componentIds.Count == 0)
+			{
 				return;
 			}
 
-			//Console.WriteLine($"Processing {storyIds.Count} story IDs: {string.Join(",", storyIds)}");
-
-			// Create parameter placeholders (e.g., @storyId0, @storyId1, ...)
-			var parameterPlaceholders = string.Join(",", storyIds.Select((_, i) => $"@storyId{i}"));
+			// Create parameter placeholders (e.g., @compId0, @compId1, ...)
+			var parameterPlaceholders = string.Join(",", componentIds.Select((_, i) => $"@compId{i}"));
 			pollSql = string.Format(pollSql, parameterPlaceholders);
 
 			try
@@ -339,10 +353,10 @@ namespace maxhanna.Server.Controllers
 					//Console.WriteLine("Database connection opened.");
 					using (var pollCmd = new MySqlCommand(pollSql, conn))
 					{
-						// Add each story ID as a separate parameter
-						for (int i = 0; i < storyIds.Count; i++)
+						// Add each component ID as a separate parameter
+						for (int i = 0; i < componentIds.Count; i++)
 						{
-							pollCmd.Parameters.AddWithValue($"@storyId{i}", storyIds[i]);
+							pollCmd.Parameters.AddWithValue($"@compId{i}", componentIds[i]);
 						}
 
 						//Console.WriteLine("Executing poll query.");
@@ -381,16 +395,13 @@ namespace maxhanna.Server.Controllers
 							}
 							//Console.WriteLine($"Poll votes fetched successfully. Found votes for {pollData.Count} components: {string.Join(",", pollData.Keys)}");
 
-							// Attach poll data to stories
+							// Attach poll data to stories and comments
 							storyResponse.Polls = new List<Poll>();
-							//Console.WriteLine($"Processing {storyResponse.Stories.Count} stories for poll attachment.");
 							foreach (var story in storyResponse.Stories)
 							{
 								try
 								{
-									//Console.WriteLine($"Checking story ID: {story.Id}, StoryText: {(string.IsNullOrEmpty(story.StoryText) ? "null/empty" : "present")}");
-
-									// Check if the story has a poll in its text
+									// Story-level poll
 									string storyText = story.StoryText ?? string.Empty;
 									string question = ExtractPollQuestion(storyText);
 									List<PollOption> options = ExtractPollOptions(storyText);
@@ -398,10 +409,9 @@ namespace maxhanna.Server.Controllers
 
 									if (!string.IsNullOrEmpty(question) && options.Any())
 									{
-										//Console.WriteLine($"Found poll for story {story.Id}. Extracting poll details.");
 										var poll = new Poll
 										{
-											ComponentId = componentId, // Use storyText{storyId}
+											ComponentId = componentId,
 											Question = question,
 											Options = options,
 											UserVotes = pollData.TryGetValue(componentId, out var votes) ? votes : new List<PollVote>(),
@@ -409,30 +419,68 @@ namespace maxhanna.Server.Controllers
 											CreatedAt = story.Date
 										};
 
-										//Console.WriteLine($"Poll question for story {story.Id}: '{poll.Question}', Options: {poll.Options.Count}");
-
-										// Calculate vote counts by matching vote value to option text
 										var voteCounts = poll.UserVotes
 											.GroupBy(v => v.Value)
 											.ToDictionary(g => g.Key, g => g.Count());
 
 										foreach (var option in poll.Options)
 										{
-											// Find the vote count by matching option.Text to vote.Value
 											int voteCount = voteCounts.FirstOrDefault(kvp => kvp.Key.Equals(option.Text, StringComparison.OrdinalIgnoreCase)).Value;
 											option.VoteCount = voteCount;
 											option.Percentage = poll.TotalVotes > 0
 												? (int)Math.Round((double)voteCount / poll.TotalVotes * 100)
 												: 0;
-											//Console.WriteLine($"Option {option.Id} ('{option.Text}'): {option.VoteCount} votes, {option.Percentage}%");
 										}
 
 										storyResponse.Polls.Add(poll);
-										//Console.WriteLine($"Poll for story {story.Id} with question '{poll.Question}' has {poll.TotalVotes} votes.");
 									}
-									else
+
+									// Comment-level polls (for all comments attached to this story)
+									if (story.StoryComments != null && story.StoryComments.Count > 0)
 									{
-										//Console.WriteLine($"No poll found in story text for story {story.Id}.");
+										foreach (var comment in story.StoryComments)
+										{
+											try
+											{
+												string commentText = comment.CommentText ?? string.Empty;
+												string cQuestion = ExtractPollQuestion(commentText);
+												List<PollOption> cOptions = ExtractPollOptions(commentText);
+												string cComponentId = $"commentText{comment.Id}";
+
+												if (!string.IsNullOrEmpty(cQuestion) && cOptions.Any())
+												{
+													var cpoll = new Poll
+													{
+														ComponentId = cComponentId,
+														Question = cQuestion,
+														Options = cOptions,
+														UserVotes = pollData.TryGetValue(cComponentId, out var cvotes) ? cvotes : new List<PollVote>(),
+														TotalVotes = cvotes?.Count ?? 0,
+														CreatedAt = comment.Date
+													};
+
+													var cvoteCounts = cpoll.UserVotes
+														.GroupBy(v => v.Value)
+														.ToDictionary(g => g.Key, g => g.Count());
+
+													foreach (var option in cpoll.Options)
+													{
+														int voteCount = cvoteCounts.FirstOrDefault(kvp => kvp.Key.Equals(option.Text, StringComparison.OrdinalIgnoreCase)).Value;
+														option.VoteCount = voteCount;
+														option.Percentage = cpoll.TotalVotes > 0
+															? (int)Math.Round((double)voteCount / cpoll.TotalVotes * 100)
+															: 0;
+													}
+
+													storyResponse.Polls.Add(cpoll);
+												}
+											}
+											catch (Exception ex)
+											{
+												_ = _log.Db($"Error processing comment {comment.Id} for story {story.Id}: {ex.Message}\nStack Trace: {ex.StackTrace}", null, "SOCIAL", true);
+												continue;
+											}
+										}
 									}
 								}
 								catch (Exception ex)
@@ -441,7 +489,6 @@ namespace maxhanna.Server.Controllers
 									continue;
 								}
 							}
-							//Console.WriteLine($"Finished attaching polls. Total polls added: {storyResponse.Polls.Count}");
 						}
 					}
 				}

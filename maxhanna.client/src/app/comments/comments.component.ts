@@ -254,6 +254,57 @@ export class CommentsComponent extends ChildComponent implements OnInit {
     }
     this.replyingToCommentId = undefined;
     this.replyingToCommentEvent.emit(this.replyingToCommentId);
+    // After a new comment is added, try to update any polls in the DOM for this comment
+    try {
+      const parent = this.inputtedParentRef ?? this.parentRef;
+      const anyParent: any = parent as any;
+      if (anyParent && anyParent.storyResponse && anyParent.storyResponse.polls) {
+        this.updateCommentPollsInDOM(anyParent.storyResponse.polls);
+      }
+    } catch (e) {
+      console.warn('Failed to update comment polls in DOM', e);
+    }
+  }
+
+  // Update comment poll HTML in the DOM when poll results are available in the storyResponse
+  updateCommentPollsInDOM(polls: any[]) {
+    if (!polls || polls.length === 0) return;
+    for (const poll of polls) {
+      try {
+        if (!poll || !poll.componentId) continue;
+        // We're only interested in comment component IDs here
+        if (!poll.componentId.startsWith('commentText')) continue;
+
+        const tgt = document.getElementById(poll.componentId);
+        if (!tgt) continue;
+
+        // Build the poll result HTML (match the structure used by SocialComponent.updatePollsInDOM)
+        let html = '<div class="pollResults">';
+        html += `<div class="pollQuestion">${poll.question}</div>`;
+        for (const opt of poll.options) {
+          const pct = opt.percentage ?? 0;
+          const votes = opt.voteCount ?? 0;
+          html += `
+            <div class="pollOption">
+              <div class="pollOptionText">${opt.text} <span class="pollVotes">(${votes} votes, ${pct}%)</span></div>
+              <div class="pollBarContainer"><div class="pollBar" style="width:${pct}%"></div></div>
+            </div>`;
+        }
+
+        // Add delete vote button if user has voted (use same id pattern)
+        const hasVoted = poll.userVotes && poll.userVotes.length > 0;
+        if (hasVoted) {
+          html += `<div class="pollControls"><button onclick="(window as any).handlePollDeleteClicked && (window as any).handlePollDeleteClicked('${poll.componentId.replace('commentText', '')}', '${poll.componentId}')">Delete vote</button></div>`;
+        }
+
+        html += '</div>';
+
+        tgt.innerHTML = html;
+      } catch (ex) {
+        console.warn('Error updating poll for', poll.componentId, ex);
+        continue;
+      }
+    }
   }
   expandComment(comment: FileComment) {
     if (this.depth === 0) {
