@@ -310,3 +310,12 @@
 .linkedComponent:hover {
   text-decoration: underline;
 }
+
+.poll-option-text {
+  width: unset;
+}
+
+.poll-option {
+  margin-bottom: unset;
+  align-items: center;
+}
