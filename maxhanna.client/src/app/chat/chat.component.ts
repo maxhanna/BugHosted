@@ -220,17 +220,26 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
         setTimeout(() => {
           // After messages load, update any poll results in DOM. Prefer server-provided polls in the response.
           try {
-            // Server may include polls as top-level property 'Polls' or 'polls'
-            const serverPolls = (res && (res.Polls || res.polls)) ? (res.Polls || res.polls) : null;
-            if (serverPolls && serverPolls.length) {
-              this.updateChatPollsInDOM(serverPolls);
-            } else {
-              // Fallback: if parent.storyResponse has polls (e.g., when viewing a story page), use those
-              const parent = this.inputtedParentRef ?? this.parentRef;
-              const anyParent: any = parent as any;
-              if (anyParent && anyParent.storyResponse && anyParent.storyResponse.polls) {
-                this.updateChatPollsInDOM(anyParent.storyResponse.polls);
+            // Server now attaches polls to each message (message.Polls). Iterate messages and inject any polls found.
+            if (res && res.messages && res.messages.length) {
+              for (const m of res.messages) {
+                try {
+                  const msgPolls = (m && (m.Polls || m.polls)) ? (m.Polls || m.polls) : null;
+                  if (msgPolls && msgPolls.length) {
+                    this.updateChatPollsInDOM(msgPolls);
+                  }
+                } catch (inner) {
+                  // continue to next message on parse error
+                  continue;
+                }
               }
+            }
+
+            // Fallback: if parent.storyResponse has polls (e.g., when viewing a story page), use those
+            const parent = this.inputtedParentRef ?? this.parentRef;
+            const anyParent: any = parent as any;
+            if (anyParent && anyParent.storyResponse && anyParent.storyResponse.polls) {
+              this.updateChatPollsInDOM(anyParent.storyResponse.polls);
             }
           } catch (e) {
             // ignore
@@ -256,7 +265,6 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
     for (const poll of polls) {
       try {
         if (!poll || !poll.componentId) continue;
-        // chat messages may not use a consistent prefix, but many use message content without id; we'll target any element with that id
         if (!poll.componentId.startsWith('messageText') && !poll.componentId.startsWith('chatMessage')) continue;
 
         const tgt = document.getElementById(poll.componentId);
@@ -354,11 +362,17 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
     setTimeout(() => {
       this.scrollToBottomIfNeeded();
       this.pollForMessages(); 
-      // If server returned polls with this initial openChat response, inject them
+      // If server returned polls with this initial openChat response, inject them per-message (message.Polls)
       try {
-        const serverPolls = (res && (res.Polls || res.polls)) ? (res.Polls || res.polls) : null;
-        if (serverPolls && serverPolls.length) {
-          this.updateChatPollsInDOM(serverPolls);
+        if (res && res.messages && res.messages.length) {
+          for (const m of res.messages) {
+            try {
+              const msgPolls = (m && (m.Polls || m.polls)) ? (m.Polls || m.polls) : null;
+              if (msgPolls && msgPolls.length) {
+                this.updateChatPollsInDOM(msgPolls);
+              }
+            } catch { continue; }
+          }
         }
       } catch { }
       this.isInitialLoad = true;
