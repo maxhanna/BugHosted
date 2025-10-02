@@ -1382,13 +1382,12 @@ export class AppComponent implements OnInit, AfterViewInit {
     const found = this.navigationItemDescriptions?.find(item => item.title === title);
     return found?.content ?? 'No description available.';
   }
-  /**
-   * Convert occurrences of [label][url] in a string into HTML anchor tags.
-   */
+  
   decodeInlineLinks(text: string): string {
     if (!text) return text;
-    const linkRegex = /\[([^\]]+)\]\[([^\]]+)\]/g;
-    return text.replace(linkRegex, (match, label, url) => {
+  // Do not match patterns where the second bracket starts with '/' or '*' (these are used for closing tags like [/*])
+  const linkRegex = /\[([^\]]+)\]\[((?![\/\*])[^\]]+)\]/g;
+  return text.replace(linkRegex, (match, label, url) => {
       const safeUrl = this.ensureUrlHasProtocol(url);
       return `<a href="${safeUrl}" target="_blank" rel="noopener noreferrer">${label}</a>`;
     });
@@ -1400,16 +1399,14 @@ export class AppComponent implements OnInit, AfterViewInit {
     return 'https://' + url;
   }
 
-  /**
-   * Walk text nodes inside a root element and replace [label][url] patterns with anchor elements in-place.
-   */
   decodeLinksInElement(root: HTMLElement) {
     if (!root) return;
-  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null);
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null);
     const nodesToProcess: Text[] = [];
     let node: Node | null;
+    const inlineTest = /\[([^\]]+)\]\[((?![\/\*])[^\]]+)\]/;
     while ((node = walker.nextNode())) {
-      if (node && node.nodeType === Node.TEXT_NODE && /\[[^\]]+\]\[[^\]]+\]/.test(node.nodeValue || '')) {
+      if (node && node.nodeType === Node.TEXT_NODE && inlineTest.test(node.nodeValue || '')) {
         nodesToProcess.push(node as Text);
       }
     }
@@ -1417,11 +1414,11 @@ export class AppComponent implements OnInit, AfterViewInit {
     nodesToProcess.forEach(textNode => {
       const parent = textNode.parentNode as HTMLElement;
       if (!parent) return;
-      const parts = (textNode.nodeValue || '').split(/(\[[^\]]+\]\[[^\]]+\])/g);
+      const parts = (textNode.nodeValue || '').split(/(\[[^\]]+\]\[((?![\/\*])[^\]]+)\])/g);
       const fragment = document.createDocumentFragment();
       parts.forEach(part => {
         if (!part) return;
-        const m = part.match(/^\[([^\]]+)\]\[([^\]]+)\]$/);
+        const m = part.match(/^\[([^\]]+)\]\[((?![\/\*])[^\]]+)\]$/);
         if (m) {
           const label = m[1];
           const url = this.ensureUrlHasProtocol(m[2]);
