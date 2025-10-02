@@ -299,96 +299,84 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
   updateCommentPollsInDOM() {
     const polls = this.collectAllCommentPolls();
     if (!polls.length) return;
-    const pollsMap = new Map<string, Poll>();
-    for (const p of polls) {
-      if (!p?.componentId) continue;
-      if (!p.componentId.startsWith('commentText')) continue;
-      if (!pollsMap.has(p.componentId)) pollsMap.set(p.componentId, p);
-    }
     const currentUser = this.inputtedParentRef?.user ?? this.parentRef?.user;
     const currentUserId = currentUser?.id ?? 0;
-    const currentUserName = currentUser?.username ?? '';
-    for (const poll of pollsMap.values()) {
-      try {
-        const tgt = document.getElementById(poll.componentId);
-        if (!tgt) continue;
-        const question = poll.question ?? '';
-        const safeQuestion = (question || '').replace(/'/g, '');
-  const optionTexts: string[] = Array.isArray(poll.options) ? poll.options.map((o: any) => (o && (o.text)) ?? '').filter((s: string) => !!s) : [];
+    const currentUserName = currentUser?.username?.toLowerCase() ?? '';
 
-        let hasCurrentUserVoted = false;
-        try {
-          if (poll.userVotes?.length) {
-            for (const v of poll.userVotes) {
-              if (!v) continue;
-              if ((v.userId && v.userId === currentUserId)) { hasCurrentUserVoted = true; break; }
-              const uname = (v.username || '').toString();
-              if (uname && currentUserName && uname.toLowerCase() === currentUserName.toLowerCase()) { hasCurrentUserVoted = true; break; }
+    // Group polls by componentId
+    const grouped = new Map<string, Poll[]>();
+    for (const p of polls) {
+      if (!p?.componentId || !p.componentId.startsWith('commentText')) continue;
+      if (!grouped.has(p.componentId)) grouped.set(p.componentId, []);
+      grouped.get(p.componentId)!.push(p);
+    }
+
+    const applyToComments = (comments: FileComment[]) => {
+      for (const c of comments) {
+        const key = 'commentText' + c.id;
+        const commentPolls = grouped.get(key);
+        if (commentPolls && commentPolls.length) {
+          // Determine if user voted in ANY poll for this comment
+            let userVoted = false;
+            for (const poll of commentPolls) {
+              try {
+                if (poll.userVotes?.length) {
+                  for (const v of poll.userVotes) {
+                    if (!v) continue;
+                    if ((v.userId && v.userId === currentUserId)) { userVoted = true; break; }
+                    const uname = (v.username || '').toString().toLowerCase();
+                    if (uname && uname === currentUserName) { userVoted = true; break; }
+                  }
+                }
+              } catch {}
+              if (userVoted) break;
             }
-          }
-        } catch { hasCurrentUserVoted = false; }
-
-        // Clean original markup once
-        if (!tgt.getAttribute('data-poll-cleaned')) {
-          try { this.stripPollMarkupFromElement(tgt, question, optionTexts); } catch {}
-        }
-
-        let html = `<div class="poll-container" data-component-id="${poll.componentId}" onClick="document.getElementById('pollQuestion').value='${safeQuestion}';">`;
-        html += `<div class="poll-question">${question}</div>`;
-        if (!hasCurrentUserVoted) {
-          html += `<div class="poll-options">`;
-          for (const [i, opt] of (poll.options || []).entries()) {
-            const optText = (opt && opt.text) ?? '';
-            const escapedOpt = ('' + optText).replace(/'/g, "");
-            const pollId = `poll_${poll.componentId}_${i}`;
-            const inputId = `poll-option-${pollId}`;
-            html += `
-              <div class="poll-option">
-                <input type="checkbox" value="${escapedOpt}" id="${inputId}" name="${inputId}"
-                  onClick="document.getElementById('pollCheckId').value='${inputId}';document.getElementById('pollQuestion').value='${safeQuestion}';document.getElementById('pollComponentId').value='${poll.componentId}';document.getElementById('pollCheckClickedButton').click()">
-                <label for="${inputId}" onclick="document.getElementById('pollCheckId').value='${inputId}';document.getElementById('pollQuestion').value='${safeQuestion}';document.getElementById('pollComponentId').value='${poll.componentId}';document.getElementById('pollCheckClickedButton').click()">${optText}</label>
-              </div>`;
-          }
-          html += `</div>`;
-        } else {
-          const totalVotes = poll.totalVotes ?? (poll.userVotes ? poll.userVotes.length : 0);
-          html += `<div class="poll-options">`;
-          for (const [i, opt] of (poll.options || []).entries()) {
-            const pct = opt.percentage ?? 0;
-            const votes = opt.voteCount ?? 0;
-            const optText = (opt && opt.text) ?? '';
-            html += `
-              <div class="poll-option">
-                <div class="poll-option-text">${optText}</div>
-                <div class="poll-result">
-                  <div class="poll-bar" style="width: ${pct}%"></div>
-                  <span class="poll-stats">${votes} votes (${pct}%)</span>
-                </div>
-              </div>`;
-          }
-          html += `</div>`;
-          html += `<div class="poll-total">Total Votes: ${totalVotes}</div>`;
-          if (poll.userVotes?.length) {
-            html += `<div class="poll-voters">Voted: `;
-            const voters: string[] = [];
-            for (const v of poll.userVotes) {
-              const uname = v.username || '';
-              if (!uname) continue;
-              const safeName = ('' + uname).replace(/'/g, "");
-              voters.push(`<span class=\"userMentionSpan\" onClick=\"document.getElementById('mentionInput').value='${safeName}';\">@${safeName}</span>`);
+            if (userVoted) {
+              // Build consolidated HTML for all polls in this comment
+              let combined = '';
+              for (const poll of commentPolls) {
+                const question = poll.question ?? '';
+                const totalVotes = poll.totalVotes ?? (poll.userVotes ? poll.userVotes.length : 0);
+                combined += `<div class="poll-container" data-component-id="${poll.componentId}">`;
+                combined += `<div class="poll-question">${question}</div>`;
+                combined += `<div class="poll-options">`;
+                for (const opt of (poll.options || [])) {
+                  const pct = opt.percentage ?? 0;
+                  const votes = opt.voteCount ?? 0;
+                  const optText = (opt && opt.text) ?? '';
+                  combined += `
+                    <div class="poll-option">
+                      <div class="poll-option-text">${optText}</div>
+                      <div class="poll-result">
+                        <div class="poll-bar" style="width: ${pct}%"></div>
+                        <span class="poll-stats">${votes} votes (${pct}%)</span>
+                      </div>
+                    </div>`;
+                }
+                combined += `</div>`;
+                combined += `<div class="poll-total">Total Votes: ${totalVotes}</div>`;
+                if (poll.userVotes?.length) {
+                  combined += `<div class="poll-voters">Voted: `;
+                  const voters: string[] = [];
+                  for (const v of poll.userVotes) {
+                    const uname = v?.username || '';
+                    if (!uname) continue;
+                    voters.push(`@${uname}`);
+                  }
+                  combined += voters.join(' ');
+                  combined += `</div>`;
+                }
+                combined += `<div class="pollControls"><button onclick=\"document.getElementById('pollQuestion').value='${this.escapeHtmlAttribute(question)}';document.getElementById('pollComponentId').value='${poll.componentId}';document.getElementById('pollDeleteButton').click();\">Delete vote</button></div>`;
+                combined += `</div>`; // end poll-container
+              }
+              c.commentText = combined; // Replace original text with results
             }
-            html += voters.join(' ');
-            html += `</div>`;
-            html += `<div class="pollControls"><button onclick=\"document.getElementById('pollQuestion').value='${safeQuestion}';document.getElementById('pollComponentId').value='${poll.componentId}';document.getElementById('pollDeleteButton').click();\">Delete vote</button></div>`;
-          }
         }
-        html += '</div>';
-        tgt.innerHTML = html;
-        tgt.setAttribute('data-poll-cleaned','1');
-      } catch (ex) {
-        continue;
+        if (c.comments?.length) applyToComments(c.comments);
       }
-  }
+    };
+
+    applyToComments(this.commentList);
   }
 
   // Robustly strip poll lines from the original comment content
