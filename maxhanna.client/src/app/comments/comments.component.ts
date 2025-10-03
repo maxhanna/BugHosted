@@ -108,7 +108,7 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
     const parent = this.breadcrumbComments[this.breadcrumbComments.length - 1];
     if (!parent || !parent.commentText) return '';
     // Strip HTML tags & condense whitespace
-    let txt = parent.commentText.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+    let txt = parent.user.username + ': ' + parent.commentText.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
     if (!txt) return '';
     if (txt.length > maxLength) {
       txt = txt.slice(0, maxLength - 1) + '…';
