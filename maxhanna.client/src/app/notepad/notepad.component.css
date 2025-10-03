@@ -90,7 +90,7 @@ textarea {
 .poppedUpCarouselleArea {
   max-width: 70vw;
   overflow: auto;
-  padding: 20px;
+  padding: 25px;
   display: flex;
   flex-wrap: wrap;
   flex-direction: row;
@@ -101,4 +101,6 @@ textarea {
 .poppedUpCarouselleList { 
     height: calc(60vh - 75px);
     overflow: auto;
+    align-content: flex-start;
+    align-items: flex-start;
 }
