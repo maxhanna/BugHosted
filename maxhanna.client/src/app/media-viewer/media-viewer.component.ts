@@ -187,21 +187,13 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
         this.inViewElapsedMs = 0;
       }
     }
-  }
-
-  // Helper method to check if the component's height is sufficient
-  private isComponentHeightSufficient(): boolean {
-    // Retained for compatibility with any external callers; no longer gating load strictly.
-    const mediaContainer = document.getElementById('mediaContainer' + this.fileId);
-    if (mediaContainer) {
-      const containerHeight = mediaContainer.offsetHeight;
-      const windowHeight = window.innerHeight;
-      return containerHeight <= windowHeight;
-    }
-    return true;
-  }
+  } 
 
   async fetchFileSrc(forceImmediate: boolean = false) {
+    if (this.inViewConfirmDelayMs && this.inViewConfirmDelayMs > 0 && this.inViewTimer && this.inViewElapsedMs < this.inViewConfirmDelayMs) {
+      this.debugLog('fetchFileSrc skipped while in-view confirm timer running', { elapsed: this.inViewElapsedMs, required: this.inViewConfirmDelayMs, isInView });
+      return;
+    }
     this.debugLog('fetchFileSrc invoked', { fileId: this.fileId, hasFileObj: !!this.file, fileSrcInput: this.fileSrc, alreadySelectedSrc: !!this.selectedFileSrc });
     if (forceImmediate && this.inViewTimer) {
       this.clearInViewTimer();
