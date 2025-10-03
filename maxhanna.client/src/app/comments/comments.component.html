@@ -11,8 +11,7 @@
     ) {{showComments ? '-' : '+'}}
   </span>
 </div>
-
-<!-- Breadcrumb Navigation (only shown when viewing subcomments) -->
+ 
 <div *ngIf="breadcrumbComments.length > 0" class="breadcrumb-nav gradientBackground">
   <span class="breadcrumb-item linkedComponent" (click)="navigateToComment(null)">All Comments</span>
   <span *ngFor="let breadcrumb of breadcrumbComments; let i = index" class="breadcrumb-item">
@@ -23,6 +22,9 @@
     <span *ngIf="i === breadcrumbComments.length - 1" class="breadcrumb-current">
       {{ breadcrumb.user.username }}
     </span>
+  </span>
+  <span class="breadcrumb-parent-snippet thirdFontColor xxSmallFont" *ngIf="getActiveBreadcrumbSnippet()">
+    — {{ getActiveBreadcrumbSnippet() }}
   </span>
 </div>
 

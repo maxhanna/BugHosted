@@ -30,6 +30,8 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
   originalCommentList: FileComment[] = [];
   activeBreadcrumbCommentId: number | null = null;
   hasDeeplinkChanged = false;
+  _remainingPath: number[] | undefined;
+  private _scrollAttemptCount = 0; 
 
   @ViewChild('addCommentInput') addCommentInput!: ElementRef<HTMLInputElement>;
   @ViewChild('subCommentComponent') subCommentComponent!: CommentsComponent;
@@ -98,11 +100,21 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
         setTimeout(() => this.processDeepLinkPath(), 0);
       }
     }
-  }
+  } 
 
-  private _scrollAttemptCount = 0;
-  private _targetScrollAttempts = 0;
-  _remainingPath: number[] | undefined; // path yet to traverse within this component
+  // Returns a trimmed plain-text snippet of the last (parent) breadcrumb comment
+  getActiveBreadcrumbSnippet(maxLength: number = 140): string {
+    if (!this.breadcrumbComments || !this.breadcrumbComments.length) return '';
+    const parent = this.breadcrumbComments[this.breadcrumbComments.length - 1];
+    if (!parent || !parent.commentText) return '';
+    // Strip HTML tags & condense whitespace
+    let txt = parent.commentText.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+    if (!txt) return '';
+    if (txt.length > maxLength) {
+      txt = txt.slice(0, maxLength - 1) + '…';
+    }
+    return txt;
+  }
 
   private findCommentPath(targetId: number, list: FileComment[]): FileComment[] | null {
     for (const c of list) {
@@ -119,7 +131,6 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
     if (!this.deepLinkPath || !this.deepLinkPath.length) {
       const path = this.findCommentPath(this.scrollToCommentId, this.commentList);
       if (!path) {
-        // Retry path discovery briefly (comments may still be decrypting / binding)
         if (this._scrollAttemptCount < 10) {
           this._scrollAttemptCount++;
             setTimeout(() => this.tryScrollToRequestedComment(), 100 + this._scrollAttemptCount * 50);
@@ -184,7 +195,7 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
               }
             }, 100);
             
-            return; // child component receives deepLinkPath slice via template binding
+            return;
           }
           setTimeout(() => this.processDeepLinkPath(), 50);
           return;
@@ -203,11 +214,9 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
   private scrollLastCommentIntoViewDelayed() {
     setTimeout(() => {
       try {
-        // Prefer using the current list to derive last comment id for stability
         let lastId: number | undefined;
         const findLast = (list: FileComment[]): number | undefined => {
           if (!list || !list.length) return undefined;
-          // If the last comment itself has subcomments, we still want THAT comment's text, not deepest
           return list[list.length - 1].id;
         };
         lastId = findLast(this.commentList);
@@ -216,7 +225,6 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
         if (el) {
           el.scrollIntoView({ behavior: 'smooth', block: 'end' });
         } else {
-          // Fallback: query all rendered comment text divs and take the last
           const nodes = document.querySelectorAll('.commentTextDiv');
           if (nodes && nodes.length) {
             (nodes[nodes.length - 1] as HTMLElement).scrollIntoView({ behavior: 'smooth', block: 'end' });
