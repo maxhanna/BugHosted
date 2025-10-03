@@ -58,12 +58,11 @@ textarea {
   resize: none;
   display: inline-block;
   width: 80px !important;
-  height: 65px;
-  border-size: 0px;
+  height: 65px; 
   border-radius: 4px;
   background-color: #ffff4f;
   color: navy;
-  border-size: 1px;
+  border-width: 1px;
   border-style: inset;
   font-size: 16px;
   text-align: center;

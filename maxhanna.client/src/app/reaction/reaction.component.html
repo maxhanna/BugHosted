@@ -62,8 +62,8 @@
         <span class="reactionTypeSpan" [title]="reaction.type">{{replaceReactionType(reaction.type)}}</span>
       </div>
       <div>
-        <button *ngIf="(reaction.user?.id ?? 0) === (inputtedParentRef?.user?.id ?? 0)" class="smallLinkButton"
-          (click)="deleteReaction(reaction)">Delete</button>
+        <button *ngIf="(reaction.user?.id ?? 0) === (inputtedParentRef?.user?.id ?? 0)"
+         class="smallLinkButton" title="Delete Reaction" (click)="deleteReaction(reaction)">❌</button>
       </div>
     </div>
   </div>

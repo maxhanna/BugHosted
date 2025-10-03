@@ -76,29 +76,30 @@ namespace maxhanna.Server.Controllers
 		}
 
 		[HttpPost("/Reaction/DeleteReaction", Name = "DeleteReaction")]
-		public async Task<IActionResult> DeleteReaction([FromBody] int reactionId)
+		public async Task<IActionResult> DeleteReaction([FromBody] DeleteReactionRequest request)
 		{
 			try
 			{
-				if (reactionId <= 0) return BadRequest("Invalid reaction id.");
+				if (request == null || request.ReactionId <= 0) return BadRequest("Invalid reaction request.");
 				using (var connection = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
 				{
 					await connection.OpenAsync();
 					// Verify ownership: only the user who created the reaction may delete it
 					var getOwnerCmd = new MySqlCommand("SELECT user_id FROM reactions WHERE id = @id LIMIT 1;", connection);
-					getOwnerCmd.Parameters.AddWithValue("@id", reactionId);
+					getOwnerCmd.Parameters.AddWithValue("@id", request.ReactionId);
 					var ownerObj = await getOwnerCmd.ExecuteScalarAsync();
 					if (ownerObj == null) return NotFound("Reaction not found.");
 					int ownerId = Convert.ToInt32(ownerObj);
-					// The requesting user id should be available via some auth/session mechanism; fallback to 0 if unavailable.
+					// Try to get authenticated user id from HttpContext; if not set, fall back to request.UserId
 					int requestingUserId = 0;
 					try { requestingUserId = Convert.ToInt32(HttpContext.Items["UserId"] ?? 0); } catch { requestingUserId = 0; }
+					if (requestingUserId == 0 && request.UserId != 0) requestingUserId = request.UserId;
 					if (requestingUserId == 0 || requestingUserId != ownerId)
 					{
 						return Forbid();
 					}
 					var delCmd = new MySqlCommand("DELETE FROM reactions WHERE id = @id LIMIT 1;", connection);
-					delCmd.Parameters.AddWithValue("@id", reactionId);
+					delCmd.Parameters.AddWithValue("@id", request.ReactionId);
 					await delCmd.ExecuteNonQueryAsync();
 					return Ok(true);
 				}

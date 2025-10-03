@@ -26,6 +26,7 @@
 - Use async/await for all database and IO operations.
 - Validate all user input before processing.
 - Document API endpoints with comments.
+ - Place simple DTOs and helper classes used by controller endpoints under the controller's `DataContracts` folder as separate class files (e.g., `Controllers/DataContracts/YourDto.cs`). Do not declare endpoint helper classes inline inside controller files.
 
 ## Editing Style for Adding Methods
 - When adding new methods to an existing class, append them at the end of the class body (just before the final closing brace) rather than inserting them at the top of the class. This preserves the original logical ordering and minimizes merge conflicts.

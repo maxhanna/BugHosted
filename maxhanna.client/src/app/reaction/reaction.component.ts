@@ -138,7 +138,7 @@ export class ReactionComponent extends ChildComponent implements OnInit {
     // Optional: confirm deletion with the user
     const confirmed = confirm('Delete your reaction?');
     if (!confirmed) return;
-    const res: any = await this.reactionService.deleteReaction(reaction.id);
+  const res: any = await this.reactionService.deleteReaction(reaction.id, this.user?.id ?? 0);
     if (res === true || res === 'true') {
       this.currentReactions = this.currentReactions?.filter(r => r.id !== reaction.id) ?? [];
       this.getReactionsListDisplay();

@@ -25,14 +25,14 @@ export class ReactionService {
     }
   } 
 
-  async deleteReaction(reactionId: number) {
+  async deleteReaction(reactionId: number, userId: number = 0) {
     try {
-      const res = await fetch('/reaction/deletereaction', {
+  const res = await fetch('/Reaction/DeleteReaction', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(reactionId),
+        body: JSON.stringify({ userId: userId ?? 0, reactionId }),
       });
 
       if (!res.ok) {
