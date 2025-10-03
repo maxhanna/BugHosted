@@ -59,7 +59,7 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
   @Output() subCommentCountUpdatedEvent = new EventEmitter<any>();
   @Output() quoteMessageEvent = new EventEmitter<string>();
   @Output() replyingToCommentEvent = new EventEmitter<number>();
-  @Output() togglingSubComments = new EventEmitter<number>();
+  @Output() togglingSubComments = new EventEmitter<number>(); 
 
   constructor(
     private commentService: CommentService,
@@ -115,45 +115,24 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
       try {
         console.log('[DeepLink] Found target element', targetId, 'after attempts', this._scrollAttemptCount);
         el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        // Instead of highlighting, automatically click the reply button to expose subcomments/reply UI
-        const targetIdNum = this.scrollToCommentId;
-        if (targetIdNum != null) {
-          const replyBtn = document.getElementById('expandButton' + targetIdNum) as HTMLButtonElement | null;
-          if (replyBtn) {
-            console.log('[DeepLink] Auto-clicking expandButton button for', targetIdNum);
-            try { replyBtn.click(); } catch (e) { console.warn('[DeepLink] Failed to click expandButton button', e); }
-          } 
-        }
-        // Only act once per requested id
         this.scrollToCommentId = undefined;
       } catch { /* ignore */ }
       return;
     }
-    // If element not found yet, attempt to expand ancestor chain progressively (any depth)
+    // If element not found yet, traverse in-memory tree for path (no DOM expansion clicks)
     const path = this.findCommentPath(this.scrollToCommentId, this.commentList);
-    console.log('[DeepLink] Path lookup for', this.scrollToCommentId, '=>', path?.map(p => p.id));
+    console.log('[DeepLink] Data path lookup for', this.scrollToCommentId, '=>', path?.map(p => p.id));
     if (path && path.length) {
-      // Expand only ancestors we have not already expanded (exclude target itself)
-      const ancestors = path.slice(0, -1);
-      for (const ancestor of ancestors) {
-        if (this._expandedAncestorIds.has(ancestor.id)) continue; // already processed
-        console.log('[DeepLink] Expanding ancestor', ancestor.id);
-        // Ensure ancestor not minimized
-        if (this.minimizedComments.has(ancestor.id)) {
-          this.minimizedComments.delete(ancestor.id);
-          console.log('[DeepLink] Removed minimized state for', ancestor.id);
-        }
-        const expandBtn = document.getElementById('expandButton' + ancestor.id) as HTMLButtonElement | null;
-        if (expandBtn) {
-          console.log('[DeepLink] Clicking expand button for', ancestor.id);
-          try { expandBtn.click(); } catch (e) { console.warn('[DeepLink] Expand click failed', e); }
-        }
-        this._expandedAncestorIds.add(ancestor.id);
+      if (this.depth === 0) {
+        // Programmatically open breadcrumb path to target
+        this.openPath(path);
+      } else {
+        // Bubble up request so parent (higher depth) can attempt path expansion
+        console.log('[DeepLink] Emitting toggleSubComments (bubble) for target', this.scrollToCommentId);
+        this.togglingSubComments.emit(this.scrollToCommentId!);
       }
     } else {
-      console.log('[DeepLink] No path yet for', this.scrollToCommentId, 'at depth', this.depth, '— will retry');
-  // Perform a breadth expansion sweep on top-level (or current list) to discover deeper branches
-  this.performGlobalExpansionSweep();
+      console.log('[DeepLink] Path not found in current subtree at depth', this.depth, '— will retry');
     }
     // Retry a few times in case nested components haven't rendered yet
     const maxAttempts = 20;
@@ -166,26 +145,24 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
       console.warn('[DeepLink] Gave up after', this._scrollAttemptCount, 'attempts for', this.scrollToCommentId);
     }
   }
-
-  private performGlobalExpansionSweep() {
-    // Avoid repeating same sweep attempt number
-    if (this._lastGlobalSweepAttempt === this._scrollAttemptCount) return;
-    this._lastGlobalSweepAttempt = this._scrollAttemptCount;
-
-    // Limit how many new expands per sweep to avoid massive UI churn
-    const MAX_EXPANDS_PER_SWEEP = 5;
-    let expandsThisSweep = 0;
-
-    for (const c of this.commentList) {
-      if (expandsThisSweep >= MAX_EXPANDS_PER_SWEEP) break;
-      // Skip if already expanded previously
-      if (this._globalExpandClicks.has(c.id)) continue;
-      const btn = document.getElementById('expandButton' + c.id) as HTMLButtonElement | null;
-      if (btn) {
-        console.log('[DeepLink] Global sweep expanding comment', c.id);
-        try { btn.click(); } catch (e) { console.warn('[DeepLink] Global sweep expand failed', e); }
-        this._globalExpandClicks.add(c.id);
-        expandsThisSweep++;
+    
+  // Programmatically open a full path (array from root->...->target) using breadcrumb mechanics
+  private openPath(path: FileComment[]) {
+    if (!path.length) return;
+    // Keep full top-level list; only ensure ancestors are expanded (not minimized).
+    // Avoid mutating commentList to prevent UI from collapsing to a single branch.
+    const ancestorIds = path.slice(0, -1).map(c => c.id);
+    for (const id of ancestorIds) {
+      if (this.minimizedComments.has(id)) {
+        this.minimizedComments.delete(id);
+      }
+    }
+    // Optionally set breadcrumbs for context without altering list
+    if (this.depth === 0) {
+      this.breadcrumbComments = path.slice(0, -1);
+      if (this.breadcrumbComments.length) {
+        this.activeCommentId = this.breadcrumbComments[this.breadcrumbComments.length - 1].id;
+        this.activeBreadcrumbCommentId = this.activeCommentId;
       }
     }
   }
