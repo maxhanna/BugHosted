@@ -328,8 +328,8 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
                 toUserIds: notifyIds,
                 message,
                 storyId: storyIdToUse,
-                fileId: ids?.fileId ?? results.results?.fileId ?? (isFile ? this.commentParent?.id : undefined),
-                commentId: ids?.commentId ?? results.results?.commentId ?? (isComment ? this.commentParent?.id : undefined),
+                fileId: this.fileId ?? ids?.fileId ?? results.results?.fileId ?? (isFile ? this.commentParent?.id : undefined),
+                commentId: this.commentId ?? ids?.commentId ?? results.results?.commentId ?? (isComment ? this.commentParent?.id : undefined),
                 userProfileId: ids?.userProfileId ?? this.profileUser?.id,
               });
             }
