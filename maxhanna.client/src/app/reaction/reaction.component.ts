@@ -11,12 +11,12 @@ import { Message } from '../../services/datacontracts/chat/message';
 import { ChildComponent } from '../child.component';
 
 @Component({
-    selector: 'app-reaction',
-    templateUrl: './reaction.component.html',
-    styleUrl: './reaction.component.css',
-    standalone: false
+  selector: 'app-reaction',
+  templateUrl: './reaction.component.html',
+  styleUrl: './reaction.component.css',
+  standalone: false
 })
-export class ReactionComponent extends ChildComponent implements OnInit { 
+export class ReactionComponent extends ChildComponent implements OnInit {
   @ViewChild('reactionFilter') reactionFilter!: ElementRef;
 
   reactionsDisplay: Reaction[] = [];
@@ -112,8 +112,8 @@ export class ReactionComponent extends ChildComponent implements OnInit {
     { type: 'infinity', emoji: '♾️', label: 'Infinity' },
     { type: 'peace', emoji: '☮️', label: 'Peace' },
     { type: 'yin_yang', emoji: '☯️', label: 'Yin Yang' }
-  ]; 
-  filteredReactions = [...this.reactions]; 
+  ];
+  filteredReactions = [...this.reactions];
 
   @Input() component?: any;
   @Input() commentId?: number;
@@ -125,7 +125,7 @@ export class ReactionComponent extends ChildComponent implements OnInit {
   @Input() userProfileId?: number;
   @Input() showSpan: boolean = false;
   @Input() showSpanBorder: boolean = false;
-  @Input() currentReactions?: Reaction[] = []; 
+  @Input() currentReactions?: Reaction[] = [];
   @Input() coloredBg = true;
   constructor(private reactionService: ReactionService, private notificationService: NotificationService) { super(); }
 
@@ -134,25 +134,18 @@ export class ReactionComponent extends ChildComponent implements OnInit {
   }
 
   async deleteReaction(reaction: Reaction) {
-    if (!reaction || !reaction.id) return;
-    // Optional: confirm deletion with the user
-    const confirmed = confirm('Delete your reaction?');
-    if (!confirmed) return;
-  const res: any = await this.reactionService.deleteReaction(reaction.id, this.user?.id ?? 0);
+    if (!reaction || !reaction.id) return; 
+    if (!confirm('Delete your reaction?')) return;
+    const res: any = await this.reactionService.deleteReaction(reaction.id, this.user?.id ?? 0);
     if (res === true || res === 'true') {
       this.currentReactions = this.currentReactions?.filter(r => r.id !== reaction.id) ?? [];
-      this.getReactionsListDisplay();
-      // If the reactions panel is open, update overlay state
-      if (this.inputtedParentRef) {
-        this.inputtedParentRef.showOverlay();
-      }
-    } else {
-      // show a notification on failure
-  this.notificationService.createNotifications({ fromUserId: this.user?.id ?? 0, message: 'Could not delete reaction', toUserIds: [] });
+      this.filteredCurrentReactions = this.currentReactions ?? [];
+    } else { 
+      this.notificationService.createNotifications({ fromUserId: this.user?.id ?? 0, message: 'Could not delete reaction', toUserIds: [] });
     }
   }
 
-  async selectReaction(reaction: string) { 
+  async selectReaction(reaction: string) {
     if (this.userHasReacted() && this.currentReactions && this.currentReactions.some(x => x.user?.id == this.inputtedParentRef?.user?.id && x.type && x.type == reaction)) {
       this.showReactionChoices = false;
       return;
@@ -170,7 +163,7 @@ export class ReactionComponent extends ChildComponent implements OnInit {
     await this.reactionService.addReaction(tmpReaction).then(res => {
       if (res) {
         tmpReaction.id = parseInt(res);
-      
+
         if (!this.currentReactions) {
           this.currentReactions = [];
         }
@@ -178,19 +171,19 @@ export class ReactionComponent extends ChildComponent implements OnInit {
         this.getReactionsListDisplay();
       }
     });
-   
+
     this.sendNotification();
     this.showReactionChoices = false;
     if (this.inputtedParentRef) {
       if (this.showReactionChoices) {
         this.inputtedParentRef.showOverlay();
       } else {
-        this.inputtedParentRef.closeOverlay(); 
-      } 
+        this.inputtedParentRef.closeOverlay();
+      }
     }
     this.userReaction = reaction;
   }
-  private sendNotification() { 
+  private sendNotification() {
     const fromUser = this.user ?? new User(0, "Anonymous");
     let targetNotificationUserIds: number[] = [];
     let notificationData: any = {
@@ -225,7 +218,6 @@ export class ReactionComponent extends ChildComponent implements OnInit {
   }
 
   getReactionsListDisplay() {
-
     const parent = this.inputtedParentRef ?? this.parentRef;
     if (parent) {
       const emojiMapArray = Object.entries(parent.emojiMap).map(([key, emoji]) => ({
@@ -240,7 +232,7 @@ export class ReactionComponent extends ChildComponent implements OnInit {
       const mergedReactions = [...this.reactions, ...emojiMapArray.filter(e => !emojiSet.has(e.emoji))];
       this.filteredReactions = [...mergedReactions];
       this.reactions = [...mergedReactions];
-    } 
+    }
 
     if (this.currentReactions && this.currentReactions.length > 0) {
       this.reactionCount = this.currentReactions.length;
@@ -251,7 +243,7 @@ export class ReactionComponent extends ChildComponent implements OnInit {
       }
     }
   }
-  reactionDisplayOnClick() { 
+  reactionDisplayOnClick() {
     this.showReactionChoices = !this.showReactionChoices;
     if (this.inputtedParentRef) {
       if (!this.showReactionChoices) {
@@ -264,7 +256,7 @@ export class ReactionComponent extends ChildComponent implements OnInit {
 
 
   closeReactionDisplay() {
-    this.showReactionChoices = false; 
+    this.showReactionChoices = false;
     if (this.inputtedParentRef) {
       this.inputtedParentRef.closeOverlay();
     }
@@ -288,7 +280,7 @@ export class ReactionComponent extends ChildComponent implements OnInit {
   showReactionsOnClick() {
     if (!this.reactionCount) return;
     this.showReactions = true;
-      this.filteredCurrentReactions = this.currentReactions ?? [];
+    this.filteredCurrentReactions = this.currentReactions ?? [];
     if (this.inputtedParentRef) {
       this.inputtedParentRef.showOverlay();
     }
@@ -313,7 +305,7 @@ export class ReactionComponent extends ChildComponent implements OnInit {
   }
 
   userHasReacted(): boolean {
-    if (this.currentReactions) { 
+    if (this.currentReactions) {
       const user = this.user ?? this.inputtedParentRef?.user;
       return this.currentReactions!.some(reaction => (reaction.user?.id ?? 0) === (user?.id ?? 0));
     }
@@ -325,7 +317,7 @@ export class ReactionComponent extends ChildComponent implements OnInit {
       return this.replaceReactionType(react?.type ?? "");
     }
     return '';
-  } 
+  }
   searchForReaction() {
     const lowerSearch = this.reactionFilter.nativeElement.value.toLowerCase().trim();
     this.filteredReactions = this.reactions.filter(reaction =>
