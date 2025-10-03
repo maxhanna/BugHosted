@@ -608,11 +608,12 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
     return input.replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/\"/g, '\\\"');
   }
   expandComment(comment: FileComment) {
-    if (this.depth === 0) {
-      // Inline expand/collapse at top level
+    if (this.depth === 0) { 
       if (this.minimizedComments.has(comment.id)) {
         this.minimizedComments.delete(comment.id);
-      }  
+      } else {
+        this.minimizedComments.add(comment.id);
+      } 
       return;
     }
 
