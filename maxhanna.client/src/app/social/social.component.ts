@@ -150,47 +150,6 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
     this.stopLoading();
   }
 
-  private changeComponentMainHeight() {
-    if (this.user) {
-      const elements = document.getElementsByClassName('componentMain');
-
-      if (elements.length > 0) {
-        Array.from(elements).forEach((e) => {
-          (e as HTMLElement).style.maxHeight = 'none';
-          // (e as HTMLElement).style.background = 'unset';
-        });
-      }
-    }
-  }
-
-  private changePageTitleAndDescription(tgtStory: Story) {
-    const storyText = tgtStory.storyText;
-    if (storyText && !this.showOnlyPost) {
-      const titleAndDescrip = this.parentRef?.replacePageTitleAndDescription(storyText.trim(), storyText);
-      const script = document.createElement('script');
-      script.setAttribute('type', 'application/ld+json');
-      script.textContent = titleAndDescrip?.title ?? "";
-      document.head.appendChild(script);
-    }
-  }
-
-  private scrollToInputtedCommentId(commentId?: number) {
-    if (!this.canScroll) return;
-    if (commentId) {
-      setTimeout(() => {
-        const subCommentElement = document.getElementById("subComment" + commentId);
-        if (subCommentElement) {
-          subCommentElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        } else {
-          const parentCommentElement = document.getElementById("commentText" + commentId);
-          if (parentCommentElement) {
-            parentCommentElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
-          }
-        }
-      }, 1000);
-    }
-  }
-
   ngOnDestroy() {
     if (this.storyUpdateInterval) {
       clearInterval(this.storyUpdateInterval); // Clean up interval on component destroy
@@ -378,45 +337,7 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
       });
     }, delayMs);
   } 
-
-  private createStory(user: User, storyText: string, files: FileEntry[]): Story {
-    const parent = this.parent ?? this.parentRef;
-    return {
-      id: 0,
-      user,
-      storyText: parent?.replaceEmojisInMessage(storyText) ?? storyText,
-      fileId: null,
-      date: new Date(),
-      upvotes: 0,
-      downvotes: 0,
-      commentsCount: 0,
-      storyComments: undefined,
-      metadata: undefined,
-      storyFiles: files,
-      storyTopics: this.attachedTopics,
-      profileUserId: this.user?.id,
-      city: this.city,
-      country: this.country,
-    };
-  }
-
-  private async postSingleStory(user: User, storyText: string): Promise<any> {
-    const story = this.createStory(user, storyText, this.attachedFiles);
-    this.parentRef?.updateLastSeen();
-    const sessionToken = await this.parentRef?.getSessionToken();
-    return this.socialService.postStory(user.id ?? 0, story, sessionToken ?? "");
-  }
-
-  private async postEachFileAsSeparateStory(user: User, storyText: string): Promise<any[]> {
-    this.parentRef?.updateLastSeen();
-    const promises = this.attachedFiles.map(async file => {
-      const story = this.createStory(user, storyText, [file]);
-      const sessionToken = await this.parentRef?.getSessionToken();
-      return this.socialService.postStory(user.id ?? 0, story, sessionToken ?? "");
-    });
-
-    return await Promise.all(promises);
-  }
+ 
  
   async editStoryTopic(topics: Topic[], story: Story) {
     const user = this.parentRef?.user ?? this.parent?.user;
@@ -1036,5 +957,47 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
   }
   isTextToSpeechSpeaking() {
     return this.textToSpeechService.isSpeaking;
+  }
+  
+
+  private changeComponentMainHeight() {
+    if (this.user) {
+      const elements = document.getElementsByClassName('componentMain');
+
+      if (elements.length > 0) {
+        Array.from(elements).forEach((e) => {
+          (e as HTMLElement).style.maxHeight = 'none';
+          // (e as HTMLElement).style.background = 'unset';
+        });
+      }
+    }
+  }
+
+  private changePageTitleAndDescription(tgtStory: Story) {
+    const storyText = tgtStory.storyText;
+    if (storyText && !this.showOnlyPost) {
+      const titleAndDescrip = this.parentRef?.replacePageTitleAndDescription(storyText.trim(), storyText);
+      const script = document.createElement('script');
+      script.setAttribute('type', 'application/ld+json');
+      script.textContent = titleAndDescrip?.title ?? "";
+      document.head.appendChild(script);
+    }
+  }
+
+  private scrollToInputtedCommentId(commentId?: number) {
+    if (!this.canScroll) return;
+    if (commentId) {
+      setTimeout(() => {
+        const subCommentElement = document.getElementById("subComment" + commentId);
+        if (subCommentElement) {
+          subCommentElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        } else {
+          const parentCommentElement = document.getElementById("commentText" + commentId);
+          if (parentCommentElement) {
+            parentCommentElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }
+        }
+      }, 1000);
+    }
   }
 }
