@@ -186,7 +186,7 @@ export class NotificationsComponent extends ChildComponent implements OnInit, On
     this.showNotifications = false;
   }
   goToFileId(notification: UserNotification) {
-    this.location.replaceState("/File/" + notification.fileId);
+    //this.location.replaceState("/File/" + notification.fileId);
     if (!notification.isRead) { this.read(notification, true); }
     this.createComponent("Files", { "fileId": notification.fileId, "commentId": notification.commentId, "previousComponent": this.previousComponent });
   }
