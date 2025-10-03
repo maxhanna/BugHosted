@@ -151,26 +151,21 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
   // Programmatically open a full path (array from root->...->target) using breadcrumb mechanics
   private openPath(path: FileComment[]) {
     if (!path.length) return;
-    // Ensure we retain original top-level list for breadcrumb navigation
-    if (this.breadcrumbComments.length === 0) {
-      this.originalCommentList = [...this.commentList];
+    // Keep full top-level list; only ensure ancestors are expanded (not minimized).
+    // Avoid mutating commentList to prevent UI from collapsing to a single branch.
+    const ancestorIds = path.slice(0, -1).map(c => c.id);
+    for (const id of ancestorIds) {
+      if (this.minimizedComments.has(id)) {
+        this.minimizedComments.delete(id);
+      }
     }
-    // Walk ancestors except final target's own display (we'll still switch into its children if needed)
-    let currentLevel = this.originalCommentList;
-    this.breadcrumbComments = [];
-    for (let i = 0; i < path.length - 1; i++) {
-      const node = path[i];
-      // Find fresh reference in currentLevel (in case objects differ)
-      const ref = currentLevel.find(c => c.id === node.id) || node;
-      this.breadcrumbComments.push(ref);
-      this.activeCommentId = ref.id;
-      this.activeBreadcrumbCommentId = ref.id;
-      currentLevel = ref.comments || [];
-    }
-    // Set the visible commentList to the children of the last ancestor (or keep original if only target)
-    if (path.length > 1) {
-      const lastAncestor = this.breadcrumbComments[this.breadcrumbComments.length - 1];
-      this.commentList = lastAncestor.comments || [];
+    // Optionally set breadcrumbs for context without altering list
+    if (this.depth === 0) {
+      this.breadcrumbComments = path.slice(0, -1);
+      if (this.breadcrumbComments.length) {
+        this.activeCommentId = this.breadcrumbComments[this.breadcrumbComments.length - 1].id;
+        this.activeBreadcrumbCommentId = this.activeCommentId;
+      }
     }
   }
 
