@@ -32,7 +32,7 @@
         </tr>
       </thead>
       <tbody *ngIf="todos.length > 0">
-        <tr *ngFor="let item of todos" id="todoNo{{item.id}}" [class]="isEditing.includes(item) && !isExpandedEditFile ? 'popupPanel' : ''" (click)="isEditing.includes(item) ? '' : editTodo(item)">
+        <tr *ngFor="let item of todos" id="todoNo{{item.id}}" [class]="isEditing.includes(item) && !isExpandedEditFile ? 'popupPanel editingPopupPanel' : ''" (click)="isEditing.includes(item) ? '' : editTodo(item)">
           <td *ngIf="item.id" [style]="isEditing.includes(item) ? 'width: calc(100% - 10px); margin-top: 10px;' : ''">
             <div *ngIf="isEditing.includes(item)" class="popupPanelTitle">Edit {{selectedType.value}}</div>
             <div>
