@@ -83,7 +83,7 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
     this.scheduleCommentPollRender();
     // Only root orchestrates initial deep link path discovery
     if (this.depth === 0) {
-      this.tryScrollToRequestedComment();
+      this.tryScrollToRequestedComment(); 
     }
   }
 
@@ -154,7 +154,7 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
                 document.getElementById("expandButton"+targetId)?.click();
                 this._remainingPath = undefined; 
                 this.deepLinkPath = undefined; 
-                setTimeout(() => { this.scrollRootSectionToBottom() }, 100);
+                this.scrollLastCommentIntoViewDelayed(); 
               }
             }, 100);
           }
@@ -162,8 +162,7 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
       }
       return; // Finished
     }
-
-    // Need to expand next ancestor
+ 
     if (this._remainingPath.length > 1) {
       const nextAncestorId = this._remainingPath[0];
       const commentToExpand = this.commentList.find(c => c.id === nextAncestorId);
@@ -180,7 +179,7 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
               if (this._remainingPath) { 
                 for(let cId of this._remainingPath) {
                   document.getElementById("expandButton"+cId)?.click();
-                  console.log("attempting to click on expandButton"+cId);
+                  //console.log("attempting to click on expandButton"+cId);
                 }
               }
             }, 100);
@@ -189,8 +188,7 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
           }
           setTimeout(() => this.processDeepLinkPath(), 50);
           return;
-        } else {
-          console.log("expand commnent called");
+        } else { 
           this.expandComment(commentToExpand);
           this._remainingPath = this._remainingPath.slice(1);
           setTimeout(() => this.processDeepLinkPath(), 50);
@@ -200,6 +198,32 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
         return;
       }
     } 
+  }
+
+  private scrollLastCommentIntoViewDelayed() {
+    setTimeout(() => {
+      try {
+        // Prefer using the current list to derive last comment id for stability
+        let lastId: number | undefined;
+        const findLast = (list: FileComment[]): number | undefined => {
+          if (!list || !list.length) return undefined;
+          // If the last comment itself has subcomments, we still want THAT comment's text, not deepest
+          return list[list.length - 1].id;
+        };
+        lastId = findLast(this.commentList);
+        if (!lastId) return;
+        const el = document.getElementById('commentText' + lastId);
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'end' });
+        } else {
+          // Fallback: query all rendered comment text divs and take the last
+          const nodes = document.querySelectorAll('.commentTextDiv');
+          if (nodes && nodes.length) {
+            (nodes[nodes.length - 1] as HTMLElement).scrollIntoView({ behavior: 'smooth', block: 'end' });
+          }
+        }
+      } catch {}
+    }, 1000);
   }
 
   getChildDeepLinkPath(parent: FileComment, child: FileComment): number[] | undefined {
