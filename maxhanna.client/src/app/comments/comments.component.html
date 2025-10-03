@@ -119,7 +119,7 @@
               (quoteMessageEvent)="depth == 0 ? setQuoteMessage($event) : quoteMessageEvent.emit($event)"
               (commentAddedEvent)="commentAddedEvent.emit($event)"
               (commentRemovedEvent)="commentRemovedEvent.emit($event)"
-              (togglingSubComments)="clearSubCommentsToggled($event)"></app-comments>
+              (togglingSubComments)="clearSubCommentsToggled($event); togglingSubComments.emit($event)"></app-comments>
           </div>
         </div>
       </div>
