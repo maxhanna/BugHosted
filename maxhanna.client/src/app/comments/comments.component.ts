@@ -171,24 +171,33 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
   // New: deep navigate using list of ancestor->target ids (root component only)
   private processDeepNavigate(pathIds: number[]) {
     if (!pathIds.length || this.depth !== 0) return;
-    // Reset breadcrumb state
-    this.breadcrumbComments = [];
-    this.originalCommentList = [...this.commentList];
-    let currentLevel = this.originalCommentList;
-    // Walk all but target to drill into children lists
-    for (let i = 0; i < pathIds.length - 1; i++) {
-      const id = pathIds[i];
-      const node = currentLevel.find(c => c.id === id);
-      if (!node) break;
-      this.breadcrumbComments.push(node);
-      this.activeCommentId = id;
-      this.activeBreadcrumbCommentId = id;
-      // Ensure not minimized
-      if (this.minimizedComments.has(id)) this.minimizedComments.delete(id);
-      currentLevel = node.comments || [];
-      this.commentList = currentLevel; // show next level as we drill
+
+    // Preserve full top-level list: do NOT replace commentList during deep navigation.
+    if (!this.originalCommentList.length) {
+      this.originalCommentList = [...this.commentList];
     }
-    // Ensure ancestors expanded visually (not minimized)
+
+    // Clear breadcrumbs and rebuild context trail (without altering visible commentList)
+    this.breadcrumbComments = [];
+    let currentLevel = this.originalCommentList;
+    for (let i = 0; i < pathIds.length - 1; i++) {
+      const ancestorId = pathIds[i];
+      const ancestor = currentLevel.find(c => c.id === ancestorId);
+      if (!ancestor) break; // stop if structure changed
+      this.breadcrumbComments.push(ancestor);
+      // Ensure ancestor expanded (remove minimized state)
+      if (this.minimizedComments.has(ancestorId)) this.minimizedComments.delete(ancestorId);
+      currentLevel = ancestor.comments || [];
+    }
+
+    // Mark last ancestor for optional styling / focus
+    if (this.breadcrumbComments.length) {
+      const last = this.breadcrumbComments[this.breadcrumbComments.length - 1];
+      this.activeCommentId = last.id;
+      this.activeBreadcrumbCommentId = last.id;
+    }
+
+    // Expand all ancestors so target remains visible in full context
     for (const id of pathIds.slice(0, -1)) {
       if (this.minimizedComments.has(id)) this.minimizedComments.delete(id);
     }
