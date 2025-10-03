@@ -791,6 +791,13 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
   }
 
   async chatMessagePosted(event: { results: any, originalContent: string }) {
+    // If we just sent a message and there's no chatId yet, stash the original content so
+    // when the server returns the created message (with chatId) we can encrypt it and
+    // call editMessage to replace the plaintext with the encrypted version.
+    if (!this.currentChatId && event?.originalContent) {
+      this.firstMessageDetails = { content: event.originalContent };
+    }
+
     await this.getMessageHistory().then(x => {
       setTimeout(() => {
         this.chatWindow.nativeElement.scrollTop = this.chatWindow.nativeElement.scrollHeight;
