@@ -9,7 +9,6 @@ import { AppComponent } from '../app.component';
 import { FileEntry } from '../../services/datacontracts/file/file-entry';
 import { User } from '../../services/datacontracts/user/user';
 import { Topic } from '../../services/datacontracts/topics/topic';
-import { Meta, Title } from '@angular/platform-browser';
 import { UserService } from '../../services/user.service';
 import { FileComment } from '../../services/datacontracts/file/file-comment';
 import { Todo } from '../../services/datacontracts/todo';
