@@ -31,26 +31,11 @@ namespace maxhanna.Server.Controllers
 				{
 					await connection.OpenAsync();
 
-					var commandStr = "";
-					int? reactionId = CheckIfReactionExists(connection, reactionRequest.User?.Id ?? 0,
-						reactionRequest.CommentId, reactionRequest.StoryId, reactionRequest.MessageId, reactionRequest.FileId);
-					if (reactionId != null)
-					{ 
-						commandStr = @" UPDATE reactions 
-                            SET type = @type 
-                            WHERE id = @reactionId LIMIT 1;"; 
-					}
-					else
-					{
-						commandStr = @" INSERT INTO reactions (user_id, comment_id, story_id, message_id, file_id, timestamp, type)
-                            VALUES (@userId, @commentId, @storyId, @messageId, @fileId, @timestamp, @type);";
-					}
+					// Always insert a new reaction record (do not overwrite prior reactions by the same user)
+					var commandStr = @" INSERT INTO reactions (user_id, comment_id, story_id, message_id, file_id, timestamp, type)
+		                            VALUES (@userId, @commentId, @storyId, @messageId, @fileId, @timestamp, @type);";
 
 					var command = new MySqlCommand(commandStr, connection);
-					if (reactionId != null)
-					{
-						command.Parameters.AddWithValue("@reactionId", reactionId);
-					}
 					command.Parameters.AddWithValue("@userId", reactionRequest.User?.Id ?? 0);
 					command.Parameters.AddWithValue("@commentId", reactionRequest.CommentId);
 					command.Parameters.AddWithValue("@fileId", reactionRequest.FileId);
@@ -64,7 +49,7 @@ namespace maxhanna.Server.Controllers
 					await command.ExecuteNonQueryAsync();
 					int? lastInsertId = (int?)(command.LastInsertedId);
  
-					return Ok(reactionId ?? lastInsertId ?? 0);
+					return Ok(lastInsertId ?? 0);
 				}
 
 			}

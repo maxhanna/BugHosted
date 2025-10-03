@@ -171,8 +171,6 @@ export class ReactionComponent extends ChildComponent implements OnInit {
       if (res) {
         tmpReaction.id = parseInt(res);
       
-        this.currentReactions = this.currentReactions?.filter(x => x.user?.id != (this.user?.id ?? 0));
-         
         if (!this.currentReactions) {
           this.currentReactions = [];
         }
