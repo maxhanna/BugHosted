@@ -1263,7 +1263,7 @@ namespace maxhanna.Server.Controllers
 							}
 
 							// Extract URL from story text
-							string[]? urls = _crawler.ExtractUrls(_log.DecryptContent(request.story.StoryText, request.story.User.Id + ""));
+							string[]? urls = _crawler.ExtractUrls(_log.DecryptContent(request.story.StoryText ?? "", request.story.User?.Id + ""));
 							if (urls != null)
 							{
 								// Fetch metadata
