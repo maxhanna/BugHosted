@@ -105,7 +105,7 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
 
   private _scrollAttemptCount = 0;
   private _targetScrollAttempts = 0;
-  private _remainingPath: number[] | undefined; // path yet to traverse within this component
+  _remainingPath: number[] | undefined; // path yet to traverse within this component
 
   private findCommentPath(targetId: number, list: FileComment[]): FileComment[] | null {
     for (const c of list) {
@@ -174,7 +174,10 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
           // If the next id is not a direct child at this level, delegate to nested component
           const nextId = this._remainingPath[0];
           if (nextId && !this.commentList.some(c => c.id === nextId)) {
-            console.log('[DeepLink] Delegating remaining path to child components', this._remainingPath);
+            console.log('[DeepLink] Delegating remaining path to child components', this._remainingPath); 
+            this.scrollRootSectionToBottom();
+            this.subCommentComponent._remainingPath = this._remainingPath;
+            this.subCommentComponent.processDeepLinkPath();
             return; // child component receives deepLinkPath slice via template binding
           }
           setTimeout(() => this.processDeepLinkPath(), 50);
