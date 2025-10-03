@@ -1,4 +1,4 @@
-import { Component, ElementRef, EventEmitter, Input, OnDestroy, OnInit, Output, ViewChild } from '@angular/core';
+import { Component, ElementRef, EventEmitter, Input, OnDestroy, OnInit, OnChanges, SimpleChanges, Output, ViewChild } from '@angular/core';
 import { ChildComponent } from '../child.component';
 import { FileService } from '../../services/file.service';
 import { AppComponent } from '../app.component';
@@ -17,7 +17,7 @@ import { TopicsComponent } from '../topics/topics.component';
   styleUrl: './media-viewer.component.css',
   standalone: false
 })
-export class MediaViewerComponent extends ChildComponent implements OnInit, OnDestroy {
+export class MediaViewerComponent extends ChildComponent implements OnInit, OnDestroy, OnChanges {
 
   constructor(private fileService: FileService, private todoService: TodoService) {
     super();
@@ -78,6 +78,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
   @Input() isLoadedFromURL = false;
   @Input() showMediaInformation = false;
   @Input() commentId?: number;
+  @Input() debug: boolean = true;
   @Output() emittedNotification = new EventEmitter<string>();
   @Output() commentHeaderClickedEvent = new EventEmitter<boolean>();
   @Output() expandClickedEvent = new EventEmitter<FileEntry>();
@@ -85,35 +86,76 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
   @Output() mediaEndedEvent = new EventEmitter<void>();
 
   async ngOnInit() {
+    this.debugLog('ngOnInit start', { isLoadedFromURL: this.isLoadedFromURL, autoload: this.autoload, fileId: this.fileId, hasFileObj: !!this.file, fileSrc: this.fileSrc });
     if (this.isLoadedFromURL) {
       const componentContainers = document.getElementsByClassName("componentContainer");
       for (let i = 0; i < componentContainers.length; i++) {
         (componentContainers[i] as HTMLDivElement).style.backgroundColor = "var(--component-background-color)";
       }
     }
+    // Attempt an eager load when arriving directly via URL (or anytime autoload is true and inputs are present)
+    this.ensureInitialLoad();
+    // Fallback retry if still not loaded after a short delay (covers race where inputs arrive slightly later)
+    setTimeout(() => this.ensureInitialLoad(true), 600);
+  }
+
+  ngOnChanges(changes: SimpleChanges) {
+    if (changes['fileId'] || changes['file'] || changes['fileSrc']) {
+      this.debugLog('ngOnChanges detected media-relevant input change', {
+        fileId: this.fileId,
+        hasFileObj: !!this.file,
+        fileSrc: this.fileSrc,
+        alreadyLoaded: !!this.selectedFileSrc
+      });
+      // If source not yet resolved (or a new id provided) try again
+      if (!this.selectedFileSrc || (changes['fileId'] && !changes['fileId'].isFirstChange())) {
+        this.ensureInitialLoad();
+      }
+    }
+  }
+
+  private ensureInitialLoad(isRetry: boolean = false) {
+    if (!this.autoload) {
+      this.debugLog('ensureInitialLoad skipped (autoload disabled)');
+      return;
+    }
+    if (this.selectedFileSrc) {
+      this.debugLog('ensureInitialLoad skipped (already have src)', { selectedFileSrcLength: this.selectedFileSrc.length });
+      return;
+    }
+    if (!(this.fileSrc || this.fileId || this.file)) {
+      this.debugLog('ensureInitialLoad aborted - no identifiers yet', { isRetry });
+      return;
+    }
+    this.debugLog('ensureInitialLoad invoking fetchFileSrc', { isRetry });
+    this.fetchFileSrc();
+  }
+
+  private debugLog(message: string, data?: any) {
+    if (this.debug) {
+      console.log(`[MediaViewerDebug] ${message}`, data || '');
+    }
   }
   onInView(isInView: boolean) {
-    if (!this.forceInviewLoad || (this.forceInviewLoad && isInView && this.isComponentHeightSufficient())) {
-      this.fetchFileSrc().then(() => {
-        const urlContainsMedia = window.location.href.includes('/Media');
-        const file = this.file ?? this.selectedFile;
-        if (urlContainsMedia && (file?.fileName || file?.givenFileName)) {
-          this.selectedFileName = file.givenFileName ?? file.fileName ?? "MediaViewer";
-          if (file) {
-            this.inputtedParentRef?.replacePageTitleAndDescription(this.selectedFileName, this.selectedFileName);
+    // Simplified logic: if forceInviewLoad is false, always load; if true, load once it first becomes visible.
+    if (!this.forceInviewLoad || isInView) {
+      if (!this.selectedFileSrc) {
+        this.debugLog('onInView triggering fetchFileSrc', { isInView });
+        this.fetchFileSrc().then(() => {
+          const urlContainsMedia = window.location.href.includes('/Media');
+          const file = this.file ?? this.selectedFile;
+          if (urlContainsMedia && (file?.fileName || file?.givenFileName)) {
+            this.selectedFileName = file.givenFileName ?? file.fileName ?? "MediaViewer";
+            if (file) {
+              this.inputtedParentRef?.replacePageTitleAndDescription(this.selectedFileName, this.selectedFileName);
+            }
           }
-        }
-      });
-    } else {
-      // Pause any media playback when not in view or height is insufficient
-      if (this.mediaContainer && this.mediaContainer.nativeElement instanceof HTMLVideoElement) {
-        this.mediaContainer.nativeElement.pause();
-      } else if (this.mediaContainer && this.mediaContainer.nativeElement instanceof HTMLAudioElement) {
-        this.mediaContainer.nativeElement.pause();
+        });
       }
-
-      // Abort the file request if loading is in progress
+    } else {
+      // If we require in-view but it's not in view yet, ensure any ongoing fetch is aborted.
       if (this.abortFileRequestController) {
+        this.debugLog('onInView aborting pending fetch (not in view yet)');
         this.abortFileRequestController.abort();
       }
     }
@@ -121,18 +163,21 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
 
   // Helper method to check if the component's height is sufficient
   private isComponentHeightSufficient(): boolean {
+    // Retained for compatibility with any external callers; no longer gating load strictly.
     const mediaContainer = document.getElementById('mediaContainer' + this.fileId);
     if (mediaContainer) {
       const containerHeight = mediaContainer.offsetHeight;
       const windowHeight = window.innerHeight;
       return containerHeight <= windowHeight;
     }
-    return false;
+    return true;
   }
 
   async fetchFileSrc() {
+    this.debugLog('fetchFileSrc invoked', { fileId: this.fileId, hasFileObj: !!this.file, fileSrcInput: this.fileSrc, alreadySelectedSrc: !!this.selectedFileSrc });
     if (this.fileSrc) {
       this.selectedFileSrc = this.fileSrc;
+      this.debugLog('fetchFileSrc used direct fileSrc input');
       return;
     }
     if (this.selectedFileSrc) return;
@@ -144,9 +189,11 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
 
       if (this.parentRef && this.parentRef.pictureSrcs[this.fileId] && this.parentRef.pictureSrcs[this.fileId].value
         || this.inputtedParentRef && this.inputtedParentRef.pictureSrcs[this.fileId] && this.inputtedParentRef.pictureSrcs[this.fileId].value) {
+        this.debugLog('fetchFileSrc found cached parentRef pictureSrcs entry (indexed)');
         this.setFileSrcByParentRefValue(this.fileId);
         return;
       } else {
+        this.debugLog('fetchFileSrc no cached value (indexed array access), proceeding to setFileSrcById');
         this.setFileSrcById(this.selectedFile.id);
       }
     }
@@ -156,8 +203,10 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
 
       const parentRef = this.parentRef || this.inputtedParentRef;
       if (parentRef?.pictureSrcs[fileId]?.value) {
+        this.debugLog('fetchFileSrc found cached parentRef pictureSrcs entry (object style)');
         this.setFileSrcByParentRefValue(fileId);
       } else {
+        this.debugLog('fetchFileSrc no cached value for file object; calling setFileSrcById');
         this.setFileSrcById(fileId);
         this.selectedFile = fileObject;
       }
@@ -165,7 +214,12 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
   }
   private setFileSrcByParentRefValue(id: number) {
     this.muteOtherVideos();
-    this.selectedFileSrc = this.parentRef?.pictureSrcs[id].value ?? this.inputtedParentRef!.pictureSrcs[id].value;
+    try {
+      this.selectedFileSrc = this.parentRef?.pictureSrcs[id].value ?? this.inputtedParentRef!.pictureSrcs[id].value;
+      this.debugLog('setFileSrcByParentRefValue succeeded', { id });
+    } catch (ex) {
+      this.debugLog('setFileSrcByParentRefValue failed (likely sparse array access)', { id, error: ex });
+    }
   }
 
   resetSelectedFile() {
@@ -288,7 +342,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
   }
 
   async setFileSrcById(fileId: number) {
-    if (this.selectedFileSrc) return;
+  if (this.selectedFileSrc) { this.debugLog('setFileSrcById early exit (already have selectedFileSrc)'); return; }
     if (this.parentRef && this.parentRef.pictureSrcs && this.parentRef.pictureSrcs.find(x => x.key == fileId + '')) {
       this.showThumbnail = true;
       this.selectedFileSrc = this.parentRef.pictureSrcs.find(x => x.key == fileId + '')!.value;
@@ -306,7 +360,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
       return;
     }
 
-      if (!this.selectedFile?.givenFileName && !this.selectedFile?.fileName) {
+  if (!this.selectedFile?.givenFileName && !this.selectedFile?.fileName) {
       const requesterId = this.parentRef?.user?.id ?? this.inputtedParentRef?.user?.id;
       this.fileService.getFileEntryById(fileId, requesterId).then(res => {
         if (res) {
@@ -322,7 +376,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
       const parent = this.inputtedParentRef ?? this.parentRef;
       const user = parent?.user;
       const sessionToken = await parent?.getSessionToken();
-      this.fileService.getFileById(fileId, sessionToken ?? "", {
+  this.fileService.getFileById(fileId, sessionToken ?? "", {
         signal: this.abortFileRequestController.signal
       }, user?.id).then(response => {
         if (!response || response == null) return;
@@ -341,6 +395,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
         reader.onloadend = () => {
           this.showThumbnail = true;
           this.selectedFileSrc = (reader.result as string);
+          this.debugLog('FileReader onloadend set selectedFileSrc', { length: this.selectedFileSrc.length });
           if (this.parentRef && !this.parentRef.pictureSrcs.find(x => x.key == fileId + '')) {
             this.parentRef.pictureSrcs.push({ key: fileId + '', value: this.selectedFileSrc, type: type, extension: this.selectedFileExtension });
           }
