@@ -162,6 +162,7 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
                 this._remainingPath = undefined; 
                 this.deepLinkPath = undefined;
                 if (this.subCommentComponent) {
+                  console.log("reset subcomponent props");
                   this.subCommentComponent._remainingPath = undefined;
                   this.subCommentComponent.deepLinkPath = undefined;
                 }
