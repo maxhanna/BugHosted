@@ -27,7 +27,7 @@ export class ReactionService {
 
   async deleteReaction(reactionId: number, userId: number = 0) {
     try {
-  const res = await fetch('/Reaction/DeleteReaction', {
+  const res = await fetch('/reaction/deletereaction', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
