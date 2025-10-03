@@ -152,6 +152,12 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
     this.inViewElapsedMs = 0;
   }
   onInView(isInView: boolean) {
+    // If a confirm delay is configured and a timer is active but hasn't elapsed yet,
+    // skip processing here — we'll proceed when the timer completes and calls onInView again.
+    if (this.inViewConfirmDelayMs && this.inViewConfirmDelayMs > 0 && this.inViewTimer && this.inViewElapsedMs < this.inViewConfirmDelayMs) {
+      this.debugLog('onInView skipped while in-view confirm timer running', { elapsed: this.inViewElapsedMs, required: this.inViewConfirmDelayMs, isInView });
+      return;
+    }
     // When the element is in view, immediately ensure a fetch is attempted (forceImmediate)
     if (!this.forceInviewLoad || isInView) {
       if (!this.selectedFileSrc) {
