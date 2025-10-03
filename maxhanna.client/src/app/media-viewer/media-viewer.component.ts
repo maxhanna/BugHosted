@@ -417,6 +417,11 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
 
   async setFileSrcById(fileId: number) {
   if (this.selectedFileSrc) { this.debugLog('setFileSrcById early exit (already have selectedFileSrc)'); return; }
+    // If a confirm delay is configured and the timer hasn't yet elapsed, postpone fetching by returning early.
+    if (this.inViewConfirmDelayMs && this.inViewConfirmDelayMs > 0 && this.inViewTimer && this.inViewElapsedMs < this.inViewConfirmDelayMs) {
+      this.debugLog('setFileSrcById postponing fetch until in-view confirm elapsed', { elapsed: this.inViewElapsedMs, required: this.inViewConfirmDelayMs });
+      return;
+    }
     if (this.parentRef && this.parentRef.pictureSrcs && this.parentRef.pictureSrcs.find(x => x.key == fileId + '')) {
       this.showThumbnail = true;
       this.selectedFileSrc = this.parentRef.pictureSrcs.find(x => x.key == fileId + '')!.value;
@@ -434,7 +439,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
       return;
     }
 
-  if (!this.selectedFile?.givenFileName && !this.selectedFile?.fileName) {
+    if (!this.selectedFile?.givenFileName && !this.selectedFile?.fileName) {
       const requesterId = this.parentRef?.user?.id ?? this.inputtedParentRef?.user?.id;
       this.fileService.getFileEntryById(fileId, requesterId).then(res => {
         if (res) {
@@ -450,7 +455,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
       const parent = this.inputtedParentRef ?? this.parentRef;
       const user = parent?.user;
       const sessionToken = await parent?.getSessionToken();
-  this.fileService.getFileById(fileId, sessionToken ?? "", {
+      this.fileService.getFileById(fileId, sessionToken ?? "", {
         signal: this.abortFileRequestController.signal
       }, user?.id).then(response => {
         if (!response || response == null) return;
@@ -613,7 +618,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
     if (!parent) return;
     const session = await parent.getSessionToken();
 
-  let directoryValue = this.currentDirectory;
+    let directoryValue = this.currentDirectory;
     if (!directoryValue) {
 
       const requesterId = this.parentRef?.user?.id ?? this.inputtedParentRef?.user?.id;
