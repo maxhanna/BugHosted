@@ -542,7 +542,7 @@ LIMIT
 					}
 
 					var fileEntryMatch = fileEntries.FirstOrDefault(f => f.Id == fileIdValue);
-					if (fileEntryMatch != null)
+					if (fileEntryMatch != null && !commentParentId.HasValue) // only add root comments to top-level collection
 					{
 						if (fileEntryMatch.FileComments == null)
 						{
