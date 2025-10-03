@@ -51,6 +51,7 @@ export class FileComponent extends ChildComponent implements OnInit, OnDestroy {
 
   @Input() user?: User;
   @Input() fileId?: number | undefined = undefined;
+  @Input() commentId?: number | undefined = undefined;
 
   @ViewChild('directoryInput') directoryInput!: ElementRef<HTMLInputElement>;
   @ViewChild('fileInput') fileInput!: ElementRef<HTMLInputElement>;
