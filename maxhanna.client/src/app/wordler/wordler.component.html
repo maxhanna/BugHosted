@@ -14,6 +14,7 @@
     <div class="instructions" *ngIf="!gameStarted">
       <div class="instructionTitle">The Word Guessing Game!</div>
       <div class="instructionTitle">Your Best Daily Streak : {{wordlerBestStreak}}</div>
+      <div class="instructionTitle">Your Current Daily Streak : {{wordlerStreak}}</div>
       <div class="instructionTitle smallFont" *ngIf="wordlerBestStreakOverall">
         All-time Best Daily Streak ({{wordlerBestStreakOverall.streak}}) By :
         <app-user-tag [userId]="wordlerBestStreakOverall.userId" [inputtedParentRef]="parentRef"
