@@ -60,6 +60,7 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
   @Output() quoteMessageEvent = new EventEmitter<string>();
   @Output() replyingToCommentEvent = new EventEmitter<number>();
   @Output() togglingSubComments = new EventEmitter<number>();
+  @Output() deepNavigateRequested = new EventEmitter<number[]>();
 
   constructor(
     private commentService: CommentService,
@@ -115,9 +116,6 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
       try {
         console.log('[DeepLink] Found target element', targetId, 'after attempts', this._scrollAttemptCount);
         el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        // Instead of highlighting, automatically click the reply button to expose subcomments/reply UI
-        // (Removed auto-click behavior; path expansion now handled via data traversal.)
-        // Only act once per requested id
         this.scrollToCommentId = undefined;
       } catch { /* ignore */ }
       return;
@@ -126,13 +124,14 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
     const path = this.findCommentPath(this.scrollToCommentId, this.commentList);
     console.log('[DeepLink] Data path lookup for', this.scrollToCommentId, '=>', path?.map(p => p.id));
     if (path && path.length) {
+      const pathIds = path.map(p => p.id);
       if (this.depth === 0) {
-        // Programmatically open breadcrumb path to target
-        this.openPath(path);
+        // Root: perform deep navigate using breadcrumb/navigateToComment style
+        this.processDeepNavigate(pathIds);
       } else {
-        // Bubble up request so parent (higher depth) can attempt path expansion
-        console.log('[DeepLink] Emitting toggleSubComments (bubble) for target', this.scrollToCommentId);
-        this.togglingSubComments.emit(this.scrollToCommentId!);
+        // Bubble full path upward so root can handle
+        console.log('[DeepLink] Bubbling deepNavigateRequested path', pathIds.join('>'));
+        this.deepNavigateRequested.emit(pathIds);
       }
     } else {
       console.log('[DeepLink] Path not found in current subtree at depth', this.depth, '— will retry');
@@ -166,6 +165,32 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
         this.activeCommentId = this.breadcrumbComments[this.breadcrumbComments.length - 1].id;
         this.activeBreadcrumbCommentId = this.activeCommentId;
       }
+    }
+  }
+
+  // New: deep navigate using list of ancestor->target ids (root component only)
+  private processDeepNavigate(pathIds: number[]) {
+    if (!pathIds.length || this.depth !== 0) return;
+    // Reset breadcrumb state
+    this.breadcrumbComments = [];
+    this.originalCommentList = [...this.commentList];
+    let currentLevel = this.originalCommentList;
+    // Walk all but target to drill into children lists
+    for (let i = 0; i < pathIds.length - 1; i++) {
+      const id = pathIds[i];
+      const node = currentLevel.find(c => c.id === id);
+      if (!node) break;
+      this.breadcrumbComments.push(node);
+      this.activeCommentId = id;
+      this.activeBreadcrumbCommentId = id;
+      // Ensure not minimized
+      if (this.minimizedComments.has(id)) this.minimizedComments.delete(id);
+      currentLevel = node.comments || [];
+      this.commentList = currentLevel; // show next level as we drill
+    }
+    // Ensure ancestors expanded visually (not minimized)
+    for (const id of pathIds.slice(0, -1)) {
+      if (this.minimizedComments.has(id)) this.minimizedComments.delete(id);
     }
   }
 
