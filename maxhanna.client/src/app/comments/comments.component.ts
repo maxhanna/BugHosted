@@ -61,7 +61,7 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
   @Output() subCommentCountUpdatedEvent = new EventEmitter<any>();
   @Output() quoteMessageEvent = new EventEmitter<string>();
   @Output() replyingToCommentEvent = new EventEmitter<number>();
-  @Output() togglingSubComments = new EventEmitter<number>();
+  @Output() togglingSubComments = new EventEmitter<number>(); 
 
   constructor(
     private commentService: CommentService,
@@ -125,7 +125,7 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
         // Retry path discovery briefly (comments may still be decrypting / binding)
         if (this._scrollAttemptCount < 10) {
           this._scrollAttemptCount++;
-          setTimeout(() => this.tryScrollToRequestedComment(), 100 + this._scrollAttemptCount * 50);
+            setTimeout(() => this.tryScrollToRequestedComment(), 100 + this._scrollAttemptCount * 50);
         } else {
           console.warn('[DeepLink] Failed to build path for target', this.scrollToCommentId);
         }
@@ -149,7 +149,7 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
           if (this.depth === 0) {
             this.scrollToCommentId = undefined; // clear only at root
           }
-        } catch { }
+        } catch {}
       }
       return; // Finished
     }
@@ -166,10 +166,6 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
           }
           // Advance path for children; they receive remainder via binding
           this._remainingPath = this._remainingPath.slice(1);
-          // Keep external deepLinkPath in sync so helper passes correct remainder
-          if (this.deepLinkPath && this.deepLinkPath.length > 1 && this.deepLinkPath[0] === nextAncestorId) {
-            this.deepLinkPath = this.deepLinkPath.slice(1);
-          }
           // Allow Angular to render newly un-minimized subtree
           setTimeout(() => this.processDeepLinkPath(), 50);
           return;
@@ -177,9 +173,6 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
           // At depth > 0 we breadcrumb-drill into the comment to replace local list with its children
           this.expandComment(commentToExpand);
           this._remainingPath = this._remainingPath.slice(1);
-          if (this.deepLinkPath && this.deepLinkPath.length > 1 && this.deepLinkPath[0] === nextAncestorId) {
-            this.deepLinkPath = this.deepLinkPath.slice(1);
-          }
           setTimeout(() => this.processDeepLinkPath(), 50);
           return;
         }
@@ -192,7 +185,7 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
     if (this._remainingPath.length === 1) {
       if (this._targetScrollAttempts < 15) {
         this._targetScrollAttempts++;
-        setTimeout(() => this.processDeepLinkPath(), 120 + this._targetScrollAttempts * 20);
+        setTimeout(() => this.processDeepLinkPath(), 120);
       } else {
         console.warn('[DeepLink] Unable to locate target element after retries', targetId);
       }
@@ -202,12 +195,32 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
   // Provide remainder of deep link path for a given child branch so template stays simple
   getChildDeepLinkPath(parent: FileComment, child: FileComment): number[] | undefined {
     if (!this.deepLinkPath || !this.deepLinkPath.length) return undefined;
-    // Find parent position in full path
-    const parentIdx = this.deepLinkPath.indexOf(parent.id);
-    if (parentIdx === -1) return undefined;
-    // Child should be the next element after parent in the path
-    if (this.deepLinkPath[parentIdx + 1] !== child.id) return undefined;
-    return this.deepLinkPath.slice(parentIdx + 1);
+    // Ensure this component's list contains the parent that matches first element of current path
+    if (this.deepLinkPath[0] !== parent.id) return undefined;
+    const idx = this.deepLinkPath.indexOf(child.id);
+    if (idx === -1) return undefined;
+    return this.deepLinkPath.slice(idx);
+  }
+    
+  // Programmatically open a full path (array from root->...->target) using breadcrumb mechanics
+  private openPath(path: FileComment[]) {
+    if (!path.length) return;
+    // Keep full top-level list; only ensure ancestors are expanded (not minimized).
+    // Avoid mutating commentList to prevent UI from collapsing to a single branch.
+    const ancestorIds = path.slice(0, -1).map(c => c.id);
+    for (const id of ancestorIds) {
+      if (this.minimizedComments.has(id)) {
+        this.minimizedComments.delete(id);
+      }
+    }
+    // Optionally set breadcrumbs for context without altering list
+    if (this.depth === 0) {
+      this.breadcrumbComments = path.slice(0, -1);
+      if (this.breadcrumbComments.length) {
+        this.activeCommentId = this.breadcrumbComments[this.breadcrumbComments.length - 1].id;
+        this.activeBreadcrumbCommentId = this.activeCommentId;
+      }
+    }
   }
 
   override viewProfile(user: User) {
@@ -446,34 +459,34 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
         const commentPolls = grouped.get(key);
         if (commentPolls && commentPolls.length) {
           // Determine if user voted in ANY poll for this comment
-          let userVoted = false;
-          for (const poll of commentPolls) {
-            try {
-              if (poll.userVotes?.length) {
-                for (const v of poll.userVotes) {
-                  if (!v) continue;
-                  if ((v.userId && v.userId === currentUserId)) { userVoted = true; break; }
-                  const uname = (v.username || '').toString().toLowerCase();
-                  if (uname && uname === currentUserName) { userVoted = true; break; }
-                }
-              }
-            } catch { }
-            if (userVoted) break;
-          }
-          if (userVoted) {
-            // Build consolidated HTML for all polls in this comment
-            let combined = '';
+            let userVoted = false;
             for (const poll of commentPolls) {
-              const question = poll.question ?? '';
-              const totalVotes = poll.totalVotes ?? (poll.userVotes ? poll.userVotes.length : 0);
-              combined += `<div class="poll-container" data-component-id="${poll.componentId}">`;
-              combined += `<div class="poll-question">${question}</div>`;
-              combined += `<div class="poll-options">`;
-              for (const opt of (poll.options || [])) {
-                const pct = opt.percentage ?? 0;
-                const votes = opt.voteCount ?? 0;
-                const optText = (opt && opt.text) ?? '';
-                combined += `
+              try {
+                if (poll.userVotes?.length) {
+                  for (const v of poll.userVotes) {
+                    if (!v) continue;
+                    if ((v.userId && v.userId === currentUserId)) { userVoted = true; break; }
+                    const uname = (v.username || '').toString().toLowerCase();
+                    if (uname && uname === currentUserName) { userVoted = true; break; }
+                  }
+                }
+              } catch {}
+              if (userVoted) break;
+            }
+            if (userVoted) {
+              // Build consolidated HTML for all polls in this comment
+              let combined = '';
+              for (const poll of commentPolls) {
+                const question = poll.question ?? '';
+                const totalVotes = poll.totalVotes ?? (poll.userVotes ? poll.userVotes.length : 0);
+                combined += `<div class="poll-container" data-component-id="${poll.componentId}">`;
+                combined += `<div class="poll-question">${question}</div>`;
+                combined += `<div class="poll-options">`;
+                for (const opt of (poll.options || [])) {
+                  const pct = opt.percentage ?? 0;
+                  const votes = opt.voteCount ?? 0;
+                  const optText = (opt && opt.text) ?? '';
+                  combined += `
                     <div class="poll-option">
                       <div class="poll-option-text">${optText}</div>
                       <div class="poll-result">
@@ -481,25 +494,25 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
                         <span class="poll-stats">${votes} votes (${pct}%)</span>
                       </div>
                     </div>`;
-              }
-              combined += `</div>`;
-              combined += `<div class="poll-total">Total Votes: ${totalVotes}</div>`;
-              if (poll.userVotes?.length) {
-                combined += `<div class="poll-voters">Voted: `;
-                const voters: string[] = [];
-                for (const v of poll.userVotes) {
-                  const uname = v?.username || '';
-                  if (!uname) continue;
-                  voters.push(`@${uname}`);
                 }
-                combined += voters.join(' ');
                 combined += `</div>`;
+                combined += `<div class="poll-total">Total Votes: ${totalVotes}</div>`;
+                if (poll.userVotes?.length) {
+                  combined += `<div class="poll-voters">Voted: `;
+                  const voters: string[] = [];
+                  for (const v of poll.userVotes) {
+                    const uname = v?.username || '';
+                    if (!uname) continue;
+                    voters.push(`@${uname}`);
+                  }
+                  combined += voters.join(' ');
+                  combined += `</div>`;
+                }
+                combined += `<div class="pollControls"><button onclick=\"document.getElementById('pollQuestion').value='${this.escapeHtmlAttribute(question)}';document.getElementById('pollComponentId').value='${poll.componentId}';document.getElementById('pollDeleteButton').click();\">Delete vote</button></div>`;
+                combined += `</div>`; // end poll-container
               }
-              combined += `<div class="pollControls"><button onclick=\"document.getElementById('pollQuestion').value='${this.escapeHtmlAttribute(question)}';document.getElementById('pollComponentId').value='${poll.componentId}';document.getElementById('pollDeleteButton').click();\">Delete vote</button></div>`;
-              combined += `</div>`; // end poll-container
+              c.commentText = combined; // Replace original text with results
             }
-            c.commentText = combined; // Replace original text with results
-          }
         }
         if (c.comments?.length) applyToComments(c.comments);
       }
