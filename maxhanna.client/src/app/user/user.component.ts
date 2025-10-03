@@ -192,8 +192,7 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
       }
       this.getNSFWValue();
       this.getNumberOfNexusBases();
-      this.getNumberOfTrades();
-      // load additional counts if available from services
+      this.getNumberOfTrades(); 
       this.loadExtraCounts();
     }
     catch (error) { console.log((error as Error).message); }
