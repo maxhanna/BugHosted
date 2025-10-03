@@ -26,7 +26,7 @@
   </span>
 </div>
 
-<div class="comments-section"
+<div class="comments-section" #rootCommentsSection
   *ngIf="commentList && commentList.length > 0 && (showComments || (comment_id && automaticallyShowSubComments))"
   [style.maxHeight]="comment_id ? '' : '300px'">
 

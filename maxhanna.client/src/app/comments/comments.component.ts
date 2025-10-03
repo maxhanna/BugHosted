@@ -35,6 +35,7 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
   @ViewChild('addCommentInput') addCommentInput!: ElementRef<HTMLInputElement>;
   @ViewChild('subCommentComponent') subCommentComponent!: CommentsComponent;
   @ViewChild('commentInputAreaMediaSelector') commentInputAreaMediaSelector!: MediaSelectorComponent;
+  @ViewChild('rootCommentsSection') rootCommentsSection?: ElementRef<HTMLDivElement>;
 
   @Input() inputtedParentRef?: AppComponent;
   @Input() commentList: FileComment[] = [];
@@ -145,6 +146,10 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
     if (el) {
       if (this.scrollToCommentId === targetId) {
         try {
+          if (this.depth === 0) {
+            // Ensure container itself scrolled to bottom first for long lists
+            this.scrollRootSectionToBottom();
+          }
           el.scrollIntoView({ behavior: 'smooth', block: 'center' });
           if (this.depth === 0) {
             this.scrollToCommentId = undefined; // clear only at root
@@ -200,6 +205,14 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
     const idx = this.deepLinkPath.indexOf(child.id);
     if (idx === -1) return undefined;
     return this.deepLinkPath.slice(idx);
+  }
+
+  private scrollRootSectionToBottom() {
+    if (!this.rootCommentsSection) return;
+    try {
+      const div = this.rootCommentsSection.nativeElement;
+      div.scrollTop = div.scrollHeight;
+    } catch {}
   }
     
   // Programmatically open a full path (array from root->...->target) using breadcrumb mechanics
