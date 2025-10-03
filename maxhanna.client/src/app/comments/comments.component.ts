@@ -89,12 +89,10 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
 
   ngOnChanges(changes: SimpleChanges): void {
     if (changes['scrollToCommentId'] && !changes['scrollToCommentId'].firstChange) {
-      // Defer to allow DOM update
       setTimeout(() => this.tryScrollToRequestedComment(), 100);
     }
     if (!this.hasDeeplinkChanged && changes['deepLinkPath'] && this.deepLinkPath && this.deepLinkPath.length) {
       this.hasDeeplinkChanged = true;
-      console.log("deeplingpath changed, initial scroll", this.deepLinkPath);
       if (this.depth > 0) {
         this._remainingPath = [...this.deepLinkPath];
         setTimeout(() => this.processDeepLinkPath(), 0);
@@ -144,26 +142,19 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
     if (el) {
       if (this.scrollToCommentId === targetId) {
         try {
-          // Ensure container scrolled sufficiently first (optional bottom scroll for very long lists)
           if (this.depth === 0) {
             this.scrollRootSectionToBottom();
           }
           el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-          console.log('[DeepLink] Scrolled to target comment', targetId);
           if (this.depth === 0) {
             this.scrollToCommentId = undefined;
           } else {
             setTimeout(() => {
               if (targetId) {  
                 document.getElementById("expandButton"+targetId)?.click();
-                console.log("attempting to click on final expandButton"+targetId); 
                 this._remainingPath = undefined; 
-                this.deepLinkPath = undefined;
-                if (this.subCommentComponent) {
-                  console.log("reset subcomponent props");
-                  this.subCommentComponent._remainingPath = undefined;
-                  this.subCommentComponent.deepLinkPath = undefined;
-                }
+                this.deepLinkPath = undefined; 
+                setTimeout(() => { this.scrollRootSectionToBottom() }, 100);
               }
             }, 100);
           }
@@ -181,12 +172,9 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
           if (this.minimizedComments.has(nextAncestorId)) {
             this.minimizedComments.delete(nextAncestorId);
           }
-          // Move to next id but DO NOT mutate deepLinkPath so children can still derive remainder
           this._remainingPath = this._remainingPath.slice(1);
-          // If the next id is not a direct child at this level, delegate to nested component
           const nextId = this._remainingPath[0];
           if (nextId && !this.commentList.some(c => c.id === nextId)) {
-            console.log('[DeepLink] Delegating remaining path to child components', this._remainingPath); 
             this.scrollRootSectionToBottom();
             setTimeout(() => {
               if (this._remainingPath) { 
@@ -202,31 +190,18 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
           setTimeout(() => this.processDeepLinkPath(), 50);
           return;
         } else {
-          // Breadcrumb drill for nested component; replace list with children of expanded comment
+          console.log("expand commnent called");
           this.expandComment(commentToExpand);
           this._remainingPath = this._remainingPath.slice(1);
           setTimeout(() => this.processDeepLinkPath(), 50);
           return;
         }
       } else {
-        // Not found at this depth; rely on a child component already spawned to continue
         return;
       }
-    }
-
-    // If we are at the last segment but element not yet in DOM, retry a few times
-    if (this._remainingPath.length === 1) {
-      if (this._targetScrollAttempts < 15) {
-        this._targetScrollAttempts++;
-        console.log("targetScrolling attermpt :" , this._targetScrollAttempts);
-        setTimeout(() => this.processDeepLinkPath(), 120);
-      } else {
-        console.warn('[DeepLink] Unable to locate target element after retries', targetId);
-      }
-    }
+    } 
   }
 
-  // Provide remainder of deep link path for a given child branch so template stays simple
   getChildDeepLinkPath(parent: FileComment, child: FileComment): number[] | undefined {
     const sourcePath = (this._remainingPath && this._remainingPath.length) ? [parent.id, ...this._remainingPath] : this.deepLinkPath;
     if (!sourcePath || !sourcePath.length) return undefined;
