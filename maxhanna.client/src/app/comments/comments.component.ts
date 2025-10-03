@@ -96,7 +96,7 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
     }
     if (changes['deepLinkPath'] && this.deepLinkPath && this.deepLinkPath.length) {
       // Initialize remaining path when received from parent (non-root components)
-      console.log("deeplingpath changed, initial scroll");
+      console.log("deeplingpath changed, initial scroll", this.deepLinkPath);
       if (this.depth > 0) {
         this._remainingPath = [...this.deepLinkPath];
         setTimeout(() => this.processDeepLinkPath(), 0);
@@ -160,8 +160,10 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
                 document.getElementById("expandButton"+targetId)?.click();
                 console.log("attempting to click on final expandButton"+targetId); 
                 this._remainingPath = undefined; 
+                this.deepLinkPath = undefined;
                 if (this.subCommentComponent) {
                   this.subCommentComponent._remainingPath = undefined;
+                  this.subCommentComponent.deepLinkPath = undefined;
                 }
               }
             }, 100);
