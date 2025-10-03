@@ -141,7 +141,7 @@
   padding-top: 2px;
   padding-bottom: 2px;
 }
-  
+
 
 ::ng-deep .reactedReactionDiv span {
   width: unset !important;
@@ -196,4 +196,8 @@
   color: var(--secondary-font-color);
   background-color: var(--third-font-color);
   transform: scale(1.05);
+}
+
+.deleteReactionButton {
+  margin-top: unset !important;
 }
