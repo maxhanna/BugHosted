@@ -1406,7 +1406,7 @@ export class AppComponent implements OnInit, AfterViewInit {
       const key = (url + '').trim().toLowerCase();
       if (forbidden.has(key)) return match; // skip formatting tokens
       const safeUrl = this.ensureUrlHasProtocol(url);
-      return `<a href="${safeUrl}" target="_blank" rel="noopener noreferrer">${label}</a>`;
+      return `<a href="${safeUrl}" target="_blank" rel="noopener noreferrer" onClick="document.getElementById('hiddenUrlToVisit').value='${safeUrl}';document.getElementById('hiddenUrlToVisitButton').click()">${label}</a>`;
     });
   }
 
