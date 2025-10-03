@@ -52,7 +52,6 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
   @Input() storyId?: number = undefined;
   @Input() fileId?: number = undefined;
   @Input() replyingToCommentId?: number;
-  // New: if provided, component will attempt to scroll to this comment's element id (commentText{ID})
   @Input() scrollToCommentId?: number;
   @Output() commentAddedEvent = new EventEmitter<FileComment>();
   @Output() commentRemovedEvent = new EventEmitter<FileComment>();
@@ -92,7 +91,8 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
   }
 
   private _scrollAttemptCount = 0;
-  private _expandedForComment: Set<number> = new Set<number>();
+  // Track which ancestor comment IDs have been expanded so we can progressively drill down
+  private _expandedAncestorIds: Set<number> = new Set<number>();
   private findCommentPath(targetId: number, list: FileComment[]): FileComment[] | null {
     for (const c of list) {
       if (c.id === targetId) return [c];
@@ -126,32 +126,29 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
       } catch { /* ignore */ }
       return;
     }
-    // If element not found yet, attempt to expand ancestor chain (any depth)
-    if (!this._expandedForComment.has(this.scrollToCommentId)) {
-      const path = this.findCommentPath(this.scrollToCommentId, this.commentList);
-      console.log('[DeepLink] Path lookup for', this.scrollToCommentId, '=>', path?.map(p => p.id));
-      if (path && path.length) {
-        // Un-minimize all ancestors
-        for (const ancestor of path.slice(0, -1)) {
-          console.log('[DeepLink] Ensuring ancestor visible', ancestor.id);
-          if (this.minimizedComments.has(ancestor.id)) {
-            this.minimizedComments.delete(ancestor.id);
-            console.log('[DeepLink] Removed minimized state for', ancestor.id);
-          }
-          // Prefer explicit expand button if present
-          const expandBtn = document.getElementById('expandButton' + ancestor.id) as HTMLButtonElement | null;
-          if (expandBtn) {
-            console.log('[DeepLink] Clicking expand button for', ancestor.id);
-            
-            try { expandBtn.click(); } catch (e) { console.warn('[DeepLink] Expand click failed', e); }
-            
-          } 
+    // If element not found yet, attempt to expand ancestor chain progressively (any depth)
+    const path = this.findCommentPath(this.scrollToCommentId, this.commentList);
+    console.log('[DeepLink] Path lookup for', this.scrollToCommentId, '=>', path?.map(p => p.id));
+    if (path && path.length) {
+      // Expand only ancestors we have not already expanded (exclude target itself)
+      const ancestors = path.slice(0, -1);
+      for (const ancestor of ancestors) {
+        if (this._expandedAncestorIds.has(ancestor.id)) continue; // already processed
+        console.log('[DeepLink] Expanding ancestor', ancestor.id);
+        // Ensure ancestor not minimized
+        if (this.minimizedComments.has(ancestor.id)) {
+          this.minimizedComments.delete(ancestor.id);
+          console.log('[DeepLink] Removed minimized state for', ancestor.id);
         }
-        this._expandedForComment.add(this.scrollToCommentId);
+        const expandBtn = document.getElementById('expandButton' + ancestor.id) as HTMLButtonElement | null;
+        if (expandBtn) {
+          console.log('[DeepLink] Clicking expand button for', ancestor.id);
+          try { expandBtn.click(); } catch (e) { console.warn('[DeepLink] Expand click failed', e); }
+        }
+        this._expandedAncestorIds.add(ancestor.id);
       }
-      else {
-        console.log('[DeepLink] No path found in current commentList for', this.scrollToCommentId, 'at depth', this.depth);
-      }
+    } else {
+      console.log('[DeepLink] No path yet for', this.scrollToCommentId, 'at depth', this.depth, '— will retry');
     }
     // Retry a few times in case nested components haven't rendered yet
     const maxAttempts = 20;
