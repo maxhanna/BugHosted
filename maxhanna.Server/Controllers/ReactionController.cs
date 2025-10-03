@@ -74,6 +74,41 @@ namespace maxhanna.Server.Controllers
 				return StatusCode(500, "An error occurred while adding the reaction.");
 			}
 		}
+
+		[HttpPost("/Reaction/DeleteReaction", Name = "DeleteReaction")]
+		public async Task<IActionResult> DeleteReaction([FromBody] int reactionId)
+		{
+			try
+			{
+				if (reactionId <= 0) return BadRequest("Invalid reaction id.");
+				using (var connection = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+				{
+					await connection.OpenAsync();
+					// Verify ownership: only the user who created the reaction may delete it
+					var getOwnerCmd = new MySqlCommand("SELECT user_id FROM reactions WHERE id = @id LIMIT 1;", connection);
+					getOwnerCmd.Parameters.AddWithValue("@id", reactionId);
+					var ownerObj = await getOwnerCmd.ExecuteScalarAsync();
+					if (ownerObj == null) return NotFound("Reaction not found.");
+					int ownerId = Convert.ToInt32(ownerObj);
+					// The requesting user id should be available via some auth/session mechanism; fallback to 0 if unavailable.
+					int requestingUserId = 0;
+					try { requestingUserId = Convert.ToInt32(HttpContext.Items["UserId"] ?? 0); } catch { requestingUserId = 0; }
+					if (requestingUserId == 0 || requestingUserId != ownerId)
+					{
+						return Forbid();
+					}
+					var delCmd = new MySqlCommand("DELETE FROM reactions WHERE id = @id LIMIT 1;", connection);
+					delCmd.Parameters.AddWithValue("@id", reactionId);
+					await delCmd.ExecuteNonQueryAsync();
+					return Ok(true);
+				}
+			}
+			catch (Exception ex)
+			{
+				_ = _log.Db("An error occurred while deleting the reaction." + ex.Message, null, "REACT", true);
+				return StatusCode(500, "An error occurred while deleting the reaction.");
+			}
+		}
 		private int? CheckIfReactionExists(MySqlConnection connection, int userId, int? commentId, int? storyId, int? messageId, int? fileId)
 		{
 			string query = @"

@@ -133,6 +133,25 @@ export class ReactionComponent extends ChildComponent implements OnInit {
     this.getReactionsListDisplay();
   }
 
+  async deleteReaction(reaction: Reaction) {
+    if (!reaction || !reaction.id) return;
+    // Optional: confirm deletion with the user
+    const confirmed = confirm('Delete your reaction?');
+    if (!confirmed) return;
+    const res: any = await this.reactionService.deleteReaction(reaction.id);
+    if (res === true || res === 'true') {
+      this.currentReactions = this.currentReactions?.filter(r => r.id !== reaction.id) ?? [];
+      this.getReactionsListDisplay();
+      // If the reactions panel is open, update overlay state
+      if (this.inputtedParentRef) {
+        this.inputtedParentRef.showOverlay();
+      }
+    } else {
+      // show a notification on failure
+  this.notificationService.createNotifications({ fromUserId: this.user?.id ?? 0, message: 'Could not delete reaction', toUserIds: [] });
+    }
+  }
+
   async selectReaction(reaction: string) { 
     if (this.userHasReacted() && this.currentReactions && this.currentReactions.some(x => x.user?.id == this.inputtedParentRef?.user?.id && x.type && x.type == reaction)) {
       this.showReactionChoices = false;
