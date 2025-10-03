@@ -3,9 +3,9 @@
   <!--<div class="refreshButton" (click)="ngOnInit();"></div>-->
   <div class="componentTitle">Meta-Bots</div>
   <div class="menuButton" (click)="showMenuPanel()"></div>
-  <!-- 
-  <div *ngIf="isLoading" class="loadingModal">The game is loading...</div>
-  <div *ngIf="serverDown">We are sorry, server is currently down. Please be patient while we bring it back online.</div> -->
+ 
+  <div [style.display]="isLoading ? 'block' : 'none'" class="loadingModal">The game is loading...</div>
+  <div [style.display]="serverDown ? 'block' : 'none'">We are sorry, server is currently down. Please be patient while we bring it back online.</div> 
   <div class="gameCanvasContainer">
     <canvas #gameCanvas id="gameCanvas" class="gameCanvas" width=320 height="220"></canvas>
   </div>
@@ -14,18 +14,9 @@
       <input type="text" [placeholder]=" 'Chat'" #chatInput id="chatInput" class="chatInput"
         (keydown)="lockMovementForChat()" (change)="lockMovementForChat()" />
     </div>
-    <!-- <div class="chatBox" id="chatBox">
-      <div *ngFor="let msg of chat">
-        <span class="heroName">
-          {{msg.hero}}
-          <span class="xxSmallFont">({{msg.timestamp | date: 'HH:mm'}})</span>
-        </span>:
-        <span class="chatBoxMessage">{{msg.content}}</span>
-      </div> 
-    </div>  -->
   </div>
 
-  <div class="inputArea">
+  <div class="inputArea"  [style.display]="!isMenuPanelOpen ? 'flex' : 'none'">
     <div class="controls">
       <div class="controls">
         <div class="dpad">
