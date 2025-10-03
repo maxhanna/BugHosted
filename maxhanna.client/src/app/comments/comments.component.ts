@@ -191,28 +191,17 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
       }
     }
   }
-    
-  // Programmatically open a full path (array from root->...->target) using breadcrumb mechanics
-  private openPath(path: FileComment[]) {
-    if (!path.length) return;
-    // Keep full top-level list; only ensure ancestors are expanded (not minimized).
-    // Avoid mutating commentList to prevent UI from collapsing to a single branch.
-    const ancestorIds = path.slice(0, -1).map(c => c.id);
-    for (const id of ancestorIds) {
-      if (this.minimizedComments.has(id)) {
-        this.minimizedComments.delete(id);
-      }
-    }
-    // Optionally set breadcrumbs for context without altering list
-    if (this.depth === 0) {
-      this.breadcrumbComments = path.slice(0, -1);
-      if (this.breadcrumbComments.length) {
-        this.activeCommentId = this.breadcrumbComments[this.breadcrumbComments.length - 1].id;
-        this.activeBreadcrumbCommentId = this.activeCommentId;
-      }
-    }
-  }
 
+  // Provide remainder of deep link path for a given child branch so template stays simple
+  getChildDeepLinkPath(parent: FileComment, child: FileComment): number[] | undefined {
+    if (!this.deepLinkPath || !this.deepLinkPath.length) return undefined;
+    // Ensure this component's list contains the parent that matches first element of current path
+    if (this.deepLinkPath[0] !== parent.id) return undefined;
+    const idx = this.deepLinkPath.indexOf(child.id);
+    if (idx === -1) return undefined;
+    return this.deepLinkPath.slice(idx);
+  }
+     
   override viewProfile(user: User) {
     this.parentRef = this.inputtedParentRef;
     super.viewProfile(user);
