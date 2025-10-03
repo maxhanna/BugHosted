@@ -125,14 +125,7 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
     console.log('[DeepLink] Data path lookup for', this.scrollToCommentId, '=>', path?.map(p => p.id));
     if (path && path.length) {
       const pathIds = path.map(p => p.id);
-      if (this.depth === 0) {
-        // Root: perform deep navigate using breadcrumb/navigateToComment style
-        this.processDeepNavigate(pathIds);
-      } else {
-        // Bubble full path upward so root can handle
-        console.log('[DeepLink] Bubbling deepNavigateRequested path', pathIds.join('>'));
-        this.deepNavigateRequested.emit(pathIds);
-      }
+      this.handleDeepNavigate(pathIds);
     } else {
       console.log('[DeepLink] Path not found in current subtree at depth', this.depth, '— will retry');
     }
@@ -147,60 +140,20 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
       console.warn('[DeepLink] Gave up after', this._scrollAttemptCount, 'attempts for', this.scrollToCommentId);
     }
   }
-  // Programmatically open a full path (array from root->...->target) using breadcrumb mechanics
-  private openPath(path: FileComment[]) {
-    if (!path.length) return;
-    // Keep full top-level list; only ensure ancestors are expanded (not minimized).
-    // Avoid mutating commentList to prevent UI from collapsing to a single branch.
-    const ancestorIds = path.slice(0, -1).map(c => c.id);
-    for (const id of ancestorIds) {
-      if (this.minimizedComments.has(id)) {
-        this.minimizedComments.delete(id);
-      }
+  // Expand ancestors for deep navigation without altering top-level list structure
+  private handleDeepNavigate(pathIds: number[]) {
+    if (!pathIds.length) return;
+    // If not root, bubble up full path
+    if (this.depth !== 0) {
+      this.deepNavigateRequested.emit(pathIds);
+      return;
     }
-    // Optionally set breadcrumbs for context without altering list
-    if (this.depth === 0) {
-      this.breadcrumbComments = path.slice(0, -1);
-      if (this.breadcrumbComments.length) {
-        this.activeCommentId = this.breadcrumbComments[this.breadcrumbComments.length - 1].id;
-        this.activeBreadcrumbCommentId = this.activeCommentId;
-      }
-    }
-  }
-
-  // New: deep navigate using list of ancestor->target ids (root component only)
-  private processDeepNavigate(pathIds: number[]) {
-    if (!pathIds.length || this.depth !== 0) return;
-
-    // Preserve full top-level list: do NOT replace commentList during deep navigation.
-    if (!this.originalCommentList.length) {
-      this.originalCommentList = [...this.commentList];
-    }
-
-    // Clear breadcrumbs and rebuild context trail (without altering visible commentList)
-    this.breadcrumbComments = [];
-    let currentLevel = this.originalCommentList;
-    for (let i = 0; i < pathIds.length - 1; i++) {
-      const ancestorId = pathIds[i];
-      const ancestor = currentLevel.find(c => c.id === ancestorId);
-      if (!ancestor) break; // stop if structure changed
-      this.breadcrumbComments.push(ancestor);
-      // Ensure ancestor expanded (remove minimized state)
-      if (this.minimizedComments.has(ancestorId)) this.minimizedComments.delete(ancestorId);
-      currentLevel = ancestor.comments || [];
-    }
-
-    // Mark last ancestor for optional styling / focus
-    if (this.breadcrumbComments.length) {
-      const last = this.breadcrumbComments[this.breadcrumbComments.length - 1];
-      this.activeCommentId = last.id;
-      this.activeBreadcrumbCommentId = last.id;
-    }
-
-    // Expand all ancestors so target remains visible in full context
-    for (const id of pathIds.slice(0, -1)) {
+    // Root: expand ancestor comments (all except target) by removing minimized flags
+    const ancestors = pathIds.slice(0, -1);
+    for (const id of ancestors) {
       if (this.minimizedComments.has(id)) this.minimizedComments.delete(id);
     }
+    // Do not replace commentList; simply ensure visibility and attempt scroll again
   }
 
   override viewProfile(user: User) {
