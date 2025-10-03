@@ -191,7 +191,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
 
   async fetchFileSrc(forceImmediate: boolean = false) {
     if (this.inViewConfirmDelayMs && this.inViewConfirmDelayMs > 0 && this.inViewTimer && this.inViewElapsedMs < this.inViewConfirmDelayMs) {
-      this.debugLog('fetchFileSrc skipped while in-view confirm timer running', { elapsed: this.inViewElapsedMs, required: this.inViewConfirmDelayMs, isInView });
+      this.debugLog('fetchFileSrc skipped while in-view confirm timer running', { elapsed: this.inViewElapsedMs, required: this.inViewConfirmDelayMs });
       return;
     }
     this.debugLog('fetchFileSrc invoked', { fileId: this.fileId, hasFileObj: !!this.file, fileSrcInput: this.fileSrc, alreadySelectedSrc: !!this.selectedFileSrc });
