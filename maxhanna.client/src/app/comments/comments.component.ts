@@ -94,7 +94,8 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
       // Defer to allow DOM update
       setTimeout(() => this.tryScrollToRequestedComment(), 100);
     }
-    if (changes['deepLinkPath'] && this.deepLinkPath && this.deepLinkPath.length) {
+  if (this._deepLinkComplete) return;
+  if (changes['deepLinkPath'] && this.deepLinkPath && this.deepLinkPath.length) {
       // Initialize remaining path when received from parent (non-root components)
       console.log("deeplingpath changed, initial scroll");
       if (this.depth > 0) {
@@ -107,6 +108,7 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
   private _scrollAttemptCount = 0;
   private _targetScrollAttempts = 0;
   _remainingPath: number[] | undefined; // path yet to traverse within this component
+  private _deepLinkComplete = false;
 
   private findCommentPath(targetId: number, list: FileComment[]): FileComment[] | null {
     for (const c of list) {
@@ -139,7 +141,8 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
   }
 
   private processDeepLinkPath() {
-    if (!this._remainingPath || !this._remainingPath.length) return;
+  if (this._deepLinkComplete) return;
+  if (!this._remainingPath || !this._remainingPath.length) return;
     const targetId = this._remainingPath[this._remainingPath.length - 1];
     const domId = 'commentText' + targetId;
     const el = document.getElementById(domId) || document.getElementById('subComment' + targetId);
@@ -152,16 +155,8 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
           }
           el.scrollIntoView({ behavior: 'smooth', block: 'center' });
           console.log('[DeepLink] Scrolled to target comment', targetId);
-          if (this.depth === 0) {
-            this.scrollToCommentId = undefined;
-          } else {
-            setTimeout(() => {
-              if (targetId) {  
-                document.getElementById("expandButton"+targetId)?.click();
-                console.log("attempting to click on expandButton"+targetId); 
-              }
-            }, 100);
-          }
+          this.scrollToCommentId = undefined;
+          this._deepLinkComplete = true;
         } catch {}
       }
       return; // Finished
@@ -182,16 +177,8 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
           const nextId = this._remainingPath[0];
           if (nextId && !this.commentList.some(c => c.id === nextId)) {
             console.log('[DeepLink] Delegating remaining path to child components', this._remainingPath); 
-            this.scrollRootSectionToBottom();
-            setTimeout(() => {
-              if (this._remainingPath) { 
-                for(let cId of this._remainingPath) {
-                  document.getElementById("expandButton"+cId)?.click();
-                  console.log("attempting to click on expandButton"+cId);
-                }
-              }
-            }, 100);
-            
+            // Proactively attempt expanding visible ancestors by clicking buttons if still minimized
+            this.performExpandClicks(this._remainingPath.slice());
             return; // child component receives deepLinkPath slice via template binding
           }
           setTimeout(() => this.processDeepLinkPath(), 50);
@@ -211,24 +198,69 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
 
     // If we are at the last segment but element not yet in DOM, retry a few times
     if (this._remainingPath.length === 1) {
-      if (this._targetScrollAttempts < 15) {
+      if (this._targetScrollAttempts < 10) {
         this._targetScrollAttempts++;
         console.log("targetScrolling attermpt :" , this._targetScrollAttempts);
         setTimeout(() => this.processDeepLinkPath(), 120);
       } else {
         console.warn('[DeepLink] Unable to locate target element after retries', targetId);
+        this._deepLinkComplete = true;
       }
     }
   }
 
   // Provide remainder of deep link path for a given child branch so template stays simple
   getChildDeepLinkPath(parent: FileComment, child: FileComment): number[] | undefined {
-    const sourcePath = (this._remainingPath && this._remainingPath.length) ? [parent.id, ...this._remainingPath] : this.deepLinkPath;
+  if (this._deepLinkComplete) return undefined;
+  const sourcePath = (this._remainingPath && this._remainingPath.length) ? [parent.id, ...this._remainingPath] : this.deepLinkPath;
     if (!sourcePath || !sourcePath.length) return undefined;
     const parentIdx = sourcePath.indexOf(parent.id);
     if (parentIdx === -1) return undefined;
     if (sourcePath[parentIdx + 1] !== child.id) return undefined;
     return sourcePath.slice(parentIdx + 1);
+  }
+
+  // Controlled expand button clicking to replace earlier repeated DOM click spam
+  private performExpandClicks(pathIds: number[], attempt: number = 0) {
+    if (this._deepLinkComplete) return;
+    if (!pathIds.length) return;
+    // Only execute at root level; nested components handle their own expansion logic
+    if (this.depth !== 0) return;
+    const maxAttempts = 5;
+    const delayBetween = 120;
+
+    // Expand (un-minimize) each id found in current top-level list; click button only if still minimized
+    for (const id of pathIds) {
+      const btn = document.getElementById('expandButton' + id) as HTMLButtonElement | null;
+      if (!btn) continue; // Not rendered yet or not a collapsible comment at this level
+      if (this.minimizedComments.has(id)) {
+        // Safe click to trigger Angular template logic identical to user interaction
+        btn.click();
+        console.log('[DeepLink] Clicked expandButton' + id);
+      }
+    }
+
+    // If target already visible, stop
+    const targetId = this._remainingPath ? this._remainingPath[this._remainingPath.length - 1] : undefined;
+    if (targetId) {
+      const targetEl = document.getElementById('commentText' + targetId) || document.getElementById('subComment' + targetId);
+      if (targetEl) {
+        targetEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        this.scrollToCommentId = undefined;
+        this._deepLinkComplete = true;
+        setTimeout(() => { 
+          const btn = document.getElementById('expandButton' + targetId) as HTMLButtonElement | null;
+          if (btn) { btn.click() } 
+          console.log('[DeepLink] Clicked final expandButton' + targetId); 
+        }, 100);
+        return;
+      }
+    }
+
+    // Retry a few times while descendants mount
+    if (attempt < maxAttempts && !this._deepLinkComplete) {
+      setTimeout(() => this.performExpandClicks(pathIds, attempt + 1), delayBetween);
+    }
   }
 
   private scrollRootSectionToBottom() {
