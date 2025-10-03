@@ -2,13 +2,11 @@ import { Component, ElementRef, EventEmitter, Input, OnInit, Output, ViewChild, 
 import { AppComponent } from '../app.component';
 import { CommentService } from '../../services/comment.service';
 import { ChildComponent } from '../child.component';
-import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
+import { SafeHtml } from '@angular/platform-browser';
 import { FileEntry } from '../../services/datacontracts/file/file-entry';
 import { User } from '../../services/datacontracts/user/user';
 import { FileComment } from '../../services/datacontracts/file/file-comment';
-import { NotificationService } from '../../services/notification.service';
 import { MediaSelectorComponent } from '../media-selector/media-selector.component';
-import { ChatService } from '../../services/chat.service';
 import { EncryptionService } from '../../services/encryption.service';
 import { TextToSpeechService } from '../../services/text-to-speech.service';
 import { Poll } from '../../services/datacontracts/social/poll';
@@ -31,6 +29,7 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
   breadcrumbComments: FileComment[] = [];
   originalCommentList: FileComment[] = [];
   activeBreadcrumbCommentId: number | null = null;
+  hasDeeplinkChanged = false;
 
   @ViewChild('addCommentInput') addCommentInput!: ElementRef<HTMLInputElement>;
   @ViewChild('subCommentComponent') subCommentComponent!: CommentsComponent;
@@ -54,7 +53,6 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
   @Input() fileId?: number = undefined;
   @Input() replyingToCommentId?: number;
   @Input() scrollToCommentId?: number;
-  // Full path of ancestor comment IDs (root -> target). Set only once at root and propagated.
   @Input() deepLinkPath?: number[];
   @Output() commentAddedEvent = new EventEmitter<FileComment>();
   @Output() commentRemovedEvent = new EventEmitter<FileComment>();
@@ -94,8 +92,8 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
       // Defer to allow DOM update
       setTimeout(() => this.tryScrollToRequestedComment(), 100);
     }
-    if (changes['deepLinkPath'] && this.deepLinkPath && this.deepLinkPath.length) {
-      // Initialize remaining path when received from parent (non-root components)
+    if (!this.hasDeeplinkChanged && changes['deepLinkPath'] && this.deepLinkPath && this.deepLinkPath.length) {
+      this.hasDeeplinkChanged = true;
       console.log("deeplingpath changed, initial scroll", this.deepLinkPath);
       if (this.depth > 0) {
         this._remainingPath = [...this.deepLinkPath];
