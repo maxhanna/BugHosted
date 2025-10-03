@@ -176,10 +176,15 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
           if (nextId && !this.commentList.some(c => c.id === nextId)) {
             console.log('[DeepLink] Delegating remaining path to child components', this._remainingPath); 
             this.scrollRootSectionToBottom();
-            for(let cId of this._remainingPath) {
-              document.getElementById("expandButton"+cId)?.click();
-              console.log("attempting to click on expandButton"+cId);
-            }
+            setTimeout(() => {
+              if (this._remainingPath) { 
+                for(let cId of this._remainingPath) {
+                  document.getElementById("expandButton"+cId)?.click();
+                  console.log("attempting to click on expandButton"+cId);
+                }
+              }
+            }, 100);
+            
             return; // child component receives deepLinkPath slice via template binding
           }
           setTimeout(() => this.processDeepLinkPath(), 50);
