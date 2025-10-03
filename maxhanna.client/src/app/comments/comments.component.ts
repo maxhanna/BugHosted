@@ -178,6 +178,7 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
             this.scrollRootSectionToBottom();
             for(let cId of this._remainingPath) {
               document.getElementById("expandButton"+cId)?.click();
+              console.log("attempting to click on expandButton"+cId);
             }
             return; // child component receives deepLinkPath slice via template binding
           }
