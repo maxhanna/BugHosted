@@ -44,6 +44,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
   isEditingFileName = false;
   editingTopics: number[] = [];
   isVideoBuffering = false;
+  debug = false;
 
   @ViewChild('mediaContainer', { static: false }) mediaContainer!: ElementRef;
   @ViewChild('fullscreenOverlay', { static: false }) fullscreenOverlay!: ElementRef;
@@ -78,7 +79,6 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
   @Input() isLoadedFromURL = false;
   @Input() showMediaInformation = false;
   @Input() commentId?: number;
-  @Input() debug: boolean = true;
   @Output() emittedNotification = new EventEmitter<string>();
   @Output() commentHeaderClickedEvent = new EventEmitter<boolean>();
   @Output() expandClickedEvent = new EventEmitter<FileEntry>();
@@ -133,7 +133,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
 
   private debugLog(message: string, data?: any) {
     if (this.debug) {
-      console.log(`[MediaViewerDebug] ${message}`, data || '');
+      console.log(`[MediaViewerDebug] ${message}`, data || '', this.file, this.fileId);
     }
   }
   onInView(isInView: boolean) {
