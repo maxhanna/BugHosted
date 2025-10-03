@@ -96,6 +96,7 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
     }
     if (changes['deepLinkPath'] && this.deepLinkPath && this.deepLinkPath.length) {
       // Initialize remaining path when received from parent (non-root components)
+      console.log("deeplingpath changed, initial scroll");
       if (this.depth > 0) {
         this._remainingPath = [...this.deepLinkPath];
         setTimeout(() => this.processDeepLinkPath(), 0);
@@ -118,8 +119,7 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
     return null;
   }
   private tryScrollToRequestedComment() {
-    if (!this.scrollToCommentId) return;
-    // If path already provided externally (edge case), reuse it.
+    if (!this.scrollToCommentId) return; 
     if (!this.deepLinkPath || !this.deepLinkPath.length) {
       const path = this.findCommentPath(this.scrollToCommentId, this.commentList);
       if (!path) {
@@ -213,6 +213,7 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
     if (this._remainingPath.length === 1) {
       if (this._targetScrollAttempts < 15) {
         this._targetScrollAttempts++;
+        console.log("targetScrolling attermpt :" , this._targetScrollAttempts);
         setTimeout(() => this.processDeepLinkPath(), 120);
       } else {
         console.warn('[DeepLink] Unable to locate target element after retries', targetId);
@@ -222,12 +223,12 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
 
   // Provide remainder of deep link path for a given child branch so template stays simple
   getChildDeepLinkPath(parent: FileComment, child: FileComment): number[] | undefined {
-  const sourcePath = (this._remainingPath && this._remainingPath.length) ? [parent.id, ...this._remainingPath] : this.deepLinkPath;
-  if (!sourcePath || !sourcePath.length) return undefined;
-  const parentIdx = sourcePath.indexOf(parent.id);
-  if (parentIdx === -1) return undefined;
-  if (sourcePath[parentIdx + 1] !== child.id) return undefined;
-  return sourcePath.slice(parentIdx + 1);
+    const sourcePath = (this._remainingPath && this._remainingPath.length) ? [parent.id, ...this._remainingPath] : this.deepLinkPath;
+    if (!sourcePath || !sourcePath.length) return undefined;
+    const parentIdx = sourcePath.indexOf(parent.id);
+    if (parentIdx === -1) return undefined;
+    if (sourcePath[parentIdx + 1] !== child.id) return undefined;
+    return sourcePath.slice(parentIdx + 1);
   }
 
   private scrollRootSectionToBottom() {
