@@ -154,6 +154,13 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
           console.log('[DeepLink] Scrolled to target comment', targetId);
           if (this.depth === 0) {
             this.scrollToCommentId = undefined;
+          } else {
+            setTimeout(() => {
+              if (targetId) {  
+                document.getElementById("expandButton"+targetId)?.click();
+                console.log("attempting to click on expandButton"+targetId); 
+              }
+            }, 100);
           }
         } catch {}
       }
