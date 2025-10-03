@@ -42,4 +42,4 @@
 - For multi-file changes, list affected files and a brief description of the change.
 
 ---
-This file should be referenced by the agent before making any code edits in this workspace.
+This file should be referenced by the agent before making any code edits in this workspace. When component general behavior or purpose changes, update README.md Component Overview section.
