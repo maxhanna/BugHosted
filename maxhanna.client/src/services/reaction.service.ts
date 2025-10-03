@@ -24,4 +24,24 @@ export class ReactionService {
       return (error as Error).message;
     }
   } 
+
+  async deleteReaction(reactionId: number) {
+    try {
+      const res = await fetch('/reaction/deletereaction', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(reactionId),
+      });
+
+      if (!res.ok) {
+        throw new Error('Failed to delete reaction');
+      }
+      return await res.json();
+    } catch (error) {
+      console.error('Error deleting reaction:', error);
+      return (error as Error).message;
+    }
+  }
 }

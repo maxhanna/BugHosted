@@ -1,6 +1,5 @@
 import { Component, Input } from '@angular/core';
-import { RatingsService } from '../services/ratings.service';
-import { Rating } from '../services/rating.service';
+import { Rating, RatingsService } from '../../services/ratings.service'; 
 
 @Component({
   selector: 'app-ratings',

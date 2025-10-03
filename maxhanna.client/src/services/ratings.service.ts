@@ -1,5 +1,14 @@
 import { Injectable } from '@angular/core';
 
+export interface Rating {
+  id?: number;
+  user_id?: number;
+  rating: number;
+  timestamp?: string;
+  file_id?: number;
+  search_id?: number;
+}
+
 @Injectable({ providedIn: 'root' })
 export class RatingsService {
   async getRatingsByFile(fileId: number) {
