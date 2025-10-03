@@ -146,13 +146,14 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
     if (el) {
       if (this.scrollToCommentId === targetId) {
         try {
+          // Ensure container scrolled sufficiently first (optional bottom scroll for very long lists)
           if (this.depth === 0) {
-            // Ensure container itself scrolled to bottom first for long lists
             this.scrollRootSectionToBottom();
           }
           el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          console.log('[DeepLink] Scrolled to target comment', targetId);
           if (this.depth === 0) {
-            this.scrollToCommentId = undefined; // clear only at root
+            this.scrollToCommentId = undefined;
           }
         } catch {}
       }
@@ -165,24 +166,29 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
       const commentToExpand = this.commentList.find(c => c.id === nextAncestorId);
       if (commentToExpand) {
         if (this.depth === 0) {
-          // Ensure subcomments visible (remove from minimized)
           if (this.minimizedComments.has(nextAncestorId)) {
             this.minimizedComments.delete(nextAncestorId);
           }
-          // Advance path for children; they receive remainder via binding
+          // Move to next id but DO NOT mutate deepLinkPath so children can still derive remainder
           this._remainingPath = this._remainingPath.slice(1);
-          // Allow Angular to render newly un-minimized subtree
+          // If the next id is not a direct child at this level, delegate to nested component
+          const nextId = this._remainingPath[0];
+          if (nextId && !this.commentList.some(c => c.id === nextId)) {
+            console.log('[DeepLink] Delegating remaining path to child components', this._remainingPath);
+            return; // child component receives deepLinkPath slice via template binding
+          }
           setTimeout(() => this.processDeepLinkPath(), 50);
           return;
         } else {
-          // At depth > 0 we breadcrumb-drill into the comment to replace local list with its children
+          // Breadcrumb drill for nested component; replace list with children of expanded comment
           this.expandComment(commentToExpand);
           this._remainingPath = this._remainingPath.slice(1);
           setTimeout(() => this.processDeepLinkPath(), 50);
           return;
         }
       } else {
-        // Ancestor not present in this slice; nothing to do here.
+        // Not found at this depth; rely on a child component already spawned to continue
+        return;
       }
     }
 
@@ -199,12 +205,12 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
 
   // Provide remainder of deep link path for a given child branch so template stays simple
   getChildDeepLinkPath(parent: FileComment, child: FileComment): number[] | undefined {
-    if (!this.deepLinkPath || !this.deepLinkPath.length) return undefined;
-    // Ensure this component's list contains the parent that matches first element of current path
-    if (this.deepLinkPath[0] !== parent.id) return undefined;
-    const idx = this.deepLinkPath.indexOf(child.id);
-    if (idx === -1) return undefined;
-    return this.deepLinkPath.slice(idx);
+  const sourcePath = (this._remainingPath && this._remainingPath.length) ? [parent.id, ...this._remainingPath] : this.deepLinkPath;
+  if (!sourcePath || !sourcePath.length) return undefined;
+  const parentIdx = sourcePath.indexOf(parent.id);
+  if (parentIdx === -1) return undefined;
+  if (sourcePath[parentIdx + 1] !== child.id) return undefined;
+  return sourcePath.slice(parentIdx + 1);
   }
 
   private scrollRootSectionToBottom() {
@@ -213,28 +219,7 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
       const div = this.rootCommentsSection.nativeElement;
       div.scrollTop = div.scrollHeight;
     } catch {}
-  }
-    
-  // Programmatically open a full path (array from root->...->target) using breadcrumb mechanics
-  private openPath(path: FileComment[]) {
-    if (!path.length) return;
-    // Keep full top-level list; only ensure ancestors are expanded (not minimized).
-    // Avoid mutating commentList to prevent UI from collapsing to a single branch.
-    const ancestorIds = path.slice(0, -1).map(c => c.id);
-    for (const id of ancestorIds) {
-      if (this.minimizedComments.has(id)) {
-        this.minimizedComments.delete(id);
-      }
-    }
-    // Optionally set breadcrumbs for context without altering list
-    if (this.depth === 0) {
-      this.breadcrumbComments = path.slice(0, -1);
-      if (this.breadcrumbComments.length) {
-        this.activeCommentId = this.breadcrumbComments[this.breadcrumbComments.length - 1].id;
-        this.activeBreadcrumbCommentId = this.activeCommentId;
-      }
-    }
-  }
+  } 
 
   override viewProfile(user: User) {
     this.parentRef = this.inputtedParentRef;
@@ -597,9 +582,7 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
       // Inline expand/collapse at top level
       if (this.minimizedComments.has(comment.id)) {
         this.minimizedComments.delete(comment.id);
-      } else {
-        this.minimizedComments.add(comment.id);
-      }
+      }  
       return;
     }
 
