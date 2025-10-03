@@ -53,6 +53,8 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
   @Input() fileId?: number = undefined;
   @Input() replyingToCommentId?: number;
   @Input() scrollToCommentId?: number;
+  // Full path of ancestor comment IDs (root -> target). Set only once at root and propagated.
+  @Input() deepLinkPath?: number[];
   @Output() commentAddedEvent = new EventEmitter<FileComment>();
   @Output() commentRemovedEvent = new EventEmitter<FileComment>();
   @Output() commentHeaderClickedEvent = new EventEmitter<boolean>(this.showComments);
@@ -80,7 +82,10 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
 
   ngAfterViewInit(): void {
     this.scheduleCommentPollRender();
-    this.tryScrollToRequestedComment();
+    // Only root orchestrates initial deep link path discovery
+    if (this.depth === 0) {
+      this.tryScrollToRequestedComment();
+    }
   }
 
   ngOnChanges(changes: SimpleChanges): void {
@@ -88,14 +93,19 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
       // Defer to allow DOM update
       setTimeout(() => this.tryScrollToRequestedComment(), 100);
     }
+    if (changes['deepLinkPath'] && this.deepLinkPath && this.deepLinkPath.length) {
+      // Initialize remaining path when received from parent (non-root components)
+      if (this.depth > 0) {
+        this._remainingPath = [...this.deepLinkPath];
+        setTimeout(() => this.processDeepLinkPath(), 0);
+      }
+    }
   }
 
   private _scrollAttemptCount = 0;
-  // Track which ancestor comment IDs have been expanded so we can progressively drill down
-  private _expandedAncestorIds: Set<number> = new Set<number>();
-  // Track global expansion clicks to avoid infinite loops when brute-forcing deep search
-  private _globalExpandClicks: Set<number> = new Set<number>();
-  private _lastGlobalSweepAttempt = -1;
+  private _targetScrollAttempts = 0;
+  private _remainingPath: number[] | undefined; // path yet to traverse within this component
+
   private findCommentPath(targetId: number, list: FileComment[]): FileComment[] | null {
     for (const c of list) {
       if (c.id === targetId) return [c];
@@ -108,41 +118,77 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
   }
   private tryScrollToRequestedComment() {
     if (!this.scrollToCommentId) return;
-    console.log("scrolling to commentid: ", this.scrollToCommentId);
-    const targetId = 'commentText' + this.scrollToCommentId;
-    const el = document.getElementById(targetId) || document.getElementById('subComment' + this.scrollToCommentId);
-    if (el) {
-      try {
-        console.log('[DeepLink] Found target element', targetId, 'after attempts', this._scrollAttemptCount);
-        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        this.scrollToCommentId = undefined;
-      } catch { /* ignore */ }
-      return;
-    }
-    // If element not found yet, traverse in-memory tree for path (no DOM expansion clicks)
-    const path = this.findCommentPath(this.scrollToCommentId, this.commentList);
-    console.log('[DeepLink] Data path lookup for', this.scrollToCommentId, '=>', path?.map(p => p.id));
-    if (path && path.length) {
-      if (this.depth === 0) {
-        // Programmatically open breadcrumb path to target
-        this.openPath(path);
-      } else {
-        // Bubble up request so parent (higher depth) can attempt path expansion
-        console.log('[DeepLink] Emitting toggleSubComments (bubble) for target', this.scrollToCommentId);
-        this.togglingSubComments.emit(this.scrollToCommentId!);
+    // If path already provided externally (edge case), reuse it.
+    if (!this.deepLinkPath || !this.deepLinkPath.length) {
+      const path = this.findCommentPath(this.scrollToCommentId, this.commentList);
+      if (!path) {
+        // Retry path discovery briefly (comments may still be decrypting / binding)
+        if (this._scrollAttemptCount < 10) {
+          this._scrollAttemptCount++;
+            setTimeout(() => this.tryScrollToRequestedComment(), 100 + this._scrollAttemptCount * 50);
+        } else {
+          console.warn('[DeepLink] Failed to build path for target', this.scrollToCommentId);
+        }
+        return;
       }
-    } else {
-      console.log('[DeepLink] Path not found in current subtree at depth', this.depth, '— will retry');
+      this.deepLinkPath = path.map(p => p.id);
     }
-    // Retry a few times in case nested components haven't rendered yet
-    const maxAttempts = 20;
-    if (this._scrollAttemptCount < maxAttempts) {
-      this._scrollAttemptCount++;
-      const delay = 150 + (this._scrollAttemptCount * 50);
-      console.log('[DeepLink] Retry', this._scrollAttemptCount, 'delay', delay, 'ms for', this.scrollToCommentId);
-      setTimeout(() => this.tryScrollToRequestedComment(), delay);
-    } else {
-      console.warn('[DeepLink] Gave up after', this._scrollAttemptCount, 'attempts for', this.scrollToCommentId);
+    this._remainingPath = [...(this.deepLinkPath || [])];
+    this.processDeepLinkPath();
+  }
+
+  private processDeepLinkPath() {
+    if (!this._remainingPath || !this._remainingPath.length) return;
+    const targetId = this._remainingPath[this._remainingPath.length - 1];
+    const domId = 'commentText' + targetId;
+    const el = document.getElementById(domId) || document.getElementById('subComment' + targetId);
+    if (el) {
+      if (this.scrollToCommentId === targetId) {
+        try {
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          if (this.depth === 0) {
+            this.scrollToCommentId = undefined; // clear only at root
+          }
+        } catch {}
+      }
+      return; // Finished
+    }
+
+    // Need to expand next ancestor
+    if (this._remainingPath.length > 1) {
+      const nextAncestorId = this._remainingPath[0];
+      const commentToExpand = this.commentList.find(c => c.id === nextAncestorId);
+      if (commentToExpand) {
+        if (this.depth === 0) {
+          // Ensure subcomments visible (remove from minimized)
+          if (this.minimizedComments.has(nextAncestorId)) {
+            this.minimizedComments.delete(nextAncestorId);
+          }
+          // Advance path for children; they receive remainder via binding
+          this._remainingPath = this._remainingPath.slice(1);
+          // Allow Angular to render newly un-minimized subtree
+          setTimeout(() => this.processDeepLinkPath(), 50);
+          return;
+        } else {
+          // At depth > 0 we breadcrumb-drill into the comment to replace local list with its children
+          this.expandComment(commentToExpand);
+          this._remainingPath = this._remainingPath.slice(1);
+          setTimeout(() => this.processDeepLinkPath(), 50);
+          return;
+        }
+      } else {
+        // Ancestor not present in this slice; nothing to do here.
+      }
+    }
+
+    // If we are at the last segment but element not yet in DOM, retry a few times
+    if (this._remainingPath.length === 1) {
+      if (this._targetScrollAttempts < 15) {
+        this._targetScrollAttempts++;
+        setTimeout(() => this.processDeepLinkPath(), 120);
+      } else {
+        console.warn('[DeepLink] Unable to locate target element after retries', targetId);
+      }
     }
   }
     
