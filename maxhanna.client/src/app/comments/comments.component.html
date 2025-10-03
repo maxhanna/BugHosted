@@ -76,10 +76,10 @@
       <div class="commentContent">
         <div [innerHTML]="createClickableUrls(comment.commentText, comment.id)" [id]="'commentText'+comment.id"
           class="commentTextDiv" [style.display]="editingComments.includes(comment.id) ? 'none': 'block'"></div>
-        <div *ngFor="let file of comment.commentFiles" class="commentMediaFile">
+          <div *ngFor="let file of comment.commentFiles" class="commentMediaFile">
           <app-media-viewer [file]="file" [user]="comment.user" [currentDirectory]="file.directory"
             [inputtedParentRef]="inputtedParentRef" [displayExtraInfo]="false" [autoplay]="false" [autoload]="true"
-            [showCommentSection]="false" [showMediaInformation]="true"
+            [showCommentSection]="false" [showMediaInformation]="true" [inViewConfirmDelayMs]="350"
             [previousComponent]="previousComponent"></app-media-viewer>
         </div>
         <div class="commentInputArea">

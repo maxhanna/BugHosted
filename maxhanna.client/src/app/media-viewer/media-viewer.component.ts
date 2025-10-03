@@ -45,6 +45,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
   editingTopics: number[] = [];
   isVideoBuffering = false;
   debug = false;
+  private inViewConfirmTimer: any = null;
 
   @ViewChild('mediaContainer', { static: false }) mediaContainer!: ElementRef;
   @ViewChild('fullscreenOverlay', { static: false }) fullscreenOverlay!: ElementRef;
@@ -78,7 +79,8 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
   @Input() inputtedParentRef?: AppComponent;
   @Input() isLoadedFromURL = false;
   @Input() showMediaInformation = false;
-  @Input() commentId?: number;
+  @Input() commentId?: number; 
+  @Input() inViewConfirmDelayMs: number = 0;
   @Output() emittedNotification = new EventEmitter<string>();
   @Output() commentHeaderClickedEvent = new EventEmitter<boolean>();
   @Output() expandClickedEvent = new EventEmitter<FileEntry>();
@@ -140,23 +142,66 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
     // Simplified logic: if forceInviewLoad is false, always load; if true, load once it first becomes visible.
     if (!this.forceInviewLoad || isInView) {
       if (!this.selectedFileSrc) {
-        this.debugLog('onInView triggering fetchFileSrc', { isInView });
-        this.fetchFileSrc().then(() => {
-          const urlContainsMedia = window.location.href.includes('/Media');
-          const file = this.file ?? this.selectedFile;
-          if (urlContainsMedia && (file?.fileName || file?.givenFileName)) {
-            this.selectedFileName = file.givenFileName ?? file.fileName ?? "MediaViewer";
-            if (file) {
-              this.inputtedParentRef?.replacePageTitleAndDescription(this.selectedFileName, this.selectedFileName);
-            }
+        // If an in-view confirm delay is configured and this was an in-view event, wait and re-check the element
+        // is still within the viewport before fetching. This prevents false positives when many viewers render at once.
+        if (isInView && this.forceInviewLoad && this.inViewConfirmDelayMs && this.inViewConfirmDelayMs > 0) {
+          // clear any existing timer
+          if (this.inViewConfirmTimer) {
+            clearTimeout(this.inViewConfirmTimer);
+            this.inViewConfirmTimer = null;
           }
-        });
+          this.debugLog('onInView scheduling confirm check', { delay: this.inViewConfirmDelayMs });
+          this.inViewConfirmTimer = setTimeout(() => {
+            this.inViewConfirmTimer = null;
+            try {
+              const el = this.mediaContainer?.nativeElement as HTMLElement | undefined;
+              let stillInView = true;
+              if (el) {
+                const rect = el.getBoundingClientRect();
+                stillInView = rect.top < window.innerHeight && rect.bottom > 0;
+              }
+              if (stillInView) {
+                this.debugLog('inView confirmed after delay', { delay: this.inViewConfirmDelayMs });
+                this.fetchFileSrc().then(() => {
+                  const urlContainsMedia = window.location.href.includes('/Media');
+                  const file = this.file ?? this.selectedFile;
+                  if (urlContainsMedia && (file?.fileName || file?.givenFileName)) {
+                    this.selectedFileName = file.givenFileName ?? file.fileName ?? "MediaViewer";
+                    if (file) {
+                      this.inputtedParentRef?.replacePageTitleAndDescription(this.selectedFileName, this.selectedFileName);
+                    }
+                  }
+                });
+              } else {
+                this.debugLog('inView cancelled after delay (not visible)', {});
+              }
+            } catch (ex) {
+              this.debugLog('error during inView confirm check', { error: ex });
+            }
+          }, this.inViewConfirmDelayMs);
+        } else {
+          this.debugLog('onInView triggering fetchFileSrc', { isInView });
+          this.fetchFileSrc().then(() => {
+            const urlContainsMedia = window.location.href.includes('/Media');
+            const file = this.file ?? this.selectedFile;
+            if (urlContainsMedia && (file?.fileName || file?.givenFileName)) {
+              this.selectedFileName = file.givenFileName ?? file.fileName ?? "MediaViewer";
+              if (file) {
+                this.inputtedParentRef?.replacePageTitleAndDescription(this.selectedFileName, this.selectedFileName);
+              }
+            }
+          });
+        }
       }
     } else {
       // If we require in-view but it's not in view yet, ensure any ongoing fetch is aborted.
       if (this.abortFileRequestController) {
         this.debugLog('onInView aborting pending fetch (not in view yet)');
         this.abortFileRequestController.abort();
+      }
+      if (this.inViewConfirmTimer) {
+        clearTimeout(this.inViewConfirmTimer);
+        this.inViewConfirmTimer = null;
       }
     }
   }
