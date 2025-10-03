@@ -95,6 +95,10 @@ textarea {
   flex-wrap: wrap;
   flex-direction: row;
   align-items: flex-start;
-  height: 30vh;
+  height: 60vh;
   text-align: unset;
+}
+.poppedUpCarouselleList { 
+    height: calc(60vh - 75px);
+    overflow: auto;
 }
