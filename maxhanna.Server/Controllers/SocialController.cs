@@ -1205,6 +1205,7 @@ namespace maxhanna.Server.Controllers
 		{
 			try
 			{
+				string decryptedText = _log.DecryptContent(request.story.StoryText ?? "", request.story.User?.Id + "");
 				string sql = @"INSERT INTO stories (user_id, story_text, profile_user_id, city, country, date) 
                       VALUES (@userId, @storyText, @profileUserId, @city, @country, UTC_TIMESTAMP());";
 				string topicSql = @"INSERT INTO story_topics (story_id, topic_id) VALUES (@storyId, @topicId);";
@@ -1216,7 +1217,7 @@ namespace maxhanna.Server.Controllers
 					using (var cmd = new MySqlCommand(sql, conn))
 					{
 						cmd.Parameters.AddWithValue("@userId", request.userId);
-						cmd.Parameters.AddWithValue("@storyText", _log.DecryptContent(request.story.StoryText ?? "", (request.userId ?? 0) + ""));
+						cmd.Parameters.AddWithValue("@storyText", decryptedText);
 						cmd.Parameters.AddWithValue("@profileUserId", request.story.ProfileUserId.HasValue && request.story.ProfileUserId != 0
 							? request.story.ProfileUserId.Value
 							: (object)DBNull.Value);
@@ -1263,7 +1264,7 @@ namespace maxhanna.Server.Controllers
 							}
 
 							// Extract URL from story text
-							string[]? urls = _crawler.ExtractUrls(_log.DecryptContent(request.story.StoryText ?? "", request.story.User?.Id + ""));
+							string[]? urls = _crawler.ExtractUrls(decryptedText);
 							if (urls != null)
 							{
 								// Fetch metadata
