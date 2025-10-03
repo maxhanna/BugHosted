@@ -422,17 +422,21 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
       this.isEditing = this.isEditing.filter(x => x != fileId);
       return;
     }
-
-    const res = await this.fileService.updateFileData(this.user.id ?? 0, { FileId: fileId, GivenFileName: text, Description: '', LastUpdatedBy: this.user || this.inputtedParentRef?.user || new User(0, "Anonymous") });
-    if (res) {
-      this.notifyUser(res);
-      this.isEditing = this.isEditing.filter(x => x != fileId);
-    }
-    setTimeout(() => {
-      if (document.getElementById("fileIdName" + fileId) != null) {
-        document.getElementById("fileIdName" + fileId)!.innerText = text;
+    clearTimeout(this.debounceTimer); 
+    this.debounceTimer = setTimeout(async () => {
+      if (this.user) {
+        const res = await this.fileService.updateFileData(this.user.id ?? 0, { FileId: fileId, GivenFileName: text, Description: '', LastUpdatedBy: this.user || this.inputtedParentRef?.user || new User(0, "Anonymous") });
+        if (res) {
+          this.notifyUser(res);
+          this.isEditing = this.isEditing.filter(x => x != fileId);
+        }
+        setTimeout(() => {
+          if (document.getElementById("fileIdName" + fileId) != null) {
+            document.getElementById("fileIdName" + fileId)!.innerText = text;
+          }
+        }, 100);
       }
-    }, 100);
+    }, 500); 
   }
   async startEditingFileName(fileId: number) {
     const parent = document.getElementById("fileIdDiv" + fileId)!;
