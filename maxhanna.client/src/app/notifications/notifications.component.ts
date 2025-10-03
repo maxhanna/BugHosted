@@ -290,6 +290,9 @@ export class NotificationsComponent extends ChildComponent implements OnInit, On
     }
 
     this.updateCategories(false);
+    if (!notification) {
+      this.filterCategory = 'All';
+    }
     this.updatePagination();
     parent.navigationComponent.setNotificationNumber(this.unreadNotifications);
   }
