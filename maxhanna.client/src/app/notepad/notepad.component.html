@@ -35,7 +35,8 @@
     <button (click)="search()">🔍</button>
     <button (click)="toggleCarouselPopup()">{{ isCarouselPopped ? 'Close Notes' : 'Pop Notes' }}</button>
   </div>
-  <div [class]="isCarouselPopped ? 'notesCarousel popupPanel poppedUpCarouselleArea' : 'notesCarousel'">
+  <div [style.gap]="isCarouselPopped ? '5px' : ''"
+    [class]="isCarouselPopped ? 'popupPanel poppedUpCarouselleArea' : 'notesCarousel'">
     <div [class]="isCarouselPopped ? 'poppedUpCarouselleArea' : ''">
       <label *ngFor="let note of notes" (click)="getNote(note.id!)">{{ note.note }}</label>
     </div>
