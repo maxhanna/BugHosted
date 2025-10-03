@@ -93,6 +93,9 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
   private _scrollAttemptCount = 0;
   // Track which ancestor comment IDs have been expanded so we can progressively drill down
   private _expandedAncestorIds: Set<number> = new Set<number>();
+  // Track global expansion clicks to avoid infinite loops when brute-forcing deep search
+  private _globalExpandClicks: Set<number> = new Set<number>();
+  private _lastGlobalSweepAttempt = -1;
   private findCommentPath(targetId: number, list: FileComment[]): FileComment[] | null {
     for (const c of list) {
       if (c.id === targetId) return [c];
@@ -149,6 +152,8 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
       }
     } else {
       console.log('[DeepLink] No path yet for', this.scrollToCommentId, 'at depth', this.depth, '— will retry');
+  // Perform a breadth expansion sweep on top-level (or current list) to discover deeper branches
+  this.performGlobalExpansionSweep();
     }
     // Retry a few times in case nested components haven't rendered yet
     const maxAttempts = 20;
@@ -159,6 +164,29 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
       setTimeout(() => this.tryScrollToRequestedComment(), delay);
     } else {
       console.warn('[DeepLink] Gave up after', this._scrollAttemptCount, 'attempts for', this.scrollToCommentId);
+    }
+  }
+
+  private performGlobalExpansionSweep() {
+    // Avoid repeating same sweep attempt number
+    if (this._lastGlobalSweepAttempt === this._scrollAttemptCount) return;
+    this._lastGlobalSweepAttempt = this._scrollAttemptCount;
+
+    // Limit how many new expands per sweep to avoid massive UI churn
+    const MAX_EXPANDS_PER_SWEEP = 5;
+    let expandsThisSweep = 0;
+
+    for (const c of this.commentList) {
+      if (expandsThisSweep >= MAX_EXPANDS_PER_SWEEP) break;
+      // Skip if already expanded previously
+      if (this._globalExpandClicks.has(c.id)) continue;
+      const btn = document.getElementById('expandButton' + c.id) as HTMLButtonElement | null;
+      if (btn) {
+        console.log('[DeepLink] Global sweep expanding comment', c.id);
+        try { btn.click(); } catch (e) { console.warn('[DeepLink] Global sweep expand failed', e); }
+        this._globalExpandClicks.add(c.id);
+        expandsThisSweep++;
+      }
     }
   }
 
