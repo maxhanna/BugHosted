@@ -44,7 +44,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
   isEditingFileName = false;
   editingTopics: number[] = [];
   isVideoBuffering = false;
-  debug = false;
+  debug = true;
   // in-view confirmation timer: used when `inViewConfirmDelayMs` > 0
   private inViewTimer: number | null = null;
   private inViewElapsedMs = 0;
