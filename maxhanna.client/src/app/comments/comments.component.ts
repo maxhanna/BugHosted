@@ -31,7 +31,7 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
   activeBreadcrumbCommentId: number | null = null;
   hasDeeplinkChanged = false;
   _remainingPath: number[] | undefined;
-  private _scrollAttemptCount = 0; 
+  private _scrollAttemptCount = 0;
 
   @ViewChild('addCommentInput') addCommentInput!: ElementRef<HTMLInputElement>;
   @ViewChild('subCommentComponent') subCommentComponent!: CommentsComponent;
@@ -62,7 +62,7 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
   @Output() subCommentCountUpdatedEvent = new EventEmitter<any>();
   @Output() quoteMessageEvent = new EventEmitter<string>();
   @Output() replyingToCommentEvent = new EventEmitter<number>();
-  @Output() togglingSubComments = new EventEmitter<number>(); 
+  @Output() togglingSubComments = new EventEmitter<number>();
 
   constructor(
     private commentService: CommentService,
@@ -83,9 +83,8 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
 
   ngAfterViewInit(): void {
     this.scheduleCommentPollRender();
-    // Only root orchestrates initial deep link path discovery
     if (this.depth === 0) {
-      this.tryScrollToRequestedComment(); 
+      this.tryScrollToRequestedComment();
     }
   }
 
@@ -100,14 +99,12 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
         setTimeout(() => this.processDeepLinkPath(), 0);
       }
     }
-  } 
+  }
 
-  // Returns a trimmed plain-text snippet of the last (parent) breadcrumb comment
   getActiveBreadcrumbSnippet(maxLength: number = 140): string {
     if (!this.breadcrumbComments || !this.breadcrumbComments.length) return '';
     const parent = this.breadcrumbComments[this.breadcrumbComments.length - 1];
     if (!parent || !parent.commentText) return '';
-    // Strip HTML tags & condense whitespace
     let txt = parent.user.username + ': ' + parent.commentText.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
     if (!txt) return '';
     if (txt.length > maxLength) {
@@ -127,15 +124,15 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
     return null;
   }
   private tryScrollToRequestedComment() {
-    if (!this.scrollToCommentId) return; 
+    if (!this.scrollToCommentId) return;
     if (!this.deepLinkPath || !this.deepLinkPath.length) {
       const path = this.findCommentPath(this.scrollToCommentId, this.commentList);
       if (!path) {
         if (this._scrollAttemptCount < 10) {
           this._scrollAttemptCount++;
-            setTimeout(() => this.tryScrollToRequestedComment(), 100 + this._scrollAttemptCount * 50);
+          setTimeout(() => this.tryScrollToRequestedComment(), 100 + this._scrollAttemptCount * 50);
         } else {
-          console.warn('[DeepLink] Failed to build path for target', this.scrollToCommentId);
+          console.warn('Failed to build path for target', this.scrollToCommentId);
         }
         return;
       }
@@ -161,19 +158,19 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
             this.scrollToCommentId = undefined;
           } else {
             setTimeout(() => {
-              if (targetId) {  
-                document.getElementById("expandButton"+targetId)?.click();
-                this._remainingPath = undefined; 
-                this.deepLinkPath = undefined; 
-                this.scrollLastCommentIntoViewDelayed(); 
+              if (targetId) {
+                document.getElementById("expandButton" + targetId)?.click();
+                this._remainingPath = undefined;
+                this.deepLinkPath = undefined;
+                this.scrollLastCommentIntoViewDelayed();
               }
             }, 100);
           }
-        } catch {}
+        } catch { }
       }
       return; // Finished
     }
- 
+
     if (this._remainingPath.length > 1) {
       const nextAncestorId = this._remainingPath[0];
       const commentToExpand = this.commentList.find(c => c.id === nextAncestorId);
@@ -187,19 +184,17 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
           if (nextId && !this.commentList.some(c => c.id === nextId)) {
             this.scrollRootSectionToBottom();
             setTimeout(() => {
-              if (this._remainingPath) { 
-                for(let cId of this._remainingPath) {
-                  document.getElementById("expandButton"+cId)?.click();
-                  //console.log("attempting to click on expandButton"+cId);
+              if (this._remainingPath) {
+                for (let cId of this._remainingPath) {
+                  document.getElementById("expandButton" + cId)?.click();
                 }
               }
             }, 100);
-            
             return;
           }
           setTimeout(() => this.processDeepLinkPath(), 50);
           return;
-        } else { 
+        } else {
           this.expandComment(commentToExpand);
           this._remainingPath = this._remainingPath.slice(1);
           setTimeout(() => this.processDeepLinkPath(), 50);
@@ -208,7 +203,7 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
       } else {
         return;
       }
-    } 
+    }
   }
 
   private scrollLastCommentIntoViewDelayed() {
@@ -230,7 +225,7 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
             (nodes[nodes.length - 1] as HTMLElement).scrollIntoView({ behavior: 'smooth', block: 'end' });
           }
         }
-      } catch {}
+      } catch { }
     }, 1000);
   }
 
@@ -248,8 +243,8 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
     try {
       const div = this.rootCommentsSection.nativeElement;
       div.scrollTop = div.scrollHeight;
-    } catch {}
-  } 
+    } catch { }
+  }
 
   override viewProfile(user: User) {
     this.parentRef = this.inputtedParentRef;
@@ -288,7 +283,6 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
   }
 
   editComment(comment: FileComment) {
-    console.log(comment);
     if (!this.editingComments.includes(comment.id)) {
       this.editingComments.push(comment.id);
     } else {
@@ -303,7 +297,7 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
     let message = (document.getElementById('commentTextTextarea' + comment.id) as HTMLTextAreaElement).value.trim();
     message = this.encryptionService.encryptContent(message, comment.user.id + "");
     this.editingComments = this.editingComments.filter(x => x != comment.id);
-    const parent = this.parentRef ?? this.inputtedParentRef;
+    const parent = this.inputtedParentRef ?? this.parentRef;
     if (message && parent?.user) {
       parent.updateLastSeen();
       this.commentService.editComment(parent.user.id ?? 0, comment.id, message).then(res => {
@@ -336,7 +330,6 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
   }
 
   createClickableUrls(text?: string, commentId?: number): SafeHtml {
-    // Pass the raw numeric id when available so getTextForDOM can normalize it.
     const idToPass = commentId !== undefined ? commentId : (this.component_id ?? undefined);
     return this.getTextForDOM(text ?? "", idToPass as any);
   }
@@ -348,12 +341,8 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
     }
     this.isOptionsPanelOpen = true;
     this.optionsComment = comment;
-    if (this.parentRef) {
-      this.parentRef.showOverlay();
-    }
-    else if (this.inputtedParentRef) {
-      this.inputtedParentRef.showOverlay();
-    }
+    const parent = this.inputtedParentRef ?? this.parentRef;
+    parent?.showOverlay();
   }
 
   closeOptionsPanel() {
@@ -367,34 +356,31 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
 
   showSubComments(commentId: number) {
     if (this.replyingToCommentId === commentId) {
-      // Cancel reply
       this.replyingToCommentId = undefined;
-      this.replyingToCommentEvent.emit(undefined);
     } else {
-      // Set new active reply
       this.replyingToCommentId = commentId;
-      this.replyingToCommentEvent.emit(commentId);
     }
+    this.replyingToCommentEvent.emit(this.replyingToCommentId);
   }
+
   commentHeaderClicked() {
     this.showComments = !this.showComments;
     this.commentHeaderClickedEvent.emit(this.showComments);
   }
+
   quote(comment: FileComment) {
     const parent = this.inputtedParentRef ?? this.parentRef;
-    if (parent) {
-      parent.closeOverlay();
-    }
-
+    parent?.closeOverlay();
     const commentText = comment.commentText?.trim();
-
     const message = `[Quoting {${comment.user.username}|${comment.user.id}|${comment.date}}: ${commentText}] \n`;
     this.setQuoteMessage(message);
     this.quoteMessageEvent.emit(message);
   }
+
   setQuoteMessage(message: string) {
     this.quoteMessage = message;
   }
+
   getTotalCommentCount(comment?: FileComment): number {
     const countSubComments = (c: FileComment): number => {
       let subCount = 0;
@@ -408,13 +394,11 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
     };
 
     if (comment) {
-      // Only count *this comment’s subcomments*
       return countSubComments(comment);
     } else {
-      // Count *all top-level + subs* (header case)
       let count = 0;
       for (let c of this.commentList) {
-        count++; // include the comment itself
+        count++;
         count += countSubComments(c);
       }
       return count;
@@ -465,16 +449,14 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
     return result;
   }
 
-  // Update comment poll HTML in the DOM using polls attached directly to each comment
   updateCommentPollsInDOM() {
     const polls = this.collectAllCommentPolls();
     if (!polls.length) return;
     const currentUser = this.inputtedParentRef?.user ?? this.parentRef?.user;
     const currentUserId = currentUser?.id ?? 0;
     const currentUserName = currentUser?.username?.toLowerCase() ?? '';
-
-    // Group polls by componentId
     const grouped = new Map<string, Poll[]>();
+
     for (const p of polls) {
       if (!p?.componentId || !p.componentId.startsWith('commentText')) continue;
       if (!grouped.has(p.componentId)) grouped.set(p.componentId, []);
@@ -486,35 +468,33 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
         const key = 'commentText' + c.id;
         const commentPolls = grouped.get(key);
         if (commentPolls && commentPolls.length) {
-          // Determine if user voted in ANY poll for this comment
-            let userVoted = false;
-            for (const poll of commentPolls) {
-              try {
-                if (poll.userVotes?.length) {
-                  for (const v of poll.userVotes) {
-                    if (!v) continue;
-                    if ((v.userId && v.userId === currentUserId)) { userVoted = true; break; }
-                    const uname = (v.username || '').toString().toLowerCase();
-                    if (uname && uname === currentUserName) { userVoted = true; break; }
-                  }
+          let userVoted = false;
+          for (const poll of commentPolls) {
+            try {
+              if (poll.userVotes?.length) {
+                for (const v of poll.userVotes) {
+                  if (!v) continue;
+                  if ((v.userId && v.userId === currentUserId)) { userVoted = true; break; }
+                  const uname = (v.username || '').toString().toLowerCase();
+                  if (uname && uname === currentUserName) { userVoted = true; break; }
                 }
-              } catch {}
-              if (userVoted) break;
-            }
-            if (userVoted) {
-              // Build consolidated HTML for all polls in this comment
-              let combined = '';
-              for (const poll of commentPolls) {
-                const question = poll.question ?? '';
-                const totalVotes = poll.totalVotes ?? (poll.userVotes ? poll.userVotes.length : 0);
-                combined += `<div class="poll-container" data-component-id="${poll.componentId}">`;
-                combined += `<div class="poll-question">${question}</div>`;
-                combined += `<div class="poll-options">`;
-                for (const opt of (poll.options || [])) {
-                  const pct = opt.percentage ?? 0;
-                  const votes = opt.voteCount ?? 0;
-                  const optText = (opt && opt.text) ?? '';
-                  combined += `
+              }
+            } catch { }
+            if (userVoted) break;
+          }
+          if (userVoted) {
+            let combined = '';
+            for (const poll of commentPolls) {
+              const question = poll.question ?? '';
+              const totalVotes = poll.totalVotes ?? (poll.userVotes ? poll.userVotes.length : 0);
+              combined += `<div class="poll-container" data-component-id="${poll.componentId}">`;
+              combined += `<div class="poll-question">${question}</div>`;
+              combined += `<div class="poll-options">`;
+              for (const opt of (poll.options || [])) {
+                const pct = opt.percentage ?? 0;
+                const votes = opt.voteCount ?? 0;
+                const optText = (opt && opt.text) ?? '';
+                combined += `
                     <div class="poll-option">
                       <div class="poll-option-text">${optText}</div>
                       <div class="poll-result">
@@ -522,25 +502,25 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
                         <span class="poll-stats">${votes} votes (${pct}%)</span>
                       </div>
                     </div>`;
-                }
-                combined += `</div>`;
-                combined += `<div class="poll-total">Total Votes: ${totalVotes}</div>`;
-                if (poll.userVotes?.length) {
-                  combined += `<div class="poll-voters">Voted: `;
-                  const voters: string[] = [];
-                  for (const v of poll.userVotes) {
-                    const uname = v?.username || '';
-                    if (!uname) continue;
-                    voters.push(`@${uname}`);
-                  }
-                  combined += voters.join(' ');
-                  combined += `</div>`;
-                }
-                combined += `<div class="pollControls"><button onclick=\"document.getElementById('pollQuestion').value='${this.escapeHtmlAttribute(question)}';document.getElementById('pollComponentId').value='${poll.componentId}';document.getElementById('pollDeleteButton').click();\">Delete vote</button></div>`;
-                combined += `</div>`; // end poll-container
               }
-              c.commentText = combined; // Replace original text with results
+              combined += `</div>`;
+              combined += `<div class="poll-total">Total Votes: ${totalVotes}</div>`;
+              if (poll.userVotes?.length) {
+                combined += `<div class="poll-voters">Voted: `;
+                const voters: string[] = [];
+                for (const v of poll.userVotes) {
+                  const uname = v?.username || '';
+                  if (!uname) continue;
+                  voters.push(`@${uname}`);
+                }
+                combined += voters.join(' ');
+                combined += `</div>`;
+              }
+              combined += `<div class="pollControls"><button onclick=\"document.getElementById('pollQuestion').value='${this.escapeHtmlAttribute(question)}';document.getElementById('pollComponentId').value='${poll.componentId}';document.getElementById('pollDeleteButton').click();\">Delete vote</button></div>`;
+              combined += `</div>`;
             }
+            c.commentText = combined;
+          }
         }
         if (c.comments?.length) applyToComments(c.comments);
       }
@@ -549,71 +529,18 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
     applyToComments(this.commentList);
   }
 
-  // Robustly strip poll lines from the original comment content
-  private stripPollMarkupFromElement(el: HTMLElement, question: string, optionTexts: string[]) {
-    if (!el) return;
-    const q = (question || '').trim().toLowerCase();
-    const opts = new Set(optionTexts.map(o => (o || '').trim().toLowerCase()).filter(Boolean));
-
-    // If element already cleaned, skip
-    if (el.getAttribute('data-poll-cleaned') === '1') return;
-
-    // Strategy:
-    // 1. Try removing child nodes that exactly match question/option text.
-    // 2. If a single text node contains all poll lines, rebuild it without those lines.
-    const nodesToRemove: ChildNode[] = [];
-    el.childNodes.forEach(n => {
-      const text = (n.textContent || '').trim().toLowerCase();
-      if (!text) return;
-      if (text === q || opts.has(text)) nodesToRemove.push(n);
-    });
-    if (nodesToRemove.length) {
-      nodesToRemove.forEach(n => n.parentNode?.removeChild(n));
-    } else if (el.childNodes.length === 1) {
-      const single = el.childNodes[0];
-      const raw = (single.textContent || '');
-      const lines = raw.split(/\r?\n|<br\s*\/?>/i);
-      if (lines.some(l => l.trim().toLowerCase() === q) && lines.some(l => opts.has(l.trim().toLowerCase()))) {
-        const kept = lines.filter(l => {
-          const low = l.trim().toLowerCase();
-          if (!low) return false;
-          if (low === q) return false;
-          if (opts.has(low)) return false;
-          return true;
-        });
-        (single as any).textContent = kept.join('\n');
-      }
-    }
-
-    // Secondary pass: regex removal inside innerHTML if artifacts remain
-    let html = el.innerHTML;
-    const escapeRegex = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const removeLine = (val: string) => {
-      if (!val) return;
-      const esc = escapeRegex(val.trim());
-      // remove paragraphs containing it
-      html = html.replace(new RegExp(`<p[^>]*>\\s*${esc}\\s*</p>`, 'gi'), '');
-      // remove standalone occurrences followed/preceded by breaks
-      html = html.replace(new RegExp(`${esc}\\s*<br\\s*/?>`, 'gi'), '');
-      html = html.replace(new RegExp(`<br\\s*/?>\\s*${esc}`, 'gi'), '');
-    };
-    removeLine(question);
-    optionTexts.forEach(removeLine);
-    el.innerHTML = html;
-  }
-
-  // Helper to escape single quotes/double quotes for inline attribute usage
-  private escapeHtmlAttribute(input: string): string {
+  private escapeHtmlAttribute(input: string): string {  // Helper to escape single quotes/double quotes for inline attribute usage
     if (!input) return '';
     return input.replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/\"/g, '\\\"');
   }
+
   expandComment(comment: FileComment) {
-    if (this.depth === 0) { 
+    if (this.depth === 0) {
       if (this.minimizedComments.has(comment.id)) {
         this.minimizedComments.delete(comment.id);
       } else {
         this.minimizedComments.add(comment.id);
-      } 
+      }
       return;
     }
 
@@ -624,9 +551,10 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
 
     this.breadcrumbComments.push(comment);
     this.activeCommentId = comment.id;
-    this.activeBreadcrumbCommentId = comment.id; // flag which comment is expanded
+    this.activeBreadcrumbCommentId = comment.id;
     this.commentList = comment.comments || [];
   }
+
   navigateToComment(commentId: number | null) {
     if (commentId === null) {
       this.commentList = this.originalCommentList;
