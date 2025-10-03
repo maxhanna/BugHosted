@@ -221,6 +221,30 @@ namespace maxhanna.Server.Controllers
 			}
 		}
 
+			[HttpPost("/Top/GetEntriesCountByUser", Name = "GetEntriesCountByUser")]
+			public async Task<IActionResult> GetEntriesCountByUser([FromBody] int userId)
+			{
+				try
+				{
+					using MySqlConnection conn = new MySqlConnection(_connectionString);
+					await conn.OpenAsync();
+
+					string sql = "SELECT COUNT(*) FROM maxhanna.top_entries WHERE user_id = @userId";
+					using MySqlCommand cmd = new MySqlCommand(sql, conn);
+					cmd.Parameters.AddWithValue("@userId", userId);
+
+					var result = await cmd.ExecuteScalarAsync();
+					int count = Convert.ToInt32(result ?? 0);
+
+					return Ok(count);
+				}
+				catch (Exception ex)
+				{
+					_ = _log.Db($"An error occurred while getting top entries count for user {userId}: {ex.Message}", null, "TOP", true);
+					return StatusCode(500, "An error occurred while getting top entries count.");
+				}
+			}
+
 		[HttpPost("/Top/Vote", Name = "Vote")]
 		public async Task<IActionResult> Vote([FromBody] VoteRequest request)
 		{

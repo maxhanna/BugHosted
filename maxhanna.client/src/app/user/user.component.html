@@ -447,6 +447,15 @@
             </div>
             <div class="optionsStatsDiv">
               <div class="optionsStatsHeader">
+                <div class="optionsStatsLink" (click)="parentRef?.createComponent('Top100')">
+                  <span class="componentsIcon">{{ parentRef?.getIconByTitle('Top100') }}</span>
+                  Top Entries
+                </div>
+              </div>
+              <div class="optionsStatsDescription">{{numberOfTopEntriesCreated ?? '—'}} entries</div>
+            </div>
+            <div class="optionsStatsDiv">
+              <div class="optionsStatsHeader">
                 <div class="optionsStatsLink" (click)="parentRef?.createComponent('Files')">
                   <span class="componentsIcon">{{ parentRef?.getIconByTitle('Files') }}</span>
                   Files

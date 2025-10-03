@@ -21,6 +21,7 @@ import { FileService } from '../../services/file.service';
 import { MastermindService } from '../../services/mastermind.service';
 import { FavouriteService } from '../../services/favourite.service';
 import { FileEntry } from '../../services/datacontracts/file/file-entry';
+import { TopService } from '../../services/top.service';
 import { target } from '../meta/helpers/fight';
 import { MediaSelectorComponent } from '../media-selector/media-selector.component';
 import { TradeService } from '../../services/trade.service';
@@ -90,6 +91,7 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
   numberOfMemesUploaded?: number = undefined;
   numberOfArtUploaded?: number = undefined;
   numberOfFavouritesCreated?: number = undefined;
+  numberOfTopEntriesCreated?: number = undefined;
   wordlerStreak: number = 0;
   bestWordlerStreak: number = 0;
   metaBotLevelsSum: number = 0;
@@ -125,6 +127,7 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
     private fileService: FileService,
     private mastermindService: MastermindService,
     private favouriteService: FavouriteService,
+    private topService: TopService,
   ) {
     super();
     setTimeout(() => {
@@ -224,6 +227,8 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
       this.numberOfArtUploaded = await this.fileService.getNumberOfArt(user.id);
 
       this.numberOfFavouritesCreated = await this.favouriteService.getFavouritesCount(user.id);
+      
+      this.numberOfTopEntriesCreated = await this.topService.getEntriesCountByUser(user.id);
 
       if ((this.numberOfMemesUploaded === undefined || this.numberOfMemesUploaded === null)) {
         this.numberOfMemesUploaded = 0;
