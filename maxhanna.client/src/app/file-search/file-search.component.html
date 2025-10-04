@@ -6,7 +6,8 @@
 
 
 <div *ngIf="showShareUserList" class="popupPanel" #shareUserListDiv>
-  <div class="popupPanelTitle">Share {{selectedSharedFile?.givenFileName ?? selectedSharedFile?.fileName ?? ''}} With?</div>
+  <div class="popupPanelTitle">Share File?</div>
+  <div style="margin-bottom: 10px">{{selectedSharedFile?.givenFileName ?? selectedSharedFile?.fileName ?? ''}}</div>
   <div class="shareUserList">
     <app-user-list 
       (userClickEvent)="shareFile($event);" 
