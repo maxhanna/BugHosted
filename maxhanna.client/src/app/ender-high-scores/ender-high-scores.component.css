@@ -1,6 +1,11 @@
-.metaHighscoresSection{padding:6px;background:#111;border:1px solid #222;color:#eee}
-.popupPanelTitle{font-weight:700;margin-bottom:6px}
 .clickable { cursor: pointer; }
+
+.difficulty-group h4 { margin: 8px 0; }
+.clickable { cursor: pointer; }
+
+.difficulty-group h4 { margin: 8px 0; }
+/* kept for compatibility but styles come from global .mainTable */
+
 .userPopupPanelTitle {
 	display: flex;
 	align-items: center;
