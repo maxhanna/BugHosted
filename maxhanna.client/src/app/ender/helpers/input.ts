@@ -10,6 +10,11 @@ export class Input {
   inputKeyPressedTimeout = 140;
   chatSelected = false;
   private _chatInput: HTMLInputElement | null = null;
+  // When true: pressing an arrow sets a persistent direction until another arrow is pressed.
+  // When false: original behavior (movement only while arrow held).
+  isAlwaysMoving: boolean = true;
+  // internal persistent direction used when isAlwaysMoving == true
+  private persistentDirection?: string;
   constructor() {
     document.addEventListener("keydown", (e) => {
       if (e.code != " ") {
@@ -54,11 +59,23 @@ export class Input {
 
   onArrowPressed(direction: string) {
     //console.log("on arrow pressed " + direction);
-    if (document.activeElement != this.chatInput && this.heldDirections.indexOf(direction) === -1) {
-      this.heldDirections.unshift(direction);
+    if (document.activeElement != this.chatInput) {
+      if (this.isAlwaysMoving) {
+        // Sticky mode: set persistent direction and replace heldDirections with it
+        this.persistentDirection = direction;
+        this.heldDirections = [direction];
+      } else {
+        if (this.heldDirections.indexOf(direction) === -1) {
+          this.heldDirections.unshift(direction);
+        }
+      }
     }
   }
   onArrowReleased(direction: string) {
+    // In sticky (always-moving) mode, releases do not stop movement
+    if (this.isAlwaysMoving) {
+      return;
+    }
     const index = this.heldDirections.indexOf(direction);
     if (index === -1) {
       return;
