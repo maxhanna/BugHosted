@@ -9,8 +9,8 @@ type Mode = 'all' | 'user' | 'today' | 'best';
 @Component({
     selector: 'app-wordler-high-scores',
     templateUrl: './wordler-high-scores.component.html',
-    standalone: true,
-    styleUrls: ['./wordler-high-scores.component.css']
+    styleUrls: ['./wordler-high-scores.component.css'],
+    standalone: false,
 })
 export class WordlerHighScoresComponent implements OnInit, OnChanges {
     // helper to get object keys from the template without exposing globals
