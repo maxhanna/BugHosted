@@ -201,20 +201,18 @@ namespace maxhanna.Server.Controllers
 			{
 				await conn.OpenAsync();
 
-				var currentDate = DateTime.UtcNow.Date;
-
+				// Do not limit to current date here; callers (client) will filter for 'today' when needed.
 				string sql = @"
                     SELECT ws.id, ws.user_id, ws.score, ws.time, ws.submitted,
                            u.id as user_id, u.username, ws.difficulty
                     FROM wordler_scores ws
                     JOIN users u ON ws.user_id = u.id 
                     WHERE 1=1 " +
-						(userId == null ? "AND DATE(ws.submitted) = DATE(@currentDate) " : String.Empty) +
 						(userId != null ? "AND ws.user_id = @UserId " : String.Empty) +
 						"ORDER BY DATE(ws.submitted) desc, ws.difficulty desc, ws.score asc, ws.time asc LIMIT 20;";
 				using (var cmd = new MySqlCommand(sql, conn))
 				{
-					cmd.Parameters.AddWithValue("@currentDate", currentDate);
+					// No @currentDate parameter needed
 					if (userId != null && userId != 0)
 					{
 						cmd.Parameters.AddWithValue("@UserId", userId);

@@ -4,7 +4,7 @@ import { WordlerService } from '../../services/wordler.service';
 import { TimeSincePipe } from '../time-since.pipe';
 import { WordlerScore } from '../../services/datacontracts/wordler/wordler-score';
 
-type Mode = 'all' | 'user' | 'today';
+type Mode = 'all' | 'user' | 'today' | 'best';
 
 @Component({
     selector: 'app-wordler-high-scores',
@@ -44,7 +44,8 @@ export class WordlerHighScoresComponent implements OnInit, OnChanges {
     groupedByMode: Record<Mode, Record<number, WordlerScore[]>> = {
         all: {},
         user: {},
-        today: {}
+        today: {},
+        best: {}
     };
 
     constructor(private wordlerService: WordlerService) { }
@@ -71,11 +72,26 @@ export class WordlerHighScoresComponent implements OnInit, OnChanges {
             let allScores: WordlerScore[] | undefined = undefined;
 
             if (modes.includes('all') || modes.includes('today')) {
-                allScores = await this.wordlerService.getAllScores() as WordlerScore[];
+                const res = await this.wordlerService.getAllScores();
+                console.debug('wordler-high-scores: getAllScores() result:', res);
+                if (Array.isArray(res)) {
+                    allScores = res as WordlerScore[];
+                    console.debug(`wordler-high-scores: allScores.length=${allScores.length}`);
+                } else {
+                    console.error('getAllScores returned unexpected result:', res);
+                    allScores = [];
+                }
             }
 
             if (modes.includes('all')) {
                 this.groupedByMode.all = this.groupScores(allScores || []);
+            }
+
+            // Compute a 'best' section: top scores across all difficulties (single bucket)
+            if (modes.includes('best') || modes.includes('all')) {
+                const topAcrossAll = (allScores || []).slice().sort((a, b) => (b.score - a.score) || (a.time - b.time)).slice(0, 10);
+                // store under a special key so template can render it; 999 maps to 'Best' label below
+                this.groupedByMode.best = { 999: topAcrossAll };
             }
 
             if (modes.includes('today')) {
@@ -94,8 +110,16 @@ export class WordlerHighScoresComponent implements OnInit, OnChanges {
                 if (!this.userId) {
                     this.groupedByMode.user = {};
                 } else {
-                    const userScores = await this.wordlerService.getAllScores(this.userId) as WordlerScore[];
-                    this.groupedByMode.user = this.groupScores(userScores || []);
+                    const userRes = await this.wordlerService.getAllScores(this.userId);
+                    console.debug('wordler-high-scores: getAllScores(user) result:', userRes);
+                    if (Array.isArray(userRes)) {
+                        const userScores = userRes as WordlerScore[];
+                        console.debug(`wordler-high-scores: userScores.length=${userScores.length}`);
+                        this.groupedByMode.user = this.groupScores(userScores || []);
+                    } else {
+                        console.error('getAllScores(userId) returned unexpected result:', userRes);
+                        this.groupedByMode.user = {};
+                    }
                 }
             }
 
@@ -135,6 +159,17 @@ export class WordlerHighScoresComponent implements OnInit, OnChanges {
     }
 
     get modesSelected(): Mode[] {
-        return Array.isArray(this.mode) ? this.mode : [this.mode];
+        const requested = Array.isArray(this.mode) ? this.mode.slice() : [this.mode];
+        const expanded: Mode[] = [];
+        for (const m of requested) {
+            if (m === 'all' || m === 'best') {
+                // 'all' and 'best' are shorthands: show all-time, today's, and the user's top scores
+                expanded.push('all', 'today', 'user');
+            } else {
+                expanded.push(m);
+            }
+        }
+        // remove duplicates while preserving order
+        return Array.from(new Set(expanded));
     }
 }

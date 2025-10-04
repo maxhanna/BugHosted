@@ -33,9 +33,7 @@ export class WordlerComponent extends ChildComponent implements OnInit {
   isMenuPanelOpen = false;
   definition?: string;
 
-  wordlerScores: WordlerScore[] = [];
-  userWordlerScores: WordlerScore[] = [];
-  wordlerScoresCount: number = 0;
+  // userWordlerScores are handled by the WordlerHighScores component
   wordlerBestStreak: number = 0;
   wordlerBestStreakOverall?: { userId: number, streak: number } = undefined;
   wordlerStreak: number = 0;
@@ -61,19 +59,11 @@ export class WordlerComponent extends ChildComponent implements OnInit {
   }
   async loadScoreData() {
 
-    const res = await this.wordlerService.getAllScores();
-    if (res) {
-      this.wordlerScores = res;
-      this.setTopScores();
-    }
+  // Scores rendering delegated to the reusable wordler-high-scores component
 
-    if (this.parentRef?.user?.id) {
-      try { 
-        this.wordlerService.getAllScores(this.parentRef.user.id).then(userRes => { 
-          this.userWordlerScores = userRes;
-        });
-
-        const wsRes = await this.wordlerService.getBestConsecutiveDayStreak(this.parentRef.user.id);
+  if (this.parentRef?.user?.id) {
+    try {
+    const wsRes = await this.wordlerService.getBestConsecutiveDayStreak(this.parentRef.user.id);
         if (wsRes) {
           this.wordlerBestStreak = parseInt(wsRes);
         }
@@ -83,7 +73,7 @@ export class WordlerComponent extends ChildComponent implements OnInit {
           this.wordlerBestStreakOverall = wsRes3;
         }
 
-        const wsRes2 = await this.wordlerService.getTodaysDayStreak(this.parentRef.user.id);
+  const wsRes2 = await this.wordlerService.getTodaysDayStreak(this.parentRef.user.id);
         if (wsRes2) {
           this.wordlerStreak = parseInt(wsRes2);
         }
@@ -474,23 +464,5 @@ export class WordlerComponent extends ChildComponent implements OnInit {
       this.parentRef.closeOverlay();
     }
   }
-  setTopScores() {
-    const groupedScores: { [key: number]: WordlerScore[] } = this.wordlerScores.reduce((groups, score) => {
-      const difficulty = score.difficulty;
-      if (!groups[difficulty]) {
-        groups[difficulty] = [];
-      }
-      groups[difficulty].push(score);
-      return groups;
-    }, {} as { [key: number]: WordlerScore[] });
-
-    // Get the top 5 scores for each difficulty
-    const topScores = Object.values(groupedScores).flatMap(scores =>
-      scores
-        .sort((a, b) => b.score - a.score || a.time - b.time) // Sort by score descending, then by time ascending
-        .slice(0, 5) // Take the top 5
-    );
-    this.wordlerScoresCount = this.wordlerScores.length;
-    this.wordlerScores = topScores;
-  }
+  // Top-scores rendering is delegated to the WordlerHighScores component
 }

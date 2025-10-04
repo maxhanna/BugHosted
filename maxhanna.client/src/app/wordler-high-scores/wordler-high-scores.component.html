@@ -9,12 +9,11 @@
                     (click)="headerClickable ? headerClick.emit(headerClickTarget ?? 'Wordler') : null"
                     [class]="(showUserHeader ? 'popupPanelTitle userPopupPanelTitle' : (showHeaderTitles ? 'popupPanelTitle' : 'regularTitle'))"
                     [style.marginTop]="'15px'">
-                    {{ headerTitle ? headerTitle : (m === 'today' ? "Today's Wordler Scores:" : (m === 'user' ? "Your
-                    Wordler Scores:" : "All-time Wordler Scores:")) }}
+                    {{ headerTitle ? headerTitle : (m === 'today' ? "Today's Wordler Scores:" : (m === 'user' ? "Your Wordler Scores:" : (m === 'best' ? 'Best Scores (All Time):' : "All-time Wordler Scores:"))) }}
                 </div>
                 <ng-container *ngIf="groupedByMode[m] && (keys(groupedByMode[m]).length > 0); else emptyMode">
                     <div *ngFor="let group of groupedByMode[m] | keyvalue: keepOrder" class="difficulty-group">
-                        <h4>{{ difficultyLabel(+group.key) }} ({{ group.value?.length || 0 }})</h4>
+                        <h4>{{ m === 'best' && +group.key === 999 ? 'Best (All Time)' : difficultyLabel(+group.key) }} ({{ group.value?.length || 0 }})</h4>
                         <table class="scores-table">
                             <thead>
                                 <tr>

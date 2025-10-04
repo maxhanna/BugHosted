@@ -129,8 +129,8 @@
       <div class="popupPanelTitle">
         Best Scores:
       </div>
-      <div *ngIf="userWordlerScores.length > 0" class="wordlerScoresDiv">
-        <!-- Reuse the Wordler High Scores component for the user's scores -->
+      <div class="wordlerScoresDiv">
+        <!-- Delegated to reusable component: shows all-time, today, and user scores -->
         <app-wordler-high-scores
           [mode]="['all']"
           [userId]="parentRef?.user?.id"
@@ -139,7 +139,6 @@
           [showUserHeader]="false">
         </app-wordler-high-scores>
       </div>
-      <div *ngIf="!userWordlerScores || userWordlerScores.length == 0 && !isLoading">No scores yet!</div>
     </div>
   </div>
 
