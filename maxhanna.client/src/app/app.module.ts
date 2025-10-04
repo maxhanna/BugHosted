@@ -89,6 +89,7 @@ import { EnderComponent } from './ender/ender.component';
 import { EnderHighScoresComponent } from './ender-high-scores/ender-high-scores.component';
 import { CryptoTopTradersComponent } from './crypto-top-traders/crypto-top-traders.component';
 import { WordlerHighScoresComponent } from './wordler-high-scores/wordler-high-scores.component';
+import { AppMenuItemComponent } from './app-menu-item/app-menu-item.component';
 
 @NgModule({
   declarations: [
@@ -169,6 +170,7 @@ import { WordlerHighScoresComponent } from './wordler-high-scores/wordler-high-s
   ],
   bootstrap: [AppComponent],
   imports: [BrowserModule,
+  AppMenuItemComponent,
     LineGraphComponent,
     TimeFormatPipe,
     TimeSincePipe,
