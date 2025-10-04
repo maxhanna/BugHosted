@@ -7,3 +7,13 @@
 .difficulty-group h4 { margin: 8px 0; }
 .scores-table { /* kept for compatibility but styles come from global .mainTable */ }
 
+.userPopupPanelTitle {
+    display: flex;
+    align-items: center;
+    padding: 0.5rem 0;
+    font-weight: 600;
+    border-bottom: 1px solid var(--main-border-color);
+    margin-bottom: 1rem;
+    cursor: pointer;
+    text-decoration: underline;
+}
