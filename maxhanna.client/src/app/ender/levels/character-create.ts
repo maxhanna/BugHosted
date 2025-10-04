@@ -178,7 +178,7 @@ export class CharacterCreate extends Level {
     }
     // If this content unlocks the CHARACTER_CREATE_STORY_TEXT_4 flag,
     // make sure the chat input is no longer forced hidden.
-    if (storyFlags.contains(CHARACTER_CREATE_STORY_TEXT_4) && this.parent?.input?.chatInput) {
+    if (storyFlags.contains(CHARACTER_CREATE_STORY_TEXT_5) && this.parent?.input?.chatInput) {
       const chatInput = this.parent.input.chatInput;
       chatInput.style.setProperty('display', 'block', 'important');
     }
