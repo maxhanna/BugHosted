@@ -5,14 +5,14 @@
 </div>
 
 
-<div class="popupPanel" #shareUserListDiv>
+<div *ngIf="showShareUserList" class="popupPanel" #shareUserListDiv>
   <div class="popupPanelTitle">Share {{selectedSharedFile?.givenFileName ?? selectedSharedFile?.fileName ?? ''}} With?</div>
   <div class="shareUserList">
     <app-user-list 
       (userClickEvent)="shareFile($event);" 
       [user]="user!" 
-      [inputtedParentRef]="inputtedParentRef ?? parentRef"
-      *ngIf="showShareUserList"></app-user-list></div>
+      [inputtedParentRef]="inputtedParentRef ?? parentRef"></app-user-list>
+  </div>
 </div>
 
 <!-- Page Controls -->
