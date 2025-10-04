@@ -215,6 +215,20 @@ button:disabled {
   box-shadow: 0 0 4px rgba(0,0,0,0.4);
 }
 
+.finalizeCloseHint {
+  margin-top: -10px;
+  margin-bottom: 10px;
+  text-align: center;
+  font-size: small;
+  font-style: italic;
+  cursor: pointer;
+  color: var(--link-color, #69c);
+  user-select: none;
+}
+.finalizeCloseHint span:hover {
+  text-decoration: underline;
+}
+
 .removeFileButton {
   cursor: pointer; 
 }

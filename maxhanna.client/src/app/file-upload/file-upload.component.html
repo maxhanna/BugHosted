@@ -71,4 +71,7 @@
     <button type="submit" id="closeOverlay" *ngIf="!isUploading" 
       (click)="preventDisplayClose ? null : cancelFileUpload()" title="Cancel upload" style="position:relative; top: -8px;">❌Cancel</button>
   </div>
+  <div *ngIf="isUploading && getOverallProgress() == 100" class="finalizeCloseHint">
+    <span (click)="manualFinalizeClose()" title="Close this popup; upload will finish in background">Click to close now</span>
+  </div>
 </div>

@@ -240,4 +240,11 @@ export class FileUploadComponent implements OnDestroy {
       setTimeout(() => { this.preventDisplayClose = false }, 1000);
     }, 50);
   }
+  manualFinalizeClose() {
+    // Close overlay without cancelling; final completion logic will still run
+    this.displayListContainer = false;
+    if (this.inputtedParentRef) {
+      this.inputtedParentRef.closeOverlay();
+    }
+  }
 }
