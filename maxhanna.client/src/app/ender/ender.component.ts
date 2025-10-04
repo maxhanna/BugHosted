@@ -376,7 +376,7 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
                 initialPos = new Vector2(baseX + off.x, baseY + off.y);
                 console.log("counted " + nearby.length);
             }
-            
+            console.log("counted nearby :", nearby);
         }
         const tmpHero = new Hero({
             id: hero.id,
