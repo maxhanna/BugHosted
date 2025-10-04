@@ -10,7 +10,7 @@
             </div>
 
             <ng-container *ngIf="!isModeCollapsed(m)">
-                <ng-container *ngIf="groupedByMode[m] && (Object.keys(groupedByMode[m]).length > 0); else emptyMode">
+                <ng-container *ngIf="groupedByMode[m] && hasGroups(m); else emptyMode">
                     <div *ngFor="let group of (groupedByMode[m] | keyvalue)" class="difficulty-group">
                         <h4 (click)="toggleMode(m)" [class]="showUserHeader ? 'userPopupPanelTitle' : ''">
                             {{ m === 'best' && +group.key === 999 ? 'Best (All Time)' : 'Scores' }} ({{ group.value.length || 0 }})

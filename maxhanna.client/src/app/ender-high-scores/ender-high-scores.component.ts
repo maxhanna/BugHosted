@@ -133,6 +133,13 @@ export class EnderHighScoresComponent implements OnInit, OnChanges {
     }
   }
 
+  // helper used from the template to avoid referencing global Object in template
+  hasGroups(mode: Mode | string): boolean {
+    const g = this.groupedByMode[mode as Mode];
+    if (!g) return false;
+    return Object.keys(g).length > 0;
+  }
+
   get modesSelected(): Mode[] {
     const requested = Array.isArray(this.mode) ? this.mode.slice() : [this.mode];
     const expanded: Mode[] = [];
