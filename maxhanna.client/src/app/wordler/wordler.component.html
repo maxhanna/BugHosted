@@ -108,7 +108,7 @@
     </div>
 
     <!-- Reuse the Wordler High Scores component to show today's scoreboard and the current user's best scores -->
-    <app-wordler-high-scores [mode]="['today','user']" [userId]="parentRef?.user?.id" [headerClickable]="true"
+    <app-wordler-high-scores [mode]="'today'" [userId]="parentRef?.user?.id" [headerClickable]="true"
       [showHeaderTitles]="true"></app-wordler-high-scores>
   </div>
 </div>
@@ -130,25 +130,14 @@
         Best Scores:
       </div>
       <div *ngIf="userWordlerScores.length > 0" class="wordlerScoresDiv">
-        <table *ngIf="userWordlerScores && userWordlerScores.length > 0" class="scoreTable" id="scoreTablePopup">
-          <thead>
-            <tr>
-              <th (click)="sortTable(0, 'scoreTablePopup')">Score</th>
-              <th (click)="sortTable(1, 'scoreTablePopup')">Time</th>
-              <th (click)="sortTable(2, 'scoreTablePopup')">Difficulty</th>
-              <th (click)="sortTable(3, 'scoreTablePopup')">Date</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr *ngFor="let score of userWordlerScores">
-              <td>{{score.score + 1}}</td>
-              <td>{{score.time | timeFormat:'minify'}}</td>
-              <td>{{score.difficulty == 4 ? 'Easy' : score.difficulty == 5 ? 'Medium' : score.difficulty == 6 ? 'Hard' :
-                'Master Wordler'}}</td>
-              <td>{{score.submitted | date: 'yyyy-MM-dd HH:mm' }}</td>
-            </tr>
-          </tbody>
-        </table>
+        <!-- Reuse the Wordler High Scores component for the user's scores -->
+        <app-wordler-high-scores
+          [mode]="['all']"
+          [userId]="parentRef?.user?.id"
+          [showHeader]="false"
+          [showHeaderTitles]="false"
+          [showUserHeader]="false">
+        </app-wordler-high-scores>
       </div>
       <div *ngIf="!userWordlerScores || userWordlerScores.length == 0 && !isLoading">No scores yet!</div>
     </div>

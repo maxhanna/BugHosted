@@ -64,6 +64,8 @@ export class WordlerHighScoresComponent implements OnInit, OnChanges {
         this.error = undefined;
         try {
             const modes = this.modesSelected;
+            // If the caller requested only the 'today' mode, don't include the 'user' scores section.
+            const includeUserMode = modes.includes('user') && !(modes.length === 1 && modes[0] === 'today');
 
             // We'll fetch `all` once if needed, and `user` separately (if userId provided)
             let allScores: WordlerScore[] | undefined = undefined;
@@ -88,7 +90,7 @@ export class WordlerHighScoresComponent implements OnInit, OnChanges {
                 this.groupedByMode.today = this.groupScores(todays);
             }
 
-            if (modes.includes('user')) {
+            if (includeUserMode) {
                 if (!this.userId) {
                     this.groupedByMode.user = {};
                 } else {
