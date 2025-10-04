@@ -61,38 +61,45 @@ export class CharacterCreate extends Level {
       this.defaultHeroPosition = params.heroPosition;
     } 
     this.referee.textContent = [
+      // Final wake line
       {
-        string: ["Wake up... Your journey awaits!"],
+        string: ["Boot complete. Cycle online. Let's ride."],
         requires: [CHARACTER_CREATE_STORY_TEXT_7],
         addsFlag: CHARACTER_CREATE_STORY_TEXT_8,
       } as Scenario,
+      // After name entered (flag 6)
       {
-        string: [`Ah, ${this.characterName} is it?`],
+        string: ["Ah, ready to light the Grid."],
         requires: [CHARACTER_CREATE_STORY_TEXT_6],
         addsFlag: CHARACTER_CREATE_STORY_TEXT_7,
       } as Scenario,
+      // Name prompt (appears once flag 4 obtained)
       {
-        string: ["Now, before we begin your journey ...", "What shall be your name, the name the world will know?"],
+        string: ["State your handle."],
         requires: [CHARACTER_CREATE_STORY_TEXT_4],
         addsFlag: CHARACTER_CREATE_STORY_TEXT_5,
-      } as Scenario, 
+      } as Scenario,
+      // Lead‑in to name prompt
       {
-        string: ["These marvelous machines serve not just in battle, but also protect our planet."],
+        string: ["ID not registered. Initialization required."],
         requires: [CHARACTER_CREATE_STORY_TEXT_3],
         addsFlag: CHARACTER_CREATE_STORY_TEXT_4,
       } as Scenario,
+      // World intro
       {
-        string: ["This is the world of Meta-Bots!"],
+        string: ["Welcome to the Neon Grid."],
         requires: [CHARACTER_CREATE_STORY_TEXT_2],
         addsFlag: CHARACTER_CREATE_STORY_TEXT_3,
       } as Scenario,
+      // Referee intro
       {
-        string: ["I am Mr. Referee, and I bring fair play to every ro-battle!", " Even in dreams, justice never sleeps!"],
+        string: ["Referee online. I enforce fair runs."],
         requires: [CHARACTER_CREATE_STORY_TEXT_1],
         addsFlag: CHARACTER_CREATE_STORY_TEXT_2,
       } as Scenario,
+      // First line
       {
-        string: ["Zzz... Huh? Who dares disturb my dreams... oh, it's you!"],
+        string: ["...Booting consciousness... signal locked."] ,
         addsFlag: CHARACTER_CREATE_STORY_TEXT_1,
       } as Scenario
     ];
@@ -183,10 +190,10 @@ export class CharacterCreate extends Level {
       chatInput.style.setProperty('display', 'block', 'important');
     }
     for (let x = 0; x < content.string.length; x++) {
-      if (content.string[x].includes("Ah, ")) {
-        content.string[x] = content.string[x].replace("Ah, ", `Ah, ${this.characterName} `); 
+      if (content.string[x].startsWith("Ah,")) {
+        content.string[x] = `Ah, ${this.characterName} ready to light the Grid.`;
       }
-    } 
+    }
     this.textBox = new SpriteTextStringWithBackdrop({
       portraitFrame: content.portraitFrame,
       string: content.string,
