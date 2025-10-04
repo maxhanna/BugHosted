@@ -484,6 +484,50 @@ namespace maxhanna.Server.Controllers
             }
         }
 
+        [HttpPost("/Ender/TopScoresForUser", Name = "Ender_TopScoresForUser")]
+        public async Task<IActionResult> TopScoresForUser([FromBody] int userId)
+        {
+            if (userId <= 0) return BadRequest("Invalid user id");
+            using (var connection = new MySqlConnection(_connectionString))
+            {
+                await connection.OpenAsync();
+                using (var transaction = connection.BeginTransaction())
+                {
+                    try
+                    {
+                        string sql = @"SELECT id, hero_id, user_id, score, time_on_level_seconds, walls_placed, created_at FROM maxhanna.ender_top_scores WHERE user_id = @UserId ORDER BY score DESC LIMIT 200;";
+                        var result = new List<Dictionary<string, object?>>();
+                        using (var command = new MySqlCommand(sql, connection, transaction))
+                        {
+                            command.Parameters.AddWithValue("@UserId", userId);
+                            using (var reader = await command.ExecuteReaderAsync())
+                            {
+                                while (await reader.ReadAsync())
+                                {
+                                    var row = new Dictionary<string, object?>();
+                                    row["id"] = reader.GetInt32("id");
+                                    row["hero_id"] = reader.GetInt32("hero_id");
+                                    row["user_id"] = reader.GetInt32("user_id");
+                                    row["score"] = reader.GetInt32("score");
+                                    row["time_on_level_seconds"] = reader.IsDBNull(reader.GetOrdinal("time_on_level_seconds")) ? 0 : reader.GetInt32("time_on_level_seconds");
+                                    row["walls_placed"] = reader.IsDBNull(reader.GetOrdinal("walls_placed")) ? 0 : reader.GetInt32("walls_placed");
+                                    row["created_at"] = reader.GetDateTime("created_at");
+                                    result.Add(row);
+                                }
+                            }
+                        }
+                        await transaction.CommitAsync();
+                        return Ok(result);
+                    }
+                    catch (Exception ex)
+                    {
+                        await transaction.RollbackAsync();
+                        return StatusCode(500, "Internal server error: " + ex.Message);
+                    }
+                }
+            }
+        }
+
         [HttpPost("/Ender/BestForUser", Name = "Ender_BestForUser")]
         public async Task<IActionResult> BestForUser([FromBody] int userId)
         {

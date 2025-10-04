@@ -1,25 +1,41 @@
 <div class="metaHighscoresSection">
-    <div *ngIf="showBestScoresToday"
-        (click)="showUserHeader ? (parentRef?.createComponent(headerClickTarget ?? 'Ender')) : toggleMode('scores')"
-        [class]="(showUserHeader ? 'popupPanelTitle userPopupPanelTitle clickable' : (showHeaderTitles ? 'popupPanelTitle clickable' : 'regularTitle clickable'))"
-        [style]="'margin-top:0px;'">
-        Today's{{ showUserHeader ? ' Ender ' : ' ' }}Scores:
-        <span *ngIf="!showUserHeader" style="float:right; font-size:0.9em">{{ isModeCollapsed('scores') ? '+' : '−' }}</span>
-    </div>
-    <div *ngIf="!isModeCollapsed('scores')" style="max-height:300px; overflow:auto; padding:8px;">
-        <div *ngFor="let s of topScores">
-            <div style="padding:6px; border-bottom:1px solid #333; display:flex; align-items:center; gap:8px;">
-                <div style="flex:0 0 auto;">
-                    <app-user-tag [userId]="s.user_id" [user]="s.user" [inputtedParentRef]="parentRef" [displayMiniTag]="true"
-                        [previousComponent]="'Ender'"></app-user-tag>
-                </div>
-                <div style="flex:1 1 auto;">
-                    <div><strong>Score:</strong> {{s.score}}</div>
-                    <div><small>Time on map: {{s.time_on_level_seconds}}s • Walls placed: {{s.walls_placed}}</small>
-                    </div>
-                </div>
+    <div *ngIf="modesSelected.length">
+        <div *ngFor="let m of modesSelected" class="mode-section">
+            <div *ngIf="showHeader"
+                (click)="showUserHeader ? (parentRef?.createComponent(headerClickTarget ?? 'Ender')) : toggleMode(m)"
+                [class]="(showUserHeader ? 'popupPanelTitle userPopupPanelTitle clickable' : (showHeaderTitles ? 'popupPanelTitle clickable' : 'regularTitle clickable'))"
+                [style.marginTop]="'0px'">
+                {{ m === 'today' ? "Today's Ender Scores:" : (m === 'user' ? "Your Ender Scores:" : (m === 'best' ? 'Best Ender Scores (All Time):' : "All-time Ender Scores:")) }}
+                <span *ngIf="!showUserHeader" style="float:right; font-size:0.9em">{{ isModeCollapsed(m) ? '+' : '−' }}</span>
             </div>
+
+            <ng-container *ngIf="!isModeCollapsed(m)">
+                <ng-container *ngIf="groupedByMode[m] && (Object.keys(groupedByMode[m]).length > 0); else emptyMode">
+                    <div *ngFor="let group of (groupedByMode[m] | keyvalue)" class="difficulty-group">
+                        <h4 (click)="toggleMode(m)" [class]="showUserHeader ? 'userPopupPanelTitle' : ''">
+                            {{ m === 'best' && +group.key === 999 ? 'Best (All Time)' : 'Scores' }} ({{ group.value.length || 0 }})
+                            <span *ngIf="!showUserHeader" style="float:right; font-size:0.9em">{{ false ? '+' : '−' }}</span>
+                        </h4>
+                        <div *ngIf="group.value && group.value.length > 0">
+                            <div *ngFor="let s of group.value">
+                                <div style="padding:6px; border-bottom:1px solid #333; display:flex; align-items:center; gap:8px;">
+                                    <div style="flex:0 0 auto;">
+                                        <app-user-tag [user]="s.user" [userId]="s.user_id" [inputtedParentRef]="parentRef" [displayMiniTag]="true" [previousComponent]="'Ender'"></app-user-tag>
+                                    </div>
+                                    <div style="flex:1 1 auto;">
+                                        <div><strong>Score:</strong> {{s.score}}</div>
+                                        <div><small>Time on map: {{s.time_on_level_seconds}}s • Walls placed: {{s.walls_placed}}</small></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </ng-container>
+            </ng-container>
+
+            <ng-template #emptyMode>
+                <div class="no-scores">No scores to show for {{ m }}.</div>
+            </ng-template>
         </div>
-        <div *ngIf="!topScores || topScores.length === 0">No scores yet.</div>
     </div>
 </div>
