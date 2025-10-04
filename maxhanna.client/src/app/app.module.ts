@@ -162,7 +162,7 @@ import { CryptoTopTradersComponent } from './crypto-top-traders/crypto-top-trade
     ShareButtonComponent,
     RatingsComponent,
     EnderComponent,
-  EnderHighScoresComponent,
+    EnderHighScoresComponent,
     CryptoTopTradersComponent,
   ],
   bootstrap: [AppComponent],

@@ -4,7 +4,8 @@ import { EnderService } from '../../services/ender.service';
 @Component({
   selector: 'app-ender-high-scores',
   templateUrl: './ender-high-scores.component.html',
-  styleUrls: ['./ender-high-scores.component.css']
+  styleUrls: ['./ender-high-scores.component.css'],
+  standalone: false,
 })
 export class EnderHighScoresComponent implements OnInit {
   @Input() limit: number = 20;
