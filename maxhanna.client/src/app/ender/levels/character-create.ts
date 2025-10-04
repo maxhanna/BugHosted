@@ -1,7 +1,7 @@
 import { Vector2 } from "../../../services/datacontracts/meta/vector2";
 import { gridCells } from "../helpers/grid-cells";
 import { events } from "../helpers/events";
-import { storyFlags, Scenario, CHARACTER_CREATE_STORY_TEXT_1, CHARACTER_CREATE_STORY_TEXT_2, CHARACTER_CREATE_STORY_TEXT_3, CHARACTER_CREATE_STORY_TEXT_4 } from "../helpers/story-flags";
+import { storyFlags, Scenario, CHARACTER_CREATE_STORY_TEXT_1, CHARACTER_CREATE_STORY_TEXT_2, CHARACTER_CREATE_STORY_TEXT_3, CHARACTER_CREATE_STORY_TEXT_4, CHARACTER_CREATE_STORY_TEXT_5, CHARACTER_CREATE_STORY_TEXT_6, CHARACTER_CREATE_STORY_TEXT_7, CHARACTER_CREATE_STORY_TEXT_8 } from "../helpers/story-flags";
 import { Level } from "../objects/Level/level"; 
 import { HeroRoomLevel } from "./hero-room";
 import { SpriteTextStringWithBackdrop } from "../objects/SpriteTextString/sprite-text-string-with-backdrop";
@@ -54,24 +54,45 @@ export class CharacterCreate extends Level {
     "wang", "wank", "wanker", "wanky", "whoar", "whore", "willies", "xrated", "xxx", "suck"];
   override defaultHeroPosition = new Vector2(gridCells(1), gridCells(1));
   constructor(params: { heroPosition?: Vector2 } = {}) {
-    super(); 
+    super();
+    console.log("new char create");
     this.name = "CharacterCreate";
     if (params.heroPosition) {
       this.defaultHeroPosition = params.heroPosition;
     } 
-    this.referee.textContent = [ 
+    this.referee.textContent = [
       {
-        string: [`Ah, ${this.characterName} — a Lightcycle handle, is it?`],
+        string: ["Wake up... Your journey awaits!"],
+        requires: [CHARACTER_CREATE_STORY_TEXT_7],
+        addsFlag: CHARACTER_CREATE_STORY_TEXT_8,
+      } as Scenario,
+      {
+        string: [`Ah, ${this.characterName} is it?`],
+        requires: [CHARACTER_CREATE_STORY_TEXT_6],
+        addsFlag: CHARACTER_CREATE_STORY_TEXT_7,
+      } as Scenario,
+      {
+        string: ["Now, before we begin your journey ...", "What shall be your name, the name the world will know?"],
         requires: [CHARACTER_CREATE_STORY_TEXT_4],
+        addsFlag: CHARACTER_CREATE_STORY_TEXT_5,
+      } as Scenario, 
+      {
+        string: ["These marvelous machines serve not just in battle, but also protect our planet."],
+        requires: [CHARACTER_CREATE_STORY_TEXT_3],
+        addsFlag: CHARACTER_CREATE_STORY_TEXT_4,
+      } as Scenario,
+      {
+        string: ["This is the world of Meta-Bots!"],
+        requires: [CHARACTER_CREATE_STORY_TEXT_2],
         addsFlag: CHARACTER_CREATE_STORY_TEXT_3,
       } as Scenario,
       {
-        string: ["Before you jack into the Grid...", "What will your handle be among the Lightcycle pilots?"],
+        string: ["I am Mr. Referee, and I bring fair play to every ro-battle!", " Even in dreams, justice never sleeps!"],
         requires: [CHARACTER_CREATE_STORY_TEXT_1],
         addsFlag: CHARACTER_CREATE_STORY_TEXT_2,
-      } as Scenario,  
+      } as Scenario,
       {
-        string: ["Boot sequence interrupted... Who wakes my core? Ah, it's you!"],
+        string: ["Zzz... Huh? Who dares disturb my dreams... oh, it's you!"],
         addsFlag: CHARACTER_CREATE_STORY_TEXT_1,
       } as Scenario
     ];
@@ -79,7 +100,7 @@ export class CharacterCreate extends Level {
     this.hideChatInput();
 
     const sts = new SpriteTextString(
-      `Press ${!this.onMobile() ? 'Spacebar or ' : ''}the A Button to ignite your Lightcycle`,
+      `Press ${!this.onMobile() ? 'Spacebar or ' : ''}the A Button to Start`,
        new Vector2(10, 10),
        "White",
     );
@@ -91,9 +112,9 @@ export class CharacterCreate extends Level {
   override ready() {
     events.on("SEND_CHAT_MESSAGE", this, (chat: string) => {
       this.characterName = chat;
-      if (!this.verifyCharacterName(this.characterName) || storyFlags.contains(CHARACTER_CREATE_STORY_TEXT_4)) { return; } 
+      if (!this.verifyCharacterName(this.characterName) || storyFlags.contains(CHARACTER_CREATE_STORY_TEXT_6)) { return; } 
       this.returnChatInputToNormal();
-      storyFlags.add(CHARACTER_CREATE_STORY_TEXT_4);
+      storyFlags.add(CHARACTER_CREATE_STORY_TEXT_6);
       const content = this.referee.getContent();
       if (content) {
         this.displayContent(content);
@@ -109,7 +130,7 @@ export class CharacterCreate extends Level {
       if (currentTime.getTime() - this.inputKeyPressedDate.getTime() > 1000) {
         this.inputKeyPressedDate = new Date();
          
-        if (storyFlags.contains(CHARACTER_CREATE_STORY_TEXT_3)) {
+        if (storyFlags.contains(CHARACTER_CREATE_STORY_TEXT_8)) {
           setTimeout(() => {
             events.emit("CHANGE_LEVEL", new HeroRoomLevel({
               heroPosition: new Vector2(gridCells(4), gridCells(4))
@@ -117,15 +138,15 @@ export class CharacterCreate extends Level {
             this.destroy();
           }, 100);
           return;
-        } else if (storyFlags.contains(CHARACTER_CREATE_STORY_TEXT_1)) {
+        } else if (storyFlags.contains(CHARACTER_CREATE_STORY_TEXT_4)) {
           const sts = new SpriteTextString(  
-            `Enter your handle in the chat input, then press ${!this.onMobile() ? 'Enter or ' : ''}the A Button to register it`, new Vector2(10, 10)
+            `Enter your name in the chat input, then press ${!this.onMobile() ? 'Enter or ' : ''}the A Button to confirm`, new Vector2(10, 10)
           );
           this.addChild(sts);
         }
         const content = this.referee.getContent();
         if (content) {
-          if (storyFlags.contains(CHARACTER_CREATE_STORY_TEXT_2) && !storyFlags.contains(CHARACTER_CREATE_STORY_TEXT_4)) {
+          if (storyFlags.contains(CHARACTER_CREATE_STORY_TEXT_5) && !storyFlags.contains(CHARACTER_CREATE_STORY_TEXT_6)) {
             this.createNameChatInput();
           } else {
             this.displayContent(content);
@@ -192,7 +213,7 @@ export class CharacterCreate extends Level {
     setTimeout(() => {
       if (chatInput) {
         document.getElementsByClassName("chatArea")[0].setAttribute("style", "display: block !important;");
-        chatInput.placeholder = "Enter your handle";
+        chatInput.placeholder = "Enter your name";
         chatInput.style.position = "absolute";
         chatInput.style.top = "50%";
         chatInput.style.setProperty('display', 'block', 'important'); 
