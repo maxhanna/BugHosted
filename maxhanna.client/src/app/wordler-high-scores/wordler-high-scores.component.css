@@ -2,6 +2,8 @@
 .clickable { cursor: pointer; }
 
 .difficulty-group h4 { margin: 8px 0; }
-.scores-table { width: 100%; border-collapse: collapse; }
-.scores-table th, .scores-table td { border: 1px solid #ddd; padding: 6px; }
+.clickable { cursor: pointer; }
+
+.difficulty-group h4 { margin: 8px 0; }
+.scores-table { /* kept for compatibility but styles come from global .mainTable */ }
 
