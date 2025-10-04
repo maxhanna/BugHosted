@@ -67,7 +67,9 @@ export class Input {
 
   onArrowPressed(direction: string) {
     //console.log("on arrow pressed " + direction);
-    if (document.activeElement != this.chatInput && this.heldDirections.indexOf(direction) === -1) {
+    if (document.activeElement != this.chatInput) {
+      // remove any existing occurrences so we can re-add to front
+      this.heldDirections = this.heldDirections.filter(d => d !== direction);
       this.heldDirections.unshift(direction);
     }
     if (direction === LEFT || direction === RIGHT) {
