@@ -123,6 +123,9 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
     super();
   }
 
+  // Millisecond timestamp when current play session started (set when emulator launched/load state/start new run)
+  runStartMs?: number = undefined;
+
   async ngOnInit() {
     this.overrideGetUserMedia();
     this.setupEventListeners();
@@ -193,6 +196,17 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
     const res = await this.nostalgist?.saveState();
     const formData = new FormData();
     formData.append('files', res?.state!, this.fileService.getFileWithoutExtension(this.selectedRomName) + ".sav");
+    // attach timing fields so server can record play duration alongside the uploaded save
+    try {
+      if (this.runStartMs) {
+        const saveMs = Date.now();
+        const durationSeconds = Math.max(0, Math.floor((saveMs - this.runStartMs) / 1000));
+        formData.append('startTimeMs', String(this.runStartMs));
+        formData.append('saveTimeMs', String(saveMs));
+        formData.append('durationSeconds', String(durationSeconds));
+      }
+    } catch (e) { /* ignore timing attach errors */ }
+
     await this.romService.uploadRomFile(this.parentRef.user.id, formData).then(res => {
       if (!isAutosave) {
         this.parentRef?.showNotification("Game data saved on the server.");
@@ -226,6 +240,8 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
     const romSaveFile = this.fileService.getFileWithoutExtension(this.selectedRomName) + ".sav";
     const saveStateResponse = await this.romService.getRomFile(romSaveFile, this.parentRef?.user?.id);
     await this.nostalgist?.loadState(saveStateResponse!);
+  // mark session start when a state is loaded
+  this.runStartMs = Date.now();
   }
 
   async loadRom(file: FileEntry) {
@@ -259,6 +275,8 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
     }, 1);
     this.setHTMLControls();
     this.setupAutosave();
+  // mark session start when rom is loaded/launched
+  this.runStartMs = Date.now();
     this.stopLoading();
   }
 

@@ -121,6 +121,46 @@ namespace maxhanna.Server.Controllers
 						{
 							_ = _log.Db($"Rom file already exists: {file.FileName}, Size: {file.Length} bytes, Path: {filePath}", userId, "ROM", true); 
 						}
+
+						// If this was a save file upload, check for optional timing fields and persist playtime
+						if (isSaveFile)
+						{
+							try
+							{
+								// Form keys expected: startTimeMs, saveTimeMs, durationSeconds
+								long startMs = 0;
+								long saveMs = 0;
+								int durationSeconds = 0;
+								if (Request.Form.ContainsKey("startTimeMs") && long.TryParse(Request.Form["startTimeMs"], out var sm)) startMs = sm;
+								if (Request.Form.ContainsKey("saveTimeMs") && long.TryParse(Request.Form["saveTimeMs"], out var svm)) saveMs = svm;
+								if (Request.Form.ContainsKey("durationSeconds") && int.TryParse(Request.Form["durationSeconds"], out var ds)) durationSeconds = ds;
+
+								string createSql = @"CREATE TABLE IF NOT EXISTS maxhanna.emulation_play_time (
+									id INT AUTO_INCREMENT PRIMARY KEY,
+									user_id INT,
+									rom_file_name VARCHAR(255),
+									start_time DATETIME,
+									save_time DATETIME,
+									duration_seconds INT,
+									created_at DATETIME DEFAULT (UTC_TIMESTAMP())
+								);";
+								var createCmd2 = new MySqlCommand(createSql, connection);
+								await createCmd2.ExecuteNonQueryAsync();
+
+								string insertSql = @"INSERT INTO maxhanna.emulation_play_time (user_id, rom_file_name, start_time, save_time, duration_seconds) VALUES (@UserId, @RomFileName, FROM_UNIXTIME(@StartMs/1000), FROM_UNIXTIME(@SaveMs/1000), @DurationSeconds);";
+								var insertCmd2 = new MySqlCommand(insertSql, connection);
+								insertCmd2.Parameters.AddWithValue("@UserId", userId);
+								insertCmd2.Parameters.AddWithValue("@RomFileName", file.FileName);
+								insertCmd2.Parameters.AddWithValue("@StartMs", startMs);
+								insertCmd2.Parameters.AddWithValue("@SaveMs", saveMs);
+								insertCmd2.Parameters.AddWithValue("@DurationSeconds", durationSeconds);
+								await insertCmd2.ExecuteNonQueryAsync();
+							}
+							catch (Exception ex)
+							{
+								_ = _log.Db("Error recording playtime on upload: " + ex.Message, userId, "ROM", true);
+							}
+						}
 					}
 
 				}
@@ -133,6 +173,8 @@ namespace maxhanna.Server.Controllers
 				return StatusCode(500, "An error occurred while uploading files.");
 			}
 		}
+
+
 
 		[HttpPost("/Rom/GetRomFile/{filePath}", Name = "GetRomFile")]
 		public IActionResult GetRomFile([FromBody] int? userId, string filePath)
