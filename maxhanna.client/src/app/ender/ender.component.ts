@@ -81,6 +81,11 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
     isMenuPanelOpen = false;
     // Count of bike-wall units placed during the current run
     wallsPlacedThisRun: number = 0;
+    // Millisecond timestamp when the current run/level started
+    runStartTimeMs: number | undefined = undefined;
+    // Live elapsed seconds for HUD
+    runElapsedSeconds: number = 0;
+    private runElapsedInterval: any;
 
     async ngOnInit() {
         this.serverDown = (this.parentRef ? await this.parentRef?.isServerUp() <= 0 : false);
@@ -91,8 +96,11 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
         if (!this.parentRef?.user) {
             this.isUserComponentOpen = true;
         } else {
-            // reset walls placed for a fresh run
+            // reset walls placed for a fresh run; actual run start will be set when hero is initialized
             this.wallsPlacedThisRun = 0;
+            this.runStartTimeMs = undefined;
+            this.runElapsedSeconds = 0;
+            this.stopRunTimer();
             this.startLoading();
             this.pollForChanges();
             this.gameLoop.start();
@@ -134,8 +142,10 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
 
         // send server request to record death and delete hero
         try {
-            const timeOnLevel = Math.max(0, Math.floor((Date.now() - (this.mainScene.startTime ?? Date.now())) / 1000));
-            await this.enderService.recordDeath(this.metaHero.id, this.parentRef?.user?.id, Math.max(0, Math.floor((Date.now() - (this.mainScene.startTime ?? Date.now())) / 1000)), timeOnLevel, this.wallsPlacedThisRun);
+            const timeOnLevel = Math.max(0, Math.floor((Date.now() - (this.runStartTimeMs ?? Date.now())) / 1000));
+            // Combine time and walls for score: time seconds + 10 points per wall
+            const score = timeOnLevel + (this.wallsPlacedThisRun * 10);
+            await this.enderService.recordDeath(this.metaHero.id, this.parentRef?.user?.id, score, timeOnLevel, this.wallsPlacedThisRun, this.runStartTimeMs);
         } catch (e) {
             console.error('Failed to record death', e);
         }
@@ -158,8 +168,8 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
         });
         // Track bike wall placements so we can submit to highscores
         events.on("SPAWN_BIKE_WALL", this, (params: { x: number, y: number, heroId?: number }) => {
-            // only count placements from the local hero
-            if (params && params.heroId && this.metaHero && this.metaHero.id === params.heroId) {
+            // only count placements from the local hero and only after run started
+            if (this.runStartTimeMs && params && params.heroId && this.metaHero && this.metaHero.id === params.heroId) {
                 this.wallsPlacedThisRun = (this.wallsPlacedThisRun ?? 0) + 1;
             }
         });
@@ -522,6 +532,35 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
         }
 
         this.mainScene.camera.centerPositionOnTarget(this.metaHero.position);
+        // Mark run as started when hero is fully initialized.
+        // If the server-provided hero has a creation timestamp, derive the run start from it so server-side time matches client.
+        if (!this.runStartTimeMs) {
+            const createdStr = (rz as any).created || (rz as any).created_at || (rz as any).createdAt;
+            if (createdStr) {
+                const parsed = Date.parse(createdStr);
+                this.runStartTimeMs = isNaN(parsed) ? Date.now() : parsed;
+            } else {
+                this.runStartTimeMs = Date.now();
+            }
+        }
+        this.runElapsedSeconds = 0;
+        this.startRunTimer();
+    }
+
+    private startRunTimer() {
+        this.stopRunTimer();
+        this.runElapsedInterval = setInterval(() => {
+            if (this.runStartTimeMs) {
+                this.runElapsedSeconds = Math.max(0, Math.floor((Date.now() - this.runStartTimeMs) / 1000));
+            }
+        }, 1000);
+    }
+
+    private stopRunTimer() {
+        if (this.runElapsedInterval) {
+            clearInterval(this.runElapsedInterval);
+            this.runElapsedInterval = undefined;
+        }
     }
 
     private async reinitializeInventoryData(skipParty = false) {

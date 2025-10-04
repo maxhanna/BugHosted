@@ -94,6 +94,12 @@
       <div class="start" (mouseup)='mainScene.input.pressStart()' >START</div>
     </div>
 
+    <!-- Live run HUD -->
+    <div class="runHud" style="position:fixed; bottom: 200px; right: 20px; color:var(--secondary-font-color); text-shadow:0 -1px 0 #222;">
+      <div><strong>Time:</strong> {{runElapsedSeconds}}s</div>
+      <div><strong>Walls:</strong> {{wallsPlacedThisRun}}</div>
+    </div>
+
     <input type="color" (change)='changeColor()' #colorInput class="colorInput" [value]="metaHero.color"  />
   </div> 
 
@@ -103,9 +109,15 @@
       <div class="popupPanelTitle">Top Scores</div>
       <div style="max-height:300px; overflow:auto; padding:8px;">
         <div *ngFor="let s of topScores">
-          <div style="padding:6px; border-bottom:1px solid #333;">
-            <div><strong>Score:</strong> {{s.score}}</div>
-            <div><small>Hero ID: {{s.hero_id}} • User ID: {{s.user_id}} • {{s.created_at}}</small></div>
+          <div style="padding:6px; border-bottom:1px solid #333; display:flex; align-items:center; gap:8px;">
+            <div style="flex:0 0 auto;">
+              <app-user-tag [userId]="s.user_id" [inputtedParentRef]="parentRef" [displayMiniTag]="true" [previousComponent]="'Ender'"></app-user-tag>
+            </div>
+            <div style="flex:1 1 auto;">
+              <div><strong>Score:</strong> {{s.score}}</div>
+              <div><small>Hero ID: {{s.hero_id}} • User ID: {{s.user_id}} • {{s.created_at}}</small></div>
+              <div><small>Time on map: {{s.time_on_level_seconds}}s • Walls placed: {{s.walls_placed}}</small></div>
+            </div>
           </div>
         </div>
         <div *ngIf="!topScores || topScores.length === 0">No scores yet.</div>

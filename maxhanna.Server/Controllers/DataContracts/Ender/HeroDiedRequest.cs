@@ -9,5 +9,7 @@ namespace maxhanna.Server.Controllers.DataContracts.Ender
     public int TimeOnLevel { get; set; }
     // Number of wall units placed by this hero during the run
     public int WallsPlaced { get; set; }
+    // Milliseconds UTC since epoch when the run started (client-supplied)
+    public long? RunStartMs { get; set; }
     }
 }

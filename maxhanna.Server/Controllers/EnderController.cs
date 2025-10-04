@@ -227,17 +227,62 @@ namespace maxhanna.Server.Controllers
                 {
                     try
                     {
-                        // Insert into top scores table (include time on level and walls placed)
-                        string insertScoreSql = @"INSERT INTO maxhanna.ender_top_scores (hero_id, user_id, score, time_on_level_seconds, walls_placed, created_at) VALUES (@HeroId, @UserId, @Score, @TimeOnLevel, @WallsPlaced, NOW());";
-                        Dictionary<string, object?> scoreParams = new Dictionary<string, object?>()
+                        // Validate walls server-side if RunStartMs provided; recompute authoritative score = time + walls*10
+                            // Compute authoritative time-on-level from the hero's creation time (server-side) and validate walls since then
+                            int validatedWalls = req.WallsPlaced;
+                            int timeOnLevelSeconds = req.TimeOnLevel;
+                            try
                             {
-                                { "@HeroId", req.HeroId },
-                                { "@UserId", req.UserId },
-                                { "@Score", req.Score },
-                                { "@TimeOnLevel", req.TimeOnLevel },
-                                { "@WallsPlaced", req.WallsPlaced }
-                            };
-                        await ExecuteInsertOrUpdateOrDeleteAsync(insertScoreSql, scoreParams, connection, transaction);
+                                // Fetch hero.created_at from DB for authoritative run start
+                                string heroSql = @"SELECT created_at FROM maxhanna.ender_hero WHERE id = @HeroId LIMIT 1;";
+                                DateTime? heroCreatedAt = null;
+                                using (var getHeroCmd = new MySqlCommand(heroSql, connection, transaction))
+                                {
+                                    getHeroCmd.Parameters.AddWithValue("@HeroId", req.HeroId);
+                                    var createdObj = await getHeroCmd.ExecuteScalarAsync();
+                                    if (createdObj != null && createdObj != DBNull.Value)
+                                    {
+                                        heroCreatedAt = Convert.ToDateTime(createdObj).ToUniversalTime();
+                                    }
+                                }
+
+                                if (heroCreatedAt != null)
+                                {
+                                    // authoritative time on level = now - hero.created_at
+                                    timeOnLevelSeconds = Math.Max(0, (int)Math.Floor((DateTime.UtcNow - heroCreatedAt.Value).TotalSeconds));
+
+                                    // Count persisted bike walls for this hero that were created at/after heroCreatedAt
+                                    string countSql = @"SELECT COUNT(*) FROM maxhanna.ender_bike_wall WHERE hero_id = @HeroId AND created_at >= @CreatedAt;";
+                                    using (var countCmd = new MySqlCommand(countSql, connection, transaction))
+                                    {
+                                        countCmd.Parameters.AddWithValue("@HeroId", req.HeroId);
+                                        countCmd.Parameters.AddWithValue("@CreatedAt", heroCreatedAt.Value);
+                                        var result = await countCmd.ExecuteScalarAsync();
+                                        validatedWalls = Convert.ToInt32(result);
+                                    }
+                                }
+                            }
+                            catch (Exception ex)
+                            {
+                                _ = _log.Db("Failed to compute authoritative time/walls: " + ex.Message, null, "ENDER", true);
+                                // fallback to client-supplied values already present in req
+                                timeOnLevelSeconds = req.TimeOnLevel;
+                                validatedWalls = req.WallsPlaced;
+                            }
+
+                            int authoritativeScore = timeOnLevelSeconds + (validatedWalls * 10);
+
+                            // Insert into top scores table (include time on level and walls placed)
+                            string insertScoreSql = @"INSERT INTO maxhanna.ender_top_scores (hero_id, user_id, score, time_on_level_seconds, walls_placed, created_at) VALUES (@HeroId, @UserId, @Score, @TimeOnLevel, @WallsPlaced, NOW());";
+                            Dictionary<string, object?> scoreParams = new Dictionary<string, object?>()
+                                {
+                                    { "@HeroId", req.HeroId },
+                                    { "@UserId", req.UserId },
+                                    { "@Score", authoritativeScore },
+                                    { "@TimeOnLevel", timeOnLevelSeconds },
+                                    { "@WallsPlaced", validatedWalls }
+                                };
+                            await ExecuteInsertOrUpdateOrDeleteAsync(insertScoreSql, scoreParams, connection, transaction);
 
                         // Delete hero and related rows (inventory, bots, events)
                         string deleteInventory = "DELETE FROM maxhanna.ender_hero_inventory WHERE ender_hero_id = @HeroId;";
@@ -693,26 +738,23 @@ namespace maxhanna.Server.Controllers
                                 id = @MetabotId 
                         LIMIT 1;";
 
-                Dictionary<string, object?> parameters = new Dictionary<string, object?>
-                {
-                        { "@HP", metabot.Hp },
-                        { "@Exp", metabot.Exp },
-                        { "@Level", metabot.Level },
-                        { "@IsDeployed", metabot.IsDeployed ? 1 : 0 }, // Convert boolean to bit
-                        { "@MetabotId", metabot.Id }
-                };
-
+        Dictionary<string, object?> parameters = new Dictionary<string, object?>
+        {
+            { "@HP", metabot.Hp },
+            { "@Exp", metabot.Exp },
+            { "@Level", metabot.Level },
+            { "@IsDeployed", metabot.IsDeployed ? 1 : 0 } // Convert boolean to bit
+        };
                 await this.ExecuteInsertOrUpdateOrDeleteAsync(sql, parameters, connection, transaction);
             }
             catch (Exception ex)
             {
-                _ = _log.Db("UpdateMetabotInDb failure: " + ex.ToString(), null, "ENDER", true);
+                _ = _log.Db("UpdateEventsInDb failed : " + ex.ToString(), null, "ENDER", true);
             }
         }
 
         private async Task UpdateEventsInDB(MetaEvent @event, MySqlConnection connection, MySqlTransaction transaction)
         {
-            //_ = _log.Db("inserting event in db : " + @event.EventType);
             try
             {
                 string sql = @"DELETE FROM maxhanna.ender_event WHERE timestamp < NOW() - INTERVAL 20 SECOND;
