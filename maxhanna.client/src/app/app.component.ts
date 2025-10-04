@@ -552,11 +552,17 @@ export class AppComponent implements OnInit, AfterViewInit {
     this.setCookie(name, '', 1);
   }
   setCookie(name: string, value: string, expireDays: number, path: string = '') {
-    let d: Date = new Date();
+    const d: Date = new Date();
     d.setTime(d.getTime() + expireDays * 24 * 60 * 60 * 1000);
-    let expires: string = `expires=${d.toUTCString()}`;
-    let cpath: string = path ? `; path=${path}` : '';
-    document.cookie = `${name}=${value}; ${expires}${cpath}`;
+    const expires: string = `expires=${d.toUTCString()}`;
+    // Always use root path unless a specific one is passed.
+    const cpath: string = `; path=${path || '/'}`;
+    // Share across apex + subdomains (www, etc.)
+    const domain = '; domain=.bughosted.com';
+    // Basic security attributes (adjust SameSite/secure if running non-HTTPS locally)
+    const secure = window.location.protocol === 'https:' ? '; Secure' : '';
+    const sameSite = '; SameSite=Lax';
+    document.cookie = `${name}=${value}; ${expires}${cpath}${domain}${sameSite}${secure}`;
   }
   getCookie(name: string) {
     let ca: Array<string> = document.cookie.split(';');
