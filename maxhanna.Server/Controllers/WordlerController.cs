@@ -1,5 +1,6 @@
 using maxhanna.Server.Controllers.DataContracts.Users;
 using maxhanna.Server.Controllers.DataContracts.Wordler;
+using maxhanna.Server.Controllers.DataContracts.Files;
 using Microsoft.AspNetCore.Mvc;
 using MySqlConnector;
 
@@ -202,11 +203,12 @@ namespace maxhanna.Server.Controllers
 				await conn.OpenAsync();
 
 				// Do not limit to current date here; callers (client) will filter for 'today' when needed.
-				string sql = @"
-					SELECT ws.id, ws.user_id, ws.score, ws.time, ws.submitted,
-						   u.id as u_id, u.username as u_username, ws.difficulty
-					FROM wordler_scores ws
-					LEFT JOIN users u ON ws.user_id = u.id 
+		  string sql = @"
+		      SELECT ws.id, ws.user_id, ws.score, ws.time, ws.submitted,
+			      u.id as u_id, u.username as u_username, udp.file_id as display_picture_file_id, ws.difficulty
+		      FROM wordler_scores ws
+		      LEFT JOIN users u ON ws.user_id = u.id 
+		      LEFT JOIN user_display_pictures udp ON u.id = udp.user_id
 					WHERE 1=1 " +
 						(userId != null ? "AND ws.user_id = @UserId " : String.Empty) +
 						"ORDER BY DATE(ws.submitted) desc, ws.difficulty desc, ws.score asc, ws.time asc LIMIT 20;";
@@ -238,7 +240,15 @@ namespace maxhanna.Server.Controllers
 								{
 									Id = uid,
 									Username = uname,
+									DisplayPictureFile = null
 								};
+
+								try {
+									if (!reader.IsDBNull(reader.GetOrdinal("display_picture_file_id")))
+									{
+										tmpuser.DisplayPictureFile = new FileEntry(reader.GetInt32("display_picture_file_id"));
+									}
+								} catch { /* ignore */ }
 
 								scores.Add(new WordlerScore
 								{

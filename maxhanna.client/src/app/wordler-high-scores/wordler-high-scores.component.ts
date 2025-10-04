@@ -30,6 +30,8 @@ export class WordlerHighScoresComponent implements OnInit, OnChanges {
     @Output() headerClick = new EventEmitter<string | null>();
     @Input() showUserHeader: boolean = false;
     @Input() showHeaderTitles: boolean = true;
+    @Input() parentRef?: any;
+    @Input() inputtedParentRef?: any;
 
     // not used for multi-mode output; per-mode mappings are stored in groupedByMode
     scores: WordlerScore[] = [];
@@ -54,11 +56,13 @@ export class WordlerHighScoresComponent implements OnInit, OnChanges {
     collapsedGroups: Record<string, boolean> = {};
 
     toggleMode(mode: Mode) {
-        this.collapsedModes[mode] = !this.collapsedModes[mode];
+    if (this.showUserHeader) return; // when showing user header, do not toggle
+    this.collapsedModes[mode] = !this.collapsedModes[mode];
     }
 
     isModeCollapsed(mode: Mode) {
-        return !!this.collapsedModes[mode];
+    if (this.showUserHeader) return false; // never collapsed when showUserHeader is active
+    return !!this.collapsedModes[mode];
     }
 
     toggleGroup(mode: Mode, groupKey: string) {
@@ -191,5 +195,11 @@ export class WordlerHighScoresComponent implements OnInit, OnChanges {
         }
         // remove duplicates while preserving order
         return Array.from(new Set(expanded));
+    }
+
+    openWordler() {
+        // prefer inputtedParentRef if provided
+        const pr = this.inputtedParentRef ?? this.parentRef;
+        pr?.createComponent('Wordler');
     }
 }
