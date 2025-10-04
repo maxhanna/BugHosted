@@ -173,26 +173,30 @@ namespace maxhanna.Server.Controllers
 								if (Request.Form.ContainsKey("saveTimeMs") && long.TryParse(Request.Form["saveTimeMs"], out var svm)) saveMs = svm;
 								if (Request.Form.ContainsKey("durationSeconds") && int.TryParse(Request.Form["durationSeconds"], out var ds)) durationSeconds = ds;
 
-								string createSql = @"CREATE TABLE IF NOT EXISTS maxhanna.emulation_play_time (
-									id INT AUTO_INCREMENT PRIMARY KEY,
-									user_id INT,
-									rom_file_name VARCHAR(255),
-									start_time DATETIME,
-									save_time DATETIME,
-									duration_seconds INT,
-									created_at DATETIME DEFAULT (UTC_TIMESTAMP())
-								);";
-								var createCmd2 = new MySqlCommand(createSql, connection);
-								await createCmd2.ExecuteNonQueryAsync();
-
-								string insertSql = @"INSERT INTO maxhanna.emulation_play_time (user_id, rom_file_name, start_time, save_time, duration_seconds) VALUES (@UserId, @RomFileName, FROM_UNIXTIME(@StartMs/1000), FROM_UNIXTIME(@SaveMs/1000), @DurationSeconds);";
-								var insertCmd2 = new MySqlCommand(insertSql, connection);
-								insertCmd2.Parameters.AddWithValue("@UserId", userId);
-								insertCmd2.Parameters.AddWithValue("@RomFileName", file.FileName);
-								insertCmd2.Parameters.AddWithValue("@StartMs", startMs);
-								insertCmd2.Parameters.AddWithValue("@SaveMs", saveMs);
-								insertCmd2.Parameters.AddWithValue("@DurationSeconds", durationSeconds);
-								await insertCmd2.ExecuteNonQueryAsync();
+								// Use single-statement upsert. Requires a UNIQUE constraint on (user_id, rom_file_name) for ON DUPLICATE KEY to work.
+								string upsertSql = @"INSERT INTO maxhanna.emulation_play_time (user_id, rom_file_name, start_time, save_time, duration_seconds, created_at) VALUES (@UserId, @RomFileName, FROM_UNIXTIME(@StartMs/1000), FROM_UNIXTIME(@SaveMs/1000), @DurationSeconds, UTC_TIMESTAMP()) ON DUPLICATE KEY UPDATE start_time = VALUES(start_time), save_time = VALUES(save_time), duration_seconds = VALUES(duration_seconds), created_at = VALUES(created_at);";
+								var upsertCmd = new MySqlCommand(upsertSql, connection);
+								upsertCmd.Parameters.AddWithValue("@UserId", userId);
+								upsertCmd.Parameters.AddWithValue("@RomFileName", file.FileName);
+								upsertCmd.Parameters.AddWithValue("@StartMs", startMs);
+								upsertCmd.Parameters.AddWithValue("@SaveMs", saveMs);
+								upsertCmd.Parameters.AddWithValue("@DurationSeconds", durationSeconds);
+								try
+								{
+									await upsertCmd.ExecuteNonQueryAsync();
+								}
+								catch (MySqlException mex)
+								{
+									// ER_NO_SUCH_TABLE = 1146
+									if (mex.Number == 1146)
+									{
+										_ = _log.Db("emulation_play_time table does not exist or CREATE privilege missing; skipping playtime record: " + mex.Message, userId, "ROM", true);
+									}
+									else
+									{
+										_ = _log.Db("Error recording playtime on upload (DB error): " + mex.Message, userId, "ROM", true);
+									}
+								}
 							}
 							catch (Exception ex)
 							{

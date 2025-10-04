@@ -177,7 +177,7 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
         this.loadContactsData();
         this.loadLocation(this.user);
         this.getIsBeingFollowedByUser();
-        this.getIsUserBlocked(this.user); 
+        this.getIsUserBlocked(this.user);
         this.getUserLoginStreak();
 
         if (this.user.id == this.parentRef?.user?.id && this.user.id != 0 && this.user.id !== undefined) {
@@ -201,7 +201,7 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
       }
       this.getNSFWValue();
       this.getNumberOfNexusBases();
-      this.getNumberOfTrades(); 
+      this.getNumberOfTrades();
       this.loadExtraCounts();
     }
     catch (error) { console.log((error as Error).message); }
@@ -224,18 +224,18 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
   private async loadExtraCounts() {
     const user = this.user ?? this.parentRef?.user ?? this.inputtedParentRef?.user;
     if (!user || !user.id) return;
- 
-    try { 
+
+    try {
       this.numberOfMastermindGames = await this.mastermindService.getNumberOfGames(user.id);
 
       this.numberOfFilesUploaded = await this.fileService.getNumberOfFiles(user.id);
-   
+
       this.numberOfMemesUploaded = await this.fileService.getNumberOfMemes(user.id);
-    
+
       this.numberOfArtUploaded = await this.fileService.getNumberOfArt(user.id);
 
       this.numberOfFavouritesCreated = await this.favouriteService.getFavouritesCount(user.id);
-      
+
       this.numberOfTopEntriesCreated = await this.topService.getEntriesCountByUser(user.id);
 
       this.enderService.getBestScoreForUser(user.id).then(be => {
@@ -243,19 +243,19 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
           this.bestEnderScore = be;
         }
       });
- 
-    this.romService.getUserEmulationStats(user.id).then(stats => {
-      if (stats) {
-        this.emulationTotalTimeSeconds = stats.totalSeconds ?? 0;
-        this.topEmulationGameName = stats.topGameName ?? null;
-        this.topEmulationGamePlays = stats.topGamePlays ?? null;
-      }
-    }); 
+
+      this.romService.getUserEmulationStats(user.id).then(stats => {
+        if (stats) {
+          this.emulationTotalTimeSeconds = stats.totalSeconds ?? 0;
+          this.topEmulationGameName = stats.topGameName ?? null;
+          this.topEmulationGamePlays = stats.topGamePlays ?? null;
+        }
+      });
 
       if ((this.numberOfMemesUploaded === undefined || this.numberOfMemesUploaded === null)) {
         this.numberOfMemesUploaded = 0;
       }
-    } catch (e) { } 
+    } catch (e) { }
   }
 
 
