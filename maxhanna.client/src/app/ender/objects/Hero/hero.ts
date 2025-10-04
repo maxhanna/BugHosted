@@ -193,7 +193,7 @@ export class Hero extends Character {
       const wall = new BikeWall({ position: wallPos });
       this.parent?.addChild(wall);
     // tell network layer to persist & broadcast
-      events.emit("SPAWN_BIKE_WALL", { x: wallPos.x, y: wallPos.y });
+  events.emit("SPAWN_BIKE_WALL", { x: wallPos.x, y: wallPos.y, heroId: this.id });
       this.lastBikeWallSpawnPos = this.position.duplicate();
     }
   }

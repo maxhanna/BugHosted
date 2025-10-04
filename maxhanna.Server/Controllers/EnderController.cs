@@ -227,13 +227,15 @@ namespace maxhanna.Server.Controllers
                 {
                     try
                     {
-                        // Insert into top scores table
-                        string insertScoreSql = @"INSERT INTO maxhanna.ender_top_scores (hero_id, user_id, score, created_at) VALUES (@HeroId, @UserId, @Score, NOW());";
+                        // Insert into top scores table (include time on level and walls placed)
+                        string insertScoreSql = @"INSERT INTO maxhanna.ender_top_scores (hero_id, user_id, score, time_on_level_seconds, walls_placed, created_at) VALUES (@HeroId, @UserId, @Score, @TimeOnLevel, @WallsPlaced, NOW());";
                         Dictionary<string, object?> scoreParams = new Dictionary<string, object?>()
                             {
                                 { "@HeroId", req.HeroId },
                                 { "@UserId", req.UserId },
-                                { "@Score", req.Score }
+                                { "@Score", req.Score },
+                                { "@TimeOnLevel", req.TimeOnLevel },
+                                { "@WallsPlaced", req.WallsPlaced }
                             };
                         await ExecuteInsertOrUpdateOrDeleteAsync(insertScoreSql, scoreParams, connection, transaction);
 
@@ -403,7 +405,7 @@ namespace maxhanna.Server.Controllers
                 {
                     try
                     {
-                        string sql = @"SELECT id, hero_id, user_id, score, created_at FROM maxhanna.ender_top_scores ORDER BY score DESC LIMIT @Limit;";
+                        string sql = @"SELECT id, hero_id, user_id, score, time_on_level_seconds, walls_placed, created_at FROM maxhanna.ender_top_scores ORDER BY score DESC LIMIT @Limit;";
                         var result = new List<Dictionary<string, object?>>();
                         using (var command = new MySqlCommand(sql, connection, transaction))
                         {
@@ -417,6 +419,8 @@ namespace maxhanna.Server.Controllers
                                     row["hero_id"] = reader.GetInt32("hero_id");
                                     row["user_id"] = reader.GetInt32("user_id");
                                     row["score"] = reader.GetInt32("score");
+                                    row["time_on_level_seconds"] = reader.IsDBNull(reader.GetOrdinal("time_on_level_seconds")) ? 0 : reader.GetInt32("time_on_level_seconds");
+                                    row["walls_placed"] = reader.IsDBNull(reader.GetOrdinal("walls_placed")) ? 0 : reader.GetInt32("walls_placed");
                                     row["created_at"] = reader.GetDateTime("created_at");
                                     result.Add(row);
                                 }

@@ -520,7 +520,7 @@ export function subscribeToMainGameEvents(object: any) {
   });
   events.on("SPAWN_BIKE_WALL", object, (params: { x: number, y: number }) => {
     try {
-      const metaEvent = new MetaEvent(0, object.metaHero.id, new Date(), "SPAWN_BIKE_WALL", object.metaHero.map, { x: params.x + "", y: params.y + "" });
+      const metaEvent = new MetaEvent(0, object.metaHero.id, new Date(), "SPAWN_BIKE_WALL", object.metaHero.map, { x: params.x + "", y: params.y + "", heroId: object.metaHero.id });
       object.enderService.updateEvents(metaEvent);
     } catch (e) { console.error("Failed to send SPAWN_BIKE_WALL", e); }
   });
