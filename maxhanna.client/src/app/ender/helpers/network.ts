@@ -525,6 +525,29 @@ export function subscribeToMainGameEvents(object: any) {
     } catch (e) { console.error("Failed to send SPAWN_BIKE_WALL", e); }
   });
 
+  // When a bike wall is created anywhere (local, network, or persisted load), check for heroes already on that cell
+  events.on("BIKEWALL_CREATED", object, (params: { x: number, y: number }) => {
+    try {
+      if (!params || !object.mainScene || !object.mainScene.level) return;
+      const x = params.x;
+      const y = params.y;
+      const heroes = object.mainScene.level.children.filter((c: any) => c && c.constructor && c.constructor.name === 'Hero');
+      for (const h of heroes) {
+        try {
+          if (!h || h.hp === undefined) continue;
+          // only affect alive heroes
+          if (h.hp <= 0) continue;
+          if (h.position && Math.round(h.position.x) === Math.round(x) && Math.round(h.position.y) === Math.round(y)) {
+            // emit death for that hero; wrap to avoid errors if downstream handlers misbehave
+            try { events.emit("HERO_DIED", h); } catch (e) { console.error("Error emitting HERO_DIED for hero:", e); }
+          }
+        } catch (e) { /* per-hero safety */ }
+      }
+    } catch (e) {
+      console.error("BIKEWALL_CREATED handler failed", e);
+    }
+  });
+
   events.on("HIDE_START_BUTTON", object, () => {
     object.hideStartButton = true;
   })
@@ -758,6 +781,8 @@ export function actionMultiplayerEvents(object: any, metaEvents: MetaEvent[]) {
             if (!exists) {
               const wall = new BikeWall({ position: new Vector2(x, y) });
               object.mainScene.level.addChild(wall);
+              // notify systems that a wall now exists at this location so any heroes under it can be processed
+              try { events.emit("BIKEWALL_CREATED", { x, y }); } catch (e) { /* swallow errors */ }
             }
           }
         }
