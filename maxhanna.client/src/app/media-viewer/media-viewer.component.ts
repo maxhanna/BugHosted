@@ -66,7 +66,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
   @Input() blockExpand: boolean = false;
   @Input() autoplay: boolean = true;
   @Input() autoplayAudio: boolean = false;
-  @Input() autoload: boolean = true;
+  @Input() autoload?: boolean | undefined = true;
   @Input() displayControls: boolean = true;
   @Input() loop: boolean = true;
   @Input() muted: boolean = true;
