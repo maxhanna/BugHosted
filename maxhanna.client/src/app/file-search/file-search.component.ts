@@ -638,10 +638,11 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     this.closeOptionsPanel();
   }
   shareFileInitiate(file: FileEntry) {
-    this.showShareUserList = true;
-    this.selectedSharedFile = file;
-    this.shareUserListDiv.nativeElement.classList.toggle("open");
+    this.selectedSharedFile = file; 
     this.closeOptionsPanel();
+    setTimeout(() => {
+      this.showShareUserList = true; 
+    }, 100);
   }
   emittedNotification(event: string) {
     this.notifyUser(event);
