@@ -14,6 +14,8 @@ export class Input {
   private lastDirection: string = RIGHT;
   // toggle for auto forward movement (enabled by default for bike)
   autoForward: boolean = true;
+  // track which directions are physically held via keys/touch (so we can distinguish injected directions)
+  private physicalHeld: Record<string, boolean> = {};
   constructor() {
     document.addEventListener("keydown", (e) => {
       if (e.code != " ") {
@@ -84,6 +86,19 @@ export class Input {
       return;
     }
     this.heldDirections.splice(index, 1);
+    // If a vertical direction was just released and no physical horizontal keys are held,
+    // remove injected horizontal directions so the last vertical direction persists.
+    if ((direction === UP || direction === DOWN) && this.autoForward) {
+      const anyPhysicalHorizontal = !!(this.physicalHeld[LEFT] || this.physicalHeld[RIGHT]);
+      if (!anyPhysicalHorizontal) {
+        // clear any injected horizontal directions
+        this.heldDirections = this.heldDirections.filter(d => d !== LEFT && d !== RIGHT);
+        // if no other directions remain, restore lastDirection to persist vertical movement
+        if (this.heldDirections.length === 0) {
+          this.heldDirections.unshift(this.lastDirection);
+        }
+      }
+    }
   }
 
   private handleEnter() {
@@ -134,21 +149,25 @@ export class Input {
       case 'ArrowUp':
       case 'w':
       case 'W':
+        this.physicalHeld[UP] = true;
         this.onArrowPressed(UP);
         break;
       case 'ArrowDown':
       case 's':
       case 'S':
+        this.physicalHeld[DOWN] = true;
         this.onArrowPressed(DOWN);
         break;
       case 'ArrowLeft':
       case 'a':
       case 'A':
+        this.physicalHeld[LEFT] = true;
         this.onArrowPressed(LEFT);
         break;
       case 'ArrowRight':
       case 'd':
       case 'D':
+        this.physicalHeld[RIGHT] = true;
         this.onArrowPressed(RIGHT);
         break;
       case 'Enter':
@@ -167,21 +186,25 @@ export class Input {
       case 'ArrowUp':
       case 'w':
       case 'W':
+        this.physicalHeld[UP] = false;
         this.onArrowReleased(UP);
         break;
       case 'ArrowDown':
       case 's':
       case 'S':
+        this.physicalHeld[DOWN] = false;
         this.onArrowReleased(DOWN);
         break;
       case 'ArrowLeft':
       case 'a':
       case 'A':
+        this.physicalHeld[LEFT] = false;
         this.onArrowReleased(LEFT);
         break;
       case 'ArrowRight':
       case 'd':
       case 'D':
+        this.physicalHeld[RIGHT] = false;
         this.onArrowReleased(RIGHT);
         break; 
       case 'e':
