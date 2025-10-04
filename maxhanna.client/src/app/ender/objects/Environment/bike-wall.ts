@@ -11,6 +11,7 @@ export class BikeWall extends GameObject {
       drawLayer: FLOOR,
       isSolid: false,
       preventDrawName: true,
+      name: "bike-wall"
     });
 
     const body = new Sprite({
