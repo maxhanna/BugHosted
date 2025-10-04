@@ -18,7 +18,7 @@
             <tbody>
                 <tr *ngFor="let score of bestScores">
                     <td>
-                        <app-user-tag [user]="score.user" [userId]="score.userId" [displayMiniTag]="true"
+                        <app-user-tag [user]="score.user" [displayMiniTag]="true"
                             [inputtedParentRef]="parentRef"></app-user-tag>
                     </td>
                     <td>{{score.score}}</td>
@@ -53,7 +53,7 @@
             <tbody>
                 <tr *ngFor="let score of bestScoresToday">
                     <td>
-                        <app-user-tag [user]="score.user" [userId]="score.userId" [displayMiniTag]="true"
+                        <app-user-tag [user]="score.user" [displayMiniTag]="true"
                             [inputtedParentRef]="parentRef"></app-user-tag>
                     </td>
                     <td>{{score.score}}</td>

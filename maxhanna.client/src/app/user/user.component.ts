@@ -18,6 +18,7 @@ import { MetaService } from '../../services/meta.service';
 import { NotificationService } from '../../services/notification.service';
 import { SocialService } from '../../services/social.service';
 import { FileService } from '../../services/file.service';
+import { EnderService } from '../../services/ender.service';
 import { MastermindService } from '../../services/mastermind.service';
 import { FavouriteService } from '../../services/favourite.service';
 import { FileEntry } from '../../services/datacontracts/file/file-entry';
@@ -92,6 +93,7 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
   numberOfArtUploaded?: number = undefined;
   numberOfFavouritesCreated?: number = undefined;
   numberOfTopEntriesCreated?: number = undefined;
+  bestEnderScore?: any = undefined;
   wordlerStreak: number = 0;
   bestWordlerStreak: number = 0;
   metaBotLevelsSum: number = 0;
@@ -125,7 +127,8 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
     private metaService: MetaService,
     private socialService: SocialService,
     private fileService: FileService,
-    private mastermindService: MastermindService,
+  private mastermindService: MastermindService,
+  private enderService: EnderService,
     private favouriteService: FavouriteService,
     private topService: TopService,
   ) {
@@ -228,6 +231,11 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
       this.numberOfFavouritesCreated = await this.favouriteService.getFavouritesCount(user.id);
       
       this.numberOfTopEntriesCreated = await this.topService.getEntriesCountByUser(user.id);
+
+      try {
+        const be = await (this as any).enderService?.getBestScoreForUser(user.id);
+        if (be) this.bestEnderScore = be;
+      } catch (e) { /* ignore */ }
 
       if ((this.numberOfMemesUploaded === undefined || this.numberOfMemesUploaded === null)) {
         this.numberOfMemesUploaded = 0;

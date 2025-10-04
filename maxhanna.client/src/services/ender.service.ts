@@ -85,4 +85,7 @@ export class EnderService {
   async getTopScores(limit = 50) {
     return this.fetchData('/ender/topscores', limit);
   }
+  async getBestScoreForUser(userId: number) {
+    return this.fetchData('/ender/bestforuser', userId);
+  }
 }

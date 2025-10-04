@@ -395,6 +395,17 @@
               </div>
             </div>
 
+            <div class="optionsStatsDiv" *ngIf="bestEnderScore && bestEnderScore.score">
+              <div class="optionsStatsHeader">
+                <span class="componentsIcon">{{ parentRef?.getIconByTitle('Ender') }}</span>
+                Best Ender Score:
+              </div>
+              <div class="optionsStatsDescription">
+                <app-user-tag [user]="bestEnderScore.user" [userId]="bestEnderScore.user_id" [displayMiniTag]="true" [inputtedParentRef]="parentRef"></app-user-tag>
+                <div>Score: {{bestEnderScore.score}} • Time: {{bestEnderScore.time_on_level_seconds}}s</div>
+              </div>
+            </div>
+
             <div class="optionsStatsDiv" *ngIf="numberOfNexusBases > 0">
               <div class="optionsStatsHeader">
                 <span class="componentsIcon">{{ parentRef?.getIconByTitle('Bug-Wars') }}</span>

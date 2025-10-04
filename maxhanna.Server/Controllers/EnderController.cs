@@ -1,5 +1,6 @@
 using maxhanna.Server.Controllers.DataContracts.Ender;
 using maxhanna.Server.Controllers.DataContracts.Users;
+using maxhanna.Server.Controllers.DataContracts.Files;
 using Microsoft.AspNetCore.Mvc;
 using MySqlConnector;
 using System;
@@ -471,6 +472,74 @@ namespace maxhanna.Server.Controllers
                                 }
                             }
                         }
+                        await transaction.CommitAsync();
+                        return Ok(result);
+                    }
+                    catch (Exception ex)
+                    {
+                        await transaction.RollbackAsync();
+                        return StatusCode(500, "Internal server error: " + ex.Message);
+                    }
+                }
+            }
+        }
+
+        [HttpPost("/Ender/BestForUser", Name = "Ender_BestForUser")]
+        public async Task<IActionResult> BestForUser([FromBody] int userId)
+        {
+            if (userId <= 0) return BadRequest("Invalid user id");
+            using (var connection = new MySqlConnection(_connectionString))
+            {
+                await connection.OpenAsync();
+                using (var transaction = connection.BeginTransaction())
+                {
+                    try
+                    {
+                        // Select the best score for this user. Join to users table to provide basic user info if available.
+                        string sql = @"SELECT t.id, t.hero_id, t.user_id, t.score, t.time_on_level_seconds, t.walls_placed, t.created_at,
+                                       u.id as user_id_fk, u.username, u.created as user_created, udp.file_id as display_picture_file_id
+                                       FROM maxhanna.ender_top_scores t
+                                       LEFT JOIN users u ON u.id = t.user_id
+                                       LEFT JOIN user_display_pictures udp ON u.id = udp.user_id
+                                       WHERE t.user_id = @UserId
+                                       ORDER BY t.score DESC, t.created_at ASC
+                                       LIMIT 1;";
+
+                        Dictionary<string, object?> result = new Dictionary<string, object?>();
+                        using (var command = new MySqlCommand(sql, connection, transaction))
+                        {
+                            command.Parameters.AddWithValue("@UserId", userId);
+                            using (var reader = await command.ExecuteReaderAsync())
+                            {
+                                if (await reader.ReadAsync())
+                                {
+                                    result["id"] = reader.GetInt32("id");
+                                    result["hero_id"] = reader.GetInt32("hero_id");
+                                    result["user_id"] = reader.GetInt32("user_id");
+                                    result["score"] = reader.GetInt32("score");
+                                    result["time_on_level_seconds"] = reader.IsDBNull(reader.GetOrdinal("time_on_level_seconds")) ? 0 : reader.GetInt32("time_on_level_seconds");
+                                    result["walls_placed"] = reader.IsDBNull(reader.GetOrdinal("walls_placed")) ? 0 : reader.GetInt32("walls_placed");
+                                    result["created_at"] = reader.GetDateTime("created_at");
+
+                                    if (!reader.IsDBNull(reader.GetOrdinal("user_id_fk")))
+                                    {
+                                        var userObj = new Dictionary<string, object?>();
+                                        userObj["id"] = reader.GetInt32("user_id_fk");
+                                        userObj["username"] = reader.IsDBNull(reader.GetOrdinal("username")) ? null : reader.GetString("username");
+                                        userObj["created"] = reader.IsDBNull(reader.GetOrdinal("user_created")) ? null : reader.GetDateTime("user_created");
+                                        try {
+                                            if (!reader.IsDBNull(reader.GetOrdinal("display_picture_file_id")))
+                                            {
+                                                var fileId = reader.GetInt32("display_picture_file_id");
+                                                userObj["displayPictureFile"] = new FileEntry(fileId);
+                                            }
+                                        } catch { }
+                                        result["user"] = userObj;
+                                    }
+                                }
+                            }
+                        }
+
                         await transaction.CommitAsync();
                         return Ok(result);
                     }
