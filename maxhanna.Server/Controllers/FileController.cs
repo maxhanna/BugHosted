@@ -1678,7 +1678,27 @@ LIMIT
 							using (var stream = new FileStream(filePath, FileMode.Create))
 							{
 								await file.CopyToAsync(stream);
+							}
+							// Attempt rich media probe; fall back gracefully if FFmpeg / System.Text.Json assembly load fails
+							try
+							{
 								(width, height, duration) = await GetMediaInfo(filePath);
+							}
+							catch (Exception exProbe)
+							{
+								_ = _log.Db($"GetMediaInfo failed (non-fatal) for '{file.FileName}': {exProbe.Message}", userId, "FILE", true);
+								// Minimal fallback: if it's an image, read basic dimensions; otherwise leave metadata null
+								try
+								{
+									if (IsImageFile(file))
+									{
+										(width, height) = GetBasicImageDimensions(filePath);
+									}
+								}
+								catch (Exception exBasic)
+								{
+									_ = _log.Db($"Basic dimension fallback failed for '{file.FileName}': {exBasic.Message}", userId, "FILE", true);
+								}
 							}
 						}
 						else
@@ -2222,6 +2242,20 @@ LIMIT
 			var allowedExtensions = new[] { ".mp4", ".avi", ".mov", ".wmv", ".flv", ".mkv" };
 			var fileExtension = Path.GetExtension(file.FileName).ToLowerInvariant();
 			return allowedExtensions.Contains(fileExtension);
+		}
+		// Basic fallback dimension reader (used when FFmpeg probing fails and we only need width/height)
+		private (int? width, int? height) GetBasicImageDimensions(string path)
+		{
+			try
+			{
+				var info = SixLabors.ImageSharp.Image.Identify(path);
+				if (info != null)
+				{
+					return (info.Width, info.Height);
+				}
+			}
+			catch { }
+			return (null, null);
 		}
 		private async Task<string> ConvertAudioToOpusMP4(IFormFile file, string uploadDirectory)
 		{
