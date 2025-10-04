@@ -514,11 +514,9 @@ export function subscribeToMainGameEvents(object: any) {
     handleEncounterUpdate(source);
     startBatchUpdates(object);
   });
-  events.on("SPAWN_BIKE_WALL", object, (params: { x: number, y: number }) => {
-    try {
-      const metaEvent = new MetaEvent(0, object.metaHero.id, new Date(), "SPAWN_BIKE_WALL", object.metaHero.map, { x: params.x + "", y: params.y + "", heroId: object.metaHero.id });
-      object.enderService.updateEvents(metaEvent);
-    } catch (e) { console.error("Failed to send SPAWN_BIKE_WALL", e); }
+  events.on("SPAWN_BIKE_WALL", object, (params: { x: number, y: number }) => { 
+    const metaEvent = new MetaEvent(0, object.metaHero.id, new Date(), "SPAWN_BIKE_WALL", object.metaHero.map, { x: params.x + "", y: params.y + "" });
+    object.enderService.updateEvents(metaEvent); 
   });
 
   // When a bike wall is created anywhere (local, network, or persisted load), check for heroes already on that cell

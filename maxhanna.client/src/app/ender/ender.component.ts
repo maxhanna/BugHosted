@@ -167,9 +167,9 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
             this.handleHeroDeath(hero);
         });
         // Track bike wall placements so we can submit to highscores
-        events.on("SPAWN_BIKE_WALL", this, (params: { x: number, y: number, heroId?: number }) => {
+        events.on("SPAWN_BIKE_WALL", this, (params: { x: number, y: number }) => {
             // only count placements from the local hero and only after run started
-            if (this.runStartTimeMs && params && params.heroId && this.metaHero && this.metaHero.id === params.heroId) {
+            if (this.runStartTimeMs && params) {
                 this.wallsPlacedThisRun = (this.wallsPlacedThisRun ?? 0) + 1;
             }
         });
