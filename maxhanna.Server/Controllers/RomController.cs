@@ -22,6 +22,44 @@ namespace maxhanna.Server.Controllers
 			_baseTarget = _config.GetValue<string>("ConnectionStrings:baseUploadPath") + "Roms" ?? "";
 		}
 
+
+		[HttpGet("/Rom/UserStats/{userId}")]
+		public async Task<IActionResult> UserStats(int userId)
+		{
+			try
+			{
+				using (var connection = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+				{
+					await connection.OpenAsync();
+					string totalSql = @"SELECT IFNULL(SUM(duration_seconds),0) AS totalSeconds FROM maxhanna.emulation_play_time WHERE user_id = @UserId;";
+					var totalCmd = new MySqlCommand(totalSql, connection);
+					totalCmd.Parameters.AddWithValue("@UserId", userId);
+					var totalSecondsObj = await totalCmd.ExecuteScalarAsync();
+					int totalSeconds = Convert.ToInt32(totalSecondsObj ?? 0);
+
+					string topSql = @"SELECT rom_file_name, COUNT(*) as plays FROM maxhanna.emulation_play_time WHERE user_id = @UserId GROUP BY rom_file_name ORDER BY plays DESC LIMIT 1;";
+					var topCmd = new MySqlCommand(topSql, connection);
+					topCmd.Parameters.AddWithValue("@UserId", userId);
+					using (var reader = await topCmd.ExecuteReaderAsync())
+					{
+						string? topName = null;
+						int topPlays = 0;
+						if (await reader.ReadAsync())
+						{
+							topName = reader.IsDBNull(0) ? null : reader.GetString(0);
+							topPlays = reader.IsDBNull(1) ? 0 : reader.GetInt32(1);
+						}
+						return Ok(new { totalSeconds = totalSeconds, topGameName = topName, topGamePlays = topPlays });
+					}
+				}
+			}
+			catch (Exception ex)
+			{
+				_ = _log.Db("Error fetching user emulation stats: " + ex.Message, userId, "ROM", true);
+				return StatusCode(500, "Error fetching stats");
+			}
+		}
+
 		private bool ValidatePath(string directory)
 		{
 			if (!directory.Contains(_baseTarget))

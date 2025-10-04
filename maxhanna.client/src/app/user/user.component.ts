@@ -26,6 +26,7 @@ import { TopService } from '../../services/top.service';
 import { target } from '../meta/helpers/fight';
 import { MediaSelectorComponent } from '../media-selector/media-selector.component';
 import { TradeService } from '../../services/trade.service';
+import { RomService } from '../../services/rom.service';
 
 @Component({
   selector: 'app-user',
@@ -99,6 +100,10 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
   metaBotLevelsSum: number = 0;
   userLoginStreakCurrent: number = 0;
   userLoginStreakLongest: number = 0;
+  // Emulation stats (populated from server if available)
+  emulationTotalTimeSeconds?: number = 0;
+  topEmulationGameName?: string | null = null;
+  topEmulationGamePlays?: number | null = null;
   weatherLocation?: { city: string; country: string } = undefined;
   isUserBlocked = false;
   stoppedNotifications: number[] = [];
@@ -127,10 +132,11 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
     private metaService: MetaService,
     private socialService: SocialService,
     private fileService: FileService,
-  private mastermindService: MastermindService,
-  private enderService: EnderService,
+    private mastermindService: MastermindService,
+    private enderService: EnderService,
     private favouriteService: FavouriteService,
     private topService: TopService,
+    private romService: RomService,
   ) {
     super();
     setTimeout(() => {
@@ -232,10 +238,19 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
       
       this.numberOfTopEntriesCreated = await this.topService.getEntriesCountByUser(user.id);
 
-      try {
-        const be = await (this as any).enderService?.getBestScoreForUser(user.id);
-        if (be) this.bestEnderScore = be;
-      } catch (e) { /* ignore */ }
+      this.enderService.getBestScoreForUser(user.id).then(be => {
+        if (be) {
+          this.bestEnderScore = be;
+        }
+      });
+ 
+    this.romService.getUserEmulationStats(user.id).then(stats => {
+      if (stats) {
+        this.emulationTotalTimeSeconds = stats.totalSeconds ?? 0;
+        this.topEmulationGameName = stats.topGameName ?? null;
+        this.topEmulationGamePlays = stats.topGamePlays ?? null;
+      }
+    }); 
 
       if ((this.numberOfMemesUploaded === undefined || this.numberOfMemesUploaded === null)) {
         this.numberOfMemesUploaded = 0;

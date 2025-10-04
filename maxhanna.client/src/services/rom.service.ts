@@ -39,4 +39,15 @@ export class RomService {
   getFileExtension(file: string) {
     return file.lastIndexOf('.') !== -1 ? file.split('.').pop() : null;
   }
+
+  // Returns aggregate emulation stats for a user: { totalSeconds, topGameName, topGamePlays }
+  async getUserEmulationStats(userId: number) {
+    try {
+      const res = await fetch(`/rom/userstats/${userId}`);
+      if (!res.ok) return null;
+      return await res.json();
+    } catch (e) {
+      return null;
+    }
+  }
 }
