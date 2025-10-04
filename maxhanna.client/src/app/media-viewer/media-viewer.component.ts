@@ -71,6 +71,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
   @Input() loop: boolean = true;
   @Input() muted: boolean = true;
   @Input() forceInviewLoad: boolean = false;
+  @Input() showClickToLoadPlaceholder: boolean = true; // controls placeholder visibility when autoload false
   @Input() showTopics: boolean = true;
   @Input() showCommentSection: boolean = true;
   @Input() showCommentSectionHeader: boolean = true;
@@ -401,7 +402,10 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
   }
   forceLoad() {
     this.autoload = true;
-    this.ngOnInit();
+    // Immediately attempt a fetch even if forceInviewLoad was true (manual intent overrides gating)
+    if (!this.selectedFileSrc) {
+      this.fetchFileSrc();
+    }
   }
   copyLink(fileEntry?: FileEntry) {
     const file = fileEntry ?? this.file ?? this.selectedFile;
