@@ -16,7 +16,7 @@ export class Referee extends Npc {
       id: Math.floor(Math.random() * (-9999 + 1000)) - 1000,
       position: params.position,
       type: "referee",
-      name: "Mr. Referee",
+      name: "Referee",
       partners: params.partners ? params.partners : [],
       moveUpDown: params.moveUpDown,
       moveLeftRight: params.moveLeftRight,
@@ -29,7 +29,7 @@ export class Referee extends Npc {
         vFrames: 4,
         offsetY: -10,
         offsetX: -8,
-        name: "Mr. Referee",
+        name: "Referee",
         animations: new Animations(
           {
             walkDown: new FrameIndexPattern(WALK_DOWN),
