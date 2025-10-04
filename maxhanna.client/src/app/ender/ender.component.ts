@@ -15,17 +15,17 @@ import { Hero } from './objects/Hero/hero';
 import { Main } from './objects/Main/main';
 import { HeroRoomLevel } from './levels/hero-room';
 import { CharacterCreate } from './levels/character-create';
-import { Level } from './objects/Level/level';  
+import { Level } from './objects/Level/level';
 import { MetaEvent } from '../../services/datacontracts/ender/meta-event';
 import { InventoryItem } from './objects/InventoryItem/inventory-item';
-import { DroppedItem } from './objects/Environment/DroppedItem/dropped-item'; 
+import { DroppedItem } from './objects/Environment/DroppedItem/dropped-item';
 import { ColorSwap } from '../../services/datacontracts/ender/color-swap';
 import { MetaBot } from '../../services/datacontracts/ender/meta-bot';
 import { MetaBotPart } from '../../services/datacontracts/ender/meta-bot-part';
 import { Fire } from './objects/Effects/Fire/fire';
 import { Mask, getMaskNameById } from './objects/Wardrobe/mask';
 import { Bot } from './objects/Bot/bot';
-import { Character } from './objects/character'; 
+import { Character } from './objects/character';
 import { ChatSpriteTextString } from './objects/SpriteTextString/chat-sprite-text-string';
 
 @Component({
@@ -97,19 +97,19 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
         window.addEventListener("resize", this.adjustCanvasSize);
         this.adjustCanvasSize();
     }
- 
-            showMenuPanel() {
-                if (this.isMenuPanelOpen) {
-                    this.closeMenuPanel();
-                    return;
-                }
-                this.isMenuPanelOpen = true;
-                // load top scores when menu opens
-                this.enderService.getTopScores(50).then((res: any) => {
-                    this.topScores = res ?? [];
-                }).catch(() => this.topScores = []);
-            }
-            closeMenuPanel() { this.isMenuPanelOpen = false; }
+
+    showMenuPanel() {
+        if (this.isMenuPanelOpen) {
+            this.closeMenuPanel();
+            return;
+        }
+        this.isMenuPanelOpen = true;
+        this.parentRef?.showOverlay();
+        this.enderService.getTopScores(50).then((res: any) => {
+            this.topScores = res ?? [];
+        }).catch(() => this.topScores = []);
+    }
+    closeMenuPanel() { this.isMenuPanelOpen = false; this.parentRef?.closeOverlay(); }
 
 
     ngOnDestroy() {
@@ -121,36 +121,36 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
         this.parentRef?.removeResizeListener();
     }
 
-        private async handleHeroDeath(hero: Hero) {
-            // spawn fire animation at hero location and lock input
-            const fire = new Fire(hero.position.x, hero.position.y);
-            this.mainScene.level.addChild(fire);
-            hero.destroy();
+    private async handleHeroDeath(hero: Hero) {
+        // spawn fire animation at hero location and lock input
+        const fire = new Fire(hero.position.x, hero.position.y);
+        this.mainScene.level.addChild(fire);
+        hero.destroy();
 
-            // send server request to record death and delete hero
-            try {
-                const score = Math.max(0, Math.floor((Date.now() - (this.mainScene.startTime ?? Date.now())) / 1000));
-                await this.enderService.recordDeath(this.metaHero.id, this.parentRef?.user?.id, score);
-            } catch (e) {
-                console.error('Failed to record death', e);
-            }
-
-            // wait for fire animation to finish (same duration as Bot destroy uses ~1100ms)
-            setTimeout(() => {
-                        try {
-                            alert('You died. The game will now reload.');
-                        } finally {
-                            window.location.href = 'https://bughosted.com/Ender';
-                        }
-                    }, 1200);
+        // send server request to record death and delete hero
+        try {
+            const score = Math.max(0, Math.floor((Date.now() - (this.mainScene.startTime ?? Date.now())) / 1000));
+            await this.enderService.recordDeath(this.metaHero.id, this.parentRef?.user?.id, score);
+        } catch (e) {
+            console.error('Failed to record death', e);
         }
+
+        // wait for fire animation to finish (same duration as Bot destroy uses ~1100ms)
+        setTimeout(() => {
+            try {
+                alert('You died. The game will now reload.');
+            } finally {
+                window.location.href = 'https://bughosted.com/Ender';
+            }
+        }, 1200);
+    }
 
 
     ngAfterViewInit() {
         this.mainScene.input.setChatInput(this.chatInput.nativeElement);
-            events.on("HERO_DIED", this, (hero: Hero) => {
-                this.handleHeroDeath(hero);
-            });
+        events.on("HERO_DIED", this, (hero: Hero) => {
+            this.handleHeroDeath(hero);
+        });
     }
 
     update = async (delta: number) => {
@@ -567,8 +567,8 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
         const upperKey = key.toUpperCase();
         const itemsFoundNames = this.mainScene?.inventory.getItemsFound();
 
-        if (upperKey == "HEROROOM") return new HeroRoomLevel({ itemsFound: itemsFoundNames });  
-       
+        if (upperKey == "HEROROOM") return new HeroRoomLevel({ itemsFound: itemsFoundNames });
+
         return new HeroRoomLevel();
     }
 

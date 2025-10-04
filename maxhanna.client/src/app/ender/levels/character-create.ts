@@ -192,7 +192,7 @@ export class CharacterCreate extends Level {
     setTimeout(() => {
       if (chatInput) {
         document.getElementsByClassName("chatArea")[0].setAttribute("style", "display: block !important;");
-        chatInput.placeholder = "Enter your name";
+        chatInput.placeholder = "Enter your handle";
         chatInput.style.position = "absolute";
         chatInput.style.top = "50%";
         chatInput.style.setProperty('display', 'block', 'important'); 

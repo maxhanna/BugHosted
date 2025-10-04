@@ -1,6 +1,6 @@
 <div class="componentMain" #componentMain>
   <div class="closeButton" (click)="remove_me('EnderComponent');"></div>
-  <!--<div class="refreshButton" (click)="ngOnInit();"></div>-->
+  <div class="menuButton" (click)="showMenuPanel()"></div>
   <div class="componentTitle">Ender</div>
   <div class="gameCanvasContainer">
     <canvas #gameCanvas id="gameCanvas" class="gameCanvas" width=320 height="220"></canvas> 
@@ -95,8 +95,7 @@
     </div>
 
     <input type="color" (change)='changeColor()' #colorInput class="colorInput" [value]="metaHero.color"  />
-  </div>
-  <div class="menuButton" (click)="showMenuPanel()"></div>
+  </div> 
 
   <div class="popupPanel" style="overflow: auto;" *ngIf="isMenuPanelOpen">
     <div class="popupPanelTitle mainPopupTitle">Ender</div>
@@ -112,7 +111,8 @@
         <div *ngIf="!topScores || topScores.length === 0">No scores yet.</div>
       </div>
     </div>
-    <button id="closeOverlay" class="closeButton" (click)="closeMenuPanel()">Close</button>
+  <app-share-button [inputtedParentRef]="parentRef" [link]="'Ender'"></app-share-button>
+  <button id="closeOverlay" class="closeButton" (click)="closeMenuPanel()">Close</button>
   </div>
   <app-user class="popupPanel ucPopupPanel"
             *ngIf="isUserComponentOpen"
