@@ -232,21 +232,26 @@ namespace maxhanna.Server.Controllers
                         // Compute authoritative time-on-level from the hero's creation time (server-side) and validate walls since then
                         int validatedWalls = req.WallsPlaced;
                         int timeOnLevelSeconds = req.TimeOnLevel;
+                        DateTime? heroCreatedAt = null;
+                        string? heroMap = null;
+                        int heroLevelFromDb = 1;
                         try
                         {
-                            // Fetch hero.created_at from DB for authoritative run start
-                            string heroSql = @"SELECT created_at FROM maxhanna.ender_hero WHERE id = @HeroId LIMIT 1;";
-                            DateTime? heroCreatedAt = null;
+                            // Fetch hero.created_at, map and level from DB for authoritative run start
+                            string heroSql = @"SELECT created_at, map, level FROM maxhanna.ender_hero WHERE id = @HeroId LIMIT 1;";
                             using (var getHeroCmd = new MySqlCommand(heroSql, connection, transaction))
                             {
                                 getHeroCmd.Parameters.AddWithValue("@HeroId", req.HeroId);
-                                var createdObj = await getHeroCmd.ExecuteScalarAsync();
-                                if (createdObj != null && createdObj != DBNull.Value)
+                                using (var rdr = await getHeroCmd.ExecuteReaderAsync())
                                 {
-                                    heroCreatedAt = Convert.ToDateTime(createdObj).ToUniversalTime();
+                                    if (await rdr.ReadAsync())
+                                    {
+                                        heroCreatedAt = rdr.IsDBNull(rdr.GetOrdinal("created_at")) ? (DateTime?)null : Convert.ToDateTime(rdr["created_at"]).ToUniversalTime();
+                                        heroMap = rdr.IsDBNull(rdr.GetOrdinal("map")) ? null : Convert.ToString(rdr["map"]);
+                                        heroLevelFromDb = rdr.IsDBNull(rdr.GetOrdinal("level")) ? 1 : Convert.ToInt32(rdr["level"]);
+                                    }
                                 }
                             }
-
                             if (heroCreatedAt != null)
                             {
                                 // authoritative time on level = now - hero.created_at
@@ -314,6 +319,62 @@ namespace maxhanna.Server.Controllers
 
                         string deleteHero = "DELETE FROM maxhanna.ender_hero WHERE id = @HeroId LIMIT 1;";
                         await ExecuteInsertOrUpdateOrDeleteAsync(deleteHero, new Dictionary<string, object?>() { { "@HeroId", req.HeroId } }, connection, transaction);
+
+                        // After removing the dead hero, check remaining heroes on the same map & level
+                        try
+                        {
+                            if (!string.IsNullOrEmpty(heroMap))
+                            {
+                                string countSql = @"SELECT COUNT(*) FROM maxhanna.ender_hero WHERE map = @Map AND level = @Level;";
+                                int remaining = 0;
+                                using (var countCmd = new MySqlCommand(countSql, connection, transaction))
+                                {
+                                    countCmd.Parameters.AddWithValue("@Map", heroMap);
+                                    countCmd.Parameters.AddWithValue("@Level", heroLevelFromDb);
+                                    var cnt = await countCmd.ExecuteScalarAsync();
+                                    remaining = Convert.ToInt32(cnt);
+                                }
+
+                                if (remaining == 1)
+                                {
+                                    // find the surviving hero and increment their level
+                                    int survivorId = 0;
+                                    string findSql = @"SELECT id, level FROM maxhanna.ender_hero WHERE map = @Map AND level = @Level LIMIT 1;";
+                                    using (var findCmd = new MySqlCommand(findSql, connection, transaction))
+                                    {
+                                        findCmd.Parameters.AddWithValue("@Map", heroMap);
+                                        findCmd.Parameters.AddWithValue("@Level", heroLevelFromDb);
+                                        using (var rdr = await findCmd.ExecuteReaderAsync())
+                                        {
+                                            if (await rdr.ReadAsync())
+                                            {
+                                                survivorId = Convert.ToInt32(rdr["id"]);
+                                                // level value read below
+                                            }
+                                        }
+                                    }
+
+                                    if (survivorId != 0)
+                                    {
+                                        string updSql = @"UPDATE maxhanna.ender_hero SET level = level + 1 WHERE id = @SurvivorId LIMIT 1;";
+                                        await ExecuteInsertOrUpdateOrDeleteAsync(updSql, new Dictionary<string, object?>() { { "@SurvivorId", survivorId } }, connection, transaction);
+
+                                        // read new level
+                                        int newLevel = heroLevelFromDb + 1;
+                                        try
+                                        {
+                                            var metaEvent = new DataContracts.Ender.MetaEvent(0, survivorId, DateTime.UtcNow, "LEVEL_UP", heroMap ?? "", new Dictionary<string, string>() { { "level", newLevel.ToString() } });
+                                            await UpdateEventsInDB(metaEvent, connection, transaction);
+                                        }
+                                        catch { }
+                                    }
+                                }
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            _ = _log.Db("Error checking/incrementing survivor level: " + ex.Message, null, "ENDER", true);
+                        }
 
                         await transaction.CommitAsync();
                         return Ok();
