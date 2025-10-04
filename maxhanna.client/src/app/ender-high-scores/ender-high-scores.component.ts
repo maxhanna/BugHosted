@@ -72,6 +72,13 @@ export class EnderHighScoresComponent implements OnInit, OnChanges {
 
   async refresh() {
     this.topScores = [];
+    // clear any previous grouped results so only requested modes are shown
+    this.groupedByMode = {
+      all: {},
+      user: {},
+      today: {},
+      best: {}
+    };
     try {
       const modes = this.modesSelected;
       let allScores: any[] | undefined = undefined;
