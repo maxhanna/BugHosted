@@ -1,0 +1,9 @@
+.app-menu-item{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  cursor:pointer;
+}
+.menuLabel{
+  margin-left:4px;
+}

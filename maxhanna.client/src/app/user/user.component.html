@@ -182,8 +182,9 @@
     <!-- LATEST MEME -->
     <div *ngIf="!user?.id && !loginOnly" class="memeAndWordlerWrapper" [class]="onMobile() ? 'gradientBackground':''">
       <div *ngIf="latestMemeId">
-        <div class="popupPanelTitle cursorPointerUnderlined" style="margin-top: 15px;"
-          (click)="parentRef?.createComponent('Meme')">Latest Meme:</div>
+        <div class="popupPanelTitle cursorPointerUnderlined" style="margin-top: 15px;">
+          <app-menu-item [type]="'Meme'" [parentRef]="parentRef" [label]="'Latest Meme:'"></app-menu-item>
+        </div>
         <app-media-viewer [fileId]="latestMemeId" [inputtedParentRef]="parentRef"
           [canScroll]="false"></app-media-viewer>
       </div>
@@ -206,9 +207,8 @@
     <!-- SOCIAL -->
     <div *ngIf="(this.latestSocialStoryId || storyId || user?.id) && !loginOnly && !isLoading">
       <div *ngIf="this.latestSocialStoryId && (!user || !parentRef?.user)"
-        class="popupPanelTitle cursorPointerUnderlined" style="margin-top: 15px;"
-        (click)="parentRef?.createComponent('Social')">
-        Latest Social Post:
+        class="popupPanelTitle cursorPointerUnderlined" style="margin-top: 15px;">
+        <app-menu-item [type]="'Social'" [parentRef]="parentRef" [label]="'Latest Social Post:'"></app-menu-item>
       </div>
       <app-social #socialComponent [showOnlyPost]="true" [user]="user" [storyId]="storyId ?? this.latestSocialStoryId"
         [commentId]="commentId" [parent]="parentRef" [showTopicSelector]="false" [canScroll]="false"></app-social>
@@ -367,8 +367,7 @@
 
             <div class="optionsStatsDiv" *ngIf="bestWordlerStreak > 0">
               <div class="optionsStatsHeader">
-                <span class="componentsIcon">{{ parentRef?.getIconByTitle('Wordler') }}</span>
-                Wordler Best streak:
+                <app-menu-item [type]="'Wordler'" [parentRef]="parentRef" [label]="'Wordler Best streak:'"></app-menu-item>
               </div>
               <div class="optionsStatsDescription">
                 {{bestWordlerStreak}} consecutive days.
@@ -377,8 +376,7 @@
 
             <div class="optionsStatsDiv" *ngIf="wordlerStreak > 0">
               <div class="optionsStatsHeader">
-                <span class="componentsIcon">{{ parentRef?.getIconByTitle('Wordler') }}</span>
-                Wordler Current streak:
+                <app-menu-item [type]="'Wordler'" [parentRef]="parentRef" [label]="'Wordler Current streak:'"></app-menu-item>
               </div>
               <div class="optionsStatsDescription">
                 {{wordlerStreak}} consecutive days.
@@ -387,8 +385,7 @@
 
             <div class="optionsStatsDiv" *ngIf="emulationTotalTimeSeconds && emulationTotalTimeSeconds > 0">
               <div class="optionsStatsHeader">
-                <span class="componentsIcon">{{ parentRef?.getIconByTitle('Emulator') }}</span>
-                Emulation total time played:
+                <app-menu-item [type]="'Emulation'" [parentRef]="parentRef" [label]="'Emulation total time played:'"></app-menu-item>
               </div>
               <div class="optionsStatsDescription">
                 {{ emulationTotalTimeSeconds }} seconds
@@ -397,8 +394,7 @@
 
             <div class="optionsStatsDiv" *ngIf="topEmulationGameName">
               <div class="optionsStatsHeader">
-                <span class="componentsIcon">{{ parentRef?.getIconByTitle('Emulation') }}</span>
-                Top game played:
+                <app-menu-item [type]="'Emulation'" [parentRef]="parentRef" [label]="'Top game played:'"></app-menu-item>
               </div>
               <div class="optionsStatsDescription">
                 {{ topEmulationGameName.replace('.sav', '') }} <span *ngIf="topEmulationGamePlays">• Plays: {{ topEmulationGamePlays }}</span>
@@ -407,8 +403,7 @@
 
             <div class="optionsStatsDiv" *ngIf="metaBotLevelsSum > 0">
               <div class="optionsStatsHeader">
-                <span class="componentsIcon">{{ parentRef?.getIconByTitle('Meta-Bots') }}</span>
-                Metabot levels:
+                <app-menu-item [type]="'Meta-Bots'" [parentRef]="parentRef" [label]="'Metabot levels:'"></app-menu-item>
               </div>
               <div class="optionsStatsDescription">
                 {{metaBotLevelsSum}} total levels.
@@ -417,8 +412,7 @@
 
             <div class="optionsStatsDiv" *ngIf="bestEnderScore && bestEnderScore.score">
               <div class="optionsStatsHeader">
-                <span class="componentsIcon">{{ parentRef?.getIconByTitle('Ender') }}</span>
-                Best Ender Score:
+                <app-menu-item [type]="'Ender'" [parentRef]="parentRef" [label]="'Best Ender Score:'"></app-menu-item>
               </div>
               <div class="optionsStatsDescription">
                 <app-user-tag [user]="bestEnderScore.user" [userId]="bestEnderScore.user_id" [displayMiniTag]="true" [inputtedParentRef]="parentRef"></app-user-tag>
@@ -428,8 +422,7 @@
 
             <div class="optionsStatsDiv" *ngIf="numberOfNexusBases > 0">
               <div class="optionsStatsHeader">
-                <span class="componentsIcon">{{ parentRef?.getIconByTitle('Bug-Wars') }}</span>
-                BugWars Bases:
+                <app-menu-item [type]="'Bug-Wars'" [parentRef]="parentRef" [label]="'BugWars Bases:'"></app-menu-item>
               </div>
               <div class="optionsStatsDescription">
                 {{numberOfNexusBases}} bases.
@@ -438,8 +431,7 @@
 
             <div class="optionsStatsDiv" *ngIf="numberOfTrades > 0">
               <div class="optionsStatsHeader">
-                <span class="componentsIcon">{{ parentRef?.getIconByTitle('Crypto-Hub') }}</span>
-                Crypto-Hub Trades:
+                <app-menu-item [type]="'Crypto-Hub'" [parentRef]="parentRef" [label]="'Crypto-Hub Trades:'"></app-menu-item>
               </div>
               <div class="optionsStatsDescription">
                 {{numberOfTrades}} Trades.
@@ -447,55 +439,37 @@
             </div>
             <div class="optionsStatsDiv">
               <div class="optionsStatsHeader">
-                <div class="optionsStatsLink" (click)="parentRef?.createComponent('Mastermind')">
-                  <span class="componentsIcon">{{ parentRef?.getIconByTitle('Mastermind') }}</span>
-                  Mastermind
-                </div>
+                <app-menu-item [type]="'Mastermind'" [parentRef]="parentRef" [label]="'Mastermind'"></app-menu-item>
               </div>
               <div class="optionsStatsDescription">{{numberOfMastermindGames ?? '—'}} games</div>
             </div>
             <div class="optionsStatsDiv">
               <div class="optionsStatsHeader">
-                <div class="optionsStatsLink" (click)="parentRef?.createComponent('Top100')">
-                  <span class="componentsIcon">{{ parentRef?.getIconByTitle('Top100') }}</span>
-                  Top Entries
-                </div>
+                <app-menu-item [type]="'Top100'" [parentRef]="parentRef" [label]="'Top Entries'"></app-menu-item>
               </div>
               <div class="optionsStatsDescription">{{numberOfTopEntriesCreated ?? '—'}} entries</div>
             </div>
             <div class="optionsStatsDiv">
               <div class="optionsStatsHeader">
-                <div class="optionsStatsLink" (click)="parentRef?.createComponent('Files')">
-                  <span class="componentsIcon">{{ parentRef?.getIconByTitle('Files') }}</span>
-                  Files
-                </div>
+                <app-menu-item [type]="'Files'" [parentRef]="parentRef" [label]="'Files'"></app-menu-item>
               </div>
               <div class="optionsStatsDescription">{{numberOfFilesUploaded ?? '—'}} files</div>
             </div>
             <div class="optionsStatsDiv">
               <div class="optionsStatsHeader">
-                <div class="optionsStatsLink" (click)="parentRef?.createComponent('Memes')">
-                  <span class="componentsIcon">{{ parentRef?.getIconByTitle('Meme') }}</span>
-                  Memes
-                </div>
+                <app-menu-item [type]="'Memes'" [parentRef]="parentRef" [label]="'Memes'"></app-menu-item>
               </div>
               <div class="optionsStatsDescription">{{numberOfMemesUploaded ?? '—'}} memes</div>
             </div>
             <div class="optionsStatsDiv">
               <div class="optionsStatsHeader">
-                <div class="optionsStatsLink" (click)="parentRef?.createComponent('Art')">
-                  <span class="componentsIcon">{{ parentRef?.getIconByTitle('Art') }}</span>
-                  Art
-                </div>
+                <app-menu-item [type]="'Art'" [parentRef]="parentRef" [label]="'Art'"></app-menu-item>
               </div>
               <div class="optionsStatsDescription">{{numberOfArtUploaded ?? '—'}} art</div>
             </div>
             <div class="optionsStatsDiv">
               <div class="optionsStatsHeader">
-                <div class="optionsStatsLink" (click)="parentRef?.createComponent('Favourites')">
-                  <span class="componentsIcon">{{ parentRef?.getIconByTitle('Favourites') }}</span>
-                  Favourites
-                </div>
+                <app-menu-item [type]="'Favourites'" [parentRef]="parentRef" [label]="'Favourites'"></app-menu-item>
               </div>
               <div class="optionsStatsDescription">{{numberOfFavouritesCreated ?? '—'}} favourites</div>
             </div>

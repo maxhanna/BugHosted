@@ -1,0 +1,4 @@
+<div class="app-menu-item" (click)="open()">
+  <span class="componentsIcon">{{ parentRef?.getIconByTitle(type) }}</span>
+  <span class="menuLabel" *ngIf="displayLabel">{{ displayLabel }}</span>
+</div>
