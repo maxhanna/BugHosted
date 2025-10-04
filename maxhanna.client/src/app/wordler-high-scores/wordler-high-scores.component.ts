@@ -30,7 +30,6 @@ export class WordlerHighScoresComponent implements OnInit, OnChanges {
     @Output() headerClick = new EventEmitter<string | null>();
     @Input() showUserHeader: boolean = false;
     @Input() showHeaderTitles: boolean = true;
-    @Input() parentRef?: any;
     @Input() inputtedParentRef?: any;
 
     // not used for multi-mode output; per-mode mappings are stored in groupedByMode
