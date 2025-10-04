@@ -273,17 +273,29 @@ namespace maxhanna.Server.Controllers
 
                             int authoritativeScore = timeOnLevelSeconds + (validatedWalls * 10);
 
-                            // Insert into top scores table (include time on level and walls placed)
-                            string insertScoreSql = @"INSERT INTO maxhanna.ender_top_scores (hero_id, user_id, score, time_on_level_seconds, walls_placed, created_at) VALUES (@HeroId, @UserId, @Score, @TimeOnLevel, @WallsPlaced, NOW());";
-                            Dictionary<string, object?> scoreParams = new Dictionary<string, object?>()
-                                {
-                                    { "@HeroId", req.HeroId },
-                                    { "@UserId", req.UserId },
-                                    { "@Score", authoritativeScore },
-                                    { "@TimeOnLevel", timeOnLevelSeconds },
-                                    { "@WallsPlaced", validatedWalls }
-                                };
-                            await ExecuteInsertOrUpdateOrDeleteAsync(insertScoreSql, scoreParams, connection, transaction);
+                                int heroLevel = 1;
+                                try {
+                                    // attempt to read hero level from DB so we can record it with the score
+                                    string heroLevelSql = @"SELECT level FROM maxhanna.ender_hero WHERE id = @HeroId LIMIT 1;";
+                                    using (var lvlCmd = new MySqlCommand(heroLevelSql, connection, transaction)) {
+                                        lvlCmd.Parameters.AddWithValue("@HeroId", req.HeroId);
+                                        var lvlObj = await lvlCmd.ExecuteScalarAsync();
+                                        if (lvlObj != null && lvlObj != DBNull.Value) heroLevel = Convert.ToInt32(lvlObj);
+                                    }
+                                } catch { /* ignore and default to 1 */ }
+
+                                // Insert into top scores table (include time on level, walls placed and hero level)
+                                string insertScoreSql = @"INSERT INTO maxhanna.ender_top_scores (hero_id, user_id, score, time_on_level_seconds, walls_placed, level, created_at) VALUES (@HeroId, @UserId, @Score, @TimeOnLevel, @WallsPlaced, @Level, NOW());";
+                                Dictionary<string, object?> scoreParams = new Dictionary<string, object?>()
+                                    {
+                                        { "@HeroId", req.HeroId },
+                                        { "@UserId", req.UserId },
+                                        { "@Score", authoritativeScore },
+                                        { "@TimeOnLevel", timeOnLevelSeconds },
+                                        { "@WallsPlaced", validatedWalls },
+                                        { "@Level", heroLevel }
+                                    };
+                                await ExecuteInsertOrUpdateOrDeleteAsync(insertScoreSql, scoreParams, connection, transaction);
 
                         // Delete hero and related rows (inventory, bots, events)
                         string deleteInventory = "DELETE FROM maxhanna.ender_hero_inventory WHERE ender_hero_id = @HeroId;";
@@ -322,8 +334,8 @@ namespace maxhanna.Server.Controllers
                 {
                     try
                     {
-                        string sql = @"INSERT INTO maxhanna.ender_hero (name, user_id, coordsX, coordsY, speed)
-                          SELECT @Name, @UserId, @CoordsX, @CoordsY, @Speed
+                                                string sql = @"INSERT INTO maxhanna.ender_hero (name, user_id, coordsX, coordsY, speed, level)
+                                                    SELECT @Name, @UserId, @CoordsX, @CoordsY, @Speed, @Level
                                                     WHERE NOT EXISTS (
                                                             SELECT 1 FROM maxhanna.ender_hero WHERE user_id = @UserId OR name = @Name
                                                     );";
@@ -334,8 +346,9 @@ namespace maxhanna.Server.Controllers
                                                         { "@CoordsX", posX },
                                                         { "@CoordsY", posY },
                                                         { "@Speed", 1 },
-                                                        { "@Name", req.Name ?? "Anonymous"},
+                                                                                                                { "@Name", req.Name ?? "Anonymous"},
                                                         { "@UserId", req.UserId}
+                                                                                                                ,{ "@Level", 1 }
                                                 };
                         long? botId = await this.ExecuteInsertOrUpdateOrDeleteAsync(sql, parameters, connection, transaction);
                         await transaction.CommitAsync();
@@ -451,7 +464,7 @@ namespace maxhanna.Server.Controllers
                 {
                     try
                     {
-                        string sql = @"SELECT t.id, t.hero_id, t.user_id, t.score, t.time_on_level_seconds, t.walls_placed, t.created_at,
+                        string sql = @"SELECT t.id, t.hero_id, t.user_id, t.score, t.time_on_level_seconds, t.walls_placed, t.level, t.created_at,
                                        u.id as user_id_fk, u.username, u.created as user_created, udp.file_id as display_picture_file_id
                                        FROM maxhanna.ender_top_scores t
                                        LEFT JOIN users u ON u.id = t.user_id
@@ -473,6 +486,7 @@ namespace maxhanna.Server.Controllers
                                     row["time_on_level_seconds"] = reader.IsDBNull(reader.GetOrdinal("time_on_level_seconds")) ? 0 : reader.GetInt32("time_on_level_seconds");
                                     row["walls_placed"] = reader.IsDBNull(reader.GetOrdinal("walls_placed")) ? 0 : reader.GetInt32("walls_placed");
                                     row["created_at"] = reader.GetDateTime("created_at");
+                                    row["level"] = reader.IsDBNull(reader.GetOrdinal("level")) ? 1 : reader.GetInt32("level");
 
                                     if (!reader.IsDBNull(reader.GetOrdinal("user_id_fk")))
                                     {
@@ -519,7 +533,7 @@ namespace maxhanna.Server.Controllers
                     try
                     {
                         // Use UTC dates to match stored created_at
-                        string sql = @"SELECT t.id, t.hero_id, t.user_id, t.score, t.time_on_level_seconds, t.walls_placed, t.created_at,
+                        string sql = @"SELECT t.id, t.hero_id, t.user_id, t.score, t.time_on_level_seconds, t.walls_placed, t.level, t.created_at,
                                        u.id as user_id_fk, u.username, u.created as user_created, udp.file_id as display_picture_file_id
                                        FROM maxhanna.ender_top_scores t
                                        LEFT JOIN users u ON u.id = t.user_id
@@ -542,6 +556,7 @@ namespace maxhanna.Server.Controllers
                                     row["time_on_level_seconds"] = reader.IsDBNull(reader.GetOrdinal("time_on_level_seconds")) ? 0 : reader.GetInt32("time_on_level_seconds");
                                     row["walls_placed"] = reader.IsDBNull(reader.GetOrdinal("walls_placed")) ? 0 : reader.GetInt32("walls_placed");
                                     row["created_at"] = reader.GetDateTime("created_at");
+                                    row["level"] = reader.IsDBNull(reader.GetOrdinal("level")) ? 1 : reader.GetInt32("level");
 
                                     if (!reader.IsDBNull(reader.GetOrdinal("user_id_fk")))
                                     {
@@ -586,7 +601,7 @@ namespace maxhanna.Server.Controllers
                 {
                     try
                     {
-                        string sql = @"SELECT t.id, t.hero_id, t.user_id, t.score, t.time_on_level_seconds, t.walls_placed, t.created_at,
+                        string sql = @"SELECT t.id, t.hero_id, t.user_id, t.score, t.time_on_level_seconds, t.walls_placed, t.level, t.created_at,
                                        u.id as user_id_fk, u.username, u.created as user_created, udp.file_id as display_picture_file_id
                                        FROM maxhanna.ender_top_scores t
                                        LEFT JOIN users u ON u.id = t.user_id
@@ -609,6 +624,7 @@ namespace maxhanna.Server.Controllers
                                     row["time_on_level_seconds"] = reader.IsDBNull(reader.GetOrdinal("time_on_level_seconds")) ? 0 : reader.GetInt32("time_on_level_seconds");
                                     row["walls_placed"] = reader.IsDBNull(reader.GetOrdinal("walls_placed")) ? 0 : reader.GetInt32("walls_placed");
                                     row["created_at"] = reader.GetDateTime("created_at");
+                                    row["level"] = reader.IsDBNull(reader.GetOrdinal("level")) ? 1 : reader.GetInt32("level");
 
                                     if (!reader.IsDBNull(reader.GetOrdinal("user_id_fk")))
                                     {
@@ -654,7 +670,7 @@ namespace maxhanna.Server.Controllers
                     try
                     {
                         // Select the best score for this user. Join to users table to provide basic user info if available.
-                        string sql = @"SELECT t.id, t.hero_id, t.user_id, t.score, t.time_on_level_seconds, t.walls_placed, t.created_at,
+                        string sql = @"SELECT t.id, t.hero_id, t.user_id, t.score, t.time_on_level_seconds, t.walls_placed, t.level, t.created_at,
                                        u.id as user_id_fk, u.username, u.created as user_created, udp.file_id as display_picture_file_id
                                        FROM maxhanna.ender_top_scores t
                                        LEFT JOIN users u ON u.id = t.user_id
@@ -678,6 +694,7 @@ namespace maxhanna.Server.Controllers
                                     result["time_on_level_seconds"] = reader.IsDBNull(reader.GetOrdinal("time_on_level_seconds")) ? 0 : reader.GetInt32("time_on_level_seconds");
                                     result["walls_placed"] = reader.IsDBNull(reader.GetOrdinal("walls_placed")) ? 0 : reader.GetInt32("walls_placed");
                                     result["created_at"] = reader.GetDateTime("created_at");
+                                    result["level"] = reader.IsDBNull(reader.GetOrdinal("level")) ? 1 : reader.GetInt32("level");
 
                                     if (!reader.IsDBNull(reader.GetOrdinal("user_id_fk")))
                                     {
@@ -934,7 +951,8 @@ namespace maxhanna.Server.Controllers
                                 color = @Color,  
                                 mask = @Mask,  
                                 map = @Map,
-						speed = @Speed
+            	speed = @Speed,
+            	level = @Level
                             WHERE 
                                 id = @HeroId";
             Dictionary<string, object?> parameters = new Dictionary<string, object?>
@@ -944,7 +962,8 @@ namespace maxhanna.Server.Controllers
                                 { "@Color", hero.Color },
                                 { "@Mask", hero.Mask },
                                 { "@Map", hero.Map },
-                                { "@Speed", hero.Speed },
+                { "@Speed", hero.Speed },
+                { "@Level", hero.Level },
                                 { "@HeroId", hero.Id }
                         };
             await this.ExecuteInsertOrUpdateOrDeleteAsync(sql, parameters, connection, transaction);
@@ -1113,6 +1132,7 @@ namespace maxhanna.Server.Controllers
             string sql = $@"
         SELECT 
             h.id as hero_id, h.coordsX, h.coordsY, h.map, h.speed, h.name as hero_name, h.color as hero_color, h.mask as hero_mask,
+                h.level as hero_level,
             b.id as bot_id, b.name as bot_name, b.type as bot_type, b.hp as bot_hp, b.is_deployed as bot_is_deployed,
             b.level as bot_level, b.exp as bot_exp,
             p.id as part_id, p.part_name, p.type as part_type, p.damage_mod, p.skill
@@ -1148,6 +1168,7 @@ namespace maxhanna.Server.Controllers
                             Name = Convert.ToString(reader["hero_name"]),
                             Color = Convert.ToString(reader["hero_color"]) ?? "",
                             Mask = reader.IsDBNull(reader.GetOrdinal("hero_mask")) ? null : Convert.ToInt32(reader["hero_mask"]),
+                            Level = reader.IsDBNull(reader.GetOrdinal("hero_level")) ? 1 : Convert.ToInt32(reader["hero_level"]),
                             Metabots = new List<MetaBot>()
                         };
                     }
@@ -1224,6 +1245,7 @@ namespace maxhanna.Server.Controllers
             m.id as hero_id, 
             m.name as hero_name,
             m.map as hero_map,
+            m.level as hero_level,
             m.coordsX, 
             m.coordsY,
             m.speed, 
@@ -1253,6 +1275,7 @@ namespace maxhanna.Server.Controllers
                             Map = Convert.ToString(reader["hero_map"]) ?? "",
                             Color = Convert.ToString(reader["color"]) ?? "",
                             Mask = reader.IsDBNull(reader.GetOrdinal("mask")) ? null : Convert.ToInt32(reader["mask"]),
+                            Level = reader.IsDBNull(reader.GetOrdinal("hero_level")) ? 1 : Convert.ToInt32(reader["hero_level"]),
                             Position = new Vector2(Convert.ToInt32(reader["coordsX"]), Convert.ToInt32(reader["coordsY"])),
                             Speed = Convert.ToInt32(reader["speed"]),
                             Metabots = new List<MetaBot>()
