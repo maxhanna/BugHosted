@@ -380,12 +380,23 @@
               *ngIf="story.storyFiles && story.storyFiles.length > 0 && (!hasOverflow('storyTextContainer'+story.id) || (isExpanded('storyTextContainer'+story.id) && hasOverflow('storyTextContainer'+story.id)))"
               class="attachmentsDiv">
               <div *ngFor="let file of story.storyFiles"
-                [class]="'attachment ' + (story.storyFiles.length > 1 ? 'multipleAttachments' : 'singleAttachment')">
+                [class]="'attachment ' + (story.storyFiles.length > 1 ? 'multipleAttachments' : 'singleAttachment')"
+                appInView
+                [inViewDelayMs]="600"
+                [inViewOnce]="true"
+                [minHeight]="100"
+                [requireUserScroll]="true"
+                [requireCenter]="true"
+                [centerTopRatio]="0.05"
+                [centerBottomRatio]="0.95"
+                (inView)="file.__inView = $event">
                 <app-media-viewer [user]="file.user" [inputtedParentRef]="parentRef ?? parent"
                     [currentDirectory]="file.directory" [file]="file" [showCommentSection]="false"
                     [showMediaInformation]="true" [displayExpander]="false" [displayExtraInfo]="false"
-                    [showTopics]="false" [autoplay]="false" [autoload]="true" [forceInviewLoad]="true"
-                    [inViewConfirmDelayMs]="1000"
+                    [showTopics]="false" [autoplay]="false"
+                    [autoload]="file.__inView"
+                    [forceInviewLoad]="true"
+                    [inViewConfirmDelayMs]="400"
                     [previousComponent]="'Social'">
                   </app-media-viewer>
               </div>

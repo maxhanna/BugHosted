@@ -46,6 +46,12 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
   isVideoBuffering = false;
   debug = false;
   private inViewConfirmTimer: any = null;
+  // Enhanced lazy load controls
+  @Input() requireCenterViewport: boolean = false; // Only load when element's vertical center is within configured ratios
+  @Input() viewportCenterTopRatio: number = 0.15; // 15% from top
+  @Input() viewportCenterBottomRatio: number = 0.85; // 85% from top
+
+  private pendingDelayedInView: boolean = false;
 
   @ViewChild('mediaContainer', { static: false }) mediaContainer!: ElementRef;
   @ViewChild('fullscreenOverlay', { static: false }) fullscreenOverlay!: ElementRef;
@@ -121,6 +127,11 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
       this.debugLog('ensureInitialLoad skipped (autoload disabled)');
       return;
     }
+    // If we're forcing in-view loading, don't eagerly load on init; wait for intersection
+    if (this.forceInviewLoad && !this.fileSrc && !this.file) {
+      this.debugLog('ensureInitialLoad skipped (forceInviewLoad active - waiting for onInView)');
+      return;
+    }
     if (this.selectedFileSrc) {
       this.debugLog('ensureInitialLoad skipped (already have src)', { selectedFileSrcLength: this.selectedFileSrc.length });
       return;
@@ -139,27 +150,81 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
     }
   }
   onInView(isInView: boolean) {
-    // Simplified logic: if forceInviewLoad is false, always load; if true, load once it first becomes visible.
+    if (!isInView && this.inViewConfirmTimer) {
+      clearTimeout(this.inViewConfirmTimer);
+      this.inViewConfirmTimer = null;
+      this.pendingDelayedInView = false;
+      this.debugLog('onInView cancelled pending timer (element out of view)');
+      return;
+    }
+
     if (!this.forceInviewLoad || isInView) {
-      if (!this.selectedFileSrc) {
-        this.debugLog('onInView triggering fetchFileSrc', { isInView });
-        this.fetchFileSrc().then(() => {
-          const urlContainsMedia = window.location.href.includes('/Media');
-          const file = this.file ?? this.selectedFile;
-          if (urlContainsMedia && (file?.fileName || file?.givenFileName)) {
-            this.selectedFileName = file.givenFileName ?? file.fileName ?? "MediaViewer";
-            if (file) {
-              this.inputtedParentRef?.replacePageTitleAndDescription(this.selectedFileName, this.selectedFileName);
+      if (this.selectedFileSrc) return;
+
+      // Optional: require element's center to be within a central band to count as in-view
+      if (isInView && this.requireCenterViewport && this.mediaContainer?.nativeElement) {
+        const rect = (this.mediaContainer.nativeElement as HTMLElement).getBoundingClientRect();
+        const centerY = rect.top + rect.height / 2;
+        const topBoundary = window.innerHeight * this.viewportCenterTopRatio;
+        const bottomBoundary = window.innerHeight * this.viewportCenterBottomRatio;
+        if (centerY < topBoundary || centerY > bottomBoundary) {
+          this.debugLog('onInView center gating skipped', { centerY, topBoundary, bottomBoundary });
+          return; // Wait until it scrolls into the central band
+        }
+      }
+
+      if (this.inViewConfirmDelayMs && this.inViewConfirmDelayMs > 0) {
+        if (this.pendingDelayedInView) return; // already scheduled
+        this.pendingDelayedInView = true;
+        this.inViewConfirmTimer = setTimeout(() => {
+          this.inViewConfirmTimer = null;
+          this.pendingDelayedInView = false;
+          // Re-check visibility & (optionally) center gating
+          const el = this.mediaContainer?.nativeElement as HTMLElement | undefined;
+          let stillVisible = true;
+            if (el) {
+              const r = el.getBoundingClientRect();
+              stillVisible = r.top < window.innerHeight && r.bottom > 0;
+              if (stillVisible && this.requireCenterViewport) {
+                const centerY2 = r.top + r.height / 2;
+                const topB = window.innerHeight * this.viewportCenterTopRatio;
+                const bottomB = window.innerHeight * this.viewportCenterBottomRatio;
+                if (centerY2 < topB || centerY2 > bottomB) stillVisible = false;
+              }
             }
+          if (!stillVisible) {
+            this.debugLog('onInView delayed check aborted (no longer visible or center not satisfied)');
+            return;
           }
-        });
+          this.debugLog('onInView delayed check passed - fetching');
+          this.fetchFileSrc().then(() => this.applyPageTitleIfNeeded());
+        }, this.inViewConfirmDelayMs);
+        this.debugLog('onInView scheduled delayed fetch', { delay: this.inViewConfirmDelayMs });
+      } else {
+        this.debugLog('onInView immediate fetch (no delay)');
+        this.fetchFileSrc().then(() => this.applyPageTitleIfNeeded());
+      }
+    } else {
+      // Not in view and forced in-view mode: abort & clear timer
+      if (this.abortFileRequestController) {
+        this.debugLog('onInView aborting pending fetch (forced mode and not visible)');
+        this.abortFileRequestController.abort();
+      }
+      if (this.inViewConfirmTimer) {
+        clearTimeout(this.inViewConfirmTimer);
+        this.inViewConfirmTimer = null;
+        this.pendingDelayedInView = false;
       }
     }
-    else {
-      // If we require in-view but it's not in view yet, ensure any ongoing fetch is aborted.
-      if (this.abortFileRequestController) {
-        this.debugLog('onInView aborting pending fetch (not in view yet)');
-        this.abortFileRequestController.abort();
+  }
+
+  private applyPageTitleIfNeeded() {
+    const urlContainsMedia = window.location.href.includes('/Media');
+    const file = this.file ?? this.selectedFile;
+    if (urlContainsMedia && (file?.fileName || file?.givenFileName)) {
+      this.selectedFileName = file.givenFileName ?? file.fileName ?? 'MediaViewer';
+      if (file) {
+        this.inputtedParentRef?.replacePageTitleAndDescription(this.selectedFileName, this.selectedFileName);
       }
     }
   }
