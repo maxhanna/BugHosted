@@ -79,4 +79,7 @@ export class EnderService {
   async updateBotParts(heroId: number, parts: MetaBotPart[]) { 
     return this.fetchData('/ender/updatebotparts', { HeroId: heroId, parts: parts });
   }
+  async recordDeath(heroId: number, userId: number | undefined, score: number) {
+    return this.fetchData('/ender/herodied', { HeroId: heroId, UserId: userId ?? 0, Score: score });
+  }
 }

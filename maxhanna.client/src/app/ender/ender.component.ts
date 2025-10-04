@@ -22,6 +22,7 @@ import { DroppedItem } from './objects/Environment/DroppedItem/dropped-item';
 import { ColorSwap } from '../../services/datacontracts/ender/color-swap';
 import { MetaBot } from '../../services/datacontracts/ender/meta-bot';
 import { MetaBotPart } from '../../services/datacontracts/ender/meta-bot-part';
+import { Fire } from './objects/Effects/Fire/fire';
 import { Mask, getMaskNameById } from './objects/Wardrobe/mask';
 import { Bot } from './objects/Bot/bot';
 import { Character } from './objects/character'; 
@@ -105,8 +106,36 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
         this.parentRef?.removeResizeListener();
     }
 
+        private async handleHeroDeath(hero: Hero) {
+            // spawn fire animation at hero location and lock input
+            const fire = new Fire(hero.position.x, hero.position.y);
+            this.mainScene.level.addChild(fire);
+            hero.destroy();
+
+            // send server request to record death and delete hero
+            try {
+                const score = Math.max(0, Math.floor((Date.now() - (this.mainScene.startTime ?? Date.now())) / 1000));
+                await this.enderService.recordDeath(this.metaHero.id, this.parentRef?.user?.id, score);
+            } catch (e) {
+                console.error('Failed to record death', e);
+            }
+
+            // wait for fire animation to finish (same duration as Bot destroy uses ~1100ms)
+            setTimeout(() => {
+                try {
+                    alert('You died. The page will now reload.');
+                } finally {
+                    window.location.reload();
+                }
+            }, 1200);
+        }
+
+
     ngAfterViewInit() {
         this.mainScene.input.setChatInput(this.chatInput.nativeElement);
+            events.on("HERO_DIED", this, (hero: Hero) => {
+                this.handleHeroDeath(hero);
+            });
     }
 
     update = async (delta: number) => {

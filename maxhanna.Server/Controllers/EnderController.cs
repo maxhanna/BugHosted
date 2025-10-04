@@ -214,6 +214,51 @@ namespace maxhanna.Server.Controllers
             else return BadRequest("Hero ID must be supplied");
         }
 
+        [HttpPost("/Ender/HeroDied", Name = "Ender_HeroDied")]
+            public async Task<IActionResult> HeroDied([FromBody] HeroDiedRequest req)
+            {
+                using (var connection = new MySqlConnection(_connectionString))
+                {
+                    await connection.OpenAsync();
+                    using (var transaction = connection.BeginTransaction())
+                    {
+                        try
+                        {
+                            // Insert into top scores table
+                            string insertScoreSql = @"INSERT INTO maxhanna.ender_top_scores (hero_id, user_id, score, created_at) VALUES (@HeroId, @UserId, @Score, NOW());";
+                            Dictionary<string, object?> scoreParams = new Dictionary<string, object?>()
+                            {
+                                { "@HeroId", req.HeroId },
+                                { "@UserId", req.UserId },
+                                { "@Score", req.Score }
+                            };
+                            await ExecuteInsertOrUpdateOrDeleteAsync(insertScoreSql, scoreParams, connection, transaction);
+
+                            // Delete hero and related rows (inventory, bots, events)
+                            string deleteInventory = "DELETE FROM maxhanna.ender_hero_inventory WHERE ender_hero_id = @HeroId;";
+                            await ExecuteInsertOrUpdateOrDeleteAsync(deleteInventory, new Dictionary<string, object?>() { { "@HeroId", req.HeroId } }, connection, transaction);
+
+                            string deleteBots = "DELETE FROM maxhanna.ender_bot WHERE hero_id = @HeroId;";
+                            await ExecuteInsertOrUpdateOrDeleteAsync(deleteBots, new Dictionary<string, object?>() { { "@HeroId", req.HeroId } }, connection, transaction);
+
+                            string deleteEvents = "DELETE FROM maxhanna.ender_event WHERE hero_id = @HeroId;";
+                            await ExecuteInsertOrUpdateOrDeleteAsync(deleteEvents, new Dictionary<string, object?>() { { "@HeroId", req.HeroId } }, connection, transaction);
+
+                            string deleteHero = "DELETE FROM maxhanna.ender_hero WHERE id = @HeroId LIMIT 1;";
+                            await ExecuteInsertOrUpdateOrDeleteAsync(deleteHero, new Dictionary<string, object?>() { { "@HeroId", req.HeroId } }, connection, transaction);
+
+                            await transaction.CommitAsync();
+                            return Ok();
+                        }
+                        catch (Exception ex)
+                        {
+                            await transaction.RollbackAsync();
+                            return StatusCode(500, "Internal server error: " + ex.Message);
+                        }
+                    }
+                }
+            }
+
     [HttpPost("/Ender/Create", Name = "Ender_CreateHero")]
         public async Task<IActionResult> CreateHero([FromBody] CreateMetaHeroRequest req)
         { 

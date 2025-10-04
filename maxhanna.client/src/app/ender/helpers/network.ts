@@ -335,6 +335,28 @@ export function subscribeToMainGameEvents(object: any) {
       object.enderService.createHero(object.parentRef.user.id, name);
     }
   });
+  // Listen for movement events to detect bikewall collisions for the local hero
+  events.on("CHARACTER_POSITION", object, async (char: any) => {
+    try {
+      // Only check local hero
+      if (char.id !== object.metaHero.id) return;
+      const level = object.mainScene.level;
+      if (!level) return;
+      // Find any BikeWall at same snapped position
+      const walls = level.children.filter((c: any) => c.name === "bike-wall");
+      const heroPos = char.position;
+      for (const w of walls) {
+        if (w.position && Math.round(w.position.x) === Math.round(heroPos.x) && Math.round(w.position.y) === Math.round(heroPos.y)) {
+          // hero collided
+          // trigger death flow in EnderComponent
+          events.emit("HERO_DIED", char);
+          return;
+        }
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  });
   events.on("STARTED_TYPING", object, () => {
     const metaEvent = new MetaEvent(0, object.metaHero.id, new Date(), "CHAT", object.metaHero.map, { "sender": object.metaHero.name ?? "Anon", "content": "..." });
     object.enderService.updateEvents(metaEvent); 

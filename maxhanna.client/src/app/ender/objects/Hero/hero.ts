@@ -13,10 +13,12 @@ import { ColorSwap } from "../../../../services/datacontracts/meta/color-swap";
 import { events } from "../../helpers/events";
 import { WarpBase } from "../Effects/Warp/warp-base";
 import { BikeWall } from "../Environment/bike-wall";
+import { Fire } from "../Effects/Fire/fire";
 
 export class Hero extends Character {
   metabots?: MetaBot[]; 
   lastBikeWallSpawnPos?: Vector2;
+  preventDestroyAnimation = false;
   constructor(params: {
     position: Vector2, id?: number, name?: string, metabots?: MetaBot[], colorSwap?: ColorSwap,
     isUserControlled?: boolean, speed?: number, mask?: Mask, scale?: Vector2,
@@ -189,6 +191,28 @@ export class Hero extends Character {
       const wall = new BikeWall({ position: wallPos });
       this.parent?.addChild(wall);
       this.lastBikeWallSpawnPos = this.position.duplicate();
+    }
+  }
+
+  override destroy() {
+    // Play fire/burst animation similar to Bot
+    if (!this.preventDestroyAnimation) {
+      this.isLocked = true;
+      this.destroyBody();
+      const fire = new Fire(this.position.x, this.position.y);
+      this.parent?.children?.push(fire);
+      setTimeout(() => {
+        try {
+          fire.destroy();
+        } catch {}
+        try {
+          // Emit event so higher-level component can record death and force reload
+          events.emit("LOCAL_HERO_DIED", this);
+        } catch {}
+        super.destroy();
+      }, 1200);
+    } else {
+      super.destroy();
     }
   }
 }

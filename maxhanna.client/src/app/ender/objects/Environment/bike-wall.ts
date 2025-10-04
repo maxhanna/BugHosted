@@ -14,7 +14,7 @@ export class BikeWall extends GameObject {
     });
 
     const body = new Sprite({
-      resource: resources.images["apple"],
+      resource: resources.images["metalfence"],
       frameSize: new Vector2(32, 32),
       drawLayer: FLOOR,
       name: "bike-wall",
