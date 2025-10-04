@@ -192,11 +192,14 @@
         <app-mastermind-scores [showBestScores]="false" [showBestScoresToday]="true" [showUserHeader]="true"
           [parentRef]="parentRef">
         </app-mastermind-scores>
-  <!-- LATEST ENDER SCORES (TODAY) -->
-  <app-ender-high-scores *ngIf="true" [parentRef]="parentRef" [showBestScoresToday]="true" [limit]="10"></app-ender-high-scores>
+        <!-- LATEST ENDER SCORES (TODAY) -->
+        <app-ender-high-scores *ngIf="true" [parentRef]="parentRef" [showBestScoresToday]="true" [limit]="10"
+          [showUserHeader]="true" [showHeaderTitles]="true" [headerClickable]="true"
+          [headerClickTarget]="'Ender'"></app-ender-high-scores>
         <!-- LATEST WORDLER SCORES -->
-  <!-- Reusable Wordler high-scores component renders its own titles; no local wordlerHighScores required -->
-  <app-wordler-high-scores [mode]="'today'" [headerClickable]="true" (headerClick)="parentRef?.createComponent('Wordler')"></app-wordler-high-scores>
+        <!-- Reusable Wordler high-scores component renders its own titles; no local wordlerHighScores required -->
+        <app-wordler-high-scores [mode]="'today'" [headerClickable]="true" [showUserHeader]="true"
+          [showHeaderTitles]="true" (headerClick)="parentRef?.createComponent('Wordler')"></app-wordler-high-scores>
       </div>
     </div>
 

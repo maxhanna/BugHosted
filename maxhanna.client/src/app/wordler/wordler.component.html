@@ -18,22 +18,25 @@
       <div class="instructionTitle smallFont" *ngIf="wordlerBestStreakOverall">
         All-time Best Daily Streak ({{wordlerBestStreakOverall.streak}}) By :
         <app-user-tag [userId]="wordlerBestStreakOverall.userId" [inputtedParentRef]="parentRef"
-        [displayHoverPicture]="true" [displayMiniTag]="true" [previousComponent]="'Wordler'"></app-user-tag>        
+          [displayHoverPicture]="true" [displayMiniTag]="true" [previousComponent]="'Wordler'"></app-user-tag>
       </div>
       <div class="notification">You get {{numberOfTries}} tries to guess today's word.</div>
       <div class="notification">Succeed or fail, you must wait until tomorrow to try again.</div>
       <div class="notification">Everyone gets the same word.</div>
-      <div class="notification">A <span style="color:green;">green</span> square means a correct letter in the right spot</div>
-      <div class="notification">A <span style="color:yellow">yellow</span> square means a correct letter in an incorrect spot.</div>
+      <div class="notification">A <span style="color:green;">green</span> square means a correct letter in the right
+        spot</div>
+      <div class="notification">A <span style="color:yellow">yellow</span> square means a correct letter in an incorrect
+        spot.</div>
     </div>
     <div [style.display]="gameStarted ? 'none' : 'flex'" class="difficultySelectDiv">
       <div class="difficultySelectionAndPlay">
         <select #difficultySelect>
           <option value="" disabled selected>Choose a difficulty</option>
-          <option *ngFor="let difficulty of difficulties" [value]="difficultyMapping[difficulty]">{{ difficulty }}</option>
+          <option *ngFor="let difficulty of difficulties" [value]="difficultyMapping[difficulty]">{{ difficulty }}
+          </option>
         </select>
         <button (click)="resetGame()">Start ▶️</button>
-      </div> 
+      </div>
       <div class="sharebuttonDiv">
         <button class="shareButton" (click)="copyLink()" title="Share Link">Share 📋</button>
       </div>
@@ -44,14 +47,11 @@
     <div id="attempts">
       <div *ngFor="let attempt of attempts; let attemptIndex = index" class="attempt" [id]="'attemptDiv'+attemptIndex">
         <div *ngFor="let letter of attempt; let letterIndex = index" class="letter">
-          <input type="text"
-                 maxlength="1"
-                 [id]="'inputIdRow' + attemptIndex + 'Letter' + letterIndex"
-                 [disabled]="attemptIndex !== currentAttempt || !gameStarted || disableAllInputs"
-                 [class]="'text ' + {'correct': feedback[attemptIndex][letterIndex] === 'correct', 'present': feedback[attemptIndex][letterIndex] === 'present'}"
-                 (keydown.enter)="checkGuess(attemptIndex)"
-                 (keyup)="moveToNextInput(attemptIndex, letterIndex, $event)"
-                 (touchstart)="keyFocus($event)" />
+          <input type="text" maxlength="1" [id]="'inputIdRow' + attemptIndex + 'Letter' + letterIndex"
+            [disabled]="attemptIndex !== currentAttempt || !gameStarted || disableAllInputs"
+            [class]="'text ' + {'correct': feedback[attemptIndex][letterIndex] === 'correct', 'present': feedback[attemptIndex][letterIndex] === 'present'}"
+            (keydown.enter)="checkGuess(attemptIndex)" (keyup)="moveToNextInput(attemptIndex, letterIndex, $event)"
+            (touchstart)="keyFocus($event)" />
         </div>
       </div>
       <div *ngIf="gameStarted && (!attempts || attempts.length == 0)">Game error</div>
@@ -82,7 +82,8 @@
         <button id="lButton" class="key" (click)="pressedKey('L',$event)" [disabled]="disableAllInputs">L</button>
       </div>
       <div class="keyboardRow">
-        <button id="enterButton" class="key enter" (click)="pressedKey('enter',$event)" [disabled]="disableAllInputs">ENTER</button>
+        <button id="enterButton" class="key enter" (click)="pressedKey('enter',$event)"
+          [disabled]="disableAllInputs">ENTER</button>
         <button id="zButton" class="key" (click)="pressedKey('Z',$event)" [disabled]="disableAllInputs">Z</button>
         <button id="xButton" class="key" (click)="pressedKey('X',$event)" [disabled]="disableAllInputs">X</button>
         <button id="cButton" class="key" (click)="pressedKey('C',$event)" [disabled]="disableAllInputs">C</button>
@@ -90,7 +91,8 @@
         <button id="bButton" class="key" (click)="pressedKey('B',$event)" [disabled]="disableAllInputs">B</button>
         <button id="nButton" class="key" (click)="pressedKey('N',$event)" [disabled]="disableAllInputs">N</button>
         <button id="mButton" class="key" (click)="pressedKey('M',$event)" [disabled]="disableAllInputs">M</button>
-        <button id="backspaceButton" class="key" (click)="pressedKey('backspace',$event)" [disabled]="disableAllInputs"><span>⌫</span></button>
+        <button id="backspaceButton" class="key" (click)="pressedKey('backspace',$event)"
+          [disabled]="disableAllInputs"><span>⌫</span></button>
       </div>
     </div>
 
@@ -106,25 +108,26 @@
     </div>
 
     <!-- Reuse the Wordler High Scores component to show today's scoreboard and the current user's best scores -->
-  <app-wordler-high-scores [mode]="['today','user']" [userId]="parentRef?.user?.id" [headerClickable]="true"></app-wordler-high-scores>
+    <app-wordler-high-scores [mode]="['today','user']" [userId]="parentRef?.user?.id" [headerClickable]="true"
+      [showHeaderTitles]="true"></app-wordler-high-scores>
   </div>
 </div>
 
 <!-- Menu Popup -->
-<div class="popupPanel" style="overflow: auto;" *ngIf="isMenuPanelOpen"> 
+<div class="popupPanel" style="overflow: auto;" *ngIf="isMenuPanelOpen">
   <div class="popupPanelTitle mainPopupTitle">
     The Wordler
   </div>
   <div>
     <div class="wordlerPopupPanelSection">
-      <div class="popupPanelTitle">Best: <span>{{wordlerBestStreak}} consecutive days.</span></div> 
+      <div class="popupPanelTitle">Best: <span>{{wordlerBestStreak}} consecutive days.</span></div>
     </div>
-      <div class="wordlerPopupPanelSection">
-        <div class="popupPanelTitle">Current: <span>{{wordlerStreak}} consecutive days.</span></div> 
-      </div>
+    <div class="wordlerPopupPanelSection">
+      <div class="popupPanelTitle">Current: <span>{{wordlerStreak}} consecutive days.</span></div>
+    </div>
     <div class="wordlerPopupPanelSection">
       <div class="popupPanelTitle">
-        Best Scores: 
+        Best Scores:
       </div>
       <div *ngIf="userWordlerScores.length > 0" class="wordlerScoresDiv">
         <table *ngIf="userWordlerScores && userWordlerScores.length > 0" class="scoreTable" id="scoreTablePopup">
@@ -140,7 +143,8 @@
             <tr *ngFor="let score of userWordlerScores">
               <td>{{score.score + 1}}</td>
               <td>{{score.time | timeFormat:'minify'}}</td>
-              <td>{{score.difficulty == 4 ? 'Easy' : score.difficulty == 5 ? 'Medium' : score.difficulty == 6 ? 'Hard' : 'Master Wordler'}}</td>
+              <td>{{score.difficulty == 4 ? 'Easy' : score.difficulty == 5 ? 'Medium' : score.difficulty == 6 ? 'Hard' :
+                'Master Wordler'}}</td>
               <td>{{score.submitted | date: 'yyyy-MM-dd HH:mm' }}</td>
             </tr>
           </tbody>

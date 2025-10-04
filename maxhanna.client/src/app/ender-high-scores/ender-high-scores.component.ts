@@ -11,6 +11,11 @@ export class EnderHighScoresComponent implements OnInit {
   @Input() limit: number = 20;
   @Input() showBestScoresToday: boolean = false;
   @Input() parentRef: any;
+  // header controls to match Mastermind header style/behavior
+  @Input() showUserHeader: boolean = false;
+  @Input() showHeaderTitles: boolean = true;
+  @Input() headerClickable: boolean = false;
+  @Input() headerClickTarget?: string | null = null;
 
   topScores: any[] = [];
 
@@ -28,8 +33,8 @@ export class EnderHighScoresComponent implements OnInit {
       let scores = res ?? [];
       if (this.showBestScoresToday) {
         const today = new Date();
-        const isoToday = today.toISOString().slice(0,10);
-        scores = scores.filter((s: any) => (s.created_at || '').slice(0,10) === isoToday);
+        const isoToday = today.toISOString().slice(0, 10);
+        scores = scores.filter((s: any) => (s.created_at || '').slice(0, 10) === isoToday);
       }
       this.topScores = scores;
     } catch (err) {
