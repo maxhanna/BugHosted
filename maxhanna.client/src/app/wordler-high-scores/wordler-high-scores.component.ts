@@ -1,5 +1,7 @@
 import { Component, EventEmitter, Input, OnChanges, OnInit, Output, SimpleChanges } from '@angular/core';
+import { CommonModule } from '@angular/common';
 import { WordlerService } from '../../services/wordler.service';
+import { TimeSincePipe } from '../time-since.pipe';
 import { WordlerScore } from '../../services/datacontracts/wordler/wordler-score';
 
 type Mode = 'all' | 'user' | 'today';
@@ -9,6 +11,7 @@ type Mode = 'all' | 'user' | 'today';
     templateUrl: './wordler-high-scores.component.html',
     styleUrls: ['./wordler-high-scores.component.css'],
     standalone: true,
+    imports: [CommonModule, TimeSincePipe]
 })
 export class WordlerHighScoresComponent implements OnInit, OnChanges {
     // If provided, component will show top scores for this user when mode === 'user'
