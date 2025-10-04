@@ -16,7 +16,7 @@
                     <ng-container *ngIf="groupedByMode[m] && (keys(groupedByMode[m]).length > 0); else emptyMode">
                         <div *ngFor="let group of groupedByMode[m] | keyvalue: keepOrder" class="difficulty-group">
                             <h4 (click)="toggleGroup(m, group.key)">
-                                {{ m === 'best' && +group.key === 999 ? 'Best (All Time)' : difficultyLabel(+group.key) }} ({{ group.value?.length || 0 }})
+                                {{ m === 'best' && +group.key === 999 ? 'Best (All Time)' : difficultyLabel(+group.key) }} ({{ group.value.length || 0 }})
                                 <span style="float:right; font-size:0.9em">{{ isGroupCollapsed(m, group.key) ? '+' : '−' }}</span>
                             </h4>
                             <table class="mainTable" *ngIf="!isGroupCollapsed(m, group.key)">
