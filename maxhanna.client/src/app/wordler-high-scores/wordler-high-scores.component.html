@@ -34,7 +34,7 @@
                                     <td>{{ s.user?.username || 'Anonymous' }}</td>
                                     <td>{{ s.score }}</td>
                                     <td>{{ s.time }}</td>
-                                    <td>{{ s.submitted ? (s.submitted | date:'short') : '-' }}</td>
+                                    <td>{{ s.submitted ? (s.submitted | timeSince) : '-' }}</td>
                                 </tr>
                             </tbody>
                         </table>
