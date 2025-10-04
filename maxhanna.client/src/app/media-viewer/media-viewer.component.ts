@@ -120,16 +120,6 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
         this.ensureInitialLoad();
       }
     }
-    // React to autoload being enabled after lazy in-view gating
-    if (changes['autoload'] && !changes['autoload'].isFirstChange()) {
-      if (this.autoload && !this.selectedFileSrc) {
-        this.debugLog('ngOnChanges autoload flip -> attempting fetch');
-        // If we require in-view load, we still wait for onInView event.
-        if (!this.forceInviewLoad) {
-          this.fetchFileSrc();
-        }
-      }
-    }
   }
 
   private ensureInitialLoad(isRetry: boolean = false) {
