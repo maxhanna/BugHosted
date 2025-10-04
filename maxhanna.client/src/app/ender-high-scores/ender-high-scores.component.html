@@ -1,0 +1,18 @@
+<div class="metaHighscoresSection">
+  <div class="popupPanelTitle">Top Scores</div>
+  <div style="max-height:300px; overflow:auto; padding:8px;">
+    <div *ngFor="let s of topScores">
+      <div style="padding:6px; border-bottom:1px solid #333; display:flex; align-items:center; gap:8px;">
+        <div style="flex:0 0 auto;">
+          <app-user-tag [userId]="s.user_id" [inputtedParentRef]="parentRef" [displayMiniTag]="true" [previousComponent]="'Ender'"></app-user-tag>
+        </div>
+        <div style="flex:1 1 auto;">
+          <div><strong>Score:</strong> {{s.score}}</div>
+          <div><small>Hero ID: {{s.hero_id}} • User ID: {{s.user_id}} • <span [title]="s.created_at">{{ s.created_at | timeSince }}</span></small></div>
+          <div><small>Time on map: {{s.time_on_level_seconds}}s • Walls placed: {{s.walls_placed}}</small></div>
+        </div>
+      </div>
+    </div>
+    <div *ngIf="!topScores || topScores.length === 0">No scores yet.</div>
+  </div>
+</div>

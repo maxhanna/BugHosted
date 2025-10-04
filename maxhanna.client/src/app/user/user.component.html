@@ -192,6 +192,8 @@
         <app-mastermind-scores [showBestScores]="false" [showBestScoresToday]="true" [showUserHeader]="true"
           [parentRef]="parentRef">
         </app-mastermind-scores>
+  <!-- LATEST ENDER SCORES (TODAY) -->
+  <app-ender-high-scores *ngIf="true" [parentRef]="parentRef" [showBestScoresToday]="true" [limit]="10"></app-ender-high-scores>
         <!-- LATEST WORDLER SCORES -->
         <div *ngIf="wordlerHighScores && wordlerHighScores.length > 0">
           <div class="popupPanelTitle cursorPointerUnderlined" style="margin-top: 15px;"

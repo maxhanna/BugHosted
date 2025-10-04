@@ -86,6 +86,7 @@ import { MastermindScoresComponent } from './mastermind-scores/mastermind-scores
 import { ShareButtonComponent } from './share-button/share-button.component';
 import { RatingsComponent } from './ratings/ratings.component';
 import { EnderComponent } from './ender/ender.component';
+import { EnderHighScoresComponent } from './ender-high-scores/ender-high-scores.component';
 import { CryptoTopTradersComponent } from './crypto-top-traders/crypto-top-traders.component';
 
 @NgModule({
@@ -161,6 +162,7 @@ import { CryptoTopTradersComponent } from './crypto-top-traders/crypto-top-trade
     ShareButtonComponent,
     RatingsComponent,
     EnderComponent,
+  EnderHighScoresComponent,
     CryptoTopTradersComponent,
   ],
   bootstrap: [AppComponent],
