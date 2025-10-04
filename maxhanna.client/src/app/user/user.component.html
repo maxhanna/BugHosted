@@ -397,11 +397,11 @@
 
             <div class="optionsStatsDiv" *ngIf="topEmulationGameName">
               <div class="optionsStatsHeader">
-                <span class="componentsIcon">{{ parentRef?.getIconByTitle('Emulator') }}</span>
+                <span class="componentsIcon">{{ parentRef?.getIconByTitle('Emulation') }}</span>
                 Top game played:
               </div>
               <div class="optionsStatsDescription">
-                {{ topEmulationGameName }} <span *ngIf="topEmulationGamePlays">• Plays: {{ topEmulationGamePlays }}</span>
+                {{ topEmulationGameName.replace('.sav', '') }} <span *ngIf="topEmulationGamePlays">• Plays: {{ topEmulationGamePlays }}</span>
               </div>
             </div>
 
