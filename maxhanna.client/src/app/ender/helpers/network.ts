@@ -9,7 +9,7 @@ import { Bot } from "../objects/Bot/bot";
 import { GameObject } from "../objects/game-object";
 import { Level } from "../objects/Level/level";
 import { ShopMenu } from "../objects/Menu/shop-menu";
-import { WardrobeMenu } from "../objects/Menu/wardrobe-menu"; 
+import { WardrobeMenu } from "../objects/Menu/wardrobe-menu";
 import { gridCells } from "./grid-cells";
 import { Skill } from "./skill-types";
 import { InventoryItem } from "../objects/InventoryItem/inventory-item";
@@ -24,7 +24,7 @@ export class Network {
   constructor() {
   }
 }
- 
+
 export let actionBlocker = false;
 export let encounterUpdates: Bot[] = [];
 export let batchInterval: any;
@@ -34,7 +34,7 @@ export function startBatchUpdates(object: any, batchIntervalMs = 1000) {
     if (encounterUpdates.length > 0) {
       sendBatchToBackend(encounterUpdates, object);
       encounterUpdates = [];
-    } else { 
+    } else {
       stopBatchUpdates();
     }
   }, batchIntervalMs);
@@ -109,20 +109,20 @@ export function subscribeToMainGameEvents(object: any) {
       object.pollForChanges();
     }
     if (object.mainScene && object.mainScene.level) {
-  object.metaHero.map = level.name ?? "HERO_ROOM";
-  // Compute spawn offset based on number of other players on the map.
-  // Shift spawn to the right by 2 grid cells per player already on the map.
+      object.metaHero.map = level.name ?? "HERO_ROOM";
+      // Compute spawn offset based on number of other players on the map.
+      // Shift spawn to the right by 2 grid cells per player already on the map.
       // Count existing hero sprites on the current level (exclude self)
       const playerCount = (object.mainScene && object.mainScene.level && object.mainScene.level.children)
         ? object.mainScene.level.children.filter((c: any) => c.constructor && c.constructor.name === 'Hero' && c.id !== object.metaHero.id).length
         : 0;
-  const offsetX = gridCells(playerCount * 2);
-  const defaultPos = level.getDefaultHeroPosition();
-  object.metaHero.position = new Vector2(defaultPos.x + offsetX, defaultPos.y);
+      const offsetX = gridCells(playerCount * 2);
+      const defaultPos = level.getDefaultHeroPosition();
+      object.metaHero.position = new Vector2(defaultPos.x + offsetX, defaultPos.y);
       object.mainScene.level.itemsFound = object.mainScene.inventory.getItemsFound();
 
       const levelHero = object.mainScene.level.children.find((x: Character) => x.id === object.hero.id) ?? object.metaHero;
- 
+
       let tmpBotPosition = levelHero.position.duplicate();
 
       switch (levelHero.facingDirection) {
@@ -139,7 +139,7 @@ export function subscribeToMainGameEvents(object: any) {
           tmpBotPosition.x += gridCells(1); // Move bot to the left
           break;
       }
-       
+
       setTimeout(() => {
         const deployedBot = object.metaHero?.metabots?.find((x: MetaBot) => x.isDeployed && x.hp > 0);
         if (deployedBot) {
@@ -154,8 +154,8 @@ export function subscribeToMainGameEvents(object: any) {
           }
 
           console.log("set deployedBot position to hero position", deployedBot.position, object.metaHero.position);
-        } 
-      }, 25); 
+        }
+      }, 25);
     }
   });
 
@@ -164,7 +164,7 @@ export function subscribeToMainGameEvents(object: any) {
   });
 
   events.on("WARDROBE_OPENED", object, () => {
-    if (actionBlocker) return; 
+    if (actionBlocker) return;
     events.emit("BLOCK_BACKGROUND_SELECTION");
     object.blockOpenStartMenu = true;
     object.mainScene?.inventory?.children?.forEach((x: any) => x.destroy());
@@ -199,7 +199,7 @@ export function subscribeToMainGameEvents(object: any) {
     }
   });
 
-  events.on("SHOP_OPENED_TO_SELL", object, (params: { heroPosition: Vector2, entranceLevel: Level, items?: InventoryItem[] }) => { 
+  events.on("SHOP_OPENED_TO_SELL", object, (params: { heroPosition: Vector2, entranceLevel: Level, items?: InventoryItem[] }) => {
     events.emit("BLOCK_BACKGROUND_SELECTION");
     let shopParts: InventoryItem[] = [];
     let x = 0;
@@ -224,13 +224,13 @@ export function subscribeToMainGameEvents(object: any) {
   });
   events.on("WARDROBE_CLOSED", object, (params: { heroPosition: Vector2, entranceLevel: Level }) => {
     object.stopPollingForUpdates = false;
-    object.blockOpenStartMenu = false; 
+    object.blockOpenStartMenu = false;
     object.mainScene?.inventory?.renderParty();
     const newLevel = object.getLevelFromLevelName((params.entranceLevel.name ?? "HERO_ROOM"));
     console.log(newLevel, params.entranceLevel);
     newLevel.defaultHeroPosition = params.heroPosition;
     events.emit("CHANGE_LEVEL", newLevel);
-    events.emit("SHOW_START_BUTTON"); 
+    events.emit("SHOW_START_BUTTON");
     events.emit("UNBLOCK_BACKGROUND_SELECTION");
   });
   events.on("SHOP_CLOSED", object, (params: { heroPosition: Vector2, entranceLevel: Level }) => {
@@ -241,7 +241,7 @@ export function subscribeToMainGameEvents(object: any) {
     const newLevel = object.getLevelFromLevelName((params.entranceLevel.name ?? "HERO_ROOM"));
     newLevel.defaultHeroPosition = params.heroPosition;
     events.emit("CHANGE_LEVEL", newLevel);
-    events.emit("SHOW_START_BUTTON"); 
+    events.emit("SHOW_START_BUTTON");
     events.emit("UNBLOCK_BACKGROUND_SELECTION");
   });
   events.on("SELECTED_PART", object, (params: { selectedPart: string, selection: string, selectedMetabotId: number }) => {
@@ -249,9 +249,9 @@ export function subscribeToMainGameEvents(object: any) {
     const skill = params.selection.split(/\d/)[0];
     const dmg = params.selection.split(' ').slice(-2, -1)[0];
     let targetPart = undefined;
-    for (let part of parts) {  
+    for (let part of parts) {
       if (part.skill.name.trim() === skill.trim() && part.damageMod === parseInt(dmg) && part.partName.trim() === params.selectedPart.trim()) {
-        targetPart = part; 
+        targetPart = part;
         break;
       }
     }
@@ -272,7 +272,7 @@ export function subscribeToMainGameEvents(object: any) {
       } else if (targetPart.partName === HEAD) {
         oldPart = metabotSelected.head;
         metabotSelected.head = targetPart;
-      } 
+      }
 
       if (oldPart && oldPart.id == targetPart.id) {
         return;
@@ -306,7 +306,7 @@ export function subscribeToMainGameEvents(object: any) {
         const metaEvent = new MetaEvent(0, object.metaHero.id, new Date(), "DEPLOY", object.metaHero.map, { "metaHero": `${safeStringify(hero)}`, "metaBot": `${safeStringify(params.bot)}` });
         object.enderService.updateEvents(metaEvent);
       }
-     // await object.reinitializeInventoryData();
+      // await object.reinitializeInventoryData();
     }
   });
 
@@ -337,7 +337,7 @@ export function subscribeToMainGameEvents(object: any) {
         tgtHeroBot.isDeployed = false;
       }
     }
-  }); 
+  });
 
   events.on("CHARACTER_NAME_CREATED", object, (name: string) => {
     if (object.chatInput.nativeElement.placeholder === "Enter your name" && object.parentRef && object.parentRef.user && object.parentRef.user.id) {
@@ -368,7 +368,7 @@ export function subscribeToMainGameEvents(object: any) {
   });
   events.on("STARTED_TYPING", object, () => {
     const metaEvent = new MetaEvent(0, object.metaHero.id, new Date(), "CHAT", object.metaHero.map, { "sender": object.metaHero.name ?? "Anon", "content": "..." });
-    object.enderService.updateEvents(metaEvent); 
+    object.enderService.updateEvents(metaEvent);
     const name = object.metaHero.name;
     object.chat.unshift(
       {
@@ -402,14 +402,14 @@ export function subscribeToMainGameEvents(object: any) {
     }
   });
 
-  events.on("WAVE_AT", object, (objectAtPosition: GameObject) => { 
+  events.on("WAVE_AT", object, (objectAtPosition: GameObject) => {
     const msg = `👋 ${(objectAtPosition as Hero).name}`;
     const metaEvent = new MetaEvent(0, object.metaHero.id, new Date(), "CHAT", object.metaHero.map, { "sender": object.metaHero.name ?? "Anon", "content": msg })
     object.enderService.updateEvents(metaEvent);
   });
 
-  events.on("WHISPER_AT", object, ( objectAtPosition: GameObject ) => {
-    if (!objectAtPosition) return; 
+  events.on("WHISPER_AT", object, (objectAtPosition: GameObject) => {
+    if (!objectAtPosition) return;
     const msgContent = object.getChatText();
     const receiver = (objectAtPosition as Hero).name ?? "Anon";
     const sender = (object.metaHero as Hero).name ?? "Anon";
@@ -433,7 +433,7 @@ export function subscribeToMainGameEvents(object: any) {
       }
     }
     const metaEvent = new MetaEvent(0, object.metaHero.id, new Date(), "REPAIR_ALL_METABOTS", object.metaHero.map, { "heroId": object.metaHero.id + "" });
-    object.enderService.updateEvents(metaEvent); 
+    object.enderService.updateEvents(metaEvent);
     setActionBlocker(50);
   });
 
@@ -461,18 +461,18 @@ export function subscribeToMainGameEvents(object: any) {
     object.reinitializeInventoryData();
   });
 
-  events.on("ITEM_SOLD", object, (items: InventoryItem[]) => { 
+  events.on("ITEM_SOLD", object, (items: InventoryItem[]) => {
     const botPartsSold = items.filter(x => x.category === "MetaBotPart");
-    let partIdNumbers = [] 
+    let partIdNumbers = []
     for (let item of botPartsSold) {
       let itmString = item.name ?? "";
       itmString = itmString.replace("Left Punch", "Left_Punch");
-      itmString = itmString.replace("Right Punch", "Right_Punch"); 
+      itmString = itmString.replace("Right Punch", "Right_Punch");
 
       const partName = itmString.split(' ')[0].trim();
       let skillName = itmString.split(' ')[1].trim().replace("_", " ");
       const damageMod = itmString.split(' ')[2].trim();
-       
+
 
       const part = object.mainScene.inventory.parts.find((x: any) => x.partName === partName && x.skill.name === skillName && x.damageMod === parseInt(damageMod) && !partIdNumbers.includes(x.id)) as MetaBotPart;
       if (part) {
@@ -502,19 +502,19 @@ export function subscribeToMainGameEvents(object: any) {
   });
 
   events.on("TARGET_LOCKED", object, (params: { source: Bot, target: Bot }) => {
-    if (params.source.heroId) { 
+    if (params.source.heroId) {
       const metaEvent = new MetaEvent(0, params.source.heroId, new Date(), "TARGET_LOCKED", object.metaHero.map, { "sourceId": params.source.id + "", "targetId": params.target.id + "" });
       object.enderService.updateEvents(metaEvent);
     }
   });
 
   events.on("TARGET_UNLOCKED", object, (params: { source: Bot, target: Bot }) => {
-    if (params.source.heroId) { 
+    if (params.source.heroId) {
       const metaEvent = new MetaEvent(1, params.source.heroId, new Date(), "TARGET_UNLOCKED", object.metaHero.map, { "sourceId": params.source.id + "", "targetId": params.target.id + "" });
       object.enderService.updateEvents(metaEvent);
     }
   });
-  events.on("UPDATE_ENCOUNTER_POSITION", object, (source: Bot) => {  
+  events.on("UPDATE_ENCOUNTER_POSITION", object, (source: Bot) => {
     handleEncounterUpdate(source);
     startBatchUpdates(object);
   });
@@ -524,7 +524,7 @@ export function subscribeToMainGameEvents(object: any) {
       object.enderService.updateEvents(metaEvent);
     } catch (e) { console.error("Failed to send SPAWN_BIKE_WALL", e); }
   });
-   
+
   events.on("HIDE_START_BUTTON", object, () => {
     object.hideStartButton = true;
   })
@@ -539,7 +539,7 @@ export function subscribeToMainGameEvents(object: any) {
       events.emit("CLOSE_INVENTORY_MENU", data);
       events.emit("UNBLOCK_BACKGROUND_SELECTION");
     } else {
-      const exits = object.mainScene.level.children.filter((x: GameObject) => x.name == "exitObject"); 
+      const exits = object.mainScene.level.children.filter((x: GameObject) => x.name == "exitObject");
       events.emit("OPEN_START_MENU", ({ exits: exits, location: object.mainScene.metaHero.position }));
       events.emit("BLOCK_BACKGROUND_SELECTION");
     }
@@ -556,11 +556,11 @@ export function subscribeToMainGameEvents(object: any) {
     events.emit("HIDE_START_BUTTON");
   });
 
-  events.on("BLOCK_START_MENU", object, () => { 
+  events.on("BLOCK_START_MENU", object, () => {
     object.blockOpenStartMenu = true;
     events.emit("HIDE_START_BUTTON");
   });
-  events.on("UNBLOCK_START_MENU", object, () => { 
+  events.on("UNBLOCK_START_MENU", object, () => {
     object.blockOpenStartMenu = false;
     events.emit("SHOW_START_BUTTON");
   });
@@ -599,7 +599,7 @@ export function subscribeToMainGameEvents(object: any) {
   events.on("GOT_REWARDS", object, (params: { location: Vector2, part: MetaBotPart }) => {
     if (!params.part) return;
     const metaEvent = new MetaEvent(0, object.metaHero.id, new Date(), "ITEM_DROPPED", object.metaHero.map, { "location": safeStringify(params.location), "item": safeStringify(params.part) })
-    object.enderService.updateEvents(metaEvent);    
+    object.enderService.updateEvents(metaEvent);
   });
 
   events.on("PARTY_UP", object, (person: Hero) => {
@@ -611,10 +611,10 @@ export function subscribeToMainGameEvents(object: any) {
     if (!foundInParty2) {
       object.partyMembers.push({ heroId: person.id, name: person.name, color: person.colorSwap });
     }
-    const metaEvent = new MetaEvent(0, object.metaHero.id, new Date(), "PARTY_UP", object.metaHero.map, { "hero_id": `${person.id}`, "party_members": safeStringify(object.partyMembers.map((x:any) => x.heroId)) })
+    const metaEvent = new MetaEvent(0, object.metaHero.id, new Date(), "PARTY_UP", object.metaHero.map, { "hero_id": `${person.id}`, "party_members": safeStringify(object.partyMembers.map((x: any) => x.heroId)) })
     object.enderService.updateEvents(metaEvent);
   });
-  events.on("UNPARTY", object, (person: Hero) => { 
+  events.on("UNPARTY", object, (person: Hero) => {
     const metaEvent = new MetaEvent(0, object.metaHero.id, new Date(), "UNPARTY", object.metaHero.map, { "hero_id": `${person.id}` })
     object.enderService.updateEvents(metaEvent);
     object.partyMembers = object.partyMembers.filter((x: any) => x.heroId === object.metaHero.id);
@@ -635,8 +635,8 @@ export function subscribeToMainGameEvents(object: any) {
       //console.log("picking up item: ",data);
       if (data.category) {
         object.enderService.updateInventory(object.metaHero.id, data.name, data.imageName, data.category);
-      } else if (data.item) { 
-        object.enderService.updateBotParts(object.metaHero.id, [data.item]); 
+      } else if (data.item) {
+        object.enderService.updateBotParts(object.metaHero.id, [data.item]);
         object.mainScene.inventory.parts.concat(data.item);
 
         const metaEvent = new MetaEvent(0, object.metaHero.id, new Date(), "ITEM_DESTROYED", object.metaHero.map,
@@ -649,10 +649,10 @@ export function subscribeToMainGameEvents(object: any) {
         object.enderService.updateEvents(metaEvent);
       }
       setActionBlocker(500);
-    } 
+    }
   });
 
-   
+
 
   events.on("CHANGE_COLOR", object, () => {
     if (object.parentRef) {
@@ -686,7 +686,7 @@ export function actionMultiplayerEvents(object: any, metaEvents: MetaEvent[]) {
         }
         if (event.eventType === "UNPARTY" && event.data && event.data["hero_id"]) {
           console.log("got unparty event", event);
-          object.partyMembers = object.partyMembers.filter((x:any) => event && event.data && event.data["hero_id"] && x.heroId != parseInt(event.data["hero_id"]) && x.heroId != event.heroId);
+          object.partyMembers = object.partyMembers.filter((x: any) => event && event.data && event.data["hero_id"] && x.heroId != parseInt(event.data["hero_id"]) && x.heroId != event.heroId);
           if (event.data["hero_id"] == object.metaHero.id) {
             object.reinitializeInventoryData();
           }
@@ -706,17 +706,17 @@ export function actionMultiplayerEvents(object: any, metaEvents: MetaEvent[]) {
             const addedBot = object.addBotToScene(tmpHero, targetBot);
 
             const warpBase = new WarpBase({ position: addedBot.position, parentId: addedBot?.id ?? 0, offsetX: -8 });
-            object.mainScene.level?.addChild(warpBase); 
+            object.mainScene.level?.addChild(warpBase);
             setTimeout(() => {
-              warpBase.destroy(); 
+              warpBase.destroy();
             }, 1300);
           }
         }
-        if (event.eventType === "BOT_DESTROYED" && event.data) { 
+        if (event.eventType === "BOT_DESTROYED" && event.data) {
           //console.log("data:", event.data);
           const bot = object.mainScene.level?.children.find((x: any) => x.heroId == event.heroId) as Bot;
           const winnerBotId = JSON.parse(event.data["winnerBotId"]) as number || undefined;
-         // console.log("winnerBotId", winnerBotId);
+          // console.log("winnerBotId", winnerBotId);
           if (winnerBotId) {
             const winnerBot = object.mainScene.level.children.find((x: any) => x.id == winnerBotId) as Bot;
             if (winnerBot) {
@@ -724,11 +724,11 @@ export function actionMultiplayerEvents(object: any, metaEvents: MetaEvent[]) {
               if (winnerBot.heroId === object.metaHero.id) {
                 generateReward(winnerBot, bot);
               }
-            } 
+            }
           }
-        
-          setTargetToDestroyed(bot); 
-          if (bot) {  
+
+          setTargetToDestroyed(bot);
+          if (bot) {
             bot.hp = 0;
             bot.isDeployed = false;
             bot.targeting = undefined;
@@ -738,10 +738,10 @@ export function actionMultiplayerEvents(object: any, metaEvents: MetaEvent[]) {
               if (bot.heroId == object.metaHero.id) {
                 const metaBot = object.metaHero.metabots.find((bot: MetaBot) => bot.name === bot.name);
                 metaBot.hp = 0;
-                metaBot.isDeployed = false; 
+                metaBot.isDeployed = false;
               }
             }, 50);
-          } 
+          }
         }
         if (event.eventType === "CALL_BOT_BACK") {
           const bot = object.mainScene.level?.children.find((x: any) => x.heroId == event.heroId);
@@ -749,21 +749,21 @@ export function actionMultiplayerEvents(object: any, metaEvents: MetaEvent[]) {
             bot.isWarping = true;
             bot.destroy();
           }
-        } 
-    if (event.eventType === "SPAWN_BIKE_WALL" && event.data) {
+        }
+        if (event.eventType === "SPAWN_BIKE_WALL" && event.data) {
           const x = parseInt(event.data["x"] ?? "NaN");
           const y = parseInt(event.data["y"] ?? "NaN");
           if (!isNaN(x) && !isNaN(y) && object.mainScene.level) {
             const exists = object.mainScene.level.children.some((c: any) => c.name === 'bike-wall' && c.position && c.position.x === x && c.position.y === y);
             if (!exists) {
-      const wall = new BikeWall({ position: new Vector2(x, y) });
+              const wall = new BikeWall({ position: new Vector2(x, y) });
               object.mainScene.level.addChild(wall);
             }
           }
         }
         if (event.eventType === "ITEM_DESTROYED") {
-          if (event.data) {  
-          //  console.log(event.data);
+          if (event.data) {
+            //  console.log(event.data);
             const dmgMod = event.data["damage"];
             const position = JSON.parse(event.data["position"]) as Vector2;
             const skillName = event.data["skill"];
@@ -778,15 +778,15 @@ export function actionMultiplayerEvents(object: any, metaEvents: MetaEvent[]) {
               }
             }
             const tgtObject = object.mainScene.level?.children.find((x: any) => {
-              const isMatchingLabel = x.itemLabel === `${dmgMod ?? 1} ${skillName ?? 1}`; 
+              const isMatchingLabel = x.itemLabel === `${dmgMod ?? 1} ${skillName ?? 1}`;
               const isNearby = possiblePositions.some(pos => x.position.x === pos.x && x.position.y === pos.y);
               return isMatchingLabel && isNearby;
             });
-           // console.log("Item_Destroyed netwkr", dmgMod, skillName, tgtObject); 
+            // console.log("Item_Destroyed netwkr", dmgMod, skillName, tgtObject); 
             if (tgtObject) { tgtObject.destroy(); }
           }
         }
-        if (event.eventType === "BUY_ITEM") { 
+        if (event.eventType === "BUY_ITEM") {
           if (event.heroId === object.metaHero.id) {
             //console.log(event && event.data ? event.data["item"] : "undefined item data");
             events.emit("BUY_ITEM_CONFIRMED", { heroId: event.heroId, item: (event.data ? event.data["item"] : "") })
@@ -794,16 +794,16 @@ export function actionMultiplayerEvents(object: any, metaEvents: MetaEvent[]) {
           }
         }
         if (event.eventType === "ITEM_DROPPED") {
-          if (event.data) {  
+          if (event.data) {
             const tmpMetabotPart = JSON.parse(event.data["item"]) as MetaBotPart;
             const location = JSON.parse(event.data["location"]) as Vector2;
-            object.addItemToScene(tmpMetabotPart, location); 
+            object.addItemToScene(tmpMetabotPart, location);
           }
         }
-        if (event.eventType === "CHAT" && event.data) {  
+        if (event.eventType === "CHAT" && event.data) {
           const content = event.data["content"] ?? '';
           const name = event.data["sender"] ?? "Anon";
-           
+
           const metachat = {
             hero: name,
             content: content,
@@ -812,16 +812,16 @@ export function actionMultiplayerEvents(object: any, metaEvents: MetaEvent[]) {
           //object.chat.unshift(metachat);
           object.displayChatMessage(metachat);
           object.setHeroLatestMessage(object.otherHeroes.find((x: Character) => x.name === name));
-          
+
         }
         if (event.eventType === "WHISPER" && event.data) {
           let breakOut = false;
           const content = event.data["content"] ?? '';
           const senderName = event.data["sender"] ?? "Anon";
-          const receiverName = event.data["receiver"] ?? "Anon"; 
+          const receiverName = event.data["receiver"] ?? "Anon";
           if (receiverName != object.metaHero.name && senderName != object.metaHero.name) {
             breakOut = true;
-          } 
+          }
           if (!breakOut) {
 
             if (senderName === object.metaHero.name || receiverName == object.metaHero.name) {
@@ -833,7 +833,7 @@ export function actionMultiplayerEvents(object: any, metaEvents: MetaEvent[]) {
                 timestamp: new Date()
               } as MetaChat;
               object.displayChatMessage(chatM);
-            } 
+            }
           }
         }
       }
@@ -842,7 +842,7 @@ export function actionMultiplayerEvents(object: any, metaEvents: MetaEvent[]) {
   object.events = metaEvents;
 }
 
- 
+
 export function actionPartyInviteAcceptedEvent(object: any, event: MetaEvent) {
   if (event.data) {
     const partyMembersData = JSON.parse(event.data["party_members"]);
@@ -850,8 +850,8 @@ export function actionPartyInviteAcceptedEvent(object: any, event: MetaEvent) {
     if (partyMembersData) {
       let isMyParty = false;
       let party: any[] = [];
-      for (let memberId of partyMembersData) { 
-        if (!party.find(x => x.heroId === memberId)) { 
+      for (let memberId of partyMembersData) {
+        if (!party.find(x => x.heroId === memberId)) {
           const otherPlayer = object.otherHeroes.find((hero: Character) => hero.id === memberId);
           party.push({ heroId: memberId, name: otherPlayer.name, color: otherPlayer.color });
           if (memberId === object.metaHero.id) {
@@ -876,10 +876,10 @@ export function actionPartyUpEvent(object: any, event: MetaEvent) {
       console.log("found other player", otherPlayer);
       object.isDecidingOnParty = true;
       if (confirm(`Accept party request from ${otherPlayer.name}?`)) {
-        const partyMemberIdsData = JSON.parse(event.data["party_members"]);  
+        const partyMemberIdsData = JSON.parse(event.data["party_members"]);
 
-        for (let memberId of partyMemberIdsData) { 
-          const member = object.otherHeroes.find((x: Character) => x.id === memberId); 
+        for (let memberId of partyMemberIdsData) {
+          const member = object.otherHeroes.find((x: Character) => x.id === memberId);
           object.partyMembers.push({ heroId: memberId, name: member.name, color: member.color });
           console.log("pushing: ", { heroId: memberId, name: member.name, color: member.color });
         }
