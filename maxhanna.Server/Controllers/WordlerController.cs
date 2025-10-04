@@ -203,11 +203,11 @@ namespace maxhanna.Server.Controllers
 
 				// Do not limit to current date here; callers (client) will filter for 'today' when needed.
 				string sql = @"
-                    SELECT ws.id, ws.user_id, ws.score, ws.time, ws.submitted,
-                           u.id as user_id, u.username, ws.difficulty
-                    FROM wordler_scores ws
-                    JOIN users u ON ws.user_id = u.id 
-                    WHERE 1=1 " +
+					SELECT ws.id, ws.user_id, ws.score, ws.time, ws.submitted,
+						   u.id as u_id, u.username as u_username, ws.difficulty
+					FROM wordler_scores ws
+					LEFT JOIN users u ON ws.user_id = u.id 
+					WHERE 1=1 " +
 						(userId != null ? "AND ws.user_id = @UserId " : String.Empty) +
 						"ORDER BY DATE(ws.submitted) desc, ws.difficulty desc, ws.score asc, ws.time asc LIMIT 20;";
 				using (var cmd = new MySqlCommand(sql, conn))
@@ -224,10 +224,20 @@ namespace maxhanna.Server.Controllers
 						{
 							while (await reader.ReadAsync())
 							{
+								// Some legacy scores might reference a missing user row; use defaults when user info is null
+								int uid = 0;
+								string uname = "Anonymous";
+								try {
+									if (!reader.IsDBNull(reader.GetOrdinal("u_id"))) uid = reader.GetInt32("u_id");
+								} catch { uid = 0; }
+								try {
+									if (!reader.IsDBNull(reader.GetOrdinal("u_username"))) uname = reader.GetString("u_username");
+								} catch { uname = "Anonymous"; }
+
 								var tmpuser = new User
 								{
-									Id = reader.GetInt32("user_id"),
-									Username = reader.GetString("username"),
+									Id = uid,
+									Username = uname,
 								};
 
 								scores.Add(new WordlerScore

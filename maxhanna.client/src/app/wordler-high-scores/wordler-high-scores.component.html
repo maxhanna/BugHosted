@@ -32,7 +32,9 @@
                                 <tbody>
                                     <tr *ngFor="let s of group.value; let i = index">
                                         <td>{{ i + 1 }}</td>
-                                        <td>{{ s.user?.username || 'Anonymous' }}</td>
+                                        <td>
+                                            <app-user-tag [user]="s.user" [displayMiniTag]="true" [displayHoverPicture]="true"></app-user-tag>
+                                        </td>
                                         <td>{{ s.score }}</td>
                                         <td>{{ s.time }}</td>
                                         <td>{{ s.submitted ? (s.submitted | timeSince) : '-' }}</td>
