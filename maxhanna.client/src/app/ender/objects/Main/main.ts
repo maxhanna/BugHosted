@@ -7,7 +7,7 @@ import { Input } from "../../helpers/input";
 import { storyFlags } from "../../helpers/story-flags";
 import { Level } from "../Level/level";
 import { SpriteTextStringWithBackdrop } from "../SpriteTextString/sprite-text-string-with-backdrop";
-import { MetaHero } from "../../../../services/datacontracts/meta/meta-hero";
+import { MetaHero } from "../../../../services/datacontracts/ender/meta-hero";
 import { Character } from "../character";
 
 export class Main extends GameObject {
