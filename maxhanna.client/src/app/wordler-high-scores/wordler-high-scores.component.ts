@@ -198,7 +198,7 @@ export class WordlerHighScoresComponent implements OnInit, OnChanges {
 
     openWordler() {
         // prefer inputtedParentRef if provided
-        const pr = this.inputtedParentRef ?? this.parentRef;
+        const pr = this.inputtedParentRef;
         pr?.createComponent('Wordler');
     }
 }
