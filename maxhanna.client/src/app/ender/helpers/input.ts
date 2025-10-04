@@ -10,9 +10,9 @@ export class Input {
   inputKeyPressedTimeout = 140;
   chatSelected = false;
   private _chatInput: HTMLInputElement | null = null;
-  // Added: remembers last horizontal direction for continuous bike motion
-  private lastHorizontalDirection: string = RIGHT;
-  // Added: toggle for auto forward movement (enabled by default for bike)
+  // remembers last direction (defaults to RIGHT)
+  private lastDirection: string = RIGHT;
+  // toggle for auto forward movement (enabled by default for bike)
   autoForward: boolean = true;
   constructor() {
     document.addEventListener("keydown", (e) => {
@@ -46,13 +46,10 @@ export class Input {
 
   update() {
     this.lastKeys = { ... this.keys };
-    // Auto-forward: ensure a horizontal direction is always active when not chatting
+    // Auto-forward: if no directions are held, restore the last known direction
     if (this.autoForward && !this.chatSelected) {
-      const hasHorizontal = this.heldDirections.some(d => d === LEFT || d === RIGHT);
-      if (!hasHorizontal) {
-        // purge any previous horizontal remnants (safety)
-        this.heldDirections = this.heldDirections.filter(d => d !== LEFT && d !== RIGHT);
-        this.heldDirections.unshift(this.lastHorizontalDirection);
+      if (this.heldDirections.length === 0) {
+        this.heldDirections.unshift(this.lastDirection);
       }
     }
   }
@@ -68,18 +65,18 @@ export class Input {
   onArrowPressed(direction: string) {
     //console.log("on arrow pressed " + direction);
     if (document.activeElement != this.chatInput) {
-      // If pressing a horizontal direction, remove any previous horizontal entries so the new one is dominant
-      if (direction === LEFT || direction === RIGHT) {
-        this.heldDirections = this.heldDirections.filter(d => d !== LEFT && d !== RIGHT);
-      } else {
-        // remove any existing occurrences of the same non-horizontal direction
-        this.heldDirections = this.heldDirections.filter(d => d !== direction);
-      }
+      // remove opposite direction on the same axis so the new press is dominant
+      if (direction === LEFT) this.heldDirections = this.heldDirections.filter(d => d !== LEFT && d !== RIGHT);
+      else if (direction === RIGHT) this.heldDirections = this.heldDirections.filter(d => d !== LEFT && d !== RIGHT);
+      else if (direction === UP) this.heldDirections = this.heldDirections.filter(d => d !== UP && d !== DOWN);
+      else if (direction === DOWN) this.heldDirections = this.heldDirections.filter(d => d !== UP && d !== DOWN);
+
+      // remove duplicates of same direction and add to front
+      this.heldDirections = this.heldDirections.filter(d => d !== direction);
       this.heldDirections.unshift(direction);
     }
-    if (direction === LEFT || direction === RIGHT) {
-      this.lastHorizontalDirection = direction;
-    }
+    // remember last direction pressed (any axis)
+    this.lastDirection = direction;
   }
   onArrowReleased(direction: string) {
     const index = this.heldDirections.indexOf(direction);
