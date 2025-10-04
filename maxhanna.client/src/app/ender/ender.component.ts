@@ -367,7 +367,7 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
         const baseY = hero.id == this.metaHero.id ? this.metaHero.position.y : hero.position.y;
         let initialPos = new Vector2(baseX, baseY);
         if (hero.id !== this.metaHero.id) {
-            const spacing = gridCells(2); // 2 grid cells (32px)
+            const spacing = gridCells(4); // 2 grid cells (32px)
             try {
                 const nearby = this.mainScene.level?.children?.filter((c: any) => c && c.constructor && c.constructor.name === 'Hero' && Math.abs(c.position.x - baseX) <= spacing && Math.abs(c.position.y - baseY) <= spacing);
                 if (nearby && nearby.length > 0) {
@@ -375,6 +375,7 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
                     const idx = (hero.id + nearby.length) % offsets.length;
                     const off = offsets[idx];
                     initialPos = new Vector2(baseX + off.x, baseY + off.y);
+                    console.log("counted " + nearby.length);
                 }
             } catch { }
         }
