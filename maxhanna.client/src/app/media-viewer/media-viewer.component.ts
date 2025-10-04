@@ -44,11 +44,8 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
   isEditingFileName = false;
   editingTopics: number[] = [];
   isVideoBuffering = false;
-  debug = true;
-  // in-view confirmation timer: used when `inViewConfirmDelayMs` > 0
-  private inViewTimer: number | null = null;
-  private inViewElapsedMs = 0;
-  private readonly inViewTimerTickMs = 100;
+  debug = false;
+  private inViewConfirmTimer: any = null;
 
   @ViewChild('mediaContainer', { static: false }) mediaContainer!: ElementRef;
   @ViewChild('fullscreenOverlay', { static: false }) fullscreenOverlay!: ElementRef;
@@ -141,28 +138,12 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
       console.log(`[MediaViewerDebug] ${message}`, data || '', this.file, this.fileId);
     }
   }
-
-  private clearInViewTimer() {
-    try {
-      if (this.inViewTimer) {
-        clearInterval(this.inViewTimer);
-      }
-    } catch (e) { }
-    this.inViewTimer = null;
-    this.inViewElapsedMs = 0;
-  }
   onInView(isInView: boolean) {
-    // If a confirm delay is configured and a timer is active but hasn't elapsed yet,
-    // skip processing here — we'll proceed when the timer completes and calls onInView again.
-    if (this.inViewConfirmDelayMs && this.inViewConfirmDelayMs > 0 && this.inViewTimer && this.inViewElapsedMs < this.inViewConfirmDelayMs) {
-      this.debugLog('onInView skipped while in-view confirm timer running', { elapsed: this.inViewElapsedMs, required: this.inViewConfirmDelayMs, isInView });
-      return;
-    }
-    // When the element is in view, immediately ensure a fetch is attempted (forceImmediate)
+    // Simplified logic: if forceInviewLoad is false, always load; if true, load once it first becomes visible.
     if (!this.forceInviewLoad || isInView) {
       if (!this.selectedFileSrc) {
-        this.debugLog('onInView triggering fetchFileSrc (forceImmediate)', { isInView });
-        this.fetchFileSrc(true).then(() => {
+        this.debugLog('onInView triggering fetchFileSrc', { isInView });
+        this.fetchFileSrc().then(() => {
           const urlContainsMedia = window.location.href.includes('/Media');
           const file = this.file ?? this.selectedFile;
           if (urlContainsMedia && (file?.fileName || file?.givenFileName)) {
@@ -173,77 +154,37 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
           }
         });
       }
-    } else {
-      // If we require in-view but it's not in view yet, abort any ongoing fetch and cancel any timer
+    }
+    else {
+      // If we require in-view but it's not in view yet, ensure any ongoing fetch is aborted.
       if (this.abortFileRequestController) {
         this.debugLog('onInView aborting pending fetch (not in view yet)');
         this.abortFileRequestController.abort();
       }
-      // If timer exists and hasn't exceeded the configured delay, cancel it.
-      if (this.inViewTimer != null && this.inViewElapsedMs < this.inViewConfirmDelayMs) {
-        this.debugLog('onInView cancelling in-view timer (went out of view before confirm)', { elapsed: this.inViewElapsedMs, required: this.inViewConfirmDelayMs });
-        clearInterval(this.inViewTimer as number);
-        this.inViewTimer = null;
-        this.inViewElapsedMs = 0;
-      }
     }
-  } 
+  }
 
-  async fetchFileSrc(forceImmediate: boolean = false) {
-    if (this.inViewConfirmDelayMs && this.inViewConfirmDelayMs > 0 && this.inViewTimer && this.inViewElapsedMs < this.inViewConfirmDelayMs) {
-      this.debugLog('fetchFileSrc skipped while in-view confirm timer running', { elapsed: this.inViewElapsedMs, required: this.inViewConfirmDelayMs });
-      return;
+  // Helper method to check if the component's height is sufficient
+  private isComponentHeightSufficient(): boolean {
+    // Retained for compatibility with any external callers; no longer gating load strictly.
+    const mediaContainer = document.getElementById('mediaContainer' + this.fileId);
+    if (mediaContainer) {
+      const containerHeight = mediaContainer.offsetHeight;
+      const windowHeight = window.innerHeight;
+      return containerHeight <= windowHeight;
     }
+    return true;
+  }
+
+  async fetchFileSrc() {
     this.debugLog('fetchFileSrc invoked', { fileId: this.fileId, hasFileObj: !!this.file, fileSrcInput: this.fileSrc, alreadySelectedSrc: !!this.selectedFileSrc });
-    if (forceImmediate && this.inViewTimer) {
-      this.clearInViewTimer();
-    }
     if (this.fileSrc) {
       this.selectedFileSrc = this.fileSrc;
       this.debugLog('fetchFileSrc used direct fileSrc input');
-      this.clearInViewTimer();
       return;
     }
     if (this.selectedFileSrc) return;
     if (!this.autoload) return;
-    // If a confirm delay is configured and caller has not requested an immediate fetch, start a timer
-    // that will re-check visibility before proceeding.
-    if (!forceImmediate && this.inViewConfirmDelayMs && this.inViewConfirmDelayMs > 0) {
-      // If timer already running, leave it.
-      if (!this.inViewTimer) {
-        this.debugLog('fetchFileSrc starting in-view confirm timer', { delay: this.inViewConfirmDelayMs });
-        this.inViewElapsedMs = 0;
-        this.inViewTimer = window.setInterval(() => {
-          this.inViewElapsedMs += this.inViewTimerTickMs;
-          if (this.inViewElapsedMs >= this.inViewConfirmDelayMs) {
-            // Timer complete - clear first
-            if (this.inViewTimer) { clearInterval(this.inViewTimer); this.inViewTimer = null; }
-            try {
-              const el = this.mediaContainer?.nativeElement as HTMLElement | undefined;
-              let stillInView = true;
-              if (el) {
-                const rect = el.getBoundingClientRect();
-                stillInView = rect.top < window.innerHeight && rect.bottom > 0;
-              }
-              // Only proceed if element is still in view and selectedFileName is null (per requirement)
-              if (stillInView && !this.selectedFileName) {
-                this.debugLog('in-view confirm passed; invoking onInView(true)', { elapsed: this.inViewElapsedMs });
-                // Fire onInView as requested; onInView will call fetchFileSrc(true) when appropriate
-                this.onInView(true);
-              } else {
-                this.debugLog('in-view confirm failed or selectedFileName already present; aborting', { stillInView, selectedFileName: this.selectedFileName });
-              }
-            } catch (ex) {
-              this.debugLog('error during in-view confirm check', { error: ex });
-            } finally {
-              this.inViewElapsedMs = 0;
-            }
-          }
-        }, this.inViewTimerTickMs);
-      }
-      // Do not continue with immediate fetch; wait for timer logic to call onInView if appropriate.
-      return;
-    }
     if (this.fileId) {
       this.selectedFile = {
         id: this.fileId,
@@ -288,11 +229,6 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
     if (this.abortFileRequestController) {
       this.abortFileRequestController.abort("Component is destroyed");
     }
-    if (this.inViewTimer) {
-      clearInterval(this.inViewTimer);
-      this.inViewTimer = null;
-      this.inViewElapsedMs = 0;
-    }
     this.selectedFile = undefined;
     this.selectedFileSrc = "";
     this.selectedFileName = "";
@@ -304,11 +240,6 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
         this.abortFileRequestController.abort("Component is destroyed");
       }
     } catch (e) { }
-    if (this.inViewTimer) {
-      clearInterval(this.inViewTimer);
-      this.inViewTimer = null;
-      this.inViewElapsedMs = 0;
-    }
     window.removeEventListener('popstate', this.handleBackButton);
     window.removeEventListener('keydown', this.handleEscapeKey);
   }
@@ -414,12 +345,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
   }
 
   async setFileSrcById(fileId: number) {
-  if (this.selectedFileSrc) { this.debugLog('setFileSrcById early exit (already have selectedFileSrc)'); return; }
-    // If a confirm delay is configured and the timer hasn't yet elapsed, postpone fetching by returning early.
-    if (this.inViewConfirmDelayMs && this.inViewConfirmDelayMs > 0 && this.inViewTimer && this.inViewElapsedMs < this.inViewConfirmDelayMs) {
-      this.debugLog('setFileSrcById postponing fetch until in-view confirm elapsed', { elapsed: this.inViewElapsedMs, required: this.inViewConfirmDelayMs });
-      return;
-    }
+    if (this.selectedFileSrc) { this.debugLog('setFileSrcById early exit (already have selectedFileSrc)'); return; }
     if (this.parentRef && this.parentRef.pictureSrcs && this.parentRef.pictureSrcs.find(x => x.key == fileId + '')) {
       this.showThumbnail = true;
       this.selectedFileSrc = this.parentRef.pictureSrcs.find(x => x.key == fileId + '')!.value;
