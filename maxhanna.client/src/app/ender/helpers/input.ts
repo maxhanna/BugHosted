@@ -10,6 +10,10 @@ export class Input {
   inputKeyPressedTimeout = 140;
   chatSelected = false;
   private _chatInput: HTMLInputElement | null = null;
+  // Added: remembers last horizontal direction for continuous bike motion
+  private lastHorizontalDirection: string = RIGHT;
+  // Added: toggle for auto forward movement (enabled by default for bike)
+  autoForward: boolean = true;
   constructor() {
     document.addEventListener("keydown", (e) => {
       if (e.code != " ") {
@@ -42,6 +46,15 @@ export class Input {
 
   update() {
     this.lastKeys = { ... this.keys };
+    // Auto-forward: ensure a horizontal direction is always active when not chatting
+    if (this.autoForward && !this.chatSelected) {
+      const hasHorizontal = this.heldDirections.some(d => d === LEFT || d === RIGHT);
+      if (!hasHorizontal) {
+        // purge any previous horizontal remnants (safety)
+        this.heldDirections = this.heldDirections.filter(d => d !== LEFT && d !== RIGHT);
+        this.heldDirections.unshift(this.lastHorizontalDirection);
+      }
+    }
   }
 
   getActionJustPressed(keyCode: string) {
@@ -56,6 +69,9 @@ export class Input {
     //console.log("on arrow pressed " + direction);
     if (document.activeElement != this.chatInput && this.heldDirections.indexOf(direction) === -1) {
       this.heldDirections.unshift(direction);
+    }
+    if (direction === LEFT || direction === RIGHT) {
+      this.lastHorizontalDirection = direction;
     }
   }
   onArrowReleased(direction: string) {
