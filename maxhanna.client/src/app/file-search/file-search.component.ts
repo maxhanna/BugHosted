@@ -641,6 +641,8 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     this.selectedSharedFile = file; 
     this.closeOptionsPanel();
     setTimeout(() => {
+      const parent = this.inputtedParentRef ?? this.parentRef;
+      parent?.showOverlay();
       this.showShareUserList = true; 
     }, 100);
   }
