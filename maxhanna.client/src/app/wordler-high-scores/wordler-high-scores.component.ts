@@ -14,6 +14,10 @@ type Mode = 'all' | 'user' | 'today';
     imports: [CommonModule, TimeSincePipe]
 })
 export class WordlerHighScoresComponent implements OnInit, OnChanges {
+    // helper to get object keys from the template without exposing globals
+    keys(obj?: Record<string, any>): string[] {
+        return Object.keys(obj || {});
+    }
     // If provided, component will show top scores for this user when mode === 'user'
     @Input() userId?: number;
     // Accept a single mode or an array of modes. Pass e.g. ['all','user','today'] to show all three sections.

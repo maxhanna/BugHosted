@@ -15,7 +15,7 @@
                     {{ headerTitle ? headerTitle : (m === 'today' ? "Today's Wordler Scores:" : (m === 'user' ? "Your
                     Wordler Scores:" : "All-time Wordler Scores:")) }}
                 </div>
-                <ng-container *ngIf="groupedByMode[m] && (Object.keys(groupedByMode[m]).length > 0); else emptyMode">
+                <ng-container *ngIf="groupedByMode[m] && (keys(groupedByMode[m]).length > 0); else emptyMode">
                     <div *ngFor="let group of groupedByMode[m] | keyvalue: keepOrder" class="difficulty-group">
                         <h4>{{ difficultyLabel(+group.key) }} ({{ group.value?.length || 0 }})</h4>
                         <table class="scores-table">
