@@ -238,7 +238,7 @@ namespace maxhanna.Server.Controllers
                         try
                         {
                             // Fetch hero.created_at, map and level from DB for authoritative run start
-                            string heroSql = @"SELECT created_at, map, level FROM maxhanna.ender_hero WHERE id = @HeroId LIMIT 1;";
+                            string heroSql = @"SELECT created, map, level FROM maxhanna.ender_hero WHERE id = @HeroId LIMIT 1;";
                             using (var getHeroCmd = new MySqlCommand(heroSql, connection, transaction))
                             {
                                 getHeroCmd.Parameters.AddWithValue("@HeroId", req.HeroId);
@@ -246,7 +246,7 @@ namespace maxhanna.Server.Controllers
                                 {
                                     if (await rdr.ReadAsync())
                                     {
-                                        heroCreatedAt = rdr.IsDBNull(rdr.GetOrdinal("created_at")) ? (DateTime?)null : Convert.ToDateTime(rdr["created_at"]).ToUniversalTime();
+                                        heroCreatedAt = rdr.IsDBNull(rdr.GetOrdinal("created")) ? (DateTime?)null : Convert.ToDateTime(rdr["created"]).ToUniversalTime();
                                         heroMap = rdr.IsDBNull(rdr.GetOrdinal("map")) ? null : Convert.ToString(rdr["map"]);
                                         heroLevelFromDb = rdr.IsDBNull(rdr.GetOrdinal("level")) ? 1 : Convert.ToInt32(rdr["level"]);
                                     }
@@ -2019,7 +2019,7 @@ namespace maxhanna.Server.Controllers
         {
             try {
                 // fetch hero info for score & map
-                string selSql = @"SELECT user_id, created_at, map, level FROM maxhanna.ender_hero WHERE id = @HeroId LIMIT 1;";
+                string selSql = @"SELECT user_id, created, map, level FROM maxhanna.ender_hero WHERE id = @HeroId LIMIT 1;";
                 int userId = 0;
                 DateTime? createdAt = null;
                 string map = "";
@@ -2029,7 +2029,7 @@ namespace maxhanna.Server.Controllers
                     using (var rdr = await cmd.ExecuteReaderAsync()) {
                         if (await rdr.ReadAsync()) {
                             userId = rdr.IsDBNull(rdr.GetOrdinal("user_id")) ? 0 : rdr.GetInt32("user_id");
-                            createdAt = rdr.IsDBNull(rdr.GetOrdinal("created_at")) ? (DateTime?)null : Convert.ToDateTime(rdr["created_at"]).ToUniversalTime();
+                            createdAt = rdr.IsDBNull(rdr.GetOrdinal("created")) ? (DateTime?)null : Convert.ToDateTime(rdr["created"]).ToUniversalTime();
                             map = rdr.IsDBNull(rdr.GetOrdinal("map")) ? "" : rdr.GetString("map");
                             heroLevel = rdr.IsDBNull(rdr.GetOrdinal("level")) ? 1 : rdr.GetInt32("level");
                         }
