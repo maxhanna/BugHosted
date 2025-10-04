@@ -496,9 +496,14 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
     }
 
     private async reinitializeHero(rz: MetaHero, skipDataFetch?: boolean) {
+        // choose a random spawn for the local hero to avoid clustering on join
+        const randomRange = 12; // grid cells range
+        const randX = Math.floor(Math.random() * randomRange) + 1; // 1..randomRange
+        const randY = Math.floor(Math.random() * randomRange) + 1;
+        const spawnPos = new Vector2(gridCells(randX), gridCells(randY));
         this.hero = new Hero({
             id: rz.id, name: rz.name ?? "Anon",
-            position: new Vector2(snapToGrid(rz.position.x, 16), snapToGrid(rz.position.y, 16)),
+            position: spawnPos,
             isUserControlled: true,
             speed: rz.speed,
             mask: rz.mask ? new Mask(getMaskNameById(rz.mask)) : undefined,
@@ -521,10 +526,15 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
             //console.log("initialize inv after reinitializeHero");
             await this.reinitializeInventoryData(true);
         }
+        const heroLevel = (rz as any).level ?? 1;
         const level = this.getLevelFromLevelName(rz.map);
-
         if (level) {
-            this.mainScene.setLevel(level);
+            // if it's a HeroRoomLevel, pass heroPosition and heroLevel when constructing
+            if (level instanceof HeroRoomLevel) {
+                this.mainScene.setLevel(new HeroRoomLevel({ heroPosition: this.hero.position.duplicate(), heroLevel }));
+            } else {
+                this.mainScene.setLevel(level);
+            }
         }
 
         if (this.metaHero.metabots) {

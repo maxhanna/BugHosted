@@ -127,8 +127,11 @@ export class CharacterCreate extends Level {
          
         if (storyFlags.contains(CHARACTER_CREATE_STORY_TEXT_8)) {
           setTimeout(() => {
+            // pick a random spawn within a 10x10 grid centered area
+            const randX = Math.floor(Math.random() * 10) + 2; // 2..11
+            const randY = Math.floor(Math.random() * 10) + 2;
             events.emit("CHANGE_LEVEL", new HeroRoomLevel({
-              heroPosition: new Vector2(gridCells(4), gridCells(4))
+              heroPosition: new Vector2(gridCells(randX), gridCells(randY))
             }));
             this.destroy();
           }, 100);
