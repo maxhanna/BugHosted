@@ -79,28 +79,14 @@ export class CharacterCreate extends Level {
         requires: [CHARACTER_CREATE_STORY_TEXT_4],
         addsFlag: CHARACTER_CREATE_STORY_TEXT_5,
       } as Scenario,
-      // Lead‑in to name prompt
       {
-        string: ["ID not registered. Initialization required."],
-        requires: [CHARACTER_CREATE_STORY_TEXT_3],
-        addsFlag: CHARACTER_CREATE_STORY_TEXT_4,
-      } as Scenario,
-      // World intro
-      {
-        string: ["Welcome to the Neon Grid."],
+        string: ["Welcome to the Neon Grid.", "ID not registered. Initialization required."],
         requires: [CHARACTER_CREATE_STORY_TEXT_2],
-        addsFlag: CHARACTER_CREATE_STORY_TEXT_3,
-      } as Scenario,
-      // Referee intro
-      {
-        string: ["Referee online. I enforce fair runs."],
-        requires: [CHARACTER_CREATE_STORY_TEXT_1],
-        addsFlag: CHARACTER_CREATE_STORY_TEXT_2,
-      } as Scenario,
-      // First line
+        addsFlag: CHARACTER_CREATE_STORY_TEXT_4,
+      } as Scenario, 
       {
         string: ["...Booting consciousness... signal locked."] ,
-        addsFlag: CHARACTER_CREATE_STORY_TEXT_1,
+        addsFlag: CHARACTER_CREATE_STORY_TEXT_2,
       } as Scenario
     ];
     this.addChild(this.referee);
@@ -147,12 +133,11 @@ export class CharacterCreate extends Level {
             this.destroy();
           }, 100);
           return;
-        } else if (storyFlags.contains(CHARACTER_CREATE_STORY_TEXT_3)) {
+        } else if (storyFlags.contains(CHARACTER_CREATE_STORY_TEXT_4)) {
           const sts = new SpriteTextString(  
             `Enter your name in the chat input, then press ${!this.onMobile() ? 'Enter or ' : ''}the A Button to confirm`, new Vector2(10, 10)
           );
-          this.addChild(sts); 
-          storyFlags.add(CHARACTER_CREATE_STORY_TEXT_4);
+          this.addChild(sts);
         }
         const content = this.referee.getContent();
         if (content) {
@@ -223,7 +208,7 @@ export class CharacterCreate extends Level {
       chatInput.value = "";
       // Only force-hide the chat input (display: none) if the
       // CHARACTER_CREATE_STORY_TEXT_4 flag has NOT yet been earned.
-      if (!storyFlags.contains(CHARACTER_CREATE_STORY_TEXT_3)) {
+      if (!storyFlags.contains(CHARACTER_CREATE_STORY_TEXT_4)) {
         chatInput.style.setProperty('display', 'none', 'important');
       } else {
         // If the flag is already present, ensure the input is visible.
