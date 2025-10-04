@@ -1917,6 +1917,62 @@ namespace maxhanna.Server.Controllers
                         {"@Y", y }
                     };
                     await ExecuteInsertOrUpdateOrDeleteAsync(sql, parameters, connection, transaction);
+
+                    // After persisting the wall, check for heroes on the same map and same level within 1 grid cell (16px)
+                    try {
+                        int proximity = 16; // pixels (one grid cell)
+                        // Determine the level of the wall's creator (if possible)
+                        int creatorLevel = 1;
+                        try {
+                            string lvlSql = @"SELECT level FROM maxhanna.ender_hero WHERE id = @HeroId LIMIT 1;";
+                            using (var lvlCmd = new MySqlCommand(lvlSql, connection, transaction)) {
+                                lvlCmd.Parameters.AddWithValue("@HeroId", metaEvent.HeroId);
+                                var lvlObj = await lvlCmd.ExecuteScalarAsync();
+                                if (lvlObj != null && lvlObj != DBNull.Value) creatorLevel = Convert.ToInt32(lvlObj);
+                            }
+                        } catch { /* ignore and default to 1 */ }
+
+                        int xmin = x - proximity;
+                        int xmax = x + proximity;
+                        int ymin = y - proximity;
+                        int ymax = y + proximity;
+
+                        string nearbySql = @"SELECT id FROM maxhanna.ender_hero WHERE map = @Map AND level = @Level AND coordsX BETWEEN @Xmin AND @Xmax AND coordsY BETWEEN @Ymin AND @Ymax;";
+                        using (var nbCmd = new MySqlCommand(nearbySql, connection, transaction)) {
+                            nbCmd.Parameters.AddWithValue("@Map", metaEvent.Map);
+                            nbCmd.Parameters.AddWithValue("@Level", creatorLevel);
+                            nbCmd.Parameters.AddWithValue("@Xmin", xmin);
+                            nbCmd.Parameters.AddWithValue("@Xmax", xmax);
+                            nbCmd.Parameters.AddWithValue("@Ymin", ymin);
+                            nbCmd.Parameters.AddWithValue("@Ymax", ymax);
+                            using (var rdr = await nbCmd.ExecuteReaderAsync()) {
+                                var toKill = new List<int>();
+                                while (await rdr.ReadAsync()) {
+                                    var hid = Convert.ToInt32(rdr[0]);
+                                    // skip the wall creator
+                                    if (hid == metaEvent.HeroId) continue;
+                                    toKill.Add(hid);
+                                }
+                                // reader must be closed before executing other commands
+                                rdr.Close();
+
+                                foreach (var victimId in toKill) {
+                                    try {
+                                        await KillHeroById(victimId, connection, transaction);
+                                        // optionally publish an event so clients can react immediately
+                                        try {
+                                            var deathEvent = new DataContracts.Ender.MetaEvent(0, victimId, DateTime.UtcNow, "HERO_DIED", metaEvent.Map ?? "", new Dictionary<string, string>() { { "cause", "BIKE_WALL" }, { "x", x.ToString() }, { "y", y.ToString() } });
+                                            await UpdateEventsInDB(deathEvent, connection, transaction);
+                                        } catch { }
+                                    } catch (Exception ex) {
+                                        _ = _log.Db("Failed to kill hero " + victimId + ": " + ex.Message, null, "ENDER", true);
+                                    }
+                                }
+                            }
+                        }
+                    } catch (Exception ex) {
+                        _ = _log.Db("Error checking nearby heroes for SPAWN_BIKE_WALL: " + ex.Message, null, "ENDER", true);
+                    }
                 }
             }
         }
@@ -1955,6 +2011,70 @@ namespace maxhanna.Server.Controllers
                 // Cancel DPS for both source and target
                 activeLocks[lockKey].Cancel();
                 activeLocks.Remove(lockKey);
+            }
+        }
+
+        // Authoritative kill helper used by server-side checks (does not rely on client-supplied time/walls)
+        private async Task KillHeroById(int heroId, MySqlConnection connection, MySqlTransaction transaction)
+        {
+            try {
+                // fetch hero info for score & map
+                string selSql = @"SELECT user_id, created_at, map, level FROM maxhanna.ender_hero WHERE id = @HeroId LIMIT 1;";
+                int userId = 0;
+                DateTime? createdAt = null;
+                string map = "";
+                int heroLevel = 1;
+                using (var cmd = new MySqlCommand(selSql, connection, transaction)) {
+                    cmd.Parameters.AddWithValue("@HeroId", heroId);
+                    using (var rdr = await cmd.ExecuteReaderAsync()) {
+                        if (await rdr.ReadAsync()) {
+                            userId = rdr.IsDBNull(rdr.GetOrdinal("user_id")) ? 0 : rdr.GetInt32("user_id");
+                            createdAt = rdr.IsDBNull(rdr.GetOrdinal("created_at")) ? (DateTime?)null : Convert.ToDateTime(rdr["created_at"]).ToUniversalTime();
+                            map = rdr.IsDBNull(rdr.GetOrdinal("map")) ? "" : rdr.GetString("map");
+                            heroLevel = rdr.IsDBNull(rdr.GetOrdinal("level")) ? 1 : rdr.GetInt32("level");
+                        }
+                    }
+                }
+
+                // compute time on level from createdAt
+                int timeOnLevelSeconds = 0;
+                if (createdAt != null) {
+                    timeOnLevelSeconds = Math.Max(0, (int)Math.Floor((DateTime.UtcNow - createdAt.Value).TotalSeconds));
+                }
+
+                // count walls persisted for this hero
+                int wallsPlaced = 0;
+                try {
+                    string countSql = @"SELECT COUNT(*) FROM maxhanna.ender_bike_wall WHERE hero_id = @HeroId";
+                    using (var countCmd = new MySqlCommand(countSql, connection, transaction)) {
+                        countCmd.Parameters.AddWithValue("@HeroId", heroId);
+                        var cnt = await countCmd.ExecuteScalarAsync();
+                        wallsPlaced = Convert.ToInt32(cnt);
+                    }
+                } catch { }
+
+                int score = timeOnLevelSeconds + (wallsPlaced * 10);
+
+                // record top score
+                string insertScoreSql = @"INSERT INTO maxhanna.ender_top_scores (hero_id, user_id, score, time_on_level_seconds, walls_placed, level, created_at) VALUES (@HeroId, @UserId, @Score, @TimeOnLevel, @WallsPlaced, @Level, NOW());";
+                await ExecuteInsertOrUpdateOrDeleteAsync(insertScoreSql, new Dictionary<string, object?>() {
+                    { "@HeroId", heroId },
+                    { "@UserId", userId },
+                    { "@Score", score },
+                    { "@TimeOnLevel", timeOnLevelSeconds },
+                    { "@WallsPlaced", wallsPlaced },
+                    { "@Level", heroLevel }
+                }, connection, transaction);
+
+                // remove hero data
+                await ExecuteInsertOrUpdateOrDeleteAsync("DELETE FROM maxhanna.ender_hero_inventory WHERE ender_hero_id = @HeroId;", new Dictionary<string, object?>() { { "@HeroId", heroId } }, connection, transaction);
+                await ExecuteInsertOrUpdateOrDeleteAsync("DELETE FROM maxhanna.ender_bot WHERE hero_id = @HeroId;", new Dictionary<string, object?>() { { "@HeroId", heroId } }, connection, transaction);
+                await ExecuteInsertOrUpdateOrDeleteAsync("DELETE FROM maxhanna.ender_event WHERE hero_id = @HeroId;", new Dictionary<string, object?>() { { "@HeroId", heroId } }, connection, transaction);
+                await ExecuteInsertOrUpdateOrDeleteAsync("DELETE FROM maxhanna.ender_bike_wall WHERE hero_id = @HeroId;", new Dictionary<string, object?>() { { "@HeroId", heroId } }, connection, transaction);
+                await ExecuteInsertOrUpdateOrDeleteAsync("DELETE FROM maxhanna.ender_hero WHERE id = @HeroId LIMIT 1;", new Dictionary<string, object?>() { { "@HeroId", heroId } }, connection, transaction);
+            } catch (Exception ex) {
+                _ = _log.Db("KillHeroById failed: " + ex.Message, null, "ENDER", true);
+                throw;
             }
         }
 
