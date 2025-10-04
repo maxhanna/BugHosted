@@ -451,7 +451,12 @@ namespace maxhanna.Server.Controllers
                 {
                     try
                     {
-                        string sql = @"SELECT id, hero_id, user_id, score, time_on_level_seconds, walls_placed, created_at FROM maxhanna.ender_top_scores ORDER BY score DESC LIMIT @Limit;";
+                        string sql = @"SELECT t.id, t.hero_id, t.user_id, t.score, t.time_on_level_seconds, t.walls_placed, t.created_at,
+                                       u.id as user_id_fk, u.username, u.created as user_created, udp.file_id as display_picture_file_id
+                                       FROM maxhanna.ender_top_scores t
+                                       LEFT JOIN users u ON u.id = t.user_id
+                                       LEFT JOIN user_display_pictures udp ON u.id = udp.user_id
+                                       ORDER BY t.score DESC LIMIT @Limit;";
                         var result = new List<Dictionary<string, object?>>();
                         using (var command = new MySqlCommand(sql, connection, transaction))
                         {
@@ -463,11 +468,97 @@ namespace maxhanna.Server.Controllers
                                     var row = new Dictionary<string, object?>();
                                     row["id"] = reader.GetInt32("id");
                                     row["hero_id"] = reader.GetInt32("hero_id");
-                                    row["user_id"] = reader.GetInt32("user_id");
+                                    row["user_id"] = reader.IsDBNull(reader.GetOrdinal("user_id")) ? 0 : reader.GetInt32("user_id");
                                     row["score"] = reader.GetInt32("score");
                                     row["time_on_level_seconds"] = reader.IsDBNull(reader.GetOrdinal("time_on_level_seconds")) ? 0 : reader.GetInt32("time_on_level_seconds");
                                     row["walls_placed"] = reader.IsDBNull(reader.GetOrdinal("walls_placed")) ? 0 : reader.GetInt32("walls_placed");
                                     row["created_at"] = reader.GetDateTime("created_at");
+
+                                    if (!reader.IsDBNull(reader.GetOrdinal("user_id_fk")))
+                                    {
+                                        // Construct a typed User object like WordlerController does
+                                        var tmpUser = new User();
+                                        tmpUser.Id = reader.GetInt32("user_id_fk");
+                                        tmpUser.Username = reader.IsDBNull(reader.GetOrdinal("username")) ? null : reader.GetString("username");
+                                        tmpUser.Created = reader.IsDBNull(reader.GetOrdinal("user_created")) ? (DateTime?)null : reader.GetDateTime("user_created");
+                                        try {
+                                            if (!reader.IsDBNull(reader.GetOrdinal("display_picture_file_id")))
+                                            {
+                                                var fileId = reader.GetInt32("display_picture_file_id");
+                                                tmpUser.DisplayPictureFile = new FileEntry(fileId);
+                                            }
+                                        } catch { }
+                                        row["user"] = tmpUser;
+                                    }
+
+                                    result.Add(row);
+                                }
+                            }
+                        }
+                        await transaction.CommitAsync();
+                        return Ok(result);
+                    }
+                    catch (Exception ex)
+                    {
+                        await transaction.RollbackAsync();
+                        return StatusCode(500, "Internal server error: " + ex.Message);
+                    }
+                }
+            }
+        }
+
+        [HttpPost("/Ender/TopScoresToday", Name = "Ender_TopScoresToday")]
+        public async Task<IActionResult> TopScoresToday([FromBody] int limit)
+        {
+            if (limit <= 0) limit = 50;
+            using (var connection = new MySqlConnection(_connectionString))
+            {
+                await connection.OpenAsync();
+                using (var transaction = connection.BeginTransaction())
+                {
+                    try
+                    {
+                        // Use UTC dates to match stored created_at
+                        string sql = @"SELECT t.id, t.hero_id, t.user_id, t.score, t.time_on_level_seconds, t.walls_placed, t.created_at,
+                                       u.id as user_id_fk, u.username, u.created as user_created, udp.file_id as display_picture_file_id
+                                       FROM maxhanna.ender_top_scores t
+                                       LEFT JOIN users u ON u.id = t.user_id
+                                       LEFT JOIN user_display_pictures udp ON u.id = udp.user_id
+                                       WHERE DATE(t.created_at) = DATE(UTC_TIMESTAMP())
+                                       ORDER BY t.score DESC LIMIT @Limit;";
+                        var result = new List<Dictionary<string, object?>>();
+                        using (var command = new MySqlCommand(sql, connection, transaction))
+                        {
+                            command.Parameters.AddWithValue("@Limit", limit);
+                            using (var reader = await command.ExecuteReaderAsync())
+                            {
+                                while (await reader.ReadAsync())
+                                {
+                                    var row = new Dictionary<string, object?>();
+                                    row["id"] = reader.GetInt32("id");
+                                    row["hero_id"] = reader.GetInt32("hero_id");
+                                    row["user_id"] = reader.IsDBNull(reader.GetOrdinal("user_id")) ? 0 : reader.GetInt32("user_id");
+                                    row["score"] = reader.GetInt32("score");
+                                    row["time_on_level_seconds"] = reader.IsDBNull(reader.GetOrdinal("time_on_level_seconds")) ? 0 : reader.GetInt32("time_on_level_seconds");
+                                    row["walls_placed"] = reader.IsDBNull(reader.GetOrdinal("walls_placed")) ? 0 : reader.GetInt32("walls_placed");
+                                    row["created_at"] = reader.GetDateTime("created_at");
+
+                                    if (!reader.IsDBNull(reader.GetOrdinal("user_id_fk")))
+                                    {
+                                        var userObj = new Dictionary<string, object?>();
+                                        userObj["id"] = reader.GetInt32("user_id_fk");
+                                        userObj["username"] = reader.IsDBNull(reader.GetOrdinal("username")) ? null : reader.GetString("username");
+                                        userObj["created"] = reader.IsDBNull(reader.GetOrdinal("user_created")) ? null : reader.GetDateTime("user_created");
+                                        try {
+                                            if (!reader.IsDBNull(reader.GetOrdinal("display_picture_file_id")))
+                                            {
+                                                var fileId = reader.GetInt32("display_picture_file_id");
+                                                userObj["displayPictureFile"] = new FileEntry(fileId);
+                                            }
+                                        } catch { }
+                                        row["user"] = userObj;
+                                    }
+
                                     result.Add(row);
                                 }
                             }
@@ -495,7 +586,13 @@ namespace maxhanna.Server.Controllers
                 {
                     try
                     {
-                        string sql = @"SELECT id, hero_id, user_id, score, time_on_level_seconds, walls_placed, created_at FROM maxhanna.ender_top_scores WHERE user_id = @UserId ORDER BY score DESC LIMIT 200;";
+                        string sql = @"SELECT t.id, t.hero_id, t.user_id, t.score, t.time_on_level_seconds, t.walls_placed, t.created_at,
+                                       u.id as user_id_fk, u.username, u.created as user_created, udp.file_id as display_picture_file_id
+                                       FROM maxhanna.ender_top_scores t
+                                       LEFT JOIN users u ON u.id = t.user_id
+                                       LEFT JOIN user_display_pictures udp ON u.id = udp.user_id
+                                       WHERE t.user_id = @UserId
+                                       ORDER BY t.score DESC LIMIT 200;";
                         var result = new List<Dictionary<string, object?>>();
                         using (var command = new MySqlCommand(sql, connection, transaction))
                         {
@@ -507,11 +604,28 @@ namespace maxhanna.Server.Controllers
                                     var row = new Dictionary<string, object?>();
                                     row["id"] = reader.GetInt32("id");
                                     row["hero_id"] = reader.GetInt32("hero_id");
-                                    row["user_id"] = reader.GetInt32("user_id");
+                                    row["user_id"] = reader.IsDBNull(reader.GetOrdinal("user_id")) ? 0 : reader.GetInt32("user_id");
                                     row["score"] = reader.GetInt32("score");
                                     row["time_on_level_seconds"] = reader.IsDBNull(reader.GetOrdinal("time_on_level_seconds")) ? 0 : reader.GetInt32("time_on_level_seconds");
                                     row["walls_placed"] = reader.IsDBNull(reader.GetOrdinal("walls_placed")) ? 0 : reader.GetInt32("walls_placed");
                                     row["created_at"] = reader.GetDateTime("created_at");
+
+                                    if (!reader.IsDBNull(reader.GetOrdinal("user_id_fk")))
+                                    {
+                                        var userObj = new Dictionary<string, object?>();
+                                        userObj["id"] = reader.GetInt32("user_id_fk");
+                                        userObj["username"] = reader.IsDBNull(reader.GetOrdinal("username")) ? null : reader.GetString("username");
+                                        userObj["created"] = reader.IsDBNull(reader.GetOrdinal("user_created")) ? null : reader.GetDateTime("user_created");
+                                        try {
+                                            if (!reader.IsDBNull(reader.GetOrdinal("display_picture_file_id")))
+                                            {
+                                                var fileId = reader.GetInt32("display_picture_file_id");
+                                                userObj["displayPictureFile"] = new FileEntry(fileId);
+                                            }
+                                        } catch { }
+                                        row["user"] = userObj;
+                                    }
+
                                     result.Add(row);
                                 }
                             }

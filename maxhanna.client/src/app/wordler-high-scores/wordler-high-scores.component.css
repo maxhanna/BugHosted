@@ -1,11 +1,6 @@
-/* Styles for Wordler High Scores component */
 .clickable { cursor: pointer; }
 
 .difficulty-group h4 { margin: 8px 0; }
-.clickable { cursor: pointer; }
-
-.difficulty-group h4 { margin: 8px 0; }
-.scores-table { /* kept for compatibility but styles come from global .mainTable */ }
 
 .userPopupPanelTitle {
     display: flex;
