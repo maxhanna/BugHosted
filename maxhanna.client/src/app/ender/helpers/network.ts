@@ -529,14 +529,11 @@ export function subscribeToMainGameEvents(object: any) {
       const y = params.y;
       const heroes = object.mainScene.level.children.filter((c: any) => c && c.constructor && c.constructor.name === 'Hero');
       for (const h of heroes) {
-        try {
-          if (!h || h.hp === undefined) continue;
-          // only affect alive heroes
-          if (h.hp <= 0) continue;
-              if (h.position && isNearBikeWall(object.mainScene.level, h.position, gridCells(1))) {
-                  try { events.emit("HERO_DIED", h); } catch (e) { console.error("Error emitting HERO_DIED for hero:", e); }
-                }
-        } catch (e) { /* per-hero safety */ }
+       
+            if (h.position && isNearBikeWall(object.mainScene.level, h.position, gridCells(1))) {
+              events.emit("HERO_DIED", h); 
+            }
+        
       }
     } catch (e) {
       console.error("BIKEWALL_CREATED handler failed", e);
