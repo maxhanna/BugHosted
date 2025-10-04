@@ -16,3 +16,9 @@
 	cursor: pointer;
 	text-decoration: underline;
 }
+
+/* limit the height of score lists so they never exceed 30vh and become scrollable */
+.difficulty-group {
+	max-height: 30vh;
+	overflow: auto;
+}
