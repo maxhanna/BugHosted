@@ -1,0 +1,52 @@
+
+
+<div class="wordler-high-scores">
+	<div *ngIf="loading">Loading scores...</div>
+	<div *ngIf="error" class="error">{{ error }}</div>
+
+		<div *ngIf="!loading && !error">
+			<div class="mode-note">Modes: {{ modesSelected.join(', ') }}<span *ngIf="modesSelected.includes('user') && userId"> — userId: {{ userId }}</span></div>
+
+			<ng-container *ngIf="modesSelected.length; else noScores">
+								<div *ngFor="let m of modesSelected" class="mode-section">
+										<h3 *ngIf="showHeader" class="popupPanelTitle cursorPointerUnderlined"
+											[style.marginTop]="'15px'"
+											(click)="headerClickable ? headerClick.emit(headerClickTarget ?? 'Wordler') : null">
+											{{ headerTitle ? headerTitle : (m === 'today' ? "Today's Wordler Scores:" : (m === 'user' ? "Your Wordler Scores:" : "All-time Wordler Scores:")) }}
+										</h3>
+					<ng-container *ngIf="groupedByMode[m] && (Object.keys(groupedByMode[m]).length > 0); else emptyMode">
+						<div *ngFor="let group of groupedByMode[m] | keyvalue: keepOrder" class="difficulty-group">
+							<h4>{{ difficultyLabel(+group.key) }} ({{ group.value?.length || 0 }})</h4>
+							<table class="scores-table">
+								<thead>
+									<tr>
+										<th>#</th>
+										<th>User</th>
+										<th>Score</th>
+										<th>Time (s)</th>
+										<th>Date</th>
+									</tr>
+								</thead>
+								<tbody>
+									<tr *ngFor="let s of group.value; let i = index">
+										<td>{{ i + 1 }}</td>
+										<td>{{ s.user?.username || 'Anonymous' }}</td>
+										<td>{{ s.score }}</td>
+										<td>{{ s.time }}</td>
+										<td>{{ s.submitted ? (s.submitted | date:'short') : '-' }}</td>
+									</tr>
+								</tbody>
+							</table>
+						</div>
+					</ng-container>
+					<ng-template #emptyMode>
+						<div class="no-scores">No scores to show for {{ m }}.</div>
+					</ng-template>
+				</div>
+			</ng-container>
+
+		<ng-template #noScores>
+			<div class="no-scores">No scores to show.</div>
+		</ng-template>
+	</div>
+</div>

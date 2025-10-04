@@ -195,35 +195,8 @@
   <!-- LATEST ENDER SCORES (TODAY) -->
   <app-ender-high-scores *ngIf="true" [parentRef]="parentRef" [showBestScoresToday]="true" [limit]="10"></app-ender-high-scores>
         <!-- LATEST WORDLER SCORES -->
-        <div *ngIf="wordlerHighScores && wordlerHighScores.length > 0">
-          <div class="popupPanelTitle cursorPointerUnderlined" style="margin-top: 15px;"
-            (click)="parentRef?.createComponent('Wordler')">Today's Wordler Scores:</div>
-          <table *ngIf="wordlerHighScores && wordlerHighScores.length > 0" class="mainTable scoreTable" id="scoreTable">
-            <thead>
-              <tr style="font-size:xx-small">
-                <th (click)="sortTable(0, 'scoreTable')">User</th>
-                <th (click)="sortTable(1, 'scoreTable')">Attempts</th>
-                <th (click)="sortTable(2, 'scoreTable')">Time</th>
-                <th (click)="sortTable(3, 'scoreTable')">Difficulty</th>
-                <th (click)="sortTable(4, 'scoreTable')">Submitted</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr *ngFor="let score of wordlerHighScores">
-                <td (click)="viewProfile(score.user, 'Wordler')">
-                  <app-user-tag [userId]="score.user.id" [inputtedParentRef]="parentRef" [displayHoverPicture]="true"
-                    [displayMiniTag]="true" [previousComponent]="'Wordler'"></app-user-tag>
-                </td>
-                <td>{{score.score}}</td>
-                <td>{{score.time | timeFormat:'minify'}}</td>
-                <td>{{score.difficulty == 4 ? 'Easy' : score.difficulty == 5 ? 'Medium' : score.difficulty == 6 ? 'Hard'
-                  :
-                  'Master Wordler'}}</td>
-                <td [title]="score.submitted">{{score.submitted | timeSince }}</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
+  <!-- Reusable Wordler high-scores component renders its own titles; no local wordlerHighScores required -->
+  <app-wordler-high-scores [mode]="'today'" [headerClickable]="true" (headerClick)="parentRef?.createComponent('Wordler')"></app-wordler-high-scores>
       </div>
     </div>
 

@@ -88,6 +88,7 @@ import { RatingsComponent } from './ratings/ratings.component';
 import { EnderComponent } from './ender/ender.component';
 import { EnderHighScoresComponent } from './ender-high-scores/ender-high-scores.component';
 import { CryptoTopTradersComponent } from './crypto-top-traders/crypto-top-traders.component';
+import { WordlerHighScoresComponent } from './wordler-high-scores/wordler-high-scores.component';
 
 @NgModule({
   declarations: [
@@ -175,7 +176,8 @@ import { CryptoTopTradersComponent } from './crypto-top-traders/crypto-top-trade
     CryptoFearAndGreedComponent,
     CurrencySymbolPipe, 
     DecodeHtmlPipe,
-    CryptoGlobalStatsComponent],
+  CryptoGlobalStatsComponent,
+  WordlerHighScoresComponent],
   exports: [
     InViewDirective, 
     TimeFormatPipe,

@@ -104,32 +104,9 @@
     <div *ngIf="definition">
       {{wordToGuess}}: {{definition}}
     </div>
-    <span class="mainTableTitle">Today's Scoreboard:</span>
-    <table *ngIf="scores && scores.length > 0" class="mainTable scoreTable" id="scoreTable">
-      <thead>
-        <tr>
-          <th (click)="sortTable(0, 'scoreTable')">User</th>
-          <th (click)="sortTable(1, 'scoreTable')">Attempts</th>
-          <th (click)="sortTable(2, 'scoreTable')">Time</th>
-          <th (click)="sortTable(3, 'scoreTable')">Difficulty</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr *ngFor="let score of scores">
-          <td (click)="viewProfile(score.user, 'Wordler')"> 
-            <app-user-tag [userId]="score.user.id" [inputtedParentRef]="parentRef" [displayMiniTag]="true"
-              [displayHoverPicture]="true"
-              [previousComponent]="'Wordler'"></app-user-tag> 
-          </td>
-          <td>{{score.score}}</td>
-          <td>{{score.time | timeFormat:'minify'}}</td>
-          <td>{{score.difficulty == 4 ? 'Easy Difficulty' : score.difficulty == 5 ? 'Medium Difficulty' : score.difficulty == 6 ? 'Hard Difficulty' : 'Master Wordler'}}</td>
-        </tr>
-      </tbody>
-    </table>
-    <div *ngIf="!scores || scores.length == 0">
-      None has beat the Wordler today!
-    </div> 
+
+    <!-- Reuse the Wordler High Scores component to show today's scoreboard and the current user's best scores -->
+  <app-wordler-high-scores [mode]="['today','user']" [userId]="parentRef?.user?.id" [headerClickable]="true"></app-wordler-high-scores>
   </div>
 </div>
 
