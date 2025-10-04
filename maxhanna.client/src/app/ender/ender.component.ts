@@ -122,12 +122,12 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
 
             // wait for fire animation to finish (same duration as Bot destroy uses ~1100ms)
             setTimeout(() => {
-                try {
-                    alert('You died. The page will now reload.');
-                } finally {
-                    window.location.reload();
-                }
-            }, 1200);
+                        try {
+                            alert('You died. The game will now reload.');
+                        } finally {
+                            window.location.href = 'https://bughosted.com/Ender';
+                        }
+                    }, 1200);
         }
 
 
