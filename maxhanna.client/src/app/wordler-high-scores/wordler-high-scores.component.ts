@@ -30,6 +30,7 @@ export class WordlerHighScoresComponent implements OnInit, OnChanges {
     @Output() headerClick = new EventEmitter<string | null>();
     @Input() showUserHeader: boolean = false;
     @Input() showHeaderTitles: boolean = true;
+    @Input() headersCollapsed: boolean = false;
     @Input() inputtedParentRef?: any;
 
     // not used for multi-mode output; per-mode mappings are stored in groupedByMode
@@ -74,12 +75,18 @@ export class WordlerHighScoresComponent implements OnInit, OnChanges {
     }
 
     ngOnInit(): void {
+        // apply initial collapsed state (before data loads) so UI renders collapsed if requested
+        this.applyHeadersCollapsed();
         this.refresh();
     }
 
     ngOnChanges(changes: SimpleChanges): void {
         if (changes['userId'] || changes['mode']) {
             this.refresh();
+        }
+        // if headersCollapsed or mode changed, ensure collapsed state follows the input
+        if (changes['headersCollapsed'] || changes['mode']) {
+            this.applyHeadersCollapsed();
         }
     }
 
@@ -150,6 +157,24 @@ export class WordlerHighScoresComponent implements OnInit, OnChanges {
             this.error = e?.message ?? String(e);
         } finally {
             this.loading = false;
+            // If headersCollapsed requested, collapse group-level entries as well after data loads
+            if (this.headersCollapsed) {
+                for (const m of this.modesSelected) {
+                    this.collapsedModes[m] = true;
+                    const groups = this.groupedByMode[m] || {};
+                    for (const g of Object.keys(groups)) {
+                        this.collapsedGroups[`${m}-${g}`] = true;
+                    }
+                }
+            }
+        }
+    }
+
+    private applyHeadersCollapsed() {
+        if (this.headersCollapsed) {
+            for (const m of this.modesSelected) {
+                this.collapsedModes[m] = true;
+            }
         }
     }
 
