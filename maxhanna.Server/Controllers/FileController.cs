@@ -1656,6 +1656,7 @@ LIMIT
 					var conflictingFile = await GetConflictingFile(userId ?? 0, file, uploadDirectory, isPublic);
 					if (conflictingFile != null)
 					{
+						conflictingFile.IsDuplicate = true; // flag for frontend UI
 						_ = _log.Db($"Cannot upload duplicate files. {conflictingFile.FileName}", userId, "FILE", true);
 						uploaded.Add(conflictingFile);
 						conflicts++;

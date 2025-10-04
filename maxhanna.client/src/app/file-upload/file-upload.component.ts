@@ -34,6 +34,7 @@ export class FileUploadComponent implements OnDestroy {
   showMakeDirectoryPrompt = false;
   uploadFileList: Array<File> = [];
   uploadedFileList: FileEntry[] = [];
+  duplicateFileNames: string[] = [];
   uploadProgress: { [key: string]: number } = {};
   isUploading: boolean = false;
   displayListContainer = false;
@@ -174,10 +175,18 @@ export class FileUploadComponent implements OnDestroy {
   }
 
   private handleUploadedFile(event: any, filesArray: File[]) {
-    const parsedFile = (JSON.parse(event.body) as FileEntry[])[0];
-    this.uploadedFileList.push(parsedFile);
+    const parsedFiles = (JSON.parse(event.body) as FileEntry[]);
+    // API returns an array but we subscribe per original file; take first match for progress association
+    if (parsedFiles && parsedFiles.length > 0) {
+      const first = parsedFiles[0];
+      this.uploadedFileList.push(first);
+      if (first.isDuplicate) {
+        this.duplicateFileNames.push(first.fileName || first.givenFileName || '');
+      }
+    }
     if (this.fileUploadTopics.length > 0) {
-      const tmpFileEntry = new FileEntry(parsedFile.id);
+      const id = parsedFiles && parsedFiles.length > 0 ? parsedFiles[0].id : 0;
+      const tmpFileEntry = new FileEntry(id);
       this.fileService.editTopics(this.inputtedParentRef?.user ?? new User(0, "Anonymous"), tmpFileEntry, this.fileUploadTopics);
     }
     this.lastFileUploadedCheck(filesArray, this.uploadedFileList.length);
@@ -197,6 +206,10 @@ export class FileUploadComponent implements OnDestroy {
       this.userUploadFinishedEvent.emit(this.uploadedFileList);
       this.userNotificationEvent.emit(`Finished uploading ${this.uploadedFileList.length} files.`);
 
+      if (this.duplicateFileNames.length > 0) {
+        this.userNotificationEvent.emit(`Skipped duplicates: ${this.duplicateFileNames.join(', ')}`);
+      }
+
       this.uploadProgress = {};
       this.isUploading = false;
       this.uploadFileList = [];
@@ -205,6 +218,7 @@ export class FileUploadComponent implements OnDestroy {
       this.displayListContainer = false;
 
       this.fileUploadTopics = [];
+  this.duplicateFileNames = [];
       if (this.inputtedParentRef) {
         this.inputtedParentRef.closeOverlay();
       }

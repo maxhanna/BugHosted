@@ -55,6 +55,9 @@
         <span class="progressText">
           {{uploadProgress[file.name] === 100 ? '✅' : (uploadProgress[file.name] || 0) + '%'}}
         </span>
+        <span *ngIf="uploadedFileList[i]?.isDuplicate" class="duplicateBadge" title="Duplicate file - existing file kept">
+          DUPLICATE
+        </span>
         <span *ngIf="(!uploadProgress[file.name] || uploadProgress[file.name] == 0)" class="removeFileButton"
           (click)="removeFile(file)" title="Remove file"></span>
       </div>

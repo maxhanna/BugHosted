@@ -25,11 +25,13 @@ export class FileEntry {
   topics?: Array<Topic>;
   favouriteCount?: number;
   isFavourited?: boolean;
+  // Indicates the upload attempt resulted in an existing server-side file match
+  isDuplicate?: boolean;
     
   constructor(id: number, fileName?: string, directory?: string, visibility?: string, sharedWith?: string,
     user?: User, isFolder?: boolean, comments?: Array<FileComment>, date?: Date,
     fileSize?: number, fileType?: string, reactions?: Array<Reaction>, lastUpdated?: Date, lastUpdatedBy?: User, givenFileName?: string,
-     width?: number, height?: number, lastAccess?: Date, accessCount?: number,) {
+  width?: number, height?: number, lastAccess?: Date, accessCount?: number, isDuplicate?: boolean) {
     this.id = id;
     this.fileName = fileName;
     this.directory = directory;
@@ -50,6 +52,7 @@ export class FileEntry {
   this.favouriteCount = 0;
   this.isFavourited = false;
     this.lastAccess = lastAccess;
-    this.accessCount = accessCount;
+  this.accessCount = accessCount;
+  this.isDuplicate = isDuplicate;
   } 
 }
