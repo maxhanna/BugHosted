@@ -415,7 +415,6 @@
                 <app-menu-item [type]="'Ender'" [parentRef]="parentRef" [label]="'Best Ender Score:'"></app-menu-item>
               </div>
               <div class="optionsStatsDescription">
-                <app-user-tag [user]="bestEnderScore.user" [userId]="bestEnderScore.user_id" [displayMiniTag]="true" [inputtedParentRef]="parentRef"></app-user-tag>
                 <div>Score: {{bestEnderScore.score}} • Time: {{bestEnderScore.time_on_level_seconds}}s</div>
               </div>
             </div>
@@ -457,7 +456,7 @@
             </div>
             <div class="optionsStatsDiv">
               <div class="optionsStatsHeader">
-                <app-menu-item [type]="'Memes'" [parentRef]="parentRef" [label]="'Memes'"></app-menu-item>
+                <app-menu-item [type]="'Meme'" [parentRef]="parentRef" [label]="'Memes'"></app-menu-item>
               </div>
               <div class="optionsStatsDescription">{{numberOfMemesUploaded ?? '—'}} memes</div>
             </div>
