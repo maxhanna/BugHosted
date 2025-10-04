@@ -76,6 +76,8 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
 
     private currentChatTextbox?: ChatSpriteTextString | undefined;
     private pollingInterval: any;
+    topScores: any[] = [];
+    isMenuPanelOpen = false;
 
     async ngOnInit() {
         this.serverDown = (this.parentRef ? await this.parentRef?.isServerUp() <= 0 : false);
@@ -95,6 +97,19 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
         window.addEventListener("resize", this.adjustCanvasSize);
         this.adjustCanvasSize();
     }
+ 
+            showMenuPanel() {
+                if (this.isMenuPanelOpen) {
+                    this.closeMenuPanel();
+                    return;
+                }
+                this.isMenuPanelOpen = true;
+                // load top scores when menu opens
+                this.enderService.getTopScores(50).then((res: any) => {
+                    this.topScores = res ?? [];
+                }).catch(() => this.topScores = []);
+            }
+            closeMenuPanel() { this.isMenuPanelOpen = false; }
 
 
     ngOnDestroy() {

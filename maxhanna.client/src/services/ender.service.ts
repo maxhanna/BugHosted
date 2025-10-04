@@ -82,4 +82,7 @@ export class EnderService {
   async recordDeath(heroId: number, userId: number | undefined, score: number) {
     return this.fetchData('/ender/herodied', { HeroId: heroId, UserId: userId ?? 0, Score: score });
   }
+  async getTopScores(limit = 50) {
+    return this.fetchData('/ender/topscores', limit);
+  }
 }
