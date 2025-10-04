@@ -50,6 +50,27 @@ export class WordlerHighScoresComponent implements OnInit, OnChanges {
 
     constructor(private wordlerService: WordlerService) { }
 
+    // UI state: collapsed/expanded per mode and per group
+    collapsedModes: Record<string, boolean> = {};
+    collapsedGroups: Record<string, boolean> = {};
+
+    toggleMode(mode: Mode) {
+        this.collapsedModes[mode] = !this.collapsedModes[mode];
+    }
+
+    isModeCollapsed(mode: Mode) {
+        return !!this.collapsedModes[mode];
+    }
+
+    toggleGroup(mode: Mode, groupKey: string) {
+        const k = `${mode}-${groupKey}`;
+        this.collapsedGroups[k] = !this.collapsedGroups[k];
+    }
+
+    isGroupCollapsed(mode: Mode, groupKey: string) {
+        return !!this.collapsedGroups[`${mode}-${groupKey}`];
+    }
+
     ngOnInit(): void {
         this.refresh();
     }
