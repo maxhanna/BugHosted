@@ -194,7 +194,7 @@
         </app-mastermind-scores>
         <!-- LATEST ENDER SCORES (TODAY) -->
         <app-ender-high-scores *ngIf="true" [parentRef]="parentRef" [showBestScoresToday]="true" [limit]="10"
-          [showUserHeader]="true" [showHeaderTitles]="true" [headerClickable]="true"
+          [showUserHeader]="true" [showHeaderTitles]="true" [headerClickable]="true" [mode]="'today'"
           [headerClickTarget]="'Ender'"></app-ender-high-scores>
         <!-- LATEST WORDLER SCORES -->
         <!-- Reusable Wordler high-scores component renders its own titles; no local wordlerHighScores required -->
@@ -382,6 +382,26 @@
               </div>
               <div class="optionsStatsDescription">
                 {{wordlerStreak}} consecutive days.
+              </div>
+            </div>
+
+            <div class="optionsStatsDiv" *ngIf="emulationTotalTimeSeconds && emulationTotalTimeSeconds > 0">
+              <div class="optionsStatsHeader">
+                <span class="componentsIcon">{{ parentRef?.getIconByTitle('Emulator') }}</span>
+                Emulation total time played:
+              </div>
+              <div class="optionsStatsDescription">
+                {{ emulationTotalTimeSeconds }} seconds
+              </div>
+            </div>
+
+            <div class="optionsStatsDiv" *ngIf="topEmulationGameName">
+              <div class="optionsStatsHeader">
+                <span class="componentsIcon">{{ parentRef?.getIconByTitle('Emulator') }}</span>
+                Top game played:
+              </div>
+              <div class="optionsStatsDescription">
+                {{ topEmulationGameName }} <span *ngIf="topEmulationGamePlays">• Plays: {{ topEmulationGamePlays }}</span>
               </div>
             </div>
 
