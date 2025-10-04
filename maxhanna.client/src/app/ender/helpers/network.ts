@@ -517,6 +517,12 @@ export function subscribeToMainGameEvents(object: any) {
     handleEncounterUpdate(source);
     startBatchUpdates(object);
   });
+  events.on("SPAWN_BIKE_WALL", object, (params: { x: number, y: number }) => {
+    try {
+      const metaEvent = new MetaEvent(0, object.metaHero.id, new Date(), "SPAWN_BIKE_WALL", object.metaHero.map, { x: params.x + "", y: params.y + "" });
+      object.enderService.updateEvents(metaEvent);
+    } catch (e) { console.error("Failed to send SPAWN_BIKE_WALL", e); }
+  });
    
   events.on("HIDE_START_BUTTON", object, () => {
     object.hideStartButton = true;
@@ -743,6 +749,17 @@ export function actionMultiplayerEvents(object: any, metaEvents: MetaEvent[]) {
             bot.destroy();
           }
         } 
+        if (event.eventType === "SPAWN_BIKE_WALL" && event.data) {
+          const x = parseInt(event.data["x"] ?? "NaN");
+          const y = parseInt(event.data["y"] ?? "NaN");
+          if (!isNaN(x) && !isNaN(y) && object.mainScene.level) {
+            const exists = object.mainScene.level.children.some((c: any) => c.name === 'bike-wall' && c.position && c.position.x === x && c.position.y === y);
+            if (!exists) {
+              const wall = new (require('../objects/Environment/bike-wall').BikeWall)({ position: new Vector2(x, y) });
+              object.mainScene.level.addChild(wall);
+            }
+          }
+        }
         if (event.eventType === "ITEM_DESTROYED") {
           if (event.data) {  
           //  console.log(event.data);

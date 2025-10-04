@@ -12,6 +12,7 @@ import { events } from './helpers/events';
 import { storyFlags } from './helpers/story-flags';
 import { actionMultiplayerEvents, subscribeToMainGameEvents } from './helpers/network';
 import { Hero } from './objects/Hero/hero';
+import { BikeWall } from './objects/Environment/bike-wall';
 import { Main } from './objects/Main/main';
 import { HeroRoomLevel } from './levels/hero-room';
 import { CharacterCreate } from './levels/character-create';
@@ -194,11 +195,22 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
 
     private updatePlayers() {
         if (this.metaHero && this.metaHero.id && !this.stopPollingForUpdates) {
-            this.enderService.fetchGameData(this.metaHero).then(res => {
+            this.enderService.fetchGameData(this.metaHero).then((res: any) => {
                 if (res) {
                     this.updateOtherHeroesBasedOnFetchedData(res);
                     this.updateMissingOrNewHeroSprites();
                     this.updateEnemyEncounters(res);
+
+                    // Persisted bike walls for this map
+                    if (res.walls && Array.isArray(res.walls) && this.mainScene.level) {
+                        for (const w of res.walls) {
+                            const exists = this.mainScene.level.children.some((c: any) => c.name === 'bike-wall' && c.position && c.position.x === w.x && c.position.y === w.y);
+                            if (!exists) {
+                                const wall = new BikeWall({ position: new Vector2(w.x, w.y) });
+                                this.mainScene.level.addChild(wall);
+                            }
+                        }
+                    }
 
                     if (this.chat) {
                         this.getLatestMessages();

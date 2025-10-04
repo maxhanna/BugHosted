@@ -177,8 +177,10 @@ export class Hero extends Character {
     const prevPos = this.position.duplicate();
     super.step(delta, root);
 
-    // only spawn walls for ship-bodied heroes
-    if (!this.body || this.body.resource !== resources.images["ship"]) return;
+  // only spawn walls for ship-bodied heroes
+  if (!this.body || this.body.resource !== resources.images["ship"]) return;
+  // Only the local (user-controlled) hero should originate wall spawns; others get them from network sync
+  if (!this.isUserControlled) return;
 
     if (!this.lastBikeWallSpawnPos) this.lastBikeWallSpawnPos = prevPos.duplicate();
 
@@ -190,6 +192,8 @@ export class Hero extends Character {
       const wallPos = this.lastBikeWallSpawnPos.duplicate();
       const wall = new BikeWall({ position: wallPos });
       this.parent?.addChild(wall);
+    // tell network layer to persist & broadcast
+      events.emit("SPAWN_BIKE_WALL", { x: wallPos.x, y: wallPos.y });
       this.lastBikeWallSpawnPos = this.position.duplicate();
     }
   }

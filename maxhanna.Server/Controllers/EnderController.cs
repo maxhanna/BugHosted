@@ -85,6 +85,8 @@ namespace maxhanna.Server.Controllers
                         MetaHero[]? heroes = await GetNearbyPlayers(hero, connection, transaction);
                         MetaBot[]? enemyBots = await GetEncounterMetaBots(connection, transaction, hero.Map);
                         List<MetaEvent> events = await GetEventsFromDb(hero.Map, hero.Id, connection, transaction);
+                        // Fetch persistent bike walls for this map
+                        List<MetaBikeWall> walls = await GetBikeWalls(hero.Map, connection, transaction);
                         await transaction.CommitAsync();
                         return Ok(new
                         {
@@ -92,7 +94,8 @@ namespace maxhanna.Server.Controllers
                             hero.Position,
                             heroes,
                             events,
-                            enemyBots
+                            enemyBots,
+                            walls
                         });
                     }
                     catch (Exception ex)
@@ -242,7 +245,9 @@ namespace maxhanna.Server.Controllers
                         await ExecuteInsertOrUpdateOrDeleteAsync(deleteBots, new Dictionary<string, object?>() { { "@HeroId", req.HeroId } }, connection, transaction);
 
                         string deleteEvents = "DELETE FROM maxhanna.ender_event WHERE hero_id = @HeroId;";
+                        string deleteWalls = "DELETE FROM maxhanna.ender_bike_wall WHERE hero_id = @HeroId;";
                         await ExecuteInsertOrUpdateOrDeleteAsync(deleteEvents, new Dictionary<string, object?>() { { "@HeroId", req.HeroId } }, connection, transaction);
+                        await ExecuteInsertOrUpdateOrDeleteAsync(deleteWalls, new Dictionary<string, object?>() { { "@HeroId", req.HeroId } }, connection, transaction);
 
                         string deleteHero = "DELETE FROM maxhanna.ender_hero WHERE id = @HeroId LIMIT 1;";
                         await ExecuteInsertOrUpdateOrDeleteAsync(deleteHero, new Dictionary<string, object?>() { { "@HeroId", req.HeroId } }, connection, transaction);
@@ -1528,6 +1533,49 @@ namespace maxhanna.Server.Controllers
                 int heroId = metaEvent.HeroId;
                 await DestroyMetabot(heroId, null, connection, transaction);
             }
+            else if (metaEvent != null && metaEvent.EventType == "SPAWN_BIKE_WALL" && metaEvent.Data != null)
+            {
+                // Persist bike wall
+                if (metaEvent.Data.TryGetValue("x", out var xStr) && metaEvent.Data.TryGetValue("y", out var yStr))
+                {
+                    int x = Convert.ToInt32(xStr);
+                    int y = Convert.ToInt32(yStr);
+                    string sql = @"INSERT INTO maxhanna.ender_bike_wall (hero_id, map, x, y) VALUES (@HeroId, @Map, @X, @Y);";
+                    var parameters = new Dictionary<string, object?>
+                    {
+                        {"@HeroId", metaEvent.HeroId },
+                        {"@Map", metaEvent.Map },
+                        {"@X", x },
+                        {"@Y", y }
+                    };
+                    await ExecuteInsertOrUpdateOrDeleteAsync(sql, parameters, connection, transaction);
+                }
+            }
+        }
+
+        private async Task<List<MetaBikeWall>> GetBikeWalls(string map, MySqlConnection connection, MySqlTransaction transaction)
+        {
+            var walls = new List<MetaBikeWall>();
+            string sql = "SELECT id, hero_id, map, x, y FROM maxhanna.ender_bike_wall WHERE map = @Map";
+            using (var cmd = new MySqlCommand(sql, connection, transaction))
+            {
+                cmd.Parameters.AddWithValue("@Map", map);
+                using (var reader = await cmd.ExecuteReaderAsync())
+                {
+                    while (await reader.ReadAsync())
+                    {
+                        walls.Add(new MetaBikeWall
+                        {
+                            Id = reader.GetInt32("id"),
+                            HeroId = reader.GetInt32("hero_id"),
+                            Map = reader.GetString("map"),
+                            X = reader.GetInt32("x"),
+                            Y = reader.GetInt32("y")
+                        });
+                    }
+                }
+            }
+            return walls;
         }
 
         private static void StopAttackDamageOverTimeForBot(int? sourceId, int? targetId)
