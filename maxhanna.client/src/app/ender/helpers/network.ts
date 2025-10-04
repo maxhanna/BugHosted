@@ -17,6 +17,7 @@ import { MetaHero } from "../../../services/datacontracts/meta/meta-hero";
 import { Character } from "../objects/character";
 import { generateReward, setTargetToDestroyed } from "./fight";
 import { WarpBase } from "../objects/Effects/Warp/warp-base";
+import { BikeWall } from "../objects/Environment/bike-wall";
 
 
 export class Network {
@@ -749,13 +750,13 @@ export function actionMultiplayerEvents(object: any, metaEvents: MetaEvent[]) {
             bot.destroy();
           }
         } 
-        if (event.eventType === "SPAWN_BIKE_WALL" && event.data) {
+    if (event.eventType === "SPAWN_BIKE_WALL" && event.data) {
           const x = parseInt(event.data["x"] ?? "NaN");
           const y = parseInt(event.data["y"] ?? "NaN");
           if (!isNaN(x) && !isNaN(y) && object.mainScene.level) {
             const exists = object.mainScene.level.children.some((c: any) => c.name === 'bike-wall' && c.position && c.position.x === x && c.position.y === y);
             if (!exists) {
-              const wall = new (require('../objects/Environment/bike-wall').BikeWall)({ position: new Vector2(x, y) });
+      const wall = new BikeWall({ position: new Vector2(x, y) });
               object.mainScene.level.addChild(wall);
             }
           }
