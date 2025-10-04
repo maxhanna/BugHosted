@@ -10,6 +10,6 @@ namespace maxhanna.Server.Controllers.DataContracts.Ender
         public string Map { get; set; } = "";
         public string Color { get; set; } = "";
         public int? Mask { get; set; } = null;
-    public int Level { get; set; } = 1;
+        public int Level { get; set; } = 1;
     }
 }

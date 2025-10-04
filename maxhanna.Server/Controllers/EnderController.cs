@@ -229,64 +229,67 @@ namespace maxhanna.Server.Controllers
                     try
                     {
                         // Validate walls server-side if RunStartMs provided; recompute authoritative score = time + walls*10
-                            // Compute authoritative time-on-level from the hero's creation time (server-side) and validate walls since then
-                            int validatedWalls = req.WallsPlaced;
-                            int timeOnLevelSeconds = req.TimeOnLevel;
-                            try
+                        // Compute authoritative time-on-level from the hero's creation time (server-side) and validate walls since then
+                        int validatedWalls = req.WallsPlaced;
+                        int timeOnLevelSeconds = req.TimeOnLevel;
+                        try
+                        {
+                            // Fetch hero.created_at from DB for authoritative run start
+                            string heroSql = @"SELECT created_at FROM maxhanna.ender_hero WHERE id = @HeroId LIMIT 1;";
+                            DateTime? heroCreatedAt = null;
+                            using (var getHeroCmd = new MySqlCommand(heroSql, connection, transaction))
                             {
-                                // Fetch hero.created_at from DB for authoritative run start
-                                string heroSql = @"SELECT created_at FROM maxhanna.ender_hero WHERE id = @HeroId LIMIT 1;";
-                                DateTime? heroCreatedAt = null;
-                                using (var getHeroCmd = new MySqlCommand(heroSql, connection, transaction))
+                                getHeroCmd.Parameters.AddWithValue("@HeroId", req.HeroId);
+                                var createdObj = await getHeroCmd.ExecuteScalarAsync();
+                                if (createdObj != null && createdObj != DBNull.Value)
                                 {
-                                    getHeroCmd.Parameters.AddWithValue("@HeroId", req.HeroId);
-                                    var createdObj = await getHeroCmd.ExecuteScalarAsync();
-                                    if (createdObj != null && createdObj != DBNull.Value)
-                                    {
-                                        heroCreatedAt = Convert.ToDateTime(createdObj).ToUniversalTime();
-                                    }
-                                }
-
-                                if (heroCreatedAt != null)
-                                {
-                                    // authoritative time on level = now - hero.created_at
-                                    timeOnLevelSeconds = Math.Max(0, (int)Math.Floor((DateTime.UtcNow - heroCreatedAt.Value).TotalSeconds));
-
-                                    // Count persisted bike walls for this hero that were created at/after heroCreatedAt
-                                    string countSql = @"SELECT COUNT(*) FROM maxhanna.ender_bike_wall WHERE hero_id = @HeroId AND created_at >= @CreatedAt;";
-                                    using (var countCmd = new MySqlCommand(countSql, connection, transaction))
-                                    {
-                                        countCmd.Parameters.AddWithValue("@HeroId", req.HeroId);
-                                        countCmd.Parameters.AddWithValue("@CreatedAt", heroCreatedAt.Value);
-                                        var result = await countCmd.ExecuteScalarAsync();
-                                        validatedWalls = Convert.ToInt32(result);
-                                    }
+                                    heroCreatedAt = Convert.ToDateTime(createdObj).ToUniversalTime();
                                 }
                             }
-                            catch (Exception ex)
+
+                            if (heroCreatedAt != null)
                             {
-                                _ = _log.Db("Failed to compute authoritative time/walls: " + ex.Message, null, "ENDER", true);
-                                // fallback to client-supplied values already present in req
-                                timeOnLevelSeconds = req.TimeOnLevel;
-                                validatedWalls = req.WallsPlaced;
+                                // authoritative time on level = now - hero.created_at
+                                timeOnLevelSeconds = Math.Max(0, (int)Math.Floor((DateTime.UtcNow - heroCreatedAt.Value).TotalSeconds));
+
+                                // Count persisted bike walls for this hero that were created at/after heroCreatedAt
+                                string countSql = @"SELECT COUNT(*) FROM maxhanna.ender_bike_wall WHERE hero_id = @HeroId AND created_at >= @CreatedAt;";
+                                using (var countCmd = new MySqlCommand(countSql, connection, transaction))
+                                {
+                                    countCmd.Parameters.AddWithValue("@HeroId", req.HeroId);
+                                    countCmd.Parameters.AddWithValue("@CreatedAt", heroCreatedAt.Value);
+                                    var result = await countCmd.ExecuteScalarAsync();
+                                    validatedWalls = Convert.ToInt32(result);
+                                }
                             }
+                        }
+                        catch (Exception ex)
+                        {
+                            _ = _log.Db("Failed to compute authoritative time/walls: " + ex.Message, null, "ENDER", true);
+                            // fallback to client-supplied values already present in req
+                            timeOnLevelSeconds = req.TimeOnLevel;
+                            validatedWalls = req.WallsPlaced;
+                        }
 
-                            int authoritativeScore = timeOnLevelSeconds + (validatedWalls * 10);
+                        int authoritativeScore = timeOnLevelSeconds + (validatedWalls * 10);
 
-                                int heroLevel = 1;
-                                try {
-                                    // attempt to read hero level from DB so we can record it with the score
-                                    string heroLevelSql = @"SELECT level FROM maxhanna.ender_hero WHERE id = @HeroId LIMIT 1;";
-                                    using (var lvlCmd = new MySqlCommand(heroLevelSql, connection, transaction)) {
-                                        lvlCmd.Parameters.AddWithValue("@HeroId", req.HeroId);
-                                        var lvlObj = await lvlCmd.ExecuteScalarAsync();
-                                        if (lvlObj != null && lvlObj != DBNull.Value) heroLevel = Convert.ToInt32(lvlObj);
-                                    }
-                                } catch { /* ignore and default to 1 */ }
+                        int heroLevel = 1;
+                        try
+                        {
+                            // attempt to read hero level from DB so we can record it with the score
+                            string heroLevelSql = @"SELECT level FROM maxhanna.ender_hero WHERE id = @HeroId LIMIT 1;";
+                            using (var lvlCmd = new MySqlCommand(heroLevelSql, connection, transaction))
+                            {
+                                lvlCmd.Parameters.AddWithValue("@HeroId", req.HeroId);
+                                var lvlObj = await lvlCmd.ExecuteScalarAsync();
+                                if (lvlObj != null && lvlObj != DBNull.Value) heroLevel = Convert.ToInt32(lvlObj);
+                            }
+                        }
+                        catch { /* ignore and default to 1 */ }
 
-                                // Insert into top scores table (include time on level, walls placed and hero level)
-                                string insertScoreSql = @"INSERT INTO maxhanna.ender_top_scores (hero_id, user_id, score, time_on_level_seconds, walls_placed, level, created_at) VALUES (@HeroId, @UserId, @Score, @TimeOnLevel, @WallsPlaced, @Level, NOW());";
-                                Dictionary<string, object?> scoreParams = new Dictionary<string, object?>()
+                        // Insert into top scores table (include time on level, walls placed and hero level)
+                        string insertScoreSql = @"INSERT INTO maxhanna.ender_top_scores (hero_id, user_id, score, time_on_level_seconds, walls_placed, level, created_at) VALUES (@HeroId, @UserId, @Score, @TimeOnLevel, @WallsPlaced, @Level, NOW());";
+                        Dictionary<string, object?> scoreParams = new Dictionary<string, object?>()
                                     {
                                         { "@HeroId", req.HeroId },
                                         { "@UserId", req.UserId },
@@ -295,7 +298,7 @@ namespace maxhanna.Server.Controllers
                                         { "@WallsPlaced", validatedWalls },
                                         { "@Level", heroLevel }
                                     };
-                                await ExecuteInsertOrUpdateOrDeleteAsync(insertScoreSql, scoreParams, connection, transaction);
+                        await ExecuteInsertOrUpdateOrDeleteAsync(insertScoreSql, scoreParams, connection, transaction);
 
                         // Delete hero and related rows (inventory, bots, events)
                         string deleteInventory = "DELETE FROM maxhanna.ender_hero_inventory WHERE ender_hero_id = @HeroId;";
@@ -334,7 +337,7 @@ namespace maxhanna.Server.Controllers
                 {
                     try
                     {
-                                                string sql = @"INSERT INTO maxhanna.ender_hero (name, user_id, coordsX, coordsY, speed, level)
+                        string sql = @"INSERT INTO maxhanna.ender_hero (name, user_id, coordsX, coordsY, speed, level)
                                                     SELECT @Name, @UserId, @CoordsX, @CoordsY, @Speed, @Level
                                                     WHERE NOT EXISTS (
                                                             SELECT 1 FROM maxhanna.ender_hero WHERE user_id = @UserId OR name = @Name
@@ -495,13 +498,15 @@ namespace maxhanna.Server.Controllers
                                         tmpUser.Id = reader.GetInt32("user_id_fk");
                                         tmpUser.Username = reader.IsDBNull(reader.GetOrdinal("username")) ? null : reader.GetString("username");
                                         tmpUser.Created = reader.IsDBNull(reader.GetOrdinal("user_created")) ? (DateTime?)null : reader.GetDateTime("user_created");
-                                        try {
+                                        try
+                                        {
                                             if (!reader.IsDBNull(reader.GetOrdinal("display_picture_file_id")))
                                             {
                                                 var fileId = reader.GetInt32("display_picture_file_id");
                                                 tmpUser.DisplayPictureFile = new FileEntry(fileId);
                                             }
-                                        } catch { }
+                                        }
+                                        catch { }
                                         row["user"] = tmpUser;
                                     }
 
@@ -564,13 +569,15 @@ namespace maxhanna.Server.Controllers
                                         userObj["id"] = reader.GetInt32("user_id_fk");
                                         userObj["username"] = reader.IsDBNull(reader.GetOrdinal("username")) ? null : reader.GetString("username");
                                         userObj["created"] = reader.IsDBNull(reader.GetOrdinal("user_created")) ? null : reader.GetDateTime("user_created");
-                                        try {
+                                        try
+                                        {
                                             if (!reader.IsDBNull(reader.GetOrdinal("display_picture_file_id")))
                                             {
                                                 var fileId = reader.GetInt32("display_picture_file_id");
                                                 userObj["displayPictureFile"] = new FileEntry(fileId);
                                             }
-                                        } catch { }
+                                        }
+                                        catch { }
                                         row["user"] = userObj;
                                     }
 
@@ -632,13 +639,15 @@ namespace maxhanna.Server.Controllers
                                         userObj["id"] = reader.GetInt32("user_id_fk");
                                         userObj["username"] = reader.IsDBNull(reader.GetOrdinal("username")) ? null : reader.GetString("username");
                                         userObj["created"] = reader.IsDBNull(reader.GetOrdinal("user_created")) ? null : reader.GetDateTime("user_created");
-                                        try {
+                                        try
+                                        {
                                             if (!reader.IsDBNull(reader.GetOrdinal("display_picture_file_id")))
                                             {
                                                 var fileId = reader.GetInt32("display_picture_file_id");
                                                 userObj["displayPictureFile"] = new FileEntry(fileId);
                                             }
-                                        } catch { }
+                                        }
+                                        catch { }
                                         row["user"] = userObj;
                                     }
 
@@ -702,13 +711,15 @@ namespace maxhanna.Server.Controllers
                                         userObj["id"] = reader.GetInt32("user_id_fk");
                                         userObj["username"] = reader.IsDBNull(reader.GetOrdinal("username")) ? null : reader.GetString("username");
                                         userObj["created"] = reader.IsDBNull(reader.GetOrdinal("user_created")) ? null : reader.GetDateTime("user_created");
-                                        try {
+                                        try
+                                        {
                                             if (!reader.IsDBNull(reader.GetOrdinal("display_picture_file_id")))
                                             {
                                                 var fileId = reader.GetInt32("display_picture_file_id");
                                                 userObj["displayPictureFile"] = new FileEntry(fileId);
                                             }
-                                        } catch { }
+                                        }
+                                        catch { }
                                         result["user"] = userObj;
                                     }
                                 }
@@ -984,7 +995,7 @@ namespace maxhanna.Server.Controllers
                                 id = @MetabotId 
                         LIMIT 1;";
 
-        Dictionary<string, object?> parameters = new Dictionary<string, object?>
+                Dictionary<string, object?> parameters = new Dictionary<string, object?>
         {
             { "@HP", metabot.Hp },
             { "@Exp", metabot.Exp },
