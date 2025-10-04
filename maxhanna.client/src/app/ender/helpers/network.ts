@@ -108,8 +108,16 @@ export function subscribeToMainGameEvents(object: any) {
       object.pollForChanges();
     }
     if (object.mainScene && object.mainScene.level) {
-      object.metaHero.map = level.name ?? "HERO_ROOM";
-      object.metaHero.position = level.getDefaultHeroPosition();
+  object.metaHero.map = level.name ?? "HERO_ROOM";
+  // Compute spawn offset based on number of other players on the map.
+  // Shift spawn to the right by 2 grid cells per player already on the map.
+      // Count existing hero sprites on the current level (exclude self)
+      const playerCount = (object.mainScene && object.mainScene.level && object.mainScene.level.children)
+        ? object.mainScene.level.children.filter((c: any) => c.constructor && c.constructor.name === 'Hero' && c.id !== object.metaHero.id).length
+        : 0;
+  const offsetX = gridCells(playerCount * 2);
+  const defaultPos = level.getDefaultHeroPosition();
+  object.metaHero.position = new Vector2(defaultPos.x + offsetX, defaultPos.y);
       object.mainScene.level.itemsFound = object.mainScene.inventory.getItemsFound();
 
       const levelHero = object.mainScene.level.children.find((x: Character) => x.id === object.hero.id) ?? object.metaHero;
