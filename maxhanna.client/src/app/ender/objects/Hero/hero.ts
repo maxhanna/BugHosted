@@ -12,9 +12,11 @@ import { WALK_DOWN, WALK_UP, WALK_LEFT, WALK_RIGHT, STAND_DOWN, STAND_RIGHT, STA
 import { ColorSwap } from "../../../../services/datacontracts/meta/color-swap";
 import { events } from "../../helpers/events";
 import { WarpBase } from "../Effects/Warp/warp-base";
+import { BikeWall } from "../Environment/bike-wall";
 
 export class Hero extends Character {
   metabots?: MetaBot[]; 
+  lastBikeWallSpawnPos?: Vector2;
   constructor(params: {
     position: Vector2, id?: number, name?: string, metabots?: MetaBot[], colorSwap?: ColorSwap,
     isUserControlled?: boolean, speed?: number, mask?: Mask, scale?: Vector2,
@@ -75,6 +77,7 @@ export class Hero extends Character {
     });
     shadow.drawLayer = "FLOOR";
     this.addChild(shadow);
+  this.lastBikeWallSpawnPos = this.position.duplicate();
   }
 
 
@@ -164,6 +167,28 @@ export class Hero extends Character {
       string: ["Party Up", "Whisper", "Wave", "Cancel"],
       canSelectItems: true,
       addsFlag: undefined
+    }
+  }
+
+  override step(delta: number, root: any) {
+    // capture previous position before movement
+    const prevPos = this.position.duplicate();
+    super.step(delta, root);
+
+    // only spawn walls for ship-bodied heroes
+    if (!this.body || this.body.resource !== resources.images["ship"]) return;
+
+    if (!this.lastBikeWallSpawnPos) this.lastBikeWallSpawnPos = prevPos.duplicate();
+
+    const dx = this.position.x - this.lastBikeWallSpawnPos.x;
+    const dy = this.position.y - this.lastBikeWallSpawnPos.y;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    if (dist >= gridCells(2)) {
+      // spawn wall at the last spawn position (behind the bike)
+      const wallPos = this.lastBikeWallSpawnPos.duplicate();
+      const wall = new BikeWall({ position: wallPos });
+      this.parent?.addChild(wall);
+      this.lastBikeWallSpawnPos = this.position.duplicate();
     }
   }
 }
