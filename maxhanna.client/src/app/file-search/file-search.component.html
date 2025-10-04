@@ -14,7 +14,10 @@
       [user]="user!" 
       [inputtedParentRef]="inputtedParentRef ?? parentRef"></app-user-list>
   </div>
-  <button class="closeButton" id="closeOverlay" style="margin-top:10px;">Close</button>
+  <button class="closeButton" id="closeOverlay" style="margin-top:10px;" 
+    (click)="closeShareUserList()">
+    Close
+  </button>
 </div>
 
 <!-- Page Controls -->

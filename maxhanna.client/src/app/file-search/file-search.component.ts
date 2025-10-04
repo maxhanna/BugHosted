@@ -288,7 +288,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
               this.scrollToFile(this.fileId!);
             }
           }
-         
+
 
           if (this.currentDirectory.toLowerCase() !== "meme/"
             && this.currentDirectory.toLowerCase() !== "roms/"
@@ -407,8 +407,8 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     const text = (event.target as HTMLInputElement).value;
     if (event.key === 'Enter') {
       console.log(event);
-      event.preventDefault();   
-      await this.editFile(fileId, text);  
+      event.preventDefault();
+      await this.editFile(fileId, text);
       this.isEditing = [];
     } else {
       event.stopPropagation();
@@ -421,7 +421,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
       this.isEditing = this.isEditing.filter(x => x != fileId);
       return;
     }
-    clearTimeout(this.debounceTimer); 
+    clearTimeout(this.debounceTimer);
     this.debounceTimer = setTimeout(async () => {
       if (this.user) {
         const res = await this.fileService.updateFileData(this.user.id ?? 0, { FileId: fileId, GivenFileName: text, Description: '', LastUpdatedBy: this.user || this.inputtedParentRef?.user || new User(0, "Anonymous") });
@@ -435,7 +435,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
           }
         }, 100);
       }
-    }, 500); 
+    }, 500);
   }
   async startEditingFileName(fileId: number) {
     const parent = document.getElementById("fileIdDiv" + fileId)!;
@@ -638,13 +638,19 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     this.closeOptionsPanel();
   }
   shareFileInitiate(file: FileEntry) {
-    this.selectedSharedFile = file; 
+    this.selectedSharedFile = file;
     this.closeOptionsPanel();
     setTimeout(() => {
       const parent = this.inputtedParentRef ?? this.parentRef;
       parent?.showOverlay();
-      this.showShareUserList = true; 
+      this.showShareUserList = true;
     }, 100);
+  }
+  closeShareUserList() {
+    this.showShareUserList = false;
+    this.selectedSharedFile = undefined;
+    const parent = this.inputtedParentRef ?? this.parentRef;
+    parent?.closeOverlay();
   }
   emittedNotification(event: string) {
     this.notifyUser(event);
@@ -794,7 +800,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   }
   async searchFiles(topic: string) {
     this.searchTerms = topic;
-    await this.getDirectory(); 
+    await this.getDirectory();
     try {
       const user = this.inputtedParentRef?.user ?? this.parentRef?.user;
       await this.fileService.recordSearch(topic, 'file', user?.id);
@@ -1033,12 +1039,12 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   }
   closeFileFavouriters() {
     this.fileFavouriters = undefined;
-    this.isShowingFileFavouriters = false; 
+    this.isShowingFileFavouriters = false;
     const parent = this.inputtedParentRef ?? this.parentRef;
     parent?.closeOverlay();
   }
   isVideoFile(fileEntry: FileEntry) {
-    let fileType = fileEntry.fileType ?? this.fileService.getFileExtension(fileEntry.fileName ?? ''); 
+    let fileType = fileEntry.fileType ?? this.fileService.getFileExtension(fileEntry.fileName ?? '');
     fileType = fileType.replace(".", "");
     return this.fileService.videoFileExtensions.includes(fileType) || this.fileService.audioFileExtensions.includes(fileType);
   }
@@ -1062,7 +1068,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   showFavouritesToggled() {
     this.showFavouritesOnly = !this.showFavouritesOnly;
     this.debounceSearch();
-  } 
+  }
 
   notifyUser(message: string) {
     this.userNotificationEvent.emit(message);
@@ -1100,7 +1106,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     this.currentDirectoryChangeEvent.emit(this.currentDirectory);
     this.getDirectory();
   }
-  onFiletypeFilterChange() { 
+  onFiletypeFilterChange() {
     this.fileTypeFilter = this.fileTypeFilterInput.nativeElement.value;
     this.getDirectory();
   }
