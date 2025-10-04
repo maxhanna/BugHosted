@@ -22,6 +22,7 @@ export class TextFormattingToolbarComponent extends ChildComponent {
 
   isEmojiPanelOpen = false;
   showComponentSelector = false;
+  componentSearchTerm: string = '';
 
   get textarea(): HTMLTextAreaElement | HTMLInputElement  {
     let element: HTMLTextAreaElement | HTMLInputElement | null = null;
@@ -257,8 +258,15 @@ export class TextFormattingToolbarComponent extends ChildComponent {
   }
   getNavigationItems() {
     const parent = this.inputtedParentRef ?? this.parentRef;
-    return parent?.navigationItems || [];
+  const items = parent?.navigationItems || [];
+  const term = (this.componentSearchTerm || '').toLowerCase().trim();
+  if (!term) return items;
+  return items.filter((it: any) => (it.title || '').toLowerCase().includes(term) || (it.icon || '').toLowerCase().includes(term));
   }
+  searchNavigationItems(e: any) {
+    const val = (e && e.target && e.target.value) ? e.target.value : '';
+    this.componentSearchTerm = val;
+  } 
   closeAnyPanel() {
     const button = document.getElementById('closeOverlay');
     if (button) {
