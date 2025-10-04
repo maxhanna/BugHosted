@@ -147,11 +147,12 @@ export class CharacterCreate extends Level {
             this.destroy();
           }, 100);
           return;
-        } else if (storyFlags.contains(CHARACTER_CREATE_STORY_TEXT_4)) {
+        } else if (storyFlags.contains(CHARACTER_CREATE_STORY_TEXT_3)) {
           const sts = new SpriteTextString(  
             `Enter your name in the chat input, then press ${!this.onMobile() ? 'Enter or ' : ''}the A Button to confirm`, new Vector2(10, 10)
           );
-          this.addChild(sts);
+          this.addChild(sts); 
+          storyFlags.add(CHARACTER_CREATE_STORY_TEXT_4);
         }
         const content = this.referee.getContent();
         if (content) {
@@ -222,7 +223,7 @@ export class CharacterCreate extends Level {
       chatInput.value = "";
       // Only force-hide the chat input (display: none) if the
       // CHARACTER_CREATE_STORY_TEXT_4 flag has NOT yet been earned.
-      if (!storyFlags.contains(CHARACTER_CREATE_STORY_TEXT_4)) {
+      if (!storyFlags.contains(CHARACTER_CREATE_STORY_TEXT_3)) {
         chatInput.style.setProperty('display', 'none', 'important');
       } else {
         // If the flag is already present, ensure the input is visible.
