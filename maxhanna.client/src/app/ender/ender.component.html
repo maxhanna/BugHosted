@@ -99,6 +99,7 @@
       <div><strong>Time:</strong> {{runElapsedSeconds}}s</div>
       <div><strong>Walls:</strong> {{wallsPlacedThisRun}}</div>
       <div *ngIf="metaHero?.level"><strong>Level:</strong> {{metaHero.level}}</div>
+      <div *ngIf="otherHeroes.length"><strong>Enemies:</strong> {{otherHeroes.length}}</div>
     </div>
 
     <input type="color" (change)='changeColor()' #colorInput class="colorInput" [value]="metaHero.color"  />
