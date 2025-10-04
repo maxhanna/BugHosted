@@ -108,7 +108,8 @@
     </div>
 
     <!-- Reuse the Wordler High Scores component to show today's scoreboard and the current user's best scores -->
-    <app-wordler-high-scores [mode]="'today'" [userId]="parentRef?.user?.id" [headerClickable]="true"
+    <app-wordler-high-scores [mode]="'today'" [userId]="parentRef?.user?.id"
+      [inputtedParentRef]="parentRef" [headerClickable]="true"
       [showHeaderTitles]="true"></app-wordler-high-scores>
   </div>
 </div>
@@ -130,6 +131,7 @@
         <!-- Delegated to reusable component: shows all-time, today, and user scores -->
         <app-wordler-high-scores
           [mode]="['all']"
+          [inputtedParentRef]="parentRef"
           [userId]="parentRef?.user?.id"
           [showHeader]="true"
           [showHeaderTitles]="true"
