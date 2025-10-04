@@ -110,6 +110,8 @@ export class CharacterCreate extends Level {
   }
 
   override ready() {
+  // Ensure chat input is hidden when the level becomes ready
+  this.hideChatInput();
     events.on("SEND_CHAT_MESSAGE", this, (chat: string) => {
       this.characterName = chat;
       if (!this.verifyCharacterName(this.characterName) || storyFlags.contains(CHARACTER_CREATE_STORY_TEXT_6)) { return; } 
@@ -156,10 +158,12 @@ export class CharacterCreate extends Level {
     })
   }
   override destroy() {
-    this.textBox.destroy();
-    this.referee.destroy();
-    events.unsubscribe(this); 
-    super.destroy();
+  // Ensure chat input is restored when leaving this level
+  this.returnChatInputToNormal();
+  this.textBox.destroy();
+  this.referee.destroy();
+  events.unsubscribe(this);
+  super.destroy();
   }
   private displayContent(content: Scenario) {
     this.children.forEach((child: any) => {
@@ -171,6 +175,12 @@ export class CharacterCreate extends Level {
 
     if (content.addsFlag) {
       storyFlags.add(content.addsFlag);
+    }
+    // If this content unlocks the CHARACTER_CREATE_STORY_TEXT_4 flag,
+    // make sure the chat input is no longer forced hidden.
+    if (storyFlags.contains(CHARACTER_CREATE_STORY_TEXT_4) && this.parent?.input?.chatInput) {
+      const chatInput = this.parent.input.chatInput;
+      chatInput.style.setProperty('display', 'block', 'important');
     }
     for (let x = 0; x < content.string.length; x++) {
       if (content.string[x].includes("Ah, ")) {
@@ -191,8 +201,10 @@ export class CharacterCreate extends Level {
       if (chatInput) {
         chatInput.value = "";
         chatInput.placeholder = "Chat";
+        // restore layout and make sure the input is visible again
         chatInput.style.setProperty('position', 'unset', 'important');
         chatInput.style.setProperty('top', 'unset', 'important');
+        chatInput.style.setProperty('display', 'block', 'important');
         this.parent.input.chatInput.blur();
       }
     }, 0);
@@ -201,7 +213,15 @@ export class CharacterCreate extends Level {
     const chatInput = this.parent?.input?.chatInput;
     if (chatInput) {
       chatInput.value = "";
-      chatInput.style.cssText = ''; // Reset all styles
+      // Only force-hide the chat input (display: none) if the
+      // CHARACTER_CREATE_STORY_TEXT_4 flag has NOT yet been earned.
+      if (!storyFlags.contains(CHARACTER_CREATE_STORY_TEXT_4)) {
+        chatInput.style.setProperty('display', 'none', 'important');
+      } else {
+        // If the flag is already present, ensure the input is visible.
+        chatInput.style.setProperty('display', 'block', 'important');
+      }
+      // keep the input unfocused while hidden
       chatInput.blur();
     }
   }
