@@ -366,18 +366,18 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
         const baseX = hero.id == this.metaHero.id ? this.metaHero.position.x : hero.position.x;
         const baseY = hero.id == this.metaHero.id ? this.metaHero.position.y : hero.position.y;
         let initialPos = new Vector2(baseX, baseY);
-        if (hero.id == this.metaHero.id) {
-            const spacing = gridCells(4); // 2 grid cells (32px) 
-            const nearby = this.mainScene.level?.children?.filter((c: any) => c && c.id && c.id > 0 && c.position && Math.abs(c.position.x - baseX) <= spacing && Math.abs(c.position.y - baseY) <= spacing);
+        // Use server-provided hero list to detect nearby heroes (handles case where local user is added before sprites)
+        try {
+            const spacing = gridCells(2); // 2 grid cells (32px)
+            const nearby = (this.otherHeroes ?? []).filter((oh: any) => oh && oh.id && oh.id !== hero.id && oh.position && Math.abs(oh.position.x - baseX) <= spacing && Math.abs(oh.position.y - baseY) <= spacing);
             if (nearby && nearby.length > 0) {
                 const offsets = [new Vector2(-spacing, 0), new Vector2(spacing, 0), new Vector2(0, -spacing), new Vector2(0, spacing), new Vector2(-spacing, -spacing), new Vector2(spacing, spacing)];
                 const idx = (hero.id + nearby.length) % offsets.length;
                 const off = offsets[idx];
                 initialPos = new Vector2(baseX + off.x, baseY + off.y);
-                console.log("counted " + nearby.length);
+                console.log("counted nearby (server list): ", nearby.length);
             }
-            console.log("counted nearby :", nearby);
-        }
+        } catch { }
         const tmpHero = new Hero({
             id: hero.id,
             name: hero.name ?? "Anon",
