@@ -10,14 +10,14 @@ import { AppRoutingModule } from './app-routing.module';
 import { CalendarComponent } from './calendar/calendar.component';
 import { NavigationComponent } from './navigation/navigation.component';
 import { FavouritesComponent } from './favourites/favourites.component';
-import { WeatherComponent } from './weather/weather.component'; 
+import { WeatherComponent } from './weather/weather.component';
 import { FileComponent } from './file/file.component';
 import { MiningRigsComponent } from './mining-rigs/mining-rigs.component';
 import { TodoComponent } from './todo/todo.component';
 import { NotepadComponent } from './notepad/notepad.component';
 import { MusicComponent } from './music/music.component';
 import { ContactsComponent } from './contacts/contacts.component';
-import { CryptoHubComponent } from './crypto-hub/crypto-hub.component'; 
+import { CryptoHubComponent } from './crypto-hub/crypto-hub.component';
 import { UserComponent } from './user/user.component';
 import { ChatComponent } from './chat/chat.component';
 import { UserListComponent } from './user-list/user-list.component';
@@ -97,15 +97,15 @@ import { AppMenuItemComponent } from './app-menu-item/app-menu-item.component';
     CalendarComponent,
     NavigationComponent,
     FavouritesComponent,
-    WeatherComponent, 
+    WeatherComponent,
     FileComponent,
     MiningRigsComponent,
     TodoComponent,
     NotepadComponent,
     MusicComponent,
     ContactsComponent,
-    CryptoHubComponent,  
-    UserComponent,   
+    CryptoHubComponent,
+    UserComponent,
     ChatComponent,
     UserListComponent,
     MemeComponent,
@@ -113,7 +113,7 @@ import { AppMenuItemComponent } from './app-menu-item/app-menu-item.component';
     FileUploadComponent,
     NewsComponent,
     TopicsComponent,
-  WordlerComponent,
+    WordlerComponent,
     FileSearchComponent,
     MediaViewerComponent,
     UpdateUserSettingsComponent,
@@ -136,7 +136,7 @@ import { AppMenuItemComponent } from './app-menu-item/app-menu-item.component';
     MetaComponent,
     ClickableUrlsPipe,
     CurrencyFlagPipe,
-    CurrencyShortenPipe,  
+    CurrencyShortenPipe,
     HostAiComponent,
     ThemesComponent,
     CrawlerComponent,
@@ -170,23 +170,23 @@ import { AppMenuItemComponent } from './app-menu-item/app-menu-item.component';
   ],
   bootstrap: [AppComponent],
   imports: [BrowserModule,
-  AppMenuItemComponent,
+    AppMenuItemComponent,
     LineGraphComponent,
     TimeFormatPipe,
     TimeSincePipe,
-    FileSizePipe, 
+    FileSizePipe,
     AppRoutingModule,
     CryptoFearAndGreedComponent,
-    CurrencySymbolPipe, 
+    CurrencySymbolPipe,
     DecodeHtmlPipe,
-  CryptoGlobalStatsComponent],
+    CryptoGlobalStatsComponent],
   exports: [
-    InViewDirective, 
+    InViewDirective,
     TimeFormatPipe,
     TimeSincePipe,
     CurrencyFlagPipe,
     CurrencyShortenPipe,
-    CurrencySymbolPipe, 
+    CurrencySymbolPipe,
     FileSizePipe
   ],
   providers: [
