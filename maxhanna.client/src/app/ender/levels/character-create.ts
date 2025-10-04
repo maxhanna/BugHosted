@@ -60,40 +60,21 @@ export class CharacterCreate extends Level {
     if (params.heroPosition) {
       this.defaultHeroPosition = params.heroPosition;
     } 
+    // Tron/Ender-themed intro: short steps that set story flags and lead to the name prompt
     this.referee.textContent = [
       {
-        string: ["Wake up... Your journey awaits!"],
-        requires: [CHARACTER_CREATE_STORY_TEXT_7],
-        addsFlag: CHARACTER_CREATE_STORY_TEXT_8,
+        string: ["The neon grid waits. Lightbikes hum in the dark."],
+        addsFlag: CHARACTER_CREATE_STORY_TEXT_1,
       } as Scenario,
       {
-        string: [`Ah, ${this.characterName} is it?`],
-        requires: [CHARACTER_CREATE_STORY_TEXT_6],
-        addsFlag: CHARACTER_CREATE_STORY_TEXT_7,
-      } as Scenario,
-      {
-        string: ["Now, before we begin your journey ...", "What shall be your name, the name the world will know?"],
-        requires: [CHARACTER_CREATE_STORY_TEXT_4],
-        addsFlag: CHARACTER_CREATE_STORY_TEXT_5,
-      } as Scenario, 
-      {
-        string: ["These marvelous machines serve not just in battle, but also protect our planet."],
-        requires: [CHARACTER_CREATE_STORY_TEXT_3],
-        addsFlag: CHARACTER_CREATE_STORY_TEXT_4,
-      } as Scenario,
-      {
-        string: ["This is the world of Meta-Bots!"],
-        requires: [CHARACTER_CREATE_STORY_TEXT_2],
-        addsFlag: CHARACTER_CREATE_STORY_TEXT_3,
-      } as Scenario,
-      {
-        string: ["I am Mr. Referee, and I bring fair play to every ro-battle!", " Even in dreams, justice never sleeps!"],
+        string: ["This is Ender — a bike race where every trail can be your last."],
         requires: [CHARACTER_CREATE_STORY_TEXT_1],
         addsFlag: CHARACTER_CREATE_STORY_TEXT_2,
       } as Scenario,
       {
-        string: ["Zzz... Huh? Who dares disturb my dreams... oh, it's you!"],
-        addsFlag: CHARACTER_CREATE_STORY_TEXT_1,
+        string: ["No mercy. Ride fast. Survive longer. Enter your name."],
+        requires: [CHARACTER_CREATE_STORY_TEXT_2],
+        addsFlag: CHARACTER_CREATE_STORY_TEXT_5,
       } as Scenario
     ];
     this.addChild(this.referee);
@@ -111,10 +92,12 @@ export class CharacterCreate extends Level {
 
   override ready() {
     events.on("SEND_CHAT_MESSAGE", this, (chat: string) => {
-      this.characterName = chat;
-      if (!this.verifyCharacterName(this.characterName) || storyFlags.contains(CHARACTER_CREATE_STORY_TEXT_6)) { return; } 
-      this.returnChatInputToNormal();
-      storyFlags.add(CHARACTER_CREATE_STORY_TEXT_6);
+  this.characterName = chat;
+  if (!this.verifyCharacterName(this.characterName) || storyFlags.contains(CHARACTER_CREATE_STORY_TEXT_6)) { return; } 
+  this.returnChatInputToNormal();
+  storyFlags.add(CHARACTER_CREATE_STORY_TEXT_6);
+  // mark character creation complete so the level can start when the player presses Start
+  storyFlags.add(CHARACTER_CREATE_STORY_TEXT_8);
       const content = this.referee.getContent();
       if (content) {
         this.displayContent(content);
