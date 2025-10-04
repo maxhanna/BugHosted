@@ -23,6 +23,7 @@
     cursor: pointer;
     text-decoration: underline;
 }
+.clickable { cursor: pointer; }
 .mainTable th {
     font-size: small;
 }

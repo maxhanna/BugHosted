@@ -1,8 +1,10 @@
 <ng-container *ngIf="showBestScores && bestScores">
-    <div [class]="(showUserHeader ? 'popupPanelTitle userPopupPanelTitle' : (showHeaderTitles ? 'popupPanelTitle' : 'regularTitle'))">
+    <div (click)="showUserHeader ? openMastermind() : toggleMode('best')"
+         [class]="(showUserHeader ? 'popupPanelTitle userPopupPanelTitle clickable' : (showHeaderTitles ? 'popupPanelTitle clickable' : 'regularTitle clickable'))">
         Best{{showUserHeader ? " Mastermind " : " "}}Scores (All Time):
+        <span *ngIf="!showUserHeader" style="float:right; font-size:0.9em">{{ isModeCollapsed('best') ? '+' : '−' }}</span>
     </div>
-    <div *ngIf="bestScores && bestScores.length > 0" class="scoreDiv">
+    <div *ngIf="!isModeCollapsed('best') && bestScores && bestScores.length > 0" class="scoreDiv">
         <table class="mainTable">
             <thead>
                 <tr>
@@ -16,7 +18,7 @@
             <tbody>
                 <tr *ngFor="let score of bestScores">
                     <td>
-                        <app-user-tag [user]="score.user" [displayMiniTag]="true"
+                        <app-user-tag [user]="score.user" [userId]="score.userId" [displayMiniTag]="true"
                             [inputtedParentRef]="parentRef"></app-user-tag>
                     </td>
                     <td>{{score.score}}</td>
@@ -31,12 +33,13 @@
 </ng-container>
 <ng-container *ngIf="showBestScoresToday && bestScoresToday">
     <div
-     (click)="showUserHeader ? openMastermind() : null"
-     [class]="(showUserHeader ? 'popupPanelTitle userPopupPanelTitle' : (showHeaderTitles ? 'popupPanelTitle' : 'regularTitle'))"
+     (click)="showUserHeader ? openMastermind() : toggleMode('today')"
+     [class]="(showUserHeader ? 'popupPanelTitle userPopupPanelTitle clickable' : (showHeaderTitles ? 'popupPanelTitle clickable' : 'regularTitle clickable'))"
      [style]="showBestScores ? 'margin-top:18px;' : ''">
      Today's{{showUserHeader ? " Mastermind " : " "}}Scores:
+     <span *ngIf="!showUserHeader" style="float:right; font-size:0.9em">{{ isModeCollapsed('today') ? '+' : '−' }}</span>
     </div>
-    <div *ngIf="bestScoresToday && bestScoresToday.length > 0" class="scoreDiv">
+    <div *ngIf="!isModeCollapsed('today') && bestScoresToday && bestScoresToday.length > 0" class="scoreDiv">
         <table class="mainTable">
             <thead>
                 <tr>
@@ -50,7 +53,7 @@
             <tbody>
                 <tr *ngFor="let score of bestScoresToday">
                     <td>
-                        <app-user-tag [user]="score.user" [displayMiniTag]="true"
+                        <app-user-tag [user]="score.user" [userId]="score.userId" [displayMiniTag]="true"
                             [inputtedParentRef]="parentRef"></app-user-tag>
                     </td>
                     <td>{{score.score}}</td>

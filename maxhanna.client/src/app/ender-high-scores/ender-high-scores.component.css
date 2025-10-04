@@ -1,2 +1,13 @@
 .metaHighscoresSection{padding:6px;background:#111;border:1px solid #222;color:#eee}
 .popupPanelTitle{font-weight:700;margin-bottom:6px}
+.clickable { cursor: pointer; }
+.userPopupPanelTitle {
+	display: flex;
+	align-items: center;
+	padding: 0.5rem 0;
+	font-weight: 600;
+	border-bottom: 1px solid var(--main-border-color);
+	margin-bottom: 1rem;
+	cursor: pointer;
+	text-decoration: underline;
+}
