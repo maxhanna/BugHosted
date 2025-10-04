@@ -179,7 +179,7 @@
       ✏️Edit File Name
     </button>
     <button title="Share File" (click)="(optionsFile.visibility?.toLowerCase() == 'private' ? shareFileInitiate(optionsFile) : shareLink(optionsFile));">
-      ↗️Share
+      ↗️Share {{optionsFile.visibility?.toLowerCase() == 'private' ? 'with Users' : 'Link'}}
     </button>
     <button title="Download File" (click)="download(optionsFile, true);" *ngIf="!optionsFile.isFolder">
       📥Download
