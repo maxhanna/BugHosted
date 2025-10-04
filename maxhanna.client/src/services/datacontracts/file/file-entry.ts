@@ -25,7 +25,7 @@ export class FileEntry {
   topics?: Array<Topic>;
   favouriteCount?: number;
   isFavourited?: boolean;
-  __inView?: boolean; // runtime-only flag for lazy loading (not from backend)
+  __inView?: boolean | undefined; // runtime-only flag for lazy loading (not from backend)
     
   constructor(id: number, fileName?: string, directory?: string, visibility?: string, sharedWith?: string,
     user?: User, isFolder?: boolean, comments?: Array<FileComment>, date?: Date,
