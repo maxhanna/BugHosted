@@ -83,8 +83,12 @@ export class EnderHighScoresComponent implements OnInit, OnChanges {
       const modes = this.modesSelected;
       let allScores: any[] | undefined = undefined;
 
-      if (modes.includes('all') || modes.includes('today') || modes.includes('best')) {
+      // Prefer server-side today endpoint when only 'today' is requested to avoid fetching all scores
+      if (modes.includes('all') || modes.includes('best') || (modes.includes('today') && modes.length > 1)) {
         const res = await this.enderService.getTopScores(this.limit);
+        allScores = Array.isArray(res) ? res : [];
+      } else if (modes.includes('today')) {
+        const res = await this.enderService.getTopScoresToday(this.limit);
         allScores = Array.isArray(res) ? res : [];
       }
 
