@@ -14,6 +14,22 @@ import { Chain } from '../objects/Effects/Chain/chain';
 import { Subsonic } from '../objects/Effects/Subsonic/subsonic';
 import { Ship } from '../objects/Ship/ship';
 
+import { gridCells } from './grid-cells';
+
+// Returns true if a bike wall exists within `radius` pixels of `position` on the supplied level
+export function isNearBikeWall(level: any, position: { x: number, y: number }, radius: number = gridCells(1)): boolean {
+  if (!level || !position) return false;
+  try {
+    for (const child of level.children) {
+      if (!child || child.name !== 'bike-wall' || !child.position) continue;
+      const dx = Math.abs(child.position.x - position.x);
+      const dy = Math.abs(child.position.y - position.y);
+      if (dx <= radius && dy <= radius) return true;
+    }
+  } catch { }
+  return false;
+}
+
 export const typeEffectiveness = new Map<SkillType, SkillType>([
   [SkillType.SPEED, SkillType.STRENGTH],       // Speed counters Strength
   [SkillType.STRENGTH, SkillType.ARMOR],       // Strength counters Armor

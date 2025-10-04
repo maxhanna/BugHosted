@@ -11,6 +11,7 @@ import { Level } from "../objects/Level/level";
 import { ShopMenu } from "../objects/Menu/shop-menu";
 import { WardrobeMenu } from "../objects/Menu/wardrobe-menu";
 import { gridCells } from "./grid-cells";
+import { isNearBikeWall } from "./fight";
 import { Skill } from "./skill-types";
 import { InventoryItem } from "../objects/InventoryItem/inventory-item";
 import { MetaHero } from "../../../services/datacontracts/meta/meta-hero";
@@ -351,17 +352,12 @@ export function subscribeToMainGameEvents(object: any) {
       if (char.id !== object.metaHero.id) return;
       const level = object.mainScene.level;
       if (!level) return;
-      // Find any BikeWall at same snapped position
-      const walls = level.children.filter((c: any) => c.name === "bike-wall");
-      const heroPos = char.position;
-      for (const w of walls) {
-        if (w.position && Math.round(w.position.x) === Math.round(heroPos.x) && Math.round(w.position.y) === Math.round(heroPos.y)) {
-          // hero collided
-          // trigger death flow in EnderComponent
+        // Use centralized level helper to detect nearby bike walls
+        const heroPos = char.position;
+        if (isNearBikeWall(level, heroPos, gridCells(1))) {
           events.emit("HERO_DIED", char);
           return;
         }
-      }
     } catch (e) {
       console.error(e);
     }
@@ -537,10 +533,9 @@ export function subscribeToMainGameEvents(object: any) {
           if (!h || h.hp === undefined) continue;
           // only affect alive heroes
           if (h.hp <= 0) continue;
-          if (h.position && Math.round(h.position.x) === Math.round(x) && Math.round(h.position.y) === Math.round(y)) {
-            // emit death for that hero; wrap to avoid errors if downstream handlers misbehave
-            try { events.emit("HERO_DIED", h); } catch (e) { console.error("Error emitting HERO_DIED for hero:", e); }
-          }
+              if (h.position && isNearBikeWall(object.mainScene.level, h.position, gridCells(1))) {
+                  try { events.emit("HERO_DIED", h); } catch (e) { console.error("Error emitting HERO_DIED for hero:", e); }
+                }
         } catch (e) { /* per-hero safety */ }
       }
     } catch (e) {
