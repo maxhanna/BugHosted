@@ -11,5 +11,7 @@ namespace maxhanna.Server.Controllers.DataContracts.Ender
     public int WallsPlaced { get; set; }
     // Milliseconds UTC since epoch when the run started (client-supplied)
     public long? RunStartMs { get; set; }
+    // optional killer hero id (if this death was caused by another hero)
+    public int? KillerHeroId { get; set; }
     }
 }

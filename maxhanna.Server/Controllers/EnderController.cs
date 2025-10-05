@@ -292,8 +292,9 @@ namespace maxhanna.Server.Controllers
                         }
                         catch { /* ignore and default to 1 */ }
 
-                        // Insert into top scores table (include time on level, walls placed and hero level)
-                        string insertScoreSql = @"INSERT INTO maxhanna.ender_top_scores (hero_id, user_id, score, time_on_level_seconds, walls_placed, level, created_at) VALUES (@HeroId, @UserId, @Score, @TimeOnLevel, @WallsPlaced, @Level, NOW());";
+                        // Insert into top scores table (include time on level, walls placed, hero level and kills)
+                        // NOTE: ensure your DB has a `kills` INT NOT NULL DEFAULT 0 column on maxhanna.ender_top_scores
+                        string insertScoreSql = @"INSERT INTO maxhanna.ender_top_scores (hero_id, user_id, score, time_on_level_seconds, walls_placed, level, kills, created_at) VALUES (@HeroId, @UserId, @Score, @TimeOnLevel, @WallsPlaced, @Level, @Kills, UTC_TIMESTAMP());";
                         Dictionary<string, object?> scoreParams = new Dictionary<string, object?>()
                                     {
                                         { "@HeroId", req.HeroId },
@@ -301,7 +302,9 @@ namespace maxhanna.Server.Controllers
                                         { "@Score", authoritativeScore },
                                         { "@TimeOnLevel", timeOnLevelSeconds },
                                         { "@WallsPlaced", validatedWalls },
-                                        { "@Level", heroLevel }
+                                        { "@Level", heroLevel },
+                                        // default kills to 0 for now; populate when player-kill tracking is added
+                                        { "@Kills", 0 }
                                     };
                         await ExecuteInsertOrUpdateOrDeleteAsync(insertScoreSql, scoreParams, connection, transaction);
 
@@ -528,7 +531,7 @@ namespace maxhanna.Server.Controllers
                 {
                     try
                     {
-                        string sql = @"SELECT t.id, t.hero_id, t.user_id, t.score, t.time_on_level_seconds, t.walls_placed, t.level, t.created_at,
+                        string sql = @"SELECT t.id, t.hero_id, t.user_id, t.score, t.time_on_level_seconds, t.walls_placed, t.level, IFNULL(t.kills,0) AS kills, t.created_at,
                                        u.id as user_id_fk, u.username, u.created as user_created, udp.file_id as display_picture_file_id
                                        FROM maxhanna.ender_top_scores t
                                        LEFT JOIN users u ON u.id = t.user_id
@@ -549,6 +552,7 @@ namespace maxhanna.Server.Controllers
                                     row["score"] = reader.GetInt32("score");
                                     row["time_on_level_seconds"] = reader.IsDBNull(reader.GetOrdinal("time_on_level_seconds")) ? 0 : reader.GetInt32("time_on_level_seconds");
                                     row["walls_placed"] = reader.IsDBNull(reader.GetOrdinal("walls_placed")) ? 0 : reader.GetInt32("walls_placed");
+                                    row["kills"] = reader.IsDBNull(reader.GetOrdinal("kills")) ? 0 : reader.GetInt32("kills");
                                     row["created_at"] = reader.GetDateTime("created_at");
                                     row["level"] = reader.IsDBNull(reader.GetOrdinal("level")) ? 1 : reader.GetInt32("level");
 
@@ -599,7 +603,7 @@ namespace maxhanna.Server.Controllers
                     try
                     {
                         // Use UTC dates to match stored created_at
-                        string sql = @"SELECT t.id, t.hero_id, t.user_id, t.score, t.time_on_level_seconds, t.walls_placed, t.level, t.created_at,
+                        string sql = @"SELECT t.id, t.hero_id, t.user_id, t.score, t.time_on_level_seconds, t.walls_placed, t.level, IFNULL(t.kills,0) AS kills, t.created_at,
                                        u.id as user_id_fk, u.username, u.created as user_created, udp.file_id as display_picture_file_id
                                        FROM maxhanna.ender_top_scores t
                                        LEFT JOIN users u ON u.id = t.user_id
@@ -621,6 +625,7 @@ namespace maxhanna.Server.Controllers
                                     row["score"] = reader.GetInt32("score");
                                     row["time_on_level_seconds"] = reader.IsDBNull(reader.GetOrdinal("time_on_level_seconds")) ? 0 : reader.GetInt32("time_on_level_seconds");
                                     row["walls_placed"] = reader.IsDBNull(reader.GetOrdinal("walls_placed")) ? 0 : reader.GetInt32("walls_placed");
+                                    row["kills"] = reader.IsDBNull(reader.GetOrdinal("kills")) ? 0 : reader.GetInt32("kills");
                                     row["created_at"] = reader.GetDateTime("created_at");
                                     row["level"] = reader.IsDBNull(reader.GetOrdinal("level")) ? 1 : reader.GetInt32("level");
 
@@ -669,7 +674,7 @@ namespace maxhanna.Server.Controllers
                 {
                     try
                     {
-                        string sql = @"SELECT t.id, t.hero_id, t.user_id, t.score, t.time_on_level_seconds, t.walls_placed, t.level, t.created_at,
+                        string sql = @"SELECT t.id, t.hero_id, t.user_id, t.score, t.time_on_level_seconds, t.walls_placed, t.level, IFNULL(t.kills,0) AS kills, t.created_at,
                                        u.id as user_id_fk, u.username, u.created as user_created, udp.file_id as display_picture_file_id
                                        FROM maxhanna.ender_top_scores t
                                        LEFT JOIN users u ON u.id = t.user_id
@@ -740,7 +745,7 @@ namespace maxhanna.Server.Controllers
                     try
                     {
                         // Select the best score for this user. Join to users table to provide basic user info if available.
-                        string sql = @"SELECT t.id, t.hero_id, t.user_id, t.score, t.time_on_level_seconds, t.walls_placed, t.level, t.created_at,
+                        string sql = @"SELECT t.id, t.hero_id, t.user_id, t.score, t.time_on_level_seconds, t.walls_placed, t.level, IFNULL(t.kills,0) AS kills, t.created_at,
                                        u.id as user_id_fk, u.username, u.created as user_created, udp.file_id as display_picture_file_id
                                        FROM maxhanna.ender_top_scores t
                                        LEFT JOIN users u ON u.id = t.user_id
@@ -763,6 +768,7 @@ namespace maxhanna.Server.Controllers
                                     result["score"] = reader.GetInt32("score");
                                     result["time_on_level_seconds"] = reader.IsDBNull(reader.GetOrdinal("time_on_level_seconds")) ? 0 : reader.GetInt32("time_on_level_seconds");
                                     result["walls_placed"] = reader.IsDBNull(reader.GetOrdinal("walls_placed")) ? 0 : reader.GetInt32("walls_placed");
+                                    result["kills"] = reader.IsDBNull(reader.GetOrdinal("kills")) ? 0 : reader.GetInt32("kills");
                                     result["created_at"] = reader.GetDateTime("created_at");
                                     result["level"] = reader.IsDBNull(reader.GetOrdinal("level")) ? 1 : reader.GetInt32("level");
 
@@ -1075,7 +1081,7 @@ namespace maxhanna.Server.Controllers
         {
             try
             {
-                string sql = @"DELETE FROM maxhanna.ender_event WHERE timestamp < NOW() - INTERVAL 20 SECOND;
+                string sql = @"DELETE FROM maxhanna.ender_event WHERE timestamp < UTC_TIMESTAMP() - INTERVAL 20 SECOND;
                             INSERT INTO maxhanna.ender_event (hero_id, event, map, data)
                             VALUES (@HeroId, @Event, @Map, @Data);";
                 Dictionary<string, object?> parameters = new Dictionary<string, object?>
@@ -1152,7 +1158,7 @@ namespace maxhanna.Server.Controllers
             // 1. All events from current map
             // 2. All CHAT events from party members (regardless of map)
             string sql = @"
-        DELETE FROM maxhanna.ender_event WHERE timestamp < NOW() - INTERVAL 20 SECOND;
+    DELETE FROM maxhanna.ender_event WHERE timestamp < UTC_TIMESTAMP() - INTERVAL 20 SECOND;
         
         SELECT *
         FROM maxhanna.ender_event 
@@ -2055,15 +2061,16 @@ namespace maxhanna.Server.Controllers
 
                 int score = timeOnLevelSeconds + (wallsPlaced * 10);
 
-                // record top score
-                string insertScoreSql = @"INSERT INTO maxhanna.ender_top_scores (hero_id, user_id, score, time_on_level_seconds, walls_placed, level, created_at) VALUES (@HeroId, @UserId, @Score, @TimeOnLevel, @WallsPlaced, @Level, NOW());";
+                // record top score (include kills column; default 0)
+                string insertScoreSql = @"INSERT INTO maxhanna.ender_top_scores (hero_id, user_id, score, time_on_level_seconds, walls_placed, level, kills, created_at) VALUES (@HeroId, @UserId, @Score, @TimeOnLevel, @WallsPlaced, @Level, @Kills, UTC_TIMESTAMP());";
                 await ExecuteInsertOrUpdateOrDeleteAsync(insertScoreSql, new Dictionary<string, object?>() {
                     { "@HeroId", heroId },
                     { "@UserId", userId },
                     { "@Score", score },
                     { "@TimeOnLevel", timeOnLevelSeconds },
                     { "@WallsPlaced", wallsPlaced },
-                    { "@Level", heroLevel }
+                    { "@Level", heroLevel },
+                    { "@Kills", 0 }
                 }, connection, transaction);
 
                 // remove hero data
@@ -2191,7 +2198,7 @@ namespace maxhanna.Server.Controllers
                             FROM maxhanna.ender_event 
                             WHERE event = 'TARGET_UNLOCKED' 
                                 AND (JSON_EXTRACT(data, '$.sourceId') = @SourceId AND JSON_EXTRACT(data, '$.targetId') = @TargetId) 
-                                AND timestamp > NOW() - INTERVAL 5 SECOND"; // 5 second window (adjust as needed)
+                                AND timestamp > UTC_TIMESTAMP() - INTERVAL 5 SECOND"; // 5 second window (adjust as needed)
 
                                 int eventCount = 0;
 
@@ -2522,7 +2529,7 @@ namespace maxhanna.Server.Controllers
 
             // 2. Apply damage to both bots in the database
             string updateSql = @"
-                UPDATE maxhanna.ender_bot_part SET last_used = NOW() WHERE metabot_id = @SourceId AND part_name = @PartName;
+                UPDATE maxhanna.ender_bot_part SET last_used = UTC_TIMESTAMP() WHERE metabot_id = @SourceId AND part_name = @PartName;
                 UPDATE maxhanna.ender_bot AS bot 
                 SET 
                     bot.hp = GREATEST(bot.hp - @Damage, 0), 
