@@ -27,6 +27,6 @@ export function isNearBikeWallIndexed(position: { x: number, y: number }, radius
 }
 
 // Backwards-compatible signature used by existing callers (ignored level arg)
-export function isNearBikeWall(level: any, position: { x: number, y: number }, radius: number = gridCells(1)): boolean {
+export function isNearBikeWall(level: any, position: { x: number, y: number }, radius: number = gridCells(2)): boolean {
   return isNearBikeWallIndexed(position, radius);
 }
