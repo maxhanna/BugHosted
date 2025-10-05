@@ -24,37 +24,33 @@ export class HeroRoomLevel extends Level {
     const baseSize = 21;
     const size = baseSize + (heroLevel - 1) * 4;
     // create floor tiles doubled grid step to match existing visuals (each cell is 2*gridCells(1) offset in original)
-    for (let y = 0; y < size; y++) {
-      for (let x = 0; x < size; x++) { 
-        const floor = new Sprite(
-          { 
-            resource: resources.images["enderFloor"], 
-            position: new Vector2(gridCells(x * 2), gridCells(y * 2)),
-            frameSize: new Vector2(32, 32) 
-          }
-        );
-        floor.drawLayer = BASE;
-        this.addChild(floor);
-      }
-    }
+    // for (let y = 0; y < size; y++) {
+    //   for (let x = 0; x < size; x++) { 
+    //     const floor = new Sprite(
+    //       { 
+    //         resource: resources.images["enderFloor"], 
+    //         position: new Vector2(gridCells(x * 2), gridCells(y * 2)),
+    //         frameSize: new Vector2(32, 32) 
+    //       }
+    //     );
+    //     floor.drawLayer = BASE;
+    //     this.addChild(floor);
+    //   }
+    // }
 
-    this.walls = new Set();
-    // simple bed placement and walls scaled by size
-    // bed: place roughly near top-left quadrant scaled
-    this.walls.add(`${gridCells(2)},${gridCells(8)}`);
-    this.walls.add(`${gridCells(2)},${gridCells(6)}`); this.walls.add(`${gridCells(4)},${gridCells(6)}`);
+    this.walls = new Set(); 
     // perimeter walls
-    for (let x = 0; x < size; x++) {
-      // top row (skip entrance area if needed)
-      if (x != Math.floor(size * 0.9)) { 
-        this.walls.add(`${gridCells(x)},${gridCells(1)}`);
-      }
-      this.walls.add(`${gridCells(x)},${gridCells(size)}`);
-    }
-    for (let y = 0; y < size; y++) { 
-      this.walls.add(`${gridCells(-1)},${gridCells(y)}`);
-      this.walls.add(`${gridCells(size)},${gridCells(y)}`);
-    }
+    // for (let x = 0; x < size; x++) {
+    //   // top row (skip entrance area if needed)
+    //   if (x != Math.floor(size * 0.9)) { 
+    //     this.walls.add(`${gridCells(x)},${gridCells(1)}`);
+    //   }
+    //   this.walls.add(`${gridCells(x)},${gridCells(size)}`);
+    // }
+    // for (let y = 0; y < size; y++) { 
+    //   this.walls.add(`${gridCells(-1)},${gridCells(y)}`);
+    //   this.walls.add(`${gridCells(size)},${gridCells(y)}`);
+    // }
   }
 
   override ready() {
