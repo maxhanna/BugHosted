@@ -133,8 +133,7 @@ namespace maxhanna.Server.Controllers
                                                    FROM maxhanna.ender_bike_wall bw
                                                    JOIN maxhanna.ender_hero h ON h.map = bw.map AND h.level = bw.level
                                                    WHERE bw.map = @Map AND bw.level = @Level
-                                                     AND h.id = @HeroId
-                                                     AND h.id != bw.hero_id
+                                                     AND h.id = @HeroId 
                                                      AND h.coordsX BETWEEN (bw.x - @Tol) AND (bw.x + @Tol)
                                                      AND h.coordsY BETWEEN (bw.y - @Tol) AND (bw.y + @Tol)
                                                    LIMIT 1;";
