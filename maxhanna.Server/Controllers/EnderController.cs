@@ -86,8 +86,8 @@ namespace maxhanna.Server.Controllers
                         MetaHero[]? heroes = await GetNearbyPlayers(hero, connection, transaction);
                         MetaBot[]? enemyBots = await GetEncounterMetaBots(connection, transaction, hero.Map);
                         List<MetaEvent> events = await GetEventsFromDb(hero.Map, hero.Id, connection, transaction);
-                        // Fetch persistent bike walls for this map
-                        List<MetaBikeWall> walls = await GetBikeWalls(hero.Map, connection, transaction);
+                        // Fetch persistent bike walls for this map and hero level
+                        List<MetaBikeWall> walls = await GetBikeWalls(hero.Map, connection, transaction, hero.Level);
                         await transaction.CommitAsync();
                         return Ok(new
                         {
@@ -259,12 +259,13 @@ namespace maxhanna.Server.Controllers
                                 // authoritative time on level = now - hero.created_at
                                 timeOnLevelSeconds = Math.Max(0, (int)Math.Floor((DateTime.UtcNow - heroCreatedAt.Value).TotalSeconds));
 
-                                // Count persisted bike walls for this hero that were created at/after heroCreatedAt
-                                string countSql = @"SELECT COUNT(*) FROM maxhanna.ender_bike_wall WHERE hero_id = @HeroId AND created_at >= @CreatedAt;";
+                                // Count persisted bike walls for this hero that were created at/after heroCreatedAt and on the same level
+                                string countSql = @"SELECT COUNT(*) FROM maxhanna.ender_bike_wall WHERE hero_id = @HeroId AND created_at >= @CreatedAt AND level = @Level;";
                                 using (var countCmd = new MySqlCommand(countSql, connection, transaction))
                                 {
                                     countCmd.Parameters.AddWithValue("@HeroId", req.HeroId);
                                     countCmd.Parameters.AddWithValue("@CreatedAt", heroCreatedAt.Value);
+                                    countCmd.Parameters.AddWithValue("@Level", heroLevelFromDb);
                                     var result = await countCmd.ExecuteScalarAsync();
                                     validatedWalls = Convert.ToInt32(result);
                                 }
@@ -424,11 +425,13 @@ namespace maxhanna.Server.Controllers
                             }
                         }
 
-                        // bike wall spots
+                        // bike wall spots (only for starting map/level)
                         var bikeWallSpots = new HashSet<(int X, int Y)>();
-                        string bikeSql = "SELECT x AS bx, y AS byy FROM maxhanna.ender_bike_wall;";
+                        string bikeSql = "SELECT x AS bx, y AS byy FROM maxhanna.ender_bike_wall WHERE map = @Map AND level = @Level;";
                         using (var bikeCmd = new MySqlCommand(bikeSql, connection, transaction))
                         {
+                            bikeCmd.Parameters.AddWithValue("@Map", "HeroRoom");
+                            bikeCmd.Parameters.AddWithValue("@Level", 1);
                             using var bikeReader = await bikeCmd.ExecuteReaderAsync();
                             while (await bikeReader.ReadAsync())
                             {
@@ -1985,13 +1988,28 @@ namespace maxhanna.Server.Controllers
                 {
                     int x = Convert.ToInt32(xStr);
                     int y = Convert.ToInt32(yStr);
-                    string sql = @"INSERT INTO maxhanna.ender_bike_wall (hero_id, map, x, y) VALUES (@HeroId, @Map, @X, @Y);";
+                    // determine creator level first (default 1)
+                    int creatorLevel = 1;
+                    try
+                    {
+                        string getLevelSql = @"SELECT level FROM maxhanna.ender_hero WHERE id = @HeroId LIMIT 1;";
+                        using (var lvlCmd = new MySqlCommand(getLevelSql, connection, transaction))
+                        {
+                            lvlCmd.Parameters.AddWithValue("@HeroId", metaEvent.HeroId);
+                            var lvlObj = await lvlCmd.ExecuteScalarAsync();
+                            if (lvlObj != null && lvlObj != DBNull.Value) creatorLevel = Convert.ToInt32(lvlObj);
+                        }
+                    }
+                    catch { /* ignore and default to 1 */ }
+
+                    string sql = @"INSERT INTO maxhanna.ender_bike_wall (hero_id, map, x, y, level) VALUES (@HeroId, @Map, @X, @Y, @Level);";
                     var parameters = new Dictionary<string, object?>
                     {
                         {"@HeroId", metaEvent.HeroId },
                         {"@Map", metaEvent.Map },
                         {"@X", x },
-                        {"@Y", y }
+                        {"@Y", y },
+                        {"@Level", creatorLevel }
                     };
                     await ExecuteInsertOrUpdateOrDeleteAsync(sql, parameters, connection, transaction);
 
@@ -1999,19 +2017,6 @@ namespace maxhanna.Server.Controllers
                     try
                     {
                         int proximity = 16; // pixels (one grid cell)
-                        // Determine the level of the wall's creator (if possible)
-                        int creatorLevel = 1;
-                        try
-                        {
-                            string lvlSql = @"SELECT level FROM maxhanna.ender_hero WHERE id = @HeroId LIMIT 1;";
-                            using (var lvlCmd = new MySqlCommand(lvlSql, connection, transaction))
-                            {
-                                lvlCmd.Parameters.AddWithValue("@HeroId", metaEvent.HeroId);
-                                var lvlObj = await lvlCmd.ExecuteScalarAsync();
-                                if (lvlObj != null && lvlObj != DBNull.Value) creatorLevel = Convert.ToInt32(lvlObj);
-                            }
-                        }
-                        catch { /* ignore and default to 1 */ }
 
                         int xmin = x - proximity;
                         int xmax = x + proximity;
@@ -2069,13 +2074,14 @@ namespace maxhanna.Server.Controllers
             }
         }
 
-        private async Task<List<MetaBikeWall>> GetBikeWalls(string map, MySqlConnection connection, MySqlTransaction transaction)
+        private async Task<List<MetaBikeWall>> GetBikeWalls(string map, MySqlConnection connection, MySqlTransaction transaction, int level = 1)
         {
             var walls = new List<MetaBikeWall>();
-            string sql = "SELECT id, hero_id, map, x, y FROM maxhanna.ender_bike_wall WHERE map = @Map";
+            string sql = "SELECT id, hero_id, map, x, y, level FROM maxhanna.ender_bike_wall WHERE map = @Map AND level = @Level";
             using (var cmd = new MySqlCommand(sql, connection, transaction))
             {
                 cmd.Parameters.AddWithValue("@Map", map);
+                cmd.Parameters.AddWithValue("@Level", level);
                 using (var reader = await cmd.ExecuteReaderAsync())
                 {
                     while (await reader.ReadAsync())
@@ -2086,7 +2092,8 @@ namespace maxhanna.Server.Controllers
                             HeroId = reader.GetInt32("hero_id"),
                             Map = reader.GetString("map"),
                             X = reader.GetInt32("x"),
-                            Y = reader.GetInt32("y")
+                            Y = reader.GetInt32("y"),
+                            Level = reader.IsDBNull(reader.GetOrdinal("level")) ? 1 : reader.GetInt32("level")
                         });
                     }
                 }
@@ -2145,17 +2152,19 @@ namespace maxhanna.Server.Controllers
                 int wallsPlaced = 0;
                 try
                 {
-                    string countSql = @"SELECT COUNT(*) FROM maxhanna.ender_bike_wall WHERE hero_id = @HeroId";
+                    // count only walls for the hero at the same level
+                    string countSql = @"SELECT COUNT(*) FROM maxhanna.ender_bike_wall WHERE hero_id = @HeroId AND level = @Level";
                     using (var countCmd = new MySqlCommand(countSql, connection, transaction))
                     {
                         countCmd.Parameters.AddWithValue("@HeroId", heroId);
+                        countCmd.Parameters.AddWithValue("@Level", heroLevel);
                         var cnt = await countCmd.ExecuteScalarAsync();
                         wallsPlaced = Convert.ToInt32(cnt);
                     }
                 }
                 catch { }
 
-                int score = timeOnLevelSeconds + (wallsPlaced * 10);
+                int score = timeOnLevelSeconds + (wallsPlaced * heroKills);
 
                 // record top score (include kills column; default 0)
                 string insertScoreSql = @"INSERT INTO maxhanna.ender_top_scores (hero_id, user_id, score, time_on_level_seconds, walls_placed, level, kills, created_at) VALUES (@HeroId, @UserId, @Score, @TimeOnLevel, @WallsPlaced, @Level, @Kills, UTC_TIMESTAMP());";
