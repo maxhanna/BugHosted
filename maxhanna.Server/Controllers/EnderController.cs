@@ -498,10 +498,10 @@ namespace maxhanna.Server.Controllers
                     try
                     {
                         string sql = @"INSERT INTO maxhanna.ender_hero (name, user_id, coordsX, coordsY, speed, level, color)
-                                                    SELECT @Name, @UserId, @CoordsX, @CoordsY, @Speed, @Level, @Color
-                                                    WHERE NOT EXISTS (
-                                                            SELECT 1 FROM maxhanna.ender_hero WHERE user_id = @UserId OR name = @Name
-                                                    );";
+                                    SELECT @Name, @UserId, @CoordsX, @CoordsY, @Speed, @Level, @Color
+                                    WHERE NOT EXISTS (
+                                            SELECT 1 FROM maxhanna.ender_hero WHERE user_id = @UserId OR name = @Name
+                                    );";
                         // Choose a random starting location that doesn't collide with other heroes or bike walls
                         int mapSize = 100; // grid size used for random spawn
 
@@ -547,15 +547,15 @@ namespace maxhanna.Server.Controllers
                         }
 
                         Dictionary<string, object?> parameters = new Dictionary<string, object?>
-                                                {
-                                                        { "@CoordsX", posX },
-                                                        { "@CoordsY", posY },
-                                                        { "@Speed", 1 },
-                                                        { "@Name", req.Name ?? "Anonymous"},
-                                                        { "@UserId", req.UserId},
-                                                        { "@Level", 1 },
-                                                        { "@Color", req.Color ?? "#00a0c8" }
-                                                };
+                        {
+                                { "@CoordsX", posX },
+                                { "@CoordsY", posY },
+                                { "@Speed", 1 },
+                                { "@Name", req.Name ?? "Anonymous"},
+                                { "@UserId", req.UserId},
+                                { "@Level", 1 },
+                                { "@Color", req.Color ?? "#00a0c8" }
+                        };
                         long? botId = await this.ExecuteInsertOrUpdateOrDeleteAsync(sql, parameters, connection, transaction);
 
                         // Persist last character name to user_settings
