@@ -424,14 +424,14 @@ namespace maxhanna.Server.Controllers
 
                         // bike wall spots
                         var bikeWallSpots = new HashSet<(int X, int Y)>();
-                        string bikeSql = "SELECT x AS bx, y AS by FROM maxhanna.ender_bike_wall;";
+                        string bikeSql = "SELECT x AS bx, y AS byy FROM maxhanna.ender_bike_wall;";
                         using (var bikeCmd = new MySqlCommand(bikeSql, connection, transaction))
                         {
                             using var bikeReader = await bikeCmd.ExecuteReaderAsync();
                             while (await bikeReader.ReadAsync())
                             {
                                 bikeWallSpots.Add((bikeReader.IsDBNull(bikeReader.GetOrdinal("bx")) ? 0 : bikeReader.GetInt32("bx"),
-                                                   bikeReader.IsDBNull(bikeReader.GetOrdinal("by")) ? 0 : bikeReader.GetInt32("by")));
+                                           bikeReader.IsDBNull(bikeReader.GetOrdinal("byy")) ? 0 : bikeReader.GetInt32("byy")));
                             }
                         }
 
@@ -2018,11 +2018,11 @@ namespace maxhanna.Server.Controllers
                                 // reader must be closed before executing other commands
                                 rdr.Close();
 
-                foreach (var victimId in toKill)
+                                foreach (var victimId in toKill)
                                 {
                                     try
                                     {
-                    await KillHeroById(victimId, connection, transaction, metaEvent.HeroId);
+                                        await KillHeroById(victimId, connection, transaction, metaEvent.HeroId);
                                         // optionally publish an event so clients can react immediately
                                         try
                                         {
@@ -2085,17 +2085,17 @@ namespace maxhanna.Server.Controllers
         }
 
         // Authoritative kill helper used by server-side checks (does not rely on client-supplied time/walls)
-    private async Task KillHeroById(int heroId, MySqlConnection connection, MySqlTransaction transaction, int? killerHeroId = null)
+        private async Task KillHeroById(int heroId, MySqlConnection connection, MySqlTransaction transaction, int? killerHeroId = null)
         {
             try
             {
                 // fetch hero info for score & map
-        string selSql = @"SELECT user_id, created, map, level, kills FROM maxhanna.ender_hero WHERE id = @HeroId LIMIT 1;";
+                string selSql = @"SELECT user_id, created, map, level, kills FROM maxhanna.ender_hero WHERE id = @HeroId LIMIT 1;";
                 int userId = 0;
                 DateTime? createdAt = null;
                 string map = "";
                 int heroLevel = 1;
-        int heroKills = 0;
+                int heroKills = 0;
                 using (var cmd = new MySqlCommand(selSql, connection, transaction))
                 {
                     cmd.Parameters.AddWithValue("@HeroId", heroId);
@@ -2107,7 +2107,7 @@ namespace maxhanna.Server.Controllers
                             createdAt = rdr.IsDBNull(rdr.GetOrdinal("created")) ? (DateTime?)null : Convert.ToDateTime(rdr["created"]).ToUniversalTime();
                             map = rdr.IsDBNull(rdr.GetOrdinal("map")) ? "" : rdr.GetString("map");
                             heroLevel = rdr.IsDBNull(rdr.GetOrdinal("level")) ? 1 : rdr.GetInt32("level");
-                heroKills = rdr.IsDBNull(rdr.GetOrdinal("kills")) ? 0 : rdr.GetInt32("kills");
+                            heroKills = rdr.IsDBNull(rdr.GetOrdinal("kills")) ? 0 : rdr.GetInt32("kills");
                         }
                     }
                 }
