@@ -122,6 +122,47 @@ namespace maxhanna.Server.Controllers
                         // Fetch persistent bike walls for this map and hero level
                         // Return only walls created within the last 10 seconds (recent delta)
                         List<MetaBikeWall> walls = await GetRecentBikeWalls(hero.Map, connection, transaction, hero.Level, 10);
+
+                        // --- Tolerant bike-wall collision detection (server authoritative) ---
+                        // Players may move more than one pixel per tick and "skip" the exact wall coordinate.
+                        // We'll treat a hero as colliding if their (coordsX,coordsY) falls within a tolerance box
+                        // around any wall for their level & map. Tolerance defaults to half a grid cell (8px) each side.
+                        try {
+                            int tolerance = 16; // pixels; adjust as needed
+                            string collideSql = @"SELECT bw.hero_id, bw.x, bw.y, h.id as victim_id
+                                                   FROM maxhanna.ender_bike_wall bw
+                                                   JOIN maxhanna.ender_hero h ON h.map = bw.map AND h.level = bw.level
+                                                   WHERE bw.map = @Map AND bw.level = @Level
+                                                     AND h.id = @HeroId
+                                                     AND h.id != bw.hero_id
+                                                     AND h.coordsX BETWEEN (bw.x - @Tol) AND (bw.x + @Tol)
+                                                     AND h.coordsY BETWEEN (bw.y - @Tol) AND (bw.y + @Tol)
+                                                   LIMIT 1;";
+                            using (var colCmd = new MySqlCommand(collideSql, connection, transaction)) {
+                                colCmd.Parameters.AddWithValue("@Map", hero.Map);
+                                colCmd.Parameters.AddWithValue("@Level", hero.Level);
+                                colCmd.Parameters.AddWithValue("@HeroId", hero.Id);
+                                colCmd.Parameters.AddWithValue("@Tol", tolerance);
+                                using (var rdr = await colCmd.ExecuteReaderAsync()) {
+                                    if (await rdr.ReadAsync()) {
+                                        int victimId = rdr.IsDBNull(rdr.GetOrdinal("victim_id")) ? 0 : rdr.GetInt32("victim_id");
+                                        // Mark hero as dead via same logic as bike-wall spawn kills
+                                        if (victimId > 0) {
+                                            rdr.Close(); // close reader before reuse
+                                            await KillHeroById(victimId, connection, transaction, null);
+                                            var deathEvent = new MetaEvent(0, victimId, DateTime.UtcNow, "HERO_DIED", hero.Map ?? "", new Dictionary<string, string>() { { "cause", "BIKE_WALL_COLLIDE" } });
+                                            await UpdateEventsInDB(deathEvent, connection, transaction);
+                                            // Refresh events and hero list after death
+                                            heroes = await GetNearbyPlayers(hero, connection, transaction);
+                                            events = await GetEventsFromDb(hero.Map ?? string.Empty, hero.Id, connection, transaction);
+                                        }
+                                    }
+                                }
+                            }
+                        } catch (Exception ex) {
+                            _ = _log.Db("Bike wall tolerant collision check failed: " + ex.Message, null, "ENDER", true);
+                        }
+
                         await transaction.CommitAsync();
                         return Ok(new
                         {
