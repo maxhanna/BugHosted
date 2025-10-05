@@ -1564,7 +1564,7 @@ namespace maxhanna.Server.Controllers
                     var toKill = await PersistWallAndGetNearby(metaEvent.HeroId, metaEvent.Map ?? "", x, y, connection, transaction);
 
                     // remove the creator from victims if present and kill survivors
-                    foreach (var victimId in toKill.Where(id => id != metaEvent.HeroId))
+                    foreach (var victimId in toKill)
                     {
                         try
                         {
@@ -1598,18 +1598,17 @@ namespace maxhanna.Server.Controllers
             int ymax = y + proximity;
 
             string combinedSql = @"
-                            UPDATE maxhanna.ender_hero
-                            SET coordsX = @X, coordsY = @Y, map = @Map
-                            WHERE id = @HeroId LIMIT 1;
+            UPDATE maxhanna.ender_hero
+            SET coordsX = @X, coordsY = @Y, map = @Map
+            WHERE id = @HeroId LIMIT 1;
 
-                            INSERT INTO maxhanna.ender_bike_wall (hero_id, map, x, y, level)
-                            VALUES (@HeroId, @Map, @X, @Y, (SELECT level FROM maxhanna.ender_hero WHERE id = @HeroId LIMIT 1));
+            INSERT INTO maxhanna.ender_bike_wall (hero_id, map, x, y, level)
+            VALUES (@HeroId, @Map, @X, @Y, (SELECT level FROM maxhanna.ender_hero WHERE id = @HeroId LIMIT 1));
 
-                            SELECT id FROM maxhanna.ender_hero
-                            WHERE map = @Map
-                              AND level = (SELECT level FROM maxhanna.ender_hero WHERE id = @HeroId LIMIT 1)
-                              AND coordsX BETWEEN @Xmin AND @Xmax
-                              AND coordsY BETWEEN @Ymin AND @Ymax;";
+            SELECT id FROM maxhanna.ender_hero
+            WHERE level = (SELECT level FROM maxhanna.ender_hero WHERE id = @HeroId LIMIT 1)
+                AND coordsX BETWEEN @Xmin AND @Xmax
+                AND coordsY BETWEEN @Ymin AND @Ymax;";
 
             using (var cmd = new MySqlCommand(combinedSql, connection, transaction))
             {
