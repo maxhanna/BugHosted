@@ -289,7 +289,7 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
                         this.metaHero.kills = Number(res.heroKills) || 0;
                     }
                     this.updateOtherHeroesBasedOnFetchedData(res);
-                    this.updateMissingOrNewHeroSprites(); 
+                    this.updateMissingOrNewHeroSprites();
 
                     // Persisted bike walls for this map - use in-memory Set to avoid scanning level.children repeatedly
                     const walls = Array.isArray(res.walls) ? (res.walls as MetaBikeWall[]) : undefined;
@@ -306,7 +306,7 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
                             this.mainScene.level.addChild(wall);
                             addBikeWallCell(w.x, w.y);
                             // emit only for local hero walls 
-                            events.emit("BIKEWALL_CREATED", { x: w.x, y: w.y }); 
+                            events.emit("BIKEWALL_CREATED", { x: w.x, y: w.y });
                             if (w.id && w.id > this.lastKnownWallId) {
                                 this.lastKnownWallId = w.id;
                             }
@@ -329,11 +329,11 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
             this.otherHeroes = [];
             this.updateEnemiesOnSameLevelCount();
             return;
-        } 
-        this.otherHeroes = res.heroes; 
+        }
+        this.otherHeroes = res.heroes;
         this.updateEnemiesOnSameLevelCount();
     }
-     
+
     private updateMissingOrNewHeroSprites() {
         let ids: number[] = [];
         for (const hero of this.otherHeroes) {
@@ -361,7 +361,7 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
                 else {
                     existingHero = this.addHeroToScene(hero);
                 }
-             
+
                 this.setHeroLatestMessage(existingHero);
             }
             ids.push(hero.id);
@@ -391,7 +391,7 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
             position: initialPos,
             colorSwap: (hero.color ? new ColorSwap([0, 160, 200], hexToRgb(hero.color)) : undefined),
             speed: hero.speed,
-            mask: hero.mask ? new Mask(getMaskNameById(hero.mask)) : undefined, 
+            mask: hero.mask ? new Mask(getMaskNameById(hero.mask)) : undefined,
             forceDrawName: true,
         });
         tmpHero.lastPosition = tmpHero.position.duplicate();
@@ -406,7 +406,7 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
         //tmpHero.metabots?.forEach((bot: MetaBot) => { bot.colorSwap = tmpHero.colorSwap;  })
         this.mainScene.level?.addChild(tmpHero);
         return tmpHero;
-    } 
+    }
 
     private addItemToScene(item: MetaBotPart, location: Vector2) {
         const offsets = [
@@ -496,13 +496,13 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
             position: spawnPos,
             isUserControlled: true,
             speed: rz.speed,
-            mask: rz.mask ? new Mask(getMaskNameById(rz.mask)) : undefined, 
-            colorSwap: colorSwap ?  new ColorSwap([0,160,200], hexToRgb(colorSwap)) : undefined,
+            mask: rz.mask ? new Mask(getMaskNameById(rz.mask)) : undefined,
+            colorSwap: colorSwap ? new ColorSwap([0, 160, 200], hexToRgb(colorSwap)) : undefined,
         });
         this.metaHero = new MetaHero(this.hero.id, (this.hero.name ?? "Anon"),
             this.hero.position.duplicate(),
             rz.speed,
-            rz.map, 
+            rz.map,
             colorSwap,
             rz.mask,
             rz.level ?? 1,
@@ -526,7 +526,7 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
             } else {
                 this.mainScene.setLevel(level);
             }
-        } 
+        }
 
         this.mainScene.camera.centerPositionOnTarget(this.metaHero.position);
         // Mark run as started when hero is fully initialized.
@@ -591,14 +591,14 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
         }
         await this.enderService.fetchInventoryData(this.metaHero.id).then(inventoryData => {
             if (inventoryData) {
-                const inventoryItems = inventoryData.inventory as InventoryItem[]; 
-                this.mainScene.inventory.partyMembers = this.partyMembers; 
+                const inventoryItems = inventoryData.inventory as InventoryItem[];
+                this.mainScene.inventory.partyMembers = this.partyMembers;
             }
             if (!this.isShopMenuOpened && !skipParty) {
                 this.mainScene.inventory.renderParty();
             }
         });
-    } 
+    }
 
     private getLevelFromLevelName(key: string): Level {
         const upperKey = key.toUpperCase();
@@ -641,7 +641,7 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
         }
     }
     async changeColor() {
-            const newColor = this.colorInput.nativeElement.value;
+        const newColor = this.colorInput.nativeElement.value;
         this.metaHero.color = newColor;
         // Immediately update current hero's color swap if exists (no full rebuild flicker)
         if (this.hero && (this.hero as any).colorSwap) {
@@ -652,11 +652,20 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
                     return m ? [parseInt(m[1], 16), parseInt(m[2], 16), parseInt(m[3], 16)] : [0, 0, 0];
                 };
                 (this.hero as any).colorSwap.target = toRgb(hex);
-            } catch {}
-        } 
+            } catch { }
+        }
         // Reinitialize to propagate color to newly spawned assets / party display
-        await this.reinitializeHero(this.metaHero, true); 
-     }
+        // Persist the selected color to user settings when possible
+        try {
+            const userId = this.parentRef?.user?.id ?? 0;
+            if (userId && userId > 0) {
+                await this.userService.updateLastCharacterColor(userId, newColor);
+                this.cachedDefaultColor = newColor;
+            }
+        } catch { }
+
+        await this.reinitializeHero(this.metaHero, true);
+    }
     private adjustCanvasSize = () => {
         const containers = document.querySelectorAll('.componentContainer');
         containers.forEach((container: any) => {

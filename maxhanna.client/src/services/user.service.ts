@@ -383,6 +383,21 @@ export class UserService {
       return "Error";
     }
   }
+  async updateLastCharacterColor(userId: number, color: string) {
+    try {
+      const response = await fetch('/user/updatelastcharactercolor', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ UserId: userId, Color: color }),
+      });
+
+      return await response.text();
+    } catch (error) {
+      return null;
+    }
+  }
   async updateNotificationsEnabled(userId: number, isAllowed: boolean) {
     try {
       const response = await fetch('/user/updatenotificationsenabled', {

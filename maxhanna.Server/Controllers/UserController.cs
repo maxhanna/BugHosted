@@ -1256,6 +1256,40 @@ namespace maxhanna.Server.Controllers
 			}
 		}
 
+		[HttpPost("/User/UpdateLastCharacterColor", Name = "UpdateLastCharacterColor")]
+		public async Task<IActionResult> UpdateLastCharacterColor([FromBody] maxhanna.Server.Controllers.DataContracts.Users.UpdateLastCharacterColorRequest request)
+		{
+			using (MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+			{
+				try
+				{
+					await conn.OpenAsync();
+
+					string upsertSql = @"
+                INSERT INTO maxhanna.user_settings (user_id, last_character_color)
+                VALUES (@UserId, @Color)
+                ON DUPLICATE KEY UPDATE last_character_color = VALUES(last_character_color);";
+
+					MySqlCommand cmd = new MySqlCommand(upsertSql, conn);
+					cmd.Parameters.AddWithValue("@UserId", request.UserId);
+					cmd.Parameters.AddWithValue("@Color", request.Color ?? string.Empty);
+
+					await cmd.ExecuteNonQueryAsync();
+
+					return Ok("Updated");
+				}
+				catch (Exception ex)
+				{
+					_ = _log.Db("An error occurred while updating last character color. " + ex.Message, request.UserId, "USER", true);
+					return StatusCode(500, "An error occurred while updating last character color.");
+				}
+				finally
+				{
+					conn.Close();
+				}
+			}
+		}
+
 		[HttpPost("/User/GetUserSettings", Name = "GetUserSettings")]
 		public async Task<IActionResult> GetUserSettings([FromBody] int userId)
 		{
