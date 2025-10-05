@@ -4,6 +4,7 @@ import { MetaHero } from '../../services/datacontracts/meta/meta-hero';
 import { Vector2 } from '../../services/datacontracts/meta/vector2';
 import { User } from '../../services/datacontracts/user/user';
 import { MetaService } from '../../services/meta.service';
+import { UserService } from '../../services/user.service';
 import { MetaChat } from '../../services/datacontracts/meta/meta-chat';
 import { gridCells, snapToGrid } from './helpers/grid-cells';
 import { GameLoop } from './helpers/game-loop';
@@ -52,7 +53,7 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy, 
   @ViewChild('chatInput') chatInput!: ElementRef<HTMLInputElement>;
   @ViewChild('colorInput') colorInput!: ElementRef<HTMLInputElement>;
 
-  constructor(private metaService: MetaService) {
+  constructor(private metaService: MetaService, private userService: UserService) {
     super();
     this.hero = {} as Hero;
     this.metaHero = {} as MetaHero;
@@ -148,8 +149,13 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy, 
         this.mainScene.inventory.partyMembers = this.partyMembers;
         this.mainScene.inventory.renderParty();
         await this.reinitializeHero(rz);
-      } else { 
-        this.mainScene.setLevel(new CharacterCreate());
+      } else {
+        this.userService.getUserSettings(this.parentRef?.user?.id ?? 0).then(res => {
+          const defaultName = res?.lastCharacterName ?? undefined;
+          this.mainScene.setLevel(new CharacterCreate({ defaultName }));
+        }).catch(() => {
+          this.mainScene.setLevel(new CharacterCreate());
+        });
         return;
       }
     }

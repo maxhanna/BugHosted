@@ -240,6 +240,19 @@ namespace maxhanna.Server.Controllers
 						long? botId = await this.ExecuteInsertOrUpdateOrDeleteAsync(sql, parameters, connection, transaction);
 						await transaction.CommitAsync();
 
+						// Persist last character name to user_settings
+						try
+						{
+							string upsertNameSql = @"INSERT INTO maxhanna.user_settings (user_id, last_character_name) VALUES (@UserId, @Name) ON DUPLICATE KEY UPDATE last_character_name = VALUES(last_character_name);";
+							using (var upCmd = new MySqlCommand(upsertNameSql, connection, transaction))
+							{
+								upCmd.Parameters.AddWithValue("@UserId", req.UserId);
+								upCmd.Parameters.AddWithValue("@Name", req.Name ?? "");
+								await upCmd.ExecuteNonQueryAsync();
+							}
+						}
+						catch { }
+
 						MetaHero hero = new MetaHero();
 						hero.Position = new Vector2(posX, posY);
 						hero.Id = (int)botId;

@@ -406,18 +406,66 @@ namespace maxhanna.Server.Controllers
                                                     WHERE NOT EXISTS (
                                                             SELECT 1 FROM maxhanna.ender_hero WHERE user_id = @UserId OR name = @Name
                                                     );";
+                        // Choose a random starting location that doesn't collide with other heroes or bike walls
+                        int mapSize = 100; // grid size used for random spawn
+
+                        // occupied hero spots
+                        var occupiedSpots = new HashSet<(int X, int Y)>();
+                        string occSql = "SELECT coordsX AS cx, coordsY AS cy FROM maxhanna.ender_hero;";
+                        using (var occCmd = new MySqlCommand(occSql, connection, transaction))
+                        {
+                            using var occReader = await occCmd.ExecuteReaderAsync();
+                            while (await occReader.ReadAsync())
+                            {
+                                occupiedSpots.Add((occReader.IsDBNull(occReader.GetOrdinal("cx")) ? 0 : occReader.GetInt32("cx"),
+                                                   occReader.IsDBNull(occReader.GetOrdinal("cy")) ? 0 : occReader.GetInt32("cy")));
+                            }
+                        }
+
+                        // bike wall spots
+                        var bikeWallSpots = new HashSet<(int X, int Y)>();
+                        string bikeSql = "SELECT x AS bx, y AS by FROM maxhanna.ender_bike_wall;";
+                        using (var bikeCmd = new MySqlCommand(bikeSql, connection, transaction))
+                        {
+                            using var bikeReader = await bikeCmd.ExecuteReaderAsync();
+                            while (await bikeReader.ReadAsync())
+                            {
+                                bikeWallSpots.Add((bikeReader.IsDBNull(bikeReader.GetOrdinal("bx")) ? 0 : bikeReader.GetInt32("bx"),
+                                                   bikeReader.IsDBNull(bikeReader.GetOrdinal("by")) ? 0 : bikeReader.GetInt32("by")));
+                            }
+                        }
+
+                        var allSpots = Enumerable.Range(0, mapSize).SelectMany(x => Enumerable.Range(0, mapSize).Select(y => (X: x, Y: y))).ToList();
+                        var availableSpots = allSpots.Where(s => !occupiedSpots.Contains((s.X, s.Y)) && !bikeWallSpots.Contains((s.X, s.Y))).ToList();
+
                         int posX = 1 * 16;
                         int posY = 11 * 16;
+                        if (availableSpots.Any())
+                        {
+                            var rand = new Random();
+                            var sel = availableSpots[rand.Next(availableSpots.Count)];
+                            posX = sel.X;
+                            posY = sel.Y;
+                        }
+
                         Dictionary<string, object?> parameters = new Dictionary<string, object?>
                                                 {
                                                         { "@CoordsX", posX },
                                                         { "@CoordsY", posY },
                                                         { "@Speed", 1 },
-                                                                                                                { "@Name", req.Name ?? "Anonymous"},
-                                                        { "@UserId", req.UserId}
-                                                                                                                ,{ "@Level", 1 }
+                                                        { "@Name", req.Name ?? "Anonymous"},
+                                                        { "@UserId", req.UserId},
+                                                        { "@Level", 1 }
                                                 };
                         long? botId = await this.ExecuteInsertOrUpdateOrDeleteAsync(sql, parameters, connection, transaction);
+
+                        // Persist last character name to user_settings
+                        try
+                        {
+                            string upsertNameSql = @"INSERT INTO maxhanna.user_settings (user_id, last_character_name) VALUES (@UserId, @Name) ON DUPLICATE KEY UPDATE last_character_name = VALUES(last_character_name);";
+                            await ExecuteInsertOrUpdateOrDeleteAsync(upsertNameSql, new Dictionary<string, object?>() { { "@UserId", req.UserId }, { "@Name", req.Name ?? "" } }, connection, transaction);
+                        }
+                        catch { }
                         await transaction.CommitAsync();
 
                         MetaHero hero = new MetaHero();

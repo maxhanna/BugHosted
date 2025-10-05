@@ -9,6 +9,9 @@ namespace maxhanna.Server.Controllers.DataContracts.Users
 
 		public string? ShowPostsFrom { get; set; }
 		public bool? NotificationsEnabled { get; set; }
+
+		// Last character name used during character creation
+		public string? LastCharacterName { get; set; }
 	}
 
 }

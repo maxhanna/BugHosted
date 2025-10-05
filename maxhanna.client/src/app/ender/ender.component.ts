@@ -4,6 +4,7 @@ import { MetaHero } from '../../services/datacontracts/ender/meta-hero';
 import { Vector2 } from '../../services/datacontracts/ender/vector2';
 import { User } from '../../services/datacontracts/user/user';
 import { EnderService } from '../../services/ender.service';
+import { UserService } from '../../services/user.service';
 import { MetaChat } from '../../services/datacontracts/ender/meta-chat';
 import { gridCells, snapToGrid } from './helpers/grid-cells';
 import { GameLoop } from './helpers/game-loop';
@@ -41,7 +42,7 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
     @ViewChild('chatInput') chatInput!: ElementRef<HTMLInputElement>;
     @ViewChild('colorInput') colorInput!: ElementRef<HTMLInputElement>;
 
-    constructor(private enderService: EnderService) {
+    constructor(private enderService: EnderService, private userService: UserService) {
         super();
         this.hero = {} as Hero;
         this.metaHero = {} as MetaHero;
@@ -202,7 +203,13 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
                 this.mainScene.inventory.renderParty();
                 await this.reinitializeHero(rz);
             } else {
-                this.mainScene.setLevel(new CharacterCreate());
+                // attempt to load persisted last character name and pass it into the CharacterCreate level
+                this.userService.getUserSettings(this.parentRef?.user?.id ?? 0).then(res => {
+                    const defaultName = res?.lastCharacterName ?? undefined;
+                    this.mainScene.setLevel(new CharacterCreate({ defaultName }));
+                }).catch(() => {
+                    this.mainScene.setLevel(new CharacterCreate());
+                });
                 return;
             }
         }

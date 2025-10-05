@@ -5,4 +5,5 @@ export class UserSettings {
   compactness?: string;
   showPostsFrom?: string; 
   notificationsEnabled?: boolean; 
+  lastCharacterName?: string;
 }

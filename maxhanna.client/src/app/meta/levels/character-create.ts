@@ -14,6 +14,8 @@ export class CharacterCreate extends Level {
   characterNameEmitted = false;
   changeLevelEmitted = false;
   characterName = "";
+  // Optional default name provided from persisted user settings
+  defaultName: string | undefined = undefined;
   referee = new Referee({ position: new Vector2(gridCells(5), gridCells(5)) });
   profanity = ["4r5e", "5h1t", "5hit", "a55", "anal", "anus", "ar5e", "arrse", "arse", "ass", "ass-fucker", "asses",
     "assfucker", "assfukka", "asshole", "assholes", "asswhole", "a_s_s", "b!tch", "b00bs", "b17ch", "b1tch", "ballbag", "balls",
@@ -53,13 +55,17 @@ export class CharacterCreate extends Level {
     "tosser", "turd", "tw4t", "twat", "twathead", "twatty", "twunt", "twunter", "v14gra", "v1gra", "vagina", "viagra", "vulva", "w00se",
     "wang", "wank", "wanker", "wanky", "whoar", "whore", "willies", "xrated", "xxx", "suck", "max"];
   override defaultHeroPosition = new Vector2(gridCells(1), gridCells(1));
-  constructor(params: { heroPosition?: Vector2 } = {}) {
+  constructor(params: { heroPosition?: Vector2, defaultName?: string } = {}) {
     super();
     console.log("new char create");
     this.name = "CharacterCreate";
     if (params.heroPosition) {
       this.defaultHeroPosition = params.heroPosition;
     } 
+    if (params.defaultName) {
+      this.defaultName = params.defaultName;
+      this.characterName = params.defaultName;
+    }
     this.referee.textContent = [
       {
         string: ["Wake up... Your journey awaits!"],
@@ -111,7 +117,8 @@ export class CharacterCreate extends Level {
 
   override ready() {
     events.on("SEND_CHAT_MESSAGE", this, (chat: string) => {
-      this.characterName = chat;
+      // Prefer explicit chat value; fallback to persisted defaultName
+      this.characterName = (chat && chat.trim().length > 0) ? chat : (this.defaultName ?? chat);
       if (!this.verifyCharacterName(this.characterName) || storyFlags.contains(CHARACTER_CREATE_STORY_TEXT_6)) { return; } 
       this.returnChatInputToNormal();
       storyFlags.add(CHARACTER_CREATE_STORY_TEXT_6);
@@ -189,7 +196,12 @@ export class CharacterCreate extends Level {
     setTimeout(() => {
       const chatInput = this.parent.input.chatInput;
       if (chatInput) {
-        chatInput.value = "";
+        // Preserve default name if provided
+        if (!this.defaultName) {
+          chatInput.value = "";
+        } else if (!chatInput.value || chatInput.value.trim().length === 0) {
+          chatInput.value = this.defaultName;
+        }
         chatInput.placeholder = "Chat";
         chatInput.style.setProperty('position', 'unset', 'important');
         chatInput.style.setProperty('top', 'unset', 'important');
@@ -200,7 +212,12 @@ export class CharacterCreate extends Level {
   private hideChatInput() {
     const chatInput = this.parent?.input?.chatInput;
     if (chatInput) {
-      chatInput.value = "";
+      // Preserve default name in the input if provided
+      if (!this.defaultName) {
+        chatInput.value = "";
+      } else if (!chatInput.value || chatInput.value.trim().length === 0) {
+        chatInput.value = this.defaultName;
+      }
       chatInput.style.cssText = ''; // Reset all styles
       chatInput.blur();
     }
@@ -214,6 +231,9 @@ export class CharacterCreate extends Level {
       if (chatInput) {
         document.getElementsByClassName("chatArea")[0].setAttribute("style", "display: block !important;");
         chatInput.placeholder = "Enter your name";
+        if (this.defaultName && (!chatInput.value || chatInput.value.trim().length === 0)) {
+          chatInput.value = this.defaultName;
+        }
         chatInput.style.position = "absolute";
         chatInput.style.top = "50%";
         chatInput.style.setProperty('display', 'block', 'important'); 
