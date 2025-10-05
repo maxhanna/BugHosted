@@ -1581,7 +1581,7 @@ namespace maxhanna.Server.Controllers
 
         private async Task<List<int>> PersistWallAndGetNearby(int heroId, string map, int x, int y, MySqlConnection connection, MySqlTransaction transaction)
         {
-            int proximity = 16; // pixels (one grid cell)
+            int proximity = 32; // pixels (one grid cell)
             int xmin = x - proximity;
             int xmax = x + proximity;
             int ymin = y - proximity;
