@@ -187,6 +187,7 @@ namespace maxhanna.Server.Controllers
                     }
                     catch (Exception ex)
                     {
+                        _ = _log.Db("Error in /Ender/FetchGameData: " + ex.Message, null, "ENDER", true);
                         await transaction.RollbackAsync();
                         return StatusCode(500, "Internal server error: " + ex.Message);
                     }
