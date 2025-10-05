@@ -12,7 +12,7 @@
             <ng-container *ngIf="!isModeCollapsed(m)">
                 <ng-container *ngIf="groupedByMode[m] && hasGroups(m); else emptyMode">
                     <div *ngFor="let group of (groupedByMode[m] | keyvalue)" class="difficulty-group"> 
-                        <div *ngIf="group.value && group.value.length > 0">
+                        <ng-container *ngIf="group.value && group.value.length > 0; else emptyGroup">
                             <div *ngFor="let s of group.value">
                                 <div style="padding:6px; border-bottom:1px solid #333; display:flex; align-items:center; gap:8px;">
                                     <div style="flex:0 0 auto;">
@@ -24,7 +24,10 @@
                                     </div>
                                 </div>
                             </div>
-                        </div>
+                        </ng-container>
+                        <ng-template #emptyGroup>
+                            <div class="no-scores">No scores to show for {{ m === 'today' ? 'today' : m }}.</div>
+                        </ng-template>
                     </div>
                 </ng-container>
             </ng-container>
