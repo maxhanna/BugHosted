@@ -515,7 +515,9 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
             rz.map,
             rz.metabots,
             rz.color,
-            rz.mask);
+            rz.mask,
+            rz.level ?? 1,
+            rz.kills ?? 0);
         this.hero.isLocked = this.isStartMenuOpened || this.isShopMenuOpened;
         this.mainScene.setHeroId(this.metaHero.id);
         this.mainScene.hero = this.hero;
