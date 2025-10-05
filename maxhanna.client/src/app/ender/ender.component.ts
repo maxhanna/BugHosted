@@ -63,6 +63,8 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
     metaHero: MetaHero;
     hero?: Hero;
     otherHeroes: MetaHero[] = [];
+    // Count of enemies that are on the same level as the local player
+    enemiesOnSameLevelCount: number = 0;
     partyMembers: { heroId: number, name: string, color?: string }[] = [];
     chat: MetaChat[] = [];
     events: MetaEvent[] = [];
@@ -308,9 +310,11 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
     private updateOtherHeroesBasedOnFetchedData(res: { map: number; position: Vector2; heroes: MetaHero[]; }) {
         if (!res || !res.heroes) {
             this.otherHeroes = [];
+            this.updateEnemiesOnSameLevelCount();
             return;
         } 
         this.otherHeroes = res.heroes; 
+        this.updateEnemiesOnSameLevelCount();
     }
      
     private updateMissingOrNewHeroSprites() {
@@ -386,7 +390,7 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
         this.mainScene.level?.addChild(tmpHero);
         return tmpHero;
     } 
-    
+
     private addItemToScene(item: MetaBotPart, location: Vector2) {
         const offsets = [
             new Vector2(-gridCells(1), 0),
@@ -519,6 +523,31 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
         }
         this.runElapsedSeconds = 0;
         this.startRunTimer();
+        // Recompute enemy count now that the local player's level may have changed
+        this.updateEnemiesOnSameLevelCount();
+    }
+
+    // Recomputes the number of other heroes who are on the same level as the local player.
+    // Excludes the local player from the count.
+    private updateEnemiesOnSameLevelCount() {
+        try {
+            if (!this.metaHero || !this.otherHeroes) {
+                this.enemiesOnSameLevelCount = 0;
+                return;
+            }
+            const myLevel = this.metaHero.level ?? 0;
+            this.enemiesOnSameLevelCount = this.otherHeroes.filter(h => (h.level ?? 0) === myLevel && h.id !== this.metaHero.id).length;
+        } catch (e) {
+            // safe fallback
+            this.enemiesOnSameLevelCount = 0;
+        }
+    }
+
+    // Public method callers can use to force a recompute and fetch the current count.
+    // Useful for invoking when the user's level changes elsewhere in the code.
+    public fetchEnemiesOnSameLevelCount(): number {
+        this.updateEnemiesOnSameLevelCount();
+        return this.enemiesOnSameLevelCount;
     }
 
     private startRunTimer() {

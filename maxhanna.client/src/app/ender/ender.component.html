@@ -94,7 +94,10 @@
       <div><strong>Walls:</strong> {{wallsPlacedThisRun}}</div>
       <div><strong>Level:</strong> {{metaHero.level ?? 0}}</div>
       <div><strong>Kills:</strong> {{metaHero.kills ?? 0}}</div>
-      <div><strong>Enemies:</strong> {{otherHeroes.length ?? 0}}</div>
+  <div><strong>Enemies:</strong> {{enemiesOnSameLevelCount ?? 0}}</div>
+      <div><strong>Pos:</strong>
+        {{ metaHero.position?.x || hero?.position?.x || 0 }},
+        {{ metaHero.position?.y || hero?.position?.y || 0 }}</div>
     </div>
 
     <input type="color" (change)='changeColor()' #colorInput class="colorInput" [value]="metaHero.color" />
