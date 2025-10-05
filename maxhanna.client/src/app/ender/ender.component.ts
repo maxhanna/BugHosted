@@ -270,6 +270,10 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
                         this.runStartTimeMs = Date.now() - (this.runElapsedSeconds * 1000);
                         this.startRunTimer();
                     }
+                    // apply server-provided kills to local hero
+                    if (res.heroKills !== undefined && this.metaHero) {
+                        this.metaHero.kills = Number(res.heroKills) || 0;
+                    }
                     this.updateOtherHeroesBasedOnFetchedData(res);
                     this.updateMissingOrNewHeroSprites(); 
 
@@ -478,6 +482,7 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
             isUserControlled: true,
             speed: rz.speed,
             mask: rz.mask ? new Mask(getMaskNameById(rz.mask)) : undefined, 
+            colorSwap: rz.color ?  new ColorSwap([0,160,200], hexToRgb(rz.color)) : undefined,
         });
         this.metaHero = new MetaHero(this.hero.id, (this.hero.name ?? "Anon"),
             this.hero.position.duplicate(),

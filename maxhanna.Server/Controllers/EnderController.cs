@@ -131,13 +131,14 @@ namespace maxhanna.Server.Controllers
                         {
                             int tolerance = 32; // pixels; adjust as needed
                             // Single query: detect collision while excluding only the hero's most recently created wall
-                            string collideSql = @"SELECT bw.hero_id, bw.x, bw.y
-                                                   FROM maxhanna.ender_bike_wall bw
-                                                   WHERE bw.map = @Map AND bw.level = @Level
-                                                     AND bw.id NOT IN (SELECT id FROM maxhanna.ender_bike_wall WHERE hero_id = @HeroId ORDER BY created_at DESC LIMIT 2)
-                                                     AND @HeroX BETWEEN (bw.x - @Tol) AND (bw.x + @Tol)
-                                                     AND @HeroY BETWEEN (bw.y - @Tol) AND (bw.y + @Tol)
-                                                   LIMIT 1;";
+                            string collideSql =
+                            @"SELECT bw.hero_id, bw.x, bw.y
+                            FROM maxhanna.ender_bike_wall bw
+                            WHERE bw.map = @Map AND bw.level = @Level
+                                AND bw.id NOT IN (SELECT id FROM maxhanna.ender_bike_wall WHERE hero_id = @HeroId ORDER BY created_at DESC LIMIT 2)
+                                AND @HeroX BETWEEN (bw.x - @Tol) AND (bw.x + @Tol)
+                                AND @HeroY BETWEEN (bw.y - @Tol) AND (bw.y + @Tol)
+                            LIMIT 1;";
                             using (var colCmd = new MySqlCommand(collideSql, connection, transaction))
                             {
                                 colCmd.Parameters.AddWithValue("@Map", hero.Map ?? string.Empty);
@@ -176,6 +177,7 @@ namespace maxhanna.Server.Controllers
                             heroId = hero.Id,
                             heroPosition = hero.Position,
                             timeOnLevelSeconds = hero.TimeOnLevelSeconds,
+                            heroKills = hero.Kills,
                             heroes,
                             events,
                             walls
@@ -940,8 +942,8 @@ namespace maxhanna.Server.Controllers
                                 color = @Color,  
                                 mask = @Mask,  
                                 map = @Map,
-            	speed = @Speed,
-            	level = @Level
+                                speed = @Speed,
+                                level = @Level
                             WHERE 
                                 id = @HeroId";
             Dictionary<string, object?> parameters = new Dictionary<string, object?>
@@ -951,8 +953,8 @@ namespace maxhanna.Server.Controllers
                                 { "@Color", hero.Color },
                                 { "@Mask", hero.Mask },
                                 { "@Map", hero.Map },
-                { "@Speed", hero.Speed },
-                { "@Level", hero.Level },
+                                { "@Speed", hero.Speed },
+                                { "@Level", hero.Level },
                                 { "@HeroId", hero.Id }
                         };
             await this.ExecuteInsertOrUpdateOrDeleteAsync(sql, parameters, connection, transaction);
@@ -977,37 +979,28 @@ namespace maxhanna.Server.Controllers
                 _ = _log.Db("Failed to compute TimeOnLevelSeconds: " + ex.Message, null, "ENDER", true);
             }
 
-            return hero;
-        }
-        private async Task UpdateMetabotInDB(MetaBot metabot, MySqlConnection connection, MySqlTransaction transaction)
-        {
+            // Read current kills for this hero so the client HUD is up-to-date
             try
             {
-                string sql =
-                    @"UPDATE maxhanna.ender_bot 
-                        SET hp = @HP,  
-                                exp = @Exp,
-                                level = @Level,
-                                is_deployed = @IsDeployed
-                        WHERE 
-                                id = @MetabotId 
-                        LIMIT 1;";
-
-                Dictionary<string, object?> parameters = new Dictionary<string, object?>
-        {
-            { "@HP", metabot.Hp },
-            { "@Exp", metabot.Exp },
-            { "@Level", metabot.Level },
-            { "@IsDeployed", metabot.IsDeployed ? 1 : 0 } // Convert boolean to bit
-        };
-                await this.ExecuteInsertOrUpdateOrDeleteAsync(sql, parameters, connection, transaction);
+                string killsSql = @"SELECT IFNULL(kills,0) FROM maxhanna.ender_hero WHERE id = @HeroId LIMIT 1;";
+                using (var cmd = new MySqlCommand(killsSql, connection, transaction))
+                {
+                    cmd.Parameters.AddWithValue("@HeroId", hero.Id);
+                    var obj = await cmd.ExecuteScalarAsync();
+                    if (obj != null && obj != DBNull.Value)
+                    {
+                        hero.Kills = Convert.ToInt32(obj);
+                    }
+                }
             }
             catch (Exception ex)
             {
-                _ = _log.Db("UpdateEventsInDb failed : " + ex.ToString(), null, "ENDER", true);
+                _ = _log.Db("Failed to read hero kills: " + ex.Message, null, "ENDER", true);
             }
-        }
 
+            return hero;
+        }
+         
         private async Task UpdateEventsInDB(MetaEvent @event, MySqlConnection connection, MySqlTransaction transaction)
         {
             try
@@ -1253,7 +1246,8 @@ namespace maxhanna.Server.Controllers
             m.coordsY,
             m.speed, 
             m.color, 
-            m.mask
+            m.mask,
+            m.kills as hero_kills
         FROM 
             maxhanna.ender_hero m  
         WHERE m.map = @HeroMapId
@@ -1281,6 +1275,7 @@ namespace maxhanna.Server.Controllers
                             Mask = reader.IsDBNull(reader.GetOrdinal("mask")) ? null : Convert.ToInt32(reader["mask"]),
                             Position = new Vector2(Convert.ToInt32(reader["coordsX"]), Convert.ToInt32(reader["coordsY"])),
                             Speed = Convert.ToInt32(reader["speed"]),
+                            Kills = reader.IsDBNull(reader.GetOrdinal("hero_kills")) ? 0 : Convert.ToInt32(reader["hero_kills"]),
                         };
                         heroesDict[heroId] = tmpHero;
                     }
