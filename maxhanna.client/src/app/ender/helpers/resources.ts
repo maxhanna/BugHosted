@@ -77,6 +77,7 @@ export class Resources {
       skill_chain: `${this.dir}skill_chain.png`,
       shadow: `${this.dir}shadow.png`,
       ship: `${this.dir}ship.png`,
+      shipsprite: `${this.dir}shipsprite.png`,
       shop: `${this.dir}shop.png`,
       shopFloor: `${this.dir}shopfloor.png`,
       shrub: `${this.dir}shrub.png`,

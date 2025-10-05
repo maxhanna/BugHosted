@@ -85,7 +85,7 @@ export class Ship extends Character {
       body: params.preventDraw ? undefined : 
         new Sprite({
           objectId: params.id ?? Math.floor(Math.random() * (-9999 + 1000)) - 1000,
-          resource: resources.images["ship"],
+          resource: resources.images["shipsprite"],
           frameSize: params.spriteName == "white" ? new Vector2(0, 0) : new Vector2(32, 32),
           scale: params.scale,
           name: "Ship",
@@ -95,7 +95,7 @@ export class Ship extends Character {
           offsetY: (params.offsetY ?? 0), 
           colorSwap: params.colorSwap,
           hFrames: 4,
-          vFrames: 5,
+          vFrames: 4,
           animations: new Animations(
             {
               walkDown: new FrameIndexPattern(WALK_DOWN),
