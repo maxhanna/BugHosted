@@ -1551,30 +1551,21 @@ namespace maxhanna.Server.Controllers
         }
 
         private async Task PersistBikeWallsAndKillNearbyVictims(MetaEvent? metaEvent, MySqlConnection connection, MySqlTransaction transaction)
-        {
-            // Persist bike wall
+        { 
             if (metaEvent?.Data?.TryGetValue("x", out var xStr) == true && metaEvent.Data.TryGetValue("y", out var yStr))
             {
                 int x = Convert.ToInt32(xStr);
-                int y = Convert.ToInt32(yStr);
-                // Insert wall and set its level from the hero row in a single statement (combined below)
-                // Combine DB work into helper and then handle victims
+                int y = Convert.ToInt32(yStr); 
                 try
                 {
                     var toKill = await PersistWallAndGetNearby(metaEvent.HeroId, metaEvent.Map ?? "", x, y, connection, transaction);
-
-                    // remove the creator from victims if present and kill survivors
                     foreach (var victimId in toKill)
                     {
                         try
                         {
                             await KillHeroById(victimId, connection, transaction, metaEvent.HeroId);
-                            try
-                            {
-                                var deathEvent = new DataContracts.Ender.MetaEvent(0, victimId, DateTime.UtcNow, "HERO_DIED", metaEvent.Map ?? "", new Dictionary<string, string>() { { "cause", "BIKE_WALL" }, { "x", x.ToString() }, { "y", y.ToString() } });
-                                await UpdateEventsInDB(deathEvent, connection, transaction);
-                            }
-                            catch { }
+                            var deathEvent = new MetaEvent(0, victimId, DateTime.UtcNow, "HERO_DIED", metaEvent.Map ?? "", new Dictionary<string, string>() { { "cause", "BIKE_WALL" }, { "x", x.ToString() }, { "y", y.ToString() } });
+                            await UpdateEventsInDB(deathEvent, connection, transaction); 
                         }
                         catch (Exception ex)
                         {
