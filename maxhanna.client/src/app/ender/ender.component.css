@@ -51,11 +51,7 @@ body {
 }
 
 .colorInput {
-  position: fixed;
-  right: CALC(50% - 125px);
-  top: CALC(50% - 15px);
-  display: none;
-  z-index: 102;
+  width: calc(100% -30px);
 }
 
 .inputArea {
