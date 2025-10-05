@@ -86,6 +86,9 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
     isMenuPanelOpen = false;
     // Count of bike-wall units placed during the current run
     wallsPlacedThisRun: number = 0;
+    // cached defaults loaded from user settings (used when opening CharacterCreate)
+    private cachedDefaultName?: string;
+    private cachedDefaultColor?: string;
     // Millisecond timestamp when the current run/level started
     runStartTimeMs: number | undefined = undefined;
     // Live elapsed seconds for HUD
@@ -108,6 +111,11 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
         if (!this.parentRef?.user) {
             this.isUserComponentOpen = true;
         } else {
+            // Preload user settings (default name/color) as early as possible so CharacterCreate can use them
+            this.userService.getUserSettings(this.parentRef.user?.id ?? 0).then(res => {
+                this.cachedDefaultName = res?.lastCharacterName ?? undefined;
+                this.cachedDefaultColor = res?.lastCharacterColor ?? undefined;
+            }).catch(() => { /* ignore */ });
             // reset walls placed for a fresh run; actual run start will be set when hero is initialized
             this.wallsPlacedThisRun = 0;
             this.runStartTimeMs = undefined;
@@ -233,13 +241,18 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
                 }
             } else {
                 // attempt to load persisted last character name and pass it into the CharacterCreate level
-                this.userService.getUserSettings(this.parentRef?.user?.id ?? 0).then(res => {
-                    const defaultName = res?.lastCharacterName ?? undefined;
-                    const defaultColor = res?.lastCharacterColor ?? undefined;
-                    this.mainScene.setLevel(new CharacterCreate({ defaultName, defaultColor }));
-                }).catch(() => {
-                    this.mainScene.setLevel(new CharacterCreate());
-                });
+                // Use cached defaults if we fetched them earlier, otherwise fetch now
+                if (this.cachedDefaultName !== undefined || this.cachedDefaultColor !== undefined) {
+                    this.mainScene.setLevel(new CharacterCreate({ defaultName: this.cachedDefaultName, defaultColor: this.cachedDefaultColor }));
+                } else {
+                    this.userService.getUserSettings(this.parentRef?.user?.id ?? 0).then(res => {
+                        const defaultName = res?.lastCharacterName ?? undefined;
+                        const defaultColor = res?.lastCharacterColor ?? undefined;
+                        this.mainScene.setLevel(new CharacterCreate({ defaultName, defaultColor }));
+                    }).catch(() => {
+                        this.mainScene.setLevel(new CharacterCreate());
+                    });
+                }
                 return;
             }
         }
