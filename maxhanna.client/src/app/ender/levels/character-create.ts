@@ -1,7 +1,7 @@
 import { Vector2 } from "../../../services/datacontracts/meta/vector2";
 import { gridCells } from "../helpers/grid-cells";
 import { events } from "../helpers/events";
-import { storyFlags, Scenario, CHARACTER_CREATE_STORY_TEXT_1, CHARACTER_CREATE_STORY_TEXT_2, CHARACTER_CREATE_STORY_TEXT_3, CHARACTER_CREATE_STORY_TEXT_4, CHARACTER_CREATE_STORY_TEXT_5, CHARACTER_CREATE_STORY_TEXT_6, CHARACTER_CREATE_STORY_TEXT_7, CHARACTER_CREATE_STORY_TEXT_8 } from "../helpers/story-flags";
+import { storyFlags, Scenario, CHARACTER_CREATE_STORY_TEXT_2, CHARACTER_CREATE_STORY_TEXT_4, CHARACTER_CREATE_STORY_TEXT_5, CHARACTER_CREATE_STORY_TEXT_6, CHARACTER_CREATE_STORY_TEXT_7 } from "../helpers/story-flags";
 import { Level } from "../objects/Level/level"; 
 import { HeroRoomLevel } from "./hero-room";
 import { SpriteTextStringWithBackdrop } from "../objects/SpriteTextString/sprite-text-string-with-backdrop";
@@ -70,15 +70,8 @@ export class CharacterCreate extends Level {
       }
     }
     this.referee.textContent = [
-      // Final wake line
       {
-        string: ["Boot complete. Cycle online. Let's ride."],
-        requires: [CHARACTER_CREATE_STORY_TEXT_7],
-        addsFlag: CHARACTER_CREATE_STORY_TEXT_8,
-      } as Scenario,
-      // After name entered (flag 6)
-      {
-        string: ["Ah, ready to light the Grid."],
+        string: ["Ah, ready to light the Grid.", "Boot complete. Cycle online. Let's ride."],
         requires: [CHARACTER_CREATE_STORY_TEXT_6],
         addsFlag: CHARACTER_CREATE_STORY_TEXT_7,
       } as Scenario,
@@ -144,7 +137,7 @@ export class CharacterCreate extends Level {
       if (currentTime.getTime() - this.inputKeyPressedDate.getTime() > 1000) {
         this.inputKeyPressedDate = new Date();
          
-        if (storyFlags.contains(CHARACTER_CREATE_STORY_TEXT_8)) {
+        if (storyFlags.contains(CHARACTER_CREATE_STORY_TEXT_7)) {
           setTimeout(() => {
             // pick a random spawn within a 10x10 grid centered area
             const randX = Math.floor(Math.random() * 10) + 2; // 2..11
@@ -163,7 +156,7 @@ export class CharacterCreate extends Level {
         }
         const content = this.referee.getContent();
         if (content) {
-          if (storyFlags.contains(CHARACTER_CREATE_STORY_TEXT_5) && !storyFlags.contains(CHARACTER_CREATE_STORY_TEXT_6)) {
+          if (storyFlags.contains(CHARACTER_CREATE_STORY_TEXT_4) && !storyFlags.contains(CHARACTER_CREATE_STORY_TEXT_6)) {
             this.createNameChatInput();
           } else {
             this.displayContent(content);
