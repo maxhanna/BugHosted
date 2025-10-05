@@ -1771,19 +1771,16 @@ namespace maxhanna.Server.Controllers
 
                 // count walls persisted for this hero
                 int wallsPlaced = 0;
-                try
+               
+                // count only walls for the hero at the same level
+                string countSql = @"SELECT COUNT(*) FROM maxhanna.ender_bike_wall WHERE hero_id = @HeroId AND level = @Level";
+                using (var countCmd = new MySqlCommand(countSql, connection, transaction))
                 {
-                    // count only walls for the hero at the same level
-                    string countSql = @"SELECT COUNT(*) FROM maxhanna.ender_bike_wall WHERE hero_id = @HeroId AND level = @Level";
-                    using (var countCmd = new MySqlCommand(countSql, connection, transaction))
-                    {
-                        countCmd.Parameters.AddWithValue("@HeroId", heroId);
-                        countCmd.Parameters.AddWithValue("@Level", heroLevel);
-                        var cnt = await countCmd.ExecuteScalarAsync();
-                        wallsPlaced = Convert.ToInt32(cnt);
-                    }
-                }
-                catch { }
+                    countCmd.Parameters.AddWithValue("@HeroId", heroId);
+                    countCmd.Parameters.AddWithValue("@Level", heroLevel);
+                    var cnt = await countCmd.ExecuteScalarAsync();
+                    wallsPlaced = Convert.ToInt32(cnt);
+                }         
 
                 int score = timeOnLevelSeconds + (wallsPlaced * heroKills);
 
