@@ -503,11 +503,16 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
     }
 
     private async reinitializeHero(rz: MetaHero, skipDataFetch?: boolean) {
-        // choose a random spawn for the local hero to avoid clustering on join
-        const randomRange = 12; // grid cells range
-        const randX = Math.floor(Math.random() * randomRange) + 1; // 1..randomRange
-        const randY = Math.floor(Math.random() * randomRange) + 1;
-        const spawnPos = new Vector2(gridCells(randX), gridCells(randY));
+        // Use the server-provided position. The server (CreateHero) is responsible for
+        // any randomization or avoidance of bike-walls; if the server didn't provide
+        // a position, fall back to a safe default.
+        let spawnPos: Vector2;
+        if (rz && rz.position) {
+            spawnPos = new Vector2(rz.position.x, rz.position.y);
+        } else {
+            // fallback fixed spawn (grid cell units)
+            spawnPos = new Vector2(1 * 16, 11 * 16);
+        }
         this.hero = new Hero({
             id: rz.id, name: rz.name ?? "Anon",
             position: spawnPos,
