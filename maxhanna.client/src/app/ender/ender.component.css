@@ -351,3 +351,7 @@ body {
   z-index: 9999;
 }
 .runHud div { line-height: 1.2; }
+
+.b, .start {
+  display: none !important;
+}
