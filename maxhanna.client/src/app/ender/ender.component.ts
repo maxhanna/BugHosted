@@ -620,15 +620,22 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
         }
     }
     async changeColor() {
-        this.metaHero.color = this.colorInput.nativeElement.value;
-        this.colorInput.nativeElement.style.display = "none";
-        this.parentRef?.closeModal();
-        if (this.parentRef) {
-            this.parentRef.isModal = true;
-        }
-        await this.reinitializeHero(this.metaHero);
-        events.emit("HERO_MOVEMENT_UNLOCK");
-    }
+            const newColor = this.colorInput.nativeElement.value;
+        this.metaHero.color = newColor;
+        // Immediately update current hero's color swap if exists (no full rebuild flicker)
+        if (this.hero && (this.hero as any).colorSwap) {
+            try {
+                const hex = newColor;
+                const toRgb = (h: string) => {
+                    const m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(h);
+                    return m ? [parseInt(m[1], 16), parseInt(m[2], 16), parseInt(m[3], 16)] : [0, 0, 0];
+                };
+                (this.hero as any).colorSwap.target = toRgb(hex);
+            } catch {}
+        } 
+        // Reinitialize to propagate color to newly spawned assets / party display
+        await this.reinitializeHero(this.metaHero, true); 
+     }
     private adjustCanvasSize = () => {
         const containers = document.querySelectorAll('.componentContainer');
         containers.forEach((container: any) => {
