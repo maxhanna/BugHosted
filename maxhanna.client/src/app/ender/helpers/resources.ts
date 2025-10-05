@@ -15,6 +15,7 @@ export class Resources {
       barrels: `${this.dir}barrels.png`,
       bedroomFloor: `${this.dir}bedroom-floor.png`,
       biggerBush: `${this.dir}biggerbush.png`,
+      bikewall: `${this.dir}bikewall.png`,
       boards: `${this.dir}boards.png`,
       botcasing: `${this.dir}botcasing.png`,
       botFrame: `${this.dir}botframe.png`,
