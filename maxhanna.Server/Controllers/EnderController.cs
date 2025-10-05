@@ -130,11 +130,13 @@ namespace maxhanna.Server.Controllers
                         try
                         {
                             int tolerance = 8; // pixels; adjust as needed
+                            // Single query: detect collision while excluding only the hero's most recently created wall
                             string collideSql = @"SELECT bw.hero_id, bw.x, bw.y
                                                    FROM maxhanna.ender_bike_wall bw
                                                    WHERE bw.map = @Map AND bw.level = @Level
+                                                     AND NOT (bw.id = (SELECT id FROM maxhanna.ender_bike_wall WHERE hero_id = @HeroId ORDER BY created_at DESC LIMIT 1))
                                                      AND @HeroX BETWEEN (bw.x - @Tol) AND (bw.x + @Tol)
-                                                     AND @HeroY BETWEEN (bw.y - @Tol) AND (bw.y + @Tol) 
+                                                     AND @HeroY BETWEEN (bw.y - @Tol) AND (bw.y + @Tol)
                                                    LIMIT 1;";
                             using (var colCmd = new MySqlCommand(collideSql, connection, transaction))
                             {
@@ -149,7 +151,7 @@ namespace maxhanna.Server.Controllers
                                 {
                                     if (await rdr.ReadAsync())
                                     {
-                                        collided = true; // we only need to know a collision occurred
+                                        collided = true;
                                     }
                                 }
                                 if (collided)
@@ -157,7 +159,6 @@ namespace maxhanna.Server.Controllers
                                     await KillHeroById(hero.Id, connection, transaction, null);
                                     var deathEvent = new MetaEvent(0, hero.Id, DateTime.UtcNow, "HERO_DIED", hero.Map ?? string.Empty, new Dictionary<string, string>() { { "cause", "BIKE_WALL_COLLIDE" } });
                                     await UpdateEventsInDB(deathEvent, connection, transaction);
-                                    // Refresh events and hero list after death (hero now removed so their own events filtered out on client)
                                     heroes = await GetNearbyPlayers(hero, connection, transaction);
                                     events = await GetEventsFromDb(hero.Map ?? string.Empty, hero.Id, connection, transaction);
                                 }
