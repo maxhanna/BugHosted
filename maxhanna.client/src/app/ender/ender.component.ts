@@ -29,6 +29,7 @@ import { Mask, getMaskNameById } from './objects/Wardrobe/mask';
 import { Bot } from './objects/Bot/bot';
 import { Character } from './objects/character';
 import { ChatSpriteTextString } from './objects/SpriteTextString/chat-sprite-text-string';
+import { MetaBikeWall } from '../../services/datacontracts/ender/meta-bike-wall';
 
 @Component({
     selector: 'app-ender',
@@ -87,6 +88,10 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
     // Live elapsed seconds for HUD
     runElapsedSeconds: number = 0;
     private runElapsedInterval: any;
+    // In-memory set of meta bike walls (keys: "x|y") for fast existence checks
+    private metaBikeWallKeys: Set<string> = new Set<string>();
+    // Reference to the level object the persisted set corresponds to; when level changes we clear the set
+    private persistedWallLevelRef: any = undefined;
 
     async ngOnInit() {
         this.serverDown = (this.parentRef ? await this.parentRef?.isServerUp() <= 0 : false);
@@ -244,14 +249,28 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
                     this.updateMissingOrNewHeroSprites();
                     this.updateEnemyEncounters(res);
 
-                    // Persisted bike walls for this map
-                    if (res.walls && Array.isArray(res.walls) && this.mainScene.level) {
-                        for (const w of res.walls) {
-                            const exists = this.mainScene.level.children.some((c: any) => c.name === 'bike-wall' && c.position && c.position.x === w.x && c.position.y === w.y);
-                            if (!exists) {
+                    // Persisted bike walls for this map - use in-memory Set to avoid scanning level.children repeatedly
+                    const walls = Array.isArray(res.walls) ? (res.walls as MetaBikeWall[]) : undefined;
+                    if (walls && walls.length > 0 && this.mainScene.level) {
+                        // if level changed since last time, clear the persisted set
+                        if (this.persistedWallLevelRef !== this.mainScene.level) {
+                            this.metaBikeWallKeys.clear();
+                            this.persistedWallLevelRef = this.mainScene.level;
+                        }
+
+                        for (const w of walls) {
+                            const key = `${w.x}|${w.y}`;
+                            if (!this.metaBikeWallKeys.has(key)) {
+                                // Server is authoritative for persisted walls; if we haven't seen this key, create the wall.
                                 const wall = new BikeWall({ position: new Vector2(w.x, w.y) });
                                 this.mainScene.level.addChild(wall);
-                                events.emit("BIKEWALL_CREATED", { x: w.x, y: w.y });
+                                // Only trigger BIKEWALL_CREATED for the current user's walls
+                                try {
+                                    if (this.metaHero && w.heroId != null && w.heroId === this.metaHero.id) {
+                                        events.emit("BIKEWALL_CREATED", { x: w.x, y: w.y });
+                                    }
+                                } catch (e) { /* swallow */ }
+                                this.metaBikeWallKeys.add(key);
                             }
                         }
                     }
