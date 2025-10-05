@@ -118,7 +118,6 @@ namespace maxhanna.Server.Controllers
 
                         hero = await UpdateHeroInDB(hero, connection, transaction);
                         MetaHero[]? heroes = await GetNearbyPlayers(hero, connection, transaction);
-                        MetaBot[]? enemyBots = await GetEncounterMetaBots(connection, transaction, hero.Map);
                         List<MetaEvent> events = await GetEventsFromDb(hero.Map, hero.Id, connection, transaction);
                         // Fetch persistent bike walls for this map and hero level
                         // Return only walls created within the last 10 seconds (recent delta)
@@ -132,7 +131,6 @@ namespace maxhanna.Server.Controllers
                             timeOnLevelSeconds = hero.TimeOnLevelSeconds,
                             heroes,
                             events,
-                            enemyBots,
                             walls
                         });
                     }
@@ -156,12 +154,10 @@ namespace maxhanna.Server.Controllers
                     try
                     {
                         MetaInventoryItem[]? inventory = await GetInventoryFromDB(heroId, connection, transaction);
-                        MetaBotPart[]? parts = await GetMetabotPartsFromDB(heroId, connection, transaction);
                         await transaction.CommitAsync();
                         return Ok(new
                         {
-                            inventory,
-                            parts
+                            inventory
                         });
                     }
                     catch (Exception ex)
@@ -1318,16 +1314,9 @@ namespace maxhanna.Server.Controllers
             string sql = $@"
         SELECT 
             h.id as hero_id, h.coordsX, h.coordsY, h.map, h.speed, h.name as hero_name, h.color as hero_color, h.mask as hero_mask,
-                h.level as hero_level, h.kills as hero_kills,
-            b.id as bot_id, b.name as bot_name, b.type as bot_type, b.hp as bot_hp, b.is_deployed as bot_is_deployed,
-            b.level as bot_level, b.exp as bot_exp,
-            p.id as part_id, p.part_name, p.type as part_type, p.damage_mod, p.skill
+                h.level as hero_level, h.kills as hero_kills
         FROM 
             maxhanna.ender_hero h
-        LEFT JOIN 
-            maxhanna.ender_bot b ON h.id = b.hero_id
-        LEFT JOIN
-            maxhanna.ender_bot_part p ON b.id = p.metabot_id
         WHERE 
             {(heroId == null ? "h.user_id = @UserId" : "h.id = @UserId")}
         ;";
@@ -1336,7 +1325,6 @@ namespace maxhanna.Server.Controllers
             cmd.Parameters.AddWithValue("@UserId", heroId != null ? heroId : userId);
 
             MetaHero? hero = null;
-            Dictionary<int, MetaBot> metabotDict = new Dictionary<int, MetaBot>();
 
             using (var reader = await cmd.ExecuteReaderAsync())
             {
@@ -1356,66 +1344,7 @@ namespace maxhanna.Server.Controllers
                             Mask = reader.IsDBNull(reader.GetOrdinal("hero_mask")) ? null : Convert.ToInt32(reader["hero_mask"]),
                             Level = reader.IsDBNull(reader.GetOrdinal("hero_level")) ? 1 : Convert.ToInt32(reader["hero_level"]),
                             Kills = reader.IsDBNull(reader.GetOrdinal("hero_kills")) ? 0 : Convert.ToInt32(reader["hero_kills"]),
-                            Metabots = new List<MetaBot>()
                         };
-                    }
-
-                    // Check if there's a MetaBot associated with this hero
-                    if (!reader.IsDBNull(reader.GetOrdinal("bot_id")))
-                    {
-                        int botId = Convert.ToInt32(reader["bot_id"]);
-
-                        if (!metabotDict.TryGetValue(botId, out MetaBot? bot))
-                        {
-                            bot = new MetaBot
-                            {
-                                Id = botId,
-                                Name = Convert.ToString(reader["bot_name"]),
-                                Type = Convert.ToInt32(reader["bot_type"]),
-                                Hp = Convert.ToInt32(reader["bot_hp"]),
-                                Level = Convert.ToInt32(reader["bot_level"]),
-                                Exp = Convert.ToInt32(reader["bot_exp"]),
-                                IsDeployed = Convert.ToBoolean(reader["bot_is_deployed"]),
-                                HeroId = hero.Id
-                            };
-                            metabotDict[botId] = bot;
-                            if (hero.Metabots == null)
-                            {
-                                hero.Metabots = new List<MetaBot>();
-                            }
-                            hero.Metabots.Add(bot);
-                        }
-
-                        // Check if there's a MetaBotPart associated with this MetaBot
-                        if (!reader.IsDBNull(reader.GetOrdinal("part_id")))
-                        {
-                            MetaBotPart part = new MetaBotPart
-                            {
-                                HeroId = hero.Id,
-                                Id = Convert.ToInt32(reader["part_id"]),
-                                PartName = Convert.ToString(reader["part_name"]),
-                                Type = Convert.ToInt32(reader["part_type"]),
-                                DamageMod = Convert.ToInt32(reader["damage_mod"]),
-                                Skill = Convert.ToString(reader["skill"]) == null ? null : new Skill(Convert.ToString(reader["skill"]) ?? "Headbutt", 0),
-                            };
-
-                            // Assign the part to the correct property based on its name
-                            switch (part.PartName?.ToLower())
-                            {
-                                case "head":
-                                    bot.Head = part;
-                                    break;
-                                case "legs":
-                                    bot.Legs = part;
-                                    break;
-                                case "left_arm":
-                                    bot.LeftArm = part;
-                                    break;
-                                case "right_arm":
-                                    bot.RightArm = part;
-                                    break;
-                            }
-                        }
                     }
                 }
             }
@@ -1465,7 +1394,6 @@ namespace maxhanna.Server.Controllers
                             Level = reader.IsDBNull(reader.GetOrdinal("hero_level")) ? 1 : Convert.ToInt32(reader["hero_level"]),
                             Position = new Vector2(Convert.ToInt32(reader["coordsX"]), Convert.ToInt32(reader["coordsY"])),
                             Speed = Convert.ToInt32(reader["speed"]),
-                            Metabots = new List<MetaBot>()
                         };
                         heroesDict[heroId] = tmpHero;
                     }
@@ -1474,112 +1402,6 @@ namespace maxhanna.Server.Controllers
 
             return heroesDict.Values.ToArray();
         }
-
-        private async Task<MetaBot[]> GetEncounterMetaBots(MySqlConnection conn, MySqlTransaction transaction, string map)
-        {
-            var bots = new List<MetaBot>();
-
-            // Step 1: Retrieve hero_ids from ender_encounter table
-            string heroIdQuery = "SELECT hero_id FROM maxhanna.ender_encounter WHERE map = @Map;";
-            MySqlCommand heroIdCmd = new MySqlCommand(heroIdQuery, conn, transaction);
-            heroIdCmd.Parameters.AddWithValue("@Map", map);
-
-            var heroIds = new List<int>();
-            using (var heroReader = await heroIdCmd.ExecuteReaderAsync())
-            {
-                while (await heroReader.ReadAsync())
-                {
-                    heroIds.Add(Convert.ToInt32(heroReader["hero_id"]));
-                }
-            }
-
-            // If no hero_ids found, return empty
-            if (!heroIds.Any())
-                return Array.Empty<MetaBot>();
-
-            // Step 2: Fetch MetaBots and their parts for the found hero_ids
-            string sql = @"
-    SELECT  
-        b.id as metabot_id, 
-        b.hero_id as metabot_hero_id, 
-        b.name as metabot_name, 
-        b.type as metabot_type, 
-        b.hp as metabot_hp, 
-        b.level as metabot_level, 
-        b.exp as metabot_exp,
-        b.is_deployed as metabot_is_deployed,
-        p.id as part_id, p.part_name, p.type as part_type, p.damage_mod, p.skill,
-        e.coordsX, e.coordsY
-    FROM
-        maxhanna.ender_bot b
-    LEFT JOIN
-        maxhanna.ender_encounter_bot_part p ON b.hero_id = p.hero_id
-    LEFT JOIN
-        maxhanna.ender_encounter e ON e.hero_id = b.hero_id
-    WHERE b.hero_id IN (" + string.Join(",", heroIds) + ");"; // Inject IDs safely
-
-            MySqlCommand cmd = new MySqlCommand(sql, conn, transaction);
-            //_ = _log.Db(cmd.CommandText);
-            using (var reader = await cmd.ExecuteReaderAsync())
-            {
-                while (await reader.ReadAsync())
-                {
-                    int heroId = Convert.ToInt32(reader["metabot_hero_id"]);
-
-                    // Check if the bot already exists in our list
-                    MetaBot? metabot = bots.FirstOrDefault(m => m.Id == Convert.ToInt32(reader["metabot_id"]));
-                    if (metabot == null)
-                    {
-                        metabot = new MetaBot
-                        {
-                            Id = Convert.ToInt32(reader["metabot_id"]),
-                            Name = Convert.ToString(reader["metabot_name"]),
-                            HeroId = heroId,
-                            Type = Convert.ToInt32(reader["metabot_type"]),
-                            Hp = Convert.ToInt32(reader["metabot_hp"]),
-                            Exp = Convert.ToInt32(reader["metabot_exp"]),
-                            Level = Convert.ToInt32(reader["metabot_level"]),
-                            IsDeployed = Convert.ToBoolean(reader["metabot_is_deployed"]),
-                            Position = new Vector2(Convert.ToInt32(reader["coordsX"]), Convert.ToInt32(reader["coordsY"]))
-                        };
-                        bots.Add(metabot);
-                    }
-
-                    // If there's a MetaBotPart in this row, assign it
-                    if (!reader.IsDBNull(reader.GetOrdinal("part_id")))
-                    {
-                        MetaBotPart part = new MetaBotPart
-                        {
-                            HeroId = heroId,
-                            Id = Convert.ToInt32(reader["part_id"]),
-                            PartName = Convert.ToString(reader["part_name"]),
-                            Type = Convert.ToInt32(reader["part_type"]),
-                            DamageMod = Convert.ToInt32(reader["damage_mod"]),
-                            Skill = !reader.IsDBNull(reader.GetOrdinal("skill")) ? new Skill(reader["skill"].ToString() ?? "Headbutt", 0) : null,
-                        };
-
-                        switch (part.PartName?.ToLower())
-                        {
-                            case "head":
-                                metabot.Head = part;
-                                break;
-                            case "legs":
-                                metabot.Legs = part;
-                                break;
-                            case "left_arm":
-                                metabot.LeftArm = part;
-                                break;
-                            case "right_arm":
-                                metabot.RightArm = part;
-                                break;
-                        }
-                    }
-                }
-            }
-
-            return bots.ToArray();
-        }
-
 
         private async Task<MetaHero[]?> GetNearbyPlayers(MetaHero hero, MySqlConnection conn, MySqlTransaction transaction)
         {
@@ -1604,21 +1426,9 @@ namespace maxhanna.Server.Controllers
             m.coordsY,
             m.speed, 
             m.color, 
-            m.mask,
-            b.id as metabot_id, 
-            b.name as metabot_name, 
-            b.type as metabot_type, 
-            b.hp as metabot_hp, 
-            b.level as metabot_level, 
-            b.exp as metabot_exp,
-            b.is_deployed as metabot_is_deployed,
-            p.id as part_id, p.part_name, p.type as part_type, p.damage_mod, p.skill
+            m.mask
         FROM 
-            maxhanna.ender_hero m 
-        LEFT JOIN
-            maxhanna.ender_bot b on b.hero_id = m.id
-        LEFT JOIN
-            maxhanna.ender_bot_part p ON b.id = p.metabot_id
+            maxhanna.ender_hero m  
         WHERE m.map = @HeroMapId
         ORDER BY m.coordsY ASC;";
 
@@ -1644,65 +1454,9 @@ namespace maxhanna.Server.Controllers
                             Mask = reader.IsDBNull(reader.GetOrdinal("mask")) ? null : Convert.ToInt32(reader["mask"]),
                             Position = new Vector2(Convert.ToInt32(reader["coordsX"]), Convert.ToInt32(reader["coordsY"])),
                             Speed = Convert.ToInt32(reader["speed"]),
-                            Metabots = new List<MetaBot>()
                         };
                         heroesDict[heroId] = tmpHero;
-                    }
-
-                    // If there's a MetaBot in this row, add it to the MetaHero's MetaBots list
-                    if (!reader.IsDBNull(reader.GetOrdinal("metabot_id")))
-                    {
-                        int metabotId = Convert.ToInt32(reader["metabot_id"]);
-
-                        MetaBot? metabot = tmpHero.Metabots?.FirstOrDefault(m => m.Id == metabotId);
-                        if (metabot == null)
-                        {
-                            metabot = new MetaBot
-                            {
-                                Id = metabotId,
-                                Name = Convert.ToString(reader["metabot_name"]),
-                                HeroId = heroId,
-                                Type = Convert.ToInt32(reader["metabot_type"]),
-                                Hp = Convert.ToInt32(reader["metabot_hp"]),
-                                Exp = Convert.ToInt32(reader["metabot_exp"]),
-                                Level = Convert.ToInt32(reader["metabot_level"]),
-                                IsDeployed = Convert.ToBoolean(reader["metabot_is_deployed"]),
-                            };
-                            if (tmpHero.Metabots == null) { tmpHero.Metabots = new List<MetaBot>(); }
-                            tmpHero.Metabots.Add(metabot);
-                        }
-
-                        // If there's a MetaBotPart in this row, assign it to the correct property
-                        if (!reader.IsDBNull(reader.GetOrdinal("part_id")))
-                        {
-                            MetaBotPart part = new MetaBotPart
-                            {
-                                HeroId = heroId,
-                                Id = Convert.ToInt32(reader["part_id"]),
-                                PartName = Convert.ToString(reader["part_name"]),
-                                Type = Convert.ToInt32(reader["part_type"]),
-                                DamageMod = Convert.ToInt32(reader["damage_mod"]),
-                                Skill = Convert.ToString(reader["skill"]) == null ? null : new Skill(Convert.ToString(reader["skill"]) ?? "Headbutt", 0),
-                            };
-
-                            // Assign the part to the correct property based on its name
-                            switch (part.PartName?.ToLower())
-                            {
-                                case "head":
-                                    metabot.Head = part;
-                                    break;
-                                case "legs":
-                                    metabot.Legs = part;
-                                    break;
-                                case "left_arm":
-                                    metabot.LeftArm = part;
-                                    break;
-                                case "right_arm":
-                                    metabot.RightArm = part;
-                                    break;
-                            }
-                        }
-                    }
+                    } 
                 }
             }
 
@@ -1749,196 +1503,11 @@ namespace maxhanna.Server.Controllers
             }
             return inventory.ToArray();
         }
-
-
-        private async Task<MetaBotPart[]?> GetMetabotPartsFromDB(int heroId, MySqlConnection conn, MySqlTransaction transaction)
-        {
-            // Ensure the connection is open
-            if (conn.State != System.Data.ConnectionState.Open)
-            {
-                await conn.OpenAsync();
-            }
-            if (transaction == null)
-            {
-                _ = _log.Db("Transaction is null.", null, "ENDER", true);
-                throw new InvalidOperationException("Transaction is required for this operation.");
-            }
-            List<MetaBotPart> partInv = new List<MetaBotPart>();
-            string sql = @"
-                    SELECT *
-                    FROM 
-                        maxhanna.ender_bot_part 
-                    WHERE hero_id = @HeroId;";
-
-            MySqlCommand cmd = new MySqlCommand(sql, conn, transaction);
-            cmd.Parameters.AddWithValue("@HeroId", heroId);
-
-            using (var reader = await cmd.ExecuteReaderAsync())
-            {
-
-                while (reader.Read())
-                {
-                    MetaBotPart tmpPart = new MetaBotPart
-                    {
-                        Id = Convert.ToInt32(reader["id"]),
-                        HeroId = Convert.ToInt32(reader["hero_id"]),
-                        MetabotId = reader.IsDBNull(reader.GetOrdinal("metabot_id")) ? null : Convert.ToInt32(reader["metabot_id"]),
-                        Created = Convert.ToDateTime(reader["created"]),
-                        PartName = Convert.ToString(reader["part_name"]),
-                        Skill = new Skill(name: Convert.ToString(reader["skill"]) ?? "Headbutt", type: Convert.ToInt32(reader["type"])),
-                        DamageMod = Convert.ToInt32(reader["damage_mod"]),
-                    };
-                    partInv.Add(tmpPart);
-                }
-            }
-            return partInv.ToArray();
-        }
-
-        private async Task RepairAllMetabots(int heroId, MySqlConnection connection, MySqlTransaction transaction)
-        {
-            string sql = @"UPDATE maxhanna.ender_bot SET hp = 100 WHERE hero_id = @heroId;";
-
-            Dictionary<string, object?> parameters = new Dictionary<string, object?>
-            {
-                    { "@heroId", heroId },
-            };
-
-            await this.ExecuteInsertOrUpdateOrDeleteAsync(sql, parameters, connection, transaction);
-        }
-
-        private async Task UpdateEncounterPosition(int encounterId, int destinationX, int destionationY, MySqlConnection connection, MySqlTransaction transaction)
-        {
-            string sql = @"UPDATE maxhanna.ender_encounter SET coordsX = @coordsX, coordsY = @coordsY WHERE hero_id = @heroId;";
-
-            Dictionary<string, object?> parameters = new Dictionary<string, object?>
-            {
-                    { "@heroId", encounterId },
-                    { "@coordsX", destinationX },
-                    { "@coordsY", destionationY },
-            };
-
-            await this.ExecuteInsertOrUpdateOrDeleteAsync(sql, parameters, connection, transaction);
-        }
-
-        private async Task DeployMetabot(int metabotId, MySqlConnection connection, MySqlTransaction transaction)
-        {
-            try
-            {
-                string sql = @"UPDATE maxhanna.ender_bot SET is_deployed = 1 WHERE id = @botId AND hp > 0 LIMIT 1;";
-
-                Dictionary<string, object?> parameters = new Dictionary<string, object?>
-                {
-                        { "@botId", metabotId },
-                };
-
-                await this.ExecuteInsertOrUpdateOrDeleteAsync(sql, parameters, connection, transaction);
-            }
-            catch (Exception ex)
-            {
-                _ = _log.Db("Exception DeployMetabot: " + ex.Message, null, "ENDER", true);
-            }
-        }
-        private async Task CallBackMetabot(int heroId, int? metabotId, MySqlConnection connection, MySqlTransaction transaction)
-        {
-            try
-            {
-                string sql = @"
-        UPDATE maxhanna.ender_bot 
-        SET is_deployed = 0 
-        WHERE hero_id = @heroId"
-                    + (metabotId.HasValue ? " AND id = @botId" : "");
-
-                Dictionary<string, object?> parameters = new Dictionary<string, object?>
-                {
-                        { "@heroId", heroId },
-                };
-                if (metabotId.HasValue)
-                {
-                    parameters.Add("@botId", metabotId.Value);
-                }
-                await this.ExecuteInsertOrUpdateOrDeleteAsync(sql, parameters, connection, transaction);
-            }
-            catch (Exception ex)
-            {
-                _ = _log.Db("Exception DeployMetabot: " + ex.Message, null, "ENDER", true);
-            }
-        }
-
-        private async Task DestroyMetabot(int heroId, int? metabotId, MySqlConnection connection, MySqlTransaction transaction)
-        {
-            try
-            {
-                string sql;
-                Dictionary<string, object?> parameters = new Dictionary<string, object?>
-                {
-                        { "@heroId", heroId },
-                };
-
-                // If heroId is negative, perform a DELETE instead of UPDATE
-                if (heroId < 0)
-                {
-                    sql =
-                    $@"DELETE FROM maxhanna.ender_bot WHERE hero_id = @heroId {(metabotId.HasValue ? " AND id = @botId" : "")};
-                    DELETE FROM maxhanna.ender_encounter_bot_part WHERE hero_id = @heroId;
-                    UPDATE maxhanna.ender_encounter SET coordsX = -1, coordsY = -1, last_killed = UTC_TIMESTAMP WHERE hero_id = @heroId;";
-                    if (metabotId.HasValue)
-                    {
-                        parameters.Add("@botId", metabotId.Value);
-                    }
-                }
-                else
-                {
-                    sql = @$"
-                        UPDATE maxhanna.ender_bot 
-                        SET is_deployed = 0, hp = 0 
-                        WHERE hero_id = @heroId {(metabotId.HasValue ? " AND id = @botId" : "")};";
-
-                    if (metabotId.HasValue)
-                    {
-                        parameters.Add("@botId", metabotId.Value);
-                    }
-                }
-
-                await this.ExecuteInsertOrUpdateOrDeleteAsync(sql, parameters, connection, transaction);
-            }
-            catch (Exception ex)
-            {
-                _ = _log.Db("Exception DestroyMetabot: " + ex.Message, null, "ENDER", true);
-            }
-        }
+    
 
         private async Task PerformEventChecks(MetaEvent metaEvent, MySqlConnection connection, MySqlTransaction transaction)
         {
-            if (metaEvent != null && metaEvent.Data != null && metaEvent.EventType == "TARGET_LOCKED")
-            {
-                string lockKey = $"{metaEvent.Data["sourceId"]}:{metaEvent.Data["targetId"]}";
-
-                if (!activeLocks.ContainsKey(lockKey))
-                {
-                    _ = _log.Db($"Starting DPS for {lockKey}", null, "ENDER", true);
-                    var sourceId = metaEvent.Data["sourceId"];
-                    var targetId = metaEvent.Data["targetId"];
-                    var ctsSource = new CancellationTokenSource();
-                    activeLocks[lockKey] = ctsSource;
-
-                    _ = StartDamageOverTimeForBot(sourceId, targetId, ctsSource.Token);
-                }
-            }
-            else if (metaEvent != null && metaEvent.EventType == "TARGET_UNLOCK" && metaEvent.Data != null && metaEvent.Data.TryGetValue("sourceId", out var sourceId))
-            {
-                StopAttackDamageOverTimeForBot(Convert.ToInt32(sourceId), Convert.ToInt32(metaEvent.Data["targetId"]));
-            }
-            else if (metaEvent != null && metaEvent.Data != null && metaEvent.EventType == "REPAIR_ALL_METABOTS")
-            {
-                int heroId = Convert.ToInt32(metaEvent.Data["heroId"]);
-                await RepairAllMetabots(heroId, connection, transaction);
-            }
-            else if (metaEvent != null && metaEvent.Data != null && metaEvent.EventType == "UNPARTY")
-            {
-                int heroId = metaEvent.HeroId;
-                await Unparty(heroId, connection, transaction);
-            }
-            else if (metaEvent != null && metaEvent.Data != null && metaEvent.EventType == "PARTY_INVITE_ACCEPTED")
+            if (metaEvent != null && metaEvent.Data != null && metaEvent.EventType == "PARTY_INVITE_ACCEPTED")
             {
                 if (metaEvent.Data.TryGetValue("party_members", out var partyJson))
                 {
@@ -1964,58 +1533,7 @@ namespace maxhanna.Server.Controllers
                 {
                     _ = _log.Db("No batch data found for UPDATE_ENCOUNTER_POSITION", null, "ENDER", true);
                 }
-            }
-            else if (metaEvent != null && metaEvent.Data != null && metaEvent.EventType == "UPDATE_ENCOUNTER_POSITION")
-            {
-                if (metaEvent.Data.TryGetValue("batch", out var batchJson))
-                {
-                    try
-                    {
-                        // Parse the batch JSON string into a list of position updates
-                        var batchData = JsonSerializer.Deserialize<List<EncounterPositionUpdate>>(batchJson);
-                        if (batchData != null && batchData.Count > 0)
-                        {
-                            await UpdateEncounterPositionBatch(batchData, connection, transaction);
-                        }
-                        else
-                        {
-                            _ = _log.Db("Empty or invalid batch data for UPDATE_ENCOUNTER_POSITION", null, "ENDER", true);
-                        }
-                    }
-                    catch (JsonException ex)
-                    {
-                        _ = _log.Db($"Failed to parse batch data for UPDATE_ENCOUNTER_POSITION: {ex.Message}", null, "ENDER", true);
-                    }
-                }
-                else
-                {
-                    _ = _log.Db("No batch data found for UPDATE_ENCOUNTER_POSITION", null, "ENDER", true);
-                }
-            }
-            else if (metaEvent != null && metaEvent.Data != null && metaEvent.EventType == "DEPLOY")
-            {
-                if (metaEvent.Data.TryGetValue("metaBot", out var metaBotJsonElement))
-                {
-                    // Parse the metaBot JSON string
-                    var metaBotJson = JsonDocument.Parse(metaBotJsonElement.ToString()).RootElement;
-
-                    if (metaBotJson.TryGetProperty("id", out var idElement))
-                    {
-                        int metabotId = idElement.GetInt32();
-                        await DeployMetabot(metabotId, connection, transaction);
-                    }
-                }
-            }
-            else if (metaEvent != null && metaEvent.EventType == "CALL_BOT_BACK")
-            {
-                int heroId = metaEvent.HeroId;
-                await CallBackMetabot(heroId, null, connection, transaction);
-            }
-            else if (metaEvent != null && metaEvent.EventType == "BOT_DESTROYED")
-            {
-                int heroId = metaEvent.HeroId;
-                await DestroyMetabot(heroId, null, connection, transaction);
-            }
+            } 
             else if (metaEvent != null && metaEvent.EventType == "SPAWN_BIKE_WALL" && metaEvent.Data != null)
             {
                 await PersistBikeWallsAndKillNearbyVictims(metaEvent, connection, transaction);
@@ -2215,19 +1733,7 @@ namespace maxhanna.Server.Controllers
                 }
             }
         }
-
-        private static void StopAttackDamageOverTimeForBot(int? sourceId, int? targetId)
-        {
-            string lockKey = $"{sourceId}:{targetId}";
-            //_ = _log.Db($"Stopping DPS for {lockKey}");
-            if (activeLocks.ContainsKey(lockKey))
-            {
-                // Cancel DPS for both source and target
-                activeLocks[lockKey].Cancel();
-                activeLocks.Remove(lockKey);
-            }
-        }
-
+ 
         // Authoritative kill helper used by server-side checks (does not rely on client-supplied time/walls)
         private async Task KillHeroById(int heroId, MySqlConnection connection, MySqlTransaction transaction, int? killerHeroId = null)
         {
@@ -2316,185 +1822,7 @@ namespace maxhanna.Server.Controllers
                 _ = _log.Db("KillHeroById failed: " + ex.Message, null, "ENDER", true);
                 throw;
             }
-        }
-
-        private async Task StartDamageOverTimeForBot(string sourceId, string targetId, CancellationToken cancellationToken)
-        {
-            bool attackerStopped = false;
-            while (!cancellationToken.IsCancellationRequested)
-            {
-                _ = _log.Db($"Applying DPS from {sourceId} to {targetId}", null, "ENDER", true);
-                MetaBot? attackingBot = null, defendingBot = null;
-                string? attackingBotMap = null;
-                string? defendingBotMap = null;
-
-                try
-                {
-                    using (var connection = new MySqlConnection(_connectionString))
-                    {
-                        await connection.OpenAsync();
-                        using (MySqlTransaction transaction = await connection.BeginTransactionAsync())
-                        {
-                            // 1. Fetch attacker & defender in a single query with their maps
-                            string fetchBotsSql = @"
-                                SELECT 
-                                    mb.id, 
-                                    mb.type, 
-                                    mb.exp, 
-                                    mb.level, 
-                                    mb.hp,
-                                    mb.hero_id,
-                                    mb.is_deployed,
-                                    IF(mb.hero_id > 0, 
-                                        (SELECT mh.map FROM maxhanna.ender_hero mh WHERE mh.id = mb.hero_id),
-                                        (SELECT me.map FROM maxhanna.ender_encounter me WHERE me.hero_id = mb.hero_id)
-                                    ) AS map
-                                FROM maxhanna.ender_bot AS mb
-                                WHERE mb.id = @SourceId 
-                                    OR mb.id = @TargetId;";
-
-                            using (var command = new MySqlCommand(fetchBotsSql, connection, transaction))
-                            {
-                                command.Parameters.AddWithValue("@SourceId", sourceId);
-                                command.Parameters.AddWithValue("@TargetId", targetId);
-
-                                using (var reader = await command.ExecuteReaderAsync())
-                                {
-                                    while (await reader.ReadAsync())
-                                    {
-                                        int botId = reader.GetInt32(reader.GetOrdinal("id"));
-                                        int botType = reader.GetInt32(reader.GetOrdinal("type"));
-                                        int botExp = reader.GetInt32(reader.GetOrdinal("exp"));
-                                        int botLevel = reader.GetInt32(reader.GetOrdinal("level"));
-                                        int botHp = reader.GetInt32(reader.GetOrdinal("hp"));
-                                        int botHeroId = reader.IsDBNull(reader.GetOrdinal("hero_id")) ? 0 : reader.GetInt32(reader.GetOrdinal("hero_id"));
-                                        bool botIsDeployed = reader.GetBoolean(reader.GetOrdinal("is_deployed"));
-                                        string? botMap = reader.IsDBNull(reader.GetOrdinal("map")) ? null : reader.GetString(reader.GetOrdinal("map"));
-
-                                        var bot = new MetaBot
-                                        {
-                                            Id = botId,
-                                            Type = botType,
-                                            Exp = botExp,
-                                            Level = botLevel,
-                                            Hp = botHp,
-                                            HeroId = botHeroId,
-                                            IsDeployed = botIsDeployed
-                                        };
-
-                                        if (botId == Convert.ToInt32(sourceId))
-                                        {
-                                            attackingBot = bot;
-                                            attackingBotMap = botMap;
-                                        }
-                                        else
-                                        {
-                                            defendingBot = bot;
-                                            defendingBotMap = botMap;
-                                        }
-                                    }
-                                }
-                            }
-
-                            if (attackingBot == null || defendingBot == null)
-                            {
-                                _ = _log.Db("One or both bots are missing, stopping DPS.", null, "ENDER", true);
-                                attackerStopped = true;
-                            }
-
-                            // Check if bots are on the same map
-                            if (!attackerStopped && (string.IsNullOrEmpty(attackingBotMap) || string.IsNullOrEmpty(defendingBotMap) || attackingBotMap != defendingBotMap))
-                            {
-                                _ = _log.Db($"Bots are on different maps ({attackingBotMap} vs {defendingBotMap}). Stopping DPS.", null, "ENDER", true);
-                                attackerStopped = true;
-                            }
-
-                            if (!attackerStopped && attackingBot?.Hp <= 0)
-                            {
-                                _ = _log.Db($"Attacking bot {sourceId} has died. Stopping DPS.", null, "ENDER", true);
-                                attackerStopped = true;
-                                await HandleDeadMetabot(attackingBotMap ?? "", defendingBot, attackingBot, connection, transaction);
-                            }
-
-                            if (!attackerStopped && defendingBot?.Hp <= 0)
-                            {
-                                _ = _log.Db($"Defending bot {targetId} has died. Stopping DPS.", null, "ENDER", true);
-                                attackerStopped = true;
-                                await HandleDeadMetabot(defendingBotMap ?? "", attackingBot, defendingBot, connection, transaction);
-                            }
-
-                            if (!attackerStopped)
-                            {
-                                // 2. Check if a TARGET_UNLOCKED event has occurred for bot
-                                string checkEventSql = @"
-                            SELECT COUNT(*) 
-                            FROM maxhanna.ender_event 
-                            WHERE event = 'TARGET_UNLOCKED' 
-                                AND (JSON_EXTRACT(data, '$.sourceId') = @SourceId AND JSON_EXTRACT(data, '$.targetId') = @TargetId) 
-                                AND timestamp > UTC_TIMESTAMP() - INTERVAL 5 SECOND"; // 5 second window (adjust as needed)
-
-                                int eventCount = 0;
-
-                                using (var command = new MySqlCommand(checkEventSql, connection, transaction))
-                                {
-                                    command.Parameters.AddWithValue("@SourceId", sourceId);
-                                    command.Parameters.AddWithValue("@TargetId", targetId);
-
-                                    eventCount = Convert.ToInt32(await command.ExecuteScalarAsync());
-                                }
-
-                                if (eventCount > 0)
-                                {
-                                    _ = _log.Db("TARGET_UNLOCKED event detected. Stopping DPS for both bots.", null, "ENDER", true);
-                                    attackerStopped = true;
-                                }
-
-                                if (!attackerStopped && attackingBot != null && defendingBot != null)
-                                {
-                                    MetaBotPart? attackingPart =
-                                        GetLastUsedPart(attackingBot.HeroId > 0 ? "ender_bot_part" : "ender_encounter_bot_part",
-                                        attackingBot.HeroId > 0 ? "metabot_id" : "hero_id",
-                                        attackingBot.HeroId > 0 ? attackingBot.Id : attackingBot.HeroId,
-                                        connection,
-                                        transaction);
-                                    MetaBotPart? defendingPart =
-                                        GetLastUsedPart(defendingBot.HeroId > 0 ? "ender_bot_part" : "ender_encounter_bot_part",
-                                        defendingBot.HeroId > 0 ? "metabot_id" : "hero_id",
-                                        defendingBot.HeroId > 0 ? defendingBot.Id : defendingBot.HeroId,
-                                        connection,
-                                        transaction);
-
-                                    // 4. Apply damage to both bots every second
-                                    ApplyDamageToBot(attackingBot, defendingBot, attackingPart, defendingPart, connection, transaction);
-
-                                    // Check if either bot's HP is 0 or below, if so, stop DPS  
-                                    if (defendingBot.Hp <= 0)
-                                    {
-                                        attackerStopped = true;
-                                        await HandleDeadMetabot(defendingBotMap ?? "", attackingBot, defendingBot, connection, transaction);
-                                    }
-                                }
-                            }
-
-                            await transaction.CommitAsync();
-                        }
-                    }
-                }
-                catch (Exception ex)
-                {
-                    _ = _log.Db($"DPS Error: {ex.Message}", null, "ENDER", true);
-                    attackerStopped = true;
-                }
-
-                if (attackerStopped)
-                {
-                    StopAttackDamageOverTimeForBot(attackingBot?.Id, defendingBot?.Id);
-                    return;
-                }
-
-                await Task.Delay(1000); // Apply damage every 1 second
-            }
-        }
+        } 
 
         private async Task UpdateEncounterPositionBatch(List<EncounterPositionUpdate> updates, MySqlConnection connection, MySqlTransaction transaction)
         {
@@ -2667,158 +1995,7 @@ namespace maxhanna.Server.Controllers
                 throw; // Re-throw to allow transaction rollback
             }
         }
-
-        private async Task HandleDeadMetabot(string map, MetaBot? winnerBot, MetaBot? deadBot, MySqlConnection connection, MySqlTransaction transaction)
-        {
-            if (deadBot == null) return;
-            MetaEvent tmpEvent = new MetaEvent(0,
-                deadBot.HeroId,
-                DateTime.Now,
-                "BOT_DESTROYED",
-                map,
-                new Dictionary<string, string> { { "winnerBotId", (winnerBot?.Id ?? 0).ToString() } }
-            );
-            await UpdateEventsInDB(tmpEvent, connection, transaction);
-            await DestroyMetabot(deadBot.HeroId, deadBot.Id, connection, transaction);
-            if (winnerBot?.HeroId > 0)
-            {
-                await AwardExpToPlayer(winnerBot, deadBot, connection, transaction);
-            }
-        }
-
-        private async Task AwardExpToPlayer(MetaBot player, MetaBot enemy, MySqlConnection connection, MySqlTransaction transaction)
-        {
-            player.Exp += enemy.Level;
-            int expForNextLevel = CalculateExpForNextLevel(player);
-
-            while (player.Exp >= expForNextLevel)
-            {
-                player.Exp -= expForNextLevel; // Subtract the required experience for leveling up
-                player.Level++;
-                expForNextLevel = CalculateExpForNextLevel(player);
-            }
-            await UpdateMetabotInDB(player, connection, transaction);
-        }
-
-        private int CalculateExpForNextLevel(MetaBot player)
-        {
-            return (player.Level + 1) * 15;
-        }
-        private MetaBotPart GetLastUsedPart(string tableName, string idColumn, int id, MySqlConnection connection, MySqlTransaction? transaction)
-        {
-            string fetchPartSql = $@"
-        SELECT part_name, damage_mod, skill, type 
-        FROM maxhanna.{tableName} 
-        WHERE {idColumn} = @Id 
-        ORDER BY last_used DESC 
-        LIMIT 1";
-
-            string updateLastUsedSql = $@"
-        UPDATE maxhanna.{tableName} 
-        SET last_used = UTC_TIMESTAMP() 
-        WHERE {idColumn} = @Id 
-        ORDER BY last_used DESC 
-        LIMIT 1";
-
-            MetaBotPart part = new()
-            {
-                PartName = "DEFAULT",
-                DamageMod = 1,
-                Skill = new Skill("NORMAL", 0)
-            };
-
-            using (var command = new MySqlCommand(fetchPartSql, connection, transaction))
-            {
-                command.Parameters.AddWithValue("@Id", id);
-
-                using (var reader = command.ExecuteReader())
-                {
-                    if (reader.Read())
-                    {
-                        part = new MetaBotPart
-                        {
-                            PartName = reader.GetString(0),
-                            DamageMod = reader.GetInt32(1),
-                            Skill = new Skill(reader.GetString(2), reader.GetInt32(3))
-                        };
-                    }
-                }
-            }
-
-            using (var command = new MySqlCommand(updateLastUsedSql, connection, transaction))
-            {
-                command.Parameters.AddWithValue("@Id", id);
-                command.ExecuteNonQuery();
-            }
-
-            return part;
-        }
-
-
-        private void ApplyDamageToBot(MetaBot attackingBot, MetaBot defendingBot, MetaBotPart attackingPart, MetaBotPart defendingPart, MySqlConnection connection, MySqlTransaction transaction)
-        {
-            // 1. Calculate damage for both bots using the same formula
-            int appliedDamageToDefender = CalculateDamage(attackingBot, defendingBot, attackingPart);
-
-            // 2. Apply damage to both bots in the database
-            string updateSql = @"
-                UPDATE maxhanna.ender_bot_part SET last_used = UTC_TIMESTAMP() WHERE metabot_id = @SourceId AND part_name = @PartName;
-                UPDATE maxhanna.ender_bot AS bot 
-                SET 
-                    bot.hp = GREATEST(bot.hp - @Damage, 0), 
-                    bot.is_deployed = CASE 
-                        WHEN GREATEST(bot.hp - @Damage, 0) = 0 THEN 0
-                        ELSE bot.is_deployed 
-                    END
-                WHERE bot.id = @TargetId";
-
-            // Apply damage to the defender
-            using (var command = new MySqlCommand(updateSql, connection, transaction))
-            {
-                command.Parameters.AddWithValue("@Damage", appliedDamageToDefender);
-                command.Parameters.AddWithValue("@TargetId", defendingBot.Id);
-                command.Parameters.AddWithValue("@SourceId", attackingBot.Id);
-                command.Parameters.AddWithValue("@PartName", attackingPart.PartName);
-                command.ExecuteNonQuery();
-            }
-            _ = _log.Db($"{attackingBot.Id}({attackingBot.Hp}) dealt {appliedDamageToDefender} damage to {defendingBot.Id}({defendingBot.Hp})! {DateTime.Now.ToString()} part: {attackingPart.PartName}", null, "ENDER", true);
-        }
-
-        private int CalculateDamage(MetaBot attacker, MetaBot defender, MetaBotPart attackingPart)
-        {
-            // Determine type effectiveness
-            float typeMultiplier = 1.0f;
-            if (attackingPart.Skill != null && TypeEffectiveness.TryGetValue((SkillType)attackingPart.Skill.Type, out SkillType effectiveAgainst)
-                                                 && (int)effectiveAgainst == defender.Type)
-            {
-                typeMultiplier = 2.0f; // Super Effective
-            }
-            else if (attackingPart.Skill != null && TypeEffectiveness.TryGetValue((SkillType)defender.Type, out SkillType strongAgainst)
-                                                 && (int)strongAgainst == attackingPart.Skill.Type)
-            {
-                typeMultiplier = 0.5f; // Not Effective
-            }
-
-            // 2. Base Damage Calculation
-            int baseDamage = (int)(attacker.Level * attackingPart.DamageMod * typeMultiplier);
-
-            // 3. Defense Calculation (defense equals defender's level, mitigating level% of damage)
-            float defenseMultiplier = defender.Level / 100f; // e.g., level 298 = 2.98
-            float defenseFactor = 1f / (1f + defenseMultiplier); // e.g., 1 / (1 + 2.98) ≈ 0.2513
-
-            // 4. Final Damage Calculation
-            int finalDamage = (int)(baseDamage * defenseFactor);
-
-            // 5. Critical Hit Chance (10% chance)
-            if (new Random().NextDouble() < 0.1)
-            {
-                finalDamage = (int)(finalDamage * 1.5f);
-                _ = _log.Db($"{attacker.Name} scored a critical hit!", null, "ENDER", true);
-            }
-
-            // Ensure minimum damage of 1
-            return Math.Max(1, finalDamage);
-        }
+     
         private async Task<long?> ExecuteInsertOrUpdateOrDeleteAsync(string sql, Dictionary<string, object?> parameters, MySqlConnection? connection = null, MySqlTransaction? transaction = null)
         {
             string cmdText = "";
