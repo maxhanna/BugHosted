@@ -178,8 +178,8 @@ export class Hero extends Character {
     const prevPos = this.position.duplicate();
     super.step(delta, root);
 
-  // only spawn walls for ship-bodied heroes
-  if (!this.body || this.body.resource !== resources.images["ship"]) return;
+  // spawn walls only if a body sprite exists (was previously restricted to ship sprite, which blocked placement)
+  if (!this.body) return;
   // Only the local (user-controlled) hero should originate wall spawns; others get them from network sync
   if (!this.isUserControlled) return;
 
