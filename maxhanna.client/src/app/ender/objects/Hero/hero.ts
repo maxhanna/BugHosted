@@ -37,13 +37,13 @@ export class Hero extends Character {
       isSolid: false,
       body: new Sprite({
         objectId: params.id ?? 0,
-        resource: resources.images["ship"], 
+        resource: resources.images["shipsprite"], 
         name: "hero",
         position: new Vector2(-8, 0),
         frameSize: new Vector2(32, 32),
         offsetY: -10,
         hFrames: 4,
-        vFrames: 5,
+        vFrames: 4,
         isSolid: false,
         animations: new Animations(
           {
