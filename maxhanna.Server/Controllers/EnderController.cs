@@ -118,15 +118,10 @@ namespace maxhanna.Server.Controllers
 
                         hero = await UpdateHeroInDB(hero, connection, transaction);
                         MetaHero[]? heroes = await GetNearbyPlayers(hero, connection, transaction);
-                        List<MetaEvent> events = await GetEventsFromDb(hero.Map, hero.Id, connection, transaction);
+                        List<MetaEvent> events = await GetEventsFromDb(hero.Level, connection, transaction);
                         // Fetch persistent bike walls for this map and hero level
                         // Return only walls created within the last 10 seconds (recent delta)
-                        List<MetaBikeWall> walls = await GetRecentBikeWalls(hero.Map, connection, transaction, hero.Level, 10);
-
-                        // --- Tolerant bike-wall collision detection (server authoritative) ---
-                        // Original implementation joined hero & wall tables on map/level causing a collation mismatch when
-                        // the two tables had different collations (utf8mb4_unicode_ci vs utf8mb4_0900_ai_ci). We avoid the join
-                        // entirely by using the already-fetched hero coordinates/level/map and searching walls only.
+                        List<MetaBikeWall> walls = await GetRecentBikeWalls(hero.Level, connection, transaction, 10);
                         try
                         {
                             int tolerance = 32; // pixels; adjust as needed
@@ -1048,7 +1043,7 @@ namespace maxhanna.Server.Controllers
             }
         }
 
-        private async Task<List<MetaEvent>> GetEventsFromDb(string map, int heroId, MySqlConnection connection, MySqlTransaction transaction)
+        private async Task<List<MetaEvent>> GetEventsFromDb(int level, MySqlConnection connection, MySqlTransaction transaction)
         {
             if (connection.State != System.Data.ConnectionState.Open)
             {
@@ -1061,38 +1056,16 @@ namespace maxhanna.Server.Controllers
                 throw new InvalidOperationException("Transaction is required for this operation.");
             }
 
-            // First, get all party members for the current hero
-            List<int> partyMemberIds = new List<int> { heroId }; // Include self
-            string partyQuery = @"
-        SELECT ender_hero_id_1 AS hero_id FROM ender_hero_party WHERE ender_hero_id_2 = @HeroId
-        UNION
-        SELECT ender_hero_id_2 AS hero_id FROM ender_hero_party WHERE ender_hero_id_1 = @HeroId";
-
-            using (var partyCmd = new MySqlCommand(partyQuery, connection, transaction))
-            {
-                partyCmd.Parameters.AddWithValue("@HeroId", heroId);
-                using (var partyReader = await partyCmd.ExecuteReaderAsync())
-                {
-                    while (await partyReader.ReadAsync())
-                    {
-                        partyMemberIds.Add(Convert.ToInt32(partyReader["hero_id"]));
-                    }
-                }
-            }
-
-            // Now fetch events:
-            // 1. All events from current map
-            // 2. All CHAT events from party members (regardless of map)
+           
             string sql = @"
-    DELETE FROM maxhanna.ender_event WHERE timestamp < UTC_TIMESTAMP() - INTERVAL 20 SECOND;
+        DELETE FROM maxhanna.ender_event WHERE timestamp < UTC_TIMESTAMP() - INTERVAL 20 SECOND;
         
         SELECT *
         FROM maxhanna.ender_event 
-        WHERE map = @Map
-        OR (event = 'CHAT' AND hero_id IN (" + string.Join(",", partyMemberIds) + "));";
+        WHERE level = @Level;";
 
             MySqlCommand cmd = new MySqlCommand(sql, connection, transaction);
-            cmd.Parameters.AddWithValue("@Map", map);
+            cmd.Parameters.AddWithValue("@Level", level);
 
             List<MetaEvent> events = new List<MetaEvent>();
             using (var reader = await cmd.ExecuteReaderAsync())
@@ -1446,16 +1419,15 @@ namespace maxhanna.Server.Controllers
             }
         }
 
-        private async Task<List<MetaBikeWall>> GetBikeWalls(string map, MySqlConnection connection, MySqlTransaction transaction, int level = 1, int lastKnownWallId = 0)
+        private async Task<List<MetaBikeWall>> GetBikeWalls(int level, MySqlConnection connection, MySqlTransaction transaction,  int lastKnownWallId = 0)
         {
             var walls = new List<MetaBikeWall>();
             string sql = @"SELECT id, hero_id, map, x, y, level 
                            FROM maxhanna.ender_bike_wall 
-                           WHERE map = @Map AND level = @Level AND id > @LastKnownWallId 
+                           WHERE level = @Level AND id > @LastKnownWallId 
                            ORDER BY id ASC";
             using (var cmd = new MySqlCommand(sql, connection, transaction))
-            {
-                cmd.Parameters.AddWithValue("@Map", map);
+            { 
                 cmd.Parameters.AddWithValue("@Level", level);
                 cmd.Parameters.AddWithValue("@LastKnownWallId", lastKnownWallId);
                 using (var reader = await cmd.ExecuteReaderAsync())
@@ -1478,17 +1450,16 @@ namespace maxhanna.Server.Controllers
         }
 
         // Recent walls within a rolling time window (seconds)
-        private async Task<List<MetaBikeWall>> GetRecentBikeWalls(string map, MySqlConnection connection, MySqlTransaction transaction, int level = 1, int seconds = 10)
+        private async Task<List<MetaBikeWall>> GetRecentBikeWalls(int level, MySqlConnection connection, MySqlTransaction transaction, int seconds = 10)
         {
             var walls = new List<MetaBikeWall>();
             // Prefer created_at if exists; fall back to last 500 newest IDs as approximation
             string sql = @"SELECT id, hero_id, map, x, y, level 
                            FROM maxhanna.ender_bike_wall 
-                           WHERE map = @Map AND level = @Level AND (created_at >= (UTC_TIMESTAMP() - INTERVAL @Seconds SECOND) OR created_at IS NULL)
+                           WHERE level = @Level AND (created_at >= (UTC_TIMESTAMP() - INTERVAL @Seconds SECOND) OR created_at IS NULL)
                            ORDER BY id ASC";
             using (var cmd = new MySqlCommand(sql, connection, transaction))
-            {
-                cmd.Parameters.AddWithValue("@Map", map);
+            { 
                 cmd.Parameters.AddWithValue("@Level", level);
                 cmd.Parameters.AddWithValue("@Seconds", seconds);
                 try
@@ -1512,7 +1483,7 @@ namespace maxhanna.Server.Controllers
                 catch
                 {
                     // Fallback if created_at column doesn't exist
-                    return await GetBikeWalls(map, connection, transaction, level, 0);
+                    return await GetBikeWalls(level, connection, transaction, 0);
                 }
             }
             return walls;
@@ -1535,7 +1506,7 @@ namespace maxhanna.Server.Controllers
                             await transaction.RollbackAsync();
                             return NotFound("Hero not found");
                         }
-                        var walls = await GetBikeWalls(hero.Map, connection, transaction, hero.Level, 0);
+                        var walls = await GetBikeWalls(hero.Level, connection, transaction, 0);
                         await transaction.CommitAsync();
                         return Ok(walls);
                     }
