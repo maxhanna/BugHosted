@@ -401,8 +401,8 @@ namespace maxhanna.Server.Controllers
                                     {
                                         string updSql = @"UPDATE maxhanna.ender_hero SET level = level + 1 WHERE id = @SurvivorId LIMIT 1; DELETE FROM maxhanna.ender_bike_wall WHERE level = @Level;";
                                         var parms =  new Dictionary<string, object?>() {
-                                            { "@SurvivorId", survivorId, } 
-                                            { "@Level", heroLevelFromDb, } 
+                                            { "@SurvivorId", survivorId },
+                                            { "@Level", heroLevelFromDb },
                                         };
                                         await ExecuteInsertOrUpdateOrDeleteAsync(updSql, parms, connection, transaction);
 
