@@ -213,6 +213,20 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
                 this.mainScene.inventory.partyMembers = this.partyMembers;
                 this.mainScene.inventory.renderParty();
                 await this.reinitializeHero(rz);
+                // Initial full wall load once hero is known
+                try {
+                    const allWalls = await this.enderService.fetchAllBikeWalls(rz.id) as MetaBikeWall[];
+                    if (Array.isArray(allWalls)) {
+                        clearBikeWallCells();
+                        this.persistedWallLevelRef = this.mainScene.level;
+                        this.lastKnownWallId = 0; // we aren't using id delta now; recent fetch limited by time window
+                        for (const w of allWalls) {
+                            const wall = new BikeWall({ position: new Vector2(w.x, w.y) });
+                            this.mainScene.level.addChild(wall);
+                            addBikeWallCell(w.x, w.y);
+                        }
+                    }
+                } catch { }
             } else {
                 // attempt to load persisted last character name and pass it into the CharacterCreate level
                 this.userService.getUserSettings(this.parentRef?.user?.id ?? 0).then(res => {

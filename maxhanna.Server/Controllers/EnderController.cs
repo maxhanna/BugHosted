@@ -121,8 +121,8 @@ namespace maxhanna.Server.Controllers
                         MetaBot[]? enemyBots = await GetEncounterMetaBots(connection, transaction, hero.Map);
                         List<MetaEvent> events = await GetEventsFromDb(hero.Map, hero.Id, connection, transaction);
                         // Fetch persistent bike walls for this map and hero level
-                        int lastKnownWallId = payload?.lastKnownWallId ?? 0;
-                        List<MetaBikeWall> walls = await GetBikeWalls(hero.Map, connection, transaction, hero.Level, lastKnownWallId);
+                        // Return only walls created within the last 10 seconds (recent delta)
+                        List<MetaBikeWall> walls = await GetRecentBikeWalls(hero.Map, connection, transaction, hero.Level, 10);
                         await transaction.CommitAsync();
                         return Ok(new
                         {
@@ -2143,6 +2143,77 @@ namespace maxhanna.Server.Controllers
                 }
             }
             return walls;
+        }
+
+        // Recent walls within a rolling time window (seconds)
+        private async Task<List<MetaBikeWall>> GetRecentBikeWalls(string map, MySqlConnection connection, MySqlTransaction transaction, int level = 1, int seconds = 10)
+        {
+            var walls = new List<MetaBikeWall>();
+            // Prefer created_at if exists; fall back to last 500 newest IDs as approximation
+            string sql = @"SELECT id, hero_id, map, x, y, level 
+                           FROM maxhanna.ender_bike_wall 
+                           WHERE map = @Map AND level = @Level AND (created_at >= (NOW() - INTERVAL @Seconds SECOND) OR created_at IS NULL)
+                           ORDER BY id ASC";
+            using (var cmd = new MySqlCommand(sql, connection, transaction))
+            {
+                cmd.Parameters.AddWithValue("@Map", map);
+                cmd.Parameters.AddWithValue("@Level", level);
+                cmd.Parameters.AddWithValue("@Seconds", seconds);
+                try
+                {
+                    using (var reader = await cmd.ExecuteReaderAsync())
+                    {
+                        while (await reader.ReadAsync())
+                        {
+                            walls.Add(new MetaBikeWall
+                            {
+                                Id = reader.GetInt32("id"),
+                                HeroId = reader.GetInt32("hero_id"),
+                                Map = reader.GetString("map"),
+                                X = reader.GetInt32("x"),
+                                Y = reader.GetInt32("y"),
+                                Level = reader.IsDBNull(reader.GetOrdinal("level")) ? 1 : reader.GetInt32("level")
+                            });
+                        }
+                    }
+                }
+                catch
+                {
+                    // Fallback if created_at column doesn't exist
+                    return await GetBikeWalls(map, connection, transaction, level, 0);
+                }
+            }
+            return walls;
+        }
+
+        [HttpPost("/Ender/AllBikeWalls", Name = "Ender_AllBikeWalls")]
+        public async Task<IActionResult> AllBikeWalls([FromBody] int heroId)
+        {
+            if (heroId <= 0) return BadRequest("Invalid hero id");
+            using (var connection = new MySqlConnection(_connectionString))
+            {
+                await connection.OpenAsync();
+                using (var transaction = connection.BeginTransaction())
+                {
+                    try
+                    {
+                        var hero = await GetHeroData(0, heroId, connection, transaction);
+                        if (hero == null)
+                        {
+                            await transaction.RollbackAsync();
+                            return NotFound("Hero not found");
+                        }
+                        var walls = await GetBikeWalls(hero.Map, connection, transaction, hero.Level, 0);
+                        await transaction.CommitAsync();
+                        return Ok(walls);
+                    }
+                    catch (Exception ex)
+                    {
+                        await transaction.RollbackAsync();
+                        return StatusCode(500, "Internal server error: " + ex.Message);
+                    }
+                }
+            }
         }
 
         private static void StopAttackDamageOverTimeForBot(int? sourceId, int? targetId)
