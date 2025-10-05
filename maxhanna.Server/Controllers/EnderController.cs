@@ -1983,94 +1983,99 @@ namespace maxhanna.Server.Controllers
             }
             else if (metaEvent != null && metaEvent.EventType == "SPAWN_BIKE_WALL" && metaEvent.Data != null)
             {
-                // Persist bike wall
-                if (metaEvent.Data.TryGetValue("x", out var xStr) && metaEvent.Data.TryGetValue("y", out var yStr))
+                await PersistBikeWallsAndKillNearbyVictims(metaEvent, connection, transaction);
+            }
+        }
+
+        private async Task PersistBikeWallsAndKillNearbyVictims(MetaEvent? metaEvent, MySqlConnection connection, MySqlTransaction transaction)
+        {
+            // Persist bike wall
+            if (metaEvent?.Data?.TryGetValue("x", out var xStr) == true && metaEvent.Data.TryGetValue("y", out var yStr))
+            {
+                int x = Convert.ToInt32(xStr);
+                int y = Convert.ToInt32(yStr);
+                // Insert wall and set its level from the hero row in a single statement (combined below)
+                // Combine DB work into helper and then handle victims
+                try
                 {
-                    int x = Convert.ToInt32(xStr);
-                    int y = Convert.ToInt32(yStr);
-                    // determine creator level first (default 1)
-                    int creatorLevel = 1;
-                    try
+                    var toKill = await PersistWallAndGetNearby(metaEvent.HeroId, metaEvent.Map ?? "", x, y, connection, transaction);
+
+                    // remove the creator from victims if present and kill survivors
+                    foreach (var victimId in toKill.Where(id => id != metaEvent.HeroId))
                     {
-                        string getLevelSql = @"SELECT level FROM maxhanna.ender_hero WHERE id = @HeroId LIMIT 1;";
-                        using (var lvlCmd = new MySqlCommand(getLevelSql, connection, transaction))
+                        try
                         {
-                            lvlCmd.Parameters.AddWithValue("@HeroId", metaEvent.HeroId);
-                            var lvlObj = await lvlCmd.ExecuteScalarAsync();
-                            if (lvlObj != null && lvlObj != DBNull.Value) creatorLevel = Convert.ToInt32(lvlObj);
-                        }
-                    }
-                    catch { /* ignore and default to 1 */ }
-
-                    string sql = @"INSERT INTO maxhanna.ender_bike_wall (hero_id, map, x, y, level) VALUES (@HeroId, @Map, @X, @Y, @Level);";
-                    var parameters = new Dictionary<string, object?>
-                    {
-                        {"@HeroId", metaEvent.HeroId },
-                        {"@Map", metaEvent.Map },
-                        {"@X", x },
-                        {"@Y", y },
-                        {"@Level", creatorLevel }
-                    };
-                    await ExecuteInsertOrUpdateOrDeleteAsync(sql, parameters, connection, transaction);
-
-                    // After persisting the wall, check for heroes on the same map and same level within 1 grid cell (16px)
-                    try
-                    {
-                        int proximity = 16; // pixels (one grid cell)
-
-                        int xmin = x - proximity;
-                        int xmax = x + proximity;
-                        int ymin = y - proximity;
-                        int ymax = y + proximity;
-
-                        string nearbySql = @"SELECT id FROM maxhanna.ender_hero WHERE map = @Map AND level = @Level AND coordsX BETWEEN @Xmin AND @Xmax AND coordsY BETWEEN @Ymin AND @Ymax;";
-                        using (var nbCmd = new MySqlCommand(nearbySql, connection, transaction))
-                        {
-                            nbCmd.Parameters.AddWithValue("@Map", metaEvent.Map);
-                            nbCmd.Parameters.AddWithValue("@Level", creatorLevel);
-                            nbCmd.Parameters.AddWithValue("@Xmin", xmin);
-                            nbCmd.Parameters.AddWithValue("@Xmax", xmax);
-                            nbCmd.Parameters.AddWithValue("@Ymin", ymin);
-                            nbCmd.Parameters.AddWithValue("@Ymax", ymax);
-                            using (var rdr = await nbCmd.ExecuteReaderAsync())
+                            await KillHeroById(victimId, connection, transaction, metaEvent.HeroId);
+                            try
                             {
-                                var toKill = new List<int>();
-                                while (await rdr.ReadAsync())
-                                {
-                                    var hid = Convert.ToInt32(rdr[0]);
-                                    // skip the wall creator
-                                    if (hid == metaEvent.HeroId) continue;
-                                    toKill.Add(hid);
-                                }
-                                // reader must be closed before executing other commands
-                                rdr.Close();
-
-                                foreach (var victimId in toKill)
-                                {
-                                    try
-                                    {
-                                        await KillHeroById(victimId, connection, transaction, metaEvent.HeroId);
-                                        // optionally publish an event so clients can react immediately
-                                        try
-                                        {
-                                            var deathEvent = new DataContracts.Ender.MetaEvent(0, victimId, DateTime.UtcNow, "HERO_DIED", metaEvent.Map ?? "", new Dictionary<string, string>() { { "cause", "BIKE_WALL" }, { "x", x.ToString() }, { "y", y.ToString() } });
-                                            await UpdateEventsInDB(deathEvent, connection, transaction);
-                                        }
-                                        catch { }
-                                    }
-                                    catch (Exception ex)
-                                    {
-                                        _ = _log.Db("Failed to kill hero " + victimId + ": " + ex.Message, null, "ENDER", true);
-                                    }
-                                }
+                                var deathEvent = new DataContracts.Ender.MetaEvent(0, victimId, DateTime.UtcNow, "HERO_DIED", metaEvent.Map ?? "", new Dictionary<string, string>() { { "cause", "BIKE_WALL" }, { "x", x.ToString() }, { "y", y.ToString() } });
+                                await UpdateEventsInDB(deathEvent, connection, transaction);
                             }
+                            catch { }
                         }
-                    }
-                    catch (Exception ex)
-                    {
-                        _ = _log.Db("Error checking nearby heroes for SPAWN_BIKE_WALL: " + ex.Message, null, "ENDER", true);
+                        catch (Exception ex)
+                        {
+                            _ = _log.Db("Failed to kill hero " + victimId + ": " + ex.Message, null, "ENDER", true);
+                        }
                     }
                 }
+                catch (Exception ex)
+                {
+                    _ = _log.Db("Error checking nearby heroes for SPAWN_BIKE_WALL: " + ex.Message, null, "ENDER", true);
+                }
+            }
+        }
+
+        private async Task<List<int>> PersistWallAndGetNearby(int heroId, string map, int x, int y, MySqlConnection connection, MySqlTransaction transaction)
+        {
+            int proximity = 16; // pixels (one grid cell)
+            int xmin = x - proximity;
+            int xmax = x + proximity;
+            int ymin = y - proximity;
+            int ymax = y + proximity;
+
+            string combinedSql = @"
+                            UPDATE maxhanna.ender_hero
+                            SET coordsX = @X, coordsY = @Y, map = @Map
+                            WHERE id = @HeroId LIMIT 1;
+
+                            INSERT INTO maxhanna.ender_bike_wall (hero_id, map, x, y, level)
+                            VALUES (@HeroId, @Map, @X, @Y, (SELECT level FROM maxhanna.ender_hero WHERE id = @HeroId LIMIT 1));
+
+                            SELECT id FROM maxhanna.ender_hero
+                            WHERE map = @Map
+                              AND level = (SELECT level FROM maxhanna.ender_hero WHERE id = @HeroId LIMIT 1)
+                              AND coordsX BETWEEN @Xmin AND @Xmax
+                              AND coordsY BETWEEN @Ymin AND @Ymax;";
+
+            using (var cmd = new MySqlCommand(combinedSql, connection, transaction))
+            {
+                cmd.Parameters.AddWithValue("@HeroId", heroId);
+                cmd.Parameters.AddWithValue("@Map", map);
+                cmd.Parameters.AddWithValue("@X", x);
+                cmd.Parameters.AddWithValue("@Y", y);
+                cmd.Parameters.AddWithValue("@Xmin", xmin);
+                cmd.Parameters.AddWithValue("@Xmax", xmax);
+                cmd.Parameters.AddWithValue("@Ymin", ymin);
+                cmd.Parameters.AddWithValue("@Ymax", ymax);
+
+                var nearby = new List<int>();
+                using (var reader = await cmd.ExecuteReaderAsync())
+                {
+                    // iterate through result sets until we hit the SELECT that returns rows
+                    do
+                    {
+                        if (reader.HasRows)
+                        {
+                            while (await reader.ReadAsync())
+                            {
+                                nearby.Add(Convert.ToInt32(reader[0]));
+                            }
+                        }
+                    } while (await reader.NextResultAsync());
+                }
+
+                return nearby;
             }
         }
 
