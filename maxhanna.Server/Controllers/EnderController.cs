@@ -124,42 +124,42 @@ namespace maxhanna.Server.Controllers
                         List<MetaBikeWall> walls = await GetRecentBikeWalls(hero.Map, connection, transaction, hero.Level, 10);
 
                         // --- Tolerant bike-wall collision detection (server authoritative) ---
-                        // Players may move more than one pixel per tick and "skip" the exact wall coordinate.
-                        // We'll treat a hero as colliding if their (coordsX,coordsY) falls within a tolerance box
+                        // Original implementation joined hero & wall tables on map/level causing a collation mismatch when
+                        // the two tables had different collations (utf8mb4_unicode_ci vs utf8mb4_0900_ai_ci). We avoid the join
+                        // entirely by using the already-fetched hero coordinates/level/map and searching walls only.
                         try
                         {
                             int tolerance = 32; // pixels; adjust as needed
-                            string collideSql = @"SELECT bw.hero_id, bw.x, bw.y, h.id as victim_id
+                            string collideSql = @"SELECT bw.hero_id, bw.x, bw.y
                                                    FROM maxhanna.ender_bike_wall bw
-                                                   JOIN maxhanna.ender_hero h ON h.map = bw.map AND h.level = bw.level
                                                    WHERE bw.map = @Map AND bw.level = @Level
-                                                     AND h.id = @HeroId 
-                                                     AND h.coordsX BETWEEN (bw.x - @Tol) AND (bw.x + @Tol)
-                                                     AND h.coordsY BETWEEN (bw.y - @Tol) AND (bw.y + @Tol)
+                                                     AND @HeroX BETWEEN (bw.x - @Tol) AND (bw.x + @Tol)
+                                                     AND @HeroY BETWEEN (bw.y - @Tol) AND (bw.y + @Tol) 
                                                    LIMIT 1;";
                             using (var colCmd = new MySqlCommand(collideSql, connection, transaction))
                             {
-                                colCmd.Parameters.AddWithValue("@Map", hero.Map);
+                                colCmd.Parameters.AddWithValue("@Map", hero.Map ?? string.Empty);
                                 colCmd.Parameters.AddWithValue("@Level", hero.Level);
-                                colCmd.Parameters.AddWithValue("@HeroId", hero.Id);
+                                colCmd.Parameters.AddWithValue("@HeroX", hero.Position?.x ?? 0);
+                                colCmd.Parameters.AddWithValue("@HeroY", hero.Position?.y ?? 0);
                                 colCmd.Parameters.AddWithValue("@Tol", tolerance);
+                                colCmd.Parameters.AddWithValue("@HeroId", hero.Id);
+                                var collided = false;
                                 using (var rdr = await colCmd.ExecuteReaderAsync())
                                 {
                                     if (await rdr.ReadAsync())
                                     {
-                                        int victimId = rdr.IsDBNull(rdr.GetOrdinal("victim_id")) ? 0 : rdr.GetInt32("victim_id");
-                                        // Mark hero as dead via same logic as bike-wall spawn kills
-                                        if (victimId > 0)
-                                        {
-                                            rdr.Close(); // close reader before reuse
-                                            await KillHeroById(victimId, connection, transaction, null);
-                                            var deathEvent = new MetaEvent(0, victimId, DateTime.UtcNow, "HERO_DIED", hero.Map ?? "", new Dictionary<string, string>() { { "cause", "BIKE_WALL_COLLIDE" } });
-                                            await UpdateEventsInDB(deathEvent, connection, transaction);
-                                            // Refresh events and hero list after death
-                                            heroes = await GetNearbyPlayers(hero, connection, transaction);
-                                            events = await GetEventsFromDb(hero.Map ?? string.Empty, hero.Id, connection, transaction);
-                                        }
+                                        collided = true; // we only need to know a collision occurred
                                     }
+                                }
+                                if (collided)
+                                {
+                                    await KillHeroById(hero.Id, connection, transaction, null);
+                                    var deathEvent = new MetaEvent(0, hero.Id, DateTime.UtcNow, "HERO_DIED", hero.Map ?? string.Empty, new Dictionary<string, string>() { { "cause", "BIKE_WALL_COLLIDE" } });
+                                    await UpdateEventsInDB(deathEvent, connection, transaction);
+                                    // Refresh events and hero list after death (hero now removed so their own events filtered out on client)
+                                    heroes = await GetNearbyPlayers(hero, connection, transaction);
+                                    events = await GetEventsFromDb(hero.Map ?? string.Empty, hero.Id, connection, transaction);
                                 }
                             }
                         }
