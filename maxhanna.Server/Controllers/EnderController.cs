@@ -129,7 +129,7 @@ namespace maxhanna.Server.Controllers
                         // entirely by using the already-fetched hero coordinates/level/map and searching walls only.
                         try
                         {
-                            int tolerance = 16; // pixels; adjust as needed
+                            int tolerance = 32; // pixels; adjust as needed
                             // Single query: detect collision while excluding only the hero's most recently created wall
                             string collideSql = @"SELECT bw.hero_id, bw.x, bw.y
                                                    FROM maxhanna.ender_bike_wall bw
