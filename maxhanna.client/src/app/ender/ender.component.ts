@@ -271,6 +271,9 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
             const pendingWalls = this.pendingWallsBatch.length > 0 ? [...this.pendingWallsBatch] : undefined;
             // clear after snapshot so we don't resend
             this.pendingWallsBatch = [];
+            if (this.hero && this.metaHero) { 
+                this.metaHero.position = this.hero?.position.duplicate();
+            }
 
             this.enderService.fetchGameDataWithWalls(this.metaHero, pendingWalls, this.lastKnownWallId).then((res: any) => {
                 if (res) {
