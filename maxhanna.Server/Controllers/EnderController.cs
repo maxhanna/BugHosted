@@ -73,7 +73,7 @@ namespace maxhanna.Server.Controllers
         }
 
         [HttpPost("/Ender/FetchGameData", Name = "Ender_FetchGameData")]
-    public async Task<IActionResult> FetchGameData([FromBody] DataContracts.Ender.FetchGameDataRequest payload)
+        public async Task<IActionResult> FetchGameData([FromBody] DataContracts.Ender.FetchGameDataRequest payload)
         {
             using (var connection = new MySqlConnection(_connectionString))
             {
@@ -127,7 +127,8 @@ namespace maxhanna.Server.Controllers
                         // Players may move more than one pixel per tick and "skip" the exact wall coordinate.
                         // We'll treat a hero as colliding if their (coordsX,coordsY) falls within a tolerance box
                         // around any wall for their level & map. Tolerance defaults to half a grid cell (8px) each side.
-                        try {
+                        try
+                        {
                             int tolerance = 16; // pixels; adjust as needed
                             string collideSql = @"SELECT bw.hero_id, bw.x, bw.y, h.id as victim_id
                                                    FROM maxhanna.ender_bike_wall bw
@@ -137,16 +138,20 @@ namespace maxhanna.Server.Controllers
                                                      AND h.coordsX BETWEEN (bw.x - @Tol) AND (bw.x + @Tol)
                                                      AND h.coordsY BETWEEN (bw.y - @Tol) AND (bw.y + @Tol)
                                                    LIMIT 1;";
-                            using (var colCmd = new MySqlCommand(collideSql, connection, transaction)) {
+                            using (var colCmd = new MySqlCommand(collideSql, connection, transaction))
+                            {
                                 colCmd.Parameters.AddWithValue("@Map", hero.Map);
                                 colCmd.Parameters.AddWithValue("@Level", hero.Level);
                                 colCmd.Parameters.AddWithValue("@HeroId", hero.Id);
                                 colCmd.Parameters.AddWithValue("@Tol", tolerance);
-                                using (var rdr = await colCmd.ExecuteReaderAsync()) {
-                                    if (await rdr.ReadAsync()) {
+                                using (var rdr = await colCmd.ExecuteReaderAsync())
+                                {
+                                    if (await rdr.ReadAsync())
+                                    {
                                         int victimId = rdr.IsDBNull(rdr.GetOrdinal("victim_id")) ? 0 : rdr.GetInt32("victim_id");
                                         // Mark hero as dead via same logic as bike-wall spawn kills
-                                        if (victimId > 0) {
+                                        if (victimId > 0)
+                                        {
                                             rdr.Close(); // close reader before reuse
                                             await KillHeroById(victimId, connection, transaction, null);
                                             var deathEvent = new MetaEvent(0, victimId, DateTime.UtcNow, "HERO_DIED", hero.Map ?? "", new Dictionary<string, string>() { { "cause", "BIKE_WALL_COLLIDE" } });
@@ -158,7 +163,9 @@ namespace maxhanna.Server.Controllers
                                     }
                                 }
                             }
-                        } catch (Exception ex) {
+                        }
+                        catch (Exception ex)
+                        {
                             _ = _log.Db("Bike wall tolerant collision check failed: " + ex.Message, null, "ENDER", true);
                         }
 
@@ -440,7 +447,7 @@ namespace maxhanna.Server.Controllers
                                     if (survivorId != 0)
                                     {
                                         string updSql = @"UPDATE maxhanna.ender_hero SET level = level + 1 WHERE id = @SurvivorId LIMIT 1; DELETE FROM maxhanna.ender_bike_wall WHERE level = @Level;";
-                                        var parms =  new Dictionary<string, object?>() {
+                                        var parms = new Dictionary<string, object?>() {
                                             { "@SurvivorId", survivorId },
                                             { "@Level", heroLevelFromDb },
                                         };
@@ -1506,7 +1513,7 @@ namespace maxhanna.Server.Controllers
                             Speed = Convert.ToInt32(reader["speed"]),
                         };
                         heroesDict[heroId] = tmpHero;
-                    } 
+                    }
                 }
             }
 
@@ -1553,7 +1560,7 @@ namespace maxhanna.Server.Controllers
             }
             return inventory.ToArray();
         }
-    
+
 
         private async Task PerformEventChecks(MetaEvent metaEvent, MySqlConnection connection, MySqlTransaction transaction)
         {
@@ -1583,7 +1590,7 @@ namespace maxhanna.Server.Controllers
                 {
                     _ = _log.Db("No batch data found for UPDATE_ENCOUNTER_POSITION", null, "ENDER", true);
                 }
-            } 
+            }
             else if (metaEvent != null && metaEvent.EventType == "SPAWN_BIKE_WALL" && metaEvent.Data != null)
             {
                 await PersistBikeWallsAndKillNearbyVictims(metaEvent, connection, transaction);
@@ -1591,11 +1598,11 @@ namespace maxhanna.Server.Controllers
         }
 
         private async Task PersistBikeWallsAndKillNearbyVictims(MetaEvent? metaEvent, MySqlConnection connection, MySqlTransaction transaction)
-        { 
+        {
             if (metaEvent?.Data?.TryGetValue("x", out var xStr) == true && metaEvent.Data.TryGetValue("y", out var yStr))
             {
                 int x = Convert.ToInt32(xStr);
-                int y = Convert.ToInt32(yStr); 
+                int y = Convert.ToInt32(yStr);
                 try
                 {
                     var toKill = await PersistWallAndGetNearby(metaEvent.HeroId, metaEvent.Map ?? "", x, y, connection, transaction);
@@ -1605,7 +1612,7 @@ namespace maxhanna.Server.Controllers
                         {
                             await KillHeroById(victimId, connection, transaction, metaEvent.HeroId);
                             var deathEvent = new MetaEvent(0, victimId, DateTime.UtcNow, "HERO_DIED", metaEvent.Map ?? "", new Dictionary<string, string>() { { "cause", "BIKE_WALL" }, { "x", x.ToString() }, { "y", y.ToString() } });
-                            await UpdateEventsInDB(deathEvent, connection, transaction); 
+                            await UpdateEventsInDB(deathEvent, connection, transaction);
                         }
                         catch (Exception ex)
                         {
@@ -1773,7 +1780,7 @@ namespace maxhanna.Server.Controllers
                 }
             }
         }
- 
+
         // Authoritative kill helper used by server-side checks (does not rely on client-supplied time/walls)
         private async Task KillHeroById(int heroId, MySqlConnection connection, MySqlTransaction transaction, int? killerHeroId = null)
         {
@@ -1811,7 +1818,7 @@ namespace maxhanna.Server.Controllers
 
                 // count walls persisted for this hero
                 int wallsPlaced = 0;
-               
+
                 // count only walls for the hero at the same level
                 string countSql = @"SELECT COUNT(*) FROM maxhanna.ender_bike_wall WHERE hero_id = @HeroId AND level = @Level";
                 using (var countCmd = new MySqlCommand(countSql, connection, transaction))
@@ -1820,7 +1827,7 @@ namespace maxhanna.Server.Controllers
                     countCmd.Parameters.AddWithValue("@Level", heroLevel);
                     var cnt = await countCmd.ExecuteScalarAsync();
                     wallsPlaced = Convert.ToInt32(cnt);
-                }         
+                }
 
                 int score = timeOnLevelSeconds + (wallsPlaced * heroKills);
 
@@ -1859,7 +1866,7 @@ namespace maxhanna.Server.Controllers
                 _ = _log.Db("KillHeroById failed: " + ex.Message, null, "ENDER", true);
                 throw;
             }
-        } 
+        }
 
         private async Task UpdateEncounterPositionBatch(List<EncounterPositionUpdate> updates, MySqlConnection connection, MySqlTransaction transaction)
         {
@@ -2032,7 +2039,7 @@ namespace maxhanna.Server.Controllers
                 throw; // Re-throw to allow transaction rollback
             }
         }
-     
+
         private async Task<long?> ExecuteInsertOrUpdateOrDeleteAsync(string sql, Dictionary<string, object?> parameters, MySqlConnection? connection = null, MySqlTransaction? transaction = null)
         {
             string cmdText = "";
@@ -2102,5 +2109,3 @@ namespace maxhanna.Server.Controllers
         }
     }
 }
-
-
