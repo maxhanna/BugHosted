@@ -212,7 +212,7 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
                 this.mainScene.partyMembers = this.partyMembers;
                 this.mainScene.inventory.partyMembers = this.partyMembers;
                 this.mainScene.inventory.renderParty();
-                await this.reinitializeHero(rz); 
+                await this.reinitializeHero(rz);
                 const allWalls = await this.enderService.fetchAllBikeWalls(rz.id) as MetaBikeWall[];
                 if (Array.isArray(allWalls)) {
                     clearBikeWallCells();
@@ -228,7 +228,7 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
                         }
                     }
                     this.wallsPlacedThisRun = myWallsCount;
-                } 
+                }
             } else {
                 // attempt to load persisted last character name and pass it into the CharacterCreate level
                 this.userService.getUserSettings(this.parentRef?.user?.id ?? 0).then(res => {
@@ -250,12 +250,12 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
 
     private updatePlayers() {
         if (this.metaHero && this.metaHero.id && !this.stopPollingForUpdates) {
-                    // send pending local walls with fetch request to reduce event spam
-                    const pendingWalls = this.pendingWallsBatch.length > 0 ? [...this.pendingWallsBatch] : undefined;
-                    // clear after snapshot so we don't resend
-                    this.pendingWallsBatch = [];
+            // send pending local walls with fetch request to reduce event spam
+            const pendingWalls = this.pendingWallsBatch.length > 0 ? [...this.pendingWallsBatch] : undefined;
+            // clear after snapshot so we don't resend
+            this.pendingWallsBatch = [];
 
-                    this.enderService.fetchGameDataWithWalls(this.metaHero, pendingWalls, this.lastKnownWallId).then((res: any) => {
+            this.enderService.fetchGameDataWithWalls(this.metaHero, pendingWalls, this.lastKnownWallId).then((res: any) => {
                 if (res) {
                     // If the server provides the elapsed time on level, sync the client's
                     // run timer so returning players see the correct elapsed seconds.
@@ -426,7 +426,7 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
         // compute initial position; for remote heroes, nudge if crowding occurs so players start more spaced apart
         const baseX = hero.id == this.metaHero.id ? this.metaHero.position.x : hero.position.x;
         const baseY = hero.id == this.metaHero.id ? this.metaHero.position.y : hero.position.y;
-        let initialPos = new Vector2(baseX, baseY); 
+        let initialPos = new Vector2(baseX, baseY);
         const tmpHero = new Hero({
             id: hero.id,
             name: hero.name ?? "Anon",

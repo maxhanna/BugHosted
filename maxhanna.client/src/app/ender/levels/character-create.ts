@@ -63,8 +63,11 @@ export class CharacterCreate extends Level {
       this.defaultHeroPosition = params.heroPosition;
     } 
     if (params.defaultName) {
-      this.defaultName = params.defaultName;
-      this.characterName = params.defaultName;
+      const dn = params.defaultName.trim();
+      if (dn.length > 0) {
+        this.defaultName = dn;
+        this.characterName = dn;
+      }
     }
     this.referee.textContent = [
       // Final wake line
@@ -113,7 +116,16 @@ export class CharacterCreate extends Level {
   this.hideChatInput();
     events.on("SEND_CHAT_MESSAGE", this, (chat: string) => {
       // Prefer the explicit chat value; if empty, fall back to the persisted default name if present
-      this.characterName = (chat && chat.trim().length > 0) ? chat : (this.defaultName ?? chat);
+      const trimmedChat = chat ? chat.trim() : "";
+      let nameToUse = "";
+      if (trimmedChat.length > 0) {
+        nameToUse = trimmedChat;
+      } else if (this.defaultName && this.defaultName.trim().length > 0) {
+        nameToUse = this.defaultName.trim();
+      } else {
+        nameToUse = trimmedChat; // may be empty
+      }
+      this.characterName = nameToUse;
       if (!this.verifyCharacterName(this.characterName) || storyFlags.contains(CHARACTER_CREATE_STORY_TEXT_6)) { return; } 
       this.returnChatInputToNormal();
       storyFlags.add(CHARACTER_CREATE_STORY_TEXT_6);
@@ -238,7 +250,7 @@ export class CharacterCreate extends Level {
         document.getElementsByClassName("chatArea")[0].setAttribute("style", "display: block !important;");
         chatInput.placeholder = "Enter your name";
         if (this.defaultName && (!chatInput.value || chatInput.value.trim().length === 0)) {
-          chatInput.value = this.defaultName;
+          chatInput.value = this.defaultName.trim();
         }
         chatInput.style.position = "absolute";
         chatInput.style.top = "50%";
