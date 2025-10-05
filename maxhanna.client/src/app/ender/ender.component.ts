@@ -223,7 +223,12 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
 
     private updatePlayers() {
         if (this.metaHero && this.metaHero.id && !this.stopPollingForUpdates) {
-            this.enderService.fetchGameData(this.metaHero).then((res: any) => {
+                    // send pending local walls with fetch request to reduce event spam
+                    const pendingWalls = (this as any).pendingBikeWalls as { x: number, y: number }[] | undefined;
+                    // clear optimistically so duplicates don't accumulate while waiting
+                    if ((this as any).pendingBikeWalls) { (this as any).pendingBikeWalls = []; }
+
+                    this.enderService.fetchGameDataWithWalls(this.metaHero, pendingWalls).then((res: any) => {
                 if (res) {
                     // If the server provides the elapsed time on level, sync the client's
                     // run timer so returning players see the correct elapsed seconds.

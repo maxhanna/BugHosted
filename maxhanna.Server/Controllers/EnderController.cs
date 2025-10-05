@@ -73,7 +73,7 @@ namespace maxhanna.Server.Controllers
         }
 
         [HttpPost("/Ender/FetchGameData", Name = "Ender_FetchGameData")]
-        public async Task<IActionResult> FetchGameData([FromBody] MetaHero hero)
+    public async Task<IActionResult> FetchGameData([FromBody] DataContracts.Ender.FetchGameDataRequest payload)
         {
             using (var connection = new MySqlConnection(_connectionString))
             {
@@ -82,6 +82,40 @@ namespace maxhanna.Server.Controllers
                 {
                     try
                     {
+                        // payload contains strongly-typed hero and optional pendingWalls
+                        MetaHero? hero = payload?.hero;
+
+                        if (payload?.pendingWalls != null && payload.pendingWalls.Count > 0 && hero != null)
+                        {
+                            string insertSql = @"INSERT INTO maxhanna.ender_bike_wall (hero_id, map, x, y, level)
+                                VALUES (@HeroId, @Map, @X, @Y, (SELECT level FROM maxhanna.ender_hero WHERE id = @HeroId LIMIT 1));";
+                            using (var insertCmd = new MySqlCommand(insertSql, connection, transaction))
+                            {
+                                insertCmd.Parameters.Add("@HeroId", MySqlDbType.Int32);
+                                insertCmd.Parameters.Add("@Map", MySqlDbType.VarChar);
+                                insertCmd.Parameters.Add("@X", MySqlDbType.Int32);
+                                insertCmd.Parameters.Add("@Y", MySqlDbType.Int32);
+                                foreach (var w in payload.pendingWalls)
+                                {
+                                    try
+                                    {
+                                        insertCmd.Parameters["@HeroId"].Value = hero.Id;
+                                        insertCmd.Parameters["@Map"].Value = hero.Map ?? "";
+                                        insertCmd.Parameters["@X"].Value = w.x;
+                                        insertCmd.Parameters["@Y"].Value = w.y;
+                                        await insertCmd.ExecuteNonQueryAsync();
+                                    }
+                                    catch { }
+                                }
+                            }
+                        }
+
+                        if (hero == null)
+                        {
+                            await transaction.RollbackAsync();
+                            return BadRequest("Invalid hero payload");
+                        }
+
                         hero = await UpdateHeroInDB(hero, connection, transaction);
                         MetaHero[]? heroes = await GetNearbyPlayers(hero, connection, transaction);
                         MetaBot[]? enemyBots = await GetEncounterMetaBots(connection, transaction, hero.Map);

@@ -514,9 +514,16 @@ export function subscribeToMainGameEvents(object: any) {
     handleEncounterUpdate(source);
     startBatchUpdates(object);
   });
-  events.on("SPAWN_BIKE_WALL", object, (params: { x: number, y: number }) => { 
-    const metaEvent = new MetaEvent(0, object.metaHero.id, new Date(), "SPAWN_BIKE_WALL", object.metaHero.map, { x: params.x + "", y: params.y + "" });
-    object.enderService.updateEvents(metaEvent); 
+  // Queue bike wall placements locally and send them with the next fetchGameData poll
+  events.on("SPAWN_BIKE_WALL", object, (params: { x: number, y: number }) => {
+    try {
+      if (!object.pendingBikeWalls) object.pendingBikeWalls = [] as { x: number, y: number }[];
+      object.pendingBikeWalls.push({ x: params.x, y: params.y });
+    } catch (e) {
+      // fallback to older behavior if something goes wrong
+      const metaEvent = new MetaEvent(0, object.metaHero.id, new Date(), "SPAWN_BIKE_WALL", object.metaHero.map, { x: params.x + "", y: params.y + "" });
+      object.enderService.updateEvents(metaEvent);
+    }
   });
 
   // When a bike wall is created anywhere (local, network, or persisted load), check for heroes already on that cell
