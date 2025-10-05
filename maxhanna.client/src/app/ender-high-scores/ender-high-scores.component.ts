@@ -101,16 +101,24 @@ export class EnderHighScoresComponent implements OnInit, OnChanges {
         this.groupedByMode.best = { 999: top };
       }
 
+      // For 'today' prefer the server endpoint to avoid timezone/formatting mismatches
       if (modes.includes('today')) {
-        const today = new Date();
-        const start = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
-        const end = start + 24 * 60 * 60 * 1000;
-        const todays = (allScores || []).filter(s => {
-          if (!s.created_at) return false;
-          const t = new Date(s.created_at).getTime();
-          return t >= start && t < end;
-        });
-        this.groupedByMode.today = { 0: todays };
+        try {
+          const resToday = await this.enderService.getTopScoresToday(this.limit);
+          const todaysArr = Array.isArray(resToday) ? resToday : [];
+          this.groupedByMode.today = { 0: todaysArr };
+        } catch (errToday) {
+          // Fallback to filtering allScores if the dedicated endpoint fails
+          const today = new Date();
+          const start = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
+          const end = start + 24 * 60 * 60 * 1000;
+          const todays = (allScores || []).filter(s => {
+            if (!s?.created_at) return false;
+            const t = new Date(s.created_at).getTime();
+            return t >= start && t < end;
+          });
+          this.groupedByMode.today = { 0: todays };
+        }
       }
 
       if (modes.includes('user')) {
