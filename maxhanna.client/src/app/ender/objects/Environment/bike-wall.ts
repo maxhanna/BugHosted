@@ -11,7 +11,8 @@ export class BikeWall extends GameObject {
       drawLayer: FLOOR,
       isSolid: false,
       preventDrawName: true,
-      name: "bike-wall"
+      name: "bike-wall",
+      
     });
 
     const body = new Sprite({
@@ -19,7 +20,7 @@ export class BikeWall extends GameObject {
       frameSize: new Vector2(32, 32),
       drawLayer: FLOOR,
       name: "bike-wall",
-      offsetY: 8
+      offsetY: -8
     });
     this.addChild(body);
   }
