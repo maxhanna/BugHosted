@@ -235,7 +235,8 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
                 // attempt to load persisted last character name and pass it into the CharacterCreate level
                 this.userService.getUserSettings(this.parentRef?.user?.id ?? 0).then(res => {
                     const defaultName = res?.lastCharacterName ?? undefined;
-                    this.mainScene.setLevel(new CharacterCreate({ defaultName }));
+                    const defaultColor = res?.lastCharacterColor ?? undefined;
+                    this.mainScene.setLevel(new CharacterCreate({ defaultName, defaultColor }));
                 }).catch(() => {
                     this.mainScene.setLevel(new CharacterCreate());
                 });

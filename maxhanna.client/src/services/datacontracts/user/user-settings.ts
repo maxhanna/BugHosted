@@ -6,4 +6,5 @@ export class UserSettings {
   showPostsFrom?: string; 
   notificationsEnabled?: boolean; 
   lastCharacterName?: string;
+  lastCharacterColor?: string;
 }

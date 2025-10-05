@@ -492,8 +492,8 @@ namespace maxhanna.Server.Controllers
                 {
                     try
                     {
-                        string sql = @"INSERT INTO maxhanna.ender_hero (name, user_id, coordsX, coordsY, speed, level)
-                                                    SELECT @Name, @UserId, @CoordsX, @CoordsY, @Speed, @Level
+                        string sql = @"INSERT INTO maxhanna.ender_hero (name, user_id, coordsX, coordsY, speed, level, color)
+                                                    SELECT @Name, @UserId, @CoordsX, @CoordsY, @Speed, @Level, @Color
                                                     WHERE NOT EXISTS (
                                                             SELECT 1 FROM maxhanna.ender_hero WHERE user_id = @UserId OR name = @Name
                                                     );";
@@ -548,15 +548,21 @@ namespace maxhanna.Server.Controllers
                                                         { "@Speed", 1 },
                                                         { "@Name", req.Name ?? "Anonymous"},
                                                         { "@UserId", req.UserId},
-                                                        { "@Level", 1 }
+                                                        { "@Level", 1 },
+                                                        { "@Color", req.Color ?? "#00a0c8" }
                                                 };
                         long? botId = await this.ExecuteInsertOrUpdateOrDeleteAsync(sql, parameters, connection, transaction);
 
                         // Persist last character name to user_settings
                         try
                         {
-                            string upsertNameSql = @"INSERT INTO maxhanna.user_settings (user_id, last_character_name) VALUES (@UserId, @Name) ON DUPLICATE KEY UPDATE last_character_name = VALUES(last_character_name);";
-                            await ExecuteInsertOrUpdateOrDeleteAsync(upsertNameSql, new Dictionary<string, object?>() { { "@UserId", req.UserId }, { "@Name", req.Name ?? "" } }, connection, transaction);
+                            string upsertNameSql = @"INSERT INTO maxhanna.user_settings (user_id, last_character_name, last_character_color) VALUES (@UserId, @Name, @Color)
+                                                      ON DUPLICATE KEY UPDATE last_character_name = VALUES(last_character_name), last_character_color = VALUES(last_character_color);";
+                            await ExecuteInsertOrUpdateOrDeleteAsync(upsertNameSql, new Dictionary<string, object?>() {
+                                { "@UserId", req.UserId },
+                                { "@Name", req.Name ?? "" },
+                                { "@Color", req.Color ?? "#00a0c8" }
+                            }, connection, transaction);
                         }
                         catch { }
                         await transaction.CommitAsync();

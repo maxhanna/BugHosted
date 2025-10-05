@@ -46,8 +46,8 @@ export class EnderService {
   async getPartyMembers(userId: number): Promise<{ heroId: number, name: string, color?: string }[] | undefined> {
     return this.fetchData('/ender/getuserpartymembers', userId);
   } 
-  async createHero(userId: number, name: string): Promise<MetaHero | undefined> {
-    return this.fetchData('/ender/create', { UserId: userId, Name: name });
+  async createHero(userId: number, name: string, color?: string): Promise<MetaHero | undefined> {
+    return this.fetchData('/ender/create', { UserId: userId, Name: name, Color: color });
   }
   async createBot(bot: MetaBot): Promise<MetaBot | undefined> {
     return this.fetchData('/ender/createbot', bot);

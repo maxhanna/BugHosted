@@ -55,7 +55,8 @@ export class CharacterCreate extends Level {
     "tosser", "turd", "tw4t", "twat", "twathead", "twatty", "twunt", "twunter", "v14gra", "v1gra", "vagina", "viagra", "vulva", "w00se",
     "wang", "wank", "wanker", "wanky", "whoar", "whore", "willies", "xrated", "xxx", "suck"];
   override defaultHeroPosition = new Vector2(gridCells(1), gridCells(1));
-  constructor(params: { heroPosition?: Vector2, defaultName?: string } = {}) {
+  defaultColor: string | undefined = undefined;
+  constructor(params: { heroPosition?: Vector2, defaultName?: string, defaultColor?: string } = {}) {
     super();
     console.log("new char create");
     this.name = "CharacterCreate";
@@ -67,6 +68,12 @@ export class CharacterCreate extends Level {
       if (dn.length > 0) {
         this.defaultName = dn;
         this.characterName = dn;
+      }
+    }
+    if (params.defaultColor) {
+      const dc = params.defaultColor.trim();
+      if (dc.length > 0) {
+        this.defaultColor = dc;
       }
     }
     this.referee.textContent = [

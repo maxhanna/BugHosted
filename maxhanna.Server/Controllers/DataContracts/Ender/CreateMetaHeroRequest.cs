@@ -4,5 +4,6 @@ namespace maxhanna.Server.Controllers.DataContracts.Ender
     {
         public string? Name { get; set; }
         public int UserId { get; set; }
+        public string? Color { get; set; }
     }
 }
