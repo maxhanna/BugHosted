@@ -115,6 +115,7 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
             this.userService.getUserSettings(this.parentRef.user?.id ?? 0).then(res => {
                 this.cachedDefaultName = res?.lastCharacterName ?? undefined;
                 this.cachedDefaultColor = res?.lastCharacterColor ?? undefined;
+                this.colorInput.nativeElement.value = this.cachedDefaultColor ?? "#00A0C8";
             }).catch(() => { /* ignore */ });
             // reset walls placed for a fresh run; actual run start will be set when hero is initialized
             this.wallsPlacedThisRun = 0;
