@@ -131,14 +131,13 @@ namespace maxhanna.Server.Controllers
                             string collideSql =
                             @"SELECT bw.hero_id, bw.x, bw.y
                             FROM maxhanna.ender_bike_wall bw
-                            WHERE bw.map = @Map AND bw.level = @Level
+                            WHERE bw.level = @Level
                                 AND bw.id <> (SELECT IFNULL(MAX(id),0) FROM maxhanna.ender_bike_wall WHERE hero_id = @HeroId)
                                 AND @HeroX BETWEEN (bw.x - @Tol) AND (bw.x + @Tol)
                                 AND @HeroY BETWEEN (bw.y - @Tol) AND (bw.y + @Tol)
                             LIMIT 1;";
                             using (var colCmd = new MySqlCommand(collideSql, connection, transaction))
                             {
-                                colCmd.Parameters.AddWithValue("@Map", hero.Map ?? string.Empty);
                                 colCmd.Parameters.AddWithValue("@Level", hero.Level);
                                 colCmd.Parameters.AddWithValue("@HeroX", hero.Position?.x ?? 0);
                                 colCmd.Parameters.AddWithValue("@HeroY", hero.Position?.y ?? 0);
@@ -155,7 +154,7 @@ namespace maxhanna.Server.Controllers
                                 if (collided)
                                 {
                                     await KillHeroById(hero.Id, connection, transaction, null);
-                                    var deathEvent = new MetaEvent(0, hero.Id, DateTime.UtcNow, "HERO_DIED", hero.Map ?? string.Empty, new Dictionary<string, string>() { { "cause", "BIKE_WALL_COLLIDE" } });
+                                    var deathEvent = new MetaEvent(0, hero.Id, DateTime.UtcNow, "HERO_DIED", hero.Level, new Dictionary<string, string>() { { "cause", "BIKE_WALL_COLLIDE" } });
                                     await UpdateEventsInDB(deathEvent, connection, transaction);
                                     heroes = await GetNearbyPlayers(hero, connection, transaction);
                                     events = await GetEventsFromDb(hero.Level, connection, transaction);
@@ -457,7 +456,7 @@ namespace maxhanna.Server.Controllers
                                         int newLevel = heroLevelFromDb + 1;
                                         try
                                         {
-                                            var metaEvent = new DataContracts.Ender.MetaEvent(0, survivorId, DateTime.UtcNow, "LEVEL_UP", heroMap ?? "", new Dictionary<string, string>() { { "level", newLevel.ToString() } });
+                                            var metaEvent = new DataContracts.Ender.MetaEvent(0, survivorId, DateTime.UtcNow, "LEVEL_UP", newLevel, new Dictionary<string, string>() { { "level", newLevel.ToString() } });
                                             await UpdateEventsInDB(metaEvent, connection, transaction);
                                         }
                                         catch { }
@@ -1004,12 +1003,12 @@ namespace maxhanna.Server.Controllers
             {
                 string sql = @"DELETE FROM maxhanna.ender_event WHERE timestamp < UTC_TIMESTAMP() - INTERVAL 20 SECOND;
                             INSERT INTO maxhanna.ender_event (hero_id, event, map, data)
-                            VALUES (@HeroId, @Event, @Map, @Data);";
+                            VALUES (@HeroId, @Event, @Level, @Data);";
                 Dictionary<string, object?> parameters = new Dictionary<string, object?>
                         {
                                 { "@HeroId", @event.HeroId },
                                 { "@Event", @event.EventType },
-                                { "@Map", @event.Map },
+                                { "@Level", @event.Level },
                                 { "@Data", Newtonsoft.Json.JsonConvert.SerializeObject(@event.Data) }
                         };
                 await this.ExecuteInsertOrUpdateOrDeleteAsync(sql, parameters, connection, transaction);
@@ -1059,7 +1058,7 @@ namespace maxhanna.Server.Controllers
            
             string sql = @"
                 DELETE FROM maxhanna.ender_event WHERE timestamp < UTC_TIMESTAMP() - INTERVAL 20 SECOND;
-                
+
                 SELECT *
                 FROM maxhanna.ender_event 
                 WHERE level = @Level;";
@@ -1077,7 +1076,7 @@ namespace maxhanna.Server.Controllers
                             Convert.ToInt32(reader["hero_id"]),
                             Convert.ToDateTime(reader["timestamp"]),
                             Convert.ToString(reader["event"]) ?? "",
-                            Convert.ToString(reader["map"]) ?? "",
+                            Convert.ToInt32(reader["level"]),
                             Newtonsoft.Json.JsonConvert.DeserializeObject<Dictionary<string, string>>(reader.GetString("data")) ?? new Dictionary<string, string>()
                     );
                     events.Add(tmpEvent);
@@ -1345,13 +1344,13 @@ namespace maxhanna.Server.Controllers
                 int y = Convert.ToInt32(yStr);
                 try
                 {
-                    var toKill = await PersistWallAndGetNearby(metaEvent.HeroId, metaEvent.Map ?? "", x, y, connection, transaction);
+                    var toKill = await PersistWallAndGetNearby(metaEvent.HeroId, metaEvent.Level, x, y, connection, transaction);
                     foreach (var victimId in toKill)
                     {
                         try
                         {
                             await KillHeroById(victimId, connection, transaction, metaEvent.HeroId);
-                            var deathEvent = new MetaEvent(0, victimId, DateTime.UtcNow, "HERO_DIED", metaEvent.Map ?? "", new Dictionary<string, string>() { { "cause", "BIKE_WALL" }, { "x", x.ToString() }, { "y", y.ToString() } });
+                            var deathEvent = new MetaEvent(0, victimId, DateTime.UtcNow, "HERO_DIED", metaEvent.Level, new Dictionary<string, string>() { { "cause", "BIKE_WALL" }, { "x", x.ToString() }, { "y", y.ToString() } });
                             await UpdateEventsInDB(deathEvent, connection, transaction);
                         }
                         catch (Exception ex)
@@ -1367,7 +1366,7 @@ namespace maxhanna.Server.Controllers
             }
         }
 
-        private async Task<List<int>> PersistWallAndGetNearby(int heroId, string map, int x, int y, MySqlConnection connection, MySqlTransaction transaction)
+        private async Task<List<int>> PersistWallAndGetNearby(int heroId, int level, int x, int y, MySqlConnection connection, MySqlTransaction transaction)
         {
             int proximity = 64; // pixels (2 grid cells)
             int xmin = x - proximity;
@@ -1377,11 +1376,11 @@ namespace maxhanna.Server.Controllers
 
             string combinedSql = @"
             UPDATE maxhanna.ender_hero
-            SET coordsX = @X, coordsY = @Y, map = @Map
+            SET coordsX = @X, coordsY = @Y, level = @Level
             WHERE id = @HeroId LIMIT 1;
 
-            INSERT INTO maxhanna.ender_bike_wall (hero_id, map, x, y, level)
-            VALUES (@HeroId, @Map, @X, @Y, (SELECT level FROM maxhanna.ender_hero WHERE id = @HeroId LIMIT 1));
+            INSERT INTO maxhanna.ender_bike_wall (hero_id, x, y, level)
+            VALUES (@HeroId, @X, @Y, @Level);
 
             SELECT id FROM maxhanna.ender_hero
             WHERE level = (SELECT level FROM maxhanna.ender_hero WHERE id = @HeroId LIMIT 1)
@@ -1390,8 +1389,7 @@ namespace maxhanna.Server.Controllers
 
             using (var cmd = new MySqlCommand(combinedSql, connection, transaction))
             {
-                cmd.Parameters.AddWithValue("@HeroId", heroId);
-                cmd.Parameters.AddWithValue("@Map", map);
+                cmd.Parameters.AddWithValue("@HeroId", heroId); 
                 cmd.Parameters.AddWithValue("@X", x);
                 cmd.Parameters.AddWithValue("@Y", y);
                 cmd.Parameters.AddWithValue("@Xmin", xmin);

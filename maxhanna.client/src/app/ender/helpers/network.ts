@@ -30,18 +30,7 @@ export class Network {
 
 export let actionBlocker = false;
 export let encounterUpdates: Bot[] = [];
-export let batchInterval: any;
-
-export function startBatchUpdates(object: any, batchIntervalMs = 1000) {
-  batchInterval = setInterval(() => {
-    if (encounterUpdates.length > 0) {
-      sendBatchToBackend(encounterUpdates, object);
-      encounterUpdates = [];
-    } else {
-      stopBatchUpdates();
-    }
-  }, batchIntervalMs);
-}
+export let batchInterval: any; 
 
 export function handleEncounterUpdate(bot: Bot) {
   encounterUpdates.push(bot);
@@ -496,10 +485,7 @@ export function subscribeToMainGameEvents(object: any) {
       object.enderService.updateEvents(metaEvent);
     }
   });
-  events.on("UPDATE_ENCOUNTER_POSITION", object, (source: Bot) => {
-    handleEncounterUpdate(source);
-    startBatchUpdates(object);
-  });
+ 
   // Queue bike wall placements locally and send them with the next fetchGameData poll
   events.on("SPAWN_BIKE_WALL", object, (params: { x: number, y: number }) => {
     try {
