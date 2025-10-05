@@ -14,6 +14,7 @@ import { storyFlags } from './helpers/story-flags';
 import { actionMultiplayerEvents, subscribeToMainGameEvents } from './helpers/network';
 import { Hero } from './objects/Hero/hero';
 import { BikeWall } from './objects/Environment/bike-wall';
+import { addBikeWallCell, clearBikeWallCells } from './helpers/bike-wall-index';
 import { Main } from './objects/Main/main';
 import { HeroRoomLevel } from './levels/hero-room';
 import { CharacterCreate } from './levels/character-create';
@@ -89,8 +90,9 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
     runElapsedSeconds: number = 0;
     private runElapsedInterval: any;
     // In-memory set of meta bike walls (keys: "x|y") for fast existence checks
-    private metaBikeWallKeys: Set<string> = new Set<string>();
-    // Reference to the level object the persisted set corresponds to; when level changes we clear the set
+    // Track only the highest wall id we've processed; we don't retain all wall coordinates persistently.
+    private lastKnownWallId: number = 0;
+    // Reference to level to reset delta tracking when level changes
     private persistedWallLevelRef: any = undefined;
 
     async ngOnInit() {
@@ -233,7 +235,7 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
                     // clear optimistically so duplicates don't accumulate while waiting
                     if ((this as any).pendingBikeWalls) { (this as any).pendingBikeWalls = []; }
 
-                    this.enderService.fetchGameDataWithWalls(this.metaHero, pendingWalls).then((res: any) => {
+                    this.enderService.fetchGameDataWithWalls(this.metaHero, pendingWalls, this.lastKnownWallId).then((res: any) => {
                 if (res) {
                     // If the server provides the elapsed time on level, sync the client's
                     // run timer so returning players see the correct elapsed seconds.
@@ -252,25 +254,23 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
                     // Persisted bike walls for this map - use in-memory Set to avoid scanning level.children repeatedly
                     const walls = Array.isArray(res.walls) ? (res.walls as MetaBikeWall[]) : undefined;
                     if (walls && walls.length > 0 && this.mainScene.level) {
-                        // if level changed since last time, clear the persisted set
+                        // Reset delta tracking if level changed
                         if (this.persistedWallLevelRef !== this.mainScene.level) {
-                            this.metaBikeWallKeys.clear();
+                            clearBikeWallCells();
                             this.persistedWallLevelRef = this.mainScene.level;
+                            this.lastKnownWallId = 0;
                         }
-
                         for (const w of walls) {
-                            const key = `${w.x}|${w.y}`;
-                            if (!this.metaBikeWallKeys.has(key)) {
-                                // Server is authoritative for persisted walls; if we haven't seen this key, create the wall.
-                                const wall = new BikeWall({ position: new Vector2(w.x, w.y) });
-                                this.mainScene.level.addChild(wall);
-                                // Only trigger BIKEWALL_CREATED for the current user's walls
-                                try {
-                                    if (this.metaHero && w.heroId != null && w.heroId === this.metaHero.id) {
-                                        events.emit("BIKEWALL_CREATED", { x: w.x, y: w.y });
-                                    }
-                                } catch (e) { /* swallow */ }
-                                this.metaBikeWallKeys.add(key);
+                            // Add only new walls (server already filtered by id > lastKnownWallId)
+                            const wall = new BikeWall({ position: new Vector2(w.x, w.y) });
+                            this.mainScene.level.addChild(wall);
+                            addBikeWallCell(w.x, w.y);
+                            // emit only for local hero walls
+                            if (this.metaHero && w.heroId === this.metaHero.id) {
+                                events.emit("BIKEWALL_CREATED", { x: w.x, y: w.y });
+                            }
+                            if (w.id && w.id > this.lastKnownWallId) {
+                                this.lastKnownWallId = w.id;
                             }
                         }
                     }

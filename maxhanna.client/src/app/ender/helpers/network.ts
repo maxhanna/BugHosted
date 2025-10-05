@@ -12,6 +12,7 @@ import { ShopMenu } from "../objects/Menu/shop-menu";
 import { WardrobeMenu } from "../objects/Menu/wardrobe-menu";
 import { gridCells } from "./grid-cells";
 import { isNearBikeWall } from "./fight";
+import { addBikeWallCell } from './bike-wall-index';
 import { Skill } from "./skill-types";
 import { InventoryItem } from "../objects/InventoryItem/inventory-item";
 import { MetaHero } from "../../../services/datacontracts/meta/meta-hero";
@@ -526,19 +527,20 @@ export function subscribeToMainGameEvents(object: any) {
     }
   });
 
-  // When a bike wall is created anywhere (local, network, or persisted load), check for heroes already on that cell
+  // When a bike wall is created, index it and check for heroes at or adjacent to that coordinate.
   events.on("BIKEWALL_CREATED", object, (params: { x: number, y: number }) => {
     try {
       if (!params || !object.mainScene || !object.mainScene.level) return;
-      const x = params.x;
-      const y = params.y;
+      const { x, y } = params;
+      addBikeWallCell(x, y);
       const heroes = object.mainScene.level.children.filter((c: any) => c && c.constructor && c.constructor.name === 'Hero');
       for (const h of heroes) {
-       
-            if (h.position && isNearBikeWall(object.mainScene.level, h.position, gridCells(1))) {
-              events.emit("HERO_DIED", h); 
-            }
-        
+        if (!h.position) continue;
+        const dx = Math.abs(h.position.x - x);
+        const dy = Math.abs(h.position.y - y);
+        if (dx <= gridCells(1) && dy <= gridCells(1)) {
+          events.emit("HERO_DIED", h);
+        }
       }
     } catch (e) {
       console.error("BIKEWALL_CREATED handler failed", e);

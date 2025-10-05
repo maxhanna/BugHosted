@@ -121,7 +121,8 @@ namespace maxhanna.Server.Controllers
                         MetaBot[]? enemyBots = await GetEncounterMetaBots(connection, transaction, hero.Map);
                         List<MetaEvent> events = await GetEventsFromDb(hero.Map, hero.Id, connection, transaction);
                         // Fetch persistent bike walls for this map and hero level
-                        List<MetaBikeWall> walls = await GetBikeWalls(hero.Map, connection, transaction, hero.Level);
+                        int lastKnownWallId = payload?.lastKnownWallId ?? 0;
+                        List<MetaBikeWall> walls = await GetBikeWalls(hero.Map, connection, transaction, hero.Level, lastKnownWallId);
                         await transaction.CommitAsync();
                         return Ok(new
                         {
@@ -2113,14 +2114,18 @@ namespace maxhanna.Server.Controllers
             }
         }
 
-        private async Task<List<MetaBikeWall>> GetBikeWalls(string map, MySqlConnection connection, MySqlTransaction transaction, int level = 1)
+        private async Task<List<MetaBikeWall>> GetBikeWalls(string map, MySqlConnection connection, MySqlTransaction transaction, int level = 1, int lastKnownWallId = 0)
         {
             var walls = new List<MetaBikeWall>();
-            string sql = "SELECT id, hero_id, map, x, y, level FROM maxhanna.ender_bike_wall WHERE map = @Map AND level = @Level";
+            string sql = @"SELECT id, hero_id, map, x, y, level 
+                           FROM maxhanna.ender_bike_wall 
+                           WHERE map = @Map AND level = @Level AND id > @LastKnownWallId 
+                           ORDER BY id ASC";
             using (var cmd = new MySqlCommand(sql, connection, transaction))
             {
                 cmd.Parameters.AddWithValue("@Map", map);
                 cmd.Parameters.AddWithValue("@Level", level);
+                cmd.Parameters.AddWithValue("@LastKnownWallId", lastKnownWallId);
                 using (var reader = await cmd.ExecuteReaderAsync())
                 {
                     while (await reader.ReadAsync())

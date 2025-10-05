@@ -15,19 +15,12 @@ import { Subsonic } from '../objects/Effects/Subsonic/subsonic';
 import { Ship } from '../objects/Ship/ship';
 
 import { gridCells } from './grid-cells';
+import { isNearBikeWall as indexedIsNearBikeWall } from './bike-wall-index';
 
 // Returns true if a bike wall exists within `radius` pixels of `position` on the supplied level
+// Deprecated linear scan; now delegates to spatial index implementation.
 export function isNearBikeWall(level: any, position: { x: number, y: number }, radius: number = gridCells(1)): boolean {
-  if (!level || !position) return false;
-  try {
-    for (const child of level.children) {
-      if (!child || child.name !== 'bike-wall' || !child.position) continue;
-      const dx = Math.abs(child.position.x - position.x);
-      const dy = Math.abs(child.position.y - position.y);
-      if (dx <= radius && dy <= radius) return true;
-    }
-  } catch { }
-  return false;
+  return indexedIsNearBikeWall(level, position, radius);
 }
 
 export const typeEffectiveness = new Map<SkillType, SkillType>([

@@ -10,5 +10,7 @@ namespace maxhanna.Server.Controllers.DataContracts.Ender
     {
         public MetaHero? hero { get; set; }
         public List<PendingWall>? pendingWalls { get; set; }
+    // Client supplies the highest wall Id it already knows so server can return only newer walls (delta)
+    public int? lastKnownWallId { get; set; }
     }
 }

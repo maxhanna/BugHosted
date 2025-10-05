@@ -64,8 +64,8 @@ export class EnderService {
   async fetchGameData(hero: MetaHero): Promise<{ map: number, position: Vector2, heroes: MetaHero[], chat: MetaChat[], events: MetaEvent[] } | undefined> {
     return this.fetchData('/ender/fetchgamedata', hero);
   }
-  async fetchGameDataWithWalls(hero: MetaHero, pendingWalls: { x: number, y: number }[] | undefined) {
-    const payload = { hero, pendingWalls };
+  async fetchGameDataWithWalls(hero: MetaHero, pendingWalls: { x: number, y: number }[] | undefined, lastKnownWallId: number | undefined) {
+    const payload = { hero, pendingWalls, lastKnownWallId };
     return this.fetchData('/ender/fetchgamedata', payload);
   }
   async fetchInventoryData(heroId: number): Promise<{inventory: InventoryItem[], parts: MetaBotPart[]}> {

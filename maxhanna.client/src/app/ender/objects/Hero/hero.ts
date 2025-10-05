@@ -13,6 +13,7 @@ import { ColorSwap } from "../../../../services/datacontracts/meta/color-swap";
 import { events } from "../../helpers/events";
 import { WarpBase } from "../Effects/Warp/warp-base";
 import { BikeWall } from "../Environment/bike-wall";
+import { addBikeWallCell } from "../../helpers/bike-wall-index";
 import { Fire } from "../Effects/Fire/fire";
 
 export class Hero extends Character {
@@ -190,10 +191,11 @@ export class Hero extends Character {
     if (dist >= gridCells(2)) {
       // spawn wall at the last spawn position (behind the bike)
       const wallPos = this.lastBikeWallSpawnPos.duplicate();
-      const wall = new BikeWall({ position: wallPos });
-      this.parent?.addChild(wall);
-      events.emit("BIKEWALL_CREATED", { x: wallPos.x, y: wallPos.y });
-      events.emit("SPAWN_BIKE_WALL", { x: wallPos.x, y: wallPos.y, heroId: this.id });
+  const wall = new BikeWall({ position: wallPos });
+  this.parent?.addChild(wall);
+  addBikeWallCell(wallPos.x, wallPos.y);
+  events.emit("BIKEWALL_CREATED", { x: wallPos.x, y: wallPos.y });
+  events.emit("SPAWN_BIKE_WALL", { x: wallPos.x, y: wallPos.y, heroId: this.id });
       this.lastBikeWallSpawnPos = this.position.duplicate();
     }
   }
