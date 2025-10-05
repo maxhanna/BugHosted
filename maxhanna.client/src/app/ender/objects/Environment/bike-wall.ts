@@ -3,23 +3,30 @@ import { Sprite } from "../sprite";
 import { resources } from "../../helpers/resources";
 import { FLOOR, GameObject } from "../game-object";
 import { snapToGrid } from "../../helpers/grid-cells";
+import { ColorSwap } from "../../../../services/datacontracts/meta/color-swap";
 
 export class BikeWall extends GameObject {
-  constructor(params: { position: Vector2 }) {
+  constructor(params: { position: Vector2, colorSwap?: ColorSwap }) {
+    const pos = new Vector2(snapToGrid(params.position.x), snapToGrid(params.position.y));
     super({
-      position: new Vector2(snapToGrid(params.position.x), snapToGrid(params.position.y)),
+      position: pos,
       drawLayer: FLOOR,
       isSolid: false,
       preventDrawName: true,
       name: "bike-wall",
+      colorSwap: params.colorSwap
     });
+
+    // keep a reference to colorSwap on the GameObject for any child elements
+    if (params.colorSwap) this.colorSwap = params.colorSwap;
 
     const body = new Sprite({
       resource: resources.images["bikewall"],
       frameSize: new Vector2(32, 32),
       drawLayer: FLOOR,
       name: "bike-wall",
-      offsetY: -16
+      offsetY: -16,
+      colorSwap: params.colorSwap
     });
     this.addChild(body);
   }

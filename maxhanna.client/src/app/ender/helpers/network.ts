@@ -778,7 +778,8 @@ export function actionMultiplayerEvents(object: any, metaEvents: MetaEvent[]) {
           if (!isNaN(x) && !isNaN(y) && object.mainScene.level) {
             const exists = object.mainScene.level.children.some((c: any) => c.name === 'bike-wall' && c.position && c.position.x === x && c.position.y === y);
             if (!exists) {
-              const wall = new BikeWall({ position: new Vector2(x, y) });
+              const useColor = event.heroId === object.metaHero.id ? object.metaHero?.colorSwap : undefined;
+              const wall = new BikeWall({ position: new Vector2(x, y), colorSwap: useColor });
               object.mainScene.level.addChild(wall);
               // notify systems that a wall now exists at this location so any heroes under it can be processed
               try { events.emit("BIKEWALL_CREATED", { x, y }); } catch (e) { /* swallow errors */ }

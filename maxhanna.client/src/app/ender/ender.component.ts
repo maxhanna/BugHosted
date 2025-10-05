@@ -222,7 +222,7 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
                     this.lastKnownWallId = 0; // we aren't using id delta now; recent fetch limited by time window
                     let myWallsCount = 0;
                     for (const w of allWalls) {
-                        const wall = new BikeWall({ position: new Vector2(w.x, w.y) });
+                        const wall = new BikeWall({ position: new Vector2(w.x, w.y), colorSwap: (w.heroId === this.metaHero.id ? this.metaHero ? this.mainScene.metaHero?.colorSwap : undefined : undefined) });
                         this.mainScene.level.addChild(wall);
                         addBikeWallCell(w.x, w.y);
                         if (w.heroId === rz.id) {
@@ -288,7 +288,7 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
                         }
                         for (const w of walls) {
                             // Add only new walls (server already filtered by id > lastKnownWallId)
-                            const wall = new BikeWall({ position: new Vector2(w.x, w.y) });
+                            const wall = new BikeWall({ position: new Vector2(w.x, w.y), colorSwap: (w.heroId === this.metaHero.id ? this.metaHero ? this.mainScene.metaHero?.colorSwap : undefined : undefined) });
                             this.mainScene.level.addChild(wall);
                             addBikeWallCell(w.x, w.y);
                             // emit only for local hero walls 

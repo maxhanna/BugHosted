@@ -17,7 +17,7 @@ import { addBikeWallCell } from "../../helpers/bike-wall-index";
 import { Fire } from "../Effects/Fire/fire";
 
 export class Hero extends Character {
-  metabots?: MetaBot[]; 
+  metabots?: MetaBot[];
   lastBikeWallSpawnPos?: Vector2;
   preventDestroyAnimation = false;
   constructor(params: {
@@ -37,7 +37,7 @@ export class Hero extends Character {
       isSolid: false,
       body: new Sprite({
         objectId: params.id ?? 0,
-        resource: resources.images["shipsprite"], 
+        resource: resources.images["shipsprite"],
         name: "hero",
         position: new Vector2(-8, 0),
         frameSize: new Vector2(32, 32),
@@ -60,7 +60,7 @@ export class Hero extends Character {
         colorSwap: params.colorSwap,
         scale: params.scale,
       })
-    }); 
+    });
     this.facingDirection = DOWN;
     this.destinationPosition = this.position.duplicate();
     this.lastPosition = this.position.duplicate();
@@ -80,14 +80,14 @@ export class Hero extends Character {
     });
     shadow.drawLayer = "FLOOR";
     this.addChild(shadow);
-  this.lastBikeWallSpawnPos = this.position.duplicate();
+    this.lastBikeWallSpawnPos = this.position.duplicate();
   }
 
 
   override ready() {
     if (this.isUserControlled) {
       events.on("START_TEXT_BOX", this, () => {
-        this.isLocked = true; 
+        this.isLocked = true;
       });
       events.on("END_TEXT_BOX", this, () => {
         this.isLocked = false;
@@ -97,19 +97,19 @@ export class Hero extends Character {
       });
       events.on("HERO_MOVEMENT_UNLOCK", this, () => {
         this.isLocked = false;
-      }); 
-      events.on("SELECTED_ITEM", this, (selectedItem: string) => { 
+      });
+      events.on("SELECTED_ITEM", this, (selectedItem: string) => {
         if (selectedItem === "Party Up") {
           events.emit("PARTY_UP", isObjectNearby(this));
         }
-        else if (selectedItem === "Unparty") { 
+        else if (selectedItem === "Unparty") {
           events.emit("UNPARTY", isObjectNearby(this));
         }
         else if (selectedItem === "Wave") {
           events.emit("WAVE_AT", isObjectNearby(this));
         }
         else if (selectedItem === "Whisper") {
-          events.emit("WHISPER_AT", isObjectNearby(this));  
+          events.emit("WHISPER_AT", isObjectNearby(this));
         }
       });
       events.on("CHANGE_LEVEL", this, () => {
@@ -119,7 +119,7 @@ export class Hero extends Character {
           setTimeout(() => {
             events.emit("DEPLOY", { metaHero: this, bot: deployedBot });
           }, 2450);
-        } 
+        }
       });
       events.on("CLOSE_HERO_DIALOGUE", this, () => {
         this.isLocked = false;
@@ -132,7 +132,7 @@ export class Hero extends Character {
         const deployedBot = this.metabots?.find(x => x.isDeployed && x.hp > 0);
         if (spaceIsFreeForWarp) {
           events.emit("HERO_MOVEMENT_LOCK");
-          if (deployedBot) { 
+          if (deployedBot) {
             events.emit("CALL_BOT_BACK", { bot: deployedBot });
           }
           const warpBase = new WarpBase({ position: this.position, parentId: this.id, offsetX: -8, offsetY: 12 });
@@ -151,9 +151,9 @@ export class Hero extends Character {
               this.parent.addChild(warpBase2);
               setTimeout(() => {
                 warpBase2.destroy();
-                events.emit("HERO_MOVEMENT_UNLOCK"); 
+                events.emit("HERO_MOVEMENT_UNLOCK");
               }, 1300);
-            }, 15); 
+            }, 15);
           }, 1300);
         } else {
           events.emit("INVALID_WARP", this);
@@ -178,10 +178,10 @@ export class Hero extends Character {
     const prevPos = this.position.duplicate();
     super.step(delta, root);
 
-  // spawn walls only if a body sprite exists (was previously restricted to ship sprite, which blocked placement)
-  if (!this.body) return;
-  // Only the local (user-controlled) hero should originate wall spawns; others get them from network sync
-  if (!this.isUserControlled) return;
+    // spawn walls only if a body sprite exists (was previously restricted to ship sprite, which blocked placement)
+    if (!this.body) return;
+    // Only the local (user-controlled) hero should originate wall spawns; others get them from network sync
+    if (!this.isUserControlled) return;
 
     if (!this.lastBikeWallSpawnPos) this.lastBikeWallSpawnPos = prevPos.duplicate();
 
@@ -191,11 +191,11 @@ export class Hero extends Character {
     if (dist >= gridCells(2)) {
       // spawn wall at the last spawn position (behind the bike)
       const wallPos = this.lastBikeWallSpawnPos.duplicate();
-  const wall = new BikeWall({ position: wallPos });
-  this.parent?.addChild(wall);
-  addBikeWallCell(wallPos.x, wallPos.y);
-  events.emit("BIKEWALL_CREATED", { x: wallPos.x, y: wallPos.y });
-  events.emit("SPAWN_BIKE_WALL", { x: wallPos.x, y: wallPos.y, heroId: this.id });
+      const wall = new BikeWall({ position: wallPos, colorSwap: this.colorSwap });
+      this.parent?.addChild(wall);
+      addBikeWallCell(wallPos.x, wallPos.y);
+      events.emit("BIKEWALL_CREATED", { x: wallPos.x, y: wallPos.y });
+      events.emit("SPAWN_BIKE_WALL", { x: wallPos.x, y: wallPos.y, heroId: this.id });
       this.lastBikeWallSpawnPos = this.position.duplicate();
     }
   }
@@ -210,11 +210,11 @@ export class Hero extends Character {
       setTimeout(() => {
         try {
           fire.destroy();
-        } catch {}
+        } catch { }
         try {
           // Emit event so higher-level component can record death and force reload
           events.emit("LOCAL_HERO_DIED", this);
-        } catch {}
+        } catch { }
         super.destroy();
       }, 1200);
     } else {
