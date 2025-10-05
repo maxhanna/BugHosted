@@ -94,6 +94,8 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
     private lastKnownWallId: number = 0;
     // Reference to level to reset delta tracking when level changes
     private persistedWallLevelRef: any = undefined;
+    // Collect all locally spawned walls since last fetch (delta batch)
+    private pendingWallsBatch: { x: number, y: number }[] = [];
 
     async ngOnInit() {
         this.serverDown = (this.parentRef ? await this.parentRef?.isServerUp() <= 0 : false);
@@ -180,6 +182,8 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
             if (this.runStartTimeMs && params) {
                 this.wallsPlacedThisRun = (this.wallsPlacedThisRun ?? 0) + 1;
             }
+            // accumulate walls until next poll
+            this.pendingWallsBatch.push({ x: params.x, y: params.y });
         });
     }
 
@@ -231,9 +235,9 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
     private updatePlayers() {
         if (this.metaHero && this.metaHero.id && !this.stopPollingForUpdates) {
                     // send pending local walls with fetch request to reduce event spam
-                    const pendingWalls = (this as any).pendingBikeWalls as { x: number, y: number }[] | undefined;
-                    // clear optimistically so duplicates don't accumulate while waiting
-                    if ((this as any).pendingBikeWalls) { (this as any).pendingBikeWalls = []; }
+                    const pendingWalls = this.pendingWallsBatch.length > 0 ? [...this.pendingWallsBatch] : undefined;
+                    // clear after snapshot so we don't resend
+                    this.pendingWallsBatch = [];
 
                     this.enderService.fetchGameDataWithWalls(this.metaHero, pendingWalls, this.lastKnownWallId).then((res: any) => {
                 if (res) {
