@@ -87,8 +87,8 @@ namespace maxhanna.Server.Controllers
 
                         if (payload?.pendingWalls != null && payload.pendingWalls.Count > 0 && hero != null)
                         {
-                            string insertSql = @"INSERT INTO maxhanna.ender_bike_wall (hero_id, map, x, y, level)
-                                VALUES (@HeroId, @Map, @X, @Y, (SELECT level FROM maxhanna.ender_hero WHERE id = @HeroId LIMIT 1));";
+                            string insertSql = @"INSERT INTO maxhanna.ender_bike_wall (hero_id, map, x, y, level, created_at)
+                                VALUES (@HeroId, @Map, @X, @Y, (SELECT level FROM maxhanna.ender_hero WHERE id = @HeroId LIMIT 1), UTC_TIMESTAMP());";
                             using (var insertCmd = new MySqlCommand(insertSql, connection, transaction))
                             {
                                 insertCmd.Parameters.Add("@HeroId", MySqlDbType.Int32);
@@ -576,90 +576,7 @@ namespace maxhanna.Server.Controllers
                     }
                 }
             }
-        }
-
-
-        [HttpPost("/Ender/CreateBot", Name = "Ender_CreateBot")]
-        public async Task<IActionResult> CreateBot([FromBody] MetaBot bot)
-        {
-            using (var connection = new MySqlConnection(_connectionString))
-            {
-                await connection.OpenAsync();
-                using (var transaction = connection.BeginTransaction())
-                {
-                    try
-                    {
-                        if (bot.HeroId < 0)
-                        {
-                            string checkSql = "SELECT COUNT(*) FROM maxhanna.ender_bot WHERE hero_id = @HeroId;";
-                            int existingBotCount = 0;
-
-                            using (var command = new MySqlCommand(checkSql, connection, transaction))
-                            {
-                                command.Parameters.AddWithValue("@HeroId", bot.HeroId);
-
-                                existingBotCount = Convert.ToInt32(await command.ExecuteScalarAsync());
-                            }
-                            if (Convert.ToInt32(existingBotCount) > 0)
-                            {
-                                await transaction.CommitAsync();
-                                _ = _log.Db("A bot with the same hero_id already exists.", null, "ENDER", true);
-                                return BadRequest("A bot with the same hero_id already exists.");
-                            }
-                        }
-
-                        // Proceed with the bot creation if no existing bot is found, or after deleting extra bots
-                        string sql = @"INSERT INTO maxhanna.ender_bot (hero_id, name, type, hp, exp, level, is_deployed) 
-                           VALUES (@HeroId, @Name, @Type, @Hp, @Exp, @Level, @IsDeployed);";
-
-                        var parametersForInsert = new Dictionary<string, object?>()
-                        {
-                                { "@HeroId", bot.HeroId },
-                                { "@Name", bot.Name },
-                                { "@Type", bot.Type },
-                                { "@Hp", bot.Hp },
-                                { "@Exp", bot.Exp },
-                                { "@Level", bot.Level },
-                                { "@IsDeployed", bot.IsDeployed }
-                        };
-
-                        long? botId = await this.ExecuteInsertOrUpdateOrDeleteAsync(sql, parametersForInsert, connection, transaction);
-                        if (botId == null)
-                        {
-                            _ = _log.Db("Exception: Failed to create metabot, BotId IS NULL.", null, "ENDER", true);
-                            throw new Exception("Failed to create MetaBot");
-                        }
-                        await transaction.CommitAsync();
-
-                        MetaBot heroBot = new MetaBot
-                        {
-                            Id = (int)botId,
-                            HeroId = bot.HeroId,
-                            Level = bot.Level,
-                            Name = bot.Name,
-                            Hp = bot.Hp,
-                            Type = bot.Type,
-                            IsDeployed = bot.IsDeployed,
-                            Head = bot.Head,
-                            Legs = bot.Legs,
-                            LeftArm = bot.LeftArm,
-                            RightArm = bot.RightArm
-                        };
-
-                        return Ok(heroBot);
-                    }
-                    catch (Exception ex)
-                    {
-                        await transaction.RollbackAsync();
-                        _ = _log.Db("CreateBot exception: " + ex.ToString(), null, "ENDER", true);
-                        return StatusCode(500, "Internal server error: " + ex.Message);
-                    }
-                }
-            }
-
-        }
-
-
+        } 
 
         [HttpPost("/Ender/TopScores", Name = "Ender_TopScores")]
         public async Task<IActionResult> TopScores([FromBody] int limit)
@@ -946,111 +863,7 @@ namespace maxhanna.Server.Controllers
             }
         }
 
-
-        [HttpPost("/Ender/UpdateBotParts", Name = "Ender_UpdateBotParts")]
-        public async Task<IActionResult> UpdateBotParts([FromBody] UpdateBotPartsRequest req)
-        {
-            if (req.Parts == null || req.Parts.Length == 0)
-            {
-                return BadRequest("No parts to update.");
-            }
-
-            using (var connection = new MySqlConnection(_connectionString))
-            {
-                await connection.OpenAsync();
-                using (var transaction = await connection.BeginTransactionAsync())
-                {
-                    try
-                    {
-                        string sql = @"INSERT INTO maxhanna.ender_bot_part 
-                               (hero_id, part_name, type, damage_mod, skill) 
-                               VALUES (@HeroId, @PartName, @Type, @DamageMod, @Skill);";
-
-                        foreach (var part in req.Parts)
-                        {
-                            var parameters = new Dictionary<string, object?>
-                                        {
-                                                { "@HeroId", req.HeroId },
-                                                { "@PartName", part.PartName },
-                                                { "@Type", part.Type },
-                                                { "@DamageMod", part.DamageMod },
-                                                { "@Skill", part.Skill?.Name ?? "Headbutt" }
-                                        };
-
-                            await this.ExecuteInsertOrUpdateOrDeleteAsync(sql, parameters, connection, transaction);
-                        }
-
-                        await transaction.CommitAsync();
-                        return Ok(new { Message = "Bot parts updated successfully." });
-                    }
-                    catch (Exception ex)
-                    {
-                        await transaction.RollbackAsync();
-                        return StatusCode(500, "Internal server error: " + ex.Message);
-                    }
-                }
-            }
-        }
-
-        [HttpPost("/Ender/EquipPart", Name = "Ender_EquipPart")]
-        public async Task<IActionResult> EquipPart([FromBody] EquipPartRequest req)
-        {
-            using (var connection = new MySqlConnection(_connectionString))
-            {
-                await connection.OpenAsync();
-                using (var transaction = connection.BeginTransaction())
-                {
-                    try
-                    {
-                        string sql = @"UPDATE maxhanna.ender_bot_part SET metabot_id = @MetabotId WHERE id = @PartId LIMIT 1;";
-                        Dictionary<string, object?> parameters = new Dictionary<string, object?> {
-                                { "@MetabotId", req.MetabotId },
-                                { "@PartId", req.PartId },
-                        };
-                        await this.ExecuteInsertOrUpdateOrDeleteAsync(sql, parameters, connection, transaction);
-                        await transaction.CommitAsync();
-
-                        return Ok();
-                    }
-                    catch (Exception ex)
-                    {
-                        await transaction.RollbackAsync();
-                        return StatusCode(500, "Internal server error: " + ex.Message);
-                    }
-                }
-            }
-        }
-
-
-        [HttpPost("/Ender/UnequipPart", Name = "Ender_UnequipPart")]
-        public async Task<IActionResult> UnequipPart([FromBody] EquipPartRequest req)
-        {
-            using (var connection = new MySqlConnection(_connectionString))
-            {
-                await connection.OpenAsync();
-                using (var transaction = connection.BeginTransaction())
-                {
-                    try
-                    {
-                        string sql = @"UPDATE maxhanna.ender_bot_part SET metabot_id = NULL WHERE id = @PartId LIMIT 1;";
-                        Dictionary<string, object?> parameters = new Dictionary<string, object?>
-                        {
-                                { "@PartId", req.PartId },
-                        };
-                        await this.ExecuteInsertOrUpdateOrDeleteAsync(sql, parameters, connection, transaction);
-                        await transaction.CommitAsync();
-
-                        return Ok();
-                    }
-                    catch (Exception ex)
-                    {
-                        await transaction.RollbackAsync();
-                        return StatusCode(500, "Internal server error: " + ex.Message);
-                    }
-                }
-            }
-        }
-
+ 
 
         [HttpPost("/Ender/GetUserPartyMembers", Name = "Ender_GetUserPartyMembers")]
         public async Task<IActionResult> GetUserPartyMembers([FromBody] int userId)
@@ -1112,56 +925,7 @@ namespace maxhanna.Server.Controllers
                 }
             }
         }
-
-
-        [HttpPost("/Ender/SellBotParts", Name = "Ender_SellBotParts")]
-        public async Task<IActionResult> SellBotParts([FromBody] SellBotPartsRequest req)
-        {
-            if (req.PartIds == null || req.PartIds?.Length == 0)
-            {
-                return BadRequest("No Metabot Parts to sell.");
-            }
-            using (var connection = new MySqlConnection(_connectionString))
-            {
-                await connection.OpenAsync();
-                using (var transaction = connection.BeginTransaction())
-                {
-                    try
-                    {
-                        // Convert PartIds to a comma-separated string of IDs for direct inclusion in SQL
-                        var partIds = req.PartIds ?? Array.Empty<int>();
-                        var partIdsString = string.Join(",", partIds);
-
-                        // Dynamic SQL with PartIds injected directly
-                        string singleSql = $@" 
-                            INSERT INTO maxhanna.ender_hero_crypto (hero_id, crypto_balance)
-                            SELECT hero_id, SUM(damage_mod * 10)
-                            FROM maxhanna.ender_bot_part
-                            WHERE id IN ({partIdsString})
-                            GROUP BY hero_id
-                            ON DUPLICATE KEY UPDATE crypto_balance = crypto_balance + VALUES(crypto_balance);
  
-                            DELETE FROM maxhanna.ender_bot_part
-                            WHERE id IN ({partIdsString});";
-
-                        using (var command = new MySqlCommand(singleSql, connection, transaction))
-                        {
-                            await command.ExecuteNonQueryAsync();
-                        }
-
-                        await transaction.CommitAsync();
-                        return Ok();
-                    }
-                    catch (Exception ex)
-                    {
-                        await transaction.RollbackAsync();
-                        return StatusCode(500, "Internal server error: " + ex.Message);
-                    }
-                }
-            }
-        }
-
-
         private async Task<MetaHero> UpdateHeroInDB(MetaHero hero, MySqlConnection connection, MySqlTransaction transaction)
         {
             string sql = @"UPDATE maxhanna.ender_hero 
@@ -1717,7 +1481,7 @@ namespace maxhanna.Server.Controllers
             // Prefer created_at if exists; fall back to last 500 newest IDs as approximation
             string sql = @"SELECT id, hero_id, map, x, y, level 
                            FROM maxhanna.ender_bike_wall 
-                           WHERE map = @Map AND level = @Level AND (created_at >= (NOW() - INTERVAL @Seconds SECOND) OR created_at IS NULL)
+                           WHERE map = @Map AND level = @Level AND (created_at >= (UTC_TIMESTAMP() - INTERVAL @Seconds SECOND) OR created_at IS NULL)
                            ORDER BY id ASC";
             using (var cmd = new MySqlCommand(sql, connection, transaction))
             {
