@@ -16,9 +16,10 @@ export class FireExtinguisher extends GameObject {
 
     const body = new Sprite({
       objectId: Math.floor(Math.random() * (9999)) * -1,
-      resource: resources.images["fireextinguisher"],
+      // fire extinguisher asset removed; fallback to shadow as neutral placeholder
+      resource: resources.images["shadow"],
       name: "FireExtinguisher", 
-      frameSize: new Vector2(13, 21), 
+      frameSize: new Vector2(16, 16), 
       drawLayer: FLOOR,
     });
     this.addChild(body); 

@@ -16,7 +16,8 @@ export class Mop extends GameObject {
 
     const body = new Sprite({
       objectId: Math.floor(Math.random() * (9999)) * -1,
-      resource: resources.images["mop"],
+      // mop image removed; use a shadow tile so object still renders
+      resource: resources.images["shadow"],
       name: "Mop",  
       frameSize: new Vector2(32, 32), 
       drawLayer: FLOOR,

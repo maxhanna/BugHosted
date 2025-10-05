@@ -12,11 +12,12 @@ export class Stand extends GameObject {
       position: new Vector2(x, y), isSolid: true, drawLayer: HUD
     })
 
+    // original stand graphic removed; render a small neutral text-box like sprite as placeholder
     this.body = new Sprite({
       objectId: -100234,
-      resource: resources.images["stand"],
+      resource: resources.images["textBox"],
       position: new Vector2(2, 0),
-      frameSize: new Vector2(169, 60),
+      frameSize: new Vector2(64, 24),
       offsetY: 5,
       drawLayer: HUD
     });

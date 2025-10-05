@@ -18,14 +18,15 @@ export class Mom extends Npc {
       type: "mom",
       partners: [],
       position: new Vector2(x, y),
-      body: new Sprite({
-        objectId: Math.floor(Math.random() * (-9999 + 1000)) - 1000,
-        resource: resources.images["mom"],
-        position: new Vector2(-7, -20),
-        frameSize: new Vector2(32, 32),
-        hFrames: 4,
-        vFrames: 4,
-        animations: new Animations(
+  body: new Sprite({
+  objectId: Math.floor(Math.random() * (-9999 + 1000)) - 1000,
+  // mom image removed; use hero sprite as fallback so animations still work
+  resource: resources.images["hero"],
+  position: new Vector2(-7, -20),
+  frameSize: new Vector2(32, 32),
+  hFrames: 4,
+  vFrames: 4,
+  animations: new Animations(
           {
             walkDown: new FrameIndexPattern(WALK_DOWN),
             walkUp: new FrameIndexPattern(WALK_UP),

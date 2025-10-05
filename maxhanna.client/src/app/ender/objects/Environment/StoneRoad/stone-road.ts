@@ -15,9 +15,10 @@ export class StoneRoad extends GameObject {
 
     this.body = new Sprite({
       objectId: 0,
-      resource: resources.images["stoneroad"],
+      // stoneroad asset removed; use a neutral tile (shadow) as fallback to avoid missing resource
+      resource: resources.images["shadow"],
       position: new Vector2(0, 0),
-      frameSize: new Vector2(64, 64)
+      frameSize: new Vector2(32, 32)
     });
     this.addChild(this.body);
   }

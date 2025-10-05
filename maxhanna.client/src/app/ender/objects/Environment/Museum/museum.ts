@@ -11,10 +11,11 @@ export class Museum extends GameObject {
       position: new Vector2(x, y), isSolid: true
     })
 
+    // museum image removed; use textBox placeholder to represent the building without missing asset
     this.body = new Sprite({
-      resource: resources.images["museum"],
-      position: new Vector2(2, -190),
-      frameSize: new Vector2(267, 202),
+      resource: resources.images["textBox"],
+      position: new Vector2(2, -50),
+      frameSize: new Vector2(128, 64),
     });
     this.addChild(this.body);
 

@@ -23,7 +23,8 @@ export class Gangster extends Npc {
       position: params.position,
       body: new Sprite({
         objectId: Math.floor(Math.random() * (-9999 + 1000)) - 1000,
-        resource: resources.images["gangster"],
+  // gangster image removed; use hero sprite as a functional fallback
+  resource: resources.images["hero"],
         position: new Vector2(0, 0),
         frameSize: new Vector2(32, 31),
         hFrames: 4,

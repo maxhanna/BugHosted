@@ -19,11 +19,12 @@ export class GiantTree2 extends GameObject {
     this.addChild(shadow);
 
 
+    // giantTree asset removed; use shadow as a neutral placeholder
     this.body = new Sprite({
-      resource: resources.images["giantTree"],
-      position: new Vector2(-70, -120),
-      frameSize: new Vector2(158, 135),
-      isSolid: true 
+      resource: resources.images["shadow"],
+      position: new Vector2(-16, -16),
+      frameSize: new Vector2(32, 32),
+      isSolid: false 
     });
     this.addChild(this.body);  
   } 
