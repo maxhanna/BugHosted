@@ -313,18 +313,25 @@ namespace maxhanna.Server.Controllers
                         int authoritativeScore = timeOnLevelSeconds + (validatedWalls * 10);
 
                         int heroLevel = 1;
+                        int kills = 0;
                         try
                         {
-                            // attempt to read hero level from DB so we can record it with the score
-                            string heroLevelSql = @"SELECT level FROM maxhanna.ender_hero WHERE id = @HeroId LIMIT 1;";
+                            // attempt to read hero level and kills from DB so we can record them with the score
+                            string heroLevelSql = @"SELECT level, kills FROM maxhanna.ender_hero WHERE id = @HeroId LIMIT 1;";
                             using (var lvlCmd = new MySqlCommand(heroLevelSql, connection, transaction))
                             {
                                 lvlCmd.Parameters.AddWithValue("@HeroId", req.HeroId);
-                                var lvlObj = await lvlCmd.ExecuteScalarAsync();
-                                if (lvlObj != null && lvlObj != DBNull.Value) heroLevel = Convert.ToInt32(lvlObj);
+                                using (var rdr = await lvlCmd.ExecuteReaderAsync())
+                                {
+                                    if (await rdr.ReadAsync())
+                                    {
+                                        heroLevel = rdr.IsDBNull(rdr.GetOrdinal("level")) ? 1 : Convert.ToInt32(rdr["level"]);
+                                        kills = rdr.IsDBNull(rdr.GetOrdinal("kills")) ? 0 : Convert.ToInt32(rdr["kills"]);
+                                    }
+                                }
                             }
                         }
-                        catch { /* ignore and default to 1 */ }
+                        catch { /* ignore and default to 1/0 */ }
 
                         // Insert into top scores table (include time on level, walls placed, hero level and kills)
                         // NOTE: ensure your DB has a `kills` INT NOT NULL DEFAULT 0 column on maxhanna.ender_top_scores
@@ -337,8 +344,7 @@ namespace maxhanna.Server.Controllers
                             { "@TimeOnLevel", timeOnLevelSeconds },
                             { "@WallsPlaced", validatedWalls },
                             { "@Level", heroLevel },
-                            // default kills to 0 for now; populate when player-kill tracking is added
-                            { "@Kills", 0 }
+                            { "@Kills", kills }
                         };
                         await ExecuteInsertOrUpdateOrDeleteAsync(insertScoreSql, scoreParams, connection, transaction);
 
