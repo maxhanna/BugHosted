@@ -559,17 +559,15 @@ namespace maxhanna.Server.Controllers
                         long? botId = await this.ExecuteInsertOrUpdateOrDeleteAsync(sql, parameters, connection, transaction);
 
                         // Persist last character name to user_settings
-                        try
-                        {
-                            string upsertNameSql = @"INSERT INTO maxhanna.user_settings (user_id, last_character_name, last_character_color) VALUES (@UserId, @Name, @Color)
-                                                      ON DUPLICATE KEY UPDATE last_character_name = VALUES(last_character_name), last_character_color = VALUES(last_character_color);";
-                            await ExecuteInsertOrUpdateOrDeleteAsync(upsertNameSql, new Dictionary<string, object?>() {
-                                { "@UserId", req.UserId },
-                                { "@Name", req.Name ?? "" },
-                                { "@Color", req.Color ?? "#00a0c8" }
-                            }, connection, transaction);
-                        }
-                        catch { }
+                        
+                        string upsertNameSql = @"INSERT INTO maxhanna.user_settings (user_id, last_character_name, last_character_color) VALUES (@UserId, @Name, @Color)
+                                                    ON DUPLICATE KEY UPDATE last_character_name = VALUES(last_character_name), last_character_color = VALUES(last_character_color);";
+                        await ExecuteInsertOrUpdateOrDeleteAsync(upsertNameSql, new Dictionary<string, object?>() {
+                            { "@UserId", req.UserId },
+                            { "@Name", req.Name ?? "" },
+                            { "@Color", req.Color ?? "#00a0c8" }
+                        }, connection, transaction);
+
                         await transaction.CommitAsync();
 
                         MetaHero hero = new MetaHero();
@@ -577,7 +575,8 @@ namespace maxhanna.Server.Controllers
                         hero.Id = (int)botId;
                         hero.Speed = 1;
                         hero.Map = "HeroRoom";
-                        hero.Name = req.Name;
+                        hero.Name = req.Name ?? "Anonymous";
+                        hero.Color = req.Color ?? "#00a0c8";
                         return Ok(hero);
                     }
                     catch (Exception ex)
