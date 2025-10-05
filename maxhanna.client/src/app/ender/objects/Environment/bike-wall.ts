@@ -19,6 +19,7 @@ export class BikeWall extends GameObject {
       frameSize: new Vector2(32, 32),
       drawLayer: FLOOR,
       name: "bike-wall",
+      offsetY: 8
     });
     this.addChild(body);
   }
