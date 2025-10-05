@@ -158,7 +158,7 @@ namespace maxhanna.Server.Controllers
                                     var deathEvent = new MetaEvent(0, hero.Id, DateTime.UtcNow, "HERO_DIED", hero.Map ?? string.Empty, new Dictionary<string, string>() { { "cause", "BIKE_WALL_COLLIDE" } });
                                     await UpdateEventsInDB(deathEvent, connection, transaction);
                                     heroes = await GetNearbyPlayers(hero, connection, transaction);
-                                    events = await GetEventsFromDb(hero.Map ?? string.Empty, hero.Id, connection, transaction);
+                                    events = await GetEventsFromDb(hero.Level, connection, transaction);
                                 }
                             }
                         }
@@ -1058,11 +1058,11 @@ namespace maxhanna.Server.Controllers
 
            
             string sql = @"
-        DELETE FROM maxhanna.ender_event WHERE timestamp < UTC_TIMESTAMP() - INTERVAL 20 SECOND;
-        
-        SELECT *
-        FROM maxhanna.ender_event 
-        WHERE level = @Level;";
+                DELETE FROM maxhanna.ender_event WHERE timestamp < UTC_TIMESTAMP() - INTERVAL 20 SECOND;
+                
+                SELECT *
+                FROM maxhanna.ender_event 
+                WHERE level = @Level;";
 
             MySqlCommand cmd = new MySqlCommand(sql, connection, transaction);
             cmd.Parameters.AddWithValue("@Level", level);
