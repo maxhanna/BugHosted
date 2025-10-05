@@ -131,11 +131,13 @@ namespace maxhanna.Server.Controllers
                         {
                             int tolerance = 32; // pixels; adjust as needed
                             // Single query: detect collision while excluding only the hero's most recently created wall
+                            // Use MAX(id) subquery instead of LIMIT inside an IN-subquery which older MySQL versions don't support.
+                            // This excludes the hero's most recently created wall by id (newest id = MAX(id)).
                             string collideSql =
                             @"SELECT bw.hero_id, bw.x, bw.y
                             FROM maxhanna.ender_bike_wall bw
                             WHERE bw.map = @Map AND bw.level = @Level
-                                AND bw.id NOT IN (SELECT id FROM maxhanna.ender_bike_wall WHERE hero_id = @HeroId ORDER BY created_at DESC LIMIT 2)
+                                AND bw.id <> (SELECT IFNULL(MAX(id),0) FROM maxhanna.ender_bike_wall WHERE hero_id = @HeroId)
                                 AND @HeroX BETWEEN (bw.x - @Tol) AND (bw.x + @Tol)
                                 AND @HeroY BETWEEN (bw.y - @Tol) AND (bw.y + @Tol)
                             LIMIT 1;";

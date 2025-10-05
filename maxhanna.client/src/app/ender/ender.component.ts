@@ -489,19 +489,20 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
             // fallback fixed spawn (grid cell units)
             spawnPos = new Vector2(1 * 16, 11 * 16);
         }
+        const colorSwap = this.cachedDefaultColor ?? rz.color;
         this.hero = new Hero({
             id: rz.id, name: rz.name ?? "Anon",
             position: spawnPos,
             isUserControlled: true,
             speed: rz.speed,
             mask: rz.mask ? new Mask(getMaskNameById(rz.mask)) : undefined, 
-            colorSwap: rz.color ?  new ColorSwap([0,160,200], hexToRgb(rz.color)) : undefined,
+            colorSwap: colorSwap ?  new ColorSwap([0,160,200], hexToRgb(colorSwap)) : undefined,
         });
         this.metaHero = new MetaHero(this.hero.id, (this.hero.name ?? "Anon"),
             this.hero.position.duplicate(),
             rz.speed,
             rz.map, 
-            rz.color,
+            colorSwap,
             rz.mask,
             rz.level ?? 1,
             rz.kills ?? 0);
