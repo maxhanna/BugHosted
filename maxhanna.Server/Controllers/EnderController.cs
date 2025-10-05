@@ -330,16 +330,16 @@ namespace maxhanna.Server.Controllers
                         // NOTE: ensure your DB has a `kills` INT NOT NULL DEFAULT 0 column on maxhanna.ender_top_scores
                         string insertScoreSql = @"INSERT INTO maxhanna.ender_top_scores (hero_id, user_id, score, time_on_level_seconds, walls_placed, level, kills, created_at) VALUES (@HeroId, @UserId, @Score, @TimeOnLevel, @WallsPlaced, @Level, @Kills, UTC_TIMESTAMP());";
                         Dictionary<string, object?> scoreParams = new Dictionary<string, object?>()
-                                    {
-                                        { "@HeroId", req.HeroId },
-                                        { "@UserId", req.UserId },
-                                        { "@Score", authoritativeScore },
-                                        { "@TimeOnLevel", timeOnLevelSeconds },
-                                        { "@WallsPlaced", validatedWalls },
-                                        { "@Level", heroLevel },
-                                        // default kills to 0 for now; populate when player-kill tracking is added
-                                        { "@Kills", 0 }
-                                    };
+                        {
+                            { "@HeroId", req.HeroId },
+                            { "@UserId", req.UserId },
+                            { "@Score", authoritativeScore },
+                            { "@TimeOnLevel", timeOnLevelSeconds },
+                            { "@WallsPlaced", validatedWalls },
+                            { "@Level", heroLevel },
+                            // default kills to 0 for now; populate when player-kill tracking is added
+                            { "@Kills", 0 }
+                        };
                         await ExecuteInsertOrUpdateOrDeleteAsync(insertScoreSql, scoreParams, connection, transaction);
 
                         // Delete hero and related rows (inventory, bots, events)
@@ -393,8 +393,12 @@ namespace maxhanna.Server.Controllers
 
                                     if (survivorId != 0)
                                     {
-                                        string updSql = @"UPDATE maxhanna.ender_hero SET level = level + 1 WHERE id = @SurvivorId LIMIT 1;";
-                                        await ExecuteInsertOrUpdateOrDeleteAsync(updSql, new Dictionary<string, object?>() { { "@SurvivorId", survivorId } }, connection, transaction);
+                                        string updSql = @"UPDATE maxhanna.ender_hero SET level = level + 1 WHERE id = @SurvivorId LIMIT 1; DELETE FROM maxhanna.ender_bike_wall WHERE level = @Level;";
+                                        var parms =  new Dictionary<string, object?>() {
+                                            { "@SurvivorId", survivorId, } 
+                                            { "@Level", heroLevelFromDb, } 
+                                        };
+                                        await ExecuteInsertOrUpdateOrDeleteAsync(updSql, parms, connection, transaction);
 
                                         // read new level
                                         int newLevel = heroLevelFromDb + 1;
