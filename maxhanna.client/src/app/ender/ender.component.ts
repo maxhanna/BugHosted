@@ -286,10 +286,8 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
                             const wall = new BikeWall({ position: new Vector2(w.x, w.y) });
                             this.mainScene.level.addChild(wall);
                             addBikeWallCell(w.x, w.y);
-                            // emit only for local hero walls
-                            if (this.metaHero && w.heroId === this.metaHero.id) {
-                                events.emit("BIKEWALL_CREATED", { x: w.x, y: w.y });
-                            }
+                            // emit only for local hero walls 
+                            events.emit("BIKEWALL_CREATED", { x: w.x, y: w.y }); 
                             if (w.id && w.id > this.lastKnownWallId) {
                                 this.lastKnownWallId = w.id;
                             }
