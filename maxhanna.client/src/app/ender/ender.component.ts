@@ -225,6 +225,16 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
         if (this.metaHero && this.metaHero.id && !this.stopPollingForUpdates) {
             this.enderService.fetchGameData(this.metaHero).then((res: any) => {
                 if (res) {
+                    // If the server provides the elapsed time on level, sync the client's
+                    // run timer so returning players see the correct elapsed seconds.
+                    // Server sends timeOnLevelSeconds (integer seconds).
+                    if (res.timeOnLevelSeconds !== undefined && res.timeOnLevelSeconds !== null) {
+                        const secs = Number(res.timeOnLevelSeconds) || 0;
+                        this.runElapsedSeconds = Math.max(0, Math.floor(secs));
+                        // Set runStartTimeMs so the interval-based clock continues from server time
+                        this.runStartTimeMs = Date.now() - (this.runElapsedSeconds * 1000);
+                        this.startRunTimer();
+                    }
                     this.updateOtherHeroesBasedOnFetchedData(res);
                     this.updateMissingOrNewHeroSprites();
                     this.updateEnemyEncounters(res);

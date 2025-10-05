@@ -92,7 +92,9 @@ namespace maxhanna.Server.Controllers
                         return Ok(new
                         {
                             map = hero.Map,
-                            hero.Position,
+                            heroId = hero.Id,
+                            heroPosition = hero.Position,
+                            timeOnLevelSeconds = hero.TimeOnLevelSeconds,
                             heroes,
                             events,
                             enemyBots,
@@ -1093,6 +1095,26 @@ namespace maxhanna.Server.Controllers
                                 { "@HeroId", hero.Id }
                         };
             await this.ExecuteInsertOrUpdateOrDeleteAsync(sql, parameters, connection, transaction);
+
+            try
+            {
+                // attempt to read hero.created timestamp to compute elapsed seconds on level
+                string createdSql = @"SELECT created FROM maxhanna.ender_hero WHERE id = @HeroId LIMIT 1;";
+                using (var cmd = new MySqlCommand(createdSql, connection, transaction))
+                {
+                    cmd.Parameters.AddWithValue("@HeroId", hero.Id);
+                    var obj = await cmd.ExecuteScalarAsync();
+                    if (obj != null && obj != DBNull.Value)
+                    {
+                        DateTime created = Convert.ToDateTime(obj).ToUniversalTime();
+                        hero.TimeOnLevelSeconds = Math.Max(0, (int)Math.Floor((DateTime.UtcNow - created).TotalSeconds));
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _ = _log.Db("Failed to compute TimeOnLevelSeconds: " + ex.Message, null, "ENDER", true);
+            }
 
             return hero;
         }

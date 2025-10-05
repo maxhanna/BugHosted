@@ -12,5 +12,7 @@ namespace maxhanna.Server.Controllers.DataContracts.Ender
         public int? Mask { get; set; } = null;
         public int Level { get; set; } = 1;
         public int Kills { get; set; } = 0;
+    // Server-calculated seconds since hero creation (used by client to set/reset in-game timer)
+    public int TimeOnLevelSeconds { get; set; } = 0;
     }
 }
