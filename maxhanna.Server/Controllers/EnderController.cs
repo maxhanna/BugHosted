@@ -126,10 +126,9 @@ namespace maxhanna.Server.Controllers
                         // --- Tolerant bike-wall collision detection (server authoritative) ---
                         // Players may move more than one pixel per tick and "skip" the exact wall coordinate.
                         // We'll treat a hero as colliding if their (coordsX,coordsY) falls within a tolerance box
-                        // around any wall for their level & map. Tolerance defaults to half a grid cell (8px) each side.
                         try
                         {
-                            int tolerance = 16; // pixels; adjust as needed
+                            int tolerance = 32; // pixels; adjust as needed
                             string collideSql = @"SELECT bw.hero_id, bw.x, bw.y, h.id as victim_id
                                                    FROM maxhanna.ender_bike_wall bw
                                                    JOIN maxhanna.ender_hero h ON h.map = bw.map AND h.level = bw.level
