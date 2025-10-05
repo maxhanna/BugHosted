@@ -11,5 +11,6 @@ namespace maxhanna.Server.Controllers.DataContracts.Ender
         public string Color { get; set; } = "";
         public int? Mask { get; set; } = null;
         public int Level { get; set; } = 1;
+        public int Kills { get; set; } = 0;
     }
 }

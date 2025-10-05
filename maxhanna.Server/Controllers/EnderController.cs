@@ -1210,7 +1210,7 @@ namespace maxhanna.Server.Controllers
             string sql = $@"
         SELECT 
             h.id as hero_id, h.coordsX, h.coordsY, h.map, h.speed, h.name as hero_name, h.color as hero_color, h.mask as hero_mask,
-                h.level as hero_level,
+                h.level as hero_level, h.kills as hero_kills,
             b.id as bot_id, b.name as bot_name, b.type as bot_type, b.hp as bot_hp, b.is_deployed as bot_is_deployed,
             b.level as bot_level, b.exp as bot_exp,
             p.id as part_id, p.part_name, p.type as part_type, p.damage_mod, p.skill
@@ -1247,6 +1247,7 @@ namespace maxhanna.Server.Controllers
                             Color = Convert.ToString(reader["hero_color"]) ?? "",
                             Mask = reader.IsDBNull(reader.GetOrdinal("hero_mask")) ? null : Convert.ToInt32(reader["hero_mask"]),
                             Level = reader.IsDBNull(reader.GetOrdinal("hero_level")) ? 1 : Convert.ToInt32(reader["hero_level"]),
+                            Kills = reader.IsDBNull(reader.GetOrdinal("hero_kills")) ? 0 : Convert.ToInt32(reader["hero_kills"]),
                             Metabots = new List<MetaBot>()
                         };
                     }
@@ -1925,18 +1926,22 @@ namespace maxhanna.Server.Controllers
                     await ExecuteInsertOrUpdateOrDeleteAsync(sql, parameters, connection, transaction);
 
                     // After persisting the wall, check for heroes on the same map and same level within 1 grid cell (16px)
-                    try {
+                    try
+                    {
                         int proximity = 16; // pixels (one grid cell)
                         // Determine the level of the wall's creator (if possible)
                         int creatorLevel = 1;
-                        try {
+                        try
+                        {
                             string lvlSql = @"SELECT level FROM maxhanna.ender_hero WHERE id = @HeroId LIMIT 1;";
-                            using (var lvlCmd = new MySqlCommand(lvlSql, connection, transaction)) {
+                            using (var lvlCmd = new MySqlCommand(lvlSql, connection, transaction))
+                            {
                                 lvlCmd.Parameters.AddWithValue("@HeroId", metaEvent.HeroId);
                                 var lvlObj = await lvlCmd.ExecuteScalarAsync();
                                 if (lvlObj != null && lvlObj != DBNull.Value) creatorLevel = Convert.ToInt32(lvlObj);
                             }
-                        } catch { /* ignore and default to 1 */ }
+                        }
+                        catch { /* ignore and default to 1 */ }
 
                         int xmin = x - proximity;
                         int xmax = x + proximity;
@@ -1944,16 +1949,19 @@ namespace maxhanna.Server.Controllers
                         int ymax = y + proximity;
 
                         string nearbySql = @"SELECT id FROM maxhanna.ender_hero WHERE map = @Map AND level = @Level AND coordsX BETWEEN @Xmin AND @Xmax AND coordsY BETWEEN @Ymin AND @Ymax;";
-                        using (var nbCmd = new MySqlCommand(nearbySql, connection, transaction)) {
+                        using (var nbCmd = new MySqlCommand(nearbySql, connection, transaction))
+                        {
                             nbCmd.Parameters.AddWithValue("@Map", metaEvent.Map);
                             nbCmd.Parameters.AddWithValue("@Level", creatorLevel);
                             nbCmd.Parameters.AddWithValue("@Xmin", xmin);
                             nbCmd.Parameters.AddWithValue("@Xmax", xmax);
                             nbCmd.Parameters.AddWithValue("@Ymin", ymin);
                             nbCmd.Parameters.AddWithValue("@Ymax", ymax);
-                            using (var rdr = await nbCmd.ExecuteReaderAsync()) {
+                            using (var rdr = await nbCmd.ExecuteReaderAsync())
+                            {
                                 var toKill = new List<int>();
-                                while (await rdr.ReadAsync()) {
+                                while (await rdr.ReadAsync())
+                                {
                                     var hid = Convert.ToInt32(rdr[0]);
                                     // skip the wall creator
                                     if (hid == metaEvent.HeroId) continue;
@@ -1962,21 +1970,29 @@ namespace maxhanna.Server.Controllers
                                 // reader must be closed before executing other commands
                                 rdr.Close();
 
-                                foreach (var victimId in toKill) {
-                                    try {
+                                foreach (var victimId in toKill)
+                                {
+                                    try
+                                    {
                                         await KillHeroById(victimId, connection, transaction);
                                         // optionally publish an event so clients can react immediately
-                                        try {
+                                        try
+                                        {
                                             var deathEvent = new DataContracts.Ender.MetaEvent(0, victimId, DateTime.UtcNow, "HERO_DIED", metaEvent.Map ?? "", new Dictionary<string, string>() { { "cause", "BIKE_WALL" }, { "x", x.ToString() }, { "y", y.ToString() } });
                                             await UpdateEventsInDB(deathEvent, connection, transaction);
-                                        } catch { }
-                                    } catch (Exception ex) {
+                                        }
+                                        catch { }
+                                    }
+                                    catch (Exception ex)
+                                    {
                                         _ = _log.Db("Failed to kill hero " + victimId + ": " + ex.Message, null, "ENDER", true);
                                     }
                                 }
                             }
                         }
-                    } catch (Exception ex) {
+                    }
+                    catch (Exception ex)
+                    {
                         _ = _log.Db("Error checking nearby heroes for SPAWN_BIKE_WALL: " + ex.Message, null, "ENDER", true);
                     }
                 }
@@ -2023,17 +2039,21 @@ namespace maxhanna.Server.Controllers
         // Authoritative kill helper used by server-side checks (does not rely on client-supplied time/walls)
         private async Task KillHeroById(int heroId, MySqlConnection connection, MySqlTransaction transaction)
         {
-            try {
+            try
+            {
                 // fetch hero info for score & map
                 string selSql = @"SELECT user_id, created, map, level FROM maxhanna.ender_hero WHERE id = @HeroId LIMIT 1;";
                 int userId = 0;
                 DateTime? createdAt = null;
                 string map = "";
                 int heroLevel = 1;
-                using (var cmd = new MySqlCommand(selSql, connection, transaction)) {
+                using (var cmd = new MySqlCommand(selSql, connection, transaction))
+                {
                     cmd.Parameters.AddWithValue("@HeroId", heroId);
-                    using (var rdr = await cmd.ExecuteReaderAsync()) {
-                        if (await rdr.ReadAsync()) {
+                    using (var rdr = await cmd.ExecuteReaderAsync())
+                    {
+                        if (await rdr.ReadAsync())
+                        {
                             userId = rdr.IsDBNull(rdr.GetOrdinal("user_id")) ? 0 : rdr.GetInt32("user_id");
                             createdAt = rdr.IsDBNull(rdr.GetOrdinal("created")) ? (DateTime?)null : Convert.ToDateTime(rdr["created"]).ToUniversalTime();
                             map = rdr.IsDBNull(rdr.GetOrdinal("map")) ? "" : rdr.GetString("map");
@@ -2044,20 +2064,24 @@ namespace maxhanna.Server.Controllers
 
                 // compute time on level from createdAt
                 int timeOnLevelSeconds = 0;
-                if (createdAt != null) {
+                if (createdAt != null)
+                {
                     timeOnLevelSeconds = Math.Max(0, (int)Math.Floor((DateTime.UtcNow - createdAt.Value).TotalSeconds));
                 }
 
                 // count walls persisted for this hero
                 int wallsPlaced = 0;
-                try {
+                try
+                {
                     string countSql = @"SELECT COUNT(*) FROM maxhanna.ender_bike_wall WHERE hero_id = @HeroId";
-                    using (var countCmd = new MySqlCommand(countSql, connection, transaction)) {
+                    using (var countCmd = new MySqlCommand(countSql, connection, transaction))
+                    {
                         countCmd.Parameters.AddWithValue("@HeroId", heroId);
                         var cnt = await countCmd.ExecuteScalarAsync();
                         wallsPlaced = Convert.ToInt32(cnt);
                     }
-                } catch { }
+                }
+                catch { }
 
                 int score = timeOnLevelSeconds + (wallsPlaced * 10);
 
@@ -2079,7 +2103,9 @@ namespace maxhanna.Server.Controllers
                 await ExecuteInsertOrUpdateOrDeleteAsync("DELETE FROM maxhanna.ender_event WHERE hero_id = @HeroId;", new Dictionary<string, object?>() { { "@HeroId", heroId } }, connection, transaction);
                 await ExecuteInsertOrUpdateOrDeleteAsync("DELETE FROM maxhanna.ender_bike_wall WHERE hero_id = @HeroId;", new Dictionary<string, object?>() { { "@HeroId", heroId } }, connection, transaction);
                 await ExecuteInsertOrUpdateOrDeleteAsync("DELETE FROM maxhanna.ender_hero WHERE id = @HeroId LIMIT 1;", new Dictionary<string, object?>() { { "@HeroId", heroId } }, connection, transaction);
-            } catch (Exception ex) {
+            }
+            catch (Exception ex)
+            {
                 _ = _log.Db("KillHeroById failed: " + ex.Message, null, "ENDER", true);
                 throw;
             }
