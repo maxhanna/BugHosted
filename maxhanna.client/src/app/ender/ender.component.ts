@@ -268,8 +268,7 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
                         this.startRunTimer();
                     }
                     this.updateOtherHeroesBasedOnFetchedData(res);
-                    this.updateMissingOrNewHeroSprites();
-                    this.updateEnemyEncounters(res);
+                    this.updateMissingOrNewHeroSprites(); 
 
                     // Persisted bike walls for this map - use in-memory Set to avoid scanning level.children repeatedly
                     const walls = Array.isArray(res.walls) ? (res.walls as MetaBikeWall[]) : undefined;
@@ -310,72 +309,15 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
         if (!res || !res.heroes) {
             this.otherHeroes = [];
             return;
-        }
-
-        this.otherHeroes = res.heroes;
-        for (let x = 0; x < this.otherHeroes.length; x++) {
-            const bots = this.otherHeroes[x].metabots;
-            for (let y = 0; y < bots.length; y++) {
-                const tgt = this.mainScene.level.children.find((x: Character) => x.id == bots[y].id);
-                if (tgt) {
-                    tgt.hp = bots[y].hp;
-                    tgt.level = bots[y].level;
-                    tgt.exp = bots[y].exp;
-                    tgt.isDeployed = bots[y].isDeployed;
-
-                    // Fixed partyMembers check
-                    tgt.partyMembers = (Array.isArray(this.partyMembers) &&
-                        this.partyMembers.length > 0 &&
-                        this.partyMembers.some((x: any) => x.heroId == tgt.heroId))
-                        ? this.partyMembers
-                        : undefined;
-                }
-            }
-        }
+        } 
+        this.otherHeroes = res.heroes; 
     }
-    private updateEnemyEncounters(res: any) {
-        const enemies = res.enemyBots as MetaBot[];
-        if (enemies) {
-            enemies.forEach(enemy => {
-                //look for enemy on the map, if he doesnt exist, create him.
-                const tgtEnemy = this.mainScene.level.children.find((x: Bot) => x.heroId == enemy.heroId && x.isDeployed);
-                if (tgtEnemy) {
-                    tgtEnemy.hp = enemy.hp;
-                    tgtEnemy.destinationPosition = (enemy.position !== undefined && enemy.position.x != -1 && enemy.position.y != -1) ? new Vector2(enemy.position.x, enemy.position.y) : tgtEnemy.position;
-                } else {
-                    const tgtEncounter = this.mainScene.level.children.find((x: Character) => x.id == enemy.heroId);
-                    if (tgtEncounter) {
-                        let tmp = new Bot({
-                            botType: enemy.type,
-                            name: enemy.name ?? "botFrame",
-                            spriteName: enemy.name ?? "botFrame",
-                            colorSwap: (tgtEncounter.color ? new ColorSwap([0, 160, 200], hexToRgb(tgtEncounter.color)) : undefined),
-                            isDeployed: true,
-                            isEnemy: true,
-                            position: (enemy.position !== undefined && enemy.position.x != -1 && enemy.position.y != -1) ? new Vector2(enemy.position.x, enemy.position.y) : new Vector2(tgtEncounter.position?.x ?? 0, tgtEncounter.position?.y ?? 0),
-                            level: enemy.level,
-                            hp: enemy.hp,
-                            id: enemy.id,
-                            heroId: enemy.heroId,
-                            leftArm: enemy.leftArm,
-                            rightArm: enemy.rightArm,
-                            head: enemy.head,
-                            legs: enemy.legs,
-                            isSolid: true,
-                        });
-                        if (tmp.hp) {
-                            this.mainScene.level.addChild(tmp);
-                        }
-                    }
-                }
-            })
-        }
-    }
+     
     private updateMissingOrNewHeroSprites() {
         let ids: number[] = [];
         for (const hero of this.otherHeroes) {
             let existingHero = this.mainScene.level?.children.find((x: any) => x.id === hero.id) as Character | undefined;
-            if (!storyFlags.flags.has("START_FIGHT") || this.partyMembers?.find(x => x.heroId === hero.id)) {
+            if (this.partyMembers?.find(x => x.heroId === hero.id)) {
                 if (existingHero) {
                     this.setUpdatedHeroPosition(existingHero, hero);
 
@@ -398,12 +340,7 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
                 else {
                     existingHero = this.addHeroToScene(hero);
                 }
-                for (let i = 0; i < hero.metabots.length; i++) {
-                    if (hero.metabots[i].isDeployed == true) {
-                        this.addBotToScene(hero, hero.metabots[i]);
-                        break;
-                    }
-                }
+             
                 this.setHeroLatestMessage(existingHero);
             }
             ids.push(hero.id);
@@ -433,8 +370,7 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
             position: initialPos,
             colorSwap: (hero.color ? new ColorSwap([0, 160, 200], hexToRgb(hero.color)) : undefined),
             speed: hero.speed,
-            mask: hero.mask ? new Mask(getMaskNameById(hero.mask)) : undefined,
-            metabots: hero.metabots,
+            mask: hero.mask ? new Mask(getMaskNameById(hero.mask)) : undefined, 
             forceDrawName: true,
         });
         tmpHero.lastPosition = tmpHero.position.duplicate();
@@ -449,42 +385,8 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
         //tmpHero.metabots?.forEach((bot: MetaBot) => { bot.colorSwap = tmpHero.colorSwap;  })
         this.mainScene.level?.addChild(tmpHero);
         return tmpHero;
-    }
-
-    private addBotToScene(metaHero: any, bot: MetaBot) {
-        if (this.mainScene.level?.children.some((x: any) => x.id === bot.id)) { return bot; }
-        if (metaHero && metaHero.metabots && metaHero.metabots.length > 0) {
-            let tgtBot = metaHero.metabots.find((x: any) => x.id === bot.id);
-            if (tgtBot) {
-                tgtBot.isDeployed = true;
-            }
-        }
-
-        const tmpBot = new Bot({
-            id: bot.id,
-            heroId: metaHero.id,
-            botType: bot.type,
-            name: bot.name ?? "Bot",
-            spriteName: "botFrame",
-            position: new Vector2(metaHero.position.x + gridCells(1), metaHero.position.y + gridCells(1)),
-            colorSwap: (metaHero.color ? new ColorSwap([0, 160, 200], hexToRgb(metaHero.color)) :
-                metaHero.colorSwap ? metaHero.colorSwap : undefined),
-            isDeployed: true,
-            isEnemy: true,
-            hp: bot.hp,
-            level: bot.level,
-            exp: bot.exp,
-            leftArm: bot.leftArm,
-            rightArm: bot.rightArm,
-            head: bot.head,
-            legs: bot.legs,
-            partyMembers: metaHero.id === this.metaHero.id ? this.partyMembers : undefined
-        });
-
-        this.mainScene.level?.addChild(tmpBot);
-        return tmpBot;
-    }
-
+    } 
+    
     private addItemToScene(item: MetaBotPart, location: Vector2) {
         const offsets = [
             new Vector2(-gridCells(1), 0),
@@ -572,14 +474,12 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
             position: spawnPos,
             isUserControlled: true,
             speed: rz.speed,
-            mask: rz.mask ? new Mask(getMaskNameById(rz.mask)) : undefined,
-            metabots: rz.metabots,
+            mask: rz.mask ? new Mask(getMaskNameById(rz.mask)) : undefined, 
         });
         this.metaHero = new MetaHero(this.hero.id, (this.hero.name ?? "Anon"),
             this.hero.position.duplicate(),
             rz.speed,
-            rz.map,
-            rz.metabots,
+            rz.map, 
             rz.color,
             rz.mask,
             rz.level ?? 1,
@@ -603,16 +503,7 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
             } else {
                 this.mainScene.setLevel(level);
             }
-        }
-
-        if (this.metaHero.metabots) {
-            for (let i = 0; i < this.metaHero.metabots.length; i++) {
-                if (this.metaHero.metabots[i].isDeployed == true) {
-                    this.addBotToScene(this.metaHero, this.metaHero.metabots[i]);
-                    break;
-                }
-            }
-        }
+        } 
 
         this.mainScene.camera.centerPositionOnTarget(this.metaHero.position);
         // Mark run as started when hero is fully initialized.
@@ -652,61 +543,14 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
         }
         await this.enderService.fetchInventoryData(this.metaHero.id).then(inventoryData => {
             if (inventoryData) {
-                const inventoryItems = inventoryData.inventory as InventoryItem[];
-                const metabotParts = inventoryData.parts as MetaBotPart[];
-                this.mainScene.inventory.partyMembers = this.partyMembers;
-                this.mainScene.inventory.parts = metabotParts;
-                for (let item of inventoryItems) {
-                    let invItem = {
-                        image: item.image,
-                        name: item.name,
-                        id: item.id,
-                        category: item.category,
-                    } as InventoryItem;
-                    if (item.category === "botFrame") {
-                        const bot = this.mainScene?.level?.children?.find((x: Bot) => x.heroId == this.metaHero.id && x.name === invItem.name);
-                        const metaBot = this.metaHero.metabots.find(bot => bot.name === invItem.name);
-                        if (bot && metaBot) {
-                            metaBot.hp = bot.hp;
-                            metaBot.level = bot.level;
-                            metaBot.isDeployed = bot.isDeployed;
-                            metaBot.exp = bot.exp;
-                            metaBot.colorSwap = bot.colorSwap;
-                        }
-
-                        invItem.stats = JSON.stringify(this.metaHero.metabots.find(bot => bot.name === invItem.name));
-                    }
-                    events.emit("INVENTORY_UPDATED", invItem);
-                }
+                const inventoryItems = inventoryData.inventory as InventoryItem[]; 
+                this.mainScene.inventory.partyMembers = this.partyMembers; 
             }
             if (!this.isShopMenuOpened && !skipParty) {
                 this.mainScene.inventory.renderParty();
             }
         });
-    }
-
-    reinitializeStartMenuData() {
-        for (let item of this.mainScene?.inventory?.items) {
-            let invItem = {
-                image: item.image,
-                name: item.name,
-                id: item.id,
-                category: item.category,
-            } as InventoryItem;
-            if (item.category === "botFrame") {
-                const bot = this.mainScene?.level?.children?.find((x: Bot) => x.heroId == this.metaHero.id && x.name === item.name);
-                const metaBot = this.metaHero.metabots.find(bot => bot.name === invItem.name);
-                if (bot && metaBot) {
-                    metaBot.hp = bot.hp;
-                    metaBot.level = bot.level;
-                    metaBot.isDeployed = bot.isDeployed;
-                    metaBot.exp = bot.exp;
-                }
-
-                item.stats = JSON.stringify(metaBot);
-            }
-        }
-    }
+    } 
 
     private getLevelFromLevelName(key: string): Level {
         const upperKey = key.toUpperCase();
