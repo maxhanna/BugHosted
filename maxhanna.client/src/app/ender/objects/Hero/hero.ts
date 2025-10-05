@@ -211,10 +211,7 @@ export class Hero extends Character {
         try {
           fire.destroy();
         } catch { }
-        try {
-          // Emit event so higher-level component can record death and force reload
-          events.emit("LOCAL_HERO_DIED", this);
-        } catch { }
+  // Death is now handled server-side; client only plays visuals.
         super.destroy();
       }, 1200);
     } else {

@@ -20,6 +20,7 @@ import { Character } from "../objects/character";
 import { generateReward, setTargetToDestroyed } from "./fight";
 import { WarpBase } from "../objects/Effects/Warp/warp-base";
 import { BikeWall } from "../objects/Environment/bike-wall";
+import { Fire } from "../objects/Effects/Fire/fire";
 
 
 export class Network {
@@ -346,23 +347,7 @@ export function subscribeToMainGameEvents(object: any) {
       object.enderService.createHero(object.parentRef.user.id, name);
     }
   });
-  // Listen for movement events to detect bikewall collisions for the local hero
-  events.on("CHARACTER_POSITION", object, async (char: any) => {
-    try {
-      // Only check local hero
-      if (char.id !== object.metaHero.id) return;
-      const level = object.mainScene.level;
-      if (!level) return;
-        // Use centralized level helper to detect nearby bike walls
-        const heroPos = char.position;
-        if (isNearBikeWall(level, heroPos, gridCells(1))) {
-          events.emit("HERO_DIED", char);
-          return;
-        }
-    } catch (e) {
-      console.error(e);
-    }
-  });
+  // CHARACTER_POSITION death check removed - backend now authoritatively detects deaths.
   events.on("STARTED_TYPING", object, () => {
     const metaEvent = new MetaEvent(0, object.metaHero.id, new Date(), "CHAT", object.metaHero.map, { "sender": object.metaHero.name ?? "Anon", "content": "..." });
     object.enderService.updateEvents(metaEvent);
@@ -534,14 +519,7 @@ export function subscribeToMainGameEvents(object: any) {
       const { x, y } = params;
       addBikeWallCell(x, y);
       const heroes = object.mainScene.level.children.filter((c: any) => c && c.constructor && c.constructor.name === 'Hero');
-      for (const h of heroes) {
-        if (!h.position) continue;
-        const dx = Math.abs(h.position.x - x);
-        const dy = Math.abs(h.position.y - y);
-        if (dx <= gridCells(1) && dy <= gridCells(1)) {
-          events.emit("HERO_DIED", h);
-        }
-      }
+  // Do not perform client-side death detection. Server is authoritative and will emit HERO_DIED events.
     } catch (e) {
       console.error("BIKEWALL_CREATED handler failed", e);
     }
