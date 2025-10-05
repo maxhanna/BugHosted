@@ -1970,11 +1970,11 @@ namespace maxhanna.Server.Controllers
                                 // reader must be closed before executing other commands
                                 rdr.Close();
 
-                                foreach (var victimId in toKill)
+                foreach (var victimId in toKill)
                                 {
                                     try
                                     {
-                                        await KillHeroById(victimId, connection, transaction);
+                    await KillHeroById(victimId, connection, transaction, metaEvent.HeroId);
                                         // optionally publish an event so clients can react immediately
                                         try
                                         {
@@ -2037,16 +2037,17 @@ namespace maxhanna.Server.Controllers
         }
 
         // Authoritative kill helper used by server-side checks (does not rely on client-supplied time/walls)
-        private async Task KillHeroById(int heroId, MySqlConnection connection, MySqlTransaction transaction)
+    private async Task KillHeroById(int heroId, MySqlConnection connection, MySqlTransaction transaction, int? killerHeroId = null)
         {
             try
             {
                 // fetch hero info for score & map
-                string selSql = @"SELECT user_id, created, map, level FROM maxhanna.ender_hero WHERE id = @HeroId LIMIT 1;";
+        string selSql = @"SELECT user_id, created, map, level, kills FROM maxhanna.ender_hero WHERE id = @HeroId LIMIT 1;";
                 int userId = 0;
                 DateTime? createdAt = null;
                 string map = "";
                 int heroLevel = 1;
+        int heroKills = 0;
                 using (var cmd = new MySqlCommand(selSql, connection, transaction))
                 {
                     cmd.Parameters.AddWithValue("@HeroId", heroId);
@@ -2058,6 +2059,7 @@ namespace maxhanna.Server.Controllers
                             createdAt = rdr.IsDBNull(rdr.GetOrdinal("created")) ? (DateTime?)null : Convert.ToDateTime(rdr["created"]).ToUniversalTime();
                             map = rdr.IsDBNull(rdr.GetOrdinal("map")) ? "" : rdr.GetString("map");
                             heroLevel = rdr.IsDBNull(rdr.GetOrdinal("level")) ? 1 : rdr.GetInt32("level");
+                heroKills = rdr.IsDBNull(rdr.GetOrdinal("kills")) ? 0 : rdr.GetInt32("kills");
                         }
                     }
                 }
@@ -2094,8 +2096,19 @@ namespace maxhanna.Server.Controllers
                     { "@TimeOnLevel", timeOnLevelSeconds },
                     { "@WallsPlaced", wallsPlaced },
                     { "@Level", heroLevel },
-                    { "@Kills", 0 }
+                    { "@Kills", heroKills }
                 }, connection, transaction);
+
+                // if a killer is provided, increment their kills counter on their active hero row
+                if (killerHeroId != null)
+                {
+                    try
+                    {
+                        string updateKillsSql = "UPDATE maxhanna.ender_hero SET kills = IFNULL(kills,0) + 1 WHERE id = @KillerId LIMIT 1;";
+                        await ExecuteInsertOrUpdateOrDeleteAsync(updateKillsSql, new Dictionary<string, object?>() { { "@KillerId", killerHeroId } }, connection, transaction);
+                    }
+                    catch { /* non-fatal */ }
+                }
 
                 // remove hero data
                 await ExecuteInsertOrUpdateOrDeleteAsync("DELETE FROM maxhanna.ender_hero_inventory WHERE ender_hero_id = @HeroId;", new Dictionary<string, object?>() { { "@HeroId", heroId } }, connection, transaction);
