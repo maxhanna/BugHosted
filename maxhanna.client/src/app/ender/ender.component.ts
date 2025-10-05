@@ -611,6 +611,10 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
         return this.chatInput.nativeElement.value;
     }
 
+    snapToGridFetch(vectorX: number) {
+        return snapToGrid(vectorX, gridCells(1));
+    }
+
     lockMovementForChat() {
         if (!this.hero?.isLocked) {
             console.log("lock movement for chat");

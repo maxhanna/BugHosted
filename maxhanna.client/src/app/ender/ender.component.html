@@ -96,8 +96,8 @@
       <div><strong>Kills:</strong> {{metaHero.kills ?? 0}}</div>
       <div><strong>Enemies:</strong> {{enemiesOnSameLevelCount ?? 0}}</div>
       <div><strong>Pos:</strong>
-        {{ snapToGrid(metaHero.position?.x || hero?.position?.x || 0) }},
-        {{ snapToGrid(metaHero.position?.y || hero?.position?.y || 0) }}</div>
+        {{ snapToGridFetch(metaHero.position?.x || hero?.position?.x || 0) }},
+        {{ snapToGridFetch(metaHero.position?.y || hero?.position?.y || 0) }}</div>
     </div>
 
     <input type="color" (change)='changeColor()' #colorInput class="colorInput" [value]="metaHero.color" />
