@@ -264,10 +264,21 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
             }
         }
 
-        this.updatePlayers();
+        // Debug: verify we attempt to call updatePlayers immediately after reinitialize
+        try {
+            console.debug('[Ender][DEBUG] about to call updatePlayers from pollForChanges, metaHero=', this.metaHero, 'metaHero.id=', this.metaHero?.id);
+            this.updatePlayers();
+        } catch (e) {
+            console.error('[Ender][ERROR] updatePlayers threw from pollForChanges immediate call', e);
+        }
         clearInterval(this.pollingInterval);
         this.pollingInterval = setInterval(async () => {
-            this.updatePlayers();
+            try {
+                console.debug('[Ender][DEBUG] interval calling updatePlayers');
+                this.updatePlayers();
+            } catch (e) {
+                console.error('[Ender][ERROR] updatePlayers threw in interval', e);
+            }
         }, this.pollSeconds * 1000);
     }
 
