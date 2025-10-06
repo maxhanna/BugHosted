@@ -631,7 +631,7 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
         const upperKey = key.toUpperCase();
         const itemsFoundNames = this.mainScene?.inventory.getItemsFound();
 
-        if (upperKey == "HEROROOM" || upperKey == "DEFAULT") 
+        if (upperKey == "HERO_ROOM" || upperKey == "HEROROOM" || upperKey == "DEFAULT") 
             return new HeroRoomLevel({ itemsFound: itemsFoundNames, heroLevel: level, heroPosition: heroPosition });
 
         return new HeroRoomLevel();
