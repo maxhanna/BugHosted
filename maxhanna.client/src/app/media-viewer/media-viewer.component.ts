@@ -44,13 +44,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
   isEditingFileName = false;
   editingTopics: number[] = [];
   isVideoBuffering = false;
-  debug = false;
   private inViewConfirmTimer: any = null;
-  // Enhanced lazy load controls
-  @Input() requireCenterViewport: boolean = false; // Only load when element's vertical center is within configured ratios
-  @Input() viewportCenterTopRatio: number = 0.15; // 15% from top
-  @Input() viewportCenterBottomRatio: number = 0.85; // 85% from top
-
   private pendingDelayedInView: boolean = false;
 
   @ViewChild('mediaContainer', { static: false }) mediaContainer!: ElementRef;
@@ -61,6 +55,11 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
   @ViewChild('editFileNameInput', { static: false }) editFileNameInput!: ElementRef;
   @ViewChild(TopicsComponent) topicComponent!: TopicsComponent;
 
+  // Enhanced lazy load controls
+  @Input() requireCenterViewport: boolean = true; // Only load when element's vertical center is within configured ratios
+  @Input() viewportCenterTopRatio: number = 0.15; // 15% from top
+  @Input() viewportCenterBottomRatio: number = 0.85; // 85% from top
+  @Input() debug = false;
   @Input() displayExpander: boolean = true;
   @Input() displayExtraInfo: boolean = true;
   @Input() blockExpand: boolean = false;
