@@ -1122,7 +1122,8 @@ namespace maxhanna.Server.Controllers
                 WHERE level = @Level;";
 
             MySqlCommand cmd = new MySqlCommand(sql, connection, transaction);
-            // level parameter intentionally removed; keep for API compatibility
+            // bind level parameter
+            cmd.Parameters.AddWithValue("@Level", level);
 
             List<MetaEvent> events = new List<MetaEvent>();
             try
