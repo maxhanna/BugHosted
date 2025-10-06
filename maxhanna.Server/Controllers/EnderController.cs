@@ -1179,7 +1179,7 @@ namespace maxhanna.Server.Controllers
             string sql = $@"
         SELECT 
             h.id as hero_id, h.coordsX, h.coordsY, h.map, h.speed, h.name as hero_name, h.color as hero_color, h.mask as hero_mask,
-                h.level as hero_level, h.kills as hero_kills
+                h.level as hero_level, h.kills as hero_kills, h.created
         FROM 
             maxhanna.ender_hero h
         WHERE 
