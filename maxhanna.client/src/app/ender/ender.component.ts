@@ -292,13 +292,7 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
             this.pendingWallsBatch = [];
             if (this.hero && this.metaHero) {
                 this.metaHero.position = this.hero?.position.duplicate();
-            }
-
-            // Debug: log positions being sent to server
-            try {
-                // eslint-disable-next-line no-console
-                console.debug('[Ender] sending hero positions -> hero:', this.hero?.position, 'metaHero:', this.metaHero?.position);
-            } catch { }
+            } 
 
             this.enderService.fetchGameDataWithWalls(this.metaHero, pendingWalls, this.lastKnownWallId).then((res: any) => {
                 console.debug('[Ender][DEBUG] fetchGameDataWithWalls response', res);
@@ -379,7 +373,8 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
     private updateMissingOrNewHeroSprites() {
         console.debug('[Ender][DEBUG] updateMissingOrNewHeroSprites entry, mainScene.level=', this.mainScene.level?.name, 'childrenCount=', this.mainScene.level?.children?.length);
         let ids: number[] = [];
-        for (const hero of this.otherHeroes) {
+        const heroesToCheck = this.otherHeroes.concat(this.metaHero);
+        for (const hero of heroesToCheck) {
             let existingHero = this.mainScene.level?.children.find((x: any) => x.id === hero.id) as Character | undefined;
             // Always update existing hero position if present, otherwise add the hero to the scene.
             if (existingHero) {
