@@ -501,10 +501,7 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
         this.mainScene.level.addChild(this.currentChatTextbox);
     }
 
-    private async reinitializeHero(rz: MetaHero, skipDataFetch?: boolean) {
-        // Use the server-provided position. The server (CreateHero) is responsible for
-        // any randomization or avoidance of bike-walls; if the server didn't provide
-        // a position, fall back to a safe default.
+    private async reinitializeHero(rz: MetaHero, skipDataFetch?: boolean) { 
         let spawnPos: Vector2;
         if (rz && rz.position) {
             spawnPos = new Vector2(rz.position.x, rz.position.y);
@@ -537,7 +534,6 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
         storyFlags.flags = new Map<string, boolean>();
 
         if (!!skipDataFetch == false) {
-            //console.log("initialize inv after reinitializeHero");
             await this.reinitializeInventoryData(true);
         }
         const heroLevel = rz.level ?? 1;
@@ -552,8 +548,11 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
         }
 
         this.mainScene.camera.centerPositionOnTarget(this.metaHero.position);
-        // Mark run as started when hero is fully initialized.
-        // If the server-provided hero has a creation timestamp, derive the run start from it so server-side time matches client.
+        this.recomputeGameTimer(rz);
+        this.updateEnemiesOnSameLevelCount();
+    }
+
+    private recomputeGameTimer(rz: MetaHero) {
         if (!this.runStartTimeMs) {
             const createdVal = rz.created ?? undefined;
             if (createdVal) {
@@ -571,8 +570,6 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
         }
         this.runElapsedSeconds = 0;
         this.startRunTimer();
-        // Recompute enemy count now that the local player's level may have changed
-        this.updateEnemiesOnSameLevelCount();
     }
 
     // Recomputes the number of other heroes who are on the same level as the local player.
@@ -633,7 +630,7 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
         const upperKey = key.toUpperCase();
         const itemsFoundNames = this.mainScene?.inventory.getItemsFound();
 
-        if (upperKey == "HEROROOM") return new HeroRoomLevel({ itemsFound: itemsFoundNames });
+        if (upperKey == "HEROROOM" || upperKey == "DEFAULT") return new HeroRoomLevel({ itemsFound: itemsFoundNames });
 
         return new HeroRoomLevel();
     }
