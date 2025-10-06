@@ -54,11 +54,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
   @ViewChild('fullscreenAudio', { static: false }) fullscreenAudio!: ElementRef;
   @ViewChild('editFileNameInput', { static: false }) editFileNameInput!: ElementRef;
   @ViewChild(TopicsComponent) topicComponent!: TopicsComponent;
-
-  // Enhanced lazy load controls
-  @Input() requireCenterViewport: boolean = true; // Only load when element's vertical center is within configured ratios
-  @Input() viewportCenterTopRatio: number = 0.15; // 15% from top
-  @Input() viewportCenterBottomRatio: number = 0.85; // 85% from top
+ 
   @Input() debug = false;
   @Input() displayExpander: boolean = true;
   @Input() displayExtraInfo: boolean = true;
@@ -160,18 +156,6 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
     if (!this.forceInviewLoad || isInView) {
       if (this.selectedFileSrc) return;
 
-      // Optional: require element's center to be within a central band to count as in-view
-      if (isInView && this.requireCenterViewport && this.mediaContainer?.nativeElement) {
-        const rect = (this.mediaContainer.nativeElement as HTMLElement).getBoundingClientRect();
-        const centerY = rect.top + rect.height / 2;
-        const topBoundary = window.innerHeight * this.viewportCenterTopRatio;
-        const bottomBoundary = window.innerHeight * this.viewportCenterBottomRatio;
-        if (centerY < topBoundary || centerY > bottomBoundary) {
-          this.debugLog('onInView center gating skipped', { centerY, topBoundary, bottomBoundary });
-          return; // Wait until it scrolls into the central band
-        }
-      }
-
       if (this.inViewConfirmDelayMs && this.inViewConfirmDelayMs > 0) {
         if (this.pendingDelayedInView) return; // already scheduled
         this.pendingDelayedInView = true;
@@ -183,13 +167,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
           let stillVisible = true;
             if (el) {
               const r = el.getBoundingClientRect();
-              stillVisible = r.top < window.innerHeight && r.bottom > 0;
-              if (stillVisible && this.requireCenterViewport) {
-                const centerY2 = r.top + r.height / 2;
-                const topB = window.innerHeight * this.viewportCenterTopRatio;
-                const bottomB = window.innerHeight * this.viewportCenterBottomRatio;
-                if (centerY2 < topB || centerY2 > bottomB) stillVisible = false;
-              }
+              stillVisible = r.top < window.innerHeight && r.bottom > 0; 
             }
           if (!stillVisible) {
             this.debugLog('onInView delayed check aborted (no longer visible or center not satisfied)');
