@@ -57,6 +57,7 @@
   overflow: hidden;
   background-color: var(--component-background-color);
   margin-top: 5px;
+  min-height: 100px;
 }
 
 .storyText {
