@@ -560,7 +560,18 @@ namespace maxhanna.Server.Controllers
                         }
 
                         var allSpots = Enumerable.Range(0, mapSize).SelectMany(x => Enumerable.Range(0, mapSize).Select(y => (X: x, Y: y))).ToList();
-                        var availableSpots = allSpots.Where(s => !occupiedSpots.Contains((s.X, s.Y)) && !bikeWallSpots.Contains((s.X, s.Y))).ToList();
+
+                        // Exclude any spot that is within 1 grid cell (neighbors) of an occupied hero or bike wall.
+                        // This prevents spawning on X, X-1, X+1 and Y, Y-1, Y+1 around occupied locations.
+                        var availableSpots = allSpots.Where(s =>
+                            // not exactly occupied
+                            !occupiedSpots.Contains((s.X, s.Y))
+                            && !bikeWallSpots.Contains((s.X, s.Y))
+                            // and not within one cell of any occupied hero
+                            && !occupiedSpots.Any(o => Math.Abs(o.X - s.X) <= 1 && Math.Abs(o.Y - s.Y) <= 1)
+                            // and not within one cell of any bike wall
+                            && !bikeWallSpots.Any(b => Math.Abs(b.X - s.X) <= 1 && Math.Abs(b.Y - s.Y) <= 1)
+                        ).ToList();
 
                         int posX = 1 * 16;
                         int posY = 11 * 16;
