@@ -1156,7 +1156,7 @@ namespace maxhanna.Server.Controllers
 
             return events;
         }
-        private async Task<MetaHero?> GetHeroData(int userId, int? heroId, MySqlConnection conn, MySqlTransaction transaction)
+        private async Task<MetaHero?> GetHeroData(int userId, MySqlConnection conn, MySqlTransaction transaction)
         {
             // Ensure the connection is open
             if (conn.State != System.Data.ConnectionState.Open)
@@ -1170,7 +1170,7 @@ namespace maxhanna.Server.Controllers
                 throw new InvalidOperationException("Transaction is required for this operation.");
             }
 
-            if (userId == 0 && heroId == null)
+            if (userId == 0)
             {
                 return null;
             }
@@ -1183,11 +1183,10 @@ namespace maxhanna.Server.Controllers
         FROM 
             maxhanna.ender_hero h
         WHERE 
-            {(heroId == null ? "h.user_id = @UserId" : "h.id = @UserId")}
-        ;";
+            user_id = @UserId;";
 
             MySqlCommand cmd = new MySqlCommand(sql, conn, transaction);
-            cmd.Parameters.AddWithValue("@UserId", heroId != null ? heroId : userId);
+            cmd.Parameters.AddWithValue("@UserId", userId);
 
             MetaHero? hero = null;
 
