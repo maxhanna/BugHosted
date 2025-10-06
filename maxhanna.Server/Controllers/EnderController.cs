@@ -1767,7 +1767,7 @@ namespace maxhanna.Server.Controllers
                     try
                     {
                         int userId = await GetUserIdByHeroId(heroId, connection, transaction);
-                        var hero = await GetHeroData(0, connection, transaction);
+                        var hero = await GetHeroData(userId, connection, transaction);
                         if (hero == null)
                         {
                             await transaction.RollbackAsync();
