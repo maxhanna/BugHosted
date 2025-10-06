@@ -503,6 +503,7 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
 
     private async reinitializeHero(rz: MetaHero, skipDataFetch?: boolean) { 
         let spawnPos: Vector2;
+        const map = rz.map == "default" ? "HeroRoom" : rz.map;
         if (rz && rz.position) {
             spawnPos = new Vector2(rz.position.x, rz.position.y);
         } else {
@@ -521,7 +522,7 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
         this.metaHero = new MetaHero(this.hero.id, (this.hero.name ?? "Anon"),
             this.hero.position.duplicate(),
             rz.speed,
-            rz.map,
+            map,
             colorSwap,
             rz.mask,
             rz.level ?? 1,
