@@ -360,12 +360,13 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
         let ids: number[] = [];
         for (const hero of this.otherHeroes) {
             let existingHero = this.mainScene.level?.children.find((x: any) => x.id === hero.id) as Character | undefined;
-            if (this.partyMembers?.find(x => x.heroId === hero.id)) {
-                if (existingHero) {
-                    this.setUpdatedHeroPosition(existingHero, hero); 
-                    existingHero.destroy();
-                } 
+            // Always update existing hero position if present, otherwise add the hero to the scene.
+            if (existingHero) {
+                this.setUpdatedHeroPosition(existingHero, hero);
+            } else {
                 existingHero = this.addHeroToScene(hero);
+            }
+            if (existingHero) {
                 this.setHeroLatestMessage(existingHero);
             }
             ids.push(hero.id);
