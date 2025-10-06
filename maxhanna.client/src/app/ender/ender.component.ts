@@ -538,7 +538,7 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
             await this.reinitializeInventoryData(true);
         }
         const heroLevel = rz.level ?? 1;
-        const level = this.getLevelFromLevelName(rz.map, rz.level, this.hero.position.duplicate());
+        const level = this.getLevelFromLevelName(map, rz.level, this.hero.position.duplicate());
         if (level) {
             // if it's a HeroRoomLevel, pass heroPosition and heroLevel when constructing
             if (level instanceof HeroRoomLevel) {
