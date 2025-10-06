@@ -300,9 +300,8 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
                     // apply server-provided kills to local hero
                     if (res.heroKills !== undefined && this.metaHero) {
                         this.metaHero.kills = Number(res.heroKills) || 0;
-                    }
+                    } 
                     this.updateOtherHeroesBasedOnFetchedData(res);
-                    this.updateMissingOrNewHeroSprites();
 
                     // Persisted bike walls for this map - use in-memory Set to avoid scanning level.children repeatedly
                     const walls = Array.isArray(res.walls) ? (res.walls as MetaBikeWall[]) : undefined;
@@ -353,7 +352,8 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
                 return h as MetaHero;
             }
         });
-        this.updateEnemiesOnSameLevelCount();
+        this.updateEnemiesOnSameLevelCount(); 
+        this.updateMissingOrNewHeroSprites();
     }
 
     private updateMissingOrNewHeroSprites() {
@@ -362,28 +362,10 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
             let existingHero = this.mainScene.level?.children.find((x: any) => x.id === hero.id) as Character | undefined;
             if (this.partyMembers?.find(x => x.heroId === hero.id)) {
                 if (existingHero) {
-                    this.setUpdatedHeroPosition(existingHero, hero);
-
-                    if (hero.mask === 0 && existingHero.mask) {
-                        //remove mask
-                        existingHero.destroy();
-                        this.addHeroToScene(hero);
-                    }
-                    else if (hero.mask && hero.mask != 0 && !existingHero.mask) {
-                        //put on mask
-                        existingHero.destroy();
-                        this.addHeroToScene(hero);
-                    }
-                    else if (hero.mask && hero.mask != 0 && existingHero.mask && getMaskNameById(hero.mask).toLowerCase() != existingHero.mask.name?.toLowerCase()) {
-                        //put on mask
-                        existingHero.destroy();
-                        this.addHeroToScene(hero);
-                    }
-                }
-                else {
-                    existingHero = this.addHeroToScene(hero);
-                }
-
+                    this.setUpdatedHeroPosition(existingHero, hero); 
+                    existingHero.destroy();
+                } 
+                existingHero = this.addHeroToScene(hero);
                 this.setHeroLatestMessage(existingHero);
             }
             ids.push(hero.id);
