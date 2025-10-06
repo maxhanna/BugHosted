@@ -538,7 +538,7 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
             await this.reinitializeInventoryData(true);
         }
         const heroLevel = rz.level ?? 1;
-        const level = this.getLevelFromLevelName(rz.map, rz.level);
+        const level = this.getLevelFromLevelName(rz.map, rz.level, this.hero.position.duplicate());
         if (level) {
             // if it's a HeroRoomLevel, pass heroPosition and heroLevel when constructing
             if (level instanceof HeroRoomLevel) {
@@ -627,12 +627,12 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
         });
     }
 
-    private getLevelFromLevelName(key: string, level: number): Level {
+    private getLevelFromLevelName(key: string, level: number, heroPosition: Vector2): Level {
         const upperKey = key.toUpperCase();
         const itemsFoundNames = this.mainScene?.inventory.getItemsFound();
 
         if (upperKey == "HEROROOM" || upperKey == "DEFAULT") 
-            return new HeroRoomLevel({ itemsFound: itemsFoundNames, heroLevel: level });
+            return new HeroRoomLevel({ itemsFound: itemsFoundNames, heroLevel: level, heroPosition });
 
         return new HeroRoomLevel();
     }
