@@ -216,8 +216,10 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
     gameLoop = new GameLoop(this.update, this.render);
 
     async pollForChanges() {
+        console.log("polling...")
         if (!this.hero?.id && this.parentRef?.user?.id) {
             const rz = await this.enderService.getHero(this.parentRef.user.id);
+            console.log("get hero returned", rz);
             if (rz) {
                 this.partyMembers = await this.enderService.getPartyMembers(rz.id) ?? [];
                 this.mainScene.partyMembers = this.partyMembers;
@@ -240,6 +242,7 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
                     }
                     this.wallsPlacedThisRun = myWallsCount;
                 }
+                console.log("found hero", rz);
             } else {
                 // attempt to load persisted last character name and pass it into the CharacterCreate level
                 // Use cached defaults if we fetched them earlier, otherwise fetch now
@@ -254,6 +257,7 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
                         this.mainScene.setLevel(new CharacterCreate());
                     });
                 }
+                console.log("did not find hero, character create level started");
                 return;
             }
         }
