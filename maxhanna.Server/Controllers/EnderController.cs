@@ -48,6 +48,16 @@ namespace maxhanna.Server.Controllers
             _connectionString = config.GetValue<string>("ConnectionStrings:maxhanna") ?? "";
         }
 
+        // Helper to centralize error logging with stack traces
+        private async Task LogError(string context, Exception ex, int? relatedId = null)
+        {
+            try
+            {
+                await _log.Db($"{context}: {ex.ToString()}", relatedId, "ENDER", true);
+            }
+            catch { }
+        }
+
         [HttpPost("/Ender", Name = "Ender_GetHero")]
         public async Task<IActionResult> GetHero([FromBody] int userId)
         {
@@ -84,6 +94,16 @@ namespace maxhanna.Server.Controllers
                     {
                         // payload contains strongly-typed hero and optional pendingWalls
                         MetaHero? hero = payload?.hero;
+
+                        // Debug: log incoming hero id/position
+                        try
+                        {
+                            if (hero != null)
+                            {
+                                _ = _log.Db($"/Ender/FetchGameData incoming hero id={hero.Id} pos=({hero.Position?.x},{hero.Position?.y})", hero.Id, "ENDER", false);
+                            }
+                        }
+                        catch { }
 
                         if (payload?.pendingWalls != null && payload.pendingWalls.Count > 0 && hero != null)
                         {
@@ -199,6 +219,7 @@ namespace maxhanna.Server.Controllers
                 {
                     try
                     {
+                        await _log.Db($"Enter FetchInventoryData heroId={heroId}", heroId, "ENDER", false);
                         MetaInventoryItem[]? inventory = await GetInventoryFromDB(heroId, connection, transaction);
                         await transaction.CommitAsync();
                         return Ok(new
@@ -209,6 +230,7 @@ namespace maxhanna.Server.Controllers
                     catch (Exception ex)
                     {
                         await transaction.RollbackAsync();
+                        await LogError($"FetchInventoryData failed for heroId={heroId}", ex, heroId);
                         return StatusCode(500, "Internal server error: " + ex.Message);
                     }
                 }
@@ -225,6 +247,8 @@ namespace maxhanna.Server.Controllers
                 {
                     try
                     {
+                        await _log.Db($"Enter UpdateEvents event={metaEvent?.EventType} heroId={metaEvent?.HeroId}", metaEvent?.HeroId, "ENDER", false);
+                        if (metaEvent == null) throw new ArgumentNullException(nameof(metaEvent));
                         await UpdateEventsInDB(metaEvent, connection, transaction);
                         await PerformEventChecks(metaEvent, connection, transaction);
 
@@ -234,6 +258,7 @@ namespace maxhanna.Server.Controllers
                     catch (Exception ex)
                     {
                         await transaction.RollbackAsync();
+                        await LogError("UpdateEvents failed", ex, metaEvent?.HeroId);
                         return StatusCode(500, "Internal server error: " + ex.Message);
                     }
                 }
@@ -250,20 +275,23 @@ namespace maxhanna.Server.Controllers
                 {
                     try
                     {
-                        string sql = @"DELETE FROM maxhanna.ender_event WHERE id = @EventId LIMIT 1;";
-                        Dictionary<string, object?> parameters = new Dictionary<string, object?>
-                                                {
-                                                        { "@EventId", req.EventId },
-                                                };
-                        await this.ExecuteInsertOrUpdateOrDeleteAsync(sql, parameters, connection, transaction);
-                        await transaction.CommitAsync();
+            if (req == null) throw new ArgumentNullException(nameof(req));
+            await _log.Db($"Enter DeleteEvent id={req.EventId}", null, "ENDER", false);
+            string sql = @"DELETE FROM maxhanna.ender_event WHERE id = @EventId LIMIT 1;";
+            Dictionary<string, object?> parameters = new Dictionary<string, object?>
+                        {
+                            { "@EventId", req.EventId },
+                        };
+            await this.ExecuteInsertOrUpdateOrDeleteAsync(sql, parameters, connection, transaction);
+            await transaction.CommitAsync();
 
-                        return Ok();
+            return Ok();
                     }
                     catch (Exception ex)
                     {
-                        await transaction.RollbackAsync();
-                        return StatusCode(500, "Internal server error: " + ex.Message);
+            await transaction.RollbackAsync();
+            await LogError($"DeleteEvent failed id={req?.EventId}", ex);
+            return StatusCode(500, "Internal server error: " + ex.Message);
                     }
                 }
             }
@@ -281,6 +309,7 @@ namespace maxhanna.Server.Controllers
                     {
                         try
                         {
+                            await _log.Db($"Enter UpdateInventory heroId={request.HeroId} name={request.Name}", request.HeroId, "ENDER", false);
                             await UpdateInventoryInDB(request, connection, transaction);
                             await transaction.CommitAsync();
 
@@ -289,6 +318,7 @@ namespace maxhanna.Server.Controllers
                         catch (Exception ex)
                         {
                             await transaction.RollbackAsync();
+                            await LogError($"UpdateInventory failed for heroId={request.HeroId}", ex, request.HeroId);
                             return StatusCode(500, "Internal server error: " + ex.Message);
                         }
                     }
@@ -307,8 +337,10 @@ namespace maxhanna.Server.Controllers
                 {
                     try
                     {
+                        await _log.Db($"Enter HeroDied heroId={req?.HeroId} userId={req?.UserId}", req?.HeroId, "ENDER", false);
                         // Validate walls server-side if RunStartMs provided; recompute authoritative score = time + walls*10
                         // Compute authoritative time-on-level from the hero's creation time (server-side) and validate walls since then
+                        if (req == null) throw new ArgumentNullException(nameof(req));
                         int validatedWalls = req.WallsPlaced;
                         int timeOnLevelSeconds = req.TimeOnLevel;
                         DateTime? heroCreatedAt = null;
@@ -571,6 +603,7 @@ namespace maxhanna.Server.Controllers
                         hero.Map = "HeroRoom";
                         hero.Name = req.Name ?? "Anonymous";
                         hero.Color = req.Color ?? "#00a0c8";
+                        hero.Created = DateTime.UtcNow; 
                         return Ok(hero);
                     }
                     catch (Exception ex)
@@ -932,6 +965,10 @@ namespace maxhanna.Server.Controllers
  
         private async Task<MetaHero> UpdateHeroInDB(MetaHero hero, MySqlConnection connection, MySqlTransaction transaction)
         {
+            if (hero == null) throw new ArgumentNullException(nameof(hero));
+            if (hero.Position == null) hero.Position = new Vector2(0, 0);
+            int heroId = hero.Id;
+            await _log.Db($"Enter UpdateHeroInDB heroId={heroId}", heroId, "ENDER", false);
             string sql = @"UPDATE maxhanna.ender_hero 
                             SET coordsX = @CoordsX, 
                                 coordsY = @CoordsY, 
@@ -953,48 +990,58 @@ namespace maxhanna.Server.Controllers
                                 { "@Level", hero.Level },
                                 { "@HeroId", hero.Id }
                         };
-            await this.ExecuteInsertOrUpdateOrDeleteAsync(sql, parameters, connection, transaction);
+            try
+            {
+                await this.ExecuteInsertOrUpdateOrDeleteAsync(sql, parameters, connection, transaction);
+            }
+            catch (Exception ex)
+            {
+                await LogError($"ExecuteUpdate failed for heroId={hero?.Id}", ex, hero?.Id);
+                throw;
+            }
 
             try
             {
-                // attempt to read hero.created timestamp to compute elapsed seconds on level
-                string createdSql = @"SELECT created FROM maxhanna.ender_hero WHERE id = @HeroId LIMIT 1;";
-                using (var cmd = new MySqlCommand(createdSql, connection, transaction))
+                // Read created timestamp and kills in one query so we only hit the DB once
+                string combinedSql = @"SELECT created, IFNULL(kills,0) AS kills FROM maxhanna.ender_hero WHERE id = @HeroId LIMIT 1;";
+                using (var cmd = new MySqlCommand(combinedSql, connection, transaction))
                 {
-                    cmd.Parameters.AddWithValue("@HeroId", hero.Id);
-                    var obj = await cmd.ExecuteScalarAsync();
-                    if (obj != null && obj != DBNull.Value)
+                    cmd.Parameters.AddWithValue("@HeroId", heroId);
+                    using (var rdr = await cmd.ExecuteReaderAsync())
                     {
-                        DateTime created = Convert.ToDateTime(obj).ToUniversalTime();
-                        hero.TimeOnLevelSeconds = Math.Max(0, (int)Math.Floor((DateTime.UtcNow - created).TotalSeconds));
+                        if (await rdr.ReadAsync())
+                        {
+                            try
+                            {
+                                if (!rdr.IsDBNull(rdr.GetOrdinal("created")))
+                                {
+                                    DateTime created = Convert.ToDateTime(rdr["created"]).ToUniversalTime();
+                                    hero.TimeOnLevelSeconds = Math.Max(0, (int)Math.Floor((DateTime.UtcNow - created).TotalSeconds));
+                                }
+                            }
+                            catch (Exception exInner)
+                            {
+                                await LogError("Failed to parse created timestamp from combined query", exInner, heroId);
+                            }
+
+                            try
+                            {
+                                hero.Kills = rdr.IsDBNull(rdr.GetOrdinal("kills")) ? 0 : Convert.ToInt32(rdr["kills"]);
+                            }
+                            catch (Exception exInner)
+                            {
+                                await LogError("Failed to parse kills from combined query", exInner, heroId);
+                            }
+                        }
                     }
                 }
             }
             catch (Exception ex)
             {
-                _ = _log.Db("Failed to compute TimeOnLevelSeconds: " + ex.Message, null, "ENDER", true);
+                await LogError("Failed to read created and kills for hero", ex, heroId);
             }
 
-            // Read current kills for this hero so the client HUD is up-to-date
-            try
-            {
-                string killsSql = @"SELECT IFNULL(kills,0) FROM maxhanna.ender_hero WHERE id = @HeroId LIMIT 1;";
-                using (var cmd = new MySqlCommand(killsSql, connection, transaction))
-                {
-                    cmd.Parameters.AddWithValue("@HeroId", hero.Id);
-                    var obj = await cmd.ExecuteScalarAsync();
-                    if (obj != null && obj != DBNull.Value)
-                    {
-                        hero.Kills = Convert.ToInt32(obj);
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                _ = _log.Db("Failed to read hero kills: " + ex.Message, null, "ENDER", true);
-            }
-
-            return hero;
+            return hero!;
         }
          
         private async Task UpdateEventsInDB(MetaEvent @event, MySqlConnection connection, MySqlTransaction transaction)
@@ -1060,27 +1107,40 @@ namespace maxhanna.Server.Controllers
                 DELETE FROM maxhanna.ender_event WHERE timestamp < UTC_TIMESTAMP() - INTERVAL 20 SECOND;
 
                 SELECT *
-                FROM maxhanna.ender_event 
-                WHERE level = @Level;";
+                FROM maxhanna.ender_event;";
 
             MySqlCommand cmd = new MySqlCommand(sql, connection, transaction);
-            cmd.Parameters.AddWithValue("@Level", level);
+            // level parameter intentionally removed; keep for API compatibility
 
             List<MetaEvent> events = new List<MetaEvent>();
-            using (var reader = await cmd.ExecuteReaderAsync())
+            try
             {
-                while (reader.Read())
+                using (var reader = await cmd.ExecuteReaderAsync())
                 {
-                    MetaEvent tmpEvent = new MetaEvent(
-                            Convert.ToInt32(reader["id"]),
-                            Convert.ToInt32(reader["hero_id"]),
-                            Convert.ToDateTime(reader["timestamp"]),
-                            Convert.ToString(reader["event"]) ?? "",
-                            Convert.ToInt32(reader["level"]),
-                            Newtonsoft.Json.JsonConvert.DeserializeObject<Dictionary<string, string>>(reader.GetString("data")) ?? new Dictionary<string, string>()
-                    );
-                    events.Add(tmpEvent);
+                    while (reader.Read())
+                    {
+                        try
+                        {
+                            MetaEvent tmpEvent = new MetaEvent(
+                                    Convert.ToInt32(reader["id"]),
+                                    Convert.ToInt32(reader["hero_id"]),
+                                    Convert.ToDateTime(reader["timestamp"]),
+                                    Convert.ToString(reader["event"]) ?? "",
+                                    Convert.ToInt32(reader["level"]),
+                                    Newtonsoft.Json.JsonConvert.DeserializeObject<Dictionary<string, string>>(reader.GetString("data")) ?? new Dictionary<string, string>()
+                            );
+                            events.Add(tmpEvent);
+                        }
+                        catch (Exception ex)
+                        {
+                            await LogError("Failed to parse event row", ex);
+                        }
+                    }
                 }
+            }
+            catch (Exception ex)
+            {
+                await LogError("GetEventsFromDb query failed", ex);
             }
 
             return events;
@@ -1120,27 +1180,42 @@ namespace maxhanna.Server.Controllers
 
             MetaHero? hero = null;
 
-            using (var reader = await cmd.ExecuteReaderAsync())
+            try
             {
-                while (reader.Read())
+                using (var reader = await cmd.ExecuteReaderAsync())
                 {
-                    // Initialize hero if it hasn't been done yet
-                    if (hero == null)
+                    while (reader.Read())
                     {
-                        hero = new MetaHero
+                        // Initialize hero if it hasn't been done yet
+                        if (hero == null)
                         {
-                            Id = Convert.ToInt32(reader["hero_id"]),
-                            Position = new Vector2(Convert.ToInt32(reader["coordsX"]), Convert.ToInt32(reader["coordsY"])),
-                            Speed = Convert.ToInt32(reader["speed"]),
-                            Map = Convert.ToString(reader["map"]) ?? "",
-                            Name = Convert.ToString(reader["hero_name"]),
-                            Color = Convert.ToString(reader["hero_color"]) ?? "",
-                            Mask = reader.IsDBNull(reader.GetOrdinal("hero_mask")) ? null : Convert.ToInt32(reader["hero_mask"]),
-                            Level = reader.IsDBNull(reader.GetOrdinal("hero_level")) ? 1 : Convert.ToInt32(reader["hero_level"]),
-                            Kills = reader.IsDBNull(reader.GetOrdinal("hero_kills")) ? 0 : Convert.ToInt32(reader["hero_kills"]),
-                        };
+                            try
+                            {
+                                hero = new MetaHero
+                                {
+                                    Id = Convert.ToInt32(reader["hero_id"]),
+                                    Position = new Vector2(Convert.ToInt32(reader["coordsX"]), Convert.ToInt32(reader["coordsY"])),
+                                    Speed = Convert.ToInt32(reader["speed"]),
+                                    Map = Convert.ToString(reader["map"]) ?? "",
+                                    Name = Convert.ToString(reader["hero_name"]),
+                                    Color = Convert.ToString(reader["hero_color"]) ?? "",
+                                    Mask = reader.IsDBNull(reader.GetOrdinal("hero_mask")) ? null : Convert.ToInt32(reader["hero_mask"]),
+                                    Level = reader.IsDBNull(reader.GetOrdinal("hero_level")) ? 1 : Convert.ToInt32(reader["hero_level"]),
+                                    Kills = reader.IsDBNull(reader.GetOrdinal("hero_kills")) ? 0 : Convert.ToInt32(reader["hero_kills"]),
+                                    Created = reader.IsDBNull(reader.GetOrdinal("created")) ? (DateTime?)null : Convert.ToDateTime(reader["created"]),
+                                };
+                            }
+                            catch (Exception ex)
+                            {
+                                await LogError("Failed to read hero row in GetHeroData", ex);
+                            }
+                        }
                     }
                 }
+            }
+            catch (Exception ex)
+            {
+                await LogError("GetHeroData query failed", ex, userId == 0 && heroId != null ? heroId : userId);
             }
 
             return hero;
@@ -1230,30 +1305,45 @@ namespace maxhanna.Server.Controllers
             MySqlCommand cmd = new MySqlCommand(sql, conn, transaction);
             cmd.Parameters.AddWithValue("@HeroMapId", hero.Map);
 
-            using (var reader = await cmd.ExecuteReaderAsync())
+            try
             {
-                while (await reader.ReadAsync())
+                using (var reader = await cmd.ExecuteReaderAsync())
                 {
-                    int heroId = Convert.ToInt32(reader["hero_id"]);
-
-                    // Check if the hero already exists in the dictionary
-                    if (!heroesDict.TryGetValue(heroId, out MetaHero? tmpHero))
+                    while (await reader.ReadAsync())
                     {
-                        // Create a new hero if not already in the dictionary
-                        tmpHero = new MetaHero
+                        try
                         {
-                            Id = heroId,
-                            Name = Convert.ToString(reader["hero_name"]),
-                            Map = Convert.ToString(reader["hero_map"]) ?? "",
-                            Color = Convert.ToString(reader["color"]) ?? "",
-                            Mask = reader.IsDBNull(reader.GetOrdinal("mask")) ? null : Convert.ToInt32(reader["mask"]),
-                            Position = new Vector2(Convert.ToInt32(reader["coordsX"]), Convert.ToInt32(reader["coordsY"])),
-                            Speed = Convert.ToInt32(reader["speed"]),
-                            Kills = reader.IsDBNull(reader.GetOrdinal("hero_kills")) ? 0 : Convert.ToInt32(reader["hero_kills"]),
-                        };
-                        heroesDict[heroId] = tmpHero;
+                            int heroId = Convert.ToInt32(reader["hero_id"]);
+
+                            // Check if the hero already exists in the dictionary
+                            if (!heroesDict.TryGetValue(heroId, out MetaHero? tmpHero))
+                            {
+                                // Create a new hero if not already in the dictionary
+                                tmpHero = new MetaHero
+                                {
+                                    Id = heroId,
+                                    Name = Convert.ToString(reader["hero_name"]),
+                                    Map = Convert.ToString(reader["hero_map"]) ?? "",
+                                    Color = Convert.ToString(reader["color"]) ?? "",
+                                    Mask = reader.IsDBNull(reader.GetOrdinal("mask")) ? null : Convert.ToInt32(reader["mask"]),
+                                    Position = new Vector2(Convert.ToInt32(reader["coordsX"]), Convert.ToInt32(reader["coordsY"])),
+                                    Speed = Convert.ToInt32(reader["speed"]),
+                                    Kills = reader.IsDBNull(reader.GetOrdinal("hero_kills")) ? 0 : Convert.ToInt32(reader["hero_kills"]),
+                                    Created = reader.IsDBNull(reader.GetOrdinal("created")) ? (DateTime?)null : Convert.ToDateTime(reader["created"])
+                                };
+                                heroesDict[heroId] = tmpHero;
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            await LogError("Failed to parse nearby player row", ex);
+                        }
                     }
                 }
+            }
+            catch (Exception ex)
+            {
+                await LogError("GetNearbyPlayers query failed", ex);
             }
 
             return heroesDict.Values.ToArray();
@@ -1387,33 +1477,41 @@ namespace maxhanna.Server.Controllers
                 AND coordsX BETWEEN @Xmin AND @Xmax
                 AND coordsY BETWEEN @Ymin AND @Ymax;";
 
-            using (var cmd = new MySqlCommand(combinedSql, connection, transaction))
+            try
             {
-                cmd.Parameters.AddWithValue("@HeroId", heroId); 
-                cmd.Parameters.AddWithValue("@X", x);
-                cmd.Parameters.AddWithValue("@Y", y);
-                cmd.Parameters.AddWithValue("@Xmin", xmin);
-                cmd.Parameters.AddWithValue("@Xmax", xmax);
-                cmd.Parameters.AddWithValue("@Ymin", ymin);
-                cmd.Parameters.AddWithValue("@Ymax", ymax);
-
-                var nearby = new List<int>();
-                using (var reader = await cmd.ExecuteReaderAsync())
+                using (var cmd = new MySqlCommand(combinedSql, connection, transaction))
                 {
-                    // iterate through result sets until we hit the SELECT that returns rows
-                    do
-                    {
-                        if (reader.HasRows)
-                        {
-                            while (await reader.ReadAsync())
-                            {
-                                nearby.Add(Convert.ToInt32(reader[0]));
-                            }
-                        }
-                    } while (await reader.NextResultAsync());
-                }
+                    cmd.Parameters.AddWithValue("@HeroId", heroId); 
+                    cmd.Parameters.AddWithValue("@X", x);
+                    cmd.Parameters.AddWithValue("@Y", y);
+                    cmd.Parameters.AddWithValue("@Xmin", xmin);
+                    cmd.Parameters.AddWithValue("@Xmax", xmax);
+                    cmd.Parameters.AddWithValue("@Ymin", ymin);
+                    cmd.Parameters.AddWithValue("@Ymax", ymax);
 
-                return nearby;
+                    var nearby = new List<int>();
+                    using (var reader = await cmd.ExecuteReaderAsync())
+                    {
+                        // iterate through result sets until we hit the SELECT that returns rows
+                        do
+                        {
+                            if (reader.HasRows)
+                            {
+                                while (await reader.ReadAsync())
+                                {
+                                    nearby.Add(Convert.ToInt32(reader[0]));
+                                }
+                            }
+                        } while (await reader.NextResultAsync());
+                    }
+
+                    return nearby;
+                }
+            }
+            catch (Exception ex)
+            {
+                await LogError($"PersistWallAndGetNearby failed for heroId={heroId} x={x} y={y}", ex, heroId);
+                return new List<int>();
             }
         }
 
@@ -1424,25 +1522,39 @@ namespace maxhanna.Server.Controllers
                            FROM maxhanna.ender_bike_wall 
                            WHERE level = @Level AND id > @LastKnownWallId 
                            ORDER BY id ASC";
-            using (var cmd = new MySqlCommand(sql, connection, transaction))
-            { 
-                cmd.Parameters.AddWithValue("@Level", level);
-                cmd.Parameters.AddWithValue("@LastKnownWallId", lastKnownWallId);
-                using (var reader = await cmd.ExecuteReaderAsync())
-                {
-                    while (await reader.ReadAsync())
+            try
+            {
+                using (var cmd = new MySqlCommand(sql, connection, transaction))
+                { 
+                    cmd.Parameters.AddWithValue("@Level", level);
+                    cmd.Parameters.AddWithValue("@LastKnownWallId", lastKnownWallId);
+                    using (var reader = await cmd.ExecuteReaderAsync())
                     {
-                        walls.Add(new MetaBikeWall
+                        while (await reader.ReadAsync())
                         {
-                            Id = reader.GetInt32("id"),
-                            HeroId = reader.GetInt32("hero_id"),
-                            Map = reader.GetString("map"),
-                            X = reader.GetInt32("x"),
-                            Y = reader.GetInt32("y"),
-                            Level = reader.IsDBNull(reader.GetOrdinal("level")) ? 1 : reader.GetInt32("level")
-                        });
+                            try
+                            {
+                                walls.Add(new MetaBikeWall
+                                {
+                                    Id = reader.GetInt32("id"),
+                                    HeroId = reader.GetInt32("hero_id"),
+                                    Map = reader.GetString("map"),
+                                    X = reader.GetInt32("x"),
+                                    Y = reader.GetInt32("y"),
+                                    Level = reader.IsDBNull(reader.GetOrdinal("level")) ? 1 : reader.GetInt32("level")
+                                });
+                            }
+                            catch (Exception ex)
+                            {
+                                await LogError("Failed to parse bike wall row", ex);
+                            }
+                        }
                     }
                 }
+            }
+            catch (Exception ex)
+            {
+                await LogError($"GetBikeWalls failed for level={level}", ex);
             }
             return walls;
         }

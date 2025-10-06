@@ -271,9 +271,15 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
             const pendingWalls = this.pendingWallsBatch.length > 0 ? [...this.pendingWallsBatch] : undefined;
             // clear after snapshot so we don't resend
             this.pendingWallsBatch = [];
-            if (this.hero && this.metaHero) { 
+            if (this.hero && this.metaHero) {
                 this.metaHero.position = this.hero?.position.duplicate();
             }
+
+            // Debug: log positions being sent to server
+            try {
+                // eslint-disable-next-line no-console
+                console.debug('[Ender] sending hero positions -> hero:', this.hero?.position, 'metaHero:', this.metaHero?.position);
+            } catch { }
 
             this.enderService.fetchGameDataWithWalls(this.metaHero, pendingWalls, this.lastKnownWallId).then((res: any) => {
                 if (res) {
@@ -333,7 +339,16 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
             this.updateEnemiesOnSameLevelCount();
             return;
         }
-        this.otherHeroes = res.heroes;
+        // Ensure created dates are parsed and objects are instances of MetaHero
+        this.otherHeroes = res.heroes.map((h: MetaHero) => {
+            try {
+                const pos = h.position ? new Vector2(h.position.x, h.position.y) : new Vector2(0, 0);
+                return new MetaHero(h.id, h.name ?? "Anon", pos, h.speed ?? 1, h.map ?? "", h.color, h.mask, h.level ?? 1, h.kills ?? 0, h.created);
+            } catch {
+                // fallback: return raw object typed as MetaHero
+                return h as MetaHero;
+            }
+        });
         this.updateEnemiesOnSameLevelCount();
     }
 
@@ -509,7 +524,8 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
             colorSwap,
             rz.mask,
             rz.level ?? 1,
-            rz.kills ?? 0);
+            rz.kills ?? 0,
+            rz.created ?? undefined);
         this.hero.isLocked = this.isStartMenuOpened || this.isShopMenuOpened;
         this.mainScene.setHeroId(this.metaHero.id);
         this.mainScene.hero = this.hero;
@@ -520,7 +536,7 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
             //console.log("initialize inv after reinitializeHero");
             await this.reinitializeInventoryData(true);
         }
-        const heroLevel = (rz as any).level ?? 1;
+        const heroLevel = rz.level ?? 1;
         const level = this.getLevelFromLevelName(rz.map);
         if (level) {
             // if it's a HeroRoomLevel, pass heroPosition and heroLevel when constructing
@@ -535,10 +551,16 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
         // Mark run as started when hero is fully initialized.
         // If the server-provided hero has a creation timestamp, derive the run start from it so server-side time matches client.
         if (!this.runStartTimeMs) {
-            const createdStr = (rz as any).created || (rz as any).created_at || (rz as any).createdAt;
-            if (createdStr) {
-                const parsed = Date.parse(createdStr);
-                this.runStartTimeMs = isNaN(parsed) ? Date.now() : parsed;
+            const createdVal = rz.created ?? undefined;
+            if (createdVal) {
+                let millis: number | undefined = undefined;
+                if (createdVal instanceof Date) {
+                    millis = createdVal.getTime();
+                } else if (typeof createdVal === 'string') {
+                    const parsed = Date.parse(createdVal);
+                    millis = isNaN(parsed) ? undefined : parsed;
+                }
+                this.runStartTimeMs = millis ?? Date.now();
             } else {
                 this.runStartTimeMs = Date.now();
             }
