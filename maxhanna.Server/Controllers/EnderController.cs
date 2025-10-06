@@ -68,7 +68,7 @@ namespace maxhanna.Server.Controllers
                 {
                     try
                     {
-                        MetaHero? hero = await GetHeroData(userId, null, connection, transaction);
+                        MetaHero? hero = await GetHeroData(userId, connection, transaction);
                         await transaction.CommitAsync();
 
                         return Ok(hero);
@@ -1060,7 +1060,7 @@ namespace maxhanna.Server.Controllers
             try
             {
                 string sql = @"DELETE FROM maxhanna.ender_event WHERE timestamp < UTC_TIMESTAMP() - INTERVAL 20 SECOND;
-                            INSERT INTO maxhanna.ender_event (hero_id, event, map, data)
+                            INSERT INTO maxhanna.ender_event (hero_id, event, level, data)
                             VALUES (@HeroId, @Event, @Level, @Data);";
                 Dictionary<string, object?> parameters = new Dictionary<string, object?>
                         {
@@ -1118,7 +1118,8 @@ namespace maxhanna.Server.Controllers
                 DELETE FROM maxhanna.ender_event WHERE timestamp < UTC_TIMESTAMP() - INTERVAL 20 SECOND;
 
                 SELECT *
-                FROM maxhanna.ender_event;";
+                FROM maxhanna.ender_event 
+                WHERE level = @Level;";
 
             MySqlCommand cmd = new MySqlCommand(sql, connection, transaction);
             // level parameter intentionally removed; keep for API compatibility
@@ -1155,6 +1156,151 @@ namespace maxhanna.Server.Controllers
             }
 
             return events;
+        }
+        
+        private async Task<int> GetHeroIdByUserId(int userId, MySqlConnection? connection = null, MySqlTransaction? transaction = null)
+        {
+            bool createdConnection = false;
+            bool createdTransaction = false;
+            MySqlConnection? conn = connection;
+            MySqlTransaction? trans = transaction;
+
+            try
+            {
+                if (trans != null && conn == null)
+                {
+                    // If transaction supplied but connection not, derive connection from transaction
+                    conn = trans.Connection;
+                }
+
+                if (conn == null)
+                {
+                    conn = new MySqlConnection(_connectionString);
+                    await conn.OpenAsync();
+                    createdConnection = true;
+                }
+
+                if (trans == null)
+                {
+                    trans = await conn.BeginTransactionAsync();
+                    createdTransaction = true;
+                }
+
+                if (userId <= 0) return 0;
+
+                string sql = @"SELECT id FROM maxhanna.ender_hero WHERE user_id = @UserId LIMIT 1;";
+                using (var cmd = new MySqlCommand(sql, conn, trans))
+                {
+                    cmd.Parameters.AddWithValue("@UserId", userId);
+                    var res = await cmd.ExecuteScalarAsync();
+                    if (res == null || res == DBNull.Value) 
+                    {
+                        if (createdTransaction)
+                        {
+                            await trans.CommitAsync();
+                        }
+                        return 0;
+                    }
+                    var id = Convert.ToInt32(res);
+                    if (createdTransaction)
+                    {
+                        await trans.CommitAsync();
+                    }
+                    return id;
+                }
+            }
+            catch (Exception ex)
+            {
+                if (trans != null && createdTransaction)
+                {
+                    try { await trans.RollbackAsync(); } catch { }
+                }
+                await LogError($"GetHeroIdByUserId failed for userId={userId}", ex, null);
+                return 0;
+            }
+            finally
+            {
+                if (trans != null && createdTransaction)
+                {
+                    try { trans.Dispose(); } catch { }
+                }
+                if (conn != null && createdConnection)
+                {
+                    try { await conn.CloseAsync(); conn.Dispose(); } catch { }
+                }
+            }
+        }
+
+        private async Task<int> GetUserIdByHeroId(int heroId, MySqlConnection? connection = null, MySqlTransaction? transaction = null)
+        {
+            bool createdConnection = false;
+            bool createdTransaction = false;
+            MySqlConnection? conn = connection;
+            MySqlTransaction? trans = transaction;
+
+            try
+            {
+                if (trans != null && conn == null)
+                {
+                    conn = trans.Connection;
+                }
+
+                if (conn == null)
+                {
+                    conn = new MySqlConnection(_connectionString);
+                    await conn.OpenAsync();
+                    createdConnection = true;
+                }
+
+                if (trans == null)
+                {
+                    trans = await conn.BeginTransactionAsync();
+                    createdTransaction = true;
+                }
+
+                if (heroId <= 0) return 0;
+
+                string sql = @"SELECT user_id FROM maxhanna.ender_hero WHERE id = @HeroId LIMIT 1;";
+                using (var cmd = new MySqlCommand(sql, conn, trans))
+                {
+                    cmd.Parameters.AddWithValue("@HeroId", heroId);
+                    var res = await cmd.ExecuteScalarAsync();
+                    if (res == null || res == DBNull.Value)
+                    {
+                        if (createdTransaction)
+                        {
+                            await trans.CommitAsync();
+                        }
+                        return 0;
+                    }
+                    var id = Convert.ToInt32(res);
+                    if (createdTransaction)
+                    {
+                        await trans.CommitAsync();
+                    }
+                    return id;
+                }
+            }
+            catch (Exception ex)
+            {
+                if (trans != null && createdTransaction)
+                {
+                    try { await trans.RollbackAsync(); } catch { }
+                }
+                await LogError($"GetUserIdByHeroId failed for heroId={heroId}", ex, null);
+                return 0;
+            }
+            finally
+            {
+                if (trans != null && createdTransaction)
+                {
+                    try { trans.Dispose(); } catch { }
+                }
+                if (conn != null && createdConnection)
+                {
+                    try { await conn.CloseAsync(); conn.Dispose(); } catch { }
+                }
+            }
         }
         private async Task<MetaHero?> GetHeroData(int userId, MySqlConnection conn, MySqlTransaction transaction)
         {
@@ -1225,7 +1371,7 @@ namespace maxhanna.Server.Controllers
             }
             catch (Exception ex)
             {
-                await LogError("GetHeroData query failed", ex, userId == 0 && heroId != null ? heroId : userId);
+                await LogError("GetHeroData query failed", ex, userId);
             }
 
             return hero;
@@ -1620,7 +1766,8 @@ namespace maxhanna.Server.Controllers
                 {
                     try
                     {
-                        var hero = await GetHeroData(0, heroId, connection, transaction);
+                        int userId = await GetUserIdByHeroId(heroId, connection, transaction);
+                        var hero = await GetHeroData(0, connection, transaction);
                         if (hero == null)
                         {
                             await transaction.RollbackAsync();
