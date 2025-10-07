@@ -322,7 +322,7 @@
  
     <div id="mainTableDiv" [class]="!user ? 'storyContainerWrapper' : ''"
       *ngIf="storyResponse && storyResponse.stories && storyResponse.stories.length > 0">
-      <div *ngFor="let story of storyResponse?.stories" [id]="'storyDiv'+story.id" class="storyContainer">
+      <div *ngFor="let story of storyResponse?.stories; let s = index" [id]="'storyDiv'+story.id" class="storyContainer">
         <div class="storyHeader">
           <span style="padding-right: 10px;display: flex;align-items: center;"
             (click)="viewProfile(story.user, 'Social')">
@@ -382,7 +382,7 @@
               <div *ngFor="let file of story.storyFiles; let i = index"
                 [class]="'attachment ' + (story.storyFiles.length > 1 ? 'multipleAttachments' : 'singleAttachment')">
                 <app-media-viewer [user]="file.user" [inputtedParentRef]="parentRef ?? parent"
-                    [debug]="i === 0"
+                    [debug]="i === 0 && s === 0"
                     [currentDirectory]="file.directory" [file]="file" [showCommentSection]="false"
                     [showMediaInformation]="true" [displayExpander]="false" [displayExtraInfo]="false"
                     [showTopics]="false" [autoplay]="false" [autoload]="true" [forceInviewLoad]="true"
