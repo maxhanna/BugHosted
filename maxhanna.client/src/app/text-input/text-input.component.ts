@@ -564,9 +564,8 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
         id = this.inputtedParentRef?.user?.id ?? 0;
       } else if (this.type == "Social") {
         id = this.inputtedParentRef?.user?.id ?? 0;
-      }
-      console.log("id set to", id);
-      if (!id) {
+      } 
+      if (id === undefined) {
         return msg;
       }
       return this.encryptionService.encryptContent(msg, id + "");
