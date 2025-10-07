@@ -11,6 +11,7 @@ export class EncryptionService {
 
 
   encryptContent(message: string, password: string = 'defaultPassword'): string {
+    console.log("encrypting: ", message, password);
     try { 
       const msgBytes = this.encoder.encode(message);
       const pwdBytes = this.encoder.encode(password);
