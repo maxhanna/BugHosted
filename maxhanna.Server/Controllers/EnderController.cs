@@ -1394,7 +1394,8 @@ namespace maxhanna.Server.Controllers
             m.speed, 
             m.color, 
             m.mask,
-            m.kills as hero_kills
+            m.kills as hero_kills,
+            m.created
         FROM 
             maxhanna.ender_hero m  
         ORDER BY m.coordsY ASC;";
