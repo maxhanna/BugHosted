@@ -85,7 +85,7 @@ function sendBatchToBackend(bots: Bot[], object: any) {
     object.metaHero.id,
     new Date(),
     "UPDATE_ENCOUNTER_POSITION",
-    object.metaHero.map,
+    object.metaHero.level,
     { batch: safeStringify(batchData) }
   );
 
@@ -101,7 +101,7 @@ export function subscribeToMainGameEvents(object: any) {
       object.pollForChanges();
     }
     if (object.mainScene && object.mainScene.level) {
-      object.metaHero.map = level.name ?? "HERO_ROOM";
+      // map property removed; level is inherent in scene/hero state
       // Compute spawn offset based on number of other players on the map.
       // Shift spawn to the right by 2 grid cells per player already on the map.
       // Count existing hero sprites on the current level (exclude self)
@@ -280,57 +280,7 @@ export function subscribeToMainGameEvents(object: any) {
     }
   });
 
-
-  events.on("DEPLOY", object, async (params: { bot: MetaBot, metaHero?: MetaHero }) => {
-    const tmpMetahero = params.metaHero && !(params.metaHero instanceof MetaHero) ?
-      object.mainScene?.level?.children?.find((x: any) => x.id === params.metaHero?.id) : params.metaHero;
-    const hero = tmpMetahero ?? object.metaHero;
-    if (params.bot.id) {
-      const addedBot = object.addBotToScene(hero, params.bot);
-
-      const warpBase = new WarpBase({ position: addedBot.position, parentId: addedBot.id, offsetX: -8, offsetY: 12 });
-      object.mainScene.level?.addChild(warpBase);
-      setTimeout(() => {
-        warpBase.destroy();
-      }, 1300);
-
-      if (object.metaHero.id === hero.id) {
-        const metaEvent = new MetaEvent(0, object.metaHero.id, new Date(), "DEPLOY", object.metaHero.map, { "metaHero": `${safeStringify(hero)}`, "metaBot": `${safeStringify(params.bot)}` });
-        object.enderService.updateEvents(metaEvent);
-      }
-      // await object.reinitializeInventoryData();
-    }
-  });
-
-  events.on("CALL_BOT_BACK", object, async (params: { bot: MetaBot }) => {
-    if (params.bot?.id) {
-      if (params.bot.heroId === object.metaHero.id) {
-        const metaEvent = new MetaEvent(0, params.bot.heroId, new Date(), "CALL_BOT_BACK", object.metaHero.map);
-        object.enderService.updateEvents(metaEvent).then(async (x: any) => {
-          //await object.reinitializeInventoryData();
-        });
-      }
-      const tgt = object.mainScene?.level?.children?.find((x: any) => x.id === params.bot.id);
-      const hero = object.mainScene?.level?.children?.find((x: any) => x.id === params.bot.heroId);
-      if (hero) {
-        const tgtBot = hero.metabots.find((x: any) => x.id === params.bot.id);
-        if (tgtBot) {
-          tgtBot.isDeployed = false;
-        }
-      }
-      if (tgt) {
-        tgt.preventDestroyAnimation = true;
-        tgt.isDeployed = false;
-        tgt.isWarping = true;
-        tgt.destroy();
-      }
-      const tgtHeroBot = object.metaHero.metabots.find((x: any) => x.id === params.bot.id);
-      if (tgtHeroBot) {
-        tgtHeroBot.isDeployed = false;
-      }
-    }
-  });
-
+ 
   events.on("CHARACTER_NAME_CREATED", object, (name: string) => {
     if (object.chatInput.nativeElement.placeholder === "Enter your name" && object.parentRef && object.parentRef.user && object.parentRef.user.id) {
       object.enderService.createHero(object.parentRef.user.id, name);
@@ -338,7 +288,7 @@ export function subscribeToMainGameEvents(object: any) {
   });
   // CHARACTER_POSITION death check removed - backend now authoritatively detects deaths.
   events.on("STARTED_TYPING", object, () => {
-    const metaEvent = new MetaEvent(0, object.metaHero.id, new Date(), "CHAT", object.metaHero.map, { "sender": object.metaHero.name ?? "Anon", "content": "..." });
+    const metaEvent = new MetaEvent(0, object.metaHero.id, new Date(), "CHAT", object.metaHero.level, { "sender": object.metaHero.name ?? "Anon", "content": "..." });
     object.enderService.updateEvents(metaEvent);
     const name = object.metaHero.name;
     object.chat.unshift(
@@ -353,7 +303,7 @@ export function subscribeToMainGameEvents(object: any) {
     const msg = chat.trim();
     if (object.parentRef?.user) {
       if (object.chatInput.nativeElement.placeholder !== "Enter your name") {
-        const metaEvent = new MetaEvent(0, object.metaHero.id, new Date(), "CHAT", object.metaHero.map, { "sender": object.metaHero.name ?? "Anon", "content": msg })
+  const metaEvent = new MetaEvent(0, object.metaHero.id, new Date(), "CHAT", object.metaHero.level, { "sender": object.metaHero.name ?? "Anon", "content": msg })
         object.enderService.updateEvents(metaEvent);
         object.chatInput.nativeElement.value = '';
         setTimeout(() => {
@@ -375,7 +325,7 @@ export function subscribeToMainGameEvents(object: any) {
 
   events.on("WAVE_AT", object, (objectAtPosition: GameObject) => {
     const msg = `👋 ${(objectAtPosition as Hero).name}`;
-    const metaEvent = new MetaEvent(0, object.metaHero.id, new Date(), "CHAT", object.metaHero.map, { "sender": object.metaHero.name ?? "Anon", "content": msg })
+  const metaEvent = new MetaEvent(0, object.metaHero.id, new Date(), "CHAT", object.metaHero.level, { "sender": object.metaHero.name ?? "Anon", "content": msg })
     object.enderService.updateEvents(metaEvent);
   });
 
@@ -385,106 +335,14 @@ export function subscribeToMainGameEvents(object: any) {
     const receiver = (objectAtPosition as Hero).name ?? "Anon";
     const sender = (object.metaHero as Hero).name ?? "Anon";
     const msg = `🤫 (${sender}:${receiver}) : ${msgContent}`;
-    const metaEvent = new MetaEvent(0, object.metaHero.id, new Date(), "WHISPER", object.metaHero.map, { "sender": sender, "receiver": receiver, "content": msg })
+  const metaEvent = new MetaEvent(0, object.metaHero.id, new Date(), "WHISPER", object.metaHero.level, { "sender": sender, "receiver": receiver, "content": msg })
     object.enderService.updateEvents(metaEvent);
 
     if (sender === object.metaHero.name) {
       object.chatInput.nativeElement.value = "";
     }
   });
-
-  events.on("REPAIR_ALL_METABOTS", object, () => {
-    if (actionBlocker) return;
-    for (let bot of object.metaHero.metabots) {
-      bot.hp = 100;
-    }
-    if (object.hero && object.hero.metabots) {
-      for (let bot of object.hero.metabots) {
-        bot.hp = 100;
-      }
-    }
-    const metaEvent = new MetaEvent(0, object.metaHero.id, new Date(), "REPAIR_ALL_METABOTS", object.metaHero.map, { "heroId": object.metaHero.id + "" });
-    object.enderService.updateEvents(metaEvent);
-    setActionBlocker(50);
-  });
-
-  events.on("ITEM_PURCHASED", object, (item: InventoryItem) => {
-    console.log(item);
-    const metaEvent = new MetaEvent(0, object.metaHero.id, new Date(), "BUY_ITEM", object.metaHero.map, { "item": safeStringify(item) });
-    object.enderService.updateEvents(metaEvent);
-    if (item.category === "botFrame") {
-      const newBot = new MetaBot(
-        {
-          id: object.metaHero.metabots.length + 1,
-          heroId: object.metaHero.id,
-          type: item.stats["type"],
-          hp: item.stats["hp"],
-          name: item.name ?? "",
-          level: 1
-        });
-      object.enderService.createBot(newBot).then((res: MetaBot) => {
-        if (res) {
-          object.metaHero.metabots.push(res);
-        }
-      });
-    }
-    console.log("reinit inv after item purchase");
-    object.reinitializeInventoryData();
-  });
-
-  events.on("ITEM_SOLD", object, (items: InventoryItem[]) => {
-    const botPartsSold = items.filter(x => x.category === "MetaBotPart");
-    let partIdNumbers = []
-    for (let item of botPartsSold) {
-      let itmString = item.name ?? "";
-      itmString = itmString.replace("Left Punch", "Left_Punch");
-      itmString = itmString.replace("Right Punch", "Right_Punch");
-
-      const partName = itmString.split(' ')[0].trim();
-      let skillName = itmString.split(' ')[1].trim().replace("_", " ");
-      const damageMod = itmString.split(' ')[2].trim();
-
-
-      const part = object.mainScene.inventory.parts.find((x: any) => x.partName === partName && x.skill.name === skillName && x.damageMod === parseInt(damageMod) && !partIdNumbers.includes(x.id)) as MetaBotPart;
-      if (part) {
-        partIdNumbers.push(part.id);
-        object.mainScene.inventory.parts = object.mainScene.inventory.parts.filter((x: any) => x.id !== part.id);
-      }
-    }
-
-    object.enderService.sellBotParts(object.metaHero.id, partIdNumbers);
-  });
-
-  events.on("BUY_ITEM_CONFIRMED", object, (params: { heroId: number, item: string }) => {
-    const shopItem = JSON.parse(params.item) as InventoryItem;
-    if (params.heroId === object.metaHero.id) {
-      setTimeout(() => {
-        events.emit("CHARACTER_PICKS_UP_ITEM", {
-          position: new Vector2(0, 0),
-          id: object.mainScene.inventory.nextId,
-          hero: object.hero,
-          name: shopItem.name,
-          imageName: shopItem.image,
-          category: shopItem.category,
-          stats: shopItem.stats
-        });
-      }, 100);
-    }
-  });
-
-  events.on("TARGET_LOCKED", object, (params: { source: Bot, target: Bot }) => {
-    if (params.source.heroId) {
-      const metaEvent = new MetaEvent(0, params.source.heroId, new Date(), "TARGET_LOCKED", object.metaHero.map, { "sourceId": params.source.id + "", "targetId": params.target.id + "" });
-      object.enderService.updateEvents(metaEvent);
-    }
-  });
-
-  events.on("TARGET_UNLOCKED", object, (params: { source: Bot, target: Bot }) => {
-    if (params.source.heroId) {
-      const metaEvent = new MetaEvent(1, params.source.heroId, new Date(), "TARGET_UNLOCKED", object.metaHero.map, { "sourceId": params.source.id + "", "targetId": params.target.id + "" });
-      object.enderService.updateEvents(metaEvent);
-    }
-  });
+    
  
   // Queue bike wall placements locally and send them with the next fetchGameData poll
   events.on("SPAWN_BIKE_WALL", object, (params: { x: number, y: number }) => {
@@ -493,7 +351,7 @@ export function subscribeToMainGameEvents(object: any) {
       object.pendingBikeWalls.push({ x: params.x, y: params.y });
     } catch (e) {
       // fallback to older behavior if something goes wrong
-      const metaEvent = new MetaEvent(0, object.metaHero.id, new Date(), "SPAWN_BIKE_WALL", object.metaHero.map, { x: params.x + "", y: params.y + "" });
+  const metaEvent = new MetaEvent(0, object.metaHero.id, new Date(), "SPAWN_BIKE_WALL", object.metaHero.level, { x: params.x + "", y: params.y + "" });
       object.enderService.updateEvents(metaEvent);
     }
   });
@@ -576,17 +434,7 @@ export function subscribeToMainGameEvents(object: any) {
       } as MetaChat);
     object.setHeroLatestMessage(hero);
   })
-
-  events.on("USER_ATTACK_SELECTED", object, (skill: Skill) => {
-    const metaEvent = new MetaEvent(0, object.metaHero.id, new Date(), "USER_ATTACK_SELECTED", object.metaHero.map, { "skill": JSON.stringify(skill) })
-    object.enderService.updateEvents(metaEvent);
-  });
-
-  events.on("GOT_REWARDS", object, (params: { location: Vector2, part: MetaBotPart }) => {
-    if (!params.part) return;
-    const metaEvent = new MetaEvent(0, object.metaHero.id, new Date(), "ITEM_DROPPED", object.metaHero.map, { "location": safeStringify(params.location), "item": safeStringify(params.part) })
-    object.enderService.updateEvents(metaEvent);
-  });
+ 
 
   events.on("PARTY_UP", object, (person: Hero) => {
     const foundInParty = object.partyMembers.find((x: any) => x.heroId === object.metaHero.id);
@@ -597,11 +445,11 @@ export function subscribeToMainGameEvents(object: any) {
     if (!foundInParty2) {
       object.partyMembers.push({ heroId: person.id, name: person.name, color: person.colorSwap });
     }
-    const metaEvent = new MetaEvent(0, object.metaHero.id, new Date(), "PARTY_UP", object.metaHero.map, { "hero_id": `${person.id}`, "party_members": safeStringify(object.partyMembers.map((x: any) => x.heroId)) })
+  const metaEvent = new MetaEvent(0, object.metaHero.id, new Date(), "PARTY_UP", object.metaHero.level, { "hero_id": `${person.id}`, "party_members": safeStringify(object.partyMembers.map((x: any) => x.heroId)) })
     object.enderService.updateEvents(metaEvent);
   });
   events.on("UNPARTY", object, (person: Hero) => {
-    const metaEvent = new MetaEvent(0, object.metaHero.id, new Date(), "UNPARTY", object.metaHero.map, { "hero_id": `${person.id}` })
+  const metaEvent = new MetaEvent(0, object.metaHero.id, new Date(), "UNPARTY", object.metaHero.level, { "hero_id": `${person.id}` })
     object.enderService.updateEvents(metaEvent);
     object.partyMembers = object.partyMembers.filter((x: any) => x.heroId === object.metaHero.id);
     console.log("reset party member ids");
@@ -625,7 +473,7 @@ export function subscribeToMainGameEvents(object: any) {
         object.enderService.updateBotParts(object.metaHero.id, [data.item]);
         object.mainScene.inventory.parts.concat(data.item);
 
-        const metaEvent = new MetaEvent(0, object.metaHero.id, new Date(), "ITEM_DESTROYED", object.metaHero.map,
+  const metaEvent = new MetaEvent(0, object.metaHero.id, new Date(), "ITEM_DESTROYED", object.metaHero.level,
           {
             "position": `${safeStringify(data.position)}`,
             "damage": `${data.item?.damageMod}`,
@@ -636,9 +484,7 @@ export function subscribeToMainGameEvents(object: any) {
       }
       setActionBlocker(500);
     }
-  });
-
-
+  }); 
 
   events.on("CHANGE_COLOR", object, () => {
     if (object.parentRef) {
@@ -698,44 +544,7 @@ export function actionMultiplayerEvents(object: any, metaEvents: MetaEvent[]) {
             }, 1300);
           }
         }
-        if (event.eventType === "BOT_DESTROYED" && event.data) {
-          //console.log("data:", event.data);
-          const bot = object.mainScene.level?.children.find((x: any) => x.heroId == event.heroId) as Bot;
-          const winnerBotId = JSON.parse(event.data["winnerBotId"]) as number || undefined;
-          // console.log("winnerBotId", winnerBotId);
-          if (winnerBotId) {
-            const winnerBot = object.mainScene.level.children.find((x: any) => x.id == winnerBotId) as Bot;
-            if (winnerBot) {
-              winnerBot.targeting = undefined;
-              if (winnerBot.heroId === object.metaHero.id) {
-                generateReward(winnerBot, bot);
-              }
-            }
-          }
-
-          setTargetToDestroyed(bot);
-          if (bot) {
-            bot.hp = 0;
-            bot.isDeployed = false;
-            bot.targeting = undefined;
-            bot.destroyBody();
-            bot.destroy();
-            setTimeout(() => {
-              if (bot.heroId == object.metaHero.id) {
-                const metaBot = object.metaHero.metabots.find((bot: MetaBot) => bot.name === bot.name);
-                metaBot.hp = 0;
-                metaBot.isDeployed = false;
-              }
-            }, 50);
-          }
-        }
-        if (event.eventType === "CALL_BOT_BACK") {
-          const bot = object.mainScene.level?.children.find((x: any) => x.heroId == event.heroId);
-          if (bot) {
-            bot.isWarping = true;
-            bot.destroy();
-          }
-        }
+          
         if (event.eventType === "SPAWN_BIKE_WALL" && event.data) {
           const x = parseInt(event.data["x"] ?? "NaN");
           const y = parseInt(event.data["y"] ?? "NaN");
@@ -750,38 +559,7 @@ export function actionMultiplayerEvents(object: any, metaEvents: MetaEvent[]) {
             }
           }
         }
-        if (event.eventType === "ITEM_DESTROYED") {
-          if (event.data) {
-            //  console.log(event.data);
-            const dmgMod = event.data["damage"];
-            const position = JSON.parse(event.data["position"]) as Vector2;
-            const skillName = event.data["skill"];
-            const maxRadius = gridCells(6);
-            const possiblePositions: Vector2[] = [];
-            for (let dx = -maxRadius; dx <= maxRadius; dx += gridCells(1)) {
-              for (let dy = -maxRadius; dy <= maxRadius; dy += gridCells(1)) {
-                const distance = Math.sqrt(dx * dx + dy * dy);
-                if (distance <= maxRadius) {
-                  possiblePositions.push(new Vector2(position.x + dx, position.y + dy));
-                }
-              }
-            }
-            const tgtObject = object.mainScene.level?.children.find((x: any) => {
-              const isMatchingLabel = x.itemLabel === `${dmgMod ?? 1} ${skillName ?? 1}`;
-              const isNearby = possiblePositions.some(pos => x.position.x === pos.x && x.position.y === pos.y);
-              return isMatchingLabel && isNearby;
-            });
-            // console.log("Item_Destroyed netwkr", dmgMod, skillName, tgtObject); 
-            if (tgtObject) { tgtObject.destroy(); }
-          }
-        }
-        if (event.eventType === "BUY_ITEM") {
-          if (event.heroId === object.metaHero.id) {
-            //console.log(event && event.data ? event.data["item"] : "undefined item data");
-            events.emit("BUY_ITEM_CONFIRMED", { heroId: event.heroId, item: (event.data ? event.data["item"] : "") })
-            object.enderService.deleteEvent(event.id);
-          }
-        }
+         
         if (event.eventType === "ITEM_DROPPED") {
           if (event.data) {
             const tmpMetabotPart = JSON.parse(event.data["item"]) as MetaBotPart;
@@ -881,7 +659,7 @@ export function actionPartyUpEvent(object: any, event: MetaEvent) {
             console.log("pushing: ", { heroId: member.id, name: member.name, color: member.color });
           }
         }
-        const partyUpAcceptedEvent = new MetaEvent(0, object.metaHero.id, new Date(), "PARTY_INVITE_ACCEPTED", object.metaHero.map, { "party_members": safeStringify(object.partyMembers.map((x: any) => x.heroId)) });
+        const partyUpAcceptedEvent = new MetaEvent(0, object.metaHero.id, new Date(), "PARTY_INVITE_ACCEPTED", object.metaHero.level, { "party_members": safeStringify(object.partyMembers.map((x: any) => x.heroId)) });
         object.enderService.updateEvents(partyUpAcceptedEvent);
         events.emit("PARTY_INVITE_ACCEPTED", { playerId: object.metaHero.id, party: object.partyMembers });
         object.isDecidingOnParty = false;

@@ -297,7 +297,7 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
             this.enderService.fetchGameDataWithWalls(this.metaHero, pendingWalls, this.lastKnownWallId).then((res: any) => {
                 console.debug('[Ender][DEBUG] fetchGameDataWithWalls response', res);
                 if (res) {
-                    console.debug('[Ender][DEBUG] response heroes:', Array.isArray(res.heroes) ? res.heroes.length : typeof res.heroes, 'map:', res.map);
+                    console.debug('[Ender][DEBUG] response heroes:', Array.isArray(res.heroes) ? res.heroes.length : typeof res.heroes);
                     // If the server provides the elapsed time on level, sync the client's
                     // run timer so returning players see the correct elapsed seconds.
                     // Server sends timeOnLevelSeconds (integer seconds).
@@ -348,7 +348,7 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
         }
     }
 
-    private updateOtherHeroesBasedOnFetchedData(res: { map: number; position: Vector2; heroes: MetaHero[]; }) {
+    private updateOtherHeroesBasedOnFetchedData(res: { position: Vector2; heroes: MetaHero[]; }) {
         console.debug('[Ender][DEBUG] updateOtherHeroesBasedOnFetchedData invoked', res?.heroes && Array.isArray(res.heroes) ? res.heroes.length : res.heroes);
         if (!res || !res.heroes) {
             this.otherHeroes = [];
@@ -359,7 +359,7 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
         this.otherHeroes = res.heroes.map((h: MetaHero) => {
             try {
                 const pos = h.position ? new Vector2(h.position.x, h.position.y) : new Vector2(0, 0);
-                return new MetaHero(h.id, h.name ?? "Anon", pos, h.speed ?? 1, h.map ?? "", h.color, h.mask, h.level ?? 1, h.kills ?? 0, h.created);
+                return new MetaHero(h.id, h.name ?? "Anon", pos, h.speed ?? 1, h.color, h.mask, h.level ?? 1, h.kills ?? 0, h.created);
             } catch {
                 // fallback: return raw object typed as MetaHero
                 return h as MetaHero;
@@ -511,7 +511,7 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
 
     private async reinitializeHero(rz: MetaHero, skipDataFetch?: boolean) {
         let spawnPos: Vector2;
-        const map = rz.map == "default" ? "HeroRoom" : rz.map;
+    // map removed; determine level-specific spawn behavior directly
         if (rz && rz.position) {
             spawnPos = new Vector2(rz.position.x, rz.position.y);
         } else {
@@ -530,7 +530,6 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
         this.metaHero = new MetaHero(this.hero.id, (this.hero.name ?? "Anon"),
             this.hero.position.duplicate(),
             rz.speed,
-            map,
             colorSwap,
             rz.mask,
             rz.level ?? 1,
@@ -546,7 +545,7 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
             await this.reinitializeInventoryData(true);
         }
         const heroLevel = rz.level ?? 1;
-        const level = this.getLevelFromLevelName(map, rz.level, this.hero.position.duplicate());
+        const level = this.getLevelFromLevelName("HeroRoom", rz.level, this.hero.position.duplicate());
         if (level) {
             // if it's a HeroRoomLevel, pass heroPosition and heroLevel when constructing
             if (level instanceof HeroRoomLevel) {
