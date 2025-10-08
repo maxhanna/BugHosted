@@ -5,6 +5,7 @@ using MySqlConnector;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using System.Collections.Concurrent;
+using System.Diagnostics;
 using System.Globalization;
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
@@ -34,7 +35,9 @@ public class KrakenService
 	private static readonly Dictionary<string, string> CoinSymbols = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) { { "Bitcoin", "₿" }, { "Ethereum", "Ξ" }, { "Dogecoin", "Ɖ" }, { "Solana", "◎" } };
 	private static readonly ConcurrentDictionary<int, DateTime> _userLastCheckTimes = new ConcurrentDictionary<int, DateTime>();
 	private static readonly TimeSpan _rateLimitDuration = TimeSpan.FromMinutes(1);
-	private readonly Dictionary<string, (decimal Atr, DateTime Timestamp)> _atrCache = new(); 
+	private readonly Dictionary<string, (decimal Atr, DateTime Timestamp)> _atrCache = new();
+
+	public readonly bool viewDebugLogs = false;
 	public KrakenService(IConfiguration config, Log log)
 	{
 		_config = config;
@@ -62,7 +65,7 @@ public class KrakenService
         TradeRecord? lastTrade = await GetLastTrade(userId, coin, strategy);
         if (lastTrade == null)
         {
-            _ = _log.Db($"({tmpCoin}:{userId}:{strategy}) No trade history.", userId, "TRADE", true);
+            _ = _log.Db($"({tmpCoin}:{userId}:{strategy}) No trade history.", userId, "TRADE", viewDebugLogs);
             isFirstTradeEver = true;
         }
         var coinPriceUSDC = await GetCoinPriceToUSDC(userId, coin, keys);
@@ -75,7 +78,7 @@ public class KrakenService
 
         if (coinPriceUSDC < _TradeStopLoss)
         {
-            _ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Stop Loss ({_TradeStopLoss}) threshold breached (current price: {coinPriceUSDC}). Liquidating {coin} for USDC.", userId, "TRADE", true);
+            _ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Stop Loss ({_TradeStopLoss}) threshold breached (current price: {coinPriceUSDC}). Liquidating {coin} for USDC.", userId, "TRADE", viewDebugLogs);
             return await ExitPosition(userId, coin, strategy);
         }
 
@@ -120,13 +123,13 @@ public class KrakenService
 
             decimal coinBalance = GetCoinBalanceFromDictionaryAndKey(balances, tmpCoin);
             decimal usdcBalance = GetCoinBalanceFromDictionaryAndKey(balances, "USDC");
-			_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) balance: {coinBalance} usdcBalance: {usdcBalance}", userId, "TRADE", true);
+			_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) balance: {coinBalance} usdcBalance: {usdcBalance}", userId, "TRADE", viewDebugLogs);
             if (spread >= spreadThreshold || (firstPriceToday != null && spread2 >= spreadThreshold))
             {   // DCA|IND: Selling, HFT: Buying
                 string triggeredBy = spread >= spreadThreshold ? "spread" : "spread2";
                 decimal coinBalanceConverted = coinBalance * coinPriceUSDC.Value;
                 string buyOrSell = strategy == "HFT" ? "Buy" : "Sell";
-                _ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Trade ({buyOrSell}) triggered by: {triggeredBy} ({(triggeredBy == "spread2" ? spread2 : spread):P})", userId, "TRADE", true);
+                _ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Trade ({buyOrSell}) triggered by: {triggeredBy} ({(triggeredBy == "spread2" ? spread2 : spread):P})", userId, "TRADE", viewDebugLogs);
 
                 if (CheckIfReservesNeeded(strategy, isFirstTradeEver, lastTrade, coinBalance, coinBalanceConverted))
                 {
@@ -137,14 +140,14 @@ public class KrakenService
 				{
 					if (usdcBalance < (coinPriceUSDC.Value * _MinimumBTCTradeAmount))
 					{
-						_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Insufficient balance to trade! usdcBalance : {usdcBalance} must be greater than {_MinimumBTCTradeAmount * coinPriceUSDC.Value} USDC. Review configuration if this amount is incorrect. Trade Cancelled.", userId, "TRADE", true);
+						_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Insufficient balance to trade! usdcBalance : {usdcBalance} must be greater than {_MinimumBTCTradeAmount * coinPriceUSDC.Value} USDC. Review configuration if this amount is incorrect. Trade Cancelled.", userId, "TRADE", viewDebugLogs);
 						return false;
 					}
 					var spread2Message = firstPriceToday != null ? $"Spread2 : {spread2:P} " : "";
 					bool isValidTrade = await ValidateTrade(userId, tmpCoin, tmpCoin, "USDC", buyOrSell.ToLower(), usdcBalance, coinBalance, strategy);
 					if (isValidTrade)
 					{
-						_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Spread is {spread:P}, {spread2Message}(c:{currentPrice}-l:{lastPrice}). Balance: {coinBalance} {tmpCoin}.", userId, "TRADE", true);
+						_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Spread is {spread:P}, {spread2Message}(c:{currentPrice}-l:{lastPrice}). Balance: {coinBalance} {tmpCoin}.", userId, "TRADE", viewDebugLogs);
 						return await HandleHFTBuying(userId, coin, keys, strategy, tmpCoin, coinPriceCAD.Value, currentPrice, coinBalance, usdcBalance);
 					}
 				}
@@ -154,13 +157,13 @@ public class KrakenService
                     bool isValidTrade = await ValidateTrade(userId, tmpCoin, tmpCoin, "USDC", buyOrSell.ToLower(), usdcBalance, coinBalance, strategy);
                     if (isValidTrade)
                     {
-                        _ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Spread is {spread:P}, {spread2Message}(c:{currentPrice}-l:{lastPrice}). Balance: {coinBalance} {tmpCoin}.", userId, "TRADE", true);
+                        _ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Spread is {spread:P}, {spread2Message}(c:{currentPrice}-l:{lastPrice}). Balance: {coinBalance} {tmpCoin}.", userId, "TRADE", viewDebugLogs);
 						return await HandleSell(userId, strategy, tmpCoin, coinPriceUSDC.Value, spreadThreshold);
                     }
                 }
                 else
                 {
-                    _ = _log.Db($"({tmpCoin}:{userId}:{strategy}) User has no {tmpCoin} (coinBalance: {coinBalance}) to trade.", userId, "TRADE", true);
+                    _ = _log.Db($"({tmpCoin}:{userId}:{strategy}) User has no {tmpCoin} (coinBalance: {coinBalance}) to trade.", userId, "TRADE", viewDebugLogs);
 					return await CreateCoinReserveWithUSDC(userId, coin, strategy, keys, coinBalance, usdcBalance, coinPriceCAD.Value, coinPriceUSDC.Value);
                 }
             }
@@ -169,7 +172,7 @@ public class KrakenService
                 string triggeredBy = spread <= -spreadThreshold ? "spread" : "spread2";
                 string buyOrSell = strategy == "HFT" ? "Sell" : "Buy";
 
-                _ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Trade ({buyOrSell}) triggered by: {triggeredBy} {(triggeredBy == "spread2" ? spread2 : spread):P}", userId, "TRADE", true);
+                _ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Trade ({buyOrSell}) triggered by: {triggeredBy} {(triggeredBy == "spread2" ? spread2 : spread):P}", userId, "TRADE", viewDebugLogs);
 
                 bool isValidTrade = await ValidateTrade(userId, tmpCoin, "USDC", tmpCoin, buyOrSell.ToLower(), usdcBalance, coinBalance, strategy);
                 if (isValidTrade)
@@ -182,7 +185,7 @@ public class KrakenService
 					{
 						if (usdcBalance < (coinPriceUSDC.Value * _MinimumBTCTradeAmount))
 						{
-							_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Insufficient balance to trade! coinBalance : {coinBalance} and usdcBalance : {usdcBalance} must be greater than {_MinimumBTCTradeAmount * coinPriceUSDC.Value} USDC respectively. Review configuration if this amount is incorrect. Trade Cancelled.", userId, "TRADE", true);
+							_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Insufficient balance to trade! coinBalance : {coinBalance} and usdcBalance : {usdcBalance} must be greater than {_MinimumBTCTradeAmount * coinPriceUSDC.Value} USDC respectively. Review configuration if this amount is incorrect. Trade Cancelled.", userId, "TRADE", viewDebugLogs);
 							return false;
 						}
 						return await HandleBuy(userId, strategy, tmpCoin, coinPriceUSDC.Value, firstPriceToday, lastPrice, currentPrice, spread, spread2, usdcBalance);
@@ -245,7 +248,7 @@ public class KrakenService
         if (usdcBalance > 0)
         {
             var spread2Message = firstPriceToday != null ? $"Spread2: {spread2:P} " : "";
-            _ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Spread is {spread:P} {spread2Message} (c:{currentPrice}-l:{lastPrice}), buying {tmpCoin}.", userId, "TRADE", true);
+            _ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Spread is {spread:P} {spread2Message} (c:{currentPrice}-l:{lastPrice}), buying {tmpCoin}.", userId, "TRADE", viewDebugLogs);
 
             await AddMomentumEntry(userId, "USDC", tmpCoin, strategy, coinPriceUSDC, null);
         }
@@ -258,12 +261,12 @@ public class KrakenService
         TradeRecord? reservedTransaction = await GetLatestReservedTransaction(userId, tmpCoin, strategy, coinPriceUSDC, spreadThreshold);
         if (matchingBuyOrderId == null && reservedTransaction == null)
         {
-            _ = _log.Db($"({tmpCoin}:{userId}:{strategy}) No matching buy or reserve transactions at this depth. Trade Cancelled.", userId, "TRADE", true);
+            _ = _log.Db($"({tmpCoin}:{userId}:{strategy}) No matching buy or reserve transactions at this depth. Trade Cancelled.", userId, "TRADE", viewDebugLogs);
             return false;
         }
         else
         {
-            _ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Switching to momentum strategy.", userId, "TRADE", true);
+            _ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Switching to momentum strategy.", userId, "TRADE", viewDebugLogs);
             await AddMomentumEntry(userId, tmpCoin, "USDC", strategy, coinPriceUSDC, matchingBuyOrderId);
             return false;
         }
@@ -272,7 +275,7 @@ public class KrakenService
     private async Task<bool> HandleHFTBuying(int userId, string coin, UserKrakenApiKey keys, string strategy, string tmpCoin, decimal coinPriceCAD, decimal currentPrice, decimal coinBalance, decimal usdcBalance)
     {
         decimal coinToTrade = _MinimumBTCTradeAmount; 
-        _ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Buying {FormatBTC(coinToTrade)} {coin}.", userId, "TRADE", true);
+        _ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Buying {FormatBTC(coinToTrade)} {coin}.", userId, "TRADE", viewDebugLogs);
         await ExecuteTrade(userId, tmpCoin, keys, FormatBTC(coinToTrade), "buy", coinBalance, usdcBalance, coinPriceCAD, currentPrice, strategy, null, null);
         return true;
     }
@@ -290,7 +293,7 @@ public class KrakenService
 		if (valueMatchingTrades.Count > 0)
 		{
 			decimal coinToTrade = valueMatchingTrades.Sum(trade => Convert.ToDecimal(trade.value));
-			_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Summed {valueMatchingTrades.Count} profitable open buy positions for {coinToTrade} {tmpCoin}.", userId, "TRADE", true);
+			_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Summed {valueMatchingTrades.Count} profitable open buy positions for {coinToTrade} {tmpCoin}.", userId, "TRADE", viewDebugLogs);
 			coinToTrade = Math.Min(coinToTrade, coinBalance);
 			if (coinToTrade > 0 && coinToTrade >= _MinimumBTCTradeAmount)
 			{
@@ -299,13 +302,13 @@ public class KrakenService
 			}
 			else
 			{
-				_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Open buy positions / Balance : {coinToTrade} {tmpCoin} does not exceed the Minimum Trade Amount ({_MinimumBTCTradeAmount}). Trade Cancelled.", userId, "TRADE", true);
+				_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Open buy positions / Balance : {coinToTrade} {tmpCoin} does not exceed the Minimum Trade Amount ({_MinimumBTCTradeAmount}). Trade Cancelled.", userId, "TRADE", viewDebugLogs);
 				return false;
 			}
 		}
 		else
 		{
-			_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) No matching open positions at this depth. Waiting.", userId, "TRADE", true);
+			_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) No matching open positions at this depth. Waiting.", userId, "TRADE", viewDebugLogs);
 		}
         return false;
     }
@@ -342,14 +345,14 @@ public class KrakenService
 		string thresholdDiff2Str = thresholdDiff2?.ToString("F2") + "%" ?? "N/A";
 
 		string logMessage = $@"({tmpCoin}:{userId}:{strategy}) L:{lastPrice} - C:{currentPrice} - Spread: {spreadStr} | {thresholdDiffStr} from threshold {((strategy != "HFT" && firstPriceToday != null) ? @$" - First Price Today: {firstPriceStr} - Spread2: {spread2Str} | {thresholdDiff2Str} from threshold." : "")}{(isFirstTradeEver ? " (isFirstTradeEver: true.)" : "")}";
-		_ = _log.Db(logMessage.Trim(), userId, "TRADE", true);
+		_ = _log.Db(logMessage.Trim(), userId, "TRADE", viewDebugLogs);
 	}
 
 	private async Task<bool> HandleIndicatorStrategy(int userId, string coin, string strategy, string tmpCoin, decimal currentPrice, decimal coinPriceCAD, UserKrakenApiKey keys)
 	{
 		// Check if indicators are bullish.
 		bool? isBullish = await CheckIfFreshBullishSignalExists(tmpCoin, "USDC");
-		//_ = _log.Db($"({coin.Replace("BTC", "XBT")}:{userId}:{strategy}) Checked for open interval pair {coin}/USDC: {(isBullish.HasValue && isBullish.Value ? "Open interval found." : "No open interval found. Trade Cancelled.")}", userId, "TRADE", true);
+		//_ = _log.Db($"({coin.Replace("BTC", "XBT")}:{userId}:{strategy}) Checked for open interval pair {coin}/USDC: {(isBullish.HasValue && isBullish.Value ? "Open interval found." : "No open interval found. Trade Cancelled.")}", userId, "TRADE", viewDebugLogs);
 		if (!isBullish.HasValue || !isBullish.Value)
 		{
 			return false;
@@ -362,19 +365,19 @@ public class KrakenService
 			string message = activeTrades == null
 				? $"({tmpCoin.Replace("BTC", "XBT")}:{userId}:{strategy}) ⚠️Error fetching active trades for {coin}({strategy}). Trade Cancelled."
 				: $"({tmpCoin.Replace("BTC", "XBT")}:{userId}:{strategy}) User already has an active {coin}({strategy}) trade. Trade Cancelled.";
-			_ = _log.Db(message, userId, "TRADE", true);
+			_ = _log.Db(message, userId, "TRADE", viewDebugLogs);
 			return false;
 		}
 		// Indicator strategy can only have 1 trade during this "bull" cycle.
 		bool? canTradeBullTrade = await CheckIndicatorIntervalOpen(userId, coin, "USDC", strategy);
 		if (canTradeBullTrade == null || !canTradeBullTrade.HasValue)
 		{
-			_ = _log.Db($"⚠️Error fetching active trades for {coin}({strategy}). Trade Cancelled.", userId, "TRADE", true);
+			_ = _log.Db($"⚠️Error fetching active trades for {coin}({strategy}). Trade Cancelled.", userId, "TRADE", viewDebugLogs);
 			return false;
 		}
 		if (!canTradeBullTrade.Value)
 		{
-			_ = _log.Db($"({tmpCoin.Replace("BTC", "XBT")}:{userId}:{strategy}) User already made a trade in this bull cycle. Trade Cancelled.", userId, "TRADE", true);
+			_ = _log.Db($"({tmpCoin.Replace("BTC", "XBT")}:{userId}:{strategy}) User already made a trade in this bull cycle. Trade Cancelled.", userId, "TRADE", viewDebugLogs);
 			return false;
 		}
 
@@ -382,7 +385,7 @@ public class KrakenService
 		int maxXtradesIn2Hours = await GetNumberOfTradesInLastXHours(userId, coin, strategy, hours);
 		if (maxXtradesIn2Hours > _MaxTradeTypeOccurances)
 		{
-			_ = _log.Db($"({tmpCoin.Replace("BTC", "XBT")}:{userId}:{strategy}) User has already made the maximum number of trades in the last {hours} hour{(hours > 1): 's' : ''}. Trade Cancelled.", userId, "TRADE", true);
+			_ = _log.Db($"({tmpCoin.Replace("BTC", "XBT")}:{userId}:{strategy}) User has already made the maximum number of trades in the last {hours} hour{(hours > 1): 's' : ''}. Trade Cancelled.", userId, "TRADE", viewDebugLogs);
 			return false;
 		}
 
@@ -390,7 +393,7 @@ public class KrakenService
 		var balances = await GetBalance(userId, tmpCoin, strategy, keys);
 		if (balances == null)
 		{
-			_ = _log.Db($"({tmpCoin.Replace("BTC", "XBT")}:{userId}:{strategy}) Failed to get wallet balances.", userId, "TRADE", true);
+			_ = _log.Db($"({tmpCoin.Replace("BTC", "XBT")}:{userId}:{strategy}) Failed to get wallet balances.", userId, "TRADE", viewDebugLogs);
 			return false;
 		}
 		decimal coinBalance = GetCoinBalanceFromDictionaryAndKey(balances, tmpCoin);
@@ -407,7 +410,7 @@ public class KrakenService
 		string tmpCoin = coin.ToUpper();
 		tmpCoin = tmpCoin == "BTC" ? "XBT" : tmpCoin;
 		decimal triggeredBySpread = Math.Abs(spread) >= _TradeThreshold ? spread : spread2;
-		_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Downwards momentum strategy detected. Verifying momentum data. Current Price : {coinPriceUSDC}. Starting price: {DownwardsMomentum.StartingCoinPriceUsdc}. Best price: {DownwardsMomentum.BestCoinPriceUsdc}. Triggered by spread: {triggeredBySpread:P}", userId, "TRADE", true);
+		_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Downwards momentum strategy detected. Verifying momentum data. Current Price : {coinPriceUSDC}. Starting price: {DownwardsMomentum.StartingCoinPriceUsdc}. Best price: {DownwardsMomentum.BestCoinPriceUsdc}. Triggered by spread: {triggeredBySpread:P}", userId, "TRADE", viewDebugLogs);
 
 		// Is spread still respected?
 		if (Math.Abs(spread) >= _TradeThreshold || Math.Abs(spread2) >= _TradeThreshold)
@@ -429,13 +432,13 @@ public class KrakenService
 
 			_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) BaseThreshold: ${baseThreshold:F4} " +
 					$"(Spread: {triggeredBySpread:P} of ${DownwardsMomentum.StartingCoinPriceUsdc:F2})",
-					userId, "TRADE", true);
+					userId, "TRADE", viewDebugLogs);
 
 			bool isVolumeSpiking = await IsSignificantVolumeSpike(tmpCoin, tmpCoin, "USDC", userId);
 			decimal volumeAdjustment = isVolumeSpiking ? volumeSpikeSensitivity : 1.0m;
 			if (isVolumeSpiking)
 			{
-				_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Volume spike detected for {tmpCoin}. Reducing threshold sensitivity by {volumeSpikeSensitivity:P}.", userId, "TRADE", true);
+				_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Volume spike detected for {tmpCoin}. Reducing threshold sensitivity by {volumeSpikeSensitivity:P}.", userId, "TRADE", viewDebugLogs);
 			}
 
 			decimal spreadImpact = Math.Abs(triggeredBySpread) * spreadSensitivity;
@@ -451,7 +454,7 @@ public class KrakenService
 			if (DownwardsMomentum.BestCoinPriceUsdc * (1 + maxRetracementPercentage) > DownwardsMomentum.StartingCoinPriceUsdc)
 			{
 				effectiveRetracementPercentage = maxAllowableThreshold / DownwardsMomentum.BestCoinPriceUsdc;
-				_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Adjusted retracement percentage from {maxRetracementPercentage:P} to {effectiveRetracementPercentage:P} to keep trigger at or below starting price {DownwardsMomentum.StartingCoinPriceUsdc:F2}.", userId, "TRADE", true);
+				_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Adjusted retracement percentage from {maxRetracementPercentage:P} to {effectiveRetracementPercentage:P} to keep trigger at or below starting price {DownwardsMomentum.StartingCoinPriceUsdc:F2}.", userId, "TRADE", viewDebugLogs);
 			}
 
 			// Cap the dynamicThreshold to limit rebound
@@ -465,7 +468,7 @@ public class KrakenService
 			// Log the capping information
 			if (dynamicThreshold < cappedThreshold)
 			{
-				_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Dynamic threshold capped at {dynamicThreshold:F2} to limit rebound (Max: {maxRetracement:F2}) and ensure trigger price (Best: {buyTriggerBest:F2}) does not exceed starting price {DownwardsMomentum.StartingCoinPriceUsdc:F2}.", userId, "TRADE", true);
+				_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Dynamic threshold capped at {dynamicThreshold:F2} to limit rebound (Max: {maxRetracement:F2}) and ensure trigger price (Best: {buyTriggerBest:F2}) does not exceed starting price {DownwardsMomentum.StartingCoinPriceUsdc:F2}.", userId, "TRADE", viewDebugLogs);
 			}
 
 			// Check if price has rebounded enough from the best (lowest) price
@@ -479,10 +482,10 @@ public class KrakenService
 						   $"triggeredBySpread: {triggeredBySpread:P}, " +
 						   $"{(spread > 0 ? $"spread:{spread:P}" : "")} " +
 						   $"{(spread2 > 0 ? $"spread2:{spread2:P}" : "")}",
-						   userId, "TRADE", true);
+						   userId, "TRADE", viewDebugLogs);
 				_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Threshold ({dynamicThreshold:F2} = price needs to reach {buyTriggerBest:F2}). " +
 						   $"(Current:{coinPriceUSDC:F2} - Best:{DownwardsMomentum.BestCoinPriceUsdc:F2} = {coinPriceUSDC - DownwardsMomentum.BestCoinPriceUsdc:F2})",
-						   userId, "TRADE", true);
+						   userId, "TRADE", viewDebugLogs);
 				// Buy at this point
 				var balances = await GetBalance(userId, tmpCoin, strategy, keys);
 				if (balances == null)
@@ -494,7 +497,7 @@ public class KrakenService
 				decimal usdcBalance = GetCoinBalanceFromDictionaryAndKey(balances, "USDC");
 				if (usdcBalance <= 0)
 				{
-					_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Insufficient balance (Coin: {coinBalance}, USDC: {usdcBalance}). Trade Cancelled.", userId, "TRADE", true);
+					_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Insufficient balance (Coin: {coinBalance}, USDC: {usdcBalance}). Trade Cancelled.", userId, "TRADE", viewDebugLogs);
 					await DeleteMomentumStrategy(userId, "USDC", tmpCoin, strategy);
 					return false;
 				}
@@ -506,13 +509,13 @@ public class KrakenService
 					decimal coinAmount = usdcValueToTrade / coinPriceUSDC;
 					if (coinAmount < _MinimumBTCTradeAmount)
 					{
-						_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Not enough coin to trade! coinAmount : {coinAmount} must be greater than {_MinimumBTCTradeAmount}. Review configuration if this amount is incorrect. Trade Cancelled.", userId, "TRADE", true);
+						_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Not enough coin to trade! coinAmount : {coinAmount} must be greater than {_MinimumBTCTradeAmount}. Review configuration if this amount is incorrect. Trade Cancelled.", userId, "TRADE", viewDebugLogs);
 						await DeleteMomentumStrategy(userId, "USDC", tmpCoin, strategy);
 						return false;
 					}
 
 					var spread2Message = firstPriceToday != null ? $"Spread2: {spread2:P} " : "";
-					_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Spread is {spread:P} {spread2Message} (c:{coinPriceUSDC:F2}-l:{lastPrice:F2}){(firstPriceToday != null ? $" [First price today: {firstPriceToday}] " : "")}, buying {tmpCoin} with {FormatBTC(coinAmount)} {coin} worth of USDC(${usdcValueToTrade})", userId, "TRADE", true);
+					_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Spread is {spread:P} {spread2Message} (c:{coinPriceUSDC:F2}-l:{lastPrice:F2}){(firstPriceToday != null ? $" [First price today: {firstPriceToday}] " : "")}, buying {tmpCoin} with {FormatBTC(coinAmount)} {coin} worth of USDC(${usdcValueToTrade})", userId, "TRADE", viewDebugLogs);
 
 					await ExecuteTrade(userId, tmpCoin, keys, FormatBTC(coinAmount), "buy", coinBalance, usdcBalance, coinPriceCAD, coinPriceUSDC, strategy, null, null);
 					await DeleteMomentumStrategy(userId, "USDC", tmpCoin, strategy);
@@ -520,7 +523,7 @@ public class KrakenService
 				}
 				else
 				{
-					_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) ⚠️Error executing {tmpCoin} momentum strategy! usdcValueToTrade:{usdcValueToTrade} < 0. Trade Cancelled.", userId, "TRADE", true);
+					_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) ⚠️Error executing {tmpCoin} momentum strategy! usdcValueToTrade:{usdcValueToTrade} < 0. Trade Cancelled.", userId, "TRADE", viewDebugLogs);
 					await DeleteMomentumStrategy(userId, "USDC", tmpCoin, strategy);
 					return false;
 				}
@@ -530,13 +533,13 @@ public class KrakenService
 				await UpdateMomentumEntry(userId, tmpCoin, "USDC", tmpCoin, coinPriceUSDC, strategy);
 				_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Threshold ({dynamicThreshold:F2} = price needs to reach {buyTriggerBest:F2}) still respected. Waiting. " +
 						   $"(Current:{coinPriceUSDC:F2} vs Best trigger:{buyTriggerBest:F2} = {coinPriceUSDC - buyTriggerBest:F2} away)",
-						   userId, "TRADE", true);
+						   userId, "TRADE", viewDebugLogs);
 				return false;
 			}
 		}
 		else
 		{
-			_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Spread (spread:{spread:P},spread2:{spread2:P}) no longer respected. Trade Cancelled.", userId, "TRADE", true);
+			_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Spread (spread:{spread:P},spread2:{spread2:P}) no longer respected. Trade Cancelled.", userId, "TRADE", viewDebugLogs);
 			await DeleteMomentumStrategy(userId, "USDC", tmpCoin, strategy);
 			return false;
 		}
@@ -585,7 +588,7 @@ public class KrakenService
 						? "Reduced"
 						: "Unchanged";
 
-				_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) {adjustmentDirection} buy amount to {adjustmentFactor:P0} due to {priorTradeCount} prior sells and stability quotient {stabilityQuotient:F2}. New amount: {valueToTrade}", userId, "TRADE", true);
+				_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) {adjustmentDirection} buy amount to {adjustmentFactor:P0} due to {priorTradeCount} prior sells and stability quotient {stabilityQuotient:F2}. New amount: {valueToTrade}", userId, "TRADE", viewDebugLogs);
 			}
 			else if (buyOrSell.ToLower() == "sell")
 			{
@@ -594,7 +597,7 @@ public class KrakenService
 				adjustmentFactor = Math.Max(0.8m, adjustmentFactor); // Cap reduction at 20% (minimum 80% of original)
 				valueToTrade = valueToTrade * adjustmentFactor;
 				decimal reductionPercentage = 1m - adjustmentFactor; // Calculate the reduction percentage
-				_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Reduced sell amount by {reductionPercentage:P0} due to {priorTradeCount} prior buys. New amount: {valueToTrade}", userId, "TRADE", true);
+				_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Reduced sell amount by {reductionPercentage:P0} due to {priorTradeCount} prior buys. New amount: {valueToTrade}", userId, "TRADE", viewDebugLogs);
 			}
 		}
 		valueToTrade = Math.Max(_MinimumBTCTradeAmount, await AdjustForRetracement(userId, tmpCoin, strategy, valueToTrade, buyOrSell));
@@ -635,7 +638,7 @@ public class KrakenService
 
 			if (prices.Count < 2)
 			{
-				_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Insufficient trade data for {tmpCoin} to calculate stability quotient", userId, "TRADE", true);
+				_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Insufficient trade data for {tmpCoin} to calculate stability quotient", userId, "TRADE", viewDebugLogs);
 				return 0.5m; // Default to moderate stability if not enough data
 			}
 
@@ -668,12 +671,12 @@ public class KrakenService
 				stabilityQuotient *= 0.5m; // Reduce stability for large swings
 			}
 
-			_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Calculated stability quotient for {tmpCoin}: {stabilityQuotient:F2} (alternations: {alternations}, avg change: {avgChange:P2})", userId, "TRADE", true);
+			_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Calculated stability quotient for {tmpCoin}: {stabilityQuotient:F2} (alternations: {alternations}, avg change: {avgChange:P2})", userId, "TRADE", viewDebugLogs);
 			return stabilityQuotient;
 		}
 		catch (Exception ex)
 		{
-			_ = _log.Db($"⚠️Error calculating stability quotient for {tmpCoin}: {ex.Message}", userId, "TRADE", true);
+			_ = _log.Db($"⚠️Error calculating stability quotient for {tmpCoin}: {ex.Message}", userId, "TRADE", viewDebugLogs);
 			return 0.5m; // Default to moderate stability on error
 		}
 	}
@@ -692,7 +695,7 @@ public class KrakenService
 			{
 				decimal triggeredBySpread = Math.Abs(spread) >= _TradeThreshold ? spread : spread2;
 				_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Upwards momentum detected. Current Price: {coinPriceUSDC}. Starting Price: {upwardsMomentum.StartingCoinPriceUsdc}. Best Price: {upwardsMomentum.BestCoinPriceUsdc}. Triggered by spread: {triggeredBySpread:P}",
-					userId, "TRADE", true);
+					userId, "TRADE", viewDebugLogs);
 
 				decimal baseThreshold, maxThreshold, premiumThreshold;
 				const decimal spreadSensitivity = 1.5m;
@@ -713,14 +716,14 @@ public class KrakenService
 
 				_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) BaseThreshold: ${baseThreshold:F4} " +
 					$"(Spread: ${spreadValue:F4} = {_TradeThreshold:P} of ${upwardsMomentum.StartingCoinPriceUsdc:F2})",
-					userId, "TRADE", true);
+					userId, "TRADE", viewDebugLogs);
 
 				bool isVolumeSpiking = await IsSignificantVolumeSpike(tmpCoin, tmpCoin, "USDC", userId);
 				decimal volumeAdjustment = isVolumeSpiking ? volumeSpikeSensitivity : 1.0m;
 				if (isVolumeSpiking)
 				{
 					_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Volume spike! Reducing sensitivity by {volumeSpikeSensitivity:P}",
-						userId, "TRADE", true);
+						userId, "TRADE", viewDebugLogs);
 				}
 
 				decimal spreadImpact = Math.Abs(triggeredBySpread) * spreadSensitivity;
@@ -735,7 +738,7 @@ public class KrakenService
 				if (upwardsMomentum.BestCoinPriceUsdc * (1 - maxRetracementPercentage) < upwardsMomentum.StartingCoinPriceUsdc)
 				{
 					effectiveRetracementPercentage = maxAllowableThreshold / upwardsMomentum.BestCoinPriceUsdc;
-					_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Adjusted retracement percentage from {maxRetracementPercentage:P} to {effectiveRetracementPercentage:P} to keep trigger at or above starting price {upwardsMomentum.StartingCoinPriceUsdc:F2}.", userId, "TRADE", true);
+					_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Adjusted retracement percentage from {maxRetracementPercentage:P} to {effectiveRetracementPercentage:P} to keep trigger at or above starting price {upwardsMomentum.StartingCoinPriceUsdc:F2}.", userId, "TRADE", viewDebugLogs);
 				}
 
 				// Cap the dynamicThreshold to limit retracement
@@ -747,7 +750,7 @@ public class KrakenService
 				decimal sellTriggerBest = Math.Max(upwardsMomentum.StartingCoinPriceUsdc, upwardsMomentum.BestCoinPriceUsdc - dynamicThreshold);
 				if (dynamicThreshold < cappedThreshold)
 				{
-					_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Dynamic threshold capped at {dynamicThreshold:F2} to limit retracement (Max: {maxRetracement:F2}) and ensure trigger price (Best: {sellTriggerBest:F2}) does not fall below starting price {upwardsMomentum.StartingCoinPriceUsdc:F2}.", userId, "TRADE", true);
+					_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Dynamic threshold capped at {dynamicThreshold:F2} to limit retracement (Max: {maxRetracement:F2}) and ensure trigger price (Best: {sellTriggerBest:F2}) does not fall below starting price {upwardsMomentum.StartingCoinPriceUsdc:F2}.", userId, "TRADE", viewDebugLogs);
 				}
 
 				bool priceBelowBest = coinPriceUSDC <= sellTriggerBest;
@@ -756,7 +759,7 @@ public class KrakenService
 					await UpdateMomentumEntry(userId, tmpCoin, tmpCoin, "USDC", coinPriceUSDC, strategy);
 					_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Threshold ({dynamicThreshold:F8} = price needs to fall below {sellTriggerBest:F8}) still respected. " +
 							   $"Waiting. (Current:{coinPriceUSDC:F8} vs Best trigger:{sellTriggerBest:F8} = {coinPriceUSDC - sellTriggerBest:F8})",
-							   userId, "TRADE", true);
+							   userId, "TRADE", viewDebugLogs);
 					return false;
 				}
 				else
@@ -766,11 +769,11 @@ public class KrakenService
 							   $"triggeredBySpread: {triggeredBySpread:P}, " +
 							   $"{(spread > 0 ? $"spread:{spread:P}" : "")} " +
 							   $"{(spread2 > 0 ? $"spread2:{spread2:P}" : "")}",
-							   userId, "TRADE", true);
+							   userId, "TRADE", viewDebugLogs);
 
 					_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Threshold ({dynamicThreshold:F8} = price fell below {sellTriggerBest:F8}). " +
 							   $"(Current:{coinPriceUSDC:F8} vs Best:{upwardsMomentum.BestCoinPriceUsdc:F8} = {coinPriceUSDC - upwardsMomentum.BestCoinPriceUsdc:F8})",
-							   userId, "TRADE", true);
+							   userId, "TRADE", viewDebugLogs);
 
 					var balances = await GetBalance(userId, tmpCoin, strategy, keys);
 					if (balances == null)
@@ -780,10 +783,10 @@ public class KrakenService
 					}
 					decimal coinBalance = GetCoinBalanceFromDictionaryAndKey(balances, tmpCoin);
 					decimal usdcBalance = GetCoinBalanceFromDictionaryAndKey(balances, "USDC");
-					_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) USDC Balance: {usdcBalance}; {tmpCoin} Balance: {coinBalance}", userId, "TRADE", true);
+					_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) USDC Balance: {usdcBalance}; {tmpCoin} Balance: {coinBalance}", userId, "TRADE", viewDebugLogs);
 					if (coinBalance <= 0)
 					{
-						_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Insufficient balance (Coin: {coinBalance}). Trade Cancelled.", userId, "TRADE", true);
+						_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Insufficient balance (Coin: {coinBalance}). Trade Cancelled.", userId, "TRADE", viewDebugLogs);
 						await DeleteMomentumStrategy(userId, tmpCoin, "USDC", strategy);
 						return false;
 					}
@@ -793,11 +796,11 @@ public class KrakenService
 					if (valueMatchingTrades.Count > 0)
 					{
 						coinToTrade = valueMatchingTrades.Sum(trade => Convert.ToDecimal(trade.value));
-						_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Summed {valueMatchingTrades.Count} profitable open buy positions for {coinToTrade} {tmpCoin}.", userId, "TRADE", true);
+						_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Summed {valueMatchingTrades.Count} profitable open buy positions for {coinToTrade} {tmpCoin}.", userId, "TRADE", viewDebugLogs);
 					}
 					else
 					{
-						_ = _log.Db($"({tmpCoin}:{userId}:{strategy})⚠️ No matching open positions at this depth! Looking for reserve transactions...", userId, "TRADE", true);
+						_ = _log.Db($"({tmpCoin}:{userId}:{strategy})⚠️ No matching open positions at this depth! Looking for reserve transactions...", userId, "TRADE", viewDebugLogs);
 						TradeRecord? fundingTransaction = await GetLatestReservedTransaction(userId, tmpCoin, strategy, coinPriceUSDC, _TradeThreshold);
 						if (fundingTransaction != null)
 						{
@@ -805,7 +808,7 @@ public class KrakenService
 							if (isPremiumCondition)
 							{
 								coinToTrade = Convert.ToDecimal(fundingTransaction.value) * (_ReserveSellPercentage + _ValueTradePercentagePremium);
-								_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) [PREMIUM SELL OPPORTUNITY] dynamicThreshold:{dynamicThreshold:F2} > {premiumThreshold:F2}. Increasing trade size by {_ValueTradePercentagePremium:P}", userId, "TRADE", true);
+								_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) [PREMIUM SELL OPPORTUNITY] dynamicThreshold:{dynamicThreshold:F2} > {premiumThreshold:F2}. Increasing trade size by {_ValueTradePercentagePremium:P}", userId, "TRADE", viewDebugLogs);
 							}
 							else
 							{
@@ -816,23 +819,23 @@ public class KrakenService
 							if (coinToTrade < _MinimumBTCTradeAmount && _MinimumBTCTradeAmount < Convert.ToDecimal(fundingTransaction.value))
 							{
 								coinToTrade = _MinimumBTCTradeAmount;
-								_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Adjusting coin to trade to Minimum Trade amount (trade id: {fundingTransactionId}).", userId, "TRADE", true);
+								_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Adjusting coin to trade to Minimum Trade amount (trade id: {fundingTransactionId}).", userId, "TRADE", viewDebugLogs);
 							}
 							if (coinToTrade >= _MinimumBTCTradeAmount)
 							{ 
 								fundingTransactionId = fundingTransaction.id;
-								_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Using the reserves matching this trade depth (trade id: {fundingTransactionId}).", userId, "TRADE", true);
+								_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Using the reserves matching this trade depth (trade id: {fundingTransactionId}).", userId, "TRADE", viewDebugLogs);
 							}
 							else
 							{ 
-								_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Nothing to sell at this buy level. Reserves Depleted. Trade Cancelled.", userId, "TRADE", true);
+								_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Nothing to sell at this buy level. Reserves Depleted. Trade Cancelled.", userId, "TRADE", viewDebugLogs);
 								await DeleteMomentumStrategy(userId, tmpCoin, "USDC", strategy);
 								return false;
 							}
 						}
 						else
 						{
-							_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) No matching funding transactions at this buy level. Trade Cancelled.", userId, "TRADE", true);
+							_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) No matching funding transactions at this buy level. Trade Cancelled.", userId, "TRADE", viewDebugLogs);
 							await DeleteMomentumStrategy(userId, tmpCoin, "USDC", strategy);
 							return false;
 						}
@@ -841,7 +844,7 @@ public class KrakenService
 
 					decimal coinValueInUsdc = coinToTrade * coinPriceUSDC;
 					var spread2Message = firstPriceToday != null ? $"Spread2: {spread2:P} " : "";
-					_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Spread is {spread:P}, {spread2Message}(c:{coinPriceUSDC}-l:{lastPrice}), selling {coinToTrade} {tmpCoin} for USDC ({coinValueInUsdc}) matching trade ID: {upwardsMomentum.MatchingTradeId}{(fundingTransactionId != null ? $", Funding transaction: {fundingTransactionId}" : "")}.", userId, "TRADE", true);
+					_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Spread is {spread:P}, {spread2Message}(c:{coinPriceUSDC}-l:{lastPrice}), selling {coinToTrade} {tmpCoin} for USDC ({coinValueInUsdc}) matching trade ID: {upwardsMomentum.MatchingTradeId}{(fundingTransactionId != null ? $", Funding transaction: {fundingTransactionId}" : "")}.", userId, "TRADE", viewDebugLogs);
 					await ExecuteTrade(userId, tmpCoin, keys, FormatBTC(coinToTrade), "sell", coinBalance, usdcBalance, coinPriceCAD, coinPriceUSDC, strategy, fundingTransactionId, valueMatchingTrades);
 					await DeleteMomentumStrategy(userId, tmpCoin, "USDC", strategy);
 					return true;
@@ -849,7 +852,7 @@ public class KrakenService
 			}
 			else
 			{
-				_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Spread (spread:{spread:P},spread2:{spread2:P}) no longer respected. Trade Cancelled.", userId, "TRADE", true);
+				_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Spread (spread:{spread:P},spread2:{spread2:P}) no longer respected. Trade Cancelled.", userId, "TRADE", viewDebugLogs);
 				await DeleteMomentumStrategy(userId, tmpCoin, "USDC", strategy);
 				return false;
 			}
@@ -860,13 +863,13 @@ public class KrakenService
 	{
 		if (Convert.ToDecimal(coinToTrade) < _MinimumBTCTradeAmount)
 		{
-			_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Trade amount:{coinToTrade} < {_MinimumBTCTradeAmount} is too small. Setting trade amount to {_MinimumBTCTradeAmount}.", userId, "TRADE", true);
+			_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Trade amount:{coinToTrade} < {_MinimumBTCTradeAmount} is too small. Setting trade amount to {_MinimumBTCTradeAmount}.", userId, "TRADE", viewDebugLogs);
 			coinToTrade = _MinimumBTCTradeAmount;
 		}
 
 		if (coinBalance < coinToTrade)
 		{
-			_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Coin balance ({coinBalance}) is less than coin to trade ({coinToTrade}). Equalizing CoinToTrade with balance.", userId, "TRADE", true);
+			_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Coin balance ({coinBalance}) is less than coin to trade ({coinToTrade}). Equalizing CoinToTrade with balance.", userId, "TRADE", viewDebugLogs);
 			coinToTrade = Math.Min(coinToTrade, coinBalance);
 		}
 
@@ -946,7 +949,7 @@ public class KrakenService
 		}
 		catch (Exception ex)
 		{
-			_ = _log.Db($"⚠️Error fetching retracement data for {fromCoin}/{toCoin}: " + ex.Message, null, "TRADE", true);
+			_ = _log.Db($"⚠️Error fetching retracement data for {fromCoin}/{toCoin}: " + ex.Message, null, "TRADE", viewDebugLogs);
 		}
 		return null;
 	}
@@ -962,13 +965,13 @@ public class KrakenService
 				if (lastTrade == null || lastTrade.value == 0 || lastTrade.matching_trade_id != null || lastTrade.from_currency != "USDC")
 				{
 
-					_ = _log.Db($"({tmpCoin.Replace("BTC", "XBT")}:{userId}:{strategy}) ⚠️ Error, last trade does not exist, was not a buy trade or from_currency was not USDC during UpwardsMomentumStrategy.", userId, "TRADE", true);
+					_ = _log.Db($"({tmpCoin.Replace("BTC", "XBT")}:{userId}:{strategy}) ⚠️ Error, last trade does not exist, was not a buy trade or from_currency was not USDC during UpwardsMomentumStrategy.", userId, "TRADE", viewDebugLogs);
 					return false;
 				}
 				decimal lastTradeCoinPriceUSD = Convert.ToDecimal(lastTrade.coin_price_usdc);
 				if (lastTradeCoinPriceUSD == 0)
 				{
-					_ = _log.Db($"({tmpCoin.Replace("BTC", "XBT")}:{userId}:{strategy}) ⚠️ Error, last trade {tmpCoin} USD price does not exist during UpwardsMomentumStrategy.", userId, "TRADE", true);
+					_ = _log.Db($"({tmpCoin.Replace("BTC", "XBT")}:{userId}:{strategy}) ⚠️ Error, last trade {tmpCoin} USD price does not exist during UpwardsMomentumStrategy.", userId, "TRADE", viewDebugLogs);
 					return false;
 				}
 
@@ -979,24 +982,24 @@ public class KrakenService
 				_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Stop Loss Verification: " +
 									   $"Current: {coinPriceUSDC:F2} ({spread:P})$, " +
 									   $"Stop Loss Trigger: {stopLossPrice:F2}$ ({_TradeStopLossPercentage:F2}% below buy price {lastTradeCoinPriceUSD:F2}$)",
-									   userId, "TRADE", true);
+									   userId, "TRADE", viewDebugLogs);
 				// Verifying Trade StopLoss percentage threshold
 				if (coinPriceUSDC < stopLossPrice)
 				{
 					_ = _log.Db($"({tmpCoin.Replace("BTC", "XBT")}:{userId}:{strategy}) Stop Loss Triggered: " +
 											   $"Current ({coinPriceUSDC:F2}$) fell below stop price {stopLossPrice:F2}$ " +
 											   $"(bought at {lastTradeCoinPriceUSD:F2}$). Exiting position.",
-											   userId, "TRADE", true);
+											   userId, "TRADE", viewDebugLogs);
 					// Sell lastTrade.amount worth of tmpCoin for USDC. Set Matching Trade ID. Delete Momentum Strategy.
 					var balances = await GetBalance(userId, tmpCoin, strategy, keys);
 					if (balances == null)
 					{
-						_ = _log.Db($"({tmpCoin.Replace("BTC", "XBT")}:{userId}:{strategy}) Failed to get wallet balances", userId, "TRADE", true);
+						_ = _log.Db($"({tmpCoin.Replace("BTC", "XBT")}:{userId}:{strategy}) Failed to get wallet balances", userId, "TRADE", viewDebugLogs);
 						return false;
 					}
 					decimal coinBalance = GetCoinBalanceFromDictionaryAndKey(balances, tmpCoin);
 					decimal usdcBalance = GetCoinBalanceFromDictionaryAndKey(balances, "USDC");
-					_ = _log.Db($"({tmpCoin.Replace("BTC", "XBT")}:{userId}:{strategy}) Executing trade. USDC Balance: " + usdcBalance + "; Btc Balance: " + coinBalance, userId, "TRADE", true);
+					_ = _log.Db($"({tmpCoin.Replace("BTC", "XBT")}:{userId}:{strategy}) Executing trade. USDC Balance: " + usdcBalance + "; Btc Balance: " + coinBalance, userId, "TRADE", viewDebugLogs);
 					await ExecuteTrade(userId, tmpCoin, keys, FormatBTC(Convert.ToDecimal(lastTrade.value)), "sell", coinBalance, usdcBalance, coinPriceCAD, coinPriceUSDC, strategy, lastTrade.id, null);
 					await DeleteMomentumStrategy(userId, tmpCoin, "USDC", strategy);
 					return true;
@@ -1006,11 +1009,11 @@ public class KrakenService
 				if (coinPriceUSDC > upwardsMomentum.BestCoinPriceUsdc)
 				{
 					await UpdateMomentumEntry(userId, tmpCoin, tmpCoin, "USDC", coinPriceUSDC, strategy);
-					//_ = _log.Db($"Updated momentum entry from {tmpCoin}({strategy}) to USDC: {coinPriceUSDC:F2}. triggeredBySpread: {triggeredBySpread:P}, {(spread > 0 ? $"spread:{spread:P}" : "")} {(spread2 > 0 ? $"spread2:{spread2:P}" : "")}", userId, "TRADE", true);
+					//_ = _log.Db($"Updated momentum entry from {tmpCoin}({strategy}) to USDC: {coinPriceUSDC:F2}. triggeredBySpread: {triggeredBySpread:P}, {(spread > 0 ? $"spread:{spread:P}" : "")} {(spread2 > 0 ? $"spread2:{spread2:P}" : "")}", userId, "TRADE", viewDebugLogs);
 					_ = _log.Db($"({tmpCoin.Replace("BTC", "XBT")}:{userId}:{strategy}) Price still rising. " +
 											  $"Updated best price from {upwardsMomentum.BestCoinPriceUsdc:F2}$ to {coinPriceUSDC:F2}$. " +
 											  $"Waiting for downward movement.",
-											  userId, "TRADE", true);
+											  userId, "TRADE", viewDebugLogs);
 					return false;
 				}
 				else
@@ -1022,12 +1025,12 @@ public class KrakenService
 						_ = _log.Db($"({tmpCoin.Replace("BTC", "XBT")}:{userId}:{strategy}) Profit threshold surpassed. " +
 													 $"Current profit: {indSpread:P} (threshold: {_TradeThreshold:P}). " +
 													 $"Verifying dynamic exit conditions.",
-													 userId, "TRADE", true);
+													 userId, "TRADE", viewDebugLogs);
 
 						var balances = await GetBalance(userId, tmpCoin, strategy, keys);
 						if (balances == null)
 						{
-							_ = _log.Db($"({tmpCoin.Replace("BTC", "XBT")}:{userId}:{strategy}) Failed to get wallet balances. Trade Cancelled.", userId, "TRADE", true);
+							_ = _log.Db($"({tmpCoin.Replace("BTC", "XBT")}:{userId}:{strategy}) Failed to get wallet balances. Trade Cancelled.", userId, "TRADE", viewDebugLogs);
 							return false;
 						}
 						decimal coinBalance = GetCoinBalanceFromDictionaryAndKey(balances, tmpCoin);
@@ -1036,7 +1039,7 @@ public class KrakenService
 						_ = _log.Db($"({tmpCoin.Replace("BTC", "XBT")}:{userId}:{strategy}) Exit Condition Met: " +
 															$"USDC Balance: {usdcBalance}; Btc Balance: {coinBalance}" +
 															$"Executing sell order.",
-															userId, "TRADE", true);
+															userId, "TRADE", viewDebugLogs);
 						await ExecuteTrade(userId, tmpCoin, keys, FormatBTC(Convert.ToDecimal(lastTrade.value)), "sell", coinBalance, usdcBalance, coinPriceCAD, coinPriceUSDC, strategy, lastTrade.id, null);
 						await DeleteMomentumStrategy(userId, tmpCoin, "USDC", strategy);
 						return true;
@@ -1046,19 +1049,19 @@ public class KrakenService
 						_ = _log.Db($"({tmpCoin.Replace("BTC", "XBT")}:{userId}:{strategy}) Profit Threshold Not Met: " +
 													  $"Current profit {indSpread:P}. Below minimum threshold: {_TradeThreshold:P}. " +
 													  $"Bought at {lastTradeCoinPriceUSD:F2}$, current {coinPriceUSDC:F2}$.",
-													  userId, "TRADE", true);
+													  userId, "TRADE", viewDebugLogs);
 						return false;
 					}
 				}
 			}
 			else
 			{
-				_ = _log.Db($"({tmpCoin.Replace("BTC", "XBT")}:{userId}:{strategy}) No stoploss detected. Trade Cancelled.", userId, "TRADE", true);
+				_ = _log.Db($"({tmpCoin.Replace("BTC", "XBT")}:{userId}:{strategy}) No stoploss detected. Trade Cancelled.", userId, "TRADE", viewDebugLogs);
 			}
 		}
 		catch (Exception ex)
 		{
-			_ = _log.Db($"({tmpCoin.Replace("BTC", "XBT")}:{userId}:{strategy}) ⚠️ Exception while doing Upwards Momentum Strategy! Trade Cancelled. " + ex.Message, userId, "TRADE", true);
+			_ = _log.Db($"({tmpCoin.Replace("BTC", "XBT")}:{userId}:{strategy}) ⚠️ Exception while doing Upwards Momentum Strategy! Trade Cancelled. " + ex.Message, userId, "TRADE", viewDebugLogs);
 			return false;
 		}
 		return false;
@@ -1068,7 +1071,7 @@ public class KrakenService
 	{
 		string tmpCoin = coin.ToUpper();
 		tmpCoin = tmpCoin == "BTC" ? "XBT" : tmpCoin;
-		//_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) ValidateTrade from:{from}, to: {to}, {buyOrSell}, usdcBalance:{usdcBalance}, coinToTrade:{coinToTrade}.", userId, "TRADE", true);
+		//_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) ValidateTrade from:{from}, to: {to}, {buyOrSell}, usdcBalance:{usdcBalance}, coinToTrade:{coinToTrade}.", userId, "TRADE", viewDebugLogs);
 
 		try
 		{
@@ -1076,17 +1079,17 @@ public class KrakenService
 			{ 
 				if (coinBalance > _MaximumBTCBalance)
 				{
-					_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) User has too much {tmpCoin} ({coinBalance} / {_MaximumBTCBalance}) in their wallet. Trade Cancelled.", userId, "TRADE", true);
+					_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) User has too much {tmpCoin} ({coinBalance} / {_MaximumBTCBalance}) in their wallet. Trade Cancelled.", userId, "TRADE", viewDebugLogs);
 					return false;
 				}
 				else
 				{
-					_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) User maximum allowed {tmpCoin} balance ({coinBalance} / {_MaximumBTCBalance}) verified.", userId, "TRADE", true);
+					_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) User maximum allowed {tmpCoin} balance ({coinBalance} / {_MaximumBTCBalance}) verified.", userId, "TRADE", viewDebugLogs);
 				}
 			}
 
 			int numberOfTradesToday = await NumberOfTradesToday(userId, from, strategy);
-			_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) User has traded {tmpCoin} {numberOfTradesToday} times today.", userId, "TRADE", true);
+			_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) User has traded {tmpCoin} {numberOfTradesToday} times today.", userId, "TRADE", viewDebugLogs);
 			
 			if (strategy != "HFT" && buyOrSell.ToLower() == "buy")
 			{
@@ -1095,21 +1098,21 @@ public class KrakenService
 				bool isRepeatedTrades = await IsRepeatedTradesInRange(userId, from, to, buyOrSell.ToLower(), strategy, tradeRange);
 				if (isRepeatedTrades && numberOfTradesToday > 0)
 				{
-					_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) [ConsecutiveCheck] User has {buyOrSell} {from} {to} too many times in the last {tradeRange} trades (Based on {tmpCoin}/USDC reserves{(isVolumeSpiking ? " and volume spike" : "")}). ({strategy})Trade Cancelled.", userId, "TRADE", true);
+					_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) [ConsecutiveCheck] User has {buyOrSell} {from} {to} too many times in the last {tradeRange} trades (Based on {tmpCoin}/USDC reserves{(isVolumeSpiking ? " and volume spike" : "")}). ({strategy})Trade Cancelled.", userId, "TRADE", viewDebugLogs);
 					return false;
 				}
 
 				bool withinTradeSequenceLimit = await CheckTradeFrequencyOccurance(userId, buyOrSell.ToLower(), strategy, _MaxTradeTypeOccurances);
 				if (!withinTradeSequenceLimit && numberOfTradesToday > 0)
 				{
-					_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) User has {buyOrSell} {from} {to} too frequently ({_MaxTradeTypeOccurances - 1}) in the last {_MaxTradeTypeOccurances} occurances. Trade Cancelled.", userId, "TRADE", true);
+					_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) User has {buyOrSell} {from} {to} too frequently ({_MaxTradeTypeOccurances - 1}) in the last {_MaxTradeTypeOccurances} occurances. Trade Cancelled.", userId, "TRADE", viewDebugLogs);
 					return false;
 				}
 			} 
 		}
 		catch (Exception ex)
 		{
-			_ = _log.Db($"⚠️({tmpCoin}:{userId}:{strategy}) Exception while validating trade! Trade Cancelled. " + ex.Message, userId, "TRADE", true);
+			_ = _log.Db($"⚠️({tmpCoin}:{userId}:{strategy}) Exception while validating trade! Trade Cancelled. " + ex.Message, userId, "TRADE", viewDebugLogs);
 			return false;
 		}
 
@@ -1117,11 +1120,11 @@ public class KrakenService
 	}
 	private async Task<Dictionary<string, decimal>?> GetBalanceFromDatabase(int userId, string coin, string strategy)
 	{
-		_ = _log.Db($"({coin}:{userId}:{strategy}) Getting balance from database for {coin} (strategy: {strategy}).", userId, "TRADE", true);
+		_ = _log.Db($"({coin}:{userId}:{strategy}) Getting balance from database for {coin} (strategy: {strategy}).", userId, "TRADE", viewDebugLogs);
 
 		if (string.IsNullOrEmpty(coin))
 		{
-			_ = _log.Db($"({coin}:{userId}:{strategy}) ⚠️ERROR: Coin parameter is null or empty.", userId, "TRADE", true);
+			_ = _log.Db($"({coin}:{userId}:{strategy}) ⚠️ERROR: Coin parameter is null or empty.", userId, "TRADE", viewDebugLogs);
 			return null;
 		}
 
@@ -1130,7 +1133,7 @@ public class KrakenService
 
 		if (!CoinMappingsForDB.TryGetValue(krakenCoin, out var checkSuffix))
 		{
-			_ = _log.Db($"({coin}:{userId}:{strategy}) ⚠️ERROR: No mapping found for coin: {krakenCoin}", userId, "TRADE", true);
+			_ = _log.Db($"({coin}:{userId}:{strategy}) ⚠️ERROR: No mapping found for coin: {krakenCoin}", userId, "TRADE", viewDebugLogs);
 			return null;
 		}
 
@@ -1167,7 +1170,7 @@ public class KrakenService
 				// Skip if table suffix is not defined
 				if (string.IsNullOrEmpty(tableSuffix))
 				{
-					_ = _log.Db($"({coin}:{userId}:{strategy}) No table suffix for coin: {krakenSymbol}", userId, "TRADE", true);
+					_ = _log.Db($"({coin}:{userId}:{strategy}) No table suffix for coin: {krakenSymbol}", userId, "TRADE", viewDebugLogs);
 					return null;
 				}
 
@@ -1180,7 +1183,7 @@ public class KrakenService
 					var walletIdObj = await cmd.ExecuteScalarAsync();
 					if (walletIdObj == null || walletIdObj == DBNull.Value)
 					{
-						// _ = _log.Db($"({coin}:{userId}) No wallet found for coin: {tableSuffix}", userId, "TRADE", true);
+						// _ = _log.Db($"({coin}:{userId}) No wallet found for coin: {tableSuffix}", userId, "TRADE", viewDebugLogs);
 						return null;
 					}
 					walletId = Convert.ToInt32(walletIdObj);
@@ -1194,18 +1197,18 @@ public class KrakenService
 					var fetchedAtObj = await checkCmd.ExecuteScalarAsync();
 					if (fetchedAtObj == null || fetchedAtObj == DBNull.Value)
 					{
-						_ = _log.Db($"({coin}:{userId}:{strategy}) No recent balance found for coin: {krakenSymbol}", userId, "TRADE", true);
+						_ = _log.Db($"({coin}:{userId}:{strategy}) No recent balance found for coin: {krakenSymbol}", userId, "TRADE", viewDebugLogs);
 						return null;
 					}
 					DateTime fetchedAt = Convert.ToDateTime(fetchedAtObj);
 					if (fetchedAt < DateTime.UtcNow.AddSeconds(-10))
 					{
-						//_ = _log.Db($"({coin}:{userId}) Balance for {krakenSymbol} is older than 10 seconds.", userId, "TRADE", true);
+						//_ = _log.Db($"({coin}:{userId}) Balance for {krakenSymbol} is older than 10 seconds.", userId, "TRADE", viewDebugLogs);
 						return null;
 					}
 					else
 					{
-						//_ = _log.Db($"({coin}:{userId}) Balance for {krakenSymbol} is fresh: {fetchedAt}.", userId, "TRADE", true); 
+						//_ = _log.Db($"({coin}:{userId}) Balance for {krakenSymbol} is fresh: {fetchedAt}.", userId, "TRADE", viewDebugLogs); 
 					}
 				}
 
@@ -1217,7 +1220,7 @@ public class KrakenService
 					var balanceObj = await balanceCmd.ExecuteScalarAsync();
 					if (balanceObj == null || balanceObj == DBNull.Value)
 					{
-						_ = _log.Db($"({coin}:{userId}:{strategy}) No balance found for coin: {krakenSymbol}", userId, "TRADE", true);
+						_ = _log.Db($"({coin}:{userId}:{strategy}) No balance found for coin: {krakenSymbol}", userId, "TRADE", viewDebugLogs);
 						return null;
 					}
 					decimal balance = Convert.ToDecimal(balanceObj);
@@ -1237,7 +1240,7 @@ public class KrakenService
 		}
 		catch (Exception ex)
 		{
-			_ = _log.Db($"({coin}:{userId}:{strategy}) ⚠️Error fetching balance from DB: {ex.Message}", userId, "TRADE", true);
+			_ = _log.Db($"({coin}:{userId}:{strategy}) ⚠️Error fetching balance from DB: {ex.Message}", userId, "TRADE", viewDebugLogs);
 			return null;
 		}
 	}
@@ -1286,7 +1289,7 @@ public class KrakenService
 
 					// Override the coin's balance
 					decimal coinComputed = reservedAvailable + openNonReserved;
-					_ = _log.Db($"({coin}:{userId}:{strategy}) Computed strategy-specific balance: Reserved={reservedAvailable}, Open={openNonReserved}, Total={coinComputed}", userId, "TRADE", true);
+					_ = _log.Db($"({coin}:{userId}:{strategy}) Computed strategy-specific balance: Reserved={reservedAvailable}, Open={openNonReserved}, Total={coinComputed}", userId, "TRADE", viewDebugLogs);
 					return coinComputed;
 				}
 			}
@@ -1300,7 +1303,7 @@ public class KrakenService
             Dictionary<string, decimal>? dbBalance = await GetBalanceFromDatabase(userId, coin, strategy);
             if (dbBalance != null)
             {
-                _ = _log.Db($"({coin}:{userId}:{strategy}) Returned cached balance from database.", userId, "TRADE", true);
+                _ = _log.Db($"({coin}:{userId}:{strategy}) Returned cached balance from database.", userId, "TRADE", viewDebugLogs);
                 return dbBalance;
             }
             // Fetch the balance response as a dictionary
@@ -1309,7 +1312,7 @@ public class KrakenService
             // Check if the response contains the "result" key
             if (balanceResponse == null || !balanceResponse.ContainsKey("result"))
             {
-                _ = _log.Db($"({coin}:{userId}:{strategy}) ⚠️Failed to get wallet balances: 'result' not found.", userId, "TRADE", true);
+                _ = _log.Db($"({coin}:{userId}:{strategy}) ⚠️Failed to get wallet balances: 'result' not found.", userId, "TRADE", viewDebugLogs);
                 return null;
             }
 
@@ -1320,10 +1323,10 @@ public class KrakenService
             Dictionary<string, decimal>? balanceDictionary = result.ToObject<Dictionary<string, decimal>>();
             if (balanceDictionary == null)
             {
-                _ = _log.Db($"({coin}:{userId}:{strategy}) ⚠️Failed to convert balance response to dictionary.", userId, "TRADE", true);
+                _ = _log.Db($"({coin}:{userId}:{strategy}) ⚠️Failed to convert balance response to dictionary.", userId, "TRADE", viewDebugLogs);
                 return null;
             }
-            //_ = _log.Db(string.Join(Environment.NewLine, balanceDictionary.Select(x => $"{x.Key}: {x.Value}")), userId, "TRADE", true);
+            //_ = _log.Db(string.Join(Environment.NewLine, balanceDictionary.Select(x => $"{x.Key}: {x.Value}")), userId, "TRADE", viewDebugLogs);
             _ = CreateWalletEntriesFromFetchedDictionary(balanceDictionary, userId);
             string krakenCoin = GetKrakenCoinName(coin);
 
@@ -1336,12 +1339,12 @@ public class KrakenService
                     decimal strategyCoin = await ComputeStrategyCoinBalance(userId, strategy, coin, conn);
                     decimal totalCoin = GetCoinBalanceFromDictionaryAndKey(balanceDictionary, coin);
                     balanceDictionary[krakenCoin] = Math.Min(totalCoin, strategyCoin);
-                    //_ = _log.Db($"({coin}:{userId}:{strategy}) All: {string.Join(", ", balanceDictionary.Select(kvp => $"{kvp.Key}={kvp.Value:F8}"))}", userId, "TRADE", true);
-                    _ = _log.Db($"({coin}:{userId}:{strategy}) Computed strategy-specific balance after Kraken fetch: {strategyCoin}, Total: {totalCoin}, Using: {balanceDictionary[krakenCoin]}", userId, "TRADE", true);
+                    //_ = _log.Db($"({coin}:{userId}:{strategy}) All: {string.Join(", ", balanceDictionary.Select(kvp => $"{kvp.Key}={kvp.Value:F8}"))}", userId, "TRADE", viewDebugLogs);
+                    _ = _log.Db($"({coin}:{userId}:{strategy}) Computed strategy-specific balance after Kraken fetch: {strategyCoin}, Total: {totalCoin}, Using: {balanceDictionary[krakenCoin]}", userId, "TRADE", viewDebugLogs);
                 }
                 catch (Exception ex)
                 {
-                    _ = _log.Db($"({coin}:{userId}:{strategy}) ⚠️ERROR GetBalance: {ex.Message}", userId, "TRADE", true);
+                    _ = _log.Db($"({coin}:{userId}:{strategy}) ⚠️ERROR GetBalance: {ex.Message}", userId, "TRADE", viewDebugLogs);
                 }
             }
             return balanceDictionary;
@@ -1349,7 +1352,7 @@ public class KrakenService
         catch (Exception ex)
 		{
 			// Handle any errors that occur during the request
-			_ = _log.Db($"({coin}:{userId}:{strategy}) ⚠️Error fetching balance: {ex.Message}", userId, "TRADE", true);
+			_ = _log.Db($"({coin}:{userId}:{strategy}) ⚠️Error fetching balance: {ex.Message}", userId, "TRADE", viewDebugLogs);
 			return null;
 		}
 	}
@@ -1391,16 +1394,16 @@ public class KrakenService
 		string tmpCoin = coin.ToUpper();
 		tmpCoin = tmpCoin == "BTC" ? "XBT" : tmpCoin;
 
-		_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Creating reserve ({tmpCoin}: {coinBalance}, USDC: {usdcBalance})", userId, "TRADE", true);
+		_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Creating reserve ({tmpCoin}: {coinBalance}, USDC: {usdcBalance})", userId, "TRADE", viewDebugLogs);
 		if (usdcBalance > _CoinReserveUSDCValue && _CoinReserveUSDCValue > 0)
 		{
 			decimal amount = _CoinReserveUSDCValue / coinPriceUSDC;          
-			_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Starting user off with some {amount} ({_CoinReserveUSDCValue}$USDC) {tmpCoin} reserves", userId, "TRADE", true);
+			_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Starting user off with some {amount} ({_CoinReserveUSDCValue}$USDC) {tmpCoin} reserves", userId, "TRADE", viewDebugLogs);
 			await ExecuteTrade(userId, tmpCoin, keys, FormatBTC(amount), "buy", coinBalance, usdcBalance, coinPriceCAD, coinPriceUSDC, strategy, null, null, true);
 		}
 		else
 		{
-			_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) ⚠️Not enough USDC to trade({strategy}) ({usdcBalance}<{_CoinReserveUSDCValue})", userId, "TRADE", true);
+			_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) ⚠️Not enough USDC to trade({strategy}) ({usdcBalance}<{_CoinReserveUSDCValue})", userId, "TRADE", viewDebugLogs);
 			return false;
 		}
 		return true;
@@ -1424,11 +1427,11 @@ public class KrakenService
 			["volume"] = amount
 		};
 
-		_ = _log.Db($"({tmpCoin.Replace("BTC", "XBT")}:{userId}:{strategy}) Executing trade: {buyOrSell} {from}->{to}/{amount}", userId, "TRADE", true);
+		_ = _log.Db($"({tmpCoin.Replace("BTC", "XBT")}:{userId}:{strategy}) Executing trade: {buyOrSell} {from}->{to}/{amount}", userId, "TRADE", viewDebugLogs);
 		Dictionary<string, Object>? response = await MakeRequestAsync(userId, keys, "/AddOrder", "private", parameters);
 		if (response == null)
 		{
-			_ = _log.Db($"({tmpCoin.Replace("BTC", "XBT")}:{userId}:{strategy}) ⚠️ ERROR Executing trade: {buyOrSell} {from}->{to}/{amount}. Verify configuration.", userId, "TRADE", true); 
+			_ = _log.Db($"({tmpCoin.Replace("BTC", "XBT")}:{userId}:{strategy}) ⚠️ ERROR Executing trade: {buyOrSell} {from}->{to}/{amount}. Verify configuration.", userId, "TRADE", viewDebugLogs); 
 		}
 		else
 		{
@@ -1448,16 +1451,16 @@ public class KrakenService
 		if (!string.IsNullOrEmpty(orderId))
 		{
 			var statusResponse = await CheckOrderStatus(userId, keys, orderId);
-			_ = _log.Db($"Order status: {statusResponse}", userId, "TRADE", true);
+			_ = _log.Db($"Order status: {statusResponse}", userId, "TRADE", viewDebugLogs);
 			if (statusResponse != null)
 			{
 				if (statusResponse["status"]?.ToString() == "closed")
 				{
-					_ = _log.Db($"Trade successful: {from}->{to}/{amount}", userId, "TRADE", true);
+					_ = _log.Db($"Trade successful: {from}->{to}/{amount}", userId, "TRADE", viewDebugLogs);
 				}
 				else
 				{
-					_ = _log.Db("Trade response: " + statusResponse["status"], userId, "TRADE", true);
+					_ = _log.Db("Trade response: " + statusResponse["status"], userId, "TRADE", viewDebugLogs);
 				}
 			}
 		}
@@ -1517,7 +1520,7 @@ public class KrakenService
 			// Trade not found
 			if (tradeUserId == 0)
 			{
-				_ = _log.Db($"{logPrefix}: Trade ID {tradeId} not found", userId, "TRADE", true);
+				_ = _log.Db($"{logPrefix}: Trade ID {tradeId} not found", userId, "TRADE", viewDebugLogs);
 				return false;
 			}
 
@@ -1563,7 +1566,7 @@ public class KrakenService
 		catch (Exception ex)
 		{
 			_ = _log.Db($"⚠️{logPrefix}: Failed to update trade ID {tradeId}: {ex.Message}",
-						userId, "TRADE", true);
+						userId, "TRADE", viewDebugLogs);
 			return false;
 		}
 	}
@@ -1575,7 +1578,7 @@ public class KrakenService
 		{
 			if (DateTime.UtcNow - lastCheckTime < _rateLimitDuration)
 			{
-				//_ = _log.Db($"Rate limit hit for fee update check (user {userId})", userId, "TRADE", true);
+				//_ = _log.Db($"Rate limit hit for fee update check (user {userId})", userId, "TRADE", viewDebugLogs);
 				return false;
 			}
 		}
@@ -1589,7 +1592,7 @@ public class KrakenService
 			updated = await ApplyFallbackFee(userId, tmpCoin, strategy);
 			if (!updated)
 			{
-				// _ = _log.Db($"No trades with missing fees found for {tmpCoin}", userId, "TRADE", true);
+				// _ = _log.Db($"No trades with missing fees found for {tmpCoin}", userId, "TRADE", viewDebugLogs);
 				return false; // No work needed
 			}
 			return updated;
@@ -1641,7 +1644,7 @@ public class KrakenService
 		}
 		catch (Exception ex)
 		{
-			_ = _log.Db($"⚠️Error updating {tmpCoin} missing fees: {ex.Message}", userId, "TRADE", true);
+			_ = _log.Db($"⚠️Error updating {tmpCoin} missing fees: {ex.Message}", userId, "TRADE", viewDebugLogs);
 			updated = await ApplyFallbackFee(userId, tmpCoin, strategy);
 			return updated ? true : null;
 		}
@@ -1673,14 +1676,14 @@ public class KrakenService
 			int rowsAffected = await cmd.ExecuteNonQueryAsync();
 			if (rowsAffected > 0)
 			{
-				_ = _log.Db($"Applied fallback 0.40% fee to {rowsAffected} trades for {coin}", userId, "TRADE", true);
+				_ = _log.Db($"Applied fallback 0.40% fee to {rowsAffected} trades for {coin}", userId, "TRADE", viewDebugLogs);
 				return true;
 			}
 			return false;
 		}
 		catch (Exception ex)
 		{
-			_ = _log.Db($"⚠️Error applying fallback fee for {coin}: {ex.Message}", userId, "TRADE", true);
+			_ = _log.Db($"⚠️Error applying fallback fee for {coin}: {ex.Message}", userId, "TRADE", viewDebugLogs);
 			return false;
 		}
 	}
@@ -1709,7 +1712,7 @@ public class KrakenService
 						// Parse Unix timestamp to DateTime 
 						if (!decimal.TryParse(tradeInfo["time"]?.ToString(), out var unixTimestampDecimal))
 						{
-							_ = _log.Db($"Failed to parse timestamp for trade {trade.Key}", userId, "TRADE", true);
+							_ = _log.Db($"Failed to parse timestamp for trade {trade.Key}", userId, "TRADE", viewDebugLogs);
 							continue;
 						}
 
@@ -1796,7 +1799,7 @@ public class KrakenService
 			}
 		}
 
-		//_ = _log.Db($"No matching {tmpCoin} Kraken trade found", dbTrade.user_id, "TRADE", true);
+		//_ = _log.Db($"No matching {tmpCoin} Kraken trade found", dbTrade.user_id, "TRADE", viewDebugLogs);
 		return null;
 	}
 
@@ -1824,7 +1827,7 @@ public class KrakenService
 		}
 		catch (Exception ex)
 		{
-			_ = _log.Db($"({tmpFrom}:{userId}:{strategy}) ⚠️Error SaveTradeFootprint: " + ex.Message, userId, "TRADE", true); 
+			_ = _log.Db($"({tmpFrom}:{userId}:{strategy}) ⚠️Error SaveTradeFootprint: " + ex.Message, userId, "TRADE", viewDebugLogs); 
 			return false;
 		}
 
@@ -1859,7 +1862,7 @@ public class KrakenService
 		}
 		catch (Exception ex)
 		{
-			_ = _log.Db("⚠️Error Invalidating Trades: " + ex.Message, userId, "TRADE", true);
+			_ = _log.Db("⚠️Error Invalidating Trades: " + ex.Message, userId, "TRADE", viewDebugLogs);
 			return false; // Default action in case of error.
 		}
 	}
@@ -1948,12 +1951,12 @@ public class KrakenService
 
 			var count = Convert.ToInt32(await checkCmd.ExecuteScalarAsync());
 
-			//_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) [ActiveTradeCount] Count={count}", userId, "TRADE", true);
+			//_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) [ActiveTradeCount] Count={count}", userId, "TRADE", viewDebugLogs);
 			return count;
 		}
 		catch (Exception ex)
 		{
-			_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) ⚠️Error at [ActiveTradeCount]: " + ex.Message, userId, "TRADE", true);
+			_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) ⚠️Error at [ActiveTradeCount]: " + ex.Message, userId, "TRADE", viewDebugLogs);
 			return null;
 		}
 	} 
@@ -1981,12 +1984,12 @@ public class KrakenService
 			var count = Convert.ToInt32(await checkCmd.ExecuteScalarAsync());
 
 			//bool result = count >= threshold;
-			//_ = _log.Db($"[RepeatingTradesCheck] Today's ({strategy}) {buyOrSell} {from}/{to} count={count}, Threshold={threshold}, Result={result}", userId, "TRADE", true);
+			//_ = _log.Db($"[RepeatingTradesCheck] Today's ({strategy}) {buyOrSell} {from}/{to} count={count}, Threshold={threshold}, Result={result}", userId, "TRADE", viewDebugLogs);
 			return count;
 		}
 		catch (Exception ex)
 		{
-			_ = _log.Db("⚠️Error at [RepeatingTradesCheck]: " + ex.Message, userId, "TRADE", true);
+			_ = _log.Db("⚠️Error at [RepeatingTradesCheck]: " + ex.Message, userId, "TRADE", viewDebugLogs);
 			return 0;
 		}
 	}
@@ -2026,7 +2029,7 @@ public class KrakenService
 				if (!actualFrom.Equals(expectedFrom, StringComparison.OrdinalIgnoreCase))
 				{
 					// Break early if any trade does not match
-					//_ = _log.Db($"[ConsecutiveCheck] Mismatch at position {count}: Expected {expectedFrom}, Got {actualFrom}", userId, "TRADE", true);
+					//_ = _log.Db($"[ConsecutiveCheck] Mismatch at position {count}: Expected {expectedFrom}, Got {actualFrom}", userId, "TRADE", viewDebugLogs);
 					return false;
 				}
 				count++;
@@ -2034,12 +2037,12 @@ public class KrakenService
 
 			// Only return true if we got enough matches
 			bool result = (count == range);
-			_ = _log.Db($"[ConsecutiveCheck] Consecutive Matches={count}, Range={range}, Result={result}, Strategy={strategy}", userId, "TRADE", true);
+			_ = _log.Db($"[ConsecutiveCheck] Consecutive Matches={count}, Range={range}, Result={result}, Strategy={strategy}", userId, "TRADE", viewDebugLogs);
 			return result;
 		}
 		catch (Exception ex)
 		{
-			_ = _log.Db("⚠️Error checking consecutive trades: " + ex.Message, userId, "TRADE", true);
+			_ = _log.Db("⚠️Error checking consecutive trades: " + ex.Message, userId, "TRADE", viewDebugLogs);
 			return true; // Fail safe: prevent trade
 		}
 	}
@@ -2052,14 +2055,14 @@ public class KrakenService
 		string tmpCoin = from.Replace("BTC", "XBT");
 		if (string.IsNullOrEmpty(from) || string.IsNullOrEmpty(to) || string.IsNullOrEmpty(amount) || string.IsNullOrEmpty(strategy))
 		{
-			_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Invalid input parameters: from={from}, to={to}, amount={amount}, strategy={strategy}", userId, "TRADE", true);
+			_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Invalid input parameters: from={from}, to={to}, amount={amount}, strategy={strategy}", userId, "TRADE", viewDebugLogs);
 			return;
 		}
 
 		// Validate configuration
 		if (_config == null || string.IsNullOrEmpty(_config.GetValue<string>("ConnectionStrings:maxhanna")))
 		{
-			_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Configuration or connection string is missing.", userId, "TRADE", true);
+			_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Configuration or connection string is missing.", userId, "TRADE", viewDebugLogs);
 			return;
 		}
 
@@ -2103,7 +2106,7 @@ public class KrakenService
             {
                 int newId = Convert.ToInt32(newTradeId);
 				string tmpFrom = from == "USDC" ? to : from;
-                _ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Created trade history with ID {newId}, pair {from}/{to}, coin_price_cad={adjustedCoinPriceInCAD}.", userId, "TRADE", true);
+                _ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Created trade history with ID {newId}, pair {from}/{to}, coin_price_cad={adjustedCoinPriceInCAD}.", userId, "TRADE", viewDebugLogs);
                 bool setMatchingId = false;
                 // If there's a matching trade ID, update the original trade's matching_trade_id
                 if (matchingTradeId != null)
@@ -2119,7 +2122,7 @@ public class KrakenService
                     updateCmd.Parameters.Add("@MatchingTradeId", MySqlDbType.Int32).Value = matchingTradeId;
                     await updateCmd.ExecuteNonQueryAsync();
                     setMatchingId = true;
-                    _ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Updated trade ID {matchingTradeId} with matching_trade_id {newId}.", userId, "TRADE", true);
+                    _ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Updated trade ID {matchingTradeId} with matching_trade_id {newId}.", userId, "TRADE", viewDebugLogs);
                 }
                 if (!setMatchingId && matchingTradeRecords != null && matchingTradeRecords.Count > 0)
                 {
@@ -2142,7 +2145,7 @@ public class KrakenService
 						}
 
 						int rowsAffected = await updateCmd.ExecuteNonQueryAsync();
-						_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Updated {rowsAffected} trade IDs ({string.Join(", ", matchingTradeIds)}) with matching_trade_id {newId}.", userId, "TRADE", true);
+						_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Updated {rowsAffected} trade IDs ({string.Join(", ", matchingTradeIds)}) with matching_trade_id {newId}.", userId, "TRADE", viewDebugLogs);
 					}
 					const string updateOriginalTradeSQL = @"
 						UPDATE maxhanna.trade_history 
@@ -2152,23 +2155,23 @@ public class KrakenService
                     updateOriginalTradeCmd.Parameters.Add("@NewTradeId", MySqlDbType.Int32).Value = newId;
                     updateOriginalTradeCmd.Parameters.Add("@MatchingTradeId", MySqlDbType.Int32).Value = matchingTradeRecords[0].id;
                     await updateOriginalTradeCmd.ExecuteNonQueryAsync();
-                    _ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Updated trade ID {newId} with matching_trade_id {matchingTradeRecords[0].id}.", userId, "TRADE", true);
+                    _ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Updated trade ID {newId} with matching_trade_id {matchingTradeRecords[0].id}.", userId, "TRADE", viewDebugLogs);
                 }
 
                 await SendTradeNotification(currentCoinPriceInUSDC, amount, userId, from, to, strategy, conn);
             }
             else
 			{
-				_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Failed to retrieve new trade ID, pair {from}/{to}.", userId, "TRADE", true);
+				_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Failed to retrieve new trade ID, pair {from}/{to}.", userId, "TRADE", viewDebugLogs);
 			}
 		}
 		catch (MySqlException ex)
 		{
-			_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Database error creating trade history, pair {from}/{to}: {ex.Message}", userId, "TRADE", true);
+			_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Database error creating trade history, pair {from}/{to}: {ex.Message}", userId, "TRADE", viewDebugLogs);
 		}
 		catch (Exception ex)
 		{
-			_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Unexpected error creating trade history, pair {from}/{to}: {ex.Message}", userId, "TRADE", true);
+			_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Unexpected error creating trade history, pair {from}/{to}: {ex.Message}", userId, "TRADE", viewDebugLogs);
 		}
 	}
 
@@ -2235,7 +2238,7 @@ public class KrakenService
 	{
 		if (balanceDictionary == null)
 		{
-			_ = _log.Db("Balance dictionary is null. Cannot create wallet entries.", userId, "TRADE", true);
+			_ = _log.Db("Balance dictionary is null. Cannot create wallet entries.", userId, "TRADE", viewDebugLogs);
 			return;
 		}
 
@@ -2271,7 +2274,7 @@ public class KrakenService
 				// Check if we have a mapping for this coin
 				if (!CoinMappingsForDB.TryGetValue(coinSymbol, out var tableSuffix))
 				{
-					_ = _log.Db($"No mapping found for coin symbol: {coinSymbol}", userId, "TRADE", true);
+					_ = _log.Db($"No mapping found for coin symbol: {coinSymbol}", userId, "TRADE", viewDebugLogs);
 					continue;
 				}
 
@@ -2352,7 +2355,7 @@ public class KrakenService
 		}
 		catch (Exception ex)
 		{
-			_ = _log.Db($"⚠️Error creating wallet balance entries: {ex.Message}", userId, "TRADE", true);
+			_ = _log.Db($"⚠️Error creating wallet balance entries: {ex.Message}", userId, "TRADE", viewDebugLogs);
 		}
 	}
 
@@ -2389,7 +2392,7 @@ public class KrakenService
 		catch (Exception ex)
 		{
 			_ = _log.Db($"⚠️Error checking {coin?.ToUpper() ?? "UNKNOWN"} trade history: {ex.Message}",
-					   userId, "TRADE", true);
+					   userId, "TRADE", viewDebugLogs);
 			return null;
 		}
 	}
@@ -2422,7 +2425,7 @@ public class KrakenService
 		}
 		catch (Exception ex)
 		{
-			_ = _log.Db($"⚠️Error checking {tmpCoin} trade history: " + ex.Message, userId, "TRADE", true);
+			_ = _log.Db($"⚠️Error checking {tmpCoin} trade history: " + ex.Message, userId, "TRADE", viewDebugLogs);
 			return null;
 		}
 	}
@@ -2430,7 +2433,7 @@ public class KrakenService
 	private async Task<decimal?> IsSystemUpToDate(int userId, string coin, decimal coinPriceUSDC)
 	{
 		string tmpCoin = coin == "XBT" ? "BTC" : coin;
-		//_ = _log.Db($"Checking IsSystemUpToDate for coin: {tmpCoin}", userId, "TRADE", true);
+		//_ = _log.Db($"Checking IsSystemUpToDate for coin: {tmpCoin}", userId, "TRADE", viewDebugLogs);
 		try
 		{
 			using (var conn = new MySqlConnection(_config?.GetValue<string>("ConnectionStrings:maxhanna")))
@@ -2456,7 +2459,7 @@ public class KrakenService
 					var result = await checkCmd.ExecuteScalarAsync();
 					if (result != null && decimal.TryParse(result.ToString(), out var valueCad))
 					{
-						//_ = _log.Db($"Returning recent {tmpCoin} rate from database.", userId, "TRADE", true);
+						//_ = _log.Db($"Returning recent {tmpCoin} rate from database.", userId, "TRADE", viewDebugLogs);
 						return valueCad;
 					}
 				}
@@ -2478,7 +2481,7 @@ public class KrakenService
 					}
 					else
 					{
-						_ = _log.Db("Failed to fetch CAD/USD exchange rate from database.", userId, "TRADE", true);
+						_ = _log.Db("Failed to fetch CAD/USD exchange rate from database.", userId, "TRADE", viewDebugLogs);
 						return null;
 					}
 				}
@@ -2493,7 +2496,7 @@ public class KrakenService
 				// 	$"[Symbol Resolution] Raw Coin Input: '{coin}' | Upper: '{tmpCoin}' | Normalized Name: '{normalizedCoinName}' | Final Symbol: '{symbol}'",
 				// 	userId,
 				// 	"TRADE",
-				// 	outputToConsole: true
+				// 	outputToConsole: viewDebugLogs
 				//);
 				using (var insertCmd = new MySqlCommand(insertSql, conn))
 				{
@@ -2502,7 +2505,7 @@ public class KrakenService
 					insertCmd.Parameters.AddWithValue("@ValueCad", coinPriceCad);
 					insertCmd.Parameters.AddWithValue("@ValueUsd", coinPriceUSDC);
 					await insertCmd.ExecuteNonQueryAsync();
-					//_ = _log.Db($"Inserted new data for {tmpCoin} with symbol {symbol} into database.", userId, "TRADE", true); 
+					//_ = _log.Db($"Inserted new data for {tmpCoin} with symbol {symbol} into database.", userId, "TRADE", viewDebugLogs); 
 				}
 
 				return coinPriceCad;
@@ -2510,12 +2513,12 @@ public class KrakenService
 		}
 		catch (MySqlException ex)
 		{
-			_ = _log.Db("⚠️Error checking IsSystemUpToDate: " + ex.Message, userId, "TRADE", true);
+			_ = _log.Db("⚠️Error checking IsSystemUpToDate: " + ex.Message, userId, "TRADE", viewDebugLogs);
 			return null;
 		}
 		catch (Exception ex)
 		{
-			_ = _log.Db("⚠️Unexpected error in IsSystemUpToDate: " + ex.Message, userId, "TRADE", true);
+			_ = _log.Db("⚠️Unexpected error in IsSystemUpToDate: " + ex.Message, userId, "TRADE", viewDebugLogs);
 			return null;
 		}
 	}
@@ -2558,7 +2561,7 @@ public class KrakenService
 		}
 		catch (Exception ex)
 		{
-			_ = _log.Db($"⚠️Error fetching last {coin} trade: " + ex.Message, null, "TRADE", true);
+			_ = _log.Db($"⚠️Error fetching last {coin} trade: " + ex.Message, null, "TRADE", viewDebugLogs);
 		}
 		return null;
 	}
@@ -2605,7 +2608,7 @@ public class KrakenService
 		}
 		catch (Exception ex)
 		{
-			_ = _log.Db("⚠️Error fetching trade by ID: " + ex.Message, null, "TRADE", true);
+			_ = _log.Db("⚠️Error fetching trade by ID: " + ex.Message, null, "TRADE", viewDebugLogs);
 		}
 
 		return tradeRecord;
@@ -2719,7 +2722,7 @@ public class KrakenService
 		}
 		catch (Exception ex)
 		{
-			_ = _log.Db($"⚠️ Error fetching trade history: {ex.Message}", null, "TRADE", true);
+			_ = _log.Db($"⚠️ Error fetching trade history: {ex.Message}", null, "TRADE", viewDebugLogs);
 		}
 
 		return response;
@@ -2762,7 +2765,7 @@ public class KrakenService
 		}
 		catch (Exception ex)
 		{
-			await _log.Db($"⚠️Error fetching page for trade ID {tradeId}: {ex.Message}", null, "TRADE", true);
+			await _log.Db($"⚠️Error fetching page for trade ID {tradeId}: {ex.Message}", null, "TRADE", viewDebugLogs);
 			return null;
 		}
 	}
@@ -2827,7 +2830,7 @@ public class KrakenService
 		}
 		catch (Exception ex)
 		{
-			await _log.Db($"⚠️Error fetching trades for page {pageNumber}: {ex.Message}", null, "TRADE", true);
+			await _log.Db($"⚠️Error fetching trades for page {pageNumber}: {ex.Message}", null, "TRADE", viewDebugLogs);
 			return new List<TradeRecord>();
 		}
 	}
@@ -2868,7 +2871,7 @@ public class KrakenService
 		}
 		catch (Exception ex)
 		{
-			_ = _log.Db("⚠️Error fetching latest trade history: " + ex.Message, null, "TRADE", true);
+			_ = _log.Db("⚠️Error fetching latest trade history: " + ex.Message, null, "TRADE", viewDebugLogs);
 		}
 		return null;
 	}
@@ -2933,7 +2936,7 @@ public class KrakenService
 		}
 		catch (Exception ex)
 		{
-			_ = _log.Db($"⚠️Error checking ({strategy}) trade sequence: {ex.Message}", null, "TRADE", true);
+			_ = _log.Db($"⚠️Error checking ({strategy}) trade sequence: {ex.Message}", null, "TRADE", viewDebugLogs);
 			throw; // Or handle as needed
 		}
 	}
@@ -2999,7 +3002,7 @@ public class KrakenService
 		}
 		catch (Exception ex)
 		{
-			_ = _log.Db("⚠️Error updating API keys: " + ex.Message, request.UserId, "TRADE", true);
+			_ = _log.Db("⚠️Error updating API keys: " + ex.Message, request.UserId, "TRADE", viewDebugLogs);
 		}
 	}
 	public async Task<UserKrakenApiKey?> GetApiKey(int userId)
@@ -3035,7 +3038,7 @@ public class KrakenService
 		}
 		catch (Exception ex)
 		{
-			_ = _log.Db("⚠️Error getting API keys: " + ex.Message, userId, "TRADE", true);
+			_ = _log.Db("⚠️Error getting API keys: " + ex.Message, userId, "TRADE", viewDebugLogs);
 			return null; // Return null in case of an error
 		}
 	}
@@ -3057,7 +3060,7 @@ public class KrakenService
 		}
 		catch (Exception ex)
 		{
-			_ = _log.Db("⚠️Error getting API keys: " + ex.Message, userId, "TRADE", true);
+			_ = _log.Db("⚠️Error getting API keys: " + ex.Message, userId, "TRADE", viewDebugLogs);
 			return false; // Return false in case of error
 		}
 	}
@@ -3069,13 +3072,13 @@ public class KrakenService
 		var allowedCoins = new HashSet<string> { "btc", "eth", "sol", "ada", "xrp", "xdg" };
 		if (!allowedCoins.Contains(tmpCoin))
 		{
-			await _log.Db($"⚠️ Invalid coin symbol attempted: {tmpCoin}", userId, "TRADE", true);
+			await _log.Db($"⚠️ Invalid coin symbol attempted: {tmpCoin}", userId, "TRADE", viewDebugLogs);
 			return false;
 		}
 
 		if (string.IsNullOrWhiteSpace(strategy) || strategy.Length > 100)
 		{
-			await _log.Db($"⚠️ Invalid strategy value for StartBot: '{strategy}'", userId, "TRADE", true);
+			await _log.Db($"⚠️ Invalid strategy value for StartBot: '{strategy}'", userId, "TRADE", viewDebugLogs);
 			return false;
 		}
 
@@ -3097,12 +3100,12 @@ public class KrakenService
 			cmd.Parameters.AddWithValue("@Strategy", strategy);
 
 			await cmd.ExecuteNonQueryAsync();
-			await _log.Db($"{strategy} {coin} Bot started.", userId, "TRADE", true);
+			await _log.Db($"{strategy} {coin} Bot started.", userId, "TRADE", viewDebugLogs);
 			return true;
 		}
 		catch (Exception ex)
 		{
-			await _log.Db($"Error starting the {strategy} bot: " + ex.Message, userId, "TRADE", true);
+			await _log.Db($"Error starting the {strategy} bot: " + ex.Message, userId, "TRADE", viewDebugLogs);
 			return false;
 		}
 	}
@@ -3115,13 +3118,13 @@ public class KrakenService
 		var allowedCoins = new HashSet<string> { "btc", "eth", "sol", "ada", "xrp", "xdg" };
 		if (!allowedCoins.Contains(tmpCoin))
 		{
-			await _log.Db($"{strategy} Invalid coin symbol attempted while stopping bot: {tmpCoin}", userId, "TRADE", true);
+			await _log.Db($"{strategy} Invalid coin symbol attempted while stopping bot: {tmpCoin}", userId, "TRADE", viewDebugLogs);
 			return false;
 		}
 
 		if (string.IsNullOrWhiteSpace(strategy) || strategy.Length > 100)
 		{
-			await _log.Db($"Invalid strategy({strategy}) value for StopBot: '{strategy}'", userId, "TRADE", true);
+			await _log.Db($"Invalid strategy({strategy}) value for StopBot: '{strategy}'", userId, "TRADE", viewDebugLogs);
 			return false;
 		}
 
@@ -3143,12 +3146,12 @@ public class KrakenService
 			cmd.Parameters.AddWithValue("@Strategy", strategy);
 
 			await cmd.ExecuteNonQueryAsync();
-			await _log.Db($"{strategy} Bot stopped.", userId, "TRADE", true);
+			await _log.Db($"{strategy} Bot stopped.", userId, "TRADE", viewDebugLogs);
 			return true;
 		}
 		catch (Exception ex)
 		{
-			await _log.Db($"Error stopping the {strategy} bot: " + ex.Message, userId, "TRADE", true);
+			await _log.Db($"Error stopping the {strategy} bot: " + ex.Message, userId, "TRADE", viewDebugLogs);
 			return false;
 		}
 	}
@@ -3211,7 +3214,7 @@ public class KrakenService
 		}
 		catch (Exception ex)
 		{
-			_ = _log.Db("Error checking GetAllTradebotStatuses: " + ex.Message, userId, "TRADE", true);
+			_ = _log.Db("Error checking GetAllTradebotStatuses: " + ex.Message, userId, "TRADE", viewDebugLogs);
 
 			// Return empty statuses with all currencies/strategies set to null on error
 			var emptyStatuses = new Dictionary<string, Dictionary<string, DateTime?>>();
@@ -3233,7 +3236,7 @@ public class KrakenService
 		tmpCoin = tmpCoin == "xbt" ? "btc" : tmpCoin;
 		if (!System.Text.RegularExpressions.Regex.IsMatch(tmpCoin, @"^[a-z]{2,5}$")) // Only allow 2-5 lowercase letters
 		{
-			_ = _log.Db($"Invalid coin name (IsTradebotStarted:{strategy}).", userId, "TRADE", true);
+			_ = _log.Db($"Invalid coin name (IsTradebotStarted:{strategy}).", userId, "TRADE", viewDebugLogs);
 			return null;
 		}
 		try
@@ -3262,7 +3265,7 @@ public class KrakenService
 		}
 		catch (Exception ex)
 		{
-			_ = _log.Db("Error checking IsTradebotStarted({strategy}): " + ex.Message, userId, "TRADE", true);
+			_ = _log.Db("Error checking IsTradebotStarted({strategy}): " + ex.Message, userId, "TRADE", viewDebugLogs);
 			return null;
 		}
 	}
@@ -3277,7 +3280,7 @@ public class KrakenService
 		string normalizedName = CoinNameMap.TryGetValue(inputCoin, out var mappedName) ? mappedName : inputCoin;
 		string symbol = CoinSymbols.TryGetValue(normalizedName, out var resolvedSymbol) ? resolvedSymbol : "";
 
-		//_ = _log.Db($"🔍 Input: {coin}, Mapped Name: {normalizedName}, Resolved Symbol: {symbol}", userId, "TRADE", true);
+		//_ = _log.Db($"🔍 Input: {coin}, Mapped Name: {normalizedName}, Resolved Symbol: {symbol}", userId, "TRADE", viewDebugLogs);
 
 		// Step 1: Try to get cached value from DB (last 10 seconds)
 		try
@@ -3299,13 +3302,13 @@ public class KrakenService
 			if (result != null)
 			{
 				decimal dbPrice = Convert.ToDecimal(result); // Direct cast to preserve precision
-				//_ = _log.Db($"✅ Cache hit for {normalizedName}: ${dbPrice:F8}", userId, "TRADE", true);
+				//_ = _log.Db($"✅ Cache hit for {normalizedName}: ${dbPrice:F8}", userId, "TRADE", viewDebugLogs);
 				return dbPrice;
 			}
 		}
 		catch (Exception ex)
 		{
-			_ = _log.Db($"⚠️ DB error fetching cached coin value for {normalizedName}: {ex.Message}", userId, "TRADE", true);
+			_ = _log.Db($"⚠️ DB error fetching cached coin value for {normalizedName}: {ex.Message}", userId, "TRADE", viewDebugLogs);
 		}
 
 		// Step 2: Fallback to Kraken API
@@ -3316,21 +3319,21 @@ public class KrakenService
  
 			if (response == null || !response.ContainsKey("result"))
 			{
-				_ = _log.Db($"❌ Kraken response missing 'result' for {pair}", userId, "TRADE", true);
+				_ = _log.Db($"❌ Kraken response missing 'result' for {pair}", userId, "TRADE", viewDebugLogs);
 				return null;
 			}
 
 			var result = (JObject)response["result"];
 			if (!result.ContainsKey(pair))
 			{
-				_ = _log.Db($"❌ Kraken result missing pair: {pair}", userId, "TRADE", true);
+				_ = _log.Db($"❌ Kraken result missing pair: {pair}", userId, "TRADE", viewDebugLogs);
 				return null;
 			}
 
 			var askArray = result[pair]?["a"]?.ToObject<JArray>();
 			if (askArray == null || askArray.Count < 1)
 			{
-				_ = _log.Db($"❌ Kraken ask price missing or invalid for {coin}", userId, "TRADE", true);
+				_ = _log.Db($"❌ Kraken ask price missing or invalid for {coin}", userId, "TRADE", viewDebugLogs);
 				return null;
 			}
 
@@ -3345,7 +3348,7 @@ public class KrakenService
 				decimal? coinPriceCAD = await ConvertFiatAsync("USD", "CAD", askPrice);
 				if (coinPriceCAD == null)
 				{
-					await _log.Db($"⚠️ Could not convert {askPrice} USD to CAD for {normalizedName}", userId, "TRADE", true);
+					await _log.Db($"⚠️ Could not convert {askPrice} USD to CAD for {normalizedName}", userId, "TRADE", viewDebugLogs);
 					return askPrice;
 				}
 
@@ -3362,18 +3365,18 @@ public class KrakenService
 				insertCmd.Parameters.AddWithValue("@PriceCAD", roundedCad);
 
 				await insertCmd.ExecuteNonQueryAsync();
-				//_ = _log.Db($"💾 Inserted price for {normalizedName}: USD${roundedAskPrice} / CAD${roundedCad} (Symbol: {symbol})", userId, "TRADE", true);
+				//_ = _log.Db($"💾 Inserted price for {normalizedName}: USD${roundedAskPrice} / CAD${roundedCad} (Symbol: {symbol})", userId, "TRADE", viewDebugLogs);
 			}
 			catch (Exception insertEx)
 			{
-				_ = _log.Db($"⚠️ Failed to insert new coin value for {normalizedName}: {insertEx.Message}", userId, "TRADE", true);
+				_ = _log.Db($"⚠️ Failed to insert new coin value for {normalizedName}: {insertEx.Message}", userId, "TRADE", viewDebugLogs);
 			}
 
 			return askPrice;
 		}
 		catch (Exception ex)
 		{
-			_ = _log.Db($"⚠️ Error fetching {coin} price from Kraken: {ex.Message}", userId, "TRADE", true);
+			_ = _log.Db($"⚠️ Error fetching {coin} price from Kraken: {ex.Message}", userId, "TRADE", viewDebugLogs);
 			return null;
 		}
 	}
@@ -3417,7 +3420,7 @@ public class KrakenService
 
 			if (!response.IsSuccessStatusCode)
 			{
-				_ = _log.Db("Failed to make API request: " + responseContent, userId, "TRADE", true);
+				_ = _log.Db("Failed to make API request: " + responseContent, userId, "TRADE", viewDebugLogs);
 			}
 
 			Dictionary<string, object>? responseObject = JsonConvert.DeserializeObject<Dictionary<string, object>>(responseContent);
@@ -3428,14 +3431,14 @@ public class KrakenService
 				var errorMessages = responseObject["error"] is JArray errorArray
 					? string.Join(", ", errorArray.ToObject<List<string>>() ?? new List<string>())
 					: string.Empty;
-				_ = _log.Db($"Kraken API error: {errorMessages}. Url: {urlPath}. User: {userId}", userId, "TRADE", true);
+				_ = _log.Db($"Kraken API error: {errorMessages}. Url: {urlPath}. User: {userId}", userId, "TRADE", viewDebugLogs);
 				return null;
 			}
 			return responseObject;
 		}
 		catch (Exception ex)
 		{
-			_ = _log.Db($"⚠️ Kraken API request failed: {ex}", userId, "TRADE", true);
+			_ = _log.Db($"⚠️ Kraken API request failed: {ex}", userId, "TRADE", viewDebugLogs);
 			throw;
 		}
 	}
@@ -3520,7 +3523,7 @@ public class KrakenService
 		}
 		catch (Exception ex)
 		{
-			await _log.Db($"🔥 Error during fiat conversion: {ex.Message}", outputToConsole: true);
+			await _log.Db($"🔥 Error during fiat conversion: {ex.Message}", outputToConsole: viewDebugLogs);
 			return null;
 		}
 	}
@@ -3599,7 +3602,7 @@ public class KrakenService
 		}
 		catch (Exception ex)
 		{
-			await _log.Db("⚠️GetTradeConfigurationLastUpdate Exception: " + ex.Message, userId, "TRADE", true);
+			await _log.Db("⚠️GetTradeConfigurationLastUpdate Exception: " + ex.Message, userId, "TRADE", viewDebugLogs);
 		}
 
 		return null;
@@ -3652,10 +3655,10 @@ public class KrakenService
 		}
 		catch (Exception ex)
 		{
-			await _log.Db($"({fromCoin}:{userId}:{strategy}) ⚠️GetTradeConfiguration Exception: " + ex.Message, userId, "TRADE", true);
+			await _log.Db($"({fromCoin}:{userId}:{strategy}) ⚠️GetTradeConfiguration Exception: " + ex.Message, userId, "TRADE", viewDebugLogs);
 			return null;
 		}
-		await _log.Db($"({fromCoin}:{userId}:{strategy}) ⚠️GetTradeConfiguration No trade configuration for : {fromCoin}/{toCoin}:{strategy}", userId, "TRADE", true);
+		await _log.Db($"({fromCoin}:{userId}:{strategy}) ⚠️GetTradeConfiguration No trade configuration for : {fromCoin}/{toCoin}:{strategy}", userId, "TRADE", viewDebugLogs);
 		return null;
 	}
 	public async Task<bool> UpsertTradeConfiguration(int userId, string fromCoin,
@@ -3729,7 +3732,7 @@ public class KrakenService
 		}
 		catch (Exception ex)
 		{
-			await _log.Db("⚠️Error upserting trade configuration: " + ex.Message, userId, "TRADE", true);
+			await _log.Db("⚠️Error upserting trade configuration: " + ex.Message, userId, "TRADE", viewDebugLogs);
 			return false;
 		}
 	}
@@ -3808,7 +3811,7 @@ public class KrakenService
 		}
 		catch (Exception ex)
 		{
-			_ = _log.Db($"({tmpCoinName}:{userId}:{strategy}) ⚠️ Error checking first {tmpCoinName}({strategy}) price with trade condition: {ex.Message}", userId, "TRADE", true);
+			_ = _log.Db($"({tmpCoinName}:{userId}:{strategy}) ⚠️ Error checking first {tmpCoinName}({strategy}) price with trade condition: {ex.Message}", userId, "TRADE", viewDebugLogs);
 			return null;
 		}
 	}
@@ -3872,11 +3875,11 @@ public class KrakenService
 			checkCmd.Parameters.AddWithValue("@Strategy", strategy);
 			checkCmd.Parameters.AddWithValue("@BtcValueUSDC", coinPriceUsdc);
 			await checkCmd.ExecuteNonQueryAsync();
-			_ = _log.Db($"({from}:{userId}:{strategy}) Momentum entry created: {from}/{to} price : {coinPriceUsdc}.", userId, "TRADE", true);
+			_ = _log.Db($"({from}:{userId}:{strategy}) Momentum entry created: {from}/{to} price : {coinPriceUsdc}.", userId, "TRADE", viewDebugLogs);
 		}
 		catch (Exception ex)
 		{
-			_ = _log.Db($"({from}:{userId}:{strategy}) ⚠️ Error creating momentum entry: " + ex.Message, userId, "TRADE", true);
+			_ = _log.Db($"({from}:{userId}:{strategy}) ⚠️ Error creating momentum entry: " + ex.Message, userId, "TRADE", viewDebugLogs);
 			return false;
 		}
 		return true;
@@ -3913,16 +3916,16 @@ public class KrakenService
 			isDeleted = rowsAffected > 0;
 			if (isDeleted)
 			{
-				_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Deleted momentum strategy; From {from}, To {to}.", userId, "TRADE", true);
+				_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Deleted momentum strategy; From {from}, To {to}.", userId, "TRADE", viewDebugLogs);
 			}
 			else
 			{
-				_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) No momentum strategy found to delete; From {from}, To {to}.", userId, "TRADE", true);
+				_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) No momentum strategy found to delete; From {from}, To {to}.", userId, "TRADE", viewDebugLogs);
 			}
 		}
 		catch (Exception ex)
 		{
-			_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Error deleting momentum strategy; From {from}, To {to}: {ex.Message}", userId, "TRADE", true);
+			_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Error deleting momentum strategy; From {from}, To {to}: {ex.Message}", userId, "TRADE", viewDebugLogs);
 			isDeleted = false;
 		}
 		finally
@@ -3976,7 +3979,7 @@ public class KrakenService
 		}
 		catch (Exception ex)
 		{
-			_ = _log.Db($"({from}:{userId}:{strategy}) Error updating momentum entry: " + ex.Message, userId, "TRADE", true);
+			_ = _log.Db($"({from}:{userId}:{strategy}) Error updating momentum entry: " + ex.Message, userId, "TRADE", viewDebugLogs);
 			return false;
 		}
 	}
@@ -4022,7 +4025,7 @@ public class KrakenService
 			}
 			// if (momentumStrategy != null)
 			// {
-			// 	_ = _log.Db($"({from}:{userId}:{strategy}) Found an active momentum strategy; From {from}, To {to}.", userId, "TRADE", true);
+			// 	_ = _log.Db($"({from}:{userId}:{strategy}) Found an active momentum strategy; From {from}, To {to}.", userId, "TRADE", viewDebugLogs);
 			// }
 		}
 		catch (Exception ex)
@@ -4078,12 +4081,12 @@ public class KrakenService
 			if (result != null && result != DBNull.Value)
 			{
 				matchingBuyId = Convert.ToInt32(result);
-				_ = _log.Db($"({coinSymbol}:{userId}:{strategy}) Found matching buy order {matchingBuyId} at {sellPrice} (buy price <= {maxBuyPrice}).", userId, "TRADE", true);
+				_ = _log.Db($"({coinSymbol}:{userId}:{strategy}) Found matching buy order {matchingBuyId} at {sellPrice} (buy price <= {maxBuyPrice}).", userId, "TRADE", viewDebugLogs);
 			}
 		}
 		catch (Exception ex)
 		{
-			_ = _log.Db($"({coinSymbol}:{userId}:{strategy}) Error finding matching buy order: {ex.Message}", userId, "TRADE", true);
+			_ = _log.Db($"({coinSymbol}:{userId}:{strategy}) Error finding matching buy order: {ex.Message}", userId, "TRADE", viewDebugLogs);
 		}
 		finally
 		{
@@ -4169,7 +4172,7 @@ public class KrakenService
 
 		if (volumes == null || volumes.Count == 0)
 		{
-			_ = _log.Db("No volume data available for spike detection.", null, "TRADE", true);
+			_ = _log.Db("No volume data available for spike detection.", null, "TRADE", viewDebugLogs);
 			return false;
 		}
 
@@ -4194,7 +4197,7 @@ public class KrakenService
 			Latest Volume: {latestVolume:N2} USDC
 			Volume Increase: {volumeIncreasePercent:P2}
 			Spike Threshold: {spikeThresholdPercent:P2}
-			Significant Spike Detected: {isSpike}", userId, "TRADE", true);
+			Significant Spike Detected: {isSpike}", userId, "TRADE", viewDebugLogs);
 		}
 
 		return isSpike;
@@ -4338,7 +4341,7 @@ public class KrakenService
 		}
 		catch (Exception e)
 		{
-			_ = _log.Db("⚠️KrakenService exception GetTradeMarketVolumesForGraphAsync: " + e.Message, outputToConsole: true);
+			_ = _log.Db("⚠️KrakenService exception GetTradeMarketVolumesForGraphAsync: " + e.Message, outputToConsole: viewDebugLogs);
 		}
 		return volumes;
 	}
@@ -4358,7 +4361,7 @@ public class KrakenService
 			var balances = await GetBalance(userId, tmpCoin, strategy ?? "XXX", keys);
 			if (balances == null)
 			{
-				_ = _log.Db("Failed to get wallet balances", userId, "TRADE", true);
+				_ = _log.Db("Failed to get wallet balances", userId, "TRADE", viewDebugLogs);
 				return false;
 			}
 			decimal? coinBalance;
@@ -4372,25 +4375,25 @@ public class KrakenService
 			}
 			if (coinBalance == null || !coinBalance.HasValue || coinBalance == 0)
 			{
-				_ = _log.Db($"No {tmpCoin} balance found. Trade Cancelled.", userId, "TRADE", true);
+				_ = _log.Db($"No {tmpCoin} balance found. Trade Cancelled.", userId, "TRADE", viewDebugLogs);
 				return false;
 			}
 			decimal usdcBalance = GetCoinBalanceFromDictionaryAndKey(balances, "USDC");
 			decimal? coinPriceUSDC = await GetCoinPriceToUSDC(userId, coin, keys);
 			if (coinPriceUSDC == null)
 			{
-				_ = _log.Db("No USDC price found. Trade Cancelled.", userId, "TRADE", true);
+				_ = _log.Db("No USDC price found. Trade Cancelled.", userId, "TRADE", viewDebugLogs);
 				return false;
 			}
 
 			decimal? coinPriceCAD = await IsSystemUpToDate(userId, coin, coinPriceUSDC.Value);
 			if (coinPriceCAD == null)
 			{
-				_ = _log.Db("No CAD price found. Trade Cancelled.", userId, "TRADE", true);
+				_ = _log.Db("No CAD price found. Trade Cancelled.", userId, "TRADE", viewDebugLogs);
 				return false;
 			}
 
-			_ = _log.Db($"Exiting position. BTC Balance: {coinBalance}", userId, "TRADE", true);
+			_ = _log.Db($"Exiting position. BTC Balance: {coinBalance}", userId, "TRADE", viewDebugLogs);
 			await ExecuteTrade(userId, tmpCoin, keys, FormatBTC(coinBalance.Value), "sell", coinBalance.Value, usdcBalance, coinPriceCAD.Value, coinPriceUSDC.Value, strategy ?? "XXX", null, null);
 			await InvalidateTrades(userId, tmpCoin, strategy);
 			if (strategy != null && strategy != "XXX")
@@ -4402,7 +4405,7 @@ public class KrakenService
 		}
 		catch (Exception e)
 		{
-			_ = _log.Db("⚠️KrakenService exception ExitPosition: " + e.Message, outputToConsole: true);
+			_ = _log.Db("⚠️KrakenService exception ExitPosition: " + e.Message, outputToConsole: viewDebugLogs);
 			return false;
 		}
 	}
@@ -4430,17 +4433,17 @@ public class KrakenService
 			TradeConfiguration? tc = await GetTradeConfiguration(userId, tmpCoin, "USDC", strategy);
 			if (tc == null)
 			{
-				_ = _log.Db($"Null ({strategy}) {tmpCoin} trade configuration. Trade Cancelled.", userId, "TRADE", true);
+				_ = _log.Db($"Null ({strategy}) {tmpCoin} trade configuration. Trade Cancelled.", userId, "TRADE", viewDebugLogs);
 				return false;
 			}
 			if (!ValidateTradeConfiguration(tc, userId))
 			{
-				_ = _log.Db($"Invalid ({strategy}) {tmpCoin} configuration. Trade Cancelled.", userId, "TRADE", true);
+				_ = _log.Db($"Invalid ({strategy}) {tmpCoin} configuration. Trade Cancelled.", userId, "TRADE", viewDebugLogs);
 				return false;
 			}
 			if (!ApplyTradeConfiguration(tc))
 			{
-				_ = _log.Db($"Null {tmpCoin} trade configuration. Trade Cancelled.", userId, "TRADE", true);
+				_ = _log.Db($"Null {tmpCoin} trade configuration. Trade Cancelled.", userId, "TRADE", viewDebugLogs);
 				return false;
 			}
 
@@ -4456,14 +4459,14 @@ public class KrakenService
 			decimal? coinPriceUSDC = await GetCoinPriceToUSDC(userId, tmpCoin, keys);
 			if (coinPriceUSDC == null)
 			{
-				_ = _log.Db("No USDC price found. Trade Cancelled.", userId, "TRADE", true);
+				_ = _log.Db("No USDC price found. Trade Cancelled.", userId, "TRADE", viewDebugLogs);
 				return false;
 			}
 
 			decimal? coinPriceCAD = await IsSystemUpToDate(userId, tmpCoin, coinPriceUSDC.Value);
 			if (coinPriceCAD == null)
 			{
-				_ = _log.Db("No CAD price found. Trade Cancelled.", userId, "TRADE", true);
+				_ = _log.Db("No CAD price found. Trade Cancelled.", userId, "TRADE", viewDebugLogs);
 				return false;
 			}
 			//Trade configured percentage % of USDC balance TO BTC 
@@ -4472,21 +4475,21 @@ public class KrakenService
 			{
 				decimal btcAmount = usdcValueToTrade / coinPriceUSDC.Value;
 
-				_ = _log.Db($"Entering Position - Buying {tmpCoin} with {FormatBTC(btcAmount)} {tmpCoin} worth of USDC(${usdcValueToTrade}), Strategy: {strategy}.", userId, "TRADE", true);
+				_ = _log.Db($"Entering Position - Buying {tmpCoin} with {FormatBTC(btcAmount)} {tmpCoin} worth of USDC(${usdcValueToTrade}), Strategy: {strategy}.", userId, "TRADE", viewDebugLogs);
 				await ExecuteTrade(userId, tmpCoin, keys, FormatBTC(btcAmount), "buy", coinBalance, usdcBalance, coinPriceCAD.Value, coinPriceUSDC.Value, strategy, null, null);
 
 				return true;
 			}
 			else
 			{
-				_ = _log.Db($"Not enough USDC to trade! {usdcValueToTrade}. {strategy} Trade Cancelled.", userId, "TRADE", true);
+				_ = _log.Db($"Not enough USDC to trade! {usdcValueToTrade}. {strategy} Trade Cancelled.", userId, "TRADE", viewDebugLogs);
 			}
 
 			return false;
 		}
 		catch (Exception e)
 		{
-			_ = _log.Db($"⚠️ERROR: EnterPosition {tmpCoin}: " + e.Message, outputToConsole: true);
+			_ = _log.Db($"⚠️ERROR: EnterPosition {tmpCoin}: " + e.Message, outputToConsole: viewDebugLogs);
 			return false;
 		}
 	}
@@ -4535,12 +4538,12 @@ public class KrakenService
 				}
 			}
 
-			//_ = _log.Db($"Trade history for {tmpCoin}: {oppositeCount} {buyOrSell}s, prior {(buyOrSell == "buy" ? "sells" : "buys")}", userId, "TRADE", true);
+			//_ = _log.Db($"Trade history for {tmpCoin}: {oppositeCount} {buyOrSell}s, prior {(buyOrSell == "buy" ? "sells" : "buys")}", userId, "TRADE", viewDebugLogs);
 			return oppositeCount; // Return prior buys for sell, or consecutive buys for buy
 		}
 		catch (Exception ex)
 		{
-			_ = _log.Db($"⚠️Error analyzing trade history for {tmpCoin}: {ex.Message}", userId, "TRADE", true);
+			_ = _log.Db($"⚠️Error analyzing trade history for {tmpCoin}: {ex.Message}", userId, "TRADE", viewDebugLogs);
 			return 0;
 		}
 	}
@@ -4727,7 +4730,7 @@ public class KrakenService
 		}
 		catch (Exception e)
 		{
-			_ = _log.Db("⚠️KrakenService exception GetIndicatorData: " + e.Message, outputToConsole: true);
+			_ = _log.Db("⚠️KrakenService exception GetIndicatorData: " + e.Message, outputToConsole: viewDebugLogs);
 			return indicators;
 		}
 	}
@@ -4760,7 +4763,7 @@ public class KrakenService
 		}
 		catch (Exception e)
 		{
-			_ = _log.Db("⚠️KrakenService exception GetNumberOfTrades: " + e.Message, outputToConsole: true);
+			_ = _log.Db("⚠️KrakenService exception GetNumberOfTrades: " + e.Message, outputToConsole: viewDebugLogs);
 			return 0;
 		}
 		return 0;
@@ -4797,7 +4800,7 @@ public class KrakenService
 		}
 		catch (Exception ex)
 		{
-			_ = _log.Db($"⚠️Error checking for missing fees: {ex.Message}", userId, "TRADE", true);
+			_ = _log.Db($"⚠️Error checking for missing fees: {ex.Message}", userId, "TRADE", viewDebugLogs);
 			return false;
 		}
 	}
@@ -4805,7 +4808,7 @@ public class KrakenService
 	{
 		if (config == null)
 		{
-			_ = _log.Db("Trade configuration does not exist. Trade Cancelled.", userId, "TRADE", true);
+			_ = _log.Db("Trade configuration does not exist. Trade Cancelled.", userId, "TRADE", viewDebugLogs);
 			return false;
 		}
 
@@ -4818,7 +4821,7 @@ public class KrakenService
 		if (nullProperties.Any())
 		{
 			string nulls = string.Join(", ", nullProperties);
-			_ = _log.Db($"Trade Cancelled. The following trade configuration properties are null: {nulls}", userId, "TRADE", true);
+			_ = _log.Db($"Trade Cancelled. The following trade configuration properties are null: {nulls}", userId, "TRADE", viewDebugLogs);
 			return false;
 		}
 
@@ -4937,7 +4940,7 @@ public class KrakenService
 		}
 		catch (Exception ex)
 		{
-			_ = _log.Db($@"({tmpCoin}:{userId}:{strategy}) Error getting profitable open buy positions. Data: tradeThreshold:{tradeThreshold}, coinPriceUSD: {coinPriceUSD}. Message: {ex.Message}", userId, "TRADE", true);
+			_ = _log.Db($@"({tmpCoin}:{userId}:{strategy}) Error getting profitable open buy positions. Data: tradeThreshold:{tradeThreshold}, coinPriceUSD: {coinPriceUSD}. Message: {ex.Message}", userId, "TRADE", viewDebugLogs);
 			return new List<TradeRecord>();
 		}
 	} 
@@ -4996,7 +4999,7 @@ public class KrakenService
 		}
 		catch (Exception ex)
 		{
-			_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Error getting latest reserved transaction: {ex.Message}", userId, "TRADE", true);
+			_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Error getting latest reserved transaction: {ex.Message}", userId, "TRADE", viewDebugLogs);
 		}
 		return null;
 	}
@@ -5032,7 +5035,7 @@ public class KrakenService
 			if (cachedResult != null && cachedResult != DBNull.Value)
 			{
 				minVolume = Convert.ToDecimal(cachedResult);
-				_ = _log.Db($"({normalizedPair}:{userId}) Using cached min order volume: {minVolume}", userId, "TRADE", true);
+				_ = _log.Db($"({normalizedPair}:{userId}) Using cached min order volume: {minVolume}", userId, "TRADE", viewDebugLogs);
 				return minVolume;
 			}
 
@@ -5042,21 +5045,21 @@ public class KrakenService
 
 			if (response == null || !response.ContainsKey("result"))
 			{
-				_ = _log.Db($"({normalizedPair}:{userId}) Failed to fetch AssetPairs: No result in response.", userId, "TRADE", true);
+				_ = _log.Db($"({normalizedPair}:{userId}) Failed to fetch AssetPairs: No result in response.", userId, "TRADE", viewDebugLogs);
 				return null;
 			}
 
 			var result = (JObject)response["result"];
 			if (!result.ContainsKey(normalizedPair))
 			{
-				_ = _log.Db($"({normalizedPair}:{userId}) Pair {normalizedPair} not found in Kraken response.", userId, "TRADE", true);
+				_ = _log.Db($"({normalizedPair}:{userId}) Pair {normalizedPair} not found in Kraken response.", userId, "TRADE", viewDebugLogs);
 				return null;
 			}
 
 			var pairInfo = result[normalizedPair] as JObject;
 			if (pairInfo == null || !pairInfo.ContainsKey("ordermin"))
 			{
-				_ = _log.Db($"({normalizedPair}:{userId}) No 'ordermin' found for pair {normalizedPair}.", userId, "TRADE", true);
+				_ = _log.Db($"({normalizedPair}:{userId}) No 'ordermin' found for pair {normalizedPair}.", userId, "TRADE", viewDebugLogs);
 				return null;
 			}
 
@@ -5075,13 +5078,13 @@ public class KrakenService
 			upsertCmd.Parameters.AddWithValue("@MinVolume", minVolume);
 
 			await upsertCmd.ExecuteNonQueryAsync();
-			_ = _log.Db($"({normalizedPair}:{userId}) Fetched and stored min order volume: {minVolume}", userId, "TRADE", true);
+			_ = _log.Db($"({normalizedPair}:{userId}) Fetched and stored min order volume: {minVolume}", userId, "TRADE", viewDebugLogs);
 
 			return minVolume;
 		}
 		catch (Exception ex)
 		{
-			_ = _log.Db($"({normalizedPair}:{userId}) Error fetching/storing min order volume: {ex.Message}", userId, "TRADE", true);
+			_ = _log.Db($"({normalizedPair}:{userId}) Error fetching/storing min order volume: {ex.Message}", userId, "TRADE", viewDebugLogs);
 			return null;
 		}
 	}
@@ -5112,7 +5115,7 @@ public class KrakenService
 			using var intervalReader = await intervalCmd.ExecuteReaderAsync();
 			if (!await intervalReader.ReadAsync())
 			{
-				_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) No open signal interval found for {tmpCoin}/{toCoin}", userId, "TRADE", true);
+				_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) No open signal interval found for {tmpCoin}/{toCoin}", userId, "TRADE", viewDebugLogs);
 				return false;
 			}
 
@@ -5146,14 +5149,14 @@ public class KrakenService
 			// if (hasTrades)
 			// { 
 			// 	_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Checked trades for {tmpCoin}/{toCoin} in interval {startTime:yyyy-MM-dd HH:mm:ss} to {endTime:yyyy-MM-dd HH:mm:ss}: {(hasTrades ? $"{tradeCount} trade(s) found" : "No trades found")}",
-			// 			userId, "TRADE", true);
+			// 			userId, "TRADE", viewDebugLogs);
 			// }
 
 			return !hasTrades;
 		}
 		catch (MySqlException ex)
 		{
-			_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Error checking trades for {tmpCoin}/{toCoin}: {ex.Message}", null, "TRADE", true);
+			_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Error checking trades for {tmpCoin}/{toCoin}: {ex.Message}", null, "TRADE", viewDebugLogs);
 			return false;
 		}
 	}
@@ -5201,7 +5204,7 @@ public class KrakenService
 		}
 		catch (Exception ex)
 		{
-			_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Error getting trade count: {ex.Message}", userId, "TRADE", true);
+			_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Error getting trade count: {ex.Message}", userId, "TRADE", viewDebugLogs);
 			return 0;
 		}
 	}
@@ -5214,14 +5217,14 @@ public class KrakenService
 			// Validate inputs
 			if (string.IsNullOrEmpty(tmpCoin) || string.IsNullOrEmpty(toCoin))
 			{
-				_ = _log.Db($"Invalid input parameters: fromCoin={tmpCoin}, toCoin={toCoin}", null, "TRADE", true);
+				_ = _log.Db($"Invalid input parameters: fromCoin={tmpCoin}, toCoin={toCoin}", null, "TRADE", viewDebugLogs);
 				return false;
 			}
 
 			// Validate configuration
 			if (_config == null || string.IsNullOrEmpty(_config.GetValue<string>("ConnectionStrings:maxhanna")))
 			{
-				_ = _log.Db("Configuration or connection string is missing.", null, "TRADE", true);
+				_ = _log.Db("Configuration or connection string is missing.", null, "TRADE", viewDebugLogs);
 				return false;
 			}
 
@@ -5244,18 +5247,18 @@ public class KrakenService
 
 			bool hasOpenInterval = await intervalCmd.ExecuteScalarAsync() != null;
 			// _ = _log.Db($"({tmpCoin}:{strategy})Checked for open interval pair {tmpCoin}/{toCoin}: {(hasOpenInterval ? "Open interval found" : "No open interval found")}",
-			// 		null, "TRADE", true);
+			// 		null, "TRADE", viewDebugLogs);
 
 			return hasOpenInterval;
 		}
 		catch (MySqlException ex)
 		{
-			_ = _log.Db($"Database error checking open interval for pair {tmpCoin}/{toCoin}: {ex.Message}", null, "TRADE", true);
+			_ = _log.Db($"Database error checking open interval for pair {tmpCoin}/{toCoin}: {ex.Message}", null, "TRADE", viewDebugLogs);
 			return false;
 		}
 		catch (Exception ex)
 		{
-			_ = _log.Db($"Unexpected error checking open interval for pair {tmpCoin}/{toCoin}: {ex.Message}", null, "TRADE", true);
+			_ = _log.Db($"Unexpected error checking open interval for pair {tmpCoin}/{toCoin}: {ex.Message}", null, "TRADE", viewDebugLogs);
 			return false;
 		}
 	}
@@ -5271,13 +5274,13 @@ public class KrakenService
 	{
 		string pair = NormalizeCoinPair(fromCoin, toCoin);
 		await _log.Db($"Fetching MACD data for pair: {pair}, Days: {days}, Fast: {fastPeriod}, Slow: {slowPeriod}, Signal: {signalPeriod}",
-			null, "TRADE", true);
+			null, "TRADE", viewDebugLogs);
 
 		// 1. Fetch price history with proper date range
 		var prices = await GetPriceHistoryForMACD(fromCoin, days);
 		if (prices == null || prices.Count == 0)
 		{
-			await _log.Db($"No price data returned for pair: {pair}, Days: {days}", null, "TRADE", true);
+			await _log.Db($"No price data returned for pair: {pair}, Days: {days}", null, "TRADE", viewDebugLogs);
 			return new List<MacdDataPoint>();
 		}
 
@@ -5286,7 +5289,7 @@ public class KrakenService
 		if (prices.Count < requiredPoints)
 		{
 			await _log.Db($"Insufficient data for MACD: {prices.Count} points, need at least {requiredPoints}",
-				null, "TRADE", true);
+				null, "TRADE", viewDebugLogs);
 			return new List<MacdDataPoint>();
 		}
 
@@ -5342,7 +5345,7 @@ public class KrakenService
 		}
 
 		await _log.Db($"Returning {result.Count} MACD data points for pair: {pair}. Latest point: {result.LastOrDefault()?.Timestamp}",
-			null, "TRADE", true);
+			null, "TRADE", viewDebugLogs);
 		return result;
 	}
 
@@ -5393,13 +5396,13 @@ public class KrakenService
 		}
 		catch (Exception ex)
 		{
-			_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Error fetching daily closes for ATR: {ex.Message}", userId, "TRADE", true);
+			_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Error fetching daily closes for ATR: {ex.Message}", userId, "TRADE", viewDebugLogs);
 			return 0m;
 		}
 
 		if (closes.Count < period)
 		{
-			_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Insufficient daily closes for ATR: {closes.Count} points", userId, "TRADE", true);
+			_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Insufficient daily closes for ATR: {closes.Count} points", userId, "TRADE", viewDebugLogs);
 			return 0m;
 		}
 
@@ -5419,7 +5422,7 @@ public class KrakenService
 			atr = (atr * (period - 1) + trList[i]) / period;
 		}
  
-		_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Computed ATR({period}): {atr} over {closes.Count} daily points", userId, "TRADE", true);
+		_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Computed ATR({period}): {atr} over {closes.Count} daily points", userId, "TRADE", viewDebugLogs);
  
 		_atrCache[cacheKey] = (atr, DateTime.UtcNow);
 		return atr;
@@ -5434,7 +5437,7 @@ public class KrakenService
 		decimal atr = await ComputeATR(userId, strategy, coin);
 		if (atr == 0m)
 		{
-			_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Skipping stop-loss: ATR=0 (data issue)", userId, "TRADE", true);
+			_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Skipping stop-loss: ATR=0 (data issue)", userId, "TRADE", viewDebugLogs);
 			return records;
 		}
 
@@ -5442,7 +5445,7 @@ public class KrakenService
 		var openBuys = await GetProfitableOpenBuyPositionsAsync(userId, tmpCoin, strategy, currentPrice, 0m, minimum5Hours: true);  // Reuse but with threshold=0 to get all open
 		if (openBuys == null || openBuys.Count == 0)
 		{
-			_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) No open buys match average true range stop loss.", userId, "TRADE", true); 
+			_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) No open buys match average true range stop loss.", userId, "TRADE", viewDebugLogs); 
 			return records;
 		} 
 
@@ -5455,7 +5458,7 @@ public class KrakenService
 			{
 				// Exit this position
 				decimal amountToSell = (decimal)buy.value;
-				_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Stop-loss hit for trade {buy.id}: Entry={entryPrice}, ATR={atr}, SL={stopLoss}, Current={currentPrice}. Selling {amountToSell}.", userId, "TRADE", true);
+				_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Stop-loss hit for trade {buy.id}: Entry={entryPrice}, ATR={atr}, SL={stopLoss}, Current={currentPrice}. Selling {amountToSell}.", userId, "TRADE", viewDebugLogs);
 				records.Add(buy);
 			}
 		}
@@ -5469,7 +5472,7 @@ public class KrakenService
 		}
 		if (!ApplyTradeConfiguration(tc))
 		{
-			_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Null {coin} trade configuration. Trade Cancelled.", userId, "TRADE", true);
+			_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Null {coin} trade configuration. Trade Cancelled.", userId, "TRADE", viewDebugLogs);
 			return false;
 		}
 
@@ -5480,12 +5483,12 @@ public class KrakenService
 	{
 		if (coinPriceUSDC == null)
 		{
-			_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) No {coin}/USDC price found. Trade Cancelled.", userId, "TRADE", true);
+			_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) No {coin}/USDC price found. Trade Cancelled.", userId, "TRADE", viewDebugLogs);
 			return false;
 		}
 		if (coinPriceCAD == null)
 		{
-			_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) System is not up to date. Trade Cancelled.", userId, "TRADE", true);
+			_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) System is not up to date. Trade Cancelled.", userId, "TRADE", viewDebugLogs);
 			return false;
 		}
 
@@ -5497,13 +5500,13 @@ public class KrakenService
 		bool? updatedFeeResult = await UpdateFees(userId, coin, keys, strategy);
 		if (updatedFeeResult == null)
 		{
-			_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Unable to update fees. API Error most likely culprit. Trade Cancelled.", userId, "TRADE", true);
+			_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Unable to update fees. API Error most likely culprit. Trade Cancelled.", userId, "TRADE", viewDebugLogs);
 			return true;
 		}
 		DateTime? started = await IsTradebotStarted(userId, coin, strategy);
 		if (started == null)
 		{
-			_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) User has stopped the {coin}({strategy}) tradebot. Trade Cancelled.", userId, "TRADE", true);
+			_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) User has stopped the {coin}({strategy}) tradebot. Trade Cancelled.", userId, "TRADE", viewDebugLogs);
 			return true;
 		}
 		//TODO : For HFT, make it a 5 second limit.
@@ -5513,13 +5516,13 @@ public class KrakenService
 			int tradeCooldownSeconds = 20;
 			if (secondsSinceLastTrade != null && secondsSinceLastTrade < tradeCooldownSeconds)
 			{
-				_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) User is in cooldown for another {(tradeCooldownSeconds - secondsSinceLastTrade)} seconds. Trade Cancelled.", userId, "TRADE", true);
+				_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) User is in cooldown for another {(tradeCooldownSeconds - secondsSinceLastTrade)} seconds. Trade Cancelled.", userId, "TRADE", viewDebugLogs);
 				return true;
 			}
 			else if (secondsSinceLastTrade != null)
 			{
 				var timeSince = _log.GetTimeSince(secondsSinceLastTrade, true, true);
-				_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Last trade: {timeSince}.", userId, "TRADE", true);
+				_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Last trade: {timeSince}.", userId, "TRADE", viewDebugLogs);
 			}
 		}
 		else
@@ -5528,13 +5531,13 @@ public class KrakenService
 			int tradeCooldownMinutes = 15;
 			if (minutesSinceLastTrade != null && minutesSinceLastTrade < tradeCooldownMinutes)
 			{
-				_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) User is in cooldown for another {(tradeCooldownMinutes - minutesSinceLastTrade)} minutes. Trade Cancelled.", userId, "TRADE", true);
+				_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) User is in cooldown for another {(tradeCooldownMinutes - minutesSinceLastTrade)} minutes. Trade Cancelled.", userId, "TRADE", viewDebugLogs);
 				return true;
 			}
 			else if (minutesSinceLastTrade != null)
 			{
 				var timeSince = _log.GetTimeSince(minutesSinceLastTrade, true);
-				_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Last trade: {timeSince}.", userId, "TRADE", true);
+				_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Last trade: {timeSince}.", userId, "TRADE", viewDebugLogs);
 			}
 		} 
 
@@ -5573,7 +5576,7 @@ public class KrakenService
 		else
 		{
 			lastPrice = firstPriceToday.Value; // Fallback to current price
-			_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) No last trade or checked price, using firstPriceToday ({firstPriceToday.Value}) as fallback.", userId, "TRADE", true);
+			_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) No last trade or checked price, using firstPriceToday ({firstPriceToday.Value}) as fallback.", userId, "TRADE", viewDebugLogs);
 		}
 
 		decimal currentPrice = coinPriceUSDC;
@@ -5582,7 +5585,7 @@ public class KrakenService
 		decimal spread2 = firstPriceToday != null ? (currentPrice - firstPriceToday.Value) / firstPriceToday.Value : 0;
 
 		// Log spread calculation details for debugging
-		//_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Spread calc: lastPrice={lastPrice}, currentPrice={currentPrice}, spread={spread:P}, spread2={spread2:P}, firstPriceToday={firstPriceToday}, lastCheckedPrice={lastCheckedPrice}", userId, "TRADE", true);
+		//_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Spread calc: lastPrice={lastPrice}, currentPrice={currentPrice}, spread={spread:P}, spread2={spread2:P}, firstPriceToday={firstPriceToday}, lastCheckedPrice={lastCheckedPrice}", userId, "TRADE", viewDebugLogs);
 
 		return (firstPriceToday, lastPrice, currentPrice, spread, spread2);
 	}
@@ -5628,7 +5631,7 @@ public class KrakenService
 		}
 		catch (Exception ex)
 		{
-			await _log.Db($"Error fetching top active users by trade count: {ex.Message}", type: "TRADE", outputToConsole: true);
+			await _log.Db($"Error fetching top active users by trade count: {ex.Message}", type: "TRADE", outputToConsole: viewDebugLogs);
 		}
 		return results;
 	}
@@ -5687,12 +5690,12 @@ public class KrakenService
 			prices = prices.OrderBy(p => p.Timestamp).ToList();
 
 			await _log.Db($"Fetched {prices.Count} price points for {coinName}. Latest: {prices.LastOrDefault()?.Timestamp}",
-				null, "TRADE", true);
+				null, "TRADE", viewDebugLogs);
 			return prices;
 		}
 		catch (Exception ex)
 		{
-			await _log.Db($"Error fetching price history: {ex.Message}", null, "TRADE", true);
+			await _log.Db($"Error fetching price history: {ex.Message}", null, "TRADE", viewDebugLogs);
 			return new List<PricePoint>();
 		}
 	}
@@ -5713,7 +5716,7 @@ public class KrakenService
 		}
 		catch (Exception ex)
 		{
-			_ = _log.Db($"({tmpCoin}:{userId}:HFT) Error fetching last checked price: {ex.Message}", userId, "TRADE", true);
+			_ = _log.Db($"({tmpCoin}:{userId}:HFT) Error fetching last checked price: {ex.Message}", userId, "TRADE", viewDebugLogs);
 			return null;
 		}
 	}
@@ -5740,11 +5743,11 @@ public class KrakenService
 			cmd.Parameters.AddWithValue("@coin", tmpCoin);
 			cmd.Parameters.AddWithValue("@price", roundedPrice);
 			await cmd.ExecuteNonQueryAsync();
-			_ = _log.Db($"({tmpCoin}:{userId}:HFT) Recorded price check: {roundedPrice}", userId, "TRADE", true);
+			_ = _log.Db($"({tmpCoin}:{userId}:HFT) Recorded price check: {roundedPrice}", userId, "TRADE", viewDebugLogs);
 		}
 		catch (Exception ex)
 		{
-			_ = _log.Db($"({tmpCoin}:{userId}:HFT) Error recording price check: {ex.Message}", userId, "TRADE", true);
+			_ = _log.Db($"({tmpCoin}:{userId}:HFT) Error recording price check: {ex.Message}", userId, "TRADE", viewDebugLogs);
 		}
 	}
 
