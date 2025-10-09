@@ -38,6 +38,7 @@ public class KrakenService
 	private readonly Dictionary<string, (decimal Atr, DateTime Timestamp)> _atrCache = new();
 
 	public readonly bool viewDebugLogs = false;
+	public readonly bool viewErrorDebugLogs = true;
 	public KrakenService(IConfiguration config, Log log)
 	{
 		_config = config;
@@ -372,7 +373,7 @@ public class KrakenService
 		bool? canTradeBullTrade = await CheckIndicatorIntervalOpen(userId, coin, "USDC", strategy);
 		if (canTradeBullTrade == null || !canTradeBullTrade.HasValue)
 		{
-			_ = _log.Db($"⚠️Error fetching active trades for {coin}({strategy}). Trade Cancelled.", userId, "TRADE", viewDebugLogs);
+			_ = _log.Db($"⚠️Error fetching active trades for {coin}({strategy}). Trade Cancelled.", userId, "TRADE", viewErrorDebugLogs);
 			return false;
 		}
 		if (!canTradeBullTrade.Value)
@@ -523,7 +524,7 @@ public class KrakenService
 				}
 				else
 				{
-					_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) ⚠️Error executing {tmpCoin} momentum strategy! usdcValueToTrade:{usdcValueToTrade} < 0. Trade Cancelled.", userId, "TRADE", viewDebugLogs);
+					_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) ⚠️Error executing {tmpCoin} momentum strategy! usdcValueToTrade:{usdcValueToTrade} < 0. Trade Cancelled.", userId, "TRADE", viewErrorDebugLogs);
 					await DeleteMomentumStrategy(userId, "USDC", tmpCoin, strategy);
 					return false;
 				}
@@ -676,7 +677,7 @@ public class KrakenService
 		}
 		catch (Exception ex)
 		{
-			_ = _log.Db($"⚠️Error calculating stability quotient for {tmpCoin}: {ex.Message}", userId, "TRADE", viewDebugLogs);
+			_ = _log.Db($"⚠️Error calculating stability quotient for {tmpCoin}: {ex.Message}", userId, "TRADE", viewErrorDebugLogs);
 			return 0.5m; // Default to moderate stability on error
 		}
 	}
@@ -800,7 +801,7 @@ public class KrakenService
 					}
 					else
 					{
-						_ = _log.Db($"({tmpCoin}:{userId}:{strategy})⚠️ No matching open positions at this depth! Looking for reserve transactions...", userId, "TRADE", viewDebugLogs);
+						_ = _log.Db($"({tmpCoin}:{userId}:{strategy})⚠️ No matching open positions at this depth! Looking for reserve transactions...", userId, "TRADE", viewErrorDebugLogs);
 						TradeRecord? fundingTransaction = await GetLatestReservedTransaction(userId, tmpCoin, strategy, coinPriceUSDC, _TradeThreshold);
 						if (fundingTransaction != null)
 						{
@@ -949,7 +950,7 @@ public class KrakenService
 		}
 		catch (Exception ex)
 		{
-			_ = _log.Db($"⚠️Error fetching retracement data for {fromCoin}/{toCoin}: " + ex.Message, null, "TRADE", viewDebugLogs);
+			_ = _log.Db($"⚠️Error fetching retracement data for {fromCoin}/{toCoin}: " + ex.Message, null, "TRADE", viewErrorDebugLogs);
 		}
 		return null;
 	}
@@ -965,13 +966,13 @@ public class KrakenService
 				if (lastTrade == null || lastTrade.value == 0 || lastTrade.matching_trade_id != null || lastTrade.from_currency != "USDC")
 				{
 
-					_ = _log.Db($"({tmpCoin.Replace("BTC", "XBT")}:{userId}:{strategy}) ⚠️ Error, last trade does not exist, was not a buy trade or from_currency was not USDC during UpwardsMomentumStrategy.", userId, "TRADE", viewDebugLogs);
+					_ = _log.Db($"({tmpCoin.Replace("BTC", "XBT")}:{userId}:{strategy}) ⚠️ Error, last trade does not exist, was not a buy trade or from_currency was not USDC during UpwardsMomentumStrategy.", userId, "TRADE", viewErrorDebugLogs);
 					return false;
 				}
 				decimal lastTradeCoinPriceUSD = Convert.ToDecimal(lastTrade.coin_price_usdc);
 				if (lastTradeCoinPriceUSD == 0)
 				{
-					_ = _log.Db($"({tmpCoin.Replace("BTC", "XBT")}:{userId}:{strategy}) ⚠️ Error, last trade {tmpCoin} USD price does not exist during UpwardsMomentumStrategy.", userId, "TRADE", viewDebugLogs);
+					_ = _log.Db($"({tmpCoin.Replace("BTC", "XBT")}:{userId}:{strategy}) ⚠️ Error, last trade {tmpCoin} USD price does not exist during UpwardsMomentumStrategy.", userId, "TRADE", viewErrorDebugLogs);
 					return false;
 				}
 
@@ -1061,7 +1062,7 @@ public class KrakenService
 		}
 		catch (Exception ex)
 		{
-			_ = _log.Db($"({tmpCoin.Replace("BTC", "XBT")}:{userId}:{strategy}) ⚠️ Exception while doing Upwards Momentum Strategy! Trade Cancelled. " + ex.Message, userId, "TRADE", viewDebugLogs);
+			_ = _log.Db($"({tmpCoin.Replace("BTC", "XBT")}:{userId}:{strategy}) ⚠️ Exception while doing Upwards Momentum Strategy! Trade Cancelled. " + ex.Message, userId, "TRADE", viewErrorDebugLogs);
 			return false;
 		}
 		return false;
@@ -1112,7 +1113,7 @@ public class KrakenService
 		}
 		catch (Exception ex)
 		{
-			_ = _log.Db($"⚠️({tmpCoin}:{userId}:{strategy}) Exception while validating trade! Trade Cancelled. " + ex.Message, userId, "TRADE", viewDebugLogs);
+			_ = _log.Db($"⚠️({tmpCoin}:{userId}:{strategy}) Exception while validating trade! Trade Cancelled. " + ex.Message, userId, "TRADE", viewErrorDebugLogs);
 			return false;
 		}
 
@@ -1124,7 +1125,7 @@ public class KrakenService
 
 		if (string.IsNullOrEmpty(coin))
 		{
-			_ = _log.Db($"({coin}:{userId}:{strategy}) ⚠️ERROR: Coin parameter is null or empty.", userId, "TRADE", viewDebugLogs);
+			_ = _log.Db($"({coin}:{userId}:{strategy}) ⚠️ERROR: Coin parameter is null or empty.", userId, "TRADE", viewErrorDebugLogs);
 			return null;
 		}
 
@@ -1133,7 +1134,7 @@ public class KrakenService
 
 		if (!CoinMappingsForDB.TryGetValue(krakenCoin, out var checkSuffix))
 		{
-			_ = _log.Db($"({coin}:{userId}:{strategy}) ⚠️ERROR: No mapping found for coin: {krakenCoin}", userId, "TRADE", viewDebugLogs);
+			_ = _log.Db($"({coin}:{userId}:{strategy}) ⚠️ERROR: No mapping found for coin: {krakenCoin}", userId, "TRADE", viewErrorDebugLogs);
 			return null;
 		}
 
@@ -1240,7 +1241,7 @@ public class KrakenService
 		}
 		catch (Exception ex)
 		{
-			_ = _log.Db($"({coin}:{userId}:{strategy}) ⚠️Error fetching balance from DB: {ex.Message}", userId, "TRADE", viewDebugLogs);
+			_ = _log.Db($"({coin}:{userId}:{strategy}) ⚠️Error fetching balance from DB: {ex.Message}", userId, "TRADE", viewErrorDebugLogs);
 			return null;
 		}
 	}
@@ -1312,7 +1313,7 @@ public class KrakenService
             // Check if the response contains the "result" key
             if (balanceResponse == null || !balanceResponse.ContainsKey("result"))
             {
-                _ = _log.Db($"({coin}:{userId}:{strategy}) ⚠️Failed to get wallet balances: 'result' not found.", userId, "TRADE", viewDebugLogs);
+				_ = _log.Db($"({coin}:{userId}:{strategy}) ⚠️Failed to get wallet balances: 'result' not found.", userId, "TRADE", viewErrorDebugLogs);
                 return null;
             }
 
@@ -1323,7 +1324,7 @@ public class KrakenService
             Dictionary<string, decimal>? balanceDictionary = result.ToObject<Dictionary<string, decimal>>();
             if (balanceDictionary == null)
             {
-                _ = _log.Db($"({coin}:{userId}:{strategy}) ⚠️Failed to convert balance response to dictionary.", userId, "TRADE", viewDebugLogs);
+				_ = _log.Db($"({coin}:{userId}:{strategy}) ⚠️Failed to convert balance response to dictionary.", userId, "TRADE", viewErrorDebugLogs);
                 return null;
             }
             //_ = _log.Db(string.Join(Environment.NewLine, balanceDictionary.Select(x => $"{x.Key}: {x.Value}")), userId, "TRADE", viewDebugLogs);
@@ -1344,7 +1345,7 @@ public class KrakenService
                 }
                 catch (Exception ex)
                 {
-                    _ = _log.Db($"({coin}:{userId}:{strategy}) ⚠️ERROR GetBalance: {ex.Message}", userId, "TRADE", viewDebugLogs);
+					_ = _log.Db($"({coin}:{userId}:{strategy}) ⚠️ERROR GetBalance: {ex.Message}", userId, "TRADE", viewErrorDebugLogs);
                 }
             }
             return balanceDictionary;
@@ -1352,7 +1353,7 @@ public class KrakenService
         catch (Exception ex)
 		{
 			// Handle any errors that occur during the request
-			_ = _log.Db($"({coin}:{userId}:{strategy}) ⚠️Error fetching balance: {ex.Message}", userId, "TRADE", viewDebugLogs);
+			_ = _log.Db($"({coin}:{userId}:{strategy}) ⚠️Error fetching balance: {ex.Message}", userId, "TRADE", viewErrorDebugLogs);
 			return null;
 		}
 	}
@@ -1403,7 +1404,7 @@ public class KrakenService
 		}
 		else
 		{
-			_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) ⚠️Not enough USDC to trade({strategy}) ({usdcBalance}<{_CoinReserveUSDCValue})", userId, "TRADE", viewDebugLogs);
+			_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) ⚠️Not enough USDC to trade({strategy}) ({usdcBalance}<{_CoinReserveUSDCValue})", userId, "TRADE", viewErrorDebugLogs);
 			return false;
 		}
 		return true;
@@ -1431,7 +1432,7 @@ public class KrakenService
 		Dictionary<string, Object>? response = await MakeRequestAsync(userId, keys, "/AddOrder", "private", parameters);
 		if (response == null)
 		{
-			_ = _log.Db($"({tmpCoin.Replace("BTC", "XBT")}:{userId}:{strategy}) ⚠️ ERROR Executing trade: {buyOrSell} {from}->{to}/{amount}. Verify configuration.", userId, "TRADE", viewDebugLogs); 
+			_ = _log.Db($"({tmpCoin.Replace("BTC", "XBT")}:{userId}:{strategy}) ⚠️ ERROR Executing trade: {buyOrSell} {from}->{to}/{amount}. Verify configuration.", userId, "TRADE", viewErrorDebugLogs); 
 		}
 		else
 		{
@@ -1566,7 +1567,7 @@ public class KrakenService
 		catch (Exception ex)
 		{
 			_ = _log.Db($"⚠️{logPrefix}: Failed to update trade ID {tradeId}: {ex.Message}",
-						userId, "TRADE", viewDebugLogs);
+				userId, "TRADE", viewErrorDebugLogs);
 			return false;
 		}
 	}
@@ -1644,7 +1645,7 @@ public class KrakenService
 		}
 		catch (Exception ex)
 		{
-			_ = _log.Db($"⚠️Error updating {tmpCoin} missing fees: {ex.Message}", userId, "TRADE", viewDebugLogs);
+			_ = _log.Db($"⚠️Error updating {tmpCoin} missing fees: {ex.Message}", userId, "TRADE", viewErrorDebugLogs);
 			updated = await ApplyFallbackFee(userId, tmpCoin, strategy);
 			return updated ? true : null;
 		}
@@ -1683,7 +1684,7 @@ public class KrakenService
 		}
 		catch (Exception ex)
 		{
-			_ = _log.Db($"⚠️Error applying fallback fee for {coin}: {ex.Message}", userId, "TRADE", viewDebugLogs);
+			_ = _log.Db($"⚠️Error applying fallback fee for {coin}: {ex.Message}", userId, "TRADE", viewErrorDebugLogs);
 			return false;
 		}
 	}
@@ -1827,7 +1828,7 @@ public class KrakenService
 		}
 		catch (Exception ex)
 		{
-			_ = _log.Db($"({tmpFrom}:{userId}:{strategy}) ⚠️Error SaveTradeFootprint: " + ex.Message, userId, "TRADE", viewDebugLogs); 
+			_ = _log.Db($"({tmpFrom}:{userId}:{strategy}) ⚠️Error SaveTradeFootprint: " + ex.Message, userId, "TRADE", viewErrorDebugLogs); 
 			return false;
 		}
 
@@ -1862,7 +1863,7 @@ public class KrakenService
 		}
 		catch (Exception ex)
 		{
-			_ = _log.Db("⚠️Error Invalidating Trades: " + ex.Message, userId, "TRADE", viewDebugLogs);
+			_ = _log.Db("⚠️Error Invalidating Trades: " + ex.Message, userId, "TRADE", viewErrorDebugLogs);
 			return false; // Default action in case of error.
 		}
 	}
@@ -1956,7 +1957,7 @@ public class KrakenService
 		}
 		catch (Exception ex)
 		{
-			_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) ⚠️Error at [ActiveTradeCount]: " + ex.Message, userId, "TRADE", viewDebugLogs);
+			_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) ⚠️Error at [ActiveTradeCount]: " + ex.Message, userId, "TRADE", viewErrorDebugLogs);
 			return null;
 		}
 	} 
@@ -1989,7 +1990,7 @@ public class KrakenService
 		}
 		catch (Exception ex)
 		{
-			_ = _log.Db("⚠️Error at [RepeatingTradesCheck]: " + ex.Message, userId, "TRADE", viewDebugLogs);
+			_ = _log.Db("⚠️Error at [RepeatingTradesCheck]: " + ex.Message, userId, "TRADE", viewErrorDebugLogs);
 			return 0;
 		}
 	}
@@ -2042,7 +2043,7 @@ public class KrakenService
 		}
 		catch (Exception ex)
 		{
-			_ = _log.Db("⚠️Error checking consecutive trades: " + ex.Message, userId, "TRADE", viewDebugLogs);
+			_ = _log.Db("⚠️Error checking consecutive trades: " + ex.Message, userId, "TRADE", viewErrorDebugLogs);
 			return true; // Fail safe: prevent trade
 		}
 	}
@@ -2355,7 +2356,7 @@ public class KrakenService
 		}
 		catch (Exception ex)
 		{
-			_ = _log.Db($"⚠️Error creating wallet balance entries: {ex.Message}", userId, "TRADE", viewDebugLogs);
+			_ = _log.Db($"⚠️Error creating wallet balance entries: {ex.Message}", userId, "TRADE", viewErrorDebugLogs);
 		}
 	}
 
@@ -2425,7 +2426,7 @@ public class KrakenService
 		}
 		catch (Exception ex)
 		{
-			_ = _log.Db($"⚠️Error checking {tmpCoin} trade history: " + ex.Message, userId, "TRADE", viewDebugLogs);
+			_ = _log.Db($"⚠️Error checking {tmpCoin} trade history: " + ex.Message, userId, "TRADE", viewErrorDebugLogs);
 			return null;
 		}
 	}
@@ -2871,7 +2872,7 @@ public class KrakenService
 		}
 		catch (Exception ex)
 		{
-			_ = _log.Db("⚠️Error fetching latest trade history: " + ex.Message, null, "TRADE", viewDebugLogs);
+			_ = _log.Db("⚠️Error fetching latest trade history: " + ex.Message, null, "TRADE", viewErrorDebugLogs);
 		}
 		return null;
 	}
@@ -2936,7 +2937,7 @@ public class KrakenService
 		}
 		catch (Exception ex)
 		{
-			_ = _log.Db($"⚠️Error checking ({strategy}) trade sequence: {ex.Message}", null, "TRADE", viewDebugLogs);
+			_ = _log.Db($"⚠️Error checking ({strategy}) trade sequence: {ex.Message}", null, "TRADE", viewErrorDebugLogs);
 			throw; // Or handle as needed
 		}
 	}
@@ -4543,7 +4544,7 @@ public class KrakenService
 		}
 		catch (Exception ex)
 		{
-			_ = _log.Db($"⚠️Error analyzing trade history for {tmpCoin}: {ex.Message}", userId, "TRADE", viewDebugLogs);
+			_ = _log.Db($"⚠️Error analyzing trade history for {tmpCoin}: {ex.Message}", userId, "TRADE", viewErrorDebugLogs);
 			return 0;
 		}
 	}
@@ -4730,7 +4731,7 @@ public class KrakenService
 		}
 		catch (Exception e)
 		{
-			_ = _log.Db("⚠️KrakenService exception GetIndicatorData: " + e.Message, outputToConsole: viewDebugLogs);
+			_ = _log.Db("⚠️KrakenService exception GetIndicatorData: " + e.Message, outputToConsole: viewErrorDebugLogs);
 			return indicators;
 		}
 	}
