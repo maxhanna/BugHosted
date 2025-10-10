@@ -583,6 +583,7 @@ namespace maxhanna.Server.Controllers
 							{
 								var bytes = await System.IO.File.ReadAllBytesAsync(thumbPath);
 								base64Images.Add(Convert.ToBase64String(bytes));
+								_ = _log.Db($"Created video thumbnail: {thumbPath} ({bytes.Length} bytes)", null, "AiController", true);
 							}
 							else
 							{
@@ -616,7 +617,8 @@ namespace maxhanna.Server.Controllers
 								if (proc.ExitCode == 0 && System.IO.File.Exists(jpegPath))
 								{
 									var bytes2 = await System.IO.File.ReadAllBytesAsync(jpegPath);
-									base64Images.Add(Convert.ToBase64String(bytes2));
+										base64Images.Add(Convert.ToBase64String(bytes2));
+										_ = _log.Db($"Created image thumbnail (shrunk): {jpegPath} ({bytes2.Length} bytes)", null, "AiController", true);
 								}
 								else
 								{
@@ -649,7 +651,8 @@ namespace maxhanna.Server.Controllers
 							if (proc.ExitCode == 0 && System.IO.File.Exists(jpegPath))
 							{
 								var bytes = await System.IO.File.ReadAllBytesAsync(jpegPath);
-								base64Images.Add(Convert.ToBase64String(bytes));
+										base64Images.Add(Convert.ToBase64String(bytes));
+										_ = _log.Db($"Created fallback image thumbnail: {jpegPath} ({bytes.Length} bytes)", null, "AiController", true);
 							}
 						}
 					}
@@ -711,6 +714,9 @@ namespace maxhanna.Server.Controllers
 					_ = _log.Db($"Combined thumbnail payload too large ({totalImageBytes} bytes). Aborting media analysis.", null, "AiController", true);
 					return string.Empty;
 				}
+
+				// Debug summary for thumbnails
+				_ = _log.Db($"Thumbnails validated: {base64Images.Count} images, combined size: {totalImageBytes} bytes.", null, "AiController", true);
 
 				// Build content-focused prompt
 				string prompt = detailed
