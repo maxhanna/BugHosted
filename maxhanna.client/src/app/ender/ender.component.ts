@@ -357,7 +357,13 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
     }
 
     private updateOtherHeroesBasedOnFetchedData(res: { position: Vector2; heroes: MetaHero[]; }) {
-       // console.debug('[Ender][DEBUG] updateOtherHeroesBasedOnFetchedData invoked', res?.heroes && Array.isArray(res.heroes) ? res.heroes.length : res.heroes);
+        for (var oh of this.otherHeroes) {
+            if (oh.id && !res.heroes.filter(x => x.id === oh.id)) {
+                console.log("hero died:" +oh.id);
+                const theHero = this.mainScene.level.children.filter((x: any) => x.id === oh.id);
+                theHero.destroy();
+            }
+        }
         if (!res || !res.heroes) {
             this.otherHeroes = [];
             this.updateEnemiesOnSameLevelCount();
