@@ -968,6 +968,7 @@ export class AppComponent implements OnInit, AfterViewInit {
     return str.replaceAll("'", "");
   }
   getIconByTitle(title: string): string | undefined {
+    if (title.toLowerCase() == "reactions") return "🙂";
     const item = this.navigationItems.find(x => x.title === title);
     return item?.icon;
   }
@@ -1418,49 +1419,7 @@ export class AppComponent implements OnInit, AfterViewInit {
     if (/^https?:\/\//i.test(url)) return url;
     return 'https://' + url;
   }
-
-  decodeLinksInElement(root: HTMLElement) {
-    if (!root) return;
-    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null);
-    const nodesToProcess: Text[] = [];
-    let node: Node | null;
-    const inlineTest = /\[([^\]]+)\]\[([^\]]+)\]/;
-    while ((node = walker.nextNode())) {
-      if (node && node.nodeType === Node.TEXT_NODE && inlineTest.test(node.nodeValue || '')) {
-        nodesToProcess.push(node as Text);
-      }
-    }
-
-    nodesToProcess.forEach(textNode => {
-      const parent = textNode.parentNode as HTMLElement;
-      if (!parent) return;
-      const forbidden = new Set(['b','/b','i','/i','*','/*']);
-      const parts = (textNode.nodeValue || '').split(/(\[[^\]]+\]\[[^\]]+\])/g);
-      const fragment = document.createDocumentFragment();
-      parts.forEach(part => {
-        if (!part) return;
-        const m = part.match(/^\[([^\]]+)\]\[([^\]]+)\]$/);
-        if (m) {
-          const label = m[1];
-          const rawUrl = m[2];
-          if (forbidden.has((rawUrl + '').trim().toLowerCase())) {
-            fragment.appendChild(document.createTextNode(part));
-            return;
-          }
-          const url = this.ensureUrlHasProtocol(rawUrl);
-          const a = document.createElement('a');
-          a.href = url;
-          a.target = '_blank';
-          a.rel = 'noopener noreferrer';
-          a.textContent = label;
-          fragment.appendChild(a);
-        } else {
-          fragment.appendChild(document.createTextNode(part));
-        }
-      });
-      parent.replaceChild(fragment, textNode);
-    });
-  }
+ 
   fullscreenYoutubePopup() {
     const youtubePopup = document.getElementById('youtubeIframe');
     if (youtubePopup) {
