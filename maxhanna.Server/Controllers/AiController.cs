@@ -509,7 +509,7 @@ namespace maxhanna.Server.Controllers
 					using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
 					await conn.OpenAsync();
 					using var cmd = new MySqlCommand(
-						"UPDATE file_uploads SET given_file_name=@n, last_updated = UTC_TIMESTAMP() WHERE id=@id", conn);
+						"UPDATE file_uploads SET given_file_name=@n, last_updated = UTC_TIMESTAMP(), last_updated_by_user_id = 314 WHERE id=@id", conn);
 					cmd.Parameters.AddWithValue("@n", newName);
 					cmd.Parameters.AddWithValue("@id", mediaFile.Id);
 					await cmd.ExecuteNonQueryAsync();

@@ -9,6 +9,10 @@ public class NewsService
 { 
 	private readonly IConfiguration _config;
 	private readonly Log _log;
+	int newsServiceAccountNo = 308;
+	int cryptoNewsServiceAccountNo = 309;
+	int memeServiceAccountNo = 314;
+	private const string MemeFolderPath = "E:/Dev/maxhanna/maxhanna.client/src/assets/Uploads/Meme/";
 	private static readonly HashSet<string> Stopwords = new(StringComparer.OrdinalIgnoreCase)
 	{
 		"the", "and", "a", "an", "of", "to", "in", "for", "on", "with", "at", "by", "from", "up",
@@ -105,10 +109,6 @@ public class NewsService
 		"ngmi", "ngmi coin", "wen", "wen coin", "luna classic", "ustc", "terrausd classic",
 		"scamcoin", "scam coin", "rug coin"
 	};
-	int newsServiceAccountNo = 308;
-	int cryptoNewsServiceAccountNo = 309;
-	int memeServiceAccountNo = 314;
-	private const string MemeFolderPath = "E:/Dev/maxhanna/maxhanna.client/src/assets/Uploads/Meme/";
 
 
 	private readonly NewsHttpClient _newsHttp;
