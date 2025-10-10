@@ -1028,8 +1028,8 @@ namespace maxhanna.Server.Controllers
                 }
 
                 // Explicit INSERT; escape `event` column name to avoid reserved-word issues
-                string insertSql = @"INSERT INTO maxhanna.ender_event (hero_id, `event`, level, data)
-                            VALUES (@HeroId, @Event, @Level, @Data);";
+                string insertSql = @"INSERT INTO maxhanna.ender_event (hero_id, `event`, level, data, timestamp)
+                            VALUES (@HeroId, @Event, @Level, @Data, UTC_TIMESTAMP());";
 
                 using (var insertCmd = new MySqlCommand(insertSql, connection, transaction))
                 {
@@ -1083,11 +1083,10 @@ namespace maxhanna.Server.Controllers
                 _ = _log.Db("Exception: GetEventsFromDB Transaction is null.", null, "ENDER", true);
                 throw new InvalidOperationException("Transaction is required for this operation.");
             }
-
-           // DELETE FROM maxhanna.ender_event WHERE timestamp < UTC_TIMESTAMP() - INTERVAL 20 SECOND;
-
+ 
             string sql = @"
-               
+                DELETE FROM maxhanna.ender_event WHERE timestamp < UTC_TIMESTAMP() - INTERVAL 20 SECOND;
+                
                 SELECT *
                 FROM maxhanna.ender_event 
                 WHERE level = @Level;";
