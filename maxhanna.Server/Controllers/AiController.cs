@@ -546,7 +546,9 @@ namespace maxhanna.Server.Controllers
 				bool isVideo = file.FileType != null && videoTypes.Contains(file.FileType.ToLower());
 				bool hasMultipleFrames = false;
 
-				const int MaxImageBytes = 1500000; // 1.5 MB
+				// Reduce max in-memory image size to prefer creating smaller thumbnails
+				// and lower payloads for the model server.
+				const int MaxImageBytes = 600000; // 600 KB
 
 				if (isVideo)
 				{
@@ -554,16 +556,18 @@ namespace maxhanna.Server.Controllers
 					double durationSec = file.Duration.GetValueOrDefault(10);
 					hasMultipleFrames = durationSec > 2; // Only capture multiple frames for longer videos
 
+					// Capture fewer frames by default to reduce total payload.
 					var capturePoints = hasMultipleFrames
-						? new[] { 0.15, 0.3, 0.5, 0.7, 0.85 } // Avoid start/end artifacts
-						: new[] { 0.5 }; // Single frame for short videos
+						? new[] { 0.3, 0.6 } // two representative frames
+						: new[] { 0.5 }; // single frame for short videos
 
 					foreach (var t in capturePoints)
 					{
 						var thumbPath = Path.Combine(tempThumbnailDir, $"{Guid.NewGuid()}.jpg"); 
 
-						// Resize frames to a reasonable width to keep payloads small
-						var ffmpegArgs = $"-i \"{filePath}\" -ss {t} -vframes 1 -vf scale=1024:-1 -q:v 4 \"{thumbPath}\"";
+						// Resize and compress more aggressively to keep payloads small
+						// Use a smaller width and higher q:v (lower quality) to reduce bytes.
+						var ffmpegArgs = $"-i \"{filePath}\" -ss {t} -vframes 1 -vf scale=768:-1 -q:v 10 \"{thumbPath}\"";
 						var proc = Process.Start(new ProcessStartInfo("ffmpeg", ffmpegArgs)
 						{
 							RedirectStandardError = true,
@@ -593,17 +597,18 @@ namespace maxhanna.Server.Controllers
 					try
 					{
 						var bytes = await System.IO.File.ReadAllBytesAsync(filePath);
-						// If image is large, run ffmpeg to produce a smaller jpeg-sized thumbnail
-						if (bytes.Length > MaxImageBytes)
-						{
-							var jpegPath = Path.Combine(tempThumbnailDir, $"{Guid.NewGuid()}.jpg");
-							var ffmpegArgs = $"-i \"{filePath}\" -vf scale=1024:-1 -q:v 4 \"{jpegPath}\"";
-							var proc = Process.Start(new ProcessStartInfo("ffmpeg", ffmpegArgs)
+							// If image is large, run ffmpeg to produce a smaller jpeg-sized thumbnail
+							if (bytes.Length > MaxImageBytes)
 							{
-								RedirectStandardError = true,
-								UseShellExecute = false,
-								CreateNoWindow = true
-							});
+								var jpegPath = Path.Combine(tempThumbnailDir, $"{Guid.NewGuid()}.jpg");
+								// More aggressive downscale and compression for images
+								var ffmpegArgs = $"-i \"{filePath}\" -vf scale=768:-1 -q:v 10 \"{jpegPath}\"";
+								var proc = Process.Start(new ProcessStartInfo("ffmpeg", ffmpegArgs)
+								{
+									RedirectStandardError = true,
+									UseShellExecute = false,
+									CreateNoWindow = true
+								});
 							if (proc != null)
 							{
 								await proc.WaitForExitAsync();
@@ -628,7 +633,8 @@ namespace maxhanna.Server.Controllers
 					{
 						// Fallback to conversion if direct read fails
 						var jpegPath = Path.Combine(tempThumbnailDir, $"{Guid.NewGuid()}.jpg"); 
-						var ffmpegArgs = $"-i \"{filePath}\" -vf scale=1024:-1 -q:v 4 \"{jpegPath}\"";
+						// Fallback conversion: use smaller scale and higher compression
+						var ffmpegArgs = $"-i \"{filePath}\" -vf scale=768:-1 -q:v 10 \"{jpegPath}\"";
 						var proc = Process.Start(new ProcessStartInfo("ffmpeg", ffmpegArgs)
 						{
 							RedirectStandardError = true,
