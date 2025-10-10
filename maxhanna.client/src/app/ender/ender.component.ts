@@ -298,9 +298,9 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
                // console.debug('[Ender][DEBUG] fetchGameDataWithWalls response', res);
                 if (res) {
                     if (res.heroes) {
-                        const myHeroExists = res.hereoes.filter((x : MetaHero) => x.id === this.metaHero.id);
+                        const myHeroExists = res.heroes?.filter((x : MetaHero) => x.id === this.metaHero.id);
                         if (!myHeroExists) {
-                            const myHero = this.mainScene.level.children.filter((x: any) => x.id === this.metaHero.id);
+                            const myHero = this.mainScene?.level?.children?.filter((x: any) => x.id === this.metaHero.id);
                             myHero.destroy();
                             console.log("destroyed your hero");
                         }
@@ -358,10 +358,10 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
 
     private updateOtherHeroesBasedOnFetchedData(res: { position: Vector2; heroes: MetaHero[]; }) {
         for (var oh of this.otherHeroes) {
-            if (oh.id && !res.heroes.filter(x => x.id === oh.id)) {
+            if (oh.id && !res.heroes?.filter(x => x.id === oh.id)) {
                 console.log("hero died:" +oh.id);
-                const theHero = this.mainScene.level.children.filter((x: any) => x.id === oh.id);
-                theHero.destroy();
+                const theHero = this.mainScene?.level?.children?.filter((x: any) => x.id === oh.id);
+                theHero?.destroy();
             }
         }
         if (!res || !res.heroes) {
