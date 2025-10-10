@@ -526,25 +526,7 @@ export function actionMultiplayerEvents(object: any, metaEvents: MetaEvent[]) {
         }
         if (event.eventType === "PARTY_INVITE_ACCEPTED" && event.heroId != object.metaHero.id) {
           actionPartyInviteAcceptedEvent(object, event);
-        }
-        if (event.eventType === "DEPLOY" && event.data && event.data["metaHero"] && event.data["metaBot"]) {
-          const tmpHero = JSON.parse(event.data["metaHero"]) as MetaHero;
-          const tmpMetabot = JSON.parse(event.data["metaBot"]) as MetaBot;
-          const targetHero = object.mainScene.level?.children.find((x: any) => x.id == event.heroId) as Hero;
-          const targetBot = targetHero?.metabots?.find(x => x.id === tmpMetabot.id);
-          if (targetBot) {
-            targetBot.isDeployed = true;
-          }
-          if (tmpHero.id != object.metaHero.id) {
-            const addedBot = object.addBotToScene(tmpHero, targetBot);
-
-            const warpBase = new WarpBase({ position: addedBot.position, parentId: addedBot?.id ?? 0, offsetX: -8 });
-            object.mainScene.level?.addChild(warpBase);
-            setTimeout(() => {
-              warpBase.destroy();
-            }, 1300);
-          }
-        }
+        } 
        
         if (event.eventType === "HERO_DIED") {
           try {
@@ -558,6 +540,9 @@ export function actionMultiplayerEvents(object: any, metaEvents: MetaEvent[]) {
                 if (found) {
                   try {
                     found.destroy();
+                    if (victimId == object.metaHero.id) {
+                      events.emit("HERO_DIED");
+                    }
                     console.log(`HERO_DIED removed character id=${victimId} on level ${evLevel}`);
                   } catch (err) {
                     console.error('Failed to destroy hero element', err);

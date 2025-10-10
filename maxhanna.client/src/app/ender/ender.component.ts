@@ -155,22 +155,7 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
         this.parentRef?.removeResizeListener();
     }
 
-    private async handleHeroDeath(hero: Hero) {
-        // spawn fire animation at hero location and lock input
-        const fire = new Fire(hero.position.x, hero.position.y);
-        this.mainScene.level.addChild(fire);
-        hero.destroy();
-
-        // send server request to record death and delete hero
-        try {
-            const timeOnLevel = Math.max(0, Math.floor((Date.now() - (this.runStartTimeMs ?? Date.now())) / 1000));
-            // Combine time and walls for score: time seconds + 10 points per wall
-            const score = timeOnLevel + (this.wallsPlacedThisRun * 10);
-            await this.enderService.recordDeath(this.metaHero.id, this.parentRef?.user?.id, score, timeOnLevel, this.wallsPlacedThisRun, this.runStartTimeMs);
-        } catch (e) {
-            console.error('Failed to record death', e);
-        }
-
+    private async handleHeroDeath() { 
         // wait for fire animation to finish (same duration as Bot destroy uses ~1100ms)
         setTimeout(() => {
             try {
@@ -184,8 +169,8 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
 
     ngAfterViewInit() {
         this.mainScene.input.setChatInput(this.chatInput.nativeElement);
-        events.on("HERO_DIED", this, (hero: Hero) => {
-            this.handleHeroDeath(hero);
+        events.on("HERO_DIED", this, () => {
+            this.handleHeroDeath();
         });
         // Track bike wall placements so we can submit to highscores
         events.on("SPAWN_BIKE_WALL", this, (params: { x: number, y: number }) => {
