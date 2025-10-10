@@ -142,7 +142,7 @@ namespace maxhanna.Server.Controllers
                         try
                         {
                             int tolerance = 32; // pixels; adjust as needed
-
+                            Console.WriteLine("Checking deaths for " + heroes?.Length + " heroes and " + walls.Count + " walls");
                             // Build a victim -> killer mapping by checking every wall on this level
                             // against every hero on this level. Skip the wall owner to avoid
                             // immediate self-kills from placing a wall.
@@ -1420,15 +1420,17 @@ namespace maxhanna.Server.Controllers
             m.coordsY,
             m.speed, 
             m.color, 
+            m.level,
             m.mask,
             m.kills as hero_kills,
             m.created
         FROM 
             maxhanna.ender_hero m  
+        WHERE m.level = @Level
         ORDER BY m.coordsY ASC;";
 
             MySqlCommand cmd = new MySqlCommand(sql, conn, transaction);
-
+            cmd.Parameters.AddWithValue("@Level", hero.Level);
             try
             {
                 using (var reader = await cmd.ExecuteReaderAsync())
@@ -1446,12 +1448,12 @@ namespace maxhanna.Server.Controllers
                                 tmpHero = new MetaHero
                                 {
                                     Id = heroId,
-                                    Name = Convert.ToString(reader["hero_name"]),
-                                    // map removed
+                                    Name = Convert.ToString(reader["hero_name"]), 
                                     Color = Convert.ToString(reader["color"]) ?? "",
                                     Mask = reader.IsDBNull(reader.GetOrdinal("mask")) ? null : Convert.ToInt32(reader["mask"]),
                                     Position = new Vector2(Convert.ToInt32(reader["coordsX"]), Convert.ToInt32(reader["coordsY"])),
                                     Speed = Convert.ToInt32(reader["speed"]),
+                                    Level = Convert.ToInt32(reader["level"]),
                                     Kills = reader.IsDBNull(reader.GetOrdinal("hero_kills")) ? 0 : Convert.ToInt32(reader["hero_kills"]),
                                     Created = reader.IsDBNull(reader.GetOrdinal("created")) ? (DateTime?)null : Convert.ToDateTime(reader["created"])
                                 };
