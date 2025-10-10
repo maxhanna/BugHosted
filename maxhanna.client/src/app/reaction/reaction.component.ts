@@ -236,7 +236,12 @@ export class ReactionComponent extends ChildComponent implements OnInit {
 
     if (this.currentReactions && this.currentReactions.length > 0) {
       this.reactionCount = this.currentReactions.length;
-      this.reactionsDisplay = this.currentReactions;
+      this.reactionsDisplay = [];
+      for (const react of this.currentReactions) {
+        if (!this.reactionsDisplay.some(x => x.type === react.type)) {
+          this.reactionsDisplay.push(react);
+        }
+      }
       const foundReaction = this.currentReactions.find(x => (x.user?.id ?? 0) === (this.user?.id ?? 0));
       if (foundReaction) {
         this.userReaction = foundReaction.type ?? '';
