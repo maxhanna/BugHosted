@@ -1836,7 +1836,6 @@ namespace maxhanna.Server.Controllers
                 // remove hero data
                 await ExecuteInsertOrUpdateOrDeleteAsync("DELETE FROM maxhanna.ender_hero_inventory WHERE ender_hero_id = @HeroId;", new Dictionary<string, object?>() { { "@HeroId", heroId } }, connection, transaction);
                 await ExecuteInsertOrUpdateOrDeleteAsync("DELETE FROM maxhanna.ender_bot WHERE hero_id = @HeroId;", new Dictionary<string, object?>() { { "@HeroId", heroId } }, connection, transaction);
-                await ExecuteInsertOrUpdateOrDeleteAsync("DELETE FROM maxhanna.ender_event WHERE hero_id = @HeroId;", new Dictionary<string, object?>() { { "@HeroId", heroId } }, connection, transaction);
                 await ExecuteInsertOrUpdateOrDeleteAsync("DELETE FROM maxhanna.ender_bike_wall WHERE hero_id = @HeroId;", new Dictionary<string, object?>() { { "@HeroId", heroId } }, connection, transaction);
                 await ExecuteInsertOrUpdateOrDeleteAsync("DELETE FROM maxhanna.ender_hero WHERE id = @HeroId LIMIT 1;", new Dictionary<string, object?>() { { "@HeroId", heroId } }, connection, transaction);
             }
