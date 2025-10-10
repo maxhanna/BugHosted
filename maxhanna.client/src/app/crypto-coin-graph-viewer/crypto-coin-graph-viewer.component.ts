@@ -103,41 +103,46 @@ export class CryptoCoinGraphViewerComponent extends ChildComponent implements On
     if (!selectedCoin) {
       selectedCoin = "XBT";
     }
-    const period = this.lineGraphComponent.selectedPeriod;
-    const hours = this.tradeService.convertTimePeriodToHours(period);
- 
-    const results = await Promise.all([
-      this.tradeService.getTradeHistory(tradeUserId, token, selectedCoin, "DCA", hours),
-      this.tradeService.getTradeHistory(tradeUserId, token, selectedCoin, "IND", hours),
-      this.tradeService.getTradeHistory(tradeUserId, token, selectedCoin, "HFT", hours)
-    ]);
+    if (COIN_REPLACEMENTS.some(x => x.to === selectedCoin)) {
+      const period = this.lineGraphComponent.selectedPeriod;
+      const hours = this.tradeService.convertTimePeriodToHours(period);
   
-    if (results.some(res => res === "Access Denied.")) {
-      this.inputtedParentRef.showNotification("Access Denied (Loading coin graph)."); 
-      return;
-    }
+      const results = await Promise.all([
+        this.tradeService.getTradeHistory(tradeUserId, token, selectedCoin, "DCA", hours),
+        this.tradeService.getTradeHistory(tradeUserId, token, selectedCoin, "IND", hours),
+        this.tradeService.getTradeHistory(tradeUserId, token, selectedCoin, "HFT", hours)
+      ]);
+    
+      if (results.some(res => res === "Access Denied.")) {
+        this.inputtedParentRef.showNotification("Access Denied (Loading coin graph)."); 
+        return;
+      }
 
-    const [dcaRes, indRes, hftRes] = results; 
-    const combined = [...(dcaRes.trades ?? []), ...(indRes.trades ?? []), ...(hftRes.trades ?? [])];
+      const [dcaRes, indRes, hftRes] = results; 
+      const combined = [...(dcaRes.trades ?? []), ...(indRes.trades ?? []), ...(hftRes.trades ?? [])];
 
-    this.tradebotBalances = combined;
-    if (!combined.length) {
-      setTimeout(() => {
-        this.changeDetectorRef.detectChanges();
-      }, 50);
-      return;
+      this.tradebotBalances = combined;
+      if (!combined.length) {
+        setTimeout(() => {
+          this.changeDetectorRef.detectChanges();
+        }, 50);
+        return;
+      }
+      this.tradebotTradeValuesForMainGraph = combined.map((x: any) => {
+        const isSell = x.from_currency !== "USDC";
+        const priceCAD = parseFloat(x.coin_price_cad) * this.latestCurrencyPriceRespectToCAD;
+        const tradeValueCAD = x.value * priceCAD;
+        return {
+          timestamp: x.timestamp,
+          priceCAD, // Price level of the trade
+          tradeValueCAD,
+          type: `${isSell ? "sell" : "buy"}_${x.strategy}`
+        };
+      }); 
+    } else {
+      this.tradebotTradeValuesForMainGraph = [];
     }
-    this.tradebotTradeValuesForMainGraph = combined.map((x: any) => {
-      const isSell = x.from_currency !== "USDC";
-      const priceCAD = parseFloat(x.coin_price_cad) * this.latestCurrencyPriceRespectToCAD;
-      const tradeValueCAD = x.value * priceCAD;
-      return {
-        timestamp: x.timestamp,
-        priceCAD, // Price level of the trade
-        tradeValueCAD,
-        type: `${isSell ? "sell" : "buy"}_${x.strategy}`
-      };
-    }); 
+    
     setTimeout(() => {
       this.changeDetectorRef.detectChanges();
     }, 50);
