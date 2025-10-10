@@ -406,14 +406,6 @@ namespace maxhanna.Server.Controllers
 									DisplayPicture = displayPicPath
 								});
 							}
-							//Console.WriteLine($"Poll votes fetched successfully. Found votes for {pollData.Count} components: {string.Join(",", pollData.Keys)}");
-							// Log poll component ids for debugging (helps verify commentText{id} mappings)
-							try
-							{
-								_ = _log.Db($"Poll votes fetched for components ({pollData.Count}): {string.Join(',', pollData.Keys)}", null, "SOCIAL", true);
-							}
-							catch { }
-
 							// Normalize poll data keys (merge keys like "commentTextcommentText1065" -> "commentText1065")
 							Dictionary<string, List<PollVote>> normalizedPollData = new();
 							string NormalizeComponentId(string compId)
