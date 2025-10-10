@@ -1608,7 +1608,7 @@ namespace maxhanna.Server.Controllers
         private async Task<List<MetaBikeWall>> GetBikeWalls(int level, MySqlConnection connection, MySqlTransaction transaction,  int lastKnownWallId = 0)
         {
             var walls = new List<MetaBikeWall>();
-            string sql = @"SELECT id, hero_id, map, x, y, level 
+            string sql = @"SELECT id, hero_id, x, y, level 
                            FROM maxhanna.ender_bike_wall 
                            WHERE level = @Level AND id > @LastKnownWallId 
                            ORDER BY id ASC";
@@ -1627,8 +1627,7 @@ namespace maxhanna.Server.Controllers
                                 walls.Add(new MetaBikeWall
                                 {
                                     Id = reader.GetInt32("id"),
-                                    HeroId = reader.GetInt32("hero_id"),
-                                    Map = reader.GetString("map"),
+                                    HeroId = reader.GetInt32("hero_id"), 
                                     X = reader.GetInt32("x"),
                                     Y = reader.GetInt32("y"),
                                     Level = reader.IsDBNull(reader.GetOrdinal("level")) ? 1 : reader.GetInt32("level")
@@ -1654,7 +1653,7 @@ namespace maxhanna.Server.Controllers
         {
             var walls = new List<MetaBikeWall>();
             // Prefer created_at if exists; fall back to last 500 newest IDs as approximation
-            string sql = @"SELECT id, hero_id, map, x, y, level 
+            string sql = @"SELECT id, hero_id, x, y, level 
                            FROM maxhanna.ender_bike_wall 
                            WHERE level = @Level AND (created_at >= (UTC_TIMESTAMP() - INTERVAL @Seconds SECOND) OR created_at IS NULL)
                            ORDER BY id ASC";
@@ -1671,8 +1670,7 @@ namespace maxhanna.Server.Controllers
                             walls.Add(new MetaBikeWall
                             {
                                 Id = reader.GetInt32("id"),
-                                HeroId = reader.GetInt32("hero_id"),
-                                Map = reader.GetString("map"),
+                                HeroId = reader.GetInt32("hero_id"), 
                                 X = reader.GetInt32("x"),
                                 Y = reader.GetInt32("y"),
                                 Level = reader.IsDBNull(reader.GetOrdinal("level")) ? 1 : reader.GetInt32("level")
@@ -1693,7 +1691,7 @@ namespace maxhanna.Server.Controllers
         private async Task<List<MetaBikeWall>> GetWallsOnSameLevel(int level, MySqlConnection connection, MySqlTransaction transaction)
         {
             var walls = new List<MetaBikeWall>();
-            string sql = @"SELECT id, hero_id, map, x, y, level
+            string sql = @"SELECT id, hero_id, x, y, level
                            FROM maxhanna.ender_bike_wall
                            WHERE level = @Level
                            ORDER BY id ASC";
@@ -1712,7 +1710,6 @@ namespace maxhanna.Server.Controllers
                                 {
                                     Id = reader.GetInt32("id"),
                                     HeroId = reader.GetInt32("hero_id"),
-                                    Map = reader.IsDBNull(reader.GetOrdinal("map")) ? string.Empty : reader.GetString("map"),
                                     X = reader.GetInt32("x"),
                                     Y = reader.GetInt32("y"),
                                     Level = reader.IsDBNull(reader.GetOrdinal("level")) ? 1 : reader.GetInt32("level")
