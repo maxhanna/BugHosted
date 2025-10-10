@@ -10,8 +10,8 @@ export class Input {
   inputKeyPressedTimeout = 140;
   chatSelected = false;
   isAlwaysMoving: boolean = true;
-  private _chatInput: HTMLInputElement | null = null; 
-  
+  private _chatInput: HTMLInputElement | null = null;
+
   constructor() {
     document.addEventListener("keydown", (e) => {
       if (e.code != " ") {
@@ -24,7 +24,7 @@ export class Input {
         this.keys[e.code] = false;
         this.handleKeyup(e);
       }
-    }); 
+    });
   }
   destroy() {
     document.removeEventListener('keydown', this.handleKeydown.bind(this));
@@ -57,7 +57,7 @@ export class Input {
   onArrowPressed(direction: string) {
     //console.log("on arrow pressed " + direction);
     if (document.activeElement != this.chatInput) {
-      if (this.isAlwaysMoving) { 
+      if (this.isAlwaysMoving) {
         this.heldDirections = [direction];
       } else {
         if (this.heldDirections.indexOf(direction) === -1) {
@@ -79,19 +79,16 @@ export class Input {
   }
 
   private handleEnter() {
-    let moveLock = false; 
     if (this.verifyCanPressKey()) {
-      const chatInputElement = this.chatInput; 
+      const chatInputElement = this.chatInput;
       if (chatInputElement && chatInputElement.value == '') {
         if (!this.chatSelected) {
           chatInputElement.focus();
           this.chatSelected = true;
-          moveLock = true;  
           events.emit("STARTED_TYPING");
         } else {
           chatInputElement.blur();
           this.chatSelected = false;
-          moveLock = false; 
         }
       }
       else if (chatInputElement.value != '') {
@@ -100,19 +97,12 @@ export class Input {
           chatInputElement.value = '';
           chatInputElement.blur();
           this.chatSelected = false;
-          moveLock = false;
         }
         else {
           events.emit("STARTED_TYPING");
           chatInputElement.focus();
           this.chatSelected = true;
-          moveLock = true;
         }
-      }
-      if (moveLock) {
-        this.emitDebounced("HERO_MOVEMENT_LOCK");
-      } else {
-        events.emit("HERO_MOVEMENT_UNLOCK");
       }
     }
   }
@@ -154,7 +144,7 @@ export class Input {
   }
 
   handleKeyup(event: KeyboardEvent) {
-    const key = event.key; 
+    const key = event.key;
     switch (key) {
       case 'ArrowUp':
       case 'w':
@@ -175,9 +165,9 @@ export class Input {
       case 'd':
       case 'D':
         this.onArrowReleased(RIGHT);
-        break; 
+        break;
       case 'e':
-      case 'E': 
+      case 'E':
         this.pressA(false);
         break;
       case 'Enter':
@@ -193,7 +183,7 @@ export class Input {
       case 'q':
       case 'Q':
         this.pressB();
-        break; 
+        break;
       case ' ':
         this.pressSpace();
     }
@@ -213,11 +203,11 @@ export class Input {
     }
   }
   pressB() {
-    if (document.activeElement != this.chatInput) { 
+    if (document.activeElement != this.chatInput) {
       console.log("pressed B");
       events.emit("CLOSE_INVENTORY_MENU");
-      events.emit("CLOSE_HERO_DIALOGUE"); 
-      events.emit("CLOSE_MENUS");  
+      events.emit("CLOSE_HERO_DIALOGUE");
+      events.emit("CLOSE_MENUS");
     }
   }
   pressSpace() {
@@ -225,12 +215,11 @@ export class Input {
       this.emitDebounced('SPACEBAR_PRESSED');
     }
   }
-  pressStart(sendChat: boolean = true) { 
-    if (this.chatInput.value != '') { 
+  pressStart(sendChat: boolean = true) {
+    if (this.chatInput.value != '') {
       this.pressA(sendChat);
       this.chatInput.blur();
       this.chatSelected = false;
-      events.emit("HERO_MOVEMENT_UNLOCK");
     } else {
       events.emit("START_PRESSED");
     }
@@ -240,19 +229,17 @@ export class Input {
       console.log("press backspace");
       this.chatInput.blur();
       this.chatSelected = false;
-      events.emit("HERO_MOVEMENT_UNLOCK"); 
     }
   }
 
-  pressEscape() { 
+  pressEscape() {
     this.chatInput.blur();
     this.chatSelected = false;
-    events.emit("HERO_MOVEMENT_UNLOCK"); 
     events.emit("START_PRESSED");
-    events.emit("CLOSE_MENUS"); 
+    events.emit("CLOSE_MENUS");
   }
 
-  handleControl(direction: string, action: 'press' | 'release', event?: TouchEvent) { 
+  handleControl(direction: string, action: 'press' | 'release', event?: TouchEvent) {
     if (event) {
       event.preventDefault();
     }
@@ -280,8 +267,8 @@ export class Input {
       }
     });
   }
- 
-  verifyCanPressKey() { 
+
+  verifyCanPressKey() {
     const currentTime = new Date();
     if ((currentTime.getTime() - inputKeyPressedDate.getTime()) > this.inputKeyPressedTimeout) {
       inputKeyPressedDate = new Date();
