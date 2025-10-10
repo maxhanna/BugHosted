@@ -137,43 +137,68 @@ namespace maxhanna.Server.Controllers
                         hero = await UpdateHeroInDB(hero, connection, transaction);
                         MetaHero[]? heroes = await GetNearbyPlayers(hero, connection, transaction);
                         List<MetaEvent> events = await GetEventsFromDb(hero.Level, connection, transaction);
-                        // Fetch persistent bike walls for this map and hero level
-                        // Return only walls created within the last 10 seconds (recent delta)
-                        List<MetaBikeWall> walls = await GetRecentBikeWalls(hero.Level, connection, transaction, 10);
+                        // Fetch persistent bike walls for this hero's level
+                        List<MetaBikeWall> walls = await GetWallsOnSameLevel(hero.Level, connection, transaction);
                         try
                         {
                             int tolerance = 32; // pixels; adjust as needed
-                            // Single query: detect collision while excluding only the hero's most recently created wall
-                            // Use MAX(id) subquery instead of LIMIT inside an IN-subquery which older MySQL versions don't support.
-                            // This excludes the hero's most recently created wall by id (newest id = MAX(id)).
-                            string collideSql =
-                            @"SELECT bw.hero_id, bw.x, bw.y
-                            FROM maxhanna.ender_bike_wall bw
-                            WHERE bw.level = @Level
-                                AND bw.id <> (SELECT IFNULL(MAX(id),0) FROM maxhanna.ender_bike_wall WHERE hero_id = @HeroId)
-                                AND @HeroX BETWEEN (bw.x - @Tol) AND (bw.x + @Tol)
-                                AND @HeroY BETWEEN (bw.y - @Tol) AND (bw.y + @Tol)
-                            LIMIT 1;";
-                            using (var colCmd = new MySqlCommand(collideSql, connection, transaction))
+
+                            // Build a victim -> killer mapping by checking every wall on this level
+                            // against every hero on this level. Skip the wall owner to avoid
+                            // immediate self-kills from placing a wall.
+                            var victims = new Dictionary<int, int?>(); // victimId -> killerHeroId
+
+                            if (walls != null && heroes != null && walls.Count > 0 && heroes.Length > 0)
                             {
-                                colCmd.Parameters.AddWithValue("@Level", hero.Level);
-                                colCmd.Parameters.AddWithValue("@HeroX", hero.Position?.x ?? 0);
-                                colCmd.Parameters.AddWithValue("@HeroY", hero.Position?.y ?? 0);
-                                colCmd.Parameters.AddWithValue("@Tol", tolerance);
-                                colCmd.Parameters.AddWithValue("@HeroId", hero.Id);
-                                var collided = false;
-                                using (var rdr = await colCmd.ExecuteReaderAsync())
+                                foreach (var w in walls)
                                 {
-                                    if (await rdr.ReadAsync())
+                                    try
                                     {
-                                        collided = true;
+                                        foreach (var h in heroes)
+                                        {
+                                            if (h == null) continue;
+                                            // Only consider heroes on the same level
+                                            if (h.Level != w.Level) continue;
+                                            // Skip the owner of the wall to prevent self-kill
+                                            if (h.Id == w.HeroId) continue;
+
+                                            var dx = Math.Abs((h.Position?.x ?? 0) - w.X);
+                                            var dy = Math.Abs((h.Position?.y ?? 0) - w.Y);
+                                            if (dx <= tolerance && dy <= tolerance)
+                                            {
+                                                if (!victims.ContainsKey(h.Id))
+                                                {
+                                                    victims[h.Id] = w.HeroId; // attribute kill to wall owner
+                                                }
+                                            }
+                                        }
+                                    }
+                                    catch (Exception exInner)
+                                    {
+                                        _ = _log.Db($"Error while comparing wall id={w.Id} to heroes: {exInner.Message}", null, "ENDER", true);
                                     }
                                 }
-                                if (collided)
+
+                                // Apply kills for each victim found
+                                if (victims.Count > 0)
                                 {
-                                    await KillHeroById(hero.Id, connection, transaction, null);
-                                    var deathEvent = new MetaEvent(0, hero.Id, DateTime.UtcNow, "HERO_DIED", hero.Level, new Dictionary<string, string>() { { "cause", "BIKE_WALL_COLLIDE" } });
-                                    await UpdateEventsInDB(deathEvent, connection, transaction);
+                                    foreach (var kv in victims)
+                                    {
+                                        var victimId = kv.Key;
+                                        var killerId = kv.Value;
+                                        try
+                                        {
+                                            await KillHeroById(victimId, connection, transaction, killerId);
+                                            var deathEvent = new MetaEvent(0, victimId, DateTime.UtcNow, "HERO_DIED", hero.Level, new Dictionary<string, string>() { { "cause", "BIKE_WALL" } });
+                                            await UpdateEventsInDB(deathEvent, connection, transaction);
+                                        }
+                                        catch (Exception exKill)
+                                        {
+                                            _ = _log.Db($"Failed to kill hero {victimId}: {exKill.Message}", null, "ENDER", true);
+                                        }
+                                    }
+
+                                    // Refresh nearby heroes/events after authoritative kills
                                     heroes = await GetNearbyPlayers(hero, connection, transaction);
                                     events = await GetEventsFromDb(hero.Level, connection, transaction);
                                 }
@@ -181,8 +206,10 @@ namespace maxhanna.Server.Controllers
                         }
                         catch (Exception ex)
                         {
-                            _ = _log.Db("Bike wall tolerant collision check failed: " + ex.Message, null, "ENDER", true);
+                            _ = _log.Db("Bike wall collision sweep failed: " + ex.Message, null, "ENDER", true);
                         }
+
+                        var recentWalls = await GetRecentBikeWalls(hero.Level, connection, transaction);
 
                         await transaction.CommitAsync();
                         return Ok(new
@@ -193,7 +220,7 @@ namespace maxhanna.Server.Controllers
                             heroKills = hero.Kills,
                             heroes,
                             events,
-                            walls
+                            recentWalls
                         });
                     }
                     catch (Exception ex)
@@ -1515,43 +1542,9 @@ namespace maxhanna.Server.Controllers
                 else
                 {
                     _ = _log.Db("No batch data found for UPDATE_ENCOUNTER_POSITION", null, "ENDER", true);
-                }
-            }
-            else if (metaEvent != null && metaEvent.EventType == "SPAWN_BIKE_WALL" && metaEvent.Data != null)
-            {
-                await PersistBikeWallsAndKillNearbyVictims(metaEvent, connection, transaction);
-            }
-        }
-
-        private async Task PersistBikeWallsAndKillNearbyVictims(MetaEvent? metaEvent, MySqlConnection connection, MySqlTransaction transaction)
-        {
-            if (metaEvent?.Data?.TryGetValue("x", out var xStr) == true && metaEvent.Data.TryGetValue("y", out var yStr))
-            {
-                int x = Convert.ToInt32(xStr);
-                int y = Convert.ToInt32(yStr);
-                try
-                {
-                    var toKill = await PersistWallAndGetNearby(metaEvent.HeroId, metaEvent.Level, x, y, connection, transaction);
-                    foreach (var victimId in toKill)
-                    {
-                        try
-                        {
-                            await KillHeroById(victimId, connection, transaction, metaEvent.HeroId);
-                            var deathEvent = new MetaEvent(0, victimId, DateTime.UtcNow, "HERO_DIED", metaEvent.Level, new Dictionary<string, string>() { { "cause", "BIKE_WALL" }, { "x", x.ToString() }, { "y", y.ToString() } });
-                            await UpdateEventsInDB(deathEvent, connection, transaction);
-                        }
-                        catch (Exception ex)
-                        {
-                            _ = _log.Db("Failed to kill hero " + victimId + ": " + ex.Message, null, "ENDER", true);
-                        }
-                    }
-                }
-                catch (Exception ex)
-                {
-                    _ = _log.Db("Error checking nearby heroes for SPAWN_BIKE_WALL: " + ex.Message, null, "ENDER", true);
-                }
-            }
-        }
+                } 
+            } 
+        } 
 
         private async Task<List<int>> PersistWallAndGetNearby(int heroId, int level, int x, int y, MySqlConnection connection, MySqlTransaction transaction)
         {
@@ -1692,6 +1685,50 @@ namespace maxhanna.Server.Controllers
                     // Fallback if created_at column doesn't exist
                     return await GetBikeWalls(level, connection, transaction, 0);
                 }
+            }
+            return walls;
+        }
+
+        // Return all bike walls on the specified level (no recent-time filtering).
+        private async Task<List<MetaBikeWall>> GetWallsOnSameLevel(int level, MySqlConnection connection, MySqlTransaction transaction)
+        {
+            var walls = new List<MetaBikeWall>();
+            string sql = @"SELECT id, hero_id, map, x, y, level
+                           FROM maxhanna.ender_bike_wall
+                           WHERE level = @Level
+                           ORDER BY id ASC";
+            try
+            {
+                using (var cmd = new MySqlCommand(sql, connection, transaction))
+                {
+                    cmd.Parameters.AddWithValue("@Level", level);
+                    using (var reader = await cmd.ExecuteReaderAsync())
+                    {
+                        while (await reader.ReadAsync())
+                        {
+                            try
+                            {
+                                walls.Add(new MetaBikeWall
+                                {
+                                    Id = reader.GetInt32("id"),
+                                    HeroId = reader.GetInt32("hero_id"),
+                                    Map = reader.IsDBNull(reader.GetOrdinal("map")) ? string.Empty : reader.GetString("map"),
+                                    X = reader.GetInt32("x"),
+                                    Y = reader.GetInt32("y"),
+                                    Level = reader.IsDBNull(reader.GetOrdinal("level")) ? 1 : reader.GetInt32("level")
+                                });
+                            }
+                            catch (Exception ex)
+                            {
+                                await LogError("Failed to parse bike wall row in GetWallsOnSameLevel", ex);
+                            }
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                await LogError($"GetWallsOnSameLevel failed for level={level}", ex);
             }
             return walls;
         }
