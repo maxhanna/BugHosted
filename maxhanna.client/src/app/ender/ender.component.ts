@@ -295,8 +295,16 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
             } 
 
             this.enderService.fetchGameDataWithWalls(this.metaHero, pendingWalls, this.lastKnownWallId).then((res: any) => {
-                console.debug('[Ender][DEBUG] fetchGameDataWithWalls response', res);
+               // console.debug('[Ender][DEBUG] fetchGameDataWithWalls response', res);
                 if (res) {
+                    if (res.heroes) {
+                        const myHeroExists = res.hereoes.filter((x : MetaHero) => x.id === this.metaHero.id);
+                        if (!myHeroExists) {
+                            const myHero = this.mainScene.level.children.filter((x: any) => x.id === this.metaHero.id);
+                            myHero.destroy();
+                            console.log("destroyed your hero");
+                        }
+                    }
              //       console.debug('[Ender][DEBUG] response heroes:', Array.isArray(res.heroes) ? res.heroes.length : typeof res.heroes);
                     // If the server provides the elapsed time on level, sync the client's
                     // run timer so returning players see the correct elapsed seconds.
