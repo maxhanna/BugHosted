@@ -44,4 +44,16 @@ export class ReactionService {
       return (error as Error).message;
     }
   }
+
+  async getReactionsCount(userId: number) {
+    try {
+      const res = await fetch(`/reaction/getreactionscount?userId=${userId}`);
+      if (!res.ok) throw new Error('Failed to get reactions count');
+      const text = await res.text();
+      return parseInt(text) || 0;
+    } catch (error) {
+      console.error('Error getting reactions count:', error);
+      return 0;
+    }
+  }
 }

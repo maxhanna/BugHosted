@@ -19,9 +19,9 @@ namespace maxhanna.Server.Controllers
 
 		[HttpPost("/Reaction/AddReaction", Name = "AddReaction")]
 		public async Task<IActionResult> AddReaction([FromBody] Reaction reactionRequest)
-		{ 
+		{
 			if (reactionRequest == null || (reactionRequest.CommentId == null && reactionRequest.MessageId == null && reactionRequest.FileId == null && reactionRequest.StoryId == null))
-			{ 
+			{
 				return BadRequest("Invalid reaction request.");
 			}
 
@@ -48,7 +48,7 @@ namespace maxhanna.Server.Controllers
 
 					await command.ExecuteNonQueryAsync();
 					int? lastInsertId = (int?)(command.LastInsertedId);
- 
+
 					return Ok(lastInsertId ?? 0);
 				}
 
@@ -95,35 +95,28 @@ namespace maxhanna.Server.Controllers
 				return StatusCode(500, "An error occurred while deleting the reaction.");
 			}
 		}
-		private int? CheckIfReactionExists(MySqlConnection connection, int userId, int? commentId, int? storyId, int? messageId, int? fileId)
+
+		[HttpGet("/Reaction/GetReactionsCount", Name = "GetReactionsCount")]
+		public async Task<IActionResult> GetReactionsCount([FromQuery] int userId)
 		{
-			string query = @"
-				SELECT id
-				FROM reactions
-				WHERE user_id = @userId
-				AND (
-					(comment_id = @commentId OR (@commentId IS NULL AND comment_id IS NULL))
-					AND 
-					(story_id = @storyId OR (@storyId IS NULL AND story_id IS NULL))
-					AND 
-					(message_id = @messageId OR (@messageId IS NULL AND message_id IS NULL))
-					AND 
-					(file_id = @fileId OR (@fileId IS NULL AND file_id IS NULL))
-				)
-				LIMIT 1;";
-
-			MySqlCommand command = new MySqlCommand(query, connection);
-			command.Parameters.AddWithValue("@userId", userId);
-			command.Parameters.AddWithValue("@commentId", commentId ?? (object)DBNull.Value);
-			command.Parameters.AddWithValue("@storyId", storyId ?? (object)DBNull.Value);
-			command.Parameters.AddWithValue("@messageId", messageId ?? (object)DBNull.Value);
-			command.Parameters.AddWithValue("@fileId", fileId ?? (object)DBNull.Value);
-
-			Console.WriteLine(command.CommandText);
-			Console.WriteLine(string.Join(", ", command.Parameters.Cast<MySqlParameter>().Select(p => $"{p.ParameterName}: {p.Value}")));
-
-			var result = command.ExecuteScalar();
-			return result != null ? Convert.ToInt32(result) : (int?)null;
+			try
+			{
+				using (var connection = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+				{
+					await connection.OpenAsync();
+					var cmd = new MySqlCommand("SELECT COUNT(*) FROM reactions WHERE user_id = @userId;", connection);
+					cmd.Parameters.AddWithValue("@userId", userId);
+					var result = await cmd.ExecuteScalarAsync();
+					int count = 0;
+					if (result != null && int.TryParse(result.ToString(), out var parsed)) count = parsed;
+					return Ok(count);
+				}
+			}
+			catch (Exception ex)
+			{
+				_ = _log.Db("An error occurred while getting reaction count." + ex.Message, userId, "REACT", true);
+				return StatusCode(500, "An error occurred while getting reaction count.");
+			}
 		}
 	}
 }

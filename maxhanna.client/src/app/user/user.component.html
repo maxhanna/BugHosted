@@ -474,6 +474,12 @@
             </div>
             <div class="optionsStatsDiv">
               <div class="optionsStatsHeader">
+                <app-menu-item [type]="'Reactions'" [parentRef]="parentRef" [label]="'Reactions'"></app-menu-item>
+              </div>
+              <div class="optionsStatsDescription">{{numberOfReactions ?? '—'}} reactions</div>
+            </div>
+            <div class="optionsStatsDiv">
+              <div class="optionsStatsHeader">
                 Share Profile :
               </div>
               <div class="optionsStatsDescription">
