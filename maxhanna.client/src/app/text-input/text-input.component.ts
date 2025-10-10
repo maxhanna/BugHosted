@@ -181,7 +181,7 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
             fileId: this.fileId ?? content.comment?.fileId ?? undefined,
             commentId: this.commentId ?? content.comment?.commentId ?? undefined
           };
-          console.log("type is comment and creating comment", derivedIds);
+          //console.log("type is comment and creating comment", derivedIds);
           results = await this.commentService.addComment(
             content.comment.commentText ?? "",
             user?.id,
@@ -217,6 +217,10 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
       this.parentRef?.showNotification("An unexpected error occurred.");
     } finally {
       this.stopLoading();
+      
+      setTimeout(() => { 
+        this.textarea.focus();
+      }, 50); 
     }
   }
 
