@@ -496,9 +496,9 @@ namespace maxhanna.Server.Controllers
 
                         // occupied hero spots
                         var occupiedSpots = new HashSet<(int X, int Y)>();
-                        string occSql = "SELECT coordsX AS cx, coordsY AS cy FROM maxhanna.ender_hero;";
+                        string occSql = "SELECT coordsX AS cx, coordsY AS cy FROM maxhanna.ender_hero WHERE level = 1;";
                         using (var occCmd = new MySqlCommand(occSql, connection, transaction))
-                        {
+                        { 
                             using var occReader = await occCmd.ExecuteReaderAsync();
                             while (await occReader.ReadAsync())
                             {
@@ -509,10 +509,9 @@ namespace maxhanna.Server.Controllers
 
                         // bike wall spots (only for starting map/level)
                         var bikeWallSpots = new HashSet<(int X, int Y)>();
-                        string bikeSql = "SELECT x AS bx, y AS byy FROM maxhanna.ender_bike_wall WHERE level = @Level;";
+                        string bikeSql = "SELECT x AS bx, y AS byy FROM maxhanna.ender_bike_wall WHERE level = 1;";
                         using (var bikeCmd = new MySqlCommand(bikeSql, connection, transaction))
-                        { 
-                            bikeCmd.Parameters.AddWithValue("@Level", 1);
+                        {  
                             using var bikeReader = await bikeCmd.ExecuteReaderAsync();
                             while (await bikeReader.ReadAsync())
                             {
@@ -530,9 +529,9 @@ namespace maxhanna.Server.Controllers
                             !occupiedSpots.Contains((s.X, s.Y))
                             && !bikeWallSpots.Contains((s.X, s.Y))
                             // and not within one cell of any occupied hero
-                            && !occupiedSpots.Any(o => Math.Abs(o.X - s.X) <= 1 && Math.Abs(o.Y - s.Y) <= 1)
+                            && !occupiedSpots.Any(o => Math.Abs(o.X - s.X) <= 32 && Math.Abs(o.Y - s.Y) <= 32)
                             // and not within one cell of any bike wall
-                            && !bikeWallSpots.Any(b => Math.Abs(b.X - s.X) <= 1 && Math.Abs(b.Y - s.Y) <= 1)
+                            && !bikeWallSpots.Any(b => Math.Abs(b.X - s.X) <= 32 && Math.Abs(b.Y - s.Y) <= 32)
                         ).ToList();
 
                         int posX = 1 * 16;
@@ -544,6 +543,29 @@ namespace maxhanna.Server.Controllers
                             posX = sel.X;
                             posY = sel.Y;
                         }
+                        string chosenColor = req.Color ?? "#00a0c8";
+                        if (string.Equals(chosenColor, "#00a0c8", StringComparison.OrdinalIgnoreCase) && req.UserId > 0)
+                        {
+                            try
+                            {
+                                string getColorSql = "SELECT last_character_color FROM maxhanna.user_settings WHERE user_id = @UserId LIMIT 1;";
+                                using (var getColorCmd = new MySqlCommand(getColorSql, connection, transaction))
+                                {
+                                    getColorCmd.Parameters.AddWithValue("@UserId", req.UserId);
+                                    var res = await getColorCmd.ExecuteScalarAsync();
+                                    if (res != null && res != DBNull.Value)
+                                    {
+                                        var saved = Convert.ToString(res);
+                                        if (!string.IsNullOrWhiteSpace(saved)) chosenColor = saved!;
+                                    }
+                                }
+                            }
+                            catch (Exception ex)
+                            {
+                                // non-fatal: log and continue with default
+                                _ = _log.Db($"Failed to read last_character_color for user {req.UserId}: {ex.Message}", null, "ENDER", true);
+                            }
+                        }
 
                         Dictionary<string, object?> parameters = new Dictionary<string, object?>
                         {
@@ -553,7 +575,7 @@ namespace maxhanna.Server.Controllers
                                 { "@Name", req.Name ?? "Anonymous"},
                                 { "@UserId", req.UserId},
                                 { "@Level", 1 },
-                                { "@Color", req.Color ?? "#00a0c8" }
+                                { "@Color", chosenColor }
                         };
                         long? botId = await this.ExecuteInsertOrUpdateOrDeleteAsync(sql, parameters, connection, transaction);
 
@@ -564,7 +586,7 @@ namespace maxhanna.Server.Controllers
                         await ExecuteInsertOrUpdateOrDeleteAsync(upsertNameSql, new Dictionary<string, object?>() {
                             { "@UserId", req.UserId },
                             { "@Name", req.Name ?? "" },
-                            { "@Color", req.Color ?? "#00a0c8" }
+                            { "@Color", chosenColor }
                         }, connection, transaction);
 
                         await transaction.CommitAsync();
@@ -574,7 +596,7 @@ namespace maxhanna.Server.Controllers
                         hero.Id = (int)botId;
                         hero.Speed = 1;
                         hero.Name = req.Name ?? "Anonymous";
-                        hero.Color = req.Color ?? "#00a0c8";
+                        hero.Color = chosenColor;
                         hero.Created = DateTime.UtcNow; 
                         return Ok(hero);
                     }
