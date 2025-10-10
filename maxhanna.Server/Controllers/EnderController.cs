@@ -158,14 +158,13 @@ namespace maxhanna.Server.Controllers
                                         {
                                             if (h == null) continue;
                                             // Only consider heroes on the same level
-                                            if (h.Level != w.Level) continue;
-                                            // Skip the owner of the wall to prevent self-kill
-                                            if (h.Id == w.HeroId) continue;
+                                            if (h.Level != w.Level) continue; 
 
                                             var dx = Math.Abs((h.Position?.x ?? 0) - w.X);
                                             var dy = Math.Abs((h.Position?.y ?? 0) - w.Y);
                                             if (dx <= tolerance && dy <= tolerance)
                                             {
+                                                Console.WriteLine("Found a new victim: " + h.Id);
                                                 if (!victims.ContainsKey(h.Id))
                                                 {
                                                     victims[h.Id] = w.HeroId; // attribute kill to wall owner
