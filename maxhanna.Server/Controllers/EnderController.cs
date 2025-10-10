@@ -1018,26 +1018,38 @@ namespace maxhanna.Server.Controllers
          
         private async Task UpdateEventsInDB(MetaEvent @event, MySqlConnection connection, MySqlTransaction transaction)
         {
+            Console.WriteLine("Updating events in db" + @event.HeroId);
             try
             {
-                string sql = @"DELETE FROM maxhanna.ender_event WHERE timestamp < UTC_TIMESTAMP() - INTERVAL 20 SECOND;
-                            INSERT INTO maxhanna.ender_event (hero_id, event, level, data)
+                // Run the cleanup as a dedicated command so multi-statement quirks won't interfere with the INSERT
+                string deleteSql = "DELETE FROM maxhanna.ender_event WHERE timestamp < UTC_TIMESTAMP() - INTERVAL 20 SECOND;";
+                using (var delCmd = new MySqlCommand(deleteSql, connection, transaction))
+                {
+                    var deleted = await delCmd.ExecuteNonQueryAsync();
+                    await _log.Db($"UpdateEventsInDb: deleted {deleted} old event rows", null, "ENDER", false);
+                }
+
+                // Explicit INSERT; escape `event` column name to avoid reserved-word issues
+                string insertSql = @"INSERT INTO maxhanna.ender_event (hero_id, `event`, level, data)
                             VALUES (@HeroId, @Event, @Level, @Data);";
-                Dictionary<string, object?> parameters = new Dictionary<string, object?>
-                        {
-                                { "@HeroId", @event.HeroId },
-                                { "@Event", @event.EventType },
-                                { "@Level", @event.Level },
-                                { "@Data", Newtonsoft.Json.JsonConvert.SerializeObject(@event.Data) }
-                        };
-                await this.ExecuteInsertOrUpdateOrDeleteAsync(sql, parameters, connection, transaction);
+
+                using (var insertCmd = new MySqlCommand(insertSql, connection, transaction))
+                {
+                    insertCmd.Parameters.AddWithValue("@HeroId", @event.HeroId);
+                    insertCmd.Parameters.AddWithValue("@Event", @event.EventType ?? string.Empty);
+                    insertCmd.Parameters.AddWithValue("@Level", @event.Level);
+                    insertCmd.Parameters.AddWithValue("@Data", Newtonsoft.Json.JsonConvert.SerializeObject(@event.Data));
+
+                    var insertedRows = await insertCmd.ExecuteNonQueryAsync();
+                    var lastId = insertCmd.LastInsertedId;
+                    await _log.Db($"UpdateEventsInDb: inserted rows={insertedRows} lastId={lastId} heroId={@event.HeroId} event={@event.EventType}", null, "ENDER", false);
+                }
             }
             catch (Exception ex)
             {
                 _ = _log.Db("UpdateEventsInDb failed : " + ex.ToString(), null, "ENDER", true);
             }
         }
-
         private async Task UpdateInventoryInDB(UpdateMetaHeroInventoryRequest request, MySqlConnection connection, MySqlTransaction transaction)
         {
             if (request.HeroId != 0)
