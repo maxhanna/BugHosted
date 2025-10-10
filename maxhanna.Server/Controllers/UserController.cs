@@ -1300,7 +1300,7 @@ namespace maxhanna.Server.Controllers
 					await conn.OpenAsync();
 
 					string selectSql = @"
-						SELECT nsfw_enabled, ghost_read, compactness, show_posts_from, notifications_enabled, last_character_name 
+						SELECT nsfw_enabled, ghost_read, compactness, show_posts_from, notifications_enabled, last_character_name, last_character_color
 						FROM maxhanna.user_settings 
 						WHERE user_id = @userId;";
 
@@ -1322,6 +1322,7 @@ namespace maxhanna.Server.Controllers
 							userSettings.ShowPostsFrom = reader.GetString("show_posts_from") ?? "all";
 							userSettings.NotificationsEnabled = reader.IsDBNull("notifications_enabled") ? null : reader.GetInt32("notifications_enabled") == 1;
 							userSettings.LastCharacterName = reader.IsDBNull(reader.GetOrdinal("last_character_name")) ? null : reader.GetString("last_character_name");
+							userSettings.LastCharacterColor = reader.IsDBNull(reader.GetOrdinal("last_character_color")) ? null : reader.GetString("last_character_color");
 						}
 						else
 						{

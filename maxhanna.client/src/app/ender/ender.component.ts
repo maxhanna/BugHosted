@@ -23,11 +23,8 @@ import { MetaEvent } from '../../services/datacontracts/ender/meta-event';
 import { InventoryItem } from './objects/InventoryItem/inventory-item';
 import { DroppedItem } from './objects/Environment/DroppedItem/dropped-item';
 import { ColorSwap } from '../../services/datacontracts/ender/color-swap';
-import { MetaBot } from '../../services/datacontracts/ender/meta-bot';
 import { MetaBotPart } from '../../services/datacontracts/ender/meta-bot-part';
-import { Fire } from './objects/Effects/Fire/fire';
 import { Mask, getMaskNameById } from './objects/Wardrobe/mask';
-import { Bot } from './objects/Bot/bot';
 import { Character } from './objects/character';
 import { ChatSpriteTextString } from './objects/SpriteTextString/chat-sprite-text-string';
 import { MetaBikeWall } from '../../services/datacontracts/ender/meta-bike-wall';
@@ -63,7 +60,6 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
     metaHero: MetaHero;
     hero?: Hero;
     otherHeroes: MetaHero[] = [];
-    // Count of enemies that are on the same level as the local player
     enemiesOnSameLevelCount: number = 0;
     partyMembers: { heroId: number, name: string, color?: string }[] = [];
     chat: MetaChat[] = [];
