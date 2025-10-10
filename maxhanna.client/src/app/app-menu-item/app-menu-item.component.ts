@@ -15,8 +15,12 @@ export class AppMenuItemComponent {
   @Input() className?: string;
 
   open() {
-    if (this.parentRef && typeof this.parentRef.createComponent === 'function') {
-      this.parentRef.createComponent(this.type);
+    if (this.parentRef.getMenuItemDescription(this.type)) {
+      if (this.parentRef && typeof this.parentRef.createComponent === 'function') {
+        this.parentRef.createComponent(this.type);
+      }
+    } else {
+      this.parentRef.showNotification("Unknown component type");
     }
   }
 
