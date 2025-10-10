@@ -3,7 +3,7 @@ export class MetaEvent {
   heroId: number;
   timestamp: Date;
   eventType: string;
-  map: string;
+  level: number;
   data?: Record<string, string>;
 
   constructor(
@@ -11,14 +11,14 @@ export class MetaEvent {
     heroId: number,
     timestamp: Date,
     eventType: string,
-    map: string,
+    level: number,
     data?: Record<string, string>
   ) {
     this.id = id;
     this.heroId = heroId;
     this.timestamp = timestamp;
     this.eventType = eventType;
-    this.map = map;
+    this.level = level;
     this.data = data;
   }
    

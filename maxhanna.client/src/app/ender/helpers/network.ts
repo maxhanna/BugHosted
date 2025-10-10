@@ -544,6 +544,30 @@ export function actionMultiplayerEvents(object: any, metaEvents: MetaEvent[]) {
             }, 1300);
           }
         }
+       
+        if (event.eventType === "HERO_DIED") {
+          try {
+            const evLevel = event.level ?? (event.data && event.data["level"]) ?? null;
+            const myLevel = object.metaHero?.level ?? object.mainScene?.level?.name ?? null;
+            const victimId = event.heroId ?? (event.data && event.data["heroId"]) ?? null;
+
+            if (evLevel != null && myLevel != null && victimId != null && (evLevel === myLevel || String(evLevel) === String(myLevel))) {
+              if (object.mainScene && object.mainScene.level && object.mainScene.level.children) {
+                const found = object.mainScene.level.children.find((c: any) => c && c.id === victimId);
+                if (found) {
+                  try {
+                    found.destroy();
+                    console.log(`HERO_DIED removed character id=${victimId} on level ${evLevel}`);
+                  } catch (err) {
+                    console.error('Failed to destroy hero element', err);
+                  }
+                }
+              }
+            }
+          } catch (ex) {
+            console.error('Error handling HERO_DIED event', ex);
+          }
+        }
           
         if (event.eventType === "SPAWN_BIKE_WALL" && event.data) {
           const x = parseInt(event.data["x"] ?? "NaN");
