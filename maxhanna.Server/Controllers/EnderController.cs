@@ -367,7 +367,7 @@ namespace maxhanna.Server.Controllers
                         int validatedWalls = req.WallsPlaced;
                         int timeOnLevelSeconds = req.TimeOnLevel;
                         DateTime? heroCreatedAt = null;
-                        // map removed
+                        
                         int heroLevelFromDb = 1;
                         try
                         {
@@ -381,7 +381,6 @@ namespace maxhanna.Server.Controllers
                                     if (await rdr.ReadAsync())
                                     {
                                         heroCreatedAt = rdr.IsDBNull(rdr.GetOrdinal("created")) ? (DateTime?)null : Convert.ToDateTime(rdr["created"]).ToUniversalTime();
-                                        // map removed
                                         heroLevelFromDb = rdr.IsDBNull(rdr.GetOrdinal("level")) ? 1 : Convert.ToInt32(rdr["level"]);
                                     }
                                 }
@@ -464,16 +463,7 @@ namespace maxhanna.Server.Controllers
                         string deleteHero = "DELETE FROM maxhanna.ender_hero WHERE id = @HeroId LIMIT 1;";
                         await ExecuteInsertOrUpdateOrDeleteAsync(deleteHero, new Dictionary<string, object?>() { { "@HeroId", req.HeroId } }, connection, transaction);
 
-                        // After removing the dead hero, check remaining heroes on the same map & level
-                        try
-                        {
-                            // map column removed; survivor/level-up logic by map skipped
-                        }
-                        catch (Exception ex)
-                        {
-                            _ = _log.Db("Error checking/incrementing survivor level: " + ex.Message, null, "ENDER", true);
-                        }
-
+                        
                         await transaction.CommitAsync();
                         return Ok();
                     }
@@ -519,10 +509,9 @@ namespace maxhanna.Server.Controllers
 
                         // bike wall spots (only for starting map/level)
                         var bikeWallSpots = new HashSet<(int X, int Y)>();
-                        string bikeSql = "SELECT x AS bx, y AS byy FROM maxhanna.ender_bike_wall WHERE map = @Map AND level = @Level;";
+                        string bikeSql = "SELECT x AS bx, y AS byy FROM maxhanna.ender_bike_wall WHERE level = @Level;";
                         using (var bikeCmd = new MySqlCommand(bikeSql, connection, transaction))
-                        {
-                            bikeCmd.Parameters.AddWithValue("@Map", "HeroRoom");
+                        { 
                             bikeCmd.Parameters.AddWithValue("@Level", 1);
                             using var bikeReader = await bikeCmd.ExecuteReaderAsync();
                             while (await bikeReader.ReadAsync())
@@ -584,7 +573,6 @@ namespace maxhanna.Server.Controllers
                         hero.Position = new Vector2(posX, posY);
                         hero.Id = (int)botId;
                         hero.Speed = 1;
-                        // map removed
                         hero.Name = req.Name ?? "Anonymous";
                         hero.Color = req.Color ?? "#00a0c8";
                         hero.Created = DateTime.UtcNow; 
@@ -1324,7 +1312,6 @@ namespace maxhanna.Server.Controllers
                                     Id = Convert.ToInt32(reader["hero_id"]),
                                     Position = new Vector2(Convert.ToInt32(reader["coordsX"]), Convert.ToInt32(reader["coordsY"])),
                                     Speed = Convert.ToInt32(reader["speed"]),
-                                    // map removed
                                     Name = Convert.ToString(reader["hero_name"]),
                                     Color = Convert.ToString(reader["hero_color"]) ?? "",
                                     Mask = reader.IsDBNull(reader.GetOrdinal("hero_mask")) ? null : Convert.ToInt32(reader["hero_mask"]),
@@ -1382,7 +1369,6 @@ namespace maxhanna.Server.Controllers
                         {
                             Id = heroId,
                             Name = Convert.ToString(reader["hero_name"]),
-                            // map removed
                             Color = Convert.ToString(reader["color"]) ?? "",
                             Mask = reader.IsDBNull(reader.GetOrdinal("mask")) ? null : Convert.ToInt32(reader["mask"]),
                             Level = reader.IsDBNull(reader.GetOrdinal("hero_level")) ? 1 : Convert.ToInt32(reader["hero_level"]),
@@ -1767,7 +1753,7 @@ namespace maxhanna.Server.Controllers
         {
             try
             {
-                // fetch hero info for score & map
+                // fetch hero info for score
                 string selSql = @"SELECT user_id, created, level, kills FROM maxhanna.ender_hero WHERE id = @HeroId LIMIT 1;";
                 int userId = 0;
                 DateTime? createdAt = null; 
