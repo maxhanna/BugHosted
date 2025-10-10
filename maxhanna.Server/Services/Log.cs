@@ -435,6 +435,8 @@ public class Log
 		catch (Exception ex)
 		{
 			Console.WriteLine("Decryption error: " + ex.Message);
+			Console.WriteLine("hexMessage: " + hexMessage);
+			Console.WriteLine("password: " + password);
 			return hexMessage;
 		}
 	}
