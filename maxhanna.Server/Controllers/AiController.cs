@@ -5,6 +5,7 @@ using maxhanna.Server.Controllers.DataContracts.Users;
 using Microsoft.AspNetCore.Mvc;
 using MySqlConnector;
 using System.Diagnostics;
+using SixLabors.ImageSharp;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
@@ -657,6 +658,57 @@ namespace maxhanna.Server.Controllers
 				if (!base64Images.Any())
 				{
 					_ = _log.Db("No valid media content to analyze.", null, "AiController", true);
+					return string.Empty;
+				}
+
+				// Cap and validate generated thumbnails before building the prompt
+				const int MaxTotalImageBytes = 3000000; // 3 MB total for all thumbnails
+
+				// Limit the number of frames/images we'll send to the model
+				if (base64Images.Count > 2)
+				{
+					base64Images = base64Images.Take(2).ToList();
+				}
+
+				// Validate base64 and compute total bytes to avoid huge payloads
+				long totalImageBytes = 0;
+				var validatedImages = new List<string>();
+				foreach (var b64 in base64Images)
+				{
+					try
+					{
+						var data = Convert.FromBase64String(b64);
+
+						// Use ImageSharp to identify the image without fully decoding to pixels.
+						using var ms = new System.IO.MemoryStream(data);
+						var info = Image.Identify(ms);
+						if (info != null)
+						{
+							totalImageBytes += data.Length;
+							validatedImages.Add(b64);
+						}
+						else
+						{
+							_ = _log.Db($"Thumbnail is not a recognized image format; skipped.", null, "AiController", true);
+						}
+					}
+					catch (Exception ex)
+					{
+						_ = _log.Db($"Invalid or corrupt thumbnail skipped: {ex.Message}", null, "AiController", true);
+					}
+				}
+
+				base64Images = validatedImages;
+
+				if (!base64Images.Any())
+				{
+					_ = _log.Db("No valid thumbnails after validation.", null, "AiController", true);
+					return string.Empty;
+				}
+
+				if (totalImageBytes > MaxTotalImageBytes)
+				{
+					_ = _log.Db($"Combined thumbnail payload too large ({totalImageBytes} bytes). Aborting media analysis.", null, "AiController", true);
 					return string.Empty;
 				}
 
