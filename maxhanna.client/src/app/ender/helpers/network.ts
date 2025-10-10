@@ -510,6 +510,7 @@ export function actionMultiplayerEvents(object: any, metaEvents: MetaEvent[]) {
   const currentEvents = object.events;
   if (metaEvents.length > 0) {
     for (let event of metaEvents) {
+      console.log("event received", event);
       const existingEvent = currentEvents.find((e: MetaEvent) => e.id == event.id);
       if (!existingEvent) {
         //do something with object fresh event.
