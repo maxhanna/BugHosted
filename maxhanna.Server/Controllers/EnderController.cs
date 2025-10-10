@@ -457,9 +457,7 @@ namespace maxhanna.Server.Controllers
                         string deleteBots = "DELETE FROM maxhanna.ender_bot WHERE hero_id = @HeroId;";
                         await ExecuteInsertOrUpdateOrDeleteAsync(deleteBots, new Dictionary<string, object?>() { { "@HeroId", req.HeroId } }, connection, transaction);
 
-                        string deleteEvents = "DELETE FROM maxhanna.ender_event WHERE hero_id = @HeroId;";
                         string deleteWalls = "DELETE FROM maxhanna.ender_bike_wall WHERE hero_id = @HeroId;";
-                        await ExecuteInsertOrUpdateOrDeleteAsync(deleteEvents, new Dictionary<string, object?>() { { "@HeroId", req.HeroId } }, connection, transaction);
                         await ExecuteInsertOrUpdateOrDeleteAsync(deleteWalls, new Dictionary<string, object?>() { { "@HeroId", req.HeroId } }, connection, transaction);
 
                         string deleteHero = "DELETE FROM maxhanna.ender_hero WHERE id = @HeroId LIMIT 1;";
