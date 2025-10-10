@@ -400,6 +400,12 @@ public class Log
 
 	public string DecryptContent(string hexMessage, string password = "defaultPassword")
 	{
+		if (string.IsNullOrEmpty(hexMessage)) return hexMessage;
+		if (hexMessage.Length % 2 != 0 || !System.Text.RegularExpressions.Regex.IsMatch(hexMessage, @"\A[0-9a-fA-F]+\z"))
+		{
+			return hexMessage;
+		}
+
 		try
 		{
 			// Convert hex string to byte array
