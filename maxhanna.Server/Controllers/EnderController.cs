@@ -1084,10 +1084,10 @@ namespace maxhanna.Server.Controllers
                 throw new InvalidOperationException("Transaction is required for this operation.");
             }
 
-           
-            string sql = @"
-                DELETE FROM maxhanna.ender_event WHERE timestamp < UTC_TIMESTAMP() - INTERVAL 20 SECOND;
+           // DELETE FROM maxhanna.ender_event WHERE timestamp < UTC_TIMESTAMP() - INTERVAL 20 SECOND;
 
+            string sql = @"
+               
                 SELECT *
                 FROM maxhanna.ender_event 
                 WHERE level = @Level;";
