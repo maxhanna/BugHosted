@@ -546,6 +546,8 @@ namespace maxhanna.Server.Controllers
 				bool isVideo = file.FileType != null && videoTypes.Contains(file.FileType.ToLower());
 				bool hasMultipleFrames = false;
 
+				const int MaxImageBytes = 1500000; // 1.5 MB
+
 				if (isVideo)
 				{
 					// Improved video frame capture
@@ -560,7 +562,8 @@ namespace maxhanna.Server.Controllers
 					{
 						var thumbPath = Path.Combine(tempThumbnailDir, $"{Guid.NewGuid()}.jpg"); 
 
-						var ffmpegArgs = $"-i \"{filePath}\" -ss {t} -vframes 1 -q:v 2 \"{thumbPath}\"";
+						// Resize frames to a reasonable width to keep payloads small
+						var ffmpegArgs = $"-i \"{filePath}\" -ss {t} -vframes 1 -vf scale=1024:-1 -q:v 4 \"{thumbPath}\"";
 						var proc = Process.Start(new ProcessStartInfo("ffmpeg", ffmpegArgs)
 						{
 							RedirectStandardError = true,
@@ -590,13 +593,42 @@ namespace maxhanna.Server.Controllers
 					try
 					{
 						var bytes = await System.IO.File.ReadAllBytesAsync(filePath);
-						base64Images.Add(Convert.ToBase64String(bytes));
+						// If image is large, run ffmpeg to produce a smaller jpeg-sized thumbnail
+						if (bytes.Length > MaxImageBytes)
+						{
+							var jpegPath = Path.Combine(tempThumbnailDir, $"{Guid.NewGuid()}.jpg");
+							var ffmpegArgs = $"-i \"{filePath}\" -vf scale=1024:-1 -q:v 4 \"{jpegPath}\"";
+							var proc = Process.Start(new ProcessStartInfo("ffmpeg", ffmpegArgs)
+							{
+								RedirectStandardError = true,
+								UseShellExecute = false,
+								CreateNoWindow = true
+							});
+							if (proc != null)
+							{
+								await proc.WaitForExitAsync();
+								if (proc.ExitCode == 0 && System.IO.File.Exists(jpegPath))
+								{
+									var bytes2 = await System.IO.File.ReadAllBytesAsync(jpegPath);
+									base64Images.Add(Convert.ToBase64String(bytes2));
+								}
+								else
+								{
+									var err = await proc.StandardError.ReadToEndAsync();
+									_ = _log.Db($"FFmpeg image shrink failed: {err}", null, "AiController", true);
+								}
+							}
+						}
+						else
+						{
+							base64Images.Add(Convert.ToBase64String(bytes));
+						}
 					}
 					catch
 					{
 						// Fallback to conversion if direct read fails
 						var jpegPath = Path.Combine(tempThumbnailDir, $"{Guid.NewGuid()}.jpg"); 
-						var ffmpegArgs = $"-i \"{filePath}\" -q:v 2 \"{jpegPath}\"";
+						var ffmpegArgs = $"-i \"{filePath}\" -vf scale=1024:-1 -q:v 4 \"{jpegPath}\"";
 						var proc = Process.Start(new ProcessStartInfo("ffmpeg", ffmpegArgs)
 						{
 							RedirectStandardError = true,
@@ -643,7 +675,12 @@ namespace maxhanna.Server.Controllers
 				};
 
 				var resp = await _httpClient.SendAsync(req);
-				resp.EnsureSuccessStatusCode();
+				if (!resp.IsSuccessStatusCode)
+				{
+					var errBody = await resp.Content.ReadAsStringAsync();
+					_ = _log.Db($"Ollama media analysis error {(int)resp.StatusCode}: {errBody}", null, "AiController", true);
+					return string.Empty;
+				}
 
 				var body = await resp.Content.ReadAsStringAsync();
 				var parsed = JsonSerializer.Deserialize<JsonElement>(body);
