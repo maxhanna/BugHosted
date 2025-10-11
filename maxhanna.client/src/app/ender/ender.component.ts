@@ -181,59 +181,8 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
         }, 1200);
     }
 
-    restartGame() { 
-        this.stopPollingForUpdates = false;
-
-        // In-place restart: destroy current scene and rebuild fresh without full page reload
-        this.showDeathPanel = false;
-        this.parentRef?.closeOverlay();
-        // Stop timers / loops 
-    // Fresh placeholder hero & metaHero
-    this.hero = new Hero({ id: 0, name: "", position: new Vector2(0,0), speed: 1 });
-    this.metaHero = {} as MetaHero;
-        this.otherHeroes = [];
-        this.heroFirstSeen.clear();
-        this.heroColors.clear();
-        this.pendingWallsBatch = [];
-        this.wallsPlacedThisRun = 0;
-        this.wallsPlacedAuthoritative = 0;
-        this.currentScore = 0;
-        this.runStartTimeMs = undefined;
-        this.runElapsedSeconds = 0;
-        this.enemiesOnSameLevelCount = 0;
-        // Recreate main scene
-        this.mainScene = new Main({
-            position: new Vector2(0, 0), heroId: this.metaHero.id,
-            metaHero: this.metaHero, hero: this.hero, partyMembers: this.partyMembers
-        });
-        // Re-bind chat input after next tick
-        setTimeout(() => {
-            try { this.mainScene.input.setChatInput(this.chatInput.nativeElement); } catch { }
-        }, 0);
-        // Start loop again
-        this.gameLoop.start();
-        // Fetch / create hero fresh
-        const userId = this.parentRef?.user?.id ?? 0;
-        if (userId > 0) {
-            this.enderService.getHero(userId).then(rz => {
-                if (rz) {
-                    this.reinitializeHero(rz);
-                } else {
-                    // Auto-create hero if we have cached defaults, otherwise show character create screen via poll
-                    if (this.cachedDefaultName) {
-                        this.enderService.createHero(userId, this.cachedDefaultName, this.cachedDefaultColor).then(newHero => {
-                            if (newHero) this.reinitializeHero(newHero);
-                        });
-                    } else {
-                        // Fallback to existing poll flow
-                        this.pollForChanges();
-                    }
-                }
-            });
-        } else {
-            // Not logged in; reopen user component
-            this.isUserComponentOpen = true;
-        }
+    restartGame() {
+        window.location.href = '/Ender';
     }
 
 
