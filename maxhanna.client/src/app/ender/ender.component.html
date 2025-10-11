@@ -124,14 +124,14 @@
 <div class="popupPanel" *ngIf="showDeathPanel" style="max-width:320px; text-align:center;">
   <div class="popupPanelTitle mainPopupTitle">You Died</div>
   <div style="padding:12px;">
-    <div class="chatInput" style="pointer-events:none; margin-bottom:8px;">
+    <div style="pointer-events:none; margin-bottom:8px;">
       Final Score: {{currentScore}}
     </div>
-    <div class="chatInput" style="pointer-events:none; margin-bottom:8px;">
+    <div style="pointer-events:none; margin-bottom:8px;">
       Time: {{runElapsedSeconds}}s | Walls: {{wallsPlacedAuthoritative || wallsPlacedThisRun}} | Kills: {{metaHero.kills
       || 0}}
     </div>
-    <button class="start" style="width:100%;" id="closeOverlay" (click)="restartGame()">Restart</button>
+    <button class="closeButton" id="closeOverlay" (click)="restartGame()">Restart</button>
   </div>
 </div>
 
