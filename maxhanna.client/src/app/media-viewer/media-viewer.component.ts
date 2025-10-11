@@ -311,9 +311,9 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
     this.autoload = true;
     this.fetchFileSrc();
   }
-  getFileLink(fileEntry?: FileEntry) {
+  getFileLink(fileEntry?: FileEntry): string {
     const file = fileEntry ?? this.file ?? this.selectedFile;
-    const link = `https://bughosted.com/${file?.directory?.includes("Meme") ? 'Memes' : 'File'}/${file?.id}`;
+    return `https://bughosted.com/${file?.directory?.includes("Meme") ? 'Memes' : 'File'}/${file?.id}`;
   }
   createUserProfileComponent(user?: User) {
     if (!user) { return alert("you must select a user!"); }
