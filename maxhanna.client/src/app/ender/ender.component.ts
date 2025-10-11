@@ -216,7 +216,14 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
                     let myWallsCount = 0;
                     for (const w of allWalls) { 
                         // Use stored hero color if available, otherwise fallback to scene metaHero color for local hero
-                        const ownerColor = (w.heroId && this.heroColors.has(w.heroId)) ? this.heroColors.get(w.heroId) : undefined;
+                        let ownerColor = (w.heroId && this.heroColors.has(w.heroId)) ? this.heroColors.get(w.heroId) : undefined;
+                        if (!ownerColor) {
+                            const tmpOwnerColorReq = await this.enderService.getHero(this.parentRef.user.id);
+                            ownerColor = tmpOwnerColorReq?.color;
+                            if (ownerColor) {
+                                this.heroColors.set(this.parentRef.user.id, ownerColor);
+                            }
+                        }
                         const colorSwap = ownerColor ? new ColorSwap([0, 160, 200], hexToRgb(ownerColor!)) : (w.heroId === this.metaHero.id ? this.mainScene.metaHero?.colorSwap : undefined);
                         const wall = new BikeWall({ position: new Vector2(w.x, w.y), colorSwap });
                         this.mainScene.level.addChild(wall);
