@@ -128,8 +128,9 @@
       Final Score: {{currentScore}}
     </div>
     <div style="pointer-events:none; margin-bottom:8px;">
-      Time: {{runElapsedSeconds}}s | Walls: {{wallsPlacedAuthoritative || wallsPlacedThisRun}} | Kills: {{metaHero.kills
-      || 0}}
+      <div>Time: {{runElapsedSeconds}}s</div>
+      <div>Walls: {{wallsPlacedAuthoritative || wallsPlacedThisRun}}</div>
+      <div> Kills: {{metaHero.kills || 0}}</div>
     </div>
     <button class="closeButton" id="closeOverlay" (click)="restartGame()">Restart</button>
   </div>
