@@ -55,7 +55,7 @@
           <span class="notification">{{ selectedFile?.date | date: 'MMMM d, y h:mm a' }}</span>
         </div>
         <div class="filetype" *ngIf="displayExtraInfo || otherFileExtensionsIncludes(this.selectedFileExtension)">
-          <button (click)="copyLink()" title="Share Link" *ngIf="displayExtraInfo">📋Share</button>
+          <app-share-button *ngIf="displayExtraInfo" [inputtedParentRef]="inputtedParentRef" [link]="file?.directory?.includes('Meme') ? 'Memes' : 'File'"></app-share-button>
           <button (click)="download(selectedFile, true)"
             *ngIf="selectedFile && (displayExtraInfo || otherFileExtensionsIncludes(this.selectedFileExtension))"
             [title]="'Download ' + (selectedFile.givenFileName ?? selectedFile.fileName ?? '')">📥Download {{
@@ -288,10 +288,7 @@
         Share:
       </div>
       <div class="optionsStatsDescription">
-        <button (click)="copyLink(selectedFile)"
-          title="Copy link to '{{selectedFile.givenFileName ?? selectedFile.fileName}}' in clipboard.">
-          📋Share
-        </button>
+        <app-share-button *ngIf="displayExtraInfo" [inputtedParentRef]="inputtedParentRef" [link]="getFileLink(selectedFile)"></app-share-button>
         <span *ngIf="!inputtedParentRef?.user?.id">You must be logged in.</span>
       </div>
     </div>

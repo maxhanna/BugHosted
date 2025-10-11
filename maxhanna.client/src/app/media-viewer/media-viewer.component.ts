@@ -311,16 +311,9 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
     this.autoload = true;
     this.fetchFileSrc();
   }
-  copyLink(fileEntry?: FileEntry) {
+  getFileLink(fileEntry?: FileEntry) {
     const file = fileEntry ?? this.file ?? this.selectedFile;
     const link = `https://bughosted.com/${file?.directory?.includes("Meme") ? 'Memes' : 'File'}/${file?.id}`;
-    try {
-      navigator.clipboard.writeText(link);
-      this.emittedNotification.emit(`${link} copied to clipboard!`);
-    } catch {
-      this.emittedNotification.emit("Error: Unable to share link!");
-      console.log("Error: Unable to share link!");
-    }
   }
   createUserProfileComponent(user?: User) {
     if (!user) { return alert("you must select a user!"); }
@@ -386,13 +379,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
           }
           else if (this.inputtedParentRef && !this.inputtedParentRef.pictureSrcs.find(x => x.key == fileId + '')) {
             this.inputtedParentRef.pictureSrcs.push({ key: fileId + '', value: this.selectedFileSrc, type: type, extension: this.selectedFileExtension });
-          }
-          setTimeout(() => {
-            if (this.mediaContainer && this.mediaContainer.nativeElement) {
-              //this.mediaContainer.nativeElement.muted = true;
-              // this.mediaContainer.nativeElement.loop = true;
-            }
-          }, 50);
+          } 
         };
       });
     } catch (error) {
