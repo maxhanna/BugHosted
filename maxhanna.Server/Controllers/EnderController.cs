@@ -271,6 +271,7 @@ namespace maxhanna.Server.Controllers
                             timeOnLevelSeconds = hero?.TimeOnLevelSeconds ?? 0,
                             heroKills = hero?.Kills ?? 0,
                             currentScore,
+                            currentLevel = hero?.Level,
                             wallsPlacedForRun,
                             heroes,
                             events,

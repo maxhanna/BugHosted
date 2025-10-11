@@ -326,6 +326,9 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
                     if (res.heroKills !== undefined && this.metaHero) {
                         this.metaHero.kills = Number(res.heroKills) || 0;
                     }
+                    if (res.currentLevel !== undefined && this.metaHero) {
+                        this.metaHero.level = Number(res.currentLevel) || 1;
+                    }
                     this.updateOtherHeroesBasedOnFetchedData(res);
 
                     // Persisted bike walls for this map - use in-memory Set to avoid scanning level.children repeatedly
