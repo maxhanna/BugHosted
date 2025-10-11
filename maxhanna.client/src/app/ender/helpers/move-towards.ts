@@ -1,5 +1,4 @@
-import { Vector2 } from "../../../services/datacontracts/meta/vector2"; 
-import { Bot } from "../objects/Bot/bot";
+import { Vector2 } from "../../../services/datacontracts/meta/vector2";  
 import { Character } from "../objects/character";
 import { GameObject } from "../objects/game-object";
 import { Ship } from "../objects/Ship/ship";
@@ -348,27 +347,7 @@ export function setAnimationToStandAfterTimeElapsed(player: any) {
 		}
 	}, (player.isUserControlled ? 1000 : 1500));
 }
-
-export function getBotsInRange(player: Bot, partyMembers?: { heroId: number, name: string }[]): Bot[] {
-	const discrepancy = gridCells(5);
-
-	const posibilities = player.parent?.children?.filter((child: Bot) => {
-		return (
-			((player.heroId ?? 0) < 0 ? (child.heroId ?? 0) > 0 : true) &&
-			!partyMembers?.find(x => x.heroId == (child.heroId ?? 0)) &&
-			(child.isDeployed) &&
-			(child.id != player.id) &&
-			(child.isEnemy) &&
-			(child.hp > 0) &&
-			!(child instanceof Sprite) &&
-			child.position.x >= player.position.x - discrepancy &&
-			child.position.x <= player.position.x + discrepancy &&
-			child.position.y >= player.position.y - discrepancy &&
-			child.position.y <= player.position.y + discrepancy
-		);
-	});
-	return posibilities ?? [];
-}
+ 
 export function getShipsInRange(player: Ship, partyMembers?: { heroId: number, name: string }[]): Ship[] {
 	const discrepancy = gridCells(5);
 
