@@ -1,17 +1,12 @@
 import { events } from "./events";
 import { Hero } from "../objects/Hero/hero";
-import { MetaBot } from "../../../services/datacontracts/meta/meta-bot";
 import { MetaEvent } from "../../../services/datacontracts/meta/meta-event";
 import { MetaChat } from "../../../services/datacontracts/meta/meta-chat";
-import { MetaBotPart, LEFT_ARM, RIGHT_ARM, LEGS, HEAD } from "../../../services/datacontracts/meta/meta-bot-part";
 import { Vector2 } from "../../../services/datacontracts/meta/vector2";
 import { GameObject } from "../objects/game-object";
 import { Level } from "../objects/Level/level";
-import { ShopMenu } from "../objects/Menu/shop-menu";
-import { WardrobeMenu } from "../objects/Menu/wardrobe-menu";
 import { gridCells } from "./grid-cells";
 import { addBikeWallCell, removeBikeWallsForHero } from './bike-wall-index';
-import { InventoryItem } from "../objects/InventoryItem/inventory-item";
 import { Character } from "../objects/character";
 import { BikeWall } from "../objects/Environment/bike-wall";
 
@@ -374,17 +369,20 @@ export function actionMultiplayerEvents(object: any, metaEvents: MetaEvent[]) {
                 }
                 // Remove any bike walls associated with this hero and destroy their GameObjects
                 try {
-                  const removedKeys = removeBikeWallsForHero(typeof victimId === 'number' ? victimId : parseInt(victimId));
+                  const removedKeys = removeBikeWallsForHero(victimId);
                   if (removedKeys && removedKeys.length && object.mainScene && object.mainScene.level && object.mainScene.level.children) {
                     for (const key of removedKeys) {
                       const parts = key.split('|');
                       if (parts.length === 2) {
                         const x = parseInt(parts[0]);
                         const y = parseInt(parts[1]);
+                        console.log("destroying wall ", x, y);
                         const wallObjIndex = object.mainScene.level.children.findIndex((c: any) => c && c.name === 'bike-wall' && c.position && c.position.x === x && c.position.y === y);
                         if (wallObjIndex >= 0) { 
                           const wallObj = object.mainScene.level.children[wallObjIndex];
-                          wallObj.destroy(); 
+;                          wallObj.destroy(); 
+                        } else {
+                          console.log("could not find wall", x,y);
                         }
                       }
                     }
@@ -408,20 +406,12 @@ export function actionMultiplayerEvents(object: any, metaEvents: MetaEvent[]) {
               const useColor = event.heroId === object.metaHero.id ? object.metaHero?.colorSwap : undefined;
               const wall = new BikeWall({ position: new Vector2(x, y), colorSwap: useColor });
               object.mainScene.level.addChild(wall);
-              try { addBikeWallCell(x, y, event.heroId); } catch (e) { /* swallow */ }
-              // notify systems that a wall now exists at this location so any heroes under it can be processed
-              try { events.emit("BIKEWALL_CREATED", { x, y }); } catch (e) { /* swallow errors */ }
+              addBikeWallCell(x, y, event.heroId);  
+              events.emit("BIKEWALL_CREATED", { x, y });  
             }
           }
         }
-         
-        if (event.eventType === "ITEM_DROPPED") {
-          if (event.data) {
-            const tmpMetabotPart = JSON.parse(event.data["item"]) as MetaBotPart;
-            const location = JSON.parse(event.data["location"]) as Vector2;
-            object.addItemToScene(tmpMetabotPart, location);
-          }
-        }
+        
         if (event.eventType === "CHAT" && event.data) {
           const content = event.data["content"] ?? '';
           const name = event.data["sender"] ?? "Anon";
