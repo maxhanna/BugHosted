@@ -94,7 +94,7 @@
       <div><strong>Score:</strong> {{currentScore}}</div>
       <div><strong>Level:</strong> {{metaHero.level}}</div>
       <div><strong>Kills:</strong> {{metaHero.kills}}</div>
-      <div class="cursorPointerUnderlined" (click)="toggleOtherHeroesPanel()" title="Show other heroes on this level">
+      <div class="cursorPointerUnderlined" (click)="openOtherHeroesPanel()" title="Show other heroes on this level">
         <strong>Enemies:</strong> {{enemiesOnSameLevelCount}}
       </div>
       <div *ngIf="metaHero && metaHero.position">
@@ -156,7 +156,7 @@
     </div>
   </div>
   <div style="padding:8px; text-align: center;">
-    <button class="closeButton" id="closeOverlay" (click)="toggleOtherHeroesPanel()">
+    <button class="closeButton" id="closeOverlay" (click)="closeOtherHeroesPanel()">
       Close
     </button>
   </div>

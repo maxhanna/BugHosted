@@ -120,7 +120,7 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
             this.isUserComponentOpen = true;
         } else {
             // prefetch champion info (non-blocking)
-            
+
             // Preload user settings (default name/color) as early as possible so CharacterCreate can use them
             this.userService.getUserSettings(this.parentRef.user?.id ?? 0).then(res => {
                 this.cachedDefaultName = res?.lastCharacterName ?? undefined;
@@ -166,11 +166,11 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
     }
 
     private async handleHeroDeath() {
-        this.stopPollingForUpdates = true; 
+        this.stopPollingForUpdates = true;
         this.stopRunTimer();
         setTimeout(() => {
             this.gameLoop.stop();
-            this.mainScene?.destroy(); 
+            this.mainScene?.destroy();
             this.showDeathPanel = true;
             // ensure other overlays closed
             this.isMenuPanelOpen = false;
@@ -232,17 +232,17 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
                     this.persistedWallLevelRef = this.mainScene.level;
                     this.lastKnownWallId = 0; // we aren't using id delta now; recent fetch limited by time window
                     let myWallsCount = 0;
-                    for (const w of allWalls) { 
+                    for (const w of allWalls) {
                         let ownerColor = (w.heroId && this.heroColors.has(w.heroId)) ? this.heroColors.get(w.heroId) : undefined;
                         const colorSwap = ownerColor ? new ColorSwap([0, 160, 200], hexToRgb(ownerColor!)) : (w.heroId === this.metaHero.id ? this.mainScene.metaHero?.colorSwap : undefined);
-                        const wall = new BikeWall({ position: new Vector2(w.x, w.y), colorSwap, heroId: (w.heroId ?? 0)});
+                        const wall = new BikeWall({ position: new Vector2(w.x, w.y), colorSwap, heroId: (w.heroId ?? 0) });
                         this.mainScene.level.addChild(wall);
                         if (w.heroId === rz.id) {
                             myWallsCount++;
                         }
                     }
                     this.wallsPlacedThisRun = myWallsCount;
-                } 
+                }
             } else {
                 await this.enderService.getGlobalBestScore().then((best: any) => {
                     if (best && (best.username || best.user_id)) {
@@ -264,11 +264,11 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
                 return;
             }
         }
- 
-        this.updatePlayers(); 
+
+        this.updatePlayers();
         clearInterval(this.pollingInterval);
-        this.pollingInterval = setInterval(async () => { 
-            this.updatePlayers(); 
+        this.pollingInterval = setInterval(async () => {
+            this.updatePlayers();
         }, this.pollSeconds * 1000);
     }
 
@@ -290,7 +290,7 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
         }
     }
 
-    private updatePlayers() { 
+    private updatePlayers() {
         if (this.metaHero && this.metaHero.id && !this.stopPollingForUpdates) {
             const pendingWalls = this.pendingWallsBatch.length > 0 ? [...this.pendingWallsBatch] : undefined;
             this.pendingWallsBatch = [];
@@ -338,14 +338,14 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
                         }
                         // Update hero color map from server-provided heroes list when available
                         if (res.heroes && Array.isArray(res.heroes)) {
-                            for (const h of res.heroes) { 
+                            for (const h of res.heroes) {
                                 const hid = (typeof h.id === 'number') ? h.id : Number(h.id);
                                 if (!isNaN(hid) && h.color) {
                                     this.heroColors.set(hid, h.color);
-                                } 
+                                }
                             }
                         }
-                        for (const w of walls) { 
+                        for (const w of walls) {
                             const ownerId = w.heroId;
                             const ownerColor = (ownerId && this.heroColors.has(ownerId)) ? this.heroColors.get(ownerId) : undefined;
                             const colorSwap = ownerColor ? new ColorSwap([0, 160, 200], hexToRgb(ownerColor!)) : (ownerId === this.metaHero.id ? (this.metaHero ? this.mainScene.metaHero?.colorSwap : undefined) : undefined);
@@ -382,11 +382,11 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
             return;
         }
         // Ensure created dates are parsed and objects are instances of MetaHero
-        this.otherHeroes = res.heroes.map((h: MetaHero) => { 
+        this.otherHeroes = res.heroes.map((h: MetaHero) => {
             const pos = h.position ? new Vector2(h.position.x, h.position.y) : new Vector2(0, 0);
             if (h.id && h.color) {
                 this.heroColors.set(h.id, h.color);
-            } 
+            }
             if (h.id && !this.heroFirstSeen.has(h.id)) {
                 this.heroFirstSeen.set(h.id, Date.now());
             }
@@ -396,13 +396,14 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
         this.updateMissingOrNewHeroSprites();
     }
 
-    toggleOtherHeroesPanel() {
-        this.showOtherHeroesPanel = !this.showOtherHeroesPanel;
-        if (this.showOtherHeroesPanel) {
-            this.parentRef?.showOverlay();
-        } else {
-            this.parentRef?.closeOverlay();
-        }
+    openOtherHeroesPanel() {
+        this.showOtherHeroesPanel = true;
+        this.parentRef?.showOverlay();
+    }
+    closeOtherHeroesPanel() {
+        this.showOtherHeroesPanel = false;
+        this.parentRef?.closeOverlay();
+
     }
 
     getHeroTimeOnMap(heroId: number): number {
@@ -489,10 +490,10 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
 
     private setUpdatedHeroPosition(existingHero: any, hero: MetaHero) {
         if (existingHero.id != this.metaHero.id) {
-            const newPos = new Vector2(hero.position.x, hero.position.y); 
+            const newPos = new Vector2(hero.position.x, hero.position.y);
             if (!existingHero.destinationPosition.matches(newPos)) {
                 existingHero.destinationPosition = newPos;
-            } 
+            }
         }
         else {
             this.metaHero.position = new Vector2(existingHero.position.x, existingHero.position.y).duplicate();
@@ -567,9 +568,9 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
             rz.kills ?? 0,
             rz.created ?? undefined);
 
-        if (this.metaHero && this.metaHero.id && colorSwap) { 
+        if (this.metaHero && this.metaHero.id && colorSwap) {
             const colHex = colorSwap ?? (rz.color ?? this.cachedDefaultColor ?? undefined);
-            if (colHex) this.heroColors.set(this.metaHero.id, colHex); 
+            if (colHex) this.heroColors.set(this.metaHero.id, colHex);
         }
 
         this.mainScene.setHeroId(this.metaHero.id);
@@ -704,23 +705,23 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
     snapToGridFetch(vectorX: number) {
         return snapToGrid(vectorX, gridCells(1));
     }
- 
+
     async changeColor() {
         const newColor = this.colorInput.nativeElement.value;
         this.metaHero.color = newColor;
-        if (this.hero && this.hero.colorSwap) { 
+        if (this.hero && this.hero.colorSwap) {
             this.hero.colorSwap = new ColorSwap([0, 160, 200], hexToRgb(newColor));
-        } 
+        }
         const userId = this.parentRef?.user?.id ?? 0;
         if (userId && userId > 0) {
             await this.userService.updateLastCharacterColor(userId, newColor);
             this.cachedDefaultColor = newColor;
         }
-    
+
         if (this.metaHero && this.metaHero.id && newColor) {
             this.heroColors.set(this.metaHero.id, newColor);
         }
-       
+
         if (this.mainScene?.level?.name != "CharacterCreate") {
             await this.reinitializeHero(this.metaHero, true);
         }
