@@ -168,6 +168,10 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
     private async handleHeroDeath() {
         // wait for fire animation to finish (same duration as Bot destroy uses ~1100ms)
         this.stopPollingForUpdates = true;
+        
+        this.stopRunTimer();
+        this.gameLoop.stop();
+        this.mainScene?.destroy(); 
         setTimeout(() => {
             this.showDeathPanel = true;
             // ensure other overlays closed
@@ -183,11 +187,7 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
         // In-place restart: destroy current scene and rebuild fresh without full page reload
         this.showDeathPanel = false;
         this.parentRef?.closeOverlay();
-        // Stop timers / loops
-        this.stopRunTimer();
-        this.gameLoop.stop();
-        try { this.mainScene?.destroy(); } catch { }
-        // Reset core state
+        // Stop timers / loops 
     // Fresh placeholder hero & metaHero
     this.hero = new Hero({ id: 0, name: "", position: new Vector2(0,0), speed: 1 });
     this.metaHero = {} as MetaHero;
