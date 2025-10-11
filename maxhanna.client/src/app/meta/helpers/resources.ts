@@ -128,7 +128,8 @@ export class Resources {
       xbox: `${this.dir}xbox.png`,
     };
     this.images = {};
-    this.waitForCanvas(); 
+  // Removed automatic waiting/auto-load to prevent loading during Ender-only sessions.
+  // Meta game will explicitly call resources.ensureLoaded() when its component initializes.
   }
 
   waitForCanvas() {  
@@ -159,6 +160,11 @@ export class Resources {
         };
       }
     });
+  }
+  ensureLoaded() {
+    if (!this.initialized) {
+      this.loadResources();
+    }
   }
 }
 export const resources = new Resources();

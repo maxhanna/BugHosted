@@ -8,7 +8,7 @@ import { UserService } from '../../services/user.service';
 import { MetaChat } from '../../services/datacontracts/meta/meta-chat';
 import { gridCells, snapToGrid } from './helpers/grid-cells';
 import { GameLoop } from './helpers/game-loop';
-import { hexToRgb } from './helpers/resources';
+import { hexToRgb, resources as metaResources } from './helpers/resources';
 import { events } from './helpers/events';
 import { storyFlags } from './helpers/story-flags';
 import { actionMultiplayerEvents, subscribeToMainGameEvents } from './helpers/network';
@@ -92,6 +92,7 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy, 
   private pollingInterval: any;
 
   async ngOnInit() {
+    metaResources.ensureLoaded();
     this.serverDown = (this.parentRef ? await this.parentRef?.isServerUp() <= 0 : false);
     this.parentRef?.setViewportScalability(false);
     this.parentRef?.addResizeListener();
