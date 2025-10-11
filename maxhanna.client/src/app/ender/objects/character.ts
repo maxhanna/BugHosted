@@ -8,8 +8,6 @@ import { isObjectNearby, moveTowards, tryMove } from "../helpers/move-towards";
 import { Input } from "../helpers/input";
 import { events } from "../helpers/events";
 import { resources } from "../helpers/resources";
-import { WarpBase } from "./Effects/Warp/warp-base";
-import { findTargets } from "../helpers/fight";
 
 export class Character extends GameObject {
   id: number;
@@ -99,20 +97,10 @@ export class Character extends GameObject {
     this.setupEvents();
   }
 
-  override destroy() {
-    if (this.isWarping) {
-      const warpBase = new WarpBase({ position: this.position, parentId: this.id, offsetX: -8, offsetY: 12 });
-      this.parent?.addChild(warpBase);
-      this.isWarping = false;
-      setTimeout(() => {
-        warpBase.destroy();
-        this.destroy();
-      }, 1300);
-    } else { 
-      this.destroyBody();
-      events.unsubscribe(this);
-      super.destroy(); 
-    }
+  override destroy() { 
+    this.destroyBody();
+    events.unsubscribe(this);
+    super.destroy();  
   }
 
   destroyBody() {
