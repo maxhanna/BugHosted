@@ -46,6 +46,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
   isVideoBuffering = false;
   private inViewConfirmTimer: any = null;
   private pendingDelayedInView: boolean = false;
+  private hasTriedInitialCachedLoad = false;
 
   @ViewChild('mediaContainer', { static: false }) mediaContainer!: ElementRef;
   @ViewChild('fullscreenOverlay', { static: false }) fullscreenOverlay!: ElementRef;
@@ -81,7 +82,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
   @Input() isLoadedFromURL = false;
   @Input() showMediaInformation = false;
   @Input() commentId?: number;
-  @Input() inViewConfirmDelayMs: number = 100;
+  @Input() inViewConfirmDelayMs: number = 0;
   @Output() emittedNotification = new EventEmitter<string>();
   @Output() commentHeaderClickedEvent = new EventEmitter<boolean>();
   @Output() expandClickedEvent = new EventEmitter<FileEntry>();
@@ -96,10 +97,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
         (componentContainers[i] as HTMLDivElement).style.backgroundColor = "var(--component-background-color)";
       }
     }
-    // Attempt an eager load when arriving directly via URL (or anytime autoload is true and inputs are present)
-    this.ensureInitialLoad();
-    // Fallback retry if still not loaded after a short delay (covers race where inputs arrive slightly later)
-    setTimeout(() => this.ensureInitialLoad(true), 600);
+    this.tryLoadFromCacheFastPath();
   }
 
   ngOnChanges(changes: SimpleChanges) {
@@ -110,10 +108,24 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
         fileSrc: this.fileSrc,
         alreadyLoaded: !!this.selectedFileSrc
       });
-      // If source not yet resolved (or a new id provided) try again
-      if (!this.selectedFileSrc || (changes['fileId'] && !changes['fileId'].isFirstChange())) {
-        this.ensureInitialLoad();
-      }
+      this.tryLoadFromCacheFastPath();
+    }
+  }
+
+  private tryLoadFromCacheFastPath() {
+    if (this.hasTriedInitialCachedLoad) return;
+    if (!this.autoload) return;
+    if (this.fileSrc) {
+      this.fetchFileSrc();
+      this.hasTriedInitialCachedLoad = true;
+      return;
+    }
+    const targetId = this.fileId || (this.file ? (Array.isArray(this.file) ? this.file[0]?.id : this.file.id) : undefined);
+    const parentRef = this.parentRef || this.inputtedParentRef;
+    if (targetId && parentRef && parentRef.pictureSrcs && parentRef.pictureSrcs[targetId] && parentRef.pictureSrcs[targetId].value) {
+      this.debugLog('tryLoadFromCacheFastPath found cached value; loading immediately', { targetId });
+      this.fetchFileSrc();
+      this.hasTriedInitialCachedLoad = true;
     }
   }
 
@@ -122,21 +134,19 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
       this.debugLog('ensureInitialLoad skipped (autoload disabled)');
       return;
     }
-    // If we're forcing in-view loading, don't eagerly load on init; wait for intersection
-    if (this.forceInviewLoad && !this.fileSrc && !this.file) {
-      this.debugLog('ensureInitialLoad skipped (forceInviewLoad active - waiting for onInView)');
-      return;
-    }
     if (this.selectedFileSrc) {
       this.debugLog('ensureInitialLoad skipped (already have src)', { selectedFileSrcLength: this.selectedFileSrc.length });
       return;
     }
-    if (!(this.fileSrc || this.fileId || this.file)) {
-      this.debugLog('ensureInitialLoad aborted - no identifiers yet', { isRetry });
-      return;
+    const parentRef = this.parentRef || this.inputtedParentRef;
+    const targetId = this.fileId || (this.file ? (Array.isArray(this.file) ? this.file[0]?.id : this.file.id) : undefined);
+    const hasCached = !!(targetId && parentRef?.pictureSrcs && parentRef.pictureSrcs[targetId] && parentRef.pictureSrcs[targetId].value);
+    if (this.fileSrc || hasCached) {
+      this.debugLog('ensureInitialLoad proceeding (direct src or cached)');
+      this.fetchFileSrc();
+    } else {
+      this.debugLog('ensureInitialLoad deferring (awaiting in-view)');
     }
-    this.debugLog('ensureInitialLoad invoking fetchFileSrc', { isRetry });
-    this.fetchFileSrc();
   }
 
   private debugLog(message: string, data?: any) {
@@ -153,23 +163,21 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
       return;
     }
 
-    if (!this.forceInviewLoad || isInView) {
+    if (isInView) {
       if (this.selectedFileSrc) return;
-
       if (this.inViewConfirmDelayMs && this.inViewConfirmDelayMs > 0) {
         if (this.pendingDelayedInView) return; // already scheduled
         this.pendingDelayedInView = true;
         this.inViewConfirmTimer = setTimeout(() => {
           this.inViewConfirmTimer = null;
-          this.pendingDelayedInView = false;
-          // Re-check visibility & (optionally) center gating
-          let stillVisible = this.isStillVisible();
-          if (!stillVisible) {
-            this.debugLog('onInView delayed check aborted (no longer visible or center not satisfied)');
-            return;
-          }
-          this.debugLog('onInView delayed check passed - fetching');
-          this.fetchFileSrc().then(() => this.applyPageTitleIfNeeded());
+            this.pendingDelayedInView = false;
+            let stillVisible = this.isStillVisible();
+            if (!stillVisible) {
+              this.debugLog('onInView delayed check aborted (no longer visible)');
+              return;
+            }
+            this.debugLog('onInView delayed check passed - fetching');
+            this.fetchFileSrc().then(() => this.applyPageTitleIfNeeded());
         }, this.inViewConfirmDelayMs);
         this.debugLog('onInView scheduled delayed fetch', { delay: this.inViewConfirmDelayMs });
       } else {
@@ -177,9 +185,8 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
         this.fetchFileSrc().then(() => this.applyPageTitleIfNeeded());
       }
     } else {
-      // Not in view and forced in-view mode: abort & clear timer
       if (this.abortFileRequestController) {
-        this.debugLog('onInView aborting pending fetch (forced mode and not visible)');
+        this.debugLog('onInView aborting pending fetch (not visible)');
         this.abortFileRequestController.abort();
       }
       if (this.inViewConfirmTimer) {
@@ -212,20 +219,31 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
   
   async fetchFileSrc() {
     this.debugLog('fetchFileSrc invoked', { fileId: this.fileId, hasFileObj: !!this.file, fileSrcInput: this.fileSrc, alreadySelectedSrc: !!this.selectedFileSrc });
+    if (this.selectedFileSrc) return; // already set
+    if (!this.autoload) return;
+
+    // Direct fileSrc always overrides gating
     if (this.fileSrc) {
       this.selectedFileSrc = this.fileSrc;
       this.debugLog('fetchFileSrc used direct fileSrc input');
       return;
     }
-    if (this.selectedFileSrc) return;
-    if (!this.autoload) return;
+
+    // Only proceed if in view OR we have a cached parent value.
+    const parentRef = this.parentRef || this.inputtedParentRef;
+    const targetId = this.fileId || (this.file ? (Array.isArray(this.file) ? this.file[0]?.id : this.file.id) : undefined);
+    const hasCached = !!(targetId && parentRef?.pictureSrcs && parentRef.pictureSrcs[targetId] && parentRef.pictureSrcs[targetId].value);
+    if (!hasCached && !this.isStillVisible()) {
+      this.debugLog('fetchFileSrc aborted (not in view & no cache)');
+      return;
+    }
+
     if (this.fileId) {
       this.selectedFile = {
         id: this.fileId,
       } as FileEntry;
 
-      if (this.parentRef && this.parentRef.pictureSrcs[this.fileId] && this.parentRef.pictureSrcs[this.fileId].value
-        || this.inputtedParentRef && this.inputtedParentRef.pictureSrcs[this.fileId] && this.inputtedParentRef.pictureSrcs[this.fileId].value) {
+      if (parentRef && parentRef.pictureSrcs[this.fileId] && parentRef.pictureSrcs[this.fileId].value) {
         this.debugLog('fetchFileSrc found cached parentRef pictureSrcs entry (indexed)');
         this.setFileSrcByParentRefValue(this.fileId);
         return;
@@ -238,7 +256,6 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
       const fileObject = Array.isArray(this.file) && this.file.length > 0 ? this.file[0] : this.file;
       const fileId = fileObject.id;
 
-      const parentRef = this.parentRef || this.inputtedParentRef;
       if (parentRef?.pictureSrcs[fileId]?.value) {
         this.debugLog('fetchFileSrc found cached parentRef pictureSrcs entry (object style)');
         this.setFileSrcByParentRefValue(fileId);
@@ -317,15 +334,15 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
       this.muteOtherVideos();
     }
     else if (this.fileId && (forceReload || !this.selectedFile || this.fileId !== this.selectedFile.id)) {
-      // Fetch by file ID
+      // Fetch by file ID (will respect visibility/cache gating inside fetchFileSrc)
       this.selectedFile = { id: this.fileId } as FileEntry;
-      await this.setFileSrcById(this.fileId);
+      await this.fetchFileSrc();
     }
     else if (this.file && (forceReload || !this.selectedFile || this.file !== this.selectedFile)) {
       // Use the provided file object
       const fileObject = Array.isArray(this.file) && this.file.length > 0 ? this.file[0] : this.file;
       if (fileObject.id) {
-        await this.setFileSrcById(fileObject.id);
+        await this.fetchFileSrc();
       } else if (fileObject.filePath) {
         // Handle case where file has a direct path but no ID
         this.selectedFileSrc = fileObject.filePath;
@@ -360,7 +377,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
   }
   forceLoad() {
     this.autoload = true;
-    this.ngOnInit();
+    this.fetchFileSrc();
   }
   copyLink(fileEntry?: FileEntry) {
     const file = fileEntry ?? this.file ?? this.selectedFile;
@@ -388,16 +405,12 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
       this.selectedFileSrc = this.parentRef.pictureSrcs.find(x => x.key == fileId + '')!.value;
       this.fileType = this.parentRef.pictureSrcs.find(x => x.key == fileId + '')!.type;
       this.selectedFileExtension = this.parentRef.pictureSrcs.find(x => x.key == fileId + '')!.extension;
-      this.muteOtherVideos();
-      return;
     }
     else if (this.inputtedParentRef && this.inputtedParentRef.pictureSrcs && this.inputtedParentRef.pictureSrcs.find(x => x.key == fileId + '')) {
       this.showThumbnail = true;
       this.selectedFileSrc = this.inputtedParentRef.pictureSrcs.find(x => x.key == fileId + '')!.value;
       this.fileType = this.inputtedParentRef.pictureSrcs.find(x => x.key == fileId + '')!.type;
       this.selectedFileExtension = this.inputtedParentRef.pictureSrcs.find(x => x.key == fileId + '')!.extension;
-      this.muteOtherVideos();
-      return;
     }
 
     if (!this.selectedFile?.givenFileName && !this.selectedFile?.fileName) {
