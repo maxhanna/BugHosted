@@ -226,13 +226,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
 
     // Only proceed if in view OR we have a cached parent value.
     const parentRef = this.parentRef || this.inputtedParentRef;
-    const targetId = this.fileId || (this.file ? (Array.isArray(this.file) ? this.file[0]?.id : this.file.id) : undefined);
-    const hasCached = !!(targetId && parentRef?.pictureSrcs && parentRef.pictureSrcs[targetId] && parentRef.pictureSrcs[targetId].value);
-    if (!hasCached && !this.isStillVisible()) {
-      this.debugLog('fetchFileSrc aborted (not in view & no cache)');
-      return;
-    }
-
+        
     if (this.fileId) {
       this.selectedFile = {
         id: this.fileId,
