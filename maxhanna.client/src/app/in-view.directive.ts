@@ -21,6 +21,48 @@ export class InViewDirective implements AfterViewInit, OnDestroy {
   private hasEmitted = false;
   private userScrolled = false;
   private scrollListener = () => { this.userScrolled = true; };
+  private fallbackChecksScheduled = false; // avoid duplicate scheduling
+
+  private isiOS(): boolean {
+    if (typeof navigator === 'undefined') return false;
+    return /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+      (navigator.platform === 'MacIntel' && (navigator as any).maxTouchPoints > 1); // iPadOS masquerading as Mac
+  }
+
+  private manualVisibilityCheck() {
+    const el: HTMLElement = this.el.nativeElement;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    const withinVertical = rect.bottom > 0 && rect.top < window.innerHeight;
+    const withinHorizontal = rect.right > 0 && rect.left < window.innerWidth;
+    let isIntersecting = withinVertical && withinHorizontal;
+    if (!isIntersecting && this.zeroHeightFallback) {
+      if (withinVertical && (rect.height === 0 || rect.width === 0)) {
+        isIntersecting = true;
+        if (this.debug) console.log('[InViewDirective] manual zero-height fallback applied (iOS)', { rect });
+      }
+    }
+    if (!isIntersecting) {
+      if (this.debug) console.log('[InViewDirective] manual check: not visible');
+      if (!(this.inViewOnce && this.hasEmitted)) {
+        this.inView.emit(false);
+      }
+      return;
+    }
+    // apply gating rules similar to observer callback
+    if (this.requireUserScroll && !this.userScrolled) return;
+    if (this.minHeight && el.offsetHeight < this.minHeight) return;
+    if (this.requireCenter) {
+      const centerY = rect.top + rect.height / 2;
+      const topBoundary = window.innerHeight * this.centerTopRatio;
+      const bottomBoundary = window.innerHeight * this.centerBottomRatio;
+      if (centerY < topBoundary || centerY > bottomBoundary) return;
+    }
+    if (this.debug) console.log('[InViewDirective] manual check emit true');
+    this.inView.emit(true);
+    this.hasEmitted = true;
+    if (this.inViewOnce) this.cleanupObserver();
+  }
 
   constructor(private el: ElementRef) {
     const options: IntersectionObserverInit = {
@@ -135,6 +177,17 @@ export class InViewDirective implements AfterViewInit, OnDestroy {
   ngAfterViewInit() {
     window.addEventListener('scroll', this.scrollListener, { passive: true });
     this.observer.observe(this.el.nativeElement);
+    // Immediate manual check in case IntersectionObserver doesn't fire initially (not uncommon on iOS Safari)
+    this.manualVisibilityCheck();
+    if (this.isiOS() && !this.fallbackChecksScheduled) {
+      this.fallbackChecksScheduled = true;
+      // staggered retries to catch layout shifts / image loads
+      [100, 300, 600].forEach(delay => setTimeout(() => this.manualVisibilityCheck(), delay));
+      // orientation / resize triggers
+      const recheck = () => this.manualVisibilityCheck();
+      window.addEventListener('orientationchange', recheck, { passive: true });
+      window.addEventListener('resize', recheck, { passive: true });
+    }
   }
 
   ngOnDestroy() {

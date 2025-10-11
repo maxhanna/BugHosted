@@ -81,7 +81,6 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
   @Input() isLoadedFromURL = false;
   @Input() showMediaInformation = false;
   @Input() commentId?: number;
-  // Removed delayed in-view confirmation input.
   @Output() emittedNotification = new EventEmitter<string>();
   @Output() commentHeaderClickedEvent = new EventEmitter<boolean>();
   @Output() expandClickedEvent = new EventEmitter<FileEntry>();
