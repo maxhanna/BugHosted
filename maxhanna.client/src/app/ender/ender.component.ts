@@ -59,6 +59,9 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
     metaHero: MetaHero;
     hero?: Hero;
     otherHeroes: MetaHero[] = [];
+    // Map heroId -> first time (ms since epoch) seen on current level
+    private heroFirstSeen: Map<number, number> = new Map<number, number>();
+    showOtherHeroesPanel: boolean = false;
     enemiesOnSameLevelCount: number = 0;
     partyMembers: { heroId: number, name: string, color?: string }[] = [];
     chat: MetaChat[] = [];
@@ -356,10 +359,28 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
             if (h.id && h.color) {
                 this.heroColors.set(h.id, h.color);
             } 
+            if (h.id && !this.heroFirstSeen.has(h.id)) {
+                this.heroFirstSeen.set(h.id, Date.now());
+            }
             return new MetaHero(h.id, h.name ?? "Anon", pos, h.speed ?? 1, h.color, h.mask, h.level ?? 1, h.kills ?? 0, h.created);
         });
         this.updateEnemiesOnSameLevelCount();
         this.updateMissingOrNewHeroSprites();
+    }
+
+    toggleOtherHeroesPanel() {
+        this.showOtherHeroesPanel = !this.showOtherHeroesPanel;
+        if (this.showOtherHeroesPanel) {
+            this.parentRef?.showOverlay();
+        } else {
+            this.parentRef?.closeOverlay();
+        }
+    }
+
+    getHeroTimeOnMap(heroId: number): number {
+        const first = this.heroFirstSeen.get(heroId);
+        if (!first) return 0;
+        return Math.floor((Date.now() - first) / 1000); // seconds
     }
 
     private updateMissingOrNewHeroSprites() {

@@ -93,7 +93,8 @@
       <div><strong>Walls:</strong> {{wallsPlacedThisRun}}</div>
       <div><strong>Level:</strong> {{metaHero.level}}</div>
       <div><strong>Kills:</strong> {{metaHero.kills}}</div>
-      <div><strong>Enemies:</strong> {{enemiesOnSameLevelCount}}</div>
+      <div class="cursorPointerUnderlined" (click)="toggleOtherHeroesPanel()" title="Show other heroes on this level">
+        <strong>Enemies:</strong> {{enemiesOnSameLevelCount}}</div>
       <div *ngIf="metaHero && metaHero.position">
         <strong>
           {{ snapToGridFetch(metaHero.position.x) }},
@@ -115,4 +116,20 @@
   <app-user class="popupPanel ucPopupPanel" *ngIf="isUserComponentOpen" [loginOnly]="true"
     [inputtedParentRef]="parentRef" [canClose]="false" (closeUserComponentEvent)="closeUserComponent($event)"
     [loginReasonMessage]="'You must log in to play Ender.'"></app-user>
+</div>
+
+<!-- Other heroes stats popup -->
+<div class="popupPanel" *ngIf="showOtherHeroesPanel" style="max-width:360px; overflow:auto;">
+  <div class="popupPanelTitle mainPopupTitle">Other Heroes
+    <span style="float:right; cursor:pointer;" (click)="toggleOtherHeroesPanel()">✖</span>
+  </div>
+  <div *ngIf="otherHeroes && otherHeroes.length === 0" style="padding:8px;">No other heroes detected.</div>
+  <div *ngFor="let h of otherHeroes" class="otherHeroRow" style="padding:6px 8px; border-bottom:1px solid #333;">
+    <div><strong>{{h.name}}</strong> <span *ngIf="h.id === metaHero.id">(You)</span></div>
+    <div class="xxSmallFont">Lvl {{h.level}} | Kills {{h.kills}} | Time {{getHeroTimeOnMap(h.id)}}s</div>
+    <div class="xxSmallFont">Pos: {{snapToGridFetch(h.position?.x)}} , {{snapToGridFetch(h.position?.y)}}</div>
+    <div *ngIf="h.color" class="xxSmallFont">Color: <span [style.background]="h.color"
+        style="display:inline-block; width:12px; height:12px; border:1px solid #222; vertical-align:middle;"></span>
+      {{h.color}}</div>
+  </div>
 </div>
