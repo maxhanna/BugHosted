@@ -128,16 +128,17 @@
       Final Score: {{currentScore}}
     </div>
     <div class="chatInput" style="pointer-events:none; margin-bottom:8px;">
-      Time: {{runElapsedSeconds}}s | Walls: {{wallsPlacedAuthoritative || wallsPlacedThisRun}} | Kills: {{metaHero.kills || 0}}
+      Time: {{runElapsedSeconds}}s | Walls: {{wallsPlacedAuthoritative || wallsPlacedThisRun}} | Kills: {{metaHero.kills
+      || 0}}
     </div>
-    <button class="start" style="width:100%;" (click)="restartGame()">Restart</button>
+    <button class="start" style="width:100%;" id="closeOverlay" (click)="restartGame()">Restart</button>
   </div>
 </div>
 
 <!-- Other heroes stats popup -->
 <div class="popupPanel" *ngIf="showOtherHeroesPanel" style="max-width:360px; overflow:auto;">
-  <div class="popupPanelTitle mainPopupTitle">Other Heroes
-    <span style="float:right; cursor:pointer;" (click)="toggleOtherHeroesPanel()">✖</span>
+  <div class="popupPanelTitle mainPopupTitle">
+    Other Heroes
   </div>
   <div *ngIf="otherHeroes && otherHeroes.length === 0" style="padding:8px;">No other heroes detected.</div>
   <div class="otherHeroContainer">
@@ -152,5 +153,10 @@
         {{h.color}}
       </div>
     </div>
+  </div>
+  <div style="padding:8px; text-align: center;">
+    <button class="closeButton" id="closeOverlay" (click)="toggleOtherHeroesPanel()">
+      Close
+    </button>
   </div>
 </div>
