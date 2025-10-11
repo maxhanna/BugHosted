@@ -44,8 +44,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
   isEditingFileName = false;
   editingTopics: number[] = [];
   isVideoBuffering = false;
-  private inViewConfirmTimer: any = null;
-  private pendingDelayedInView: boolean = false;
+  // Removed delayed in-view scheduling; fetch will occur immediately upon visibility.
   private hasTriedInitialCachedLoad = false;
 
   @ViewChild('mediaContainer', { static: false }) mediaContainer!: ElementRef;
@@ -82,7 +81,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
   @Input() isLoadedFromURL = false;
   @Input() showMediaInformation = false;
   @Input() commentId?: number;
-  @Input() inViewConfirmDelayMs: number = 0;
+  // Removed delayed in-view confirmation input.
   @Output() emittedNotification = new EventEmitter<string>();
   @Output() commentHeaderClickedEvent = new EventEmitter<boolean>();
   @Output() expandClickedEvent = new EventEmitter<FileEntry>();
@@ -135,41 +134,16 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
     }
   }
   onInView(isInView: boolean) {
-    this.debugLog("in view firing");
-    if (!isInView && this.inViewConfirmTimer) {
-      clearTimeout(this.inViewConfirmTimer);
-      this.inViewConfirmTimer = null;
-      this.pendingDelayedInView = false;
-      this.debugLog('onInView cancelled pending timer (element out of view)');
-      return;
-    }
-
-    if (isInView) {
-      if (this.selectedFileSrc) return;
-      if (this.inViewConfirmDelayMs && this.inViewConfirmDelayMs > 0) {
-        if (this.pendingDelayedInView) return; // already scheduled
-        this.pendingDelayedInView = true;
-        this.inViewConfirmTimer = setTimeout(() => {
-          this.inViewConfirmTimer = null;
-            this.pendingDelayedInView = false; 
-            this.fetchFileSrc().then(() => this.applyPageTitleIfNeeded());
-        }, this.inViewConfirmDelayMs);
-        this.debugLog('onInView scheduled delayed fetch', { delay: this.inViewConfirmDelayMs });
-      } else {
-        this.debugLog('onInView immediate fetch (no delay)');
-        this.fetchFileSrc().then(() => this.applyPageTitleIfNeeded());
-      }
-    } else {
+    this.debugLog('onInView event', { isInView });
+    if (!isInView) {
       if (this.abortFileRequestController) {
         this.debugLog('onInView aborting pending fetch (not visible)');
         this.abortFileRequestController.abort();
       }
-      if (this.inViewConfirmTimer) {
-        clearTimeout(this.inViewConfirmTimer);
-        this.inViewConfirmTimer = null;
-        this.pendingDelayedInView = false;
-      }
+      return;
     }
+    if (this.selectedFileSrc) return;
+    this.fetchFileSrc().then(() => this.applyPageTitleIfNeeded());
   }
 
   private applyPageTitleIfNeeded() {

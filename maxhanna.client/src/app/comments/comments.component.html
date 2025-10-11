@@ -79,7 +79,7 @@
           <div *ngFor="let file of comment.commentFiles" class="commentMediaFile">
           <app-media-viewer [file]="file" [user]="comment.user" [currentDirectory]="file.directory"
             [inputtedParentRef]="inputtedParentRef" [displayExtraInfo]="false" [autoplay]="false" [autoload]="true"
-            [showCommentSection]="false" [showMediaInformation]="true" [inViewConfirmDelayMs]="350"
+            [showCommentSection]="false" [showMediaInformation]="true"
             [previousComponent]="previousComponent"></app-media-viewer>
         </div>
         <div class="commentInputArea">
