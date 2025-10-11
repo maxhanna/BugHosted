@@ -96,6 +96,8 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
     private persistedWallLevelRef: any = undefined;
     // Collect all locally spawned walls since last fetch (delta batch)
     private pendingWallsBatch: { x: number, y: number }[] = [];
+    // In-memory map of heroId -> color string for applying color swaps to bike walls
+    private heroColors: Map<number, string> = new Map<number, string>();
 
     async ngOnInit() {
         this.serverDown = (this.parentRef ? await this.parentRef?.isServerUp() <= 0 : false);
@@ -212,8 +214,11 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
                     this.persistedWallLevelRef = this.mainScene.level;
                     this.lastKnownWallId = 0; // we aren't using id delta now; recent fetch limited by time window
                     let myWallsCount = 0;
-                    for (const w of allWalls) {
-                        const wall = new BikeWall({ position: new Vector2(w.x, w.y), colorSwap: (w.heroId === this.metaHero.id ? this.metaHero ? this.mainScene.metaHero?.colorSwap : undefined : undefined) });
+                    for (const w of allWalls) { 
+                        // Use stored hero color if available, otherwise fallback to scene metaHero color for local hero
+                        const ownerColor = (w.heroId && this.heroColors.has(w.heroId)) ? this.heroColors.get(w.heroId) : undefined;
+                        const colorSwap = ownerColor ? new ColorSwap([0, 160, 200], hexToRgb(ownerColor!)) : (w.heroId === this.metaHero.id ? this.mainScene.metaHero?.colorSwap : undefined);
+                        const wall = new BikeWall({ position: new Vector2(w.x, w.y), colorSwap });
                         this.mainScene.level.addChild(wall);
                         addBikeWallCell(w.x, w.y);
                         if (w.heroId === rz.id) {
@@ -312,9 +317,23 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
                             this.persistedWallLevelRef = this.mainScene.level;
                             this.lastKnownWallId = 0;
                         }
+                        // Update hero color map from server-provided heroes list when available
+                        if (res.heroes && Array.isArray(res.heroes)) {
+                            for (const h of res.heroes) {
+                                try {
+                                    const hid = (typeof h.id === 'number') ? h.id : Number(h.id);
+                                    if (!isNaN(hid) && h.color) {
+                                        this.heroColors.set(hid, h.color);
+                                    }
+                                } catch { }
+                            }
+                        }
                         for (const w of walls) {
                             // Add only new walls (server already filtered by id > lastKnownWallId)
-                            const wall = new BikeWall({ position: new Vector2(w.x, w.y), colorSwap: (w.heroId === this.metaHero.id ? this.metaHero ? this.mainScene.metaHero?.colorSwap : undefined : undefined) });
+                            const ownerId = (typeof w.heroId === 'number') ? w.heroId : Number(w.heroId);
+                            const ownerColor = (ownerId && this.heroColors.has(ownerId)) ? this.heroColors.get(ownerId) : undefined;
+                            const colorSwap = ownerColor ? new ColorSwap([0, 160, 200], hexToRgb(ownerColor!)) : (ownerId === this.metaHero.id ? (this.metaHero ? this.mainScene.metaHero?.colorSwap : undefined) : undefined);
+                            const wall = new BikeWall({ position: new Vector2(w.x, w.y), colorSwap });
                             this.mainScene.level.addChild(wall);
                             addBikeWallCell(w.x, w.y);
                             // emit only for local hero walls 
@@ -353,6 +372,13 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
         this.otherHeroes = res.heroes.map((h: MetaHero) => {
             try {
                 const pos = h.position ? new Vector2(h.position.x, h.position.y) : new Vector2(0, 0);
+                // Overwrite stored color for this hero so changes propagate
+                try {
+                    const hid = (typeof h.id === 'number') ? h.id : Number(h.id);
+                    if (!isNaN(hid) && h.color) {
+                        this.heroColors.set(hid, h.color);
+                    }
+                } catch { }
                 return new MetaHero(h.id, h.name ?? "Anon", pos, h.speed ?? 1, h.color, h.mask, h.level ?? 1, h.kills ?? 0, h.created);
             } catch {
                 // fallback: return raw object typed as MetaHero
@@ -425,7 +451,7 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
         this.mainScene.level?.addChild(tmpHero);
         //try { console.debug('[Ender][DEBUG] added tmpHero id=', tmpHero.id, 'childrenCount=', this.mainScene.level?.children?.length); } catch { }
         return tmpHero;
-    } 
+    }
 
     private setUpdatedHeroPosition(existingHero: any, hero: MetaHero) {
         if (existingHero.id != this.metaHero.id) {
@@ -511,6 +537,15 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
             rz.level ?? 1,
             rz.kills ?? 0,
             rz.created ?? undefined);
+        // ensure local hero color is available for wall rendering
+        if (this.metaHero && this.metaHero.id && colorSwap) {
+            try {
+                // Extract hex color from the provided colorSwap target if possible
+                // We store the original color (rz.color or cachedDefaultColor) instead for simplicity
+                const colHex = colorSwap as any as string ?? (rz.color ?? this.cachedDefaultColor ?? undefined);
+                if (colHex) this.heroColors.set(this.metaHero.id, colHex);
+            } catch { }
+        }
         this.mainScene.setHeroId(this.metaHero.id);
         this.mainScene.hero = this.hero;
         this.mainScene.metaHero = this.metaHero;
@@ -671,6 +706,12 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
             if (userId && userId > 0) {
                 await this.userService.updateLastCharacterColor(userId, newColor);
                 this.cachedDefaultColor = newColor;
+            }
+        } catch { }
+        // Update in-memory hero color so new walls use the updated color immediately
+        try {
+            if (this.metaHero && this.metaHero.id && newColor) {
+                this.heroColors.set(this.metaHero.id, newColor);
             }
         } catch { }
         if (this.mainScene?.level?.name != "CharacterCreate") {
