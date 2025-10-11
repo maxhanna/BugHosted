@@ -226,13 +226,8 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
                         }
                     }
                     this.wallsPlacedThisRun = myWallsCount;
-                }
-                //   console.log("found hero", rz);
-                //   console.log('[Ender][DEBUG] after reinitializeHero mainScene.level=', this.mainScene.level?.name, 'childrenCount=', this.mainScene.level?.children?.length);
-
+                } 
             } else {
-                // attempt to load persisted last character name and pass it into the CharacterCreate level
-                // Use cached defaults if we fetched them earlier, otherwise fetch now
                 if (this.cachedDefaultName !== undefined || this.cachedDefaultColor !== undefined) {
                     this.mainScene.setLevel(new CharacterCreate({ defaultName: this.cachedDefaultName, defaultColor: this.cachedDefaultColor }));
                 } else {
@@ -248,68 +243,44 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
                 return;
             }
         }
-
-        // Debug: verify we attempt to call updatePlayers immediately after reinitialize
-        try {
-            //   console.debug('[Ender][DEBUG] about to call updatePlayers from pollForChanges, metaHero=', this.metaHero, 'metaHero.id=', this.metaHero?.id);
-            this.updatePlayers();
-        } catch (e) {
-            console.error('[Ender][ERROR] updatePlayers threw from pollForChanges immediate call', e);
-        }
+ 
+        this.updatePlayers(); 
         clearInterval(this.pollingInterval);
-        this.pollingInterval = setInterval(async () => {
-            try {
-                //   console.debug('[Ender][DEBUG] interval calling updatePlayers');
-                this.updatePlayers();
-            } catch (e) {
-                console.error('[Ender][ERROR] updatePlayers threw in interval', e);
-            }
+        this.pollingInterval = setInterval(async () => { 
+            this.updatePlayers(); 
         }, this.pollSeconds * 1000);
     }
 
-    private updatePlayers() {
-        //console.debug('[Ender][DEBUG] Updating players');
-
+    private updatePlayers() { 
         if (this.metaHero && this.metaHero.id && !this.stopPollingForUpdates) {
-            // send pending local walls with fetch request to reduce event spam
             const pendingWalls = this.pendingWallsBatch.length > 0 ? [...this.pendingWallsBatch] : undefined;
-            // clear after snapshot so we don't resend
             this.pendingWallsBatch = [];
             if (this.hero && this.metaHero) {
                 this.metaHero.position = this.hero?.position.duplicate();
             }
 
             this.enderService.fetchGameDataWithWalls(this.metaHero, pendingWalls, this.lastKnownWallId).then((res: any) => {
-                // console.debug('[Ender][DEBUG] fetchGameDataWithWalls response', res);
                 if (res) {
                     if (res.heroes) {
                         const myHeroExists = res.heroes?.filter((x: MetaHero) => x.id === this.metaHero.id);
                         if (!myHeroExists) {
                             const myHero = this.mainScene?.level?.children?.filter((x: any) => x.id === this.metaHero.id);
                             myHero.destroy();
-                            console.log("destroyed your hero");
                         }
                     }
-                    //       console.debug('[Ender][DEBUG] response heroes:', Array.isArray(res.heroes) ? res.heroes.length : typeof res.heroes);
-                    // If the server provides the elapsed time on level, sync the client's
-                    // run timer so returning players see the correct elapsed seconds.
-                    // Server sends timeOnLevelSeconds (integer seconds).
                     if (res.timeOnLevelSeconds !== undefined && res.timeOnLevelSeconds !== null) {
                         const secs = Number(res.timeOnLevelSeconds) || 0;
                         this.runElapsedSeconds = Math.max(0, Math.floor(secs));
-                        // Set runStartTimeMs so the interval-based clock continues from server time
                         this.runStartTimeMs = Date.now() - (this.runElapsedSeconds * 1000);
                         this.startRunTimer();
                     }
-                    // apply server-provided kills to local hero
                     if (res.heroKills !== undefined && this.metaHero) {
                         this.metaHero.kills = Number(res.heroKills) || 0;
                     }
-                    //     console.debug('[Ender][DEBUG] calling updateOtherHeroesBasedOnFetchedData');
                     this.updateOtherHeroesBasedOnFetchedData(res);
 
                     // Persisted bike walls for this map - use in-memory Set to avoid scanning level.children repeatedly
-                    const walls = Array.isArray(res.walls) ? (res.walls as MetaBikeWall[]) : undefined;
+                    const walls = Array.isArray(res.recentWalls) ? (res.recentWalls as MetaBikeWall[]) : undefined;
                     if (walls && walls.length > 0 && this.mainScene.level) {
                         // Reset delta tracking if level changed
                         if (this.persistedWallLevelRef !== this.mainScene.level) {
@@ -319,13 +290,11 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
                         }
                         // Update hero color map from server-provided heroes list when available
                         if (res.heroes && Array.isArray(res.heroes)) {
-                            for (const h of res.heroes) {
-                                try {
-                                    const hid = (typeof h.id === 'number') ? h.id : Number(h.id);
-                                    if (!isNaN(hid) && h.color) {
-                                        this.heroColors.set(hid, h.color);
-                                    }
-                                } catch { }
+                            for (const h of res.heroes) { 
+                                const hid = (typeof h.id === 'number') ? h.id : Number(h.id);
+                                if (!isNaN(hid) && h.color) {
+                                    this.heroColors.set(hid, h.color);
+                                } 
                             }
                         }
                         for (const w of walls) {
@@ -369,39 +338,25 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
             return;
         }
         // Ensure created dates are parsed and objects are instances of MetaHero
-        this.otherHeroes = res.heroes.map((h: MetaHero) => {
-            try {
-                const pos = h.position ? new Vector2(h.position.x, h.position.y) : new Vector2(0, 0);
-                // Overwrite stored color for this hero so changes propagate
-                try {
-                    const hid = (typeof h.id === 'number') ? h.id : Number(h.id);
-                    if (!isNaN(hid) && h.color) {
-                        this.heroColors.set(hid, h.color);
-                    }
-                } catch { }
-                return new MetaHero(h.id, h.name ?? "Anon", pos, h.speed ?? 1, h.color, h.mask, h.level ?? 1, h.kills ?? 0, h.created);
-            } catch {
-                // fallback: return raw object typed as MetaHero
-                return h as MetaHero;
-            }
+        this.otherHeroes = res.heroes.map((h: MetaHero) => { 
+            const pos = h.position ? new Vector2(h.position.x, h.position.y) : new Vector2(0, 0);
+            if (h.id && h.color) {
+                this.heroColors.set(h.id, h.color);
+            } 
+            return new MetaHero(h.id, h.name ?? "Anon", pos, h.speed ?? 1, h.color, h.mask, h.level ?? 1, h.kills ?? 0, h.created);
         });
         this.updateEnemiesOnSameLevelCount();
-        //console.debug('[Ender][DEBUG] about to call updateMissingOrNewHeroSprites, otherHeroes count=', this.otherHeroes.length);
         this.updateMissingOrNewHeroSprites();
     }
 
     private updateMissingOrNewHeroSprites() {
-        //console.debug('[Ender][DEBUG] updateMissingOrNewHeroSprites entry, mainScene.level=', this.mainScene.level?.name, 'childrenCount=', this.mainScene.level?.children?.length);
         let ids: number[] = [];
         const heroesToCheck = this.otherHeroes.concat(this.metaHero);
         for (const hero of heroesToCheck) {
             let existingHero = this.mainScene.level?.children.find((x: any) => x.id === hero.id) as Character | undefined;
-            // Always update existing hero position if present, otherwise add the hero to the scene.
             if (existingHero) {
-                // console.debug('[Ender][DEBUG] updating existing hero', hero.id);
                 this.setUpdatedHeroPosition(existingHero, hero);
             } else {
-                //console.debug('[Ender][DEBUG] adding missing hero to scene', hero.id);
                 existingHero = this.addHeroToScene(hero);
             }
             if (existingHero) {
@@ -424,7 +379,6 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
 
     private addHeroToScene(hero: MetaHero) {
         console.log("add hero to scene", hero);
-        //try { console.debug('[Ender][DEBUG] addHeroToScene hero.id=', hero.id, 'metaHero.id=', this.metaHero?.id, 'level=', this.mainScene.level?.name); } catch { }
         // compute initial position; for remote heroes, nudge if crowding occurs so players start more spaced apart
         const baseX = hero.id == this.metaHero.id ? this.metaHero.position.x : hero.position.x;
         const baseY = hero.id == this.metaHero.id ? this.metaHero.position.y : hero.position.y;
@@ -675,17 +629,10 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
     snapToGridFetch(vectorX: number) {
         return snapToGrid(vectorX, gridCells(1));
     }
-
-    lockMovementForChat() {
-        if (!this.hero?.isLocked) {
-            console.log("lock movement for chat");
-            events.emit("HERO_MOVEMENT_LOCK");
-        }
-    }
+ 
     async changeColor() {
         const newColor = this.colorInput.nativeElement.value;
         this.metaHero.color = newColor;
-        // Immediately update current hero's color swap if exists (no full rebuild flicker)
         if (this.hero && this.hero.colorSwap) { 
             this.hero.colorSwap = new ColorSwap([0, 160, 200], hexToRgb(newColor));
         } 
