@@ -227,13 +227,27 @@ namespace maxhanna.Server.Controllers
 
                         List<MetaBikeWall> recentWalls = await GetRecentBikeWalls(hero.Level, connection, transaction);
                         Console.WriteLine($"Found {recentWalls.Count} recent bike walls");
+                        // Compute provisional current score for the active run (mirrors HeroDied authoritative formula: time + walls*10)
+                        int wallsPlacedForRun = 0;
+                        try
+                        {
+                            if (walls != null && hero != null)
+                            {
+                                wallsPlacedForRun = walls.Where(w => w.HeroId == hero.Id).Count();
+                            }
+                        }
+                        catch { /* non-fatal */ }
+                        int currentScore = (hero?.TimeOnLevelSeconds ?? 0) + (wallsPlacedForRun * 10);
+
                         await transaction.CommitAsync();
                         return Ok(new
                         {
-                            heroId = hero.Id,
-                            heroPosition = hero.Position,
-                            timeOnLevelSeconds = hero.TimeOnLevelSeconds,
-                            heroKills = hero.Kills,
+                            heroId = hero?.Id ?? 0,
+                            heroPosition = hero?.Position,
+                            timeOnLevelSeconds = hero?.TimeOnLevelSeconds ?? 0,
+                            heroKills = hero?.Kills ?? 0,
+                            currentScore,
+                            wallsPlacedForRun,
                             heroes,
                             events,
                             recentWalls

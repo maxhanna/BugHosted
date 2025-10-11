@@ -62,6 +62,10 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
     private heroFirstSeen: Map<number, number> = new Map<number, number>();
     showOtherHeroesPanel: boolean = false;
     enemiesOnSameLevelCount: number = 0;
+    // Live provisional score (time + walls*10) computed server-side each fetch
+    currentScore: number = 0;
+    // Walls placed for the run as reported by server (authoritative count used in score calc)
+    wallsPlacedAuthoritative: number = 0;
     partyMembers: { heroId: number, name: string, color?: string }[] = [];
     chat: MetaChat[] = [];
     events: MetaEvent[] = [];
@@ -158,7 +162,7 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
         // wait for fire animation to finish (same duration as Bot destroy uses ~1100ms)
         setTimeout(() => {
             try {
-                alert('You died. The game will now reload.');
+                alert(`You died. Score:${this.currentScore} The game will now reload.`);
             } finally {
                 window.location.href = 'https://bughosted.com/Ender';
             }
@@ -288,6 +292,16 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
                         this.runElapsedSeconds = Math.max(0, Math.floor(secs));
                         this.runStartTimeMs = Date.now() - (this.runElapsedSeconds * 1000);
                         this.startRunTimer();
+                    }
+                    if (res.currentScore !== undefined && res.currentScore !== null) {
+                        this.currentScore = Number(res.currentScore) || 0;
+                    }
+                    if (res.wallsPlacedForRun !== undefined && res.wallsPlacedForRun !== null) {
+                        this.wallsPlacedAuthoritative = Number(res.wallsPlacedForRun) || 0;
+                        // keep local displayed wallsPlacedThisRun in sync if server authoritative differs
+                        if (this.wallsPlacedAuthoritative > this.wallsPlacedThisRun) {
+                            this.wallsPlacedThisRun = this.wallsPlacedAuthoritative;
+                        }
                     }
                     if (res.heroKills !== undefined && this.metaHero) {
                         this.metaHero.kills = Number(res.heroKills) || 0;

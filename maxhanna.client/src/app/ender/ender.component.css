@@ -355,3 +355,11 @@ body {
 .b, .start {
   display: none !important;
 }
+
+.otherHeroContainer {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  overflow: auto;
+  max-height: 50vh;
+}

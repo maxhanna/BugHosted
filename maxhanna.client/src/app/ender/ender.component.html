@@ -91,6 +91,7 @@
       style="position:fixed; bottom: 200px; right: 20px; color:var(--secondary-font-color); text-shadow:0 -1px 0 #222;">
       <div><strong>Time:</strong> {{runElapsedSeconds}}s</div>
       <div><strong>Walls:</strong> {{wallsPlacedThisRun}}</div>
+      <div><strong>Score:</strong> {{currentScore}}</div>
       <div><strong>Level:</strong> {{metaHero.level}}</div>
       <div><strong>Kills:</strong> {{metaHero.kills}}</div>
       <div class="cursorPointerUnderlined" (click)="toggleOtherHeroesPanel()" title="Show other heroes on this level">
@@ -125,12 +126,17 @@
     <span style="float:right; cursor:pointer;" (click)="toggleOtherHeroesPanel()">✖</span>
   </div>
   <div *ngIf="otherHeroes && otherHeroes.length === 0" style="padding:8px;">No other heroes detected.</div>
-  <div *ngFor="let h of otherHeroes" class="otherHeroRow" style="padding:6px 8px; border-bottom:1px solid #333;">
-    <div><strong>{{h.name}}</strong> <span *ngIf="h.id === metaHero.id">(You)</span></div>
-    <div class="xxSmallFont">Lvl {{h.level}} | Kills {{h.kills}} | Time {{getHeroTimeOnMap(h.id)}}s</div>
-  <div class="xxSmallFont" *ngIf="h.position">Pos: {{snapToGridFetch(h.position?.x ?? 0)}} , {{snapToGridFetch(h.position?.y ?? 0)}}</div>
-    <div *ngIf="h.color" class="xxSmallFont">Color: <span [style.background]="h.color"
-        style="display:inline-block; width:12px; height:12px; border:1px solid #222; vertical-align:middle;"></span>
-      {{h.color}}</div>
+  <div class="otherHeroContainer">
+    <div *ngFor="let h of otherHeroes" class="otherHeroRow" style="padding:6px 8px; border-bottom:1px solid #333;">
+      <div><strong>{{h.name}}</strong> <span *ngIf="h.id === metaHero.id">(You)</span></div>
+      <div class="xxSmallFont">Lvl {{h.level}} | Kills {{h.kills}} | Time {{getHeroTimeOnMap(h.id)}}s</div>
+      <div class="xxSmallFont" *ngIf="h.position">Pos: {{snapToGridFetch(h.position?.x ?? 0)}} ,
+        {{snapToGridFetch(h.position?.y ?? 0)}}
+      </div>
+      <div *ngIf="h.color" class="xxSmallFont">Color: <span [style.background]="h.color"
+          style="display:inline-block; width:12px; height:12px; border:1px solid #222; vertical-align:middle;"></span>
+        {{h.color}}
+      </div>
+    </div>
   </div>
 </div>
