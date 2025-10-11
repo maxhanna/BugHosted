@@ -141,7 +141,7 @@ namespace maxhanna.Server.Controllers
                         List<MetaBikeWall> walls = await GetWallsOnSameLevel(hero.Level, connection, transaction);
                         try
                         {
-                            int tolerance = 32; // pixels; adjust as needed
+                            int tolerance = 20; // pixels; adjust as needed
                             Console.WriteLine("Checking deaths for " + heroes?.Length + " heroes and " + walls.Count + " walls");
                             // Build a victim -> killer mapping by checking every wall on this level
                             // against every hero on this level. Skip the wall owner to avoid
