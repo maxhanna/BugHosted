@@ -382,11 +382,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
     if (this.selectedFileSrc) { 
       this.debugLog('setFileSrcById early exit (already have selectedFileSrc)');
       return; 
-    }
-    if (!this.isStillVisible()) {
-      this.debugLog('setFileSrcById early exit (not visible)');
-      return; 
-    }
+    } 
     if (this.parentRef && this.parentRef.pictureSrcs && this.parentRef.pictureSrcs.find(x => x.key == fileId + '')) {
       this.showThumbnail = true;
       this.selectedFileSrc = this.parentRef.pictureSrcs.find(x => x.key == fileId + '')!.value;
