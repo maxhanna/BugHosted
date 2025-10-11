@@ -151,7 +151,7 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
         this.parentRef?.removeResizeListener();
     }
 
-    private async handleHeroDeath() { 
+    private async handleHeroDeath() {
         // wait for fire animation to finish (same duration as Bot destroy uses ~1100ms)
         setTimeout(() => {
             try {
@@ -223,8 +223,8 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
                     }
                     this.wallsPlacedThisRun = myWallsCount;
                 }
-             //   console.log("found hero", rz);
-             //   console.log('[Ender][DEBUG] after reinitializeHero mainScene.level=', this.mainScene.level?.name, 'childrenCount=', this.mainScene.level?.children?.length);
+                //   console.log("found hero", rz);
+                //   console.log('[Ender][DEBUG] after reinitializeHero mainScene.level=', this.mainScene.level?.name, 'childrenCount=', this.mainScene.level?.children?.length);
 
             } else {
                 // attempt to load persisted last character name and pass it into the CharacterCreate level
@@ -247,7 +247,7 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
 
         // Debug: verify we attempt to call updatePlayers immediately after reinitialize
         try {
-         //   console.debug('[Ender][DEBUG] about to call updatePlayers from pollForChanges, metaHero=', this.metaHero, 'metaHero.id=', this.metaHero?.id);
+            //   console.debug('[Ender][DEBUG] about to call updatePlayers from pollForChanges, metaHero=', this.metaHero, 'metaHero.id=', this.metaHero?.id);
             this.updatePlayers();
         } catch (e) {
             console.error('[Ender][ERROR] updatePlayers threw from pollForChanges immediate call', e);
@@ -255,7 +255,7 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
         clearInterval(this.pollingInterval);
         this.pollingInterval = setInterval(async () => {
             try {
-             //   console.debug('[Ender][DEBUG] interval calling updatePlayers');
+                //   console.debug('[Ender][DEBUG] interval calling updatePlayers');
                 this.updatePlayers();
             } catch (e) {
                 console.error('[Ender][ERROR] updatePlayers threw in interval', e);
@@ -273,20 +273,20 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
             this.pendingWallsBatch = [];
             if (this.hero && this.metaHero) {
                 this.metaHero.position = this.hero?.position.duplicate();
-            } 
+            }
 
             this.enderService.fetchGameDataWithWalls(this.metaHero, pendingWalls, this.lastKnownWallId).then((res: any) => {
-               // console.debug('[Ender][DEBUG] fetchGameDataWithWalls response', res);
+                // console.debug('[Ender][DEBUG] fetchGameDataWithWalls response', res);
                 if (res) {
                     if (res.heroes) {
-                        const myHeroExists = res.heroes?.filter((x : MetaHero) => x.id === this.metaHero.id);
+                        const myHeroExists = res.heroes?.filter((x: MetaHero) => x.id === this.metaHero.id);
                         if (!myHeroExists) {
                             const myHero = this.mainScene?.level?.children?.filter((x: any) => x.id === this.metaHero.id);
                             myHero.destroy();
                             console.log("destroyed your hero");
                         }
                     }
-             //       console.debug('[Ender][DEBUG] response heroes:', Array.isArray(res.heroes) ? res.heroes.length : typeof res.heroes);
+                    //       console.debug('[Ender][DEBUG] response heroes:', Array.isArray(res.heroes) ? res.heroes.length : typeof res.heroes);
                     // If the server provides the elapsed time on level, sync the client's
                     // run timer so returning players see the correct elapsed seconds.
                     // Server sends timeOnLevelSeconds (integer seconds).
@@ -301,7 +301,7 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
                     if (res.heroKills !== undefined && this.metaHero) {
                         this.metaHero.kills = Number(res.heroKills) || 0;
                     }
-               //     console.debug('[Ender][DEBUG] calling updateOtherHeroesBasedOnFetchedData');
+                    //     console.debug('[Ender][DEBUG] calling updateOtherHeroesBasedOnFetchedData');
                     this.updateOtherHeroesBasedOnFetchedData(res);
 
                     // Persisted bike walls for this map - use in-memory Set to avoid scanning level.children repeatedly
@@ -340,7 +340,7 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
     private updateOtherHeroesBasedOnFetchedData(res: { position: Vector2; heroes: MetaHero[]; }) {
         for (var oh of this.otherHeroes) {
             if (oh.id && !res.heroes?.filter(x => x.id === oh.id)) {
-                console.log("hero died:" +oh.id);
+                console.log("hero died:" + oh.id);
                 const theHero = this.mainScene?.level?.children?.filter((x: any) => x.id === oh.id);
                 theHero?.destroy();
             }
@@ -373,7 +373,7 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
             let existingHero = this.mainScene.level?.children.find((x: any) => x.id === hero.id) as Character | undefined;
             // Always update existing hero position if present, otherwise add the hero to the scene.
             if (existingHero) {
-               // console.debug('[Ender][DEBUG] updating existing hero', hero.id);
+                // console.debug('[Ender][DEBUG] updating existing hero', hero.id);
                 this.setUpdatedHeroPosition(existingHero, hero);
             } else {
                 //console.debug('[Ender][DEBUG] adding missing hero to scene', hero.id);
@@ -464,7 +464,7 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
 
     private setHeroLatestMessage(existingHero: any) {
         if (existingHero === undefined) return;
-      //  console.debug('[Ender][DEBUG] setHeroLatestMessage for', existingHero.id, existingHero.name);
+        //  console.debug('[Ender][DEBUG] setHeroLatestMessage for', existingHero.id, existingHero.name);
         const latestMsg = this.latestMessagesMap.get(existingHero.name);
         if (latestMsg) {
             existingHero.latestMessage = latestMsg.content;
@@ -506,7 +506,7 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
 
     private async reinitializeHero(rz: MetaHero, skipDataFetch?: boolean) {
         let spawnPos: Vector2;
-    // map removed; determine level-specific spawn behavior directly
+        // map removed; determine level-specific spawn behavior directly
         if (rz && rz.position) {
             spawnPos = new Vector2(rz.position.x, rz.position.y);
         } else {
@@ -530,7 +530,6 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
             rz.level ?? 1,
             rz.kills ?? 0,
             rz.created ?? undefined);
-        this.hero.isLocked = this.isStartMenuOpened || this.isShopMenuOpened;
         this.mainScene.setHeroId(this.metaHero.id);
         this.mainScene.hero = this.hero;
         this.mainScene.metaHero = this.metaHero;
@@ -693,8 +692,9 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
                 this.cachedDefaultColor = newColor;
             }
         } catch { }
-
-        await this.reinitializeHero(this.metaHero, true);
+        if (this.mainScene?.level?.name != "CharacterCreate") {
+            await this.reinitializeHero(this.metaHero, true);
+        }
     }
     private adjustCanvasSize = () => {
         const containers = document.querySelectorAll('.componentContainer');
