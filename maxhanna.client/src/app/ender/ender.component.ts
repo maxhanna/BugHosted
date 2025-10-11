@@ -66,6 +66,8 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
     currentScore: number = 0;
     // Walls placed for the run as reported by server (authoritative count used in score calc)
     wallsPlacedAuthoritative: number = 0;
+    // Death overlay flag
+    showDeathPanel: boolean = false;
     partyMembers: { heroId: number, name: string, color?: string }[] = [];
     chat: MetaChat[] = [];
     events: MetaEvent[] = [];
@@ -161,12 +163,69 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
     private async handleHeroDeath() {
         // wait for fire animation to finish (same duration as Bot destroy uses ~1100ms)
         setTimeout(() => {
-            try {
-                alert(`You died. Score:${this.currentScore} The game will now reload.`);
-            } finally {
-                window.location.href = 'https://bughosted.com/Ender';
-            }
+            this.showDeathPanel = true;
+            // ensure other overlays closed
+            this.isMenuPanelOpen = false;
+            this.showOtherHeroesPanel = false;
+            this.parentRef?.showOverlay();
         }, 1200);
+    }
+
+    restartGame() { 
+        // In-place restart: destroy current scene and rebuild fresh without full page reload
+        this.showDeathPanel = false;
+        this.parentRef?.closeOverlay();
+        // Stop timers / loops
+        this.stopRunTimer();
+        this.gameLoop.stop();
+        try { this.mainScene?.destroy(); } catch { }
+        // Reset core state
+    // Fresh placeholder hero & metaHero
+    this.hero = new Hero({ id: 0, name: "", position: new Vector2(0,0), speed: 1 });
+    this.metaHero = {} as MetaHero;
+        this.otherHeroes = [];
+        this.heroFirstSeen.clear();
+        this.heroColors.clear();
+        this.pendingWallsBatch = [];
+        this.wallsPlacedThisRun = 0;
+        this.wallsPlacedAuthoritative = 0;
+        this.currentScore = 0;
+        this.runStartTimeMs = undefined;
+        this.runElapsedSeconds = 0;
+        this.enemiesOnSameLevelCount = 0;
+        // Recreate main scene
+        this.mainScene = new Main({
+            position: new Vector2(0, 0), heroId: this.metaHero.id,
+            metaHero: this.metaHero, hero: this.hero, partyMembers: this.partyMembers
+        });
+        // Re-bind chat input after next tick
+        setTimeout(() => {
+            try { this.mainScene.input.setChatInput(this.chatInput.nativeElement); } catch { }
+        }, 0);
+        // Start loop again
+        this.gameLoop.start();
+        // Fetch / create hero fresh
+        const userId = this.parentRef?.user?.id ?? 0;
+        if (userId > 0) {
+            this.enderService.getHero(userId).then(rz => {
+                if (rz) {
+                    this.reinitializeHero(rz);
+                } else {
+                    // Auto-create hero if we have cached defaults, otherwise show character create screen via poll
+                    if (this.cachedDefaultName) {
+                        this.enderService.createHero(userId, this.cachedDefaultName, this.cachedDefaultColor).then(newHero => {
+                            if (newHero) this.reinitializeHero(newHero);
+                        });
+                    } else {
+                        // Fallback to existing poll flow
+                        this.pollForChanges();
+                    }
+                }
+            });
+        } else {
+            // Not logged in; reopen user component
+            this.isUserComponentOpen = true;
+        }
     }
 
 
