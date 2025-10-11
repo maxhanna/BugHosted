@@ -208,6 +208,7 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
                 this.mainScene.inventory.partyMembers = this.partyMembers;
                 this.mainScene.inventory.renderParty();
                 await this.reinitializeHero(rz);
+                await this.setHeroColors();
                 const allWalls = await this.enderService.fetchAllBikeWalls(rz.id) as MetaBikeWall[];
                 if (Array.isArray(allWalls)) {
                     clearBikeWallCells();
@@ -215,15 +216,7 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
                     this.lastKnownWallId = 0; // we aren't using id delta now; recent fetch limited by time window
                     let myWallsCount = 0;
                     for (const w of allWalls) { 
-                        // Use stored hero color if available, otherwise fallback to scene metaHero color for local hero
                         let ownerColor = (w.heroId && this.heroColors.has(w.heroId)) ? this.heroColors.get(w.heroId) : undefined;
-                        if (!ownerColor) {
-                            const tmpOwnerColorReq = await this.enderService.getHero(this.parentRef.user.id);
-                            ownerColor = tmpOwnerColorReq?.color;
-                            if (ownerColor) {
-                                this.heroColors.set(this.parentRef.user.id, ownerColor);
-                            }
-                        }
                         const colorSwap = ownerColor ? new ColorSwap([0, 160, 200], hexToRgb(ownerColor!)) : (w.heroId === this.metaHero.id ? this.mainScene.metaHero?.colorSwap : undefined);
                         const wall = new BikeWall({ position: new Vector2(w.x, w.y), colorSwap });
                         this.mainScene.level.addChild(wall);
@@ -256,6 +249,24 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
         this.pollingInterval = setInterval(async () => { 
             this.updatePlayers(); 
         }, this.pollSeconds * 1000);
+    }
+
+    private async setHeroColors() {
+        let heroes = undefined;
+        if (this.otherHeroes) {
+            heroes = this.otherHeroes;
+        } else {
+            const recentData = await this.enderService.fetchGameDataWithWalls(this.metaHero, undefined, undefined);
+            heroes = recentData.heroes;
+        }
+        if (heroes) {
+            for (var hero of heroes as MetaHero[]) {
+                const oldOwnerColor = this.heroColors.get(hero.id) ?? undefined;
+                if (!oldOwnerColor && hero.id && hero.color) {
+                    this.heroColors.set(hero.id, hero.color);
+                }
+            }
+        }
     }
 
     private updatePlayers() { 
