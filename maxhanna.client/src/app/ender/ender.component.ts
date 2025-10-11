@@ -220,6 +220,7 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
                         const colorSwap = ownerColor ? new ColorSwap([0, 160, 200], hexToRgb(ownerColor!)) : (w.heroId === this.metaHero.id ? this.mainScene.metaHero?.colorSwap : undefined);
                         const wall = new BikeWall({ position: new Vector2(w.x, w.y), colorSwap, heroId: (w.heroId ?? 0)});
                         this.mainScene.level.addChild(wall);
+                        console.log("added wall to scene for heroid: " + wall.heroId);
                         addBikeWallCell(w.x, w.y, w.heroId ?? rz.id);
                         if (w.heroId === rz.id) {
                             myWallsCount++;
@@ -321,6 +322,7 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
                             const colorSwap = ownerColor ? new ColorSwap([0, 160, 200], hexToRgb(ownerColor!)) : (ownerId === this.metaHero.id ? (this.metaHero ? this.mainScene.metaHero?.colorSwap : undefined) : undefined);
                             const wall = new BikeWall({ position: new Vector2(w.x, w.y), colorSwap, heroId: ownerId ?? 0 });
                             this.mainScene.level.addChild(wall);
+                            console.log("added bike wall to scene for heroid : " + wall.heroId)
                             addBikeWallCell(w.x, w.y, w.heroId ?? this.metaHero.id);
                             // emit only for local hero walls 
                             events.emit("BIKEWALL_CREATED", { x: w.x, y: w.y });

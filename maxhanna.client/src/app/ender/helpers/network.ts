@@ -395,6 +395,7 @@ export function actionMultiplayerEvents(object: any, metaEvents: MetaEvent[]) {
               const useColor = event.heroId === object.metaHero.id ? object.metaHero?.colorSwap : undefined;
               const wall = new BikeWall({ position: new Vector2(x, y), colorSwap: useColor, heroId: event.heroId });
               object.mainScene.level.addChild(wall);
+              console.log("Adding wall to scene for heroId:" + wall.heroId);
               addBikeWallCell(x, y, event.heroId);  
               events.emit("BIKEWALL_CREATED", { x, y });  
             }
