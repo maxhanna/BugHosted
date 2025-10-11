@@ -4,6 +4,7 @@ import { resources } from "../../helpers/resources";
 import { FLOOR, GameObject } from "../game-object";
 import { snapToGrid } from "../../helpers/grid-cells";
 import { ColorSwap } from "../../../../services/datacontracts/meta/color-swap";
+import { Fire } from "../Effects/Fire/fire";
 
 export class BikeWall extends GameObject {
   constructor(params: { position: Vector2, colorSwap?: ColorSwap }) {
@@ -29,5 +30,14 @@ export class BikeWall extends GameObject {
       colorSwap: params.colorSwap
     });
     this.addChild(body);
+  }
+
+  override destroy() {
+    const fire = new Fire(this.position.x, this.position.y);
+    this.parent?.children.push(fire);
+    setTimeout(() => {
+      fire.destroy();
+      super.destroy();
+    }, 1200);
   }
 }

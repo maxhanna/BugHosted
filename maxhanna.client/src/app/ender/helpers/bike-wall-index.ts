@@ -1,32 +1,49 @@
 import { gridCells } from './grid-cells';
 
 // Spatial index for bike walls using exact grid-aligned coordinate keys "x|y".
-// Walls are static after placement; index cleared on level change.
-const bikeWallCells = new Set<string>();
+// We track a mapping from cell key -> ownerHeroId, and ownerHeroId -> set of cell keys
+// so we can efficiently remove all walls for a hero when they die.
+const bikeWallCellToOwner = new Map<string, number>();
+const ownerToBikeWallCells = new Map<number, Set<string>>();
 
-export function addBikeWallCell(x: number, y: number) {
-  bikeWallCells.add(`${x}|${y}`);
+export function addBikeWallCell(x: number, y: number, ownerId?: number) {
+  const key = `${x}|${y}`;
+  bikeWallCellToOwner.set(key, ownerId ?? 0);
+  if (ownerId && ownerId > 0) {
+    if (!ownerToBikeWallCells.has(ownerId)) ownerToBikeWallCells.set(ownerId, new Set<string>());
+    ownerToBikeWallCells.get(ownerId)!.add(key);
+  }
 }
 
 export function hasBikeWallAt(x: number, y: number): boolean {
-  return bikeWallCells.has(`${x}|${y}`);
+  return bikeWallCellToOwner.has(`${x}|${y}`);
 }
 
-export function clearBikeWallCells() { bikeWallCells.clear(); }
+export function clearBikeWallCells() {
+  bikeWallCellToOwner.clear();
+  ownerToBikeWallCells.clear();
+}
 
-export function isNearBikeWallIndexed(position: { x: number, y: number }, radius: number = gridCells(1)): boolean {
-  if (!position) return false;
-  const step = gridCells(1);
-  const { x, y } = position;
-  for (let dx = -radius; dx <= radius; dx += step) {
-    for (let dy = -radius; dy <= radius; dy += step) {
-      if (hasBikeWallAt(x + dx, y + dy)) return true;
-    }
+export function removeBikeWallCell(x: number, y: number) {
+  const key = `${x}|${y}`;
+  const owner = bikeWallCellToOwner.get(key);
+  bikeWallCellToOwner.delete(key);
+  if (owner && ownerToBikeWallCells.has(owner)) {
+    ownerToBikeWallCells.get(owner)!.delete(key);
+    if (ownerToBikeWallCells.get(owner)!.size === 0) ownerToBikeWallCells.delete(owner);
   }
-  return false;
 }
 
-// Backwards-compatible signature used by existing callers (ignored level arg)
-export function isNearBikeWall(level: any, position: { x: number, y: number }, radius: number = gridCells(2)): boolean {
-  return isNearBikeWallIndexed(position, radius);
+// Remove all bike wall cells associated with a given hero id. Returns array of removed keys.
+export function removeBikeWallsForHero(ownerId: number): string[] {
+  const removed: string[] = [];
+  if (!ownerId) return removed;
+  const set = ownerToBikeWallCells.get(ownerId);
+  if (!set) return removed;
+  for (const key of Array.from(set)) {
+    bikeWallCellToOwner.delete(key);
+    removed.push(key);
+  }
+  ownerToBikeWallCells.delete(ownerId);
+  return removed;
 }

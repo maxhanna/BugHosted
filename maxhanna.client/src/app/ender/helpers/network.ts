@@ -10,7 +10,7 @@ import { Level } from "../objects/Level/level";
 import { ShopMenu } from "../objects/Menu/shop-menu";
 import { WardrobeMenu } from "../objects/Menu/wardrobe-menu";
 import { gridCells } from "./grid-cells";
-import { addBikeWallCell } from './bike-wall-index';
+import { addBikeWallCell, removeBikeWallsForHero } from './bike-wall-index';
 import { InventoryItem } from "../objects/InventoryItem/inventory-item";
 import { Character } from "../objects/character";
 import { BikeWall } from "../objects/Environment/bike-wall";
@@ -182,11 +182,11 @@ export function subscribeToMainGameEvents(object: any) {
     }
   });
 
-  events.on("BIKEWALL_CREATED", object, (params: { x: number, y: number }) => {
+  events.on("BIKEWALL_CREATED", object, (params: { x: number, y: number, heroId?: number }) => {
     try {
       if (!params || !object.mainScene || !object.mainScene.level) return;
       const { x, y } = params;
-      addBikeWallCell(x, y);
+      addBikeWallCell(x, y, params.heroId);
       const heroes = object.mainScene.level.children.filter((c: any) => c && c.constructor && c.constructor.name === 'Hero');
     } catch (e) {
       console.error("BIKEWALL_CREATED handler failed", e);
@@ -372,6 +372,26 @@ export function actionMultiplayerEvents(object: any, metaEvents: MetaEvent[]) {
                     console.error('Failed to destroy hero element', err);
                   }
                 }
+                // Remove any bike walls associated with this hero and destroy their GameObjects
+                try {
+                  const removedKeys = removeBikeWallsForHero(typeof victimId === 'number' ? victimId : parseInt(victimId));
+                  if (removedKeys && removedKeys.length && object.mainScene && object.mainScene.level && object.mainScene.level.children) {
+                    for (const key of removedKeys) {
+                      const parts = key.split('|');
+                      if (parts.length === 2) {
+                        const x = parseInt(parts[0]);
+                        const y = parseInt(parts[1]);
+                        const wallObjIndex = object.mainScene.level.children.findIndex((c: any) => c && c.name === 'bike-wall' && c.position && c.position.x === x && c.position.y === y);
+                        if (wallObjIndex >= 0) { 
+                          const wallObj = object.mainScene.level.children[wallObjIndex];
+                          wallObj.destroy(); 
+                        }
+                      }
+                    }
+                  }
+                } catch (e) {
+                  console.error('Failed to remove bike walls for dead hero', e);
+                }
               }
             }
           } catch (ex) {
@@ -388,6 +408,7 @@ export function actionMultiplayerEvents(object: any, metaEvents: MetaEvent[]) {
               const useColor = event.heroId === object.metaHero.id ? object.metaHero?.colorSwap : undefined;
               const wall = new BikeWall({ position: new Vector2(x, y), colorSwap: useColor });
               object.mainScene.level.addChild(wall);
+              try { addBikeWallCell(x, y, event.heroId); } catch (e) { /* swallow */ }
               // notify systems that a wall now exists at this location so any heroes under it can be processed
               try { events.emit("BIKEWALL_CREATED", { x, y }); } catch (e) { /* swallow errors */ }
             }
