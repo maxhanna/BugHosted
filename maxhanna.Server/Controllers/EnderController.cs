@@ -143,13 +143,21 @@ namespace maxhanna.Server.Controllers
                         {
                             int tolerance = 28; // pixels; adjust as needed
                             Console.WriteLine("Checking deaths for " + heroes?.Length + " heroes and " + walls.Count + " walls");
-                            // Build a victim -> killer mapping by checking every wall on this level
-                            // against every hero on this level. Skip the wall owner to avoid
-                            // immediate self-kills from placing a wall.
                             var victims = new Dictionary<int, int?>(); // victimId -> killerHeroId
 
                             if (walls != null && heroes != null && walls.Count > 0 && heroes.Length > 0)
                             {
+                                // Precompute the most-recent wall id for each hero so we can avoid immediate self-kills
+                                var lastWallIdByHero = new Dictionary<int, int>();
+                                try
+                                {
+                                    lastWallIdByHero = walls
+                                        .Where(x => x.HeroId != 0)
+                                        .GroupBy(x => x.HeroId)
+                                        .ToDictionary(g => g.Key, g => g.Max(x => x.Id));
+                                }
+                                catch { /* non-fatal, fall back to no-exceptions behavior */ }
+
                                 foreach (var w in walls)
                                 {
                                     try
@@ -159,7 +167,14 @@ namespace maxhanna.Server.Controllers
                                             if (h == null) continue;
                                             // Only consider heroes on the same level
                                             if (h.Level != w.Level) continue; 
-
+                                            // If this wall belongs to the same hero and is that hero's most-recent wall, skip it
+                                            if (w.HeroId == h.Id)
+                                            {
+                                                if (lastWallIdByHero.TryGetValue(w.HeroId, out var lastId) && lastId == w.Id)
+                                                {
+                                                    continue;
+                                                }
+                                            }
                                             var dx = Math.Abs((h.Position?.x ?? 0) - w.X);
                                             var dy = Math.Abs((h.Position?.y ?? 0) - w.Y);
                                             if (dx <= tolerance && dy <= tolerance)
