@@ -78,13 +78,16 @@ export class CharacterCreate extends Level {
     }
     this.referee.textContent = [
       {
-        string: ["Ah, ready to light the Grid.", "Boot complete. Cycle online. Let's ride."],
+        string: [params.championName ? 
+          `Current Grid leader: ${params.championName} (${params.championScore ?? 0})` 
+          : "Ah, ready to light the Grid.", "Boot complete. Cycle online. Let's ride."
+        ],
         requires: [CHARACTER_CREATE_STORY_TEXT_6],
         addsFlag: CHARACTER_CREATE_STORY_TEXT_7,
       } as Scenario,
       // Name prompt (appears once flag 4 obtained)
       {
-        string: [ params.championName ? `State your handle. Current Grid leader: ${params.championName} (${params.championScore ?? 0})` : "State your handle."],
+        string: ["State your handle."],
         requires: [CHARACTER_CREATE_STORY_TEXT_4],
         addsFlag: CHARACTER_CREATE_STORY_TEXT_5,
       } as Scenario,
