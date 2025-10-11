@@ -5,6 +5,7 @@ import { FLOOR, GameObject } from "../game-object";
 import { snapToGrid } from "../../helpers/grid-cells";
 import { ColorSwap } from "../../../../services/datacontracts/meta/color-swap";
 import { Fire } from "../Effects/Fire/fire";
+import { WarpBase } from "../Effects/Warp/warp-base";
 
 export class BikeWall extends GameObject {
   heroId: number;
@@ -34,10 +35,10 @@ export class BikeWall extends GameObject {
   }
 
   override destroy() {
-    const fire = new Fire(this.position.x, this.position.y);
-    this.parent?.children.push(fire);
+    const warpBase = new WarpBase({ position: this.position.duplicate(), parentId: this.heroId });
+    this.parent?.children.push(warpBase);
     setTimeout(() => {
-      fire.destroy();
+      warpBase.destroy();
       super.destroy();
     }, 1200);
   }

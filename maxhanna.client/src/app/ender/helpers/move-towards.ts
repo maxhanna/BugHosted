@@ -1,7 +1,6 @@
 import { Vector2 } from "../../../services/datacontracts/meta/vector2";  
 import { Character } from "../objects/character";
-import { GameObject } from "../objects/game-object";
-import { Ship } from "../objects/Ship/ship";
+import { GameObject } from "../objects/game-object"; 
 import { Sprite } from "../objects/sprite";
 import { DOWN, LEFT, RIGHT, UP, gridCells, isSpaceFree, snapToGrid } from "./grid-cells";
 
@@ -183,26 +182,16 @@ export function shouldResetSlope(player: any) {
 
 
 export function recalculateScaleBasedOnSlope(player: any) {
-	if (!player.slopeDirection || !player.slopeType) return;
-	if (player.name == "Jaguar") {
-		console.log(`before: scale:${player.scale.x}${player.scale.y}, endScale:${player.endScale.x}${player.endScale.y}, ogScale:${player.ogScale.x}${player.ogScale.y}, slopeDir:${player.slopeDirection}, slopeType:${player.slopeType}`);
-	}
-
+	if (!player.slopeDirection || !player.slopeType) return; 
 	if (shouldResetSlope(player)) { 
 		return resetSlope(player, false);
 	}
 
 	const preScale = player.scale.duplicate();
-	scaleWithStep(player, preScale);
-	if (player.name == "Jaguar") {
-		console.log(`after : scale:${player.scale.x}${player.scale.y}, endScale:${player.endScale.x}${player.endScale.y}, ogScale:${player.ogScale.x}${player.ogScale.y}, slopeDir:${player.slopeDirection}, slopeType:${player.slopeType}`);
-	}
+	scaleWithStep(player, preScale); 
 	let forceResetSlope = isSlopeResetFromEndScale(player);
 
-	if (forceResetSlope) {
-		if (player.name == "Jaguar") {
-			console.log("force reset");
-		}
+	if (forceResetSlope) { 
 		return resetSlope(player, true);
 	}
 	else {
@@ -241,10 +230,7 @@ export function adjustVerticalMovement(player: Character, se: number): void {
 			(player.facingDirection !== player.slopeDirection && !player.steppedUpOrDown);
 
 		if (shouldMoveDown) {
-			player.destinationPosition.y -= gridCells(1);
-			if (player.name == "Bot") {
-				console.log('adjusting down');
-			}
+			player.destinationPosition.y -= gridCells(1); 
 		} else if (shouldMoveUp) {
 			player.destinationPosition.y += gridCells(1); 
 		}
@@ -309,12 +295,7 @@ export function scalePlayerBasedOnSlope(player: Character, se: number): void {
 export function scaleWithStep(player: Character, preScale: Vector2): void {
 	if (!player.slopeStepHeight) return;
 
-	const slopeStepHeight = player.slopeStepHeight.x;
-	if (player.name == "Bot") {
-		console.log('slope step height x', slopeStepHeight);
-		console.log('player.facingDirection', player.facingDirection);
-		console.log('player.slopeDirection', player.slopeDirection);
-	}
+	const slopeStepHeight = player.slopeStepHeight.x; 
 	scalePlayerBasedOnSlope(player, slopeStepHeight);
 	adjustVerticalMovement(player, slopeStepHeight);
 }
@@ -326,10 +307,7 @@ export function resetSlope(player: any, skipDestroy?: boolean) {
 	player.steppedUpOrDown = false;
 	if (!skipDestroy) {
 		player.body.recalculatePrecomputedCanvases = true;
-	}
-	if (player.name == "Jaguar") {
-		console.log("slope reset", player.scale);
-	}
+	} 
 }
 
 export function setAnimationToStandAfterTimeElapsed(player: any) {
@@ -347,27 +325,7 @@ export function setAnimationToStandAfterTimeElapsed(player: any) {
 		}
 	}, (player.isUserControlled ? 1000 : 1500));
 }
- 
-export function getShipsInRange(player: Ship, partyMembers?: { heroId: number, name: string }[]): Ship[] {
-	const discrepancy = gridCells(5);
-
-	const posibilities = player.parent?.children?.filter((child: Ship) => {
-		return (
-			((player.heroId ?? 0) < 0 ? (child.heroId ?? 0) > 0 : true) &&
-			!partyMembers?.find(x => x.heroId == (child.heroId ?? 0)) &&
-			(child.isDeployed) &&
-			(child.id != player.id) &&
-			(child.isEnemy) &&
-			(child.hp > 0) &&
-			!(child instanceof Sprite) &&
-			child.position.x >= player.position.x - discrepancy &&
-			child.position.x <= player.position.x + discrepancy &&
-			child.position.y >= player.position.y - discrepancy &&
-			child.position.y <= player.position.y + discrepancy
-		);
-	});
-	return posibilities ?? [];
-}
+  
 export function isObjectNearby(playerOrObject: any) {
 	const basePosition = playerOrObject.position;
 	const neighborPosition =

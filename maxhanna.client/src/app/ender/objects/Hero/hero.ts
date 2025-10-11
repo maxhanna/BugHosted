@@ -19,7 +19,7 @@ export class Hero extends Character {
   lastBikeWallSpawnPos?: Vector2;
   preventDestroyAnimation = false;
   constructor(params: {
-    position: Vector2, id?: number, name?: string, metabots?: MetaBot[], colorSwap?: ColorSwap,
+    position: Vector2, id?: number, name?: string, colorSwap?: ColorSwap,
     isUserControlled?: boolean, speed?: number, mask?: Mask, scale?: Vector2,
     forceDrawName?: boolean, preventDrawName?: boolean,
   }) {
@@ -128,26 +128,20 @@ export class Hero extends Character {
   }
 
   override step(delta: number, root: any) {
-    // capture previous position before movement
     const prevPos = this.position.duplicate();
     super.step(delta, root);
 
-    // spawn walls only if a body sprite exists (was previously restricted to ship sprite, which blocked placement)
     if (!this.body) return;
-    // Only the local (user-controlled) hero should originate wall spawns; others get them from network sync
     if (!this.isUserControlled) return;
-
     if (!this.lastBikeWallSpawnPos) this.lastBikeWallSpawnPos = prevPos.duplicate();
 
     const dx = this.position.x - this.lastBikeWallSpawnPos.x;
     const dy = this.position.y - this.lastBikeWallSpawnPos.y;
     const dist = Math.sqrt(dx * dx + dy * dy);
     if (dist >= gridCells(2)) {
-      // spawn wall at the last spawn position (behind the bike)
       const wallPos = this.lastBikeWallSpawnPos.duplicate();
       const wall = new BikeWall({ position: wallPos, colorSwap: this.colorSwap, heroId: this.id });
       this.parent?.addChild(wall);
-      console.log("Adding wall to scene for heroId:" + wall.heroId); 
       addBikeWallCell(wallPos.x, wallPos.y, this.id);
       events.emit("BIKEWALL_CREATED", { x: wallPos.x, y: wallPos.y });
       events.emit("SPAWN_BIKE_WALL", { x: wallPos.x, y: wallPos.y, heroId: this.id });
@@ -166,7 +160,6 @@ export class Hero extends Character {
         try {
           fire.destroy();
         } catch { }
-  // Death is now handled server-side; client only plays visuals.
         super.destroy();
       }, 1200);
     } else {
