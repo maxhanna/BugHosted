@@ -141,7 +141,7 @@ namespace maxhanna.Server.Controllers
                         List<MetaBikeWall> walls = await GetWallsOnSameLevel(hero.Level, connection, transaction);
                         try
                         {
-                            int tolerance = 20; // pixels; adjust as needed
+                            int tolerance = 16; // pixels; adjust as needed
                             Console.WriteLine("Checking deaths for " + heroes?.Length + " heroes and " + walls.Count + " walls");
                             var victims = new Dictionary<int, int?>(); // victimId -> killerHeroId
 
@@ -514,7 +514,7 @@ namespace maxhanna.Server.Controllers
                                             SELECT 1 FROM maxhanna.ender_hero WHERE user_id = @UserId OR name = @Name
                                     );";
                         // Choose a random starting location that doesn't collide with other heroes or bike walls
-                        int mapSize = 100; // grid size used for random spawn
+                        int mapSize = 1000; // grid size used for random spawn
 
                         // occupied hero spots
                         var occupiedSpots = new HashSet<(int X, int Y)>();
