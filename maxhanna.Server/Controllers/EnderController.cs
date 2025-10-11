@@ -137,7 +137,6 @@ namespace maxhanna.Server.Controllers
                         hero = await UpdateHeroInDB(hero, connection, transaction);
                         MetaHero[]? heroes = await GetNearbyPlayers(hero, connection, transaction);
                         List<MetaEvent> events = await GetEventsFromDb(hero.Level, connection, transaction);
-                        // Fetch persistent bike walls for this hero's level
                         List<MetaBikeWall> walls = await GetWallsOnSameLevel(hero.Level, connection, transaction);
                         try
                         {
@@ -166,7 +165,7 @@ namespace maxhanna.Server.Controllers
                                         {
                                             if (h == null) continue;
                                             // Only consider heroes on the same level
-                                            if (h.Level != w.Level) continue; 
+                                            if (h.Level != w.Level) continue;
                                             // If this wall belongs to the same hero and is that hero's most-recent wall, skip it
                                             if (w.HeroId == h.Id)
                                             {
@@ -213,10 +212,38 @@ namespace maxhanna.Server.Controllers
                                             _ = _log.Db($"Failed to kill hero {victimId}: {exKill.Message}", null, "ENDER", true);
                                         }
                                     }
-
-                                    // Refresh nearby heroes/events after authoritative kills
                                     heroes = await GetNearbyPlayers(hero, connection, transaction);
                                     events = await GetEventsFromDb(hero.Level, connection, transaction);
+
+                                    // Last-hero-standing level up: if at least one victim and only one hero remains on this level                                     
+                                    // Fetch up to 2 survivors on this level to determine if only 1 remains
+                                    var survivorIds = new List<int>();
+                                    using (var survivorsCmd = new MySqlCommand("SELECT id FROM maxhanna.ender_hero WHERE level = @Level LIMIT 2;", connection, transaction))
+                                    {
+                                        survivorsCmd.Parameters.AddWithValue("@Level", hero.Level);
+                                        using (var rdr = await survivorsCmd.ExecuteReaderAsync())
+                                        {
+                                            while (await rdr.ReadAsync())
+                                            {
+                                                survivorIds.Add(rdr.GetInt32(0));
+                                            }
+                                        }
+                                    }
+
+                                    if (survivorIds.Count == 1)
+                                    {
+                                        int survivorId = survivorIds[0];
+                                        using (var levelUpCmd = new MySqlCommand("UPDATE maxhanna.ender_hero SET level = level + 1 WHERE id = @HeroId LIMIT 1;", connection, transaction))
+                                        {
+                                            levelUpCmd.Parameters.AddWithValue("@HeroId", survivorId);
+                                            await levelUpCmd.ExecuteNonQueryAsync();
+                                        }
+                                        if (hero.Id == survivorId)
+                                        {
+                                            hero.Level += 1;
+                                        }
+                                    }
+
                                 }
                             }
                         }
@@ -225,18 +252,15 @@ namespace maxhanna.Server.Controllers
                             _ = _log.Db("Bike wall collision sweep failed: " + ex.Message, null, "ENDER", true);
                         }
 
-                        List<MetaBikeWall> recentWalls = await GetRecentBikeWalls(hero.Level, connection, transaction);
+                        int heroLevelForWalls = hero?.Level ?? 1;
+                        List<MetaBikeWall> recentWalls = await GetRecentBikeWalls(heroLevelForWalls, connection, transaction);
                         Console.WriteLine($"Found {recentWalls.Count} recent bike walls");
                         // Compute provisional current score for the active run (mirrors HeroDied authoritative formula: time + walls*10)
                         int wallsPlacedForRun = 0;
-                        try
+                        if (walls != null && hero != null)
                         {
-                            if (walls != null && hero != null)
-                            {
-                                wallsPlacedForRun = walls.Where(w => w.HeroId == hero.Id).Count();
-                            }
+                            wallsPlacedForRun = walls.Where(w => w.HeroId == hero.Id).Count();
                         }
-                        catch { /* non-fatal */ }
                         int currentScore = (hero?.TimeOnLevelSeconds ?? 0) + (wallsPlacedForRun * 10);
 
                         await transaction.CommitAsync();
@@ -329,23 +353,23 @@ namespace maxhanna.Server.Controllers
                 {
                     try
                     {
-            if (req == null) throw new ArgumentNullException(nameof(req));
-            await _log.Db($"Enter DeleteEvent id={req.EventId}", null, "ENDER", false);
-            string sql = @"DELETE FROM maxhanna.ender_event WHERE id = @EventId LIMIT 1;";
-            Dictionary<string, object?> parameters = new Dictionary<string, object?>
+                        if (req == null) throw new ArgumentNullException(nameof(req));
+                        await _log.Db($"Enter DeleteEvent id={req.EventId}", null, "ENDER", false);
+                        string sql = @"DELETE FROM maxhanna.ender_event WHERE id = @EventId LIMIT 1;";
+                        Dictionary<string, object?> parameters = new Dictionary<string, object?>
                         {
                             { "@EventId", req.EventId },
                         };
-            await this.ExecuteInsertOrUpdateOrDeleteAsync(sql, parameters, connection, transaction);
-            await transaction.CommitAsync();
+                        await this.ExecuteInsertOrUpdateOrDeleteAsync(sql, parameters, connection, transaction);
+                        await transaction.CommitAsync();
 
-            return Ok();
+                        return Ok();
                     }
                     catch (Exception ex)
                     {
-            await transaction.RollbackAsync();
-            await LogError($"DeleteEvent failed id={req?.EventId}", ex);
-            return StatusCode(500, "Internal server error: " + ex.Message);
+                        await transaction.RollbackAsync();
+                        await LogError($"DeleteEvent failed id={req?.EventId}", ex);
+                        return StatusCode(500, "Internal server error: " + ex.Message);
                     }
                 }
             }
@@ -398,7 +422,7 @@ namespace maxhanna.Server.Controllers
                         int validatedWalls = req.WallsPlaced;
                         int timeOnLevelSeconds = req.TimeOnLevel;
                         DateTime? heroCreatedAt = null;
-                        
+
                         int heroLevelFromDb = 1;
                         try
                         {
@@ -482,10 +506,10 @@ namespace maxhanna.Server.Controllers
                         // Delete hero and related rows (inventory, bots, events)
                         string deleteInventory = "DELETE FROM maxhanna.ender_hero_inventory WHERE ender_hero_id = @HeroId;";
                         await ExecuteInsertOrUpdateOrDeleteAsync(deleteInventory, new Dictionary<string, object?>() { { "@HeroId", req.HeroId } }, connection, transaction);
-  
+
                         string deleteHero = "DELETE FROM maxhanna.ender_hero WHERE id = @HeroId LIMIT 1;";
                         await ExecuteInsertOrUpdateOrDeleteAsync(deleteHero, new Dictionary<string, object?>() { { "@HeroId", req.HeroId } }, connection, transaction);
-                        
+
                         await transaction.CommitAsync();
                         return Ok();
                     }
@@ -520,7 +544,7 @@ namespace maxhanna.Server.Controllers
                         var occupiedSpots = new HashSet<(int X, int Y)>();
                         string occSql = "SELECT coordsX AS cx, coordsY AS cy FROM maxhanna.ender_hero WHERE level = 1;";
                         using (var occCmd = new MySqlCommand(occSql, connection, transaction))
-                        { 
+                        {
                             using var occReader = await occCmd.ExecuteReaderAsync();
                             while (await occReader.ReadAsync())
                             {
@@ -533,7 +557,7 @@ namespace maxhanna.Server.Controllers
                         var bikeWallSpots = new HashSet<(int X, int Y)>();
                         string bikeSql = "SELECT x AS bx, y AS byy FROM maxhanna.ender_bike_wall WHERE level = 1;";
                         using (var bikeCmd = new MySqlCommand(bikeSql, connection, transaction))
-                        {  
+                        {
                             using var bikeReader = await bikeCmd.ExecuteReaderAsync();
                             while (await bikeReader.ReadAsync())
                             {
@@ -602,7 +626,7 @@ namespace maxhanna.Server.Controllers
                         long? botId = await this.ExecuteInsertOrUpdateOrDeleteAsync(sql, parameters, connection, transaction);
 
                         // Persist last character name to user_settings
-                        
+
                         string upsertNameSql = @"INSERT INTO maxhanna.user_settings (user_id, last_character_name, last_character_color) VALUES (@UserId, @Name, @Color)
                                                     ON DUPLICATE KEY UPDATE last_character_name = VALUES(last_character_name), last_character_color = VALUES(last_character_color);";
                         await ExecuteInsertOrUpdateOrDeleteAsync(upsertNameSql, new Dictionary<string, object?>() {
@@ -619,7 +643,7 @@ namespace maxhanna.Server.Controllers
                         hero.Speed = 1;
                         hero.Name = req.Name ?? "Anonymous";
                         hero.Color = chosenColor;
-                        hero.Created = DateTime.UtcNow; 
+                        hero.Created = DateTime.UtcNow;
                         return Ok(hero);
                     }
                     catch (Exception ex)
@@ -629,7 +653,7 @@ namespace maxhanna.Server.Controllers
                     }
                 }
             }
-        } 
+        }
 
         [HttpPost("/Ender/TopScores", Name = "Ender_TopScores")]
         public async Task<IActionResult> TopScores([FromBody] int limit)
@@ -953,7 +977,7 @@ namespace maxhanna.Server.Controllers
             }
         }
 
- 
+
 
         [HttpPost("/Ender/GetUserPartyMembers", Name = "Ender_GetUserPartyMembers")]
         public async Task<IActionResult> GetUserPartyMembers([FromBody] int userId)
@@ -1015,7 +1039,7 @@ namespace maxhanna.Server.Controllers
                 }
             }
         }
- 
+
         private async Task<MetaHero> UpdateHeroInDB(MetaHero hero, MySqlConnection connection, MySqlTransaction transaction)
         {
             if (hero == null) throw new ArgumentNullException(nameof(hero));
@@ -1094,7 +1118,7 @@ namespace maxhanna.Server.Controllers
 
             return hero!;
         }
-         
+
         private async Task UpdateEventsInDB(MetaEvent @event, MySqlConnection connection, MySqlTransaction transaction)
         {
             Console.WriteLine("Updating events in db" + @event.HeroId);
@@ -1164,7 +1188,7 @@ namespace maxhanna.Server.Controllers
                 _ = _log.Db("Exception: GetEventsFromDB Transaction is null.", null, "ENDER", true);
                 throw new InvalidOperationException("Transaction is required for this operation.");
             }
- 
+
             string sql = @"
                 DELETE FROM maxhanna.ender_event WHERE timestamp < UTC_TIMESTAMP() - INTERVAL 20 SECOND;
                 
@@ -1209,7 +1233,7 @@ namespace maxhanna.Server.Controllers
 
             return events;
         }
-        
+
         private async Task<int> GetHeroIdByUserId(int userId, MySqlConnection? connection = null, MySqlTransaction? transaction = null)
         {
             bool createdConnection = false;
@@ -1245,7 +1269,7 @@ namespace maxhanna.Server.Controllers
                 {
                     cmd.Parameters.AddWithValue("@UserId", userId);
                     var res = await cmd.ExecuteScalarAsync();
-                    if (res == null || res == DBNull.Value) 
+                    if (res == null || res == DBNull.Value)
                     {
                         if (createdTransaction)
                         {
@@ -1428,7 +1452,7 @@ namespace maxhanna.Server.Controllers
             return hero;
         }
 
-    private async Task<MetaHero[]> GetMetaHeroes(MySqlConnection conn, MySqlTransaction transaction)
+        private async Task<MetaHero[]> GetMetaHeroes(MySqlConnection conn, MySqlTransaction transaction)
         {
             Dictionary<int, MetaHero> heroesDict = new Dictionary<int, MetaHero>();
 
@@ -1525,7 +1549,7 @@ namespace maxhanna.Server.Controllers
                                 tmpHero = new MetaHero
                                 {
                                     Id = heroId,
-                                    Name = Convert.ToString(reader["hero_name"]), 
+                                    Name = Convert.ToString(reader["hero_name"]),
                                     Color = Convert.ToString(reader["color"]) ?? "",
                                     Mask = reader.IsDBNull(reader.GetOrdinal("mask")) ? null : Convert.ToInt32(reader["mask"]),
                                     Position = new Vector2(Convert.ToInt32(reader["coordsX"]), Convert.ToInt32(reader["coordsY"])),
@@ -1621,11 +1645,11 @@ namespace maxhanna.Server.Controllers
                 else
                 {
                     _ = _log.Db("No batch data found for UPDATE_ENCOUNTER_POSITION", null, "ENDER", true);
-                } 
-            } 
-        } 
- 
-        private async Task<List<MetaBikeWall>> GetBikeWalls(int level, MySqlConnection connection, MySqlTransaction transaction,  int lastKnownWallId = 0)
+                }
+            }
+        }
+
+        private async Task<List<MetaBikeWall>> GetBikeWalls(int level, MySqlConnection connection, MySqlTransaction transaction, int lastKnownWallId = 0)
         {
             var walls = new List<MetaBikeWall>();
             string sql = @"SELECT id, hero_id, x, y, level 
@@ -1635,7 +1659,7 @@ namespace maxhanna.Server.Controllers
             try
             {
                 using (var cmd = new MySqlCommand(sql, connection, transaction))
-                { 
+                {
                     cmd.Parameters.AddWithValue("@Level", level);
                     cmd.Parameters.AddWithValue("@LastKnownWallId", lastKnownWallId);
                     using (var reader = await cmd.ExecuteReaderAsync())
@@ -1647,7 +1671,7 @@ namespace maxhanna.Server.Controllers
                                 walls.Add(new MetaBikeWall
                                 {
                                     Id = reader.GetInt32("id"),
-                                    HeroId = reader.GetInt32("hero_id"), 
+                                    HeroId = reader.GetInt32("hero_id"),
                                     X = reader.GetInt32("x"),
                                     Y = reader.GetInt32("y"),
                                     Level = reader.IsDBNull(reader.GetOrdinal("level")) ? 1 : reader.GetInt32("level")
@@ -1678,7 +1702,7 @@ namespace maxhanna.Server.Controllers
                            WHERE level = @Level AND (created_at >= (UTC_TIMESTAMP() - INTERVAL @Seconds SECOND) OR created_at IS NULL)
                            ORDER BY id ASC";
             using (var cmd = new MySqlCommand(sql, connection, transaction))
-            { 
+            {
                 cmd.Parameters.AddWithValue("@Level", level);
                 cmd.Parameters.AddWithValue("@Seconds", seconds);
                 try
@@ -1690,7 +1714,7 @@ namespace maxhanna.Server.Controllers
                             walls.Add(new MetaBikeWall
                             {
                                 Id = reader.GetInt32("id"),
-                                HeroId = reader.GetInt32("hero_id"), 
+                                HeroId = reader.GetInt32("hero_id"),
                                 X = reader.GetInt32("x"),
                                 Y = reader.GetInt32("y"),
                                 Level = reader.IsDBNull(reader.GetOrdinal("level")) ? 1 : reader.GetInt32("level")
@@ -1788,7 +1812,7 @@ namespace maxhanna.Server.Controllers
                 // fetch hero info for score
                 string selSql = @"SELECT user_id, created, level, kills FROM maxhanna.ender_hero WHERE id = @HeroId LIMIT 1;";
                 int userId = 0;
-                DateTime? createdAt = null; 
+                DateTime? createdAt = null;
                 int heroLevel = 1;
                 int heroKills = 0;
                 using (var cmd = new MySqlCommand(selSql, connection, transaction))
@@ -1861,7 +1885,7 @@ namespace maxhanna.Server.Controllers
                 throw;
             }
         }
-         private async Task UpdateMetaHeroParty(List<int>? partyData, MySqlConnection connection, MySqlTransaction transaction)
+        private async Task UpdateMetaHeroParty(List<int>? partyData, MySqlConnection connection, MySqlTransaction transaction)
         {
             try
             {
@@ -1934,7 +1958,7 @@ namespace maxhanna.Server.Controllers
                 await _log.Db($"Unexpected error while updating party for PARTY_INVITE_ACCEPTED: {ex.Message}", null, "ENDER", true);
                 throw; // Re-throw to allow transaction rollback
             }
-        }  
+        }
         private async Task<long?> ExecuteInsertOrUpdateOrDeleteAsync(string sql, Dictionary<string, object?> parameters, MySqlConnection? connection = null, MySqlTransaction? transaction = null)
         {
             string cmdText = "";
