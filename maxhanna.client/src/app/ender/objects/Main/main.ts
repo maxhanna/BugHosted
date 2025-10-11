@@ -9,7 +9,6 @@ import { Level } from "../Level/level";
 import { SpriteTextStringWithBackdrop } from "../SpriteTextString/sprite-text-string-with-backdrop";
 import { MetaHero } from "../../../../services/datacontracts/ender/meta-hero";
 import { Character } from "../character";
-import { clearBikeWallCells } from "../../helpers/bike-wall-index";
 
 export class Main extends GameObject {
   level?: Level = undefined;
@@ -86,7 +85,6 @@ export class Main extends GameObject {
 
   setLevel(newLevelInstance: Level) {
     if (this.level) {
-      clearBikeWallCells(); 
       this.level.destroy();
     }
     console.log("setting level: ", newLevelInstance, this.children);

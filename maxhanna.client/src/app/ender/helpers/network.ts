@@ -6,7 +6,6 @@ import { Vector2 } from "../../../services/datacontracts/meta/vector2";
 import { GameObject } from "../objects/game-object";
 import { Level } from "../objects/Level/level";
 import { gridCells } from "./grid-cells";
-import { addBikeWallCell, removeBikeWallsForHero } from './bike-wall-index';
 import { Character } from "../objects/character";
 import { BikeWall } from "../objects/Environment/bike-wall";
 
@@ -173,18 +172,7 @@ export function subscribeToMainGameEvents(object: any) {
       const metaEvent = new MetaEvent(0, object.metaHero.id, new Date(), "SPAWN_BIKE_WALL", object.metaHero.level, { x: params.x + "", y: params.y + "" });
       object.enderService.updateEvents(metaEvent);
     }
-  });
-
-  events.on("BIKEWALL_CREATED", object, (params: { x: number, y: number, heroId?: number }) => {
-    try {
-      if (!params || !object.mainScene || !object.mainScene.level) return;
-      const { x, y } = params;
-      addBikeWallCell(x, y, params.heroId);
-      const heroes = object.mainScene.level.children.filter((c: any) => c && c.constructor && c.constructor.name === 'Hero');
-    } catch (e) {
-      console.error("BIKEWALL_CREATED handler failed", e);
-    }
-  });
+  }); 
 
   events.on("HIDE_START_BUTTON", object, () => {
     object.hideStartButton = true;
@@ -362,8 +350,7 @@ export function actionMultiplayerEvents(object: any, metaEvents: MetaEvent[]) {
                 }
                 // Remove any bike walls associated with this hero and destroy their GameObjects
                 try {
-                  const removedKeys = removeBikeWallsForHero(victimId);
-                  if (removedKeys && removedKeys.length && object.mainScene && object.mainScene.level && object.mainScene.level.children) {
+                  if (object.mainScene && object.mainScene.level && object.mainScene.level.children) {
                     const wallObjs = object.mainScene.level.children.filter((c: any) => c && c.heroId === victimId);
                     for (const wall of wallObjs) {
                       wall.destroy();
@@ -388,7 +375,6 @@ export function actionMultiplayerEvents(object: any, metaEvents: MetaEvent[]) {
               const useColor = event.heroId === object.metaHero.id ? object.metaHero?.colorSwap : undefined;
               const wall = new BikeWall({ position: new Vector2(x, y), colorSwap: useColor, heroId: event.heroId });
               object.mainScene.level.addChild(wall);
-              addBikeWallCell(x, y, event.heroId);  
               events.emit("BIKEWALL_CREATED", { x, y });  
             }
           }

@@ -14,7 +14,6 @@ import { storyFlags } from './helpers/story-flags';
 import { actionMultiplayerEvents, subscribeToMainGameEvents } from './helpers/network';
 import { Hero } from './objects/Hero/hero';
 import { BikeWall } from './objects/Environment/bike-wall';
-import { addBikeWallCell, clearBikeWallCells } from './helpers/bike-wall-index';
 import { Main } from './objects/Main/main';
 import { HeroRoomLevel } from './levels/hero-room';
 import { CharacterCreate } from './levels/character-create';
@@ -212,7 +211,6 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
                 await this.setHeroColors();
                 const allWalls = await this.enderService.fetchAllBikeWalls(rz.id) as MetaBikeWall[];
                 if (Array.isArray(allWalls)) {
-                    clearBikeWallCells();
                     this.persistedWallLevelRef = this.mainScene.level;
                     this.lastKnownWallId = 0; // we aren't using id delta now; recent fetch limited by time window
                     let myWallsCount = 0;
@@ -221,7 +219,6 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
                         const colorSwap = ownerColor ? new ColorSwap([0, 160, 200], hexToRgb(ownerColor!)) : (w.heroId === this.metaHero.id ? this.mainScene.metaHero?.colorSwap : undefined);
                         const wall = new BikeWall({ position: new Vector2(w.x, w.y), colorSwap, heroId: (w.heroId ?? 0)});
                         this.mainScene.level.addChild(wall);
-                        addBikeWallCell(w.x, w.y, w.heroId ?? rz.id);
                         if (w.heroId === rz.id) {
                             myWallsCount++;
                         }
@@ -302,7 +299,6 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
                     if (walls && walls.length > 0 && this.mainScene.level) {
                         // Reset delta tracking if level changed
                         if (this.persistedWallLevelRef !== this.mainScene.level) {
-                            clearBikeWallCells();
                             this.persistedWallLevelRef = this.mainScene.level;
                             this.lastKnownWallId = 0;
                         }
@@ -321,8 +317,6 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
                             const colorSwap = ownerColor ? new ColorSwap([0, 160, 200], hexToRgb(ownerColor!)) : (ownerId === this.metaHero.id ? (this.metaHero ? this.mainScene.metaHero?.colorSwap : undefined) : undefined);
                             const wall = new BikeWall({ position: new Vector2(w.x, w.y), colorSwap, heroId: ownerId ?? 0 });
                             this.mainScene.level.addChild(wall);
-                            addBikeWallCell(w.x, w.y, ownerId);
-                            // emit only for local hero walls 
                             events.emit("BIKEWALL_CREATED", { x: w.x, y: w.y });
                             if (w.id && w.id > this.lastKnownWallId) {
                                 this.lastKnownWallId = w.id;

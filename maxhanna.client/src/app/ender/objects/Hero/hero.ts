@@ -12,7 +12,6 @@ import { WALK_DOWN, WALK_UP, WALK_LEFT, WALK_RIGHT, STAND_DOWN, STAND_RIGHT, STA
 import { ColorSwap } from "../../../../services/datacontracts/meta/color-swap";
 import { events } from "../../helpers/events";
 import { BikeWall } from "../Environment/bike-wall";
-import { addBikeWallCell } from "../../helpers/bike-wall-index";
 import { Fire } from "../Effects/Fire/fire";
 
 export class Hero extends Character { 
@@ -142,7 +141,6 @@ export class Hero extends Character {
       const wallPos = this.lastBikeWallSpawnPos.duplicate();
       const wall = new BikeWall({ position: wallPos, colorSwap: this.colorSwap, heroId: this.id });
       this.parent?.addChild(wall);
-      addBikeWallCell(wallPos.x, wallPos.y, this.id);
       events.emit("BIKEWALL_CREATED", { x: wallPos.x, y: wallPos.y });
       events.emit("SPAWN_BIKE_WALL", { x: wallPos.x, y: wallPos.y, heroId: this.id });
       this.lastBikeWallSpawnPos = this.position.duplicate();
