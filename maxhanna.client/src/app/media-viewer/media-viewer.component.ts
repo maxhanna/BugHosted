@@ -128,27 +128,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
       this.hasTriedInitialCachedLoad = true;
     }
   }
-
-  private ensureInitialLoad(isRetry: boolean = false) {
-    if (!this.autoload) {
-      this.debugLog('ensureInitialLoad skipped (autoload disabled)');
-      return;
-    }
-    if (this.selectedFileSrc) {
-      this.debugLog('ensureInitialLoad skipped (already have src)', { selectedFileSrcLength: this.selectedFileSrc.length });
-      return;
-    }
-    const parentRef = this.parentRef || this.inputtedParentRef;
-    const targetId = this.fileId || (this.file ? (Array.isArray(this.file) ? this.file[0]?.id : this.file.id) : undefined);
-    const hasCached = !!(targetId && parentRef?.pictureSrcs && parentRef.pictureSrcs[targetId] && parentRef.pictureSrcs[targetId].value);
-    if (this.fileSrc || hasCached) {
-      this.debugLog('ensureInitialLoad proceeding (direct src or cached)');
-      this.fetchFileSrc();
-    } else {
-      this.debugLog('ensureInitialLoad deferring (awaiting in-view)');
-    }
-  }
-
+ 
   private debugLog(message: string, data?: any) {
     if (this.debug) {
       console.log(`[MediaViewerDebug] ${message}`, data || '', this.file, this.fileId);
@@ -192,15 +172,6 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
     }
   }
 
-  private isStillVisible() {
-    const el = this.mediaContainer?.nativeElement as HTMLElement | undefined;
-    let stillVisible = false;
-    if (el) { 
-      stillVisible = true;
-    }
-    return stillVisible;
-  }
-
   private applyPageTitleIfNeeded() {
     const urlContainsMedia = window.location.href.includes('/Media');
     const file = this.file ?? this.selectedFile;
@@ -223,8 +194,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
       this.debugLog('fetchFileSrc used direct fileSrc input');
       return;
     }
-
-    // Only proceed if in view OR we have a cached parent value.
+  
     const parentRef = this.parentRef || this.inputtedParentRef;
         
     if (this.fileId) {
