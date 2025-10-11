@@ -6,8 +6,7 @@ import { Animations } from "../../helpers/animations";
 import { getShipsInRange } from "../../helpers/move-towards";
 import { resources } from "../../helpers/resources";
 import { FrameIndexPattern } from "../../helpers/frame-index-pattern";
-import { events } from "../../helpers/events";
-import { attack, findTargets, untarget } from "../../helpers/fight";
+import { events } from "../../helpers/events"; 
 import { WALK_DOWN, WALK_UP, WALK_LEFT, WALK_RIGHT, STAND_DOWN, STAND_RIGHT, STAND_LEFT, STAND_UP, PICK_UP_DOWN, ATTACK_LEFT, ATTACK_UP, ATTACK_DOWN, ATTACK_RIGHT } from "./ship-animations";
 import { MetaBotPart } from "../../../../services/datacontracts/ender/meta-bot-part";
 import { ColorSwap } from "../../../../services/datacontracts/ender/color-swap";
@@ -194,55 +193,6 @@ export class Ship extends Character {
   }
 
   override step(delta: number, root: any) {
-    super.step(delta, root);
-
-    if (this.targeting && this.lastAttack.getTime() + 1000 < new Date().getTime()) {  
-       
-      this.lastAttack = new Date();
-
-      const botsInRange = getShipsInRange(this, this.partyMembers);
-      if (botsInRange.some((x: Ship) => x.id == this.targeting?.id)) {  
-        attack(this, this.targeting);
-      } else {
-        untarget(this, this.targeting); 
-      } 
-    } 
-  } 
-
-  private followHero(hero: Character) {
-    if ((hero.distanceLeftToTravel ?? 0) < 15 && this.isDeployed) {
-      const directionX = hero.position.x - (this.previousHeroPosition?.x ?? this.position.x);
-      const directionY = hero.position.y - (this.previousHeroPosition?.y ?? this.position.y);
-      const distanceFromHero = gridCells(2);
-      let newX = hero.position.x;
-      let newY = hero.position.y; 
-      // Move bot to always be behind the hero based on their movement direction
-      if (Math.abs(directionX) > Math.abs(directionY)) {
-        // Hero is primarily moving horizontally
-        if (directionX > 0) {
-          // Hero moved RIGHT → Bot should be to the LEFT
-          newX = hero.position.x - distanceFromHero;
-          newY = hero.position.y; // Stay aligned vertically
-        } else if (directionX < 0) {
-          // Hero moved LEFT → Bot should be to the RIGHT
-          newX = hero.position.x + distanceFromHero;
-          newY = hero.position.y;
-        }
-      } else {
-        // Hero is primarily moving vertically
-        if (directionY > 0) {
-          // Hero moved DOWN → Bot should be ABOVE
-          newX = hero.position.x; // Stay aligned horizontally
-          newY = hero.position.y - distanceFromHero;
-        } else if (directionY < 0) {
-          // Hero moved UP → Bot should be BELOW
-          newX = hero.position.x;
-          newY = hero.position.y + distanceFromHero;
-        } 
-      }
-      this.facingDirection = hero.facingDirection; 
-      this.destinationPosition = new Vector2(newX, newY).duplicate();  
-      this.previousHeroPosition = new Vector2(hero.position.x, hero.position.y); 
-    } 
-  } 
+    super.step(delta, root); 
+  }   
 }  
