@@ -164,7 +164,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
           this.pendingDelayedInView = false;
           // Re-check visibility & (optionally) center gating
           const el = this.mediaContainer?.nativeElement as HTMLElement | undefined;
-          let stillVisible = true;
+          let stillVisible = false;
             if (el) {
               const r = el.getBoundingClientRect();
               stillVisible = r.top < window.innerHeight && r.bottom > 0; 
