@@ -163,12 +163,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
           this.inViewConfirmTimer = null;
           this.pendingDelayedInView = false;
           // Re-check visibility & (optionally) center gating
-          const el = this.mediaContainer?.nativeElement as HTMLElement | undefined;
-          let stillVisible = false;
-            if (el) {
-              const r = el.getBoundingClientRect();
-              stillVisible = r.top < window.innerHeight && r.bottom > 0; 
-            }
+          let stillVisible = this.isStillVisible();
           if (!stillVisible) {
             this.debugLog('onInView delayed check aborted (no longer visible or center not satisfied)');
             return;
@@ -195,6 +190,16 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
     }
   }
 
+  private isStillVisible() {
+    const el = this.mediaContainer?.nativeElement as HTMLElement | undefined;
+    let stillVisible = false;
+    if (el) {
+      const r = el.getBoundingClientRect();
+      stillVisible = r.top < window.innerHeight && r.bottom > 0;
+    }
+    return stillVisible;
+  }
+
   private applyPageTitleIfNeeded() {
     const urlContainsMedia = window.location.href.includes('/Media');
     const file = this.file ?? this.selectedFile;
@@ -205,19 +210,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
       }
     }
   }
-
-  // Helper method to check if the component's height is sufficient
-  private isComponentHeightSufficient(): boolean {
-    // Retained for compatibility with any external callers; no longer gating load strictly.
-    const mediaContainer = document.getElementById('mediaContainer' + this.fileId);
-    if (mediaContainer) {
-      const containerHeight = mediaContainer.offsetHeight;
-      const windowHeight = window.innerHeight;
-      return containerHeight <= windowHeight;
-    }
-    return true;
-  }
-
+  
   async fetchFileSrc() {
     this.debugLog('fetchFileSrc invoked', { fileId: this.fileId, hasFileObj: !!this.file, fileSrcInput: this.fileSrc, alreadySelectedSrc: !!this.selectedFileSrc });
     if (this.fileSrc) {
@@ -387,7 +380,14 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
   }
 
   async setFileSrcById(fileId: number) {
-    if (this.selectedFileSrc) { this.debugLog('setFileSrcById early exit (already have selectedFileSrc)'); return; }
+    if (this.selectedFileSrc) { 
+      this.debugLog('setFileSrcById early exit (already have selectedFileSrc)');
+      return; 
+    }
+    if (!this.isStillVisible()) {
+      this.debugLog('setFileSrcById early exit (not visible)');
+      return; 
+    }
     if (this.parentRef && this.parentRef.pictureSrcs && this.parentRef.pictureSrcs.find(x => x.key == fileId + '')) {
       this.showThumbnail = true;
       this.selectedFileSrc = this.parentRef.pictureSrcs.find(x => x.key == fileId + '')!.value;
