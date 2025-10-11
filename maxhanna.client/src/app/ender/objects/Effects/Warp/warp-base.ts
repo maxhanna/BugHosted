@@ -1,7 +1,7 @@
-import { Vector2 } from "../../../../../services/datacontracts/meta/vector2";
+import { Vector2 } from "../../../../../services/datacontracts/ender/vector2";
 import { Sprite } from "../../sprite";
 import { resources } from "../../../helpers/resources";
-import { BASE, FLOOR, GameObject, GROUND, HUD } from "../../game-object";
+import { BASE, GameObject, HUD } from "../../game-object";
 import { Animations } from "../../../helpers/animations";
 import { FrameIndexPattern } from "../../../helpers/frame-index-pattern"; 
 import { events } from "../../../helpers/events";
