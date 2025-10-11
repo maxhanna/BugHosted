@@ -5,11 +5,8 @@ import { events } from "../helpers/events";
 import { Vector2 } from "../../../services/datacontracts/ender/vector2";
 import { MetaHero } from "../../../services/datacontracts/ender/meta-hero";
 import { InventoryItem } from "./InventoryItem/inventory-item";
-import { storyFlags, GOT_WATCH, GOT_FIRST_METABOT } from "../helpers/story-flags";
-import { StartMenu } from "./Menu/start-menu";
+import { storyFlags, GOT_WATCH } from "../helpers/story-flags";
 import { MetaBotPart } from "../../../services/datacontracts/ender/meta-bot-part";
-import { Character } from "./character";
-import { Exit } from "./Environment/Exit/exit";
 import { SpriteTextString } from "./SpriteTextString/sprite-text-string";
 import { ColorSwap } from "../../../services/datacontracts/ender/color-swap";
 export class Inventory extends GameObject {
@@ -17,7 +14,6 @@ export class Inventory extends GameObject {
   items: InventoryItem[] = []; 
   parts: MetaBotPart[] = [];
   currentlySelectedId?: number = undefined;
-  startMenu?: StartMenu;
   parentCharacter: MetaHero;
   partyMembers?: { heroId: number, name: string, color?: string }[] = [];
   inventoryRendered = false;
@@ -101,22 +97,7 @@ export class Inventory extends GameObject {
         }
         this.renderInventory();
       }
-    });
-
-    events.on("CLOSE_INVENTORY_MENU", this, (data: any) => {
-      this.closeStartMenu()
-    });
-
-    events.on("OPEN_START_MENU", this, (data: {exits : Exit[], location: Vector2}) => {
-      if (this.closeStartMenu()) return; 
-      this.children.forEach((child:any) => {
-        child.destroy();
-      });
-      this.startMenu = new StartMenu({ inventoryItems: this.items, metabotParts: this.parts, exits: data.exits, location: data.location });
-      this.addChild(this.startMenu);  
-      events.emit("HERO_MOVEMENT_LOCK"); 
-    });
-
+    }); 
 
     events.on("SPACEBAR_PRESSED", this, (data: any) => {
       if (this.getCurrentlySelectedItem().toLowerCase() == "watch") {
@@ -129,17 +110,7 @@ export class Inventory extends GameObject {
       this.preventDraw = false;
     });
   }
-
-  closeStartMenu() {
-    if (this.startMenu) {
-      this.removeChild(this.startMenu);
-      this.startMenu.destroy(); 
-      this.startMenu = undefined;
-      events.emit("HERO_MOVEMENT_UNLOCK");
-      this.renderParty();
-      return true;
-    } return false;
-  }
+ 
 
   getCurrentlySelectedItem() {
     return this.items.find(x => x.id == this.currentlySelectedId)?.name ?? "";
@@ -213,17 +184,13 @@ export class Inventory extends GameObject {
     }
     return itemsFoundNames;
   } 
-  override destroy() {
-    console.log("destroy  inv");
-    events.unsubscribe(this); 
-    this.startMenu?.destroy();
+  override destroy() { 
+    events.unsubscribe(this);  
     super.destroy();
-  }
-   
+  } 
 
   private updateStoryFlags(itemData: InventoryItem) {
     if (itemData.category === "watch" && !storyFlags.contains(GOT_WATCH)) { storyFlags.add(GOT_WATCH); }
-    else if (itemData.category === "botFrame" && !storyFlags.contains(GOT_FIRST_METABOT)) { storyFlags.add(GOT_FIRST_METABOT); } 
   }
 
   private deselectSelectedItem() {
