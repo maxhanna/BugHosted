@@ -155,6 +155,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
     }
   }
   onInView(isInView: boolean) {
+    this.debugLog("in view firing");
     if (!isInView && this.inViewConfirmTimer) {
       clearTimeout(this.inViewConfirmTimer);
       this.inViewConfirmTimer = null;
