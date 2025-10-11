@@ -313,7 +313,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
   }
   getFileLink(fileEntry?: FileEntry): string {
     const file = fileEntry ?? this.file ?? this.selectedFile;
-    return `https://bughosted.com/${file?.directory?.includes("Meme") ? 'Memes' : 'File'}/${file?.id}`;
+    return `${file?.directory?.includes("Meme") ? 'Memes' : 'File'}/${file?.id}`;
   }
   createUserProfileComponent(user?: User) {
     if (!user) { return alert("you must select a user!"); }

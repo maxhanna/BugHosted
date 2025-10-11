@@ -55,7 +55,7 @@
           <span class="notification">{{ selectedFile?.date | date: 'MMMM d, y h:mm a' }}</span>
         </div>
         <div class="filetype" *ngIf="displayExtraInfo || otherFileExtensionsIncludes(this.selectedFileExtension)">
-          <app-share-button *ngIf="displayExtraInfo" [inputtedParentRef]="inputtedParentRef" [link]="file?.directory?.includes('Meme') ? 'Memes' : 'File'"></app-share-button>
+          <app-share-button *ngIf="displayExtraInfo" [inputtedParentRef]="inputtedParentRef" [link]="getFileLink()"></app-share-button>
           <button (click)="download(selectedFile, true)"
             *ngIf="selectedFile && (displayExtraInfo || otherFileExtensionsIncludes(this.selectedFileExtension))"
             [title]="'Download ' + (selectedFile.givenFileName ?? selectedFile.fileName ?? '')">📥Download {{
