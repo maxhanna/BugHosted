@@ -65,7 +65,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
   @Input() displayControls: boolean = true;
   @Input() loop: boolean = true;
   @Input() muted: boolean = true;
-  @Input() forceInviewLoad: boolean = false;
+  @Input() forceInviewLoad: boolean = true;
   @Input() showTopics: boolean = true;
   @Input() showCommentSection: boolean = true;
   @Input() showCommentSectionHeader: boolean = true;
