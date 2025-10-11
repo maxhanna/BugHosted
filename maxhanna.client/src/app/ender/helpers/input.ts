@@ -55,8 +55,8 @@ export class Input {
   }
 
   onArrowPressed(direction: string) {
-    //console.log("on arrow pressed " + direction);
-    if (document.activeElement != this.chatInput) {
+  if (this.chatSelected) return;
+  if (document.activeElement != this.chatInput) {
       if (this.isAlwaysMoving) {
         this.heldDirections = [direction];
       } else {
@@ -89,6 +89,7 @@ export class Input {
         } else {
           chatInputElement.blur();
           this.chatSelected = false;
+          events.emit("FINISHED_TYPING");
         }
       }
       else if (chatInputElement.value != '') {
@@ -97,6 +98,7 @@ export class Input {
           chatInputElement.value = '';
           chatInputElement.blur();
           this.chatSelected = false;
+          events.emit("FINISHED_TYPING");
         }
         else {
           events.emit("STARTED_TYPING");
@@ -220,6 +222,7 @@ export class Input {
       this.pressA(sendChat);
       this.chatInput.blur();
       this.chatSelected = false;
+      events.emit("FINISHED_TYPING");
     } else {
       events.emit("START_PRESSED");
     }
@@ -229,12 +232,17 @@ export class Input {
       console.log("press backspace");
       this.chatInput.blur();
       this.chatSelected = false;
+      events.emit("FINISHED_TYPING");
     }
   }
 
   pressEscape() {
     this.chatInput.blur();
+    const wasTyping = this.chatSelected;
     this.chatSelected = false;
+    if (wasTyping) {
+      events.emit("FINISHED_TYPING");
+    }
     events.emit("START_PRESSED");
     events.emit("CLOSE_MENUS");
   }
@@ -243,6 +251,8 @@ export class Input {
     if (event) {
       event.preventDefault();
     }
+  // Block virtual joystick while typing
+  if (this.chatSelected) return;
     if (event?.type === 'touchcancel') {
       this.onArrowReleased(direction);
       return;
