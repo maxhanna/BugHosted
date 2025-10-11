@@ -5,42 +5,24 @@ import { MetaEvent } from "../../../services/datacontracts/meta/meta-event";
 import { MetaChat } from "../../../services/datacontracts/meta/meta-chat";
 import { MetaBotPart, LEFT_ARM, RIGHT_ARM, LEGS, HEAD } from "../../../services/datacontracts/meta/meta-bot-part";
 import { Vector2 } from "../../../services/datacontracts/meta/vector2";
-import { Bot } from "../objects/Bot/bot";
 import { GameObject } from "../objects/game-object";
 import { Level } from "../objects/Level/level";
 import { ShopMenu } from "../objects/Menu/shop-menu";
 import { WardrobeMenu } from "../objects/Menu/wardrobe-menu";
 import { gridCells } from "./grid-cells";
-import { isNearBikeWall } from "./fight";
 import { addBikeWallCell } from './bike-wall-index';
-import { Skill } from "./skill-types";
 import { InventoryItem } from "../objects/InventoryItem/inventory-item";
-import { MetaHero } from "../../../services/datacontracts/meta/meta-hero";
 import { Character } from "../objects/character";
-import { generateReward, setTargetToDestroyed } from "./fight";
-import { WarpBase } from "../objects/Effects/Warp/warp-base";
 import { BikeWall } from "../objects/Environment/bike-wall";
-import { Fire } from "../objects/Effects/Fire/fire";
-
 
 export class Network {
   constructor() {
   }
 }
 
-export let actionBlocker = false;
-export let encounterUpdates: Bot[] = [];
+export let actionBlocker = false; 
 export let batchInterval: any; 
-
-export function handleEncounterUpdate(bot: Bot) {
-  encounterUpdates.push(bot);
-}
-
-export function stopBatchUpdates() {
-  clearInterval(batchInterval);
-  encounterUpdates = [];
-}
-
+  
 export function setActionBlocker(duration: number) {
   actionBlocker = true;
   setTimeout(() => {
@@ -60,39 +42,7 @@ function safeStringify(obj: any) {
     return value;
   });
 }
-
-function sendBatchToBackend(bots: Bot[], object: any) {
-  if (bots.length === 0) return;
-
-  const uniqueBots = new Map<number, Bot>();
-  bots.forEach(bot => {
-    if (bot.id && bot.heroId && bot.destinationPosition && !bot.isWarping && bot.hp > 0) {
-      uniqueBots.set(bot.id, bot);
-    }
-  });
-
-  if (uniqueBots.size === 0) return;
-
-  const batchData = Array.from(uniqueBots.values()).map(bot => ({
-    botId: bot.id,
-    heroId: bot.heroId,
-    destinationX: bot.destinationPosition.x,
-    destinationY: bot.destinationPosition.y,
-  }));
-
-  const metaEvent = new MetaEvent(
-    0,
-    object.metaHero.id,
-    new Date(),
-    "UPDATE_ENCOUNTER_POSITION",
-    object.metaHero.level,
-    { batch: safeStringify(batchData) }
-  );
-
-  object.enderService.updateEvents(metaEvent).catch((error: any) => {
-    console.error("Failed to send batched encounter updates:", error);
-  });
-}
+ 
 export function subscribeToMainGameEvents(object: any) {
   events.on("CHANGE_LEVEL", object.mainScene, (level: Level) => {
     console.log("changing levels");
@@ -130,45 +80,13 @@ export function subscribeToMainGameEvents(object: any) {
         case "RIGHT":
           tmpBotPosition.x += gridCells(1); // Move bot to the left
           break;
-      }
-
-      setTimeout(() => {
-        const deployedBot = object.metaHero?.metabots?.find((x: MetaBot) => x.isDeployed && x.hp > 0);
-        if (deployedBot) {
-          deployedBot.position = tmpBotPosition;
-          deployedBot.destinationPosition = tmpBotPosition.duplicate();
-          deployedBot.lastPosition = tmpBotPosition.duplicate();
-          const levelBot = object.mainScene.level.children.find((x: Bot) => x.id === deployedBot.id);
-          if (levelBot) {
-            levelBot.position = tmpBotPosition;
-            levelBot.destinationPosition = tmpBotPosition.duplicate();
-            levelBot.lastPosition = tmpBotPosition.duplicate();
-          }
-
-          console.log("set deployedBot position to hero position", deployedBot.position, object.metaHero.position);
-        }
-      }, 25);
+      } 
     }
   });
 
   events.on("ALERT", object, async (message: string) => {
     object.parentRef?.showNotification(message);
-  });
-
-  events.on("WARDROBE_OPENED", object, () => {
-    if (actionBlocker) return;
-    events.emit("BLOCK_BACKGROUND_SELECTION");
-    object.blockOpenStartMenu = true;
-    object.mainScene?.inventory?.children?.forEach((x: any) => x.destroy());
-
-    const invItems = object.mainScene.inventory.items;
-    if (object.mainScene.level) {
-      //console.log(object.mainScene.level);
-      object.mainScene.setLevel(new WardrobeMenu({ entranceLevel: object.getLevelFromLevelName((object.mainScene.level.name ?? "HERO_ROOM")), heroPosition: object.metaHero.position, inventoryItems: invItems, hero: object.metaHero }));
-    }
-    object.stopPollingForUpdates = true;
-    setActionBlocker(50);
-  });
+  }); 
 
   events.on("MASK_EQUIPPED", object, (params: { maskId: number }) => {
     object.metaHero.mask = params.maskId === 0 ? undefined : params.maskId;
@@ -178,42 +96,7 @@ export function subscribeToMainGameEvents(object: any) {
     }
     object.updatePlayers();
   });
-
-  events.on("SHOP_OPENED", object, (params: { heroPosition: Vector2, entranceLevel: Level, items?: InventoryItem[] }) => {
-    if (!actionBlocker) {
-      events.emit("BLOCK_BACKGROUND_SELECTION");
-      object.blockOpenStartMenu = true;
-      object.isShopMenuOpened = true;
-      object.mainScene?.inventory?.children?.forEach((x: any) => x.destroy());
-      object.mainScene?.setLevel(new ShopMenu(params));
-      object.stopPollingForUpdates = true;
-      setActionBlocker(50);
-    }
-  });
-
-  events.on("SHOP_OPENED_TO_SELL", object, (params: { heroPosition: Vector2, entranceLevel: Level, items?: InventoryItem[] }) => {
-    events.emit("BLOCK_BACKGROUND_SELECTION");
-    let shopParts: InventoryItem[] = [];
-    let x = 0;
-    const parts = object.mainScene.inventory.parts.sort((x: MetaBotPart, y: MetaBotPart) => {
-      const xId = x.metabotId ?? 0;
-      const yId = y.metabotId ?? 0;
-      return xId - yId;
-    });
-    for (let part of parts) {
-      if (!part.metabotId) {
-        shopParts.push(new InventoryItem({ id: x++, name: `${part.partName} ${part.skill.name} ${part.damageMod}`, category: "MetaBotPart" }))
-      }
-    }
-    params.items = shopParts;
-    let config = { ...params, sellingMode: true };
-
-    object.blockOpenStartMenu = true;
-    object.isShopMenuOpened = true;
-    object.mainScene?.inventory?.children?.forEach((x: any) => x.destroy());
-    object.mainScene.setLevel(new ShopMenu(config));
-    object.stopPollingForUpdates = true;
-  });
+  
   events.on("WARDROBE_CLOSED", object, (params: { heroPosition: Vector2, entranceLevel: Level }) => {
     object.stopPollingForUpdates = false;
     object.blockOpenStartMenu = false;
@@ -225,62 +108,7 @@ export function subscribeToMainGameEvents(object: any) {
     events.emit("SHOW_START_BUTTON");
     events.emit("UNBLOCK_BACKGROUND_SELECTION");
   });
-  events.on("SHOP_CLOSED", object, (params: { heroPosition: Vector2, entranceLevel: Level }) => {
-    object.stopPollingForUpdates = false;
-    object.blockOpenStartMenu = false;
-    object.isShopMenuOpened = false;
-    object.mainScene?.inventory?.renderParty();
-    const newLevel = object.getLevelFromLevelName((params.entranceLevel.name ?? "HERO_ROOM"));
-    newLevel.defaultHeroPosition = params.heroPosition;
-    events.emit("CHANGE_LEVEL", newLevel);
-    events.emit("SHOW_START_BUTTON");
-    events.emit("UNBLOCK_BACKGROUND_SELECTION");
-  });
-  events.on("SELECTED_PART", object, (params: { selectedPart: string, selection: string, selectedMetabotId: number }) => {
-    const parts = object.mainScene.inventory.parts;
-    const skill = params.selection.split(/\d/)[0];
-    const dmg = params.selection.split(' ').slice(-2, -1)[0];
-    let targetPart = undefined;
-    for (let part of parts) {
-      if (part.skill.name.trim() === skill.trim() && part.damageMod === parseInt(dmg) && part.partName.trim() === params.selectedPart.trim()) {
-        targetPart = part;
-        break;
-      }
-    }
-    let oldPart = undefined;
-    const metabotSelected = object.metaHero.metabots.find((b: MetaBot) => b.id === params.selectedMetabotId);
 
-    if (metabotSelected && targetPart) {
-      targetPart.metabotId = params.selectedMetabotId;
-      if (targetPart.partName === LEFT_ARM) {
-        oldPart = metabotSelected.leftArm;
-        metabotSelected.leftArm = targetPart;
-      } else if (targetPart.partName === RIGHT_ARM) {
-        oldPart = metabotSelected.rightArm;
-        metabotSelected.rightArm = targetPart;
-      } else if (targetPart.partName === LEGS) {
-        oldPart = metabotSelected.legs;
-        metabotSelected.legs = targetPart;
-      } else if (targetPart.partName === HEAD) {
-        oldPart = metabotSelected.head;
-        metabotSelected.head = targetPart;
-      }
-
-      if (oldPart && oldPart.id == targetPart.id) {
-        return;
-      }
-
-      for (let invPart of parts) {
-        if (invPart.id != targetPart.id && invPart.partName === targetPart.partName && invPart.metabotId) {
-          object.enderService.unequipPart(invPart.id);
-          invPart.metabotId = undefined;
-        }
-      }
-      object.enderService.equipPart(targetPart.id, targetPart.metabotId);
-    }
-  });
-
- 
   events.on("CHARACTER_NAME_CREATED", object, (name: string) => {
     if (object.chatInput.nativeElement.placeholder === "Enter your name" && object.parentRef && object.parentRef.user && object.parentRef.user.id) {
       object.enderService.createHero(object.parentRef.user.id, name);
@@ -343,27 +171,23 @@ export function subscribeToMainGameEvents(object: any) {
     }
   });
     
- 
-  // Queue bike wall placements locally and send them with the next fetchGameData poll
   events.on("SPAWN_BIKE_WALL", object, (params: { x: number, y: number }) => {
     try {
       if (!object.pendingBikeWalls) object.pendingBikeWalls = [] as { x: number, y: number }[];
       object.pendingBikeWalls.push({ x: params.x, y: params.y });
     } catch (e) {
       // fallback to older behavior if something goes wrong
-  const metaEvent = new MetaEvent(0, object.metaHero.id, new Date(), "SPAWN_BIKE_WALL", object.metaHero.level, { x: params.x + "", y: params.y + "" });
+      const metaEvent = new MetaEvent(0, object.metaHero.id, new Date(), "SPAWN_BIKE_WALL", object.metaHero.level, { x: params.x + "", y: params.y + "" });
       object.enderService.updateEvents(metaEvent);
     }
   });
 
-  // When a bike wall is created, index it and check for heroes at or adjacent to that coordinate.
   events.on("BIKEWALL_CREATED", object, (params: { x: number, y: number }) => {
     try {
       if (!params || !object.mainScene || !object.mainScene.level) return;
       const { x, y } = params;
       addBikeWallCell(x, y);
       const heroes = object.mainScene.level.children.filter((c: any) => c && c.constructor && c.constructor.name === 'Hero');
-  // Do not perform client-side death detection. Server is authoritative and will emit HERO_DIED events.
     } catch (e) {
       console.error("BIKEWALL_CREATED handler failed", e);
     }

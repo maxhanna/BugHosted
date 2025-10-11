@@ -21,7 +21,6 @@ import { CharacterCreate } from './levels/character-create';
 import { Level } from './objects/Level/level';
 import { MetaEvent } from '../../services/datacontracts/ender/meta-event';
 import { InventoryItem } from './objects/InventoryItem/inventory-item';
-import { DroppedItem } from './objects/Environment/DroppedItem/dropped-item';
 import { ColorSwap } from '../../services/datacontracts/ender/color-swap';
 import { MetaBotPart } from '../../services/datacontracts/ender/meta-bot-part';
 import { Mask, getMaskNameById } from './objects/Wardrobe/mask';
@@ -426,25 +425,7 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
         this.mainScene.level?.addChild(tmpHero);
         //try { console.debug('[Ender][DEBUG] added tmpHero id=', tmpHero.id, 'childrenCount=', this.mainScene.level?.children?.length); } catch { }
         return tmpHero;
-    }
-
-    private addItemToScene(item: MetaBotPart, location: Vector2) {
-        const offsets = [
-            new Vector2(-gridCells(1), 0),
-            new Vector2(-gridCells(2), 0),
-            new Vector2(gridCells(1), 0),
-            new Vector2(gridCells(2), 0),
-            new Vector2(0, -gridCells(1)),
-            new Vector2(0, -gridCells(2)),
-            new Vector2(0, gridCells(1)),
-            new Vector2(0, gridCells(2)),
-            new Vector2(0, 0)
-        ]
-        const randomOffset = offsets[Math.floor(Math.random() * offsets.length)];
-        const newLocation = new Vector2(location.x + randomOffset.x, location.y + randomOffset.y);
-        const itemSkin = new DroppedItem({ position: newLocation, item: item });
-        this.mainScene.level?.addChild(itemSkin);
-    }
+    } 
 
     private setUpdatedHeroPosition(existingHero: any, hero: MetaHero) {
         if (existingHero.id != this.metaHero.id) {

@@ -3,21 +3,19 @@ import { MetaBot } from "../../../../services/datacontracts/meta/meta-bot";
 import { Character } from "../character";
 import { Sprite } from "../sprite";
 import { Mask } from "../Wardrobe/mask";
-import { DOWN, gridCells, isSpaceFree } from "../../helpers/grid-cells";
+import { DOWN, gridCells } from "../../helpers/grid-cells";
 import { Animations } from "../../helpers/animations";
-import { bodyAtSpace, isObjectNearby } from "../../helpers/move-towards";
+import { isObjectNearby } from "../../helpers/move-towards";
 import { resources } from "../../helpers/resources";
 import { FrameIndexPattern } from "../../helpers/frame-index-pattern";
 import { WALK_DOWN, WALK_UP, WALK_LEFT, WALK_RIGHT, STAND_DOWN, STAND_RIGHT, STAND_LEFT, STAND_UP, PICK_UP_DOWN } from "./hero-animations";
 import { ColorSwap } from "../../../../services/datacontracts/meta/color-swap";
 import { events } from "../../helpers/events";
-import { WarpBase } from "../Effects/Warp/warp-base";
 import { BikeWall } from "../Environment/bike-wall";
 import { addBikeWallCell } from "../../helpers/bike-wall-index";
 import { Fire } from "../Effects/Fire/fire";
 
-export class Hero extends Character {
-  metabots?: MetaBot[];
+export class Hero extends Character { 
   lastBikeWallSpawnPos?: Vector2;
   preventDestroyAnimation = false;
   constructor(params: {
@@ -68,8 +66,7 @@ export class Hero extends Character {
     this.mask = params.mask;
     this.itemPickupTime = 0;
     this.isOmittable = false;
-    this.scale = params.scale ?? new Vector2(1, 1);
-    this.metabots = params.metabots ?? [];
+    this.scale = params.scale ?? new Vector2(1, 1); 
     const shadow = new Sprite({
       resource: resources.images["shadow"],
       offsetY: 10,
@@ -111,54 +108,11 @@ export class Hero extends Character {
         else if (selectedItem === "Whisper") {
           events.emit("WHISPER_AT", isObjectNearby(this));
         }
-      });
-      events.on("CHANGE_LEVEL", this, () => {
-        const deployedBot = this.metabots?.find(x => x.isDeployed && x.hp > 0);
-        if (deployedBot) {
-          events.emit("CALL_BOT_BACK", { bot: deployedBot });
-          setTimeout(() => {
-            events.emit("DEPLOY", { metaHero: this, bot: deployedBot });
-          }, 2450);
-        }
-      });
+      }); 
       events.on("CLOSE_HERO_DIALOGUE", this, () => {
         this.isLocked = false;
         events.emit("END_TEXT_BOX");
-      });
-      events.on("WARP", this, (params: { x: string, y: string }) => {
-        console.log("warping ", params);
-        const warpPosition = new Vector2(gridCells(parseInt(params.x)), gridCells(parseInt(params.y)));
-        const spaceIsFreeForWarp = isSpaceFree(this.parent.walls, warpPosition.x, warpPosition.y);
-        const deployedBot = this.metabots?.find(x => x.isDeployed && x.hp > 0);
-        if (spaceIsFreeForWarp) {
-          events.emit("HERO_MOVEMENT_LOCK");
-          if (deployedBot) {
-            events.emit("CALL_BOT_BACK", { bot: deployedBot });
-          }
-          const warpBase = new WarpBase({ position: this.position, parentId: this.id, offsetX: -8, offsetY: 12 });
-          this.parent.addChild(warpBase);
-          setTimeout(() => {
-            events.emit("HERO_MOVEMENT_UNLOCK");
-            this.destinationPosition = warpPosition.duplicate();
-            this.position = this.destinationPosition.duplicate();
-            warpBase.destroy();
-            setTimeout(() => {
-              events.emit("HERO_MOVEMENT_LOCK");
-              if (deployedBot) {
-                events.emit("DEPLOY", { metaHero: this, bot: deployedBot });
-              }
-              const warpBase2 = new WarpBase({ position: this.position, parentId: this.id, offsetX: -8, offsetY: 12 });
-              this.parent.addChild(warpBase2);
-              setTimeout(() => {
-                warpBase2.destroy();
-                events.emit("HERO_MOVEMENT_UNLOCK");
-              }, 1300);
-            }, 15);
-          }, 1300);
-        } else {
-          events.emit("INVALID_WARP", this);
-        }
-      });
+      }); 
     }
   }
 
