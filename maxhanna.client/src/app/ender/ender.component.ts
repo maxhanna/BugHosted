@@ -120,12 +120,7 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
             this.isUserComponentOpen = true;
         } else {
             // prefetch champion info (non-blocking)
-            this.enderService.getGlobalBestScore?.().then((best: any) => {
-                if (best && (best.username || best.user_id)) {
-                    this.championName = best.username || ('User' + best.user_id);
-                    this.championScore = best.score ?? 0;
-                }
-            }).catch(()=>{});
+            
             // Preload user settings (default name/color) as early as possible so CharacterCreate can use them
             this.userService.getUserSettings(this.parentRef.user?.id ?? 0).then(res => {
                 this.cachedDefaultName = res?.lastCharacterName ?? undefined;
@@ -302,6 +297,12 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
                     this.wallsPlacedThisRun = myWallsCount;
                 } 
             } else {
+                await this.enderService.getGlobalBestScore().then((best: any) => {
+                    if (best && (best.username || best.user_id)) {
+                        this.championName = best.username || ('User' + best.user_id);
+                        this.championScore = best.score ?? 0;
+                    }
+                });
                 if (this.cachedDefaultName !== undefined || this.cachedDefaultColor !== undefined) {
                     this.mainScene.setLevel(new CharacterCreate({ defaultName: this.cachedDefaultName, defaultColor: this.cachedDefaultColor, championName: this.championName, championScore: this.championScore }));
                 } else {
