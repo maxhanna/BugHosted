@@ -172,6 +172,7 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
 
     private async handleHeroDeath() {
         // wait for fire animation to finish (same duration as Bot destroy uses ~1100ms)
+        this.stopPollingForUpdates = true;
         setTimeout(() => {
             this.showDeathPanel = true;
             // ensure other overlays closed
@@ -182,6 +183,8 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
     }
 
     restartGame() { 
+        this.stopPollingForUpdates = false;
+
         // In-place restart: destroy current scene and rebuild fresh without full page reload
         this.showDeathPanel = false;
         this.parentRef?.closeOverlay();
