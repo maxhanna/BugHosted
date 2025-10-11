@@ -147,6 +147,7 @@ export class Hero extends Character {
       const wallPos = this.lastBikeWallSpawnPos.duplicate();
       const wall = new BikeWall({ position: wallPos, colorSwap: this.colorSwap, heroId: this.id });
       this.parent?.addChild(wall);
+      console.log("Adding wall to scene for heroId:" + wall.heroId); 
       addBikeWallCell(wallPos.x, wallPos.y, this.id);
       events.emit("BIKEWALL_CREATED", { x: wallPos.x, y: wallPos.y });
       events.emit("SPAWN_BIKE_WALL", { x: wallPos.x, y: wallPos.y, heroId: this.id });
