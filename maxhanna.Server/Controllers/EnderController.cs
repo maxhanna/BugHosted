@@ -847,44 +847,37 @@ namespace maxhanna.Server.Controllers
         [HttpPost("/Ender/BestScore", Name = "Ender_BestScore")]
         public async Task<IActionResult> BestScore([FromBody] int dummy)
         {
-            using (var connection = new MySqlConnection(_connectionString))
+            try
             {
+                await using var connection = new MySqlConnection(_connectionString);
                 await connection.OpenAsync();
-                using (var transaction = connection.BeginTransaction())
+                const string sql = @"SELECT t.hero_id, t.user_id, t.score, t.level, IFNULL(t.kills,0) AS kills, u.username
+                                      FROM maxhanna.ender_top_scores t
+                                      LEFT JOIN users u ON u.id = t.user_id
+                                      ORDER BY t.score DESC LIMIT 1;";
+                Dictionary<string, object?>? row = null;
+                await using (var cmd = new MySqlCommand(sql, connection))
+                await using (var reader = await cmd.ExecuteReaderAsync(System.Data.CommandBehavior.SingleRow))
                 {
-                    try
+                    if (await reader.ReadAsync())
                     {
-                        string sql = @"SELECT t.hero_id, t.user_id, t.score, t.level, IFNULL(t.kills,0) AS kills, u.username
-                                        FROM maxhanna.ender_top_scores t
-                                        LEFT JOIN users u ON u.id = t.user_id
-                                        ORDER BY t.score DESC LIMIT 1;";
-                        Dictionary<string, object?>? resultRow = null;
-                        using (var cmd = new MySqlCommand(sql, connection, transaction))
+                        row = new Dictionary<string, object?>
                         {
-                            using (var reader = await cmd.ExecuteReaderAsync())
-                            {
-                                if (await reader.ReadAsync())
-                                {
-                                    var row = new Dictionary<string, object?>();
-                                    row["hero_id"] = reader.IsDBNull(reader.GetOrdinal("hero_id")) ? 0 : reader.GetInt32("hero_id");
-                                    row["user_id"] = reader.IsDBNull(reader.GetOrdinal("user_id")) ? 0 : reader.GetInt32("user_id");
-                                    row["score"] = reader.IsDBNull(reader.GetOrdinal("score")) ? 0 : reader.GetInt32("score");
-                                    row["level"] = reader.IsDBNull(reader.GetOrdinal("level")) ? 1 : reader.GetInt32("level");
-                                    row["kills"] = reader.IsDBNull(reader.GetOrdinal("kills")) ? 0 : reader.GetInt32("kills");
-                                    row["username"] = reader.IsDBNull(reader.GetOrdinal("username")) ? null : reader.GetString("username");
-                                    resultRow = row;
-                                }
-                            }
-                        }
-                        await transaction.CommitAsync();
-                        return Ok(resultRow);
-                    }
-                    catch (Exception ex)
-                    {
-                        await transaction.RollbackAsync();
-                        return StatusCode(500, "Internal server error: " + ex.Message);
+                            ["hero_id"] = reader.IsDBNull(reader.GetOrdinal("hero_id")) ? 0 : reader.GetInt32("hero_id"),
+                            ["user_id"] = reader.IsDBNull(reader.GetOrdinal("user_id")) ? 0 : reader.GetInt32("user_id"),
+                            ["score"] = reader.IsDBNull(reader.GetOrdinal("score")) ? 0 : reader.GetInt32("score"),
+                            ["level"] = reader.IsDBNull(reader.GetOrdinal("level")) ? 1 : reader.GetInt32("level"),
+                            ["kills"] = reader.IsDBNull(reader.GetOrdinal("kills")) ? 0 : reader.GetInt32("kills"),
+                            ["username"] = reader.IsDBNull(reader.GetOrdinal("username")) ? null : reader.GetString("username")
+                        };
                     }
                 }
+                return Ok(row);
+            }
+            catch (Exception ex)
+            {
+                await LogError("BestScore failed", ex);
+                return StatusCode(500, "Internal server error: " + ex.Message);
             }
         }
 
