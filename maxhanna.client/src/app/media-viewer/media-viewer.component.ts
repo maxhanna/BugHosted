@@ -171,13 +171,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
         this.pendingDelayedInView = true;
         this.inViewConfirmTimer = setTimeout(() => {
           this.inViewConfirmTimer = null;
-            this.pendingDelayedInView = false;
-            let stillVisible = this.isStillVisible();
-            if (!stillVisible) {
-              this.debugLog('onInView delayed check aborted (no longer visible)');
-              return;
-            }
-            this.debugLog('onInView delayed check passed - fetching');
+            this.pendingDelayedInView = false; 
             this.fetchFileSrc().then(() => this.applyPageTitleIfNeeded());
         }, this.inViewConfirmDelayMs);
         this.debugLog('onInView scheduled delayed fetch', { delay: this.inViewConfirmDelayMs });
