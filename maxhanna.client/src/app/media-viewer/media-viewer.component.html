@@ -288,7 +288,7 @@
         Share:
       </div>
       <div class="optionsStatsDescription">
-        <app-share-button *ngIf="displayExtraInfo" [inputtedParentRef]="inputtedParentRef" [link]="getFileLink(selectedFile)"></app-share-button>
+        <app-share-button [inputtedParentRef]="inputtedParentRef" [link]="getFileLink(selectedFile)"></app-share-button>
         <span *ngIf="!inputtedParentRef?.user?.id">You must be logged in.</span>
       </div>
     </div>
