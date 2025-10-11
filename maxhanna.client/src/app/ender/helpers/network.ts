@@ -370,7 +370,7 @@ export function actionMultiplayerEvents(object: any, metaEvents: MetaEvent[]) {
                 try {
                   const removedKeys = removeBikeWallsForHero(victimId);
                   if (removedKeys && removedKeys.length && object.mainScene && object.mainScene.level && object.mainScene.level.children) {
-                    const wallObjs = object.mainScene.level.children.filter((c: any) => c && c.id === victimId);
+                    const wallObjs = object.mainScene.level.children.filter((c: any) => c && c.heroId === victimId);
                     console.log(`deleting ${wallObjs.length} wall objects from ${removedKeys.length} removed keys`);
                     for (const wall of wallObjs) {
                       wall.destroy();
