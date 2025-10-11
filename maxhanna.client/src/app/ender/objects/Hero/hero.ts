@@ -145,7 +145,7 @@ export class Hero extends Character {
     if (dist >= gridCells(2)) {
       // spawn wall at the last spawn position (behind the bike)
       const wallPos = this.lastBikeWallSpawnPos.duplicate();
-      const wall = new BikeWall({ position: wallPos, colorSwap: this.colorSwap });
+      const wall = new BikeWall({ position: wallPos, colorSwap: this.colorSwap, heroId: this.id });
       this.parent?.addChild(wall);
       addBikeWallCell(wallPos.x, wallPos.y, this.id);
       events.emit("BIKEWALL_CREATED", { x: wallPos.x, y: wallPos.y });

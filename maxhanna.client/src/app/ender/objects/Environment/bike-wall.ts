@@ -7,8 +7,9 @@ import { ColorSwap } from "../../../../services/datacontracts/meta/color-swap";
 import { Fire } from "../Effects/Fire/fire";
 
 export class BikeWall extends GameObject {
-  constructor(params: { position: Vector2, colorSwap?: ColorSwap }) {
-    const pos = new Vector2(snapToGrid(params.position.x), snapToGrid(params.position.y));
+  heroId: number;
+  constructor(params: { position: Vector2, colorSwap?: ColorSwap, heroId: number }) {
+    const pos = new Vector2(snapToGrid(params.position.x), snapToGrid(params.position.y),);
     super({
       position: pos,
       drawLayer: FLOOR,
@@ -17,7 +18,7 @@ export class BikeWall extends GameObject {
       name: "bike-wall",
       colorSwap: params.colorSwap
     });
-
+    this.heroId = params.heroId;
     // keep a reference to colorSwap on the GameObject for any child elements
     if (params.colorSwap) this.colorSwap = params.colorSwap;
 

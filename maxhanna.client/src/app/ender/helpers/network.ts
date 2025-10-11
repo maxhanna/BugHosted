@@ -274,8 +274,7 @@ export function subscribeToMainGameEvents(object: any) {
     console.log("reset party member ids");
     object.reinitializeInventoryData();
   });
-  events.on("CHARACTER_PICKS_UP_ITEM", object, (data:
-    {
+  events.on("CHARACTER_PICKS_UP_ITEM", object, (data: {
       position: Vector2,
       hero: Hero,
       name: string,
@@ -292,13 +291,13 @@ export function subscribeToMainGameEvents(object: any) {
         object.enderService.updateBotParts(object.metaHero.id, [data.item]);
         object.mainScene.inventory.parts.concat(data.item);
 
-  const metaEvent = new MetaEvent(0, object.metaHero.id, new Date(), "ITEM_DESTROYED", object.metaHero.level,
-          {
-            "position": `${safeStringify(data.position)}`,
-            "damage": `${data.item?.damageMod}`,
-            "partName": `${data.item?.partName}`,
-            "skill": `${data.item?.skill?.name}`
-          });
+        const metaEvent = new MetaEvent(0, object.metaHero.id, new Date(), "ITEM_DESTROYED", object.metaHero.level,
+        {
+          "position": `${safeStringify(data.position)}`,
+          "damage": `${data.item?.damageMod}`,
+          "partName": `${data.item?.partName}`,
+          "skill": `${data.item?.skill?.name}`
+        });
         object.enderService.updateEvents(metaEvent);
       }
       setActionBlocker(500);
@@ -355,7 +354,7 @@ export function actionMultiplayerEvents(object: any, metaEvents: MetaEvent[]) {
 
             if (evLevel != null && myLevel != null && victimId != null && (evLevel === myLevel || String(evLevel) === String(myLevel))) {
               if (object.mainScene && object.mainScene.level && object.mainScene.level.children) {
-                const found = object.mainScene.level.children.find((c: any) => c && c.id === victimId);
+                const found = object.mainScene.level.children.find((c: any) => c && c.id === victimId && c.name != "bike-wall");
                 if (found) {
                   try {
                     found.destroy();
@@ -371,20 +370,10 @@ export function actionMultiplayerEvents(object: any, metaEvents: MetaEvent[]) {
                 try {
                   const removedKeys = removeBikeWallsForHero(victimId);
                   if (removedKeys && removedKeys.length && object.mainScene && object.mainScene.level && object.mainScene.level.children) {
-                    for (const key of removedKeys) {
-                      const parts = key.split('|');
-                      if (parts.length === 2) {
-                        const x = parseInt(parts[0]);
-                        const y = parseInt(parts[1]);
-                        const wallObj = object.mainScene.level.children.find((c: any) => c && c.position && c.position.x === x && c.position.y === y);
-
-                        console.log("destroying wall ", x, y, wallObj);
-                        if (wallObj) {
-                          wallObj.destroy();
-                        } else {
-                          console.log("could not find wall", x,y);
-                        }
-                      }
+                    const wallObjs = object.mainScene.level.children.filter((c: any) => c && c.id === victimId);
+                    console.log(`deleting ${wallObjs.length} wall objects`);
+                    for (const wall of wallObjs) {
+                      wall.destroy();
                     }
                   }
                 } catch (e) {
@@ -404,7 +393,7 @@ export function actionMultiplayerEvents(object: any, metaEvents: MetaEvent[]) {
             const exists = object.mainScene.level.children.some((c: any) => c.name === 'bike-wall' && c.position && c.position.x === x && c.position.y === y);
             if (!exists) {
               const useColor = event.heroId === object.metaHero.id ? object.metaHero?.colorSwap : undefined;
-              const wall = new BikeWall({ position: new Vector2(x, y), colorSwap: useColor });
+              const wall = new BikeWall({ position: new Vector2(x, y), colorSwap: useColor, heroId: event.heroId });
               object.mainScene.level.addChild(wall);
               addBikeWallCell(x, y, event.heroId);  
               events.emit("BIKEWALL_CREATED", { x, y });  
