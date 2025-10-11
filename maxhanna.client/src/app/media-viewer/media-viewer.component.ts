@@ -193,9 +193,8 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
   private isStillVisible() {
     const el = this.mediaContainer?.nativeElement as HTMLElement | undefined;
     let stillVisible = false;
-    if (el) {
-      const r = el.getBoundingClientRect();
-      stillVisible = r.top < window.innerHeight && r.bottom > 0;
+    if (el) { 
+      stillVisible = true;
     }
     return stillVisible;
   }
