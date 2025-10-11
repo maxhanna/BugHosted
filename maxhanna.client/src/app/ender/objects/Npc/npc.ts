@@ -5,8 +5,7 @@ import { Scenario } from "../../helpers/story-flags";
 import { DOWN, LEFT, RIGHT, UP, gridCells, snapToGrid } from "../../helpers/grid-cells";
 import { MetaBot } from "../../../../services/datacontracts/meta/meta-bot";
 import { resources } from "../../helpers/resources";
-import { ColorSwap } from "../../../../services/datacontracts/meta/color-swap";
-import { Bot } from "../Bot/bot";
+import { ColorSwap } from "../../../../services/datacontracts/meta/color-swap"; 
 
 export class Npc extends Character {
 	metabots: MetaBot[];
@@ -73,31 +72,6 @@ export class Npc extends Character {
 
 		if (this.moveUpDown || this.moveLeftRight) {
 			this.randomMove();
-		}
- 
-		for (let i = 0; i < this.metabots.length; i++) {
-			if (this.metabots[i].isDeployed == true) {
-				const bot = this.metabots[i];
-				const tmpBot = new Bot({
-					id: bot.id,
-					heroId: this.id,
-					botType: bot.type,
-					name: bot.name ?? "Bot",
-					position: new Vector2(snapToGrid(this.position.x + gridCells(1), gridCells(1)), snapToGrid(this.position.y + gridCells(1), gridCells(1))),
-					colorSwap: this.colorSwap,
-					isDeployed: true,
-					isEnemy: true,
-					hp: bot.hp,
-					exp: bot.exp,
-					expForNextLevel: bot.expForNextLevel,
-					level: bot.level,
-					leftArm: bot.leftArm,
-					rightArm: bot.rightArm,
-					head: bot.head,
-					legs: bot.legs,
-				});
-				this.parent.addChild(tmpBot);
-			}
 		} 
 	}
 
