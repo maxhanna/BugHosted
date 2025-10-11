@@ -377,9 +377,8 @@ export function actionMultiplayerEvents(object: any, metaEvents: MetaEvent[]) {
                         const x = parseInt(parts[0]);
                         const y = parseInt(parts[1]);
                         console.log("destroying wall ", x, y);
-                        const wallObjIndex = object.mainScene.level.children.findIndex((c: any) => c && c.name === 'bike-wall' && c.position && c.position.x === x && c.position.y === y);
-                        if (wallObjIndex >= 0) { 
-                          const wallObj = object.mainScene.level.children[wallObjIndex];
+                        const wallObj = object.mainScene.level.children.first((c: any) => c && c.name === 'bike-wall' && c.position && c.position.x === x && c.position.y === y);
+                        if (wallObj && wallObj instanceof BikeWall) {
 ;                          wallObj.destroy(); 
                         } else {
                           console.log("could not find wall", x,y);
