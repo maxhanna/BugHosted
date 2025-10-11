@@ -844,6 +844,48 @@ namespace maxhanna.Server.Controllers
             }
         }
 
+        [HttpPost("/Ender/BestScore", Name = "Ender_BestScore")]
+        public async Task<IActionResult> BestScore([FromBody] int dummy)
+        {
+            using (var connection = new MySqlConnection(_connectionString))
+            {
+                await connection.OpenAsync();
+                using (var transaction = connection.BeginTransaction())
+                {
+                    try
+                    {
+                        string sql = @"SELECT t.hero_id, t.user_id, t.score, t.level, IFNULL(t.kills,0) AS kills, u.username
+                                        FROM maxhanna.ender_top_scores t
+                                        LEFT JOIN users u ON u.id = t.user_id
+                                        ORDER BY t.score DESC LIMIT 1;";
+                        using (var cmd = new MySqlCommand(sql, connection, transaction))
+                        using (var reader = await cmd.ExecuteReaderAsync())
+                        {
+                            if (await reader.ReadAsync())
+                            {
+                                var row = new Dictionary<string, object?>();
+                                row["hero_id"] = reader.IsDBNull(reader.GetOrdinal("hero_id")) ? 0 : reader.GetInt32("hero_id");
+                                row["user_id"] = reader.IsDBNull(reader.GetOrdinal("user_id")) ? 0 : reader.GetInt32("user_id");
+                                row["score"] = reader.IsDBNull(reader.GetOrdinal("score")) ? 0 : reader.GetInt32("score");
+                                row["level"] = reader.IsDBNull(reader.GetOrdinal("level")) ? 1 : reader.GetInt32("level");
+                                row["kills"] = reader.IsDBNull(reader.GetOrdinal("kills")) ? 0 : reader.GetInt32("kills");
+                                row["username"] = reader.IsDBNull(reader.GetOrdinal("username")) ? null : reader.GetString("username");
+                                await transaction.CommitAsync();
+                                return Ok(row);
+                            }
+                        }
+                        await transaction.CommitAsync();
+                        return Ok(null);
+                    }
+                    catch (Exception ex)
+                    {
+                        await transaction.RollbackAsync();
+                        return StatusCode(500, "Internal server error: " + ex.Message);
+                    }
+                }
+            }
+        }
+
         [HttpPost("/Ender/BestForUser", Name = "Ender_BestForUser")]
         public async Task<IActionResult> BestForUser([FromBody] int userId)
         {

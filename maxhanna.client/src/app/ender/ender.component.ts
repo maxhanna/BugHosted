@@ -106,6 +106,9 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
     private pendingWallsBatch: { x: number, y: number }[] = [];
     // In-memory map of heroId -> color string for applying color swaps to bike walls
     private heroColors: Map<number, string> = new Map<number, string>();
+    // Champion (global best) info cached for CharacterCreate prompts
+    private championName?: string;
+    private championScore?: number;
 
     async ngOnInit() {
         this.serverDown = (this.parentRef ? await this.parentRef?.isServerUp() <= 0 : false);
@@ -116,6 +119,13 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
         if (!this.parentRef?.user) {
             this.isUserComponentOpen = true;
         } else {
+            // prefetch champion info (non-blocking)
+            this.enderService.getGlobalBestScore?.().then((best: any) => {
+                if (best && (best.username || best.user_id)) {
+                    this.championName = best.username || ('User' + best.user_id);
+                    this.championScore = best.score ?? 0;
+                }
+            }).catch(()=>{});
             // Preload user settings (default name/color) as early as possible so CharacterCreate can use them
             this.userService.getUserSettings(this.parentRef.user?.id ?? 0).then(res => {
                 this.cachedDefaultName = res?.lastCharacterName ?? undefined;
@@ -290,14 +300,14 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
                 } 
             } else {
                 if (this.cachedDefaultName !== undefined || this.cachedDefaultColor !== undefined) {
-                    this.mainScene.setLevel(new CharacterCreate({ defaultName: this.cachedDefaultName, defaultColor: this.cachedDefaultColor }));
+                    this.mainScene.setLevel(new CharacterCreate({ defaultName: this.cachedDefaultName, defaultColor: this.cachedDefaultColor, championName: this.championName, championScore: this.championScore }));
                 } else {
                     this.userService.getUserSettings(this.parentRef?.user?.id ?? 0).then(res => {
                         const defaultName = res?.lastCharacterName ?? undefined;
                         const defaultColor = res?.lastCharacterColor ?? undefined;
-                        this.mainScene.setLevel(new CharacterCreate({ defaultName, defaultColor }));
+                        this.mainScene.setLevel(new CharacterCreate({ defaultName, defaultColor, championName: this.championName, championScore: this.championScore }));
                     }).catch(() => {
-                        this.mainScene.setLevel(new CharacterCreate());
+                        this.mainScene.setLevel(new CharacterCreate({ championName: this.championName, championScore: this.championScore }));
                     });
                 }
                 return;

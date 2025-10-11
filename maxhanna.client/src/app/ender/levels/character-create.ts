@@ -56,7 +56,7 @@ export class CharacterCreate extends Level {
     "wang", "wank", "wanker", "wanky", "whoar", "whore", "willies", "xrated", "xxx", "suck"];
   override defaultHeroPosition = new Vector2(gridCells(1), gridCells(1));
   defaultColor: string | undefined = undefined;
-  constructor(params: { heroPosition?: Vector2, defaultName?: string, defaultColor?: string } = {}) {
+  constructor(params: { heroPosition?: Vector2, defaultName?: string, defaultColor?: string, championName?: string, championScore?: number } = {}) {
     super();
     console.log("new char create");
     this.name = "CharacterCreate";
@@ -84,7 +84,7 @@ export class CharacterCreate extends Level {
       } as Scenario,
       // Name prompt (appears once flag 4 obtained)
       {
-        string: ["State your handle."],
+        string: [ params.championName ? `State your handle. Current Grid leader: ${params.championName} (${params.championScore ?? 0})` : "State your handle."],
         requires: [CHARACTER_CREATE_STORY_TEXT_4],
         addsFlag: CHARACTER_CREATE_STORY_TEXT_5,
       } as Scenario,

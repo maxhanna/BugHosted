@@ -101,4 +101,7 @@ export class EnderService {
   async getBestScoreForUser(userId: number) {
     return this.fetchData('/ender/bestforuser', userId);
   }
+  async getGlobalBestScore() {
+    return this.fetchData('/ender/bestscore', 0);
+  }
 }
