@@ -17,8 +17,8 @@ body {
 }
 
 .componentMain {
-  width: CALC(100vw - 3px) !important;
-  height: CALC(var(--vh, 1vh) * 100 - 58px);
+  width: calc(100vw - 3px) !important;
+  height: calc(var(--vh, 1vh) * 100 - 58px);
   overflow: hidden;
   user-select: none;
   display: flex;
@@ -32,7 +32,7 @@ body {
   display: block;
   background-color: black;
   width: 100%;
-  max-width: CALC(var(--vh, 1vh) * 100 * (1024 / 910));
+  max-width: calc(var(--vh, 1vh) * 100 * (1024 / 910));
   margin-left: auto;
   margin-right: auto;
 }
@@ -51,7 +51,7 @@ body {
 }
 
 .colorInput {
-  width: calc(100% -30px);
+  width: calc(100% - 30px);
 }
 
 .inputArea {
