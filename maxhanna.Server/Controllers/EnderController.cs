@@ -225,8 +225,8 @@ namespace maxhanna.Server.Controllers
                             _ = _log.Db("Bike wall collision sweep failed: " + ex.Message, null, "ENDER", true);
                         }
 
-                        var recentWalls = await GetRecentBikeWalls(hero.Level, connection, transaction);
-
+                        List<MetaBikeWall> recentWalls = await GetRecentBikeWalls(hero.Level, connection, transaction);
+                        Console.WriteLine($"Found {recentWalls.Count} recent bike walls");
                         await transaction.CommitAsync();
                         return Ok(new
                         {
@@ -468,16 +468,9 @@ namespace maxhanna.Server.Controllers
                         // Delete hero and related rows (inventory, bots, events)
                         string deleteInventory = "DELETE FROM maxhanna.ender_hero_inventory WHERE ender_hero_id = @HeroId;";
                         await ExecuteInsertOrUpdateOrDeleteAsync(deleteInventory, new Dictionary<string, object?>() { { "@HeroId", req.HeroId } }, connection, transaction);
-
-                        string deleteBots = "DELETE FROM maxhanna.ender_bot WHERE hero_id = @HeroId;";
-                        await ExecuteInsertOrUpdateOrDeleteAsync(deleteBots, new Dictionary<string, object?>() { { "@HeroId", req.HeroId } }, connection, transaction);
-
-                        string deleteWalls = "DELETE FROM maxhanna.ender_bike_wall WHERE hero_id = @HeroId;";
-                        await ExecuteInsertOrUpdateOrDeleteAsync(deleteWalls, new Dictionary<string, object?>() { { "@HeroId", req.HeroId } }, connection, transaction);
-
+  
                         string deleteHero = "DELETE FROM maxhanna.ender_hero WHERE id = @HeroId LIMIT 1;";
                         await ExecuteInsertOrUpdateOrDeleteAsync(deleteHero, new Dictionary<string, object?>() { { "@HeroId", req.HeroId } }, connection, transaction);
-
                         
                         await transaction.CommitAsync();
                         return Ok();
@@ -1580,66 +1573,7 @@ namespace maxhanna.Server.Controllers
                 } 
             } 
         } 
-
-        private async Task<List<int>> PersistWallAndGetNearby(int heroId, int level, int x, int y, MySqlConnection connection, MySqlTransaction transaction)
-        {
-            int proximity = 64; // pixels (2 grid cells)
-            int xmin = x - proximity;
-            int xmax = x + proximity;
-            int ymin = y - proximity;
-            int ymax = y + proximity;
-
-            string combinedSql = @"
-            UPDATE maxhanna.ender_hero
-            SET coordsX = @X, coordsY = @Y, level = @Level
-            WHERE id = @HeroId LIMIT 1;
-
-            INSERT INTO maxhanna.ender_bike_wall (hero_id, x, y, level)
-            VALUES (@HeroId, @X, @Y, @Level);
-
-            SELECT id FROM maxhanna.ender_hero
-            WHERE level = (SELECT level FROM maxhanna.ender_hero WHERE id = @HeroId LIMIT 1)
-                AND coordsX BETWEEN @Xmin AND @Xmax
-                AND coordsY BETWEEN @Ymin AND @Ymax;";
-
-            try
-            {
-                using (var cmd = new MySqlCommand(combinedSql, connection, transaction))
-                {
-                    cmd.Parameters.AddWithValue("@HeroId", heroId); 
-                    cmd.Parameters.AddWithValue("@X", x);
-                    cmd.Parameters.AddWithValue("@Y", y);
-                    cmd.Parameters.AddWithValue("@Xmin", xmin);
-                    cmd.Parameters.AddWithValue("@Xmax", xmax);
-                    cmd.Parameters.AddWithValue("@Ymin", ymin);
-                    cmd.Parameters.AddWithValue("@Ymax", ymax);
-
-                    var nearby = new List<int>();
-                    using (var reader = await cmd.ExecuteReaderAsync())
-                    {
-                        // iterate through result sets until we hit the SELECT that returns rows
-                        do
-                        {
-                            if (reader.HasRows)
-                            {
-                                while (await reader.ReadAsync())
-                                {
-                                    nearby.Add(Convert.ToInt32(reader[0]));
-                                }
-                            }
-                        } while (await reader.NextResultAsync());
-                    }
-
-                    return nearby;
-                }
-            }
-            catch (Exception ex)
-            {
-                await LogError($"PersistWallAndGetNearby failed for heroId={heroId} x={x} y={y}", ex, heroId);
-                return new List<int>();
-            }
-        }
-
+ 
         private async Task<List<MetaBikeWall>> GetBikeWalls(int level, MySqlConnection connection, MySqlTransaction transaction,  int lastKnownWallId = 0)
         {
             var walls = new List<MetaBikeWall>();
@@ -1796,7 +1730,6 @@ namespace maxhanna.Server.Controllers
             }
         }
 
-        // Authoritative kill helper used by server-side checks (does not rely on client-supplied time/walls)
         private async Task KillHeroById(int heroId, MySqlConnection connection, MySqlTransaction transaction, int? killerHeroId = null)
         {
             try
@@ -1869,8 +1802,6 @@ namespace maxhanna.Server.Controllers
 
                 // remove hero data
                 await ExecuteInsertOrUpdateOrDeleteAsync("DELETE FROM maxhanna.ender_hero_inventory WHERE ender_hero_id = @HeroId;", new Dictionary<string, object?>() { { "@HeroId", heroId } }, connection, transaction);
-                await ExecuteInsertOrUpdateOrDeleteAsync("DELETE FROM maxhanna.ender_bot WHERE hero_id = @HeroId;", new Dictionary<string, object?>() { { "@HeroId", heroId } }, connection, transaction);
-                await ExecuteInsertOrUpdateOrDeleteAsync("DELETE FROM maxhanna.ender_bike_wall WHERE hero_id = @HeroId;", new Dictionary<string, object?>() { { "@HeroId", heroId } }, connection, transaction);
                 await ExecuteInsertOrUpdateOrDeleteAsync("DELETE FROM maxhanna.ender_hero WHERE id = @HeroId LIMIT 1;", new Dictionary<string, object?>() { { "@HeroId", heroId } }, connection, transaction);
             }
             catch (Exception ex)
@@ -1879,76 +1810,7 @@ namespace maxhanna.Server.Controllers
                 throw;
             }
         }
-
-        private async Task UpdateEncounterPositionBatch(List<EncounterPositionUpdate> updates, MySqlConnection connection, MySqlTransaction transaction)
-        {
-            try
-            {
-                var sql = new StringBuilder();
-                var parameters = new Dictionary<string, object?>();
-                int paramIndex = 0;
-
-                foreach (var update in updates)
-                {
-                    sql.AppendLine($@"
-                        UPDATE maxhanna.ender_encounter
-                        SET coordsX = @coordsX_{paramIndex}, coordsY = @coordsY_{paramIndex}
-                        WHERE hero_id = @heroId_{paramIndex} LIMIT 1;
-                    ");
-
-                    parameters.Add($"@heroId_{paramIndex}", update.HeroId);
-                    parameters.Add($"@coordsX_{paramIndex}", update.DestinationX);
-                    parameters.Add($"@coordsY_{paramIndex}", update.DestinationY);
-                    paramIndex++;
-                }
-
-                if (sql.Length > 0)
-                {
-                    try
-                    {
-                        await ExecuteInsertOrUpdateOrDeleteAsync(sql.ToString(), parameters, connection, transaction);
-                        //_ = _log.Db($"Updated {updates.Count} encounter positions in batch", null, "META", true);
-                    }
-                    catch (Exception ex)
-                    {
-                        // If you want to debug individual updates, do it here:
-                        _ = _log.Db("Batch update failed. Attempting individual updates for debugging... " + ex.Message, null, "ENDER", true);
-
-                        foreach (var update in updates)
-                        {
-                            try
-                            {
-                                const string singleUpdateSql = @"
-                                    UPDATE maxhanna.ender_encounter
-                                    SET coordsX = @coordsX, coordsY = @coordsY
-                                    WHERE hero_id = @heroId LIMIT 1;
-                                ";
-
-                                var singleParams = new Dictionary<string, object?>
-                                {
-                                    { "@heroId", update.HeroId },
-                                    { "@coordsX", update.DestinationX },
-                                    { "@coordsY", update.DestinationY }
-                                };
-
-                                await ExecuteInsertOrUpdateOrDeleteAsync(singleUpdateSql, singleParams, connection, transaction);
-                                _ = _log.Db($"Successfully updated hero_id {update.HeroId}", null, "ENDER", true);
-                            }
-                            catch (Exception innerEx)
-                            {
-                                _ = _log.Db($"Failed to update hero_id {update.HeroId}: {innerEx.Message}", null, "ENDER", true);
-                            }
-                        }
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                _ = _log.Db($"Error updating batch encounter positions: {ex.Message}", null, "ENDER", true);
-                throw;
-            }
-        }
-        private async Task UpdateMetaHeroParty(List<int>? partyData, MySqlConnection connection, MySqlTransaction transaction)
+         private async Task UpdateMetaHeroParty(List<int>? partyData, MySqlConnection connection, MySqlTransaction transaction)
         {
             try
             {
@@ -2021,37 +1883,7 @@ namespace maxhanna.Server.Controllers
                 await _log.Db($"Unexpected error while updating party for PARTY_INVITE_ACCEPTED: {ex.Message}", null, "ENDER", true);
                 throw; // Re-throw to allow transaction rollback
             }
-        }
-
-        private async Task Unparty(int heroId, MySqlConnection connection, MySqlTransaction transaction)
-        {
-            try
-            {
-                const string deleteQuery = @"
-                    DELETE FROM ender_hero_party 
-                    WHERE ender_hero_id_1 IN (@heroId) OR ender_hero_id_2 IN (@heroId)";
-
-                using (var deleteCommand = new MySqlCommand(deleteQuery, connection, transaction))
-                {
-                    deleteCommand.Parameters.AddWithValue("@heroId", heroId);
-                    await deleteCommand.ExecuteNonQueryAsync();
-                }
-
-                // Log success
-                await _log.Db($"Successfully updated party with {heroId}", null, "ENDER", false);
-            }
-            catch (MySqlException ex)
-            {
-                await _log.Db($"Database error while updating party for heroId {heroId}: {ex.Message}", null, "ENDER", true);
-                throw; // Re-throw to allow transaction rollback
-            }
-            catch (Exception ex)
-            {
-                await _log.Db($"Unexpected error while updating party for heroId {heroId}: {ex.Message}", null, "ENDER", true);
-                throw; // Re-throw to allow transaction rollback
-            }
-        }
-
+        }  
         private async Task<long?> ExecuteInsertOrUpdateOrDeleteAsync(string sql, Dictionary<string, object?> parameters, MySqlConnection? connection = null, MySqlTransaction? transaction = null)
         {
             string cmdText = "";
