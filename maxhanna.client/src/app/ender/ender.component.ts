@@ -253,7 +253,7 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
 
     private async setHeroColors() {
         let heroes = undefined;
-        if (this.otherHeroes) {
+        if (this.otherHeroes && this.otherHeroes.length > 0) {
             heroes = this.otherHeroes;
         } else {
             const recentData = await this.enderService.fetchGameDataWithWalls(this.metaHero, undefined, undefined);
@@ -315,9 +315,8 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
                                 } 
                             }
                         }
-                        for (const w of walls) {
-                            // Add only new walls (server already filtered by id > lastKnownWallId)
-                            const ownerId = (typeof w.heroId === 'number') ? w.heroId : Number(w.heroId);
+                        for (const w of walls) { 
+                            const ownerId = w.heroId;
                             const ownerColor = (ownerId && this.heroColors.has(ownerId)) ? this.heroColors.get(ownerId) : undefined;
                             const colorSwap = ownerColor ? new ColorSwap([0, 160, 200], hexToRgb(ownerColor!)) : (ownerId === this.metaHero.id ? (this.metaHero ? this.mainScene.metaHero?.colorSwap : undefined) : undefined);
                             const wall = new BikeWall({ position: new Vector2(w.x, w.y), colorSwap });
