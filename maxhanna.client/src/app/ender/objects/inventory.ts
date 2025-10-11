@@ -6,13 +6,11 @@ import { Vector2 } from "../../../services/datacontracts/ender/vector2";
 import { MetaHero } from "../../../services/datacontracts/ender/meta-hero";
 import { InventoryItem } from "./InventoryItem/inventory-item";
 import { storyFlags, GOT_WATCH } from "../helpers/story-flags";
-import { MetaBotPart } from "../../../services/datacontracts/ender/meta-bot-part";
 import { SpriteTextString } from "./SpriteTextString/sprite-text-string";
 import { ColorSwap } from "../../../services/datacontracts/ender/color-swap";
 export class Inventory extends GameObject {
   nextId: number = parseInt((Math.random() * 19999).toFixed(0));
   items: InventoryItem[] = []; 
-  parts: MetaBotPart[] = [];
   currentlySelectedId?: number = undefined;
   parentCharacter: MetaHero;
   partyMembers?: { heroId: number, name: string, color?: string }[] = [];
@@ -22,8 +20,7 @@ export class Inventory extends GameObject {
     this.drawLayer = HUD;
     this.items = [];
     this.parentCharacter = config.character;
-    this.partyMembers = config.partyMembers;
-     
+    this.partyMembers = config.partyMembers; 
     this.renderParty();  
   }
 
