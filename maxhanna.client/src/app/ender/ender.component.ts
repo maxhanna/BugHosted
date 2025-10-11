@@ -537,15 +537,12 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
             rz.level ?? 1,
             rz.kills ?? 0,
             rz.created ?? undefined);
-        // ensure local hero color is available for wall rendering
-        if (this.metaHero && this.metaHero.id && colorSwap) {
-            try {
-                // Extract hex color from the provided colorSwap target if possible
-                // We store the original color (rz.color or cachedDefaultColor) instead for simplicity
-                const colHex = colorSwap as any as string ?? (rz.color ?? this.cachedDefaultColor ?? undefined);
-                if (colHex) this.heroColors.set(this.metaHero.id, colHex);
-            } catch { }
+
+        if (this.metaHero && this.metaHero.id && colorSwap) { 
+            const colHex = colorSwap ?? (rz.color ?? this.cachedDefaultColor ?? undefined);
+            if (colHex) this.heroColors.set(this.metaHero.id, colHex); 
         }
+
         this.mainScene.setHeroId(this.metaHero.id);
         this.mainScene.hero = this.hero;
         this.mainScene.metaHero = this.metaHero;
@@ -689,31 +686,19 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
         const newColor = this.colorInput.nativeElement.value;
         this.metaHero.color = newColor;
         // Immediately update current hero's color swap if exists (no full rebuild flicker)
-        if (this.hero && (this.hero as any).colorSwap) {
-            try {
-                const hex = newColor;
-                const toRgb = (h: string) => {
-                    const m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(h);
-                    return m ? [parseInt(m[1], 16), parseInt(m[2], 16), parseInt(m[3], 16)] : [0, 0, 0];
-                };
-                (this.hero as any).colorSwap.target = toRgb(hex);
-            } catch { }
+        if (this.hero && this.hero.colorSwap) { 
+            this.hero.colorSwap = new ColorSwap([0, 160, 200], hexToRgb(newColor));
+        } 
+        const userId = this.parentRef?.user?.id ?? 0;
+        if (userId && userId > 0) {
+            await this.userService.updateLastCharacterColor(userId, newColor);
+            this.cachedDefaultColor = newColor;
         }
-        // Reinitialize to propagate color to newly spawned assets / party display
-        // Persist the selected color to user settings when possible
-        try {
-            const userId = this.parentRef?.user?.id ?? 0;
-            if (userId && userId > 0) {
-                await this.userService.updateLastCharacterColor(userId, newColor);
-                this.cachedDefaultColor = newColor;
-            }
-        } catch { }
-        // Update in-memory hero color so new walls use the updated color immediately
-        try {
-            if (this.metaHero && this.metaHero.id && newColor) {
-                this.heroColors.set(this.metaHero.id, newColor);
-            }
-        } catch { }
+    
+        if (this.metaHero && this.metaHero.id && newColor) {
+            this.heroColors.set(this.metaHero.id, newColor);
+        }
+       
         if (this.mainScene?.level?.name != "CharacterCreate") {
             await this.reinitializeHero(this.metaHero, true);
         }
