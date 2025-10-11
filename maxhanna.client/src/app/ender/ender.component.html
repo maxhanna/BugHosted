@@ -94,7 +94,7 @@
       <div><strong>Level:</strong> {{metaHero.level}}</div>
       <div><strong>Kills:</strong> {{metaHero.kills}}</div>
       <div><strong>Enemies:</strong> {{enemiesOnSameLevelCount}}</div>
-      <div>
+      <div *ngIf="metaHero && metaHero.position">
         <strong>
           {{ snapToGridFetch(metaHero.position.x) }},
           {{ snapToGridFetch(metaHero.position.y) }}
