@@ -13,6 +13,8 @@ export class InViewDirective implements AfterViewInit, OnDestroy {
   @Input() requireCenter: boolean = false; // require element center within viewport band
   @Input() centerTopRatio: number = 0.0; // top boundary ratio (0-1)
   @Input() centerBottomRatio: number = 1.0; // bottom boundary ratio (0-1)
+  @Input() debug: boolean = false; // enable console logging for diagnostics
+  @Input() zeroHeightFallback: boolean = true; // treat zero-height visible elements as visible (helps lazy shells)
 
   private observer: IntersectionObserver;
   private dwellTimer: any;
@@ -22,13 +24,41 @@ export class InViewDirective implements AfterViewInit, OnDestroy {
 
   constructor(private el: ElementRef) {
     const options: IntersectionObserverInit = {
-      threshold: [0, 0.1, 0.25, 0.5, 0.75, 1]
+      threshold: [0, 0.01, 0.1, 0.25, 0.5, 0.75, 1],
+      root: null,
+      rootMargin: '64px 0px 64px 0px' // pre-trigger slightly before entering viewport
     };
 
     this.observer = new IntersectionObserver(entries => {
       entries.forEach(entry => {
         if (!entry) return;
-        const isIntersecting = entry.isIntersecting;
+        let isIntersecting = entry.isIntersecting;
+
+        // Fallback: if element has zero height (placeholder) but its top is within viewport, optionally treat as intersecting
+        if (!isIntersecting && this.zeroHeightFallback) {
+          const hostEl: HTMLElement = this.el.nativeElement;
+          const rect = hostEl.getBoundingClientRect();
+            // visible vertically even if height 0 (e.g., will grow once data loads)
+          const withinVertical = rect.top < window.innerHeight && rect.bottom >= 0;
+          if (withinVertical && (rect.height === 0 || rect.width === 0)) {
+            isIntersecting = true;
+            if (this.debug) console.log('[InViewDirective] zero-height fallback applied', { rect });
+          }
+        }
+
+        if (this.debug) {
+          const hostEl: HTMLElement = this.el.nativeElement;
+          console.log('[InViewDirective] observe', {
+            time: Date.now(),
+            isIntersecting,
+            ratio: entry.intersectionRatio,
+            elSize: { w: hostEl.offsetWidth, h: hostEl.offsetHeight },
+            bounding: entry.boundingClientRect,
+            rootBounds: entry.rootBounds,
+            requireUserScroll: this.requireUserScroll,
+            userScrolled: this.userScrolled
+          });
+        }
 
         if (this.dwellTimer) {
           clearTimeout(this.dwellTimer);
@@ -71,7 +101,7 @@ export class InViewDirective implements AfterViewInit, OnDestroy {
 
         // Dwell timer
         const delay = this.inViewDelayMs;
-        if (delay > 0) {
+  if (delay > 0) {
           this.dwellTimer = setTimeout(() => {
             // Re-validate still intersecting & gates
             const rect2 = this.el.nativeElement.getBoundingClientRect();
@@ -83,6 +113,7 @@ export class InViewDirective implements AfterViewInit, OnDestroy {
               const bottomB = window.innerHeight * this.centerBottomRatio;
               if (centerY2 < topB || centerY2 > bottomB) return;
             }
+            if (this.debug) console.log('[InViewDirective] emit true (delayed)');
             this.inView.emit(true);
             this.hasEmitted = true;
             if (this.inViewOnce) {
@@ -90,6 +121,7 @@ export class InViewDirective implements AfterViewInit, OnDestroy {
             }
           }, delay);
         } else {
+          if (this.debug) console.log('[InViewDirective] emit true (immediate)');
           this.inView.emit(true);
           this.hasEmitted = true;
           if (this.inViewOnce) {
@@ -118,5 +150,6 @@ export class InViewDirective implements AfterViewInit, OnDestroy {
       this.observer.disconnect();
     }
     window.removeEventListener('scroll', this.scrollListener);
+  if (this.debug) console.log('[InViewDirective] cleanup');
   }
 }
