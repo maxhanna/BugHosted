@@ -141,7 +141,7 @@ namespace maxhanna.Server.Controllers
                         List<MetaBikeWall> walls = await GetWallsOnSameLevel(hero.Level, connection, transaction);
                         try
                         {
-                            int tolerance = 8; // pixels; adjust as needed
+                            int tolerance = 16; // pixels; adjust as needed
                             Console.WriteLine("Checking deaths for " + heroes?.Length + " heroes and " + walls.Count + " walls");
                             var victims = new Dictionary<int, int?>(); // victimId -> killerHeroId
 
