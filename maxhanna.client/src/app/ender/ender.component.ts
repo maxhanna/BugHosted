@@ -378,9 +378,30 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
     }
 
     getHeroTimeOnMap(heroId: number): number {
+        let candidateCreated: any = undefined;
+        if (this.metaHero && this.metaHero.id === heroId) {
+            candidateCreated = this.metaHero.created;
+        } else {
+            const h = this.otherHeroes?.find(x => x.id === heroId);
+            candidateCreated = h?.created;
+        }
+        let createdMs: number | undefined = undefined;
+        if (candidateCreated instanceof Date) {
+            createdMs = candidateCreated.getTime();
+        } else if (typeof candidateCreated === 'string') {
+            const parsed = Date.parse(candidateCreated);
+            if (!isNaN(parsed)) createdMs = parsed;
+        } else if (typeof candidateCreated === 'number') {
+            // assume already ms epoch if looks plausible (> year 2000)
+            createdMs = candidateCreated > 946684800000 ? candidateCreated : candidateCreated * 1000;
+        }
+        if (createdMs) {
+            return Math.max(0, Math.floor((Date.now() - createdMs) / 1000));
+        }
+        // Fallback to first-seen map if creation unavailable
         const first = this.heroFirstSeen.get(heroId);
-        if (!first) return 0;
-        return Math.floor((Date.now() - first) / 1000); // seconds
+        if (first) return Math.max(0, Math.floor((Date.now() - first) / 1000));
+        return 0;
     }
 
     private updateMissingOrNewHeroSprites() {
