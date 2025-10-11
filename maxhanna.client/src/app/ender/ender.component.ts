@@ -198,10 +198,8 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
     gameLoop = new GameLoop(this.update, this.render);
 
     async pollForChanges() {
-        console.log("polling...")
         if (!this.hero?.id && this.parentRef?.user?.id) {
             const rz = await this.enderService.getHero(this.parentRef.user.id);
-            console.log("get hero returned", rz);
             if (rz) {
                 this.partyMembers = await this.enderService.getPartyMembers(rz.id) ?? [];
                 this.mainScene.partyMembers = this.partyMembers;
@@ -220,7 +218,6 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
                         const colorSwap = ownerColor ? new ColorSwap([0, 160, 200], hexToRgb(ownerColor!)) : (w.heroId === this.metaHero.id ? this.mainScene.metaHero?.colorSwap : undefined);
                         const wall = new BikeWall({ position: new Vector2(w.x, w.y), colorSwap, heroId: (w.heroId ?? 0)});
                         this.mainScene.level.addChild(wall);
-                        console.log("added wall to scene for heroid: " + wall.heroId);
                         addBikeWallCell(w.x, w.y, w.heroId ?? rz.id);
                         if (w.heroId === rz.id) {
                             myWallsCount++;
@@ -240,7 +237,6 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
                         this.mainScene.setLevel(new CharacterCreate());
                     });
                 }
-                console.log("did not find hero, character create level started");
                 return;
             }
         }
@@ -322,7 +318,6 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
                             const colorSwap = ownerColor ? new ColorSwap([0, 160, 200], hexToRgb(ownerColor!)) : (ownerId === this.metaHero.id ? (this.metaHero ? this.mainScene.metaHero?.colorSwap : undefined) : undefined);
                             const wall = new BikeWall({ position: new Vector2(w.x, w.y), colorSwap, heroId: ownerId ?? 0 });
                             this.mainScene.level.addChild(wall);
-                            console.log("added bike wall to scene for heroid : " + ownerId)
                             addBikeWallCell(w.x, w.y, ownerId);
                             // emit only for local hero walls 
                             events.emit("BIKEWALL_CREATED", { x: w.x, y: w.y });
@@ -346,7 +341,6 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
     private updateOtherHeroesBasedOnFetchedData(res: { position: Vector2; heroes: MetaHero[]; }) {
         for (var oh of this.otherHeroes) {
             if (oh.id && !res.heroes?.filter(x => x.id === oh.id)) {
-                console.log("hero died:" + oh.id);
                 const theHero = this.mainScene?.level?.children?.filter((x: any) => x.id === oh.id);
                 theHero?.destroy();
             }
@@ -397,7 +391,6 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
     }
 
     private addHeroToScene(hero: MetaHero) {
-        console.log("add hero to scene", hero);
         // compute initial position; for remote heroes, nudge if crowding occurs so players start more spaced apart
         const baseX = hero.id == this.metaHero.id ? this.metaHero.position.x : hero.position.x;
         const baseY = hero.id == this.metaHero.id ? this.metaHero.position.y : hero.position.y;
@@ -420,22 +413,16 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
                 this.hero.isLocked = true;
             }
         }
-        //tmpHero.metabots?.forEach((bot: MetaBot) => { bot.colorSwap = tmpHero.colorSwap;  })
         this.mainScene.level?.addChild(tmpHero);
-        //try { console.debug('[Ender][DEBUG] added tmpHero id=', tmpHero.id, 'childrenCount=', this.mainScene.level?.children?.length); } catch { }
         return tmpHero;
     }
 
     private setUpdatedHeroPosition(existingHero: any, hero: MetaHero) {
         if (existingHero.id != this.metaHero.id) {
-            const newPos = new Vector2(hero.position.x, hero.position.y);
-            try {
-                if (!existingHero.destinationPosition.matches(newPos)) {
-                    existingHero.destinationPosition = newPos;
-                }
-            } catch (e) {
-                console.debug('[Ender][DEBUG] setUpdatedHeroPosition error for', existingHero.id, e);
-            }
+            const newPos = new Vector2(hero.position.x, hero.position.y); 
+            if (!existingHero.destinationPosition.matches(newPos)) {
+                existingHero.destinationPosition = newPos;
+            } 
         }
         else {
             this.metaHero.position = new Vector2(existingHero.position.x, existingHero.position.y).duplicate();
@@ -444,7 +431,6 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
 
     private setHeroLatestMessage(existingHero: any) {
         if (existingHero === undefined) return;
-        //  console.debug('[Ender][DEBUG] setHeroLatestMessage for', existingHero.id, existingHero.name);
         const latestMsg = this.latestMessagesMap.get(existingHero.name);
         if (latestMsg) {
             existingHero.latestMessage = latestMsg.content;

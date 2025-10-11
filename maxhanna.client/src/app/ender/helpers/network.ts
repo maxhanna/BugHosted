@@ -40,7 +40,6 @@ function safeStringify(obj: any) {
  
 export function subscribeToMainGameEvents(object: any) {
   events.on("CHANGE_LEVEL", object.mainScene, (level: Level) => {
-    console.log("changing levels");
     object.otherHeroes = [];
     if (!object.hero?.id) {
       object.pollForChanges();
@@ -97,7 +96,6 @@ export function subscribeToMainGameEvents(object: any) {
     object.blockOpenStartMenu = false;
     object.mainScene?.inventory?.renderParty();
     const newLevel = object.getLevelFromLevelName((params.entranceLevel.name ?? "HERO_ROOM"));
-    console.log(newLevel, params.entranceLevel);
     newLevel.defaultHeroPosition = params.heroPosition;
     events.emit("CHANGE_LEVEL", newLevel);
     events.emit("SHOW_START_BUTTON");
@@ -271,7 +269,6 @@ export function subscribeToMainGameEvents(object: any) {
   const metaEvent = new MetaEvent(0, object.metaHero.id, new Date(), "UNPARTY", object.metaHero.level, { "hero_id": `${person.id}` })
     object.enderService.updateEvents(metaEvent);
     object.partyMembers = object.partyMembers.filter((x: any) => x.heroId === object.metaHero.id);
-    console.log("reset party member ids");
     object.reinitializeInventoryData();
   });
   events.on("CHARACTER_PICKS_UP_ITEM", object, (data: {
@@ -284,7 +281,6 @@ export function subscribeToMainGameEvents(object: any) {
       stats: any,
     }) => {
     if (!actionBlocker) {
-      //console.log("picking up item: ",data);
       if (data.category) {
         object.enderService.updateInventory(object.metaHero.id, data.name, data.imageName, data.category);
       } else if (data.item) {
@@ -328,7 +324,6 @@ export function actionMultiplayerEvents(object: any, metaEvents: MetaEvent[]) {
   const currentEvents = object.events;
   if (metaEvents.length > 0) {
     for (let event of metaEvents) {
-      console.log("event received", event);
       const existingEvent = currentEvents.find((e: MetaEvent) => e.id == event.id);
       if (!existingEvent) {
         //do something with object fresh event.
@@ -336,7 +331,6 @@ export function actionMultiplayerEvents(object: any, metaEvents: MetaEvent[]) {
           actionPartyUpEvent(object, event);
         }
         if (event.eventType === "UNPARTY" && event.data && event.data["hero_id"]) {
-          console.log("got unparty event", event);
           object.partyMembers = object.partyMembers.filter((x: any) => event && event.data && event.data["hero_id"] && x.heroId != parseInt(event.data["hero_id"]) && x.heroId != event.heroId);
           if (event.data["hero_id"] == object.metaHero.id) {
             object.reinitializeInventoryData();
@@ -371,7 +365,6 @@ export function actionMultiplayerEvents(object: any, metaEvents: MetaEvent[]) {
                   const removedKeys = removeBikeWallsForHero(victimId);
                   if (removedKeys && removedKeys.length && object.mainScene && object.mainScene.level && object.mainScene.level.children) {
                     const wallObjs = object.mainScene.level.children.filter((c: any) => c && c.heroId === victimId);
-                    console.log(`deleting ${wallObjs.length} wall objects from ${removedKeys.length} removed keys`);
                     for (const wall of wallObjs) {
                       wall.destroy();
                     }
@@ -395,7 +388,6 @@ export function actionMultiplayerEvents(object: any, metaEvents: MetaEvent[]) {
               const useColor = event.heroId === object.metaHero.id ? object.metaHero?.colorSwap : undefined;
               const wall = new BikeWall({ position: new Vector2(x, y), colorSwap: useColor, heroId: event.heroId });
               object.mainScene.level.addChild(wall);
-              console.log("Adding wall to scene for heroId:" + wall.heroId);
               addBikeWallCell(x, y, event.heroId);  
               events.emit("BIKEWALL_CREATED", { x, y });  
             }
@@ -448,7 +440,6 @@ export function actionMultiplayerEvents(object: any, metaEvents: MetaEvent[]) {
 export function actionPartyInviteAcceptedEvent(object: any, event: MetaEvent) {
   if (event.data) {
     const partyMembersData = JSON.parse(event.data["party_members"]);
-    console.log("received party member data : " + partyMembersData);
     if (partyMembersData) {
       let isMyParty = false;
       let party: any[] = [];
@@ -461,7 +452,6 @@ export function actionPartyInviteAcceptedEvent(object: any, event: MetaEvent) {
           }
         }
       }
-      console.log("new party:", party);
       if (isMyParty) {
         object.partyMembers = party;
         events.emit("PARTY_INVITE_ACCEPTED", { playerId: object.metaHero.id, party: object.partyMembers });
@@ -471,11 +461,9 @@ export function actionPartyInviteAcceptedEvent(object: any, event: MetaEvent) {
 }
 
 export function actionPartyUpEvent(object: any, event: MetaEvent) {
-  console.log("actionPartyUpEvent", object, event);
   if (event.data && !object.partyMembers.find((x: any) => x.heroId == event.heroId)) {
     const otherPlayer = object.otherHeroes.find((hero: Character) => hero.id === event.heroId);
     if (otherPlayer) {
-      console.log("found other player", otherPlayer);
       object.isDecidingOnParty = true;
       if (confirm(`Accept party request from ${otherPlayer.name}?`)) {
         const partyMemberIdsData = JSON.parse(event.data["party_members"]);
@@ -483,15 +471,12 @@ export function actionPartyUpEvent(object: any, event: MetaEvent) {
         for (let memberId of partyMemberIdsData) {
           const member = object.otherHeroes.find((x: Character) => x.id === memberId);
           object.partyMembers.push({ heroId: memberId, name: member.name, color: member.color });
-          console.log("pushing: ", { heroId: memberId, name: member.name, color: member.color });
         }
         const inviterId = parseInt(event.data["hero_id"]);
         if (!object.partyMembers.find((x: any) => event.data && x.heroId === inviterId)) {
           const member = object.otherHeroes.find((x: Character) => x.id === inviterId);
           if (member) {
             object.partyMembers.push({ heroId: member.id, name: member.name, color: member.color });
-
-            console.log("pushing: ", { heroId: member.id, name: member.name, color: member.color });
           }
         }
         const partyUpAcceptedEvent = new MetaEvent(0, object.metaHero.id, new Date(), "PARTY_INVITE_ACCEPTED", object.metaHero.level, { "party_members": safeStringify(object.partyMembers.map((x: any) => x.heroId)) });
