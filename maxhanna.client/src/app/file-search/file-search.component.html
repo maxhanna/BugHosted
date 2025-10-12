@@ -137,7 +137,7 @@
                 </div>
               </div>
             </div>
-            <div *ngIf="!file.isFolder &&
+            <div *ngIf="!file.isFolder && !(file.isHidden && !showHiddenFiles) &&
                  (
                   (!autoload && viewMediaFile && openedFiles.includes(file.id)) || autoload || ((fileId ?? 0) == file.id)
                  )" class="mediaViewDiv" (click)="selectFileNoPropagation($event, file);">
@@ -198,7 +198,7 @@
       ❌Delete
     </button>
     <button title="Hide File" (click)="hide(optionsFile);" *ngIf="userIsLoggedIn()">
-      🙈Hide
+      🙈{{optionsFile.isHidden ? "Un":""}}Hide
     </button> 
     <button (click)="addToFavourites(optionsFile)" *ngIf="userIsLoggedIn()"
       [title]="optionsFile.isFavourited ? ('Remove from favourites') : ('Add ' + (optionsFile.givenFileName ?? optionsFile.fileName) + ' to favourites')">
