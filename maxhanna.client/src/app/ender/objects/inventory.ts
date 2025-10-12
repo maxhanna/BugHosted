@@ -44,7 +44,7 @@ export class Inventory extends GameObject {
         let tmpColor = member.color;
         const itemData = {
           id: tmpId,
-          image: resources.images["portraits"],
+          image: "portraits", // store key or identifier, not the image object wrapper
           name: tmpName ?? member.name ?? member.heroId + '',
           colorSwap: tmpColor,
           category: "partyMember"
@@ -83,7 +83,7 @@ export class Inventory extends GameObject {
         for (let member of data.party) {
           const itemData = { 
             id: member.heroId, 
-            image: resources.images["portraits"], 
+            image: "portraits", // use string key to avoid type mismatch
             name: member.name, 
             colorSwap: (member.color ? hexToRgb(member.color) : undefined),
             category: "partyMember"
