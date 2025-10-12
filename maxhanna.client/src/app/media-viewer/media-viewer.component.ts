@@ -95,10 +95,11 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
         (componentContainers[i] as HTMLDivElement).style.backgroundColor = "var(--component-background-color)";
       }
     }
-    this.tryLoadFromCacheFastPath();
     if (this.forceInviewLoad) {
       console.log("forcing load");
-      this.fetchFileSrc().then(() => this.applyPageTitleIfNeeded());
+      await this.fetchFileSrc().then(() => this.applyPageTitleIfNeeded());
+    } else { 
+      this.tryLoadFromCacheFastPath();
     }
   }
 
