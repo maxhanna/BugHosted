@@ -1,5 +1,7 @@
 .app-menu-item{ 
   cursor:pointer;
+  border-bottom: 1px dotted var(--main-font-color);
+  color: var(--main-link-color);
 }
 .menuLabel{
   margin-left:4px;
