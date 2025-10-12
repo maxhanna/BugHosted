@@ -155,6 +155,8 @@ export class Hero extends Character {
   override destroy() {
     // Play fire/burst animation similar to Bot
     if (!this.preventDestroyAnimation) {
+      // Play death sound
+      try { resources.playSound("wilhelmScream", { volume: 0.8, allowOverlap: true }); } catch { }
       this.isLocked = true;
       this.destroyBody();
       const fire = new Fire(this.position.x, this.position.y);

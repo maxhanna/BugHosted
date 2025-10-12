@@ -1,11 +1,14 @@
 export class Resources {
 
-  toLoad: { [key: string]: string };
-  images: { [key: string]: any } = {};
+  // Separate collections for images and audio
+  private imageToLoad: { [key: string]: string };
+  private audioToLoad: { [key: string]: string };
+  images: { [key: string]: { image: HTMLImageElement; isLoaded: boolean } } = {};
+  audios: { [key: string]: { audio: HTMLAudioElement; isLoaded: boolean } } = {};
   dir = "assets/ender/";
   initialized = false;
   constructor() {
-    this.toLoad = {
+    this.imageToLoad = {
       bikewall: `${this.dir}bikewall.png`,
       fontWhite: `${this.dir}sprite-font-white.png`,
       fontBlack: `${this.dir}sprite-font-black.png`,
@@ -21,7 +24,9 @@ export class Resources {
       textBox: `${this.dir}text-box.png`,
       warpbase: `${this.dir}warpBase.png`,
     };
-    this.images = {};
+    this.audioToLoad = {
+      wilhelmScream: `${this.dir}wilhelm_scream.mp3`
+    };
     this.waitForCanvas();
   }
 
@@ -39,20 +44,49 @@ export class Resources {
   loadResources() {
     if (this.initialized) return;
     this.initialized = true;
-    Object.keys(this.toLoad).forEach((key: string) => {
+    // Images
+    Object.keys(this.imageToLoad).forEach((key: string) => {
       if (!this.images[key]) {
         const img = new Image();
-        img.src = this.toLoad[key];
-        this.images[key] = {
-          image: img,
-          isLoaded: false,
-        };
-
-        img.onload = () => {
-          this.images[key].isLoaded = true;
-        };
+        img.src = this.imageToLoad[key];
+        this.images[key] = { image: img, isLoaded: false };
+        img.onload = () => { this.images[key].isLoaded = true; };
       }
     });
+    // Audio
+    Object.keys(this.audioToLoad).forEach((key: string) => {
+      if (!this.audios[key]) {
+        const audio = new Audio(this.audioToLoad[key]);
+        audio.preload = "auto";
+        this.audios[key] = { audio, isLoaded: false };
+        audio.addEventListener("canplaythrough", () => { this.audios[key].isLoaded = true; }, { once: true });
+      }
+    });
+  }
+
+  playSound(key: string, opts?: { volume?: number; loop?: boolean; allowOverlap?: boolean }) {
+    const entry = this.audios[key];
+    if (!entry) return;
+    const base = entry.audio;
+    const volume = opts?.volume ?? 1;
+    const loop = opts?.loop ?? false;
+    const allowOverlap = opts?.allowOverlap ?? true;
+    if (allowOverlap) {
+      try {
+        const clone = base.cloneNode(true) as HTMLAudioElement;
+        clone.volume = volume;
+        clone.loop = loop;
+        void clone.play();
+      } catch { }
+    } else {
+      try {
+        base.pause();
+        base.currentTime = 0;
+        base.volume = volume;
+        base.loop = loop;
+        void base.play();
+      } catch { }
+    }
   }
 }
 export const resources = new Resources();
