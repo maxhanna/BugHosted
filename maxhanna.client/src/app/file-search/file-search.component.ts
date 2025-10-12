@@ -1139,4 +1139,23 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     this.fileTypeFilter = this.fileTypeFilterInput.nativeElement.value;
     this.getDirectory();
   }
+  clearPopupSearch() {
+    try {
+      if (this.popupSearch && this.popupSearch.nativeElement) {
+        this.popupSearch.nativeElement.value = '';
+      }
+    } catch { }
+    this.searchTerms = '';
+    try { this.changeSearchTermsFromPopup(); } catch { }
+  }
+
+  clearFileTypeFilter() {
+    try {
+      if (this.fileTypeFilterInput && this.fileTypeFilterInput.nativeElement) {
+        this.fileTypeFilterInput.nativeElement.value = '';
+      }
+    } catch { }
+    this.fileTypeFilter = '';
+    try { this.onFiletypeFilterChange(); } catch { }
+  }
 }
