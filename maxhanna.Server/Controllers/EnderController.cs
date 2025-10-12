@@ -858,7 +858,7 @@ namespace maxhanna.Server.Controllers
                                        LEFT JOIN users u ON u.id = t.user_id
                                        LEFT JOIN user_display_pictures udp ON u.id = udp.user_id
                                        WHERE t.user_id = @UserId
-                                       ORDER BY t.score DESC LIMIT 200;";
+                                       ORDER BY t.score DESC LIMIT 20;";
                         var result = new List<Dictionary<string, object?>>();
                         using (var command = new MySqlCommand(sql, connection, transaction))
                         {
