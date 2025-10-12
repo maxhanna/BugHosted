@@ -142,6 +142,7 @@ namespace maxhanna.Server.Services
 			await DeleteOldNews();
 			await DeleteOldTradeVolumeEntries();
 			await DeleteOldCoinMarketCaps();
+			await DeleteOldEnderScores();
 			await _newsService.CreateDailyCryptoNewsStoryAsync();
 			await _newsService.CreateDailyNewsStoryAsync();
 			await _newsService.PostDailyMemeAsync();
@@ -1524,6 +1525,41 @@ namespace maxhanna.Server.Services
 			catch (Exception ex)
 			{
 				_ = _log.Db("Error occurred while deleting old search queries. " + ex.Message, null);
+			}
+		}
+
+		private async Task DeleteOldEnderScores()
+		{
+			try
+			{
+				await using var conn = new MySqlConnection(_connectionString);
+				await conn.OpenAsync();
+
+				// Single-statement deletion (no temp table):
+				// Keep: Top 20 scores per user (score DESC, created_at ASC tie-break) regardless of age.
+				// Delete: Any rows older than 3 days AND NOT in that top-20-per-user set.
+				string deleteSql = @"
+					DELETE FROM maxhanna.ender_top_scores
+					WHERE created_at < UTC_TIMESTAMP() - INTERVAL 3 DAY
+					  AND id IN (
+					    SELECT rid FROM (
+					      SELECT id AS rid,
+					             ROW_NUMBER() OVER (PARTITION BY user_id ORDER BY score DESC, created_at ASC) AS rn
+					      FROM maxhanna.ender_top_scores
+					    ) ranked
+					    WHERE rn > 20
+					  );";
+
+				int affected;
+				await using (var cmd = new MySqlCommand(deleteSql, conn))
+				{
+					affected = await cmd.ExecuteNonQueryAsync();
+				}
+				_ = _log.Db($"Deleted {affected} old Ender scores (older than 3 days, excluding each user's top 20).", null, "ENDER_CLEANUP", true);
+			}
+			catch (Exception ex)
+			{
+				_ = _log.Db("Error deleting old Ender scores: " + ex.Message, null, "ENDER_CLEANUP", true);
 			}
 		}
 
