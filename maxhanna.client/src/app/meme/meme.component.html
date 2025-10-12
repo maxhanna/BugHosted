@@ -42,7 +42,7 @@
     Meme Menu
   </div>
   <div *ngIf="parentRef?.user?.id">
-    Display NSFW?: <input type="checkbox" #nsfwCheckmark [checked]="isDisplayingNSFW" (click)="updateNSFW($event)" />
+    Display NSFW?: <input type="checkbox" #nsfwCheckmark [checked]="fileSearchComponent?.isDisplayingNSFW" (click)="updateNSFW($event)" />
   </div>
   <div *ngIf="parentRef?.user?.id">
     Show Hidden Files?: <input type="checkbox" [checked]="fileSearchComponent?.showHiddenFiles" (change)="fileSearchComponent.toggleShowHiddenFiles($event)" />

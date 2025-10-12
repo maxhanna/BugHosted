@@ -20,7 +20,7 @@ export class MemeComponent extends ChildComponent implements OnInit, OnDestroy  
   isMenuPanelOpen = false;
   currentMemePage = 1;
   searchTerms = "";
-  isDisplayingNSFW = false;
+  // NSFW setting now delegated to fileSearchComponent.isDisplayingNSFW
   iPhone = /iPad|iPhone|iPod/.test(navigator.userAgent);
 
   @ViewChild(FileSearchComponent) fileSearchComponent!: FileSearchComponent;
@@ -37,14 +37,6 @@ export class MemeComponent extends ChildComponent implements OnInit, OnDestroy  
   }
 
   ngOnInit() {
-    const user = this.parentRef?.user;
-    if (user?.id) {
-      this.userService.getUserSettings(user.id).then(res => {
-        if (res) {
-          this.isDisplayingNSFW = res.nsfwEnabled ?? false; 
-        }
-      });
-    }
     this.parentRef?.addResizeListener();
   }
   ngOnDestroy() {
@@ -86,18 +78,12 @@ export class MemeComponent extends ChildComponent implements OnInit, OnDestroy  
     this.fileSearchComponent.searchTerms = "";
     this.fileSearchComponent.searchFiles(topic.topicName);
   }
-  async updateNSFW(event: Event) { 
-    const user = this.parentRef?.user;
-    if (!user?.id) return alert("You must be logged in to view NSFW content.");
-    const isChecked = (event.target as HTMLInputElement).checked;
-    this.isDisplayingNSFW = isChecked;
-    this.userService.updateNSFW(user.id, isChecked).then(res => {
-      if (res) {
-        this.parentRef?.showNotification(res);
-        this.fileSearchComponent.getDirectory();
-      }
-    });
-  }  
+  async updateNSFW(event: Event) {
+    // Delegate to fileSearchComponent logic
+    if (this.fileSearchComponent) {
+      this.fileSearchComponent.updateNSFW(event);
+    }
+  }
   onLoadMoreInView(isInView: boolean) {
     clearTimeout(this.debounceTimer);
     this.debounceTimer = setTimeout(() => {

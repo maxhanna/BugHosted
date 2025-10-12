@@ -420,6 +420,24 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     }
     this.getDirectory();
   }
+
+  updateNSFW(event: Event) {
+    const user = this.inputtedParentRef?.user ?? this.parentRef?.user;
+    if (!user?.id) {
+      alert('You must be logged in to view NSFW content.');
+      (event.target as HTMLInputElement).checked = false;
+      return;
+    }
+    const isChecked = (event.target as HTMLInputElement).checked;
+    this.isDisplayingNSFW = isChecked;
+    this.userService.updateNSFW(user.id, isChecked).then(res => {
+      if (res) {
+        this.parentRef?.showNotification(res);
+        this.reinitializePages();
+        this.getDirectory();
+      }
+    });
+  }
   async editFileKeyUp(event: KeyboardEvent, fileId: number) {
     if (!this.isEditing.length) return;
     const text = (event.target as HTMLInputElement).value;
@@ -910,19 +928,6 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
         }
       }
     }
-  }
-  async updateNSFW(event: Event) {
-    const parent = this.inputtedParentRef ?? this.parentRef;
-    const user = parent?.user;
-    if (!user?.id) return alert("You must be logged in to view NSFW content.");
-    const isChecked = (event.target as HTMLInputElement).checked;
-    this.isDisplayingNSFW = isChecked;
-    this.userService.updateNSFW(user.id, isChecked).then(res => {
-      if (res) {
-        parent?.showNotification(res);
-        this.getDirectory();
-      }
-    });
   }
   @HostListener('window:keydown', ['$event'])
   handleKeyboardEvent(event: KeyboardEvent): void {
