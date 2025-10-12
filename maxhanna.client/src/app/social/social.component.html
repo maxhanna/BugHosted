@@ -385,10 +385,10 @@
                     [debug]="i === 0 && s === 0"
                     [currentDirectory]="file.directory" [file]="file" [showCommentSection]="false"
                     [showMediaInformation]="true" [displayExpander]="false" [displayExtraInfo]="false"
-                    [showTopics]="false" [autoplay]="false" [autoload]="true" [forceInviewLoad]="storyId != null"
+                    [showTopics]="false" [autoplay]="false" [autoload]="true" [forceInviewLoad]="storyId != undefined"
                     [previousComponent]="'Social'">
                   </app-media-viewer>
-                  force in view ? {{storyId != null ? "true":"False"}}
+                  force in view ? {{storyId != undefined ? "true":"False"}}
               </div>
             </div>
             <div class="reactionTopicsAndExpanderDiv reactionTopics">
