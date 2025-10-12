@@ -41,6 +41,6 @@ export class AppMenuItemComponent {
     if (!this.labelEndsWithColon()) return s;
     const icon = this.parentRef?.getIconByTitle(this.type) ?? '';
     const base = s.trim().slice(0, -1); // remove trailing ':'
-    return icon ? `${base} ${icon}:` : `${base}:`;
+    return icon ? `${base}${icon}:` : `${base}:`;
   }
 }
