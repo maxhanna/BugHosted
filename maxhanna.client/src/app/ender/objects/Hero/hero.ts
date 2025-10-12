@@ -127,10 +127,15 @@ export class Hero extends Character {
   }
 
   override step(delta: number, root: any) {
-    const prevPos = this.position.duplicate();
-    super.step(delta, root);
+  const prevPos = this.position.duplicate();
+  super.step(delta, root);
 
     if (!this.body) return;
+    const moved = this.position.x !== prevPos.x || this.position.y !== prevPos.y;
+    if (moved && this.isUserControlled) {
+      // Emit movement event so UI (e.g., chat bubble) can follow hero
+      events.emit("HERO_MOVED", { id: this.id, x: this.position.x, y: this.position.y });
+    }
     if (!this.isUserControlled) return;
     if (!this.lastBikeWallSpawnPos) this.lastBikeWallSpawnPos = prevPos.duplicate();
 
