@@ -1,7 +1,4 @@
-.app-menu-item{
-  display:flex;
-  align-items:baseline;
-  gap:8px;
+.app-menu-item{ 
   cursor:pointer;
 }
 .menuLabel{
