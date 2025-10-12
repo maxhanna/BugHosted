@@ -16,7 +16,7 @@
                             <div *ngFor="let s of group.value">
                                 <div style="padding:6px; border-bottom:1px solid #333; display:flex; align-items:center; gap:8px;">
                                     <div style="flex:0 0 auto;">
-                                        <app-user-tag [user]="s.user" [inputtedParentRef]="parentRef" [displayMiniTag]="true" [previousComponent]="'Ender'"></app-user-tag>
+                                        <app-user-tag [user]="s.user" [inputtedParentRef]="inputtedParentRef ?? parentRef" [displayMiniTag]="true" [previousComponent]="'Ender'"></app-user-tag>
                                     </div>
                                     <div style="flex:1 1 auto;">
                                         <div><strong>Score:</strong> {{s.score}}</div>
@@ -26,7 +26,11 @@
                             </div>
                         </ng-container>
                         <ng-template #emptyGroup>
-                            <div class="no-scores">No scores to show for {{ m === 'today' ? 'today' : m }}.</div>
+                            <div class="no-scores">
+                                No{{" "}}
+                                <app-menu-item [type]="'Ender'" [parentRef]="inputtedParentRef ?? parentRef"></app-menu-item>
+                                {{" "}}scores to show for {{ m }}.
+                            </div>
                         </ng-template>
                     </div>
                 </ng-container>

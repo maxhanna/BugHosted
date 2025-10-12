@@ -33,7 +33,7 @@
                                     <tr *ngFor="let s of group.value; let i = index">
                                         <td>{{ i + 1 }}</td>
                                         <td>
-                                            <app-user-tag [user]="s.user" [displayMiniTag]="true" [displayHoverPicture]="true" [inputtedParentRef]="inputtedParentRef"></app-user-tag>
+                                            <app-user-tag [user]="s.user" [displayMiniTag]="true" [displayHoverPicture]="true" [inputtedParentRef]="inputtedParentRef ?? parentRef"></app-user-tag>
                                         </td>
                                         <td>{{ s.score }}</td>
                                         <td>{{ s.time }}</td>
@@ -45,7 +45,11 @@
                     </ng-container>
                 </ng-container>
                 <ng-template #emptyMode>
-                    <div class="no-scores">No scores to show for {{ m }}.</div>
+                    <div class="no-scores">
+                        No{{" "}}
+                        <app-menu-item [type]="'Wordler'" [parentRef]="inputtedParentRef ?? parentRef"></app-menu-item>
+                        {{" "}}scores to show for {{ m }}.
+                    </div>
                 </ng-template>
             </div>
         </ng-container>

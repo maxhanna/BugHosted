@@ -54,7 +54,7 @@
                 <tr *ngFor="let score of bestScoresToday">
                     <td>
                         <app-user-tag [user]="score.user" [displayMiniTag]="true"
-                            [inputtedParentRef]="parentRef"></app-user-tag>
+                            [inputtedParentRef]="inputtedParentRef ?? parentRef"></app-user-tag>
                     </td>
                     <td>{{score.score}}</td>
                     <td>{{score.tries}}</td>
@@ -64,5 +64,9 @@
             </tbody>
         </table>
     </div>
-    <div *ngIf="!bestScoresToday || bestScoresToday.length === 0">No scores yet today!</div>
+    <div *ngIf="!bestScoresToday || bestScoresToday.length === 0">
+        No{{" "}}
+        <app-menu-item [type]="'Mastermind'" [parentRef]="inputtedParentRef ?? parentRef"></app-menu-item>
+        {{" "}}scores to show for today.
+    </div>
 </ng-container>
