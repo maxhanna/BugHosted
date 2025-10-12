@@ -403,6 +403,7 @@
     <div class="search-input-group">
       <input #popupSearch (input)="changeSearchTermsFromPopup()" class="search-input"
         placeholder="Search {{ currentDirectory }}..." [value]="searchTerms" />
+      <input type="button" (click)="(popupSearch.value=''), (searchTerms=''), changeSearchTermsFromPopup()" value="❌" class="search-clear-button" />
       <span class="search-results-count">{{ directory?.totalCount || 0 }} results</span>
     </div>
       <div *ngIf="trendingSearches && trendingSearches.length" class="trending-searches">
@@ -434,6 +435,7 @@
       <div class="filter-group">
         <label for="filetype-input" class="filter-label">Filetype:</label>
         <input id="filetype-input" class="filter-input" type="text" [value]="fileTypeFilter" #fileTypeFilterInput (input)="onFiletypeFilterChange()" placeholder="e.g. jpg, mp4, pdf" />
+        <input type="button" (click)="(fileTypeFilterInput.value=''), (fileTypeFilter=''), onFiletypeFilterChange()" value="❌" class="search-clear-button" />
       </div>
     </div>
     
