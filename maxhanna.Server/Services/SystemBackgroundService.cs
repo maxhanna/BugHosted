@@ -1528,16 +1528,14 @@ namespace maxhanna.Server.Services
 			}
 		}
 
+		// Keep: Top 20 scores per user (score DESC, created_at ASC tie-break) regardless of age.
+		// Delete: Any rows older than 3 days AND NOT in that top-20-per-user set.
 		private async Task DeleteOldEnderScores()
 		{
 			try
 			{
 				await using var conn = new MySqlConnection(_connectionString);
-				await conn.OpenAsync();
-
-				// Single-statement deletion (no temp table):
-				// Keep: Top 20 scores per user (score DESC, created_at ASC tie-break) regardless of age.
-				// Delete: Any rows older than 3 days AND NOT in that top-20-per-user set.
+				await conn.OpenAsync(); 
 				string deleteSql = @"
 					DELETE FROM maxhanna.ender_top_scores
 					WHERE created_at < UTC_TIMESTAMP() - INTERVAL 3 DAY
