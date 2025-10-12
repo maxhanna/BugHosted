@@ -7,6 +7,7 @@ import { EnderService } from '../../services/ender.service';
 import { UserService } from '../../services/user.service';
 import { MetaChat } from '../../services/datacontracts/ender/meta-chat';
 import { gridCells, snapToGrid } from './helpers/grid-cells';
+import { setPredictedPosition, applyServerCorrection } from './helpers/move-towards';
 import { GameLoop } from './helpers/game-loop';
 import { hexToRgb, resources } from './helpers/resources';
 import { events } from './helpers/events';
@@ -419,6 +420,30 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
         });
         this.updateEnemiesOnSameLevelCount();
         this.updateMissingOrNewHeroSprites();
+
+        // Compute client-side predictions for remote heroes and apply server corrections
+        try {
+            if (this.mainScene?.level && Array.isArray(this.otherHeroes)) {
+                // iterate scene children to operate on the live Character/Hero objects
+                this.mainScene.level.children.forEach((child: any) => {
+                    // only operate on Hero/Character instances with an id
+                    if (!child || !child.id || child.id === this.metaHero.id) return;
+                    const meta = this.otherHeroes.find(h => h.id === child.id);
+                    if (!meta) return;
+
+                    // Predict where the player will be in ~2s using their destination/speed
+                    try { setPredictedPosition(child, 2, 60, child.speed ?? meta.speed); } catch { }
+
+                    // If authoritative server position is available, correct divergence
+                    try {
+                        const serverPos = meta.position;
+                        if (serverPos) {
+                            applyServerCorrection(child, new Vector2(serverPos.x, serverPos.y), 200);
+                        }
+                    } catch { }
+                });
+            }
+        } catch { }
     }
 
     openOtherHeroesPanel() {
