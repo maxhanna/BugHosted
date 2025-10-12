@@ -7,53 +7,14 @@ import { DOWN, LEFT, RIGHT, UP, gridCells, isSpaceFree, snapToGrid } from "./gri
 export function moveTowards(player: Character, destinationPosition: Vector2, speed: number) {
 	if (!player || !player.position || !destinationPosition) return;
 
-	// If a correction is in progress (server told us the true position and we
-	// are interpolating), update the displayed position first using the
-	// correction interpolation. When correction finishes, prediction is cleared.
-	try {
-		const corrTarget = (player as any).correctionTarget;
-		const corrStart = (player as any).correctionStart;
-		const corrStartAt = (player as any).correctionStartAt;
-		const corrDuration = (player as any).correctionDuration ?? 200;
-		if (corrTarget && corrStart && corrStartAt) {
-			const elapsed = Date.now() - corrStartAt;
-			const t = Math.min(1, Math.max(0, elapsed / corrDuration));
-			player.position.x = corrStart.x + (corrTarget.x - corrStart.x) * t;
-			player.position.y = corrStart.y + (corrTarget.y - corrStart.y) * t;
-			if (t >= 1) {
-				// finished correction; remove correction metadata and predicted pos
-				delete (player as any).correctionTarget;
-				delete (player as any).correctionStart;
-				delete (player as any).correctionStartAt;
-				delete (player as any).correctionDuration;
-				clearPredictedPosition(player);
-			}
-		}
-	} catch { /* defensive */ }
-
-	// If this is a non-user-controlled player and we have a recent prediction,
-	// prefer moving toward the predicted position so the player appears where
-	// we'd expect them to be for the next ~2 seconds. Prediction is considered
-	// stale after ~2500ms and will be ignored then.
-	let chosenDestination = destinationPosition;
-	try {
-		if (!player.isUserControlled && (player as any).predictedPosition) {
-			const predictedAt = (player as any).predictedAt ?? 0;
-			const age = Date.now() - predictedAt;
-			if (age >= 0 && age <= 2500) {
-				chosenDestination = (player as any).predictedPosition;
-			}
-		}
-	} catch { /* defensive: if shape differs, ignore prediction */ }
-
-	let distanceToTravelX = chosenDestination.x - player.position.x;
-	let distanceToTravelY = chosenDestination.y - player.position.y;
+	let distanceToTravelX = destinationPosition.x - player.position.x;
+	let distanceToTravelY = destinationPosition.y - player.position.y;
 	let distance = Math.sqrt(distanceToTravelX ** 2 + distanceToTravelY ** 2);
 
 	// Check if the sprite is at the destination or close enough to stop
 	if (distance <= speed) {
-		// Snap the position exactly to the chosen destination to prevent overshooting
-		player.position = chosenDestination.duplicate();
+		// Snap the position exactly to the destination to prevent overshooting
+		player.position = destinationPosition.duplicate();
 		return 0; // Return 0 to indicate the sprite has arrived
 	} else {
 		// Normalize the direction vector
@@ -65,100 +26,11 @@ export function moveTowards(player: Character, destinationPosition: Vector2, spe
 		player.position.y += normalizedY * speed;
 
 		// Recalculate the remaining distance
-		distanceToTravelX = chosenDestination.x - player.position.x;
-		distanceToTravelY = chosenDestination.y - player.position.y;
+		distanceToTravelX = destinationPosition.x - player.position.x;
+		distanceToTravelY = destinationPosition.y - player.position.y;
 		distance = Math.sqrt(distanceToTravelX ** 2 + distanceToTravelY ** 2);
   } 
 	return distance; // Return the updated distance
-}
-
-
-/**
- * Compute and attach a predicted position to the given player assuming they
- * continue moving toward their current destination at their current speed.
- * This function does not mutate server state; it only attaches `predictedPosition`
- * and `predictedAt` to the player object on the client for interpolation.
- *
- * Assumptions:
- * - `player.speed` is the per-tick movement amount (ticks per second defaults to 60).
- * - If `player.destinationPosition` is not set, the current position is used.
- *
- * Usage: call this immediately after processing `fetchGameData` updates for other
- * players (clients only). The render/move logic will use the attached prediction
- * for up to ~2500ms.
- */
-export function setPredictedPosition(player: any, seconds = 2, ticksPerSecond = 60, speedOverride?: number) {
-	if (!player || !player.position) return;
-	if (!player.destinationPosition) {
-		player.predictedPosition = player.position.duplicate();
-		player.predictedAt = Date.now();
-		return;
-	}
-
-	const speed = typeof speedOverride === 'number' ? speedOverride : (player.speed ?? 0);
-	const steps = Math.max(0, Math.floor(seconds * ticksPerSecond));
-	let pos = player.position.duplicate();
-	const dest = player.destinationPosition.duplicate();
-
-	for (let i = 0; i < steps; i++) {
-		const dx = dest.x - pos.x;
-		const dy = dest.y - pos.y;
-		const dist = Math.sqrt(dx * dx + dy * dy);
-		if (dist <= speed || dist === 0) {
-			pos = dest.duplicate();
-			break;
-		}
-		pos.x += (dx / dist) * speed;
-		pos.y += (dy / dist) * speed;
-	}
-
-	player.predictedPosition = pos;
-	player.predictedAt = Date.now();
-}
-
-export function clearPredictedPosition(player: any) {
-	if (!player) return;
-	delete (player as any).predictedPosition;
-	delete (player as any).predictedAt;
-}
-
-/**
- * When a server authoritative position arrives that differs from the client's
- * predicted position, call this to smoothly interpolate the client display
- * from the current displayed position to the server position.
- *
- * - `durationMs` controls how long the interpolation takes. Use small values
- *   like 150-300.
- */
-export function applyServerCorrection(player: any, serverPosition: Vector2, durationMs = 200) {
-	if (!player || !player.position || !serverPosition) return;
-	// If the divergence is tiny, snap and clear prediction
-	try {
-		const dx = serverPosition.x - ((player as any).predictedPosition?.x ?? player.position.x);
-		const dy = serverPosition.y - ((player as any).predictedPosition?.y ?? player.position.y);
-		const dist = Math.sqrt(dx * dx + dy * dy);
-		const snapThreshold = gridCells(1) * 1.5;
-		if (dist <= snapThreshold) {
-			player.position = serverPosition.duplicate();
-			clearPredictedPosition(player);
-			// clear any in-flight correction
-			delete (player as any).correctionTarget;
-			delete (player as any).correctionStart;
-			delete (player as any).correctionStartAt;
-			delete (player as any).correctionDuration;
-			return;
-		}
-	} catch {
-		// ignore and fall back to interpolation
-	}
-
-	// Begin interpolation from current displayed position to authoritative position
-	(player as any).correctionStart = player.position.duplicate();
-	(player as any).correctionTarget = serverPosition.duplicate();
-	(player as any).correctionStartAt = Date.now();
-	(player as any).correctionDuration = durationMs;
-	// prediction should be ignored while we correct
-	clearPredictedPosition(player);
 }
 
 
