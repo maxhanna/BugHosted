@@ -208,7 +208,7 @@
     <div *ngIf="(this.latestSocialStoryId || storyId || user?.id) && !loginOnly && !isLoading">
       <div *ngIf="this.latestSocialStoryId && (!user || !parentRef?.user)"
         class="popupPanelTitle cursorPointerUnderlined" style="margin-top: 15px;">
-        <app-menu-item [type]="'Social'" [parentRef]="parentRef" [label]="'Latest Social Post:'"></app-menu-item>
+        <app-menu-item [type]="'Social'" [parentRef]="parentRef" [label]="'Latest Post:'"></app-menu-item>
       </div>
       <app-social #socialComponent [showOnlyPost]="true" [user]="user" [storyId]="storyId ?? this.latestSocialStoryId"
         [commentId]="commentId" [parent]="parentRef" [showTopicSelector]="false" [canScroll]="false"></app-social>

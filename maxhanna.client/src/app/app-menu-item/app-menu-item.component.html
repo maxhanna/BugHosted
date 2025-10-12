@@ -1,4 +1,8 @@
 <div class="app-menu-item" (click)="open()">
-  <span class="menuLabel" *ngIf="displayLabel">{{ displayLabel }}</span>
-  <span class="componentsIcon">{{ parentRef?.getIconByTitle(type) }}</span>
+  <!-- If the label ends with a colon, insert the emoji before the colon and hide the separate icon span -->
+  <span class="menuLabel" *ngIf="displayLabel">
+    <ng-container *ngIf="labelEndsWithColon(); else normalLabel">{{ renderedLabelWithIcon() }}</ng-container>
+    <ng-template #normalLabel>{{ displayLabel }}</ng-template>
+  </span>
+  <span class="componentsIcon" *ngIf="!labelEndsWithColon()">{{ parentRef?.getIconByTitle(type) }}</span>
 </div>
