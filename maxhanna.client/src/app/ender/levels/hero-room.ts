@@ -1,6 +1,8 @@
 import { Vector2 } from "../../../services/datacontracts/meta/vector2";
 import { gridCells } from "../helpers/grid-cells";
+import { resources } from "../helpers/resources";
 import { Level } from "../objects/Level/level";
+import { Sprite } from "../objects/sprite";
 
 
 export class HeroRoomLevel extends Level {
@@ -15,6 +17,20 @@ export class HeroRoomLevel extends Level {
     if (params.itemsFound) {
       this.itemsFound = params.itemsFound;
     }
+    
+    this.background = new Sprite(
+      {
+        resource: resources.images["stars"], 
+        frameSize: new Vector2(320, 220)
+      }
+    );
+
+    const ground = new Sprite({
+      resource: resources.images["stars"],  
+      frameSize: new Vector2(320, 220)
+    }
+    ); 
+    this.addChild(ground);
 
     this.walls = new Set();
   }
