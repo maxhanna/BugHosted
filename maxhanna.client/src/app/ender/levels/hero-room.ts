@@ -25,13 +25,6 @@ export class HeroRoomLevel extends Level {
       }
     );
 
-    const ground = new Sprite({
-      resource: resources.images["stars"],  
-      frameSize: new Vector2(320, 220)
-    }
-    ); 
-    this.addChild(ground);
-
     this.walls = new Set();
   }
 
