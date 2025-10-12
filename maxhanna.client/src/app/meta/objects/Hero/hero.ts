@@ -156,16 +156,6 @@ export class Hero extends Character {
     }
   }
 
-  override step(delta: number, root: any) {
-    const prev = this.position.duplicate();
-    super.step(delta, root);
-    if (this.isUserControlled) {
-      if (this.position.x !== prev.x || this.position.y !== prev.y) {
-        events.emit("HERO_MOVED", { id: this.id, x: this.position.x, y: this.position.y });
-      }
-    }
-  }
-
 
 
   override getContent() {

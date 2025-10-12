@@ -2,7 +2,6 @@ import { calculateWords } from "./sprite-font-map";
 import { GameObject, HUD } from "../game-object";
 import { Sprite } from "../sprite"; 
 import { Vector2 } from "../../../../services/datacontracts/meta/vector2";
-import { events } from "../../helpers/events";
 
 export class ChatSpriteTextString extends GameObject {
   backgroundAlpha = 0.75;
@@ -43,15 +42,6 @@ export class ChatSpriteTextString extends GameObject {
     if (config.objectSubject) {
       this.objectSubject = config.objectSubject;
     } 
-    events.on("HERO_MOVED", this, (data: any) => {
-      if (!data) return;
-      if (this.objectSubject && data.id === this.objectSubject.id) {
-        this.objectSubject.position.x = data.x;
-        this.objectSubject.position.y = data.y;
-        this.position.x = data.x - 120;
-        this.position.y = data.y + 20;
-      }
-    });
   }
 
   private calculateDimensions() {
@@ -89,10 +79,6 @@ export class ChatSpriteTextString extends GameObject {
   }
 
   override step(delta: number) {
-    if (this.objectSubject && this.objectSubject.position) {
-      this.position.x = this.objectSubject.position.x - 120;
-      this.position.y = this.objectSubject.position.y + 20;
-    }
     if (this.showingIndex >= this.finalIndex) {
       setTimeout(() => { this.destroy(); }, this.TIME_UNTIL_DESTROY);
       return;
