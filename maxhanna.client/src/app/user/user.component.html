@@ -182,7 +182,7 @@
     <!-- LATEST MEME -->
     <div *ngIf="!user?.id && !loginOnly" class="memeAndWordlerWrapper" [class]="onMobile() ? 'gradientBackground':''">
       <div *ngIf="latestMemeId">
-        <div class="popupPanelTitle cursorPointerUnderlined" style="margin-top: 15px;">
+        <div class="popupPanelTitle" style="margin-top: 15px;">
           <app-menu-item [type]="'Meme'" [parentRef]="parentRef" [label]="'Latest Meme:'"></app-menu-item>
         </div>
         <app-media-viewer [fileId]="latestMemeId" [inputtedParentRef]="parentRef"
@@ -207,7 +207,7 @@
     <!-- SOCIAL -->
     <div *ngIf="(this.latestSocialStoryId || storyId || user?.id) && !loginOnly && !isLoading">
       <div *ngIf="this.latestSocialStoryId && (!user || !parentRef?.user)"
-        class="popupPanelTitle cursorPointerUnderlined" style="margin-top: 15px;">
+        class="popupPanelTitle" style="margin-top: 15px;">
         <app-menu-item [type]="'Social'" [parentRef]="parentRef" [label]="'Latest Post:'"></app-menu-item>
       </div>
       <app-social #socialComponent [showOnlyPost]="true" [user]="user" [storyId]="storyId ?? this.latestSocialStoryId"
