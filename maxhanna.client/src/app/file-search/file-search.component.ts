@@ -242,7 +242,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     }
     this.showData = true;
     try {
-      const res = await this.fileService.getDirectory(
+      await this.fileService.getDirectory(
         this.currentDirectory,
         this.filter.visibility,
         this.filter.ownership,
@@ -905,14 +905,20 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
       parent?.showNotification(res ?? "File visibility updated.");
     });
   }
+
   hide(file: FileEntry) {
     const parent = this.inputtedParentRef ?? this.parentRef;
     const user = parent?.user;
+    let hidden = true;
     if (parent && user && user.id) {
       this.fileService.hideFile(file.id, user.id).then(res => {
         parent.showNotification(res);
+        if (res.toLowerCase().includes("unhidden")) {
+          hidden = false;
+        }
       });
     }
+    file.isHidden = hidden;
   }
   private replacePageTitleAndDescription() {
     if (this.directory && this.directory.data && this.directory.data.length > 0) {
