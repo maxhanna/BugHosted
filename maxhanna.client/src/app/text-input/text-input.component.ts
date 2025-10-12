@@ -580,12 +580,16 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
     }
   }
   prepPostTextArea() {
-    const savedVal = this.textarea.value;
-    this.showPostInput = true;
-    setTimeout(() => {
-      this.textarea.focus();
-      this.textarea.value = savedVal;
-    }, 100);
+    clearTimeout(this.debounceTimer);
+    this.debounceTimer = setTimeout(() => {
+      const savedVal = this.textarea.value;
+      this.showPostInput = true;
+      setTimeout(() => {
+        this.textarea.focus();
+        this.textarea.value = savedVal;
+      }, 100);
+    }, 10);
+    
   }
   onKeyDown(event: KeyboardEvent) {
     if (this.enterToPost) {
