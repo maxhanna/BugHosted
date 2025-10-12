@@ -548,56 +548,89 @@ namespace maxhanna.Server.Controllers
                                             SELECT 1 FROM maxhanna.ender_hero WHERE user_id = @UserId OR name = @Name
                                     );";
                         // Choose a random starting location that doesn't collide with other heroes or bike walls
-                        int mapSize = 1000; // grid size used for random spawn
+                        const int mapSize = 1000; // coordinate bounds 0..999 (pixels)
+                        const int SAFE_DISTANCE = 96; // pixels; must be larger than collision tolerance (16) + margin
+                        const int MAX_ATTEMPTS = 500;
 
-                        // occupied hero spots
-                        var occupiedSpots = new HashSet<(int X, int Y)>();
+                        // Gather occupied hero spots (level 1 only)
+                        var occupiedSpots = new List<(int X, int Y)>();
                         string occSql = "SELECT coordsX AS cx, coordsY AS cy FROM maxhanna.ender_hero WHERE level = 1;";
                         using (var occCmd = new MySqlCommand(occSql, connection, transaction))
                         {
                             using var occReader = await occCmd.ExecuteReaderAsync();
                             while (await occReader.ReadAsync())
                             {
-                                occupiedSpots.Add((occReader.IsDBNull(occReader.GetOrdinal("cx")) ? 0 : occReader.GetInt32("cx"),
-                                                   occReader.IsDBNull(occReader.GetOrdinal("cy")) ? 0 : occReader.GetInt32("cy")));
+                                var ox = occReader.IsDBNull(occReader.GetOrdinal("cx")) ? 0 : occReader.GetInt32("cx");
+                                var oy = occReader.IsDBNull(occReader.GetOrdinal("cy")) ? 0 : occReader.GetInt32("cy");
+                                occupiedSpots.Add((ox, oy));
                             }
                         }
 
-                        // bike wall spots (only for starting map/level)
-                        var bikeWallSpots = new HashSet<(int X, int Y)>();
+                        // Gather bike wall spots (level 1 only)
+                        var bikeWallSpots = new List<(int X, int Y)>();
                         string bikeSql = "SELECT x AS bx, y AS byy FROM maxhanna.ender_bike_wall WHERE level = 1;";
                         using (var bikeCmd = new MySqlCommand(bikeSql, connection, transaction))
                         {
                             using var bikeReader = await bikeCmd.ExecuteReaderAsync();
                             while (await bikeReader.ReadAsync())
                             {
-                                bikeWallSpots.Add((bikeReader.IsDBNull(bikeReader.GetOrdinal("bx")) ? 0 : bikeReader.GetInt32("bx"),
-                                           bikeReader.IsDBNull(bikeReader.GetOrdinal("byy")) ? 0 : bikeReader.GetInt32("byy")));
+                                var bx = bikeReader.IsDBNull(bikeReader.GetOrdinal("bx")) ? 0 : bikeReader.GetInt32("bx");
+                                var by = bikeReader.IsDBNull(bikeReader.GetOrdinal("byy")) ? 0 : bikeReader.GetInt32("byy");
+                                bikeWallSpots.Add((bx, by));
                             }
                         }
 
-                        var allSpots = Enumerable.Range(0, mapSize).SelectMany(x => Enumerable.Range(0, mapSize).Select(y => (X: x, Y: y))).ToList();
+                        bool IsSafe(int x, int y) {
+                            // Quick reject if near any hero
+                            foreach (var (hx, hy) in occupiedSpots)
+                            {
+                                if (Math.Abs(hx - x) <= SAFE_DISTANCE && Math.Abs(hy - y) <= SAFE_DISTANCE) return false;
+                            }
+                            // Quick reject if near any wall
+                            foreach (var (wx, wy) in bikeWallSpots)
+                            {
+                                if (Math.Abs(wx - x) <= SAFE_DISTANCE && Math.Abs(wy - y) <= SAFE_DISTANCE) return false;
+                            }
+                            return true;
+                        }
 
-                        // Exclude any spot that is within 1 grid cell (neighbors) of an occupied hero or bike wall.
-                        // This prevents spawning on X, X-1, X+1 and Y, Y-1, Y+1 around occupied locations.
-                        var availableSpots = allSpots.Where(s =>
-                            // not exactly occupied
-                            !occupiedSpots.Contains((s.X, s.Y))
-                            && !bikeWallSpots.Contains((s.X, s.Y))
-                            // and not within one cell of any occupied hero
-                            && !occupiedSpots.Any(o => Math.Abs(o.X - s.X) <= 32 && Math.Abs(o.Y - s.Y) <= 32)
-                            // and not within one cell of any bike wall
-                            && !bikeWallSpots.Any(b => Math.Abs(b.X - s.X) <= 32 && Math.Abs(b.Y - s.Y) <= 32)
-                        ).ToList();
-
-                        int posX = 1 * 16;
-                        int posY = 11 * 16;
-                        if (availableSpots.Any())
+                        var rnd = new Random();
+                        int posX = 16; // default fallback grid cell (1*16)
+                        int posY = 16 * 11; // keep prior Y fallback
+                        bool found = false;
+                        for (int attempt = 0; attempt < MAX_ATTEMPTS; attempt++)
                         {
-                            var rand = new Random();
-                            var sel = availableSpots[rand.Next(availableSpots.Count)];
-                            posX = sel.X;
-                            posY = sel.Y;
+                            // Bias away from extreme edges (leave 32px margin)
+                            int x = rnd.Next(32, mapSize - 32);
+                            int y = rnd.Next(32, mapSize - 32);
+                            if (IsSafe(x, y))
+                            {
+                                posX = x;
+                                posY = y;
+                                found = true;
+                                break;
+                            }
+                        }
+                        if (!found)
+                        {
+                            // Last resort: search a small expanding spiral around fallback until safe
+                            int startX = posX;
+                            int startY = posY;
+                            int radius = 16;
+                            for (int r = 0; r <= 10 && !found; r++)
+                            {
+                                for (int dx = -radius; dx <= radius && !found; dx += 16)
+                                {
+                                    for (int dy = -radius; dy <= radius && !found; dy += 16)
+                                    {
+                                        int tx = startX + dx;
+                                        int ty = startY + dy;
+                                        if (tx < 0 || ty < 0 || tx >= mapSize || ty >= mapSize) continue;
+                                        if (IsSafe(tx, ty)) { posX = tx; posY = ty; found = true; }
+                                    }
+                                }
+                                radius += 16;
+                            }
                         }
                         string chosenColor = req.Color ?? "#00a0c8";
                         if (string.Equals(chosenColor, "#00a0c8", StringComparison.OrdinalIgnoreCase) && req.UserId > 0)
