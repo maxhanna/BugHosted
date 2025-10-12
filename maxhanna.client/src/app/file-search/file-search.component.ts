@@ -45,7 +45,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   @Input() displayTotal = true;
   @Input() showFileSearchOptions = true;
   @Input() showSpaceForNotifications = false;
-  @Input() showHiddenFiles: boolean = true;
+  @Input() showHiddenFiles: boolean = false; // default: do not show hidden files unless user toggles or user setting enables it
   @Input() showTopics: boolean = true;
   @Input() captureNotifications: boolean = false;
   @Input() currentPage = this.defaultCurrentPage;

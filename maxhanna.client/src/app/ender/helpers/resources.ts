@@ -25,7 +25,8 @@ export class Resources {
       warpbase: `${this.dir}warpBase.png`,
     };
     this.audioToLoad = {
-      wilhelmScream: `${this.dir}wilhelm_scream.mp3`
+      pixelDreams: `${this.dir}pixeldreams.mp4`,
+      wilhelmScream: `${this.dir}wilhelm_scream.mp3`,
     };
     this.waitForCanvas();
   }
