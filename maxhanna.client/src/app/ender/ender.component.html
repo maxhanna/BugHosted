@@ -151,8 +151,8 @@
     <div *ngFor="let h of otherHeroes" class="otherHeroRow" style="padding:6px 8px; border-bottom:1px solid #333;">
       <div><strong>{{h.name}}</strong> <span *ngIf="h.id === metaHero.id">(You)</span></div>
       <div class="xxSmallFont">Lvl {{h.level}} | Kills {{h.kills}} | Time {{getHeroTimeOnMap(h.id)}}s</div>
-      <div class="xxSmallFont" *ngIf="h.position">Pos: {{snapToGridFetch(h.position.x ?? 0)}} ,
-        {{snapToGridFetch(h.position.y ?? 0)}}
+      <div class="xxSmallFont" *ngIf="h.position">Pos: {{snapToGridFetch(h.position.x)}} ,
+        {{snapToGridFetch(h.position.y)}}
       </div>
       <div *ngIf="h.color" class="xxSmallFont">Color: <span [style.background]="h.color"
           style="display:inline-block; width:12px; height:12px; border:1px solid #222; vertical-align:middle;"></span>
