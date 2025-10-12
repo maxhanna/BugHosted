@@ -4,6 +4,12 @@
   <span class="notificationTopButton" (click)="openSearchOptionsPanel();" *ngIf="showFileSearchOptions">⚙️</span>
 </div>
 
+<div *ngIf="isSearchOptionsPanelOpen" class="searchOptionsPanel">
+  <label *ngIf="user?.id">
+    <input type="checkbox" [checked]="showHiddenFiles" (change)="toggleShowHiddenFiles($event)" /> Show Hidden Files
+  </label>
+</div>
+
 
 <div *ngIf="showShareUserList" class="popupPanel" #shareUserListDiv>
   <div class="popupPanelTitle">Share File?</div>

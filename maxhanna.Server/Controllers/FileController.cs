@@ -80,9 +80,13 @@ namespace maxhanna.Server.Controllers
 				bool isRomSearch = DetermineIfRomSearch(fileType ?? new List<string>());
 				string visibilityCondition = string.IsNullOrEmpty(visibility) || visibility.ToLower() == "all" ? "" : visibility.ToLower() == "public" ? " AND f.is_public = 1 " : " AND f.is_public = 0 ";
 				string ownershipCondition = string.IsNullOrEmpty(ownership) || ownership.ToLower() == "all" ? "" : ownership.ToLower() == "others" ? " AND f.user_id != @userId " : " AND f.user_id = @userId ";
-				string hiddenCondition = showHidden
-								? "" // If showHidden is true, don't filter out hidden files
-								: $" AND f.id NOT IN (SELECT file_id FROM maxhanna.hidden_files WHERE user_id = @userId) ";
+				// Unified hidden condition: allow all if explicit showHidden or user setting show_hidden_files = 1, else filter out hidden
+				string hiddenCondition = @"
+								AND (
+									@showHidden = 1
+									OR EXISTS (SELECT 1 FROM maxhanna.user_settings us WHERE us.user_id = @userId AND us.show_hidden_files = 1)
+									OR f.id NOT IN (SELECT file_id FROM maxhanna.hidden_files WHERE user_id = @userId)
+								)";
 				string favouritesCondition = showFavouritesOnly
 					? " AND f.id IN (SELECT file_id FROM file_favourites WHERE user_id = @userId) "
 					: "";
@@ -177,6 +181,7 @@ namespace maxhanna.Server.Controllers
 						positionCommand.Parameters.AddWithValue("@folderPath", directory);
 						positionCommand.Parameters.AddWithValue("@fileId", fileId.Value);
 						positionCommand.Parameters.AddWithValue("@userId", user?.Id ?? 0);
+						positionCommand.Parameters.AddWithValue("@showHidden", showHidden ? 1 : 0);
 						foreach (var param in list)
 						{
 							positionCommand.Parameters.Add(param);
@@ -298,6 +303,7 @@ LIMIT
 					}
 					command.Parameters.AddWithValue("@folderPath", directory);
 					command.Parameters.AddWithValue("@userId", user?.Id ?? 0);
+					command.Parameters.AddWithValue("@showHidden", showHidden ? 1 : 0);
 					command.Parameters.AddWithValue("@pageSize", pageSize);
 					command.Parameters.AddWithValue("@offset", offset);
 					if (!string.IsNullOrEmpty(search))
@@ -1057,6 +1063,7 @@ LIMIT
 			}
 			totalCountCommand.Parameters.AddWithValue("@folderPath", directory);
 			totalCountCommand.Parameters.AddWithValue("@userId", user?.Id ?? 0);
+			totalCountCommand.Parameters.AddWithValue("@showHidden", 0); // result count always evaluates condition; explicit toggle handled earlier
 			if (!string.IsNullOrEmpty(search))
 			{
 				totalCountCommand.Parameters.AddWithValue("@search", "%" + search + "%"); // Add search parameter

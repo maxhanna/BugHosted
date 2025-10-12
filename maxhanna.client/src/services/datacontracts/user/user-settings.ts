@@ -7,4 +7,5 @@ export class UserSettings {
   notificationsEnabled?: boolean; 
   lastCharacterName?: string;
   lastCharacterColor?: string;
+  showHiddenFiles?: boolean;
 }

@@ -1300,7 +1300,7 @@ namespace maxhanna.Server.Controllers
 					await conn.OpenAsync();
 
 					string selectSql = @"
-						SELECT nsfw_enabled, ghost_read, compactness, show_posts_from, notifications_enabled, last_character_name, last_character_color
+						SELECT nsfw_enabled, ghost_read, compactness, show_posts_from, notifications_enabled, last_character_name, last_character_color, show_hidden_files
 						FROM maxhanna.user_settings 
 						WHERE user_id = @userId;";
 
@@ -1323,6 +1323,7 @@ namespace maxhanna.Server.Controllers
 							userSettings.NotificationsEnabled = reader.IsDBNull("notifications_enabled") ? null : reader.GetInt32("notifications_enabled") == 1;
 							userSettings.LastCharacterName = reader.IsDBNull(reader.GetOrdinal("last_character_name")) ? null : reader.GetString("last_character_name");
 							userSettings.LastCharacterColor = reader.IsDBNull(reader.GetOrdinal("last_character_color")) ? null : reader.GetString("last_character_color");
+							userSettings.ShowHiddenFiles = !reader.IsDBNull(reader.GetOrdinal("show_hidden_files")) && reader.GetInt32("show_hidden_files") == 1;
 						}
 						else
 						{
@@ -1331,6 +1332,7 @@ namespace maxhanna.Server.Controllers
 							userSettings.GhostReadEnabled = false;
 							userSettings.Compactness = "no"; 
 							userSettings.ShowPostsFrom = "all";
+							userSettings.ShowHiddenFiles = false;
 						}
 					}
 
@@ -1340,6 +1342,41 @@ namespace maxhanna.Server.Controllers
 				{
 					_ = _log.Db("An error occurred while fetching user settings. " + ex.Message, userId, "USER", true);
 					return StatusCode(500, "An error occurred while fetching user settings.");
+				}
+				finally
+				{
+					conn.Close();
+				}
+			}
+		}
+
+		[HttpPost("/User/UpdateShowHiddenFiles", Name = "UpdateShowHiddenFiles")]
+		public async Task<IActionResult> UpdateShowHiddenFiles([FromBody] UpdateNsfwRequest request)
+		{
+			using (MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+			{
+				try
+				{
+					await conn.OpenAsync();
+
+					string updateSql = @"
+                INSERT INTO maxhanna.user_settings (user_id, show_hidden_files)
+                VALUES (@userId, @showHiddenFiles)
+                ON DUPLICATE KEY UPDATE 
+                    show_hidden_files = VALUES(show_hidden_files);";
+
+					MySqlCommand updateCmd = new MySqlCommand(updateSql, conn);
+					updateCmd.Parameters.AddWithValue("@userId", request.UserId);
+					updateCmd.Parameters.AddWithValue("@showHiddenFiles", request.IsAllowed ? 1 : 0);
+
+					await updateCmd.ExecuteNonQueryAsync();
+
+					return Ok("Successfully updated show_hidden_files setting.");
+				}
+				catch (Exception ex)
+				{
+					_ = _log.Db("An error occurred while processing the update show_hidden_files POST request. " + ex.Message, request.UserId, "USER", true);
+					return StatusCode(500, "An error occurred while processing the update show_hidden_files request.");
 				}
 				finally
 				{

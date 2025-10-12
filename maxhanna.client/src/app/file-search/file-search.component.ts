@@ -117,6 +117,10 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
       this.userService.getUserSettings(user.id).then(res => {
         if (res) {
           this.isDisplayingNSFW = res.nsfwEnabled ?? false;
+          if (res.showHiddenFiles !== undefined) {
+            this.showHiddenFiles = res.showHiddenFiles;
+            this.filter.hidden = this.showHiddenFiles ? 'all' : 'unhidden';
+          }
         }
       });
     }
@@ -400,6 +404,20 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   setFilterHidden(event: Event): void {
     const target = event.target as HTMLSelectElement;
     this.filter.hidden = target.value;
+    this.getDirectory();
+  }
+  toggleShowHiddenFiles(event: Event) {
+    const isChecked = (event.target as HTMLInputElement).checked;
+    this.showHiddenFiles = isChecked;
+    this.filter.hidden = this.showHiddenFiles ? 'all' : 'unhidden';
+    const user = this.inputtedParentRef?.user ?? this.parentRef?.user;
+    if (user?.id) {
+      this.userService.updateShowHiddenFiles(user.id, isChecked).then(res => {
+        if (res && res.toLowerCase().includes('successfully')) {
+          this.parentRef?.showNotification(res);
+        }
+      });
+    }
     this.getDirectory();
   }
   async editFileKeyUp(event: KeyboardEvent, fileId: number) {
