@@ -1,8 +1,8 @@
 import { events } from "./events";
 import { Hero } from "../objects/Hero/hero";
-import { MetaEvent } from "../../../services/datacontracts/meta/meta-event";
-import { MetaChat } from "../../../services/datacontracts/meta/meta-chat";
-import { Vector2 } from "../../../services/datacontracts/meta/vector2";
+import { MetaEvent } from "../../../services/datacontracts/ender/meta-event";
+import { MetaChat } from "../../../services/datacontracts/ender/meta-chat";
+import { Vector2 } from "../../../services/datacontracts/ender/vector2";
 import { GameObject } from "../objects/game-object";
 import { Level } from "../objects/Level/level";
 import { gridCells } from "./grid-cells";
