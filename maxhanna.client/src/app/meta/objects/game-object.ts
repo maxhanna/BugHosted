@@ -146,6 +146,10 @@ export class GameObject {
       if (a.drawLayer === FLOOR && b.drawLayer !== FLOOR) return -1;
       if (b.drawLayer === FLOOR && a.drawLayer !== FLOOR) return 1;
 
+  // Ensure HUD always draws last (on top of all other layers)
+  if (a.drawLayer === HUD && b.drawLayer !== HUD) return 1; // a after b
+  if (b.drawLayer === HUD && a.drawLayer !== HUD) return -1; // b after a
+
       // Step 2: If both objects are on the same drawLayer or none of the above, sort by y position
       return a.position.y - b.position.y;
     });
