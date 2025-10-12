@@ -795,7 +795,16 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
   clearSearchInput() {
     this.search.nativeElement.value = '';
     this.userSearch = '';
-    this.searchStories();
+    // use the debounced search behavior to match clicking the search button
+    this.debouncedSearch();
+  }
+
+  clearSearchIdInput() {
+    if (this.searchIdInput && this.searchIdInput.nativeElement) {
+      this.searchIdInput.nativeElement.value = '';
+    }
+    this.storyId = undefined;
+    this.debouncedSearch();
   }
   setFilterHidden(event: Event): void {
     const target = event.target as HTMLSelectElement;
