@@ -233,6 +233,15 @@ namespace maxhanna.Server.Controllers
                                     if (survivorIds.Count == 1)
                                     {
                                         int survivorId = survivorIds[0];
+                                        // Clear all bike walls on this level before any hero leaves it (per requirement)
+                                        try
+                                        {
+                                            await DeleteWallsForLevel(hero.Level, connection, transaction);
+                                        }
+                                        catch (Exception exDel)
+                                        {
+                                            _ = _log.Db($"Failed to delete walls for level {hero.Level} prior to level up: {exDel.Message}", null, "ENDER", true);
+                                        }
                                         using (var levelUpCmd = new MySqlCommand("UPDATE maxhanna.ender_hero SET level = level + 1 WHERE id = @HeroId LIMIT 1;", connection, transaction))
                                         {
                                             levelUpCmd.Parameters.AddWithValue("@HeroId", survivorId);
@@ -1047,6 +1056,23 @@ namespace maxhanna.Server.Controllers
             if (hero.Position == null) hero.Position = new Vector2(0, 0);
             int heroId = hero.Id;
             await _log.Db($"Enter UpdateHeroInDB heroId={heroId}", heroId, "ENDER", false);
+            int? previousLevel = null;
+            try
+            {
+                using (var lvlCmd = new MySqlCommand("SELECT level FROM maxhanna.ender_hero WHERE id = @HeroId LIMIT 1;", connection, transaction))
+                {
+                    lvlCmd.Parameters.AddWithValue("@HeroId", heroId);
+                    var existingLevelObj = await lvlCmd.ExecuteScalarAsync();
+                    if (existingLevelObj != null && existingLevelObj != DBNull.Value)
+                    {
+                        previousLevel = Convert.ToInt32(existingLevelObj);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _ = _log.Db($"Failed to read previous level for heroId={heroId}: {ex.Message}", heroId, "ENDER", true);
+            }
             string sql = @"UPDATE maxhanna.ender_hero 
                             SET coordsX = @CoordsX, 
                                 coordsY = @CoordsY, 
@@ -1068,6 +1094,18 @@ namespace maxhanna.Server.Controllers
                         };
             try
             {
+                // If level is changing, delete walls on the level being left before updating
+                if (previousLevel.HasValue && previousLevel.Value != hero.Level)
+                {
+                    try
+                    {
+                        await DeleteWallsForLevel(previousLevel.Value, connection, transaction);
+                    }
+                    catch (Exception exDel)
+                    {
+                        _ = _log.Db($"Failed to delete walls for level {previousLevel.Value} during hero level change heroId={heroId}: {exDel.Message}", heroId, "ENDER", true);
+                    }
+                }
                 await this.ExecuteInsertOrUpdateOrDeleteAsync(sql, parameters, connection, transaction);
             }
             catch (Exception ex)
@@ -1118,6 +1156,16 @@ namespace maxhanna.Server.Controllers
             }
 
             return hero!;
+        }
+
+        private async Task DeleteWallsForLevel(int level, MySqlConnection connection, MySqlTransaction transaction)
+        {
+            string deleteSql = "DELETE FROM maxhanna.ender_bike_wall WHERE level = @Level;";
+            using (var cmd = new MySqlCommand(deleteSql, connection, transaction))
+            {
+                cmd.Parameters.AddWithValue("@Level", level);
+                await cmd.ExecuteNonQueryAsync();
+            }
         }
 
         private async Task UpdateEventsInDB(MetaEvent @event, MySqlConnection connection, MySqlTransaction transaction)
