@@ -8,7 +8,7 @@ import { UserService } from '../../services/user.service';
 import { MetaChat } from '../../services/datacontracts/ender/meta-chat';
 import { gridCells, snapToGrid } from './helpers/grid-cells';
 import { GameLoop } from './helpers/game-loop';
-import { hexToRgb } from './helpers/resources';
+import { hexToRgb, resources } from './helpers/resources';
 import { events } from './helpers/events';
 import { storyFlags } from './helpers/story-flags';
 import { actionMultiplayerEvents, subscribeToMainGameEvents } from './helpers/network';
@@ -109,6 +109,7 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
     // Champion (global best) info cached for CharacterCreate prompts
     private championName?: string;
     private championScore?: number;
+    isMuted: boolean = false; // user preference for Ender sounds
 
     async ngOnInit() {
         this.serverDown = (this.parentRef ? await this.parentRef?.isServerUp() <= 0 : false);
@@ -126,6 +127,12 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
                 this.cachedDefaultName = res?.lastCharacterName ?? undefined;
                 this.cachedDefaultColor = res?.lastCharacterColor ?? undefined;
                 this.colorInput.nativeElement.value = this.cachedDefaultColor ?? "#00A0C8";
+                // Background music handling (only play if not muted)
+                this.isMuted = !!res?.muteSounds;
+                resources.setMuted(this.isMuted);
+                if (!this.isMuted) {
+                    try { resources.playSound("pixelDreams", { volume: 0.4, loop: true, allowOverlap: false }); } catch { }
+                }
             }).catch(() => { /* ignore */ });
             // reset walls placed for a fresh run; actual run start will be set when hero is initialized
             this.wallsPlacedThisRun = 0;
@@ -160,9 +167,24 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
         clearInterval(this.pollingInterval);
         this.mainScene.destroy();
         this.gameLoop.stop();
+    // Stop background music if playing
+    try { resources.stopSound("pixelDreams"); } catch { }
         this.remove_me('EnderComponent');
         this.parentRef?.setViewportScalability(true);
         this.parentRef?.removeResizeListener();
+    }
+
+    toggleMuteSounds() {
+        this.isMuted = !this.isMuted;
+        resources.setMuted(this.isMuted);
+        if (this.isMuted) {
+            try { resources.stopSound("pixelDreams"); } catch { }
+        } else {
+            try { resources.playSound("pixelDreams", { volume: 0.4, loop: true, allowOverlap: false }); } catch { }
+        }
+        if (this.parentRef?.user?.id) {
+            this.userService.updateMuteSounds(this.parentRef.user.id, this.isMuted).catch(()=>{});
+        }
     }
 
     private async handleHeroDeath() {

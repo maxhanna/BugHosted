@@ -1,4 +1,5 @@
 import { Component, ElementRef, HostListener, OnDestroy, OnInit, ViewChild } from '@angular/core';
+import { UserService } from '../../services/user.service';
 import { Nostalgist } from 'nostalgist';
 import { ChildComponent } from '../child.component';
 import { RomService } from '../../services/rom.service';
@@ -119,7 +120,7 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
   waitingForKey: string | null = null;
   showControlBindings = false;
 
-  constructor(private romService: RomService, private fileService: FileService) {
+  constructor(private romService: RomService, private fileService: FileService, private userService: UserService) {
     super();
   }
 
@@ -138,6 +139,15 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
     });
     this.parentRef?.setViewportScalability(false);
     this.parentRef?.addResizeListener();
+    // Load user mute setting
+    const uid = this.parentRef?.user?.id;
+    if (uid) {
+      this.userService.getUserSettings(uid).then(s => {
+        if (s && typeof s.muteSounds === 'boolean') {
+          this.soundOn = !s.muteSounds; // soundOn true means not muted
+        }
+      }).catch(()=>{});
+    }
   }
 
   async ngOnDestroy() {
@@ -347,12 +357,13 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
   }
 
   toggleSound() {
-    if (!this.soundOn) {
-      this.nostalgist?.sendCommand("MUTE");
-    } else {
-      this.nostalgist?.sendCommand("MUTE");
+    // Emulator MUTE command toggles audio state internally
+    this.nostalgist?.sendCommand("MUTE");
+    this.soundOn = !this.soundOn; // flip local state
+    const muted = !this.soundOn; // mute_sounds value to persist
+    if (this.parentRef?.user?.id) {
+      this.userService.updateMuteSounds(this.parentRef.user.id, muted).catch(()=>{});
     }
-    this.soundOn = !this.soundOn;
     this.closeMenuPanel();
   }
 

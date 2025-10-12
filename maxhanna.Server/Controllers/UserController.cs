@@ -1300,7 +1300,7 @@ namespace maxhanna.Server.Controllers
 					await conn.OpenAsync();
 
 					string selectSql = @"
-						SELECT nsfw_enabled, ghost_read, compactness, show_posts_from, notifications_enabled, last_character_name, last_character_color, show_hidden_files
+						SELECT nsfw_enabled, ghost_read, compactness, show_posts_from, notifications_enabled, last_character_name, last_character_color, show_hidden_files, mute_sounds
 						FROM maxhanna.user_settings 
 						WHERE user_id = @userId;";
 
@@ -1324,6 +1324,7 @@ namespace maxhanna.Server.Controllers
 							userSettings.LastCharacterName = reader.IsDBNull(reader.GetOrdinal("last_character_name")) ? null : reader.GetString("last_character_name");
 							userSettings.LastCharacterColor = reader.IsDBNull(reader.GetOrdinal("last_character_color")) ? null : reader.GetString("last_character_color");
 							userSettings.ShowHiddenFiles = !reader.IsDBNull(reader.GetOrdinal("show_hidden_files")) && reader.GetInt32("show_hidden_files") == 1;
+							userSettings.MuteSounds = !reader.IsDBNull(reader.GetOrdinal("mute_sounds")) && reader.GetInt32("mute_sounds") == 1;
 						}
 						else
 						{
@@ -1333,6 +1334,7 @@ namespace maxhanna.Server.Controllers
 							userSettings.Compactness = "no"; 
 							userSettings.ShowPostsFrom = "all";
 							userSettings.ShowHiddenFiles = false;
+							userSettings.MuteSounds = false;
 						}
 					}
 
@@ -1377,6 +1379,41 @@ namespace maxhanna.Server.Controllers
 				{
 					_ = _log.Db("An error occurred while processing the update show_hidden_files POST request. " + ex.Message, request.UserId, "USER", true);
 					return StatusCode(500, "An error occurred while processing the update show_hidden_files request.");
+				}
+				finally
+				{
+					conn.Close();
+				}
+			}
+		}
+
+		[HttpPost("/User/UpdateMuteSounds", Name = "UpdateMuteSounds")]
+		public async Task<IActionResult> UpdateMuteSounds([FromBody] UpdateNsfwRequest request)
+		{
+			using (MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+			{
+				try
+				{
+					await conn.OpenAsync();
+
+					string updateSql = @"
+                INSERT INTO maxhanna.user_settings (user_id, mute_sounds)
+                VALUES (@userId, @muteSounds)
+                ON DUPLICATE KEY UPDATE 
+                    mute_sounds = VALUES(mute_sounds);";
+
+					MySqlCommand updateCmd = new MySqlCommand(updateSql, conn);
+					updateCmd.Parameters.AddWithValue("@userId", request.UserId);
+					updateCmd.Parameters.AddWithValue("@muteSounds", request.IsAllowed ? 1 : 0);
+
+					await updateCmd.ExecuteNonQueryAsync();
+
+					return Ok("Successfully updated mute_sounds setting.");
+				}
+				catch (Exception ex)
+				{
+					_ = _log.Db("An error occurred while processing the update mute_sounds POST request. " + ex.Message, request.UserId, "USER", true);
+					return StatusCode(500, "An error occurred while processing the update mute_sounds request.");
 				}
 				finally
 				{

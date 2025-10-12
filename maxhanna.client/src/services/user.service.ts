@@ -445,6 +445,21 @@ export class UserService {
       return "Error";
     }
   }
+  async updateMuteSounds(userId: number, isAllowed: boolean) {
+    try {
+      const response = await fetch('/user/updatemutesounds', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ UserId: userId, IsAllowed: isAllowed }),
+      });
+
+      return await response.text();
+    } catch (error) {
+      return "Error";
+    }
+  }
   async getUserMenu(userId?: number): Promise<Array<MenuItem>> {
     if (!userId) return [];
     try {

@@ -7,6 +7,7 @@ export class Resources {
   audios: { [key: string]: { audio: HTMLAudioElement; isLoaded: boolean } } = {};
   dir = "assets/ender/";
   initialized = false;
+  muted = false; // global mute flag for Ender-related sounds
   constructor() {
     this.imageToLoad = {
       bikewall: `${this.dir}bikewall.png`,
@@ -66,6 +67,7 @@ export class Resources {
   }
 
   playSound(key: string, opts?: { volume?: number; loop?: boolean; allowOverlap?: boolean }) {
+  if (this.muted) return; // respect global mute
     const entry = this.audios[key];
     if (!entry) return;
     const base = entry.audio;
@@ -87,6 +89,25 @@ export class Resources {
         base.loop = loop;
         void base.play();
       } catch { }
+    }
+  }
+
+  stopSound(key: string) {
+    const entry = this.audios[key];
+    if (!entry) return;
+    try {
+      entry.audio.pause();
+      entry.audio.currentTime = 0;
+    } catch { }
+  }
+
+  setMuted(muted: boolean) {
+    this.muted = muted;
+    if (muted) {
+      // stop all currently looping/background sounds
+      Object.keys(this.audios).forEach(k => {
+        try { this.audios[k].audio.pause(); } catch { }
+      });
     }
   }
 }

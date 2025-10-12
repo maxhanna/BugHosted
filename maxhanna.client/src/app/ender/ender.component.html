@@ -111,6 +111,11 @@
 
   <div class="popupPanel" style="overflow: auto;" *ngIf="isMenuPanelOpen">
     <div class="popupPanelTitle mainPopupTitle">Ender</div>
+    <div style="padding:6px 8px;">
+      <button class="closeButton" (click)="toggleMuteSounds()" style="margin-bottom:6px;">
+        {{ isMuted ? 'Unmute Sounds' : 'Mute Sounds' }}
+      </button>
+    </div>
     <app-ender-high-scores [mode]="'all'" [parentRef]="parentRef" [headersCollapsed]="true"></app-ender-high-scores>
     <app-share-button [inputtedParentRef]="parentRef" [link]="'Ender'"></app-share-button>
     <button id="closeOverlay" class="closeButton" (click)="closeMenuPanel()">Close</button>
