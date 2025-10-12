@@ -28,7 +28,10 @@
                         <ng-template #emptyGroup>
                             <div class="no-scores">
                                 No{{" "}}
-                                <app-menu-item [type]="'Ender'" [parentRef]="inputtedParentRef ?? parentRef"></app-menu-item>
+                                <app-menu-item 
+                                    style="display: inline-block;"
+                                    [type]="'Ender'" 
+                                    [parentRef]="inputtedParentRef ?? parentRef"></app-menu-item>
                                 {{" "}}scores to show for {{ m }}.
                             </div>
                         </ng-template>

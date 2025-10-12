@@ -47,7 +47,10 @@
                 <ng-template #emptyMode>
                     <div class="no-scores">
                         No{{" "}}
-                        <app-menu-item [type]="'Wordler'" [parentRef]="inputtedParentRef"></app-menu-item>
+                        <app-menu-item 
+                        style="display: inline-block;"
+                        [type]="'Wordler'" 
+                        [parentRef]="inputtedParentRef"></app-menu-item>
                         {{" "}}scores to show for {{ m }}.
                     </div>
                 </ng-template>
