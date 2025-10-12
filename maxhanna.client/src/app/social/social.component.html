@@ -29,6 +29,7 @@
             <input type="text" #search placeholder="Search the socials" (input)="debouncedSearch()" *ngIf="!user"
               [value]="userSearch" />
           <input type="submit" (click)="debouncedSearch()" value="🔍" *ngIf="!user" />
+          <input type="button" (click)="(search.nativeElement.value=''), (userSearch=''), debouncedSearch()" value="❌" *ngIf="!user" />
           <div *ngIf="search && search.nativeElement.value != ''" style="text-align:center;">Results :
             {{storyResponse?.stories?.length ?? 0}}</div>
           <div *ngIf="trendingSearches && trendingSearches.length" class="trending-searches">
@@ -45,6 +46,7 @@
           </div>
           <input type="number" #searchIdInput [placeholder]="storyId ?? 'Post ID'" [value]="storyId" />
           <input type="submit" (click)="debouncedSearch()" value="🔍" *ngIf="!user" />
+          <input type="button" (click)="(searchIdInput.value=''), (storyId = undefined), debouncedSearch()" value="❌" *ngIf="!user" />
           <div *ngIf="searchIdInput && searchIdInput.value != ''" style="text-align:center;">Results :
             {{storyResponse?.stories?.length ?? 0}}</div>
         </div>
