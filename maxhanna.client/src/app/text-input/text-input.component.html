@@ -1,5 +1,5 @@
 <div class="mainInputDiv">
-    <input type="text" placeholder="What’s crawling your mind?" (focus)="prepPostTextArea()" (click)="prepPostTextArea()"
+    <input type="text" placeholder="What’s crawling your mind?" (focus)="type == 'Chat' ? prepPostTextArea() : ''" (click)="prepPostTextArea()"
         *ngIf="!showPostInput" #postInput id="postInput">
     <textarea #story placeholder="What’s crawling your mind?" class="foodForThought" *ngIf="showPostInput"
         #postTextArea id="postTextArea" (keydown)="onKeyDown($event)"></textarea>
