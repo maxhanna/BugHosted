@@ -906,12 +906,12 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     });
   }
 
-  hide(file: FileEntry) {
+  async hide(file: FileEntry) {
     const parent = this.inputtedParentRef ?? this.parentRef;
     const user = parent?.user;
     let hidden = true;
     if (parent && user && user.id) {
-      this.fileService.hideFile(file.id, user.id).then(res => {
+      await this.fileService.hideFile(file.id, user.id).then(res => {
         parent.showNotification(res);
         if (res.toLowerCase().includes("unhidden")) {
           hidden = false;
