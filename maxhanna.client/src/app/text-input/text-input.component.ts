@@ -296,6 +296,15 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
       if (this.type == "Comment") {
         const fromUserId = user?.id ?? 0;
         const toUserIds = [replyingToUser?.id ?? 0].filter(id => id != fromUserId);
+        console.debug('Comment notification block start', {
+          fromUserId,
+          replyingToUserId: replyingToUser?.id,
+          mentionedSet: Array.from(mentionedSet),
+          storyIdToUse,
+          fileIdProp: this.fileId,
+          isComment,
+          isFile
+        });
         if (replyingToUser?.id && toUserIds.length > 0) {
           const filteredToUserIds = toUserIds.filter(id => !mentionedSet.has(id));
           if (filteredToUserIds.length > 0) {
@@ -309,6 +318,7 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
               commentId: ids?.commentId ?? results.results?.commentId ?? (isComment ? this.commentParent?.id : undefined),
               userProfileId: ids?.userProfileId ?? this.profileUser?.id,
             };
+            console.debug('Sending notification to replying user(s)', notificationData);
             this.notificationService.createNotifications(notificationData);
           }
         }
@@ -327,6 +337,7 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
               }
             };
             collect(threadRoot);
+            console.debug('Collected participantIds before exclusions', Array.from(participantIds));
 
             const posterId = user?.id ?? 0;
             if (posterId) participantIds.delete(posterId);
@@ -334,9 +345,10 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
             for (const m of mentionedSet) participantIds.delete(m);
 
             const notifyIds = Array.from(participantIds).filter(id => typeof id === 'number' && id > 0);
+            console.debug('Final notifyIds for thread participants', notifyIds);
             if (notifyIds.length > 0) {
               const message = results.originalContent.length > 50 ? results.originalContent.slice(0, 50) + '…' : results.originalContent;
-              this.notificationService.createNotifications({
+              const threadNotification = {
                 fromUserId: posterId,
                 toUserIds: notifyIds,
                 message,
@@ -344,7 +356,9 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
                 fileId: this.fileId ?? ids?.fileId ?? results.results?.fileId ?? (isFile ? this.commentParent?.id : undefined),
                 commentId: this.commentId ?? ids?.commentId ?? results.results?.commentId ?? (isComment ? this.commentParent?.id : undefined),
                 userProfileId: ids?.userProfileId ?? this.profileUser?.id,
-              });
+              };
+              console.debug('Sending thread participant notifications', threadNotification);
+              this.notificationService.createNotifications(threadNotification);
             }
           } catch (e) {
             console.warn('Failed to notify thread participants:', e);
@@ -582,7 +596,6 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
       if (id === undefined || id === null) {
         return msg;
       }
-      console.log("encrypting message with password: ", msg, id);
       return this.encryptionService.encryptContent(msg, (id + "").trim());
     } catch (error) { 
       console.error('Encryption error:', error);
