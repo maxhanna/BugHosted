@@ -75,7 +75,6 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
   }
 
   ngOnInit() {
-    console.log("decrypting comments for ", this.commentList);
     this.clearSubCommentsToggled();
     if (this.depth == 0) {
       this.decryptCommentsRecursively(this.commentList);
