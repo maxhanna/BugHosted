@@ -103,8 +103,11 @@
           {{ snapToGridFetch(metaHero.position.y) }}
         </strong>
       </div>
-      <div>
+      <div *ngIf="mainScene?.level?.name === 'CharacterCreate'">
         <input type="color" (change)='changeColor()' #colorInput class="colorInput" [value]="metaHero.color" />
+      </div>
+      <div *ngIf="serverDown">
+        Server Down
       </div>
     </div>
   </div>
