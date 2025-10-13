@@ -409,7 +409,7 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
         try {
             if (!this.metaHero || !this.metaHero.id) return;
             // radiusSeconds defines how many seconds of movement worth of walls to fetch (approx)
-            const payload = { hero: this.metaHero, radiusSeconds: 50 };
+            const payload = { hero: this.metaHero, radiusSeconds: 500 };
             const res: any = await this.enderService.fetchWallsAroundHero(payload);
             if (!res || !Array.isArray(res)) return;
 
