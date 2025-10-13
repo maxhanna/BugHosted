@@ -365,6 +365,13 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
                         this.metaHero.kills = Number(res.heroKills) || 0;
                     }
                     if (res.currentLevel !== undefined && this.metaHero) {
+                        if (this.metaHero?.level && this.metaHero.level != res.currentLevel) {
+                            this.mainScene.level.children.forEach((child:any)=>{
+                                if (typeof (child as any).quickDestroy === 'function') { 
+                                    (child as any).quickDestroy(); 
+                                }
+                            });
+                        }
                         this.metaHero.level = Number(res.currentLevel) || 1;
                     }
                     this.updateOtherHeroesBasedOnFetchedData(res);
