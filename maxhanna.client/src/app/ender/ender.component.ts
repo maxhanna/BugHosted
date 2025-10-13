@@ -96,6 +96,8 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
     // In-memory set of meta bike walls (keys: "x|y") for fast existence checks
     // Track only the highest wall id we've processed; we don't retain all wall coordinates persistently.
     private lastKnownWallId: number = 0;
+    // Temporary cache of wall position keys added during the last update to avoid re-adding
+    private lastAddedWallKeys: Set<string> = new Set<string>();
     // Reference to level to reset delta tracking when level changes
     private persistedWallLevelRef: any = undefined;
     // Collect all locally spawned walls since last fetch (delta batch)
@@ -366,7 +368,13 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
                                 }
                             }
                         }
+                        const newlyAddedKeys: string[] = [];
                         for (const w of walls) {
+                            const key = `${w.x}|${w.y}`;
+                            newlyAddedKeys.push(key);
+                            if (this.lastAddedWallKeys.has(key)) {
+                                continue;
+                            }
                             const ownerId = w.heroId;
                             const ownerColor = (ownerId && this.heroColors.has(ownerId)) ? this.heroColors.get(ownerId) : undefined;
                             const colorSwap = ownerColor ? new ColorSwap([0, 160, 200], hexToRgb(ownerColor!)) : (ownerId === this.metaHero.id ? (this.metaHero ? this.mainScene.metaHero?.colorSwap : undefined) : undefined);
@@ -377,6 +385,8 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
                                 this.lastKnownWallId = w.id;
                             }
                         }
+                        this.lastAddedWallKeys.clear();
+                        for (const k of newlyAddedKeys) this.lastAddedWallKeys.add(k);
                     }
 
                     if (this.chat) {
