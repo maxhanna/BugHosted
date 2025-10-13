@@ -58,6 +58,40 @@ namespace maxhanna.Server.Controllers
             catch { }
         }
 
+        // Helper to send a kill notification for a victim when killed by a killer
+        private async Task SendKillNotificationAsync(int victimId, int? killerId, MySqlConnection connection, MySqlTransaction transaction)
+        {
+            try
+            {
+                if (!killerId.HasValue || killerId.Value == 0) return;
+
+                // Insert notification by mapping victim hero id -> user_id and resolving killer's username and user_id via joins
+                string insertNotif = @"
+                    INSERT INTO maxhanna.notifications (user_id, from_user_id, user_profile_id, text, date)
+                    SELECT v.user_id AS user_id,
+                           COALESCE(kh.user_id, 0) AS from_user_id,
+                           COALESCE(kh.user_id, 0) AS user_profile_id,
+                           CONCAT('You have been killed by ', COALESCE(u.username, 'Unknown'), '.') AS text,
+                           UTC_TIMESTAMP()
+                    FROM maxhanna.ender_hero v
+                    LEFT JOIN maxhanna.ender_hero kh ON kh.id = @KillerHeroId
+                    LEFT JOIN maxhanna.users u ON u.id = kh.user_id
+                    WHERE v.id = @VictimHeroId AND v.user_id IS NOT NULL AND v.user_id != 0
+                    LIMIT 1;";
+
+                using (var notifCmd = new MySqlCommand(insertNotif, connection, transaction))
+                {
+                    notifCmd.Parameters.AddWithValue("@VictimHeroId", victimId);
+                    notifCmd.Parameters.AddWithValue("@KillerHeroId", killerId.Value);
+                    await notifCmd.ExecuteNonQueryAsync();
+                }
+            }
+            catch (Exception ex)
+            {
+                _ = _log.Db($"Failed to insert kill notification for victim hero {victimId}: {ex.Message}", victimId, "ENDER", true);
+            }
+        }
+
         [HttpPost("/Ender", Name = "Ender_GetHero")]
         public async Task<IActionResult> GetHero([FromBody] int userId)
         {
@@ -206,6 +240,7 @@ namespace maxhanna.Server.Controllers
                                             Console.WriteLine("added event death event for heroId" + victimId);
                                             await KillHeroById(victimId, connection, transaction, killerId);
                                             Console.WriteLine("killed heroId" + victimId);
+                                            _ = SendKillNotificationAsync(victimId, killerId, connection, transaction);
                                         }
                                         catch (Exception exKill)
                                         {
