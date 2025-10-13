@@ -761,19 +761,57 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
     }
 
     async changeColor() {
-        const newColor = this.colorInput.nativeElement.value;
-        this.metaHero.color = newColor;
+        // get and normalise the hex value from the input
+        let raw = (this.colorInput.nativeElement.value || "").toString();
+        function normalizeHex(h: string): string | null {
+            if (!h) return null;
+            h = h.replace(/^#/, '');
+            if (h.length === 3) {
+                h = h.split('').map(c => c + c).join('');
+            }
+            if (h.length !== 6) return null;
+            return '#' + h.toUpperCase();
+        }
+
+        const norm = normalizeHex(raw);
+        if (!norm) {
+            // invalid input, revert to cached/default
+            const fallback = this.cachedDefaultColor ?? this.metaHero?.color ?? '#444444';
+            this.colorInput.nativeElement.value = fallback;
+            raw = fallback;
+        }
+
+        const newColor = normalizeHex(raw) ?? (this.cachedDefaultColor ?? this.metaHero?.color ?? '#444444');
+
+        // compute perceived luminance and prevent too-dark colors
+        let rgb: number[] | undefined = undefined;
+        try { rgb = hexToRgb(newColor); } catch { rgb = undefined; }
+        const minLuminance = 40; // out of 0-255; tune this threshold if needed
+        if (rgb && rgb.length >= 3) {
+            const lum = 0.2126 * rgb[0] + 0.7152 * rgb[1] + 0.0722 * rgb[2];
+            if (lum < minLuminance) {
+                // too dark — choose a safe fallback and update the input so the user sees it
+                const fallback = this.cachedDefaultColor ?? this.metaHero?.color ?? '#444444';
+                this.colorInput.nativeElement.value = fallback;
+                // set chosen color to fallback
+                raw = fallback;
+            }
+        }
+
+        const chosenColor = normalizeHex(raw) ?? (this.cachedDefaultColor ?? this.metaHero?.color ?? '#444444');
+
+        this.metaHero.color = chosenColor;
         if (this.hero && this.hero.colorSwap) {
-            this.hero.colorSwap = new ColorSwap([0, 160, 200], hexToRgb(newColor));
+            this.hero.colorSwap = new ColorSwap([0, 160, 200], hexToRgb(chosenColor));
         }
         const userId = this.parentRef?.user?.id ?? 0;
         if (userId && userId > 0) {
-            await this.userService.updateLastCharacterColor(userId, newColor);
-            this.cachedDefaultColor = newColor;
+            await this.userService.updateLastCharacterColor(userId, chosenColor);
+            this.cachedDefaultColor = chosenColor;
         }
 
-        if (this.metaHero && this.metaHero.id && newColor) {
-            this.heroColors.set(this.metaHero.id, newColor);
+        if (this.metaHero && this.metaHero.id && chosenColor) {
+            this.heroColors.set(this.metaHero.id, chosenColor);
         }
 
         if (this.mainScene?.level?.name != "CharacterCreate") {
