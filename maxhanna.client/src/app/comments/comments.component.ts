@@ -296,6 +296,13 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
     this.replyingToCommentEvent.emit();
   }
 
+  // Centralized cancel handler for comment editing (used by app-text-input cancelEdit)
+  cancelEdit(comment: FileComment) {
+    if (!comment || comment.id === undefined) return;
+    this.editingComments = this.editingComments.filter(x => x != comment.id);
+    this.closeOptionsPanel();
+  }
+
   async confirmEditComment(comment: FileComment) {
     let message = (document.getElementById('commentTextTextarea' + comment.id) as HTMLTextAreaElement).value.trim();
     message = this.encryptionService.encryptContent(message, comment.user.id + "");

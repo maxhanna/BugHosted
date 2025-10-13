@@ -84,14 +84,14 @@
         </div>
         <div class="commentInputArea">
           <div class="borderPaddedComment" *ngIf="editingComments.includes(comment.id) && !replyingToCommentId">
-            <app-text-input 
+              <app-text-input 
               [inputtedParentRef]="inputtedParentRef"
               [type]="'Comment'" 
               [commentId]="comment.id"
               [initialContent]="comment.commentText" 
               [showPostInput]="true" 
               (contentUpdated)="onCommentUpdated($event, comment)"
-              (cancelEdit)="editingComments = editingComments.filter(x => x != comment.id)">
+              (cancelEdit)="cancelEdit(comment)">
             </app-text-input>
           </div>
 
