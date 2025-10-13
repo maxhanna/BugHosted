@@ -77,6 +77,8 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
     isShopMenuOpened = false;
     hideStartButton = false;
     serverDown? = false;
+    // Count consecutive failures to fetch game data; when threshold reached notify parent
+    private consecutiveFetchFailures: number = 0;
 
 
     private currentChatTextbox?: ChatSpriteTextString | undefined;
@@ -312,15 +314,29 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
         }
     }
 
-    private updatePlayers() {
+    private async updatePlayers() {
         if (this.metaHero && this.metaHero.id && !this.stopPollingForUpdates) {
             const pendingWalls = this.pendingWallsBatch.length > 0 ? [...this.pendingWallsBatch] : undefined;
             this.pendingWallsBatch = [];
             if (this.hero && this.metaHero) {
                 this.metaHero.position = this.hero?.position.duplicate();
             }
+            try {
+                const res: any = await this.enderService.fetchGameDataWithWalls(this.metaHero, pendingWalls, this.lastKnownWallId);
+                if (!res) {
+                    // treat null/undefined as a failure
+                    this.consecutiveFetchFailures++;
+                    if (this.consecutiveFetchFailures >= 3) {
+                        // notify parent that server appears down and set flag
+                        try { this.parentRef?.showNotification?.("Ender server appears to be down"); } catch { }
+                        this.serverDown = true;
+                    }
+                    return;
+                }
+                // successful fetch: reset failure counter/state
+                this.consecutiveFetchFailures = 0;
+                this.serverDown = false;
 
-            this.enderService.fetchGameDataWithWalls(this.metaHero, pendingWalls, this.lastKnownWallId).then((res: any) => {
                 if (res) {
                     if (res.heroes) {
                         const myHeroExists = res.heroes?.filter((x: MetaHero) => x.id === this.metaHero.id);
@@ -419,7 +435,15 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
                         actionMultiplayerEvents(this, res.events);
                     }
                 }
-            });
+            } catch (ex) {
+                // treat exceptions as failures to fetch
+                this.consecutiveFetchFailures++;
+                if (this.consecutiveFetchFailures >= 3) {
+                    try { this.parentRef?.showNotification?.("Ender server appears to be down"); } catch { }
+                    this.serverDown = true;
+                }
+                return;
+            }
         }
     }
 
