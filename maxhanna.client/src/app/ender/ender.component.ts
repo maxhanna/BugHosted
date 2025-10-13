@@ -417,20 +417,54 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
             const level = this.mainScene.level;
             if (!level) return;
  
+            // Destroy only bike-walls that are far away from the hero to avoid
+            // removing nearby walls and causing visual churn. Check distance >= 500 px
+            // on both axes (x and y) before destroying.
             for (const child of level.children) {
                 if (child && child.name === 'bike-wall') {
-                    child.quickDestroy?.();
+                    try {
+                        const pos = child.position;
+                        const heroPos = this.metaHero?.position;
+                        if (child.position && heroPos) {
+                            const dx = Math.abs(pos.x - heroPos.x);
+                            const dy = Math.abs(pos.y - heroPos.y);
+                            if (dx >= 500 || dy >= 500) {
+                                child.quickDestroy?.();
+                            }
+                        }
+                    } catch (e) { /* ignore position errors */ }
                 }
             }
  
+            // Build O(1) lookups for existing walls (by server id and by position key)
+            const existingIds = new Set<number>();
+            const existingKeys = new Set<string>();
+            for (const child of level.children) {
+                if (!child) continue;
+                try {
+                    const cid = (child as any).wallId as number | undefined;
+                    if (typeof cid === 'number' && !isNaN(cid)) existingIds.add(cid);
+                    const pos = (child as any).position;
+                    if (pos && typeof pos.x === 'number' && typeof pos.y === 'number') existingKeys.add(`${pos.x}|${pos.y}`);
+                } catch { /* ignore */ }
+            }
+
             for (const w of incomingWalls) {
                 try {
+                    // Skip if we already have this wall by server id or by exact position
+                    if (w.id && existingIds.has(w.id)) continue;
+                    const key = `${w.x}|${w.y}`;
+                    if (existingKeys.has(key)) continue;
+
                     const ownerColor = (w.heroId && this.heroColors.has(w.heroId)) ? this.heroColors.get(w.heroId) : undefined;
                     const colorSwap = ownerColor ? new ColorSwap([0, 160, 200], hexToRgb(ownerColor!)) : (w.heroId === this.metaHero.id ? this.mainScene.metaHero?.colorSwap : undefined);
                     const wall = new BikeWall({ position: new Vector2(w.x, w.y), colorSwap, heroId: (w.heroId ?? 0) } as any);
                     // preserve server id for future operations
-                    (wall as any).wallId = w.id;
+                    if (w.id) (wall as any).wallId = w.id;
                     level.addChild(wall);
+
+                    if (w.id) existingIds.add(w.id);
+                    existingKeys.add(key);
                 } catch (ex) { /* ignore add failures */ }
             }
         } catch (err) {
