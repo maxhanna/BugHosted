@@ -72,10 +72,14 @@ namespace maxhanna.Server.Controllers
 			try
 			{
 				List<FileEntry> fileEntries = new List<FileEntry>();
-				string replaced = "'" + string.Join(", ", fileType!).Replace(",", "','") + "'";
-				string fileTypeCondition = fileType != null && fileType.Any() && !string.IsNullOrEmpty(string.Join(',', fileType))
-												? " AND LOWER(f.file_type) IN (" + string.Join(", ", replaced) + ") "
-												: "";
+				string fileTypeCondition = string.Empty;
+				if (fileType != null && fileType.Any() && !string.IsNullOrEmpty(string.Join(',', fileType)))
+				{
+					// sanitize and lower the file type values for SQL IN clause
+					var sanitized = fileType.Select(ft => "'" + (ft ?? string.Empty).ToLower().Replace("'", "''") + "'").ToArray();
+					var replaced = string.Join(",", sanitized);
+					fileTypeCondition = " AND LOWER(f.file_type) IN (" + replaced + ") ";
+				}
 				bool isRomSearch = DetermineIfRomSearch(fileType ?? new List<string>());
 				string visibilityCondition = string.IsNullOrEmpty(visibility) || visibility.ToLower() == "all" ? "" : visibility.ToLower() == "public" ? " AND f.is_public = 1 " : " AND f.is_public = 0 ";
 				string ownershipCondition = string.IsNullOrEmpty(ownership) || ownership.ToLower() == "all" ? "" : ownership.ToLower() == "others" ? " AND f.user_id != @userId " : " AND f.user_id = @userId ";
