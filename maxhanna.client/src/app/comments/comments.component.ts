@@ -32,6 +32,7 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
   hasDeeplinkChanged = false;
   _remainingPath: number[] | undefined;
   private _scrollAttemptCount = 0;
+  private hasCommentsBeenDecrypted = false;
 
   @ViewChild('addCommentInput') addCommentInput!: ElementRef<HTMLInputElement>;
   @ViewChild('subCommentComponent') subCommentComponent!: CommentsComponent;
@@ -631,6 +632,10 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
     }
   }
   private decryptCommentsRecursively(comments: FileComment[]): void {
+    if (!comments || comments.length == 0 || this.hasCommentsBeenDecrypted) {
+      return;
+    }
+    this.hasCommentsBeenDecrypted = true;
     comments.forEach(comment => {
       if (comment.commentText) {
         try {
