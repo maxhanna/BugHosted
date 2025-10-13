@@ -362,7 +362,7 @@
                 [storyId]="story.id"
                 [initialContent]="story.storyText"
                 (contentUpdated)="onStoryUpdated($event, story)"
-                [attachedTopics]="story.storyTopics">
+                [attachedTopics]="story.storyTopics ?? []">
               </app-text-input>
               <div class="editingTextAreaButtonWrapperDiv">
                 <button [id]="'storyTextEditConfirmButton' + story.id" (click)="editStory(story)"
