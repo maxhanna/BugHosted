@@ -886,9 +886,9 @@ public class WebCrawler
 					await Task.Delay(TimeSpan.FromSeconds(backoffSecs + _random.Next(0, 3)));
 					continue;
 				}
-				catch (Exception ex)
+				catch (Exception)
 				{
-					_ = _log.Db($"Exception (ScrapeUrlData send): {ex.Message}", null, "CRAWLER", true);
+					//_ = _log.Db($"Exception (ScrapeUrlData send): {ex.Message}", null, "CRAWLER", true);
 					_hostBackoffCount.AddOrUpdate(hostKey, 1, (_, v) => v + 1);
 					int backoffSecs = Math.Min(60, (int)Math.Pow(2, _hostBackoffCount[hostKey]));
 					_hostNextRequestTime[hostKey] = DateTime.UtcNow.AddSeconds(backoffSecs);
