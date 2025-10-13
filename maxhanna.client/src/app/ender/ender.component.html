@@ -106,7 +106,7 @@
       <div *ngIf="mainScene?.level?.name === 'CharacterCreate'">
         <input type="color" (change)='changeColor()' #colorInput class="colorInput" [value]="metaHero.color" />
       </div>
-      <div *ngIf="serverDown">
+      <div *ngIf="serverDown" class="bold" style="color:red">
         Server Down
       </div>
     </div>
