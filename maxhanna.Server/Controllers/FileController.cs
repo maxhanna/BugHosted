@@ -300,7 +300,7 @@ GROUP BY
     f.width,
     f.height,
     f.last_access,
-							f.access_count
+	f.access_count
 {orderBy}
 LIMIT
     @pageSize OFFSET @offset;"

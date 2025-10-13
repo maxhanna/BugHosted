@@ -182,7 +182,7 @@
 .directoryDisplayDiv {
   overflow: auto;
   display: flex;
-  flex-direction: column; 
+  flex-direction: column;
 }
 
 #fileContainer {
@@ -196,8 +196,8 @@
   display: inline-block;
   min-width: 100%;
   width: 100%;
-} 
- 
+}
+
 .shareUserList {
   max-height: 50vh;
   overflow: auto;
@@ -272,7 +272,8 @@
   align-items: flex-start;
 }
 
-.fileOptionsActionWrapper, .fileOptionsAction {
+.fileOptionsActionWrapper,
+.fileOptionsAction {
   cursor: pointer;
   display: flex;
   justify-content: center;
@@ -282,10 +283,9 @@
   align-items: center;
 }
 
-.fileOptionsAction, 
+.fileOptionsAction,
 .fileOptionsActionWrapper ::ng-deep * button,
-.fileOptionsActionWrapper ::ng-deep span:not(.reactionsDisplaySpan span) 
-{
+.fileOptionsActionWrapper ::ng-deep span:not(.reactionsDisplaySpan span) {
   width: 25px;
   height: 25px;
   display: flex;
@@ -296,7 +296,7 @@
 
 .fileOptionsChatBubble {
   font-size: xx-small;
-} 
+}
 
 .noNotificationsSearchDiv {
   right: 106px !important;
@@ -367,10 +367,11 @@
 .search-input-group {
   margin-bottom: 20px;
   position: relative;
+  display: flex;
 }
 
 .search-input {
-  width: calc(100% - 32px);
+  width: calc(100% - 70px);
   padding: 12px 16px;
   border: 1px solid #ddd;
   border-radius: 8px;
@@ -386,7 +387,7 @@
 
 .search-results-count {
   position: absolute;
-  right: 12px;
+  right: 37px;
   top: 50%;
   transform: translateY(-50%);
   font-size: 0.85rem;
@@ -465,9 +466,14 @@
   position: fixed;
   bottom: 0px;
   margin: 0 auto;
-}  
+}
 
 .currentDirectorySpan a {
   font-style: normal;
 }
- 
+
+.fInputFlexDiv {
+  display: flex;
+  align-items: stretch;
+  justify-content: flex-start;
+}

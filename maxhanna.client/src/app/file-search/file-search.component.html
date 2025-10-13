@@ -434,8 +434,10 @@
       </div>
       <div class="filter-group">
         <label for="filetype-input" class="filter-label">Filetype:</label>
-        <input id="filetype-input" class="filter-input" type="text" [value]="fileTypeFilter" #fileTypeFilterInput (input)="onFiletypeFilterChange()" placeholder="e.g. jpg, mp4, pdf" />
-  <input type="button" (click)="clearFileTypeFilter()" value="❌" class="search-clear-button" />
+        <div class="fInputFlexDiv">
+          <input id="filetype-input" class="filter-input" type="text" [value]="fileTypeFilter" #fileTypeFilterInput (input)="onFiletypeFilterChange()" placeholder="e.g. jpg, mp4, pdf" />
+          <input type="button" (click)="clearFileTypeFilter()" value="❌" class="search-clear-button" />
+        </div>
       </div>
     </div>
     
