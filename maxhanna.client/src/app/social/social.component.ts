@@ -249,7 +249,7 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
 
     if (res && res.stories) {
       res.stories.forEach(story => {
-        if (story.storyText && story.user?.id) {
+        if (story.storyText) {
           try {
             story.storyText = this.encryptionService.decryptContent(story.storyText, story.user.id + "");
           } catch (ex) {
@@ -944,9 +944,6 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
   }
   contentPosted(event: { results: any, originalContent: string }) {
     this.getStories();
-  }
-  decryptText(encryptedText: any, parentId: any): string {
-    return this.encryptionService.decryptContent(encryptedText, parentId + "");
   }
   copyFileLink(file: FileEntry) {
     const parent = this.parent ?? this.parentRef;
