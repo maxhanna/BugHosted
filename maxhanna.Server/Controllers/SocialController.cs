@@ -1197,7 +1197,8 @@ namespace maxhanna.Server.Controllers
 		{
 			try
 			{
-				string decryptedText = _log.DecryptContent(request.story.StoryText ?? "", request.story.User?.Id + "");
+				// Use the request.userId for decryption so the server uses the same id the client used to encrypt
+				string decryptedText = _log.DecryptContent(request.story.StoryText ?? "", (request.userId ?? 0) + "");
 				string sql = @"INSERT INTO stories (user_id, story_text, profile_user_id, city, country, date) 
                       VALUES (@userId, @storyText, @profileUserId, @city, @country, UTC_TIMESTAMP());";
 				string topicSql = @"INSERT INTO story_topics (story_id, topic_id) VALUES (@storyId, @topicId);";
@@ -1352,7 +1353,8 @@ namespace maxhanna.Server.Controllers
 					{
 						cmd.Parameters.AddWithValue("@UserId", request.userId);
 						cmd.Parameters.AddWithValue("@StoryId", request.story.Id);
-						cmd.Parameters.AddWithValue("@Text", _log.DecryptContent(request.story.StoryText ?? "", request.story.User?.Id + ""));
+						// Use request.userId for decryption to match client-side encryption key selection
+						cmd.Parameters.AddWithValue("@Text", _log.DecryptContent(request.story.StoryText ?? "", (request.userId ?? 0) + ""));
 
 						int rowsAffected = await cmd.ExecuteNonQueryAsync();
 
