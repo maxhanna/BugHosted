@@ -1938,10 +1938,14 @@ namespace maxhanna.Server.Controllers
                 int heroY = payload.Hero.Position?.Y ?? 0;
                 double speed = payload.Hero.Speed <= 0 ? 1d : payload.Hero.Speed;
 
-                int radiusSeconds = payload.RadiusSeconds > 0 ? payload.RadiusSeconds : 50;
+                // Increase default lookahead so fast heroes receive walls earlier on the client
+                int radiusSeconds = payload.RadiusSeconds > 0 ? payload.RadiusSeconds : 150;
 
                 // Calculate radius in pixels: speed (pixels/sec) * seconds + margin
-                int radius = Math.Max(128, (int)Math.Ceiling(speed * radiusSeconds) + 128);
+                // Use a larger minimum pixel radius and margin so the client gets a generous
+                // area of walls around the hero. This reduces cases where walls appear
+                // too late on the client (resulting in invisible-wall deaths).
+                int radius = Math.Max(1024, (int)Math.Ceiling(speed * radiusSeconds) + 1024);
 
                 int minX = Math.Max(0, heroX - radius);
                 int maxX = heroX + radius;
