@@ -110,7 +110,7 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
       } else if (this.type === 'Chat') {
         // update chat message
         const result = await this.chatService.editMessage(this.chatId ?? 0, user.id ?? 0, encrypted);
-        this.contentUpdated.emit({ results: result, content: { chatText: updatedText }, originalContent: updatedText });
+        this.contentUpdated.emit({ results: result, content: { chatText: encrypted }, originalContent: updatedText });
         return result;
       }
     }
