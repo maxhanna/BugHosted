@@ -32,7 +32,7 @@ export class BikeWall extends GameObject {
       drawLayer: FLOOR,
       name: "bike-wall",
       offsetY: -16,
-      offsetX: -16,
+      offsetX: -8,
       colorSwap: params.colorSwap
     });
     this.addChild(body);
