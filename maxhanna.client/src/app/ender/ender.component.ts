@@ -101,6 +101,9 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
     // In-memory set of meta bike walls (keys: "x|y") for fast existence checks
     // Track only the highest wall id we've processed; we don't retain all wall coordinates persistently.
     private lastKnownWallId: number = 0;
+    // Local caches for quick delta reconciliation to avoid scanning/rewriting all children
+    private localWallsById: Map<number, any> = new Map<number, any>();
+    private localWallsByKey: Map<string, any> = new Map<string, any>();
     // Reference to level to reset delta tracking when level changes
     private persistedWallLevelRef: any = undefined;
     // Collect all locally spawned walls since last fetch (delta batch)
@@ -370,6 +373,9 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
                         if (this.persistedWallLevelRef !== this.mainScene.level) {
                             this.persistedWallLevelRef = this.mainScene.level;
                             this.lastKnownWallId = 0;
+                            // clear local wall caches when the level changes
+                            this.localWallsById.clear();
+                            this.localWallsByKey.clear();
                         }
                         // Update hero color map from server-provided heroes list when available
                         if (res.heroes && Array.isArray(res.heroes)) {
@@ -381,15 +387,30 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
                             }
                         }
                         for (const w of walls) {
-                            const ownerId = w.heroId;
-                            const ownerColor = (ownerId && this.heroColors.has(ownerId)) ? this.heroColors.get(ownerId) : undefined;
-                            const colorSwap = ownerColor ? new ColorSwap([0, 160, 200], hexToRgb(ownerColor!)) : (ownerId === this.metaHero.id ? (this.metaHero ? this.mainScene.metaHero?.colorSwap : undefined) : undefined);
-                            const wall = new BikeWall({ position: new Vector2(w.x, w.y), colorSwap, heroId: ownerId ?? 0 });
-                            this.mainScene.level.addChild(wall);
-                            events.emit("BIKEWALL_CREATED", { x: w.x, y: w.y });
-                            if (w.id && w.id > this.lastKnownWallId) {
-                                this.lastKnownWallId = w.id;
-                            }
+                            try {
+                                const ownerId = w.heroId;
+                                const ownerColor = (ownerId && this.heroColors.has(ownerId)) ? this.heroColors.get(ownerId) : undefined;
+                                const colorSwap = ownerColor ? new ColorSwap([0, 160, 200], hexToRgb(ownerColor!)) : (ownerId === this.metaHero.id ? (this.metaHero ? this.mainScene.metaHero?.colorSwap : undefined) : undefined);
+                                const key = `${w.x}|${w.y}`;
+                                // Skip if we already have this wall (by server id or by key)
+                                if ((w.id && this.localWallsById.has(w.id)) || (!w.id && this.localWallsByKey.has(key))) {
+                                    if (w.id && w.id > this.lastKnownWallId) this.lastKnownWallId = w.id;
+                                    continue;
+                                }
+                                const wall = new BikeWall({ position: new Vector2(w.x, w.y), colorSwap, heroId: ownerId ?? 0 });
+                                // preserve server id for future operations and cache locally
+                                if (w.id) {
+                                    (wall as any).wallId = w.id;
+                                    this.localWallsById.set(w.id, wall);
+                                } else {
+                                    this.localWallsByKey.set(key, wall);
+                                }
+                                this.mainScene.level.addChild(wall);
+                                events.emit("BIKEWALL_CREATED", { x: w.x, y: w.y });
+                                if (w.id && w.id > this.lastKnownWallId) {
+                                    this.lastKnownWallId = w.id;
+                                }
+                            } catch (ex) { /* ignore per-wall failures */ }
                         }
                     }
 
@@ -417,22 +438,70 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
             const level = this.mainScene.level;
             if (!level) return;
  
-            for (const child of level.children) {
-                if (child && child.name === 'bike-wall') {
-                    child.quickDestroy?.();
+            // Delta reconciliation: index incoming walls and existing local walls, remove only
+            // walls the server no longer reports, and add only missing ones. This avoids
+            // mass destroy/add churn that causes front-end lag.
+            try {
+                const incomingIds = new Set<number>();
+                const incomingKeys = new Set<string>();
+                for (const w of incomingWalls) {
+                    if (w.id) incomingIds.add(w.id);
+                    incomingKeys.add(`${w.x}|${w.y}`);
                 }
-            }
 
-            // Add any remaining incoming walls that are not present locally
-            for (const w of incomingWalls) {
-                try {
-                    const ownerColor = (w.heroId && this.heroColors.has(w.heroId)) ? this.heroColors.get(w.heroId) : undefined;
-                    const colorSwap = ownerColor ? new ColorSwap([0, 160, 200], hexToRgb(ownerColor!)) : (w.heroId === this.metaHero.id ? this.mainScene.metaHero?.colorSwap : undefined);
-                    const wall = new BikeWall({ position: new Vector2(w.x, w.y), colorSwap, heroId: (w.heroId ?? 0) } as any);
-                    // preserve server id for future operations
-                    wall.wallId = w.id;
-                    level.addChild(wall);
-                } catch (ex) { /* ignore add failures */ }
+                // Ensure existing bike-wall children are tracked in our local caches
+                for (const child of level.children) {
+                    if (!child || child.name !== 'bike-wall') continue;
+                    const id = (child as any).wallId as number | undefined;
+                    const pos = (child.position && typeof child.position.x === 'number' && typeof child.position.y === 'number') ? child.position : undefined;
+                    const key = pos ? `${pos.x}|${pos.y}` : undefined;
+                    if (id && !this.localWallsById.has(id)) this.localWallsById.set(id, child);
+                    if (key && !this.localWallsByKey.has(key)) this.localWallsByKey.set(key, child);
+                }
+
+                // Remove local walls that the server no longer reports nearby
+                for (const [id, wall] of Array.from(this.localWallsById.entries())) {
+                    if (!incomingIds.has(id)) {
+                        try { wall.quickDestroy?.(); } catch { }
+                        this.localWallsById.delete(id);
+                        try {
+                            const pos = (wall.position && typeof wall.position.x === 'number' && typeof wall.position.y === 'number') ? wall.position : undefined;
+                            if (pos) this.localWallsByKey.delete(`${pos.x}|${pos.y}`);
+                        } catch { }
+                    }
+                }
+                for (const [key, wall] of Array.from(this.localWallsByKey.entries())) {
+                    if (!incomingKeys.has(key)) {
+                        try { wall.quickDestroy?.(); } catch { }
+                        this.localWallsByKey.delete(key);
+                        try {
+                            const id = (wall as any).wallId as number | undefined;
+                            if (id) this.localWallsById.delete(id);
+                        } catch { }
+                    }
+                }
+
+                // Add any incoming walls that are not present locally
+                for (const w of incomingWalls) {
+                    try {
+                        const key = `${w.x}|${w.y}`;
+                        if ((w.id && this.localWallsById.has(w.id)) || this.localWallsByKey.has(key)) {
+                            continue; // already present
+                        }
+                        const ownerColor = (w.heroId && this.heroColors.has(w.heroId)) ? this.heroColors.get(w.heroId) : undefined;
+                        const colorSwap = ownerColor ? new ColorSwap([0, 160, 200], hexToRgb(ownerColor!)) : (w.heroId === this.metaHero.id ? this.mainScene.metaHero?.colorSwap : undefined);
+                        const wall = new BikeWall({ position: new Vector2(w.x, w.y), colorSwap, heroId: (w.heroId ?? 0) } as any);
+                        if (w.id) {
+                            (wall as any).wallId = w.id;
+                            this.localWallsById.set(w.id, wall);
+                        } else {
+                            this.localWallsByKey.set(key, wall);
+                        }
+                        this.mainScene.level.addChild(wall);
+                    } catch (ex) { /* ignore add failures */ }
+                }
+            } catch (err) {
+                // swallow transient errors to avoid noisy console logs
             }
         } catch (err) {
             // swallow transient errors to avoid noisy console logs
