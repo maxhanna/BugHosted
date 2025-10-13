@@ -67,7 +67,10 @@ namespace maxhanna.Server.Controllers
 					directory += "/";
 				}
 			}
-			if (!ValidatePath(directory!)) { return null; }
+			if (!ValidatePath(directory!)) {
+				_ = _log.Db($"Directory invalid : {directory}", null, "FILE", true); 
+				return null; 
+			}
 
 			try
 			{
@@ -80,6 +83,7 @@ namespace maxhanna.Server.Controllers
 					var replaced = string.Join(",", sanitized);
 					fileTypeCondition = " AND LOWER(f.file_type) IN (" + replaced + ") ";
 				}
+				string fileIdCondition = fileId.HasValue ? " AND f.id = @fileId" : ""; 
 				bool isRomSearch = DetermineIfRomSearch(fileType ?? new List<string>());
 				string visibilityCondition = string.IsNullOrEmpty(visibility) || visibility.ToLower() == "all" ? "" : visibility.ToLower() == "public" ? " AND f.is_public = 1 " : " AND f.is_public = 0 ";
 				string ownershipCondition = string.IsNullOrEmpty(ownership) || ownership.ToLower() == "all" ? "" : ownership.ToLower() == "others" ? " AND f.user_id != @userId " : " AND f.user_id = @userId ";
@@ -176,9 +180,10 @@ namespace maxhanna.Server.Controllers
                             {ownershipCondition} 
                             {hiddenCondition}
 							{favouritesCondition}
+							{fileIdCondition}
                             {where}
-                    ) AS numbered_results
-                    WHERE id >= @fileId",  // For DESC order we use >=
+							) AS numbered_results
+							WHERE id >= @fileId",  // For DESC order we use >=
 								connection);
 
 						positionCommand.Parameters.AddWithValue("@folderPath", directory);
@@ -213,7 +218,6 @@ namespace maxhanna.Server.Controllers
 
 					orderBy = isRomSearch ? " ORDER BY f.last_access DESC " : orderBy;
 					(string searchCondition, List<MySqlParameter> extraParameters) = await GetWhereCondition(search, user);
-					string fileIdCondition = fileId.HasValue ? " AND f.id = @fileId" : "";
 
 					var command = new MySqlCommand($@"
                 SELECT 
