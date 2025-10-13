@@ -573,9 +573,10 @@ namespace maxhanna.Server.Controllers
 			{
 				// 1. Get story owner and notify them (if different from commenter)
 
+				int? ownerId = null;
 				if (await ShouldNotifyStoryOwner(conn, request.StoryId.Value, request.FromUserId))
 				{
-					int? ownerId = await GetStoryOwnerId(conn, request.StoryId.Value, request.FromUserId);
+					ownerId = await GetStoryOwnerId(conn, request.StoryId.Value, request.FromUserId);
 					if (ownerId != null)
 					{
 						await NotifyStoryOwner(conn, request, ownerId.Value); 
@@ -592,11 +593,18 @@ namespace maxhanna.Server.Controllers
 					await NotifyMentionedUsers(conn, request);
 				}
 
+				// 3. Notify followers of the story owner and the commenter
+				if (ownerId != null)
+				{
+					await NotifyFollowersAsync(conn, ownerId.Value, request);
+				}
+				await NotifyFollowersAsync(conn, request.FromUserId, request);
+
 				return true;
 			}
 			catch (Exception ex)
 			{
-				_ = _log.Db($"Error in TryResolveStoryNotification: {ex.Message}", outputToConsole: true);
+				await _log.Db($"Error in TryResolveStoryNotification: {ex.Message}", request.FromUserId, "NOTIFICATION", true);
 				return false;
 			}
 		}
@@ -811,6 +819,10 @@ namespace maxhanna.Server.Controllers
 					await commentersInsert.ExecuteNonQueryAsync();
 				}
 
+				// 4. Notify followers of the file owner and the commenter
+				await NotifyFollowersAsync(conn, ownerId.Value, request);
+				await NotifyFollowersAsync(conn, request.FromUserId, request);
+
 				return true;
 			}
 			catch (MySqlException sqlEx)
@@ -891,12 +903,12 @@ namespace maxhanna.Server.Controllers
 				userIdsToNotify.UnionWith(mentionedUsers);
 			}
 
-			// 4. Insert notifications for all unique users
-			if (userIdsToNotify.Any())
-			{
-				string userIds = string.Join(",", userIdsToNotify);
+				// 4. Insert notifications for all unique users
+				if (userIdsToNotify.Any())
+				{
+					string userIds = string.Join(",", userIdsToNotify);
 
-				string insertNotificationsSql = $@"
+					string insertNotificationsSql = $@"
             INSERT INTO maxhanna.notifications 
                 (user_id, from_user_id, comment_id, text, date, user_profile_id{(hasFile ? ", file_id" : "")}{(hasStory ? ", story_id" : "")})
             SELECT 
@@ -921,6 +933,32 @@ namespace maxhanna.Server.Controllers
 					await cmd.ExecuteNonQueryAsync();
 				}
 			}
+
+			// 5. Notify followers of the post owner and the commenter
+			int? postOwnerId = null;
+			if (hasStory)
+			{
+				using (var cmd = new MySqlCommand("SELECT user_id FROM maxhanna.stories WHERE id = @id", conn))
+				{
+					cmd.Parameters.AddWithValue("@id", request.StoryId);
+					var result = await cmd.ExecuteScalarAsync();
+					if (result != null) postOwnerId = Convert.ToInt32(result);
+				}
+			}
+			else if (hasFile)
+			{
+				using (var cmd = new MySqlCommand("SELECT user_id FROM maxhanna.file_uploads WHERE id = @id", conn))
+				{
+					cmd.Parameters.AddWithValue("@id", request.FileId);
+					var result = await cmd.ExecuteScalarAsync();
+					if (result != null) postOwnerId = Convert.ToInt32(result);
+				}
+			}
+			if (postOwnerId.HasValue)
+			{
+				await NotifyFollowersAsync(conn, postOwnerId.Value, request);
+			}
+			await NotifyFollowersAsync(conn, request.FromUserId, request);
 
 			return true;
 		}
@@ -1258,6 +1296,88 @@ namespace maxhanna.Server.Controllers
 			request.ToUserIds = request.ToUserIds.Where(id => id > 0).ToArray();
 
 			_ = _log.Db($"Normalized IDs -> FileId:{request.FileId?.ToString() ?? "null"} StoryId:{request.StoryId?.ToString() ?? "null"} CommentId:{request.CommentId?.ToString() ?? "null"} ChatId:{request.ChatId?.ToString() ?? "null"} UserProfileId:{request.UserProfileId?.ToString() ?? "null"}", request.FromUserId, "NOTIFICATION");
+		}
+
+		public async Task NotifyFollowersAsync(MySqlConnection conn, int ownerId, NotificationRequest request)
+		{
+			try
+			{
+				await _log.Db($"Notifying followers of user {ownerId} for action by {request.FromUserId}", request.FromUserId, "NOTIFICATION", true);
+
+				// Get all followers (confirmed friends + pending friend requests)
+				string followersSql = @"
+					SELECT DISTINCT follower_id FROM (
+						-- Confirmed friends
+						SELECT friend_id AS follower_id FROM friends WHERE user_id = @ownerId
+						UNION
+						-- Pending friend requests (treat as followers)
+						SELECT sender_id AS follower_id FROM friend_requests 
+						WHERE receiver_id = @ownerId AND status IN ('pending', 'deleted')
+						UNION
+						SELECT receiver_id AS follower_id FROM friend_requests 
+						WHERE sender_id = @ownerId AND status IN ('pending', 'deleted')
+					) AS followers";
+
+				var followerIds = new List<int>();
+				using (var cmd = new MySqlCommand(followersSql, conn))
+				{
+					cmd.Parameters.AddWithValue("@ownerId", ownerId);
+					using (var reader = await cmd.ExecuteReaderAsync())
+					{
+						while (await reader.ReadAsync())
+						{
+							followerIds.Add(reader.GetInt32("follower_id"));
+						}
+					}
+				}
+
+				// Filter followers who can be notified
+				var validFollowers = new List<int>();
+				foreach (var followerId in followerIds)
+				{
+					if (await CanUserNotifyAsync(request.FromUserId, followerId))
+					{
+						validFollowers.Add(followerId);
+					}
+				}
+
+				if (!validFollowers.Any()) return;
+
+				// Build dynamic insert SQL
+				string sql = "INSERT INTO maxhanna.notifications (user_id, from_user_id, text, date";
+				if (request.CommentId.HasValue) sql += ", comment_id";
+				if (request.FileId.HasValue) sql += ", file_id";
+				if (request.StoryId.HasValue) sql += ", story_id";
+				if (request.UserProfileId.HasValue) sql += ", user_profile_id";
+				sql += ") VALUES (@userId, @fromUserId, @text, UTC_TIMESTAMP()";
+				if (request.CommentId.HasValue) sql += ", @commentId";
+				if (request.FileId.HasValue) sql += ", @fileId";
+				if (request.StoryId.HasValue) sql += ", @storyId";
+				if (request.UserProfileId.HasValue) sql += ", @userProfileId";
+				sql += ")";
+
+				foreach (var followerId in validFollowers)
+				{
+					using (var cmd = new MySqlCommand(sql, conn))
+					{
+						cmd.Parameters.AddWithValue("@userId", followerId);
+						cmd.Parameters.AddWithValue("@fromUserId", request.FromUserId);
+						cmd.Parameters.AddWithValue("@text", request.Message);
+						if (request.CommentId.HasValue) cmd.Parameters.AddWithValue("@commentId", request.CommentId.Value);
+						if (request.FileId.HasValue) cmd.Parameters.AddWithValue("@fileId", request.FileId.Value);
+						if (request.StoryId.HasValue) cmd.Parameters.AddWithValue("@storyId", request.StoryId.Value);
+						if (request.UserProfileId.HasValue) cmd.Parameters.AddWithValue("@userProfileId", request.UserProfileId.Value);
+
+						await cmd.ExecuteNonQueryAsync();
+					}
+				}
+
+				await _log.Db($"Notified {validFollowers.Count} followers of user {ownerId}", request.FromUserId, "NOTIFICATION", true);
+			}
+			catch (Exception ex)
+			{
+				await _log.Db($"Error notifying followers of {ownerId}: {ex.Message}", request.FromUserId, "NOTIFICATION", true);
+			}
 		}
 	}
 }
