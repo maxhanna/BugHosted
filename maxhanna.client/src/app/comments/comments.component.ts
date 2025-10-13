@@ -100,6 +100,9 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
         setTimeout(() => this.processDeepLinkPath(), 0);
       }
     }
+    if (changes['commentList']) {
+      setTimeout(() => this.decryptCommentsRecursively(this.commentList), 100);
+    }
   }
 
   getActiveBreadcrumbSnippet(maxLength: number = 140): string {
