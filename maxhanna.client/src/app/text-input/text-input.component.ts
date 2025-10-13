@@ -48,8 +48,10 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
   @Input() type?: "Social" | "Comment" | "Chat";
   @Input() currentChatUsers?: User[];
   @Input() quoteMessage?: string;
+  @Input() initialContent?: string;
   @Input() enterToPost: boolean = false;
   @Output() contentPosted = new EventEmitter<{ results: any, content: any, originalContent: string }>();
+  @Output() contentUpdated = new EventEmitter<{ results: any, content: any, originalContent: string }>();
   @Output() selectFileEvent = new EventEmitter<FileEntry[]>();
   @Output() topicClicked = new EventEmitter<Topic[] | undefined>();
   @Output() topicAdded = new EventEmitter<Topic[]>();
@@ -85,6 +87,43 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
     });
   }
 
+  // Update existing content (comment, story, chat)
+  async update(updatedText: string) {
+    const parent = this.inputtedParentRef ?? this.parentRef;
+    const user = parent?.user ?? new User(0, "Anonymous");
+    const sessionToken = await parent?.getSessionToken();
+
+    try {
+      this.startLoading();
+      const encrypted = this.encryptContent(updatedText);
+      if (this.type === 'Comment') {
+        // update comment (service expects userId, commentId, text)
+        const result = await this.commentService.editComment(user.id ?? 0, this.commentId ?? 0, encrypted);
+        this.contentUpdated.emit({ results: result, content: { commentText: updatedText }, originalContent: updatedText });
+        return result;
+      } else if (this.type === 'Social') {
+        // update story
+        const storyPayload: any = { id: this.storyId, storyText: encrypted, user: user };
+        const result = await this.socialService.editStory(user.id ?? 0, storyPayload, sessionToken ?? '');
+        this.contentUpdated.emit({ results: result, content: { storyText: updatedText }, originalContent: updatedText });
+        return result;
+      } else if (this.type === 'Chat') {
+        // update chat message
+        const result = await this.chatService.editMessage(this.chatId ?? 0, user.id ?? 0, encrypted);
+        this.contentUpdated.emit({ results: result, content: { chatText: updatedText }, originalContent: updatedText });
+        return result;
+      }
+    }
+  catch (err) {
+      console.error('Update failed', err);
+      throw err;
+    }
+    finally {
+      this.stopLoading();
+    }
+  return null;
+  }
+
   ngOnChanges(changes: SimpleChanges) {
     if (changes['quoteMessage'] && changes['quoteMessage'].currentValue) {
       const quote = changes['quoteMessage'].currentValue;
@@ -103,6 +142,16 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
         this.quoteMessage = undefined;
       }, 100);
     }
+      if (changes['initialContent'] && !changes['initialContent'].firstChange) {
+        const val = changes['initialContent'].currentValue as string | undefined;
+        if (val !== undefined && this.textarea) {
+          setTimeout(() => {
+            this.showPostInput = true;
+            this.textarea.value = val;
+            this.textarea.focus();
+          }, 50);
+        }
+      }
   }
 
   onTopicAdded(event: Topic[] | undefined) {

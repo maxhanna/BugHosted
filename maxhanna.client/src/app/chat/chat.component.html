@@ -45,11 +45,16 @@
             <div [innerHTML]="getTextForDOM(decryptContent(message.content), 'messageText' + message.id)"
               *ngIf="!isEditing.includes(message.id)"></div>
             <div *ngIf="isEditing.includes(message.id)">
-              <textarea [id]="'editTextArea' + message.id"
-                style="width:100%">{{decryptContent(message.content)}}</textarea>
+              <app-text-input 
+                [inputtedParentRef]="parentRef ?? inputtedParentRef"
+                [type]="'Chat'" 
+                [chatId]="message.id" 
+                [initialContent]="decryptContent(message.content)"
+                (contentUpdated)="onChatUpdated($event, message)">
+              </app-text-input>
             </div>
             <div class="xxSmallFont thirdFontColor" *ngIf="message.editDate" [title]="message.editDate">
-              Editied: {{message.editDate | timeSince}}
+              Edited: {{message.editDate | timeSince}}
             </div>
 
             <div *ngFor="let file of message.files"

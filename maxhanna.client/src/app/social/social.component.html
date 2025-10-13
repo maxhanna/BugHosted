@@ -356,9 +356,14 @@
                 [style.opacity]="isLoading ? 0.5 : 1" [innerHtml]="getTextForDOM(story.storyText, story.id)"
                 [id]="'storyText' + story.id"></div>
 
-              <textarea [id]="'storyTextTextarea' + story.id"
-                [style.width]="isEditing.includes(story.id) ? '100%' : '0'"
-                [style.display]="isEditing.includes(story.id) ? 'block' : 'none'">{{story.storyText}}</textarea>
+              <app-text-input 
+                [inputtedParentRef]="parentRef ?? parent" 
+                [type]="'Social'"
+                [storyId]="story.id"
+                [initialContent]="story.storyText"
+                (contentUpdated)="onStoryUpdated($event, story)"
+                [attachedTopics]="story.storyTopics">
+              </app-text-input>
               <div class="editingTextAreaButtonWrapperDiv">
                 <button [id]="'storyTextEditConfirmButton' + story.id" (click)="editStory(story)"
                   [style.display]="isEditing.includes(story.id) ? 'block' : 'none'">

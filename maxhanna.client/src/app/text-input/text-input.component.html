@@ -5,7 +5,8 @@
         #postTextArea id="postTextArea" (keydown)="onKeyDown($event)"></textarea>
 </div>
 <div class="mainFileUploaderAndTopicSelectorDiv">
-    <button (click)="post()">🗨️Post</button>
+    <button *ngIf="!initialContent" (click)="post()">🗨️Post</button>
+    <button *ngIf="initialContent" (click)="update(textarea.value)">✅ Update</button>
     <app-media-selector 
         *ngIf="inputtedParentRef"
         #mediaSelector

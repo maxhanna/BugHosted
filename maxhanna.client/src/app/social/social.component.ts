@@ -202,7 +202,13 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
     }
   }
   async editStory(story: Story) {
-    const message = (document.getElementById('storyTextTextarea' + story.id) as HTMLTextAreaElement).value;
+    // Legacy DOM edit handler: if the old textarea is present, use it; otherwise rely on the new app-text-input flow.
+    const textarea = document.getElementById('storyTextTextarea' + story.id) as HTMLTextAreaElement | null;
+    if (!textarea) {
+      this.parentRef?.showNotification('Please use the editor Update button to save changes.');
+      return;
+    }
+    const message = textarea.value;
     const ogMessage = message + "";
     story.storyText = this.encryptionService.encryptContent(message, story.user.id + "");
     if (document.getElementById('storyText' + story.id) && this.parentRef?.user?.id) {
@@ -211,6 +217,23 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
       await this.socialService.editStory(this.parentRef.user.id, story, sessionToken);
       this.isEditing = this.isEditing.filter(x => x != story.id);
       setTimeout(() => { story.storyText = ogMessage }, 10);
+    }
+  }
+  
+  // Handler for app-text-input contentUpdated event for stories
+  async onStoryUpdated(event: { results: any, content: any, originalContent: string }, story: Story) {
+    try {
+      if (event && event.results) {
+        // Update local UI with decrypted/plaintext content
+        story.storyText = event.originalContent;
+        // Close edit mode for this story
+        this.isEditing = this.isEditing.filter(x => x != story.id);
+        this.parentRef?.showNotification(`Post #${story.id} edited successfully.`);
+      } else {
+        this.parentRef?.showNotification(`Failed to edit post #${story.id}.`);
+      }
+    } catch (err) {
+      console.error('onStoryUpdated error', err);
     }
   }
   async searchStories(searchTopics?: Array<Topic>, debounced?: boolean) {

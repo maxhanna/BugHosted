@@ -748,7 +748,13 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
     if (this.isEditing.some(id => id === message.id)) {
       this.isEditing = this.isEditing.filter(x => x != message.id);
     }
-    const tmpMessage = this.encryptContent((document.getElementById(`editTextArea${message.id}`) as HTMLTextAreaElement).value.trim());
+    // Attempt to read legacy textarea if present (backwards compatibility). If not, instruct user to use the editor's Update button.
+    const textarea = document.getElementById(`editTextArea${message.id}`) as HTMLTextAreaElement | null;
+    if (!textarea) {
+      this.parentRef?.showNotification('Please use the editor Update button to save changes.');
+      return;
+    }
+    const tmpMessage = this.encryptContent(textarea.value.trim());
     if (tmpMessage == message.content) {
       return;
     }
@@ -760,6 +766,21 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
         this.parentRef?.showNotification(`Failed to edit message #${message.id}.`);
       }
     });
+  }
+  
+  // Handler for app-text-input contentUpdated event for chat edits
+  async onChatUpdated(event: { results: any, content: any, originalContent: string }, message: Message) {
+    try {
+      if (event && event.results) {
+        this.parentRef?.showNotification(`Message #${message.id} edited successfully.`);
+        // Refresh message history to show updated content
+        await this.getMessageHistory(this.pageNumber, this.pageSize);
+      } else {
+        this.parentRef?.showNotification(`Failed to edit message #${message.id}.`);
+      }
+    } catch (err) {
+      console.error('onChatUpdated error', err);
+    }
   }
   async leaveChat(chatId: number) {
     if (!this.parentRef?.user?.id) { return alert("Must be logged in."); }

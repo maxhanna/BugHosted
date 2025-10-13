@@ -314,6 +314,25 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
     }
   }
 
+  // Handler for contentUpdated emitted by app-text-input when editing
+  async onCommentUpdated(event: { results: any, content: any, originalContent: string }, comment: FileComment) {
+    try {
+      const parent = this.inputtedParentRef ?? this.parentRef;
+      if (!parent?.user?.id) return alert('You must be logged in to edit comments');
+      // encrypt content is already handled in text-input; event.content.commentText is plaintext
+      const encrypted = this.encryptionService.encryptContent(event.originalContent || event.content.commentText, comment.user.id + "");
+      const res = await this.commentService.editComment(parent.user.id ?? 0, comment.id, encrypted);
+      if (res) {
+        comment.commentText = this.encryptionService.decryptContent(encrypted, comment.user.id + "");
+        parent.showNotification(res);
+      }
+      // remove from editing mode
+      this.editingComments = this.editingComments.filter(x => x != comment.id);
+    } catch (e) {
+      console.error('Failed to update comment via text-input', e);
+    }
+  }
+
   getTextForDOM(text: string, component_id: any) {
     const parent = this.inputtedParentRef ?? this.parentRef;
     if (!parent) return "Error fetching parent component.";
