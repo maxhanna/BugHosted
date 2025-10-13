@@ -259,7 +259,7 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
                         this.lastFetchedQuadX = quadX;
                         this.lastFetchedQuadY = quadY;
                         // Use a large radiusSeconds to ensure server returns a ~3000px box
-                        const payload = { hero: rz, radiusSeconds: 3000 } as any;
+                        const payload = { hero: rz, radiusSeconds: 5000 } as any;
                         const allWalls = await this.enderService.fetchWallsAroundHero(payload) as MetaBikeWall[];
                         if (Array.isArray(allWalls)) {
                             this.persistedWallLevelRef = this.mainScene.level;
