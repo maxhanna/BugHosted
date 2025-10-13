@@ -62,7 +62,7 @@ input {
 
 .mainFileUploaderAndTopicSelectorDiv {
     display: flex;
-    justify-content: flex-start;
+    justify-content: center;
     align-items: flex-start;
     max-width: calc(100vw - 25px);
 }
