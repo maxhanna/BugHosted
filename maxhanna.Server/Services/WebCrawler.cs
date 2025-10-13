@@ -6,7 +6,8 @@ using System.Data;
 using System.Net;
 using System.Security.Cryptography;
 using System.Text;
-using System.Text.RegularExpressions; 
+using System.Text.RegularExpressions;
+using System.Collections.Concurrent;
 using System.Xml;
 
 public class WebCrawler
@@ -151,6 +152,11 @@ public class WebCrawler
 
 	private readonly TimeSpan _requestInterval = TimeSpan.FromSeconds(7);
 	private DateTime _lastRequestTime = DateTime.MinValue;
+	// Per-host politeness and robots
+	private readonly ConcurrentDictionary<string, RobotsInfo> _robotsCache = new();
+	private readonly ConcurrentDictionary<string, DateTime> _hostNextRequestTime = new();
+	private readonly ConcurrentDictionary<string, int> _hostBackoffCount = new();
+	private readonly TimeSpan _defaultPerHostDelay = TimeSpan.FromSeconds(2);
 	private static SemaphoreSlim scrapeSemaphore = new SemaphoreSlim(1, 1);
 	private readonly SemaphoreSlim _asyncScrapeSemaphore = new SemaphoreSlim(1, 1); // Semaphore to limit to one execution at a time per URL
 	private static readonly Random _random = new Random();
@@ -817,17 +823,83 @@ public class WebCrawler
 				//_ = _log.Db("(ScrapeUrlData) Invalid URL, skip scrape : " + url, null, "CRAWLER", true);
 				return null;
 			} 
-			_httpClient.DefaultRequestHeaders.UserAgent.ParseAdd("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36");
-			_httpClient.DefaultRequestHeaders.Accept.ParseAdd("text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8");
-			_httpClient.DefaultRequestHeaders.AcceptLanguage.ParseAdd("en-US,en;q=0.5");
-			_httpClient.DefaultRequestHeaders.Connection.ParseAdd("keep-alive");
+			// Per-host politeness: consult robots and enforce crawl-delay
+			Uri uri = new Uri(url);
+			string hostKey = uri.Scheme + "://" + uri.Host;
+			RobotsInfo robots = await FetchRobotsForHost(hostKey);
+			if (IsPathDisallowed(robots, uri))
+			{
+				_ = _log.Db($"Robots disallow for URL: {ShortenUrl(url)}", null, "CRAWLER", true);
+				return await MarkUrlAsFailed(url, 403);
+			}
+
+			// Enforce per-host next request time
+			if (_hostNextRequestTime.TryGetValue(hostKey, out var nextT) && DateTime.UtcNow < nextT)
+			{
+				var wait = nextT - DateTime.UtcNow;
+				await Task.Delay(wait);
+			}
+
+			// HEAD-first cheap existence probe
+			bool exists = await HeadExists(url);
+			if (!exists)
+			{
+				// If HEAD fails, continue to try GET but with caution — mark failed if GET also fails
+			}
 			if (_httpClient == null)
 			{
 				_ = _log.Db("HttpClient is null.", null, "CRAWLER", true);
 				return null;
 			}
-			var request = BuildGetRequestWithRotatedHeaders(url);
-			var response = await _httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead);
+			// Use exponential backoff on transient errors
+			int attempts = 0;
+			HttpResponseMessage? response = null;
+			while (attempts < 4)
+			{
+				attempts++;
+				var request = BuildGetRequestWithRotatedHeaders(url);
+				try
+				{
+					response = await _httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead);
+					if (response.IsSuccessStatusCode) break;
+					if ((int)response.StatusCode == 429 || (int)response.StatusCode == 503)
+					{
+						// increment backoff for host
+						_hostBackoffCount.AddOrUpdate(hostKey, 1, (_, v) => v + 1);
+						int backoffSecs = Math.Min(60, (int)Math.Pow(2, _hostBackoffCount[hostKey]));
+						if (response.Headers.TryGetValues("Retry-After", out var vals))
+						{
+							if (int.TryParse(vals.FirstOrDefault(), out var ra)) backoffSecs = Math.Max(backoffSecs, ra);
+						}
+						_hostNextRequestTime[hostKey] = DateTime.UtcNow.AddSeconds(backoffSecs);
+						await Task.Delay(TimeSpan.FromSeconds(backoffSecs + _random.Next(0, 3)));
+						continue;
+					}
+					// other non-success codes: break and mark failed
+					break;
+				}
+				catch (TaskCanceledException)
+				{
+					_hostBackoffCount.AddOrUpdate(hostKey, 1, (_, v) => v + 1);
+					int backoffSecs = Math.Min(60, (int)Math.Pow(2, _hostBackoffCount[hostKey]));
+					_hostNextRequestTime[hostKey] = DateTime.UtcNow.AddSeconds(backoffSecs);
+					await Task.Delay(TimeSpan.FromSeconds(backoffSecs + _random.Next(0, 3)));
+					continue;
+				}
+				catch (Exception ex)
+				{
+					_ = _log.Db($"Exception (ScrapeUrlData send): {ex.Message}", null, "CRAWLER", true);
+					_hostBackoffCount.AddOrUpdate(hostKey, 1, (_, v) => v + 1);
+					int backoffSecs = Math.Min(60, (int)Math.Pow(2, _hostBackoffCount[hostKey]));
+					_hostNextRequestTime[hostKey] = DateTime.UtcNow.AddSeconds(backoffSecs);
+					await Task.Delay(TimeSpan.FromSeconds(backoffSecs + _random.Next(0, 3)));
+					continue;
+				}
+			}
+			if (response == null)
+			{
+				return await MarkUrlAsFailed(url);
+			}
 			response.EnsureSuccessStatusCode();  
 			if (!response.IsSuccessStatusCode)
 			{ 
@@ -844,6 +916,12 @@ public class WebCrawler
 			{  
 				html = html.Substring(0, html.IndexOf("</head>", StringComparison.OrdinalIgnoreCase) + 7);
 			}
+
+			// Reset host backoff on success
+			_hostBackoffCount.AddOrUpdate(hostKey, 0, (_, v) => 0);
+			// honor robots crawl-delay if provided, else default per-host delay
+			var delay = robots.CrawlDelay > TimeSpan.Zero ? robots.CrawlDelay : _defaultPerHostDelay;
+			_hostNextRequestTime[hostKey] = DateTime.UtcNow.Add(delay + TimeSpan.FromMilliseconds(_random.Next(0, 1000)));
 
 			var htmlDocument = new HtmlDocument
 			{
@@ -1702,12 +1780,91 @@ public class WebCrawler
 		Uri uri = new Uri(url);
 		string domain = uri.Scheme + "://" + uri.Host; // This gives you "http://google.com"
 		return domain;
+	} 
+	private async Task<RobotsInfo> FetchRobotsForHost(string host)
+	{
+		try
+		{
+			if (_robotsCache.TryGetValue(host, out var cached) && (DateTime.UtcNow - cached.FetchedAt) < TimeSpan.FromHours(6))
+				return cached;
+
+			var robotsUrl = (host.StartsWith("http") ? host : "https://" + host).TrimEnd('/') + "/robots.txt";
+			var req = BuildGetRequestWithRotatedHeaders(robotsUrl);
+			var resp = await _httpClient.SendAsync(req, HttpCompletionOption.ResponseHeadersRead);
+			var info = new RobotsInfo { FetchedAt = DateTime.UtcNow };
+			if (!resp.IsSuccessStatusCode) { _robotsCache[host] = info; return info; }
+			var text = await resp.Content.ReadAsStringAsync();
+			using (var sr = new System.IO.StringReader(text))
+			{
+				string? line;
+				bool applies = false;
+				while ((line = sr.ReadLine()) != null)
+				{
+					line = line.Trim();
+					if (string.IsNullOrEmpty(line) || line.StartsWith("#")) continue;
+					var parts = line.Split(':', 2);
+					if (parts.Length < 2) continue;
+					var key = parts[0].Trim().ToLower();
+					var val = parts[1].Trim();
+					if (key == "user-agent")
+					{
+						applies = val == "*" || val.ToLower().Contains("bughosted") == false; // keep basic
+					}
+					else if (applies && key == "disallow")
+					{
+						if (!string.IsNullOrWhiteSpace(val)) info.DisallowedPaths.Add(val);
+					}
+					else if (applies && key == "crawl-delay")
+					{
+						if (int.TryParse(val, out var secs)) info.CrawlDelay = TimeSpan.FromSeconds(secs);
+					}
+				}
+			}
+			_robotsCache[host] = info;
+			return info;
+		}
+		catch (Exception ex)
+		{
+			_ = _log.Db("Exception(FetchRobotsForHost): " + ex.Message, null, "CRAWLER", true);
+			var empty = new RobotsInfo { FetchedAt = DateTime.UtcNow };
+			_robotsCache[host] = empty;
+			return empty;
+		}
 	}
 
+	private bool IsPathDisallowed(RobotsInfo info, Uri uri)
+	{
+		if (info == null || info.IsEmpty) return false;
+		var path = uri.PathAndQuery;
+		foreach (var dis in info.DisallowedPaths)
+		{
+			if (path.StartsWith(dis, StringComparison.OrdinalIgnoreCase)) return true;
+		}
+		return false;
+	}
+
+	private async Task<bool> HeadExists(string url)
+	{
+		try
+		{
+			var req = new HttpRequestMessage(HttpMethod.Head, url);
+			var hdrs = GenerateRotatedHeaders(url);
+			foreach (var kv in hdrs) req.Headers.TryAddWithoutValidation(kv.Key, kv.Value);
+			using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+			var resp = await _httpClient.SendAsync(req, cts.Token);
+			return resp.IsSuccessStatusCode;
+		}
+		catch { return false; }
+	}
+} 
+
+class RobotsInfo
+{
+	public DateTime FetchedAt { get; set; }
+	public TimeSpan CrawlDelay { get; set; } = TimeSpan.Zero;
+	public HashSet<string> DisallowedPaths { get; set; } = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+	public bool IsEmpty => DisallowedPaths.Count == 0 && CrawlDelay == TimeSpan.Zero;
 }
-
-
-
 
 //	case 200:
 //	return 'OK: The request has succeeded.';
