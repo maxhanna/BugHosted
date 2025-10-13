@@ -21,7 +21,6 @@ import { Level } from './objects/Level/level';
 import { MetaEvent } from '../../services/datacontracts/ender/meta-event';
 import { InventoryItem } from './objects/InventoryItem/inventory-item';
 import { ColorSwap } from '../../services/datacontracts/ender/color-swap';
-import { MetaBotPart } from '../../services/datacontracts/ender/meta-bot-part';
 import { Mask, getMaskNameById } from './objects/Wardrobe/mask';
 import { Character } from './objects/character';
 import { ChatSpriteTextString } from './objects/SpriteTextString/chat-sprite-text-string';
@@ -62,11 +61,8 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
     private heroFirstSeen: Map<number, number> = new Map<number, number>();
     showOtherHeroesPanel: boolean = false;
     enemiesOnSameLevelCount: number = 0;
-    // Live provisional score (time + walls*10) computed server-side each fetch
     currentScore: number = 0;
-    // Walls placed for the run as reported by server (authoritative count used in score calc)
     wallsPlacedAuthoritative: number = 0;
-    // Death overlay flag
     showDeathPanel: boolean = false;
     partyMembers: { heroId: number, name: string, color?: string }[] = [];
     chat: MetaChat[] = [];
@@ -100,6 +96,8 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
     // In-memory set of meta bike walls (keys: "x|y") for fast existence checks
     // Track only the highest wall id we've processed; we don't retain all wall coordinates persistently.
     private lastKnownWallId: number = 0;
+    // Temporary cache of wall position keys added during the last update to avoid re-adding
+    private lastAddedWallKeys: Set<string> = new Set<string>();
     // Reference to level to reset delta tracking when level changes
     private persistedWallLevelRef: any = undefined;
     // Collect all locally spawned walls since last fetch (delta batch)
@@ -370,7 +368,13 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
                                 }
                             }
                         }
+                        const newlyAddedKeys: string[] = [];
                         for (const w of walls) {
+                            const key = `${w.x}|${w.y}`;
+                            newlyAddedKeys.push(key);
+                            if (this.lastAddedWallKeys.has(key)) {
+                                continue;
+                            }
                             const ownerId = w.heroId;
                             const ownerColor = (ownerId && this.heroColors.has(ownerId)) ? this.heroColors.get(ownerId) : undefined;
                             const colorSwap = ownerColor ? new ColorSwap([0, 160, 200], hexToRgb(ownerColor!)) : (ownerId === this.metaHero.id ? (this.metaHero ? this.mainScene.metaHero?.colorSwap : undefined) : undefined);
@@ -381,6 +385,8 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
                                 this.lastKnownWallId = w.id;
                             }
                         }
+                        this.lastAddedWallKeys.clear();
+                        for (const k of newlyAddedKeys) this.lastAddedWallKeys.add(k);
                     }
 
                     if (this.chat) {
