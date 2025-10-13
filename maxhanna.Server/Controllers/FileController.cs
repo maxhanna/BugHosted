@@ -41,7 +41,7 @@ namespace maxhanna.Server.Controllers
 		}
 
 		[HttpPost("/File/GetDirectory/", Name = "GetDirectory")]
-		public async Task<IActionResult> GetDirectory(
+		public async Task<DirectoryResult?> GetDirectory(
 		[FromBody] User? user,
 		[FromQuery] string? directory,
 		[FromQuery] string? visibility,
@@ -67,7 +67,7 @@ namespace maxhanna.Server.Controllers
 					directory += "/";
 				}
 			}
-			if (!ValidatePath(directory!)) { return StatusCode(500, $"Must be within {_baseTarget}"); }
+			if (!ValidatePath(directory!)) { return null; }
 
 			try
 			{
@@ -391,15 +391,15 @@ LIMIT
 
 					GetFileReactions(fileEntries, connection, fileIds, commentIds, fileIdsParameters, commentIdsParameters);
 					GetFileTopics(fileEntries, connection, fileIds);
-					var result = GetDirectoryResults(user, directory, search, page, pageSize, fileEntries, favouritesCondition, fileTypeCondition, visibilityCondition, ownershipCondition, hiddenCondition, connection, searchCondition, extraParameters);
+					DirectoryResult result = GetDirectoryResults(user, directory, search, page, pageSize, fileEntries, favouritesCondition, fileTypeCondition, visibilityCondition, ownershipCondition, hiddenCondition, connection, searchCondition, extraParameters);
 
-					return Ok(result);
+					return result;
 				}
 			}
 			catch (Exception ex)
 			{
 				_ = _log.Db($"error:{ex}", null, "FILE", true);
-				return StatusCode(500, ex.Message);
+				return null;
 			}
 		}
 
@@ -440,7 +440,7 @@ LIMIT
 		{
 			if (!fileIdsParameters.Any())
 				return;
-				
+
 			var commentsCommand = new MySqlCommand($@"
 				WITH RECURSIVE comment_tree (id) AS (
 				SELECT id
@@ -599,14 +599,14 @@ LIMIT
 			}
 		}
 
-		private Object GetDirectoryResults(User? user, string directory, string? search, int page, int pageSize, List<FileEntry> fileEntries, string favouritesCondition, string fileTypeCondition, string visibilityCondition, string ownershipCondition, string hiddenCondition, MySqlConnection connection, string searchCondition, List<MySqlParameter> extraParameters)
+		private DirectoryResult GetDirectoryResults(User? user, string directory, string? search, int page, int pageSize, List<FileEntry> fileEntries, string favouritesCondition, string fileTypeCondition, string visibilityCondition, string ownershipCondition, string hiddenCondition, MySqlConnection connection, string searchCondition, List<MySqlParameter> extraParameters)
 		{
 			// Get the total count of files for pagination
 			int totalCount = GetResultCount(user,
 				directory, search, favouritesCondition, fileTypeCondition, visibilityCondition,
 				ownershipCondition, hiddenCondition, connection, searchCondition,
 				extraParameters);
-			var result = new
+			var result = new DirectoryResult
 			{
 				TotalCount = totalCount,
 				CurrentDirectory = directory.Replace(_baseTarget, ""),
@@ -1015,7 +1015,7 @@ LIMIT
 					if (string.IsNullOrEmpty(line)) continue;
 					if (line.StartsWith("Option:", StringComparison.OrdinalIgnoreCase)) continue;
 					if (line.StartsWith("Question:", StringComparison.OrdinalIgnoreCase)) continue; // already handled elsewhere
-					// Use this as a derived question.
+																									// Use this as a derived question.
 					return line.Length > 140 ? line.Substring(0, 140).Trim() : line;
 				}
 			}
@@ -1774,31 +1774,15 @@ LIMIT
 			{
 				User? caller = userId.HasValue && userId.Value > 0 ? new User(userId.Value) : null;
 				// Call GetDirectory with fileId set; pageSize 1 to narrow results
-				var dirResult = await GetDirectory(caller, null, null, null, null, 1, 1, fileId, null, false, "Latest", false);
-				if (dirResult is OkObjectResult ok && ok.Value != null)
-				{
-					// Serialize anonymous object to JSON and parse Data[0]
-					var json = JsonConvert.SerializeObject(ok.Value);
-					dynamic? parsed = JsonConvert.DeserializeObject<dynamic?>(json);
-					try
-					{
-						if (parsed != null && parsed?.Data != null && parsed?.Data.Count > 0)
-						{
-							return Ok(parsed?.Data[0]);
-						}
-					}
-					catch
-					{
-						// fall through to empty OK below
-					}
-				}
-				return Ok();
+				DirectoryResult? dir = await GetDirectory(caller, null, null, null, null, 1, 1, fileId, null, false, "Latest", false);
+				 
+				return Ok(dir?.Data[0]); 
 			}
 			catch (Exception ex)
 			{
 				_ = _log.Db($"Error in GetFileEntryById (delegating to GetDirectory): {ex.Message}", userId ?? 0, "FILE", true);
 				return StatusCode(500, "An error occurred while retrieving file entry.");
-			}
+			} 
 		}
 
 
@@ -2577,7 +2561,7 @@ LIMIT
 					{
 						var id = reader.GetInt32("fileId");
 						var user_id = reader.GetInt32("user_id");
-						var userName = reader.GetString("username"); 
+						var userName = reader.GetString("username");
 						var fileType = reader.IsDBNull(reader.GetOrdinal("file_type")) ? string.Empty : reader.GetString("file_type");
 						var shared_with = reader.IsDBNull(reader.GetOrdinal("shared_with")) ? string.Empty : reader.GetString("shared_with");
 						int? width = reader.IsDBNull(reader.GetOrdinal("width")) ? null : reader.GetInt32("width");
@@ -3477,4 +3461,13 @@ LIMIT
 			}
 		}
 	}
+}
+
+public class DirectoryResult
+{
+	public int TotalCount { get; set; }
+	public string CurrentDirectory { get; set; } = string.Empty;
+	public int Page { get; set; }
+	public int PageSize { get; set; }
+	public List<FileEntry> Data { get; set; } = new List<FileEntry>();
 }
