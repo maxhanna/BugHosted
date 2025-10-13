@@ -1,4 +1,3 @@
-using maxhanna.Server.Controllers.DataContracts.Users;
 using Microsoft.AspNetCore.Mvc;
 using MySqlConnector;
 using Newtonsoft.Json;
@@ -37,7 +36,7 @@ namespace maxhanna.Server.Controllers
 					var totalSecondsObj = await totalCmd.ExecuteScalarAsync();
 					int totalSeconds = Convert.ToInt32(totalSecondsObj ?? 0);
 
-					string topSql = @"SELECT rom_file_name, COUNT(*) as plays FROM maxhanna.emulation_play_time WHERE user_id = @UserId GROUP BY rom_file_name ORDER BY plays DESC LIMIT 1;";
+					string topSql = @"SELECT rom_file_name, plays FROM maxhanna.emulation_play_time WHERE user_id = @UserId ORDER BY plays DESC LIMIT 1;";
 					var topCmd = new MySqlCommand(topSql, connection);
 					topCmd.Parameters.AddWithValue("@UserId", userId);
 					using (var reader = await topCmd.ExecuteReaderAsync())
@@ -173,8 +172,15 @@ namespace maxhanna.Server.Controllers
 								if (Request.Form.ContainsKey("saveTimeMs") && long.TryParse(Request.Form["saveTimeMs"], out var svm)) saveMs = svm;
 								if (Request.Form.ContainsKey("durationSeconds") && int.TryParse(Request.Form["durationSeconds"], out var ds)) durationSeconds = ds;
 
-								// Use single-statement upsert. Requires a UNIQUE constraint on (user_id, rom_file_name) for ON DUPLICATE KEY to work.
-								string upsertSql = @"INSERT INTO maxhanna.emulation_play_time (user_id, rom_file_name, start_time, save_time, duration_seconds, created_at) VALUES (@UserId, @RomFileName, FROM_UNIXTIME(@StartMs/1000), FROM_UNIXTIME(@SaveMs/1000), @DurationSeconds, UTC_TIMESTAMP()) ON DUPLICATE KEY UPDATE start_time = VALUES(start_time), save_time = VALUES(save_time), duration_seconds = VALUES(duration_seconds), created_at = VALUES(created_at);";
+								string upsertSql = @"
+								INSERT INTO maxhanna.emulation_play_time (user_id, rom_file_name, start_time, save_time, duration_seconds, plays, created_at)
+								VALUES (@UserId, @RomFileName, FROM_UNIXTIME(@StartMs/1000), FROM_UNIXTIME(@SaveMs/1000), @DurationSeconds, 1, UTC_TIMESTAMP())
+								ON DUPLICATE KEY UPDATE
+									start_time = VALUES(start_time),
+									save_time = VALUES(save_time),
+									duration_seconds = VALUES(duration_seconds),
+									plays = plays + 1,
+									created_at = VALUES(created_at);";
 								var upsertCmd = new MySqlCommand(upsertSql, connection);
 								upsertCmd.Parameters.AddWithValue("@UserId", userId);
 								upsertCmd.Parameters.AddWithValue("@RomFileName", file.FileName);
@@ -186,16 +192,8 @@ namespace maxhanna.Server.Controllers
 									await upsertCmd.ExecuteNonQueryAsync();
 								}
 								catch (MySqlException mex)
-								{
-									// ER_NO_SUCH_TABLE = 1146
-									if (mex.Number == 1146)
-									{
-										_ = _log.Db("emulation_play_time table does not exist or CREATE privilege missing; skipping playtime record: " + mex.Message, userId, "ROM", true);
-									}
-									else
-									{
-										_ = _log.Db("Error recording playtime on upload (DB error): " + mex.Message, userId, "ROM", true);
-									}
+								{ 
+									_ = _log.Db("Error recording playtime on upload (DB error): " + mex.Message, userId, "ROM", true);
 								}
 							}
 							catch (Exception ex)
