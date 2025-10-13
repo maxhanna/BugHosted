@@ -173,7 +173,10 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
           };
           results = await this.socialService.postStory(user.id ?? 0, content.story, sessionToken ?? "");
         } else if (this.type == "Comment") {
+          console.debug('Posting comment: files=', files);
+          const commentStart = Date.now();
           content = await this.createComment(files);
+          console.debug('createComment returned', content);
           originalContent = content.originalContent;
           derivedIds = {
             userProfileId: content.comment?.userProfileId ?? this.profileUser?.id ?? undefined,
@@ -181,19 +184,25 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
             fileId: this.fileId ?? content.comment?.fileId ?? undefined,
             commentId: this.commentId ?? content.comment?.commentId ?? undefined
           };
-          //console.log("type is comment and creating comment", derivedIds);
-          results = await this.commentService.addComment(
-            content.comment.commentText ?? "",
-            user?.id,
-            this.fileId ?? content.comment.fileId,
-            this.storyId ?? content.comment.storyId,
-            this.commentId ?? content.comment.commentId,
-            content.comment.userProfileId ?? this.profileUser?.id,
-            content.comment.commentFiles,
-            content.comment.city,
-            content.comment.country,
-            content.comment.ip,
-          );
+          console.debug('Derived IDs for comment:', derivedIds);
+          try {
+            results = await this.commentService.addComment(
+              content.comment.commentText ?? "",
+              user?.id,
+              this.fileId ?? content.comment.fileId,
+              this.storyId ?? content.comment.storyId,
+              this.commentId ?? content.comment.commentId,
+              content.comment.userProfileId ?? this.profileUser?.id,
+              content.comment.commentFiles,
+              content.comment.city,
+              content.comment.country,
+              content.comment.ip,
+            );
+            console.debug('commentService.addComment result', { result: results, elapsedMs: Date.now() - commentStart });
+          } catch (err) {
+            console.error('commentService.addComment threw an error', err, { derivedIds });
+            throw err; // rethrow to be caught by outer try/catch
+          }
         } else if (this.type == "Chat") {
           content = await this.createChatMessage(files);
           originalContent = content.originalContent;
@@ -542,7 +551,8 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
     tmpComment.city = location?.city;
     tmpComment.userProfileId = this.profileUser?.id;
     tmpComment.ip = location?.ip;
-    return { comment: tmpComment, originalContent: commentsWithEmoji };
+  console.debug('Built tmpComment:', tmpComment);
+  return { comment: tmpComment, originalContent: commentsWithEmoji };
   }
 
   private async createChatMessage(files?: FileEntry[]): Promise<{ msg: string, chatUsersIdsArray: number[], originalContent: string }> {
