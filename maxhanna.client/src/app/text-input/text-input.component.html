@@ -2,7 +2,7 @@
     <input type="text" placeholder="What’s crawling your mind?" (focus)="type == 'Chat' ? prepPostTextArea() : ''" (click)="prepPostTextArea()"
         *ngIf="!showPostInput" #postInput id="postInput">
     <textarea #story placeholder="What’s crawling your mind?" class="foodForThought" *ngIf="showPostInput"
-        #postTextArea id="postTextArea" (keydown)="onKeyDown($event)"></textarea>
+        #postTextArea id="postTextArea" (keydown)="onKeyDown($event)">{{initialContent}}</textarea>
 </div>
 <div class="mainFileUploaderAndTopicSelectorDiv">
     <button *ngIf="!initialContent" (click)="post()">🗨️Post</button>
