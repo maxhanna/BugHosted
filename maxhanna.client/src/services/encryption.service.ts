@@ -34,6 +34,7 @@ export class EncryptionService {
   }
 
   decryptContent(encryptedHex: string, password: string = 'defaultPassword'): string {
+    console.log("decrypting : ", encryptedHex, password);
     if (!encryptedHex) return '';
     if (password === undefined) return encryptedHex;
  
