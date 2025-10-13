@@ -11,7 +11,7 @@ namespace maxhanna.Server.Controllers
 	{
 		private readonly Log _log;
 		private readonly IConfiguration _config;
-		private readonly string _baseTarget = "E:/Dev/maxhanna/maxhanna.client/src/assets/Uploads/Roms";
+		private readonly string _baseTarget = "E:/Dev/maxhanna/maxhanna.client/src/assets/Uploads/Roms/";
  
 
 		public RomController(Log log, IConfiguration config)
@@ -121,14 +121,13 @@ namespace maxhanna.Server.Controllers
 						string filenameWithoutExtension = Path.GetFileNameWithoutExtension(file.FileName);
 						newFilename = filenameWithoutExtension + "_" + userId + Path.GetExtension(file.FileName).Replace("\\", "/");
 					}
-
-					var uploadDirectory = _baseTarget;
+ 
 					var filePath = string.IsNullOrEmpty(newFilename) ? file.FileName : newFilename;
-					filePath = Path.Combine(uploadDirectory, filePath).Replace("\\", "/");
+					filePath = Path.Combine(_baseTarget, filePath).Replace("\\", "/");
 
-					if (!Directory.Exists(uploadDirectory))
+					if (!Directory.Exists(_baseTarget))
 					{
-						Directory.CreateDirectory(uploadDirectory);
+						Directory.CreateDirectory(_baseTarget);
 					}
 
 					using (var stream = new FileStream(filePath, FileMode.Create))
