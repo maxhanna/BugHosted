@@ -179,6 +179,90 @@ public class WebCrawler
 		_httpClient.DefaultRequestHeaders.Connection.ParseAdd("keep-alive");
 	}
 
+	// Header rotation helpers — rotate headers per-request so target servers see varying agents
+	private static readonly List<string> _userAgents = new()
+	{
+		"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+		"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.4 Safari/605.1.15",
+		"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/117.0.0.0 Safari/537.36",
+		"Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.0 Mobile/15E148 Safari/604.1",
+		"Mozilla/5.0 (Windows NT 10.0; Win64; x64) Gecko/20100101 Firefox/116.0"
+	};
+
+	private static readonly List<string> _accepts = new()
+	{
+		"text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+		"text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+		"text/html,application/xml;q=0.9,*/*;q=0.8"
+	};
+
+	private static readonly List<string> _acceptLanguages = new()
+	{
+		"en-US,en;q=0.9",
+		"en-GB,en;q=0.9",
+		"en-US,en;q=0.8,es;q=0.6"
+	};
+
+	private string GenerateRandomIp()
+	{
+		return string.Join('.', Enumerable.Range(0, 4).Select(_ => _random.Next(1, 255)));
+	}
+
+	private Dictionary<string, string> GenerateRotatedHeaders(string url)
+	{
+		var headers = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+		// Randomize UA/Accept/Language
+		headers["User-Agent"] = _userAgents[_random.Next(0, _userAgents.Count)];
+		headers["Accept"] = _accepts[_random.Next(0, _accepts.Count)];
+		headers["Accept-Language"] = _acceptLanguages[_random.Next(0, _acceptLanguages.Count)];
+		// Referer: sometimes use the domain root or omit
+		try
+		{
+			var uri = new Uri(url);
+			headers["Referer"] = uri.Scheme + "://" + uri.Host + "/";
+		}
+		catch { /* ignore */ }
+		// Spoof X-Forwarded-For with a random IPv4
+		headers["X-Forwarded-For"] = GenerateRandomIp();
+		// Connection hints
+		headers["Connection"] = "keep-alive";
+		return headers;
+	}
+
+	private HttpRequestMessage BuildGetRequestWithRotatedHeaders(string url)
+	{
+		var req = new HttpRequestMessage(HttpMethod.Get, url);
+		var hdrs = GenerateRotatedHeaders(url);
+		foreach (var kv in hdrs)
+		{
+			try
+			{
+				if (string.Equals(kv.Key, "User-Agent", StringComparison.OrdinalIgnoreCase))
+				{
+					req.Headers.UserAgent.ParseAdd(kv.Value);
+				}
+				else if (string.Equals(kv.Key, "Accept", StringComparison.OrdinalIgnoreCase))
+				{
+					req.Headers.TryAddWithoutValidation("Accept", kv.Value);
+				}
+				else if (string.Equals(kv.Key, "Accept-Language", StringComparison.OrdinalIgnoreCase))
+				{
+					req.Headers.TryAddWithoutValidation("Accept-Language", kv.Value);
+				}
+				else if (string.Equals(kv.Key, "Referer", StringComparison.OrdinalIgnoreCase))
+				{
+					req.Headers.Referrer = new Uri(kv.Value);
+				}
+				else
+				{
+					req.Headers.TryAddWithoutValidation(kv.Key, kv.Value);
+				}
+			}
+			catch { /* best-effort — ignore malformed header values */ }
+		}
+		return req;
+	}
+
 	public async Task StartBackgroundScrape()
 	{
 		// Ensure only one scrape operation runs at a time 
@@ -742,7 +826,8 @@ public class WebCrawler
 				_ = _log.Db("HttpClient is null.", null, "CRAWLER", true);
 				return null;
 			}
-			var response = await _httpClient.GetAsync(url, HttpCompletionOption.ResponseHeadersRead);
+			var request = BuildGetRequestWithRotatedHeaders(url);
+			var response = await _httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead);
 			response.EnsureSuccessStatusCode();  
 			if (!response.IsSuccessStatusCode)
 			{ 
@@ -1047,7 +1132,8 @@ public class WebCrawler
 		try
 		{
 			using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
-			var response = await _httpClient.GetAsync(url, cts.Token);
+			var request = BuildGetRequestWithRotatedHeaders(url);
+			var response = await _httpClient.SendAsync(request, cts.Token);
 			return response.IsSuccessStatusCode;
 		}
 		catch (TaskCanceledException)
@@ -1165,7 +1251,8 @@ public class WebCrawler
 		try
 		{
 			// Send a GET request to the sitemap URL
-			HttpResponseMessage response = await _httpClient.GetAsync(sitemapUrl, HttpCompletionOption.ResponseHeadersRead);
+			var sitemapRequest = BuildGetRequestWithRotatedHeaders(sitemapUrl);
+			HttpResponseMessage response = await _httpClient.SendAsync(sitemapRequest, HttpCompletionOption.ResponseHeadersRead);
 
 			// Ensure successful response
 			response.EnsureSuccessStatusCode();
