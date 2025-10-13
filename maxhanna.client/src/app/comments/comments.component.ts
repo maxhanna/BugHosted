@@ -295,8 +295,7 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
     this.replyingToCommentId = undefined;
     this.replyingToCommentEvent.emit();
   }
-
-  // Centralized cancel handler for comment editing (used by app-text-input cancelEdit)
+ 
   cancelEdit(comment: FileComment) {
     if (!comment || comment.id === undefined) return;
     this.editingComments = this.editingComments.filter(x => x != comment.id);
@@ -391,8 +390,7 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
     }
     this.replyingToCommentEvent.emit(this.replyingToCommentId);
   }
-
-  // Centralized cancel handler for reply input (used by app-text-input cancelEdit)
+ 
   cancelReply() {
     this.replyingToCommentId = undefined;
     this.replyingToCommentEvent.emit(undefined as any);
