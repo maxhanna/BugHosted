@@ -86,8 +86,6 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
     private currentChatTextbox?: ChatSpriteTextString | undefined;
     private pollingInterval: any;
     private nearbyWallsInterval: any;
-    // Timestamp (ms since epoch) when we last performed quickDestroy of bike walls
-    private lastQuickDestroyAt?: number;
     topScores: any[] = [];
     isMenuPanelOpen = false;
     // Count of bike-wall units placed during the current run
@@ -418,17 +416,11 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
             const incomingWalls: MetaBikeWall[] = res as MetaBikeWall[];
             const level = this.mainScene.level;
             if (!level) return;
-            
-            const now = Date.now();
-            const isMobile = this.onMobile();
-            const destroyThresholdMs = isMobile ? (30 * 1000) : (2 * 60 * 1000);
-            if (!this.lastQuickDestroyAt || (now - this.lastQuickDestroyAt) >= destroyThresholdMs) {
-                for (const child of level.children) {
-                    if (child && child.name === 'bike-wall') {
-                        child.quickDestroy?.();
-                    }
+ 
+            for (const child of level.children) {
+                if (child && child.name === 'bike-wall') {
+                    child.quickDestroy?.();
                 }
-                this.lastQuickDestroyAt = now;
             }
 
             // Add any remaining incoming walls that are not present locally
