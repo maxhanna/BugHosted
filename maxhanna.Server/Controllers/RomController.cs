@@ -11,14 +11,13 @@ namespace maxhanna.Server.Controllers
 	{
 		private readonly Log _log;
 		private readonly IConfiguration _config;
-		private readonly string _baseTarget;
-
+		private readonly string _baseTarget = "E:/Dev/maxhanna/maxhanna.client/src/assets/Uploads/Roms";
+ 
 
 		public RomController(Log log, IConfiguration config)
 		{
 			_log = log;
 			_config = config;
-			_baseTarget = _config.GetValue<string>("ConnectionStrings:baseUploadPath") + "Roms" ?? "";
 		}
 
 
@@ -36,12 +35,13 @@ namespace maxhanna.Server.Controllers
 					var totalSecondsObj = await totalCmd.ExecuteScalarAsync();
 					int totalSeconds = Convert.ToInt32(totalSecondsObj ?? 0);
 
-						// Count distinct ROM uploads for this user (files in folder_path = 'roms')
-						string romCountSql = @"SELECT COUNT(*) FROM maxhanna.file_uploads WHERE user_id = @UserId AND folder_path = 'roms';";
-						var romCountCmd = new MySqlCommand(romCountSql, connection);
-						romCountCmd.Parameters.AddWithValue("@UserId", userId);
-						var romCountObj = await romCountCmd.ExecuteScalarAsync();
-						int romCount = Convert.ToInt32(romCountObj ?? 0);
+					// Count distinct ROM uploads for this user (files in folder_path = 'roms')
+					string romCountSql = @"SELECT COUNT(*) FROM maxhanna.file_uploads WHERE user_id = @UserId AND folder_path = @FolderPath;";
+					var romCountCmd = new MySqlCommand(romCountSql, connection);
+					romCountCmd.Parameters.AddWithValue("@UserId", userId);
+					romCountCmd.Parameters.AddWithValue("@FolderPath", _baseTarget);
+					var romCountObj = await romCountCmd.ExecuteScalarAsync();
+					int romCount = Convert.ToInt32(romCountObj ?? 0);
 
 					string topSql = @"SELECT rom_file_name, plays FROM maxhanna.emulation_play_time WHERE user_id = @UserId ORDER BY plays DESC LIMIT 1;";
 					var topCmd = new MySqlCommand(topSql, connection);
@@ -122,7 +122,7 @@ namespace maxhanna.Server.Controllers
 						newFilename = filenameWithoutExtension + "_" + userId + Path.GetExtension(file.FileName).Replace("\\", "/");
 					}
 
-					var uploadDirectory = _baseTarget; // Combine base path with folder path
+					var uploadDirectory = _baseTarget;
 					var filePath = string.IsNullOrEmpty(newFilename) ? file.FileName : newFilename;
 					filePath = Path.Combine(uploadDirectory, filePath).Replace("\\", "/");
 
@@ -142,7 +142,7 @@ namespace maxhanna.Server.Controllers
 
 						var checkCommand = new MySqlCommand("SELECT COUNT(*) FROM maxhanna.file_uploads WHERE file_name = @fileName AND folder_path = @folderPath", connection);
 						checkCommand.Parameters.AddWithValue("@fileName", file.FileName);
-						checkCommand.Parameters.AddWithValue("@folderPath", "roms");
+						checkCommand.Parameters.AddWithValue("@folderPath", _baseTarget);
 
 						var fileExists = Convert.ToInt32(await checkCommand.ExecuteScalarAsync()) > 0;
 
@@ -153,7 +153,7 @@ namespace maxhanna.Server.Controllers
 							command.Parameters.AddWithValue("@user_id", userId);
 							command.Parameters.AddWithValue("@fileName", file.FileName);
 							command.Parameters.AddWithValue("@uploadDate", DateTime.UtcNow);
-							command.Parameters.AddWithValue("@folderPath", "roms");
+							command.Parameters.AddWithValue("@folderPath", _baseTarget);
 							command.Parameters.AddWithValue("@isPublic", 1);
 							command.Parameters.AddWithValue("@isFolder", 0);
 

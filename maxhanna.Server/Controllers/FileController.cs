@@ -24,7 +24,7 @@ namespace maxhanna.Server.Controllers
 		private readonly Log _log;
 		private readonly IConfiguration _config;
 		private readonly string _connectionString;
-		private readonly string _baseTarget;
+		private readonly string _baseTarget = "E:/Dev/maxhanna/maxhanna.client/src/assets/Uploads/";
 		private readonly string _logo = "https://www.bughosted.com/assets/logo.jpg";
 		private readonly HashSet<string> romExtensions = new HashSet<string>(StringComparer.OrdinalIgnoreCase) {
 				"sgx", "vb", "ws", "wsc", "gba", "gbc", "gb",
@@ -37,7 +37,6 @@ namespace maxhanna.Server.Controllers
 			_log = log;
 			_config = config;
 			_connectionString = config.GetValue<string>("ConnectionStrings:maxhanna") ?? "";
-			_baseTarget = _config.GetValue<string>("ConnectionStrings:baseUploadPath") ?? "";
 			FFmpeg.SetExecutablesPath("E:\\ffmpeg-latest-win64-static\\bin");
 		}
 
