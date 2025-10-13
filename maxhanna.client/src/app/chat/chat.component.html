@@ -42,13 +42,14 @@
             </div>
           </div>
           <div class="messageContent" [attr.data-timestamp]="message.timestamp">
-            <div [innerHTML]="getTextForDOM(decryptContent(message.content), 'messageText' + message.id)"
+            <div [innerHTML]="getTextForDOM(message.decrypted ? message.decrypted : decryptContent(message.content), 'messageText' + message.id)"
               *ngIf="!isEditing.includes(message.id)"></div>
             <div *ngIf="isEditing.includes(message.id)">
               <app-text-input 
                 [inputtedParentRef]="parentRef ?? inputtedParentRef"
                 [type]="'Chat'" 
-                [chatId]="message.id" 
+                [chatId]="currentChatId"
+                [messageId]="message.id"
                 [showPostInput]="true"
                 [initialContent]="decryptContent(message.content)"
                 (contentUpdated)="onChatUpdated($event, message)">

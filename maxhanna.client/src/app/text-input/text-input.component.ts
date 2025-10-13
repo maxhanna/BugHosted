@@ -41,6 +41,7 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
   @Input() storyId?: number = undefined
   @Input() commentId?: number = undefined
   @Input() chatId?: number;
+  @Input() messageId?: number;
   @Input() fileId?: number;
   @Input() parentClass? = "";
   @Input() attachedTopics: Array<Topic> = [];
@@ -108,8 +109,9 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
         this.contentUpdated.emit({ results: result, content: { storyText: updatedText }, originalContent: updatedText });
         return result;
       } else if (this.type === 'Chat') {
-        // update chat message
-        const result = await this.chatService.editMessage(this.chatId ?? 0, user.id ?? 0, encrypted);
+        // update chat message: use messageId when provided (the id of the message being edited).
+        const targetMessageId = this.messageId ?? this.chatId ?? 0;
+        const result = await this.chatService.editMessage(targetMessageId, user.id ?? 0, encrypted);
         this.contentUpdated.emit({ results: result, content: { chatText: encrypted }, originalContent: updatedText });
         return result;
       }

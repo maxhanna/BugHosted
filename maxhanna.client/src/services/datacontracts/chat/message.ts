@@ -15,6 +15,7 @@ export class Message {
   seen?: string;
   editDate?: Date;
   polls?: Poll[];
+  decrypted?: string;
 
   constructor(id: number, chatId: number, sender: User, receiver: User[], content: string, timestamp: Date, 
     reactions?: Reaction[], files?: FileEntry[], seen?: string, editDate?: Date) {

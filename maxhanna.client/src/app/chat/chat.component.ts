@@ -1,4 +1,4 @@
-import { Component, ElementRef, EventEmitter, Input, OnDestroy, OnInit, Output, ViewChild } from '@angular/core';
+import { Component, ElementRef, EventEmitter, Input, OnDestroy, OnInit, Output, ViewChild, ChangeDetectorRef } from '@angular/core';
 import { ChildComponent } from '../child.component';
 import { ChatService } from '../../services/chat.service';
 import { Message } from '../../services/datacontracts/chat/message';
@@ -773,8 +773,30 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
     try {
       if (event && event.results) {
         this.parentRef?.showNotification(`Message #${message.id} edited successfully.`);
-        // Refresh message history to show updated content
-        message.content = event.content.chatText;
+        // Prefer a full message object returned by the server if available
+        let updatedMsg: any = null;
+         
+        updatedMsg = event.results.message || event.results.Message || event.results.updatedMessage || event.results;
+        
+
+        let decryptedText: string | undefined = undefined;
+        if (updatedMsg && updatedMsg.content) { 
+          message.content = updatedMsg.content;
+          decryptedText = event.originalContent ?? this.decryptContent(updatedMsg.content);
+        } else if (event.content && event.content.chatText) {
+          // fallback: editor provided encrypted chatText
+          message.content = event.content.chatText;
+          decryptedText = event.originalContent ?? this.decryptContent(event.content.chatText);
+        } else {
+          // last resort: use originalContent
+          decryptedText = event.originalContent;
+        }
+
+        // set both transient and convenient decrypted properties on message so templates can use either
+        message.decrypted = decryptedText;
+        // mark message as edited now
+        message.editDate = new Date();
+        // clear edit state for this message
         this.isEditing = this.isEditing.filter(x => x != message.id);
       } else {
         this.parentRef?.showNotification(`Failed to edit message #${message.id}.`);
