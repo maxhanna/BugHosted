@@ -774,7 +774,7 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
       if (event && event.results) {
         this.parentRef?.showNotification(`Message #${message.id} edited successfully.`);
         // Refresh message history to show updated content
-        await this.getMessageHistory(this.pageNumber, this.pageSize);
+        message.content = event.originalContent;
         this.isEditing = this.isEditing.filter(x => x != message.id);
       } else {
         this.parentRef?.showNotification(`Failed to edit message #${message.id}.`);
