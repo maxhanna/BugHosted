@@ -185,7 +185,7 @@ namespace maxhanna.Server.Controllers
 								ON DUPLICATE KEY UPDATE
 									start_time = VALUES(start_time),
 									save_time = VALUES(save_time),
-									duration_seconds = VALUES(duration_seconds),
+									duration_seconds = IFNULL(duration_seconds, 0) + VALUES(duration_seconds),
 									plays = plays + 1,
 									created_at = VALUES(created_at);";
 								var upsertCmd = new MySqlCommand(upsertSql, connection);
