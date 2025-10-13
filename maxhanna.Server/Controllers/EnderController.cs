@@ -188,7 +188,7 @@ namespace maxhanna.Server.Controllers
                                             await UpdateEventsInDB(deathEvent, connection, transaction);
                                             Console.WriteLine("added event death event for heroId" + victimId);
                                             await KillHeroById(victimId, connection, transaction, killerId);
-                                            Console.WriteLine("killed heroId" + victimId);
+                                            Console.WriteLine(killerId + " killed heroId" + victimId);
                                             await SendKillNotificationAsync(victimId, killerId, connection, transaction);
                                         }
                                         catch (Exception exKill)
