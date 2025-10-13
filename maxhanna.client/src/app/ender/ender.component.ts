@@ -417,7 +417,7 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
 
                         // Fast-destroy any instantiated walls whose keys are no longer present in the latest lastAddedWallKeys
                         for (const [k, obj] of Array.from(this.lastAddedWallObjects.entries())) {
-                            if (!this.lastAddedWallKeys.has(k)) {
+                            if (!newlyAddedKeys.includes(k)) {
                                 try {
                                     // call quickDestroy if available for immediate removal without FX
                                     if (typeof (obj as any).quickDestroy === 'function') {
