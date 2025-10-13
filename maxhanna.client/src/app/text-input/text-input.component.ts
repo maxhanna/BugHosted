@@ -561,21 +561,20 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
 
   encryptContent(msg: string) {
     try {
-      let id = undefined;
+      const parent = this.inputtedParentRef ?? this.parentRef;
+      let id: number | undefined = undefined;
       if (this.type == "Chat") {
         id = this.chatId;
-      } else if (this.type == "Comment") {
-        id = this.inputtedParentRef?.user?.id ?? 0;
-      } else if (this.type == "Social") {
-        id = this.inputtedParentRef?.user?.id ?? 0;
-      } 
-      if (id === undefined) {
+      } else {
+        id = parent?.user?.id ?? 0;
+      }
+
+      if (id === undefined || id === null) {
         return msg;
       }
       console.log("encrypting message with password: ", id);
-      return this.encryptionService.encryptContent(msg, id + "");
-    } catch (error) {
-      ``
+      return this.encryptionService.encryptContent(msg, (id + "").trim());
+    } catch (error) { 
       console.error('Encryption error:', error);
       return msg;
     }
