@@ -363,7 +363,7 @@
         [style.display]="isTradePanelOpen && isTradeInfoHidden ? 'block' : 'flex'"
         [style.flexWrap]="(isTradePanelOpen && isTradeInfoHidden) ? 'wrap' : (onMobile() ? 'wrap' : 'nowrap')">
         <button *ngIf="isTradeInfoHidden && isTradePanelOpen" (click)="toggleTradeInfo()">Show Tradebot Info</button>
-        <div [style.width]="isTradePanelOpen ? (isTradeInfoHidden ? '0px' : '30%') : '100%'"
+        <div [style.width]="isTradePanelOpen ? (isTradeInfoHidden ? '0px' : (onMobile() ? '100%' : '30%')) : '100%'"
           [style.height]="isTradePanelOpen ? (isTradeInfoHidden ? '0px' : '100%') : '100%'"
           class="trade-info-column{{isTradeInfoHidden ? ' collapsed' : ''}}" 
           (click)="!isTradePanelOpen ? openTradeFullscreen() : toggleTradeInfo($event)"
