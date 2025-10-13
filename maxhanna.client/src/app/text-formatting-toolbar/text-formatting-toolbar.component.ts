@@ -86,6 +86,8 @@ export class TextFormattingToolbarComponent extends ChildComponent {
     const parent = this.inputtedParentRef ?? this.parentRef;
     parent?.showOverlay();
     this.showComponentSelector = true;
+    this.componentSearchTerm = '';
+    this.focusElementById('componentFilter');
   }
 
   closeComponentSelector() {
@@ -101,7 +103,19 @@ export class TextFormattingToolbarComponent extends ChildComponent {
     parent?.showOverlay();
     this.filteredEmojis = { ...parent?.emojiMap }; 
     this.isEmojiPanelOpen = true; 
+    // focus emoji search input by exact id used in template
+    this.focusElementById('emojiFilter');
   } 
+  // Focus an element by exact id after a short delay so the panel can render
+  private focusElementById(id: string) {
+    setTimeout(() => { 
+      const el = document.getElementById(id) as HTMLInputElement | null;
+      if (el) {
+        el.focus();
+        if ((el as any).select) (el as any).select();
+      } 
+    }, 50);
+  }
 
   closeInsertEmojiPanel() { 
     this.isEmojiPanelOpen = false;
