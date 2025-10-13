@@ -572,7 +572,7 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
       if (id === undefined || id === null) {
         return msg;
       }
-      console.log("encrypting message with password: ", id);
+      console.log("encrypting message with password: ", msg, id);
       return this.encryptionService.encryptContent(msg, (id + "").trim());
     } catch (error) { 
       console.error('Encryption error:', error);
