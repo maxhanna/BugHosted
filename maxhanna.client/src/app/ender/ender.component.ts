@@ -409,38 +409,22 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
         try {
             if (!this.metaHero || !this.metaHero.id) return;
             // radiusSeconds defines how many seconds of movement worth of walls to fetch (approx)
-            const payload = { hero: this.metaHero, radiusSeconds: 1500 };
+            const payload = { hero: this.metaHero, radiusSeconds: 2500 };
             const res: any = await this.enderService.fetchWallsAroundHero(payload);
             if (!res || !Array.isArray(res)) return;
 
             const incomingWalls: MetaBikeWall[] = res as MetaBikeWall[];
             const level = this.mainScene.level;
             if (!level) return;
-
-            // Build a map of positions -> incoming wall entries (use 'x|y' key)
-            const incomingMap = new Map<string, MetaBikeWall>();
-            for (const w of incomingWalls) {
-                incomingMap.set(`${w.x}|${w.y}`, w);
-            }
-
-            // Remove existing walls in the scene that are not present in incomingMap
-            const toRemove: any[] = [];
-            for (const child of level.children.slice()) {
+ 
+            for (const child of level.children) {
                 if (child && child.name === 'bike-wall') {
-                    const key = `${child.position.x}|${child.position.y}`;
-                    if (!incomingMap.has(key)) {
-                        // quick destroy without animations
-                        try { child.quickDestroy?.(); } catch { try { child.destroy(); } catch { } }
-                        toRemove.push(child);
-                    } else {
-                        // mark as processed
-                        incomingMap.delete(key);
-                    }
+                    child.quickDestroy?.();
                 }
             }
 
             // Add any remaining incoming walls that are not present locally
-            for (const [key, w] of incomingMap.entries()) {
+            for (const w of incomingWalls) {
                 try {
                     const ownerColor = (w.heroId && this.heroColors.has(w.heroId)) ? this.heroColors.get(w.heroId) : undefined;
                     const colorSwap = ownerColor ? new ColorSwap([0, 160, 200], hexToRgb(ownerColor!)) : (w.heroId === this.metaHero.id ? this.mainScene.metaHero?.colorSwap : undefined);
