@@ -1773,29 +1773,27 @@ LIMIT
 		}
 
 		[HttpPost("/File/GetFileEntryById", Name = "GetFileEntryById")]
-		public async Task<IActionResult> GetFileEntryById([FromBody] int fileId, [FromQuery] int? userId = null)
+		public async Task<IActionResult> GetFileEntryById([FromBody] int fileId, [FromQuery] int? userId = null, [FromHeader(Name = "Encrypted-UserId")] string? encryptedUserIdHeader = null)
 		{
 			// Reuse GetDirectory to assemble file, comments, reactions, polls and topics. Ask GetDirectory to filter by fileId and return the first file.
 			try
 			{
-				User? caller = userId.HasValue && userId.Value > 0 ? new User(userId.Value) : null;
+				User caller = new User(userId ?? 0);
 				// Call GetDirectory with fileId set; pageSize 1 to narrow results
 				DirectoryResult? dir = await GetDirectory(caller, null, null, null, null, 1, 1, fileId, null, false, "Latest", false);
-				 
 				if (dir != null && dir.Data != null && dir.Data.Count > 0)
 				{
 					return Ok(dir.Data[0]);
 				}
-				else
-				{
-					return NotFound("File not found or access denied.");
-				}
+				// If nothing returned, preserve previous behaviour but give clearer logging
+				_ = _log.Db($"GetFileEntryById: File {fileId} not found or access denied (caller: {(caller != null ? caller.Id.ToString() : "Anonymous")})", userId ?? 0, "FILE", true);
+				return NotFound("File not found or access denied.");
 			}
 			catch (Exception ex)
 			{
 				_ = _log.Db($"Error in GetFileEntryById (delegating to GetDirectory): {ex.Message}", userId ?? 0, "FILE", true);
 				return StatusCode(500, "An error occurred while retrieving file entry.");
-			} 
+			}
 		}
 
 
