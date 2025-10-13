@@ -357,6 +357,8 @@
                 [id]="'storyText' + story.id"></div>
 
               <app-text-input 
+                [style.width]="isEditing.includes(story.id) ? '100%' : '0%'"
+                [style.display]="isEditing.includes(story.id) ? 'block' : 'none'"
                 [inputtedParentRef]="parentRef ?? parent" 
                 [type]="'Social'"
                 [storyId]="story.id"
