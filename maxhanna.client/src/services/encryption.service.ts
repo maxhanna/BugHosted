@@ -35,7 +35,7 @@ export class EncryptionService {
 
   decryptContent(encryptedHex: string, password: string = 'defaultPassword'): string {
     if (!encryptedHex) return '';
-    if (!password) return encryptedHex;
+    if (password === undefined) return encryptedHex;
  
     const key = `${password}-${encryptedHex}`;
     if (this.decryptedCache.has(key)) {
