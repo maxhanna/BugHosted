@@ -1765,156 +1765,36 @@ LIMIT
 		[HttpPost("/File/GetFileEntryById", Name = "GetFileEntryById")]
 		public async Task<IActionResult> GetFileEntryById([FromBody] int fileId, [FromQuery] int? userId = null)
 		{
-			FileEntry? fileEntry = null;
-			using (var connection = new MySqlConnection(_connectionString))
+			// Reuse GetDirectory to assemble file, comments, reactions, polls and topics. Ask GetDirectory to filter by fileId and return the first file.
+			try
 			{
-				await connection.OpenAsync();
-
-				var command = new MySqlCommand(
-						@"SELECT 
-                f.id AS fileId, 
-                f.file_name, 
-                f.is_public, 
-                f.is_folder, 
-                f.folder_path, 
-                f.file_type, 
-                f.width, 
-                f.height, 
-				f.file_size,
-                f.user_id, 
-                u.username AS username, 
-                f.shared_with,  
-                f.upload_date AS date, 
-                fc.id AS commentId, 
-                fc.user_id AS commentUserId, 
-                uc.username AS commentUsername,  
-                fc.comment AS commentText,  
-                f.given_file_name,
-                f.description,
-				f.last_updated as file_data_updated,
-				f.last_access as last_access,
-				f.access_count as access_count,
-				(SELECT COUNT(*) FROM maxhanna.file_favourites ff WHERE ff.file_id = f.id) AS favourite_count,
-				(EXISTS(SELECT 1 FROM maxhanna.file_favourites ff2 WHERE ff2.file_id = f.id AND ff2.user_id = @userId)) AS is_favourited,
-                udp.file_id AS commentUserDisplayPicId,
-                udp.tag_background_file_id AS commentUserBackgroundPicId,
-                udpf.file_id AS fileUserDisplayPicId,
-                udpf.tag_background_file_id AS fileUserBackgroundPicId
-            FROM 
-                maxhanna.file_uploads f    
-            LEFT JOIN 
-                maxhanna.comments fc ON fc.file_id = f.id 
-            LEFT JOIN 
-                maxhanna.users u ON u.id = f.user_id 
-            LEFT JOIN 
-                maxhanna.users uc ON fc.user_id = uc.id   
-            LEFT JOIN 
-                maxhanna.user_display_pictures udp ON udp.user_id = uc.id 
-            LEFT JOIN 
-                maxhanna.user_display_pictures udpf ON udpf.user_id = f.user_id
-            WHERE 
-                f.id = @fileId 
-            GROUP BY 
-                f.id, u.username, f.file_name, f.is_public, f.is_folder, f.folder_path, f.file_type, f.user_id, 
-                fc.id, uc.username, fc.comment, f.given_file_name, f.description, 
-				f.last_updated, udp.file_id, f.last_access, f.access_count 
-            LIMIT 1;",
-						connection);
-
-				command.Parameters.AddWithValue("@fileId", fileId);
-				command.Parameters.AddWithValue("@userId", userId ?? 0);
-
-				using (var reader = await command.ExecuteReaderAsync())
+				User? caller = userId.HasValue && userId.Value > 0 ? new User(userId.Value) : null;
+				// Call GetDirectory with fileId set; pageSize 1 to narrow results
+				var dirResult = await GetDirectory(caller, null, null, null, null, 1, 1, fileId, null, false, "Latest", false);
+				if (dirResult is OkObjectResult ok && ok.Value != null)
 				{
-					if (await reader.ReadAsync())
+					// Serialize anonymous object to JSON and parse Data[0]
+					var json = JsonConvert.SerializeObject(ok.Value);
+					dynamic? parsed = JsonConvert.DeserializeObject<dynamic?>(json);
+					try
 					{
-						var id = reader.GetInt32("fileId");
-						var user_id = reader.GetInt32("user_id");
-						var userName = reader.GetString("username");
-						var shared_with = reader.IsDBNull(reader.GetOrdinal("shared_with")) ? string.Empty : reader.GetString("shared_with");
-						int? width = reader.IsDBNull(reader.GetOrdinal("width")) ? null : reader.GetInt32("width");
-						int? height = reader.IsDBNull(reader.GetOrdinal("height")) ? null : reader.GetInt32("height");
-						int fileSize = reader.IsDBNull(reader.GetOrdinal("file_size")) ? 0 : reader.GetInt32("file_size");
-						var isFolder = reader.GetBoolean("is_folder");
-						var folderPath = reader.GetString("folder_path");
-						var fileType = reader.GetString("file_type");
-						var lastAccess = reader.IsDBNull(reader.GetOrdinal("last_access")) ? (DateTime?)null : reader.GetDateTime("last_access");
-						var accessCount = reader.IsDBNull(reader.GetOrdinal("access_count")) ? 0 : reader.GetInt32("access_count");
-						var favouriteCount = reader.IsDBNull(reader.GetOrdinal("favourite_count")) ? 0 : reader.GetInt32("favourite_count");
-						var isFavourited = reader.IsDBNull(reader.GetOrdinal("is_favourited")) ? false : reader.GetBoolean("is_favourited");
-						var date = reader.GetDateTime("date");
-
-						int? fuDisplayPicId = reader.IsDBNull(reader.GetOrdinal("fileUserDisplayPicId")) ? null : reader.GetInt32("fileUserDisplayPicId");
-						int? fuBackgroundPicId = reader.IsDBNull(reader.GetOrdinal("fileUserBackgroundPicId")) ? null : reader.GetInt32("fileUserBackgroundPicId");
-
-						fileEntry = new FileEntry
+						if (parsed != null && parsed.Data != null && parsed.Data.Count > 0)
 						{
-							Id = id,
-							FileName = reader.GetString("file_name"),
-							FavouriteCount = favouriteCount,
-								IsFavourited = isFavourited,
-							Visibility = reader.GetBoolean("is_public") ? "Public" : "Private",
-							SharedWith = shared_with,
-							User = new User(user_id, userName, (fuDisplayPicId != null ? new FileEntry(fuDisplayPicId.Value) : null), (fuBackgroundPicId != null ? new FileEntry(fuBackgroundPicId.Value) : null)),
-							IsFolder = isFolder,
-							Directory = folderPath,
-							FileType = fileType,
-							FileComments = new List<FileComment>(),
-							Date = date,
-							Width = width,
-							Height = height,
-							FileSize = fileSize,
-							LastAccess = lastAccess,
-							AccessCount = accessCount,
-							GivenFileName = reader.IsDBNull(reader.GetOrdinal("given_file_name")) ? null : reader.GetString("given_file_name"),
-							Description = reader.IsDBNull(reader.GetOrdinal("description")) ? null : reader.GetString("description"),
-							LastUpdated = reader.IsDBNull(reader.GetOrdinal("file_data_updated")) ? null : reader.GetDateTime("file_data_updated")
-						};
-
-						if (!reader.IsDBNull(reader.GetOrdinal("commentId")))
-						{
-							do
-							{
-								var commentId = reader.GetInt32("commentId");
-								var commentUserId = reader.GetInt32("commentUserId");
-								var commentUsername = reader.GetString("commentUsername");
-								var commentText = reader.GetString("commentText");
-								int? displayPicId = reader.IsDBNull(reader.GetOrdinal("commentUserDisplayPicId")) ? null : reader.GetInt32("commentUserDisplayPicId");
-								int? backgroundPicId = reader.IsDBNull(reader.GetOrdinal("commentUserBackgroundPicId")) ? null : reader.GetInt32("commentUserBackgroundPicId");
-
-								FileEntry? dpFileEntry = displayPicId != null ? new FileEntry() { Id = (int)displayPicId } : null;
-								FileEntry? bgFileEntry = backgroundPicId != null ? new FileEntry() { Id = (int)backgroundPicId } : null;
-
-								var fileComment = new FileComment
-								{
-									Id = commentId,
-									FileId = id,
-									User = new User(
-												commentUserId,
-												commentUsername ?? "Anonymous",
-												null,
-												dpFileEntry,
-												bgFileEntry,
-												null, null, null),
-									CommentText = commentText,
-								};
-
-								fileEntry.FileComments!.Add(fileComment);
-							} while (await reader.ReadAsync());
+							return Ok(parsed.Data[0]);
 						}
 					}
+					catch
+					{
+						// fall through to empty OK below
+					}
 				}
-				if (fileEntry != null)
-				{
-					GetFileTopics(
-						new List<FileEntry>() { fileEntry },
-						connection,
-						new List<int> { fileEntry.Id }
-					);
-					return Ok(fileEntry);
-				}
+				return Ok();
 			}
-			return Ok();
+			catch (Exception ex)
+			{
+				_ = _log.Db($"Error in GetFileEntryById (delegating to GetDirectory): {ex.Message}", userId ?? 0, "FILE", true);
+				return StatusCode(500, "An error occurred while retrieving file entry.");
+			}
 		}
 
 
