@@ -246,7 +246,13 @@ namespace maxhanna.Server.Controllers
                         }
 
                         int heroLevelForWalls = hero?.Level ?? 1;
-                        List<MetaBikeWall> recentWalls = await GetRecentBikeWalls(heroLevelForWalls, connection, transaction);
+                        // Return walls in a radius around the hero's current position so client can visualise nearby walls only
+                        int desiredFetchRadiusPx = 10000; // fetch ~10k pixels around hero
+                        double heroSpeed = hero?.Speed > 0 ? hero.Speed : 1d;
+                        int radiusSecondsForFetch = Math.Max(1, (int)Math.Ceiling((desiredFetchRadiusPx - 128) / heroSpeed));
+                        int heroX = hero?.Position?.x ?? 0;
+                        int heroY = hero?.Position?.y ?? 0;
+                        List<MetaBikeWall> recentWalls = await GetWallsAroundPosition(heroLevelForWalls, heroX, heroY, heroSpeed, radiusSecondsForFetch, connection, transaction);
                         Console.WriteLine($"Found {recentWalls.Count} recent bike walls");
                         // Compute provisional current score for the active run (mirrors HeroDied authoritative formula: time + walls*10)
                         int wallsPlacedForRun = 0;
@@ -1795,6 +1801,55 @@ namespace maxhanna.Server.Controllers
                 }
             }
             return walls;
+        }
+
+        private async Task<List<MetaBikeWall>> GetWallsAroundPosition(int level, int centerX, int centerY, double speed, int radiusSeconds, MySqlConnection connection, MySqlTransaction transaction)
+        {
+            var result = new List<MetaBikeWall>();
+            try
+            {
+                int radius = Math.Max(128, (int)Math.Ceiling(speed * radiusSeconds) + 128);
+                int minX = Math.Max(0, centerX - radius);
+                int maxX = centerX + radius;
+                int minY = Math.Max(0, centerY - radius);
+                int maxY = centerY + radius;
+
+                string sql = @"SELECT id, hero_id, x, y, level FROM maxhanna.ender_bike_wall WHERE level = @Level AND x BETWEEN @MinX AND @MaxX AND y BETWEEN @MinY AND @MaxY ORDER BY id DESC;";
+                using (var cmd = new MySqlCommand(sql, connection, transaction))
+                {
+                    cmd.Parameters.AddWithValue("@Level", level);
+                    cmd.Parameters.AddWithValue("@MinX", minX);
+                    cmd.Parameters.AddWithValue("@MaxX", maxX);
+                    cmd.Parameters.AddWithValue("@MinY", minY);
+                    cmd.Parameters.AddWithValue("@MaxY", maxY);
+                    using (var rdr = await cmd.ExecuteReaderAsync())
+                    {
+                        while (await rdr.ReadAsync())
+                        {
+                            try
+                            {
+                                result.Add(new MetaBikeWall
+                                {
+                                    Id = rdr.GetInt32("id"),
+                                    HeroId = rdr.IsDBNull(rdr.GetOrdinal("hero_id")) ? 0 : rdr.GetInt32("hero_id"),
+                                    X = rdr.GetInt32("x"),
+                                    Y = rdr.GetInt32("y"),
+                                    Level = rdr.IsDBNull(rdr.GetOrdinal("level")) ? level : rdr.GetInt32("level")
+                                });
+                            }
+                            catch (Exception ex)
+                            {
+                                await LogError("Failed to parse wall row in GetWallsAroundPosition", ex);
+                            }
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                await LogError("GetWallsAroundPosition failed", ex);
+            }
+            return result;
         }
 
         // Return all bike walls on the specified level (no recent-time filtering).
