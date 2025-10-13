@@ -366,11 +366,7 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
                     }
                     if (res.currentLevel !== undefined && this.metaHero) {
                         if (this.metaHero?.level && this.metaHero.level != res.currentLevel) {
-                            this.mainScene.level.children.forEach((child:any)=>{
-                                if (typeof (child as any).quickDestroy === 'function') { 
-                                    (child as any).quickDestroy(); 
-                                }
-                            });
+                            this.clearWalls();
                         }
                         this.metaHero.level = Number(res.currentLevel) || 1;
                     }
@@ -725,6 +721,35 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
         return this.enemiesOnSameLevelCount;
     }
 
+    private clearWalls() {
+        // Level changed: remove only BikeWall instances immediately and
+        // clear local wall tracking to avoid resurrecting stale walls.            
+        this.mainScene.level.children.forEach((child: any) => { 
+            if (child instanceof BikeWall) {
+                if (typeof (child as any).quickDestroy === 'function') {
+                    (child as any).quickDestroy();
+                } else {
+                    child.destroy();
+                }
+            } 
+        });
+        
+        // Clear client-side tracking of persisted walls for the old level
+        this.lastAddedWallKeys.clear(); 
+        
+        for (const [k, obj] of Array.from(this.lastAddedWallObjects.entries())) {
+            if (typeof (obj as any).quickDestroy === 'function') {
+                (obj as any).quickDestroy();
+            } else {
+                obj.destroy();
+            }
+            
+            this.lastAddedWallObjects.delete(k);
+        }
+        
+        this.persistedWallLevelRef = undefined;
+        this.lastKnownWallId = 0;
+    }
     private startRunTimer() {
         this.stopRunTimer();
         this.runElapsedInterval = setInterval(() => {
