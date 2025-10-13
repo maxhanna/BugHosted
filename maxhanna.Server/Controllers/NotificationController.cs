@@ -571,31 +571,25 @@ namespace maxhanna.Server.Controllers
 
 			try
 			{
-				// Resolve story owner first (returns null if owner == fromUser)
-				int? ownerId = await GetStoryOwnerId(conn, request.StoryId.Value, request.FromUserId);
+				// 1. Get story owner and notify them (if different from commenter)
 
-				// 1. Notify story owner (if different from commenter)
-				if (ownerId != null)
+				if (await ShouldNotifyStoryOwner(conn, request.StoryId.Value, request.FromUserId))
 				{
-					await NotifyStoryOwner(conn, request, ownerId.Value);
-
-					// Ensure owner isn't in the explicit ToUserIds list
-					if (request.ToUserIds != null)
+					int? ownerId = await GetStoryOwnerId(conn, request.StoryId.Value, request.FromUserId);
+					if (ownerId != null)
 					{
-						request.ToUserIds = request.ToUserIds.Where(id => id != ownerId.Value).ToArray();
-					}
+						await NotifyStoryOwner(conn, request, ownerId.Value); 
+						if (request.ToUserIds != null)
+						{
+							request.ToUserIds = request.ToUserIds.Where(id => id != ownerId.Value).ToArray();
+						}
+					} 
 				}
 
 				// 2. Notify any remaining mentioned users
 				if (request.ToUserIds != null && request.ToUserIds.Any())
 				{
 					await NotifyMentionedUsers(conn, request);
-				}
-
-				// 3. Notify followers of the story owner (both pending followers and friends)
-				if (ownerId != null)
-				{
-					await NotifyFollowersAsync(conn, ownerId.Value, request);
 				}
 
 				return true;
@@ -735,145 +729,6 @@ namespace maxhanna.Server.Controllers
 				}
 			}
 		}
-
-		/// <summary>
-		/// Notify followers of a given owner (both confirmed friends and pending follower requests).
-		/// Respects blocks, rate-limits and excludes the actor, owner and any users already in request.ToUserIds.
-		/// </summary>
-		private async Task NotifyFollowersAsync(MySqlConnection conn, int ownerId, NotificationRequest request)
-		{
-			var followerIds = new List<int>();
-
-			// start: log invocation details
-			_ = _log.Db($"NotifyFollowersAsync START owner:{ownerId} from:{request.FromUserId} story:{request.StoryId?.ToString() ?? "null"} file:{request.FileId?.ToString() ?? "null"} comment:{request.CommentId?.ToString() ?? "null"}", request.FromUserId, "NOTIFICATION", true);
-
-			try
-			{
-
-			string followerQuery = @"
-				SELECT DISTINCT f.user_id AS follower_id FROM maxhanna.friends f WHERE f.friend_id = @ownerId
-				UNION
-				SELECT DISTINCT fr.sender_id AS follower_id FROM maxhanna.friend_requests fr WHERE fr.receiver_id = @ownerId AND fr.status = 'Pending';";
-
-			using (var followerCmd = new MySqlCommand(followerQuery, conn))
-			{
-				followerCmd.Parameters.AddWithValue("@ownerId", ownerId);
-				using (var reader = await followerCmd.ExecuteReaderAsync())
-				{
-					while (await reader.ReadAsync())
-					{
-						if (!reader.IsDBNull(reader.GetOrdinal("follower_id")))
-						{
-							followerIds.Add(reader.GetInt32("follower_id"));
-						}
-					}
-				}
-			}
-
-			_ = _log.Db($"NotifyFollowersAsync fetched {followerIds.Count} followers for owner {ownerId}", request.FromUserId, "NOTIFICATION", true);
-
-			var excluded = new HashSet<int> { request.FromUserId };
-			excluded.Add(ownerId);
-			if (request.ToUserIds != null)
-			{
-				foreach (var id in request.ToUserIds) excluded.Add(id);
-			}
-
-			var toNotifyFollowers = followerIds
-				.Where(id => id != 0 && !excluded.Contains(id))
-				.Distinct()
-				.ToList();
-
-			_ = _log.Db($"NotifyFollowersAsync excluding {excluded.Count} users; toNotify count={toNotifyFollowers.Count}", request.FromUserId, "NOTIFICATION", true);
-
-			foreach (var followerId in toNotifyFollowers)
-			{
-				// check per-user permission and rate-limit
-				bool canNotify = false;
-				try
-				{
-					canNotify = await CanUserNotifyAsync(request.FromUserId, followerId);
-				}
-				catch (Exception exPerm)
-				{
-					_ = _log.Db($"NotifyFollowersAsync CanUserNotifyAsync threw for follower {followerId}: {exPerm.Message}", request.FromUserId, "NOTIFICATION", true);
-					// conservative: skip this follower
-					canNotify = false;
-				}
-				if (!canNotify)
-				{
-					_ = _log.Db($"NotifyFollowersAsync SKIP follower {followerId} (blocked or recently notified)", request.FromUserId, "NOTIFICATION", true);
-					continue;
-				}
-
-				// Build column list dynamically based on what's present in the request
-				var cols = new List<string> { "user_id", "from_user_id" };
-				var vals = new List<string> { "@userId", "@fromUserId" };
-
-				// Prefer comment_id if present, then file_id, then story_id
-				if (request.CommentId.HasValue)
-				{
-					cols.Add("comment_id");
-					vals.Add("@commentId");
-				}
-				else if (request.FileId.HasValue)
-				{
-					cols.Add("file_id");
-					vals.Add("@fileId");
-				}
-				else if (request.StoryId.HasValue)
-				{
-					cols.Add("story_id");
-					vals.Add("@storyId");
-				}
-
-				cols.Add("text");
-				vals.Add("@message");
-				cols.Add("date");
-				vals.Add("UTC_TIMESTAMP()");
-
-				if (request.UserProfileId.HasValue)
-				{
-					cols.Add("user_profile_id");
-					vals.Add("@userProfileId");
-				}
-
-				string insertSql = $"INSERT INTO maxhanna.notifications ({string.Join(", ", cols)}) VALUES ({string.Join(", ", vals)});";
-
-				try
-				{
-					using (var insertCmd = new MySqlCommand(insertSql, conn))
-					{
-						insertCmd.Parameters.AddWithValue("@userId", followerId);
-						insertCmd.Parameters.AddWithValue("@fromUserId", request.FromUserId);
-						if (request.CommentId.HasValue) insertCmd.Parameters.AddWithValue("@commentId", request.CommentId.Value);
-						if (request.FileId.HasValue) insertCmd.Parameters.AddWithValue("@fileId", request.FileId.Value);
-						if (request.StoryId.HasValue) insertCmd.Parameters.AddWithValue("@storyId", request.StoryId.Value);
-						insertCmd.Parameters.AddWithValue("@message", request.Message ?? (object)DBNull.Value);
-						if (request.UserProfileId.HasValue) insertCmd.Parameters.AddWithValue("@userProfileId", request.UserProfileId.Value);
-						await insertCmd.ExecuteNonQueryAsync();
-					}
-					_ = _log.Db($"NotifyFollowersAsync INSERTED notification for follower {followerId}", request.FromUserId, "NOTIFICATION", true);
-				}
-				catch (MySqlException mex)
-				{
-					_ = _log.Db($"NotifyFollowersAsync MySqlException inserting for follower {followerId}: {mex.Message}", request.FromUserId, "NOTIFICATION", true);
-					// continue with other followers
-				}
-				catch (Exception exIns)
-				{
-					_ = _log.Db($"NotifyFollowersAsync Exception inserting for follower {followerId}: {exIns.Message}", request.FromUserId, "NOTIFICATION", true);
-				}
-			}
-
-			_ = _log.Db($"NotifyFollowersAsync COMPLETE owner:{ownerId} processed {toNotifyFollowers.Count} followers", request.FromUserId, "NOTIFICATION", true);
-			}
-			catch (Exception ex)
-			{
-				_ = _log.Db($"NotifyFollowersAsync ERROR owner:{ownerId} from:{request.FromUserId} - {ex.Message}", request.FromUserId, "NOTIFICATION", true);
-				// swallow to avoid bringing down request processing - callers treat notifications as best-effort
-			}
-		}
 		private async Task UpdateLastSeen(MySqlConnection conn, NotificationRequest request)
 		{
 			string notificationSql = $@"
@@ -954,14 +809,6 @@ namespace maxhanna.Server.Controllers
 					commentersInsert.Parameters.AddWithValue("@userProfileId", request.UserProfileId ?? (object)DBNull.Value);
 					commentersInsert.Parameters.AddWithValue("@owner_id", ownerId.Value);
 					await commentersInsert.ExecuteNonQueryAsync();
-				}
-
-				// Notify followers of the file owner about this new file comment/post
-				if (ownerId != null)
-				{
-					// Ensure ToUserIds exists so NotifyFollowersAsync can exclude already-targeted users
-					if (request.ToUserIds == null) request.ToUserIds = new int[0];
-					await NotifyFollowersAsync(conn, ownerId.Value, request);
 				}
 
 				return true;
@@ -1072,45 +919,6 @@ namespace maxhanna.Server.Controllers
 					if (hasStory) cmd.Parameters.AddWithValue("@story_id", request.StoryId);
 
 					await cmd.ExecuteNonQueryAsync();
-				}
-			}
-
-			// Additionally, if this comment is on a story or file, notify the poster's followers
-			if (hasStory || hasFile)
-			{
-				try
-				{
-					int postOwnerId = 0;
-
-					if (hasStory)
-					{
-						using (var ownerCmd = new MySqlCommand("SELECT user_id FROM maxhanna.stories WHERE id = @storyId LIMIT 1;", conn))
-						{
-							ownerCmd.Parameters.AddWithValue("@storyId", request.StoryId);
-							var res = await ownerCmd.ExecuteScalarAsync();
-							if (res != null && res != DBNull.Value) postOwnerId = Convert.ToInt32(res);
-						}
-					}
-					else if (hasFile)
-					{
-						using (var ownerCmd = new MySqlCommand("SELECT user_id FROM maxhanna.file_uploads WHERE id = @fileId LIMIT 1;", conn))
-						{
-							ownerCmd.Parameters.AddWithValue("@fileId", request.FileId);
-							var res = await ownerCmd.ExecuteScalarAsync();
-							if (res != null && res != DBNull.Value) postOwnerId = Convert.ToInt32(res);
-						}
-					}
-
-					if (postOwnerId != 0)
-					{
-						// Ensure ToUserIds exists so NotifyFollowersAsync can exclude already-targeted users
-						if (request.ToUserIds == null) request.ToUserIds = new int[0];
-						await NotifyFollowersAsync(conn, postOwnerId, request);
-					}
-				}
-				catch (Exception ex)
-				{
-					_ = _log.Db($"Error notifying followers for comment/post: {ex.Message}", request.FromUserId, "NOTIFICATION", true);
 				}
 			}
 
