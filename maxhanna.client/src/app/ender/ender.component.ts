@@ -21,7 +21,6 @@ import { Level } from './objects/Level/level';
 import { MetaEvent } from '../../services/datacontracts/ender/meta-event';
 import { InventoryItem } from './objects/InventoryItem/inventory-item';
 import { ColorSwap } from '../../services/datacontracts/ender/color-swap';
-import { MetaBotPart } from '../../services/datacontracts/ender/meta-bot-part';
 import { Mask, getMaskNameById } from './objects/Wardrobe/mask';
 import { Character } from './objects/character';
 import { ChatSpriteTextString } from './objects/SpriteTextString/chat-sprite-text-string';
@@ -62,11 +61,8 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
     private heroFirstSeen: Map<number, number> = new Map<number, number>();
     showOtherHeroesPanel: boolean = false;
     enemiesOnSameLevelCount: number = 0;
-    // Live provisional score (time + walls*10) computed server-side each fetch
     currentScore: number = 0;
-    // Walls placed for the run as reported by server (authoritative count used in score calc)
     wallsPlacedAuthoritative: number = 0;
-    // Death overlay flag
     showDeathPanel: boolean = false;
     partyMembers: { heroId: number, name: string, color?: string }[] = [];
     chat: MetaChat[] = [];
