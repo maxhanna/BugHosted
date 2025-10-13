@@ -1311,7 +1311,7 @@ namespace maxhanna.Server.Controllers
                 
                 SELECT *
                 FROM maxhanna.ender_event 
-                WHERE level = @Level;";
+                WHERE (level = @Level OR event = 'CHAT');";
 
             MySqlCommand cmd = new MySqlCommand(sql, connection, transaction);
             // bind level parameter

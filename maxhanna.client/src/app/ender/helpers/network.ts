@@ -123,7 +123,7 @@ export function subscribeToMainGameEvents(object: any) {
     const msg = chat.trim();
     if (object.parentRef?.user) {
       if (object.chatInput.nativeElement.placeholder !== "Enter your name") {
-  const metaEvent = new MetaEvent(0, object.metaHero.id, new Date(), "CHAT", object.metaHero.level, { "sender": object.metaHero.name ?? "Anon", "content": msg })
+        const metaEvent = new MetaEvent(0, object.metaHero.id, new Date(), "CHAT", object.metaHero.level, { "sender": object.metaHero.name ?? "Anon", "content": msg })
         object.enderService.updateEvents(metaEvent);
         object.chatInput.nativeElement.value = '';
         setTimeout(() => {
