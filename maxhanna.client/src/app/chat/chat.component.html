@@ -76,6 +76,12 @@
                 [previousComponent]="'Chat'"></app-reaction>
               <button *ngIf="!isEditing.length" title="Quote Chat Message" (click)="quote(message)"
                 class="coloredBgButton">🗨️</button>
+              <button
+                *ngIf="message.sender.id === (parentRef?.user?.id ?? 0) && (isEditing.length == 0)"
+                title="Edit Chat Message" class="coloredBgButton"
+                (click)="edit(message)">
+                ✏️
+              </button> 
             </div>
           </div>
         </div>
