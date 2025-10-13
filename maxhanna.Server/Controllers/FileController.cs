@@ -1782,7 +1782,14 @@ LIMIT
 				// Call GetDirectory with fileId set; pageSize 1 to narrow results
 				DirectoryResult? dir = await GetDirectory(caller, null, null, null, null, 1, 1, fileId, null, false, "Latest", false);
 				 
-				return Ok(dir?.Data[0]); 
+				if (dir != null && dir.Data != null && dir.Data.Count > 0)
+				{
+					return Ok(dir.Data[0]);
+				}
+				else
+				{
+					return NotFound("File not found or access denied.");
+				}
 			}
 			catch (Exception ex)
 			{
