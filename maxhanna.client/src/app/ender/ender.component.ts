@@ -296,7 +296,7 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
         clearInterval(this.nearbyWallsInterval);
         this.nearbyWallsInterval = setInterval(() => {
             this.refreshNearbyWalls();
-        }, 30 * 1000);  
+        }, 5 * 1000);  
         this.updatePlayers();
         clearInterval(this.pollingInterval);
         this.pollingInterval = setInterval(async () => {
@@ -409,7 +409,7 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
         try {
             if (!this.metaHero || !this.metaHero.id) return;
             // radiusSeconds defines how many seconds of movement worth of walls to fetch (approx)
-            const payload = { hero: this.metaHero, radiusSeconds: 2500 };
+            const payload = { hero: this.metaHero, radiusSeconds: 1500 };
             const res: any = await this.enderService.fetchWallsAroundHero(payload);
             if (!res || !Array.isArray(res)) return;
 
