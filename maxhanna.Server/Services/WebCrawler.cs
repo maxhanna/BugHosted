@@ -1823,9 +1823,9 @@ public class WebCrawler
 			_robotsCache[host] = info;
 			return info;
 		}
-		catch (Exception ex)
+		catch (Exception)
 		{
-			_ = _log.Db("Exception(FetchRobotsForHost): " + ex.Message, null, "CRAWLER", true);
+			//_ = _log.Db("Exception(FetchRobotsForHost): " + ex.Message, null, "CRAWLER", true);
 			var empty = new RobotsInfo { FetchedAt = DateTime.UtcNow };
 			_robotsCache[host] = empty;
 			return empty;
