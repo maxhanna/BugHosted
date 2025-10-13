@@ -36,7 +36,7 @@ namespace maxhanna.Server.Controllers
 					int totalSeconds = Convert.ToInt32(totalSecondsObj ?? 0);
 
 					// Count distinct ROM uploads for this user (files in folder_path = 'roms')
-					string romCountSql = @"SELECT COUNT(*) FROM maxhanna.file_uploads WHERE user_id = @UserId AND folder_path = @FolderPath;";
+					string romCountSql = @"SELECT COUNT(*) FROM maxhanna.file_uploads WHERE user_id = @UserId AND folder_path = @FolderPath and file_type != 'sav';";
 					var romCountCmd = new MySqlCommand(romCountSql, connection);
 					romCountCmd.Parameters.AddWithValue("@UserId", userId);
 					romCountCmd.Parameters.AddWithValue("@FolderPath", _baseTarget);
