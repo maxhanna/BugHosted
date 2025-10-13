@@ -98,9 +98,15 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
     private lastKnownWallId: number = 0;
     // Temporary cache of wall position keys added during the last update to avoid re-adding
     private lastAddedWallKeys: Set<string> = new Set<string>();
-    // Track which 1000x1000 quadrant we last fetched (grid units)
+    // Track which fetch center we last fetched (aligned to refreshStep multiples)
     private lastFetchedQuadX?: number;
     private lastFetchedQuadY?: number;
+    // Cache of fetched walls keyed by "x|y" so we can avoid re-fetching/duplicating objects
+    private fetchedWallsMap: Map<string, MetaBikeWall> = new Map<string, MetaBikeWall>();
+    // Fetch/cull strategy configuration
+    private fetchRadius: number = 10000; // pixels radius to fetch around hero
+    private refreshStep: number = 5000; // trigger refetch when hero crosses multiples of this
+    private visualCullRadius: number = 3000; // only instantiate walls within this distance for rendering
     // Reference to level to reset delta tracking when level changes
     private persistedWallLevelRef: any = undefined;
     // Collect all locally spawned walls since last fetch (delta batch)
@@ -254,31 +260,53 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
                 // around the hero's current 1000x1000 grid quadrant (1000 in front and 1000 in back).
                 try {
                     if (rz && rz.position) {
-                        const quadX = Math.floor(rz.position.x / 1000);
-                        const quadY = Math.floor(rz.position.y / 1000);
-                        this.lastFetchedQuadX = quadX;
-                        this.lastFetchedQuadY = quadY;
-                        // Use a large radiusSeconds to ensure server returns a ~3000px box
-                        const payload = { hero: rz, radiusSeconds: 5000 } as any;
+                        // Align fetch center to refreshStep multiples so we refetch only when crossing large boundaries
+                        const centerX = Math.floor(rz.position.x / this.refreshStep) * this.refreshStep;
+                        const centerY = Math.floor(rz.position.y / this.refreshStep) * this.refreshStep;
+                        this.lastFetchedQuadX = centerX;
+                        this.lastFetchedQuadY = centerY;
+
+                        // Convert desired fetchRadius into a rough radiusSeconds for the server calculation
+                        const speed = rz.speed || 1;
+                        const radiusSeconds = Math.max(1, Math.ceil((this.fetchRadius - 128) / speed));
+                        const payload = { hero: rz, radiusSeconds } as any;
+
                         const allWalls = await this.enderService.fetchWallsAroundHero(payload) as MetaBikeWall[];
                         if (Array.isArray(allWalls)) {
                             this.persistedWallLevelRef = this.mainScene.level;
                             this.lastKnownWallId = 0;
                             let myWallsCount = 0;
                             const newlyAddedKeys: string[] = [];
+
+                            // Cache fetched walls to avoid re-requesting or duplicating creation
                             for (const w of allWalls) {
+                                try {
+                                    const key = `${w.x}|${w.y}`;
+                                    this.fetchedWallsMap.set(key, w);
+                                    if (w.id && w.id > this.lastKnownWallId) this.lastKnownWallId = w.id;
+                                } catch (ex) { /* ignore per-wall failures */ }
+                            }
+
+                            // Instantiate only those walls within visualCullRadius to keep rendering light
+                            for (const [, w] of this.fetchedWallsMap.entries()) {
                                 try {
                                     const key = `${w.x}|${w.y}`;
                                     newlyAddedKeys.push(key);
                                     if (this.lastAddedWallKeys.has(key)) continue;
-                                    let ownerColor = (w.heroId && this.heroColors.has(w.heroId)) ? this.heroColors.get(w.heroId) : undefined;
+                                    const dx = (w.x - rz.position.x);
+                                    const dy = (w.y - rz.position.y);
+                                    const distSq = dx * dx + dy * dy;
+                                    if (distSq > (this.visualCullRadius * this.visualCullRadius)) {
+                                        continue; // keep cached but don't instantiate
+                                    }
+                                    const ownerColor = (w.heroId && this.heroColors.has(w.heroId)) ? this.heroColors.get(w.heroId) : undefined;
                                     const colorSwap = ownerColor ? new ColorSwap([0, 160, 200], hexToRgb(ownerColor!)) : (w.heroId === this.metaHero.id ? this.mainScene.metaHero?.colorSwap : undefined);
                                     const wall = new BikeWall({ position: new Vector2(w.x, w.y), colorSwap, heroId: (w.heroId ?? 0) });
                                     this.mainScene.level.addChild(wall);
                                     if (w.heroId === rz.id) myWallsCount++;
-                                    if (w.id && w.id > this.lastKnownWallId) this.lastKnownWallId = w.id;
                                 } catch (ex) { /* ignore per-wall failures */ }
                             }
+
                             this.wallsPlacedThisRun = myWallsCount;
                             this.lastAddedWallKeys.clear();
                             for (const k of newlyAddedKeys) this.lastAddedWallKeys.add(k);
@@ -332,7 +360,7 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
         }
     }
 
-    private updatePlayers() {
+    private async updatePlayers() {
         if (this.metaHero && this.metaHero.id && !this.stopPollingForUpdates) {
             const pendingWalls = this.pendingWallsBatch.length > 0 ? [...this.pendingWallsBatch] : undefined;
             this.pendingWallsBatch = [];
@@ -340,7 +368,58 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
                 this.metaHero.position = this.hero?.position.duplicate();
             }
 
-            this.enderService.fetchGameDataWithWalls(this.metaHero, pendingWalls, this.lastKnownWallId).then((res: any) => {
+            // If hero has crossed a refreshStep boundary, re-fetch the larger area around them
+            try {
+                if (this.metaHero && this.metaHero.position) {
+                    const centerX = Math.floor(this.metaHero.position.x / this.refreshStep) * this.refreshStep;
+                    const centerY = Math.floor(this.metaHero.position.y / this.refreshStep) * this.refreshStep;
+                    const crossed = (centerX !== this.lastFetchedQuadX) || (centerY !== this.lastFetchedQuadY);
+                    if (crossed) {
+                        this.lastFetchedQuadX = centerX;
+                        this.lastFetchedQuadY = centerY;
+                        const speed = this.metaHero.speed || 1;
+                        const radiusSeconds = Math.max(1, Math.ceil((this.fetchRadius - 128) / speed));
+                        const payload = { hero: this.metaHero, radiusSeconds } as any;
+                        try {
+                            const allWalls = await this.enderService.fetchWallsAroundHero(payload) as MetaBikeWall[];
+                            if (Array.isArray(allWalls)) {
+                                for (const w of allWalls) {
+                                    try {
+                                        const key = `${w.x}|${w.y}`;
+                                        this.fetchedWallsMap.set(key, w);
+                                        if (w.id && w.id > this.lastKnownWallId) this.lastKnownWallId = w.id;
+                                    } catch { }
+                                }
+                                // instantiate nearby walls immediately
+                                const newlyAddedKeys: string[] = [];
+                                let myWallsCount = 0;
+                                for (const [, w] of this.fetchedWallsMap.entries()) {
+                                    try {
+                                        const key = `${w.x}|${w.y}`;
+                                        newlyAddedKeys.push(key);
+                                        if (this.lastAddedWallKeys.has(key)) continue;
+                                        const dx = (w.x - this.metaHero.position.x);
+                                        const dy = (w.y - this.metaHero.position.y);
+                                        const distSq = dx * dx + dy * dy;
+                                        if (distSq > (this.visualCullRadius * this.visualCullRadius)) continue;
+                                        const ownerColor = (w.heroId && this.heroColors.has(w.heroId)) ? this.heroColors.get(w.heroId) : undefined;
+                                        const colorSwap = ownerColor ? new ColorSwap([0, 160, 200], hexToRgb(ownerColor!)) : (w.heroId === this.metaHero.id ? this.mainScene.metaHero?.colorSwap : undefined);
+                                        const wall = new BikeWall({ position: new Vector2(w.x, w.y), colorSwap, heroId: (w.heroId ?? 0) });
+                                        this.mainScene.level.addChild(wall);
+                                        if (w.heroId === this.metaHero.id) myWallsCount++;
+                                    } catch { }
+                                }
+                                this.wallsPlacedThisRun = myWallsCount;
+                                this.lastAddedWallKeys.clear();
+                                for (const k of newlyAddedKeys) this.lastAddedWallKeys.add(k);
+                            }
+                        } catch { }
+                    }
+                }
+            } catch { }
+
+            try {
+                const res: any = await this.enderService.fetchGameDataWithWalls(this.metaHero, pendingWalls, this.lastKnownWallId);
                 if (res) {
                     if (res.heroes) {
                         const myHeroExists = res.heroes?.filter((x: MetaHero) => x.id === this.metaHero.id);
@@ -392,20 +471,31 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
                         }
                         const newlyAddedKeys: string[] = [];
                         for (const w of walls) {
-                            const key = `${w.x}|${w.y}`;
-                            newlyAddedKeys.push(key);
-                            if (this.lastAddedWallKeys.has(key)) {
-                                continue;
-                            }
-                            const ownerId = w.heroId;
-                            const ownerColor = (ownerId && this.heroColors.has(ownerId)) ? this.heroColors.get(ownerId) : undefined;
-                            const colorSwap = ownerColor ? new ColorSwap([0, 160, 200], hexToRgb(ownerColor!)) : (ownerId === this.metaHero.id ? (this.metaHero ? this.mainScene.metaHero?.colorSwap : undefined) : undefined);
-                            const wall = new BikeWall({ position: new Vector2(w.x, w.y), colorSwap, heroId: ownerId ?? 0 });
-                            this.mainScene.level.addChild(wall);
-                            events.emit("BIKEWALL_CREATED", { x: w.x, y: w.y });
-                            if (w.id && w.id > this.lastKnownWallId) {
-                                this.lastKnownWallId = w.id;
-                            }
+                            try {
+                                const key = `${w.x}|${w.y}`;
+                                // cache the incoming wall
+                                this.fetchedWallsMap.set(key, w);
+                                newlyAddedKeys.push(key);
+                                if (this.lastAddedWallKeys.has(key)) {
+                                    continue;
+                                }
+                                const ownerId = w.heroId;
+                                const ownerColor = (ownerId && this.heroColors.has(ownerId)) ? this.heroColors.get(ownerId) : undefined;
+                                const dx = (w.x - (this.metaHero.position?.x ?? 0));
+                                const dy = (w.y - (this.metaHero.position?.y ?? 0));
+                                const distSq = dx * dx + dy * dy;
+                                if (distSq > (this.visualCullRadius * this.visualCullRadius)) {
+                                    // too far to visualize; keep cached only
+                                    continue;
+                                }
+                                const colorSwap = ownerColor ? new ColorSwap([0, 160, 200], hexToRgb(ownerColor!)) : (ownerId === this.metaHero.id ? (this.metaHero ? this.mainScene.metaHero?.colorSwap : undefined) : undefined);
+                                const wall = new BikeWall({ position: new Vector2(w.x, w.y), colorSwap, heroId: ownerId ?? 0 });
+                                this.mainScene.level.addChild(wall);
+                                events.emit("BIKEWALL_CREATED", { x: w.x, y: w.y });
+                                if (w.id && w.id > this.lastKnownWallId) {
+                                    this.lastKnownWallId = w.id;
+                                }
+                            } catch (ex) { /* ignore per-wall failures */ }
                         }
                         this.lastAddedWallKeys.clear();
                         for (const k of newlyAddedKeys) this.lastAddedWallKeys.add(k);
@@ -418,7 +508,9 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
                         actionMultiplayerEvents(this, res.events);
                     }
                 }
-            });
+            } catch (err) {
+                // swallow network/processing errors to avoid breaking the game loop
+            }
         }
     }
 
