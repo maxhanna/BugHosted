@@ -296,9 +296,7 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
                                     const dx = (w.x - rz.position.x);
                                     const dy = (w.y - rz.position.y);
                                     const distSq = dx * dx + dy * dy;
-                                    if (distSq > (this.visualCullRadius * this.visualCullRadius)) {
-                                        continue; // keep cached but don't instantiate
-                                    }
+                                     
                                     const ownerColor = (w.heroId && this.heroColors.has(w.heroId)) ? this.heroColors.get(w.heroId) : undefined;
                                     const colorSwap = ownerColor ? new ColorSwap([0, 160, 200], hexToRgb(ownerColor!)) : (w.heroId === this.metaHero.id ? this.mainScene.metaHero?.colorSwap : undefined);
                                     const wall = new BikeWall({ position: new Vector2(w.x, w.y), colorSwap, heroId: (w.heroId ?? 0) });
