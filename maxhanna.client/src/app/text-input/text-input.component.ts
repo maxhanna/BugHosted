@@ -54,6 +54,7 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
   @Input() enterToPost: boolean = false;
   @Output() contentPosted = new EventEmitter<{ results: any, content: any, originalContent: string }>();
   @Output() contentUpdated = new EventEmitter<{ results: any, content: any, originalContent: string }>();
+  @Output() cancelEdit = new EventEmitter<void>();
   @Output() selectFileEvent = new EventEmitter<FileEntry[]>();
   @Output() topicClicked = new EventEmitter<Topic[] | undefined>();
   @Output() topicAdded = new EventEmitter<Topic[]>();

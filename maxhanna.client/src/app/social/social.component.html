@@ -365,6 +365,7 @@
                 [storyId]="story.id"
                 [initialContent]="story.storyText"
                 (contentUpdated)="onStoryUpdated($event, story)"
+                (cancelEdit)="isEditing = isEditing.filter(x => x != story.id)"
                 [attachedTopics]="story.storyTopics ?? []">
               </app-text-input>
               <!-- <div class="editingTextAreaButtonWrapperDiv">

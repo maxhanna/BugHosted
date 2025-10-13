@@ -84,8 +84,14 @@
         </div>
         <div class="commentInputArea">
           <div class="borderPaddedComment" *ngIf="editingComments.includes(comment.id) && !replyingToCommentId">
-            <app-text-input [inputtedParentRef]="inputtedParentRef" [type]="'Comment'" [commentId]="comment.id"
-              [initialContent]="comment.commentText" [showPostInput]="true" (contentUpdated)="onCommentUpdated($event, comment)">
+            <app-text-input 
+              [inputtedParentRef]="inputtedParentRef"
+              [type]="'Comment'" 
+              [commentId]="comment.id"
+              [initialContent]="comment.commentText" 
+              [showPostInput]="true" 
+              (contentUpdated)="onCommentUpdated($event, comment)"
+              (cancelEdit)="editingComments = editingComments.filter(x => x != comment.id)">
             </app-text-input>
           </div>
 
@@ -98,7 +104,7 @@
               [storyId]="storyId" 
               [fileId]="fileId" 
               [commentId]="comment.id"
-              (contentPosted)="commentPosted($event, comment)"></app-text-input>
+              (contentPosted)="commentPosted($event, comment)" (cancelEdit)="replyingToCommentId = undefined; replyingToCommentEvent.emit(undefined)"></app-text-input>
           </div>
           <!-- <button [id]="'commentTextEditConfirmButton' + comment.id" (click)="confirmEditComment(comment)"
             *ngIf="editingComments.includes(comment.id)">

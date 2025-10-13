@@ -52,7 +52,8 @@
                 [messageId]="message.id"
                 [showPostInput]="true"
                 [initialContent]="decryptContent(message.content)"
-                (contentUpdated)="onChatUpdated($event, message)">
+                (contentUpdated)="onChatUpdated($event, message)"
+                (cancelEdit)="stopEdit(message)">
               </app-text-input>
             </div>
             <div class="xxSmallFont thirdFontColor" *ngIf="message.editDate" [title]="message.editDate">
@@ -75,16 +76,6 @@
                 [previousComponent]="'Chat'"></app-reaction>
               <button *ngIf="!isEditing.length" title="Quote Chat Message" (click)="quote(message)"
                 class="coloredBgButton">🗨️</button>
-              <button
-                *ngIf="message.sender.id === (parentRef?.user?.id ?? 0) && (isEditing.includes(message.id) || isEditing.length == 0)"
-                title="Edit Chat Message" class="coloredBgButton"
-                (click)="isEditing.includes(message.id) ? acceptEdit(message) : edit(message)">
-                ✏️{{ isEditing.includes(message.id) ? ' Accept' : '' }}
-              </button>
-              <button *ngIf="message.sender.id === (parentRef?.user?.id ?? 0) && isEditing.includes(message.id)"
-                class="coloredBgButton" title="Cancel Edit Chat Message" (click)="stopEdit(message)">
-                ❌Cancel
-              </button>
             </div>
           </div>
         </div>
