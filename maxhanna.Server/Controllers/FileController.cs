@@ -1778,9 +1778,9 @@ LIMIT
 					dynamic? parsed = JsonConvert.DeserializeObject<dynamic?>(json);
 					try
 					{
-						if (parsed != null && parsed.Data != null && parsed.Data.Count > 0)
+						if (parsed != null && parsed?.Data != null && parsed?.Data.Count > 0)
 						{
-							return Ok(parsed.Data[0]);
+							return Ok(parsed?.Data[0]);
 						}
 					}
 					catch
