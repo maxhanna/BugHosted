@@ -58,40 +58,7 @@ namespace maxhanna.Server.Controllers
             catch { }
         }
 
-        // Helper to send a kill notification for a victim when killed by a killer
-        private async Task SendKillNotificationAsync(int victimId, int? killerId, MySqlConnection connection, MySqlTransaction transaction)
-        {
-            try
-            {
-                if (!killerId.HasValue || killerId.Value == 0) return;
-
-                // Insert notification by mapping victim hero id -> user_id and resolving killer's username and user_id via joins
-                string insertNotif = @"
-                    INSERT INTO maxhanna.notifications (user_id, from_user_id, user_profile_id, text, date)
-                    SELECT v.user_id AS user_id,
-                           COALESCE(kh.user_id, 0) AS from_user_id,
-                           COALESCE(kh.user_id, 0) AS user_profile_id,
-                           CONCAT('You have been killed by ', COALESCE(u.username, 'Unknown'), '.') AS text,
-                           UTC_TIMESTAMP()
-                    FROM maxhanna.ender_hero v
-                    LEFT JOIN maxhanna.ender_hero kh ON kh.id = @KillerHeroId
-                    LEFT JOIN maxhanna.users u ON u.id = kh.user_id
-                    WHERE v.id = @VictimHeroId AND v.user_id IS NOT NULL AND v.user_id != 0
-                    LIMIT 1;";
-
-                using (var notifCmd = new MySqlCommand(insertNotif, connection, transaction))
-                {
-                    notifCmd.Parameters.AddWithValue("@VictimHeroId", victimId);
-                    notifCmd.Parameters.AddWithValue("@KillerHeroId", killerId.Value);
-                    await notifCmd.ExecuteNonQueryAsync();
-                }
-            }
-            catch (Exception ex)
-            {
-                _ = _log.Db($"Failed to insert kill notification for victim hero {victimId}: {ex.Message}", victimId, "ENDER", true);
-            }
-        }
-
+       
         [HttpPost("/Ender", Name = "Ender_GetHero")]
         public async Task<IActionResult> GetHero([FromBody] int userId)
         {
@@ -125,20 +92,8 @@ namespace maxhanna.Server.Controllers
                 using (var transaction = connection.BeginTransaction())
                 {
                     try
-                    {
-                        // payload contains strongly-typed hero and optional pendingWalls
+                    { 
                         MetaHero? hero = payload?.hero;
-
-                        // Debug: log incoming hero id/position
-                        try
-                        {
-                            if (hero != null)
-                            {
-                                _ = _log.Db($"/Ender/FetchGameData incoming hero id={hero.Id} pos=({hero.Position?.x},{hero.Position?.y})", hero.Id, "ENDER", false);
-                            }
-                        }
-                        catch { }
-
                         if (payload?.pendingWalls != null && payload.pendingWalls.Count > 0 && hero != null)
                         {
                             string insertSql = @"INSERT INTO maxhanna.ender_bike_wall (hero_id, x, y, level, created_at)
@@ -181,16 +136,11 @@ namespace maxhanna.Server.Controllers
                             if (walls != null && heroes != null && walls.Count > 0 && heroes.Length > 0)
                             {
                                 // Precompute the most-recent wall id for each hero so we can avoid immediate self-kills
-                                var lastWallIdByHero = new Dictionary<int, int>();
-                                try
-                                {
-                                    lastWallIdByHero = walls
-                                        .Where(x => x.HeroId != 0)
-                                        .GroupBy(x => x.HeroId)
-                                        .ToDictionary(g => g.Key, g => g.Max(x => x.Id));
-                                }
-                                catch { /* non-fatal, fall back to no-exceptions behavior */ }
-
+                                var lastWallIdByHero = new Dictionary<int, int>(); 
+                                lastWallIdByHero = walls
+                                    .Where(x => x.HeroId != 0)
+                                    .GroupBy(x => x.HeroId)
+                                    .ToDictionary(g => g.Key, g => g.Max(x => x.Id)); 
                                 foreach (var w in walls)
                                 {
                                     try
@@ -225,8 +175,7 @@ namespace maxhanna.Server.Controllers
                                         _ = _log.Db($"Error while comparing wall id={w.Id} to heroes: {exInner.Message}", null, "ENDER", true);
                                     }
                                 }
-
-                                // Apply kills for each victim found
+ 
                                 if (victims.Count > 0)
                                 {
                                     foreach (var kv in victims)
@@ -2142,6 +2091,39 @@ namespace maxhanna.Server.Controllers
             }
 
             return insertedId ?? rowsAffected;
+        }
+         // Helper to send a kill notification for a victim when killed by a killer
+        private async Task SendKillNotificationAsync(int victimId, int? killerId, MySqlConnection connection, MySqlTransaction transaction)
+        {
+            try
+            {
+                if (!killerId.HasValue || killerId.Value == 0) return;
+
+                // Insert notification by mapping victim hero id -> user_id and resolving killer's username and user_id via joins
+                string insertNotif = @"
+                    INSERT INTO maxhanna.notifications (user_id, from_user_id, user_profile_id, text, date)
+                    SELECT v.user_id AS user_id,
+                           COALESCE(kh.user_id, 0) AS from_user_id,
+                           COALESCE(kh.user_id, 0) AS user_profile_id,
+                           CONCAT('You have been killed by ', COALESCE(u.username, 'Unknown'), '.') AS text,
+                           UTC_TIMESTAMP()
+                    FROM maxhanna.ender_hero v
+                    LEFT JOIN maxhanna.ender_hero kh ON kh.id = @KillerHeroId
+                    LEFT JOIN maxhanna.users u ON u.id = kh.user_id
+                    WHERE v.id = @VictimHeroId AND v.user_id IS NOT NULL AND v.user_id != 0
+                    LIMIT 1;";
+
+                using (var notifCmd = new MySqlCommand(insertNotif, connection, transaction))
+                {
+                    notifCmd.Parameters.AddWithValue("@VictimHeroId", victimId);
+                    notifCmd.Parameters.AddWithValue("@KillerHeroId", killerId.Value);
+                    await notifCmd.ExecuteNonQueryAsync();
+                }
+            }
+            catch (Exception ex)
+            {
+                _ = _log.Db($"Failed to insert kill notification for victim hero {victimId}: {ex.Message}", victimId, "ENDER", true);
+            }
         }
     }
 }
