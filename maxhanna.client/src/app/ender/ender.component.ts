@@ -254,22 +254,22 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
                 this.mainScene.inventory.renderParty();
                 await this.reinitializeHero(rz);
                 await this.setHeroColors();
-                const allWalls = await this.enderService.fetchAllBikeWalls(rz.id) as MetaBikeWall[];
-                if (Array.isArray(allWalls)) {
-                    this.persistedWallLevelRef = this.mainScene.level;
-                    this.lastKnownWallId = 0; // we aren't using id delta now; recent fetch limited by time window
-                    let myWallsCount = 0;
-                    for (const w of allWalls) {
-                        let ownerColor = (w.heroId && this.heroColors.has(w.heroId)) ? this.heroColors.get(w.heroId) : undefined;
-                        const colorSwap = ownerColor ? new ColorSwap([0, 160, 200], hexToRgb(ownerColor!)) : (w.heroId === this.metaHero.id ? this.mainScene.metaHero?.colorSwap : undefined);
-                        const wall = new BikeWall({ position: new Vector2(w.x, w.y), colorSwap, heroId: (w.heroId ?? 0) });
-                        this.mainScene.level.addChild(wall);
-                        if (w.heroId === rz.id) {
-                            myWallsCount++;
-                        }
-                    }
-                    this.wallsPlacedThisRun = myWallsCount;
-                }
+                // const allWalls = await this.enderService.fetchAllBikeWalls(rz.id) as MetaBikeWall[];
+                // if (Array.isArray(allWalls)) {
+                //     this.persistedWallLevelRef = this.mainScene.level;
+                //     this.lastKnownWallId = 0; // we aren't using id delta now; recent fetch limited by time window
+                //     let myWallsCount = 0;
+                //     for (const w of allWalls) {
+                //         let ownerColor = (w.heroId && this.heroColors.has(w.heroId)) ? this.heroColors.get(w.heroId) : undefined;
+                //         const colorSwap = ownerColor ? new ColorSwap([0, 160, 200], hexToRgb(ownerColor!)) : (w.heroId === this.metaHero.id ? this.mainScene.metaHero?.colorSwap : undefined);
+                //         const wall = new BikeWall({ position: new Vector2(w.x, w.y), colorSwap, heroId: (w.heroId ?? 0) });
+                //         this.mainScene.level.addChild(wall);
+                //         if (w.heroId === rz.id) {
+                //             myWallsCount++;
+                //         }
+                //     }
+                //     this.wallsPlacedThisRun = myWallsCount;
+                // }
             } else {
                 await this.enderService.getGlobalBestScore().then((best: any) => {
                     if (best && (best.username || best.user_id)) {
@@ -291,7 +291,8 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
                 return;
             }
         }
- 
+        this.refreshNearbyWalls();
+
         clearInterval(this.nearbyWallsInterval);
         this.nearbyWallsInterval = setInterval(() => {
             this.refreshNearbyWalls();
