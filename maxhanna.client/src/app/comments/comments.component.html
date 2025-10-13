@@ -100,13 +100,13 @@
               [commentId]="comment.id"
               (contentPosted)="commentPosted($event, comment)"></app-text-input>
           </div>
-          <button [id]="'commentTextEditConfirmButton' + comment.id" (click)="confirmEditComment(comment)"
+          <!-- <button [id]="'commentTextEditConfirmButton' + comment.id" (click)="confirmEditComment(comment)"
             *ngIf="editingComments.includes(comment.id)">
             <span class="commentEditSpans commentAcceptEdit"
               [style.display]="editingComments.includes(comment.id) ? 'block' : 'none'"
               [id]="'commentAcceptButtonSpan' + comment.id">✔️</span>
             ✏️Edit
-          </button>
+          </button> -->
         </div>
 
         <div
