@@ -49,6 +49,7 @@
                 [inputtedParentRef]="parentRef ?? inputtedParentRef"
                 [type]="'Chat'" 
                 [chatId]="message.id" 
+                [showPostInput]="true"
                 [initialContent]="decryptContent(message.content)"
                 (contentUpdated)="onChatUpdated($event, message)">
               </app-text-input>

@@ -360,6 +360,7 @@
                 [style.width]="isEditing.includes(story.id) ? '100%' : '0%'"
                 [style.display]="isEditing.includes(story.id) ? 'block' : 'none'"
                 [inputtedParentRef]="parentRef ?? parent" 
+                [showPostInput]="true"
                 [type]="'Social'"
                 [storyId]="story.id"
                 [initialContent]="story.storyText"

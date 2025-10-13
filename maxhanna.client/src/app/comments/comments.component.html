@@ -85,7 +85,7 @@
         <div class="commentInputArea">
           <div class="borderPaddedComment" *ngIf="editingComments.includes(comment.id) && !replyingToCommentId">
             <app-text-input [inputtedParentRef]="inputtedParentRef" [type]="'Comment'" [commentId]="comment.id"
-              [initialContent]="comment.commentText" (contentUpdated)="onCommentUpdated($event, comment)">
+              [initialContent]="comment.commentText" [showPostInput]="true" (contentUpdated)="onCommentUpdated($event, comment)">
             </app-text-input>
           </div>
 

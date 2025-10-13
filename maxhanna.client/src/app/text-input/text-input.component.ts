@@ -49,6 +49,7 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
   @Input() currentChatUsers?: User[];
   @Input() quoteMessage?: string;
   @Input() initialContent?: string;
+  @Input() showPostInput = false;
   @Input() enterToPost: boolean = false;
   @Output() contentPosted = new EventEmitter<{ results: any, content: any, originalContent: string }>();
   @Output() contentUpdated = new EventEmitter<{ results: any, content: any, originalContent: string }>();
@@ -62,7 +63,6 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
   @ViewChild('postInput') postInput!: ElementRef<HTMLInputElement>;
   @ViewChild('postTextArea') postTextArea!: ElementRef<HTMLTextAreaElement>;
 
-  showPostInput = false;
   isTopicsPanelOpen = false;
   eachAttachmentSeperatePost = false;
   isPostOptionsPanelOpen = false;
