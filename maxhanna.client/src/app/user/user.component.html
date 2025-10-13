@@ -400,7 +400,14 @@
                 {{ topEmulationGameName.replace('.sav', '') }} <span *ngIf="topEmulationGamePlays">• Plays: {{ topEmulationGamePlays }}</span>
               </div>
             </div>
-
+            
+            <div class="optionsStatsDiv">
+              <div class="optionsStatsHeader">
+                <app-menu-item [type]="'Emulation'" [parentRef]="parentRef" [label]="'ROMs uploaded:'"></app-menu-item>
+              </div>
+              <div class="optionsStatsDescription">{{numberOfRomsUploaded ?? '—'}} roms</div>
+            </div>
+            
             <div class="optionsStatsDiv" *ngIf="metaBotLevelsSum > 0">
               <div class="optionsStatsHeader">
                 <app-menu-item [type]="'Meta-Bots'" [parentRef]="parentRef" [label]="'Metabot levels:'"></app-menu-item>
@@ -453,12 +460,6 @@
                 <app-menu-item [type]="'Files'" [parentRef]="parentRef" [label]="'Files'"></app-menu-item>
               </div>
               <div class="optionsStatsDescription">{{numberOfFilesUploaded ?? '—'}} files</div>
-            </div>
-            <div class="optionsStatsDiv">
-              <div class="optionsStatsHeader">
-                <app-menu-item [type]="'Emulation'" [parentRef]="parentRef" [label]="'ROMs uploaded:'"></app-menu-item>
-              </div>
-              <div class="optionsStatsDescription">{{numberOfRomsUploaded ?? '—'}} roms</div>
             </div>
             <div class="optionsStatsDiv">
               <div class="optionsStatsHeader">
