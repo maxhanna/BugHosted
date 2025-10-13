@@ -85,6 +85,7 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
 
     private currentChatTextbox?: ChatSpriteTextString | undefined;
     private pollingInterval: any;
+    private nearbyWallsInterval: any;
     topScores: any[] = [];
     isMenuPanelOpen = false;
     // Count of bike-wall units placed during the current run
@@ -165,6 +166,10 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
 
     ngOnDestroy() {
         clearInterval(this.pollingInterval);
+        if (this.nearbyWallsInterval) {
+            clearInterval(this.nearbyWallsInterval);
+            this.nearbyWallsInterval = undefined;
+        }
         this.mainScene.destroy();
         this.gameLoop.stop();
     // Stop background music if playing
@@ -286,7 +291,11 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
                 return;
             }
         }
-
+ 
+        clearInterval(this.nearbyWallsInterval);
+        this.nearbyWallsInterval = setInterval(() => {
+            this.refreshNearbyWalls();
+        }, 30 * 1000);  
         this.updatePlayers();
         clearInterval(this.pollingInterval);
         this.pollingInterval = setInterval(async () => {
@@ -391,6 +400,57 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
                     }
                 }
             });
+        }
+    }
+
+    // Fetch a region of walls around the player and refresh what the client keeps in memory.
+    private async refreshNearbyWalls() {
+        try {
+            if (!this.metaHero || !this.metaHero.id) return;
+            // radiusSeconds defines how many seconds of movement worth of walls to fetch (approx)
+            const payload = { hero: this.metaHero, radiusSeconds: 50 };
+            const res: any = await this.enderService.fetchWallsAroundHero(payload);
+            if (!res || !Array.isArray(res)) return;
+
+            const incomingWalls: MetaBikeWall[] = res as MetaBikeWall[];
+            const level = this.mainScene.level;
+            if (!level) return;
+
+            // Build a map of positions -> incoming wall entries (use 'x|y' key)
+            const incomingMap = new Map<string, MetaBikeWall>();
+            for (const w of incomingWalls) {
+                incomingMap.set(`${w.x}|${w.y}`, w);
+            }
+
+            // Remove existing walls in the scene that are not present in incomingMap
+            const toRemove: any[] = [];
+            for (const child of level.children.slice()) {
+                if (child && child.name === 'bike-wall') {
+                    const key = `${child.position.x}|${child.position.y}`;
+                    if (!incomingMap.has(key)) {
+                        // quick destroy without animations
+                        try { child.quickDestroy?.(); } catch { try { child.destroy(); } catch { } }
+                        toRemove.push(child);
+                    } else {
+                        // mark as processed
+                        incomingMap.delete(key);
+                    }
+                }
+            }
+
+            // Add any remaining incoming walls that are not present locally
+            for (const [key, w] of incomingMap.entries()) {
+                try {
+                    const ownerColor = (w.heroId && this.heroColors.has(w.heroId)) ? this.heroColors.get(w.heroId) : undefined;
+                    const colorSwap = ownerColor ? new ColorSwap([0, 160, 200], hexToRgb(ownerColor!)) : (w.heroId === this.metaHero.id ? this.mainScene.metaHero?.colorSwap : undefined);
+                    const wall = new BikeWall({ position: new Vector2(w.x, w.y), colorSwap, heroId: (w.heroId ?? 0) } as any);
+                    // preserve server id for future operations
+                    (wall as any).wallId = w.id;
+                    level.addChild(wall);
+                } catch (ex) { /* ignore add failures */ }
+            }
+        } catch (err) {
+            // swallow transient errors to avoid noisy console logs
         }
     }
 

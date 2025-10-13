@@ -9,6 +9,7 @@ import { WarpBase } from "../Effects/Warp/warp-base";
 
 export class BikeWall extends GameObject {
   heroId: number;
+  wallId?: number;
   constructor(params: { position: Vector2, colorSwap?: ColorSwap, heroId: number }) {
     const pos = new Vector2(snapToGrid(params.position.x), snapToGrid(params.position.y),);
     super({
@@ -20,6 +21,8 @@ export class BikeWall extends GameObject {
       colorSwap: params.colorSwap
     });
     this.heroId = params.heroId;
+  // optional wall id from server
+  if ((params as any).wallId) this.wallId = (params as any).wallId;
     // keep a reference to colorSwap on the GameObject for any child elements
     if (params.colorSwap) this.colorSwap = params.colorSwap;
 
@@ -41,5 +44,10 @@ export class BikeWall extends GameObject {
       warpBase.destroy();
       super.destroy();
     }, 1200);
+  }
+
+  // Quick destroy bypasses visual effects/animation and removes the wall immediately
+  quickDestroy() { 
+      super.destroy();
   }
 }

@@ -1871,6 +1871,80 @@ namespace maxhanna.Server.Controllers
             }
         }
 
+        [HttpPost("/Ender/WallsAroundHero", Name = "Ender_WallsAroundHero")]
+        public async Task<IActionResult> WallsAroundHero([FromBody] System.Text.Json.JsonElement payload)
+        {
+            try
+            {
+                // Parse hero object
+                if (!payload.TryGetProperty("hero", out var heroEl)) return BadRequest("Missing hero in payload");
+
+                int level = 1;
+                int heroX = 0;
+                int heroY = 0;
+                double speed = 1;
+
+                try
+                {
+                    if (heroEl.TryGetProperty("level", out var lvl)) level = lvl.GetInt32();
+                    if (heroEl.TryGetProperty("position", out var pos))
+                    {
+                        if (pos.TryGetProperty("x", out var px)) heroX = px.GetInt32();
+                        if (pos.TryGetProperty("y", out var py)) heroY = py.GetInt32();
+                    }
+                    if (heroEl.TryGetProperty("speed", out var sp)) speed = sp.GetDouble();
+                }
+                catch { }
+
+                int radiusSeconds = 50;
+                if (payload.TryGetProperty("radiusSeconds", out var rs) && rs.ValueKind == System.Text.Json.JsonValueKind.Number)
+                {
+                    try { radiusSeconds = rs.GetInt32(); } catch { }
+                }
+
+                // Calculate radius in pixels: speed (pixels/sec) * seconds + margin
+                int radius = Math.Max(128, (int)Math.Ceiling(speed * radiusSeconds) + 128);
+
+                int minX = Math.Max(0, heroX - radius);
+                int maxX = heroX + radius;
+                int minY = Math.Max(0, heroY - radius);
+                int maxY = heroY + radius;
+
+                var result = new List<Dictionary<string, object?>>();
+                using (var connection = new MySqlConnection(_connectionString))
+                {
+                    await connection.OpenAsync();
+                    string sql = @"SELECT id, hero_id, x, y FROM maxhanna.ender_bike_wall WHERE level = @Level AND x BETWEEN @MinX AND @MaxX AND y BETWEEN @MinY AND @MaxY ORDER BY id DESC LIMIT 2000;";
+                    using (var cmd = new MySqlCommand(sql, connection))
+                    {
+                        cmd.Parameters.AddWithValue("@Level", level);
+                        cmd.Parameters.AddWithValue("@MinX", minX);
+                        cmd.Parameters.AddWithValue("@MaxX", maxX);
+                        cmd.Parameters.AddWithValue("@MinY", minY);
+                        cmd.Parameters.AddWithValue("@MaxY", maxY);
+                        using (var rdr = await cmd.ExecuteReaderAsync())
+                        {
+                            while (await rdr.ReadAsync())
+                            {
+                                var row = new Dictionary<string, object?>();
+                                row["id"] = rdr.GetInt32("id");
+                                row["heroId"] = rdr.IsDBNull(rdr.GetOrdinal("hero_id")) ? 0 : rdr.GetInt32("hero_id");
+                                row["x"] = rdr.GetInt32("x");
+                                row["y"] = rdr.GetInt32("y");
+                                result.Add(row);
+                            }
+                        }
+                    }
+                }
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                await LogError("WallsAroundHero failed", ex);
+                return StatusCode(500, "Internal server error: " + ex.Message);
+            }
+        }
+
         private async Task KillHeroById(int heroId, MySqlConnection connection, MySqlTransaction transaction, int? killerHeroId = null)
         {
             try
