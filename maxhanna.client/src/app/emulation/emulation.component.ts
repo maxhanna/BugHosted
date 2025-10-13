@@ -205,7 +205,7 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
     if (!this.selectedRomName) return alert("Must have a rom selected to save!");
     const res = await this.nostalgist?.saveState();
     const formData = new FormData();
-    formData.append('files', res?.state!, this.fileService.getFileWithoutExtension(this.selectedRomName) + ".sav");
+    formData.append('files', (res as any).state!, this.fileService.getFileWithoutExtension(this.selectedRomName) + ".sav");
     // attach timing fields so server can record play duration alongside the uploaded save
     try {
       if (this.runStartMs) {
