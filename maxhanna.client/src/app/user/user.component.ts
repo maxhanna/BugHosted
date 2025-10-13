@@ -96,6 +96,7 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
   numberOfFavouritesCreated?: number = undefined;
   numberOfReactions?: number = undefined;
   numberOfTopEntriesCreated?: number = undefined;
+  numberOfRomsUploaded?: number = undefined;
   bestEnderScore?: any = undefined;
   wordlerStreak: number = 0;
   bestWordlerStreak: number = 0;
@@ -254,6 +255,7 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
           this.emulationTotalTimeSeconds = stats.totalSeconds ?? 0;
           this.topEmulationGameName = stats.topGameName ?? null;
           this.topEmulationGamePlays = stats.topGamePlays ?? null;
+          this.numberOfRomsUploaded = stats.romCount ?? 0;
         }
       });
 

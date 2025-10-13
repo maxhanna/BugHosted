@@ -456,6 +456,12 @@
             </div>
             <div class="optionsStatsDiv">
               <div class="optionsStatsHeader">
+                <app-menu-item [type]="'Emulation'" [parentRef]="parentRef" [label]="'ROMs uploaded:'"></app-menu-item>
+              </div>
+              <div class="optionsStatsDescription">{{numberOfRomsUploaded ?? '—'}} roms</div>
+            </div>
+            <div class="optionsStatsDiv">
+              <div class="optionsStatsHeader">
                 <app-menu-item [type]="'Meme'" [parentRef]="parentRef" [label]="'Memes'"></app-menu-item>
               </div>
               <div class="optionsStatsDescription">{{numberOfMemesUploaded ?? '—'}} memes</div>

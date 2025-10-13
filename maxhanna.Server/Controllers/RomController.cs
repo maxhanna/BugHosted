@@ -36,6 +36,13 @@ namespace maxhanna.Server.Controllers
 					var totalSecondsObj = await totalCmd.ExecuteScalarAsync();
 					int totalSeconds = Convert.ToInt32(totalSecondsObj ?? 0);
 
+						// Count distinct ROM uploads for this user (files in folder_path = 'roms')
+						string romCountSql = @"SELECT COUNT(*) FROM maxhanna.file_uploads WHERE user_id = @UserId AND folder_path = 'roms';";
+						var romCountCmd = new MySqlCommand(romCountSql, connection);
+						romCountCmd.Parameters.AddWithValue("@UserId", userId);
+						var romCountObj = await romCountCmd.ExecuteScalarAsync();
+						int romCount = Convert.ToInt32(romCountObj ?? 0);
+
 					string topSql = @"SELECT rom_file_name, plays FROM maxhanna.emulation_play_time WHERE user_id = @UserId ORDER BY plays DESC LIMIT 1;";
 					var topCmd = new MySqlCommand(topSql, connection);
 					topCmd.Parameters.AddWithValue("@UserId", userId);
@@ -48,7 +55,7 @@ namespace maxhanna.Server.Controllers
 							topName = reader.IsDBNull(0) ? null : reader.GetString(0);
 							topPlays = reader.IsDBNull(1) ? 0 : reader.GetInt32(1);
 						}
-						return Ok(new { totalSeconds = totalSeconds, topGameName = topName, topGamePlays = topPlays });
+						return Ok(new { totalSeconds = totalSeconds, topGameName = topName, topGamePlays = topPlays, romCount = romCount });
 					}
 				}
 			}
