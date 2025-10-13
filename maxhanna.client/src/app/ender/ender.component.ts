@@ -98,6 +98,9 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
     private lastKnownWallId: number = 0;
     // Temporary cache of wall position keys added during the last update to avoid re-adding
     private lastAddedWallKeys: Set<string> = new Set<string>();
+    // Track which 1000x1000 quadrant we last fetched (grid units)
+    private lastFetchedQuadX?: number;
+    private lastFetchedQuadY?: number;
     // Reference to level to reset delta tracking when level changes
     private persistedWallLevelRef: any = undefined;
     // Collect all locally spawned walls since last fetch (delta batch)
@@ -247,22 +250,41 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
                 this.mainScene.inventory.renderParty();
                 await this.reinitializeHero(rz);
                 await this.setHeroColors();
-                const allWalls = await this.enderService.fetchAllBikeWalls(rz.id) as MetaBikeWall[];
-                if (Array.isArray(allWalls)) {
-                    this.persistedWallLevelRef = this.mainScene.level;
-                    this.lastKnownWallId = 0; // we aren't using id delta now; recent fetch limited by time window
-                    let myWallsCount = 0;
-                    for (const w of allWalls) {
-                        let ownerColor = (w.heroId && this.heroColors.has(w.heroId)) ? this.heroColors.get(w.heroId) : undefined;
-                        const colorSwap = ownerColor ? new ColorSwap([0, 160, 200], hexToRgb(ownerColor!)) : (w.heroId === this.metaHero.id ? this.mainScene.metaHero?.colorSwap : undefined);
-                        const wall = new BikeWall({ position: new Vector2(w.x, w.y), colorSwap, heroId: (w.heroId ?? 0) });
-                        this.mainScene.level.addChild(wall);
-                        if (w.heroId === rz.id) {
-                            myWallsCount++;
+                // Instead of fetching all bike walls globally, fetch the 3x3 quadrant block
+                // around the hero's current 1000x1000 grid quadrant (1000 in front and 1000 in back).
+                try {
+                    if (rz && rz.position) {
+                        const quadX = Math.floor(rz.position.x / 1000);
+                        const quadY = Math.floor(rz.position.y / 1000);
+                        this.lastFetchedQuadX = quadX;
+                        this.lastFetchedQuadY = quadY;
+                        // Use a large radiusSeconds to ensure server returns a ~3000px box
+                        const payload = { hero: rz, radiusSeconds: 2000 } as any;
+                        const allWalls = await this.enderService.fetchWallsAroundHero(payload) as MetaBikeWall[];
+                        if (Array.isArray(allWalls)) {
+                            this.persistedWallLevelRef = this.mainScene.level;
+                            this.lastKnownWallId = 0;
+                            let myWallsCount = 0;
+                            const newlyAddedKeys: string[] = [];
+                            for (const w of allWalls) {
+                                try {
+                                    const key = `${w.x}|${w.y}`;
+                                    newlyAddedKeys.push(key);
+                                    if (this.lastAddedWallKeys.has(key)) continue;
+                                    let ownerColor = (w.heroId && this.heroColors.has(w.heroId)) ? this.heroColors.get(w.heroId) : undefined;
+                                    const colorSwap = ownerColor ? new ColorSwap([0, 160, 200], hexToRgb(ownerColor!)) : (w.heroId === this.metaHero.id ? this.mainScene.metaHero?.colorSwap : undefined);
+                                    const wall = new BikeWall({ position: new Vector2(w.x, w.y), colorSwap, heroId: (w.heroId ?? 0) });
+                                    this.mainScene.level.addChild(wall);
+                                    if (w.heroId === rz.id) myWallsCount++;
+                                    if (w.id && w.id > this.lastKnownWallId) this.lastKnownWallId = w.id;
+                                } catch (ex) { /* ignore per-wall failures */ }
+                            }
+                            this.wallsPlacedThisRun = myWallsCount;
+                            this.lastAddedWallKeys.clear();
+                            for (const k of newlyAddedKeys) this.lastAddedWallKeys.add(k);
                         }
                     }
-                    this.wallsPlacedThisRun = myWallsCount;
-                }
+                } catch (ex) { /* swallow */ }
             } else {
                 await this.enderService.getGlobalBestScore().then((best: any) => {
                     if (best && (best.username || best.user_id)) {
