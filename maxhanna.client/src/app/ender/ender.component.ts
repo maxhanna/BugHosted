@@ -98,6 +98,8 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
     private lastKnownWallId: number = 0;
     // Temporary cache of wall position keys added during the last update to avoid re-adding
     private lastAddedWallKeys: Set<string> = new Set<string>();
+    // Map of last-added wall keys to the instantiated BikeWall objects for quick destruction when they are removed
+    private lastAddedWallObjects: Map<string, BikeWall> = new Map<string, BikeWall>();
     // Reference to level to reset delta tracking when level changes
     private persistedWallLevelRef: any = undefined;
     // Collect all locally spawned walls since last fetch (delta batch)
@@ -380,13 +382,34 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
                             const colorSwap = ownerColor ? new ColorSwap([0, 160, 200], hexToRgb(ownerColor!)) : (ownerId === this.metaHero.id ? (this.metaHero ? this.mainScene.metaHero?.colorSwap : undefined) : undefined);
                             const wall = new BikeWall({ position: new Vector2(w.x, w.y), colorSwap, heroId: ownerId ?? 0 });
                             this.mainScene.level.addChild(wall);
+                            try {
+                                // track the created wall object by key so we can fast-destroy it later if it's removed from authoritative set
+                                this.lastAddedWallObjects.set(key, wall);
+                            } catch { }
                             events.emit("BIKEWALL_CREATED", { x: w.x, y: w.y });
                             if (w.id && w.id > this.lastKnownWallId) {
                                 this.lastKnownWallId = w.id;
                             }
                         }
+                        // Replace the lastAddedWallKeys with the newly added set
+                        const prevKeys = new Set(this.lastAddedWallKeys);
                         this.lastAddedWallKeys.clear();
                         for (const k of newlyAddedKeys) this.lastAddedWallKeys.add(k);
+
+                        // Fast-destroy any instantiated walls whose keys are no longer present in the latest lastAddedWallKeys
+                        for (const [k, obj] of Array.from(this.lastAddedWallObjects.entries())) {
+                            if (!this.lastAddedWallKeys.has(k)) {
+                                try {
+                                    // call quickDestroy if available for immediate removal without FX
+                                    if (typeof (obj as any).quickDestroy === 'function') {
+                                        (obj as any).quickDestroy();
+                                    } else {
+                                        obj.destroy();
+                                    }
+                                } catch { }
+                                this.lastAddedWallObjects.delete(k);
+                            }
+                        }
                     }
 
                     if (this.chat) {
