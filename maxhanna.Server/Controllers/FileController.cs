@@ -213,6 +213,7 @@ namespace maxhanna.Server.Controllers
 
 					orderBy = isRomSearch ? " ORDER BY f.last_access DESC " : orderBy;
 					(string searchCondition, List<MySqlParameter> extraParameters) = await GetWhereCondition(search, user);
+					string fileIdCondition = fileId.HasValue ? " AND f.id = @fileId" : "";
 
 					var command = new MySqlCommand($@"
                 SELECT 
@@ -269,7 +270,8 @@ WHERE
     {visibilityCondition} 
     {ownershipCondition} 
     {hiddenCondition} 
-	{favouritesCondition} 
+	{favouritesCondition}
+	{fileIdCondition} 
 GROUP BY
     f.id,
     f.file_name,
@@ -309,6 +311,10 @@ LIMIT
 					command.Parameters.AddWithValue("@showHidden", showHidden ? 1 : 0);
 					command.Parameters.AddWithValue("@pageSize", pageSize);
 					command.Parameters.AddWithValue("@offset", offset);
+					if (fileId.HasValue)
+					{
+						command.Parameters.AddWithValue("@fileId", fileId.Value);
+					}
 					if (!string.IsNullOrEmpty(search))
 					{
 						command.Parameters.AddWithValue("@search", "%" + search + "%");
