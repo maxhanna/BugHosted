@@ -1676,8 +1676,8 @@ namespace maxhanna.Server.Controllers
 						string notificationText = "New post.";
 						string insertSql = $@"
 							INSERT INTO notifications 
-							(user_id, from_user_id, {(userProfileId != null ? "user_profile_id," : "")} story_id, text, date, is_read) 
-							VALUES (@userId, @fromUserId, {(userProfileId != null ? $"{userProfileId}," : "")}, @storyId, @text, UTC_TIMESTAMP(), 0)";
+							(user_id, from_user_id{(userProfileId != null ? ", user_profile_id" : "")}, story_id, text, date, is_read) 
+							VALUES (@userId, @fromUserId{(userProfileId != null ? ", @userProfileId" : "")}, @storyId, @text, UTC_TIMESTAMP(), 0)";
 
 						foreach (var followerId in validFollowerIds)
 						{
@@ -1685,6 +1685,10 @@ namespace maxhanna.Server.Controllers
 							{
 								insertCmd.Parameters.AddWithValue("@userId", followerId);
 								insertCmd.Parameters.AddWithValue("@fromUserId", userId);
+								if (userProfileId != null)
+								{
+									insertCmd.Parameters.AddWithValue("@userProfileId", userProfileId);
+								}
 								insertCmd.Parameters.AddWithValue("@storyId", storyId);
 								insertCmd.Parameters.AddWithValue("@text", notificationText);
 
