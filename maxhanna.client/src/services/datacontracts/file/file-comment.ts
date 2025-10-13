@@ -22,4 +22,5 @@ export class FileComment {
   comments?: Array<FileComment> | undefined;
   // New: polls associated with this comment
   polls?: Array<Poll> | undefined;
+  decrypted?: boolean | undefined;
 }
