@@ -96,7 +96,8 @@
           </div>
 
           <div class="commentInputArea borderPaddedComment" *ngIf="replyingToCommentId == comment.id">
-            <app-text-input [inputtedParentRef]="inputtedParentRef"
+            <app-text-input 
+              [inputtedParentRef]="inputtedParentRef"
               [type]="'Comment'" 
               [commentParent]="comment"
               [quoteMessage]="quoteMessage" 
@@ -104,7 +105,8 @@
               [storyId]="storyId" 
               [fileId]="fileId" 
               [commentId]="comment.id"
-              (contentPosted)="commentPosted($event, comment)" (cancelEdit)="replyingToCommentId = undefined; replyingToCommentEvent.emit(undefined)"></app-text-input>
+              (contentPosted)="commentPosted($event, comment)" 
+              (cancelEdit)="cancelReply()"></app-text-input>
           </div>
           <!-- <button [id]="'commentTextEditConfirmButton' + comment.id" (click)="confirmEditComment(comment)"
             *ngIf="editingComments.includes(comment.id)">

@@ -192,6 +192,14 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
     }
     this.closeStoryOptionsPanel();
   }
+
+  // Centralized cancel handler for story editing (used by app-text-input cancelEdit)
+  cancelEdit(story: Story) {
+    if (!story || story.id === undefined) return;
+    this.isEditing = this.isEditing.filter(x => x != story.id);
+    // ensure story options panel is closed when cancelling an edit
+    this.isStoryOptionsPanelOpen = false;
+  }
   async editTopic(story: Story) {
     if (story.id) {
       if (this.editingTopics.includes(story.id)) {

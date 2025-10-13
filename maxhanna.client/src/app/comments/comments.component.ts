@@ -385,6 +385,12 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
     this.replyingToCommentEvent.emit(this.replyingToCommentId);
   }
 
+  // Centralized cancel handler for reply input (used by app-text-input cancelEdit)
+  cancelReply() {
+    this.replyingToCommentId = undefined;
+    this.replyingToCommentEvent.emit(undefined as any);
+  }
+
   commentHeaderClicked() {
     this.showComments = !this.showComments;
     this.commentHeaderClickedEvent.emit(this.showComments);
