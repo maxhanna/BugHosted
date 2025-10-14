@@ -153,7 +153,7 @@
   <div *ngIf="otherHeroes && otherHeroes.length === 0" style="padding:8px;">No other heroes detected.</div>
   <div class="otherHeroContainer">
   <div *ngFor="let h of otherHeroes; trackBy: trackByHeroId" class="otherHeroRow" style="padding:6px 8px; border-bottom:1px solid #333;">
-      <div [style.borderBottomColor]="h.color">
+      <div class="otherHeroesUserInfo" [style.borderBottomColor]="h.color">
         <div><strong>{{h.name}}</strong> <span *ngIf="h.id === metaHero.id">(You)</span></div>
         <div class="xxSmallFont">Lvl {{h.level}} | Kills {{h.kills}} | Time {{getHeroTimeOnMap(h.id)}}s</div>
         <div *ngIf="h.color" class="xxSmallFont">Color: <span [style.background]="h.color"

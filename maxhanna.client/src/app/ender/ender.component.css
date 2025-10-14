@@ -383,3 +383,6 @@ body {
   display: flex;
   align-content: flex-end;
 }
+.otherHeroesUserInfo {
+  width: calc(100% - 75px);
+}
