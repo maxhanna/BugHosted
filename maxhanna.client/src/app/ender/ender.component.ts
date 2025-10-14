@@ -114,6 +114,8 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
     private savedLocation?: Vector2;
     // In-memory map of heroId -> color string for applying color swaps to bike walls
     private heroColors: Map<number, string> = new Map<number, string>();
+    // Cache of user objects keyed by userId to avoid reloading/causing avatar flicker
+    private cachedUsers: Map<number, User> = new Map<number, User>();
     // Champion (global best) info cached for CharacterCreate prompts
     private championName?: string;
     private championScore?: number;
@@ -524,6 +526,12 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
         this.showOtherHeroesPanel = false;
         this.parentRef?.closeOverlay();
 
+    }
+    
+    // Handler for user-tag components to emit loaded users so we can cache them and reuse
+    onUserTagLoaded(user?: User) {
+        if (!user || !user.id) return;
+        try { this.cachedUsers.set(user.id, user); } catch { }
     }
 
     getHeroTimeOnMap(heroId: number): number {

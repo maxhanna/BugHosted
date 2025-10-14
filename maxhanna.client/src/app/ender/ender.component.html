@@ -164,8 +164,8 @@
             {{snapToGridFetch(h.position.y)}}</strong>
         </div>
       </div>
-      <div>
-        <app-user-tag [userId]="h.userId" [inputtedParentRef]="parentRef"></app-user-tag>
+      <div class="otherHeroesUserTagContainer">
+        <app-user-tag [user]="cachedUsers.get(h.userId)" [userId]="h.userId" [inputtedParentRef]="parentRef" (userLoaded)="onUserTagLoaded($event)"></app-user-tag>
       </div>
     </div>
   </div>
