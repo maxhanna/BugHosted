@@ -19,7 +19,6 @@ export class Resources {
       portraits: `${this.dir}portraits-sheet.png`,
       referee: `${this.dir}referee-spritesheet.png`,
       shadow: `${this.dir}shadow.png`,
-      ship: `${this.dir}ship.png`,
       shipsprite: `${this.dir}shipsprite.png`,
       stars: `${this.dir}stars.png`, 
       textBox: `${this.dir}text-box.png`,
