@@ -130,8 +130,6 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
             this.userService.getUserSettings(this.parentRef.user?.id ?? 0).then(res => {
                 this.cachedDefaultName = res?.lastCharacterName ?? undefined;
                 this.cachedDefaultColor = res?.lastCharacterColor ?? undefined;
-                this.colorInput.nativeElement.value = this.cachedDefaultColor ?? "#00A0C8";
-                // Background music handling (only play if not muted)
                 this.isMuted = !!res?.muteSounds;
                 resources.setMuted(this.isMuted);
                 if (!this.isMuted) {
