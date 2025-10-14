@@ -267,22 +267,11 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
                 this.mainScene.inventory.renderParty();
                 await this.reinitializeHero(rz);
                 await this.setHeroColors();
-                // const allWalls = await this.enderService.fetchAllBikeWalls(rz.id) as MetaBikeWall[];
-                // if (Array.isArray(allWalls)) {
-                //     this.persistedWallLevelRef = this.mainScene.level;
-                //     this.lastKnownWallId = 0; // we aren't using id delta now; recent fetch limited by time window
-                //     let myWallsCount = 0;
-                //     for (const w of allWalls) {
-                //         let ownerColor = (w.heroId && this.heroColors.has(w.heroId)) ? this.heroColors.get(w.heroId) : undefined;
-                //         const colorSwap = ownerColor ? new ColorSwap([0, 160, 200], hexToRgb(ownerColor!)) : (w.heroId === this.metaHero.id ? this.mainScene.metaHero?.colorSwap : undefined);
-                //         const wall = new BikeWall({ position: new Vector2(w.x, w.y), colorSwap, heroId: (w.heroId ?? 0) });
-                //         this.mainScene.level.addChild(wall);
-                //         if (w.heroId === rz.id) {
-                //             myWallsCount++;
-                //         }
-                //     }
-                //     this.wallsPlacedThisRun = myWallsCount;
-                // }
+                // Try to load persisted walls for this hero so walls placed previously are visible immediately
+                this.currentFetchAbortController = new AbortController(); 
+                const signal = this.currentFetchAbortController.signal;
+                const res: any = await this.enderService.fetchGameDataWithWalls(this.metaHero, [], this.lastKnownWallId, signal);
+                this.placeWallsAroundPlayer(res);
             } else {
                 await this.enderService.getGlobalBestScore().then((best: any) => {
                     if (best && (best.username || best.user_id)) {
@@ -368,18 +357,8 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
                 // the client created while offline, then clear local caches so
                 // authoritative data can repopulate cleanly.
                 if (wasServerDown) { 
-                    if (this.offlineCreatedWalls && this.offlineCreatedWalls.length > 0) { 
-                        await this.enderService.deleteBikeWalls({ heroId: this.metaHero.id, level: this.metaHero.level, walls: this.offlineCreatedWalls });
-                        this.offlineCreatedWalls = [];
-                    }
-                    // Restore saved location (if present) before restarting so the player's
-                    // position persists across the server outage.
-                    if (this.savedLocation && this.metaHero && this.metaHero.id) {
-                        await this.enderService.setHeroLocation({ heroId: this.metaHero.id, x: this.savedLocation.x, y: this.savedLocation.y, level: this.metaHero.level ?? 1 });
-                        this.savedLocation = undefined;
-                    }
-                    
-                    this.restartGame();
+                    await this.recoverFromServerDown();
+                    return;
                 }
 
                 if (res) {
@@ -417,58 +396,7 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
                     }
                     this.updateOtherHeroesBasedOnFetchedData(res);
 
-                    // Persisted bike walls for this map - use in-memory Set to avoid scanning level.children repeatedly
-                    const walls = Array.isArray(res.recentWalls) ? (res.recentWalls as MetaBikeWall[]) : undefined;
-                    if (walls && walls.length > 0 && this.mainScene.level) {
-                        // Reset delta tracking if level changed
-                        if (this.persistedWallLevelRef !== this.mainScene.level) {
-                            this.persistedWallLevelRef = this.mainScene.level;
-                            this.lastKnownWallId = 0;
-                        }
-                        // Update hero color map from server-provided heroes list when available
-                        if (res.heroes && Array.isArray(res.heroes)) {
-                            for (const h of res.heroes) {
-                                const hid = (typeof h.id === 'number') ? h.id : Number(h.id);
-                                if (!isNaN(hid) && h.color) {
-                                    this.heroColors.set(hid, h.color);
-                                }
-                            }
-                        }
-                        const newlyAddedKeys: string[] = [];
-                        for (const w of walls) {
-                            const key = `${w.x}|${w.y}`;
-                            newlyAddedKeys.push(key);
-                            if (this.lastAddedWallKeys.has(key)) {
-                                continue;
-                            }
-                            const ownerId = w.heroId;
-                            const ownerColor = (ownerId && this.heroColors.has(ownerId)) ? this.heroColors.get(ownerId) : undefined;
-                            const colorSwap = ownerColor ? new ColorSwap([0, 160, 200], hexToRgb(ownerColor!)) : (ownerId === this.metaHero.id ? (this.metaHero ? this.mainScene.metaHero?.colorSwap : undefined) : undefined);
-                            const wall = new BikeWall({ position: new Vector2(w.x, w.y), colorSwap, heroId: ownerId ?? 0 });
-                            this.mainScene.level.addChild(wall);
-                            try {
-                                // track the created wall object by key so we can fast-destroy it later if it's removed from authoritative set
-                                this.lastAddedWallObjects.set(key, wall);
-                            } catch { }
-                            events.emit("BIKEWALL_CREATED", { x: w.x, y: w.y });
-                            if (w.id && w.id > this.lastKnownWallId) {
-                                this.lastKnownWallId = w.id;
-                            }
-                        }
-                        // Replace the lastAddedWallKeys with the newly added set
-                        this.lastAddedWallKeys.clear();
-                        for (const k of newlyAddedKeys) this.lastAddedWallKeys.add(k);
-
-                        // Fast-destroy any instantiated walls whose keys are no longer present in the latest lastAddedWallKeys
-                        for (const [k, obj] of Array.from(this.lastAddedWallObjects.entries())) {
-                            if (!newlyAddedKeys.includes(k)) { 
-                                 if (typeof (obj as any).quickDestroy === 'function') {
-                                    (obj as any).quickDestroy();
-                                }   
-                                this.lastAddedWallObjects.delete(k);
-                            }
-                        }
-                    }
+                    this.placeWallsAroundPlayer(res);
 
                     if (this.chat) {
                         this.getLatestMessages();
@@ -488,6 +416,81 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
                 return;
             }
         }
+    }
+
+    private placeWallsAroundPlayer(res: any) {
+        // Persisted bike walls for this map - use in-memory Set to avoid scanning level.children repeatedly
+        const walls = Array.isArray(res.recentWalls) ? (res.recentWalls as MetaBikeWall[]) : undefined;
+        if (walls && walls.length > 0 && this.mainScene.level) {
+            // Reset delta tracking if level changed
+            if (this.persistedWallLevelRef !== this.mainScene.level) {
+                this.persistedWallLevelRef = this.mainScene.level;
+                this.lastKnownWallId = 0;
+            }
+            // Update hero color map from server-provided heroes list when available
+            if (res.heroes && Array.isArray(res.heroes)) {
+                for (const h of res.heroes) {
+                    const hid = (typeof h.id === 'number') ? h.id : Number(h.id);
+                    if (!isNaN(hid) && h.color) {
+                        this.heroColors.set(hid, h.color);
+                    }
+                }
+            }
+            const newlyAddedKeys: string[] = [];
+            for (const w of walls) {
+                const key = `${w.x}|${w.y}`;
+                newlyAddedKeys.push(key);
+                if (this.lastAddedWallKeys.has(key)) {
+                    continue;
+                }
+                const ownerId = w.heroId;
+                const ownerColor = (ownerId && this.heroColors.has(ownerId)) ? this.heroColors.get(ownerId) : undefined;
+                const colorSwap = ownerColor ? new ColorSwap([0, 160, 200], hexToRgb(ownerColor!)) : (ownerId === this.metaHero.id ? (this.metaHero ? this.mainScene.metaHero?.colorSwap : undefined) : undefined);
+                const wall = new BikeWall({ position: new Vector2(w.x, w.y), colorSwap, heroId: ownerId ?? 0 });
+                this.mainScene.level.addChild(wall);
+                
+                // track the created wall object by key so we can fast-destroy it later if it's removed from authoritative set
+                this.lastAddedWallObjects.set(key, wall);
+                
+                events.emit("BIKEWALL_CREATED", { x: w.x, y: w.y });
+                if (w.id && w.id > this.lastKnownWallId) {
+                    this.lastKnownWallId = w.id;
+                }
+            }
+
+            // Fast-destroy any instantiated walls whose keys are no longer present 
+            // in the latest lastAddedWallKeys
+            this.cullExtraWalls(newlyAddedKeys);
+        }
+    }
+
+    private cullExtraWalls(newlyAddedKeys: string[]) {
+        // Replace the lastAddedWallKeys with the newly added set
+        this.lastAddedWallKeys.clear();
+        for (const k of newlyAddedKeys) this.lastAddedWallKeys.add(k);
+        for (const [k, obj] of Array.from(this.lastAddedWallObjects.entries())) {
+            if (!newlyAddedKeys.includes(k)) {
+                if (typeof (obj as any).quickDestroy === 'function') {
+                    (obj as any).quickDestroy();
+                }
+                this.lastAddedWallObjects.delete(k);
+            }
+        }
+    }
+
+    private async recoverFromServerDown() {
+        if (this.offlineCreatedWalls && this.offlineCreatedWalls.length > 0) {
+            await this.enderService.deleteBikeWalls({ heroId: this.metaHero.id, level: this.metaHero.level, walls: this.offlineCreatedWalls });
+            this.offlineCreatedWalls = [];
+        }
+        // Restore saved location (if present) before restarting so the player's
+        // position persists across the server outage.
+        if (this.savedLocation && this.metaHero && this.metaHero.id) {
+            await this.enderService.setHeroLocation({ heroId: this.metaHero.id, x: this.savedLocation.x, y: this.savedLocation.y, level: this.metaHero.level ?? 1 });
+            this.savedLocation = undefined;
+        }
+
+        this.restartGame();
     }
 
     private updateOtherHeroesBasedOnFetchedData(res: { position: Vector2; heroes: MetaHero[]; }) {

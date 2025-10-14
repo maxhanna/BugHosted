@@ -14,7 +14,6 @@ export class Resources {
       fontWhite: `${this.dir}sprite-font-white.png`,
       fontBlack: `${this.dir}sprite-font-black.png`,
       groundFire: `${this.dir}groundFire.png`,
-      menuBorder: `${this.dir}menuborder.png`,
       pointer: `${this.dir}pointer.png`,
       portraits: `${this.dir}portraits-sheet.png`,
       referee: `${this.dir}referee-spritesheet.png`,
