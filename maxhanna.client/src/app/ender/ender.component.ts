@@ -89,7 +89,7 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
     wallsPlacedThisRun: number = 0;
     // cached defaults loaded from user settings (used when opening CharacterCreate)
     private cachedDefaultName?: string;
-    private cachedDefaultColor?: string;
+    cachedDefaultColor?: string;
     // Millisecond timestamp when the current run/level started
     runStartTimeMs: number | undefined = undefined;
     // Live elapsed seconds for HUD
