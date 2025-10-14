@@ -92,8 +92,9 @@ namespace maxhanna.Server.Controllers
                 using (var transaction = connection.BeginTransaction())
                 {
                     try
-                    { 
+                    {
                         MetaHero? hero = payload?.hero;
+                        int heroLevel = hero?.Level ?? 1;
                         if (payload?.pendingWalls != null && payload.pendingWalls.Count > 0 && hero != null)
                         {
                             string insertSql = @"INSERT INTO maxhanna.ender_bike_wall (hero_id, x, y, level, created_at)
@@ -125,8 +126,8 @@ namespace maxhanna.Server.Controllers
 
                         hero = await UpdateHeroInDB(hero, connection, transaction);
                         MetaHero[]? heroes = await GetNearbyPlayers(hero, connection, transaction);
-                        List<MetaEvent> events = await GetEventsFromDb(hero.Level, connection, transaction);
-                        List<MetaBikeWall> walls = await GetWallsOnSameLevel(hero.Level, connection, transaction);
+                        List<MetaEvent> events = await GetEventsFromDb(heroLevel, connection, transaction);
+                        List<MetaBikeWall> walls = await GetWallsOnSameLevel(heroLevel, connection, transaction);
                         try
                         {
                             int tolerance = 16; // pixels; adjust as needed
@@ -220,11 +221,11 @@ namespace maxhanna.Server.Controllers
                                         // Clear all bike walls on this level before any hero leaves it (per requirement)
                                         try
                                         {
-                                            await DeleteWallsForLevel(hero.Level, connection, transaction);
+                                            await DeleteWallsForLevel(heroLevel, connection, transaction);
                                         }
                                         catch (Exception exDel)
                                         {
-                                            _ = _log.Db($"Failed to delete walls for level {hero.Level} prior to level up: {exDel.Message}", null, "ENDER", true);
+                                            _ = _log.Db($"Failed to delete walls for level {heroLevel} prior to level up: {exDel.Message}", null, "ENDER", true);
                                         }
                                         using (var levelUpCmd = new MySqlCommand("UPDATE maxhanna.ender_hero SET level = level + 1 WHERE id = @HeroId LIMIT 1;", connection, transaction))
                                         {
