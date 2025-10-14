@@ -1115,20 +1115,20 @@ namespace maxhanna.Server.Controllers
                                 { "@Level", hero.Level },
                                 { "@HeroId", hero.Id }
                         };
-                try
+            try
+            {
+                // If level is changing, delete walls on the level being left before updating
+                if (previousLevel.HasValue && previousLevel.Value != hero.Level)
                 {
-                    // If level is changing, delete walls on the level being left before updating
-                    if (previousLevel.HasValue && previousLevel.Value != hero.Level)
+                    try
                     {
-                        try
-                        {
-                            await DeleteWallsForLevel(previousLevel.Value, connection, transaction);
-                        }
-                        catch (Exception exDel)
-                        {
-                            _ = _log.Db($"Failed to delete walls for level {previousLevel.Value} during hero level change heroId={heroId}: {exDel.Message}", heroId, "ENDER", true);
-                        }
+                        await DeleteWallsForLevel(previousLevel.Value, connection, transaction);
                     }
+                    catch (Exception exDel)
+                    {
+                        _ = _log.Db($"Failed to delete walls for level {previousLevel.Value} during hero level change heroId={heroId}: {exDel.Message}", heroId, "ENDER", true);
+                    }
+                }
                 await this.ExecuteInsertOrUpdateOrDeleteAsync(sql, parameters, connection, transaction);
             }
             catch (Exception ex)
@@ -1137,42 +1137,6 @@ namespace maxhanna.Server.Controllers
                 throw;
             }
 
-                // After updating hero data, ensure a per-hero sequence counter exists and increment it atomically.
-                try
-                {
-                    // Use an upsert to increment a monotonic sequence per hero in an auxiliary table
-                    string seqSql = @"
-                        INSERT INTO maxhanna.ender_hero_seq (hero_id, seq) VALUES (@HeroId, 1)
-                        ON DUPLICATE KEY UPDATE seq = seq + 1;";
-                    using (var seqCmd = new MySqlCommand(seqSql, connection, transaction))
-                    {
-                        seqCmd.Parameters.AddWithValue("@HeroId", heroId);
-                        await seqCmd.ExecuteNonQueryAsync();
-                    }
-
-                    // Read back the sequence value
-                    long seqVal = 0;
-                    using (var readSeq = new MySqlCommand("SELECT seq FROM maxhanna.ender_hero_seq WHERE hero_id = @HeroId LIMIT 1;", connection, transaction))
-                    {
-                        readSeq.Parameters.AddWithValue("@HeroId", heroId);
-                        var seqObj = await readSeq.ExecuteScalarAsync();
-                        if (seqObj != null && seqObj != DBNull.Value)
-                        {
-                            seqVal = Convert.ToInt64(seqObj);
-                        }
-                    }
-
-                    // Attach sequence and server timestamp to returned hero object
-                    if (hero != null)
-                    {
-                        hero.SequenceId = seqVal;
-                        hero.ServerTimestampMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-                    }
-                }
-                catch (Exception exSeq)
-                {
-                    _ = _log.Db($"Failed to update/read hero sequence for heroId={heroId}: {exSeq.Message}", heroId, "ENDER", true);
-                }
             try
             {
                 // Read created timestamp and kills in one query so we only hit the DB once
@@ -1186,7 +1150,7 @@ namespace maxhanna.Server.Controllers
                         {
                             try
                             {
-                                if (hero != null && !rdr.IsDBNull(rdr.GetOrdinal("created")))
+                                if (!rdr.IsDBNull(rdr.GetOrdinal("created")))
                                 {
                                     DateTime created = Convert.ToDateTime(rdr["created"]).ToUniversalTime();
                                     hero.TimeOnLevelSeconds = Math.Max(0, (int)Math.Floor((DateTime.UtcNow - created).TotalSeconds));
@@ -1199,10 +1163,7 @@ namespace maxhanna.Server.Controllers
 
                             try
                             {
-                                if (hero != null)
-                                {
-                                    hero.Kills = rdr.IsDBNull(rdr.GetOrdinal("kills")) ? 0 : Convert.ToInt32(rdr["kills"]);
-                                }
+                                hero.Kills = rdr.IsDBNull(rdr.GetOrdinal("kills")) ? 0 : Convert.ToInt32(rdr["kills"]);
                             }
                             catch (Exception exInner)
                             {
@@ -1576,11 +1537,9 @@ namespace maxhanna.Server.Controllers
             m.coordsY,
             m.speed, 
             m.color, 
-            m.mask,
-            IFNULL(s.seq, 0) as hero_seq
+            m.mask
         FROM 
             maxhanna.ender_hero m
-            LEFT JOIN maxhanna.ender_hero_seq s ON s.hero_id = m.id
         ORDER BY m.coordsY ASC;";
 
             MySqlCommand cmd = new MySqlCommand(sql, conn, transaction);
@@ -1603,8 +1562,6 @@ namespace maxhanna.Server.Controllers
                             Level = reader.IsDBNull(reader.GetOrdinal("hero_level")) ? 1 : Convert.ToInt32(reader["hero_level"]),
                             Position = new Vector2(Convert.ToInt32(reader["coordsX"]), Convert.ToInt32(reader["coordsY"])),
                             Speed = Convert.ToInt32(reader["speed"]),
-                            SequenceId = reader.IsDBNull(reader.GetOrdinal("hero_seq")) ? (long?)null : Convert.ToInt64(reader["hero_seq"]),
-                            ServerTimestampMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
                         };
                         heroesDict[heroId] = tmpHero;
                     }
@@ -1640,11 +1597,9 @@ namespace maxhanna.Server.Controllers
             m.level,
             m.mask,
             m.kills as hero_kills,
-            m.created,
-            IFNULL(s.seq, 0) as hero_seq
+            m.created
         FROM 
             maxhanna.ender_hero m  
-            LEFT JOIN maxhanna.ender_hero_seq s ON s.hero_id = m.id
         WHERE m.level = @Level
         ORDER BY m.coordsY ASC;";
 
@@ -1675,9 +1630,7 @@ namespace maxhanna.Server.Controllers
                                     Speed = Convert.ToInt32(reader["speed"]),
                                     Level = Convert.ToInt32(reader["level"]),
                                     Kills = reader.IsDBNull(reader.GetOrdinal("hero_kills")) ? 0 : Convert.ToInt32(reader["hero_kills"]),
-                                    Created = reader.IsDBNull(reader.GetOrdinal("created")) ? (DateTime?)null : Convert.ToDateTime(reader["created"]),
-                                    SequenceId = reader.IsDBNull(reader.GetOrdinal("hero_seq")) ? (long?)null : Convert.ToInt64(reader["hero_seq"]),
-                                    ServerTimestampMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
+                                    Created = reader.IsDBNull(reader.GetOrdinal("created")) ? (DateTime?)null : Convert.ToDateTime(reader["created"])
                                 };
                                 heroesDict[heroId] = tmpHero;
                             }
