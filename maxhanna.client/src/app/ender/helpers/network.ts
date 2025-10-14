@@ -346,7 +346,7 @@ export function actionMultiplayerEvents(object: any, metaEvents: MetaEvent[]) {
             const evLevel = event.level ?? (event.data && event.data["level"]) ?? null;
             const myLevel = object.metaHero?.level ?? object.mainScene?.level?.name ?? null;
             const victimId = event.heroId ?? (event.data && event.data["heroId"]) ?? null;
-
+            console.log("hero died", event);
             if (evLevel != null && myLevel != null && victimId != null && (evLevel === myLevel || String(evLevel) === String(myLevel))) {
               if (object.mainScene && object.mainScene.level && object.mainScene.level.children) {
                 const found = object.mainScene.level.children.find((c: any) => c && c.id === victimId && c.name != "bike-wall");
