@@ -3,12 +3,7 @@ using maxhanna.Server.Controllers.DataContracts.Users;
 using maxhanna.Server.Controllers.DataContracts.Files;
 using Microsoft.AspNetCore.Mvc;
 using MySqlConnector;
-using System;
-using System.Text;
 using System.Text.Json;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading;
 
 namespace maxhanna.Server.Controllers
 {
@@ -58,7 +53,7 @@ namespace maxhanna.Server.Controllers
             catch { }
         }
 
-       
+
         [HttpPost("/Ender", Name = "Ender_GetHero")]
         public async Task<IActionResult> GetHero([FromBody] int userId)
         {
@@ -84,7 +79,7 @@ namespace maxhanna.Server.Controllers
         }
 
         [HttpPost("/Ender/FetchGameData", Name = "Ender_FetchGameData")]
-        public async Task<IActionResult> FetchGameData([FromBody] DataContracts.Ender.FetchGameDataRequest payload)
+        public async Task<IActionResult> FetchGameData([FromBody] FetchGameDataRequest payload)
         {
             using (var connection = new MySqlConnection(_connectionString))
             {
@@ -137,11 +132,11 @@ namespace maxhanna.Server.Controllers
                             if (walls != null && heroes != null && walls.Count > 0 && heroes.Length > 0)
                             {
                                 // Precompute the most-recent wall id for each hero so we can avoid immediate self-kills
-                                var lastWallIdByHero = new Dictionary<int, int>(); 
+                                var lastWallIdByHero = new Dictionary<int, int>();
                                 lastWallIdByHero = walls
                                     .Where(x => x.HeroId != 0)
                                     .GroupBy(x => x.HeroId)
-                                    .ToDictionary(g => g.Key, g => g.Max(x => x.Id)); 
+                                    .ToDictionary(g => g.Key, g => g.Max(x => x.Id));
                                 foreach (var w in walls)
                                 {
                                     try
@@ -176,7 +171,7 @@ namespace maxhanna.Server.Controllers
                                         _ = _log.Db($"Error while comparing wall id={w.Id} to heroes: {exInner.Message}", null, "ENDER", true);
                                     }
                                 }
- 
+
                                 if (victims.Count > 0)
                                 {
                                     foreach (var kv in victims)
@@ -571,7 +566,8 @@ namespace maxhanna.Server.Controllers
                             }
                         }
 
-                        bool IsSafe(int x, int y) {
+                        bool IsSafe(int x, int y)
+                        {
                             // Quick reject if near any hero
                             foreach (var (hx, hy) in occupiedSpots)
                             {
@@ -1079,7 +1075,7 @@ namespace maxhanna.Server.Controllers
             if (hero == null) throw new ArgumentNullException(nameof(hero));
             if (hero.Position == null) hero.Position = new Vector2(0, 0);
             int heroId = hero.Id;
-           // await _log.Db($"Enter UpdateHeroInDB heroId={heroId}", heroId, "ENDER", false);
+            // await _log.Db($"Enter UpdateHeroInDB heroId={heroId}", heroId, "ENDER", false);
             int? previousLevel = null;
             try
             {
@@ -2309,7 +2305,7 @@ namespace maxhanna.Server.Controllers
 
             return insertedId ?? rowsAffected;
         }
-         // Helper to send a kill notification for a victim when killed by a killer
+        // Helper to send a kill notification for a victim when killed by a killer
         private async Task SendKillNotificationAsync(int victimId, int? killerId, MySqlConnection connection, MySqlTransaction transaction)
         {
             try
@@ -2343,54 +2339,5 @@ namespace maxhanna.Server.Controllers
             }
         }
 
-        // DTOs for WallsAroundHero
-        public class WallsAroundHeroRequest
-        {
-            public HeroInfo? Hero { get; set; }
-            public int RadiusSeconds { get; set; }
-        }
-
-        public class HeroInfo
-        {
-            public int Level { get; set; }
-            public PositionDto? Position { get; set; }
-            public double Speed { get; set; }
-        }
-
-        public class PositionDto
-        {
-            public int X { get; set; }
-            public int Y { get; set; }
-        }
-
-        // DTOs for deleting bike walls
-        public class DeleteBikeWallDto
-        {
-            public int X { get; set; }
-            public int Y { get; set; }
-        }
-
-        public class DeleteBikeWallsRequest
-        {
-            public int HeroId { get; set; }
-            public int Level { get; set; }
-            public List<DeleteBikeWallDto>? Walls { get; set; }
-        }
-
-        public class SetHeroLocationRequest
-        {
-            public int HeroId { get; set; }
-            public int X { get; set; }
-            public int Y { get; set; }
-            public int Level { get; set; }
-        }
-
-        public class BikeWallDto
-        {
-            public int Id { get; set; }
-            public int HeroId { get; set; }
-            public int X { get; set; }
-            public int Y { get; set; }
-        }
     }
 }
