@@ -20,7 +20,7 @@
           <input #urlInput type="text" placeholder="e.g. site:www.example.com keywords" (keydown.enter)="searchUrl()" />
           <button (click)="searchUrl()" [disabled]="isLoading">🔍Crawl</button>
         </div>
-        <div class="siteHelperTip smallFont">Tip: use "site:domain.com keywords" to restrict results to a single domain. Click the example to autofill.</div>
+        <div class="siteHelperTip smallFont">Tip: use <span (click)="fillSiteExample()" class="cursorPointerUnderlined linkFontColor">"site:domain.com keywords"</span> to restrict results to a single domain.</div>
     </div>
 
     <div *ngIf="isLoading" class="loadingNotificationDiv">Loading...</div>

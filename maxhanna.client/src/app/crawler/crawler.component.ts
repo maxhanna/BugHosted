@@ -57,7 +57,15 @@ export class CrawlerComponent extends ChildComponent implements OnInit, OnDestro
     clearInterval(this.indexUpdateTimer);
     this.parentRef?.removeResizeListener();
   }
- 
+
+  fillSiteExample() {
+    try {
+      this.urlInput.nativeElement.value = 'site:www.example.com keywords';
+      this.urlInput.nativeElement.focus();
+    } catch (e) {
+      console.error('Could not fill site example', e);
+    }
+  }
   visitExternalLink(url?: string) {
     if (!url) return;
     if (this.onlySearch) {
