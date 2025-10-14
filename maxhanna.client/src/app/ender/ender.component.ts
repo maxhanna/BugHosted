@@ -106,6 +106,10 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
     private persistedWallLevelRef: any = undefined;
     // Collect all locally spawned walls since last fetch (delta batch)
     private pendingWallsBatch: { x: number, y: number }[] = [];
+    // Collect walls created while server was down so we can remove them from backend on recovery
+    private offlineCreatedWalls: { x: number, y: number }[] = [];
+    // Saved location when server goes down; restore before restart
+    private savedLocation?: Vector2;
     // In-memory map of heroId -> color string for applying color swaps to bike walls
     private heroColors: Map<number, string> = new Map<number, string>();
     // Champion (global best) info cached for CharacterCreate prompts
@@ -221,6 +225,10 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
             }
             // accumulate walls until next poll
             this.pendingWallsBatch.push({ x: params.x, y: params.y });
+            // if server is down, stash these with level/hero so we can delete them on recovery
+            if (this.serverDown) { 
+                this.offlineCreatedWalls.push({ x: params.x, y: params.y }); 
+            }
         });
     }
 
@@ -330,15 +338,39 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
                         // notify parent that server appears down and set flag
                         try { this.parentRef?.showNotification?.("Ender server appears to be down"); } catch { }
                         this.serverDown = true;
+                        // Save the user's current location so we can restore it on recovery 
+                        if (!this.savedLocation) {
+                            if (this.metaHero && this.metaHero.position) {
+                                this.savedLocation = new Vector2(this.metaHero.position.x, this.metaHero.position.y);
+                            } else if (this.hero && this.hero.position) {
+                                this.savedLocation = new Vector2(this.hero.position.x, this.hero.position.y);
+                            }
+                        }
                     }
                     return;
                 }
                 // successful fetch: reset failure counter/state
+                const wasServerDown = !!this.serverDown;
                 this.consecutiveFetchFailures = 0;
-                if (this.serverDown == true) {
+                this.serverDown = false;
+
+                // If server was down and is now back, attempt to delete any walls
+                // the client created while offline, then clear local caches so
+                // authoritative data can repopulate cleanly.
+                if (wasServerDown) { 
+                    if (this.offlineCreatedWalls && this.offlineCreatedWalls.length > 0) { 
+                        await this.enderService.deleteBikeWalls({ heroId: this.metaHero.id, level: this.metaHero.level, walls: this.offlineCreatedWalls });
+                        this.offlineCreatedWalls = [];
+                    }
+                    // Restore saved location (if present) before restarting so the player's
+                    // position persists across the server outage.
+                    if (this.savedLocation && this.metaHero && this.metaHero.id) {
+                        await this.enderService.setHeroLocation({ heroId: this.metaHero.id, x: this.savedLocation.x, y: this.savedLocation.y, level: this.metaHero.level ?? 1 });
+                        this.savedLocation = undefined;
+                    }
+                    
                     this.restartGame();
                 }
-                this.serverDown = false;
 
                 if (res) {
                     if (res.heroes) {

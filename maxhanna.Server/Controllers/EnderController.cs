@@ -1989,6 +1989,101 @@ namespace maxhanna.Server.Controllers
             }
         }
 
+        [HttpPost("/Ender/DeleteBikeWalls", Name = "Ender_DeleteBikeWalls")]
+        public async Task<IActionResult> DeleteBikeWalls([FromBody] DeleteBikeWallsRequest? payload)
+        {
+            if (payload == null) return BadRequest("Missing payload");
+            if (payload.HeroId <= 0) return BadRequest("Invalid hero id");
+            if (payload.Level <= 0) return BadRequest("Invalid level");
+            if (payload.Walls == null || payload.Walls.Count == 0) return BadRequest("No walls to delete");
+
+            try
+            {
+                using (var connection = new MySqlConnection(_connectionString))
+                {
+                    await connection.OpenAsync();
+                    using (var transaction = await connection.BeginTransactionAsync())
+                    {
+                        try
+                        {
+                            string deleteSql = "DELETE FROM maxhanna.ender_bike_wall WHERE hero_id = @HeroId AND level = @Level AND x = @X AND y = @Y LIMIT 1;";
+                            using (var cmd = new MySqlCommand(deleteSql, connection, transaction))
+                            {
+                                cmd.Parameters.AddWithValue("@HeroId", payload.HeroId);
+                                cmd.Parameters.AddWithValue("@Level", payload.Level);
+                                // prepare parameters for reuse; we'll set values in loop
+                                var pX = cmd.Parameters.Add("@X", MySqlDbType.Int32);
+                                var pY = cmd.Parameters.Add("@Y", MySqlDbType.Int32);
+
+                                foreach (var w in payload.Walls)
+                                {
+                                    pX.Value = w.X;
+                                    pY.Value = w.Y;
+                                    await cmd.ExecuteNonQueryAsync();
+                                }
+                            }
+                            await transaction.CommitAsync();
+                        }
+                        catch (Exception exInner)
+                        {
+                            try { await transaction.RollbackAsync(); } catch { }
+                            await LogError("DeleteBikeWalls failed during delete loop", exInner);
+                            return StatusCode(500, "Internal server error: " + exInner.Message);
+                        }
+                    }
+                }
+                return Ok(new { success = true });
+            }
+            catch (Exception ex)
+            {
+                await LogError("DeleteBikeWalls failed", ex);
+                return StatusCode(500, "Internal server error: " + ex.Message);
+            }
+        }
+
+        [HttpPost("/Ender/SetHeroLocation", Name = "Ender_SetHeroLocation")]
+        public async Task<IActionResult> SetHeroLocation([FromBody] SetHeroLocationRequest? payload)
+        {
+            if (payload == null) return BadRequest("Missing payload");
+            if (payload.HeroId <= 0) return BadRequest("Invalid hero id");
+
+            try
+            {
+                using (var connection = new MySqlConnection(_connectionString))
+                {
+                    await connection.OpenAsync();
+                    using (var transaction = connection.BeginTransaction())
+                    {
+                        try
+                        {
+                            string sql = @"UPDATE maxhanna.ender_hero SET coordsX = @X, coordsY = @Y, level = @Level WHERE id = @HeroId LIMIT 1;";
+                            using (var cmd = new MySqlCommand(sql, connection, transaction))
+                            {
+                                cmd.Parameters.AddWithValue("@X", payload.X);
+                                cmd.Parameters.AddWithValue("@Y", payload.Y);
+                                cmd.Parameters.AddWithValue("@Level", payload.Level);
+                                cmd.Parameters.AddWithValue("@HeroId", payload.HeroId);
+                                await cmd.ExecuteNonQueryAsync();
+                            }
+                            await transaction.CommitAsync();
+                        }
+                        catch (Exception exInner)
+                        {
+                            try { await transaction.RollbackAsync(); } catch { }
+                            await LogError("SetHeroLocation failed during update", exInner);
+                            return StatusCode(500, "Internal server error: " + exInner.Message);
+                        }
+                    }
+                }
+                return Ok(new { success = true });
+            }
+            catch (Exception ex)
+            {
+                await LogError("SetHeroLocation failed", ex);
+                return StatusCode(500, "Internal server error: " + ex.Message);
+            }
+        }
+
         private async Task KillHeroById(int heroId, MySqlConnection connection, MySqlTransaction transaction, int? killerHeroId = null)
         {
             try
@@ -2262,6 +2357,28 @@ namespace maxhanna.Server.Controllers
         {
             public int X { get; set; }
             public int Y { get; set; }
+        }
+
+        // DTOs for deleting bike walls
+        public class DeleteBikeWallDto
+        {
+            public int X { get; set; }
+            public int Y { get; set; }
+        }
+
+        public class DeleteBikeWallsRequest
+        {
+            public int HeroId { get; set; }
+            public int Level { get; set; }
+            public List<DeleteBikeWallDto>? Walls { get; set; }
+        }
+
+        public class SetHeroLocationRequest
+        {
+            public int HeroId { get; set; }
+            public int X { get; set; }
+            public int Y { get; set; }
+            public int Level { get; set; }
         }
 
         public class BikeWallDto

@@ -74,6 +74,12 @@ export class EnderService {
   async fetchWallsAroundHero(payload: { hero: MetaHero, radiusSeconds?: number }) {
     return this.fetchData('/ender/wallsaroundhero', payload);
   }
+  async deleteBikeWalls(payload: { heroId: number, level: number, walls: { x: number, y: number }[] }) {
+    return this.fetchData('/ender/deletebikewalls', payload);
+  }
+  async setHeroLocation(payload: { heroId: number, x: number, y: number, level: number }) {
+    return this.fetchData('/ender/setherolocation', payload);
+  }
   async fetchInventoryData(heroId: number): Promise<{inventory: InventoryItem[], parts: MetaBotPart[]}> {
     return this.fetchData('/ender/fetchinventorydata', heroId);
   } 
