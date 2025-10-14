@@ -117,7 +117,8 @@ export function subscribeToMainGameEvents(object: any) {
         content: "...",
         timestamp: new Date()
       } as MetaChat);
-    object.setHeroLatestMessage(object.otherHeroes.find((x: Character) => x.name === name))
+    object.setHeroLatestMessage(object.otherHeroes.find((x: Character) => x.name === name));
+    object.displayChatMessage();
   })
   events.on("SEND_CHAT_MESSAGE", object, (chat: string) => {
     const msg = chat.trim();
@@ -138,7 +139,9 @@ export function subscribeToMainGameEvents(object: any) {
             content: msg ?? "",
             timestamp: new Date()
           } as MetaChat);
-        object.setHeroLatestMessage(object.otherHeroes.find((x: Character) => x.name === name))
+  object.setHeroLatestMessage(object.otherHeroes.find((x: Character) => x.name === name));
+  // Display the just-sent message on screen
+  try { object.displayChatMessage(); } catch { }
       }
     }
   });
