@@ -165,7 +165,7 @@
         </div>
       </div>
       <div class="otherHeroesUserTagContainer">
-        <app-user-tag [user]="cachedUsers.get(h.userId)" [userId]="h.userId" [inputtedParentRef]="parentRef" (userLoaded)="onUserTagLoaded($event)"></app-user-tag>
+  <app-user-tag [user]="cachedUsers.get(h.userId ?? 0)" [userId]="h.userId ?? 0" [inputtedParentRef]="parentRef" (userLoaded)="onUserTagLoaded($event)"></app-user-tag>
       </div>
     </div>
   </div>
