@@ -6,7 +6,7 @@
       *ngIf="user && user.id != 0 && user.displayPictureFile && user.displayPictureFile.id != 0 && !displayEmptyAvatar">
       <app-media-viewer #profileImageViewer [inputtedParentRef]="parentRef" [fileId]="user.displayPictureFile.id"
         [showCommentSection]="false" [displayControls]="false" [blockExpand]="preventExpandPicture"
-        [displayExtraInfo]="false" [displayExpander]="false" [previousComponent]="previousComponent"
+        [showTopics]="false" [displayExtraInfo]="false" [displayExpander]="false" [previousComponent]="previousComponent"
         (mouseenter)="onUserTagHover($event)" (mouseleave)="onUserTagLeave()">
       </app-media-viewer>
     </div>
