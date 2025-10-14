@@ -133,15 +133,14 @@ export function subscribeToMainGameEvents(object: any) {
         }, 0);
 
         const name = object.metaHero.name;
-        object.chat.unshift(
-          {
-            hero: name,
-            content: msg ?? "",
-            timestamp: new Date()
-          } as MetaChat);
-  object.setHeroLatestMessage(object.otherHeroes.find((x: Character) => x.name === name));
-  // Display the just-sent message on screen
-  try { object.displayChatMessage(); } catch { }
+        object.chat.unshift({
+          hero: name,
+          content: msg ?? "",
+          timestamp: new Date()
+        } as MetaChat);
+        object.setHeroLatestMessage(object.otherHeroes.find((x: Character) => x.name === name));
+        // Display the just-sent message on screen
+        object.displayChatMessage();
       }
     }
   });
@@ -387,13 +386,26 @@ export function actionMultiplayerEvents(object: any, metaEvents: MetaEvent[]) {
           const content = event.data["content"] ?? '';
           const name = event.data["sender"] ?? "Anon";
 
+          const eventTs = event.timestamp ? new Date(event.timestamp).getTime() : Date.now();
           const metachat = {
             hero: name,
             content: content,
-            timestamp: new Date()
+            timestamp: event.timestamp ? new Date(event.timestamp) : new Date()
           } as MetaChat;
-          // Add the chat to local buffer and display it immediately
-          object.chat.unshift(metachat);
+          // Avoid adding duplicates (e.g., local echo + server echo). If a recent message
+          // from the same hero with identical content exists within 10s, skip adding.
+          const isDuplicate = object.chat && object.chat.some((m: MetaChat) => {
+            try {
+              if (!m || !m.hero) return false;
+              if (m.hero !== name) return false;
+              if ((m.content ?? '') !== (content ?? '')) return false;
+              const mts = m.timestamp ? new Date(m.timestamp).getTime() : 0;
+              return Math.abs(mts - eventTs) < 10000; // 10 seconds
+            } catch { return false; }
+          });
+          if (!isDuplicate) {
+            object.chat.unshift(metachat);
+          }
           // Keep per-hero latest message state in sync
           object.setHeroLatestMessage(object.otherHeroes.find((x: Character) => x.name === name));
           try { object.displayChatMessage(); } catch { }
