@@ -372,3 +372,9 @@ body {
     justify-content: center;
     align-items: center;
 }
+
+.otherHeroRow {
+  display: flex;
+  flex-wrap: nowrap;
+  flex-direction: row;
+}
