@@ -1,5 +1,5 @@
 <div class="cursorPointer userTag {{displayMiniTag ? 'miniTag' : ''}}" (mouseenter)="onUserTagHover($event)"
-  (mouseleave)="onUserTagLeave()" (click)="preventOpenProfile ? null : viewProfile(user, previousComponent)">
+  (mouseleave)="onUserTagLeave()" (click)="onUserTagClick($event)">
   <div class="{{displayMiniTag ? 'miniAvatar' : 'largeAvatar'}}" *ngIf="!displayOnlyName">
     <div
       class="displayPicture {{displayLargeAvatar ? 'largeAvatar' : ''}} {{displayMiniTag ? 'miniAvatarPic' : ''}} {{displayTinyPicture ? 'tinyAvatarPic' : ''}}"

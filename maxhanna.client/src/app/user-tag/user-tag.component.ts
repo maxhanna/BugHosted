@@ -26,6 +26,7 @@ export class UserTagComponent extends ChildComponent implements OnInit, OnDestro
   @Input() hideName = false;
   @Input() displayTinyPicture = false;
   @Input() displayHoverPicture = false;
+  @Input() openInNewTab: boolean = false;
   @Output() userLoaded = new EventEmitter<User>();
   @ViewChild('profileImageViewer') profileImageViewer!: MediaViewerComponent;
 
@@ -130,5 +131,27 @@ export class UserTagComponent extends ChildComponent implements OnInit, OnDestro
         console.warn('hideUserTagButton not found');
       }
     }, 500);
+  }
+
+  onUserTagClick(event: MouseEvent) {
+    // If prevented, do nothing
+    if (this.preventOpenProfile) return;
+    // Prefer explicit open-in-new-tab when requested
+    if (this.openInNewTab) {
+      const id = this.user?.id ?? this.userId ?? 0;
+      if (id && id !== 0) {
+        const url = `https://bughosted.com/User/${id}`;
+        try {
+          window.open(url, '_blank', 'noopener');
+        } catch (e) {
+          // Fallback to navigate if popup blocked
+          window.location.href = url;
+        }
+      }
+      return;
+    }
+
+    // Default behaviour: open in-app profile component
+    this.viewProfile(this.user, this.previousComponent);
   }
 }
