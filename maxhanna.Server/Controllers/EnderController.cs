@@ -253,7 +253,7 @@ namespace maxhanna.Server.Controllers
                         int heroX = hero?.Position?.x ?? 0;
                         int heroY = hero?.Position?.y ?? 0;
                         List<MetaBikeWall> recentWalls = await GetWallsAroundPosition(heroLevelForWalls, heroX, heroY, heroSpeed, radiusSecondsForFetch, connection, transaction);
-                        Console.WriteLine($"Found {recentWalls.Count} recent bike walls");
+                        Console.WriteLine($"Found {recentWalls.Count} recent bike walls around {heroX},{heroY} (user: {hero?.UserId}).");
                         // Compute provisional current score for the active run (mirrors HeroDied authoritative formula: time + walls*10)
                         int wallsPlacedForRun = 0;
                         if (walls != null && hero != null)
