@@ -637,7 +637,7 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
                 const live = this.mainScene?.level?.children?.find((x: any) => x.id === hero.id);
                 if (live && (live as any).facingDirection) facing = (live as any).facingDirection as string;
 
-                const oneCell = gridCells(2);
+                const oneCell = gridCells(3);
                 if (facing === RIGHT) offsetX = oneCell;
                 else if (facing === LEFT) offsetX = -oneCell;
                 else if (facing === UP) offsetY = -oneCell;
