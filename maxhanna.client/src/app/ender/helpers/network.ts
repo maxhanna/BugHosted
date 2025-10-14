@@ -111,6 +111,8 @@ export function subscribeToMainGameEvents(object: any) {
     // const metaEvent = new MetaEvent(0, object.metaHero.id, new Date(), "CHAT", object.metaHero.level, { "sender": object.metaHero.name ?? "Anon", "content": "..." });
     // object.enderService.updateEvents(metaEvent);
     const name = object.metaHero.name;
+    object.chat = object.chat.filter((m: MetaChat) => !(m && m.hero === name && (m.content ?? '') === '...'));
+
     object.chat.unshift(
       {
         hero: name,
@@ -133,6 +135,8 @@ export function subscribeToMainGameEvents(object: any) {
         }, 0);
 
         const name = object.metaHero.name;
+        object.chat = object.chat.filter((m: MetaChat) => !(m && m.hero === name && (m.content ?? '') === '...'));
+         
         object.chat.unshift({
           hero: name,
           content: msg ?? "",
