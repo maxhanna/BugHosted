@@ -411,21 +411,15 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
                             }
                         }
                         // Replace the lastAddedWallKeys with the newly added set
-                        const prevKeys = new Set(this.lastAddedWallKeys);
                         this.lastAddedWallKeys.clear();
                         for (const k of newlyAddedKeys) this.lastAddedWallKeys.add(k);
 
                         // Fast-destroy any instantiated walls whose keys are no longer present in the latest lastAddedWallKeys
                         for (const [k, obj] of Array.from(this.lastAddedWallObjects.entries())) {
-                            if (!newlyAddedKeys.includes(k)) {
-                                try {
-                                    // call quickDestroy if available for immediate removal without FX
-                                    if (typeof (obj as any).quickDestroy === 'function') {
-                                        (obj as any).quickDestroy();
-                                    } else {
-                                        obj.destroy();
-                                    }
-                                } catch { }
+                            if (!newlyAddedKeys.includes(k)) { 
+                                 if (typeof (obj as any).quickDestroy === 'function') {
+                                    (obj as any).quickDestroy();
+                                }   
                                 this.lastAddedWallObjects.delete(k);
                             }
                         }
