@@ -114,6 +114,19 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
     private savedLocation?: Vector2;
     // In-memory map of heroId -> color string for applying color swaps to bike walls
     private heroColors: Map<number, string> = new Map<number, string>();
+    // Interpolation state per remote hero for smoothing / dead-reckoning
+    private heroInterpState: Map<number, {
+        prevPos?: Vector2,
+        prevTimeMs?: number,
+        lastPos?: Vector2,
+        lastTimeMs?: number,
+        vel?: Vector2,
+        // last processed server sequence when provided by server
+        lastSequence?: number
+    }> = new Map<number, any>();
+    private interpolationBufferMs: number = 150; // intentional render delay
+    private maxExtrapolationMs: number = 200;
+    private snapThresholdPx: number = gridCells(2);
     // Cache of user objects keyed by userId to avoid reloading/causing avatar flicker
     public cachedUsers: Map<number, User> = new Map<number, User>();
     // Champion (global best) info cached for CharacterCreate prompts
@@ -516,6 +529,13 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
             }
             return new MetaHero(h.id, h.userId ?? 0, h.name ?? "Anon", pos, h.speed ?? 1, h.color, h.mask, h.level ?? 1, h.kills ?? 0, h.created);
         });
+        // Process interpolation state from latest server snapshot (use client receive time)
+        try {
+            const recv = Date.now();
+            for (const h of res.heroes as MetaHero[]) {
+                this.processServerHeroUpdate(h, recv);
+            }
+        } catch { }
         this.updateEnemiesOnSameLevelCount();
         this.updateMissingOrNewHeroSprites();
     }
@@ -625,27 +645,61 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
 
     private setUpdatedHeroPosition(existingHero: any, hero: MetaHero) {
         if (existingHero.id != this.metaHero.id) {
-            // Check whether the live hero has moved (compare live lastPosition vs incoming server position)
+            const now = Date.now();
+            const state = this.heroInterpState.get(hero.id);
+
+            // Default predicted position is the raw server position
+            let predicted = new Vector2(hero.position.x, hero.position.y);
+
+            if (state && state.lastPos && state.lastTimeMs) {
+                const renderTime = now - this.interpolationBufferMs;
+                const ageMs = renderTime - (state.lastTimeMs ?? renderTime);
+                const clampedMs = Math.max(0, Math.min(ageMs, this.maxExtrapolationMs));
+                if (state.vel) {
+                    predicted = new Vector2(state.lastPos.x + state.vel.x * (clampedMs / 1000.0), state.lastPos.y + state.vel.y * (clampedMs / 1000.0));
+                } else if (state.prevPos && state.prevTimeMs) {
+                    const totalDt = (state.lastTimeMs - state.prevTimeMs) || 1;
+                    const t = Math.min(1, Math.max(0, (renderTime - state.lastTimeMs) / totalDt));
+                    const dx = state.lastPos.x - state.prevPos.x;
+                    const dy = state.lastPos.y - state.prevPos.y;
+                    predicted = new Vector2(state.lastPos.x + dx * t, state.lastPos.y + dy * t);
+                }
+            }
+
+            // Apply one-cell-ahead bump only when the hero is moving (compare live lastPosition)
             const liveLast = existingHero?.lastPosition;
             const moved = !!liveLast && (liveLast.x !== hero.position.x || liveLast.y !== hero.position.y);
-
-            // Only apply bump when the hero is moving
-            let offsetX = 0;
-            let offsetY = 0;
-            if (moved) { 
-                let facing: string = DOWN;
-                const live = this.mainScene?.level?.children?.find((x: any) => x.id === hero.id);
-                if (live && (live as any).facingDirection) facing = (live as any).facingDirection as string;
-
-                const oneCell = gridCells(3);
+            let offsetX = 0, offsetY = 0;
+            if (moved) {
+                let facing: string | undefined = undefined;
+                try { const live = this.mainScene?.level?.children?.find((x: any) => x.id === hero.id); if (live && (live as any).facingDirection) facing = (live as any).facingDirection as string; } catch { }
+                if (!facing && (hero as any).facingDirection) facing = (hero as any).facingDirection as string | undefined;
+                const oneCell = gridCells(1);
                 if (facing === RIGHT) offsetX = oneCell;
                 else if (facing === LEFT) offsetX = -oneCell;
                 else if (facing === UP) offsetY = -oneCell;
-                else if (facing === DOWN) offsetY = oneCell; 
+                else if (facing === DOWN) offsetY = oneCell;
             }
-            const newPos = new Vector2(hero.position.x + offsetX, hero.position.y + offsetY);
-            if (!existingHero.destinationPosition.matches(newPos)) {
-                existingHero.destinationPosition = newPos;
+
+            const target = new Vector2(predicted.x + offsetX, predicted.y + offsetY);
+
+            // Ensure destinationPosition exists
+            if (!existingHero.destinationPosition) existingHero.destinationPosition = new Vector2(existingHero.position.x, existingHero.position.y);
+
+            // Snap if far, else exponential smooth towards target
+            const dx = existingHero.position.x - target.x;
+            const dy = existingHero.position.y - target.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            if (dist > this.snapThresholdPx) {
+                existingHero.position.x = target.x; existingHero.position.y = target.y;
+                existingHero.destinationPosition = new Vector2(target.x, target.y);
+            } else {
+                const dtSeconds = Math.min(1/30, 1/60);
+                const k = 12.0;
+                const alpha = 1 - Math.exp(-k * dtSeconds);
+                const newX = existingHero.destinationPosition.x + (target.x - existingHero.destinationPosition.x) * alpha;
+                const newY = existingHero.destinationPosition.y + (target.y - existingHero.destinationPosition.y) * alpha;
+                existingHero.destinationPosition = new Vector2(newX, newY);
             }
         }
         else {
@@ -692,6 +746,41 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
             objectSubject: this.metaHero
         });
         this.mainScene.level.addChild(this.currentChatTextbox);
+    }
+
+    // Maintain per-hero interpolation state when server snapshots arrive
+    private processServerHeroUpdate(h: MetaHero, recvTimeMs: number) {
+        if (!h || !h.id || !h.position) return;
+        const id = h.id;
+        const state = this.heroInterpState.get(id) ?? {};
+
+        // If server provided a per-hero monotonic sequence id, discard older/out-of-order snapshots
+        if (h.sequenceId !== undefined && h.sequenceId !== null) {
+            const lastSeq = state.lastSequence;
+            if (typeof lastSeq === 'number' && h.sequenceId <= lastSeq) {
+                // ignore out-of-order or duplicate snapshot
+                return;
+            }
+            // accept and record the new sequence
+            state.lastSequence = h.sequenceId;
+        }
+
+        // Prefer authoritative server timestamp when available, fallback to client receive time
+        const sampleTimeMs = (h.serverTimestampMs && h.serverTimestampMs > 0) ? h.serverTimestampMs : recvTimeMs;
+
+        if (state.lastPos) {
+            state.prevPos = state.lastPos;
+            state.prevTimeMs = state.lastTimeMs;
+        }
+        state.lastPos = new Vector2(h.position.x, h.position.y);
+        state.lastTimeMs = sampleTimeMs;
+
+        if (state.prevPos && state.prevTimeMs && state.lastTimeMs && state.lastTimeMs > state.prevTimeMs) {
+            const dt = (state.lastTimeMs - state.prevTimeMs) / 1000.0;
+            if (dt > 0) state.vel = new Vector2((state.lastPos.x - state.prevPos.x) / dt, (state.lastPos.y - state.prevPos.y) / dt);
+        }
+
+        this.heroInterpState.set(id, state);
     }
 
     private async reinitializeHero(rz: MetaHero, skipDataFetch?: boolean) {

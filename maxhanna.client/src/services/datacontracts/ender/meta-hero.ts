@@ -13,6 +13,10 @@ export class MetaHero {
   color?: string; 
   mask?: number;
   created: Date;
+  // Millisecond-precision server timestamp when this snapshot was produced
+  serverTimestampMs?: number;
+  // Monotonic sequence id from server to detect out-of-order updates
+  sequenceId?: number;
 
   // created may be a Date or an ISO string from the backend
   constructor(id: number, userId: number, name: string, position: Vector2, speed: number, color?: string, mask?: number, level: number = 1, kills: number = 0, created?: Date) {

@@ -15,5 +15,9 @@ namespace maxhanna.Server.Controllers.DataContracts.Ender
         public int TimeOnLevelSeconds { get; set; } = 0;
         // Creation timestamp from DB
         public DateTime? Created { get; set; }
+    // Millisecond-precision server timestamp for when this hero snapshot was produced
+    public long? ServerTimestampMs { get; set; }
+    // Monotonic sequence id per-hero (incremented on each DB update) to help detect out-of-order updates
+    public long? SequenceId { get; set; }
     }
 }
