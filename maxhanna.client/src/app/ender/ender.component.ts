@@ -634,19 +634,20 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
             let offsetY = 0;
             if (moved) { 
                 let facing: string = DOWN;
-                const live = this.mainScene?.level?.children?.find((x: any) => x.id === hero.id);
-                if (live && (live as any).facingDirection) facing = (live as any).facingDirection as string;
+                const live: Hero = this.mainScene?.level?.children?.find((x: any) => 
+                    x.id === hero.id && x.name === hero.name && x instanceof Hero);
+                if (live) {
+                    facing = live.facingDirection;
+                }
 
                 const oneCell = gridCells(2);
                 if (facing === RIGHT) offsetX = oneCell;
                 else if (facing === LEFT) offsetX = -oneCell;
                 else if (facing === UP) offsetY = -oneCell;
                 else if (facing === DOWN) offsetY = oneCell;
-                console.log("offset player ", live)
             }
             const newPos = new Vector2(hero.position.x + offsetX, hero.position.y + offsetY);
-            
-            console.log("player pos ", live)
+             
             if (!existingHero.destinationPosition.matches(newPos)) {
                 existingHero.destinationPosition = newPos;
             }
