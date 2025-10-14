@@ -398,7 +398,7 @@ export function actionMultiplayerEvents(object: any, metaEvents: MetaEvent[]) {
             try {
               if (!m || !m.hero) return false;
               if (m.hero !== name) return false;
-              if ((m.content ?? '') !== (content ?? '')) return false;
+              if ((m.content ?? '') == (content ?? '')) return true;
               const mts = m.timestamp ? new Date(m.timestamp).getTime() : 0;
               return Math.abs(mts - eventTs) < 10000; // 10 seconds
             } catch { return false; }
