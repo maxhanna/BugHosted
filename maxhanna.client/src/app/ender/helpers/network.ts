@@ -108,8 +108,8 @@ export function subscribeToMainGameEvents(object: any) {
   });
   // CHARACTER_POSITION death check removed - backend now authoritatively detects deaths.
   events.on("STARTED_TYPING", object, () => {
-    const metaEvent = new MetaEvent(0, object.metaHero.id, new Date(), "CHAT", object.metaHero.level, { "sender": object.metaHero.name ?? "Anon", "content": "..." });
-    object.enderService.updateEvents(metaEvent);
+    // const metaEvent = new MetaEvent(0, object.metaHero.id, new Date(), "CHAT", object.metaHero.level, { "sender": object.metaHero.name ?? "Anon", "content": "..." });
+    // object.enderService.updateEvents(metaEvent);
     const name = object.metaHero.name;
     object.chat.unshift(
       {
