@@ -206,6 +206,7 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
     }
 
     private async handleHeroDeath() {
+        console.log("handle hero death called");
         this.stopPollingForUpdates = true;
         this.stopRunTimer();
         setTimeout(() => {
