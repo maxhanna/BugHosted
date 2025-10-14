@@ -41,9 +41,68 @@ namespace maxhanna.Server.Controllers
 																.Select(keyword => "%" + keyword.Trim().ToLower() + "%")
 																.ToList();
 
+					// Detect site:domain keywords pattern (e.g. "site:example.com robots")
+					string? siteDomain = null;
+					string? siteKeywords = null;
+					bool siteOnly = false;
+					if (!string.IsNullOrWhiteSpace(request.Url) && request.Url.Trim().StartsWith("site:"))
+					{
+						var remainder = request.Url.Trim().Substring(5).Trim();
+						if (!string.IsNullOrEmpty(remainder))
+						{
+							var firstSpace = remainder.IndexOf(' ');
+							if (firstSpace > 0)
+							{
+								siteDomain = remainder.Substring(0, firstSpace).Trim();
+								siteKeywords = remainder.Substring(firstSpace + 1).Trim();
+							}
+							else
+							{
+								siteDomain = remainder.Trim();
+								siteKeywords = null;
+							}
+							siteOnly = true;
+						}
+					}
+
 					// Define the common search condition
 					bool searchAll = request.Url == "*";
-					string whereCondition = request.ExactMatch.GetValueOrDefault()
+					string whereCondition = string.Empty;
+
+					if (siteOnly && !string.IsNullOrEmpty(siteDomain))
+					{
+						// Domain-restricted search: only return results under the specified domain
+						var normalizedSite = NormalizeBaseDomain(siteDomain.ToLower());
+						whereCondition = @$"(
+								LOWER(url) LIKE CONCAT('https://', @siteDomain, '%')
+								OR LOWER(url) LIKE CONCAT('http://', @siteDomain, '%')
+								OR LOWER(url) LIKE CONCAT(@siteDomain, '%')
+								OR LOWER(url) IN (
+									CONCAT('https://', @siteDomain),
+									CONCAT('https://', @siteDomain, '/'),
+									CONCAT('http://', @siteDomain),
+									CONCAT('http://', @siteDomain, '/'),
+									CONCAT(@siteDomain),
+									CONCAT(@siteDomain, '/')
+								)
+							)";
+
+						if (!string.IsNullOrWhiteSpace(siteKeywords))
+						{
+							// add keyword filtering (natural language mode and string LIKE fallback)
+							whereCondition = @$"({whereCondition}) AND (
+								MATCH(title, description, author, keywords) AGAINST (@siteKeywords IN NATURAL LANGUAGE MODE)
+								OR LOWER(title) LIKE @siteKeywordsLike
+								OR LOWER(description) LIKE @siteKeywordsLike
+								OR LOWER(url) LIKE @siteKeywordsLike
+							)";
+						}
+
+						whereCondition += " AND (failed = 0 OR (failed = 1 AND response_code IS NOT NULL))";
+					}
+					else
+					{
+						whereCondition = request.ExactMatch.GetValueOrDefault()
 						? " url_hash = @urlHash "
 						: searchAll
 							? " 1=1 "
@@ -78,6 +137,7 @@ namespace maxhanna.Server.Controllers
 								OR (LOWER(url) LIKE CONCAT('%', @baseDomain, '%') AND @searchIsDomain = 1) 
 							)
 							AND (failed = 0 OR (failed = 1 AND response_code IS NOT NULL))";
+					}
 
 					// Simplified ORDER BY for searchAll
 					string orderByClause = searchAll
@@ -117,7 +177,7 @@ namespace maxhanna.Server.Controllers
 
 					using (var command = new MySqlCommand(checkUrlQuery, connection))
 					{
-						AddParametersToCrawlerQuery(request, pageSize, offset, searchAll, command);
+						AddParametersToCrawlerQuery(request, pageSize, offset, searchAll, command, siteDomain, siteKeywords);
 						using (var reader = await command.ExecuteReaderAsync())
 						{
 							while (reader.Read())
@@ -139,7 +199,7 @@ namespace maxhanna.Server.Controllers
 					// Get total count
 					using (var countCommand = new MySqlCommand(totalCountQuery, connection))
 					{
-						AddParametersToCrawlerQuery(request, pageSize, offset, searchAll, countCommand);
+						AddParametersToCrawlerQuery(request, pageSize, offset, searchAll, countCommand, siteDomain, siteKeywords);
 						totalResults = Convert.ToInt32(await countCommand.ExecuteScalarAsync());
 					}
 
@@ -199,7 +259,7 @@ namespace maxhanna.Server.Controllers
 			}
 		}
 
-		private void AddParametersToCrawlerQuery(CrawlerRequest request, int pageSize, int offset, bool searchAll, MySqlCommand command)
+	private void AddParametersToCrawlerQuery(CrawlerRequest request, int pageSize, int offset, bool searchAll, MySqlCommand command, string? siteDomain = null, string? siteKeywords = null)
 		{
 			command.Parameters.AddWithValue("@searchAll", searchAll);
 			command.Parameters.AddWithValue("@urlHash", searchAll ? DBNull.Value : _webCrawler.GetUrlHash(request.Url ?? ""));
@@ -220,6 +280,27 @@ namespace maxhanna.Server.Controllers
 			command.Parameters.AddWithValue("@searchWithWildcard", $"%{request.Url?.ToLower()}%");
 			command.Parameters.AddWithValue("@searchIsDomain",
 				Uri.CheckHostName(request.Url?.Replace("https://", "").Replace("http://", "").Split('/')[0]) != UriHostNameType.Unknown);
+
+			// optional site:domain parameters
+			if (!string.IsNullOrWhiteSpace(siteDomain))
+			{
+				command.Parameters.AddWithValue("@siteDomain", siteDomain.ToLower());
+			}
+			else
+			{
+				command.Parameters.AddWithValue("@siteDomain", DBNull.Value);
+			}
+
+			if (!string.IsNullOrWhiteSpace(siteKeywords))
+			{
+				command.Parameters.AddWithValue("@siteKeywords", siteKeywords);
+				command.Parameters.AddWithValue("@siteKeywordsLike", $"%{siteKeywords.ToLower()}%");
+			}
+			else
+			{
+				command.Parameters.AddWithValue("@siteKeywords", DBNull.Value);
+				command.Parameters.AddWithValue("@siteKeywordsLike", DBNull.Value);
+			}
 		}
 
 		private string NormalizeBaseDomain(string url)

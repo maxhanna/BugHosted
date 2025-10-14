@@ -32,6 +32,21 @@
   gap: 10px;
 }
 
+.smallButton {
+  padding: 6px 10px;
+  font-size: 0.8rem;
+  border-radius: 6px;
+  background: var(--secondary-button-background, #eee);
+  border: 1px solid var(--main-border-color, #ccc);
+  cursor: pointer;
+}
+
+.siteHelperTip {
+  margin: 6px 0 12px 0;
+  text-align: center;
+  color: var(--muted-text-color, #888);
+}
+
 .nbDiv {
   margin: 10px 10px;
 }
