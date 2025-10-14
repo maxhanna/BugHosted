@@ -181,9 +181,8 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
     ngOnDestroy() {
         clearInterval(this.pollingInterval);
         this.mainScene.destroy();
-        this.gameLoop.stop();
-    // Stop background music if playing
-    try { resources.stopSound("pixelDreams"); } catch { }
+        this.gameLoop.stop(); 
+        resources.stopSound("pixelDreams");  
         this.remove_me('EnderComponent');
         this.parentRef?.setViewportScalability(true);
         this.parentRef?.removeResizeListener();

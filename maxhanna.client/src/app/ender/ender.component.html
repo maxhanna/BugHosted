@@ -164,7 +164,7 @@
             {{snapToGridFetch(h.position.y)}}</strong>
         </div>
       </div>
-      <div class="otherHeroesUserTagContainer">
+      <div class="otherHeroesUserTagContainer" (click)="ngOnDestroy()">
           <app-user-tag 
             [user]="cachedUsers.get(h.userId ?? 0)" 
             [userId]="h.userId ?? 0" 
