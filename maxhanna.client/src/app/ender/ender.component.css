@@ -3,15 +3,15 @@
   src: url("../../assets/metabots/retro-gaming.ttf")
 }
 
-:root{
+:root {
   --ship-metal-1: #2b3942;
   --ship-metal-2: #121a21;
   --ship-accent: #bfa25a;
   --ship-accent-2: #8fbfd6;
   --ship-wood: #3a2b20;
-  --porthole-glass: rgba(200,230,255,0.06);
-  --porthole-reflect: rgba(255,255,255,0.06);
-  --main-border: 6px solid rgba(40,40,40,0.9);
+  --porthole-glass: rgba(200, 230, 255, 0.06);
+  --porthole-reflect: rgba(255, 255, 255, 0.06);
+  --main-border: 6px solid rgba(40, 40, 40, 0.9);
   --secondary-font-color: #e8e7dc;
 }
 
@@ -39,31 +39,15 @@ body {
   user-select: none;
 }
 
-.componentMain{
-  background: linear-gradient(180deg, var(--ship-metal-1) 0%, var(--ship-metal-2) 100%);
-  background-image: repeating-linear-gradient(90deg, rgba(255,255,255,0.02) 0 2px, transparent 2px 40px), linear-gradient(180deg, var(--ship-metal-1), var(--ship-metal-2));
-  padding: 18px 12px;
-  box-sizing: border-box;
-  position: relative;
-  border-top: 8px solid rgba(0,0,0,0.6);
-}
-
-.componentMain::before{
-  content: '';
-  position: absolute;
-  left: 12px;
-  right: 12px;
-  top: 12px;
-  bottom: 12px;
-  border-radius: 10px;
+.componentMain::before {
   pointer-events: none;
-  box-shadow: inset 0 0 0 2px rgba(255,255,255,0.02), 0 10px 30px rgba(0,0,0,0.6);
 }
 
 .gameCanvas {
   border-radius: 12px;
   display: block;
-  background-color: #051017; /* deep sea viewport */
+  background-color: #051017;
+  /* deep sea viewport */
   width: 100%;
   max-width: calc(var(--vh, 1vh) * 100 * (1024 / 910));
   margin-left: auto;
@@ -71,11 +55,11 @@ body {
   padding: 12px;
   box-sizing: border-box;
   border: 12px solid #2f3a3f;
-  box-shadow: 0 4px 30px rgba(0,0,0,0.7), inset 0 6px 30px rgba(0,0,0,0.8);
+  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.7), inset 0 6px 30px rgba(0, 0, 0, 0.8);
   position: relative;
 }
 
-.gameCanvas::after{
+.gameCanvas::after {
   content: '';
   position: absolute;
   left: 36px;
@@ -83,7 +67,7 @@ body {
   top: 36px;
   bottom: 36px;
   border-radius: 6px;
-  background: radial-gradient(circle at 20% 20%, rgba(255,255,255,0.02), transparent 10%), linear-gradient(180deg, rgba(255,255,255,0.01), rgba(0,0,0,0.02));
+  background: radial-gradient(circle at 20% 20%, rgba(255, 255, 255, 0.02), transparent 10%), linear-gradient(180deg, rgba(255, 255, 255, 0.01), rgba(0, 0, 0, 0.02));
   pointer-events: none;
 }
 
@@ -98,8 +82,8 @@ body {
   max-width: 50%;
   font-family: fontRetroGaming;
   border-radius: 20px;
-  border: 2px solid rgba(255,255,255,0.06);
-  background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(0,0,0,0.2));
+  border: 2px solid rgba(255, 255, 255, 0.06);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.02), rgba(0, 0, 0, 0.2));
   color: var(--secondary-font-color);
 }
 
@@ -145,19 +129,20 @@ body {
   width: 36%;
   height: 34%;
   position: absolute;
-  background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(0,0,0,0.25));
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.02), rgba(0, 0, 0, 0.25));
   cursor: pointer;
-  border: 2px solid rgba(0,0,0,0.6);
-  box-shadow: 0 3px 8px rgba(0,0,0,0.6), inset 0 2px 0 rgba(255,255,255,0.02);
+  border: 2px solid rgba(0, 0, 0, 0.6);
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.6), inset 0 2px 0 rgba(255, 255, 255, 0.02);
 }
 
 .dpad .middle {
-  width: 60px;
-  height: 60px;
+  width: 58px;
+  height: 55px;
 }
 
 .up {
   left: 33%;
+  top: -4px;
   border-top: 4px solid black;
   border-left: 4px solid black;
   border-right: 4px solid black;
@@ -185,7 +170,7 @@ body {
 }
 
 .down {
-  top: calc(70%);
+  top: 69%;
   left: 33%;
   border-left: 4px solid black;
   border-bottom: 4px solid black;
@@ -291,7 +276,7 @@ body {
   position: absolute;
   background-color: transparent !important;
   margin: auto;
-  display:none;
+  display: none;
 }
 
 .a-b {
@@ -313,9 +298,9 @@ body {
   line-height: 65px;
   border-radius: 50%;
   background: linear-gradient(180deg, #5a4a2a, #2e230f);
-  border: 3px solid rgba(0,0,0,0.6);
-  box-shadow: 0 4px 10px rgba(0,0,0,0.6), inset 0 -2px 0 rgba(255,255,255,0.03);
-  text-shadow: 0px -1px 1px rgba(0,0,0,0.6);
+  border: 3px solid rgba(0, 0, 0, 0.6);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.6), inset 0 -2px 0 rgba(255, 255, 255, 0.03);
+  text-shadow: 0px -1px 1px rgba(0, 0, 0, 0.6);
   color: #ffefc6;
   text-align: center;
   cursor: pointer;
@@ -350,7 +335,7 @@ body {
   right: 100px;
   display: inline-block;
   color: var(--secondary-font-color);
-  text-shadow: 0px -1px 0px rgba(0,0,0,0.6);
+  text-shadow: 0px -1px 0px rgba(0, 0, 0, 0.6);
   letter-spacing: -1px;
   width: 60px;
   font-size: 16px;
@@ -367,9 +352,9 @@ body {
 
 @media only screen and (max-width : 900px) and (max-height: 950px) {
   .start {
-      position: absolute;
-      bottom: 100px;
-      right: 170px;
+    position: absolute;
+    bottom: 100px;
+    right: 170px;
   }
 }
 
@@ -383,8 +368,8 @@ body {
   border-radius: 40%;
   background: linear-gradient(180deg, #3b3430 0%, #2b2623 50%, #bfa25a 100%);
   background-repeat: no-repeat;
-  border: 2px solid rgba(0,0,0,0.6);
-  box-shadow: 0 6px 14px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.02);
+  border: 2px solid rgba(0, 0, 0, 0.6);
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.02);
   cursor: pointer;
 }
 
@@ -399,16 +384,20 @@ body {
   border-radius: 8px;
   background: linear-gradient(180deg, #2d2a22 0%, #1a1712 100%);
   padding: 10px 14px;
-  border: 2px solid rgba(255,255,255,0.03);
+  border: 2px solid rgba(255, 255, 255, 0.03);
   font-family: fontRetroGaming;
   font-size: 14px;
   color: var(--secondary-font-color);
-  box-shadow: 0 6px 18px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.02);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.02);
   z-index: 9999;
 }
-.runHud div { line-height: 1.2; }
 
-.b, .start {
+.runHud div {
+  line-height: 1.2;
+}
+
+.b,
+.start {
   display: none !important;
 }
 
@@ -421,13 +410,13 @@ body {
   padding: 20px;
 }
 
-.finalScoreWrapper { 
-    display: flex;
-    flex-direction: column;
-    flex-wrap: nowrap;
-    align-content: center;
-    justify-content: center;
-    align-items: center;
+.finalScoreWrapper {
+  display: flex;
+  flex-direction: column;
+  flex-wrap: nowrap;
+  align-content: center;
+  justify-content: center;
+  align-items: center;
 }
 
 .otherHeroRow {
@@ -441,55 +430,151 @@ body {
   display: flex;
   align-content: flex-end;
 }
+
 .otherHeroesUserInfo {
   width: 100%;
 }
 
 /* Gearbox / spaceship panel styling for Other Heroes popup */
-.gearboxPopup { 
+.gearboxPopup {
   --gbx-metal-1: linear-gradient(180deg, #44484d 0%, #2b2f33 60%);
   --gbx-metal-2: linear-gradient(180deg, #5a5f66 0%, #3a3f45 60%);
   --gbx-accent: #6df0ff;
   padding: 8px;
   border-radius: 10px;
-  box-shadow: 0 6px 18px rgba(0,0,0,0.7), 0 0 12px rgba(109,240,255,0.05) inset;
-  border: 2px solid rgba(200,200,210,0.06);
-  background: repeating-linear-gradient(45deg, rgba(255,255,255,0.02) 0px, rgba(255,255,255,0.02) 2px, transparent 2px, transparent 6px), var(--gbx-metal-1);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.7), 0 0 12px rgba(109, 240, 255, 0.05) inset;
+  border: 2px solid rgba(200, 200, 210, 0.06);
+  background: repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.02) 0px, rgba(255, 255, 255, 0.02) 2px, transparent 2px, transparent 6px), var(--gbx-metal-1);
 }
+
 .gearboxPopup .gbx-frame {
-  padding: 6px; 
+  padding: 6px;
   background: var(--gbx-metal-2);
-  box-shadow: inset 0 2px 6px rgba(0,0,0,0.6), inset 0 -2px 6px rgba(255,255,255,0.02);
+  box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.6), inset 0 -2px 6px rgba(255, 255, 255, 0.02);
   position: relative;
 }
-.gearboxPopup .gbx-header { 
-  display:flex; align-items:center; justify-content:space-between; 
-  padding:6px 10px; 
-  border-bottom: 1px solid rgba(0,0,0,0.5);
+
+.gearboxPopup .gbx-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 10px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.5);
 }
-.gearboxPopup .popupPanelTitle { 
-  font-family: fontRetroGaming; 
-  font-size: 16px; color: var(--secondary-font-color); 
-  text-align:center; flex:1; 
+
+.gearboxPopup .popupPanelTitle {
+  font-family: fontRetroGaming;
+  font-size: 16px;
+  color: var(--secondary-font-color);
+  text-align: center;
+  flex: 1;
 }
-.gbx-bolt { width:18px; height:18px; display:inline-block; background:radial-gradient(circle at 30% 30%, #fff 0%, #cfcfcf 10%, #7b7f85 55%, #3a3f45 100%); border-radius:4px; box-shadow: inset 0 -2px 2px rgba(0,0,0,0.6);}
-.gbx-bolt.bolt-left { margin-right:6px; }
-.gbx-bolt.bolt-right { margin-left:6px; }
-.gbx-body { padding:10px; }
-.gbx-empty { padding:12px; color:#cfd6dc; text-align:center; }
-.gbx-row { padding:8px; margin-bottom:6px; border-radius:6px; display:flex; align-items:center; gap:8px; background: linear-gradient(180deg, rgba(0,0,0,0.12), rgba(255,255,255,0.02)); border:1px solid rgba(0,0,0,0.35); box-shadow: 0 2px 4px rgba(0,0,0,0.4) inset;}
-.gbx-row:hover { box-shadow: 0 6px 12px rgba(0,0,0,0.5), 0 0 10px rgba(109,240,255,0.06) inset; transform: translateY(-1px); }
-.gearboxPopup .otherHeroRow { padding:6px 4px; }
-.gearboxPopup .otherHeroesUserInfo { padding:4px 8px; }
-.gearboxPopup .colorSwatch { display:inline-block; width:12px; height:12px; border:1px solid rgba(0,0,0,0.6); vertical-align:middle; margin-right:6px; box-shadow: 0 1px 0 rgba(255,255,255,0.06) inset; }
-.gbx-footer { display:flex; justify-content:center; padding:8px; border-top:1px solid rgba(0,0,0,0.3); }
-.gearboxPopup .gearCloseButton { background: linear-gradient(180deg,#121214 0%, #2b2f33 100%); border:1px solid #000; color:var(--secondary-font-color); padding:6px 12px; border-radius:6px; cursor:pointer; box-shadow: 0 2px 6px rgba(0,0,0,0.6); }
-.gearboxPopup .gearCloseButton:hover { filter: brightness(1.1); box-shadow: 0 6px 14px rgba(0,0,0,0.7); }
+
+.gbx-bolt {
+  width: 18px;
+  height: 18px;
+  display: inline-block;
+  background: radial-gradient(circle at 30% 30%, #fff 0%, #cfcfcf 10%, #7b7f85 55%, #3a3f45 100%);
+  border-radius: 4px;
+  box-shadow: inset 0 -2px 2px rgba(0, 0, 0, 0.6);
+}
+
+.gbx-bolt.bolt-left {
+  margin-right: 6px;
+}
+
+.gbx-bolt.bolt-right {
+  margin-left: 6px;
+}
+
+.gbx-body {
+  padding: 10px;
+}
+
+.gbx-empty {
+  padding: 12px;
+  color: #cfd6dc;
+  text-align: center;
+}
+
+.gbx-row {
+  padding: 8px;
+  margin-bottom: 6px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.12), rgba(255, 255, 255, 0.02));
+  border: 1px solid rgba(0, 0, 0, 0.35);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.4) inset;
+}
+
+.gbx-row:hover {
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.5), 0 0 10px rgba(109, 240, 255, 0.06) inset;
+  transform: translateY(-1px);
+}
+
+.gearboxPopup .otherHeroRow {
+  padding: 6px 4px;
+}
+
+.gearboxPopup .otherHeroesUserInfo {
+  padding: 4px 8px;
+}
+
+.gearboxPopup .colorSwatch {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border: 1px solid rgba(0, 0, 0, 0.6);
+  vertical-align: middle;
+  margin-right: 6px;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.06) inset;
+}
+
+.gbx-footer {
+  display: flex;
+  justify-content: center;
+  padding: 8px;
+  border-top: 1px solid rgba(0, 0, 0, 0.3);
+}
+
+.gearboxPopup .gearCloseButton {
+  background: linear-gradient(180deg, #121214 0%, #2b2f33 100%);
+  border: 1px solid #000;
+  color: var(--secondary-font-color);
+  padding: 6px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.6);
+}
+
+.gearboxPopup .gearCloseButton:hover {
+  filter: brightness(1.1);
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.7);
+}
 
 /* small decorative rivets */
-.gearboxPopup::before, .gearboxPopup::after { content: ""; position:absolute; width:8px; height:8px; background: radial-gradient(circle at 30% 30%, #fff 0%, #cfcfcf 15%, #5b6169 60%, #2a2d32 100%); border-radius:50%; box-shadow: inset 0 -1px 1px rgba(0,0,0,0.6); }
-.gearboxPopup::before { left:8px; top:8px; }
-.gearboxPopup::after { right:8px; top:8px; }
+.gearboxPopup::before,
+.gearboxPopup::after {
+  content: "";
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  background: radial-gradient(circle at 30% 30%, #fff 0%, #cfcfcf 15%, #5b6169 60%, #2a2d32 100%);
+  border-radius: 50%;
+  box-shadow: inset 0 -1px 1px rgba(0, 0, 0, 0.6);
+}
+
+.gearboxPopup::before {
+  left: 8px;
+  top: 8px;
+}
+
+.gearboxPopup::after {
+  right: 8px;
+  top: 8px;
+}
 
 .deathPanel {
   min-width: 300px;
