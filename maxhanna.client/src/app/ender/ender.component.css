@@ -377,6 +377,7 @@ body {
   display: flex;
   flex-wrap: nowrap;
   flex-direction: row;
+  min-width: 200px;
 }
 
 .otherHeroesUserTagContainer {
