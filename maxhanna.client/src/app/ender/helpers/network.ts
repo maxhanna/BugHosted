@@ -14,9 +14,9 @@ export class Network {
   }
 }
 
-export let actionBlocker = false; 
-export let batchInterval: any; 
-  
+export let actionBlocker = false;
+export let batchInterval: any;
+
 export function setActionBlocker(duration: number) {
   actionBlocker = true;
   setTimeout(() => {
@@ -37,13 +37,13 @@ function safeStringify(obj: any) {
   });
 }
 
-function trimChatToLimit(object: any, limit: number) { 
+function trimChatToLimit(object: any, limit: number) {
   if (!object || !object.chat || !Array.isArray(object.chat)) return;
   while (object.chat.length > limit) {
     object.chat.pop();
-  } 
+  }
 }
- 
+
 export function subscribeToMainGameEvents(object: any) {
   events.on("CHANGE_LEVEL", object.mainScene, (level: Level) => {
     object.otherHeroes = [];
@@ -80,13 +80,13 @@ export function subscribeToMainGameEvents(object: any) {
         case "RIGHT":
           tmpBotPosition.x += gridCells(1); // Move bot to the left
           break;
-      } 
+      }
     }
   });
 
   events.on("ALERT", object, async (message: string) => {
     object.parentRef?.showNotification(message);
-  }); 
+  });
 
   events.on("MASK_EQUIPPED", object, (params: { maskId: number }) => {
     object.metaHero.mask = params.maskId === 0 ? undefined : params.maskId;
@@ -96,7 +96,7 @@ export function subscribeToMainGameEvents(object: any) {
     }
     object.updatePlayers();
   });
-  
+
   events.on("WARDROBE_CLOSED", object, (params: { heroPosition: Vector2, entranceLevel: Level }) => {
     object.stopPollingForUpdates = false;
     object.blockOpenStartMenu = false;
@@ -143,12 +143,12 @@ export function subscribeToMainGameEvents(object: any) {
 
         const name = object.metaHero.name;
         object.chat = object.chat.filter((m: MetaChat) => !(m && m.hero === name && (m.content ?? '') === '...'));
-         
+
         object.chat.unshift({
           hero: name,
           content: msg ?? "",
           timestamp: new Date()
-        } as MetaChat); 
+        } as MetaChat);
         object.setHeroLatestMessage(object.otherHeroes.find((x: Character) => x.name === name));
         // Display the just-sent message on screen
         object.displayChatMessage();
@@ -158,7 +158,7 @@ export function subscribeToMainGameEvents(object: any) {
 
   events.on("WAVE_AT", object, (objectAtPosition: GameObject) => {
     const msg = `👋 ${(objectAtPosition as Hero).name}`;
-  const metaEvent = new MetaEvent(0, object.metaHero.id, new Date(), "CHAT", object.metaHero.level, { "sender": object.metaHero.name ?? "Anon", "content": msg })
+    const metaEvent = new MetaEvent(0, object.metaHero.id, new Date(), "CHAT", object.metaHero.level, { "sender": object.metaHero.name ?? "Anon", "content": msg })
     object.enderService.updateEvents(metaEvent);
   });
 
@@ -168,14 +168,14 @@ export function subscribeToMainGameEvents(object: any) {
     const receiver = (objectAtPosition as Hero).name ?? "Anon";
     const sender = (object.metaHero as Hero).name ?? "Anon";
     const msg = `🤫 (${sender}:${receiver}) : ${msgContent}`;
-  const metaEvent = new MetaEvent(0, object.metaHero.id, new Date(), "WHISPER", object.metaHero.level, { "sender": sender, "receiver": receiver, "content": msg })
+    const metaEvent = new MetaEvent(0, object.metaHero.id, new Date(), "WHISPER", object.metaHero.level, { "sender": sender, "receiver": receiver, "content": msg })
     object.enderService.updateEvents(metaEvent);
 
     if (sender === object.metaHero.name) {
       object.chatInput.nativeElement.value = "";
     }
   });
-    
+
   events.on("SPAWN_BIKE_WALL", object, (params: { x: number, y: number }) => {
     try {
       if (!object.pendingBikeWalls) object.pendingBikeWalls = [] as { x: number, y: number }[];
@@ -185,7 +185,7 @@ export function subscribeToMainGameEvents(object: any) {
       const metaEvent = new MetaEvent(0, object.metaHero.id, new Date(), "SPAWN_BIKE_WALL", object.metaHero.level, { x: params.x + "", y: params.y + "" });
       object.enderService.updateEvents(metaEvent);
     }
-  }); 
+  });
 
   events.on("HIDE_START_BUTTON", object, () => {
     object.hideStartButton = true;
@@ -252,7 +252,7 @@ export function subscribeToMainGameEvents(object: any) {
       } as MetaChat);
     object.setHeroLatestMessage(hero);
   })
- 
+
 
   events.on("PARTY_UP", object, (person: Hero) => {
     const foundInParty = object.partyMembers.find((x: any) => x.heroId === object.metaHero.id);
@@ -263,24 +263,24 @@ export function subscribeToMainGameEvents(object: any) {
     if (!foundInParty2) {
       object.partyMembers.push({ heroId: person.id, name: person.name, color: person.colorSwap });
     }
-  const metaEvent = new MetaEvent(0, object.metaHero.id, new Date(), "PARTY_UP", object.metaHero.level, { "hero_id": `${person.id}`, "party_members": safeStringify(object.partyMembers.map((x: any) => x.heroId)) })
+    const metaEvent = new MetaEvent(0, object.metaHero.id, new Date(), "PARTY_UP", object.metaHero.level, { "hero_id": `${person.id}`, "party_members": safeStringify(object.partyMembers.map((x: any) => x.heroId)) })
     object.enderService.updateEvents(metaEvent);
   });
   events.on("UNPARTY", object, (person: Hero) => {
-  const metaEvent = new MetaEvent(0, object.metaHero.id, new Date(), "UNPARTY", object.metaHero.level, { "hero_id": `${person.id}` })
+    const metaEvent = new MetaEvent(0, object.metaHero.id, new Date(), "UNPARTY", object.metaHero.level, { "hero_id": `${person.id}` })
     object.enderService.updateEvents(metaEvent);
     object.partyMembers = object.partyMembers.filter((x: any) => x.heroId === object.metaHero.id);
     object.reinitializeInventoryData();
   });
   events.on("CHARACTER_PICKS_UP_ITEM", object, (data: {
-      position: Vector2,
-      hero: Hero,
-      name: string,
-      imageName: string,
-      category: string,
-      item: any,
-      stats: any,
-    }) => {
+    position: Vector2,
+    hero: Hero,
+    name: string,
+    imageName: string,
+    category: string,
+    item: any,
+    stats: any,
+  }) => {
     if (!actionBlocker) {
       if (data.category) {
         object.enderService.updateInventory(object.metaHero.id, data.name, data.imageName, data.category);
@@ -289,17 +289,17 @@ export function subscribeToMainGameEvents(object: any) {
         object.mainScene.inventory.parts.concat(data.item);
 
         const metaEvent = new MetaEvent(0, object.metaHero.id, new Date(), "ITEM_DESTROYED", object.metaHero.level,
-        {
-          "position": `${safeStringify(data.position)}`,
-          "damage": `${data.item?.damageMod}`,
-          "partName": `${data.item?.partName}`,
-          "skill": `${data.item?.skill?.name}`
-        });
+          {
+            "position": `${safeStringify(data.position)}`,
+            "damage": `${data.item?.damageMod}`,
+            "partName": `${data.item?.partName}`,
+            "skill": `${data.item?.skill?.name}`
+          });
         object.enderService.updateEvents(metaEvent);
       }
       setActionBlocker(500);
     }
-  }); 
+  });
 
   events.on("CHANGE_COLOR", object, () => {
     if (object.parentRef) {
@@ -322,19 +322,10 @@ export function subscribeToMainGameEvents(object: any) {
 }
 
 export function actionMultiplayerEvents(object: any, metaEvents: MetaEvent[]) {
-  // Debug: trace incoming events and current known events to help diagnose missed handlers
-   
-    const incomingSummary = Array.isArray(metaEvents) ? metaEvents.map((e: any) => `${e.id ?? 'no-id'}:${e.eventType ?? 'no-type'}`).join(',') : String(metaEvents);
-    const currentEvents = object.events;
-    const currentSummary = Array.isArray(currentEvents) ? currentEvents.map((e: any) => `${e.id ?? 'no-id'}`).join(',') : String(currentEvents);
-    console.debug('[actionMultiplayerEvents] called. incoming.count=', Array.isArray(metaEvents) ? metaEvents.length : 'n/a', 'incoming=', incomingSummary, 'current.count=', Array.isArray(currentEvents) ? currentEvents.length : 'n/a', 'current=', currentSummary);
- 
-   if (metaEvents.length > 0) {
+  const currentEvents = object.events;
+  if (metaEvents.length > 0) {
     for (let event of metaEvents) {
       const existingEvent = Array.isArray(currentEvents) ? currentEvents.find((e: MetaEvent) => e.id == event.id) : undefined;
-      if (existingEvent) {
-          console.debug('[actionMultiplayerEvents] skipping duplicate event id=', existingEvent.id, 'type=', existingEvent.eventType);
-      }
       if (!existingEvent) {
         //do something with object fresh event.
         if (event.eventType === "PARTY_UP" && event.data && event.data["hero_id"] == `${object.metaHero.id}` && !object.isDecidingOnParty) {
@@ -348,15 +339,13 @@ export function actionMultiplayerEvents(object: any, metaEvents: MetaEvent[]) {
         }
         if (event.eventType === "PARTY_INVITE_ACCEPTED" && event.heroId != object.metaHero.id) {
           actionPartyInviteAcceptedEvent(object, event);
-        } 
-       
+        }
+
         if (event.eventType === "HERO_DIED") {
-          try { console.debug('[actionMultiplayerEvents] processing HERO_DIED id=', event.id, 'heroId=', event.heroId, 'level=', event.level, 'data=', event.data); } catch {}
           try {
             const evLevel = event.level ?? (event.data && event.data["level"]) ?? null;
             const myLevel = object.metaHero?.level ?? object.mainScene?.level?.name ?? null;
             const victimId = event.heroId ?? (event.data && event.data["heroId"]) ?? null;
-            console.log("hero died", event);
             if (evLevel != null && myLevel != null && victimId != null && (evLevel === myLevel || String(evLevel) === String(myLevel))) {
               if (object.mainScene && object.mainScene.level && object.mainScene.level.children) {
                 const found = object.mainScene.level.children.find((c: any) => c && c.id === victimId && c.name != "bike-wall");
@@ -391,7 +380,7 @@ export function actionMultiplayerEvents(object: any, metaEvents: MetaEvent[]) {
             console.error('Error handling HERO_DIED event', ex);
           }
         }
-          
+
         if (event.eventType === "SPAWN_BIKE_WALL" && event.data) {
           const x = parseInt(event.data["x"] ?? "NaN");
           const y = parseInt(event.data["y"] ?? "NaN");
@@ -401,11 +390,11 @@ export function actionMultiplayerEvents(object: any, metaEvents: MetaEvent[]) {
               const useColor = event.heroId === object.metaHero.id ? object.metaHero?.colorSwap : undefined;
               const wall = new BikeWall({ position: new Vector2(x, y), colorSwap: useColor, heroId: event.heroId });
               object.mainScene.level.addChild(wall);
-              events.emit("BIKEWALL_CREATED", { x, y });  
+              events.emit("BIKEWALL_CREATED", { x, y });
             }
           }
         }
-        
+
         if (event.eventType === "CHAT" && event.data) {
           const content = event.data["content"] ?? '';
           const name = event.data["sender"] ?? "Anon";
@@ -416,7 +405,7 @@ export function actionMultiplayerEvents(object: any, metaEvents: MetaEvent[]) {
             content: content,
             timestamp: event.timestamp ? new Date(event.timestamp) : new Date()
           } as MetaChat;
-          
+
           const isDuplicate = object.chat && object.chat.some((m: MetaChat) => {
             try {
               if (!m || !m.hero) return false;

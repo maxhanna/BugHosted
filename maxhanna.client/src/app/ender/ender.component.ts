@@ -205,8 +205,7 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
         }
     }
 
-    private async handleHeroDeath() {
-        console.log("handle hero death called");
+    private async handleHeroDeath() { 
         this.stopPollingForUpdates = true;
         this.stopRunTimer();
         setTimeout(() => {
@@ -366,11 +365,8 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
                     return;
                 }
 
-                if (res) {
-                    console.log("got res, processing game updates");
-                    
+                if (res) { 
                     if (res.events) {
-                        console.log("Processing " + res.events.length + " events from server");
                         actionMultiplayerEvents(this, res.events);
                     }
                     if (res.heroes) {
