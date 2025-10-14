@@ -392,9 +392,11 @@ export function actionMultiplayerEvents(object: any, metaEvents: MetaEvent[]) {
             content: content,
             timestamp: new Date()
           } as MetaChat;
-          //object.chat.unshift(metachat);
-          object.displayChatMessage(metachat);
+          // Add the chat to local buffer and display it immediately
+          object.chat.unshift(metachat);
+          // Keep per-hero latest message state in sync
           object.setHeroLatestMessage(object.otherHeroes.find((x: Character) => x.name === name));
+          try { object.displayChatMessage(); } catch { }
 
         }
         if (event.eventType === "WHISPER" && event.data) {
