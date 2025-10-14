@@ -87,7 +87,7 @@
     </div>
 
     <!-- Live run HUD -->
-    <div class="runHud" *ngIf="!isMenuPanelOpen && !showOtherHeroesPanel && !showDeathPanel"
+    <div class="runHud" *ngIf="parentRef?.user?.id && !isMenuPanelOpen && !showOtherHeroesPanel && !showDeathPanel"
       style="position:fixed; bottom: 200px; right: 20px; color:var(--secondary-font-color); text-shadow:0 -1px 0 #222;">
       <div><strong>Time:</strong> {{runElapsedSeconds}}s</div>
       <div><strong>Walls:</strong> {{wallsPlacedThisRun}}</div>
