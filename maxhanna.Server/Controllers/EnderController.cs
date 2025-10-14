@@ -1078,7 +1078,7 @@ namespace maxhanna.Server.Controllers
             if (hero == null) throw new ArgumentNullException(nameof(hero));
             if (hero.Position == null) hero.Position = new Vector2(0, 0);
             int heroId = hero.Id;
-            await _log.Db($"Enter UpdateHeroInDB heroId={heroId}", heroId, "ENDER", false);
+           // await _log.Db($"Enter UpdateHeroInDB heroId={heroId}", heroId, "ENDER", false);
             int? previousLevel = null;
             try
             {
@@ -1811,9 +1811,10 @@ namespace maxhanna.Server.Controllers
             try
             {
                 int radius = Math.Max(128, (int)Math.Ceiling(speed * radiusSeconds) + 128);
-                int minX = Math.Max(0, centerX - radius);
+                // Don't clamp to 0 here — world coordinates may be negative and clamping biases the search window
+                int minX = centerX - radius;
                 int maxX = centerX + radius;
-                int minY = Math.Max(0, centerY - radius);
+                int minY = centerY - radius;
                 int maxY = centerY + radius;
 
                 string sql = @"SELECT id, hero_id, x, y, level FROM maxhanna.ender_bike_wall WHERE level = @Level AND x BETWEEN @MinX AND @MaxX AND y BETWEEN @MinY AND @MaxY ORDER BY id DESC;";
