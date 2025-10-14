@@ -160,12 +160,12 @@
         <div *ngFor="let h of otherHeroes; trackBy: trackByHeroId" class="otherHeroRow gbx-row">
           <div class="otherHeroesUserInfo" [style.borderBottomColor]="h.color">
             <div><strong>{{h.name}}</strong> <span *ngIf="h.id === metaHero.id">(You)</span></div>
-            <div class="xxSmallFont">Lvl {{h.level}} | Kills {{h.kills}} | Time {{getHeroTimeOnMap(h.id)}}s</div>
-            <div *ngIf="h.color" class="xxSmallFont">
+            <div class="smallFont">Lvl {{h.level}} | Kills {{h.kills}} | Time {{getHeroTimeOnMap(h.id)}}s</div>
+            <div *ngIf="h.color" class="xSmallFont">
               Color: 
               <span [style.background]="h.color" class="colorSwatch">{{h.color}}</span> 
             </div>
-            <div *ngIf="h.position"><strong>Pos: {{snapToGridFetch(h.position.x)}} ,
+            <div *ngIf="h.position"><strong>{{snapToGridFetch(h.position.x)}} ,
                 {{snapToGridFetch(h.position.y)}}</strong>
             </div>
           </div>
