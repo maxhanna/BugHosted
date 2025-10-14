@@ -355,6 +355,9 @@ export function actionMultiplayerEvents(object: any, metaEvents: MetaEvent[]) {
                     found.destroy();
                     if (victimId == object.metaHero.id) {
                       events.emit("HERO_DIED");
+                    } else {
+                      object.heroEverMoved.delete(victimId);
+                      object.lastServerPos.delete(victimId);
                     }
                     console.log(`HERO_DIED removed character id=${victimId} on level ${evLevel}`);
                   } catch (err) {

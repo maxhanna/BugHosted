@@ -59,6 +59,10 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
     otherHeroes: MetaHero[] = [];
     // Map heroId -> first time (ms since epoch) seen on current level
     private heroFirstSeen: Map<number, number> = new Map<number, number>();
+    // Track whether we've ever observed a hero move (based on server snapshots)
+    private heroEverMoved: Map<number, boolean> = new Map<number, boolean>();
+    // Last server-known position per hero (used to detect movement across snapshots)
+    private lastServerPos: Map<number, Vector2> = new Map<number, Vector2>();
     showOtherHeroesPanel: boolean = false;
     enemiesOnSameLevelCount: number = 0;
     currentScore: number = 0;
@@ -139,9 +143,9 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
                 if (!this.isMuted) {
                     // Try to play immediately; many browsers will block autoplay without a user gesture.
                     // Also register a one-time user-gesture handler to ensure playback starts when the user interacts.
-                    try { resources.playSound("pixelDreams", { volume: 0.4, loop: true, allowOverlap: false }); } catch { }
+                    resources.playSound("pixelDreams", { volume: 0.4, loop: true, allowOverlap: false });
                     const startMusic = () => {
-                        try { resources.playSound("pixelDreams", { volume: 0.4, loop: true, allowOverlap: false }); } catch { }
+                        resources.playSound("pixelDreams", { volume: 0.4, loop: true, allowOverlap: false });
                         document.removeEventListener('pointerdown', startMusic);
                         document.removeEventListener('keydown', startMusic);
                     };
@@ -192,9 +196,9 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
         this.isMuted = !this.isMuted;
         resources.setMuted(this.isMuted);
         if (this.isMuted) {
-            try { resources.stopSound("pixelDreams"); } catch { }
+            resources.stopSound("pixelDreams");
         } else {
-            try { resources.playSound("pixelDreams", { volume: 0.4, loop: true, allowOverlap: false }); } catch { }
+            resources.playSound("pixelDreams", { volume: 0.4, loop: true, allowOverlap: false });
         }
         if (this.parentRef?.user?.id) {
             this.userService.updateMuteSounds(this.parentRef.user.id, this.isMuted).catch(()=>{});
@@ -328,7 +332,7 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
             }
             try {
                 // Abort any in-flight fetch so we only keep the freshest request
-                try { this.currentFetchAbortController?.abort(); } catch { }
+                this.currentFetchAbortController?.abort();
                 this.currentFetchAbortController = new AbortController();
                 const signal = this.currentFetchAbortController.signal;
                 const res: any = await this.enderService.fetchGameDataWithWalls(this.metaHero, pendingWalls, this.lastKnownWallId, signal);
@@ -391,6 +395,8 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
                     if (res.currentLevel !== undefined && this.metaHero) {
                         if (this.metaHero?.level && this.metaHero.level != res.currentLevel) {
                             this.clearWalls();
+                            this.heroEverMoved.clear();
+                            this.lastServerPos.clear();
                         }
                         this.metaHero.level = Number(res.currentLevel) || 1;
                     }
@@ -495,9 +501,12 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
 
     private updateOtherHeroesBasedOnFetchedData(res: { position: Vector2; heroes: MetaHero[]; }) {
         for (var oh of this.otherHeroes) {
-            if (oh.id && !res.heroes?.filter(x => x.id === oh.id)) {
+            const stillExists = Array.isArray(res.heroes) && res.heroes.some(x => x.id === oh.id);
+            if (oh.id && !stillExists) {
                 const theHero = this.mainScene?.level?.children?.filter((x: any) => x.id === oh.id);
                 theHero?.destroy();
+                this.heroEverMoved.delete(oh.id);
+                this.lastServerPos.delete(oh.id);
             }
         }
         if (!res || !res.heroes) {
@@ -508,6 +517,13 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
         // Ensure created dates are parsed and objects are instances of MetaHero
         this.otherHeroes = res.heroes.map((h: MetaHero) => {
             const pos = h.position ? new Vector2(h.position.x, h.position.y) : new Vector2(0, 0);
+            // detect server-observed movement and record it 
+            const prev = this.lastServerPos.get(h.id);
+            if (prev && (prev.x !== pos.x || prev.y !== pos.y)) {
+                this.heroEverMoved.set(h.id, true);
+            }
+            // always update lastServerPos
+            this.lastServerPos.set(h.id, pos); 
             if (h.id && h.color) {
                 this.heroColors.set(h.id, h.color);
             }
@@ -538,7 +554,7 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
     // Handler for user-tag components to emit loaded users so we can cache them and reuse
     onUserTagLoaded(user?: User) {
         if (!user || !user.id) return;
-        try { this.cachedUsers.set(user.id, user); } catch { }
+        this.cachedUsers.set(user.id, user);
     }
 
     getHeroTimeOnMap(heroId: number): number {
@@ -626,8 +642,7 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
     private setUpdatedHeroPosition(existingHero: any, hero: MetaHero) {
         if (existingHero.id != this.metaHero.id) {
             // Check whether the live hero has moved (compare live lastPosition vs incoming server position)
-            const liveLast = existingHero?.lastPosition;
-            const moved = !!liveLast && (liveLast.x !== hero.position.x || liveLast.y !== hero.position.y);
+            const moved = this.heroEverMoved.get(hero.id) === true;
 
             // Only apply bump when the hero is moving
             let offsetX = 0;
@@ -699,6 +714,8 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
     }
 
     private async reinitializeHero(rz: MetaHero, skipDataFetch?: boolean) {
+        this.heroEverMoved.delete(rz.id);
+        this.lastServerPos.delete(rz.id);
         let spawnPos: Vector2;
         // map removed; determine level-specific spawn behavior directly
         if (rz && rz.position) {
