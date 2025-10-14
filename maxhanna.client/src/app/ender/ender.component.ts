@@ -6,7 +6,7 @@ import { User } from '../../services/datacontracts/user/user';
 import { EnderService } from '../../services/ender.service';
 import { UserService } from '../../services/user.service';
 import { MetaChat } from '../../services/datacontracts/ender/meta-chat';
-import { gridCells, snapToGrid } from './helpers/grid-cells';
+import { gridCells, snapToGrid, UP, DOWN, LEFT, RIGHT } from './helpers/grid-cells';
 import { GameLoop } from './helpers/game-loop';
 import { hexToRgb, resources } from './helpers/resources';
 import { events } from './helpers/events';
@@ -597,7 +597,7 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
     }
 
     private addHeroToScene(hero: MetaHero) {
-        // compute initial position; for remote heroes, nudge if crowding occurs so players start more spaced apart
+        // compute initial position; for remote heroes, nudge one grid cell ahead
         const baseX = hero.id == this.metaHero.id ? this.metaHero.position.x : hero.position.x;
         const baseY = hero.id == this.metaHero.id ? this.metaHero.position.y : hero.position.y;
         let initialPos = new Vector2(baseX, baseY);
@@ -625,7 +625,25 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
 
     private setUpdatedHeroPosition(existingHero: any, hero: MetaHero) {
         if (existingHero.id != this.metaHero.id) {
-            const newPos = new Vector2(hero.position.x, hero.position.y);
+            // Check whether the live hero has moved (compare live lastPosition vs incoming server position)
+            const liveLast = existingHero?.lastPosition;
+            const moved = !!liveLast && (liveLast.x !== hero.position.x || liveLast.y !== hero.position.y);
+
+            // Only apply bump when the hero is moving
+            let offsetX = 0;
+            let offsetY = 0;
+            if (moved) { 
+                let facing: string = DOWN;
+                const live = this.mainScene?.level?.children?.find((x: any) => x.id === hero.id);
+                if (live && (live as any).facingDirection) facing = (live as any).facingDirection as string;
+
+                const oneCell = gridCells(1);
+                if (facing === RIGHT) offsetX = oneCell;
+                else if (facing === LEFT) offsetX = -oneCell;
+                else if (facing === UP) offsetY = -oneCell;
+                else if (facing === DOWN) offsetY = oneCell;
+            }
+            const newPos = new Vector2(hero.position.x + offsetX, hero.position.y + offsetY);
             if (!existingHero.destinationPosition.matches(newPos)) {
                 existingHero.destinationPosition = newPos;
             }
