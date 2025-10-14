@@ -152,7 +152,8 @@
   <div *ngIf="otherHeroes && otherHeroes.length === 0" style="padding:8px;">No other heroes detected.</div>
   <div class="otherHeroContainer">
     <div *ngFor="let h of otherHeroes" class="otherHeroRow" style="padding:6px 8px; border-bottom:1px solid #333;">
-      <div><strong>{{h.name}}</strong> <span *ngIf="h.id === metaHero.id">(You)</span></div>
+      <div>
+<div><strong>{{h.name}}</strong> <span *ngIf="h.id === metaHero.id">(You)</span></div>
       <div class="xxSmallFont">Lvl {{h.level}} | Kills {{h.kills}} | Time {{getHeroTimeOnMap(h.id)}}s</div>
       <div *ngIf="h.color" class="xxSmallFont">Color: <span [style.background]="h.color"
           style="display:inline-block; width:12px; height:12px; border:1px solid #222; vertical-align:middle;"></span>
@@ -160,6 +161,10 @@
       </div>
       <div class="xxSmallFont" *ngIf="h.position"><strong>Pos: {{snapToGridFetch(h.position.x)}} ,
         {{snapToGridFetch(h.position.y)}}</strong>
+      </div>
+      </div>
+      <div>
+        <app-user-tag [userId]="h.userId" [inputtedParentRef]="parentRef"></app-user-tag>
       </div>
     </div>
   </div>

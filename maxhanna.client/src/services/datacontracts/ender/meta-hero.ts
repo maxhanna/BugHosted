@@ -4,6 +4,7 @@ import { MetaBot } from "./meta-bot";
 
 export class MetaHero {
   id: number;  
+  userId?: number;  
   name?: string;
   position: Vector2; 
   speed: number;
@@ -14,8 +15,9 @@ export class MetaHero {
   created: Date;
 
   // created may be a Date or an ISO string from the backend
-  constructor(id: number, name: string, position: Vector2, speed: number, color?: string, mask?: number, level: number = 1, kills: number = 0, created?: Date) {
+  constructor(id: number, userId: number, name: string, position: Vector2, speed: number, color?: string, mask?: number, level: number = 1, kills: number = 0, created?: Date) {
     this.id = id; 
+    this.userId = userId;
     this.name = name;
     this.position = position; 
     this.speed = speed;

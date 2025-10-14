@@ -1588,6 +1588,7 @@ namespace maxhanna.Server.Controllers
             string sql = @"
         SELECT 
             m.id as hero_id, 
+            m.user_id,
             m.name as hero_name,
             m.coordsX, 
             m.coordsY,
@@ -1621,6 +1622,7 @@ namespace maxhanna.Server.Controllers
                                 tmpHero = new MetaHero
                                 {
                                     Id = heroId,
+                                    UserId = Convert.ToInt32(reader["user_id"]),
                                     Name = Convert.ToString(reader["hero_name"]),
                                     Color = Convert.ToString(reader["color"]) ?? "",
                                     Mask = reader.IsDBNull(reader.GetOrdinal("mask")) ? null : Convert.ToInt32(reader["mask"]),

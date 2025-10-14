@@ -510,7 +510,7 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
             if (h.id && !this.heroFirstSeen.has(h.id)) {
                 this.heroFirstSeen.set(h.id, Date.now());
             }
-            return new MetaHero(h.id, h.name ?? "Anon", pos, h.speed ?? 1, h.color, h.mask, h.level ?? 1, h.kills ?? 0, h.created);
+            return new MetaHero(h.id, h.userId ?? 0, h.name ?? "Anon", pos, h.speed ?? 1, h.color, h.mask, h.level ?? 1, h.kills ?? 0, h.created);
         });
         this.updateEnemiesOnSameLevelCount();
         this.updateMissingOrNewHeroSprites();
@@ -679,7 +679,9 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
             mask: rz.mask ? new Mask(getMaskNameById(rz.mask)) : undefined,
             colorSwap: colorSwap ? new ColorSwap([0, 160, 200], hexToRgb(colorSwap)) : undefined,
         });
-        this.metaHero = new MetaHero(this.hero.id, (this.hero.name ?? "Anon"),
+        this.metaHero = new MetaHero(this.hero.id, 
+            rz.userId ?? 0,
+            (this.hero.name ?? "Anon"),
             this.hero.position.duplicate(),
             rz.speed,
             colorSwap,
