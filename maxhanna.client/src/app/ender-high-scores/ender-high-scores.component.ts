@@ -39,6 +39,10 @@ export class EnderHighScoresComponent implements OnInit, OnChanges {
   constructor(private enderService: EnderService) { }
 
   async ngOnInit() {
+    // start with all modes collapsed by default
+    const allModes: Mode[] = ['all', 'user', 'today', 'best'];
+    for (const m of allModes) { this.collapsedModes[m] = true; }
+
     this.applyHeadersCollapsed();
     await this.refresh();
     if (this.headersCollapsed) {
