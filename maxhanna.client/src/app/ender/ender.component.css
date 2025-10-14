@@ -384,5 +384,5 @@ body {
   align-content: flex-end;
 }
 .otherHeroesUserInfo {
-  width: calc(100% - 75px);
+  width: 100%;
 }
