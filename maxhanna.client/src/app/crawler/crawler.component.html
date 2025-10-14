@@ -19,7 +19,6 @@
         <div class="crawlerInputs"> 
           <input #urlInput type="text" placeholder="e.g. site:www.example.com keywords" (keydown.enter)="searchUrl()" />
           <button (click)="searchUrl()" [disabled]="isLoading">🔍Crawl</button>
-          <button type="button" class="smallButton" title="Insert example 'site:' query" (click)="fillSiteExample()">site: example</button>
         </div>
         <div class="siteHelperTip smallFont">Tip: use "site:domain.com keywords" to restrict results to a single domain. Click the example to autofill.</div>
     </div>
