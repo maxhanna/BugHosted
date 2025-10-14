@@ -322,10 +322,20 @@ export function subscribeToMainGameEvents(object: any) {
 }
 
 export function actionMultiplayerEvents(object: any, metaEvents: MetaEvent[]) {
-  const currentEvents = object.events;
-  if (metaEvents.length > 0) {
+  // Debug: trace incoming events and current known events to help diagnose missed handlers
+   
+    const incomingSummary = Array.isArray(metaEvents) ? metaEvents.map((e: any) => `${e.id ?? 'no-id'}:${e.eventType ?? 'no-type'}`).join(',') : String(metaEvents);
+    const currentEvents = object.events;
+    const currentSummary = Array.isArray(currentEvents) ? currentEvents.map((e: any) => `${e.id ?? 'no-id'}`).join(',') : String(currentEvents);
+    console.debug('[actionMultiplayerEvents] called. incoming.count=', Array.isArray(metaEvents) ? metaEvents.length : 'n/a', 'incoming=', incomingSummary, 'current.count=', Array.isArray(currentEvents) ? currentEvents.length : 'n/a', 'current=', currentSummary);
+ 
+   if (metaEvents.length > 0) {
     for (let event of metaEvents) {
-      const existingEvent = currentEvents.find((e: MetaEvent) => e.id == event.id);
+      const existingEvent = Array.isArray(currentEvents) ? currentEvents.find((e: MetaEvent) => e.id == event.id) : undefined;
+      if (existingEvent) {
+          console.debug('[actionMultiplayerEvents] skipping duplicate event id=', existingEvent.id, 'type=', existingEvent.eventType);
+       
+      }
       if (!existingEvent) {
         //do something with object fresh event.
         if (event.eventType === "PARTY_UP" && event.data && event.data["hero_id"] == `${object.metaHero.id}` && !object.isDecidingOnParty) {
@@ -342,6 +352,7 @@ export function actionMultiplayerEvents(object: any, metaEvents: MetaEvent[]) {
         } 
        
         if (event.eventType === "HERO_DIED") {
+          try { console.debug('[actionMultiplayerEvents] processing HERO_DIED id=', event.id, 'heroId=', event.heroId, 'level=', event.level, 'data=', event.data); } catch {}
           try {
             const evLevel = event.level ?? (event.data && event.data["level"]) ?? null;
             const myLevel = object.metaHero?.level ?? object.mainScene?.level?.name ?? null;
