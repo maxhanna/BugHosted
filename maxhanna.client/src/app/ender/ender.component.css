@@ -378,3 +378,8 @@ body {
   flex-wrap: nowrap;
   flex-direction: row;
 }
+
+.otherHeroesUserTagContainer {
+  display: flex;
+  align-content: flex-end;
+}
