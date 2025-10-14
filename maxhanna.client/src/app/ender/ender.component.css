@@ -362,6 +362,7 @@ body {
   justify-content: flex-start;
   overflow: auto;
   max-height: 50vh;
+  padding: 20px;
 }
 
 .finalScoreWrapper { 
@@ -387,3 +388,50 @@ body {
 .otherHeroesUserInfo {
   width: 100%;
 }
+
+/* Gearbox / spaceship panel styling for Other Heroes popup */
+.gearboxPopup { 
+  --gbx-metal-1: linear-gradient(180deg, #44484d 0%, #2b2f33 60%);
+  --gbx-metal-2: linear-gradient(180deg, #5a5f66 0%, #3a3f45 60%);
+  --gbx-accent: #6df0ff;
+  padding: 8px;
+  border-radius: 10px;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.7), 0 0 12px rgba(109,240,255,0.05) inset;
+  border: 2px solid rgba(200,200,210,0.06);
+  background: repeating-linear-gradient(45deg, rgba(255,255,255,0.02) 0px, rgba(255,255,255,0.02) 2px, transparent 2px, transparent 6px), var(--gbx-metal-1);
+}
+.gearboxPopup .gbx-frame { 
+  border-radius: 8px; 
+  padding: 6px; 
+  background: var(--gbx-metal-2);
+  box-shadow: inset 0 2px 6px rgba(0,0,0,0.6), inset 0 -2px 6px rgba(255,255,255,0.02);
+  position: relative;
+}
+.gearboxPopup .gbx-header { 
+  display:flex; align-items:center; justify-content:space-between; 
+  padding:6px 10px; 
+  border-bottom: 1px solid rgba(0,0,0,0.5);
+}
+.gearboxPopup .popupPanelTitle { 
+  font-family: fontRetroGaming; 
+  font-size: 16px; color: var(--secondary-font-color); 
+  text-align:center; flex:1; 
+}
+.gbx-bolt { width:18px; height:18px; display:inline-block; background:radial-gradient(circle at 30% 30%, #fff 0%, #cfcfcf 10%, #7b7f85 55%, #3a3f45 100%); border-radius:4px; box-shadow: inset 0 -2px 2px rgba(0,0,0,0.6);}
+.gbx-bolt.bolt-left { margin-right:6px; }
+.gbx-bolt.bolt-right { margin-left:6px; }
+.gbx-body { padding:10px; }
+.gbx-empty { padding:12px; color:#cfd6dc; text-align:center; }
+.gbx-row { padding:8px; margin-bottom:6px; border-radius:6px; display:flex; align-items:center; gap:8px; background: linear-gradient(180deg, rgba(0,0,0,0.12), rgba(255,255,255,0.02)); border:1px solid rgba(0,0,0,0.35); box-shadow: 0 2px 4px rgba(0,0,0,0.4) inset;}
+.gbx-row:hover { box-shadow: 0 6px 12px rgba(0,0,0,0.5), 0 0 10px rgba(109,240,255,0.06) inset; transform: translateY(-1px); }
+.gearboxPopup .otherHeroRow { padding:6px 4px; }
+.gearboxPopup .otherHeroesUserInfo { padding:4px 8px; }
+.gearboxPopup .colorSwatch { display:inline-block; width:12px; height:12px; border:1px solid rgba(0,0,0,0.6); vertical-align:middle; margin-right:6px; box-shadow: 0 1px 0 rgba(255,255,255,0.06) inset; }
+.gbx-footer { display:flex; justify-content:center; padding:8px; border-top:1px solid rgba(0,0,0,0.3); }
+.gearboxPopup .closeButton { background: linear-gradient(180deg,#121214 0%, #2b2f33 100%); border:1px solid #000; color:var(--secondary-font-color); padding:6px 12px; border-radius:6px; cursor:pointer; box-shadow: 0 2px 6px rgba(0,0,0,0.6); }
+.gearboxPopup .closeButton:hover { filter: brightness(1.1); box-shadow: 0 6px 14px rgba(0,0,0,0.7); }
+
+/* small decorative rivets */
+.gearboxPopup::before, .gearboxPopup::after { content: ""; position:absolute; width:8px; height:8px; background: radial-gradient(circle at 30% 30%, #fff 0%, #cfcfcf 15%, #5b6169 60%, #2a2d32 100%); border-radius:50%; box-shadow: inset 0 -1px 1px rgba(0,0,0,0.6); }
+.gearboxPopup::before { left:8px; top:8px; }
+.gearboxPopup::after { right:8px; top:8px; }

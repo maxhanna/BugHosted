@@ -145,39 +145,45 @@
   </div>
 </div>
 
-<!-- Other heroes stats popup -->
-<div class="popupPanel" *ngIf="showOtherHeroesPanel" style="max-width:360px; overflow:auto;">
-  <div class="popupPanelTitle mainPopupTitle">
-    Other Heroes
-  </div>
-  <div *ngIf="otherHeroes && otherHeroes.length === 0" style="padding:8px;">No other heroes detected.</div>
-  <div class="otherHeroContainer">
-  <div *ngFor="let h of otherHeroes; trackBy: trackByHeroId" class="otherHeroRow" style="padding:6px 8px; border-bottom:1px solid #333;">
-      <div class="otherHeroesUserInfo" [style.borderBottomColor]="h.color">
-        <div><strong>{{h.name}}</strong> <span *ngIf="h.id === metaHero.id">(You)</span></div>
-        <div class="xxSmallFont">Lvl {{h.level}} | Kills {{h.kills}} | Time {{getHeroTimeOnMap(h.id)}}s</div>
-        <div *ngIf="h.color" class="xxSmallFont">Color: <span [style.background]="h.color"
-            style="display:inline-block; width:12px; height:12px; border:1px solid #222; vertical-align:middle;"></span>
-          {{h.color}}
+<!-- Other heroes stats popup (spaceship gearbox theme) -->
+<div class="popupPanel gearboxPopup" *ngIf="showOtherHeroesPanel" style="max-width:420px; overflow:auto;">
+  <div class="gbx-frame">
+    <div class="gbx-header">
+      <span class="gbx-bolt bolt-left" aria-hidden="true"></span>
+      <div class="popupPanelTitle mainPopupTitle">Other Heroes</div>
+      <span class="gbx-bolt bolt-right" aria-hidden="true"></span>
+    </div>
+
+    <div class="gbx-body">
+      <div *ngIf="otherHeroes && otherHeroes.length === 0" class="gbx-empty">No other heroes detected.</div>
+      <div class="otherHeroContainer">
+        <div *ngFor="let h of otherHeroes; trackBy: trackByHeroId" class="otherHeroRow gbx-row">
+          <div class="otherHeroesUserInfo" [style.borderBottomColor]="h.color">
+            <div><strong>{{h.name}}</strong> <span *ngIf="h.id === metaHero.id">(You)</span></div>
+            <div class="xxSmallFont">Lvl {{h.level}} | Kills {{h.kills}} | Time {{getHeroTimeOnMap(h.id)}}s</div>
+            <div *ngIf="h.color" class="xxSmallFont">Color: <span [style.background]="h.color"
+                class="colorSwatch"></span>
+              {{h.color}}
+            </div>
+            <div class="xxSmallFont" *ngIf="h.position"><strong>Pos: {{snapToGridFetch(h.position.x)}} ,
+                {{snapToGridFetch(h.position.y)}}</strong>
+            </div>
+          </div>
+          <div class="otherHeroesUserTagContainer" (click)="$event.stopPropagation()">
+            <app-user-tag 
+              [user]="cachedUsers.get(h.userId ?? 0)" 
+              [userId]="h.userId ?? 0" 
+              [inputtedParentRef]="parentRef" 
+              [displayOnlyAvatar]="true"
+              [displayHoverPicture]="true"
+              (userLoaded)="onUserTagLoaded($event)"></app-user-tag>
+          </div>
         </div>
-        <div class="xxSmallFont" *ngIf="h.position"><strong>Pos: {{snapToGridFetch(h.position.x)}} ,
-            {{snapToGridFetch(h.position.y)}}</strong>
-        </div>
-      </div>
-      <div class="otherHeroesUserTagContainer" (click)="$event.stopPropagation()">
-          <app-user-tag 
-            [user]="cachedUsers.get(h.userId ?? 0)" 
-            [userId]="h.userId ?? 0" 
-            [inputtedParentRef]="parentRef" 
-            [displayOnlyAvatar]="true"
-            [displayHoverPicture]="true"
-            (userLoaded)="onUserTagLoaded($event)"></app-user-tag>
       </div>
     </div>
-  </div>
-  <div style="padding:8px; text-align: center;">
-    <button class="closeButton" id="closeOverlay" (click)="closeOtherHeroesPanel()">
-      Close
-    </button>
+
+    <div class="gbx-footer">
+      <button class="closeButton" id="closeOverlay" (click)="closeOtherHeroesPanel()">Close</button>
+    </div>
   </div>
 </div>
