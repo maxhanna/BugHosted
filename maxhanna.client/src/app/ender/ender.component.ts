@@ -335,6 +335,9 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
                 }
                 // successful fetch: reset failure counter/state
                 this.consecutiveFetchFailures = 0;
+                if (this.serverDown == true) {
+                    this.restartGame();
+                }
                 this.serverDown = false;
 
                 if (res) {
