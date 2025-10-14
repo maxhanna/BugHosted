@@ -528,6 +528,11 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
 
     }
 
+    // trackBy function for ngFor to avoid re-creating user tag components on every change detection
+    public trackByHeroId(index: number, item: any) {
+        return item && (item.id ?? item.userId ?? index);
+    }
+
     // Handler for user-tag components to emit loaded users so we can cache them and reuse
     onUserTagLoaded(user?: User) {
         if (!user || !user.id) return;

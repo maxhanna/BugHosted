@@ -152,7 +152,7 @@
   </div>
   <div *ngIf="otherHeroes && otherHeroes.length === 0" style="padding:8px;">No other heroes detected.</div>
   <div class="otherHeroContainer">
-    <div *ngFor="let h of otherHeroes" class="otherHeroRow" style="padding:6px 8px; border-bottom:1px solid #333;">
+  <div *ngFor="let h of otherHeroes; trackBy: trackByHeroId" class="otherHeroRow" style="padding:6px 8px; border-bottom:1px solid #333;">
       <div [style.borderBottomColor]="h.color">
         <div><strong>{{h.name}}</strong> <span *ngIf="h.id === metaHero.id">(You)</span></div>
         <div class="xxSmallFont">Lvl {{h.level}} | Kills {{h.kills}} | Time {{getHeroTimeOnMap(h.id)}}s</div>
@@ -165,7 +165,7 @@
         </div>
       </div>
       <div class="otherHeroesUserTagContainer">
-  <app-user-tag [user]="cachedUsers.get(h.userId ?? 0)" [userId]="h.userId ?? 0" [inputtedParentRef]="parentRef" (userLoaded)="onUserTagLoaded($event)"></app-user-tag>
+          <app-user-tag [user]="cachedUsers.get(h.userId ?? 0)" [userId]="h.userId ?? 0" [inputtedParentRef]="parentRef" (userLoaded)="onUserTagLoaded($event)"></app-user-tag>
       </div>
     </div>
   </div>
