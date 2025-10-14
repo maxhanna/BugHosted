@@ -61,13 +61,7 @@ export class Hero extends Character {
     this.facingDirection = DOWN;
     this.destinationPosition = this.position.duplicate();
     this.lastPosition = this.position.duplicate();
-    // Ensure speed is always a number. User-controlled heroes default to 1.
-    // Non-user bots prefer a higher speed if provided (>1), otherwise default to 4.
-    if (params.isUserControlled) {
-      this.speed = params.speed ?? 1;
-    } else {
-      this.speed = (params.speed !== undefined && params.speed > 1) ? params.speed : 4;
-    }
+    this.speed = params.speed ?? 1;
     this.mask = params.mask;
     this.itemPickupTime = 0;
     this.isOmittable = false;
