@@ -3,6 +3,18 @@
   src: url("../../assets/metabots/retro-gaming.ttf")
 }
 
+:root{
+  --ship-metal-1: #2b3942;
+  --ship-metal-2: #121a21;
+  --ship-accent: #bfa25a;
+  --ship-accent-2: #8fbfd6;
+  --ship-wood: #3a2b20;
+  --porthole-glass: rgba(200,230,255,0.06);
+  --porthole-reflect: rgba(255,255,255,0.06);
+  --main-border: 6px solid rgba(40,40,40,0.9);
+  --secondary-font-color: #e8e7dc;
+}
+
 html,
 body {
   image-rendering: pixelated;
@@ -27,14 +39,52 @@ body {
   user-select: none;
 }
 
+.componentMain{
+  background: linear-gradient(180deg, var(--ship-metal-1) 0%, var(--ship-metal-2) 100%);
+  background-image: repeating-linear-gradient(90deg, rgba(255,255,255,0.02) 0 2px, transparent 2px 40px), linear-gradient(180deg, var(--ship-metal-1), var(--ship-metal-2));
+  padding: 18px 12px;
+  box-sizing: border-box;
+  position: relative;
+  border-top: 8px solid rgba(0,0,0,0.6);
+}
+
+.componentMain::before{
+  content: '';
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  top: 12px;
+  bottom: 12px;
+  border-radius: 10px;
+  pointer-events: none;
+  box-shadow: inset 0 0 0 2px rgba(255,255,255,0.02), 0 10px 30px rgba(0,0,0,0.6);
+}
+
 .gameCanvas {
-  border: var(--main-border);
+  border-radius: 12px;
   display: block;
-  background-color: black;
+  background-color: #051017; /* deep sea viewport */
   width: 100%;
   max-width: calc(var(--vh, 1vh) * 100 * (1024 / 910));
   margin-left: auto;
   margin-right: auto;
+  padding: 12px;
+  box-sizing: border-box;
+  border: 12px solid #2f3a3f;
+  box-shadow: 0 4px 30px rgba(0,0,0,0.7), inset 0 6px 30px rgba(0,0,0,0.8);
+  position: relative;
+}
+
+.gameCanvas::after{
+  content: '';
+  position: absolute;
+  left: 36px;
+  right: 36px;
+  top: 36px;
+  bottom: 36px;
+  border-radius: 6px;
+  background: radial-gradient(circle at 20% 20%, rgba(255,255,255,0.02), transparent 10%), linear-gradient(180deg, rgba(255,255,255,0.01), rgba(0,0,0,0.02));
+  pointer-events: none;
 }
 
 .chatInputDiv {
@@ -48,6 +98,9 @@ body {
   max-width: 50%;
   font-family: fontRetroGaming;
   border-radius: 20px;
+  border: 2px solid rgba(255,255,255,0.06);
+  background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(0,0,0,0.2));
+  color: var(--secondary-font-color);
 }
 
 .colorInput {
@@ -92,8 +145,10 @@ body {
   width: 36%;
   height: 34%;
   position: absolute;
-  background-color: #0e0e0e7a;
+  background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(0,0,0,0.25));
   cursor: pointer;
+  border: 2px solid rgba(0,0,0,0.6);
+  box-shadow: 0 3px 8px rgba(0,0,0,0.6), inset 0 2px 0 rgba(255,255,255,0.02);
 }
 
 .dpad .middle {
@@ -256,11 +311,11 @@ body {
   height: 65px;
   line-height: 65px;
   border-radius: 50%;
-  background-color: #0e0e0e7a;
-  border-bottom: 2px solid #888;
-  box-shadow: -1px 1px 5px black, 0px 0px 5px black inset;
-  text-shadow: 0px -1px 1px #888;
-  color: var(--secondary-font-color);
+  background: linear-gradient(180deg, #5a4a2a, #2e230f);
+  border: 3px solid rgba(0,0,0,0.6);
+  box-shadow: 0 4px 10px rgba(0,0,0,0.6), inset 0 -2px 0 rgba(255,255,255,0.03);
+  text-shadow: 0px -1px 1px rgba(0,0,0,0.6);
+  color: #ffefc6;
   text-align: center;
   cursor: pointer;
 }
@@ -294,7 +349,7 @@ body {
   right: 100px;
   display: inline-block;
   color: var(--secondary-font-color);
-  text-shadow: 0px -1px 0px #3436bf;
+  text-shadow: 0px -1px 0px rgba(0,0,0,0.6);
   letter-spacing: -1px;
   width: 60px;
   font-size: 16px;
@@ -325,10 +380,10 @@ body {
   height: 10px;
   margin-bottom: 5px;
   border-radius: 40%;
-  background: linear-gradient(to bottom, #0b0a1c 0%, #0b0a1c 30%, #62636c 70%, var(--secondary-font-color) 100%);
+  background: linear-gradient(180deg, #3b3430 0%, #2b2623 50%, #bfa25a 100%);
   background-repeat: no-repeat;
-  border: 2px solid #0b0a1c;
-  box-shadow: 0px -2px 1px #8482e9;
+  border: 2px solid rgba(0,0,0,0.6);
+  box-shadow: 0 6px 14px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.02);
   cursor: pointer;
 }
 
@@ -340,14 +395,14 @@ body {
 
 /* Run HUD */
 .runHud {
-  border: var(--main-border);
-  background: rgba(0,0,0,0.6);
-  padding: 8px 12px;
-  border-radius: 6px;
+  border-radius: 8px;
+  background: linear-gradient(180deg, #2d2a22 0%, #1a1712 100%);
+  padding: 10px 14px;
+  border: 2px solid rgba(255,255,255,0.03);
   font-family: fontRetroGaming;
   font-size: 14px;
   color: var(--secondary-font-color);
-  box-shadow: 0 2px 6px rgba(0,0,0,0.6);
+  box-shadow: 0 6px 18px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.02);
   z-index: 9999;
 }
 .runHud div { line-height: 1.2; }
