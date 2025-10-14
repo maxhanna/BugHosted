@@ -36,6 +36,13 @@ function safeStringify(obj: any) {
     return value;
   });
 }
+
+function trimChatToLimit(object: any, limit: number) { 
+  if (!object || !object.chat || !Array.isArray(object.chat)) return;
+  while (object.chat.length > limit) {
+    object.chat.pop();
+  } 
+}
  
 export function subscribeToMainGameEvents(object: any) {
   events.on("CHANGE_LEVEL", object.mainScene, (level: Level) => {
@@ -141,7 +148,7 @@ export function subscribeToMainGameEvents(object: any) {
           hero: name,
           content: msg ?? "",
           timestamp: new Date()
-        } as MetaChat);
+        } as MetaChat); 
         object.setHeroLatestMessage(object.otherHeroes.find((x: Character) => x.name === name));
         // Display the just-sent message on screen
         object.displayChatMessage();
@@ -396,8 +403,7 @@ export function actionMultiplayerEvents(object: any, metaEvents: MetaEvent[]) {
             content: content,
             timestamp: event.timestamp ? new Date(event.timestamp) : new Date()
           } as MetaChat;
-          // Avoid adding duplicates (e.g., local echo + server echo). If a recent message
-          // from the same hero with identical content exists within 10s, skip adding.
+          
           const isDuplicate = object.chat && object.chat.some((m: MetaChat) => {
             try {
               if (!m || !m.hero) return false;
@@ -410,10 +416,9 @@ export function actionMultiplayerEvents(object: any, metaEvents: MetaEvent[]) {
           if (!isDuplicate) {
             object.chat.unshift(metachat);
           }
-          // Keep per-hero latest message state in sync
+          trimChatToLimit(object, 10);
           object.setHeroLatestMessage(object.otherHeroes.find((x: Character) => x.name === name));
-          try { object.displayChatMessage(); } catch { }
-
+          object.displayChatMessage();
         }
         if (event.eventType === "WHISPER" && event.data) {
           let breakOut = false;
