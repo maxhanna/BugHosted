@@ -436,7 +436,6 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
                 // treat exceptions as failures to fetch
                 this.consecutiveFetchFailures++;
                 if (this.consecutiveFetchFailures >= 3) {
-                    try { this.parentRef?.showNotification?.("Ender server appears to be down"); } catch { }
                     this.serverDown = true;
                 }
                 return;
