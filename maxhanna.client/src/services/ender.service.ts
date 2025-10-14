@@ -14,14 +14,15 @@ import { MetaBotPart } from './datacontracts/ender/meta-bot-part';
 })
 export class EnderService {
 
-  private async fetchData(url: string, body?: any) {
+  private async fetchData(url: string, body?: any, signal?: AbortSignal) {
     try {
       const response = await fetch(url, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: body ? JSON.stringify(body) : body
+        body: body ? JSON.stringify(body) : body,
+        signal
       });
 
       const res = await response;
@@ -64,9 +65,9 @@ export class EnderService {
   async fetchGameData(hero: MetaHero): Promise<{ map: number, position: Vector2, heroes: MetaHero[], chat: MetaChat[], events: MetaEvent[] } | undefined> {
     return this.fetchData('/ender/fetchgamedata', hero);
   }
-  async fetchGameDataWithWalls(hero: MetaHero, pendingWalls: { x: number, y: number }[] | undefined, lastKnownWallId: number | undefined) {
+  async fetchGameDataWithWalls(hero: MetaHero, pendingWalls: { x: number, y: number }[] | undefined, lastKnownWallId: number | undefined, signal?: AbortSignal) {
     const payload = { hero, pendingWalls, lastKnownWallId };
-    return this.fetchData('/ender/fetchgamedata', payload);
+    return this.fetchData('/ender/fetchgamedata', payload, signal);
   }
   async fetchAllBikeWalls(heroId: number) {
     return this.fetchData('/ender/allbikewalls', heroId);

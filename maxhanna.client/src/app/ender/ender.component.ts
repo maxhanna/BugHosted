@@ -83,6 +83,8 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
 
     private currentChatTextbox?: ChatSpriteTextString | undefined;
     private pollingInterval: any;
+    // Abort controller for the current inflight fetchGameDataWithWalls request
+    private currentFetchAbortController?: AbortController;
     topScores: any[] = [];
     isMenuPanelOpen = false;
     // Count of bike-wall units placed during the current run
@@ -335,7 +337,11 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
                 this.metaHero.position = this.hero?.position.duplicate();
             }
             try {
-                const res: any = await this.enderService.fetchGameDataWithWalls(this.metaHero, pendingWalls, this.lastKnownWallId);
+                // Abort any in-flight fetch so we only keep the freshest request
+                try { this.currentFetchAbortController?.abort(); } catch { }
+                this.currentFetchAbortController = new AbortController();
+                const signal = this.currentFetchAbortController.signal;
+                const res: any = await this.enderService.fetchGameDataWithWalls(this.metaHero, pendingWalls, this.lastKnownWallId, signal);
                 if (!res) {
                     // treat null/undefined as a failure
                     this.consecutiveFetchFailures++;
@@ -470,8 +476,10 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
                         actionMultiplayerEvents(this, res.events);
                     }
                 }
-            } catch (ex) {
+            } catch (ex: any) {
                 // treat exceptions as failures to fetch
+                // ignore abort errors (expected when we cancel prior requests)
+                if (ex && ex.name === 'AbortError') return;
                 this.consecutiveFetchFailures++;
                 if (this.consecutiveFetchFailures >= 3) {
                     this.serverDown = true;
