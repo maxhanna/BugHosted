@@ -641,12 +641,9 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
                 if (facing === RIGHT) offsetX = oneCell;
                 else if (facing === LEFT) offsetX = -oneCell;
                 else if (facing === UP) offsetY = -oneCell;
-                else if (facing === DOWN) offsetY = oneCell;
-                console.log("offset player ", live)
+                else if (facing === DOWN) offsetY = oneCell; 
             }
             const newPos = new Vector2(hero.position.x + offsetX, hero.position.y + offsetY);
-            
-            console.log("new player pos ", newPos);
             if (!existingHero.destinationPosition.matches(newPos)) {
                 existingHero.destinationPosition = newPos;
             }
