@@ -125,9 +125,7 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
         this.ctx = this.canvas.getContext("2d")!;
         if (!this.parentRef?.user) {
             this.isUserComponentOpen = true;
-        } else {
-            // prefetch champion info (non-blocking)
-
+        } else { 
             // Preload user settings (default name/color) as early as possible so CharacterCreate can use them
             this.userService.getUserSettings(this.parentRef.user?.id ?? 0).then(res => {
                 this.cachedDefaultName = res?.lastCharacterName ?? undefined;
@@ -137,7 +135,16 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
                 this.isMuted = !!res?.muteSounds;
                 resources.setMuted(this.isMuted);
                 if (!this.isMuted) {
+                    // Try to play immediately; many browsers will block autoplay without a user gesture.
+                    // Also register a one-time user-gesture handler to ensure playback starts when the user interacts.
                     try { resources.playSound("pixelDreams", { volume: 0.4, loop: true, allowOverlap: false }); } catch { }
+                    const startMusic = () => {
+                        try { resources.playSound("pixelDreams", { volume: 0.4, loop: true, allowOverlap: false }); } catch { }
+                        document.removeEventListener('pointerdown', startMusic);
+                        document.removeEventListener('keydown', startMusic);
+                    };
+                    document.addEventListener('pointerdown', startMusic, { once: true });
+                    document.addEventListener('keydown', startMusic, { once: true });
                 }
             }).catch(() => { /* ignore */ });
             // reset walls placed for a fresh run; actual run start will be set when hero is initialized
