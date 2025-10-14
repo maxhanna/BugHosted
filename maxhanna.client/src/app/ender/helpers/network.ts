@@ -334,7 +334,6 @@ export function actionMultiplayerEvents(object: any, metaEvents: MetaEvent[]) {
       const existingEvent = Array.isArray(currentEvents) ? currentEvents.find((e: MetaEvent) => e.id == event.id) : undefined;
       if (existingEvent) {
           console.debug('[actionMultiplayerEvents] skipping duplicate event id=', existingEvent.id, 'type=', existingEvent.eventType);
-       
       }
       if (!existingEvent) {
         //do something with object fresh event.

@@ -367,6 +367,7 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
                 }
 
                 if (res) {
+                    console.log("got res, processing game updates");
                     if (res.heroes) {
                         const myHeroExists = res.heroes?.filter((x: MetaHero) => x.id === this.metaHero.id);
                         if (!myHeroExists) {
@@ -409,6 +410,7 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
                         this.getLatestMessages();
                     }
                     if (res.events) {
+                        console.log("Processing " + res.events.length + " events from server");
                         actionMultiplayerEvents(this, res.events);
                     }
                 }
