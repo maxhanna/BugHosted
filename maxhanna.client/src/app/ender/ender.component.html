@@ -136,6 +136,14 @@
     <div style="pointer-events:none; margin-bottom:8px;">
       Final Score: {{currentScore}}
     </div>
+    <div *ngIf="deathKillerUserId" style="margin-top:8px;">
+      <div style="margin-bottom:6px;">
+        <strong>Killed by:</strong>
+      </div>
+      <div *ngIf="deathKillerUserId;">
+        <app-user-tag [userId]="deathKillerUserId" [inputtedParentRef]="parentRef" [displayOnlyAvatar]="false" (userLoaded)="onUserTagLoaded($event)"></app-user-tag>
+      </div> 
+    </div>
     <div style="pointer-events:none; margin-bottom:8px;">
       <div>Time: {{runElapsedSeconds}}s</div>
       <div>Walls: {{wallsPlacedAuthoritative || wallsPlacedThisRun}}</div>

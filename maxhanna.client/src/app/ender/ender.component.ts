@@ -83,6 +83,7 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
     serverDown? = false;
     // Count consecutive failures to fetch game data; when threshold reached notify parent
     private consecutiveFetchFailures: number = 0;
+    deathKillerUserId: number | undefined;
 
 
     private currentChatTextbox?: ChatSpriteTextString | undefined;
@@ -205,7 +206,9 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
         }
     }
 
-    private async handleHeroDeath() { 
+    private async handleHeroDeath(killerId: string) {
+        const killerMeta = this.otherHeroes.find(h => h.id === parseInt(killerId)) ?? (this.metaHero.id === parseInt(killerId) ? this.metaHero : undefined);
+        this.deathKillerUserId = killerMeta?.userId ?? undefined;
         this.stopPollingForUpdates = true;
         this.stopRunTimer();
         setTimeout(() => {
@@ -226,8 +229,8 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
 
     ngAfterViewInit() {
         this.mainScene.input.setChatInput(this.chatInput.nativeElement);
-        events.on("HERO_DIED", this, () => {
-            this.handleHeroDeath();
+        events.on("HERO_DIED", this, (killerId: string) => {
+            this.handleHeroDeath(killerId);
         });
         // Track bike wall placements so we can submit to highscores
         events.on("SPAWN_BIKE_WALL", this, (params: { x: number, y: number }) => {

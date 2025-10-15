@@ -180,7 +180,7 @@ namespace maxhanna.Server.Controllers
                                         var killerId = kv.Value;
                                         try
                                         {
-                                            var deathEvent = new MetaEvent(0, victimId, DateTime.UtcNow, "HERO_DIED", hero.Level, new Dictionary<string, string>() { { "cause", "BIKE_WALL" } });
+                                            var deathEvent = new MetaEvent(0, victimId, DateTime.UtcNow, "HERO_DIED", hero.Level, new Dictionary<string, string>() { { "cause", "BIKE_WALL" }, {"killerId", killerId + ""} });
                                             await UpdateEventsInDB(deathEvent, connection, transaction);
                                             Console.WriteLine("added event death event for heroId" + victimId);
                                             await SendKillNotificationAsync(victimId, killerId, connection, transaction);
