@@ -143,15 +143,6 @@ export function subscribeToMainGameEvents(object: any) {
 
         const name = object.metaHero.name;
         object.chat = object.chat.filter((m: MetaChat) => !(m && m.hero === name && (m.content ?? '') === '...'));
-
-        // object.chat.unshift({
-        //   hero: name,
-        //   content: msg ?? "",
-        //   timestamp: new Date()
-        // } as MetaChat);
-        // object.setHeroLatestMessage(object.otherHeroes.find((x: Character) => x.name === name));
-        // // Display the just-sent message on screen
-        // object.displayChatMessage();
       }
     }
   });
