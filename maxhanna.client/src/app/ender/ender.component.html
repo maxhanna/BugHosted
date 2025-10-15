@@ -159,11 +159,11 @@
 <div class="popupPanel deathPanel" *ngIf="showDeathPanel" style="max-width:320px; text-align:center;">
   <div class="popupPanelTitle mainPopupTitle">You Died</div>
   <div class="finalScoreWrapper">
-    <div style="pointer-events:none; margin-bottom:8px;">
+    <div style="pointer-events:none; margin-bottom:8px; font-weight:bold">
       Final Score: {{currentScore}}
     </div>
     <div class="killerAndStatsWrapper">
-      <div *ngIf="deathKillerUserId" style="margin-top:8px;">
+      <div *ngIf="deathKillerUserId" class="deathKillerInfo">
         <div style="margin-bottom:6px;">
           <strong>Killed by:</strong>
         </div>
@@ -177,7 +177,7 @@
             (userLoaded)="onUserTagLoaded($event)"></app-user-tag>
         </div> 
       </div>
-      <div style="pointer-events:none; margin-bottom:8px;">
+      <div class="deathKillStatInfo">
         <div>Time: {{runElapsedSeconds}}s</div>
         <div>Walls: {{wallsPlacedAuthoritative || wallsPlacedThisRun}}</div>
         <div>Kills: {{metaHero.kills || 0}}</div>

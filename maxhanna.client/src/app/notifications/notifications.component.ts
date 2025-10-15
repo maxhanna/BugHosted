@@ -355,6 +355,10 @@ export class NotificationsComponent extends ChildComponent implements OnInit, On
       this.parentRef?.createComponent('Bug-Wars');
     } else if (notification.text?.includes('BugWars')) {
       this.parentRef?.createComponent('Bug-Wars');
+    } else if (notification.text?.toLowerCase().includes('your lightcycle was shattered by')) {
+      this.parentRef?.createComponent('Ender');
+    } else if (notification.text?.toLowerCase().includes('you vaporized')) {
+      this.parentRef?.createComponent('Ender');
     } else if (notification.text?.includes('Shared a note')) {
       this.parentRef?.createComponent('Notepad');
     } else if (notification.text?.includes('Executed Trade')) {

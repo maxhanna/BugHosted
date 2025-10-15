@@ -595,5 +595,18 @@ body {
   align-content: center;
   align-items: center;
   gap: 10px;
-  margin: 5px 0px;
+  margin: 12px 0px;
+}
+
+.deathKillerInfo {
+  margin-top: 8px;
+  border: var(--main-border);
+  border-radius: 5px;
+  padding: 10px;
+}
+
+.deathKillStatInfo {
+  text-align: left;
+  pointer-events: none;
+  margin-bottom: 8px;
 }
