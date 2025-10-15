@@ -3,8 +3,6 @@
     <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
         <label><input type="checkbox" [checked]="bulkEditMode"
                 (change)="bulkEditMode = $any($event.target).checked; onBulkModeToggled()" /> Bulk edit per-coin</label>
-        <span *ngIf="bulkEditMode" style="color:var(--secondary-font-color); font-size:12px;">Only the strategy selector
-            will remain visible; edit each coin below and click 'Save coin/strategy' or 'Save All' to persist changes.</span>
     </div>
 
     <!-- Strategy selector: always visible so user can change strategy while in bulk mode -->
