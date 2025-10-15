@@ -158,7 +158,7 @@ namespace maxhanna.Server.Services
 			{
 				// Find heroes with >=2 total walls but 0 walls in last 3 hours
 				const string selectSql = @"
-				SELECT h.id as hero_id, h.user_id as user_id
+				SELECT h.id as hero_id, h.user_id as user_id, h.level as hero_level
 				FROM maxhanna.ender_hero h
 				WHERE (
 					SELECT COUNT(*) FROM maxhanna.ender_bike_wall w WHERE w.ender_hero_id = h.id
@@ -169,12 +169,13 @@ namespace maxhanna.Server.Services
 
 				using var selCmd = new MySqlCommand(selectSql, conn, transaction);
 				using var reader = await selCmd.ExecuteReaderAsync();
-				var victims = new List<(int heroId, int? userId)>();
+				var victims = new List<(int heroId, int? userId, int level)>();
 				while (await reader.ReadAsync())
 				{
 					int heroId = Convert.ToInt32(reader["hero_id"]);
 					int? userId = reader.IsDBNull(reader.GetOrdinal("user_id")) ? null : Convert.ToInt32(reader["user_id"]);
-					victims.Add((heroId, userId));
+					int level = reader.IsDBNull(reader.GetOrdinal("hero_level")) ? 1 : Convert.ToInt32(reader["hero_level"]);
+					victims.Add((heroId, userId, level));
 				}
 				reader.Close();
 
@@ -199,10 +200,26 @@ namespace maxhanna.Server.Services
 				using var delHeroCmd = new MySqlCommand(deleteHeroSql, conn, transaction);
 				delHeroCmd.Parameters.Add(new MySqlParameter("@heroId", MySqlDbType.Int32));
 
+				const string insertEventSql = @"INSERT INTO maxhanna.ender_event (hero_id, `event`, level, data, timestamp)
+							VALUES (@HeroId, @Event, @Level, @Data, UTC_TIMESTAMP());";
+				using var insertEventCmd = new MySqlCommand(insertEventSql, conn, transaction);
+				insertEventCmd.Parameters.Add(new MySqlParameter("@HeroId", MySqlDbType.Int32));
+				insertEventCmd.Parameters.Add(new MySqlParameter("@Event", MySqlDbType.VarChar));
+				insertEventCmd.Parameters.Add(new MySqlParameter("@Level", MySqlDbType.Int32));
+				insertEventCmd.Parameters.Add(new MySqlParameter("@Data", MySqlDbType.Text));
+
 				foreach (var v in victims)
 				{
 					try
 					{
+						// Insert an in-game HERO_DIED event (cause=INACTIVITY)
+						insertEventCmd.Parameters["@HeroId"].Value = v.heroId;
+						insertEventCmd.Parameters["@Event"].Value = "HERO_DIED";
+						insertEventCmd.Parameters["@Level"].Value = v.level;
+						var dataJson = "{\"cause\":\"INACTIVITY\"}";
+						insertEventCmd.Parameters["@Data"].Value = dataJson;
+						await insertEventCmd.ExecuteNonQueryAsync();
+
 						// Delete walls
 						delWallsCmd.Parameters["@heroId"].Value = v.heroId;
 						await delWallsCmd.ExecuteNonQueryAsync();

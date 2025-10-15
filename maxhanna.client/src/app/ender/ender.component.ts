@@ -84,6 +84,8 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
     // Count consecutive failures to fetch game data; when threshold reached notify parent
     private consecutiveFetchFailures: number = 0;
     deathKillerUserId: number | undefined;
+    // If set, a textual cause to display on death (e.g., 'Removed for inactivity')
+    deathCause: string | null = null;
 
 
     private currentChatTextbox?: ChatSpriteTextString | undefined;
@@ -220,9 +222,30 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
         this.isMuted = this.isMusicMuted && this.isSfxMuted;
     }
 
-    private async handleHeroDeath(killerId: string) {
-        const killerMeta = this.otherHeroes.find(h => h.id === parseInt(killerId)) ?? (this.metaHero.id === parseInt(killerId) ? this.metaHero : undefined);
-        this.deathKillerUserId = killerMeta?.userId ?? undefined;
+    private async handleHeroDeath(payload: any) {
+        // payload may be a string (killerId) or an object { killerId, cause }
+        let killerId: string | null = null;
+        let cause: string | null = null;
+        if (payload == null) {
+            killerId = null;
+        } else if (typeof payload === 'string') {
+            killerId = payload;
+        } else if (typeof payload === 'object') {
+            killerId = payload.killerId ?? null;
+            cause = payload.cause ?? null;
+        }
+
+        if (cause === 'INACTIVITY') {
+            this.deathCause = 'Removed for inactivity';
+            this.deathKillerUserId = undefined;
+        } else if (cause) {
+            this.deathCause = cause;
+        } else {
+            this.deathCause = null;
+            const killerMeta = killerId ? this.otherHeroes.find(h => h.id === parseInt(killerId)) ?? (this.metaHero.id === parseInt(killerId) ? this.metaHero : undefined) : undefined;
+            this.deathKillerUserId = killerMeta?.userId ?? undefined;
+        }
+
         this.stopPollingForUpdates = true;
         this.isDead = true;
         this.stopRunTimer();
@@ -244,8 +267,8 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
 
     ngAfterViewInit() {
         this.mainScene.input.setChatInput(this.chatInput.nativeElement);
-        events.on("HERO_DIED", this, (killerId: string) => {
-            this.handleHeroDeath(killerId);
+        events.on("HERO_DIED", this, (payload: any) => {
+            this.handleHeroDeath(payload);
         });
         // Track bike wall placements so we can submit to highscores
         events.on("SPAWN_BIKE_WALL", this, (params: { x: number, y: number }) => {

@@ -354,7 +354,22 @@ export function actionMultiplayerEvents(object: any, metaEvents: MetaEvent[]) {
                   try {
                     found.destroy();
                     if (victimId == object.metaHero.id) {
-                      events.emit("HERO_DIED", killerId);
+                      // Extract cause from event.data (support string or object) and emit structured payload
+                      let cause: string | null = null;
+                      if (event.data) {
+                        try {
+                          if (typeof event.data === 'string') {
+                            const parsed = JSON.parse(event.data);
+                            cause = parsed?.cause ?? null;
+                          } else if (typeof event.data === 'object') {
+                            cause = event.data['cause'] ?? null;
+                          }
+                        } catch (e) {
+                          // ignore parse errors
+                          cause = null;
+                        }
+                      }
+                      events.emit("HERO_DIED", { killerId: killerId, cause: cause });
                     } else {
                       object.heroEverMoved.delete(victimId);
                       object.lastServerPos.delete(victimId);
