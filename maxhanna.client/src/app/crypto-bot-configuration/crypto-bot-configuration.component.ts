@@ -23,6 +23,15 @@ export class CryptoBotConfigurationComponent extends ChildComponent {
     } catch (e) { /* ignore */ }
   }
 
+  // return the live strategy value if possible, otherwise fallback to currentStrategy
+  get selectedStrategy(): string {
+    try {
+      return this.tradeStrategySelect?.nativeElement?.value ?? this.currentStrategy;
+    } catch {
+      return this.currentStrategy;
+    }
+  }
+
   @Input() inputtedParentRef?: AppComponent;
   @Input() btcToCadPrice?: number;
   @Input() ethToCadPrice?: number;
