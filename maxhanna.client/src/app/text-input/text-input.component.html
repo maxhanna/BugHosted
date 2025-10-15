@@ -41,6 +41,7 @@
      style="display:flex; height: 25px;"
      [inputtedParentRef]="inputtedParentRef" 
      [parent]="textarea"
+     (hasSelectedOption)="closePostOptionsPanel()"
      (isExpandingEmojiPanel)="onExpandingEmojiPanel($event)"
      (isExpandingComponentPanel)="onExpandingComponentPanel($event)"></app-text-formatting-toolbar>
 </div>

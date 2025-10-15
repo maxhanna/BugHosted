@@ -8,10 +8,10 @@ import { AppComponent } from '../app.component';
   templateUrl: './text-formatting-toolbar.component.html',
   styleUrl: './text-formatting-toolbar.component.css'
 })
-export class TextFormattingToolbarComponent extends ChildComponent { 
+export class TextFormattingToolbarComponent extends ChildComponent {
   constructor() { super(); }
 
-  @Input() inputtedParentRef?: AppComponent; 
+  @Input() inputtedParentRef?: AppComponent;
   @Input() hide = false;
   @Input() parent?: HTMLTextAreaElement | HTMLInputElement;
   @Input() parentId?: string;
@@ -19,12 +19,13 @@ export class TextFormattingToolbarComponent extends ChildComponent {
 
   @Output() isExpandingEmojiPanel = new EventEmitter<boolean>();
   @Output() isExpandingComponentPanel = new EventEmitter<boolean>();
+  @Output() hasSelectedOption = new EventEmitter<boolean>();
 
   isEmojiPanelOpen = false;
   showComponentSelector = false;
   componentSearchTerm: string = '';
 
-  get textarea(): HTMLTextAreaElement | HTMLInputElement  {
+  get textarea(): HTMLTextAreaElement | HTMLInputElement {
     let element: HTMLTextAreaElement | HTMLInputElement | null = null;
 
     // First try by ID
@@ -38,7 +39,7 @@ export class TextFormattingToolbarComponent extends ChildComponent {
 
     if (!element && this.parentId) {
       element = document.getElementById(this.parentId) as HTMLInputElement;
-    } 
+    }
 
     // If not found by ID, try by class or default selector
     if (!element) {
@@ -56,7 +57,8 @@ export class TextFormattingToolbarComponent extends ChildComponent {
   }
 
   insertPollSnippet() {
-      const pollTemplate = `
+    this.hasSelectedOption.emit(true);
+    const pollTemplate = `
   [Poll]
   Question: What's your favorite color?
   Option 1: Red
@@ -65,17 +67,17 @@ export class TextFormattingToolbarComponent extends ChildComponent {
   Option 4: Yellow
   [/Poll]
     `.trim();
-  
-      // Assuming you have a reference to your textarea
-      const currentPos = this.textarea.selectionStart ?? 0;
-      const currentValue = this.textarea.value;
-  
-      // Insert the template at cursor position
+
+    // Assuming you have a reference to your textarea
+    const currentPos = this.textarea.selectionStart ?? 0;
+    const currentValue = this.textarea.value;
+
+    // Insert the template at cursor position
     this.textarea.value = currentValue.substring(0, currentPos) +
-        pollTemplate +
-        currentValue.substring(currentPos);
-  
-      // Set cursor after the inserted template
+      pollTemplate +
+      currentValue.substring(currentPos);
+
+    // Set cursor after the inserted template
     this.textarea.selectionStart = currentPos + pollTemplate.length;
     this.textarea.selectionEnd = currentPos + pollTemplate.length;
     this.textarea.focus();
@@ -96,33 +98,33 @@ export class TextFormattingToolbarComponent extends ChildComponent {
     parent?.closeOverlay();
     this.showComponentSelector = false;
   }
-   
+
   openInsertEmojiPanel() {
-    this.isExpandingEmojiPanel.emit(true); 
+    this.isExpandingEmojiPanel.emit(true);
     const parent = this.inputtedParentRef ?? this.parentRef;
     parent?.showOverlay();
-    this.filteredEmojis = { ...parent?.emojiMap }; 
-    this.isEmojiPanelOpen = true; 
+    this.filteredEmojis = { ...parent?.emojiMap };
+    this.isEmojiPanelOpen = true;
     // focus emoji search input by exact id used in template
     this.focusElementById('emojiFilter');
-  } 
+  }
   // Focus an element by exact id after a short delay so the panel can render
   private focusElementById(id: string) {
-    setTimeout(() => { 
+    setTimeout(() => {
       const el = document.getElementById(id) as HTMLInputElement | null;
       if (el) {
         el.focus();
         if ((el as any).select) (el as any).select();
-      } 
+      }
     }, 50);
   }
 
-  closeInsertEmojiPanel() { 
+  closeInsertEmojiPanel() {
     this.isEmojiPanelOpen = false;
-    const parent = this.inputtedParentRef ?? this.parentRef; 
+    const parent = this.inputtedParentRef ?? this.parentRef;
     if (parent) {
       parent.closeOverlay(false);
-    } 
+    }
     this.isExpandingEmojiPanel.emit(false);
   }
   insertComponent(componentTitle: string) {
@@ -212,17 +214,17 @@ export class TextFormattingToolbarComponent extends ChildComponent {
     let newText: string;
     let cursorOffset: number;
 
-    if (selectedText) { 
-      if (tag.startsWith('#')) { 
+    if (selectedText) {
+      if (tag.startsWith('#')) {
         newText = targetInput.value.substring(0, start) +
           `${tag} ${selectedText}` +
           targetInput.value.substring(end);
-        cursorOffset = start + tag.length + selectedText.length + 4; 
-      } else { 
+        cursorOffset = start + tag.length + selectedText.length + 4;
+      } else {
         newText = targetInput.value.substring(0, start) +
           `[${tag}]${selectedText}[/${tag}]` +
           targetInput.value.substring(end);
-        cursorOffset = start + tag.length * 2 + selectedText.length + 4;  
+        cursorOffset = start + tag.length * 2 + selectedText.length + 4;
       }
     } else {
       // Insert empty tag
@@ -243,7 +245,7 @@ export class TextFormattingToolbarComponent extends ChildComponent {
 
     // Apply changes
     targetInput.value = newText;
- 
+
     this.closeAnyPanel();
 
     // Set cursor position
@@ -272,15 +274,15 @@ export class TextFormattingToolbarComponent extends ChildComponent {
   }
   getNavigationItems() {
     const parent = this.inputtedParentRef ?? this.parentRef;
-  const items = parent?.navigationItems || [];
-  const term = (this.componentSearchTerm || '').toLowerCase().trim();
-  if (!term) return items;
-  return items.filter((it: any) => (it.title || '').toLowerCase().includes(term) || (it.icon || '').toLowerCase().includes(term));
+    const items = parent?.navigationItems || [];
+    const term = (this.componentSearchTerm || '').toLowerCase().trim();
+    if (!term) return items;
+    return items.filter((it: any) => (it.title || '').toLowerCase().includes(term) || (it.icon || '').toLowerCase().includes(term));
   }
   searchNavigationItems(e: any) {
     const val = (e && e.target && e.target.value) ? e.target.value : '';
     this.componentSearchTerm = val;
-  } 
+  }
   closeAnyPanel() {
     const button = document.getElementById('closeOverlay');
     if (button) {

@@ -145,13 +145,21 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
         this.quoteMessage = undefined;
       }, 100);
     }
-      if (changes['initialContent'] && !changes['initialContent'].firstChange) {
+      // If initialContent is provided (even on first change), populate the textarea so
+      // editing an existing comment that only contains attachments still shows the edit UI.
+      if (changes['initialContent'] && changes['initialContent'].currentValue !== undefined) {
         const val = changes['initialContent'].currentValue as string | undefined;
-        if (val !== undefined && this.textarea) {
+        if (val !== undefined) {
           setTimeout(() => {
             this.showPostInput = true;
-            this.textarea.value = val;
-            this.textarea.focus();
+            try {
+              if (this.textarea) {
+                this.textarea.value = val;
+                this.textarea.focus();
+              }
+            } catch (e) {
+              // ignore if DOM not ready
+            }
           }, 50);
         }
       }
