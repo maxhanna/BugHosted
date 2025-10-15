@@ -89,34 +89,22 @@
     <!-- Live run HUD -->
     <div class="runHud" *ngIf="parentRef?.user?.id && !isMenuPanelOpen && !showOtherHeroesPanel && !showDeathPanel"
       style="position:fixed; bottom: 200px; right: 20px; color:var(--secondary-font-color); text-shadow:0 -1px 0 #222;">
-      <div
-        title="Total time alive"
-        *ngIf="mainScene?.level?.name != 'CharacterCreate'">
+      <div title="Total time alive" *ngIf="mainScene?.level?.name != 'CharacterCreate'">
         <strong>Time:</strong> {{runElapsedSeconds}}s
       </div>
-      <div 
-        title="Number of walls placed"
-        *ngIf="mainScene?.level?.name != 'CharacterCreate'">
+      <div title="Number of walls placed" *ngIf="mainScene?.level?.name != 'CharacterCreate'">
         <strong>Walls:</strong> {{wallsPlacedThisRun}}
       </div>
-      <div 
-        title="Score = Total Time + Number Of Walls"
-        *ngIf="mainScene?.level?.name != 'CharacterCreate'">
+      <div title="Score = Total Time + Number Of Walls" *ngIf="mainScene?.level?.name != 'CharacterCreate'">
         <strong>Score:</strong> {{currentScore}}
       </div>
-      <div
-        title="Current level"
-        *ngIf="mainScene?.level?.name != 'CharacterCreate'">
+      <div title="Current level" *ngIf="mainScene?.level?.name != 'CharacterCreate'">
         <strong>Level:</strong> {{metaHero.level}}
       </div>
-      <div
-        title="Number of players killed"
-        *ngIf="mainScene?.level?.name != 'CharacterCreate'">
+      <div title="Number of players killed" *ngIf="mainScene?.level?.name != 'CharacterCreate'">
         <strong>Kills:</strong> {{metaHero.kills}}
       </div>
-      <div class="cursorPointerUnderlined" 
-        (click)="openOtherHeroesPanel()"
-        title="Show other heroes on this level"
+      <div class="cursorPointerUnderlined" (click)="openOtherHeroesPanel()" title="Show other heroes on this level"
         *ngIf="mainScene?.level?.name != 'CharacterCreate'">
         <strong>Enemies:</strong> {{enemiesOnSameLevelCount}}
       </div>
@@ -126,10 +114,22 @@
           {{ snapToGridFetch(metaHero.position.y) }}
         </strong>
       </div>
+      <div class="musicOptionsContainer">
+        <div>
+          <button class="musicButton" (click)="toggleSfx()" style="margin-bottom:6px;" [title]="isSfxMuted ? 'Unmute SFX' : 'Mute SFX'" aria-label="SFX toggle">
+            {{ isSfxMuted ? '🔇' : '🔊' }}
+          </button>
+        </div>
+        <div style="margin-top:6px;">
+          <button class="musicButton" (click)="toggleMusic()" [title]="isMusicMuted ? 'Unmute Music' : 'Mute Music'" aria-label="Music toggle">
+            {{ isMusicMuted ? '🔇' : '🎵' }}
+          </button>
+        </div>
+      </div>
       <div *ngIf="mainScene?.level?.name === 'CharacterCreate'">
         <div>
           <strong>Color:</strong>
-        </div> 
+        </div>
         <input type="color" (change)='changeColor()' #colorInput class="colorInput"
           [value]="cachedDefaultColor ?? metaHero.color" />
       </div>
@@ -141,15 +141,15 @@
 
   <div class="popupPanel" style="overflow: auto;" *ngIf="isMenuPanelOpen">
     <div class="popupPanelTitle mainPopupTitle">Ender</div>
-      <div style="padding:6px 8px;">
+    <div class="musicOptionsContainer">
       <div>
-        <button class="closeButton" (click)="toggleSfx()" style="margin-bottom:6px;">
-          {{ isSfxMuted ? 'Unmute SFX' : 'Mute SFX' }}
+        <button class="musicButton" (click)="toggleSfx()" style="margin-bottom:6px;" [title]="isSfxMuted ? 'Unmute SFX' : 'Mute SFX'" aria-label="SFX toggle">
+          {{ isSfxMuted ? '🔇' : '🔊' }}
         </button>
       </div>
       <div style="margin-top:6px;">
-        <button class="musicButton" (click)="toggleMusic()" title="Toggle background music">
-          {{ isMusicMuted ? 'Unmute Music' : 'Mute Music' }}
+        <button class="musicButton" (click)="toggleMusic()" [title]="isMusicMuted ? 'Unmute Music' : 'Mute Music'" aria-label="Music toggle">
+          {{ isMusicMuted ? '🔇' : '🎵' }}
         </button>
       </div>
     </div>
@@ -175,21 +175,17 @@
           <strong>Killed by:</strong>
         </div>
         <div *ngIf="deathKillerUserId" class="deathKillerAvatarContainer">
-          <app-user-tag 
-            [user]="cachedUsers.get(deathKillerUserId)" 
-            [userId]="deathKillerUserId" 
-            [inputtedParentRef]="parentRef" 
-            [displayOnlyAvatar]="false" 
-            [openInNewTab]="true"
+          <app-user-tag [user]="cachedUsers.get(deathKillerUserId)" [userId]="deathKillerUserId"
+            [inputtedParentRef]="parentRef" [displayOnlyAvatar]="false" [openInNewTab]="true"
             (userLoaded)="onUserTagLoaded($event)"></app-user-tag>
-        </div> 
+        </div>
       </div>
       <div class="deathKillStatInfo">
         <div>Time: {{runElapsedSeconds}}s</div>
         <div>Walls: {{wallsPlacedAuthoritative || wallsPlacedThisRun}}</div>
         <div>Kills: {{metaHero.kills || 0}}</div>
       </div>
-    </div> 
+    </div>
     <button class="closeButton" id="closeOverlay" (click)="restartGame()">Restart</button>
   </div>
 </div>
@@ -211,22 +207,17 @@
             <div><strong>{{h.name}}</strong> <span *ngIf="h.id === metaHero.id">(You)</span></div>
             <div class="smallFont">Lvl {{h.level}} | Kills {{h.kills}} | Time {{getHeroTimeOnMap(h.id)}}s</div>
             <div *ngIf="h.color" class="xSmallFont">
-              Color: 
-              <span [style.background]="h.color" class="colorSwatch">{{h.color}}</span> 
+              Color:
+              <span [style.background]="h.color" class="colorSwatch">{{h.color}}</span>
             </div>
             <div *ngIf="h.position"><strong>{{snapToGridFetch(h.position.x)}} ,
                 {{snapToGridFetch(h.position.y)}}</strong>
             </div>
           </div>
           <div class="otherHeroesUserTagContainer" (click)="$event.stopPropagation()">
-            <app-user-tag 
-              [user]="cachedUsers.get(h.userId ?? 0)" 
-              [userId]="h.userId ?? 0" 
-              [inputtedParentRef]="parentRef" 
-              [displayOnlyAvatar]="true"
-              [displayHoverPicture]="true"
-              [openInNewTab]="true"
-              (userLoaded)="onUserTagLoaded($event)"></app-user-tag>
+            <app-user-tag [user]="cachedUsers.get(h.userId ?? 0)" [userId]="h.userId ?? 0"
+              [inputtedParentRef]="parentRef" [displayOnlyAvatar]="true" [displayHoverPicture]="true"
+              [openInNewTab]="true" (userLoaded)="onUserTagLoaded($event)"></app-user-tag>
           </div>
         </div>
       </div>
