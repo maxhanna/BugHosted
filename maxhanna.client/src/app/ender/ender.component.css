@@ -587,3 +587,12 @@ body {
   justify-content: center;
   cursor: pointer;
 }
+.killerAndStatsWrapper {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    align-content: center;
+    align-items: center;
+    gap: 10px;
+    margin: 5px 0px;
+}

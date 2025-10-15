@@ -159,25 +159,27 @@
     <div style="pointer-events:none; margin-bottom:8px;">
       Final Score: {{currentScore}}
     </div>
-    <div *ngIf="deathKillerUserId" style="margin-top:8px;">
-      <div style="margin-bottom:6px;">
-        <strong>Killed by:</strong>
+    <div class="killerAndStatsWrapper">
+      <div *ngIf="deathKillerUserId" style="margin-top:8px;">
+        <div style="margin-bottom:6px;">
+          <strong>Killed by:</strong>
+        </div>
+        <div *ngIf="deathKillerUserId" class="deathKillerAvatarContainer">
+          <app-user-tag 
+            [user]="cachedUsers.get(deathKillerUserId)" 
+            [userId]="deathKillerUserId" 
+            [inputtedParentRef]="parentRef" 
+            [displayOnlyAvatar]="false" 
+            [openInNewTab]="true"
+            (userLoaded)="onUserTagLoaded($event)"></app-user-tag>
+        </div> 
       </div>
-      <div *ngIf="deathKillerUserId" class="deathKillerAvatarContainer">
-        <app-user-tag 
-          [user]="cachedUsers.get(deathKillerUserId)" 
-          [userId]="deathKillerUserId" 
-          [inputtedParentRef]="parentRef" 
-          [displayOnlyAvatar]="false" 
-          [openInNewTab]="true"
-          (userLoaded)="onUserTagLoaded($event)"></app-user-tag>
-      </div> 
-    </div>
-    <div style="pointer-events:none; margin-bottom:8px;">
-      <div>Time: {{runElapsedSeconds}}s</div>
-      <div>Walls: {{wallsPlacedAuthoritative || wallsPlacedThisRun}}</div>
-      <div>Kills: {{metaHero.kills || 0}}</div>
-    </div>
+      <div style="pointer-events:none; margin-bottom:8px;">
+        <div>Time: {{runElapsedSeconds}}s</div>
+        <div>Walls: {{wallsPlacedAuthoritative || wallsPlacedThisRun}}</div>
+        <div>Kills: {{metaHero.kills || 0}}</div>
+      </div>
+    </div> 
     <button class="closeButton" id="closeOverlay" (click)="restartGame()">Restart</button>
   </div>
 </div>
