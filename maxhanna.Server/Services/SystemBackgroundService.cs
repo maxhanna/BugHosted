@@ -164,7 +164,7 @@ namespace maxhanna.Server.Services
 					SELECT COUNT(*) FROM maxhanna.ender_bike_wall w WHERE w.hero_id = h.id
 				) >= 2
 				AND (
-					SELECT COUNT(*) FROM maxhanna.ender_bike_wall w2 WHERE w2.hero_id = h.id AND w2.timestamp >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 3 HOUR)
+					SELECT COUNT(*) FROM maxhanna.ender_bike_wall w2 WHERE w2.hero_id = h.id AND w2.created_at >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 3 HOUR)
 				) = 0;";
 
 				using var selCmd = new MySqlCommand(selectSql, conn, transaction);
