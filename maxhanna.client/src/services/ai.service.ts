@@ -52,7 +52,18 @@ export class AiService {
         body,
       });
 
-      return await response.json();
+      // Check for empty response
+      const contentLength = response.headers.get('content-length');
+      if (!response.ok || contentLength === '0') {
+        return null;
+      }
+      // Try to parse JSON, handle empty/invalid
+      try {
+        return await response.json();
+      } catch (jsonErr) {
+        console.error('Market sentiment: invalid JSON response', jsonErr);
+        return null;
+      }
     } catch (error) {
       console.error('Failed to get market sentiment:', error);
       return null;
