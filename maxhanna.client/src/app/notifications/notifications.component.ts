@@ -506,6 +506,7 @@ export class NotificationsComponent extends ChildComponent implements OnInit, On
     if (!text.includes('profile') && (text.includes('post') || text.includes('comment'))) return 'Social';
     if (text.includes('profile') || text.includes('friend request') || text.includes('following')) return 'User';
     if (text.includes('bugwars') || text.includes('captured')) return 'Bug-Wars';
+    if (text.includes('lightcycle') || text.includes('vaporized')) return 'Ender';
     if (text.includes('shared a note')) return 'Notepad';
 
     return 'Other';
