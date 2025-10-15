@@ -139,7 +139,7 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
         this.ctx = this.canvas.getContext("2d")!;
         if (!this.parentRef?.user) {
             this.isUserComponentOpen = true;
-        } else { 
+        } else {
             // Preload user settings (default name/color) as early as possible so CharacterCreate can use them
             this.userService.getUserSettings(this.parentRef.user?.id ?? 0).then(res => {
                 this.cachedDefaultName = res?.lastCharacterName ?? undefined;
@@ -192,52 +192,33 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
     ngOnDestroy() {
         clearInterval(this.pollingInterval);
         this.mainScene.destroy();
-        this.gameLoop.stop(); 
-        resources.stopSound("pixelDreams");  
+        this.gameLoop.stop();
+        resources.stopSound("pixelDreams");
         this.remove_me('EnderComponent');
         this.parentRef?.setViewportScalability(true);
         this.parentRef?.removeResizeListener();
     }
 
-    toggleMuteSounds() {
-            // legacy toggle: flip both music and sfx together
-            this.isMuted = !this.isMuted;
-            this.isMusicMuted = this.isMuted;
-            this.isSfxMuted = this.isMuted;
-            resources.setMuted(this.isMuted);
-            if (!this.isMusicMuted) {
-                resources.playSound("pixelDreams", { volume: 0.4, loop: true, allowOverlap: false });
-            } else {
-                resources.stopSound("pixelDreams");
-            }
-            if (this.parentRef?.user?.id) {
-                this.userService.updateMuteSounds(this.parentRef.user.id, this.isMuted).catch(()=>{});
-            }
+
+    toggleMusic() {
+        this.isMusicMuted = !this.isMusicMuted;
+        resources.setMusicMuted(this.isMusicMuted);
+        if (!this.isMusicMuted) {
+            resources.playSound("pixelDreams", { volume: 0.4, loop: true, allowOverlap: false });
+        } else {
+            resources.stopSound("pixelDreams");
+        }
+        this.isMuted = this.isMusicMuted && this.isSfxMuted;
+        if (this.parentRef?.user?.id) {
+            this.userService.updateMuteSounds(this.parentRef.user.id, this.isMuted).catch(() => { });
+        }
     }
 
-        toggleMusic() {
-            this.isMusicMuted = !this.isMusicMuted;
-            resources.setMusicMuted(this.isMusicMuted);
-            if (!this.isMusicMuted) {
-                resources.playSound("pixelDreams", { volume: 0.4, loop: true, allowOverlap: false });
-            } else {
-                resources.stopSound("pixelDreams");
-            }
-            // keep legacy isMuted in sync if both flags are true
-            this.isMuted = this.isMusicMuted && this.isSfxMuted;
-            if (this.parentRef?.user?.id) {
-                this.userService.updateMuteSounds(this.parentRef.user.id, this.isMuted).catch(()=>{});
-            }
-        }
-
-        toggleSfx() {
-            this.isSfxMuted = !this.isSfxMuted;
-            resources.setSfxMuted(this.isSfxMuted);
-            this.isMuted = this.isMusicMuted && this.isSfxMuted;
-            if (this.parentRef?.user?.id) {
-                this.userService.updateMuteSounds(this.parentRef.user.id, this.isMuted).catch(()=>{});
-            }
-        }
+    toggleSfx() {
+        this.isSfxMuted = !this.isSfxMuted;
+        resources.setSfxMuted(this.isSfxMuted);
+        this.isMuted = this.isMusicMuted && this.isSfxMuted;
+    }
 
     private async handleHeroDeath(killerId: string) {
         const killerMeta = this.otherHeroes.find(h => h.id === parseInt(killerId)) ?? (this.metaHero.id === parseInt(killerId) ? this.metaHero : undefined);
@@ -275,8 +256,8 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
             // accumulate walls until next poll
             this.pendingWallsBatch.push({ x: params.x, y: params.y });
             // if server is down, stash these with level/hero so we can delete them on recovery
-            if (this.serverDown) { 
-                this.offlineCreatedWalls.push({ x: params.x, y: params.y }); 
+            if (this.serverDown) {
+                this.offlineCreatedWalls.push({ x: params.x, y: params.y });
             }
         });
     }
@@ -309,7 +290,7 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
                 await this.reinitializeHero(rz);
                 await this.setHeroColors();
                 // Try to load persisted walls for this hero so walls placed previously are visible immediately
-                this.currentFetchAbortController = new AbortController(); 
+                this.currentFetchAbortController = new AbortController();
                 const signal = this.currentFetchAbortController.signal;
                 const res: any = await this.enderService.fetchGameDataWithWalls(this.metaHero, [], this.lastKnownWallId, signal);
                 this.placeWallsAroundPlayer(res);
@@ -397,12 +378,12 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
                 // If server was down and is now back, attempt to delete any walls
                 // the client created while offline, then clear local caches so
                 // authoritative data can repopulate cleanly.
-                if (wasServerDown) { 
+                if (wasServerDown) {
                     await this.recoverFromServerDown();
                     return;
                 }
 
-                if (res) { 
+                if (res) {
                     if (res.events) {
                         actionMultiplayerEvents(this, res.events);
                     }
@@ -491,10 +472,10 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
                 const colorSwap = ownerColor ? new ColorSwap([0, 160, 200], hexToRgb(ownerColor!)) : (ownerId === this.metaHero.id ? (this.metaHero ? this.mainScene.metaHero?.colorSwap : undefined) : undefined);
                 const wall = new BikeWall({ position: new Vector2(w.x, w.y), colorSwap, heroId: ownerId ?? 0 });
                 this.mainScene.level.addChild(wall);
-                
+
                 // track the created wall object by key so we can fast-destroy it later if it's removed from authoritative set
                 this.lastAddedWallObjects.set(key, wall);
-                
+
                 events.emit("BIKEWALL_CREATED", { x: w.x, y: w.y });
                 if (w.id && w.id > this.lastKnownWallId) {
                     this.lastKnownWallId = w.id;
@@ -560,7 +541,7 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
                 this.heroEverMoved.set(h.id, true);
             }
             // always update lastServerPos
-            this.lastServerPos.set(h.id, pos); 
+            this.lastServerPos.set(h.id, pos);
             if (h.id && h.color) {
                 this.heroColors.set(h.id, h.color);
             }
@@ -684,9 +665,9 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
             // Only apply bump when the hero is moving
             let offsetX = 0;
             let offsetY = 0;
-            if (moved) { 
+            if (moved) {
                 let facing: string = DOWN;
-                const live: Hero = this.mainScene?.level?.children?.find((x: any) => 
+                const live: Hero = this.mainScene?.level?.children?.find((x: any) =>
                     x.id === hero.id && x.name === hero.name && x instanceof Hero);
                 if (live) {
                     facing = live.facingDirection;
@@ -699,7 +680,7 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
                 else if (facing === DOWN) offsetY = oneCell;
             }
             const newPos = new Vector2(hero.position.x + offsetX, hero.position.y + offsetY);
-             
+
             if (!existingHero.destinationPosition.matches(newPos)) {
                 existingHero.destinationPosition = newPos;
             }
@@ -770,7 +751,7 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
             mask: rz.mask ? new Mask(getMaskNameById(rz.mask)) : undefined,
             colorSwap: colorSwap ? new ColorSwap([0, 160, 200], hexToRgb(colorSwap)) : undefined,
         });
-        this.metaHero = new MetaHero(this.hero.id, 
+        this.metaHero = new MetaHero(this.hero.id,
             rz.userId ?? 0,
             (this.hero.name ?? "Anon"),
             this.hero.position.duplicate(),
@@ -857,29 +838,29 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
     private clearWalls() {
         // Level changed: remove only BikeWall instances immediately and
         // clear local wall tracking to avoid resurrecting stale walls.            
-        this.mainScene.level.children.forEach((child: any) => { 
+        this.mainScene.level.children.forEach((child: any) => {
             if (child instanceof BikeWall) {
                 if (typeof (child as any).quickDestroy === 'function') {
                     (child as any).quickDestroy();
                 } else {
                     child.destroy();
                 }
-            } 
+            }
         });
-        
+
         // Clear client-side tracking of persisted walls for the old level
-        this.lastAddedWallKeys.clear(); 
-        
+        this.lastAddedWallKeys.clear();
+
         for (const [k, obj] of Array.from(this.lastAddedWallObjects.entries())) {
             if (typeof (obj as any).quickDestroy === 'function') {
                 (obj as any).quickDestroy();
             } else {
                 obj.destroy();
             }
-            
+
             this.lastAddedWallObjects.delete(k);
         }
-        
+
         this.persistedWallLevelRef = undefined;
         this.lastKnownWallId = 0;
     }
