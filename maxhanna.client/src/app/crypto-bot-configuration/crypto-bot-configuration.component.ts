@@ -39,61 +39,7 @@ export class CryptoBotConfigurationComponent extends ChildComponent {
   @ViewChild('tradeMaximumFromBalance') tradeMaximumFromBalance!: ElementRef<HTMLInputElement>;
 
   tradeConfigLastUpdated: Date | undefined = undefined;
-  // Bulk edit state
-  // Bulk edit state (support per-type keys: 'strategy:DCA' or 'coin:XBT')
-  bulkEdit: Record<string, boolean> = {};
-  bulkModel: Record<string, any> = {};
-  strategies: string[] = ['DCA', 'IND', 'HFT'];
-  coins: string[] = ['XBT', 'ETH', 'XRP', 'SOL', 'XDG'];
   private readonly DEFAULT_USER_ID = 1;
-
-  // Populate bulkModel from current input values into a keyed model (for strategy/coin)
-  populateBulkModelFor(type: 'strategy' | 'coin', key: string) {
-    const modelKey = `${type}:${key}`;
-    this.bulkModel[modelKey] = {
-      MaximumFromBalance: this.tradeMaximumFromBalance?.nativeElement?.value ?? '',
-      MinimumFromTradeAmount: this.tradeMinimumFromTradeAmount?.nativeElement?.value ?? '',
-      MaximumToTradeAmount: this.tradeMaximumToTradeAmount?.nativeElement?.value ?? '',
-      TradeThreshold: this.tradeTradeThreshold?.nativeElement?.value ?? '',
-      ReserveSellPercentage: this.tradeReserveSellPercentage?.nativeElement?.value ?? '',
-      CoinReserveUSDCValue: this.tradeCoinReserveUSDCValue?.nativeElement?.value ?? '',
-      MaxTradeTypeOccurances: this.tradeTradeMaximumTypeOccurances?.nativeElement?.value ?? '',
-      TradeStopLoss: this.tradeStopLoss?.nativeElement?.value ?? '',
-      TradeStopLossPercentage: this.tradeStopLossPercentage?.nativeElement?.value ?? '',
-      VolumeSpikeMaxTradeOccurance: this.tradeVolumeSpikeMaxTradeOccurance?.nativeElement?.value ?? ''
-    };
-    this.bulkEdit[modelKey] = true;
-    // ensure conversions update
-    this.cdRef.detectChanges();
-  }
-
-  applyBulkEditFor(type: 'strategy' | 'coin', key: string) {
-    const modelKey = `${type}:${key}`;
-    const model = this.bulkModel[modelKey] || {};
-    try {
-      if (this.tradeMaximumFromBalance) this.tradeMaximumFromBalance.nativeElement.value = model.MaximumFromBalance ?? '';
-      if (this.tradeMinimumFromTradeAmount) this.tradeMinimumFromTradeAmount.nativeElement.value = model.MinimumFromTradeAmount ?? '';
-      if (this.tradeMaximumToTradeAmount) this.tradeMaximumToTradeAmount.nativeElement.value = model.MaximumToTradeAmount ?? '';
-      if (this.tradeTradeThreshold) this.tradeTradeThreshold.nativeElement.value = model.TradeThreshold ?? '';
-      if (this.tradeReserveSellPercentage) this.tradeReserveSellPercentage.nativeElement.value = model.ReserveSellPercentage ?? '';
-      if (this.tradeCoinReserveUSDCValue) this.tradeCoinReserveUSDCValue.nativeElement.value = model.CoinReserveUSDCValue ?? '';
-      if (this.tradeTradeMaximumTypeOccurances) this.tradeTradeMaximumTypeOccurances.nativeElement.value = model.MaxTradeTypeOccurances ?? '';
-      if (this.tradeStopLoss) this.tradeStopLoss.nativeElement.value = model.TradeStopLoss ?? '';
-      if (this.tradeStopLossPercentage) this.tradeStopLossPercentage.nativeElement.value = model.TradeStopLossPercentage ?? '';
-      if (this.tradeVolumeSpikeMaxTradeOccurance) this.tradeVolumeSpikeMaxTradeOccurance.nativeElement.value = model.VolumeSpikeMaxTradeOccurance ?? '';
-
-      // Reflect changes and close bulk edit for this key
-      this.detectChange();
-      this.bulkEdit[modelKey] = false;
-    } catch (e) {
-      console.error('Failed to apply bulk edit', e);
-    }
-  }
-
-  cancelBulkEditFor(type: 'strategy' | 'coin', key: string) {
-    const modelKey = `${type}:${key}`;
-    this.bulkEdit[modelKey] = false;
-  }
 
   async updateCoinConfiguration() {
     if (!this.inputtedParentRef?.user?.id) {
@@ -191,15 +137,6 @@ export class CryptoBotConfigurationComponent extends ChildComponent {
       return this.solToCadPrice ?? 0;
     }
     return 0;
-  }
-
-  // Safe accessors for template usage (avoids nativeElement type errors in templates)
-  get tradeFromCoinValue(): string {
-    try {
-      return this.tradeFromCoinSelect?.nativeElement?.value ?? '';
-    } catch {
-      return '';
-    }
   }
 
   get MaxFromBalanceEnteredPrice() {
