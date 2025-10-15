@@ -177,7 +177,7 @@
 
         <!-- Sell Percentage per Trade (DCA only) -->
         <div class="config-box"
-            [style.display]="(tradeStrategySelect.value == 'IND' || tradeStrategySelect.value == 'HFT') ? 'none' : 'flex'">
+            [style.display]="(currentStrategy == 'IND' || currentStrategy == 'HFT') ? 'none' : 'flex'">
             <div class="config-header">
                 <span>Sell % of Reserves</span>
                 <span class="info-icon" (click)="toggleExplanation($event)">i</span>
@@ -212,7 +212,7 @@
 
         <!-- Min USDC to Start Trading (DCA only) -->
         <div class="config-box"
-            [style.display]="(tradeStrategySelect.value == 'IND' || tradeStrategySelect.value == 'HFT') ? 'none' : 'flex'">
+            [style.display]="(currentStrategy == 'IND' || currentStrategy == 'HFT') ? 'none' : 'flex'">
             <div class="config-header">
                 <span>{{tradeToCoinValue}} Value of {{tradeFromCoinSelect?.value}} Reserves</span>
                 <span class="info-icon" (click)="toggleExplanation($event)">i</span>
@@ -233,8 +233,8 @@
             </div>
         </div>
 
-        <!-- Max Consecutive Buy/Sell Trades -->
-        <div class="config-box" [style.display]="tradeStrategySelect.value == 'HFT' ? 'none' : 'flex'">
+    <!-- Max Consecutive Buy/Sell Trades -->
+    <div class="config-box" [style.display]="currentStrategy == 'HFT' ? 'none' : 'flex'">
             <div class="config-header">
                 <span>Max Consecutive Trades</span>
                 <span class="info-icon" (click)="toggleExplanation($event)">i</span>
@@ -263,7 +263,7 @@
 
         <!-- Max Trades During Volume Spikes (DCA only) -->
         <div class="config-box"
-            [style.display]="(tradeStrategySelect.value == 'IND' || tradeStrategySelect.value == 'HFT') ? 'none' : 'flex'">
+            [style.display]="(currentStrategy == 'IND' || currentStrategy == 'HFT') ? 'none' : 'flex'">
             <div class="config-header">
                 <span>Max Trades During Spikes</span>
                 <span class="info-icon" (click)="toggleExplanation($event)">i</span>
@@ -289,8 +289,8 @@
             </div>
         </div>
 
-        <!-- Stop-Loss Price (DCA only) -->
-        <div class="config-box" [style.display]="tradeStrategySelect.value == 'DCA' ? 'flex' : 'none'">
+    <!-- Stop-Loss Price (DCA only) -->
+    <div class="config-box" [style.display]="currentStrategy == 'DCA' ? 'flex' : 'none'">
             <div class="config-header">
                 <span>Stop-Loss Price</span>
                 <span class="info-icon" (click)="toggleExplanation($event)">i</span>
@@ -315,8 +315,8 @@
             </div>
         </div>
 
-        <!-- IND Stop-Loss Percentage (IND only) -->
-        <div class="config-box" [style.display]="tradeStrategySelect.value == 'IND' ? 'flex' : 'none'">
+    <!-- IND Stop-Loss Percentage (IND only) -->
+    <div class="config-box" [style.display]="currentStrategy == 'IND' ? 'flex' : 'none'">
             <div class="config-header">
                 <span>IND Stop-Loss %</span>
                 <span class="info-icon" (click)="toggleExplanation($event)">i</span>
