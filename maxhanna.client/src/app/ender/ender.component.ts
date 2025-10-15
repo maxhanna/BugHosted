@@ -125,6 +125,9 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
     private championName?: string;
     private championScore?: number;
     isMuted: boolean = false; // user preference for Ender sounds
+    // When true, the player is dead and run timer should not restart
+    private isDead: boolean = false;
+    // mark dead so timers won't restart while death panel is shown
 
     async ngOnInit() {
         this.serverDown = (this.parentRef ? await this.parentRef?.isServerUp() <= 0 : false);
@@ -210,6 +213,7 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
         const killerMeta = this.otherHeroes.find(h => h.id === parseInt(killerId)) ?? (this.metaHero.id === parseInt(killerId) ? this.metaHero : undefined);
         this.deathKillerUserId = killerMeta?.userId ?? undefined;
         this.stopPollingForUpdates = true;
+        this.isDead = true;
         this.stopRunTimer();
         setTimeout(() => {
             this.gameLoop.stop();
@@ -793,6 +797,7 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
             }
         }
         this.runElapsedSeconds = 0;
+        this.isDead = false;
         this.startRunTimer();
     }
 
@@ -849,6 +854,7 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
         this.lastKnownWallId = 0;
     }
     private startRunTimer() {
+        if (this.isDead) return;
         this.stopRunTimer();
         this.runElapsedInterval = setInterval(() => {
             if (this.runStartTimeMs) {

@@ -163,7 +163,7 @@
       <div style="margin-bottom:6px;">
         <strong>Killed by:</strong>
       </div>
-      <div *ngIf="deathKillerUserId">
+      <div *ngIf="deathKillerUserId" class="deathKillerAvatarContainer">
         <app-user-tag 
           [user]="cachedUsers.get(deathKillerUserId)" 
           [userId]="deathKillerUserId" 

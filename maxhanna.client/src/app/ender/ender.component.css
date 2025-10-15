@@ -519,10 +519,10 @@ body {
 }
 
 .gearboxPopup .otherHeroesUserInfo {
-    padding: 4px 8px;
-    gap: 5px;
-    display: flex;
-    flex-direction: column;
+  padding: 4px 8px;
+  gap: 5px;
+  display: flex;
+  flex-direction: column;
 }
 
 .gearboxPopup .colorSwatch {
@@ -580,4 +580,9 @@ body {
 
 .deathPanel {
   min-width: 300px;
+}
+
+.deathKillerAvatarContainer {
+  display: flex;
+  justify-content: center;
 }
