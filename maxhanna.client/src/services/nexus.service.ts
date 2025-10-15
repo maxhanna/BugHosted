@@ -169,6 +169,12 @@ export class NexusService {
   }
   async getEpochRankings(): Promise<any> {
     return await this.fetchData('/nexus/getepochrankings');
+  } 
+  async getActivePlayers(minutes = 2) {
+    return this.fetchData('/nexus/activeplayers', minutes);
+  }
+  async getUserRank(userId: number) {
+    return this.fetchData('/nexus/getuserrank', userId);
   }
 
   formatTimer(allSeconds?: number): string {

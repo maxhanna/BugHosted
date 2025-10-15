@@ -75,8 +75,6 @@
         </ng-container>
         <ng-container *ngIf="item.title == 'Ender'">
           <a class="navLink" (click)="goTo(item.title, $event)" [title]="item.title">{{ item.icon!.substring(0, 3) }}</a>
-          <span *ngIf="enderActivePlayers !== null" class="nav-small-badge">{{ enderActivePlayers }}</span>
-          <span *ngIf="enderUserRank && enderUserRank.rank !== null" class="nav-small-badge">#{{ enderUserRank.rank }}</span>
         </ng-container>
       </ng-container>
 

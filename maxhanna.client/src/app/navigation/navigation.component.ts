@@ -15,6 +15,7 @@ import { FileService } from '../../services/file.service';
 import { ExchangeRate } from '../../services/datacontracts/crypto/exchange-rate';
 import { MenuItem } from '../../services/datacontracts/user/menu-item';
 import { EnderService } from '../../services/ender.service';
+import { NexusService } from '../../services/nexus.service';
 
 @Component({
   selector: 'app-navigation',
@@ -70,13 +71,18 @@ export class NavigationComponent implements OnInit, OnDestroy {
     private userService: UserService,
     private fileService: FileService,
     private notificationService: NotificationService,
-    private enderService: EnderService) { 
+    private enderService: EnderService,
+    private nexusService: NexusService) {
   }
 
   // runtime values for Ender nav item
   enderActivePlayers: number | null = null;
   enderUserRank: { rank?: number | null, score?: number | null, totalPlayers?: number | null } | null = null;
   private enderInterval: any;
+  // runtime values for Nexus (Bug-Wars)
+  nexusActivePlayers: number | null = null;
+  nexusUserRank: { rank?: number | null, baseCount?: number | null, totalPlayers?: number | null } | null = null;
+  private nexusInterval: any;
 
   async ngOnInit() {
     this.navbarReady = true;
@@ -84,7 +90,6 @@ export class NavigationComponent implements OnInit, OnDestroy {
     setTimeout(() => {
       this.getNotifications();
       this.displayAppSelectionHelp();
-  this.startEnderPolling();
     }, 100)
   }
 
@@ -93,7 +98,8 @@ export class NavigationComponent implements OnInit, OnDestroy {
     clearInterval(this.calendarInfoInterval);
     clearInterval(this.wordlerInfoInterval);
     clearInterval(this.notificationInfoInterval);
-  clearInterval(this.enderInterval);
+    clearInterval(this.enderInterval);
+    clearInterval(this.nexusInterval);
     this.showAppSelectionHelp = false;
     this.clearNotifications();
   }
@@ -122,13 +128,17 @@ export class NavigationComponent implements OnInit, OnDestroy {
     this.getCalendarInfo();
     this.getCryptoHubInfo();
     this.getNotificationInfo();
-    this.getWordlerStreakInfo(); 
-    this.getThemeInfo(); 
+    this.getWordlerStreakInfo();
+    this.getEnderPlayerInfo();
+    this.getNexusPlayerInfo();
+    this.getThemeInfo();
 
     this.notificationInfoInterval = setInterval(() => this.getNotificationInfo(), 20 * 1000); // every minute
     this.cryptoHubInterval = setInterval(() => this.getCryptoHubInfo(), 20 * 60 * 1000); // every 20 minutes
     this.calendarInfoInterval = setInterval(() => this.getCalendarInfo(), 20 * 60 * 1000); // every 20 minutes 
     this.wordlerInfoInterval = setInterval(() => this.getWordlerStreakInfo(), 60 * 60 * 1000); // every hour
+    this.enderInterval = setInterval(() => this.getEnderPlayerInfo(), 60 * 1000); // every minute
+    this.nexusInterval = setInterval(() => this.getNexusPlayerInfo(), 60 * 1000); // every minute
   }
 
   stopNotifications() {
@@ -150,15 +160,8 @@ export class NavigationComponent implements OnInit, OnDestroy {
     if (this.navbarCollapsed) {
       return;
     }
- 
-    this.getNotificationInfo();
-    this.getCryptoHubInfo();
-    this.getCalendarInfo();
-    this.getWordlerStreakInfo();
-    this.notificationInfoInterval = setInterval(() => this.getNotificationInfo(), 60 * 1000); // every minute
-    this.cryptoHubInterval = setInterval(() => this.getCryptoHubInfo(), 20 * 60 * 1000); // every 20 minutes
-    this.calendarInfoInterval = setInterval(() => this.getCalendarInfo(), 20 * 60 * 1000); // every 20 minutes 
-    this.wordlerInfoInterval = setInterval(() => this.getWordlerStreakInfo(), 60 * 60 * 1000); // every hour
+
+    this.getNotifications();
   }, 5000); // 5s debounce delay
 
   setNotificationNumber(notifs?: number, notification?: UserNotification) {
@@ -194,7 +197,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
       return;
     }
     this.isLoadingNotifications = true;
-    try { 
+    try {
       const res = await this.notificationService.getNotifications(this._parent.user.id ?? 0) as UserNotification[];
       if (res) {
         const currentTradeNotifsCount = res.filter(x => x.text?.includes("Executed Trade") && x.isRead == false).length;
@@ -205,7 +208,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
         this.tradeNotifsCount = currentTradeNotifsCount;
         const chatItem = this._parent.navigationItems.find(x => x.title === "Chat");
         const chatItemContent = chatItem?.content ?? "0";
-        const currentChatNotifCount = parseInt(chatItemContent, 10) || 0;  
+        const currentChatNotifCount = parseInt(chatItemContent, 10) || 0;
         this.numberOfNotifications = res.filter(x => x.isRead == false).length;
         this._parent.navigationItems.filter(x => x.title == "Notifications")[0].content = this.numberOfNotifications + "";
         if (this._parent.userSelectedNavigationItems.find(x => x.title == "Chat")) {
@@ -233,13 +236,13 @@ export class NavigationComponent implements OnInit, OnDestroy {
     if (!this._parent?.user?.id && !userId) {
       this.applyDefaultTheme();
       return;
-    } 
+    }
     this.isLoadingTheme = true;
     try {
       const theme = await this.userService.getTheme(userId ?? this._parent?.user?.id ?? 0);
       if (theme && !theme.message) {
-        this.applyThemeToCSS(theme); 
-      } else { 
+        this.applyThemeToCSS(theme);
+      } else {
         this.applyDefaultTheme();
       }
     } catch (error) {
@@ -380,38 +383,75 @@ export class NavigationComponent implements OnInit, OnDestroy {
     }
   }
 
-  private startEnderPolling() {
-    if (!this._parent?.user?.id) return;
-    
+  private async getEnderPlayerInfo() {
+    this.isLoadingEnder = true;
+    try {
+      const res: any = await this.enderService.getActivePlayers(2);
+      this.enderActivePlayers = res?.count ?? null;
+    } catch (e) {
+      this.enderActivePlayers = null;
+    }
 
-    const refresh = async () => {
-  this.isLoadingEnder = true;
-      try {
-        const res: any = await this.enderService.getActivePlayers(2);
-        this.enderActivePlayers = res?.count ?? null;
-      } catch (e) {
-        this.enderActivePlayers = null;
-      }
-
-      try {
-        const userId = this._parent.user?.id ?? 0;
-        if (userId) {
-          const rankRes: any = await this.enderService.getUserRank(userId);
-          if (rankRes && rankRes.hasHero) {
-            this.enderUserRank = { rank: rankRes.rank ?? null, score: rankRes.score ?? null, totalPlayers: rankRes.totalPlayers ?? null };
-          } else {
-            this.enderUserRank = { rank: null, score: null, totalPlayers: rankRes?.totalPlayers ?? null };
-          }
+    try {
+      const userId = this._parent.user?.id ?? 0;
+      if (userId) {
+        const rankRes: any = await this.enderService.getUserRank(userId);
+        if (rankRes && rankRes.hasHero) {
+          this.enderUserRank = { rank: rankRes.rank ?? null, score: rankRes.score ?? null, totalPlayers: rankRes.totalPlayers ?? null };
+        } else {
+          this.enderUserRank = { rank: null, score: null, totalPlayers: rankRes?.totalPlayers ?? null };
         }
-      } catch (e) {
-        this.enderUserRank = null;
       }
-  this.isLoadingEnder = false;
-    };
+    } catch (e) {
+      this.enderUserRank = null;
+    }
+      // Update Ender nav item content like Crypto-Hub / Notifications (use item.content)
+      if (this._parent?.navigationItems) {
+        const enderNav = this._parent.navigationItems.find(x => x.title === 'Ender');
+        if (enderNav) {
+          const parts: string[] = [];
+            if (this.enderActivePlayers != null) {
+              parts.push(this.enderActivePlayers.toString());
+            }
+            if (this.enderUserRank?.rank != null) {
+              parts.push(`#${this.enderUserRank.rank}`);
+            }
+            enderNav.content = parts.join('\n');
+        }
+      }
+    this.isLoadingEnder = false; 
+  }
 
-    // initial call
-    refresh();
-    this.enderInterval = setInterval(refresh, 60 * 1000); // update every minute
+  private async getNexusPlayerInfo() {  
+    try {
+      const res: any = await this.nexusService.getActivePlayers(2);
+      this.nexusActivePlayers = res?.count ?? null;
+    } catch (e) {
+      this.nexusActivePlayers = null;
+    }  
+    try {
+      const userId = this._parent.user?.id ?? 0;
+      if (userId) {
+        const rankRes: any = await this.nexusService.getUserRank(userId);
+        if (rankRes && rankRes.hasBase) {
+          this.nexusUserRank = { rank: rankRes.rank ?? null, baseCount: rankRes.baseCount ?? null, totalPlayers: rankRes.totalPlayers ?? null };
+        } else {
+          this.nexusUserRank = { rank: null, baseCount: null, totalPlayers: rankRes?.totalPlayers ?? null };
+        }
+      }
+    } catch (e) {
+      this.nexusUserRank = null;
+    }
+    // Update Bug-Wars nav item content similar to Ender
+    if (this._parent?.navigationItems) {
+      const nexusNav = this._parent.navigationItems.find(x => x.title === 'Bug-Wars');
+      if (nexusNav) {
+        const parts: string[] = [];
+        if (this.nexusActivePlayers != null) parts.push(this.nexusActivePlayers.toString());
+        if (this.nexusUserRank?.rank != null) parts.push(`#${this.nexusUserRank.rank}`);
+        nexusNav.content = parts.join('\n');
+      }
+    }
   }
 
   async getWordlerStreakInfo() {
@@ -449,7 +489,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
     return parseInt(notifNumbers);
   }
 
-  goTo(title: string, event?: any) { 
+  goTo(title: string, event?: any) {
     if (title.toLowerCase() == "close menu") {
       this.toggleMenu();
     } else if (title == "UpdateUserSettings") {
@@ -510,7 +550,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
     }
   }
   applyThemeToCSS(theme: any) {
-      if (theme.backgroundImage) {
+    if (theme.backgroundImage) {
       const requesterId = this._parent?.user?.id;
       this.fileService.getFileEntryById(theme.backgroundImage, requesterId).then(res => {
         if (res) {
@@ -573,8 +613,8 @@ export class NavigationComponent implements OnInit, OnDestroy {
       }
       else if (!user || !user.id || user.id === 0) {
         showAppSelector = true;
-      } 
-      else if (user.created) { 
+      }
+      else if (user.created) {
         const createdAt = new Date(user.created).getTime();
         if ((now - createdAt) < oneDayMs) {
           showAppSelector = true;
@@ -588,7 +628,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
     }
   }
   descriptionsExist(item: string) {
-    return this._parent.navigationItemDescriptions.some((x:MenuItem) => x.title == item);
+    return this._parent.navigationItemDescriptions.some((x: MenuItem) => x.title == item);
   }
   closeNotifications() {
     console.log('closing');
@@ -596,6 +636,6 @@ export class NavigationComponent implements OnInit, OnDestroy {
     this.isLoadingNotifications = false;
     this.isLoadingTheme = false;
     this.isLoadingWordlerStreak = false;
-    this.isLoadingCalendar = false; 
+    this.isLoadingCalendar = false;
   }
 }

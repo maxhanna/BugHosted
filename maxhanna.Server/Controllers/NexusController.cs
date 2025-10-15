@@ -5346,6 +5346,104 @@ namespace maxhanna.Server.Controllers
 			}
 		}
 
+		[HttpPost("/Nexus/ActivePlayers", Name = "GetNexusActivePlayers")]
+		public async Task<IActionResult> GetNexusActivePlayers([FromBody] int? minutes)
+		{
+			int windowMinutes = minutes ?? 2;
+			try
+			{
+				using var conn = new MySqlConnection(_connectionString);
+				await conn.OpenAsync();
+				string sql = $@"
+					SELECT COUNT(DISTINCT user_id) AS activeCount FROM (
+						SELECT origin_user_id AS user_id, timestamp AS ts FROM maxhanna.nexus_attacks_sent WHERE timestamp >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL @Minutes MINUTE)
+						UNION
+						SELECT destination_user_id AS user_id, timestamp AS ts FROM maxhanna.nexus_attacks_sent WHERE timestamp >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL @Minutes MINUTE)
+						UNION
+						SELECT origin_user_id AS user_id, timestamp AS ts FROM maxhanna.nexus_defences_sent WHERE timestamp >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL @Minutes MINUTE)
+						UNION
+						SELECT destination_user_id AS user_id, timestamp AS ts FROM maxhanna.nexus_defences_sent WHERE timestamp >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL @Minutes MINUTE)
+						UNION
+						SELECT nb.user_id AS user_id, p.timestamp AS ts FROM maxhanna.nexus_unit_purchases p JOIN maxhanna.nexus_bases nb ON nb.coords_x = p.coords_x AND nb.coords_y = p.coords_y WHERE p.timestamp >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL @Minutes MINUTE)
+						UNION
+						SELECT nb.user_id AS user_id, u.timestamp AS ts FROM maxhanna.nexus_unit_upgrades u JOIN maxhanna.nexus_bases nb ON nb.coords_x = u.coords_x AND nb.coords_y = u.coords_y WHERE u.timestamp >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL @Minutes MINUTE)
+						UNION
+						SELECT user_id AS user_id, updated AS ts FROM maxhanna.nexus_bases WHERE updated >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL @Minutes MINUTE)
+					) x WHERE user_id IS NOT NULL;";
+
+				using var cmd = new MySqlCommand(sql, conn);
+				cmd.Parameters.AddWithValue("@Minutes", windowMinutes);
+				using var reader = await cmd.ExecuteReaderAsync();
+				if (await reader.ReadAsync())
+				{
+					int activeCount = reader.IsDBNull(reader.GetOrdinal("activeCount")) ? 0 : reader.GetInt32("activeCount");
+					return Ok(new { count = activeCount });
+				}
+				return Ok(new { count = 0 });
+			}
+			catch (Exception ex)
+			{
+				_ = _log.Db("GetNexusActivePlayers Exception: " + ex.Message, null, "NEXUS", true);
+				return StatusCode(500, "Internal server error");
+			}
+		}
+
+		[HttpPost("/Nexus/GetUserRank", Name = "Nexus_GetUserRank")]
+		public async Task<IActionResult> GetNexusUserRank([FromBody] int userId)
+		{
+			if (userId <= 0) return BadRequest("Invalid user id");
+			try
+			{
+				await using var conn = new MySqlConnection(_connectionString);
+				await conn.OpenAsync();
+
+				// Fetch user's base count & total gold
+				const string userStatsSql = "SELECT COUNT(*) AS base_count, COALESCE(SUM(gold),0) AS total_gold FROM maxhanna.nexus_bases WHERE user_id = @UserId;";
+				int userBaseCount = 0; decimal userTotalGold = 0m;
+				await using (var userStatsCmd = new MySqlCommand(userStatsSql, conn))
+				{
+					userStatsCmd.Parameters.AddWithValue("@UserId", userId);
+					await using var r = await userStatsCmd.ExecuteReaderAsync();
+					if (await r.ReadAsync())
+					{
+						userBaseCount = r.IsDBNull(r.GetOrdinal("base_count")) ? 0 : r.GetInt32("base_count");
+						userTotalGold = r.IsDBNull(r.GetOrdinal("total_gold")) ? 0 : r.GetDecimal("total_gold");
+					}
+				}
+
+				// Total distinct players that have at least 1 base
+				const string totalPlayersSql = "SELECT COUNT(DISTINCT user_id) FROM maxhanna.nexus_bases;";
+				int totalPlayers = 0;
+				await using (var totalCmd = new MySqlCommand(totalPlayersSql, conn))
+				{
+					totalPlayers = Convert.ToInt32(await totalCmd.ExecuteScalarAsync());
+				}
+
+				if (userBaseCount == 0)
+				{
+					return Ok(new { hasBase = false, totalPlayers });
+				}
+
+				// Count number of players with strictly better stats (higher base count OR same base count but higher total gold)
+				const string higherSql = @"SELECT COUNT(*) FROM (SELECT user_id, COUNT(*) AS bc, SUM(gold) AS tg FROM maxhanna.nexus_bases GROUP BY user_id) x WHERE (x.bc > @Bc) OR (x.bc = @Bc AND x.tg > @Tg);";
+				int higherCount = 0;
+				await using (var higherCmd = new MySqlCommand(higherSql, conn))
+				{
+					higherCmd.Parameters.AddWithValue("@Bc", userBaseCount);
+					higherCmd.Parameters.AddWithValue("@Tg", userTotalGold);
+					higherCount = Convert.ToInt32(await higherCmd.ExecuteScalarAsync());
+				}
+
+				int rank = higherCount + 1; // dense ranking concept
+				return Ok(new { hasBase = true, rank, baseCount = userBaseCount, totalGold = userTotalGold, totalPlayers });
+			}
+			catch (Exception ex)
+			{
+				_ = _log.Db("GetNexusUserRank Exception: " + ex.Message, userId, "NEXUS", true);
+				return StatusCode(500, "Internal server error");
+			}
+		}
+
 		private int GetUnitLevelForUnit(NexusBase nexus, int unitId)
 		{
 			switch (unitId)
