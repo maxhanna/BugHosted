@@ -127,7 +127,10 @@
         </strong>
       </div>
       <div *ngIf="mainScene?.level?.name === 'CharacterCreate'">
-        <strong>Color:</strong> <input type="color" (change)='changeColor()' #colorInput class="colorInput"
+        <div>
+          <strong>Color:</strong>
+        </div> 
+        <input type="color" (change)='changeColor()' #colorInput class="colorInput"
           [value]="cachedDefaultColor ?? metaHero.color" />
       </div>
       <div *ngIf="serverDown" class="bold" style="color:red">
