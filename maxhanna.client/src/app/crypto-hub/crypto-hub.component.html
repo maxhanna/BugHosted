@@ -58,8 +58,11 @@
     </div>
     <div class="graphContainerDiv sectionContainer" [style.display]="isTradePanelOpen ? 'none' : 'block'"
       *ngIf="parentRef && selectedCurrency && currentSelectedCoin && latestCurrencyPriceRespectToCAD">
-      <app-crypto-coin-graph-viewer #coinGraphViewer [inputtedParentRef]="parentRef"
-        [currentSelectedCoin]="currentSelectedCoin" [selectedCurrency]="selectedCurrency"
+      <app-crypto-coin-graph-viewer #coinGraphViewer 
+        [inputtedParentRef]="parentRef"
+        [currentSelectedCoin]="currentSelectedCoin" 
+        [selectedCurrency]="selectedCurrency"
+        [isPaused]="isTradePanelOpen"
         [latestCurrencyPriceRespectToCAD]="latestCurrencyPriceRespectToCAD"></app-crypto-coin-graph-viewer>
     </div>
     <div class="graphContainerDiv sectionContainer" [style.display]="isTradePanelOpen ? 'none' : 'block'">

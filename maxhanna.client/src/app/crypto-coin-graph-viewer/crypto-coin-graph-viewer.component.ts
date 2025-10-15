@@ -19,6 +19,7 @@ export class CryptoCoinGraphViewerComponent extends ChildComponent implements On
   @Input() currentSelectedCoin!: string;
   @Input() selectedCurrency!: string;
   @Input() latestCurrencyPriceRespectToCAD!: number;
+  @Input() isPaused: boolean = false;
 
   @ViewChild(LineGraphComponent) lineGraphComponent!: LineGraphComponent;
   
@@ -50,6 +51,19 @@ export class CryptoCoinGraphViewerComponent extends ChildComponent implements On
   ngOnChanges(changes: SimpleChanges) {
     if (changes['currentSelectedCoin'] && changes['currentSelectedCoin'].currentValue !== changes['currentSelectedCoin'].previousValue) {
       this.changeTimePeriodEventOnBTCHistoricalGraph(this.lineGraphInitialPeriod);
+    }
+
+    // Pause/resume polling when parent toggles isPaused
+    if (changes['isPaused'] && changes['isPaused'].currentValue !== changes['isPaused'].previousValue) {
+      if (changes['isPaused'].currentValue === true) {
+        this.stopPolling();
+      } else {
+        // resume polling only if current period is short (<=24h) where polling is desired
+        const hours = this.tradeService.convertTimePeriodToHours(this.lineGraphInitialPeriod);
+        if (hours <= 24) {
+          this.startPolling();
+        }
+      }
     }
   }
 
@@ -148,18 +162,24 @@ export class CryptoCoinGraphViewerComponent extends ChildComponent implements On
     }, 50);
   }
   startPolling() {
+    // Do not start polling if the component is paused or already polling
+    if (this.isPaused) return;
+    if (this.pollingInterval) return;
+
     this.timeLeft = 30;
     this.pollingInterval = setInterval(async () => {
+      if (this.isPaused) return; // skip ticks while paused
       this.timeLeft--;
       if (this.timeLeft == 0) {
         this.timeLeft = 30;
         this.changeTimePeriodEventOnBTCHistoricalGraph(this.lineGraphComponent.selectedPeriod);
-      } else { 
+      } else {
         this.changeDetectorRef.detectChanges();
       }
-    }, 1000 * 1)
+    }, 1000 * 1);
   }
   stopPolling() {
     clearInterval(this.pollingInterval);
+    this.pollingInterval = undefined;
   }
 }
