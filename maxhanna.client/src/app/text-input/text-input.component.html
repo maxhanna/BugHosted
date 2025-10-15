@@ -5,10 +5,9 @@
         #postTextArea id="postTextArea" (keydown)="onKeyDown($event)">{{initialContent}}</textarea>
 </div>
 <div class="mainFileUploaderAndTopicSelectorDiv">
-    <button *ngIf="initialContent == undefined" (click)="post()">🗨️Post</button>
-    <button *ngIf="initialContent != undefined" (click)="update(textarea.value)">✅</button>
-    <!-- Cancel edit button (show only when editing existing content) -->
-    <button *ngIf="initialContent != undefined" title="Cancel" class="coloredBgButton" (click)="cancelEdit.emit()">❌</button>
+    <button *ngIf="initialContent == undefined" (click)="post()" title="Post">🗨️Post</button>
+    <button *ngIf="initialContent != undefined" (click)="update(textarea.value)" title="Update">✅</button>
+    <button *ngIf="initialContent != undefined" (click)="cancelEdit.emit()" title="Cancel">❌</button>
     <app-media-selector 
         *ngIf="inputtedParentRef"
         #mediaSelector
