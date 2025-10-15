@@ -1934,8 +1934,8 @@ namespace maxhanna.Server.Controllers
                 if (payload == null || payload.Hero == null) return BadRequest("Missing hero in payload");
 
                 int level = payload.Hero.Level <= 0 ? 1 : payload.Hero.Level;
-                int heroX = payload.Hero.Position?.X ?? 0;
-                int heroY = payload.Hero.Position?.Y ?? 0;
+                int heroX = payload.Hero.Position?.x ?? 0;
+                int heroY = payload.Hero.Position?.y ?? 0;
                 double speed = payload.Hero.Speed <= 0 ? 1d : payload.Hero.Speed;
 
                 // Increase default lookahead so fast heroes receive walls earlier on the client
