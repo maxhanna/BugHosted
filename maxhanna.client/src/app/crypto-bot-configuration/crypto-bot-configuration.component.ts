@@ -1,4 +1,4 @@
-import { ChangeDetectorRef, Component, ElementRef, EventEmitter, Input, Output, ViewChild } from '@angular/core';
+import { ChangeDetectorRef, Component, ElementRef, EventEmitter, Input, Output, ViewChild, AfterViewInit } from '@angular/core';
 import { AppComponent } from '../app.component';
 import { TradeService } from '../../services/trade.service';
 import { ChildComponent } from '../child.component';
@@ -11,7 +11,17 @@ import { e } from '@angular/core/weak_ref.d-Bp6cSy-X';
   styleUrl: './crypto-bot-configuration.component.css'
 })
 export class CryptoBotConfigurationComponent extends ChildComponent {
+  // track the currently selected strategy for template bindings (avoids direct ElementRef access in templates)
+  currentStrategy: string = 'DCA';
   constructor(private tradeService: TradeService, private cdRef: ChangeDetectorRef) { super(); } 
+
+  ngAfterViewInit(): void {
+    try {
+      // initialize currentStrategy from the select if available
+      this.currentStrategy = this.tradeStrategySelect?.nativeElement?.value ?? this.currentStrategy;
+      this.detectChange();
+    } catch (e) { /* ignore */ }
+  }
 
   @Input() inputtedParentRef?: AppComponent;
   @Input() btcToCadPrice?: number;
@@ -550,6 +560,8 @@ export class CryptoBotConfigurationComponent extends ChildComponent {
   }
 
   tradeStrategySelectChange() {
+    // sync local property (keeps template conditionals consistent)
+    try { this.currentStrategy = this.tradeStrategySelect?.nativeElement?.value ?? this.currentStrategy; } catch { }
     this.getTradeConfiguration();
     if (this.bulkEditMode) {
       // refresh bulk models to reflect strategy-specific defaults
