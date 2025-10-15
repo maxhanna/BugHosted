@@ -39,6 +39,11 @@ export class CryptoBotConfigurationComponent extends ChildComponent {
   @ViewChild('tradeMaximumFromBalance') tradeMaximumFromBalance!: ElementRef<HTMLInputElement>;
 
   tradeConfigLastUpdated: Date | undefined = undefined;
+  // Bulk edit per-coin mode
+  bulkEditMode: boolean = false;
+  bulkModel: Record<string, any> = {};
+  strategies: string[] = ['DCA', 'IND', 'HFT'];
+  coins: string[] = ['XBT', 'ETH', 'XRP', 'SOL', 'XDG'];
   private readonly DEFAULT_USER_ID = 1;
 
   async updateCoinConfiguration() {
@@ -153,6 +158,71 @@ export class CryptoBotConfigurationComponent extends ChildComponent {
   
   detectChange() { 
     this.cdRef.detectChanges();    
+  }
+
+  // Called when checkbox toggled
+  onBulkModeToggled() {
+    if (this.bulkEditMode) {
+      this.populateAllCoinsBulkModel();
+    }
+  }
+
+  // Populate bulkModel for every coin using current strategy/defaults
+  populateAllCoinsBulkModel() {
+    const origFrom = this.tradeFromCoinSelect?.nativeElement?.value;
+    const origStrategy = this.tradeStrategySelect?.nativeElement?.value;
+    const strategy = this.tradeStrategySelect?.nativeElement?.value ?? 'DCA';
+
+    for (const c of this.coins) {
+      try {
+        if (this.tradeFromCoinSelect) this.tradeFromCoinSelect.nativeElement.value = c;
+        if (this.tradeStrategySelect) this.tradeStrategySelect.nativeElement.value = strategy;
+        // set defaults for this coin/strategy
+        this.setDefaultTradeConfiguration();
+
+        this.bulkModel[`coin:${c}`] = {
+          MaximumFromBalance: this.tradeMaximumFromBalance?.nativeElement?.value ?? '',
+          MinimumFromTradeAmount: this.tradeMinimumFromTradeAmount?.nativeElement?.value ?? '',
+          MaximumToTradeAmount: this.tradeMaximumToTradeAmount?.nativeElement?.value ?? '',
+          TradeThreshold: this.tradeTradeThreshold?.nativeElement?.value ?? '',
+          ReserveSellPercentage: this.tradeReserveSellPercentage?.nativeElement?.value ?? '',
+          CoinReserveUSDCValue: this.tradeCoinReserveUSDCValue?.nativeElement?.value ?? '',
+          MaxTradeTypeOccurances: this.tradeTradeMaximumTypeOccurances?.nativeElement?.value ?? '',
+          TradeStopLoss: this.tradeStopLoss?.nativeElement?.value ?? '',
+          TradeStopLossPercentage: this.tradeStopLossPercentage?.nativeElement?.value ?? '',
+          VolumeSpikeMaxTradeOccurance: this.tradeVolumeSpikeMaxTradeOccurance?.nativeElement?.value ?? ''
+        };
+      } catch (e) {
+        // fall back to empty model for this coin
+        this.bulkModel[`coin:${c}`] = this.bulkModel[`coin:${c}`] || {};
+      }
+    }
+
+    // restore selection
+    if (this.tradeFromCoinSelect && origFrom) this.tradeFromCoinSelect.nativeElement.value = origFrom;
+    if (this.tradeStrategySelect && origStrategy) this.tradeStrategySelect.nativeElement.value = origStrategy;
+    this.detectChange();
+  }
+
+  // Load a coin's bulk model into the main input controls so user can save it
+  applyCoinModelToInputs(coin: string) {
+    const model = this.bulkModel[`coin:${coin}`] || {};
+    try {
+      if (this.tradeFromCoinSelect) this.tradeFromCoinSelect.nativeElement.value = coin;
+      if (this.tradeMaximumFromBalance) this.tradeMaximumFromBalance.nativeElement.value = model.MaximumFromBalance ?? '';
+      if (this.tradeMinimumFromTradeAmount) this.tradeMinimumFromTradeAmount.nativeElement.value = model.MinimumFromTradeAmount ?? '';
+      if (this.tradeMaximumToTradeAmount) this.tradeMaximumToTradeAmount.nativeElement.value = model.MaximumToTradeAmount ?? '';
+      if (this.tradeTradeThreshold) this.tradeTradeThreshold.nativeElement.value = model.TradeThreshold ?? '';
+      if (this.tradeReserveSellPercentage) this.tradeReserveSellPercentage.nativeElement.value = model.ReserveSellPercentage ?? '';
+      if (this.tradeCoinReserveUSDCValue) this.tradeCoinReserveUSDCValue.nativeElement.value = model.CoinReserveUSDCValue ?? '';
+      if (this.tradeTradeMaximumTypeOccurances) this.tradeTradeMaximumTypeOccurances.nativeElement.value = model.MaxTradeTypeOccurances ?? '';
+      if (this.tradeStopLoss) this.tradeStopLoss.nativeElement.value = model.TradeStopLoss ?? '';
+      if (this.tradeStopLossPercentage) this.tradeStopLossPercentage.nativeElement.value = model.TradeStopLossPercentage ?? '';
+      if (this.tradeVolumeSpikeMaxTradeOccurance) this.tradeVolumeSpikeMaxTradeOccurance.nativeElement.value = model.VolumeSpikeMaxTradeOccurance ?? '';
+      this.detectChange();
+    } catch (e) {
+      console.error('applyCoinModelToInputs failed', e);
+    }
   }
 
   async getTradeConfiguration() {
