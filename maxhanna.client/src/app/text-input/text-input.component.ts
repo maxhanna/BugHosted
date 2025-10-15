@@ -52,6 +52,7 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
   @Input() initialContent?: string;
   @Input() showPostInput = false;
   @Input() enterToPost: boolean = false;
+  @Input() attachedFiles: FileEntry[] = [];
   @Output() contentPosted = new EventEmitter<{ results: any, content: any, originalContent: string }>();
   @Output() contentUpdated = new EventEmitter<{ results: any, content: any, originalContent: string }>();
   @Output() cancelEdit = new EventEmitter<void>();
@@ -70,7 +71,6 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
   isPostOptionsPanelOpen = false;
   ignoredTopics: Topic[] = [];
   favTopics: Topic[] = [];
-  attachedFiles: FileEntry[] = [];
   isAppFormattingOptionsOpen = false;
   isComponentPanelOpen = false;
   topTopics: TopicRank[] = [];

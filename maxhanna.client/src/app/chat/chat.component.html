@@ -95,8 +95,13 @@
       </div>
 
       <div [style]="isEditing.length > 0 ? 'display: none' : ''">
-        <app-text-input #chatInput [inputtedParentRef]="parentRef ?? inputtedParentRef" [type]="'Chat'"
-          [quoteMessage]="quoteMessage" [chatId]="currentChatId" [currentChatUsers]="currentChatUsers"
+        <app-text-input #chatInput 
+          [inputtedParentRef]="parentRef ?? inputtedParentRef" 
+          [type]="'Chat'"
+          [quoteMessage]="quoteMessage" 
+          [chatId]="currentChatId"
+          [currentChatUsers]="currentChatUsers"
+          [attachedFiles]="message.files"
           [enterToPost]="true" (contentPosted)="chatMessagePosted($event)"></app-text-input>
       </div>
     </div>
