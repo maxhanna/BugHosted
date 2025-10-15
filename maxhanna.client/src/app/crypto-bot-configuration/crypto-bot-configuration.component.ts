@@ -343,6 +343,10 @@ export class CryptoBotConfigurationComponent extends ChildComponent {
 
   tradeStrategySelectChange() {
     this.getTradeConfiguration();
+    if (this.bulkEditMode) {
+      // refresh bulk models to reflect strategy-specific defaults
+      this.populateAllCoinsBulkModel();
+    }
   }
 
   toggleExplanation(event: Event) {
