@@ -1,4 +1,4 @@
-import { ChangeDetectorRef, Component, ElementRef, EventEmitter, Input, Output, ViewChild, AfterViewInit } from '@angular/core';
+import { ChangeDetectorRef, Component, ElementRef, EventEmitter, Input, Output, ViewChild } from '@angular/core';
 import { AppComponent } from '../app.component';
 import { TradeService } from '../../services/trade.service';
 import { ChildComponent } from '../child.component';
@@ -11,26 +11,7 @@ import { e } from '@angular/core/weak_ref.d-Bp6cSy-X';
   styleUrl: './crypto-bot-configuration.component.css'
 })
 export class CryptoBotConfigurationComponent extends ChildComponent {
-  // track the currently selected strategy for template bindings (avoids direct ElementRef access in templates)
-  currentStrategy: string = 'DCA';
   constructor(private tradeService: TradeService, private cdRef: ChangeDetectorRef) { super(); } 
-
-  ngAfterViewInit(): void {
-    try {
-      // initialize currentStrategy from the select if available
-      this.currentStrategy = this.tradeStrategySelect?.nativeElement?.value ?? this.currentStrategy;
-      this.detectChange();
-    } catch (e) { /* ignore */ }
-  }
-
-  // return the live strategy value if possible, otherwise fallback to currentStrategy
-  get selectedStrategy(): string {
-    try {
-      return this.tradeStrategySelect?.nativeElement?.value ?? this.currentStrategy;
-    } catch {
-      return this.currentStrategy;
-    }
-  }
 
   @Input() inputtedParentRef?: AppComponent;
   @Input() btcToCadPrice?: number;
@@ -58,16 +39,6 @@ export class CryptoBotConfigurationComponent extends ChildComponent {
   @ViewChild('tradeMaximumFromBalance') tradeMaximumFromBalance!: ElementRef<HTMLInputElement>;
 
   tradeConfigLastUpdated: Date | undefined = undefined;
-  // Bulk edit per-coin mode
-  bulkEditMode: boolean = false;
-  bulkModel: Record<string, any> = {};
-  strategies: string[] = ['DCA', 'IND', 'HFT'];
-  coins: string[] = ['XBT', 'ETH', 'XRP', 'SOL', 'XDG'];
-  savingAll: boolean = false;
-  savingPerCoin: Record<string, boolean> = {};
-  // store original configs fetched from server for preview/diff
-  originalConfigs: Record<string, any> = {};
-  previewVisible: boolean = false;
   private readonly DEFAULT_USER_ID = 1;
 
   async updateCoinConfiguration() {
@@ -182,274 +153,6 @@ export class CryptoBotConfigurationComponent extends ChildComponent {
   
   detectChange() { 
     this.cdRef.detectChanges();    
-  }
-
-  // Called when checkbox toggled
-  async onBulkModeToggled() {
-    if (this.bulkEditMode) {
-      await this.populateAllCoinsBulkModel();
-    }
-  }
-
-  // Populate bulkModel for every coin using saved config if available, otherwise defaults
-  async populateAllCoinsBulkModel() {
-    const origFrom = this.tradeFromCoinSelect?.nativeElement?.value;
-    const origStrategy = this.tradeStrategySelect?.nativeElement?.value;
-    const strategy = this.tradeStrategySelect?.nativeElement?.value ?? 'DCA';
-    const toCoin = this.tradeToCoinSelect?.nativeElement?.value ?? 'USDC';
-
-    const userId = this.inputtedParentRef?.user?.id ?? this.DEFAULT_USER_ID;
-    const sessionToken = (userId === this.DEFAULT_USER_ID) ? '' : (await this.inputtedParentRef?.getSessionToken() ?? '');
-
-    for (const c of this.coins) {
-      try {
-        // try fetching a saved config for this user
-        let cfg: any = undefined;
-        try {
-          cfg = await this.tradeService.getTradeConfiguration(userId, sessionToken, c, toCoin, strategy);
-        } catch (err) {
-          console.debug('getTradeConfiguration failed for', c, err);
-          cfg = undefined;
-        }
-
-        // If server returned no usable config, try default user's config
-        if (!cfg || (typeof cfg === 'string' && cfg.includes('Access Denied')) || !cfg.fromCoin) {
-          try {
-            const defaultCfg = await this.tradeService.getTradeConfiguration(this.DEFAULT_USER_ID, '', c, toCoin, strategy);
-            if (defaultCfg && defaultCfg.fromCoin) cfg = defaultCfg;
-          } catch (err) {
-            // ignore
-          }
-        }
-
-        if (cfg && cfg.fromCoin) {
-          // map server config fields into bulkModel keys (preserve UI key naming)
-          this.originalConfigs[`coin:${c}`] = cfg;
-          this.bulkModel[`coin:${c}`] = {
-            MaximumFromBalance: cfg.maximumFromBalance ?? cfg.maximumFromBalance ?? '',
-            MinimumFromTradeAmount: cfg.minimumFromTradeAmount ?? cfg.minimumFromTradeAmount ?? '',
-            MaximumToTradeAmount: cfg.maximumToTradeAmount ?? cfg.maximumToTradeAmount ?? '',
-            TradeThreshold: cfg.tradeThreshold ?? cfg.tradeThreshold ?? '',
-            ReserveSellPercentage: cfg.reserveSellPercentage ?? cfg.reserveSellPercentage ?? '',
-            CoinReserveUSDCValue: cfg.coinReserveUSDCValue ?? cfg.coinReserveUSDCValue ?? '',
-            MaxTradeTypeOccurances: cfg.maxTradeTypeOccurances ?? cfg.maxTradeTypeOccurances ?? '',
-            TradeStopLoss: cfg.tradeStopLoss ?? cfg.tradeStopLoss ?? '',
-            TradeStopLossPercentage: cfg.tradeStopLossPercentage ?? cfg.tradeStopLossPercentage ?? '',
-            VolumeSpikeMaxTradeOccurance: cfg.volumeSpikeMaxTradeOccurance ?? cfg.volumeSpikeMaxTradeOccurance ?? ''
-          };
-        } else {
-          // fallback to default generation using the existing default setter
-          if (this.tradeFromCoinSelect) this.tradeFromCoinSelect.nativeElement.value = c;
-          if (this.tradeStrategySelect) this.tradeStrategySelect.nativeElement.value = strategy;
-          this.setDefaultTradeConfiguration();
-          this.originalConfigs[`coin:${c}`] = null;
-          this.bulkModel[`coin:${c}`] = {
-            MaximumFromBalance: this.tradeMaximumFromBalance?.nativeElement?.value ?? '',
-            MinimumFromTradeAmount: this.tradeMinimumFromTradeAmount?.nativeElement?.value ?? '',
-            MaximumToTradeAmount: this.tradeMaximumToTradeAmount?.nativeElement?.value ?? '',
-            TradeThreshold: this.tradeTradeThreshold?.nativeElement?.value ?? '',
-            ReserveSellPercentage: this.tradeReserveSellPercentage?.nativeElement?.value ?? '',
-            CoinReserveUSDCValue: this.tradeCoinReserveUSDCValue?.nativeElement?.value ?? '',
-            MaxTradeTypeOccurances: this.tradeTradeMaximumTypeOccurances?.nativeElement?.value ?? '',
-            TradeStopLoss: this.tradeStopLoss?.nativeElement?.value ?? '',
-            TradeStopLossPercentage: this.tradeStopLossPercentage?.nativeElement?.value ?? '',
-            VolumeSpikeMaxTradeOccurance: this.tradeVolumeSpikeMaxTradeOccurance?.nativeElement?.value ?? ''
-          };
-        }
-      } catch (e) {
-        console.warn('populateAllCoinsBulkModel failed for', c, e);
-        this.bulkModel[`coin:${c}`] = this.bulkModel[`coin:${c}`] || {};
-      }
-    }
-
-    // restore selection
-    if (this.tradeFromCoinSelect && origFrom) this.tradeFromCoinSelect.nativeElement.value = origFrom;
-    if (this.tradeStrategySelect && origStrategy) this.tradeStrategySelect.nativeElement.value = origStrategy;
-    this.detectChange();
-  }
-
-  get tradeToCoinValue(): string {
-    try { return this.tradeToCoinSelect?.nativeElement?.value ?? 'USDC'; } catch { return 'USDC'; }
-  }
-
-  // concurrency helper: run promise-returning tasks with limited concurrency
-  private async runWithConcurrency<T>(items: T[], worker: (item: T) => Promise<any>, concurrency = 3) {
-    const results: any[] = [];
-    const executing: Promise<any>[] = [];
-    for (const item of items) {
-      const p = (async () => worker(item))();
-      results.push(p);
-      executing.push(p);
-      if (executing.length >= concurrency) {
-        await Promise.race(executing).catch(() => { /* swallow individual rejections here */ });
-        // remove settled promises
-        for (let i = executing.length - 1; i >= 0; --i) {
-          if ((executing[i] as any).settled) executing.splice(i, 1);
-        }
-      }
-    }
-    return Promise.allSettled(results);
-  }
-
-  get totals() {
-    let totalMaxFromBalance = 0;
-    let totalMinPerTradeFiat = 0; // converted to fiat
-    let totalMaxUSDCPerBuy = 0;
-    let totalCoinReserveUSDC = 0;
-    for (const c of this.coins) {
-      const m = this.bulkModel[`coin:${c}`] || {};
-      const maxFrom = parseFloat(m.MaximumFromBalance || '0') || 0;
-      totalMaxFromBalance += maxFrom * (this.getCoinPrice(c) || 0);
-      const minPer = parseFloat(m.MinimumFromTradeAmount || '0') || 0;
-      totalMinPerTradeFiat += minPer * (this.getCoinPrice(c) || 0);
-      totalMaxUSDCPerBuy += parseFloat(m.MaximumToTradeAmount || '0') || 0;
-      totalCoinReserveUSDC += parseFloat(m.CoinReserveUSDCValue || '0') || 0;
-    }
-    return {
-      totalMaxFromBalance,
-      totalMinPerTradeFiat,
-      totalMaxUSDCPerBuy,
-      totalCoinReserveUSDC
-    };
-  }
-
-  // Load a coin's bulk model into the main input controls so user can save it
-  applyCoinModelToInputs(coin: string) {
-    const model = this.bulkModel[`coin:${coin}`] || {};
-    try {
-      if (this.tradeFromCoinSelect) this.tradeFromCoinSelect.nativeElement.value = coin;
-      if (this.tradeMaximumFromBalance) this.tradeMaximumFromBalance.nativeElement.value = model.MaximumFromBalance ?? '';
-      if (this.tradeMinimumFromTradeAmount) this.tradeMinimumFromTradeAmount.nativeElement.value = model.MinimumFromTradeAmount ?? '';
-      if (this.tradeMaximumToTradeAmount) this.tradeMaximumToTradeAmount.nativeElement.value = model.MaximumToTradeAmount ?? '';
-      if (this.tradeTradeThreshold) this.tradeTradeThreshold.nativeElement.value = model.TradeThreshold ?? '';
-      if (this.tradeReserveSellPercentage) this.tradeReserveSellPercentage.nativeElement.value = model.ReserveSellPercentage ?? '';
-      if (this.tradeCoinReserveUSDCValue) this.tradeCoinReserveUSDCValue.nativeElement.value = model.CoinReserveUSDCValue ?? '';
-      if (this.tradeTradeMaximumTypeOccurances) this.tradeTradeMaximumTypeOccurances.nativeElement.value = model.MaxTradeTypeOccurances ?? '';
-      if (this.tradeStopLoss) this.tradeStopLoss.nativeElement.value = model.TradeStopLoss ?? '';
-      if (this.tradeStopLossPercentage) this.tradeStopLossPercentage.nativeElement.value = model.TradeStopLossPercentage ?? '';
-      if (this.tradeVolumeSpikeMaxTradeOccurance) this.tradeVolumeSpikeMaxTradeOccurance.nativeElement.value = model.VolumeSpikeMaxTradeOccurance ?? '';
-      this.detectChange();
-    } catch (e) {
-      console.error('applyCoinModelToInputs failed', e);
-    }
-  }
-
-  // Save a single coin/strategy from bulkModel directly
-  async saveCoinModel(coin: string) {
-    if (!this.inputtedParentRef?.user?.id) return alert('You must be logged in to save configurations.');
-    const userId = this.inputtedParentRef.user.id;
-    const sessionToken = await this.inputtedParentRef.getSessionToken();
-    const toCoin = this.tradeToCoinSelect?.nativeElement?.value ?? 'USDC';
-    const strategy = this.tradeStrategySelect?.nativeElement?.value ?? 'DCA';
-
-    const model = this.bulkModel[`coin:${coin}`] || {};
-    const parseNum = (v: any) => v !== null && v !== undefined && v !== '' ? parseFloat(v) : null;
-    const fields: any = {
-      MinimumFromTradeAmount: parseNum(model.MinimumFromTradeAmount) ?? 0,
-      TradeThreshold: parseNum(model.TradeThreshold),
-      MaximumToTradeAmount: parseNum(model.MaximumToTradeAmount),
-      ReserveSellPercentage: parseNum(model.ReserveSellPercentage),
-      CoinReserveUSDCValue: parseNum(model.CoinReserveUSDCValue) ?? 0,
-      MaxTradeTypeOccurances: parseNum(model.MaxTradeTypeOccurances),
-      TradeStopLoss: parseNum(model.TradeStopLoss),
-      TradeStopLossPercentage: parseNum(model.TradeStopLossPercentage),
-      VolumeSpikeMaxTradeOccurance: parseNum(model.VolumeSpikeMaxTradeOccurance),
-      MaximumFromBalance: model.MaximumFromBalance ?? ''
-    };
-
-    const config = {
-      UserId: userId,
-      FromCoin: coin,
-      ToCoin: toCoin,
-      Strategy: strategy,
-      Updated: new Date().toISOString(),
-      ...fields
-    };
-
-    this.savingPerCoin[`coin:${coin}`] = true;
-    try {
-      const res: any = await this.tradeService.upsertTradeConfiguration(config, sessionToken);
-      if (res === true || (typeof res === 'string' && res !== 'Access Denied' && !res.toLowerCase().includes('minimum trade amount'))) {
-        this.inputtedParentRef?.showNotification(`Saved ${coin} (${strategy}): ${res}`);
-        this.updatedTradeConfig.emit(coin);
-      } else {
-        this.inputtedParentRef?.showNotification(`Error saving ${coin}: ${res}`);
-      }
-    } catch (err: any) {
-      const msg = err && (err.message || err.toString) ? (err.message ?? err.toString()) : String(err);
-      this.inputtedParentRef?.showNotification(`Failed saving ${coin}: ${msg}`);
-    } finally {
-      this.savingPerCoin[`coin:${coin}`] = false;
-    }
-  }
-
-  // Save all coins currently in bulkModel by calling upsertTradeConfiguration for each
-  async saveAllBulkModels() {
-    if (!this.inputtedParentRef?.user?.id) return alert('You must be logged in to save configurations.');
-    if (!this.bulkEditMode) return alert('Bulk mode is not active.');
-
-    const doConfirm = confirm('Save all coin configurations for strategy: ' + (this.tradeStrategySelect?.nativeElement?.value ?? 'DCA') + '?');
-    if (!doConfirm) return;
-
-    this.savingAll = true;
-    const userId = this.inputtedParentRef.user.id;
-    const sessionToken = await this.inputtedParentRef.getSessionToken();
-    const toCoin = this.tradeToCoinSelect?.nativeElement?.value ?? 'USDC';
-    const strategy = this.tradeStrategySelect?.nativeElement?.value ?? 'DCA';
-
-    const items = this.coins.slice();
-
-    const worker = async (c: string) => {
-      const model = this.bulkModel[`coin:${c}`] || {};
-      const parseNum = (v: any) => v !== null && v !== undefined && v !== '' ? parseFloat(v) : null;
-      const fields: any = {
-        MinimumFromTradeAmount: parseNum(model.MinimumFromTradeAmount) ?? 0,
-        TradeThreshold: parseNum(model.TradeThreshold),
-        MaximumToTradeAmount: parseNum(model.MaximumToTradeAmount),
-        ReserveSellPercentage: parseNum(model.ReserveSellPercentage),
-        CoinReserveUSDCValue: parseNum(model.CoinReserveUSDCValue) ?? 0,
-        MaxTradeTypeOccurances: parseNum(model.MaxTradeTypeOccurances),
-        TradeStopLoss: parseNum(model.TradeStopLoss),
-        TradeStopLossPercentage: parseNum(model.TradeStopLossPercentage),
-        VolumeSpikeMaxTradeOccurance: parseNum(model.VolumeSpikeMaxTradeOccurance),
-        MaximumFromBalance: model.MaximumFromBalance ?? ''
-      };
-
-      const config = {
-        UserId: userId,
-        FromCoin: c,
-        ToCoin: toCoin,
-        Strategy: strategy,
-        Updated: new Date().toISOString(),
-        ...fields
-      };
-
-      try {
-        const res: any = await this.tradeService.upsertTradeConfiguration(config, sessionToken);
-        if (res === true || (typeof res === 'string' && res !== 'Access Denied' && !res.toLowerCase().includes('minimum trade amount'))) {
-          this.inputtedParentRef?.showNotification(`Saved ${c} (${strategy}): ${res}`);
-          this.updatedTradeConfig.emit(c);
-          return { coin: c, ok: true, message: res };
-        } else {
-          this.inputtedParentRef?.showNotification(`Error saving ${c}: ${res}`);
-          return { coin: c, ok: false, message: res };
-        }
-      } catch (err: any) {
-        console.error('saveAllBulkModels error for', c, err);
-        const msg = err && (err.message || err.toString) ? (err.message ?? err.toString()) : String(err);
-        this.inputtedParentRef?.showNotification(`Failed saving ${c}: ${msg}`);
-        return { coin: c, ok: false, message: msg };
-      }
-    };
-
-    const settled = await this.runWithConcurrency(items, worker, 3);
-    this.savingAll = false;
-    const failed = settled.filter((r: any) => r.status === 'rejected' || (r.status === 'fulfilled' && r.value && !r.value.ok));
-    if (failed.length === 0) {
-      this.inputtedParentRef?.showNotification('Save all completed successfully.');
-    } else {
-      this.inputtedParentRef?.showNotification(`Save all completed with ${failed.length} failures.`);
-    }
   }
 
   async getTradeConfiguration() {
@@ -569,13 +272,7 @@ export class CryptoBotConfigurationComponent extends ChildComponent {
   }
 
   tradeStrategySelectChange() {
-    // sync local property (keeps template conditionals consistent)
-    try { this.currentStrategy = this.tradeStrategySelect?.nativeElement?.value ?? this.currentStrategy; } catch { }
     this.getTradeConfiguration();
-    if (this.bulkEditMode) {
-      // refresh bulk models to reflect strategy-specific defaults
-      this.populateAllCoinsBulkModel();
-    }
   }
 
   toggleExplanation(event: Event) {
