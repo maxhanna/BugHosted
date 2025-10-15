@@ -53,6 +53,21 @@ export class ChatService {
       return null;
     }
   }
+  async editMessageFiles(messageId: number, userId?: number, files?: FileEntry[]) {
+    try {
+      const response = await fetch(`/chat/editfiles`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ MessageId: messageId, UserId: userId ?? 0, Files: files ?? [] }),
+      });
+
+      return await response.text();
+    } catch (error) {
+      return null;
+    }
+  }
   async getGroupChats(userId?: number): Promise<Message[] | undefined> {
     try {
       const response = await fetch(`/chat/getgroupchats`, {

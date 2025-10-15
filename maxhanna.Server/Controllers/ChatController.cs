@@ -1064,5 +1064,48 @@ namespace maxhanna.Server.Controllers
 			public int MessageId { get; set; }
 			public string? Content { get; set; }
 		}
+
+		public class EditChatFilesRequest
+		{
+			public int? UserId { get; set; }
+			public int MessageId { get; set; }
+			public List<FileEntry>? Files { get; set; }
+		}
+
+		[HttpPost("/Chat/EditFiles", Name = "EditChatFiles")]
+		public async Task<IActionResult> EditChatFiles([FromBody] EditChatFilesRequest request)
+		{
+			MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+			try
+			{
+				await conn.OpenAsync();
+				string delSql = "DELETE FROM maxhanna.message_files WHERE message_id = @MessageId";
+				using (var delCmd = new MySqlCommand(delSql, conn))
+				{
+					delCmd.Parameters.AddWithValue("@MessageId", request.MessageId);
+					await delCmd.ExecuteNonQueryAsync();
+				}
+				if (request.Files != null && request.Files.Count > 0)
+				{
+					foreach (var f in request.Files)
+					{
+						string insSql = "INSERT INTO maxhanna.message_files (message_id, file_id) VALUES (@MessageId, @FileId)";
+						using (var insCmd = new MySqlCommand(insSql, conn))
+						{
+							insCmd.Parameters.AddWithValue("@MessageId", request.MessageId);
+							insCmd.Parameters.AddWithValue("@FileId", f.Id);
+							await insCmd.ExecuteNonQueryAsync();
+						}
+					}
+				}
+				return Ok("Message files updated");
+			}
+			catch (Exception ex)
+			{
+				_ = _log.Db("An error occurred while processing EditChatFiles request. " + ex.Message, request.UserId, "CHAT", true);
+				return StatusCode(500, "An error occurred while processing the request.");
+			}
+			finally { conn.Close(); }
+		}
 	}
 }

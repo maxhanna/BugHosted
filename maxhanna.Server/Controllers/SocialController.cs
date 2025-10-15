@@ -1386,6 +1386,52 @@ namespace maxhanna.Server.Controllers
 			}
 		}
 
+		// Endpoint to replace files attached to a story (transactional replacement)
+		[HttpPost("/Social/Edit-Story-Files", Name = "EditStoryFiles")]
+		public async Task<IActionResult> EditStoryFiles([FromBody] EditStoryFilesRequest request, [FromHeader(Name = "Encrypted-UserId")] string? encryptedUserIdHeader = null)
+		{
+			if (request.UserId != 0 && !await _log.ValidateUserLoggedIn(request.UserId, encryptedUserIdHeader ?? ""))
+			{
+				return StatusCode(500, "Access Denied.");
+			}
+
+			try
+			{
+				using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+				{
+					await conn.OpenAsync();
+
+					string delSql = "DELETE FROM maxhanna.story_files WHERE story_id = @StoryId";
+					using (var delCmd = new MySqlCommand(delSql, conn))
+					{
+						delCmd.Parameters.AddWithValue("@StoryId", request.StoryId);
+						await delCmd.ExecuteNonQueryAsync();
+					}
+
+					if (request.SelectedFiles != null && request.SelectedFiles.Count > 0)
+					{
+						foreach (var f in request.SelectedFiles)
+						{
+							string insSql = "INSERT INTO maxhanna.story_files (story_id, file_id) VALUES (@StoryId, @FileId)";
+							using (var insCmd = new MySqlCommand(insSql, conn))
+							{
+								insCmd.Parameters.AddWithValue("@StoryId", request.StoryId);
+								insCmd.Parameters.AddWithValue("@FileId", f.Id);
+								await insCmd.ExecuteNonQueryAsync();
+							}
+						}
+					}
+				}
+
+				return Ok("Story files updated");
+			}
+			catch (Exception ex)
+			{
+				_ = _log.Db("An error occurred while processing EditStoryFiles request. " + ex.Message, request.UserId, "SOCIAL", true);
+				return StatusCode(500, "An error occurred while processing the request.");
+			}
+		}
+
 		[HttpPost("/Social/Edit-Topics", Name = "EditTopics")]
 		public async Task<IActionResult> EditTopics([FromBody] DataContracts.Social.EditTopicRequest request)
 		{

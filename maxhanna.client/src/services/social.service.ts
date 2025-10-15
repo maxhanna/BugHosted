@@ -1,5 +1,6 @@
 import { Injectable } from '@angular/core';
 import { Story } from './datacontracts/social/story';
+import { FileEntry } from './datacontracts/file/file-entry';
 import { StoryResponse } from './datacontracts/social/story-response';
 import { User } from './datacontracts/user/user';
 import { Topic } from './datacontracts/topics/topic';
@@ -102,6 +103,26 @@ export class SocialService {
     } catch (error) {
       console.error('Error editing story:', error);
       return 'Error editing story';
+    }
+  }
+  async editStoryFiles(userId: number, storyId: number, selectedFiles: FileEntry[], encryptedUserId: string) {
+    try {
+      const res = await fetch('/social/edit-story-files', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Encrypted-UserId': encryptedUserId
+        },
+        body: JSON.stringify({ UserId: userId, StoryId: storyId, SelectedFiles: selectedFiles }),
+      });
+
+      if (!res.ok) {
+        return 'Error editing story files';
+      }
+      return 'Story files edited successfully';
+    } catch (error) {
+      console.error('Error editing story files:', error);
+      return 'Error editing story files';
     }
   }
   async editTopics(story: Story, topics: Topic[]) {

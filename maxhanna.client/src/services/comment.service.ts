@@ -79,6 +79,22 @@ export class CommentService {
     }
   }
 
+  async editCommentFiles(userId: number, commentId: number, selectedFiles: FileEntry[]) {
+    try {
+      const response = await fetch(`/comment/editcommentfiles`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ UserId: userId, CommentId: commentId, SelectedFiles: selectedFiles }),
+      });
+
+      return await response.text();
+    } catch (error) {
+      return null;
+    }
+  }
+
   async getCommentById(commentId: number) {
     try {
       const response = await fetch(`/comment/getcommentbyid`, {

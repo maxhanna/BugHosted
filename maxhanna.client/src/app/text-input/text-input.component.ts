@@ -101,19 +101,48 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
       if (this.type === 'Comment') {
         // update comment (service expects userId, commentId, text)
         const result = await this.commentService.editComment(user.id ?? 0, this.commentId ?? 0, encrypted);
-        this.contentUpdated.emit({ results: result, content: { commentText: updatedText }, originalContent: updatedText });
+        // include any selected files in the update payload; some servers will accept a separate files update
+        const selectedFiles = this.mediaSelector?.selectedFiles ?? [];
+        // Try to update files for the comment if any were selected
+        try {
+          if (selectedFiles && selectedFiles.length > 0) {
+            // call comment service file update (added below in service)
+            await this.commentService.editCommentFiles(user.id ?? 0, this.commentId ?? 0, selectedFiles);
+          }
+        } catch (fileErr) {
+          console.warn('Failed to update comment files during edit', fileErr);
+        }
+
+        this.contentUpdated.emit({ results: result, content: { commentText: updatedText, selectedFiles: selectedFiles }, originalContent: updatedText });
         return result;
       } else if (this.type === 'Social') {
         // update story
         const storyPayload: any = { id: this.storyId, storyText: encrypted, user: user };
         const result = await this.socialService.editStory(user.id ?? 0, storyPayload, sessionToken ?? '');
-        this.contentUpdated.emit({ results: result, content: { storyText: updatedText }, originalContent: updatedText });
+        // update story files if media selector has selections
+        const selectedFiles = this.mediaSelector?.selectedFiles ?? [];
+        try {
+          if (selectedFiles && selectedFiles.length > 0) {
+            await this.socialService.editStoryFiles(user.id ?? 0, this.storyId ?? 0, selectedFiles, sessionToken ?? '');
+          }
+        } catch (fileErr) {
+          console.warn('Failed to update story files during edit', fileErr);
+        }
+        this.contentUpdated.emit({ results: result, content: { storyText: updatedText, selectedFiles: selectedFiles }, originalContent: updatedText });
         return result;
       } else if (this.type === 'Chat') {
         // update chat message: use messageId when provided (the id of the message being edited).
         const targetMessageId = this.messageId ?? this.chatId ?? 0;
         const result = await this.chatService.editMessage(targetMessageId, user.id ?? 0, encrypted);
-        this.contentUpdated.emit({ results: result, content: { chatText: encrypted }, originalContent: updatedText });
+        const selectedFiles = this.mediaSelector?.selectedFiles ?? [];
+        try {
+          if (selectedFiles && selectedFiles.length > 0) {
+            await this.chatService.editMessageFiles(targetMessageId, user.id ?? 0, selectedFiles);
+          }
+        } catch (fileErr) {
+          console.warn('Failed to update chat message files during edit', fileErr);
+        }
+        this.contentUpdated.emit({ results: result, content: { chatText: encrypted, selectedFiles: selectedFiles }, originalContent: updatedText });
         return result;
       }
     }

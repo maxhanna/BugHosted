@@ -190,5 +190,43 @@ namespace maxhanna.Server.Controllers
 			}
 			return Ok("Comment successfully edited");
 		} 
+
+		[HttpPost("/Comment/EditCommentFiles", Name = "EditCommentFiles")]
+		public async Task<IActionResult> EditCommentFiles([FromBody] DataContracts.Comments.EditCommentFilesRequest request)
+		{
+			MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+			try
+			{
+				await conn.OpenAsync();
+				string delSql = "DELETE FROM maxhanna.comment_files WHERE comment_id = @CommentId";
+				using (var delCmd = new MySqlCommand(delSql, conn))
+				{
+					delCmd.Parameters.AddWithValue("@CommentId", request.CommentId);
+					await delCmd.ExecuteNonQueryAsync();
+				}
+				if (request.SelectedFiles != null && request.SelectedFiles.Count > 0)
+				{
+					foreach (var f in request.SelectedFiles)
+					{
+						string insSql = "INSERT INTO maxhanna.comment_files (comment_id, file_id) VALUES (@CommentId, @FileId)";
+						using (var insCmd = new MySqlCommand(insSql, conn))
+						{
+							insCmd.Parameters.AddWithValue("@CommentId", request.CommentId);
+							insCmd.Parameters.AddWithValue("@FileId", f.Id);
+							await insCmd.ExecuteNonQueryAsync();
+						}
+					}
+				}
+				return Ok("Comment files updated");
+			}
+			catch (Exception ex)
+			{
+				_ = _log.Db("An error occurred while processing EditCommentFiles request. " + ex.Message, request.UserId, "COMMENT", true);
+				return StatusCode(500, "An error occurred while processing the request.");
+			}
+			finally { conn.Close(); }
+		}
+
+
 	}
 }
