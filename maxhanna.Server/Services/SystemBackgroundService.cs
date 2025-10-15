@@ -182,77 +182,128 @@ namespace maxhanna.Server.Services
 				if (victims.Count == 0)
 				{
 					await transaction.CommitAsync();
-					_ = _log.Db("No inactive ender heroes found to remove.", null, "SYSTEM");
+					_ = _log.Db("No inactive ender heroes found to relocate.", null, "SYSTEM");
 					return;
 				}
 
-				// Prepare commands
-				const string insertNotificationSql = @"INSERT INTO maxhanna.notifications (user_id, text, date) VALUES (@userId, @text, UTC_TIMESTAMP());";
-				using var insertNotifCmd = new MySqlCommand(insertNotificationSql, conn, transaction);
-				insertNotifCmd.Parameters.Add(new MySqlParameter("@userId", MySqlDbType.Int32));
-				insertNotifCmd.Parameters.Add(new MySqlParameter("@text", MySqlDbType.VarChar));
-
-				const string deleteWallsSql = @"DELETE FROM maxhanna.ender_bike_wall WHERE hero_id = @heroId;";
-				using var delWallsCmd = new MySqlCommand(deleteWallsSql, conn, transaction);
-				delWallsCmd.Parameters.Add(new MySqlParameter("@heroId", MySqlDbType.Int32));
-
-				const string deleteHeroSql = @"DELETE FROM maxhanna.ender_hero WHERE id = @heroId;";
-				using var delHeroCmd = new MySqlCommand(deleteHeroSql, conn, transaction);
-				delHeroCmd.Parameters.Add(new MySqlParameter("@heroId", MySqlDbType.Int32));
-
-				const string insertEventSql = @"INSERT INTO maxhanna.ender_event (hero_id, `event`, level, data, timestamp)
-							VALUES (@HeroId, @Event, @Level, @Data, UTC_TIMESTAMP());";
-				using var insertEventCmd = new MySqlCommand(insertEventSql, conn, transaction);
-				insertEventCmd.Parameters.Add(new MySqlParameter("@HeroId", MySqlDbType.Int32));
-				insertEventCmd.Parameters.Add(new MySqlParameter("@Event", MySqlDbType.VarChar));
-				insertEventCmd.Parameters.Add(new MySqlParameter("@Level", MySqlDbType.Int32));
-				insertEventCmd.Parameters.Add(new MySqlParameter("@Data", MySqlDbType.Text));
-
-				foreach (var v in victims)
+				// Gather occupied hero spots (all levels) & wall spots for safety checks
+				var occupiedSpots = new Dictionary<int, List<(int X, int Y)>>(); // level -> coords list
+				var wallSpots = new Dictionary<int, List<(int X, int Y)>>();
+				const string occSql = "SELECT id, level, coordsX, coordsY FROM maxhanna.ender_hero;";
+				await using (var occCmd = new MySqlCommand(occSql, conn, transaction))
+				await using (var occReader = await occCmd.ExecuteReaderAsync())
 				{
-					try
+					while (await occReader.ReadAsync())
 					{
-						// Insert an in-game HERO_DIED event (cause=INACTIVITY)
-						insertEventCmd.Parameters["@HeroId"].Value = v.heroId;
-						insertEventCmd.Parameters["@Event"].Value = "HERO_DIED";
-						insertEventCmd.Parameters["@Level"].Value = v.level;
-						var dataJson = "{\"cause\":\"INACTIVITY\"}";
-						insertEventCmd.Parameters["@Data"].Value = dataJson;
-						await insertEventCmd.ExecuteNonQueryAsync();
-
-						// Delete walls
-						delWallsCmd.Parameters["@heroId"].Value = v.heroId;
-						await delWallsCmd.ExecuteNonQueryAsync();
-
-						// Delete hero
-						delHeroCmd.Parameters["@heroId"].Value = v.heroId;
-						await delHeroCmd.ExecuteNonQueryAsync();
-
-						// Create notification for user if we have a user id
-						if (v.userId.HasValue && v.userId.Value > 0)
-						{
-							// Tron / lightcycle themed notification
-							var text = "Your lightcycle has been reclaimed for inactivity — no recent walls were built.";
-							insertNotifCmd.Parameters["@userId"].Value = v.userId.Value;
-							insertNotifCmd.Parameters["@text"].Value = text;
-							await insertNotifCmd.ExecuteNonQueryAsync();
-						}
-						_ = _log.Db($"Removed inactive hero {v.heroId} (user {v.userId}).", v.heroId, "SYSTEM");
+						int lvl = occReader.IsDBNull(occReader.GetOrdinal("level")) ? 1 : occReader.GetInt32("level");
+						int cx = occReader.IsDBNull(occReader.GetOrdinal("coordsX")) ? 0 : occReader.GetInt32("coordsX");
+						int cy = occReader.IsDBNull(occReader.GetOrdinal("coordsY")) ? 0 : occReader.GetInt32("coordsY");
+						if (!occupiedSpots.TryGetValue(lvl, out var list)) { list = new List<(int,int)>(); occupiedSpots[lvl] = list; }
+						list.Add((cx, cy));
 					}
-					catch (Exception ex)
+				}
+				const string wallSql = "SELECT level, x, y FROM maxhanna.ender_bike_wall;";
+				await using (var wallCmd = new MySqlCommand(wallSql, conn, transaction))
+				await using (var wallReader = await wallCmd.ExecuteReaderAsync())
+				{
+					while (await wallReader.ReadAsync())
 					{
-						_ = _log.Db($"Failed to remove inactive hero {v.heroId}: {ex.Message}", v.heroId, "SYSTEM", true);
-						// continue with next victim
+						int lvl = wallReader.IsDBNull(wallReader.GetOrdinal("level")) ? 1 : wallReader.GetInt32("level");
+						int wx = wallReader.IsDBNull(wallReader.GetOrdinal("x")) ? 0 : wallReader.GetInt32("x");
+						int wy = wallReader.IsDBNull(wallReader.GetOrdinal("y")) ? 0 : wallReader.GetInt32("y");
+						if (!wallSpots.TryGetValue(lvl, out var list)) { list = new List<(int,int)>(); wallSpots[lvl] = list; }
+						list.Add((wx, wy));
 					}
 				}
 
+				const int SAFE_DISTANCE = 32; // pixels
+				const int MAX_ATTEMPTS = 150;
+				const int MAP_SIZE = 1024; // should match hero creation logic
+
+				bool IsSafe(int level, int x, int y)
+				{
+					if (x < 0 || y < 0 || x >= MAP_SIZE || y >= MAP_SIZE) return false;
+					if (occupiedSpots.TryGetValue(level, out var heroes))
+					{
+						foreach (var (hx, hy) in heroes)
+						{
+							if (Math.Abs(hx - x) <= SAFE_DISTANCE && Math.Abs(hy - y) <= SAFE_DISTANCE) return false;
+						}
+					}
+					if (wallSpots.TryGetValue(level, out var walls))
+					{
+						foreach (var (wx, wy) in walls)
+						{
+							if (Math.Abs(wx - x) <= SAFE_DISTANCE && Math.Abs(wy - y) <= SAFE_DISTANCE) return false;
+						}
+					}
+					return true;
+				}
+
+				const string updateHeroSql = "UPDATE maxhanna.ender_hero SET coordsX = @X, coordsY = @Y WHERE id = @HeroId;";
+				await using var updateHeroCmd = new MySqlCommand(updateHeroSql, conn, transaction);
+				updateHeroCmd.Parameters.Add(new MySqlParameter("@X", MySqlDbType.Int32));
+				updateHeroCmd.Parameters.Add(new MySqlParameter("@Y", MySqlDbType.Int32));
+				updateHeroCmd.Parameters.Add(new MySqlParameter("@HeroId", MySqlDbType.Int32));
+
+				const string insertNotificationSql = @"INSERT INTO maxhanna.notifications (user_id, text, date) VALUES (@userId, @text, UTC_TIMESTAMP());";
+				await using var insertNotifCmd = new MySqlCommand(insertNotificationSql, conn, transaction);
+				insertNotifCmd.Parameters.Add(new MySqlParameter("@userId", MySqlDbType.Int32));
+				insertNotifCmd.Parameters.Add(new MySqlParameter("@text", MySqlDbType.VarChar));
+
+				var rnd = new Random();
+				int relocated = 0;
+				foreach (var v in victims)
+				{
+					int lvl = v.level;
+					int newX = 16; int newY = 16; bool found = false;
+					for (int attempt = 0; attempt < MAX_ATTEMPTS; attempt++)
+					{
+						int x = rnd.Next(32, MAP_SIZE - 32);
+						int y = rnd.Next(32, MAP_SIZE - 32);
+						if (IsSafe(lvl, x, y)) { newX = x; newY = y; found = true; break; }
+					}
+					if (!found)
+					{
+						// fallback small expanding search
+						for (int radius = 16; radius <= 160 && !found; radius += 16)
+						{
+							for (int dx = -radius; dx <= radius && !found; dx += 16)
+							{
+								for (int dy = -radius; dy <= radius && !found; dy += 16)
+								{
+									int tx = newX + dx; int ty = newY + dy;
+									if (IsSafe(lvl, tx, ty)) { newX = tx; newY = ty; found = true; }
+								}
+							}
+						}
+					}
+
+					updateHeroCmd.Parameters["@X"].Value = newX;
+					updateHeroCmd.Parameters["@Y"].Value = newY;
+					updateHeroCmd.Parameters["@HeroId"].Value = v.heroId;
+					await updateHeroCmd.ExecuteNonQueryAsync();
+
+					if (!occupiedSpots.TryGetValue(lvl, out var heroList)) { heroList = new List<(int,int)>(); occupiedSpots[lvl] = heroList; }
+					heroList.Add((newX, newY));
+					relocated++;
+
+					if (v.userId.HasValue && v.userId.Value > 0)
+					{
+						insertNotifCmd.Parameters["@userId"].Value = v.userId.Value;
+						insertNotifCmd.Parameters["@text"].Value = "Your lightcycle was displaced for inactivity and moved to a new sector.";
+						await insertNotifCmd.ExecuteNonQueryAsync();
+					}
+					_ = _log.Db($"Relocated inactive hero {v.heroId} to ({newX},{newY}) on level {lvl}.", v.heroId, "SYSTEM");
+				}
+
 				await transaction.CommitAsync();
-				_ = _log.Db($"Deleted {victims.Count} inactive ender heroes.", null, "SYSTEM");
+				_ = _log.Db($"Relocated {relocated} inactive ender heroes.", null, "SYSTEM");
 			}
 			catch (Exception ex)
 			{
 				try { await transaction.RollbackAsync(); } catch { }
-				_ = _log.Db($"Error deleting inactive ender heroes: {ex.Message}", null, "SYSTEM", true);
+				_ = _log.Db($"Error relocating inactive ender heroes: {ex.Message}", null, "SYSTEM", true);
 			}
 		}
 		private async Task RunDailyTasks()
