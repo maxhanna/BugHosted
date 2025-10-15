@@ -22,21 +22,7 @@
         </select>
     </div>
 
-    <!-- To Coin -->
-    <div class="config-box">
-        <div class="config-header">
-            <span>To Coin</span>
-            <span class="info-icon" (click)="toggleExplanation($event)">i</span>
-        </div>
-        <select #tradeToCoinSelect
-            title="Select the cryptocurrency you want to receive or trade to. Currently, only USDC is supported as the target coin.">
-            <option value="USDC">USDC</option>
-        </select>
-    </div>
-
-    <!-- Max USDC per buy -->
-    <input type="number" #tradeMaximumToTradeAmount
-        title="Set the maximum amount of USDC that can be spent in a single buy transaction." />
+    <!-- To Coin and MaximumToTradeAmount were previously here but are moved into the non-bulk UI so strategy rules apply consistently -->
 
     <!-- Bulk table: one row per coin -->
     <div *ngIf="bulkEditMode">
@@ -51,22 +37,22 @@
         <div class="config-box">
             <div style="overflow:auto;">
                 <table class="bulk-table" style="width:100%; border-collapse:collapse;">
-                    <thead>
-                        <tr>
-                            <th style="text-align:left; padding:8px;">Coin</th>
-                            <th style="padding:8px;">Max From Balance</th>
-                            <th style="padding:8px;">Min Per Trade</th>
-                            <th style="padding:8px;">Max USDC per Buy</th>
-                            <th style="padding:8px;">Trade Threshold</th>
-                            <th style="padding:8px;">Reserve Sell %</th>
-                            <th style="padding:8px;">Coin Reserve ({{tradeToCoinValue}})</th>
-                            <th style="padding:8px;">Max Trades</th>
-                            <th style="padding:8px;">Stop Loss</th>
-                            <th style="padding:8px;">Stop Loss %</th>
-                            <th style="padding:8px;">Max Trades Spike</th>
-                            <th style="padding:8px;">Actions</th>
-                        </tr>
-                    </thead>
+                            <thead>
+                                    <tr>
+                                        <th style="text-align:left; padding:8px;">Coin</th>
+                                        <th style="padding:8px;">Max From Balance</th>
+                                        <th style="padding:8px;">Min Per Trade</th>
+                                        <th style="padding:8px;">Max USDC per Buy</th>
+                                        <th style="padding:8px;">Trade Threshold</th>
+                                        <th *ngIf="!(tradeStrategySelect?.value == 'IND' || tradeStrategySelect?.value == 'HFT')" style="padding:8px;">Reserve Sell %</th>
+                                        <th *ngIf="!(tradeStrategySelect?.value == 'IND' || tradeStrategySelect?.value == 'HFT')" style="padding:8px;">Coin Reserve ({{tradeToCoinValue}})</th>
+                                        <th *ngIf="tradeStrategySelect?.value != 'HFT'" style="padding:8px;">Max Trades</th>
+                                        <th *ngIf="tradeStrategySelect?.value == 'DCA'" style="padding:8px;">Stop Loss</th>
+                                        <th *ngIf="tradeStrategySelect?.value == 'IND'" style="padding:8px;">Stop Loss %</th>
+                                        <th *ngIf="tradeStrategySelect?.value == 'DCA'" style="padding:8px;">Max Trades Spike</th>
+                                        <th style="padding:8px;">Actions</th>
+                                    </tr>
+                                </thead>
                     <tbody>
                         <tr *ngFor="let c of coins">
                             <td style="padding:8px; font-weight:600">{{c}}</td>
@@ -86,16 +72,16 @@
                                 <div style="font-size:11px; color:var(--secondary-font-color);">{{ bulkModel['coin:' + c]?.MaximumToTradeAmount || 0 }} {{tradeToCoinValue}}</div>
                             </td>
                             <td style="padding:8px;"><input style="width:100%" [value]="bulkModel['coin:' + c]?.TradeThreshold" (input)="bulkModel['coin:' + c].TradeThreshold = $any($event.target).value; detectChange()" /></td>
-                            <td style="padding:8px;"><input style="width:100%" [value]="bulkModel['coin:' + c]?.ReserveSellPercentage" (input)="bulkModel['coin:' + c].ReserveSellPercentage = $any($event.target).value; detectChange()" /></td>
-                            <td style="padding:8px; vertical-align:top;"><input style="width:100%" [value]="bulkModel['coin:' + c]?.CoinReserveUSDCValue" (input)="bulkModel['coin:' + c].CoinReserveUSDCValue = $any($event.target).value; detectChange()" />
+                            <td *ngIf="!(tradeStrategySelect?.value == 'IND' || tradeStrategySelect?.value == 'HFT')" style="padding:8px;"><input style="width:100%" [value]="bulkModel['coin:' + c]?.ReserveSellPercentage" (input)="bulkModel['coin:' + c].ReserveSellPercentage = $any($event.target).value; detectChange()" /></td>
+                            <td *ngIf="!(tradeStrategySelect?.value == 'IND' || tradeStrategySelect?.value == 'HFT')" style="padding:8px; vertical-align:top;"><input style="width:100%" [value]="bulkModel['coin:' + c]?.CoinReserveUSDCValue" (input)="bulkModel['coin:' + c].CoinReserveUSDCValue = $any($event.target).value; detectChange()" />
                                 <div style="font-size:11px; color:var(--secondary-font-color);">{{ bulkModel['coin:' + c]?.CoinReserveUSDCValue || 0 }} {{tradeToCoinValue}}</div>
                             </td>
-                            <td style="padding:8px;"><input style="width:100%" [value]="bulkModel['coin:' + c]?.MaxTradeTypeOccurances" (input)="bulkModel['coin:' + c].MaxTradeTypeOccurances = $any($event.target).value; detectChange()" /></td>
-                            <td style="padding:8px;"><input style="width:100%" [value]="bulkModel['coin:' + c]?.TradeStopLoss" (input)="bulkModel['coin:' + c].TradeStopLoss = $any($event.target).value; detectChange()" />
+                            <td *ngIf="tradeStrategySelect?.value != 'HFT'" style="padding:8px;"><input style="width:100%" [value]="bulkModel['coin:' + c]?.MaxTradeTypeOccurances" (input)="bulkModel['coin:' + c].MaxTradeTypeOccurances = $any($event.target).value; detectChange()" /></td>
+                            <td *ngIf="tradeStrategySelect?.value == 'DCA'" style="padding:8px;"><input style="width:100%" [value]="bulkModel['coin:' + c]?.TradeStopLoss" (input)="bulkModel['coin:' + c].TradeStopLoss = $any($event.target).value; detectChange()" />
                                 <div style="font-size:11px; color:var(--secondary-font-color);">{{ bulkModel['coin:' + c]?.TradeStopLoss ? (bulkModel['coin:' + c]?.TradeStopLoss | number:'1.2-2') + ' ' + tradeToCoinValue : '' }}</div>
                             </td>
-                            <td style="padding:8px;"><input style="width:100%" [value]="bulkModel['coin:' + c]?.TradeStopLossPercentage" (input)="bulkModel['coin:' + c].TradeStopLossPercentage = $any($event.target).value; detectChange()" /></td>
-                            <td style="padding:8px;"><input style="width:100%" [value]="bulkModel['coin:' + c]?.VolumeSpikeMaxTradeOccurance" (input)="bulkModel['coin:' + c].VolumeSpikeMaxTradeOccurance = $any($event.target).value; detectChange()" /></td>
+                            <td *ngIf="tradeStrategySelect?.value == 'IND'" style="padding:8px;"><input style="width:100%" [value]="bulkModel['coin:' + c]?.TradeStopLossPercentage" (input)="bulkModel['coin:' + c].TradeStopLossPercentage = $any($event.target).value; detectChange()" /></td>
+                            <td *ngIf="tradeStrategySelect?.value == 'DCA'" style="padding:8px;"><input style="width:100%" [value]="bulkModel['coin:' + c]?.VolumeSpikeMaxTradeOccurance" (input)="bulkModel['coin:' + c].VolumeSpikeMaxTradeOccurance = $any($event.target).value; detectChange()" /></td>
                             <td style="padding:8px; white-space:nowrap;">
                                 <button (click)="saveCoinModel(c)" [disabled]="savingPerCoin['coin:' + c]">Save coin/strategy</button>
                             </td>
@@ -141,6 +127,25 @@
             <div class="config-explanation">
                 <p><strong>What it does:</strong> This dropdown lets you pick the cryptocurrency you'll be selling or trading from—essentially, the "source" coin in your trading pair. For DCA, you have a broader selection (e.g., BTC, ETH, XRP), while IND restricts you to BTC only due to its strategy-specific requirements.</p>
             </div>
+        </div>
+
+        <!-- To Coin (moved back here so strategy rules apply) -->
+        <div class="config-box">
+            <div class="config-header">
+                <span>To Coin</span>
+                <span class="info-icon" (click)="toggleExplanation($event)">i</span>
+            </div>
+            <select #tradeToCoinSelect
+                title="Select the cryptocurrency you want to receive or trade to. Currently, only USDC is supported as the target coin.">
+                <option value="USDC">USDC</option>
+            </select>
+        </div>
+
+        <!-- Max USDC per buy -->
+        <div class="config-box" [style.display]="tradeStrategySelect?.value == 'HFT' ? 'none' : 'flex'">
+            <div class="config-header"><span>Max USDC per Buy</span><span class="info-icon" (click)="toggleExplanation($event)">i</span></div>
+            <input type="number" #tradeMaximumToTradeAmount
+                title="Set the maximum amount of USDC that can be spent in a single buy transaction." />
         </div>
 
         <!-- The rest of the existing UI continues unchanged below... -->
@@ -212,7 +217,7 @@
         <div class="config-box"
             [style.display]="(tradeStrategySelect.value == 'IND' || tradeStrategySelect.value == 'HFT') ? 'none' : 'flex'">
             <div class="config-header">
-                <span>{{tradeToCoinSelect?.value}} Value of {{tradeFromCoinSelect?.value}} Reserves</span>
+                <span>{{tradeToCoinValue}} Value of {{tradeFromCoinSelect?.value}} Reserves</span>
                 <span class="info-icon" (click)="toggleExplanation($event)">i</span>
             </div>
             <input type="number" (input)="detectChange()" #tradeCoinReserveUSDCValue min="5"
