@@ -88,7 +88,7 @@ body {
 }
 
 .colorInput {
-  width: calc(100% - 30px);
+  width: 100%;
 }
 
 .inputArea {
