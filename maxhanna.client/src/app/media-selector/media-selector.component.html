@@ -25,8 +25,8 @@
         <div *ngIf="viewMediaChoicesOpen && selectedFiles && selectedFiles.length > 0" class="attachmentChoiceContainer">
          
           <div *ngFor="let file of selectedFiles" class="smallContainerForMedia"> 
-            <div style="display:flex; flex-direction: column;">
-              <div><button (click)="removeFile(file)">Remove</button></div>
+            <div style="display:flex; flex-direction: column; width:100%">
+              <div><button (click)="removeFile(file)" style="width:100%">Remove</button></div>
               <div>{{file.fileName}}</div>
             </div>
             <app-media-viewer [user]="user"
