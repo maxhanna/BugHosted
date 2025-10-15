@@ -11,6 +11,15 @@ import { e } from '@angular/core/weak_ref.d-Bp6cSy-X';
   styleUrl: './crypto-bot-configuration.component.css'
 })
 export class CryptoBotConfigurationComponent extends ChildComponent {
+  bulkEditMode: boolean = false;
+  coins: string[] = ['XBT','ETH','XRP','SOL','XDG'];
+  bulkModel: Record<string, any> = {};
+  savingAll: boolean = false;
+  savingPerCoin: Record<string, boolean> = {};
+  bulkStrategy: string = 'DCA';
+  perRowStatus: Record<string, string> = {};
+  totalToSave: number = 0;
+  savedCount: number = 0;
   constructor(private tradeService: TradeService, private cdRef: ChangeDetectorRef) { super(); } 
 
   @Input() inputtedParentRef?: AppComponent;
@@ -275,6 +284,11 @@ export class CryptoBotConfigurationComponent extends ChildComponent {
     this.getTradeConfiguration();
   }
 
+  toggleBulkEdit(event: Event) {
+    const target = event.target as HTMLInputElement;
+    this.bulkEditMode = !!target?.checked;
+  }
+
   toggleExplanation(event: Event) {
     const target = event.currentTarget as HTMLElement;
     const explanation = target.closest('.config-box')?.querySelector('.config-explanation');
@@ -292,6 +306,91 @@ export class CryptoBotConfigurationComponent extends ChildComponent {
         }
       }
     }
+  }
+  async populateAllCoinsBulkModel() {
+    // Load defaults for each coin into bulkModel
+    for (const c of this.coins) {
+      this.bulkModel['coin:' + c] = {
+        MaximumFromBalance: 0,
+        MinimumFromTradeAmount: 0,
+        MaximumToTradeAmount: 0,
+        CoinReserveUSDCValue: 0,
+        FromCoin: c,
+        ToCoin: 'USDC',
+        Strategy: this.tradeStrategySelect?.nativeElement?.value ?? 'DCA'
+      };
+    }
+  // initialize per-row status
+  for (const c of this.coins) { this.perRowStatus[c] = ''; }
+  this.detectChange();
+  }
+
+  async saveCoinModel(coin: string) {
+    const key = 'coin:' + coin;
+    const model = this.bulkModel[key];
+    if (!model) return;
+    this.savingPerCoin[coin] = true;
+  this.perRowStatus[coin] = 'saving';
+    try {
+  const sessionToken = await this.inputtedParentRef?.getSessionToken();
+  if (!sessionToken) { alert('You must be logged in to save configurations.'); return; }
+  const config = {
+        UserId: this.inputtedParentRef?.user?.id,
+        FromCoin: model.FromCoin,
+        ToCoin: model.ToCoin,
+        Strategy: model.Strategy,
+        MinimumFromTradeAmount: parseFloat(model.MinimumFromTradeAmount || 0),
+        MaximumToTradeAmount: parseFloat(model.MaximumToTradeAmount || 0),
+        CoinReserveUSDCValue: parseFloat(model.CoinReserveUSDCValue || 0),
+        MaximumFromBalance: parseFloat(model.MaximumFromBalance || 0),
+        Updated: new Date().toISOString()
+      };
+      await this.tradeService.upsertTradeConfiguration(config, sessionToken);
+      this.inputtedParentRef?.showNotification(`Saved ${coin}`);
+      this.perRowStatus[coin] = 'saved';
+    } catch (err) {
+      console.error(err);
+      this.inputtedParentRef?.showNotification(`Failed to save ${coin}`);
+      this.perRowStatus[coin] = 'error';
+    }
+    this.savingPerCoin[coin] = false;
+  }
+
+  async saveAllBulkModels() {
+    const keys = Object.keys(this.bulkModel).filter(k => k.startsWith('coin:'));
+    if (!keys.length) return alert('No coins loaded. Click Load Coins first.');
+    if (!confirm('Save all coin configurations?')) return;
+    this.savingAll = true;
+    this.totalToSave = keys.length;
+    this.savedCount = 0;
+
+    const items = keys.map(k => k.replace('coin:', ''));
+    const worker = async (coin: string) => {
+      await this.saveCoinModel(coin);
+      this.savedCount++;
+    };
+
+    await this.runWithConcurrency(items, worker, 3);
+    this.savingAll = false;
+  }
+
+  async runWithConcurrency<T>(items: T[], worker: (item: T) => Promise<void>, concurrency: number) {
+    return new Promise<void>((resolve) => {
+      let index = 0;
+      let active = 0;
+      const next = () => {
+        if (index >= items.length && active === 0) return resolve();
+        while (active < concurrency && index < items.length) {
+          const item = items[index++];
+          active++;
+          worker(item).catch(() => {}).finally(() => {
+            active--;
+            next();
+          });
+        }
+      };
+      next();
+    });
   }
   multiplyBy100(value: string) {
     if (!value) return 0;
