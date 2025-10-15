@@ -140,8 +140,14 @@
       <div style="margin-bottom:6px;">
         <strong>Killed by:</strong>
       </div>
-      <div *ngIf="deathKillerUserId;">
-        <app-user-tag [userId]="deathKillerUserId" [inputtedParentRef]="parentRef" [displayOnlyAvatar]="false" (userLoaded)="onUserTagLoaded($event)"></app-user-tag>
+      <div *ngIf="deathKillerUserId">
+        <app-user-tag 
+          [user]="cachedUsers.get(deathKillerUserId)" 
+          [userId]="deathKillerUserId" 
+          [inputtedParentRef]="parentRef" 
+          [displayOnlyAvatar]="false" 
+          [openInNewTab]="true"
+          (userLoaded)="onUserTagLoaded($event)"></app-user-tag>
       </div> 
     </div>
     <div style="pointer-events:none; margin-bottom:8px;">
