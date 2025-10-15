@@ -50,6 +50,7 @@
                 [type]="'Chat'" 
                 [chatId]="currentChatId"
                 [messageId]="message.id"
+                [attachedFiles]="message.files ?? []"
                 [showPostInput]="true"
                 [initialContent]="decryptContent(message.content)"
                 (contentUpdated)="onChatUpdated($event, message)"
@@ -101,7 +102,6 @@
           [quoteMessage]="quoteMessage" 
           [chatId]="currentChatId"
           [currentChatUsers]="currentChatUsers"
-          [attachedFiles]="message.files ?? []"
           [enterToPost]="true" (contentPosted)="chatMessagePosted($event)"></app-text-input>
       </div>
     </div>
