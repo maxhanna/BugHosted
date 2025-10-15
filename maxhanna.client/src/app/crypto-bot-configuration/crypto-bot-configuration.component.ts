@@ -45,6 +45,7 @@ export class CryptoBotConfigurationComponent extends ChildComponent {
   strategies: string[] = ['DCA', 'IND', 'HFT'];
   coins: string[] = ['XBT', 'ETH', 'XRP', 'SOL', 'XDG'];
   savingAll: boolean = false;
+  savingPerCoin: Record<string, boolean> = {};
   // store original configs fetched from server for preview/diff
   originalConfigs: Record<string, any> = {};
   previewVisible: boolean = false;
@@ -271,6 +272,28 @@ export class CryptoBotConfigurationComponent extends ChildComponent {
     return Promise.allSettled(results);
   }
 
+  get totals() {
+    let totalMaxFromBalance = 0;
+    let totalMinPerTradeFiat = 0; // converted to fiat
+    let totalMaxUSDCPerBuy = 0;
+    let totalCoinReserveUSDC = 0;
+    for (const c of this.coins) {
+      const m = this.bulkModel[`coin:${c}`] || {};
+      const maxFrom = parseFloat(m.MaximumFromBalance || '0') || 0;
+      totalMaxFromBalance += maxFrom * (this.getCoinPrice(c) || 0);
+      const minPer = parseFloat(m.MinimumFromTradeAmount || '0') || 0;
+      totalMinPerTradeFiat += minPer * (this.getCoinPrice(c) || 0);
+      totalMaxUSDCPerBuy += parseFloat(m.MaximumToTradeAmount || '0') || 0;
+      totalCoinReserveUSDC += parseFloat(m.CoinReserveUSDCValue || '0') || 0;
+    }
+    return {
+      totalMaxFromBalance,
+      totalMinPerTradeFiat,
+      totalMaxUSDCPerBuy,
+      totalCoinReserveUSDC
+    };
+  }
+
   // Load a coin's bulk model into the main input controls so user can save it
   applyCoinModelToInputs(coin: string) {
     const model = this.bulkModel[`coin:${coin}`] || {};
@@ -289,6 +312,55 @@ export class CryptoBotConfigurationComponent extends ChildComponent {
       this.detectChange();
     } catch (e) {
       console.error('applyCoinModelToInputs failed', e);
+    }
+  }
+
+  // Save a single coin/strategy from bulkModel directly
+  async saveCoinModel(coin: string) {
+    if (!this.inputtedParentRef?.user?.id) return alert('You must be logged in to save configurations.');
+    const userId = this.inputtedParentRef.user.id;
+    const sessionToken = await this.inputtedParentRef.getSessionToken();
+    const toCoin = this.tradeToCoinSelect?.nativeElement?.value ?? 'USDC';
+    const strategy = this.tradeStrategySelect?.nativeElement?.value ?? 'DCA';
+
+    const model = this.bulkModel[`coin:${coin}`] || {};
+    const parseNum = (v: any) => v !== null && v !== undefined && v !== '' ? parseFloat(v) : null;
+    const fields: any = {
+      MinimumFromTradeAmount: parseNum(model.MinimumFromTradeAmount) ?? 0,
+      TradeThreshold: parseNum(model.TradeThreshold),
+      MaximumToTradeAmount: parseNum(model.MaximumToTradeAmount),
+      ReserveSellPercentage: parseNum(model.ReserveSellPercentage),
+      CoinReserveUSDCValue: parseNum(model.CoinReserveUSDCValue) ?? 0,
+      MaxTradeTypeOccurances: parseNum(model.MaxTradeTypeOccurances),
+      TradeStopLoss: parseNum(model.TradeStopLoss),
+      TradeStopLossPercentage: parseNum(model.TradeStopLossPercentage),
+      VolumeSpikeMaxTradeOccurance: parseNum(model.VolumeSpikeMaxTradeOccurance),
+      MaximumFromBalance: model.MaximumFromBalance ?? ''
+    };
+
+    const config = {
+      UserId: userId,
+      FromCoin: coin,
+      ToCoin: toCoin,
+      Strategy: strategy,
+      Updated: new Date().toISOString(),
+      ...fields
+    };
+
+    this.savingPerCoin[`coin:${coin}`] = true;
+    try {
+      const res: any = await this.tradeService.upsertTradeConfiguration(config, sessionToken);
+      if (res === true || (typeof res === 'string' && res !== 'Access Denied' && !res.toLowerCase().includes('minimum trade amount'))) {
+        this.inputtedParentRef?.showNotification(`Saved ${coin} (${strategy}): ${res}`);
+        this.updatedTradeConfig.emit(coin);
+      } else {
+        this.inputtedParentRef?.showNotification(`Error saving ${coin}: ${res}`);
+      }
+    } catch (err: any) {
+      const msg = err && (err.message || err.toString) ? (err.message ?? err.toString()) : String(err);
+      this.inputtedParentRef?.showNotification(`Failed saving ${coin}: ${msg}`);
+    } finally {
+      this.savingPerCoin[`coin:${coin}`] = false;
     }
   }
 
