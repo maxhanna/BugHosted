@@ -20,7 +20,7 @@
           <input #urlInput type="text" placeholder="e.g. site:www.example.com keywords" (keydown.enter)="searchUrl()" />
           <button (click)="searchUrl()" [disabled]="isLoading">🔍Crawl</button>
         </div>
-        <div class="siteHelperTip smallFont">Tip: use <span (click)="fillSiteExample()" class="cursorPointerUnderlined linkFontColor">"site:domain.com keywords"</span> to restrict results to a single domain.</div>
+        <div *ngIf="!hasSearched" class="siteHelperTip smallFont">Tip: use <span (click)="fillSiteExample()" class="cursorPointerUnderlined linkFontColor">"site:domain.com keywords"</span> to restrict results to a single domain.</div>
     </div>
 
     <div *ngIf="isLoading" class="loadingNotificationDiv">Loading...</div>
@@ -91,6 +91,7 @@
       <option *ngFor="let size of pageSizes" [value]="size" [selected]="size === pageSize">{{ size }}</option>
     </select>
   </div>
+  <div class="siteHelperTip smallFont" style="margin: 12px 20px;">Tip: use <span (click)="fillSiteExample()" class="cursorPointerUnderlined linkFontColor">"site:domain.com keywords"</span> to restrict results to a single domain.</div>
   <div class="popupPanelTitle">Database Nerd Stats:</div>
   <div *ngIf="storageStats" class="optionsStatsWrapperDiv">
     <div class="optionsStatsDiv">

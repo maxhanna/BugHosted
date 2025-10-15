@@ -17,6 +17,7 @@ export class CrawlerComponent extends ChildComponent implements OnInit, OnDestro
   indexUpdateTimer: any;
   isMenuOpen = false;
   lastSearch = "";
+  hasSearched: boolean = false;
   groupedResults?: { domain: string; links: MetaData[]; showSubdomains: boolean }[] = [];
   storageStats?: any;
   currentPage: number = 1;
@@ -88,6 +89,7 @@ export class CrawlerComponent extends ChildComponent implements OnInit, OnDestro
     const currentPage = this.currentPage;
     const pageSize = this.pageSize;
     this.startLoading();
+    this.hasSearched = true;
 
     if (url) {
       await this.crawlerService.searchUrl(url, currentPage, pageSize, undefined, skipScrape).then(res => {
