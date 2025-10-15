@@ -396,6 +396,21 @@ body {
   line-height: 1.2;
 }
 
+.musicButton {
+  margin-top: 6px;
+  background: linear-gradient(180deg, #1f2933, #11151a);
+  border: 1px solid rgba(255,255,255,0.06);
+  color: var(--secondary-font-color);
+  padding: 6px 8px;
+  border-radius: 6px;
+  font-family: fontRetroGaming;
+  cursor: pointer;
+}
+
+.musicButton:active {
+  transform: translateY(1px);
+}
+
 .b,
 .start {
   display: none !important;

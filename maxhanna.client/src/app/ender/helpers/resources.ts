@@ -7,7 +7,9 @@ export class Resources {
   audios: { [key: string]: { audio: HTMLAudioElement; isLoaded: boolean } } = {};
   dir = "assets/ender/";
   initialized = false;
-  muted = false; // global mute flag for Ender-related sounds
+  // Separate mute flags for music and sound effects
+  musicMuted = false;
+  sfxMuted = false;
   constructor() {
     this.imageToLoad = {
       bikewall: `${this.dir}bikewall.png`,
@@ -64,8 +66,16 @@ export class Resources {
     });
   }
 
+  // audio categories help decide which mute flag applies
+  private audioCategories: { [key: string]: 'music' | 'sfx' } = {
+    pixelDreams: 'music',
+    wilhelmScream: 'sfx'
+  };
+
   playSound(key: string, opts?: { volume?: number; loop?: boolean; allowOverlap?: boolean }) {
-  if (this.muted) return; // respect global mute
+    const category = this.audioCategories[key] ?? 'sfx';
+    if (category === 'music' && this.musicMuted) return;
+    if (category === 'sfx' && this.sfxMuted) return;
     const entry = this.audios[key];
     if (!entry) return;
     const base = entry.audio;
@@ -99,14 +109,34 @@ export class Resources {
     } catch { }
   }
 
-  setMuted(muted: boolean) {
-    this.muted = muted;
+  setMusicMuted(muted: boolean) {
+    this.musicMuted = muted;
     if (muted) {
-      // stop all currently looping/background sounds
-      Object.keys(this.audios).forEach(k => {
-        try { this.audios[k].audio.pause(); } catch { }
+      // stop currently playing music
+      Object.keys(this.audioCategories).forEach(k => {
+        if (this.audioCategories[k] === 'music' && this.audios[k]) {
+          try { this.audios[k].audio.pause(); } catch { }
+        }
       });
     }
+  }
+
+  setSfxMuted(muted: boolean) {
+    this.sfxMuted = muted;
+    if (muted) {
+      // stop any looping sfx
+      Object.keys(this.audioCategories).forEach(k => {
+        if (this.audioCategories[k] === 'sfx' && this.audios[k]) {
+          try { this.audios[k].audio.pause(); } catch { }
+        }
+      });
+    }
+  }
+
+  // Backwards-compatible helper to set both
+  setMuted(muted: boolean) {
+    this.setMusicMuted(muted);
+    this.setSfxMuted(muted);
   }
 }
 export const resources = new Resources();

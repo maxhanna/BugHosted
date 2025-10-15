@@ -124,7 +124,9 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
     // Champion (global best) info cached for CharacterCreate prompts
     private championName?: string;
     private championScore?: number;
-    isMuted: boolean = false; // user preference for Ender sounds
+    isMuted: boolean = false; // legacy single flag (keeps user settings compatibility)
+    isMusicMuted: boolean = false;
+    isSfxMuted: boolean = false;
     // When true, the player is dead and run timer should not restart
     private isDead: boolean = false;
     // mark dead so timers won't restart while death panel is shown
@@ -143,11 +145,12 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
                 this.cachedDefaultName = res?.lastCharacterName ?? undefined;
                 this.cachedDefaultColor = res?.lastCharacterColor ?? undefined;
                 this.isMuted = !!res?.muteSounds;
+                // initialize both music and sfx from legacy setting
+                this.isMusicMuted = this.isMuted;
+                this.isSfxMuted = this.isMuted;
                 resources.setMuted(this.isMuted);
-                if (!this.isMuted) {
-                    // Try to play immediately; many browsers will block autoplay without a user gesture.
-                    // Also register a one-time user-gesture handler to ensure playback starts when the user interacts.
-                    resources.playSound("pixelDreams", { volume: 0.4, loop: true, allowOverlap: false });
+                // If music isn't muted, attempt to start background music on first user gesture
+                if (!this.isMusicMuted) {
                     const startMusic = () => {
                         resources.playSound("pixelDreams", { volume: 0.4, loop: true, allowOverlap: false });
                         document.removeEventListener('pointerdown', startMusic);
@@ -197,17 +200,44 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
     }
 
     toggleMuteSounds() {
-        this.isMuted = !this.isMuted;
-        resources.setMuted(this.isMuted);
-        if (this.isMuted) {
-            resources.stopSound("pixelDreams");
-        } else {
-            resources.playSound("pixelDreams", { volume: 0.4, loop: true, allowOverlap: false });
-        }
-        if (this.parentRef?.user?.id) {
-            this.userService.updateMuteSounds(this.parentRef.user.id, this.isMuted).catch(()=>{});
-        }
+            // legacy toggle: flip both music and sfx together
+            this.isMuted = !this.isMuted;
+            this.isMusicMuted = this.isMuted;
+            this.isSfxMuted = this.isMuted;
+            resources.setMuted(this.isMuted);
+            if (!this.isMusicMuted) {
+                resources.playSound("pixelDreams", { volume: 0.4, loop: true, allowOverlap: false });
+            } else {
+                resources.stopSound("pixelDreams");
+            }
+            if (this.parentRef?.user?.id) {
+                this.userService.updateMuteSounds(this.parentRef.user.id, this.isMuted).catch(()=>{});
+            }
     }
+
+        toggleMusic() {
+            this.isMusicMuted = !this.isMusicMuted;
+            resources.setMusicMuted(this.isMusicMuted);
+            if (!this.isMusicMuted) {
+                resources.playSound("pixelDreams", { volume: 0.4, loop: true, allowOverlap: false });
+            } else {
+                resources.stopSound("pixelDreams");
+            }
+            // keep legacy isMuted in sync if both flags are true
+            this.isMuted = this.isMusicMuted && this.isSfxMuted;
+            if (this.parentRef?.user?.id) {
+                this.userService.updateMuteSounds(this.parentRef.user.id, this.isMuted).catch(()=>{});
+            }
+        }
+
+        toggleSfx() {
+            this.isSfxMuted = !this.isSfxMuted;
+            resources.setSfxMuted(this.isSfxMuted);
+            this.isMuted = this.isMusicMuted && this.isSfxMuted;
+            if (this.parentRef?.user?.id) {
+                this.userService.updateMuteSounds(this.parentRef.user.id, this.isMuted).catch(()=>{});
+            }
+        }
 
     private async handleHeroDeath(killerId: string) {
         const killerMeta = this.otherHeroes.find(h => h.id === parseInt(killerId)) ?? (this.metaHero.id === parseInt(killerId) ? this.metaHero : undefined);
