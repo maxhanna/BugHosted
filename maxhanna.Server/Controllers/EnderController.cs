@@ -183,9 +183,9 @@ namespace maxhanna.Server.Controllers
                                             var deathEvent = new MetaEvent(0, victimId, DateTime.UtcNow, "HERO_DIED", hero.Level, new Dictionary<string, string>() { { "cause", "BIKE_WALL" } });
                                             await UpdateEventsInDB(deathEvent, connection, transaction);
                                             Console.WriteLine("added event death event for heroId" + victimId);
+                                            await SendKillNotificationAsync(victimId, killerId, connection, transaction);
                                             await KillHeroById(victimId, connection, transaction, killerId);
                                             Console.WriteLine(killerId + " killed heroId" + victimId);
-                                            await SendKillNotificationAsync(victimId, killerId, connection, transaction);
                                         }
                                         catch (Exception exKill)
                                         {
