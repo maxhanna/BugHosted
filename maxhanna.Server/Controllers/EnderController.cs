@@ -756,6 +756,89 @@ namespace maxhanna.Server.Controllers
             }
         }
 
+        [HttpPost("/Ender/ActivePlayers", Name = "Ender_ActivePlayers")]
+        public async Task<IActionResult> ActivePlayers([FromBody] int minutes)
+        {
+            try
+            {
+                if (minutes <= 0) minutes = 2;
+                await using var connection = new MySqlConnection(_connectionString);
+                await connection.OpenAsync();
+                const string sql = @"SELECT COUNT(DISTINCT hero_id) AS cnt FROM maxhanna.ender_bike_wall WHERE created_at >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL @Minutes MINUTE);";
+                using var cmd = new MySqlCommand(sql, connection);
+                cmd.Parameters.AddWithValue("@Minutes", minutes);
+                var count = Convert.ToInt32(await cmd.ExecuteScalarAsync());
+                return Ok(new { count = count });
+            }
+            catch (Exception ex)
+            {
+                await LogError("ActivePlayers failed", ex);
+                return StatusCode(500, "Internal server error: " + ex.Message);
+            }
+        }
+
+        [HttpPost("/Ender/GetUserRank", Name = "Ender_GetUserRank")]
+        public async Task<IActionResult> GetUserRank([FromBody] int userId)
+        {
+            if (userId <= 0) return BadRequest("Invalid user id");
+            try
+            {
+                await using var connection = new MySqlConnection(_connectionString);
+                await connection.OpenAsync();
+
+                // Check if user has an active hero
+                const string heroCheckSql = "SELECT id FROM maxhanna.ender_hero WHERE user_id = @UserId LIMIT 1;";
+                using (var heroCmd = new MySqlCommand(heroCheckSql, connection))
+                {
+                    heroCmd.Parameters.AddWithValue("@UserId", userId);
+                    var heroIdObj = await heroCmd.ExecuteScalarAsync();
+                    if (heroIdObj == null || heroIdObj == DBNull.Value)
+                    {
+                        return Ok(new { hasHero = false });
+                    }
+                }
+
+                // Get the user's best score
+                const string bestSql = "SELECT score FROM maxhanna.ender_top_scores WHERE user_id = @UserId ORDER BY score DESC LIMIT 1;";
+                int userScore = 0;
+                using (var bestCmd = new MySqlCommand(bestSql, connection))
+                {
+                    bestCmd.Parameters.AddWithValue("@UserId", userId);
+                    var scoreObj = await bestCmd.ExecuteScalarAsync();
+                    if (scoreObj == null || scoreObj == DBNull.Value)
+                    {
+                        // user has a hero but no recorded top score yet
+                        return Ok(new { hasHero = true, rank = (int?)null, score = (int?)null, totalPlayers = 0 });
+                    }
+                    userScore = Convert.ToInt32(scoreObj);
+                }
+
+                // Rank is 1 + number of scores strictly greater than user's score
+                const string rankSql = "SELECT COUNT(*) FROM maxhanna.ender_top_scores WHERE score > @Score;";
+                int higherCount = 0;
+                using (var rankCmd = new MySqlCommand(rankSql, connection))
+                {
+                    rankCmd.Parameters.AddWithValue("@Score", userScore);
+                    higherCount = Convert.ToInt32(await rankCmd.ExecuteScalarAsync());
+                }
+
+                // Total distinct players with top scores
+                const string totalSql = "SELECT COUNT(DISTINCT user_id) FROM maxhanna.ender_top_scores;";
+                int totalPlayers = 0;
+                using (var totalCmd = new MySqlCommand(totalSql, connection))
+                {
+                    totalPlayers = Convert.ToInt32(await totalCmd.ExecuteScalarAsync());
+                }
+
+                return Ok(new { hasHero = true, rank = higherCount + 1, score = userScore, totalPlayers = totalPlayers });
+            }
+            catch (Exception ex)
+            {
+                await LogError("GetUserRank failed", ex);
+                return StatusCode(500, "Internal server error: " + ex.Message);
+            }
+        }
+
         [HttpPost("/Ender/TopScoresToday", Name = "Ender_TopScoresToday")]
         public async Task<IActionResult> TopScoresToday([FromBody] int limit)
         {

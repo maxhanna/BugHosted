@@ -14,6 +14,7 @@ import { UserService } from '../../services/user.service';
 import { FileService } from '../../services/file.service';
 import { ExchangeRate } from '../../services/datacontracts/crypto/exchange-rate';
 import { MenuItem } from '../../services/datacontracts/user/menu-item';
+import { EnderService } from '../../services/ender.service';
 
 @Component({
   selector: 'app-navigation',
@@ -40,6 +41,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
   isLoadingCryptoHub = false;
   isLoadingWordlerStreak = false;
   isLoadingCalendar = false;
+  isLoadingEnder = false;
   numberOfNotifications = 0;
   showAppSelectionHelp = false;
   defaultTheme = {
@@ -67,8 +69,14 @@ export class NavigationComponent implements OnInit, OnDestroy {
     private wordlerService: WordlerService,
     private userService: UserService,
     private fileService: FileService,
-    private notificationService: NotificationService) {
+    private notificationService: NotificationService,
+    private enderService: EnderService) { 
   }
+
+  // runtime values for Ender nav item
+  enderActivePlayers: number | null = null;
+  enderUserRank: { rank?: number | null, score?: number | null, totalPlayers?: number | null } | null = null;
+  private enderInterval: any;
 
   async ngOnInit() {
     this.navbarReady = true;
@@ -76,6 +84,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
     setTimeout(() => {
       this.getNotifications();
       this.displayAppSelectionHelp();
+  this.startEnderPolling();
     }, 100)
   }
 
@@ -84,6 +93,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
     clearInterval(this.calendarInfoInterval);
     clearInterval(this.wordlerInfoInterval);
     clearInterval(this.notificationInfoInterval);
+  clearInterval(this.enderInterval);
     this.showAppSelectionHelp = false;
     this.clearNotifications();
   }
@@ -368,6 +378,40 @@ export class NavigationComponent implements OnInit, OnDestroy {
       console.error('Error fetching Crypto Hub data:', error);
       this.isLoadingCryptoHub = false;
     }
+  }
+
+  private startEnderPolling() {
+    if (!this._parent?.user?.id) return;
+    
+
+    const refresh = async () => {
+  this.isLoadingEnder = true;
+      try {
+        const res: any = await this.enderService.getActivePlayers(2);
+        this.enderActivePlayers = res?.count ?? null;
+      } catch (e) {
+        this.enderActivePlayers = null;
+      }
+
+      try {
+        const userId = this._parent.user?.id ?? 0;
+        if (userId) {
+          const rankRes: any = await this.enderService.getUserRank(userId);
+          if (rankRes && rankRes.hasHero) {
+            this.enderUserRank = { rank: rankRes.rank ?? null, score: rankRes.score ?? null, totalPlayers: rankRes.totalPlayers ?? null };
+          } else {
+            this.enderUserRank = { rank: null, score: null, totalPlayers: rankRes?.totalPlayers ?? null };
+          }
+        }
+      } catch (e) {
+        this.enderUserRank = null;
+      }
+  this.isLoadingEnder = false;
+    };
+
+    // initial call
+    refresh();
+    this.enderInterval = setInterval(refresh, 60 * 1000); // update every minute
   }
 
   async getWordlerStreakInfo() {
