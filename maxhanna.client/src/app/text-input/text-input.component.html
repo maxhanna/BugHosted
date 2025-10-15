@@ -5,10 +5,10 @@
         #postTextArea id="postTextArea" (keydown)="onKeyDown($event)">{{initialContent}}</textarea>
 </div>
 <div class="mainFileUploaderAndTopicSelectorDiv">
-    <button *ngIf="!initialContent" (click)="post()">🗨️Post</button>
-    <button *ngIf="initialContent" (click)="update(textarea.value)">✅</button>
+    <button *ngIf="initialContent == undefined" (click)="post()">🗨️Post</button>
+    <button *ngIf="initialContent != undefined" (click)="update(textarea.value)">✅</button>
     <!-- Cancel edit button (show only when editing existing content) -->
-    <button *ngIf="initialContent" title="Cancel" class="coloredBgButton" (click)="cancelEdit.emit()">❌</button>
+    <button *ngIf="initialContent != undefined" title="Cancel" class="coloredBgButton" (click)="cancelEdit.emit()">❌</button>
     <app-media-selector 
         *ngIf="inputtedParentRef"
         #mediaSelector
@@ -16,7 +16,7 @@
         [currentDirectory]="inputtedParentRef.user?.username ? 'Users/' + inputtedParentRef!.user!.username! : 'Users/Anonymous'"
         [user]="inputtedParentRef.user" 
         [inputtedParentRef]="inputtedParentRef"
-        [uploadButtonText]="initialContent ? '' : ((!showPostInput && (!onMobile() || (mediaSelector && !mediaSelector.selectedFiles.length)) && (!onMobile() || !attachedTopics.length)) ? 'Upload' : onMobile() ? '' : 'Upload')"
+        [uploadButtonText]="initialContent != undefined ? '' : ((!showPostInput && (!onMobile() || (mediaSelector && !mediaSelector.selectedFiles.length)) && (!onMobile() || !attachedTopics.length)) ? 'Upload' : onMobile() ? '' : 'Upload')"
         (selectFileEvent)="selectFile($event)"></app-media-selector>
     <button (click)="showPostOptionsPanel()" *ngIf="showPostInput">
         ⚙️{{ (!showPostInput && (!onMobile() || (mediaSelector && !mediaSelector.selectedFiles.length)) && (!onMobile() ||
