@@ -88,7 +88,7 @@
               [inputtedParentRef]="inputtedParentRef"
               [type]="'Comment'" 
               [commentId]="comment.id"
-              [initialContent]="comment.commentText" 
+              [initialContent]="comment.commentText ?? ''" 
               [showPostInput]="true" 
               (contentUpdated)="onCommentUpdated($event, comment)"
               (cancelEdit)="cancelEdit(comment)">
