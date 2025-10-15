@@ -141,15 +141,15 @@
 
   <div class="popupPanel" style="overflow: auto;" *ngIf="isMenuPanelOpen">
     <div class="popupPanelTitle mainPopupTitle">Ender</div>
-    <div class="musicOptionsContainer">
+    <div class="musicOptionsContainer" style="padding: 6px 8px;">
       <div>
         <button class="musicButton" (click)="toggleSfx()" style="margin-bottom:6px;" [title]="isSfxMuted ? 'Unmute SFX' : 'Mute SFX'" aria-label="SFX toggle">
-          {{ isSfxMuted ? '🔇' : '🔊' }}
+          {{ isSfxMuted ? 'Unmute SFX' : 'Mute SFX' }} 
         </button>
       </div>
       <div style="margin-top:6px;">
         <button class="musicButton" (click)="toggleMusic()" [title]="isMusicMuted ? 'Unmute Music' : 'Mute Music'" aria-label="Music toggle">
-          {{ isMusicMuted ? '🔇' : '🎵' }}
+          {{ isMusicMuted ? 'Unmute Music' : 'Mute Music' }} 
         </button>
       </div>
     </div>
