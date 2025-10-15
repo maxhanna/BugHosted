@@ -1,8 +1,4 @@
-<div class="bulk-toggle">
-    <label><input type="checkbox" [checked]="bulkEditMode" (change)="toggleBulkEdit($event)" /> Bulk Edit Mode</label>
-</div>
-
-<div *ngIf="!bulkEditMode" class="config-grid-container">
+<div class="config-grid-container">
     <!-- Strategy -->
     <div class="config-box">
         <div class="config-header">
@@ -321,85 +317,5 @@
             <span>Last Updated: {{tradeConfigLastUpdated || 'Never'}}</span>
         </div>
         <button (click)="updateCoinConfiguration()" [disabled]="isLoading">💾 Save Configuration</button>
-    </div>
-</div>
-
-<!-- Bulk Edit Table (separate div appended after original grid) -->
-<div *ngIf="bulkEditMode" class="bulk-edit-container">
-    <h3>Bulk Edit Configurations</h3>
-    <div class="bulk-controls">
-        <label>Strategy:
-            <select (change)="bulkStrategy = $any($event.target).value">
-                <option value="DCA">DCA</option>
-                <option value="IND">Indicator</option>
-                <option value="HFT">High Frequency</option>
-            </select>
-        </label>
-        <button (click)="populateAllCoinsBulkModel()">Load Coins</button>
-        <button (click)="saveAllBulkModels()" [disabled]="savingAll">Save All</button>
-        <span *ngIf="savingAll">Saving... {{savedCount}}/{{totalToSave}}</span>
-    </div>
-    <div class="bulk-table">
-        <table>
-            <thead>
-                <tr>
-                    <th>Coin</th>
-                    <th>Max From Balance</th>
-                    <th>Min per Trade</th>
-                    <th>Max USDC per Buy</th>
-                    <th>Reserve USDC</th>
-                    <th>Actions</th>
-                </tr>
-            </thead>
-            <tbody>
-                <tr *ngFor="let c of coins">
-                    <td>{{c}}</td>
-                    <!-- Max From Balance: show for DCA & HFT (not IND) -->
-                    <td *ngIf="bulkStrategy !== 'IND'">
-                        <input type="number" [value]="bulkModel['coin:' + c]?.MaximumFromBalance" (input)="bulkModel['coin:' + c] = bulkModel['coin:' + c] || {}; bulkModel['coin:' + c].MaximumFromBalance = $any($event.target).value" />
-                    </td>
-                    <!-- Min per Trade: show for DCA & HFT (not IND) -->
-                    <td *ngIf="bulkStrategy !== 'IND'">
-                        <input type="number" [value]="bulkModel['coin:' + c]?.MinimumFromTradeAmount" (input)="bulkModel['coin:' + c] = bulkModel['coin:' + c] || {}; bulkModel['coin:' + c].MinimumFromTradeAmount = $any($event.target).value" />
-                    </td>
-                    <!-- Max USDC per Buy: hide for HFT -->
-                    <td *ngIf="bulkStrategy !== 'HFT'">
-                        <input type="number" [value]="bulkModel['coin:' + c]?.MaximumToTradeAmount" (input)="bulkModel['coin:' + c] = bulkModel['coin:' + c] || {}; bulkModel['coin:' + c].MaximumToTradeAmount = $any($event.target).value" />
-                    </td>
-                    <!-- Reserve USDC: only DCA -->
-                    <td *ngIf="bulkStrategy === 'DCA'">
-                        <input type="number" [value]="bulkModel['coin:' + c]?.CoinReserveUSDCValue" (input)="bulkModel['coin:' + c] = bulkModel['coin:' + c] || {}; bulkModel['coin:' + c].CoinReserveUSDCValue = $any($event.target).value" />
-                    </td>
-                    <!-- Spread Trigger: always visible -->
-                    <td>
-                        <input type="number" [value]="bulkModel['coin:' + c]?.TradeThreshold" (input)="bulkModel['coin:' + c] = bulkModel['coin:' + c] || {}; bulkModel['coin:' + c].TradeThreshold = $any($event.target).value" />
-                    </td>
-                    <!-- Reserve Sell %: only DCA -->
-                    <td *ngIf="bulkStrategy === 'DCA'">
-                        <input type="number" [value]="bulkModel['coin:' + c]?.ReserveSellPercentage" (input)="bulkModel['coin:' + c] = bulkModel['coin:' + c] || {}; bulkModel['coin:' + c].ReserveSellPercentage = $any($event.target).value" />
-                    </td>
-                    <!-- Max Consecutive Trades: hide for HFT -->
-                    <td *ngIf="bulkStrategy !== 'HFT'">
-                        <input type="number" [value]="bulkModel['coin:' + c]?.MaxTradeTypeOccurances" (input)="bulkModel['coin:' + c] = bulkModel['coin:' + c] || {}; bulkModel['coin:' + c].MaxTradeTypeOccurances = $any($event.target).value" />
-                    </td>
-                    <!-- Max Trades During Spikes: only DCA -->
-                    <td *ngIf="bulkStrategy === 'DCA'">
-                        <input type="number" [value]="bulkModel['coin:' + c]?.VolumeSpikeMaxTradeOccurance" (input)="bulkModel['coin:' + c] = bulkModel['coin:' + c] || {}; bulkModel['coin:' + c].VolumeSpikeMaxTradeOccurance = $any($event.target).value" />
-                    </td>
-                    <!-- Stop-Loss Price: only DCA -->
-                    <td *ngIf="bulkStrategy === 'DCA'">
-                        <input type="number" [value]="bulkModel['coin:' + c]?.TradeStopLoss" (input)="bulkModel['coin:' + c] = bulkModel['coin:' + c] || {}; bulkModel['coin:' + c].TradeStopLoss = $any($event.target).value" />
-                    </td>
-                    <!-- IND Stop-Loss %: only IND -->
-                    <td *ngIf="bulkStrategy === 'IND'">
-                        <input type="number" [value]="bulkModel['coin:' + c]?.TradeStopLossPercentage" (input)="bulkModel['coin:' + c] = bulkModel['coin:' + c] || {}; bulkModel['coin:' + c].TradeStopLossPercentage = $any($event.target).value" />
-                    </td>
-                    <td>
-                        <button (click)="saveCoinModel(c)" [disabled]="savingPerCoin[c]">Save</button>
-                        <span class="status" [ngClass]="perRowStatus[c]">{{perRowStatus[c]}}</span>
-                    </td>
-                </tr>
-            </tbody>
-        </table>
     </div>
 </div>
