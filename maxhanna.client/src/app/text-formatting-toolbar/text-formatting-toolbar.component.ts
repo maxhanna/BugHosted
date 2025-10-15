@@ -19,7 +19,6 @@ export class TextFormattingToolbarComponent extends ChildComponent {
 
   @Output() isExpandingEmojiPanel = new EventEmitter<boolean>();
   @Output() isExpandingComponentPanel = new EventEmitter<boolean>();
-  @Output() hasSelectedOption = new EventEmitter<boolean>();
 
   isEmojiPanelOpen = false;
   showComponentSelector = false;
@@ -57,7 +56,6 @@ export class TextFormattingToolbarComponent extends ChildComponent {
   }
 
   insertPollSnippet() {
-    this.hasSelectedOption.emit(true);
     const pollTemplate = `
   [Poll]
   Question: What's your favorite color?
@@ -77,10 +75,12 @@ export class TextFormattingToolbarComponent extends ChildComponent {
       pollTemplate +
       currentValue.substring(currentPos);
 
+    this.closeAnyPanel();
     // Set cursor after the inserted template
     this.textarea.selectionStart = currentPos + pollTemplate.length;
     this.textarea.selectionEnd = currentPos + pollTemplate.length;
     this.textarea.focus();
+    
   }
 
   openComponentSelector() {

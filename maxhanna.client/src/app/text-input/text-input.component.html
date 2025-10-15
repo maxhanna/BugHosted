@@ -42,7 +42,6 @@
      style="display:flex; height: 25px;"
      [inputtedParentRef]="inputtedParentRef" 
      [parent]="textarea"
-     (hasSelectedOption)="closePostOptionsPanel()"
      (isExpandingEmojiPanel)="onExpandingEmojiPanel($event)"
      (isExpandingComponentPanel)="onExpandingComponentPanel($event)"></app-text-formatting-toolbar>
 </div>
@@ -67,7 +66,7 @@
         <app-text-formatting-toolbar 
         style="display:flex; height: 25px;"
         [inputtedParentRef]="inputtedParentRef" 
-        [parent]="textarea"
+        [parent]="textarea" 
         (isExpandingEmojiPanel)="onExpandingEmojiPanel($event)"
         (isExpandingComponentPanel)="onExpandingComponentPanel($event)"></app-text-formatting-toolbar>
     </div>
