@@ -101,7 +101,7 @@
           [quoteMessage]="quoteMessage" 
           [chatId]="currentChatId"
           [currentChatUsers]="currentChatUsers"
-          [attachedFiles]="message.files"
+          [attachedFiles]="message.files ?? []"
           [enterToPost]="true" (contentPosted)="chatMessagePosted($event)"></app-text-input>
       </div>
     </div>

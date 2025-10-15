@@ -89,7 +89,7 @@
               [type]="'Comment'" 
               [commentId]="comment.id"
               [initialContent]="comment.commentText ?? ''" 
-              [attachedFiles]="comment.commentFiles"
+              [attachedFiles]="comment.commentFiles ?? []"
               [showPostInput]="true" 
               (contentUpdated)="onCommentUpdated($event, comment)"
               (cancelEdit)="cancelEdit(comment)">

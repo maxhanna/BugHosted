@@ -364,6 +364,7 @@
                 [type]="'Social'"
                 [storyId]="story.id"
                 [initialContent]="story.storyText"
+                [attachedFiles]="story.storyFiles ?? []"
                 (contentUpdated)="onStoryUpdated($event, story)"
                 (cancelEdit)="cancelEdit(story)"
                 [attachedTopics]="story.storyTopics ?? []">
