@@ -19,7 +19,7 @@ export class MediaSelectorComponent implements OnDestroy {
   viewMediaChoicesOpen = false;
   imageFileExtensions = ["jpg", "jpeg", "png", "gif", "bmp", "tiff", "svg", "webp"];
   videoFileExtensions = ["mp4", "mov", "avi", "wmv", "webm", "flv"];
-  selectedFiles: FileEntry[] = [];
+  @Input() selectedFiles: FileEntry[] = [];
   @Input() inputtedParentRef?: AppComponent;
   @Input() user?: User;
   @Input() maxSelectedFiles: number = 5;

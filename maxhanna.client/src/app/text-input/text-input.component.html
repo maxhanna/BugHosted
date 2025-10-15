@@ -12,6 +12,7 @@
     <app-media-selector 
         *ngIf="inputtedParentRef"
         #mediaSelector
+        [selectedFiles]="attachedFiles"
         [maxSelectedFiles]="30"
         [currentDirectory]="inputtedParentRef.user?.username ? 'Users/' + inputtedParentRef!.user!.username! : 'Users/Anonymous'"
         [user]="inputtedParentRef.user" 
