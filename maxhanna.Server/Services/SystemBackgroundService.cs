@@ -161,10 +161,10 @@ namespace maxhanna.Server.Services
 				SELECT h.id as hero_id, h.user_id as user_id, h.level as hero_level
 				FROM maxhanna.ender_hero h
 				WHERE (
-					SELECT COUNT(*) FROM maxhanna.ender_bike_wall w WHERE w.ender_hero_id = h.id
+					SELECT COUNT(*) FROM maxhanna.ender_bike_wall w WHERE w.hero_id = h.id
 				) >= 2
 				AND (
-					SELECT COUNT(*) FROM maxhanna.ender_bike_wall w2 WHERE w2.ender_hero_id = h.id AND w2.timestamp >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 3 HOUR)
+					SELECT COUNT(*) FROM maxhanna.ender_bike_wall w2 WHERE w2.hero_id = h.id AND w2.timestamp >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 3 HOUR)
 				) = 0;";
 
 				using var selCmd = new MySqlCommand(selectSql, conn, transaction);
@@ -192,7 +192,7 @@ namespace maxhanna.Server.Services
 				insertNotifCmd.Parameters.Add(new MySqlParameter("@userId", MySqlDbType.Int32));
 				insertNotifCmd.Parameters.Add(new MySqlParameter("@text", MySqlDbType.VarChar));
 
-				const string deleteWallsSql = @"DELETE FROM maxhanna.ender_bike_wall WHERE ender_hero_id = @heroId;";
+				const string deleteWallsSql = @"DELETE FROM maxhanna.ender_bike_wall WHERE hero_id = @heroId;";
 				using var delWallsCmd = new MySqlCommand(deleteWallsSql, conn, transaction);
 				delWallsCmd.Parameters.Add(new MySqlParameter("@heroId", MySqlDbType.Int32));
 
