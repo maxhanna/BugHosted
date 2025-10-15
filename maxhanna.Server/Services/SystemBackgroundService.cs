@@ -27,6 +27,7 @@ namespace maxhanna.Server.Services
 		private Timer _minuteTimer;
 		private Timer _fiveMinuteTimer;
 		private Timer _hourlyTimer;
+		private Timer _threeHourTimer;
 		private Timer _sixHourTimer;
 		private Timer _dailyTimer;
 		private bool isCrawling = false;
@@ -60,6 +61,7 @@ namespace maxhanna.Server.Services
 			_minuteTimer = new Timer(async _ => await RunOneMinuteTasks(), null, Timeout.Infinite, Timeout.Infinite);
 			_fiveMinuteTimer = new Timer(async _ => await RunFiveMinuteTasks(), null, Timeout.Infinite, Timeout.Infinite);
 			_hourlyTimer = new Timer(async _ => await RunHourlyTasks(), null, Timeout.Infinite, Timeout.Infinite);
+			_threeHourTimer = new Timer(async _ => await RunThreeHourTasks(), null, Timeout.Infinite, Timeout.Infinite);
 			_sixHourTimer = new Timer(async _ => await RunSixHourTasks(), null, Timeout.Infinite, Timeout.Infinite);
 			_dailyTimer = new Timer(async _ => await RunDailyTasks(), null, Timeout.Infinite, Timeout.Infinite);
 		}
@@ -72,6 +74,7 @@ namespace maxhanna.Server.Services
 			_minuteTimer.Change(TimeSpan.Zero, TimeSpan.FromMinutes(1));
 			_fiveMinuteTimer.Change(TimeSpan.Zero, TimeSpan.FromMinutes(5));
 			_hourlyTimer.Change(TimeSpan.Zero, TimeSpan.FromHours(1));
+			_threeHourTimer.Change(TimeSpan.Zero, TimeSpan.FromHours(3));
 			_sixHourTimer.Change(TimeSpan.Zero, TimeSpan.FromHours(6));
 			_dailyTimer.Change(CalculateNextDailyRun(), TimeSpan.FromHours(24));
 
@@ -128,6 +131,113 @@ namespace maxhanna.Server.Services
 			await FetchAndStoreFearGreedAsync();
 			await FetchAndStoreGlobalMetricsAsync();
 		}
+
+		private async Task RunThreeHourTasks()
+		{
+			try
+			{
+				await DeleteInactiveEnderHeroes();
+			}
+			catch (Exception ex)
+			{
+				_ = _log.Db($"Error in RunThreeHourTasks: {ex.Message}", null, "SYSTEM", true);
+			}
+		}
+
+		/// <summary>
+		/// Deletes ender_hero rows for heroes that have created at least 2 bike walls in history
+		/// but have not created any bike walls in the last 3 hours. For each deleted hero,
+		/// insert a notification for the owning user indicating they were removed for inactivity.
+		/// </summary>
+		private async Task DeleteInactiveEnderHeroes()
+		{
+			await using var conn = new MySqlConnection(_connectionString);
+			await conn.OpenAsync();
+			using var transaction = await conn.BeginTransactionAsync();
+			try
+			{
+				// Find heroes with >=2 total walls but 0 walls in last 3 hours
+				const string selectSql = @"
+				SELECT h.id as hero_id, h.user_id as user_id
+				FROM maxhanna.ender_hero h
+				WHERE (
+					SELECT COUNT(*) FROM maxhanna.ender_bike_wall w WHERE w.ender_hero_id = h.id
+				) >= 2
+				AND (
+					SELECT COUNT(*) FROM maxhanna.ender_bike_wall w2 WHERE w2.ender_hero_id = h.id AND w2.timestamp >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 3 HOUR)
+				) = 0;";
+
+				using var selCmd = new MySqlCommand(selectSql, conn, transaction);
+				using var reader = await selCmd.ExecuteReaderAsync();
+				var victims = new List<(int heroId, int? userId)>();
+				while (await reader.ReadAsync())
+				{
+					int heroId = Convert.ToInt32(reader["hero_id"]);
+					int? userId = reader.IsDBNull(reader.GetOrdinal("user_id")) ? null : Convert.ToInt32(reader["user_id"]);
+					victims.Add((heroId, userId));
+				}
+				reader.Close();
+
+				if (victims.Count == 0)
+				{
+					await transaction.CommitAsync();
+					_ = _log.Db("No inactive ender heroes found to remove.", null, "SYSTEM");
+					return;
+				}
+
+				// Prepare commands
+				const string insertNotificationSql = @"INSERT INTO maxhanna.notifications (user_id, text, date) VALUES (@userId, @text, UTC_TIMESTAMP());";
+				using var insertNotifCmd = new MySqlCommand(insertNotificationSql, conn, transaction);
+				insertNotifCmd.Parameters.Add(new MySqlParameter("@userId", MySqlDbType.Int32));
+				insertNotifCmd.Parameters.Add(new MySqlParameter("@text", MySqlDbType.VarChar));
+
+				const string deleteWallsSql = @"DELETE FROM maxhanna.ender_bike_wall WHERE ender_hero_id = @heroId;";
+				using var delWallsCmd = new MySqlCommand(deleteWallsSql, conn, transaction);
+				delWallsCmd.Parameters.Add(new MySqlParameter("@heroId", MySqlDbType.Int32));
+
+				const string deleteHeroSql = @"DELETE FROM maxhanna.ender_hero WHERE id = @heroId;";
+				using var delHeroCmd = new MySqlCommand(deleteHeroSql, conn, transaction);
+				delHeroCmd.Parameters.Add(new MySqlParameter("@heroId", MySqlDbType.Int32));
+
+				foreach (var v in victims)
+				{
+					try
+					{
+						// Delete walls
+						delWallsCmd.Parameters["@heroId"].Value = v.heroId;
+						await delWallsCmd.ExecuteNonQueryAsync();
+
+						// Delete hero
+						delHeroCmd.Parameters["@heroId"].Value = v.heroId;
+						await delHeroCmd.ExecuteNonQueryAsync();
+
+						// Create notification for user if we have a user id
+						if (v.userId.HasValue && v.userId.Value > 0)
+						{
+							// Tron / lightcycle themed notification
+							var text = "Your lightcycle has been reclaimed for inactivity — no recent walls were built.";
+							insertNotifCmd.Parameters["@userId"].Value = v.userId.Value;
+							insertNotifCmd.Parameters["@text"].Value = text;
+							await insertNotifCmd.ExecuteNonQueryAsync();
+						}
+						_ = _log.Db($"Removed inactive hero {v.heroId} (user {v.userId}).", v.heroId, "SYSTEM");
+					}
+					catch (Exception ex)
+					{
+						_ = _log.Db($"Failed to remove inactive hero {v.heroId}: {ex.Message}", v.heroId, "SYSTEM", true);
+						// continue with next victim
+					}
+				}
+
+				await transaction.CommitAsync();
+				_ = _log.Db($"Deleted {victims.Count} inactive ender heroes.", null, "SYSTEM");
+			}
+			catch (Exception ex)
+			{
+				try { await transaction.RollbackAsync(); } catch { }
+				_ = _log.Db($"Error deleting inactive ender heroes: {ex.Message}", null, "SYSTEM", true);
+			}
+		}
 		private async Task RunDailyTasks()
 		{
 			await DeleteOldBattleReports();
@@ -160,6 +270,7 @@ namespace maxhanna.Server.Services
 			_minuteTimer?.Change(Timeout.Infinite, Timeout.Infinite);
 			_fiveMinuteTimer?.Change(Timeout.Infinite, Timeout.Infinite);
 			_hourlyTimer?.Change(Timeout.Infinite, Timeout.Infinite);
+			_threeHourTimer?.Change(Timeout.Infinite, Timeout.Infinite);
 			_sixHourTimer?.Change(Timeout.Infinite, Timeout.Infinite);
 			_dailyTimer?.Change(Timeout.Infinite, Timeout.Infinite);
 
