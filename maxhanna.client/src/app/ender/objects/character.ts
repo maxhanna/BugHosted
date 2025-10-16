@@ -603,6 +603,6 @@ export class Character extends GameObject {
       finally {
         this.latestMessageClearTimer = undefined;
       }
-    }, 20000); // 20 seconds TTL
+    }, 20000); // 20 seconds TTL (matches latestMessagesMap filtering)
   }
 }
