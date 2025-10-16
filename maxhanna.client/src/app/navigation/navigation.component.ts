@@ -20,6 +20,7 @@ import { TodoService } from '../../services/todo.service';
 import { MetaService } from '../../services/meta.service';
 import { ArrayService } from '../../services/array.service';
 import { RomService } from '../../services/rom.service';
+import { FriendService } from '../../services/friend.service';
 
 @Component({
   selector: 'app-navigation',
@@ -78,9 +79,10 @@ export class NavigationComponent implements OnInit, OnDestroy {
     private enderService: EnderService,
     private nexusService: NexusService,
     private todoService: TodoService,
-  private metaService: MetaService,
-  private arrayService: ArrayService,
-  private romService: RomService) {
+    private metaService: MetaService,
+    private arrayService: ArrayService,
+    private romService: RomService,
+    private friendService: FriendService) {
   }
 
   // runtime values for Ender nav item
@@ -124,8 +126,8 @@ export class NavigationComponent implements OnInit, OnDestroy {
     clearInterval(this.nexusInterval);
     clearInterval(this.metaInterval);
     clearInterval(this.musicInterval);
-  clearInterval(this.arrayInterval);
-  clearInterval(this.emulationInterval);
+    clearInterval(this.arrayInterval);
+    clearInterval(this.emulationInterval);
     this.showAppSelectionHelp = false;
     this.clearNotifications();
   }
@@ -159,8 +161,8 @@ export class NavigationComponent implements OnInit, OnDestroy {
     this.getNexusPlayerInfo();
     this.getMetaPlayerInfo();
     this.getMusicInfo();
-  this.getArrayPlayerInfo();
-  this.getEmulationPlayerInfo();
+    this.getArrayPlayerInfo();
+    this.getEmulationPlayerInfo();
     this.getThemeInfo();
 
     this.notificationInfoInterval = setInterval(() => this.getNotificationInfo(), 20 * 1000); // every minute
@@ -171,8 +173,8 @@ export class NavigationComponent implements OnInit, OnDestroy {
     this.nexusInterval = setInterval(() => this.getNexusPlayerInfo(), 60 * 1000); // every minute
     this.metaInterval = setInterval(() => this.getMetaPlayerInfo(), 60 * 1000); // every minute
     this.musicInterval = setInterval(() => this.getMusicInfo(), 60 * 60 * 1000); // every hour
-  this.arrayInterval = setInterval(() => this.getArrayPlayerInfo(), 60 * 1000); // every minute
-  this.emulationInterval = setInterval(() => this.getEmulationPlayerInfo(), 60 * 1000); // every minute
+    this.arrayInterval = setInterval(() => this.getArrayPlayerInfo(), 60 * 1000); // every minute
+    this.emulationInterval = setInterval(() => this.getEmulationPlayerInfo(), 60 * 1000); // every minute
   }
 
   stopNotifications() {
@@ -247,14 +249,32 @@ export class NavigationComponent implements OnInit, OnDestroy {
         this._parent.navigationItems.filter(x => x.title == "Notifications")[0].content = this.numberOfNotifications + "";
         if (this._parent.userSelectedNavigationItems.find(x => x.title == "Chat")) {
           const numberOfChatNotifs = res.filter(x => x.chatId && x.isRead == false).length;
+          // Active friends online (last_seen within past 10 minutes to match isUserOnline logic)
+          let activeFriends = 0;
+          try {
+            const uid = this._parent.user?.id ?? 0;
+            if (uid > 0) {
+              const friends: any[] = await this.friendService.getFriends(uid) as any[];
+              const cutoff = Date.now() - 10 * 60 * 1000; // 10 minutes window
+              friends?.forEach(f => {
+                const lsRaw = f.lastSeen ?? f.last_seen; // API may return camelCase or snake_case converted
+                if (lsRaw) {
+                  const ls = new Date(lsRaw).getTime();
+                  if (!isNaN(ls) && ls >= cutoff) activeFriends++;
+                }
+              });
+            }
+          } catch { /* ignore errors */ }
 
           if (numberOfChatNotifs) {
             if (currentChatNotifCount < numberOfChatNotifs) {
               this._parent.showNotification(`${numberOfChatNotifs - currentChatNotifCount} New chat message${numberOfChatNotifs > 1 ? 's' : ''}.`);
             }
-            this._parent.navigationItems.filter(x => x.title == "Chat")[0].content = numberOfChatNotifs + '';
+            const suffix = activeFriends > 0 ? ` #${activeFriends}` : '';
+            this._parent.navigationItems.filter(x => x.title == "Chat")[0].content = numberOfChatNotifs + suffix;
           } else {
-            this._parent.navigationItems.filter(x => x.title == "Chat")[0].content = '';
+            // If no chat notifications, show only active friends count if >0
+            this._parent.navigationItems.filter(x => x.title == "Chat")[0].content = activeFriends > 0 ? `#${activeFriends}` : '';
           }
         }
       } else {
@@ -523,8 +543,8 @@ export class NavigationComponent implements OnInit, OnDestroy {
   private async getMusicInfo() {
     if (!this._parent?.user?.id) return;
     try {
-  const res: any = await this.todoService.getTodoCount(this._parent.user.id, 'Music');
-  this.musicTodoCount = res?.count ?? 0;
+      const res: any = await this.todoService.getTodoCount(this._parent.user.id, 'Music');
+      this.musicTodoCount = res?.count ?? 0;
     } catch {
       this.musicTodoCount = null;
     }
