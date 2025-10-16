@@ -72,6 +72,8 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
     chat: MetaChat[] = [];
     events: MetaEvent[] = [];
     latestMessagesMap = new Map<string, MetaChat>();
+    // Per-hero message expiry timers so map + bubble are cleared exactly at TTL
+    private heroMessageExpiryTimers: Map<number, { timer: any, msg: string }> = new Map();
     stopChatScroll = false;
     stopPollingForUpdates = false;
     isDecidingOnParty = false;
@@ -198,6 +200,11 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
         this.remove_me('EnderComponent');
         this.parentRef?.setViewportScalability(true);
         this.parentRef?.removeResizeListener();
+        // Clear any pending chat expiry timers
+        for (const entry of this.heroMessageExpiryTimers.values()) {
+            if (entry?.timer) clearTimeout(entry.timer);
+        }
+        this.heroMessageExpiryTimers.clear();
     // (Removed heroMessageClearTimers cleanup; Character handles its own timer)
     }
 
@@ -717,7 +724,49 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
     private setHeroLatestMessage(existingHero: any) {
         if (!existingHero) return;
         const latestMsg = this.latestMessagesMap.get(existingHero.name);
-        existingHero.latestMessage = latestMsg ? latestMsg.content : "";
+        // If there's a current message
+        if (latestMsg && latestMsg.content) {
+            const existingTimer = this.heroMessageExpiryTimers.get(existingHero.id);
+            // Only apply & schedule if message changed
+            if (!existingTimer || existingTimer.msg !== latestMsg.content) {
+                if (existingTimer) {
+                    clearTimeout(existingTimer.timer);
+                    this.heroMessageExpiryTimers.delete(existingHero.id);
+                }
+                if (typeof existingHero.applyChatMessage === 'function') {
+                    existingHero.applyChatMessage(latestMsg.content, latestMsg.timestamp);
+                } else {
+                    existingHero.latestMessage = latestMsg.content;
+                }
+                const timer = setTimeout(() => {
+                    const current = this.heroMessageExpiryTimers.get(existingHero.id);
+                    if (current && current.msg === latestMsg.content) {
+                        // Remove from map so it won't resurrect on next poll
+                        this.latestMessagesMap.delete(existingHero.name);
+                        if (typeof existingHero.clearChatMessage === 'function') {
+                            existingHero.clearChatMessage();
+                        } else {
+                            existingHero.latestMessage = "";
+                        }
+                        this.heroMessageExpiryTimers.delete(existingHero.id);
+                    }
+                }, 10000); // 10s TTL
+                this.heroMessageExpiryTimers.set(existingHero.id, { timer, msg: latestMsg.content });
+            }
+        } else {
+            // No message -> clear any existing timer & bubble
+            const existingTimer = this.heroMessageExpiryTimers.get(existingHero.id);
+            if (existingTimer) {
+                clearTimeout(existingTimer.timer);
+                this.heroMessageExpiryTimers.delete(existingHero.id);
+            }
+            if (typeof existingHero.clearChatMessage === 'function') {
+                existingHero.clearChatMessage();
+            } else {
+                existingHero.latestMessage = "";
+            }
+            this.latestMessagesMap.delete(existingHero.name);
+        }
     }
     displayChatMessage() {
         if (this.chat.length >= 10) {
