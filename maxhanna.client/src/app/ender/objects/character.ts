@@ -622,15 +622,10 @@ export class Character extends GameObject {
 
   // Safer external API to apply a chat message with optional timestamp
   public applyChatMessage(content: string, timestamp?: string | number) {
-    if (!content) {
-      this.clearChatMessage();
-      return;
-    }
+    if (!content) { this.clearChatMessage(); return; }
     const sig = this.computeMessageSignature(content, timestamp);
-    // Suppress if same content just cleared within last 12s (buffer beyond TTL)
-    if (sig && this.lastClearedMessageSig === sig && Date.now() - this.lastClearedAt < 12000) {
-      return; // don't resurrect
-    }
+    // If this exact message was previously cleared, never resurrect it
+    if (sig && this.lastClearedMessageSig === sig) return;
     this.currentMessageTimestamp = timestamp;
     this.latestMessage = content;
   }
