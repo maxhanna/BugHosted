@@ -586,6 +586,90 @@ namespace maxhanna.Server.Controllers
 			}
 		}
 
+		[HttpPost("/Meta/ActivePlayers", Name = "Meta_GetActivePlayers")]
+		public async Task<IActionResult> GetMetaActivePlayers([FromBody] int? minutes)
+		{
+			int windowMinutes = minutes ?? 2;
+			if (windowMinutes < 0) windowMinutes = 0;
+			if (windowMinutes > 60 * 24) windowMinutes = 60 * 24; // clamp at 24h
+			try
+			{
+				await using var conn = new MySqlConnection(_connectionString);
+				await conn.OpenAsync();
+				string sql = $@"
+					SELECT COUNT(DISTINCT user_id) AS activeCount FROM (
+						SELECT mh.user_id AS user_id
+						FROM maxhanna.meta_bot_part p
+						JOIN maxhanna.meta_bot b ON b.id = p.metabot_id
+						JOIN maxhanna.meta_hero mh ON mh.id = b.hero_id
+						WHERE p.last_used >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL {windowMinutes} MINUTE)
+						UNION ALL
+						SELECT mh.user_id AS user_id
+						FROM maxhanna.meta_event e
+						JOIN maxhanna.meta_hero mh ON mh.id = e.hero_id
+						WHERE e.timestamp >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL {windowMinutes} MINUTE)
+					) x WHERE user_id IS NOT NULL AND user_id > 0;";
+
+				await using var cmd = new MySqlCommand(sql, conn);
+				int activeCount = Convert.ToInt32(await cmd.ExecuteScalarAsync());
+				return Ok(new { count = activeCount });
+			}
+			catch (Exception ex)
+			{
+				_ = _log.Db("GetMetaActivePlayers Exception: " + ex.Message, null, "META", true);
+				return StatusCode(500, "Internal server error");
+			}
+		}
+
+		[HttpPost("/Meta/GetUserRank", Name = "Meta_GetUserRank")]
+		public async Task<IActionResult> GetMetaUserRank([FromBody] int userId)
+		{
+			if (userId <= 0) return BadRequest("Invalid user id");
+			try
+			{
+				await using var conn = new MySqlConnection(_connectionString);
+				await conn.OpenAsync();
+
+				// Highest bot level for the user
+				const string userLevelSql = @"SELECT COALESCE(MAX(mb.level),0) FROM maxhanna.meta_bot mb JOIN maxhanna.meta_hero mh ON mh.id = mb.hero_id WHERE mh.user_id = @UserId;";
+				await using (var userLevelCmd = new MySqlCommand(userLevelSql, conn))
+				{
+					userLevelCmd.Parameters.AddWithValue("@UserId", userId);
+					int userLevel = Convert.ToInt32(await userLevelCmd.ExecuteScalarAsync());
+
+					// total players having at least one bot (distinct users with meta_bot)
+					const string totalPlayersSql = @"SELECT COUNT(DISTINCT mh.user_id) FROM maxhanna.meta_bot mb JOIN maxhanna.meta_hero mh ON mh.id = mb.hero_id;";
+					int totalPlayers = 0;
+					await using (var totalCmd = new MySqlCommand(totalPlayersSql, conn))
+					{
+						totalPlayers = Convert.ToInt32(await totalCmd.ExecuteScalarAsync());
+					}
+
+					if (userLevel == 0)
+					{
+						return Ok(new { hasBot = false, totalPlayers });
+					}
+
+					// Count players with strictly higher level
+					const string higherSql = @"SELECT COUNT(*) FROM (SELECT mh.user_id, MAX(mb.level) AS lvl FROM maxhanna.meta_bot mb JOIN maxhanna.meta_hero mh ON mh.id = mb.hero_id GROUP BY mh.user_id) x WHERE x.lvl > @Lvl;";
+					int higherCount = 0;
+					await using (var higherCmd = new MySqlCommand(higherSql, conn))
+					{
+						higherCmd.Parameters.AddWithValue("@Lvl", userLevel);
+						higherCount = Convert.ToInt32(await higherCmd.ExecuteScalarAsync());
+					}
+
+					int rank = higherCount + 1; // dense rank based on highest bot level
+					return Ok(new { hasBot = true, rank, level = userLevel, totalPlayers });
+				}
+			}
+			catch (Exception ex)
+			{
+				_ = _log.Db("GetMetaUserRank Exception: " + ex.Message, userId, "META", true);
+				return StatusCode(500, "Internal server error");
+			}
+		}
+
 		[HttpPost("/Meta/GetHeroHighscores", Name = "GetHeroHighscores")]
 		public async Task<IActionResult> GetHeroHighscores([FromBody] int count)
 		{

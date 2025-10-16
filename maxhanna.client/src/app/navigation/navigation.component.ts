@@ -16,6 +16,7 @@ import { ExchangeRate } from '../../services/datacontracts/crypto/exchange-rate'
 import { MenuItem } from '../../services/datacontracts/user/menu-item';
 import { EnderService } from '../../services/ender.service';
 import { NexusService } from '../../services/nexus.service';
+import { MetaService } from '../../services/meta.service';
 
 @Component({
   selector: 'app-navigation',
@@ -71,8 +72,9 @@ export class NavigationComponent implements OnInit, OnDestroy {
     private userService: UserService,
     private fileService: FileService,
     private notificationService: NotificationService,
-    private enderService: EnderService,
-    private nexusService: NexusService) {
+  private enderService: EnderService,
+  private nexusService: NexusService,
+  private metaService: MetaService) {
   }
 
   // runtime values for Ender nav item
@@ -83,6 +85,10 @@ export class NavigationComponent implements OnInit, OnDestroy {
   nexusActivePlayers: number | null = null;
   nexusUserRank: { rank?: number | null, baseCount?: number | null, totalPlayers?: number | null } | null = null;
   private nexusInterval: any;
+  // runtime values for Meta-Bots
+  metaActivePlayers: number | null = null;
+  metaUserRank: { rank?: number | null, level?: number | null, totalPlayers?: number | null } | null = null;
+  private metaInterval: any;
 
   async ngOnInit() {
     this.navbarReady = true;
@@ -100,6 +106,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
     clearInterval(this.notificationInfoInterval);
     clearInterval(this.enderInterval);
     clearInterval(this.nexusInterval);
+  clearInterval(this.metaInterval);
     this.showAppSelectionHelp = false;
     this.clearNotifications();
   }
@@ -131,6 +138,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
     this.getWordlerStreakInfo();
     this.getEnderPlayerInfo();
     this.getNexusPlayerInfo();
+  this.getMetaPlayerInfo();
     this.getThemeInfo();
 
     this.notificationInfoInterval = setInterval(() => this.getNotificationInfo(), 20 * 1000); // every minute
@@ -139,6 +147,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
     this.wordlerInfoInterval = setInterval(() => this.getWordlerStreakInfo(), 60 * 60 * 1000); // every hour
     this.enderInterval = setInterval(() => this.getEnderPlayerInfo(), 60 * 1000); // every minute
     this.nexusInterval = setInterval(() => this.getNexusPlayerInfo(), 60 * 1000); // every minute
+  this.metaInterval = setInterval(() => this.getMetaPlayerInfo(), 60 * 1000); // every minute
   }
 
   stopNotifications() {
@@ -450,6 +459,38 @@ export class NavigationComponent implements OnInit, OnDestroy {
         if (this.nexusActivePlayers != null) parts.push(this.nexusActivePlayers.toString());
         if (this.nexusUserRank?.rank != null) parts.push(`#${this.nexusUserRank.rank}`);
         nexusNav.content = parts.join('\n');
+      }
+    }
+  }
+
+  private async getMetaPlayerInfo() {
+    try {
+      const res: any = await this.metaService.getActivePlayers(2);
+      this.metaActivePlayers = res?.count ?? null;
+    } catch (e) {
+      this.metaActivePlayers = null;
+    }
+    try {
+      const userId = this._parent.user?.id ?? 0;
+      if (userId) {
+        const rankRes: any = await this.metaService.getUserRank(userId);
+        if (rankRes && rankRes.hasBot) {
+          this.metaUserRank = { rank: rankRes.rank ?? null, level: rankRes.level ?? null, totalPlayers: rankRes.totalPlayers ?? null };
+        } else {
+          this.metaUserRank = { rank: null, level: null, totalPlayers: rankRes?.totalPlayers ?? null };
+        }
+      }
+    } catch (e) {
+      this.metaUserRank = null;
+    }
+    // Update Meta-Bots nav item content
+    if (this._parent?.navigationItems) {
+      const metaNav = this._parent.navigationItems.find(x => x.title === 'Meta-Bots');
+      if (metaNav) {
+        const parts: string[] = [];
+        if (this.metaActivePlayers != null) parts.push(this.metaActivePlayers.toString());
+        if (this.metaUserRank?.rank != null) parts.push(`#${this.metaUserRank.rank}`);
+        metaNav.content = parts.join('\n');
       }
     }
   }

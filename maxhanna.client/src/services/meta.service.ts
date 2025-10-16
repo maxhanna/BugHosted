@@ -84,4 +84,12 @@ export class MetaService {
   async getHeroHighscores(count: number = 50) {
     return this.fetchData('/meta/getherohighscores', count);
   }
+
+  async getActivePlayers(minutes: number = 2) {
+    return this.fetchData('/meta/activeplayers', minutes);
+  }
+
+  async getUserRank(userId: number) {
+    return this.fetchData('/meta/getuserrank', userId);
+  }
 }
