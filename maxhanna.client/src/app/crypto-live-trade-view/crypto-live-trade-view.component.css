@@ -61,3 +61,29 @@
         background-position: -200% 0;
     }
 }
+
+/* Sticky pill bar for quick coin navigation */
+.coinPillBar {
+    position: sticky;
+    top: 0;
+    z-index: 9999;
+    display: flex;
+    gap: 8px;
+    padding: 8px;
+    background: rgba(10,10,10,0.8);
+    backdrop-filter: blur(4px);
+    border-bottom: 1px solid rgba(255,255,255,0.03);
+}
+
+.coinPill {
+    padding: 6px 10px;
+    border-radius: 999px;
+    background: linear-gradient(180deg, #333 0%, #111 100%);
+    color: #fff;
+    font-weight: 600;
+    cursor: pointer;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+    transition: transform 120ms ease, background 120ms ease;
+}
+
+.coinPill:hover { transform: translateY(-2px); background: linear-gradient(180deg,#555 0%,#222 100%); }

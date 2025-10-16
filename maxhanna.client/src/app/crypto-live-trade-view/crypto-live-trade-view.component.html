@@ -1,7 +1,13 @@
 <div *ngIf="uniqueCurrencyBots.length == 0" class="secondaryFontColor" style="padding:10px; text-align: center;">
     You must start a tradebot to get a live trade view.
 </div>
-<div *ngFor="let bot of uniqueCurrencyBots; let i = index" class="grouping">
+<!-- Sticky pill bar for quick navigation between coins -->
+<div class="coinPillBar" *ngIf="uniqueCurrencyBots.length > 0">
+    <div class="coinPill" *ngFor="let bot of uniqueCurrencyBots" (click)="scrollToCoin(bot.currency)" [title]="getNominalCoinName(bot.currency)">
+        {{ getNominalCoinName(bot.currency) }}
+    </div>
+</div>
+<div *ngFor="let bot of uniqueCurrencyBots; let i = index" class="grouping" [attr.data-coin]="bot.currency">
     <ng-container *ngIf="shouldShowComponent(i, 'graph'); else graphPlaceholder">
         <app-crypto-coin-graph-viewer #coinGraphViewer [inputtedParentRef]="inputtedParentRef"
             [currentSelectedCoin]="getNominalCoinName(bot.currency)" [selectedCurrency]="selectedCurrency"

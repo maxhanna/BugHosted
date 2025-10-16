@@ -62,6 +62,21 @@ export class CryptoLiveTradeViewComponent extends ChildComponent implements Afte
     });
   }
 
+  // Scroll the page to the first group matching the given currency
+  scrollToCoin(currency: string) {
+    try {
+      const normalized = (currency || '').toString();
+      // Each grouping wrapper will include the currency as a data attribute
+      const selector = `[data-coin='${normalized}']`;
+      const el = document.querySelector(selector) as HTMLElement | null;
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    } catch (e) {
+      console.error('scrollToCoin failed', e);
+    }
+  }
+
   ngOnDestroy() {
     // Only clear custom timeouts; Angular handles child destruction automatically
     this.timeoutIds.forEach(id => clearTimeout(id));
