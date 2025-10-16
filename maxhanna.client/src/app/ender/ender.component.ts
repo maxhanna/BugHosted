@@ -223,6 +223,7 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
     private async handleHeroDeath(killerId: string) {
         const killerMeta = this.otherHeroes.find(h => h.id === parseInt(killerId)) ?? (this.metaHero.id === parseInt(killerId) ? this.metaHero : undefined);
         this.deathKillerUserId = killerMeta?.userId ?? undefined;
+        console.log("handling death with : ", killerId, this.deathKillerUserId);
         this.stopPollingForUpdates = true;
         this.isDead = true;
         this.stopRunTimer();
