@@ -184,22 +184,33 @@ namespace maxhanna.Server.Controllers
 
 						if (!fileExists)
 						{
-
-							var command = new MySqlCommand("INSERT INTO maxhanna.file_uploads (user_id, file_name, upload_date, folder_path, is_public, is_folder) VALUES (@user_id, @fileName, @uploadDate, @folderPath, @isPublic, @isFolder)", connection);
+							// Determine file type based on extension (save files explicitly 'sav')
+							var extension = Path.GetExtension(file.FileName)?.ToLowerInvariant().Trim('.') ?? string.Empty;
+							string fileType = isSaveFile ? "sav" : extension;
+							var command = new MySqlCommand("INSERT INTO maxhanna.file_uploads (user_id, file_name, upload_date, last_access, folder_path, is_public, is_folder, file_type) VALUES (@user_id, @fileName, @uploadDate, @lastAccess, @folderPath, @isPublic, @isFolder, @fileType)", connection);
+							var now = DateTime.UtcNow;
 							command.Parameters.AddWithValue("@user_id", userId);
 							command.Parameters.AddWithValue("@fileName", file.FileName);
-							command.Parameters.AddWithValue("@uploadDate", DateTime.UtcNow);
+							command.Parameters.AddWithValue("@uploadDate", now);
+							command.Parameters.AddWithValue("@lastAccess", now);
 							command.Parameters.AddWithValue("@folderPath", _baseTarget);
 							command.Parameters.AddWithValue("@isPublic", 1);
 							command.Parameters.AddWithValue("@isFolder", 0);
+							command.Parameters.AddWithValue("@fileType", fileType);
 
 							await command.ExecuteNonQueryAsync();
-							_ = _log.Db($"Uploaded rom file: {file.FileName}, Size: {file.Length} bytes, Path: {filePath}", userId, "ROM", true);
+							_ = _log.Db($"Uploaded rom file: {file.FileName}, Size: {file.Length} bytes, Path: {filePath}, Type: {fileType}", userId, "ROM", true);
 
 						}
-						else if (!isSaveFile)
+						else
 						{
-							_ = _log.Db($"Rom file already exists: {file.FileName}, Size: {file.Length} bytes, Path: {filePath}", userId, "ROM", true); 
+							// Update last_access to reflect current interaction (especially for .sav updates)
+							var updateLastAccess = new MySqlCommand("UPDATE maxhanna.file_uploads SET last_access = UTC_TIMESTAMP() WHERE file_name = @fileName AND folder_path = @folderPath LIMIT 1;", connection);
+							updateLastAccess.Parameters.AddWithValue("@fileName", file.FileName);
+							updateLastAccess.Parameters.AddWithValue("@folderPath", _baseTarget);
+							await updateLastAccess.ExecuteNonQueryAsync();
+							if (!isSaveFile)
+								_ = _log.Db($"Rom file already exists: {file.FileName}, Size: {file.Length} bytes, Path: {filePath}", userId, "ROM", true);
 						}
 
 						// If this was a save file upload, check for optional timing fields and persist playtime
