@@ -30,9 +30,20 @@ namespace maxhanna.Server.Controllers
 			{
 				await using var connection = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
 				await connection.OpenAsync();
-				string sql = @"SELECT COUNT(DISTINCT user_id) AS cnt FROM maxhanna.emulation_play_time 
+				// Count distinct users who have recent play/save activity OR recent save file creation/access (.sav in file_uploads)
+				string sql = @"SELECT COUNT(DISTINCT user_id) AS cnt FROM (
+					SELECT user_id FROM maxhanna.emulation_play_time 
 					WHERE (save_time IS NOT NULL AND save_time >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL @Minutes MINUTE))
-					   OR (start_time IS NOT NULL AND start_time >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL @Minutes MINUTE));";
+					   OR (start_time IS NOT NULL AND start_time >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL @Minutes MINUTE))
+					UNION
+					SELECT user_id FROM maxhanna.file_uploads 
+					WHERE ( (file_type = 'sav' OR file_name LIKE '%.sav')
+					  AND (
+					       (upload_date IS NOT NULL AND upload_date >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL @Minutes MINUTE))
+					    OR (last_access IS NOT NULL AND last_access >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL @Minutes MINUTE))
+					     )
+					    )
+					) AS recent;";
 				await using var cmd = new MySqlCommand(sql, connection);
 				cmd.Parameters.AddWithValue("@Minutes", windowMinutes);
 				var result = await cmd.ExecuteScalarAsync();
