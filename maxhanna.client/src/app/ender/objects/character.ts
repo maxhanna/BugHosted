@@ -235,13 +235,10 @@ export class Character extends GameObject {
     this.lastPosition.x = this.position.x;
     this.lastPosition.y = this.position.y;
     events.emit("CHARACTER_POSITION", this);
-    //if (this.name == "Max") console.log("emitting position", this.lastPosition);
   }
 
   onPickupItem(data: { position: Vector2, hero: any, name: string, imageName: string, category: string, stats?: any }) {
-    //console.log(data);
-    if (data.hero?.id == this.id && this.itemPickupTime == 0) {
-/*      this.mask?.destroy();*/ 
+     if (data.hero?.id == this.id && this.itemPickupTime == 0) {
       this.itemPickupTime = 2500;
       this.itemPickupShell = new GameObject({ position: new Vector2(0, 0) });
       this.itemPickupShell.addChild(new Sprite({
