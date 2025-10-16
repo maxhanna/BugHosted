@@ -645,7 +645,6 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
             }
             if (existingHero) {
                 this.setHeroLatestMessage(existingHero);
-                console.log("seettting his message", existingHero);
             }
             ids.push(hero.id);
         }
