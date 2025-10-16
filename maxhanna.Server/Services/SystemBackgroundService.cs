@@ -146,7 +146,7 @@ namespace maxhanna.Server.Services
 
 		/// <summary>
 		/// Deletes ender_hero rows for heroes that have created at least 2 bike walls in history
-		/// but have not created any bike walls in the last 3 hours. For each deleted hero,
+		/// but have not created any bike walls in the last 8 hours. For each deleted hero,
 		/// insert a notification for the owning user indicating they were removed for inactivity.
 		/// </summary>
 		private async Task DeleteInactiveEnderHeroes()
@@ -156,7 +156,7 @@ namespace maxhanna.Server.Services
 			using var transaction = await conn.BeginTransactionAsync();
 			try
 			{
-				// Find heroes with >=2 total walls but 0 walls in last 3 hours
+				// Find heroes with >=2 total walls but 0 walls in last 8 hours
 				const string selectSql = @"
 				SELECT h.id as hero_id, h.user_id as user_id, h.level as hero_level
 				FROM maxhanna.ender_hero h
@@ -164,7 +164,7 @@ namespace maxhanna.Server.Services
 					SELECT COUNT(*) FROM maxhanna.ender_bike_wall w WHERE w.hero_id = h.id
 				) >= 2
 				AND (
-					SELECT COUNT(*) FROM maxhanna.ender_bike_wall w2 WHERE w2.hero_id = h.id AND w2.created_at >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 3 HOUR)
+					SELECT COUNT(*) FROM maxhanna.ender_bike_wall w2 WHERE w2.hero_id = h.id AND w2.created_at >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 8 HOUR)
 				) = 0;";
 
 				using var selCmd = new MySqlCommand(selectSql, conn, transaction);
