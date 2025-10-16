@@ -245,6 +245,7 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
             const killerMeta = killerId ? this.otherHeroes.find(h => h.id === parseInt(killerId)) ?? (this.metaHero.id === parseInt(killerId) ? this.metaHero : undefined) : undefined;
             this.deathKillerUserId = killerMeta?.userId ?? undefined;
         }
+        this.deathKillerUserId = parseInt(killerId ?? '0') ?? this.deathKillerUserId ?? undefined;
 
         this.stopPollingForUpdates = true;
         this.isDead = true;
