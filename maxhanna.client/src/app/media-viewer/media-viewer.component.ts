@@ -29,7 +29,6 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
   fileFavouriters?: User[] | undefined;
   selectedFileExtension = '';
   selectedFileSrc = '';
-  selectedFileObjectUrl: string | null = null; // object URL for large media streaming
   selectedFile: FileEntry | undefined;
   fileType = '';
   showThumbnail = false;
@@ -45,10 +44,6 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
   isEditingFileName = false;
   editingTopics: number[] = [];
   isVideoBuffering = false;
-  isConverting = false;
-  conversionError: string | null = null;
-  needsConversion = false;
-  canPlayNative = true;
   // Removed delayed in-view scheduling; fetch will occur immediately upon visibility.
   private hasTriedInitialCachedLoad = false;
 
@@ -371,36 +366,26 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
 
         const contentDisposition = response.headers["content-disposition"];
         this.selectedFileExtension = this.fileService.getFileExtensionFromContentDisposition(contentDisposition);
-        const mime = this.fileService.getMimeType(this.selectedFileExtension);
-        this.fileType = mime;
-        const isVideo = this.fileService.videoFileExtensions.includes(this.selectedFileExtension);
-        const isAudio = this.fileService.audioFileExtensions.includes(this.selectedFileExtension);
+        const type = this.fileType = this.fileService.videoFileExtensions.includes(this.selectedFileExtension)
+          ? `video/${this.selectedFileExtension}`
+          : this.fileService.audioFileExtensions.includes(this.selectedFileExtension)
+            ? `audio/${this.selectedFileExtension}`
+            : `image/${this.selectedFileExtension}`;
 
-        // For image or small (<25MB) media still use data URL for caching; else use object URL.
-        const sizeHeader = response.headers['content-length'];
-        const size = sizeHeader ? parseInt(sizeHeader) : 0;
-        const useDataUrl = !isVideo && !isAudio || size > 0 && size < 25 * 1024 * 1024; // <25MB
-
-        if (useDataUrl) {
-          const blob = new Blob([response.blob], { type: mime });
-          const reader = new FileReader();
-          reader.readAsDataURL(blob);
-          reader.onloadend = () => {
-            this.selectedFileSrc = reader.result as string;
-            this.showThumbnail = true;
-            this.cacheMediaSrc(fileId, this.selectedFileSrc, mime, this.selectedFileExtension);
-            this.afterMediaLoaded(isVideo, isAudio, mime);
-          };
-        } else {
-          // Create object URL (no base64 inflation)
-          const blob = new Blob([response.blob], { type: mime });
-            if (this.selectedFileObjectUrl) URL.revokeObjectURL(this.selectedFileObjectUrl);
-            this.selectedFileObjectUrl = URL.createObjectURL(blob);
-            this.selectedFileSrc = this.selectedFileObjectUrl;
-            this.showThumbnail = true;
-            this.cacheMediaSrc(fileId, this.selectedFileSrc, mime, this.selectedFileExtension);
-            this.afterMediaLoaded(isVideo, isAudio, mime);
-        }
+        const blob = new Blob([response.blob], { type });
+        const reader = new FileReader();
+        reader.readAsDataURL(blob);
+        reader.onloadend = () => {
+          this.showThumbnail = true;
+          this.selectedFileSrc = (reader.result as string);
+          this.debugLog('FileReader onloadend set selectedFileSrc', { length: this.selectedFileSrc.length });
+          if (this.parentRef && !this.parentRef.pictureSrcs.find(x => x.key == fileId + '')) {
+            this.parentRef.pictureSrcs.push({ key: fileId + '', value: this.selectedFileSrc, type: type, extension: this.selectedFileExtension });
+          }
+          else if (this.inputtedParentRef && !this.inputtedParentRef.pictureSrcs.find(x => x.key == fileId + '')) {
+            this.inputtedParentRef.pictureSrcs.push({ key: fileId + '', value: this.selectedFileSrc, type: type, extension: this.selectedFileExtension });
+          } 
+        };
       });
     } catch (error) {
       if ((error as Error).name !== 'AbortError') {
@@ -412,53 +397,6 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
       if (this.canScroll) {
         setTimeout(() => { document.getElementById('fileIdName' + fileId)?.scrollIntoView(); }, 100);
       }
-    }
-  }
-  private cacheMediaSrc(fileId: number, value: string, type: string, extension: string) {
-    if (this.parentRef && !this.parentRef.pictureSrcs.find(x => x.key == fileId + '')) {
-      this.parentRef.pictureSrcs.push({ key: fileId + '', value, type, extension });
-    }
-    else if (this.inputtedParentRef && !this.inputtedParentRef.pictureSrcs.find(x => x.key == fileId + '')) {
-      this.inputtedParentRef.pictureSrcs.push({ key: fileId + '', value, type, extension });
-    }
-  }
-  private afterMediaLoaded(isVideo: boolean, isAudio: boolean, mime: string) {
-    if (isVideo) {
-      // Browser support test
-      const v = document.createElement('video');
-      this.canPlayNative = !!v.canPlayType && v.canPlayType(mime).length > 0;
-      const ext = this.selectedFileExtension.toLowerCase();
-      const likelyUnsupportedContainer = ['avi','wmv','flv','mkv'];
-      if (!this.canPlayNative && likelyUnsupportedContainer.includes(ext)) {
-        this.needsConversion = true;
-      }
-    }
-  }
-  async requestConversion() {
-    if (!this.selectedFile?.id) return;
-    if (this.isConverting) return;
-    this.isConverting = true;
-    this.conversionError = null;
-    try {
-      const parent = this.inputtedParentRef ?? this.parentRef;
-      const sessionToken = await parent?.getSessionToken();
-      const userId = parent?.user?.id;
-      const res = await fetch(`/file/convertvideo/${this.selectedFile.id}?userId=${userId ?? ''}`, { method: 'POST', headers: { 'Encrypted-UserId': sessionToken ?? '' } });
-      if (!res.ok) {
-        this.conversionError = 'Conversion failed.';
-      } else {
-        const json = await res.json();
-        if (json.status === 'ready') {
-          this.needsConversion = false;
-          // Replace src with streaming endpoint (converted)
-          this.selectedFileSrc = `/file/stream/${this.selectedFile.id}?userId=${userId ?? ''}&converted=true`;
-          this.canPlayNative = true; // should be mp4 now
-        }
-      }
-    } catch (e:any) {
-      this.conversionError = e.message;
-    } finally {
-      this.isConverting = false;
     }
   }
   editFileName(file: FileEntry) {

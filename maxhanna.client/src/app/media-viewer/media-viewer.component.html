@@ -35,12 +35,6 @@
         (canplay)="onVideoCanPlay()" (stalled)="onVideoStalled()" (touchend)="togglePlay(mediaContainer)"
         (play)="togglePlay(mediaContainer)" (ended)="onMediaEnded()" playsinline preload="auto" class="video media">
       </video>
-      <div *ngIf="videoFileExtensionsIncludes(this.selectedFileExtension) && needsConversion" class="conversionNotice">
-        <span *ngIf="!isConverting && canPlayNative === false">This format looks unsupported in your browser. </span>
-        <button *ngIf="!isConverting" (click)="requestConversion()">Convert to MP4</button>
-        <span *ngIf="isConverting">Converting... please wait</span>
-        <span *ngIf="conversionError" class="errorText">{{conversionError}}</span>
-      </div>
       <audio #mediaContainer *ngIf="audioFileExtensionsIncludes(this.selectedFileExtension)" [src]="selectedFileSrc"
         controls preload="auto" [autoplay]="false" [muted]="muted" [loop]="loop" (touchend)="togglePlay(mediaContainer)"
         (play)="togglePlay(mediaContainer)" (ended)="onMediaEnded()" class="audio media">
