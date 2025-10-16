@@ -247,7 +247,9 @@ export class AppComponent implements OnInit, AfterViewInit {
     {
       ownership: 0,
       title: 'Ender',
-      content: `A microscopic game.`
+  content: `Ender is a fast multiplayer arena where neon lightcycles race and duel.
+Players outmaneuver each other, lay down bike-walls to trap foes, and compete for survival and high scores.
+Retro pixel visuals, short rounds, and emergent tactics make every match intense and replayable.`
     },
     {
       ownership: 0,
