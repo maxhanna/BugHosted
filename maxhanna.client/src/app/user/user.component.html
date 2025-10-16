@@ -70,6 +70,16 @@
               </span>
             </div>
           </div>
+          <!-- Relationship row: show friend/following status under Last Seen -->
+          <div class="seperatedUserHeader blackFontColor linkHighlights" *ngIf="user && parentRef?.user && user.id != parentRef.user?.id">
+            <div class="xxSmallFont" title="Relationship">Relationship: </div>
+            <div>
+              <span *ngIf="friendsIncludeMe()" class="smallFont">Friend</span>
+              <span *ngIf="!friendsIncludeMe() && isFollowingUser()" class="smallFont">Following</span>
+              <span *ngIf="!friendsIncludeMe() && !isFollowingUser() && isBeingFollowedByUser" class="smallFont">Follows you</span>
+              <span *ngIf="!friendsIncludeMe() && !isFollowingUser() && !isBeingFollowedByUser" class="smallFont">No relationship</span>
+            </div>
+          </div>
           <div class="seperatedUserHeader blackFontColor linkHighlights"
             *ngIf="(userLoginStreakCurrent || userLoginStreakLongest) && !loginOnly">
             <div class="xxSmallFont" title="Login Streak">Streak: </div>
