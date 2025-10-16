@@ -35,6 +35,26 @@ namespace maxhanna.Server.Controllers
 			_crawler = webCrawler;
 		}
 
+		[HttpGet("/Social/TotalPosts", Name = "Social_TotalPosts")]
+		public async Task<IActionResult> TotalPosts()
+		{
+			try
+			{
+				await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+				await conn.OpenAsync();
+				string sql = "SELECT COUNT(*) FROM stories";
+				await using var cmd = new MySqlCommand(sql, conn);
+				var result = await cmd.ExecuteScalarAsync();
+				long count = result == null || result == DBNull.Value ? 0 : Convert.ToInt64(result);
+				return Ok(new { count });
+			}
+			catch (Exception ex)
+			{
+				_ = _log.Db("Social TotalPosts error: " + ex.Message, null, "SOCIAL", true);
+				return StatusCode(500, "Internal server error");
+			}
+		}
+
 		[HttpPost(Name = "GetStories")]
 		public async Task<IActionResult> GetStories(
 			[FromBody] GetStoryRequest request,

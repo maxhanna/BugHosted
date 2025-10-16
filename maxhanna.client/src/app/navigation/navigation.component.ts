@@ -21,6 +21,7 @@ import { MetaService } from '../../services/meta.service';
 import { ArrayService } from '../../services/array.service';
 import { RomService } from '../../services/rom.service';
 import { FriendService } from '../../services/friend.service';
+import { SocialService } from '../../services/social.service';
 
 @Component({
   selector: 'app-navigation',
@@ -82,7 +83,8 @@ export class NavigationComponent implements OnInit, OnDestroy {
     private metaService: MetaService,
     private arrayService: ArrayService,
     private romService: RomService,
-    private friendService: FriendService) {
+    private friendService: FriendService,
+    private socialService: SocialService) {
   }
 
   // runtime values for Ender nav item
@@ -107,6 +109,9 @@ export class NavigationComponent implements OnInit, OnDestroy {
   // Emulation stats
   emulationActivePlayers: number | null = null;
   private emulationInterval: any;
+  // Social stats
+  socialTotalPosts: number | null = null;
+  private socialInterval: any;
 
   async ngOnInit() {
     this.navbarReady = true;
@@ -128,6 +133,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
     clearInterval(this.musicInterval);
     clearInterval(this.arrayInterval);
     clearInterval(this.emulationInterval);
+    clearInterval(this.socialInterval);
     this.showAppSelectionHelp = false;
     this.clearNotifications();
   }
@@ -163,6 +169,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
     this.getMusicInfo();
     this.getArrayPlayerInfo();
     this.getEmulationPlayerInfo();
+    this.getSocialInfo();
     this.getThemeInfo();
 
     this.notificationInfoInterval = setInterval(() => this.getNotificationInfo(), 20 * 1000); // every minute
@@ -175,6 +182,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
     this.musicInterval = setInterval(() => this.getMusicInfo(), 60 * 60 * 1000); // every hour
     this.arrayInterval = setInterval(() => this.getArrayPlayerInfo(), 60 * 1000); // every minute
     this.emulationInterval = setInterval(() => this.getEmulationPlayerInfo(), 60 * 1000); // every minute
+    this.socialInterval = setInterval(() => this.getSocialInfo(), 5 * 60 * 1000); // every 5 minutes
   }
 
   stopNotifications() {
@@ -251,20 +259,21 @@ export class NavigationComponent implements OnInit, OnDestroy {
           const numberOfChatNotifs = res.filter(x => x.chatId && x.isRead == false).length;
           // Active friends online (last_seen within past 10 minutes to match isUserOnline logic)
           let activeFriends = 0;
-          try {
-            const uid = this._parent.user?.id ?? 0;
-            if (uid > 0) {
-              const friends: any[] = await this.friendService.getFriends(uid) as any[];
-              const cutoff = Date.now() - 10 * 60 * 1000; // 10 minutes window
-              friends?.forEach(f => {
-                const lsRaw = f.lastSeen ?? f.last_seen; // API may return camelCase or snake_case converted
+          
+          const uid = this._parent.user?.id ?? 0;
+          if (uid > 0) {
+            const friends: User[] = await this.friendService.getFriends(uid);
+            const cutoff = Date.now() - 10 * 60 * 1000; // 10 minutes window
+            friends?.forEach(f => {
+              if (f.id != this._parent.user?.id) {
+                const lsRaw = f.lastSeen;
                 if (lsRaw) {
                   const ls = new Date(lsRaw).getTime();
                   if (!isNaN(ls) && ls >= cutoff) activeFriends++;
                 }
-              });
-            }
-          } catch { /* ignore errors */ }
+              }
+            });
+          } 
 
           if (numberOfChatNotifs) {
             if (currentChatNotifCount < numberOfChatNotifs) {
@@ -592,6 +601,19 @@ export class NavigationComponent implements OnInit, OnDestroy {
       const emuNav = this._parent.navigationItems.find(x => x.title === 'Emulation');
       if (emuNav) {
         emuNav.content = this.emulationActivePlayers != null ? this.emulationActivePlayers.toString() : '';
+      }
+    }
+  }
+
+  private async getSocialInfo() {
+    try {
+      const res: any = await this.socialService.getTotalPosts();
+      this.socialTotalPosts = res?.count ?? null;
+    } catch { this.socialTotalPosts = null; }
+    if (this._parent?.navigationItems) {
+      const socialNav = this._parent.navigationItems.find(x => x.title === 'Social');
+      if (socialNav) {
+        socialNav.content = this.socialTotalPosts != null ? this.socialTotalPosts.toString() : '';
       }
     }
   }

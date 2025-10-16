@@ -220,4 +220,24 @@ export class SocialService {
       return null;
     }
   }
+
+  async getTotalPosts() {
+    try {
+      const res = await fetch('/social/totalposts', {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      if (!res.ok) {
+        throw new Error('Failed to get total posts');
+      }
+      const ct = res.headers.get('Content-Type');
+      if (ct && ct.includes('application/json')) {
+        return await res.json();
+      }
+      return { count: parseInt(await res.text() || '0', 10) };
+    } catch (error) {
+      console.error('Error getting total posts:', error);
+      return { count: 0 };
+    }
+  }
 }
