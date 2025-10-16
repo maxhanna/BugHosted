@@ -268,8 +268,11 @@ export class NavigationComponent implements OnInit, OnDestroy {
               if (f.id != this._parent.user?.id) {
                 const lsRaw = f.lastSeen;
                 if (lsRaw) {
-                  const ls = new Date(lsRaw).getTime();
-                  if (!isNaN(ls) && ls >= cutoff) activeFriends++;
+                  const ls = new Date(lsRaw).getTime(); 
+                  if (!isNaN(ls) && ls >= cutoff) {
+                    activeFriends++;
+                    console.log(f);
+                  }
                 }
               }
             });
