@@ -102,6 +102,8 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
     // Live elapsed seconds for HUD
     runElapsedSeconds: number = 0;
     private runElapsedInterval: any;
+    // Timers to clear latest hero chat messages after TTL
+    private heroMessageClearTimers: Map<number, any> = new Map<number, any>();
     // In-memory set of meta bike walls (keys: "x|y") for fast existence checks
     // Track only the highest wall id we've processed; we don't retain all wall coordinates persistently.
     private lastKnownWallId: number = 0;
@@ -197,6 +199,9 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
         this.remove_me('EnderComponent');
         this.parentRef?.setViewportScalability(true);
         this.parentRef?.removeResizeListener();
+        // Clear any pending hero message clear timers
+        this.heroMessageClearTimers.forEach(t => { try { clearTimeout(t); } catch { } });
+        this.heroMessageClearTimers.clear();
     }
 
 
@@ -695,7 +700,28 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
         if (existingHero === undefined) return;
         const latestMsg = this.latestMessagesMap.get(existingHero.name);
         if (latestMsg) {
-            existingHero.latestMessage = latestMsg.content;
+            const heroId: number | undefined = existingHero.id;
+            const newContent = latestMsg.content;
+            existingHero.latestMessage = newContent;
+            // Reset any existing timer for this hero
+            if (heroId && this.heroMessageClearTimers.has(heroId)) {
+                try { clearTimeout(this.heroMessageClearTimers.get(heroId)); } catch { }
+                this.heroMessageClearTimers.delete(heroId);
+            }
+            // Schedule clearing the message after 20 seconds if unchanged
+            if (heroId) {
+                const timeoutId = setTimeout(() => {
+                    try {
+                        if (existingHero.latestMessage === newContent) {
+                            existingHero.latestMessage = "";
+                        }
+                    } catch { }
+                    finally {
+                        this.heroMessageClearTimers.delete(heroId);
+                    }
+                }, 20000);
+                this.heroMessageClearTimers.set(heroId, timeoutId);
+            }
         } else {
             existingHero.latestMessage = "";
         }
