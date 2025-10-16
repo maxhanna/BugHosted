@@ -443,7 +443,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
       const parent = this.inputtedParentRef ?? this.parentRef;
       const sessionToken = await parent?.getSessionToken();
       const userId = parent?.user?.id;
-      const res = await fetch(`/File/ConvertVideo/${this.selectedFile.id}?userId=${userId ?? ''}`, { method: 'POST', headers: { 'Encrypted-UserId': sessionToken ?? '' } });
+      const res = await fetch(`/file/convertvideo/${this.selectedFile.id}?userId=${userId ?? ''}`, { method: 'POST', headers: { 'Encrypted-UserId': sessionToken ?? '' } });
       if (!res.ok) {
         this.conversionError = 'Conversion failed.';
       } else {
@@ -451,7 +451,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
         if (json.status === 'ready') {
           this.needsConversion = false;
           // Replace src with streaming endpoint (converted)
-          this.selectedFileSrc = `/File/Stream/${this.selectedFile.id}?userId=${userId ?? ''}&converted=true`;
+          this.selectedFileSrc = `/file/stream/${this.selectedFile.id}?userId=${userId ?? ''}&converted=true`;
           this.canPlayNative = true; // should be mp4 now
         }
       }
