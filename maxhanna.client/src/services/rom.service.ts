@@ -50,4 +50,15 @@ export class RomService {
       return null;
     }
   }
+  async getActivePlayers(minutes: number = 2) {
+    try {
+      const response = await fetch('/rom/activeplayers', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(minutes)
+      });
+      if (!response.ok) return null;
+      return await response.json(); // { count }
+    } catch { return null; }
+  }
 }

@@ -20,6 +20,32 @@ namespace maxhanna.Server.Controllers
 			_config = config;
 		}
 
+		[HttpPost("/Rom/ActivePlayers", Name = "Rom_ActivePlayers")]
+		public async Task<IActionResult> ActivePlayers([FromBody] int? minutes)
+		{
+			int windowMinutes = minutes ?? 2;
+			if (windowMinutes <= 0) windowMinutes = 2;
+			if (windowMinutes > 24 * 60) windowMinutes = 24 * 60;
+			try
+			{
+				await using var connection = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+				await connection.OpenAsync();
+				string sql = @"SELECT COUNT(DISTINCT user_id) AS cnt FROM maxhanna.emulation_play_time 
+					WHERE (save_time IS NOT NULL AND save_time >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL @Minutes MINUTE))
+					   OR (start_time IS NOT NULL AND start_time >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL @Minutes MINUTE));";
+				await using var cmd = new MySqlCommand(sql, connection);
+				cmd.Parameters.AddWithValue("@Minutes", windowMinutes);
+				var result = await cmd.ExecuteScalarAsync();
+				int count = result == null || result == DBNull.Value ? 0 : Convert.ToInt32(result);
+				return Ok(new { count });
+			}
+			catch (Exception ex)
+			{
+				_ = _log.Db("Rom ActivePlayers error: " + ex.Message, null, "ROM", true);
+				return StatusCode(500, "Internal server error");
+			}
+		}
+
 
 		[HttpGet("/Rom/UserStats/{userId}")]
 		public async Task<IActionResult> UserStats(int userId)

@@ -19,6 +19,7 @@ import { NexusService } from '../../services/nexus.service';
 import { TodoService } from '../../services/todo.service';
 import { MetaService } from '../../services/meta.service';
 import { ArrayService } from '../../services/array.service';
+import { RomService } from '../../services/rom.service';
 
 @Component({
   selector: 'app-navigation',
@@ -78,7 +79,8 @@ export class NavigationComponent implements OnInit, OnDestroy {
     private nexusService: NexusService,
     private todoService: TodoService,
   private metaService: MetaService,
-  private arrayService: ArrayService) {
+  private arrayService: ArrayService,
+  private romService: RomService) {
   }
 
   // runtime values for Ender nav item
@@ -100,6 +102,9 @@ export class NavigationComponent implements OnInit, OnDestroy {
   arrayActivePlayers: number | null = null;
   arrayUserRank: { rank?: number | null, level?: number | null, totalPlayers?: number | null } | null = null;
   private arrayInterval: any;
+  // Emulation stats
+  emulationActivePlayers: number | null = null;
+  private emulationInterval: any;
 
   async ngOnInit() {
     this.navbarReady = true;
@@ -120,6 +125,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
     clearInterval(this.metaInterval);
     clearInterval(this.musicInterval);
   clearInterval(this.arrayInterval);
+  clearInterval(this.emulationInterval);
     this.showAppSelectionHelp = false;
     this.clearNotifications();
   }
@@ -154,6 +160,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
     this.getMetaPlayerInfo();
     this.getMusicInfo();
   this.getArrayPlayerInfo();
+  this.getEmulationPlayerInfo();
     this.getThemeInfo();
 
     this.notificationInfoInterval = setInterval(() => this.getNotificationInfo(), 20 * 1000); // every minute
@@ -165,6 +172,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
     this.metaInterval = setInterval(() => this.getMetaPlayerInfo(), 60 * 1000); // every minute
     this.musicInterval = setInterval(() => this.getMusicInfo(), 60 * 60 * 1000); // every hour
   this.arrayInterval = setInterval(() => this.getArrayPlayerInfo(), 60 * 1000); // every minute
+  this.emulationInterval = setInterval(() => this.getEmulationPlayerInfo(), 60 * 1000); // every minute
   }
 
   stopNotifications() {
@@ -551,6 +559,19 @@ export class NavigationComponent implements OnInit, OnDestroy {
         if (this.arrayActivePlayers != null) parts.push(this.arrayActivePlayers.toString());
         if (this.arrayUserRank?.rank != null) parts.push(`#${this.arrayUserRank.rank}`);
         arrayNav.content = parts.join('\n');
+      }
+    }
+  }
+
+  private async getEmulationPlayerInfo() {
+    try {
+      const res: any = await this.romService.getActivePlayers(2);
+      this.emulationActivePlayers = res?.count ?? null;
+    } catch { this.emulationActivePlayers = null; }
+    if (this._parent?.navigationItems) {
+      const emuNav = this._parent.navigationItems.find(x => x.title === 'Emulation');
+      if (emuNav) {
+        emuNav.content = this.emulationActivePlayers != null ? this.emulationActivePlayers.toString() : '';
       }
     }
   }
