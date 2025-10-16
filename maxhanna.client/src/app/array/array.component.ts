@@ -29,6 +29,8 @@ export class ArrayComponent extends ChildComponent implements OnInit, OnDestroy 
   randomInventoryPicture: FileEntry | undefined;
   lastNexusPoint: number = 0;
   itemsFound: number = 0;
+  arrayActivePlayers: number | null = null;
+  private activePlayersInterval: any;
 
   isHelpPanelOpen = false;
   isRanksExpanded = false;
@@ -51,6 +53,8 @@ export class ArrayComponent extends ChildComponent implements OnInit, OnDestroy 
     }
     this.parentRef?.addResizeListener();
     await this.refreshHeroData();
+    await this.refreshActivePlayers();
+    this.activePlayersInterval = setInterval(() => this.refreshActivePlayers(), 60000);
 
     this.ladderRefreshInterval = setInterval(async () => {
       await this.refreshHeroLadder();
@@ -61,6 +65,9 @@ export class ArrayComponent extends ChildComponent implements OnInit, OnDestroy 
     this.parentRef?.removeResizeListener();
     if (this.ladderRefreshInterval) {
       clearInterval(this.ladderRefreshInterval);
+    }
+    if (this.activePlayersInterval) {
+      clearInterval(this.activePlayersInterval);
     }
   }
 
@@ -83,6 +90,13 @@ export class ArrayComponent extends ChildComponent implements OnInit, OnDestroy 
     await this.refreshHeroLadder();
     this.refreshRadar();
     await this.getBackgroundPictures();
+  }
+
+  private async refreshActivePlayers() {
+    try {
+      const res: any = await this.arrayService.getActivePlayers(2);
+      this.arrayActivePlayers = res?.count ?? null;
+    } catch { this.arrayActivePlayers = null; }
   }
 
   private async getBackgroundPictures() {

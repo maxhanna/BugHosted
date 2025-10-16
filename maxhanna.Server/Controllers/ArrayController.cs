@@ -19,6 +19,108 @@ namespace maxhanna.Server.Controllers
 			_config = config;
 		}
 
+		[HttpPost("/Array/ActivePlayers", Name = "Array_ActivePlayers")]
+		public async Task<IActionResult> ActivePlayers([FromBody] int? minutes)
+		{
+			int windowMinutes = minutes ?? 2;
+			if (windowMinutes <= 0) windowMinutes = 2;
+			if (windowMinutes > 60 * 24) windowMinutes = 60 * 24; // clamp at 24h
+			try
+			{
+				await using var conn = new MySqlConnection(_config.GetConnectionString("maxhanna"));
+				await conn.OpenAsync();
+				// Activity: characters that moved (position changed) or killed monsters/players recently.
+				// Using array_characters history isn't present; fallback to graveyard + inventory changes? Simpler: any character existing implies potential activity only if updated recently.
+				string sql = @"SELECT COUNT(DISTINCT user_id) AS cnt FROM maxhanna.array_characters WHERE updated_at >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL @Minutes MINUTE);";
+				// If updated_at column may not exist, fallback to level/position heuristic
+				bool hasUpdatedAt = false;
+				try
+				{
+					string checkColSql = "SHOW COLUMNS FROM maxhanna.array_characters LIKE 'updated_at';";
+					await using var checkCmd = new MySqlCommand(checkColSql, conn);
+					var colResult = await checkCmd.ExecuteScalarAsync();
+					hasUpdatedAt = colResult != null;
+				}
+				catch { }
+				if (!hasUpdatedAt)
+				{
+					// Approximate recent activity by presence in graveyard or inventory modifications
+					sql = @"SELECT COUNT(DISTINCT ac.user_id) AS cnt FROM maxhanna.array_characters ac
+						LEFT JOIN maxhanna.array_characters_graveyard g ON g.user_id = ac.user_id AND g.timestamp >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL @Minutes MINUTE)
+						LEFT JOIN maxhanna.array_characters_inventory i ON i.user_id = ac.user_id
+						WHERE (g.user_id IS NOT NULL OR i.user_id IS NOT NULL);";
+				}
+				await using var cmd = new MySqlCommand(sql, conn);
+				cmd.Parameters.AddWithValue("@Minutes", windowMinutes);
+				var countObj = await cmd.ExecuteScalarAsync();
+				int count = countObj == null || countObj == DBNull.Value ? 0 : Convert.ToInt32(countObj);
+				return Ok(new { count });
+			}
+			catch (Exception ex)
+			{
+				_ = _log.Db("Array ActivePlayers error: " + ex.Message, null, "ARRAY", true);
+				return StatusCode(500, "Internal server error");
+			}
+		}
+
+		[HttpPost("/Array/GetUserRank", Name = "Array_GetUserRank")]
+		public async Task<IActionResult> GetUserRank([FromBody] int userId)
+		{
+			if (userId <= 0) return BadRequest("Invalid user id");
+			try
+			{
+				await using var conn = new MySqlConnection(_config.GetConnectionString("maxhanna"));
+				await conn.OpenAsync();
+				// Determine if user has a character
+				const string hasCharSql = "SELECT user_id FROM maxhanna.array_characters WHERE user_id = @UserId LIMIT 1;";
+				await using (var hasCmd = new MySqlCommand(hasCharSql, conn))
+				{
+					hasCmd.Parameters.AddWithValue("@UserId", userId);
+					var existsObj = await hasCmd.ExecuteScalarAsync();
+					if (existsObj == null || existsObj == DBNull.Value)
+					{
+						// still return total players for context
+						int totalPlayersNoChar = await GetTotalDistinctPlayers(conn);
+						return Ok(new { hasHero = false, totalPlayers = totalPlayersNoChar });
+					}
+				}
+				// Get user's level (score proxy)
+				const string userLevelSql = "SELECT level FROM maxhanna.array_characters WHERE user_id = @UserId LIMIT 1;";
+				int userLevel = 0;
+				await using (var levelCmd = new MySqlCommand(userLevelSql, conn))
+				{
+					levelCmd.Parameters.AddWithValue("@UserId", userId);
+					var lvlObj = await levelCmd.ExecuteScalarAsync();
+					userLevel = lvlObj == null || lvlObj == DBNull.Value ? 0 : Convert.ToInt32(lvlObj);
+				}
+				// total distinct players
+				int totalPlayers = await GetTotalDistinctPlayers(conn);
+				// rank: number of players with strictly higher level + 1 (dense rank)
+				const string rankSql = "SELECT COUNT(*) + 1 FROM maxhanna.array_characters WHERE level > @UserLevel;";
+				int rank = 0;
+				await using (var rankCmd = new MySqlCommand(rankSql, conn))
+				{
+					rankCmd.Parameters.AddWithValue("@UserLevel", userLevel);
+					var rankObj = await rankCmd.ExecuteScalarAsync();
+					rank = rankObj == null || rankObj == DBNull.Value ? 1 : Convert.ToInt32(rankObj);
+				}
+				return Ok(new { hasHero = true, rank, level = userLevel, totalPlayers });
+			}
+			catch (Exception ex)
+			{
+				_ = _log.Db("Array GetUserRank error: " + ex.Message, userId, "ARRAY", true);
+				return StatusCode(500, "Internal server error");
+			}
+		}
+
+		private async Task<int> GetTotalDistinctPlayers(MySqlConnection conn)
+		{
+			const string totalSql = "SELECT COUNT(DISTINCT user_id) FROM maxhanna.array_characters;";
+			await using var totalCmd = new MySqlCommand(totalSql, conn);
+			var totalObj = await totalCmd.ExecuteScalarAsync();
+			return totalObj == null || totalObj == DBNull.Value ? 0 : Convert.ToInt32(totalObj);
+		}
+
 		[HttpPost("/Array", Name = "GetArrayCharacter")]
 		public async Task<IActionResult> Get([FromBody] int userId)
 		{  

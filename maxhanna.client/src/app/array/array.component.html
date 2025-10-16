@@ -2,7 +2,7 @@
   <div class="closeButton" (click)="remove_me('ArrayComponent');"></div>
   <div class="refreshButton" (click)="ngOnInit();"></div>
   <div class="componentTitle">The Array</div>
-  <p class="notification">You've entered the array, {{parentRef?.user?.username ?? 'Anonymous'}}.</p>
+  <p class="notification">You've entered the array, {{parentRef?.user?.username ?? 'Anonymous'}}<span *ngIf="arrayActivePlayers && arrayActivePlayers > 1">. Active players: {{arrayActivePlayers}}</span>.</p>
 
   <div *ngIf="!isUserComponentClosed">
     <app-user [loginOnly]="true" [inputtedParentRef]="parentRef"

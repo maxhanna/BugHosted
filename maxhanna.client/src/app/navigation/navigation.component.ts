@@ -18,6 +18,7 @@ import { EnderService } from '../../services/ender.service';
 import { NexusService } from '../../services/nexus.service';
 import { TodoService } from '../../services/todo.service';
 import { MetaService } from '../../services/meta.service';
+import { ArrayService } from '../../services/array.service';
 
 @Component({
   selector: 'app-navigation',
@@ -76,7 +77,8 @@ export class NavigationComponent implements OnInit, OnDestroy {
     private enderService: EnderService,
     private nexusService: NexusService,
     private todoService: TodoService,
-    private metaService: MetaService) {
+  private metaService: MetaService,
+  private arrayService: ArrayService) {
   }
 
   // runtime values for Ender nav item
@@ -94,6 +96,10 @@ export class NavigationComponent implements OnInit, OnDestroy {
   // music playlist count
   musicTodoCount: number | null = null;
   private musicInterval: any;
+  // Array game stats
+  arrayActivePlayers: number | null = null;
+  arrayUserRank: { rank?: number | null, level?: number | null, totalPlayers?: number | null } | null = null;
+  private arrayInterval: any;
 
   async ngOnInit() {
     this.navbarReady = true;
@@ -113,6 +119,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
     clearInterval(this.nexusInterval);
     clearInterval(this.metaInterval);
     clearInterval(this.musicInterval);
+  clearInterval(this.arrayInterval);
     this.showAppSelectionHelp = false;
     this.clearNotifications();
   }
@@ -146,6 +153,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
     this.getNexusPlayerInfo();
     this.getMetaPlayerInfo();
     this.getMusicInfo();
+  this.getArrayPlayerInfo();
     this.getThemeInfo();
 
     this.notificationInfoInterval = setInterval(() => this.getNotificationInfo(), 20 * 1000); // every minute
@@ -156,6 +164,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
     this.nexusInterval = setInterval(() => this.getNexusPlayerInfo(), 60 * 1000); // every minute
     this.metaInterval = setInterval(() => this.getMetaPlayerInfo(), 60 * 1000); // every minute
     this.musicInterval = setInterval(() => this.getMusicInfo(), 60 * 60 * 1000); // every hour
+  this.arrayInterval = setInterval(() => this.getArrayPlayerInfo(), 60 * 1000); // every minute
   }
 
   stopNotifications() {
@@ -515,6 +524,33 @@ export class NavigationComponent implements OnInit, OnDestroy {
       const musicNav = this._parent.navigationItems.find(x => x.title === 'Music');
       if (musicNav) {
         musicNav.content = this.musicTodoCount && this.musicTodoCount > 0 ? this.musicTodoCount.toString() : '';
+      }
+    }
+  }
+
+  private async getArrayPlayerInfo() {
+    try {
+      const res: any = await this.arrayService.getActivePlayers(2);
+      this.arrayActivePlayers = res?.count ?? null;
+    } catch { this.arrayActivePlayers = null; }
+    try {
+      const userId = this._parent.user?.id ?? 0;
+      if (userId) {
+        const rankRes: any = await this.arrayService.getUserRank(userId);
+        if (rankRes && rankRes.hasHero) {
+          this.arrayUserRank = { rank: rankRes.rank ?? null, level: rankRes.level ?? null, totalPlayers: rankRes.totalPlayers ?? null };
+        } else {
+          this.arrayUserRank = { rank: null, level: null, totalPlayers: rankRes?.totalPlayers ?? null };
+        }
+      }
+    } catch { this.arrayUserRank = null; }
+    if (this._parent?.navigationItems) {
+      const arrayNav = this._parent.navigationItems.find(x => x.title === 'Array');
+      if (arrayNav) {
+        const parts: string[] = [];
+        if (this.arrayActivePlayers != null) parts.push(this.arrayActivePlayers.toString());
+        if (this.arrayUserRank?.rank != null) parts.push(`#${this.arrayUserRank.rank}`);
+        arrayNav.content = parts.join('\n');
       }
     }
   }
