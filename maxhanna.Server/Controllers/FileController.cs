@@ -159,10 +159,10 @@ namespace maxhanna.Server.Controllers
 						// Get the exact position of the file in the sorted results
 						var positionCommand = new MySqlCommand(
 								$@"SELECT COUNT(*) FROM (
-						SELECT f.id, ROW_NUMBER() OVER (
-							{(isRomSearch ? "ORDER BY f.last_access DESC" : (!string.IsNullOrEmpty(search) ? "ORDER BY MATCH(f.file_name, f.description, f.given_file_name) AGAINST(@FullTextSearch IN NATURAL LANGUAGE MODE) DESC" : "ORDER BY f.id DESC"))}
-						) as pos
-						FROM maxhanna.file_uploads f
+                        SELECT f.id, ROW_NUMBER() OVER (
+                            {(isRomSearch ? "ORDER BY f.last_access DESC" : !string.IsNullOrEmpty(search) ? "ORDER BY f.id ASC" : "ORDER BY f.id DESC")}
+                        ) as pos
+                        FROM maxhanna.file_uploads f
                         LEFT JOIN maxhanna.users u ON f.user_id = u.id
                         LEFT JOIN maxhanna.users uu ON f.last_updated_by_user_id = uu.id
                         LEFT JOIN maxhanna.user_display_pictures udp ON udp.user_id = u.id
@@ -216,15 +216,7 @@ namespace maxhanna.Server.Controllers
 						}
 					}
 
-					// When searching, prefer ordering by relevance (MATCH...AGAINST) so nearest matches appear first
-					if (!string.IsNullOrWhiteSpace(search))
-					{
-						orderBy = "ORDER BY MATCH(f.file_name, f.description, f.given_file_name) AGAINST(@FullTextSearch IN NATURAL LANGUAGE MODE) DESC, date DESC";
-					}
-					else
-					{
-						orderBy = isRomSearch ? " ORDER BY f.last_access DESC " : orderBy;
-					}
+					orderBy = isRomSearch ? " ORDER BY f.last_access DESC " : orderBy;
 					(string searchCondition, List<MySqlParameter> extraParameters) = await GetWhereCondition(search, user);
 
 					var command = new MySqlCommand($@"
