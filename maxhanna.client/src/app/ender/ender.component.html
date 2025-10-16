@@ -170,18 +170,14 @@
       Final Score: {{currentScore}}
     </div>
     <div class="killerAndStatsWrapper">
-      <div *ngIf="deathKillerUserId || deathCause" class="deathKillerInfo">
+      <div *ngIf="deathKillerUserId" class="deathKillerInfo">
         <div style="margin-bottom:6px;">
-          <strong *ngIf="deathKillerUserId">Killed by:</strong>
-          <strong *ngIf="deathCause">Cause:</strong>
+          <strong>Killed by:</strong>
         </div>
         <div *ngIf="deathKillerUserId" class="deathKillerAvatarContainer">
           <app-user-tag [user]="cachedUsers.get(deathKillerUserId)" [userId]="deathKillerUserId"
             [inputtedParentRef]="parentRef" [displayOnlyAvatar]="false" [openInNewTab]="true"
             (userLoaded)="onUserTagLoaded($event)"></app-user-tag>
-        </div>
-        <div *ngIf="deathCause" class="deathKillerAvatarContainer">
-          <div style="margin-top:6px; font-weight:bold;">{{deathCause}}</div>
         </div>
       </div>
       <div class="deathKillStatInfo">
