@@ -5357,9 +5357,9 @@ namespace maxhanna.Server.Controllers
 			{
 				using var conn = new MySqlConnection(_connectionString);
 				await conn.OpenAsync();
-				// Build a query that returns all potentially active user_ids; we'll distinct them in C#
+				// Use DB aggregation for distinct active players including building upgrade events
 				string sql = $@"
-					SELECT user_id FROM (
+					SELECT COUNT(DISTINCT user_id) AS activeCount FROM (
 						SELECT origin_user_id AS user_id FROM maxhanna.nexus_attacks_sent WHERE timestamp >= DATE_SUB(CURRENT_TIMESTAMP, INTERVAL {windowMinutes} MINUTE)
 						UNION ALL
 						SELECT destination_user_id AS user_id FROM maxhanna.nexus_attacks_sent WHERE timestamp >= DATE_SUB(CURRENT_TIMESTAMP, INTERVAL {windowMinutes} MINUTE)
@@ -5371,23 +5371,32 @@ namespace maxhanna.Server.Controllers
 						SELECT nb.user_id AS user_id FROM maxhanna.nexus_unit_purchases p JOIN maxhanna.nexus_bases nb ON nb.coords_x = p.coords_x AND nb.coords_y = p.coords_y WHERE p.timestamp >= DATE_SUB(CURRENT_TIMESTAMP, INTERVAL {windowMinutes} MINUTE)
 						UNION ALL
 						SELECT nb.user_id AS user_id FROM maxhanna.nexus_unit_upgrades u JOIN maxhanna.nexus_bases nb ON nb.coords_x = u.coords_x AND nb.coords_y = u.coords_y WHERE u.timestamp >= DATE_SUB(CURRENT_TIMESTAMP, INTERVAL {windowMinutes} MINUTE)
-					) x WHERE user_id IS NOT NULL;";
+						UNION ALL
+						-- Building upgrades within window
+						SELECT nb.user_id AS user_id
+						FROM maxhanna.nexus_base_upgrades bu
+						JOIN maxhanna.nexus_bases nb ON nb.coords_x = bu.coords_x AND nb.coords_y = bu.coords_y
+						WHERE (
+							(bu.command_center_upgraded      >= DATE_SUB(CURRENT_TIMESTAMP, INTERVAL {windowMinutes} MINUTE)) OR
+							(bu.mines_upgraded               >= DATE_SUB(CURRENT_TIMESTAMP, INTERVAL {windowMinutes} MINUTE)) OR
+							(bu.supply_depot_upgraded        >= DATE_SUB(CURRENT_TIMESTAMP, INTERVAL {windowMinutes} MINUTE)) OR
+							(bu.factory_upgraded             >= DATE_SUB(CURRENT_TIMESTAMP, INTERVAL {windowMinutes} MINUTE)) OR
+							(bu.starport_upgraded            >= DATE_SUB(CURRENT_TIMESTAMP, INTERVAL {windowMinutes} MINUTE)) OR
+							(bu.warehouse_upgraded           >= DATE_SUB(CURRENT_TIMESTAMP, INTERVAL {windowMinutes} MINUTE)) OR
+							(bu.engineering_bay_upgraded     >= DATE_SUB(CURRENT_TIMESTAMP, INTERVAL {windowMinutes} MINUTE))
+						)
+					) x WHERE user_id IS NOT NULL AND user_id > 0;";
 
-				var distinctUserIds = new HashSet<int>();
+				int activeCount = 0;
 				using (var cmd = new MySqlCommand(sql, conn))
 				using (var reader = await cmd.ExecuteReaderAsync())
 				{
-					while (await reader.ReadAsync())
+					if (await reader.ReadAsync())
 					{
-						if (!reader.IsDBNull(0))
-						{
-							int uid = reader.GetInt32(0);
-							// Only consider positive user ids
-							if (uid > 0) distinctUserIds.Add(uid);
-						}
+						activeCount = reader.IsDBNull(reader.GetOrdinal("activeCount")) ? 0 : reader.GetInt32("activeCount");
 					}
 				}
-				return Ok(new { count = distinctUserIds.Count });
+				return Ok(new { count = activeCount });
 			}
 			catch (Exception ex)
 			{
