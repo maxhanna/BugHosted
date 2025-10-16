@@ -217,7 +217,7 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
         } else {
             resources.stopSound("pixelDreams");
         }
-        this.isMuted = this.isMusicMuted && this.isSfxMuted;
+        this.isMuted = this.isMusicMuted;
         if (this.parentRef?.user?.id) {
             this.userService.updateMuteSounds(this.parentRef.user.id, this.isMuted).catch(() => { });
         }
