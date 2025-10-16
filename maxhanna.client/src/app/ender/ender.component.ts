@@ -729,12 +729,12 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
 
         this.latestMessagesMap.clear();
         let latestMessages: string[] = [];
-        const twentySecondsAgo = new Date(Date.now() - 20000);
+    const bubbleCutoff = new Date(Date.now() - 10000); // 10s TTL for chat bubble
 
         this.chat.forEach((message: MetaChat) => {
             const timestampDate = message.timestamp ? new Date(message.timestamp) : undefined;
 
-            if (timestampDate && timestampDate > twentySecondsAgo) {
+            if (timestampDate && timestampDate > bubbleCutoff) {
                 const existingMessage = this.latestMessagesMap.get(message.hero);
 
                 if (!existingMessage || (existingMessage && existingMessage.timestamp && new Date(existingMessage.timestamp) < timestampDate)) {
@@ -928,12 +928,12 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
 
     private getLatestMessages() {
         this.latestMessagesMap.clear();
-        const twentySecondsAgo = new Date(Date.now() - 20000);
+    const bubbleCutoff = new Date(Date.now() - 10000); // 10s TTL for chat bubble
 
         this.chat.forEach((message: MetaChat) => {
             const timestampDate = message.timestamp ? new Date(message.timestamp) : undefined;
 
-            if (timestampDate && timestampDate > twentySecondsAgo) {
+            if (timestampDate && timestampDate > bubbleCutoff) {
                 const existingMessage = this.latestMessagesMap.get(message.hero);
 
                 if (!existingMessage || (existingMessage && existingMessage.timestamp && new Date(existingMessage.timestamp) < timestampDate)) {

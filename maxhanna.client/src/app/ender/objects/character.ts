@@ -603,6 +603,6 @@ export class Character extends GameObject {
       finally {
         this.latestMessageClearTimer = undefined;
       }
-    }, 20000); // 20 seconds TTL (matches latestMessagesMap filtering)
+  }, 10000); // 10 seconds TTL (chat bubble lifespan)
   }
 }
