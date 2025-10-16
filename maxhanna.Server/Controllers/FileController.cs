@@ -75,16 +75,32 @@ namespace maxhanna.Server.Controllers
 			try
 			{
 				List<FileEntry> fileEntries = new List<FileEntry>();
+				// Normalize fileType query values: callers may pass repeated fileType=params or a single comma-separated value.
+				var normalizedFileTypes = new List<string>();
+				if (fileType != null && fileType.Any())
+				{
+					foreach (var ft in fileType)
+					{
+						if (string.IsNullOrWhiteSpace(ft)) continue;
+						var parts = ft.Split(',', StringSplitOptions.RemoveEmptyEntries);
+						foreach (var p in parts)
+						{
+							var v = p.Trim();
+							if (!string.IsNullOrEmpty(v)) normalizedFileTypes.Add(v);
+						}
+					}
+				}
+
 				string fileTypeCondition = string.Empty;
-				if (fileType != null && fileType.Any() && !string.IsNullOrEmpty(string.Join(',', fileType)))
+				if (normalizedFileTypes.Any())
 				{
 					// sanitize and lower the file type values for SQL IN clause
-					var sanitized = fileType.Select(ft => "'" + (ft ?? string.Empty).ToLower().Replace("'", "''") + "'").ToArray();
+					var sanitized = normalizedFileTypes.Select(ft => "'" + (ft ?? string.Empty).ToLower().Replace("'", "''") + "'").ToArray();
 					var replaced = string.Join(",", sanitized);
 					fileTypeCondition = " AND LOWER(f.file_type) IN (" + replaced + ") ";
 				}
 				string fileIdCondition = fileId.HasValue ? " AND f.id = @fileId" : ""; 
-				bool isRomSearch = DetermineIfRomSearch(fileType ?? new List<string>());
+				bool isRomSearch = DetermineIfRomSearch(normalizedFileTypes);
 				string visibilityCondition = string.IsNullOrEmpty(visibility) || visibility.ToLower() == "all" ? "" : visibility.ToLower() == "public" ? " AND f.is_public = 1 " : " AND f.is_public = 0 ";
 				string ownershipCondition = string.IsNullOrEmpty(ownership) || ownership.ToLower() == "all" ? "" : ownership.ToLower() == "others" ? " AND f.user_id != @userId " : " AND f.user_id = @userId ";
 				// Unified hidden condition: allow all if explicit showHidden or user setting show_hidden_files = 1, else filter out hidden
@@ -159,10 +175,10 @@ namespace maxhanna.Server.Controllers
 						// Get the exact position of the file in the sorted results
 						var positionCommand = new MySqlCommand(
 								$@"SELECT COUNT(*) FROM (
-                        SELECT f.id, ROW_NUMBER() OVER (
-                            {(isRomSearch ? "ORDER BY f.last_access DESC" : "ORDER BY f.id DESC")}
-                        ) as pos
-                        FROM maxhanna.file_uploads f
+						SELECT f.id, ROW_NUMBER() OVER (
+							{(isRomSearch ? "ORDER BY f.last_access DESC" : (!string.IsNullOrEmpty(search) ? "ORDER BY MATCH(f.file_name, f.description, f.given_file_name) AGAINST(@FullTextSearch IN NATURAL LANGUAGE MODE) DESC" : "ORDER BY f.id DESC"))}
+						) as pos
+						FROM maxhanna.file_uploads f
                         LEFT JOIN maxhanna.users u ON f.user_id = u.id
                         LEFT JOIN maxhanna.users uu ON f.last_updated_by_user_id = uu.id
                         LEFT JOIN maxhanna.user_display_pictures udp ON udp.user_id = u.id
@@ -216,7 +232,15 @@ namespace maxhanna.Server.Controllers
 						}
 					}
 
-					orderBy = isRomSearch ? " ORDER BY f.last_access DESC " : orderBy;
+					// When searching, prefer ordering by relevance (MATCH...AGAINST) so nearest matches appear first
+					if (!string.IsNullOrWhiteSpace(search))
+					{
+						orderBy = "ORDER BY MATCH(f.file_name, f.description, f.given_file_name) AGAINST(@FullTextSearch IN NATURAL LANGUAGE MODE) DESC, date DESC";
+					}
+					else
+					{
+						orderBy = isRomSearch ? " ORDER BY f.last_access DESC " : orderBy;
+					}
 					(string searchCondition, List<MySqlParameter> extraParameters) = await GetWhereCondition(search, user);
 
 					var command = new MySqlCommand($@"
