@@ -93,14 +93,7 @@ export class Main extends GameObject {
   }
 
   drawBackground(ctx: CanvasRenderingContext2D) { 
-    // If background is a GameObject (container), use full draw; else fallback to sprite drawImage
-    const bg: any = this.level?.background;
-    if (!bg) return;
-    if (typeof bg.draw === 'function') {
-      bg.draw(ctx, 0, 0);
-    } else if (typeof bg.drawImage === 'function') {
-      bg.drawImage(ctx, 0, 0);
-    }
+    this.level?.background?.drawImage(ctx, 0, 0);
   }
 
   drawObjects(ctx: CanvasRenderingContext2D) { 

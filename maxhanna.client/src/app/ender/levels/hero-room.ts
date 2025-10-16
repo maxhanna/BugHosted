@@ -3,7 +3,6 @@ import { gridCells } from "../helpers/grid-cells";
 import { resources } from "../helpers/resources";
 import { Level } from "../objects/Level/level";
 import { Sprite } from "../objects/sprite";
-import { Stars } from "../objects/Effects/Stars/stars";
 
 
 export class HeroRoomLevel extends Level {
@@ -19,10 +18,12 @@ export class HeroRoomLevel extends Level {
       this.itemsFound = params.itemsFound;
     }
     
-  // Use Stars effect object for animated starfield background
-  const stars = new Stars();
-  // Assign the whole Stars container (so its child sprite animates in step loop)
-  this.background = stars;
+    this.background = new Sprite(
+      {
+        resource: resources.images["stars"], 
+        frameSize: new Vector2(320, 220),
+      }
+    );
 
     this.walls = new Set();
   }
