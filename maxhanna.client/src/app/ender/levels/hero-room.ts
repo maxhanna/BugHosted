@@ -20,8 +20,9 @@ export class HeroRoomLevel extends Level {
     }
     
   // Use Stars effect object for animated starfield background
-    const stars = new Stars();
-    this.background = stars.body!; // Level expects a Sprite
+  const stars = new Stars();
+  // Assign the whole Stars container (so its child sprite animates in step loop)
+  this.background = stars;
 
     this.walls = new Set();
   }
