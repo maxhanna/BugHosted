@@ -1,4 +1,4 @@
-import { AfterViewInit, ChangeDetectorRef, Component, ElementRef, Input, OnDestroy, OnInit, ViewChild } from '@angular/core';
+import { AfterViewInit, ChangeDetectorRef, Component, ElementRef, Input, OnDestroy, OnChanges, SimpleChanges, ViewChild } from '@angular/core';
 import { AppComponent } from '../app.component';
 import { ChildComponent } from '../child.component';
 import { TradeService } from '../../services/trade.service';
@@ -9,7 +9,7 @@ import { TradeService } from '../../services/trade.service';
   templateUrl: './crypto-trade-history.component.html',
   styleUrl: './crypto-trade-history.component.css'
 })
-export class CryptoTradeHistoryComponent extends ChildComponent implements AfterViewInit, OnDestroy {
+export class CryptoTradeHistoryComponent extends ChildComponent implements AfterViewInit, OnDestroy, OnChanges {
   constructor(private tradeService: TradeService, private changeDetectorRef: ChangeDetectorRef) { super(); }
 
   @Input() inputtedParentRef!: AppComponent;
@@ -60,6 +60,30 @@ export class CryptoTradeHistoryComponent extends ChildComponent implements After
       console.log(this.selectedCoin, this.selectedStrategy);
       this.checkBalance();
     }, 0);
+  }
+
+  ngOnChanges(changes: SimpleChanges) {
+    // When the parent changes the default coin or strategy, reload or clear the trade history
+    if (changes['defaultCoin'] && changes['defaultCoin'].currentValue !== changes['defaultCoin'].previousValue) {
+      if (this.defaultCoin) {
+        this.selectedCoin = this.defaultCoin.replace("BTC", "XBT");
+        this.currentTradePage = 1;
+        this.checkBalance();
+      } else {
+        // Clear existing data when no default coin is provided
+        this.tradebotBalances = [];
+        this.paginatedTradebotBalances = [];
+        this.totalTradePages = 0;
+        this.stopTradeHistoryPolling();
+        this.changeDetectorRef.detectChanges();
+      }
+    }
+
+    if (changes['defaultStrategy'] && changes['defaultStrategy'].currentValue !== changes['defaultStrategy'].previousValue) {
+      this.selectedStrategy = this.defaultStrategy ?? this.selectedStrategy;
+      this.currentTradePage = 1;
+      this.checkBalance();
+    }
   }
 
   ngOnDestroy(): void {

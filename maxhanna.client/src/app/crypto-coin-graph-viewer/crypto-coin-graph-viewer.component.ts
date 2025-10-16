@@ -101,6 +101,12 @@ export class CryptoCoinGraphViewerComponent extends ChildComponent implements On
   }
   private async getTradebotValuesForMainGraph(tradeUserId: number, sessionToken: string | undefined) {
     const token = sessionToken ?? "";
+  // Immediately clear any previous tradebot data so the UI doesn't show stale history
+  // while we fetch new data for the newly selected coin.
+  this.tradebotTradeValuesForMainGraph = [];
+  this.tradebotBalances = [];
+  // Trigger change detection so the template reflects the cleared state right away.
+  try { this.changeDetectorRef.detectChanges(); } catch { /* noop if view not ready */ }
     const COIN_REPLACEMENTS = [
       { from: /^BTC$/i, to: 'XBT' },
       { from: /^Bitcoin$/i, to: 'XBT' },
@@ -138,6 +144,10 @@ export class CryptoCoinGraphViewerComponent extends ChildComponent implements On
 
       this.tradebotBalances = combined;
       if (!combined.length) {
+        // Clear any previous trade values so stale data doesn't remain visible
+        this.tradebotTradeValuesForMainGraph = [];
+        this.tradebotBalances = [];
+        // Ensure template updates after clearing
         setTimeout(() => {
           this.changeDetectorRef.detectChanges();
         }, 50);
@@ -155,7 +165,9 @@ export class CryptoCoinGraphViewerComponent extends ChildComponent implements On
         };
       }); 
     } else {
-      this.tradebotTradeValuesForMainGraph = [];
+  // No tradebot data for this selection; clear any previous values
+  this.tradebotTradeValuesForMainGraph = [];
+  this.tradebotBalances = [];
     }
     
     setTimeout(() => {
