@@ -425,6 +425,7 @@ export function actionMultiplayerEvents(object: any, metaEvents: MetaEvent[]) {
         }
 
         if (event.eventType === "CHAT" && event.data) {
+          console.log("Received chat");
           const content = event.data["content"] ?? '';
           const name = event.data["sender"] ?? "Anon";
 
