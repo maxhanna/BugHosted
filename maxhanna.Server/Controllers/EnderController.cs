@@ -2405,8 +2405,35 @@ namespace maxhanna.Server.Controllers
         {
             try
             {
+                // If there's no killer specified, don't send notifications
                 if (!killerId.HasValue || killerId.Value == 0) return;
 
+                // Suicide: killer is the same hero as the victim. Send a single tailored notification instead of two.
+                if (killerId.Value == victimId)
+                {
+                    string insertSuicideNotif = @"
+                    INSERT INTO maxhanna.notifications (user_id, from_user_id, user_profile_id, text, date)
+                    SELECT v.user_id AS user_id,
+                           COALESCE(kh.user_id, 0) AS from_user_id,
+                           COALESCE(kh.user_id, 0) AS user_profile_id,
+                           'You crashed your own lightcycle!' AS text,
+                           UTC_TIMESTAMP()
+                    FROM maxhanna.ender_hero v
+                    LEFT JOIN maxhanna.ender_hero kh ON kh.id = @KillerHeroId
+                    WHERE v.id = @VictimHeroId AND v.user_id IS NOT NULL AND v.user_id != 0
+                    LIMIT 1;";
+
+                    using (var notifCmd = new MySqlCommand(insertSuicideNotif, connection, transaction))
+                    {
+                        notifCmd.Parameters.AddWithValue("@VictimHeroId", victimId);
+                        notifCmd.Parameters.AddWithValue("@KillerHeroId", killerId.Value);
+                        await notifCmd.ExecuteNonQueryAsync();
+                    }
+
+                    return;
+                }
+
+                // Standard case: notify victim they were killed by someone
                 string insertNotif = @"
                     INSERT INTO maxhanna.notifications (user_id, from_user_id, user_profile_id, text, date)
                     SELECT v.user_id AS user_id,
