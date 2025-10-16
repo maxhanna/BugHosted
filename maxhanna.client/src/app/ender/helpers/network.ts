@@ -352,6 +352,18 @@ export function actionMultiplayerEvents(object: any, metaEvents: MetaEvent[]) {
                 const found = object.mainScene.level.children.find((c: any) => c && c.id === victimId && c.name != "bike-wall");
                 if (found) {
                   try {
+                    let killerUserId: number | null = null; 
+                    if (killerId) {
+                      const kIdNum = parseInt(killerId + '');
+                      if (!isNaN(kIdNum)) {
+                        if (object.metaHero && object.metaHero.id === kIdNum) {
+                          killerUserId = object.metaHero.userId ?? null;
+                        } else if (Array.isArray(object.otherHeroes)) {
+                          const killerMeta = object.otherHeroes.find((h: any) => h && h.id === kIdNum);
+                          if (killerMeta) killerUserId = killerMeta.userId ?? null;
+                        }
+                      }
+                    }
                     found.destroy();
                     if (victimId == object.metaHero.id) {
                       // Extract cause from event.data (support string or object) and emit structured payload
@@ -369,7 +381,10 @@ export function actionMultiplayerEvents(object: any, metaEvents: MetaEvent[]) {
                           cause = null;
                         }
                       }
-                      events.emit("HERO_DIED", { killerId: killerId, cause: cause });
+                      // Resolve killerUserId (if killer is another hero or self) so UI doesn't have to look it up after arrays mutate
+               
+                      
+                      events.emit("HERO_DIED", { killerId: killerId, killerUserId: killerUserId, cause: cause });
                     } else {
                       object.heroEverMoved.delete(victimId);
                       object.lastServerPos.delete(victimId);

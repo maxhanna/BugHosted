@@ -225,10 +225,31 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
         this.isMuted = this.isMusicMuted && this.isSfxMuted;
     }
 
-    private async handleHeroDeath(killerId: string) {
-        const killerMeta = this.otherHeroes.find(h => h.id === parseInt(killerId)) ?? (this.metaHero.id === parseInt(killerId) ? this.metaHero : undefined);
-        this.deathKillerUserId = killerMeta?.userId ?? undefined;
-        console.log("handling death with : ", killerId, this.deathKillerUserId);
+    private async handleHeroDeath(params: { killerId?: string | number | null, killerUserId?: number | null, cause?: string | null } | string) {
+        let killerId: string | undefined = undefined;
+        let killerUserId: number | undefined = undefined;
+        let cause: string | undefined = undefined;
+        if (typeof params === 'string') {
+            killerId = params;
+        } else if (params && typeof params === 'object') {
+            killerId = params.killerId !== undefined && params.killerId !== null ? String(params.killerId) : undefined;
+            killerUserId = params.killerUserId !== undefined && params.killerUserId !== null ? params.killerUserId : undefined;
+            cause = params.cause ?? undefined;
+        }
+
+        if (!killerUserId && killerId) {
+            const parsed = parseInt(killerId + '');
+            if (!isNaN(parsed)) {
+                if (this.metaHero && this.metaHero.id === parsed) {
+                    killerUserId = this.metaHero.userId;
+                } else {
+                    const killerMeta = this.otherHeroes.find(h => h.id === parsed);
+                    if (killerMeta) killerUserId = killerMeta.userId;
+                }
+            }
+        }
+        this.deathKillerUserId = killerUserId;
+        console.log("handling death with : ", killerId, this.deathKillerUserId, cause);
         this.stopPollingForUpdates = true;
         this.isDead = true;
         this.stopRunTimer();
@@ -250,8 +271,8 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
 
     ngAfterViewInit() {
         this.mainScene.input.setChatInput(this.chatInput.nativeElement);
-        events.on("HERO_DIED", this, (killerId: string) => {
-            this.handleHeroDeath(killerId);
+        events.on("HERO_DIED", this, (payload: any) => {
+            this.handleHeroDeath(payload);
         });
         // Track bike wall placements so we can submit to highscores
         events.on("SPAWN_BIKE_WALL", this, (params: { x: number, y: number }) => {
