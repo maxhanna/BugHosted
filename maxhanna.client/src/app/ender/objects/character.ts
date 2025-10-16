@@ -28,7 +28,9 @@ export class Character extends GameObject {
   slopeStepHeight?: Vector2;
   speed: number = 1;
   scale: Vector2 = new Vector2(1, 1);
-  latestMessage = "";
+  // Auto-cleared chat bubble message (see getter/setter below)
+  private _latestMessage: string = "";
+  private latestMessageClearTimer: any; // timeout id for clearing latest message
   mask?: Mask = undefined
   distanceLeftToTravel? = 0;
   itemPickupTime: number = 0;
@@ -98,6 +100,11 @@ export class Character extends GameObject {
   }
 
   override destroy() { 
+    // Ensure any pending message clear timer is canceled to avoid leaks
+    if (this.latestMessageClearTimer) {
+      clearTimeout(this.latestMessageClearTimer); 
+      this.latestMessageClearTimer = undefined;
+    }
     this.destroyBody();
     events.unsubscribe(this);
     super.destroy();  
@@ -562,4 +569,40 @@ export class Character extends GameObject {
   private calculateExpForNextLevel(player: Character) {
     player.expForNextLevel = (player.level + 1) * 15;
   } 
+
+  // Expose latestMessage with side-effects so external assignments still work
+  get latestMessage(): string {
+    return this._latestMessage;
+  }
+  set latestMessage(val: string) {
+    if (this._latestMessage === val) return;
+    this._latestMessage = val || "";
+    // Reset cache so bubble redraws (or disappears) next frame
+    if (!this._latestMessage) {
+      this.messageCache = null;
+      this.cachedMessage = "";
+    }
+    // Schedule auto-clear if non-empty
+    this.scheduleLatestMessageAutoClear();
+  }
+
+  private scheduleLatestMessageAutoClear() {
+    if (this.latestMessageClearTimer) {
+      clearTimeout(this.latestMessageClearTimer); 
+      this.latestMessageClearTimer = undefined;
+    }
+    if (!this._latestMessage) return;  
+    this.latestMessageClearTimer = setTimeout(() => { 
+      try {
+        if (this._latestMessage) {
+          this._latestMessage = "";
+          this.messageCache = null;
+          this.cachedMessage = "";
+        }
+      } catch { }
+      finally {
+        this.latestMessageClearTimer = undefined;
+      }
+    }, 20000); // 20 seconds TTL
+  }
 }
