@@ -75,6 +75,27 @@
     border-bottom: 1px solid rgba(255,255,255,0.03);
 }
 
+/* Compact state when collapsed: reduce padding/height so bar appears much smaller */
+.coinPillBar.collapsed {
+    padding: 4px 6px;
+    gap: 6px;
+    max-height: 34px;
+    overflow: hidden;
+    align-items: center;
+    transition: max-height 160ms ease, padding 160ms ease, gap 160ms ease;
+}
+
+.coinPillBar.collapsed .coinPill {
+    padding: 4px 6px;
+    font-size: 12px;
+    opacity: 0.95;
+}
+
+.coinPillBar.collapsed .coinPillToggle {
+    padding: 4px 6px;
+    font-size: 12px;
+}
+
 .coinPill {
     padding: 6px 10px;
     border-radius: 999px;

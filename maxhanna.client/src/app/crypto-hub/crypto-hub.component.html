@@ -859,7 +859,8 @@
         </div>
       </div>
     </div>
-    <div>
+    <div style="display:flex; gap:8px; justify-content:flex-end;">
+      <button class="cursorPointer" (click)="openTradeFullscreen(); closeMenuPanel()" title="Open the tradebots panel in fullscreen">Maximize Trade Panel</button>
       <button id="closeOverlay" (click)="closeMenuPanel()" class="closeButton">Close</button>
     </div>
   </div>
