@@ -972,10 +972,9 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
         return new HeroRoomLevel();
     }
 
-    private getLatestMessages() {
-        console.log('get latest messages');
+    private getLatestMessages() { 
         this.latestMessagesMap.clear();
-    const bubbleCutoff = new Date(Date.now() - 10000); // 10s TTL for chat bubble
+        const bubbleCutoff = new Date(Date.now() - 10000); // 10s TTL for chat bubble
 
         this.chat.forEach((message: MetaChat) => {
             const timestampDate = message.timestamp ? new Date(message.timestamp) : undefined;
