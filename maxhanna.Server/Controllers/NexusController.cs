@@ -5359,20 +5359,20 @@ namespace maxhanna.Server.Controllers
 				await conn.OpenAsync();
 				// Use DB time (CURRENT_TIMESTAMP) with an INTERVAL literal so comparisons are performed in MySQL
 				string sql = $@"
-					SELECT COUNT(DISTINCT user_id) AS activeCount FROM (
-						SELECT origin_user_id AS user_id, timestamp AS ts FROM maxhanna.nexus_attacks_sent WHERE timestamp >= DATE_SUB(CURRENT_TIMESTAMP, INTERVAL {windowMinutes} MINUTE)
+					SELECT COUNT(*) AS activeCount FROM (
+						SELECT DISTINCT origin_user_id AS user_id FROM maxhanna.nexus_attacks_sent WHERE timestamp >= DATE_SUB(CURRENT_TIMESTAMP, INTERVAL {windowMinutes} MINUTE)
 						UNION
-						SELECT destination_user_id AS user_id, timestamp AS ts FROM maxhanna.nexus_attacks_sent WHERE timestamp >= DATE_SUB(CURRENT_TIMESTAMP, INTERVAL {windowMinutes} MINUTE)
+						SELECT DISTINCT destination_user_id AS user_id FROM maxhanna.nexus_attacks_sent WHERE timestamp >= DATE_SUB(CURRENT_TIMESTAMP, INTERVAL {windowMinutes} MINUTE)
 						UNION
-						SELECT origin_user_id AS user_id, timestamp AS ts FROM maxhanna.nexus_defences_sent WHERE timestamp >= DATE_SUB(CURRENT_TIMESTAMP, INTERVAL {windowMinutes} MINUTE)
+						SELECT DISTINCT origin_user_id AS user_id FROM maxhanna.nexus_defences_sent WHERE timestamp >= DATE_SUB(CURRENT_TIMESTAMP, INTERVAL {windowMinutes} MINUTE)
 						UNION
-						SELECT destination_user_id AS user_id, timestamp AS ts FROM maxhanna.nexus_defences_sent WHERE timestamp >= DATE_SUB(CURRENT_TIMESTAMP, INTERVAL {windowMinutes} MINUTE)
+						SELECT DISTINCT destination_user_id AS user_id FROM maxhanna.nexus_defences_sent WHERE timestamp >= DATE_SUB(CURRENT_TIMESTAMP, INTERVAL {windowMinutes} MINUTE)
 						UNION
-						SELECT nb.user_id AS user_id, p.timestamp AS ts FROM maxhanna.nexus_unit_purchases p JOIN maxhanna.nexus_bases nb ON nb.coords_x = p.coords_x AND nb.coords_y = p.coords_y WHERE p.timestamp >= DATE_SUB(CURRENT_TIMESTAMP, INTERVAL {windowMinutes} MINUTE)
+						SELECT DISTINCT nb.user_id AS user_id FROM maxhanna.nexus_unit_purchases p JOIN maxhanna.nexus_bases nb ON nb.coords_x = p.coords_x AND nb.coords_y = p.coords_y WHERE p.timestamp >= DATE_SUB(CURRENT_TIMESTAMP, INTERVAL {windowMinutes} MINUTE)
 						UNION
-						SELECT nb.user_id AS user_id, u.timestamp AS ts FROM maxhanna.nexus_unit_upgrades u JOIN maxhanna.nexus_bases nb ON nb.coords_x = u.coords_x AND nb.coords_y = u.coords_y WHERE u.timestamp >= DATE_SUB(CURRENT_TIMESTAMP, INTERVAL {windowMinutes} MINUTE)
+						SELECT DISTINCT nb.user_id AS user_id FROM maxhanna.nexus_unit_upgrades u JOIN maxhanna.nexus_bases nb ON nb.coords_x = u.coords_x AND nb.coords_y = u.coords_y WHERE u.timestamp >= DATE_SUB(CURRENT_TIMESTAMP, INTERVAL {windowMinutes} MINUTE)
 						UNION
-						SELECT user_id AS user_id, updated AS ts FROM maxhanna.nexus_bases WHERE updated >= DATE_SUB(CURRENT_TIMESTAMP, INTERVAL {windowMinutes} MINUTE)
+						SELECT DISTINCT user_id AS user_id FROM maxhanna.nexus_bases WHERE updated >= DATE_SUB(CURRENT_TIMESTAMP, INTERVAL {windowMinutes} MINUTE)
 					) x WHERE user_id IS NOT NULL;";
 
 				using var cmd = new MySqlCommand(sql, conn);
