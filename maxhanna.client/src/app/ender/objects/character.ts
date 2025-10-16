@@ -451,11 +451,18 @@ export class Character extends GameObject {
 
 
   drawLatestMessage(ctx: CanvasRenderingContext2D, characterCenterX: number, characterTopY: number) {
-    //if (!this.latestMessage.trim()) return;
+    // If message was cleared, ensure cache removed and skip drawing so bubble disappears
+    if (!this.latestMessage || !this.latestMessage.trim()) {
+      if (this.messageCache) {
+        this.messageCache = null;
+      }
+      this.cachedMessage = "";
+      return;
+    }
 
     // Only recreate cache if message changes
     if (this.latestMessage !== this.cachedMessage) {
-      this.cachedMessage = this.latestMessage;
+  this.cachedMessage = this.latestMessage; // track current message so we only regenerate on change
 
       // Create temp canvas for measurement
       const tempCanvas = document.createElement("canvas");
