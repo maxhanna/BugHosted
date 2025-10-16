@@ -3,7 +3,7 @@
   <div class="menuButton" (click)="showMenuPanel();" *ngIf="!isFullScreen"></div>
   <div class="componentTitle" *ngIf="!isFullScreen">Emulation</div>
   <div class="gamesContainer {{ !selectedRomName ? 'expanded' : '' }}" *ngIf="isSearchVisible">
-    <app-file-search [user]="parentRef?.user" [inputtedParentRef]="parentRef" [currentDirectory]="'roms/'"
+    <app-file-search [user]="parentRef?.user" [inputtedParentRef]="parentRef" [currentDirectory]="'Roms/'"
       [clearAfterSelectFile]="true" [allowedFileTypes]="getAllowedFileTypes()" [showPrivatePublicOption]="false"
       [showFileSearchOptions]="false" [canChangeDirectory]="false" [canDragMove]="false" [displayFileActions]="true"
       [displayComments]="false" [displayFileSize]="false" [displayReactions]="false"
