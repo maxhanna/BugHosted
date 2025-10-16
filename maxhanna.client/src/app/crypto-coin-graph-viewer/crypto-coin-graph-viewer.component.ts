@@ -106,6 +106,7 @@ export class CryptoCoinGraphViewerComponent extends ChildComponent implements On
       { from: /^Bitcoin$/i, to: 'XBT' },
       { from: /^Solana$/i, to: 'SOL' },
       { from: /^Dogecoin$/i, to: 'XDG' },
+      { from: /^XRP$/i, to: 'XRP' },
       { from: /^Ethereum$/i, to: 'ETH' },
     ];
 
