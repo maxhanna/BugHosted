@@ -723,8 +723,7 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
     }
 
     private setHeroLatestMessage(existingHero: any) {
-        console.log("set hero latest message ", existingHero);
-        if (!existingHero) return;
+        console.log("set hero latest message (goodone)", existingHero);
         const latestMsg = this.latestMessagesMap.get(existingHero.name);
         // If there's a current message
         if (latestMsg && latestMsg.content) {

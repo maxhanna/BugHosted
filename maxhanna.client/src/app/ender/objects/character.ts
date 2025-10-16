@@ -451,7 +451,7 @@ export class Character extends GameObject {
 
 
   drawLatestMessage(ctx: CanvasRenderingContext2D, characterCenterX: number, characterTopY: number) {
-    if (!this.latestMessage.trim()) return;
+    //if (!this.latestMessage.trim()) return;
 
     // Only recreate cache if message changes
     if (this.latestMessage !== this.cachedMessage) {
