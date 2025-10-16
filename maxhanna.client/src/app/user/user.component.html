@@ -71,7 +71,7 @@
             </div>
           </div>
           <!-- Relationship row: show friend/following status under Last Seen -->
-          <div class="seperatedUserHeader blackFontColor linkHighlights" *ngIf="user && parentRef?.user && user.id != parentRef.user?.id">
+          <div class="seperatedUserHeader blackFontColor linkHighlights" *ngIf="user && parentRef?.user?.id != null && user.id != parentRef?.user?.id">
             <div class="xxSmallFont" title="Relationship">Relationship: </div>
             <div>
               <span *ngIf="friendsIncludeMe()" class="smallFont">Friend</span>
