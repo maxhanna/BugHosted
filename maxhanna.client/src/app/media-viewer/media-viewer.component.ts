@@ -366,11 +366,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
 
         const contentDisposition = response.headers["content-disposition"];
         this.selectedFileExtension = this.fileService.getFileExtensionFromContentDisposition(contentDisposition);
-        const type = this.fileType = this.fileService.videoFileExtensions.includes(this.selectedFileExtension)
-          ? `video/${this.selectedFileExtension}`
-          : this.fileService.audioFileExtensions.includes(this.selectedFileExtension)
-            ? `audio/${this.selectedFileExtension}`
-            : `image/${this.selectedFileExtension}`;
+  const type = this.fileType = this.fileService.getMimeType(this.selectedFileExtension);
 
         const blob = new Blob([response.blob], { type });
         const reader = new FileReader();
