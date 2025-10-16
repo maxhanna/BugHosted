@@ -160,7 +160,7 @@ namespace maxhanna.Server.Controllers
 						var positionCommand = new MySqlCommand(
 								$@"SELECT COUNT(*) FROM (
                         SELECT f.id, ROW_NUMBER() OVER (
-                            {(isRomSearch ? "ORDER BY f.last_access DESC" : !string.IsNullOrEmpty(search) ? "ORDER BY f.id ASC" : "ORDER BY f.id DESC")}
+                            {(isRomSearch ? "ORDER BY f.last_access DESC" : "ORDER BY f.id DESC")}
                         ) as pos
                         FROM maxhanna.file_uploads f
                         LEFT JOIN maxhanna.users u ON f.user_id = u.id
