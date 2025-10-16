@@ -45,6 +45,10 @@ export class Character extends GameObject {
 
   private messageCache: HTMLCanvasElement | null = null;
   private cachedMessage: string = "";
+  // Track cleared message to suppress resurrection from polling while server still sends it
+  private lastClearedMessageSig: string | undefined;
+  private lastClearedAt: number = 0;
+  private currentMessageTimestamp: string | number | undefined;
 
   constructor(params: {
     id: number,
@@ -602,6 +606,9 @@ export class Character extends GameObject {
     this.latestMessageClearTimer = setTimeout(() => { 
       try {
         if (this._latestMessage) {
+          // Remember signature so we can suppress immediate reappearance of identical message
+          this.lastClearedMessageSig = this.computeMessageSignature(this._latestMessage, this.currentMessageTimestamp);
+          this.lastClearedAt = Date.now();
           this._latestMessage = "";
           this.messageCache = null;
           this.cachedMessage = "";
@@ -611,5 +618,32 @@ export class Character extends GameObject {
         this.latestMessageClearTimer = undefined;
       }
   }, 10000); // 10 seconds TTL (chat bubble lifespan)
+  }
+
+  // Safer external API to apply a chat message with optional timestamp
+  public applyChatMessage(content: string, timestamp?: string | number) {
+    if (!content) {
+      this.clearChatMessage();
+      return;
+    }
+    const sig = this.computeMessageSignature(content, timestamp);
+    // Suppress if same content just cleared within last 12s (buffer beyond TTL)
+    if (sig && this.lastClearedMessageSig === sig && Date.now() - this.lastClearedAt < 12000) {
+      return; // don't resurrect
+    }
+    this.currentMessageTimestamp = timestamp;
+    this.latestMessage = content;
+  }
+
+  public clearChatMessage() {
+    if (this._latestMessage) {
+      this.lastClearedMessageSig = this.computeMessageSignature(this._latestMessage, this.currentMessageTimestamp);
+      this.lastClearedAt = Date.now();
+    }
+    this.latestMessage = "";
+  }
+
+  private computeMessageSignature(content: string, timestamp?: string | number) {
+    return `${content}::${timestamp ?? ''}`;
   }
 }
