@@ -16,6 +16,7 @@ import { ExchangeRate } from '../../services/datacontracts/crypto/exchange-rate'
 import { MenuItem } from '../../services/datacontracts/user/menu-item';
 import { EnderService } from '../../services/ender.service';
 import { NexusService } from '../../services/nexus.service';
+import { TodoService } from '../../services/todo.service';
 import { MetaService } from '../../services/meta.service';
 
 @Component({
@@ -72,9 +73,10 @@ export class NavigationComponent implements OnInit, OnDestroy {
     private userService: UserService,
     private fileService: FileService,
     private notificationService: NotificationService,
-  private enderService: EnderService,
-  private nexusService: NexusService,
-  private metaService: MetaService) {
+    private enderService: EnderService,
+    private nexusService: NexusService,
+    private todoService: TodoService,
+    private metaService: MetaService) {
   }
 
   // runtime values for Ender nav item
@@ -89,6 +91,9 @@ export class NavigationComponent implements OnInit, OnDestroy {
   metaActivePlayers: number | null = null;
   metaUserRank: { rank?: number | null, level?: number | null, totalPlayers?: number | null } | null = null;
   private metaInterval: any;
+  // music playlist count
+  musicTodoCount: number | null = null;
+  private musicInterval: any;
 
   async ngOnInit() {
     this.navbarReady = true;
@@ -106,7 +111,8 @@ export class NavigationComponent implements OnInit, OnDestroy {
     clearInterval(this.notificationInfoInterval);
     clearInterval(this.enderInterval);
     clearInterval(this.nexusInterval);
-  clearInterval(this.metaInterval);
+    clearInterval(this.metaInterval);
+    clearInterval(this.musicInterval);
     this.showAppSelectionHelp = false;
     this.clearNotifications();
   }
@@ -138,7 +144,8 @@ export class NavigationComponent implements OnInit, OnDestroy {
     this.getWordlerStreakInfo();
     this.getEnderPlayerInfo();
     this.getNexusPlayerInfo();
-  this.getMetaPlayerInfo();
+    this.getMetaPlayerInfo();
+    this.getMusicInfo();
     this.getThemeInfo();
 
     this.notificationInfoInterval = setInterval(() => this.getNotificationInfo(), 20 * 1000); // every minute
@@ -147,7 +154,8 @@ export class NavigationComponent implements OnInit, OnDestroy {
     this.wordlerInfoInterval = setInterval(() => this.getWordlerStreakInfo(), 60 * 60 * 1000); // every hour
     this.enderInterval = setInterval(() => this.getEnderPlayerInfo(), 60 * 1000); // every minute
     this.nexusInterval = setInterval(() => this.getNexusPlayerInfo(), 60 * 1000); // every minute
-  this.metaInterval = setInterval(() => this.getMetaPlayerInfo(), 60 * 1000); // every minute
+    this.metaInterval = setInterval(() => this.getMetaPlayerInfo(), 60 * 1000); // every minute
+    this.musicInterval = setInterval(() => this.getMusicInfo(), 60 * 60 * 1000); // every hour
   }
 
   stopNotifications() {
@@ -414,30 +422,30 @@ export class NavigationComponent implements OnInit, OnDestroy {
     } catch (e) {
       this.enderUserRank = null;
     }
-      // Update Ender nav item content like Crypto-Hub / Notifications (use item.content)
-      if (this._parent?.navigationItems) {
-        const enderNav = this._parent.navigationItems.find(x => x.title === 'Ender');
-        if (enderNav) {
-          const parts: string[] = [];
-            if (this.enderActivePlayers != null) {
-              parts.push(this.enderActivePlayers.toString());
-            }
-            if (this.enderUserRank?.rank != null) {
-              parts.push(`#${this.enderUserRank.rank}`);
-            }
-            enderNav.content = parts.join('\n');
+    // Update Ender nav item content like Crypto-Hub / Notifications (use item.content)
+    if (this._parent?.navigationItems) {
+      const enderNav = this._parent.navigationItems.find(x => x.title === 'Ender');
+      if (enderNav) {
+        const parts: string[] = [];
+        if (this.enderActivePlayers != null) {
+          parts.push(this.enderActivePlayers.toString());
         }
+        if (this.enderUserRank?.rank != null) {
+          parts.push(`#${this.enderUserRank.rank}`);
+        }
+        enderNav.content = parts.join('\n');
       }
-    this.isLoadingEnder = false; 
+    }
+    this.isLoadingEnder = false;
   }
 
-  private async getNexusPlayerInfo() {  
+  private async getNexusPlayerInfo() {
     try {
       const res: any = await this.nexusService.getActivePlayers(2);
       this.nexusActivePlayers = res?.count ?? null;
     } catch (e) {
       this.nexusActivePlayers = null;
-    }  
+    }
     try {
       const userId = this._parent.user?.id ?? 0;
       if (userId) {
@@ -491,6 +499,22 @@ export class NavigationComponent implements OnInit, OnDestroy {
         if (this.metaActivePlayers != null) parts.push(this.metaActivePlayers.toString());
         if (this.metaUserRank?.rank != null) parts.push(`#${this.metaUserRank.rank}`);
         metaNav.content = parts.join('\n');
+      }
+    }
+  }
+
+  private async getMusicInfo() {
+    if (!this._parent?.user?.id) return;
+    try {
+      const res: any[] = await this.todoService.getTodo(this._parent.user.id, 'Music');
+      this.musicTodoCount = res?.length ?? 0;
+    } catch {
+      this.musicTodoCount = null;
+    }
+    if (this._parent?.navigationItems) {
+      const musicNav = this._parent.navigationItems.find(x => x.title === 'Music');
+      if (musicNav) {
+        musicNav.content = this.musicTodoCount && this.musicTodoCount > 0 ? this.musicTodoCount.toString() : '';
       }
     }
   }
