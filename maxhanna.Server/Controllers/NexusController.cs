@@ -5357,9 +5357,9 @@ namespace maxhanna.Server.Controllers
 			{
 				using var conn = new MySqlConnection(_connectionString);
 				await conn.OpenAsync();
-				// Use DB time (CURRENT_TIMESTAMP) with an INTERVAL literal so comparisons are performed in MySQL
+				// Build a query that returns all potentially active user_ids; we'll distinct them in C#
 				string sql = $@"
-					SELECT COUNT(DISTINCT user_id) AS activeCount FROM (
+					SELECT user_id FROM (
 						SELECT origin_user_id AS user_id FROM maxhanna.nexus_attacks_sent WHERE timestamp >= DATE_SUB(CURRENT_TIMESTAMP, INTERVAL {windowMinutes} MINUTE)
 						UNION ALL
 						SELECT destination_user_id AS user_id FROM maxhanna.nexus_attacks_sent WHERE timestamp >= DATE_SUB(CURRENT_TIMESTAMP, INTERVAL {windowMinutes} MINUTE)
@@ -5375,14 +5375,21 @@ namespace maxhanna.Server.Controllers
 						SELECT user_id AS user_id FROM maxhanna.nexus_bases WHERE updated >= DATE_SUB(CURRENT_TIMESTAMP, INTERVAL {windowMinutes} MINUTE)
 					) x WHERE user_id IS NOT NULL;";
 
-				using var cmd = new MySqlCommand(sql, conn);
-				using var reader = await cmd.ExecuteReaderAsync();
-				if (await reader.ReadAsync())
+				var distinctUserIds = new HashSet<int>();
+				using (var cmd = new MySqlCommand(sql, conn))
+				using (var reader = await cmd.ExecuteReaderAsync())
 				{
-					int activeCount = reader.IsDBNull(reader.GetOrdinal("activeCount")) ? 0 : reader.GetInt32("activeCount");
-					return Ok(new { count = activeCount });
+					while (await reader.ReadAsync())
+					{
+						if (!reader.IsDBNull(0))
+						{
+							int uid = reader.GetInt32(0);
+							// Only consider positive user ids
+							if (uid > 0) distinctUserIds.Add(uid);
+						}
+					}
 				}
-				return Ok(new { count = 0 });
+				return Ok(new { count = distinctUserIds.Count });
 			}
 			catch (Exception ex)
 			{
