@@ -645,6 +645,7 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
             }
             if (existingHero) {
                 this.setHeroLatestMessage(existingHero);
+                console.log("seettting his message", existingHero);
             }
             ids.push(hero.id);
         }
@@ -722,6 +723,7 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
     }
 
     private setHeroLatestMessage(existingHero: any) {
+        console.log("set hero latest message ", existingHero);
         if (!existingHero) return;
         const latestMsg = this.latestMessagesMap.get(existingHero.name);
         // If there's a current message
@@ -769,6 +771,7 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
         }
     }
     displayChatMessage() {
+        console.log('display chat messag');
         if (this.chat.length >= 10) {
             this.chat.pop();
         }
@@ -778,7 +781,7 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
 
         this.latestMessagesMap.clear();
         let latestMessages: string[] = [];
-    const bubbleCutoff = new Date(Date.now() - 10000); // 10s TTL for chat bubble
+        const bubbleCutoff = new Date(Date.now() - 10000); // 10s TTL for chat bubble
 
         this.chat.forEach((message: MetaChat) => {
             const timestampDate = message.timestamp ? new Date(message.timestamp) : undefined;
@@ -976,6 +979,7 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
     }
 
     private getLatestMessages() {
+        console.log('get latest messages');
         this.latestMessagesMap.clear();
     const bubbleCutoff = new Date(Date.now() - 10000); // 10s TTL for chat bubble
 
