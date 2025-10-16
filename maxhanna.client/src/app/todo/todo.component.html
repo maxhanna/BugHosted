@@ -26,6 +26,7 @@
           <th>
             <input placeholder="Search" #searchInput (keyup)="search()" />
             <button (click)="search()">🔍</button>
+            <button title="Clear" (click)="clearSearch()" class="smallClearButton">❌</button>
           </th> 
           <th></th>
           <th (click)="sortTable(2, 'todoTable')" title="Created">📅</th>
