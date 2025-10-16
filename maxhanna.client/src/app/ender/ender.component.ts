@@ -104,6 +104,8 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
     // Live elapsed seconds for HUD
     runElapsedSeconds: number = 0;
     private runElapsedInterval: any;
+    // (Timers removed: Character now self-manages chat bubble TTL)
+    // In-memory set of meta bike walls (keys: "x|y") for fast existence checks
     // Track only the highest wall id we've processed; we don't retain all wall coordinates persistently.
     private lastKnownWallId: number = 0;
     // Temporary cache of wall position keys added during the last update to avoid re-adding
@@ -721,9 +723,47 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
     }
 
     private setHeroLatestMessage(existingHero: any) {
-        if (!existingHero) return;
         const latestMsg = this.latestMessagesMap.get(existingHero.name);
-        existingHero.latestMessage = latestMsg ? latestMsg.content : "";
+        if (latestMsg && latestMsg.content) {
+            const existingTimer = this.heroMessageExpiryTimers.get(existingHero.id);
+            if (!existingTimer || existingTimer.msg !== latestMsg.content) {
+                if (existingTimer) {
+                    clearTimeout(existingTimer.timer);
+                    this.heroMessageExpiryTimers.delete(existingHero.id);
+                }
+                if (typeof existingHero.applyChatMessage === 'function') {
+                    existingHero.applyChatMessage(latestMsg.content, latestMsg.timestamp);
+                } else {
+                    existingHero.latestMessage = latestMsg.content;
+                }
+                const timer = setTimeout(() => {
+                    const current = this.heroMessageExpiryTimers.get(existingHero.id);
+                    if (current && current.msg === latestMsg.content) {
+                        this.latestMessagesMap.delete(existingHero.name);
+                        if (typeof existingHero.clearChatMessage === 'function') {
+                            existingHero.clearChatMessage();
+                        } else {
+                            existingHero.latestMessage = "";
+                        }
+                        this.heroMessageExpiryTimers.delete(existingHero.id);
+                    }
+                }, 10000); // 10s TTL
+                this.heroMessageExpiryTimers.set(existingHero.id, { timer, msg: latestMsg.content });
+            }
+        } else {
+            // No message -> clear any existing timer & bubble
+            const existingTimer = this.heroMessageExpiryTimers.get(existingHero.id);
+            if (existingTimer) {
+                clearTimeout(existingTimer.timer);
+                this.heroMessageExpiryTimers.delete(existingHero.id);
+            }
+            if (typeof existingHero.clearChatMessage === 'function') {
+                existingHero.clearChatMessage();
+            } else {
+                existingHero.latestMessage = "";
+            }
+            this.latestMessagesMap.delete(existingHero.name);
+        }
     }
     displayChatMessage() {
         console.log('display chat messag');

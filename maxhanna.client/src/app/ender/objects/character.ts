@@ -463,7 +463,7 @@ export class Character extends GameObject {
 
     // Only recreate cache if message changes
     if (this.latestMessage !== this.cachedMessage) {
-  this.cachedMessage = this.latestMessage; // track current message so we only regenerate on change
+      this.cachedMessage = this.latestMessage; // track current message so we only regenerate on change
 
       // Create temp canvas for measurement
       const tempCanvas = document.createElement("canvas");
