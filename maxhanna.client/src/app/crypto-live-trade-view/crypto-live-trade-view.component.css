@@ -87,3 +87,21 @@
 }
 
 .coinPill:hover { transform: translateY(-2px); background: linear-gradient(180deg,#555 0%,#222 100%); }
+
+/* When collapsed, hide coin pills but keep toggle visible */
+.coinPill.hiddenWhenCollapsed {
+    display: none;
+}
+
+.coinPillToggle {
+    margin-left: auto;
+    padding: 6px 8px;
+    border-radius: 6px;
+    background: rgba(255,255,255,0.04);
+    color: #fff;
+    border: none;
+    cursor: pointer;
+    font-weight: 700;
+}
+
+.coinPillToggle:hover { background: rgba(255,255,255,0.08); }

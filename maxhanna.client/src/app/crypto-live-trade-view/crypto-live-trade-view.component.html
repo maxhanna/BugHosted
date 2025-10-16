@@ -3,9 +3,12 @@
 </div>
 <!-- Sticky pill bar for quick navigation between coins -->
 <div class="coinPillBar" *ngIf="uniqueCurrencyBots.length > 0">
-    <div class="coinPill" *ngFor="let bot of uniqueCurrencyBots" (click)="scrollToCoin(bot.currency)" [title]="getNominalCoinName(bot.currency)">
+    <div class="coinPill" *ngFor="let bot of uniqueCurrencyBots" (click)="scrollToCoin(bot.currency)" [title]="getNominalCoinName(bot.currency)" [class.hiddenWhenCollapsed]="isPillBarCollapsed">
         {{ getNominalCoinName(bot.currency) }}
     </div>
+    <button class="coinPillToggle" (click)="togglePillBar()" [attr.aria-expanded]="!isPillBarCollapsed" [title]="isPillBarCollapsed ? 'Show coins' : 'Hide coins'">
+        {{ isPillBarCollapsed ? '▸' : '▾' }}
+    </button>
 </div>
 <div *ngFor="let bot of uniqueCurrencyBots; let i = index" class="grouping" [attr.data-coin]="bot.currency">
     <ng-container *ngIf="shouldShowComponent(i, 'graph'); else graphPlaceholder">

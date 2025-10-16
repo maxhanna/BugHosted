@@ -14,6 +14,8 @@ import { CryptoTradeHistoryComponent } from '../crypto-trade-history/crypto-trad
 })
 export class CryptoLiveTradeViewComponent extends ChildComponent implements AfterViewInit, OnDestroy {
   constructor(private cdr: ChangeDetectorRef) { super(); }
+  // Pill bar collapsed state
+  isPillBarCollapsed: boolean = false;
 
   // ViewChildren for accessing dynamic instances (useful for other logic, but not needed for destruction)
   @ViewChildren(CryptoCoinGraphViewerComponent) coinGraphViewers!: QueryList<CryptoCoinGraphViewerComponent>;
@@ -81,6 +83,11 @@ export class CryptoLiveTradeViewComponent extends ChildComponent implements Afte
     // Only clear custom timeouts; Angular handles child destruction automatically
     this.timeoutIds.forEach(id => clearTimeout(id));
     this.timeoutIds = [];
+  }
+
+  togglePillBar() {
+    this.isPillBarCollapsed = !this.isPillBarCollapsed;
+    this.cdr.markForCheck();
   }
 
   get uniqueCurrencyBots() {
