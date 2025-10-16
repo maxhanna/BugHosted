@@ -451,24 +451,68 @@ export class FileService {
 		const response = await this.getFileById(fileId, sessionToken);
 		if (!response || response == null) return '';
 		const contentDisposition = response.headers["content-disposition"];
-		const selectedFileExtension = this.getFileExtensionFromContentDisposition(contentDisposition);
-		const type = this.videoFileExtensions.includes(selectedFileExtension)
-			? `video/${selectedFileExtension}`
-			: this.audioFileExtensions.includes(selectedFileExtension)
-				? `audio/${selectedFileExtension}`
-				: `image/${selectedFileExtension}`;
-
-
+		let selectedFileExtension = this.getFileExtensionFromContentDisposition(contentDisposition);
+		if (!selectedFileExtension) {
+			try {
+				const entry: any = await this.getFileEntryById(fileId);
+				selectedFileExtension = (entry?.fileType || this.getFileExtension(entry?.fileName || '')) ?? '';
+			} catch {}
+		}
+		selectedFileExtension = selectedFileExtension.replace(/^\./,'');
+		const type = this.getMimeType(selectedFileExtension);
 		const blob = new Blob([response.blob], { type });
-
 		return new Promise((resolve, reject) => {
 			const reader = new FileReader();
 			reader.readAsDataURL(blob);
-			reader.onloadend = () => {
-				resolve(reader.result as string);
-			};
+			reader.onloadend = () => resolve(reader.result as string);
 			reader.onerror = reject;
 		});
+	}
+
+	/** Return an appropriate MIME type for a given extension (lower‑cased, no leading dot). */
+	getMimeType(ext: string): string {
+		if (!ext) return 'application/octet-stream';
+		const e = ext.toLowerCase().replace(/^\./, '');
+		if (this.videoFileExtensions.includes(e)) {
+			switch (e) {
+				case 'mkv': return 'video/x-matroska';
+				case 'mov': return 'video/quicktime';
+				case 'avi': return 'video/x-msvideo';
+				case 'wmv': return 'video/x-ms-wmv';
+				case 'flv': return 'video/x-flv';
+				case 'm4v': return 'video/x-m4v';
+				case 'ts':
+				case 'mts':
+				case 'm2ts': return 'video/mp2t';
+				case 'ogv': return 'video/ogg';
+				case 'webm': return 'video/webm';
+				case '3gp': return 'video/3gpp';
+				case '3g2': return 'video/3gpp2';
+				default: return `video/${e}`;
+			}
+		}
+		if (this.audioFileExtensions.includes(e)) {
+			if (e === 'ogg' || e === 'oga') return 'audio/ogg';
+			if (e === 'wav') return 'audio/wav';
+			if (e === 'mp3') return 'audio/mpeg';
+			if (e === 'aac') return 'audio/aac';
+			if (e === 'flac') return 'audio/flac';
+			if (e === 'opus') return 'audio/opus';
+			if (e === 'weba') return 'audio/webm';
+			return `audio/${e}`;
+		}
+		if (this.imageFileExtensions.includes(e)) {
+			if (e === 'jpg' || e === 'jpeg') return 'image/jpeg';
+			if (e === 'svg') return 'image/svg+xml';
+			if (e === 'bmp') return 'image/bmp';
+			if (e === 'webp') return 'image/webp';
+			if (e === 'tiff' || e === 'tif') return 'image/tiff';
+			if (e === 'ico' || e === 'cur') return 'image/x-icon';
+			if (e === 'avif') return 'image/avif';
+			if (e === 'heic' || e === 'heif') return 'image/heif';
+			return `image/${e}`;
+		}
+		return 'application/octet-stream';
 	}
 	getFileExtension(file: string) {
 		if (!file) return '';
