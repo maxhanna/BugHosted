@@ -506,8 +506,8 @@ export class NavigationComponent implements OnInit, OnDestroy {
   private async getMusicInfo() {
     if (!this._parent?.user?.id) return;
     try {
-      const res: any[] = await this.todoService.getTodo(this._parent.user.id, 'Music');
-      this.musicTodoCount = res?.length ?? 0;
+  const res: any = await this.todoService.getTodoCount(this._parent.user.id, 'Music');
+  this.musicTodoCount = res?.count ?? 0;
     } catch {
       this.musicTodoCount = null;
     }

@@ -545,6 +545,56 @@ namespace maxhanna.Server.Controllers
 		}
 
 
+		[HttpPost("/Todo/GetCount", Name = "GetTodoCount")]
+		public async Task<IActionResult> GetCount([FromBody] int userId, [FromQuery] string type, [FromQuery] string? search)
+		{
+			try
+			{
+				using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+				{
+					await conn.OpenAsync();
+
+					string sql = $@"
+                SELECT COUNT(DISTINCT t.id) AS cnt
+                FROM todo t
+                JOIN users u ON t.ownership = u.id
+                LEFT JOIN todo_columns tc ON t.ownership = tc.user_id AND tc.column_name = @Type
+                WHERE t.type = @Type
+                  AND (
+                        t.ownership = @UserId
+                        OR (
+                            tc.user_id IS NOT NULL
+                            AND FIND_IN_SET(@UserId, tc.shared_with)
+                        )
+                      )
+                  {(string.IsNullOrEmpty(search) ? "" : " AND t.todo LIKE CONCAT('%', @Search, '%')")};";
+
+					using (var cmd = new MySqlCommand(sql, conn))
+					{
+						cmd.Parameters.AddWithValue("@Type", type);
+						cmd.Parameters.AddWithValue("@UserId", userId);
+						if (!string.IsNullOrEmpty(search))
+						{
+							cmd.Parameters.AddWithValue("@Search", search);
+						}
+
+						var result = await cmd.ExecuteScalarAsync();
+						int count = 0;
+						if (result != null && result != DBNull.Value)
+						{
+							count = Convert.ToInt32(result);
+						}
+						return Ok(new { count = count });
+					}
+				}
+			}
+			catch (Exception ex)
+			{
+				_ = _log.Db("An error occurred while fetching todo count: " + ex.Message, userId, "TODO", true);
+				return StatusCode(500, "An error occurred while fetching todo count.");
+			}
+		}
+
 		[HttpPost("/Todo/Columns/Add")]
 		public async Task<IActionResult> AddColumn([FromBody] AddTodoColumnRequest req)
 		{

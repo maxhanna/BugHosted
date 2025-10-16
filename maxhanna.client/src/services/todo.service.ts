@@ -28,6 +28,23 @@ export class TodoService {
       return null;
     }
   }
+  async getTodoCount(userId: number, type: string, search?: string) {
+    if (!userId) return;
+    try {
+      let params = new URLSearchParams({ type: type });
+      if (search) {
+        params.set("search", search);
+      }
+      const response = await fetch('/todo/getcount?' + params, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(userId)
+      });
+      return await response.json(); // expects { count: number }
+    } catch (error) {
+      return null;
+    }
+  }
   async createTodo(userId: number, todo: Todo) {
     try {
       const response = await fetch('/todo/create', {
