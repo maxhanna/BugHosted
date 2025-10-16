@@ -337,53 +337,50 @@ export function actionMultiplayerEvents(object: any, metaEvents: MetaEvent[]) {
             const evLevel = event.level ?? (event.data && event.data["level"]) ?? null;
             const myLevel = object.metaHero?.level ?? object.mainScene?.level?.name ?? null;
             const victimId = event.heroId ?? (event.data && event.data["heroId"]) ?? null;
-            // Extract cause from event.data. Support both object payloads and stringified JSON.
+            // Extract killerId (and later killerUserId / cause) for local victim only
             let killerId: string | null = null;
             if (event.data && victimId == object.metaHero.id) {
-              if (typeof event.data === 'string') { 
-                const parsed = JSON.parse(event.data);
-                killerId = parsed?.killerId ?? parsed?.KillerId ?? parsed?.KILLERID ?? null; 
-              } else if (typeof event.data === 'object') {
-                killerId = event.data['killerId'] ?? event.data['KillerId'] ?? event.data['KILLERID'] ?? null;
-              }
+              try {
+                if (typeof event.data === 'string') {
+                  const parsed = JSON.parse(event.data);
+                  killerId = parsed?.killerId ?? parsed?.KillerId ?? parsed?.KILLERID ?? null;
+                } else if (typeof event.data === 'object') {
+                  killerId = event.data['killerId'] ?? event.data['KillerId'] ?? event.data['KILLERID'] ?? null;
+                }
+              } catch { /* ignore */ }
             }
             if (evLevel != null && myLevel != null && victimId != null && (evLevel === myLevel || String(evLevel) === String(myLevel))) {
               if (object.mainScene && object.mainScene.level && object.mainScene.level.children) {
                 const found = object.mainScene.level.children.find((c: any) => c && c.id === victimId && c.name != "bike-wall");
                 if (found) {
                   try {
-                    let killerUserId: number | null = null; 
-                    if (killerId) {
-                      const kIdNum = parseInt(killerId + '');
-                      if (!isNaN(kIdNum)) {
-                        if (object.metaHero && object.metaHero.id === kIdNum) {
-                          killerUserId = object.metaHero.userId ?? null;
-                        } else if (Array.isArray(object.otherHeroes)) {
-                          const killerMeta = object.otherHeroes.find((h: any) => h && h.id === kIdNum);
-                          if (killerMeta) killerUserId = killerMeta.userId ?? null;
-                        }
-                      }
-                    }
                     found.destroy();
                     if (victimId == object.metaHero.id) {
                       // Extract cause from event.data (support string or object) and emit structured payload
                       let cause: string | null = null;
+                      let killerUserId: number | null = null;
                       if (event.data) {
                         try {
                           if (typeof event.data === 'string') {
                             const parsed = JSON.parse(event.data);
                             cause = parsed?.cause ?? null;
+                            if (parsed?.killerUserId) {
+                              const ku = parseInt(parsed.killerUserId + '');
+                              killerUserId = isNaN(ku) ? null : ku;
+                            }
                           } else if (typeof event.data === 'object') {
                             cause = event.data['cause'] ?? null;
+                            const kuRaw = event.data['killerUserId'] ?? event.data['KillerUserId'] ?? event.data['KILLERUSERID'];
+                            if (kuRaw !== undefined && kuRaw !== null) {
+                              const ku = parseInt(kuRaw + '');
+                              killerUserId = isNaN(ku) ? null : ku;
+                            }
                           }
                         } catch (e) {
                           // ignore parse errors
                           cause = null;
                         }
                       }
-                      // Resolve killerUserId (if killer is another hero or self) so UI doesn't have to look it up after arrays mutate
-               
-                      
                       events.emit("HERO_DIED", { killerId: killerId, killerUserId: killerUserId, cause: cause });
                     } else {
                       object.heroEverMoved.delete(victimId);

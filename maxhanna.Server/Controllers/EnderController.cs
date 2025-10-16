@@ -180,7 +180,19 @@ namespace maxhanna.Server.Controllers
                                         var killerId = kv.Value;
                                         try
                                         {
-                                            var deathEvent = new MetaEvent(0, victimId, DateTime.UtcNow, "HERO_DIED", hero.Level, new Dictionary<string, string>() { { "cause", "BIKE_WALL" }, {"killerId", killerId + ""} });
+                                            // Resolve killer user id (if killerId present in current heroes snapshot)
+                                            string killerUserIdStr = "";
+                                            if (killerId.HasValue && heroes != null)
+                                            {
+                                                var killerMeta = heroes.FirstOrDefault(hh => hh != null && hh.Id == killerId.Value);
+                                                if (killerMeta != null && killerMeta.UserId > 0)
+                                                {
+                                                    killerUserIdStr = killerMeta.UserId.ToString();
+                                                }
+                                            }
+                                            var deathData = new Dictionary<string, string>() { { "cause", "BIKE_WALL" }, { "killerId", killerId + "" } };
+                                            if (!string.IsNullOrWhiteSpace(killerUserIdStr)) deathData["killerUserId"] = killerUserIdStr;
+                                            var deathEvent = new MetaEvent(0, victimId, DateTime.UtcNow, "HERO_DIED", hero.Level, deathData);
                                             await UpdateEventsInDB(deathEvent, connection, transaction);
                                             Console.WriteLine("added event death event for heroId" + victimId);
                                             await SendKillNotificationAsync(victimId, killerId, connection, transaction);
