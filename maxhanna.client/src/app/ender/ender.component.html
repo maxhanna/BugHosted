@@ -86,56 +86,30 @@
       <div class="start" (mouseup)='mainScene.input.pressStart()'>START</div>
     </div>
 
-    <!-- Live run HUD -->
-    <div class="runHud" *ngIf="parentRef?.user?.id && !isMenuPanelOpen && !showOtherHeroesPanel && !showDeathPanel"
-      style="position:fixed; bottom: 200px; right: 20px; color:var(--secondary-font-color); text-shadow:0 -1px 0 #222;">
-      <div title="Total time alive" *ngIf="mainScene?.level?.name != 'CharacterCreate'">
-        <strong>Time:</strong> {{runElapsedSeconds}}s
+    <!-- Live run HUD (split for mobile) -->
+    <div class="runHud hudWrapper" *ngIf="parentRef?.user?.id && !isMenuPanelOpen && !showOtherHeroesPanel && !showDeathPanel">
+      <div class="hudCol hudColPrimary" *ngIf="mainScene?.level?.name != 'CharacterCreate'">
+        <div title="Total time alive"><strong>Time:</strong> {{runElapsedSeconds}}s</div>
+        <div title="Number of walls placed"><strong>Walls:</strong> {{wallsPlacedThisRun}}</div>
+        <div title="Score = Total Time + Number Of Walls"><strong>Score:</strong> {{currentScore}}</div>
+        <div title="Current level"><strong>Level:</strong> {{metaHero.level}}</div>
       </div>
-      <div title="Number of walls placed" *ngIf="mainScene?.level?.name != 'CharacterCreate'">
-        <strong>Walls:</strong> {{wallsPlacedThisRun}}
-      </div>
-      <div title="Score = Total Time + Number Of Walls" *ngIf="mainScene?.level?.name != 'CharacterCreate'">
-        <strong>Score:</strong> {{currentScore}}
-      </div>
-      <div title="Current level" *ngIf="mainScene?.level?.name != 'CharacterCreate'">
-        <strong>Level:</strong> {{metaHero.level}}
-      </div>
-      <div title="Number of players killed" *ngIf="mainScene?.level?.name != 'CharacterCreate'">
-        <strong>Kills:</strong> {{metaHero.kills}}
-      </div>
-      <div class="cursorPointerUnderlined" (click)="openOtherHeroesPanel()" title="Show other heroes on this level"
-        *ngIf="mainScene?.level?.name != 'CharacterCreate'">
-        <strong>Enemies:</strong> {{enemiesOnSameLevelCount}}
-      </div>
-      <div *ngIf="metaHero && metaHero.position">
-        <strong>
-          {{ snapToGridFetch(metaHero.position.x) }},
-          {{ snapToGridFetch(metaHero.position.y) }}
-        </strong>
-      </div>
-      <div class="musicOptionsContainer">
-        <div>
-          <button class="musicButton" (click)="toggleSfx()" style="margin-bottom:6px;" [title]="isSfxMuted ? 'Unmute SFX' : 'Mute SFX'" aria-label="SFX toggle">
-            {{ isSfxMuted ? '🔇' : '🔊' }}
-          </button>
+      <div class="hudCol hudColSecondary" *ngIf="mainScene?.level?.name != 'CharacterCreate'">
+        <div title="Number of players killed"><strong>Kills:</strong> {{metaHero.kills}}</div>
+        <div class="cursorPointerUnderlined" (click)="openOtherHeroesPanel()" title="Show other heroes on this level">
+          <strong>Enemies:</strong> {{enemiesOnSameLevelCount}}
         </div>
-        <div style="margin-top:6px;">
-          <button class="musicButton" (click)="toggleMusic()" [title]="isMusicMuted ? 'Unmute Music' : 'Mute Music'" aria-label="Music toggle">
-            {{ isMusicMuted ? '🔇' : '🎵' }}
-          </button>
+        <div *ngIf="metaHero && metaHero.position" class="coords"><strong>{{ snapToGridFetch(metaHero.position.x) }}, {{ snapToGridFetch(metaHero.position.y) }}</strong></div>
+        <div class="musicOptionsContainer compactMusic">
+          <button class="musicButton" (click)="toggleSfx()" [title]="isSfxMuted ? 'Unmute SFX' : 'Mute SFX'" aria-label="SFX toggle">{{ isSfxMuted ? '🔇' : '🔊' }}</button>
+          <button class="musicButton" (click)="toggleMusic()" [title]="isMusicMuted ? 'Unmute Music' : 'Mute Music'" aria-label="Music toggle">{{ isMusicMuted ? '🔇' : '🎵' }}</button>
         </div>
       </div>
-      <div *ngIf="mainScene?.level?.name === 'CharacterCreate'">
-        <div>
-          <strong>Color:</strong>
-        </div>
-        <input type="color" (change)='changeColor()' #colorInput class="colorInput"
-          [value]="cachedDefaultColor ?? metaHero.color" />
+      <div class="hudCol hudColPrimary characterCreate" *ngIf="mainScene?.level?.name === 'CharacterCreate'">
+        <div><strong>Color:</strong></div>
+        <input type="color" (change)='changeColor()' #colorInput class="colorInput" [value]="cachedDefaultColor ?? metaHero.color" />
       </div>
-      <div *ngIf="serverDown" class="bold" style="color:red">
-        Server Down
-      </div>
+      <div class="hudCol" *ngIf="serverDown"><span class="serverDown">Server Down</span></div>
     </div>
   </div>
 

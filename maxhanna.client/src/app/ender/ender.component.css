@@ -392,6 +392,58 @@ body {
   z-index: 9999;
 }
 
+/* HUD split layout */
+.hudWrapper {
+  position: fixed;
+  bottom: 170px;
+  right: 12px;
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  flex-wrap: nowrap;
+}
+
+.hudCol {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 110px;
+}
+
+/* marker classes for possible future specific styling */
+
+.coords { font-size: 12px; opacity: 0.9; }
+.serverDown { color: red; font-weight: bold; }
+
+/* Compact music buttons for tight space */
+.compactMusic { flex-direction: row; gap: 6px; justify-content: flex-start; }
+.compactMusic .musicButton { margin: 0; padding: 4px 6px; }
+
+@media (max-width: 760px) {
+  .hudWrapper {
+    flex-direction: row;
+    bottom: 155px;
+    right: 8px;
+    gap: 6px;
+  }
+  .hudCol {
+    padding: 4px 6px;
+    background: rgba(0,0,0,0.35);
+    border-radius: 6px;
+    border: 1px solid rgba(255,255,255,0.05);
+    backdrop-filter: blur(2px);
+  }
+  .runHud { background: transparent; box-shadow: none; padding: 0; border: 0; }
+  .hudColPrimary, .hudColSecondary { font-size: 12px; }
+  .hudColPrimary div, .hudColSecondary div { line-height: 1.1; }
+  .compactMusic .musicButton { font-size: 12px; }
+}
+
+@media (max-width: 500px) {
+  .hudWrapper { flex-wrap: wrap; max-width: 65vw; }
+  .hudCol { min-width: 95px; }
+}
+
 .runHud div {
   line-height: 1.2;
 }
