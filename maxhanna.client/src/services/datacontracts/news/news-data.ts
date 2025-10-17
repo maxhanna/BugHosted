@@ -7,7 +7,8 @@ export interface ArticlesResult {
 }
 
 export interface Article {
-  source: Source;
+  // source may be null when the upstream data doesn't provide it
+  source: Source | null;
   author: string;
   title: string;
   description: string;
@@ -21,8 +22,8 @@ export interface Article {
 }
 
 export interface Source {
-  id: string;
-  name: string;
+  id?: string | null;
+  name?: string | null;
 }
 
 export interface Error {

@@ -68,7 +68,10 @@ export class CryptoNewsArticlesComponent extends ChildComponent implements After
     }
 
     selectArticle(article: Article): void {
-        if (this.selectedArticle) { this.selectedArticle = undefined; return; }
+        if (this.selectedArticle) { 
+            this.selectedArticle = undefined; 
+            return;
+        }
         this.selectedArticle = article;
         this.parentRef?.hideBodyOverflow();
     }
