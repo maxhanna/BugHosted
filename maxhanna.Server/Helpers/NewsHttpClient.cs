@@ -34,6 +34,26 @@ namespace maxhanna.Server.Helpers
                 var req = new HttpRequestMessage(HttpMethod.Get, builder.ToString());
                 req.Headers.Add("X-Api-Key", ApiKey);
 
+                // NewsAPI requires a User-Agent header. Allow overriding via config (NewsApi:UserAgent).
+                // If not provided, use a sensible default that identifies this application.
+                try
+                {
+                    var userAgent = "maxhanna-server/1.0 (+https://github.com/maxhanna/BugHosted)";
+                   
+                    try
+                    {
+                        req.Headers.UserAgent.ParseAdd(userAgent);
+                    }
+                    catch
+                    {
+                        req.Headers.Add("User-Agent", userAgent);
+                    }
+                }
+                catch
+                {
+                    // Do not fail the request if header adding/logging fails.
+                }
+
                 try { await _log.Db($"NewsHttpClient: ApiKey length={(ApiKey ?? string.Empty).Length}", null, "NEWSSERVICE", false); } catch { }
 
                 var resp = await _http.SendAsync(req);
