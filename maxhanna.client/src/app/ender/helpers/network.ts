@@ -436,13 +436,16 @@ export function actionMultiplayerEvents(object: any, metaEvents: MetaEvent[]) {
             timestamp: event.timestamp ? new Date(event.timestamp) : new Date()
           } as MetaChat;
 
+          // Previous logic blocked ANY new message from same hero for ~10s.
+          // We only want to suppress true network duplicates (identical content arriving twice very close together).
           const isDuplicate = object.chat && object.chat.some((m: MetaChat) => {
             try {
               if (!m || !m.hero) return false;
               if (m.hero !== name) return false;
-              if ((m.content ?? '') == (content ?? '')) return true;
+              // Treat as duplicate only if content matches AND within 2s window
+              if ((m.content ?? '') !== (content ?? '')) return false;
               const mts = m.timestamp ? new Date(m.timestamp).getTime() : 0;
-              return Math.abs(mts - eventTs) < 10000; // 10 seconds
+              return Math.abs(mts - eventTs) < 2000; // 2 seconds duplicate suppression
             } catch { return false; }
           });
           if (!isDuplicate) {
