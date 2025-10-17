@@ -245,41 +245,9 @@ public class NewsService
 		}
 		return null;
 	}
-	public async Task<ArticlesResult?> GetTopCryptoHeadlines()
-	{
-		Console.WriteLine("Getting top crypto headlines");
-		try
-		{
-				var articlesResponse = await _newsHttp.GetTopHeadlinesAsync(null, "en");
-				if (articlesResponse == null) return null;
-				Console.WriteLine("Number of results: " + (articlesResponse.Articles?.Count ?? 0));
-				return new ArticlesResult
-				{
-					Status = articlesResponse.Status,
-					TotalResults = articlesResponse.TotalResults,
-					Articles = articlesResponse.Articles?.Select(a => new Article
-					{
-						Title = a.Title,
-						Description = a.Description,
-						Url = a.Url,
-						PublishedAt = a.PublishedAt,
-						UrlToImage = a.UrlToImage,
-						Content = a.Content,
-						Author = a.Author
-					}).ToList() ?? new List<Article>()
-				};
-			
-		}
-		catch (Exception ex)
-		{
-			_ = _log.Db("Exception GetTopCryptoHeadlines: " + ex.Message, null, "NEWSSERVICE", true);
-			return null;
-		} 
-	}
-
 	public async Task<bool> GetAndSaveTopQuarterHourlyHeadlines(string? keyword)
 	{
-		const int articlesToTake = 20;
+		const int articlesToTake = 60;
 		try
 		{
 			using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
@@ -304,12 +272,12 @@ public class NewsService
 				return false;
 			}
 
-			var top20 = articlesResult.Articles.Take(articlesToTake).ToList();
+			var top60 = articlesResult.Articles.Take(articlesToTake).ToList();
 			int successfullyInsertedCount = 0;
  
 			using var transaction = await conn.BeginTransactionAsync();
 
-			foreach (var article in top20)
+			foreach (var article in top60)
 			{
 				try
 				{
@@ -355,7 +323,7 @@ public class NewsService
 					// Compute per-article negative counts and collect IDs for articles that contributed
 					int totalNegativeCount = 0;
 					var contributingArticleIds = new List<int>();
-					foreach (var article in top20)
+					foreach (var article in top60)
 					{
 						int perCount = CountNegativeWordsInArticle(article);
 						totalNegativeCount += perCount;
