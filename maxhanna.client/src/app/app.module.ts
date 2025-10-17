@@ -90,6 +90,7 @@ import { EnderComponent } from './ender/ender.component';
 import { EnderHighScoresComponent } from './ender-high-scores/ender-high-scores.component';
 import { CryptoTopTradersComponent } from './crypto-top-traders/crypto-top-traders.component';
 import { WordlerHighScoresComponent } from './wordler-high-scores/wordler-high-scores.component';
+import { CryptoNewsArticlesComponent } from './crypto-news-articles/crypto-news-articles.component';
 import { AppMenuItemComponent } from './app-menu-item/app-menu-item.component';
 
 @NgModule({
@@ -138,7 +139,7 @@ import { AppMenuItemComponent } from './app-menu-item/app-menu-item.component';
     ClickableUrlsPipe,
     CurrencyFlagPipe,
     CurrencyShortenPipe,
-  CountShortenPipe,
+    CountShortenPipe,
     HostAiComponent,
     ThemesComponent,
     CrawlerComponent,
@@ -168,6 +169,7 @@ import { AppMenuItemComponent } from './app-menu-item/app-menu-item.component';
     EnderComponent,
     EnderHighScoresComponent,
     CryptoTopTradersComponent,
+    CryptoNewsArticlesComponent,
     WordlerHighScoresComponent,
   ],
   bootstrap: [AppComponent],
@@ -188,7 +190,7 @@ import { AppMenuItemComponent } from './app-menu-item/app-menu-item.component';
     TimeSincePipe,
     CurrencyFlagPipe,
     CurrencyShortenPipe,
-  CountShortenPipe,
+    CountShortenPipe,
     CurrencySymbolPipe,
     FileSizePipe
   ],
