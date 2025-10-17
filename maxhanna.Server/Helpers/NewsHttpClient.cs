@@ -33,25 +33,15 @@ namespace maxhanna.Server.Helpers
 
                 var req = new HttpRequestMessage(HttpMethod.Get, builder.ToString());
                 req.Headers.Add("X-Api-Key", ApiKey);
-
-                // NewsAPI requires a User-Agent header. Allow overriding via config (NewsApi:UserAgent).
-                // If not provided, use a sensible default that identifies this application.
+                 
+                var userAgent = "maxhanna-server/1.0 (+https://github.com/maxhanna/BugHosted)";
                 try
                 {
-                    var userAgent = "maxhanna-server/1.0 (+https://github.com/maxhanna/BugHosted)";
-                   
-                    try
-                    {
-                        req.Headers.UserAgent.ParseAdd(userAgent);
-                    }
-                    catch
-                    {
-                        req.Headers.Add("User-Agent", userAgent);
-                    }
+                    req.Headers.UserAgent.ParseAdd(userAgent);
                 }
                 catch
                 {
-                    // Do not fail the request if header adding/logging fails.
+                    req.Headers.Add("User-Agent", userAgent);
                 }
 
                 try { await _log.Db($"NewsHttpClient: ApiKey length={(ApiKey ?? string.Empty).Length}", null, "NEWSSERVICE", false); } catch { }
@@ -60,12 +50,7 @@ namespace maxhanna.Server.Helpers
                 var respText = await resp.Content.ReadAsStringAsync();
                 if (!resp.IsSuccessStatusCode)
                 {
-                    try
-                    {
-                        Console.WriteLine("NewsHttpClient NON-SUCCESS: " + (int)resp.StatusCode + " " + resp.ReasonPhrase + "\n" + respText);
-                        await _log.Db($"NewsHttpClient.NON-SUCCESS {(int)resp.StatusCode} {resp.ReasonPhrase}\n{respText}", null, "NEWSSERVICE", true);
-                    }
-                    catch { }
+                    await _log.Db($"NewsHttpClient.NON-SUCCESS {(int)resp.StatusCode} {resp.ReasonPhrase}\n{respText}", null, "NEWSSERVICE", true);
                     return null;
                 }
 
@@ -76,15 +61,13 @@ namespace maxhanna.Server.Helpers
                 }
                 catch (Exception ex)
                 {
-                    try { await _log.Db("NewsHttpClient - failed to deserialize response: " + ex.Message + "\nRawResponse:\n" + respText, null, "NEWSSERVICE", true); } catch { }
+                    await _log.Db("NewsHttpClient - failed to deserialize response: " + ex.Message + "\nRawResponse:\n" + respText, null, "NEWSSERVICE", true);
                 }
-
-                try { await _log.Db("NewsHttpClient - response body:\n" + (respText ?? ""), null, "NEWSSERVICE", true); } catch { }
-
                 return body;
             }
-            catch
+            catch (Exception ex)
             {
+                await _log.Db("NewsHttpClient - failed: " + ex.Message, null, "NEWSSERVICE", true);
                 return null;
             }
         }

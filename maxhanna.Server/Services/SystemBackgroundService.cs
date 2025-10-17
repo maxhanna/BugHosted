@@ -72,14 +72,15 @@ namespace maxhanna.Server.Services
 			// Each timer keeps its periodic interval; the initial due time is randomized.
 			var rnd = new Random((int)DateTime.UtcNow.Ticks & 0x0000FFFF);
 
-			// Small randomized delays for first run (only)
-			TimeSpan tenSecDelay = TimeSpan.FromSeconds(rnd.Next(2, 8)); // 2-7s
-			TimeSpan halfMinDelay = TimeSpan.FromSeconds(rnd.Next(8, 16)); //8-16s
-			TimeSpan minuteDelay = TimeSpan.FromSeconds(rnd.Next(16, 32));
-			TimeSpan fiveMinDelay = TimeSpan.FromSeconds(rnd.Next(32, 40));
-			TimeSpan hourlyDelay = TimeSpan.FromSeconds(rnd.Next(40, 48));
-			TimeSpan threeHourDelay = TimeSpan.FromSeconds(rnd.Next(48, 56));
-			TimeSpan sixHourDelay = TimeSpan.FromSeconds(rnd.Next(56, 60));
+			// Small randomized delays for first run (only) - compressed so first executions happen sooner
+			// Keep jitter to avoid thundering starts but reduce overall span.
+			TimeSpan tenSecDelay = TimeSpan.FromSeconds(rnd.Next(1, 3));    // 1-2s
+			TimeSpan halfMinDelay = TimeSpan.FromSeconds(rnd.Next(2, 6));   // 2-5s
+			TimeSpan minuteDelay = TimeSpan.FromSeconds(rnd.Next(4, 12));   // 4-11s
+			TimeSpan fiveMinDelay = TimeSpan.FromSeconds(rnd.Next(8, 25));  // 8-24s
+			TimeSpan hourlyDelay = TimeSpan.FromSeconds(rnd.Next(12, 40));  // 12-39s
+			TimeSpan threeHourDelay = TimeSpan.FromSeconds(rnd.Next(20, 80)); // 20-79s
+			TimeSpan sixHourDelay = TimeSpan.FromSeconds(rnd.Next(30, 120));  // 30-119s
 
 			_tenSecondTimer.Change(tenSecDelay, TimeSpan.FromSeconds(10));
 			_halfMinuteTimer.Change(halfMinDelay, TimeSpan.FromSeconds(30));
