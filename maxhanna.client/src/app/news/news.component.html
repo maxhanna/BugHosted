@@ -39,13 +39,13 @@
               Author(s): {{ getAuthors(newsArticle) }}
             </div>
             <div class="articleSource cursorPointerUnderlined" (click)="openSource(newsArticle.url)">
-              Source: {{ newsArticle.source.name }}
+              Source: {{ newsArticle.source?.name }}
             </div>
             <div class="articleDate cursorPointerUnderlined" (click)="openSource(newsArticle.url)">
               Published Date: {{ newsArticle.publishedAt }}
             </div>
             <div class="articleDate cursorPointerUnderlined">
-              <button (click)="parentRef?.addFavourite(newsArticle.url, newsArticle.urlToImage, newsArticle.source.name)" title="Add to Favourites" class="cursorPointer">❤️</button>
+              <button (click)="parentRef?.addFavourite(newsArticle.url, newsArticle.urlToImage, newsArticle.source?.name)" title="Add to Favourites" class="cursorPointer">❤️</button>
             </div>
           </div>
           <div class="mainArticleImage">
@@ -65,7 +65,7 @@
       <div class="articleDetails">
         <div class="articleDetailData">
           <div class="articleAuthor cursorPointerUnderlined" (click)="openSource(selectedArticle.url)">Author(s): {{ getAuthors(selectedArticle) }}</div>
-          <div class="articleSource cursorPointerUnderlined" (click)="openSource(selectedArticle.url)">Source: {{ selectedArticle.source.name }}</div>
+          <div class="articleSource cursorPointerUnderlined" (click)="openSource(selectedArticle.url)">Source: {{ selectedArticle.source?.name }}</div>
           <div class="articleDate cursorPointerUnderlined" (click)="openSource(selectedArticle.url)">Published Date: {{ selectedArticle.publishedAt }}</div>
         </div>
         <div class="mainArticleImage"><img class="articleImage" [attr.loading]="'lazy'" src="{{ selectedArticle.urlToImage }}" /></div>
@@ -75,7 +75,7 @@
       <button id="closeOverlay" (click)="selectedArticle = undefined">Close</button>
       <button (click)="saveArticle(selectedArticle)">💾Save</button>
       <button (click)="openSource(selectedArticle.url)">📰Read</button>
-      <button (click)="parentRef?.addFavourite(selectedArticle.url, selectedArticle.urlToImage, selectedArticle.source.name)" title="Add to Favourites" class="cursorPointer">❤️</button>
+  <button (click)="parentRef?.addFavourite(selectedArticle.url, selectedArticle.urlToImage, selectedArticle.source?.name)" title="Add to Favourites" class="cursorPointer">❤️</button>
     </div>
     <div class="closeButton" (click)="selectedArticle = undefined"></div>
   </div>
