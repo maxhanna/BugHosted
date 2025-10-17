@@ -179,7 +179,7 @@
         <div *ngFor="let h of otherHeroes; trackBy: trackByHeroId" class="otherHeroRow gbx-row">
           <div class="otherHeroesUserInfo" [style.borderBottomColor]="h.color">
             <div><strong>{{h.name}}</strong> <span *ngIf="h.id === metaHero.id">(You)</span></div>
-            <div class="smallFont">Lvl {{h.level}} | Kills {{h.kills}} | Time {{getHeroTimeOnMap(h.id)}}s</div>
+            <div class="smallFont">Lvl {{h.level}} | Kills {{h.kills}} | Time {{getHeroTimeOnMap(h.id) | timeFormat: 'minify' }}</div>
             <div *ngIf="h.color" class="xSmallFont">
               Color:
               <span [style.background]="h.color" class="colorSwatch">{{h.color}}</span>
