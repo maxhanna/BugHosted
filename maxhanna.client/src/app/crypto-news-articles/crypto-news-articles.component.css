@@ -116,3 +116,20 @@
 .crypto-news {
     padding: 20px;
 }
+
+.mainArticleImage {
+    text-align: center;
+}
+
+.popupArticleImage {
+    max-height: 600px;
+    max-width: 600px;
+    object-fit: contain;
+}
+
+@media only screen and (max-width : 1000px) {
+    .popupArticleImage {
+        max-height: 300px;
+        max-width: 300px;
+    }
+}
