@@ -84,7 +84,7 @@ namespace maxhanna.Server.Helpers
                 var builder = new UriBuilder("http://api.mediastack.com/v1/news");
                 var query = HttpUtility.ParseQueryString(string.Empty);
                 if (!string.IsNullOrWhiteSpace(q)) query["keywords"] = q;
-                query["languages"] = "en";
+                query["languages"] = language ?? "en";
                 query["access_key"] = apiKey;
                 builder.Query = query.ToString();
 
