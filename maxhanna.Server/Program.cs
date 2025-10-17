@@ -3,6 +3,7 @@ using FirebaseAdmin;
 using FirebaseAdmin.Auth;
 using Google.Apis.Auth.OAuth2;
 using maxhanna.Server.Controllers;
+using maxhanna.Server.Helpers;
 using maxhanna.Server.Services;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.HttpOverrides;

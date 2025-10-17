@@ -19,7 +19,7 @@ namespace maxhanna.Server.Helpers
             _log = log;
         }
 
-        private string ApiKey => _config.GetValue<string>("NewsApiKey") ?? string.Empty;
+        private string ApiKey => _config.GetValue<string>("NewsApi:ApiKey") ?? string.Empty;
 
         public async Task<ArticlesResult?> GetTopHeadlinesAsync(string? q = null, string? language = "en")
         {
