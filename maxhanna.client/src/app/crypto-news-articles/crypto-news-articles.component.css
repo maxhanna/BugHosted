@@ -3,6 +3,7 @@
     margin: 0;
     padding: 0;
     border: var(--main-border);
+    padding: 10px;
 }
 
 @media only screen and (max-width : 1000px) {
@@ -21,9 +22,12 @@
 
 .article {
     display: flex;
-    gap: 8px;
-    padding: 8px 0;
-    border-bottom: 1px solid #eee;
+    flex-direction: column;
+    gap: 8px; 
+    border: var(--main-border);
+    margin: 10px;
+    border-radius: 8px;
+    padding: 8px;
 }
 
 .thumb {
@@ -36,6 +40,27 @@
 .meta a {
     font-weight: 600;
     text-decoration: none
+}
+
+.meta-header {
+    display: flex;
+    gap: 8px;
+    align-items: flex-start;
+}
+
+.titleBlock {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+}
+
+.title {
+    font-weight: 600;
+    text-decoration: none;
+}
+
+.meta-desc {
+    flex: 1 1 auto;
 }
 
 .flags {
