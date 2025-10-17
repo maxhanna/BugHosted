@@ -123,16 +123,6 @@ public class NewsService
 		try
 		{
 				var articlesResponse = await _newsHttp.GetTopHeadlinesAsync(keywords, "en");
-				// Diagnostic logging: write the raw response to console to aid debugging
-				try
-				{
-					var dbg = JsonSerializer.Serialize(articlesResponse, new JsonSerializerOptions { WriteIndented = true });
-					Console.WriteLine("GetTopHeadlines - articlesResponse:\n" + dbg);
-				}
-				catch (Exception ex)
-				{
-					Console.WriteLine("Failed to serialize articlesResponse for logging: " + ex.Message);
-				}
 				if (articlesResponse != null && string.Equals(articlesResponse.Status, "ok", StringComparison.OrdinalIgnoreCase))
 				{
 					// Map DTO ArticlesResult to the NewsApi-like ArticlesResult used elsewhere
@@ -166,16 +156,6 @@ public class NewsService
 		try
 		{
 				var articlesResponse = await _newsHttp.GetTopHeadlinesAsync(null, "en");
-				// Diagnostic logging: write the raw response to console to aid debugging
-				try
-				{
-					var dbg = JsonSerializer.Serialize(articlesResponse, new JsonSerializerOptions { WriteIndented = true });
-					Console.WriteLine("GetTopCryptoHeadlines - articlesResponse:\n" + dbg);
-				}
-				catch (Exception ex)
-				{
-					Console.WriteLine("Failed to serialize articlesResponse for logging: " + ex.Message);
-				}
 				if (articlesResponse == null) return null;
 				Console.WriteLine("Number of results: " + (articlesResponse.Articles?.Count ?? 0));
 				return new ArticlesResult
