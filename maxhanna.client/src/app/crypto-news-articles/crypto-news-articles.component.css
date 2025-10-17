@@ -2,6 +2,7 @@
     list-style: none;
     margin: 0;
     padding: 0;
+    border: var(--main-border);
 }
 
 @media only screen and (max-width : 1000px) {
@@ -110,4 +111,8 @@
     font-family: var(--section-font-family);
     font-weight: bolder;
     text-align: center;
+}
+
+.crypto-news {
+    padding: 20px;
 }
