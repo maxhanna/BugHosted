@@ -5,7 +5,7 @@ using System.Text;
 using maxhanna.Server.Helpers;
 
 public class NewsService
-{ 
+{
 	private readonly IConfiguration _config;
 	private readonly Log _log;
 	int newsServiceAccountNo = 308;
@@ -98,13 +98,13 @@ public class NewsService
 		"2fa", "rugpull", "airdrop", "kyc", "aml", "regulation", "sec", "defi", "dapp", "dao",
 		"downtime",  "cross-chain",  "digital currency",  "fiat currency", "central bank digital currency", "cbdc", "etf", "spot etf",
 		"securities", "futures", "derivatives", "treasury bonds", "cryptocurrency", "crypto",
-		"shiba inu", "shib", "pepe", "pepecoin", "floki", "floki inu", "bonk", "dogelon mars", "safemoon", "hoge", "wojak", 
-		"wojak coin", "toshi", "base toshi", "turbo", "milady", "mog", "mog coin", 
-		"wif", "dogwifhat", "bome", "book of meme", "tate", "andrew tate coin", "troll", "troll coin", "boden", "tremp", 
-		"kishu inu", "kishu", "akita inu", "akita", "samoyedcoin", "samoyed", "babydoge", "baby doge", "smog", "smog token", 
-		"myro", "myro coin", "popcat", "popcat coin", "coq", "coq inu", "honk", "honk token", "slerf", "slerf coin", "pol", "pol coin", 
-		"meme", "meme coin", "fren", "fren coin", "anon", "anon coin", "chad", "chad coin", "viral", "viral coin", "degen", "degen coin", 
-		"kek", "kek coin", "cummies", "cummies token", "lambo", "lambo coin", "hodl", "hodl coin", "wagmi", "wagmi coin", 
+		"shiba inu", "shib", "pepe", "pepecoin", "floki", "floki inu", "bonk", "dogelon mars", "safemoon", "hoge", "wojak",
+		"wojak coin", "toshi", "base toshi", "turbo", "milady", "mog", "mog coin",
+		"wif", "dogwifhat", "bome", "book of meme", "tate", "andrew tate coin", "troll", "troll coin", "boden", "tremp",
+		"kishu inu", "kishu", "akita inu", "akita", "samoyedcoin", "samoyed", "babydoge", "baby doge", "smog", "smog token",
+		"myro", "myro coin", "popcat", "popcat coin", "coq", "coq inu", "honk", "honk token", "slerf", "slerf coin", "pol", "pol coin",
+		"meme", "meme coin", "fren", "fren coin", "anon", "anon coin", "chad", "chad coin", "viral", "viral coin", "degen", "degen coin",
+		"kek", "kek coin", "cummies", "cummies token", "lambo", "lambo coin", "hodl", "hodl coin", "wagmi", "wagmi coin",
 		"ngmi", "ngmi coin", "wen", "wen coin", "luna classic", "ustc", "terrausd classic",
 		"scamcoin", "scam coin", "rug coin"
 	};
@@ -159,7 +159,7 @@ public class NewsService
 		"ban",
 		"restriction",
 		"delist",
-		"delisting", 
+		"delisting",
 		"fine",
 		"penalty",
 		"sanction",
@@ -210,33 +210,33 @@ public class NewsService
 	public NewsService(IConfiguration config, Log log, NewsHttpClient newsHttp)
 	{
 		_config = config;
-		_log = log; 
+		_log = log;
 		_newsHttp = newsHttp;
 	}
 	public async Task<ArticlesResult?> GetTopHeadlines(string? keywords)
 	{
 		try
 		{
-				var articlesResponse = await _newsHttp.GetTopHeadlinesAsync(keywords, "en");
-				if (articlesResponse != null && string.Equals(articlesResponse.Status, "ok", StringComparison.OrdinalIgnoreCase))
+			var articlesResponse = await _newsHttp.GetTopHeadlinesAsync(keywords, "en");
+			if (articlesResponse != null && string.Equals(articlesResponse.Status, "ok", StringComparison.OrdinalIgnoreCase))
+			{
+				// Map DTO ArticlesResult to the NewsApi-like ArticlesResult used elsewhere
+				return new ArticlesResult
 				{
-					// Map DTO ArticlesResult to the NewsApi-like ArticlesResult used elsewhere
-					return new ArticlesResult
+					Status = "ok",
+					TotalResults = articlesResponse.TotalResults,
+					Articles = articlesResponse.Articles?.Select(a => new Article
 					{
-						Status = "ok",
-						TotalResults = articlesResponse.TotalResults,
-						Articles = articlesResponse.Articles?.Select(a => new Article
-						{
-							Title = a.Title,
-							Description = a.Description,
-							Url = a.Url,
-							PublishedAt = a.PublishedAt,
-							UrlToImage = a.UrlToImage,
-							Content = a.Content,
-							Author = a.Author
-						}).ToList() ?? new List<Article>()
-					};
-				}
+						Title = a.Title,
+						Description = a.Description,
+						Url = a.Url,
+						PublishedAt = a.PublishedAt,
+						UrlToImage = a.UrlToImage,
+						Content = a.Content,
+						Author = a.Author
+					}).ToList() ?? new List<Article>()
+				};
+			}
 		}
 		catch (Exception ex)
 		{
@@ -275,7 +275,7 @@ public class NewsService
 
 			var top60 = articlesResult.Articles.Take(articlesToTake).ToList();
 			int successfullyInsertedCount = 0;
- 
+
 			using var transaction = await conn.BeginTransactionAsync();
 
 			foreach (var article in top60)
@@ -296,7 +296,7 @@ public class NewsService
 					cmd.Parameters.AddWithValue("@content", article.Content ?? "");
 					cmd.Parameters.AddWithValue("@author", article.Author ?? "");
 
-					int rowsAffected = await cmd.ExecuteNonQueryAsync(); 
+					int rowsAffected = await cmd.ExecuteNonQueryAsync();
 					if (rowsAffected > 0)
 					{
 						successfullyInsertedCount++;
@@ -559,7 +559,8 @@ public class NewsService
 
 				INSERT INTO story_topics (story_id, topic_id) VALUES (@storyId, (SELECT id FROM maxhanna.topics WHERE topic = 'News'));
             ";
-		if (accountId == cryptoNewsServiceAccountNo) {
+		if (accountId == cryptoNewsServiceAccountNo)
+		{
 			insertStoryFileSql += " INSERT INTO story_topics (story_id, topic_id) VALUES (@storyId, (SELECT id FROM maxhanna.topics WHERE topic = 'Crypto'));";
 		}
 		if (bestFileMatch != null)
@@ -762,7 +763,7 @@ Posted by user @{topMeme.Username}<br><small>Daily top memes are selected based 
 	private async Task<bool> CheckIfDailyNewsStoryAlreadyExists(MySqlConnection conn, MySqlTransaction transaction, string checkSql)
 	{
 		await using (var checkCmd = new MySqlCommand(checkSql, conn, transaction))
-		{ 
+		{
 			var exists = Convert.ToInt32(await checkCmd.ExecuteScalarAsync()) > 0;
 			if (exists)
 			{
@@ -822,7 +823,7 @@ Posted by user @{topMeme.Username}<br><small>Daily top memes are selected based 
 	/// </summary>
 	private async Task SaveSentimentCountAsync(MySqlConnection conn, int count, List<int>? articleIds = null)
 	{
-		if (conn == null) throw new ArgumentNullException(nameof(conn)); 
+		if (conn == null) throw new ArgumentNullException(nameof(conn));
 		string insertSql = @"INSERT INTO news_sentiment_score (recorded_at, negative_count, article_ids) VALUES (UTC_TIMESTAMP(), @count, @articleIds);";
 		using (var insertCmd = new MySqlCommand(insertSql, conn))
 		{
@@ -983,9 +984,9 @@ Posted by user @{topMeme.Username}<br><small>Daily top memes are selected based 
 			}
 			// Build story text from all articles
 			var sb = new StringBuilder();
-			sb.AppendLine(marker); 
+			sb.AppendLine(marker);
 			sb.AppendLine($"[*][b]{topArticlesResult.Title}[/b]\nRead more: {topArticlesResult.Url} [/*]");
-		 
+
 
 			string fullStoryText = sb.ToString().Trim();
 			var selectedArticleTokens = TokenizeText(fullStoryText);
