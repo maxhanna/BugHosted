@@ -433,11 +433,15 @@ export class NavigationComponent implements OnInit, OnDestroy {
       const result = res;
       if (result) {
         const btcToCADRate = result.valueCAD * latestCurrencyPriceRespectToCAD;
-        this._parent.navigationItems.filter(x => x.title == "Crypto-Hub")[0].content = "";
-        if (tmpLocalProfitability > 0) {
-          this._parent.navigationItems.filter(x => x.title == "Crypto-Hub")[0].content += (tmpLocalProfitability * btcToCADRate).toFixed(2).toString() + (btcToCADRate != 1 ? "$" : '');
+        const nav = this._parent.navigationItems.find(x => x.title == "Crypto-Hub");
+        if (nav) {
+          const lines: string[] = [];
+          if (tmpLocalProfitability > 0) {
+            lines.push(this.shortenCount(tmpLocalProfitability * btcToCADRate) + (btcToCADRate != 1 ? '$' : ''));
+          }
+            lines.push(this.shortenCount(btcToCADRate) + '$');
+          nav.content = lines.join('\n');
         }
-        this._parent.navigationItems.filter(x => x.title == "Crypto-Hub")[0].content += "\n" + btcToCADRate.toFixed(0) + "$";
       }
       this.isLoadingCryptoHub = false;
     } catch (error) {
@@ -560,7 +564,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
     if (this._parent?.navigationItems) {
       const musicNav = this._parent.navigationItems.find(x => x.title === 'Music');
       if (musicNav) {
-        musicNav.content = this.musicTodoCount && this.musicTodoCount > 0 ? this.musicTodoCount.toString() : '';
+        musicNav.content = this.musicTodoCount && this.musicTodoCount > 0 ? this.shortenCount(this.musicTodoCount) : '';
       }
     }
   }
@@ -814,5 +818,20 @@ export class NavigationComponent implements OnInit, OnDestroy {
     this.isLoadingTheme = false;
     this.isLoadingWordlerStreak = false;
     this.isLoadingCalendar = false;
+  }
+
+  private shortenCount(value: number): string {
+    if (value === null || value === undefined) return '';
+    const num = value;
+    const trillion = 1_000_000_000_000;
+    const billion = 1_000_000_000;
+    const million = 1_000_000;
+    const thousand = 1_000;
+    const format = (n: number, suffix: string) => (n).toFixed(2).replace(/\.0+$/,'').replace(/(\.[0-9]*[1-9])0+$/,'$1') + suffix;
+    if (num >= trillion) return format(num / trillion, 'T');
+    if (num >= billion) return format(num / billion, 'B');
+    if (num >= million) return format(num / million, 'M');
+    if (num >= thousand) return format(num / thousand, 'K');
+    return num.toFixed(0);
   }
 }
