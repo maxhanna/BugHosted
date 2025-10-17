@@ -86,47 +86,37 @@
     border-color: #036
 }
 
-.listControls { text-align: right; margin-bottom: 6px }
-.listControls .small { padding:4px 8px; font-size:12px; }
+.listControls {
+    text-align: right;
+    margin-bottom: 6px
+}
 
-.articles.collapsed { max-height:50px; overflow:auto }
+.listControls .small {
+    padding: 4px 8px;
+    font-size: 12px;
+}
+
+.articles.collapsed {
+    max-height: 50px;
+    overflow: auto
+}
 
 @media only screen and (max-width : 1000px) {
-    .articles.collapsed { max-height:50px }
+    .articles.collapsed {
+        max-height: 50px
+    }
 }
+
 @media only screen and (min-width : 1000px) {
-    .articles.collapsed { max-height:50px }
-}
-
-
-.articlePopupPanel {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: CALC(100vw - 40px);
-    height: CALC(var(--vh, 1vh) * 100 - 40px);
-    background: var(--secondary-component-background-color);
-    z-index: 4 !important;
-    border-radius: 8px;
-    overflow: auto;
-    padding: 20px;
-    display: flex;
-    flex-direction: column;
-    flex-wrap: nowrap;
-    align-content: center;
-    justify-content: space-evenly;
-    align-items: center;
-    cursor: default;
+    .articles.collapsed {
+        max-height: 50px
+    }
 }
 
 .sectionName {
     font-family: var(--section-font-family);
     font-weight: bolder;
     text-align: center;
-}
-
-.crypto-news {
-    padding: 20px;
 }
 
 .mainArticleImage {
