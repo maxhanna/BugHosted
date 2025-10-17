@@ -1,9 +1,8 @@
 .articles {
     list-style: none;
-    margin: 0;
-    padding: 0;
+    margin: 0; 
     border: var(--main-border);
-    padding: 10px;
+    padding: 3px;
 }
 
 @media only screen and (max-width : 1000px) {

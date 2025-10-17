@@ -36,7 +36,7 @@ export class CryptoNewsArticlesComponent extends ChildComponent implements After
         this._articlesScrollHandler = () => {
             try {
                 const el = this.articlesContainer?.nativeElement;
-                this.showTopButton = !!el && el.scrollTop > 0 && !this.collapsed;
+                this.showTopButton = !!el && el.scrollTop > 0;
                 this.changeDetectorRef.markForCheck();
             } catch { this.showTopButton = false; }
         };
@@ -140,7 +140,7 @@ export class CryptoNewsArticlesComponent extends ChildComponent implements After
         this.collapsed = !this.collapsed;
         try {
             const el = this.articlesContainer?.nativeElement;
-            this.showTopButton = !!el && el.scrollTop > 0 && !this.collapsed;
+            this.showTopButton = !!el && el.scrollTop > 0;
             this.changeDetectorRef.markForCheck();
         } catch { this.showTopButton = false; }
     }

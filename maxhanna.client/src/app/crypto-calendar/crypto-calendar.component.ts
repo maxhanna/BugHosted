@@ -46,7 +46,7 @@ export class CryptoCalendarComponent implements OnInit, AfterViewInit, OnDestroy
     this._eventContainerScrollHandler = () => {
       try {
         const el = this.eventContainer?.nativeElement;
-        this.showTopButton = !!el && el.scrollTop > 0 && !this.collapsed;
+        this.showTopButton = !!el && el.scrollTop > 0;
       } catch { this.showTopButton = false; }
     };
     try { this.eventContainer?.nativeElement.addEventListener('scroll', this._eventContainerScrollHandler); } catch { }
@@ -101,7 +101,13 @@ export class CryptoCalendarComponent implements OnInit, AfterViewInit, OnDestroy
     return date.toISOString().split('T')[0];
   }
 
-  toggleCollapsed() { this.collapsed = !this.collapsed; }
+  toggleCollapsed() { 
+    this.collapsed = !this.collapsed; 
+    try {
+      const el = this.eventContainer?.nativeElement;
+      this.showTopButton = !!el && el.scrollTop > 0;
+    } catch { this.showTopButton = false; }
+  }
 
   scrollTop() {
     try {
