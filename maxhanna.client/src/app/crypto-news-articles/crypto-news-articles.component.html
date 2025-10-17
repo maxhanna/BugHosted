@@ -9,10 +9,11 @@
     </div>
     <div class="listControls">
         <button class="small" (click)="toggleCollapsed()">{{ collapsed ? 'Expand' : 'Collapse' }}</button>
+        <button class="small" (click)="scrollTop()" style="margin-left:8px">Top</button>
     </div>
     <div *ngIf="!loading && (!articles || articles.length === 0)" class="empty">No articles found for today.</div>
 
-    <ul *ngIf="!loading && displayedArticles && displayedArticles.length > 0" [class.collapsed]="collapsed" class="articles">
+    <ul #articlesContainer *ngIf="!loading && displayedArticles && displayedArticles.length > 0" [class.collapsed]="collapsed" class="articles">
         <li *ngFor="let a of displayedArticles" class="article">
             <img *ngIf="a.urlToImage" [src]="a.urlToImage" class="thumb" />
             <div class="meta">

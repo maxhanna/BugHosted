@@ -15,6 +15,7 @@ export class CryptoNewsArticlesComponent extends ChildComponent implements After
     constructor(private changeDetectorRef: ChangeDetectorRef, private newsService: NewsService, private notepadService: NotepadService) { super(); }
 
     @Input() inputtedParentRef?: AppComponent;
+    @ViewChild('articlesContainer') articlesContainer!: ElementRef<HTMLUListElement>;
 
     articles: Article[] = [];
     selectedArticle?: Article;
@@ -125,4 +126,12 @@ export class CryptoNewsArticlesComponent extends ChildComponent implements After
     }
 
     toggleCollapsed() { this.collapsed = !this.collapsed; }
+
+    scrollTop() {
+        try {
+            if (this.articlesContainer && this.articlesContainer.nativeElement) {
+                this.articlesContainer.nativeElement.scrollTop = 0;
+            }
+        } catch { }
+    }
 }

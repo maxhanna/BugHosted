@@ -6,7 +6,6 @@
             <input type="checkbox" #ignoreDateFilter (change)="filterEventsForDate()" />
             Show events across all dates
         </label>
-    <button (click)="toggleCollapsed()" style="margin-left:10px">{{ collapsed ? 'Expand' : 'Collapse' }}</button>
     </div>
     <div class="calendar-controls" *ngIf="!ignoreDateFilter.checked">
         <button (click)="prevDay()">⬅️</button>
@@ -17,7 +16,12 @@
     <div *ngIf="filteredEvents.length === 0">
         <p>No events for this date.</p>
     </div>
-    <div [class.collapsed]="collapsed" class="event-card-container">
+    <div>
+        <button (click)="toggleCollapsed()" style="margin-left:10px">{{ collapsed ? 'Expand' : 'Collapse' }}</button>
+        <button (click)="scrollTop()" style="margin-left:10px">Top</button>
+    </div>
+
+    <div #eventContainer [class.collapsed]="collapsed" class="event-card-container">
         <div *ngFor="let event of filteredEvents" class="event-card">
             <div>
                 <a *ngIf="event.source" (click)="inputtedParentRef?.visitExternalLink(event.source)" target="_blank"

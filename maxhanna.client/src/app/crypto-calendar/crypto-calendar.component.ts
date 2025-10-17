@@ -30,6 +30,7 @@ export class CryptoCalendarComponent implements OnInit {
 
   @ViewChild('selectedCoinSymbol') selectedCoinSymbol!: ElementRef<HTMLSelectElement>;
   @ViewChild('ignoreDateFilter') ignoreDateFilter!: ElementRef<HTMLInputElement>;
+  @ViewChild('eventContainer') eventContainer!: ElementRef<HTMLDivElement>;
   @Input() inputtedParentRef?: AppComponent;
   
   constructor(private coinValueService: CoinValueService) { }
@@ -88,4 +89,12 @@ export class CryptoCalendarComponent implements OnInit {
   }
 
   toggleCollapsed() { this.collapsed = !this.collapsed; }
+
+  scrollTop() {
+    try {
+      if (this.eventContainer && this.eventContainer.nativeElement) {
+        this.eventContainer.nativeElement.scrollTop = 0;
+      }
+    } catch { }
+  }
 }
