@@ -118,7 +118,8 @@ fieldset {
 .refreshButton::before,
 .closeButton::before,
 .menuButton::before,
-.menuBackButton::before {
+.menuBackButton::before,
+.helpButton::before {
   z-index: 1;
 }
 
@@ -153,6 +154,11 @@ fieldset {
   content: '☰';
 }
 
+.helpButton::before {
+  content: '❔';
+  right: 103px;
+}
+
 .menuBackButton::before {
   content: '⤺';
   right: 106px;
@@ -173,7 +179,8 @@ fieldset {
 .closeButton:active::before,
 .menuButton:active::before,
 .notificationTopButton:active,
-.topSearchButtonDiv:active {
+.topSearchButtonDiv:active,
+.helpButton:active::before {
   border: 2px inset black;
   transform: translateY(2px);
   box-shadow: inset 0px 2px 4px rgba(0, 0, 0, 0.3);

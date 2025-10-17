@@ -1,6 +1,7 @@
 <div class="componentMain">
   <div class="closeButton" (click)="remove_me('HostAiComponent');"></div>
   <div class="menuButton" (click)="showMenuPanel();"></div>
+  <div class="helpButton" (click)="showHelpPopup()" title="Help"></div>
   <div class="componentTitle">{{this.hostName}}</div>
 
   <div class="chat-container" #chatContainer>
@@ -22,7 +23,7 @@
       <div>Start by typing a message <span *ngIf="!speechRecognitionUnavailable">or by pressing on the
           microphone</span>.</div>
       <div *ngIf="speechRecognitionUnavailable">(Speech recognition unavailable on this browser).</div>
-      <div><button (click)="showHelpPopup()">Help</button></div>
+  <!-- Help button relocated to header (next to menu). Removed from inline empty state. -->
     </div>
 
     <div class="input-container">
