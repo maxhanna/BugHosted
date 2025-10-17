@@ -15,6 +15,9 @@ export interface Article {
   urlToImage: string;
   publishedAt: Date | null;
   content: string;
+  // optional flags set by the client when merging results
+  negative?: boolean;
+  crypto?: boolean;
 }
 
 export interface Source {
