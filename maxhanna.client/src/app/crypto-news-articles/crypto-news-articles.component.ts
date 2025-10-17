@@ -12,7 +12,7 @@ import { NewsService } from '../../services/news.service';
 export class CryptoNewsArticlesComponent extends ChildComponent implements AfterViewInit, OnDestroy {
     constructor(private changeDetectorRef: ChangeDetectorRef, private newsService: NewsService) { super(); }
 
-    @Input() inputtedParentRef!: AppComponent;
+    @Input() inputtedParentRef?: AppComponent;
 
     articles: any[] = [];
     loading = false;
@@ -28,7 +28,7 @@ export class CryptoNewsArticlesComponent extends ChildComponent implements After
     private async fetchArticles() {
         try {
             this.startLoading();
-            const sessionToken = await this.inputtedParentRef.getSessionToken() ?? '';
+            const sessionToken = await (this.inputtedParentRef ?? this.parentRef)?.getSessionToken() ?? '';
 
             // Fetch negative-sentiment and crypto-related articles via NewsService
             const negList = await this.newsService.getNegativeToday(sessionToken) ?? [];
