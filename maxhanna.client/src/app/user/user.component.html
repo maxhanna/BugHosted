@@ -432,7 +432,15 @@
                 <app-menu-item [type]="'Ender'" [parentRef]="parentRef" [label]="'Best Ender Score:'"></app-menu-item>
               </div>
               <div class="optionsStatsDescription">
-                <div>Score: {{ bestEnderScore.score | countShorten }} • Time: {{ bestEnderScore.time_on_level_seconds | countShorten }}s</div>
+                {{ bestEnderScore.score | countShorten }} points
+              </div>
+            </div>
+            <div class="optionsStatsDiv" *ngIf="bestEnderScore && bestEnderScore.time_on_level_seconds">
+              <div class="optionsStatsHeader">
+                <app-menu-item [type]="'Ender'" [parentRef]="parentRef" [label]="'Best Ender Time:'"></app-menu-item>
+              </div>
+              <div class="optionsStatsDescription">
+                {{ bestEnderScore.time_on_level_seconds | countShorten }}s
               </div>
             </div>
 
