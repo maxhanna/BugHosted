@@ -160,10 +160,8 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
     if (changes['quoteMessage'] && changes['quoteMessage'].currentValue) {
       const quote = changes['quoteMessage'].currentValue;
       const current = this.textarea?.value || '';
-      console.log("quoteMessage changed: ", this.quoteMessage);
-
-      this.textarea.click();
-
+      console.log("quoteMessage changed: ", this.quoteMessage); 
+      this.showPostInput = true;
       setTimeout(() => {
         this.textarea.value = quote + current;
         this.textarea.scrollIntoView({ behavior: 'smooth', block: 'center' });
