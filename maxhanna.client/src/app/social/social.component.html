@@ -76,13 +76,13 @@
                 (click)="showPostsFrom('local')">Local</span>
               <span [class]="showPostsFromFilter == 'popular' ? 'active' : ''"
                 (click)="showPostsFrom('popular')">Popular</span>
-              <span [class]="showPostsFromFilter == 'all' ? 'active' : ''" (click)="showPostsFrom('all')">All</span>
+              <span [class]="showPostsFromFilter == 'all' ? 'active' : ''" (click)="showPostsFrom('all')">Fresh</span>
             </div>
             <div class="showPostFromHelpInfo" *ngIf="isShowingPostFromHelpInfo">
               <p><strong>Subscribed:</strong> Posts from communities or users you've subscribed to.</p>
               <p><strong>Local:</strong> Posts created by users in your local region or country.</p>
               <p><strong>Popular:</strong> Trending posts with high engagement across the platform.</p>
-              <p><strong>All:</strong> Every public post, regardless of location or subscription.</p>
+              <p><strong>Fresh:</strong> Every public post, regardless of location or subscription.</p>
             </div>
             <div class="showPostFromHelpInfoButton" (click)="isShowingPostFromHelpInfo = !isShowingPostFromHelpInfo">
               ℹ️{{isShowingPostFromHelpInfo ? 'Hide ' : ''}}Info</div>
