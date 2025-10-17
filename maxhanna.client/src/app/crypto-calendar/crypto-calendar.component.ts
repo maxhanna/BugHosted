@@ -1,4 +1,4 @@
-import { Component, ElementRef, Input, OnInit, ViewChild } from '@angular/core'; 
+import { Component, ElementRef, Input, OnInit, ViewChild, AfterViewInit, OnDestroy } from '@angular/core'; 
 import { CoinValueService } from '../../services/coin-value.service';
 import { AppComponent } from '../app.component';
 
@@ -21,7 +21,7 @@ interface CryptoEvent {
   styleUrls: ['./crypto-calendar.component.css'],
   standalone: false
 })
-export class CryptoCalendarComponent implements OnInit {
+export class CryptoCalendarComponent implements OnInit, AfterViewInit, OnDestroy {
   allEvents: any[] = [];
   filteredEvents: any[] = [];
   currentDate = new Date(); 
@@ -32,11 +32,24 @@ export class CryptoCalendarComponent implements OnInit {
   @ViewChild('ignoreDateFilter') ignoreDateFilter!: ElementRef<HTMLInputElement>;
   @ViewChild('eventContainer') eventContainer!: ElementRef<HTMLDivElement>;
   @Input() inputtedParentRef?: AppComponent;
+  showTopButton: boolean = false;
+  private _eventContainerScrollHandler: any;
   
   constructor(private coinValueService: CoinValueService) { }
 
   ngOnInit(): void {
     this.fetchEvents();
+  }
+
+  ngAfterViewInit(): void {
+    // attach scroll listener when container becomes available
+    this._eventContainerScrollHandler = () => {
+      try {
+        const el = this.eventContainer?.nativeElement;
+        this.showTopButton = !!el && el.scrollTop > 0 && !this.collapsed;
+      } catch { this.showTopButton = false; }
+    };
+    try { this.eventContainer?.nativeElement.addEventListener('scroll', this._eventContainerScrollHandler); } catch { }
   }
 
   fetchEvents(): void {
@@ -96,5 +109,9 @@ export class CryptoCalendarComponent implements OnInit {
         this.eventContainer.nativeElement.scrollTop = 0;
       }
     } catch { }
+  }
+
+  ngOnDestroy(): void {
+    try { if (this.eventContainer?.nativeElement && this._eventContainerScrollHandler) this.eventContainer.nativeElement.removeEventListener('scroll', this._eventContainerScrollHandler); } catch { }
   }
 }

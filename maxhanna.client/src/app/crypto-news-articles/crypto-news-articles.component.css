@@ -119,6 +119,17 @@
     text-align: center;
 }
 
+.iconBtn {
+    background: transparent;
+    border: 1px solid rgba(0,0,0,0.08);
+    color: var(--main-font-color);
+    padding: 4px 6px;
+    border-radius: 6px;
+    font-size: 12px;
+    line-height: 1;
+    cursor: pointer;
+}
+
 .mainArticleImage {
     text-align: center;
 }

@@ -16,6 +16,8 @@ export class CryptoNewsArticlesComponent extends ChildComponent implements After
 
     @Input() inputtedParentRef?: AppComponent;
     @ViewChild('articlesContainer') articlesContainer!: ElementRef<HTMLUListElement>;
+    showTopButton: boolean = false;
+    private _articlesScrollHandler: any;
 
     articles: Article[] = [];
     selectedArticle?: Article;
@@ -25,12 +27,21 @@ export class CryptoNewsArticlesComponent extends ChildComponent implements After
     collapsed = true;
 
     async ngAfterViewInit() {
+        // initial fetch
         setTimeout(() => {
             this.fetchArticles();
         }, 50);
-    }
 
-    ngOnDestroy() { }
+        // attach scroll listener
+        this._articlesScrollHandler = () => {
+            try {
+                const el = this.articlesContainer?.nativeElement;
+                this.showTopButton = !!el && el.scrollTop > 0 && !this.collapsed;
+                this.changeDetectorRef.markForCheck();
+            } catch { this.showTopButton = false; }
+        };
+        try { this.articlesContainer?.nativeElement.addEventListener('scroll', this._articlesScrollHandler); } catch { }
+    }
 
     private async fetchArticles() {
         try {
@@ -125,7 +136,14 @@ export class CryptoNewsArticlesComponent extends ChildComponent implements After
         }
     }
 
-    toggleCollapsed() { this.collapsed = !this.collapsed; }
+    toggleCollapsed() {
+        this.collapsed = !this.collapsed;
+        try {
+            const el = this.articlesContainer?.nativeElement;
+            this.showTopButton = !!el && el.scrollTop > 0 && !this.collapsed;
+            this.changeDetectorRef.markForCheck();
+        } catch { this.showTopButton = false; }
+    }
 
     scrollTop() {
         try {
@@ -133,5 +151,9 @@ export class CryptoNewsArticlesComponent extends ChildComponent implements After
                 this.articlesContainer.nativeElement.scrollTop = 0;
             }
         } catch { }
+    }
+
+    ngOnDestroy() {
+        try { if (this.articlesContainer?.nativeElement && this._articlesScrollHandler) this.articlesContainer.nativeElement.removeEventListener('scroll', this._articlesScrollHandler); } catch { }
     }
 }

@@ -17,8 +17,8 @@
         <p>No events for this date.</p>
     </div>
     <div>
-        <button (click)="toggleCollapsed()" style="margin-left:10px">{{ collapsed ? 'Expand' : 'Collapse' }}</button>
-        <button (click)="scrollTop()" style="margin-left:10px">Top</button>
+        <button class="iconBtn" (click)="toggleCollapsed()" title="Toggle" aria-label="Toggle" style="margin-left:10px">{{ collapsed ? '▼' : '▶' }}</button>
+        <button *ngIf="showTopButton" class="iconBtn" (click)="scrollTop()" title="Scroll to top" aria-label="Scroll to top" style="margin-left:10px">▲</button>
     </div>
 
     <div #eventContainer [class.collapsed]="collapsed" class="event-card-container">

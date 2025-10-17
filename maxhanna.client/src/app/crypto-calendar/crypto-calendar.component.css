@@ -34,3 +34,14 @@
 @media only screen and (min-width: 1000px) {
     .event-card-container.collapsed { max-height:300px; overflow:auto }
 }
+
+.iconBtn {
+    background: transparent;
+    border: 1px solid rgba(255,255,255,0.06);
+    color: var(--main-font-color);
+    padding: 4px 6px;
+    border-radius: 6px;
+    font-size: 12px;
+    line-height: 1;
+    cursor: pointer;
+}
