@@ -1,0 +1,11 @@
+.crypto-news { padding: 12px; background: #fff; border-radius: 6px; box-shadow: 0 1px 3px rgba(0,0,0,.06); }
+.articles { list-style: none; margin:0; padding:0; }
+.article { display:flex; gap:8px; padding:8px 0; border-bottom:1px solid #eee; }
+.thumb { width:84px; height:64px; object-fit:cover; border-radius:4px; }
+.meta a { font-weight:600; color:#222; text-decoration:none }
+.flags { margin-top:4px }
+.flags .neg { background:#ffc9c9; color:#800; padding:2px 6px; border-radius:4px; margin-right:6px }
+.flags .crypto { background:#e6f2ff; color:#036; padding:2px 6px; border-radius:4px }
+.desc { margin:6px 0; color:#444 }
+.by { color:#888 }
+.loading { padding:12px; color:#666 }

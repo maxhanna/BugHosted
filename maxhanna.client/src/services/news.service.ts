@@ -96,4 +96,32 @@ export class NewsService {
       return null;
     }
   }
+
+  async getNegativeToday(sessionToken: string = ''): Promise<any[] | null> {
+    try {
+      const res = await fetch('/news/negative-today', {
+        method: 'GET',
+        headers: sessionToken ? { 'Authorization': sessionToken } : undefined,
+      });
+      if (!res.ok) return null;
+      return await res.json() as any[];
+    } catch (err) {
+      console.error('Error fetching negative today:', err);
+      return null;
+    }
+  }
+
+  async getCryptoToday(sessionToken: string = ''): Promise<any[] | null> {
+    try {
+      const res = await fetch('/news/crypto-today', {
+        method: 'GET',
+        headers: sessionToken ? { 'Authorization': sessionToken } : undefined,
+      });
+      if (!res.ok) return null;
+      return await res.json() as any[];
+    } catch (err) {
+      console.error('Error fetching crypto today:', err);
+      return null;
+    }
+  }
 }

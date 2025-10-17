@@ -1,0 +1,18 @@
+<div class="crypto-news">
+  <h3>Crypto & Negative News</h3>
+  <div *ngIf="loading" class="loading">Loading...</div>
+  <ul class="articles">
+    <li *ngFor="let a of articles" class="article">
+      <img *ngIf="a.urlToImage" [src]="a.urlToImage" class="thumb"/>
+      <div class="meta">
+        <a [href]="a.url" target="_blank" rel="noopener">{{ a.title }}</a>
+        <div class="flags">
+          <span *ngIf="a.negative" class="neg">Negative</span>
+          <span *ngIf="a.crypto" class="crypto">Crypto</span>
+        </div>
+        <p class="desc">{{ a.description }}</p>
+        <small class="by">{{ a.author }} • {{ a.publishedAt | date:'short' }}</small>
+      </div>
+    </li>
+  </ul>
+</div>

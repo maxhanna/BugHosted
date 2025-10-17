@@ -113,5 +113,90 @@ namespace maxhanna.Server.Controllers
 				return StatusCode(500, "An error occurred while saving the default search.");
 			}
 		}
+		
+        [HttpGet("negative-today")]
+        public async Task<IActionResult> GetNegativeToday()
+        {
+            try
+            {
+                using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+                await conn.OpenAsync();
+
+                // Find latest sentiment row for today
+                string sql = @"SELECT article_ids FROM news_sentiment_score WHERE DATE(recorded_at) = CURDATE() ORDER BY recorded_at DESC LIMIT 1;";
+                using var cmd = new MySqlCommand(sql, conn);
+                var obj = await cmd.ExecuteScalarAsync();
+                if (obj == null || obj == DBNull.Value) return Ok(new List<Article>());
+
+                var json = obj.ToString();
+                var ids = System.Text.Json.JsonSerializer.Deserialize<List<int>>(json) ?? new List<int>();
+
+                if (ids.Count == 0) return Ok(new List<Article>());
+
+                string inClause = string.Join(',', ids);
+                string fetchSql = $@"SELECT id as Id, title, description, url, published_at, url_to_image, content, author FROM news_headlines WHERE id IN ({inClause});";
+                using var fetchCmd = new MySqlCommand(fetchSql, conn);
+                using var reader = await fetchCmd.ExecuteReaderAsync();
+                var list = new List<Article>();
+                while (await reader.ReadAsync())
+                {
+                    list.Add(new Article
+                    {
+                        Title = reader["title"]?.ToString(),
+                        Description = reader["description"]?.ToString(),
+                        Url = reader["url"]?.ToString(),
+                        PublishedAt = reader["published_at"] as DateTime?,
+                        UrlToImage = reader["url_to_image"]?.ToString(),
+                        Content = reader["content"]?.ToString(),
+                        Author = reader["author"]?.ToString()
+                    });
+                }
+                return Ok(list);
+            }
+            catch (Exception ex)
+            {
+                await _log.Db($"NewsController.GetNegativeToday failed: {ex.Message}", null, "API", true);
+                return StatusCode(500);
+            }
+        }
+
+        [HttpGet("crypto-today")]
+        public async Task<IActionResult> GetCryptoToday()
+        {
+            try
+            {
+                using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+                await conn.OpenAsync();
+
+                // Simple keyword match on content/title/description for crypto keywords
+                string sql = @"SELECT id as Id, title, description, url, published_at, url_to_image, content, author
+                               FROM news_headlines
+                               WHERE (LOWER(title) LIKE '%btc%' OR LOWER(content) LIKE '%crypto%' OR LOWER(description) LIKE '%crypto%')
+                               AND DATE(saved_at) = CURDATE()
+                               ORDER BY saved_at DESC LIMIT 100;";
+                using var cmd = new MySqlCommand(sql, conn);
+                using var reader = await cmd.ExecuteReaderAsync();
+                var list = new List<Article>();
+                while (await reader.ReadAsync())
+                {
+                    list.Add(new Article
+                    {
+                        Title = reader["title"]?.ToString(),
+                        Description = reader["description"]?.ToString(),
+                        Url = reader["url"]?.ToString(),
+                        PublishedAt = reader["published_at"] as DateTime?,
+                        UrlToImage = reader["url_to_image"]?.ToString(),
+                        Content = reader["content"]?.ToString(),
+                        Author = reader["author"]?.ToString()
+                    });
+                }
+                return Ok(list);
+            }
+            catch (Exception ex)
+            {
+                await _log.Db($"NewsController.GetCryptoToday failed: {ex.Message}", null, "API", true);
+                return StatusCode(500);
+            }
+        }
 	}
 }
