@@ -126,4 +126,16 @@ export class NewsService {
       return null;
     }
   }
+
+  async getNewsCount(): Promise<number> {
+    try {
+      const res = await fetch('/news/count', { method: 'GET' });
+      if (!res.ok) return 0;
+      const obj = await res.json();
+      return obj?.count ?? 0;
+    } catch (err) {
+      console.error('Error fetching news count:', err);
+      return 0;
+    }
+  }
 }

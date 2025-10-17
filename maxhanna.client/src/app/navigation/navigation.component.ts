@@ -23,6 +23,7 @@ import { RomService } from '../../services/rom.service';
 import { FriendService } from '../../services/friend.service';
 import { SocialService } from '../../services/social.service';
 import { CrawlerService } from '../../services/crawler.service';
+import { NewsService } from '../../services/news.service';
 
 @Component({
   selector: 'app-navigation',
@@ -86,7 +87,8 @@ export class NavigationComponent implements OnInit, OnDestroy {
     private romService: RomService,
     private friendService: FriendService,
   private socialService: SocialService,
-  private crawlerService: CrawlerService) {
+  private crawlerService: CrawlerService,
+  private newsService: NewsService) {
   }
 
   // runtime values for Ender nav item
@@ -167,6 +169,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
     this.getCurrentWeatherInfo();
     this.getCalendarInfo();
     this.getCryptoHubInfo();
+  this.getNewsCountInfo();
     this.getNotificationInfo();
     this.getWordlerStreakInfo();
     this.getEnderPlayerInfo();
@@ -191,6 +194,21 @@ export class NavigationComponent implements OnInit, OnDestroy {
     this.emulationInterval = setInterval(() => this.getEmulationPlayerInfo(), 60 * 1000); // every minute
     this.socialInterval = setInterval(() => this.getSocialInfo(), 5 * 60 * 1000); // every 5 minutes
   this.crawlerInterval = setInterval(() => this.getCrawlerInfo(), 60 * 60 * 1000); // every hour
+  }
+
+  private async getNewsCountInfo() {
+    if (!this._parent || !this._parent.user || this.navbarCollapsed) return;
+    try {
+      const count = await this.newsService.getNewsCount();
+      if (this._parent?.navigationItems) {
+        const newsNav = this._parent.navigationItems.find(x => x.title === 'News');
+        if (newsNav) {
+          newsNav.content = count && count > 0 ? count.toString() : '';
+        }
+      }
+    } catch (err) {
+      console.error('Error fetching news count:', err);
+    }
   }
 
   stopNotifications() {

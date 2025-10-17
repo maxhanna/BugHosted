@@ -199,5 +199,25 @@ namespace maxhanna.Server.Controllers
                 return StatusCode(500);
             }
         }
+
+		[HttpGet("count")]
+		public async Task<IActionResult> GetNewsCount()
+		{
+			try
+			{
+				using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+				await conn.OpenAsync();
+				string sql = "SELECT COUNT(1) FROM news_headlines;";
+				using var cmd = new MySqlCommand(sql, conn);
+				var obj = await cmd.ExecuteScalarAsync();
+				var count = Convert.ToInt32(obj ?? 0);
+				return Ok(new { count });
+			}
+			catch (Exception ex)
+			{
+				await _log.Db($"NewsController.GetNewsCount failed: {ex.Message}", null, "API", true);
+				return Ok(new { count = 0 });
+			}
+		}
 	}
 }
