@@ -109,14 +109,16 @@ public class NewsService
 		"scamcoin", "scam coin", "rug coin"
 	};
 
-	// Negative sentiment keywords (exact list requested)
+	// Negative sentiment keywords (expanded for financial & crypto-related negative events)
+	// These are matched using word-boundary regex to reduce substring false-positives.
 	private static readonly string[] NegativeSentimentWords = new[]
 	{
+		// macro / economic
 		"threats",
 		"terrorist",
 		"recession",
 		"inflation",
-		"tarrif",
+		"tariff",
 		"stagflation",
 		"bear market",
 		"crash",
@@ -130,7 +132,77 @@ public class NewsService
 		"downsizing",
 		"mismanagement",
 		"debt",
+		"debt default",
+		"debt crisis",
+		"sovereign default",
+		"credit downgrade",
+		"bankruptcy",
+		"insolvency",
+		"default",
+		"liquidation",
+		"margin call",
+		"foreclosure",
+		"bailout",
+		"bail-in",
+		"bank run",
+
+		// market / trading
+		"flash crash",
+		"liquidations",
+		"margin liquidation",
+		"circuit breaker",
+		"sell-off",
+		"panic",
+
+		// regulatory / legal / enforcement
+		"regulation",
+		"ban",
+		"restriction",
+		"delist",
+		"delisting", 
+		"fine",
+		"penalty",
+		"sanction",
+		"seizure",
+		"freeze",
+		"asset freeze",
+
+		// crypto-specific negative events
+		"hack",
+		"exchange hack",
+		"bridge hack",
+		"exploit",
+		"smart contract exploit",
+		"rug pull",
+		"exit scam",
+		"fraud",
+		"scam",
+		"embezzlement",
+		"money laundering",
+		"aml",
+		"kyc",
+		"withdrawals halted",
+		"withdrawal freeze",
+		"outage",
+		"downtime",
+		"custody issue",
+		"insolvency",
+		"depeg",
+		"stablecoin depeg",
+
+		// general financial distress
 		"crisis",
+		"panic selling",
+		"run on bank",
+		"credit crunch",
+		"default swap",
+		"bailout",
+		"interest rate hike",
+		"rate hike",
+		"quantitative easing",
+		"quantitative tightening",
+		"yield spike",
+		"bond yield",
 	};
 
 
@@ -799,16 +871,27 @@ Posted by user @{topMeme.Username}<br><small>Daily top memes are selected based 
 		if (!string.IsNullOrWhiteSpace(a.Title)) sb.Append(a.Title).Append(' ');
 		if (!string.IsNullOrWhiteSpace(a.Description)) sb.Append(a.Description).Append(' ');
 		if (!string.IsNullOrWhiteSpace(a.Content)) sb.Append(a.Content).Append(' ');
-		var text = sb.ToString().ToLowerInvariant();
+		// Use regex word-boundary matching for each phrase to avoid substrings triggering false positives.
+		var text = sb.ToString();
 		int total = 0;
-		foreach (var word in NegativeSentimentWords)
+		foreach (var phrase in NegativeSentimentWords)
 		{
-			if (string.IsNullOrWhiteSpace(word)) continue;
-			int idx = 0;
-			while ((idx = text.IndexOf(word, idx, StringComparison.OrdinalIgnoreCase)) >= 0)
+			if (string.IsNullOrWhiteSpace(phrase)) continue;
+			try
 			{
-				total++;
-				idx += word.Length;
+				var pattern = "\\b" + Regex.Escape(phrase) + "\\b";
+				var matches = Regex.Matches(text, pattern, RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+				total += matches.Count;
+			}
+			catch
+			{
+				// On any unexpected regex error, fall back to a case-insensitive index search for the phrase
+				int idx = 0;
+				while ((idx = text.IndexOf(phrase, idx, StringComparison.OrdinalIgnoreCase)) >= 0)
+				{
+					total++;
+					idx += phrase.Length;
+				}
 			}
 		}
 		return total;
