@@ -35,7 +35,7 @@ namespace maxhanna.Server.Helpers
 
                 var req = new HttpRequestMessage(HttpMethod.Get, builder.ToString());
                 req.Headers.Add("X-Api-Key", ApiKey);
-                 
+
                 var userAgent = "maxhanna-server/1.0 (+https://github.com/maxhanna/BugHosted)";
                 try
                 {
@@ -60,6 +60,7 @@ namespace maxhanna.Server.Helpers
                 try
                 {
                     body = JsonSerializer.Deserialize<ArticlesResult>(respText);
+                    await _log.Db($"NewsHttpClient.NewsApi: fetched {(body?.Articles?.Count ?? 0)} articles", null, "NEWSSERVICE", true);
                 }
                 catch (Exception ex)
                 {
@@ -142,6 +143,7 @@ namespace maxhanna.Server.Helpers
                         art.Source = source;
                         result.Articles.Add(art);
                     }
+                    await _log.Db($"NewsHttpClient.MediaStack: fetched {(result?.Articles?.Count ?? 0)} articles", null, "NEWSSERVICE", true);
                     return result;
                 }
                 catch (Exception ex)
