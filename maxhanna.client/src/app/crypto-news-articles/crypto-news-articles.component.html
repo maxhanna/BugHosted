@@ -25,7 +25,7 @@
     </ul>
 
     <!-- Selected article popup -->
-    <div *ngIf="selectedArticle" class="articlePopupPanel popupPanel">
+    <div *ngIf="showPopup && selectedArticle" class="popupPanel">
         <div class="popupPanelTitle selectedArticleTitle">{{ selectedArticle.title }}</div>
         <div class="selectedArticleContent">
             <div class="articleContent" [innerHTML]="selectedArticle.content"></div>
@@ -44,7 +44,7 @@
             </div>
         </div>
         <div class="newsArticleActionButtons">
-            <button id="closeOverlay" (click)="selectedArticle = undefined">Close</button>
+            <button id="closeOverlay" (click)="closeArticle()">Close</button>
             <button (click)="saveArticle(selectedArticle)">💾Save</button>
             <button (click)="openSource(selectedArticle.url)">📰Read</button>
             <button

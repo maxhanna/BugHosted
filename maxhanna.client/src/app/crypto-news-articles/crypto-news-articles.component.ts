@@ -21,6 +21,7 @@ export class CryptoNewsArticlesComponent extends ChildComponent implements After
     loading = false;
     // filter can be 'all' | 'negative' | 'crypto'
     filter: 'all' | 'negative' | 'crypto' = 'all';
+    showPopup = false;
 
     async ngAfterViewInit() {
         setTimeout(() => {
@@ -89,12 +90,23 @@ export class CryptoNewsArticlesComponent extends ChildComponent implements After
     }
 
     selectArticle(article: Article): void {
-        if (this.selectedArticle) { 
-            this.selectedArticle = undefined; 
-            return;
+        if (this.selectedArticle && this.selectedArticle.url === article.url) { 
+            this.closeArticle(); 
+            return; 
         }
+        this.openArticle(article);
+    }
+
+    openArticle(article: Article) {
         this.selectedArticle = article;
-        this.parentRef?.hideBodyOverflow();
+        this.showPopup = true;
+        this.parentRef?.showOverlay();
+    }
+
+    closeArticle() {
+        this.selectedArticle = undefined;
+        this.showPopup = false;
+        this.parentRef?.closeOverlay();
     }
 
     getAuthors(article: Article): string {
