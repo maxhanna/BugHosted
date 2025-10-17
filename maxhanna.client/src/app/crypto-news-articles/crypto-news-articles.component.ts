@@ -100,13 +100,13 @@ export class CryptoNewsArticlesComponent extends ChildComponent implements After
     openArticle(article: Article) {
         this.selectedArticle = article;
         this.showPopup = true;
-        this.parentRef?.showOverlay();
+        this.inputtedParentRef?.showOverlay();
     }
 
     closeArticle() {
         this.selectedArticle = undefined;
         this.showPopup = false;
-        this.parentRef?.closeOverlay();
+        this.inputtedParentRef?.closeOverlay();
     }
 
     getAuthors(article: Article): string {
@@ -119,7 +119,7 @@ export class CryptoNewsArticlesComponent extends ChildComponent implements After
         if (this.parentRef?.user?.id) {
             let text = article.title + "\n" + article.content + "\n" + article.url;
             this.notepadService.addNote(this.parentRef.user.id, text).then((_res: any) => {
-                this.parentRef?.createComponent("Notepad", { "inputtedSearch": text });
+                this.inputtedParentRef?.createComponent("Notepad", { "inputtedSearch": text });
             });
         }
     }
