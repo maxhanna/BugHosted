@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';  
-import { ArticlesResult } from './datacontracts/news/news-data';
+import { ArticlesResult, Article, Statuses } from './datacontracts/news/news-data';
 import { User } from './datacontracts/user/user';
 
 @Injectable({
@@ -97,28 +97,30 @@ export class NewsService {
     }
   }
 
-  async getNegativeToday(sessionToken: string = ''): Promise<any[] | null> {
+  async getNegativeToday(sessionToken: string = ''): Promise<ArticlesResult | null> {
     try {
       const res = await fetch('/news/negative-today', {
         method: 'GET',
         headers: sessionToken ? { 'Authorization': sessionToken } : undefined,
       });
       if (!res.ok) return null;
-      return await res.json() as any[];
+      const arr = await res.json() as Article[];
+      return { articles: arr || [], totalResults: (arr || []).length, status: Statuses.OK } as ArticlesResult;
     } catch (err) {
       console.error('Error fetching negative today:', err);
       return null;
     }
   }
 
-  async getCryptoToday(sessionToken: string = ''): Promise<any[] | null> {
+  async getCryptoToday(sessionToken: string = ''): Promise<ArticlesResult | null> {
     try {
       const res = await fetch('/news/crypto-today', {
         method: 'GET',
         headers: sessionToken ? { 'Authorization': sessionToken } : undefined,
       });
       if (!res.ok) return null;
-      return await res.json() as any[];
+      const arr = await res.json() as Article[];
+      return { articles: arr || [], totalResults: (arr || []).length, status: Statuses.OK } as ArticlesResult;
     } catch (err) {
       console.error('Error fetching crypto today:', err);
       return null;

@@ -2,6 +2,8 @@ import { AfterViewInit, ChangeDetectorRef, Component, ElementRef, Input, OnDestr
 import { ChildComponent } from '../child.component';
 import { AppComponent } from '../app.component';
 import { NewsService } from '../../services/news.service';
+import { NotepadService } from '../../services/notepad.service';
+import { Article } from '../../services/datacontracts/news/news-data';
 
 @Component({
     selector: 'app-crypto-news-articles',
@@ -10,11 +12,12 @@ import { NewsService } from '../../services/news.service';
     styleUrls: ['./crypto-news-articles.component.css']
 })
 export class CryptoNewsArticlesComponent extends ChildComponent implements AfterViewInit, OnDestroy {
-    constructor(private changeDetectorRef: ChangeDetectorRef, private newsService: NewsService) { super(); }
+    constructor(private changeDetectorRef: ChangeDetectorRef, private newsService: NewsService, private notepadService: NotepadService) { super(); }
 
     @Input() inputtedParentRef?: AppComponent;
 
-    articles: any[] = [];
+    articles: Article[] = [];
+    selectedArticle?: Article;
     loading = false;
 
     async ngAfterViewInit() {
@@ -31,13 +34,16 @@ export class CryptoNewsArticlesComponent extends ChildComponent implements After
             const sessionToken = await (this.inputtedParentRef ?? this.parentRef)?.getSessionToken() ?? '';
 
             // Fetch negative-sentiment and crypto-related articles via NewsService
-            const negList = await this.newsService.getNegativeToday(sessionToken) ?? [];
-            const cryptoList = await this.newsService.getCryptoToday(sessionToken) ?? [];
+            const negRes = await this.newsService.getNegativeToday(sessionToken);
+            const cryptoRes = await this.newsService.getCryptoToday(sessionToken);
 
-            // Merge, dedupe by url
-            const map = new Map<string, any>();
-            (negList || []).forEach((a: any) => { if (a.url) map.set(a.url, { ...a, negative: true }); });
-            (cryptoList || []).forEach((a: any) => {
+            const negList = negRes?.articles ?? [];
+            const cryptoList = cryptoRes?.articles ?? [];
+
+            // Merge, dedupe by url and set flags
+            const map = new Map<string, Article & { negative?: boolean; crypto?: boolean }>();
+            negList.forEach((a: Article) => { if (a.url) map.set(a.url, { ...a, negative: true }); });
+            cryptoList.forEach((a: Article) => {
                 if (a.url) {
                     const existing = map.get(a.url);
                     if (existing) existing.crypto = true; else map.set(a.url, { ...a, crypto: true });
@@ -53,6 +59,32 @@ export class CryptoNewsArticlesComponent extends ChildComponent implements After
             console.error('Failed to fetch crypto news articles', err);
         } finally {
             this.stopLoading();
+        }
+    }
+
+    openSource(url: string) {
+        this.selectedArticle = undefined;
+        this.parentRef?.visitExternalLink(url);
+    }
+
+    selectArticle(article: Article): void {
+        if (this.selectedArticle) { this.selectedArticle = undefined; return; }
+        this.selectedArticle = article;
+        this.parentRef?.hideBodyOverflow();
+    }
+
+    getAuthors(article: Article): string {
+        if (!article?.author || article.author === '') return 'Unknown';
+        const authors = article.author.split(',').map(a => a.trim());
+        return authors.join(', ');
+    }
+
+    saveArticle(article: Article) {
+        if (this.parentRef?.user?.id) {
+            let text = article.title + "\n" + article.content + "\n" + article.url;
+            this.notepadService.addNote(this.parentRef.user.id, text).then((_res: any) => {
+                this.parentRef?.createComponent("Notepad", { "inputtedSearch": text });
+            });
         }
     }
 }

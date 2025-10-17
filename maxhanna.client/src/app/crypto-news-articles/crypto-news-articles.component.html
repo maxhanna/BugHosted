@@ -6,7 +6,7 @@
     <li *ngFor="let a of articles" class="article">
       <img *ngIf="a.urlToImage" [src]="a.urlToImage" class="thumb"/>
       <div class="meta">
-        <a [href]="a.url" target="_blank" rel="noopener">{{ a.title }}</a>
+        <a (click)="selectArticle(a)" class="cursorPointer">{{ a.title }}</a>
         <div class="flags">
           <span *ngIf="a.negative" class="neg">Negative</span>
           <span *ngIf="a.crypto" class="crypto">Crypto</span>
@@ -16,4 +16,28 @@
       </div>
     </li>
   </ul>
+
+  <!-- Selected article popup -->
+  <div *ngIf="selectedArticle" class="articlePopupPanel">
+    <div class="popupPanelTitle selectedArticleTitle">{{ selectedArticle.title }}</div>
+    <div class="selectedArticleContent">
+      <div class="articleContent" [innerHTML]="selectedArticle.content"></div>
+      <div class="articleContent" [innerHTML]="selectedArticle.description"></div>
+      <div class="articleDetails">
+        <div class="articleDetailData">
+          <div class="articleAuthor cursorPointerUnderlined" (click)="openSource(selectedArticle.url)">Author(s): {{ getAuthors(selectedArticle) }}</div>
+          <div class="articleSource cursorPointerUnderlined" (click)="openSource(selectedArticle.url)">Source: {{ selectedArticle.source?.name }}</div>
+          <div class="articleDate cursorPointerUnderlined" (click)="openSource(selectedArticle.url)">Published Date: {{ selectedArticle.publishedAt }}</div>
+        </div>
+        <div class="mainArticleImage"><img class="articleImage" [attr.loading]="'lazy'" [src]="selectedArticle.urlToImage" /></div>
+      </div>
+    </div>
+    <div class="newsArticleActionButtons">
+      <button id="closeOverlay" (click)="selectedArticle = undefined">Close</button>
+      <button (click)="saveArticle(selectedArticle)">💾Save</button>
+      <button (click)="openSource(selectedArticle.url)">📰Read</button>
+      <button (click)="parentRef?.addFavourite(selectedArticle.url, selectedArticle.urlToImage, selectedArticle.source?.name)" title="Add to Favourites" class="cursorPointer">❤️</button>
+    </div>
+    <div class="closeButton" (click)="selectedArticle = undefined"></div>
+  </div>
 </div>
