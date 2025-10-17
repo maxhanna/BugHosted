@@ -174,13 +174,15 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
 
       await this.getLoggedInUser();
       if (this.user) {
-        this.loadFriendData();
+  // Ensure friend/follow request data is loaded before computing relationship flags
+  await this.loadFriendData();
         this.loadWordlerData();
         this.loadMetaheroData();
         this.loadSongData();
         this.loadContactsData();
         this.loadLocation(this.user);
-        this.getIsBeingFollowedByUser();
+  // Now that friendRequests is populated, compute follow relationship
+  this.getIsBeingFollowedByUser();
         this.getIsUserBlocked(this.user);
         this.getUserLoginStreak();
 
@@ -899,13 +901,15 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
     const parent = this.parentRef ?? this.inputtedParentRef;
     const parentUser = parent?.user;
     if (parentUser?.id && this.user) {
-      const res = this.friendRequests;
-      if (res) {
-        const tgtFollowRequest = res.filter(x => x.sender.id == this.user?.id)[0];
-        if (tgtFollowRequest) {
-          this.isBeingFollowedByUser = true;
-          return;
-        }
+      // friendRequests may not have been loaded yet; if empty, skip and let later invocation set flag
+      if (!this.friendRequests || this.friendRequests.length === 0) {
+        this.isBeingFollowedByUser = false;
+        return;
+      }
+  const tgtFollowRequest = this.friendRequests.find(x => x.sender.id === this.user?.id);
+      if (tgtFollowRequest) {
+        this.isBeingFollowedByUser = true;
+        return;
       }
     }
     this.isBeingFollowedByUser = false;
