@@ -20,7 +20,7 @@
                                     </div>
                                     <div style="flex:1 1 auto;">
                                         <div><strong>Score:</strong> {{s.score | countShorten}}</div>
-                                        <div><small>Time on map: {{ s.time_on_level_seconds | timeFormat: 'minify' }}s • Kills: {{ (s.kills ?? 0) | countShorten }} • Walls placed: {{ s.walls_placed | countShorten }} • Level: {{ (s.level ?? 1) | countShorten }}</small></div>
+                                        <div><small>Time on map: {{ s.time_on_level_seconds | timeFormat: 'minify' }} • Kills: {{ (s.kills ?? 0) | countShorten }} • Walls placed: {{ s.walls_placed | countShorten }} • Level: {{ (s.level ?? 1) | countShorten }}</small></div>
                                     </div>
                                 </div>
                             </div>
