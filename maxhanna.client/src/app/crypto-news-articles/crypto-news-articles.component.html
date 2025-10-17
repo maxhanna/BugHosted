@@ -1,7 +1,8 @@
 <div class="crypto-news">
-  <h3>Crypto & Negative News</h3>
   <div *ngIf="loading" class="loading">Loading...</div>
-  <ul class="articles">
+  <div *ngIf="!loading && (!articles || articles.length === 0)" class="empty">No articles found for today.</div>
+
+  <ul *ngIf="!loading && articles && articles.length > 0" class="articles">
     <li *ngFor="let a of articles" class="article">
       <img *ngIf="a.urlToImage" [src]="a.urlToImage" class="thumb"/>
       <div class="meta">
