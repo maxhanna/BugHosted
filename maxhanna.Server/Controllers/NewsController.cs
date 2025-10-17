@@ -128,10 +128,12 @@ namespace maxhanna.Server.Controllers
                 var obj = await cmd.ExecuteScalarAsync();
                 if (obj == null || obj == DBNull.Value) return Ok(new List<Article>());
 
-                var json = obj.ToString();
-                var ids = System.Text.Json.JsonSerializer.Deserialize<List<int>>(json) ?? new List<int>();
+				var json = obj as string;
+				if (string.IsNullOrWhiteSpace(json)) return Ok(new List<Article>());
 
-                if (ids.Count == 0) return Ok(new List<Article>());
+				var ids = System.Text.Json.JsonSerializer.Deserialize<List<int>>(json) ?? new List<int>();
+
+				if (ids.Count == 0) return Ok(new List<Article>());
 
                 string inClause = string.Join(',', ids);
                 string fetchSql = $@"SELECT id as Id, title, description, url, published_at, url_to_image, content, author FROM news_headlines WHERE id IN ({inClause});";
