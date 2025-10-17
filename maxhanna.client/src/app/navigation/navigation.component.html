@@ -83,7 +83,12 @@
         <!-- for notifications, u need glowing if notifications -->
         <a [class]="'navLink htmlIcon ' + (item && (item.title === 'Notifications' || item.title === 'Calendar' || item.title === 'Chat') && item.content && parseNumber(item.content) > 0 ? 'glowing' : (item.title === 'Crypto-Hub' && !isBTCRising) ? 'redTitle' : 'greenTitle')"
           (click)="goTo(item.title, $event)" [title]="item.title">
-          {{ item.icon!.substring(0, 3) }}
+          <ng-container *ngIf="item.title === 'Social' || item.title === 'Crawler'; else defaultIcon">
+            {{ (item.content || '') | countShorten:item.title }}
+          </ng-container>
+          <ng-template #defaultIcon>
+            {{ item.icon!.substring(0, 3) }}
+          </ng-template>
         </a>
       </ng-template>
     </div>

@@ -22,6 +22,7 @@ import { ArrayService } from '../../services/array.service';
 import { RomService } from '../../services/rom.service';
 import { FriendService } from '../../services/friend.service';
 import { SocialService } from '../../services/social.service';
+import { CrawlerService } from '../../services/crawler.service';
 
 @Component({
   selector: 'app-navigation',
@@ -84,7 +85,8 @@ export class NavigationComponent implements OnInit, OnDestroy {
     private arrayService: ArrayService,
     private romService: RomService,
     private friendService: FriendService,
-    private socialService: SocialService) {
+  private socialService: SocialService,
+  private crawlerService: CrawlerService) {
   }
 
   // runtime values for Ender nav item
@@ -112,6 +114,9 @@ export class NavigationComponent implements OnInit, OnDestroy {
   // Social stats
   socialTotalPosts: number | null = null;
   private socialInterval: any;
+  // Crawler stats
+  crawlerIndexCount: number | null = null;
+  private crawlerInterval: any;
 
   async ngOnInit() {
     this.navbarReady = true;
@@ -134,6 +139,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
     clearInterval(this.arrayInterval);
     clearInterval(this.emulationInterval);
     clearInterval(this.socialInterval);
+  clearInterval(this.crawlerInterval);
     this.showAppSelectionHelp = false;
     this.clearNotifications();
   }
@@ -170,6 +176,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
     this.getArrayPlayerInfo();
     this.getEmulationPlayerInfo();
     this.getSocialInfo();
+  this.getCrawlerInfo();
     this.getThemeInfo();
 
     this.notificationInfoInterval = setInterval(() => this.getNotificationInfo(), 20 * 1000); // every minute
@@ -183,6 +190,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
     this.arrayInterval = setInterval(() => this.getArrayPlayerInfo(), 60 * 1000); // every minute
     this.emulationInterval = setInterval(() => this.getEmulationPlayerInfo(), 60 * 1000); // every minute
     this.socialInterval = setInterval(() => this.getSocialInfo(), 5 * 60 * 1000); // every 5 minutes
+  this.crawlerInterval = setInterval(() => this.getCrawlerInfo(), 60 * 60 * 1000); // every hour
   }
 
   stopNotifications() {
@@ -606,6 +614,20 @@ export class NavigationComponent implements OnInit, OnDestroy {
       const socialNav = this._parent.navigationItems.find(x => x.title === 'Social');
       if (socialNav) {
         socialNav.content = this.socialTotalPosts != null ? this.socialTotalPosts.toString() : '';
+      }
+    }
+  }
+
+  private async getCrawlerInfo() {
+    try {
+      const res: any = await this.crawlerService.indexCount();
+      const parsed = parseInt(res, 10);
+      this.crawlerIndexCount = !isNaN(parsed) ? parsed : null;
+    } catch { this.crawlerIndexCount = null; }
+    if (this._parent?.navigationItems) {
+      const crawlerNav = this._parent.navigationItems.find(x => x.title === 'Crawler');
+      if (crawlerNav) {
+        crawlerNav.content = this.crawlerIndexCount != null ? this.crawlerIndexCount.toString() : '';
       }
     }
   }

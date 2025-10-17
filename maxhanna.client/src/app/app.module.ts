@@ -60,6 +60,7 @@ import { TimeFormatPipe } from './time-format.pipe';
 import { TimeSincePipe } from './time-since.pipe';
 import { NexusMovementComponent } from './nexus-movement/nexus-movement.component';
 import { CurrencyShortenPipe } from './currency-shorten';
+import { CountShortenPipe } from './count-shorten.pipe';
 import { CurrencySymbolPipe } from './currency-symbol';
 import { CryptoCalendarComponent } from './crypto-calendar/crypto-calendar.component';
 import { CryptoFearAndGreedComponent } from './crypto-fear-and-greed/crypto-fear-and-greed.component';
@@ -137,6 +138,7 @@ import { AppMenuItemComponent } from './app-menu-item/app-menu-item.component';
     ClickableUrlsPipe,
     CurrencyFlagPipe,
     CurrencyShortenPipe,
+  CountShortenPipe,
     HostAiComponent,
     ThemesComponent,
     CrawlerComponent,
@@ -186,6 +188,7 @@ import { AppMenuItemComponent } from './app-menu-item/app-menu-item.component';
     TimeSincePipe,
     CurrencyFlagPipe,
     CurrencyShortenPipe,
+  CountShortenPipe,
     CurrencySymbolPipe,
     FileSizePipe
   ],

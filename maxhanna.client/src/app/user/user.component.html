@@ -432,7 +432,7 @@
                 <app-menu-item [type]="'Ender'" [parentRef]="parentRef" [label]="'Best Ender Score:'"></app-menu-item>
               </div>
               <div class="optionsStatsDescription">
-                <div>Score: {{bestEnderScore.score}} • Time: {{bestEnderScore.time_on_level_seconds}}s</div>
+                <div>Score: {{ bestEnderScore.score | countShorten }} • Time: {{ bestEnderScore.time_on_level_seconds | countShorten }}s</div>
               </div>
             </div>
 
