@@ -42,7 +42,12 @@
          || (!navbarCollapsed && item.title === 'UpdateUserSettings')" class="navLinkDiv">
       <span class="navbarNotificationSpan {{item.content && item.content.length > 10 ? 'largeNotificationSpan' : ''}}"
         (click)="goTo(item.title, $event)" [title]="item.title">
-        <span (click)="goTo(item.title, $event)" [title]="item.title">{{item.content! || ''}}</span>
+        <span (click)="goTo(item.title, $event)" [title]="item.title">
+          <ng-container *ngIf="item.title === 'Social' || item.title === 'Crawler'; else regularContent">
+            {{ (item.content! || '') | countShorten:item.title }}
+          </ng-container>
+          <ng-template #regularContent>{{ item.content! || '' }}</ng-template>
+        </span>
       </span>
 
   <ng-container *ngIf="item.title === 'Weather' || item.title == 'User' || item.title == 'Ender'; else otherItems">
@@ -83,12 +88,7 @@
         <!-- for notifications, u need glowing if notifications -->
         <a [class]="'navLink htmlIcon ' + (item && (item.title === 'Notifications' || item.title === 'Calendar' || item.title === 'Chat') && item.content && parseNumber(item.content) > 0 ? 'glowing' : (item.title === 'Crypto-Hub' && !isBTCRising) ? 'redTitle' : 'greenTitle')"
           (click)="goTo(item.title, $event)" [title]="item.title">
-          <ng-container *ngIf="item.title === 'Social' || item.title === 'Crawler'; else defaultIcon">
-            {{ (item.content || '') | countShorten:item.title }}
-          </ng-container>
-          <ng-template #defaultIcon>
-            {{ item.icon!.substring(0, 3) }}
-          </ng-template>
+          {{ item.icon!.substring(0, 3) }}
         </a>
       </ng-template>
     </div>
