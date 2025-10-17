@@ -26,7 +26,7 @@ export class CryptoCalendarComponent implements OnInit {
   filteredEvents: any[] = [];
   currentDate = new Date(); 
   uniqueCoinSymbols: string[] = []; 
-
+  collapsed = true;
 
   @ViewChild('selectedCoinSymbol') selectedCoinSymbol!: ElementRef<HTMLSelectElement>;
   @ViewChild('ignoreDateFilter') ignoreDateFilter!: ElementRef<HTMLInputElement>;
@@ -86,4 +86,6 @@ export class CryptoCalendarComponent implements OnInit {
   formatDate(date: Date): string {
     return date.toISOString().split('T')[0];
   }
+
+  toggleCollapsed() { this.collapsed = !this.collapsed; }
 }

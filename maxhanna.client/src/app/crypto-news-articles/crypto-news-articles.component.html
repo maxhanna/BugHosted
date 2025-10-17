@@ -7,9 +7,12 @@
         <button *ngIf="hasCrypto" class="pill" [class.active]="filter === 'crypto'" (click)="setFilter('crypto')">Crypto
             ({{ cryptoCount }})</button>
     </div>
+    <div class="listControls">
+        <button class="small" (click)="toggleCollapsed()">{{ collapsed ? 'Expand' : 'Collapse' }}</button>
+    </div>
     <div *ngIf="!loading && (!articles || articles.length === 0)" class="empty">No articles found for today.</div>
 
-    <ul *ngIf="!loading && displayedArticles && displayedArticles.length > 0" class="articles">
+    <ul *ngIf="!loading && displayedArticles && displayedArticles.length > 0" [class.collapsed]="collapsed" class="articles">
         <li *ngFor="let a of displayedArticles" class="article">
             <img *ngIf="a.urlToImage" [src]="a.urlToImage" class="thumb" />
             <div class="meta">

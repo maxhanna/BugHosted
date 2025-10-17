@@ -29,3 +29,8 @@
     padding: 10px;
     width: calc(100% - 20px) !important;
 }
+
+.event-card-container.collapsed { max-height:50px; overflow:auto }
+@media only screen and (min-width: 1000px) {
+    .event-card-container.collapsed { max-height:300px; overflow:auto }
+}

@@ -19,9 +19,9 @@ export class CryptoNewsArticlesComponent extends ChildComponent implements After
     articles: Article[] = [];
     selectedArticle?: Article;
     loading = false;
-    // filter can be 'all' | 'negative' | 'crypto'
     filter: 'all' | 'negative' | 'crypto' = 'all';
     showPopup = false;
+    collapsed = true;
 
     async ngAfterViewInit() {
         setTimeout(() => {
@@ -123,4 +123,6 @@ export class CryptoNewsArticlesComponent extends ChildComponent implements After
             });
         }
     }
+
+    toggleCollapsed() { this.collapsed = !this.collapsed; }
 }
