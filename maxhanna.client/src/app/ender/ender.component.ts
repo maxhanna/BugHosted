@@ -148,12 +148,11 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
                 this.cachedDefaultName = res?.lastCharacterName ?? undefined;
                 this.cachedDefaultColor = res?.lastCharacterColor ?? undefined;
                 this.isMuted = !!res?.muteSounds;
-                // initialize both music and sfx from legacy setting
                 this.isMusicMuted = this.isMuted;
-                this.isSfxMuted = this.isMuted;
-                resources.setMuted(this.isMuted);
-                // If music isn't muted, attempt to start background music on first user gesture
-                if (!this.isMusicMuted) {
+                this.isSfxMuted = false;  
+                resources.setMusicMuted(this.isMusicMuted);
+                resources.setSfxMuted(this.isSfxMuted);
+                 if (!this.isMusicMuted) {
                     const startMusic = () => {
                         resources.playSound("pixelDreams", { volume: 0.4, loop: true, allowOverlap: false });
                         document.removeEventListener('pointerdown', startMusic);
