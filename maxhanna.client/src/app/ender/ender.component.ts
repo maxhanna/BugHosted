@@ -1030,8 +1030,9 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
                 const fallback = this.cachedDefaultColor ?? this.metaHero?.color ?? '#444444';
                 this.colorInput.nativeElement.value = fallback;
                 // set chosen color to fallback
-                raw = fallback;
-            }
+                raw = fallback; 
+                alert("Ender Core: That color is drifting in the void. Pick a brighter hue to be seen, pilot!");
+             }
         }
 
         const chosenColor = normalizeHex(raw) ?? (this.cachedDefaultColor ?? this.metaHero?.color ?? '#444444');
