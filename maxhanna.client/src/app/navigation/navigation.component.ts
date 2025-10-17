@@ -259,24 +259,13 @@ export class NavigationComponent implements OnInit, OnDestroy {
           const numberOfChatNotifs = res.filter(x => x.chatId && x.isRead == false).length;
           // Active friends online (last_seen within past 10 minutes to match isUserOnline logic)
           let activeFriends = 0;
-          
           const uid = this._parent.user?.id ?? 0;
           if (uid > 0) {
-            const friends: User[] = await this.friendService.getFriends(uid);
-            const cutoff = Date.now() - 10 * 60 * 1000; // 10 minutes window
-            friends?.forEach(f => {
-              if (f.id != this._parent.user?.id) {
-                const lsRaw = f.lastSeen;
-                if (lsRaw) {
-                  const ls = new Date(lsRaw).getTime(); 
-                  if (!isNaN(ls) && ls >= cutoff) {
-                    activeFriends++;
-                    console.log(f);
-                  }
-                }
-              }
-            });
-          } 
+            try {
+              const activeFriendRes: any = await this.friendService.getActiveFriendCount(uid, 10);
+              activeFriends = activeFriendRes?.count ?? 0;
+            } catch { activeFriends = 0; }
+          }
 
           if (numberOfChatNotifs) {
             if (currentChatNotifCount < numberOfChatNotifs) {

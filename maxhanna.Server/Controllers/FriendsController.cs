@@ -501,5 +501,54 @@ namespace maxhanna.Server.Controllers
 				return StatusCode(500, "An error occurred while rejecting the friend request.");
 			}
 		} 
+
+		public class ActiveFriendRequest
+		{
+			public int UserId { get; set; }
+			public int? Minutes { get; set; }
+		}
+
+		[HttpPost("/Friend/ActiveCount", Name = "Friend_ActiveCount")]
+		public async Task<IActionResult> GetActiveFriendCount([FromBody] ActiveFriendRequest req)
+		{
+			if (req == null || req.UserId <= 0)
+			{
+				return BadRequest("Invalid user.");
+			}
+			int windowMinutes = req.Minutes ?? 10; // match isUserOnline <10 minutes logic
+			if (windowMinutes <= 0) windowMinutes = 10;
+			if (windowMinutes > 24 * 60) windowMinutes = 24 * 60; // clamp to 24h
+			try
+			{
+				await using var connection = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+				await connection.OpenAsync();
+				string sql = @"SELECT COUNT(*) AS cnt FROM ( 
+					SELECT f.friend_id AS fid
+					FROM friends f
+					JOIN users u ON u.id = f.friend_id
+					WHERE f.user_id = @UserId
+					  AND u.last_seen IS NOT NULL
+					  AND u.last_seen >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL @Minutes MINUTE)
+					UNION
+					SELECT f.user_id AS fid
+					FROM friends f
+					JOIN users u ON u.id = f.user_id
+					WHERE f.friend_id = @UserId
+					  AND u.last_seen IS NOT NULL
+					  AND u.last_seen >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL @Minutes MINUTE)
+				) active";
+				await using var cmd = new MySqlCommand(sql, connection);
+				cmd.Parameters.AddWithValue("@UserId", req.UserId);
+				cmd.Parameters.AddWithValue("@Minutes", windowMinutes);
+				var result = await cmd.ExecuteScalarAsync();
+				int count = result == null || result == DBNull.Value ? 0 : Convert.ToInt32(result);
+				return Ok(new { count });
+			}
+			catch (Exception ex)
+			{
+				_ = _log.Db("Friend ActiveCount error: " + ex.Message, req.UserId, "FRIEND", true);
+				return StatusCode(500, "Internal server error");
+			}
+		}
 	}
 }

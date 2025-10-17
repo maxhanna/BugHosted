@@ -123,4 +123,25 @@ export class FriendService {
       return `Error occured while removing friend: ${error}`;
     }
   }
+
+  // Returns { count: number } of active friends within the last N minutes (default 10)
+  async getActiveFriendCount(userId: number, minutes: number = 10) {
+    if (!userId) return { count: 0 };
+    try {
+      const response = await fetch(`/friend/activecount`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ UserId: userId, Minutes: minutes })
+      });
+      if (!response.ok) {
+        return { count: 0 };
+      }
+      return await response.json();
+    } catch (error) {
+      console.log(error);
+      return { count: 0 };
+    }
+  }
 }
