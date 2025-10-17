@@ -62,3 +62,8 @@
 .loading {
     padding: 12px;
 }
+
+/* pill filter styles */
+.pills { display:flex; gap:8px; margin:8px 0; }
+.pill { border:1px solid #ddd; background:#fff; padding:6px 10px; border-radius:18px; cursor:pointer }
+.pill.active { background:#036; color:#fff; border-color:#036 }

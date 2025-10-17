@@ -19,6 +19,8 @@ export class CryptoNewsArticlesComponent extends ChildComponent implements After
     articles: Article[] = [];
     selectedArticle?: Article;
     loading = false;
+    // filter can be 'all' | 'negative' | 'crypto'
+    filter: 'all' | 'negative' | 'crypto' = 'all';
 
     async ngAfterViewInit() {
         setTimeout(() => {
@@ -61,6 +63,25 @@ export class CryptoNewsArticlesComponent extends ChildComponent implements After
             this.stopLoading();
         }
     }
+
+    // Toggle filter: clicking the same pill clears it back to 'all'
+    setFilter(c: 'negative' | 'crypto' | 'all') {
+        if (c === 'all') { this.filter = 'all'; return; }
+        this.filter = (this.filter === c) ? 'all' : c;
+    }
+
+    get displayedArticles(): Article[] {
+        if (!this.articles || this.articles.length === 0) return [];
+        if (this.filter === 'all') return this.articles;
+        if (this.filter === 'negative') return this.articles.filter(a => !!a.negative);
+        if (this.filter === 'crypto') return this.articles.filter(a => !!a.crypto);
+        return this.articles;
+    }
+
+    get hasNeg(): boolean { return this.articles.some(a => !!a.negative); }
+    get hasCrypto(): boolean { return this.articles.some(a => !!a.crypto); }
+    get negCount(): number { return this.articles.filter(a => !!a.negative).length; }
+    get cryptoCount(): number { return this.articles.filter(a => !!a.crypto).length; }
 
     openSource(url: string) {
         this.selectedArticle = undefined;

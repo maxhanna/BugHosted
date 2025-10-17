@@ -1,9 +1,13 @@
 <div class="crypto-news">
   <div *ngIf="loading" class="loading">Loading...</div>
+  <div class="pills" *ngIf="!loading && (hasNeg || hasCrypto)">
+    <button *ngIf="hasNeg" class="pill" [class.active]="filter === 'negative'" (click)="setFilter('negative')">Negative ({{ negCount }})</button>
+    <button *ngIf="hasCrypto" class="pill" [class.active]="filter === 'crypto'" (click)="setFilter('crypto')">Crypto ({{ cryptoCount }})</button>
+  </div>
   <div *ngIf="!loading && (!articles || articles.length === 0)" class="empty">No articles found for today.</div>
 
-  <ul *ngIf="!loading && articles && articles.length > 0" class="articles">
-    <li *ngFor="let a of articles" class="article">
+  <ul *ngIf="!loading && displayedArticles && displayedArticles.length > 0" class="articles">
+    <li *ngFor="let a of displayedArticles" class="article">
       <img *ngIf="a.urlToImage" [src]="a.urlToImage" class="thumb"/>
       <div class="meta">
         <a (click)="selectArticle(a)" class="cursorPointer">{{ a.title }}</a>
