@@ -260,6 +260,7 @@ public class NewsService
 				var count = Convert.ToInt32(await checkCmd.ExecuteScalarAsync());
 				if (count > 0)
 				{
+					await _log.Db("Already fetched recent news headlines. Waiting for the next interval.", null, "NEWSSERVICE", true);
 					return false;
 				}
 			}
