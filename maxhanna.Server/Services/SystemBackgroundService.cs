@@ -68,14 +68,27 @@ namespace maxhanna.Server.Services
 
 		protected override async Task ExecuteAsync(CancellationToken stoppingToken)
 		{
-			// Start all timers  
-			_tenSecondTimer.Change(TimeSpan.Zero, TimeSpan.FromSeconds(10));
-			_halfMinuteTimer.Change(TimeSpan.Zero, TimeSpan.FromSeconds(30));
-			_minuteTimer.Change(TimeSpan.Zero, TimeSpan.FromMinutes(1));
-			_fiveMinuteTimer.Change(TimeSpan.Zero, TimeSpan.FromMinutes(5));
-			_hourlyTimer.Change(TimeSpan.Zero, TimeSpan.FromHours(1));
-			_threeHourTimer.Change(TimeSpan.Zero, TimeSpan.FromHours(3));
-			_sixHourTimer.Change(TimeSpan.Zero, TimeSpan.FromHours(6));
+			// Start all timers but stagger the first run to avoid heavy startup spikes.
+			// Each timer keeps its periodic interval; the initial due time is randomized.
+			var rnd = new Random((int)DateTime.UtcNow.Ticks & 0x0000FFFF);
+
+			// Small randomized delays for first run (only)
+			TimeSpan tenSecDelay = TimeSpan.FromSeconds(rnd.Next(2, 8)); // 2-7s
+			TimeSpan halfMinDelay = TimeSpan.FromSeconds(rnd.Next(8, 16)); //8-16s
+			TimeSpan minuteDelay = TimeSpan.FromSeconds(rnd.Next(16, 32));
+			TimeSpan fiveMinDelay = TimeSpan.FromSeconds(rnd.Next(32, 40));
+			TimeSpan hourlyDelay = TimeSpan.FromSeconds(rnd.Next(40, 48));
+			TimeSpan threeHourDelay = TimeSpan.FromSeconds(rnd.Next(48, 56));
+			TimeSpan sixHourDelay = TimeSpan.FromSeconds(rnd.Next(56, 60));
+
+			_tenSecondTimer.Change(tenSecDelay, TimeSpan.FromSeconds(10));
+			_halfMinuteTimer.Change(halfMinDelay, TimeSpan.FromSeconds(30));
+			_minuteTimer.Change(minuteDelay, TimeSpan.FromMinutes(1));
+			_fiveMinuteTimer.Change(fiveMinDelay, TimeSpan.FromMinutes(5));
+			_hourlyTimer.Change(hourlyDelay, TimeSpan.FromHours(1));
+			_threeHourTimer.Change(threeHourDelay, TimeSpan.FromHours(3));
+			_sixHourTimer.Change(sixHourDelay, TimeSpan.FromHours(6));
+			// Daily timer remains scheduled to next midnight
 			_dailyTimer.Change(CalculateNextDailyRun(), TimeSpan.FromHours(24));
 
 			// Keep the service running until cancellation
@@ -98,7 +111,7 @@ namespace maxhanna.Server.Services
 			await _aiController.AnalyzeAndRenameFile();
 		}
 		private async Task RunFiveMinuteTasks()
-		{ 
+		{
 			await FetchAndStoreTopMarketCaps();
 			await UpdateLastBTCWalletInfo();
 			await FetchAndStoreCoinValues();
@@ -114,7 +127,7 @@ namespace maxhanna.Server.Services
 			{
 				_ = _log.Db("Skipping indicator update - already in progress", null, "TISVC", outputToConsole: true);
 			}
-		} 
+		}
 
 		private async Task RunHourlyTasks()
 		{
@@ -198,7 +211,7 @@ namespace maxhanna.Server.Services
 						int lvl = occReader.IsDBNull(occReader.GetOrdinal("level")) ? 1 : occReader.GetInt32("level");
 						int cx = occReader.IsDBNull(occReader.GetOrdinal("coordsX")) ? 0 : occReader.GetInt32("coordsX");
 						int cy = occReader.IsDBNull(occReader.GetOrdinal("coordsY")) ? 0 : occReader.GetInt32("coordsY");
-						if (!occupiedSpots.TryGetValue(lvl, out var list)) { list = new List<(int,int)>(); occupiedSpots[lvl] = list; }
+						if (!occupiedSpots.TryGetValue(lvl, out var list)) { list = new List<(int, int)>(); occupiedSpots[lvl] = list; }
 						list.Add((cx, cy));
 					}
 				}
@@ -211,7 +224,7 @@ namespace maxhanna.Server.Services
 						int lvl = wallReader.IsDBNull(wallReader.GetOrdinal("level")) ? 1 : wallReader.GetInt32("level");
 						int wx = wallReader.IsDBNull(wallReader.GetOrdinal("x")) ? 0 : wallReader.GetInt32("x");
 						int wy = wallReader.IsDBNull(wallReader.GetOrdinal("y")) ? 0 : wallReader.GetInt32("y");
-						if (!wallSpots.TryGetValue(lvl, out var list)) { list = new List<(int,int)>(); wallSpots[lvl] = list; }
+						if (!wallSpots.TryGetValue(lvl, out var list)) { list = new List<(int, int)>(); wallSpots[lvl] = list; }
 						list.Add((wx, wy));
 					}
 				}
@@ -284,7 +297,7 @@ namespace maxhanna.Server.Services
 					updateHeroCmd.Parameters["@HeroId"].Value = v.heroId;
 					await updateHeroCmd.ExecuteNonQueryAsync();
 
-					if (!occupiedSpots.TryGetValue(lvl, out var heroList)) { heroList = new List<(int,int)>(); occupiedSpots[lvl] = heroList; }
+					if (!occupiedSpots.TryGetValue(lvl, out var heroList)) { heroList = new List<(int, int)>(); occupiedSpots[lvl] = heroList; }
 					heroList.Add((newX, newY));
 					relocated++;
 
@@ -1632,7 +1645,7 @@ namespace maxhanna.Server.Services
 			try
 			{
 				await using var conn = new MySqlConnection(_connectionString);
-				await conn.OpenAsync(); 
+				await conn.OpenAsync();
 				string deleteSql = @"
 					DELETE FROM maxhanna.ender_top_scores
 					WHERE created_at < UTC_TIMESTAMP() - INTERVAL 3 DAY
