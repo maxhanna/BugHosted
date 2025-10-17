@@ -133,6 +133,7 @@ body {
   cursor: pointer;
   border: 2px solid rgba(0, 0, 0, 0.6);
   box-shadow: 0 3px 8px rgba(0, 0, 0, 0.6), inset 0 2px 0 rgba(255, 255, 255, 0.02);
+  transition: transform 80ms ease, filter 120ms ease, background 160ms ease;
 }
 
 .dpad .middle {
@@ -197,6 +198,13 @@ body {
 .left:active,
 .left.active {
   background: linear-gradient(to left, rgba(86, 94, 106, 0.8) 0%, rgba(51, 51, 51, 0.8) 100%);
+}
+
+/* Generic pressed animation for any dpad button when held (mouse/touch) or programmatically given .active */
+.dpad > *:active,
+.dpad > *.active {
+  transform: translateY(-2px);
+  box-shadow: 0 1px 4px rgba(0,0,0,0.6), inset 0 2px 3px rgba(0,0,0,0.5);
 }
 
 .middle {
