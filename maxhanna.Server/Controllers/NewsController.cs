@@ -174,7 +174,6 @@ namespace maxhanna.Server.Controllers
                 string sql = @"SELECT id as Id, title, description, url, published_at, url_to_image, content, author
                                FROM news_headlines
                                WHERE (LOWER(title) LIKE '%btc%' OR LOWER(content) LIKE '%crypto%' OR LOWER(description) LIKE '%crypto%')
-                               AND DATE(saved_at) = CURDATE()
                                ORDER BY saved_at DESC LIMIT 100;";
                 using var cmd = new MySqlCommand(sql, conn);
                 using var reader = await cmd.ExecuteReaderAsync();
