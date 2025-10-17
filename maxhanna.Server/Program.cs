@@ -3,7 +3,6 @@ using FirebaseAdmin;
 using FirebaseAdmin.Auth;
 using Google.Apis.Auth.OAuth2;
 using maxhanna.Server.Controllers;
-using maxhanna.Server.Helpers;
 using maxhanna.Server.Services;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.HttpOverrides;
@@ -28,7 +27,7 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
 builder.Services.AddHttpClient();
-builder.Services.AddHttpClient<NewsHttpClient>();
+builder.Services.AddHttpClient<maxhanna.Server.Helpers.NewsHttpClient>();
 builder.Services.AddHostedService<SystemBackgroundService>();
 builder.Services.AddHostedService<NexusAttackBackgroundService>();
 builder.Services.AddHostedService<NexusGoldUpdateBackgroundService>();

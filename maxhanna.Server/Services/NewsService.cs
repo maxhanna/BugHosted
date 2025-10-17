@@ -1,9 +1,8 @@
 ﻿using maxhanna.Server.Controllers.DataContracts.News;
-using maxhanna.Server.Helpers;
-using System.Text.Json;
 using MySqlConnector;
 using System.Text.RegularExpressions;
 using System.Text;
+using maxhanna.Server.Helpers;
 
 public class NewsService
 { 
