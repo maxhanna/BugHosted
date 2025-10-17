@@ -109,6 +109,30 @@ public class NewsService
 		"scamcoin", "scam coin", "rug coin"
 	};
 
+	// Negative sentiment keywords (exact list requested)
+	private static readonly string[] NegativeSentimentWords = new[]
+	{
+		"threats",
+		"terrorist",
+		"recession",
+		"inflation",
+		"tarrif",
+		"stagflation",
+		"bear market",
+		"crash",
+		"bubble",
+		"correction",
+		"black swan",
+		"falling knife",
+		"downside",
+		"volatility",
+		"layoffs",
+		"downsizing",
+		"mismanagement",
+		"debt",
+		"crisis",
+	};
+
 
 	private readonly NewsHttpClient _newsHttp;
 	public NewsService(IConfiguration config, Log log, NewsHttpClient newsHttp)
@@ -252,6 +276,32 @@ public class NewsService
 			{
 				await _log.Db($"Successfully saved {successfullyInsertedCount}/{articlesToTake} headlines{(keyword != null ? $" (keyword: {keyword})" : "")}",
 							 null, "NEWSSERVICE", true);
+
+				// After saving articles, compute negative-word sentiment count across the fresh articles
+				try
+				{
+					// Compute per-article negative counts and collect IDs for articles that contributed
+					int totalNegativeCount = 0;
+					var contributingArticleIds = new List<int>();
+					foreach (var article in top20)
+					{
+						int perCount = CountNegativeWordsInArticle(article);
+						totalNegativeCount += perCount;
+						if (perCount > 0)
+						{
+							// Look up the article id in the DB (should exist after commit)
+							using var idCmd = new MySqlCommand("SELECT id FROM news_headlines WHERE url = @url LIMIT 1", conn);
+							idCmd.Parameters.AddWithValue("@url", article.Url ?? "");
+							var idObj = await idCmd.ExecuteScalarAsync();
+							if (idObj != null && int.TryParse(idObj.ToString(), out var aid)) contributingArticleIds.Add(aid);
+						}
+					}
+					await SaveSentimentCountAsync(conn, totalNegativeCount, contributingArticleIds);
+				}
+				catch (Exception ex)
+				{
+					await _log.Db("Failed to save sentiment score: " + ex.Message, null, "NEWSSERVICE", true);
+				}
 				return true;
 			}
 
@@ -695,6 +745,73 @@ Posted by user @{topMeme.Username}<br><small>Daily top memes are selected based 
 				.ToList();
 
 		return tokens;
+	}
+
+	/// <summary>
+	/// Count occurrences of negative sentiment words across the provided articles (title + description + content).
+	/// </summary>
+	private int CountNegativeWordsAcrossArticles(List<Article> articles)
+	{
+		if (articles == null || articles.Count == 0) return 0;
+		int total = 0;
+		foreach (var a in articles)
+		{
+			var sb = new StringBuilder();
+			if (!string.IsNullOrWhiteSpace(a.Title)) sb.Append(a.Title).Append(' ');
+			if (!string.IsNullOrWhiteSpace(a.Description)) sb.Append(a.Description).Append(' ');
+			if (!string.IsNullOrWhiteSpace(a.Content)) sb.Append(a.Content).Append(' ');
+			var text = sb.ToString().ToLowerInvariant();
+			foreach (var word in NegativeSentimentWords)
+			{
+				if (string.IsNullOrWhiteSpace(word)) continue;
+				int idx = 0;
+				while ((idx = text.IndexOf(word, idx, StringComparison.OrdinalIgnoreCase)) >= 0)
+				{
+					total++;
+					idx += word.Length;
+				}
+			}
+		}
+		return total;
+	}
+
+	/// <summary>
+	/// Persist sentiment count into news_sentiment_score table.
+	/// Creates the table if it does not exist.
+	/// </summary>
+	private async Task SaveSentimentCountAsync(MySqlConnection conn, int count, List<int>? articleIds = null)
+	{
+		if (conn == null) throw new ArgumentNullException(nameof(conn)); 
+		string insertSql = @"INSERT INTO news_sentiment_score (recorded_at, negative_count, article_ids) VALUES (UTC_TIMESTAMP(), @count, @articleIds);";
+		using (var insertCmd = new MySqlCommand(insertSql, conn))
+		{
+			insertCmd.Parameters.AddWithValue("@count", count);
+			var json = articleIds == null || articleIds.Count == 0 ? (object)DBNull.Value : System.Text.Json.JsonSerializer.Serialize(articleIds);
+			insertCmd.Parameters.AddWithValue("@articleIds", json);
+			await insertCmd.ExecuteNonQueryAsync();
+		}
+	}
+
+	private int CountNegativeWordsInArticle(Article a)
+	{
+		if (a == null) return 0;
+		var sb = new StringBuilder();
+		if (!string.IsNullOrWhiteSpace(a.Title)) sb.Append(a.Title).Append(' ');
+		if (!string.IsNullOrWhiteSpace(a.Description)) sb.Append(a.Description).Append(' ');
+		if (!string.IsNullOrWhiteSpace(a.Content)) sb.Append(a.Content).Append(' ');
+		var text = sb.ToString().ToLowerInvariant();
+		int total = 0;
+		foreach (var word in NegativeSentimentWords)
+		{
+			if (string.IsNullOrWhiteSpace(word)) continue;
+			int idx = 0;
+			while ((idx = text.IndexOf(word, idx, StringComparison.OrdinalIgnoreCase)) >= 0)
+			{
+				total++;
+				idx += word.Length;
+			}
+		}
+		return total;
 	}
 	private async Task<int?> FindBestMatchingFileAsync(List<string> tokens, MySqlConnection conn, MySqlTransaction transaction)
 	{
