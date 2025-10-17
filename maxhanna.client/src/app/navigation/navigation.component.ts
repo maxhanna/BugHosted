@@ -86,9 +86,9 @@ export class NavigationComponent implements OnInit, OnDestroy {
     private arrayService: ArrayService,
     private romService: RomService,
     private friendService: FriendService,
-  private socialService: SocialService,
-  private crawlerService: CrawlerService,
-  private newsService: NewsService) {
+    private socialService: SocialService,
+    private crawlerService: CrawlerService,
+    private newsService: NewsService) {
   }
 
   // runtime values for Ender nav item
@@ -141,7 +141,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
     clearInterval(this.arrayInterval);
     clearInterval(this.emulationInterval);
     clearInterval(this.socialInterval);
-  clearInterval(this.crawlerInterval);
+    clearInterval(this.crawlerInterval);
     this.showAppSelectionHelp = false;
     this.clearNotifications();
   }
@@ -169,7 +169,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
     this.getCurrentWeatherInfo();
     this.getCalendarInfo();
     this.getCryptoHubInfo();
-  this.getNewsCountInfo();
+    this.getNewsCountInfo();
     this.getNotificationInfo();
     this.getWordlerStreakInfo();
     this.getEnderPlayerInfo();
@@ -179,7 +179,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
     this.getArrayPlayerInfo();
     this.getEmulationPlayerInfo();
     this.getSocialInfo();
-  this.getCrawlerInfo();
+    this.getCrawlerInfo();
     this.getThemeInfo();
 
     this.notificationInfoInterval = setInterval(() => this.getNotificationInfo(), 20 * 1000); // every minute
@@ -193,7 +193,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
     this.arrayInterval = setInterval(() => this.getArrayPlayerInfo(), 60 * 1000); // every minute
     this.emulationInterval = setInterval(() => this.getEmulationPlayerInfo(), 60 * 1000); // every minute
     this.socialInterval = setInterval(() => this.getSocialInfo(), 5 * 60 * 1000); // every 5 minutes
-  this.crawlerInterval = setInterval(() => this.getCrawlerInfo(), 60 * 60 * 1000); // every hour
+    this.crawlerInterval = setInterval(() => this.getCrawlerInfo(), 60 * 60 * 1000); // every hour
   }
 
   private async getNewsCountInfo() {
@@ -457,7 +457,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
           if (tmpLocalProfitability > 0) {
             lines.push(this.shortenCount(tmpLocalProfitability * btcToCADRate) + (btcToCADRate != 1 ? '$' : ''));
           }
-            lines.push(this.shortenCount(btcToCADRate) + '$');
+          lines.push(this.shortenCount(btcToCADRate) + '$');
           nav.content = lines.join('\n');
         }
       }
@@ -845,7 +845,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
     const billion = 1_000_000_000;
     const million = 1_000_000;
     const thousand = 1_000;
-    const format = (n: number, suffix: string) => (n).toFixed(2).replace(/\.0+$/,'').replace(/(\.[0-9]*[1-9])0+$/,'$1') + suffix;
+    const format = (n: number, suffix: string) => (n).toFixed(2).replace(/\.0+$/, '').replace(/(\.[0-9]*[1-9])0+$/, '$1') + suffix;
     if (num >= trillion) return format(num / trillion, 'T');
     if (num >= billion) return format(num / billion, 'B');
     if (num >= million) return format(num / million, 'M');
