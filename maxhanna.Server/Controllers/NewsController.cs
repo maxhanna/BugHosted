@@ -122,8 +122,8 @@ namespace maxhanna.Server.Controllers
                 using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
                 await conn.OpenAsync();
 
-                // Find latest sentiment row for today
-                string sql = @"SELECT article_ids FROM news_sentiment_score WHERE DATE(recorded_at) = CURDATE() ORDER BY recorded_at DESC LIMIT 1;";
+				// Find latest sentiment row for today (use UTC_DATE because recorded_at is saved with UTC_TIMESTAMP)
+				string sql = @"SELECT article_ids FROM news_sentiment_score WHERE DATE(recorded_at) = UTC_DATE() ORDER BY recorded_at DESC LIMIT 1;";
                 using var cmd = new MySqlCommand(sql, conn);
                 var obj = await cmd.ExecuteScalarAsync();
                 if (obj == null || obj == DBNull.Value) return Ok(new List<Article>());
