@@ -56,10 +56,16 @@
     <button (click)="showEditLinks = !showEditLinks" class="cursorPointer" *ngIf="!showingLatestLinks">
       {{showEditLinks ? 'Done ' : ''}}Edit{{showEditLinks ? 'ing' : ''}}{{showEditLinks ? '' : ' Links'}}
     </button>
-    <button (click)="showLatestLinks()" class="cursorPointer"
-      *ngIf=" !isSearchingUrls">
-      {{ !showingLatestLinks ? 'Show' : 'Hide' }} Latest Links
-    </button>
+    <select class="cursorPointer" (change)="orderChanged($event, $any($event.target).value)" *ngIf=" !isSearchingUrls" [value]="currentOrder">
+      <option value="recent">Latest</option>
+      <option value="oldest">Oldest</option>
+      <option value="popular">Most Added</option>
+      <option value="unpopular">Least Added</option>
+      <option value="visited">Most Viewed</option>
+      <option value="visited_asc">Least Viewed</option>
+      <option value="name">Name (A → Z)</option>
+      <option value="url">URL (A → Z)</option>
+    </select>
   </div>
 </div>
 

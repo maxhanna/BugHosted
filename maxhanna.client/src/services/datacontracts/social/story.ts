@@ -24,9 +24,8 @@ export class Story {
   ip?: string | undefined;
   reactions?: Array<Reaction> | undefined;
   timeSince?: string; 
-  hidden?: boolean; 
-    // New: polls associated with this story
-    polls?: Array<Poll> | undefined;
+  hidden?: boolean;  
+  polls?: Array<Poll> | undefined;
 } 
 export class MetaData {
   url?: string;

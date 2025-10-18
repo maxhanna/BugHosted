@@ -35,6 +35,7 @@ export class FavouritesComponent extends ChildComponent implements OnInit {
   isMenuPanelOpen = false;
   isSearchingEditUrl = false;
   isSearchingUrl = false;
+  selectedMeta?: MetaData;
   numberOfPages = 0;
 
   constructor(
@@ -130,12 +131,24 @@ export class FavouritesComponent extends ChildComponent implements OnInit {
 
       if (tmpLinkUrl) {
         const exactMatch = linkUrl.includes('.') ? true : false;
-        const cRes = await this.crawlerService.searchUrl(tmpLinkUrl, undefined, undefined, exactMatch);
-        if (cRes && cRes.results.length > 0 && (!exactMatch ? cRes.results[0].url.includes(tmpLinkUrl) : true)) {
-          const targetData = cRes.results[0];
-          imageUrl = targetData.imageUrl;
-          name = targetData.title;
-          tmpLinkUrl = targetData.url;
+
+        // If user previously selected a result from the crawler UI, reuse it instead of re-crawling
+        let targetData: MetaData | undefined = undefined;
+        if (this.selectedMeta && this.selectedMeta.url && tmpLinkUrl && tmpLinkUrl === this.selectedMeta.url) {
+          targetData = this.selectedMeta;
+        }
+
+        if (!targetData) {
+          const cRes = await this.crawlerService.searchUrl(tmpLinkUrl, undefined, undefined, exactMatch);
+          if (cRes && cRes.results.length > 0 && (!exactMatch ? cRes.results[0].url.includes(tmpLinkUrl) : true)) {
+            targetData = cRes.results[0];
+          }
+        }
+
+        if (targetData) {
+          imageUrl = targetData.imageUrl ?? '';
+          name = targetData.title ?? '';
+          tmpLinkUrl = targetData.url ?? tmpLinkUrl;
           this.parentRef?.setModalHeader("Added to favourites:"); 
           this.parentRef?.setModalBody(` 
             ${imageUrl ? `<small>Image:</small><br /><span style='margin-left: 10px; text-align: right; width: calc(100% - 20px); display: block;'><img src='${imageUrl}' (error)="fav.imageUrl = ''" /></span><br />` : ``}
@@ -156,7 +169,7 @@ export class FavouritesComponent extends ChildComponent implements OnInit {
           setTimeout(() => this.parentRef?.openModal(), 50);
         }
 
-        const res = await this.favoriteService.updateFavourites(user, tmpLinkUrl, 0, imageUrl, name ?? linkUrl);
+  const res = await this.favoriteService.updateFavourites(user, tmpLinkUrl, 0, imageUrl, name ?? linkUrl);
         const tmpFav = new Favourite();
         tmpFav.name = name ?? linkUrl;
         tmpFav.url = tmpLinkUrl;
@@ -169,6 +182,8 @@ export class FavouritesComponent extends ChildComponent implements OnInit {
 
         this.favorites.unshift(tmpFav);
         this.parentRef?.showNotification(res.message);
+  // clear selectedMeta after use
+  this.selectedMeta = undefined;
       }
     }
 
@@ -304,12 +319,16 @@ export class FavouritesComponent extends ChildComponent implements OnInit {
   urlSelectedEvent(meta: MetaData) { 
     if (this.isSearchingEditUrl) {
       this.editingUrlInput.nativeElement.value = meta.url ?? "";
-      this.editingImageUrlInput.nativeElement.value = meta.imageUrl ?? this.editingImageUrlInput.nativeElement.value ?? "";
+  this.editingImageUrlInput.nativeElement.value = meta.imageUrl ?? this.editingImageUrlInput.nativeElement.value ?? "";
+  // autopopulate the editing title when selecting from crawler
+  try { this.editingNameInput.nativeElement.value = meta.title ?? this.editingNameInput.nativeElement.value ?? ""; } catch {}
       this.isSearchingEditUrl = false;
     } 
     else if (this.isSearchingUrl) {
       this.linkInput.nativeElement.value = meta.url ?? ""; 
-      this.closeSearchPopup();
+  // store selected metadata so addLink can reuse it
+  this.selectedMeta = meta;
+  this.closeSearchPopup();
     }
   }
 }
