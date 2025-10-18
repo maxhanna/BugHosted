@@ -1,18 +1,22 @@
 <div class="sectionName gradientBackground" style="padding: 10px;">Crypto News</div>
 <div class="crypto-news">
     <div *ngIf="loading" class="loading">Loading...</div>
-    <div class="pills" *ngIf="!loading && (hasNeg || hasCrypto)">
-        <button *ngIf="hasNeg" class="pill" [class.active]="filter === 'negative'"
-            (click)="setFilter('negative')">Negative ({{ negCount }})</button>
-        <button *ngIf="hasCrypto" class="pill" [class.active]="filter === 'crypto'" (click)="setFilter('crypto')">Crypto
-            ({{ cryptoCount }})</button>
+    <div class="pillsAndListControls">
+        <div class="pills" *ngIf="!loading && (hasNeg || hasCrypto)">
+            <button *ngIf="hasNeg" class="pill" [class.active]="filter === 'negative'"
+                (click)="setFilter('negative')">Negative ({{ negCount }})</button>
+            <button *ngIf="hasCrypto" class="pill" [class.active]="filter === 'crypto'" (click)="setFilter('crypto')">Crypto
+                ({{ cryptoCount }})</button>
+        </div>
+        <div class="listControls">
+            <button class="" (click)="toggleCollapsed()" title="Toggle" aria-label="Toggle">{{ collapsed ? 'Expand' :
+                'Collapse' }}</button>
+            <button *ngIf="showTopButton" class="iconBtn" (click)="scrollTop()" title="Scroll to top"
+                aria-label="Scroll to top" style="margin-left:8px">▲</button>
+        </div>
     </div>
-    <div class="listControls">
-        <button class="" (click)="toggleCollapsed()" title="Toggle" aria-label="Toggle">{{ collapsed ? 'Expand' :
-            'Collapse' }}</button>
-        <button *ngIf="showTopButton" class="iconBtn" (click)="scrollTop()" title="Scroll to top"
-            aria-label="Scroll to top" style="margin-left:8px">▲</button>
-    </div>
+    
+
     <div *ngIf="!loading && (!articles || articles.length === 0)" class="empty">No articles found for today.</div>
 
     <ul #articlesContainer *ngIf="!loading && displayedArticles && displayedArticles.length > 0"

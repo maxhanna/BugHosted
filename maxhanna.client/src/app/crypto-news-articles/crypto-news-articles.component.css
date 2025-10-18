@@ -165,3 +165,7 @@
         max-width: 300px;
     }
 }
+.pillsAndListControls {
+    display: flex;
+    justify-content: space-between;
+}
