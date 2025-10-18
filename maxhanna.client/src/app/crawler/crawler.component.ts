@@ -256,7 +256,6 @@ export class CrawlerComponent extends ChildComponent implements OnInit, OnDestro
         }
         targetData.favouriteCount = (targetData.favouriteCount ?? 1) - 1;
         targetData.isUserFavourite = false;
-        targetData.favouriteCount = Math.max(0, (targetData.favouriteCount || 1) - 1);
       } else {
         // add favourite via app component to keep behaviour consistent with updateFavourites flow
         await this.parentRef?.addFavourite(url, imageUrl, title);
