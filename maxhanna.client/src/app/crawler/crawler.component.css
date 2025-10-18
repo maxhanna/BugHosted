@@ -32,6 +32,9 @@
   flex-wrap: nowrap;
   gap: 10px;
 }
+.searchOnlyCrawlerInputs {
+  text-align: center;
+}
 
 .smallButton {
   padding: 6px 10px;
