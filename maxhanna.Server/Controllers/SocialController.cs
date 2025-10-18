@@ -103,7 +103,14 @@ namespace maxhanna.Server.Controllers
 			whereClause.Append(@" AND (
 					(s.visibility = 'public')
 					OR (s.visibility = 'following' AND @userId != 0 AND EXISTS (
-						SELECT 1 FROM friend_requests fr WHERE ((fr.sender_id = s.user_id AND fr.receiver_id = @userId) OR (fr.receiver_id = s.user_id AND fr.sender_id = @userId)) AND fr.status = 'accepted'
+						SELECT 1 FROM friend_requests fr 
+						WHERE (
+							(fr.sender_id = s.user_id 
+							AND fr.receiver_id = @userId) 
+						OR (
+							fr.receiver_id = s.user_id 
+							AND fr.sender_id = @userId)
+							) AND fr.status = 'accepted'
 					))
 					OR (s.visibility = 'self' AND s.user_id = @userId)
 				)");
@@ -193,7 +200,7 @@ namespace maxhanna.Server.Controllers
 							WHERE receiver_id = @userId AND status = 'accepted'
 							UNION
 							SELECT receiver_id FROM friend_requests 
-							WHERE sender_id = @userId AND status = 'pending'
+							WHERE sender_id = @userId AND (status = 'pending' OR status = 'deleted')
 						)
 						OR EXISTS (
 							SELECT 1
