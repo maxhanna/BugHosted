@@ -8,12 +8,15 @@
             ({{ cryptoCount }})</button>
     </div>
     <div class="listControls">
-        <button class="iconBtn" (click)="toggleCollapsed()" title="Toggle" aria-label="Toggle">{{ collapsed ? 'Expand' : 'Collapse' }}</button>
-        <button *ngIf="showTopButton" class="iconBtn" (click)="scrollTop()" title="Scroll to top" aria-label="Scroll to top" style="margin-left:8px">▲</button>
+        <button class="iconBtn" (click)="toggleCollapsed()" title="Toggle" aria-label="Toggle">{{ collapsed ? 'Expand' :
+            'Collapse' }}</button>
+        <button *ngIf="showTopButton" class="iconBtn" (click)="scrollTop()" title="Scroll to top"
+            aria-label="Scroll to top" style="margin-left:8px">▲</button>
     </div>
     <div *ngIf="!loading && (!articles || articles.length === 0)" class="empty">No articles found for today.</div>
 
-    <ul #articlesContainer *ngIf="!loading && displayedArticles && displayedArticles.length > 0" [class.collapsed]="collapsed" class="articles">
+    <ul #articlesContainer *ngIf="!loading && displayedArticles && displayedArticles.length > 0"
+        [class.collapsed]="collapsed" class="articles">
         <li *ngFor="let a of displayedArticles" class="article">
             <div class="meta-header">
                 <img *ngIf="a.urlToImage" [src]="a.urlToImage" class="thumb" />
@@ -40,12 +43,24 @@
             <div class="articleContent" [innerHTML]="selectedArticle.description"></div>
             <div class="articleDetails">
                 <div class="articleDetailData">
-                    <a class="articleAuthor cursorPointerUnderlined linkColor" (click)="parentRef?.indexLink(selectedArticle.url); closeArticle()" [href]="selectedArticle.url" target="_blank">
-                        Author(s): {{ getAuthors(selectedArticle) }}</a>
-                    <a class="articleSource cursorPointerUnderlined linkColor" (click)="parentRef?.indexLink(selectedArticle.url); closeArticle()" [href]="selectedArticle.url" target="_blank">Source:
-                        {{ selectedArticle.source?.name }}</a>
-                    <a class="articleDate cursorPointerUnderlined linkColor" (click)="parentRef?.indexLink(selectedArticle.url); closeArticle()" [href]="selectedArticle.url" target="_blank">Published
-                        Date: {{ selectedArticle.publishedAt }}</a>
+                    <div>
+                        <a class="articleAuthor cursorPointerUnderlined linkColor"
+                            (click)="inputtedParentRef?.indexLink(selectedArticle.url); closeArticle()"
+                            [href]="selectedArticle.url" target="_blank">
+                            Author(s): {{ getAuthors(selectedArticle) }}</a>
+                    </div>
+                    <div>
+                        <a class="articleSource cursorPointerUnderlined linkColor"
+                            (click)="inputtedParentRef?.indexLink(selectedArticle.url); closeArticle()"
+                            [href]="selectedArticle.url" target="_blank">Source:
+                            {{ selectedArticle.source?.name ?? 'Unknown'}}</a>
+                    </div>
+                    <div>
+                        <a class="articleDate cursorPointerUnderlined linkColor"
+                            (click)="inputtedParentRef?.indexLink(selectedArticle.url); closeArticle()"
+                            [href]="selectedArticle.url" target="_blank">Published
+                            Date: {{ selectedArticle.publishedAt }}</a>
+                    </div>
                 </div>
                 <div class="mainArticleImage"><img class="popupArticleImage articleImage" [attr.loading]="'lazy'"
                         [src]="selectedArticle.urlToImage" /></div>
