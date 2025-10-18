@@ -359,7 +359,12 @@
               <app-reaction [storyId]="story.id" [user]="parentRef?.user" [inputtedParentRef]="parentRef"
                 [userProfileId]="userProfileId" [component]="story" [showSpan]="false"
                 [currentReactions]="story.reactions" [previousComponent]="'Social'"></app-reaction>
-            </span> 
+            </span>
+            <!-- Visibility indicator: show lock if 'self', followers emoji if 'following', hide for 'public' -->
+            <button *ngIf="story.visibility === 'self'" class="postOptionButtons showPostOptionButton coloredBgButton"
+              title="Visible to you only">🔒</button>
+            <button *ngIf="story.visibility === 'following'" class="postOptionButtons showPostOptionButton coloredBgButton"
+              title="Visible to followers">👥</button>
             <button (click)="showStoryOptionsPanel(story);" class="postOptionButtons showPostOptionButton coloredBgButton"
               title="Show post options">
               ⚙️
