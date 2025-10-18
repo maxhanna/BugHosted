@@ -67,6 +67,7 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
   @ViewChild('postTextArea') postTextArea!: ElementRef<HTMLTextAreaElement>;
 
   isTopicsPanelOpen = false;
+  visibility: 'public' | 'following' | 'self' = 'public';
   eachAttachmentSeperatePost = false;
   isPostOptionsPanelOpen = false;
   ignoredTopics: Topic[] = [];
@@ -607,27 +608,26 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
     const parent = this.inputtedParentRef ?? this.parentRef;
     const location = await parent?.getLocation();
     const originalContent = parent?.replaceEmojisInMessage(this.textarea.value?.trim() || '') ?? '';
-    return {
-      story: {
-        id: 0,
-        user: parent!.user!,
-        storyText: this.encryptContent(originalContent),
-        fileId: null,
-        date: new Date(),
-        upvotes: 0,
-        downvotes: 0,
-        commentsCount: 0,
-        storyComments: undefined,
-        metadata: undefined,
-        storyFiles: files ?? this.attachedFiles,
-        storyTopics: this.attachedTopics,
-        profileUserId: this.profileUser?.id,
-        city: location?.city,
-        country: location?.country,
-        ip: location?.ip,
-      },
-      originalContent: originalContent
+    const storyObj: any = {
+      id: 0,
+      user: parent!.user!,
+      storyText: this.encryptContent(originalContent),
+      fileId: null,
+      date: new Date(),
+      upvotes: 0,
+      downvotes: 0,
+      commentsCount: 0,
+      storyComments: undefined,
+      metadata: undefined,
+      storyFiles: files ?? this.attachedFiles,
+      storyTopics: this.attachedTopics,
+      profileUserId: this.profileUser?.id,
+      city: location?.city,
+      country: location?.country,
+      ip: location?.ip,
+      visibility: this.visibility
     };
+    return { story: storyObj as Story, originalContent: originalContent };
   }
 
   private async createComment(files?: FileEntry[]): Promise<{ comment: FileComment, originalContent: string }> {

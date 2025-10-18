@@ -97,6 +97,16 @@ namespace maxhanna.Server.Controllers
 						AND ti.topic_id IN (SELECT topic_id FROM story_topics st WHERE st.story_id = s.id)
 					) ");
 			}
+
+			// Apply visibility filtering: public (visible to all), following (visible to followers), self (only author)
+			// If request.UserId == 0 (anonymous), only show public posts
+			whereClause.Append(@" AND (
+					(s.visibility = 'public')
+					OR (s.visibility = 'following' AND @userId != 0 AND EXISTS (
+						SELECT 1 FROM friend_requests fr WHERE ((fr.sender_id = s.user_id AND fr.receiver_id = @userId) OR (fr.receiver_id = s.user_id AND fr.sender_id = @userId)) AND fr.status = 'accepted'
+					))
+					OR (s.visibility = 'self' AND s.user_id = @userId)
+				)");
 			// Fetch the NSFW setting for the user
 			int? nsfwEnabled = null;
 			if (request.UserId != 0)

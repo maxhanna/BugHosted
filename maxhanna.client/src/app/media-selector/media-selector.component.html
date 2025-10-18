@@ -4,7 +4,7 @@
     (click)="toggleMediaChoices()" 
     [disabled]="disabled"
     [title]="viewMediaChoicesOpen ? 'Close Media Selector' : 'Select Media Files'">
-    🧷{{uploadButtonText}}
+    📎{{uploadButtonText}}
     <span style="font-size:smaller" *ngIf="selectedFiles && selectedFiles.length > 0">({{ selectedFiles.length }})</span>
   </button>
   <ng-container *ngIf="viewMediaChoicesOpen || displaySearch">

@@ -71,6 +71,16 @@
         (isExpandingComponentPanel)="onExpandingComponentPanel($event)"
         (isExpandingCrawlerPanel)="onExpandingCrawlerPanel($event)"></app-text-formatting-toolbar>
     </div>
+    <!-- Visibility selector for Social posts -->
+    <div *ngIf="type == 'Social'" style="margin-top:12px; display:flex; align-items:center; gap:8px; justify-content:center;">
+        <label style="font-size:0.9rem;">Visibility:</label>
+        <select (change)="visibility = $event.target.value" [value]="visibility">
+            <option value="public">Public</option>
+            <option value="following">Following</option>
+            <option value="self">Self</option>
+        </select>
+        <span class="xxSmallFont" style="margin-left:8px;">Public = anyone, Following = only users following you, Self = only you</span>
+    </div>
     <div style="display: flex; justify-content: center; align-items: center; gap: 10px;">
         <button id="helpButton" (click)="showHelp()" class="helpButton" style="margin-top:10px">ℹ️ Help</button>
         <button id="closeOverlay" (click)="closePostOptionsPanel()" class="closeButton">Close</button>
