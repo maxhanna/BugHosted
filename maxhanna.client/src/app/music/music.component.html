@@ -1,7 +1,7 @@
 <div class="componentMain" #componentMain>
   <div class="closeButton" *ngIf="!user" (click)="remove_me('MusicComponent');"></div>
   <div class="refreshButton" *ngIf="!user" (click)="ngOnInit();"></div>
-  <div class="helpButton" (click)="openHelpPanel()"></div>
+  <div class="helpButton" *ngIf="!user" (click)="openHelpPanel()"></div>
   <div class="componentTitle" *ngIf="!user">Music</div>
 
   <fieldset *ngIf="!user">
