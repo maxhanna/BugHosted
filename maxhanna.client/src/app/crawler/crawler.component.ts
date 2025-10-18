@@ -254,6 +254,7 @@ export class CrawlerComponent extends ChildComponent implements OnInit, OnDestro
         } catch (e) {
           console.warn('Could not find favourite id to remove', e);
         }
+        targetData.favouriteCount = (targetData.favouriteCount ?? 1) - 1;
         targetData.isUserFavourite = false;
         targetData.favouriteCount = Math.max(0, (targetData.favouriteCount || 1) - 1);
       } else {
