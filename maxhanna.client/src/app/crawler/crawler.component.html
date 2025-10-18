@@ -100,8 +100,7 @@
   <div style="max-height: 40vh; overflow: auto; padding: 10px">
     <div *ngIf="favouritedByList.length === 0">No users found.</div>
     <div *ngFor="let u of favouritedByList" style="display:flex; align-items:center; gap:10px; margin-bottom:8px">
-      <img *ngIf="u.displayPictureFile?.id" [src]="'/assets/Uploads/' + u.displayPictureFile?.id" style="width:32px;height:32px;border-radius:50%" />
-      <div>{{u.username ?? 'Anonymous'}}</div>
+      <app-user-tag [inputtedParentRef]="inputtedParentRef ?? parentRef" [user]="u"></app-user-tag> 
     </div>
   </div>
   <button class="closeButton" (click)="closeFavouritedByPanel()">Close</button>
