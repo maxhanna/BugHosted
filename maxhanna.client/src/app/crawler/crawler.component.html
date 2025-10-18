@@ -4,7 +4,7 @@
   <div class="componentTitle" *ngIf="!onlySearch">Crawler</div>
   <div class="xxSmallFont nbDiv" [style.margin-Top]="onlySearch ? '-20px' : ''">
     <div *ngIf="!searchMetadata.length && !onMobile()">Total indexes: {{indexCount}}</div>
-    <div *ngIf="searchMetadata?.length && !onMobile()">Search results: {{totalResults}}</div>
+    <div *ngIf="searchMetadata?.length && !onMobile() && !onlySearch">Search results: {{totalResults}}</div>
   </div>
   <div class="crawler-container"
    [style.opacity]="isLoading ? 0.5 : 1" 
@@ -90,7 +90,7 @@
     </div> 
   </div>
   <div *ngIf="!searchMetadata.length && onMobile()" class="xxSmallFont">Total indexes: {{indexCount}}</div>
-  <div *ngIf="searchMetadata?.length && onMobile()" class="xxSmallFont">Search results: {{totalResults}}</div>
+  <div *ngIf="searchMetadata?.length && (onMobile() || onlySearch)" class="xxSmallFont">Search results: {{totalResults}}</div>
 </div>
 
 <!-- Menu Popup -->
