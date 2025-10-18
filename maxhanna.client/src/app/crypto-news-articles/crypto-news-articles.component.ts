@@ -43,6 +43,10 @@ export class CryptoNewsArticlesComponent extends ChildComponent implements After
         try { this.articlesContainer?.nativeElement.addEventListener('scroll', this._articlesScrollHandler); } catch { }
     }
 
+    ngOnDestroy() {
+        try { if (this.articlesContainer?.nativeElement && this._articlesScrollHandler) this.articlesContainer.nativeElement.removeEventListener('scroll', this._articlesScrollHandler); } catch { }
+    }
+
     private async fetchArticles() {
         try {
             this.startLoading();
@@ -98,7 +102,9 @@ export class CryptoNewsArticlesComponent extends ChildComponent implements After
 
     openSource(url: string) {
         this.closeArticle();
-        this.parentRef?.visitExternalLink(url);
+        setTimeout(() => {
+            this.parentRef?.visitExternalLink(url);
+        }, 50);
     }
 
     selectArticle(article: Article): void {
@@ -153,7 +159,4 @@ export class CryptoNewsArticlesComponent extends ChildComponent implements After
         } catch { }
     }
 
-    ngOnDestroy() {
-        try { if (this.articlesContainer?.nativeElement && this._articlesScrollHandler) this.articlesContainer.nativeElement.removeEventListener('scroll', this._articlesScrollHandler); } catch { }
-    }
 }
