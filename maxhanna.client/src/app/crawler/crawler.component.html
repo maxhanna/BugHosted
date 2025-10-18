@@ -24,7 +24,7 @@
             *ngIf="onlySearch"
             title="Add without searching">＋</button>
         </div>
-        <div *ngIf="!hasSearched" class="siteHelperTip smallFont">Tip: use <span (click)="fillSiteExample()" class="cursorPointerUnderlined linkFontColor">"site:domain.com keywords"</span> to restrict results to a single domain.</div>
+        <div *ngIf="!hasSearched && !onlySearch" class="siteHelperTip smallFont">Tip: use <span (click)="fillSiteExample()" class="cursorPointerUnderlined linkFontColor">"site:domain.com keywords"</span> to restrict results to a single domain.</div>
     </div>
 
     <div *ngIf="isLoading" class="loadingNotificationDiv">Loading...</div>
