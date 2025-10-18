@@ -39,9 +39,12 @@ export class CrawlerComponent extends ChildComponent implements OnInit, OnDestro
   @Output() closeSearchEvent = new EventEmitter<void>();
   constructor(private sanitizer: DomSanitizer, private crawlerService: CrawlerService, private favouriteService: FavouriteService) { super(); }
   ngOnInit() {
-    this.parentRef?.addResizeListener();
     this.crawlerService.indexCount().then(res => { if (res) { this.indexCount = parseInt(res); } });
-    (document.getElementsByClassName("componentContainer")[0] as HTMLDivElement)?.classList.add("centeredContainer");
+
+    if (!this.onlySearch) {
+      this.parentRef?.addResizeListener();
+      (document.getElementsByClassName("componentContainer")[0] as HTMLDivElement)?.classList.add("centeredContainer");
+    }
     setTimeout(() => {
       if (this.url) {
         this.urlInput.nativeElement.value = this.url;
