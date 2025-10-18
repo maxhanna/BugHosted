@@ -23,6 +23,7 @@ export class TextFormattingToolbarComponent extends ChildComponent {
   isEmojiPanelOpen = false;
   showComponentSelector = false;
   componentSearchTerm: string = '';
+  isCrawlerOpen = false;
 
   get textarea(): HTMLTextAreaElement | HTMLInputElement {
     let element: HTMLTextAreaElement | HTMLInputElement | null = null;
@@ -159,46 +160,56 @@ export class TextFormattingToolbarComponent extends ChildComponent {
    * Otherwise it will insert a placeholder label and the provided url.
    */
   insertLink(componentId?: string) {
-    let targetInput = componentId
-      ? document.getElementById(componentId) as HTMLInputElement
-      : this.textarea;
+    // Open crawler popup to select/add a URL instead of using prompt
+    this.openCrawler();
+  }
 
+  openCrawler() {
+    this.isCrawlerOpen = true;
+    const parent = this.inputtedParentRef ?? this.parentRef;
+    parent?.showOverlay();
+  }
+
+  closeCrawler() {
+    this.isCrawlerOpen = false;
+    const parent = this.inputtedParentRef ?? this.parentRef;
+    parent?.closeOverlay();
+  }
+
+  crawlerUrlSelected(md: any) {
+    // md is MetaData from crawler; we only need the URL
+    const url = md?.url;
+    if (!url) {
+      this.closeCrawler();
+      return;
+    }
+
+    // Insert into the current textarea using same logic as old method
+    const targetInput = this.textarea;
     if (!targetInput) return;
-
     const start = targetInput.selectionStart || 0;
     const end = targetInput.selectionEnd || 0;
     const selectedText = targetInput.value.substring(start, end);
 
-    // Ask for URL
-    const url = window.prompt('Enter URL (include http(s)://)', 'https://www.example.com');
-    if (!url) return; // cancelled
-
-    let insertText: string;
-    let cursorPos = start;
-
     if (selectedText) {
-      // Wrap selected text
-      insertText = `[${selectedText}][${url}]`;
+      const insertText = `[${selectedText}][${url}]`;
       targetInput.value = targetInput.value.substring(0, start) + insertText + targetInput.value.substring(end);
-      cursorPos = start + insertText.length;
+      const cursorPos = start + insertText.length;
+      targetInput.selectionStart = cursorPos;
+      targetInput.selectionEnd = cursorPos;
+      targetInput.focus();
     } else {
-      // Insert placeholder
       const placeholder = 'text';
-      insertText = `[${placeholder}][${url}]`;
+      const insertText = `[${placeholder}][${url}]`;
       targetInput.value = targetInput.value.substring(0, start) + insertText + targetInput.value.substring(start);
-      // place caret between [ and ] of the placeholder to let user edit
-      const placeholderStart = start + 1; // after '['
+      const placeholderStart = start + 1;
       const placeholderEnd = placeholderStart + placeholder.length;
       targetInput.selectionStart = placeholderStart;
       targetInput.selectionEnd = placeholderEnd;
       targetInput.focus();
-      return;
     }
 
-    // set cursor after inserted text
-    targetInput.selectionStart = cursorPos;
-    targetInput.selectionEnd = cursorPos;
-    targetInput.focus();
+    this.closeCrawler();
   }
   insertTag(tag: string, componentId?: string) {
     let targetInput = componentId

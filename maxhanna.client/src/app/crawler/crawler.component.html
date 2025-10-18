@@ -19,6 +19,10 @@
         <div class="crawlerInputs"> 
           <input #urlInput type="text" placeholder="e.g. site:www.example.com keywords" (keydown.enter)="searchUrl()" />
           <button (click)="searchUrl()" [disabled]="isLoading">🔍Crawl</button>
+          <button (click)="addWithoutSearch()" 
+            [disabled]="isLoading || !(urlInput?.nativeElement?.value && urlInput.nativeElement.value.trim())" 
+            *ngIf="onlySearch"
+            title="Add without searching">＋</button>
         </div>
         <div *ngIf="!hasSearched" class="siteHelperTip smallFont">Tip: use <span (click)="fillSiteExample()" class="cursorPointerUnderlined linkFontColor">"site:domain.com keywords"</span> to restrict results to a single domain.</div>
     </div>

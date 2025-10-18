@@ -125,6 +125,34 @@ export class CrawlerComponent extends ChildComponent implements OnInit, OnDestro
     }, 100);
   }
 
+  async addWithoutSearch() {
+    const url = this.urlInput?.nativeElement?.value?.trim();
+    if (!url) return;
+
+    // If used in onlySearch mode, emit a minimal MetaData and close
+    if (this.onlySearch) {
+      const md: MetaData = {
+        url: url,
+        title: url,
+        description: '',
+        imageUrl: '',
+        httpStatus: 0
+      };
+      this.urlSelectedEvent.emit(md);
+      this.closeSearchEvent.emit();
+      return;
+    }
+
+    // Otherwise, add as favourite via parentRef to keep behavior consistent
+    try {
+      const parent = this.inputtedParentRef ?? this.parentRef;
+      await parent?.addFavourite(url, '', '');
+      if (parent) parent.closeOverlay();
+    } catch (e) {
+      console.error('Failed to add without search', e);
+    }
+  }
+
   private getGroupedResults(results: MetaData[]) {
     const groupedResults: { [domain: string]: MetaData[]; } = {};
 
