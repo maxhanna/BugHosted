@@ -11,5 +11,6 @@ namespace maxhanna.Server.Controllers.DataContracts.Metadata
 		public string? ImageUrl { get; set; }
 		public int? HttpStatus { get; set; } 
 		public int? FavouriteCount { get; set; } 
+		public bool? IsUserFavourite { get; set; }
 	}
 }

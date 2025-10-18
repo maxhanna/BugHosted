@@ -7,6 +7,7 @@ namespace maxhanna.Server.Controllers.DataContracts.Crawler
 		public int CurrentPage { get; set; }
 		public bool? ExactMatch { get; set; }
 		public bool? SkipScrape { get; set; }
+		public int? UserId { get; set; }
 	}
 	 
 }

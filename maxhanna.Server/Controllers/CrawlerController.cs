@@ -162,7 +162,12 @@ namespace maxhanna.Server.Controllers
 							id DESC";
 
 					string checkUrlQuery = $@"
-						SELECT id, url, title, description, author, keywords, image_url, failed, response_code  
+						SELECT id, url, title, description, author, keywords, image_url, failed, response_code,
+						EXISTS(
+							SELECT 1 FROM favourites f
+							JOIN favourites_selected fs ON fs.favourite_id = f.id
+							WHERE fs.user_id = @UserId AND LOWER(f.url) = LOWER(search_results.url)
+						) AS is_user_favourite
 						FROM search_results 
 						WHERE {whereCondition} 
 						{orderByClause}
@@ -191,6 +196,7 @@ namespace maxhanna.Server.Controllers
 									Author = reader.IsDBNull(reader.GetOrdinal("author")) ? null : reader.GetString("author"),
 									Keywords = reader.IsDBNull(reader.GetOrdinal("keywords")) ? null : reader.GetString("keywords"),
 									HttpStatus = reader.IsDBNull(reader.GetOrdinal("response_code")) ? null : reader.GetInt32("response_code"),
+									IsUserFavourite = reader.IsDBNull(reader.GetOrdinal("is_user_favourite")) ? (bool?)null : reader.GetBoolean("is_user_favourite"),
 								});
 							}
 						}
@@ -299,6 +305,16 @@ namespace maxhanna.Server.Controllers
 			command.Parameters.AddWithValue("@searchWithWildcard", $"%{request.Url?.ToLower()}%");
 			command.Parameters.AddWithValue("@searchIsDomain",
 				Uri.CheckHostName(request.Url?.Replace("https://", "").Replace("http://", "").Split('/')[0]) != UriHostNameType.Unknown);
+
+			// optional user id for favourite checks
+			if (request.UserId != null)
+			{
+				command.Parameters.AddWithValue("@UserId", request.UserId.Value);
+			}
+			else
+			{
+				command.Parameters.AddWithValue("@UserId", 0);
+			}
 
 			// optional site:domain parameters
 			if (!string.IsNullOrWhiteSpace(siteDomain))
