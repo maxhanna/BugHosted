@@ -161,9 +161,11 @@ export class TextFormattingToolbarComponent extends ChildComponent {
 
   openCrawler() {
     this.isExpandingCrawlerPanel.emit(true); 
-    const parent = this.inputtedParentRef ?? this.parentRef;
-    parent?.showOverlay();
-    this.isCrawlerOpen = true; 
+    setTimeout(() => { 
+      const parent = this.inputtedParentRef ?? this.parentRef;
+      parent?.showOverlay();
+      this.isCrawlerOpen = true;  
+    }, 500);
   }
 
   closeCrawler() {
