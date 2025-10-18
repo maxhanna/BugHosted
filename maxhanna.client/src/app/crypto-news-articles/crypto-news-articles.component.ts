@@ -97,7 +97,7 @@ export class CryptoNewsArticlesComponent extends ChildComponent implements After
     get cryptoCount(): number { return this.articles.filter(a => !!a.crypto).length; }
 
     openSource(url: string) {
-        this.selectedArticle = undefined;
+        this.closeArticle();
         this.parentRef?.visitExternalLink(url);
     }
 
