@@ -294,6 +294,9 @@ export class NotificationsComponent extends ChildComponent implements OnInit, On
       this.filterCategory = 'All';
     }
     this.updatePagination();
+    if (!notification) {
+      this.scrollToTopNotification();
+    }
     parent.navigationComponent.setNotificationNumber(this.unreadNotifications);
   }
   async read(notification?: UserNotification, forceRead: boolean = false) {
