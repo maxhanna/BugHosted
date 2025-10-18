@@ -10,7 +10,7 @@
    [style.opacity]="isLoading ? 0.5 : 1" 
    [style.position]="onlySearch ? 'relative' : ''"
    [style.top]="onlySearch ? (onMobile() ? '-35px' : '-50px') : ''">
-    <div>
+    <div style="text-align: center;">
       <div [class]="!onlySearch ? 'crawlerInputs' : ''" *ngIf="totalPages > 1" style="margin-bottom:10px">
         <button (click)="onPageChange(currentPage - 1)" [disabled]="currentPage <= 1">Previous</button>
         <span>Page {{ currentPage }} of {{ totalPages }}</span>
