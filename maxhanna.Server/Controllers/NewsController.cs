@@ -170,19 +170,18 @@ namespace maxhanna.Server.Controllers
                 using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
                 await conn.OpenAsync();
 
-				// Simple keyword match on content/title/description for crypto keywords (include ETH, XRP, SOL, DOGE)
+				// Keyword match on content/title/description using explicit boundary regexes to avoid substring matches
 				string sql = @"SELECT id as Id, title, description, url, published_at, url_to_image, content, author
 							   FROM news_headlines
 							   WHERE (
-								   LOWER(title) LIKE '%btc%' OR LOWER(content) LIKE '%btc%' OR LOWER(description) LIKE '%btc%'
-								   OR LOWER(title) LIKE '%crypto%' OR LOWER(content) LIKE '%crypto%' OR LOWER(description) LIKE '%crypto%'
-								   OR LOWER(title) LIKE '%eth%' OR LOWER(content) LIKE '%eth%' OR LOWER(description) LIKE '%eth%'
-								   OR LOWER(title) LIKE '%ethereum%' OR LOWER(content) LIKE '%ethereum%' OR LOWER(description) LIKE '%ethereum%'
-								   OR LOWER(title) LIKE '%xrp%' OR LOWER(content) LIKE '%xrp%' OR LOWER(description) LIKE '%xrp%'
-								   OR LOWER(title) LIKE '%sol%' OR LOWER(content) LIKE '%sol%' OR LOWER(description) LIKE '%sol%'
-								   OR LOWER(title) LIKE '%solana%' OR LOWER(content) LIKE '%solana%' OR LOWER(description) LIKE '%solana%'
-								   OR LOWER(title) LIKE '%doge%' OR LOWER(content) LIKE '%doge%' OR LOWER(description) LIKE '%doge%'
-								   OR LOWER(title) LIKE '%dogecoin%' OR LOWER(content) LIKE '%dogecoin%' OR LOWER(description) LIKE '%dogecoin%'
+								   LOWER(title) REGEXP '(^|[^a-z0-9])btc([^a-z0-9]|$)' OR LOWER(content) REGEXP '(^|[^a-z0-9])btc([^a-z0-9]|$)' OR LOWER(description) REGEXP '(^|[^a-z0-9])btc([^a-z0-9]|$)'
+								   OR LOWER(title) REGEXP '(^|[^a-z0-9])crypto([^a-z0-9]|$)' OR LOWER(content) REGEXP '(^|[^a-z0-9])crypto([^a-z0-9]|$)' OR LOWER(description) REGEXP '(^|[^a-z0-9])crypto([^a-z0-9]|$)'
+								   OR LOWER(title) REGEXP '(^|[^a-z0-9])eth([^a-z0-9]|$)' OR LOWER(content) REGEXP '(^|[^a-z0-9])eth([^a-z0-9]|$)' OR LOWER(description) REGEXP '(^|[^a-z0-9])eth([^a-z0-9]|$)'
+								   OR LOWER(title) REGEXP '(^|[^a-z0-9])ethereum([^a-z0-9]|$)' OR LOWER(content) REGEXP '(^|[^a-z0-9])ethereum([^a-z0-9]|$)' OR LOWER(description) REGEXP '(^|[^a-z0-9])ethereum([^a-z0-9]|$)'
+								   OR LOWER(title) REGEXP '(^|[^a-z0-9])xrp([^a-z0-9]|$)' OR LOWER(content) REGEXP '(^|[^a-z0-9])xrp([^a-z0-9]|$)' OR LOWER(description) REGEXP '(^|[^a-z0-9])xrp([^a-z0-9]|$)'
+								   OR LOWER(title) REGEXP '(^|[^a-z0-9])sol([^a-z0-9]|$)' OR LOWER(content) REGEXP '(^|[^a-z0-9])sol([^a-z0-9]|$)' OR LOWER(description) REGEXP '(^|[^a-z0-9])sol([^a-z0-9]|$)'
+								   OR LOWER(title) REGEXP '(^|[^a-z0-9])solana([^a-z0-9]|$)' OR LOWER(content) REGEXP '(^|[^a-z0-9])solana([^a-z0-9]|$)' OR LOWER(description) REGEXP '(^|[^a-z0-9])solana([^a-z0-9]|$)'
+								   OR LOWER(title) REGEXP '(^|[^a-z0-9])doge(coin)?([^a-z0-9]|$)' OR LOWER(content) REGEXP '(^|[^a-z0-9])doge(coin)?([^a-z0-9]|$)' OR LOWER(description) REGEXP '(^|[^a-z0-9])doge(coin)?([^a-z0-9]|$)'
 								   )
 							   ORDER BY saved_at DESC LIMIT 200;";
                 using var cmd = new MySqlCommand(sql, conn);
@@ -220,17 +219,17 @@ namespace maxhanna.Server.Controllers
 				using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
 				await conn.OpenAsync();
 
-				// map coin to search tokens using REGEXP with word-boundaries to avoid substring matches
+				// map coin to search tokens using explicit regex boundaries to avoid POSIX/ICU incompatibilities
 				var tokenSql = coin.ToLowerInvariant() switch
 				{
 					var c when c.Contains("ethereum") || c == "ethereum" || c == "eth" =>
-						"(LOWER(title) REGEXP '[[:<:]]eth[[:>:]]' OR LOWER(content) REGEXP '[[:<:]]eth[[:>:]]' OR LOWER(description) REGEXP '[[:<:]]eth[[:>:]]' OR LOWER(title) REGEXP '[[:<:]]ethereum[[:>:]]' OR LOWER(content) REGEXP '[[:<:]]ethereum[[:>:]]' OR LOWER(description) REGEXP '[[:<:]]ethereum[[:>:]]')",
+						"(LOWER(title) REGEXP '(^|[^a-z0-9])eth([^a-z0-9]|$)' OR LOWER(content) REGEXP '(^|[^a-z0-9])eth([^a-z0-9]|$)' OR LOWER(description) REGEXP '(^|[^a-z0-9])eth([^a-z0-9]|$)' OR LOWER(title) REGEXP '(^|[^a-z0-9])ethereum([^a-z0-9]|$)' OR LOWER(content) REGEXP '(^|[^a-z0-9])ethereum([^a-z0-9]|$)' OR LOWER(description) REGEXP '(^|[^a-z0-9])ethereum([^a-z0-9]|$)')",
 					var c when c.Contains("doge") || c == "dogecoin" =>
-						"(LOWER(title) REGEXP '[[:<:]]doge(coin)?[[:>:]]' OR LOWER(content) REGEXP '[[:<:]]doge(coin)?[[:>:]]' OR LOWER(description) REGEXP '[[:<:]]doge(coin)?[[:>:]]')",
+						"(LOWER(title) REGEXP '(^|[^a-z0-9])doge(coin)?([^a-z0-9]|$)' OR LOWER(content) REGEXP '(^|[^a-z0-9])doge(coin)?([^a-z0-9]|$)' OR LOWER(description) REGEXP '(^|[^a-z0-9])doge(coin)?([^a-z0-9]|$)')",
 					var c when c.Contains("xrp") =>
-						"(LOWER(title) REGEXP '[[:<:]]xrp[[:>:]]' OR LOWER(content) REGEXP '[[:<:]]xrp[[:>:]]' OR LOWER(description) REGEXP '[[:<:]]xrp[[:>:]]')",
+						"(LOWER(title) REGEXP '(^|[^a-z0-9])xrp([^a-z0-9]|$)' OR LOWER(content) REGEXP '(^|[^a-z0-9])xrp([^a-z0-9]|$)' OR LOWER(description) REGEXP '(^|[^a-z0-9])xrp([^a-z0-9]|$)')",
 					var c when c.Contains("sol") || c.Contains("solana") =>
-						"(LOWER(title) REGEXP '[[:<:]]sol[[:>:]]' OR LOWER(content) REGEXP '[[:<:]]sol[[:>:]]' OR LOWER(description) REGEXP '[[:<:]]sol[[:>:]]' OR LOWER(title) REGEXP '[[:<:]]solana[[:>:]]' OR LOWER(content) REGEXP '[[:<:]]solana[[:>:]]' OR LOWER(description) REGEXP '[[:<:]]solana[[:>:]]')",
+						"(LOWER(title) REGEXP '(^|[^a-z0-9])sol([^a-z0-9]|$)' OR LOWER(content) REGEXP '(^|[^a-z0-9])sol([^a-z0-9]|$)' OR LOWER(description) REGEXP '(^|[^a-z0-9])sol([^a-z0-9]|$)' OR LOWER(title) REGEXP '(^|[^a-z0-9])solana([^a-z0-9]|$)' OR LOWER(content) REGEXP '(^|[^a-z0-9])solana([^a-z0-9]|$)' OR LOWER(description) REGEXP '(^|[^a-z0-9])solana([^a-z0-9]|$)')",
 					_ => null
 				};
 
@@ -275,10 +274,10 @@ namespace maxhanna.Server.Controllers
 
 				string sql = @"
 					SELECT
-						SUM(CASE WHEN (LOWER(title) REGEXP '[[:<:]]eth[[:>:]]' OR LOWER(content) REGEXP '[[:<:]]eth[[:>:]]' OR LOWER(description) REGEXP '[[:<:]]eth[[:>:]]' OR LOWER(title) REGEXP '[[:<:]]ethereum[[:>:]]' OR LOWER(content) REGEXP '[[:<:]]ethereum[[:>:]]' OR LOWER(description) REGEXP '[[:<:]]ethereum[[:>:]]') THEN 1 ELSE 0 END) AS Ethereum,
-						SUM(CASE WHEN (LOWER(title) REGEXP '[[:<:]]doge(coin)?[[:>:]]' OR LOWER(content) REGEXP '[[:<:]]doge(coin)?[[:>:]]' OR LOWER(description) REGEXP '[[:<:]]doge(coin)?[[:>:]]') THEN 1 ELSE 0 END) AS Dogecoin,
-						SUM(CASE WHEN (LOWER(title) REGEXP '[[:<:]]xrp[[:>:]]' OR LOWER(content) REGEXP '[[:<:]]xrp[[:>:]]' OR LOWER(description) REGEXP '[[:<:]]xrp[[:>:]]') THEN 1 ELSE 0 END) AS XRP,
-						SUM(CASE WHEN (LOWER(title) REGEXP '[[:<:]]sol[[:>:]]' OR LOWER(content) REGEXP '[[:<:]]sol[[:>:]]' OR LOWER(description) REGEXP '[[:<:]]sol[[:>:]]' OR LOWER(title) REGEXP '[[:<:]]solana[[:>:]]' OR LOWER(content) REGEXP '[[:<:]]solana[[:>:]]' OR LOWER(description) REGEXP '[[:<:]]solana[[:>:]]') THEN 1 ELSE 0 END) AS Solana
+						SUM(CASE WHEN (LOWER(title) REGEXP '(^|[^a-z0-9])eth([^a-z0-9]|$)' OR LOWER(content) REGEXP '(^|[^a-z0-9])eth([^a-z0-9]|$)' OR LOWER(description) REGEXP '(^|[^a-z0-9])eth([^a-z0-9]|$)' OR LOWER(title) REGEXP '(^|[^a-z0-9])ethereum([^a-z0-9]|$)' OR LOWER(content) REGEXP '(^|[^a-z0-9])ethereum([^a-z0-9]|$)' OR LOWER(description) REGEXP '(^|[^a-z0-9])ethereum([^a-z0-9]|$)') THEN 1 ELSE 0 END) AS Ethereum,
+						SUM(CASE WHEN (LOWER(title) REGEXP '(^|[^a-z0-9])doge(coin)?([^a-z0-9]|$)' OR LOWER(content) REGEXP '(^|[^a-z0-9])doge(coin)?([^a-z0-9]|$)' OR LOWER(description) REGEXP '(^|[^a-z0-9])doge(coin)?([^a-z0-9]|$)') THEN 1 ELSE 0 END) AS Dogecoin,
+						SUM(CASE WHEN (LOWER(title) REGEXP '(^|[^a-z0-9])xrp([^a-z0-9]|$)' OR LOWER(content) REGEXP '(^|[^a-z0-9])xrp([^a-z0-9]|$)' OR LOWER(description) REGEXP '(^|[^a-z0-9])xrp([^a-z0-9]|$)') THEN 1 ELSE 0 END) AS XRP,
+						SUM(CASE WHEN (LOWER(title) REGEXP '(^|[^a-z0-9])sol([^a-z0-9]|$)' OR LOWER(content) REGEXP '(^|[^a-z0-9])sol([^a-z0-9]|$)' OR LOWER(description) REGEXP '(^|[^a-z0-9])sol([^a-z0-9]|$)' OR LOWER(title) REGEXP '(^|[^a-z0-9])solana([^a-z0-9]|$)' OR LOWER(content) REGEXP '(^|[^a-z0-9])solana([^a-z0-9]|$)' OR LOWER(description) REGEXP '(^|[^a-z0-9])solana([^a-z0-9]|$)') THEN 1 ELSE 0 END) AS Solana
 					FROM news_headlines;";
 
 				using var cmd = new MySqlCommand(sql, conn);
