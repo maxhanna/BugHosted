@@ -19,6 +19,17 @@
     }
 }
 
+.articles.collapsed {
+    max-height: 150px;
+    overflow: auto
+} 
+
+@media only screen and (max-width : 1000px) {
+    .articles.collapsed {
+        max-height: 100px;
+    }
+}
+
 .article {
     display: flex;
     flex-direction: column;
@@ -119,23 +130,6 @@
 .listControls .small {
     padding: 4px 8px;
     font-size: 12px;
-}
-
-.articles.collapsed {
-    max-height: 300px;
-    overflow: auto
-}
-
-@media only screen and (max-width : 1000px) {
-    .articles.collapsed {
-        max-height: 300px
-    }
-}
-
-@media only screen and (min-width : 1000px) {
-    .articles.collapsed {
-        max-height: 500px
-    }
 }
 
 .sectionName {
