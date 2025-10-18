@@ -36,4 +36,5 @@ export class MetaData {
   imageUrl?: string;
   httpStatus?: number;
   favouriteCount?: number;
+  isUserFavourite?: boolean;
 }

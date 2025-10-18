@@ -1,6 +1,7 @@
 import { Component, ElementRef, EventEmitter, Input, OnDestroy, OnInit, Output, ViewChild } from '@angular/core';
 import { ChildComponent } from '../child.component';
 import { CrawlerService } from '../../services/crawler.service';
+import { FavouriteService } from '../../services/favourite.service';
 import { MetaData } from '../../services/datacontracts/social/story';
 import { CrawlerSearchResponse } from '../../services/datacontracts/crawler';
 import { DomSanitizer, Meta, SafeHtml } from '@angular/platform-browser';
@@ -34,7 +35,7 @@ export class CrawlerComponent extends ChildComponent implements OnInit, OnDestro
   @Input() onlySearch: boolean = false;
   @Output() urlSelectedEvent = new EventEmitter<MetaData>();
   @Output() closeSearchEvent = new EventEmitter<void>();
-  constructor(private sanitizer: DomSanitizer, private crawlerService: CrawlerService) { super(); }
+  constructor(private sanitizer: DomSanitizer, private crawlerService: CrawlerService, private favouriteService: FavouriteService) { super(); }
   ngOnInit() {
     this.parentRef?.addResizeListener();
     this.crawlerService.indexCount().then(res => { if (res) { this.indexCount = parseInt(res); } });
@@ -224,12 +225,35 @@ export class CrawlerComponent extends ChildComponent implements OnInit, OnDestro
     this.urlInput.nativeElement.value = '*';
     this.searchUrl(true);
   }
-  addFavourite(url?: string, imageUrl?: string, title?: string) {
+  async addFavourite(url?: string, imageUrl?: string, title?: string) {
+    if (!this.parentRef?.user?.id) return alert('You must be logged in to update favourites');
+    const userId = this.parentRef.user.id;
     const targetData = this.searchMetadata.find(x => x.url === url);
-    if (targetData) {
-      targetData.favouriteCount = (targetData.favouriteCount || 0) + 1;
+    try {
+      if (targetData && targetData.isUserFavourite) {
+        // remove favourite: look up favourite record by URL for this user
+        try {
+          const lookup = await this.favouriteService.getFavourites(targetData.url ?? '', 1, 1, true, undefined, userId);
+          const favItem = lookup?.items && lookup.items.length > 0 ? lookup.items.find((f: any) => (f.url ?? '').toLowerCase() === (targetData.url ?? '').toLowerCase()) : null;
+          if (favItem && favItem.id) {
+            await this.favouriteService.removeFavourite(userId, favItem.id);
+          }
+        } catch (e) {
+          console.warn('Could not find favourite id to remove', e);
+        }
+        targetData.isUserFavourite = false;
+        targetData.favouriteCount = Math.max(0, (targetData.favouriteCount || 1) - 1);
+      } else {
+        // add favourite via app component to keep behaviour consistent with updateFavourites flow
+        await this.parentRef?.addFavourite(url, imageUrl, title);
+        if (targetData) {
+          targetData.isUserFavourite = true;
+          targetData.favouriteCount = (targetData.favouriteCount || 0) + 1;
+        }
+      }
+    } catch (err) {
+      console.error('Failed to toggle favourite', err);
     }
-    this.parentRef?.addFavourite(url, imageUrl, title);
   }
   getHttpStatusMeaning(status: number): string {
     switch (status) {

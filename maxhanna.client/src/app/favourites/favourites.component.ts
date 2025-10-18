@@ -26,6 +26,8 @@ export class FavouritesComponent extends ChildComponent implements OnInit {
   isEditPanelOpen = false;
   showEditLinks = false;
   showingLatestLinks = false;
+  // visibility: 'yours' shows only the current user's favourites; 'others' shows all favourites
+  currentVisibility: 'yours' | 'others' = 'yours';
   isSearchingUrls = false;
   currentOrder = 'recent';
   editingCreatedBy?: User;
@@ -51,8 +53,13 @@ export class FavouritesComponent extends ChildComponent implements OnInit {
     this.startLoading();
     if (this.parentRef?.user?.id) {
       this.currentOrder = 'visited';
+      this.currentVisibility = 'yours';
+      this.showingLatestLinks = false;
       this.loadFavorites();
     } else {
+      // not logged in -> default to showing all favourites (others)
+      this.currentVisibility = 'others';
+      this.showingLatestLinks = true;
       this.stopLoading();
       this.showLatestLinks();
     }
@@ -60,11 +67,13 @@ export class FavouritesComponent extends ChildComponent implements OnInit {
 
   async loadFavorites(search: string = '') {
     if (!search) { this.isSearchingUrls = false; }
+    // Compute showAll: show latest override or explicit visibility = 'others'
+    const showAll = this.showingLatestLinks || this.currentVisibility === 'others';
     const res = await this.favoriteService.getFavourites(
       search,
       this.page,
       this.pageSize,
-      this.showingLatestLinks,
+      showAll,
       this.currentOrder,
       this.parentRef?.user?.id
     );
@@ -284,6 +293,17 @@ export class FavouritesComponent extends ChildComponent implements OnInit {
   pageSizeChanged(event: any) {
     this.pageSize = parseInt(event.srcElement.value);
     this.loadFavorites(this.linkInput.nativeElement.value);
+  }
+
+  visibilityChanged(event?: any, value?: 'yours' | 'others') {
+    this.currentVisibility = value ?? event.target.value;
+    if (value == "yours") {
+      this.showingLatestLinks = false;
+    } else {
+      this.showingLatestLinks = true;
+    }
+    // reload favourites based on visibility
+    this.loadFavorites(this.linkInput?.nativeElement?.value ?? '');
   }
 
   visitExternalLink(fav: Favourite) {

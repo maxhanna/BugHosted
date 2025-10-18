@@ -20,6 +20,7 @@ export class CrawlerService {
       PageSize: pageSize,
       ExactMatch: exactMatch,
       SkipScrape: skipScrape,
+      UserId: (window as any)?.appUser?.id ?? undefined
     };
 
     try {
@@ -35,7 +36,7 @@ export class CrawlerService {
   const json = (await response.json()) as CrawlerSearchResponse;
       // normalize casing used across the app
       const rawResults: MetaData[] = json.Results ?? json.results ?? [];
-      const normalizedResults: NormalizedMetaData[] = (rawResults ?? []).map(r => ({
+    const normalizedResults: NormalizedMetaData[] = (rawResults ?? []).map(r => ({
         url: r.url ?? '',
         title: r.title ?? '',
         description: r.description ?? '',
@@ -43,7 +44,8 @@ export class CrawlerService {
         keywords: r.keywords ?? '',
         imageUrl: r.imageUrl ?? '',
   httpStatus: r.httpStatus ?? undefined,
-  favouriteCount: r.favouriteCount ?? undefined
+  favouriteCount: r.favouriteCount ?? undefined,
+  isUserFavourite: (r as any).isUserFavourite ?? false
       }));
 
       json.Results = rawResults;

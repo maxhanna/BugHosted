@@ -6,6 +6,7 @@ export interface CrawlerSearchRequest {
   PageSize: number;
   ExactMatch?: boolean;
   SkipScrape?: boolean;
+  UserId?: number;
 }
 
 export type NormalizedMetaData = MetaData & {
@@ -17,6 +18,7 @@ export type NormalizedMetaData = MetaData & {
   imageUrl: string;
   httpStatus?: number | undefined;
   favouriteCount?: number | undefined;
+  isUserFavourite?: boolean;
 };
 
 export interface CrawlerSearchResponse {
