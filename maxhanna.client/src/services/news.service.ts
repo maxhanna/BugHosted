@@ -143,6 +143,21 @@ export class NewsService {
     }
   }
 
+  async getCoinCounts(sessionToken: string = ''): Promise<Record<string, number> | null> {
+    try {
+      const res = await fetch('/news/coin-counts', {
+        method: 'GET',
+        headers: sessionToken ? { 'Authorization': sessionToken } : undefined,
+      });
+      if (!res.ok) return null;
+      const obj = await res.json();
+      return obj as Record<string, number>;
+    } catch (err) {
+      console.error('Error fetching coin counts:', err);
+      return null;
+    }
+  }
+
   async getNewsCount(): Promise<number> {
     try {
       const res = await fetch('/news/count', { method: 'GET' });

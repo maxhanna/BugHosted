@@ -79,21 +79,25 @@ export class CryptoNewsArticlesComponent extends ChildComponent implements After
                 return db - da;
             });
 
-            // Compute coin pills and counts
-            const coins = {
-                'Ethereum': /\bethereum\b|\beth\b/i,
-                'Dogecoin': /\bdoge(coin)?\b|\bxdg\b/i,
-                'XRP': /\bxrp\b/i,
-                'Solana': /\bsolana\b|\bsol\b/i
-            } as Record<string, RegExp>;
-            this.coinPills = [];
-            this.coinCounts = {};
-            for (const [name, regex] of Object.entries(coins)) {
-                const count = this.articles.filter(a => (a.title || '').match(regex) || (a.description || '').match(regex) || (a.content || '').match(regex)).length;
-                if (count > 0) {
-                    this.coinPills.push(name);
-                    this.coinCounts[name] = count;
+            // Fetch coin counts from server and populate pills
+            try {
+                const sessionToken = await (this.inputtedParentRef ?? this.parentRef)?.getSessionToken() ?? '';
+                const counts = await this.newsService.getCoinCounts(sessionToken);
+                this.coinPills = [];
+                this.coinCounts = {};
+                if (counts) {
+                    for (const [name, cnt] of Object.entries(counts)) {
+                        if (cnt > 0) {
+                            this.coinPills.push(name);
+                            this.coinCounts[name] = cnt;
+                        }
+                    }
                 }
+            } catch (err) {
+                console.warn('Could not fetch coin counts from server, falling back to client counts', err);
+                // fallback: leave coinPills/coinCounts empty (or optionally compute locally)
+                this.coinPills = [];
+                this.coinCounts = {};
             }
         } catch (err) {
             console.error('Failed to fetch crypto news articles', err);

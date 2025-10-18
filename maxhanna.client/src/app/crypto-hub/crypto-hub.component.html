@@ -58,11 +58,8 @@
     </div>
     <div class="graphContainerDiv sectionContainer" [style.display]="isTradePanelOpen ? 'none' : 'block'"
       *ngIf="parentRef && selectedCurrency && currentSelectedCoin && latestCurrencyPriceRespectToCAD">
-      <app-crypto-coin-graph-viewer #coinGraphViewer 
-        [inputtedParentRef]="parentRef"
-        [currentSelectedCoin]="currentSelectedCoin" 
-        [selectedCurrency]="selectedCurrency"
-        [isPaused]="isTradePanelOpen"
+      <app-crypto-coin-graph-viewer #coinGraphViewer [inputtedParentRef]="parentRef"
+        [currentSelectedCoin]="currentSelectedCoin" [selectedCurrency]="selectedCurrency" [isPaused]="isTradePanelOpen"
         [latestCurrencyPriceRespectToCAD]="latestCurrencyPriceRespectToCAD"></app-crypto-coin-graph-viewer>
     </div>
     <div class="graphContainerDiv sectionContainer" [style.display]="isTradePanelOpen ? 'none' : 'block'">
@@ -120,6 +117,11 @@
         [selectedPeriod]="exchangeRateGraphSelectedPeriod" [data]="allHistoricalExchangeRateDataForGraph!"
         #currencyExchangeLineGraph (changeTimePeriodEvent)="changeTimePeriodEventOnCurrencyExchangeGraph($event)">
       </app-line-graph>
+    </div>
+    <div class="sectionContainer" *ngIf="selectedCurrency" [style.display]="isTradePanelOpen ? 'none' : 'block'">
+      <app-crypto-wallets [inputtedParentRef]="parentRef" [selectedCurrency]="selectedCurrency"
+        [latestCoinValueData]="latestCoinValueData" [isDiscreete]="isDiscreete"
+        (gotWallet)="wallet = $event"></app-crypto-wallets>
     </div>
     <div *ngIf="!isTradePanelOpen && tradeIndicators" class="sectionContainer indicators-container">
       <div class="sectionName gradientBackground" style="margin-bottom: 15px; padding: 10px;">Trade Indicators for
@@ -354,11 +356,6 @@
         [conversionRate]="latestCurrencyPriceRespectToCAD" [currency]="selectedCurrency"
         (closeMiningEvent)="closeMiningEvent()"></app-mining-rigs>
     </div>
-    <div class="sectionContainer" *ngIf="selectedCurrency" [style.display]="isTradePanelOpen ? 'none' : 'block'">
-      <app-crypto-wallets [inputtedParentRef]="parentRef" [selectedCurrency]="selectedCurrency"
-        [latestCoinValueData]="latestCoinValueData" [isDiscreete]="isDiscreete"
-        (gotWallet)="wallet = $event"></app-crypto-wallets>
-    </div>
 
     <div class="{{isTradePanelOpen ? 'maximizedTradePanel' : 'sectionContainer'}}"
       [style]="showingTradeSettings ? 'display: flex; flex-direction: column; align-items: center;' : ''">
@@ -368,7 +365,7 @@
         <button *ngIf="isTradeInfoHidden && isTradePanelOpen" (click)="toggleTradeInfo()">Show Tradebot Info</button>
         <div [style.width]="isTradePanelOpen ? (isTradeInfoHidden ? '0px' : (onMobile() ? '100%' : '30%')) : '100%'"
           [style.height]="isTradePanelOpen ? (isTradeInfoHidden ? '0px' : '100%') : '100%'"
-          class="trade-info-column{{isTradeInfoHidden ? ' collapsed' : ''}}" 
+          class="trade-info-column{{isTradeInfoHidden ? ' collapsed' : ''}}"
           (click)="!isTradePanelOpen ? openTradeFullscreen() : toggleTradeInfo($event)"
           [title]="isTradePanelOpen ? (isTradeInfoHidden ? 'Click to expand trade info' : 'Click to hide trade info') : ''">
           <div class="sectionName gradientBackground" *ngIf="!isTradePanelOpen">
@@ -863,7 +860,8 @@
       </div>
     </div>
     <div style="display:flex; gap:8px; justify-content:flex-end;">
-      <button class="cursorPointer" (click)="openTradeFullscreen(); closeMenuPanel()" title="Open the tradebots panel in fullscreen">Maximize Trade Panel</button>
+      <button class="cursorPointer" (click)="openTradeFullscreen(); closeMenuPanel()"
+        title="Open the tradebots panel in fullscreen">Maximize Trade Panel</button>
       <button id="closeOverlay" (click)="closeMenuPanel()" class="closeButton">Close</button>
     </div>
   </div>

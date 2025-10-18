@@ -261,6 +261,43 @@ namespace maxhanna.Server.Controllers
 			}
 		}
 
+		[HttpGet("coin-counts")]
+		public async Task<IActionResult> GetCoinCounts()
+		{
+			try
+			{
+				using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+				await conn.OpenAsync();
+
+				string sql = @"
+					SELECT
+						SUM(CASE WHEN (LOWER(title) LIKE '%eth%' OR LOWER(content) LIKE '%eth%' OR LOWER(description) LIKE '%eth%' OR LOWER(title) LIKE '%ethereum%' OR LOWER(content) LIKE '%ethereum%' OR LOWER(description) LIKE '%ethereum%') THEN 1 ELSE 0 END) AS Ethereum,
+						SUM(CASE WHEN (LOWER(title) LIKE '%doge%' OR LOWER(content) LIKE '%doge%' OR LOWER(description) LIKE '%doge%' OR LOWER(title) LIKE '%dogecoin%' OR LOWER(content) LIKE '%dogecoin%' OR LOWER(description) LIKE '%dogecoin%') THEN 1 ELSE 0 END) AS Dogecoin,
+						SUM(CASE WHEN (LOWER(title) LIKE '%xrp%' OR LOWER(content) LIKE '%xrp%' OR LOWER(description) LIKE '%xrp%') THEN 1 ELSE 0 END) AS XRP,
+						SUM(CASE WHEN (LOWER(title) LIKE '%sol%' OR LOWER(content) LIKE '%sol%' OR LOWER(description) LIKE '%sol%' OR LOWER(title) LIKE '%solana%' OR LOWER(content) LIKE '%solana%' OR LOWER(description) LIKE '%solana%') THEN 1 ELSE 0 END) AS Solana
+					FROM news_headlines;";
+
+				using var cmd = new MySqlCommand(sql, conn);
+				using var reader = await cmd.ExecuteReaderAsync();
+				if (await reader.ReadAsync())
+				{
+					var eth = Convert.ToInt32(reader["Ethereum"] ?? 0);
+					var doge = Convert.ToInt32(reader["Dogecoin"] ?? 0);
+					var xrp = Convert.ToInt32(reader["XRP"] ?? 0);
+					var sol = Convert.ToInt32(reader["Solana"] ?? 0);
+
+					return Ok(new { Ethereum = eth, Dogecoin = doge, XRP = xrp, Solana = sol });
+				}
+
+				return Ok(new { Ethereum = 0, Dogecoin = 0, XRP = 0, Solana = 0 });
+			}
+			catch (Exception ex)
+			{
+				await _log.Db($"NewsController.GetCoinCounts failed: {ex.Message}", null, "API", true);
+				return StatusCode(500);
+			}
+		}
+
 		[HttpGet("count")]
 		public async Task<IActionResult> GetNewsCount()
 		{
