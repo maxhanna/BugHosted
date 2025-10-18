@@ -27,6 +27,7 @@
     margin: 10px;
     border-radius: 8px;
     padding: 8px;
+    word-break: break-word;
 }
 
 .thumb {
@@ -121,19 +122,19 @@
 }
 
 .articles.collapsed {
-    max-height: 50px;
+    max-height: 300px;
     overflow: auto
 }
 
 @media only screen and (max-width : 1000px) {
     .articles.collapsed {
-        max-height: 50px
+        max-height: 300px
     }
 }
 
 @media only screen and (min-width : 1000px) {
     .articles.collapsed {
-        max-height: 50px
+        max-height: 500px
     }
 }
 
