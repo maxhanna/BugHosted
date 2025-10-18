@@ -413,7 +413,7 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
     const parent = this.parent ?? this.parentRef;
     if (!parent?.user?.id) return;
     if (!story.user || !story.user.id || parent.user.id !== story.user.id) return; // only owner
-    this.visibilityPanelStory = { ...story } as Story;
+    this.visibilityPanelStory = story;
     this.isVisibilityPanelOpen = true;
     parent.showOverlay();
   }
