@@ -772,4 +772,11 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
   getButtonHighlightState(): boolean {
     return this.type == "Social" && !this.profileUser && !(this.attachedTopics && this.attachedTopics.length > 0);
   }
+
+  onVisibilityChange(event: Event) {
+    const val = (event.target as HTMLSelectElement | null)?.value;
+    if (val === 'public' || val === 'following' || val === 'self') {
+      this.visibility = val;
+    }
+  }
 }

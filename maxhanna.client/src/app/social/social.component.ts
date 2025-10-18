@@ -381,6 +381,14 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
     }
   }
 
+  onOptionStoryVisibilityChange(event: Event, story: Story) {
+    const val = (event.target as HTMLSelectElement | null)?.value;
+    if (!story) return;
+    if (val === 'public' || val === 'following' || val === 'self') {
+      story.visibility = val;
+    }
+  }
+
   async saveStoryVisibility(story: Story) {
     const parent = this.parent ?? this.parentRef;
     if (!parent?.user?.id) return alert('Must be logged in to change visibility.');

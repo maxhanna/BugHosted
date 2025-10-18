@@ -227,7 +227,7 @@
               </div>
               <div *ngIf="optionStory && optionStory.id && editingTopics.includes(optionStory.id)" style="margin-top:8px;">
                 <label style="display:block;">Visibility:</label>
-                <select [value]="optionStory.visibility" (change)="optionStory.visibility = ($event.target as HTMLSelectElement).value">
+                <select [value]="optionStory.visibility" (change)="onOptionStoryVisibilityChange($event, optionStory)">
                   <option value="public">Public</option>
                   <option value="following">Following</option>
                   <option value="self">Self</option>
