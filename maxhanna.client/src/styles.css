@@ -733,7 +733,7 @@ fieldset {
   color: var(--third-font-color);
 }
 
-.linkFontColor {
+.linkFontColor, .linkColor {
   color: var(--main-link-color);
 }
 
