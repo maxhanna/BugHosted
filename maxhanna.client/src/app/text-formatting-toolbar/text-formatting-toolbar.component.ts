@@ -168,7 +168,7 @@ export class TextFormattingToolbarComponent extends ChildComponent {
     parent?.closeOverlay();
     setTimeout(() => {
       this.isCrawlerOpen = true;
-      parent?.showOverlay();
+      //parent?.showOverlay();
     }, 500);
   }
 
