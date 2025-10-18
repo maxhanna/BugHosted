@@ -1,32 +1,30 @@
 <div class="mainInputDiv">
-    <input type="text" placeholder="What’s crawling your mind?" (focus)="type == 'Chat' ? prepPostTextArea() : ''" (click)="prepPostTextArea()"
-        *ngIf="!showPostInput" #postInput id="postInput">
-    <textarea #story placeholder="What’s crawling your mind?" class="foodForThought" *ngIf="showPostInput"
-        #postTextArea id="postTextArea" (keydown)="onKeyDown($event)">{{initialContent}}</textarea>
+    <input type="text" placeholder="What’s crawling your mind?" (focus)="type == 'Chat' ? prepPostTextArea() : ''"
+        (click)="prepPostTextArea()" *ngIf="!showPostInput" #postInput id="postInput">
+    <textarea #story placeholder="What’s crawling your mind?" class="foodForThought" *ngIf="showPostInput" #postTextArea
+        id="postTextArea" (keydown)="onKeyDown($event)">{{initialContent}}</textarea>
 </div>
 <div class="mainFileUploaderAndTopicSelectorDiv">
     <button *ngIf="initialContent == undefined" (click)="post()" title="Post">🗨️Post</button>
     <button *ngIf="initialContent != undefined" (click)="update(textarea.value)" title="Update">✅</button>
     <button *ngIf="initialContent != undefined" (click)="cancelEdit.emit()" title="Cancel">❌</button>
-    <app-media-selector 
-        *ngIf="inputtedParentRef"
-        #mediaSelector
-        [selectedFiles]="attachedFiles"
-        [maxSelectedFiles]="30"
+    <app-media-selector *ngIf="inputtedParentRef" #mediaSelector [selectedFiles]="attachedFiles" [maxSelectedFiles]="30"
         [currentDirectory]="inputtedParentRef.user?.username ? 'Users/' + inputtedParentRef!.user!.username! : 'Users/Anonymous'"
-        [user]="inputtedParentRef.user" 
-        [inputtedParentRef]="inputtedParentRef"
+        [user]="inputtedParentRef.user" [inputtedParentRef]="inputtedParentRef"
         [uploadButtonText]="initialContent != undefined ? '' : ((!showPostInput && (!onMobile() || (mediaSelector && !mediaSelector.selectedFiles.length)) && (!onMobile() || !attachedTopics.length)) ? 'Upload' : onMobile() ? '' : 'Upload')"
         (selectFileEvent)="selectFile($event)"></app-media-selector>
     <button (click)="showPostOptionsPanel()" *ngIf="showPostInput">
-        ⚙️{{ (!showPostInput && (!onMobile() || (mediaSelector && !mediaSelector.selectedFiles.length)) && (!onMobile() ||
+        ⚙️{{ (!showPostInput && (!onMobile() || (mediaSelector && !mediaSelector.selectedFiles.length)) && (!onMobile()
+        ||
         !attachedTopics.length)) ? 'Options' : onMobile() ? '' : 'Options'}}
         <span class="xxSmallFont" *ngIf="getOptionsCount() > 0">
             ({{getOptionsCount()}})
         </span>
-    </button> 
-    <button class="mainTopicSelectionsHeaderButton" [class.highlight]="highlightTopicsButton" (click)="showTopicsPanel(); highlightTopicsButton = false" *ngIf="type == 'Social'">
-        🗂️{{ (!showPostInput && (!onMobile() || (mediaSelector && !mediaSelector.selectedFiles.length)) && (!onMobile() || !attachedTopics.length)) ? 'Topics' : onMobile() ? '' : 'Topics'}}
+    </button>
+    <button class="mainTopicSelectionsHeaderButton" [class.highlight]="highlightTopicsButton"
+        (click)="showTopicsPanel(); highlightTopicsButton = false" *ngIf="type == 'Social'">
+        🗂️{{ (!showPostInput && (!onMobile() || (mediaSelector && !mediaSelector.selectedFiles.length)) && (!onMobile()
+        || !attachedTopics.length)) ? 'Topics' : onMobile() ? '' : 'Topics'}}
         <span class="matchingTopicsInsideButtonWrapper" *ngIf="attachedTopics && attachedTopics.length > 0">
             (
             <span *ngFor="let topic of attachedTopics; let i = index" class="matchingTopic"
@@ -36,50 +34,48 @@
             )
         </span>
     </button>
-    <app-text-formatting-toolbar  
-     *ngIf="showPostInput && !onMobile()"
-     style="display:flex; height: 25px;"
-     [inputtedParentRef]="inputtedParentRef" 
-     [parent]="textarea"
-     (isExpandingEmojiPanel)="onExpandingEmojiPanel($event)"
-     (isExpandingCrawlerPanel)="onExpandingCrawlerPanel($event)"
-     (isExpandingComponentPanel)="onExpandingComponentPanel($event)"></app-text-formatting-toolbar>
+    <app-text-formatting-toolbar *ngIf="showPostInput && !onMobile()" style="display:flex; height: 25px;"
+        [inputtedParentRef]="inputtedParentRef" [parent]="textarea"
+        (isExpandingEmojiPanel)="onExpandingEmojiPanel($event)"
+        (isExpandingCrawlerPanel)="onExpandingCrawlerPanel($event)"
+        (isExpandingComponentPanel)="onExpandingComponentPanel($event)"></app-text-formatting-toolbar>
 </div>
 
 
 <!-- Post Options Popup -->
-<div [class]="(isAppFormattingOptionsOpen || isComponentPanelOpen) ? '' : 'popupPanel'" *ngIf="isPostOptionsPanelOpen || isAppFormattingOptionsOpen || isComponentPanelOpen">
+<div [class]="(isAppFormattingOptionsOpen || isComponentPanelOpen) ? '' : 'popupPanel'"
+    *ngIf="isPostOptionsPanelOpen || isAppFormattingOptionsOpen || isComponentPanelOpen">
     <div class="popupPanelTitle">
         <span>Post Options</span>
-    </div> 
+    </div>
     <div class="mobileOptionsTitle">Uploads</div>
     <div class="postOptionsCheckboxes">
-        <label title="Creates a post for every file attachment attached." *ngIf="(mediaSelector && mediaSelector.selectedFiles.length > 1)">
+        <label title="Creates a post for every file attachment attached."
+            *ngIf="(mediaSelector && mediaSelector.selectedFiles.length > 1)">
             <input type="checkbox" (change)="eachAttachmentSeperatePost = !eachAttachmentSeperatePost"
                 [checked]="eachAttachmentSeperatePost" />
-            Each Attachment In A Seperate Post. 
+            Each Attachment In A Seperate Post.
         </label>
-        <span *ngIf="mediaSelector && mediaSelector.selectedFiles.length <= 1">Attach more files to see upload options</span>
+        <span *ngIf="mediaSelector && mediaSelector.selectedFiles.length <= 1">Attach more files to see upload
+            options</span>
     </div>
-    <div class="mobileOptionsTitle" *ngIf="onMobile() || isAppFormattingOptionsOpen" style="margin-top: 20px;">Text Formatting</div>
-    <div *ngIf="onMobile() || isAppFormattingOptionsOpen" class="mobilePostButtonOptions"> 
-        <app-text-formatting-toolbar 
-        style="display:flex; height: 25px;"
-        [inputtedParentRef]="inputtedParentRef" 
-        [parent]="textarea" 
-        (isExpandingEmojiPanel)="onExpandingEmojiPanel($event)"
-        (isExpandingComponentPanel)="onExpandingComponentPanel($event)"
-        (isExpandingCrawlerPanel)="onExpandingCrawlerPanel($event)"></app-text-formatting-toolbar>
+    <div class="mobileOptionsTitle" *ngIf="onMobile() || isAppFormattingOptionsOpen" style="margin-top: 20px;">Text
+        Formatting</div>
+    <div *ngIf="onMobile() || isAppFormattingOptionsOpen" class="mobilePostButtonOptions">
+        <app-text-formatting-toolbar style="display:flex; height: 25px;" [inputtedParentRef]="inputtedParentRef"
+            [parent]="textarea" (isExpandingEmojiPanel)="onExpandingEmojiPanel($event)"
+            (isExpandingComponentPanel)="onExpandingComponentPanel($event)"
+            (isExpandingCrawlerPanel)="onExpandingCrawlerPanel($event)"></app-text-formatting-toolbar>
     </div>
-    <!-- Visibility selector for Social posts -->
-    <div *ngIf="type == 'Social'" style="margin-top:12px; display:flex; align-items:center; gap:8px; justify-content:center;">
-        <label style="font-size:0.9rem;">Visibility:</label>
+    <div *ngIf="type == 'Social'" class="mobileOptionsTitle">Visibility</div>
+    <div *ngIf="type == 'Social'"
+        title="Public = anyone, Following = only users following you, Self = only you"
+        style="margin-top:12px; display:flex; align-items:center; gap:8px; justify-content:center;">
         <select [value]="visibility" (change)="onVisibilityChange($event)">
             <option value="public">Public</option>
             <option value="following">Following</option>
             <option value="self">Self</option>
         </select>
-        <span class="xxSmallFont" style="margin-left:8px;">Public = anyone, Following = only users following you, Self = only you</span>
     </div>
     <div style="display: flex; justify-content: center; align-items: center; gap: 10px;">
         <button id="helpButton" (click)="showHelp()" class="helpButton" style="margin-top:10px">ℹ️ Help</button>
@@ -92,7 +88,8 @@
     <div class="popupPanelTitle">Topics 🗂️</div>
     <div style="margin-bottom:15px;">
         <app-topics #topicSelector [isDropdown]="true" [user]="inputtedParentRef?.user" [parent]="inputtedParentRef"
-            [attachedTopics]="attachedTopics" (topicAdded)="onTopicAdded($event)" (topicClicked)="onTopicClicked($event)">
+            [attachedTopics]="attachedTopics" (topicAdded)="onTopicAdded($event)"
+            (topicClicked)="onTopicClicked($event)">
         </app-topics>
     </div>
     <div class="popupSectionContainer gradientBackground">
@@ -103,8 +100,7 @@
             <div *ngFor="let topic of favTopics" (click)="clickedTopic([topic])" class="topicsGrid">
                 <span class="matchingTopic">
                     {{topic.topicText}}
-                    <span class="coloredBgButton"
-                        (click)="removeFavTopic(topic); $event.stopPropagation();">❌</span>
+                    <span class="coloredBgButton" (click)="removeFavTopic(topic); $event.stopPropagation();">❌</span>
                 </span>
             </div>
             <div *ngIf="favTopics.length == 0">No favourites yet.</div>
@@ -203,13 +199,13 @@
                 </ul>
             </li>
         </ol>
+        <p style="margin-top:12px;">Visibility: When creating a Social post you can set its visibility from the Post
+            Options panel — <strong>Public</strong> (anyone), <strong>Following</strong> (only users following you), or
+            <strong>Self</strong> (only you).</p>
         <div style="text-align: center;">
             For further assistance, contact:{{" "}}
             <div style="display: inline-block">
-                <app-user-tag 
-                    [userId]="1" 
-                    [inputtedParentRef]="inputtedParentRef" 
-                    [displayMiniTag]="true"
+                <app-user-tag [userId]="1" [inputtedParentRef]="inputtedParentRef" [displayMiniTag]="true"
                     [displayHoverPicture]="true">
                 </app-user-tag>
             </div>

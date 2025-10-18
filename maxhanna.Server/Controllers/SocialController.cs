@@ -191,6 +191,9 @@ namespace maxhanna.Server.Controllers
 							UNION
 							SELECT sender_id FROM friend_requests 
 							WHERE receiver_id = @userId AND status = 'accepted'
+							UNION
+							SELECT receiver_id FROM friend_requests 
+							WHERE sender_id = @userId AND status = 'pending'
 						)
 						OR EXISTS (
 							SELECT 1
