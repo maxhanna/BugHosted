@@ -55,12 +55,24 @@
 .metadataSearchDiv {
   border: var(--main-border);
   border-radius: 12px;
-  margin: 22px;
   padding: 12px;
   display: flex;
   flex-direction: column;
   word-break: break-all;
 }
+
+@media only screen and (max-width:800px) {
+  .metadataSearchDiv {
+    max-width: 240px;
+    margin-top: 22px;
+  }
+}
+@media only screen and (min-width:800px) {
+  .metadataSearchDiv {
+    margin: 22px;
+  }
+}
+
 
 .metadataSearchWrapper {
   max-height: CALC(var(--vh, 1vh)* 100 - 155px);
