@@ -252,7 +252,8 @@ export class CrawlerComponent extends ChildComponent implements OnInit, OnDestro
           const lookup = await this.favouriteService.getFavourites(targetData.url ?? '', 1, 1, true, undefined, userId);
           const favItem = lookup?.items && lookup.items.length > 0 ? lookup.items.find((f: any) => (f.url ?? '').toLowerCase() === (targetData.url ?? '').toLowerCase()) : null;
           if (favItem && favItem.id) {
-            await this.favouriteService.removeFavourite(userId, favItem.id);
+            const remres = await this.favouriteService.removeFavourite(userId, favItem.id);
+            this.parentRef.showNotification(remres ?? '');
           }
         } catch (e) {
           console.warn('Could not find favourite id to remove', e);
@@ -260,7 +261,6 @@ export class CrawlerComponent extends ChildComponent implements OnInit, OnDestro
         targetData.favouriteCount = (targetData.favouriteCount ?? 1) - 1;
         targetData.isUserFavourite = false;
       } else {
-        // add favourite via app component to keep behaviour consistent with updateFavourites flow
         await this.parentRef?.addFavourite(url, imageUrl, title);
         if (targetData) {
           targetData.isUserFavourite = true;
