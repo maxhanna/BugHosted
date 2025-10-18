@@ -737,7 +737,10 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
       navigator.vibrate(30);
     }
   }
-
+  onExpandingCrawlerPanel(event: boolean) {
+    this.closePostOptionsPanel();
+    this.isAppFormattingOptionsOpen = event;
+  }
   onExpandingEmojiPanel(event: boolean) {
     this.closePostOptionsPanel();
     this.isAppFormattingOptionsOpen = event;
