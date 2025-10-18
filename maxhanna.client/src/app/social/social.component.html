@@ -229,7 +229,7 @@
           </div>
         </div>
         <div 
-          *ngIf="optionStory && optionStory.id && (optionStory.user?.id == parentRef?.user?.id || optionStory.profileUserId == parentRef?.user?.id || parentRef?.user?.id == 1)" 
+          *ngIf="optionStory && optionStory.id && (optionStory.user?.id == parentRef?.user?.id || parentRef?.user?.id == 1)" 
            class="optionsStatsDiv">
           <div class="optionsStatsHeader">Visibility:</div> 
           <div class="optionsStatsDescription">
@@ -241,7 +241,7 @@
           </div> 
         </div>
         <div 
-          *ngIf="optionStory && optionStory.id && optionStory.user?.id != parentRef?.user?.id && optionStory.profileUserId != parentRef?.user?.id && parentRef?.user?.id != 1" 
+          *ngIf="optionStory && optionStory.id && optionStory.user?.id != parentRef?.user?.id && parentRef?.user?.id != 1" 
            class="optionsStatsDiv">
           <div class="optionsStatsHeader">Visibility:</div> 
           <div class="optionsStatsDescription">
