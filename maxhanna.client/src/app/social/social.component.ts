@@ -381,6 +381,21 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
     }
   }
 
+  async saveStoryVisibility(story: Story) {
+    const parent = this.parent ?? this.parentRef;
+    if (!parent?.user?.id) return alert('Must be logged in to change visibility.');
+    try {
+      const sessionToken = await parent.getSessionToken();
+      await this.socialService.editStory(parent.user.id, story, sessionToken ?? '');
+      this.parentRef?.showNotification('Visibility updated.');
+      this.editingTopics = this.editingTopics.filter(x => x != story.id);
+      this.closeStoryOptionsPanel();
+    } catch (err) {
+      console.error('Failed to update visibility', err);
+      this.parentRef?.showNotification('Failed to update visibility');
+    }
+  }
+
   async removeTopicsFromStory(topicsToRemove: Topic[], story: Story) { 
     let updatedTopics = story.storyTopics?.filter(
       x => !topicsToRemove.some(t => t.id === x.id)

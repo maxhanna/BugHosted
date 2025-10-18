@@ -25,6 +25,7 @@ namespace maxhanna.Server.Controllers.DataContracts.Social
 		public List<Reaction>? Reactions { get; set; }
 		// New: Polls detected within this story's text or synthesized from votes
 		public List<Poll>? Polls { get; set; }
+		public string? Visibility { get; set; }
 
 		public Story() { }
 
@@ -51,6 +52,7 @@ namespace maxhanna.Server.Controllers.DataContracts.Social
 			Hidden = hidden;
 			Reactions = reactions;
 			Polls = polls;
+			Visibility = null;
 		}
 	}
 }

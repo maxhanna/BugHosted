@@ -26,6 +26,7 @@ export class Story {
   timeSince?: string; 
   hidden?: boolean;  
   polls?: Array<Poll> | undefined;
+  visibility?: string | undefined;
 } 
 export class MetaData {
   url?: string;

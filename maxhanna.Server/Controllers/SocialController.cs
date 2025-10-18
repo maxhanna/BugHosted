@@ -235,7 +235,7 @@ namespace maxhanna.Server.Controllers
 					udp.file_id AS displayPictureFileId,
 					udpfu.folder_path AS displayPictureFileFolderPath,
 					udpfu.file_name AS displayPictureFileFileName,
-					s.story_text, s.date, s.city, s.country, 
+					s.story_text, s.date, s.city, s.country, s.visibility,
 							CASE 
 									WHEN hs.story_id IS NOT NULL THEN TRUE 
 									ELSE FALSE 
@@ -303,6 +303,7 @@ namespace maxhanna.Server.Controllers
 									StoryTopics = new List<Topic>(),
 									Reactions = new List<Reaction>(),
 									Hidden = rdr.IsDBNull(rdr.GetOrdinal("hidden")) ? false : rdr.GetBoolean("hidden"),
+									Visibility = rdr.IsDBNull(rdr.GetOrdinal("visibility")) ? null : rdr.GetString("visibility"),
 								};
 								storyDictionary[storyId] = story;
 							}
@@ -1229,8 +1230,8 @@ namespace maxhanna.Server.Controllers
 			{
 				// Use the request.userId for decryption so the server uses the same id the client used to encrypt
 				string decryptedText = _log.DecryptContent(request.story.StoryText ?? "", (request.userId ?? 0) + "");
-				string sql = @"INSERT INTO stories (user_id, story_text, profile_user_id, city, country, date) 
-                      VALUES (@userId, @storyText, @profileUserId, @city, @country, UTC_TIMESTAMP());";
+		    string sql = @"INSERT INTO stories (user_id, story_text, profile_user_id, city, country, date, visibility) 
+			    VALUES (@userId, @storyText, @profileUserId, @city, @country, UTC_TIMESTAMP(), @visibility);";
 				string topicSql = @"INSERT INTO story_topics (story_id, topic_id) VALUES (@storyId, @topicId);";
 
 				using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
@@ -1246,6 +1247,7 @@ namespace maxhanna.Server.Controllers
 							: (object)DBNull.Value);
 						cmd.Parameters.AddWithValue("@city", request.story.City ?? (object)DBNull.Value);
 						cmd.Parameters.AddWithValue("@country", request.story.Country ?? (object)DBNull.Value);
+						cmd.Parameters.AddWithValue("@visibility", string.IsNullOrEmpty(request.story.Visibility) ? "public" : request.story.Visibility);
 
 						int rowsAffected = await cmd.ExecuteNonQueryAsync();
 
@@ -1373,7 +1375,7 @@ namespace maxhanna.Server.Controllers
 
 			try
 			{
-				string sql = @"UPDATE stories SET story_text = @Text WHERE user_id = @UserId AND id = @StoryId;";
+				string sql = @"UPDATE stories SET story_text = @Text, visibility = @visibility WHERE user_id = @UserId AND id = @StoryId;";
 
 				using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
 				{
@@ -1385,6 +1387,7 @@ namespace maxhanna.Server.Controllers
 						cmd.Parameters.AddWithValue("@StoryId", request.story.Id);
 						// Use request.userId for decryption to match client-side encryption key selection
 						cmd.Parameters.AddWithValue("@Text", _log.DecryptContent(request.story.StoryText ?? "", (request.userId ?? 0) + ""));
+						cmd.Parameters.AddWithValue("@visibility", string.IsNullOrEmpty(request.story.Visibility) ? "public" : request.story.Visibility);
 
 						int rowsAffected = await cmd.ExecuteNonQueryAsync();
 
