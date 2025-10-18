@@ -165,7 +165,7 @@ export class TextFormattingToolbarComponent extends ChildComponent {
       const parent = this.inputtedParentRef ?? this.parentRef;
       parent?.showOverlay();
       this.isCrawlerOpen = true;  
-    }, 500);
+    }, 50);
   }
 
   closeCrawler() {

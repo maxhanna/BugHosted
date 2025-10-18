@@ -64,7 +64,7 @@
 </div>
 
 <!-- Crawler popup for inserting links -->
-<div class="popupPanel componentSelectorPanel" *ngIf="isCrawlerOpen">
+<div class="popupPanel crawlerPanel" *ngIf="isCrawlerOpen">
     <div class="popupPanelTitle">Select or add a link</div>
     <app-crawler [onlySearch]="true" [inputtedParentRef]="inputtedParentRef"
         (urlSelectedEvent)="crawlerUrlSelected($event)" (closeSearchEvent)="closeCrawler()"></app-crawler>

@@ -12,10 +12,12 @@ button {
     flex-wrap: wrap;
 }
 
-.componentSelectorPanel {
+.componentSelectorPanel, .crawlerPanel {
     min-width: 300px;
 }
-
+.crawlerPanel {
+    min-height: 65vh;
+}
 .componentList {
     max-height: 30vh;
     overflow-y: auto;
