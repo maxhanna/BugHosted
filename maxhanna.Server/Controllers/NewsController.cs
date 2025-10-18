@@ -170,11 +170,21 @@ namespace maxhanna.Server.Controllers
                 using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
                 await conn.OpenAsync();
 
-                // Simple keyword match on content/title/description for crypto keywords
-                string sql = @"SELECT id as Id, title, description, url, published_at, url_to_image, content, author
-                               FROM news_headlines
-                               WHERE (LOWER(title) LIKE '%btc%' OR LOWER(content) LIKE '%crypto%' OR LOWER(description) LIKE '%crypto%')
-                               ORDER BY saved_at DESC LIMIT 100;";
+				// Simple keyword match on content/title/description for crypto keywords (include ETH, XRP, SOL, DOGE)
+				string sql = @"SELECT id as Id, title, description, url, published_at, url_to_image, content, author
+							   FROM news_headlines
+							   WHERE (
+								   LOWER(title) LIKE '%btc%' OR LOWER(content) LIKE '%btc%' OR LOWER(description) LIKE '%btc%'
+								   OR LOWER(title) LIKE '%crypto%' OR LOWER(content) LIKE '%crypto%' OR LOWER(description) LIKE '%crypto%'
+								   OR LOWER(title) LIKE '%eth%' OR LOWER(content) LIKE '%eth%' OR LOWER(description) LIKE '%eth%'
+								   OR LOWER(title) LIKE '%ethereum%' OR LOWER(content) LIKE '%ethereum%' OR LOWER(description) LIKE '%ethereum%'
+								   OR LOWER(title) LIKE '%xrp%' OR LOWER(content) LIKE '%xrp%' OR LOWER(description) LIKE '%xrp%'
+								   OR LOWER(title) LIKE '%sol%' OR LOWER(content) LIKE '%sol%' OR LOWER(description) LIKE '%sol%'
+								   OR LOWER(title) LIKE '%solana%' OR LOWER(content) LIKE '%solana%' OR LOWER(description) LIKE '%solana%'
+								   OR LOWER(title) LIKE '%doge%' OR LOWER(content) LIKE '%doge%' OR LOWER(description) LIKE '%doge%'
+								   OR LOWER(title) LIKE '%dogecoin%' OR LOWER(content) LIKE '%dogecoin%' OR LOWER(description) LIKE '%dogecoin%'
+								   )
+							   ORDER BY saved_at DESC LIMIT 200;";
                 using var cmd = new MySqlCommand(sql, conn);
                 using var reader = await cmd.ExecuteReaderAsync();
                 var list = new List<Article>();

@@ -2,11 +2,16 @@
 <div class="crypto-news">
     <div *ngIf="loading" class="loading">Loading...</div>
     <div class="pillsAndListControls">
-        <div class="pills" *ngIf="!loading && (hasNeg || hasCrypto)">
+        <div class="pills" *ngIf="!loading && (hasNeg || hasCrypto || (coinPills && coinPills.length > 0))">
             <button *ngIf="hasNeg" class="pill" [class.active]="filter === 'negative'"
                 (click)="setFilter('negative')">Negative ({{ negCount }})</button>
             <button *ngIf="hasCrypto" class="pill" [class.active]="filter === 'crypto'" (click)="setFilter('crypto')">Crypto
                 ({{ cryptoCount }})</button>
+            <ng-container *ngFor="let coin of coinPills">
+                <button class="pill" [class.active]="selectedCoin === coin" (click)="selectedCoin = (selectedCoin === coin ? null : coin)">
+                    {{ coin }} ({{ coinCounts[coin] }})
+                </button>
+            </ng-container>
         </div>
         <div class="listControls">
             <button class="" (click)="toggleCollapsed()" title="Toggle" aria-label="Toggle">{{ collapsed ? 'Expand' :

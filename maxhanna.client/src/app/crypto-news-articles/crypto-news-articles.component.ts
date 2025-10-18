@@ -20,6 +20,10 @@ export class CryptoNewsArticlesComponent extends ChildComponent implements After
     private _articlesScrollHandler: any;
 
     articles: Article[] = [];
+    // coin pill state
+    coinPills: string[] = [];
+    coinCounts: Record<string, number> = {};
+    selectedCoin: string | null = null;
     selectedArticle?: Article;
     loading = false;
     filter: 'all' | 'negative' | 'crypto' = 'all';
@@ -74,6 +78,23 @@ export class CryptoNewsArticlesComponent extends ChildComponent implements After
                 const db = b.publishedAt ? new Date(b.publishedAt).getTime() : 0;
                 return db - da;
             });
+
+            // Compute coin pills and counts
+            const coins = {
+                'Ethereum': /\bethereum\b|\beth\b/i,
+                'Dogecoin': /\bdoge(coin)?\b|\bxdg\b/i,
+                'XRP': /\bxrp\b/i,
+                'Solana': /\bsolana\b|\bsol\b/i
+            } as Record<string, RegExp>;
+            this.coinPills = [];
+            this.coinCounts = {};
+            for (const [name, regex] of Object.entries(coins)) {
+                const count = this.articles.filter(a => (a.title || '').match(regex) || (a.description || '').match(regex) || (a.content || '').match(regex)).length;
+                if (count > 0) {
+                    this.coinPills.push(name);
+                    this.coinCounts[name] = count;
+                }
+            }
         } catch (err) {
             console.error('Failed to fetch crypto news articles', err);
         } finally {
@@ -92,6 +113,17 @@ export class CryptoNewsArticlesComponent extends ChildComponent implements After
         if (this.filter === 'all') return this.articles;
         if (this.filter === 'negative') return this.articles.filter(a => !!a.negative);
         if (this.filter === 'crypto') return this.articles.filter(a => !!a.crypto);
+        // if a specific coin is selected via pill, filter by coin keywords as well
+        if (this.selectedCoin) {
+            const coinMap: Record<string, RegExp> = {
+                'Ethereum': /\bethereum\b|\beth\b/i,
+                'Dogecoin': /\bdoge(coin)?\b|\bxdg\b/i,
+                'XRP': /\bxrp\b/i,
+                'Solana': /\bsolana\b|\bsol\b/i
+            };
+            const regex = coinMap[this.selectedCoin];
+            if (regex) return this.articles.filter(a => (a.title || '').match(regex) || (a.description || '').match(regex) || (a.content || '').match(regex));
+        }
         return this.articles;
     }
 
