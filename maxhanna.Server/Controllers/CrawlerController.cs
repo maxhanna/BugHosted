@@ -263,7 +263,7 @@ namespace maxhanna.Server.Controllers
 					var allResults = results.ToList();
 
 					allResults = GetOrderedResultsForWeb(request, allResults);
-					allResults = await AddFavouriteCountsAsync(allResults);
+					allResults = await AddFavouriteCountsAsync(allResults, request.UserId);
 
 
 					// Return the results along with the total count for pagination
@@ -538,7 +538,7 @@ namespace maxhanna.Server.Controllers
 		}
 
 
-		private async Task<List<Metadata>?> AddFavouriteCountsAsync(List<Metadata> searchResults)
+	private async Task<List<Metadata>?> AddFavouriteCountsAsync(List<Metadata> searchResults, int? userId = null)
 		{
 			if (searchResults == null || searchResults.Count == 0)
 				return searchResults;
@@ -555,6 +555,9 @@ namespace maxhanna.Server.Controllers
 			// Build a dictionary to map url -> favourite count
 			var favouriteCounts = new Dictionary<string, int>();
 
+			// Prepare container for urls favourited by the requesting user
+			var userFavourites = new HashSet<string>();
+
 			using (var connection = new MySqlConnection(connectionString))
 			{
 				await connection.OpenAsync();
@@ -567,8 +570,11 @@ namespace maxhanna.Server.Controllers
 				}
 				string inClause = string.Join(",", parameters);
 
+				// Combined query: favourite count and whether the requesting user favoured each url
 				string query = $@"
-					SELECT f.url, COUNT(DISTINCT fs.user_id) AS favourite_count
+					SELECT f.url,
+						   COUNT(DISTINCT fs.user_id) AS favourite_count,
+						   SUM(CASE WHEN fs.user_id = @UserId THEN 1 ELSE 0 END) AS is_user_favourite_count
 					FROM favourites f
 					JOIN favourites_selected fs ON fs.favourite_id = f.id
 					WHERE f.url IN ({inClause})
@@ -577,6 +583,7 @@ namespace maxhanna.Server.Controllers
 
 				using (var command = new MySqlCommand(query, connection))
 				{
+					command.Parameters.AddWithValue("@UserId", userId ?? 0);
 					for (int i = 0; i < urls.Count; i++)
 					{
 						command.Parameters.AddWithValue($"@url{i}", urls[i]);
@@ -587,8 +594,13 @@ namespace maxhanna.Server.Controllers
 						while (await reader.ReadAsync())
 						{
 							string url = reader.GetString("url").Trim().ToLower();
-							int count = reader.GetInt32("favourite_count");
+							int count = reader.IsDBNull(reader.GetOrdinal("favourite_count")) ? 0 : reader.GetInt32("favourite_count");
+							int isUserCount = reader.IsDBNull(reader.GetOrdinal("is_user_favourite_count")) ? 0 : reader.GetInt32("is_user_favourite_count");
 							favouriteCounts[url] = count;
+							if (isUserCount > 0)
+							{
+								userFavourites.Add(url);
+							}
 						}
 					}
 				}
@@ -601,6 +613,10 @@ namespace maxhanna.Server.Controllers
 				if (normalizedUrl != null && favouriteCounts.ContainsKey(normalizedUrl))
 				{
 					result.FavouriteCount = favouriteCounts[normalizedUrl];
+				}
+				if (normalizedUrl != null && userId != null && userId > 0)
+				{
+					result.IsUserFavourite = userFavourites.Contains(normalizedUrl);
 				}
 			}
 
