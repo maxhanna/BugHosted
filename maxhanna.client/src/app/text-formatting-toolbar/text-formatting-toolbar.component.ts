@@ -19,6 +19,7 @@ export class TextFormattingToolbarComponent extends ChildComponent {
 
   @Output() isExpandingEmojiPanel = new EventEmitter<boolean>();
   @Output() isExpandingComponentPanel = new EventEmitter<boolean>();
+  @Output() isExpandingCrawlerPanel = new EventEmitter<boolean>();
 
   isEmojiPanelOpen = false;
   showComponentSelector = false;
@@ -152,27 +153,21 @@ export class TextFormattingToolbarComponent extends ChildComponent {
     targetInput.selectionStart = start + text.length;
     targetInput.selectionEnd = start + text.length;
     targetInput.focus();
-  }
-  /**
-   * Insert a link using the format [label][url].
-   * If the user has text selected it will use that as the label and wrap it.
-   * Otherwise it will insert a placeholder label and the provided url.
-   */
+  } 
   insertLink(componentId?: string) {
     // Open crawler popup to select/add a URL instead of using prompt
     this.openCrawler();
   }
 
   openCrawler() {
+    this.isExpandingCrawlerPanel.emit(true); 
     const parent = this.inputtedParentRef ?? this.parentRef;
-    parent?.closeOverlay();
-    setTimeout(() => {
-      this.isCrawlerOpen = true;
-      //parent?.showOverlay();
-    }, 500);
+    parent?.showOverlay();
+    this.isCrawlerOpen = true; 
   }
 
   closeCrawler() {
+    this.isExpandingCrawlerPanel.emit(false); 
     this.isCrawlerOpen = false;
     const parent = this.inputtedParentRef ?? this.parentRef;
     parent?.closeOverlay();
