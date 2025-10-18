@@ -7,9 +7,9 @@
                 'Collapse' }}</button>
             <button *ngIf="showTopButton" class="iconBtn" (click)="scrollTop()" title="Scroll to top"
                 aria-label="Scroll to top" style="margin-left:8px">▲</button>
-            <button *ngIf="hasNeg" class="pill" [class.active]="filter === 'negative'"
+            <button *ngIf="hasNeg" class="pill" [class.active]="currentView === 'negative'"
                 (click)="setFilter('negative')">Negative ({{ negCount }})</button>
-            <button *ngIf="hasCrypto" class="pill" [class.active]="filter === 'crypto'" (click)="setFilter('crypto')">Crypto
+            <button *ngIf="hasCrypto" class="pill" [class.active]="currentView === 'crypto'" (click)="setFilter('crypto')">Crypto
                 ({{ cryptoCount }})</button>
             <ng-container *ngFor="let coin of coinPills">
                 <button class="pill" [class.active]="selectedCoin === coin" (click)="toggleCoin(coin)">
