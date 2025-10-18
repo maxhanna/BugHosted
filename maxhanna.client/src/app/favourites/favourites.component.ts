@@ -6,6 +6,7 @@ import { User } from '../../services/datacontracts/user/user';
 import { CrawlerService } from '../../services/crawler.service';
 import { UserService } from '../../services/user.service';
 import { MetaData } from '../../services/datacontracts/social/story';
+import { CrawlerSearchResponse } from '../../services/datacontracts/crawler';
 
 @Component({
   selector: 'app-favourites',
@@ -139,8 +140,8 @@ export class FavouritesComponent extends ChildComponent implements OnInit {
         }
 
         if (!targetData) {
-          const cRes = await this.crawlerService.searchUrl(tmpLinkUrl, undefined, undefined, exactMatch);
-          if (cRes && cRes.results.length > 0 && (!exactMatch ? cRes.results[0].url.includes(tmpLinkUrl) : true)) {
+          const cRes: CrawlerSearchResponse | null = await this.crawlerService.searchUrl(tmpLinkUrl, undefined, undefined, exactMatch);
+          if (cRes && cRes.results && cRes.results.length > 0 && (!exactMatch ? cRes.results[0].url.includes(tmpLinkUrl) : true)) {
             targetData = cRes.results[0];
           }
         }

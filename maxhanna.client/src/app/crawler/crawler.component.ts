@@ -2,6 +2,7 @@ import { Component, ElementRef, EventEmitter, Input, OnDestroy, OnInit, Output, 
 import { ChildComponent } from '../child.component';
 import { CrawlerService } from '../../services/crawler.service';
 import { MetaData } from '../../services/datacontracts/social/story';
+import { CrawlerSearchResponse } from '../../services/datacontracts/crawler';
 import { DomSanitizer, Meta, SafeHtml } from '@angular/platform-browser';
 
 @Component({
@@ -92,23 +93,22 @@ export class CrawlerComponent extends ChildComponent implements OnInit, OnDestro
     this.hasSearched = true;
 
     if (url) {
-      await this.crawlerService.searchUrl(url, currentPage, pageSize, undefined, skipScrape).then(res => {
-        if (res && res.totalResults != 0) {
-          this.totalResults = res.totalResults;
-          this.totalPages = Math.ceil(this.totalResults / this.pageSize);
-          this.searchMetadata = res.results ?? [];
-          const groupedResults: { [domain: string]: MetaData[]; } = this.getGroupedResults(this.searchMetadata);
+      const res: CrawlerSearchResponse | null = await this.crawlerService.searchUrl(url, currentPage, pageSize, undefined, skipScrape);
+      if (res && res.totalResults != 0) {
+        this.totalResults = res.totalResults;
+        this.totalPages = Math.ceil(this.totalResults / this.pageSize);
+        this.searchMetadata = res.results ?? [];
+        const groupedResults: { [domain: string]: MetaData[]; } = this.getGroupedResults(this.searchMetadata);
 
-          this.sortResults(groupedResults);
-        } else {
-          this.error = "No data from given URL.";
-          this.totalResults = 0;
-          this.totalPages = 0;
-          this.searchMetadata = [];
-          this.groupedResults = [];
-        }
-      });
-    } else {
+        this.sortResults(groupedResults);
+      } else {
+        this.error = "No data from given URL.";
+        this.totalResults = 0;
+        this.totalPages = 0;
+        this.searchMetadata = [];
+        this.groupedResults = [];
+      }
+  } else {
       this.searchMetadata = [];
       this.groupedResults = [];
       this.totalPages = 0;
