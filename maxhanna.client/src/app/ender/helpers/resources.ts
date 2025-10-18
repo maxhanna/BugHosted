@@ -21,11 +21,12 @@ export class Resources {
       referee: `${this.dir}referee-spritesheet.png`,
       shadow: `${this.dir}shadow.png`,
       shipsprite: `${this.dir}shipsprite.png`,
-      stars: `${this.dir}stars.png`, 
+      stars: `${this.dir}stars.png`,
       textBox: `${this.dir}text-box.png`,
       warpbase: `${this.dir}warpBase.png`,
     };
     this.audioToLoad = {
+      arcadeUi: `${this.dir}arcade-ui.mp4`,
       pixelDreams: `${this.dir}pixeldreams.mp4`,
       wilhelmScream: `${this.dir}wilhelm_scream.mp3`,
     };
@@ -69,7 +70,8 @@ export class Resources {
   // audio categories help decide which mute flag applies
   private audioCategories: { [key: string]: 'music' | 'sfx' } = {
     pixelDreams: 'music',
-    wilhelmScream: 'sfx'
+    wilhelmScream: 'sfx',
+    arcadeUi: 'sfx'
   };
 
   playSound(key: string, opts?: { volume?: number; loop?: boolean; allowOverlap?: boolean }) {

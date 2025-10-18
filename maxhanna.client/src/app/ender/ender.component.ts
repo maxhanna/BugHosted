@@ -277,6 +277,9 @@ export class EnderComponent extends ChildComponent implements OnInit, OnDestroy,
         events.on("HERO_DIED", this, (payload: any) => {
             this.handleHeroDeath(payload);
         });
+        events.on("CHAT_MESSAGE_RECEIVED", this, () => {
+            resources.playSound("arcadeUi", { volume: 0.2, allowOverlap: true });
+        });
         // Track bike wall placements so we can submit to highscores
         events.on("SPAWN_BIKE_WALL", this, (params: { x: number, y: number }) => {
             // only count placements from the local hero and only after run started

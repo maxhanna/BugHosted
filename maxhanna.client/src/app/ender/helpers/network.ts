@@ -454,6 +454,7 @@ export function actionMultiplayerEvents(object: any, metaEvents: MetaEvent[]) {
           trimChatToLimit(object, 10);
           object.setHeroLatestMessage(object.otherHeroes.find((x: Character) => x.name === name));
           object.displayChatMessage();
+          events.emit("CHAT_MESSAGE_RECEIVED");
         }
         if (event.eventType === "WHISPER" && event.data) {
           let breakOut = false;
