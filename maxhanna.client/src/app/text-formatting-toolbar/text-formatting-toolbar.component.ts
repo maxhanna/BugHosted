@@ -81,7 +81,6 @@ export class TextFormattingToolbarComponent extends ChildComponent {
     this.textarea.selectionStart = currentPos + pollTemplate.length;
     this.textarea.selectionEnd = currentPos + pollTemplate.length;
     this.textarea.focus();
-    
   }
 
   openComponentSelector() {
@@ -165,9 +164,12 @@ export class TextFormattingToolbarComponent extends ChildComponent {
   }
 
   openCrawler() {
-    this.isCrawlerOpen = true;
     const parent = this.inputtedParentRef ?? this.parentRef;
-    parent?.showOverlay();
+    parent?.closeOverlay();
+    setTimeout(() => {
+      this.isCrawlerOpen = true;
+      parent?.showOverlay();
+    }, 500);
   }
 
   closeCrawler() {
