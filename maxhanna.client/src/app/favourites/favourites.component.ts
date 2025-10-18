@@ -339,7 +339,9 @@ export class FavouritesComponent extends ChildComponent implements OnInit {
     this.parentRef?.closeOverlay();
   }
   urlSelectedEvent(meta: MetaData) {
-    this.linkInput.nativeElement.value = meta.url ?? "";
+    setTimeout(() => {
+        this.linkInput.nativeElement.value = meta.url ?? ""; 
+    }, 500);
     if (this.isSearchingEditUrl) {
       this.editingUrlInput.nativeElement.value = meta.url ?? "";
       this.editingImageUrlInput.nativeElement.value = meta.imageUrl ?? this.editingImageUrlInput.nativeElement.value ?? "";
