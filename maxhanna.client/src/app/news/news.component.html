@@ -34,16 +34,16 @@
         <div class="articleTitle cursorPointer">{{ newsArticle.title }}</div>
         <div class="articleDescription cursorPointer" [innerHTML]="newsArticle.description"></div> 
         <div> 
-          <div class="articleDetailData">
-            <div class="articleAuthor cursorPointerUnderlined" (click)="openSource(newsArticle.url)">
+            <div class="articleDetailData">
+            <a class="articleAuthor cursorPointerUnderlined" (click)="parentRef?.indexLink(newsArticle.url)" [href]="newsArticle.url" target="_blank">
               Author(s): {{ getAuthors(newsArticle) }}
-            </div>
-            <div class="articleSource cursorPointerUnderlined" (click)="openSource(newsArticle.url)">
+            </a>
+            <a class="articleSource cursorPointerUnderlined" (click)="parentRef?.indexLink(newsArticle.url)" [href]="newsArticle.url" target="_blank">
               Source: {{ newsArticle.source?.name }}
-            </div>
-            <div class="articleDate cursorPointerUnderlined" (click)="openSource(newsArticle.url)">
+            </a>
+            <a class="articleDate cursorPointerUnderlined" (click)="parentRef?.indexLink(newsArticle.url)" [href]="newsArticle.url" target="_blank">
               Published Date: {{ newsArticle.publishedAt }}
-            </div>
+            </a>
             <div class="articleDate cursorPointerUnderlined">
               <button (click)="parentRef?.addFavourite(newsArticle.url, newsArticle.urlToImage, newsArticle.source?.name ?? undefined)" title="Add to Favourites" class="cursorPointer">❤️</button>
             </div>
@@ -64,9 +64,9 @@
       <div class="articleContent" [innerHTML]="selectedArticle.description"></div>
       <div class="articleDetails">
         <div class="articleDetailData">
-          <div class="articleAuthor cursorPointerUnderlined" (click)="openSource(selectedArticle.url)">Author(s): {{ getAuthors(selectedArticle) }}</div>
-          <div class="articleSource cursorPointerUnderlined" (click)="openSource(selectedArticle.url)">Source: {{ selectedArticle.source?.name }}</div>
-          <div class="articleDate cursorPointerUnderlined" (click)="openSource(selectedArticle.url)">Published Date: {{ selectedArticle.publishedAt }}</div>
+          <a class="articleAuthor cursorPointerUnderlined" (click)="parentRef?.indexLink(selectedArticle.url); selectedArticle = undefined" [href]="selectedArticle.url" target="_blank">Author(s): {{ getAuthors(selectedArticle) }}</a>
+          <a class="articleSource cursorPointerUnderlined" (click)="parentRef?.indexLink(selectedArticle.url); selectedArticle = undefined" [href]="selectedArticle.url" target="_blank">Source: {{ selectedArticle.source?.name }}</a>
+          <a class="articleDate cursorPointerUnderlined" (click)="parentRef?.indexLink(selectedArticle.url); selectedArticle = undefined" [href]="selectedArticle.url" target="_blank">Published Date: {{ selectedArticle.publishedAt }}</a>
         </div>
         <div class="mainArticleImage"><img class="articleImage" [attr.loading]="'lazy'" src="{{ selectedArticle.urlToImage }}" /></div>
       </div>

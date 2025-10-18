@@ -40,12 +40,12 @@
             <div class="articleContent" [innerHTML]="selectedArticle.description"></div>
             <div class="articleDetails">
                 <div class="articleDetailData">
-                    <div class="articleAuthor cursorPointerUnderlined linkColor" (click)="openSource(selectedArticle.url)">
-                        Author(s): {{ getAuthors(selectedArticle) }}</div>
-                    <div class="articleSource cursorPointerUnderlined linkColor" (click)="openSource(selectedArticle.url)">Source:
-                        {{ selectedArticle.source?.name }}</div>
-                    <div class="articleDate cursorPointerUnderlined linkColor" (click)="openSource(selectedArticle.url)">Published
-                        Date: {{ selectedArticle.publishedAt }}</div>
+                    <a class="articleAuthor cursorPointerUnderlined linkColor" (click)="parentRef?.indexLink(selectedArticle.url); closeArticle()" [href]="selectedArticle.url" target="_blank">
+                        Author(s): {{ getAuthors(selectedArticle) }}</a>
+                    <a class="articleSource cursorPointerUnderlined linkColor" (click)="parentRef?.indexLink(selectedArticle.url); closeArticle()" [href]="selectedArticle.url" target="_blank">Source:
+                        {{ selectedArticle.source?.name }}</a>
+                    <a class="articleDate cursorPointerUnderlined linkColor" (click)="parentRef?.indexLink(selectedArticle.url); closeArticle()" [href]="selectedArticle.url" target="_blank">Published
+                        Date: {{ selectedArticle.publishedAt }}</a>
                 </div>
                 <div class="mainArticleImage"><img class="popupArticleImage articleImage" [attr.loading]="'lazy'"
                         [src]="selectedArticle.urlToImage" /></div>
