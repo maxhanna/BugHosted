@@ -314,6 +314,7 @@ namespace maxhanna.Server.Controllers
 									Reactions = new List<Reaction>(),
 									Hidden = rdr.IsDBNull(rdr.GetOrdinal("hidden")) ? false : rdr.GetBoolean("hidden"),
 									Visibility = rdr.IsDBNull(rdr.GetOrdinal("visibility")) ? null : rdr.GetString("visibility"),
+									ProfileUserId = rdr.IsDBNull(rdr.GetOrdinal("profile_user_id")) ? null : rdr.GetInt32("profile_user_id"),
 								};
 								storyDictionary[storyId] = story;
 							}
