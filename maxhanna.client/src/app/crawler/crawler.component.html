@@ -20,7 +20,7 @@
           <input #urlInput type="text" placeholder="e.g. site:www.example.com keywords" (keydown.enter)="searchUrl()" />
           <button (click)="searchUrl()" [disabled]="isLoading">🔍Crawl</button>
           <button (click)="addWithoutSearch()" 
-            [disabled]="isLoading || !(urlInput?.nativeElement?.value && urlInput.nativeElement.value.trim())" 
+            [disabled]="isLoading || !(urlInput?.value && urlInput.value.trim())" 
             *ngIf="onlySearch"
             title="Add without searching">＋</button>
         </div>
