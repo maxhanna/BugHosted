@@ -263,4 +263,26 @@ export class CryptoNewsArticlesComponent extends ChildComponent implements After
         } catch { }
     }
 
+    // Handle dropdown selection: 'all' | 'negative' | 'crypto' | 'coin:CoinName'
+    onSelectView(value: string) {
+        if (!value) return;
+        if (value === 'all') {
+            this.setFilter('all');
+            return;
+        }
+        if (value === 'negative') {
+            this.setFilter('negative');
+            return;
+        }
+        if (value === 'crypto') {
+            this.setFilter('crypto');
+            return;
+        }
+        if (value.startsWith('coin:')) {
+            const coin = value.substring('coin:'.length);
+            this.toggleCoin(coin);
+            return;
+        }
+    }
+
 }

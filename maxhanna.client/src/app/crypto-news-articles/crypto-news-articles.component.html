@@ -7,15 +7,15 @@
                 'Collapse' }}</button>
             <button *ngIf="showTopButton" class="iconBtn" (click)="scrollTop()" title="Scroll to top"
                 aria-label="Scroll to top" style="margin-left:8px">▲</button>
-            <button *ngIf="hasNeg" class="pill" [class.active]="currentView === 'negative'"
-                (click)="setFilter('negative')">Negative ({{ negCount }})</button>
-            <button *ngIf="hasCrypto" class="pill" [class.active]="currentView === 'crypto'" (click)="setFilter('crypto')">Crypto
-                ({{ cryptoCount }})</button>
-            <ng-container *ngFor="let coin of coinPills">
-                <button class="pill" [class.active]="selectedCoin === coin" (click)="toggleCoin(coin)">
-                    {{ coin }} ({{ coinCounts[coin] }})
-                </button>
-            </ng-container>
+            <!-- Dropdown selector replaces pill UI: shows counts and triggers server-backed views -->
+            <select aria-label="Filter articles" (change)="onSelectView($any($event.target).value)">
+                <option value="all">All ({{ baseArticles?.length || 0 }})</option>
+                <option *ngIf="hasNeg" value="negative">Negative ({{ negCount }})</option>
+                <option *ngIf="hasCrypto" value="crypto">Crypto ({{ cryptoCount }})</option>
+                <optgroup *ngIf="coinPills && coinPills.length > 0" label="Coins">
+                    <option *ngFor="let coin of coinPills" [value]="'coin:' + coin">{{ coin }} ({{ coinCounts[coin] }})</option>
+                </optgroup>
+            </select>
         </div> 
     </div>
     
