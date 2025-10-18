@@ -86,7 +86,7 @@
     </div>
     <div *ngIf="searchMetadata?.length == 0 && !error && !isLoading" class="smallFont nbDiv"> 
       <div *ngIf="!onlySearch" (click)="seeNew()" class="cursorPointerUnderlined">See the latest indexes.</div>
-      <div *ngIf="onlySearch" class="siteHelperTip smallFont" style="margin: 12px 20px;">Tip: use <span (click)="fillSiteExample()" class="cursorPointerUnderlined linkFontColor">"site:domain.com keywords"</span> to restrict results to a single domain.</div>
+      <div *ngIf="onlySearch" class="siteHelperTip smallFont xxSmallFont" style="margin: 20px 20px;">Tip: use <span (click)="fillSiteExample()" class="cursorPointerUnderlined linkFontColor">"site:domain.com keywords"</span> to restrict results to a single domain.</div>
     </div> 
   </div>
 </div>
