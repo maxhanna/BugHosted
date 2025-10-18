@@ -225,10 +225,23 @@ export class CrawlerComponent extends ChildComponent implements OnInit, OnDestro
     this.urlInput.nativeElement.value = '*';
     this.searchUrl(true);
   }
-  async addFavourite(url?: string, imageUrl?: string, title?: string) {
+  async addFavourite(metadataOrUrl?: MetaData | string, imageUrl?: string, title?: string) {
     if (!this.parentRef?.user?.id) return alert('You must be logged in to update favourites');
     const userId = this.parentRef.user.id;
-    const targetData = this.searchMetadata.find(x => x.url === url);
+    let url: string | undefined;
+    let targetData: MetaData | undefined;
+
+    if (typeof metadataOrUrl === 'string' || metadataOrUrl === undefined) {
+      url = metadataOrUrl as string | undefined;
+      targetData = this.searchMetadata.find(x => x.url === url);
+    } else {
+      // metadata object passed in
+      targetData = metadataOrUrl as MetaData;
+      url = targetData?.url;
+      // use passed image/title only if separate args are missing
+      imageUrl = imageUrl ?? targetData?.imageUrl;
+      title = title ?? targetData?.title;
+    }
     try {
       if (targetData && targetData.isUserFavourite) {
         // remove favourite: look up favourite record by URL for this user

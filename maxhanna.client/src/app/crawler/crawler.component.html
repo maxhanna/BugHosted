@@ -41,8 +41,12 @@
             <div class="descriptionDiv cursorPointer metadataTitleLinkFavouriteWrapper">
               <a (click)="visitExternalLink(metadata.url)" [attr.href]="!onlySearch ? metadata.url : null"
                [attr.target]="!onlySearch ? '_blank' : null">{{ metadata.url }}</a>
-              <button (click)="addFavourite(metadata.url, metadata.imageUrl, metadata.title)" title="Add to Favourites" *ngIf="!onlySearch">
-                ❤️<span class="smallFont" *ngIf="metadata.favouriteCount">[{{metadata.favouriteCount}}]</span>
+              <button (click)="addFavourite(metadata)"
+                      [title]="metadata.isUserFavourite ? 'Remove from Favourites' : 'Add to Favourites'"
+                      *ngIf="!onlySearch" class="favouriteToggleButton">
+                <span *ngIf="metadata.isUserFavourite">💖</span>
+                <span *ngIf="!metadata.isUserFavourite">🤍</span>
+                <span class="smallFont" *ngIf="metadata.favouriteCount">[{{metadata.favouriteCount}}]</span>
               </button>
             </div>
             <div *ngIf="metadata.description && !onlySearch" class="descriptionDiv descriptClass" [innerHTML]="getSanitizedDescription(metadata.description)"></div>
