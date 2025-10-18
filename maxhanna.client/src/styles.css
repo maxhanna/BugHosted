@@ -127,6 +127,7 @@ fieldset {
 .closeButton::before,
 .menuButton::before,
 .menuBackButton::before,
+.helpButton::before,
 .notificationTopButton,
 .topSearchButtonDiv,
 .topSearchButtonDivSpecial {
