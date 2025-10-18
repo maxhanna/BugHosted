@@ -84,8 +84,8 @@ export class FavouritesComponent extends ChildComponent implements OnInit {
       this.favorites = [];
       this.totalCount = 0;
     }
-    this.numberOfPages = Math.ceil(this.totalCount / this.pageSize); 
-    this.stopLoading(); 
+    this.numberOfPages = Math.ceil(this.totalCount / this.pageSize);
+    this.stopLoading();
   }
 
   async permanentlyDelete(fav?: Favourite) {
@@ -123,7 +123,7 @@ export class FavouritesComponent extends ChildComponent implements OnInit {
     }
     this.parentRef?.closeOverlay();
     this.isSearchingUrl = false;
-    this.startLoading(); 
+    this.startLoading();
     if (fav) {
       fav.userCount++;
       const res = await this.favoriteService.addFavourite(user.id, fav.id);
@@ -160,7 +160,7 @@ export class FavouritesComponent extends ChildComponent implements OnInit {
           imageUrl = targetData.imageUrl ?? '';
           name = targetData.title ?? '';
           tmpLinkUrl = targetData.url ?? tmpLinkUrl;
-          this.parentRef?.setModalHeader("Added to favourites:"); 
+          this.parentRef?.setModalHeader("Added to favourites:");
           this.parentRef?.setModalBody(` 
             ${imageUrl ? `<small>Image:</small><br /><span style='margin-left: 10px; text-align: right; width: calc(100% - 20px); display: block;'><img src='${imageUrl}' (error)="fav.imageUrl = ''" /></span><br />` : ``}
             <small>Title:</small><br /><span style='margin-left: 10px; text-align: right; width: calc(100% - 20px); display: block;'>${name}</span> <br />
@@ -180,7 +180,7 @@ export class FavouritesComponent extends ChildComponent implements OnInit {
           setTimeout(() => this.parentRef?.openModal(), 50);
         }
 
-  const res = await this.favoriteService.updateFavourites(user, tmpLinkUrl, 0, imageUrl, name ?? linkUrl);
+        const res = await this.favoriteService.updateFavourites(user, tmpLinkUrl, 0, imageUrl, name ?? linkUrl);
         const tmpFav = new Favourite();
         tmpFav.name = name ?? linkUrl;
         tmpFav.url = tmpLinkUrl;
@@ -193,8 +193,8 @@ export class FavouritesComponent extends ChildComponent implements OnInit {
 
         this.favorites.unshift(tmpFav);
         this.parentRef?.showNotification(res.message);
-  // clear selectedMeta after use
-  this.selectedMeta = undefined;
+        // clear selectedMeta after use
+        this.selectedMeta = undefined;
       }
     }
 
@@ -238,7 +238,7 @@ export class FavouritesComponent extends ChildComponent implements OnInit {
     const search = this.linkInput.nativeElement.value ?? "";
     this.showNameImageInput = !!search;
     this.isSearchingUrls = true;
-    const userId = this.parentRef?.user?.id; 
+    const userId = this.parentRef?.user?.id;
     this.loadFavorites(search);
   }
 
@@ -337,20 +337,20 @@ export class FavouritesComponent extends ChildComponent implements OnInit {
   closeMenuPanel() {
     this.isMenuPanelOpen = false;
     this.parentRef?.closeOverlay();
-  }  
-  urlSelectedEvent(meta: MetaData) { 
+  }
+  urlSelectedEvent(meta: MetaData) {
+    this.linkInput.nativeElement.value = meta.url ?? "";
     if (this.isSearchingEditUrl) {
       this.editingUrlInput.nativeElement.value = meta.url ?? "";
-  this.editingImageUrlInput.nativeElement.value = meta.imageUrl ?? this.editingImageUrlInput.nativeElement.value ?? "";
-  // autopopulate the editing title when selecting from crawler
-  try { this.editingNameInput.nativeElement.value = meta.title ?? this.editingNameInput.nativeElement.value ?? ""; } catch {}
+      this.editingImageUrlInput.nativeElement.value = meta.imageUrl ?? this.editingImageUrlInput.nativeElement.value ?? "";
+      // autopopulate the editing title when selecting from crawler
+      try { this.editingNameInput.nativeElement.value = meta.title ?? this.editingNameInput.nativeElement.value ?? ""; } catch { }
       this.isSearchingEditUrl = false;
-    } 
+    }
     else if (this.isSearchingUrl) {
-      this.linkInput.nativeElement.value = meta.url ?? ""; 
-  // store selected metadata so addLink can reuse it
-  this.selectedMeta = meta;
-  this.closeSearchPopup();
+      // store selected metadata so addLink can reuse it
+      this.selectedMeta = meta;
+      this.closeSearchPopup();
     }
   }
 }
