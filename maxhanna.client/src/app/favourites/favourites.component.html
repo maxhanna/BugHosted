@@ -17,7 +17,7 @@
   </div>
   <div *ngIf="isSearchingUrl" class="popupPanel">
     <div class="popupPanelTitle">Crawler:</div>
-    <app-crawler [url]="linkInput.value" [onlySearch]="true" (urlSelectedEvent)="urlSelectedEvent($event)"></app-crawler>
+    <app-crawler [url]="linkInput.value" [onlySearch]="true" [inputtedParentRef]="parentRef" (urlSelectedEvent)="urlSelectedEvent($event)"></app-crawler>
     <button id="closeOverlay" class="closeButton" (click)="closeSearchPopup()">Close</button>
   </div>
   <div class="topLinks">
@@ -103,7 +103,7 @@
     <button (click)="editFavourite()" title="Update favourite" *ngIf="editingFavourite?.createdBy == parentRef?.user?.id">💾Update</button>
   </div>
   <div *ngIf="isSearchingEditUrl">
-    <app-crawler [url]="editingUrlInput.value" [onlySearch]="true" (urlSelectedEvent)="urlSelectedEvent($event)"></app-crawler>
+    <app-crawler [url]="editingUrlInput.value" [onlySearch]="true" [inputtedParentRef]="parentRef" (urlSelectedEvent)="urlSelectedEvent($event)"></app-crawler>
   </div>
   <div class="optionsStatsWrapperDiv" *ngIf="!isSearchingEditUrl">
     <div class="optionsStatsDiv">

@@ -12,7 +12,8 @@ export class CrawlerService {
     currentPage = 1,
     pageSize = 10,
     exactMatch?: boolean,
-    skipScrape?: boolean
+    skipScrape?: boolean,
+    userId?: number
   ): Promise<CrawlerSearchResponse | null> {
     const body: CrawlerSearchRequest = {
       Url: url,
@@ -20,7 +21,7 @@ export class CrawlerService {
       PageSize: pageSize,
       ExactMatch: exactMatch,
       SkipScrape: skipScrape,
-      UserId: (window as any)?.appUser?.id ?? undefined
+      UserId: userId ?? undefined
     };
 
     try {

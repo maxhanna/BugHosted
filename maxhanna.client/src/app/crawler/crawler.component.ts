@@ -5,12 +5,13 @@ import { FavouriteService } from '../../services/favourite.service';
 import { MetaData } from '../../services/datacontracts/social/story';
 import { CrawlerSearchResponse } from '../../services/datacontracts/crawler';
 import { DomSanitizer, Meta, SafeHtml } from '@angular/platform-browser';
+import { AppComponent } from '../app.component';
 
 @Component({
-    selector: 'app-crawler',
-    templateUrl: './crawler.component.html',
-    styleUrl: './crawler.component.css',
-    standalone: false
+  selector: 'app-crawler',
+  templateUrl: './crawler.component.html',
+  styleUrl: './crawler.component.css',
+  standalone: false
 })
 export class CrawlerComponent extends ChildComponent implements OnInit, OnDestroy {
   searchMetadata: MetaData[] = [];
@@ -27,19 +28,20 @@ export class CrawlerComponent extends ChildComponent implements OnInit, OnDestro
   totalPages: number = 0;
   paginatedResults: any[] = [];
   pageSizes: number[] = [50, 100, 150, 300]; // Dropdown options
-  pageSize: number = this.pageSizes[0]; 
+  pageSize: number = this.pageSizes[0];
 
   @ViewChild('pageSizeDropdown') pageSizeDropdown!: ElementRef<HTMLSelectElement>;
   @ViewChild('urlInput') urlInput!: ElementRef<HTMLInputElement>;
   @Input() url: string = '';
   @Input() onlySearch: boolean = false;
+  @Input() inputtedParentRef?: AppComponent;
   @Output() urlSelectedEvent = new EventEmitter<MetaData>();
   @Output() closeSearchEvent = new EventEmitter<void>();
   constructor(private sanitizer: DomSanitizer, private crawlerService: CrawlerService, private favouriteService: FavouriteService) { super(); }
   ngOnInit() {
     this.parentRef?.addResizeListener();
     this.crawlerService.indexCount().then(res => { if (res) { this.indexCount = parseInt(res); } });
-    (document.getElementsByClassName("componentContainer")[0] as HTMLDivElement)?.classList.add("centeredContainer"); 
+    (document.getElementsByClassName("componentContainer")[0] as HTMLDivElement)?.classList.add("centeredContainer");
     setTimeout(() => {
       if (this.url) {
         this.urlInput.nativeElement.value = this.url;
@@ -56,7 +58,7 @@ export class CrawlerComponent extends ChildComponent implements OnInit, OnDestro
     }, 60000);
   }
   ngOnDestroy() {
-    (document.getElementsByClassName("componentContainer")[0] as HTMLDivElement)?.classList.remove("centeredContainer");  
+    (document.getElementsByClassName("componentContainer")[0] as HTMLDivElement)?.classList.remove("centeredContainer");
     clearInterval(this.indexUpdateTimer);
     this.parentRef?.removeResizeListener();
   }
@@ -73,14 +75,14 @@ export class CrawlerComponent extends ChildComponent implements OnInit, OnDestro
     if (!url) return;
     if (this.onlySearch) {
       const tgtMetadata = this.searchMetadata.filter((x: MetaData) => x.url == url)[0];
-      if (tgtMetadata) { 
+      if (tgtMetadata) {
         this.urlSelectedEvent.emit(tgtMetadata);
       }
-    }  
-    this.parentRef?.indexLink(url); 
+    }
+    this.parentRef?.indexLink(url);
   }
   async searchUrl(skipScrape?: boolean) {
-    (document.getElementsByClassName("componentContainer")[0] as HTMLDivElement)?.classList.remove("centeredContainer"); 
+    (document.getElementsByClassName("componentContainer")[0] as HTMLDivElement)?.classList.remove("centeredContainer");
     this.error = '';
     const url = this.urlInput.nativeElement.value;
     if (url != this.lastSearch) {
@@ -94,7 +96,8 @@ export class CrawlerComponent extends ChildComponent implements OnInit, OnDestro
     this.hasSearched = true;
 
     if (url) {
-      const res: CrawlerSearchResponse | null = await this.crawlerService.searchUrl(url, currentPage, pageSize, undefined, skipScrape);
+      const userId = (this.inputtedParentRef ?? this.parentRef)?.user?.id;
+      const res: CrawlerSearchResponse | null = await this.crawlerService.searchUrl(url, currentPage, pageSize, undefined, skipScrape, userId);
       if (res && res.totalResults != 0) {
         this.totalResults = res.totalResults;
         this.totalPages = Math.ceil(this.totalResults / this.pageSize);
@@ -109,7 +112,7 @@ export class CrawlerComponent extends ChildComponent implements OnInit, OnDestro
         this.searchMetadata = [];
         this.groupedResults = [];
       }
-  } else {
+    } else {
       this.searchMetadata = [];
       this.groupedResults = [];
       this.totalPages = 0;
@@ -143,7 +146,7 @@ export class CrawlerComponent extends ChildComponent implements OnInit, OnDestro
     return groupedResults;
   }
 
-  private sortResults(groupedResults: { [domain: string]: MetaData[]; }) { 
+  private sortResults(groupedResults: { [domain: string]: MetaData[]; }) {
     this.groupedResults = Object.entries(groupedResults).map(([domain, links]) => {
       const sortedLinks = links.sort((a: any, b: any) => {
         try {
@@ -172,12 +175,12 @@ export class CrawlerComponent extends ChildComponent implements OnInit, OnDestro
       return {
         domain,
         links: sortedLinks,
-        showSubdomains: false 
+        showSubdomains: false
       };
     });
   }
 
-  onPageSizeChange() { 
+  onPageSizeChange() {
     this.currentPage = 1;
     this.pageSize = parseInt(this.pageSizeDropdown.nativeElement.value);
     this.searchUrl(true);
@@ -195,7 +198,7 @@ export class CrawlerComponent extends ChildComponent implements OnInit, OnDestro
     }
   }
   showMenuPanel() {
-    (document.getElementsByClassName("componentContainer")[0] as HTMLDivElement)?.classList.remove("centeredContainer"); 
+    (document.getElementsByClassName("componentContainer")[0] as HTMLDivElement)?.classList.remove("centeredContainer");
     if (!this.storageStats) {
       this.crawlerService.storageStats().then(res => { if (res) this.storageStats = res; });
     }

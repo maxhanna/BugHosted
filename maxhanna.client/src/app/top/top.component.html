@@ -48,7 +48,7 @@
     </div>
 
     <div *ngIf="isSearchingUrl" class="popupPanel crawlerPopupPanel">
-        <app-crawler [url]="urlInput.nativeElement.value" [onlySearch]="true"
+        <app-crawler [url]="urlInput.nativeElement.value" [onlySearch]="true" [inputtedParentRef]="parentRef"
             (urlSelectedEvent)="urlSelectedEvent($event)" (closeSearchEvent)="closeSearchEvent()"></app-crawler>
         <button id="closeOverlay" (click)="closeSearchPanel()">Cancel</button>
     </div>
@@ -133,7 +133,7 @@
         </div>
 
         <div *ngIf="isSearchingUrlForEdit">
-            <app-crawler [url]="urlEditInput.value" [onlySearch]="true" (urlSelectedEvent)="urlSelectedEvent($event)"
+            <app-crawler [url]="urlEditInput.value" [onlySearch]="true" [inputtedParentRef]="parentRef" (urlSelectedEvent)="urlSelectedEvent($event)"
                 (closeSearchEvent)="closeSearchEvent()"></app-crawler>
             <button (click)="closeSearchPanel()">Cancel</button>
         </div>
