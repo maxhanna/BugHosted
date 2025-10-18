@@ -17,6 +17,7 @@ button {
 }
 .crawlerPanel {
     min-height: 65vh;
+    overflow: hidden;
 }
 .componentList {
     max-height: 30vh;
