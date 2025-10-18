@@ -12,7 +12,7 @@
             <button *ngIf="hasCrypto" class="pill" [class.active]="filter === 'crypto'" (click)="setFilter('crypto')">Crypto
                 ({{ cryptoCount }})</button>
             <ng-container *ngFor="let coin of coinPills">
-                <button class="pill" [class.active]="selectedCoin === coin" (click)="selectedCoin = (selectedCoin === coin ? null : coin)">
+                <button class="pill" [class.active]="selectedCoin === coin" (click)="toggleCoin(coin)">
                     {{ coin }} ({{ coinCounts[coin] }})
                 </button>
             </ng-container>

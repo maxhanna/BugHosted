@@ -127,6 +127,22 @@ export class NewsService {
     }
   }
 
+  async getArticlesByCoin(coin: string, sessionToken: string = ''): Promise<ArticlesResult | null> {
+    try {
+      const params = new URLSearchParams({ coin });
+      const res = await fetch(`/news/coin?${params.toString()}`, {
+        method: 'GET',
+        headers: sessionToken ? { 'Authorization': sessionToken } : undefined,
+      });
+      if (!res.ok) return null;
+      const arr = await res.json() as Article[];
+      return { articles: arr || [], totalResults: (arr || []).length, status: Statuses.OK } as ArticlesResult;
+    } catch (err) {
+      console.error('Error fetching articles by coin:', err);
+      return null;
+    }
+  }
+
   async getNewsCount(): Promise<number> {
     try {
       const res = await fetch('/news/count', { method: 'GET' });

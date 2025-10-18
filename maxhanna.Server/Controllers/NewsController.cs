@@ -210,6 +210,57 @@ namespace maxhanna.Server.Controllers
             }
         }
 
+		[HttpGet("coin")]
+		public async Task<IActionResult> GetArticlesByCoin([FromQuery] string coin)
+		{
+			try
+			{
+				if (string.IsNullOrWhiteSpace(coin)) return BadRequest("coin is required");
+
+				using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+				await conn.OpenAsync();
+
+				// map coin to search tokens
+				var tokenSql = coin.ToLowerInvariant() switch
+				{
+					var c when c.Contains("ethereum") || c == "ethereum" || c == "eth" => "(LOWER(title) LIKE '%eth%' OR LOWER(content) LIKE '%eth%' OR LOWER(description) LIKE '%eth%' OR LOWER(title) LIKE '%ethereum%' OR LOWER(content) LIKE '%ethereum%' OR LOWER(description) LIKE '%ethereum%')",
+					var c when c.Contains("doge") || c == "dogecoin" => "(LOWER(title) LIKE '%doge%' OR LOWER(content) LIKE '%doge%' OR LOWER(description) LIKE '%doge%' OR LOWER(title) LIKE '%dogecoin%' OR LOWER(content) LIKE '%dogecoin%' OR LOWER(description) LIKE '%dogecoin%')",
+					var c when c.Contains("xrp") => "(LOWER(title) LIKE '%xrp%' OR LOWER(content) LIKE '%xrp%' OR LOWER(description) LIKE '%xrp%')",
+					var c when c.Contains("sol") || c.Contains("solana") => "(LOWER(title) LIKE '%sol%' OR LOWER(content) LIKE '%sol%' OR LOWER(description) LIKE '%sol%' OR LOWER(title) LIKE '%solana%' OR LOWER(content) LIKE '%solana%' OR LOWER(description) LIKE '%solana%')",
+					_ => null
+				};
+
+				if (tokenSql == null) return Ok(new List<Article>());
+
+				string sql = $@"SELECT id as Id, title, description, url, published_at, url_to_image, content, author
+							   FROM news_headlines
+							   WHERE {tokenSql}
+							   ORDER BY saved_at DESC LIMIT 200;";
+				using var cmd = new MySqlCommand(sql, conn);
+				using var reader = await cmd.ExecuteReaderAsync();
+				var list = new List<Article>();
+				while (await reader.ReadAsync())
+				{
+					list.Add(new Article
+					{
+						Title = reader["title"]?.ToString(),
+						Description = reader["description"]?.ToString(),
+						Url = reader["url"]?.ToString(),
+						PublishedAt = reader["published_at"] as DateTime?,
+						UrlToImage = reader["url_to_image"]?.ToString(),
+						Content = reader["content"]?.ToString(),
+						Author = reader["author"]?.ToString()
+					});
+				}
+				return Ok(list);
+			}
+			catch (Exception ex)
+			{
+				await _log.Db($"NewsController.GetArticlesByCoin failed: {ex.Message}", null, "API", true);
+				return StatusCode(500);
+			}
+		}
+
 		[HttpGet("count")]
 		public async Task<IActionResult> GetNewsCount()
 		{

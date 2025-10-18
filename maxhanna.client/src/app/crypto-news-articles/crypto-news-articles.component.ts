@@ -108,12 +108,46 @@ export class CryptoNewsArticlesComponent extends ChildComponent implements After
         this.filter = (this.filter === c) ? 'all' : c;
     }
 
+    // called when a coin pill is toggled from the template; fetch coin-specific articles from server
+    async toggleCoin(coin: string) {
+        try {
+            // if clicking the same coin, clear selection
+            if (this.selectedCoin === coin) {
+                this.selectedCoin = null;
+                // refetch base sets (neg/crypto) - we already have this.articles populated
+                return;
+            }
+
+            this.selectedCoin = coin;
+            const sessionToken = await (this.inputtedParentRef ?? this.parentRef)?.getSessionToken() ?? '';
+            const res = await this.newsService.getArticlesByCoin(coin, sessionToken);
+            const arr = res?.articles ?? [];
+
+            // mark flags by checking against existing negative/crypto flags where urls match
+            const urlSet = new Set(this.articles.map(a => a.url));
+            const merged = arr.map(a => ({ ...a, negative: this.articles.find(x => x.url === a.url)?.negative, crypto: true }));
+
+            // replace displayed pool with coin-specific fetched articles
+            // cast to Article[] to satisfy the declared array element type
+            this.articles = (merged as unknown as Article[]).concat(this.articles.filter(a => !urlSet.has(a.url))).sort((a, b) => {
+                const da = a.publishedAt ? new Date(a.publishedAt).getTime() : 0;
+                const db = b.publishedAt ? new Date(b.publishedAt).getTime() : 0;
+                return db - da;
+            });
+        } catch (err) {
+            console.error('Failed to fetch coin articles', err);
+        }
+    }
+
     get displayedArticles(): Article[] {
         if (!this.articles || this.articles.length === 0) return [];
-        if (this.filter === 'all') return this.articles;
-        if (this.filter === 'negative') return this.articles.filter(a => !!a.negative);
-        if (this.filter === 'crypto') return this.articles.filter(a => !!a.crypto);
-        // if a specific coin is selected via pill, filter by coin keywords as well
+
+        // Start with base set depending on negative/crypto filter
+        let base = this.articles;
+        if (this.filter === 'negative') base = base.filter(a => !!a.negative);
+        else if (this.filter === 'crypto') base = base.filter(a => !!a.crypto);
+
+        // if a specific coin is selected via pill, further filter the base set by coin keywords
         if (this.selectedCoin) {
             const coinMap: Record<string, RegExp> = {
                 'Ethereum': /\bethereum\b|\beth\b/i,
@@ -122,9 +156,10 @@ export class CryptoNewsArticlesComponent extends ChildComponent implements After
                 'Solana': /\bsolana\b|\bsol\b/i
             };
             const regex = coinMap[this.selectedCoin];
-            if (regex) return this.articles.filter(a => (a.title || '').match(regex) || (a.description || '').match(regex) || (a.content || '').match(regex));
+            if (regex) base = base.filter(a => (a.title || '').match(regex) || (a.description || '').match(regex) || (a.content || '').match(regex));
         }
-        return this.articles;
+
+        return base;
     }
 
     get hasNeg(): boolean { return this.articles.some(a => !!a.negative); }
