@@ -3,7 +3,7 @@
   <div class="menuButton" (click)="showMenuPanel();" *ngIf="!onlySearch"></div>
   <div class="componentTitle" *ngIf="!onlySearch">Crawler</div>
   <div class="xxSmallFont nbDiv" [style.margin-Top]="onlySearch ? '-20px' : ''">
-    <div *ngIf="!searchMetadata.length && !onMobile()">Total indexes: {{indexCount}}</div>
+    <div *ngIf="!searchMetadata.length && !onMobile() && !onlySearch">Total indexes: {{indexCount}}</div>
     <div *ngIf="searchMetadata?.length && !onMobile() && !onlySearch">Search results: {{totalResults}}</div>
   </div>
   <div class="crawler-container"
@@ -89,7 +89,7 @@
       <div *ngIf="onlySearch" class="siteHelperTip smallFont xxSmallFont" style="margin: 20px 20px;">Tip: use <span (click)="fillSiteExample()" class="cursorPointerUnderlined linkFontColor">"site:domain.com keywords"</span> to restrict results to a single domain.</div>
     </div> 
   </div>
-  <div *ngIf="!searchMetadata.length && onMobile()" class="xxSmallFont">Total indexes: {{indexCount}}</div>
+  <div *ngIf="!searchMetadata.length && (onMobile() || onlySearch)" class="xxSmallFont">Total indexes: {{indexCount}}</div>
   <div *ngIf="searchMetadata?.length && (onMobile() || onlySearch)" class="xxSmallFont">Search results: {{totalResults}}</div>
 </div>
 
