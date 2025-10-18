@@ -208,6 +208,8 @@ namespace maxhanna.Server.Controllers
 							JOIN topic_favourite tf ON st.topic_id = tf.topic_id
 							WHERE st.story_id = s.id AND tf.user_id = @userId
 						)
+						OR s.user_id = @userId
+						OR s.profile_user_id = @userId
 					)
 					");
 				}
@@ -215,7 +217,9 @@ namespace maxhanna.Server.Controllers
 				{
 					whereClause.Append(@" AND (
 						s.country = (SELECT country FROM users WHERE id = @userId)
-						OR s.city = (SELECT city FROM users WHERE id = @userId) 
+						OR s.city = (SELECT city FROM users WHERE id = @userId)
+						OR s.user_id = @userId
+						OR s.profile_user_id = @userId
 					) ");
 				}
 				else if (showPostsFromFilter == "popular")
