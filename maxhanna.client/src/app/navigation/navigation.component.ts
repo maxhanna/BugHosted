@@ -203,7 +203,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
       if (this._parent?.navigationItems) {
         const newsNav = this._parent.navigationItems.find(x => x.title === 'News');
         if (newsNav) {
-          newsNav.content = count && count > 0 ? count.toString() : '';
+          newsNav.content = count && count > 0 ? this.shortenCount(count) : '';
         }
       }
     } catch (err) {
