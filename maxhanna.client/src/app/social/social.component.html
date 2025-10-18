@@ -369,15 +369,6 @@
                 (cancelEdit)="cancelEdit(story)"
                 [attachedTopics]="story.storyTopics ?? []">
               </app-text-input>
-              <!-- <div class="editingTextAreaButtonWrapperDiv">
-                <button [id]="'storyTextEditConfirmButton' + story.id" (click)="editStory(story)"
-                  [style.display]="isEditing.includes(story.id) ? 'block' : 'none'">
-                  <span class="storyEditSpans storyAcceptEdit" [id]="'storyAcceptEditButtonSpan' + story.id">✔️</span>
-                  ✏️Edit
-                </button>
-                <app-text-formatting-toolbar [style.display]="isEditing.includes(story.id) ? 'block' : 'none'" [inputtedParentRef]="parentRef ?? parent"
-                  [parentId]="'storyTextTextarea' + story.id"></app-text-formatting-toolbar>
-              </div> -->
             </div>
           </div>
           <div>

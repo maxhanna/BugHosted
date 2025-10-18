@@ -68,7 +68,8 @@
         [inputtedParentRef]="inputtedParentRef" 
         [parent]="textarea" 
         (isExpandingEmojiPanel)="onExpandingEmojiPanel($event)"
-        (isExpandingComponentPanel)="onExpandingComponentPanel($event)"></app-text-formatting-toolbar>
+        (isExpandingComponentPanel)="onExpandingComponentPanel($event)"
+        (isExpandingCrawlerPanel)="onExpandingCrawlerPanel($event)"></app-text-formatting-toolbar>
     </div>
     <div style="display: flex; justify-content: center; align-items: center; gap: 10px;">
         <button id="helpButton" (click)="showHelp()" class="helpButton" style="margin-top:10px">ℹ️ Help</button>
