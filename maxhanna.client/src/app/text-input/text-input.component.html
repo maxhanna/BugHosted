@@ -74,7 +74,7 @@
     <!-- Visibility selector for Social posts -->
     <div *ngIf="type == 'Social'" style="margin-top:12px; display:flex; align-items:center; gap:8px; justify-content:center;">
         <label style="font-size:0.9rem;">Visibility:</label>
-        <select (change)="visibility = $event.target.value" [value]="visibility">
+        <select [value]="visibility" (change)="visibility = ($event.target as HTMLSelectElement).value">
             <option value="public">Public</option>
             <option value="following">Following</option>
             <option value="self">Self</option>

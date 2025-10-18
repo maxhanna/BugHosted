@@ -857,21 +857,7 @@ button.postOptionButtons,
 .popupSectionContainer>div:not(:last-child) {
   margin-bottom: 30px;
 }
-
-.showPostFromHelpInfoButton {
-  width: 100%;
-  height: 5px;
-  position: relative;
-  text-align: right;
-  font-size: small;
-  cursor: pointer;
-}
-
-.showPostFromHelpInfoButton:hover {
-  text-decoration: underline;
-  text-decoration-color: var(--main-link-color);
-}
-
+ 
 .showPostFromHelpInfo {
   width: 100%;
   font-size: smaller;
