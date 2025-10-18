@@ -24,9 +24,12 @@ namespace maxhanna.Server.Controllers
 			string orderByClause = request.OrderBy switch
 			{
 				"popular" => "user_count DESC",
+				"unpopular" => "user_count ASC",
 				"name" => "name",
 				"url" => "url",
 				"visited" => "access_count DESC",
+				"visited_asc" => "access_count ASC",
+				"oldest" => "creation_date ASC",
 				_ => "creation_date DESC" // default is recent
 			};
 

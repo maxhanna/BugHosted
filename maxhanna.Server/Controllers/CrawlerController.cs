@@ -214,7 +214,16 @@ namespace maxhanna.Server.Controllers
 							foreach (var urlVariant in urlVariants)
 							{
 								_ = _log.Db($"Manually scraping: " + urlVariant, null, "CRAWLERCTRL", true);
-								var mainMetadata = await _webCrawler.ScrapeUrlData(urlVariant);
+								// Wait up to 5 seconds for the synchronous scrape to return for interactive user searches.
+								// If it doesn't complete within the window, proceed and schedule background indexing.
+								var scrapeTask = _webCrawler.ScrapeUrlData(urlVariant);
+								var completed = await Task.WhenAny(scrapeTask, Task.Delay(TimeSpan.FromSeconds(5)));
+								Metadata? mainMetadata = null;
+								if (completed == scrapeTask)
+								{
+									mainMetadata = await scrapeTask; // already completed
+								}
+
 								if (mainMetadata != null)
 								{
 									scrapedResults++;
@@ -228,8 +237,18 @@ namespace maxhanna.Server.Controllers
 								}
 								else
 								{
-									_ = _log.Db($"Url Failed: " + urlVariant, null, "CRAWLERCTRL", true);
-									_ = _webCrawler.MarkUrlAsFailed(urlVariant);
+									_ = _log.Db($"Scrape timed out or failed for: " + urlVariant, null, "CRAWLERCTRL", true);
+									//_ = _webCrawler.MarkUrlAsFailed(urlVariant);
+								}
+
+								// Schedule background indexing for this URL without awaiting — fire-and-forget
+								try
+								{
+									_ = _webCrawler.StartScrapingAsync(urlVariant);
+								}
+								catch (Exception ex)
+								{
+									_ = _log.Db($"Failed to start background indexing for {urlVariant}: {ex.Message}", null, "CRAWLERCTRL", true);
 								}
 							}
 						}
