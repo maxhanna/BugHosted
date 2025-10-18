@@ -106,6 +106,7 @@
     display: flex;
     gap: 8px;
     margin: 8px 0;
+    flex-wrap: wrap;
 }
 
 .pill {
