@@ -29,6 +29,9 @@ export class CrawlerComponent extends ChildComponent implements OnInit, OnDestro
   paginatedResults: any[] = [];
   pageSizes: number[] = [50, 100, 150, 300]; // Dropdown options
   pageSize: number = this.pageSizes[0];
+  // Favourite popup state
+  isFavouritedByPanelOpen: boolean = false;
+  favouritedByList: any[] = [];
 
   @ViewChild('pageSizeDropdown') pageSizeDropdown!: ElementRef<HTMLSelectElement>;
   @ViewChild('urlInput') urlInput!: ElementRef<HTMLInputElement>;
@@ -83,6 +86,22 @@ export class CrawlerComponent extends ChildComponent implements OnInit, OnDestro
       }
     }
     this.parentRef?.indexLink(url);
+  }
+
+  openFavouritedByPanel(url?: string) {
+    if (!url) return;
+    this.isFavouritedByPanelOpen = true;
+    this.startLoading();
+    this.crawlerService.getFavouritedByUrl(url).then(res => {
+      this.favouritedByList = res ?? [];
+    }).finally(() => {
+      this.stopLoading();
+    });
+  }
+
+  closeFavouritedByPanel() {
+    this.isFavouritedByPanelOpen = false;
+    this.favouritedByList = [];
   }
   async searchUrl(skipScrape?: boolean) {
     (document.getElementsByClassName("componentContainer")[0] as HTMLDivElement)?.classList.remove("centeredContainer");

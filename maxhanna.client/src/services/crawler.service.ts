@@ -119,4 +119,18 @@ export class CrawlerService {
     }
   }
 
+  async getFavouritedByUrl(url: string): Promise<any[] | null> {
+    try {
+      const response = await fetch(`/crawler/getfavouritedbyurl`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(url)
+      });
+      if (!response.ok) return null;
+      return await response.json();
+    } catch (error) {
+      return null;
+    }
+  }
+
 }

@@ -501,6 +501,54 @@ namespace maxhanna.Server.Controllers
 
 			return Ok(searchResults);
 		}
+
+		[HttpPost("/Crawler/GetFavouritedByUrl", Name = "GetFavouritedByUrl")]
+		public async Task<IActionResult> GetFavouritedByUrl([FromBody] string url)
+		{
+			var users = new List<maxhanna.Server.Controllers.DataContracts.Users.User>();
+			if (string.IsNullOrWhiteSpace(url)) return BadRequest("Url required");
+			string connectionString = _config.GetValue<string?>("ConnectionStrings:maxhanna") ?? string.Empty;
+			try
+			{
+				using (var connection = new MySqlConnection(connectionString))
+				{
+					await connection.OpenAsync();
+					string sql = @"
+					SELECT fs.user_id AS userId, u.username, udp.file_id AS displayPictureFileId, udp.tag_background_file_id AS backgroundPictureFileId
+					FROM favourites_selected fs
+					JOIN favourites f ON fs.favourite_id = f.id
+					LEFT JOIN users u ON fs.user_id = u.id
+					LEFT JOIN user_display_pictures udp ON udp.user_id = u.id
+					WHERE LOWER(f.url) = LOWER(@url);";
+
+					using (var cmd = new MySqlCommand(sql, connection))
+					{
+						cmd.Parameters.AddWithValue("@url", url.Trim());
+						using (var reader = await cmd.ExecuteReaderAsync())
+						{
+							while (await reader.ReadAsync())
+							{
+								var u = new maxhanna.Server.Controllers.DataContracts.Users.User();
+								u.Id = reader.IsDBNull("userId") ? (int?)null : reader.GetInt32("userId");
+								u.Username = reader.IsDBNull("username") ? null : reader.GetString("username");
+								var dpId = reader.IsDBNull("displayPictureFileId") ? (int?)null : reader.GetInt32("displayPictureFileId");
+								if (dpId.HasValue && dpId.Value != 0)
+								{
+									u.DisplayPictureFile = new maxhanna.Server.Controllers.DataContracts.Files.FileEntry { Id = dpId.Value };
+								}
+								users.Add(u);
+							}
+						}
+					}
+				}
+				return Ok(users);
+			}
+			catch (Exception ex)
+			{
+				_ = _log.Db($"Error in GetFavouritedByUrl: {ex.Message}", null, "CRAWLERCTRL", true);
+				return StatusCode(500, "An error occurred while fetching favourited-by data");
+			}
+		}
 		private async Task<List<YoutubeVideo>> SearchYoutubeVideosAsync(string keyword, string apiKey)
 		{
 			var videos = new List<YoutubeVideo>();

@@ -59,7 +59,8 @@
               {{ metadata.httpStatus }}  {{ getHttpStatusMeaning(metadata.httpStatus) }}
             </div>
             <div *ngIf="metadata.favouriteCount" class="descriptionDiv keywordsClass" [title]="'Favourited by ' + metadata.favouriteCount + ' users'">
-              ❤️ Favourited by {{metadata.favouriteCount}} User{{metadata.favouriteCount > 1 ? 's' : ''}}. 
+              ❤️ Favourited by {{metadata.favouriteCount}} User{{metadata.favouriteCount > 1 ? 's' : ''}}.
+              <button class="smallLinkButton" (click)="openFavouritedByPanel(metadata.url)">See who</button>
             </div>
             <div *ngIf="metadata.keywords" class="descriptionDiv keywordsClass" [innerHTML]="getSanitizedDescription(metadata.keywords)"></div>
           </div>
@@ -91,6 +92,19 @@
   </div>
   <div *ngIf="!searchMetadata.length && (onMobile() || onlySearch)" class="xxSmallFont">Total indexes: {{indexCount}}</div>
   <div *ngIf="searchMetadata?.length && (onMobile() || onlySearch)" class="xxSmallFont">Search results: {{totalResults}}</div>
+</div>
+
+<!-- Favourited By Popup -->
+<div class="popupPanel" *ngIf="isFavouritedByPanelOpen">
+  <div class="popupPanelTitle">Users who favourited this link</div>
+  <div style="max-height: 40vh; overflow: auto; padding: 10px">
+    <div *ngIf="favouritedByList.length === 0">No users found.</div>
+    <div *ngFor="let u of favouritedByList" style="display:flex; align-items:center; gap:10px; margin-bottom:8px">
+      <img *ngIf="u.displayPictureFile?.id" [src]="'/assets/Uploads/' + u.displayPictureFile?.id" style="width:32px;height:32px;border-radius:50%" />
+      <div>{{u.username ?? 'Anonymous'}}</div>
+    </div>
+  </div>
+  <button class="closeButton" (click)="closeFavouritedByPanel()">Close</button>
 </div>
 
 <!-- Menu Popup -->
