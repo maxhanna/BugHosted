@@ -220,13 +220,17 @@ namespace maxhanna.Server.Controllers
 				using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
 				await conn.OpenAsync();
 
-				// map coin to search tokens
+				// map coin to search tokens using REGEXP with word-boundaries to avoid substring matches
 				var tokenSql = coin.ToLowerInvariant() switch
 				{
-					var c when c.Contains("ethereum") || c == "ethereum" || c == "eth" => "(LOWER(title) LIKE '%eth%' OR LOWER(content) LIKE '%eth%' OR LOWER(description) LIKE '%eth%' OR LOWER(title) LIKE '%ethereum%' OR LOWER(content) LIKE '%ethereum%' OR LOWER(description) LIKE '%ethereum%')",
-					var c when c.Contains("doge") || c == "dogecoin" => "(LOWER(title) LIKE '%doge%' OR LOWER(content) LIKE '%doge%' OR LOWER(description) LIKE '%doge%' OR LOWER(title) LIKE '%dogecoin%' OR LOWER(content) LIKE '%dogecoin%' OR LOWER(description) LIKE '%dogecoin%')",
-					var c when c.Contains("xrp") => "(LOWER(title) LIKE '%xrp%' OR LOWER(content) LIKE '%xrp%' OR LOWER(description) LIKE '%xrp%')",
-					var c when c.Contains("sol") || c.Contains("solana") => "(LOWER(title) LIKE '%sol%' OR LOWER(content) LIKE '%sol%' OR LOWER(description) LIKE '%sol%' OR LOWER(title) LIKE '%solana%' OR LOWER(content) LIKE '%solana%' OR LOWER(description) LIKE '%solana%')",
+					var c when c.Contains("ethereum") || c == "ethereum" || c == "eth" =>
+						"(LOWER(title) REGEXP '[[:<:]]eth[[:>:]]' OR LOWER(content) REGEXP '[[:<:]]eth[[:>:]]' OR LOWER(description) REGEXP '[[:<:]]eth[[:>:]]' OR LOWER(title) REGEXP '[[:<:]]ethereum[[:>:]]' OR LOWER(content) REGEXP '[[:<:]]ethereum[[:>:]]' OR LOWER(description) REGEXP '[[:<:]]ethereum[[:>:]]')",
+					var c when c.Contains("doge") || c == "dogecoin" =>
+						"(LOWER(title) REGEXP '[[:<:]]doge(coin)?[[:>:]]' OR LOWER(content) REGEXP '[[:<:]]doge(coin)?[[:>:]]' OR LOWER(description) REGEXP '[[:<:]]doge(coin)?[[:>:]]')",
+					var c when c.Contains("xrp") =>
+						"(LOWER(title) REGEXP '[[:<:]]xrp[[:>:]]' OR LOWER(content) REGEXP '[[:<:]]xrp[[:>:]]' OR LOWER(description) REGEXP '[[:<:]]xrp[[:>:]]')",
+					var c when c.Contains("sol") || c.Contains("solana") =>
+						"(LOWER(title) REGEXP '[[:<:]]sol[[:>:]]' OR LOWER(content) REGEXP '[[:<:]]sol[[:>:]]' OR LOWER(description) REGEXP '[[:<:]]sol[[:>:]]' OR LOWER(title) REGEXP '[[:<:]]solana[[:>:]]' OR LOWER(content) REGEXP '[[:<:]]solana[[:>:]]' OR LOWER(description) REGEXP '[[:<:]]solana[[:>:]]')",
 					_ => null
 				};
 
@@ -271,10 +275,10 @@ namespace maxhanna.Server.Controllers
 
 				string sql = @"
 					SELECT
-						SUM(CASE WHEN (LOWER(title) LIKE '%eth%' OR LOWER(content) LIKE '%eth%' OR LOWER(description) LIKE '%eth%' OR LOWER(title) LIKE '%ethereum%' OR LOWER(content) LIKE '%ethereum%' OR LOWER(description) LIKE '%ethereum%') THEN 1 ELSE 0 END) AS Ethereum,
-						SUM(CASE WHEN (LOWER(title) LIKE '%doge%' OR LOWER(content) LIKE '%doge%' OR LOWER(description) LIKE '%doge%' OR LOWER(title) LIKE '%dogecoin%' OR LOWER(content) LIKE '%dogecoin%' OR LOWER(description) LIKE '%dogecoin%') THEN 1 ELSE 0 END) AS Dogecoin,
-						SUM(CASE WHEN (LOWER(title) LIKE '%xrp%' OR LOWER(content) LIKE '%xrp%' OR LOWER(description) LIKE '%xrp%') THEN 1 ELSE 0 END) AS XRP,
-						SUM(CASE WHEN (LOWER(title) LIKE '%sol%' OR LOWER(content) LIKE '%sol%' OR LOWER(description) LIKE '%sol%' OR LOWER(title) LIKE '%solana%' OR LOWER(content) LIKE '%solana%' OR LOWER(description) LIKE '%solana%') THEN 1 ELSE 0 END) AS Solana
+						SUM(CASE WHEN (LOWER(title) REGEXP '[[:<:]]eth[[:>:]]' OR LOWER(content) REGEXP '[[:<:]]eth[[:>:]]' OR LOWER(description) REGEXP '[[:<:]]eth[[:>:]]' OR LOWER(title) REGEXP '[[:<:]]ethereum[[:>:]]' OR LOWER(content) REGEXP '[[:<:]]ethereum[[:>:]]' OR LOWER(description) REGEXP '[[:<:]]ethereum[[:>:]]') THEN 1 ELSE 0 END) AS Ethereum,
+						SUM(CASE WHEN (LOWER(title) REGEXP '[[:<:]]doge(coin)?[[:>:]]' OR LOWER(content) REGEXP '[[:<:]]doge(coin)?[[:>:]]' OR LOWER(description) REGEXP '[[:<:]]doge(coin)?[[:>:]]') THEN 1 ELSE 0 END) AS Dogecoin,
+						SUM(CASE WHEN (LOWER(title) REGEXP '[[:<:]]xrp[[:>:]]' OR LOWER(content) REGEXP '[[:<:]]xrp[[:>:]]' OR LOWER(description) REGEXP '[[:<:]]xrp[[:>:]]') THEN 1 ELSE 0 END) AS XRP,
+						SUM(CASE WHEN (LOWER(title) REGEXP '[[:<:]]sol[[:>:]]' OR LOWER(content) REGEXP '[[:<:]]sol[[:>:]]' OR LOWER(description) REGEXP '[[:<:]]sol[[:>:]]' OR LOWER(title) REGEXP '[[:<:]]solana[[:>:]]' OR LOWER(content) REGEXP '[[:<:]]solana[[:>:]]' OR LOWER(description) REGEXP '[[:<:]]solana[[:>:]]') THEN 1 ELSE 0 END) AS Solana
 					FROM news_headlines;";
 
 				using var cmd = new MySqlCommand(sql, conn);
