@@ -105,12 +105,16 @@ namespace maxhanna.Server.Controllers
 					OR (s.visibility = 'following' AND @userId != 0 AND EXISTS (
 						SELECT 1 FROM friend_requests fr 
 						WHERE (
-							(fr.sender_id = s.user_id 
-							AND fr.receiver_id = @userId) 
-						OR (
-							fr.receiver_id = s.user_id 
-							AND fr.sender_id = @userId)
-							) AND fr.status = 'accepted'
+							(
+								(fr.sender_id = s.user_id 
+								AND fr.receiver_id = @userId) 
+							OR (
+								fr.receiver_id = s.user_id 
+								AND fr.sender_id = @userId)
+							) 
+							AND fr.status = 'accepted'
+						)
+						OR  @userId = s.user_id
 					))
 					OR (s.visibility = 'self' AND s.user_id = @userId)
 				)");
