@@ -144,7 +144,7 @@ ol, ul {
   padding: 20px;
   border-radius: 10px;
   max-width: 600px;
-  max-height: 80vh;
+  max-height: 65vh;
   overflow-y: auto;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
 }
