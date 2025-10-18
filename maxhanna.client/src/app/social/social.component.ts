@@ -387,6 +387,7 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
     if (val === 'public' || val === 'following' || val === 'self') {
       story.visibility = val;
     }
+    this.saveStoryVisibility(story);
   }
 
   async saveStoryVisibility(story: Story) {
