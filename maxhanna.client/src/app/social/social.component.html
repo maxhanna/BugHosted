@@ -12,6 +12,29 @@
       <app-notifications [minimalInterface]="true" [inputtedParentRef]="parentRef"
         [previousComponent]="'Social'"></app-notifications>
     </div>
+    <!-- Visibility Editor Bottom Panel -->
+    <div class="popupPanel" *ngIf="isVisibilityPanelOpen">
+      <div class="bottomPopupContent">
+        <div class="popupPanelTitle">Post Visibility</div>
+        <div class="popupBody">
+          <div *ngIf="visibilityPanelStory">
+            <div>Post ID: {{visibilityPanelStory.id}}</div>
+            <div style="margin-top:10px">
+              <label>Visibility:</label>
+              <select [value]="visibilityPanelStory.visibility" (change)="onVisibilitySelectChange($event)">
+                <option value="public">Public</option>
+                <option value="following">Following</option>
+                <option value="self">Self</option>
+              </select>
+            </div>
+          </div>
+        </div>
+        <div class="popupFooter">
+          <button (click)="saveVisibilityPanel()">Save</button>
+          <button (click)="closeVisibilityPanel()">Close</button>
+        </div>
+      </div>
+    </div>
     <!-- Search -->
     <div *ngIf="showTopicSelector && !showOnlyPost"
       [class]="parentRef?.user?.id ? 'topSearchButtonDiv' : 'topSearchButtonDivSpecial'"
@@ -362,9 +385,9 @@
             </span>
             <!-- Visibility indicator: show lock if 'self', followers emoji if 'following', hide for 'public' -->
             <button *ngIf="story.visibility === 'self'" class="postOptionButtons showPostOptionButton coloredBgButton"
-              title="Visible to you only">🔒</button>
+              title="Visible to you only" (click)="openVisibilityPanel(story)">🔒</button>
             <button *ngIf="story.visibility === 'following'" class="postOptionButtons showPostOptionButton coloredBgButton"
-              title="Visible to followers">👥</button>
+              title="Visible to followers" (click)="openVisibilityPanel(story)">👥</button>
             <button (click)="showStoryOptionsPanel(story);" class="postOptionButtons showPostOptionButton coloredBgButton"
               title="Show post options">
               ⚙️
