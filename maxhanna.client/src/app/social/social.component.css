@@ -8,6 +8,7 @@
   width: 98vw;
   display: flex;
   flex-direction: column;
+  background-color: transparent !important;
 }
 
 .socialComponentContents {
