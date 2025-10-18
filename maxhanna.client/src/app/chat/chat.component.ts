@@ -70,7 +70,7 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
     parent?.addResizeListener();
   }
 
-  async ngOnInit() { 
+  async ngOnInit() {
     if (this.selectedUser) {
       if (this.inputtedParentRef) {
         this.parentRef = this.inputtedParentRef;
@@ -124,7 +124,7 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
 
   scrollToBottomIfNeeded() {
     if (this.chatWindow) {
-      const chatWindow = this.chatWindow.nativeElement; 
+      const chatWindow = this.chatWindow.nativeElement;
       requestAnimationFrame(() => {
         setTimeout(() => {
           if (!this.hasManuallyScrolled) {
@@ -367,7 +367,7 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
         continue;
       }
     }
-  // poll injection only; notification handling happens elsewhere
+    // poll injection only; notification handling happens elsewhere
   }
 
   onScroll() {
@@ -436,7 +436,7 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
     }
     setTimeout(() => {
       this.scrollToBottomIfNeeded();
-      this.pollForMessages(); 
+      this.pollForMessages();
       // If server returned polls with this initial openChat response, inject them per-message (message.Polls)
       try {
         if (res && res.messages && res.messages.length) {
@@ -767,7 +767,7 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
       }
     });
   }
-  
+
   // Handler for app-text-input contentUpdated event for chat edits
   async onChatUpdated(event: { results: any, content: any, originalContent: string }, message: Message) {
     try {
@@ -775,12 +775,12 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
         this.parentRef?.showNotification(`Message #${message.id} edited successfully.`);
         // Prefer a full message object returned by the server if available
         let updatedMsg: any = null;
-         
+
         updatedMsg = event.results.message || event.results.Message || event.results.updatedMessage || event.results;
-        
+
 
         let decryptedText: string | undefined = undefined;
-        if (updatedMsg && updatedMsg.content) { 
+        if (updatedMsg && updatedMsg.content) {
           message.content = updatedMsg.content;
           decryptedText = event.originalContent ?? this.decryptContent(updatedMsg.content);
         } else if (event.content && event.content.chatText) {
@@ -855,7 +855,10 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
     if (receivedNewMessages) {
       console.log("playing sound!", new Date());
       const notificationSound = new Audio("https://bughosted.com/assets/Uploads/Users/Max/arcade-ui-30-229499.mp4");
-      notificationSound.play().catch(error => console.error("Error playing notification sound:", error));
+      try { 
+        notificationSound.volume = 0.3; 
+        notificationSound.play()
+      } catch (e) { console.error("Error playing notification sound:", e) }
     }
   }
 }
