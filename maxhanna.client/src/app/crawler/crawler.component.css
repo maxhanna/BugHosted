@@ -1,6 +1,7 @@
 .componentMain {
   max-height: CALC(var(--vh, 1vh)* 100 - 60px);
   overflow: auto;
+  white-space: break-spaces;
 }
 
 .crawler-container {
