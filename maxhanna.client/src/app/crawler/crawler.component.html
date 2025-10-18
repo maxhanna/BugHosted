@@ -16,7 +16,7 @@
         <span>Page {{ currentPage }} of {{ totalPages }}</span>
         <button (click)="onPageChange(currentPage + 1)" [disabled]="currentPage >= totalPages">Next</button>
       </div>
-        <div [class]="!onlySearch ? 'crawlerInputs' : ''">
+        <div [class]="!onlySearch ? 'crawlerInputs' : 'searchOnlyCrawlerInputs'">
           <input #urlInput type="text" placeholder="e.g. site:www.example.com keywords" (keydown.enter)="searchUrl()" />
           <button (click)="searchUrl()" [disabled]="isLoading">🔍{{!onMobile() ? 'Crawl' : ''}}</button>
           <button (click)="addWithoutSearch()" 
@@ -89,7 +89,7 @@
       <div *ngIf="onlySearch" class="siteHelperTip smallFont xxSmallFont" style="margin: 20px 20px;">Tip: use <span (click)="fillSiteExample()" class="cursorPointerUnderlined linkFontColor">"site:domain.com keywords"</span> to restrict results to a single domain.</div>
     </div> 
   </div>
-  <div *ngIf="!searchMetadata.length && onMobile()">Total indexes: {{indexCount}}</div>
+  <div *ngIf="!searchMetadata.length && onMobile()" class="xxSmallFont">Total indexes: {{indexCount}}</div>
   <div *ngIf="searchMetadata?.length && onMobile()" class="xxSmallFont">Search results: {{totalResults}}</div>
 </div>
 
