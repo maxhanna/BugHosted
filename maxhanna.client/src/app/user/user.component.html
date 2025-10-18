@@ -211,18 +211,18 @@
         <!-- Reusable Wordler high-scores component renders its own titles; no local wordlerHighScores required -->
         <app-wordler-high-scores [mode]="'today'" [headerClickable]="true" [showUserHeader]="true"
           [inputtedParentRef]="parentRef" [showHeaderTitles]="true" (headerClick)="parentRef?.createComponent('Wordler')"></app-wordler-high-scores>
+          
+<!-- SOCIAL -->
+<div *ngIf="(this.latestSocialStoryId || storyId || user?.id) && !loginOnly && !isLoading">
+  <div *ngIf="this.latestSocialStoryId && (!user || !parentRef?.user)"
+    class="popupPanelTitle" style="margin-top: 15px;">
+    <app-menu-item [type]="'Social'" [parentRef]="parentRef" [label]="'Latest Post:'"></app-menu-item>
+  </div>
+  <app-social #socialComponent [showOnlyPost]="true" [user]="user" [storyId]="storyId ?? this.latestSocialStoryId"
+    [commentId]="commentId" [parent]="parentRef" [showTopicSelector]="false" [canScroll]="false"></app-social>
+</div>
       </div>
-    </div>
-
-    <!-- SOCIAL -->
-    <div *ngIf="(this.latestSocialStoryId || storyId || user?.id) && !loginOnly && !isLoading">
-      <div *ngIf="this.latestSocialStoryId && (!user || !parentRef?.user)"
-        class="popupPanelTitle" style="margin-top: 15px;">
-        <app-menu-item [type]="'Social'" [parentRef]="parentRef" [label]="'Latest Post:'"></app-menu-item>
-      </div>
-      <app-social #socialComponent [showOnlyPost]="true" [user]="user" [storyId]="storyId ?? this.latestSocialStoryId"
-        [commentId]="commentId" [parent]="parentRef" [showTopicSelector]="false" [canScroll]="false"></app-social>
-    </div>
+    </div> 
 
     <div *ngIf="user && user.id == parentRef?.user?.id && parentRef?.user?.username?.includes('Guest')"
       class="xxSmallFont">Note: <span class="italics">Guest accounts will be deleted after 10 days.</span></div>
