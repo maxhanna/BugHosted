@@ -245,7 +245,7 @@ namespace maxhanna.Server.Controllers
 					udp.file_id AS displayPictureFileId,
 					udpfu.folder_path AS displayPictureFileFolderPath,
 					udpfu.file_name AS displayPictureFileFileName,
-					s.story_text, s.date, s.city, s.country, s.visibility,
+					s.story_text, s.date, s.city, s.country, s.profile_user_id, s.visibility,
 							CASE 
 									WHEN hs.story_id IS NOT NULL THEN TRUE 
 									ELSE FALSE 
