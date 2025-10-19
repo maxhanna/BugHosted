@@ -1,0 +1,165 @@
+<div class="componentMain" #componentMain>
+  <div class="closeButton" (click)="remove_me('BonesComponent');"></div>
+  <!--<div class="refreshButton" (click)="ngOnInit();"></div>-->
+  <div class="componentTitle">Bones</div>
+  <div class="menuButton" (click)="showMenuPanel()"></div>
+ 
+  <div [style.display]="isLoading ? 'block' : 'none'" class="loadingModal">The game is loading...</div>
+  <div [style.display]="serverDown ? 'block' : 'none'">We are sorry, server is currently down. Please be patient while we bring it back online.</div> 
+  <div class="gameCanvasContainer">
+    <canvas #gameCanvas id="gameCanvas" class="gameCanvas" width=320 height="220"></canvas>
+  </div>
+  <div class="chatArea">
+    <div class="chatInputDiv">
+      <input type="text" [placeholder]=" 'Chat'" #chatInput id="chatInput" class="chatInput"
+        (keydown)="lockMovementForChat()" (change)="lockMovementForChat()" />
+    </div>
+  </div>
+
+  <div class="inputArea"  [style.display]="!isMenuPanelOpen ? 'flex' : 'none'">
+    <div class="controls">
+      <div class="controls">
+        <div class="dpad">
+          <div class="up-left" (mousedown)="mainScene.input.handleControl('UP_LEFT', 'press')"
+            (mouseup)="mainScene.input.handleControl('UP_LEFT', 'release')"
+            (touchstart)="mainScene.input.handleControl('UP_LEFT', 'press', $event)"
+            (touchend)="mainScene.input.handleControl('UP_LEFT', 'release', $event)"
+            (touchcancel)="mainScene.input.handleControl('UP_LEFT', 'release', $event)">
+            <div class="up-left-triangle"></div>
+          </div>
+          <div class="up" (mousedown)="mainScene.input.handleControl('UP', 'press')"
+            (mouseup)="mainScene.input.handleControl('UP', 'release')"
+            (touchstart)="mainScene.input.handleControl('UP', 'press', $event)"
+            (touchend)="mainScene.input.handleControl('UP', 'release', $event)"
+            (touchcancel)="mainScene.input.handleControl('UP', 'release', $event)">
+            <div class="up-triangle"></div>
+          </div>
+          <div class="up-right" (mousedown)="mainScene.input.handleControl('UP_RIGHT', 'press')"
+            (mouseup)="mainScene.input.handleControl('UP_RIGHT', 'release')"
+            (touchstart)="mainScene.input.handleControl('UP_RIGHT', 'press', $event)"
+            (touchend)="mainScene.input.handleControl('UP_RIGHT', 'release', $event)"
+            (touchcancel)="mainScene.input.handleControl('UP_RIGHT', 'release', $event)">
+            <div class="up-right-triangle"></div>
+          </div>
+          <div class="right" (mousedown)="mainScene.input.handleControl('RIGHT', 'press')"
+            (mouseup)="mainScene.input.handleControl('RIGHT', 'release')"
+            (touchstart)="mainScene.input.handleControl('RIGHT', 'press', $event)"
+            (touchend)="mainScene.input.handleControl('RIGHT', 'release', $event)"
+            (touchcancel)="mainScene.input.handleControl('RIGHT', 'release', $event)">
+            <div class="right-triangle"></div>
+          </div>
+          <div class="down" (mousedown)="mainScene.input.handleControl('DOWN', 'press')"
+            (mouseup)="mainScene.input.handleControl('DOWN', 'release')"
+            (touchstart)="mainScene.input.handleControl('DOWN', 'press', $event)"
+            (touchend)="mainScene.input.handleControl('DOWN', 'release', $event)"
+            (touchcancel)="mainScene.input.handleControl('DOWN', 'release', $event)">
+            <div class="down-triangle"></div>
+          </div>
+          <div class="down-left" (mousedown)="mainScene.input.handleControl('DOWN_LEFT', 'press')"
+            (mouseup)="mainScene.input.handleControl('DOWN_LEFT', 'release')"
+            (touchstart)="mainScene.input.handleControl('DOWN_LEFT', 'press', $event)"
+            (touchend)="mainScene.input.handleControl('DOWN_LEFT', 'release', $event)"
+            (touchcancel)="mainScene.input.handleControl('DOWN_LEFT', 'release', $event)">
+            <div class="down-left-triangle"></div>
+          </div>
+          <div class="left" (mousedown)="mainScene.input.handleControl('LEFT', 'press')"
+            (mouseup)="mainScene.input.handleControl('LEFT', 'release')"
+            (touchstart)="mainScene.input.handleControl('LEFT', 'press', $event)"
+            (touchend)="mainScene.input.handleControl('LEFT', 'release', $event)"
+            (touchcancel)="mainScene.input.handleControl('LEFT', 'release', $event)">
+            <div class="left-triangle"></div>
+          </div>
+          <div class="down-right" (mousedown)="mainScene.input.handleControl('DOWN_RIGHT', 'press')"
+            (mouseup)="mainScene.input.handleControl('DOWN_RIGHT', 'release')"
+            (touchstart)="mainScene.input.handleControl('DOWN_RIGHT', 'press', $event)"
+            (touchend)="mainScene.input.handleControl('DOWN_RIGHT', 'release', $event)"
+            (touchcancel)="mainScene.input.handleControl('DOWN_RIGHT', 'release', $event)">
+            <div class="down-right-triangle"></div>
+          </div>
+          <div class="middle">
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="controls">
+      <div class="a-b">
+        <div class="b" (mouseup)='mainScene.input.pressB()'>B</div>
+        <div class="a" (mouseup)='mainScene.input.pressA()'>A</div>
+      </div>
+
+      <div class="start" (mouseup)='mainScene.input.pressStart()'>START</div>
+    </div>
+
+    <input type="color" (change)='changeColor()' #colorInput class="colorInput" [value]="metaHero.color" />
+  </div>
+  <app-user class="popupPanel ucPopupPanel" *ngIf="isUserComponentOpen" [loginOnly]="true"
+    [inputtedParentRef]="parentRef" [canClose]="false" (closeUserComponentEvent)="closeUserComponent($event)"
+    [loginReasonMessage]="'You must log in to play Meta-Bots.'"></app-user>
+</div>
+
+<!-- Menu Popup -->
+<div class="popupPanel" style="overflow: auto;" *ngIf="isMenuPanelOpen">
+  <div class="popupPanelTitle mainPopupTitle">Meta-Bots Highscores</div>
+  <div class="metaHighscoresSection">
+    <div class="popupPanelTitle">Top Metabots</div>
+    <div class="topRankTableContainer">
+      <table *ngIf="topMetabots && topMetabots.length > 0" class="scoreTable">
+        <thead>
+          <tr>
+            <th>Rank</th>
+            <th>Bot Id</th>
+            <th>Hero</th>
+            <th>Level</th>
+            <th>Exp</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let bot of topMetabots; let i = index">
+            <td>{{i + 1}}</td>
+            <td>{{bot.botId}}</td>
+            <td>
+              <app-user-tag [user]="bot.owner" [inputtedParentRef]="parentRef" [displayMiniTag]="true"
+                [displayHoverPicture]="true"></app-user-tag>
+              {{bot.heroName}}
+            </td>
+            <td>{{bot.level}}</td>
+            <td>{{bot.exp}}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <div *ngIf="!topMetabots || topMetabots.length == 0">No metabots yet.</div>
+
+    <div class="popupPanelTitle" style="margin-top:12px;">Top Heroes</div>
+    <div class="topRankTableContainer">
+      <table *ngIf="topHeroes && topHeroes.length > 0" class="scoreTable">
+        <thead>
+          <tr>
+            <th>Rank</th>
+            <th>Hero</th>
+            <th>User</th>
+            <th>Total Levels</th>
+            <th>Bot Count</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let h of topHeroes; let i = index">
+            <td>{{i + 1}}</td>
+            <td>{{h.heroName}}</td>
+            <td>
+              <app-user-tag [user]="h.owner" [inputtedParentRef]="parentRef" [displayMiniTag]="true"
+                [displayHoverPicture]="true"></app-user-tag>
+            </td>
+            <td>{{h.totalMetabotLevels}}</td>
+            <td>{{h.botCount}}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div *ngIf="!topHeroes || topHeroes.length == 0">No heroes yet.</div>
+  </div>
+
+  <button id="closeOverlay" class="closeButton" (click)="closeMenuPanel()">Close</button>
+</div>

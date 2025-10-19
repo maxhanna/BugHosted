@@ -221,9 +221,7 @@ namespace maxhanna.Server.Controllers
 				{
 					whereClause.Append(@" AND (
 						s.country = (SELECT country FROM users WHERE id = @userId)
-						OR s.city = (SELECT city FROM users WHERE id = @userId)
-						OR s.user_id = @userId
-						OR s.profile_user_id = @userId
+						OR s.city = (SELECT city FROM users WHERE id = @userId) 
 					) ");
 				}
 				else if (showPostsFromFilter == "popular")
@@ -1617,8 +1615,7 @@ namespace maxhanna.Server.Controllers
 
 					// Create command with the query
 					using (var command = new MySqlCommand(
-						// Ensure we only pick stories intended for public visibility. Use COALESCE to treat NULL as 'public'.
-						"SELECT id FROM maxhanna.stories WHERE profile_user_id IS NULL AND COALESCE(visibility, 'public') = 'public' ORDER BY id DESC LIMIT 1;",
+						"SELECT id FROM maxhanna.stories WHERE profile_user_id IS NULL AND COALESCE(visiblity, = = 'public' ORDER BY id DESC LIMIT 1;",
 						connection))
 					{
 						// Execute the query and get the result

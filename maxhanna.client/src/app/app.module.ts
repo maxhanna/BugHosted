@@ -92,6 +92,7 @@ import { CryptoTopTradersComponent } from './crypto-top-traders/crypto-top-trade
 import { WordlerHighScoresComponent } from './wordler-high-scores/wordler-high-scores.component';
 import { CryptoNewsArticlesComponent } from './crypto-news-articles/crypto-news-articles.component';
 import { AppMenuItemComponent } from './app-menu-item/app-menu-item.component';
+import { BonesComponent } from './bones/bones.component';
 
 @NgModule({
   declarations: [
@@ -136,6 +137,7 @@ import { AppMenuItemComponent } from './app-menu-item/app-menu-item.component';
     NotificationsComponent,
     InViewDirective,
     MetaComponent,
+    BonesComponent,
     ClickableUrlsPipe,
     CurrencyFlagPipe,
     CurrencyShortenPipe,

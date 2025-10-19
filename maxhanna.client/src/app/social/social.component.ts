@@ -11,11 +11,11 @@ import { StoryResponse } from '../../services/datacontracts/social/story-respons
 import { FileEntry } from '../../services/datacontracts/file/file-entry';
 import { User } from '../../services/datacontracts/user/user';
 import { MediaSelectorComponent } from '../media-selector/media-selector.component';
-import { FileComment } from '../../services/datacontracts/file/file-comment';
+import { FileComment } from '../../services/datacontracts/file/file-comment'; 
 import { UserService } from '../../services/user.service';
 import { TodoService } from '../../services/todo.service';
-import { Todo } from '../../services/datacontracts/todo';
-import { FileService } from '../../services/file.service';
+import { Todo } from '../../services/datacontracts/todo'; 
+import { FileService } from '../../services/file.service'; 
 import { EncryptionService } from '../../services/encryption.service';
 import { TextToSpeechService } from '../../services/text-to-speech.service';
 
@@ -30,9 +30,6 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
   youtubeMetadata: any;
   storyResponse?: StoryResponse;
   optionStory?: Story;
-  // Visibility panel state
-  isVisibilityPanelOpen: boolean = false;
-  visibilityPanelStory?: Story | null;
   comments: FileComment[] = [];
   openedStoryComments: number[] = [];
   openedStoryYoutubeVideos: number[] = [];
@@ -41,7 +38,7 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
   isMenuPanelOpen = false;
   trendingSearches: string[] = [];
   isStoryOptionsPanelOpen = false;
-  isPostOptionsPanelOpen = false;
+  isPostOptionsPanelOpen = false; 
   isEditing: number[] = [];
   editingTopics: number[] = [];
   attachedFiles: FileEntry[] = [];
@@ -73,7 +70,7 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
   compactness = "yes";
   private storyUpdateInterval: any;
   private overflowCache: Record<string, boolean> = {};
-  canLoad = false;
+  canLoad = false; 
   city: string | undefined;
   country: string | undefined;
   ignoredTopics: Topic[] = [];
@@ -128,20 +125,20 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
         }
       });
     }
-
+ 
     const tmpStoryId = this.storyId;
     const tmpCommentId = this.commentId;
     await this.getStories().then(() => {
       if (tmpStoryId) {
         const tgtStory = this.storyResponse?.stories?.find((story) => story.id == tmpStoryId);
-        if (tgtStory) {
+        if (tgtStory) { 
           this.scrollToStory(tgtStory.id);
           this.scrollToInputtedCommentId(tmpCommentId);
           this.changePageTitleAndDescription(tgtStory);
         }
       }
     });
-
+   
 
     this.parentRef?.getLocation().then(res => {
       if (res) {
@@ -230,7 +227,7 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
       setTimeout(() => { story.storyText = ogMessage }, 10);
     }
   }
-
+  
   // Handler for app-text-input contentUpdated event for stories
   async onStoryUpdated(event: { results: any, content: any, originalContent: string }, story: Story) {
     try {
@@ -267,7 +264,7 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
     this.canLoad = false;
     const search = keywords ?? this.search?.nativeElement.value;
     const userId = this.user?.id;
-    let storyId = this.getSearchStoryId();
+    let storyId = this.getSearchStoryId(); 
     this.parentRef?.updateLastSeen();
     const res = await this.socialService.getStories(
       this.parentRef?.user?.id,
@@ -287,7 +284,7 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
           try {
             story.storyText = this.encryptionService.decryptContent(story.storyText, story.user.id + "");
           } catch (ex) {
-            console.error(`Failed to decrypt story ID ${story.id}: ${ex}`);
+            console.error(`Failed to decrypt story ID ${story.id}: ${ex}`); 
           }
         }
       });
@@ -356,7 +353,7 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
           const componentId = poll.componentId;
           const pollContainer = document.getElementById(componentId);
           if (!pollContainer) return;
-          let pollHtml = `<div class="poll-container" data-component-id="${componentId}">` +
+          let pollHtml = `<div class="poll-container" data-component-id="${componentId}">`+
             `<div class=\"poll-question\">${poll.question}</div><div class=\"poll-options\">`;
           poll.options.forEach((option, index) => {
             const percentage = option.percentage;
@@ -370,9 +367,9 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
         });
       });
     }, delayMs);
-  }
-
-
+  } 
+ 
+ 
   async editStoryTopic(topics: Topic[], story: Story) {
     const user = this.parentRef?.user ?? this.parent?.user;
     if (user) {
@@ -408,36 +405,7 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
     }
   }
 
-  // Visibility panel controls
-  openVisibilityPanel(story: Story) {
-    const parent = this.parent ?? this.parentRef;
-    if (!parent?.user?.id) return;
-    if (!story.user || !story.user.id || parent.user.id !== story.user.id) return; // only owner
-    this.visibilityPanelStory = story;
-    this.isVisibilityPanelOpen = true;
-    parent.showOverlay();
-  }
-
-  closeVisibilityPanel() {
-    this.isVisibilityPanelOpen = false;
-    this.visibilityPanelStory = null;
-    const parent = this.parent ?? this.parentRef;
-    parent?.closeOverlay();
-  }
-
-  onVisibilitySelectChange(event: Event) {
-    const select = event.target as HTMLSelectElement;
-    if (!this.visibilityPanelStory) return;
-    this.visibilityPanelStory.visibility = select.value;
-  }
-
-  saveVisibilityPanel() {
-    if (!this.visibilityPanelStory) return;
-    this.saveStoryVisibility(this.visibilityPanelStory);
-    this.closeVisibilityPanel();
-  }
-
-  async removeTopicsFromStory(topicsToRemove: Topic[], story: Story) {
+  async removeTopicsFromStory(topicsToRemove: Topic[], story: Story) { 
     let updatedTopics = story.storyTopics?.filter(
       x => !topicsToRemove.some(t => t.id === x.id)
     ) ?? [];
@@ -512,15 +480,15 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
       this.scrollToStory();
       this.closeMenuPanel();
       this.closePostOptionsPanel();
-      this.closeStoryOptionsPanel();
+      this.closeStoryOptionsPanel(); 
     }
   }
   removeTopic(topic: Topic) {
     this.attachedTopics = this.attachedTopics.filter(x => x.id != topic.id);
     this.searchStories(this.attachedTopics);
-    this.scrollToStory();
+    this.scrollToStory(); 
   }
-  topicClicked(topics?: Topic[]) {
+  topicClicked(topics?: Topic[]) { 
     if (topics) {
       for (let topic of topics) {
         if (this.attachedTopics.find(x => x.id == topic.id)) {
@@ -528,9 +496,9 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
         } else {
           this.attachedTopics.push(topic);
         }
-      }
+      } 
     }
-    this.currentPage = 1;
+    this.currentPage = 1; 
     this.onTopicAdded(this.attachedTopics);
     this.scrollToStory();
   }
@@ -615,7 +583,7 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
       this.parentRef.closeOverlay();
     }
   }
-
+ 
   showMenuPanel() {
     if (this.isMenuPanelOpen) {
       this.closeMenuPanel();
@@ -664,7 +632,7 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
     const parent = this.parent ?? this.parentRef;
     parent?.closeOverlay();
   }
-
+  
   isEditButtonVisible(storyId?: number) {
     if (!storyId) return false;
     const element = document.getElementById('storyTextEditConfirmButton' + storyId) as HTMLTextAreaElement;
@@ -840,7 +808,7 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
 
   async loadMorePosts() {
     if (this.isLoading || !this.canLoad) return;
-    this.canLoad = false;
+    this.canLoad = false; 
     clearTimeout(this.debounceTimer);
     this.debounceTimer = setTimeout(async () => {
       this.currentPage++;
@@ -854,7 +822,7 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
     this.searchTimeout = setTimeout(() => {
       this.searchStories(this.attachedTopics, true);
       try {
-        const user = this.parent?.user ?? this.parentRef?.user;
+        const user = this.parent?.user ?? this.parentRef?.user; 
         this.fileService.recordSearch(this.userSearch, 'social', user?.id);
       } catch { }
     }, 1000);
@@ -873,7 +841,7 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
         }
       });
     }
-  }
+  } 
 
   getTextForDOM(text?: string, componentId?: any) {
     const parent = this.parent ?? this.parentRef;
@@ -1001,7 +969,7 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
       }
     });
   }
-
+  
 
   showPostsFrom(filter: string) {
     this.showPostsFromFilter = filter;
@@ -1039,7 +1007,7 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
       navigator.clipboard.writeText(link);
       parent?.showNotification(`${link} copied to clipboard!`);
     } catch {
-      parent?.showNotification("Error: Unable to share link!");
+      parent?.showNotification("Error: Unable to share link!"); 
     }
   }
   speakMessage(message?: string) {
@@ -1051,7 +1019,7 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
   isTextToSpeechSpeaking() {
     return this.textToSpeechService.isSpeaking;
   }
-
+  
 
   private changeComponentMainHeight() {
     if (this.user) {

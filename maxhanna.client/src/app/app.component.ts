@@ -94,7 +94,8 @@ export class AppComponent implements OnInit, AfterViewInit {
     { ownership: 0, icon: "📰", title: "News", content: undefined },
     { ownership: 0, icon: "₿", title: "Crypto-Hub", content: undefined },
     { ownership: 0, icon: "🔍", title: "Favourites", content: undefined },
-  { ownership: 0, icon: "👽", title: "Ender", content: undefined },
+    { ownership: 0, icon: "👽", title: "Ender", content: undefined },
+    { ownership: 0, icon: "💀", title: "Bones", content: undefined },
     { ownership: 0, icon: "💯", title: "Top100", content: undefined },
     { ownership: 0, icon: "🎨", title: "Theme", content: undefined },
     { ownership: 0, icon: "🧐", title: "HostAi", content: undefined },
@@ -247,9 +248,14 @@ export class AppComponent implements OnInit, AfterViewInit {
     {
       ownership: 0,
       title: 'Ender',
-  content: `Ender is a fast multiplayer arena where neon lightcycles race and duel.
+      content: `Ender is a fast multiplayer arena where neon lightcycles race and duel.
 Players outmaneuver each other, lay down bike-walls to trap foes, and compete for survival and high scores.
 Retro pixel visuals, short rounds, and emergent tactics make every match intense and replayable.`
+    },
+    {
+      ownership: 0,
+      title: 'Bones',
+      content: `Action MMORPG, Under construction.`
     },
     {
       ownership: 0,
@@ -314,7 +320,7 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
     "Crawler": CrawlerComponent,
     "Meme": MemeComponent,
     "Top100": TopComponent,
-  "Ender": EnderComponent,
+    "Ender": EnderComponent,
     "Notifications": NotificationsComponent,
     "UpdateUserSettings": UpdateUserSettingsComponent
   };
@@ -409,16 +415,20 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
         else if (this.router.url.includes('Top')) {
           this.checkAndClearRouterOutlet();
           this.createComponent('Top100');
-        } 
-        else if (this.router.url.includes('Ender')) {
+        }
+        else if (this.router.url.toLowerCase().includes('ender')) {
           this.checkAndClearRouterOutlet();
           this.createComponent('Ender');
         }
-        else if (this.router.url.includes('Mastermind')) {
+        else if (this.router.url.toLowerCase().includes('bones')) {
+          this.checkAndClearRouterOutlet();
+          this.createComponent('Bones');
+        }
+        else if (this.router.url.toLowerCase().includes('mastermind')) {
           this.checkAndClearRouterOutlet();
           this.createComponent('Mastermind');
         }
-        else if (this.router.url.includes('Crypto') || this.router.url.includes('Cryptocurrency') || this.router.url.includes('Defi')) {
+        else if (this.router.url.toLowerCase().includes('crypto') || this.router.url.toLowerCase().includes('cryptocurrency') || this.router.url.toLowerCase().includes('defi')) {
           this.checkAndClearRouterOutlet();
           this.createComponent('Crypto-Hub');
         }
@@ -556,7 +566,7 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
   setCookie(name: string, value: string, expireDays: number, path: string = '') {
     const d: Date = new Date();
     d.setTime(d.getTime() + expireDays * 24 * 60 * 60 * 1000);
-    const expires: string = `expires=${d.toUTCString()}`; 
+    const expires: string = `expires=${d.toUTCString()}`;
     const cpath: string = `; path=${path || '/'}`;
     const domain = '; domain=.bughosted.com';
     const secure = window.location.protocol === 'https:' ? '; Secure' : '';
@@ -1367,7 +1377,7 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
       this.showNotification("User not found!");
     }
   }
-  
+
   parseInteger(value: any): number {
     const parsedValue = parseInt(value, 10);
     return isNaN(parsedValue) ? 0 : parsedValue;
@@ -1402,10 +1412,10 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
     const found = this.navigationItemDescriptions?.find(item => item.title === title);
     return found?.content ?? 'No description available.';
   }
-  
+
   decodeInlineLinks(text: string): string {
     if (!text) return text;
-    const forbidden = new Set(['b','/b','i','/i','*','/*']);
+    const forbidden = new Set(['b', '/b', 'i', '/i', '*', '/*']);
     const linkRegex = /\[([^\]]+)\]\[([^\]]+)\]/g;
     return text.replace(linkRegex, (match, label, url) => {
       if (!url) return match;
@@ -1421,7 +1431,7 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
     if (/^https?:\/\//i.test(url)) return url;
     return 'https://' + url;
   }
- 
+
   fullscreenYoutubePopup() {
     const youtubePopup = document.getElementById('youtubeIframe');
     if (youtubePopup) {

@@ -30,6 +30,7 @@ const routes: Routes = [
   { path: 'Emu', component: AppComponent },
   { path: 'Top', component: AppComponent },
   { path: 'Ender', component: AppComponent },
+  { path: 'Bones', component: AppComponent },
   { path: 'Mastermind', component: AppComponent },
 ];
 
