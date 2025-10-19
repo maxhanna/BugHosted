@@ -644,7 +644,7 @@ Posted by user @{topMeme.Username}<br><small>Daily top memes are selected based 
 		}
 	}
 
-	public async Task PostDailyMusicAsync()
+	public async Task CreateDailyMusicStoryAsync()
 	{
 		try
 		{

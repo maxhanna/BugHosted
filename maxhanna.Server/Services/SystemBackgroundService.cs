@@ -337,6 +337,7 @@ namespace maxhanna.Server.Services
 			await DeleteOldEnderScores();
 			await _newsService.CreateDailyCryptoNewsStoryAsync();
 			await _newsService.CreateDailyNewsStoryAsync();
+			await _newsService.CreateDailyMusicStoryAsync();
 			await _newsService.PostDailyMemeAsync();
 			await _log.BackupDatabase();
 		}
