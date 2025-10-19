@@ -1615,7 +1615,7 @@ namespace maxhanna.Server.Controllers
 
 					// Create command with the query
 					using (var command = new MySqlCommand(
-						"SELECT id FROM maxhanna.stories WHERE profile_user_id IS NULL AND COALESCE(visiblity, = = 'public' ORDER BY id DESC LIMIT 1;",
+						"SELECT id FROM maxhanna.stories WHERE profile_user_id IS NULL AND COALESCE(visibility, 'public') = 'public' ORDER BY id DESC LIMIT 1;",
 						connection))
 					{
 						// Execute the query and get the result
