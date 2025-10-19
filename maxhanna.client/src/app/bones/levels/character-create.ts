@@ -1,7 +1,7 @@
 import { Vector2 } from "../../../services/datacontracts/bones/vector2";
 import { gridCells } from "../helpers/grid-cells";
 import { events } from "../helpers/events";
-import { storyFlags, Scenario, CHARACTER_CREATE_STORY_TEXT_1, CHARACTER_CREATE_STORY_TEXT_2, CHARACTER_CREATE_STORY_TEXT_3, CHARACTER_CREATE_STORY_TEXT_4, CHARACTER_CREATE_STORY_TEXT_5, CHARACTER_CREATE_STORY_TEXT_6, CHARACTER_CREATE_STORY_TEXT_7, CHARACTER_CREATE_STORY_TEXT_8 } from "../helpers/story-flags";
+import { storyFlags, Scenario, CHARACTER_CREATE_STORY_TEXT_2, CHARACTER_CREATE_STORY_TEXT_4, CHARACTER_CREATE_STORY_TEXT_5, CHARACTER_CREATE_STORY_TEXT_6, CHARACTER_CREATE_STORY_TEXT_7 } from "../helpers/story-flags";
 import { Level } from "../objects/Level/level"; 
 import { HeroRoomLevel } from "./hero-room";
 import { SpriteTextStringWithBackdrop } from "../objects/SpriteTextString/sprite-text-string-with-backdrop";
@@ -53,9 +53,10 @@ export class CharacterCreate extends Level {
     "skank", "slut", "sluts", "smegma", "smut", "snatch", "son-of-a-bitch", "spac", "spunk", "s_h_i_t", "t1tt1e5", "t1tties", "teets", "teez",
     "testical", "testicle", "tit", "titfuck", "tits", "titt", "tittie5", "tittiefucker", "titties", "tittyfuck", "tittywank", "titwank",
     "tosser", "turd", "tw4t", "twat", "twathead", "twatty", "twunt", "twunter", "v14gra", "v1gra", "vagina", "viagra", "vulva", "w00se",
-    "wang", "wank", "wanker", "wanky", "whoar", "whore", "willies", "xrated", "xxx", "suck", "max"];
+    "wang", "wank", "wanker", "wanky", "whoar", "whore", "willies", "xrated", "xxx", "suck"];
   override defaultHeroPosition = new Vector2(gridCells(1), gridCells(1));
-  constructor(params: { heroPosition?: Vector2, defaultName?: string } = {}) {
+  defaultColor: string | undefined = undefined;
+  constructor(params: { heroPosition?: Vector2, defaultName?: string, defaultColor?: string, championName?: string, championScore?: number } = {}) {
     super();
     console.log("new char create");
     this.name = "CharacterCreate";
@@ -63,43 +64,41 @@ export class CharacterCreate extends Level {
       this.defaultHeroPosition = params.heroPosition;
     } 
     if (params.defaultName) {
-      this.defaultName = params.defaultName;
-      this.characterName = params.defaultName;
+      const dn = params.defaultName.trim();
+      if (dn.length > 0) {
+        this.defaultName = dn;
+        this.characterName = dn;
+      }
+    }
+    if (params.defaultColor) {
+      const dc = params.defaultColor.trim();
+      if (dc.length > 0) {
+        this.defaultColor = dc;
+      }
     }
     this.referee.textContent = [
       {
-        string: ["Wake up... Your journey awaits!"],
-        requires: [CHARACTER_CREATE_STORY_TEXT_7],
-        addsFlag: CHARACTER_CREATE_STORY_TEXT_8,
-      } as Scenario,
-      {
-        string: [`Ah, ${this.characterName} is it?`],
+        string: [params.championName ? 
+          `Current Grid leader: ${params.championName} (${params.championScore ?? 0})` 
+          : "Ah, ready to light the Grid.", "Boot complete. Cycle online. Let's ride."
+        ],
         requires: [CHARACTER_CREATE_STORY_TEXT_6],
         addsFlag: CHARACTER_CREATE_STORY_TEXT_7,
       } as Scenario,
+      // Name prompt (appears once flag 4 obtained)
       {
-        string: ["Now, before we begin your journey ...", "What shall be your name, the name the world will know?"],
+        string: ["State your handle."],
         requires: [CHARACTER_CREATE_STORY_TEXT_4],
         addsFlag: CHARACTER_CREATE_STORY_TEXT_5,
+      } as Scenario,
+      {
+        string: ["Welcome to the Neon Grid.", "ID not registered. Initialization required."],
+        requires: [CHARACTER_CREATE_STORY_TEXT_2],
+        addsFlag: CHARACTER_CREATE_STORY_TEXT_4,
       } as Scenario, 
       {
-        string: ["These marvelous machines serve not just in battle, but also protect our planet."],
-        requires: [CHARACTER_CREATE_STORY_TEXT_3],
-        addsFlag: CHARACTER_CREATE_STORY_TEXT_4,
-      } as Scenario,
-      {
-        string: ["This is the world of Meta-Bots!"],
-        requires: [CHARACTER_CREATE_STORY_TEXT_2],
-        addsFlag: CHARACTER_CREATE_STORY_TEXT_3,
-      } as Scenario,
-      {
-        string: ["I am Mr. Referee, and I bring fair play to every ro-battle!", " Even in dreams, justice never sleeps!"],
-        requires: [CHARACTER_CREATE_STORY_TEXT_1],
+        string: ["...Booting consciousness... signal locked."] ,
         addsFlag: CHARACTER_CREATE_STORY_TEXT_2,
-      } as Scenario,
-      {
-        string: ["Zzz... Huh? Who dares disturb my dreams... oh, it's you!"],
-        addsFlag: CHARACTER_CREATE_STORY_TEXT_1,
       } as Scenario
     ];
     this.addChild(this.referee);
@@ -116,9 +115,20 @@ export class CharacterCreate extends Level {
   }
 
   override ready() {
+  // Ensure chat input is hidden when the level becomes ready
+  this.hideChatInput();
     events.on("SEND_CHAT_MESSAGE", this, (chat: string) => {
-      // Prefer explicit chat value; fallback to persisted defaultName
-      this.characterName = (chat && chat.trim().length > 0) ? chat : (this.defaultName ?? chat);
+      // Prefer the explicit chat value; if empty, fall back to the persisted default name if present
+      const trimmedChat = chat ? chat.trim() : "";
+      let nameToUse = "";
+      if (trimmedChat.length > 0) {
+        nameToUse = trimmedChat;
+      } else if (this.defaultName && this.defaultName.trim().length > 0) {
+        nameToUse = this.defaultName.trim();
+      } else {
+        nameToUse = trimmedChat; // may be empty
+      }
+      this.characterName = nameToUse;
       if (!this.verifyCharacterName(this.characterName) || storyFlags.contains(CHARACTER_CREATE_STORY_TEXT_6)) { return; } 
       this.returnChatInputToNormal();
       storyFlags.add(CHARACTER_CREATE_STORY_TEXT_6);
@@ -137,10 +147,13 @@ export class CharacterCreate extends Level {
       if (currentTime.getTime() - this.inputKeyPressedDate.getTime() > 1000) {
         this.inputKeyPressedDate = new Date();
          
-        if (storyFlags.contains(CHARACTER_CREATE_STORY_TEXT_8)) {
+        if (storyFlags.contains(CHARACTER_CREATE_STORY_TEXT_7)) {
           setTimeout(() => {
+            // pick a random spawn within a 10x10 grid centered area
+            const randX = Math.floor(Math.random() * 10) + 2; // 2..11
+            const randY = Math.floor(Math.random() * 10) + 2;
             events.emit("CHANGE_LEVEL", new HeroRoomLevel({
-              heroPosition: new Vector2(gridCells(4), gridCells(4))
+              heroPosition: new Vector2(gridCells(randX), gridCells(randY))
             }));
             this.destroy();
           }, 100);
@@ -153,7 +166,7 @@ export class CharacterCreate extends Level {
         }
         const content = this.referee.getContent();
         if (content) {
-          if (storyFlags.contains(CHARACTER_CREATE_STORY_TEXT_5) && !storyFlags.contains(CHARACTER_CREATE_STORY_TEXT_6)) {
+          if (storyFlags.contains(CHARACTER_CREATE_STORY_TEXT_4) && !storyFlags.contains(CHARACTER_CREATE_STORY_TEXT_6)) {
             this.createNameChatInput();
           } else {
             this.displayContent(content);
@@ -163,10 +176,12 @@ export class CharacterCreate extends Level {
     })
   }
   override destroy() {
-    this.textBox.destroy();
-    this.referee.destroy();
-    events.unsubscribe(this); 
-    super.destroy();
+  // Ensure chat input is restored when leaving this level
+  this.returnChatInputToNormal();
+  this.textBox.destroy();
+  this.referee.destroy();
+  events.unsubscribe(this);
+  super.destroy();
   }
   private displayContent(content: Scenario) {
     this.children.forEach((child: any) => {
@@ -179,11 +194,17 @@ export class CharacterCreate extends Level {
     if (content.addsFlag) {
       storyFlags.add(content.addsFlag);
     }
+    // If this content unlocks the CHARACTER_CREATE_STORY_TEXT_6 flag,
+    // make sure the chat input is no longer forced hidden.
+    if (storyFlags.contains(CHARACTER_CREATE_STORY_TEXT_6) && this.parent?.input?.chatInput) {
+      const chatInput = this.parent.input.chatInput;
+      chatInput.style.setProperty('display', 'block', 'important');
+    }
     for (let x = 0; x < content.string.length; x++) {
-      if (content.string[x].includes("Ah, ")) {
-        content.string[x] = content.string[x].replace("Ah, ", `Ah, ${this.characterName} `); 
+      if (content.string[x].startsWith("Ah,")) {
+        content.string[x] = `Ah, ${this.characterName} ready to light the Grid.`;
       }
-    } 
+    }
     this.textBox = new SpriteTextStringWithBackdrop({
       portraitFrame: content.portraitFrame,
       string: content.string,
@@ -196,15 +217,12 @@ export class CharacterCreate extends Level {
     setTimeout(() => {
       const chatInput = this.parent.input.chatInput;
       if (chatInput) {
-        // Preserve default name if provided
-        if (!this.defaultName) {
-          chatInput.value = "";
-        } else if (!chatInput.value || chatInput.value.trim().length === 0) {
-          chatInput.value = this.defaultName;
-        }
+        chatInput.value = "";
         chatInput.placeholder = "Chat";
+        // restore layout and make sure the input is visible again
         chatInput.style.setProperty('position', 'unset', 'important');
         chatInput.style.setProperty('top', 'unset', 'important');
+        chatInput.style.setProperty('display', 'block', 'important');
         this.parent.input.chatInput.blur();
       }
     }, 0);
@@ -212,13 +230,16 @@ export class CharacterCreate extends Level {
   private hideChatInput() {
     const chatInput = this.parent?.input?.chatInput;
     if (chatInput) {
-      // Preserve default name in the input if provided
-      if (!this.defaultName) {
-        chatInput.value = "";
-      } else if (!chatInput.value || chatInput.value.trim().length === 0) {
-        chatInput.value = this.defaultName;
+      chatInput.value = "";
+      // Only force-hide the chat input (display: none) if the
+      // CHARACTER_CREATE_STORY_TEXT_4 flag has NOT yet been earned.
+      if (!storyFlags.contains(CHARACTER_CREATE_STORY_TEXT_4)) {
+        chatInput.style.setProperty('display', 'none', 'important');
+      } else {
+        // If the flag is already present, ensure the input is visible.
+        chatInput.style.setProperty('display', 'block', 'important');
       }
-      chatInput.style.cssText = ''; // Reset all styles
+      // keep the input unfocused while hidden
       chatInput.blur();
     }
   }
@@ -232,7 +253,7 @@ export class CharacterCreate extends Level {
         document.getElementsByClassName("chatArea")[0].setAttribute("style", "display: block !important;");
         chatInput.placeholder = "Enter your name";
         if (this.defaultName && (!chatInput.value || chatInput.value.trim().length === 0)) {
-          chatInput.value = this.defaultName;
+          chatInput.value = this.defaultName.trim();
         }
         chatInput.style.position = "absolute";
         chatInput.style.top = "50%";
