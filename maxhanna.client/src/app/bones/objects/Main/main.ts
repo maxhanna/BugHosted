@@ -9,11 +9,13 @@ import { Hero } from "../Hero/hero";
 import { Inventory } from "../inventory";
 import { MetaHero } from "../../../../services/datacontracts/bones/meta-hero";
 import { Vector2 } from "../../../../services/datacontracts/bones/vector2";
+import { Input } from "../../helpers/input";
 
 export class Main extends GameObject {
 	level?: Level = undefined;
 	camera: Camera;
-	input: any = { chatInput: undefined, setChatInput: (el: any) => { this.input.chatInput = el; }, update: () => {} };
+	// Ensure a proper Input instance is used so child objects can rely on its API
+	input: Input = new Input();
 	inventory: Inventory;
 	heroId?: number;
 	metaHero?: MetaHero;

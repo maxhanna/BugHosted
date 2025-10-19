@@ -38,8 +38,8 @@ export class SpriteTextString extends GameObject {
       }
     }
     if (!(this.showingIndex === this.finalIndex)) {
-      const input = parent?.input as Input;
-      if (input?.getActionJustPressed("Space")) {
+  const input = parent?.input as Input;
+  if (input && typeof (input as any).getActionJustPressed === 'function' && (input as any).getActionJustPressed("Space")) {
         if (this.showingIndex < this.finalIndex) {
           //skip text
           this.showingIndex = this.finalIndex;

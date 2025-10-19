@@ -212,7 +212,7 @@ export class Character extends GameObject {
       this.workOnItemPickup(delta);
       return;
     }
-    if (input?.getActionJustPressed("Space") && this.isUserControlled && !this.isBackgroundSelectionLocked) {
+  if (input && typeof (input as any).getActionJustPressed === 'function' && (input as any).getActionJustPressed("Space") && this.isUserControlled && !this.isBackgroundSelectionLocked) {
       const objectAtPosition = isObjectNearby(this);
       if (objectAtPosition) {
         events.emit("HERO_REQUESTS_ACTION", { hero: this, objectAtPosition: objectAtPosition });
