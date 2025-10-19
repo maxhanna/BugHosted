@@ -16,27 +16,16 @@ import { Hero } from './objects/Hero/hero';
 import { Main } from './objects/Main/main';
 import { HeroRoomLevel } from './levels/hero-room';
 import { CharacterCreate } from './levels/character-create';
-import { Level } from './objects/Level/level';
-import { CaveLevel1 } from './levels/cave-level1';
-import { HeroHome } from './levels/hero-home';
-import { BrushLevel1 } from './levels/brush-level1';
-import { BrushRoad1 } from './levels/brush-road1';
-import { BrushRoad2 } from './levels/brush-road2';
-import { RainbowAlleys1 } from './levels/rainbow-alleys1';
-import { UndergroundLevel1 } from './levels/underground-level1';
-import { UndergroundLevel2 } from './levels/underground-level2';
+import { Level } from './objects/Level/level'; 
 import { MetaEvent } from '../../services/datacontracts/bones/meta-event';
 import { InventoryItem } from './objects/InventoryItem/inventory-item';
-import { DroppedItem } from './objects/Environment/DroppedItem/dropped-item';
-import { RivalHomeLevel1 } from './levels/rival-home-level1';
-import { BrushShop1 } from './levels/brush-shop1';
+import { DroppedItem } from './objects/Environment/DroppedItem/dropped-item'; 
 import { ColorSwap } from '../../services/datacontracts/bones/color-swap';
 import { MetaBot } from '../../services/datacontracts/bones/meta-bot';
 import { MetaBotPart } from '../../services/datacontracts/bones/meta-bot-part';
 import { Mask, getMaskNameById } from './objects/Wardrobe/mask';
 import { Bot } from './objects/Bot/bot';
-import { Character } from './objects/character';
-import { UndergroundLevel3 } from './levels/underground-level3'; 
+import { Character } from './objects/character'; 
 import { ChatSpriteTextString } from './objects/SpriteTextString/chat-sprite-text-string';
 
 @Component({
@@ -562,30 +551,12 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
   private getLevelFromLevelName(key: string): Level {
     const upperKey = key.toUpperCase();
     const itemsFoundNames = this.mainScene?.inventory.getItemsFound();
-
-    if (upperKey == "HEROROOM") return new HeroRoomLevel({ itemsFound: itemsFoundNames });
-    else if (upperKey == "CAVELEVEL1") return new CaveLevel1({ itemsFound: itemsFoundNames });
-    else if (upperKey == "HEROHOME") return new HeroHome({ itemsFound: itemsFoundNames });
-    else if (upperKey == "RIVALHOMELEVEL1") return new RivalHomeLevel1({ itemsFound: itemsFoundNames });
-    else if (upperKey == "BRUSHLEVEL1") return new BrushLevel1({ itemsFound: itemsFoundNames });
-    else if (upperKey == "BRUSHROAD1") return new BrushRoad1({ itemsFound: itemsFoundNames });
-    else if (upperKey == "BRUSHROAD2") return new BrushRoad2({ itemsFound: itemsFoundNames });
-    else if (upperKey == "RAINBOWALLEYS1") return new RainbowAlleys1({ itemsFound: itemsFoundNames });
-    else if (upperKey == "UNDERGROUNDLEVEL1") return new UndergroundLevel1({ itemsFound: itemsFoundNames });
-    else if (upperKey == "UNDERGROUNDLEVEL2") return new UndergroundLevel2({ itemsFound: itemsFoundNames });
-    else if (upperKey == "UNDERGROUNDLEVEL3") return new UndergroundLevel3({ itemsFound: itemsFoundNames });
-    else if (upperKey == "BRUSHSHOP1") return new BrushShop1({ itemsFound: itemsFoundNames });
-    //else if (upperKey == "FIGHT") return new Fight(
-    //  {
-    //    metaHero: this.metaHero,
-    //    parts: this.mainScene?.inventory.parts.filter((x: any) => x.metabotId),
-    //    entryLevel: (this.metaHero.map == "FIGHT" ? new BrushLevel1({ itemsFound: itemsFoundNames }) : this.getLevelFromLevelName(this.metaHero.map)),
-    //    enemies: undefined,
-    //    party: [this.metaHero],
-    //    itemsFound: itemsFoundNames
-    //  }
-    //);
-    return new HeroRoomLevel();
+    //only 1 level for now.
+    if (upperKey == "HEROROOM") {
+      return new HeroRoomLevel({ itemsFound: itemsFoundNames });  
+    } else {
+      return new HeroRoomLevel({ itemsFound: itemsFoundNames });
+    } 
   }
 
   private getLatestMessages() {
