@@ -10,10 +10,7 @@ import { HeroHome } from "./hero-home";
 import { Tv } from "../objects/Environment/Tv/tv";
 import { Scenario } from "../helpers/story-flags";
 import { BASE } from "../objects/game-object";
-import { Painting } from "../objects/Environment/Painting/painting";
-import { DroppedItem } from "../objects/Environment/DroppedItem/dropped-item";
-import { InventoryItem } from "../objects/InventoryItem/inventory-item";
-import { AI_MASK } from "../objects/Wardrobe/mask";
+import { Painting } from "../objects/Environment/Painting/painting"; 
  
 
 export class HeroRoomLevel extends Level {
