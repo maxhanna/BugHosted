@@ -1,5 +1,5 @@
 import { Bot } from '../objects/Bot/bot';
-import { HEAD, LEFT_ARM, LEGS, MetaBotPart, RIGHT_ARM } from '../../../services/datacontracts/meta/meta-bot-part';
+import { HEAD, LEFT_ARM, LEGS, MetaBotPart, RIGHT_ARM } from '../../../services/datacontracts/bones/meta-bot-part';
 import { Character } from '../objects/character';
 import { CHAIN, FLARE, HEADBUTT, KICK, LEFT_PUNCH, RAIL, RIGHT_PUNCH, Skill, SkillType, STING, SUBSONIC } from './skill-types';
 import { getBotsInRange } from './move-towards';
