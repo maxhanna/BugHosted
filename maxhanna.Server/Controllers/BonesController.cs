@@ -40,6 +40,7 @@ namespace maxhanna.Server.Controllers
 		[HttpPost("/Bones", Name = "Bones_GetHero")]
 		public async Task<IActionResult> GetHero([FromBody] int userId)
 		{
+			_ = _log.Db("Get hero " + userId, userId, "BONES", true);
 			using var connection = new MySqlConnection(_connectionString);
 			await connection.OpenAsync();
 			using var transaction = connection.BeginTransaction();
@@ -59,6 +60,7 @@ namespace maxhanna.Server.Controllers
 		[HttpPost("/Bones/FetchGameData", Name = "Bones_FetchGameData")]
 		public async Task<IActionResult> FetchGameData([FromBody] MetaHero hero)
 		{
+			_ = _log.Db("Fetch game data for hero " + hero.Id, hero.Id, "BONES", true);
 			using var connection = new MySqlConnection(_connectionString);
 			await connection.OpenAsync();
 			using var transaction = connection.BeginTransaction();
@@ -162,6 +164,7 @@ namespace maxhanna.Server.Controllers
 		[HttpPost("/Bones/Create", Name = "Bones_CreateHero")]
 		public async Task<IActionResult> CreateHero([FromBody] CreateMetaHeroRequest req)
 		{
+			_ = _log.Db("Create hero " + req.UserId, req.UserId, "BONES", true);
 			using var connection = new MySqlConnection(_connectionString);
 			await connection.OpenAsync();
 			using var transaction = connection.BeginTransaction();
