@@ -1,4 +1,29 @@
-.daily-music { padding: 10px; }
-.song-item { display:flex; justify-content:space-between; padding:6px 0; border-bottom:1px solid #eee; }
-.song-meta { display:flex; flex-direction:column; }
-.song-actions { display:flex; align-items:center; }
+.daily-music {
+    padding: 10px;
+}
+.dailyMusicTitle {
+    display: flex;
+    align-items: center;
+    padding: .5rem 0;
+    font-weight: 600;
+    border-bottom: 1px solid var(--main-border-color);
+    margin-bottom: 1rem;
+    cursor: pointer;
+    text-decoration: underline;
+}
+.song-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 6px 0;
+    border-bottom: 1px solid #eee;
+}
+
+.song-meta {
+    display: flex;
+    flex-direction: column;
+}
+
+.song-actions {
+    display: flex;
+    align-items: center;
+}
