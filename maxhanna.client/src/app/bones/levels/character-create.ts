@@ -152,6 +152,7 @@ export class CharacterCreate extends Level {
             // pick a random spawn within a 10x10 grid centered area
             const randX = Math.floor(Math.random() * 10) + 2; // 2..11
             const randY = Math.floor(Math.random() * 10) + 2;
+            console.log("changing level to hero room");
             events.emit("CHANGE_LEVEL", new HeroRoomLevel({
               heroPosition: new Vector2(gridCells(randX), gridCells(randY))
             }));
