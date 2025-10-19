@@ -37,10 +37,10 @@
   width: 100%;
 }
 
-.messageInputInnerDiv { 
+.messageInputInnerDiv {
   display: flex;
-  flex-direction: column; 
-}  
+  flex-direction: column;
+}
 
 .chatHeader {
   margin: 4px;
@@ -108,7 +108,7 @@
   align-content: center;
   justify-content: center;
   align-items: center;
-}   
+}
 
 .profileTag {
   margin-left: unset !important;
@@ -160,7 +160,7 @@
 
 .reactionDiv button,
 .otherPersonsReactionDiv button {
-  cursor: pointer; 
+  cursor: pointer;
 }
 
 .chatUserConnected {
@@ -203,9 +203,10 @@
 }
 
 .addChatMemberLi {
-  width: 100%; 
+  width: 100%;
 }
-.addChatMemberLi:not(:last-child) { 
+
+.addChatMemberLi:not(:last-child) {
   border-bottom: var(--main-border);
 }
 
@@ -229,6 +230,11 @@
 }
 
 
-.poll-container { 
+.poll-container {
   width: 100%;
+}
+
+.serverDown {
+  color: red;
+  text-align: center;
 }
