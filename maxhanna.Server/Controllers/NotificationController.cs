@@ -1335,7 +1335,8 @@ namespace maxhanna.Server.Controllers
 				var validFollowers = new List<int>();
 				foreach (var followerId in followerIds)
 				{
-					if (await CanUserNotifyAsync(request.FromUserId, followerId))
+					if (followerId != request.FromUserId 
+						&& await CanUserNotifyAsync(request.FromUserId, followerId))
 					{
 						validFollowers.Add(followerId);
 					}
