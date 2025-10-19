@@ -96,7 +96,7 @@ function sendBatchToBackend(bots: Bot[], object: any) {
     { batch: safeStringify(batchData) }
   );
 
-  object.metaService.updateEvents(metaEvent).catch((error: any) => {
+  object.bonesService.updateEvents(metaEvent).catch((error: any) => {
     console.error("Failed to send batched encounter updates:", error);
   });
 }
@@ -280,11 +280,11 @@ export function subscribeToMainGameEvents(object: any) {
 
       for (let invPart of parts) {
         if (invPart.id != targetPart.id && invPart.partName === targetPart.partName && invPart.metabotId) {
-          object.metaService.unequipPart(invPart.id);
+          object.bonesService.unequipPart(invPart.id);
           invPart.metabotId = undefined;
         }
       }
-      object.metaService.equipPart(targetPart.id, targetPart.metabotId);
+      object.bonesService.equipPart(targetPart.id, targetPart.metabotId);
     }
   });
 
@@ -304,7 +304,7 @@ export function subscribeToMainGameEvents(object: any) {
 
       if (object.metaHero.id === hero.id) {
         const metaEvent = new MetaEvent(0, object.metaHero.id, new Date(), "DEPLOY", object.metaHero.map, { "metaHero": `${safeStringify(hero)}`, "metaBot": `${safeStringify(params.bot)}` });
-        object.metaService.updateEvents(metaEvent);
+        object.bonesService.updateEvents(metaEvent);
       }
      // await object.reinitializeInventoryData();
     }
@@ -314,7 +314,7 @@ export function subscribeToMainGameEvents(object: any) {
     if (params.bot?.id) {
       if (params.bot.heroId === object.metaHero.id) {
         const metaEvent = new MetaEvent(0, params.bot.heroId, new Date(), "CALL_BOT_BACK", object.metaHero.map);
-        object.metaService.updateEvents(metaEvent).then(async (x: any) => {
+        object.bonesService.updateEvents(metaEvent).then(async (x: any) => {
           //await object.reinitializeInventoryData();
         });
       }
@@ -341,12 +341,12 @@ export function subscribeToMainGameEvents(object: any) {
 
   events.on("CHARACTER_NAME_CREATED", object, (name: string) => {
     if (object.chatInput.nativeElement.placeholder === "Enter your name" && object.parentRef && object.parentRef.user && object.parentRef.user.id) {
-      object.metaService.createHero(object.parentRef.user.id, name);
+      object.bonesService.createHero(object.parentRef.user.id, name);
     }
   });
   events.on("STARTED_TYPING", object, () => {
     const metaEvent = new MetaEvent(0, object.metaHero.id, new Date(), "CHAT", object.metaHero.map, { "sender": object.metaHero.name ?? "Anon", "content": "..." });
-    object.metaService.updateEvents(metaEvent); 
+    object.bonesService.updateEvents(metaEvent); 
     const name = object.metaHero.name;
     object.chat.unshift(
       {
@@ -361,7 +361,7 @@ export function subscribeToMainGameEvents(object: any) {
     if (object.parentRef?.user) {
       if (object.chatInput.nativeElement.placeholder !== "Enter your name") {
         const metaEvent = new MetaEvent(0, object.metaHero.id, new Date(), "CHAT", object.metaHero.map, { "sender": object.metaHero.name ?? "Anon", "content": msg })
-        object.metaService.updateEvents(metaEvent);
+        object.bonesService.updateEvents(metaEvent);
         object.chatInput.nativeElement.value = '';
         setTimeout(() => {
           object.chatInput.nativeElement.blur();
@@ -383,7 +383,7 @@ export function subscribeToMainGameEvents(object: any) {
   events.on("WAVE_AT", object, (objectAtPosition: GameObject) => { 
     const msg = `👋 ${(objectAtPosition as Hero).name}`;
     const metaEvent = new MetaEvent(0, object.metaHero.id, new Date(), "CHAT", object.metaHero.map, { "sender": object.metaHero.name ?? "Anon", "content": msg })
-    object.metaService.updateEvents(metaEvent);
+    object.bonesService.updateEvents(metaEvent);
   });
 
   events.on("WHISPER_AT", object, ( objectAtPosition: GameObject ) => {
@@ -393,7 +393,7 @@ export function subscribeToMainGameEvents(object: any) {
     const sender = (object.metaHero as Hero).name ?? "Anon";
     const msg = `🤫 (${sender}:${receiver}) : ${msgContent}`;
     const metaEvent = new MetaEvent(0, object.metaHero.id, new Date(), "WHISPER", object.metaHero.map, { "sender": sender, "receiver": receiver, "content": msg })
-    object.metaService.updateEvents(metaEvent);
+    object.bonesService.updateEvents(metaEvent);
 
     if (sender === object.metaHero.name) {
       object.chatInput.nativeElement.value = "";
@@ -411,14 +411,14 @@ export function subscribeToMainGameEvents(object: any) {
       }
     }
     const metaEvent = new MetaEvent(0, object.metaHero.id, new Date(), "REPAIR_ALL_METABOTS", object.metaHero.map, { "heroId": object.metaHero.id + "" });
-    object.metaService.updateEvents(metaEvent); 
+    object.bonesService.updateEvents(metaEvent); 
     setActionBlocker(50);
   });
 
   events.on("ITEM_PURCHASED", object, (item: InventoryItem) => {
     console.log(item);
     const metaEvent = new MetaEvent(0, object.metaHero.id, new Date(), "BUY_ITEM", object.metaHero.map, { "item": safeStringify(item) });
-    object.metaService.updateEvents(metaEvent);
+    object.bonesService.updateEvents(metaEvent);
     if (item.category === "botFrame") {
       const newBot = new MetaBot(
         {
@@ -429,7 +429,7 @@ export function subscribeToMainGameEvents(object: any) {
           name: item.name ?? "",
           level: 1
         });
-      object.metaService.createBot(newBot).then((res: MetaBot) => {
+      object.bonesService.createBot(newBot).then((res: MetaBot) => {
         if (res) {
           object.metaHero.metabots.push(res);
         }
@@ -459,7 +459,7 @@ export function subscribeToMainGameEvents(object: any) {
       }
     }
 
-    object.metaService.sellBotParts(object.metaHero.id, partIdNumbers);
+    object.bonesService.sellBotParts(object.metaHero.id, partIdNumbers);
   });
 
   events.on("BUY_ITEM_CONFIRMED", object, (params: { heroId: number, item: string }) => {
@@ -482,14 +482,14 @@ export function subscribeToMainGameEvents(object: any) {
   events.on("TARGET_LOCKED", object, (params: { source: Bot, target: Bot }) => {
     if (params.source.heroId) { 
       const metaEvent = new MetaEvent(0, params.source.heroId, new Date(), "TARGET_LOCKED", object.metaHero.map, { "sourceId": params.source.id + "", "targetId": params.target.id + "" });
-      object.metaService.updateEvents(metaEvent);
+      object.bonesService.updateEvents(metaEvent);
     }
   });
 
   events.on("TARGET_UNLOCKED", object, (params: { source: Bot, target: Bot }) => {
     if (params.source.heroId) { 
       const metaEvent = new MetaEvent(1, params.source.heroId, new Date(), "TARGET_UNLOCKED", object.metaHero.map, { "sourceId": params.source.id + "", "targetId": params.target.id + "" });
-      object.metaService.updateEvents(metaEvent);
+      object.bonesService.updateEvents(metaEvent);
     }
   });
   events.on("UPDATE_ENCOUNTER_POSITION", object, (source: Bot) => {  
@@ -565,13 +565,13 @@ export function subscribeToMainGameEvents(object: any) {
 
   events.on("USER_ATTACK_SELECTED", object, (skill: Skill) => {
     const metaEvent = new MetaEvent(0, object.metaHero.id, new Date(), "USER_ATTACK_SELECTED", object.metaHero.map, { "skill": JSON.stringify(skill) })
-    object.metaService.updateEvents(metaEvent);
+    object.bonesService.updateEvents(metaEvent);
   });
 
   events.on("GOT_REWARDS", object, (params: { location: Vector2, part: MetaBotPart }) => {
     if (!params.part) return;
     const metaEvent = new MetaEvent(0, object.metaHero.id, new Date(), "ITEM_DROPPED", object.metaHero.map, { "location": safeStringify(params.location), "item": safeStringify(params.part) })
-    object.metaService.updateEvents(metaEvent);    
+    object.bonesService.updateEvents(metaEvent);    
   });
 
   events.on("PARTY_UP", object, (person: Hero) => {
@@ -584,11 +584,11 @@ export function subscribeToMainGameEvents(object: any) {
       object.partyMembers.push({ heroId: person.id, name: person.name, color: person.colorSwap });
     }
     const metaEvent = new MetaEvent(0, object.metaHero.id, new Date(), "PARTY_UP", object.metaHero.map, { "hero_id": `${person.id}`, "party_members": safeStringify(object.partyMembers.map((x:any) => x.heroId)) })
-    object.metaService.updateEvents(metaEvent);
+    object.bonesService.updateEvents(metaEvent);
   });
   events.on("UNPARTY", object, (person: Hero) => { 
     const metaEvent = new MetaEvent(0, object.metaHero.id, new Date(), "UNPARTY", object.metaHero.map, { "hero_id": `${person.id}` })
-    object.metaService.updateEvents(metaEvent);
+    object.bonesService.updateEvents(metaEvent);
     object.partyMembers = object.partyMembers.filter((x: any) => x.heroId === object.metaHero.id);
     console.log("reset party member ids");
     object.reinitializeInventoryData();
@@ -606,9 +606,9 @@ export function subscribeToMainGameEvents(object: any) {
     if (!actionBlocker) {
       //console.log("picking up item: ",data);
       if (data.category) {
-        object.metaService.updateInventory(object.metaHero.id, data.name, data.imageName, data.category);
+        object.bonesService.updateInventory(object.metaHero.id, data.name, data.imageName, data.category);
       } else if (data.item) { 
-        object.metaService.updateBotParts(object.metaHero.id, [data.item]); 
+        object.bonesService.updateBotParts(object.metaHero.id, [data.item]); 
         object.mainScene.inventory.parts.concat(data.item);
 
         const metaEvent = new MetaEvent(0, object.metaHero.id, new Date(), "ITEM_DESTROYED", object.metaHero.map,
@@ -618,7 +618,7 @@ export function subscribeToMainGameEvents(object: any) {
             "partName": `${data.item?.partName}`,
             "skill": `${data.item?.skill?.name}`
           });
-        object.metaService.updateEvents(metaEvent);
+        object.bonesService.updateEvents(metaEvent);
       }
       setActionBlocker(500);
     } 
@@ -751,7 +751,7 @@ export function actionMultiplayerEvents(object: any, metaEvents: MetaEvent[]) {
           if (event.heroId === object.metaHero.id) {
             //console.log(event && event.data ? event.data["item"] : "undefined item data");
             events.emit("BUY_ITEM_CONFIRMED", { heroId: event.heroId, item: (event.data ? event.data["item"] : "") })
-            object.metaService.deleteEvent(event.id);
+            object.bonesService.deleteEvent(event.id);
           }
         }
         if (event.eventType === "ITEM_DROPPED") {
@@ -854,7 +854,7 @@ export function actionPartyUpEvent(object: any, event: MetaEvent) {
           }
         }
         const partyUpAcceptedEvent = new MetaEvent(0, object.metaHero.id, new Date(), "PARTY_INVITE_ACCEPTED", object.metaHero.map, { "party_members": safeStringify(object.partyMembers.map((x: any) => x.heroId)) });
-        object.metaService.updateEvents(partyUpAcceptedEvent);
+        object.bonesService.updateEvents(partyUpAcceptedEvent);
         events.emit("PARTY_INVITE_ACCEPTED", { playerId: object.metaHero.id, party: object.partyMembers });
         object.isDecidingOnParty = false;
       } else {
