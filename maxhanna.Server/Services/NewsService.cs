@@ -1,4 +1,5 @@
 ﻿using maxhanna.Server.Controllers.DataContracts.News;
+using System.Net;
 using MySqlConnector;
 using System.Text.RegularExpressions;
 using System.Text;
@@ -640,6 +641,138 @@ Posted by user @{topMeme.Username}<br><small>Daily top memes are selected based 
 		catch (Exception ex)
 		{
 			await _log.Db($"Error in PostDailyMemeAsync: {ex.Message}", null, "MEMESERVICE", true);
+		}
+	}
+
+	public async Task PostDailyMusicAsync()
+	{
+		try
+		{
+			using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+			await conn.OpenAsync();
+			using var transaction = await conn.BeginTransactionAsync();
+
+			// Check if we already posted today's music
+			if (await HasPostedMusicTodayAsync(conn, transaction))
+			{
+				await _log.Db("Already posted daily music today. Skipping.", null, "MUSICSERVICE");
+				await transaction.RollbackAsync();
+				return;
+			}
+
+			// Fetch today's music todos
+			string sql = @"
+				SELECT t.id, t.todo, t.url, t.file_id, t.user_id, u.username
+				FROM todo t
+				LEFT JOIN users u ON u.id = t.user_id
+				WHERE t.type = 'music' AND DATE(t.date) = CURDATE()
+				ORDER BY t.date DESC;";
+
+			using var cmd = new MySqlCommand(sql, conn, transaction);
+			using var rdr = await cmd.ExecuteReaderAsync();
+			var todos = new List<(int Id, string? Title, string? Url, int? FileId, int? UserId, string? Username)>();
+			while (await rdr.ReadAsync())
+			{
+				var id = rdr.IsDBNull(rdr.GetOrdinal("id")) ? 0 : rdr.GetInt32("id");
+				var title = rdr.IsDBNull(rdr.GetOrdinal("todo")) ? null : rdr.GetString("todo");
+				var url = rdr.IsDBNull(rdr.GetOrdinal("url")) ? null : rdr.GetString("url");
+				int? fileId = rdr.IsDBNull(rdr.GetOrdinal("file_id")) ? (int?)null : rdr.GetInt32("file_id");
+				int? userId = rdr.IsDBNull(rdr.GetOrdinal("user_id")) ? (int?)null : rdr.GetInt32("user_id");
+				string? username = rdr.IsDBNull(rdr.GetOrdinal("username")) ? null : rdr.GetString("username");
+				todos.Add((id, title, url, fileId, userId, username));
+			}
+			await rdr.CloseAsync();
+
+			if (todos.Count == 0)
+			{
+				await _log.Db("No songs added today to post.", null, "MUSICSERVICE");
+				await transaction.RollbackAsync();
+				return;
+			}
+
+			// Build story text
+			var sb = new StringBuilder();
+			string marker = "🎵 [b]Daily Music Picks![/b]";
+			sb.AppendLine(marker);
+			foreach (var t in todos)
+			{
+				// Link to internal todo item if possible, otherwise raw url
+				string link = t.Url ?? "";
+				sb.AppendLine($"[*][b]{WebUtility.HtmlEncode(t.Title ?? "Untitled")}[/b] {link} [/*]");
+			}
+			string fullStoryText = sb.ToString().Trim();
+
+			// Attach first file if present
+			int? firstFileId = todos.FirstOrDefault(t => t.FileId != null).FileId;
+
+			// Insert the story for the service account and user profile (if desired)
+			await InsertMusicStoryAsync(conn, transaction, fullStoryText, firstFileId, musicServiceAccountNo);
+			await InsertMusicStoryAsync(conn, transaction, fullStoryText, firstFileId, null);
+
+			await transaction.CommitAsync();
+			await _log.Db($"Successfully posted daily music with {todos.Count} entries.", null, "MUSICSERVICE");
+		}
+		catch (Exception ex)
+		{
+			await _log.Db($"Error in PostDailyMusicAsync: {ex.Message}", null, "MUSICSERVICE", true);
+		}
+	}
+
+	private async Task<bool> HasPostedMusicTodayAsync(MySqlConnection conn, MySqlTransaction transaction)
+	{
+		const string sql = @"
+			SELECT COUNT(*) FROM stories
+			WHERE user_id = @userId
+			AND DATE(date) = CURDATE()
+			AND story_text LIKE '%Daily Music Picks!%';";
+
+		using var cmd = new MySqlCommand(sql, conn, transaction);
+		cmd.Parameters.AddWithValue("@userId", musicServiceAccountNo);
+		var exists = Convert.ToInt32(await cmd.ExecuteScalarAsync()) > 0;
+		if (exists)
+		{
+			await _log.Db("Daily music story already exists. Skipping.", null, "MUSICSERVICE");
+			await transaction.RollbackAsync();
+			return true;
+		}
+		return false;
+	}
+
+	private async Task InsertMusicStoryAsync(MySqlConnection conn, MySqlTransaction transaction, string storyText, int? fileId, int? profileUserId)
+	{
+		// Insert the main story
+		const string insertStorySql = @"
+			INSERT INTO stories (user_id, story_text, profile_user_id, city, country, date)
+			VALUES (@userId, @storyText, @profileUserId, NULL, NULL, UTC_TIMESTAMP());
+			SELECT LAST_INSERT_ID();";
+
+		using var storyCmd = new MySqlCommand(insertStorySql, conn, transaction);
+		storyCmd.Parameters.AddWithValue("@userId", musicServiceAccountNo);
+		storyCmd.Parameters.AddWithValue("@storyText", storyText);
+		storyCmd.Parameters.AddWithValue("@profileUserId", profileUserId ?? (object)DBNull.Value);
+
+		var storyId = Convert.ToInt32(await storyCmd.ExecuteScalarAsync());
+
+		// Link file if provided
+		if (fileId != null)
+		{
+			const string insertStoryFileSql = @"
+			INSERT INTO story_files (story_id, file_id)
+			VALUES (@storyId, @fileId);
+			INSERT INTO story_topics (story_id, topic_id) VALUES (@storyId, (SELECT id FROM topics WHERE topic = 'Music'));
+			";
+
+			using var fileCmd = new MySqlCommand(insertStoryFileSql, conn, transaction);
+			fileCmd.Parameters.AddWithValue("@storyId", storyId);
+			fileCmd.Parameters.AddWithValue("@fileId", fileId.Value);
+			await fileCmd.ExecuteNonQueryAsync();
+		}
+		else
+		{
+			// Still tag topic as Music
+			using var topicCmd = new MySqlCommand("INSERT INTO story_topics (story_id, topic_id) VALUES (@storyId, (SELECT id FROM topics WHERE topic = 'Music'))", conn, transaction);
+			topicCmd.Parameters.AddWithValue("@storyId", storyId);
+			await topicCmd.ExecuteNonQueryAsync();
 		}
 	}
 
