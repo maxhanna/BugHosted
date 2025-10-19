@@ -14,7 +14,7 @@ import { SpriteTextString } from "./SpriteTextString/sprite-text-string";
 import { ColorSwap } from "../../../services/datacontracts/bones/color-swap";
 export class Inventory extends GameObject {
   nextId: number = parseInt((Math.random() * 19999).toFixed(0));
-  items: InventoryItem[] = []; 
+  items: InventoryItem[] = [];
   parts: MetaBotPart[] = [];
   currentlySelectedId?: number = undefined;
   startMenu?: StartMenu;
@@ -27,8 +27,8 @@ export class Inventory extends GameObject {
     this.items = [];
     this.parentCharacter = config.character;
     this.partyMembers = config.partyMembers;
-     
-    this.renderParty();  
+
+    this.renderParty();
   }
 
   renderParty() {
@@ -50,16 +50,11 @@ export class Inventory extends GameObject {
     }
     console.log("rendering party", this.items, this.partyMembers);
     for (let member of this.partyMembers) {
-      let tmpName = member.name;
-      let tmpId = member.heroId;
-      let tmpColor = member.color;
-      
- 
       const itemData = {
-        id: tmpId,
-        image: resources.images["portraits"],
-        name: tmpName ?? member.name ?? member.heroId + '',
-        colorSwap: tmpColor,
+        id: member.heroId,
+        image: "portraits", // use string key to avoid type mismatch
+        name: member.name,
+        colorSwap: (member.color ? hexToRgb(member.color) : undefined),
         category: "partyMember"
       } as InventoryItem;
       console.log("pushing item data: ", itemData);
@@ -93,10 +88,10 @@ export class Inventory extends GameObject {
     events.on("PARTY_INVITE_ACCEPTED", this, (data: { playerId: number, party: { heroId: number, name: string, color?: string }[] }) => {
       if (data.party) {
         for (let member of data.party) {
-          const itemData = { 
-            id: member.heroId, 
-            image: resources.images["portraits"], 
-            name: member.name, 
+          const itemData = {
+            id: member.heroId,
+            image: "portraits", // use string key to avoid type mismatch
+            name: member.name,
             colorSwap: (member.color ? hexToRgb(member.color) : undefined),
             category: "partyMember"
           } as InventoryItem;
@@ -112,14 +107,14 @@ export class Inventory extends GameObject {
       this.closeStartMenu()
     });
 
-    events.on("OPEN_START_MENU", this, (data: {exits : Exit[], location: Vector2}) => {
-      if (this.closeStartMenu()) return; 
-      this.children.forEach((child:any) => {
+    events.on("OPEN_START_MENU", this, (data: { exits: Exit[], location: Vector2 }) => {
+      if (this.closeStartMenu()) return;
+      this.children.forEach((child: any) => {
         child.destroy();
       });
       this.startMenu = new StartMenu({ inventoryItems: this.items, metabotParts: this.parts, exits: data.exits, location: data.location });
-      this.addChild(this.startMenu);  
-      events.emit("HERO_MOVEMENT_LOCK"); 
+      this.addChild(this.startMenu);
+      events.emit("HERO_MOVEMENT_LOCK");
     });
 
 
@@ -129,7 +124,7 @@ export class Inventory extends GameObject {
         this.deselectSelectedItem();
       }
     });
- 
+
     events.on("END_FIGHT", this, () => {
       this.preventDraw = false;
     });
@@ -138,7 +133,7 @@ export class Inventory extends GameObject {
   closeStartMenu() {
     if (this.startMenu) {
       this.removeChild(this.startMenu);
-      this.startMenu.destroy(); 
+      this.startMenu.destroy();
       this.startMenu = undefined;
       events.emit("HERO_MOVEMENT_UNLOCK");
       this.renderParty();
@@ -157,16 +152,16 @@ export class Inventory extends GameObject {
     // Constants for layout
     const PORTRAIT_X = 4;
     const PORTRAIT_SIZE = 16;
-    const TEXT_X = PORTRAIT_X;  
+    const TEXT_X = PORTRAIT_X;
     const ROW_HEIGHT = 20;
     const START_Y = 8;
     let count = 0;
     this.items.forEach((item, index) => {
       if (item.category !== "partyMember") return;
       const color = this.partyMembers?.find(x => x.heroId == item.id)?.color as any;
-      let tmpColor = color == undefined ? undefined 
-        : color instanceof ColorSwap ? color 
-        : new ColorSwap([0, 160, 200], hexToRgb(color));
+      let tmpColor = color == undefined ? undefined
+        : color instanceof ColorSwap ? color
+          : new ColorSwap([0, 160, 200], hexToRgb(color));
       console.log("creating portrait with color: ", color, item, this.parentCharacter);
       // Create portrait sprite
       const sprite = new Sprite({
@@ -191,7 +186,7 @@ export class Inventory extends GameObject {
       );
       const txtsprite2 = new SpriteTextString(
         displayName,
-        new Vector2(TEXT_X+1, START_Y + 1 + (count * ROW_HEIGHT) - 6),
+        new Vector2(TEXT_X + 1, START_Y + 1 + (count * ROW_HEIGHT) - 6),
         "Black"
       );
       count++;
@@ -203,9 +198,9 @@ export class Inventory extends GameObject {
   }
 
   removeFromInventory(id: number) {
-    console.log("remove from inv"); 
+    console.log("remove from inv");
     this.items = this.items.filter(x => x.id !== id);
-   // this.renderInventory(blockPartyRender:);
+    // this.renderInventory(blockPartyRender:);
   }
 
   getItemsFound() {
@@ -217,18 +212,18 @@ export class Inventory extends GameObject {
       }
     }
     return itemsFoundNames;
-  } 
+  }
   override destroy() {
     console.log("destroy  inv");
-    events.unsubscribe(this); 
+    events.unsubscribe(this);
     this.startMenu?.destroy();
     super.destroy();
   }
-   
+
 
   private updateStoryFlags(itemData: InventoryItem) {
     if (itemData.category === "watch" && !storyFlags.contains(GOT_WATCH)) { storyFlags.add(GOT_WATCH); }
-    else if (itemData.category === "botFrame" && !storyFlags.contains(GOT_FIRST_METABOT)) { storyFlags.add(GOT_FIRST_METABOT); } 
+    else if (itemData.category === "botFrame" && !storyFlags.contains(GOT_FIRST_METABOT)) { storyFlags.add(GOT_FIRST_METABOT); }
   }
 
   private deselectSelectedItem() {

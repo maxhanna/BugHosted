@@ -8,7 +8,7 @@ import { UserService } from '../../services/user.service';
 import { MetaChat } from '../../services/datacontracts/bones/meta-chat';
 import { gridCells, snapToGrid } from './helpers/grid-cells';
 import { GameLoop } from './helpers/game-loop';
-import { hexToRgb, resources as metaResources } from './helpers/resources';
+import { hexToRgb, resources } from './helpers/resources';
 import { events } from './helpers/events';
 import { storyFlags } from './helpers/story-flags';
 import { actionMultiplayerEvents, subscribeToMainGameEvents } from './helpers/network';
@@ -84,13 +84,17 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
   serverDown? = false;
   topMetabots: any[] = [];
   topHeroes: any[] = [];
+  cachedDefaultName?: string = undefined;
+  cachedDefaultColor?: string = undefined;
+  isMuted = false;
+  isMusicMuted = false;
+  isSfxMuted = false;
 
 
   private currentChatTextbox?: ChatSpriteTextString | undefined; 
   private pollingInterval: any;
 
   async ngOnInit() {
-    metaResources.ensureLoaded();
     this.serverDown = (this.parentRef ? await this.parentRef?.isServerUp() <= 0 : false);
     this.parentRef?.setViewportScalability(false);
     this.parentRef?.addResizeListener();
@@ -100,6 +104,24 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
       this.isUserComponentOpen = true;
     } else {
       this.startLoading();
+      this.userService.getUserSettings(this.parentRef.user?.id ?? 0).then(res => {
+          this.cachedDefaultName = res?.lastCharacterName ?? undefined;
+          this.cachedDefaultColor = res?.lastCharacterColor ?? undefined;
+          this.isMuted = !!res?.muteSounds;
+          this.isMusicMuted = this.isMuted;
+          this.isSfxMuted = false;  
+          resources.setMusicMuted(this.isMusicMuted);
+          resources.setSfxMuted(this.isSfxMuted);
+            if (!this.isMusicMuted) {
+              const startMusic = () => {
+                  resources.playSound("pixelDreams", { volume: 0.4, loop: true, allowOverlap: false });
+                  document.removeEventListener('pointerdown', startMusic);
+                  document.removeEventListener('keydown', startMusic);
+              };
+              document.addEventListener('pointerdown', startMusic, { once: true });
+              document.addEventListener('keydown', startMusic, { once: true });
+          }
+      }).catch(() => { /* ignore */ });
       this.pollForChanges();
       this.gameLoop.start();
       this.stopLoading();
