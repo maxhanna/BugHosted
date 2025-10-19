@@ -85,6 +85,7 @@
               </button> 
             </div>
           </div>
+          <div *ngIf="serverDown" class="redText">Server Down</div>
         </div>
 
         <div *ngIf="(!chatHistory || chatHistory.length == 0) && !isLoading">
