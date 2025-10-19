@@ -80,6 +80,47 @@ namespace maxhanna.Server.Helpers
         {
             try
             {
+                var connectionString = _config.GetValue<string>("ConnectionStrings:maxhanna");
+                if (!string.IsNullOrWhiteSpace(connectionString))
+                {
+                    try
+                    {
+                        await using var conn = new MySqlConnector.MySqlConnection(connectionString);
+                        await conn.OpenAsync();
+
+                        // Calculate per-day allowance from monthly quota (100 calls/month).
+                        var nowUtc = DateTime.UtcNow;
+                        int daysInMonth = DateTime.DaysInMonth(nowUtc.Year, nowUtc.Month);
+                        int allowedPerDay = Math.Max(1, (int)Math.Floor(100.0 / daysInMonth));
+
+                        // Count distinct minute buckets for today (UTC) — batches within the same minute count as one call.
+                        const string sqlTodayBuckets = "SELECT COUNT(DISTINCT DATE_FORMAT(saved_at, '%Y-%m-%d %H:%i')) FROM news_headlines WHERE DATE(saved_at) = DATE(UTC_TIMESTAMP());";
+                        await using (var cmd = new MySqlConnector.MySqlCommand(sqlTodayBuckets, conn))
+                        {
+                            var cntObj = await cmd.ExecuteScalarAsync();
+                            var cntToday = cntObj == null || cntObj == DBNull.Value ? 0 : Convert.ToInt32(cntObj);
+
+                            if (cntToday >= allowedPerDay)
+                            {
+                                await _log.Db($"Skipping MediaStack call: today's batch count ({cntToday}) >= allowed per day ({allowedPerDay}).", null, "NEWSSERVICE", true);
+                                return null;
+                            }
+                        }
+                    }
+                    catch (Exception dbEx)
+                    {
+                        // If DB check fails, log and continue to attempt the API call (fail-open).
+                        await _log.Db($"MediaStack rate-check DB query failed: {dbEx.Message}", null, "NEWSSERVICE", true);
+                    }
+                }
+            }
+            catch (Exception exCheck)
+            {
+                await _log.Db($"Unexpected error during MediaStack rate-check: {exCheck.Message}", null, "NEWSSERVICE", true);
+            }
+
+            try
+            {
                 var apiKey = _config.GetValue<string>("MediaStack:ApiKey") ?? string.Empty;
                 var builder = new UriBuilder("http://api.mediastack.com/v1/news");
                 var query = HttpUtility.ParseQueryString(string.Empty);
