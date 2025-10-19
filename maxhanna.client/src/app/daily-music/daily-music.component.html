@@ -1,23 +1,25 @@
 <div class="daily-music">
-  <div class="dailyMusicTitle popupPanelTitle">Today's Music</div>
-  <div *ngIf="songs.length === 0">No songs added today.</div>
+    <div class="dailyMusicTitle popupPanelTitle">Today's Music</div>
+    <div *ngIf="songs.length === 0">
+        No <app-menu-item [type]="Music" [label]="'songs'"></app-menu-item> added today.
+    </div>
 
-  <table class="mainTable" *ngIf="songs.length > 0">
-    <thead>
-      <tr>
-        <th>Title</th>
-        <th>Date</th>
-        <th>Actions</th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr *ngFor="let s of songs">
-        <td>{{ s.todo }}</td>
-        <td>{{ s.date | date:'short' }}</td>
-        <td>
-          <button (click)="play(s.url, s.fileId)">Play</button>
-        </td>
-      </tr>
-    </tbody>
-  </table> 
+    <table class="mainTable" *ngIf="songs.length > 0">
+        <thead>
+            <tr>
+                <th>Title</th>
+                <th>Date</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr *ngFor="let s of songs">
+                <td>{{ s.todo }}</td>
+                <td>{{ s.date | date:'short' }}</td>
+                <td>
+                    <button (click)="play(s.url, s.fileId)">Play</button>
+                </td>
+            </tr>
+        </tbody>
+    </table>
 </div>
