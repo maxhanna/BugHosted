@@ -350,7 +350,7 @@ namespace maxhanna.Server.Controllers
 				await conn.OpenAsync();
 				await UpdateLastSeen(conn, request);
 				await ResolveParentCommentAsync(conn, request);
-
+				
 				if (await TryResolveStoryNotification(conn, request))
 				{
 					notificationProcessed = true;
@@ -1312,10 +1312,10 @@ namespace maxhanna.Server.Controllers
 						UNION
 						-- Pending friend requests (treat as followers)
 						SELECT sender_id AS follower_id FROM friend_requests 
-						WHERE receiver_id = @ownerId AND status IN ('pending', 'deleted')
-						UNION
-						SELECT receiver_id AS follower_id FROM friend_requests 
-						WHERE sender_id = @ownerId AND status IN ('pending', 'deleted')
+						WHERE receiver_id = @ownerId AND status IN ('pending', 'deleted') 
+						---UNION
+						---SELECT receiver_id AS follower_id FROM friend_requests 
+						---WHERE sender_id = @ownerId AND status IN ('pending', 'deleted')
 					) AS followers";
 
 				var followerIds = new List<int>();
