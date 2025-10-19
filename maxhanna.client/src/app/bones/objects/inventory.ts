@@ -34,14 +34,20 @@ export class Inventory extends GameObject {
   renderParty() {
     // First remove any existing party member items
     this.items = this.items.filter(item => item.category !== "partyMember");
-    if (!this.partyMembers || this.partyMembers.length === 0) {
+
+    // Defensive: ensure partyMembers is an array and only contains valid entries
+    if (!Array.isArray(this.partyMembers)) {
       this.partyMembers = [];
+    }
+    // Filter out any malformed entries that don't have a heroId
+    this.partyMembers = this.partyMembers.filter((pm: any) => pm && (typeof pm.heroId !== 'undefined'));
+
+    if (this.partyMembers.length === 0) {
       if (this.parent?.hero?.id) {
         this.partyMembers.push({ heroId: this.parent.hero.id, name: this.parent.hero.name, color: this.parent.hero.color });
       }
       console.log(this.parent?.hero?.id, this.parentCharacter, this.root.level);
     }
-   
     console.log("rendering party", this.items, this.partyMembers);
     for (let member of this.partyMembers) {
       let tmpName = member.name;

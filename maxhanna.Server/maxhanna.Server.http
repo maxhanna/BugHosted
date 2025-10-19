@@ -177,3 +177,10 @@ Accept: application/json
 POST {{maxhanna.Server_HostAddress}}/Search/
 Accept: application/json
 ###
+### 
+GET {{maxhanna.Server_HostAddress}}/Bones/
+Accept: application/json
+###
+POST {{maxhanna.Server_HostAddress}}/Bones/
+Accept: application/json
+###
