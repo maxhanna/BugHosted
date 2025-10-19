@@ -383,8 +383,8 @@ namespace maxhanna.Server.Controllers
 				while (await rdr.ReadAsync())
 				{
 					FileEntry? displayPic = !rdr.IsDBNull(rdr.GetOrdinal("display_picture_file_id")) ? new FileEntry(rdr.GetInt32(rdr.GetOrdinal("display_picture_file_id"))) : null;
-					User? ownerUser = !rdr.IsDBNull(rdr.GetOrdinal("user_id")) ? new User(id: rdr.GetInt32(rdr.GetOrdinal("user_id")), username: rdr.IsDBNull(rdr.GetOrdinal("username")) ? "Anonymous" : rdr.GetString(rdr.GetOrdinal("username")), displayPictureFile: displayPic) : null;
-					results.Add(new { botId = rdr.GetInt32("botId"), heroId = rdr.IsDBNull(rdr.GetOrdinal("heroId")) ? (int?)null : rdr.GetInt32("heroId"), level = rdr.IsDBNull(rdr.GetOrdinal("level")) ? 0 : rdr.GetInt32("level"), exp = rdr.IsDBNull(rdr.GetOrdinal("exp")) ? 0 : rdr.GetInt32("exp"), owner = ownerUser, heroName = rdr.IsDBNull(rdr.GetOrdinal("heroName")) ? null : rdr.GetString("heroName") });
+					User? ownerUser = !rdr.IsDBNull(rdr.GetOrdinal("user_id")) ? new User(id: rdr.GetInt32(rdr.GetOrdinal("user_id")), username: rdr.IsDBNull(rdr.GetOrdinal("username")) ? "Anonymous" : SafeGetString(rdr, "username") ?? "Anonymous", displayPictureFile: displayPic) : null;
+					results.Add(new { botId = rdr.GetInt32("botId"), heroId = rdr.IsDBNull(rdr.GetOrdinal("heroId")) ? (int?)null : rdr.GetInt32("heroId"), level = rdr.IsDBNull(rdr.GetOrdinal("level")) ? 0 : rdr.GetInt32("level"), exp = rdr.IsDBNull(rdr.GetOrdinal("exp")) ? 0 : rdr.GetInt32("exp"), owner = ownerUser, heroName = rdr.IsDBNull(rdr.GetOrdinal("heroName")) ? null : SafeGetString(rdr, "heroName") });
 				}
 				return Ok(results);
 			}
@@ -470,8 +470,8 @@ namespace maxhanna.Server.Controllers
 				while (await rdr.ReadAsync())
 				{
 					FileEntry? displayPic = !rdr.IsDBNull(rdr.GetOrdinal("display_picture_file_id")) ? new FileEntry(rdr.GetInt32(rdr.GetOrdinal("display_picture_file_id"))) : null;
-					User? ownerUser = !rdr.IsDBNull(rdr.GetOrdinal("userId")) ? new User(id: rdr.GetInt32(rdr.GetOrdinal("userId")), username: rdr.IsDBNull(rdr.GetOrdinal("username")) ? "Anonymous" : rdr.GetString(rdr.GetOrdinal("username")), displayPictureFile: displayPic) : null;
-					results.Add(new { heroId = rdr.GetInt32("heroId"), owner = ownerUser, heroName = rdr.IsDBNull(rdr.GetOrdinal("heroName")) ? null : rdr.GetString("heroName"), totalMetabotLevels = rdr.IsDBNull(rdr.GetOrdinal("totalMetabotLevels")) ? 0 : rdr.GetInt32("totalMetabotLevels"), botCount = rdr.IsDBNull(rdr.GetOrdinal("botCount")) ? 0 : rdr.GetInt32("botCount") });
+					User? ownerUser = !rdr.IsDBNull(rdr.GetOrdinal("userId")) ? new User(id: rdr.GetInt32(rdr.GetOrdinal("userId")), username: rdr.IsDBNull(rdr.GetOrdinal("username")) ? "Anonymous" : SafeGetString(rdr, "username") ?? "Anonymous", displayPictureFile: displayPic) : null;
+					results.Add(new { heroId = rdr.GetInt32("heroId"), owner = ownerUser, heroName = rdr.IsDBNull(rdr.GetOrdinal("heroName")) ? null : SafeGetString(rdr, "heroName"), totalMetabotLevels = rdr.IsDBNull(rdr.GetOrdinal("totalMetabotLevels")) ? 0 : rdr.GetInt32("totalMetabotLevels"), botCount = rdr.IsDBNull(rdr.GetOrdinal("botCount")) ? 0 : rdr.GetInt32("botCount") });
 				}
 				return Ok(results);
 			}
@@ -559,7 +559,10 @@ namespace maxhanna.Server.Controllers
 			{
 				while (reader.Read())
 				{
-					MetaEvent tmpEvent = new(reader.GetInt32("id"), reader.GetInt32("hero_id"), reader.GetDateTime("timestamp"), reader.GetString("event"), reader.GetString("map"), Newtonsoft.Json.JsonConvert.DeserializeObject<Dictionary<string, string>>(reader.GetString("data")) ?? new Dictionary<string, string>());
+					var ev = SafeGetString(reader, "event") ?? string.Empty;
+					var mp = SafeGetString(reader, "map") ?? string.Empty;
+					var dataJson = SafeGetString(reader, "data") ?? string.Empty;
+					MetaEvent tmpEvent = new(reader.GetInt32("id"), reader.GetInt32("hero_id"), reader.GetDateTime("timestamp"), ev, mp, !string.IsNullOrEmpty(dataJson) ? Newtonsoft.Json.JsonConvert.DeserializeObject<Dictionary<string, string>>(dataJson) ?? new Dictionary<string, string>() : new Dictionary<string, string>());
 					events.Add(tmpEvent);
 				}
 			}
@@ -579,19 +582,22 @@ namespace maxhanna.Server.Controllers
 				{
 					if (hero == null)
 					{
-						hero = new MetaHero { Id = reader.GetInt32("hero_id"), Position = new Vector2(reader.GetInt32("coordsX"), reader.GetInt32("coordsY")), Speed = reader.GetInt32("speed"), Map = reader.GetString("map"), Name = reader.GetString("hero_name"), Color = reader.GetString("hero_color"), Mask = reader.IsDBNull(reader.GetOrdinal("hero_mask")) ? null : reader.GetInt32("hero_mask"), Metabots = new List<MetaBot>() };
+						hero = new MetaHero { Id = reader.GetInt32("hero_id"), Position = new Vector2(reader.GetInt32("coordsX"), reader.GetInt32("coordsY")), Speed = reader.GetInt32("speed"), Map = SafeGetString(reader, "map") ?? string.Empty, Name = SafeGetString(reader, "hero_name"), Color = SafeGetString(reader, "hero_color") ?? string.Empty, Mask = reader.IsDBNull(reader.GetOrdinal("hero_mask")) ? null : reader.GetInt32("hero_mask"), Metabots = new List<MetaBot>() };
 					}
-					if (!reader.IsDBNull(reader.GetOrdinal("bot_id")))
+						if (!reader.IsDBNull(reader.GetOrdinal("bot_id")))
 					{
 						int botId = reader.GetInt32("bot_id");
 						if (!metabotDict.TryGetValue(botId, out MetaBot? bot))
 						{
-							bot = new MetaBot { Id = botId, Name = reader.GetString("bot_name"), Type = reader.GetInt32("bot_type"), Hp = reader.GetInt32("bot_hp"), Level = reader.GetInt32("bot_level"), Exp = reader.GetInt32("bot_exp"), IsDeployed = reader.GetBoolean("bot_is_deployed"), HeroId = hero.Id };
+								int botNameOrd = reader.GetOrdinal("bot_name");
+								bot = new MetaBot { Id = botId, Name = reader.IsDBNull(botNameOrd) ? null : reader.GetString(botNameOrd), Type = reader.GetInt32("bot_type"), Hp = reader.GetInt32("bot_hp"), Level = reader.GetInt32("bot_level"), Exp = reader.GetInt32("bot_exp"), IsDeployed = reader.GetBoolean("bot_is_deployed"), HeroId = hero.Id };
 							metabotDict[botId] = bot; hero.Metabots ??= new List<MetaBot>(); hero.Metabots.Add(bot);
 						}
 						if (!reader.IsDBNull(reader.GetOrdinal("part_id")))
 						{
-							MetaBotPart part = new() { HeroId = hero.Id, Id = reader.GetInt32("part_id"), PartName = reader.GetString("part_name"), Type = reader.GetInt32("part_type"), DamageMod = reader.GetInt32("damage_mod"), Skill = reader.IsDBNull(reader.GetOrdinal("skill")) ? null : new Skill(reader.GetString("skill"), 0) };
+								int partNameOrd = reader.GetOrdinal("part_name");
+								int skillOrd = reader.GetOrdinal("skill");
+								MetaBotPart part = new() { HeroId = hero.Id, Id = reader.GetInt32("part_id"), PartName = reader.IsDBNull(partNameOrd) ? null : reader.GetString(partNameOrd), Type = reader.GetInt32("part_type"), DamageMod = reader.GetInt32("damage_mod"), Skill = reader.IsDBNull(skillOrd) ? null : new Skill(reader.GetString(skillOrd), 0) };
 							switch (part.PartName?.ToLower()) { case "head": bot.Head = part; break; case "legs": bot.Legs = part; break; case "left_arm": bot.LeftArm = part; break; case "right_arm": bot.RightArm = part; break; }
 						}
 					}
@@ -617,12 +623,15 @@ namespace maxhanna.Server.Controllers
 					MetaBot? metabot = bots.FirstOrDefault(m => m.Id == Convert.ToInt32(reader["metabot_id"]));
 					if (metabot == null)
 					{
-						metabot = new MetaBot { Id = Convert.ToInt32(reader["metabot_id"]), Name = reader.GetString(reader.GetOrdinal("metabot_name")), HeroId = heroId, Type = Convert.ToInt32(reader["metabot_type"]), Hp = Convert.ToInt32(reader["metabot_hp"]), Exp = Convert.ToInt32(reader["metabot_exp"]), Level = Convert.ToInt32(reader["metabot_level"]), IsDeployed = Convert.ToBoolean(reader["metabot_is_deployed"]), Position = new Vector2(Convert.ToInt32(reader["coordsX"]), Convert.ToInt32(reader["coordsY"])) };
+							int metabotNameOrd = reader.GetOrdinal("metabot_name");
+							metabot = new MetaBot { Id = Convert.ToInt32(reader["metabot_id"]), Name = reader.IsDBNull(metabotNameOrd) ? null : reader.GetString(metabotNameOrd), HeroId = heroId, Type = Convert.ToInt32(reader["metabot_type"]), Hp = Convert.ToInt32(reader["metabot_hp"]), Exp = Convert.ToInt32(reader["metabot_exp"]), Level = Convert.ToInt32(reader["metabot_level"]), IsDeployed = Convert.ToBoolean(reader["metabot_is_deployed"]), Position = new Vector2(Convert.ToInt32(reader["coordsX"]), Convert.ToInt32(reader["coordsY"])) };
 						bots.Add(metabot);
 					}
 					if (!reader.IsDBNull(reader.GetOrdinal("part_id")))
 					{
-						MetaBotPart part = new() { HeroId = heroId, Id = Convert.ToInt32(reader["part_id"]), PartName = reader.GetString(reader.GetOrdinal("part_name")), Type = Convert.ToInt32(reader["part_type"]), DamageMod = Convert.ToInt32(reader["damage_mod"]), Skill = !reader.IsDBNull(reader.GetOrdinal("skill")) ? new Skill(reader.GetString(reader.GetOrdinal("skill")), 0) : null };
+							int pNameOrd = reader.GetOrdinal("part_name");
+							int pSkillOrd = reader.GetOrdinal("skill");
+							MetaBotPart part = new() { HeroId = heroId, Id = Convert.ToInt32(reader["part_id"]), PartName = reader.IsDBNull(pNameOrd) ? null : reader.GetString(pNameOrd), Type = Convert.ToInt32(reader["part_type"]), DamageMod = Convert.ToInt32(reader["damage_mod"]), Skill = !reader.IsDBNull(pSkillOrd) ? new Skill(reader.GetString(pSkillOrd), 0) : null };
 						switch (part.PartName?.ToLower()) { case "head": metabot.Head = part; break; case "legs": metabot.Legs = part; break; case "left_arm": metabot.LeftArm = part; break; case "right_arm": metabot.RightArm = part; break; }
 					}
 				}
@@ -641,26 +650,34 @@ namespace maxhanna.Server.Controllers
 				while (await reader.ReadAsync())
 				{
 					int heroId = Convert.ToInt32(reader["hero_id"]);
-					if (!heroesDict.TryGetValue(heroId, out MetaHero? tmpHero))
-					{
-						tmpHero = new MetaHero { Id = heroId, Name = reader.GetString(reader.GetOrdinal("hero_name")), Map = reader.GetString(reader.GetOrdinal("hero_map")), Color = reader.GetString(reader.GetOrdinal("color")), Mask = reader.IsDBNull(reader.GetOrdinal("mask")) ? null : reader.GetInt32(reader.GetOrdinal("mask")), Position = new Vector2(reader.GetInt32("coordsX"), reader.GetInt32("coordsY")), Speed = reader.GetInt32("speed"), Metabots = new List<MetaBot>() };
-						heroesDict[heroId] = tmpHero;
-					}
+							if (!heroesDict.TryGetValue(heroId, out MetaHero? tmpHero))
+							{
+								int hNameOrd = reader.GetOrdinal("hero_name");
+								int hMapOrd = reader.GetOrdinal("hero_map");
+								int colorOrd = reader.GetOrdinal("color");
+								int maskOrd = reader.GetOrdinal("mask");
+								tmpHero = new MetaHero { Id = heroId, Name = reader.IsDBNull(hNameOrd) ? null : reader.GetString(hNameOrd), Map = reader.IsDBNull(hMapOrd) ? string.Empty : reader.GetString(hMapOrd), Color = reader.IsDBNull(colorOrd) ? string.Empty : reader.GetString(colorOrd), Mask = reader.IsDBNull(maskOrd) ? null : reader.GetInt32(maskOrd), Position = new Vector2(reader.GetInt32("coordsX"), reader.GetInt32("coordsY")), Speed = reader.GetInt32("speed"), Metabots = new List<MetaBot>() };
+								heroesDict[heroId] = tmpHero;
+							}
 					if (!reader.IsDBNull(reader.GetOrdinal("metabot_id")))
 					{
 						int metabotId = reader.GetInt32("metabot_id");
 						MetaBot? metabot = tmpHero.Metabots?.FirstOrDefault(m => m.Id == metabotId);
-						if (metabot == null)
-						{
-							metabot = new MetaBot { Id = metabotId, Name = reader.GetString("metabot_name"), HeroId = heroId, Type = reader.GetInt32("metabot_type"), Hp = reader.GetInt32("metabot_hp"), Exp = reader.GetInt32("metabot_exp"), Level = reader.GetInt32("metabot_level"), IsDeployed = reader.GetBoolean("metabot_is_deployed") };
-							if (tmpHero.Metabots == null) tmpHero.Metabots = new List<MetaBot>();
-							tmpHero.Metabots.Add(metabot);
-						}
-						if (!reader.IsDBNull(reader.GetOrdinal("part_id")))
-						{
-							MetaBotPart part = new() { HeroId = heroId, Id = reader.GetInt32("part_id"), PartName = reader.GetString("part_name"), Type = reader.GetInt32("part_type"), DamageMod = reader.GetInt32("damage_mod"), Skill = reader.IsDBNull(reader.GetOrdinal("skill")) ? null : new Skill(reader.GetString("skill"), 0) };
-							switch (part.PartName?.ToLower()) { case "head": metabot.Head = part; break; case "legs": metabot.Legs = part; break; case "left_arm": metabot.LeftArm = part; break; case "right_arm": metabot.RightArm = part; break; }
-						}
+							if (metabot == null)
+							{
+								int mNameOrd = reader.GetOrdinal("metabot_name");
+								metabot = new MetaBot { Id = metabotId, Name = reader.IsDBNull(mNameOrd) ? null : reader.GetString(mNameOrd), HeroId = heroId, Type = reader.GetInt32("metabot_type"), Hp = reader.GetInt32("metabot_hp"), Exp = reader.GetInt32("metabot_exp"), Level = reader.GetInt32("metabot_level"), IsDeployed = reader.GetBoolean("metabot_is_deployed") };
+								if (tmpHero.Metabots == null) tmpHero.Metabots = new List<MetaBot>();
+								tmpHero.Metabots.Add(metabot);
+							}
+							if (!reader.IsDBNull(reader.GetOrdinal("part_id")))
+							{
+								int partIdOrd2 = reader.GetOrdinal("part_id");
+								int partNameOrd2 = reader.GetOrdinal("part_name");
+								int partSkillOrd2 = reader.GetOrdinal("skill");
+								MetaBotPart part = new() { HeroId = heroId, Id = reader.GetInt32(partIdOrd2), PartName = reader.IsDBNull(partNameOrd2) ? null : reader.GetString(partNameOrd2), Type = reader.GetInt32("part_type"), DamageMod = reader.GetInt32("damage_mod"), Skill = reader.IsDBNull(partSkillOrd2) ? null : new Skill(reader.GetString(partSkillOrd2), 0) };
+								switch (part.PartName?.ToLower()) { case "head": metabot.Head = part; break; case "legs": metabot.Legs = part; break; case "left_arm": metabot.LeftArm = part; break; case "right_arm": metabot.RightArm = part; break; }
+							}
 					}
 				}
 			}
@@ -677,7 +694,7 @@ namespace maxhanna.Server.Controllers
 			{
 				while (reader.Read())
 				{
-					MetaInventoryItem tmpInventoryItem = new(reader.GetInt32("id"), reader.GetInt32("bones_hero_id"), reader.GetDateTime("created"), reader.GetString("name"), reader.GetString("image"), reader.GetString("category"), reader.IsDBNull(reader.GetOrdinal("quantity")) ? null : reader.GetInt32("quantity"));
+					MetaInventoryItem tmpInventoryItem = new(reader.GetInt32("id"), reader.GetInt32("bones_hero_id"), reader.GetDateTime("created"), SafeGetString(reader, "name"), SafeGetString(reader, "image"), SafeGetString(reader, "category"), reader.IsDBNull(reader.GetOrdinal("quantity")) ? null : reader.GetInt32("quantity"));
 					inventory.Add(tmpInventoryItem);
 				}
 			}
@@ -694,7 +711,9 @@ namespace maxhanna.Server.Controllers
 			{
 				while (reader.Read())
 				{
-					MetaBotPart tmpPart = new() { Id = reader.GetInt32("id"), HeroId = reader.GetInt32("hero_id"), MetabotId = reader.IsDBNull(reader.GetOrdinal("metabot_id")) ? null : reader.GetInt32("metabot_id"), Created = reader.GetDateTime("created"), PartName = reader.GetString("part_name"), Skill = new Skill(reader.GetString("skill"), reader.GetInt32("type")), DamageMod = reader.GetInt32("damage_mod") };
+					int partNameOrd3 = reader.GetOrdinal("part_name");
+					int skillOrd3 = reader.GetOrdinal("skill");
+					MetaBotPart tmpPart = new() { Id = reader.GetInt32("id"), HeroId = reader.GetInt32("hero_id"), MetabotId = reader.IsDBNull(reader.GetOrdinal("metabot_id")) ? null : reader.GetInt32("metabot_id"), Created = reader.GetDateTime("created"), PartName = reader.IsDBNull(partNameOrd3) ? null : reader.GetString(partNameOrd3), Skill = reader.IsDBNull(skillOrd3) ? null : new Skill(reader.GetString(skillOrd3), reader.GetInt32("type")), DamageMod = reader.GetInt32("damage_mod") };
 					partInv.Add(tmpPart);
 				}
 			}
@@ -911,6 +930,13 @@ namespace maxhanna.Server.Controllers
 		private int CalculateDamage(MetaBot attacker, MetaBot defender, MetaBotPart attackingPart)
 		{
 			float typeMultiplier = 1.0f; if (attackingPart.Skill != null && TypeEffectiveness.TryGetValue((SkillType)attackingPart.Skill.Type, out SkillType effectiveAgainst) && (int)effectiveAgainst == defender.Type) typeMultiplier = 2.0f; else if (attackingPart.Skill != null && TypeEffectiveness.TryGetValue((SkillType)defender.Type, out SkillType strongAgainst) && (int)strongAgainst == attackingPart.Skill.Type) typeMultiplier = 0.5f; int baseDamage = (int)(attacker.Level * attackingPart.DamageMod * typeMultiplier); float defenseMultiplier = defender.Level / 100f; float defenseFactor = 1f / (1f + defenseMultiplier); int finalDamage = (int)(baseDamage * defenseFactor); if (new Random().NextDouble() < 0.1) finalDamage = (int)(finalDamage * 1.5f); return Math.Max(1, finalDamage);
+		}
+
+		// Helper to safely read nullable string columns from a data reader
+		private static string? SafeGetString(System.Data.Common.DbDataReader reader, string columnName)
+		{
+			int ord = reader.GetOrdinal(columnName);
+			return reader.IsDBNull(ord) ? null : reader.GetString(ord);
 		}
 		private async Task<long?> ExecuteInsertOrUpdateOrDeleteAsync(string sql, Dictionary<string, object?> parameters, MySqlConnection? connection = null, MySqlTransaction? transaction = null)
 		{
