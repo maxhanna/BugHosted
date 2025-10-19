@@ -256,13 +256,14 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
   }
   
   private setServerDown(res: any) {
-    if (res && res.success) {
-      this.resetFailCount();
-    } else if (res.status >= 500) {
-      this.incrementFailCount();
-    } else if (!res || res == null) {
+    if (!res || res == null) {
       this.incrementFailCount();
     }
+    else if (res && (res as any).success) {
+      this.resetFailCount();
+    } else if ((res as any).status && (res as any).status >= 500) {
+      this.incrementFailCount();
+    } 
   }
 
   private resetFailCount() {
