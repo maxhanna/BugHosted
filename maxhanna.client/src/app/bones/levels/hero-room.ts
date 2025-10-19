@@ -17,6 +17,7 @@ export class HeroRoomLevel extends Level {
   showDebugSprites = false;
   constructor(params: { heroPosition?: Vector2, itemsFound?: string[] | undefined } = {}) {
     super(); 
+    console.log("hero room created");
     this.name = "HeroRoom";
     if (params.heroPosition) { 
       this.defaultHeroPosition = params.heroPosition;
