@@ -157,8 +157,14 @@ singleAttachment {
 }
 
 .multipleAttachments {
-  max-width: 225px;
+  max-width: 48%;
   max-height: 525px;
+}
+
+@media only screen and (max-width : 667px) {
+  .multipleAttachments {
+    max-width: 99%;
+  }
 }
 
 .attachmentTdTitle {
