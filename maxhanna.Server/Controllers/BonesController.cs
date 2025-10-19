@@ -170,8 +170,8 @@ namespace maxhanna.Server.Controllers
 			using var transaction = connection.BeginTransaction();
 			try
 			{
-				string sql = @"INSERT INTO maxhanna.bones_hero (name, user_id, coordsX, coordsY, speed)
-                          SELECT @Name, @UserId, @CoordsX, @CoordsY, @Speed
+				string sql = @"INSERT INTO maxhanna.bones_hero (name, user_id, coordsX, coordsY, speed, created, updated)
+                          SELECT @Name, @UserId, @CoordsX, @CoordsY, @Speed, UTC_TIMESTAMP(), UTC_TIMESTAMP
 								WHERE NOT EXISTS (
 									SELECT 1 FROM maxhanna.bones_hero WHERE user_id = @UserId OR name = @Name
 								);";
@@ -508,7 +508,15 @@ namespace maxhanna.Server.Controllers
 		// Helper methods copied from MetaController with log category updated to BONES
 		private async Task<MetaHero> UpdateHeroInDB(MetaHero hero, MySqlConnection connection, MySqlTransaction transaction)
 		{
-			string sql = @"UPDATE maxhanna.bones_hero SET coordsX = @CoordsX, coordsY = @CoordsY, color = @Color, mask = @Mask, map = @Map, speed = @Speed, updated = UTC_TIMESTAMP() WHERE id = @HeroId";
+			string sql = @"UPDATE maxhanna.bones_hero
+						SET coordsX = @CoordsX, 
+							coordsY = @CoordsY,
+							color = @Color, 
+							mask = @Mask, 
+							map = @Map,
+							speed = @Speed, 
+							updated = UTC_TIMESTAMP()
+						WHERE id = @HeroId";
 			Dictionary<string, object?> parameters = new() { { "@CoordsX", hero.Position.x }, { "@CoordsY", hero.Position.y }, { "@Color", hero.Color }, { "@Mask", hero.Mask }, { "@Map", hero.Map }, { "@Speed", hero.Speed }, { "@HeroId", hero.Id } };
 			await ExecuteInsertOrUpdateOrDeleteAsync(sql, parameters, connection, transaction);
 			return hero;
