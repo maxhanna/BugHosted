@@ -702,6 +702,22 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
     }, 10);
     
   }
+
+  isFocused: boolean = false;
+
+  onTextFocus() {
+    this.isFocused = true;
+  }
+
+  onTextBlur() {
+    this.isFocused = false;
+  }
+
+  onDragStart(event: DragEvent) {
+    if (this.isFocused) {
+      try { event.preventDefault(); } catch { /* ignore */ }
+    }
+  }
   onKeyDown(event: KeyboardEvent) {
     if (this.enterToPost) {
       if (event.key === 'Enter' && !event.ctrlKey && !event.shiftKey) {
