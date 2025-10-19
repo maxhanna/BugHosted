@@ -343,7 +343,16 @@ namespace maxhanna.Server.Controllers
 				using var reader = await command.ExecuteReaderAsync();
 				while (await reader.ReadAsync())
 				{
-					partyMembers.Add(new { heroId = reader.GetInt32("id"), name = reader.GetString("name"), color = reader.IsDBNull(reader.GetOrdinal("color")) ? null : reader.GetString("color") });
+					int idOrdinal = reader.GetOrdinal("id");
+					int nameOrdinal = reader.GetOrdinal("name");
+					int colorOrdinal = reader.GetOrdinal("color");
+					partyMembers.Add(
+						new
+						{
+							heroId = reader.GetInt32(idOrdinal),
+							name = reader.IsDBNull(nameOrdinal) ? null : reader.GetString(nameOrdinal),
+							color = reader.IsDBNull(colorOrdinal) ? null : reader.GetString(colorOrdinal)
+						});
 				}
 				return Ok(partyMembers);
 			}
