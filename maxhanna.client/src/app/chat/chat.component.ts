@@ -254,20 +254,29 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
       console.error('Error fetching message history:', error);
     }
   }
+  
   private setServerDown(res: any) {
     if (res && res.success) {
-      this.serverDown = false;
-      this.failCount = 0;
+      this.resetFailCount();
     } else if (res.status >= 500) {
-      this.failCount++;
-      if (this.failCount > 2) {
-        this.serverDown = true;
-      } else {
-        this.serverDown = false;
-      }
+      this.incrementFailCount();
+    } else if (!res || res == null) {
+      this.incrementFailCount();
     }
   }
 
+  private resetFailCount() {
+    this.serverDown = false;
+    this.failCount = 0;
+  }
+  private incrementFailCount() {
+    this.failCount++;
+    if (this.failCount > 2) {
+      this.serverDown = true;
+    } else {
+      this.serverDown = false;
+    }
+  }
   private updateSeenStatus(res: any) {
     res.messages.forEach((newMessage: Message) => {
       const existingMessage = this.chatHistory.find((msg: Message) => msg.id === newMessage.id);
@@ -872,8 +881,8 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
     if (receivedNewMessages) {
       console.log("playing sound!", new Date());
       const notificationSound = new Audio("https://bughosted.com/assets/Uploads/Users/Max/arcade-ui-30-229499.mp4");
-      try { 
-        notificationSound.volume = 0.3; 
+      try {
+        notificationSound.volume = 0.3;
         notificationSound.play()
       } catch (e) { console.error("Error playing notification sound:", e) }
     }
