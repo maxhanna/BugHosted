@@ -26,7 +26,7 @@ namespace maxhanna.Server.Controllers
 				{ SkillType.INTELLIGENCE, SkillType.STRENGTH }
 		};
 
-		private enum SkillType { NORMAL=0, SPEED=1, STRENGTH=2, ARMOR=3, RANGED=4, STEALTH=5, INTELLIGENCE=6 }
+		private enum SkillType { NORMAL = 0, SPEED = 1, STRENGTH = 2, ARMOR = 3, RANGED = 4, STEALTH = 5, INTELLIGENCE = 6 }
 
 		public BonesController(Log log, IConfiguration config)
 		{
@@ -508,7 +508,7 @@ namespace maxhanna.Server.Controllers
 		// Helper methods copied from MetaController with log category updated to BONES
 		private async Task<MetaHero> UpdateHeroInDB(MetaHero hero, MySqlConnection connection, MySqlTransaction transaction)
 		{
-			string sql = @"UPDATE maxhanna.bones_hero SET coordsX = @CoordsX, coordsY = @CoordsY, color = @Color, mask = @Mask, map = @Map, speed = @Speed WHERE id = @HeroId";
+			string sql = @"UPDATE maxhanna.bones_hero SET coordsX = @CoordsX, coordsY = @CoordsY, color = @Color, mask = @Mask, map = @Map, speed = @Speed, updated = UTC_TIMESTAMP() WHERE id = @HeroId";
 			Dictionary<string, object?> parameters = new() { { "@CoordsX", hero.Position.x }, { "@CoordsY", hero.Position.y }, { "@Color", hero.Color }, { "@Mask", hero.Mask }, { "@Map", hero.Map }, { "@Speed", hero.Speed }, { "@HeroId", hero.Id } };
 			await ExecuteInsertOrUpdateOrDeleteAsync(sql, parameters, connection, transaction);
 			return hero;
@@ -584,20 +584,20 @@ namespace maxhanna.Server.Controllers
 					{
 						hero = new MetaHero { Id = reader.GetInt32("hero_id"), Position = new Vector2(reader.GetInt32("coordsX"), reader.GetInt32("coordsY")), Speed = reader.GetInt32("speed"), Map = SafeGetString(reader, "map") ?? string.Empty, Name = SafeGetString(reader, "hero_name"), Color = SafeGetString(reader, "hero_color") ?? string.Empty, Mask = reader.IsDBNull(reader.GetOrdinal("hero_mask")) ? null : reader.GetInt32("hero_mask"), Metabots = new List<MetaBot>() };
 					}
-						if (!reader.IsDBNull(reader.GetOrdinal("bot_id")))
+					if (!reader.IsDBNull(reader.GetOrdinal("bot_id")))
 					{
 						int botId = reader.GetInt32("bot_id");
 						if (!metabotDict.TryGetValue(botId, out MetaBot? bot))
 						{
-								int botNameOrd = reader.GetOrdinal("bot_name");
-								bot = new MetaBot { Id = botId, Name = reader.IsDBNull(botNameOrd) ? null : reader.GetString(botNameOrd), Type = reader.GetInt32("bot_type"), Hp = reader.GetInt32("bot_hp"), Level = reader.GetInt32("bot_level"), Exp = reader.GetInt32("bot_exp"), IsDeployed = reader.GetBoolean("bot_is_deployed"), HeroId = hero.Id };
+							int botNameOrd = reader.GetOrdinal("bot_name");
+							bot = new MetaBot { Id = botId, Name = reader.IsDBNull(botNameOrd) ? null : reader.GetString(botNameOrd), Type = reader.GetInt32("bot_type"), Hp = reader.GetInt32("bot_hp"), Level = reader.GetInt32("bot_level"), Exp = reader.GetInt32("bot_exp"), IsDeployed = reader.GetBoolean("bot_is_deployed"), HeroId = hero.Id };
 							metabotDict[botId] = bot; hero.Metabots ??= new List<MetaBot>(); hero.Metabots.Add(bot);
 						}
 						if (!reader.IsDBNull(reader.GetOrdinal("part_id")))
 						{
-								int partNameOrd = reader.GetOrdinal("part_name");
-								int skillOrd = reader.GetOrdinal("skill");
-								MetaBotPart part = new() { HeroId = hero.Id, Id = reader.GetInt32("part_id"), PartName = reader.IsDBNull(partNameOrd) ? null : reader.GetString(partNameOrd), Type = reader.GetInt32("part_type"), DamageMod = reader.GetInt32("damage_mod"), Skill = reader.IsDBNull(skillOrd) ? null : new Skill(reader.GetString(skillOrd), 0) };
+							int partNameOrd = reader.GetOrdinal("part_name");
+							int skillOrd = reader.GetOrdinal("skill");
+							MetaBotPart part = new() { HeroId = hero.Id, Id = reader.GetInt32("part_id"), PartName = reader.IsDBNull(partNameOrd) ? null : reader.GetString(partNameOrd), Type = reader.GetInt32("part_type"), DamageMod = reader.GetInt32("damage_mod"), Skill = reader.IsDBNull(skillOrd) ? null : new Skill(reader.GetString(skillOrd), 0) };
 							switch (part.PartName?.ToLower()) { case "head": bot.Head = part; break; case "legs": bot.Legs = part; break; case "left_arm": bot.LeftArm = part; break; case "right_arm": bot.RightArm = part; break; }
 						}
 					}
@@ -623,15 +623,15 @@ namespace maxhanna.Server.Controllers
 					MetaBot? metabot = bots.FirstOrDefault(m => m.Id == Convert.ToInt32(reader["metabot_id"]));
 					if (metabot == null)
 					{
-							int metabotNameOrd = reader.GetOrdinal("metabot_name");
-							metabot = new MetaBot { Id = Convert.ToInt32(reader["metabot_id"]), Name = reader.IsDBNull(metabotNameOrd) ? null : reader.GetString(metabotNameOrd), HeroId = heroId, Type = Convert.ToInt32(reader["metabot_type"]), Hp = Convert.ToInt32(reader["metabot_hp"]), Exp = Convert.ToInt32(reader["metabot_exp"]), Level = Convert.ToInt32(reader["metabot_level"]), IsDeployed = Convert.ToBoolean(reader["metabot_is_deployed"]), Position = new Vector2(Convert.ToInt32(reader["coordsX"]), Convert.ToInt32(reader["coordsY"])) };
+						int metabotNameOrd = reader.GetOrdinal("metabot_name");
+						metabot = new MetaBot { Id = Convert.ToInt32(reader["metabot_id"]), Name = reader.IsDBNull(metabotNameOrd) ? null : reader.GetString(metabotNameOrd), HeroId = heroId, Type = Convert.ToInt32(reader["metabot_type"]), Hp = Convert.ToInt32(reader["metabot_hp"]), Exp = Convert.ToInt32(reader["metabot_exp"]), Level = Convert.ToInt32(reader["metabot_level"]), IsDeployed = Convert.ToBoolean(reader["metabot_is_deployed"]), Position = new Vector2(Convert.ToInt32(reader["coordsX"]), Convert.ToInt32(reader["coordsY"])) };
 						bots.Add(metabot);
 					}
 					if (!reader.IsDBNull(reader.GetOrdinal("part_id")))
 					{
-							int pNameOrd = reader.GetOrdinal("part_name");
-							int pSkillOrd = reader.GetOrdinal("skill");
-							MetaBotPart part = new() { HeroId = heroId, Id = Convert.ToInt32(reader["part_id"]), PartName = reader.IsDBNull(pNameOrd) ? null : reader.GetString(pNameOrd), Type = Convert.ToInt32(reader["part_type"]), DamageMod = Convert.ToInt32(reader["damage_mod"]), Skill = !reader.IsDBNull(pSkillOrd) ? new Skill(reader.GetString(pSkillOrd), 0) : null };
+						int pNameOrd = reader.GetOrdinal("part_name");
+						int pSkillOrd = reader.GetOrdinal("skill");
+						MetaBotPart part = new() { HeroId = heroId, Id = Convert.ToInt32(reader["part_id"]), PartName = reader.IsDBNull(pNameOrd) ? null : reader.GetString(pNameOrd), Type = Convert.ToInt32(reader["part_type"]), DamageMod = Convert.ToInt32(reader["damage_mod"]), Skill = !reader.IsDBNull(pSkillOrd) ? new Skill(reader.GetString(pSkillOrd), 0) : null };
 						switch (part.PartName?.ToLower()) { case "head": metabot.Head = part; break; case "legs": metabot.Legs = part; break; case "left_arm": metabot.LeftArm = part; break; case "right_arm": metabot.RightArm = part; break; }
 					}
 				}
@@ -643,41 +643,90 @@ namespace maxhanna.Server.Controllers
 			if (conn.State != System.Data.ConnectionState.Open) await conn.OpenAsync();
 			if (transaction == null) throw new InvalidOperationException("Transaction is required for this operation.");
 			Dictionary<int, MetaHero> heroesDict = new();
-			string sql = @"SELECT m.id as hero_id, m.name as hero_name, m.map as hero_map, m.coordsX, m.coordsY, m.speed, m.color, m.mask, b.id as metabot_id, b.name as metabot_name, b.type as metabot_type, b.hp as metabot_hp, b.level as metabot_level, b.exp as metabot_exp, b.is_deployed as metabot_is_deployed, p.id as part_id, p.part_name, p.type as part_type, p.damage_mod, p.skill FROM maxhanna.bones_hero m LEFT JOIN maxhanna.bones_bot b on b.hero_id = m.id LEFT JOIN maxhanna.bones_bot_part p ON b.id = p.metabot_id WHERE m.map = @HeroMapId ORDER BY m.coordsY ASC;";
+			string sql = @"SELECT m.id as hero_id, 
+				m.name as hero_name,
+				m.map as hero_map, 
+				m.coordsX, m.coordsY, 
+				m.speed, 
+				m.color,
+				m.mask, 
+				m.level as hero_level,
+				m.updated as hero_updated,
+				m.created as hero_created,
+				b.id as metabot_id,
+				b.name as metabot_name,
+				b.type as metabot_type,
+				b.hp as metabot_hp,
+				b.level as metabot_level,
+				b.exp as metabot_exp, 
+				b.is_deployed as metabot_is_deployed, 
+				p.id as part_id, 
+				p.part_name,
+				p.type as part_type,
+				p.damage_mod, 
+				p.skill FROM maxhanna.bones_hero m 
+				LEFT JOIN maxhanna.bones_bot b on b.hero_id = m.id 
+				LEFT JOIN maxhanna.bones_bot_part p ON b.id = p.metabot_id 
+				WHERE m.map = @HeroMapId 
+				ORDER BY m.coordsY ASC;";
 			MySqlCommand cmd = new(sql, conn, transaction); cmd.Parameters.AddWithValue("@HeroMapId", hero.Map);
 			using (var reader = await cmd.ExecuteReaderAsync())
 			{
 				while (await reader.ReadAsync())
 				{
 					int heroId = Convert.ToInt32(reader["hero_id"]);
-							if (!heroesDict.TryGetValue(heroId, out MetaHero? tmpHero))
-							{
-								int hNameOrd = reader.GetOrdinal("hero_name");
-								int hMapOrd = reader.GetOrdinal("hero_map");
-								int colorOrd = reader.GetOrdinal("color");
-								int maskOrd = reader.GetOrdinal("mask");
-								tmpHero = new MetaHero { Id = heroId, Name = reader.IsDBNull(hNameOrd) ? null : reader.GetString(hNameOrd), Map = reader.IsDBNull(hMapOrd) ? string.Empty : reader.GetString(hMapOrd), Color = reader.IsDBNull(colorOrd) ? string.Empty : reader.GetString(colorOrd), Mask = reader.IsDBNull(maskOrd) ? null : reader.GetInt32(maskOrd), Position = new Vector2(reader.GetInt32("coordsX"), reader.GetInt32("coordsY")), Speed = reader.GetInt32("speed"), Metabots = new List<MetaBot>() };
-								heroesDict[heroId] = tmpHero;
-							}
+					if (!heroesDict.TryGetValue(heroId, out MetaHero? tmpHero))
+					{
+						int hNameOrd = reader.GetOrdinal("hero_name");
+						int hMapOrd = reader.GetOrdinal("hero_map");
+						int hLevelOrd = reader.GetOrdinal("hero_level");
+						int hUpdatedOrd = reader.GetOrdinal("hero_updated");
+						int hCreatedOrd = reader.GetOrdinal("hero_created");
+						int colorOrd = reader.GetOrdinal("color");
+						int maskOrd = reader.GetOrdinal("mask");
+						tmpHero = new MetaHero {
+							Id = heroId,
+							Name = reader.IsDBNull(hNameOrd) ? null : reader.GetString(hNameOrd),
+							Map = reader.IsDBNull(hMapOrd) ? string.Empty : reader.GetString(hMapOrd),
+							Level = reader.IsDBNull(hLevelOrd) ? 0 : reader.GetInt32(hLevelOrd),
+							Updated = reader.IsDBNull(hUpdatedOrd) ? DateTime.UtcNow : reader.GetDateTime(hUpdatedOrd),
+							Created = reader.IsDBNull(hCreatedOrd) ? DateTime.UtcNow : reader.GetDateTime(hCreatedOrd),
+							Color = reader.IsDBNull(colorOrd) ? string.Empty : reader.GetString(colorOrd),
+							Mask = reader.IsDBNull(maskOrd) ? null : reader.GetInt32(maskOrd),
+							Position = new Vector2(reader.GetInt32("coordsX"), reader.GetInt32("coordsY")),
+							Speed = reader.GetInt32("speed"),
+							Metabots = new List<MetaBot>()
+						};
+						heroesDict[heroId] = tmpHero;
+					}
 					if (!reader.IsDBNull(reader.GetOrdinal("metabot_id")))
 					{
 						int metabotId = reader.GetInt32("metabot_id");
 						MetaBot? metabot = tmpHero.Metabots?.FirstOrDefault(m => m.Id == metabotId);
-							if (metabot == null)
-							{
-								int mNameOrd = reader.GetOrdinal("metabot_name");
-								metabot = new MetaBot { Id = metabotId, Name = reader.IsDBNull(mNameOrd) ? null : reader.GetString(mNameOrd), HeroId = heroId, Type = reader.GetInt32("metabot_type"), Hp = reader.GetInt32("metabot_hp"), Exp = reader.GetInt32("metabot_exp"), Level = reader.GetInt32("metabot_level"), IsDeployed = reader.GetBoolean("metabot_is_deployed") };
-								if (tmpHero.Metabots == null) tmpHero.Metabots = new List<MetaBot>();
-								tmpHero.Metabots.Add(metabot);
-							}
-							if (!reader.IsDBNull(reader.GetOrdinal("part_id")))
-							{
-								int partIdOrd2 = reader.GetOrdinal("part_id");
-								int partNameOrd2 = reader.GetOrdinal("part_name");
-								int partSkillOrd2 = reader.GetOrdinal("skill");
-								MetaBotPart part = new() { HeroId = heroId, Id = reader.GetInt32(partIdOrd2), PartName = reader.IsDBNull(partNameOrd2) ? null : reader.GetString(partNameOrd2), Type = reader.GetInt32("part_type"), DamageMod = reader.GetInt32("damage_mod"), Skill = reader.IsDBNull(partSkillOrd2) ? null : new Skill(reader.GetString(partSkillOrd2), 0) };
-								switch (part.PartName?.ToLower()) { case "head": metabot.Head = part; break; case "legs": metabot.Legs = part; break; case "left_arm": metabot.LeftArm = part; break; case "right_arm": metabot.RightArm = part; break; }
-							}
+						if (metabot == null)
+						{
+							int mNameOrd = reader.GetOrdinal("metabot_name");
+							metabot = new MetaBot {
+								Id = metabotId,
+								Name = reader.IsDBNull(mNameOrd) ? null : reader.GetString(mNameOrd),
+								HeroId = heroId,
+								Type = reader.GetInt32("metabot_type"),
+								Hp = reader.GetInt32("metabot_hp"),
+								Exp = reader.GetInt32("metabot_exp"),
+								Level = reader.GetInt32("metabot_level"),
+								IsDeployed = reader.GetBoolean("metabot_is_deployed")
+							};
+							if (tmpHero.Metabots == null) tmpHero.Metabots = new List<MetaBot>();
+							tmpHero.Metabots.Add(metabot);
+						}
+						if (!reader.IsDBNull(reader.GetOrdinal("part_id")))
+						{
+							int partIdOrd2 = reader.GetOrdinal("part_id");
+							int partNameOrd2 = reader.GetOrdinal("part_name");
+							int partSkillOrd2 = reader.GetOrdinal("skill");
+							MetaBotPart part = new() { HeroId = heroId, Id = reader.GetInt32(partIdOrd2), PartName = reader.IsDBNull(partNameOrd2) ? null : reader.GetString(partNameOrd2), Type = reader.GetInt32("part_type"), DamageMod = reader.GetInt32("damage_mod"), Skill = reader.IsDBNull(partSkillOrd2) ? null : new Skill(reader.GetString(partSkillOrd2), 0) };
+							switch (part.PartName?.ToLower()) { case "head": metabot.Head = part; break; case "legs": metabot.Legs = part; break; case "left_arm": metabot.LeftArm = part; break; case "right_arm": metabot.RightArm = part; break; }
+						}
 					}
 				}
 			}
@@ -913,7 +962,8 @@ namespace maxhanna.Server.Controllers
 		}
 		private async Task AwardExpToPlayer(MetaBot player, MetaBot enemy, MySqlConnection connection, MySqlTransaction transaction)
 		{
-			player.Exp += enemy.Level; int expForNextLevel = CalculateExpForNextLevel(player); while (player.Exp >= expForNextLevel) { player.Exp -= expForNextLevel; player.Level++; expForNextLevel = CalculateExpForNextLevel(player); } await UpdateMetabotInDB(player, connection, transaction);
+			player.Exp += enemy.Level; int expForNextLevel = CalculateExpForNextLevel(player); while (player.Exp >= expForNextLevel) { player.Exp -= expForNextLevel; player.Level++; expForNextLevel = CalculateExpForNextLevel(player); }
+			await UpdateMetabotInDB(player, connection, transaction);
 		}
 		private int CalculateExpForNextLevel(MetaBot player) => (player.Level + 1) * 15;
 		private MetaBotPart GetLastUsedPart(string tableName, string idColumn, int id, MySqlConnection connection, MySqlTransaction? transaction)
@@ -940,7 +990,9 @@ namespace maxhanna.Server.Controllers
 		}
 		private async Task<long?> ExecuteInsertOrUpdateOrDeleteAsync(string sql, Dictionary<string, object?> parameters, MySqlConnection? connection = null, MySqlTransaction? transaction = null)
 		{
-			string cmdText = ""; bool createdConnection = false; long? insertedId = null; int rowsAffected = 0; try { if (connection == null) { connection = new MySqlConnection(_connectionString); await connection.OpenAsync(); createdConnection = true; } if (connection.State != System.Data.ConnectionState.Open) throw new Exception("Connection failed to open."); using (MySqlCommand cmdUpdate = new(sql, connection, transaction)) { foreach (var param in parameters) cmdUpdate.Parameters.AddWithValue(param.Key, param.Value ?? DBNull.Value); cmdText = cmdUpdate.CommandText; rowsAffected = await cmdUpdate.ExecuteNonQueryAsync(); if (sql.Trim().StartsWith("INSERT", StringComparison.OrdinalIgnoreCase)) insertedId = cmdUpdate.LastInsertedId; } } catch (Exception ex) { await _log.Db("Update ERROR: " + ex.Message, null, "BONES", true); await _log.Db(cmdText, null, "BONES", true); foreach (var param in parameters) await _log.Db("Param: " + param.Key + ": " + param.Value, null, "BONES", true); } finally { if (createdConnection && connection != null) await connection.CloseAsync(); } return insertedId ?? rowsAffected; }
+			string cmdText = ""; bool createdConnection = false; long? insertedId = null; int rowsAffected = 0; try { if (connection == null) { connection = new MySqlConnection(_connectionString); await connection.OpenAsync(); createdConnection = true; } if (connection.State != System.Data.ConnectionState.Open) throw new Exception("Connection failed to open."); using (MySqlCommand cmdUpdate = new(sql, connection, transaction)) { foreach (var param in parameters) cmdUpdate.Parameters.AddWithValue(param.Key, param.Value ?? DBNull.Value); cmdText = cmdUpdate.CommandText; rowsAffected = await cmdUpdate.ExecuteNonQueryAsync(); if (sql.Trim().StartsWith("INSERT", StringComparison.OrdinalIgnoreCase)) insertedId = cmdUpdate.LastInsertedId; } } catch (Exception ex) { await _log.Db("Update ERROR: " + ex.Message, null, "BONES", true); await _log.Db(cmdText, null, "BONES", true); foreach (var param in parameters) await _log.Db("Param: " + param.Key + ": " + param.Value, null, "BONES", true); } finally { if (createdConnection && connection != null) await connection.CloseAsync(); }
+			return insertedId ?? rowsAffected;
+		}
 	}
 	class EncounterPositionUpdate
 	{
