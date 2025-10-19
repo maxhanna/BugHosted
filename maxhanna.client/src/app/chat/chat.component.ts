@@ -42,6 +42,8 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
   notificationsEnabled?: boolean = undefined;
   firstMessageDetails: { content: string } | null = null;
   quoteMessage = "";
+  serverDown = false;
+  failCount = 0;
   private pollingInterval: any;
   private isChangingPage = false;
   private isInitialLoad = false;
@@ -150,6 +152,7 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
         pageNumber,
         pageSize
       );
+      this.setServerDown(res);
       if (res && res.status && res.status == "404") {
         if (this.chatHistory.length > 0) {
           this.chatHistory = [];
@@ -251,6 +254,20 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
       console.error('Error fetching message history:', error);
     }
   }
+  private setServerDown(res: any) {
+    if (res && res.success) {
+      this.serverDown = false;
+      this.failCount = 0;
+    } else if (res.status >= 500) {
+      this.failCount++;
+      if (this.failCount > 2) {
+        this.serverDown = true;
+      } else {
+        this.serverDown = false;
+      }
+    }
+  }
+
   private updateSeenStatus(res: any) {
     res.messages.forEach((newMessage: Message) => {
       const existingMessage = this.chatHistory.find((msg: Message) => msg.id === newMessage.id);
