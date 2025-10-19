@@ -1,6 +1,6 @@
 <div class="daily-music">
     <div class="dailyMusicTitle popupPanelTitle">
-        <app-menu-item [type]="'Music'" [label]="'Latest Music'"></app-menu-item>
+        Latest Music
     </div>
     <div *ngIf="songs.length === 0">
         No <app-menu-item [type]="'Music'" [label]="'songs'"></app-menu-item> added today.
@@ -15,7 +15,7 @@
         <tbody>
             <tr *ngFor="let s of songs">
                 <td>{{ s.todo }}</td>
-                <td>
+                <td style="width:0">
                     <button (click)="play(s.url, s.fileId)">Play</button>
                 </td>
             </tr>
