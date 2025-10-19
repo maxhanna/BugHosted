@@ -68,6 +68,13 @@ function safeStringify(obj: any) {
   });
 }
 
+function trimChatToLimit(object: any, limit: number) {
+  if (!object || !object.chat || !Array.isArray(object.chat)) return;
+  while (object.chat.length > limit) {
+    object.chat.pop();
+  }
+}
+
 function sendBatchToBackend(bots: Bot[], object: any) {
   if (bots.length === 0) return;
 
@@ -345,16 +352,18 @@ export function subscribeToMainGameEvents(object: any) {
     }
   });
   events.on("STARTED_TYPING", object, () => {
-    const metaEvent = new MetaEvent(0, object.metaHero.id, new Date(), "CHAT", object.metaHero.map, { "sender": object.metaHero.name ?? "Anon", "content": "..." });
-    object.bonesService.updateEvents(metaEvent); 
+    // Mirror Ender: locally show a "..." typing placeholder and avoid spamming the server
     const name = object.metaHero.name;
+    object.chat = object.chat.filter((m: MetaChat) => !(m && m.hero === name && (m.content ?? '') === '...'));
+
     object.chat.unshift(
       {
         hero: name,
         content: "...",
         timestamp: new Date()
       } as MetaChat);
-    object.setHeroLatestMessage(object.otherHeroes.find((x: Character) => x.name === name))
+    object.setHeroLatestMessage(object.otherHeroes.find((x: Character) => x.name === name));
+    object.displayChatMessage();
   })
   events.on("SEND_CHAT_MESSAGE", object, (chat: string) => {
     const msg = chat.trim();
@@ -367,15 +376,9 @@ export function subscribeToMainGameEvents(object: any) {
           object.chatInput.nativeElement.blur();
           object.gameCanvas.nativeElement.focus();
         }, 0);
-
+        // Remove any local "..." typing placeholders for this hero and let the server echo the message
         const name = object.metaHero.name;
-        object.chat.unshift(
-          {
-            hero: name,
-            content: msg ?? "",
-            timestamp: new Date()
-          } as MetaChat);
-        object.setHeroLatestMessage(object.otherHeroes.find((x: Character) => x.name === name))
+        object.chat = object.chat.filter((m: MetaChat) => !(m && m.hero === name && (m.content ?? '') === '...'));
       }
     }
   });
@@ -761,19 +764,35 @@ export function actionMultiplayerEvents(object: any, metaEvents: MetaEvent[]) {
             object.addItemToScene(tmpMetabotPart, location); 
           }
         }
-        if (event.eventType === "CHAT" && event.data) {  
+        if (event.eventType === "CHAT" && event.data) {
           const content = event.data["content"] ?? '';
           const name = event.data["sender"] ?? "Anon";
-           
+
+          const eventTs = event.timestamp ? new Date(event.timestamp).getTime() : Date.now();
           const metachat = {
             hero: name,
             content: content,
-            timestamp: new Date()
+            timestamp: event.timestamp ? new Date(event.timestamp) : new Date()
           } as MetaChat;
-          //object.chat.unshift(metachat);
-          object.displayChatMessage(metachat);
+
+          // Duplicate suppression: only treat as duplicate if same hero + same content within 2s
+          const isDuplicate = object.chat && object.chat.some((m: MetaChat) => {
+            try {
+              if (!m || !m.hero) return false;
+              if (m.hero !== name) return false;
+              if ((m.content ?? '') !== (content ?? '')) return false;
+              const mts = m.timestamp ? new Date(m.timestamp).getTime() : 0;
+              return Math.abs(mts - eventTs) < 2000;
+            } catch { return false; }
+          });
+          if (!isDuplicate) {
+            object.chat.unshift(metachat);
+          }
+          trimChatToLimit(object, 10);
           object.setHeroLatestMessage(object.otherHeroes.find((x: Character) => x.name === name));
-          
+          object.displayChatMessage();
+          events.emit("CHAT_MESSAGE_RECEIVED");
+
         }
         if (event.eventType === "WHISPER" && event.data) {
           let breakOut = false;

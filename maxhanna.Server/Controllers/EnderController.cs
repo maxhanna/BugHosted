@@ -131,45 +131,48 @@ namespace maxhanna.Server.Controllers
 
                             if (walls != null && heroes != null && walls.Count > 0 && heroes.Length > 0)
                             {
-                                // Precompute the most-recent wall id for each hero so we can avoid immediate self-kills
-                                var lastWallIdByHero = new Dictionary<int, int>();
-                                lastWallIdByHero = walls
-                                    .Where(x => x.HeroId != 0)
-                                    .GroupBy(x => x.HeroId)
-                                    .ToDictionary(g => g.Key, g => g.Max(x => x.Id));
-                                foreach (var w in walls)
+                                // Use a single DB query to detect collisions between heroes and walls within a tolerance box.
+                                // This lets the DB do the heavy lifting (avoids O(heroes*walls) loops in C#).
+                                try
                                 {
-                                    try
+                                    string sql = @"
+SELECT h.id AS victim_id,
+       w.hero_id AS killer_id,
+       w.id      AS wall_id
+FROM maxhanna.ender_hero h
+JOIN maxhanna.ender_bike_wall w
+  ON w.level = h.level
+LEFT JOIN (
+  SELECT hero_id, MAX(id) AS last_id
+  FROM maxhanna.ender_bike_wall
+  GROUP BY hero_id
+) lw ON lw.hero_id = w.hero_id
+WHERE h.level = @Level
+  AND h.coordsX BETWEEN w.x - @Tolerance AND w.x + @Tolerance
+  AND h.coordsY BETWEEN w.y - @Tolerance AND w.y + @Tolerance
+  -- exclude immediate self-wall: same hero and wall is that hero's most-recent one
+  AND NOT (w.hero_id = h.id AND w.id = lw.last_id);";
+
+                                    using (var cmd = new MySqlCommand(sql, connection, transaction))
                                     {
-                                        foreach (var h in heroes)
+                                        cmd.Parameters.AddWithValue("@Level", heroLevel);
+                                        cmd.Parameters.AddWithValue("@Tolerance", tolerance);
+                                        using (var rdr = await cmd.ExecuteReaderAsync())
                                         {
-                                            if (h == null) continue;
-                                            // Only consider heroes on the same level
-                                            if (h.Level != w.Level) continue;
-                                            // If this wall belongs to the same hero and is that hero's most-recent wall, skip it
-                                            if (w.HeroId == h.Id)
+                                            while (await rdr.ReadAsync())
                                             {
-                                                if (lastWallIdByHero.TryGetValue(w.HeroId, out var lastId) && lastId == w.Id)
-                                                {
-                                                    continue;
-                                                }
-                                            }
-                                            var dx = Math.Abs((h.Position?.x ?? 0) - w.X);
-                                            var dy = Math.Abs((h.Position?.y ?? 0) - w.Y);
-                                            if (dx <= tolerance && dy <= tolerance)
-                                            {
-                                                Console.WriteLine("Found a new victim: " + h.Id);
-                                                if (!victims.ContainsKey(h.Id))
-                                                {
-                                                    victims[h.Id] = w.HeroId; // attribute kill to wall owner
-                                                }
+                                                if (rdr.IsDBNull(rdr.GetOrdinal("victim_id"))) continue;
+                                                int victimId = rdr.GetInt32("victim_id");
+                                                int? killerId = rdr.IsDBNull(rdr.GetOrdinal("killer_id")) ? (int?)null : rdr.GetInt32("killer_id");
+                                                // keep the first killer we saw for a given victim (mirrors original behaviour)
+                                                if (!victims.ContainsKey(victimId)) victims[victimId] = killerId;
                                             }
                                         }
                                     }
-                                    catch (Exception exInner)
-                                    {
-                                        _ = _log.Db($"Error while comparing wall id={w.Id} to heroes: {exInner.Message}", null, "ENDER", true);
-                                    }
+                                }
+                                catch (Exception exInner)
+                                {
+                                    _ = _log.Db($"Error while querying collisions: {exInner.Message}", null, "ENDER", true);
                                 }
 
                                 if (victims.Count > 0)
