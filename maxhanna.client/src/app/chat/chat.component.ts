@@ -274,6 +274,7 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
     this.failCount++;
     if (this.failCount > 2) {
       this.serverDown = true;
+      this.scrollToBottomIfNeeded();
     } else {
       this.serverDown = false;
     }
