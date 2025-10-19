@@ -1,8 +1,7 @@
 import { ColorSwap } from "../../../services/datacontracts/bones/color-swap";
 import { Vector2 } from "../../../services/datacontracts/bones/vector2";
 import { events } from "../helpers/events";
-import { Scenario, storyFlags } from "../helpers/story-flags";
-import { Level } from "./Level/level";
+import { Scenario, storyFlags } from "../helpers/story-flags"; 
 import { Character } from "./character";
 
 export const BASE = "BASE";
