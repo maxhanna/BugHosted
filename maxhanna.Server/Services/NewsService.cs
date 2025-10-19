@@ -11,6 +11,7 @@ public class NewsService
 	int newsServiceAccountNo = 308;
 	int cryptoNewsServiceAccountNo = 309;
 	int memeServiceAccountNo = 314;
+	int musicServiceAccountNo = 399;
 	private const string MemeFolderPath = "E:/Dev/maxhanna/maxhanna.client/src/assets/Uploads/Meme/";
 	private static readonly HashSet<string> Stopwords = new(StringComparer.OrdinalIgnoreCase)
 	{
