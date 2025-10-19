@@ -36,9 +36,7 @@ import { MetaBotPart } from '../../services/datacontracts/bones/meta-bot-part';
 import { Mask, getMaskNameById } from './objects/Wardrobe/mask';
 import { Bot } from './objects/Bot/bot';
 import { Character } from './objects/character';
-import { UndergroundLevel3 } from './levels/underground-level3';
-import { SpriteTextString } from './objects/SpriteTextString/sprite-text-string';
-import { GameObject, HUD } from './objects/game-object';
+import { UndergroundLevel3 } from './levels/underground-level3'; 
 import { ChatSpriteTextString } from './objects/SpriteTextString/chat-sprite-text-string';
 
 @Component({

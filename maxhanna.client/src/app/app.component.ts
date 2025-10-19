@@ -40,6 +40,7 @@ import { PollService } from '../services/poll.service';
 import { MastermindComponent } from './mastermind/mastermind.component';
 import { ArtComponent } from './art/art.component';
 import { EnderComponent } from './ender/ender.component';
+import { BonesComponent } from './bones/bones.component';
 
 
 @Component({
@@ -321,6 +322,7 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
     "Meme": MemeComponent,
     "Top100": TopComponent,
     "Ender": EnderComponent,
+    "Bones": BonesComponent,
     "Notifications": NotificationsComponent,
     "UpdateUserSettings": UpdateUserSettingsComponent
   };
