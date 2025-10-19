@@ -1,0 +1,17 @@
+<div class="daily-music">
+  <div class="popupPanelTitle">Today's Music</div>
+  <div *ngIf="songs.length === 0">No songs added today.</div>
+  <ul>
+    <li *ngFor="let s of songs">
+      <div class="song-item">
+        <div class="song-meta">
+          <strong>{{s.todo}}</strong>
+          <div class="song-date">{{s.date | date:'short'}}</div>
+        </div>
+        <div class="song-actions">
+          <button (click)="play(s.url, s.fileId)">Play</button>
+        </div>
+      </div>
+    </li>
+  </ul> 
+</div>

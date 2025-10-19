@@ -595,6 +595,62 @@ namespace maxhanna.Server.Controllers
 			}
 		}
 
+		[HttpPost("/Todo/TodayMusic", Name = "GetTodayMusic")]
+		public async Task<IActionResult> GetTodayMusic()
+		{
+			try
+			{
+				using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+				{
+					await conn.OpenAsync();
+
+					string sql = @"
+                SELECT
+                    t.id,
+                    t.todo,
+                    t.type,
+                    t.url,
+                    t.file_id,
+                    t.date,
+                    t.ownership
+                FROM
+                    todo t
+                WHERE
+                    t.type = 'music'
+                    AND DATE(t.date) = DATE(UTC_TIMESTAMP())
+                ORDER BY t.date DESC";
+
+					using (var cmd = new MySqlCommand(sql, conn))
+					{
+						using (var rdr = await cmd.ExecuteReaderAsync())
+						{
+							var entries = new List<Todo>();
+
+							while (await rdr.ReadAsync())
+							{
+								entries.Add(new Todo(
+									id: rdr.GetInt32(rdr.GetOrdinal("id")),
+									todo: rdr.GetString(rdr.GetOrdinal("todo")),
+									type: rdr.GetString(rdr.GetOrdinal("type")),
+									url: rdr.IsDBNull(rdr.GetOrdinal("url")) ? null : rdr.GetString(rdr.GetOrdinal("url")),
+									fileId: rdr.IsDBNull(rdr.GetOrdinal("file_id")) ? null : rdr.GetInt32(rdr.GetOrdinal("file_id")),
+									date: rdr.GetDateTime(rdr.GetOrdinal("date")),
+									ownership: rdr.GetInt32(rdr.GetOrdinal("ownership"))
+							));
+							}
+
+							return Ok(entries);
+						}
+					}
+				}
+			}
+			catch (Exception ex)
+			{
+				_ = _log.Db("An error occurred while fetching today's music: " + ex.Message, null, "TODO", true);
+				return StatusCode(500, "An error occurred while fetching today's music.");
+			}
+		}
+
 		[HttpPost("/Todo/Columns/Add")]
 		public async Task<IActionResult> AddColumn([FromBody] AddTodoColumnRequest req)
 		{
