@@ -703,6 +703,7 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
     
   }
 
+  // Workaround for Firefox dragging interference: when textarea is focused, disable dragstart so text selection works.
   isFocused: boolean = false;
 
   onTextFocus() {
@@ -714,6 +715,7 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
   }
 
   onDragStart(event: DragEvent) {
+    // If focused (user is typing/selecting), prevent dragging to allow selection in Firefox.
     if (this.isFocused) {
       try { event.preventDefault(); } catch { /* ignore */ }
     }
