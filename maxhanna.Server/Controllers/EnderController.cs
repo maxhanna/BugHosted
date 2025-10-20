@@ -136,22 +136,22 @@ namespace maxhanna.Server.Controllers
                                 try
                                 {
                                     string sql = @"
-SELECT h.id AS victim_id,
-       w.hero_id AS killer_id,
-       w.id      AS wall_id
-FROM maxhanna.ender_hero h
-JOIN maxhanna.ender_bike_wall w
-  ON w.level = h.level
-LEFT JOIN (
-  SELECT hero_id, MAX(id) AS last_id
-  FROM maxhanna.ender_bike_wall
-  GROUP BY hero_id
-) lw ON lw.hero_id = w.hero_id
-WHERE h.level = @Level
-  AND h.coordsX BETWEEN w.x - @Tolerance AND w.x + @Tolerance
-  AND h.coordsY BETWEEN w.y - @Tolerance AND w.y + @Tolerance
-  -- exclude immediate self-wall: same hero and wall is that hero's most-recent one
-  AND NOT (w.hero_id = h.id AND w.id = lw.last_id);";
+                                        SELECT h.id AS victim_id,
+                                            w.hero_id AS killer_id,
+                                            w.id      AS wall_id
+                                        FROM maxhanna.ender_hero h
+                                        JOIN maxhanna.ender_bike_wall w
+                                        ON w.level = h.level
+                                        LEFT JOIN (
+                                        SELECT hero_id, MAX(id) AS last_id
+                                        FROM maxhanna.ender_bike_wall
+                                        GROUP BY hero_id
+                                        ) lw ON lw.hero_id = w.hero_id
+                                        WHERE h.level = @Level
+                                        AND h.coordsX BETWEEN w.x - @Tolerance AND w.x + @Tolerance
+                                        AND h.coordsY BETWEEN w.y - @Tolerance AND w.y + @Tolerance
+                                        -- exclude immediate self-wall: same hero and wall is that hero's most-recent one
+                                        AND NOT (w.hero_id = h.id AND w.id = lw.last_id);";
 
                                     using (var cmd = new MySqlCommand(sql, connection, transaction))
                                     {
