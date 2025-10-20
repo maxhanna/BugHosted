@@ -508,10 +508,18 @@ namespace maxhanna.Server.Controllers
 		// Helper methods copied from MetaController with log category updated to BONES
 		private async Task<MetaHero> UpdateHeroInDB(MetaHero hero, MySqlConnection connection, MySqlTransaction transaction)
 		{
-			string sql = @"UPDATE maxhanna.bones_hero SET coordsX = @CoordsX, coordsY = @CoordsY, color = @Color, mask = @Mask, map = @Map, speed = @Speed, updated = UTC_TIMESTAMP() WHERE id = @HeroId";
-			Dictionary<string, object?> parameters = new() { { "@CoordsX", hero.Position.x }, { "@CoordsY", hero.Position.y }, { "@Color", hero.Color }, { "@Mask", hero.Mask }, { "@Map", hero.Map }, { "@Speed", hero.Speed }, { "@HeroId", hero.Id } };
-			await ExecuteInsertOrUpdateOrDeleteAsync(sql, parameters, connection, transaction);
-			return hero;
+			try
+			{
+				string sql = @"UPDATE maxhanna.bones_hero SET coordsX = @CoordsX, coordsY = @CoordsY, color = @Color, mask = @Mask, map = @Map, speed = @Speed, updated = UTC_TIMESTAMP() WHERE id = @HeroId";
+				Dictionary<string, object?> parameters = new() { { "@CoordsX", hero.Position.x }, { "@CoordsY", hero.Position.y }, { "@Color", hero.Color }, { "@Mask", hero.Mask }, { "@Map", hero.Map }, { "@Speed", hero.Speed }, { "@HeroId", hero.Id } };
+				await ExecuteInsertOrUpdateOrDeleteAsync(sql, parameters, connection, transaction);
+				return hero;
+			}
+			catch (Exception ex)
+			{
+				await _log.Db($"UpdateHeroInDB Exception: {ex.Message}\n{ex.StackTrace}", hero?.Id, "BONES", true);
+				throw;
+			}
 		}
 		private async Task UpdateMetabotInDB(MetaBot metabot, MySqlConnection connection, MySqlTransaction transaction)
 		{
@@ -542,108 +550,134 @@ namespace maxhanna.Server.Controllers
 		}
 		private async Task<List<MetaEvent>> GetEventsFromDb(string map, int heroId, MySqlConnection connection, MySqlTransaction transaction)
 		{
-			if (connection.State != System.Data.ConnectionState.Open) await connection.OpenAsync();
-			if (transaction == null) throw new InvalidOperationException("Transaction is required for this operation.");
-			List<int> partyMemberIds = new() { heroId };
-			string partyQuery = @"SELECT bones_hero_id_1 AS hero_id FROM bones_hero_party WHERE bones_hero_id_2 = @HeroId UNION SELECT bones_hero_id_2 AS hero_id FROM bones_hero_party WHERE bones_hero_id_1 = @HeroId";
-			using (var partyCmd = new MySqlCommand(partyQuery, connection, transaction))
+			try
 			{
-				partyCmd.Parameters.AddWithValue("@HeroId", heroId);
-				using var partyReader = await partyCmd.ExecuteReaderAsync();
-				while (await partyReader.ReadAsync()) partyMemberIds.Add(Convert.ToInt32(partyReader["hero_id"]));
-			}
-			string sql = @"DELETE FROM maxhanna.bones_event WHERE timestamp < NOW() - INTERVAL 20 SECOND; SELECT * FROM maxhanna.bones_event WHERE map = @Map OR (event = 'CHAT' AND hero_id IN (" + string.Join(",", partyMemberIds) + "));";
-			MySqlCommand cmd = new(sql, connection, transaction); cmd.Parameters.AddWithValue("@Map", map);
-			List<MetaEvent> events = new();
-			using (var reader = await cmd.ExecuteReaderAsync())
-			{
-				while (reader.Read())
+				if (connection.State != System.Data.ConnectionState.Open) await connection.OpenAsync();
+				if (transaction == null) throw new InvalidOperationException("Transaction is required for this operation.");
+				List<int> partyMemberIds = new() { heroId };
+				string partyQuery = @"SELECT bones_hero_id_1 AS hero_id FROM bones_hero_party WHERE bones_hero_id_2 = @HeroId UNION SELECT bones_hero_id_2 AS hero_id FROM bones_hero_party WHERE bones_hero_id_1 = @HeroId";
+				using (var partyCmd = new MySqlCommand(partyQuery, connection, transaction))
 				{
-					var ev = SafeGetString(reader, "event") ?? string.Empty;
-					var mp = SafeGetString(reader, "map") ?? string.Empty;
-					var dataJson = SafeGetString(reader, "data") ?? string.Empty;
-					MetaEvent tmpEvent = new(reader.GetInt32("id"), reader.GetInt32("hero_id"), reader.GetDateTime("timestamp"), ev, mp, !string.IsNullOrEmpty(dataJson) ? Newtonsoft.Json.JsonConvert.DeserializeObject<Dictionary<string, string>>(dataJson) ?? new Dictionary<string, string>() : new Dictionary<string, string>());
-					events.Add(tmpEvent);
+					partyCmd.Parameters.AddWithValue("@HeroId", heroId);
+					using var partyReader = await partyCmd.ExecuteReaderAsync();
+					while (await partyReader.ReadAsync()) partyMemberIds.Add(Convert.ToInt32(partyReader["hero_id"]));
 				}
+				string sql = @"DELETE FROM maxhanna.bones_event WHERE timestamp < NOW() - INTERVAL 20 SECOND; SELECT * FROM maxhanna.bones_event WHERE map = @Map OR (event = 'CHAT' AND hero_id IN (" + string.Join(",", partyMemberIds) + "));";
+				MySqlCommand cmd = new(sql, connection, transaction); cmd.Parameters.AddWithValue("@Map", map);
+				List<MetaEvent> events = new();
+				using (var reader = await cmd.ExecuteReaderAsync())
+				{
+					while (reader.Read())
+					{
+						var ev = SafeGetString(reader, "event") ?? string.Empty;
+						var mp = SafeGetString(reader, "map") ?? string.Empty;
+						var dataJson = SafeGetString(reader, "data") ?? string.Empty;
+						MetaEvent tmpEvent = new(reader.GetInt32("id"), reader.GetInt32("hero_id"), reader.GetDateTime("timestamp"), ev, mp, !string.IsNullOrEmpty(dataJson) ? Newtonsoft.Json.JsonConvert.DeserializeObject<Dictionary<string, string>>(dataJson) ?? new Dictionary<string, string>() : new Dictionary<string, string>());
+						events.Add(tmpEvent);
+					}
+				}
+				return events;
 			}
-			return events;
+			catch (Exception ex)
+			{
+				await _log.Db($"GetEventsFromDb Exception: {ex.Message}\n{ex.StackTrace}\nmap={map}, heroId={heroId}", heroId, "BONES", true);
+				throw;
+			}
 		}
 		private async Task<MetaHero?> GetHeroData(int userId, int? heroId, MySqlConnection conn, MySqlTransaction transaction)
 		{
-			if (conn.State != System.Data.ConnectionState.Open) await conn.OpenAsync();
-			if (transaction == null) throw new InvalidOperationException("Transaction is required for this operation.");
-			if (userId == 0 && heroId == null) return null;
-			string sql = $"SELECT h.id as hero_id, h.coordsX, h.coordsY, h.map, h.speed, h.name as hero_name, h.color as hero_color, h.mask as hero_mask, b.id as bot_id, b.name as bot_name, b.type as bot_type, b.hp as bot_hp, b.is_deployed as bot_is_deployed, b.level as bot_level, b.exp as bot_exp, p.id as part_id, p.part_name, p.type as part_type, p.damage_mod, p.skill FROM maxhanna.bones_hero h LEFT JOIN maxhanna.bones_bot b ON h.id = b.hero_id LEFT JOIN maxhanna.bones_bot_part p ON b.id = p.metabot_id WHERE {(heroId == null ? "h.user_id = @UserId" : "h.id = @UserId")};";
-			MySqlCommand cmd = new(sql, conn, transaction); cmd.Parameters.AddWithValue("@UserId", heroId != null ? heroId : userId);
-			MetaHero? hero = null; Dictionary<int, MetaBot> metabotDict = new();
-			using (var reader = await cmd.ExecuteReaderAsync())
+			try
 			{
-				while (reader.Read())
+				if (conn.State != System.Data.ConnectionState.Open) await conn.OpenAsync();
+				if (transaction == null) throw new InvalidOperationException("Transaction is required for this operation.");
+				if (userId == 0 && heroId == null) return null;
+				string sql = $"SELECT h.id as hero_id, h.coordsX, h.coordsY, h.map, h.speed, h.name as hero_name, h.color as hero_color, h.mask as hero_mask, b.id as bot_id, b.name as bot_name, b.type as bot_type, b.hp as bot_hp, b.is_deployed as bot_is_deployed, b.level as bot_level, b.exp as bot_exp, p.id as part_id, p.part_name, p.type as part_type, p.damage_mod, p.skill FROM maxhanna.bones_hero h LEFT JOIN maxhanna.bones_bot b ON h.id = b.hero_id LEFT JOIN maxhanna.bones_bot_part p ON b.id = p.metabot_id WHERE {(heroId == null ? "h.user_id = @UserId" : "h.id = @UserId")};";
+				MySqlCommand cmd = new(sql, conn, transaction); cmd.Parameters.AddWithValue("@UserId", heroId != null ? heroId : userId);
+				MetaHero? hero = null; Dictionary<int, MetaBot> metabotDict = new();
+				using (var reader = await cmd.ExecuteReaderAsync())
 				{
-					if (hero == null)
+					while (reader.Read())
 					{
-						hero = new MetaHero { Id = reader.GetInt32("hero_id"), Position = new Vector2(reader.GetInt32("coordsX"), reader.GetInt32("coordsY")), Speed = reader.GetInt32("speed"), Map = SafeGetString(reader, "map") ?? string.Empty, Name = SafeGetString(reader, "hero_name"), Color = SafeGetString(reader, "hero_color") ?? string.Empty, Mask = reader.IsDBNull(reader.GetOrdinal("hero_mask")) ? null : reader.GetInt32("hero_mask"), Metabots = new List<MetaBot>() };
-					}
-					if (!reader.IsDBNull(reader.GetOrdinal("bot_id")))
-					{
-						int botId = reader.GetInt32("bot_id");
-						if (!metabotDict.TryGetValue(botId, out MetaBot? bot))
+						if (hero == null)
 						{
-							int botNameOrd = reader.GetOrdinal("bot_name");
-							bot = new MetaBot { Id = botId, Name = reader.IsDBNull(botNameOrd) ? null : reader.GetString(botNameOrd), Type = reader.GetInt32("bot_type"), Hp = reader.GetInt32("bot_hp"), Level = reader.GetInt32("bot_level"), Exp = reader.GetInt32("bot_exp"), IsDeployed = reader.GetBoolean("bot_is_deployed"), HeroId = hero.Id };
-							metabotDict[botId] = bot; hero.Metabots ??= new List<MetaBot>(); hero.Metabots.Add(bot);
+							hero = new MetaHero { Id = reader.GetInt32("hero_id"), Position = new Vector2(reader.GetInt32("coordsX"), reader.GetInt32("coordsY")), Speed = reader.GetInt32("speed"), Map = SafeGetString(reader, "map") ?? string.Empty, Name = SafeGetString(reader, "hero_name"), Color = SafeGetString(reader, "hero_color") ?? string.Empty, Mask = reader.IsDBNull(reader.GetOrdinal("hero_mask")) ? null : reader.GetInt32("hero_mask"), Metabots = new List<MetaBot>() };
 						}
-						if (!reader.IsDBNull(reader.GetOrdinal("part_id")))
+						if (!reader.IsDBNull(reader.GetOrdinal("bot_id")))
 						{
-							int partNameOrd = reader.GetOrdinal("part_name");
-							int skillOrd = reader.GetOrdinal("skill");
-							MetaBotPart part = new() { HeroId = hero.Id, Id = reader.GetInt32("part_id"), PartName = reader.IsDBNull(partNameOrd) ? null : reader.GetString(partNameOrd), Type = reader.GetInt32("part_type"), DamageMod = reader.GetInt32("damage_mod"), Skill = reader.IsDBNull(skillOrd) ? null : new Skill(reader.GetString(skillOrd), 0) };
-							switch (part.PartName?.ToLower()) { case "head": bot.Head = part; break; case "legs": bot.Legs = part; break; case "left_arm": bot.LeftArm = part; break; case "right_arm": bot.RightArm = part; break; }
+							int botId = reader.GetInt32("bot_id");
+							if (!metabotDict.TryGetValue(botId, out MetaBot? bot))
+							{
+								int botNameOrd = reader.GetOrdinal("bot_name");
+								bot = new MetaBot { Id = botId, Name = reader.IsDBNull(botNameOrd) ? null : reader.GetString(botNameOrd), Type = reader.GetInt32("bot_type"), Hp = reader.GetInt32("bot_hp"), Level = reader.GetInt32("bot_level"), Exp = reader.GetInt32("bot_exp"), IsDeployed = reader.GetBoolean("bot_is_deployed"), HeroId = hero.Id };
+								metabotDict[botId] = bot; hero.Metabots ??= new List<MetaBot>(); hero.Metabots.Add(bot);
+							}
+							if (!reader.IsDBNull(reader.GetOrdinal("part_id")))
+							{
+								int partNameOrd = reader.GetOrdinal("part_name");
+								int skillOrd = reader.GetOrdinal("skill");
+								MetaBotPart part = new() { HeroId = hero.Id, Id = reader.GetInt32("part_id"), PartName = reader.IsDBNull(partNameOrd) ? null : reader.GetString(partNameOrd), Type = reader.GetInt32("part_type"), DamageMod = reader.GetInt32("damage_mod"), Skill = reader.IsDBNull(skillOrd) ? null : new Skill(reader.GetString(skillOrd), 0) };
+								switch (part.PartName?.ToLower()) { case "head": bot.Head = part; break; case "legs": bot.Legs = part; break; case "left_arm": bot.LeftArm = part; break; case "right_arm": bot.RightArm = part; break; }
+							}
 						}
 					}
 				}
+				return hero;
 			}
-			return hero;
+			catch (Exception ex)
+			{
+				await _log.Db($"GetHeroData Exception: {ex.Message}\n{ex.StackTrace}\nuserId={userId}, heroId={heroId}", userId == 0 ? heroId : userId, "BONES", true);
+				throw;
+			}
 		}
 		private async Task<MetaBot[]> GetEncounterMetaBots(MySqlConnection conn, MySqlTransaction transaction, string map)
 		{
-			var bots = new List<MetaBot>();
-			string heroIdQuery = "SELECT hero_id FROM maxhanna.bones_encounter WHERE map = @Map;";
-			MySqlCommand heroIdCmd = new(heroIdQuery, conn, transaction); heroIdCmd.Parameters.AddWithValue("@Map", map);
-			var heroIds = new List<int>();
-			using (var heroReader = await heroIdCmd.ExecuteReaderAsync()) while (await heroReader.ReadAsync()) heroIds.Add(Convert.ToInt32(heroReader["hero_id"]));
-			if (!heroIds.Any()) return Array.Empty<MetaBot>();
-			string sql = "SELECT b.id as metabot_id, b.hero_id as metabot_hero_id, b.name as metabot_name, b.type as metabot_type, b.hp as metabot_hp, b.level as metabot_level, b.exp as metabot_exp, b.is_deployed as metabot_is_deployed, p.id as part_id, p.part_name, p.type as part_type, p.damage_mod, p.skill, e.coordsX, e.coordsY FROM maxhanna.bones_bot b LEFT JOIN maxhanna.bones_encounter_bot_part p ON b.hero_id = p.hero_id LEFT JOIN maxhanna.bones_encounter e ON e.hero_id = b.hero_id WHERE b.hero_id IN (" + string.Join(",", heroIds) + ");";
-			MySqlCommand cmd = new(sql, conn, transaction);
-			using (var reader = await cmd.ExecuteReaderAsync())
+			try
 			{
-				while (await reader.ReadAsync())
+				var bots = new List<MetaBot>();
+				string heroIdQuery = "SELECT hero_id FROM maxhanna.bones_encounter WHERE map = @Map;";
+				MySqlCommand heroIdCmd = new(heroIdQuery, conn, transaction); heroIdCmd.Parameters.AddWithValue("@Map", map);
+				var heroIds = new List<int>();
+				using (var heroReader = await heroIdCmd.ExecuteReaderAsync()) while (await heroReader.ReadAsync()) heroIds.Add(Convert.ToInt32(heroReader["hero_id"]));
+				if (!heroIds.Any()) return Array.Empty<MetaBot>();
+				string sql = "SELECT b.id as metabot_id, b.hero_id as metabot_hero_id, b.name as metabot_name, b.type as metabot_type, b.hp as metabot_hp, b.level as metabot_level, b.exp as metabot_exp, b.is_deployed as metabot_is_deployed, p.id as part_id, p.part_name, p.type as part_type, p.damage_mod, p.skill, e.coordsX, e.coordsY FROM maxhanna.bones_bot b LEFT JOIN maxhanna.bones_encounter_bot_part p ON b.hero_id = p.hero_id LEFT JOIN maxhanna.bones_encounter e ON e.hero_id = b.hero_id WHERE b.hero_id IN (" + string.Join(",", heroIds) + ");";
+				MySqlCommand cmd = new(sql, conn, transaction);
+				using (var reader = await cmd.ExecuteReaderAsync())
 				{
-					int heroId = Convert.ToInt32(reader["metabot_hero_id"]);
-					MetaBot? metabot = bots.FirstOrDefault(m => m.Id == Convert.ToInt32(reader["metabot_id"]));
-					if (metabot == null)
+					while (await reader.ReadAsync())
 					{
-						int metabotNameOrd = reader.GetOrdinal("metabot_name");
-						metabot = new MetaBot { Id = Convert.ToInt32(reader["metabot_id"]), Name = reader.IsDBNull(metabotNameOrd) ? null : reader.GetString(metabotNameOrd), HeroId = heroId, Type = Convert.ToInt32(reader["metabot_type"]), Hp = Convert.ToInt32(reader["metabot_hp"]), Exp = Convert.ToInt32(reader["metabot_exp"]), Level = Convert.ToInt32(reader["metabot_level"]), IsDeployed = Convert.ToBoolean(reader["metabot_is_deployed"]), Position = new Vector2(Convert.ToInt32(reader["coordsX"]), Convert.ToInt32(reader["coordsY"])) };
-						bots.Add(metabot);
-					}
-					if (!reader.IsDBNull(reader.GetOrdinal("part_id")))
-					{
-						int pNameOrd = reader.GetOrdinal("part_name");
-						int pSkillOrd = reader.GetOrdinal("skill");
-						MetaBotPart part = new() { HeroId = heroId, Id = Convert.ToInt32(reader["part_id"]), PartName = reader.IsDBNull(pNameOrd) ? null : reader.GetString(pNameOrd), Type = Convert.ToInt32(reader["part_type"]), DamageMod = Convert.ToInt32(reader["damage_mod"]), Skill = !reader.IsDBNull(pSkillOrd) ? new Skill(reader.GetString(pSkillOrd), 0) : null };
-						switch (part.PartName?.ToLower()) { case "head": metabot.Head = part; break; case "legs": metabot.Legs = part; break; case "left_arm": metabot.LeftArm = part; break; case "right_arm": metabot.RightArm = part; break; }
+						int heroId = Convert.ToInt32(reader["metabot_hero_id"]);
+						MetaBot? metabot = bots.FirstOrDefault(m => m.Id == Convert.ToInt32(reader["metabot_id"]));
+						if (metabot == null)
+						{
+							int metabotNameOrd = reader.GetOrdinal("metabot_name");
+							metabot = new MetaBot { Id = Convert.ToInt32(reader["metabot_id"]), Name = reader.IsDBNull(metabotNameOrd) ? null : reader.GetString(metabotNameOrd), HeroId = heroId, Type = Convert.ToInt32(reader["metabot_type"]), Hp = Convert.ToInt32(reader["metabot_hp"]), Exp = Convert.ToInt32(reader["metabot_exp"]), Level = Convert.ToInt32(reader["metabot_level"]), IsDeployed = Convert.ToBoolean(reader["metabot_is_deployed"]), Position = new Vector2(Convert.ToInt32(reader["coordsX"]), Convert.ToInt32(reader["coordsY"])) };
+							bots.Add(metabot);
+						}
+						if (!reader.IsDBNull(reader.GetOrdinal("part_id")))
+						{
+							int pNameOrd = reader.GetOrdinal("part_name");
+							int pSkillOrd = reader.GetOrdinal("skill");
+							MetaBotPart part = new() { HeroId = heroId, Id = Convert.ToInt32(reader["part_id"]), PartName = reader.IsDBNull(pNameOrd) ? null : reader.GetString(pNameOrd), Type = Convert.ToInt32(reader["part_type"]), DamageMod = Convert.ToInt32(reader["damage_mod"]), Skill = !reader.IsDBNull(pSkillOrd) ? new Skill(reader.GetString(pSkillOrd), 0) : null };
+							switch (part.PartName?.ToLower()) { case "head": metabot.Head = part; break; case "legs": metabot.Legs = part; break; case "left_arm": metabot.LeftArm = part; break; case "right_arm": metabot.RightArm = part; break; }
+						}
 					}
 				}
+				return bots.ToArray();
 			}
-			return bots.ToArray();
+			catch (Exception ex)
+			{
+				await _log.Db($"GetEncounterMetaBots Exception: {ex.Message}\n{ex.StackTrace}\nmap={map}", null, "BONES", true);
+				throw;
+			}
 		}
 		private async Task<MetaHero[]?> GetNearbyPlayers(MetaHero hero, MySqlConnection conn, MySqlTransaction transaction)
 		{
-			if (conn.State != System.Data.ConnectionState.Open) await conn.OpenAsync();
-			if (transaction == null) throw new InvalidOperationException("Transaction is required for this operation.");
-			Dictionary<int, MetaHero> heroesDict = new();
-			string sql = @"SELECT m.id as hero_id, 
+			try
+			{
+				if (conn.State != System.Data.ConnectionState.Open) await conn.OpenAsync();
+				if (transaction == null) throw new InvalidOperationException("Transaction is required for this operation.");
+				Dictionary<int, MetaHero> heroesDict = new();
+				string sql = @"SELECT m.id as hero_id, 
 				m.name as hero_name,
 				m.map as hero_map, 
 				m.coordsX, m.coordsY, 
@@ -727,46 +761,68 @@ namespace maxhanna.Server.Controllers
 							MetaBotPart part = new() { HeroId = heroId, Id = reader.GetInt32(partIdOrd2), PartName = reader.IsDBNull(partNameOrd2) ? null : reader.GetString(partNameOrd2), Type = reader.GetInt32("part_type"), DamageMod = reader.GetInt32("damage_mod"), Skill = reader.IsDBNull(partSkillOrd2) ? null : new Skill(reader.GetString(partSkillOrd2), 0) };
 							switch (part.PartName?.ToLower()) { case "head": metabot.Head = part; break; case "legs": metabot.Legs = part; break; case "left_arm": metabot.LeftArm = part; break; case "right_arm": metabot.RightArm = part; break; }
 						}
+						}
 					}
 				}
+				return heroesDict.Values.ToArray();
 			}
-			return heroesDict.Values.ToArray();
+			catch (Exception ex)
+			{
+				await _log.Db($"GetNearbyPlayers Exception: {ex.Message}\n{ex.StackTrace}\nheroId={hero?.Id}, map={hero?.Map}", hero?.Id, "BONES", true);
+				throw;
+			}
 		}
 		private async Task<MetaInventoryItem[]?> GetInventoryFromDB(int heroId, MySqlConnection conn, MySqlTransaction transaction)
 		{
-			if (conn.State != System.Data.ConnectionState.Open) await conn.OpenAsync();
-			if (transaction == null) throw new InvalidOperationException("Transaction is required for this operation.");
-			List<MetaInventoryItem> inventory = new();
-			string sql = @"SELECT * FROM maxhanna.bones_hero_inventory WHERE bones_hero_id = @HeroId;";
-			MySqlCommand cmd = new(sql, conn, transaction); cmd.Parameters.AddWithValue("@HeroId", heroId);
-			using (var reader = await cmd.ExecuteReaderAsync())
+			try
 			{
-				while (reader.Read())
+				if (conn.State != System.Data.ConnectionState.Open) await conn.OpenAsync();
+				if (transaction == null) throw new InvalidOperationException("Transaction is required for this operation.");
+				List<MetaInventoryItem> inventory = new();
+				string sql = @"SELECT * FROM maxhanna.bones_hero_inventory WHERE bones_hero_id = @HeroId;";
+				MySqlCommand cmd = new(sql, conn, transaction); cmd.Parameters.AddWithValue("@HeroId", heroId);
+				using (var reader = await cmd.ExecuteReaderAsync())
 				{
-					MetaInventoryItem tmpInventoryItem = new(reader.GetInt32("id"), reader.GetInt32("bones_hero_id"), reader.GetDateTime("created"), SafeGetString(reader, "name"), SafeGetString(reader, "image"), SafeGetString(reader, "category"), reader.IsDBNull(reader.GetOrdinal("quantity")) ? null : reader.GetInt32("quantity"));
-					inventory.Add(tmpInventoryItem);
+					while (reader.Read())
+					{
+						MetaInventoryItem tmpInventoryItem = new(reader.GetInt32("id"), reader.GetInt32("bones_hero_id"), reader.GetDateTime("created"), SafeGetString(reader, "name"), SafeGetString(reader, "image"), SafeGetString(reader, "category"), reader.IsDBNull(reader.GetOrdinal("quantity")) ? null : reader.GetInt32("quantity"));
+						inventory.Add(tmpInventoryItem);
+					}
 				}
+				return inventory.ToArray();
 			}
-			return inventory.ToArray();
+			catch (Exception ex)
+			{
+				await _log.Db($"GetInventoryFromDB Exception: {ex.Message}\n{ex.StackTrace}\nheroId={heroId}", heroId, "BONES", true);
+				throw;
+			}
 		}
 		private async Task<MetaBotPart[]?> GetMetabotPartsFromDB(int heroId, MySqlConnection conn, MySqlTransaction transaction)
 		{
-			if (conn.State != System.Data.ConnectionState.Open) await conn.OpenAsync();
-			if (transaction == null) throw new InvalidOperationException("Transaction is required for this operation.");
-			List<MetaBotPart> partInv = new();
-			string sql = @"SELECT * FROM maxhanna.bones_bot_part WHERE hero_id = @HeroId;";
-			MySqlCommand cmd = new(sql, conn, transaction); cmd.Parameters.AddWithValue("@HeroId", heroId);
-			using (var reader = await cmd.ExecuteReaderAsync())
+			try
 			{
-				while (reader.Read())
+				if (conn.State != System.Data.ConnectionState.Open) await conn.OpenAsync();
+				if (transaction == null) throw new InvalidOperationException("Transaction is required for this operation.");
+				List<MetaBotPart> partInv = new();
+				string sql = @"SELECT * FROM maxhanna.bones_bot_part WHERE hero_id = @HeroId;";
+				MySqlCommand cmd = new(sql, conn, transaction); cmd.Parameters.AddWithValue("@HeroId", heroId);
+				using (var reader = await cmd.ExecuteReaderAsync())
 				{
-					int partNameOrd3 = reader.GetOrdinal("part_name");
-					int skillOrd3 = reader.GetOrdinal("skill");
-					MetaBotPart tmpPart = new() { Id = reader.GetInt32("id"), HeroId = reader.GetInt32("hero_id"), MetabotId = reader.IsDBNull(reader.GetOrdinal("metabot_id")) ? null : reader.GetInt32("metabot_id"), Created = reader.GetDateTime("created"), PartName = reader.IsDBNull(partNameOrd3) ? null : reader.GetString(partNameOrd3), Skill = reader.IsDBNull(skillOrd3) ? null : new Skill(reader.GetString(skillOrd3), reader.GetInt32("type")), DamageMod = reader.GetInt32("damage_mod") };
-					partInv.Add(tmpPart);
+					while (reader.Read())
+					{
+						int partNameOrd3 = reader.GetOrdinal("part_name");
+						int skillOrd3 = reader.GetOrdinal("skill");
+						MetaBotPart tmpPart = new() { Id = reader.GetInt32("id"), HeroId = reader.GetInt32("hero_id"), MetabotId = reader.IsDBNull(reader.GetOrdinal("metabot_id")) ? null : reader.GetInt32("metabot_id"), Created = reader.GetDateTime("created"), PartName = reader.IsDBNull(partNameOrd3) ? null : reader.GetString(partNameOrd3), Skill = reader.IsDBNull(skillOrd3) ? null : new Skill(reader.GetString(skillOrd3), reader.GetInt32("type")), DamageMod = reader.GetInt32("damage_mod") };
+						partInv.Add(tmpPart);
+					}
 				}
+				return partInv.ToArray();
 			}
-			return partInv.ToArray();
+			catch (Exception ex)
+			{
+				await _log.Db($"GetMetabotPartsFromDB Exception: {ex.Message}\n{ex.StackTrace}\nheroId={heroId}", heroId, "BONES", true);
+				throw;
+			}
 		}
 		private async Task RepairAllMetabots(int heroId, MySqlConnection connection, MySqlTransaction transaction)
 		{
@@ -990,7 +1046,21 @@ namespace maxhanna.Server.Controllers
 		}
 		private async Task<long?> ExecuteInsertOrUpdateOrDeleteAsync(string sql, Dictionary<string, object?> parameters, MySqlConnection? connection = null, MySqlTransaction? transaction = null)
 		{
-			string cmdText = ""; bool createdConnection = false; long? insertedId = null; int rowsAffected = 0; try { if (connection == null) { connection = new MySqlConnection(_connectionString); await connection.OpenAsync(); createdConnection = true; } if (connection.State != System.Data.ConnectionState.Open) throw new Exception("Connection failed to open."); using (MySqlCommand cmdUpdate = new(sql, connection, transaction)) { foreach (var param in parameters) cmdUpdate.Parameters.AddWithValue(param.Key, param.Value ?? DBNull.Value); cmdText = cmdUpdate.CommandText; rowsAffected = await cmdUpdate.ExecuteNonQueryAsync(); if (sql.Trim().StartsWith("INSERT", StringComparison.OrdinalIgnoreCase)) insertedId = cmdUpdate.LastInsertedId; } } catch (Exception ex) { await _log.Db("Update ERROR: " + ex.Message, null, "BONES", true); await _log.Db(cmdText, null, "BONES", true); foreach (var param in parameters) await _log.Db("Param: " + param.Key + ": " + param.Value, null, "BONES", true); } finally { if (createdConnection && connection != null) await connection.CloseAsync(); }
+			string cmdText = ""; bool createdConnection = false; long? insertedId = null; int rowsAffected = 0;
+			try
+			{
+				if (connection == null) { connection = new MySqlConnection(_connectionString); await connection.OpenAsync(); createdConnection = true; }
+				if (connection.State != System.Data.ConnectionState.Open) throw new Exception("Connection failed to open.");
+				using (MySqlCommand cmdUpdate = new(sql, connection, transaction)) { foreach (var param in parameters) cmdUpdate.Parameters.AddWithValue(param.Key, param.Value ?? DBNull.Value); cmdText = cmdUpdate.CommandText; rowsAffected = await cmdUpdate.ExecuteNonQueryAsync(); if (sql.Trim().StartsWith("INSERT", StringComparison.OrdinalIgnoreCase)) insertedId = cmdUpdate.LastInsertedId; }
+			}
+			catch (Exception ex)
+			{
+				await _log.Db("ExecuteInsertOrUpdateOrDeleteAsync ERROR: " + ex.Message + "\n" + ex.StackTrace, null, "BONES", true);
+				await _log.Db(cmdText, null, "BONES", true);
+				foreach (var param in parameters) await _log.Db("Param: " + param.Key + ": " + param.Value, null, "BONES", true);
+				throw;
+			}
+			finally { if (createdConnection && connection != null) await connection.CloseAsync(); }
 			return insertedId ?? rowsAffected;
 		}
 	}
