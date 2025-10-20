@@ -299,7 +299,7 @@ export class FightMenu extends GameObject {
 
       if (this.metabotChoices[x].name) {
         // Set the font style and size for the name
-        ctx.font = "8px fontRetroGaming"; // Font and size
+        ctx.font = "8px owreKynge"; // Font and size
         ctx.fillStyle = "chartreuse"; // Text color
         ctx.textAlign = "center"; // Center the text 
 

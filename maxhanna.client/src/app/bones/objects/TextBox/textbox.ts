@@ -24,7 +24,7 @@ export class TextBox extends GameObject {
 
     //Draw text
     let words = this.content.split(" ");
-    ctx.font = `${words.length > 10 ? '12' : '16'}px fontRetroGaming`;
+    ctx.font = `${words.length > 10 ? '12' : '16'}px owreKynge`;
     ctx.textAlign = "left";
     ctx.textBaseline = "top";
     ctx.fillStyle = "#fff";

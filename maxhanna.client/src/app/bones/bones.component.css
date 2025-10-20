@@ -1,6 +1,6 @@
 @font-face {
-  font-family: fontRetroGaming;
-  src: url("../../assets/metabots/retro-gaming.ttf")
+  font-family: owreKynge;
+  src: url("../../assets/bones/OwreKynge.ttf")
 }
 
 html,
@@ -47,7 +47,7 @@ body {
 .chatInput {
   width: 350px;
   max-width: 50%;
-  font-family: fontRetroGaming;
+  font-family: owreKynge;
   border-radius: 20px;
 }
 
@@ -132,7 +132,7 @@ body {
 }
 
 .chatBoxMessage {
-  font-family: fontRetroGaming;
+  font-family: owreKynge;
 }
 
 .colorInput {

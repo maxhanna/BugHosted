@@ -640,7 +640,7 @@ export function subscribeToMainGameEvents(object: any) {
         if (object.parentRef) {
           object.parentRef.isModal = true;
           object.parentRef.modalComponent.isModalCloseVisible = false;
-          object.parentRef.modalComponent.setModalFont("fontRetroGaming");
+          object.parentRef.modalComponent.setModalFont("owreKynge");
           object.parentRef.modalComponent.removeCloseButton();
           object.parentRef.setModalBody("What's your style? :");
         }
