@@ -77,14 +77,14 @@ const makeStandingFrames = (rootFrame = 0) => {
 
 const makeAttackFrames = (rootFrame = 0, standing = 0) => {
   return {
-    duration: 2000,
+    duration: 4000,
     frames: [
       {
         time: 0,
         frame: rootFrame
       }, 
       {
-        time: 1000,
+        time: 2000,
         frame: standing
       }, 
     ]
