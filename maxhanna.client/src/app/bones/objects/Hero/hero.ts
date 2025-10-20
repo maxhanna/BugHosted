@@ -15,6 +15,7 @@ import { WarpBase } from "../Effects/Warp/warp-base";
 
 export class Hero extends Character {
   metabots?: MetaBot[]; 
+  isAttacking: boolean = false;
   constructor(params: {
     position: Vector2, id?: number, name?: string, metabots?: MetaBot[], colorSwap?: ColorSwap,
     isUserControlled?: boolean, speed?: number, mask?: Mask, scale?: Vector2,
@@ -97,15 +98,24 @@ export class Hero extends Character {
         this.isLocked = false;
       }); 
       events.on("SPACEBAR_PRESSED", this, () => {
-        if (this.facingDirection == "DOWN") {
-          this.body?.animations?.play("attackDown");
-        } else if (this.facingDirection == "UP") {
-          this.body?.animations?.play("attackUp");
-        } else if (this.facingDirection == "LEFT") {
-          this.body?.animations?.play("attackLeft");
-        } else if (this.facingDirection == "RIGHT") {
-          this.body?.animations?.play("attackRight");
-        }
+        // don't allow attacking while locked or while already attacking
+        if (this.isLocked || this.isAttacking) return;
+        this.isAttacking = true;
+
+        const dir = (this.facingDirection ?? "DOWN").toUpperCase();
+        const attackAnim = dir === "UP" ? "attackUp" : dir === "LEFT" ? "attackLeft" : dir === "RIGHT" ? "attackRight" : "attackDown";
+        const standAnim = dir === "UP" ? "standUp" : dir === "LEFT" ? "standLeft" : dir === "RIGHT" ? "standRight" : "standDown";
+
+        this.body?.animations?.play(attackAnim);
+        // emit attack event for game logic / server to handle hit resolution
+        events.emit("HERO_ATTACK", { heroId: this.id, direction: dir, position: this.position });
+
+        // block other animations for 2 seconds (animation duration)
+        setTimeout(() => {
+          // restore to standing pose for current facing
+          this.body?.animations?.play(standAnim);
+          this.isAttacking = false;
+        }, 2000);
       });
       events.on("SELECTED_ITEM", this, (selectedItem: string) => { 
         if (selectedItem === "Party Up") {
