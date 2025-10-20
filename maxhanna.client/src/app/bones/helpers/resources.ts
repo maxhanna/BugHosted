@@ -23,7 +23,7 @@ export class Resources {
       shadow: `${this.dir}shadow.png`,
       shipsprite: `${this.dir}shipsprite.png`,
       stars: `${this.dir}stars.png`,
-      textBox: `${this.dir}text-box.png`,
+      textBox: `${this.dir}sprite-text-background.png`,
       warpbase: `${this.dir}warpBase.png`,
     };
     this.audioToLoad = {

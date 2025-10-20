@@ -10,7 +10,7 @@ import { Hero } from "../Hero/hero";
 export class SpriteTextStringWithBackdrop extends GameObject {
   backdrop = new Sprite({
     resource: resources.images["textBox"],
-    frameSize: new Vector2(256, 64)
+    frameSize: new Vector2(220, 63)
   });
   menuLocationX = 10;
   menuLocationY = 12;
