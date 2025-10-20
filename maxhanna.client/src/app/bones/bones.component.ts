@@ -11,7 +11,7 @@ import { GameLoop } from './helpers/game-loop';
 import { hexToRgb, resources } from './helpers/resources';
 import { events } from './helpers/events';
 import { storyFlags } from './helpers/story-flags';
-import { actionMultiplayerEvents, subscribeToMainGameEvents } from './helpers/network';
+import { actionMultiplayerEvents, subscribeToMainGameEvents, pendingAttacks } from './helpers/network';
 import { Hero } from './objects/Hero/hero';
 import { Main } from './objects/Main/main';
 import { HeroRoomLevel } from './levels/hero-room';
@@ -205,7 +205,13 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
     if (!(this.metaHero && this.metaHero.id && !this.stopPollingForUpdates)) return;
 
     try {
-      const res: any = await this.bonesService.fetchGameData(this.metaHero);
+      // Snapshot pending attacks and include them with the fetch; component owns the queue lifecycle
+      const snapshot = pendingAttacks.slice();
+      const res: any = await this.bonesService.fetchGameData(this.metaHero, snapshot);
+      // On successful response, clear the attacks we just sent from the shared queue
+      if (res && snapshot && snapshot.length > 0) {
+        pendingAttacks.splice(0, snapshot.length);
+      }
       if (!res) {
         // treat null/undefined as a transient failure
         this.consecutiveFetchFailures++;

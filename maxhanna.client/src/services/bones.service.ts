@@ -60,8 +60,12 @@ export class BonesService {
   async sellBotParts(heroId: number, partIds: number[]) {
     return this.fetchData('/bones/sellbotparts', { HeroId: heroId, PartIds: partIds });
   }
-  async fetchGameData(hero: MetaHero): Promise<{ map: number, position: Vector2, heroes: MetaHero[], chat: MetaChat[], events: MetaEvent[] } | undefined> {
-    return this.fetchData('/bones/fetchgamedata', hero);
+  async fetchGameData(hero: MetaHero, recentAttacks?: any[]): Promise<{ map: number, position: Vector2, heroes: MetaHero[], chat: MetaChat[], events: MetaEvent[] } | undefined> {
+    // Accept an optional recentAttacks array (caller is responsible for lifecycle of the queue).
+    const body: any = { Hero: hero };
+    if (recentAttacks && recentAttacks.length > 0) body.RecentAttacks = recentAttacks;
+
+    return this.fetchData('/bones/fetchgamedata', body);
   }
   async fetchInventoryData(heroId: number): Promise<{ inventory: InventoryItem[], parts: MetaBotPart[] }> {
     return this.fetchData('/bones/fetchinventorydata', heroId);
