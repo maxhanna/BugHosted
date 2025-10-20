@@ -99,7 +99,7 @@ export class Hero extends Character {
       }); 
       events.on("SPACEBAR_PRESSED", this, () => {
         this.isAttacking = true;
-        this.isLocked = true;
+       // this.isLocked = true;
         if (this.facingDirection == "DOWN") {
           this.body?.animations?.play("attackDown");
         } else if (this.facingDirection == "UP") {
@@ -111,7 +111,7 @@ export class Hero extends Character {
         }
         setTimeout(() => {
           this.isAttacking = false;
-          this.isLocked = false;
+        //  this.isLocked = false;
         }, 400);
       });
       events.on("SELECTED_ITEM", this, (selectedItem: string) => { 
