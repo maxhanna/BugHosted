@@ -8,7 +8,7 @@ import { Animations } from "../../helpers/animations";
 import { bodyAtSpace, isObjectNearby } from "../../helpers/move-towards";
 import { resources } from "../../helpers/resources";
 import { FrameIndexPattern } from "../../helpers/frame-index-pattern";
-import { WALK_DOWN, WALK_UP, WALK_LEFT, WALK_RIGHT, STAND_DOWN, STAND_RIGHT, STAND_LEFT, STAND_UP, PICK_UP_DOWN } from "./hero-animations";
+import { WALK_DOWN, WALK_UP, WALK_LEFT, WALK_RIGHT, STAND_DOWN, STAND_RIGHT, STAND_LEFT, STAND_UP, PICK_UP_DOWN, ATTACK_DOWN, ATTACK_LEFT, ATTACK_RIGHT, ATTACK_UP } from "./hero-animations";
 import { ColorSwap } from "../../../../services/datacontracts/bones/color-swap";
 import { events } from "../../helpers/events";
 import { WarpBase } from "../Effects/Warp/warp-base";
@@ -38,7 +38,7 @@ export class Hero extends Character {
         frameSize: new Vector2(32, 32),
         offsetY: -10,
         hFrames: 4,
-        vFrames: 5,
+        vFrames: 6,
         isSolid: false,
         animations: new Animations(
           {
@@ -51,6 +51,10 @@ export class Hero extends Character {
             standLeft: new FrameIndexPattern(STAND_LEFT),
             standUp: new FrameIndexPattern(STAND_UP),
             pickupDown: new FrameIndexPattern(PICK_UP_DOWN),
+            attackLeft: new FrameIndexPattern(ATTACK_LEFT),
+            attackRight: new FrameIndexPattern(ATTACK_RIGHT),
+            attackDown: new FrameIndexPattern(ATTACK_DOWN),
+            attackUp: new FrameIndexPattern(ATTACK_UP),
           }),
         colorSwap: params.colorSwap,
         scale: params.scale,
@@ -92,6 +96,17 @@ export class Hero extends Character {
       events.on("HERO_MOVEMENT_UNLOCK", this, () => {
         this.isLocked = false;
       }); 
+      events.on("SPACEBAR_PRESSED", this, () => {
+        if (this.facingDirection == "DOWN") {
+          this.body?.animations?.play("attackDown");
+        } else if (this.facingDirection == "UP") {
+          this.body?.animations?.play("attackUp");
+        } else if (this.facingDirection == "LEFT") {
+          this.body?.animations?.play("attackLeft");
+        } else if (this.facingDirection == "RIGHT") {
+          this.body?.animations?.play("attackRight");
+        }
+      });
       events.on("SELECTED_ITEM", this, (selectedItem: string) => { 
         if (selectedItem === "Party Up") {
           events.emit("PARTY_UP", isObjectNearby(this));
