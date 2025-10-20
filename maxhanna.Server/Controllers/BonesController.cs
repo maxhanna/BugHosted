@@ -678,89 +678,103 @@ namespace maxhanna.Server.Controllers
 				if (transaction == null) throw new InvalidOperationException("Transaction is required for this operation.");
 				Dictionary<int, MetaHero> heroesDict = new();
 				string sql = @"SELECT m.id as hero_id, 
-				m.name as hero_name,
-				m.map as hero_map, 
-				m.coordsX, m.coordsY, 
-				m.speed, 
-				m.color,
-				m.mask, 
-				m.level as hero_level,
-				m.updated as hero_updated,
-				m.created as hero_created,
-				b.id as metabot_id,
-				b.name as metabot_name,
-				b.type as metabot_type,
-				b.hp as metabot_hp,
-				b.level as metabot_level,
-				b.exp as metabot_exp, 
-				b.is_deployed as metabot_is_deployed, 
-				p.id as part_id, 
-				p.part_name,
-				p.type as part_type,
-				p.damage_mod, 
-				p.skill FROM maxhanna.bones_hero m 
-				LEFT JOIN maxhanna.bones_bot b on b.hero_id = m.id 
-				LEFT JOIN maxhanna.bones_bot_part p ON b.id = p.metabot_id 
-				WHERE m.map = @HeroMapId 
-				ORDER BY m.coordsY ASC;";
-			MySqlCommand cmd = new(sql, conn, transaction); cmd.Parameters.AddWithValue("@HeroMapId", hero.Map);
-			using (var reader = await cmd.ExecuteReaderAsync())
-			{
-				while (await reader.ReadAsync())
+					m.name as hero_name,
+					m.map as hero_map, 
+					m.coordsX, m.coordsY, 
+					m.speed, 
+					m.color,
+					m.mask, 
+					m.level as hero_level,
+					m.updated as hero_updated,
+					m.created as hero_created,
+					b.id as metabot_id,
+					b.name as metabot_name,
+					b.type as metabot_type,
+					b.hp as metabot_hp,
+					b.level as metabot_level,
+					b.exp as metabot_exp, 
+					b.is_deployed as metabot_is_deployed, 
+					p.id as part_id, 
+					p.part_name,
+					p.type as part_type,
+					p.damage_mod, 
+					p.skill FROM maxhanna.bones_hero m 
+					LEFT JOIN maxhanna.bones_bot b on b.hero_id = m.id 
+					LEFT JOIN maxhanna.bones_bot_part p ON b.id = p.metabot_id 
+					WHERE m.map = @HeroMapId 
+					ORDER BY m.coordsY ASC;";
+				MySqlCommand cmd = new(sql, conn, transaction); cmd.Parameters.AddWithValue("@HeroMapId", hero.Map);
+				using (var reader = await cmd.ExecuteReaderAsync())
 				{
-					int heroId = Convert.ToInt32(reader["hero_id"]);
-					if (!heroesDict.TryGetValue(heroId, out MetaHero? tmpHero))
+					// read ordinals and values inline with DBNull checks (one-line assignments)
+					while (await reader.ReadAsync())
 					{
-						int hNameOrd = reader.GetOrdinal("hero_name");
-						int hMapOrd = reader.GetOrdinal("hero_map");
-						int hLevelOrd = reader.GetOrdinal("hero_level");
-						int hUpdatedOrd = reader.GetOrdinal("hero_updated");
-						int hCreatedOrd = reader.GetOrdinal("hero_created");
-						int colorOrd = reader.GetOrdinal("color");
-						int maskOrd = reader.GetOrdinal("mask");
-						tmpHero = new MetaHero {
-							Id = heroId,
-							Name = reader.IsDBNull(hNameOrd) ? null : reader.GetString(hNameOrd),
-							Map = reader.IsDBNull(hMapOrd) ? string.Empty : reader.GetString(hMapOrd),
-							Level = reader.IsDBNull(hLevelOrd) ? 0 : reader.GetInt32(hLevelOrd),
-							Color = reader.IsDBNull(colorOrd) ? string.Empty : reader.GetString(colorOrd),
-							Mask = reader.IsDBNull(maskOrd) ? null : reader.GetInt32(maskOrd),
-							Position = new Vector2(reader.GetInt32("coordsX"), reader.GetInt32("coordsY")),
-							Speed = reader.GetInt32("speed"),
-							Updated = reader.IsDBNull(hUpdatedOrd) ? DateTime.UtcNow : reader.GetDateTime(hUpdatedOrd),
-							Created = reader.IsDBNull(hCreatedOrd) ? DateTime.UtcNow : reader.GetDateTime(hCreatedOrd),
-							Metabots = new List<MetaBot>()
-						};
-						heroesDict[heroId] = tmpHero;
-					}
-					if (!reader.IsDBNull(reader.GetOrdinal("metabot_id")))
-					{
-						int metabotId = reader.GetInt32("metabot_id");
-						MetaBot? metabot = tmpHero.Metabots?.FirstOrDefault(m => m.Id == metabotId);
-						if (metabot == null)
+						if (reader.IsDBNull(reader.GetOrdinal("hero_id"))) continue; // essential primary value
+						int heroId = reader.GetInt32(reader.GetOrdinal("hero_id"));
+						if (!heroesDict.TryGetValue(heroId, out MetaHero? tmpHero))
 						{
-							int mNameOrd = reader.GetOrdinal("metabot_name");
-							metabot = new MetaBot {
-								Id = metabotId,
-								Name = reader.IsDBNull(mNameOrd) ? null : reader.GetString(mNameOrd),
-								HeroId = heroId,
-								Type = reader.GetInt32("metabot_type"),
-								Hp = reader.GetInt32("metabot_hp"),
-								Exp = reader.GetInt32("metabot_exp"),
-								Level = reader.GetInt32("metabot_level"),
-								IsDeployed = reader.GetBoolean("metabot_is_deployed")
+							var name = reader.IsDBNull(reader.GetOrdinal("hero_name")) ? null : reader.GetString(reader.GetOrdinal("hero_name"));
+							var mapVal = reader.IsDBNull(reader.GetOrdinal("hero_map")) ? string.Empty : reader.GetString(reader.GetOrdinal("hero_map"));
+							var level = reader.IsDBNull(reader.GetOrdinal("hero_level")) ? 0 : reader.GetInt32(reader.GetOrdinal("hero_level"));
+							var color = reader.IsDBNull(reader.GetOrdinal("color")) ? string.Empty : reader.GetString(reader.GetOrdinal("color"));
+							int? mask = reader.IsDBNull(reader.GetOrdinal("mask")) ? (int?)null : reader.GetInt32(reader.GetOrdinal("mask"));
+							int coordsX = reader.IsDBNull(reader.GetOrdinal("coordsX")) ? 0 : reader.GetInt32(reader.GetOrdinal("coordsX"));
+							int coordsY = reader.IsDBNull(reader.GetOrdinal("coordsY")) ? 0 : reader.GetInt32(reader.GetOrdinal("coordsY"));
+							int speed = reader.IsDBNull(reader.GetOrdinal("speed")) ? 0 : reader.GetInt32(reader.GetOrdinal("speed"));
+							var updated = reader.IsDBNull(reader.GetOrdinal("hero_updated")) ? DateTime.UtcNow : reader.GetDateTime(reader.GetOrdinal("hero_updated"));
+							var created = reader.IsDBNull(reader.GetOrdinal("hero_created")) ? DateTime.UtcNow : reader.GetDateTime(reader.GetOrdinal("hero_created"));
+							tmpHero = new MetaHero {
+								Id = heroId,
+								Name = name,
+								Map = mapVal,
+								Level = level,
+								Color = color,
+								Mask = mask,
+								Position = new Vector2(coordsX, coordsY),
+								Speed = speed,
+								Updated = updated,
+								Created = created,
+								Metabots = new List<MetaBot>()
 							};
-							if (tmpHero.Metabots == null) tmpHero.Metabots = new List<MetaBot>();
-							tmpHero.Metabots.Add(metabot);
+							heroesDict[heroId] = tmpHero;
 						}
-						if (!reader.IsDBNull(reader.GetOrdinal("part_id")))
+						// metabot block
+						if (!reader.IsDBNull(reader.GetOrdinal("metabot_id")))
 						{
-							int partIdOrd2 = reader.GetOrdinal("part_id");
-							int partNameOrd2 = reader.GetOrdinal("part_name");
-							int partSkillOrd2 = reader.GetOrdinal("skill");
-							MetaBotPart part = new() { HeroId = heroId, Id = reader.GetInt32(partIdOrd2), PartName = reader.IsDBNull(partNameOrd2) ? null : reader.GetString(partNameOrd2), Type = reader.GetInt32("part_type"), DamageMod = reader.GetInt32("damage_mod"), Skill = reader.IsDBNull(partSkillOrd2) ? null : new Skill(reader.GetString(partSkillOrd2), 0) };
-							switch (part.PartName?.ToLower()) { case "head": metabot.Head = part; break; case "legs": metabot.Legs = part; break; case "left_arm": metabot.LeftArm = part; break; case "right_arm": metabot.RightArm = part; break; }
-						}
+							int metabotId = reader.GetInt32(reader.GetOrdinal("metabot_id"));
+							MetaBot? metabot = tmpHero.Metabots?.FirstOrDefault(m => m.Id == metabotId);
+							if (metabot == null)
+							{
+								var mName = reader.IsDBNull(reader.GetOrdinal("metabot_name")) ? null : reader.GetString(reader.GetOrdinal("metabot_name"));
+								var mType = reader.IsDBNull(reader.GetOrdinal("metabot_type")) ? 0 : reader.GetInt32(reader.GetOrdinal("metabot_type"));
+								var mHp = reader.IsDBNull(reader.GetOrdinal("metabot_hp")) ? 0 : reader.GetInt32(reader.GetOrdinal("metabot_hp"));
+								var mExp = reader.IsDBNull(reader.GetOrdinal("metabot_exp")) ? 0 : reader.GetInt32(reader.GetOrdinal("metabot_exp"));
+								var mLevel = reader.IsDBNull(reader.GetOrdinal("metabot_level")) ? 0 : reader.GetInt32(reader.GetOrdinal("metabot_level"));
+								var mIsDeployed = reader.IsDBNull(reader.GetOrdinal("metabot_is_deployed")) ? false : reader.GetBoolean(reader.GetOrdinal("metabot_is_deployed"));
+								metabot = new MetaBot {
+									Id = metabotId,
+									Name = mName,
+									HeroId = heroId,
+									Type = mType,
+									Hp = mHp,
+									Exp = mExp,
+									Level = mLevel,
+									IsDeployed = mIsDeployed
+								};
+								if (tmpHero.Metabots == null) tmpHero.Metabots = new List<MetaBot>();
+								tmpHero.Metabots.Add(metabot);
+							}
+							// part block
+							if (!reader.IsDBNull(reader.GetOrdinal("part_id")))
+							{
+								int partId = reader.GetInt32(reader.GetOrdinal("part_id"));
+								var partName = reader.IsDBNull(reader.GetOrdinal("part_name")) ? null : reader.GetString(reader.GetOrdinal("part_name"));
+								var partType = reader.IsDBNull(reader.GetOrdinal("part_type")) ? 0 : reader.GetInt32(reader.GetOrdinal("part_type"));
+								var damageMod = reader.IsDBNull(reader.GetOrdinal("damage_mod")) ? 0 : reader.GetInt32(reader.GetOrdinal("damage_mod"));
+								var skill = reader.IsDBNull(reader.GetOrdinal("skill")) ? null : new Skill(reader.GetString(reader.GetOrdinal("skill")), 0);
+								MetaBotPart part = new() { HeroId = heroId, Id = partId, PartName = partName, Type = partType, DamageMod = damageMod, Skill = skill };
+								switch (part.PartName?.ToLower()) { case "head": metabot.Head = part; break; case "legs": metabot.Legs = part; break; case "left_arm": metabot.LeftArm = part; break; case "right_arm": metabot.RightArm = part; break; }
+							}
 						}
 					}
 				}
