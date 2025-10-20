@@ -1,4 +1,8 @@
 @font-face {
+  font-family: fontRetroGaming;
+  src: url("../../assets/bones/retro-gaming.ttf")
+}
+@font-face {
   font-family: owreKynge;
   src: url("../../assets/bones/OwreKynge.ttf")
 }
