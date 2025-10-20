@@ -601,7 +601,9 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
       try {
         const user = this.inputtedParentRef?.user ?? this.parentRef?.user;
         const userId = user?.id ?? 0;
-        const res = await this.fileService.moveFile(inputFile, destinationFolder, userId);
+        const draggedEntry = this.directory?.data?.find(x => x.fileName === this.draggedFilename);
+        const fileIdToSend = draggedEntry?.id ?? undefined;
+        const res = await this.fileService.moveFile(inputFile, destinationFolder, userId, fileIdToSend);
         this.notifyUser(res!);
         if (!res!.includes("error")) {
           this.directory!.data = this.directory!.data!.filter(x => x.fileName != this.draggedFilename);

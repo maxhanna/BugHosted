@@ -2872,53 +2872,95 @@ LIMIT
 
 
 		[HttpPost("/File/Move/", Name = "MoveFile")]
-		public async Task<IActionResult> MoveFile([FromQuery] string inputFile, [FromQuery] string? destinationFolder, [FromBody] int userId)
+		public async Task<IActionResult> MoveFile([FromBody] MoveFileRequest request)
 		{
 			try
 			{
-				// Remove any leading slashes
-				inputFile = WebUtility.UrlDecode(inputFile ?? "").TrimStart('/');
-				destinationFolder = WebUtility.UrlDecode(destinationFolder ?? "").TrimStart('/');
+				// Read inputFile and destinationFolder from request body and decode
+				var inputFile = (request.InputFile ?? "").TrimStart('/');
+				var destinationFolder = (request.DestinationFolder ?? "").TrimStart('/');
 
-				// Combine with baseTarget
-				inputFile = Path.Combine(_baseTarget, inputFile);
-				destinationFolder = Path.Combine(_baseTarget, destinationFolder);
-
-				if (!ValidatePath(inputFile) || !ValidatePath(destinationFolder))
+				// If a fileId was provided, look up the exact folder_path and file_name from DB to avoid relying on client-provided filename
+				string resolvedInputPath = string.Empty;
+				if (request?.FileId != null && request.FileId > 0)
 				{
-					_ = _log.Db($"Invalid path: inputFile = {inputFile}, destinationFolder = {destinationFolder}", null, "FILE", true);
+					using var conn = new MySqlConnection(_connectionString);
+					conn.Open();
+					var cmd = new MySqlCommand("SELECT folder_path, file_name, is_folder FROM maxhanna.file_uploads WHERE id = @fileId LIMIT 1", conn);
+					cmd.Parameters.AddWithValue("@fileId", request.FileId.Value);
+					using var rdr = cmd.ExecuteReader();
+					if (rdr.Read())
+					{
+						var folder = rdr.IsDBNull("folder_path") ? "" : rdr.GetString("folder_path").Replace("\\", "/").TrimStart('/');
+						var fileName = rdr.IsDBNull("file_name") ? "" : rdr.GetString("file_name");
+						var isFolder = rdr.IsDBNull("is_folder") ? false : rdr.GetBoolean("is_folder");
+						resolvedInputPath = Path.Combine(_baseTarget, folder, fileName).Replace("\\", "/");
+					}
+					rdr.Close();
+				}
+
+				// Fallback to the client-provided inputFile query if we couldn't resolve by id
+				if (string.IsNullOrEmpty(resolvedInputPath))
+				{
+					resolvedInputPath = Path.Combine(_baseTarget, inputFile).Replace("\\", "/");
+				}
+
+				var resolvedDestination = Path.Combine(_baseTarget, destinationFolder ?? "").Replace("\\", "/");
+
+				if (!ValidatePath(resolvedInputPath) || !ValidatePath(resolvedDestination))
+				{
+					_ = _log.Db($"Invalid path: inputFile = {resolvedInputPath}, destinationFolder = {resolvedDestination}", null, "FILE", true);
 					return NotFound("Invalid path.");
 				}
 
-				if (!CanMoveFile(inputFile, userId))
+				// Use the fileId for permission check if provided, otherwise fall back to path-based check
+				if (request?.FileId != null && request.FileId > 0)
 				{
-					_ = _log.Db($"Cannot move file: {inputFile} to {destinationFolder}. Insufficient Privileges.", userId, "FILE", true);
-					return NotFound("Cannot move file.");
+					// Verify the caller is the owner
+					using var conn2 = new MySqlConnection(_connectionString);
+					conn2.Open();
+					var checkCmd = new MySqlCommand("SELECT user_id FROM maxhanna.file_uploads WHERE id = @fileId LIMIT 1", conn2);
+					checkCmd.Parameters.AddWithValue("@fileId", request.FileId.Value);
+					var owner = checkCmd.ExecuteScalar();
+					int ownerId = owner == null || owner == DBNull.Value ? 0 : Convert.ToInt32(owner);
+					if (request.UserId != 1 && ownerId != request.UserId)
+					{
+						_ = _log.Db($"Cannot move file id {request.FileId}. Insufficient Privileges for user {request.UserId}.", request.UserId, "FILE", true);
+						return NotFound("Cannot move file.");
+					}
+				}
+				else
+				{
+					if (!CanMoveFile(resolvedInputPath, request?.UserId ?? 0))
+					{
+						_ = _log.Db($"Cannot move file: {resolvedInputPath} to {resolvedDestination}. Insufficient Privileges.", request?.UserId ?? 0, "FILE", true);
+						return NotFound("Cannot move file.");
+					}
 				}
 
-				if (System.IO.File.Exists(inputFile))
+				if (System.IO.File.Exists(resolvedInputPath))
 				{
-					string fileName = Path.GetFileName(inputFile).Replace("\\", "/");
-					string newFilePath = Path.Combine(destinationFolder, fileName).Replace("\\", "/");
-					System.IO.File.Move(inputFile, newFilePath);
+					string fileName = Path.GetFileName(resolvedInputPath).Replace("\\", "/");
+					string newFilePath = Path.Combine(resolvedDestination, fileName).Replace("\\", "/");
+					System.IO.File.Move(resolvedInputPath, newFilePath);
 
-					await UpdateFilePathInDatabase(inputFile, newFilePath);
+					await UpdateFilePathInDatabase(resolvedInputPath, newFilePath);
 
-					_ = _log.Db($"File moved from {inputFile} to {newFilePath}", null, "FILE", true);
+					_ = _log.Db($"File moved from {resolvedInputPath} to {newFilePath}", null, "FILE", true);
 					return Ok("File moved successfully.");
 				}
-				else if (Directory.Exists(inputFile))
+				else if (Directory.Exists(resolvedInputPath))
 				{
-					MoveDirectory(inputFile, destinationFolder);
+					MoveDirectory(resolvedInputPath, resolvedDestination);
 
-					await UpdateDirectoryPathInDatabase(inputFile, destinationFolder);
+					await UpdateDirectoryPathInDatabase(resolvedInputPath, resolvedDestination);
 
-					_ = _log.Db($"Directory moved from {inputFile} to {destinationFolder}", null, "FILE", true);
+					_ = _log.Db($"Directory moved from {resolvedInputPath} to {resolvedDestination}", null, "FILE", true);
 					return Ok("Directory moved successfully.");
 				}
 				else
 				{
-					_ = _log.Db($"Input file or directory not found at {inputFile}", null, "FILE", true);
+					_ = _log.Db($"Input file or directory not found at {resolvedInputPath}", null, "FILE", true);
 					return NotFound("Input file or directory not found.");
 				}
 			}

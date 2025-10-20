@@ -386,14 +386,16 @@ export class FileService {
 			return null;
 		}
 	}
-	async moveFile(fileFrom: string, fileTo: string, userId: number) {
+	async moveFile(fileFrom: string, fileTo: string, userId: number, fileId?: number) {
 		try {
-			const response = await fetch(`/file/move?inputFile=${encodeURIComponent(fileFrom)}&destinationFolder=${encodeURIComponent(fileTo)}`, {
+			const url = `/file/move`;
+			const body = { userId, fileId, inputFile: fileFrom, destinationFolder: fileTo };
+			const response = await fetch(url, {
 				method: 'POST',
 				headers: {
 					'Content-Type': 'application/json',
 				},
-				body: JSON.stringify(userId),
+				body: JSON.stringify(body),
 			});
 
 			return await response.text();
