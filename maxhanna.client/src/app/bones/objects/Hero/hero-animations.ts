@@ -77,7 +77,7 @@ const makeStandingFrames = (rootFrame = 0) => {
 
 const makeAttackFrames = (rootFrame = 0) => {
   return {
-    duration: 4000,
+    duration: 400,
     frames: [
       {
         time: 0,

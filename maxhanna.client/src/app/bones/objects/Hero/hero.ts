@@ -112,7 +112,7 @@ export class Hero extends Character {
         setTimeout(() => {
           this.isAttacking = false;
           this.isLocked = false;
-        }, 4000);
+        }, 400);
       });
       events.on("SELECTED_ITEM", this, (selectedItem: string) => { 
         if (selectedItem === "Party Up") {
