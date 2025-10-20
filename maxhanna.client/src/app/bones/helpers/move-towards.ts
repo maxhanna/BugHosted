@@ -47,9 +47,11 @@ export function tryMove(player: any, root: any, isUserControlled: boolean, dista
 	if (!player.body) return;
 
 	const { input } = root;
-	if (isUserControlled && !input.direction) {
-		player.body.animations?.play("stand" + player.facingDirection.charAt(0) + player.facingDirection.substring(1, player.facingDirection.length).toLowerCase());
-    return;
+	if (isUserControlled && (!input.direction || player.isAttacking)) {
+		if (!player.isAttacking) {
+			player.body.animations?.play("stand" + player.facingDirection.charAt(0) + player.facingDirection.substring(1, player.facingDirection.length).toLowerCase());
+		}
+    	return;
 	}
 	const gridSize = gridCells(1);
 	let position = player.destinationPosition.duplicate();
