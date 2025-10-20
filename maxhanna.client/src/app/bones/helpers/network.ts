@@ -27,6 +27,8 @@ export class Network {
 export let actionBlocker = false;
 export let encounterUpdates: Bot[] = [];
 export let batchInterval: any;
+export let pendingAttacks: any[] = [];
+export let attackBatchInterval: any;
 
 export function startBatchUpdates(object: any, batchIntervalMs = 1000) {
   batchInterval = setInterval(() => {
@@ -46,6 +48,41 @@ export function handleEncounterUpdate(bot: Bot) {
 export function stopBatchUpdates() {
   clearInterval(batchInterval);
   encounterUpdates = [];
+}
+
+export function startAttackBatch(object: any, batchIntervalMs = 1000) {
+  if (attackBatchInterval) return;
+  attackBatchInterval = setInterval(() => {
+    if (pendingAttacks.length > 0) {
+      sendAttackBatchToBackend(pendingAttacks, object);
+      pendingAttacks = [];
+    } else {
+      stopAttackBatch();
+    }
+  }, batchIntervalMs);
+}
+
+export function stopAttackBatch() {
+  clearInterval(attackBatchInterval);
+  attackBatchInterval = undefined;
+  pendingAttacks = [];
+}
+
+function sendAttackBatchToBackend(attacks: any[], object: any) {
+  if (!attacks || attacks.length === 0) return;
+
+  const metaEvent = new MetaEvent(
+    0,
+    object.metaHero.id,
+    new Date(),
+    "ATTACK_BATCH",
+    object.metaHero.map,
+    { "attacks": safeStringify(attacks) }
+  );
+
+  object.bonesService.updateEvents(metaEvent).catch((error: any) => {
+    console.error("Failed to send batched attacks:", error);
+  });
 }
 
 export function setActionBlocker(duration: number) {
@@ -567,8 +604,18 @@ export function subscribeToMainGameEvents(object: any) {
   })
 
   events.on("USER_ATTACK_SELECTED", object, (skill: Skill) => {
-    const metaEvent = new MetaEvent(0, object.metaHero.id, new Date(), "USER_ATTACK_SELECTED", object.metaHero.map, { "skill": JSON.stringify(skill) })
-    object.bonesService.updateEvents(metaEvent);
+    try {
+      // Queue attack locally and send in batches to reduce network chatter
+      const attack = {
+        timestamp: new Date().toISOString(),
+        skill: skill,
+        heroId: object.metaHero.id
+      };
+      pendingAttacks.push(attack);
+      startAttackBatch(object, 1000);
+    } catch (ex) {
+      console.error('Failed to queue attack', ex);
+    }
   });
 
   events.on("GOT_REWARDS", object, (params: { location: Vector2, part: MetaBotPart }) => {
@@ -762,6 +809,19 @@ export function actionMultiplayerEvents(object: any, metaEvents: MetaEvent[]) {
             const tmpMetabotPart = JSON.parse(event.data["item"]) as MetaBotPart;
             const location = JSON.parse(event.data["location"]) as Vector2;
             object.addItemToScene(tmpMetabotPart, location); 
+          }
+        }
+        if (event.eventType === "ATTACK_BATCH" && event.data && event.data["attacks"]) {
+          try {
+            const attacks = JSON.parse(event.data["attacks"] as string) as any[];
+            for (let atk of attacks) {
+              // Skip animations for attacks originated from this client
+              if (event.heroId === object.metaHero.id) continue;
+              // Emit a local event so game code can animate the effect on targets
+              events.emit("REMOTE_ATTACK", { attack: atk, sourceHeroId: event.heroId });
+            }
+          } catch (ex) {
+            console.error("Failed to process ATTACK_BATCH event", ex);
           }
         }
         if (event.eventType === "CHAT" && event.data) {

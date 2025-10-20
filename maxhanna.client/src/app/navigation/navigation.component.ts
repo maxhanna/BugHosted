@@ -15,6 +15,7 @@ import { FileService } from '../../services/file.service';
 import { ExchangeRate } from '../../services/datacontracts/crypto/exchange-rate';
 import { MenuItem } from '../../services/datacontracts/user/menu-item';
 import { EnderService } from '../../services/ender.service';
+import { BonesService } from '../../services/bones.service';
 import { NexusService } from '../../services/nexus.service';
 import { TodoService } from '../../services/todo.service';
 import { MetaService } from '../../services/meta.service';
@@ -79,8 +80,9 @@ export class NavigationComponent implements OnInit, OnDestroy {
     private userService: UserService,
     private fileService: FileService,
     private notificationService: NotificationService,
-    private enderService: EnderService,
-    private nexusService: NexusService,
+  private enderService: EnderService,
+  private bonesService: BonesService,
+  private nexusService: NexusService,
     private todoService: TodoService,
     private metaService: MetaService,
     private arrayService: ArrayService,
@@ -95,6 +97,10 @@ export class NavigationComponent implements OnInit, OnDestroy {
   enderActivePlayers: number | null = null;
   enderUserRank: { rank?: number | null, score?: number | null, totalPlayers?: number | null } | null = null;
   private enderInterval: any;
+  // runtime values for Bones nav item
+  bonesActivePlayers: number | null = null;
+  bonesUserRank: { rank?: number | null, level?: number | null, totalPlayers?: number | null } | null = null;
+  private bonesInterval: any;
   // runtime values for Nexus (Bug-Wars)
   nexusActivePlayers: number | null = null;
   nexusUserRank: { rank?: number | null, baseCount?: number | null, totalPlayers?: number | null } | null = null;
@@ -125,6 +131,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
 
     setTimeout(() => {
       this.getNotifications();
+  this.getBonesPlayerInfo();
       this.displayAppSelectionHelp();
     }, 100)
   }
@@ -187,6 +194,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
     this.calendarInfoInterval = setInterval(() => this.getCalendarInfo(), 20 * 60 * 1000); // every 20 minutes 
     this.wordlerInfoInterval = setInterval(() => this.getWordlerStreakInfo(), 60 * 60 * 1000); // every hour
     this.enderInterval = setInterval(() => this.getEnderPlayerInfo(), 60 * 1000); // every minute
+  this.bonesInterval = setInterval(() => this.getBonesPlayerInfo(), 60 * 1000); // every minute
     this.nexusInterval = setInterval(() => this.getNexusPlayerInfo(), 60 * 1000); // every minute
     this.metaInterval = setInterval(() => this.getMetaPlayerInfo(), 60 * 1000); // every minute
     this.musicInterval = setInterval(() => this.getMusicInfo(), 60 * 60 * 1000); // every hour
@@ -537,6 +545,41 @@ export class NavigationComponent implements OnInit, OnDestroy {
         nexusNav.content = parts.join('\n');
       }
     }
+  }
+
+  private async getBonesPlayerInfo() {
+    this.isLoadingEnder = true; // reuse loading flag for shared UI state
+    try {
+      const res: any = await this.bonesService.getActivePlayers(2);
+      this.bonesActivePlayers = res?.count ?? null;
+    } catch (e) {
+      this.bonesActivePlayers = null;
+    }
+
+    try {
+      const userId = this._parent.user?.id ?? 0;
+      if (userId) {
+        const rankRes: any = await this.bonesService.getUserRank(userId);
+        if (rankRes && rankRes.hasHero) {
+          this.bonesUserRank = { rank: rankRes.rank ?? null, level: rankRes.level ?? null, totalPlayers: rankRes.totalPlayers ?? null };
+        } else {
+          this.bonesUserRank = { rank: null, level: null, totalPlayers: rankRes?.totalPlayers ?? null };
+        }
+      }
+    } catch (e) {
+      this.bonesUserRank = null;
+    }
+
+    if (this._parent?.navigationItems) {
+      const bonesNav = this._parent.navigationItems.find(x => x.title === 'Bones');
+      if (bonesNav) {
+        const parts: string[] = [];
+        if (this.bonesActivePlayers != null) parts.push(this.bonesActivePlayers.toString());
+        if (this.bonesUserRank?.rank != null) parts.push(`#${this.bonesUserRank.rank}`);
+        bonesNav.content = parts.join('\n');
+      }
+    }
+    this.isLoadingEnder = false;
   }
 
   private async getMetaPlayerInfo() {

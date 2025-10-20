@@ -120,6 +120,28 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
 
     window.addEventListener("resize", this.adjustCanvasSize);
     this.adjustCanvasSize();
+
+    // Handle remote attack animations sent from other clients via ATTACK_BATCH
+    events.on("REMOTE_ATTACK", this, (payload: any) => {
+      try {
+        const sourceHeroId = payload?.sourceHeroId;
+        const attack = payload?.attack;
+        if (!sourceHeroId || !attack) return;
+        const srcObj = this.mainScene?.level?.children?.find((x: any) => x.id === sourceHeroId);
+        if (srcObj) {
+          // If the hero object exposes a playAttackAnimation method, use it.
+          if (typeof srcObj.playAttackAnimation === 'function') {
+            srcObj.playAttackAnimation(attack.skill);
+          } else {
+            // Fallback: temporarily set a flag that other rendering code can observe
+            srcObj._remoteAttack = attack;
+            setTimeout(() => { delete srcObj._remoteAttack; }, 500);
+          }
+        }
+      } catch (ex) {
+        console.error('Error handling REMOTE_ATTACK', ex);
+      }
+    });
   }
 
   ngOnDestroy() {

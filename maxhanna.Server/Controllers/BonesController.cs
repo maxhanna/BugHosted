@@ -58,20 +58,68 @@ namespace maxhanna.Server.Controllers
 		}
 
 		[HttpPost("/Bones/FetchGameData", Name = "Bones_FetchGameData")]
-		public async Task<IActionResult> FetchGameData([FromBody] MetaHero hero)
+		public async Task<IActionResult> FetchGameData([FromBody] FetchGameDataRequest request)
 		{
+			var hero = request?.Hero ?? new MetaHero();
 			_ = _log.Db("Fetch game data for hero " + hero.Id, hero.Id, "BONES", true);
 			using var connection = new MySqlConnection(_connectionString);
 			await connection.OpenAsync();
 			using var transaction = connection.BeginTransaction();
 			try
 			{
+				// If client provided recentAttacks, persist them as short-lived ATTACK events so other players can pick them up in this fetch-response.
+				if (request?.RecentAttacks != null && request.RecentAttacks.Count > 0)
+				{
+					try
+					{
+						foreach (var attack in request.RecentAttacks)
+						{
+							string insertSql = "INSERT INTO maxhanna.bones_event (hero_id, event, map, data, timestamp) VALUES (@HeroId, @Event, @Map, @Data, UTC_TIMESTAMP());";
+							var parameters = new Dictionary<string, object?>()
+							{
+								{ "@HeroId", attack.ContainsKey("sourceHeroId") ? attack["sourceHeroId"] : hero.Id },
+								{ "@Event", "ATTACK" },
+								{ "@Map", hero.Map ?? string.Empty },
+								{ "@Data", Newtonsoft.Json.JsonConvert.SerializeObject(attack) }
+							};
+							await ExecuteInsertOrUpdateOrDeleteAsync(insertSql, parameters, connection, transaction);
+						}
+					}
+					catch (Exception ex)
+					{
+						await _log.Db("Failed to persist recentAttacks: " + ex.Message, hero.Id, "BONES", true);
+					}
+				}
+
 				hero = await UpdateHeroInDB(hero, connection, transaction);
 				MetaHero[]? heroes = await GetNearbyPlayers(hero, connection, transaction);
 				MetaBot[]? enemyBots = await GetEncounterMetaBots(connection, transaction, hero.Map);
 				List<MetaEvent> events = await GetEventsFromDb(hero.Map, hero.Id, connection, transaction);
+				// Query recent ATTACK events (last 5 seconds) excluding attacks originating from this hero.
+				List<Dictionary<string, object>> recentAttacks = new();
+				try
+				{
+					string q = "SELECT data FROM maxhanna.bones_event WHERE event = 'ATTACK' AND timestamp >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 5 SECOND) AND hero_id <> @HeroId ORDER BY timestamp DESC LIMIT 50;";
+					using var cmd = new MySqlCommand(q, connection, transaction);
+					cmd.Parameters.AddWithValue("@HeroId", hero.Id);
+					using var rdr = await cmd.ExecuteReaderAsync();
+					while (await rdr.ReadAsync())
+					{
+						var dataJson = rdr.IsDBNull(rdr.GetOrdinal("data")) ? null : rdr.GetString(rdr.GetOrdinal("data"));
+						if (!string.IsNullOrEmpty(dataJson))
+						{
+							try { var dict = Newtonsoft.Json.JsonConvert.DeserializeObject<Dictionary<string, object>>(dataJson); if (dict != null) recentAttacks.Add(dict); } catch { }
+						}
+					}
+				}
+				catch (Exception ex)
+				{
+					await _log.Db("Failed to read recentAttacks: " + ex.Message, hero.Id, "BONES", true);
+				}
+
 				await transaction.CommitAsync();
-				return Ok(new { map = hero.Map, hero.Position, heroes, events, enemyBots });
+				var resp = new FetchGameDataResponse { Map = hero.Map, Position = hero.Position, Heroes = heroes, Events = events, EnemyBots = enemyBots, RecentAttacks = recentAttacks };
+				return Ok(resp);
 			}
 			catch (Exception ex)
 			{
@@ -405,7 +453,7 @@ namespace maxhanna.Server.Controllers
 			{
 				await using var conn = new MySqlConnection(_connectionString);
 				await conn.OpenAsync();
-				string sql = $"SELECT COUNT(DISTINCT user_id) AS activeCount FROM (SELECT mh.user_id AS user_id FROM maxhanna.bones_bot_part p JOIN maxhanna.bones_bot b ON b.id = p.metabot_id JOIN maxhanna.bones_hero mh ON mh.id = b.hero_id WHERE p.last_used >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL {windowMinutes} MINUTE) UNION ALL SELECT mh.user_id AS user_id FROM maxhanna.bones_event e JOIN maxhanna.bones_hero mh ON mh.id = e.hero_id WHERE e.timestamp >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL {windowMinutes} MINUTE)) x WHERE user_id IS NOT NULL AND user_id > 0;";
+				string sql = $"SELECT COUNT(DISTINCT user_id) AS activeCount FROM maxhanna.bones_hero h WHERE h.updated >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL {windowMinutes} MINUTE) AND h.user_id IS NOT NULL AND h.user_id > 0;";
 				await using var cmd = new MySqlCommand(sql, conn);
 				int activeCount = Convert.ToInt32(await cmd.ExecuteScalarAsync());
 				return Ok(new { count = activeCount });
