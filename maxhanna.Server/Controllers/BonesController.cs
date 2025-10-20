@@ -652,6 +652,7 @@ namespace maxhanna.Server.Controllers
 				m.mask, 
 				m.level as hero_level,
 				m.updated as hero_updated,
+				m.created as hero_created,
 				b.id as metabot_id,
 				b.name as metabot_name,
 				b.type as metabot_type,
@@ -680,6 +681,7 @@ namespace maxhanna.Server.Controllers
 						int hMapOrd = reader.GetOrdinal("hero_map");
 						int hLevelOrd = reader.GetOrdinal("hero_level");
 						int hUpdatedOrd = reader.GetOrdinal("hero_updated");
+						int hCreatedOrd = reader.GetOrdinal("hero_created");
 						int colorOrd = reader.GetOrdinal("color");
 						int maskOrd = reader.GetOrdinal("mask");
 						tmpHero = new MetaHero {
@@ -691,6 +693,8 @@ namespace maxhanna.Server.Controllers
 							Mask = reader.IsDBNull(maskOrd) ? null : reader.GetInt32(maskOrd),
 							Position = new Vector2(reader.GetInt32("coordsX"), reader.GetInt32("coordsY")),
 							Speed = reader.GetInt32("speed"),
+							Updated = reader.IsDBNull(hUpdatedOrd) ? DateTime.UtcNow : reader.GetDateTime(hUpdatedOrd),
+							Created = reader.IsDBNull(hCreatedOrd) ? DateTime.UtcNow : reader.GetDateTime(hCreatedOrd),
 							Metabots = new List<MetaBot>()
 						};
 						heroesDict[heroId] = tmpHero;
