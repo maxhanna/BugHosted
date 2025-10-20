@@ -186,7 +186,7 @@ export class GameObject {
   drawName(ctx: CanvasRenderingContext2D, drawPosX: number, drawPosY: number) {
     if (this.name) {
       // Set the font style and size for the name
-      ctx.font = "7px owreKynge"; // Font and size
+      ctx.font = "7px fontRetroGaming"; // Font and size
       ctx.fillStyle = "chartreuse"; // Text color
       ctx.textAlign = "center"; // Center the text
 

@@ -381,7 +381,7 @@ export class Character extends GameObject {
 
     // HP text
     const hpText = `${this.hp}`;
-    ctx.font = "6px owreKynge";
+    ctx.font = "6px fontRetroGaming";
     ctx.textAlign = "center";
 
     // Measure text width 
@@ -448,7 +448,7 @@ export class Character extends GameObject {
 
     // Draw level text
     ctx.fillStyle = "white";
-    ctx.font = "bold 8px owreKynge";
+    ctx.font = "bold 8px fontRetroGaming";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     ctx.fillText(this.level.toString(), diamondX, diamondY);
@@ -468,7 +468,7 @@ export class Character extends GameObject {
       if (!tempCtx) return;
 
       // Set the same font we'll use for rendering
-      tempCtx.font = "8px owreKynge";
+      tempCtx.font = "8px fontRetroGaming";
 
       // Split message into lines with proper measurement
       const maxWidth = 120; // Maximum bubble width before wrapping
@@ -514,7 +514,7 @@ export class Character extends GameObject {
       if (!bubbleCtx) return;
 
       // Set the font for rendering
-      bubbleCtx.font = "8px owreKynge";
+      bubbleCtx.font = "8px fontRetroGaming";
 
       // Draw speech bubble with tail
       bubbleCtx.fillStyle = "rgba(255, 255, 255, 0.9)";
