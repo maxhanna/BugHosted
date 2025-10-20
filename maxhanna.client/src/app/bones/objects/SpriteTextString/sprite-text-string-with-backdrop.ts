@@ -37,7 +37,7 @@ export class SpriteTextStringWithBackdrop extends GameObject {
     canSelectItems?: boolean;
     objectSubject?: { name?: string };
   }) {
-    super({ position: new Vector2(32, 118), drawLayer: HUD });
+    super({ position: new Vector2(2, 118), drawLayer: HUD });
 
     this.canSelectItems = config.canSelectItems ?? false;
     this.objectSubject = config.objectSubject ?? {};
