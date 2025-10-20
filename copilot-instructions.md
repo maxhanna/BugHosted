@@ -49,6 +49,10 @@ This file should be referenced by the agent before making any code edits in this
 
 - Backend is .NET (C#) + MySQL and many controllers use manual, parameterized SQL with explicit transactions; prefer `async/await` and keep the transaction in the same method when editing controller flows.
 - Many database columns can be NULL. Avoid calling `reader.GetString(...)` or similar directly without checking `IsDBNull` (or use a small helper like `SafeGetString`). Prefer ordinals, `IsDBNull`, or Convert.ToString for nullable columns.
+ - Many database columns can be NULL. Avoid calling `reader.GetString(...)` or similar directly without checking `IsDBNull`.
+	 Prefer the explicit `IsDBNull` pattern for nullable ints where callers expect a nullable result, for example:
+	 `int? killerId = rdr.IsDBNull(rdr.GetOrdinal("killer_id")) ? (int?)null : rdr.GetInt32("killer_id");`
+	 This pattern is preferred over a generic `SafeGetInt32` helper when the calling code expects a nullable int or wants explicit null semantics.
 - Controllers use raw SQL in strings and helper methods under `Controllers/` and `Controllers/DataContracts/` for DTOs — add new DTOs under `DataContracts/` per the existing pattern.
 - When replacing expensive in-memory loops that join DB-backed sets (e.g., hero vs wall collision), prefer moving the work into a single parameterized SQL query (CTE or grouped subquery) to let the DB optimize joins and use indexes.
 - Client is Angular (TypeScript).  
