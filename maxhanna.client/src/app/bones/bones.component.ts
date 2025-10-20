@@ -164,9 +164,9 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
       } else {
         this.userService.getUserSettings(this.parentRef?.user?.id ?? 0).then(res => {
           const defaultName = res?.lastCharacterName ?? undefined;
-          this.mainScene.setLevel(new CharacterCreate({ defaultName }));
+          this.mainScene.setLevel(new CharacterCreate({ defaultName, defaultColor: this.cachedDefaultColor }));
         }).catch(() => {
-          this.mainScene.setLevel(new CharacterCreate());
+          this.mainScene.setLevel(new CharacterCreate({ defaultColor: this.cachedDefaultColor }));
         });
         return;
       }
@@ -501,9 +501,9 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
       this.hero.position.duplicate(),
       rz.speed,
       rz.map,
-      rz.metabots,
-      rz.color, 
-      rz.mask);
+  rz.metabots,
+  rz.color,
+  rz.mask);
       this.hero.isLocked = this.isStartMenuOpened || this.isShopMenuOpened;
     this.mainScene.setHeroId(this.metaHero.id);
     this.mainScene.hero = this.hero; 
@@ -633,14 +633,41 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
     }
   }
   async changeColor() {
-    this.metaHero.color = this.colorInput.nativeElement.value;
-    this.colorInput.nativeElement.style.display = "none";
-    this.parentRef?.closeModal();
-    if (this.parentRef) { 
-      this.parentRef.isModal = true;
+    // Normalize hex input and accept any color (no darkness restriction)
+    let raw = (this.colorInput.nativeElement.value || "").toString();
+    function normalizeHex(h: string): string | null {
+      if (!h) return null;
+      h = h.replace(/^#/, '');
+      if (h.length === 3) { h = h.split('').map(c => c + c).join(''); }
+      if (h.length !== 6) return null;
+      return '#' + h.toUpperCase();
     }
-    await this.reinitializeHero(this.metaHero);
-    events.emit("HERO_MOVEMENT_UNLOCK");
+
+    if (!normalizeHex(raw)) {
+      // fallback to cached/default if input invalid
+      raw = this.cachedDefaultColor ?? this.metaHero?.color ?? '#444444';
+      this.colorInput.nativeElement.value = raw;
+    }
+
+    const chosenColor = normalizeHex(raw) ?? this.cachedDefaultColor ?? this.metaHero?.color ?? '#444444';
+
+    this.metaHero.color = chosenColor;
+    if (this.hero) this.hero.colorSwap = new ColorSwap([0,160,200], hexToRgb(chosenColor));
+
+    const userId = this.parentRef?.user?.id ?? 0;
+    if (userId && userId > 0) {
+      await this.userService.updateLastCharacterColor(userId, chosenColor).catch(() => {});
+      this.cachedDefaultColor = chosenColor;
+    }
+
+    // propagate to scene and reinitialize if not on character creation
+    if (this.metaHero && this.metaHero.id && chosenColor) {
+      if (this.hero) this.hero.colorSwap = new ColorSwap([0,160,200], hexToRgb(chosenColor));
+    }
+
+    if (this.mainScene?.level?.name != 'CharacterCreate') {
+      await this.reinitializeHero(this.metaHero);
+    }
   }
   private adjustCanvasSize = () => {
     const containers = document.querySelectorAll('.componentContainer');

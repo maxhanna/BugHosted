@@ -91,7 +91,7 @@
       <div class="start" (mouseup)='mainScene.input.pressStart()'>START</div>
     </div>
 
-    <input type="color" (change)='changeColor()' #colorInput class="colorInput" [value]="metaHero.color" />
+  <input *ngIf="mainScene?.level?.name === 'CharacterCreate'" type="color" (change)='changeColor()' #colorInput class="colorInput" [value]="cachedDefaultColor ?? metaHero.color" />
   </div>
   <app-user class="popupPanel ucPopupPanel" *ngIf="isUserComponentOpen" [loginOnly]="true"
     [inputtedParentRef]="parentRef" [canClose]="false" (closeUserComponentEvent)="closeUserComponent($event)"
