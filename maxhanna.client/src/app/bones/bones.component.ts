@@ -71,6 +71,8 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
   isShopMenuOpened = false;
   hideStartButton = false;
   serverDown? = false;
+  // Count consecutive failures to fetch game data; when threshold reached announce locally via chat
+  private consecutiveFetchFailures: number = 0;
   topMetabots: any[] = [];
   topHeroes: any[] = [];
   cachedDefaultName?: string = undefined;
@@ -177,22 +179,66 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
     }, this.pollSeconds * 1000);
   }
 
-  private updatePlayers() {
-    if (this.metaHero && this.metaHero.id && !this.stopPollingForUpdates) {
-    this.bonesService.fetchGameData(this.metaHero).then((res: any) => {
-        if (res) {
-          this.updateOtherHeroesBasedOnFetchedData(res);
-          this.updateMissingOrNewHeroSprites();
-          this.updateEnemyEncounters(res);
+  private async updatePlayers() {
+    if (!(this.metaHero && this.metaHero.id && !this.stopPollingForUpdates)) return;
 
-          if (this.chat) {
-            this.getLatestMessages();
-          }
-          if (res.events) {
-            actionMultiplayerEvents(this, res.events);
-          }
+    try {
+      const res: any = await this.bonesService.fetchGameData(this.metaHero);
+      if (!res) {
+        // treat null/undefined as a transient failure
+        this.consecutiveFetchFailures++;
+        if (this.consecutiveFetchFailures >= 3 && !this.serverDown) {
+          // Announce server-down locally via chat using the current metaHero as source
+          const name = this.metaHero?.name ?? "Anon";
+          // remove any local typing placeholder for this hero
+          this.chat = this.chat.filter((m: MetaChat) => !(m && m.hero === name && (m.content ?? '') === '...'));
+          this.chat.unshift({ hero: name, content: "Server down", timestamp: new Date() } as MetaChat);
+          // update the visible bubble for the hero and show UI
+          this.setHeroLatestMessage(this.mainScene?.level?.children?.find((x: Character) => x.name === name));
+          this.displayChatMessage();
+          events.emit("CHAT_MESSAGE_RECEIVED");
+          this.serverDown = true;
         }
-      });
+        return;
+      }
+
+      // successful fetch: reset failure counter/state
+      const wasServerDown = !!this.serverDown;
+      this.consecutiveFetchFailures = 0;
+      this.serverDown = false;
+
+      // If server was down and is now back, consider reinitializing UI/state (bones doesn't have recover flow)
+      if (wasServerDown) {
+        // Optionally: remove any offline indicators or re-sync inventory/positions
+      }
+
+      // Normal processing
+      if (res) {
+        this.updateOtherHeroesBasedOnFetchedData(res);
+        this.updateMissingOrNewHeroSprites();
+        this.updateEnemyEncounters(res);
+
+        if (this.chat) {
+          this.getLatestMessages();
+        }
+        if (res.events) {
+          actionMultiplayerEvents(this, res.events);
+        }
+      }
+    }
+    catch (ex: any) {
+      // treat exceptions as failures
+      this.consecutiveFetchFailures++;
+      if (this.consecutiveFetchFailures >= 3 && !this.serverDown) {
+        const name = this.metaHero?.name ?? "Anon";
+        this.chat = this.chat.filter((m: MetaChat) => !(m && m.hero === name && (m.content ?? '') === '...'));
+        this.chat.unshift({ hero: name, content: "Server down", timestamp: new Date() } as MetaChat);
+        this.setHeroLatestMessage(this.mainScene?.level?.children?.find((x: Character) => x.name === name));
+        this.displayChatMessage();
+        events.emit("CHAT_MESSAGE_RECEIVED");
+        this.serverDown = true;
+      }
+      return;
     }
   }
 

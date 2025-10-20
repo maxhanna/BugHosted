@@ -44,3 +44,17 @@
 
 ---
 This file should be referenced by the agent before making any code edits in this workspace. When component general behavior or purpose changes, update README.md Component Overview section.
+
+## Project peculiarities & guidance for Copilot-style agents
+
+- Backend is .NET (C#) + MySQL and many controllers use manual, parameterized SQL with explicit transactions; prefer `async/await` and keep the transaction in the same method when editing controller flows.
+- Many database columns can be NULL. Avoid calling `reader.GetString(...)` or similar directly without checking `IsDBNull` (or use a small helper like `SafeGetString`). Prefer ordinals, `IsDBNull`, or Convert.ToString for nullable columns.
+- Controllers use raw SQL in strings and helper methods under `Controllers/` and `Controllers/DataContracts/` for DTOs — add new DTOs under `DataContracts/` per the existing pattern.
+- When replacing expensive in-memory loops that join DB-backed sets (e.g., hero vs wall collision), prefer moving the work into a single parameterized SQL query (CTE or grouped subquery) to let the DB optimize joins and use indexes.
+- Client is Angular (TypeScript).  
+- Avoid broad refactors in a single patch. Make small, focused edits (one logical change per patch) and run build/tests after each change.
+- After server-side edits, run `dotnet build` in `maxhanna.Server` and fix compile errors before proceeding. After client-side edits, run the client build (or at least `tsc`) if possible to catch type errors.
+- Style: preserve existing indentation, method ordering (append helper methods at the end of classes), and use the same exception logging pattern (`_log.Db(...)`) when adding new server-side error handling.
+- Tests & verification: for non-trivial server changes, prefer a tiny integration smoke check (exercise endpoint) and collect error traces if the change hits production errors.
+
+Keep this section minimal and update it when new repo conventions appear.
