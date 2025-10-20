@@ -75,13 +75,17 @@ const makeStandingFrames = (rootFrame = 0) => {
 }
 
 
-const makeAttackFrames = (rootFrame = 0) => {
+const makeAttackFrames = (rootFrame = 0, standing = 0) => {
   return {
-    duration: 1000,
+    duration: 2000,
     frames: [
       {
         time: 0,
         frame: rootFrame
+      }, 
+      {
+        time: 1000,
+        frame: standing
       }, 
     ]
   }
@@ -97,10 +101,10 @@ export const STAND_RIGHT = makeStandingFrames(11);
 export const STAND_UP = makeStandingFrames(12);
 export const STAND_LEFT = makeStandingFrames(9);  
 
-export const ATTACK_LEFT = makeAttackFrames(17);
-export const ATTACK_DOWN = makeAttackFrames(18);
-export const ATTACK_RIGHT = makeAttackFrames(19);
-export const ATTACK_UP = makeAttackFrames(20);
+export const ATTACK_LEFT = makeAttackFrames(17, 9);
+export const ATTACK_DOWN = makeAttackFrames(18, 1);
+export const ATTACK_RIGHT = makeAttackFrames(19, 11);
+export const ATTACK_UP = makeAttackFrames(20, 12);
 
 export const PICK_UP_DOWN = { 
   duration: 2500,
