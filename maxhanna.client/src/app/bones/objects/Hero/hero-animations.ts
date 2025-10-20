@@ -81,10 +81,14 @@ const makeAttackFrames = (rootFrame = 0, standing = 0) => {
     frames: [
       {
         time: 0,
-        frame: rootFrame
+        frame: standing
       }, 
       {
         time: 2000,
+        frame: rootFrame
+      }, 
+      {
+        time: 4000,
         frame: standing
       }, 
     ]
