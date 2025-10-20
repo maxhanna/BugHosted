@@ -1058,6 +1058,7 @@ namespace maxhanna.Server.Controllers
 			int ord = reader.GetOrdinal(columnName);
 			return reader.IsDBNull(ord) ? null : reader.GetString(ord);
 		}
+
 		private async Task<long?> ExecuteInsertOrUpdateOrDeleteAsync(string sql, Dictionary<string, object?> parameters, MySqlConnection? connection = null, MySqlTransaction? transaction = null)
 		{
 			string cmdText = ""; bool createdConnection = false; long? insertedId = null; int rowsAffected = 0;
