@@ -15,6 +15,7 @@ import { WarpBase } from "../Effects/Warp/warp-base";
 
 export class Hero extends Character {
   metabots?: MetaBot[]; 
+  isAttacking = false;
   constructor(params: {
     position: Vector2, id?: number, name?: string, metabots?: MetaBot[], colorSwap?: ColorSwap,
     isUserControlled?: boolean, speed?: number, mask?: Mask, scale?: Vector2,
@@ -97,6 +98,8 @@ export class Hero extends Character {
         this.isLocked = false;
       }); 
       events.on("SPACEBAR_PRESSED", this, () => {
+        this.isAttacking = true;
+        this.isLocked = true;
         if (this.facingDirection == "DOWN") {
           this.body?.animations?.play("attackDown");
         } else if (this.facingDirection == "UP") {
@@ -106,6 +109,10 @@ export class Hero extends Character {
         } else if (this.facingDirection == "RIGHT") {
           this.body?.animations?.play("attackRight");
         }
+        setTimeout(() => {
+          this.isAttacking = false;
+          this.isLocked = false;
+        }, 4000);
       });
       events.on("SELECTED_ITEM", this, (selectedItem: string) => { 
         if (selectedItem === "Party Up") {
