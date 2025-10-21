@@ -613,7 +613,7 @@ export function subscribeToMainGameEvents(object: any) {
       };
       pendingAttacks.push(attack);
       startAttackBatch(object, 1000);
-    }   
+    }
   });
 
   events.on("GOT_REWARDS", object, (params: { location: Vector2, part: MetaBotPart }) => {
