@@ -605,7 +605,7 @@ export function subscribeToMainGameEvents(object: any) {
   })
 
   events.on("SPACEBAR_PRESSED", object, (skill: Skill) => {
-    if (object.chatInput && object.chatInput.value.trim() == "" && document.activeElement == object.chatInput)
+    if ((object.chatInput && document.activeElement != object.chatInput) || !object.chatInput)
     {
       const attack = {
         timestamp: new Date().toISOString(),
