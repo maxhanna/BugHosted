@@ -824,6 +824,15 @@ export function actionMultiplayerEvents(object: any, metaEvents: MetaEvent[]) {
             console.error("Failed to process ATTACK_BATCH event", ex);
           }
         }
+        if (event.eventType === "OTHER_HERO_ATTACK") {
+          try {
+            // Emit a simple local event that UI/game objects can consume
+            const payload = { sourceHeroId: event.heroId, data: event.data };
+            events.emit("OTHER_HERO_ATTACK", payload);
+          } catch (ex) {
+            console.error('Failed to handle OTHER_HERO_ATTACK', ex);
+          }
+        }
         if (event.eventType === "CHAT" && event.data) {
           const content = event.data["content"] ?? '';
           const name = event.data["sender"] ?? "Anon";

@@ -88,6 +88,21 @@ export class Hero extends Character {
       events.on("START_TEXT_BOX", this, () => {
         this.isLocked = true; 
       });
+      // Play attack animations for remote players when notified
+      events.on("OTHER_HERO_ATTACK", this, (payload: any) => {
+        try {
+          const sourceHeroId = payload?.sourceHeroId;
+          if (!sourceHeroId) return;
+          if (this.id === sourceHeroId) {
+            // Play an attack animation based on facing direction, fallback to attackDown
+            if (this.facingDirection == "DOWN") this.body?.animations?.play("attackDown");
+            else if (this.facingDirection == "UP") this.body?.animations?.play("attackUp");
+            else if (this.facingDirection == "LEFT") this.body?.animations?.play("attackLeft");
+            else if (this.facingDirection == "RIGHT") this.body?.animations?.play("attackRight");
+            setTimeout(() => { this.isAttacking = false; }, 400);
+          }
+        } catch (ex) { console.error('OTHER_HERO_ATTACK handler error', ex); }
+      });
       events.on("END_TEXT_BOX", this, () => {
         this.isLocked = false;
       });

@@ -76,12 +76,65 @@ namespace maxhanna.Server.Controllers
 						foreach (var attack in request.RecentAttacks)
 						{
 							string insertSql = "INSERT INTO maxhanna.bones_event (hero_id, event, map, data, timestamp) VALUES (@HeroId, @Event, @Map, @Data, UTC_TIMESTAMP());";
+							// Normalize attack dictionary values: handle System.Text.Json.JsonElement and JToken values
+							var normalized = new Dictionary<string, object?>();
+							foreach (var kv in attack)
+							{
+								object? v = kv.Value;
+								try
+								{
+									if (v is System.Text.Json.JsonElement je)
+									{
+										switch (je.ValueKind)
+										{
+											case System.Text.Json.JsonValueKind.String:
+												normalized[kv.Key] = je.GetString();
+												break;
+											case System.Text.Json.JsonValueKind.Number:
+												if (je.TryGetInt64(out long l)) normalized[kv.Key] = l;
+												else if (je.TryGetDouble(out double d)) normalized[kv.Key] = d;
+												else normalized[kv.Key] = je.GetRawText();
+												break;
+											case System.Text.Json.JsonValueKind.True:
+											case System.Text.Json.JsonValueKind.False:
+												normalized[kv.Key] = je.GetBoolean();
+												break;
+											case System.Text.Json.JsonValueKind.Null:
+												normalized[kv.Key] = null;
+												break;
+											default:
+												// Object/Array -> raw JSON text
+												normalized[kv.Key] = je.GetRawText();
+												break;
+										}
+									}
+									else if (v is Newtonsoft.Json.Linq.JToken jt)
+									{
+										// convert to primitive where possible, otherwise string
+										if (jt.Type == Newtonsoft.Json.Linq.JTokenType.Integer) normalized[kv.Key] = jt.ToObject<long>();
+										else if (jt.Type == Newtonsoft.Json.Linq.JTokenType.Float) normalized[kv.Key] = jt.ToObject<double>();
+										else if (jt.Type == Newtonsoft.Json.Linq.JTokenType.Boolean) normalized[kv.Key] = jt.ToObject<bool>();
+										else if (jt.Type == Newtonsoft.Json.Linq.JTokenType.String) normalized[kv.Key] = jt.ToObject<string?>() ?? string.Empty;
+										else normalized[kv.Key] = jt.ToString(Newtonsoft.Json.Formatting.None);
+									}
+									else
+									{
+										normalized[kv.Key] = v;
+									}
+								}
+								catch
+								{
+									// Fallback: stringify
+									try { normalized[kv.Key] = v?.ToString(); } catch { normalized[kv.Key] = null; }
+								}
+							}
+
 							var parameters = new Dictionary<string, object?>()
 							{
-								{ "@HeroId", attack.ContainsKey("sourceHeroId") ? attack["sourceHeroId"] : hero.Id },
+								{ "@HeroId", normalized.ContainsKey("sourceHeroId") ? normalized["sourceHeroId"] ?? hero.Id : hero.Id },
 								{ "@Event", "ATTACK" },
 								{ "@Map", hero.Map ?? string.Empty },
-								{ "@Data", Newtonsoft.Json.JsonConvert.SerializeObject(attack) }
+								{ "@Data", Newtonsoft.Json.JsonConvert.SerializeObject(normalized) }
 							};
 							await ExecuteInsertOrUpdateOrDeleteAsync(insertSql, parameters, connection, transaction);
 						}
@@ -148,6 +201,33 @@ namespace maxhanna.Server.Controllers
 				{
 					await _log.Db("Failed to read recentAttacks: " + ex.Message, hero.Id, "BONES", true);
 				}
+
+				// Convert recentAttacks (raw dictionaries) into MetaEvent objects so clients receive them in the normal events stream.
+				try
+				{
+					foreach (var atk in recentAttacks)
+					{
+						try
+						{
+							// Prefer keys "heroId" or "sourceHeroId" for the attack origin
+							object? srcObj = null;
+							if (atk.ContainsKey("heroId")) srcObj = atk["heroId"];
+							else if (atk.ContainsKey("sourceHeroId")) srcObj = atk["sourceHeroId"];
+
+							int srcId = srcObj != null ? Convert.ToInt32(srcObj) : 0;
+							var dataDict = new Dictionary<string, string>();
+							foreach (var kv in atk)
+							{
+								dataDict[kv.Key] = kv.Value?.ToString() ?? string.Empty;
+							}
+							// Create a MetaEvent so client-side multiplayer event processing will handle it like other events
+							var meleeEvent = new MetaEvent(0, srcId, DateTime.UtcNow, "OTHER_HERO_ATTACK", hero.Map ?? string.Empty, dataDict);
+							events.Add(meleeEvent);
+						}
+						catch { /* ignore malformed attack entries */ }
+					}
+				}
+				catch { }
 
 				await transaction.CommitAsync();
 				var resp = new FetchGameDataResponse { Map = hero.Map, Position = hero.Position, Heroes = heroes, Events = events, EnemyBots = enemyBots, RecentAttacks = recentAttacks };
