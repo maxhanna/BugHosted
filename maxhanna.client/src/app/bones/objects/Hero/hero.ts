@@ -94,6 +94,7 @@ export class Hero extends Character {
           const sourceHeroId = payload?.sourceHeroId;
           if (!sourceHeroId) return;
           if (this.id === sourceHeroId) {
+            console.log("Playing OTHER_HERO_ATTACK animation for hero id ", this.id);
             // Play an attack animation based on facing direction, fallback to attackDown
             if (this.facingDirection == "DOWN") this.body?.animations?.play("attackDown");
             else if (this.facingDirection == "UP") this.body?.animations?.play("attackUp");

@@ -706,10 +706,11 @@ export function actionMultiplayerEvents(object: any, metaEvents: MetaEvent[]) {
     try {
       // If this is an ATTACK or ATTACK_BATCH event, emit OTHER_HERO_ATTACK once per attack
       if (event && (event.eventType === "ATTACK" || event.eventType === "ATTACK_BATCH")) {
-        console.log("attack event received", event);
         const attackId = event.id ? String(event.id) : `${event.heroId}:${event.eventType}:${event.timestamp}:${JSON.stringify(event.data)}`;
         if (!processedAttacks.has(attackId)) {
           processedAttacks.set(attackId, Date.now());
+          console.log("attack event received", event);
+
           // Emit normalized payload (name and payload only) so handlers don't need object
           events.emit("OTHER_HERO_ATTACK", { sourceHeroId: event.heroId, attack: event.data ?? {} });
         }
