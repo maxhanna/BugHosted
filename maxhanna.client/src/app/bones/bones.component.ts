@@ -211,7 +211,7 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
       for (const [key, ts] of processedAttacks) {
         if (now - ts > PROCESSED_ATTACK_TTL_MS) processedAttacks.delete(key);
       }
-    }, 30 * 1000);
+    }, 40 * 1000);
   }
 
   private async updatePlayers() {
