@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Mvc;
 using MySqlConnector;
 using System.Text;
 using System.Text.Json;
+using Newtonsoft.Json.Linq;
 
 namespace maxhanna.Server.Controllers
 {
@@ -620,7 +621,29 @@ namespace maxhanna.Server.Controllers
 						var ev = SafeGetString(reader, "event") ?? string.Empty;
 						var mp = SafeGetString(reader, "map") ?? string.Empty;
 						var dataJson = SafeGetString(reader, "data") ?? string.Empty;
-						MetaEvent tmpEvent = new(reader.GetInt32("id"), reader.GetInt32("hero_id"), reader.GetDateTime("timestamp"), ev, mp, !string.IsNullOrEmpty(dataJson) ? Newtonsoft.Json.JsonConvert.DeserializeObject<Dictionary<string, string>>(dataJson) ?? new Dictionary<string, string>() : new Dictionary<string, string>());
+						Dictionary<string, string> dataDict = new Dictionary<string, string>();
+						if (!string.IsNullOrEmpty(dataJson))
+						{
+							try
+							{
+								var jo = JObject.Parse(dataJson);
+								foreach (var prop in jo.Properties())
+								{
+									dataDict[prop.Name] = prop.Value?.ToString() ?? string.Empty;
+								}
+							}
+							catch (Exception)
+							{
+								// Fallback: attempt to deserialize dictionary of strings
+								try
+								{
+									var tmp = Newtonsoft.Json.JsonConvert.DeserializeObject<Dictionary<string, string>>(dataJson);
+									if (tmp != null) dataDict = tmp;
+								}
+								catch { /* ignore malformed data */ }
+							}
+						}
+						MetaEvent tmpEvent = new(reader.GetInt32("id"), reader.GetInt32("hero_id"), reader.GetDateTime("timestamp"), ev, mp, dataDict);
 						events.Add(tmpEvent);
 					}
 				}
