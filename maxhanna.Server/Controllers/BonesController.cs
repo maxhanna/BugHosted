@@ -109,7 +109,38 @@ namespace maxhanna.Server.Controllers
 						var dataJson = rdr.IsDBNull(rdr.GetOrdinal("data")) ? null : rdr.GetString(rdr.GetOrdinal("data"));
 						if (!string.IsNullOrEmpty(dataJson))
 						{
-							try { var dict = Newtonsoft.Json.JsonConvert.DeserializeObject<Dictionary<string, object>>(dataJson); if (dict != null) recentAttacks.Add(dict); } catch { }
+							try
+							{
+								var jo = JObject.Parse(dataJson);
+								var dict = new Dictionary<string, object>();
+								foreach (var prop in jo.Properties())
+								{
+									var token = prop.Value;
+									if (token.Type == JTokenType.Integer)
+									{
+										dict[prop.Name] = token.ToObject<long>();
+									}
+									else if (token.Type == JTokenType.Float)
+									{
+										dict[prop.Name] = token.ToObject<double>();
+									}
+									else if (token.Type == JTokenType.Boolean)
+									{
+										dict[prop.Name] = token.ToObject<bool>();
+									}
+									else if (token.Type == JTokenType.String)
+									{
+										dict[prop.Name] = token.ToObject<string?>() ?? string.Empty;
+									}
+									else
+									{
+										// For arrays/objects/other token types, stringify them so client sees usable data
+										dict[prop.Name] = token.ToString(Newtonsoft.Json.Formatting.None);
+									}
+								}
+								recentAttacks.Add(dict);
+							}
+							catch { }
 						}
 					}
 				}
