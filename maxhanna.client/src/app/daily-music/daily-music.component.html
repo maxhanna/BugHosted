@@ -2,7 +2,7 @@
     <div class="dailyMusicTitle popupPanelTitle">
         Latest Music
     </div>
-    <div *ngIf="songs.length === 0">
+    <div *ngIf="songs.length === 0" style="display:flex;">
         No <app-menu-item [type]="'Music'" [label]="'songs'"></app-menu-item> added today.
     </div>
 
