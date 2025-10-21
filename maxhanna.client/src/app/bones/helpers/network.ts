@@ -603,7 +603,7 @@ export function subscribeToMainGameEvents(object: any) {
     object.setHeroLatestMessage(hero);
   })
 
-  events.on("USER_ATTACK_SELECTED", object, (skill: Skill) => {
+  events.on("SPACEBAR_PRESSED", object, (skill: Skill) => {
     try {
       // Queue attack locally and send in batches to reduce network chatter
       const attack = {
