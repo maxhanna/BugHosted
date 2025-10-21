@@ -218,35 +218,18 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
       if (res && snapshot && snapshot.length > 0) {
         pendingAttacks.splice(0, snapshot.length);
       }
-      if (!res) {
-        // treat null/undefined as a transient failure
+      if (!res) { 
         this.consecutiveFetchFailures++;
         if (this.consecutiveFetchFailures >= 3 && !this.serverDown) {
-          // Announce server-down locally via chat using the current metaHero as source
-          const name = this.metaHero?.name ?? "Anon";
-          // remove any local typing placeholder for this hero
-          this.chat = this.chat.filter((m: MetaChat) => !(m && m.hero === name && (m.content ?? '') === '...'));
-          this.chat.unshift({ hero: name, content: "Server down", timestamp: new Date() } as MetaChat);
-          // update the visible bubble for the hero and show UI
-          this.setHeroLatestMessage(this.mainScene?.level?.children?.find((x: Character) => x.name === name));
-          this.displayChatMessage();
-          events.emit("CHAT_MESSAGE_RECEIVED");
-          this.serverDown = true;
+          this.announceServerDown();
         }
         return;
       }
-
-      // successful fetch: reset failure counter/state
-      const wasServerDown = !!this.serverDown;
-      this.consecutiveFetchFailures = 0;
-      this.serverDown = false;
-
-      // If server was down and is now back, consider reinitializing UI/state (bones doesn't have recover flow)
-      if (wasServerDown) {
+      const wasServerDown = this.resetServerDown();
+      if (wasServerDown) {      // If server was down and is now back, consider reinitializing UI/state (bones doesn't have recover flow)
         // Optionally: remove any offline indicators or re-sync inventory/positions
       }
-
-      // Normal processing
+ 
       if (res) {
         this.updateOtherHeroesBasedOnFetchedData(res);
         this.updateMissingOrNewHeroSprites();
@@ -274,6 +257,23 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
       }
       return;
     }
+  }
+
+  private announceServerDown() {
+    const name = this.metaHero?.name ?? "Anon";
+    this.chat = this.chat.filter((m: MetaChat) => !(m && m.hero === name && (m.content ?? '') === '...'));
+    this.chat.unshift({ hero: name, content: "Server down", timestamp: new Date() } as MetaChat);
+    this.setHeroLatestMessage(this.mainScene?.level?.children?.find((x: Character) => x.name === name));
+    this.displayChatMessage();
+    events.emit("CHAT_MESSAGE_RECEIVED");
+    this.serverDown = true;
+  }
+
+  private resetServerDown() {
+    const wasServerDown = !!this.serverDown;
+    this.consecutiveFetchFailures = 0;
+    this.serverDown = false;
+    return wasServerDown;
   }
 
   private updateOtherHeroesBasedOnFetchedData(res: { map: number; position: Vector2; heroes: MetaHero[]; }) {
