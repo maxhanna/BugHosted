@@ -29,6 +29,7 @@ export let encounterUpdates: Bot[] = [];
 export let batchInterval: any;
 export let pendingAttacks: any[] = [];
 export let attackBatchInterval: any;
+export const processedAttacks: Map<string, number> = new Map();
 
 export function startBatchUpdates(object: any, batchIntervalMs = 1000) {
   batchInterval = setInterval(() => {
@@ -695,10 +696,30 @@ export function subscribeToMainGameEvents(object: any) {
 }
 
 export function actionMultiplayerEvents(object: any, metaEvents: MetaEvent[]) {
-  const currentEvents = object.events;
-  if (metaEvents.length > 0) {
-    for (let event of metaEvents) {
-      const existingEvent = currentEvents.find((e: MetaEvent) => e.id == event.id);
+  const currentEvents = object.events ?? [];
+  if (!metaEvents || metaEvents.length === 0) {
+    object.events = metaEvents;
+    return;
+  }
+
+  for (let event of metaEvents) {
+    try {
+      // If this is an ATTACK or ATTACK_BATCH event, emit OTHER_HERO_ATTACK once per attack
+      if (event && (event.eventType === "ATTACK" || event.eventType === "ATTACK_BATCH")) {
+        const attackId = event.id ? String(event.id) : `${event.heroId}:${event.eventType}:${event.timestamp}:${JSON.stringify(event.data)}`;
+        if (!processedAttacks.has(attackId)) {
+          processedAttacks.set(attackId, Date.now());
+          // Emit normalized payload (name and payload only) so handlers don't need object
+          events.emit("OTHER_HERO_ATTACK", { sourceHeroId: event.heroId, attack: event.data ?? {} });
+        }
+      }
+    } catch (ex) {
+      console.error('actionMultiplayerEvents ATTACK handling error', ex);
+    }
+
+    try {
+      // Only handle events we haven't seen before
+      const existingEvent = currentEvents.find((e: MetaEvent) => e && e.id == event.id);
       if (!existingEvent) {
         //do something with object fresh event.
         if (event.eventType === "PARTY_UP" && event.data && event.data["hero_id"] == `${object.metaHero.id}` && !object.isDecidingOnParty) {
@@ -724,19 +745,14 @@ export function actionMultiplayerEvents(object: any, metaEvents: MetaEvent[]) {
           }
           if (tmpHero.id != object.metaHero.id) {
             const addedBot = object.addBotToScene(tmpHero, targetBot);
-
             const warpBase = new WarpBase({ position: addedBot.position, parentId: addedBot?.id ?? 0, offsetX: -8 });
-            object.mainScene.level?.addChild(warpBase); 
-            setTimeout(() => {
-              warpBase.destroy(); 
-            }, 1300);
+            object.mainScene.level?.addChild(warpBase);
+            setTimeout(() => { warpBase.destroy(); }, 1300);
           }
         }
-        if (event.eventType === "BOT_DESTROYED" && event.data) { 
-          //console.log("data:", event.data);
+        if (event.eventType === "BOT_DESTROYED" && event.data) {
           const bot = object.mainScene.level?.children.find((x: any) => x.heroId == event.heroId) as Bot;
           const winnerBotId = JSON.parse(event.data["winnerBotId"]) as number || undefined;
-         // console.log("winnerBotId", winnerBotId);
           if (winnerBotId) {
             const winnerBot = object.mainScene.level.children.find((x: any) => x.id == winnerBotId) as Bot;
             if (winnerBot) {
@@ -744,11 +760,10 @@ export function actionMultiplayerEvents(object: any, metaEvents: MetaEvent[]) {
               if (winnerBot.heroId === object.metaHero.id) {
                 generateReward(winnerBot, bot);
               }
-            } 
+            }
           }
-        
-          setTargetToDestroyed(bot); 
-          if (bot) {  
+          setTargetToDestroyed(bot);
+          if (bot) {
             bot.hp = 0;
             bot.isDeployed = false;
             bot.targeting = undefined;
@@ -757,22 +772,17 @@ export function actionMultiplayerEvents(object: any, metaEvents: MetaEvent[]) {
             setTimeout(() => {
               if (bot.heroId == object.metaHero.id) {
                 const metaBot = object.metaHero.metabots.find((bot: MetaBot) => bot.name === bot.name);
-                metaBot.hp = 0;
-                metaBot.isDeployed = false; 
+                if (metaBot) { metaBot.hp = 0; metaBot.isDeployed = false; }
               }
             }, 50);
-          } 
+          }
         }
         if (event.eventType === "CALL_BOT_BACK") {
           const bot = object.mainScene.level?.children.find((x: any) => x.heroId == event.heroId);
-          if (bot) {
-            bot.isWarping = true;
-            bot.destroy();
-          }
-        } 
+          if (bot) { bot.isWarping = true; bot.destroy(); }
+        }
         if (event.eventType === "ITEM_DESTROYED") {
-          if (event.data) {  
-          //  console.log(event.data);
+          if (event.data) {
             const dmgMod = event.data["damage"];
             const position = JSON.parse(event.data["position"]) as Vector2;
             const skillName = event.data["skill"];
@@ -787,62 +797,46 @@ export function actionMultiplayerEvents(object: any, metaEvents: MetaEvent[]) {
               }
             }
             const tgtObject = object.mainScene.level?.children.find((x: any) => {
-              const isMatchingLabel = x.itemLabel === `${dmgMod ?? 1} ${skillName ?? 1}`; 
+              const isMatchingLabel = x.itemLabel === `${dmgMod ?? 1} ${skillName ?? 1}`;
               const isNearby = possiblePositions.some(pos => x.position.x === pos.x && x.position.y === pos.y);
               return isMatchingLabel && isNearby;
             });
-           // console.log("Item_Destroyed netwkr", dmgMod, skillName, tgtObject); 
             if (tgtObject) { tgtObject.destroy(); }
           }
         }
-        if (event.eventType === "BUY_ITEM") { 
+        if (event.eventType === "BUY_ITEM") {
           if (event.heroId === object.metaHero.id) {
-            //console.log(event && event.data ? event.data["item"] : "undefined item data");
             events.emit("BUY_ITEM_CONFIRMED", { heroId: event.heroId, item: (event.data ? event.data["item"] : "") })
             object.bonesService.deleteEvent(event.id);
           }
         }
         if (event.eventType === "ITEM_DROPPED") {
-          if (event.data) {  
+          if (event.data) {
             const tmpMetabotPart = JSON.parse(event.data["item"]) as MetaBotPart;
             const location = JSON.parse(event.data["location"]) as Vector2;
-            object.addItemToScene(tmpMetabotPart, location); 
+            object.addItemToScene(tmpMetabotPart, location);
           }
         }
         if (event.eventType === "ATTACK_BATCH" && event.data && event.data["attacks"]) {
           try {
             const attacks = JSON.parse(event.data["attacks"] as string) as any[];
             for (let atk of attacks) {
-              // Skip animations for attacks originated from this client
               if (event.heroId === object.metaHero.id) continue;
-              // Emit a local event so game code can animate the effect on targets
               events.emit("REMOTE_ATTACK", { attack: atk, sourceHeroId: event.heroId });
             }
-          } catch (ex) {
-            console.error("Failed to process ATTACK_BATCH event", ex);
-          }
+          } catch (ex) { console.error("Failed to process ATTACK_BATCH event", ex); }
         }
         if (event.eventType === "OTHER_HERO_ATTACK") {
           try {
-            // Emit a simple local event that UI/game objects can consume
             const payload = { sourceHeroId: event.heroId, data: event.data };
             events.emit("OTHER_HERO_ATTACK", payload);
-          } catch (ex) {
-            console.error('Failed to handle OTHER_HERO_ATTACK', ex);
-          }
+          } catch (ex) { console.error('Failed to handle OTHER_HERO_ATTACK', ex); }
         }
         if (event.eventType === "CHAT" && event.data) {
           const content = event.data["content"] ?? '';
           const name = event.data["sender"] ?? "Anon";
-
           const eventTs = event.timestamp ? new Date(event.timestamp).getTime() : Date.now();
-          const metachat = {
-            hero: name,
-            content: content,
-            timestamp: event.timestamp ? new Date(event.timestamp) : new Date()
-          } as MetaChat;
-
-          // Duplicate suppression: only treat as duplicate if same hero + same content within 2s
+          const metachat = { hero: name, content: content, timestamp: event.timestamp ? new Date(event.timestamp) : new Date() } as MetaChat;
           const isDuplicate = object.chat && object.chat.some((m: MetaChat) => {
             try {
               if (!m || !m.hero) return false;
@@ -852,38 +846,29 @@ export function actionMultiplayerEvents(object: any, metaEvents: MetaEvent[]) {
               return Math.abs(mts - eventTs) < 2000;
             } catch { return false; }
           });
-          if (!isDuplicate) {
-            object.chat.unshift(metachat);
-          }
+          if (!isDuplicate) { object.chat.unshift(metachat); }
           trimChatToLimit(object, 10);
           object.setHeroLatestMessage(object.otherHeroes.find((x: Character) => x.name === name));
           object.displayChatMessage();
           events.emit("CHAT_MESSAGE_RECEIVED");
-
         }
         if (event.eventType === "WHISPER" && event.data) {
           let breakOut = false;
           const content = event.data["content"] ?? '';
           const senderName = event.data["sender"] ?? "Anon";
-          const receiverName = event.data["receiver"] ?? "Anon"; 
-          if (receiverName != object.metaHero.name && senderName != object.metaHero.name) {
-            breakOut = true;
-          } 
+          const receiverName = event.data["receiver"] ?? "Anon";
+          if (receiverName != object.metaHero.name && senderName != object.metaHero.name) { breakOut = true; }
           if (!breakOut) {
-
             if (senderName === object.metaHero.name || receiverName == object.metaHero.name) {
               object.setHeroLatestMessage(object.otherHeroes.find((x: Character) => x.name === senderName));
-
-              const chatM = {
-                hero: senderName,
-                content: content,
-                timestamp: new Date()
-              } as MetaChat;
+              const chatM = { hero: senderName, content: content, timestamp: new Date() } as MetaChat;
               object.displayChatMessage(chatM);
-            } 
+            }
           }
         }
       }
+    } catch (ex) {
+      console.error('actionMultiplayerEvents handling error', ex);
     }
   }
   object.events = metaEvents;

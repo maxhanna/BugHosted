@@ -11,7 +11,7 @@ import { GameLoop } from './helpers/game-loop';
 import { hexToRgb, resources } from './helpers/resources';
 import { events } from './helpers/events';
 import { storyFlags } from './helpers/story-flags';
-import { actionMultiplayerEvents, subscribeToMainGameEvents, pendingAttacks } from './helpers/network';
+import { actionMultiplayerEvents, subscribeToMainGameEvents, pendingAttacks, processedAttacks } from './helpers/network';
 import { Hero } from './objects/Hero/hero';
 import { Main } from './objects/Main/main';
 import { HeroRoomLevel } from './levels/hero-room';
@@ -84,6 +84,7 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
 
   private currentChatTextbox?: ChatSpriteTextString | undefined; 
   private pollingInterval: any;
+  private _processedCleanupInterval: any;
 
   async ngOnInit() {
     this.serverDown = (this.parentRef ? await this.parentRef?.isServerUp() <= 0 : false);
@@ -146,12 +147,14 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
 
   ngOnDestroy() {
     clearInterval(this.pollingInterval);
+    clearInterval(this._processedCleanupInterval);
     this.mainScene.destroy();
     this.gameLoop.stop();
     this.remove_me('MetaComponent');
     this.parentRef?.setViewportScalability(true);
     this.parentRef?.removeResizeListener();
   }
+
 
   ngAfterViewInit() {
     this.mainScene.input.setChatInput(this.chatInput.nativeElement);
@@ -193,12 +196,22 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
         return;
       }
     }
-
+    this.startAttackCleanupInterval();
     this.updatePlayers();
     clearInterval(this.pollingInterval);
     this.pollingInterval = setInterval(async () => {
       this.updatePlayers();
     }, this.pollSeconds * 1000);
+  }
+
+  private startAttackCleanupInterval() {
+    const PROCESSED_ATTACK_TTL_MS = 60 * 1000; // 1 minute
+    this._processedCleanupInterval = setInterval(() => {
+      const now = Date.now();
+      for (const [key, ts] of processedAttacks) {
+        if (now - ts > PROCESSED_ATTACK_TTL_MS) processedAttacks.delete(key);
+      }
+    }, 30 * 1000);
   }
 
   private async updatePlayers() {
