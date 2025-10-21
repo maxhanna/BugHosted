@@ -206,7 +206,13 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
 
     try {
       // Snapshot pending attacks and include them with the fetch; component owns the queue lifecycle
-      const snapshot = pendingAttacks.slice();
+      const rawSnapshot = pendingAttacks.slice();
+      // Normalize to simple primitives: { heroId: number, timestamp: string, skill?: string }
+      const snapshot = rawSnapshot.map((a: any) => ({
+        heroId: typeof a.heroId === 'number' ? a.heroId : this.metaHero?.id ?? a.heroId,
+        timestamp: typeof a.timestamp === 'string' ? a.timestamp : (a.timestamp ? String(a.timestamp) : new Date().toISOString()),
+        skill: a.skill && typeof a.skill === 'string' ? a.skill : (a.skill && (a.skill as any).name ? (a.skill as any).name : undefined)
+      }));
       const res: any = await this.bonesService.fetchGameData(this.metaHero, snapshot);
       // On successful response, clear the attacks we just sent from the shared queue
       if (res && snapshot && snapshot.length > 0) {

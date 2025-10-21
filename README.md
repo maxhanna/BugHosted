@@ -80,7 +80,10 @@ Crypto prices, wallets, mining rigs, trade tools.
 Curated public/shareable link collections.
 
 ### Ender
-Minimal microscopic-themed game.
+Ender is a compact, real-time micro-game that runs inside the BugHosted shell. It's designed for quick sessions and as a showcase of lightweight multiplayer mechanics.
+
+### Bones
+Persistent multiplayer mini-RPG where players control heroes.
 
 ### Top100
 Ranked user-voted topic lists.

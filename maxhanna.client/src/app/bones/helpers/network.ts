@@ -606,9 +606,10 @@ export function subscribeToMainGameEvents(object: any) {
   events.on("SPACEBAR_PRESSED", object, (skill: Skill) => {
     try {
       // Queue attack locally and send in batches to reduce network chatter
+      // Normalize the attack shape to primitives so server binding is consistent
       const attack = {
         timestamp: new Date().toISOString(),
-        skill: skill,
+        skill: (skill && (typeof (skill as any).name === 'string')) ? (skill as any).name : (typeof skill === 'string' ? skill : undefined),
         heroId: object.metaHero.id
       };
       pendingAttacks.push(attack);
