@@ -3,7 +3,7 @@ import { MetaBot } from "../../../../services/datacontracts/bones/meta-bot";
 import { Character } from "../character";
 import { Sprite } from "../sprite";
 import { Mask } from "../Wardrobe/mask";
-import { DOWN, gridCells, isSpaceFree } from "../../helpers/grid-cells";
+import { DOWN, gridCells, isSpaceFree, LEFT, RIGHT, UP } from "../../helpers/grid-cells";
 import { Animations } from "../../helpers/animations";
 import { bodyAtSpace, isObjectNearby } from "../../helpers/move-towards";
 import { resources } from "../../helpers/resources";
@@ -83,23 +83,7 @@ export class Hero extends Character {
   }
 
 
-  override ready() {
-    events.on("OTHER_HERO_ATTACK", this, (payload: any) => {
-      console.log("hero id received event OTHER_HERO_ATTACK", this.id, payload); 
-      try {
-        const sourceHeroId = payload?.sourceHeroId;
-        if (!sourceHeroId) return;
-        if (this.id === sourceHeroId) {
-          console.log("Playing OTHER_HERO_ATTACK animation for hero id ", this.id);
-          // Play an attack animation based on facing direction, fallback to attackDown
-          if (this.facingDirection == "DOWN") this.body?.animations?.play("attackDown");
-          else if (this.facingDirection == "UP") this.body?.animations?.play("attackUp");
-          else if (this.facingDirection == "LEFT") this.body?.animations?.play("attackLeft");
-          else if (this.facingDirection == "RIGHT") this.body?.animations?.play("attackRight");
-          setTimeout(() => { this.isAttacking = false; }, 400);
-        }
-      } catch (ex) { console.error('OTHER_HERO_ATTACK handler error', ex); }
-    });
+  override ready() { 
     if (this.isUserControlled) {
       events.on("START_TEXT_BOX", this, () => {
         this.isLocked = true; 
@@ -190,6 +174,34 @@ export class Hero extends Character {
         } else {
           events.emit("INVALID_WARP", this);
         }
+      });
+    } else {
+       events.on("OTHER_HERO_ATTACK", this, (payload: any) => {
+        console.log("hero id received event OTHER_HERO_ATTACK", this.id, payload); 
+        try {
+          const sourceHeroId = payload?.sourceHeroId;
+          if (!sourceHeroId) return;
+          if (this.id === sourceHeroId) {
+            console.log("Playing OTHER_HERO_ATTACK animation for hero id ", this.id);
+            // Play an attack animation based on facing direction, fallback to attackDown
+            if (this.facingDirection == "DOWN") this.body?.animations?.play("attackDown");
+            else if (this.facingDirection == "UP") this.body?.animations?.play("attackUp");
+            else if (this.facingDirection == "LEFT") this.body?.animations?.play("attackLeft");
+            else if (this.facingDirection == "RIGHT") this.body?.animations?.play("attackRight");
+            setTimeout(() => { 
+              this.isAttacking = false;
+              if (this.facingDirection == DOWN) {
+                this.body?.animations?.play("standDown");
+              } else if (this.facingDirection == UP) {
+                this.body?.animations?.play("standUp");
+              } else if (this.facingDirection == LEFT) {
+                this.body?.animations?.play("standLeft");
+              } else if (this.facingDirection == RIGHT) {
+                this.body?.animations?.play("standRight");
+              }
+             }, 400);
+          }
+        } catch (ex) { console.error('OTHER_HERO_ATTACK handler error', ex); }
       });
     }
   }
