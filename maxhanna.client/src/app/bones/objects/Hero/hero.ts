@@ -90,6 +90,7 @@ export class Hero extends Character {
       });
       // Play attack animations for remote players when notified
       events.on("OTHER_HERO_ATTACK", this, (payload: any) => {
+        console.log("hero id received event OTHER_HERO_ATTACK", this.id, payload); 
         try {
           const sourceHeroId = payload?.sourceHeroId;
           if (!sourceHeroId) return;
