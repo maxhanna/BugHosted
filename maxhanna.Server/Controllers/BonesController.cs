@@ -695,7 +695,9 @@ namespace maxhanna.Server.Controllers
 		{
 			try
 			{
-				string sql = @"DELETE FROM maxhanna.bones_event WHERE timestamp < NOW() - INTERVAL 20 SECOND; INSERT INTO maxhanna.bones_event (hero_id, event, map, data) VALUES (@HeroId, @Event, @Map, @Data);";
+				string sql = @"
+				DELETE FROM maxhanna.bones_event WHERE timestamp < UTC_TIMESTAMP() - INTERVAL 20 SECOND; 
+				INSERT INTO maxhanna.bones_event (hero_id, event, map, data, timestamp) VALUES (@HeroId, @Event, @Map, @Data, UTC_TIMESTAMP());";
 				Dictionary<string, object?> parameters = new() { { "@HeroId", @event.HeroId }, { "@Event", @event.EventType }, { "@Map", @event.Map }, { "@Data", Newtonsoft.Json.JsonConvert.SerializeObject(@event.Data) } };
 				await ExecuteInsertOrUpdateOrDeleteAsync(sql, parameters, connection, transaction);
 			}
