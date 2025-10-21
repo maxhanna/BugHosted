@@ -12,7 +12,8 @@ export class Resources {
   sfxMuted = false;
   constructor() {
     this.imageToLoad = {
-      bikewall: `${this.dir}bikewall.png`,
+      armobot: `${this.dir}armobot.png`,
+      spiderBot: `${this.dir}spiderbot.png`,
       fontWhite: `${this.dir}sprite-font-white.png`,
       fontBlack: `${this.dir}sprite-font-black.png`,
       groundFire: `${this.dir}groundFire.png`,

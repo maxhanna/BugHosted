@@ -10,6 +10,7 @@ import { Tv } from "../objects/Environment/Tv/tv";
 import { Scenario } from "../helpers/story-flags";
 import { BASE } from "../objects/game-object";
 import { Painting } from "../objects/Environment/Painting/painting"; 
+import { Encounter } from "../objects/Environment/Encounter/encounter";
  
 
 export class HeroRoomLevel extends Level {
@@ -25,47 +26,18 @@ export class HeroRoomLevel extends Level {
     if (params.itemsFound) {
       this.itemsFound = params.itemsFound;
     }
-
- 
-    const floor = new Sprite(
-      { resource: resources.images["bedroomFloor"], frameSize: new Vector2(320, 220) }
-    );
-    floor.drawLayer = BASE;
-    this.addChild(floor);
-    
    
-    const painting = new Painting({
-      position: new Vector2(gridCells(15), gridCells(2)),
-      scale: new Vector2(0.75, 0.75),
-      offsetY: -20,
-      textContent: ["A picture of a beautiful hiking trail."]
-    });
-    this.addChild(painting);
-
-    const xbox = new Sprite(
-      { resource: resources.images["xbox"], position: new Vector2(gridCells(8), gridCells(3)), scale: new Vector2(0.8, 0.8), frameSize: new Vector2(32, 28) }
-    );
-    this.addChild(xbox);
-
-    for (let x = 0; x < 4; x++) {
-      const wardrobe = new Wardrobe({ position: new Vector2(gridCells(x+1), gridCells(3)), isVisible: x === 0 });
-      this.addChild(wardrobe);
-    } 
-
-    const tv = new Tv({ position: new Vector2(gridCells(6), gridCells(5)), spritePosition: new Vector2(gridCells(-0.25), gridCells(-2)) });
-    tv.textContent = [
-      {
-        string: ["A movie is playing showing four young boys on a train track."],
-      } as Scenario,
-    ]; 
-    this.addChild(tv);
 
 
-    const exit = new Exit({
-      position: new Vector2(gridCells(18), gridCells(1)), showSprite: false
-    });
-    this.addChild(exit);
-     
+      const encounter = new Encounter({
+        id: -999999,
+        position: new Vector2(gridCells(3), gridCells(4)),
+        possibleEnemies: ["spiderBot", "armobot"],
+        moveLeftRight: 1,
+        moveUpDown: 0
+      });
+      this.addChild(encounter);
+
 
     this.walls = new Set();
     //walls 

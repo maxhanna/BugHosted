@@ -1,10 +1,10 @@
-import { Vector2 } from "../../../../../services/datacontracts/meta/vector2";
+import { Vector2 } from "../../../../../services/datacontracts/bones/vector2";
 import { Sprite } from "../../sprite";
 import { resources } from "../../../helpers/resources";
 import { POUND,KICK,HEADBUTT, STING } from "../../../helpers/skill-types";
 import {  } from "./armobot-animations"; 
 import { Bot } from "../../Bot/bot";
-import { HEAD, LEFT_ARM, LEGS, MetaBotPart, RIGHT_ARM } from "../../../../../services/datacontracts/meta/meta-bot-part";
+import { HEAD, LEFT_ARM, LEGS, MetaBotPart, RIGHT_ARM } from "../../../../../services/datacontracts/bones/meta-bot-part";
 
 export class Armobot extends Bot {
   directionIndex = 0;
