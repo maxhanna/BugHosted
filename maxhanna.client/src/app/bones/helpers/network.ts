@@ -604,9 +604,8 @@ export function subscribeToMainGameEvents(object: any) {
   })
 
   events.on("SPACEBAR_PRESSED", object, (skill: Skill) => {
-    try {
-      // Queue attack locally and send in batches to reduce network chatter
-      // Normalize the attack shape to primitives so server binding is consistent
+    if (object.chatInput && object.chatInput.value.trim() == "" && document.activeElement == object.chatInput)
+    {
       const attack = {
         timestamp: new Date().toISOString(),
         skill: (skill && (typeof (skill as any).name === 'string')) ? (skill as any).name : (typeof skill === 'string' ? skill : undefined),
@@ -614,9 +613,7 @@ export function subscribeToMainGameEvents(object: any) {
       };
       pendingAttacks.push(attack);
       startAttackBatch(object, 1000);
-    } catch (ex) {
-      console.error('Failed to queue attack', ex);
-    }
+    }   
   });
 
   events.on("GOT_REWARDS", object, (params: { location: Vector2, part: MetaBotPart }) => {
