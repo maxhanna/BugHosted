@@ -83,6 +83,8 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
 
 
   private currentChatTextbox?: ChatSpriteTextString | undefined; 
+  // Track last server-provided destination per encounter to avoid repeatedly reapplying identical targets
+  private _lastServerDestinations: Map<number, Vector2> = new Map<number, Vector2>();
   private pollingInterval: any;
   private _processedCleanupInterval: any;
   // Per-hero message expiry timers keyed by hero id (mirrors Ender behavior)
@@ -334,14 +336,23 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
           tgtEnemy.hp = enemy.hp;
           // Only update destination if the server position differs significantly to avoid micro-adjustment jitter
           if (enemy.position !== undefined && enemy.position.x != -1 && enemy.position.y != -1) {
-            const newDest = new Vector2(enemy.position.x, enemy.position.y);
-            const dx = (tgtEnemy.destinationPosition?.x ?? tgtEnemy.position.x) - newDest.x;
-            const dy = (tgtEnemy.destinationPosition?.y ?? tgtEnemy.position.y) - newDest.y;
-            const distSq = dx * dx + dy * dy;
-            // Epsilon: only accept updates larger than 1 pixel (squared = 1)
-            if (distSq > gridCells(1)) {
-              console.log(`moving ${tgtEnemy.name} from ${tgtEnemy.destinationPosition} curr:(${tgtEnemy.position}) to ${newDest}`);
-              tgtEnemy.destinationPosition = newDest;
+            const newDest = new Vector2(enemy.position.x, enemy.position.y).duplicate();
+            // Compare against last server-provided destination for this encounter when available
+            const lastServerDest = this._lastServerDestinations.get(tgtEnemy.heroId);
+            if (lastServerDest && lastServerDest.x === newDest.x && lastServerDest.y === newDest.y) {
+              // server is re-sending same destination — ignore to avoid jitter
+            } else {
+              const dx = (tgtEnemy.destinationPosition?.x ?? tgtEnemy.position.x) - newDest.x;
+              const dy = (tgtEnemy.destinationPosition?.y ?? tgtEnemy.position.y) - newDest.y;
+              const distSq = dx * dx + dy * dy;
+              // Epsilon: only accept updates larger than 1 tile (in pixels). gridCells(1) returns pixels for one cell.
+              const epsilonPixels = gridCells(1);
+              if (distSq > (epsilonPixels * epsilonPixels)) {
+                // reduce log verbosity by logging coordinates only
+                console.log(`moving ${tgtEnemy.name} from (${tgtEnemy.destinationPosition?.x ?? tgtEnemy.position.x},${tgtEnemy.destinationPosition?.y ?? tgtEnemy.position.y}) to (${newDest.x},${newDest.y})`);
+                tgtEnemy.destinationPosition = newDest;
+                this._lastServerDestinations.set(tgtEnemy.heroId, newDest);
+              }
             }
           }
         } else {
