@@ -327,25 +327,7 @@
         </div>
       </div> 
       <button id="closeOverlay" (click)="closeStoryOptionsPanel()" class="closeButton" style="margin-top: 8px;">Close</button>
-    </div>
-
-    <!-- Story Visibility Popup (dedicated panel) -->
-    <div class="popupPanel storyVisibilityPopup" *ngIf="isStoryVisibilityPanelOpen && visibilityStory">
-      <div class="popupPanelTitle" style="margin-bottom: 15px;">Edit Visibility</div>
-      <div class="popupSectionContainer gradientBackground">
-        <div class="storyOptionsPopupButtons" style="margin-bottom: 15px;">
-          <div>
-            <label>Visibility:</label>
-            <select [value]="visibilityStory.visibility" (change)="onOptionStoryVisibilityChange($event, visibilityStory)">
-              <option value="public">Public</option>
-              <option value="following">Following</option>
-              <option value="self">Self</option>
-            </select>
-          </div>
-        </div>
-      </div>
-      <button id="closeOverlay" (click)="closeStoryVisibilityPanel()" class="closeButton" style="margin-top: 8px;">Close</button>
-    </div>
+    </div> 
 
     <!-- Story Input -->
     <div class="storyInputDiv" *ngIf="!showOnlyPost || user"> 
@@ -498,4 +480,23 @@
       Loading...
     </div>
   </div>
+</div>
+
+
+<!-- Story Visibility Popup (dedicated panel) -->
+<div class="popupPanel storyVisibilityPopup" *ngIf="isStoryVisibilityPanelOpen && visibilityStory">
+  <div class="popupPanelTitle" style="margin-bottom: 15px;">Edit Visibility</div>
+  <div class="popupSectionContainer gradientBackground">
+    <div class="storyOptionsPopupButtons" style="margin-bottom: 15px;">
+      <div>
+        <label>Visibility:</label>
+        <select [value]="visibilityStory.visibility" (change)="onOptionStoryVisibilityChange($event, visibilityStory)">
+          <option value="public">Public</option>
+          <option value="following">Following</option>
+          <option value="self">Self</option>
+        </select>
+      </div>
+    </div>
+  </div>
+  <button id="closeOverlay" (click)="closeStoryVisibilityPanel()" class="closeButton" style="margin-top: 8px;">Close</button>
 </div>
