@@ -9,7 +9,7 @@ import { resources } from "../../helpers/resources";
 import { FrameIndexPattern } from "../../helpers/frame-index-pattern";
 import { events } from "../../helpers/events";
 import { attack, findTargets, untarget } from "../../helpers/fight";
-import { WALK_DOWN, WALK_UP, WALK_LEFT, WALK_RIGHT, STAND_DOWN, STAND_RIGHT, STAND_LEFT, STAND_UP, PICK_UP_DOWN, ATTACK_LEFT, ATTACK_UP, ATTACK_DOWN, ATTACK_RIGHT } from "./bot-animations";
+import { WALK_DOWN, WALK_UP, WALK_LEFT, WALK_RIGHT, STAND_DOWN, STAND_RIGHT, STAND_LEFT, STAND_UP } from "../Npc/Skeleton/skeleton-animations";
 import { MetaBotPart } from "../../../../services/datacontracts/bones/meta-bot-part";
 import { ColorSwap } from "../../../../services/datacontracts/bones/color-swap";
 import { Character } from "../character";
@@ -110,12 +110,7 @@ export class Bot extends Character {
               standDown: new FrameIndexPattern(STAND_DOWN),
               standRight: new FrameIndexPattern(STAND_RIGHT),
               standLeft: new FrameIndexPattern(STAND_LEFT),
-              standUp: new FrameIndexPattern(STAND_UP),
-              pickupDown: new FrameIndexPattern(PICK_UP_DOWN),
-              attackDown: new FrameIndexPattern(ATTACK_DOWN),
-              attackUp: new FrameIndexPattern(ATTACK_UP),
-              attackLeft: new FrameIndexPattern(ATTACK_LEFT),
-              attackRight: new FrameIndexPattern(ATTACK_RIGHT),
+              standUp: new FrameIndexPattern(STAND_UP), 
             })
           }
         ),
