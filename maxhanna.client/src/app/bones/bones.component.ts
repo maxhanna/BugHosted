@@ -338,11 +338,11 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
           // Diagnostic: log the incoming position so we can confirm server provided it
           console.log("enemy.position (incoming):", (enemy && (enemy as any).position) ? JSON.stringify(enemy.position) : enemy.position, " typeof:", typeof enemy.position);
           tgtEnemy.hp = enemy.hp;
-          if (enemy && (enemy as any).position) {
+          if (enemy && enemy.position) {
             try {
-              const pos = (enemy as any).position as Vector2 | undefined;
-              if (pos) {
-                tgtEnemy.destinationPosition = pos.duplicate();
+              const newPos = new Vector2(enemy.position.x, enemy.position.y); 
+               if (newPos) {
+                tgtEnemy.destinationPosition = newPos.duplicate();
               }
             } catch (err) {
               console.error('Error duplicating enemy.position for dest set', err, (enemy as any).position);
