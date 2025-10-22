@@ -778,44 +778,7 @@ namespace maxhanna.Server.Controllers
 							};
 							heroesDict[heroId] = tmpHero;
 						}
-						// metabot block
-						if (!reader.IsDBNull(reader.GetOrdinal("metabot_id")))
-						{
-							int metabotId = reader.GetInt32(reader.GetOrdinal("metabot_id"));
-							MetaBot? metabot = tmpHero.Metabots?.FirstOrDefault(m => m.Id == metabotId);
-							if (metabot == null)
-							{
-								var mName = reader.IsDBNull(reader.GetOrdinal("metabot_name")) ? null : reader.GetString(reader.GetOrdinal("metabot_name"));
-								var mType = reader.IsDBNull(reader.GetOrdinal("metabot_type")) ? 0 : reader.GetInt32(reader.GetOrdinal("metabot_type"));
-								var mHp = reader.IsDBNull(reader.GetOrdinal("metabot_hp")) ? 0 : reader.GetInt32(reader.GetOrdinal("metabot_hp"));
-								var mExp = reader.IsDBNull(reader.GetOrdinal("metabot_exp")) ? 0 : reader.GetInt32(reader.GetOrdinal("metabot_exp"));
-								var mLevel = reader.IsDBNull(reader.GetOrdinal("metabot_level")) ? 0 : reader.GetInt32(reader.GetOrdinal("metabot_level"));
-								var mIsDeployed = reader.IsDBNull(reader.GetOrdinal("metabot_is_deployed")) ? false : reader.GetBoolean(reader.GetOrdinal("metabot_is_deployed"));
-								metabot = new MetaBot {
-									Id = metabotId,
-									Name = mName,
-									HeroId = heroId,
-									Type = mType,
-									Hp = mHp,
-									Exp = mExp,
-									Level = mLevel,
-									IsDeployed = mIsDeployed
-								};
-								if (tmpHero.Metabots == null) tmpHero.Metabots = new List<MetaBot>();
-								tmpHero.Metabots.Add(metabot);
-							}
-							// part block
-							if (!reader.IsDBNull(reader.GetOrdinal("part_id")))
-							{
-								int partId = reader.GetInt32(reader.GetOrdinal("part_id"));
-								var partName = reader.IsDBNull(reader.GetOrdinal("part_name")) ? null : reader.GetString(reader.GetOrdinal("part_name"));
-								var partType = reader.IsDBNull(reader.GetOrdinal("part_type")) ? 0 : reader.GetInt32(reader.GetOrdinal("part_type"));
-								var damageMod = reader.IsDBNull(reader.GetOrdinal("damage_mod")) ? 0 : reader.GetInt32(reader.GetOrdinal("damage_mod"));
-								var skill = reader.IsDBNull(reader.GetOrdinal("skill")) ? null : new Skill(reader.GetString(reader.GetOrdinal("skill")), 0);
-								MetaBotPart part = new() { HeroId = heroId, Id = partId, PartName = partName, Type = partType, DamageMod = damageMod, Skill = skill };
-								switch (part.PartName?.ToLower()) { case "head": metabot.Head = part; break; case "legs": metabot.Legs = part; break; case "left_arm": metabot.LeftArm = part; break; case "right_arm": metabot.RightArm = part; break; }
-							}
-						}
+						// Note: metabot data removed; GetNearbyPlayers only returns hero info. Client constructs encounters from bones_encounter.
 					}
 				}
 				return heroesDict.Values.ToArray();
