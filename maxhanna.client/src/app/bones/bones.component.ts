@@ -233,6 +233,7 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
         // include facing so server can apply damage to encounter tile in front of the hero
         facing: a.facingDirection ?  a.facingDirection : (this.hero && (this.hero as any).facingDirection !== undefined ? (this.hero as any).facingDirection : undefined)
       }));
+      this.metaHero.position = this.metaHero.position.duplicate();
       const res: any = await this.bonesService.fetchGameData(this.metaHero, snapshot);
       // On successful response, clear the attacks we just sent from the shared queue
       if (res && snapshot && snapshot.length > 0) {
