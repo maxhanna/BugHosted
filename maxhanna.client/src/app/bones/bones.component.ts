@@ -335,9 +335,18 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
         const tgtEnemy : Bot = this.mainScene.level.children.find((x: Bot) => x.heroId == enemy.heroId);
         if (tgtEnemy) {
           console.log("found enemy", enemy, tgtEnemy);
+          // Diagnostic: log the incoming position so we can confirm server provided it
+          console.log("enemy.position (incoming):", (enemy && (enemy as any).position) ? JSON.stringify(enemy.position) : enemy.position, " typeof:", typeof enemy.position);
           tgtEnemy.hp = enemy.hp;
-          if (enemy.position) {
-            tgtEnemy.destinationPosition = enemy.position.duplicate();
+          if (enemy && (enemy as any).position) {
+            try {
+              const pos = (enemy as any).position as Vector2 | undefined;
+              if (pos) {
+                tgtEnemy.destinationPosition = pos.duplicate();
+              }
+            } catch (err) {
+              console.error('Error duplicating enemy.position for dest set', err, (enemy as any).position);
+            }
           }
           console.log("setting dest pos to ", tgtEnemy.destinationPosition);
           // Track server-provided targetHeroId and react to changes
