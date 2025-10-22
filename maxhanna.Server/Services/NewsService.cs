@@ -677,7 +677,7 @@ Posted by user @{topMeme.Username}<br><small>Daily top memes are selected based 
 				var title = rdr.IsDBNull(rdr.GetOrdinal("todo")) ? null : rdr.GetString("todo");
 				var url = rdr.IsDBNull(rdr.GetOrdinal("url")) ? null : rdr.GetString("url");
 				int? fileId = rdr.IsDBNull(rdr.GetOrdinal("file_id")) ? (int?)null : rdr.GetInt32("file_id");
-				int? userId = rdr.IsDBNull(rdr.GetOrdinal("user_id")) ? (int?)null : rdr.GetInt32("user_id");
+				int? userId = rdr.IsDBNull(rdr.GetOrdinal("ownership")) ? (int?)null : rdr.GetInt32("ownership");
 				string? username = rdr.IsDBNull(rdr.GetOrdinal("username")) ? null : rdr.GetString("username");
 				todos.Add((id, title, url, fileId, userId, username));
 			}
