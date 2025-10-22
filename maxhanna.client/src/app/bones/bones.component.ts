@@ -332,7 +332,17 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
         const tgtEnemy = this.mainScene.level.children.find((x: Bot) => x.heroId == enemy.heroId && x.isDeployed);
         if (tgtEnemy) {
           tgtEnemy.hp = enemy.hp;
-          tgtEnemy.destinationPosition = (enemy.position !== undefined && enemy.position.x != -1 && enemy.position.y != -1) ? new Vector2(enemy.position.x, enemy.position.y) : tgtEnemy.position;
+          // Only update destination if the server position differs significantly to avoid micro-adjustment jitter
+          if (enemy.position !== undefined && enemy.position.x != -1 && enemy.position.y != -1) {
+            const newDest = new Vector2(enemy.position.x, enemy.position.y);
+            const dx = (tgtEnemy.destinationPosition?.x ?? tgtEnemy.position.x) - newDest.x;
+            const dy = (tgtEnemy.destinationPosition?.y ?? tgtEnemy.position.y) - newDest.y;
+            const distSq = dx * dx + dy * dy;
+            // Epsilon: only accept updates larger than 1 pixel (squared = 1)
+            if (distSq > 1) {
+              tgtEnemy.destinationPosition = newDest;
+            }
+          }
         } else {
           const tgtEncounter = this.mainScene.level.children.find((x: Character) => x.id == enemy.heroId);
           if (tgtEncounter) {
@@ -354,6 +364,8 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
               legs: enemy.legs,
               isSolid: true,
             });
+            // Ensure destinationPosition is initialized to spawn pos to avoid an immediate small correction on first frame
+            tmp.destinationPosition = tmp.position.duplicate();
             if (tmp.hp) {
               this.mainScene.level.addChild(tmp);
             }
