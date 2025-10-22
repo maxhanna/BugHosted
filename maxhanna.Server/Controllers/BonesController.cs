@@ -692,39 +692,33 @@ namespace maxhanna.Server.Controllers
 			try
 			{
 				var bots = new List<MetaBot>();
-				string heroIdQuery = "SELECT hero_id FROM maxhanna.bones_encounter WHERE map = @Map;";
-				MySqlCommand heroIdCmd = new(heroIdQuery, conn, transaction); 
-				heroIdCmd.Parameters.AddWithValue("@Map", map);
-				var heroIds = new List<int>();
-				using (var heroReader = await heroIdCmd.ExecuteReaderAsync()) {
-					while (await heroReader.ReadAsync())
-					{
-						heroIds.Add(Convert.ToInt32(heroReader["hero_id"]));
-					}
-				}
-				if (!heroIds.Any()) return Array.Empty<MetaBot>();
-				string sql = "SELECT b.id as metabot_id, b.hero_id as metabot_hero_id, b.name as metabot_name, b.type as metabot_type, b.hp as metabot_hp, b.level as metabot_level, b.exp as metabot_exp, b.is_deployed as metabot_is_deployed, p.id as part_id, p.part_name, p.type as part_type, p.damage_mod, p.skill, e.coordsX, e.coordsY FROM maxhanna.bones_bot b LEFT JOIN maxhanna.bones_encounter_bot_part p ON b.hero_id = p.hero_id LEFT JOIN maxhanna.bones_encounter e ON e.hero_id = b.hero_id WHERE b.hero_id IN (" + string.Join(",", heroIds) + ");";
-				MySqlCommand cmd = new(sql, conn, transaction);
-				using (var reader = await cmd.ExecuteReaderAsync())
+				string sql = @"
+					SELECT hero_id, coordsX, coordsY, `level`, hp, `type`, last_killed
+					FROM maxhanna.bones_encounter
+					WHERE map = @Map;";
+				using var cmd = new MySqlCommand(sql, conn, transaction);
+				cmd.Parameters.AddWithValue("@Map", map);
+				using var reader = await cmd.ExecuteReaderAsync();
+				while (await reader.ReadAsync())
 				{
-					while (await reader.ReadAsync())
+					int heroId = reader.IsDBNull(reader.GetOrdinal("hero_id")) ? 0 : reader.GetInt32("hero_id");
+					int coordsX = reader.IsDBNull(reader.GetOrdinal("coordsX")) ? 0 : reader.GetInt32("coordsX");
+					int coordsY = reader.IsDBNull(reader.GetOrdinal("coordsY")) ? 0 : reader.GetInt32("coordsY");
+					int level = reader.IsDBNull(reader.GetOrdinal("level")) ? 1 : reader.GetInt32("level");
+					int hp = reader.IsDBNull(reader.GetOrdinal("hp")) ? 0 : reader.GetInt32("hp");
+					int typeVal = reader.IsDBNull(reader.GetOrdinal("type")) ? 0 : reader.GetInt32("type");
+					// Construct MetaBot where Id and HeroId are the encounter hero_id
+					var mb = new MetaBot
 					{
-						int heroId = Convert.ToInt32(reader["metabot_hero_id"]);
-						MetaBot? metabot = bots.FirstOrDefault(m => m.Id == Convert.ToInt32(reader["metabot_id"]));
-						if (metabot == null)
-						{
-							int metabotNameOrd = reader.GetOrdinal("metabot_name");
-							metabot = new MetaBot { Id = Convert.ToInt32(reader["metabot_id"]), Name = reader.IsDBNull(metabotNameOrd) ? null : reader.GetString(metabotNameOrd), HeroId = heroId, Type = Convert.ToInt32(reader["metabot_type"]), Hp = Convert.ToInt32(reader["metabot_hp"]), Exp = Convert.ToInt32(reader["metabot_exp"]), Level = Convert.ToInt32(reader["metabot_level"]), IsDeployed = Convert.ToBoolean(reader["metabot_is_deployed"]), Position = new Vector2(Convert.ToInt32(reader["coordsX"]), Convert.ToInt32(reader["coordsY"])) };
-							bots.Add(metabot);
-						}
-						if (!reader.IsDBNull(reader.GetOrdinal("part_id")))
-						{
-							int pNameOrd = reader.GetOrdinal("part_name");
-							int pSkillOrd = reader.GetOrdinal("skill");
-							MetaBotPart part = new() { HeroId = heroId, Id = Convert.ToInt32(reader["part_id"]), PartName = reader.IsDBNull(pNameOrd) ? null : reader.GetString(pNameOrd), Type = Convert.ToInt32(reader["part_type"]), DamageMod = Convert.ToInt32(reader["damage_mod"]), Skill = !reader.IsDBNull(pSkillOrd) ? new Skill(reader.GetString(pSkillOrd), 0) : null };
-							switch (part.PartName?.ToLower()) { case "head": metabot.Head = part; break; case "legs": metabot.Legs = part; break; case "left_arm": metabot.LeftArm = part; break; case "right_arm": metabot.RightArm = part; break; }
-						}
-					}
+						Id = heroId,
+						HeroId = heroId,
+						Position = new Vector2(coordsX, coordsY),
+						Level = level,
+						Hp = hp,
+						Type = typeVal,
+						IsDeployed = false
+					};
+					bots.Add(mb);
 				}
 				return bots.ToArray();
 			}
