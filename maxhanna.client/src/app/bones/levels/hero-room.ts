@@ -39,17 +39,7 @@ export class HeroRoomLevel extends Level {
       this.addChild(encounter);
 
 
-    this.walls = new Set();
-    //walls 
-    //table:
-    for (let y = 48; y <= 80; y += 16) {
-      for (let x = 80; x <= 176; x += 16) {
-        this.walls.add(`${x},${y}`);
-      }
-    }
-    //bed:
-    this.walls.add(`16,208`);
-    this.walls.add(`16,144`); this.walls.add(`32,144`);
+    this.walls = new Set(); 
     //walls:
     for (let x = 0; x < 21; x++) {
       if (x != 18) { 
