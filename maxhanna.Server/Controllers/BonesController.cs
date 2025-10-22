@@ -280,8 +280,21 @@ namespace maxhanna.Server.Controllers
 								}
 							}
 
-							// Perform an atomic update: decrement HP by 1 for the encounter row at target coords on this map
-							string updateHpSql = "UPDATE maxhanna.bones_encounter SET hp = GREATEST(hp - 1, 0) WHERE map = @Map AND coordsX = @X AND coordsY = @Y LIMIT 1;";
+							// Perform an atomic update: decrement HP by 1 for the encounter row at target coords on this map.
+							// If hp reaches 0 as a result of this hit, also set last_killed to the current UTC timestamp so respawn logic can detect it.
+							string updateHpSql = @"
+								UPDATE maxhanna.bones_encounter 
+								SET hp = GREATEST(hp - 1, 0), 
+								last_killed = 
+									CASE 
+										WHEN hp <= 1 
+										THEN UTC_TIMESTAMP() 
+										ELSE last_killed 
+									END 
+								WHERE map = @Map 
+								AND coordsX = @X 
+								AND coordsY = @Y 
+								LIMIT 1;";
 							var updateParams = new Dictionary<string, object?>() { { "@Map", hero.Map ?? string.Empty }, { "@X", targetX }, { "@Y", targetY } };
 							int rows = Convert.ToInt32(await ExecuteInsertOrUpdateOrDeleteAsync(updateHpSql, updateParams, connection, transaction));
 
@@ -297,25 +310,33 @@ namespace maxhanna.Server.Controllers
 									{ "damage", "1" }
 								};
 								var botDamageEvent = new MetaEvent(0, sourceHeroId, DateTime.UtcNow, "BOT_DAMAGE", hero.Map ?? string.Empty, data);
-								await UpdateEventsInDB(botDamageEvent, connection, transaction);
+								await UpdateEventsInDB(botDamageEvent, connection, transaction); 
 
-								// Check if encounter died (hp reached 0) to award EXP
+								// Check if encounter died (hp reached 0) and award EXP in the same transaction
 								try
 								{
-									string selectDeadSql = "SELECT hero_id, level, hp FROM maxhanna.bones_encounter WHERE map = @Map AND coordsX = @X AND coordsY = @Y LIMIT 1;";
-									using var deadCmd = new MySqlCommand(selectDeadSql, connection, transaction); deadCmd.Parameters.AddWithValue("@Map", hero.Map ?? string.Empty); deadCmd.Parameters.AddWithValue("@X", targetX); deadCmd.Parameters.AddWithValue("@Y", targetY);
+									string selectDeadSql = "SELECT hero_id, `level`, hp FROM maxhanna.bones_encounter WHERE map = @Map AND coordsX = @X AND coordsY = @Y LIMIT 1;";
+									using var deadCmd = new MySqlCommand(selectDeadSql, connection, transaction);
+									deadCmd.Parameters.AddWithValue("@Map", hero.Map ?? string.Empty);
+									deadCmd.Parameters.AddWithValue("@X", targetX);
+									deadCmd.Parameters.AddWithValue("@Y", targetY);
 									using var deadRdr = await deadCmd.ExecuteReaderAsync();
 									int encLevel = 0; int encHp = -1; int encId = 0;
-									if (await deadRdr.ReadAsync()) { encHp = deadRdr.GetInt32(deadRdr.GetOrdinal("hp")); encLevel = deadRdr.IsDBNull(deadRdr.GetOrdinal("level")) ? 0 : deadRdr.GetInt32(deadRdr.GetOrdinal("level")); encId = deadRdr.GetInt32(deadRdr.GetOrdinal("hero_id")); }
+									if (await deadRdr.ReadAsync()) {
+										encHp = deadRdr.GetInt32(deadRdr.GetOrdinal("hp")); 
+										encLevel = deadRdr.IsDBNull(deadRdr.GetOrdinal("level")) ? 0 : deadRdr.GetInt32(deadRdr.GetOrdinal("level")); 
+										encId = deadRdr.GetInt32(deadRdr.GetOrdinal("hero_id")); 
+									}
 									deadRdr.Close();
 									if (encHp == 0)
 									{
+										// last_killed was set by the atomic UPDATE above. Now award EXP to killer (and party) immediately.
 										await AwardEncounterKillExp(sourceHeroId, encLevel, connection, transaction);
 									}
 								}
 								catch (Exception ex2)
 								{
-									await _log.Db("Failed awarding EXP: " + ex2.Message, hero.Id, "BONES", true);
+									await _log.Db("Failed awarding EXP in PersistNewAttacks: " + ex2.Message, hero.Id, "BONES", true);
 								}
 							}
 						}
