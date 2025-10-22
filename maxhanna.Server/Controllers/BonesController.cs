@@ -866,7 +866,14 @@ namespace maxhanna.Server.Controllers
 							closest = h;
 						}
 					}
-					if (closest == null) continue; // no hero in range
+					// If no hero is currently in aggro range, try returning toward original spawn coords
+					if (closest == null)
+					{
+						// If already at origin, nothing to do
+						if (e.ox == e.x && e.oy == e.y) continue;
+						// Use the origin as the target (heroId = 0 placeholder)
+						closest = (0, e.ox, e.oy);
+					}
 
 					// Rate limit: only move if >=1 second since last_moved
 					bool canMoveTime = !e.lastMoved.HasValue || (DateTime.UtcNow - e.lastMoved.Value).TotalSeconds >= 1.0;
