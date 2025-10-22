@@ -77,7 +77,7 @@ namespace maxhanna.Server.Controllers
 				MetaHero[]? heroes = await GetNearbyPlayers(hero, connection, transaction);
 				if (!string.IsNullOrEmpty(hero.Map))
 				{
-					await ProcessEncounterAI(hero.Map!, connection, transaction);
+					await ProcessEncounterAI(hero.Map, connection, transaction);
 				}
                 MetaBot[]? enemyBots = await GetEncounters(connection, transaction, hero.Map);
                 List<MetaEvent> events = await GetEventsFromDb(hero.Map, hero.Id, connection, transaction);
