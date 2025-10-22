@@ -825,7 +825,7 @@ namespace maxhanna.Server.Controllers
 			{
 				// Respawn logic: set hp back to 100 if dead for > 120 seconds
 				string respawnSql = @"UPDATE maxhanna.bones_encounter 
-					SET hp = 100, last_killed = NULL, coordsX = o_coordsX, coordsY = o_coordsY 
+					SET hp = 100, last_killed = NULL, coordsX = o_coordsX, coordsY = o_coordsY, target_hero_id = 0, last_moved = UTC_TIMESTAMP() 
 					WHERE map = @Map AND hp <= 0 AND last_killed IS NOT NULL AND last_killed < DATE_SUB(UTC_TIMESTAMP(), INTERVAL 120 SECOND);";
 				await ExecuteInsertOrUpdateOrDeleteAsync(respawnSql, new Dictionary<string, object?> { { "@Map", map } }, connection, transaction);
 
