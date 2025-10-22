@@ -775,7 +775,7 @@ namespace maxhanna.Server.Controllers
 			{
 				var bots = new List<MetaBot>();
 				string sql = @"
-					SELECT hero_id, coordsX, coordsY, `level`, hp, `name`, last_killed, o_coordsX, o_coordsY, speed, aggro, last_moved
+					SELECT hero_id, coordsX, coordsY, `level`, hp, `name`, last_killed, o_coordsX, o_coordsY, speed, aggro, last_moved, target_hero_id
 					FROM maxhanna.bones_encounter
 					WHERE map = @Map;";
 				using var cmd = new MySqlCommand(sql, conn, transaction);
@@ -798,7 +798,8 @@ namespace maxhanna.Server.Controllers
 						Level = level,
 						Hp = hp,
 						Name = typeVal,
-						IsDeployed = false
+						IsDeployed = false,
+						TargetHeroId = reader.IsDBNull(reader.GetOrdinal("target_hero_id")) ? (int?)null : reader.GetInt32(reader.GetOrdinal("target_hero_id"))
 					};
 					bots.Add(mb);
 				}

@@ -331,11 +331,26 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
     if (enemies) {
       enemies.forEach(enemy => {
         //look for enemy on the map, if he doesnt exist, create him.
-        const tgtEnemy = this.mainScene.level.children.find((x: Bot) => x.heroId == enemy.heroId && x.isDeployed);
+        const tgtEnemy : Bot = this.mainScene.level.children.find((x: Bot) => x.heroId == enemy.heroId && x.isDeployed);
         if (tgtEnemy) {
           tgtEnemy.hp = enemy.hp;
+          // Track server-provided targetHeroId and react to changes
+          const incomingTarget = (enemy as any).targetHeroId ?? null;
+          const previousTarget = (tgtEnemy as any).targetHeroId ?? null;
+          if (incomingTarget !== previousTarget) {
+            try {
+              (tgtEnemy as any).targetHeroId = incomingTarget;
+              if (incomingTarget != null) {
+                // If a new target is set, notify the scene so the bot can follow
+                const heroObj = this.mainScene.level.children.find((x: any) => x.id === incomingTarget);
+                if (heroObj) {
+                  events.emit("CHARACTER_POSITION", heroObj);
+                }
+              }
+            } catch { }
+          }
           // If server reports this encounter is dead, destroy the client object and clean up caches
-          if ((tgtEnemy.hp ?? 0) <= 0) {
+          if (tgtEnemy && tgtEnemy.heroId && (tgtEnemy.hp ?? 0) <= 0) {
             try {
               if (typeof tgtEnemy.destroy === 'function') {
                 tgtEnemy.destroy();
@@ -343,37 +358,7 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
             } catch { /* ignore errors during destroy */ }
             try { this._lastServerDestinations.delete(tgtEnemy.heroId); } catch { }
             return; // skip further processing for this bot
-          }
-          // Only update destination if the server position differs significantly to avoid micro-adjustment jitter
-          if (enemy.position !== undefined && enemy.position.x != -1 && enemy.position.y != -1) {
-            const newDest = new Vector2(enemy.position.x, enemy.position.y).duplicate();
-            // Compare against last server-provided destination for this encounter when available
-            const lastServerDest = this._lastServerDestinations.get(tgtEnemy.heroId);
-            if (lastServerDest && lastServerDest.x === newDest.x && lastServerDest.y === newDest.y) {
-              // server is re-sending same destination — ignore to avoid jitter
-            } else {
-              const dx = (tgtEnemy.destinationPosition?.x ?? tgtEnemy.position.x) - newDest.x;
-              const dy = (tgtEnemy.destinationPosition?.y ?? tgtEnemy.position.y) - newDest.y;
-              const distSq = dx * dx + dy * dy;
-              // Epsilon: only accept updates larger than 2 tiles (in pixels). gridCells(2) returns pixels for two cells.
-              const epsilonPixels = gridCells(2);
-              // If the bot is already essentially at the server destination, lock it in place to stop jitter
-              const atDestination = Math.sqrt(distSq) <= epsilonPixels;
-              if (atDestination) {
-                console.log(`Snapping dest position to final position ${tgtEnemy.name} from (${tgtEnemy.destinationPosition?.x ?? tgtEnemy.position.x},${tgtEnemy.destinationPosition?.y ?? tgtEnemy.position.y}) to (${newDest.x},${newDest.y})`);
-                // snap destination to current position so movement stops  
-                tgtEnemy.destinationPosition.x = snapToGrid(tgtEnemy.position.x, gridCells(1));
-                tgtEnemy.destinationPosition.y = snapToGrid(tgtEnemy.position.y, gridCells(1));
-                this._lastServerDestinations.set(tgtEnemy.heroId, newDest);
-              } else if (distSq > (epsilonPixels * epsilonPixels)) {
-                // reduce log verbosity by logging coordinates only
-                console.log(`moving ${tgtEnemy.name} from (${tgtEnemy.destinationPosition?.x ?? tgtEnemy.position.x},${tgtEnemy.destinationPosition?.y ?? tgtEnemy.position.y}) to (${newDest.x},${newDest.y})`);
-                tgtEnemy.destinationPosition.x = snapToGrid(newDest.x, gridCells(1));
-                tgtEnemy.destinationPosition.y = snapToGrid(newDest.y, gridCells(1));
-                this._lastServerDestinations.set(tgtEnemy.heroId, newDest);
-              }
-            }
-          }
+          } 
         } else {
           const tgtEncounter = this.mainScene.level.children.find((x: Character) => x.id == enemy.heroId);
           if (tgtEncounter) {
@@ -395,6 +380,8 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
               legs: enemy.legs,
               isSolid: true,
             });
+            // If the server gave a targetHeroId for this encounter, initialize it on the client bot
+            try { (tmp as any).targetHeroId = (enemy as any).targetHeroId ?? null; } catch { }
             // Ensure destinationPosition is initialized to spawn pos to avoid an immediate small correction on first frame
             tmp.destinationPosition = tmp.position.duplicate();
             if (tmp.hp) {

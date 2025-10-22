@@ -18,6 +18,8 @@ import { Scenario } from "../../helpers/story-flags";
 
 export class Bot extends Character {
   heroId?: number;
+  // The hero id this bot is currently targeting/chasing (optional)
+  targetHeroId?: number | null = null;
   botType: SkillType.NORMAL | SkillType.SPEED | SkillType.STRENGTH | SkillType.ARMOR | SkillType.RANGED | SkillType.STEALTH | SkillType.INTELLIGENCE;
 
   previousHeroPosition?: Vector2;
@@ -166,10 +168,17 @@ export class Bot extends Character {
       findTargets(this); 
       this.chaseAfter();
     }, 1000);
+    // Follow either the owner hero (heroId) or a specified targetHeroId
     events.on("CHARACTER_POSITION", this, (hero: any) => {
+      if (!hero || hero.id === undefined) return;
       if (hero.id === this.heroId) {
-        this.followHero(hero); 
-      } 
+        this.followHero(hero);
+        return;
+      }
+      if (this.targetHeroId != null && hero.id === this.targetHeroId) {
+        this.followHero(hero);
+        return;
+      }
     });
     events.emit("BOT_CREATED");  
   }

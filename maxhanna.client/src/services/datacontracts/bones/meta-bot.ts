@@ -17,6 +17,7 @@ export class MetaBot {
   name?: string;
   spriteName?: string;
   isDeployed?: boolean = false;
+  targetHeroId?: number | null = null;
   position?: Vector2;
   head?: MetaBotPart;
   legs?: MetaBotPart;
@@ -30,6 +31,7 @@ export class MetaBot {
     position?: Vector2, hp?: number, level?: number, spriteName?: string,
     leftArm?: MetaBotPart, rightArm?: MetaBotPart, legs?: MetaBotPart,
     head?: MetaBotPart, colorSwap?: ColorSwap, isDeployed?: boolean,
+  targetHeroId?: number | null,
   }) {
     this.id = params.id;
     this.name = params.name;
@@ -43,6 +45,7 @@ export class MetaBot {
     this.leftArm = params.leftArm ?? new MetaBotPart({ id: 0, metabotId: this.id, skill: LEFT_PUNCH, damageMod: 1, partName: LEFT_ARM })
     this.rightArm = params.rightArm ?? new MetaBotPart({ id: 0, metabotId: this.id, skill: RIGHT_PUNCH, damageMod: 1, partName: RIGHT_ARM })
     this.spriteName = params.spriteName;
+  this.targetHeroId = params.targetHeroId ?? null;
     this.colorSwap = params.colorSwap;
     this.isDeployed = params.isDeployed;
   }
