@@ -83,7 +83,7 @@ export class Npc extends Character {
 					heroId: this.id,
 					botType: bot.type,
 					name: bot.name ?? "Bot",
-					position: new Vector2(snapToGrid(this.position.x + gridCells(1), gridCells(1)), snapToGrid(this.position.y + gridCells(1), gridCells(1))),
+					position: new Vector2(this.position.x, this.position.y),
 					colorSwap: this.colorSwap,
 					isDeployed: true,
 					isEnemy: true,
