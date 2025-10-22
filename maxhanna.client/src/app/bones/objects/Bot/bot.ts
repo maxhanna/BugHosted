@@ -118,8 +118,8 @@ export class Bot extends Character {
         objectId: params.id ?? Math.floor(Math.random() * (-9999 + 1000)) - 1000,
         resource: resources.images["shadow"],
         scale: params.scale,
-        offsetX: -7 + (params.offsetX ?? 0),
-        offsetY: 2 + (params.offsetY ?? 0),
+        offsetX: (params.offsetX ?? 0),
+        offsetY: params.spriteName?.includes("skeleton") ? -12 : 2 + (params.offsetY ?? 0),
         frameSize: new Vector2(32, 32),
       }),
     });
