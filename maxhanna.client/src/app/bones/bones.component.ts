@@ -334,6 +334,16 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
         const tgtEnemy = this.mainScene.level.children.find((x: Bot) => x.heroId == enemy.heroId && x.isDeployed);
         if (tgtEnemy) {
           tgtEnemy.hp = enemy.hp;
+          // If server reports this encounter is dead, destroy the client object and clean up caches
+          if ((tgtEnemy.hp ?? 0) <= 0) {
+            try {
+              if (typeof tgtEnemy.destroy === 'function') {
+                tgtEnemy.destroy();
+              }  
+            } catch { /* ignore errors during destroy */ }
+            try { this._lastServerDestinations.delete(tgtEnemy.heroId); } catch { }
+            return; // skip further processing for this bot
+          }
           // Only update destination if the server position differs significantly to avoid micro-adjustment jitter
           if (enemy.position !== undefined && enemy.position.x != -1 && enemy.position.y != -1) {
             const newDest = new Vector2(enemy.position.x, enemy.position.y).duplicate();
