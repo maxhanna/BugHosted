@@ -334,8 +334,11 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
         //look for enemy on the map, if he doesnt exist, create him.
         const tgtEnemy : Bot = this.mainScene.level.children.find((x: Bot) => x.heroId == enemy.heroId);
         if (tgtEnemy) {
+          console.log("found enemy");
           tgtEnemy.hp = enemy.hp;
-          tgtEnemy.destinationPosition = enemy.position!.duplicate();
+          if (enemy.position) {
+            tgtEnemy.destinationPosition = enemy.position.duplicate();
+          }
           console.log("setting dest pos to ", tgtEnemy.destinationPosition);
           // Track server-provided targetHeroId and react to changes
           // const incomingTarget = (enemy as any).targetHeroId ?? null;
@@ -363,7 +366,7 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
             return; // skip further processing for this bot
           } 
         } else {
-          console.log("could not find bot, creating it");
+          console.log("could not find bot, creating it ", enemy);
           const tgtEncounter = this.mainScene.level.children.find((x: Character) => x.id == enemy.heroId);
           if (tgtEncounter) {
             let tmp = new Bot({
