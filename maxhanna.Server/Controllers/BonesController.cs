@@ -67,94 +67,24 @@ namespace maxhanna.Server.Controllers
 			await connection.OpenAsync();
 			using var transaction = connection.BeginTransaction();
 			try
-			{
-				if (request != null) {
-					await PersistNewAttacks(request, hero, connection, transaction);
-				}
+            {
+                if (request != null)
+                {
+                    await PersistNewAttacks(request, hero, connection, transaction);
+                }
 
                 hero = await UpdateHeroInDB(hero, connection, transaction);
-                MetaHero[]? heroes = await GetNearbyPlayers(hero, connection, transaction);
-                MetaBot[]? enemyBots = await GetEncounterMetaBots(connection, transaction, hero.Map);
+				MetaHero[]? heroes = await GetNearbyPlayers(hero, connection, transaction);
+				if (!string.IsNullOrEmpty(hero.Map))
+				{
+					await ProcessEncounterAI(hero.Map!, connection, transaction);
+				}
+                MetaBot[]? enemyBots = await GetEncounters(connection, transaction, hero.Map);
                 List<MetaEvent> events = await GetEventsFromDb(hero.Map, hero.Id, connection, transaction);
                 // Query recent ATTACK events (last 5 seconds) excluding attacks originating from this hero.
                 List<Dictionary<string, object>> recentAttacks = new();
-                try
-                {
-                    string q = "SELECT data FROM maxhanna.bones_event WHERE event = 'ATTACK' AND timestamp >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 5 SECOND) AND hero_id <> @HeroId ORDER BY timestamp DESC LIMIT 50;";
-                    using var cmd = new MySqlCommand(q, connection, transaction);
-                    cmd.Parameters.AddWithValue("@HeroId", hero.Id);
-                    using var rdr = await cmd.ExecuteReaderAsync();
-                    while (await rdr.ReadAsync())
-                    {
-                        var dataJson = rdr.IsDBNull(rdr.GetOrdinal("data")) ? null : rdr.GetString(rdr.GetOrdinal("data"));
-                        if (!string.IsNullOrEmpty(dataJson))
-                        {
-                            try
-                            {
-                                var jo = JObject.Parse(dataJson);
-                                var dict = new Dictionary<string, object>();
-                                foreach (var prop in jo.Properties())
-                                {
-                                    var token = prop.Value;
-                                    if (token.Type == JTokenType.Integer)
-                                    {
-                                        dict[prop.Name] = token.ToObject<long>();
-                                    }
-                                    else if (token.Type == JTokenType.Float)
-                                    {
-                                        dict[prop.Name] = token.ToObject<double>();
-                                    }
-                                    else if (token.Type == JTokenType.Boolean)
-                                    {
-                                        dict[prop.Name] = token.ToObject<bool>();
-                                    }
-                                    else if (token.Type == JTokenType.String)
-                                    {
-                                        dict[prop.Name] = token.ToObject<string?>() ?? string.Empty;
-                                    }
-                                    else
-                                    {
-                                        // For arrays/objects/other token types, stringify them so client sees usable data
-                                        dict[prop.Name] = token.ToString(Newtonsoft.Json.Formatting.None);
-                                    }
-                                }
-                                recentAttacks.Add(dict);
-                            }
-                            catch { }
-                        }
-                    }
-                }
-                catch (Exception ex)
-                {
-                    await _log.Db("Failed to read recentAttacks: " + ex.Message, hero.Id, "BONES", true);
-                }
-
-                // Convert recentAttacks (raw dictionaries) into MetaEvent objects so clients receive them in the normal events stream.
-                try
-                {
-                    foreach (var atk in recentAttacks)
-                    {
-                        try
-                        {
-                            // Prefer keys "heroId" or "sourceHeroId" for the attack origin
-                            object? srcObj = null;
-                            if (atk.ContainsKey("heroId")) srcObj = atk["heroId"];
-                            else if (atk.ContainsKey("sourceHeroId")) srcObj = atk["sourceHeroId"];
-
-                            int srcId = srcObj != null ? Convert.ToInt32(srcObj) : 0;
-                            var dataDict = new Dictionary<string, string>();
-                            foreach (var kv in atk)
-                            {
-                                dataDict[kv.Key] = kv.Value?.ToString() ?? string.Empty;
-                            }
-                            // Create a MetaEvent so client-side multiplayer event processing will handle it like other events
-                            var meleeEvent = new MetaEvent(0, srcId, DateTime.UtcNow, "OTHER_HERO_ATTACK", hero.Map ?? string.Empty, dataDict);
-                            events.Add(meleeEvent);
-                        }
-                        catch { /* ignore malformed attack entries */ }
-                    }
-                }
-                catch { }
+                await CreateAttackEvents(hero, connection, transaction, recentAttacks);
+                AddAttackEventsToEventsList(hero, events, recentAttacks);
 
                 await transaction.CommitAsync();
                 var resp = new FetchGameDataResponse { Map = hero.Map, Position = hero.Position, Heroes = heroes, Events = events, EnemyBots = enemyBots, RecentAttacks = recentAttacks };
@@ -166,6 +96,77 @@ namespace maxhanna.Server.Controllers
 				return StatusCode(500, "Internal server error: " + ex.Message);
 			}
 		}
+
+        private static void AddAttackEventsToEventsList(MetaHero hero, List<MetaEvent> events, List<Dictionary<string, object>> recentAttacks)
+        {
+            foreach (var atk in recentAttacks)
+            {
+                // Prefer keys "heroId" or "sourceHeroId" for the attack origin
+                object? srcObj = null;
+                if (atk.ContainsKey("heroId")) srcObj = atk["heroId"];
+                else if (atk.ContainsKey("sourceHeroId")) srcObj = atk["sourceHeroId"];
+
+                int srcId = srcObj != null ? Convert.ToInt32(srcObj) : 0;
+                var dataDict = new Dictionary<string, string>();
+                foreach (var kv in atk)
+                {
+                    dataDict[kv.Key] = kv.Value?.ToString() ?? string.Empty;
+                }
+                // Create a MetaEvent so client-side multiplayer event processing will handle it like other events
+                var meleeEvent = new MetaEvent(0, srcId, DateTime.UtcNow, "OTHER_HERO_ATTACK", hero.Map ?? string.Empty, dataDict);
+                events.Add(meleeEvent);
+            }
+        }
+
+        private async Task CreateAttackEvents(MetaHero hero, MySqlConnection connection, MySqlTransaction transaction, List<Dictionary<string, object>> recentAttacks)
+        {
+            try
+            {
+                string q = "SELECT data FROM maxhanna.bones_event WHERE event = 'ATTACK' AND timestamp >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 5 SECOND) AND hero_id <> @HeroId ORDER BY timestamp DESC LIMIT 50;";
+                using var cmd = new MySqlCommand(q, connection, transaction);
+                cmd.Parameters.AddWithValue("@HeroId", hero.Id);
+                using var rdr = await cmd.ExecuteReaderAsync();
+                while (await rdr.ReadAsync())
+                {
+                    var dataJson = rdr.IsDBNull(rdr.GetOrdinal("data")) ? null : rdr.GetString(rdr.GetOrdinal("data"));
+                    if (!string.IsNullOrEmpty(dataJson))
+                    {
+						var jo = JObject.Parse(dataJson);
+						var dict = new Dictionary<string, object>();
+						foreach (var prop in jo.Properties())
+						{
+							var token = prop.Value;
+							if (token.Type == JTokenType.Integer)
+							{
+								dict[prop.Name] = token.ToObject<long>();
+							}
+							else if (token.Type == JTokenType.Float)
+							{
+								dict[prop.Name] = token.ToObject<double>();
+							}
+							else if (token.Type == JTokenType.Boolean)
+							{
+								dict[prop.Name] = token.ToObject<bool>();
+							}
+							else if (token.Type == JTokenType.String)
+							{
+								dict[prop.Name] = token.ToObject<string?>() ?? string.Empty;
+							}
+							else
+							{
+								// For arrays/objects/other token types, stringify them so client sees usable data
+								dict[prop.Name] = token.ToString(Newtonsoft.Json.Formatting.None);
+							}
+						}
+						recentAttacks.Add(dict); 
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                await _log.Db("Failed to read recentAttacks: " + ex.Message, hero.Id, "BONES", true);
+            }
+        }
 
         private async Task PersistNewAttacks(FetchGameDataRequest request, MetaHero hero, MySqlConnection connection, MySqlTransaction transaction)
         {
@@ -433,31 +434,16 @@ namespace maxhanna.Server.Controllers
 		}
 
 		[HttpPost("/Bones/CreateBot", Name = "Bones_CreateBot")]
-		public async Task<IActionResult> CreateBot([FromBody] MetaBot bot)
-		{
-			// Metabot/bones_bot functionality removed. Front-end now constructs encounters from `bones_encounter`.
-			// Return 410 Gone to indicate endpoint is deprecated for clarity to clients.
-			return StatusCode(410, "Metabot functionality removed. Use bones_encounter on the frontend.");
-		}
+		public IActionResult CreateBot([FromBody] MetaBot bot) => StatusCode(410, "Metabot functionality removed. Use bones_encounter on the frontend.");
 
 		[HttpPost("/Bones/UpdateBotParts", Name = "Bones_UpdateBotParts")]
-		public async Task<IActionResult> UpdateBotParts([FromBody] UpdateBotPartsRequest req)
-		{
-			// Deprecated: bot parts are no longer stored server-side.
-			return StatusCode(410, "Metabot parts removed. Parts are constructed client-side from bones_encounter.");
-		}
+		public IActionResult UpdateBotParts([FromBody] UpdateBotPartsRequest req) => StatusCode(410, "Metabot parts removed. Parts are constructed client-side from bones_encounter.");
 
 		[HttpPost("/Bones/EquipPart", Name = "Bones_EquipPart")]
-		public async Task<IActionResult> EquipPart([FromBody] EquipPartRequest req)
-		{
-			return StatusCode(410, "EquipPart deprecated: metabot server-side parts removed.");
-		}
+		public IActionResult EquipPart([FromBody] EquipPartRequest req) => StatusCode(410, "EquipPart deprecated: metabot server-side parts removed.");
 
 		[HttpPost("/Bones/UnequipPart", Name = "Bones_UnequipPart")]
-		public async Task<IActionResult> UnequipPart([FromBody] EquipPartRequest req)
-		{
-			return StatusCode(410, "UnequipPart deprecated: metabot server-side parts removed.");
-		}
+		public IActionResult UnequipPart([FromBody] EquipPartRequest req) => StatusCode(410, "UnequipPart deprecated: metabot server-side parts removed.");
 
 		[HttpPost("/Bones/GetUserPartyMembers", Name = "Bones_GetUserPartyMembers")]
 		public async Task<IActionResult> GetUserPartyMembers([FromBody] int userId)
@@ -593,12 +579,7 @@ namespace maxhanna.Server.Controllers
 		}
 
 		[HttpPost("/Bones/SellBotParts", Name = "Bones_SellBotParts")]
-		public async Task<IActionResult> SellBotParts([FromBody] SellBotPartsRequest req)
-		{
-			// Server-side bot parts removed. Client constructs encounters from bones_encounter and parts are client-managed.
-			// Keep endpoint for compatibility but act as a no-op.
-			return Ok();
-		}
+		public IActionResult SellBotParts([FromBody] SellBotPartsRequest req) => Ok();
 
 		// Helper methods copied from MetaController with log category updated to BONES
 		private async Task<MetaHero> UpdateHeroInDB(MetaHero hero, MySqlConnection connection, MySqlTransaction transaction)
@@ -748,13 +729,13 @@ namespace maxhanna.Server.Controllers
 				throw;
 			}
 		}
-		private async Task<MetaBot[]> GetEncounterMetaBots(MySqlConnection conn, MySqlTransaction transaction, string map)
+		private async Task<MetaBot[]> GetEncounters(MySqlConnection conn, MySqlTransaction transaction, string map)
 		{
 			try
 			{
 				var bots = new List<MetaBot>();
 				string sql = @"
-					SELECT hero_id, coordsX, coordsY, `level`, hp, `name`, last_killed
+					SELECT hero_id, coordsX, coordsY, `level`, hp, `name`, last_killed, o_coordsX, o_coordsY, speed, aggro, last_moved
 					FROM maxhanna.bones_encounter
 					WHERE map = @Map;";
 				using var cmd = new MySqlCommand(sql, conn, transaction);
@@ -787,6 +768,130 @@ namespace maxhanna.Server.Controllers
 			{
 				await _log.Db($"GetEncounterMetaBots Exception: {ex.Message}\n{ex.StackTrace}\nmap={map}", null, "BONES", true);
 				throw;
+			}
+		}
+
+		/// <summary>
+		/// Processes encounter AI for a given map: 
+		/// 1. Respawns dead encounters (hp=0 & last_killed older than 2 minutes) to 100 hp.
+		/// 2. For living encounters with aggro > 0, finds closest hero within aggro * 16 (Manhattan in tiles) and moves towards them.
+		///    Movement rate: up to `speed` grid cells, but only one cell per second since last_moved.
+		///    Movement is axis-aligned, prioritizing the axis with greatest distance.
+		/// </summary>
+		private async Task ProcessEncounterAI(string map, MySqlConnection connection, MySqlTransaction transaction)
+		{
+			try
+			{
+				// Respawn logic: set hp back to 100 if dead for > 120 seconds
+				string respawnSql = @"UPDATE maxhanna.bones_encounter 
+					SET hp = 100, last_killed = NULL, coordsX = o_coordsX, coordsY = o_coordsY 
+					WHERE map = @Map AND hp <= 0 AND last_killed IS NOT NULL AND last_killed < DATE_SUB(UTC_TIMESTAMP(), INTERVAL 120 SECOND);";
+				await ExecuteInsertOrUpdateOrDeleteAsync(respawnSql, new Dictionary<string, object?> { { "@Map", map } }, connection, transaction);
+
+				// Fetch encounters needing AI processing
+				string selectSql = @"SELECT hero_id, coordsX, coordsY, o_coordsX, o_coordsY, hp, speed, aggro, last_moved 
+					FROM maxhanna.bones_encounter WHERE map = @Map";
+				using var cmd = new MySqlCommand(selectSql, connection, transaction);
+				cmd.Parameters.AddWithValue("@Map", map);
+				var encounters = new List<(int heroId,int x,int y,int ox,int oy,int hp,int speed,int aggro, DateTime? lastMoved)>();
+				using (var rdr = await cmd.ExecuteReaderAsync())
+				{
+					while (await rdr.ReadAsync())
+					{
+						encounters.Add((
+							rdr.GetInt32(rdr.GetOrdinal("hero_id")),
+							rdr.GetInt32(rdr.GetOrdinal("coordsX")),
+							rdr.GetInt32(rdr.GetOrdinal("coordsY")),
+							rdr.GetInt32(rdr.GetOrdinal("o_coordsX")),
+							rdr.GetInt32(rdr.GetOrdinal("o_coordsY")),
+							rdr.GetInt32(rdr.GetOrdinal("hp")),
+							rdr.GetInt32(rdr.GetOrdinal("speed")),
+							rdr.GetInt32(rdr.GetOrdinal("aggro")),
+							rdr.IsDBNull(rdr.GetOrdinal("last_moved")) ? (DateTime?)null : rdr.GetDateTime(rdr.GetOrdinal("last_moved"))
+						));
+					}
+				}
+
+				if (encounters.Count == 0) return;
+
+				// Get heroes on this map to determine targets
+				var heroes = new List<(int heroId,int x,int y)>();
+				string heroSql = @"SELECT id, coordsX, coordsY FROM maxhanna.bones_hero WHERE map = @Map";
+				using (var hCmd = new MySqlCommand(heroSql, connection, transaction))
+				{
+					hCmd.Parameters.AddWithValue("@Map", map);
+					using var hr = await hCmd.ExecuteReaderAsync();
+					while (await hr.ReadAsync())
+					{
+						heroes.Add((hr.GetInt32(0), hr.GetInt32(1), hr.GetInt32(2)));
+					}
+				}
+
+				if (heroes.Count == 0) return; // no targets
+
+				var updateBuilder = new StringBuilder();
+				var parameters = new Dictionary<string, object?>();
+				int idx = 0;
+				foreach (var e in encounters)
+				{
+					if (e.hp <= 0) continue; // dead, wait for respawn
+					if (e.aggro <= 0) continue; // no aggro range
+
+					int aggroPixels = e.aggro * 16; // range in pixels (coords appear tile*16 units?) but requirement specified 2 gridCells => 2*16
+
+					// Find closest hero within Manhattan distance threshold (in same coordinate system)
+					(int heroId,int x,int y)? closest = null;
+					int bestDist = int.MaxValue;
+					foreach (var h in heroes)
+					{
+						int dist = Math.Abs(h.x - e.x) + Math.Abs(h.y - e.y);
+						if (dist <= aggroPixels && dist < bestDist)
+						{
+							bestDist = dist;
+							closest = h;
+						}
+					}
+					if (closest == null) continue; // no hero in range
+
+					// Rate limit: only move if >=1 second since last_moved
+					bool canMoveTime = !e.lastMoved.HasValue || (DateTime.UtcNow - e.lastMoved.Value).TotalSeconds >= 1.0;
+					if (!canMoveTime) continue;
+
+					int remainingSpeed = Math.Max(1, e.speed); // cells per tick
+					int curX = e.x; int curY = e.y;
+					while (remainingSpeed > 0 && (curX != closest.Value.x || curY != closest.Value.y))
+					{
+						int dx = closest.Value.x - curX;
+						int dy = closest.Value.y - curY;
+						if (Math.Abs(dx) >= Math.Abs(dy))
+						{
+							curX += dx == 0 ? 0 : (dx > 0 ? 16 : -16); // move one tile (16 units)
+						}
+						else
+						{
+							curY += dy == 0 ? 0 : (dy > 0 ? 16 : -16);
+						}
+						remainingSpeed--;
+					}
+
+					if (curX != e.x || curY != e.y)
+					{
+						updateBuilder.AppendLine($"UPDATE maxhanna.bones_encounter SET coordsX = @nx_{idx}, coordsY = @ny_{idx}, last_moved = UTC_TIMESTAMP() WHERE hero_id = @hid_{idx};");
+						parameters[$"@nx_{idx}"] = curX;
+						parameters[$"@ny_{idx}"] = curY;
+						parameters[$"@hid_{idx}"] = e.heroId;
+						idx++;
+					}
+				}
+
+				if (updateBuilder.Length > 0)
+				{
+					await ExecuteInsertOrUpdateOrDeleteAsync(updateBuilder.ToString(), parameters, connection, transaction);
+				}
+			}
+			catch (Exception ex)
+			{
+				await _log.Db("ProcessEncounterAI error: " + ex.Message, null, "BONES", true);
 			}
 		}
 		private async Task<MetaHero[]?> GetNearbyPlayers(MetaHero hero, MySqlConnection conn, MySqlTransaction transaction)
@@ -869,47 +974,17 @@ namespace maxhanna.Server.Controllers
 				throw;
 			}
 		}
-		private async Task<MetaBotPart[]?> GetMetabotPartsFromDB(int heroId, MySqlConnection conn, MySqlTransaction transaction)
-		{
-			// Metabot parts removed server-side. Return empty array for compatibility.
-			return Array.Empty<MetaBotPart>();
-		}
-		private async Task RepairAllMetabots(int heroId, MySqlConnection connection, MySqlTransaction transaction)
-		{
-			// No-op: metabot table removed
-			await Task.CompletedTask;
-		}
+		private Task<MetaBotPart[]?> GetMetabotPartsFromDB(int heroId, MySqlConnection conn, MySqlTransaction transaction) => Task.FromResult<MetaBotPart[]?>(Array.Empty<MetaBotPart>());
+		private Task RepairAllMetabots(int heroId, MySqlConnection connection, MySqlTransaction transaction) => Task.CompletedTask; // No-op: metabot table removed
 		private async Task UpdateEncounterPosition(int encounterId, int destinationX, int destionationY, MySqlConnection connection, MySqlTransaction transaction)
 		{
 			string sql = @"UPDATE maxhanna.bones_encounter SET coordsX = @coordsX, coordsY = @coordsY WHERE hero_id = @heroId;";
 			Dictionary<string, object?> parameters = new() { { "@heroId", encounterId }, { "@coordsX", destinationX }, { "@coordsY", destionationY } };
 			await ExecuteInsertOrUpdateOrDeleteAsync(sql, parameters, connection, transaction);
 		}
-		private async Task DeployMetabot(int metabotId, MySqlConnection connection, MySqlTransaction transaction)
-		{
-			// No-op: metabot table removed
-			await Task.CompletedTask;
-		}
-		private async Task CallBackMetabot(int heroId, int? metabotId, MySqlConnection connection, MySqlTransaction transaction)
-		{
-			// No-op: metabot table removed
-			await Task.CompletedTask;
-		}
-		private async Task DestroyMetabot(int heroId, int? metabotId, MySqlConnection connection, MySqlTransaction transaction)
-		{
-			// No-op: metabot table removed. If encounter cleanup required, Update encounters instead.
-			if (heroId < 0)
-			{
-				// mark encounter as cleared
-				string sql = "UPDATE maxhanna.bones_encounter SET coordsX = -1, coordsY = -1, last_killed = UTC_TIMESTAMP WHERE hero_id = @HeroId;";
-				await ExecuteInsertOrUpdateOrDeleteAsync(sql, new Dictionary<string, object?>() { { "@HeroId", heroId } }, connection, transaction);
-			}
-			else
-			{
-				// nothing to do for player-owned bots since they no longer exist
-				await Task.CompletedTask;
-			}
-		}
+		private Task DeployMetabot(int metabotId, MySqlConnection connection, MySqlTransaction transaction) => Task.CompletedTask; // No-op: metabot table removed
+		private Task CallBackMetabot(int heroId, int? metabotId, MySqlConnection connection, MySqlTransaction transaction) => Task.CompletedTask; // No-op: metabot table removed
+		 
 		private async Task PerformEventChecks(MetaEvent metaEvent, MySqlConnection connection, MySqlTransaction transaction)
 		{
 			if (metaEvent != null && metaEvent.Data != null && metaEvent.EventType == "TARGET_LOCKED")
@@ -953,7 +1028,6 @@ namespace maxhanna.Server.Controllers
 				if (metaEvent.Data.TryGetValue("metaBot", out var metaBotJsonElement)) { var metaBotJson = JsonDocument.Parse(metaBotJsonElement.ToString()).RootElement; if (metaBotJson.TryGetProperty("id", out var idElement)) { int metabotId = idElement.GetInt32(); await DeployMetabot(metabotId, connection, transaction); } }
 			}
 			else if (metaEvent != null && metaEvent.EventType == "CALL_BOT_BACK") { int heroId = metaEvent.HeroId; await CallBackMetabot(heroId, null, connection, transaction); }
-			else if (metaEvent != null && metaEvent.EventType == "BOT_DESTROYED") { int heroId = metaEvent.HeroId; await DestroyMetabot(heroId, null, connection, transaction); }
 		}
 		private static void StopAttackDamageOverTimeForBot(int? sourceId, int? targetId)
 		{
@@ -1007,42 +1081,6 @@ namespace maxhanna.Server.Controllers
 			catch (MySqlException) { throw; }
 			catch (Exception) { throw; }
 		}
-		private async Task HandleDeadMetabot(string map, MetaBot? winnerBot, MetaBot? deadBot, MySqlConnection connection, MySqlTransaction transaction)
-		{
-			if (deadBot == null) return; MetaEvent tmpEvent = new(0, deadBot.HeroId, DateTime.Now, "BOT_DESTROYED", map, new Dictionary<string, string> { { "winnerBotId", (winnerBot?.Id ?? 0).ToString() } }); await UpdateEventsInDB(tmpEvent, connection, transaction); await DestroyMetabot(deadBot.HeroId, deadBot.Id, connection, transaction); if (winnerBot?.HeroId > 0) await AwardExpToPlayer(winnerBot, deadBot, connection, transaction);
-		}
-		private async Task AwardExpToPlayer(MetaBot player, MetaBot enemy, MySqlConnection connection, MySqlTransaction transaction)
-		{
-			player.Exp += enemy.Level; int expForNextLevel = CalculateExpForNextLevel(player); while (player.Exp >= expForNextLevel) { player.Exp -= expForNextLevel; player.Level++; expForNextLevel = CalculateExpForNextLevel(player); }
-			await UpdateMetabotInDB(player, connection, transaction);
-		}
-		private int CalculateExpForNextLevel(MetaBot player) => (player.Level + 1) * 15;
-		private MetaBotPart GetLastUsedPart(string tableName, string idColumn, int id, MySqlConnection connection, MySqlTransaction? transaction)
-		{
-			// Parts removed server-side; return default
-			return new MetaBotPart { PartName = "DEFAULT", DamageMod = 1, Skill = new Skill("NORMAL", 0) };
-		}
-		private async Task ApplyDamageToBot(MetaBot attackingBot, MetaBot defendingBot, MetaBotPart attackingPart, MetaBotPart defendingPart, MySqlConnection connection, MySqlTransaction transaction)
-		{
-			// Server no longer manages bot damage; emit event for compatibility so clients can react.
-			int appliedDamageToDefender = CalculateDamage(attackingBot, defendingBot, attackingPart);
-			var ev = new MetaEvent(0, attackingBot.HeroId, DateTime.UtcNow, "BOT_DAMAGE", string.Empty, new Dictionary<string, string> { { "sourceId", attackingBot.Id.ToString() }, { "targetId", defendingBot.Id.ToString() }, { "damage", appliedDamageToDefender.ToString() } });
-			await UpdateEventsInDB(ev, connection, transaction);
-		}
-		private int CalculateDamage(MetaBot attacker, MetaBot defender, MetaBotPart attackingPart)
-		{
-			// Keep original formula but guard nulls
-			float typeMultiplier = 1.0f;
-			if (attackingPart?.Skill != null && TypeEffectiveness.TryGetValue((SkillType)attackingPart.Skill.Type, out SkillType effectiveAgainst) && (int)effectiveAgainst == defender.Type) typeMultiplier = 2.0f;
-			else if (attackingPart?.Skill != null && TypeEffectiveness.TryGetValue((SkillType)defender.Type, out SkillType strongAgainst) && (int)strongAgainst == attackingPart.Skill.Type) typeMultiplier = 0.5f;
-			int baseDamage = (int)((attacker?.Level ?? 1) * (attackingPart?.DamageMod ?? 1) * typeMultiplier);
-			float defenseMultiplier = (defender?.Level ?? 1) / 100f;
-			float defenseFactor = 1f / (1f + defenseMultiplier);
-			int finalDamage = (int)(baseDamage * defenseFactor);
-			if (new Random().NextDouble() < 0.1) finalDamage = (int)(finalDamage * 1.5f);
-			return Math.Max(1, finalDamage);
-		}
-
 		// Helper to safely read nullable string columns from a data reader
 		private static string? SafeGetString(System.Data.Common.DbDataReader reader, string columnName)
 		{
