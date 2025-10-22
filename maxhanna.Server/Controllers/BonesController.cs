@@ -19,6 +19,8 @@ namespace maxhanna.Server.Controllers
 		private static Dictionary<string, CancellationTokenSource> activeLocks = new();
 		// Track last time encounter movement was processed per map to limit updates to once per second
 		private static readonly Dictionary<string, DateTime> _lastEncounterAiRun = new();
+		// Track when an encounter started chasing a specific hero (key: encounter hero_id)
+		private static readonly Dictionary<int, DateTime> _encounterTargetLockTimes = new();
 		private static readonly Dictionary<SkillType, SkillType> TypeEffectiveness = new()
 		{
 				{ SkillType.SPEED, SkillType.ARMOR },
@@ -816,12 +818,12 @@ namespace maxhanna.Server.Controllers
 					_lastEncounterAiRun[map] = DateTime.UtcNow;
 				}
 
-				// Fetch encounters needing AI processing
-				string selectSql = @"SELECT hero_id, coordsX, coordsY, o_coordsX, o_coordsY, hp, speed, aggro, last_moved 
+				// Fetch encounters needing AI processing (include target_hero_id for chase locking)
+				string selectSql = @"SELECT hero_id, coordsX, coordsY, o_coordsX, o_coordsY, hp, speed, aggro, last_moved, target_hero_id 
 					FROM maxhanna.bones_encounter WHERE map = @Map";
 				using var cmd = new MySqlCommand(selectSql, connection, transaction);
 				cmd.Parameters.AddWithValue("@Map", map);
-				var encounters = new List<(int heroId,int x,int y,int ox,int oy,int hp,int speed,int aggro, DateTime? lastMoved)>();
+				var encounters = new List<(int heroId,int x,int y,int ox,int oy,int hp,int speed,int aggro, DateTime? lastMoved,int targetHeroId)>();
 				using (var rdr = await cmd.ExecuteReaderAsync())
 				{
 					while (await rdr.ReadAsync())
@@ -835,7 +837,8 @@ namespace maxhanna.Server.Controllers
 							rdr.GetInt32(rdr.GetOrdinal("hp")),
 							rdr.GetInt32(rdr.GetOrdinal("speed")),
 							rdr.GetInt32(rdr.GetOrdinal("aggro")),
-							rdr.IsDBNull(rdr.GetOrdinal("last_moved")) ? (DateTime?)null : rdr.GetDateTime(rdr.GetOrdinal("last_moved"))
+							rdr.IsDBNull(rdr.GetOrdinal("last_moved")) ? (DateTime?)null : rdr.GetDateTime(rdr.GetOrdinal("last_moved")),
+							rdr.IsDBNull(rdr.GetOrdinal("target_hero_id")) ? 0 : rdr.GetInt32(rdr.GetOrdinal("target_hero_id"))
 						));
 					}
 				}
@@ -867,25 +870,70 @@ namespace maxhanna.Server.Controllers
 
 					int aggroPixels = e.aggro * 16; // range in pixels (coords appear tile*16 units?) but requirement specified 2 gridCells => 2*16
 
-					// Find closest hero within Manhattan distance threshold (in same coordinate system)
+					// Determine target hero via existing lock or acquire a new lock if none within range
 					(int heroId,int x,int y)? closest = null;
-					int bestDist = int.MaxValue;
-					foreach (var h in heroes)
+					int targetHeroId = e.targetHeroId;
+					DateTime now = DateTime.UtcNow;
+					bool hasLock = targetHeroId != 0;
+					bool lockValid = false;
+					if (hasLock)
 					{
-						int dist = Math.Abs(h.x - e.x) + Math.Abs(h.y - e.y);
-						if (dist <= aggroPixels && dist < bestDist)
+						// Find the locked hero in heroes list
+						var locked = heroes.FirstOrDefault(h => h.heroId == targetHeroId);
+						if (locked.heroId == targetHeroId)
 						{
-							bestDist = dist;
-							closest = h;
+							// Check distance to locked hero
+							int distToLocked = Math.Abs(locked.x - e.x) + Math.Abs(locked.y - e.y);
+							// If hero still in aggro range OR grace period not expired (<5s since lock start) keep chasing
+							if (distToLocked <= aggroPixels || (!_encounterTargetLockTimes.TryGetValue(e.heroId, out var lockStart) || (now - lockStart).TotalSeconds < 5.0))
+							{
+								closest = locked;
+								lockValid = true;
+							}
 						}
 					}
-					// If no hero is currently in aggro range, try returning toward original spawn coords
-					if (closest == null)
+					if (!lockValid)
 					{
-						// If already at origin, nothing to do
-						if (e.ox == e.x && e.oy == e.y) continue;
-						// Use the origin as the target (heroId = 0 placeholder)
-						closest = (0, e.ox, e.oy);
+						// Acquire new lock: search heroes within aggro range
+						int bestDist = int.MaxValue;
+						foreach (var h in heroes)
+						{
+							int dist = Math.Abs(h.x - e.x) + Math.Abs(h.y - e.y);
+							if (dist <= aggroPixels && dist < bestDist)
+							{
+								bestDist = dist;
+								closest = h;
+								bestDist = dist;
+							}
+						}
+						if (closest != null)
+						{
+							// Set/refresh lock timestamp
+							_encounterTargetLockTimes[e.heroId] = now;
+							targetHeroId = closest.Value.heroId;
+						}
+						else
+						{
+							// No hero to chase, clear lock if existed and return to origin
+							if (_encounterTargetLockTimes.ContainsKey(e.heroId)) _encounterTargetLockTimes.Remove(e.heroId);
+							targetHeroId = 0;
+							if (e.ox == e.x && e.oy == e.y) continue; // already at origin
+							closest = (0, e.ox, e.oy);
+						}
+					}
+
+					// If lock expired (graceSeconds) and hero out of range, transition to return-to-origin
+					if (closest != null && closest.Value.heroId == targetHeroId && targetHeroId != 0 && _encounterTargetLockTimes.TryGetValue(e.heroId, out var ls))
+					{
+						int distCurrent = Math.Abs(closest.Value.x - e.x) + Math.Abs(closest.Value.y - e.y);
+						double graceSeconds = Math.Max(1, e.aggro) * 5.0; // 5s per aggro level
+						if (distCurrent > aggroPixels && (now - ls).TotalSeconds >= graceSeconds)
+						{
+							// Switch to origin return
+							_encounterTargetLockTimes.Remove(e.heroId);
+							targetHeroId = 0;
+							closest = (0, e.ox, e.oy);
+						}
 					}
 
 					// Rate limit: only move if >=1 second since last_moved
@@ -906,10 +954,11 @@ namespace maxhanna.Server.Controllers
 
 					int remainingSpeed = Math.Max(1, e.speed); // cells per tick
 					int curX = e.x; int curY = e.y;
-					while (remainingSpeed > 0 && (curX != closest.Value.x || curY != closest.Value.y))
+					var targetPos = closest.HasValue ? closest.Value : (0, e.x, e.y);
+					while (closest.HasValue && remainingSpeed > 0 && (curX != targetPos.x || curY != targetPos.y))
 					{
-						int dx = closest.Value.x - curX;
-						int dy = closest.Value.y - curY;
+						int dx = targetPos.x - curX;
+						int dy = targetPos.y - curY;
 						if (Math.Abs(dx) >= Math.Abs(dy))
 						{
 							curX += dx == 0 ? 0 : (dx > 0 ? 16 : -16); // move one tile (16 units)
@@ -921,12 +970,13 @@ namespace maxhanna.Server.Controllers
 						remainingSpeed--;
 					}
 
-					if (curX != e.x || curY != e.y)
+					if (curX != e.x || curY != e.y || e.targetHeroId != targetHeroId)
 					{
-						updateBuilder.AppendLine($"UPDATE maxhanna.bones_encounter SET coordsX = @nx_{idx}, coordsY = @ny_{idx}, last_moved = UTC_TIMESTAMP() WHERE hero_id = @hid_{idx};");
+						updateBuilder.AppendLine($"UPDATE maxhanna.bones_encounter SET coordsX = @nx_{idx}, coordsY = @ny_{idx}, target_hero_id = @thid_{idx}, last_moved = UTC_TIMESTAMP() WHERE hero_id = @hid_{idx};");
 						parameters[$"@nx_{idx}"] = curX;
 						parameters[$"@ny_{idx}"] = curY;
 						parameters[$"@hid_{idx}"] = e.heroId;
+						parameters[$"@thid_{idx}"] = targetHeroId;
 						idx++;
 					}
 				}
