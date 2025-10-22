@@ -150,13 +150,11 @@ export class Bot extends Character {
 
     if (!this.preventDestroyAnimation) {
       this.isLocked = true;
-      // Play die animation on the body (if present) and wait 400ms before final destroy
-      try {
-        this.body?.animations?.play("die");
-      } catch { /* ignore animation play errors */ }
+      resources.playSound('maleDeathScream', { volume: 0.9, loop: false, allowOverlap: true });
+      this.body?.animations?.play("die");
+       
 
       setTimeout(() => {
-        // After the short death animation, remove visual children and destroy
         this.destroyBody();
         super.destroy();
       }, 400);

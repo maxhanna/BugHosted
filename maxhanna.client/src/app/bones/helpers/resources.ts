@@ -31,6 +31,7 @@ export class Resources {
     this.audioToLoad = {
       arcadeUi: `${this.dir}arcade-ui.mp4`,
       pixelDreams: `${this.dir}pixeldreams.mp4`,
+      maleDeathScream: `${this.dir}male_death_voice.mp4`,
       wilhelmScream: `${this.dir}wilhelm_scream.mp3`,
     };
     this.waitForCanvas();
@@ -74,8 +75,10 @@ export class Resources {
   private audioCategories: { [key: string]: 'music' | 'sfx' } = {
     pixelDreams: 'music',
     wilhelmScream: 'sfx',
-    arcadeUi: 'sfx'
+    arcadeUi: 'sfx',
+    maleDeathScream: 'sfx'
   };
+
 
   playSound(key: string, opts?: { volume?: number; loop?: boolean; allowOverlap?: boolean }) {
     const category = this.audioCategories[key] ?? 'sfx';
