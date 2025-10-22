@@ -36,6 +36,10 @@ import { ChatSpriteTextString } from './objects/SpriteTextString/chat-sprite-tex
 })
 
 export class BonesComponent extends ChildComponent implements OnInit, OnDestroy, AfterViewInit {
+  // Helper to format currentVolume as percentage for the template
+  volumePercent(): number {
+    return Math.round((this.currentVolume ?? 0) * 100);
+  }
   @ViewChild('gameCanvas', { static: true }) gameCanvas!: ElementRef<HTMLCanvasElement>;
   @ViewChild('chatInput') chatInput!: ElementRef<HTMLInputElement>;
   @ViewChild('colorInput') colorInput!: ElementRef<HTMLInputElement>;

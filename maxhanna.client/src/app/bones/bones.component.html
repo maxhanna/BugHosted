@@ -96,7 +96,7 @@
     <button class="musicButton" (click)="toggleSfx()" [title]="isSfxMuted ? 'Unmute SFX' : 'Mute SFX'" aria-label="SFX toggle">{{ isSfxMuted ? '🔇' : '🔊' }}</button>
     <button class="musicButton" (click)="toggleMusic()" [title]="isMusicMuted ? 'Unmute Music' : 'Mute Music'" aria-label="Music toggle">{{ isMusicMuted ? '🔇' : '🎵' }}</button>
     <div class="volumeSliderCompact" style="display:inline-block; vertical-align:middle; margin-left:6px;">
-      <input type="range" min="0" max="100" step="1" [value]="Math.round(currentVolume * 100)" (input)="onVolumeSliderInput($event)" (change)="onVolumeChange($event)" aria-label="Volume" />
+      <input type="range" min="0" max="100" step="1" [value]="volumePercent()" (input)="onVolumeSliderInput($event)" (change)="onVolumeChange($event)" aria-label="Volume" />
     </div>
   </div>
   </div>
@@ -120,8 +120,8 @@
       </button>
     </div>
     <div style="margin-top:10px;">
-      <label style="display:block; font-size:12px; margin-bottom:6px;">Volume: {{ Math.round(currentVolume * 100) }}%</label>
-      <input type="range" min="0" max="100" step="1" [value]="Math.round(currentVolume * 100)" (input)="onVolumeSliderInput($event)" (change)="onVolumeChange($event)" aria-label="Volume Slider" />
+  <label style="display:block; font-size:12px; margin-bottom:6px;">Volume: {{ volumePercent() }}%</label>
+  <input type="range" min="0" max="100" step="1" [value]="volumePercent()" (input)="onVolumeSliderInput($event)" (change)="onVolumeChange($event)" aria-label="Volume Slider" />
     </div>
   </div>
   <div class="metaHighscoresSection">
