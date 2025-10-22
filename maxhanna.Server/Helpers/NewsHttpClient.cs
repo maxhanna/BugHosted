@@ -12,6 +12,9 @@ namespace maxhanna.Server.Helpers
         private readonly HttpClient _http;
         private readonly IConfiguration _config;
         private readonly Log _log;
+    // Alternator to remember last provider used across requests. Default null means no previous provider.
+    private static string? _lastProviderUsed = null;
+    private static readonly object _providerLock = new object();
 
         public NewsHttpClient(HttpClient http, IConfiguration config, Log log)
         {
@@ -27,6 +30,40 @@ namespace maxhanna.Server.Helpers
         {
             try
             {
+                // Rate-limit/quota check (mirror MediaStack logic): calculate a per-day allowance from monthly quota
+                try
+                {
+                    var connectionString = _config.GetValue<string>("ConnectionStrings:maxhanna");
+                    if (!string.IsNullOrWhiteSpace(connectionString))
+                    {
+                        await using var conn = new MySqlConnector.MySqlConnection(connectionString);
+                        await conn.OpenAsync();
+
+                        var nowUtc = DateTime.UtcNow;
+                        int daysInMonth = DateTime.DaysInMonth(nowUtc.Year, nowUtc.Month);
+                        int monthlyQuota = _config.GetValue<int?>("NewsApi:MonthlyQuota") ?? 100; // default to 100/month if not configured
+                        int allowedPerDay = Math.Max(1, (int)Math.Floor(monthlyQuota / (double)daysInMonth));
+
+                        const string sqlTodayBuckets = "SELECT COUNT(DISTINCT DATE_FORMAT(saved_at, '%Y-%m-%d %H:%i')) FROM news_headlines WHERE DATE(saved_at) = DATE(UTC_TIMESTAMP());";
+                        await using (var cmd = new MySqlConnector.MySqlCommand(sqlTodayBuckets, conn))
+                        {
+                            var cntObj = await cmd.ExecuteScalarAsync();
+                            var cntToday = cntObj == null || cntObj == DBNull.Value ? 0 : Convert.ToInt32(cntObj);
+
+                            if (cntToday >= allowedPerDay)
+                            {
+                                await _log.Db($"Skipping NewsApi call: today's batch count ({cntToday}) >= allowed per day ({allowedPerDay}).", null, "NEWSSERVICE", true);
+                                return null;
+                            }
+                        }
+                    }
+                }
+                catch (Exception dbEx)
+                {
+                    // If DB check fails, log and continue to attempt the API call (fail-open)
+                    await _log.Db($"NewsApi rate-check DB query failed: {dbEx.Message}", null, "NEWSSERVICE", true);
+                }
+
                 var builder = new UriBuilder("https://newsapi.org/v2/top-headlines");
                 var query = HttpUtility.ParseQueryString(string.Empty);
                 if (!string.IsNullOrWhiteSpace(q)) query["q"] = q;
@@ -199,54 +236,51 @@ namespace maxhanna.Server.Helpers
             }
         }
 
-        // Combined facade: call both providers and merge results (dedupe by URL)
+        // Combined facade: call a single provider (preferred via config) and fallback to the other. Do not call both concurrently.
         public async Task<ArticlesResult?> GetTopHeadlinesAsync(string? q = null, string? language = "en")
         {
             try
             {
-                var taskA = GetTopHeadlinesNewsApiAsync(q, language);
-                var taskB = GetTopHeadlinesMediaStackApiAsync(q, language);
-                await Task.WhenAll(taskA, taskB);
-
-                var a = taskA.Result;
-                var b = taskB.Result;
-
-                if (a == null && b == null) return null;
-                if (a == null) return b;
-                if (b == null) return a;
-
-                // Merge and dedupe by URL (prefer NewsApi entries first)
-                var map = new Dictionary<string, maxhanna.Server.Controllers.DataContracts.News.Article>(StringComparer.OrdinalIgnoreCase);
-                if (a.Articles != null)
+                // Alternator logic: pick the provider opposite of the last one used to spread calls.
+                string firstChoice;
+                lock (_providerLock)
                 {
-                    foreach (var art in a.Articles)
-                    {
-                        if (string.IsNullOrWhiteSpace(art.Url)) continue;
-                        if (!map.ContainsKey(art.Url)) map[art.Url] = art;
-                    }
-                }
-                if (b.Articles != null)
-                {
-                    foreach (var art in b.Articles)
-                    {
-                        if (string.IsNullOrWhiteSpace(art.Url)) continue;
-                        if (!map.ContainsKey(art.Url)) map[art.Url] = art;
-                    }
+                    firstChoice = string.Equals(_lastProviderUsed, "MediaStack", StringComparison.OrdinalIgnoreCase) ? "NewsApi" : "MediaStack";
                 }
 
-                var merged = new ArticlesResult
-                {
-                    Status = NewsStatuses.Ok,
-                    TotalResults = map.Count,
-                    Articles = map.Values.ToList()
-                };
+                ArticlesResult? firstResult = null;
+                ArticlesResult? secondResult = null;
 
-                return merged;
+                if (string.Equals(firstChoice, "NewsApi", StringComparison.OrdinalIgnoreCase))
+                {
+                    firstResult = await GetTopHeadlinesNewsApiAsync(q, language);
+                    if (firstResult != null)
+                    {
+                        lock (_providerLock) { _lastProviderUsed = "NewsApi"; }
+                        return firstResult;
+                    }
+                    secondResult = await GetTopHeadlinesMediaStackApiAsync(q, language);
+                    if (secondResult != null) { lock (_providerLock) { _lastProviderUsed = "MediaStack"; } return secondResult; }
+                }
+                else
+                {
+                    firstResult = await GetTopHeadlinesMediaStackApiAsync(q, language);
+                    if (firstResult != null)
+                    {
+                        lock (_providerLock) { _lastProviderUsed = "MediaStack"; }
+                        return firstResult;
+                    }
+                    secondResult = await GetTopHeadlinesNewsApiAsync(q, language);
+                    if (secondResult != null) { lock (_providerLock) { _lastProviderUsed = "NewsApi"; } return secondResult; }
+                }
+
+                // both null -> return null
+                return null;
             }
             catch (Exception ex)
             {
-                await _log.Db("NewsHttpClient.GetTopHeadlinesAsync - combine failed: " + ex.Message, null, "NEWSSERVICE", true);
-                // Fallback to attempting sequential fetches
+                await _log.Db("NewsHttpClient.GetTopHeadlinesAsync failed: " + ex.Message, null, "NEWSSERVICE", true);
+                // As a last resort, try both sequentially
                 try { return await GetTopHeadlinesNewsApiAsync(q, language) ?? await GetTopHeadlinesMediaStackApiAsync(q, language); } catch { return null; }
             }
         }
