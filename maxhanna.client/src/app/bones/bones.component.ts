@@ -334,7 +334,7 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
         const tgtEnemy : Bot = this.mainScene.level.children.find((x: Bot) => x.heroId == enemy.heroId && x.isDeployed);
         if (tgtEnemy) {
           tgtEnemy.hp = enemy.hp;
-          tgtEnemy.position = enemy.position!.duplicate();
+          tgtEnemy.destinationPosition = enemy.position!.duplicate();
           // Track server-provided targetHeroId and react to changes
           // const incomingTarget = (enemy as any).targetHeroId ?? null;
           // const previousTarget = (tgtEnemy as any).targetHeroId ?? null;
