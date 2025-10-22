@@ -68,179 +68,186 @@ namespace maxhanna.Server.Controllers
 			using var transaction = connection.BeginTransaction();
 			try
 			{
-				// If client provided recentAttacks, persist them as short-lived ATTACK events so other players can pick them up in this fetch-response.
-				if (request?.RecentAttacks != null && request.RecentAttacks.Count > 0)
-				{
-					try
-					{
-						foreach (var attack in request.RecentAttacks)
-						{
-							string insertSql = "INSERT INTO maxhanna.bones_event (hero_id, event, map, data, timestamp) VALUES (@HeroId, @Event, @Map, @Data, UTC_TIMESTAMP());";
-							// Normalize attack dictionary values: handle System.Text.Json.JsonElement and JToken values
-							var normalized = new Dictionary<string, object?>();
-							foreach (var kv in attack)
-							{
-								object? v = kv.Value;
-								try
-								{
-									if (v is System.Text.Json.JsonElement je)
-									{
-										switch (je.ValueKind)
-										{
-											case System.Text.Json.JsonValueKind.String:
-												normalized[kv.Key] = je.GetString();
-												break;
-											case System.Text.Json.JsonValueKind.Number:
-												if (je.TryGetInt64(out long l)) normalized[kv.Key] = l;
-												else if (je.TryGetDouble(out double d)) normalized[kv.Key] = d;
-												else normalized[kv.Key] = je.GetRawText();
-												break;
-											case System.Text.Json.JsonValueKind.True:
-											case System.Text.Json.JsonValueKind.False:
-												normalized[kv.Key] = je.GetBoolean();
-												break;
-											case System.Text.Json.JsonValueKind.Null:
-												normalized[kv.Key] = null;
-												break;
-											default:
-												// Object/Array -> raw JSON text
-												normalized[kv.Key] = je.GetRawText();
-												break;
-										}
-									}
-									else if (v is Newtonsoft.Json.Linq.JToken jt)
-									{
-										// convert to primitive where possible, otherwise string
-										if (jt.Type == Newtonsoft.Json.Linq.JTokenType.Integer) normalized[kv.Key] = jt.ToObject<long>();
-										else if (jt.Type == Newtonsoft.Json.Linq.JTokenType.Float) normalized[kv.Key] = jt.ToObject<double>();
-										else if (jt.Type == Newtonsoft.Json.Linq.JTokenType.Boolean) normalized[kv.Key] = jt.ToObject<bool>();
-										else if (jt.Type == Newtonsoft.Json.Linq.JTokenType.String) normalized[kv.Key] = jt.ToObject<string?>() ?? string.Empty;
-										else normalized[kv.Key] = jt.ToString(Newtonsoft.Json.Formatting.None);
-									}
-									else
-									{
-										normalized[kv.Key] = v;
-									}
-								}
-								catch
-								{
-									// Fallback: stringify
-									try { normalized[kv.Key] = v?.ToString(); } catch { normalized[kv.Key] = null; }
-								}
-							}
-
-							var parameters = new Dictionary<string, object?>()
-							{
-								{ "@HeroId", normalized.ContainsKey("sourceHeroId") ? normalized["sourceHeroId"] ?? hero.Id : hero.Id },
-								{ "@Event", "ATTACK" },
-								{ "@Map", hero.Map ?? string.Empty },
-								{ "@Data", Newtonsoft.Json.JsonConvert.SerializeObject(normalized) }
-							};
-							await ExecuteInsertOrUpdateOrDeleteAsync(insertSql, parameters, connection, transaction);
-						}
-					}
-					catch (Exception ex)
-					{
-						await _log.Db("Failed to persist recentAttacks: " + ex.Message, hero.Id, "BONES", true);
-					}
+				if (request != null) {
+					await PersistNewAttacks(request, hero, connection, transaction);
 				}
 
-				hero = await UpdateHeroInDB(hero, connection, transaction);
-				MetaHero[]? heroes = await GetNearbyPlayers(hero, connection, transaction);
-				MetaBot[]? enemyBots = await GetEncounterMetaBots(connection, transaction, hero.Map);
-				List<MetaEvent> events = await GetEventsFromDb(hero.Map, hero.Id, connection, transaction);
-				// Query recent ATTACK events (last 5 seconds) excluding attacks originating from this hero.
-				List<Dictionary<string, object>> recentAttacks = new();
-				try
-				{
-					string q = "SELECT data FROM maxhanna.bones_event WHERE event = 'ATTACK' AND timestamp >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 5 SECOND) AND hero_id <> @HeroId ORDER BY timestamp DESC LIMIT 50;";
-					using var cmd = new MySqlCommand(q, connection, transaction);
-					cmd.Parameters.AddWithValue("@HeroId", hero.Id);
-					using var rdr = await cmd.ExecuteReaderAsync();
-					while (await rdr.ReadAsync())
-					{
-						var dataJson = rdr.IsDBNull(rdr.GetOrdinal("data")) ? null : rdr.GetString(rdr.GetOrdinal("data"));
-						if (!string.IsNullOrEmpty(dataJson))
-						{
-							try
-							{
-								var jo = JObject.Parse(dataJson);
-								var dict = new Dictionary<string, object>();
-								foreach (var prop in jo.Properties())
-								{
-									var token = prop.Value;
-									if (token.Type == JTokenType.Integer)
-									{
-										dict[prop.Name] = token.ToObject<long>();
-									}
-									else if (token.Type == JTokenType.Float)
-									{
-										dict[prop.Name] = token.ToObject<double>();
-									}
-									else if (token.Type == JTokenType.Boolean)
-									{
-										dict[prop.Name] = token.ToObject<bool>();
-									}
-									else if (token.Type == JTokenType.String)
-									{
-										dict[prop.Name] = token.ToObject<string?>() ?? string.Empty;
-									}
-									else
-									{
-										// For arrays/objects/other token types, stringify them so client sees usable data
-										dict[prop.Name] = token.ToString(Newtonsoft.Json.Formatting.None);
-									}
-								}
-								recentAttacks.Add(dict);
-							}
-							catch { }
-						}
-					}
-				}
-				catch (Exception ex)
-				{
-					await _log.Db("Failed to read recentAttacks: " + ex.Message, hero.Id, "BONES", true);
-				}
+                hero = await UpdateHeroInDB(hero, connection, transaction);
+                MetaHero[]? heroes = await GetNearbyPlayers(hero, connection, transaction);
+                MetaBot[]? enemyBots = await GetEncounterMetaBots(connection, transaction, hero.Map);
+                List<MetaEvent> events = await GetEventsFromDb(hero.Map, hero.Id, connection, transaction);
+                // Query recent ATTACK events (last 5 seconds) excluding attacks originating from this hero.
+                List<Dictionary<string, object>> recentAttacks = new();
+                try
+                {
+                    string q = "SELECT data FROM maxhanna.bones_event WHERE event = 'ATTACK' AND timestamp >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 5 SECOND) AND hero_id <> @HeroId ORDER BY timestamp DESC LIMIT 50;";
+                    using var cmd = new MySqlCommand(q, connection, transaction);
+                    cmd.Parameters.AddWithValue("@HeroId", hero.Id);
+                    using var rdr = await cmd.ExecuteReaderAsync();
+                    while (await rdr.ReadAsync())
+                    {
+                        var dataJson = rdr.IsDBNull(rdr.GetOrdinal("data")) ? null : rdr.GetString(rdr.GetOrdinal("data"));
+                        if (!string.IsNullOrEmpty(dataJson))
+                        {
+                            try
+                            {
+                                var jo = JObject.Parse(dataJson);
+                                var dict = new Dictionary<string, object>();
+                                foreach (var prop in jo.Properties())
+                                {
+                                    var token = prop.Value;
+                                    if (token.Type == JTokenType.Integer)
+                                    {
+                                        dict[prop.Name] = token.ToObject<long>();
+                                    }
+                                    else if (token.Type == JTokenType.Float)
+                                    {
+                                        dict[prop.Name] = token.ToObject<double>();
+                                    }
+                                    else if (token.Type == JTokenType.Boolean)
+                                    {
+                                        dict[prop.Name] = token.ToObject<bool>();
+                                    }
+                                    else if (token.Type == JTokenType.String)
+                                    {
+                                        dict[prop.Name] = token.ToObject<string?>() ?? string.Empty;
+                                    }
+                                    else
+                                    {
+                                        // For arrays/objects/other token types, stringify them so client sees usable data
+                                        dict[prop.Name] = token.ToString(Newtonsoft.Json.Formatting.None);
+                                    }
+                                }
+                                recentAttacks.Add(dict);
+                            }
+                            catch { }
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    await _log.Db("Failed to read recentAttacks: " + ex.Message, hero.Id, "BONES", true);
+                }
 
-				// Convert recentAttacks (raw dictionaries) into MetaEvent objects so clients receive them in the normal events stream.
-				try
-				{
-					foreach (var atk in recentAttacks)
-					{
-						try
-						{
-							// Prefer keys "heroId" or "sourceHeroId" for the attack origin
-							object? srcObj = null;
-							if (atk.ContainsKey("heroId")) srcObj = atk["heroId"];
-							else if (atk.ContainsKey("sourceHeroId")) srcObj = atk["sourceHeroId"];
+                // Convert recentAttacks (raw dictionaries) into MetaEvent objects so clients receive them in the normal events stream.
+                try
+                {
+                    foreach (var atk in recentAttacks)
+                    {
+                        try
+                        {
+                            // Prefer keys "heroId" or "sourceHeroId" for the attack origin
+                            object? srcObj = null;
+                            if (atk.ContainsKey("heroId")) srcObj = atk["heroId"];
+                            else if (atk.ContainsKey("sourceHeroId")) srcObj = atk["sourceHeroId"];
 
-							int srcId = srcObj != null ? Convert.ToInt32(srcObj) : 0;
-							var dataDict = new Dictionary<string, string>();
-							foreach (var kv in atk)
-							{
-								dataDict[kv.Key] = kv.Value?.ToString() ?? string.Empty;
-							}
-							// Create a MetaEvent so client-side multiplayer event processing will handle it like other events
-							var meleeEvent = new MetaEvent(0, srcId, DateTime.UtcNow, "OTHER_HERO_ATTACK", hero.Map ?? string.Empty, dataDict);
-							events.Add(meleeEvent);
-						}
-						catch { /* ignore malformed attack entries */ }
-					}
-				}
-				catch { }
+                            int srcId = srcObj != null ? Convert.ToInt32(srcObj) : 0;
+                            var dataDict = new Dictionary<string, string>();
+                            foreach (var kv in atk)
+                            {
+                                dataDict[kv.Key] = kv.Value?.ToString() ?? string.Empty;
+                            }
+                            // Create a MetaEvent so client-side multiplayer event processing will handle it like other events
+                            var meleeEvent = new MetaEvent(0, srcId, DateTime.UtcNow, "OTHER_HERO_ATTACK", hero.Map ?? string.Empty, dataDict);
+                            events.Add(meleeEvent);
+                        }
+                        catch { /* ignore malformed attack entries */ }
+                    }
+                }
+                catch { }
 
-				await transaction.CommitAsync();
-				var resp = new FetchGameDataResponse { Map = hero.Map, Position = hero.Position, Heroes = heroes, Events = events, EnemyBots = enemyBots, RecentAttacks = recentAttacks };
-				return Ok(resp);
-			}
-			catch (Exception ex)
+                await transaction.CommitAsync();
+                var resp = new FetchGameDataResponse { Map = hero.Map, Position = hero.Position, Heroes = heroes, Events = events, EnemyBots = enemyBots, RecentAttacks = recentAttacks };
+                return Ok(resp);
+            }
+            catch (Exception ex)
 			{
 				await transaction.RollbackAsync();
 				return StatusCode(500, "Internal server error: " + ex.Message);
 			}
 		}
 
-		[HttpPost("/Bones/FetchInventoryData", Name = "Bones_FetchInventoryData")]
+        private async Task PersistNewAttacks(FetchGameDataRequest request, MetaHero hero, MySqlConnection connection, MySqlTransaction transaction)
+        {
+            // If client provided recentAttacks, persist them as short-lived ATTACK events so other players can pick them up in this fetch-response.
+            if (request?.RecentAttacks != null && request.RecentAttacks.Count > 0)
+            {
+                try
+                {
+                    foreach (var attack in request.RecentAttacks)
+                    {
+                        string insertSql = "INSERT INTO maxhanna.bones_event (hero_id, event, map, data, timestamp) VALUES (@HeroId, @Event, @Map, @Data, UTC_TIMESTAMP());";
+                        // Normalize attack dictionary values: handle System.Text.Json.JsonElement and JToken values
+                        var normalized = new Dictionary<string, object?>();
+                        foreach (var kv in attack)
+                        {
+                            object? v = kv.Value;
+                            try
+                            {
+                                if (v is System.Text.Json.JsonElement je)
+                                {
+                                    switch (je.ValueKind)
+                                    {
+                                        case System.Text.Json.JsonValueKind.String:
+                                            normalized[kv.Key] = je.GetString();
+                                            break;
+                                        case System.Text.Json.JsonValueKind.Number:
+                                            if (je.TryGetInt64(out long l)) normalized[kv.Key] = l;
+                                            else if (je.TryGetDouble(out double d)) normalized[kv.Key] = d;
+                                            else normalized[kv.Key] = je.GetRawText();
+                                            break;
+                                        case System.Text.Json.JsonValueKind.True:
+                                        case System.Text.Json.JsonValueKind.False:
+                                            normalized[kv.Key] = je.GetBoolean();
+                                            break;
+                                        case System.Text.Json.JsonValueKind.Null:
+                                            normalized[kv.Key] = null;
+                                            break;
+                                        default:
+                                            // Object/Array -> raw JSON text
+                                            normalized[kv.Key] = je.GetRawText();
+                                            break;
+                                    }
+                                }
+                                else if (v is Newtonsoft.Json.Linq.JToken jt)
+                                {
+                                    // convert to primitive where possible, otherwise string
+                                    if (jt.Type == Newtonsoft.Json.Linq.JTokenType.Integer) normalized[kv.Key] = jt.ToObject<long>();
+                                    else if (jt.Type == Newtonsoft.Json.Linq.JTokenType.Float) normalized[kv.Key] = jt.ToObject<double>();
+                                    else if (jt.Type == Newtonsoft.Json.Linq.JTokenType.Boolean) normalized[kv.Key] = jt.ToObject<bool>();
+                                    else if (jt.Type == Newtonsoft.Json.Linq.JTokenType.String) normalized[kv.Key] = jt.ToObject<string?>() ?? string.Empty;
+                                    else normalized[kv.Key] = jt.ToString(Newtonsoft.Json.Formatting.None);
+                                }
+                                else
+                                {
+                                    normalized[kv.Key] = v;
+                                }
+                            }
+                            catch
+                            {
+                                // Fallback: stringify
+                                try { normalized[kv.Key] = v?.ToString(); } catch { normalized[kv.Key] = null; }
+                            }
+                        }
+
+                        var parameters = new Dictionary<string, object?>()
+                            {
+                                { "@HeroId", normalized.ContainsKey("sourceHeroId") ? normalized["sourceHeroId"] ?? hero.Id : hero.Id },
+                                { "@Event", "ATTACK" },
+                                { "@Map", hero.Map ?? string.Empty },
+                                { "@Data", Newtonsoft.Json.JsonConvert.SerializeObject(normalized) }
+                            };
+                        await ExecuteInsertOrUpdateOrDeleteAsync(insertSql, parameters, connection, transaction);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    await _log.Db("Failed to persist recentAttacks: " + ex.Message, hero.Id, "BONES", true);
+                }
+            }
+        }
+
+        [HttpPost("/Bones/FetchInventoryData", Name = "Bones_FetchInventoryData")]
 		public async Task<IActionResult> FetchInventoryData([FromBody] int heroId)
 		{
 			using var connection = new MySqlConnection(_connectionString);
@@ -367,126 +374,28 @@ namespace maxhanna.Server.Controllers
 		[HttpPost("/Bones/CreateBot", Name = "Bones_CreateBot")]
 		public async Task<IActionResult> CreateBot([FromBody] MetaBot bot)
 		{
-			using var connection = new MySqlConnection(_connectionString);
-			await connection.OpenAsync();
-			using var transaction = connection.BeginTransaction();
-			try
-			{
-				if (bot.HeroId < 0)
-				{
-					string checkSql = "SELECT COUNT(*) FROM maxhanna.bones_bot WHERE hero_id = @HeroId;";
-					using var command = new MySqlCommand(checkSql, connection, transaction);
-					command.Parameters.AddWithValue("@HeroId", bot.HeroId);
-					int existingBotCount = Convert.ToInt32(await command.ExecuteScalarAsync());
-					if (existingBotCount > 0)
-					{
-						await transaction.CommitAsync();
-						return BadRequest("A bot with the same hero_id already exists.");
-					}
-				}
-
-				string sql = @"INSERT INTO maxhanna.bones_bot (hero_id, name, type, hp, exp, level, is_deployed) 
-                           VALUES (@HeroId, @Name, @Type, @Hp, @Exp, @Level, @IsDeployed);";
-				var parametersForInsert = new Dictionary<string, object?>
-				{
-					{ "@HeroId", bot.HeroId }, { "@Name", bot.Name }, { "@Type", bot.Type }, { "@Hp", bot.Hp }, { "@Exp", bot.Exp }, { "@Level", bot.Level }, { "@IsDeployed", bot.IsDeployed }
-				};
-				long? botId = await ExecuteInsertOrUpdateOrDeleteAsync(sql, parametersForInsert, connection, transaction);
-				if (botId == null) throw new Exception("Failed to create MetaBot");
-				await transaction.CommitAsync();
-
-				MetaBot heroBot = new()
-				{
-					Id = (int)botId,
-					HeroId = bot.HeroId,
-					Level = bot.Level,
-					Name = bot.Name,
-					Hp = bot.Hp,
-					Type = bot.Type,
-					IsDeployed = bot.IsDeployed,
-					Head = bot.Head,
-					Legs = bot.Legs,
-					LeftArm = bot.LeftArm,
-					RightArm = bot.RightArm
-				};
-
-				return Ok(heroBot);
-			}
-			catch (Exception ex)
-			{
-				await transaction.RollbackAsync();
-				return StatusCode(500, "Internal server error: " + ex.Message);
-			}
+			// Metabot/bones_bot functionality removed. Front-end now constructs encounters from `bones_encounter`.
+			// Return 410 Gone to indicate endpoint is deprecated for clarity to clients.
+			return StatusCode(410, "Metabot functionality removed. Use bones_encounter on the frontend.");
 		}
 
 		[HttpPost("/Bones/UpdateBotParts", Name = "Bones_UpdateBotParts")]
 		public async Task<IActionResult> UpdateBotParts([FromBody] UpdateBotPartsRequest req)
 		{
-			if (req.Parts == null || req.Parts.Length == 0) return BadRequest("No parts to update.");
-			using var connection = new MySqlConnection(_connectionString);
-			await connection.OpenAsync();
-			using var transaction = await connection.BeginTransactionAsync();
-			try
-			{
-				string sql = @"INSERT INTO maxhanna.bones_bot_part (hero_id, part_name, type, damage_mod, skill) VALUES (@HeroId, @PartName, @Type, @DamageMod, @Skill);";
-				foreach (var part in req.Parts)
-				{
-					var parameters = new Dictionary<string, object?>
-					{
-						{ "@HeroId", req.HeroId }, { "@PartName", part.PartName }, { "@Type", part.Type }, { "@DamageMod", part.DamageMod }, { "@Skill", part.Skill?.Name ?? "Headbutt" }
-					};
-					await ExecuteInsertOrUpdateOrDeleteAsync(sql, parameters, connection, transaction);
-				}
-				await transaction.CommitAsync();
-				return Ok(new { Message = "Bot parts updated successfully." });
-			}
-			catch (Exception ex)
-			{
-				await transaction.RollbackAsync();
-				return StatusCode(500, "Internal server error: " + ex.Message);
-			}
+			// Deprecated: bot parts are no longer stored server-side.
+			return StatusCode(410, "Metabot parts removed. Parts are constructed client-side from bones_encounter.");
 		}
 
 		[HttpPost("/Bones/EquipPart", Name = "Bones_EquipPart")]
 		public async Task<IActionResult> EquipPart([FromBody] EquipPartRequest req)
 		{
-			using var connection = new MySqlConnection(_connectionString);
-			await connection.OpenAsync();
-			using var transaction = connection.BeginTransaction();
-			try
-			{
-				string sql = @"UPDATE maxhanna.bones_bot_part SET metabot_id = @MetabotId WHERE id = @PartId LIMIT 1;";
-				Dictionary<string, object?> parameters = new() { { "@MetabotId", req.MetabotId }, { "@PartId", req.PartId } };
-				await ExecuteInsertOrUpdateOrDeleteAsync(sql, parameters, connection, transaction);
-				await transaction.CommitAsync();
-				return Ok();
-			}
-			catch (Exception ex)
-			{
-				await transaction.RollbackAsync();
-				return StatusCode(500, "Internal server error: " + ex.Message);
-			}
+			return StatusCode(410, "EquipPart deprecated: metabot server-side parts removed.");
 		}
 
 		[HttpPost("/Bones/UnequipPart", Name = "Bones_UnequipPart")]
 		public async Task<IActionResult> UnequipPart([FromBody] EquipPartRequest req)
 		{
-			using var connection = new MySqlConnection(_connectionString);
-			await connection.OpenAsync();
-			using var transaction = connection.BeginTransaction();
-			try
-			{
-				string sql = @"UPDATE maxhanna.bones_bot_part SET metabot_id = NULL WHERE id = @PartId LIMIT 1;";
-				Dictionary<string, object?> parameters = new() { { "@PartId", req.PartId } };
-				await ExecuteInsertOrUpdateOrDeleteAsync(sql, parameters, connection, transaction);
-				await transaction.CommitAsync();
-				return Ok();
-			}
-			catch (Exception ex)
-			{
-				await transaction.RollbackAsync();
-				return StatusCode(500, "Internal server error: " + ex.Message);
-			}
+			return StatusCode(410, "UnequipPart deprecated: metabot server-side parts removed.");
 		}
 
 		[HttpPost("/Bones/GetUserPartyMembers", Name = "Bones_GetUserPartyMembers")]
@@ -535,16 +444,15 @@ namespace maxhanna.Server.Controllers
 			{
 				using var connection = new MySqlConnection(_connectionString);
 				await connection.OpenAsync();
-				string sql = @"SELECT mb.id as botId, mb.hero_id as heroId, mb.level, mb.exp, mh.user_id as ownerUserId, mh.name as heroName, u.id as user_id, u.username as username, udpfl.id as display_picture_file_id FROM maxhanna.bones_bot mb LEFT JOIN maxhanna.bones_hero mh ON mh.id = mb.hero_id LEFT JOIN maxhanna.users u ON u.id = mh.user_id LEFT JOIN maxhanna.user_display_pictures udp ON udp.user_id = u.id LEFT JOIN maxhanna.file_uploads udpfl ON udp.file_id = udpfl.id WHERE mh.name IS NOT NULL ORDER BY mb.level DESC, mb.exp DESC LIMIT @Count;";
+				// Metabot table removed; return empty result set. Highscores should be computed from client-side encounter data or a new server-side table if desired.
+				string sql = @"SELECT NULL as botId, NULL as heroId, 0 as level, 0 as exp, NULL as ownerUserId, NULL as heroName, NULL as user_id, NULL as username, NULL as display_picture_file_id WHERE 1=0;";
 				using var cmd = new MySqlCommand(sql, connection);
 				cmd.Parameters.AddWithValue("@Count", Math.Max(1, count));
 				using var rdr = await cmd.ExecuteReaderAsync();
 				var results = new List<object>();
 				while (await rdr.ReadAsync())
 				{
-					FileEntry? displayPic = !rdr.IsDBNull(rdr.GetOrdinal("display_picture_file_id")) ? new FileEntry(rdr.GetInt32(rdr.GetOrdinal("display_picture_file_id"))) : null;
-					User? ownerUser = !rdr.IsDBNull(rdr.GetOrdinal("user_id")) ? new User(id: rdr.GetInt32(rdr.GetOrdinal("user_id")), username: rdr.IsDBNull(rdr.GetOrdinal("username")) ? "Anonymous" : SafeGetString(rdr, "username") ?? "Anonymous", displayPictureFile: displayPic) : null;
-					results.Add(new { botId = rdr.GetInt32("botId"), heroId = rdr.IsDBNull(rdr.GetOrdinal("heroId")) ? (int?)null : rdr.GetInt32("heroId"), level = rdr.IsDBNull(rdr.GetOrdinal("level")) ? 0 : rdr.GetInt32("level"), exp = rdr.IsDBNull(rdr.GetOrdinal("exp")) ? 0 : rdr.GetInt32("exp"), owner = ownerUser, heroName = rdr.IsDBNull(rdr.GetOrdinal("heroName")) ? null : SafeGetString(rdr, "heroName") });
+					// no rows
 				}
 				return Ok(results);
 			}
@@ -585,28 +493,8 @@ namespace maxhanna.Server.Controllers
 			{
 				await using var conn = new MySqlConnection(_connectionString);
 				await conn.OpenAsync();
-				const string userLevelSql = @"SELECT COALESCE(MAX(mb.level),0) FROM maxhanna.bones_bot mb JOIN maxhanna.bones_hero mh ON mh.id = mb.hero_id WHERE mh.user_id = @UserId;";
-				await using (var userLevelCmd = new MySqlCommand(userLevelSql, conn))
-				{
-					userLevelCmd.Parameters.AddWithValue("@UserId", userId);
-					int userLevel = Convert.ToInt32(await userLevelCmd.ExecuteScalarAsync());
-					const string totalPlayersSql = @"SELECT COUNT(DISTINCT mh.user_id) FROM maxhanna.bones_bot mb JOIN maxhanna.bones_hero mh ON mh.id = mb.hero_id;";
-					int totalPlayers = 0;
-					await using (var totalCmd = new MySqlCommand(totalPlayersSql, conn))
-					{
-						totalPlayers = Convert.ToInt32(await totalCmd.ExecuteScalarAsync());
-					}
-					if (userLevel == 0) return Ok(new { hasBot = false, totalPlayers });
-					const string higherSql = @"SELECT COUNT(*) FROM (SELECT mh.user_id, MAX(mb.level) AS lvl FROM maxhanna.bones_bot mb JOIN maxhanna.bones_hero mh ON mh.id = mb.hero_id GROUP BY mh.user_id) x WHERE x.lvl > @Lvl;";
-					int higherCount = 0;
-					await using (var higherCmd = new MySqlCommand(higherSql, conn))
-					{
-						higherCmd.Parameters.AddWithValue("@Lvl", userLevel);
-						higherCount = Convert.ToInt32(await higherCmd.ExecuteScalarAsync());
-					}
-					int rank = higherCount + 1;
-					return Ok(new { hasBot = true, rank, level = userLevel, totalPlayers });
-				}
+				// Metabot data removed; return placeholder indicating no bots
+				return Ok(new { hasBot = false, rank = (int?)null, level = 0, totalPlayers = 0 });
 			}
 			catch (Exception ex)
 			{
@@ -622,7 +510,8 @@ namespace maxhanna.Server.Controllers
 			{
 				using var connection = new MySqlConnection(_connectionString);
 				await connection.OpenAsync();
-				string sql = @"SELECT mh.id AS heroId, mh.user_id AS userId, mh.name AS heroName, COALESCE(SUM(mb.level),0) AS totalMetabotLevels, COALESCE(COUNT(mb.id),0) AS botCount, u.username as username, udpfl.id as display_picture_file_id FROM maxhanna.bones_hero mh LEFT JOIN maxhanna.bones_bot mb ON mb.hero_id = mh.id LEFT JOIN maxhanna.users u ON u.id = mh.user_id LEFT JOIN maxhanna.user_display_pictures udp ON udp.user_id = u.id LEFT JOIN maxhanna.file_uploads udpfl ON udp.file_id = udpfl.id WHERE mh.name IS NOT NULL GROUP BY mh.id, mh.user_id, mh.name, u.username, udpfl.id ORDER BY totalMetabotLevels DESC LIMIT @Count;";
+				// Simplified highscores: return heroes ordered by created date as placeholder. Metabot aggregation removed.
+				string sql = @"SELECT mh.id AS heroId, mh.user_id AS userId, mh.name AS heroName, 0 AS totalMetabotLevels, 0 AS botCount, u.username as username, udpfl.id as display_picture_file_id FROM maxhanna.bones_hero mh LEFT JOIN maxhanna.users u ON u.id = mh.user_id LEFT JOIN maxhanna.user_display_pictures udp ON udp.user_id = u.id LEFT JOIN maxhanna.file_uploads udpfl ON udp.file_id = udpfl.id WHERE mh.name IS NOT NULL ORDER BY mh.created DESC LIMIT @Count;";
 				using var cmd = new MySqlCommand(sql, connection);
 				cmd.Parameters.AddWithValue("@Count", Math.Max(1, count));
 				using var rdr = await cmd.ExecuteReaderAsync();
@@ -645,24 +534,9 @@ namespace maxhanna.Server.Controllers
 		[HttpPost("/Bones/SellBotParts", Name = "Bones_SellBotParts")]
 		public async Task<IActionResult> SellBotParts([FromBody] SellBotPartsRequest req)
 		{
-			if (req.PartIds == null || req.PartIds.Length == 0) return BadRequest("No Metabot Parts to sell.");
-			using var connection = new MySqlConnection(_connectionString);
-			await connection.OpenAsync();
-			using var transaction = connection.BeginTransaction();
-			try
-			{
-				var partIdsString = string.Join(",", req.PartIds);
-				string singleSql = $"INSERT INTO maxhanna.bones_hero_crypto (hero_id, crypto_balance) SELECT hero_id, SUM(damage_mod * 10) FROM maxhanna.bones_bot_part WHERE id IN ({partIdsString}) GROUP BY hero_id ON DUPLICATE KEY UPDATE crypto_balance = crypto_balance + VALUES(crypto_balance); DELETE FROM maxhanna.bones_bot_part WHERE id IN ({partIdsString});";
-				using var command = new MySqlCommand(singleSql, connection, transaction);
-				await command.ExecuteNonQueryAsync();
-				await transaction.CommitAsync();
-				return Ok();
-			}
-			catch (Exception ex)
-			{
-				await transaction.RollbackAsync();
-				return StatusCode(500, "Internal server error: " + ex.Message);
-			}
+			// Server-side bot parts removed. Client constructs encounters from bones_encounter and parts are client-managed.
+			// Keep endpoint for compatibility but act as a no-op.
+			return Ok();
 		}
 
 		// Helper methods copied from MetaController with log category updated to BONES
@@ -819,9 +693,15 @@ namespace maxhanna.Server.Controllers
 			{
 				var bots = new List<MetaBot>();
 				string heroIdQuery = "SELECT hero_id FROM maxhanna.bones_encounter WHERE map = @Map;";
-				MySqlCommand heroIdCmd = new(heroIdQuery, conn, transaction); heroIdCmd.Parameters.AddWithValue("@Map", map);
+				MySqlCommand heroIdCmd = new(heroIdQuery, conn, transaction); 
+				heroIdCmd.Parameters.AddWithValue("@Map", map);
 				var heroIds = new List<int>();
-				using (var heroReader = await heroIdCmd.ExecuteReaderAsync()) while (await heroReader.ReadAsync()) heroIds.Add(Convert.ToInt32(heroReader["hero_id"]));
+				using (var heroReader = await heroIdCmd.ExecuteReaderAsync()) {
+					while (await heroReader.ReadAsync())
+					{
+						heroIds.Add(Convert.ToInt32(heroReader["hero_id"]));
+					}
+				}
 				if (!heroIds.Any()) return Array.Empty<MetaBot>();
 				string sql = "SELECT b.id as metabot_id, b.hero_id as metabot_hero_id, b.name as metabot_name, b.type as metabot_type, b.hp as metabot_hp, b.level as metabot_level, b.exp as metabot_exp, b.is_deployed as metabot_is_deployed, p.id as part_id, p.part_name, p.type as part_type, p.damage_mod, p.skill, e.coordsX, e.coordsY FROM maxhanna.bones_bot b LEFT JOIN maxhanna.bones_encounter_bot_part p ON b.hero_id = p.hero_id LEFT JOIN maxhanna.bones_encounter e ON e.hero_id = b.hero_id WHERE b.hero_id IN (" + string.Join(",", heroIds) + ");";
 				MySqlCommand cmd = new(sql, conn, transaction);
@@ -861,32 +741,8 @@ namespace maxhanna.Server.Controllers
 				if (conn.State != System.Data.ConnectionState.Open) await conn.OpenAsync();
 				if (transaction == null) throw new InvalidOperationException("Transaction is required for this operation.");
 				Dictionary<int, MetaHero> heroesDict = new();
-				string sql = @"SELECT m.id as hero_id, 
-					m.name as hero_name,
-					m.map as hero_map, 
-					m.coordsX, m.coordsY, 
-					m.speed, 
-					m.color,
-					m.mask, 
-					m.level as hero_level,
-					m.updated as hero_updated,
-					m.created as hero_created,
-					b.id as metabot_id,
-					b.name as metabot_name,
-					b.type as metabot_type,
-					b.hp as metabot_hp,
-					b.level as metabot_level,
-					b.exp as metabot_exp, 
-					b.is_deployed as metabot_is_deployed, 
-					p.id as part_id, 
-					p.part_name,
-					p.type as part_type,
-					p.damage_mod, 
-					p.skill FROM maxhanna.bones_hero m 
-					LEFT JOIN maxhanna.bones_bot b on b.hero_id = m.id 
-					LEFT JOIN maxhanna.bones_bot_part p ON b.id = p.metabot_id 
-					WHERE m.map = @HeroMapId 
-					ORDER BY m.coordsY ASC;";
+				// Return nearby hero records only; encounter bots are constructed client-side from bones_encounter.
+				string sql = @"SELECT m.id as hero_id, m.name as hero_name, m.map as hero_map, m.coordsX, m.coordsY, m.speed, m.color, m.mask, m.level as hero_level, m.updated as hero_updated, m.created as hero_created FROM maxhanna.bones_hero m WHERE m.map = @HeroMapId ORDER BY m.coordsY ASC;";
 				MySqlCommand cmd = new(sql, conn, transaction); cmd.Parameters.AddWithValue("@HeroMapId", hero.Map);
 				using (var reader = await cmd.ExecuteReaderAsync())
 				{
@@ -997,36 +853,13 @@ namespace maxhanna.Server.Controllers
 		}
 		private async Task<MetaBotPart[]?> GetMetabotPartsFromDB(int heroId, MySqlConnection conn, MySqlTransaction transaction)
 		{
-			try
-			{
-				if (conn.State != System.Data.ConnectionState.Open) await conn.OpenAsync();
-				if (transaction == null) throw new InvalidOperationException("Transaction is required for this operation.");
-				List<MetaBotPart> partInv = new();
-				string sql = @"SELECT * FROM maxhanna.bones_bot_part WHERE hero_id = @HeroId;";
-				MySqlCommand cmd = new(sql, conn, transaction); cmd.Parameters.AddWithValue("@HeroId", heroId);
-				using (var reader = await cmd.ExecuteReaderAsync())
-				{
-					while (reader.Read())
-					{
-						int partNameOrd3 = reader.GetOrdinal("part_name");
-						int skillOrd3 = reader.GetOrdinal("skill");
-						MetaBotPart tmpPart = new() { Id = reader.GetInt32("id"), HeroId = reader.GetInt32("hero_id"), MetabotId = reader.IsDBNull(reader.GetOrdinal("metabot_id")) ? null : reader.GetInt32("metabot_id"), Created = reader.GetDateTime("created"), PartName = reader.IsDBNull(partNameOrd3) ? null : reader.GetString(partNameOrd3), Skill = reader.IsDBNull(skillOrd3) ? null : new Skill(reader.GetString(skillOrd3), reader.GetInt32("type")), DamageMod = reader.GetInt32("damage_mod") };
-						partInv.Add(tmpPart);
-					}
-				}
-				return partInv.ToArray();
-			}
-			catch (Exception ex)
-			{
-				await _log.Db($"GetMetabotPartsFromDB Exception: {ex.Message}\n{ex.StackTrace}\nheroId={heroId}", heroId, "BONES", true);
-				throw;
-			}
+			// Metabot parts removed server-side. Return empty array for compatibility.
+			return Array.Empty<MetaBotPart>();
 		}
 		private async Task RepairAllMetabots(int heroId, MySqlConnection connection, MySqlTransaction transaction)
 		{
-			string sql = @"UPDATE maxhanna.bones_bot SET hp = 100 WHERE hero_id = @heroId;";
-			Dictionary<string, object?> parameters = new() { { "@heroId", heroId } };
-			await ExecuteInsertOrUpdateOrDeleteAsync(sql, parameters, connection, transaction);
+			// No-op: metabot table removed
+			await Task.CompletedTask;
 		}
 		private async Task UpdateEncounterPosition(int encounterId, int destinationX, int destionationY, MySqlConnection connection, MySqlTransaction transaction)
 		{
@@ -1036,44 +869,28 @@ namespace maxhanna.Server.Controllers
 		}
 		private async Task DeployMetabot(int metabotId, MySqlConnection connection, MySqlTransaction transaction)
 		{
-			try
-			{
-				string sql = @"UPDATE maxhanna.bones_bot SET is_deployed = 1 WHERE id = @botId AND hp > 0 LIMIT 1;";
-				Dictionary<string, object?> parameters = new() { { "@botId", metabotId } };
-				await ExecuteInsertOrUpdateOrDeleteAsync(sql, parameters, connection, transaction);
-			}
-			catch (Exception ex) { await _log.Db("Exception DeployMetabot: " + ex.Message, null, "BONES", true); }
+			// No-op: metabot table removed
+			await Task.CompletedTask;
 		}
 		private async Task CallBackMetabot(int heroId, int? metabotId, MySqlConnection connection, MySqlTransaction transaction)
 		{
-			try
-			{
-				string sql = "UPDATE maxhanna.bones_bot SET is_deployed = 0 WHERE hero_id = @heroId" + (metabotId.HasValue ? " AND id = @botId" : "");
-				Dictionary<string, object?> parameters = new() { { "@heroId", heroId } };
-				if (metabotId.HasValue) parameters.Add("@botId", metabotId.Value);
-				await ExecuteInsertOrUpdateOrDeleteAsync(sql, parameters, connection, transaction);
-			}
-			catch (Exception ex) { await _log.Db("Exception CallBackMetabot: " + ex.Message, null, "BONES", true); }
+			// No-op: metabot table removed
+			await Task.CompletedTask;
 		}
 		private async Task DestroyMetabot(int heroId, int? metabotId, MySqlConnection connection, MySqlTransaction transaction)
 		{
-			try
+			// No-op: metabot table removed. If encounter cleanup required, Update encounters instead.
+			if (heroId < 0)
 			{
-				string sql;
-				Dictionary<string, object?> parameters = new() { { "@heroId", heroId } };
-				if (heroId < 0)
-				{
-					sql = $"DELETE FROM maxhanna.bones_bot WHERE hero_id = @heroId {(metabotId.HasValue ? " AND id = @botId" : "")}; DELETE FROM maxhanna.bones_encounter_bot_part WHERE hero_id = @heroId; UPDATE maxhanna.bones_encounter SET coordsX = -1, coordsY = -1, last_killed = UTC_TIMESTAMP WHERE hero_id = @heroId;";
-					if (metabotId.HasValue) parameters.Add("@botId", metabotId.Value);
-				}
-				else
-				{
-					sql = $"UPDATE maxhanna.bones_bot SET is_deployed = 0, hp = 0 WHERE hero_id = @heroId {(metabotId.HasValue ? " AND id = @botId" : "")};";
-					if (metabotId.HasValue) parameters.Add("@botId", metabotId.Value);
-				}
-				await ExecuteInsertOrUpdateOrDeleteAsync(sql, parameters, connection, transaction);
+				// mark encounter as cleared
+				string sql = "UPDATE maxhanna.bones_encounter SET coordsX = -1, coordsY = -1, last_killed = UTC_TIMESTAMP WHERE hero_id = @HeroId;";
+				await ExecuteInsertOrUpdateOrDeleteAsync(sql, new Dictionary<string, object?>() { { "@HeroId", heroId } }, connection, transaction);
 			}
-			catch (Exception ex) { await _log.Db("Exception DestroyMetabot: " + ex.Message, null, "BONES", true); }
+			else
+			{
+				// nothing to do for player-owned bots since they no longer exist
+				await Task.CompletedTask;
+			}
 		}
 		private async Task PerformEventChecks(MetaEvent metaEvent, MySqlConnection connection, MySqlTransaction transaction)
 		{
@@ -1126,46 +943,8 @@ namespace maxhanna.Server.Controllers
 		}
 		private async Task StartDamageOverTimeForBot(string sourceId, string targetId, CancellationToken cancellationToken)
 		{
-			bool attackerStopped = false; while (!cancellationToken.IsCancellationRequested)
-			{
-				MetaBot? attackingBot = null, defendingBot = null; string? attackingBotMap = null; string? defendingBotMap = null;
-				try
-				{
-					using var connection = new MySqlConnection(_connectionString); await connection.OpenAsync(); using (MySqlTransaction transaction = await connection.BeginTransactionAsync())
-					{
-						string fetchBotsSql = @"SELECT mb.id, mb.type, mb.exp, mb.level, mb.hp, mb.hero_id, mb.is_deployed, IF(mb.hero_id > 0,(SELECT mh.map FROM maxhanna.bones_hero mh WHERE mh.id = mb.hero_id),(SELECT me.map FROM maxhanna.bones_encounter me WHERE me.hero_id = mb.hero_id)) AS map FROM maxhanna.bones_bot AS mb WHERE mb.id = @SourceId OR mb.id = @TargetId;";
-						using var command = new MySqlCommand(fetchBotsSql, connection, transaction); command.Parameters.AddWithValue("@SourceId", sourceId); command.Parameters.AddWithValue("@TargetId", targetId); using (var reader = await command.ExecuteReaderAsync())
-						{
-							while (await reader.ReadAsync())
-							{
-								int botId = reader.GetInt32(reader.GetOrdinal("id")); var bot = new MetaBot { Id = botId, Type = reader.GetInt32("type"), Exp = reader.GetInt32("exp"), Level = reader.GetInt32("level"), Hp = reader.GetInt32("hp"), HeroId = reader.IsDBNull(reader.GetOrdinal("hero_id")) ? 0 : reader.GetInt32("hero_id"), IsDeployed = reader.GetBoolean("is_deployed") };
-								string? botMap = reader.IsDBNull(reader.GetOrdinal("map")) ? null : reader.GetString(reader.GetOrdinal("map")); if (botId == Convert.ToInt32(sourceId)) { attackingBot = bot; attackingBotMap = botMap; } else { defendingBot = bot; defendingBotMap = botMap; }
-							}
-						}
-						if (attackingBot == null || defendingBot == null) attackerStopped = true;
-						if (!attackerStopped && (string.IsNullOrEmpty(attackingBotMap) || string.IsNullOrEmpty(defendingBotMap) || attackingBotMap != defendingBotMap)) attackerStopped = true;
-						if (!attackerStopped && attackingBot?.Hp <= 0) { attackerStopped = true; await HandleDeadMetabot(attackingBotMap ?? "", defendingBot, attackingBot, connection, transaction); }
-						if (!attackerStopped && defendingBot?.Hp <= 0) { attackerStopped = true; await HandleDeadMetabot(defendingBotMap ?? "", attackingBot, defendingBot, connection, transaction); }
-						if (!attackerStopped)
-						{
-							string checkEventSql = @"SELECT COUNT(*) FROM maxhanna.bones_event WHERE event = 'TARGET_UNLOCKED' AND (JSON_EXTRACT(data, '$.sourceId') = @SourceId AND JSON_EXTRACT(data, '$.targetId') = @TargetId) AND timestamp > NOW() - INTERVAL 5 SECOND";
-							int eventCount = 0; using (var command2 = new MySqlCommand(checkEventSql, connection, transaction)) { command2.Parameters.AddWithValue("@SourceId", sourceId); command2.Parameters.AddWithValue("@TargetId", targetId); eventCount = Convert.ToInt32(await command2.ExecuteScalarAsync()); }
-							if (eventCount > 0) attackerStopped = true;
-							if (!attackerStopped && attackingBot != null && defendingBot != null)
-							{
-								MetaBotPart? attackingPart = GetLastUsedPart(attackingBot.HeroId > 0 ? "bones_bot_part" : "bones_encounter_bot_part", attackingBot.HeroId > 0 ? "metabot_id" : "hero_id", attackingBot.HeroId > 0 ? attackingBot.Id : attackingBot.HeroId, connection, transaction);
-								MetaBotPart? defendingPart = GetLastUsedPart(defendingBot.HeroId > 0 ? "bones_bot_part" : "bones_encounter_bot_part", defendingBot.HeroId > 0 ? "metabot_id" : "hero_id", defendingBot.HeroId > 0 ? defendingBot.Id : defendingBot.HeroId, connection, transaction);
-								ApplyDamageToBot(attackingBot, defendingBot, attackingPart!, defendingPart!, connection, transaction);
-								if (defendingBot.Hp <= 0) { attackerStopped = true; await HandleDeadMetabot(defendingBotMap ?? "", attackingBot, defendingBot, connection, transaction); }
-							}
-						}
-						await transaction.CommitAsync();
-					}
-				}
-				catch (Exception) { attackerStopped = true; }
-				if (attackerStopped) { StopAttackDamageOverTimeForBot(attackingBot?.Id, defendingBot?.Id); return; }
-				await Task.Delay(1000);
-			}
+			// Damage over time removed for server-side bots; nothing to run here.
+			await Task.CompletedTask;
 		}
 		private async Task UpdateEncounterPositionBatch(List<EncounterPositionUpdate> updates, MySqlConnection connection, MySqlTransaction transaction)
 		{
@@ -1222,18 +1001,28 @@ namespace maxhanna.Server.Controllers
 		private int CalculateExpForNextLevel(MetaBot player) => (player.Level + 1) * 15;
 		private MetaBotPart GetLastUsedPart(string tableName, string idColumn, int id, MySqlConnection connection, MySqlTransaction? transaction)
 		{
-			string fetchPartSql = $"SELECT part_name, damage_mod, skill, type FROM maxhanna.{tableName} WHERE {idColumn} = @Id ORDER BY last_used DESC LIMIT 1"; string updateLastUsedSql = $"UPDATE maxhanna.{tableName} SET last_used = UTC_TIMESTAMP() WHERE {idColumn} = @Id ORDER BY last_used DESC LIMIT 1"; MetaBotPart part = new() { PartName = "DEFAULT", DamageMod = 1, Skill = new Skill("NORMAL", 0) };
-			using (var command = new MySqlCommand(fetchPartSql, connection, transaction)) { command.Parameters.AddWithValue("@Id", id); using var reader = command.ExecuteReader(); if (reader.Read()) { part = new MetaBotPart { PartName = reader.GetString(0), DamageMod = reader.GetInt32(1), Skill = new Skill(reader.GetString(2), reader.GetInt32(3)) }; } }
-			using (var command = new MySqlCommand(updateLastUsedSql, connection, transaction)) { command.Parameters.AddWithValue("@Id", id); command.ExecuteNonQuery(); }
-			return part;
+			// Parts removed server-side; return default
+			return new MetaBotPart { PartName = "DEFAULT", DamageMod = 1, Skill = new Skill("NORMAL", 0) };
 		}
-		private void ApplyDamageToBot(MetaBot attackingBot, MetaBot defendingBot, MetaBotPart attackingPart, MetaBotPart defendingPart, MySqlConnection connection, MySqlTransaction transaction)
+		private async Task ApplyDamageToBot(MetaBot attackingBot, MetaBot defendingBot, MetaBotPart attackingPart, MetaBotPart defendingPart, MySqlConnection connection, MySqlTransaction transaction)
 		{
-			int appliedDamageToDefender = CalculateDamage(attackingBot, defendingBot, attackingPart); string updateSql = @"UPDATE maxhanna.bones_bot_part SET last_used = NOW() WHERE metabot_id = @SourceId AND part_name = @PartName; UPDATE maxhanna.bones_bot AS bot SET bot.hp = GREATEST(bot.hp - @Damage, 0), bot.is_deployed = CASE WHEN GREATEST(bot.hp - @Damage, 0) = 0 THEN 0 ELSE bot.is_deployed END WHERE bot.id = @TargetId"; using var command = new MySqlCommand(updateSql, connection, transaction); command.Parameters.AddWithValue("@Damage", appliedDamageToDefender); command.Parameters.AddWithValue("@TargetId", defendingBot.Id); command.Parameters.AddWithValue("@SourceId", attackingBot.Id); command.Parameters.AddWithValue("@PartName", attackingPart.PartName); command.ExecuteNonQuery();
+			// Server no longer manages bot damage; emit event for compatibility so clients can react.
+			int appliedDamageToDefender = CalculateDamage(attackingBot, defendingBot, attackingPart);
+			var ev = new MetaEvent(0, attackingBot.HeroId, DateTime.UtcNow, "BOT_DAMAGE", string.Empty, new Dictionary<string, string> { { "sourceId", attackingBot.Id.ToString() }, { "targetId", defendingBot.Id.ToString() }, { "damage", appliedDamageToDefender.ToString() } });
+			await UpdateEventsInDB(ev, connection, transaction);
 		}
 		private int CalculateDamage(MetaBot attacker, MetaBot defender, MetaBotPart attackingPart)
 		{
-			float typeMultiplier = 1.0f; if (attackingPart.Skill != null && TypeEffectiveness.TryGetValue((SkillType)attackingPart.Skill.Type, out SkillType effectiveAgainst) && (int)effectiveAgainst == defender.Type) typeMultiplier = 2.0f; else if (attackingPart.Skill != null && TypeEffectiveness.TryGetValue((SkillType)defender.Type, out SkillType strongAgainst) && (int)strongAgainst == attackingPart.Skill.Type) typeMultiplier = 0.5f; int baseDamage = (int)(attacker.Level * attackingPart.DamageMod * typeMultiplier); float defenseMultiplier = defender.Level / 100f; float defenseFactor = 1f / (1f + defenseMultiplier); int finalDamage = (int)(baseDamage * defenseFactor); if (new Random().NextDouble() < 0.1) finalDamage = (int)(finalDamage * 1.5f); return Math.Max(1, finalDamage);
+			// Keep original formula but guard nulls
+			float typeMultiplier = 1.0f;
+			if (attackingPart?.Skill != null && TypeEffectiveness.TryGetValue((SkillType)attackingPart.Skill.Type, out SkillType effectiveAgainst) && (int)effectiveAgainst == defender.Type) typeMultiplier = 2.0f;
+			else if (attackingPart?.Skill != null && TypeEffectiveness.TryGetValue((SkillType)defender.Type, out SkillType strongAgainst) && (int)strongAgainst == attackingPart.Skill.Type) typeMultiplier = 0.5f;
+			int baseDamage = (int)((attacker?.Level ?? 1) * (attackingPart?.DamageMod ?? 1) * typeMultiplier);
+			float defenseMultiplier = (defender?.Level ?? 1) / 100f;
+			float defenseFactor = 1f / (1f + defenseMultiplier);
+			int finalDamage = (int)(baseDamage * defenseFactor);
+			if (new Random().NextDouble() < 0.1) finalDamage = (int)(finalDamage * 1.5f);
+			return Math.Max(1, finalDamage);
 		}
 
 		// Helper to safely read nullable string columns from a data reader
