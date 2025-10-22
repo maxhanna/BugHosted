@@ -362,6 +362,7 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
             return; // skip further processing for this bot
           } 
         } else {
+          console.log("could not find bot, creating it");
           const tgtEncounter = this.mainScene.level.children.find((x: Character) => x.id == enemy.heroId);
           if (tgtEncounter) {
             let tmp = new Bot({
