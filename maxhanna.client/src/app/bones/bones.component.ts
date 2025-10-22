@@ -347,7 +347,13 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
               const distSq = dx * dx + dy * dy;
               // Epsilon: only accept updates larger than 1 tile (in pixels). gridCells(1) returns pixels for one cell.
               const epsilonPixels = gridCells(1);
-              if (distSq > (epsilonPixels * epsilonPixels)) {
+              // If the bot is already essentially at the server destination, lock it in place to stop jitter
+              const atDestination = Math.sqrt(distSq) <= epsilonPixels;
+              if (atDestination) {
+                // snap destination to current position so movement stops
+                tgtEnemy.destinationPosition = tgtEnemy.position.duplicate();
+                this._lastServerDestinations.set(tgtEnemy.heroId, newDest);
+              } else if (distSq > (epsilonPixels * epsilonPixels)) {
                 // reduce log verbosity by logging coordinates only
                 console.log(`moving ${tgtEnemy.name} from (${tgtEnemy.destinationPosition?.x ?? tgtEnemy.position.x},${tgtEnemy.destinationPosition?.y ?? tgtEnemy.position.y}) to (${newDest.x},${newDest.y})`);
                 tgtEnemy.destinationPosition = newDest;
