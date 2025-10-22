@@ -267,9 +267,9 @@ export class Bot extends Character {
       // Always place the bot at a fixed offset to the right of the hero, regardless of movement
       const tmpHeroPos = hero.position.duplicate();
       tmpHeroPos.x = tmpHeroPos.x + distanceFromHero;
-      if (!this.destinationPosition?.duplicate().matches(tmpHeroPos)) { 
-        const newX = hero.position.x + distanceFromHero;
-        const newY = hero.position.y;
+      if (!this.destinationPosition?.duplicate().matches(tmpHeroPos) && (gridCells(2) < (this.destinationPosition.x - hero.position.x)) && (gridCells(2) < (this.destinationPosition.y - hero.position.y))) { 
+        const newX = tmpHeroPos.x;
+        const newY = tmpHeroPos.y;
         this.facingDirection = hero.facingDirection;
         this.destinationPosition = new Vector2(newX, newY).duplicate();
         this.previousHeroPosition = new Vector2(hero.position.x, hero.position.y);
