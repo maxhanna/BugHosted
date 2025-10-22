@@ -1,6 +1,6 @@
 import { Vector2 } from "../../../../services/datacontracts/bones/vector2";
 import { Sprite } from "../sprite";
-import { Fire } from "../Effects/Fire/fire";
+// Fire removed: play die animation instead of spawning fire on death
 import { SkillType } from "../../helpers/skill-types";
 import { DOWN, gridCells } from "../../helpers/grid-cells";
 import { Animations } from "../../helpers/animations";
@@ -9,7 +9,7 @@ import { resources } from "../../helpers/resources";
 import { FrameIndexPattern } from "../../helpers/frame-index-pattern";
 import { events } from "../../helpers/events";
 import { attack, findTargets, untarget } from "../../helpers/fight";
-import { WALK_DOWN, WALK_UP, WALK_LEFT, WALK_RIGHT, STAND_DOWN, STAND_RIGHT, STAND_LEFT, STAND_UP } from "../Npc/Skeleton/skeleton-animations";
+import { WALK_DOWN, WALK_UP, WALK_LEFT, WALK_RIGHT, STAND_DOWN, STAND_RIGHT, STAND_LEFT, STAND_UP, DIE } from "../Npc/Skeleton/skeleton-animations";
 import { MetaBotPart } from "../../../../services/datacontracts/bones/meta-bot-part";
 import { ColorSwap } from "../../../../services/datacontracts/bones/color-swap";
 import { Character } from "../character";
@@ -111,6 +111,7 @@ export class Bot extends Character {
               standRight: new FrameIndexPattern(STAND_RIGHT),
               standLeft: new FrameIndexPattern(STAND_LEFT),
               standUp: new FrameIndexPattern(STAND_UP), 
+              die: new FrameIndexPattern(DIE), 
             })
           }
         ),
@@ -145,13 +146,16 @@ export class Bot extends Character {
 
     if (!this.preventDestroyAnimation) {
       this.isLocked = true;
-      this.destroyBody();
-      const fire = new Fire(this.position.x, this.position.y);
-      this.parent?.children?.push(fire);
+      // Play die animation on the body (if present) and wait 400ms before final destroy
+      try {
+        this.body?.animations?.play("die");
+      } catch { /* ignore animation play errors */ }
+
       setTimeout(() => {
-        fire.destroy();
+        // After the short death animation, remove visual children and destroy
+        this.destroyBody();
         super.destroy();
-      }, 1100);
+      }, 400);
     } else {
       super.destroy();
     } 
