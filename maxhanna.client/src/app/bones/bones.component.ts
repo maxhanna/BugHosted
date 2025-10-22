@@ -226,7 +226,7 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
         timestamp: typeof a.timestamp === 'string' ? a.timestamp : (a.timestamp ? String(a.timestamp) : new Date().toISOString()),
         skill: a.skill && typeof a.skill === 'string' ? a.skill : (a.skill && (a.skill as any).name ? (a.skill as any).name : undefined),
         // include facing so server can apply damage to encounter tile in front of the hero
-        facing: (typeof a.facingDirection === 'number') ?  a.facingDirection : (this.hero && (this.hero as any).facingDirection !== undefined ? (this.hero as any).facingDirection : undefined)
+        facing: a.facingDirection ?  a.facingDirection : (this.hero && (this.hero as any).facingDirection !== undefined ? (this.hero as any).facingDirection : undefined)
       }));
       const res: any = await this.bonesService.fetchGameData(this.metaHero, snapshot);
       // On successful response, clear the attacks we just sent from the shared queue
