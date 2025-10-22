@@ -167,10 +167,12 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
         const dx = attackerPos.x - myPos.x;
         const dy = attackerPos.y - myPos.y;
         const dist = Math.sqrt(dx * dx + dy * dy);
-        const maxAudible = 800; // pixels: distance at which sound is near-silent
-        let vol = 1 - (dist / maxAudible);
-        vol = Math.max(0.05, Math.min(1, vol)); // clamp to [0.05, 1]
-        try { resources.playSound('punchOrImpact', { volume: vol, allowOverlap: true }); } catch { }
+        if (sourceHeroId != this.metaHero.id) {
+          const maxAudible = 800; // pixels: distance a`t which sound is near-silent
+          let vol = 1 - (dist / maxAudible);
+          vol = Math.max(0.05, Math.min(1, vol)); // clamp to [0.05, 1]
+          resources.playSound('punchOrImpact', { volume: vol, allowOverlap: true });
+        }
       } catch (ex) {
         console.error('Error playing attenuated impact SFX', ex);
       }
