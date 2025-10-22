@@ -262,39 +262,14 @@ export class Bot extends Character {
   } 
 
   private followHero(hero: Character) {
-    if ((hero.distanceLeftToTravel ?? 0) < 15 && this.isDeployed) {
-      const directionX = hero.position.x - (this.previousHeroPosition?.x ?? this.position.x);
-      const directionY = hero.position.y - (this.previousHeroPosition?.y ?? this.position.y);
+    if (this.isDeployed) {
       const distanceFromHero = gridCells(2);
-      let newX = hero.position.x;
-      let newY = hero.position.y; 
-      // Move bot to always be behind the hero based on their movement direction
-      if (Math.abs(directionX) > Math.abs(directionY)) {
-        // Hero is primarily moving horizontally
-        if (directionX > 0) {
-          // Hero moved RIGHT → Bot should be to the LEFT
-          newX = hero.position.x - distanceFromHero;
-          newY = hero.position.y; // Stay aligned vertically
-        } else if (directionX < 0) {
-          // Hero moved LEFT → Bot should be to the RIGHT
-          newX = hero.position.x + distanceFromHero;
-          newY = hero.position.y;
-        }
-      } else {
-        // Hero is primarily moving vertically
-        if (directionY > 0) {
-          // Hero moved DOWN → Bot should be ABOVE
-          newX = hero.position.x; // Stay aligned horizontally
-          newY = hero.position.y - distanceFromHero;
-        } else if (directionY < 0) {
-          // Hero moved UP → Bot should be BELOW
-          newX = hero.position.x;
-          newY = hero.position.y + distanceFromHero;
-        } 
-      }
-      this.facingDirection = hero.facingDirection; 
-      this.destinationPosition = new Vector2(newX, newY).duplicate();  
-      this.previousHeroPosition = new Vector2(hero.position.x, hero.position.y); 
+      // Always place the bot at a fixed offset to the right of the hero, regardless of movement
+      const newX = hero.position.x + distanceFromHero;
+      const newY = hero.position.y;
+      this.facingDirection = hero.facingDirection;
+      this.destinationPosition = new Vector2(newX, newY).duplicate();
+      this.previousHeroPosition = new Vector2(hero.position.x, hero.position.y);
     }
     // if ((hero.distanceLeftToTravel ?? 0) > 35 && this.isDeployed) {
     //   console.log("bot should warp to hero");
