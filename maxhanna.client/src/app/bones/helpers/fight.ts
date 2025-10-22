@@ -20,32 +20,7 @@ export const typeEffectiveness = new Map<SkillType, SkillType>([
   [SkillType.RANGED, SkillType.STEALTH],       // Ranged counters Stealth
   [SkillType.STEALTH, SkillType.INTELLIGENCE], // Stealth counters Intelligence
   [SkillType.INTELLIGENCE, SkillType.SPEED]    // Intelligence counters Speed
-]);
-
-
-export function calculateAndApplyDamage(attackingBot: Bot, defendingBot: Bot) {
-  if (!attackingBot || !defendingBot || attackingBot.hp <= 0) return;
-  
-  let attackingPart = attackingBot.lastAttackPart ?? attackingBot.leftArm;
-  if (attackingPart?.partName === LEFT_ARM && (attackingBot.rightArm || attackingBot.leftArm || attackingBot.legs || attackingBot.head)) {
-    attackingPart = attackingBot.rightArm ?? attackingBot.leftArm ?? attackingBot.legs ?? attackingBot.head!;
-  } else if (attackingPart?.partName === RIGHT_ARM && (attackingBot.rightArm || attackingBot.leftArm || attackingBot.legs || attackingBot.head)) {
-    attackingPart = attackingBot.legs ?? attackingBot.rightArm ?? attackingBot.legs ?? attackingBot.head!;
-  } else if (attackingPart?.partName === LEGS && (attackingBot.rightArm || attackingBot.leftArm || attackingBot.legs || attackingBot.head)) {
-    attackingPart = attackingBot.head ?? attackingBot.head ?? attackingBot.rightArm ?? attackingBot.leftArm!;
-  } else if (attackingPart?.partName === HEAD && (attackingBot.rightArm || attackingBot.leftArm || attackingBot.legs || attackingBot.head)) {
-    attackingPart = attackingBot.leftArm ?? attackingBot.legs ?? attackingBot.rightArm ?? attackingBot.leftArm!;
-  }
-  attackingBot.lastAttackPart = attackingPart; 
-  if (attackingBot.name == "Jaguar")
-    console.log(`${attackingBot.name} last attack part: ${attackingBot.lastAttackPart?.partName}`)
-  const criticalHitChance = 0.10; // 10% chance
-  const isCritical = Math.random() < criticalHitChance; 
-  if (isCritical) {
-    const crit = new Critical({ position: defendingBot.position, parentId: attackingBot.id, targetId: defendingBot.id });  
-    attackingBot.parent?.addChild(crit);
-  } 
-} 
+]); 
 
 export function calculateExpForNextLevel(player: Character) {
   player.expForNextLevel = (player.level + 1) * 5;
@@ -55,8 +30,7 @@ export function calculateExpForNextLevel(player: Character) {
 
 export function attack(source: Bot, target: Bot) {
   faceTarget(source, target);
-  // Define available attack parts
-  calculateAndApplyDamage(source, target);
+  // Define available attack parts  
   source.chasing = undefined;
   source.chaseCancelBlock = new Date();
   source.destinationPosition = source.position;
@@ -163,47 +137,42 @@ export function generateReward(source: Bot, target: Bot) {
     { skill: RIGHT_PUNCH, partName: RIGHT_ARM },
   ];
 
-  let generateGenericPart = true;
-  let parts: MetaBotPart[] = [];
-  if (target && target.head) { parts.push(target.head) }
-  if (target && target.legs) { parts.push(target.legs) }
-  if (target && target.leftArm) { parts.push(target.leftArm) }
-  if (target && target.rightArm) { parts.push(target.rightArm) }
+  let generateGenericPart = true; 
  
 
-  if (parts.length > 0) { 
-    const randomPart = parts[Math.floor(Math.random() * parts.length)];
-    if (randomPart) { 
-      const randomDamageMod = Math.floor(Math.random() * randomPart.damageMod) + 1;
+  // if (parts.length > 0) { 
+  //   const randomPart = parts[Math.floor(Math.random() * parts.length)];
+  //   if (randomPart) { 
+  //     const randomDamageMod = Math.floor(Math.random() * randomPart.damageMod) + 1;
 
-      generatedPart = new MetaBotPart({
-        id: 0,
-        metabotId: target.id,
-        skill: randomPart.skill,
-        type: randomPart.type,
-        damageMod: randomDamageMod,
-        partName: randomPart.partName,
-      });
-      generateGenericPart = false;
-    } 
-  }
+  //     generatedPart = new MetaBotPart({
+  //       id: 0,
+  //       metabotId: target.id,
+  //       skill: randomPart.skill,
+  //       type: randomPart.type,
+  //       damageMod: randomDamageMod,
+  //       partName: randomPart.partName,
+  //     });
+  //     generateGenericPart = false;
+  //   } 
+  // }
 
-  if (generateGenericPart) { 
-    const randomSkill = skills[Math.floor(Math.random() * skills.length)];
-    const partName = (randomSkill.partName ?? HEAD);
-    generatedPart = new MetaBotPart({
-      id: 0,
-      metabotId: target.id,
-      skill: randomSkill.skill,
-      type: SkillType.NORMAL,
-      damageMod: 1,
-      partName: partName as typeof HEAD,
-    }); 
-  }
+  // if (generateGenericPart) { 
+  //   const randomSkill = skills[Math.floor(Math.random() * skills.length)];
+  //   const partName = (randomSkill.partName ?? HEAD);
+  //   generatedPart = new MetaBotPart({
+  //     id: 0,
+  //     metabotId: target.id,
+  //     skill: randomSkill.skill,
+  //     type: SkillType.NORMAL,
+  //     damageMod: 1,
+  //     partName: partName as typeof HEAD,
+  //   }); 
+  // }
 
-  if (generatedPart) {
-    events.emit("GOT_REWARDS", { location: target.position, part: generatedPart });
-  }
+  // if (generatedPart) {
+  //   events.emit("GOT_REWARDS", { location: target.position, part: generatedPart });
+  // }
 }
 
 export function setTargetToDestroyed(target: Bot) {

@@ -21,10 +21,6 @@ export class Bot extends Character {
   botType: SkillType.NORMAL | SkillType.SPEED | SkillType.STRENGTH | SkillType.ARMOR | SkillType.RANGED | SkillType.STEALTH | SkillType.INTELLIGENCE;
 
   previousHeroPosition?: Vector2;
-  leftArm?: MetaBotPart;
-  rightArm?: MetaBotPart;
-  legs?: MetaBotPart;
-  head?: MetaBotPart;
   isDeployed? = false;
   isEnemy = true;
   targeting?: Bot = undefined;
@@ -35,12 +31,7 @@ export class Bot extends Character {
   isInvulnerable = false;
   preventDestroyAnimation = false;
   canAttack = true; 
-  partyMembers?: { heroId: number, name: string }[];
-  frameMap = {
-    "Jaguar": "botFrame1",
-    "Ram": "botFrame5",
-    "Bee": "botFrame7",
-  }
+  partyMembers?: { heroId: number, name: string }[]; 
   private chaseDebounceTimer: any;
   chaseCancelBlock = new Date();
 
@@ -139,11 +130,7 @@ export class Bot extends Character {
     this.facingDirection = DOWN;
     this.botType = params.botType ?? SkillType.NORMAL;
     this.level = params.level ?? 1;
-    this.hp = params.hp ?? 1;
-    this.leftArm = params.leftArm;
-    this.rightArm = params.rightArm;
-    this.head = params.head;
-    this.legs = params.legs;
+    this.hp = params.hp ?? 1; 
     this.name = params.name ?? "Anon";
     this.isDeployed = params.isDeployed;
     this.isEnemy = params.isEnemy ?? false; 

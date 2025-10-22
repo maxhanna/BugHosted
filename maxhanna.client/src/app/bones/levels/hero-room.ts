@@ -32,8 +32,8 @@ export class HeroRoomLevel extends Level {
       const encounter = new Encounter({
         id: -999999,
         position: new Vector2(gridCells(3), gridCells(4)),
-        possibleEnemies: ["spiderBot", "armobot"],
-        moveLeftRight: 1,
+        possibleEnemies: ["skeleton"],
+        moveLeftRight: 0,
         moveUpDown: 0
       });
       this.addChild(encounter);
