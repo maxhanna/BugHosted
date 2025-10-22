@@ -662,9 +662,9 @@ Posted by user @{topMeme.Username}<br><small>Daily top memes are selected based 
 
 			// Fetch today's music todos
 			string sql = @"
-				SELECT t.id, t.todo, t.url, t.file_id, t.user_id, u.username
+				SELECT t.id, t.todo, t.url, t.file_id, t.ownership, u.username
 				FROM todo t
-				LEFT JOIN users u ON u.id = t.user_id
+				LEFT JOIN users u ON u.id = t.ownership
 				WHERE t.type = 'music' AND DATE(t.date) = CURDATE()
 				ORDER BY t.date DESC;";
 

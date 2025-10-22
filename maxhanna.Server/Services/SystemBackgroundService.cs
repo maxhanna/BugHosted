@@ -145,25 +145,39 @@ namespace maxhanna.Server.Services
 			await FetchAndStoreFearGreedAsync();
 			await FetchAndStoreGlobalMetricsAsync();
 		}
-
 		private async Task RunThreeHourTasks()
 		{
-			try
-			{
-				await DeleteInactiveEnderHeroes();
-			}
-			catch (Exception ex)
-			{
-				_ = _log.Db($"Error in RunThreeHourTasks: {ex.Message}", null, "SYSTEM", true);
-			}
+			await MoveInactiveEnderHeroes();
 		}
+		private async Task RunDailyTasks()
+		{
+			await DeleteOldBattleReports();
+			await DeleteOldGuests();
+			await DeleteOldSearchResults();
+			await DeleteOldSearchQueries();
+			await DeleteOldSentimentAnalysis();
+			await DeleteOldGlobalMetrics();
+			await DeleteNotificationRequests();
+			await DeleteHostAiRequests();
+			await DeleteOldCoinValueEntries();
+			await DeleteOldNews();
+			await DeleteOldTradeVolumeEntries();
+			await DeleteOldCoinMarketCaps();
+			await DeleteOldEnderScores();
+			await _newsService.CreateDailyCryptoNewsStoryAsync();
+			await _newsService.CreateDailyNewsStoryAsync();
+			await _newsService.PostDailyMemeAsync();
+			await _newsService.CreateDailyMusicStoryAsync();
+			await _log.BackupDatabase();
+		}
+		private TimeSpan CalculateNextDailyRun()
+		{
+			var now = DateTime.Now;
+			var nextRun = new DateTime(now.Year, now.Month, now.Day, 0, 0, 0).AddDays(1);
+			return nextRun - now;
+		} 
 
-		/// <summary>
-		/// Deletes ender_hero rows for heroes that have created at least 2 bike walls in history
-		/// but have not created any bike walls in the last 8 hours. For each deleted hero,
-		/// insert a notification for the owning user indicating they were removed for inactivity.
-		/// </summary>
-		private async Task DeleteInactiveEnderHeroes()
+		private async Task MoveInactiveEnderHeroes()
 		{
 			await using var conn = new MySqlConnection(_connectionString);
 			await conn.OpenAsync();
@@ -319,33 +333,6 @@ namespace maxhanna.Server.Services
 				try { await transaction.RollbackAsync(); } catch { }
 				_ = _log.Db($"Error relocating inactive ender heroes: {ex.Message}", null, "SYSTEM", true);
 			}
-		}
-		private async Task RunDailyTasks()
-		{
-			await DeleteOldBattleReports();
-			await DeleteOldGuests();
-			await DeleteOldSearchResults();
-			await DeleteOldSearchQueries();
-			await DeleteOldSentimentAnalysis();
-			await DeleteOldGlobalMetrics();
-			await DeleteNotificationRequests();
-			await DeleteHostAiRequests();
-			await DeleteOldCoinValueEntries();
-			await DeleteOldNews();
-			await DeleteOldTradeVolumeEntries();
-			await DeleteOldCoinMarketCaps();
-			await DeleteOldEnderScores();
-			await _newsService.CreateDailyCryptoNewsStoryAsync();
-			await _newsService.CreateDailyNewsStoryAsync();
-			await _newsService.CreateDailyMusicStoryAsync();
-			await _newsService.PostDailyMemeAsync();
-			await _log.BackupDatabase();
-		}
-		private TimeSpan CalculateNextDailyRun()
-		{
-			var now = DateTime.Now;
-			var nextRun = new DateTime(now.Year, now.Month, now.Day, 0, 0, 0).AddDays(1);
-			return nextRun - now;
 		}
 		public override async Task StopAsync(CancellationToken cancellationToken)
 		{
