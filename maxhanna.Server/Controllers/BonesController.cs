@@ -174,7 +174,7 @@ namespace maxhanna.Server.Controllers
             {
                 try
                 {
-                    foreach (var attack in request.RecentAttacks)
+					foreach (var attack in request.RecentAttacks)
                     {
                         string insertSql = "INSERT INTO maxhanna.bones_event (hero_id, event, map, data, timestamp) VALUES (@HeroId, @Event, @Map, @Data, UTC_TIMESTAMP());";
                         // Normalize attack dictionary values: handle System.Text.Json.JsonElement and JToken values
@@ -230,14 +230,75 @@ namespace maxhanna.Server.Controllers
                             }
                         }
 
-                        var parameters = new Dictionary<string, object?>()
-                            {
-                                { "@HeroId", normalized.ContainsKey("sourceHeroId") ? normalized["sourceHeroId"] ?? hero.Id : hero.Id },
-                                { "@Event", "ATTACK" },
-                                { "@Map", hero.Map ?? string.Empty },
-                                { "@Data", Newtonsoft.Json.JsonConvert.SerializeObject(normalized) }
-                            };
-                        await ExecuteInsertOrUpdateOrDeleteAsync(insertSql, parameters, connection, transaction);
+						var parameters = new Dictionary<string, object?>()
+							{
+								{ "@HeroId", normalized.ContainsKey("sourceHeroId") ? normalized["sourceHeroId"] ?? hero.Id : hero.Id },
+								{ "@Event", "ATTACK" },
+								{ "@Map", hero.Map ?? string.Empty },
+								{ "@Data", Newtonsoft.Json.JsonConvert.SerializeObject(normalized) }
+							};
+						await ExecuteInsertOrUpdateOrDeleteAsync(insertSql, parameters, connection, transaction);
+
+						// Additional behaviour: if this attack includes a facing, decrement the bones_encounter.hp
+						try
+						{
+							// Determine source hero id and facing
+							int sourceHeroId = normalized.ContainsKey("sourceHeroId") && normalized["sourceHeroId"] != null ? Convert.ToInt32(normalized["sourceHeroId"]) : hero.Id;
+							int sourceX = hero.Position.x;
+							int sourceY = hero.Position.y;
+							int targetX = sourceX;
+							int targetY = sourceY;
+
+							if (normalized.ContainsKey("facing") && normalized["facing"] != null)
+							{
+								// facing can be an int (0=up,1=right,2=down,3=left) or a string
+								var fVal = normalized["facing"]?.ToString();
+								if (int.TryParse(fVal, out int f))
+								{
+									switch (f)
+									{
+										case 0: targetY = sourceY - 1; break; // up
+										case 1: targetX = sourceX + 1; break; // right
+										case 2: targetY = sourceY + 1; break; // down
+										case 3: targetX = sourceX - 1; break; // left
+										default: break;
+									}
+								}
+								else
+								{
+									// try common string values
+									var s = fVal?.ToLower() ?? string.Empty;
+									if (s == "up" || s == "north") targetY = sourceY - 1;
+									else if (s == "right" || s == "east") targetX = sourceX + 16;
+									else if (s == "down" || s == "south") targetY = sourceY + 16;
+									else if (s == "left" || s == "west") targetX = sourceX - 16;
+								}
+							}
+
+							// Perform an atomic update: decrement HP by 1 for the encounter row at target coords on this map
+							string updateHpSql = "UPDATE maxhanna.bones_encounter SET hp = GREATEST(hp - 1, 0) WHERE map = @Map AND coordsX = @X AND coordsY = @Y LIMIT 1;";
+							var updateParams = new Dictionary<string, object?>() { { "@Map", hero.Map ?? string.Empty }, { "@X", targetX }, { "@Y", targetY } };
+							int rows = Convert.ToInt32(await ExecuteInsertOrUpdateOrDeleteAsync(updateHpSql, updateParams, connection, transaction));
+
+							if (rows > 0)
+							{
+								// Emit a BOT_DAMAGE meta-event so clients can process it (sourceId=sourceHeroId, target coords as targetId negative placeholder)
+								// Use a synthetic targetId of 0 and include coords in data for client mapping
+								var data = new Dictionary<string, string>
+								{
+									{ "sourceId", sourceHeroId.ToString() },
+									{ "targetX", targetX.ToString() },
+									{ "targetY", targetY.ToString() },
+									{ "damage", "1" }
+								};
+								var botDamageEvent = new MetaEvent(0, sourceHeroId, DateTime.UtcNow, "BOT_DAMAGE", hero.Map ?? string.Empty, data);
+								await UpdateEventsInDB(botDamageEvent, connection, transaction);
+							}
+						}
+						catch (Exception ex)
+						{
+							await _log.Db("Failed to apply encounter damage from PersistNewAttacks: " + ex.Message, hero.Id, "BONES", true);
+						}
                     }
                 }
                 catch (Exception ex)

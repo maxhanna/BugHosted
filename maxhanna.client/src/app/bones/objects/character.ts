@@ -8,8 +8,7 @@ import { isObjectNearby, moveTowards, tryMove } from "../helpers/move-towards";
 import { Input } from "../helpers/input";
 import { events } from "../helpers/events";
 import { resources } from "../helpers/resources";
-import { WarpBase } from "./Effects/Warp/warp-base";
-import { findTargets } from "../helpers/fight";
+import { WarpBase } from "./Effects/Warp/warp-base"; 
 
 export class Character extends GameObject {
   id: number;
