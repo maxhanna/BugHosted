@@ -16,7 +16,7 @@ export class Skeleton extends Bot {
       hp: params.hp ?? 1,
       level: params.level ?? 1,
       position: params.position, 
-      
+      offsetY: 8,
     });     
     this.isSolid = true;
     this.isEnemy = true;
