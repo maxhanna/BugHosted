@@ -892,6 +892,18 @@ namespace maxhanna.Server.Controllers
 					bool canMoveTime = !e.lastMoved.HasValue || (DateTime.UtcNow - e.lastMoved.Value).TotalSeconds >= 1.0;
 					if (!canMoveTime) continue;
 
+					// If target is a hero and the encounter is axis-adjacent by one grid cell (16 units) on either axis, don't move
+					if (closest.HasValue && closest.Value.heroId != 0)
+					{
+						int dxAdj = Math.Abs(closest.Value.x - e.x);
+						int dyAdj = Math.Abs(closest.Value.y - e.y);
+						// axis-aligned adjacency: exactly one tile away horizontally or vertically
+						if ((dxAdj == 16 && dyAdj == 0) || (dyAdj == 16 && dxAdj == 0))
+						{
+							continue; // already adjacent, do not close the gap
+						}
+					}
+
 					int remainingSpeed = Math.Max(1, e.speed); // cells per tick
 					int curX = e.x; int curY = e.y;
 					while (remainingSpeed > 0 && (curX != closest.Value.x || curY != closest.Value.y))
