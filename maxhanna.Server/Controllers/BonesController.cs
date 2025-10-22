@@ -693,7 +693,7 @@ namespace maxhanna.Server.Controllers
 			{
 				var bots = new List<MetaBot>();
 				string sql = @"
-					SELECT hero_id, coordsX, coordsY, `level`, hp, `type`, last_killed
+					SELECT hero_id, coordsX, coordsY, `level`, hp, `name`, last_killed
 					FROM maxhanna.bones_encounter
 					WHERE map = @Map;";
 				using var cmd = new MySqlCommand(sql, conn, transaction);
@@ -706,7 +706,7 @@ namespace maxhanna.Server.Controllers
 					int coordsY = reader.IsDBNull(reader.GetOrdinal("coordsY")) ? 0 : reader.GetInt32("coordsY");
 					int level = reader.IsDBNull(reader.GetOrdinal("level")) ? 1 : reader.GetInt32("level");
 					int hp = reader.IsDBNull(reader.GetOrdinal("hp")) ? 0 : reader.GetInt32("hp");
-					int typeVal = reader.IsDBNull(reader.GetOrdinal("type")) ? 0 : reader.GetInt32("type");
+					string typeVal = reader.IsDBNull(reader.GetOrdinal("name")) ? "armobot" : reader.GetString("name");
 					// Construct MetaBot where Id and HeroId are the encounter hero_id
 					var mb = new MetaBot
 					{
@@ -715,7 +715,7 @@ namespace maxhanna.Server.Controllers
 						Position = new Vector2(coordsX, coordsY),
 						Level = level,
 						Hp = hp,
-						Type = typeVal,
+						Name = typeVal,
 						IsDeployed = false
 					};
 					bots.Add(mb);
