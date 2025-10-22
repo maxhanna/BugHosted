@@ -80,9 +80,9 @@ export class NavigationComponent implements OnInit, OnDestroy {
     private userService: UserService,
     private fileService: FileService,
     private notificationService: NotificationService,
-  private enderService: EnderService,
-  private bonesService: BonesService,
-  private nexusService: NexusService,
+    private enderService: EnderService,
+    private bonesService: BonesService,
+    private nexusService: NexusService,
     private todoService: TodoService,
     private metaService: MetaService,
     private arrayService: ArrayService,
@@ -131,7 +131,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
 
     setTimeout(() => {
       this.getNotifications();
-  this.getBonesPlayerInfo();
+      this.getBonesPlayerInfo();
       this.displayAppSelectionHelp();
     }, 100)
   }
@@ -194,7 +194,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
     this.calendarInfoInterval = setInterval(() => this.getCalendarInfo(), 20 * 60 * 1000); // every 20 minutes 
     this.wordlerInfoInterval = setInterval(() => this.getWordlerStreakInfo(), 60 * 60 * 1000); // every hour
     this.enderInterval = setInterval(() => this.getEnderPlayerInfo(), 60 * 1000); // every minute
-  this.bonesInterval = setInterval(() => this.getBonesPlayerInfo(), 60 * 1000); // every minute
+    this.bonesInterval = setInterval(() => this.getBonesPlayerInfo(), 60 * 1000); // every minute
     this.nexusInterval = setInterval(() => this.getNexusPlayerInfo(), 60 * 1000); // every minute
     this.metaInterval = setInterval(() => this.getMetaPlayerInfo(), 60 * 1000); // every minute
     this.musicInterval = setInterval(() => this.getMusicInfo(), 60 * 60 * 1000); // every hour
@@ -204,26 +204,20 @@ export class NavigationComponent implements OnInit, OnDestroy {
     this.crawlerInterval = setInterval(() => this.getCrawlerInfo(), 60 * 60 * 1000); // every hour
   }
 
-  private async getNewsCountInfo() {
-    if (!this._parent || !this._parent.user || this.navbarCollapsed) return;
-    try {
-      const count = await this.newsService.getNewsCount();
-      if (this._parent?.navigationItems) {
-        const newsNav = this._parent.navigationItems.find(x => x.title === 'News');
-        if (newsNav) {
-          newsNav.content = count && count > 0 ? this.shortenCount(count) : '';
-        }
-      }
-    } catch (err) {
-      console.error('Error fetching news count:', err);
-    }
-  }
-
   stopNotifications() {
+    clearInterval(this.notificationInfoInterval);
     clearInterval(this.cryptoHubInterval);
     clearInterval(this.calendarInfoInterval);
     clearInterval(this.wordlerInfoInterval);
-    clearInterval(this.notificationInfoInterval);
+    clearInterval(this.enderInterval);
+    clearInterval(this.bonesInterval);
+    clearInterval(this.nexusInterval);
+    clearInterval(this.metaInterval);
+    clearInterval(this.musicInterval);
+    clearInterval(this.arrayInterval);
+    clearInterval(this.emulationInterval);
+    clearInterval(this.socialInterval);
+    clearInterval(this.crawlerInterval);
   }
 
   private debounce<T extends (...args: any[]) => any>(func: T, wait: number): (...args: Parameters<T>) => void {
@@ -881,6 +875,20 @@ export class NavigationComponent implements OnInit, OnDestroy {
     this.isLoadingCalendar = false;
   }
 
+  private async getNewsCountInfo() {
+    if (!this._parent || !this._parent.user || this.navbarCollapsed) return;
+    try {
+      const count = await this.newsService.getNewsCount();
+      if (this._parent?.navigationItems) {
+        const newsNav = this._parent.navigationItems.find(x => x.title === 'News');
+        if (newsNav) {
+          newsNav.content = count && count > 0 ? this.shortenCount(count) : '';
+        }
+      }
+    } catch (err) {
+      console.error('Error fetching news count:', err);
+    }
+  }
   private shortenCount(value: number): string {
     if (value === null || value === undefined) return '';
     const num = value;
