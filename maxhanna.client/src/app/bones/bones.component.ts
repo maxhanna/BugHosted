@@ -339,8 +339,9 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
             const dy = (tgtEnemy.destinationPosition?.y ?? tgtEnemy.position.y) - newDest.y;
             const distSq = dx * dx + dy * dy;
             // Epsilon: only accept updates larger than 1 pixel (squared = 1)
-            if (distSq > 1) {
+            if (distSq > gridCells(1)) {
               tgtEnemy.destinationPosition = newDest;
+              console.log(`moving ${tgtEnemy.name} to ${newDest}`);
             }
           }
         } else {
