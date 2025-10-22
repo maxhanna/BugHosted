@@ -874,6 +874,7 @@ namespace maxhanna.Server.Controllers
 					(int heroId,int x,int y)? closest = null;
 					int targetHeroId = e.targetHeroId;
 					DateTime now = DateTime.UtcNow;
+					int curX = e.x; int curY = e.y; // working cursor for tentative movement/snapping
 					bool hasLock = targetHeroId != 0;
 					bool lockValid = false;
 					if (hasLock)
@@ -911,6 +912,23 @@ namespace maxhanna.Server.Controllers
 							// Set/refresh lock timestamp
 							_encounterTargetLockTimes[e.heroId] = now;
 							targetHeroId = closest.Value.heroId;
+							// Snap encounter to one tile adjacent to the hero along the dominant axis so animation handles the rest.
+							int dx = closest.Value.x - e.x;
+							int dy = closest.Value.y - e.y;
+							if (Math.Abs(dx) >= Math.Abs(dy))
+							{
+								// place one tile to the left/right of hero
+								curX = closest.Value.x + (dx > 0 ? -16 : 16);
+								curY = closest.Value.y;
+							}
+							else
+							{
+								// place one tile above/below hero
+								curX = closest.Value.x;
+								curY = closest.Value.y + (dy > 0 ? -16 : 16);
+							}
+							// don't process further movement for this encounter this tick
+							closest = (closest.Value.heroId, curX, curY);
 						}
 						else
 						{
@@ -953,7 +971,6 @@ namespace maxhanna.Server.Controllers
 					}
 
 					int remainingSpeed = Math.Max(1, e.speed); // cells per tick
-					int curX = e.x; int curY = e.y;
 					var targetPos = closest.HasValue ? closest.Value : (0, e.x, e.y);
 					while (closest.HasValue && remainingSpeed > 0 && (curX != targetPos.x || curY != targetPos.y))
 					{
