@@ -16,24 +16,24 @@ export class Skeleton extends Bot {
       hp: params.hp ?? 1,
       level: params.level ?? 1,
       position: params.position, 
-      offsetY: 8,
     });     
     this.isSolid = true;
     this.isEnemy = true;
     this.isDeployed = true;
     this.level = 1; 
-    if (this.body)
+    if (this.body) {
+      this.body.offsetY = 16;
       this.body.animations = new Animations({
-      walkDown: new FrameIndexPattern(WALK_DOWN),
-      walkUp: new FrameIndexPattern(WALK_UP),
-      walkLeft: new FrameIndexPattern(WALK_LEFT),
-      walkRight: new FrameIndexPattern(WALK_RIGHT),
-      standDown: new FrameIndexPattern(STAND_DOWN),
-      standRight: new FrameIndexPattern(STAND_RIGHT),
-      standLeft: new FrameIndexPattern(STAND_LEFT),
-      standUp: new FrameIndexPattern(STAND_UP),
-    })
-
+        walkDown: new FrameIndexPattern(WALK_DOWN),
+        walkUp: new FrameIndexPattern(WALK_UP),
+        walkLeft: new FrameIndexPattern(WALK_LEFT),
+        walkRight: new FrameIndexPattern(WALK_RIGHT),
+        standDown: new FrameIndexPattern(STAND_DOWN),
+        standRight: new FrameIndexPattern(STAND_RIGHT),
+        standLeft: new FrameIndexPattern(STAND_LEFT),
+        standUp: new FrameIndexPattern(STAND_UP),
+      });
+    }
     const shadow = new Sprite({
       resource: resources.images["shadow"],
       position: new Vector2((this.body?.position?.x ?? 0) - 9, -30),
