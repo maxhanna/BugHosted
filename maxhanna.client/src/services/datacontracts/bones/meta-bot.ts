@@ -1,8 +1,6 @@
 
-import { User } from "../user/user";
 import { Vector2 } from "./vector2";
 import { HEAD, LEFT_ARM, LEGS, MetaBotPart, RIGHT_ARM } from "./meta-bot-part";
-import { HEADBUTT, KICK, LEFT_PUNCH, RIGHT_PUNCH } from "../../../app/bones/helpers/skill-types";
 import { ColorSwap } from "./color-swap";
 
 export class MetaBot {
@@ -19,10 +17,6 @@ export class MetaBot {
   isDeployed?: boolean = false;
   targetHeroId?: number | null = null;
   position?: Vector2;
-  head?: MetaBotPart;
-  legs?: MetaBotPart;
-  leftArm?: MetaBotPart;
-  rightArm?: MetaBotPart;
   colorSwap?: ColorSwap;
 
 
@@ -40,21 +34,17 @@ export class MetaBot {
     this.position = params.position;
     this.hp = params.hp ?? 1;
     this.level = params.level ?? 1;
-    this.head = params.head ?? new MetaBotPart({ id: 0, metabotId: this.id, skill: HEADBUTT, damageMod: 1, partName: HEAD })
-    this.legs = params.legs ?? new MetaBotPart({ id: 0, metabotId: this.id, skill: KICK, damageMod: 1, partName: LEGS })
-    this.leftArm = params.leftArm ?? new MetaBotPart({ id: 0, metabotId: this.id, skill: LEFT_PUNCH, damageMod: 1, partName: LEFT_ARM })
-    this.rightArm = params.rightArm ?? new MetaBotPart({ id: 0, metabotId: this.id, skill: RIGHT_PUNCH, damageMod: 1, partName: RIGHT_ARM })
     this.spriteName = params.spriteName;
-  this.targetHeroId = params.targetHeroId ?? null;
+    this.targetHeroId = params.targetHeroId ?? null;
     this.colorSwap = params.colorSwap;
     this.isDeployed = params.isDeployed;
   }
 
-  generateReward(): MetaBotPart {
-    const parts = [this.head, this.legs, this.leftArm, this.rightArm].filter(part => part !== undefined) as MetaBotPart[];
-    const randomPart = parts[Math.floor(Math.random() * parts.length)];
-    const randomDamageMod = Math.floor(Math.random() * randomPart.damageMod) + 1;
+//   generateReward(): MetaBotPart {
+//     //const parts = [this.head, this.legs, this.leftArm, this.rightArm].filter(part => part !== undefined) as MetaBotPart[];
+//    // const randomPart = parts[Math.floor(Math.random() * parts.length)];
+//     //const randomDamageMod = Math.floor(Math.random() * randomPart.damageMod) + 1;
 
-    return new MetaBotPart({ id: 0, metabotId: 0, skill: randomPart.skill, type: randomPart.type, damageMod: randomDamageMod, partName: randomPart.partName });
-  }
+// //return new MetaBotPart({ id: 0, metabotId: 0, skill: randomPart.skill, type: randomPart.type, damageMod: randomDamageMod, partName: randomPart.partName });
+//   }
 } 

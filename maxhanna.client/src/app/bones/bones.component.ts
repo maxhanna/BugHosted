@@ -376,11 +376,7 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
               level: enemy.level,
               hp: enemy.hp,
               id: enemy.id,
-              heroId: enemy.heroId,
-              leftArm: enemy.leftArm,
-              rightArm: enemy.rightArm,
-              head: enemy.head,
-              legs: enemy.legs,
+              heroId: enemy.heroId, 
               isSolid: true,
             });
             // If the server gave a targetHeroId for this encounter, initialize it on the client bot
@@ -493,11 +489,7 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
       isEnemy: true,
       hp: bot.hp,
       level: bot.level,
-      exp: bot.exp,
-      leftArm: bot.leftArm,
-      rightArm: bot.rightArm,
-      head: bot.head,
-      legs: bot.legs,
+      exp: bot.exp, 
       partyMembers: metaHero.id === this.metaHero.id ? this.partyMembers : undefined
     });
 
