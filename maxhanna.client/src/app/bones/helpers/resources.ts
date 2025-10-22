@@ -23,6 +23,7 @@ export class Resources {
       referee: `${this.dir}referee-spritesheet.png`,
       shadow: `${this.dir}shadow.png`,
       shipsprite: `${this.dir}shipsprite.png`,
+      skeleton: `${this.dir}skeletonspritesheet.png`,
       stars: `${this.dir}stars.png`,
       textBox: `${this.dir}sprite-text-background.png`,
       warpbase: `${this.dir}warpBase.png`,
