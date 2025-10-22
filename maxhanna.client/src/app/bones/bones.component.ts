@@ -374,7 +374,7 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
             try { this._lastServerDestinations.delete(tgtEnemy.heroId); } catch { }
             return; // skip further processing for this bot
           } 
-        } else {
+        } else if (enemy.hp) {
           console.log("could not find bot, creating it ", enemy);
           const tgtEncounter = this.mainScene.level.children.find((x: Character) => x.id == enemy.heroId);
           if (tgtEncounter) {
