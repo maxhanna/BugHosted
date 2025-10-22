@@ -306,24 +306,20 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
     }
 
     this.otherHeroes = res.heroes;
-    for (let x = 0; x < this.otherHeroes.length; x++) {
-      const bots = this.otherHeroes[x].metabots;
-      for (let y = 0; y < bots.length; y++) {
-        const tgt = this.mainScene.level.children.find((x: Character) => x.id == bots[y].id);
-        if (tgt) {
-          tgt.hp = bots[y].hp;
-          tgt.level = bots[y].level;
-          tgt.exp = bots[y].exp;
-          tgt.isDeployed = bots[y].isDeployed;
+    for (let x = 0; x < this.otherHeroes.length; x++) { 
+      const tgt = this.mainScene.level.children.find((c: Character) => c.id == this.otherHeroes[x].id);
+      if (tgt) {
+        tgt.hp = this.otherHeroes[x].hp;
+        tgt.level = this.otherHeroes[x].level;
+        tgt.exp = this.otherHeroes[x].exp; 
 
-          // Fixed partyMembers check
-          tgt.partyMembers = (Array.isArray(this.partyMembers) &&
-            this.partyMembers.length > 0 &&
-            this.partyMembers.some((x: any) => x.heroId == tgt.heroId))
-            ? this.partyMembers
-            : undefined;
-        }
-      }
+        // Fixed partyMembers check
+        tgt.partyMembers = (Array.isArray(this.partyMembers) &&
+          this.partyMembers.length > 0 &&
+          this.partyMembers.some((x: any) => x.heroId == tgt.heroId))
+          ? this.partyMembers
+          : undefined;
+      } 
     }
   }
   private updateEnemyEncounters(res: any) {
