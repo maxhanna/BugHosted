@@ -23,6 +23,9 @@ export class Skeleton extends Bot {
     this.level = 1; 
     if (this.body) {
       this.body.offsetY = 16;
+      this.body.frameSize = new Vector2(40, 40);
+      this.body.hFrames = 4;
+      this.body.vFrames = 6;
       this.body.animations = new Animations({
         walkDown: new FrameIndexPattern(WALK_DOWN),
         walkUp: new FrameIndexPattern(WALK_UP),
@@ -42,6 +45,7 @@ export class Skeleton extends Bot {
     });
     shadow.drawLayer = "FLOOR";
     this.addChild(shadow);    
+    console.log("added skel", this);
   } 
 
   override getContent() {
