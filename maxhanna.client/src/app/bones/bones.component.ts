@@ -335,6 +335,7 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
         if (tgtEnemy) {
           tgtEnemy.hp = enemy.hp;
           tgtEnemy.destinationPosition = enemy.position!.duplicate();
+          console.log("setting dest pos to ", tgtEnemy.destinationPosition);
           // Track server-provided targetHeroId and react to changes
           // const incomingTarget = (enemy as any).targetHeroId ?? null;
           // const previousTarget = (tgtEnemy as any).targetHeroId ?? null;
