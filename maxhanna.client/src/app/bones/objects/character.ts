@@ -29,7 +29,9 @@ export class Character extends GameObject {
   slopeStepHeight?: Vector2;
   speed: number = 1;
   scale: Vector2 = new Vector2(1, 1);
-  latestMessage = "";
+  // Auto-cleared chat bubble message (see getter/setter below)
+  private _latestMessage: string = "";
+  private latestMessageClearTimer: any; // timeout id for clearing latest message
   mask?: Mask = undefined
   distanceLeftToTravel? = 0;
   itemPickupTime: number = 0;
@@ -43,8 +45,11 @@ export class Character extends GameObject {
   isBackgroundSelectionLocked = false;
 
   private messageCache: HTMLCanvasElement | null = null;
-  private cachedMessage: string = "";
-
+  private cachedMessage: string = ""; 
+  // Track cleared message to suppress resurrection from polling while server still sends it
+  private lastClearedMessageSig: string | undefined;
+  private currentMessageTimestamp: string | number | undefined;
+  
   constructor(params: {
     id: number,
     name: string,
@@ -99,6 +104,11 @@ export class Character extends GameObject {
   }
 
   override destroy() {
+    // Ensure any pending message clear timer is canceled to avoid leaks
+    if (this.latestMessageClearTimer) {
+      clearTimeout(this.latestMessageClearTimer);
+      this.latestMessageClearTimer = undefined;
+    }
     if (this.isWarping) {
       const warpBase = new WarpBase({ position: this.position, parentId: this.id, offsetX: -8, offsetY: 12 });
       this.parent?.addChild(warpBase);
@@ -455,7 +465,14 @@ export class Character extends GameObject {
 
 
   drawLatestMessage(ctx: CanvasRenderingContext2D, characterCenterX: number, characterTopY: number) {
-    if (!this.latestMessage.trim()) return;
+    // If message was cleared, ensure cache removed and skip drawing so bubble disappears
+    if (!this.latestMessage || !this.latestMessage.trim()) {
+      if (this.messageCache) {
+        this.messageCache = null;
+      }
+      this.cachedMessage = "";
+      return;
+    }
 
     // Only recreate cache if message changes
     if (this.latestMessage !== this.cachedMessage) {
@@ -572,5 +589,64 @@ export class Character extends GameObject {
 
   private calculateExpForNextLevel(player: Character) {
     player.expForNextLevel = (player.level + 1) * 15;
+  } 
+
+  // Expose latestMessage with side-effects so external assignments still work
+  get latestMessage(): string {
+    return this._latestMessage;
+  }
+  set latestMessage(val: string) {
+    if (this._latestMessage === val) return;
+    this._latestMessage = val || "";
+    // Reset cache so bubble redraws (or disappears) next frame
+    if (!this._latestMessage) {
+      this.messageCache = null;
+      this.cachedMessage = "";
+    }
+    // Schedule auto-clear if non-empty
+    this.scheduleLatestMessageAutoClear();
+  }
+
+  private scheduleLatestMessageAutoClear() {
+    if (this.latestMessageClearTimer) {
+      clearTimeout(this.latestMessageClearTimer);
+      this.latestMessageClearTimer = undefined;
+    }
+    if (!this._latestMessage) return;
+    this.latestMessageClearTimer = setTimeout(() => {
+      try {
+        if (this._latestMessage) {
+          // Remember signature so we can suppress immediate reappearance of identical message
+          this.lastClearedMessageSig = this.computeMessageSignature(this._latestMessage, this.currentMessageTimestamp);
+          this._latestMessage = "";
+          this.messageCache = null;
+          this.cachedMessage = "";
+        }
+      } catch { }
+      finally {
+        this.latestMessageClearTimer = undefined;
+      }
+    }, 10000); // 10 seconds TTL (chat bubble lifespan)
+  }
+
+  // Safer external API to apply a chat message with optional timestamp
+  public applyChatMessage(content: string, timestamp?: string | number) {
+    if (!content) { this.clearChatMessage(); return; }
+    const sig = this.computeMessageSignature(content, timestamp);
+    // If this exact message was previously cleared, never resurrect it
+    if (sig && this.lastClearedMessageSig === sig) return;
+    this.currentMessageTimestamp = timestamp;
+    this.latestMessage = content;
+  }
+
+  public clearChatMessage() {
+    if (this._latestMessage) {
+      this.lastClearedMessageSig = this.computeMessageSignature(this._latestMessage, this.currentMessageTimestamp);
+    }
+    this.latestMessage = "";
+  }
+
+  private computeMessageSignature(content: string, timestamp?: string | number) {
+    return `${content}::${timestamp ?? ''}`;
   } 
 }
