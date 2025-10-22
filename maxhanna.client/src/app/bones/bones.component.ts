@@ -345,19 +345,21 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
               const dx = (tgtEnemy.destinationPosition?.x ?? tgtEnemy.position.x) - newDest.x;
               const dy = (tgtEnemy.destinationPosition?.y ?? tgtEnemy.position.y) - newDest.y;
               const distSq = dx * dx + dy * dy;
-              // Epsilon: only accept updates larger than 1 tile (in pixels). gridCells(1) returns pixels for one cell.
-              const epsilonPixels = gridCells(1);
+              // Epsilon: only accept updates larger than 2 tiles (in pixels). gridCells(2) returns pixels for two cells.
+              const epsilonPixels = gridCells(2);
               // If the bot is already essentially at the server destination, lock it in place to stop jitter
               const atDestination = Math.sqrt(distSq) <= epsilonPixels;
               if (atDestination) {
                 console.log(`Snapping dest position to final position ${tgtEnemy.name} from (${tgtEnemy.destinationPosition?.x ?? tgtEnemy.position.x},${tgtEnemy.destinationPosition?.y ?? tgtEnemy.position.y}) to (${newDest.x},${newDest.y})`);
-                // snap destination to current position so movement stops
-                tgtEnemy.destinationPosition = tgtEnemy.position.duplicate();
+                // snap destination to current position so movement stops  
+                tgtEnemy.destinationPosition.x = snapToGrid(tgtEnemy.position.x, gridCells(1));
+                tgtEnemy.destinationPosition.y = snapToGrid(tgtEnemy.position.y, gridCells(1));
                 this._lastServerDestinations.set(tgtEnemy.heroId, newDest);
               } else if (distSq > (epsilonPixels * epsilonPixels)) {
                 // reduce log verbosity by logging coordinates only
                 console.log(`moving ${tgtEnemy.name} from (${tgtEnemy.destinationPosition?.x ?? tgtEnemy.position.x},${tgtEnemy.destinationPosition?.y ?? tgtEnemy.position.y}) to (${newDest.x},${newDest.y})`);
-                tgtEnemy.destinationPosition = newDest;
+                tgtEnemy.destinationPosition.x = snapToGrid(newDest.x, gridCells(1));
+                tgtEnemy.destinationPosition.y = snapToGrid(newDest.y, gridCells(1));
                 this._lastServerDestinations.set(tgtEnemy.heroId, newDest);
               }
             }
