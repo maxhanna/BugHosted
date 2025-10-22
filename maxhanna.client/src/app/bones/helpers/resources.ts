@@ -10,6 +10,8 @@ export class Resources {
   // Separate mute flags for music and sound effects
   musicMuted = false;
   sfxMuted = false;
+  // Global multiplier applied to all playback volumes (0.0 - 1.0)
+  volumeMultiplier: number = 1.0;
   constructor() {
     this.imageToLoad = {
       armobot: `${this.dir}armobot.png`,
@@ -89,13 +91,16 @@ export class Resources {
     const entry = this.audios[key];
     if (!entry) return;
     const base = entry.audio;
-    const volume = opts?.volume ?? 1;
+  // Apply per-play volume and global multiplier, clamped to [0,1]
+  const requested = opts?.volume ?? 1;
+  let volume = requested * (this.volumeMultiplier ?? 1);
+  volume = Math.max(0, Math.min(1, volume));
     const loop = opts?.loop ?? false;
     const allowOverlap = opts?.allowOverlap ?? true;
     if (allowOverlap) {
       try {
         const clone = base.cloneNode(true) as HTMLAudioElement;
-        clone.volume = volume;
+  clone.volume = volume;
         clone.loop = loop;
         void clone.play();
       } catch { }
@@ -108,6 +113,12 @@ export class Resources {
         void base.play();
       } catch { }
     }
+  }
+
+  setVolumeMultiplier(mult: number) {
+    if (typeof mult !== 'number' || isNaN(mult)) return;
+    // Clamp to sensible range
+    this.volumeMultiplier = Math.max(0, Math.min(1, mult));
   }
 
   stopSound(key: string) {
