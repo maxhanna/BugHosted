@@ -134,6 +134,9 @@ export class Bot extends Character {
     this.isInvulnerable = params.isInvulnerable ?? false;   
     this.canAttack = params.canAttack ?? true; 
     this.partyMembers = params.partyMembers;
+    if (params.spriteName?.includes("skeleton")) {
+      this.textContent = [];
+    }
     this.setupEvents(); 
   }
 
