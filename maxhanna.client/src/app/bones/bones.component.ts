@@ -350,6 +350,7 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
               // If the bot is already essentially at the server destination, lock it in place to stop jitter
               const atDestination = Math.sqrt(distSq) <= epsilonPixels;
               if (atDestination) {
+                console.log(`Snapping dest position to final position ${tgtEnemy.name} from (${tgtEnemy.destinationPosition?.x ?? tgtEnemy.position.x},${tgtEnemy.destinationPosition?.y ?? tgtEnemy.position.y}) to (${newDest.x},${newDest.y})`);
                 // snap destination to current position so movement stops
                 tgtEnemy.destinationPosition = tgtEnemy.position.duplicate();
                 this._lastServerDestinations.set(tgtEnemy.heroId, newDest);
