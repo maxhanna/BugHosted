@@ -152,7 +152,6 @@ export class Bot extends Character {
       this.isLocked = true;
       resources.playSound('maleDeathScream', { volume: 0.9, loop: false, allowOverlap: true });
       this.body?.animations?.play("die");
-       
 
       setTimeout(() => {
         this.destroyBody();

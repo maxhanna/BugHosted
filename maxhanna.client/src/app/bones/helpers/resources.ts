@@ -32,6 +32,7 @@ export class Resources {
       arcadeUi: `${this.dir}arcade-ui.mp4`,
       pixelDreams: `${this.dir}pixeldreams.mp4`,
       maleDeathScream: `${this.dir}male_death_voice.mp4`,
+      punchOrImpact: `${this.dir}punch_or_impact.mp4`,
       wilhelmScream: `${this.dir}wilhelm_scream.mp3`,
     };
     this.waitForCanvas();
@@ -76,7 +77,8 @@ export class Resources {
     pixelDreams: 'music',
     wilhelmScream: 'sfx',
     arcadeUi: 'sfx',
-    maleDeathScream: 'sfx'
+    maleDeathScream: 'sfx',
+    punchOrImpact: 'sfx',
   };
 
 
