@@ -334,7 +334,7 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
         //look for enemy on the map, if he doesnt exist, create him.
         const tgtEnemy : Bot = this.mainScene.level.children.find((x: Bot) => x.heroId == enemy.heroId);
         if (tgtEnemy) {
-          console.log("found enemy", enemy);
+          console.log("found enemy", enemy, tgtEnemy);
           tgtEnemy.hp = enemy.hp;
           if (enemy.position) {
             tgtEnemy.destinationPosition = enemy.position.duplicate();
