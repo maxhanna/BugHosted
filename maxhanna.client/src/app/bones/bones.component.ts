@@ -328,6 +328,7 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
   }
   private updateEnemyEncounters(res: any) {
     const enemies = res.enemyBots as MetaBot[];
+    console.log("updating enemy encounters", enemies);
     if (enemies) {
       enemies.forEach(enemy => {
         //look for enemy on the map, if he doesnt exist, create him.
