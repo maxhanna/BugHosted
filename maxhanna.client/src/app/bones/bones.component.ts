@@ -80,6 +80,8 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
   isMuted = false;
   isMusicMuted = false;
   isSfxMuted = false;
+  // Current global volume (0.0 - 1.0) bound to the UI slider
+  currentVolume: number = 1.0;
 
 
   private currentChatTextbox?: ChatSpriteTextString | undefined; 
@@ -108,6 +110,17 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
           this.isSfxMuted = false;  
           resources.setMusicMuted(this.isMusicMuted);
           resources.setSfxMuted(this.isSfxMuted);
+          // Initialize volume from localStorage if present
+          try {
+            const saved = localStorage.getItem('bonesVolume');
+            if (saved !== null) {
+              const parsed = parseFloat(saved);
+              if (!isNaN(parsed)) {
+                this.currentVolume = Math.max(0, Math.min(1, parsed));
+                resources.setVolumeMultiplier(this.currentVolume);
+              }
+            }
+          } catch { }
             if (!this.isMusicMuted) {
               const startMusic = () => {
                  // resources.playSound("pixelDreams", { volume: 0.4, loop: true, allowOverlap: false });
@@ -210,6 +223,24 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
     this.isSfxMuted = !this.isSfxMuted;
     resources.setSfxMuted(this.isSfxMuted);
     this.isMuted = this.isMusicMuted && this.isSfxMuted;
+  }
+
+  onVolumeSliderInput(e: Event) {
+    try {
+      const val = Number((e.target as HTMLInputElement).value);
+      if (!isNaN(val)) {
+        const vol = Math.max(0, Math.min(100, val)) / 100.0;
+        this.currentVolume = vol;
+        resources.setVolumeMultiplier(this.currentVolume);
+      }
+    } catch { }
+  }
+
+  onVolumeChange(e: Event) {
+    try {
+      // Persist to localStorage for simple persistence across sessions
+      localStorage.setItem('bonesVolume', String(this.currentVolume));
+    } catch { }
   }
 
 
