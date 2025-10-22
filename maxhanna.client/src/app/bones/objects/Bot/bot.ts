@@ -267,10 +267,12 @@ export class Bot extends Character {
       // Always place the bot at a fixed offset to the right of the hero, regardless of movement
       const newX = hero.position.x + distanceFromHero;
       const newY = hero.position.y;
-      this.facingDirection = hero.facingDirection;
-      this.destinationPosition = new Vector2(newX, newY).duplicate();
-      this.previousHeroPosition = new Vector2(hero.position.x, hero.position.y);
-      console.log(`following hero`, hero, this.destinationPosition);
+      if (this.previousHeroPosition?.x != newX && this.previousHeroPosition?.y != newY) {
+        this.facingDirection = hero.facingDirection;
+        this.destinationPosition = new Vector2(newX, newY).duplicate();
+        this.previousHeroPosition = new Vector2(hero.position.x, hero.position.y);
+        console.log(`following hero`, hero, this.destinationPosition);
+      }
     }
     // if ((hero.distanceLeftToTravel ?? 0) > 35 && this.isDeployed) {
     //   console.log("bot should warp to hero");
