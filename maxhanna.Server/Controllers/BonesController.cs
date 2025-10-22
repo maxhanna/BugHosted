@@ -17,6 +17,8 @@ namespace maxhanna.Server.Controllers
 		private readonly IConfiguration _config;
 		private readonly string _connectionString;
 		private static Dictionary<string, CancellationTokenSource> activeLocks = new();
+		// Track last time encounter movement was processed per map to limit updates to once per second
+		private static readonly Dictionary<string, DateTime> _lastEncounterAiRun = new();
 		private static readonly Dictionary<SkillType, SkillType> TypeEffectiveness = new()
 		{
 				{ SkillType.SPEED, SkillType.ARMOR },
@@ -802,6 +804,17 @@ namespace maxhanna.Server.Controllers
 					SET hp = 100, last_killed = NULL, coordsX = o_coordsX, coordsY = o_coordsY 
 					WHERE map = @Map AND hp <= 0 AND last_killed IS NOT NULL AND last_killed < DATE_SUB(UTC_TIMESTAMP(), INTERVAL 120 SECOND);";
 				await ExecuteInsertOrUpdateOrDeleteAsync(respawnSql, new Dictionary<string, object?> { { "@Map", map } }, connection, transaction);
+
+				// Rate-limit movement processing to once per second per map. Allow respawn logic to run every call,
+				// but skip the expensive movement calculations if we've already processed recently.
+				lock (_lastEncounterAiRun)
+				{
+					if (_lastEncounterAiRun.TryGetValue(map, out var last) && (DateTime.UtcNow - last).TotalSeconds < 1.0)
+					{
+						return; // skip movement this tick
+					}
+					_lastEncounterAiRun[map] = DateTime.UtcNow;
+				}
 
 				// Fetch encounters needing AI processing
 				string selectSql = @"SELECT hero_id, coordsX, coordsY, o_coordsX, o_coordsY, hp, speed, aggro, last_moved 
