@@ -223,4 +223,41 @@ export class Hero extends Character {
       addsFlag: undefined
     }
   }
+
+  override drawImage(ctx: CanvasRenderingContext2D, drawPosX: number, drawPosY: number) {
+    // call base sprite draw
+    super.drawImage(ctx, drawPosX, drawPosY);
+    // Draw HP & EXP bars and level above hero (similar style to Bot)
+    const barWidth = 34;
+    const barHeight = 4;
+    const x = drawPosX - 16;
+    const topY = drawPosY - 26; // above head
+
+    // HP bar background
+    ctx.fillStyle = "#2b2b2b";
+    ctx.fillRect(x, topY, barWidth, barHeight);
+    // HP value (hero.hp may not exist; default 1/1 for now)
+    const hp = (this as any).hp ?? 1;
+    const maxHp = (this as any).maxHp ?? 1;
+    const hpRatio = Math.max(0, Math.min(1, hp / (maxHp || 1)));
+    ctx.fillStyle = "#d22";
+    ctx.fillRect(x + 1, topY + 1, (barWidth - 2) * hpRatio, barHeight - 2);
+
+    // EXP bar just below HP
+    const expBarY = topY + barHeight + 2;
+    ctx.fillStyle = "#2b2b2b";
+    ctx.fillRect(x, expBarY, barWidth, barHeight);
+    const level = (this as any).level ?? 1;
+    const exp = (this as any).exp ?? 0;
+    const needed = level * 10; // mirror server leveling heuristic
+    const expRatio = Math.max(0, Math.min(1, exp / needed));
+    ctx.fillStyle = "#2ad";
+    ctx.fillRect(x + 1, expBarY + 1, (barWidth - 2) * expRatio, barHeight - 2);
+
+    // Level text centered
+    ctx.fillStyle = "#fff";
+    ctx.font = "10px monospace";
+    ctx.textAlign = "center";
+    ctx.fillText(`Lv${level}`, x + barWidth / 2, topY - 2);
+  }
 }

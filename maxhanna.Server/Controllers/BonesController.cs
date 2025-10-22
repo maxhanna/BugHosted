@@ -294,6 +294,25 @@ namespace maxhanna.Server.Controllers
 								};
 								var botDamageEvent = new MetaEvent(0, sourceHeroId, DateTime.UtcNow, "BOT_DAMAGE", hero.Map ?? string.Empty, data);
 								await UpdateEventsInDB(botDamageEvent, connection, transaction);
+
+								// Check if encounter died (hp reached 0) to award EXP
+								try
+								{
+									string selectDeadSql = "SELECT hero_id, level, hp FROM maxhanna.bones_encounter WHERE map = @Map AND coordsX = @X AND coordsY = @Y LIMIT 1;";
+									using var deadCmd = new MySqlCommand(selectDeadSql, connection, transaction); deadCmd.Parameters.AddWithValue("@Map", hero.Map ?? string.Empty); deadCmd.Parameters.AddWithValue("@X", targetX); deadCmd.Parameters.AddWithValue("@Y", targetY);
+									using var deadRdr = await deadCmd.ExecuteReaderAsync();
+									int encLevel = 0; int encHp = -1; int encId = 0;
+									if (await deadRdr.ReadAsync()) { encHp = deadRdr.GetInt32(deadRdr.GetOrdinal("hp")); encLevel = deadRdr.IsDBNull(deadRdr.GetOrdinal("level")) ? 0 : deadRdr.GetInt32(deadRdr.GetOrdinal("level")); encId = deadRdr.GetInt32(deadRdr.GetOrdinal("hero_id")); }
+									deadRdr.Close();
+									if (encHp == 0)
+									{
+										await AwardEncounterKillExp(sourceHeroId, encLevel, connection, transaction);
+									}
+								}
+								catch (Exception ex2)
+								{
+									await _log.Db("Failed awarding EXP: " + ex2.Message, hero.Id, "BONES", true);
+								}
 							}
 						}
 						catch (Exception ex)
@@ -691,17 +710,19 @@ namespace maxhanna.Server.Controllers
 				if (conn.State != System.Data.ConnectionState.Open) await conn.OpenAsync();
 				if (transaction == null) throw new InvalidOperationException("Transaction is required for this operation.");
 				if (userId == 0 && heroId == null) return null;
-				string sql = $"SELECT h.id as hero_id, h.coordsX, h.coordsY, h.map, h.speed, h.name as hero_name, h.color as hero_color, h.mask as hero_mask, b.id as bot_id, b.name as bot_name, b.type as bot_type, b.hp as bot_hp, b.is_deployed as bot_is_deployed, b.level as bot_level, b.exp as bot_exp, p.id as part_id, p.part_name, p.type as part_type, p.damage_mod, p.skill FROM maxhanna.bones_hero h LEFT JOIN maxhanna.bones_bot b ON h.id = b.hero_id LEFT JOIN maxhanna.bones_bot_part p ON b.id = p.metabot_id WHERE {(heroId == null ? "h.user_id = @UserId" : "h.id = @UserId")};";
+				string sql = $"SELECT h.id as hero_id, h.coordsX, h.coordsY, h.map, h.speed, h.name as hero_name, h.color as hero_color, h.mask as hero_mask, h.level as hero_level, h.exp as hero_exp, b.id as bot_id, b.name as bot_name, b.type as bot_type, b.hp as bot_hp, b.is_deployed as bot_is_deployed, b.level as bot_level, b.exp as bot_exp, p.id as part_id, p.part_name, p.type as part_type, p.damage_mod, p.skill FROM maxhanna.bones_hero h LEFT JOIN maxhanna.bones_bot b ON h.id = b.hero_id LEFT JOIN maxhanna.bones_bot_part p ON b.id = p.metabot_id WHERE {(heroId == null ? "h.user_id = @UserId" : "h.id = @UserId")};";
 				MySqlCommand cmd = new(sql, conn, transaction); cmd.Parameters.AddWithValue("@UserId", heroId != null ? heroId : userId);
 				MetaHero? hero = null; Dictionary<int, MetaBot> metabotDict = new();
 				using (var reader = await cmd.ExecuteReaderAsync())
 				{
 					while (reader.Read())
 					{
-						if (hero == null)
-						{
-							hero = new MetaHero { Id = reader.GetInt32("hero_id"), Position = new Vector2(reader.GetInt32("coordsX"), reader.GetInt32("coordsY")), Speed = reader.GetInt32("speed"), Map = SafeGetString(reader, "map") ?? string.Empty, Name = SafeGetString(reader, "hero_name"), Color = SafeGetString(reader, "hero_color") ?? string.Empty, Mask = reader.IsDBNull(reader.GetOrdinal("hero_mask")) ? null : reader.GetInt32("hero_mask"), Metabots = new List<MetaBot>() };
-						}
+							if (hero == null)
+							{
+								int levelOrd = reader.GetOrdinal("hero_level");
+								int expOrd = reader.GetOrdinal("hero_exp");
+								hero = new MetaHero { Id = reader.GetInt32("hero_id"), Position = new Vector2(reader.GetInt32("coordsX"), reader.GetInt32("coordsY")), Speed = reader.GetInt32("speed"), Map = SafeGetString(reader, "map") ?? string.Empty, Name = SafeGetString(reader, "hero_name"), Color = SafeGetString(reader, "hero_color") ?? string.Empty, Mask = reader.IsDBNull(reader.GetOrdinal("hero_mask")) ? null : reader.GetInt32("hero_mask"), Level = reader.IsDBNull(levelOrd) ? 0 : reader.GetInt32(levelOrd), Exp = reader.IsDBNull(expOrd) ? 0 : reader.GetInt32(expOrd), Metabots = new List<MetaBot>() };
+							}
 						if (!reader.IsDBNull(reader.GetOrdinal("bot_id")))
 						{
 							int botId = reader.GetInt32("bot_id");
@@ -902,7 +923,7 @@ namespace maxhanna.Server.Controllers
 				if (transaction == null) throw new InvalidOperationException("Transaction is required for this operation.");
 				Dictionary<int, MetaHero> heroesDict = new();
 				// Return nearby hero records only; encounter bots are constructed client-side from bones_encounter.
-				string sql = @"SELECT m.id as hero_id, m.name as hero_name, m.map as hero_map, m.coordsX, m.coordsY, m.speed, m.color, m.mask, m.level as hero_level, m.updated as hero_updated, m.created as hero_created FROM maxhanna.bones_hero m WHERE m.map = @HeroMapId ORDER BY m.coordsY ASC;";
+				string sql = @"SELECT m.id as hero_id, m.name as hero_name, m.map as hero_map, m.coordsX, m.coordsY, m.speed, m.color, m.mask, m.level as hero_level, m.exp as hero_exp, m.updated as hero_updated, m.created as hero_created FROM maxhanna.bones_hero m WHERE m.map = @HeroMapId ORDER BY m.coordsY ASC;";
 				MySqlCommand cmd = new(sql, conn, transaction); cmd.Parameters.AddWithValue("@HeroMapId", hero.Map);
 				using (var reader = await cmd.ExecuteReaderAsync())
 				{
@@ -916,6 +937,7 @@ namespace maxhanna.Server.Controllers
 							var name = reader.IsDBNull(reader.GetOrdinal("hero_name")) ? null : reader.GetString(reader.GetOrdinal("hero_name"));
 							var mapVal = reader.IsDBNull(reader.GetOrdinal("hero_map")) ? string.Empty : reader.GetString(reader.GetOrdinal("hero_map"));
 							var level = reader.IsDBNull(reader.GetOrdinal("hero_level")) ? 0 : reader.GetInt32(reader.GetOrdinal("hero_level"));
+							var exp = reader.IsDBNull(reader.GetOrdinal("hero_exp")) ? 0 : reader.GetInt32(reader.GetOrdinal("hero_exp"));
 							var color = reader.IsDBNull(reader.GetOrdinal("color")) ? string.Empty : reader.GetString(reader.GetOrdinal("color"));
 							int? mask = reader.IsDBNull(reader.GetOrdinal("mask")) ? (int?)null : reader.GetInt32(reader.GetOrdinal("mask"));
 							int coordsX = reader.IsDBNull(reader.GetOrdinal("coordsX")) ? 0 : reader.GetInt32(reader.GetOrdinal("coordsX"));
@@ -928,6 +950,7 @@ namespace maxhanna.Server.Controllers
 								Name = name,
 								Map = mapVal,
 								Level = level,
+								Exp = exp,
 								Color = color,
 								Mask = mask,
 								Position = new Vector2(coordsX, coordsY),
@@ -1051,6 +1074,39 @@ namespace maxhanna.Server.Controllers
 				if (sql.Length > 0) await ExecuteInsertOrUpdateOrDeleteAsync(sql.ToString(), parameters, connection, transaction);
 			}
 			catch (Exception) { throw; }
+		}
+		private async Task AwardEncounterKillExp(int killerHeroId, int encounterLevel, MySqlConnection connection, MySqlTransaction transaction)
+		{
+			if (encounterLevel <= 0) encounterLevel = 1;
+			try
+			{
+				List<int> partyIds = new();
+				string partySql = @"SELECT bones_hero_id_1 AS hero_id FROM bones_hero_party WHERE bones_hero_id_2 = @HeroId
+					UNION SELECT bones_hero_id_2 AS hero_id FROM bones_hero_party WHERE bones_hero_id_1 = @HeroId
+					UNION SELECT @HeroId AS hero_id";
+				using (var pCmd = new MySqlCommand(partySql, connection, transaction))
+				{
+					pCmd.Parameters.AddWithValue("@HeroId", killerHeroId);
+					using var pR = await pCmd.ExecuteReaderAsync();
+					while (await pR.ReadAsync()) partyIds.Add(pR.GetInt32(0));
+				}
+				if (partyIds.Count == 0) partyIds.Add(killerHeroId);
+				string updateSql = $"UPDATE maxhanna.bones_hero SET exp = exp + @Exp WHERE id IN ({string.Join(',', partyIds)})";
+				using (var upCmd = new MySqlCommand(updateSql, connection, transaction))
+				{
+					upCmd.Parameters.AddWithValue("@Exp", encounterLevel);
+					await upCmd.ExecuteNonQueryAsync();
+				}
+				string levelSql = $"UPDATE maxhanna.bones_hero SET level = level + 1 WHERE id IN ({string.Join(',', partyIds)}) AND exp >= (level * 10)";
+				using (var lvlCmd = new MySqlCommand(levelSql, connection, transaction))
+				{
+					await lvlCmd.ExecuteNonQueryAsync();
+				}
+			}
+			catch (Exception ex)
+			{
+				await _log.Db("AwardEncounterKillExp failure: " + ex.Message, killerHeroId, "BONES", true);
+			}
 		}
 		private async Task UpdateMetaHeroParty(List<int>? partyData, MySqlConnection connection, MySqlTransaction transaction)
 		{
