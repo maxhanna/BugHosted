@@ -465,7 +465,6 @@ export class Character extends GameObject {
 
 
   drawLatestMessage(ctx: CanvasRenderingContext2D, characterCenterX: number, characterTopY: number) {
-    // If message was cleared, ensure cache removed and skip drawing so bubble disappears
     if (!this.latestMessage || !this.latestMessage.trim()) {
       if (this.messageCache) {
         this.messageCache = null;
