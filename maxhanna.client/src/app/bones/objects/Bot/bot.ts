@@ -133,10 +133,7 @@ export class Bot extends Character {
     this.isEnemy = params.isEnemy ?? false; 
     this.isInvulnerable = params.isInvulnerable ?? false;   
     this.canAttack = params.canAttack ?? true; 
-    this.partyMembers = params.partyMembers;
-    if (params.spriteName?.includes("skeleton")) {
-      this.textContent = [];
-    }
+    this.partyMembers = params.partyMembers; 
     this.setupEvents(); 
   }
 
@@ -207,19 +204,20 @@ export class Bot extends Character {
   }
 
   override getContent() { 
-    if (this.textContent) {
-      return this.textContent[0];
-    } else { 
-      const owner = this.parent.children.find((child: any) => child.id == this.heroId);
-      const isHero = (owner instanceof Hero);
-      let scenario = {
-        portraitFrame: 0,
-        string: [isHero ? "Monitoring... No threat detected." : "Threat detected. Step away!", `HP: ${this.hp}`, `Owner: ${owner.name}`],
-        addsFlag: undefined,
-        canSelectItems: false
-      } as Scenario
-      return  scenario;
-    } 
+    return undefined;
+    // if (this.textContent) {
+    //   return this.textContent[0];
+    // } else { 
+    //   const owner = this.parent.children.find((child: any) => child.id == this.heroId);
+    //   const isHero = (owner instanceof Hero);
+    //   let scenario = {
+    //     portraitFrame: 0,
+    //     string: [isHero ? "Monitoring... No threat detected." : "Threat detected. Step away!", `HP: ${this.hp}`, `Owner: ${owner.name}`],
+    //     addsFlag: undefined,
+    //     canSelectItems: false
+    //   } as Scenario
+    //   return  scenario;
+    // } 
   }
    
   override drawImage(ctx: CanvasRenderingContext2D, drawPosX: number, drawPosY: number) {
