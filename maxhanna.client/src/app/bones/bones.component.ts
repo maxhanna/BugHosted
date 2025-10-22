@@ -110,7 +110,7 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
           resources.setSfxMuted(this.isSfxMuted);
             if (!this.isMusicMuted) {
               const startMusic = () => {
-                  resources.playSound("pixelDreams", { volume: 0.4, loop: true, allowOverlap: false });
+                 // resources.playSound("pixelDreams", { volume: 0.4, loop: true, allowOverlap: false });
                   document.removeEventListener('pointerdown', startMusic);
                   document.removeEventListener('keydown', startMusic);
               };
@@ -190,6 +190,26 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
   // clear any outstanding chat timers
   for (const entry of this.heroMessageExpiryTimers.values()) { try { if (entry?.timer) clearTimeout(entry.timer); } catch { } }
   this.heroMessageExpiryTimers.clear();
+  }
+
+  toggleMusic() {
+    this.isMusicMuted = !this.isMusicMuted;
+    resources.setMusicMuted(this.isMusicMuted);
+    if (!this.isMusicMuted) {
+    //  resources.playSound("pixelDreams", { volume: 0.4, loop: true, allowOverlap: false });
+    } else {
+     // resources.stopSound("pixelDreams");
+    }
+    this.isMuted = this.isMusicMuted;
+    if (this.parentRef?.user?.id) {
+      this.userService.updateMuteSounds(this.parentRef.user.id, this.isMuted).catch(() => { });
+    }
+  }
+
+  toggleSfx() {
+    this.isSfxMuted = !this.isSfxMuted;
+    resources.setSfxMuted(this.isSfxMuted);
+    this.isMuted = this.isMusicMuted && this.isSfxMuted;
   }
 
 

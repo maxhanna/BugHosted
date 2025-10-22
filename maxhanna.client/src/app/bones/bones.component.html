@@ -92,6 +92,10 @@
     </div>
 
   <input *ngIf="mainScene?.level?.name === 'CharacterCreate'" type="color" (change)='changeColor()' #colorInput class="colorInput" [value]="cachedDefaultColor ?? metaHero.color" />
+  <div class="musicOptionsContainer compactMusic" *ngIf="parentRef?.user?.id && !isMenuPanelOpen">
+    <button class="musicButton" (click)="toggleSfx()" [title]="isSfxMuted ? 'Unmute SFX' : 'Mute SFX'" aria-label="SFX toggle">{{ isSfxMuted ? '🔇' : '🔊' }}</button>
+    <button class="musicButton" (click)="toggleMusic()" [title]="isMusicMuted ? 'Unmute Music' : 'Mute Music'" aria-label="Music toggle">{{ isMusicMuted ? '🔇' : '🎵' }}</button>
+  </div>
   </div>
   <app-user class="popupPanel ucPopupPanel" *ngIf="isUserComponentOpen" [loginOnly]="true"
     [inputtedParentRef]="parentRef" [canClose]="false" (closeUserComponentEvent)="closeUserComponent($event)"
@@ -101,6 +105,18 @@
 <!-- Menu Popup -->
 <div class="popupPanel" style="overflow: auto;" *ngIf="isMenuPanelOpen">
   <div class="popupPanelTitle mainPopupTitle">Meta-Bots Highscores</div>
+  <div class="musicOptionsContainer" style="padding: 6px 8px;">
+    <div>
+      <button class="musicButton" (click)="toggleSfx()" style="margin-bottom:6px;" [title]="isSfxMuted ? 'Unmute SFX' : 'Mute SFX'" aria-label="SFX toggle">
+        {{ isSfxMuted ? 'Unmute SFX' : 'Mute SFX' }} 
+      </button>
+    </div>
+    <div style="margin-top:6px;">
+      <button class="musicButton" (click)="toggleMusic()" [title]="isMusicMuted ? 'Unmute Music' : 'Mute Music'" aria-label="Music toggle">
+        {{ isMusicMuted ? 'Unmute Music' : 'Mute Music' }} 
+      </button>
+    </div>
+  </div>
   <div class="metaHighscoresSection">
     <div class="popupPanelTitle">Top Metabots</div>
     <div class="topRankTableContainer">
