@@ -85,6 +85,8 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
   private currentChatTextbox?: ChatSpriteTextString | undefined; 
   private pollingInterval: any;
   private _processedCleanupInterval: any;
+  // Per-hero message expiry timers keyed by hero id (mirrors Ender behavior)
+  private heroMessageExpiryTimers: Map<number, { timer: any, msg: string }> = new Map();
 
   async ngOnInit() {
     this.serverDown = (this.parentRef ? await this.parentRef?.isServerUp() <= 0 : false);
@@ -153,6 +155,9 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
     this.remove_me('MetaComponent');
     this.parentRef?.setViewportScalability(true);
     this.parentRef?.removeResizeListener();
+  // clear any outstanding chat timers
+  for (const entry of this.heroMessageExpiryTimers.values()) { try { if (entry?.timer) clearTimeout(entry.timer); } catch { } }
+  this.heroMessageExpiryTimers.clear();
   }
 
 
@@ -499,12 +504,48 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
   private setHeroLatestMessage(existingHero: any) {
     if (existingHero === undefined) return;
     const latestMsg = this.latestMessagesMap.get(existingHero.name);
-    if (latestMsg) {
-      existingHero.latestMessage = latestMsg.content;
+    if (latestMsg && latestMsg.content) {
+      const existingTimer = this.heroMessageExpiryTimers.get(existingHero.id);
+      if (!existingTimer || existingTimer.msg !== latestMsg.content) {
+        if (existingTimer) {
+          clearTimeout(existingTimer.timer);
+          this.heroMessageExpiryTimers.delete(existingHero.id);
+        }
+        if (typeof existingHero.applyChatMessage === 'function') {
+          existingHero.applyChatMessage(latestMsg.content, latestMsg.timestamp);
+        } else {
+          existingHero.latestMessage = latestMsg.content;
+        }
+        const timer = setTimeout(() => {
+          const current = this.heroMessageExpiryTimers.get(existingHero.id);
+          if (current && current.msg === latestMsg.content) {
+            this.latestMessagesMap.delete(existingHero.name);
+            if (typeof existingHero.clearChatMessage === 'function') {
+              existingHero.clearChatMessage();
+            } else {
+              existingHero.latestMessage = "";
+            }
+            this.heroMessageExpiryTimers.delete(existingHero.id);
+          }
+        }, 10000); // 10s TTL to match Ender
+        this.heroMessageExpiryTimers.set(existingHero.id, { timer, msg: latestMsg.content });
+      }
     } else {
-      existingHero.latestMessage = "";
+      // No message -> clear any existing timer & bubble
+      const existingTimer = this.heroMessageExpiryTimers.get(existingHero.id);
+      if (existingTimer) {
+        clearTimeout(existingTimer.timer);
+        this.heroMessageExpiryTimers.delete(existingHero.id);
+      }
+      if (typeof existingHero.clearChatMessage === 'function') {
+        existingHero.clearChatMessage();
+      } else {
+        existingHero.latestMessage = "";
+      }
+      this.latestMessagesMap.delete(existingHero.name);
     }
   }
+
   displayChatMessage() { 
     if (this.chat.length >= 10) {
       this.chat.pop();  
@@ -515,18 +556,18 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
 
     this.latestMessagesMap.clear();
     let latestMessages: string[] = [];
-    const twentySecondsAgo = new Date(Date.now() - 20000);
+  const twentySecondsAgo = new Date(Date.now() - 10000); // match Ender 10s bubble TTL
     
     this.chat.forEach((message: MetaChat) => {
       const timestampDate = message.timestamp ? new Date(message.timestamp) : undefined;
 
-      if (timestampDate && timestampDate > twentySecondsAgo) {
-        const existingMessage = this.latestMessagesMap.get(message.hero);
+        if (timestampDate && timestampDate > twentySecondsAgo) {
+          const existingMessage = this.latestMessagesMap.get(message.hero);
 
-        if (!existingMessage || (existingMessage && existingMessage.timestamp && new Date(existingMessage.timestamp) < timestampDate)) {
-          this.latestMessagesMap.set(message.hero, message);
+          if (!existingMessage || (existingMessage && existingMessage.timestamp && new Date(existingMessage.timestamp) < timestampDate)) {
+            this.latestMessagesMap.set(message.hero, message);
+          }
         }
-      }
       latestMessages.push(`${message.hero}: ${message.content}`);
     });
     this.currentChatTextbox = new ChatSpriteTextString({

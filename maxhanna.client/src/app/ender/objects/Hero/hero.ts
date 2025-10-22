@@ -133,7 +133,6 @@ export class Hero extends Character {
     if (!this.body) return;
     const moved = this.position.x !== prevPos.x || this.position.y !== prevPos.y;
     if (moved && this.isUserControlled) {
-      // Emit movement event so UI (e.g., chat bubble) can follow hero
       events.emit("HERO_MOVED", { id: this.id, x: this.position.x, y: this.position.y });
     }
     if (!this.isUserControlled) return;
