@@ -38,6 +38,8 @@ export class Bot extends Character {
   chaseCancelBlock = new Date();
 
   private targetingInterval?: any;
+  // Track the last observed gap (in pixels) to ensure following gap doesn't increase
+  private lastFollowGap: number = Number.POSITIVE_INFINITY;
 
   constructor(params: {
     position: Vector2,
@@ -262,20 +264,45 @@ export class Bot extends Character {
   } 
 
   private followHero(hero: Character) {
-    if (this.hp > 0) {
-      const distanceFromHero = gridCells(2);
-      // Always place the bot at a fixed offset to the right of the hero, regardless of movement
-      const tmpHeroPos = hero.position.duplicate();
-      tmpHeroPos.x = tmpHeroPos.x + distanceFromHero;
-      if (!this.destinationPosition?.duplicate().matches(tmpHeroPos) && (gridCells(2) < (this.destinationPosition.x - hero.position.x)) && (gridCells(2) < (this.destinationPosition.y - hero.position.y))) { 
-        const newX = tmpHeroPos.x;
-        const newY = tmpHeroPos.y;
-        this.facingDirection = hero.facingDirection;
-        this.destinationPosition = new Vector2(newX, newY).duplicate();
-        this.previousHeroPosition = new Vector2(hero.position.x, hero.position.y);
-        console.log(`following hero`, hero, this.destinationPosition);
-      } 
+    if (this.hp <= 0) return;
+    const distanceFromHero = gridCells(2);
+    // Desired target position next to hero (to the right)
+    const desiredPos = hero.position.duplicate();
+    desiredPos.x += distanceFromHero;
+
+    // Current gap between bot and hero (euclidean)
+    const dxNow = (this.position.x ?? 0) - hero.position.x;
+    const dyNow = (this.position.y ?? 0) - hero.position.y;
+    const currentGap = Math.sqrt(dxNow * dxNow + dyNow * dyNow);
+
+    // Desired gap if we teleport to desiredPos
+    const dxDesired = desiredPos.x - hero.position.x;
+    const dyDesired = desiredPos.y - hero.position.y;
+    const desiredGap = Math.sqrt(dxDesired * dxDesired + dyDesired * dyDesired);
+
+    // If following would increase the gap beyond the last observed gap, clamp movement to close the gap
+    let finalTarget = desiredPos.duplicate();
+    if (this.lastFollowGap !== Number.POSITIVE_INFINITY && desiredGap > this.lastFollowGap) {
+      // Move the destination toward the hero so gap doesn't increase: interpolate between desiredPos and hero.position
+      const excess = desiredGap - this.lastFollowGap;
+      const dirX = desiredPos.x - hero.position.x;
+      const dirY = desiredPos.y - hero.position.y;
+      const len = Math.sqrt(dirX * dirX + dirY * dirY) || 1;
+      // Reduce the separation by 'excess' but don't move past hero
+      const reduce = Math.min(excess, len - 1);
+      finalTarget.x = desiredPos.x - (dirX / len) * reduce;
+      finalTarget.y = desiredPos.y - (dirY / len) * reduce;
     }
+
+    // Only update destination if it changed meaningfully
+    if (!this.destinationPosition?.duplicate().matches(finalTarget)) {
+      this.facingDirection = hero.facingDirection;
+      this.destinationPosition = finalTarget.duplicate();
+      this.previousHeroPosition = hero.position.duplicate();
+    }
+
+    // Update lastFollowGap to the smaller of current observed or desired gap so it will never grow
+    this.lastFollowGap = Math.min(this.lastFollowGap, desiredGap, currentGap);
     // if ((hero.distanceLeftToTravel ?? 0) > 35 && this.isDeployed) {
     //   console.log("bot should warp to hero");
     // }

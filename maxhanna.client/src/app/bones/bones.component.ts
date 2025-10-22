@@ -334,21 +334,22 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
         const tgtEnemy : Bot = this.mainScene.level.children.find((x: Bot) => x.heroId == enemy.heroId && x.isDeployed);
         if (tgtEnemy) {
           tgtEnemy.hp = enemy.hp;
+          tgtEnemy.position = enemy.position!.duplicate();
           // Track server-provided targetHeroId and react to changes
-          const incomingTarget = (enemy as any).targetHeroId ?? null;
-          const previousTarget = (tgtEnemy as any).targetHeroId ?? null;
-          if (incomingTarget !== previousTarget) {
-            try {
-              (tgtEnemy as any).targetHeroId = incomingTarget;
-              if (incomingTarget != null) {
-                // If a new target is set, notify the scene so the bot can follow
-                const heroObj = this.mainScene.level.children.find((x: any) => x.id === incomingTarget);
-                if (heroObj) {
-                  events.emit("CHARACTER_POSITION", heroObj);
-                }
-              }
-            } catch { }
-          }
+          // const incomingTarget = (enemy as any).targetHeroId ?? null;
+          // const previousTarget = (tgtEnemy as any).targetHeroId ?? null;
+          // if (incomingTarget !== previousTarget) {
+          //   try {
+          //     (tgtEnemy as any).targetHeroId = incomingTarget;
+          //     if (incomingTarget != null) {
+          //       // If a new target is set, notify the scene so the bot can follow
+          //       const heroObj = this.mainScene.level.children.find((x: any) => x.id === incomingTarget);
+          //       if (heroObj) {
+          //         events.emit("CHARACTER_POSITION", heroObj);
+          //       }
+          //     }
+          //   } catch { }
+          //}
           // If server reports this encounter is dead, destroy the client object and clean up caches
           if (tgtEnemy && tgtEnemy.heroId && (tgtEnemy.hp ?? 0) <= 0) {
             try {
