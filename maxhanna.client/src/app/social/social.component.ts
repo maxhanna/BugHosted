@@ -38,6 +38,7 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
   isMenuPanelOpen = false;
   trendingSearches: string[] = [];
   isStoryOptionsPanelOpen = false;
+  isStoryVisibilityPanelOpen = false;
   isPostOptionsPanelOpen = false; 
   isEditing: number[] = [];
   editingTopics: number[] = [];
@@ -403,6 +404,36 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
       console.error('Failed to update visibility', err);
       this.parentRef?.showNotification('Failed to update visibility');
     }
+  }
+
+  maybeShowStoryOptionsPanel(story: Story) {
+    const currentUserId = this.parentRef?.user?.id ?? this.parent?.user?.id;
+    if (!story || !story.user) return; 
+    if (currentUserId && (story.user.id === currentUserId || currentUserId === 1)) {
+      // open visibility panel instead of general story options
+      this.showStoryVisibilityPanel(story);
+    } else {
+      this.parentRef?.showNotification('You are not the owner of this post.');
+    }
+  }
+
+  // Story visibility panel handlers
+  visibilityStory?: Story;
+  showStoryVisibilityPanel(story: Story) {
+    if (this.isStoryVisibilityPanelOpen) {
+      this.closeStoryVisibilityPanel();
+      return;
+    }
+    this.visibilityStory = story;
+    this.isStoryVisibilityPanelOpen = true;
+    const parent = this.parent ?? this.parentRef;
+    parent?.showOverlay();
+  }
+  closeStoryVisibilityPanel() {
+    this.isStoryVisibilityPanelOpen = false;
+    this.visibilityStory = undefined;
+    const parent = this.parent ?? this.parentRef;
+    parent?.closeOverlay();
   }
 
   async removeTopicsFromStory(topicsToRemove: Topic[], story: Story) { 

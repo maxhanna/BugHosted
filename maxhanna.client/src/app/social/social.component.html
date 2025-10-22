@@ -329,6 +329,24 @@
       <button id="closeOverlay" (click)="closeStoryOptionsPanel()" class="closeButton" style="margin-top: 8px;">Close</button>
     </div>
 
+    <!-- Story Visibility Popup (dedicated panel) -->
+    <div class="popupPanel storyVisibilityPopup" *ngIf="isStoryVisibilityPanelOpen && visibilityStory">
+      <div class="popupPanelTitle" style="margin-bottom: 15px;">Edit Visibility</div>
+      <div class="popupSectionContainer gradientBackground">
+        <div class="storyOptionsPopupButtons" style="margin-bottom: 15px;">
+          <div>
+            <label>Visibility:</label>
+            <select [value]="visibilityStory.visibility" (change)="onOptionStoryVisibilityChange($event, visibilityStory)">
+              <option value="public">Public</option>
+              <option value="following">Following</option>
+              <option value="self">Self</option>
+            </select>
+          </div>
+        </div>
+      </div>
+      <button id="closeOverlay" (click)="closeStoryVisibilityPanel()" class="closeButton" style="margin-top: 8px;">Close</button>
+    </div>
+
     <!-- Story Input -->
     <div class="storyInputDiv" *ngIf="!showOnlyPost || user"> 
         <app-text-input 
@@ -360,6 +378,10 @@
                 [userProfileId]="userProfileId" [component]="story" [showSpan]="false"
                 [currentReactions]="story.reactions" [previousComponent]="'Social'"></app-reaction>
             </span> 
+            <button *ngIf="story.visibility === 'self'" class="postOptionButtons showPostOptionButton coloredBgButton"
+              title="Visible to you only" (click)="maybeShowStoryOptionsPanel(story)">🔒</button>
+            <button *ngIf="story.visibility === 'following'" class="postOptionButtons showPostOptionButton coloredBgButton"
+              title="Visible to followers" (click)="maybeShowStoryOptionsPanel(story)">👥</button>
             <button (click)="showStoryOptionsPanel(story);" class="postOptionButtons showPostOptionButton coloredBgButton"
               title="Show post options">
               ⚙️
