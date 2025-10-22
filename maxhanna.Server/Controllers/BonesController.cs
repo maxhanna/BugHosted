@@ -659,7 +659,7 @@ namespace maxhanna.Server.Controllers
 					using var partyReader = await partyCmd.ExecuteReaderAsync();
 					while (await partyReader.ReadAsync()) partyMemberIds.Add(Convert.ToInt32(partyReader["hero_id"]));
 				}
-				string sql = @"DELETE FROM maxhanna.bones_event WHERE timestamp < NOW() - INTERVAL 20 SECOND; SELECT * FROM maxhanna.bones_event WHERE map = @Map OR (event = 'CHAT' AND hero_id IN (" + string.Join(",", partyMemberIds) + "));";
+				string sql = @"DELETE FROM maxhanna.bones_event WHERE timestamp < UTC_TIMESTAMP() - INTERVAL 20 SECOND; SELECT * FROM maxhanna.bones_event WHERE map = @Map OR (event = 'CHAT' AND hero_id IN (" + string.Join(",", partyMemberIds) + "));";
 				MySqlCommand cmd = new(sql, connection, transaction); cmd.Parameters.AddWithValue("@Map", map);
 				List<MetaEvent> events = new();
 				using (var reader = await cmd.ExecuteReaderAsync())
