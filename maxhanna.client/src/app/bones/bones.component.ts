@@ -22,7 +22,7 @@ import { InventoryItem } from './objects/InventoryItem/inventory-item';
 import { DroppedItem } from './objects/Environment/DroppedItem/dropped-item'; 
 import { ColorSwap } from '../../services/datacontracts/bones/color-swap';
 import { MetaBot } from '../../services/datacontracts/bones/meta-bot';
-import { MetaBotPart } from '../../services/datacontracts/bones/meta-bot-part';
+import { HeroInventoryItem } from '../../services/datacontracts/bones/hero-inventory-item';
 import { Mask, getMaskNameById } from './objects/Wardrobe/mask';
 import { Bot } from './objects/Bot/bot';
 import { Character } from './objects/character'; 
@@ -593,7 +593,7 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
     return tmpBot;
   }
 
-  private addItemToScene(item: MetaBotPart, location: Vector2) {
+  private addItemToScene(item: HeroInventoryItem, location: Vector2) {
     const offsets = [
       new Vector2(-gridCells(1), 0),
       new Vector2(-gridCells(2), 0),
@@ -751,9 +751,9 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
   await this.bonesService.fetchInventoryData(this.metaHero.id).then((inventoryData: any) => {
       if (inventoryData) {
         const inventoryItems = inventoryData.inventory as InventoryItem[];
-        const metabotParts = inventoryData.parts as MetaBotPart[];
+        const heroInventoryItems = inventoryData.parts as HeroInventoryItem[];
         this.mainScene.inventory.partyMembers = this.partyMembers;
-        this.mainScene.inventory.parts = metabotParts;
+        this.mainScene.inventory.parts = inventoryItems;
         for (let item of inventoryItems) {
           let invItem = {
             image: item.image,

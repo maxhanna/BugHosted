@@ -1,23 +1,25 @@
 import { Skill } from "../../../app/bones/helpers/skill-types"; 
 
-export class MetaBotPart {
+export type PartName = "HELM" | "ARMOR" | "WEAPON";
+
+export class HeroInventoryItem {
   id: number;
-  metabotId?: number;
+  heroId?: number;
   type: number;
-  partName: "HEAD" | "LEGS" | "LEFT_ARM" | "RIGHT_ARM";
+  partName: PartName;
   damageMod: number;
   skill: Skill;
 
   constructor(params: {
     id: number,
-    metabotId?: number, 
-    partName: "HEAD" | "LEGS" | "LEFT_ARM" | "RIGHT_ARM",
+    heroId?: number, 
+    partName: PartName,
     type?: number,
     damageMod: number,
     skill: Skill
   }) {
     this.id = params.id;
-    this.metabotId = params.metabotId;
+    this.heroId = params.heroId;
     this.partName = params.partName;
     this.type = params.type ?? params.skill.type;
     this.skill = params.skill;

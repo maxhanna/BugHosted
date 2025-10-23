@@ -1,5 +1,4 @@
 import { Bot } from '../objects/Bot/bot';
-import { HEAD, LEFT_ARM, LEGS, MetaBotPart, RIGHT_ARM } from '../../../services/datacontracts/bones/meta-bot-part';
 import { Character } from '../objects/character';
 import { CHAIN, FLARE, HEADBUTT, KICK, LEFT_PUNCH, RAIL, RIGHT_PUNCH, Skill, SkillType, STING, SUBSONIC } from './skill-types';
 import { getBotsInRange } from './move-towards';
@@ -118,61 +117,6 @@ export function faceTarget(source: Bot, target: Bot) {
     source.body?.animations?.play("attack" + source.facingDirection.charAt(0) + source.facingDirection.substring(1, source.facingDirection.length).toLowerCase());
     //console.log("set animation to : ", source.body?.animations?.activeKey);
   } 
-}
-
-export function generateReward(source: Bot, target: Bot) { 
-  if (target == undefined || !target.id) return;
-  const dropChance = 0.5;
-  const roll = Math.random();
-
-  if (roll > dropChance) { 
-    return;
-  }
-
-  let generatedPart = undefined;
-  const skills = [
-    { skill: HEADBUTT, partName: HEAD },
-    { skill: KICK, partName: LEGS },
-    { skill: LEFT_PUNCH, partName: LEFT_ARM },
-    { skill: RIGHT_PUNCH, partName: RIGHT_ARM },
-  ];
-
-  let generateGenericPart = true; 
- 
-
-  // if (parts.length > 0) { 
-  //   const randomPart = parts[Math.floor(Math.random() * parts.length)];
-  //   if (randomPart) { 
-  //     const randomDamageMod = Math.floor(Math.random() * randomPart.damageMod) + 1;
-
-  //     generatedPart = new MetaBotPart({
-  //       id: 0,
-  //       metabotId: target.id,
-  //       skill: randomPart.skill,
-  //       type: randomPart.type,
-  //       damageMod: randomDamageMod,
-  //       partName: randomPart.partName,
-  //     });
-  //     generateGenericPart = false;
-  //   } 
-  // }
-
-  // if (generateGenericPart) { 
-  //   const randomSkill = skills[Math.floor(Math.random() * skills.length)];
-  //   const partName = (randomSkill.partName ?? HEAD);
-  //   generatedPart = new MetaBotPart({
-  //     id: 0,
-  //     metabotId: target.id,
-  //     skill: randomSkill.skill,
-  //     type: SkillType.NORMAL,
-  //     damageMod: 1,
-  //     partName: partName as typeof HEAD,
-  //   }); 
-  // }
-
-  // if (generatedPart) {
-  //   events.emit("GOT_REWARDS", { location: target.position, part: generatedPart });
-  // }
 }
 
 export function setTargetToDestroyed(target: Bot) {

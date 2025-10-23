@@ -7,7 +7,7 @@ import { MetaHero } from "../../../services/datacontracts/bones/meta-hero";
 import { InventoryItem } from "./InventoryItem/inventory-item";
 import { storyFlags, GOT_WATCH, GOT_FIRST_METABOT } from "../helpers/story-flags";
 import { StartMenu } from "./Menu/start-menu";
-import { MetaBotPart } from "../../../services/datacontracts/bones/meta-bot-part";
+import { MetaBotPart } from "../../../services/datacontracts/bones/hero-inventory-item";
 import { Character } from "./character";
 import { Exit } from "./Environment/Exit/exit";
 import { SpriteTextString } from "./SpriteTextString/sprite-text-string";

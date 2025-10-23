@@ -3,20 +3,15 @@ import { Hero } from "../objects/Hero/hero";
 import { MetaBot } from "../../../services/datacontracts/bones/meta-bot";
 import { MetaEvent } from "../../../services/datacontracts/bones/meta-event";
 import { MetaChat } from "../../../services/datacontracts/bones/meta-chat";
-import { MetaBotPart, LEFT_ARM, RIGHT_ARM, LEGS, HEAD } from "../../../services/datacontracts/bones/meta-bot-part";
 import { Vector2 } from "../../../services/datacontracts/bones/vector2";
 import { Bot } from "../objects/Bot/bot";
 import { GameObject } from "../objects/game-object";
-import { Level } from "../objects/Level/level";
-import { ShopMenu } from "../objects/Menu/shop-menu";
+import { Level } from "../objects/Level/level"; 
 import { WardrobeMenu } from "../objects/Menu/wardrobe-menu"; 
 import { gridCells } from "./grid-cells";
-import { Skill } from "./skill-types";
-import { InventoryItem } from "../objects/InventoryItem/inventory-item";
-import { MetaHero } from "../../../services/datacontracts/bones/meta-hero";
-import { Character } from "../objects/character";
-import { generateReward, setTargetToDestroyed } from "./fight";
-import { WarpBase } from "../objects/Effects/Warp/warp-base";
+import { Skill } from "./skill-types"; 
+import { Character } from "../objects/character"; 
+import { HeroInventoryItem } from "../../../services/datacontracts/bones/hero-inventory-item";
 
 
 export class Network {
@@ -199,6 +194,15 @@ export function subscribeToMainGameEvents(object: any) {
     object.parentRef?.showNotification(message);
   });
 
+
+  events.on("MASK_EQUIPPED", object, (params: { maskId: number }) => {
+    object.metaHero.mask = params.maskId === 0 ? undefined : params.maskId;
+    let existingHero = object.mainScene.level?.children.find((x: any) => x.id === object.metaHero.id);
+    if (existingHero) {
+      existingHero.destroy();
+    }
+    object.updatePlayers();
+  }); 
   events.on("WARDROBE_OPENED", object, () => {
     if (actionBlocker) return; 
     events.emit("BLOCK_BACKGROUND_SELECTION");
@@ -213,51 +217,6 @@ export function subscribeToMainGameEvents(object: any) {
     object.stopPollingForUpdates = true;
     setActionBlocker(50);
   });
-
-  events.on("MASK_EQUIPPED", object, (params: { maskId: number }) => {
-    object.metaHero.mask = params.maskId === 0 ? undefined : params.maskId;
-    let existingHero = object.mainScene.level?.children.find((x: any) => x.id === object.metaHero.id);
-    if (existingHero) {
-      existingHero.destroy();
-    }
-    object.updatePlayers();
-  });
-
-  events.on("SHOP_OPENED", object, (params: { heroPosition: Vector2, entranceLevel: Level, items?: InventoryItem[] }) => {
-    if (!actionBlocker) {
-      events.emit("BLOCK_BACKGROUND_SELECTION");
-      object.blockOpenStartMenu = true;
-      object.isShopMenuOpened = true;
-      object.mainScene?.inventory?.children?.forEach((x: any) => x.destroy());
-      object.mainScene?.setLevel(new ShopMenu(params));
-      object.stopPollingForUpdates = true;
-      setActionBlocker(50);
-    }
-  });
-
-  events.on("SHOP_OPENED_TO_SELL", object, (params: { heroPosition: Vector2, entranceLevel: Level, items?: InventoryItem[] }) => { 
-    events.emit("BLOCK_BACKGROUND_SELECTION");
-    let shopParts: InventoryItem[] = [];
-    let x = 0;
-    const parts = object.mainScene.inventory.parts.sort((x: MetaBotPart, y: MetaBotPart) => {
-      const xId = x.metabotId ?? 0;
-      const yId = y.metabotId ?? 0;
-      return xId - yId;
-    });
-    for (let part of parts) {
-      if (!part.metabotId) {
-        shopParts.push(new InventoryItem({ id: x++, name: `${part.partName} ${part.skill.name} ${part.damageMod}`, category: "MetaBotPart" }))
-      }
-    }
-    params.items = shopParts;
-    let config = { ...params, sellingMode: true };
-
-    object.blockOpenStartMenu = true;
-    object.isShopMenuOpened = true;
-    object.mainScene?.inventory?.children?.forEach((x: any) => x.destroy());
-    object.mainScene.setLevel(new ShopMenu(config));
-    object.stopPollingForUpdates = true;
-  });
   events.on("WARDROBE_CLOSED", object, (params: { heroPosition: Vector2, entranceLevel: Level }) => {
     object.stopPollingForUpdates = false;
     object.blockOpenStartMenu = false; 
@@ -268,122 +227,7 @@ export function subscribeToMainGameEvents(object: any) {
     events.emit("CHANGE_LEVEL", newLevel);
     events.emit("SHOW_START_BUTTON"); 
     events.emit("UNBLOCK_BACKGROUND_SELECTION");
-  });
-  events.on("SHOP_CLOSED", object, (params: { heroPosition: Vector2, entranceLevel: Level }) => {
-    object.stopPollingForUpdates = false;
-    object.blockOpenStartMenu = false;
-    object.isShopMenuOpened = false;
-    object.mainScene?.inventory?.renderParty();
-    const newLevel = object.getLevelFromLevelName((params.entranceLevel.name ?? "HERO_ROOM"));
-    newLevel.defaultHeroPosition = params.heroPosition;
-    events.emit("CHANGE_LEVEL", newLevel);
-    events.emit("SHOW_START_BUTTON"); 
-    events.emit("UNBLOCK_BACKGROUND_SELECTION");
-  });
-  events.on("SELECTED_PART", object, (params: { selectedPart: string, selection: string, selectedMetabotId: number }) => {
-    const parts = object.mainScene.inventory.parts;
-    const skill = params.selection.split(/\d/)[0];
-    const dmg = params.selection.split(' ').slice(-2, -1)[0];
-    let targetPart = undefined;
-    for (let part of parts) {
-      //console.log("Checking part:", part); // Debugging: log the part being checked
-      //console.log("skill:", skill); // Debugging: log the skill
-      //console.log("part.skill.name:", part.skill.name); // Debugging: log part.skill.name
-      //console.log("dmg:", dmg); // Debugging: log dmg value
-      //console.log("part.damageMod:", part.damageMod); // Debugging: log part.damageMod
-      //console.log("params.selectedPart:", params.selectedPart); // Debugging: log params.selectedPart
-      //console.log("part.partName:", part.partName); // Debugging: log part.partName
-
-      if (part.skill.name.trim() === skill.trim() && part.damageMod === parseInt(dmg) && part.partName.trim() === params.selectedPart.trim()) {
-        targetPart = part; 
-        break;
-      }
-    }
-    let oldPart = undefined;
-    const metabotSelected = object.metaHero.metabots.find((b: MetaBot) => b.id === params.selectedMetabotId);
-
-   // console.log("Selected a bot part : ", params, skill, dmg, parts, targetPart);
-    if (metabotSelected && targetPart) {
-      targetPart.metabotId = params.selectedMetabotId;
-      if (targetPart.partName === LEFT_ARM) {
-        oldPart = metabotSelected.leftArm;
-        metabotSelected.leftArm = targetPart;
-      } else if (targetPart.partName === RIGHT_ARM) {
-        oldPart = metabotSelected.rightArm;
-        metabotSelected.rightArm = targetPart;
-      } else if (targetPart.partName === LEGS) {
-        oldPart = metabotSelected.legs;
-        metabotSelected.legs = targetPart;
-      } else if (targetPart.partName === HEAD) {
-        oldPart = metabotSelected.head;
-        metabotSelected.head = targetPart;
-      } 
-
-      if (oldPart && oldPart.id == targetPart.id) {
-        return;
-      }
-
-      for (let invPart of parts) {
-        if (invPart.id != targetPart.id && invPart.partName === targetPart.partName && invPart.metabotId) {
-          object.bonesService.unequipPart(invPart.id);
-          invPart.metabotId = undefined;
-        }
-      }
-      object.bonesService.equipPart(targetPart.id, targetPart.metabotId);
-    }
-  });
-
-
-  events.on("DEPLOY", object, async (params: { bot: MetaBot, metaHero?: MetaHero }) => {
-    const tmpMetahero = params.metaHero && !(params.metaHero instanceof MetaHero) ?
-      object.mainScene?.level?.children?.find((x: any) => x.id === params.metaHero?.id) : params.metaHero;
-    const hero = tmpMetahero ?? object.metaHero;
-    if (params.bot.id) {
-      const addedBot = object.addBotToScene(hero, params.bot);
-
-      const warpBase = new WarpBase({ position: addedBot.position, parentId: addedBot.id, offsetX: -8, offsetY: 12 });
-      object.mainScene.level?.addChild(warpBase);
-      setTimeout(() => {
-        warpBase.destroy();
-      }, 1300);
-
-      if (object.metaHero.id === hero.id) {
-        const metaEvent = new MetaEvent(0, object.metaHero.id, new Date(), "DEPLOY", object.metaHero.map, { "metaHero": `${safeStringify(hero)}`, "metaBot": `${safeStringify(params.bot)}` });
-        object.bonesService.updateEvents(metaEvent);
-      }
-     // await object.reinitializeInventoryData();
-    }
-  });
-
-  events.on("CALL_BOT_BACK", object, async (params: { bot: MetaBot }) => {
-    if (params.bot?.id) {
-      if (params.bot.heroId === object.metaHero.id) {
-        const metaEvent = new MetaEvent(0, params.bot.heroId, new Date(), "CALL_BOT_BACK", object.metaHero.map);
-        object.bonesService.updateEvents(metaEvent).then(async (x: any) => {
-          //await object.reinitializeInventoryData();
-        });
-      }
-      const tgt = object.mainScene?.level?.children?.find((x: any) => x.id === params.bot.id);
-      const hero = object.mainScene?.level?.children?.find((x: any) => x.id === params.bot.heroId);
-      if (hero) {
-        const tgtBot = hero.metabots.find((x: any) => x.id === params.bot.id);
-        if (tgtBot) {
-          tgtBot.isDeployed = false;
-        }
-      }
-      if (tgt) {
-        tgt.preventDestroyAnimation = true;
-        tgt.isDeployed = false;
-        tgt.isWarping = true;
-        tgt.destroy();
-      }
-      const tgtHeroBot = object.metaHero.metabots.find((x: any) => x.id === params.bot.id);
-      if (tgtHeroBot) {
-        tgtHeroBot.isDeployed = false;
-      }
-    }
   }); 
-
   events.on("CHARACTER_NAME_CREATED", object, (name: string) => {
     if (object.chatInput.nativeElement.placeholder === "Enter your name" && object.parentRef && object.parentRef.user && object.parentRef.user.id) {
       object.bonesService.createHero(object.parentRef.user.id, name);
@@ -439,100 +283,8 @@ export function subscribeToMainGameEvents(object: any) {
     if (sender === object.metaHero.name) {
       object.chatInput.nativeElement.value = "";
     }
-  });
-
-  events.on("REPAIR_ALL_METABOTS", object, () => {
-    if (actionBlocker) return;
-    for (let bot of object.metaHero.metabots) {
-      bot.hp = 100;
-    }
-    if (object.hero && object.hero.metabots) {
-      for (let bot of object.hero.metabots) {
-        bot.hp = 100;
-      }
-    }
-    const metaEvent = new MetaEvent(0, object.metaHero.id, new Date(), "REPAIR_ALL_METABOTS", object.metaHero.map, { "heroId": object.metaHero.id + "" });
-    object.bonesService.updateEvents(metaEvent); 
-    setActionBlocker(50);
-  });
-
-  events.on("ITEM_PURCHASED", object, (item: InventoryItem) => {
-    console.log(item);
-    const metaEvent = new MetaEvent(0, object.metaHero.id, new Date(), "BUY_ITEM", object.metaHero.map, { "item": safeStringify(item) });
-    object.bonesService.updateEvents(metaEvent);
-    if (item.category === "botFrame") {
-      const newBot = new MetaBot(
-        {
-          id: object.metaHero.metabots.length + 1,
-          heroId: object.metaHero.id,
-          type: item.stats["type"],
-          hp: item.stats["hp"],
-          name: item.name ?? "",
-          level: 1
-        });
-      object.bonesService.createBot(newBot).then((res: MetaBot) => {
-        if (res) {
-          object.metaHero.metabots.push(res);
-        }
-      });
-    }
-    console.log("reinit inv after item purchase");
-    object.reinitializeInventoryData();
-  });
-
-  events.on("ITEM_SOLD", object, (items: InventoryItem[]) => { 
-    const botPartsSold = items.filter(x => x.category === "MetaBotPart");
-    let partIdNumbers = [] 
-    for (let item of botPartsSold) {
-      let itmString = item.name ?? "";
-      itmString = itmString.replace("Left Punch", "Left_Punch");
-      itmString = itmString.replace("Right Punch", "Right_Punch"); 
-
-      const partName = itmString.split(' ')[0].trim();
-      let skillName = itmString.split(' ')[1].trim().replace("_", " ");
-      const damageMod = itmString.split(' ')[2].trim();
-       
-
-      const part = object.mainScene.inventory.parts.find((x: any) => x.partName === partName && x.skill.name === skillName && x.damageMod === parseInt(damageMod) && !partIdNumbers.includes(x.id)) as MetaBotPart;
-      if (part) {
-        partIdNumbers.push(part.id);
-        object.mainScene.inventory.parts = object.mainScene.inventory.parts.filter((x: any) => x.id !== part.id);
-      }
-    }
-
-    object.bonesService.sellBotParts(object.metaHero.id, partIdNumbers);
-  });
-
-  events.on("BUY_ITEM_CONFIRMED", object, (params: { heroId: number, item: string }) => {
-    const shopItem = JSON.parse(params.item) as InventoryItem;
-    if (params.heroId === object.metaHero.id) {
-      setTimeout(() => {
-        events.emit("CHARACTER_PICKS_UP_ITEM", {
-          position: new Vector2(0, 0),
-          id: object.mainScene.inventory.nextId,
-          hero: object.hero,
-          name: shopItem.name,
-          imageName: shopItem.image,
-          category: shopItem.category,
-          stats: shopItem.stats
-        });
-      }, 100);
-    }
-  });
-
-  events.on("TARGET_LOCKED", object, (params: { source: Bot, target: Bot }) => {
-    if (params.source.heroId) { 
-      const metaEvent = new MetaEvent(0, params.source.heroId, new Date(), "TARGET_LOCKED", object.metaHero.map, { "sourceId": params.source.id + "", "targetId": params.target.id + "" });
-      object.bonesService.updateEvents(metaEvent);
-    }
-  });
-
-  events.on("TARGET_UNLOCKED", object, (params: { source: Bot, target: Bot }) => {
-    if (params.source.heroId) { 
-      const metaEvent = new MetaEvent(1, params.source.heroId, new Date(), "TARGET_UNLOCKED", object.metaHero.map, { "sourceId": params.source.id + "", "targetId": params.target.id + "" });
-      object.bonesService.updateEvents(metaEvent);
-    }
-  });
+  });  
+ 
   events.on("UPDATE_ENCOUNTER_POSITION", object, (source: Bot) => {  
     handleEncounterUpdate(source);
     startBatchUpdates(object);
@@ -617,7 +369,7 @@ export function subscribeToMainGameEvents(object: any) {
     }
   });
 
-  events.on("GOT_REWARDS", object, (params: { location: Vector2, part: MetaBotPart }) => {
+  events.on("GOT_REWARDS", object, (params: { location: Vector2, part: HeroInventoryItem }) => {
     if (!params.part) return;
     const metaEvent = new MetaEvent(0, object.metaHero.id, new Date(), "ITEM_DROPPED", object.metaHero.map, { "location": safeStringify(params.location), "item": safeStringify(params.part) })
     object.bonesService.updateEvents(metaEvent);    
@@ -734,53 +486,7 @@ export function actionMultiplayerEvents(object: any, metaEvents: MetaEvent[]) {
         }
         if (event.eventType === "PARTY_INVITE_ACCEPTED" && event.heroId != object.metaHero.id) {
           actionPartyInviteAcceptedEvent(object, event);
-        }
-        if (event.eventType === "DEPLOY" && event.data && event.data["metaHero"] && event.data["metaBot"]) {
-          const tmpHero = JSON.parse(event.data["metaHero"]) as MetaHero;
-          const tmpMetabot = JSON.parse(event.data["metaBot"]) as MetaBot;
-          const targetHero = object.mainScene.level?.children.find((x: any) => x.id == event.heroId) as Hero;
-          const targetBot = targetHero?.metabots?.find(x => x.id === tmpMetabot.id);
-          if (targetBot) {
-            targetBot.isDeployed = true;
-          }
-          if (tmpHero.id != object.metaHero.id) {
-            const addedBot = object.addBotToScene(tmpHero, targetBot);
-            const warpBase = new WarpBase({ position: addedBot.position, parentId: addedBot?.id ?? 0, offsetX: -8 });
-            object.mainScene.level?.addChild(warpBase);
-            setTimeout(() => { warpBase.destroy(); }, 1300);
-          }
-        }
-        if (event.eventType === "BOT_DESTROYED" && event.data) {
-          const bot = object.mainScene.level?.children.find((x: any) => x.heroId == event.heroId) as Bot;
-          const winnerBotId = JSON.parse(event.data["winnerBotId"]) as number || undefined;
-          if (winnerBotId) {
-            const winnerBot = object.mainScene.level.children.find((x: any) => x.id == winnerBotId) as Bot;
-            if (winnerBot) {
-              winnerBot.targeting = undefined;
-              if (winnerBot.heroId === object.metaHero.id) {
-                generateReward(winnerBot, bot);
-              }
-            }
-          }
-          setTargetToDestroyed(bot);
-          if (bot) {
-            bot.hp = 0;
-            bot.isDeployed = false;
-            bot.targeting = undefined;
-            bot.destroyBody();
-            bot.destroy();
-            setTimeout(() => {
-              if (bot.heroId == object.metaHero.id) {
-                const metaBot = object.metaHero.metabots.find((bot: MetaBot) => bot.name === bot.name);
-                if (metaBot) { metaBot.hp = 0; metaBot.isDeployed = false; }
-              }
-            }, 50);
-          }
-        }
-        if (event.eventType === "CALL_BOT_BACK") {
-          const bot = object.mainScene.level?.children.find((x: any) => x.heroId == event.heroId);
-          if (bot) { bot.isWarping = true; bot.destroy(); }
-        }
+        } 
         if (event.eventType === "ITEM_DESTROYED") {
           if (event.data) {
             const dmgMod = event.data["damage"];
@@ -812,7 +518,7 @@ export function actionMultiplayerEvents(object: any, metaEvents: MetaEvent[]) {
         }
         if (event.eventType === "ITEM_DROPPED") {
           if (event.data) {
-            const tmpMetabotPart = JSON.parse(event.data["item"]) as MetaBotPart;
+            const tmpMetabotPart = JSON.parse(event.data["item"]) as HeroInventoryItem;
             const location = JSON.parse(event.data["location"]) as Vector2;
             object.addItemToScene(tmpMetabotPart, location);
           }

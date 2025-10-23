@@ -6,7 +6,7 @@ import { Vector2 } from './datacontracts/bones/vector2';
 import { MetaEvent } from './datacontracts/bones/meta-event';
 import { InventoryItem } from '../app/bones/objects/InventoryItem/inventory-item';
 import { MetaBot } from './datacontracts/bones/meta-bot';
-import { MetaBotPart } from './datacontracts/bones/meta-bot-part';
+import { HeroInventoryItem } from './datacontracts/bones/hero-inventory-item';
 
 @Injectable({
   providedIn: 'root'
@@ -67,7 +67,7 @@ export class BonesService {
 
     return this.fetchData('/bones/fetchgamedata', body);
   }
-  async fetchInventoryData(heroId: number): Promise<{ inventory: InventoryItem[], parts: MetaBotPart[] }> {
+  async fetchInventoryData(heroId: number): Promise<{ inventory: InventoryItem[], parts: HeroInventoryItem[] }> {
     return this.fetchData('/bones/fetchinventorydata', heroId);
   }
   async deleteEvent(eventId: number) {
@@ -78,10 +78,7 @@ export class BonesService {
   }
   async updateInventory(heroId: number, name: string, image: string, category: string) {
     return this.fetchData('/bones/updateinventory', { HeroId: heroId, Name: name, Image: image, Category: category });
-  }
-  async updateBotParts(heroId: number, parts: MetaBotPart[]) {
-    return this.fetchData('/bones/updatebotparts', { HeroId: heroId, parts: parts });
-  }
+  } 
   async getMetabotHighscores(count: number = 50) {
     return this.fetchData('/bones/getmetabothighscores', count);
   } 

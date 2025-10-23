@@ -13,7 +13,7 @@ namespace maxhanna.Server.Controllers
 	[Microsoft.AspNetCore.Components.Route("[controller]")]
 	public class BonesController : ControllerBase
 	{
-	// Half-size of the hitbox in pixels; used to compute +/- hit tolerance
+		// Half-size of the hitbox in pixels; used to compute +/- hit tolerance
 		private const int HITBOX_HALF = 16;
 		private readonly Log _log;
 		private readonly IConfiguration _config;
@@ -75,70 +75,70 @@ namespace maxhanna.Server.Controllers
 			await connection.OpenAsync();
 			using var transaction = connection.BeginTransaction();
 			try
-            {
-                if (request != null)
-                {
-                    await PersistNewAttacks(request, hero, connection, transaction);
-                }
+			{
+				if (request != null)
+				{
+					await PersistNewAttacks(request, hero, connection, transaction);
+				}
 
-                hero = await UpdateHeroInDB(hero, connection, transaction);
+				hero = await UpdateHeroInDB(hero, connection, transaction);
 				MetaHero[]? heroes = await GetNearbyPlayers(hero, connection, transaction);
 				if (!string.IsNullOrEmpty(hero.Map))
 				{
 					await ProcessEncounterAI(hero.Map, connection, transaction);
 				}
-                MetaBot[]? enemyBots = await GetEncounters(connection, transaction, hero.Map);
-                List<MetaEvent> events = await GetEventsFromDb(hero.Map, hero.Id, connection, transaction);
-                // Query recent ATTACK events (last 5 seconds) excluding attacks originating from this hero.
-                List<Dictionary<string, object>> recentAttacks = new();
-                await CreateAttackEvents(hero, connection, transaction, recentAttacks);
-                AddAttackEventsToEventsList(hero, events, recentAttacks);
+				MetaBot[]? enemyBots = await GetEncounters(connection, transaction, hero.Map);
+				List<MetaEvent> events = await GetEventsFromDb(hero.Map, hero.Id, connection, transaction);
+				// Query recent ATTACK events (last 5 seconds) excluding attacks originating from this hero.
+				List<Dictionary<string, object>> recentAttacks = new();
+				await CreateAttackEvents(hero, connection, transaction, recentAttacks);
+				AddAttackEventsToEventsList(hero, events, recentAttacks);
 
-                await transaction.CommitAsync();
-                var resp = new FetchGameDataResponse { Map = hero.Map, Position = hero.Position, Heroes = heroes, Events = events, EnemyBots = enemyBots, RecentAttacks = recentAttacks };
-                return Ok(resp);
-            }
-            catch (Exception ex)
+				await transaction.CommitAsync();
+				var resp = new FetchGameDataResponse { Map = hero.Map, Position = hero.Position, Heroes = heroes, Events = events, EnemyBots = enemyBots, RecentAttacks = recentAttacks };
+				return Ok(resp);
+			}
+			catch (Exception ex)
 			{
 				await transaction.RollbackAsync();
 				return StatusCode(500, "Internal server error: " + ex.Message);
 			}
 		}
 
-        private static void AddAttackEventsToEventsList(MetaHero hero, List<MetaEvent> events, List<Dictionary<string, object>> recentAttacks)
-        {
-            foreach (var atk in recentAttacks)
-            {
-                // Prefer keys "heroId" or "sourceHeroId" for the attack origin
-                object? srcObj = null;
-                if (atk.ContainsKey("heroId")) srcObj = atk["heroId"];
-                else if (atk.ContainsKey("sourceHeroId")) srcObj = atk["sourceHeroId"];
+		private static void AddAttackEventsToEventsList(MetaHero hero, List<MetaEvent> events, List<Dictionary<string, object>> recentAttacks)
+		{
+			foreach (var atk in recentAttacks)
+			{
+				// Prefer keys "heroId" or "sourceHeroId" for the attack origin
+				object? srcObj = null;
+				if (atk.ContainsKey("heroId")) srcObj = atk["heroId"];
+				else if (atk.ContainsKey("sourceHeroId")) srcObj = atk["sourceHeroId"];
 
-                int srcId = srcObj != null ? Convert.ToInt32(srcObj) : 0;
-                var dataDict = new Dictionary<string, string>();
-                foreach (var kv in atk)
-                {
-                    dataDict[kv.Key] = kv.Value?.ToString() ?? string.Empty;
-                }
-                // Create a MetaEvent so client-side multiplayer event processing will handle it like other events
-                var meleeEvent = new MetaEvent(0, srcId, DateTime.UtcNow, "OTHER_HERO_ATTACK", hero.Map ?? string.Empty, dataDict);
-                events.Add(meleeEvent);
-            }
-        }
+				int srcId = srcObj != null ? Convert.ToInt32(srcObj) : 0;
+				var dataDict = new Dictionary<string, string>();
+				foreach (var kv in atk)
+				{
+					dataDict[kv.Key] = kv.Value?.ToString() ?? string.Empty;
+				}
+				// Create a MetaEvent so client-side multiplayer event processing will handle it like other events
+				var meleeEvent = new MetaEvent(0, srcId, DateTime.UtcNow, "OTHER_HERO_ATTACK", hero.Map ?? string.Empty, dataDict);
+				events.Add(meleeEvent);
+			}
+		}
 
-        private async Task CreateAttackEvents(MetaHero hero, MySqlConnection connection, MySqlTransaction transaction, List<Dictionary<string, object>> recentAttacks)
-        {
-            try
-            {
-                string q = "SELECT data FROM maxhanna.bones_event WHERE event = 'ATTACK' AND timestamp >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 5 SECOND) AND hero_id <> @HeroId ORDER BY timestamp DESC LIMIT 50;";
-                using var cmd = new MySqlCommand(q, connection, transaction);
-                cmd.Parameters.AddWithValue("@HeroId", hero.Id);
-                using var rdr = await cmd.ExecuteReaderAsync();
-                while (await rdr.ReadAsync())
-                {
-                    var dataJson = rdr.IsDBNull(rdr.GetOrdinal("data")) ? null : rdr.GetString(rdr.GetOrdinal("data"));
-                    if (!string.IsNullOrEmpty(dataJson))
-                    {
+		private async Task CreateAttackEvents(MetaHero hero, MySqlConnection connection, MySqlTransaction transaction, List<Dictionary<string, object>> recentAttacks)
+		{
+			try
+			{
+				string q = "SELECT data FROM maxhanna.bones_event WHERE event = 'ATTACK' AND timestamp >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 5 SECOND) AND hero_id <> @HeroId ORDER BY timestamp DESC LIMIT 50;";
+				using var cmd = new MySqlCommand(q, connection, transaction);
+				cmd.Parameters.AddWithValue("@HeroId", hero.Id);
+				using var rdr = await cmd.ExecuteReaderAsync();
+				while (await rdr.ReadAsync())
+				{
+					var dataJson = rdr.IsDBNull(rdr.GetOrdinal("data")) ? null : rdr.GetString(rdr.GetOrdinal("data"));
+					if (!string.IsNullOrEmpty(dataJson))
+					{
 						var jo = JObject.Parse(dataJson);
 						var dict = new Dictionary<string, object>();
 						foreach (var prop in jo.Properties())
@@ -166,78 +166,78 @@ namespace maxhanna.Server.Controllers
 								dict[prop.Name] = token.ToString(Newtonsoft.Json.Formatting.None);
 							}
 						}
-						recentAttacks.Add(dict); 
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                await _log.Db("Failed to read recentAttacks: " + ex.Message, hero.Id, "BONES", true);
-            }
-        }
+						recentAttacks.Add(dict);
+					}
+				}
+			}
+			catch (Exception ex)
+			{
+				await _log.Db("Failed to read recentAttacks: " + ex.Message, hero.Id, "BONES", true);
+			}
+		}
 
-        private async Task PersistNewAttacks(FetchGameDataRequest request, MetaHero hero, MySqlConnection connection, MySqlTransaction transaction)
-        {
-            // If client provided recentAttacks, persist them as short-lived ATTACK events so other players can pick them up in this fetch-response.
-            if (request?.RecentAttacks != null && request.RecentAttacks.Count > 0)
-            {
-                try
-                {
+		private async Task PersistNewAttacks(FetchGameDataRequest request, MetaHero hero, MySqlConnection connection, MySqlTransaction transaction)
+		{
+			// If client provided recentAttacks, persist them as short-lived ATTACK events so other players can pick them up in this fetch-response.
+			if (request?.RecentAttacks != null && request.RecentAttacks.Count > 0)
+			{
+				try
+				{
 					foreach (var attack in request.RecentAttacks)
-                    {
-                        string insertSql = "INSERT INTO maxhanna.bones_event (hero_id, event, map, data, timestamp) VALUES (@HeroId, @Event, @Map, @Data, UTC_TIMESTAMP());";
-                        // Normalize attack dictionary values: handle System.Text.Json.JsonElement and JToken values
-                        var normalized = new Dictionary<string, object?>();
-                        foreach (var kv in attack)
-                        {
-                            object? v = kv.Value;
-                            try
-                            {
-                                if (v is System.Text.Json.JsonElement je)
-                                {
-                                    switch (je.ValueKind)
-                                    {
-                                        case System.Text.Json.JsonValueKind.String:
-                                            normalized[kv.Key] = je.GetString();
-                                            break;
-                                        case System.Text.Json.JsonValueKind.Number:
-                                            if (je.TryGetInt64(out long l)) normalized[kv.Key] = l;
-                                            else if (je.TryGetDouble(out double d)) normalized[kv.Key] = d;
-                                            else normalized[kv.Key] = je.GetRawText();
-                                            break;
-                                        case System.Text.Json.JsonValueKind.True:
-                                        case System.Text.Json.JsonValueKind.False:
-                                            normalized[kv.Key] = je.GetBoolean();
-                                            break;
-                                        case System.Text.Json.JsonValueKind.Null:
-                                            normalized[kv.Key] = null;
-                                            break;
-                                        default:
-                                            // Object/Array -> raw JSON text
-                                            normalized[kv.Key] = je.GetRawText();
-                                            break;
-                                    }
-                                }
-                                else if (v is Newtonsoft.Json.Linq.JToken jt)
-                                {
-                                    // convert to primitive where possible, otherwise string
-                                    if (jt.Type == Newtonsoft.Json.Linq.JTokenType.Integer) normalized[kv.Key] = jt.ToObject<long>();
-                                    else if (jt.Type == Newtonsoft.Json.Linq.JTokenType.Float) normalized[kv.Key] = jt.ToObject<double>();
-                                    else if (jt.Type == Newtonsoft.Json.Linq.JTokenType.Boolean) normalized[kv.Key] = jt.ToObject<bool>();
-                                    else if (jt.Type == Newtonsoft.Json.Linq.JTokenType.String) normalized[kv.Key] = jt.ToObject<string?>() ?? string.Empty;
-                                    else normalized[kv.Key] = jt.ToString(Newtonsoft.Json.Formatting.None);
-                                }
-                                else
-                                {
-                                    normalized[kv.Key] = v;
-                                }
-                            }
-                            catch
-                            {
-                                // Fallback: stringify
-                                try { normalized[kv.Key] = v?.ToString(); } catch { normalized[kv.Key] = null; }
-                            }
-                        }
+					{
+						string insertSql = "INSERT INTO maxhanna.bones_event (hero_id, event, map, data, timestamp) VALUES (@HeroId, @Event, @Map, @Data, UTC_TIMESTAMP());";
+						// Normalize attack dictionary values: handle System.Text.Json.JsonElement and JToken values
+						var normalized = new Dictionary<string, object?>();
+						foreach (var kv in attack)
+						{
+							object? v = kv.Value;
+							try
+							{
+								if (v is System.Text.Json.JsonElement je)
+								{
+									switch (je.ValueKind)
+									{
+										case System.Text.Json.JsonValueKind.String:
+											normalized[kv.Key] = je.GetString();
+											break;
+										case System.Text.Json.JsonValueKind.Number:
+											if (je.TryGetInt64(out long l)) normalized[kv.Key] = l;
+											else if (je.TryGetDouble(out double d)) normalized[kv.Key] = d;
+											else normalized[kv.Key] = je.GetRawText();
+											break;
+										case System.Text.Json.JsonValueKind.True:
+										case System.Text.Json.JsonValueKind.False:
+											normalized[kv.Key] = je.GetBoolean();
+											break;
+										case System.Text.Json.JsonValueKind.Null:
+											normalized[kv.Key] = null;
+											break;
+										default:
+											// Object/Array -> raw JSON text
+											normalized[kv.Key] = je.GetRawText();
+											break;
+									}
+								}
+								else if (v is Newtonsoft.Json.Linq.JToken jt)
+								{
+									// convert to primitive where possible, otherwise string
+									if (jt.Type == Newtonsoft.Json.Linq.JTokenType.Integer) normalized[kv.Key] = jt.ToObject<long>();
+									else if (jt.Type == Newtonsoft.Json.Linq.JTokenType.Float) normalized[kv.Key] = jt.ToObject<double>();
+									else if (jt.Type == Newtonsoft.Json.Linq.JTokenType.Boolean) normalized[kv.Key] = jt.ToObject<bool>();
+									else if (jt.Type == Newtonsoft.Json.Linq.JTokenType.String) normalized[kv.Key] = jt.ToObject<string?>() ?? string.Empty;
+									else normalized[kv.Key] = jt.ToString(Newtonsoft.Json.Formatting.None);
+								}
+								else
+								{
+									normalized[kv.Key] = v;
+								}
+							}
+							catch
+							{
+								// Fallback: stringify
+								try { normalized[kv.Key] = v?.ToString(); } catch { normalized[kv.Key] = null; }
+							}
+						}
 
 						var parameters = new Dictionary<string, object?>()
 							{
@@ -284,68 +284,68 @@ namespace maxhanna.Server.Controllers
 								}
 							}
 
-						// Prefetch attacker level to avoid JOIN+LIMIT MySQL restriction
-						int attackerLevel = 1;
-						try
-						{
-							using var lvlCmd = new MySqlCommand("SELECT COALESCE(level,1) FROM maxhanna.bones_hero WHERE id=@HeroId", connection, transaction);
-							lvlCmd.Parameters.AddWithValue("@HeroId", sourceHeroId);
-							var lvlObj = await lvlCmd.ExecuteScalarAsync();
-							if (lvlObj != null && int.TryParse(lvlObj.ToString(), out int lvlTmp)) attackerLevel = Math.Max(1, lvlTmp);
-						}
-						catch { attackerLevel = 1; }
-
-						// Determine AoE half-size: allow client to send 'aoe', 'radius', 'width', or 'threshold'. Fallback to HITBOX_HALF for single-tile tolerance.
-						int aoeHalf = HITBOX_HALF; // default tolerance radius
-						string[] aoeKeys = new[] { "aoe", "radius", "width", "threshold" };
-						foreach (var k in aoeKeys)
-						{
-							if (normalized.ContainsKey(k) && normalized[k] != null)
+							// Prefetch attacker level to avoid JOIN+LIMIT MySQL restriction
+							int attackerLevel = 1;
+							try
 							{
-								var sVal = normalized[k]?.ToString();
-								if (int.TryParse(sVal, out int parsed) && parsed > 0)
+								using var lvlCmd = new MySqlCommand("SELECT COALESCE(level,1) FROM maxhanna.bones_hero WHERE id=@HeroId", connection, transaction);
+								lvlCmd.Parameters.AddWithValue("@HeroId", sourceHeroId);
+								var lvlObj = await lvlCmd.ExecuteScalarAsync();
+								if (lvlObj != null && int.TryParse(lvlObj.ToString(), out int lvlTmp)) attackerLevel = Math.Max(1, lvlTmp);
+							}
+							catch { attackerLevel = 1; }
+
+							// Determine AoE half-size: allow client to send 'aoe', 'radius', 'width', or 'threshold'. Fallback to HITBOX_HALF for single-tile tolerance.
+							int aoeHalf = HITBOX_HALF; // default tolerance radius
+							string[] aoeKeys = new[] { "aoe", "radius", "width", "threshold" };
+							foreach (var k in aoeKeys)
+							{
+								if (normalized.ContainsKey(k) && normalized[k] != null)
 								{
-									// Interpret parsed as full width if key is 'width'; convert to half-size
-									if (k == "width" && parsed > 1) aoeHalf = parsed / 2; else aoeHalf = parsed;
-									break;
+									var sVal = normalized[k]?.ToString();
+									if (int.TryParse(sVal, out int parsed) && parsed > 0)
+									{
+										// Interpret parsed as full width if key is 'width'; convert to half-size
+										if (k == "width" && parsed > 1) aoeHalf = parsed / 2; else aoeHalf = parsed;
+										break;
+									}
 								}
 							}
-						}
-						// Prevent absurd huge AoE (sanity cap)
-						aoeHalf = Math.Min(aoeHalf, 512);
+							// Prevent absurd huge AoE (sanity cap)
+							aoeHalf = Math.Min(aoeHalf, 512);
 
-						int xMin = targetX - aoeHalf;
-						int xMax = targetX + aoeHalf;
-						int yMin = targetY - aoeHalf;
-						int yMax = targetY + aoeHalf;
+							int xMin = targetX - aoeHalf;
+							int xMax = targetX + aoeHalf;
+							int yMin = targetY - aoeHalf;
+							int yMax = targetY + aoeHalf;
 
-						// If facing provided, optionally elongate AoE in facing direction if client supplies 'length'
-						if (normalized.ContainsKey("length") && normalized["length"] != null && int.TryParse(normalized["length"]?.ToString(), out int length) && length > 0)
-						{
-							// Extend rectangle in facing direction by length (convert to pixels already assumed)
-							int extend = length;
-							if (normalized.ContainsKey("facing") && normalized["facing"] != null)
+							// If facing provided, optionally elongate AoE in facing direction if client supplies 'length'
+							if (normalized.ContainsKey("length") && normalized["length"] != null && int.TryParse(normalized["length"]?.ToString(), out int length) && length > 0)
 							{
-								var fVal = normalized["facing"]?.ToString();
-								if (int.TryParse(fVal, out int f))
+								// Extend rectangle in facing direction by length (convert to pixels already assumed)
+								int extend = length;
+								if (normalized.ContainsKey("facing") && normalized["facing"] != null)
 								{
-									if (f == 0) yMin = targetY - extend; // up
-									else if (f == 1) xMax = targetX + extend; // right
-									else if (f == 2) yMax = targetY + extend; // down
-									else if (f == 3) xMin = targetX - extend; // left
-								}
-								else
-								{
-									var sF = fVal?.ToLower() ?? string.Empty;
-									if (sF.Contains("up") || sF.Contains("north")) yMin = targetY - extend;
-									else if (sF.Contains("right") || sF.Contains("east")) xMax = targetX + extend;
-									else if (sF.Contains("down") || sF.Contains("south")) yMax = targetY + extend;
-									else if (sF.Contains("left") || sF.Contains("west")) xMin = targetX - extend;
+									var fVal = normalized["facing"]?.ToString();
+									if (int.TryParse(fVal, out int f))
+									{
+										if (f == 0) yMin = targetY - extend; // up
+										else if (f == 1) xMax = targetX + extend; // right
+										else if (f == 2) yMax = targetY + extend; // down
+										else if (f == 3) xMin = targetX - extend; // left
+									}
+									else
+									{
+										var sF = fVal?.ToLower() ?? string.Empty;
+										if (sF.Contains("up") || sF.Contains("north")) yMin = targetY - extend;
+										else if (sF.Contains("right") || sF.Contains("east")) xMax = targetX + extend;
+										else if (sF.Contains("down") || sF.Contains("south")) yMax = targetY + extend;
+										else if (sF.Contains("left") || sF.Contains("west")) xMin = targetX - extend;
+									}
 								}
 							}
-						}
 
-						string updateHpSql = @"
+							string updateHpSql = @"
 							UPDATE maxhanna.bones_encounter e
 							SET e.hp = GREATEST(e.hp - @AttackerLevel, 0),
 								e.target_hero_id = @HeroId,
@@ -354,7 +354,7 @@ namespace maxhanna.Server.Controllers
 								AND e.hp > 0
 								AND e.coordsX BETWEEN @XMin AND @XMax
 								AND e.coordsY BETWEEN @YMin AND @YMax;"; // allow multi-row AoE damage; no LIMIT
-						var updateParams = new Dictionary<string, object?>() {
+							var updateParams = new Dictionary<string, object?>() {
 							{ "@Map", hero.Map ?? string.Empty },
 							{ "@HeroId", sourceHeroId },
 							{ "@AttackerLevel", attackerLevel },
@@ -365,16 +365,16 @@ namespace maxhanna.Server.Controllers
 						};
 							int rows = Convert.ToInt32(await ExecuteInsertOrUpdateOrDeleteAsync(updateHpSql, updateParams, connection, transaction));
 
-							if (rows == 0)
-							{
-							// Debug log for missed attack to help diagnose coordinate/aoe mismatch
-							await _log.Db($"Attack miss heroId={sourceHeroId} map={hero.Map} src=({sourceX},{sourceY}) tgt=({targetX},{targetY}) facing={normalized.GetValueOrDefault("facing")} aoeHalf={aoeHalf} rect=({xMin},{yMin})-({xMax},{yMax})", hero.Id, "BONES", true);
-							}
+							// if (rows == 0)
+							// {
+							// // Debug log for missed attack to help diagnose coordinate/aoe mismatch
+							// await _log.Db($"Attack miss heroId={sourceHeroId} map={hero.Map} src=({sourceX},{sourceY}) tgt=({targetX},{targetY}) facing={normalized.GetValueOrDefault("facing")} aoeHalf={aoeHalf} rect=({xMin},{yMin})-({xMax},{yMax})", hero.Id, "BONES", true);
+							// }
 
-						if (rows > 0)
+							if (rows > 0)
 							{
-							// Emit one BOT_DAMAGE meta-event summarizing AoE (center + bounds)
-							var data = new Dictionary<string, string>
+								// Emit one BOT_DAMAGE meta-event summarizing AoE (center + bounds)
+								var data = new Dictionary<string, string>
 							{
 								{ "sourceId", sourceHeroId.ToString() },
 								{ "centerX", targetX.ToString() },
@@ -385,38 +385,38 @@ namespace maxhanna.Server.Controllers
 								{ "yMax", yMax.ToString() },
 								{ "damage", attackerLevel.ToString() }
 							};
-							var botDamageEvent = new MetaEvent(0, sourceHeroId, DateTime.UtcNow, "BOT_DAMAGE", hero.Map ?? string.Empty, data);
-							await UpdateEventsInDB(botDamageEvent, connection, transaction);
+								var botDamageEvent = new MetaEvent(0, sourceHeroId, DateTime.UtcNow, "BOT_DAMAGE", hero.Map ?? string.Empty, data);
+								await UpdateEventsInDB(botDamageEvent, connection, transaction);
 
-							// Check if any encounters died (hp reached 0) and award EXP in same transaction
+								// Check if any encounters died (hp reached 0) and award EXP in same transaction
 								try
 								{
-								string selectDeadSql = @"SELECT hero_id, `level`, hp FROM maxhanna.bones_encounter WHERE map = @Map AND hp = 0 AND coordsX BETWEEN @XMin AND @XMax AND coordsY BETWEEN @YMin AND @YMax;";
-								using var deadCmd = new MySqlCommand(selectDeadSql, connection, transaction);
-								deadCmd.Parameters.AddWithValue("@Map", hero.Map ?? string.Empty);
-								deadCmd.Parameters.AddWithValue("@XMin", xMin);
-								deadCmd.Parameters.AddWithValue("@XMax", xMax);
-								deadCmd.Parameters.AddWithValue("@YMin", yMin);
-								deadCmd.Parameters.AddWithValue("@YMax", yMax);
-								using var deadRdr = await deadCmd.ExecuteReaderAsync();
-								var deadEncounters = new List<(int encId, int encLevel)>();
-								while (await deadRdr.ReadAsync())
-								{
-									int encLevel = deadRdr.IsDBNull(deadRdr.GetOrdinal("level")) ? 0 : deadRdr.GetInt32(deadRdr.GetOrdinal("level"));
-									int encId = deadRdr.GetInt32(deadRdr.GetOrdinal("hero_id"));
-									deadEncounters.Add((encId, encLevel));
-								}
-								deadRdr.Close();
-								// Now award EXP after the reader is closed to avoid using the same connection with an open reader
-								var awarded = new HashSet<int>();
-								foreach (var d in deadEncounters)
-								{
-									if (!awarded.Contains(d.encId))
+									string selectDeadSql = @"SELECT hero_id, `level`, hp FROM maxhanna.bones_encounter WHERE map = @Map AND hp = 0 AND coordsX BETWEEN @XMin AND @XMax AND coordsY BETWEEN @YMin AND @YMax;";
+									using var deadCmd = new MySqlCommand(selectDeadSql, connection, transaction);
+									deadCmd.Parameters.AddWithValue("@Map", hero.Map ?? string.Empty);
+									deadCmd.Parameters.AddWithValue("@XMin", xMin);
+									deadCmd.Parameters.AddWithValue("@XMax", xMax);
+									deadCmd.Parameters.AddWithValue("@YMin", yMin);
+									deadCmd.Parameters.AddWithValue("@YMax", yMax);
+									using var deadRdr = await deadCmd.ExecuteReaderAsync();
+									var deadEncounters = new List<(int encId, int encLevel)>();
+									while (await deadRdr.ReadAsync())
 									{
-										await AwardEncounterKillExp(sourceHeroId, d.encLevel, connection, transaction);
-										awarded.Add(d.encId);
+										int encLevel = deadRdr.IsDBNull(deadRdr.GetOrdinal("level")) ? 0 : deadRdr.GetInt32(deadRdr.GetOrdinal("level"));
+										int encId = deadRdr.GetInt32(deadRdr.GetOrdinal("hero_id"));
+										deadEncounters.Add((encId, encLevel));
 									}
-								}
+									deadRdr.Close();
+									// Now award EXP after the reader is closed to avoid using the same connection with an open reader
+									var awarded = new HashSet<int>();
+									foreach (var d in deadEncounters)
+									{
+										if (!awarded.Contains(d.encId))
+										{
+											await AwardEncounterKillExp(sourceHeroId, d.encLevel, connection, transaction);
+											awarded.Add(d.encId);
+										}
+									}
 								}
 								catch (Exception ex2)
 								{
@@ -428,16 +428,16 @@ namespace maxhanna.Server.Controllers
 						{
 							await _log.Db("Failed to apply encounter damage from PersistNewAttacks: " + ex.Message, hero.Id, "BONES", true);
 						}
-                    }
-                }
-                catch (Exception ex)
-                {
-                    await _log.Db("Failed to persist recentAttacks: " + ex.Message, hero.Id, "BONES", true);
-                }
-            }
-        }
+					}
+				}
+				catch (Exception ex)
+				{
+					await _log.Db("Failed to persist recentAttacks: " + ex.Message, hero.Id, "BONES", true);
+				}
+			}
+		}
 
-        [HttpPost("/Bones/FetchInventoryData", Name = "Bones_FetchInventoryData")]
+		[HttpPost("/Bones/FetchInventoryData", Name = "Bones_FetchInventoryData")]
 		public async Task<IActionResult> FetchInventoryData([FromBody] int heroId)
 		{
 			using var connection = new MySqlConnection(_connectionString);
@@ -446,9 +446,8 @@ namespace maxhanna.Server.Controllers
 			try
 			{
 				MetaInventoryItem[]? inventory = await GetInventoryFromDB(heroId, connection, transaction);
-				MetaBotPart[]? parts = await GetMetabotPartsFromDB(heroId, connection, transaction);
 				await transaction.CommitAsync();
-				return Ok(new { inventory, parts });
+				return Ok(new { inventory });
 			}
 			catch (Exception ex)
 			{
@@ -610,7 +609,7 @@ namespace maxhanna.Server.Controllers
 				await _log.Db($"Unexpected error in Bones_GetUserPartyMembers for userId {userId}: {ex.Message}", null, "BONES", true);
 				return StatusCode(500, $"Internal server error: {ex.Message}");
 			}
-		} 
+		}
 
 		[HttpPost("/Bones/ActivePlayers", Name = "Bones_GetActivePlayers")]
 		public async Task<IActionResult> GetBonesActivePlayers([FromBody] int? minutes)
@@ -682,7 +681,8 @@ namespace maxhanna.Server.Controllers
 				{
 					FileEntry? displayPic = !rdr.IsDBNull(rdr.GetOrdinal("display_picture_file_id")) ? new FileEntry(rdr.GetInt32(rdr.GetOrdinal("display_picture_file_id"))) : null;
 					User? ownerUser = !rdr.IsDBNull(rdr.GetOrdinal("userId")) ? new User(id: rdr.GetInt32(rdr.GetOrdinal("userId")), username: rdr.IsDBNull(rdr.GetOrdinal("username")) ? "Anonymous" : SafeGetString(rdr, "username") ?? "Anonymous", displayPictureFile: displayPic) : null;
-					results.Add(new {
+					results.Add(new
+					{
 						heroId = rdr.GetInt32("heroId"),
 						owner = ownerUser,
 						heroName = rdr.IsDBNull(rdr.GetOrdinal("heroName")) ? null : SafeGetString(rdr, "heroName"),
@@ -819,12 +819,12 @@ namespace maxhanna.Server.Controllers
 				{
 					while (reader.Read())
 					{
-							if (hero == null)
-							{
-								int levelOrd = reader.GetOrdinal("hero_level");
-								int expOrd = reader.GetOrdinal("hero_exp");
-								hero = new MetaHero { Id = reader.GetInt32("hero_id"), Position = new Vector2(reader.GetInt32("coordsX"), reader.GetInt32("coordsY")), Speed = reader.GetInt32("speed"), Map = SafeGetString(reader, "map") ?? string.Empty, Name = SafeGetString(reader, "hero_name"), Color = SafeGetString(reader, "hero_color") ?? string.Empty, Mask = reader.IsDBNull(reader.GetOrdinal("hero_mask")) ? null : reader.GetInt32("hero_mask"), Level = reader.IsDBNull(levelOrd) ? 0 : reader.GetInt32(levelOrd), Exp = reader.IsDBNull(expOrd) ? 0 : reader.GetInt32(expOrd), Metabots = new List<MetaBot>() };
-							}
+						if (hero == null)
+						{
+							int levelOrd = reader.GetOrdinal("hero_level");
+							int expOrd = reader.GetOrdinal("hero_exp");
+							hero = new MetaHero { Id = reader.GetInt32("hero_id"), Position = new Vector2(reader.GetInt32("coordsX"), reader.GetInt32("coordsY")), Speed = reader.GetInt32("speed"), Map = SafeGetString(reader, "map") ?? string.Empty, Name = SafeGetString(reader, "hero_name"), Color = SafeGetString(reader, "hero_color") ?? string.Empty, Mask = reader.IsDBNull(reader.GetOrdinal("hero_mask")) ? null : reader.GetInt32("hero_mask"), Level = reader.IsDBNull(levelOrd) ? 0 : reader.GetInt32(levelOrd), Exp = reader.IsDBNull(expOrd) ? 0 : reader.GetInt32(expOrd), Metabots = new List<MetaBot>() };
+						}
 						if (!reader.IsDBNull(reader.GetOrdinal("bot_id")))
 						{
 							int botId = reader.GetInt32("bot_id");
@@ -922,7 +922,7 @@ namespace maxhanna.Server.Controllers
 					FROM maxhanna.bones_encounter WHERE map = @Map";
 				using var cmd = new MySqlCommand(selectSql, connection, transaction);
 				cmd.Parameters.AddWithValue("@Map", map);
-				var encounters = new List<(int heroId,int x,int y,int ox,int oy,int hp,int speed,int aggro, DateTime? lastMoved,int targetHeroId)>();
+				var encounters = new List<(int heroId, int x, int y, int ox, int oy, int hp, int speed, int aggro, DateTime? lastMoved, int targetHeroId)>();
 				using (var rdr = await cmd.ExecuteReaderAsync())
 				{
 					while (await rdr.ReadAsync())
@@ -945,7 +945,7 @@ namespace maxhanna.Server.Controllers
 				if (encounters.Count == 0) return;
 
 				// Get heroes on this map to determine targets. Build both list and fast lookup dictionary to avoid LINQ allocations in hot loops.
-				var heroes = new List<(int heroId,int x,int y)>();
+				var heroes = new List<(int heroId, int x, int y)>();
 				var heroById = new Dictionary<int, (int x, int y)>();
 				const string heroSql = @"SELECT id, coordsX, coordsY FROM maxhanna.bones_hero WHERE map = @Map";
 				using (var hCmd = new MySqlCommand(heroSql, connection, transaction))
@@ -975,7 +975,7 @@ namespace maxhanna.Server.Controllers
 					if (e.aggro <= 0) continue; // no aggro range
 
 					int aggroPixels = e.aggro * tile; // range in pixels
-					(int heroId,int x,int y)? closest = null;
+					(int heroId, int x, int y)? closest = null;
 					int targetHeroId = e.targetHeroId;
 					int curX = e.x; int curY = e.y; // working cursor for tentative movement/snapping
 					bool lockValid = false;
@@ -1164,7 +1164,8 @@ namespace maxhanna.Server.Controllers
 							int speed = reader.IsDBNull(reader.GetOrdinal("speed")) ? 0 : reader.GetInt32(reader.GetOrdinal("speed"));
 							var updated = reader.IsDBNull(reader.GetOrdinal("hero_updated")) ? DateTime.UtcNow : reader.GetDateTime(reader.GetOrdinal("hero_updated"));
 							var created = reader.IsDBNull(reader.GetOrdinal("hero_created")) ? DateTime.UtcNow : reader.GetDateTime(reader.GetOrdinal("hero_created"));
-							tmpHero = new MetaHero {
+							tmpHero = new MetaHero
+							{
 								Id = heroId,
 								Name = name,
 								Map = mapVal,
@@ -1216,17 +1217,7 @@ namespace maxhanna.Server.Controllers
 				throw;
 			}
 		}
-		private Task<MetaBotPart[]?> GetMetabotPartsFromDB(int heroId, MySqlConnection conn, MySqlTransaction transaction) => Task.FromResult<MetaBotPart[]?>(Array.Empty<MetaBotPart>());
-		private Task RepairAllMetabots(int heroId, MySqlConnection connection, MySqlTransaction transaction) => Task.CompletedTask; // No-op: metabot table removed
-		private async Task UpdateEncounterPosition(int encounterId, int destinationX, int destionationY, MySqlConnection connection, MySqlTransaction transaction)
-		{
-			string sql = @"UPDATE maxhanna.bones_encounter SET coordsX = @coordsX, coordsY = @coordsY WHERE hero_id = @heroId;";
-			Dictionary<string, object?> parameters = new() { { "@heroId", encounterId }, { "@coordsX", destinationX }, { "@coordsY", destionationY } };
-			await ExecuteInsertOrUpdateOrDeleteAsync(sql, parameters, connection, transaction);
-		}
-		private Task DeployMetabot(int metabotId, MySqlConnection connection, MySqlTransaction transaction) => Task.CompletedTask; // No-op: metabot table removed
-		private Task CallBackMetabot(int heroId, int? metabotId, MySqlConnection connection, MySqlTransaction transaction) => Task.CompletedTask; // No-op: metabot table removed
-		 
+		
 		private async Task PerformEventChecks(MetaEvent metaEvent, MySqlConnection connection, MySqlTransaction transaction)
 		{
 			if (metaEvent != null && metaEvent.Data != null && metaEvent.EventType == "UNPARTY")
@@ -1265,7 +1256,8 @@ namespace maxhanna.Server.Controllers
 					parameters.Add($"@coordsY_{paramIndex}", update.DestinationY);
 					paramIndex++;
 				}
-				if (sql.Length > 0) {
+				if (sql.Length > 0)
+				{
 					await ExecuteInsertOrUpdateOrDeleteAsync(sql.ToString(), parameters, connection, transaction);
 				}
 			}
@@ -1384,11 +1376,5 @@ namespace maxhanna.Server.Controllers
 			return insertedId ?? rowsAffected;
 		}
 	}
-	class EncounterPositionUpdate
-	{
-		[System.Text.Json.Serialization.JsonPropertyName("botId")] public int BotId { get; set; }
-		[System.Text.Json.Serialization.JsonPropertyName("heroId")] public int HeroId { get; set; }
-		[System.Text.Json.Serialization.JsonPropertyName("destinationX")] public int DestinationX { get; set; }
-		[System.Text.Json.Serialization.JsonPropertyName("destinationY")] public int DestinationY { get; set; }
-	}
+	// EncounterPositionUpdate moved to DataContracts/Bones/EncounterPositionUpdate.cs
 }
