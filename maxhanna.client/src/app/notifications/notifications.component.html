@@ -69,12 +69,16 @@
         <div *ngFor="let notification of filteredNotifications"
           [class]="'notificationListItem' + (!notification.isRead ? ' gradientBackground' : '')"
           [style.opacity]="notification.isRead ? '50%' : '100%'">
-          <div class="nliLeftDiv" *ngIf="!notification?.text?.includes('Executed Trade')">
+          <div class="nliLeftDiv" *ngIf="!notification?.text?.includes('Executed Trade')
+                                        && !notification?.text?.includes('lightcycle was displaced')">
             <app-user-tag [user]="notification.fromUser" [inputtedParentRef]="inputtedParentRef ?? parentRef"
               [previousComponent]="previousComponent" [displayHoverPicture]="true"></app-user-tag>
           </div>
           <div class="nliLeftDiv" *ngIf="notification?.text?.includes('Executed Trade')">
             <span class="largeAvatar cursorPointer" (click)="notificationTextClick(notification)">&#x20BF;</span>
+          </div>
+          <div class="nliLeftDiv" *ngIf="notification?.text?.includes('lightcycle was displaced')">
+            <span class="largeAvatar cursorPointer" (click)="notificationTextClick(notification)">👽</span>
           </div>
           <div class="nliRightDiv">
             <button title="Delete Notification" (click)="delete(notification)"
