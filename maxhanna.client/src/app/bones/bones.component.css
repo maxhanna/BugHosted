@@ -588,3 +588,8 @@ body {
   color: var(--secondary-font-color);
   font-size: large;
 }
+
+.changeCharacterPanel {
+  font-family: owreKynge;
+  font-size: large;
+}

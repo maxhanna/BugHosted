@@ -98,7 +98,7 @@
     <div class="volumeSliderCompact" style="display:inline-block; vertical-align:middle; margin-left:6px;">
       <input type="range" min="0" max="100" step="1" [value]="volumePercent()" (input)="onVolumeSliderInput($event)" (change)="onVolumeChange($event)" aria-label="Volume" />
     </div>
-    <div style="display:inline-block; margin-left:8px;">
+    <div style="display:inline-block; margin-left:8px;" *ngIf="metaHero?.id">
       <button class="musicButton" (click)="openChangeCharacter()" aria-label="Change Character">Change Character</button>
     </div>
   </div>
@@ -135,7 +135,7 @@
 </div>
 
 <!-- Change Character Popup -->
-<div class="popupPanel" *ngIf="isChangeCharacterOpen">
+<div class="popupPanel changeCharacterPanel" *ngIf="isChangeCharacterOpen">
   <div class="popupPanelTitle mainPopupTitle">Change Character</div>
   <div style="padding:8px;">
     <button (click)="createNewCharacterSelection()">New Character (save current)</button>
