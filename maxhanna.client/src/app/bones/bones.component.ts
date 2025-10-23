@@ -334,8 +334,8 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
         return;
       }
       const wasServerDown = this.resetServerDown();
-      if (wasServerDown) {      // If server was down and is now back, consider reinitializing UI/state (bones doesn't have recover flow)
-        // Optionally: remove any offline indicators or re-sync inventory/positions
+      if (wasServerDown) {  
+        window.location.href = '/Bones'; 
       }
  
       if (res) {
