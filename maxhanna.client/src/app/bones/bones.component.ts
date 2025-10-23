@@ -891,19 +891,22 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
   // After snapshotting current hero, delete active bones_hero for this user
   await this.bonesService.deleteHero(this.parentRef.user.id);
   // Navigate to /bones to refresh client (server will now have no active hero)
-  window.location.href = '/bones';
+  window.location.href = '/Bones';
     } catch (ex) { console.error('Failed to create selection', ex); }
   }
 
   async promoteSelection(id: number) {
     try {
-      await this.bonesService.promoteHeroSelection(id);
-      // After promoting, refresh hero from server and close popup
-      if (this.parentRef?.user?.id) {
-        const rz = await this.bonesService.getHero(this.parentRef.user.id);
-        if (rz) await this.reinitializeHero(rz);
-      }
-      this.closeChangeCharacter();
+  const userId = this.parentRef?.user?.id ?? 0;
+  if (!userId) return;
+  // Snapshot current active hero first
+  await this.bonesService.createHeroSelection(userId);
+  // Delete the active bones_hero (we'll replace it with the promoted selection)
+  await this.bonesService.deleteHero(userId);
+  // Promote the chosen selection into bones_hero
+  await this.bonesService.promoteHeroSelection(id);
+  // Navigate to /Bones so the client reloads fresh state from server
+  window.location.href = '/Bones';
     } catch (ex) { console.error('Failed to promote selection', ex); }
   }
 

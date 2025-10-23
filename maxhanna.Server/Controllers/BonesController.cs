@@ -734,12 +734,22 @@ namespace maxhanna.Server.Controllers
 			try
 			{
 				// Copy current bones_hero for user into bones_hero_selection (snapshot)
-				string insertSql = @"INSERT INTO maxhanna.bones_hero_selection (user_id, bones_hero_id, name, data, created)
-				SELECT h.user_id, h.id, h.name, JSON_OBJECT('coordsX', h.coordsX, 'coordsY', h.coordsY, 'map', h.map, 'speed', h.speed, 'color', h.color, 'mask', h.mask, 'level', h.level, 'exp', h.exp, 'attack_speed', h.attack_speed), UTC_TIMESTAMP()
-				FROM maxhanna.bones_hero h WHERE h.user_id = @UserId LIMIT 1;";
-				using var cmd = new MySqlCommand(insertSql, connection, transaction);
-				cmd.Parameters.AddWithValue("@UserId", userId);
-				int rows = await cmd.ExecuteNonQueryAsync();
+				// Attempt to update an existing selection that references the same bones_hero for this user.
+				string updateSql = @"UPDATE maxhanna.bones_hero_selection s JOIN (SELECT id AS h_id, user_id, name, coordsX, coordsY, map, speed, color, mask, level, exp, attack_speed FROM maxhanna.bones_hero WHERE user_id = @UserId LIMIT 1) h ON s.bones_hero_id = h.h_id AND s.user_id = @UserId
+				SET s.name = h.name, s.data = JSON_OBJECT('coordsX', h.coordsX, 'coordsY', h.coordsY, 'map', h.map, 'speed', h.speed, 'color', h.color, 'mask', h.mask, 'level', h.level, 'exp', h.exp, 'attack_speed', h.attack_speed), s.created = UTC_TIMESTAMP();";
+				using var upCmd = new MySqlCommand(updateSql, connection, transaction);
+				upCmd.Parameters.AddWithValue("@UserId", userId);
+				int rows = await upCmd.ExecuteNonQueryAsync();
+				if (rows == 0)
+				{
+					// No existing selection for this hero found; perform insert snapshot
+					string insertSql = @"INSERT INTO maxhanna.bones_hero_selection (user_id, bones_hero_id, name, data, created)
+					SELECT h.user_id, h.id, h.name, JSON_OBJECT('coordsX', h.coordsX, 'coordsY', h.coordsY, 'map', h.map, 'speed', h.speed, 'color', h.color, 'mask', h.mask, 'level', h.level, 'exp', h.exp, 'attack_speed', h.attack_speed), UTC_TIMESTAMP()
+					FROM maxhanna.bones_hero h WHERE h.user_id = @UserId LIMIT 1;";
+					using var inCmd = new MySqlCommand(insertSql, connection, transaction);
+					inCmd.Parameters.AddWithValue("@UserId", userId);
+					rows = await inCmd.ExecuteNonQueryAsync();
+				}
 				await transaction.CommitAsync();
 				return Ok(new { created = rows > 0 });
 			}
