@@ -399,18 +399,24 @@ namespace maxhanna.Server.Controllers
 								deadCmd.Parameters.AddWithValue("@YMin", yMin);
 								deadCmd.Parameters.AddWithValue("@YMax", yMax);
 								using var deadRdr = await deadCmd.ExecuteReaderAsync();
-								var awarded = new HashSet<int>();
+								var deadEncounters = new List<(int encId, int encLevel)>();
 								while (await deadRdr.ReadAsync())
 								{
 									int encLevel = deadRdr.IsDBNull(deadRdr.GetOrdinal("level")) ? 0 : deadRdr.GetInt32(deadRdr.GetOrdinal("level"));
 									int encId = deadRdr.GetInt32(deadRdr.GetOrdinal("hero_id"));
-									if (!awarded.Contains(encId))
-									{
-										await AwardEncounterKillExp(sourceHeroId, encLevel, connection, transaction);
-										awarded.Add(encId);
-									}
+									deadEncounters.Add((encId, encLevel));
 								}
 								deadRdr.Close();
+								// Now award EXP after the reader is closed to avoid using the same connection with an open reader
+								var awarded = new HashSet<int>();
+								foreach (var d in deadEncounters)
+								{
+									if (!awarded.Contains(d.encId))
+									{
+										await AwardEncounterKillExp(sourceHeroId, d.encLevel, connection, transaction);
+										awarded.Add(d.encId);
+									}
+								}
 								}
 								catch (Exception ex2)
 								{
