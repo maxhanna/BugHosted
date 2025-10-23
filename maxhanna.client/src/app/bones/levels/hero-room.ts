@@ -38,6 +38,16 @@ export class HeroRoomLevel extends Level {
       });
       this.addChild(encounter);
 
+      
+      const encounter2 = new Encounter({
+        id: -999998,
+        position: new Vector2(gridCells(6), gridCells(8)),
+        possibleEnemies: ["skeleton"],
+        moveLeftRight: 0,
+        moveUpDown: 0
+      });
+      this.addChild(encounter2);
+
 
     this.walls = new Set(); 
     //walls:
