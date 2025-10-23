@@ -654,7 +654,20 @@ namespace maxhanna.Server.Controllers
 				using var connection = new MySqlConnection(_connectionString);
 				await connection.OpenAsync();
 				// Simplified highscores: return heroes ordered by created date as placeholder. Metabot aggregation removed.
-				string sql = @"SELECT mh.id AS heroId, mh.user_id AS userId, mh.name AS heroName, mh.level AS level, 0 AS botCount, u.username as username, udpfl.id as display_picture_file_id FROM maxhanna.bones_hero mh LEFT JOIN maxhanna.users u ON u.id = mh.user_id LEFT JOIN maxhanna.user_display_pictures udp ON udp.user_id = u.id LEFT JOIN maxhanna.file_uploads udpfl ON udp.file_id = udpfl.id WHERE mh.name IS NOT NULL ORDER BY mh.created DESC LIMIT @Count;";
+				string sql = @"SELECT
+					mh.id AS heroId,
+					mh.user_id AS userId,
+					mh.name AS heroName,
+					mh.level AS level,
+					u.username as username,
+					udpfl.id as display_picture_file_id
+				FROM maxhanna.bones_hero mh
+				LEFT JOIN maxhanna.users u ON u.id = mh.user_id
+				LEFT JOIN maxhanna.user_display_pictures udp ON udp.user_id = u.id
+				LEFT JOIN maxhanna.file_uploads udpfl ON udp.file_id = udpfl.id
+				WHERE mh.name IS NOT NULL
+				ORDER BY mh.created DESC
+				LIMIT @Count;";
 				using var cmd = new MySqlCommand(sql, connection);
 				cmd.Parameters.AddWithValue("@Count", Math.Max(1, count));
 				using var rdr = await cmd.ExecuteReaderAsync();
@@ -663,7 +676,12 @@ namespace maxhanna.Server.Controllers
 				{
 					FileEntry? displayPic = !rdr.IsDBNull(rdr.GetOrdinal("display_picture_file_id")) ? new FileEntry(rdr.GetInt32(rdr.GetOrdinal("display_picture_file_id"))) : null;
 					User? ownerUser = !rdr.IsDBNull(rdr.GetOrdinal("userId")) ? new User(id: rdr.GetInt32(rdr.GetOrdinal("userId")), username: rdr.IsDBNull(rdr.GetOrdinal("username")) ? "Anonymous" : SafeGetString(rdr, "username") ?? "Anonymous", displayPictureFile: displayPic) : null;
-					results.Add(new { heroId = rdr.GetInt32("heroId"), owner = ownerUser, heroName = rdr.IsDBNull(rdr.GetOrdinal("heroName")) ? null : SafeGetString(rdr, "heroName"), level = rdr.IsDBNull(rdr.GetOrdinal("level")) ? 0 : rdr.GetInt32("totalMetabotLevels"), botCount = rdr.IsDBNull(rdr.GetOrdinal("botCount")) ? 0 : rdr.GetInt32("botCount") });
+					results.Add(new {
+						heroId = rdr.GetInt32("heroId"),
+						owner = ownerUser,
+						heroName = rdr.IsDBNull(rdr.GetOrdinal("heroName")) ? null : SafeGetString(rdr, "heroName"),
+						level = rdr.IsDBNull(rdr.GetOrdinal("level")) ? 0 : rdr.GetInt32("level")
+					});
 				}
 				return Ok(results);
 			}
