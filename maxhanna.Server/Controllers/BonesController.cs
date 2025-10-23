@@ -266,10 +266,10 @@ namespace maxhanna.Server.Controllers
 								{
 									switch (f)
 									{
-										case 0: targetY = sourceY - 1; break; // up
-										case 1: targetX = sourceX + 1; break; // right
-										case 2: targetY = sourceY + 1; break; // down
-										case 3: targetX = sourceX - 1; break; // left
+										case 0: targetY = sourceY - 16; break; // up
+										case 1: targetX = sourceX + 16; break; // right
+										case 2: targetY = sourceY + 16; break; // down
+										case 3: targetX = sourceX - 16; break; // left
 										default: break;
 									}
 								}
