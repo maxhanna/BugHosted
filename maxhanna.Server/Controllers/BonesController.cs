@@ -292,8 +292,8 @@ namespace maxhanna.Server.Controllers
 								UPDATE maxhanna.bones_encounter e
 								LEFT JOIN maxhanna.bones_hero a ON a.id = @HeroId
 								SET e.hp = GREATEST(e.hp - COALESCE(a.level, 1), 0),
-										e.target_hero_id = @HeroId,
-										e.last_killed = CASE WHEN e.hp <= COALESCE(a.level, 1) THEN UTC_TIMESTAMP() ELSE e.last_killed END
+								e.target_hero_id = @HeroId,
+								e.last_killed = CASE WHEN (e.hp - COALESCE(a.level,1)) <= 0 THEN UTC_TIMESTAMP() ELSE e.last_killed END
 								WHERE e.map = @Map
 									AND (
 										( e.coordsX BETWEEN @XMinus10 AND @XPlus10 AND e.coordsY BETWEEN @YMinus10 AND @YPlus10 )
@@ -314,6 +314,12 @@ namespace maxhanna.Server.Controllers
 							{ "@HeroId", sourceHeroId }
 						};
 							int rows = Convert.ToInt32(await ExecuteInsertOrUpdateOrDeleteAsync(updateHpSql, updateParams, connection, transaction));
+
+							if (rows == 0)
+							{
+								// Debug log for missed attack to help diagnose coordinate mismatches
+								await _log.Db($"Attack miss heroId={sourceHeroId} map={hero.Map} src=({sourceX},{sourceY}) tgt=({targetX},{targetY}) facing={normalized.GetValueOrDefault("facing")} buffer={HITBOX_HALF}", hero.Id, "BONES", true);
+							}
 
 							if (rows > 0)
 							{
