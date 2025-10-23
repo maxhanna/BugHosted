@@ -14,8 +14,9 @@ import { events } from "../../helpers/events";
 import { WarpBase } from "../Effects/Warp/warp-base";
 
 export class Hero extends Character {
-  metabots?: MetaBot[]; 
   isAttacking = false;
+  // lastAttack timestamp to enforce attackSpeed cooldown (ms since epoch)
+  private lastAttackAt: number = 0;
   constructor(params: {
     position: Vector2, id?: number, name?: string, metabots?: MetaBot[], colorSwap?: ColorSwap,
     isUserControlled?: boolean, speed?: number, mask?: Mask, scale?: Vector2,
@@ -69,7 +70,6 @@ export class Hero extends Character {
     this.itemPickupTime = 0;
     this.isOmittable = false;
     this.scale = params.scale ?? new Vector2(1, 1);
-    this.metabots = params.metabots ?? [];
     const shadow = new Sprite({
       resource: resources.images["shadow"],
       offsetY: 10,
@@ -98,7 +98,12 @@ export class Hero extends Character {
         this.isLocked = false;
       }); 
       events.on("SPACEBAR_PRESSED", this, () => {
-        this.isAttacking = true;
+  // enforce attack speed cooldown based on metaHero.attackSpeed (default 400ms)
+  const attackSpeed = (this as any).metaHero?.attackSpeed ?? 400;
+  const now = Date.now();
+  if (now - this.lastAttackAt < attackSpeed) return; // still cooling down
+  this.lastAttackAt = now;
+  this.isAttacking = true;
        // this.isLocked = true;
         if (this.facingDirection == "DOWN") {
           this.body?.animations?.play("attackDown");
@@ -131,15 +136,6 @@ export class Hero extends Character {
           events.emit("WHISPER_AT", isObjectNearby(this));  
         }
       });
-      events.on("CHANGE_LEVEL", this, () => {
-        const deployedBot = this.metabots?.find(x => x.isDeployed && x.hp > 0);
-        if (deployedBot) {
-          events.emit("CALL_BOT_BACK", { bot: deployedBot });
-          setTimeout(() => {
-            events.emit("DEPLOY", { metaHero: this, bot: deployedBot });
-          }, 2450);
-        } 
-      });
       events.on("CLOSE_HERO_DIALOGUE", this, () => {
         this.isLocked = false;
         events.emit("END_TEXT_BOX");
@@ -148,12 +144,8 @@ export class Hero extends Character {
         console.log("warping ", params);
         const warpPosition = new Vector2(gridCells(parseInt(params.x)), gridCells(parseInt(params.y)));
         const spaceIsFreeForWarp = isSpaceFree(this.parent.walls, warpPosition.x, warpPosition.y);
-        const deployedBot = this.metabots?.find(x => x.isDeployed && x.hp > 0);
         if (spaceIsFreeForWarp) {
           events.emit("HERO_MOVEMENT_LOCK");
-          if (deployedBot) { 
-            events.emit("CALL_BOT_BACK", { bot: deployedBot });
-          }
           const warpBase = new WarpBase({ position: this.position, parentId: this.id, offsetX: -8, offsetY: 12 });
           this.parent.addChild(warpBase);
           setTimeout(() => {
@@ -163,9 +155,6 @@ export class Hero extends Character {
             warpBase.destroy();
             setTimeout(() => {
               events.emit("HERO_MOVEMENT_LOCK");
-              if (deployedBot) {
-                events.emit("DEPLOY", { metaHero: this, bot: deployedBot });
-              }
               const warpBase2 = new WarpBase({ position: this.position, parentId: this.id, offsetX: -8, offsetY: 12 });
               this.parent.addChild(warpBase2);
               setTimeout(() => {

@@ -23,6 +23,8 @@ export let actionBlocker = false;
 export let encounterUpdates: Bot[] = [];
 export let batchInterval: any;
 export let pendingAttacks: any[] = [];
+// track last attack timestamp per hero id (ms since epoch)
+export const lastAttackTimestamps: Map<number, number> = new Map();
 export let attackBatchInterval: any;
 export const processedAttacks: Map<string, number> = new Map();
 
@@ -47,7 +49,11 @@ export function stopBatchUpdates() {
 }
 
 export function startAttackBatch(object: any, batchIntervalMs = 1000) {
-  if (attackBatchInterval) return;
+  // If an interval is already running with a different ms, restart it so timing matches attackSpeed
+  if (attackBatchInterval) {
+    clearInterval(attackBatchInterval);
+    attackBatchInterval = undefined;
+  }
   attackBatchInterval = setInterval(() => {
     if (pendingAttacks.length > 0) {
       sendAttackBatchToBackend(pendingAttacks, object);
@@ -315,8 +321,7 @@ export function subscribeToMainGameEvents(object: any) {
     events.emit("SHOW_START_BUTTON");
   });
 
-  events.on("OPEN_START_MENU", object, () => {
-    object.reinitializeStartMenuData();
+  events.on("OPEN_START_MENU", object, () => { 
     object.isStartMenuOpened = true;
     events.emit("HIDE_START_BUTTON");
   });
@@ -359,13 +364,21 @@ export function subscribeToMainGameEvents(object: any) {
   events.on("SPACEBAR_PRESSED", object, (skill: Skill) => {
     if ((object.chatInput && document.activeElement != object.chatInput) || !object.chatInput)
     {
+      const attackSpeed = object?.metaHero?.attackSpeed ?? 400; // ms
+      const now = Date.now();
+      const last = lastAttackTimestamps.get(object.metaHero.id) ?? 0;
+      if (now - last < attackSpeed) {
+        // still cooling down; ignore attack
+        return;
+      }
+      lastAttackTimestamps.set(object.metaHero.id, now);
       const attack = {
         timestamp: new Date().toISOString(),
         skill: (skill && (typeof (skill as any).name === 'string')) ? (skill as any).name : (typeof skill === 'string' ? skill : undefined),
         heroId: object.metaHero.id
       };
       pendingAttacks.push(attack);
-      startAttackBatch(object, 1000);
+      startAttackBatch(object, attackSpeed);
     }
   });
 

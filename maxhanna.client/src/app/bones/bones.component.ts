@@ -513,13 +513,7 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
         }
         else {
           existingHero = this.addHeroToScene(hero);
-        }
-        for (let i = 0; i < hero.metabots.length; i++) {
-          if (hero.metabots[i].isDeployed == true) {
-            this.addBotToScene(hero, hero.metabots[i]);
-            break;
-          }
-        }
+        } 
         this.setHeroLatestMessage(existingHero);
       }
       ids.push(hero.id);
@@ -546,7 +540,6 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
       colorSwap: (hero.color ? new ColorSwap([0, 160, 200], hexToRgb(hero.color)) : undefined),
       speed: hero.speed,
       mask: hero.mask ? new Mask(getMaskNameById(hero.mask)) : undefined,
-      metabots: hero.metabots,
       forceDrawName: true,
     });
     tmpHero.lastPosition = tmpHero.position.duplicate();
@@ -558,7 +551,6 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
         this.hero.isLocked = true;
       }
     } 
-    //tmpHero.metabots?.forEach((bot: MetaBot) => { bot.colorSwap = tmpHero.colorSwap;  })
     this.mainScene.level?.addChild(tmpHero); 
     return tmpHero;
   }
@@ -707,16 +699,15 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
       isUserControlled: true,
       speed: rz.speed,
       mask: rz.mask ? new Mask(getMaskNameById(rz.mask)) : undefined,
-      metabots: rz.metabots,
     });
-    this.metaHero = new MetaHero(this.hero.id, (this.hero.name ?? "Anon"),
+     this.metaHero = new MetaHero(this.hero.id, (this.hero.name ?? "Anon"),
       this.hero.position.duplicate(),
       rz.speed,
-      rz.map,
-  rz.metabots,
-  rz.color,
-  rz.mask);
-      this.hero.isLocked = this.isStartMenuOpened || this.isShopMenuOpened;
+      rz.map, 
+      rz.color,
+      rz.mask,
+      rz.attackSpeed);
+    this.hero.isLocked = this.isStartMenuOpened || this.isShopMenuOpened;
     this.mainScene.setHeroId(this.metaHero.id);
     this.mainScene.hero = this.hero; 
     this.mainScene.metaHero = this.metaHero;
@@ -730,15 +721,6 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
 
     if (level) {
       this.mainScene.setLevel(level);
-    }
- 
-    if (this.metaHero.metabots) {
-      for (let i = 0; i < this.metaHero.metabots.length; i++) {
-        if (this.metaHero.metabots[i].isDeployed == true) {
-          this.addBotToScene(this.metaHero, this.metaHero.metabots[i]);
-          break;
-        }
-      }
     } 
 
     this.mainScene.camera.centerPositionOnTarget(this.metaHero.position);
@@ -760,20 +742,7 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
             name: item.name,
             id: item.id,
             category: item.category,
-          } as InventoryItem;
-          if (item.category === "botFrame") {
-            const bot = this.mainScene?.level?.children?.find((x: Bot) => x.heroId == this.metaHero.id && x.name === invItem.name);
-            const metaBot = this.metaHero.metabots.find(bot => bot.name === invItem.name);
-            if (bot && metaBot) {
-              metaBot.hp = bot.hp;
-              metaBot.level = bot.level;
-              metaBot.isDeployed = bot.isDeployed;
-              metaBot.exp = bot.exp;
-              metaBot.colorSwap = bot.colorSwap;
-            }
-
-            invItem.stats = JSON.stringify(this.metaHero.metabots.find(bot => bot.name === invItem.name));
-          }
+          } as InventoryItem; 
           events.emit("INVENTORY_UPDATED", invItem);
         }
       }
@@ -781,30 +750,7 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
         this.mainScene.inventory.renderParty();
       }
     });
-  }
-
-  reinitializeStartMenuData() {
-    for (let item of this.mainScene?.inventory?.items) {
-      let invItem = {
-        image: item.image,
-        name: item.name,
-        id: item.id,
-        category: item.category,
-      } as InventoryItem;
-      if (item.category === "botFrame") {
-        const bot = this.mainScene?.level?.children?.find((x: Bot) => x.heroId == this.metaHero.id && x.name === item.name);
-        const metaBot = this.metaHero.metabots.find(bot => bot.name === invItem.name);
-        if (bot && metaBot) { 
-          metaBot.hp = bot.hp;
-          metaBot.level = bot.level;
-          metaBot.isDeployed = bot.isDeployed;
-          metaBot.exp = bot.exp;
-        }
-
-        item.stats = JSON.stringify(metaBot);
-      }
-    }
-  }
+  } 
 
   private getLevelFromLevelName(key: string): Level {
     const upperKey = key.toUpperCase();

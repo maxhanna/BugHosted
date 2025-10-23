@@ -178,36 +178,7 @@ export class Bot extends Character {
   }
  
 
-  private chaseAfter() {
-    if (this.chasing && this.chasing.id &&
-      (this.destinationPosition.x != this.chasing.destinationPosition.x || this.destinationPosition.y != this.chasing.destinationPosition.y)) {
-      const dx = this.chasing.destinationPosition.x - this.destinationPosition.x;
-      const dy = this.chasing.destinationPosition.y - this.destinationPosition.y;
-      const distance = Math.sqrt(dx * dx + dy * dy);
-      if (distance > 500 || !(this.chasing as Hero).metabots?.find(x => x.isDeployed)) {
-        console.log(`${this.name} stopped following ${this.chasing.name}`);
-        this.chasing = undefined;
-        this.latestMessage = "😡";
-        this.chaseCancelBlock = new Date();
-      } else {
-        this.destinationPosition = this.chasing.destinationPosition.duplicate();
-        clearTimeout(this.chaseDebounceTimer);
-        this.chaseDebounceTimer = setTimeout(() => {
-          events.emit("UPDATE_ENCOUNTER_POSITION", this);
-        }, 100);
-      }
-      setTimeout(()=> {
-        if (this.chasing) { 
-          const now = new Date();
-          if (now.getTime() - this.chaseCancelBlock.getTime() > 50) {
-            this.chasing = undefined;
-            this.destinationPosition = this.position.duplicate();
-            this.latestMessage = "😡";
-            this.chaseCancelBlock = new Date();
-          } 
-        }
-      }, 12 * 1000);
-    }
+  private chaseAfter() { 
   }
 
   override getContent() { 
