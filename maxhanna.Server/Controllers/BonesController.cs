@@ -832,8 +832,9 @@ namespace maxhanna.Server.Controllers
 				if (bonesHeroId.HasValue)
 				{
 					// Upsert by hero id: insert if missing, otherwise update.
+					// Use NULLIF to convert JSON 'null' string to SQL NULL, then coerce to numeric with +0, and fallback to 0 via COALESCE
 					string upsertSql = @"INSERT INTO maxhanna.bones_hero (id, user_id, coordsX, coordsY, map, speed, name, color, mask, level, exp, created, attack_speed)
-					VALUES (@HeroId, @UserId, JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.coordsX'))+0, JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.coordsY'))+0, JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.map')), JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.speed'))+0, @Name, JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.color')), JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.mask'))+0, JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.level'))+0, JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.exp'))+0, UTC_TIMESTAMP(), JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.attack_speed'))+0)
+					VALUES (@HeroId, @UserId, COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.coordsX')),'null')+0, 0), COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.coordsY')),'null')+0, 0), JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.map')), COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.speed')),'null')+0, 0), @Name, JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.color')), COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.mask')),'null')+0, 0), COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.level')),'null')+0, 0), COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.exp')),'null')+0, 0), UTC_TIMESTAMP(), COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.attack_speed')),'null')+0, 400))
 					ON DUPLICATE KEY UPDATE coordsX = VALUES(coordsX), coordsY = VALUES(coordsY), map = VALUES(map), speed = VALUES(speed), name = VALUES(name), color = VALUES(color), mask = VALUES(mask), level = VALUES(level), exp = VALUES(exp), attack_speed = VALUES(attack_speed), user_id = VALUES(user_id), updated = UTC_TIMESTAMP();";
 					using var upCmd = new MySqlCommand(upsertSql, connection, transaction);
 					upCmd.Parameters.AddWithValue("@Data", dataJson ?? "{}" );
@@ -845,8 +846,9 @@ namespace maxhanna.Server.Controllers
 				else
 				{
 					// Upsert by user_id: insert if missing, otherwise update. This assumes user_id has a UNIQUE constraint.
+					// Guard numeric fields and provide sensible defaults; default attack_speed to 400 if missing
 					string upsertByUserSql = @"INSERT INTO maxhanna.bones_hero (user_id, coordsX, coordsY, map, speed, name, color, mask, level, exp, created, attack_speed)
-					VALUES (@UserId, JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.coordsX'))+0, JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.coordsY'))+0, JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.map')), JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.speed'))+0, @Name, JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.color')), JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.mask'))+0, JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.level'))+0, JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.exp'))+0, UTC_TIMESTAMP(), JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.attack_speed'))+0)
+					VALUES (@UserId, COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.coordsX')),'null')+0, 0), COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.coordsY')),'null')+0, 0), JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.map')), COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.speed')),'null')+0, 0), @Name, JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.color')), COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.mask')),'null')+0, 0), COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.level')),'null')+0, 0), COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.exp')),'null')+0, 0), UTC_TIMESTAMP(), COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.attack_speed')),'null')+0, 400))
 					ON DUPLICATE KEY UPDATE coordsX = VALUES(coordsX), coordsY = VALUES(coordsY), map = VALUES(map), speed = VALUES(speed), name = VALUES(name), color = VALUES(color), mask = VALUES(mask), level = VALUES(level), exp = VALUES(exp), attack_speed = VALUES(attack_speed), updated = UTC_TIMESTAMP();";
 					using var upUserCmd = new MySqlCommand(upsertByUserSql, connection, transaction);
 					upUserCmd.Parameters.AddWithValue("@Data", dataJson ?? "{}");
