@@ -1,5 +1,6 @@
 import { Component, Input, OnInit } from '@angular/core';
 import { BonesService } from '../../services/bones.service';
+import { AppComponent } from '../app.component';
 
 @Component({
   selector: 'app-bones-high-scores',
@@ -8,7 +9,7 @@ import { BonesService } from '../../services/bones.service';
   styleUrls: ['./bones-high-scores.component.css']
 })
 export class BonesHighScoresComponent implements OnInit {
-  @Input() parentRef: any;
+  @Input() inputtedParentRef?: AppComponent;
   topHeroes: any[] | undefined;
   loading = false;
 
