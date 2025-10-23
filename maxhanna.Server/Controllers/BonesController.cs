@@ -604,33 +604,7 @@ namespace maxhanna.Server.Controllers
 				await _log.Db($"Unexpected error in Bones_GetUserPartyMembers for userId {userId}: {ex.Message}", null, "BONES", true);
 				return StatusCode(500, $"Internal server error: {ex.Message}");
 			}
-		}
-
-		[HttpPost("/Bones/GetMetabotHighscores", Name = "Bones_GetMetabotHighscores")]
-		public async Task<IActionResult> GetMetabotHighscores([FromBody] int count)
-		{
-			try
-			{
-				using var connection = new MySqlConnection(_connectionString);
-				await connection.OpenAsync();
-				// Metabot table removed; return empty result set. Highscores should be computed from client-side encounter data or a new server-side table if desired.
-				string sql = @"SELECT NULL as botId, NULL as heroId, 0 as level, 0 as exp, NULL as ownerUserId, NULL as heroName, NULL as user_id, NULL as username, NULL as display_picture_file_id WHERE 1=0;";
-				using var cmd = new MySqlCommand(sql, connection);
-				cmd.Parameters.AddWithValue("@Count", Math.Max(1, count));
-				using var rdr = await cmd.ExecuteReaderAsync();
-				var results = new List<object>();
-				while (await rdr.ReadAsync())
-				{
-					// no rows
-				}
-				return Ok(results);
-			}
-			catch (Exception ex)
-			{
-				await _log.Db("Error fetching bones metabot highscores: " + ex.Message, null, "BONES", true);
-				return StatusCode(500, "An error occurred fetching bones metabot highscores.");
-			}
-		}
+		} 
 
 		[HttpPost("/Bones/ActivePlayers", Name = "Bones_GetActivePlayers")]
 		public async Task<IActionResult> GetBonesActivePlayers([FromBody] int? minutes)
@@ -680,7 +654,7 @@ namespace maxhanna.Server.Controllers
 				using var connection = new MySqlConnection(_connectionString);
 				await connection.OpenAsync();
 				// Simplified highscores: return heroes ordered by created date as placeholder. Metabot aggregation removed.
-				string sql = @"SELECT mh.id AS heroId, mh.user_id AS userId, mh.name AS heroName, 0 AS totalMetabotLevels, 0 AS botCount, u.username as username, udpfl.id as display_picture_file_id FROM maxhanna.bones_hero mh LEFT JOIN maxhanna.users u ON u.id = mh.user_id LEFT JOIN maxhanna.user_display_pictures udp ON udp.user_id = u.id LEFT JOIN maxhanna.file_uploads udpfl ON udp.file_id = udpfl.id WHERE mh.name IS NOT NULL ORDER BY mh.created DESC LIMIT @Count;";
+				string sql = @"SELECT mh.id AS heroId, mh.user_id AS userId, mh.name AS heroName, mh.level AS level, 0 AS botCount, u.username as username, udpfl.id as display_picture_file_id FROM maxhanna.bones_hero mh LEFT JOIN maxhanna.users u ON u.id = mh.user_id LEFT JOIN maxhanna.user_display_pictures udp ON udp.user_id = u.id LEFT JOIN maxhanna.file_uploads udpfl ON udp.file_id = udpfl.id WHERE mh.name IS NOT NULL ORDER BY mh.created DESC LIMIT @Count;";
 				using var cmd = new MySqlCommand(sql, connection);
 				cmd.Parameters.AddWithValue("@Count", Math.Max(1, count));
 				using var rdr = await cmd.ExecuteReaderAsync();
@@ -689,7 +663,7 @@ namespace maxhanna.Server.Controllers
 				{
 					FileEntry? displayPic = !rdr.IsDBNull(rdr.GetOrdinal("display_picture_file_id")) ? new FileEntry(rdr.GetInt32(rdr.GetOrdinal("display_picture_file_id"))) : null;
 					User? ownerUser = !rdr.IsDBNull(rdr.GetOrdinal("userId")) ? new User(id: rdr.GetInt32(rdr.GetOrdinal("userId")), username: rdr.IsDBNull(rdr.GetOrdinal("username")) ? "Anonymous" : SafeGetString(rdr, "username") ?? "Anonymous", displayPictureFile: displayPic) : null;
-					results.Add(new { heroId = rdr.GetInt32("heroId"), owner = ownerUser, heroName = rdr.IsDBNull(rdr.GetOrdinal("heroName")) ? null : SafeGetString(rdr, "heroName"), totalMetabotLevels = rdr.IsDBNull(rdr.GetOrdinal("totalMetabotLevels")) ? 0 : rdr.GetInt32("totalMetabotLevels"), botCount = rdr.IsDBNull(rdr.GetOrdinal("botCount")) ? 0 : rdr.GetInt32("botCount") });
+					results.Add(new { heroId = rdr.GetInt32("heroId"), owner = ownerUser, heroName = rdr.IsDBNull(rdr.GetOrdinal("heroName")) ? null : SafeGetString(rdr, "heroName"), level = rdr.IsDBNull(rdr.GetOrdinal("level")) ? 0 : rdr.GetInt32("totalMetabotLevels"), botCount = rdr.IsDBNull(rdr.GetOrdinal("botCount")) ? 0 : rdr.GetInt32("botCount") });
 				}
 				return Ok(results);
 			}
@@ -1266,8 +1240,8 @@ namespace maxhanna.Server.Controllers
 			{
 				List<int> partyIds = new();
 				string partySql = @"SELECT bones_hero_id_1 AS hero_id FROM bones_hero_party WHERE bones_hero_id_2 = @HeroId
-					UNION SELECT bones_hero_id_2 AS hero_id FROM bones_hero_party WHERE bones_hero_id_1 = @HeroId
-					UNION SELECT @HeroId AS hero_id";
+						UNION SELECT bones_hero_id_2 AS hero_id FROM bones_hero_party WHERE bones_hero_id_1 = @HeroId
+						UNION SELECT @HeroId AS hero_id";
 				using (var pCmd = new MySqlCommand(partySql, connection, transaction))
 				{
 					pCmd.Parameters.AddWithValue("@HeroId", killerHeroId);
@@ -1275,16 +1249,40 @@ namespace maxhanna.Server.Controllers
 					while (await pR.ReadAsync()) partyIds.Add(pR.GetInt32(0));
 				}
 				if (partyIds.Count == 0) partyIds.Add(killerHeroId);
-				string updateSql = $"UPDATE maxhanna.bones_hero SET exp = exp + @Exp WHERE id IN ({string.Join(',', partyIds)})";
+				// Debug: log who will receive EXP and how much
+				await _log.Db($"AwardEncounterKillExp: killer={killerHeroId} encounterLevel={encounterLevel} party=[{string.Join(',', partyIds)}]", killerHeroId, "BONES", true);
+				string idsCsv = string.Join(',', partyIds);
+				string updateSql = $"UPDATE maxhanna.bones_hero SET exp = exp + @Exp WHERE id IN ({idsCsv})";
 				using (var upCmd = new MySqlCommand(updateSql, connection, transaction))
 				{
 					upCmd.Parameters.AddWithValue("@Exp", encounterLevel);
-					await upCmd.ExecuteNonQueryAsync();
+					int rows = await upCmd.ExecuteNonQueryAsync();
+					await _log.Db($"AwardEncounterKillExp: exp UPDATE rowsAffected={rows} for ids=[{idsCsv}] (added {encounterLevel} exp)", killerHeroId, "BONES", true);
 				}
-				string levelSql = $"UPDATE maxhanna.bones_hero SET level = level + 1 WHERE id IN ({string.Join(',', partyIds)}) AND exp >= (level * 10)";
+				// Read back the exp/level values for the party to verify the update took effect
+				try
+				{
+					string selectSql = $"SELECT id, exp, level FROM maxhanna.bones_hero WHERE id IN ({idsCsv})";
+					using var selCmd = new MySqlCommand(selectSql, connection, transaction);
+					using var selR = await selCmd.ExecuteReaderAsync();
+					while (await selR.ReadAsync())
+					{
+						int id = selR.GetInt32(0);
+						int exp = selR.IsDBNull(1) ? 0 : selR.GetInt32(1);
+						int lvl = selR.IsDBNull(2) ? 0 : selR.GetInt32(2);
+						await _log.Db($"AwardEncounterKillExp: post-update heroId={id} exp={exp} level={lvl}", killerHeroId, "BONES", true);
+					}
+					selR.Close();
+				}
+				catch (Exception exSel)
+				{
+					await _log.Db("AwardEncounterKillExp select-after-update failed: " + exSel.Message, killerHeroId, "BONES", true);
+				}
+				string levelSql = $"UPDATE maxhanna.bones_hero SET level = level + 1 WHERE id IN ({idsCsv}) AND exp >= (level * 10)";
 				using (var lvlCmd = new MySqlCommand(levelSql, connection, transaction))
 				{
-					await lvlCmd.ExecuteNonQueryAsync();
+					int leveled = await lvlCmd.ExecuteNonQueryAsync();
+					await _log.Db($"AwardEncounterKillExp: level UPDATE rowsAffected={leveled} for ids=[{idsCsv}]", killerHeroId, "BONES", true);
 				}
 			}
 			catch (Exception ex)

@@ -20,12 +20,12 @@ export class UserTagComponent extends ChildComponent implements OnInit, OnDestro
   @Input() displayOnlyAvatar = false;
   @Input() displayLargeAvatar = false;
   @Input() displayMiniTag = false;
+  @Input() displayHoverPicture = false;
   @Input() preventOpenProfile = false;
   @Input() preventExpandPicture = true;
   @Input() containUsername = false;
   @Input() hideName = false;
   @Input() displayTinyPicture = false;
-  @Input() displayHoverPicture = false;
   @Input() openInNewTab: boolean = false;
   @Output() userLoaded = new EventEmitter<User>();
   @ViewChild('profileImageViewer') profileImageViewer!: MediaViewerComponent;
