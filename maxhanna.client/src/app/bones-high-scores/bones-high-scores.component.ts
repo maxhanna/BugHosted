@@ -1,11 +1,9 @@
 import { Component, Input, OnInit } from '@angular/core';
-import { CommonModule } from '@angular/common';
 import { BonesService } from '../../services/bones.service';
 
 @Component({
   selector: 'app-bones-high-scores',
-  standalone: true,
-  imports: [CommonModule],
+  standalone: false,
   templateUrl: './bones-high-scores.component.html',
   styleUrls: ['./bones-high-scores.component.css']
 })
