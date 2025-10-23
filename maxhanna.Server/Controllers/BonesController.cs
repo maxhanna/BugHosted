@@ -295,73 +295,122 @@ namespace maxhanna.Server.Controllers
 						}
 						catch { attackerLevel = 1; }
 
+						// Determine AoE half-size: allow client to send 'aoe', 'radius', 'width', or 'threshold'. Fallback to HITBOX_HALF for single-tile tolerance.
+						int aoeHalf = HITBOX_HALF; // default tolerance radius
+						string[] aoeKeys = new[] { "aoe", "radius", "width", "threshold" };
+						foreach (var k in aoeKeys)
+						{
+							if (normalized.ContainsKey(k) && normalized[k] != null)
+							{
+								var sVal = normalized[k]?.ToString();
+								if (int.TryParse(sVal, out int parsed) && parsed > 0)
+								{
+									// Interpret parsed as full width if key is 'width'; convert to half-size
+									if (k == "width" && parsed > 1) aoeHalf = parsed / 2; else aoeHalf = parsed;
+									break;
+								}
+							}
+						}
+						// Prevent absurd huge AoE (sanity cap)
+						aoeHalf = Math.Min(aoeHalf, 512);
+
+						int xMin = targetX - aoeHalf;
+						int xMax = targetX + aoeHalf;
+						int yMin = targetY - aoeHalf;
+						int yMax = targetY + aoeHalf;
+
+						// If facing provided, optionally elongate AoE in facing direction if client supplies 'length'
+						if (normalized.ContainsKey("length") && normalized["length"] != null && int.TryParse(normalized["length"]?.ToString(), out int length) && length > 0)
+						{
+							// Extend rectangle in facing direction by length (convert to pixels already assumed)
+							int extend = length;
+							if (normalized.ContainsKey("facing") && normalized["facing"] != null)
+							{
+								var fVal = normalized["facing"]?.ToString();
+								if (int.TryParse(fVal, out int f))
+								{
+									if (f == 0) yMin = targetY - extend; // up
+									else if (f == 1) xMax = targetX + extend; // right
+									else if (f == 2) yMax = targetY + extend; // down
+									else if (f == 3) xMin = targetX - extend; // left
+								}
+								else
+								{
+									var sF = fVal?.ToLower() ?? string.Empty;
+									if (sF.Contains("up") || sF.Contains("north")) yMin = targetY - extend;
+									else if (sF.Contains("right") || sF.Contains("east")) xMax = targetX + extend;
+									else if (sF.Contains("down") || sF.Contains("south")) yMax = targetY + extend;
+									else if (sF.Contains("left") || sF.Contains("west")) xMin = targetX - extend;
+								}
+							}
+						}
+
 						string updateHpSql = @"
 							UPDATE maxhanna.bones_encounter e
 							SET e.hp = GREATEST(e.hp - @AttackerLevel, 0),
 								e.target_hero_id = @HeroId,
 								e.last_killed = CASE WHEN (e.hp - @AttackerLevel) <= 0 THEN UTC_TIMESTAMP() ELSE e.last_killed END
 							WHERE e.map = @Map
-								AND e.coordsX = @X
-								AND e.coordsY = @Y
 								AND e.hp > 0
-							LIMIT 1;";
+								AND e.coordsX BETWEEN @XMin AND @XMax
+								AND e.coordsY BETWEEN @YMin AND @YMax;"; // allow multi-row AoE damage; no LIMIT
 						var updateParams = new Dictionary<string, object?>() {
 							{ "@Map", hero.Map ?? string.Empty },
-							{ "@X", targetX },
-							{ "@Y", targetY },
 							{ "@HeroId", sourceHeroId },
-							{ "@AttackerLevel", attackerLevel }
+							{ "@AttackerLevel", attackerLevel },
+							{ "@XMin", xMin },
+							{ "@XMax", xMax },
+							{ "@YMin", yMin },
+							{ "@YMax", yMax }
 						};
 							int rows = Convert.ToInt32(await ExecuteInsertOrUpdateOrDeleteAsync(updateHpSql, updateParams, connection, transaction));
 
 							if (rows == 0)
 							{
-								// Debug log for missed attack to help diagnose coordinate mismatches
-								await _log.Db($"Attack miss heroId={sourceHeroId} map={hero.Map} src=({sourceX},{sourceY}) tgt=({targetX},{targetY}) facing={normalized.GetValueOrDefault("facing")} buffer={HITBOX_HALF}", hero.Id, "BONES", true);
+							// Debug log for missed attack to help diagnose coordinate/aoe mismatch
+							await _log.Db($"Attack miss heroId={sourceHeroId} map={hero.Map} src=({sourceX},{sourceY}) tgt=({targetX},{targetY}) facing={normalized.GetValueOrDefault("facing")} aoeHalf={aoeHalf} rect=({xMin},{yMin})-({xMax},{yMax})", hero.Id, "BONES", true);
 							}
 
-							if (rows > 0)
+						if (rows > 0)
 							{
-								// Emit a BOT_DAMAGE meta-event so clients can process it (sourceId=sourceHeroId, target coords as targetId negative placeholder)
-								// Use a synthetic targetId of 0 and include coords in data for client mapping
-								var data = new Dictionary<string, string>
-								{
-									{ "sourceId", sourceHeroId.ToString() },
-									{ "targetX", targetX.ToString() },
-									{ "targetY", targetY.ToString() },
-									{ "damage", "1" }
-								};
-								var botDamageEvent = new MetaEvent(0, sourceHeroId, DateTime.UtcNow, "BOT_DAMAGE", hero.Map ?? string.Empty, data);
-								await UpdateEventsInDB(botDamageEvent, connection, transaction); 
+							// Emit one BOT_DAMAGE meta-event summarizing AoE (center + bounds)
+							var data = new Dictionary<string, string>
+							{
+								{ "sourceId", sourceHeroId.ToString() },
+								{ "centerX", targetX.ToString() },
+								{ "centerY", targetY.ToString() },
+								{ "xMin", xMin.ToString() },
+								{ "xMax", xMax.ToString() },
+								{ "yMin", yMin.ToString() },
+								{ "yMax", yMax.ToString() },
+								{ "damage", attackerLevel.ToString() }
+							};
+							var botDamageEvent = new MetaEvent(0, sourceHeroId, DateTime.UtcNow, "BOT_DAMAGE", hero.Map ?? string.Empty, data);
+							await UpdateEventsInDB(botDamageEvent, connection, transaction);
 
-								// Check if encounter died (hp reached 0) and award EXP in the same transaction
+							// Check if any encounters died (hp reached 0) and award EXP in same transaction
 								try
 								{
-									// Select the encounter row that was affected using the same positional buffer
-									string selectDeadSql = "SELECT hero_id, `level`, hp FROM maxhanna.bones_encounter WHERE map = @Map AND ((coordsX BETWEEN @XMinus10 AND @XPlus10 AND coordsY BETWEEN @YMinus10 AND @YPlus10) OR (coordsX BETWEEN @SXMinus10 AND @SXPlus10 AND coordsY BETWEEN @SYMinus10 AND @SYPlus10)) LIMIT 1;";
-									using var deadCmd = new MySqlCommand(selectDeadSql, connection, transaction);
-									deadCmd.Parameters.AddWithValue("@Map", hero.Map ?? string.Empty);
-									deadCmd.Parameters.AddWithValue("@XMinus10", targetX - HITBOX_HALF);
-									deadCmd.Parameters.AddWithValue("@XPlus10", targetX + HITBOX_HALF);
-									deadCmd.Parameters.AddWithValue("@YMinus10", targetY - HITBOX_HALF);
-									deadCmd.Parameters.AddWithValue("@YPlus10", targetY + HITBOX_HALF);
-									deadCmd.Parameters.AddWithValue("@SXMinus10", sourceX - HITBOX_HALF);
-									deadCmd.Parameters.AddWithValue("@SXPlus10", sourceX + HITBOX_HALF);
-									deadCmd.Parameters.AddWithValue("@SYMinus10", sourceY - HITBOX_HALF);
-									deadCmd.Parameters.AddWithValue("@SYPlus10", sourceY + HITBOX_HALF);
-									using var deadRdr = await deadCmd.ExecuteReaderAsync();
-									int encLevel = 0; int encHp = -1; int encId = 0;
-									if (await deadRdr.ReadAsync()) {
-										encHp = deadRdr.GetInt32(deadRdr.GetOrdinal("hp")); 
-										encLevel = deadRdr.IsDBNull(deadRdr.GetOrdinal("level")) ? 0 : deadRdr.GetInt32(deadRdr.GetOrdinal("level")); 
-										encId = deadRdr.GetInt32(deadRdr.GetOrdinal("hero_id")); 
-									}
-									deadRdr.Close();
-									if (encHp == 0)
+								string selectDeadSql = @"SELECT hero_id, `level`, hp FROM maxhanna.bones_encounter WHERE map = @Map AND hp = 0 AND coordsX BETWEEN @XMin AND @XMax AND coordsY BETWEEN @YMin AND @YMax;";
+								using var deadCmd = new MySqlCommand(selectDeadSql, connection, transaction);
+								deadCmd.Parameters.AddWithValue("@Map", hero.Map ?? string.Empty);
+								deadCmd.Parameters.AddWithValue("@XMin", xMin);
+								deadCmd.Parameters.AddWithValue("@XMax", xMax);
+								deadCmd.Parameters.AddWithValue("@YMin", yMin);
+								deadCmd.Parameters.AddWithValue("@YMax", yMax);
+								using var deadRdr = await deadCmd.ExecuteReaderAsync();
+								var awarded = new HashSet<int>();
+								while (await deadRdr.ReadAsync())
+								{
+									int encLevel = deadRdr.IsDBNull(deadRdr.GetOrdinal("level")) ? 0 : deadRdr.GetInt32(deadRdr.GetOrdinal("level"));
+									int encId = deadRdr.GetInt32(deadRdr.GetOrdinal("hero_id"));
+									if (!awarded.Contains(encId))
 									{
-										// last_killed was set by the atomic UPDATE above. Now award EXP to killer (and party) immediately.
 										await AwardEncounterKillExp(sourceHeroId, encLevel, connection, transaction);
+										awarded.Add(encId);
 									}
+								}
+								deadRdr.Close();
 								}
 								catch (Exception ex2)
 								{

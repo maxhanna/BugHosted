@@ -109,7 +109,9 @@ export class Hero extends Character {
         } else if (this.facingDirection == "RIGHT") {
           this.body?.animations?.play("attackRight");
         }
-        resources.playSound('punchOrImpact', { volume: 1.0, allowOverlap: true });  
+        if (isObjectNearby(this)) {
+          resources.playSound('punchOrImpact', { volume: 1.0, allowOverlap: true });  
+        }
         setTimeout(() => {
           this.isAttacking = false;
         //  this.isLocked = false;
