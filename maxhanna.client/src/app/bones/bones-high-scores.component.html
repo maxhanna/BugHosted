@@ -1,0 +1,26 @@
+<div class="popupPanelTitle">Top Heroes:</div>
+<div class="topRankTableContainer">
+  <div *ngIf="loading">Loading highscores...</div>
+  <table *ngIf="!loading && topHeroes && topHeroes.length > 0" class="scoreTable mainTable">
+    <thead>
+      <tr>
+        <th>Rank</th>
+        <th>Hero</th>
+        <th>User</th>
+        <th>Level</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr *ngFor="let h of topHeroes; let i = index">
+        <td>{{i + 1}}</td>
+        <td>{{h.heroName}}</td>
+        <td>
+          <app-user-tag [user]="h.owner" [inputtedParentRef]="parentRef" [displayMiniTag]="true" [displayHoverPicture]="true"></app-user-tag>
+        </td>
+        <td>{{h.totalMetabotLevels}}</td>
+      </tr>
+    </tbody>
+  </table>
+  </div>
+
+  <div *ngIf="!loading && (!topHeroes || topHeroes.length == 0)">No heroes yet.</div>

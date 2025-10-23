@@ -93,6 +93,7 @@ import { WordlerHighScoresComponent } from './wordler-high-scores/wordler-high-s
 import { CryptoNewsArticlesComponent } from './crypto-news-articles/crypto-news-articles.component';
 import { AppMenuItemComponent } from './app-menu-item/app-menu-item.component';
 import { BonesComponent } from './bones/bones.component';
+import { BonesHighScoresComponent } from './bones/bones-high-scores.component';
 import { DailyMusicComponent } from './daily-music/daily-music.component';
 
 @NgModule({
@@ -182,6 +183,7 @@ import { DailyMusicComponent } from './daily-music/daily-music.component';
     LineGraphComponent,
     TimeFormatPipe,
     TimeSincePipe,
+  BonesHighScoresComponent,
     FileSizePipe,
     AppRoutingModule,
     CryptoFearAndGreedComponent,

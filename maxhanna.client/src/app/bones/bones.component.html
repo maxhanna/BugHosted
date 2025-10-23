@@ -125,63 +125,7 @@
     </div>
   </div>
   <div class="metaHighscoresSection">
-    <div class="popupPanelTitle">Top Metabots</div>
-    <div class="topRankTableContainer">
-      <table *ngIf="topMetabots && topMetabots.length > 0" class="scoreTable">
-        <thead>
-          <tr>
-            <th>Rank</th>
-            <th>Bot Id</th>
-            <th>Hero</th>
-            <th>Level</th>
-            <th>Exp</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr *ngFor="let bot of topMetabots; let i = index">
-            <td>{{i + 1}}</td>
-            <td>{{bot.botId}}</td>
-            <td>
-              <app-user-tag [user]="bot.owner" [inputtedParentRef]="parentRef" [displayMiniTag]="true"
-                [displayHoverPicture]="true"></app-user-tag>
-              {{bot.heroName}}
-            </td>
-            <td>{{bot.level}}</td>
-            <td>{{bot.exp}}</td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-    <div *ngIf="!topMetabots || topMetabots.length == 0">No metabots yet.</div>
-
-    <div class="popupPanelTitle" style="margin-top:12px;">Top Heroes</div>
-    <div class="topRankTableContainer">
-      <table *ngIf="topHeroes && topHeroes.length > 0" class="scoreTable">
-        <thead>
-          <tr>
-            <th>Rank</th>
-            <th>Hero</th>
-            <th>User</th>
-            <th>Total Levels</th>
-            <th>Bot Count</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr *ngFor="let h of topHeroes; let i = index">
-            <td>{{i + 1}}</td>
-            <td>{{h.heroName}}</td>
-            <td>
-              <app-user-tag [user]="h.owner" [inputtedParentRef]="parentRef" [displayMiniTag]="true"
-                [displayHoverPicture]="true"></app-user-tag>
-            </td>
-            <td>{{h.totalMetabotLevels}}</td>
-            <td>{{h.botCount}}</td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-
-    <div *ngIf="!topHeroes || topHeroes.length == 0">No heroes yet.</div>
+    <app-bones-high-scores [parentRef]="parentRef"></app-bones-high-scores>
   </div>
 
   <button id="closeOverlay" class="closeButton" (click)="closeMenuPanel()">Close</button>

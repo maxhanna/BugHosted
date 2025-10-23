@@ -127,20 +127,21 @@ export class Resources {
 
   setVolumeMultiplier(mult: number) {
     if (typeof mult !== 'number' || isNaN(mult)) return;
-    // Clamp to sensible range
-    this.volumeMultiplier = Math.max(0, Math.min(1, mult));
+    // Clamp to sensible range and compute scale relative to previous multiplier
+    const oldMult = this.volumeMultiplier || 0;
+    const newMult = Math.max(0, Math.min(1, mult));
+    // If multiplier hasn't changed, nothing to do
+    if (Math.abs(newMult - oldMult) < 1e-6) { this.volumeMultiplier = newMult; return; }
+    this.volumeMultiplier = newMult;
+    const scale = oldMult > 0 ? (newMult / oldMult) : newMult;
     // Immediately apply new multiplier to any currently-playing audio (base elements and tracked clones)
     try {
       Object.keys(this.audios).forEach(k => {
         const entry = this.audios[k];
         if (!entry) return;
-        // Determine nominal requested volume: when we don't know the original requested per-play volume,
-        // assume 1 for base audio; for non-overlap plays base.volume will be set by playSound already.
-        // To avoid reducing volume twice, we recompute using the current base volume's requested fraction.
         try {
-          // If base audio is currently playing (and not a paused clone), update its volume to reflect multiplier
-          // Use the existing audio.volume as the current requested*multiplier; normalize by previous multiplier if needed.
-          entry.audio.volume = Math.max(0, Math.min(1, (entry.audio.volume ? entry.audio.volume / (this.volumeMultiplier || 1) : 1) * this.volumeMultiplier));
+          // Scale the base audio's volume by the factor
+          entry.audio.volume = Math.max(0, Math.min(1, (entry.audio.volume || 0) * scale));
         } catch { }
         // Update any tracked clones
         try {
@@ -148,8 +149,7 @@ export class Resources {
           if (set) {
             set.forEach((clone) => {
               try {
-                // assume clones were originally created with requested * oldMultiplier; scale to new
-                clone.volume = Math.max(0, Math.min(1, (clone.volume ? clone.volume / (this.volumeMultiplier || 1) : 1) * this.volumeMultiplier));
+                clone.volume = Math.max(0, Math.min(1, (clone.volume || 0) * scale));
               } catch { }
             });
           }

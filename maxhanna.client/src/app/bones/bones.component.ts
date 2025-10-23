@@ -917,12 +917,8 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
       this.parentRef.showOverlay();
     }
     
-    try {
-      this.topMetabots = await this.bonesService.getMetabotHighscores(50) ?? [];
-    } catch (e) { this.topMetabots = []; }
-    try {
-      this.topHeroes = await this.bonesService.getHeroHighscores(50) ?? [];
-    } catch (e) { this.topHeroes = []; }
+  
+  // Highscores are fetched by the extracted BonesHighScoresComponent when it initializes.
   }
 
   closeMenuPanel() {
