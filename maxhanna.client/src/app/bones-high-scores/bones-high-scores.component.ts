@@ -9,13 +9,15 @@ import { AppComponent } from '../app.component';
   styleUrls: ['./bones-high-scores.component.css']
 })
 export class BonesHighScoresComponent implements OnInit {
-  @Input() inputtedParentRef?: AppComponent;
+  // Accept only [inputtedParentRef]
+  @Input('inputtedParentRef') inputtedParentRef?: AppComponent;
   topHeroes: any[] | undefined;
   loading = false;
 
   constructor(private bonesService: BonesService) {}
 
   async ngOnInit() {
+  // Nothing to map; use inputtedParentRef directly in template
     // If parent hasn't provided topHeroes, fetch them here
     if (!this.topHeroes || this.topHeroes.length === 0) {
       this.loading = true;
