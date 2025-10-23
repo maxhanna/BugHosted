@@ -339,7 +339,12 @@
         Shared With:
       </div>
       <div class="optionsStatsDescription">
-        {{optionsFile.sharedWith}}
+        <ng-container *ngIf="optionsFileSharedWithIds.length > 0">
+          <span *ngFor="let uid of optionsFileSharedWithIds" style="margin-right:8px;">
+            <app-user-tag [userId]="uid" [hideName]="true" [inputtedParentRef]="inputtedParentRef ?? parentRef" [displayMiniTag]="true"></app-user-tag>
+          </span>
+        </ng-container>
+        <span *ngIf="optionsFileSharedWithIds.length == 0">{{optionsFile.sharedWith}}</span>
       </div>
     </div>
     <div class="optionsStatsDiv" *ngIf="optionsFile.lastAccess">

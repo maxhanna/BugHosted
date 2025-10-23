@@ -325,6 +325,20 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
     setTimeout(() => { this.inputtedParentRef?.createComponent("User", { "user": user }); }, 1);
   }
 
+  // Parse comma-separated user ids from selectedFile.sharedWith into an array of numbers
+  get sharedWithIds(): number[] {
+    if (!this.selectedFile || !this.selectedFile.sharedWith) return [];
+    try {
+      return (this.selectedFile.sharedWith as string)
+        .split(',')
+        .map(s => s.trim())
+        .filter(s => s.length > 0 && !isNaN(Number(s)))
+        .map(s => Number(s));
+    } catch (e) {
+      return [];
+    }
+  }
+
   async setFileSrcById(fileId: number) {
     if (this.selectedFileSrc) { 
       this.debugLog('setFileSrcById early exit (already have selectedFileSrc)');

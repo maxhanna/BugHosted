@@ -223,7 +223,13 @@
           Shared With:
         </div>
         <div class="optionsStatsDescription">
-          {{selectedFile.sharedWith}}
+          <!-- If sharedWith is a comma-separated list of user ids, render an app-user-tag for each id -->
+          <ng-container *ngIf="sharedWithIds.length > 0">
+            <span *ngFor="let uid of sharedWithIds" style="margin-right:8px;">
+              <app-user-tag [userId]="uid" [hideName]="true" [inputtedParentRef]="inputtedParentRef ?? parentRef" [displayMiniTag]="true"></app-user-tag>
+            </span>
+          </ng-container>
+          <span *ngIf="sharedWithIds.length == 0">{{selectedFile.sharedWith}}</span>
         </div>
       </div>
       <div class="optionsStatsDiv" *ngIf="selectedFile.lastAccess">

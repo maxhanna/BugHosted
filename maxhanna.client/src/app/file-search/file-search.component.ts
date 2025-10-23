@@ -111,6 +111,20 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     this.containerScrollHandler = this.debounce(this.onContainerScroll.bind(this), 200);
   }
 
+  // Parse comma-separated user ids from optionsFile.sharedWith
+  get optionsFileSharedWithIds(): number[] {
+    if (!this.optionsFile || !this.optionsFile.sharedWith) return [];
+    try {
+      return (this.optionsFile.sharedWith as string)
+        .split(',')
+        .map(s => s.trim())
+        .filter(s => s.length > 0 && !isNaN(Number(s)))
+        .map(s => Number(s));
+    } catch (e) {
+      return [];
+    }
+  }
+
   async ngOnInit() {
     const user = this.inputtedParentRef?.user ?? this.parentRef?.user;
     if (user?.id) {
