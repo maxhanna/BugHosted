@@ -897,15 +897,10 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
 
   async promoteSelection(id: number) {
     try {
-  const userId = this.parentRef?.user?.id ?? 0;
-  if (!userId) return;
-  // Snapshot current active hero first
-  await this.bonesService.createHeroSelection(userId);
-  // Delete the active bones_hero (we'll replace it with the promoted selection)
-  await this.bonesService.deleteHero(userId);
-  // Promote the chosen selection into bones_hero
+  // Only instruct server to promote the chosen selection.
+  // Do NOT create a new bones_hero_selection here — server will update the existing selection matching the current hero id.
   await this.bonesService.promoteHeroSelection(id);
-  // Navigate to /Bones so the client reloads fresh state from server
+  // Reload bones page to pick up server-side changes
   window.location.href = '/Bones';
     } catch (ex) { console.error('Failed to promote selection', ex); }
   }

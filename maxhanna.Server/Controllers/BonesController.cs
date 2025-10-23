@@ -137,37 +137,23 @@ namespace maxhanna.Server.Controllers
 				while (await rdr.ReadAsync())
 				{
 					var dataJson = rdr.IsDBNull(rdr.GetOrdinal("data")) ? null : rdr.GetString(rdr.GetOrdinal("data"));
-					if (!string.IsNullOrEmpty(dataJson))
+					if (string.IsNullOrEmpty(dataJson)) continue;
+					try
 					{
 						var jo = JObject.Parse(dataJson);
 						var dict = new Dictionary<string, object>();
 						foreach (var prop in jo.Properties())
 						{
 							var token = prop.Value;
-							if (token.Type == JTokenType.Integer)
-							{
-								dict[prop.Name] = token.ToObject<long>();
-							}
-							else if (token.Type == JTokenType.Float)
-							{
-								dict[prop.Name] = token.ToObject<double>();
-							}
-							else if (token.Type == JTokenType.Boolean)
-							{
-								dict[prop.Name] = token.ToObject<bool>();
-							}
-							else if (token.Type == JTokenType.String)
-							{
-								dict[prop.Name] = token.ToObject<string?>() ?? string.Empty;
-							}
-							else
-							{
-								// For arrays/objects/other token types, stringify them so client sees usable data
-								dict[prop.Name] = token.ToString(Newtonsoft.Json.Formatting.None);
-							}
+							if (token.Type == JTokenType.Integer) dict[prop.Name] = token.ToObject<long>();
+							else if (token.Type == JTokenType.Float) dict[prop.Name] = token.ToObject<double>();
+							else if (token.Type == JTokenType.Boolean) dict[prop.Name] = token.ToObject<bool>();
+							else if (token.Type == JTokenType.String) dict[prop.Name] = token.ToObject<string?>() ?? string.Empty;
+							else dict[prop.Name] = token.ToString(Newtonsoft.Json.Formatting.None);
 						}
 						recentAttacks.Add(dict);
 					}
+					catch { /* ignore malformed attack JSON */ }
 				}
 			}
 			catch (Exception ex)
@@ -814,48 +800,96 @@ namespace maxhanna.Server.Controllers
 			using var transaction = await connection.BeginTransactionAsync();
 			try
 			{
-				// Read selection data
-				string selSql = @"SELECT user_id, bones_hero_id, name, data FROM maxhanna.bones_hero_selection WHERE bones_hero_id = @SelId LIMIT 1;";
+				// 1) Read the selected snapshot by selection id
+				string selSql = @"SELECT id, user_id, bones_hero_id, name, data FROM maxhanna.bones_hero_selection WHERE id = @SelId LIMIT 1;";
 				using var selCmd = new MySqlCommand(selSql, connection, transaction);
 				selCmd.Parameters.AddWithValue("@SelId", selectionId);
-				using var rdr = await selCmd.ExecuteReaderAsync();
-				if (!await rdr.ReadAsync()) {
+				using var selRdr = await selCmd.ExecuteReaderAsync();
+				if (!await selRdr.ReadAsync())
+				{
 					await transaction.RollbackAsync();
-					return NotFound(); 
+					return NotFound();
 				}
-				int userId = rdr.GetInt32(0);
-				int? bonesHeroId = rdr.IsDBNull(1) ? (int?)null : rdr.GetInt32(1);
-				string? name = rdr.IsDBNull(2) ? null : rdr.GetString(2);
-				string? dataJson = rdr.IsDBNull(3) ? null : rdr.GetString(3);
-				rdr.Close();
-				// If bonesHeroId present, overwrite bones_hero row for that user; otherwise insert a new bones_hero
-				if (bonesHeroId.HasValue)
+				int selId = selRdr.GetInt32(0);
+				int userId = selRdr.GetInt32(1);
+				int? selBonesHeroId = selRdr.IsDBNull(2) ? (int?)null : selRdr.GetInt32(2);
+				string? selName = selRdr.IsDBNull(3) ? null : selRdr.GetString(3);
+				string? selDataJson = selRdr.IsDBNull(4) ? null : selRdr.GetString(4);
+				selRdr.Close();
+
+				// 2) Read the current bones_hero for this user (must exist)
+				string curSql = @"SELECT id, name, coordsX, coordsY, map, speed, color, mask, level, exp, attack_speed FROM maxhanna.bones_hero WHERE user_id = @UserId LIMIT 1;";
+				using var curCmd = new MySqlCommand(curSql, connection, transaction);
+				curCmd.Parameters.AddWithValue("@UserId", userId);
+				using var curRdr = await curCmd.ExecuteReaderAsync();
+				if (!await curRdr.ReadAsync())
 				{
-					// Upsert by hero id: insert if missing, otherwise update.
-					// Use NULLIF to convert JSON 'null' string to SQL NULL, then coerce to numeric with +0, and fallback to 0 via COALESCE
-					string upsertSql = @"INSERT INTO maxhanna.bones_hero (id, user_id, coordsX, coordsY, map, speed, name, color, mask, level, exp, created, attack_speed)
-					VALUES (@HeroId, @UserId, COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.coordsX')),'null')+0, 0), COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.coordsY')),'null')+0, 0), JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.map')), COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.speed')),'null')+0, 0), @Name, JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.color')), COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.mask')),'null')+0, 0), COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.level')),'null')+0, 0), COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.exp')),'null')+0, 0), UTC_TIMESTAMP(), COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.attack_speed')),'null')+0, 400))
-					ON DUPLICATE KEY UPDATE coordsX = VALUES(coordsX), coordsY = VALUES(coordsY), map = VALUES(map), speed = VALUES(speed), name = VALUES(name), color = VALUES(color), mask = VALUES(mask), level = VALUES(level), exp = VALUES(exp), attack_speed = VALUES(attack_speed), user_id = VALUES(user_id), updated = UTC_TIMESTAMP();";
-					using var upCmd = new MySqlCommand(upsertSql, connection, transaction);
-					upCmd.Parameters.AddWithValue("@Data", dataJson ?? "{}" );
-					upCmd.Parameters.AddWithValue("@HeroId", bonesHeroId.Value);
-					upCmd.Parameters.AddWithValue("@UserId", userId);
-					upCmd.Parameters.AddWithValue("@Name", name ?? "Anon");
-					await upCmd.ExecuteNonQueryAsync();
+					await transaction.RollbackAsync();
+					return BadRequest("No active bones_hero found for user");
 				}
-				else
+				int currentHeroId = curRdr.GetInt32(0);
+				string currentName = curRdr.IsDBNull(1) ? "Anon" : curRdr.GetString(1);
+				int curCoordsX = curRdr.IsDBNull(2) ? 0 : curRdr.GetInt32(2);
+				int curCoordsY = curRdr.IsDBNull(3) ? 0 : curRdr.GetInt32(3);
+				string curMap = curRdr.IsDBNull(4) ? string.Empty : curRdr.GetString(4);
+				int curSpeed = curRdr.IsDBNull(5) ? 0 : curRdr.GetInt32(5);
+				string curColor = curRdr.IsDBNull(6) ? string.Empty : curRdr.GetString(6);
+				int curMask = curRdr.IsDBNull(7) ? 0 : curRdr.GetInt32(7);
+				int curLevel = curRdr.IsDBNull(8) ? 0 : curRdr.GetInt32(8);
+				int curExp = curRdr.IsDBNull(9) ? 0 : curRdr.GetInt32(9);
+				int curAttackSpeed = curRdr.IsDBNull(10) ? 400 : curRdr.GetInt32(10);
+				curRdr.Close();
+
+				// 3) Store current bones_hero into bones_hero_selection: update if a selection references this hero_id, otherwise insert
+				string updateSelSql = @"UPDATE maxhanna.bones_hero_selection SET name = @Name, data = JSON_OBJECT('coordsX', @CoordsX, 'coordsY', @CoordsY, 'map', @Map, 'speed', @Speed, 'color', @Color, 'mask', @Mask, 'level', @Level, 'exp', @Exp, 'attack_speed', @AttackSpeed), created = UTC_TIMESTAMP() WHERE user_id = @UserId AND bones_hero_id = @HeroId LIMIT 1;";
+				using var updateSelCmd = new MySqlCommand(updateSelSql, connection, transaction);
+				updateSelCmd.Parameters.AddWithValue("@Name", currentName);
+				updateSelCmd.Parameters.AddWithValue("@CoordsX", curCoordsX);
+				updateSelCmd.Parameters.AddWithValue("@CoordsY", curCoordsY);
+				updateSelCmd.Parameters.AddWithValue("@Map", curMap);
+				updateSelCmd.Parameters.AddWithValue("@Speed", curSpeed);
+				updateSelCmd.Parameters.AddWithValue("@Color", curColor);
+				updateSelCmd.Parameters.AddWithValue("@Mask", curMask);
+				updateSelCmd.Parameters.AddWithValue("@Level", curLevel);
+				updateSelCmd.Parameters.AddWithValue("@Exp", curExp);
+				updateSelCmd.Parameters.AddWithValue("@AttackSpeed", curAttackSpeed);
+				updateSelCmd.Parameters.AddWithValue("@UserId", userId);
+				updateSelCmd.Parameters.AddWithValue("@HeroId", currentHeroId);
+				int updatedRows = await updateSelCmd.ExecuteNonQueryAsync();
+				if (updatedRows == 0)
 				{
-					// Upsert by user_id: insert if missing, otherwise update. This assumes user_id has a UNIQUE constraint.
-					// Guard numeric fields and provide sensible defaults; default attack_speed to 400 if missing
-					string upsertByUserSql = @"INSERT INTO maxhanna.bones_hero (user_id, coordsX, coordsY, map, speed, name, color, mask, level, exp, created, attack_speed)
-					VALUES (@UserId, COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.coordsX')),'null')+0, 0), COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.coordsY')),'null')+0, 0), JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.map')), COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.speed')),'null')+0, 0), @Name, JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.color')), COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.mask')),'null')+0, 0), COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.level')),'null')+0, 0), COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.exp')),'null')+0, 0), UTC_TIMESTAMP(), COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.attack_speed')),'null')+0, 400))
-					ON DUPLICATE KEY UPDATE coordsX = VALUES(coordsX), coordsY = VALUES(coordsY), map = VALUES(map), speed = VALUES(speed), name = VALUES(name), color = VALUES(color), mask = VALUES(mask), level = VALUES(level), exp = VALUES(exp), attack_speed = VALUES(attack_speed), updated = UTC_TIMESTAMP();";
-					using var upUserCmd = new MySqlCommand(upsertByUserSql, connection, transaction);
-					upUserCmd.Parameters.AddWithValue("@Data", dataJson ?? "{}");
-					upUserCmd.Parameters.AddWithValue("@UserId", userId);
-					upUserCmd.Parameters.AddWithValue("@Name", name ?? "Anon");
-					await upUserCmd.ExecuteNonQueryAsync();
+					string insertSelSql = @"INSERT INTO maxhanna.bones_hero_selection (user_id, bones_hero_id, name, data, created) VALUES (@UserId, @HeroId, @Name, JSON_OBJECT('coordsX', @CoordsX, 'coordsY', @CoordsY, 'map', @Map, 'speed', @Speed, 'color', @Color, 'mask', @Mask, 'level', @Level, 'exp', @Exp, 'attack_speed', @AttackSpeed), UTC_TIMESTAMP());";
+					using var inSelCmd = new MySqlCommand(insertSelSql, connection, transaction);
+					inSelCmd.Parameters.AddWithValue("@UserId", userId);
+					inSelCmd.Parameters.AddWithValue("@HeroId", currentHeroId);
+					inSelCmd.Parameters.AddWithValue("@Name", currentName);
+					inSelCmd.Parameters.AddWithValue("@CoordsX", curCoordsX);
+					inSelCmd.Parameters.AddWithValue("@CoordsY", curCoordsY);
+					inSelCmd.Parameters.AddWithValue("@Map", curMap);
+					inSelCmd.Parameters.AddWithValue("@Speed", curSpeed);
+					inSelCmd.Parameters.AddWithValue("@Color", curColor);
+					inSelCmd.Parameters.AddWithValue("@Mask", curMask);
+					inSelCmd.Parameters.AddWithValue("@Level", curLevel);
+					inSelCmd.Parameters.AddWithValue("@Exp", curExp);
+					inSelCmd.Parameters.AddWithValue("@AttackSpeed", curAttackSpeed);
+					await inSelCmd.ExecuteNonQueryAsync();
 				}
+
+				// 4) Delete the current bones_hero for this user
+				string delSql = @"DELETE FROM maxhanna.bones_hero WHERE user_id = @UserId LIMIT 1;";
+				using var delCmd = new MySqlCommand(delSql, connection, transaction);
+				delCmd.Parameters.AddWithValue("@UserId", userId);
+				await delCmd.ExecuteNonQueryAsync();
+
+				// 5) Insert the selected snapshot into bones_hero (guard numeric JSON parsing)
+				string insertSql = @"INSERT INTO maxhanna.bones_hero (user_id, coordsX, coordsY, map, speed, name, color, mask, level, exp, created, attack_speed)
+					VALUES (@UserId, COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.coordsX')),'null')+0, 0), COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.coordsY')),'null')+0, 0), JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.map')), COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.speed')),'null')+0, 0), @Name, JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.color')), COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.mask')),'null')+0, 0), COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.level')),'null')+0, 0), COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.exp')),'null')+0, 0), UTC_TIMESTAMP(), COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.attack_speed')),'null')+0, 400));";
+				using var insCmd = new MySqlCommand(insertSql, connection, transaction);
+				insCmd.Parameters.AddWithValue("@Data", selDataJson ?? "{}");
+				insCmd.Parameters.AddWithValue("@UserId", userId);
+				insCmd.Parameters.AddWithValue("@Name", selName ?? "Anon");
+				await insCmd.ExecuteNonQueryAsync();
+
 				await transaction.CommitAsync();
 				return Ok();
 			}
