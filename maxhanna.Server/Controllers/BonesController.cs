@@ -13,6 +13,8 @@ namespace maxhanna.Server.Controllers
 	[Microsoft.AspNetCore.Components.Route("[controller]")]
 	public class BonesController : ControllerBase
 	{
+	// Half-size of the hitbox in pixels; used to compute +/- hit tolerance
+		private const int HITBOX_HALF = 20;
 		private readonly Log _log;
 		private readonly IConfiguration _config;
 		private readonly string _connectionString;
@@ -291,17 +293,24 @@ namespace maxhanna.Server.Controllers
 										e.target_hero_id = @HeroId,
 										e.last_killed = CASE WHEN e.hp <= COALESCE(a.level, 1) THEN UTC_TIMESTAMP() ELSE e.last_killed END
 								WHERE e.map = @Map
-									AND e.coordsX BETWEEN @XMinus10 AND @XPlus10
-									AND e.coordsY BETWEEN @YMinus10 AND @YPlus10
+									AND (
+										( e.coordsX BETWEEN @XMinus10 AND @XPlus10 AND e.coordsY BETWEEN @YMinus10 AND @YPlus10 )
+										OR
+										( e.coordsX BETWEEN @SXMinus10 AND @SXPlus10 AND e.coordsY BETWEEN @SYMinus10 AND @SYPlus10 )
+									)
 								LIMIT 1;";
 							var updateParams = new Dictionary<string, object?>() {
-								{ "@Map", hero.Map ?? string.Empty },
-								{ "@XMinus10", targetX - 10 },
-								{ "@XPlus10", targetX + 10 },
-								{ "@YMinus10", targetY - 10 },
-								{ "@YPlus10", targetY + 10 },
-								{ "@HeroId", sourceHeroId }
-							};
+							{ "@Map", hero.Map ?? string.Empty },
+							{ "@XMinus10", targetX - HITBOX_HALF },
+							{ "@XPlus10", targetX + HITBOX_HALF },
+							{ "@YMinus10", targetY - HITBOX_HALF },
+							{ "@YPlus10", targetY + HITBOX_HALF },
+							{ "@SXMinus10", sourceX - HITBOX_HALF },
+							{ "@SXPlus10", sourceX + HITBOX_HALF },
+							{ "@SYMinus10", sourceY - HITBOX_HALF },
+							{ "@SYPlus10", sourceY + HITBOX_HALF },
+							{ "@HeroId", sourceHeroId }
+						};
 							int rows = Convert.ToInt32(await ExecuteInsertOrUpdateOrDeleteAsync(updateHpSql, updateParams, connection, transaction));
 
 							if (rows > 0)
@@ -322,13 +331,17 @@ namespace maxhanna.Server.Controllers
 								try
 								{
 									// Select the encounter row that was affected using the same positional buffer
-									string selectDeadSql = "SELECT hero_id, `level`, hp FROM maxhanna.bones_encounter WHERE map = @Map AND coordsX BETWEEN @XMinus10 AND @XPlus10 AND coordsY BETWEEN @YMinus10 AND @YPlus10 LIMIT 1;";
+									string selectDeadSql = "SELECT hero_id, `level`, hp FROM maxhanna.bones_encounter WHERE map = @Map AND ((coordsX BETWEEN @XMinus10 AND @XPlus10 AND coordsY BETWEEN @YMinus10 AND @YPlus10) OR (coordsX BETWEEN @SXMinus10 AND @SXPlus10 AND coordsY BETWEEN @SYMinus10 AND @SYPlus10)) LIMIT 1;";
 									using var deadCmd = new MySqlCommand(selectDeadSql, connection, transaction);
 									deadCmd.Parameters.AddWithValue("@Map", hero.Map ?? string.Empty);
-									deadCmd.Parameters.AddWithValue("@XMinus10", targetX - 10);
-									deadCmd.Parameters.AddWithValue("@XPlus10", targetX + 10);
-									deadCmd.Parameters.AddWithValue("@YMinus10", targetY - 10);
-									deadCmd.Parameters.AddWithValue("@YPlus10", targetY + 10);
+									deadCmd.Parameters.AddWithValue("@XMinus10", targetX - HITBOX_HALF);
+									deadCmd.Parameters.AddWithValue("@XPlus10", targetX + HITBOX_HALF);
+									deadCmd.Parameters.AddWithValue("@YMinus10", targetY - HITBOX_HALF);
+									deadCmd.Parameters.AddWithValue("@YPlus10", targetY + HITBOX_HALF);
+									deadCmd.Parameters.AddWithValue("@SXMinus10", sourceX - HITBOX_HALF);
+									deadCmd.Parameters.AddWithValue("@SXPlus10", sourceX + HITBOX_HALF);
+									deadCmd.Parameters.AddWithValue("@SYMinus10", sourceY - HITBOX_HALF);
+									deadCmd.Parameters.AddWithValue("@SYPlus10", sourceY + HITBOX_HALF);
 									using var deadRdr = await deadCmd.ExecuteReaderAsync();
 									int encLevel = 0; int encHp = -1; int encId = 0;
 									if (await deadRdr.ReadAsync()) {
