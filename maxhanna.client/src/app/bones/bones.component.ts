@@ -915,10 +915,7 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
     this.isMenuPanelOpen = true;
     if (this.parentRef) {
       this.parentRef.showOverlay();
-    }
-    
-  
-  // Highscores are fetched by the extracted BonesHighScoresComponent when it initializes.
+    }  
   }
 
   closeMenuPanel() {
