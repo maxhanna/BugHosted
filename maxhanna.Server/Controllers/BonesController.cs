@@ -23,6 +23,8 @@ namespace maxhanna.Server.Controllers
 		private static readonly Dictionary<string, DateTime> _lastEncounterAiRun = new();
 		// Track when an encounter started chasing a specific hero (key: encounter hero_id)
 		private static readonly Dictionary<int, DateTime> _encounterTargetLockTimes = new();
+		// Track recent positions to prevent back-and-forth oscillation: maps encounter hero_id -> (lastX,lastY,wasLastMoveReversalCount)
+		private static readonly Dictionary<int, (int lastX, int lastY, int reversalCount)> _encounterRecentPositions = new();
 		private static readonly Dictionary<SkillType, SkillType> TypeEffectiveness = new()
 		{
 				{ SkillType.SPEED, SkillType.ARMOR },
@@ -1033,6 +1035,32 @@ namespace maxhanna.Server.Controllers
 
 					if (curX != e.x || curY != e.y || e.targetHeroId != targetHeroId)
 					{
+						// Prevent rapid back-and-forth oscillation: allow one reversal but not repeated toggles
+						if (_encounterRecentPositions.TryGetValue(e.heroId, out var recent))
+						{
+							// If the new target equals the position before the last move, and we already reversed once, skip this update
+							if (recent.lastX == curX && recent.lastY == curY && recent.reversalCount >= 1)
+							{
+								continue; // skip to avoid oscillation
+							}
+						}
+						// Update reversal tracking: if we're moving back to the previous position, increment reversalCount, otherwise reset
+						if (!_encounterRecentPositions.ContainsKey(e.heroId))
+						{
+							_encounterRecentPositions[e.heroId] = (e.x, e.y, 0);
+						}
+						var before = _encounterRecentPositions[e.heroId];
+						if (before.lastX == curX && before.lastY == curY)
+						{
+							// this is a reversal
+							_encounterRecentPositions[e.heroId] = (e.x, e.y, Math.Min(2, before.reversalCount + 1));
+						}
+						else
+						{
+							// normal move, reset reversal count and store previous
+							_encounterRecentPositions[e.heroId] = (e.x, e.y, 0);
+						}
+
 						updateBuilder.AppendLine($"UPDATE maxhanna.bones_encounter SET coordsX = @nx_{idx}, coordsY = @ny_{idx}, target_hero_id = @thid_{idx}, last_moved = UTC_TIMESTAMP() WHERE hero_id = @hid_{idx};");
 						parameters[$"@nx_{idx}"] = curX;
 						parameters[$"@ny_{idx}"] = curY;
