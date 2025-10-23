@@ -51,7 +51,7 @@ export class CharacterCreate extends Level {
     "sh!+", "sh!t", "sh1t", "shag", "shagger", "shaggin", "shagging", "shemale", "shi+", "shit", "shitdick", "shite", "shited", "shitey",
     "shitfuck", "shitfull", "shithead", "shiting", "shitings", "shits", "shitted", "shitter", "shitters", "shitting", "shittings", "shitty",
     "skank", "slut", "sluts", "smegma", "smut", "snatch", "son-of-a-bitch", "spac", "spunk", "s_h_i_t", "t1tt1e5", "t1tties", "teets", "teez",
-    "testical", "testicle", "tit", "titfuck", "tits", "titt", "tittie5", "tittiefucker", "titties", "tittyfuck", "tittywank", "titwank",
+    "testical", "fuuk", "testicle", "tit", "titfuck", "tits", "titt", "tittie5", "tittiefucker", "titties", "tittyfuck", "tittywank", "titwank",
     "tosser", "turd", "tw4t", "twat", "twathead", "twatty", "twunt", "twunter", "v14gra", "v1gra", "vagina", "viagra", "vulva", "w00se",
     "wang", "wank", "wanker", "wanky", "whoar", "whore", "willies", "xrated", "xxx", "suck"];
   override defaultHeroPosition = new Vector2(gridCells(1), gridCells(1));
@@ -274,8 +274,8 @@ export class CharacterCreate extends Level {
     }
     else if (this.profanity.some(bw => n.includes(bw))) {
       outcome = "No bad words allowed.";
-    } else if (name.length > 40) {
-      outcome = "Name must be under 40 characters long.";
+    } else if (name.length > 12) {
+      outcome = "Name must be under 12 characters long.";
     }
 
     if (outcome) {
