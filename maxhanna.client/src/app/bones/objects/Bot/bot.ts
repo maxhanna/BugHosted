@@ -10,7 +10,7 @@ import { FrameIndexPattern } from "../../helpers/frame-index-pattern";
 import { events } from "../../helpers/events";
 import { attack, findTargets, untarget } from "../../helpers/fight";
 import { WALK_DOWN, WALK_UP, WALK_LEFT, WALK_RIGHT, STAND_DOWN, STAND_RIGHT, STAND_LEFT, STAND_UP, DIE } from "../Npc/Skeleton/skeleton-animations";
-import { MetaBotPart } from "../../../../services/datacontracts/bones/hero-inventory-item";
+import { HeroInventoryItem } from "../../../../services/datacontracts/bones/hero-inventory-item";
 import { ColorSwap } from "../../../../services/datacontracts/bones/color-swap";
 import { Character } from "../character";
 import { Hero } from "../Hero/hero";
@@ -28,7 +28,6 @@ export class Bot extends Character {
   targeting?: Bot = undefined;
   chasing?: Character = undefined;
   lastAttack = new Date();
-  lastAttackPart?: MetaBotPart;
   lastTargetDate = new Date(); 
   isInvulnerable = false;
   preventDestroyAnimation = false;
@@ -53,11 +52,7 @@ export class Bot extends Character {
     level?: number,
     exp?: number,
     expForNextLevel?: number,
-    hp?: number,
-    leftArm?: MetaBotPart,
-    rightArm?: MetaBotPart,
-    legs?: MetaBotPart,
-    head?: MetaBotPart,
+    hp?: number, 
     offsetX?: number,
     offsetY?: number,
     colorSwap?: ColorSwap,
