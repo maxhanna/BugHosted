@@ -746,7 +746,8 @@ namespace maxhanna.Server.Controllers
 				int attack_speed = heroRdr.IsDBNull(heroRdr.GetOrdinal("attack_speed")) ? 400 : heroRdr.GetInt32(heroRdr.GetOrdinal("attack_speed"));
 				await heroRdr.CloseAsync();
 
-				string updateSql = @"UPDATE maxhanna.bones_hero_selection SET name = @Name, data = JSON_OBJECT('coordsX', @CoordsX, 'coordsY', @CoordsY, 'map', @Map, 'speed', @Speed, 'color', @Color, 'mask', @Mask, 'level', @Level, 'exp', @Exp, 'attack_speed', @AttackSpeed), created = UTC_TIMESTAMP() WHERE user_id = @UserId AND bones_hero_id = @HeroId LIMIT 1;";
+				// Match existing selections by user + name (hero name) rather than bones_hero_id because IDs may differ
+				string updateSql = @"UPDATE maxhanna.bones_hero_selection SET name = @Name, data = JSON_OBJECT('coordsX', @CoordsX, 'coordsY', @CoordsY, 'map', @Map, 'speed', @Speed, 'color', @Color, 'mask', @Mask, 'level', @Level, 'exp', @Exp, 'attack_speed', @AttackSpeed), created = UTC_TIMESTAMP() WHERE user_id = @UserId AND name = @Name LIMIT 1;";
 				using var upCmd = new MySqlCommand(updateSql, connection, transaction);
 				upCmd.Parameters.AddWithValue("@UserId", userId);
 				upCmd.Parameters.AddWithValue("@HeroId", heroId);
@@ -841,7 +842,8 @@ namespace maxhanna.Server.Controllers
 				curRdr.Close();
 
 				// 3) Store current bones_hero into bones_hero_selection: update if a selection references this hero_id, otherwise insert
-				string updateSelSql = @"UPDATE maxhanna.bones_hero_selection SET name = @Name, data = JSON_OBJECT('coordsX', @CoordsX, 'coordsY', @CoordsY, 'map', @Map, 'speed', @Speed, 'color', @Color, 'mask', @Mask, 'level', @Level, 'exp', @Exp, 'attack_speed', @AttackSpeed), created = UTC_TIMESTAMP() WHERE user_id = @UserId AND bones_hero_id = @HeroId LIMIT 1;";
+				// When storing the current bones_hero into a selection, match by user + name to avoid hero id mismatches
+				string updateSelSql = @"UPDATE maxhanna.bones_hero_selection SET name = @Name, data = JSON_OBJECT('coordsX', @CoordsX, 'coordsY', @CoordsY, 'map', @Map, 'speed', @Speed, 'color', @Color, 'mask', @Mask, 'level', @Level, 'exp', @Exp, 'attack_speed', @AttackSpeed), created = UTC_TIMESTAMP() WHERE user_id = @UserId AND name = @Name LIMIT 1;";
 				using var updateSelCmd = new MySqlCommand(updateSelSql, connection, transaction);
 				updateSelCmd.Parameters.AddWithValue("@Name", currentName);
 				updateSelCmd.Parameters.AddWithValue("@CoordsX", curCoordsX);
