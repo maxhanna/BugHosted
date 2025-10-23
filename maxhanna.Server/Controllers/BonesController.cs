@@ -1241,13 +1241,20 @@ namespace maxhanna.Server.Controllers
 		{
 			try
 			{
-				var sql = new StringBuilder(); var parameters = new Dictionary<string, object?>(); int paramIndex = 0;
+				var sql = new StringBuilder();
+				var parameters = new Dictionary<string, object?>();
+				int paramIndex = 0;
 				foreach (var update in updates)
 				{
 					sql.AppendLine($"UPDATE maxhanna.bones_encounter SET coordsX = @coordsX_{paramIndex}, coordsY = @coordsY_{paramIndex} WHERE hero_id = @heroId_{paramIndex} LIMIT 1;");
-					parameters.Add($"@heroId_{paramIndex}", update.HeroId); parameters.Add($"@coordsX_{paramIndex}", update.DestinationX); parameters.Add($"@coordsY_{paramIndex}", update.DestinationY); paramIndex++;
+					parameters.Add($"@heroId_{paramIndex}", update.HeroId);
+					parameters.Add($"@coordsX_{paramIndex}", update.DestinationX);
+					parameters.Add($"@coordsY_{paramIndex}", update.DestinationY);
+					paramIndex++;
 				}
-				if (sql.Length > 0) await ExecuteInsertOrUpdateOrDeleteAsync(sql.ToString(), parameters, connection, transaction);
+				if (sql.Length > 0) {
+					await ExecuteInsertOrUpdateOrDeleteAsync(sql.ToString(), parameters, connection, transaction);
+				}
 			}
 			catch (Exception) { throw; }
 		}
