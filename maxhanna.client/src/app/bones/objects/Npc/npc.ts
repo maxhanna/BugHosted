@@ -90,11 +90,7 @@ export class Npc extends Character {
 					hp: bot.hp,
 					exp: bot.exp,
 					expForNextLevel: bot.expForNextLevel,
-					level: bot.level,
-					leftArm: bot.leftArm,
-					rightArm: bot.rightArm,
-					head: bot.head,
-					legs: bot.legs,
+					level: bot.level, 
 				});
 				this.parent.addChild(tmpBot);
 			}
