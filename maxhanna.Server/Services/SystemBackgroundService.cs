@@ -177,13 +177,48 @@ namespace maxhanna.Server.Services
 			return nextRun - now;
 		} 
 
-		private async Task MoveInactiveEnderHeroes()
+		private async Task MoveInactiveEnderHeroes(int recentDisplacementHours = 8)
 		{
 			await using var conn = new MySqlConnection(_connectionString);
 			await conn.OpenAsync();
 			using var transaction = await conn.BeginTransactionAsync();
 			try
 			{
+				const string displacementNotificationText = "Your lightcycle was displaced for inactivity and moved to a new sector.";
+				// 1. Global throttle: if ANY displacement occurred in the last `recentDisplacementHours`, skip this run entirely.
+				if (recentDisplacementHours > 0)
+				{
+					string globalScanSql = @"SELECT COUNT(*) FROM maxhanna.notifications 
+						WHERE text = @dispText AND date >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL @hrs HOUR);";
+					await using (var gCmd = new MySqlCommand(globalScanSql, conn, transaction))
+					{
+						gCmd.Parameters.AddWithValue("@dispText", displacementNotificationText);
+						gCmd.Parameters.AddWithValue("@hrs", recentDisplacementHours);
+						var recentCountObj = await gCmd.ExecuteScalarAsync();
+						int recentCount = recentCountObj == null ? 0 : Convert.ToInt32(recentCountObj);
+						if (recentCount > 0)
+						{
+							await transaction.CommitAsync();
+							_ = _log.Db($"Skipping displacement run: {recentCount} displacement(s) occurred within last {recentDisplacementHours}h.", null, "SYSTEM");
+							return;
+						}
+					}
+				}
+
+				// 2. Build hash of users who already received a displacement notification in the past 8 hours (per-user cooldown)
+				var recentlyDisplacedUsers = new HashSet<int>();
+				string userScanSql = @"SELECT DISTINCT user_id FROM maxhanna.notifications 
+					WHERE text = @dispText AND date >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 8 HOUR) AND user_id IS NOT NULL;";
+				await using (var uCmd = new MySqlCommand(userScanSql, conn, transaction))
+				{
+					uCmd.Parameters.AddWithValue("@dispText", displacementNotificationText);
+					using var uReader = await uCmd.ExecuteReaderAsync();
+					while (await uReader.ReadAsync())
+					{
+						int uid = uReader.IsDBNull(0) ? 0 : uReader.GetInt32(0);
+						if (uid > 0) recentlyDisplacedUsers.Add(uid);
+					}
+				}
 				// Find heroes with >=2 total walls but 0 walls in last 8 hours
 				const string selectSql = @"
 				SELECT h.id as hero_id, h.user_id as user_id, h.level as hero_level
@@ -318,9 +353,16 @@ namespace maxhanna.Server.Services
 
 					if (v.userId.HasValue && v.userId.Value > 0)
 					{
+						// Skip displacement if user recently displaced (per-user cooldown)
+						if (recentlyDisplacedUsers.Contains(v.userId.Value))
+						{
+							_ = _log.Db($"Skipping hero {v.heroId} displacement due to recent per-user cooldown (user {v.userId.Value}).", v.heroId, "SYSTEM");
+							continue; // continue to next victim without committing previous move? (we already moved hero; revert?)
+						}
 						insertNotifCmd.Parameters["@userId"].Value = v.userId.Value;
-						insertNotifCmd.Parameters["@text"].Value = "Your lightcycle was displaced for inactivity and moved to a new sector.";
+						insertNotifCmd.Parameters["@text"].Value = displacementNotificationText;
 						await insertNotifCmd.ExecuteNonQueryAsync();
+						recentlyDisplacedUsers.Add(v.userId.Value); // update runtime set
 					}
 					_ = _log.Db($"Relocated inactive hero {v.heroId} to ({newX},{newY}) on level {lvl}.", v.heroId, "SYSTEM");
 				}
