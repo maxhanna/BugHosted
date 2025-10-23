@@ -5,7 +5,7 @@
   <div class="menuButton" (click)="showMenuPanel()"></div>
  
   <div [style.display]="isLoading ? 'block' : 'none'" class="loadingModal">The game is loading...</div>
-  <div [style.display]="serverDown ? 'block' : 'none'">We are sorry, server is currently down. Please be patient while we bring it back online.</div> 
+  <div [style.display]="serverDown ? 'block' : 'none'" class="serverDownMessage">We are sorry, server is currently down. Please be patient while we bring it back online.</div> 
   <div class="gameCanvasContainer">
     <canvas #gameCanvas id="gameCanvas" class="gameCanvas" width=320 height="220"></canvas>
   </div>

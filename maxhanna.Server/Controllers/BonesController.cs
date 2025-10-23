@@ -931,11 +931,23 @@ namespace maxhanna.Server.Controllers
 						{
 							// Check distance to locked hero
 							int distToLocked = Math.Abs(locked.x - e.x) + Math.Abs(locked.y - e.y);
-							// If hero still in aggro range OR grace period not expired (<5s since lock start) keep chasing
-							if (distToLocked <= aggroPixels || (!_encounterTargetLockTimes.TryGetValue(e.heroId, out var lockStart) || (now - lockStart).TotalSeconds < 5.0))
+							// Compute a consistent grace period based on aggro (seconds)
+							double graceSeconds = Math.Max(1, e.aggro) * 5.0; // 5s per aggro level
+
+							// Only consider the lock valid if we have a lock-start timestamp AND
+							// the locked hero is either still within aggro range OR the lock is within the grace period.
+							if (_encounterTargetLockTimes.TryGetValue(e.heroId, out var lockStart))
 							{
-								closest = locked;
-								lockValid = true;
+								if (distToLocked <= aggroPixels || (now - lockStart).TotalSeconds < graceSeconds)
+								{
+									closest = locked;
+									lockValid = true;
+								}
+							}
+							else
+							{
+								// No lock-start timestamp found: treat as not locked so normal acquisition logic runs
+								lockValid = false;
 							}
 						}
 					}
@@ -990,6 +1002,7 @@ namespace maxhanna.Server.Controllers
 					if (closest != null && closest.Value.heroId == targetHeroId && targetHeroId != 0 && _encounterTargetLockTimes.TryGetValue(e.heroId, out var ls))
 					{
 						int distCurrent = Math.Abs(closest.Value.x - e.x) + Math.Abs(closest.Value.y - e.y);
+						// Use the same graceSeconds computation as above
 						double graceSeconds = Math.Max(1, e.aggro) * 5.0; // 5s per aggro level
 						if (distCurrent > aggroPixels && (now - ls).TotalSeconds >= graceSeconds)
 						{

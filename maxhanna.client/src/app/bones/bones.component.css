@@ -582,3 +582,7 @@ body {
   overflow: auto;
   padding: 5px;
 }
+
+.serverDownMessage {
+  font-family: owreKynge;
+}
