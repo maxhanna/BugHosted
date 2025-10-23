@@ -5,6 +5,8 @@ export class Resources {
   private audioToLoad: { [key: string]: string };
   images: { [key: string]: { image: HTMLImageElement; isLoaded: boolean } } = {};
   audios: { [key: string]: { audio: HTMLAudioElement; isLoaded: boolean } } = {};
+  // Track currently-playing cloned audio elements for allowOverlap plays so we can adjust their volume live
+  private activeAudioClones: { [key: string]: Set<HTMLAudioElement> } = {};
   dir = "assets/bones/";
   initialized = false;
   // Separate mute flags for music and sound effects
@@ -100,8 +102,16 @@ export class Resources {
     if (allowOverlap) {
       try {
         const clone = base.cloneNode(true) as HTMLAudioElement;
-  clone.volume = volume;
+        clone.volume = volume;
         clone.loop = loop;
+        // Keep track of clones so we can update volume later
+        try {
+          if (!this.activeAudioClones[key]) this.activeAudioClones[key] = new Set<HTMLAudioElement>();
+          this.activeAudioClones[key].add(clone);
+          const removeClone = () => { try { this.activeAudioClones[key].delete(clone); } catch { } };
+          clone.addEventListener('ended', removeClone, { once: true });
+          clone.addEventListener('pause', removeClone, { once: true });
+        } catch { }
         void clone.play();
       } catch { }
     } else {
@@ -119,6 +129,33 @@ export class Resources {
     if (typeof mult !== 'number' || isNaN(mult)) return;
     // Clamp to sensible range
     this.volumeMultiplier = Math.max(0, Math.min(1, mult));
+    // Immediately apply new multiplier to any currently-playing audio (base elements and tracked clones)
+    try {
+      Object.keys(this.audios).forEach(k => {
+        const entry = this.audios[k];
+        if (!entry) return;
+        // Determine nominal requested volume: when we don't know the original requested per-play volume,
+        // assume 1 for base audio; for non-overlap plays base.volume will be set by playSound already.
+        // To avoid reducing volume twice, we recompute using the current base volume's requested fraction.
+        try {
+          // If base audio is currently playing (and not a paused clone), update its volume to reflect multiplier
+          // Use the existing audio.volume as the current requested*multiplier; normalize by previous multiplier if needed.
+          entry.audio.volume = Math.max(0, Math.min(1, (entry.audio.volume ? entry.audio.volume / (this.volumeMultiplier || 1) : 1) * this.volumeMultiplier));
+        } catch { }
+        // Update any tracked clones
+        try {
+          const set = this.activeAudioClones[k];
+          if (set) {
+            set.forEach((clone) => {
+              try {
+                // assume clones were originally created with requested * oldMultiplier; scale to new
+                clone.volume = Math.max(0, Math.min(1, (clone.volume ? clone.volume / (this.volumeMultiplier || 1) : 1) * this.volumeMultiplier));
+              } catch { }
+            });
+          }
+        } catch { }
+      });
+    } catch { }
   }
 
   stopSound(key: string) {
@@ -127,6 +164,14 @@ export class Resources {
     try {
       entry.audio.pause();
       entry.audio.currentTime = 0;
+      // Also stop and clear any tracked clones for this key
+      try {
+        const set = this.activeAudioClones[key];
+        if (set) {
+          set.forEach(c => { try { c.pause(); c.currentTime = 0; } catch { } });
+          set.clear();
+        }
+      } catch { }
     } catch { }
   }
 

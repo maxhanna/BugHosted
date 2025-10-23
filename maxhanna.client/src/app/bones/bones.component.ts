@@ -244,6 +244,8 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
     try {
       // Persist to localStorage for simple persistence across sessions
       localStorage.setItem('bonesVolume', String(this.currentVolume));
+      // Ensure the persisted value is applied to any currently-playing audio
+      try { resources.setVolumeMultiplier(this.currentVolume); } catch { }
     } catch { }
   }
 
