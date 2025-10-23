@@ -812,7 +812,8 @@ namespace maxhanna.Server.Controllers
 				if (transaction == null) throw new InvalidOperationException("Transaction is required for this operation.");
 				if (userId == 0 && heroId == null) return null;
 				// bones_bot_part table removed — don't join or select part columns
-				string sql = $"SELECT h.id as hero_id, h.coordsX, h.coordsY, h.map, h.speed, h.name as hero_name, h.color as hero_color, h.mask as hero_mask, h.level as hero_level, h.exp as hero_exp, b.id as bot_id, b.name as bot_name, b.type as bot_type, b.hp as bot_hp, b.is_deployed as bot_is_deployed, b.level as bot_level, b.exp as bot_exp FROM maxhanna.bones_hero h LEFT JOIN maxhanna.bones_bot b ON h.id = b.hero_id WHERE {(heroId == null ? "h.user_id = @UserId" : "h.id = @UserId")};";
+				// include attack_speed if present
+				string sql = $"SELECT h.id as hero_id, h.coordsX, h.coordsY, h.map, h.speed, h.name as hero_name, h.color as hero_color, h.mask as hero_mask, h.level as hero_level, h.exp as hero_exp, h.attack_speed as attack_speed, b.id as bot_id, b.name as bot_name, b.type as bot_type, b.hp as bot_hp, b.is_deployed as bot_is_deployed, b.level as bot_level, b.exp as bot_exp FROM maxhanna.bones_hero h LEFT JOIN maxhanna.bones_bot b ON h.id = b.hero_id WHERE {(heroId == null ? "h.user_id = @UserId" : "h.id = @UserId")};";
 				MySqlCommand cmd = new(sql, conn, transaction); cmd.Parameters.AddWithValue("@UserId", heroId != null ? heroId : userId);
 				MetaHero? hero = null; Dictionary<int, MetaBot> metabotDict = new();
 				using (var reader = await cmd.ExecuteReaderAsync())
@@ -823,18 +824,20 @@ namespace maxhanna.Server.Controllers
 						{
 							int levelOrd = reader.GetOrdinal("hero_level");
 							int expOrd = reader.GetOrdinal("hero_exp");
-							hero = new MetaHero { Id = reader.GetInt32("hero_id"), Position = new Vector2(reader.GetInt32("coordsX"), reader.GetInt32("coordsY")), Speed = reader.GetInt32("speed"), Map = SafeGetString(reader, "map") ?? string.Empty, Name = SafeGetString(reader, "hero_name"), Color = SafeGetString(reader, "hero_color") ?? string.Empty, Mask = reader.IsDBNull(reader.GetOrdinal("hero_mask")) ? null : reader.GetInt32("hero_mask"), Level = reader.IsDBNull(levelOrd) ? 0 : reader.GetInt32(levelOrd), Exp = reader.IsDBNull(expOrd) ? 0 : reader.GetInt32(expOrd), Metabots = new List<MetaBot>() };
-						}
-						if (!reader.IsDBNull(reader.GetOrdinal("bot_id")))
-						{
-							int botId = reader.GetInt32("bot_id");
-							if (!metabotDict.TryGetValue(botId, out MetaBot? bot))
-							{
-								int botNameOrd = reader.GetOrdinal("bot_name");
-								bot = new MetaBot { Id = botId, Name = reader.IsDBNull(botNameOrd) ? null : reader.GetString(botNameOrd), Type = reader.GetInt32("bot_type"), Hp = reader.GetInt32("bot_hp"), Level = reader.GetInt32("bot_level"), Exp = reader.GetInt32("bot_exp"), IsDeployed = reader.GetBoolean("bot_is_deployed"), HeroId = hero.Id };
-								metabotDict[botId] = bot; hero.Metabots ??= new List<MetaBot>(); hero.Metabots.Add(bot);
-							}
-						}
+							int attackSpeed = reader.IsDBNull(reader.GetOrdinal("attack_speed")) ? 400 : reader.GetInt32(reader.GetOrdinal("attack_speed"));  
+							hero = new MetaHero {
+								Id = reader.GetInt32("hero_id"),
+								Position = new Vector2(reader.GetInt32("coordsX"), reader.GetInt32("coordsY")),
+								Speed = reader.GetInt32("speed"),
+								Map = SafeGetString(reader, "map") ?? string.Empty,
+								Name = SafeGetString(reader, "hero_name"),
+								Color = SafeGetString(reader, "hero_color") ?? string.Empty,
+								Mask = reader.IsDBNull(reader.GetOrdinal("hero_mask")) ? null : reader.GetInt32("hero_mask"),
+								Level = reader.IsDBNull(levelOrd) ? 0 : reader.GetInt32(levelOrd),
+								Exp = reader.IsDBNull(expOrd) ? 0 : reader.GetInt32(expOrd), 
+								AttackSpeed = attackSpeed
+							};
+						} 
 					}
 				}
 				return hero;
@@ -1142,7 +1145,24 @@ namespace maxhanna.Server.Controllers
 				if (transaction == null) throw new InvalidOperationException("Transaction is required for this operation.");
 				Dictionary<int, MetaHero> heroesDict = new();
 				// Return nearby hero records only; encounter bots are constructed client-side from bones_encounter.
-				string sql = @"SELECT m.id as hero_id, m.name as hero_name, m.map as hero_map, m.coordsX, m.coordsY, m.speed, m.color, m.mask, m.level as hero_level, m.exp as hero_exp, m.updated as hero_updated, m.created as hero_created FROM maxhanna.bones_hero m WHERE m.map = @HeroMapId ORDER BY m.coordsY ASC;";
+				// include attack_speed column if present
+				string sql = @"
+				SELECT m.id as hero_id, 
+					m.name as hero_name,
+					m.map as hero_map,
+					m.coordsX, 
+					m.coordsY,
+					m.speed, 
+					m.color, 
+					m.mask, 
+					m.level as hero_level,
+					m.exp as hero_exp,
+					m.updated as hero_updated,
+					m.created as hero_created,
+					m.attack_speed as hero_attack_speed 
+				FROM maxhanna.bones_hero m 
+				WHERE m.map = @HeroMapId 
+				ORDER BY m.coordsY ASC;";
 				MySqlCommand cmd = new(sql, conn, transaction); cmd.Parameters.AddWithValue("@HeroMapId", hero.Map);
 				using (var reader = await cmd.ExecuteReaderAsync())
 				{
@@ -1164,6 +1184,7 @@ namespace maxhanna.Server.Controllers
 							int speed = reader.IsDBNull(reader.GetOrdinal("speed")) ? 0 : reader.GetInt32(reader.GetOrdinal("speed"));
 							var updated = reader.IsDBNull(reader.GetOrdinal("hero_updated")) ? DateTime.UtcNow : reader.GetDateTime(reader.GetOrdinal("hero_updated"));
 							var created = reader.IsDBNull(reader.GetOrdinal("hero_created")) ? DateTime.UtcNow : reader.GetDateTime(reader.GetOrdinal("hero_created"));
+							int attackSpeed = reader.IsDBNull(reader.GetOrdinal("hero_attack_speed")) ? 400 : reader.GetInt32(reader.GetOrdinal("hero_attack_speed"));  
 							tmpHero = new MetaHero
 							{
 								Id = heroId,
@@ -1175,9 +1196,9 @@ namespace maxhanna.Server.Controllers
 								Mask = mask,
 								Position = new Vector2(coordsX, coordsY),
 								Speed = speed,
+								AttackSpeed = attackSpeed,
 								Updated = updated,
 								Created = created,
-								Metabots = new List<MetaBot>()
 							};
 							heroesDict[heroId] = tmpHero;
 						}
