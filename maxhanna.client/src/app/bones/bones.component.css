@@ -163,9 +163,12 @@ body {
 }
 
 
-.inputArea {
+.inputArea {  
   display: flex;
-  justify-content: space-between;
+  justify-content: center;
+  row-gap: 6px;
+  flex-direction: column;
+  align-items: center;
 }
 
 .controls {
