@@ -98,12 +98,11 @@ export class Hero extends Character {
         this.isLocked = false;
       }); 
       events.on("SPACEBAR_PRESSED", this, () => {
-  // enforce attack speed cooldown based on metaHero.attackSpeed (default 400ms)
-  const attackSpeed = (this as any).metaHero?.attackSpeed ?? 400;
-  const now = Date.now();
-  if (now - this.lastAttackAt < attackSpeed) return; // still cooling down
-  this.lastAttackAt = now;
-  this.isAttacking = true;
+        const attackSpeed = (this as any).metaHero?.attackSpeed ?? 400;
+        const now = Date.now();
+        if (now - this.lastAttackAt < attackSpeed) return; // still cooling down
+        this.lastAttackAt = now;
+        this.isAttacking = true;
        // this.isLocked = true;
         if (this.facingDirection == "DOWN") {
           this.body?.animations?.play("attackDown");
