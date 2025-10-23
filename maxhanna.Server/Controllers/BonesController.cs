@@ -735,19 +735,62 @@ namespace maxhanna.Server.Controllers
 			{
 				// Copy current bones_hero for user into bones_hero_selection (snapshot)
 				// Attempt to update an existing selection that references the same bones_hero for this user.
-				string updateSql = @"UPDATE maxhanna.bones_hero_selection s JOIN (SELECT id AS h_id, user_id, name, coordsX, coordsY, map, speed, color, mask, level, exp, attack_speed FROM maxhanna.bones_hero WHERE user_id = @UserId LIMIT 1) h ON s.bones_hero_id = h.h_id AND s.user_id = @UserId
-				SET s.name = h.name, s.data = JSON_OBJECT('coordsX', h.coordsX, 'coordsY', h.coordsY, 'map', h.map, 'speed', h.speed, 'color', h.color, 'mask', h.mask, 'level', h.level, 'exp', h.exp, 'attack_speed', h.attack_speed), s.created = UTC_TIMESTAMP();";
+				// Ensure there is an active bones_hero for this user and capture its id.
+				string findHeroSql = @"SELECT id, name, coordsX, coordsY, map, speed, color, mask, level, exp, attack_speed FROM maxhanna.bones_hero WHERE user_id = @UserId LIMIT 1;";
+				using var findCmd = new MySqlCommand(findHeroSql, connection, transaction);
+				findCmd.Parameters.AddWithValue("@UserId", userId);
+				using var heroRdr = await findCmd.ExecuteReaderAsync();
+				if (!await heroRdr.ReadAsync())
+				{
+					// No active hero to snapshot
+					await heroRdr.CloseAsync();
+					await transaction.RollbackAsync();
+					return BadRequest("No active bones_hero found for user");
+				}
+				int heroId = heroRdr.GetInt32(0);
+				string heroName = heroRdr.IsDBNull(heroRdr.GetOrdinal("name")) ? "Anon" : heroRdr.GetString(heroRdr.GetOrdinal("name"));
+				int coordsX = heroRdr.IsDBNull(heroRdr.GetOrdinal("coordsX")) ? 0 : heroRdr.GetInt32(heroRdr.GetOrdinal("coordsX"));
+				int coordsY = heroRdr.IsDBNull(heroRdr.GetOrdinal("coordsY")) ? 0 : heroRdr.GetInt32(heroRdr.GetOrdinal("coordsY"));
+				string map = heroRdr.IsDBNull(heroRdr.GetOrdinal("map")) ? string.Empty : heroRdr.GetString(heroRdr.GetOrdinal("map"));
+				int speed = heroRdr.IsDBNull(heroRdr.GetOrdinal("speed")) ? 0 : heroRdr.GetInt32(heroRdr.GetOrdinal("speed"));
+				string color = heroRdr.IsDBNull(heroRdr.GetOrdinal("color")) ? string.Empty : heroRdr.GetString(heroRdr.GetOrdinal("color"));
+				int mask = heroRdr.IsDBNull(heroRdr.GetOrdinal("mask")) ? 0 : heroRdr.GetInt32(heroRdr.GetOrdinal("mask"));
+				int level = heroRdr.IsDBNull(heroRdr.GetOrdinal("level")) ? 0 : heroRdr.GetInt32(heroRdr.GetOrdinal("level"));
+				int exp = heroRdr.IsDBNull(heroRdr.GetOrdinal("exp")) ? 0 : heroRdr.GetInt32(heroRdr.GetOrdinal("exp"));
+				int attack_speed = heroRdr.IsDBNull(heroRdr.GetOrdinal("attack_speed")) ? 400 : heroRdr.GetInt32(heroRdr.GetOrdinal("attack_speed"));
+				await heroRdr.CloseAsync();
+
+				string updateSql = @"UPDATE maxhanna.bones_hero_selection SET name = @Name, data = JSON_OBJECT('coordsX', @CoordsX, 'coordsY', @CoordsY, 'map', @Map, 'speed', @Speed, 'color', @Color, 'mask', @Mask, 'level', @Level, 'exp', @Exp, 'attack_speed', @AttackSpeed), created = UTC_TIMESTAMP() WHERE user_id = @UserId AND bones_hero_id = @HeroId LIMIT 1;";
 				using var upCmd = new MySqlCommand(updateSql, connection, transaction);
 				upCmd.Parameters.AddWithValue("@UserId", userId);
+				upCmd.Parameters.AddWithValue("@HeroId", heroId);
+				upCmd.Parameters.AddWithValue("@Name", heroName);
+				upCmd.Parameters.AddWithValue("@CoordsX", coordsX);
+				upCmd.Parameters.AddWithValue("@CoordsY", coordsY);
+				upCmd.Parameters.AddWithValue("@Map", map);
+				upCmd.Parameters.AddWithValue("@Speed", speed);
+				upCmd.Parameters.AddWithValue("@Color", color);
+				upCmd.Parameters.AddWithValue("@Mask", mask);
+				upCmd.Parameters.AddWithValue("@Level", level);
+				upCmd.Parameters.AddWithValue("@Exp", exp);
+				upCmd.Parameters.AddWithValue("@AttackSpeed", attack_speed);
 				int rows = await upCmd.ExecuteNonQueryAsync();
 				if (rows == 0)
 				{
-					// No existing selection for this hero found; perform insert snapshot
-					string insertSql = @"INSERT INTO maxhanna.bones_hero_selection (user_id, bones_hero_id, name, data, created)
-					SELECT h.user_id, h.id, h.name, JSON_OBJECT('coordsX', h.coordsX, 'coordsY', h.coordsY, 'map', h.map, 'speed', h.speed, 'color', h.color, 'mask', h.mask, 'level', h.level, 'exp', h.exp, 'attack_speed', h.attack_speed), UTC_TIMESTAMP()
-					FROM maxhanna.bones_hero h WHERE h.user_id = @UserId LIMIT 1;";
+					string insertSql = @"INSERT INTO maxhanna.bones_hero_selection (user_id, bones_hero_id, name, data, created) VALUES (@UserId, @HeroId, @Name, JSON_OBJECT('coordsX', @CoordsX, 'coordsY', @CoordsY, 'map', @Map, 'speed', @Speed, 'color', @Color, 'mask', @Mask, 'level', @Level, 'exp', @Exp, 'attack_speed', @AttackSpeed), UTC_TIMESTAMP());";
 					using var inCmd = new MySqlCommand(insertSql, connection, transaction);
 					inCmd.Parameters.AddWithValue("@UserId", userId);
+					inCmd.Parameters.AddWithValue("@HeroId", heroId);
+					inCmd.Parameters.AddWithValue("@Name", heroName);
+					inCmd.Parameters.AddWithValue("@CoordsX", coordsX);
+					inCmd.Parameters.AddWithValue("@CoordsY", coordsY);
+					inCmd.Parameters.AddWithValue("@Map", map);
+					inCmd.Parameters.AddWithValue("@Speed", speed);
+					inCmd.Parameters.AddWithValue("@Color", color);
+					inCmd.Parameters.AddWithValue("@Mask", mask);
+					inCmd.Parameters.AddWithValue("@Level", level);
+					inCmd.Parameters.AddWithValue("@Exp", exp);
+					inCmd.Parameters.AddWithValue("@AttackSpeed", attack_speed);
 					rows = await inCmd.ExecuteNonQueryAsync();
 				}
 				await transaction.CommitAsync();
@@ -775,7 +818,10 @@ namespace maxhanna.Server.Controllers
 				using var selCmd = new MySqlCommand(selSql, connection, transaction);
 				selCmd.Parameters.AddWithValue("@SelId", selectionId);
 				using var rdr = await selCmd.ExecuteReaderAsync();
-				if (!await rdr.ReadAsync()) { await transaction.RollbackAsync(); return NotFound(); }
+				if (!await rdr.ReadAsync()) {
+					await transaction.RollbackAsync();
+					return NotFound(); 
+				}
 				int userId = rdr.GetInt32(0);
 				int? bonesHeroId = rdr.IsDBNull(1) ? (int?)null : rdr.GetInt32(1);
 				string? name = rdr.IsDBNull(2) ? null : rdr.GetString(2);
