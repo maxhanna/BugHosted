@@ -74,6 +74,9 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
   isStartMenuOpened = false;
   isShopMenuOpened = false;
   hideStartButton = false;
+  // Change character popup state
+  isChangeCharacterOpen = false;
+  selections: any[] = [];
   serverDown? = false;
   // Count consecutive failures to fetch game data; when threshold reached announce locally via chat
   private consecutiveFetchFailures: number = 0;
@@ -862,6 +865,50 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
     if (this.parentRef) {
       this.parentRef.showOverlay();
     }  
+  }
+
+  openChangeCharacter() {
+    this.isChangeCharacterOpen = true;
+    this.loadSelections();
+  }
+
+  closeChangeCharacter() {
+    this.isChangeCharacterOpen = false;
+  }
+
+  async loadSelections() {
+    if (!this.parentRef?.user?.id) return;
+    try {
+      const res = await this.bonesService.getHeroSelections(this.parentRef.user.id);
+      this.selections = Array.isArray(res) ? res : [];
+    } catch (ex) { console.error('Failed to load selections', ex); this.selections = []; }
+  }
+
+  async createNewCharacterSelection() {
+    if (!this.parentRef?.user?.id) return;
+    try {
+      await this.bonesService.createHeroSelection(this.parentRef.user.id);
+      await this.loadSelections();
+    } catch (ex) { console.error('Failed to create selection', ex); }
+  }
+
+  async promoteSelection(id: number) {
+    try {
+      await this.bonesService.promoteHeroSelection(id);
+      // After promoting, refresh hero from server and close popup
+      if (this.parentRef?.user?.id) {
+        const rz = await this.bonesService.getHero(this.parentRef.user.id);
+        if (rz) await this.reinitializeHero(rz);
+      }
+      this.closeChangeCharacter();
+    } catch (ex) { console.error('Failed to promote selection', ex); }
+  }
+
+  async deleteSelection(id: number) {
+    try {
+      await this.bonesService.deleteHeroSelection(id);
+      await this.loadSelections();
+    } catch (ex) { console.error('Failed to delete selection', ex); }
   }
 
   closeMenuPanel() {

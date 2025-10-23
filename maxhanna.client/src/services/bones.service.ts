@@ -86,6 +86,22 @@ export class BonesService {
     return this.fetchData('/bones/getherohighscores', count);
   }
 
+  async getHeroSelections(userId: number) {
+    return this.fetchData('/bones/getheroselections', userId);
+  }
+
+  async createHeroSelection(userId: number) {
+    return this.fetchData('/bones/createheroselection', userId);
+  }
+
+  async promoteHeroSelection(selectionId: number) {
+    return this.fetchData('/bones/promoteheroselection', selectionId);
+  }
+
+  async deleteHeroSelection(selectionId: number) {
+    return this.fetchData('/bones/deleteheroselection', selectionId);
+  }
+
   async getActivePlayers(minutes: number = 2) {
     return this.fetchData('/bones/activeplayers', minutes);
   }

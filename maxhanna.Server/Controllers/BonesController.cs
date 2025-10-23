@@ -698,6 +698,131 @@ namespace maxhanna.Server.Controllers
 			}
 		}
 
+		[HttpPost("/Bones/GetHeroSelections", Name = "Bones_GetHeroSelections")]
+		public async Task<IActionResult> GetHeroSelections([FromBody] int userId)
+		{
+			if (userId <= 0) return BadRequest("Invalid user id");
+			using var connection = new MySqlConnection(_connectionString);
+			await connection.OpenAsync();
+			try
+			{
+				string sql = @"SELECT id, bones_hero_id, name, created FROM maxhanna.bones_hero_selection WHERE user_id = @UserId ORDER BY created DESC;";
+				using var cmd = new MySqlCommand(sql, connection);
+				cmd.Parameters.AddWithValue("@UserId", userId);
+				using var rdr = await cmd.ExecuteReaderAsync();
+				var list = new List<object>();
+				while (await rdr.ReadAsync())
+				{
+					list.Add(new { id = rdr.GetInt32(0), bonesHeroId = rdr.IsDBNull(1) ? (int?)null : rdr.GetInt32(1), name = rdr.IsDBNull(2) ? null : rdr.GetString(2), created = rdr.IsDBNull(3) ? (DateTime?)null : rdr.GetDateTime(3) });
+				}
+				return Ok(list);
+			}
+			catch (Exception ex)
+			{
+				await _log.Db("GetHeroSelections failure: " + ex.Message, userId, "BONES", true);
+				return StatusCode(500, "Failed to fetch hero selections");
+			}
+		}
+
+		[HttpPost("/Bones/CreateHeroSelection", Name = "Bones_CreateHeroSelection")]
+		public async Task<IActionResult> CreateHeroSelection([FromBody] int userId)
+		{
+			if (userId <= 0) return BadRequest("Invalid user id");
+			using var connection = new MySqlConnection(_connectionString);
+			await connection.OpenAsync();
+			using var transaction = await connection.BeginTransactionAsync();
+			try
+			{
+				// Copy current bones_hero for user into bones_hero_selection (snapshot)
+				string insertSql = @"INSERT INTO maxhanna.bones_hero_selection (user_id, bones_hero_id, name, data, created)
+				SELECT h.user_id, h.id, h.name, JSON_OBJECT('coordsX', h.coordsX, 'coordsY', h.coordsY, 'map', h.map, 'speed', h.speed, 'color', h.color, 'mask', h.mask, 'level', h.level, 'exp', h.exp, 'attack_speed', h.attack_speed), UTC_TIMESTAMP()
+				FROM maxhanna.bones_hero h WHERE h.user_id = @UserId LIMIT 1;";
+				using var cmd = new MySqlCommand(insertSql, connection, transaction);
+				cmd.Parameters.AddWithValue("@UserId", userId);
+				int rows = await cmd.ExecuteNonQueryAsync();
+				await transaction.CommitAsync();
+				return Ok(new { created = rows > 0 });
+			}
+			catch (Exception ex)
+			{
+				await transaction.RollbackAsync();
+				await _log.Db("CreateHeroSelection failure: " + ex.Message, userId, "BONES", true);
+				return StatusCode(500, "Failed to create hero selection");
+			}
+		}
+
+		[HttpPost("/Bones/PromoteHeroSelection", Name = "Bones_PromoteHeroSelection")]
+		public async Task<IActionResult> PromoteHeroSelection([FromBody] int selectionId)
+		{
+			if (selectionId <= 0) return BadRequest("Invalid selection id");
+			using var connection = new MySqlConnection(_connectionString);
+			await connection.OpenAsync();
+			using var transaction = await connection.BeginTransactionAsync();
+			try
+			{
+				// Read selection data
+				string selSql = @"SELECT user_id, bones_hero_id, name, data FROM maxhanna.bones_hero_selection WHERE id = @SelId LIMIT 1;";
+				using var selCmd = new MySqlCommand(selSql, connection, transaction);
+				selCmd.Parameters.AddWithValue("@SelId", selectionId);
+				using var rdr = await selCmd.ExecuteReaderAsync();
+				if (!await rdr.ReadAsync()) { await transaction.RollbackAsync(); return NotFound(); }
+				int userId = rdr.GetInt32(0);
+				int? bonesHeroId = rdr.IsDBNull(1) ? (int?)null : rdr.GetInt32(1);
+				string? name = rdr.IsDBNull(2) ? null : rdr.GetString(2);
+				string? dataJson = rdr.IsDBNull(3) ? null : rdr.GetString(3);
+				rdr.Close();
+				// If bonesHeroId present, overwrite bones_hero row for that user; otherwise insert a new bones_hero
+				if (bonesHeroId.HasValue)
+				{
+					// Update bones_hero using dataJson fields (coordsX, coordsY, map, speed, color, mask, level, exp, attack_speed)
+					string updateSql = @"UPDATE maxhanna.bones_hero SET coordsX = JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.coordsX'))+0, coordsY = JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.coordsY'))+0, map = JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.map')), speed = JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.speed'))+0, color = JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.color')), mask = JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.mask'))+0, level = JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.level'))+0, exp = JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.exp'))+0, attack_speed = JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.attack_speed'))+0 WHERE id = @HeroId LIMIT 1;";
+					using var upCmd = new MySqlCommand(updateSql, connection, transaction);
+					upCmd.Parameters.AddWithValue("@Data", dataJson ?? "{}" );
+					upCmd.Parameters.AddWithValue("@HeroId", bonesHeroId.Value);
+					await upCmd.ExecuteNonQueryAsync();
+				}
+				else
+				{
+					// Insert as new bones_hero for this user
+					string insertSql = @"INSERT INTO maxhanna.bones_hero (user_id, coordsX, coordsY, map, speed, name, color, mask, level, exp, created, attack_speed) VALUES (@UserId, JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.coordsX'))+0, JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.coordsY'))+0, JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.map')), JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.speed'))+0, @Name, JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.color')), JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.mask'))+0, JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.level'))+0, JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.exp'))+0, UTC_TIMESTAMP(), JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.attack_speed'))+0);";
+					using var inCmd = new MySqlCommand(insertSql, connection, transaction);
+					inCmd.Parameters.AddWithValue("@UserId", userId);
+					inCmd.Parameters.AddWithValue("@Data", dataJson ?? "{}");
+					inCmd.Parameters.AddWithValue("@Name", name ?? "Anon");
+					await inCmd.ExecuteNonQueryAsync();
+				}
+				await transaction.CommitAsync();
+				return Ok();
+			}
+			catch (Exception ex)
+			{
+				await transaction.RollbackAsync();
+				await _log.Db("PromoteHeroSelection failure: " + ex.Message, null, "BONES", true);
+				return StatusCode(500, "Failed to promote selection");
+			}
+		}
+
+		[HttpPost("/Bones/DeleteHeroSelection", Name = "Bones_DeleteHeroSelection")]
+		public async Task<IActionResult> DeleteHeroSelection([FromBody] int selectionId)
+		{
+			if (selectionId <= 0) return BadRequest("Invalid selection id");
+			using var connection = new MySqlConnection(_connectionString);
+			await connection.OpenAsync();
+			try
+			{
+				string sql = @"DELETE FROM maxhanna.bones_hero_selection WHERE id = @SelId";
+				using var cmd = new MySqlCommand(sql, connection);
+				cmd.Parameters.AddWithValue("@SelId", selectionId);
+				int rows = await cmd.ExecuteNonQueryAsync();
+				return Ok(new { deleted = rows > 0 });
+			}
+			catch (Exception ex)
+			{
+				await _log.Db("DeleteHeroSelection failure: " + ex.Message, null, "BONES", true);
+				return StatusCode(500, "Failed to delete selection");
+			}
+		}
+
 		[HttpPost("/Bones/SellBotParts", Name = "Bones_SellBotParts")]
 		public IActionResult SellBotParts([FromBody] SellBotPartsRequest req) => Ok();
 
