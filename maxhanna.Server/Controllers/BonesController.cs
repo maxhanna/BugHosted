@@ -807,6 +807,7 @@ namespace maxhanna.Server.Controllers
 		[HttpPost("/Bones/PromoteHeroSelection", Name = "Bones_PromoteHeroSelection")]
 		public async Task<IActionResult> PromoteHeroSelection([FromBody] int selectionId)
 		{
+			Console.WriteLine("BonesPromoteHeroSelection for bonesheroid: " + selectionId);
 			if (selectionId <= 0) return BadRequest("Invalid selection id");
 			using var connection = new MySqlConnection(_connectionString);
 			await connection.OpenAsync();
