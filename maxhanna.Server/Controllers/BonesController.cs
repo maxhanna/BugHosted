@@ -1242,23 +1242,7 @@ namespace maxhanna.Server.Controllers
 		 
 		private async Task PerformEventChecks(MetaEvent metaEvent, MySqlConnection connection, MySqlTransaction transaction)
 		{
-			if (metaEvent != null && metaEvent.Data != null && metaEvent.EventType == "TARGET_LOCKED")
-			{
-				string lockKey = $"{metaEvent.Data["sourceId"]}:{metaEvent.Data["targetId"]}";
-				if (!activeLocks.ContainsKey(lockKey))
-				{
-					var sourceId = metaEvent.Data["sourceId"]; var targetId = metaEvent.Data["targetId"]; var ctsSource = new CancellationTokenSource(); activeLocks[lockKey] = ctsSource; _ = StartDamageOverTimeForBot(sourceId, targetId, ctsSource.Token);
-				}
-			}
-			else if (metaEvent != null && metaEvent.EventType == "TARGET_UNLOCK" && metaEvent.Data != null && metaEvent.Data.TryGetValue("sourceId", out var sourceId))
-			{
-				StopAttackDamageOverTimeForBot(Convert.ToInt32(sourceId), Convert.ToInt32(metaEvent.Data["targetId"]));
-			}
-			else if (metaEvent != null && metaEvent.Data != null && metaEvent.EventType == "REPAIR_ALL_METABOTS")
-			{
-				int heroId = Convert.ToInt32(metaEvent.Data["heroId"]); await RepairAllMetabots(heroId, connection, transaction);
-			}
-			else if (metaEvent != null && metaEvent.Data != null && metaEvent.EventType == "UNPARTY")
+			if (metaEvent != null && metaEvent.Data != null && metaEvent.EventType == "UNPARTY")
 			{
 				int heroId = metaEvent.HeroId; await Unparty(heroId, connection, transaction);
 			}
@@ -1278,20 +1262,6 @@ namespace maxhanna.Server.Controllers
 					try { var batchData = JsonSerializer.Deserialize<List<EncounterPositionUpdate>>(batchJson); if (batchData != null && batchData.Count > 0) await UpdateEncounterPositionBatch(batchData, connection, transaction); } catch (JsonException) { }
 				}
 			}
-			else if (metaEvent != null && metaEvent.Data != null && metaEvent.EventType == "DEPLOY")
-			{
-				if (metaEvent.Data.TryGetValue("metaBot", out var metaBotJsonElement)) { var metaBotJson = JsonDocument.Parse(metaBotJsonElement.ToString()).RootElement; if (metaBotJson.TryGetProperty("id", out var idElement)) { int metabotId = idElement.GetInt32(); await DeployMetabot(metabotId, connection, transaction); } }
-			}
-			else if (metaEvent != null && metaEvent.EventType == "CALL_BOT_BACK") { int heroId = metaEvent.HeroId; await CallBackMetabot(heroId, null, connection, transaction); }
-		}
-		private static void StopAttackDamageOverTimeForBot(int? sourceId, int? targetId)
-		{
-			string lockKey = $"{sourceId}:{targetId}"; if (activeLocks.ContainsKey(lockKey)) { activeLocks[lockKey].Cancel(); activeLocks.Remove(lockKey); }
-		}
-		private async Task StartDamageOverTimeForBot(string sourceId, string targetId, CancellationToken cancellationToken)
-		{
-			// Damage over time removed for server-side bots; nothing to run here.
-			await Task.CompletedTask;
 		}
 		private async Task UpdateEncounterPositionBatch(List<EncounterPositionUpdate> updates, MySqlConnection connection, MySqlTransaction transaction)
 		{
