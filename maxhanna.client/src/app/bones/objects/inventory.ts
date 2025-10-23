@@ -7,15 +7,14 @@ import { MetaHero } from "../../../services/datacontracts/bones/meta-hero";
 import { InventoryItem } from "./InventoryItem/inventory-item";
 import { storyFlags, GOT_WATCH, GOT_FIRST_METABOT } from "../helpers/story-flags";
 import { StartMenu } from "./Menu/start-menu";
-import { MetaBotPart } from "../../../services/datacontracts/bones/hero-inventory-item";
-import { Character } from "./character";
+import { HeroInventoryItem } from "../../../services/datacontracts/bones/hero-inventory-item";
 import { Exit } from "./Environment/Exit/exit";
 import { SpriteTextString } from "./SpriteTextString/sprite-text-string";
 import { ColorSwap } from "../../../services/datacontracts/bones/color-swap";
 export class Inventory extends GameObject {
   nextId: number = parseInt((Math.random() * 19999).toFixed(0));
   items: InventoryItem[] = [];
-  parts: MetaBotPart[] = [];
+  parts: HeroInventoryItem[] = [];
   currentlySelectedId?: number = undefined;
   startMenu?: StartMenu;
   parentCharacter: MetaHero;
@@ -112,7 +111,7 @@ export class Inventory extends GameObject {
       this.children.forEach((child: any) => {
         child.destroy();
       });
-      this.startMenu = new StartMenu({ inventoryItems: this.items, metabotParts: this.parts, exits: data.exits, location: data.location });
+      this.startMenu = new StartMenu({ inventoryItems: this.items, heroInventoryItems: this.parts, exits: data.exits, location: data.location });
       this.addChild(this.startMenu);
       events.emit("HERO_MOVEMENT_LOCK");
     });

@@ -3,17 +3,17 @@ import { Sprite } from "../sprite";
 import { resources } from "../../helpers/resources";
 import { events } from "../../helpers/events";
 import { getAbbrTypeLabel } from "../../helpers/skill-types";
-import { Vector2 } from "../../../../services/datacontracts/meta/vector2";
+import { Vector2 } from "../../../../services/datacontracts/bones/vector2";
 import { SpriteTextString } from "../SpriteTextString/sprite-text-string";
 import { Input } from "../../helpers/input";
 import { Main } from "../Main/main";
 import { InventoryItem } from "../InventoryItem/inventory-item";
-import { MetaBot } from "../../../../services/datacontracts/meta/meta-bot";
-import { HEAD, LEFT_ARM, LEGS, MetaBotPart, RIGHT_ARM } from "../../../../services/datacontracts/meta/meta-bot-part";
+import { MetaBot } from "../../../../services/datacontracts/bones/meta-bot";
 import { Watch } from "../InventoryItem/Watch/watch";
 import { storyFlags, GOT_WATCH, GOT_FIRST_METABOT } from "../../helpers/story-flags";
 import { Exit } from "../Environment/Exit/exit";
 import { gridCells } from "../../helpers/grid-cells";
+import { HeroInventoryItem } from "../../../../services/datacontracts/bones/hero-inventory-item";
 
 export class StartMenu extends GameObject {
   menuLocationX = 190;
@@ -32,14 +32,13 @@ export class StartMenu extends GameObject {
   items: string[] = [];
   currentlySelectedId: number = 0;
   inventoryItems: InventoryItem[] = [];
-  metabotParts: MetaBotPart[] = [];
+  heroInventoryItems: HeroInventoryItem[] = [];
   exits: Exit[] = [];
   selectedMetabot?: MetaBot;
   selectedMetabotForParts?: MetaBot;
   selectedMetabotId?: number;
   selectedPart?: string;
-  isDisplayingMetabots = false;
-  metabotPartItems = [HEAD, LEGS, LEFT_ARM, RIGHT_ARM];
+  isDisplayingMetabots = false; 
   regularMenuChoices = ["Meta-Bots", "Journal", "Warping", "Exit"];
 
   blockClearWarpInput = true;
@@ -52,7 +51,7 @@ export class StartMenu extends GameObject {
   menuWidth = 125;
   menuHeight = 200;
 
-  constructor(params: { inventoryItems?: InventoryItem[], metabotParts?: MetaBotPart[], exits?: Exit[], location: Vector2 }) {
+  constructor(params: { inventoryItems?: InventoryItem[], heroInventoryItems?: HeroInventoryItem[], exits?: Exit[], location: Vector2 }) {
     super({ 
       position: new Vector2(0, 0),
       isOmittable: false,
@@ -61,7 +60,7 @@ export class StartMenu extends GameObject {
     this.drawLayer = HUD;
     this.name = "StartMenu";
     this.inventoryItems = params.inventoryItems ?? [];
-    this.metabotParts = params.metabotParts ?? [];
+    this.heroInventoryItems = params.heroInventoryItems ?? [];
     this.exits = params.exits ?? [];
     this.currentWarpX = String(params.location.x / gridCells(1)).padStart(2, '0');
     this.currentWarpY = String(params.location.y / gridCells(1)).padStart(2, '0');
@@ -262,40 +261,7 @@ export class StartMenu extends GameObject {
     this.addChild(backLabel);
     this.blockSelectionTimeout();
   }
-
-  private displayMetabot(selectedBot: MetaBot) {
-    this.clearMenu();
-    this.selectedMetabot = selectedBot;
-    // Initial menu items with parts
-    const itemsWithStats: string[] = [];
-    const items: string[] = [selectedBot.hp == 0 ? "Dead" : (selectedBot.isDeployed ? "Call Back" : "Deploy"), ... this.metabotPartItems, "Back"];
-
-    for (let x = 0; x < items.length; x++) {
-      const item = items[x];
-      const partLabel = new SpriteTextString(item, new Vector2(this.menuLocationX + 5, this.menuLocationY + 10 + (20 * x)), "Black");
-      this.addChild(partLabel); 
-      itemsWithStats.push(item);
-      // Add part stats if it's not "Back" and part exists on selected Metabot
-      if (selectedBot) {
-        let parts = this.metabotParts.filter(x => x.metabotId === selectedBot.id);
-        let part = parts.find(x => x.partName === item);
-
-        if (part) {
-          // Stats to insert directly after part name
-          const partStats = `${part.skill.name} ${part.damageMod} ${getAbbrTypeLabel(part.skill.type)}`;
-        //  itemsWithStats.push(partStats);
-
-          const statsLabel = new SpriteTextString(partStats, new Vector2(this.menuLocationX + 20, this.menuLocationY + 20 + (20 * x)), "Black");
-          this.addChild(statsLabel);
-        }
-      } 
-    }
-
-    // Update items with the modified list containing stats and set selector position
-    this.items = itemsWithStats;
-    this.blockSelectionTimeout();
-  }
-
+ 
 
   private displayPartSelection(selectedPart: string, selectedMetabotForParts: MetaBot) {
     this.clearMenu();
@@ -303,7 +269,7 @@ export class StartMenu extends GameObject {
     this.selectedMetabotId = selectedMetabotForParts.id;
     this.selectedMetabotForParts = selectedMetabotForParts;
     console.log("displaying " + selectedPart);
-    const filteredParts = this.metabotParts.filter(part => part.partName === this.selectedPart && !part.metabotId);
+    const filteredParts = this.heroInventoryItems.filter(part => part.partName === this.selectedPart && !part.heroId);
     let x = 0;
     for (let part of filteredParts) {
       const partStats = `${part.skill.name} ${part.damageMod} ${getAbbrTypeLabel(part.skill.type)}`;
@@ -443,42 +409,19 @@ export class StartMenu extends GameObject {
         else if (this.items[this.currentlySelectedId] === "Back") {
           if (this.selectedMetabot && !this.selectedMetabotId && this.selectedMetabot.hp > 0) {
             this.displayMetabots();
-          } else if (this.selectedMetabotId && this.selectedPart && this.selectedMetabotForParts) {
-            this.displayMetabot(this.selectedMetabotForParts);
-          }
+          } 
           else {
             this.displayStartMenu();
           } 
           this.blockSelectionTimeout();
         } else if (this.items[this.currentlySelectedId] === "Meta-Bots") {
           this.displayMetabots(); 
-        }
-        else if (this.selectedMetabot && (this.items[this.currentlySelectedId] === LEGS
-          || this.items[this.currentlySelectedId] === LEFT_ARM
-          || this.items[this.currentlySelectedId] === RIGHT_ARM
-          || this.items[this.currentlySelectedId] === HEAD)) {
-          console.log("display part selection");
-          this.displayPartSelection(this.items[this.currentlySelectedId], this.selectedMetabot);
-        }
-        else if (this.isDisplayingMetabots) {
-          const selection = this.items[this.currentlySelectedId]; 
-          const bot = this.inventoryItems.find(ii => ii.name === selection);
-          if (bot) { 
-            const stats = typeof bot.stats === "string"
-              ? JSON.parse(bot.stats) as MetaBot
-              : bot.stats as MetaBot;
-
-            this.selectedMetabot = stats;
-            if (this.selectedMetabot) {
-              this.displayMetabot(this.selectedMetabot);
-            } 
-          }
-        }
+        }  
         else if (this.selectedPart) {
           const selection = this.items[this.currentlySelectedId];
           events.emit("SELECTED_PART", { selectedPart: this.selectedPart, selection: selection, selectedMetabotId: this.selectedMetabotId });
           if (this.selectedMetabotForParts) {
-            this.displayMetabot(this.selectedMetabotForParts);
+            //this.displayMetabot(this.selectedMetabotForParts);
           }
         }
       }
