@@ -285,6 +285,7 @@ namespace maxhanna.Server.Controllers
 							string updateHpSql = @"
 								UPDATE maxhanna.bones_encounter 
 								SET hp = GREATEST(hp - 1, 0), 
+								target_hero_id = @HeroId,
 								last_killed = 
 									CASE 
 										WHEN hp <= 1 
@@ -295,7 +296,12 @@ namespace maxhanna.Server.Controllers
 								AND coordsX = @X 
 								AND coordsY = @Y 
 								LIMIT 1;";
-							var updateParams = new Dictionary<string, object?>() { { "@Map", hero.Map ?? string.Empty }, { "@X", targetX }, { "@Y", targetY } };
+							var updateParams = new Dictionary<string, object?>() {
+								{ "@Map", hero.Map ?? string.Empty },
+								{ "@X", targetX },
+								{ "@Y", targetY },
+								{ "@HeroId", sourceHeroId }
+							};
 							int rows = Convert.ToInt32(await ExecuteInsertOrUpdateOrDeleteAsync(updateHpSql, updateParams, connection, transaction));
 
 							if (rows > 0)
