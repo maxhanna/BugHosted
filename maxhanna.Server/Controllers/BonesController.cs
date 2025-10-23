@@ -783,13 +783,22 @@ namespace maxhanna.Server.Controllers
 				}
 				else
 				{
-					// Insert as new bones_hero for this user
-					string insertSql = @"INSERT INTO maxhanna.bones_hero (user_id, coordsX, coordsY, map, speed, name, color, mask, level, exp, created, attack_speed) VALUES (@UserId, JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.coordsX'))+0, JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.coordsY'))+0, JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.map')), JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.speed'))+0, @Name, JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.color')), JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.mask'))+0, JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.level'))+0, JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.exp'))+0, UTC_TIMESTAMP(), JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.attack_speed'))+0);";
-					using var inCmd = new MySqlCommand(insertSql, connection, transaction);
-					inCmd.Parameters.AddWithValue("@UserId", userId);
-					inCmd.Parameters.AddWithValue("@Data", dataJson ?? "{}");
-					inCmd.Parameters.AddWithValue("@Name", name ?? "Anon");
-					await inCmd.ExecuteNonQueryAsync();
+					// Try to update an existing bones_hero for this user; if none exist, insert a new one.
+					string updateByUserSql = @"UPDATE maxhanna.bones_hero SET coordsX = JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.coordsX'))+0, coordsY = JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.coordsY'))+0, map = JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.map')), speed = JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.speed'))+0, name = @Name, color = JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.color')), mask = JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.mask'))+0, level = JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.level'))+0, exp = JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.exp'))+0, attack_speed = JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.attack_speed'))+0 WHERE user_id = @UserId LIMIT 1;";
+					using var upUserCmd = new MySqlCommand(updateByUserSql, connection, transaction);
+					upUserCmd.Parameters.AddWithValue("@Data", dataJson ?? "{}");
+					upUserCmd.Parameters.AddWithValue("@UserId", userId);
+					upUserCmd.Parameters.AddWithValue("@Name", name ?? "Anon");
+					int updatedRows = await upUserCmd.ExecuteNonQueryAsync();
+					if (updatedRows == 0)
+					{
+						string insertSql = @"INSERT INTO maxhanna.bones_hero (user_id, coordsX, coordsY, map, speed, name, color, mask, level, exp, created, attack_speed) VALUES (@UserId, JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.coordsX'))+0, JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.coordsY'))+0, JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.map')), JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.speed'))+0, @Name, JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.color')), JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.mask'))+0, JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.level'))+0, JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.exp'))+0, UTC_TIMESTAMP(), JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.attack_speed'))+0);";
+						using var inCmd = new MySqlCommand(insertSql, connection, transaction);
+						inCmd.Parameters.AddWithValue("@UserId", userId);
+						inCmd.Parameters.AddWithValue("@Data", dataJson ?? "{}");
+						inCmd.Parameters.AddWithValue("@Name", name ?? "Anon");
+						await inCmd.ExecuteNonQueryAsync();
+					}
 				}
 				await transaction.CommitAsync();
 				return Ok();
@@ -820,6 +829,31 @@ namespace maxhanna.Server.Controllers
 			{
 				await _log.Db("DeleteHeroSelection failure: " + ex.Message, null, "BONES", true);
 				return StatusCode(500, "Failed to delete selection");
+			}
+		}
+
+		[HttpPost("/Bones/DeleteHero", Name = "Bones_DeleteHero")]
+		public async Task<IActionResult> DeleteHero([FromBody] int userId)
+		{
+			if (userId <= 0) return BadRequest("Invalid user id");
+			using var connection = new MySqlConnection(_connectionString);
+			await connection.OpenAsync();
+			using var transaction = await connection.BeginTransactionAsync();
+			try
+			{
+				// Delete the bones_hero row for this user (if any)
+				string sql = @"DELETE FROM maxhanna.bones_hero WHERE user_id = @UserId LIMIT 1;";
+				using var cmd = new MySqlCommand(sql, connection, transaction);
+				cmd.Parameters.AddWithValue("@UserId", userId);
+				int rows = await cmd.ExecuteNonQueryAsync();
+				await transaction.CommitAsync();
+				return Ok(new { deleted = rows > 0 });
+			}
+			catch (Exception ex)
+			{
+				await transaction.RollbackAsync();
+				await _log.Db("DeleteHero failure: " + ex.Message, userId, "BONES", true);
+				return StatusCode(500, "Failed to delete hero");
 			}
 		}
 

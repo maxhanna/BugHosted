@@ -102,6 +102,10 @@ export class BonesService {
     return this.fetchData('/bones/deleteheroselection', selectionId);
   }
 
+  async deleteHero(userId: number) {
+    return this.fetchData('/bones/deletehero', userId);
+  }
+
   async getActivePlayers(minutes: number = 2) {
     return this.fetchData('/bones/activeplayers', minutes);
   }

@@ -887,8 +887,11 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
   async createNewCharacterSelection() {
     if (!this.parentRef?.user?.id) return;
     try {
-      await this.bonesService.createHeroSelection(this.parentRef.user.id);
-      await this.loadSelections();
+  const res = await this.bonesService.createHeroSelection(this.parentRef.user.id);
+  // After snapshotting current hero, delete active bones_hero for this user
+  await this.bonesService.deleteHero(this.parentRef.user.id);
+  // Navigate to /bones to refresh client (server will now have no active hero)
+  window.location.href = '/bones';
     } catch (ex) { console.error('Failed to create selection', ex); }
   }
 
@@ -906,6 +909,7 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
 
   async deleteSelection(id: number) {
     try {
+      if (!confirm('Are you sure you want to delete this saved character? This action cannot be undone.')) return;
       await this.bonesService.deleteHeroSelection(id);
       await this.loadSelections();
     } catch (ex) { console.error('Failed to delete selection', ex); }
