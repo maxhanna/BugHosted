@@ -814,7 +814,7 @@ namespace maxhanna.Server.Controllers
 			try
 			{
 				// Read selection data
-				string selSql = @"SELECT user_id, bones_hero_id, name, data FROM maxhanna.bones_hero_selection WHERE id = @SelId LIMIT 1;";
+				string selSql = @"SELECT user_id, bones_hero_id, name, data FROM maxhanna.bones_hero_selection WHERE bones_hero_id = @SelId LIMIT 1;";
 				using var selCmd = new MySqlCommand(selSql, connection, transaction);
 				selCmd.Parameters.AddWithValue("@SelId", selectionId);
 				using var rdr = await selCmd.ExecuteReaderAsync();
