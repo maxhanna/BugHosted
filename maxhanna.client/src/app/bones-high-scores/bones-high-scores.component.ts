@@ -1,6 +1,5 @@
 import { Component, Input, OnInit } from '@angular/core';
 import { BonesService } from '../../services/bones.service';
-import { AppComponent } from '../app.component';
 
 @Component({
   selector: 'app-bones-high-scores',
