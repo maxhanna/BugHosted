@@ -94,6 +94,7 @@ import { CryptoNewsArticlesComponent } from './crypto-news-articles/crypto-news-
 import { AppMenuItemComponent } from './app-menu-item/app-menu-item.component';
 import { BonesComponent } from './bones/bones.component';
 import { DailyMusicComponent } from './daily-music/daily-music.component';
+import { BonesHighScoresComponent } from './bones-high-scores/bones-high-scores.component';
 
 @NgModule({
   declarations: [
@@ -139,6 +140,7 @@ import { DailyMusicComponent } from './daily-music/daily-music.component';
     InViewDirective,
     MetaComponent,
     BonesComponent,
+    BonesHighScoresComponent,
     ClickableUrlsPipe,
     CurrencyFlagPipe,
     CurrencyShortenPipe,
@@ -174,7 +176,7 @@ import { DailyMusicComponent } from './daily-music/daily-music.component';
     CryptoTopTradersComponent,
     CryptoNewsArticlesComponent,
     WordlerHighScoresComponent,
-  DailyMusicComponent,
+    DailyMusicComponent,
   ],
   bootstrap: [AppComponent],
   imports: [BrowserModule,
