@@ -284,22 +284,34 @@ namespace maxhanna.Server.Controllers
 								}
 							}
 
+						// Prefetch attacker level to avoid JOIN+LIMIT MySQL restriction
+						int attackerLevel = 1;
+						try
+						{
+							using var lvlCmd = new MySqlCommand("SELECT COALESCE(level,1) FROM maxhanna.bones_hero WHERE id=@HeroId", connection, transaction);
+							lvlCmd.Parameters.AddWithValue("@HeroId", sourceHeroId);
+							var lvlObj = await lvlCmd.ExecuteScalarAsync();
+							if (lvlObj != null && int.TryParse(lvlObj.ToString(), out int lvlTmp)) attackerLevel = Math.Max(1, lvlTmp);
+						}
+						catch { attackerLevel = 1; }
+
 						string updateHpSql = @"
-									UPDATE maxhanna.bones_encounter e
-									LEFT JOIN maxhanna.bones_hero a ON a.id = @HeroId
-									SET e.hp = GREATEST(e.hp - COALESCE(a.level, 1), 0),
-											e.target_hero_id = @HeroId,
-											e.last_killed = CASE WHEN e.hp <= COALESCE(a.level, 1) THEN UTC_TIMESTAMP() ELSE e.last_killed END
-									WHERE e.map = @Map
-										AND e.coordsX = @X
-										AND e.coordsY = @Y
-									LIMIT 1;";
-							var updateParams = new Dictionary<string, object?>() {
-								{ "@Map", hero.Map ?? string.Empty },
-								{ "@X", targetX },
-								{ "@Y", targetY },
-								{ "@HeroId", sourceHeroId }
-							};
+							UPDATE maxhanna.bones_encounter e
+							SET e.hp = GREATEST(e.hp - @AttackerLevel, 0),
+								e.target_hero_id = @HeroId,
+								e.last_killed = CASE WHEN (e.hp - @AttackerLevel) <= 0 THEN UTC_TIMESTAMP() ELSE e.last_killed END
+							WHERE e.map = @Map
+								AND e.coordsX = @X
+								AND e.coordsY = @Y
+								AND e.hp > 0
+							LIMIT 1;";
+						var updateParams = new Dictionary<string, object?>() {
+							{ "@Map", hero.Map ?? string.Empty },
+							{ "@X", targetX },
+							{ "@Y", targetY },
+							{ "@HeroId", sourceHeroId },
+							{ "@AttackerLevel", attackerLevel }
+						};
 							int rows = Convert.ToInt32(await ExecuteInsertOrUpdateOrDeleteAsync(updateHpSql, updateParams, connection, transaction));
 
 							if (rows == 0)
