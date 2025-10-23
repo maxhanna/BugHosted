@@ -33,24 +33,7 @@ export function attack(source: Bot, target: Bot) {
   source.chasing = undefined;
   source.chaseCancelBlock = new Date();
   source.destinationPosition = source.position;
-  const lastAttackPart = source.lastAttackPart;
-  console.log(`${source.name} attacking ${target.name} with ${lastAttackPart?.skill?.name}`);
-  const skillEffectMap: Record<string, new (x: number, y: number) => any> = {
-    [STING.name]: Sting,
-    [FLARE.name]: Flare,
-    [RAIL.name]: Rail,
-    [CHAIN.name]: Chain,
-    [SUBSONIC.name]: Subsonic,
-  };
-
-  if (lastAttackPart) {
-    const EffectClass = skillEffectMap[lastAttackPart.skill.name];
-    if (EffectClass) {
-      const effect = new EffectClass(source.position.x, source.position.y);
-      source.parent?.addChild(effect);
-      (effect as any).moveTo?.(target.position.x, target.position.y, 1000);
-    }
-  }
+   
   if (target.hp <= 0 && target.isDeployed) {
     source.targeting = undefined; 
   }
