@@ -897,6 +897,17 @@ namespace maxhanna.Server.Controllers
 		/// </summary>
 		private async Task ProcessEncounterAI(string map, MySqlConnection connection, MySqlTransaction transaction)
 		{
+			// Early rate-limit: avoid entering expensive AI processing more than once per second per map.
+			DateTime nowEarly = DateTime.UtcNow;
+			lock (_lastEncounterAiRun)
+			{
+				if (_lastEncounterAiRun.TryGetValue(map, out var lastEarly) && (nowEarly - lastEarly).TotalSeconds < 1.0)
+				{
+					return; // skip processing this tick
+				}
+				// reserve the slot immediately so concurrent callers won't all proceed
+				_lastEncounterAiRun[map] = nowEarly;
+			}
 			try
 			{
 				// Respawn logic: set hp back to 100 if dead for > 120 seconds
@@ -904,18 +915,7 @@ namespace maxhanna.Server.Controllers
 					SET hp = 100, last_killed = NULL, coordsX = o_coordsX, coordsY = o_coordsY, target_hero_id = 0, last_moved = UTC_TIMESTAMP() 
 					WHERE map = @Map AND hp <= 0 AND last_killed IS NOT NULL AND last_killed < DATE_SUB(UTC_TIMESTAMP(), INTERVAL 120 SECOND);";
 				await ExecuteInsertOrUpdateOrDeleteAsync(respawnSql, new Dictionary<string, object?> { { "@Map", map } }, connection, transaction);
-
-				// Rate-limit movement processing to once per second per map. Allow respawn logic to run every call,
-				// but skip the expensive movement calculations if we've already processed recently.
 				DateTime now = DateTime.UtcNow;
-				lock (_lastEncounterAiRun)
-				{
-					if (_lastEncounterAiRun.TryGetValue(map, out var last) && (now - last).TotalSeconds < 1.0)
-					{
-						return; // skip movement this tick
-					}
-					_lastEncounterAiRun[map] = now;
-				}
 
 				// Fetch encounters needing AI processing (include target_hero_id for chase locking)
 				const string selectSql = @"SELECT hero_id, coordsX, coordsY, o_coordsX, o_coordsY, hp, speed, aggro, last_moved, target_hero_id 
@@ -1108,7 +1108,14 @@ namespace maxhanna.Server.Controllers
 							_encounterRecentPositions[e.heroId] = (e.x, e.y, 0);
 						}
 
-						updateBuilder.AppendLine($"UPDATE maxhanna.bones_encounter SET coordsX = @nx_{idx}, coordsY = @ny_{idx}, target_hero_id = @thid_{idx}, last_moved = UTC_TIMESTAMP() WHERE hero_id = @hid_{idx};");
+						updateBuilder.AppendLine($@"
+							UPDATE maxhanna.bones_encounter 
+							SET coordsX = @nx_{idx}, 
+								coordsY = @ny_{idx}, 
+								target_hero_id = @thid_{idx}, 
+								last_moved = UTC_TIMESTAMP() 
+							WHERE hero_id = @hid_{idx};"
+						);
 						parameters[$"@nx_{idx}"] = curX;
 						parameters[$"@ny_{idx}"] = curY;
 						parameters[$"@hid_{idx}"] = e.heroId;
