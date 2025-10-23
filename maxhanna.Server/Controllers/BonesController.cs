@@ -831,31 +831,28 @@ namespace maxhanna.Server.Controllers
 				// If bonesHeroId present, overwrite bones_hero row for that user; otherwise insert a new bones_hero
 				if (bonesHeroId.HasValue)
 				{
-					// Update bones_hero using dataJson fields (coordsX, coordsY, map, speed, color, mask, level, exp, attack_speed)
-					string updateSql = @"UPDATE maxhanna.bones_hero SET coordsX = JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.coordsX'))+0, coordsY = JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.coordsY'))+0, map = JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.map')), speed = JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.speed'))+0, color = JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.color')), mask = JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.mask'))+0, level = JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.level'))+0, exp = JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.exp'))+0, attack_speed = JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.attack_speed'))+0 WHERE id = @HeroId LIMIT 1;";
-					using var upCmd = new MySqlCommand(updateSql, connection, transaction);
+					// Upsert by hero id: insert if missing, otherwise update.
+					string upsertSql = @"INSERT INTO maxhanna.bones_hero (id, user_id, coordsX, coordsY, map, speed, name, color, mask, level, exp, created, attack_speed)
+					VALUES (@HeroId, @UserId, JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.coordsX'))+0, JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.coordsY'))+0, JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.map')), JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.speed'))+0, @Name, JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.color')), JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.mask'))+0, JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.level'))+0, JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.exp'))+0, UTC_TIMESTAMP(), JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.attack_speed'))+0)
+					ON DUPLICATE KEY UPDATE coordsX = VALUES(coordsX), coordsY = VALUES(coordsY), map = VALUES(map), speed = VALUES(speed), name = VALUES(name), color = VALUES(color), mask = VALUES(mask), level = VALUES(level), exp = VALUES(exp), attack_speed = VALUES(attack_speed), user_id = VALUES(user_id), updated = UTC_TIMESTAMP();";
+					using var upCmd = new MySqlCommand(upsertSql, connection, transaction);
 					upCmd.Parameters.AddWithValue("@Data", dataJson ?? "{}" );
 					upCmd.Parameters.AddWithValue("@HeroId", bonesHeroId.Value);
+					upCmd.Parameters.AddWithValue("@UserId", userId);
+					upCmd.Parameters.AddWithValue("@Name", name ?? "Anon");
 					await upCmd.ExecuteNonQueryAsync();
 				}
 				else
 				{
-					// Try to update an existing bones_hero for this user; if none exist, insert a new one.
-					string updateByUserSql = @"UPDATE maxhanna.bones_hero SET coordsX = JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.coordsX'))+0, coordsY = JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.coordsY'))+0, map = JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.map')), speed = JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.speed'))+0, name = @Name, color = JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.color')), mask = JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.mask'))+0, level = JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.level'))+0, exp = JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.exp'))+0, attack_speed = JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.attack_speed'))+0 WHERE user_id = @UserId LIMIT 1;";
-					using var upUserCmd = new MySqlCommand(updateByUserSql, connection, transaction);
+					// Upsert by user_id: insert if missing, otherwise update. This assumes user_id has a UNIQUE constraint.
+					string upsertByUserSql = @"INSERT INTO maxhanna.bones_hero (user_id, coordsX, coordsY, map, speed, name, color, mask, level, exp, created, attack_speed)
+					VALUES (@UserId, JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.coordsX'))+0, JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.coordsY'))+0, JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.map')), JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.speed'))+0, @Name, JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.color')), JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.mask'))+0, JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.level'))+0, JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.exp'))+0, UTC_TIMESTAMP(), JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.attack_speed'))+0)
+					ON DUPLICATE KEY UPDATE coordsX = VALUES(coordsX), coordsY = VALUES(coordsY), map = VALUES(map), speed = VALUES(speed), name = VALUES(name), color = VALUES(color), mask = VALUES(mask), level = VALUES(level), exp = VALUES(exp), attack_speed = VALUES(attack_speed), updated = UTC_TIMESTAMP();";
+					using var upUserCmd = new MySqlCommand(upsertByUserSql, connection, transaction);
 					upUserCmd.Parameters.AddWithValue("@Data", dataJson ?? "{}");
 					upUserCmd.Parameters.AddWithValue("@UserId", userId);
 					upUserCmd.Parameters.AddWithValue("@Name", name ?? "Anon");
-					int updatedRows = await upUserCmd.ExecuteNonQueryAsync();
-					if (updatedRows == 0)
-					{
-						string insertSql = @"INSERT INTO maxhanna.bones_hero (user_id, coordsX, coordsY, map, speed, name, color, mask, level, exp, created, attack_speed) VALUES (@UserId, JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.coordsX'))+0, JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.coordsY'))+0, JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.map')), JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.speed'))+0, @Name, JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.color')), JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.mask'))+0, JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.level'))+0, JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.exp'))+0, UTC_TIMESTAMP(), JSON_UNQUOTE(JSON_EXTRACT(@Data,'$.attack_speed'))+0);";
-						using var inCmd = new MySqlCommand(insertSql, connection, transaction);
-						inCmd.Parameters.AddWithValue("@UserId", userId);
-						inCmd.Parameters.AddWithValue("@Data", dataJson ?? "{}");
-						inCmd.Parameters.AddWithValue("@Name", name ?? "Anon");
-						await inCmd.ExecuteNonQueryAsync();
-					}
+					await upUserCmd.ExecuteNonQueryAsync();
 				}
 				await transaction.CommitAsync();
 				return Ok();
