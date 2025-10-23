@@ -9,8 +9,7 @@ import { AppComponent } from '../app.component';
   styleUrls: ['./bones-high-scores.component.css']
 })
 export class BonesHighScoresComponent implements OnInit {
-  // Accept only [inputtedParentRef]
-  @Input('inputtedParentRef') inputtedParentRef?: AppComponent;
+  @Input() inputtedParentRef?: any;
   topHeroes: any[] | undefined;
   loading = false;
 
