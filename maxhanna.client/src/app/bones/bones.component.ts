@@ -127,7 +127,7 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
           } catch { }
             if (!this.isMusicMuted) {
               const startMusic = () => {
-                 // resources.playSound("pixelDreams", { volume: 0.4, loop: true, allowOverlap: false });
+                  resources.playSound("shadowsUnleashed", { volume: 0.4, loop: true, allowOverlap: false });
                   document.removeEventListener('pointerdown', startMusic);
                   document.removeEventListener('keydown', startMusic);
               };
@@ -213,9 +213,9 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
     this.isMusicMuted = !this.isMusicMuted;
     resources.setMusicMuted(this.isMusicMuted);
     if (!this.isMusicMuted) {
-    //  resources.playSound("pixelDreams", { volume: 0.4, loop: true, allowOverlap: false });
+      resources.playSound("shadowsUnleashed", { volume: 0.4, loop: true, allowOverlap: false });
     } else {
-     // resources.stopSound("pixelDreams");
+      resources.stopSound("shadowsUnleashed");
     }
     this.isMuted = this.isMusicMuted;
     if (this.parentRef?.user?.id) {

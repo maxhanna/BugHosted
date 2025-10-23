@@ -32,7 +32,7 @@ export class Resources {
     };
     this.audioToLoad = {
       arcadeUi: `${this.dir}arcade-ui.mp4`,
-      pixelDreams: `${this.dir}pixeldreams.mp4`,
+      shadowsUnleashed: `${this.dir}shadows_unleashed.mp4`,
       maleDeathScream: `${this.dir}male_death_voice.mp4`,
       punchOrImpact: `${this.dir}punch_or_impact.mp4`,
       wilhelmScream: `${this.dir}wilhelm_scream.mp3`,
@@ -76,7 +76,7 @@ export class Resources {
 
   // audio categories help decide which mute flag applies
   private audioCategories: { [key: string]: 'music' | 'sfx' } = {
-    pixelDreams: 'music',
+    shadowsUnleashed: 'music',
     wilhelmScream: 'sfx',
     arcadeUi: 'sfx',
     maleDeathScream: 'sfx',

@@ -282,20 +282,17 @@ namespace maxhanna.Server.Controllers
 
 							// Perform an atomic update: decrement HP by 1 for the encounter row at target coords on this map.
 							// If hp reaches 0 as a result of this hit, also set last_killed to the current UTC timestamp so respawn logic can detect it.
-							string updateHpSql = @"
-								UPDATE maxhanna.bones_encounter 
-								SET hp = GREATEST(hp - 1, 0), 
-								target_hero_id = @HeroId,
-								last_killed = 
-									CASE 
-										WHEN hp <= 1 
-										THEN UTC_TIMESTAMP() 
-										ELSE last_killed 
-									END 
-								WHERE map = @Map 
-								AND coordsX = @X 
-								AND coordsY = @Y 
-								LIMIT 1;";
+														// Deduct HP by the attacking hero's level (minimum 1). Join attacker to read their level.
+														string updateHpSql = @"
+																UPDATE maxhanna.bones_encounter e
+																LEFT JOIN maxhanna.bones_hero a ON a.id = @HeroId
+																SET e.hp = GREATEST(e.hp - COALESCE(a.level, 1), 0),
+																		e.target_hero_id = @HeroId,
+																		e.last_killed = CASE WHEN e.hp <= COALESCE(a.level, 1) THEN UTC_TIMESTAMP() ELSE e.last_killed END
+																WHERE e.map = @Map
+																	AND e.coordsX = @X
+																	AND e.coordsY = @Y
+																LIMIT 1;";
 							var updateParams = new Dictionary<string, object?>() {
 								{ "@Map", hero.Map ?? string.Empty },
 								{ "@X", targetX },
