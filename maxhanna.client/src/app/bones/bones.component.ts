@@ -869,11 +869,13 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
 
   openChangeCharacter() {
     this.isChangeCharacterOpen = true;
+    this.parentRef?.showOverlay();
     this.loadSelections();
   }
 
   closeChangeCharacter() {
     this.isChangeCharacterOpen = false;
+    this.parentRef?.closeOverlay();
   }
 
   async loadSelections() {
