@@ -197,6 +197,7 @@ fieldset {
 .topSearchButtonDiv {
   right: 159px;
   text-shadow: 1px 1px var(--main-link-color);
+  z-index: 1;
 }
 
 .topSearchButtonDivSpecial {
