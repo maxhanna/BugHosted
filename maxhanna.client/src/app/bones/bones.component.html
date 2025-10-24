@@ -91,17 +91,8 @@
       <div class="start" (mouseup)='mainScene.input.pressStart()'>START</div>
     </div>
 
-  <input *ngIf="mainScene?.level?.name === 'CharacterCreate'" type="color" (change)='changeColor()' #colorInput class="colorInput" [value]="cachedDefaultColor ?? metaHero.color" />
-  <div class="musicOptionsContainer compactMusic" *ngIf="parentRef?.user?.id && !isMenuPanelOpen">
-    <button class="musicButton" (click)="toggleSfx()" [title]="isSfxMuted ? 'Unmute SFX' : 'Mute SFX'" aria-label="SFX toggle">{{ isSfxMuted ? '🔇' : '🔊' }}</button>
-    <button class="musicButton" (click)="toggleMusic()" [title]="isMusicMuted ? 'Unmute Music' : 'Mute Music'" aria-label="Music toggle">{{ isMusicMuted ? '🔇' : '🎵' }}</button>
-    <div class="volumeSliderCompact" style="display:inline-block; vertical-align:middle; margin-left:6px;">
-      <input type="range" min="0" max="100" step="1" [value]="volumePercent()" (input)="onVolumeSliderInput($event)" (change)="onVolumeChange($event)" aria-label="Volume" />
-    </div>
-    <div style="display:inline-block; margin-left:8px;" *ngIf="metaHero?.id">
-      <button class="musicButton" (click)="openChangeCharacter()" aria-label="Change Character">Change Character</button>
-    </div>
-  </div>
+    <input *ngIf="mainScene?.level?.name === 'CharacterCreate'" type="color" (change)='changeColor()' #colorInput class="colorInput" [value]="cachedDefaultColor ?? metaHero.color" />
+ 
   </div>
   <app-user class="popupPanel ucPopupPanel" *ngIf="isUserComponentOpen" [loginOnly]="true"
     [inputtedParentRef]="parentRef" [canClose]="false" (closeUserComponentEvent)="closeUserComponent($event)"
@@ -127,6 +118,11 @@
   <input type="range" min="0" max="100" step="1" [value]="volumePercent()" (input)="onVolumeSliderInput($event)" (change)="onVolumeChange($event)" aria-label="Volume Slider" />
     </div>
   </div>
+  
+  <div style="display:inline-block; margin-left:8px;" *ngIf="metaHero?.id">
+    <button class="musicButton" (click)="openChangeCharacter()" aria-label="Change Character">Change Character</button>
+  </div>
+  
   <div class="metaHighscoresSection">
     <app-bones-high-scores [inputtedParentRef]="parentRef"></app-bones-high-scores>
   </div>
