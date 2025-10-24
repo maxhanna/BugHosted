@@ -12,8 +12,14 @@
       <app-notifications [minimalInterface]="true" [inputtedParentRef]="parentRef"
         [previousComponent]="'Social'"></app-notifications>
     </div>
+    <!-- If a `user` input is supplied, render a compact search button at the top of the panel -->
+    <div *ngIf="user && (showTopicSelector || user) && !showOnlyPost" class="topSearchButtonAtTop">
+      <div [class]="parentRef?.user?.id ? 'topSearchButtonDiv' : 'topSearchButtonDivSpecial'" (click)="showSearchSocialsPanel()">
+        🔍
+      </div>
+    </div>
     <!-- Search -->
-    <div *ngIf="(showTopicSelector || user) && !showOnlyPost"
+    <div *ngIf="(showTopicSelector || user) && !showOnlyPost && !user"
       [class]="parentRef?.user?.id ? 'topSearchButtonDiv' : 'topSearchButtonDivSpecial'"
       (click)="showSearchSocialsPanel()">
       🔍
@@ -27,16 +33,16 @@
             Search in : Text, City, Country and Username.
           </div>
             <input type="text" #search placeholder="Search the socials" (input)="debouncedSearch()" 
-              [value]="userSearch" />
-          <input type="submit" (click)="debouncedSearch()" value="🔍"   />
-          <input type="button" (click)="clearSearchInput()" value="❌" />
-          <div *ngIf="search && search.nativeElement.value != ''" style="text-align:center;">Results :
-            {{storyResponse?.stories?.length ?? 0}}</div>
+                [value]="userSearch" />
+            <input type="submit" (click)="debouncedSearch()" value="🔍"   />
+            <input type="button" (click)="clearSearchInput()" value="❌" />
+            <div *ngIf="search?.value != ''" style="text-align:center;">Results :
+              {{storyResponse?.stories?.length ?? 0}}</div>
           <div *ngIf="trendingSearches && trendingSearches.length" class="trending-searches">
             <div class="trending-header">Trending:</div>
             <div class="trending-list">
               <button class="trending-chip" *ngFor="let t of trendingSearches"
-                (click)="search.nativeElement.value = t; debouncedSearch();">{{t}}</button>
+                (click)="search.value = t; debouncedSearch();">{{t}}</button>
             </div>
           </div>
         </div>
@@ -47,7 +53,7 @@
           <input type="number" #searchIdInput [placeholder]="storyId ?? 'Post ID'" [value]="storyId" />
           <input type="submit" (click)="debouncedSearch()" value="🔍" *ngIf="!user" />
           <input type="button" (click)="clearSearchIdInput()" value="❌" *ngIf="!user" />
-          <div *ngIf="searchIdInput && searchIdInput.value != ''" style="text-align:center;">Results :
+          <div *ngIf="searchIdInput?.value != ''" style="text-align:center;">Results :
             {{storyResponse?.stories?.length ?? 0}}</div>
         </div>
         <div class="searchSocialsPanelContentDiv">
