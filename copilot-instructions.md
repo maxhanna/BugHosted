@@ -62,3 +62,16 @@ This file should be referenced by the agent before making any code edits in this
 - Tests & verification: for non-trivial server changes, prefer a tiny integration smoke check (exercise endpoint) and collect error traces if the change hits production errors.
 
 Keep this section minimal and update it when new repo conventions appear.
+
+## SQL string style (required)
+
+- When generating or editing C# code that contains SQL, always use C# verbatim multiline string syntax with @"..." for the SQL block. Do not use concatenated strings or string interpolation for SQL content. Example:
+
+	@"SELECT id, name
+		FROM maxhanna.bones_hero
+		WHERE map = @Map
+		ORDER BY coordsY ASC;"
+
+- Prettify SQL inside the @"" block: align keywords, break long clauses to multiple lines, and keep parameters (e.g., @Map, @HeroId) intact. This improves readability and makes diffs cleaner.
+
+- When executing the SQL, continue to use parameterized commands (e.g., `cmd.Parameters.AddWithValue("@Map", map);`) and do not inline values into the SQL text.
