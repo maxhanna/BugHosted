@@ -710,6 +710,10 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
       rz.color,
       rz.mask,
       rz.attackSpeed);
+    // propagate attackSpeed to client Hero so attack cooldowns match server-provided value
+    if (this.hero) {
+      this.hero.attackSpeed = rz.attackSpeed ?? 400;
+    }
     this.hero.isLocked = this.isStartMenuOpened || this.isShopMenuOpened;
     this.mainScene.setHeroId(this.metaHero.id);
     this.mainScene.hero = this.hero; 

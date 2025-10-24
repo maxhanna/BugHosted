@@ -17,6 +17,8 @@ export class Hero extends Character {
   isAttacking = false;
   // lastAttack timestamp to enforce attackSpeed cooldown (ms since epoch)
   private lastAttackAt: number = 0;
+  // attack cooldown in milliseconds (populated from metaHero via parent code)
+  public attackSpeed: number = 400;
   constructor(params: {
     position: Vector2, id?: number, name?: string, metabots?: MetaBot[], colorSwap?: ColorSwap,
     isUserControlled?: boolean, speed?: number, mask?: Mask, scale?: Vector2,
@@ -98,10 +100,10 @@ export class Hero extends Character {
         this.isLocked = false;
       }); 
       events.on("SPACEBAR_PRESSED", this, () => {
-        const attackSpeed = (this as any).metaHero?.attackSpeed ?? 400;
-        const now = Date.now();
-        if (now - this.lastAttackAt < attackSpeed) return; // still cooling down
-        this.lastAttackAt = now;
+  const attackSpeed = this.attackSpeed ?? 400;
+  const now = Date.now();
+  if (now - this.lastAttackAt < attackSpeed) return; // still cooling down
+  this.lastAttackAt = now;
         this.isAttacking = true;
        // this.isLocked = true;
         if (this.facingDirection == "DOWN") {
@@ -116,8 +118,25 @@ export class Hero extends Character {
         if (isObjectNearby(this)) {
           resources.playSound('punchOrImpact', { volume: 1.0, allowOverlap: true });  
         }
+        // After the attack animation finishes, allow another attack to be queued if the user is still holding
+        // the attack input (space / controller A). We'll wait for the visual animation to finish (400ms)
+        // then, if the input is held, trigger another SPACEBAR_PRESSED respecting the attackSpeed cooldown.
         setTimeout(() => {
           this.isAttacking = false;
+          // try to locate the input instance by walking parents
+          const inputInstance = this.findInputInstance();
+          try {
+            const holding = !!(inputInstance && (inputInstance.keys?.['Space'] || inputInstance.keys?.['KeyA']));
+            if (holding) {
+              const elapsed = Date.now() - this.lastAttackAt;
+              const delay = Math.max(0, (this.attackSpeed ?? 400) - elapsed);
+              setTimeout(() => {
+                events.emit('SPACEBAR_PRESSED');
+              }, delay);
+            }
+          } catch (ex) {
+            // swallow any input inspection errors
+          }
         //  this.isLocked = false;
         }, 400);
       });
@@ -192,6 +211,18 @@ export class Hero extends Character {
         } catch (ex) { console.error('OTHER_HERO_ATTACK handler error', ex); }
       });
     }
+  }
+
+  // Walk up the parent chain to find an object exposing an `input` instance (Main / level hierarchy is variable)
+  private findInputInstance(): any | null {
+    let p: any = (this as any).parent;
+    let depth = 0;
+    while (p && depth < 8) {
+      if (p.input) return p.input;
+      p = p.parent;
+      depth++;
+    }
+    return null;
   }
 
   override step(delta: number, root: any) {
