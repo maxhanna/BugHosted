@@ -351,29 +351,58 @@ namespace maxhanna.Server.Controllers
 						};
 							int rows = Convert.ToInt32(await ExecuteInsertOrUpdateOrDeleteAsync(updateHpSql, updateParams, connection, transaction));
 
-							// if (rows == 0)
-							// {
-							// // Debug log for missed attack to help diagnose coordinate/aoe mismatch
-							// await _log.Db($"Attack miss heroId={sourceHeroId} map={hero.Map} src=({sourceX},{sourceY}) tgt=({targetX},{targetY}) facing={normalized.GetValueOrDefault("facing")} aoeHalf={aoeHalf} rect=({xMin},{yMin})-({xMax},{yMax})", hero.Id, "BONES", true);
-							// }
+							// Additionally, apply damage to any bones_hero rows within the AoE. Damage is at least attackerLevel.
+							try
+							{
+								string heroDamageSql = @"
+								UPDATE maxhanna.bones_hero h
+								SET h.hp = GREATEST(h.hp - @Damage, 0), h.updated = UTC_TIMESTAMP()
+								WHERE h.map = @Map
+									AND h.hp > 0
+									AND h.coordsX BETWEEN @XMin AND @XMax
+									AND h.coordsY BETWEEN @YMin AND @YMax;";
+								var heroDamageParams = new Dictionary<string, object?>()
+								{
+									{ "@Map", hero.Map ?? string.Empty },
+									{ "@Damage", attackerLevel },
+									{ "@XMin", xMin },
+									{ "@XMax", xMax },
+									{ "@YMin", yMin },
+									{ "@YMax", yMax }
+								};
+								int heroRows = Convert.ToInt32(await ExecuteInsertOrUpdateOrDeleteAsync(heroDamageSql, heroDamageParams, connection, transaction));
+
+								if (heroRows > 0)
+								{
+									// Find affected hero ids so we can emit HERO_DAMAGE per victim with their damage amount
+									string selectHeroesSql = @"SELECT id, hp FROM maxhanna.bones_hero WHERE map = @Map AND coordsX BETWEEN @XMin AND @XMax AND coordsY BETWEEN @YMin AND @YMax;";
+									using var selCmd = new MySqlCommand(selectHeroesSql, connection, transaction);
+									selCmd.Parameters.AddWithValue("@Map", hero.Map ?? string.Empty);
+									selCmd.Parameters.AddWithValue("@XMin", xMin);
+									selCmd.Parameters.AddWithValue("@XMax", xMax);
+									selCmd.Parameters.AddWithValue("@YMin", yMin);
+									selCmd.Parameters.AddWithValue("@YMax", yMax);
+									using var selR = await selCmd.ExecuteReaderAsync();
+									var victims = new List<int>();
+									while (await selR.ReadAsync())
+									{
+										victims.Add(selR.GetInt32(0));
+									}
+									selR.Close();
+
+									// No per-hero immediate events emitted: frontend detects HP changes from FetchGameData heroes payload.
+								}
+							}
+							catch (Exception exHd)
+							{
+								await _log.Db("Failed to apply hero damage in PersistNewAttacks: " + exHd.Message, hero.Id, "BONES", true);
+							}
+
+						 
 
 							if (rows > 0)
 							{
-								// Emit one BOT_DAMAGE meta-event summarizing AoE (center + bounds)
-								var data = new Dictionary<string, string>
-							{
-								{ "sourceId", sourceHeroId.ToString() },
-								{ "centerX", targetX.ToString() },
-								{ "centerY", targetY.ToString() },
-								{ "xMin", xMin.ToString() },
-								{ "xMax", xMax.ToString() },
-								{ "yMin", yMin.ToString() },
-								{ "yMax", yMax.ToString() },
-								{ "damage", attackerLevel.ToString() }
-							};
-								var botDamageEvent = new MetaEvent(0, sourceHeroId, DateTime.UtcNow, "BOT_DAMAGE", hero.Map ?? string.Empty, data);
-								await UpdateEventsInDB(botDamageEvent, connection, transaction);
-
+						 
 								// Check if any encounters died (hp reached 0) and award EXP in same transaction
 								try
 								{
@@ -546,7 +575,7 @@ namespace maxhanna.Server.Controllers
 				}
 				catch { }
 
-				MetaHero hero = new() { Position = new Vector2(posX, posY), Id = (int)botId!, Speed = 1, Map = "HeroRoom", Name = req.Name };
+				MetaHero hero = new() { Position = new Vector2(posX, posY), Id = (int)botId!, Speed = 1, Map = "HeroRoom", Name = req.Name, Hp = 100 };
 				return Ok(hero);
 			}
 			catch (Exception ex)
@@ -1077,8 +1106,8 @@ namespace maxhanna.Server.Controllers
 				if (transaction == null) throw new InvalidOperationException("Transaction is required for this operation.");
 				if (userId == 0 && heroId == null) return null;
 				// bones_bot_part table removed — don't join or select part columns
-				// include attack_speed if present
-				string sql = $"SELECT h.id as hero_id, h.coordsX, h.coordsY, h.map, h.speed, h.name as hero_name, h.color as hero_color, h.mask as hero_mask, h.level as hero_level, h.exp as hero_exp, h.attack_speed as attack_speed, b.id as bot_id, b.name as bot_name, b.type as bot_type, b.hp as bot_hp, b.is_deployed as bot_is_deployed, b.level as bot_level, b.exp as bot_exp FROM maxhanna.bones_hero h LEFT JOIN maxhanna.bones_bot b ON h.id = b.hero_id WHERE {(heroId == null ? "h.user_id = @UserId" : "h.id = @UserId")};";
+				// include attack_speed and hp if present
+				string sql = $"SELECT h.id as hero_id, h.coordsX, h.coordsY, h.map, h.speed, h.name as hero_name, h.color as hero_color, h.mask as hero_mask, h.level as hero_level, h.exp as hero_exp, h.hp as hero_hp, h.attack_speed as attack_speed, b.id as bot_id, b.name as bot_name, b.type as bot_type, b.hp as bot_hp, b.is_deployed as bot_is_deployed, b.level as bot_level, b.exp as bot_exp FROM maxhanna.bones_hero h LEFT JOIN maxhanna.bones_bot b ON h.id = b.hero_id WHERE {(heroId == null ? "h.user_id = @UserId" : "h.id = @UserId")};";
 				MySqlCommand cmd = new(sql, conn, transaction); cmd.Parameters.AddWithValue("@UserId", heroId != null ? heroId : userId);
 				MetaHero? hero = null; Dictionary<int, MetaBot> metabotDict = new();
 				using (var reader = await cmd.ExecuteReaderAsync())
@@ -1100,7 +1129,8 @@ namespace maxhanna.Server.Controllers
 								Mask = reader.IsDBNull(reader.GetOrdinal("hero_mask")) ? null : reader.GetInt32("hero_mask"),
 								Level = reader.IsDBNull(levelOrd) ? 0 : reader.GetInt32(levelOrd),
 								Exp = reader.IsDBNull(expOrd) ? 0 : reader.GetInt32(expOrd), 
-								AttackSpeed = attackSpeed
+								AttackSpeed = attackSpeed,
+								Hp = reader.IsDBNull(reader.GetOrdinal("hero_hp")) ? 100 : reader.GetInt32(reader.GetOrdinal("hero_hp"))
 							};
 						} 
 					}
@@ -1474,6 +1504,7 @@ namespace maxhanna.Server.Controllers
 					m.mask, 
 					m.level as hero_level,
 					m.exp as hero_exp,
+					m.hp as hero_hp,
 					m.updated as hero_updated,
 					m.created as hero_created,
 					m.attack_speed as hero_attack_speed 
@@ -1509,6 +1540,7 @@ namespace maxhanna.Server.Controllers
 								Map = mapVal,
 								Level = level,
 								Exp = exp,
+								Hp = reader.IsDBNull(reader.GetOrdinal("hero_hp")) ? 100 : reader.GetInt32(reader.GetOrdinal("hero_hp")),
 								Color = color,
 								Mask = mask,
 								Position = new Vector2(coordsX, coordsY),

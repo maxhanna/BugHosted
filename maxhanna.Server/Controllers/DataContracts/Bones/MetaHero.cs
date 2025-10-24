@@ -1,9 +1,15 @@
+using System.Text.Json.Serialization;
+
 namespace maxhanna.Server.Controllers.DataContracts.Bones
 {
 	public class MetaHero
 	{
 		// attack speed in milliseconds
+		[JsonPropertyName("attackSpeed")]
 		public int AttackSpeed { get; set; } = 400;
+
+		[JsonPropertyName("hp")]
+		public int Hp { get; set; } = 100;
 
 		public string? Name { get; set; }
 		public int Id { get; set; }

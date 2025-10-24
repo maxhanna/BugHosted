@@ -639,16 +639,22 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
       speed: rz.speed,
       mask: rz.mask ? new Mask(getMaskNameById(rz.mask)) : undefined,
     });
-     this.metaHero = new MetaHero(this.hero.id, (this.hero.name ?? "Anon"),
+    this.metaHero = new MetaHero(this.hero.id, (this.hero.name ?? "Anon"),
       this.hero.position.duplicate(),
       rz.speed,
       rz.map, 
       rz.color,
       rz.mask,
-      rz.attackSpeed);
+      rz.hp ?? 100,
+      rz.level ?? 1,
+      rz.exp ?? 0,
+      rz.attackSpeed ?? 400);
     // propagate attackSpeed to client Hero so attack cooldowns match server-provided value
     if (this.hero) {
       this.hero.attackSpeed = rz.attackSpeed ?? 400;
+      this.hero.level = rz.level ?? 1;
+      this.hero.hp = rz.hp ?? 100;
+      this.hero.exp = rz.exp ?? 0;
     }
     this.hero.isLocked = this.isStartMenuOpened || this.isShopMenuOpened;
     this.mainScene.setHeroId(this.metaHero.id);
