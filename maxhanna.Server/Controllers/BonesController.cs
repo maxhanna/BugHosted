@@ -25,6 +25,8 @@ namespace maxhanna.Server.Controllers
 		private static readonly Dictionary<int, DateTime> _encounterTargetLockTimes = new();
 		// Track recent positions to prevent back-and-forth oscillation: maps encounter hero_id -> (lastX,lastY,wasLastMoveReversalCount)
 		private static readonly Dictionary<int, (int lastX, int lastY, int reversalCount)> _encounterRecentPositions = new();
+		// Track last time an encounter performed an attack to rate-limit server-side encounter attacks (ms resolution)
+		private static readonly Dictionary<int, DateTime> _encounterLastAttack = new();
 		private static readonly Dictionary<SkillType, SkillType> TypeEffectiveness = new()
 		{
 				{ SkillType.SPEED, SkillType.ARMOR },
@@ -400,6 +402,16 @@ namespace maxhanna.Server.Controllers
 										if (!awarded.Contains(d.encId))
 										{
 											await AwardEncounterKillExp(sourceHeroId, d.encLevel, connection, transaction);
+											// Placeholder hook: spawn a dropped item for this defeated encounter
+											try
+											{
+												await SpawnDroppedItemPlaceholder(d.encId, d.encLevel, targetX, targetY, connection, transaction);
+											}
+											catch (Exception exSpawn)
+											{
+												// Log but do not fail the entire attack processing flow
+												await _log.Db("SpawnDroppedItemPlaceholder failed: " + exSpawn.Message, hero.Id, "BONES", true);
+											}
 											awarded.Add(d.encId);
 										}
 									}
@@ -1173,11 +1185,11 @@ namespace maxhanna.Server.Controllers
 				DateTime now = DateTime.UtcNow;
 
 				// Fetch encounters needing AI processing (include target_hero_id for chase locking)
-				const string selectSql = @"SELECT hero_id, coordsX, coordsY, o_coordsX, o_coordsY, hp, speed, aggro, last_moved, target_hero_id 
+				const string selectSql = @"SELECT hero_id, coordsX, coordsY, o_coordsX, o_coordsY, hp, speed, aggro, last_moved, target_hero_id, COALESCE(attack_speed, 400) AS attack_speed 
 					FROM maxhanna.bones_encounter WHERE map = @Map";
 				using var cmd = new MySqlCommand(selectSql, connection, transaction);
 				cmd.Parameters.AddWithValue("@Map", map);
-				var encounters = new List<(int heroId, int x, int y, int ox, int oy, int hp, int speed, int aggro, DateTime? lastMoved, int targetHeroId)>();
+				var encounters = new List<(int heroId, int x, int y, int ox, int oy, int hp, int speed, int aggro, DateTime? lastMoved, int targetHeroId, int attackSpeed)>();
 				using (var rdr = await cmd.ExecuteReaderAsync())
 				{
 					while (await rdr.ReadAsync())
@@ -1192,7 +1204,8 @@ namespace maxhanna.Server.Controllers
 							rdr.GetInt32("speed"),
 							rdr.GetInt32("aggro"),
 							rdr.IsDBNull(rdr.GetOrdinal("last_moved")) ? (DateTime?)null : rdr.GetDateTime("last_moved"),
-							rdr.IsDBNull(rdr.GetOrdinal("target_hero_id")) ? 0 : rdr.GetInt32("target_hero_id")
+							rdr.IsDBNull(rdr.GetOrdinal("target_hero_id")) ? 0 : rdr.GetInt32("target_hero_id"),
+							rdr.IsDBNull(rdr.GetOrdinal("attack_speed")) ? 400 : rdr.GetInt32("attack_speed")
 						));
 					}
 				}
@@ -1310,14 +1323,37 @@ namespace maxhanna.Server.Controllers
 					bool canMoveTime = !e.lastMoved.HasValue || (now - e.lastMoved.Value).TotalSeconds >= 1.0;
 					if (!canMoveTime) continue;
 
-					// If target is a hero and the encounter is axis-adjacent by one grid cell, don't move
+					// If target is a hero and the encounter is axis-adjacent by one grid cell, consider attacking instead of moving
 					if (closest.HasValue && closest.Value.heroId != 0)
 					{
 						int dxAdj = Math.Abs(closest.Value.x - e.x);
 						int dyAdj = Math.Abs(closest.Value.y - e.y);
 						if ((dxAdj == tile && dyAdj == 0) || (dyAdj == tile && dxAdj == 0))
 						{
-							continue; // already adjacent
+							// Axis-adjacent: attempt server-side attack emission rate-limited by encounter.attackSpeed
+							try
+							{
+								int attSpd = e.attackSpeed <= 0 ? 400 : e.attackSpeed;
+								var lastAt = _encounterLastAttack.TryGetValue(e.heroId, out var ts) ? ts : DateTime.MinValue;
+								if ((DateTime.UtcNow - lastAt).TotalMilliseconds >= attSpd)
+								{
+									// Build attack data so clients will interpret as OTHER_HERO_ATTACK
+									var data = new Dictionary<string, string>() {
+										{ "sourceHeroId", e.heroId.ToString() },
+										{ "centerX", e.x.ToString() },
+										{ "centerY", e.y.ToString() },
+										{ "facing", dxAdj == tile ? (closest.Value.x > e.x ? "right" : "left") : (closest.Value.y > e.y ? "down" : "up") }
+									};
+									var attackEvent = new MetaEvent(0, e.heroId, DateTime.UtcNow, "ATTACK", map, data);
+									await UpdateEventsInDB(attackEvent, connection, transaction);
+									_encounterLastAttack[e.heroId] = DateTime.UtcNow;
+								}
+							}
+							catch (Exception exAtk)
+							{
+								await _log.Db("Encounter attack emission failed: " + exAtk.Message, null, "BONES", true);
+							}
+							continue; // don't move when attacking
 						}
 					}
 
@@ -1592,6 +1628,18 @@ namespace maxhanna.Server.Controllers
 			{
 				await _log.Db("AwardEncounterKillExp failure: " + ex.Message, killerHeroId, "BONES", true);
 			}
+		}
+
+		// Placeholder hook called when an encounter dies so dropped item logic can be added here later.
+		private async Task SpawnDroppedItemPlaceholder(int encounterId, int encounterLevel, int x, int y, MySqlConnection connection, MySqlTransaction transaction)
+		{
+			// Minimal non-blocking placeholder: log the spawn request so it can be implemented later.
+			try
+			{
+				await _log.Db($"SpawnDroppedItemPlaceholder: encounterId={encounterId} level={encounterLevel} at=({x},{y})", null, "BONES", true);
+			}
+			catch { /* swallow logging errors to avoid impacting game flow */ }
+			await Task.CompletedTask;
 		}
 		private async Task UpdateMetaHeroParty(List<int>? partyData, MySqlConnection connection, MySqlTransaction transaction)
 		{

@@ -10,6 +10,7 @@ import { FrameIndexPattern } from "../../helpers/frame-index-pattern";
 import { events } from "../../helpers/events";
 import { attack, findTargets, untarget } from "../../helpers/fight";
 import { WALK_DOWN, WALK_UP, WALK_LEFT, WALK_RIGHT, STAND_DOWN, STAND_RIGHT, STAND_LEFT, STAND_UP, DIE } from "../Npc/Skeleton/skeleton-animations";
+import { ATTACK_LEFT, ATTACK_UP, ATTACK_DOWN, ATTACK_RIGHT } from "./bot-animations";
 import { HeroInventoryItem } from "../../../../services/datacontracts/bones/hero-inventory-item";
 import { ColorSwap } from "../../../../services/datacontracts/bones/color-swap";
 import { Character } from "../character";
@@ -27,6 +28,7 @@ export class Bot extends Character {
   isEnemy = true;
   targeting?: Bot = undefined;
   chasing?: Character = undefined;
+  isAttacking = false;
   lastAttack = new Date();
   lastTargetDate = new Date(); 
   isInvulnerable = false;
@@ -110,6 +112,10 @@ export class Bot extends Character {
               standRight: new FrameIndexPattern(STAND_RIGHT),
               standLeft: new FrameIndexPattern(STAND_LEFT),
               standUp: new FrameIndexPattern(STAND_UP), 
+              attackDown: new FrameIndexPattern(ATTACK_DOWN),
+              attackUp: new FrameIndexPattern(ATTACK_UP),
+              attackLeft: new FrameIndexPattern(ATTACK_LEFT),
+              attackRight: new FrameIndexPattern(ATTACK_RIGHT),
               die: new FrameIndexPattern(DIE), 
             })
           }
@@ -173,6 +179,30 @@ export class Bot extends Character {
         this.followHero(hero);
         return;
       }
+    });
+    // Play attack animation when an OTHER_HERO_ATTACK event is received for this bot
+    events.on("OTHER_HERO_ATTACK", this, (payload: any) => {
+      try {
+        const sourceHeroId = payload?.sourceHeroId;
+        if (!sourceHeroId) return;
+        // The server may send encounters with hero_id; match either heroId or this.id
+        if (this.heroId === sourceHeroId || this.id === sourceHeroId) {
+          this.isAttacking = true;
+          if (this.facingDirection == "DOWN") this.body?.animations?.play("attackDown");
+          else if (this.facingDirection == "UP") this.body?.animations?.play("attackUp");
+          else if (this.facingDirection == "LEFT") this.body?.animations?.play("attackLeft");
+          else if (this.facingDirection == "RIGHT") this.body?.animations?.play("attackRight");
+          setTimeout(() => {
+            try {
+              this.isAttacking = false;
+              if (this.facingDirection == DOWN) this.body?.animations?.play("standDown");
+              else if (this.facingDirection == "UP") this.body?.animations?.play("standUp");
+              else if (this.facingDirection == "LEFT") this.body?.animations?.play("standLeft");
+              else if (this.facingDirection == "RIGHT") this.body?.animations?.play("standRight");
+            } catch (e) { }
+          }, 400);
+        }
+      } catch (ex) { console.error('Bot OTHER_HERO_ATTACK handler error', ex); }
     });
     events.emit("BOT_CREATED");  
   }

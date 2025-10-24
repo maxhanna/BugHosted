@@ -44,5 +44,10 @@ export const STAND_DOWN = makeStandingFrames(0);
 export const STAND_RIGHT = makeStandingFrames(12);
 export const STAND_UP = makeStandingFrames(12);
 export const STAND_LEFT = makeStandingFrames(0);
- 
+
+export const ATTACK_LEFT = makeStandingFrames(16);
+export const ATTACK_DOWN = makeStandingFrames(16);
+export const ATTACK_RIGHT = makeStandingFrames(17);
+export const ATTACK_UP = makeStandingFrames(17);
+
 export const DIE = makeStandingFrames(3);
