@@ -1,4 +1,4 @@
-<div class="metaHighscoresSection">
+<div class="metaHighscoresSection" *ngIf="(mode == 'today' && topScores?.length) || (mode != 'today')" >
     <div *ngIf="modesSelected.length">
         <div *ngFor="let m of modesSelected" class="mode-section">
             <div *ngIf="showHeader"
