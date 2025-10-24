@@ -1,4 +1,4 @@
-<ng-container *ngIf="showBestScores && bestScores">
+<ng-container *ngIf="showBestScores && bestScores && ((mode == 'today' && bestScoresToday?.length) || (mode != 'today'))">
     <div (click)="showUserHeader ? openMastermind() : toggleMode('best')"
          [class]="(showUserHeader ? 'popupPanelTitle userPopupPanelTitle clickable' : (showHeaderTitles ? 'popupPanelTitle clickable' : 'regularTitle clickable'))">
         Best{{showUserHeader ? " Mastermind " : " "}}Scores (All Time):

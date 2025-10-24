@@ -1,4 +1,4 @@
-<div class="new-users-component">
+<div class="new-users-component" *ngIf="isLoading || users?.length">
     <div class="newUsersTitle popupPanelTitle">Today's New Users:</div>
     <div *ngIf="isLoading" class="loading">Loading new users...</div>
     <div *ngIf="loadError" class="error">{{ loadError }}</div>
