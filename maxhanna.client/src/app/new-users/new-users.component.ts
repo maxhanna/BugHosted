@@ -10,10 +10,8 @@ import { AppComponent } from '../app.component';
   styleUrls: ['./new-users.component.css'],
   standalone: false
 })
-export class NewUsersComponent extends ChildComponent implements OnInit, AfterViewInit {
-
-  users: Array<User> = [];
-  // use inherited isLoading from ChildComponent
+export class NewUsersComponent extends ChildComponent implements OnInit, AfterViewInit { 
+  users: Array<User> = []; 
   loadError: string | null = null;
   @Input() inputtedParentRef?: AppComponent; 
 

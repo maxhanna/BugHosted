@@ -95,6 +95,7 @@ import { AppMenuItemComponent } from './app-menu-item/app-menu-item.component';
 import { BonesComponent } from './bones/bones.component';
 import { DailyMusicComponent } from './daily-music/daily-music.component';
 import { BonesHighScoresComponent } from './bones-high-scores/bones-high-scores.component';
+import { NewUsersComponent } from './new-users/new-users.component';
 
 @NgModule({
   declarations: [
@@ -177,6 +178,7 @@ import { BonesHighScoresComponent } from './bones-high-scores/bones-high-scores.
     CryptoNewsArticlesComponent,
     WordlerHighScoresComponent,
     DailyMusicComponent,
+    NewUsersComponent,
   ],
   bootstrap: [AppComponent],
   imports: [BrowserModule,
