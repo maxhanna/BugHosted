@@ -1365,7 +1365,8 @@ namespace maxhanna.Server.Controllers
 										// attack speed in milliseconds
 										{ "attack_speed", (e.attackSpeed <= 0 ? 400 : e.attackSpeed).ToString() }
 									};
-									var attackEvent = new MetaEvent(0, e.heroId, DateTime.UtcNow, "ATTACK", map, data);
+									// Use the target hero's id for the bones_event.hero_id column so it satisfies FK constraints
+									var attackEvent = new MetaEvent(0, closest.Value.heroId, DateTime.UtcNow, "ATTACK", map, data);
 									await UpdateEventsInDB(attackEvent, connection, transaction);
 									// Persist last_attack to the DB so subsequent server ticks respect the cooldown
 									try
