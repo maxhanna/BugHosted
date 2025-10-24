@@ -414,7 +414,6 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
   }
   private updateEnemyEncounters(res: any) {
     const enemies = res.enemyBots as MetaBot[];
-    console.log("updating enemy encounters", enemies);
     if (enemies) {
       enemies.forEach(enemy => {
         //look for enemy on the map, if he doesnt exist, create him.
@@ -434,23 +433,7 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
               console.error('Error duplicating enemy.position for dest set', err, (enemy as any).position);
             }
           }
-        //  console.log("setting dest pos to ", tgtEnemy.destinationPosition);
-          // Track server-provided targetHeroId and react to changes
-          // const incomingTarget = (enemy as any).targetHeroId ?? null;
-          // const previousTarget = (tgtEnemy as any).targetHeroId ?? null;
-          // if (incomingTarget !== previousTarget) {
-          //   try {
-          //     (tgtEnemy as any).targetHeroId = incomingTarget;
-          //     if (incomingTarget != null) {
-          //       // If a new target is set, notify the scene so the bot can follow
-          //       const heroObj = this.mainScene.level.children.find((x: any) => x.id === incomingTarget);
-          //       if (heroObj) {
-          //         events.emit("CHARACTER_POSITION", heroObj);
-          //       }
-          //     }
-          //   } catch { }
-          //}
-          // If server reports this encounter is dead, destroy the client object and clean up caches
+      
           if (tgtEnemy && tgtEnemy.heroId && (tgtEnemy.hp ?? 0) <= 0) {
             try {
               if (typeof tgtEnemy.destroy === 'function') {
