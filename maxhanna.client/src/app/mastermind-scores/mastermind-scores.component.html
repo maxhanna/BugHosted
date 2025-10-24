@@ -31,8 +31,8 @@
     </div>
     <div *ngIf="!bestScores || bestScores.length === 0">No scores yet!</div>
 </ng-container>
-<ng-container *ngIf="showBestScoresToday && bestScoresToday && bestScoresToday.length > 0">
-    <div
+<ng-container *ngIf="showBestScoresToday && bestScoresToday">
+    <div *ngIf="bestScoresToday.length > 0"
      (click)="showUserHeader ? openMastermind() : toggleMode('today')"
      [class]="(showUserHeader ? 'popupPanelTitle userPopupPanelTitle clickable' : (showHeaderTitles ? 'popupPanelTitle clickable' : 'regularTitle clickable'))"
      [style]="showBestScores ? 'margin-top:18px;' : ''">
