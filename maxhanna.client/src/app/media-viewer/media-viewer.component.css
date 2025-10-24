@@ -200,3 +200,7 @@
   animation: spin 1s linear infinite;
   margin: 0 auto 10px;
 }
+
+.fileSharedWith {
+  display: flex;
+}
