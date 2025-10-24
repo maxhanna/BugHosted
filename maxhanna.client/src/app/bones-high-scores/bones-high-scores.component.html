@@ -4,7 +4,7 @@
   <table *ngIf="!loading && topHeroes && topHeroes.length > 0" class="scoreTable mainTable">
     <thead>
       <tr>
-        <th>Rank</th>
+        <th></th>
         <th>Hero</th>
         <th>User</th>
         <th>Level</th>
@@ -15,12 +15,14 @@
         <td>{{i + 1}}</td>
         <td>{{h.heroName}}</td>
         <td>
-          <app-user-tag [user]="h.owner" [inputtedParentRef]="inputtedParentRef" [displayMiniTag]="true" [displayHoverPicture]="true"></app-user-tag>
+          <app-user-tag [user]="h.owner" [hideName]="true" [inputtedParentRef]="inputtedParentRef"
+            [displayMiniTag]="true" [displayHoverPicture]="true" [openInNewTab]="true"
+            [previousComponent]="'Bones'"></app-user-tag>
         </td>
         <td>{{h.level}}</td>
       </tr>
     </tbody>
   </table>
-  </div>
+</div>
 
-  <div *ngIf="!loading && (!topHeroes || topHeroes.length == 0)">No heroes yet.</div>
+<div *ngIf="!loading && (!topHeroes || topHeroes.length == 0)">No heroes yet.</div>
