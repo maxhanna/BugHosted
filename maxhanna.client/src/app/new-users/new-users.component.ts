@@ -14,6 +14,7 @@ export class NewUsersComponent extends ChildComponent implements OnInit, AfterVi
   users: Array<User> = []; 
   loadError: string | null = null;
   @Input() inputtedParentRef?: AppComponent; 
+  @Output() hasData = new EventEmitter<boolean>();
 
   constructor(private userService: UserService) { super(); }
 
@@ -34,6 +35,7 @@ export class NewUsersComponent extends ChildComponent implements OnInit, AfterVi
       this.loadError = 'Failed to load new users.';
     } finally {
       this.stopLoading();
+  try { this.hasData.emit((this.users?.length ?? 0) > 0); } catch {}
     }
   }
 

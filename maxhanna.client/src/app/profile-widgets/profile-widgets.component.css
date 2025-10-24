@@ -1,0 +1,3 @@
+.profile-widgets { display: flex; flex-direction: column; gap: 12px; }
+.widget { order: 1; }
+/* Simple CSS reordering - widgets with data will set data-order=0 via attribute binding and we can rely on JS to reorder if desired. */

@@ -13,6 +13,7 @@ type Mode = 'all' | 'user' | 'today' | 'best';
     standalone: false,
 })
 export class WordlerHighScoresComponent implements OnInit, OnChanges {
+    @Output() hasData = new EventEmitter<boolean>();
     // helper to get object keys from the template without exposing globals
     keys(obj?: Record<string, any>): string[] {
         return Object.keys(obj || {});
@@ -167,6 +168,11 @@ export class WordlerHighScoresComponent implements OnInit, OnChanges {
                     }
                 }
             }
+            // emit whether any mode has groups/data
+            try {
+                const any = Object.values(this.groupedByMode || {}).some(m => Object.keys(m || {}).length > 0);
+                this.hasData.emit(any);
+            } catch {}
         }
     }
 

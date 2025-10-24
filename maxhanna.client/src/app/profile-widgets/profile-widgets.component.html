@@ -1,0 +1,19 @@
+<div class="profile-widgets">
+  <!-- We render children in a stable order but allow the parent to show those with data first via CSS ordering.
+       Each child emits hasData with a unique key so the parent can reorder logically. -->
+  <div class="widget" id="mastermind" [attr.data-order]="(availabilityMastermind ? 0 : 1)">
+    <app-mastermind-scores (hasData)="onChildHasData('mastermind',$event)" [showBestScores]="false" [showBestScoresToday]="true" [showUserHeader]="true" [parentRef]="parentRef"></app-mastermind-scores>
+  </div>
+  <div class="widget" id="ender" [attr.data-order]="(availabilityEnder ? 0 : 1)">
+    <app-ender-high-scores (hasData)="onChildHasData('ender',$event)" [parentRef]="parentRef" [limit]="10" [showUserHeader]="true" [showHeaderTitles]="true" [headerClickable]="true" [mode]="'today'" [headerClickTarget]="'Ender'"></app-ender-high-scores>
+  </div>
+  <div class="widget" id="wordler" [attr.data-order]="(availabilityWordler ? 0 : 1)">
+    <app-wordler-high-scores (hasData)="onChildHasData('wordler',$event)" [mode]="'today'" [headerClickable]="true" [showUserHeader]="true" [inputtedParentRef]="parentRef" [showHeaderTitles]="true" (headerClick)="null"></app-wordler-high-scores>
+  </div>
+  <div class="widget" id="music" [attr.data-order]="(availabilityMusic ? 0 : 1)">
+    <app-daily-music (hasData)="onChildHasData('music',$event)" [inputtedParentRef]="parentRef"></app-daily-music>
+  </div>
+  <div class="widget" id="newusers" [attr.data-order]="(availabilityNewUsers ? 0 : 1)">
+    <app-new-users (hasData)="onChildHasData('newusers',$event)" [inputtedParentRef]="parentRef"></app-new-users>
+  </div>
+</div>

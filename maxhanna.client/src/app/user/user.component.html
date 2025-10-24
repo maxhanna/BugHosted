@@ -207,21 +207,7 @@
           [canScroll]="false"></app-media-viewer>
       </div>
       <div style="margin-top:20px;">
-        <!-- LATEST MASTERMIND SCORES -->
-        <app-mastermind-scores [showBestScores]="false" [showBestScoresToday]="true" [showUserHeader]="true"
-          [parentRef]="parentRef">
-        </app-mastermind-scores>
-        <!-- LATEST ENDER SCORES (TODAY) -->
-        <app-ender-high-scores *ngIf="true" [parentRef]="parentRef" [limit]="10" [showUserHeader]="true"
-          [showHeaderTitles]="true" [headerClickable]="true" [mode]="'today'"
-          [headerClickTarget]="'Ender'"></app-ender-high-scores>
-        <!-- LATEST WORDLER SCORES -->
-        <app-wordler-high-scores [mode]="'today'" [headerClickable]="true" [showUserHeader]="true"
-          [inputtedParentRef]="parentRef" [showHeaderTitles]="true"
-          (headerClick)="parentRef?.createComponent('Wordler')"></app-wordler-high-scores>
-        <!-- LATEST MUSIC -->
-        <app-daily-music [inputtedParentRef]="parentRef"></app-daily-music>
-        <app-new-users [inputtedParentRef]="parentRef"></app-new-users>
+        <app-profile-widgets [parentRef]="parentRef"></app-profile-widgets>
       </div>
     </div>
 

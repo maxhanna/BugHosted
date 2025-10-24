@@ -1,5 +1,5 @@
 import { Component } from '@angular/core';
-import { Input, OnInit, OnChanges, SimpleChanges } from '@angular/core';
+import { Input, OnInit, OnChanges, SimpleChanges, Output, EventEmitter } from '@angular/core';
 import { MastermindService } from '../../services/mastermind.service';
 import { MastermindScore } from '../../services/datacontracts/mastermind/mastermind-score';
 import { UserService } from '../../services/user.service';
@@ -12,6 +12,8 @@ import { AppComponent } from '../app.component';
   styleUrl: './mastermind-scores.component.css'
 })
 export class MastermindScoresComponent implements OnInit, OnChanges {
+
+  @Output() hasData = new EventEmitter<boolean>();
 
   @Input() showBestScores: boolean = true;
   @Input() showBestScoresToday: boolean = true;
@@ -47,6 +49,11 @@ export class MastermindScoresComponent implements OnInit, OnChanges {
         this.bestScoresToday = [];
       }
     }
+    // emit whether we have any data
+    try {
+      const has = (this.bestScores?.length ?? 0) > 0 || (this.bestScoresToday?.length ?? 0) > 0;
+      this.hasData.emit(has);
+    } catch {}
   }
 
   ngOnChanges(changes: SimpleChanges) {

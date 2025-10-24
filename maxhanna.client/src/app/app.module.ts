@@ -94,6 +94,7 @@ import { CryptoNewsArticlesComponent } from './crypto-news-articles/crypto-news-
 import { AppMenuItemComponent } from './app-menu-item/app-menu-item.component';
 import { BonesComponent } from './bones/bones.component';
 import { DailyMusicComponent } from './daily-music/daily-music.component';
+import { ProfileWidgetsComponent } from './profile-widgets/profile-widgets.component';
 import { BonesHighScoresComponent } from './bones-high-scores/bones-high-scores.component';
 import { NewUsersComponent } from './new-users/new-users.component';
 
@@ -178,6 +179,7 @@ import { NewUsersComponent } from './new-users/new-users.component';
     CryptoNewsArticlesComponent,
     WordlerHighScoresComponent,
     DailyMusicComponent,
+  ProfileWidgetsComponent,
     NewUsersComponent,
   ],
   bootstrap: [AppComponent],

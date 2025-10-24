@@ -1,4 +1,4 @@
-import { Component, Input, OnInit, OnChanges, SimpleChanges } from '@angular/core';
+import { Component, Input, OnInit, OnChanges, SimpleChanges, Output, EventEmitter } from '@angular/core';
 import { EnderService } from '../../services/ender.service';
 
 type Mode = 'all' | 'user' | 'today' | 'best';
@@ -10,6 +10,7 @@ type Mode = 'all' | 'user' | 'today' | 'best';
   standalone: false,
 })
 export class EnderHighScoresComponent implements OnInit, OnChanges {
+  @Output() hasData = new EventEmitter<boolean>();
   @Input() limit: number = 20;
   @Input() showBestScoresToday: boolean = false;
   @Input() parentRef: any;
@@ -138,6 +139,11 @@ export class EnderHighScoresComponent implements OnInit, OnChanges {
     } catch (e) {
       console.error('ender-high-scores.refresh failed', e);
     }
+    // emit whether any scores were loaded
+    try {
+      const any = Object.values(this.groupedByMode || {}).some(g => Object.keys(g || {}).length > 0);
+      this.hasData.emit(any);
+    } catch {}
   }
 
   toggleMode(mode: string) {
