@@ -8,5 +8,5 @@
             <span class="username">{{u.username}}</span>
         </div>
     </div>
-    <div *ngIf="!users || users.length == 0">No{{" "}}<app-menu-item style="display: inline-block;" [parentRef]="inputtedParentRef ?? parentRef" [type]="'User'"></app-menu-item>{{" "}}users to show for today.</div>
+    <div *ngIf="!users || users.length == 0">No{{" "}}<app-menu-item style="display: inline-block;" [parentRef]="inputtedParentRef ?? parentRef" [type]="'User'" [label]="'Users'"></app-menu-item>{{" "}}to show for today.</div>
 </div>
