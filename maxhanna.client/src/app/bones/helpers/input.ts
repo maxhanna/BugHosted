@@ -138,6 +138,15 @@ export class Input {
       case 'Backspace':
         this.pressBackspace();
         break;
+      case 'e':
+      case 'E':
+        // start A-button attack when key is pressed
+        this.pressAStart(false);
+        break;
+      case ' ':
+        // start space attack on keydown so holding registers
+        this.pressSpaceStart();
+        break;
     }
   }
 
@@ -166,7 +175,8 @@ export class Input {
         break; 
       case 'e':
       case 'E': 
-        this.pressA(false);
+        // end A-button short-press behavior: treat as releasing the A button
+        this.pressAEnd();
         break;
       case 'Enter':
       case 'NumpadEnter':
@@ -183,7 +193,10 @@ export class Input {
         this.pressB();
         break; 
       case ' ':
-        this.pressSpace();
+        // end space press when released
+        this.pressSpaceEnd();
+        break;
+      
     }
   }
   pressA(sendChat: boolean = true) {
@@ -193,12 +206,26 @@ export class Input {
       console.log("pressed a, saending chat");
     }
     else {
+      // legacy short-click behaviour: emit one attack and mark KeyA briefly
       events.emit("SPACEBAR_PRESSED");
-      this.keys["Space"] = true;
+      this.keys["KeyA"] = true;
       setTimeout(() => {
-        this.keys["Space"] = false;
+        this.keys["KeyA"] = false;
       }, 100);
     }
+  }
+  // call when A-button is pressed (keydown/mousedown)
+  pressAStart(sendChat: boolean = true) {
+    if (sendChat && this.chatInput.value) {
+      events.emit("SEND_CHAT_MESSAGE", this.chatInput.value);
+      return;
+    }
+    events.emit("SPACEBAR_PRESSED");
+    this.keys["KeyA"] = true;
+  }
+  // call when A-button is released (keyup/mouseup)
+  pressAEnd() {
+    this.keys["KeyA"] = false;
   }
   pressB() {
     if (document.activeElement != this.chatInput) { 
@@ -212,6 +239,17 @@ export class Input {
     if (document.activeElement != this.chatInput) {
       this.emitDebounced('SPACEBAR_PRESSED');
     }
+  }
+  // start of space press (keydown)
+  pressSpaceStart() {
+    if (document.activeElement != this.chatInput) {
+      this.emitDebounced('SPACEBAR_PRESSED');
+      this.keys["Space"] = true;
+    }
+  }
+  // end of space press (keyup)
+  pressSpaceEnd() {
+    this.keys["Space"] = false;
   }
   pressStart(sendChat: boolean = true) { 
     if (this.chatInput.value != '') { 

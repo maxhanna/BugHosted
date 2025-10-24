@@ -84,8 +84,8 @@
 
     <div class="controls">
       <div class="a-b">
-        <div class="b" (mouseup)='mainScene.input.pressB()'>B</div>
-        <div class="a" (mouseup)='mainScene.input.pressA()'>A</div>
+  <div class="b" (mouseup)='mainScene.input.pressB()'>B</div>
+  <div class="a" (mousedown)='mainScene.input.pressAStart()' (mouseup)='mainScene.input.pressAEnd()' (touchstart)='mainScene.input.pressAStart()' (touchend)='mainScene.input.pressAEnd()'>A</div>
       </div>
 
       <div class="start" (mouseup)='mainScene.input.pressStart()'>START</div>
