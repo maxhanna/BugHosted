@@ -2,15 +2,14 @@ import { Vector2 } from "../../../../services/datacontracts/bones/vector2";
 import { Sprite } from "../sprite";
 // Fire removed: play die animation instead of spawning fire on death
 import { SkillType } from "../../helpers/skill-types";
-import { DOWN, gridCells } from "../../helpers/grid-cells";
+import { DOWN, UP, LEFT, RIGHT, gridCells } from "../../helpers/grid-cells";
 import { Animations } from "../../helpers/animations";
 import { getBotsInRange } from "../../helpers/move-towards";
 import { resources } from "../../helpers/resources";
 import { FrameIndexPattern } from "../../helpers/frame-index-pattern";
 import { events } from "../../helpers/events";
 import { attack, findTargets, untarget } from "../../helpers/fight";
-import { WALK_DOWN, WALK_UP, WALK_LEFT, WALK_RIGHT, STAND_DOWN, STAND_RIGHT, STAND_LEFT, STAND_UP, DIE } from "../Npc/Skeleton/skeleton-animations";
-import { ATTACK_LEFT, ATTACK_UP, ATTACK_DOWN, ATTACK_RIGHT } from "./bot-animations";
+import { WALK_DOWN, WALK_UP, WALK_LEFT, WALK_RIGHT, STAND_DOWN, STAND_RIGHT, STAND_LEFT, STAND_UP, DIE, ATTACK_DOWN, ATTACK_LEFT, ATTACK_RIGHT, ATTACK_UP } from "../Npc/Skeleton/skeleton-animations";
 import { HeroInventoryItem } from "../../../../services/datacontracts/bones/hero-inventory-item";
 import { ColorSwap } from "../../../../services/datacontracts/bones/color-swap";
 import { Character } from "../character";
@@ -21,6 +20,7 @@ export class Bot extends Character {
   heroId?: number;
   // The hero id this bot is currently targeting/chasing (optional)
   targetHeroId?: number | null = null;
+  isAttacking = false;
   botType: SkillType.NORMAL | SkillType.SPEED | SkillType.STRENGTH | SkillType.ARMOR | SkillType.RANGED | SkillType.STEALTH | SkillType.INTELLIGENCE;
 
   previousHeroPosition?: Vector2;
@@ -28,7 +28,6 @@ export class Bot extends Character {
   isEnemy = true;
   targeting?: Bot = undefined;
   chasing?: Character = undefined;
-  isAttacking = false;
   lastAttack = new Date();
   lastTargetDate = new Date(); 
   isInvulnerable = false;
@@ -113,9 +112,9 @@ export class Bot extends Character {
               standLeft: new FrameIndexPattern(STAND_LEFT),
               standUp: new FrameIndexPattern(STAND_UP), 
               attackDown: new FrameIndexPattern(ATTACK_DOWN),
-              attackUp: new FrameIndexPattern(ATTACK_UP),
               attackLeft: new FrameIndexPattern(ATTACK_LEFT),
               attackRight: new FrameIndexPattern(ATTACK_RIGHT),
+              attackUp: new FrameIndexPattern(ATTACK_UP),
               die: new FrameIndexPattern(DIE), 
             })
           }
@@ -180,31 +179,34 @@ export class Bot extends Character {
         return;
       }
     });
-    // Play attack animation when an OTHER_HERO_ATTACK event is received for this bot
+    events.emit("BOT_CREATED");  
+    // Play attack animations when an OTHER_HERO_ATTACK event is received for this bot
     events.on("OTHER_HERO_ATTACK", this, (payload: any) => {
       try {
         const sourceHeroId = payload?.sourceHeroId;
         if (!sourceHeroId) return;
-        // The server may send encounters with hero_id; match either heroId or this.id
-        if (this.heroId === sourceHeroId || this.id === sourceHeroId) {
+        // If this bot represents the source of the attack (encounter id / heroId), animate
+        if (this.id === sourceHeroId || this.heroId === sourceHeroId) {
           this.isAttacking = true;
+          // choose animation based on facingDirection
           if (this.facingDirection == "DOWN") this.body?.animations?.play("attackDown");
           else if (this.facingDirection == "UP") this.body?.animations?.play("attackUp");
           else if (this.facingDirection == "LEFT") this.body?.animations?.play("attackLeft");
           else if (this.facingDirection == "RIGHT") this.body?.animations?.play("attackRight");
+          // Determine attack animation duration from payload.attackSpeed or default
+          const attackSpeed = payload?.attackSpeed ?? payload?.attack_speed ?? 400;
           setTimeout(() => {
             try {
               this.isAttacking = false;
               if (this.facingDirection == DOWN) this.body?.animations?.play("standDown");
-              else if (this.facingDirection == "UP") this.body?.animations?.play("standUp");
-              else if (this.facingDirection == "LEFT") this.body?.animations?.play("standLeft");
-              else if (this.facingDirection == "RIGHT") this.body?.animations?.play("standRight");
-            } catch (e) { }
-          }, 400);
+              else if (this.facingDirection == UP) this.body?.animations?.play("standUp");
+              else if (this.facingDirection == LEFT) this.body?.animations?.play("standLeft");
+              else if (this.facingDirection == RIGHT) this.body?.animations?.play("standRight");
+            } catch (ex) { }
+          }, Math.max(100, attackSpeed));
         }
-      } catch (ex) { console.error('Bot OTHER_HERO_ATTACK handler error', ex); }
+      } catch (ex) { console.error('BOT OTHER_HERO_ATTACK handler error', ex); }
     });
-    events.emit("BOT_CREATED");  
   }
  
 
