@@ -103,7 +103,7 @@
 <div class="popupPanel menuPopupPanel" style="overflow: auto;" *ngIf="isMenuPanelOpen">
   <div class="popupPanelTitle mainPopupTitle">Menu</div>
   <div class="musicOptionsContainer" style="padding: 6px 8px;">
-    <div style="display: flex;">
+    <div style="display: flex; align-items: baseline;">
       <button class="musicButton" (click)="toggleSfx()" style="margin-bottom:6px;" [title]="isSfxMuted ? 'Unmute SFX' : 'Mute SFX'" aria-label="SFX toggle">
         {{ isSfxMuted ? 'Unmute SFX' : 'Mute SFX' }} 
       </button>
