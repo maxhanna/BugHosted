@@ -650,6 +650,7 @@ namespace maxhanna.Server.Controllers
 					mh.user_id AS userId,
 					mh.name AS heroName,
 					mh.level AS level,
+					mh.exp AS exp,
 					u.username as username,
 					udpfl.id as display_picture_file_id
 				FROM maxhanna.bones_hero mh
@@ -657,7 +658,7 @@ namespace maxhanna.Server.Controllers
 				LEFT JOIN maxhanna.user_display_pictures udp ON udp.user_id = u.id
 				LEFT JOIN maxhanna.file_uploads udpfl ON udp.file_id = udpfl.id
 				WHERE mh.name IS NOT NULL
-				ORDER BY mh.created DESC
+				ORDER BY mh.level DESC, mh.exp DESC, mh.created ASC
 				LIMIT @Count;";
 				using var cmd = new MySqlCommand(sql, connection);
 				cmd.Parameters.AddWithValue("@Count", Math.Max(1, count));
