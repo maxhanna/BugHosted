@@ -1,11 +1,11 @@
 import { AfterViewInit, ChangeDetectorRef, Component, ElementRef, Input, OnDestroy, OnInit, ViewChild } from '@angular/core';
+import { ShowPostsFrom } from '../../services/datacontracts/user/show-posts-from';
 import { ChildComponent } from '../child.component';
 import { MetaData, Story } from '../../services/datacontracts/social/story';
 import { SocialService } from '../../services/social.service';
 import { TopicService } from '../../services/topic.service';
 import { AppComponent } from '../app.component';
 import { Topic } from '../../services/datacontracts/topics/topic';
-import { TopicRank } from '../../services/datacontracts/topics/topic-rank';
 import { TopicsComponent } from '../topics/topics.component';
 import { StoryResponse } from '../../services/datacontracts/social/story-response';
 import { FileEntry } from '../../services/datacontracts/file/file-entry';
@@ -67,7 +67,7 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
   filter = {
     hidden: this.showHiddenFiles ? 'yes' : 'no',
   };
-  showPostsFromFilter = "all";
+  showPostsFromFilter: ShowPostsFrom = "all";
   compactness = "yes";
   private storyUpdateInterval: any;
   private overflowCache: Record<string, boolean> = {};
@@ -123,7 +123,8 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
         if (res) {
           this.isDisplayingNSFW = res.nsfwEnabled ?? false;
           this.compactness = res.compactness ?? "no";
-          this.showPostsFromFilter = res.showPostsFrom ?? "all";
+          const candidate = res.showPostsFrom ?? "all";
+          this.showPostsFromFilter = (['subscribed','local','popular','all','oldest'].includes(candidate) ? candidate as ShowPostsFrom : 'all');
         }
       });
     }
@@ -1007,7 +1008,7 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
   }
   
 
-  showPostsFrom(filter: string) {
+  showPostsFrom(filter: ShowPostsFrom) {
     this.showPostsFromFilter = filter;
     this.userService.updateShowPostsFrom(this.parentRef?.user?.id ?? 0, this.showPostsFromFilter).then(res => {
       if (res) {
@@ -1017,8 +1018,18 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
     this.getStories();
   }
   setCompactness(event: Event) {
-    this.compactness = (event.target as HTMLSelectElement).value;
-    this.userService.updateCompactness(this.parentRef?.user?.id ?? 0, this.compactness).then(res => {
+    const raw = (event.target as HTMLSelectElement).value;
+    // Only accept values that are valid ShowPostsFrom (reuse the same allowed set used elsewhere)
+    const allowed = ['subscribed','local','popular','all','oldest'];
+    if (!allowed.includes(raw)) {
+      // ignore invalid values and optionally notify
+      console.warn(`Ignored invalid compactness value: ${raw}`);
+      return;
+    }
+
+    this.compactness = raw;
+    // updateCompactness expects a show-posts-from-like value on server; ensure typing is safe
+    this.userService.updateCompactness(this.parentRef?.user?.id ?? 0, this.compactness as any).then(res => {
       if (res) {
         this.parentRef?.showNotification(res.message);
         this.overflowCache = {}; // Reset overflow cache

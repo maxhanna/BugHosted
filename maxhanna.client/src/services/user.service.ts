@@ -5,6 +5,7 @@ import { User } from './datacontracts/user/user';
 import { UserAbout } from './datacontracts/user/user-about';
 import { HttpClient } from '@angular/common/http';
 import { UserSettings } from './datacontracts/user/user-settings';
+import { ShowPostsFrom } from './datacontracts/user/show-posts-from';
 
 export interface StreakInfo {
   currentStreak: number;
@@ -349,14 +350,14 @@ export class UserService {
     }
   }
 
-  async updateCompactness(userId: number, compactness: string) {
+  async updateCompactness(userId: number, showPostsFrom: ShowPostsFrom) {
     try {
       const response = await fetch('/user/updatecompactness', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ UserId: userId, Compactness: compactness }),
+        body: JSON.stringify({ UserId: userId, ShowPostsFrom: showPostsFrom }),
       });
 
       return await response.json();
@@ -366,14 +367,14 @@ export class UserService {
   }
 
 
-  async updateShowPostsFrom(userId: number, showPostsFrom: string) {
+  async updateShowPostsFrom(userId: number, showPostsFrom: ShowPostsFrom) {
     try {
       const response = await fetch('/user/updateshowpostsfrom', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ UserId: userId, Compactness: showPostsFrom }),
+        body: JSON.stringify({ UserId: userId, ShowPostsFrom: showPostsFrom }),
       });
 
       return await response.json();

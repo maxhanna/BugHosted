@@ -825,6 +825,7 @@ button.postOptionButtons,
   border-radius: 8px;
   overflow: hidden;
   width: fit-content;
+  font-size: x-small;
 }
 
 .showPostsFromLabel .selector span {

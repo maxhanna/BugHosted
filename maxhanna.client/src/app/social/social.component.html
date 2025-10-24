@@ -77,6 +77,7 @@
               <span [class]="showPostsFromFilter == 'popular' ? 'active' : ''"
                 (click)="showPostsFrom('popular')">Popular</span>
               <span [class]="showPostsFromFilter == 'all' ? 'active' : ''" (click)="showPostsFrom('all')">Fresh</span>
+              <span [class]="showPostsFromFilter == 'oldest' ? 'active' : ''" (click)="showPostsFrom('oldest')">Oldest</span>
             </div>
             <div class="showPostFromHelpInfo" *ngIf="isShowingPostFromHelpInfo">
               <p><strong>Subscribed:</strong> Posts from communities or users you've subscribed to.</p>

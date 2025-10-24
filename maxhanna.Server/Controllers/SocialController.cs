@@ -63,7 +63,7 @@ namespace maxhanna.Server.Controllers
 			[FromQuery] int page = 1,
 			[FromQuery] int pageSize = 10,
 			[FromQuery] bool showHiddenStories = false,
-			[FromQuery] string? showPostsFromFilter = "all")
+			[FromQuery] ShowPostsFrom? showPostsFromFilter = ShowPostsFrom.All)
 		{
 			try
 			{
@@ -77,7 +77,7 @@ namespace maxhanna.Server.Controllers
 			}
 		}
 
-		private async Task<StoryResponse> GetStoriesAsync(GetStoryRequest request, string? search, string? topics, int page = 1, int pageSize = 10, bool showHiddenStories = false, string? showPostsFromFilter = "all")
+		private async Task<StoryResponse> GetStoriesAsync(GetStoryRequest request, string? search, string? topics, int page = 1, int pageSize = 10, bool showHiddenStories = false, ShowPostsFrom? showPostsFromFilter = ShowPostsFrom.All)
 		{
 			var whereClause = new StringBuilder(@" WHERE 1=1 ");
 			var orderByClause = " ORDER BY s.id DESC ";
@@ -190,9 +190,9 @@ namespace maxhanna.Server.Controllers
 			{
 				whereClause.Append(@" AND hs.story_id IS NULL ");
 			}
-			if (!string.IsNullOrEmpty(showPostsFromFilter) && showPostsFromFilter != "all")
+			if (showPostsFromFilter != ShowPostsFrom.All)
 			{
-				if (showPostsFromFilter == "subscribed")
+				if (showPostsFromFilter == ShowPostsFrom.Subscribed)
 				{
 					whereClause.Append(@" 
 					AND (
@@ -217,14 +217,14 @@ namespace maxhanna.Server.Controllers
 					)
 					");
 				}
-				else if (showPostsFromFilter == "local")
+				else if (showPostsFromFilter == ShowPostsFrom.Local)
 				{
 					whereClause.Append(@" AND (
 						s.country = (SELECT country FROM users WHERE id = @userId)
 						OR s.city = (SELECT city FROM users WHERE id = @userId) 
 					) ");
 				}
-				else if (showPostsFromFilter == "popular")
+				else if (showPostsFromFilter == ShowPostsFrom.Popular)
 				{
 					// Order by popularity instead of filtering
 					// Remove the existing ORDER BY s.id DESC from your main query
@@ -232,6 +232,10 @@ namespace maxhanna.Server.Controllers
 						(SELECT COUNT(*) FROM reactions WHERE story_id = s.id) DESC,
 						(SELECT COUNT(*) FROM comments WHERE story_id = s.id) DESC,
 						s.date DESC";
+				}
+				else if (showPostsFromFilter == ShowPostsFrom.Oldest)
+				{
+					orderByClause = @" ORDER BY s.date ASC";
 				}
 			}
 			parameters.Add("@userId", request.UserId);

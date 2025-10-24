@@ -1131,7 +1131,7 @@ namespace maxhanna.Server.Controllers
 
 					MySqlCommand updateCmd = new MySqlCommand(updateSql, conn);
 					updateCmd.Parameters.AddWithValue("@userId", request.UserId);
-					updateCmd.Parameters.AddWithValue("@compactness", request.Compactness);
+					updateCmd.Parameters.AddWithValue("@compactness", request.ShowPostsFrom);
 
 					await updateCmd.ExecuteNonQueryAsync();
 
@@ -1149,8 +1149,6 @@ namespace maxhanna.Server.Controllers
 			}
 		}
 
-
-
 		[HttpPost("/User/UpdateShowPostsFrom", Name = "UpdateShowPostsFrom")]
 		public async Task<IActionResult> UpdateShowPostsFrom([FromBody] UpdateCompactnessRequest request)
 		{
@@ -1159,6 +1157,16 @@ namespace maxhanna.Server.Controllers
 				try
 				{
 					await conn.OpenAsync();
+					// Map enum to string values expected by DB
+					string showPostsFromValue = request.ShowPostsFrom switch
+					{
+						ShowPostsFrom.Subscribed => "subscribed",
+						ShowPostsFrom.Local => "local",
+						ShowPostsFrom.Popular => "popular",
+						ShowPostsFrom.All => "all",
+						ShowPostsFrom.Oldest => "oldest",
+						_ => "all"
+					};
 
 					string updateSql = @"
 						INSERT INTO maxhanna.user_settings (user_id, show_posts_from)
@@ -1168,7 +1176,7 @@ namespace maxhanna.Server.Controllers
 
 					MySqlCommand updateCmd = new MySqlCommand(updateSql, conn);
 					updateCmd.Parameters.AddWithValue("@userId", request.UserId);
-					updateCmd.Parameters.AddWithValue("@showPostsFrom", request.Compactness);
+					updateCmd.Parameters.AddWithValue("@showPostsFrom", showPostsFromValue);
 
 					await updateCmd.ExecuteNonQueryAsync();
 
