@@ -188,13 +188,34 @@ export class Bot extends Character {
         // If this bot represents the source of the attack (encounter id / heroId), animate
         if (this.id === sourceHeroId || this.heroId === sourceHeroId) {
           this.isAttacking = true;
-          // choose animation based on facingDirection
-          if (this.facingDirection == "DOWN") this.body?.animations?.play("attackDown");
-          else if (this.facingDirection == "UP") this.body?.animations?.play("attackUp");
-          else if (this.facingDirection == "LEFT") this.body?.animations?.play("attackLeft");
-          else if (this.facingDirection == "RIGHT") this.body?.animations?.play("attackRight");
-          // Determine attack animation duration from payload.attackSpeed or default
-          const attackSpeed = payload?.attackSpeed ?? payload?.attack_speed ?? 400;
+          // Prefer numeric facing provided by server (0=down,1=left,2=right,3=up) but accept string fallbacks
+          const facingRaw = payload?.facing ?? payload?.facingDirection ?? this.facingDirection;
+          let facingNum: number | null = null;
+          if (typeof facingRaw === 'number') facingNum = facingRaw;
+          else if (typeof facingRaw === 'string') {
+            const fr = facingRaw.toLowerCase();
+            if (fr === 'down') facingNum = 0;
+            else if (fr === 'left') facingNum = 1;
+            else if (fr === 'right') facingNum = 2;
+            else if (fr === 'up') facingNum = 3;
+            else facingNum = null;
+          }
+
+          // map numeric facing to animation
+          if (facingNum === 0) this.body?.animations?.play("attackDown");
+          else if (facingNum === 3) this.body?.animations?.play("attackUp");
+          else if (facingNum === 1) this.body?.animations?.play("attackLeft");
+          else if (facingNum === 2) this.body?.animations?.play("attackRight");
+          else {
+            // fallback to existing facingDirection string if numeric facing unavailable
+            if (this.facingDirection == "DOWN") this.body?.animations?.play("attackDown");
+            else if (this.facingDirection == "UP") this.body?.animations?.play("attackUp");
+            else if (this.facingDirection == "LEFT") this.body?.animations?.play("attackLeft");
+            else if (this.facingDirection == "RIGHT") this.body?.animations?.play("attackRight");
+          }
+
+          // Determine attack animation duration from payload.attack_speed (server) or payload.attackSpeed or default
+          const attackSpeed = (typeof payload?.attack_speed === 'number') ? payload.attack_speed : (typeof payload?.attackSpeed === 'number' ? payload.attackSpeed : (typeof payload?.attack_speed === 'string' && !isNaN(Number(payload.attack_speed)) ? Number(payload.attack_speed) : 400));
           setTimeout(() => {
             try {
               this.isAttacking = false;

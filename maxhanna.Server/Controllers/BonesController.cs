@@ -25,8 +25,6 @@ namespace maxhanna.Server.Controllers
 		private static readonly Dictionary<int, DateTime> _encounterTargetLockTimes = new();
 		// Track recent positions to prevent back-and-forth oscillation: maps encounter hero_id -> (lastX,lastY,wasLastMoveReversalCount)
 		private static readonly Dictionary<int, (int lastX, int lastY, int reversalCount)> _encounterRecentPositions = new();
-		// Track last time an encounter performed an attack to rate-limit server-side encounter attacks (ms resolution)
-		private static readonly Dictionary<int, DateTime> _encounterLastAttack = new();
 		private static readonly Dictionary<SkillType, SkillType> TypeEffectiveness = new()
 		{
 				{ SkillType.SPEED, SkillType.ARMOR },
@@ -1184,12 +1182,12 @@ namespace maxhanna.Server.Controllers
 				await ExecuteInsertOrUpdateOrDeleteAsync(respawnSql, new Dictionary<string, object?> { { "@Map", map } }, connection, transaction);
 				DateTime now = DateTime.UtcNow;
 
-				// Fetch encounters needing AI processing (include target_hero_id for chase locking)
-				const string selectSql = @"SELECT hero_id, coordsX, coordsY, o_coordsX, o_coordsY, hp, speed, aggro, last_moved, target_hero_id, COALESCE(attack_speed, 400) AS attack_speed 
+				// Fetch encounters needing AI processing (include target_hero_id, last_attack and attack_speed for attack timing)
+				const string selectSql = @"SELECT hero_id, coordsX, coordsY, o_coordsX, o_coordsY, hp, speed, aggro, last_moved, target_hero_id, last_attack, COALESCE(attack_speed, 400) AS attack_speed 
 					FROM maxhanna.bones_encounter WHERE map = @Map";
 				using var cmd = new MySqlCommand(selectSql, connection, transaction);
 				cmd.Parameters.AddWithValue("@Map", map);
-				var encounters = new List<(int heroId, int x, int y, int ox, int oy, int hp, int speed, int aggro, DateTime? lastMoved, int targetHeroId, int attackSpeed)>();
+				var encounters = new List<(int heroId, int x, int y, int ox, int oy, int hp, int speed, int aggro, DateTime? lastMoved, int targetHeroId, DateTime? lastAttack, int attackSpeed)>();
 				using (var rdr = await cmd.ExecuteReaderAsync())
 				{
 					while (await rdr.ReadAsync())
@@ -1205,6 +1203,7 @@ namespace maxhanna.Server.Controllers
 							rdr.GetInt32("aggro"),
 							rdr.IsDBNull(rdr.GetOrdinal("last_moved")) ? (DateTime?)null : rdr.GetDateTime("last_moved"),
 							rdr.IsDBNull(rdr.GetOrdinal("target_hero_id")) ? 0 : rdr.GetInt32("target_hero_id"),
+							rdr.IsDBNull(rdr.GetOrdinal("last_attack")) ? (DateTime?)null : rdr.GetDateTime("last_attack"),
 							rdr.IsDBNull(rdr.GetOrdinal("attack_speed")) ? 400 : rdr.GetInt32("attack_speed")
 						));
 					}
@@ -1323,30 +1322,56 @@ namespace maxhanna.Server.Controllers
 					bool canMoveTime = !e.lastMoved.HasValue || (now - e.lastMoved.Value).TotalSeconds >= 1.0;
 					if (!canMoveTime) continue;
 
-					// If target is a hero and the encounter is axis-adjacent by one grid cell, consider attacking instead of moving
+					// If target is a hero and the encounter is axis-adjacent by one grid cell, don't move
 					if (closest.HasValue && closest.Value.heroId != 0)
 					{
 						int dxAdj = Math.Abs(closest.Value.x - e.x);
 						int dyAdj = Math.Abs(closest.Value.y - e.y);
 						if ((dxAdj == tile && dyAdj == 0) || (dyAdj == tile && dxAdj == 0))
 						{
-							// Axis-adjacent: attempt server-side attack emission rate-limited by encounter.attackSpeed
+							// Axis-adjacent: attempt server-side attack emission rate-limited by encounter.attackSpeed or last_attack DB column
 							try
 							{
 								int attSpd = e.attackSpeed <= 0 ? 400 : e.attackSpeed;
-								var lastAt = _encounterLastAttack.TryGetValue(e.heroId, out var ts) ? ts : DateTime.MinValue;
-								if ((DateTime.UtcNow - lastAt).TotalMilliseconds >= attSpd)
+								DateTime? lastAtDb = e.lastAttack; // may be null
+								bool canAttackNow = false;
+								if (!lastAtDb.HasValue) canAttackNow = true;
+								else
+								{
+									var msSince = (now - lastAtDb.Value).TotalMilliseconds;
+									if (msSince >= attSpd) canAttackNow = true;
+								}
+								if (canAttackNow)
 								{
 									// Build attack data so clients will interpret as OTHER_HERO_ATTACK
+									// Determine numeric facing: 0=down,1=left,2=right,3=up
+									int numericFacing = 0;
+									if (dxAdj == tile) {
+										numericFacing = closest.Value.x > e.x ? 2 : 1; // right : left
+									} else {
+										numericFacing = closest.Value.y > e.y ? 0 : 3; // down : up
+									}
+
 									var data = new Dictionary<string, string>() {
 										{ "sourceHeroId", e.heroId.ToString() },
+										{ "targetHeroId", closest.Value.heroId.ToString() },
 										{ "centerX", e.x.ToString() },
 										{ "centerY", e.y.ToString() },
-										{ "facing", dxAdj == tile ? (closest.Value.x > e.x ? "right" : "left") : (closest.Value.y > e.y ? "down" : "up") }
+										// numeric facing for clients to use directly
+										{ "facing", numericFacing.ToString() },
+										// attack speed in milliseconds
+										{ "attack_speed", (e.attackSpeed <= 0 ? 400 : e.attackSpeed).ToString() }
 									};
 									var attackEvent = new MetaEvent(0, e.heroId, DateTime.UtcNow, "ATTACK", map, data);
 									await UpdateEventsInDB(attackEvent, connection, transaction);
-									_encounterLastAttack[e.heroId] = DateTime.UtcNow;
+									// Persist last_attack to the DB so subsequent server ticks respect the cooldown
+									try
+									{
+										string updSql = "UPDATE maxhanna.bones_encounter SET last_attack = UTC_TIMESTAMP() WHERE hero_id = @HeroId LIMIT 1;";
+										var updParams = new Dictionary<string, object?>() { { "@HeroId", e.heroId } };
+										await ExecuteInsertOrUpdateOrDeleteAsync(updSql, updParams, connection, transaction);
+									}
+									catch { /* non-fatal */ }
 								}
 							}
 							catch (Exception exAtk)
