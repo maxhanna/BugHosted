@@ -19,7 +19,7 @@ export class Hero extends Character {
   private lastAttackAt: number = 0;
   // attack cooldown in milliseconds (populated from metaHero via parent code)
   public attackSpeed: number = 400;
-  constructor(params: {
+    constructor(params: {
     position: Vector2, id?: number, name?: string, metabots?: MetaBot[], colorSwap?: ColorSwap,
     isUserControlled?: boolean, speed?: number, mask?: Mask, scale?: Vector2,
     forceDrawName?: boolean, preventDrawName?: boolean,
@@ -129,10 +129,12 @@ export class Hero extends Character {
             const holding = !!(inputInstance && (inputInstance.keys?.['Space'] || inputInstance.keys?.['KeyA']));
             if (holding) {
               const elapsed = Date.now() - this.lastAttackAt;
-              const delay = Math.max(0, (this.attackSpeed ?? 400) - elapsed);
+              // wait until both cooldown and animation complete to trigger next attack
+              const cooldownRemaining = Math.max(0, (this.attackSpeed ?? 400) - elapsed);
+              const requiredWait = Math.max(cooldownRemaining, (this.attackSpeed ?? 400) + 50);
               setTimeout(() => {
                 events.emit('SPACEBAR_PRESSED');
-              }, delay);
+              }, requiredWait);
             }
           } catch (ex) {
             // swallow any input inspection errors
