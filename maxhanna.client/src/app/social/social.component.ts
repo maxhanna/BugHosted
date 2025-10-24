@@ -1,4 +1,4 @@
-import { AfterViewInit, Component, ElementRef, Input, OnDestroy, OnInit, ViewChild } from '@angular/core';
+import { AfterViewInit, ChangeDetectorRef, Component, ElementRef, Input, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { ChildComponent } from '../child.component';
 import { MetaData, Story } from '../../services/datacontracts/social/story';
 import { SocialService } from '../../services/social.service';
@@ -102,7 +102,8 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
     private todoService: TodoService,
     private fileService: FileService,
     private encryptionService: EncryptionService,
-    private textToSpeechService: TextToSpeechService) {
+    private textToSpeechService: TextToSpeechService,
+    private cd: ChangeDetectorRef) {
     super();
   }
 
@@ -606,7 +607,11 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
       this.trendingSearches = Array.isArray(res) ? res.map((r: any) => r.query) : [];
     }).catch(() => { this.trendingSearches = []; });
 
-    setTimeout(() => { this.search.nativeElement.focus(); }, 50);
+    // ensure view updated so the ViewChild is available, then safely focus
+    try {
+      this.cd.detectChanges();
+    } catch {}
+    setTimeout(() => { try { this.search?.nativeElement?.focus(); } catch {} }, 50);
   }
   closeSearchSocialsPanel() {
     this.isSearchSocialsPanelOpen = false;
