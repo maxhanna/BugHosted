@@ -1,0 +1,12 @@
+<div class="new-users-component">
+  <div class="componentTitle">New Users Today</div>
+    <div *ngIf="isLoading" class="loading">Loading new users...</div>
+    <div *ngIf="loadError" class="error">{{ loadError }}</div>
+  <div *ngIf="users && users.length > 0">
+    <div *ngFor="let u of users" class="userRow">
+      <app-user-tag [user]="u" [inputtedParentRef]="inputtedParentRef" [displayMiniTag]="true"></app-user-tag>
+      <span class="username">{{u.username}}</span>
+    </div>
+  </div>
+  <div *ngIf="!users || users.length == 0">No new users today.</div>
+</div>

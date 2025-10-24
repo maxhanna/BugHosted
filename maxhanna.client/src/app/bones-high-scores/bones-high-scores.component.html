@@ -4,20 +4,20 @@
     <thead>
       <tr>
         <th></th>
-        <th>Hero</th>
         <th></th>
+        <th>Hero</th>
         <th>Level</th>
       </tr>
     </thead>
     <tbody>
       <tr *ngFor="let h of topHeroes; let i = index">
         <td>{{i + 1}}</td>
-        <td>{{h.heroName}}</td>
-        <td>
+         <td>
           <app-user-tag [user]="h.owner" [hideName]="true" [inputtedParentRef]="inputtedParentRef"
             [displayMiniTag]="true" [displayHoverPicture]="true" [openInNewTab]="true"
             [previousComponent]="'Bones'"></app-user-tag>
         </td>
+        <td>{{h.heroName}}</td> 
         <td>{{h.level}}</td>
       </tr>
     </tbody>

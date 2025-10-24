@@ -1993,6 +1993,52 @@ namespace maxhanna.Server.Controllers
 			}
 		}
 
+		[HttpGet("/User/NewUsersToday", Name = "GetNewUsersToday")]
+		public async Task<IActionResult> GetNewUsersToday()
+		{
+			using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna") ?? string.Empty);
+			try
+			{
+				await conn.OpenAsync();
+
+				string sql = @"
+                    SELECT 
+                        u.id, 
+                        u.username,
+                        u.last_seen,
+                        udp.file_id as display_file_id
+                    FROM maxhanna.users u 
+                    LEFT JOIN maxhanna.user_display_pictures udp ON udp.user_id = u.id
+                    WHERE DATE(u.created) = DATE(UTC_TIMESTAMP());
+                ";
+
+				using var cmd = new MySqlCommand(sql, conn);
+				var users = new List<User>();
+				using var reader = await cmd.ExecuteReaderAsync();
+				while (await reader.ReadAsync())
+				{
+					var u = new User(
+						reader.GetInt32("id"),
+						reader["username"]?.ToString() ?? string.Empty,
+						reader.IsDBNull(reader.GetOrdinal("display_file_id")) ? null : new FileEntry(reader.GetInt32("display_file_id"))
+					);
+					u.LastSeen = reader.IsDBNull(reader.GetOrdinal("last_seen")) ? null : reader.GetDateTime("last_seen");
+					users.Add(u);
+				}
+
+				return users.Count > 0 ? Ok(users) : NotFound();
+			}
+			catch (Exception ex)
+			{
+				_ = _log.Db("Error in GetNewUsersToday: " + ex.Message, null, "USER", true);
+				return StatusCode(500, "An error occurred.");
+			}
+			finally
+			{
+				conn.Close();
+			}
+		} 
+		
 		[HttpPost("/User/DeleteUserSelectedTheme", Name = "DeleteUserSelectedTheme")]
 		public async Task<IActionResult> DeleteUserSelectedTheme([FromBody] int UserId)
 		{

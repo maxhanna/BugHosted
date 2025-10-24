@@ -1,0 +1,4 @@
+.new-users-component { padding: 8px; }
+.new-users-component .componentTitle { font-weight: bold; margin-bottom: 8px; }
+.userRow { display: flex; align-items: center; gap: 8px; padding: 4px 0; }
+.username { font-size: 0.9rem; }
