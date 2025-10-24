@@ -5,8 +5,8 @@
   <div *ngIf="previousComponent" [class]="'menuBackButton ' + (parentRef?.user ? 'menuBackButtonSpecial' : '')"
     (click)="backButtonPressed();"></div>
   <!-- If the social panel is rendered, show a search button here that opens the social component's search popup -->
-  <div *ngIf="user?.id && !loginOnly && !isLoading" class="topSearchButtonDiv"
-    (click)="socialComponent?.showSearchSocialsPanel()">
+  <div *ngIf="user?.id && !loginOnly && socialComponent" class="topSearchButtonDiv"
+    (click)="socialComponent.showSearchSocialsPanel()">
     🔍
   </div>
   <div class="componentTitle" *ngIf="!loginOnly">{{user ? user.username : 'Login'}}</div>
