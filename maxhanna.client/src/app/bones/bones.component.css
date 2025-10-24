@@ -588,8 +588,11 @@ body {
   color: var(--secondary-font-color);
   font-size: large;
 }
-
 .changeCharacterPanel {
+    min-width: 300px;
+}
+.changeCharacterPanel, .changeCharacterPanel input {
   font-family: owreKynge;
   font-size: large;
 }
+
