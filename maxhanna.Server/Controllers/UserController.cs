@@ -2010,15 +2010,16 @@ namespace maxhanna.Server.Controllers
 				await conn.OpenAsync();
 
 				string sql = @"
-                    SELECT 
-                        u.id, 
-                        u.username,
-                        u.last_seen,
-                        udp.file_id as display_file_id
-                    FROM maxhanna.users u 
-                    LEFT JOIN maxhanna.user_display_pictures udp ON udp.user_id = u.id
-                    WHERE DATE(u.created) = DATE(UTC_TIMESTAMP());
-                ";
+					SELECT 
+						u.id, 
+						u.username,
+						u.last_seen,
+						udp.file_id as display_file_id
+					FROM maxhanna.users u 
+					LEFT JOIN maxhanna.user_display_pictures udp ON udp.user_id = u.id
+					-- include users created in the last 24 hours (UTC) instead of strict date equality
+					WHERE u.created >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 24 HOUR);
+				";
 
 				using var cmd = new MySqlCommand(sql, conn);
 				var users = new List<User>();
@@ -2034,7 +2035,8 @@ namespace maxhanna.Server.Controllers
 					users.Add(u);
 				}
 
-				return users.Count > 0 ? Ok(users) : NotFound();
+				// Always return the list (may be empty). Client treats empty array as no users today.
+				return Ok(users);
 			}
 			catch (Exception ex)
 			{
