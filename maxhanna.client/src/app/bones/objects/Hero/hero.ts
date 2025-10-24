@@ -100,10 +100,10 @@ export class Hero extends Character {
         this.isLocked = false;
       }); 
       events.on("SPACEBAR_PRESSED", this, () => {
-  const attackSpeed = this.attackSpeed ?? 400;
-  const now = Date.now();
-  if (now - this.lastAttackAt < attackSpeed) return; // still cooling down
-  this.lastAttackAt = now;
+        const attackSpeed = this.attackSpeed ?? 400;
+        const now = Date.now();
+        if (now - this.lastAttackAt < attackSpeed) return; // still cooling down
+        this.lastAttackAt = now;
         this.isAttacking = true;
        // this.isLocked = true;
         if (this.facingDirection == "DOWN") {
@@ -199,32 +199,32 @@ export class Hero extends Character {
           events.emit("INVALID_WARP", this);
         }
       });
-    } else {
-       events.on("OTHER_HERO_ATTACK", this, (payload: any) => {
-        try {
-          const sourceHeroId = payload?.sourceHeroId;
-          if (!sourceHeroId) return;
-          if (this.id === sourceHeroId) {
-            if (this.facingDirection == "DOWN") this.body?.animations?.play("attackDown");
-            else if (this.facingDirection == "UP") this.body?.animations?.play("attackUp");
-            else if (this.facingDirection == "LEFT") this.body?.animations?.play("attackLeft");
-            else if (this.facingDirection == "RIGHT") this.body?.animations?.play("attackRight");
-            setTimeout(() => { 
-              this.isAttacking = false;
-              if (this.facingDirection == DOWN) {
-                this.body?.animations?.play("standDown");
-              } else if (this.facingDirection == UP) {
-                this.body?.animations?.play("standUp");
-              } else if (this.facingDirection == LEFT) {
-                this.body?.animations?.play("standLeft");
-              } else if (this.facingDirection == RIGHT) {
-                this.body?.animations?.play("standRight");
-              }
-             }, 400);
-          }
-        } catch (ex) { console.error('OTHER_HERO_ATTACK handler error', ex); }
-      });
     }
+    // All heroes (user-controlled and others) should respond to OTHER_HERO_ATTACK events so
+    // server-driven attacks animate correctly on every client instance.
+    events.on("OTHER_HERO_ATTACK", this, (payload: any) => {
+      try {
+        const sourceHeroId = payload?.sourceHeroId;
+        if (!sourceHeroId) return;
+        if (this.id === sourceHeroId) {
+          if (this.facingDirection == "DOWN") this.body?.animations?.play("attackDown");
+          else if (this.facingDirection == "UP") this.body?.animations?.play("attackUp");
+          else if (this.facingDirection == "LEFT") this.body?.animations?.play("attackLeft");
+          else if (this.facingDirection == "RIGHT") this.body?.animations?.play("attackRight");
+          // Determine animation timeout: prefer payload.attack_speed (ms) then default 400
+          const attackSpeed = (typeof payload?.attack_speed === 'number') ? payload.attack_speed : (typeof payload?.attackSpeed === 'number' ? payload.attackSpeed : 400);
+          setTimeout(() => {
+            try {
+              this.isAttacking = false;
+              if (this.facingDirection == DOWN) this.body?.animations?.play("standDown");
+              else if (this.facingDirection == UP) this.body?.animations?.play("standUp");
+              else if (this.facingDirection == LEFT) this.body?.animations?.play("standLeft");
+              else if (this.facingDirection == RIGHT) this.body?.animations?.play("standRight");
+            } catch (ex) { }
+          }, Math.max(100, attackSpeed));
+        }
+      } catch (ex) { console.error('OTHER_HERO_ATTACK handler error', ex); }
+    });
   }
 
   // Walk up the parent chain to find an object exposing an `input` instance (Main / level hierarchy is variable)
