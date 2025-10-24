@@ -3,7 +3,7 @@
         Today's Added Music:
     </div>
     <div *ngIf="songs.length === 0">
-        No{{" "}}<app-menu-item [type]="'Music'" [label]="'songs'" [parentRef]="inputtedParentRef" style="display:inline-block"></app-menu-item>{{" "}} to show for today.
+        No{{" "}}<app-menu-item [type]="'Music'" [label]="'Songs'" [parentRef]="inputtedParentRef" style="display:inline-block"></app-menu-item>{{" "}} to show for today.
     </div>
 
     <table class="mainTable" *ngIf="songs.length > 0">
