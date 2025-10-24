@@ -591,6 +591,10 @@ body {
 .changeCharacterPanel {
     min-width: 300px;
 }
+
+.menuPopupPanel,
+.menuPopupPanel button,
+.menuPopupPanel input[type="button"],
 .changeCharacterPanel,
 .changeCharacterPanel button,
 .changeCharacterPanel input[type="button"] {
