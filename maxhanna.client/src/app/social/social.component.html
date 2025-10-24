@@ -14,7 +14,7 @@
     </div>
     <!-- If a `user` input is supplied, render a compact search button at the top of the panel -->
     <div *ngIf="user && (showTopicSelector || user) && !showOnlyPost" class="topSearchButtonAtTop">
-      <div [class]="parentRef?.user?.id ? 'topSearchButtonDiv' : 'topSearchButtonDivSpecial'" (click)="showSearchSocialsPanel()">
+      <div style="text-shadow: 1px 1px var(--main-link-color);" (click)="showSearchSocialsPanel()">
         🔍
       </div>
     </div>
