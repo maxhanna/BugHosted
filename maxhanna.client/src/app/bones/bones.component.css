@@ -591,7 +591,9 @@ body {
 .changeCharacterPanel {
     min-width: 300px;
 }
-.changeCharacterPanel, .changeCharacterPanel > input[type="button"] {
+.changeCharacterPanel,
+.changeCharacterPanel button,
+.changeCharacterPanel input[type="button"] {
   font-family: owreKynge;
   font-size: large;
 }
