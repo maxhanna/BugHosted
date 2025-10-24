@@ -13,7 +13,7 @@
         [previousComponent]="'Social'"></app-notifications>
     </div>
     <!-- Search -->
-    <div *ngIf="showTopicSelector && !showOnlyPost"
+    <div *ngIf="(showTopicSelector || user) && !showOnlyPost"
       [class]="parentRef?.user?.id ? 'topSearchButtonDiv' : 'topSearchButtonDivSpecial'"
       (click)="showSearchSocialsPanel()">
       🔍
