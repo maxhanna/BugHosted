@@ -2,3 +2,13 @@
 .new-users-component .componentTitle { font-weight: bold; margin-bottom: 8px; }
 .userRow { display: flex; align-items: center; gap: 8px; padding: 4px 0; }
 .username { font-size: 0.9rem; }
+.newUsersTitle {
+    display: flex;
+    align-items: center;
+    padding: .5rem 0;
+    font-weight: 600;
+    border-bottom: 1px solid var(--main-border-color);
+    margin-bottom: 1rem;
+    cursor: pointer;
+    text-decoration: underline;
+}
