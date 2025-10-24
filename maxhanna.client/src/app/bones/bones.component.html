@@ -114,7 +114,9 @@
     </div> 
     <div style="margin-top:10px;">
       <label style="display:block; font-size:12px; margin-bottom:6px;">Volume: {{ volumePercent() }}%</label>
-      <input type="range" min="0" max="100" step="1" [value]="volumePercent()" (input)="onVolumeSliderInput($event)" (change)="onVolumeChange($event)" aria-label="Volume Slider" />
+      <input type="range" min="0" max="100" step="1" style="width:100%"
+      [value]="volumePercent()" (input)="onVolumeSliderInput($event)" 
+      (change)="onVolumeChange($event)" aria-label="Volume Slider" />
     </div>
   </div> 
 
