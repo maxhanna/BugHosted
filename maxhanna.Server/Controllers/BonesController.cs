@@ -996,7 +996,9 @@ namespace maxhanna.Server.Controllers
 				string sql = @"
 				DELETE FROM maxhanna.bones_event WHERE timestamp < UTC_TIMESTAMP() - INTERVAL 20 SECOND; 
 				INSERT INTO maxhanna.bones_event (hero_id, event, map, data, timestamp) VALUES (@HeroId, @Event, @Map, @Data, UTC_TIMESTAMP());";
-				Dictionary<string, object?> parameters = new() { { "@HeroId", @event.HeroId }, { "@Event", @event.EventType }, { "@Map", @event.Map }, { "@Data", Newtonsoft.Json.JsonConvert.SerializeObject(@event.Data) } };
+				// If event.HeroId is non-positive (encounter IDs or synthetic), insert NULL to avoid FK constraint failures
+				object? heroIdParam = (@event.HeroId <= 0) ? null : (object?)@event.HeroId;
+				Dictionary<string, object?> parameters = new() { { "@HeroId", heroIdParam }, { "@Event", @event.EventType }, { "@Map", @event.Map }, { "@Data", Newtonsoft.Json.JsonConvert.SerializeObject(@event.Data) } };
 				await ExecuteInsertOrUpdateOrDeleteAsync(sql, parameters, connection, transaction);
 			}
 			catch (Exception ex) { await _log.Db("UpdateEventsInDb failed : " + ex.ToString(), null, "BONES", true); }
@@ -1054,7 +1056,8 @@ namespace maxhanna.Server.Controllers
 								catch { /* ignore malformed data */ }
 							}
 						}
-						MetaEvent tmpEvent = new(reader.GetInt32("id"), reader.GetInt32("hero_id"), reader.GetDateTime("timestamp"), ev, mp, dataDict);
+						int evHeroId = reader.IsDBNull(reader.GetOrdinal("hero_id")) ? 0 : reader.GetInt32("hero_id");
+						MetaEvent tmpEvent = new(reader.GetInt32("id"), evHeroId, reader.GetDateTime("timestamp"), ev, mp, dataDict);
 						events.Add(tmpEvent);
 					}
 				}

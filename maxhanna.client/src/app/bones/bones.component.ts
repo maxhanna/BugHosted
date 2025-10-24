@@ -420,9 +420,9 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
         //look for enemy on the map, if he doesnt exist, create him.
         const tgtEnemy : Bot = this.mainScene.level.children.find((x: Bot) => x.heroId == enemy.heroId);
         if (tgtEnemy) {
-          console.log("found enemy", enemy, tgtEnemy);
+         // console.log("found enemy", enemy, tgtEnemy);
           // Diagnostic: log the incoming position so we can confirm server provided it
-          console.log("enemy.position (incoming):", (enemy && (enemy as any).position) ? JSON.stringify(enemy.position) : enemy.position, " typeof:", typeof enemy.position);
+         // console.log("enemy.position (incoming):", (enemy && (enemy as any).position) ? JSON.stringify(enemy.position) : enemy.position, " typeof:", typeof enemy.position);
           tgtEnemy.hp = enemy.hp;
           if (enemy && enemy.position) {
             try {
@@ -434,7 +434,7 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
               console.error('Error duplicating enemy.position for dest set', err, (enemy as any).position);
             }
           }
-          console.log("setting dest pos to ", tgtEnemy.destinationPosition);
+        //  console.log("setting dest pos to ", tgtEnemy.destinationPosition);
           // Track server-provided targetHeroId and react to changes
           // const incomingTarget = (enemy as any).targetHeroId ?? null;
           // const previousTarget = (tgtEnemy as any).targetHeroId ?? null;
@@ -558,54 +558,7 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
     return tmpHero;
   }
 
-  private addBotToScene(metaHero: any, bot: MetaBot) {
-    if (this.mainScene.level?.children.some((x: any) => x.id === bot.id)) { return bot; } 
-    if (metaHero && metaHero.metabots && metaHero.metabots.length > 0) {
-      let tgtBot = metaHero.metabots.find((x : any) => x.id === bot.id);
-      if (tgtBot) {
-        tgtBot.isDeployed = true;
-      }
-    }
-
-    const tmpBot = new Bot({
-      id: bot.id,
-      heroId: metaHero.id,
-      botType: bot.type,
-      name: bot.name ?? "Bot",
-      spriteName: "botFrame",
-      position: new Vector2(metaHero.position.x + gridCells(1), metaHero.position.y + gridCells(1)),
-      colorSwap: (metaHero.color ? new ColorSwap([0, 160, 200], hexToRgb(metaHero.color)) : 
-        metaHero.colorSwap ? metaHero.colorSwap : undefined),
-      isDeployed: true,
-      isEnemy: true,
-      hp: bot.hp,
-      level: bot.level,
-      exp: bot.exp, 
-      partyMembers: metaHero.id === this.metaHero.id ? this.partyMembers : undefined
-    });
-
-    this.mainScene.level?.addChild(tmpBot);
-    return tmpBot;
-  }
-
-  private addItemToScene(item: HeroInventoryItem, location: Vector2) {
-    const offsets = [
-      new Vector2(-gridCells(1), 0),
-      new Vector2(-gridCells(2), 0),
-      new Vector2(gridCells(1), 0),
-      new Vector2(gridCells(2), 0),
-      new Vector2(0, -gridCells(1)),
-      new Vector2(0, -gridCells(2)),
-      new Vector2(0, gridCells(1)),
-      new Vector2(0, gridCells(2)),
-      new Vector2(0, 0)
-    ]
-    const randomOffset = offsets[Math.floor(Math.random() * offsets.length)];
-    const newLocation = new Vector2(location.x + randomOffset.x, location.y + randomOffset.y);
-    const itemSkin = new DroppedItem({ position: newLocation, item: item });
-    this.mainScene.level?.addChild(itemSkin);
-  }
-
+ 
   private setUpdatedHeroPosition(existingHero: any, hero: MetaHero) {
     if (existingHero.id != this.metaHero.id) {
       const newPos = new Vector2(hero.position.x, hero.position.y);
