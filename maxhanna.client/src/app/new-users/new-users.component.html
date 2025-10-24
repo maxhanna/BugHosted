@@ -1,5 +1,5 @@
 <div class="new-users-component">
-    <div class="newUsersTitle">Today's New Users:</div>
+    <div class="newUsersTitle popupPanelTitle">Today's New Users:</div>
     <div *ngIf="isLoading" class="loading">Loading new users...</div>
     <div *ngIf="loadError" class="error">{{ loadError }}</div>
     <div *ngIf="users && users.length > 0">
