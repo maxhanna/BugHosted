@@ -209,7 +209,7 @@
     </div>
     <div *ngIf="otherHeroes && otherHeroes.length > 0">
       <!-- Show a Leave Party button for the current player -->
-      <div *ngIf="partyMembers && partyMembers.length > 0" style="display:flex; justify-content:center; margin-bottom:8px;">
+  <div *ngIf="partyMembers && partyMembers.length > 1" style="display:flex; justify-content:center; margin-bottom:8px;">
         <button (click)="confirmLeaveParty()">Leave Party</button>
       </div> 
       <div *ngFor="let p of getSortedHeroes()"
