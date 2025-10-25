@@ -27,6 +27,7 @@ export class Main extends GameObject {
 	this.hero = config.hero;
 	this.partyMembers = config.partyMembers;
 	this.inventory = new Inventory({ character: this.metaHero, partyMembers: this.partyMembers });
+	this.inventory.drawLayer = HUD;
 	this.camera = new Camera({ position: new Vector2(0, 0), heroId: this.heroId });
 	this.isOmittable = false;
   }

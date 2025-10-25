@@ -21,8 +21,7 @@ export class Inventory extends GameObject {
   partyMembers?: { heroId: number, name: string, color?: string }[] = [];
   inventoryRendered = false;
   constructor(config: { character: MetaHero, partyMembers?: { heroId: number, name: string, color?: string }[] }) {
-    super({ position: new Vector2(0, 0) });
-    this.drawLayer = HUD;
+    super({ position: new Vector2(0, 0), drawLayer: HUD });
     this.items = [];
     this.parentCharacter = config.character;
     this.partyMembers = config.partyMembers;
