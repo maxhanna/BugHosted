@@ -1260,11 +1260,11 @@ namespace maxhanna.Server.Controllers
 				DateTime now = DateTime.UtcNow;
 
 				// Fetch encounters needing AI processing (include target_hero_id, last_attack and attack_speed for attack timing)
-				const string selectSql = @"SELECT hero_id, coordsX, coordsY, o_coordsX, o_coordsY, hp, speed, aggro, last_moved, target_hero_id, last_attack, COALESCE(attack_speed, 400) AS attack_speed 
+				const string selectSql = @"SELECT hero_id, coordsX, coordsY, o_coordsX, o_coordsY, hp, speed, aggro, last_moved, target_hero_id, last_attack, COALESCE(attack_speed, 400) AS attack_speed, COALESCE(`level`,1) AS `level`
 					FROM maxhanna.bones_encounter WHERE map = @Map";
 				using var cmd = new MySqlCommand(selectSql, connection, transaction);
 				cmd.Parameters.AddWithValue("@Map", map);
-				var encounters = new List<(int heroId, int x, int y, int ox, int oy, int hp, int speed, int aggro, DateTime? lastMoved, int targetHeroId, DateTime? lastAttack, int attackSpeed)>();
+				var encounters = new List<(int heroId, int x, int y, int ox, int oy, int hp, int speed, int aggro, DateTime? lastMoved, int targetHeroId, DateTime? lastAttack, int attackSpeed, int level)>();
 				using (var rdr = await cmd.ExecuteReaderAsync())
 				{
 					while (await rdr.ReadAsync())
@@ -1281,7 +1281,8 @@ namespace maxhanna.Server.Controllers
 							rdr.IsDBNull(rdr.GetOrdinal("last_moved")) ? (DateTime?)null : rdr.GetDateTime("last_moved"),
 							rdr.IsDBNull(rdr.GetOrdinal("target_hero_id")) ? 0 : rdr.GetInt32("target_hero_id"),
 							rdr.IsDBNull(rdr.GetOrdinal("last_attack")) ? (DateTime?)null : rdr.GetDateTime("last_attack"),
-							rdr.IsDBNull(rdr.GetOrdinal("attack_speed")) ? 400 : rdr.GetInt32("attack_speed")
+							rdr.IsDBNull(rdr.GetOrdinal("attack_speed")) ? 400 : rdr.GetInt32("attack_speed"),
+							rdr.IsDBNull(rdr.GetOrdinal("level")) ? 1 : rdr.GetInt32("level")
 						));
 					}
 				}
@@ -1450,6 +1451,48 @@ namespace maxhanna.Server.Controllers
 										await ExecuteInsertOrUpdateOrDeleteAsync(updSql, updParams, connection, transaction);
 									}
 									catch { /* non-fatal */ }
+
+									// Immediately apply damage to the targeted hero so encounters can hurt heroes even when no hero-originated attack was sent
+									try
+									{
+										int attackerLevel = e.level <= 0 ? 1 : e.level; // use encounter level from query
+										int tgtHeroId = closest.Value.heroId;
+										string heroDamageSql = @"UPDATE maxhanna.bones_hero h
+												SET h.hp = GREATEST(h.hp - @Damage, 0), h.updated = UTC_TIMESTAMP()
+												WHERE h.id = @TargetHeroId AND h.hp > 0 LIMIT 1;";
+										var heroDamageParams = new Dictionary<string, object?>()
+										{
+											{ "@Damage", attackerLevel },
+											{ "@TargetHeroId", targetHeroId }
+										};
+										int affected = Convert.ToInt32(await ExecuteInsertOrUpdateOrDeleteAsync(heroDamageSql, heroDamageParams, connection, transaction));
+
+										if (affected > 0)
+										{
+											// Check new HP to detect death
+											string selectHpSql = "SELECT hp FROM maxhanna.bones_hero WHERE id = @TargetHeroId LIMIT 1;";
+											using var selHpCmd = new MySqlCommand(selectHpSql, connection, transaction);
+											selHpCmd.Parameters.AddWithValue("@TargetHeroId", tgtHeroId);
+											var hpObj = await selHpCmd.ExecuteScalarAsync();
+											int newHp = 0;
+					    if (hpObj != null && int.TryParse(hpObj.ToString(), out int hpv)) newHp = hpv;
+					    if (newHp <= 0)
+											{
+												try
+												{
+						    await HandleHeroDeath(tgtHeroId, e.heroId, "encounter", map, connection, transaction);
+												}
+												catch (Exception exHd)
+												{
+													await _log.Db("HandleHeroDeath (encounter) failed: " + exHd.Message, targetHeroId, "BONES", true);
+												}
+											}
+										}
+									}
+									catch (Exception exApply)
+									{
+										await _log.Db("Failed to apply encounter direct hero damage: " + exApply.Message, null, "BONES", true);
+									}
 								}
 							}
 							catch (Exception exAtk)

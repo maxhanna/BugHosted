@@ -763,6 +763,14 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
     } 
 
     this.mainScene.camera.centerPositionOnTarget(this.metaHero.position);
+
+    // If the server returned a dead hero (hp <= 0), present the death panel so user can respawn
+    try {
+      if ((rz.hp ?? 100) <= 0) {
+        // Use existing handler to show death UI and pause polling
+        this.handleHeroDeath({ killerId: null, killerUserId: undefined, cause: "spawned_dead" });
+      }
+    } catch { }
   }
 
   private async reinitializeInventoryData(skipParty = false) {
