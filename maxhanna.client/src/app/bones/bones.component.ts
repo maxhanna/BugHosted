@@ -276,19 +276,22 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
     let killerUserId = Number(params.killerUserId);
     let cause = params.cause; 
 
-    if (killerId && killerId < 0) {
-      const killer = this.mainScene.level.children.filter((x: any) => x.heroId == killerId);
-      if (killer.length > 0) {
-        this.deathKillerName = killer[0].name;
+    if (cause != "spawned_dead") {
+      if (killerId && killerId < 0) {
+        const killer = this.mainScene.level.children.filter((x: any) => x.heroId == killerId);
+        if (killer.length > 0) {
+          this.deathKillerName = killer[0].name;
+        }
+      } else {
+        const killer = this.otherHeroes.filter(x => x.id == killerId);
+        if (killer) {
+          this.deathKillerName = killer[0].name;
+          this.deathKillerUserId = killer[0].userId;
+        }
       }
     } else {
-      const killer = this.otherHeroes.filter(x => x.id == killerId);
-      if (killer) {
-        this.deathKillerName = killer[0].name;
-        this.deathKillerUserId = killer[0].userId;
-      }
+      this.deathKillerName = "Spawned Dead";
     }
- 
        
     this.stopPollingForUpdates = true;
     this.isDead = true;
