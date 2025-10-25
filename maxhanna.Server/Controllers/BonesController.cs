@@ -14,7 +14,7 @@ namespace maxhanna.Server.Controllers
 	public class BonesController : ControllerBase
 	{
 		// Half-size of the hitbox in pixels; used to compute +/- hit tolerance
-		private const int HITBOX_HALF = 16;
+		private const int HITBOX_HALF = 10;
 		private readonly Log _log;
 		private readonly IConfiguration _config;
 		private readonly string _connectionString;
