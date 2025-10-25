@@ -182,12 +182,13 @@
 <!-- Start Menu Popup -->
 <div class="popupPanel startPopupPanel" *ngIf="isStartMenuOpened" style="max-width:360px; text-align:center;">
   <div class="popupPanelTitle mainPopupTitle">Menu</div>
-  <div style="display:flex; flex-direction:column; gap:12px; padding:12px;">
+  <div class="startGrid">
     <button class="bigActionButton" (click)="openPartyPanel()" aria-label="Party">Party</button>
-  <button class="bigActionButton" (click)="openChangeCharacter()" aria-label="Change Hero">Change Hero</button>
-  <button class="bigActionButton" (click)="openChangeStats()" aria-label="Change Stats">Change Stats</button>
-  <button class="bigActionButton" (click)="openTownPortal()" aria-label="Town Portal">Town Portal</button>
-    <button class="closeButton" (click)="closeStartMenu()">Close</button>
+    <button class="bigActionButton" (click)="openChangeCharacter()" aria-label="Change Hero">Change Hero</button>
+    <button class="bigActionButton" (click)="openChangeStats()" aria-label="Change Stats">Change Stats</button>
+    <button class="bigActionButton" (click)="openTownPortal()" aria-label="Town Portal">Town Portal</button>
+    <button class="bigActionButton" (click)="closeStartMenu()" aria-label="Close">Close</button>
+    <div></div>
   </div>
 
   <!-- Party subpanel -->

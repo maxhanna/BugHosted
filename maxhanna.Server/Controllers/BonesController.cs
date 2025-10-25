@@ -64,7 +64,7 @@ namespace maxhanna.Server.Controllers
 					ownerCmd.Parameters.AddWithValue("@HeroId", req.HeroId);
 					var ownerObj = await ownerCmd.ExecuteScalarAsync();
 					int ownerId = ownerObj != null && int.TryParse(ownerObj.ToString(), out var tmp) ? tmp : 0;
-					if (ownerId != req.UserId.Value) return Forbid("You do not own this hero");
+					if (ownerId != req.UserId.Value) return StatusCode(403, "You do not own this hero");
 				}
 				// Ensure we don't duplicate pairs (store as provided order, prevent reverse duplicates too)
 				string sql = @"INSERT INTO bones_hero_party (bones_hero_id_1, bones_hero_id_2)
@@ -122,13 +122,13 @@ namespace maxhanna.Server.Controllers
 			try
 			{
 				// Ownership check: require UserId provided and matches bones_hero.user_id
-				if (!req.UserId.HasValue) return Forbid("UserId required for stat changes");
+				if (!req.UserId.HasValue) return BadRequest("UserId required for stat changes");
 				string ownerSql2 = "SELECT user_id FROM maxhanna.bones_hero WHERE id = @HeroId LIMIT 1";
 				using var ownerCmd2 = new MySqlCommand(ownerSql2, connection, transaction);
 				ownerCmd2.Parameters.AddWithValue("@HeroId", req.HeroId);
 				var ownerObj2 = await ownerCmd2.ExecuteScalarAsync();
 				int ownerId2 = ownerObj2 != null && int.TryParse(ownerObj2.ToString(), out var tmp2) ? tmp2 : 0;
-				if (ownerId2 != req.UserId.Value) return Forbid("You do not own this hero");
+				if (ownerId2 != req.UserId.Value) return StatusCode(403, "You do not own this hero");
 				// Fetch hero map to attach to the event
 				string mapSql = "SELECT map FROM maxhanna.bones_hero WHERE id = @HeroId LIMIT 1";
 				using var mapCmd = new MySqlCommand(mapSql, connection, transaction);
@@ -195,7 +195,7 @@ namespace maxhanna.Server.Controllers
 					ownerCmd.Parameters.AddWithValue("@HeroId", heroId);
 					var ownerObj = await ownerCmd.ExecuteScalarAsync();
 					int ownerId = ownerObj != null && int.TryParse(ownerObj.ToString(), out var tmp) ? tmp : 0;
-					if (ownerId != userId.Value) return Forbid("You do not own this hero");
+					if (ownerId != userId.Value) return StatusCode(403, "You do not own this hero");
 				}
 				// Move hero to Town map origin (example coordinates)
 				string updSql = "UPDATE maxhanna.bones_hero SET map = @Map, coordsX = @X, coordsY = @Y, updated = UTC_TIMESTAMP() WHERE id = @HeroId LIMIT 1";
@@ -239,7 +239,7 @@ namespace maxhanna.Server.Controllers
 					ownerCmd.Parameters.AddWithValue("@HeroId", heroId);
 					var ownerObj = await ownerCmd.ExecuteScalarAsync();
 					int ownerId = ownerObj != null && int.TryParse(ownerObj.ToString(), out var tmp) ? tmp : 0;
-					if (ownerId != userId.Value) return Forbid("You do not own this hero");
+					if (ownerId != userId.Value) return StatusCode(403, "You do not own this hero");
 				}
 				var data = new Dictionary<string, string>();
 				data["creatorHeroId"] = heroId.ToString();

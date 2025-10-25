@@ -610,3 +610,16 @@ body {
   font-family: owreKynge;
   font-size: large;
 }
+
+/* Start menu grid */
+.startGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  padding: 12px;
+  align-items: stretch;
+}
+.startGrid .bigActionButton {
+  aspect-ratio: 1 / 1;
+  width: 100%;
+}

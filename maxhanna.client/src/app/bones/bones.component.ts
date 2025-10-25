@@ -1149,7 +1149,11 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
     try {
       // send to server if API exists
       if (this.bonesService && typeof (this.bonesService as any).updateHeroStats === 'function') {
-        await (this.bonesService as any).updateHeroStats(this.metaHero.id, { str: this.editableStats.str, dex: this.editableStats.dex, int: this.editableStats.int });
+        await this.bonesService.updateHeroStats(
+          this.metaHero.id, 
+          { str: this.editableStats.str, dex: this.editableStats.dex, int: this.editableStats.int },
+          this.parentRef?.user?.id
+        );
         alert('Stats updated');
       } else {
         alert('Update stats not implemented on server. Local demo applied.');
