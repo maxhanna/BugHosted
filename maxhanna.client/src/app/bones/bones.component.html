@@ -3,9 +3,10 @@
   <!--<div class="refreshButton" (click)="ngOnInit();"></div>-->
   <div class="componentTitle">Bones</div>
   <div class="menuButton" (click)="showMenuPanel()"></div>
- 
+
   <div [style.display]="isLoading ? 'block' : 'none'" class="loadingModal">The game is loading...</div>
-  <div [style.display]="serverDown ? 'block' : 'none'" class="serverDownMessage">We are sorry, server is currently down. Please be patient while we bring it back online.</div> 
+  <div [style.display]="serverDown ? 'block' : 'none'" class="serverDownMessage">We are sorry, server is currently down.
+    Please be patient while we bring it back online.</div>
   <div class="gameCanvasContainer">
     <canvas #gameCanvas id="gameCanvas" class="gameCanvas" width=320 height="220"></canvas>
   </div>
@@ -16,7 +17,8 @@
     </div>
   </div>
 
-  <div class="inputArea"  [style.display]="(!isMenuPanelOpen && !isPartyPanelOpen && !isStartMenuOpened) ? 'flex' : 'none'">
+  <div class="inputArea"
+    [style.display]="(!isMenuPanelOpen && !isPartyPanelOpen && !isStartMenuOpened) ? 'flex' : 'none'">
     <div class="controls">
       <div class="controls">
         <div class="dpad">
@@ -85,14 +87,16 @@
     <div class="controls">
       <div class="a-b">
         <div class="b" (mouseup)='mainScene.input.pressB()'>B</div>
-        <div class="a" (mousedown)='mainScene.input.pressAStart()' (mouseup)='mainScene.input.pressAEnd()' (touchstart)='mainScene.input.pressAStart()' (touchend)='mainScene.input.pressAEnd()'>A</div>
+        <div class="a" (mousedown)='mainScene.input.pressAStart()' (mouseup)='mainScene.input.pressAEnd()'
+          (touchstart)='mainScene.input.pressAStart()' (touchend)='mainScene.input.pressAEnd()'>A</div>
       </div>
 
-  <div class="start" (mouseup)='openStartMenu()'>START</div>
+      <div class="start" (mouseup)='openStartMenu()'>START</div>
     </div>
 
-    <input *ngIf="mainScene?.level?.name === 'CharacterCreate'" type="color" (change)='changeColor()' #colorInput class="colorInput" [value]="cachedDefaultColor ?? metaHero.color" />
- 
+    <input *ngIf="mainScene?.level?.name === 'CharacterCreate'" type="color" (change)='changeColor()' #colorInput
+      class="colorInput" [value]="cachedDefaultColor ?? metaHero.color" />
+
   </div>
   <app-user class="popupPanel ucPopupPanel" *ngIf="isUserComponentOpen" [loginOnly]="true"
     [inputtedParentRef]="parentRef" [canClose]="false" (closeUserComponentEvent)="closeUserComponent($event)"
@@ -104,21 +108,23 @@
   <div class="popupPanelTitle mainPopupTitle">Menu</div>
   <div class="musicOptionsContainer" style="padding: 6px 8px;">
     <div style="display: flex; align-items: baseline;">
-      <button class="musicButton" (click)="toggleSfx()" style="margin-bottom:6px;" [title]="isSfxMuted ? 'Unmute SFX' : 'Mute SFX'" aria-label="SFX toggle">
-        {{ isSfxMuted ? 'Unmute SFX' : 'Mute SFX' }} 
+      <button class="musicButton" (click)="toggleSfx()" style="margin-bottom:6px;"
+        [title]="isSfxMuted ? 'Unmute SFX' : 'Mute SFX'" aria-label="SFX toggle">
+        {{ isSfxMuted ? 'Unmute SFX' : 'Mute SFX' }}
       </button>
-      <button class="musicButton" (click)="toggleMusic()" [title]="isMusicMuted ? 'Unmute Music' : 'Mute Music'" aria-label="Music toggle">
-        {{ isMusicMuted ? 'Unmute Music' : 'Mute Music' }} 
+      <button class="musicButton" (click)="toggleMusic()" [title]="isMusicMuted ? 'Unmute Music' : 'Mute Music'"
+        aria-label="Music toggle">
+        {{ isMusicMuted ? 'Unmute Music' : 'Mute Music' }}
       </button>
-      <button class="musicButton" (click)="openChangeCharacter()" aria-label="Change Character">Change Character</button>
-    </div> 
+      <button class="musicButton" (click)="openChangeCharacter()" aria-label="Change Character">Change
+        Character</button>
+    </div>
     <div style="margin-top:10px;">
       <label style="display:block; font-size:12px; margin-bottom:6px;">Volume: {{ volumePercent() }}%</label>
-      <input type="range" min="0" max="100" step="1" style="width:100%"
-      [value]="volumePercent()" (input)="onVolumeSliderInput($event)" 
-      (change)="onVolumeChange($event)" aria-label="Volume Slider" />
+      <input type="range" min="0" max="100" step="1" style="width:100%" [value]="volumePercent()"
+        (input)="onVolumeSliderInput($event)" (change)="onVolumeChange($event)" aria-label="Volume Slider" />
     </div>
-  </div> 
+  </div>
 
   <div class="metaHighscoresSection">
     <app-bones-high-scores [inputtedParentRef]="parentRef"></app-bones-high-scores>
@@ -135,7 +141,8 @@
   </div>
   <div style="padding:8px;">
     <div *ngIf="selections && selections.length > 0">
-      <div *ngFor="let s of selections" style="display:flex; align-items:center; justify-content:space-between; padding:6px; border-bottom:1px solid #222;">
+      <div *ngFor="let s of selections"
+        style="display:flex; align-items:center; justify-content:space-between; padding:6px; border-bottom:1px solid #222;">
         <div>
           <div style="font-weight:600;" class="popupPanelTitle">{{s.name ?? ('Selection #' + s.id)}}</div>
           <div style="font-size:12px; color:#aaa;">Created: {{s.created | date:'short'}}</div>
@@ -169,7 +176,7 @@
         <div *ngIf="!deathKillerUserId && deathKillerName" class="deathKillerName">
           {{ deathKillerName }}
         </div>
-      </div> 
+      </div>
       <div class="deathKillStatInfo">
         <div>Return to spawn at (0,0)</div>
       </div>
@@ -192,7 +199,7 @@
   </div>
 
   <!-- Party subpanel -->
-  <div *ngIf="isPartyPanelOpen" style="margin-top:8px; text-align:left; max-height:240px; overflow:auto;">
+  <div *ngIf="isPartyPanelOpen" class="partyPanel">
     <div style="font-weight:600; margin-bottom:8px;">Nearby Heroes / Party</div>
     <div style="display:flex; gap:6px; margin-bottom:8px;">
       <button [disabled]="partyFilter==='all'" (click)="partyFilter='all'">All</button>
@@ -200,33 +207,55 @@
       <button [disabled]="partyFilter==='nearby'" (click)="partyFilter='nearby'">Nearby</button>
     </div>
     <div *ngIf="otherHeroes && otherHeroes.length > 0">
-        <!-- Show a Leave Party button for the current player -->
-        <div style="display:flex; justify-content:center; margin-bottom:8px;"><button (click)="confirmLeaveParty()">Leave Party</button></div>
-        <div *ngFor="let p of getSortedHeroes()" style="display:flex; align-items:center; justify-content:space-between; padding:6px; border-bottom:1px solid #222;">
+      <!-- Show a Leave Party button for the current player -->
+      <div style="display:flex; justify-content:center; margin-bottom:8px;">
+        <button (click)="confirmLeaveParty()">Leave Party</button>
+      </div>
+      <button id="closeOverlay" class="closeButton" (click)="isPartyPanelOpen = false"
+        style="float:right; margin-top:-36px;">Close</button>
+      <div *ngFor="let p of getSortedHeroes()"
+        style="display:flex; align-items:center; justify-content:space-between; padding:6px; border-bottom:1px solid #222;">
         <div style="display:flex; align-items:center; gap:8px;">
           <div style="width:28px; height:28px; background:#333; border-radius:50%;"></div>
           <div>{{p.name}}</div>
         </div>
-                  <div>
-                    <button *ngIf="!isInParty(p.id)" [disabled]="isInvitePending(p.id)" (click)="inviteToParty(p.id)">Invite</button>
-                    <span *ngIf="isInvitePending(p.id)" class="pendingBadgeWrapper" [class.clearing]="isPendingClearing(p.id)">
-                      <span class="pendingBadge" aria-hidden="true">(pending)</span>
-                    </span>
-                    <span *ngIf="isInParty(p.id)" style="font-weight:700; color:#8f8;">In Party</span>
-                  </div>
+        <div>
+          <button *ngIf="!isInParty(p.id)" [disabled]="isInvitePending(p.id)"
+            (click)="inviteToParty(p.id)">Invite</button>
+          <span *ngIf="isInvitePending(p.id)" class="pendingBadgeWrapper" [class.clearing]="isPendingClearing(p.id)">
+            <span class="pendingBadge" aria-hidden="true">(pending)</span>
+          </span>
+          <span *ngIf="isInParty(p.id)" style="font-weight:700; color:#8f8;">In Party</span>
+        </div>
       </div>
     </div>
-    <div *ngIf="(!otherHeroes || otherHeroes.length === 0) && (!partyMembers || partyMembers.length === 0)">No nearby heroes found.</div>
+    <div *ngIf="(!otherHeroes || otherHeroes.length === 0) && (!partyMembers || partyMembers.length === 0)">No nearby
+      heroes found.</div>
   </div>
 
   <!-- Change Stats subpanel -->
   <div *ngIf="isChangeStatsOpen" style="margin-top:8px; text-align:left; max-height:240px; overflow:auto;">
     <div style="font-weight:600; margin-bottom:8px;">Change Stats</div>
-    <div style="display:flex; gap:8px; align-items:center; margin-bottom:8px;"><div>Points:</div><div style="font-weight:700;">{{editableStats.pointsAvailable}}</div></div>
+    <div style="display:flex; gap:8px; align-items:center; margin-bottom:8px;">
+      <div>Points:</div>
+      <div style="font-weight:700;">{{editableStats.pointsAvailable}}</div>
+    </div>
     <div style="display:flex; flex-direction:column; gap:8px;">
-      <div style="display:flex; justify-content:space-between; align-items:center;"><div>STR</div><div><button (click)="adjustStat('str', -1)">-</button> <span style="margin:0 8px">{{editableStats.str}}</span> <button (click)="adjustStat('str', 1)">+</button></div></div>
-      <div style="display:flex; justify-content:space-between; align-items:center;"><div>DEX</div><div><button (click)="adjustStat('dex', -1)">-</button> <span style="margin:0 8px">{{editableStats.dex}}</span> <button (click)="adjustStat('dex', 1)">+</button></div></div>
-      <div style="display:flex; justify-content:space-between; align-items:center;"><div>INT</div><div><button (click)="adjustStat('int', -1)">-</button> <span style="margin:0 8px">{{editableStats.int}}</span> <button (click)="adjustStat('int', 1)">+</button></div></div>
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <div>STR</div>
+        <div><button (click)="adjustStat('str', -1)">-</button> <span style="margin:0 8px">{{editableStats.str}}</span>
+          <button (click)="adjustStat('str', 1)">+</button></div>
+      </div>
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <div>DEX</div>
+        <div><button (click)="adjustStat('dex', -1)">-</button> <span style="margin:0 8px">{{editableStats.dex}}</span>
+          <button (click)="adjustStat('dex', 1)">+</button></div>
+      </div>
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <div>INT</div>
+        <div><button (click)="adjustStat('int', -1)">-</button> <span style="margin:0 8px">{{editableStats.int}}</span>
+          <button (click)="adjustStat('int', 1)">+</button></div>
+      </div>
     </div>
     <div style="margin-top:10px; display:flex; gap:8px; justify-content:center;">
       <button (click)="applyStats()">Apply</button>
@@ -236,7 +265,8 @@
 
 </div>
 <!-- Leave confirmation modal -->
-<div class="popupPanel" *ngIf="showLeaveConfirm" style="max-width:320px; text-align:center; position:fixed; left:50%; top:50%; transform:translate(-50%,-50%); z-index:2000;">
+<div class="popupPanel" *ngIf="showLeaveConfirm"
+  style="max-width:320px; text-align:center; position:fixed; left:50%; top:50%; transform:translate(-50%,-50%); z-index:2000;">
   <div class="popupPanelTitle">Confirm Leave Party</div>
   <div style="padding:12px;">Are you sure you want to leave the party?</div>
   <div style="display:flex; gap:8px; justify-content:center; padding-bottom:12px;">
