@@ -1,9 +1,7 @@
 import { Vector2 } from "../../../services/datacontracts/bones/vector2"; 
 import { Bot } from "../objects/Bot/bot";
 import { Character } from "../objects/character";
-import { Encounter } from "../objects/Environment/Encounter/encounter";
 import { GameObject } from "../objects/game-object";
-import { Sprite } from "../objects/sprite";
 import { DOWN, LEFT, RIGHT, UP, gridCells, isSpaceFree, snapToGrid } from "./grid-cells";
 
 export function moveTowards(player: Character, destinationPosition: Vector2, speed: number) {
@@ -33,6 +31,13 @@ export function moveTowards(player: Character, destinationPosition: Vector2, spe
 		distance = Math.sqrt(distanceToTravelX ** 2 + distanceToTravelY ** 2);
   } 
 	return distance; // Return the updated distance
+}
+
+export function isEncounter(obj: any): boolean {
+		return obj?.constructor?.name === 'Encounter';
+}
+export function isSprite(obj: any): boolean {
+		return obj?.constructor?.name === 'Sprite';
 }
 
 
@@ -362,7 +367,7 @@ export function getBotsInRange(player: Bot, partyMembers?: { heroId: number, nam
       (child.id != player.id) &&
       (child.isEnemy) &&
       (child.hp > 0) &&
-      !(child instanceof Sprite) &&
+      !isSprite(child) &&
       child.position.x >= player.position.x - discrepancy &&
       child.position.x <= player.position.x + discrepancy &&
       child.position.y >= player.position.y - discrepancy &&
@@ -397,7 +402,7 @@ export function isObjectNearby(playerOrObject: any) {
 			child.position.y <= neighborPosition.y + discrepancy;
 
 		return (
-			((!(child instanceof Sprite) && !(child instanceof Encounter)) || child.textContent) &&
+			((!isSprite(child) && !isEncounter(child)) || child.textContent) &&
 			(isAtBasePosition || isAtNeighborPosition)
 		);
 	}) ?? [];
