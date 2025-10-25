@@ -1,7 +1,6 @@
 import { Vector2 } from "../../../services/datacontracts/bones/vector2"; 
 import { Bot } from "../objects/Bot/bot";
 import { Character } from "../objects/character";
-import { Encounter } from "../objects/Environment/Encounter/encounter";
 import { GameObject } from "../objects/game-object";
 import { Sprite } from "../objects/sprite";
 import { DOWN, LEFT, RIGHT, UP, gridCells, isSpaceFree, snapToGrid } from "./grid-cells";
@@ -397,7 +396,7 @@ export function isObjectNearby(playerOrObject: any) {
 			child.position.y <= neighborPosition.y + discrepancy;
 
 		return (
-			((!(child instanceof Sprite) && !(child instanceof Encounter)) || child.textContent) &&
+			(!(child instanceof Sprite) || child.textContent) &&
 			(isAtBasePosition || isAtNeighborPosition)
 		);
 	}) ?? [];
