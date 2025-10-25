@@ -182,7 +182,7 @@
 <!-- Start Menu Popup -->
 <div class="popupPanel startPopupPanel" *ngIf="isStartMenuOpened" style="max-width:360px; text-align:center;">
   <div class="popupPanelTitle mainPopupTitle">Menu</div>
-  <div class="startGrid">
+  <div *ngIf="!isPartyPanelOpen" class="startGrid">
     <button class="bigActionButton" (click)="openPartyPanel()" aria-label="Party">Party</button>
     <button class="bigActionButton" (click)="openChangeCharacter()" aria-label="Change Hero">Change Hero</button>
     <button class="bigActionButton" (click)="openChangeStats()" aria-label="Change Stats">Change Stats</button>

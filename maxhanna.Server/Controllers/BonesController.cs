@@ -84,23 +84,45 @@ namespace maxhanna.Server.Controllers
 		}
 
 		[HttpPost("/Bones/LeaveParty", Name = "Bones_LeaveParty")]
-		public async Task<IActionResult> LeaveParty([FromBody] int heroId)
+		public async Task<IActionResult> LeaveParty([FromBody] dynamic body)
 		{
-			if (heroId <= 0) return BadRequest("Invalid hero id");
-			using var connection = new MySqlConnection(_connectionString);
-			await connection.OpenAsync();
-			using var transaction = connection.BeginTransaction();
 			try
 			{
-				// Ownership: ensure active hero belongs to caller (best-effort) - requires caller to pass identity externally in production
-				await Unparty(heroId, connection, transaction);
-				await transaction.CommitAsync();
-				return Ok(new { left = true });
+				int heroId = 0; int? userId = null;
+				try { heroId = (int)body.HeroId; } catch { try { heroId = (int)body; } catch { } }
+				try { userId = (int?)body.UserId; } catch { }
+				if (heroId <= 0) return BadRequest("Invalid hero id");
+
+				using var connection = new MySqlConnection(_connectionString);
+				await connection.OpenAsync();
+				using var transaction = connection.BeginTransaction();
+				try
+				{
+					// Ownership: optional best-effort check if userId provided
+					if (userId.HasValue)
+					{
+						string ownerSql = "SELECT user_id FROM maxhanna.bones_hero WHERE id = @HeroId LIMIT 1";
+						using var ownerCmd = new MySqlCommand(ownerSql, connection, transaction);
+						ownerCmd.Parameters.AddWithValue("@HeroId", heroId);
+						var ownerObj = await ownerCmd.ExecuteScalarAsync();
+						int ownerId = ownerObj != null && int.TryParse(ownerObj.ToString(), out var tmp) ? tmp : 0;
+						if (ownerId != userId.Value) return StatusCode(403, "You do not own this hero");
+					}
+
+					await Unparty(heroId, connection, transaction);
+					await transaction.CommitAsync();
+					return Ok(new { left = true });
+				}
+				catch (Exception ex)
+				{
+					await transaction.RollbackAsync();
+					await _log.Db("LeaveParty failed: " + ex.Message, heroId, "BONES", true);
+					return StatusCode(500, "Failed to leave party");
+				}
 			}
-			catch (Exception ex)
+			catch (Exception exOuter)
 			{
-				await transaction.RollbackAsync();
-				await _log.Db("LeaveParty failed: " + ex.Message, heroId, "BONES", true);
+				await _log.Db("LeaveParty outer error: " + exOuter.Message, null, "BONES", true);
 				return StatusCode(500, "Failed to leave party");
 			}
 		}
