@@ -411,8 +411,7 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
       }
  
       if (res) {
-        this.updateOtherHeroesBasedOnFetchedData(res);
-        this.updateMissingOrNewHeroSprites();
+        this.updateHeroesFromFetchedData(res);
         this.updateEnemyEncounters(res);
 
         if (this.chat) {
@@ -457,43 +456,8 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
   }
 
   private updateOtherHeroesBasedOnFetchedData(res: { map: number; position: Vector2; heroes: MetaHero[]; }) {
-    if (!res || !res.heroes) {
-      this.otherHeroes = [];
-      return;
-    }
-
-    this.otherHeroes = res.heroes;
-    for (let x = 0; x < this.otherHeroes.length; x++) { 
-      const heroMeta = this.otherHeroes[x];
-      const tgt = this.mainScene.level.children.find((c: Character) => c.id == heroMeta.id);
-      if (tgt) {
-        // update visual/scene values from server meta
-        try { tgt.hp = heroMeta.hp; } catch {}
-        try { tgt.level = heroMeta.level; } catch {}
-        try { tgt.exp = heroMeta.exp; } catch {}
-
-        // If this is our metaHero, keep local metaHero and Hero instance in sync
-        if (heroMeta.id === this.metaHero.id) {
-          try { this.metaHero.hp = heroMeta.hp ?? this.metaHero.hp; } catch {}
-          try { this.metaHero.level = heroMeta.level ?? this.metaHero.level; } catch {}
-          try { this.metaHero.exp = heroMeta.exp ?? this.metaHero.exp; } catch {}
-          if (this.hero) {
-            try { (this.hero as any).hp = heroMeta.hp; } catch {}
-            try { (this.hero as any).level = heroMeta.level; } catch {}
-            try { (this.hero as any).exp = heroMeta.exp; } catch {}
-            // ensure maxHp exists so HP bar scales correctly
-            try { (this.hero as any).maxHp = (this.hero as any).maxHp ?? (heroMeta.hp ?? 100); } catch {}
-          }
-        }
-
-        // Fixed partyMembers check
-        tgt.partyMembers = (Array.isArray(this.partyMembers) &&
-          this.partyMembers.length > 0 &&
-          this.partyMembers.some((x: any) => x.heroId == tgt.heroId))
-          ? this.partyMembers
-          : undefined;
-      } 
-    }
+  // Delegate to combined implementation for a single pass
+  this.updateHeroesFromFetchedData(res);
   }
   private updateEnemyEncounters(res: any) {
     const enemies = res.enemyBots as MetaBot[];
@@ -557,34 +521,78 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
     }
   }
   private updateMissingOrNewHeroSprites() {
-    let ids: number[] = [];
-    for (const hero of this.otherHeroes) {
-      let existingHero = this.mainScene.level?.children.find((x: any) => x.id === hero.id) as Character | undefined;
-      if (existingHero) {
-        this.setUpdatedHeroPosition(existingHero, hero);
+    // Delegate to combined implementation for a single pass
+    this.updateHeroesFromFetchedData({ map: 0, position: new Vector2(0,0), heroes: this.otherHeroes });
+  }
 
-        if (hero.mask === 0 && existingHero.mask) {
-          //remove mask
-          existingHero.destroy();
-          this.addHeroToScene(hero);
-        }
-        else if (hero.mask && hero.mask != 0 && !existingHero.mask) {
-          //put on mask
-          existingHero.destroy();
-          this.addHeroToScene(hero);
-        }
-        else if (hero.mask && hero.mask != 0 && existingHero.mask && getMaskNameById(hero.mask).toLowerCase() != existingHero.mask.name?.toLowerCase()) {
-          //put on mask
-          existingHero.destroy();
-          this.addHeroToScene(hero);
-        } 
-      }
-      else {
-        existingHero = this.addHeroToScene(hero);
-      } 
-      this.setHeroLatestMessage(existingHero); 
-      ids.push(hero.id);
+  private updateHeroesFromFetchedData(res: { map: number; position: Vector2; heroes: MetaHero[]; }) {
+    if (!res || !res.heroes) {
+      this.otherHeroes = [];
+      return;
     }
+
+    this.otherHeroes = res.heroes;
+    const ids: number[] = [];
+
+    for (let i = 0; i < this.otherHeroes.length; i++) {
+      const heroMeta = this.otherHeroes[i];
+      // Scene object representing the hero (may be undefined if not added yet)
+      let existingHero = this.mainScene.level?.children.find((x: any) => x.id === heroMeta.id) as Character | undefined;
+
+      // Update or create sprite
+      if (existingHero) {
+        // Position updates (setUpdatedHeroPosition handles local hero vs others)
+        this.setUpdatedHeroPosition(existingHero, heroMeta);
+
+        // Visual attributes from server meta
+  try { (existingHero as any).hp = heroMeta.hp ?? (existingHero as any).hp; } catch {}
+  try { (existingHero as any).level = heroMeta.level ?? (existingHero as any).level; } catch {}
+  try { (existingHero as any).exp = heroMeta.exp ?? (existingHero as any).exp; } catch {}
+
+        // Mask handling: if mask state changed, recreate character
+        try {
+          if (heroMeta.mask === 0 && existingHero.mask) {
+            existingHero.destroy();
+            existingHero = this.addHeroToScene(heroMeta);
+          } else if (heroMeta.mask && heroMeta.mask != 0 && !existingHero.mask) {
+            existingHero.destroy();
+            existingHero = this.addHeroToScene(heroMeta);
+          } else if (heroMeta.mask && heroMeta.mask != 0 && existingHero.mask && getMaskNameById(heroMeta.mask).toLowerCase() != existingHero.mask.name?.toLowerCase()) {
+            existingHero.destroy();
+            existingHero = this.addHeroToScene(heroMeta);
+          }
+        } catch (ex) { /* ignore mask errors */ }
+      } else {
+        existingHero = this.addHeroToScene(heroMeta);
+      }
+
+      // If this is our metaHero, keep local metaHero and Hero instance in sync
+      if (heroMeta.id === this.metaHero.id) {
+        try { this.metaHero.hp = heroMeta.hp ?? this.metaHero.hp; } catch {}
+        try { this.metaHero.level = heroMeta.level ?? this.metaHero.level; } catch {}
+        try { this.metaHero.exp = heroMeta.exp ?? this.metaHero.exp; } catch {}
+        if (this.hero) {
+          try { (this.hero as any).hp = heroMeta.hp; } catch {}
+          try { (this.hero as any).level = heroMeta.level; } catch {}
+          try { (this.hero as any).exp = heroMeta.exp; } catch {}
+          try { (this.hero as any).maxHp = (this.hero as any).maxHp ?? (heroMeta.hp ?? 100); } catch {}
+        }
+      }
+
+      // Party members wiring
+      try {
+        if (existingHero) {
+          (existingHero as any).partyMembers = (Array.isArray(this.partyMembers) && this.partyMembers.length > 0 && this.partyMembers.some((x: any) => x.heroId == (existingHero as any).heroId)) ? this.partyMembers : undefined;
+        }
+      } catch {}
+
+      // Chat bubble / latest message
+      try { this.setHeroLatestMessage(existingHero); } catch {}
+
+      ids.push(heroMeta.id);
+    }
+
+    // Remove any old hero sprites no longer present
     this.destroyExtraChildren(ids);
   }
 
@@ -886,6 +894,11 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
       this.mainScene.input.setChatInput(this.chatInput.nativeElement);
       this.stopLoading();
     }, 500);
+  }
+
+  onUserTagLoaded(user?: User) {
+    // Cache loaded user objects so we can map hero -> user without refetching
+    try { if (user && user.id) this.cachedUsers.set(user.id, user); } catch { }
   }
   
   async showMenuPanel() {
