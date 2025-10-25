@@ -14,7 +14,8 @@ namespace maxhanna.Server.Controllers
 	public class BonesController : ControllerBase
 	{
 		// Half-size of the hitbox in pixels; used to compute +/- hit tolerance
-		private const int HITBOX_HALF = 10;
+		private const int HITBOX_HALF = 16;
+		private const int GRIDCELL = 16;
 		private readonly Log _log;
 		private readonly IConfiguration _config;
 		private readonly string _connectionString;
@@ -1323,7 +1324,7 @@ namespace maxhanna.Server.Controllers
 				var parameters = new Dictionary<string, object?>();
 				int idx = 0;
 				// Localize frequently-used values
-				int tile = HITBOX_HALF; // 16
+				int tile = GRIDCELL; // 16
 				foreach (var e in encounters)
 				{
 					if (e.hp <= 0) continue; // dead, wait for respawn
