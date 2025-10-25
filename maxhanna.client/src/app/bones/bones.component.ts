@@ -304,23 +304,15 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
   }
 
   async returnFromDeath() {
-    await this.bonesService.respawnHero(this.metaHero.id);
-    try {
-      if (this.metaHero) {
-        this.metaHero.position = new Vector2(0, 0);
-      }
-      if (this.hero) {
-        this.hero.position = new Vector2(0, 0);
-        this.hero.destinationPosition = this.hero.position.duplicate();
-        this.hero.lastPosition = this.hero.position.duplicate();
-      }
-    } catch (ex) { /* ignore */ }
+    this.metaHero = await this.bonesService.respawnHero(this.metaHero.id);
+    await this.reinitializeHero(this.metaHero, true);
     // Hide death UI and resume polling/loop
     this.showDeathPanel = false;
     this.isDead = false;
     this.stopPollingForUpdates = false;
     try { this.mainScene.setLevel(this.getLevelFromLevelName(this.metaHero.map)); } catch {}
     try { this.gameLoop.start(); } catch {}
+    this.mainScene.camera.heroId = this.hero?.id; 
     this.parentRef?.closeOverlay();
   }
 
