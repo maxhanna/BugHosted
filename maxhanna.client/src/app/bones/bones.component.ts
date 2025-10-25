@@ -304,44 +304,24 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
   }
 
   returnFromDeath() {
-    // Ask server to respawn hero (set coords to 0,0 and hp to 100) and reinitialize client state from authoritative response
-    (async () => {
-      try {
-        const res: any = await this.bonesService.respawnHero(this.metaHero.id);
-        if (res && res.id) {
-          // Use server-provided MetaHero to reinitialize local hero and scene
-          await this.reinitializeHero(res, true);
-        } else {
-          // Fallback: immediate local reposition
-          if (this.metaHero) this.metaHero.position = new Vector2(0, 0);
-          if (this.hero) {
-            this.hero.position = new Vector2(0, 0);
-            this.hero.destinationPosition = this.hero.position.duplicate();
-            this.hero.lastPosition = this.hero.position.duplicate();
-          }
-        }
+    // Move local hero to 0,0 immediately so UI updates without waiting for next fetch
+    try {
+      if (this.metaHero) {
+        this.metaHero.position = new Vector2(0, 0);
       }
-      catch (ex) {
-        // If server call fails, fallback to local reposition so UX is not blocked
-        try { if (this.metaHero) this.metaHero.position = new Vector2(0, 0); } catch {}
-        try { if (this.hero) { this.hero.position = new Vector2(0, 0); this.hero.destinationPosition = this.hero.position.duplicate(); this.hero.lastPosition = this.hero.position.duplicate(); } } catch {}
+      if (this.hero) {
+        this.hero.position = new Vector2(0, 0);
+        this.hero.destinationPosition = this.hero.position.duplicate();
+        this.hero.lastPosition = this.hero.position.duplicate();
       }
-      finally {
-        // Hide death UI and resume polling/loop
-        this.showDeathPanel = false;
-        this.isDead = false;
-        this.stopPollingForUpdates = false;
-        try { this.mainScene.setLevel(this.getLevelFromLevelName(this.metaHero.map)); } catch {}
-        try { this.gameLoop.start(); } catch {}
-        this.parentRef?.closeOverlay();
-      }
-    })();
-  }
-
-  // Handler for user-tag components to emit loaded users so we can cache them and reuse
-  onUserTagLoaded(user?: User) {
-    if (!user || !user.id) return;
-    this.cachedUsers.set(user.id, user);
+    } catch (ex) { /* ignore */ }
+    // Hide death UI and resume polling/loop
+    this.showDeathPanel = false;
+    this.isDead = false;
+    this.stopPollingForUpdates = false;
+    try { this.mainScene.setLevel(this.getLevelFromLevelName(this.metaHero.map)); } catch {}
+    try { this.gameLoop.start(); } catch {}
+    this.parentRef?.closeOverlay();
   }
 
   update = async (delta: number) => {
@@ -580,31 +560,29 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
     let ids: number[] = [];
     for (const hero of this.otherHeroes) {
       let existingHero = this.mainScene.level?.children.find((x: any) => x.id === hero.id) as Character | undefined;
-      if (!storyFlags.flags.has("START_FIGHT") || this.partyMembers?.find(x => x.heroId === hero.id)) {
-        if (existingHero) {
-          this.setUpdatedHeroPosition(existingHero, hero);
+      if (existingHero) {
+        this.setUpdatedHeroPosition(existingHero, hero);
 
-          if (hero.mask === 0 && existingHero.mask) {
-            //remove mask
-            existingHero.destroy();
-            this.addHeroToScene(hero);
-          }
-          else if (hero.mask && hero.mask != 0 && !existingHero.mask) {
-            //put on mask
-            existingHero.destroy();
-            this.addHeroToScene(hero);
-          }
-          else if (hero.mask && hero.mask != 0 && existingHero.mask && getMaskNameById(hero.mask).toLowerCase() != existingHero.mask.name?.toLowerCase()) {
-            //put on mask
-            existingHero.destroy();
-            this.addHeroToScene(hero);
-          } 
+        if (hero.mask === 0 && existingHero.mask) {
+          //remove mask
+          existingHero.destroy();
+          this.addHeroToScene(hero);
         }
-        else {
-          existingHero = this.addHeroToScene(hero);
+        else if (hero.mask && hero.mask != 0 && !existingHero.mask) {
+          //put on mask
+          existingHero.destroy();
+          this.addHeroToScene(hero);
+        }
+        else if (hero.mask && hero.mask != 0 && existingHero.mask && getMaskNameById(hero.mask).toLowerCase() != existingHero.mask.name?.toLowerCase()) {
+          //put on mask
+          existingHero.destroy();
+          this.addHeroToScene(hero);
         } 
-        this.setHeroLatestMessage(existingHero);
       }
+      else {
+        existingHero = this.addHeroToScene(hero);
+      } 
+      this.setHeroLatestMessage(existingHero); 
       ids.push(hero.id);
     }
     this.destroyExtraChildren(ids);
