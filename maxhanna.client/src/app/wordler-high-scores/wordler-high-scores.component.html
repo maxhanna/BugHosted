@@ -5,7 +5,7 @@
     <div *ngIf="!loading && !error">
          <ng-container *ngIf="modesSelected.length; else noScores">
             <div *ngFor="let m of modesSelected" class="mode-section">
-                <div *ngIf="showHeader && (mode === 'today' && modesSelected.length) || (mode !== 'today')"
+                <div *ngIf="showHeader && ((mode === 'today' && groupedByMode?.[m] && keys(groupedByMode[m]).length > 0) || (mode !== 'today'))"
                     (click)="showUserHeader ? (openWordler()) : toggleMode(m)"
                     [class]="(showUserHeader ? 'popupPanelTitle userPopupPanelTitle clickable' : (showHeaderTitles ? 'popupPanelTitle clickable' : 'regularTitle clickable'))"
                     [style.marginTop]="'15px'">
