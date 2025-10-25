@@ -291,8 +291,33 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
     this.deathKillerUserId = killerUserId;
     // If killer type is an encounter, try to find its display name in the scene
     try {
-      if (!killerUserId && killerId && (typeof killerId === 'string' || typeof killerId === 'number')) {
-        // killerId may be numeric id of encounter or hero
+      // Support event payload shape where `params` was the full MetaEvent object with nested data
+      // e.g. { data: { killerId: "-999998", killerType: "encounter" } }
+      let killerType: string | undefined = undefined;
+      let killerIdValue: string | number | undefined = undefined;
+      if (typeof (params as any)?.data === 'object' && (params as any)?.data !== null) {
+        killerType = (params as any).data.killerType ?? undefined;
+        killerIdValue = (params as any).data.killerId ?? killerId;
+      } else {
+        killerIdValue = killerId;
+      }
+
+      if (!killerUserId && killerType === 'encounter' && killerIdValue !== undefined && killerIdValue !== null) {
+        const parsedEncounterId = parseInt(String(killerIdValue));
+        if (!isNaN(parsedEncounterId)) {
+          // Look in level.objects first, then fallback to children for older shape
+          let foundObj = this.mainScene?.level?.objects?.find((o: any) => o && (o.heroId ?? o.id) === parsedEncounterId);
+          if (!foundObj) {
+            foundObj = this.mainScene?.level?.children?.find((x: any) => (x.heroId ?? x.id) === parsedEncounterId);
+          }
+          if (foundObj && foundObj.name) {
+            // Pascal-case simple names like 'big rat' -> 'BigRat'
+            const words = String(foundObj.name).split(/[^a-zA-Z0-9]+/).filter(Boolean);
+            this.deathKillerName = words.map(w => w.charAt(0).toUpperCase() + w.slice(1)).join('');
+          }
+        }
+      } else if (!killerUserId && killerId && (typeof killerId === 'string' || typeof killerId === 'number')) {
+        // Fallback: killerId may be numeric id of encounter or hero
         const parsed = parseInt(String(killerId));
         if (!isNaN(parsed)) {
           const found = this.mainScene?.level?.children?.find((x: any) => x.id === parsed);
