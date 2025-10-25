@@ -159,12 +159,15 @@
       You were killed
     </div>
     <div class="killerAndStatsWrapper">
-      <div *ngIf="deathKillerUserId" class="deathKillerInfo">
+      <div *ngIf="deathKillerUserId || deathKillerName" class="deathKillerInfo">
         <div style="margin-bottom:6px;"><strong>Killed by:</strong></div>
         <div *ngIf="deathKillerUserId" class="deathKillerAvatarContainer">
           <app-user-tag [user]="cachedUsers.get(deathKillerUserId)" [userId]="deathKillerUserId"
             [inputtedParentRef]="parentRef" [displayOnlyAvatar]="false" [openInNewTab]="true"
             (userLoaded)="onUserTagLoaded($event)"></app-user-tag>
+        </div>
+        <div *ngIf="!deathKillerUserId && deathKillerName" class="deathKillerName">
+          {{ deathKillerName }}
         </div>
       </div>
       <div class="deathKillStatInfo">

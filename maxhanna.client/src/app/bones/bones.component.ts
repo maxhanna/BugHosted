@@ -68,6 +68,7 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
   // Death UI/state
   showDeathPanel: boolean = false;
   deathKillerUserId?: number;
+  deathKillerName?: string;
   private isDead: boolean = false;
   // cache of loaded User objects keyed by userId
   public cachedUsers: Map<number, User> = new Map<number, User>();
@@ -291,6 +292,19 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
       }
     }
     this.deathKillerUserId = killerUserId;
+    // If killer type is an encounter, try to find its display name in the scene
+    try {
+      if (!killerUserId && killerId && (typeof killerId === 'string' || typeof killerId === 'number')) {
+        // killerId may be numeric id of encounter or hero
+        const parsed = parseInt(String(killerId));
+        if (!isNaN(parsed)) {
+          const found = this.mainScene?.level?.children?.find((x: any) => x.id === parsed);
+          if (found && found.name) {
+            this.deathKillerName = found.name;
+          }
+        }
+      }
+    } catch {}
     this.stopPollingForUpdates = true;
     this.isDead = true;
     // Stop the game loop briefly and show a death panel, then return player to 0,0
