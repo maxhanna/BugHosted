@@ -1224,6 +1224,7 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
   const map = this.metaHero.map || 'Town';
   const x = Math.floor((this.metaHero.position?.x ?? 0));
   const y = Math.floor((this.metaHero.position?.y ?? 0));
+  this.closeStartMenu();
   await this.bonesService.createTownPortal(this.metaHero.id, map, x, y, userId);
   alert('Town portal created');
     } catch (ex) { console.error('openTownPortal failed', ex); alert('Failed to open town portal'); }
@@ -1275,6 +1276,7 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
 
   closeMenuPanel() {
     this.isMenuPanelOpen = false;
+    this.closeStartMenu();
     if (this.parentRef) {
       this.parentRef.closeOverlay();
     }
