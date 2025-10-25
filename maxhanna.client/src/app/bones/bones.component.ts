@@ -83,6 +83,9 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
   isChangeStatsOpen = false;
   // optimistic UI state for invites: map heroId -> expiry timestamp (ms)
   pendingInvites: Map<number, number> = new Map<number, number>();
+  // track invites that are being cleared so we can play an animation before removing
+  pendingClearing: Set<number> = new Set<number>();
+  private pendingClearingTimers: Map<number, any> = new Map<number, any>();
   // filter: 'all' | 'party' | 'nearby'
   partyFilter: 'all' | 'party' | 'nearby' = 'all';
   showLeaveConfirm: boolean = false;
@@ -225,6 +228,11 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
   isInvitePending(heroId: number) {
     const expiry = this.pendingInvites.get(heroId);
     return !!(expiry && expiry > Date.now());
+  }
+
+  // Return whether an invite is currently in the clearing animation
+  isPendingClearing(heroId: number) {
+    return this.pendingClearing.has(heroId);
   }
 
   // Return otherHeroes sorted so party members appear at the top, then others by distance or name
@@ -1074,19 +1082,19 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
       if (this.bonesService && typeof (this.bonesService as any).inviteToParty === 'function') {
         try {
           const res: any = await (this.bonesService as any).inviteToParty(this.metaHero.id, heroId, userId);
-          // if server responds negatively, revert optimistic UI
+          // if server responds negatively, revert optimistic UI (with animation)
           if (!(res && (res.success === undefined || res.success === true))) {
-            this.pendingInvites.delete(heroId);
+            this.animateClearPending(heroId);
             alert('Invite failed.');
           }
           // otherwise, server accepted — partyMembers will be reconciled on next fetch
         } catch (err) {
-          this.pendingInvites.delete(heroId);
+          this.animateClearPending(heroId);
           console.error('inviteToParty failed', err);
           alert('Invite failed.');
         }
       } else {
-        this.pendingInvites.delete(heroId);
+        this.animateClearPending(heroId);
         alert('Party invite not implemented on server');
       }
     } catch (ex) { console.error('inviteToParty failed', ex); this.pendingInvites.delete(heroId); alert('Failed to send invite'); }
@@ -1099,8 +1107,8 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
     setTimeout(() => {
       const cur = this.pendingInvites.get(heroId);
       if (cur && cur === expiry) {
-        // expired — allow re-send
-        this.pendingInvites.delete(heroId);
+        // expired — play clearing animation and remove after animation
+        this.animateClearPending(heroId);
       }
     }, ttlMs + 50);
   }
@@ -1111,14 +1119,38 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
     const partySet = new Set((this.partyMembers || []).map(p => p.heroId));
     for (const [heroId, expiry] of Array.from(this.pendingInvites.entries())) {
       if (expiry <= now) {
-        this.pendingInvites.delete(heroId);
+        // expired — animate clear
+        this.animateClearPending(heroId);
         continue;
       }
       if (partySet.has(heroId)) {
-        // accepted — clear pending
-        this.pendingInvites.delete(heroId);
+        // accepted — animate clear
+        this.animateClearPending(heroId);
       }
     }
+  }
+
+  // Start a clearing animation for a pending invite, then remove internal state after animation finishes
+  private animateClearPending(heroId: number, animationMs: number = 600) {
+    try {
+      // If already animating, ignore
+      if (this.pendingClearing.has(heroId)) return;
+      // If no pending invite exists, nothing to animate but still ensure removal
+      if (!this.pendingInvites.has(heroId)) return;
+      // mark as animating
+      this.pendingClearing.add(heroId);
+      // clear any existing timer
+      const existing = this.pendingClearingTimers.get(heroId);
+      if (existing) { try { clearTimeout(existing); } catch { } }
+      const t = setTimeout(() => {
+        try {
+          this.pendingClearing.delete(heroId);
+          this.pendingClearingTimers.delete(heroId);
+          this.pendingInvites.delete(heroId);
+        } catch { }
+      }, animationMs + 20);
+      this.pendingClearingTimers.set(heroId, t);
+    } catch (ex) { console.error('animateClearPending failed', ex); }
   }
 
   async removePartyMember(heroId: number) {
