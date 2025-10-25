@@ -11,6 +11,9 @@ namespace maxhanna.Server.Controllers.DataContracts.Bones
 		[JsonPropertyName("hp")]
 		public int Hp { get; set; } = 100;
 
+		[JsonPropertyName("userId")]
+		public int? UserId { get; set; } = null;
+
 		public string? Name { get; set; }
 		public int Id { get; set; }
 		public Vector2 Position { get; set; } = new Vector2(0, 0); 

@@ -264,7 +264,7 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
     });
   }
 
-  private async handleHeroDeath(params: { killerId?: string | number | null, killerUserId?: number | null, cause?: string | null } | string) {
+  private async handleHeroDeath(params: { killerId?: string | number | null, killerUserId?: number | null, cause?: string | null }) {
     // Debug: log method entry and incoming params (safe stringify)
     try {
       console.debug('handleHeroDeath ENTRY', JSON.parse(JSON.stringify(params)));
@@ -272,98 +272,23 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
       try { console.debug('handleHeroDeath ENTRY (raw)', params); } catch { }
     }
 
-    let killerId: string | undefined = undefined;
-    let killerUserId: number | undefined = undefined;
-    let cause: string | undefined = undefined;
-    if (typeof params === 'string') {
-      killerId = params;
-    } else if (params && typeof params === 'object') {
-      killerId = params.killerId !== undefined && params.killerId !== null ? String(params.killerId) : undefined;
-      killerUserId = params.killerUserId !== undefined && params.killerUserId !== null ? params.killerUserId : undefined;
-      cause = params.cause ?? undefined;
+    let killerId = Number(params.killerId);
+    let killerUserId = Number(params.killerUserId);
+    let cause = params.cause; 
+
+    if (killerId && killerId < 0) {
+      const killer = this.mainScene.level.objects.filter((x: any) => x.heroId == killerId);
+      if (killer.length > 0) {
+        this.deathKillerName = killer[0].name;
+      }
+    } else {
+      const killer = this.otherHeroes.filter(x => x.id == killerId);
+      if (killer) {
+        this.deathKillerName = killer[0].name;
+        this.deathKillerUserId = killer[0].userId;
+      }
     }
 
-    // We don't reliably have userId on MetaHero in this client DTO; leave killerUserId undefined if not provided by the event
-    if (!killerUserId && killerId) {
-      const parsed = parseInt(killerId + '');
-      console.debug('handleHeroDeath: resolving killerUserId from killerId', { killerId, parsed });
-      if (!isNaN(parsed)) {
-        // If the killer id corresponds to a nearby hero, we can try to look up their user via cachedUsers
-        const killerMeta = this.otherHeroes.find(h => h.id === parsed);
-        if (killerMeta) {
-          const possible = this.cachedUsers.get(killerMeta.id as unknown as number);
-          if (possible) killerUserId = possible.id;
-        }
-        console.debug('handleHeroDeath: killerMeta lookup', { killerMeta: killerMeta ?? null, killerUserId });
-      }
-    }
-    this.deathKillerUserId = killerUserId;
-    console.debug('handleHeroDeath: after hero lookup', { killerUserId, deathKillerUserId: this.deathKillerUserId });
-    // If killer type is an encounter, try to find its display name in the scene
-    try {
-      // Support event payload shape where `params` was the full MetaEvent object with nested data
-      // e.g. { data: { killerId: "-999998", killerType: "encounter" } }
-      let killerType: string | undefined = undefined;
-      let killerIdValue: string | number | undefined = undefined;
-      if (typeof (params as any)?.data === 'object' && (params as any)?.data !== null) {
-        killerType = (params as any).data.killerType ?? undefined;
-        killerIdValue = (params as any).data.killerId ?? killerId;
-      } else {
-        killerIdValue = killerId;
-      }
-
-      if (!killerUserId && killerType === 'encounter' && killerIdValue !== undefined && killerIdValue !== null) {
-        const parsedEncounterId = parseInt(String(killerIdValue));
-        console.debug('HERO_DIED: attempting to resolve encounter name', { killerIdValue, parsedEncounterId, killerType });
-        if (!isNaN(parsedEncounterId)) {
-          // Look in level.objects first, then fallback to children for older shape
-          try {
-            const objectsArr = this.mainScene?.level?.objects;
-            const childrenArr = this.mainScene?.level?.children;
-            console.debug('HERO_DIED: level.objects present?', !!objectsArr, 'level.children present?', !!childrenArr);
-            if (objectsArr && Array.isArray(objectsArr)) {
-              console.debug('HERO_DIED: sample objects', objectsArr.slice(0,5).map((o:any) => ({ id: o.id, heroId: o.heroId, name: o.name })));
-            }
-            if (childrenArr && Array.isArray(childrenArr)) {
-              console.debug('HERO_DIED: sample children', childrenArr.slice(0,5).map((o:any) => ({ id: o.id, heroId: o.heroId, name: o.name })));
-            }
-            let foundObj = objectsArr?.find((o: any) => o && (o.heroId ?? o.id) === parsedEncounterId);
-            console.debug('HERO_DIED: found in objects?', !!foundObj);
-            if (!foundObj) {
-              foundObj = childrenArr?.find((x: any) => (x.heroId ?? x.id) === parsedEncounterId);
-              console.debug('HERO_DIED: found in children?', !!foundObj);
-            }
-            if (foundObj && foundObj.name) {
-              // Pascal-case simple names like 'big rat' -> 'BigRat'
-              const words = String(foundObj.name).split(/[^a-zA-Z0-9]+/).filter(Boolean);
-              this.deathKillerName = words.map(w => w.charAt(0).toUpperCase() + w.slice(1)).join('');
-              console.debug('HERO_DIED: resolved deathKillerName=', this.deathKillerName, 'from', foundObj);
-            } else {
-              console.debug('HERO_DIED: no matching object found for encounter id', parsedEncounterId);
-            }
-          } catch (ex) {
-            console.error('HERO_DIED: error while resolving encounter name', ex);
-          }
-        } else {
-          console.debug('HERO_DIED: parsedEncounterId is NaN for killerIdValue', killerIdValue);
-        }
-      } else if (!killerUserId && killerId && (typeof killerId === 'string' || typeof killerId === 'number')) {
-        // Fallback: killerId may be numeric id of encounter or hero
-        const parsed = parseInt(String(killerId));
-        if (!isNaN(parsed)) {
-          const found = this.mainScene?.level?.children?.find((x: any) => x.id === parsed);
-          if (found && found.name) {
-            this.deathKillerName = found.name;
-          }
-        }
-      }
-    } catch (ex) { console.error('handleHeroDeath: unexpected error resolving killer name', ex); }
-    // Final debug state before applying death UI
-    try {
-      console.debug('handleHeroDeath: final state', {
-        killerId, killerUserId, cause, killerKillerName: this.deathKillerName, deathKillerUserId: this.deathKillerUserId
-      });
-    } catch { }
     this.stopPollingForUpdates = true;
     this.isDead = true;
     // Stop the game loop briefly and show a death panel, then return player to 0,0

@@ -11,10 +11,11 @@ export class MetaHero {
   hp?: number;
   level?: number;
   exp?: number;
+  userId?: number;
   map: string;
   color?: string;
   mask?: number;
-  constructor(id: number, name: string, position: Vector2, speed: number, map: string, color?: string, mask?: number, hp?: number, level?: number, exp?: number, attackSpeed?: number) {
+  constructor(id: number, name: string, position: Vector2, speed: number, map: string, color?: string, mask?: number, hp?: number, level?: number, exp?: number, attackSpeed?: number, userId?: number) {
     this.id = id; 
     this.name = name;
     this.position = position; 
@@ -23,6 +24,7 @@ export class MetaHero {
     this.level = level ?? 1;
     this.exp = exp ?? 0;
     this.attackSpeed = attackSpeed ?? 400; // default 400ms
+    this.userId = userId;
     this.map = map;
     this.color = color;
     this.mask = mask;
