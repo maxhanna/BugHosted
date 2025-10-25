@@ -360,7 +360,8 @@ namespace maxhanna.Server.Controllers
 								WHERE h.map = @Map
 									AND h.hp > 0
 									AND h.coordsX BETWEEN @XMin AND @XMax
-									AND h.coordsY BETWEEN @YMin AND @YMax;";
+									AND h.coordsY BETWEEN @YMin AND @YMax
+									AND h.id <> @AttackerId;";
 								var heroDamageParams = new Dictionary<string, object?>()
 								{
 									{ "@Map", hero.Map ?? string.Empty },
@@ -368,20 +369,22 @@ namespace maxhanna.Server.Controllers
 									{ "@XMin", xMin },
 									{ "@XMax", xMax },
 									{ "@YMin", yMin },
-									{ "@YMax", yMax }
+									{ "@YMax", yMax },
+									{ "@AttackerId", sourceHeroId }
 								};
 								int heroRows = Convert.ToInt32(await ExecuteInsertOrUpdateOrDeleteAsync(heroDamageSql, heroDamageParams, connection, transaction));
 
 								if (heroRows > 0)
 								{
 									// Find affected hero ids so we can emit HERO_DAMAGE per victim with their damage amount
-									string selectHeroesSql = @"SELECT id, hp FROM maxhanna.bones_hero WHERE map = @Map AND coordsX BETWEEN @XMin AND @XMax AND coordsY BETWEEN @YMin AND @YMax;";
+									string selectHeroesSql = @"SELECT id, hp FROM maxhanna.bones_hero WHERE map = @Map AND coordsX BETWEEN @XMin AND @XMax AND coordsY BETWEEN @YMin AND @YMax AND id <> @AttackerId;";
 									using var selCmd = new MySqlCommand(selectHeroesSql, connection, transaction);
 									selCmd.Parameters.AddWithValue("@Map", hero.Map ?? string.Empty);
 									selCmd.Parameters.AddWithValue("@XMin", xMin);
 									selCmd.Parameters.AddWithValue("@XMax", xMax);
 									selCmd.Parameters.AddWithValue("@YMin", yMin);
 									selCmd.Parameters.AddWithValue("@YMax", yMax);
+									selCmd.Parameters.AddWithValue("@AttackerId", sourceHeroId);
 									using var selR = await selCmd.ExecuteReaderAsync();
 									var victims = new List<(int id, int hp)>();
 									while (await selR.ReadAsync())
@@ -626,6 +629,21 @@ namespace maxhanna.Server.Controllers
 				await transaction.RollbackAsync();
 				await _log.Db("RespawnHero failed: " + ex.Message, heroId, "BONES", true);
 				return StatusCode(500, "Internal server error: " + ex.Message);
+			}
+		}
+
+		private async Task HandleHeroRespawn(int heroId, MySqlConnection conn, MySqlTransaction tx)
+		{
+			if (heroId <= 0) return;
+			try
+			{
+				string sql = @"UPDATE maxhanna.bones_hero SET coordsX = 0, coordsY = 0, hp = 100, updated = UTC_TIMESTAMP() WHERE id = @HeroId LIMIT 1;";
+				var parameters = new Dictionary<string, object?>() { { "@HeroId", heroId } };
+				await ExecuteInsertOrUpdateOrDeleteAsync(sql, parameters, conn, tx);
+			}
+			catch (Exception ex)
+			{
+				await _log.Db("HandleHeroRespawn failed: " + ex.Message, heroId, "BONES", true);
 			}
 		}
 
@@ -1440,6 +1458,11 @@ namespace maxhanna.Server.Controllers
 										// attack speed in milliseconds
 										{ "attack_speed", (e.attackSpeed <= 0 ? 400 : e.attackSpeed).ToString() }
 									};
+									// Defensive: do not allow an encounter to attack itself
+									if (closest.Value.heroId == e.heroId) {
+										continue;
+									}
+
 									// Use the target hero's id for the bones_event.hero_id column so it satisfies FK constraints
 									var attackEvent = new MetaEvent(0, closest.Value.heroId, DateTime.UtcNow, "ATTACK", map, data);
 									await UpdateEventsInDB(attackEvent, connection, transaction);
