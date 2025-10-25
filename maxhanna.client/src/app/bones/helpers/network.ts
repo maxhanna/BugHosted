@@ -302,19 +302,19 @@ export function subscribeToMainGameEvents(object: any) {
   events.on("SHOW_START_BUTTON", object, () => {
     object.hideStartButton = false;
   })
-  events.on("START_PRESSED", object, (data: any) => {
-    if (object.blockOpenStartMenu) {
-      return;
-    }
-    if (object.isStartMenuOpened) {
-      events.emit("CLOSE_INVENTORY_MENU", data);
-      events.emit("UNBLOCK_BACKGROUND_SELECTION");
-    } else {
-      const exits = object.mainScene.level.children.filter((x: GameObject) => x.name == "exitObject"); 
-      events.emit("OPEN_START_MENU", ({ exits: exits, location: object.mainScene.metaHero.position }));
-      events.emit("BLOCK_BACKGROUND_SELECTION");
-    }
-  });
+  // events.on("START_PRESSED", object, (data: any) => {
+  //   if (object.blockOpenStartMenu) {
+  //     return;
+  //   }
+  //   if (object.isStartMenuOpened) {
+  //     events.emit("CLOSE_INVENTORY_MENU", data);
+  //     events.emit("UNBLOCK_BACKGROUND_SELECTION");
+  //   } else {
+  //     const exits = object.mainScene.level.children.filter((x: GameObject) => x.name == "exitObject"); 
+  //     events.emit("OPEN_START_MENU", ({ exits: exits, location: object.mainScene.metaHero.position }));
+  //     events.emit("BLOCK_BACKGROUND_SELECTION");
+  //   }
+  // });
 
   events.on("CLOSE_INVENTORY_MENU", object, () => {
     object.isStartMenuOpened = false;
