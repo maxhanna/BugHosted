@@ -265,6 +265,13 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
   }
 
   private async handleHeroDeath(params: { killerId?: string | number | null, killerUserId?: number | null, cause?: string | null } | string) {
+    // Debug: log method entry and incoming params (safe stringify)
+    try {
+      console.debug('handleHeroDeath ENTRY', JSON.parse(JSON.stringify(params)));
+    } catch (ex) {
+      try { console.debug('handleHeroDeath ENTRY (raw)', params); } catch { }
+    }
+
     let killerId: string | undefined = undefined;
     let killerUserId: number | undefined = undefined;
     let cause: string | undefined = undefined;
@@ -279,6 +286,7 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
     // We don't reliably have userId on MetaHero in this client DTO; leave killerUserId undefined if not provided by the event
     if (!killerUserId && killerId) {
       const parsed = parseInt(killerId + '');
+      console.debug('handleHeroDeath: resolving killerUserId from killerId', { killerId, parsed });
       if (!isNaN(parsed)) {
         // If the killer id corresponds to a nearby hero, we can try to look up their user via cachedUsers
         const killerMeta = this.otherHeroes.find(h => h.id === parsed);
@@ -286,9 +294,11 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
           const possible = this.cachedUsers.get(killerMeta.id as unknown as number);
           if (possible) killerUserId = possible.id;
         }
+        console.debug('handleHeroDeath: killerMeta lookup', { killerMeta: killerMeta ?? null, killerUserId });
       }
     }
     this.deathKillerUserId = killerUserId;
+    console.debug('handleHeroDeath: after hero lookup', { killerUserId, deathKillerUserId: this.deathKillerUserId });
     // If killer type is an encounter, try to find its display name in the scene
     try {
       // Support event payload shape where `params` was the full MetaEvent object with nested data
@@ -347,7 +357,13 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
           }
         }
       }
-    } catch {}
+    } catch (ex) { console.error('handleHeroDeath: unexpected error resolving killer name', ex); }
+    // Final debug state before applying death UI
+    try {
+      console.debug('handleHeroDeath: final state', {
+        killerId, killerUserId, cause, killerKillerName: this.deathKillerName, deathKillerUserId: this.deathKillerUserId
+      });
+    } catch { }
     this.stopPollingForUpdates = true;
     this.isDead = true;
     // Stop the game loop briefly and show a death panel, then return player to 0,0
