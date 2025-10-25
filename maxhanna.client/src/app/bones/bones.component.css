@@ -2,6 +2,7 @@
   font-family: fontRetroGaming;
   src: url("../../assets/metabots/retro-gaming.ttf")
 }
+
 @font-face {
   font-family: owreKynge;
   src: url("../../assets/bones/OwreKynge.ttf")
@@ -163,7 +164,7 @@ body {
 }
 
 
-.inputArea {  
+.inputArea {
   display: flex;
   justify-content: center;
   row-gap: 6px;
@@ -588,8 +589,13 @@ body {
   color: var(--secondary-font-color);
   font-size: large;
 }
+
 .changeCharacterPanel {
-    min-width: 300px;
+  min-width: 300px;
+}
+
+.deathPanel {
+  font-size: xx-large !important;
 }
 
 .deathPanel,
@@ -604,4 +610,3 @@ body {
   font-family: owreKynge;
   font-size: large;
 }
-
