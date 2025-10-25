@@ -320,6 +320,29 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
     events.on("HERO_DIED", this, (payload: any) => {
       this.handleHeroDeath(payload);
     });
+    // When a party invite is accepted (server or remote client confirmed),
+    // clear any optimistic pending invites and ensure partyMembers reflect the new party.
+    events.on("PARTY_INVITE_ACCEPTED", this, (payload: any) => {
+      try {
+        if (!payload || !payload.party) return;
+        // payload.party expected to be array of { heroId, name, color }
+        const partyArr = payload.party as any[];
+        for (const m of partyArr) {
+          try { if (m && m.heroId) this.pendingInvites.delete(m.heroId); } catch { }
+        }
+        // Update party members locally and refresh inventory/scene wiring
+        this.partyMembers = Array.isArray(partyArr) ? partyArr.map(p => ({ heroId: p.heroId, name: p.name, color: p.color })) : [];
+        try {
+          if (this.mainScene && this.mainScene.inventory) {
+            this.mainScene.inventory.partyMembers = this.partyMembers;
+            this.mainScene.inventory.renderParty();
+          }
+          if (this.mainScene) this.mainScene.partyMembers = this.partyMembers;
+        } catch { }
+        // Reconcile to remove any expired or accepted pending invites
+        try { this.reconcilePendingInvites(); } catch { }
+      } catch (ex) { console.error('Error handling PARTY_INVITE_ACCEPTED', ex); }
+    });
   }
 
   private async handleHeroDeath(params: { killerId?: string | number | null, killerUserId?: number | null, cause?: string | null }) {
