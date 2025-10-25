@@ -113,4 +113,8 @@ export class BonesService {
   async getUserRank(userId: number) {
     return this.fetchData('/bones/getuserrank', userId);
   }
+
+  async respawnHero(heroId: number) {
+    return this.fetchData('/bones/respawnhero', heroId);
+  }
 }

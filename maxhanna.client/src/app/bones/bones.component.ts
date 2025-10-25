@@ -65,6 +65,12 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
   partyMembers: { heroId: number, name: string, color?: string }[] = [];
   chat: MetaChat[] = [];
   events: MetaEvent[] = [];
+  // Death UI/state
+  showDeathPanel: boolean = false;
+  deathKillerUserId?: number;
+  private isDead: boolean = false;
+  // cache of loaded User objects keyed by userId
+  public cachedUsers: Map<number, User> = new Map<number, User>();
   latestMessagesMap = new Map<string, MetaChat>();
   stopChatScroll = false;
   stopPollingForUpdates = false;
@@ -255,6 +261,87 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
 
   ngAfterViewInit() {
     this.mainScene.input.setChatInput(this.chatInput.nativeElement);
+    events.on("HERO_DIED", this, (payload: any) => {
+      this.handleHeroDeath(payload);
+    });
+  }
+
+  private async handleHeroDeath(params: { killerId?: string | number | null, killerUserId?: number | null, cause?: string | null } | string) {
+    let killerId: string | undefined = undefined;
+    let killerUserId: number | undefined = undefined;
+    let cause: string | undefined = undefined;
+    if (typeof params === 'string') {
+      killerId = params;
+    } else if (params && typeof params === 'object') {
+      killerId = params.killerId !== undefined && params.killerId !== null ? String(params.killerId) : undefined;
+      killerUserId = params.killerUserId !== undefined && params.killerUserId !== null ? params.killerUserId : undefined;
+      cause = params.cause ?? undefined;
+    }
+
+    // We don't reliably have userId on MetaHero in this client DTO; leave killerUserId undefined if not provided by the event
+    if (!killerUserId && killerId) {
+      const parsed = parseInt(killerId + '');
+      if (!isNaN(parsed)) {
+        // If the killer id corresponds to a nearby hero, we can try to look up their user via cachedUsers
+        const killerMeta = this.otherHeroes.find(h => h.id === parsed);
+        if (killerMeta) {
+          const possible = this.cachedUsers.get(killerMeta.id as unknown as number);
+          if (possible) killerUserId = possible.id;
+        }
+      }
+    }
+    this.deathKillerUserId = killerUserId;
+    this.stopPollingForUpdates = true;
+    this.isDead = true;
+    // Stop the game loop briefly and show a death panel, then return player to 0,0
+    setTimeout(() => {
+      try { this.gameLoop.stop(); } catch {}
+      try { this.mainScene?.destroy(); } catch {}
+      this.showDeathPanel = true;
+      this.isMenuPanelOpen = false;
+      this.parentRef?.showOverlay();
+    }, 500);
+  }
+
+  returnFromDeath() {
+    // Ask server to respawn hero (set coords to 0,0 and hp to 100) and reinitialize client state from authoritative response
+    (async () => {
+      try {
+        const res: any = await this.bonesService.respawnHero(this.metaHero.id);
+        if (res && res.id) {
+          // Use server-provided MetaHero to reinitialize local hero and scene
+          await this.reinitializeHero(res, true);
+        } else {
+          // Fallback: immediate local reposition
+          if (this.metaHero) this.metaHero.position = new Vector2(0, 0);
+          if (this.hero) {
+            this.hero.position = new Vector2(0, 0);
+            this.hero.destinationPosition = this.hero.position.duplicate();
+            this.hero.lastPosition = this.hero.position.duplicate();
+          }
+        }
+      }
+      catch (ex) {
+        // If server call fails, fallback to local reposition so UX is not blocked
+        try { if (this.metaHero) this.metaHero.position = new Vector2(0, 0); } catch {}
+        try { if (this.hero) { this.hero.position = new Vector2(0, 0); this.hero.destinationPosition = this.hero.position.duplicate(); this.hero.lastPosition = this.hero.position.duplicate(); } } catch {}
+      }
+      finally {
+        // Hide death UI and resume polling/loop
+        this.showDeathPanel = false;
+        this.isDead = false;
+        this.stopPollingForUpdates = false;
+        try { this.mainScene.setLevel(this.getLevelFromLevelName(this.metaHero.map)); } catch {}
+        try { this.gameLoop.start(); } catch {}
+        this.parentRef?.closeOverlay();
+      }
+    })();
+  }
+
+  // Handler for user-tag components to emit loaded users so we can cache them and reuse
+  onUserTagLoaded(user?: User) {
+    if (!user || !user.id) return;
+    this.cachedUsers.set(user.id, user);
   }
 
   update = async (delta: number) => {

@@ -150,3 +150,27 @@
   </div>
   <button id="closeOverlay" class="closeButton" (click)="closeChangeCharacter()">Close</button>
 </div>
+
+<!-- Death overlay -->
+<div class="popupPanel deathPanel" *ngIf="showDeathPanel" style="max-width:320px; text-align:center;">
+  <div class="popupPanelTitle mainPopupTitle">You Died</div>
+  <div class="finalScoreWrapper">
+    <div style="pointer-events:none; margin-bottom:8px; font-weight:bold">
+      You were killed
+    </div>
+    <div class="killerAndStatsWrapper">
+      <div *ngIf="deathKillerUserId" class="deathKillerInfo">
+        <div style="margin-bottom:6px;"><strong>Killed by:</strong></div>
+        <div *ngIf="deathKillerUserId" class="deathKillerAvatarContainer">
+          <app-user-tag [user]="cachedUsers.get(deathKillerUserId)" [userId]="deathKillerUserId"
+            [inputtedParentRef]="parentRef" [displayOnlyAvatar]="false" [openInNewTab]="true"
+            (userLoaded)="onUserTagLoaded($event)"></app-user-tag>
+        </div>
+      </div>
+      <div class="deathKillStatInfo">
+        <div>Return to spawn at (0,0)</div>
+      </div>
+    </div>
+    <button class="closeButton" id="closeOverlay" (click)="returnFromDeath()">Respawn</button>
+  </div>
+</div>

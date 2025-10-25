@@ -383,14 +383,33 @@ namespace maxhanna.Server.Controllers
 									selCmd.Parameters.AddWithValue("@YMin", yMin);
 									selCmd.Parameters.AddWithValue("@YMax", yMax);
 									using var selR = await selCmd.ExecuteReaderAsync();
-									var victims = new List<int>();
+									var victims = new List<(int id, int hp)>();
 									while (await selR.ReadAsync())
 									{
-										victims.Add(selR.GetInt32(0));
+										int id = selR.GetInt32(0);
+										int hp = selR.IsDBNull(1) ? 0 : selR.GetInt32(1);
+										victims.Add((id, hp));
 									}
 									selR.Close();
 
-									// No per-hero immediate events emitted: frontend detects HP changes from FetchGameData heroes payload.
+									// No per-hero immediate damage events emitted: frontend detects HP changes from FetchGameData heroes payload.
+									// However, if any hero reached 0 HP, handle death server-side in the same transaction so position reset and event emission
+									// are atomic with the damage update.
+									foreach (var v in victims)
+									{
+										if (v.hp <= 0)
+										{
+											try
+											{
+												// sourceHeroId is the attacker (may be the original hero sending the attack)
+												await HandleHeroDeath(v.id, sourceHeroId, "hero", hero.Map ?? string.Empty, connection, transaction);
+											}
+											catch (Exception exHd2)
+											{
+												await _log.Db("HandleHeroDeath failed: " + exHd2.Message, v.id, "BONES", true);
+											}
+										}
+									}
 								}
 							}
 							catch (Exception exHd)
@@ -581,6 +600,31 @@ namespace maxhanna.Server.Controllers
 			catch (Exception ex)
 			{
 				await transaction.RollbackAsync();
+				return StatusCode(500, "Internal server error: " + ex.Message);
+			}
+		}
+
+		[HttpPost("/Bones/RespawnHero", Name = "Bones_RespawnHero")]
+		public async Task<IActionResult> RespawnHero([FromBody] int heroId)
+		{
+			if (heroId <= 0) return BadRequest("heroId required");
+			using var connection = new MySqlConnection(_connectionString);
+			await connection.OpenAsync();
+			using var transaction = connection.BeginTransaction();
+			try
+			{
+				string sql = @"UPDATE maxhanna.bones_hero SET coordsX = 0, coordsY = 0, hp = 100, updated = UTC_TIMESTAMP() WHERE id = @HeroId LIMIT 1;";
+				var parameters = new Dictionary<string, object?>() { { "@HeroId", heroId } };
+				await ExecuteInsertOrUpdateOrDeleteAsync(sql, parameters, connection, transaction);
+				// Return updated MetaHero using existing helper
+				var hero = await GetHeroData(0, heroId, connection, transaction);
+				await transaction.CommitAsync();
+				return Ok(hero);
+			}
+			catch (Exception ex)
+			{
+				await transaction.RollbackAsync();
+				await _log.Db("RespawnHero failed: " + ex.Message, heroId, "BONES", true);
 				return StatusCode(500, "Internal server error: " + ex.Message);
 			}
 		}
@@ -1701,6 +1745,30 @@ namespace maxhanna.Server.Controllers
 			}
 			catch { /* swallow logging errors to avoid impacting game flow */ }
 			await Task.CompletedTask;
+		}
+
+		// Handle hero death: reset coordinates to (0,0) on the same map and emit a HERO_DIED meta-event with killer info.
+		private async Task HandleHeroDeath(int victimHeroId, int killerId, string killerType, string map, MySqlConnection connection, MySqlTransaction transaction)
+		{
+			try
+			{
+				// Reset hero position to origin (0,0) and update timestamp
+				string updSql = "UPDATE maxhanna.bones_hero SET coordsX = 0, coordsY = 0, updated = UTC_TIMESTAMP() WHERE id = @HeroId LIMIT 1;";
+				var updParams = new Dictionary<string, object?>() { { "@HeroId", victimHeroId } };
+				await ExecuteInsertOrUpdateOrDeleteAsync(updSql, updParams, connection, transaction);
+
+				// Emit HERO_DIED event targeted at the victim so client will display death UI and can react.
+				var data = new Dictionary<string, string>() {
+					{ "killerId", killerId.ToString() },
+					{ "killerType", killerType }
+				};
+				var deathEvent = new MetaEvent(0, victimHeroId, DateTime.UtcNow, "HERO_DIED", map ?? string.Empty, data);
+				await UpdateEventsInDB(deathEvent, connection, transaction);
+			}
+			catch (Exception ex)
+			{
+				await _log.Db("HandleHeroDeath failed: " + ex.Message, victimHeroId, "BONES", true);
+			}
 		}
 		private async Task UpdateMetaHeroParty(List<int>? partyData, MySqlConnection connection, MySqlTransaction transaction)
 		{
