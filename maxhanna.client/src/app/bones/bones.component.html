@@ -205,14 +205,13 @@
       <button [disabled]="partyFilter==='all'" (click)="partyFilter='all'">All</button>
       <button [disabled]="partyFilter==='party'" (click)="partyFilter='party'">Party</button>
       <button [disabled]="partyFilter==='nearby'" (click)="partyFilter='nearby'">Nearby</button>
+      <button (click)="isPartyPanelOpen = false" style="float:right; margin-top:-36px;">Close</button>
     </div>
     <div *ngIf="otherHeroes && otherHeroes.length > 0">
       <!-- Show a Leave Party button for the current player -->
       <div style="display:flex; justify-content:center; margin-bottom:8px;">
         <button (click)="confirmLeaveParty()">Leave Party</button>
-      </div>
-      <button id="closeOverlay" class="closeButton" (click)="isPartyPanelOpen = false"
-        style="float:right; margin-top:-36px;">Close</button>
+      </div> 
       <div *ngFor="let p of getSortedHeroes()"
         style="display:flex; align-items:center; justify-content:space-between; padding:6px; border-bottom:1px solid #222;">
         <div style="display:flex; align-items:center; gap:8px;">
