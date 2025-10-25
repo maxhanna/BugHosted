@@ -361,7 +361,12 @@ namespace maxhanna.Server.Controllers
 									AND h.hp > 0
 									AND h.coordsX BETWEEN @XMin AND @XMax
 									AND h.coordsY BETWEEN @YMin AND @YMax
-									AND h.id <> @AttackerId;";
+									AND h.id <> @AttackerId
+									AND NOT EXISTS (
+										SELECT 1 FROM maxhanna.bones_hero_party p
+										WHERE (p.bones_hero_id_1 = @AttackerId AND p.bones_hero_id_2 = h.id)
+										   OR (p.bones_hero_id_2 = @AttackerId AND p.bones_hero_id_1 = h.id)
+									);";
 								var heroDamageParams = new Dictionary<string, object?>()
 								{
 									{ "@Map", hero.Map ?? string.Empty },
@@ -377,7 +382,9 @@ namespace maxhanna.Server.Controllers
 								if (heroRows > 0)
 								{
 									// Find affected hero ids so we can emit HERO_DAMAGE per victim with their damage amount
-									string selectHeroesSql = @"SELECT id, hp FROM maxhanna.bones_hero WHERE map = @Map AND coordsX BETWEEN @XMin AND @XMax AND coordsY BETWEEN @YMin AND @YMax AND id <> @AttackerId;";
+									string selectHeroesSql = @"SELECT id, hp FROM maxhanna.bones_hero h WHERE map = @Map AND coordsX BETWEEN @XMin AND @XMax AND coordsY BETWEEN @YMin AND @YMax AND h.id <> @AttackerId AND NOT EXISTS (
+										SELECT 1 FROM maxhanna.bones_hero_party p WHERE (p.bones_hero_id_1 = @AttackerId AND p.bones_hero_id_2 = h.id) OR (p.bones_hero_id_2 = @AttackerId AND p.bones_hero_id_1 = h.id)
+									);";
 									using var selCmd = new MySqlCommand(selectHeroesSql, connection, transaction);
 									selCmd.Parameters.AddWithValue("@Map", hero.Map ?? string.Empty);
 									selCmd.Parameters.AddWithValue("@XMin", xMin);
