@@ -525,7 +525,10 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
       return;
     }
 
-    this.otherHeroes = res.heroes;
+  // Keep reference to previous local HP to detect HP drops
+  const previousLocalHp = this.metaHero?.hp ?? undefined;
+
+  this.otherHeroes = res.heroes;
     const ids: number[] = [];
 
     for (let i = 0; i < this.otherHeroes.length; i++) {
@@ -566,6 +569,16 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
         try { this.metaHero.level = heroMeta.level ?? this.metaHero.level; } catch {}
         try { this.metaHero.exp = heroMeta.exp ?? this.metaHero.exp; } catch {}
         if (this.hero) {
+          // Detect HP drop for local hero and play attenuated impact SFX
+          try {
+            const incomingHp = heroMeta.hp ?? this.hero.hp ?? 0;
+            const prevHp = typeof previousLocalHp === 'number' ? previousLocalHp : (this.hero.hp ?? incomingHp);
+            if (incomingHp < prevHp) {
+              // compute distance-based volume (self-hit should always be audible)
+              const vol = 1.0; // play at full volume for self
+              try { resources.playSound('punchOrImpact', { volume: vol, allowOverlap: true }); } catch {}
+            }
+          } catch {}
           this.hero.hp = heroMeta.hp ?? 0;  
           this.hero.level = heroMeta.level ?? 1; 
           this.hero.exp = heroMeta.exp ?? 0;  
