@@ -36,10 +36,7 @@ import { ChatSpriteTextString } from './objects/SpriteTextString/chat-sprite-tex
 })
 
 export class BonesComponent extends ChildComponent implements OnInit, OnDestroy, AfterViewInit {
-  // Helper to format currentVolume as percentage for the template
-  volumePercent(): number {
-    return Math.round((this.currentVolume ?? 0) * 100);
-  }
+
   @ViewChild('gameCanvas', { static: true }) gameCanvas!: ElementRef<HTMLCanvasElement>;
   @ViewChild('chatInput') chatInput!: ElementRef<HTMLInputElement>;
   @ViewChild('colorInput') colorInput!: ElementRef<HTMLInputElement>;
@@ -570,15 +567,12 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
         try { this.metaHero.exp = heroMeta.exp ?? this.metaHero.exp; } catch {}
         if (this.hero) {
           // Detect HP drop for local hero and play attenuated impact SFX
-          try {
+          
             const incomingHp = heroMeta.hp ?? this.hero.hp ?? 0;
             const prevHp = typeof previousLocalHp === 'number' ? previousLocalHp : (this.hero.hp ?? incomingHp);
             if (incomingHp < prevHp) {
-              // compute distance-based volume (self-hit should always be audible)
-              const vol = 1.0; // play at full volume for self
-              try { resources.playSound('punchOrImpact', { volume: vol, allowOverlap: true }); } catch {}
-            }
-          } catch {}
+              resources.playSound('punchOrImpact', { volume: this.currentVolume, allowOverlap: true });  
+            } 
           this.hero.hp = heroMeta.hp ?? 0;  
           this.hero.level = heroMeta.level ?? 1; 
           this.hero.exp = heroMeta.exp ?? 0;  
@@ -983,5 +977,8 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
     if (this.parentRef) {
       this.parentRef.closeOverlay();
     }
+  }
+  volumePercent(): number {
+    return Math.round((this.currentVolume ?? 0) * 100);
   }
 }
