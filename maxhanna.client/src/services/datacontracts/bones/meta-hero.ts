@@ -9,13 +9,16 @@ export class MetaHero {
   speed: number;
   attackSpeed?: number;  // attackSpeed in milliseconds (minimum time between attacks)
   hp?: number;
+  str?: number;
+  dex?: number;
+  int?: number;
   level?: number;
   exp?: number;
   userId?: number;
   map: string;
   color?: string;
   mask?: number;
-  constructor(id: number, name: string, position: Vector2, speed: number, map: string, color?: string, mask?: number, hp?: number, level?: number, exp?: number, attackSpeed?: number, userId?: number) {
+  constructor(id: number, name: string, position: Vector2, speed: number, map: string, color?: string, mask?: number, hp?: number, level?: number, exp?: number, attackSpeed?: number, userId?: number, str?: number, dex?: number, int?: number) {
     this.id = id; 
     this.name = name;
     this.position = position; 
@@ -28,5 +31,8 @@ export class MetaHero {
     this.map = map;
     this.color = color;
     this.mask = mask;
+    this.str = str ?? 0;
+    this.dex = dex ?? 0;
+    this.int = int ?? 0;
   } 
 }

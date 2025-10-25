@@ -75,9 +75,14 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
   isDecidingOnParty = false;
   actionBlocker = false;
   blockOpenStartMenu = false;
-  isStartMenuOpened = false;
   isShopMenuOpened = false;
   hideStartButton = false;
+  // Start menu / panels
+  isStartMenuOpened = false;
+  isPartyPanelOpen = false;
+  isChangeStatsOpen = false;
+  // Stats editing model (simple local model until backend exists)
+  editableStats: { str: number; dex: number; int: number; pointsAvailable: number } = { str: 1, dex: 1, int: 1, pointsAvailable: 0 };
   // Change character popup state
   isChangeCharacterOpen = false;
   selections: any[] = [];
@@ -910,6 +915,131 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
     if (this.parentRef) {
       this.parentRef.showOverlay();
     }  
+  }
+
+  // Start menu toggles
+  async toggleStartMenu() {
+    if (this.isStartMenuOpened) {
+      this.closeStartMenu();
+      return;
+    }
+    this.isStartMenuOpened = true;
+    this.isMenuPanelOpen = false;
+    this.parentRef?.showOverlay();
+    // lock player movement while start menu open
+    if (this.hero) this.hero.isLocked = true;
+    // initialize editable stats from metaHero
+    try {
+      const level = this.metaHero?.level ?? 1;
+      // assume base stats are 1 each and points = level - 1 for allocation
+      const base = 1;
+      const points = Math.max(0, level - 1);
+      this.editableStats = { str: base, dex: base, int: base, pointsAvailable: points };
+      // If server provides actual stats on metaHero, use them (non-breaking)
+      try {
+        const mhAny: any = this.metaHero as any;
+        if (mhAny.stats) {
+          this.editableStats.str = mhAny.stats.str ?? this.editableStats.str;
+          this.editableStats.dex = mhAny.stats.dex ?? this.editableStats.dex;
+          this.editableStats.int = mhAny.stats.int ?? this.editableStats.int;
+          // recalc pointsAvailable conservatively
+          const spent = (this.editableStats.str + this.editableStats.dex + this.editableStats.int) - 3;
+          this.editableStats.pointsAvailable = Math.max(0, points - spent);
+        }
+      } catch { }
+    } catch { }
+  }
+
+  closeStartMenu() {
+    this.isStartMenuOpened = false;
+    this.isPartyPanelOpen = false;
+    this.isChangeStatsOpen = false;
+    if (this.hero) this.hero.isLocked = false;
+    this.parentRef?.closeOverlay();
+  }
+
+  openPartyPanel() {
+    this.isPartyPanelOpen = true;
+    this.isChangeStatsOpen = false;
+    // ensure party members list is up to date
+    if (this.metaHero && this.metaHero.id) {
+      this.bonesService.getPartyMembers(this.metaHero.id).then(pm => {
+        this.partyMembers = pm ?? [];
+        if (this.mainScene && this.mainScene.inventory) {
+          this.mainScene.inventory.partyMembers = this.partyMembers;
+          this.mainScene.inventory.renderParty();
+        }
+      }).catch(() => { });
+    }
+  }
+
+  async inviteToParty(heroId: number) {
+    try {
+      if (!this.metaHero || !this.metaHero.id) return;
+      // try to call server API - if missing, fail gracefully
+      const userId = this.parentRef?.user?.id ?? undefined;
+      if (this.bonesService && typeof (this.bonesService as any).inviteToParty === 'function') {
+        await (this.bonesService as any).inviteToParty(this.metaHero.id, heroId, userId);
+        alert('Party invite sent');
+      } else {
+        alert('Party invite not implemented on server');
+      }
+    } catch (ex) { console.error('inviteToParty failed', ex); alert('Failed to send invite'); }
+  }
+
+  // removePartyMember removed: server no longer supports removing other players. Use leaveParty() to leave your own party.
+
+  async leaveParty() {
+    try {
+      if (!this.metaHero || !this.metaHero.id) return;
+      const userId = this.parentRef?.user?.id ?? undefined;
+      if (this.bonesService && typeof (this.bonesService as any).leaveParty === 'function') {
+        await (this.bonesService as any).leaveParty(this.metaHero.id, userId);
+        alert('Left party');
+        this.partyMembers = [];
+      } else {
+        alert('Leave party not implemented on server');
+      }
+    } catch (ex) { console.error('leaveParty failed', ex); alert('Failed to leave party'); }
+  }
+
+  openChangeStats() {
+    this.isChangeStatsOpen = true;
+    this.isPartyPanelOpen = false;
+  }
+
+  adjustStat(stat: 'str'|'dex'|'int', delta: number) {
+    if (!this.editableStats) return;
+    if (delta > 0 && this.editableStats.pointsAvailable <= 0) return;
+    const next = (this.editableStats as any)[stat] + delta;
+    if (next < 1) return; // don't allow below 1
+    (this.editableStats as any)[stat] = next;
+    if (delta > 0) this.editableStats.pointsAvailable -= delta; else this.editableStats.pointsAvailable += Math.abs(delta);
+  }
+
+  async applyStats() {
+    try {
+      // send to server if API exists
+      if (this.bonesService && typeof (this.bonesService as any).updateHeroStats === 'function') {
+        await (this.bonesService as any).updateHeroStats(this.metaHero.id, { str: this.editableStats.str, dex: this.editableStats.dex, int: this.editableStats.int });
+        alert('Stats updated');
+      } else {
+        alert('Update stats not implemented on server. Local demo applied.');
+      }
+    } catch (ex) { console.error('applyStats failed', ex); alert('Failed to update stats'); }
+    this.closeStartMenu();
+  }
+
+  async openTownPortal() {
+    try {
+      if (!this.metaHero || !this.metaHero.id) return;
+  const userId = this.parentRef?.user?.id;
+  const map = this.metaHero.map || 'Town';
+  const x = Math.floor((this.metaHero.position?.x ?? 0));
+  const y = Math.floor((this.metaHero.position?.y ?? 0));
+  await this.bonesService.createTownPortal(this.metaHero.id, map, x, y, userId);
+  alert('Town portal created');
+    } catch (ex) { console.error('openTownPortal failed', ex); alert('Failed to open town portal'); }
   }
 
   openChangeCharacter() {

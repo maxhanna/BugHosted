@@ -45,6 +45,224 @@ namespace maxhanna.Server.Controllers
 			_connectionString = config.GetValue<string>("ConnectionStrings:maxhanna") ?? "";
 		}
 
+		// Request DTOs for party/stat endpoints
+		public class InviteToPartyRequest { public int HeroId { get; set; } public int TargetHeroId { get; set; } public int? UserId { get; set; } }
+		public class RemovePartyMemberRequest { public int HeroId { get; set; } public int MemberHeroId { get; set; } public int? UserId { get; set; } }
+		public class UpdateHeroStatsRequest { public int HeroId { get; set; } public Dictionary<string, int>? Stats { get; set; } public int? UserId { get; set; } }
+
+		[HttpPost("/Bones/InviteToParty", Name = "Bones_InviteToParty")]
+		public async Task<IActionResult> InviteToParty([FromBody] InviteToPartyRequest req)
+		{
+			if (req == null || req.HeroId <= 0 || req.TargetHeroId <= 0) return BadRequest("Invalid hero ids");
+			using var connection = new MySqlConnection(_connectionString);
+			await connection.OpenAsync();
+			using var transaction = connection.BeginTransaction();
+			try
+			{
+				// Ownership check: if UserId provided, ensure HeroId belongs to that user
+				if (req.UserId.HasValue)
+				{
+					string ownerSql = "SELECT user_id FROM maxhanna.bones_hero WHERE id = @HeroId LIMIT 1";
+					using var ownerCmd = new MySqlCommand(ownerSql, connection, transaction);
+					ownerCmd.Parameters.AddWithValue("@HeroId", req.HeroId);
+					var ownerObj = await ownerCmd.ExecuteScalarAsync();
+					int ownerId = ownerObj != null && int.TryParse(ownerObj.ToString(), out var tmp) ? tmp : 0;
+					if (ownerId != req.UserId.Value) return Forbid("You do not own this hero");
+				}
+				// Ensure we don't duplicate pairs (store as provided order, prevent reverse duplicates too)
+				string sql = @"INSERT INTO bones_hero_party (bones_hero_id_1, bones_hero_id_2)
+							   SELECT @A, @B FROM DUAL
+							   WHERE NOT EXISTS (SELECT 1 FROM bones_hero_party WHERE (bones_hero_id_1 = @A AND bones_hero_id_2 = @B) OR (bones_hero_id_1 = @B AND bones_hero_id_2 = @A));";
+				var parameters = new Dictionary<string, object?>() { { "@A", req.HeroId }, { "@B", req.TargetHeroId } };
+				await ExecuteInsertOrUpdateOrDeleteAsync(sql, parameters, connection, transaction);
+				await transaction.CommitAsync();
+				return Ok(new { invited = true });
+			}
+			catch (Exception ex)
+			{
+				await transaction.RollbackAsync();
+				await _log.Db("InviteToParty failed: " + ex.Message, req.HeroId, "BONES", true);
+				return StatusCode(500, "Failed to invite to party");
+			}
+		}
+
+		[HttpPost("/Bones/LeaveParty", Name = "Bones_LeaveParty")]
+		public async Task<IActionResult> LeaveParty([FromBody] int heroId)
+		{
+			if (heroId <= 0) return BadRequest("Invalid hero id");
+			using var connection = new MySqlConnection(_connectionString);
+			await connection.OpenAsync();
+			using var transaction = connection.BeginTransaction();
+			try
+			{
+				// Ownership: ensure active hero belongs to caller (best-effort) - requires caller to pass identity externally in production
+				await Unparty(heroId, connection, transaction);
+				await transaction.CommitAsync();
+				return Ok(new { left = true });
+			}
+			catch (Exception ex)
+			{
+				await transaction.RollbackAsync();
+				await _log.Db("LeaveParty failed: " + ex.Message, heroId, "BONES", true);
+				return StatusCode(500, "Failed to leave party");
+			}
+		}
+
+		[HttpPost("/Bones/RemovePartyMember", Name = "Bones_RemovePartyMember")]
+		public async Task<IActionResult> RemovePartyMember([FromBody] RemovePartyMemberRequest req)
+		{
+			// Removing other party members server-side is not supported. Clients should call LeaveParty to remove themselves from a party.
+			return StatusCode(410, "Removing other party members is not supported. Use /Bones/LeaveParty to leave a party.");
+		}
+
+		[HttpPost("/Bones/UpdateHeroStats", Name = "Bones_UpdateHeroStats")]
+		public async Task<IActionResult> UpdateHeroStats([FromBody] UpdateHeroStatsRequest req)
+		{
+			if (req == null || req.HeroId <= 0 || req.Stats == null) return BadRequest("Invalid request");
+			using var connection = new MySqlConnection(_connectionString);
+			await connection.OpenAsync();
+			using var transaction = connection.BeginTransaction();
+			try
+			{
+				// Ownership check: require UserId provided and matches bones_hero.user_id
+				if (!req.UserId.HasValue) return Forbid("UserId required for stat changes");
+				string ownerSql2 = "SELECT user_id FROM maxhanna.bones_hero WHERE id = @HeroId LIMIT 1";
+				using var ownerCmd2 = new MySqlCommand(ownerSql2, connection, transaction);
+				ownerCmd2.Parameters.AddWithValue("@HeroId", req.HeroId);
+				var ownerObj2 = await ownerCmd2.ExecuteScalarAsync();
+				int ownerId2 = ownerObj2 != null && int.TryParse(ownerObj2.ToString(), out var tmp2) ? tmp2 : 0;
+				if (ownerId2 != req.UserId.Value) return Forbid("You do not own this hero");
+				// Fetch hero map to attach to the event
+				string mapSql = "SELECT map FROM maxhanna.bones_hero WHERE id = @HeroId LIMIT 1";
+				using var mapCmd = new MySqlCommand(mapSql, connection, transaction);
+				mapCmd.Parameters.AddWithValue("@HeroId", req.HeroId);
+				var mapObj = await mapCmd.ExecuteScalarAsync();
+				string map = mapObj != null ? mapObj.ToString() ?? string.Empty : string.Empty;
+
+				// Build string dictionary for event payload
+				var dataDict = new Dictionary<string, string>();
+				foreach (var kv in req.Stats) dataDict[kv.Key] = kv.Value.ToString();
+
+				// Persist stats directly to bones_hero table (STR/DEX/INT stored as JSON in a 'stats' JSON column or individual columns)
+				try
+				{ 
+						// Build UPDATE for only provided keys
+						var setParts = new List<string>();
+						var updParams = new Dictionary<string, object?>();
+						if (req.Stats.ContainsKey("str")) { setParts.Add("str = @str"); updParams["@str"] = req.Stats["str"]; }
+						if (req.Stats.ContainsKey("dex")) { setParts.Add("dex = @dex"); updParams["@dex"] = req.Stats["dex"]; }
+						if (req.Stats.ContainsKey("int")) { setParts.Add("`int` = @int"); updParams["@int"] = req.Stats["int"]; }
+						if (setParts.Count > 0)
+						{
+							string updSql = $"UPDATE maxhanna.bones_hero SET {string.Join(", ", setParts)}, updated = UTC_TIMESTAMP() WHERE id = @HeroId LIMIT 1";
+							var parameters = new Dictionary<string, object?>() { { "@HeroId", req.HeroId } };
+							foreach (var kv in updParams) parameters[kv.Key] = kv.Value;
+							await ExecuteInsertOrUpdateOrDeleteAsync(updSql, parameters, connection, transaction);
+						}
+				 
+					 
+				}
+				catch (Exception ex)
+				{
+					await _log.Db("UpdateHeroStats persistence failed: " + ex.Message, req.HeroId, "BONES", true);
+					return StatusCode(500, "Failed to persist stats");
+				}
+				await transaction.CommitAsync();
+				return Ok(new { updated = true });
+			}
+			catch (Exception ex)
+			{
+				await transaction.RollbackAsync();
+				await _log.Db("UpdateHeroStats failed: " + ex.Message, req.HeroId, "BONES", true);
+				return StatusCode(500, "Failed to update stats");
+			}
+		}
+
+		[HttpPost("/Bones/TownPortal", Name = "Bones_TownPortal")]
+		public async Task<IActionResult> TownPortal([FromBody] dynamic body)
+		{
+			try
+			{
+				int heroId = 0; int? userId = null;
+				try { heroId = (int)body.HeroId; } catch { }
+				try { userId = (int?)body.UserId; } catch { }
+				if (heroId <= 0) return BadRequest("Invalid hero id");
+				using var connection = new MySqlConnection(_connectionString);
+				await connection.OpenAsync();
+				using var transaction = connection.BeginTransaction();
+				// Ownership check
+				if (userId.HasValue)
+				{
+					string ownerSql = "SELECT user_id FROM maxhanna.bones_hero WHERE id = @HeroId LIMIT 1";
+					using var ownerCmd = new MySqlCommand(ownerSql, connection, transaction);
+					ownerCmd.Parameters.AddWithValue("@HeroId", heroId);
+					var ownerObj = await ownerCmd.ExecuteScalarAsync();
+					int ownerId = ownerObj != null && int.TryParse(ownerObj.ToString(), out var tmp) ? tmp : 0;
+					if (ownerId != userId.Value) return Forbid("You do not own this hero");
+				}
+				// Move hero to Town map origin (example coordinates)
+				string updSql = "UPDATE maxhanna.bones_hero SET map = @Map, coordsX = @X, coordsY = @Y, updated = UTC_TIMESTAMP() WHERE id = @HeroId LIMIT 1";
+				using var upCmd = new MySqlCommand(updSql, connection, transaction);
+				upCmd.Parameters.AddWithValue("@Map", "Town");
+				upCmd.Parameters.AddWithValue("@X", 16);
+				upCmd.Parameters.AddWithValue("@Y", 16);
+				upCmd.Parameters.AddWithValue("@HeroId", heroId);
+				await upCmd.ExecuteNonQueryAsync();
+				var hero = await GetHeroData(0, heroId, connection, transaction);
+				await transaction.CommitAsync();
+				return Ok(hero);
+			}
+			catch (Exception ex)
+			{
+				await _log.Db("TownPortal failed: " + ex.Message, null, "BONES", true);
+				return StatusCode(500, "Failed to teleport to town");
+			}
+		}
+
+		[HttpPost("/Bones/CreateTownPortal", Name = "Bones_CreateTownPortal")]
+		public async Task<IActionResult> CreateTownPortal([FromBody] dynamic body)
+		{
+			try
+			{
+				int heroId = 0; int? userId = null; string map = string.Empty; int x = 0; int y = 0;
+				try { heroId = (int)body.HeroId; } catch { }
+				try { userId = (int?)body.UserId; } catch { }
+				try { map = (string)body.Map; } catch { }
+				try { x = (int)body.X; } catch { }
+				try { y = (int)body.Y; } catch { }
+				if (heroId <= 0) return BadRequest("Invalid hero id");
+				using var connection = new MySqlConnection(_connectionString);
+				await connection.OpenAsync();
+				using var transaction = connection.BeginTransaction();
+				// Ownership check
+				if (userId.HasValue)
+				{
+					string ownerSql = "SELECT user_id FROM maxhanna.bones_hero WHERE id = @HeroId LIMIT 1";
+					using var ownerCmd = new MySqlCommand(ownerSql, connection, transaction);
+					ownerCmd.Parameters.AddWithValue("@HeroId", heroId);
+					var ownerObj = await ownerCmd.ExecuteScalarAsync();
+					int ownerId = ownerObj != null && int.TryParse(ownerObj.ToString(), out var tmp) ? tmp : 0;
+					if (ownerId != userId.Value) return Forbid("You do not own this hero");
+				}
+				var data = new Dictionary<string, string>();
+				data["creatorHeroId"] = heroId.ToString();
+				data["map"] = map ?? string.Empty;
+				data["x"] = x.ToString();
+				data["y"] = y.ToString();
+				// optional radius or metadata
+				if (body.Radius != null) try { data["radius"] = ((int)body.Radius).ToString(); } catch { }
+				var ev = new MetaEvent(0, heroId, DateTime.UtcNow, "TOWN_PORTAL", map ?? string.Empty, data);
+				await UpdateEventsInDB(ev, connection, transaction);
+				await transaction.CommitAsync();
+				return Ok(new { created = true });
+			}
+			catch (Exception ex)
+			{
+				await _log.Db("CreateTownPortal failed: " + ex.Message, null, "BONES", true);
+				return StatusCode(500, "Failed to create town portal");
+			}
+		}
+
 		// NOTE: All endpoint names prefixed with Bones_ and routes changed to /Bones...
 
 		[HttpPost("/Bones", Name = "Bones_GetHero")]
@@ -1108,7 +1326,7 @@ namespace maxhanna.Server.Controllers
 					using var partyReader = await partyCmd.ExecuteReaderAsync();
 					while (await partyReader.ReadAsync()) partyMemberIds.Add(Convert.ToInt32(partyReader["hero_id"]));
 				}
-				string sql = @"DELETE FROM maxhanna.bones_event WHERE timestamp < UTC_TIMESTAMP() - INTERVAL 20 SECOND; SELECT * FROM maxhanna.bones_event WHERE map = @Map OR (event = 'CHAT' AND hero_id IN (" + string.Join(",", partyMemberIds) + "));";
+				string sql = @"DELETE FROM maxhanna.bones_event WHERE timestamp < UTC_TIMESTAMP() - INTERVAL 10 SECOND; SELECT * FROM maxhanna.bones_event WHERE map = @Map OR (event = 'CHAT' AND hero_id IN (" + string.Join(",", partyMemberIds) + "));";
 				MySqlCommand cmd = new(sql, connection, transaction); cmd.Parameters.AddWithValue("@Map", map);
 				List<MetaEvent> events = new();
 				using (var reader = await cmd.ExecuteReaderAsync())
@@ -1162,7 +1380,8 @@ namespace maxhanna.Server.Controllers
 				if (userId == 0 && heroId == null) return null;
 				// bones_bot_part table removed — don't join or select part columns
 				// include attack_speed and hp if present
-				string sql = $"SELECT h.id as hero_id, h.coordsX, h.coordsY, h.map, h.speed, h.name as hero_name, h.color as hero_color, h.mask as hero_mask, h.level as hero_level, h.exp as hero_exp, h.hp as hero_hp, h.attack_speed as attack_speed, b.id as bot_id, b.name as bot_name, b.type as bot_type, b.hp as bot_hp, b.is_deployed as bot_is_deployed, b.level as bot_level, b.exp as bot_exp FROM maxhanna.bones_hero h LEFT JOIN maxhanna.bones_bot b ON h.id = b.hero_id WHERE {(heroId == null ? "h.user_id = @UserId" : "h.id = @UserId")};";
+				// Include optional stat columns (str,dex,int) aliased to hero_str/hero_dex/hero_int if present in schema
+				string sql = $"SELECT h.id as hero_id, h.coordsX, h.coordsY, h.map, h.speed, h.name as hero_name, h.color as hero_color, h.mask as hero_mask, h.level as hero_level, h.exp as hero_exp, h.hp as hero_hp, h.attack_speed as attack_speed, COALESCE(h.str,0) AS hero_str, COALESCE(h.dex,0) AS hero_dex, COALESCE(h.`int`,0) AS hero_int, b.id as bot_id, b.name as bot_name, b.type as bot_type, b.hp as bot_hp, b.is_deployed as bot_is_deployed, b.level as bot_level, b.exp as bot_exp FROM maxhanna.bones_hero h LEFT JOIN maxhanna.bones_bot b ON h.id = b.hero_id WHERE {(heroId == null ? "h.user_id = @UserId" : "h.id = @UserId")};";
 				MySqlCommand cmd = new(sql, conn, transaction); cmd.Parameters.AddWithValue("@UserId", heroId != null ? heroId : userId);
 				MetaHero? hero = null; Dictionary<int, MetaBot> metabotDict = new();
 				using (var reader = await cmd.ExecuteReaderAsync())
@@ -1187,6 +1406,10 @@ namespace maxhanna.Server.Controllers
 								AttackSpeed = attackSpeed,
 								Hp = reader.IsDBNull(reader.GetOrdinal("hero_hp")) ? 100 : reader.GetInt32(reader.GetOrdinal("hero_hp"))
 							};
+							// Populate optional stats if available; be defensive in case schema lacks columns
+							try { hero.Str = reader.IsDBNull(reader.GetOrdinal("hero_str")) ? 0 : reader.GetInt32(reader.GetOrdinal("hero_str")); } catch { hero.Str = 0; }
+							try { hero.Dex = reader.IsDBNull(reader.GetOrdinal("hero_dex")) ? 0 : reader.GetInt32(reader.GetOrdinal("hero_dex")); } catch { hero.Dex = 0; }
+							try { hero.Int = reader.IsDBNull(reader.GetOrdinal("hero_int")) ? 0 : reader.GetInt32(reader.GetOrdinal("hero_int")); } catch { hero.Int = 0; }
 						} 
 					}
 				}

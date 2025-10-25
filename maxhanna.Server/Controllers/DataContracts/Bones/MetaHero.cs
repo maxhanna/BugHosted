@@ -20,6 +20,11 @@ namespace maxhanna.Server.Controllers.DataContracts.Bones
 		public int Speed { get; set; }
 		public int Level { get; set; }
 		public int Exp { get; set; }
+
+		// Basic stats stored per hero
+		public int Str { get; set; } = 0;
+		public int Dex { get; set; } = 0;
+		public int Int { get; set; } = 0;
 		public string Map { get; set; } = "";
 		public string Color { get; set; } = "";
 		public int? Mask { get; set; } = null;

@@ -45,6 +45,26 @@ export class BonesService {
   async getPartyMembers(userId: number): Promise<{ heroId: number, name: string, color?: string }[] | undefined> {
     return this.fetchData('/bones/getuserpartymembers', userId);
   }
+  async inviteToParty(heroId: number, targetHeroId: number) {
+    return this.fetchData('/bones/invitetoparty', { HeroId: heroId, TargetHeroId: targetHeroId });
+  }
+  async leaveParty(heroId: number, userId?: number) {
+    return this.fetchData('/bones/leaveparty', { HeroId: heroId, UserId: userId });
+  }
+  async removePartyMember(heroId: number, memberHeroId: number, userId?: number) {
+    return this.fetchData('/bones/removepartymember', { HeroId: heroId, MemberHeroId: memberHeroId, UserId: userId });
+  }
+  async updateHeroStats(heroId: number, stats: { str: number; dex: number; int: number }, userId?: number) {
+    return this.fetchData('/bones/updateherostats', { HeroId: heroId, Stats: stats, UserId: userId });
+  }
+  async townPortal(heroId: number, userId?: number) {
+    return this.fetchData('/bones/townportal', { HeroId: heroId, UserId: userId });
+  }
+  async createTownPortal(heroId: number, map: string, x: number, y: number, userId?: number, radius?: number) {
+    const body: any = { HeroId: heroId, Map: map, X: x, Y: y, UserId: userId };
+    if (radius) body.Radius = radius;
+    return this.fetchData('/bones/createtownportal', body);
+  }
   async createHero(userId: number, name: string): Promise<MetaHero | undefined> {
     return this.fetchData('/bones/create', { UserId: userId, Name: name });
   }

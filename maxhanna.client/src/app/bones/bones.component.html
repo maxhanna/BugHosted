@@ -88,7 +88,7 @@
         <div class="a" (mousedown)='mainScene.input.pressAStart()' (mouseup)='mainScene.input.pressAEnd()' (touchstart)='mainScene.input.pressAStart()' (touchend)='mainScene.input.pressAEnd()'>A</div>
       </div>
 
-      <div class="start" (mouseup)='mainScene.input.pressStart()'>START</div>
+  <div class="start" (mouseup)='toggleStartMenu()'>START</div>
     </div>
 
     <input *ngIf="mainScene?.level?.name === 'CharacterCreate'" type="color" (change)='changeColor()' #colorInput class="colorInput" [value]="cachedDefaultColor ?? metaHero.color" />
@@ -170,6 +170,52 @@
           {{ deathKillerName }}
         </div>
       </div>
+
+        <!-- Start Menu Popup -->
+        <div class="popupPanel startPopupPanel" *ngIf="isStartMenuOpened" style="max-width:360px; text-align:center;">
+          <div class="popupPanelTitle mainPopupTitle">Menu</div>
+          <div style="display:flex; flex-direction:column; gap:12px; padding:12px;">
+            <button class="bigActionButton" (click)="openPartyPanel()" aria-label="Party">Party</button>
+          <button class="bigActionButton" (click)="openChangeCharacter()" aria-label="Change Hero">Change Hero</button>
+          <button class="bigActionButton" (click)="openChangeStats()" aria-label="Change Stats">Change Stats</button>
+          <button class="bigActionButton" (click)="openTownPortal()" aria-label="Town Portal">Town Portal</button>
+            <button class="closeButton" (click)="closeStartMenu()">Close</button>
+          </div>
+
+          <!-- Party subpanel -->
+          <div *ngIf="isPartyPanelOpen" style="margin-top:8px; text-align:left; max-height:240px; overflow:auto;">
+            <div style="font-weight:600; margin-bottom:8px;">Nearby Heroes / Party</div>
+            <div *ngIf="otherHeroes && otherHeroes.length > 0">
+              <div *ngFor="let p of otherHeroes" style="display:flex; align-items:center; justify-content:space-between; padding:6px; border-bottom:1px solid #222;">
+                <div style="display:flex; align-items:center; gap:8px;">
+                  <div style="width:28px; height:28px; background:#333; border-radius:50%;"></div>
+                  <div>{{p.name}}</div>
+                </div>
+                <div>
+                  <button (click)="inviteToParty(p.id)">Invite</button>
+                  <button (click)="leaveParty()">Leave</button>
+                </div>
+              </div>
+            </div>
+            <div *ngIf="(!otherHeroes || otherHeroes.length === 0) && (!partyMembers || partyMembers.length === 0)">No nearby heroes found.</div>
+          </div>
+
+          <!-- Change Stats subpanel -->
+          <div *ngIf="isChangeStatsOpen" style="margin-top:8px; text-align:left; max-height:240px; overflow:auto;">
+            <div style="font-weight:600; margin-bottom:8px;">Change Stats</div>
+            <div style="display:flex; gap:8px; align-items:center; margin-bottom:8px;"><div>Points:</div><div style="font-weight:700;">{{editableStats.pointsAvailable}}</div></div>
+            <div style="display:flex; flex-direction:column; gap:8px;">
+              <div style="display:flex; justify-content:space-between; align-items:center;"><div>STR</div><div><button (click)="adjustStat('str', -1)">-</button> <span style="margin:0 8px">{{editableStats.str}}</span> <button (click)="adjustStat('str', 1)">+</button></div></div>
+              <div style="display:flex; justify-content:space-between; align-items:center;"><div>DEX</div><div><button (click)="adjustStat('dex', -1)">-</button> <span style="margin:0 8px">{{editableStats.dex}}</span> <button (click)="adjustStat('dex', 1)">+</button></div></div>
+              <div style="display:flex; justify-content:space-between; align-items:center;"><div>INT</div><div><button (click)="adjustStat('int', -1)">-</button> <span style="margin:0 8px">{{editableStats.int}}</span> <button (click)="adjustStat('int', 1)">+</button></div></div>
+            </div>
+            <div style="margin-top:10px; display:flex; gap:8px; justify-content:center;">
+              <button (click)="applyStats()">Apply</button>
+              <button (click)="closeStartMenu()">Cancel</button>
+            </div>
+          </div>
+
+        </div>
       <div class="deathKillStatInfo">
         <div>Return to spawn at (0,0)</div>
       </div>
