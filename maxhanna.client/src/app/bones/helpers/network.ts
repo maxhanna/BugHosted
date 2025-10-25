@@ -585,6 +585,31 @@ export function actionMultiplayerEvents(object: any, metaEvents: MetaEvent[]) {
             }
           }
         }
+        if (event.eventType === "HERO_DIED") {
+          try {
+            // event.data may contain killerId/killerType; emit a normalized HERO_DIED locally
+            const payload: any = {};
+            if (event.data) {
+              payload.killerId = event.data["killerId"] ?? event.data["killer_id"] ?? undefined;
+              payload.killerType = event.data["killerType"] ?? event.data["killer_type"] ?? undefined;
+              payload.cause = event.data["cause"] ?? undefined;
+            }
+            // If the death concerns our hero, emit HERO_DIED so UI can handle respawn
+            if (event.heroId === object.metaHero.id) {
+              events.emit("HERO_DIED", payload);
+            } else {
+              // For other remote heroes, try to find their scene object and destroy it
+              try {
+                const remote = object.mainScene?.level?.children?.find((x: any) => x.id === event.heroId);
+                if (remote && typeof remote.destroy === 'function') {
+                  remote.destroy();
+                }
+              } catch (ex) { /* ignore */ }
+            }
+          } catch (ex) {
+            console.error('Failed to handle HERO_DIED event', ex);
+          }
+        }
       }
     } catch (ex) {
       console.error('actionMultiplayerEvents handling error', ex);
