@@ -45,10 +45,7 @@ namespace maxhanna.Server.Controllers
 			_connectionString = config.GetValue<string>("ConnectionStrings:maxhanna") ?? "";
 		}
 
-		// Request DTOs for party/stat endpoints
-		public class InviteToPartyRequest { public int HeroId { get; set; } public int TargetHeroId { get; set; } public int? UserId { get; set; } }
-		public class RemovePartyMemberRequest { public int HeroId { get; set; } public int MemberHeroId { get; set; } public int? UserId { get; set; } }
-		public class UpdateHeroStatsRequest { public int HeroId { get; set; } public Dictionary<string, int>? Stats { get; set; } public int? UserId { get; set; } }
+		// Request DTOs for party/stat endpoints are defined in DataContracts/Bones
 
 		[HttpPost("/Bones/InviteToParty", Name = "Bones_InviteToParty")]
 		public async Task<IActionResult> InviteToParty([FromBody] InviteToPartyRequest req)

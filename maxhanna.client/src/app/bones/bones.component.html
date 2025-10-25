@@ -185,16 +185,23 @@
           <!-- Party subpanel -->
           <div *ngIf="isPartyPanelOpen" style="margin-top:8px; text-align:left; max-height:240px; overflow:auto;">
             <div style="font-weight:600; margin-bottom:8px;">Nearby Heroes / Party</div>
+            <div style="display:flex; gap:6px; margin-bottom:8px;">
+              <button [disabled]="partyFilter==='all'" (click)="partyFilter='all'">All</button>
+              <button [disabled]="partyFilter==='party'" (click)="partyFilter='party'">Party</button>
+              <button [disabled]="partyFilter==='nearby'" (click)="partyFilter='nearby'">Nearby</button>
+            </div>
             <div *ngIf="otherHeroes && otherHeroes.length > 0">
-              <div *ngFor="let p of otherHeroes" style="display:flex; align-items:center; justify-content:space-between; padding:6px; border-bottom:1px solid #222;">
+                <!-- Show a Leave Party button for the current player -->
+                <div style="display:flex; justify-content:center; margin-bottom:8px;"><button (click)="confirmLeaveParty()">Leave Party</button></div>
+                <div *ngFor="let p of getSortedHeroes()" style="display:flex; align-items:center; justify-content:space-between; padding:6px; border-bottom:1px solid #222;">
                 <div style="display:flex; align-items:center; gap:8px;">
                   <div style="width:28px; height:28px; background:#333; border-radius:50%;"></div>
                   <div>{{p.name}}</div>
                 </div>
-                <div>
-                  <button (click)="inviteToParty(p.id)">Invite</button>
-                  <button (click)="leaveParty()">Leave</button>
-                </div>
+                  <div>
+                    <button *ngIf="!isInParty(p.id)" (click)="inviteToParty(p.id)">Invite</button>
+                    <span *ngIf="isInParty(p.id)" style="font-weight:700; color:#8f8;">In Party</span>
+                  </div>
               </div>
             </div>
             <div *ngIf="(!otherHeroes || otherHeroes.length === 0) && (!partyMembers || partyMembers.length === 0)">No nearby heroes found.</div>
@@ -215,6 +222,15 @@
             </div>
           </div>
 
+        </div>
+        <!-- Leave confirmation modal -->
+        <div class="popupPanel" *ngIf="showLeaveConfirm" style="max-width:320px; text-align:center; position:fixed; left:50%; top:50%; transform:translate(-50%,-50%); z-index:2000;">
+          <div class="popupPanelTitle">Confirm Leave Party</div>
+          <div style="padding:12px;">Are you sure you want to leave the party?</div>
+          <div style="display:flex; gap:8px; justify-content:center; padding-bottom:12px;">
+            <button (click)="leavePartyConfirmed()">Yes, Leave</button>
+            <button (click)="cancelLeaveParty()">Cancel</button>
+          </div>
         </div>
       <div class="deathKillStatInfo">
         <div>Return to spawn at (0,0)</div>

@@ -81,6 +81,11 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
   isStartMenuOpened = false;
   isPartyPanelOpen = false;
   isChangeStatsOpen = false;
+  // optimistic UI state for invites
+  pendingInvites: Set<number> = new Set<number>();
+  // filter: 'all' | 'party' | 'nearby'
+  partyFilter: 'all' | 'party' | 'nearby' = 'all';
+  showLeaveConfirm: boolean = false;
   // Stats editing model (simple local model until backend exists)
   editableStats: { str: number; dex: number; int: number; pointsAvailable: number } = { str: 1, dex: 1, int: 1, pointsAvailable: 0 };
   // Change character popup state
@@ -206,6 +211,47 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
         console.error('Error playing attenuated impact SFX', ex);
       }
     });
+  }
+
+  // Return whether given heroId is in the player's party (includes optimistic invites)
+  isInParty(heroId: number) {
+    if ((this.partyMembers || []).some(p => p.heroId === heroId)) return true;
+    if (this.pendingInvites.has(heroId)) return true; // optimistic
+    return false;
+  }
+
+  // Return otherHeroes sorted so party members appear at the top, then others by distance or name
+  getSortedHeroes() {
+    if (!this.otherHeroes) return [] as MetaHero[];
+    // Exclude self
+    let filtered = this.otherHeroes.filter(h => h.id !== this.metaHero?.id);
+    // Apply filter
+    if (this.partyFilter === 'party') {
+      const partySet = new Set((this.partyMembers || []).map(p => p.heroId));
+      filtered = filtered.filter(h => partySet.has(h.id));
+    } else if (this.partyFilter === 'nearby') {
+      const myPos = this.metaHero?.position;
+      if (myPos) {
+        filtered = filtered.filter(h => h.position && Math.hypot(h.position.x - myPos.x, h.position.y - myPos.y) <= 800);
+      }
+    }
+    // Map quick lookup for party membership
+    const partySet = new Set((this.partyMembers || []).map(p => p.heroId));
+    // Compute distance if positions available
+    const myPos = this.metaHero?.position;
+    filtered.sort((a, b) => {
+      const aIn = partySet.has(a.id) ? 0 : 1;
+      const bIn = partySet.has(b.id) ? 0 : 1;
+      if (aIn !== bIn) return aIn - bIn; // party members first
+      if (myPos && a.position && b.position) {
+        const da = Math.hypot(a.position.x - myPos.x, a.position.y - myPos.y);
+        const db = Math.hypot(b.position.x - myPos.x, b.position.y - myPos.y);
+        return da - db;
+      }
+      // fallback to name
+      return (a.name ?? '').localeCompare(b.name ?? '');
+    });
+    return filtered;
   }
 
   ngOnDestroy() {
@@ -973,21 +1019,69 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
     }
   }
 
+  confirmLeaveParty() {
+    this.showLeaveConfirm = true;
+    this.parentRef?.showOverlay();
+  }
+
+  cancelLeaveParty() {
+    this.showLeaveConfirm = false;
+    this.parentRef?.closeOverlay();
+  }
+
+  async leavePartyConfirmed() {
+    this.showLeaveConfirm = false;
+    this.parentRef?.showOverlay();
+    await this.leaveParty();
+    this.parentRef?.closeOverlay();
+  }
+
   async inviteToParty(heroId: number) {
     try {
       if (!this.metaHero || !this.metaHero.id) return;
-      // try to call server API - if missing, fail gracefully
+      // optimistic UI: mark as invited/in-party locally immediately
+      this.pendingInvites.add(heroId);
+      // try to call server API - if missing, revert optimistic change and fail gracefully
       const userId = this.parentRef?.user?.id ?? undefined;
       if (this.bonesService && typeof (this.bonesService as any).inviteToParty === 'function') {
-        await (this.bonesService as any).inviteToParty(this.metaHero.id, heroId, userId);
-        alert('Party invite sent');
+        try {
+          const res: any = await (this.bonesService as any).inviteToParty(this.metaHero.id, heroId, userId);
+          // if server responded with failure, revert optimistic UI
+          if (!(res && (res.success === undefined || res.success === true))) {
+            this.pendingInvites.delete(heroId);
+            alert('Invite failed.');
+          }
+          // otherwise, server accepted — partyMembers will be reconciled on next fetch
+        } catch (err) {
+          this.pendingInvites.delete(heroId);
+          console.error('inviteToParty failed', err);
+          alert('Invite failed.');
+        }
       } else {
+        this.pendingInvites.delete(heroId);
         alert('Party invite not implemented on server');
       }
-    } catch (ex) { console.error('inviteToParty failed', ex); alert('Failed to send invite'); }
+    } catch (ex) { console.error('inviteToParty failed', ex); this.pendingInvites.delete(heroId); alert('Failed to send invite'); }
   }
 
-  // removePartyMember removed: server no longer supports removing other players. Use leaveParty() to leave your own party.
+  async removePartyMember(heroId: number) {
+    try {
+      if (!this.metaHero || !this.metaHero.id) return;
+      const userId = this.parentRef?.user?.id ?? undefined;
+      if (this.bonesService && typeof (this.bonesService as any).removePartyMember === 'function') {
+        await (this.bonesService as any).removePartyMember(this.metaHero.id, heroId, userId);
+        alert('Removed from party');
+      } else {
+        // Fallback: if hero is local party member, remove locally
+        this.partyMembers = (this.partyMembers || []).filter(p => p.heroId !== heroId);
+        if (this.mainScene && this.mainScene.inventory) {
+          this.mainScene.inventory.partyMembers = this.partyMembers;
+          this.mainScene.inventory.renderParty();
+        }
+        alert('Removed locally (server not implemented)');
+      }
+    } catch (ex) { console.error('removePartyMember failed', ex); alert('Failed to remove member'); }
+  }
 
   async leaveParty() {
     try {
@@ -1065,14 +1159,7 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
   }
 
   async createNewCharacterSelection() {
-    if (!this.parentRef?.user?.id) return;
-    try {
-  const res = await this.bonesService.createHeroSelection(this.parentRef.user.id);
-  // After snapshotting current hero, delete active bones_hero for this user
-  await this.bonesService.deleteHero(this.parentRef.user.id);
-  // Navigate to /bones to refresh client (server will now have no active hero)
-  window.location.href = '/Bones';
-    } catch (ex) { console.error('Failed to create selection', ex); }
+    // removePartyMember was deprecated: clients cannot remove other members; use leaveParty() to leave yourself
   }
 
   async promoteSelection(id: number) {
