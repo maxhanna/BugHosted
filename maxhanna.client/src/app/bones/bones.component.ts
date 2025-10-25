@@ -304,17 +304,38 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
 
       if (!killerUserId && killerType === 'encounter' && killerIdValue !== undefined && killerIdValue !== null) {
         const parsedEncounterId = parseInt(String(killerIdValue));
+        console.debug('HERO_DIED: attempting to resolve encounter name', { killerIdValue, parsedEncounterId, killerType });
         if (!isNaN(parsedEncounterId)) {
           // Look in level.objects first, then fallback to children for older shape
-          let foundObj = this.mainScene?.level?.objects?.find((o: any) => o && (o.heroId ?? o.id) === parsedEncounterId);
-          if (!foundObj) {
-            foundObj = this.mainScene?.level?.children?.find((x: any) => (x.heroId ?? x.id) === parsedEncounterId);
+          try {
+            const objectsArr = this.mainScene?.level?.objects;
+            const childrenArr = this.mainScene?.level?.children;
+            console.debug('HERO_DIED: level.objects present?', !!objectsArr, 'level.children present?', !!childrenArr);
+            if (objectsArr && Array.isArray(objectsArr)) {
+              console.debug('HERO_DIED: sample objects', objectsArr.slice(0,5).map((o:any) => ({ id: o.id, heroId: o.heroId, name: o.name })));
+            }
+            if (childrenArr && Array.isArray(childrenArr)) {
+              console.debug('HERO_DIED: sample children', childrenArr.slice(0,5).map((o:any) => ({ id: o.id, heroId: o.heroId, name: o.name })));
+            }
+            let foundObj = objectsArr?.find((o: any) => o && (o.heroId ?? o.id) === parsedEncounterId);
+            console.debug('HERO_DIED: found in objects?', !!foundObj);
+            if (!foundObj) {
+              foundObj = childrenArr?.find((x: any) => (x.heroId ?? x.id) === parsedEncounterId);
+              console.debug('HERO_DIED: found in children?', !!foundObj);
+            }
+            if (foundObj && foundObj.name) {
+              // Pascal-case simple names like 'big rat' -> 'BigRat'
+              const words = String(foundObj.name).split(/[^a-zA-Z0-9]+/).filter(Boolean);
+              this.deathKillerName = words.map(w => w.charAt(0).toUpperCase() + w.slice(1)).join('');
+              console.debug('HERO_DIED: resolved deathKillerName=', this.deathKillerName, 'from', foundObj);
+            } else {
+              console.debug('HERO_DIED: no matching object found for encounter id', parsedEncounterId);
+            }
+          } catch (ex) {
+            console.error('HERO_DIED: error while resolving encounter name', ex);
           }
-          if (foundObj && foundObj.name) {
-            // Pascal-case simple names like 'big rat' -> 'BigRat'
-            const words = String(foundObj.name).split(/[^a-zA-Z0-9]+/).filter(Boolean);
-            this.deathKillerName = words.map(w => w.charAt(0).toUpperCase() + w.slice(1)).join('');
-          }
+        } else {
+          console.debug('HERO_DIED: parsedEncounterId is NaN for killerIdValue', killerIdValue);
         }
       } else if (!killerUserId && killerId && (typeof killerId === 'string' || typeof killerId === 'number')) {
         // Fallback: killerId may be numeric id of encounter or hero
