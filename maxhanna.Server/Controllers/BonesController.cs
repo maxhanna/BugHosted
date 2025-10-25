@@ -632,21 +632,6 @@ namespace maxhanna.Server.Controllers
 			}
 		}
 
-		private async Task HandleHeroRespawn(int heroId, MySqlConnection conn, MySqlTransaction tx)
-		{
-			if (heroId <= 0) return;
-			try
-			{
-				string sql = @"UPDATE maxhanna.bones_hero SET coordsX = 0, coordsY = 0, hp = 100, updated = UTC_TIMESTAMP() WHERE id = @HeroId LIMIT 1;";
-				var parameters = new Dictionary<string, object?>() { { "@HeroId", heroId } };
-				await ExecuteInsertOrUpdateOrDeleteAsync(sql, parameters, conn, tx);
-			}
-			catch (Exception ex)
-			{
-				await _log.Db("HandleHeroRespawn failed: " + ex.Message, heroId, "BONES", true);
-			}
-		}
-
 		[HttpPost("/Bones/CreateBot", Name = "Bones_CreateBot")]
 		public IActionResult CreateBot([FromBody] MetaBot bot) => StatusCode(410, "Metabot functionality removed. Use bones_encounter on the frontend.");
 

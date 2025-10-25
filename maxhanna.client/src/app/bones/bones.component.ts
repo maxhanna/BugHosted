@@ -303,8 +303,8 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
     }, 500);
   }
 
-  returnFromDeath() {
-    // Move local hero to 0,0 immediately so UI updates without waiting for next fetch
+  async returnFromDeath() {
+    await this.bonesService.respawnHero(this.metaHero.id);
     try {
       if (this.metaHero) {
         this.metaHero.position = new Vector2(0, 0);
