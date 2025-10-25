@@ -51,13 +51,13 @@ export class HeroRoomLevel extends Level {
 
     this.walls = new Set(); 
     //walls:
-    for (let x = -10; x < 21; x++) {
+    for (let x = -10; x < 31; x++) {
       if (x != 18) { 
         this.walls.add(`${gridCells(x)},32`);
       }
       this.walls.add(`${gridCells(x)},224`);
     }
-    for (let y = -10; y < 21; y++) { 
+    for (let y = -10; y < 31; y++) { 
       this.walls.add(`${gridCells(-1)},${gridCells(y)}`);
       this.walls.add(`320,${(gridCells(y))}`);
     }  
