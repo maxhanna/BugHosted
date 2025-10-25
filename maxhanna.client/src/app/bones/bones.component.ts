@@ -397,11 +397,27 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
 
     this.otherHeroes = res.heroes;
     for (let x = 0; x < this.otherHeroes.length; x++) { 
-      const tgt = this.mainScene.level.children.find((c: Character) => c.id == this.otherHeroes[x].id);
+      const heroMeta = this.otherHeroes[x];
+      const tgt = this.mainScene.level.children.find((c: Character) => c.id == heroMeta.id);
       if (tgt) {
-        tgt.hp = this.otherHeroes[x].hp;
-        tgt.level = this.otherHeroes[x].level;
-        tgt.exp = this.otherHeroes[x].exp; 
+        // update visual/scene values from server meta
+        try { tgt.hp = heroMeta.hp; } catch {}
+        try { tgt.level = heroMeta.level; } catch {}
+        try { tgt.exp = heroMeta.exp; } catch {}
+
+        // If this is our metaHero, keep local metaHero and Hero instance in sync
+        if (heroMeta.id === this.metaHero.id) {
+          try { this.metaHero.hp = heroMeta.hp ?? this.metaHero.hp; } catch {}
+          try { this.metaHero.level = heroMeta.level ?? this.metaHero.level; } catch {}
+          try { this.metaHero.exp = heroMeta.exp ?? this.metaHero.exp; } catch {}
+          if (this.hero) {
+            try { (this.hero as any).hp = heroMeta.hp; } catch {}
+            try { (this.hero as any).level = heroMeta.level; } catch {}
+            try { (this.hero as any).exp = heroMeta.exp; } catch {}
+            // ensure maxHp exists so HP bar scales correctly
+            try { (this.hero as any).maxHp = (this.hero as any).maxHp ?? (heroMeta.hp ?? 100); } catch {}
+          }
+        }
 
         // Fixed partyMembers check
         tgt.partyMembers = (Array.isArray(this.partyMembers) &&
@@ -537,6 +553,11 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
         this.hero.isLocked = true;
       }
     } 
+  // initialize HP/level/exp on the sprite from server meta if available
+  try { if (hero.hp !== undefined && hero.hp !== null) (tmpHero as any).hp = hero.hp; } catch {}
+  try { if (hero.level !== undefined && hero.level !== null) (tmpHero as any).level = hero.level; } catch {}
+  try { if (hero.exp !== undefined && hero.exp !== null) (tmpHero as any).exp = hero.exp; } catch {}
+  try { if ((tmpHero as any).maxHp === undefined) (tmpHero as any).maxHp = hero.hp ?? 100; } catch {}
     this.mainScene.level?.addChild(tmpHero); 
     return tmpHero;
   }

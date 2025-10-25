@@ -18,7 +18,7 @@ export class Hero extends Character {
   // lastAttack timestamp to enforce attackSpeed cooldown (ms since epoch)
   private lastAttackAt: number = 0;
   // attack cooldown in milliseconds (populated from metaHero via parent code)
-  public attackSpeed: number = 400;
+  public attackSpeed: number = 400; 
   constructor(params: {
     position: Vector2, id?: number, name?: string, metabots?: MetaBot[], colorSwap?: ColorSwap,
     isUserControlled?: boolean, speed?: number, mask?: Mask, scale?: Vector2,
