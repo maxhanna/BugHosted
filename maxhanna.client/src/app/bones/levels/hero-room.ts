@@ -49,18 +49,31 @@ export class HeroRoomLevel extends Level {
       this.addChild(encounter2);
 
 
-    this.walls = new Set(); 
-    //walls:
-    for (let x = -10; x < 31; x++) {
-      if (x != 18) { 
-        this.walls.add(`${gridCells(x)},32`);
-      }
-      this.walls.add(`${gridCells(x)},224`);
+    this.walls = new Set();
+    // Create a large square boundary around the default hero position.
+    // Size = number of tiles along each axis (odd so hero can be centered).  
+    const SIZE = 80; // tiles
+    const half = Math.floor(SIZE / 2);
+    const centerX = Math.round(this.defaultHeroPosition.x / 16);
+    const centerY = Math.round(this.defaultHeroPosition.y / 16);
+
+    const leftTile = centerX - half;
+    const rightTile = centerX + half;
+    const topTile = centerY - half;
+    const bottomTile = centerY + half;
+
+    for (let tx = leftTile; tx <= rightTile; tx++) {
+      // top edge
+      this.walls.add(`${gridCells(tx)},${gridCells(topTile)}`);
+      // bottom edge
+      this.walls.add(`${gridCells(tx)},${gridCells(bottomTile)}`);
     }
-    for (let y = -10; y < 31; y++) { 
-      this.walls.add(`${gridCells(-1)},${gridCells(y)}`);
-      this.walls.add(`320,${(gridCells(y))}`);
-    }  
+    for (let ty = topTile; ty <= bottomTile; ty++) {
+      // left edge
+      this.walls.add(`${gridCells(leftTile)},${gridCells(ty)}`);
+      // right edge
+      this.walls.add(`${gridCells(rightTile)},${gridCells(ty)}`);
+    }
 
   }
 
