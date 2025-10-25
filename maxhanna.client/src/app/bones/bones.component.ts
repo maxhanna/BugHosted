@@ -81,8 +81,8 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
   isStartMenuOpened = false;
   isPartyPanelOpen = false;
   isChangeStatsOpen = false;
-  // optimistic UI state for invites
-  pendingInvites: Set<number> = new Set<number>();
+  // optimistic UI state for invites: map heroId -> expiry timestamp (ms)
+  pendingInvites: Map<number, number> = new Map<number, number>();
   // filter: 'all' | 'party' | 'nearby'
   partyFilter: 'all' | 'party' | 'nearby' = 'all';
   showLeaveConfirm: boolean = false;
@@ -215,9 +215,16 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
 
   // Return whether given heroId is in the player's party (includes optimistic invites)
   isInParty(heroId: number) {
-    if ((this.partyMembers || []).some(p => p.heroId === heroId)) return true;
-    if (this.pendingInvites.has(heroId)) return true; // optimistic
+  if ((this.partyMembers || []).some(p => p.heroId === heroId)) return true;
+  const expiry = this.pendingInvites.get(heroId);
+  if (expiry && expiry > Date.now()) return true; // optimistic (not expired)
     return false;
+  }
+
+  // Return whether an invite is currently pending (and not expired)
+  isInvitePending(heroId: number) {
+    const expiry = this.pendingInvites.get(heroId);
+    return !!(expiry && expiry > Date.now());
   }
 
   // Return otherHeroes sorted so party members appear at the top, then others by distance or name
@@ -386,6 +393,8 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
         this.mainScene.partyMembers = this.partyMembers;
         this.mainScene.inventory.partyMembers = this.partyMembers;
         this.mainScene.inventory.renderParty();
+    // reconcile any optimistic invites after initial party load
+    this.reconcilePendingInvites();
         await this.reinitializeHero(rz);
       } else {
         this.userService.getUserSettings(this.parentRef?.user?.id ?? 0).then(res => {
@@ -449,6 +458,8 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
  
       if (res) {
         this.updateHeroesFromFetchedData(res);
+        // reconcile optimistic invites after updating heroes
+        this.reconcilePendingInvites();
         this.updateEnemyEncounters(res);
 
         if (this.chat) {
@@ -964,36 +975,23 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
   }
 
   // Start menu toggles
-  async toggleStartMenu() {
-    if (this.isStartMenuOpened) {
-      this.closeStartMenu();
-      return;
-    }
+  async openStartMenu() { 
     this.isStartMenuOpened = true;
     this.isMenuPanelOpen = false;
-    this.parentRef?.showOverlay();
-    // lock player movement while start menu open
-    if (this.hero) this.hero.isLocked = true;
-    // initialize editable stats from metaHero
-    try {
-      const level = this.metaHero?.level ?? 1;
-      // assume base stats are 1 each and points = level - 1 for allocation
-      const base = 1;
-      const points = Math.max(0, level - 1);
-      this.editableStats = { str: base, dex: base, int: base, pointsAvailable: points };
-      // If server provides actual stats on metaHero, use them (non-breaking)
-      try {
-        const mhAny: any = this.metaHero as any;
-        if (mhAny.stats) {
-          this.editableStats.str = mhAny.stats.str ?? this.editableStats.str;
-          this.editableStats.dex = mhAny.stats.dex ?? this.editableStats.dex;
-          this.editableStats.int = mhAny.stats.int ?? this.editableStats.int;
-          // recalc pointsAvailable conservatively
-          const spent = (this.editableStats.str + this.editableStats.dex + this.editableStats.int) - 3;
-          this.editableStats.pointsAvailable = Math.max(0, points - spent);
-        }
-      } catch { }
-    } catch { }
+    this.parentRef?.showOverlay();  
+    const level = this.metaHero?.level ?? 1;
+    const base = 1;
+    const points = Math.max(0, level - 1);
+    this.editableStats = { str: base, dex: base, int: base, pointsAvailable: points }; 
+    const mhAny: any = this.metaHero as any;
+    if (mhAny.stats) {
+      this.editableStats.str = mhAny.stats.str ?? this.editableStats.str;
+      this.editableStats.dex = mhAny.stats.dex ?? this.editableStats.dex;
+      this.editableStats.int = mhAny.stats.int ?? this.editableStats.int;
+      // recalc pointsAvailable conservatively
+      const spent = (this.editableStats.str + this.editableStats.dex + this.editableStats.int) - 3;
+      this.editableStats.pointsAvailable = Math.max(0, points - spent);
+    }
   }
 
   closeStartMenu() {
@@ -1015,6 +1013,8 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
           this.mainScene.inventory.partyMembers = this.partyMembers;
           this.mainScene.inventory.renderParty();
         }
+  // reconcile optimistic invites
+  this.reconcilePendingInvites();
       }).catch(() => { });
     }
   }
@@ -1039,14 +1039,19 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
   async inviteToParty(heroId: number) {
     try {
       if (!this.metaHero || !this.metaHero.id) return;
-      // optimistic UI: mark as invited/in-party locally immediately
-      this.pendingInvites.add(heroId);
-      // try to call server API - if missing, revert optimistic change and fail gracefully
+      // If an invite is pending and not expired, block resending
+      const existing = this.pendingInvites.get(heroId);
+      if (existing && existing > Date.now()) {
+        alert('Invite already pending. Please wait for recipient to accept or for it to expire.');
+        return;
+      }
+      // optimistic: add pending invite with 20s expiry
+      this.addPendingInvite(heroId, 20000);
       const userId = this.parentRef?.user?.id ?? undefined;
       if (this.bonesService && typeof (this.bonesService as any).inviteToParty === 'function') {
         try {
           const res: any = await (this.bonesService as any).inviteToParty(this.metaHero.id, heroId, userId);
-          // if server responded with failure, revert optimistic UI
+          // if server responds negatively, revert optimistic UI
           if (!(res && (res.success === undefined || res.success === true))) {
             this.pendingInvites.delete(heroId);
             alert('Invite failed.');
@@ -1062,6 +1067,35 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
         alert('Party invite not implemented on server');
       }
     } catch (ex) { console.error('inviteToParty failed', ex); this.pendingInvites.delete(heroId); alert('Failed to send invite'); }
+  }
+
+  // Add a pending invite entry that auto-expires after `ttlMs` milliseconds
+  private addPendingInvite(heroId: number, ttlMs: number) {
+    const expiry = Date.now() + ttlMs;
+    this.pendingInvites.set(heroId, expiry);
+    setTimeout(() => {
+      const cur = this.pendingInvites.get(heroId);
+      if (cur && cur === expiry) {
+        // expired — allow re-send
+        this.pendingInvites.delete(heroId);
+      }
+    }, ttlMs + 50);
+  }
+
+  // Remove pending invites that are expired or that are now present in partyMembers
+  private reconcilePendingInvites() {
+    const now = Date.now();
+    const partySet = new Set((this.partyMembers || []).map(p => p.heroId));
+    for (const [heroId, expiry] of Array.from(this.pendingInvites.entries())) {
+      if (expiry <= now) {
+        this.pendingInvites.delete(heroId);
+        continue;
+      }
+      if (partySet.has(heroId)) {
+        // accepted — clear pending
+        this.pendingInvites.delete(heroId);
+      }
+    }
   }
 
   async removePartyMember(heroId: number) {

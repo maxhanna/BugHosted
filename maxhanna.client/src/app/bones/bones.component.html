@@ -88,7 +88,7 @@
         <div class="a" (mousedown)='mainScene.input.pressAStart()' (mouseup)='mainScene.input.pressAEnd()' (touchstart)='mainScene.input.pressAStart()' (touchend)='mainScene.input.pressAEnd()'>A</div>
       </div>
 
-  <div class="start" (mouseup)='toggleStartMenu()'>START</div>
+  <div class="start" (mouseup)='openStartMenu()'>START</div>
     </div>
 
     <input *ngIf="mainScene?.level?.name === 'CharacterCreate'" type="color" (change)='changeColor()' #colorInput class="colorInput" [value]="cachedDefaultColor ?? metaHero.color" />
