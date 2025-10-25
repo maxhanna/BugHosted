@@ -205,7 +205,7 @@
       <button [disabled]="partyFilter==='all'" (click)="partyFilter='all'">All</button>
       <button [disabled]="partyFilter==='party'" (click)="partyFilter='party'">Party</button>
       <button [disabled]="partyFilter==='nearby'" (click)="partyFilter='nearby'">Nearby</button>
-      <button (click)="isPartyPanelOpen = false" style="float:right; margin-top:-36px;">Close</button>
+      <button (click)="isPartyPanelOpen = false">Close</button>
     </div>
     <div *ngIf="otherHeroes && otherHeroes.length > 0">
       <!-- Show a Leave Party button for the current player -->
