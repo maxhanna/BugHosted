@@ -277,7 +277,7 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
     let cause = params.cause; 
 
     if (killerId && killerId < 0) {
-      const killer = this.mainScene.level.objects.filter((x: any) => x.heroId == killerId);
+      const killer = this.mainScene.level.children.filter((x: any) => x.heroId == killerId);
       if (killer.length > 0) {
         this.deathKillerName = killer[0].name;
       }
@@ -288,7 +288,8 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
         this.deathKillerUserId = killer[0].userId;
       }
     }
-
+ 
+       
     this.stopPollingForUpdates = true;
     this.isDead = true;
     // Stop the game loop briefly and show a death panel, then return player to 0,0
