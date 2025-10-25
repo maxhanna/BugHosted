@@ -520,10 +520,6 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
       })
     }
   }
-  private updateMissingOrNewHeroSprites() {
-    // Delegate to combined implementation for a single pass
-    this.updateHeroesFromFetchedData({ map: 0, position: new Vector2(0,0), heroes: this.otherHeroes });
-  }
 
   private updateHeroesFromFetchedData(res: { map: number; position: Vector2; heroes: MetaHero[]; }) {
     if (!res || !res.heroes) {
@@ -545,9 +541,9 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
         this.setUpdatedHeroPosition(existingHero, heroMeta);
 
         // Visual attributes from server meta
-  try { (existingHero as any).hp = heroMeta.hp ?? (existingHero as any).hp; } catch {}
-  try { (existingHero as any).level = heroMeta.level ?? (existingHero as any).level; } catch {}
-  try { (existingHero as any).exp = heroMeta.exp ?? (existingHero as any).exp; } catch {}
+        existingHero.hp = heroMeta.hp ?? existingHero.hp;   
+        existingHero.level = heroMeta.level ?? existingHero.level;  
+        existingHero.exp = heroMeta.exp ?? existingHero.exp;  
 
         // Mask handling: if mask state changed, recreate character
         try {
@@ -572,10 +568,10 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
         try { this.metaHero.level = heroMeta.level ?? this.metaHero.level; } catch {}
         try { this.metaHero.exp = heroMeta.exp ?? this.metaHero.exp; } catch {}
         if (this.hero) {
-          try { (this.hero as any).hp = heroMeta.hp; } catch {}
-          try { (this.hero as any).level = heroMeta.level; } catch {}
-          try { (this.hero as any).exp = heroMeta.exp; } catch {}
-          try { (this.hero as any).maxHp = (this.hero as any).maxHp ?? (heroMeta.hp ?? 100); } catch {}
+          this.hero.hp = heroMeta.hp ?? 0;  
+          this.hero.level = heroMeta.level ?? 1; 
+          this.hero.exp = heroMeta.exp ?? 0;  
+          this.hero.maxHp = 100; 
         }
       }
 

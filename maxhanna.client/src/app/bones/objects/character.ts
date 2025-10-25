@@ -38,6 +38,7 @@ export class Character extends GameObject {
   itemPickupShell: any;
   isLocked = false;
   hp = 0;
+  maxHp = 100;
   level = 1;
   exp = 0;
   expForNextLevel = 0;
