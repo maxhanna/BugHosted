@@ -401,11 +401,21 @@ export function subscribeToMainGameEvents(object: any) {
     object.bonesService.updateEvents(metaEvent);
   });
   events.on("UNPARTY", object, (person: Hero) => { 
-    const metaEvent = new MetaEvent(0, object.metaHero.id, new Date(), "UNPARTY", object.metaHero.map, { "hero_id": `${person.id}` })
-    object.bonesService.updateEvents(metaEvent);
-    object.partyMembers = object.partyMembers.filter((x: any) => x.heroId === object.metaHero.id);
-    console.log("reset party member ids");
-    object.reinitializeInventoryData();
+    const toRemoveId = person?.id ?? 0;
+    if (!toRemoveId) return;
+    // Only act if the target hero is currently in our local party list
+    const isMember = Array.isArray(object.partyMembers) && object.partyMembers.some((x: any) => x.heroId === toRemoveId);
+    if (!isMember) {
+      console.log("UNPARTY ignored; hero not in local party:", toRemoveId);
+      return;
+    } 
+    // Remove the departed member from the local party list (keep other members and self)
+    object.partyMembers = object.partyMembers.filter((x: any) => x.heroId !== toRemoveId);
+    console.log("removed party member id", toRemoveId);
+    // If we removed ourselves, reinitialize inventory data as before
+    if (toRemoveId === object.metaHero.id) {
+      object.reinitializeInventoryData();
+    }
   });
   events.on("CHARACTER_PICKS_UP_ITEM", object, (data:
     {
@@ -491,10 +501,28 @@ export function actionMultiplayerEvents(object: any, metaEvents: MetaEvent[]) {
           actionPartyUpEvent(object, event);
         }
         if (event.eventType === "UNPARTY" && event.data && event.data["hero_id"]) {
-          console.log("got unparty event", event);
-          object.partyMembers = object.partyMembers.filter((x:any) => event && event.data && event.data["hero_id"] && x.heroId != parseInt(event.data["hero_id"]) && x.heroId != event.heroId);
-          if (event.data["hero_id"] == object.metaHero.id) {
-            object.reinitializeInventoryData();
+          try {
+            console.log("got unparty event", event);
+            const idStr = event.data["hero_id"];
+            const removedId = parseInt(idStr);
+            if (isNaN(removedId)) {
+              console.log("UNPARTY event has invalid hero_id:", idStr);
+            } else {
+              const partyList = Array.isArray(object.partyMembers) ? object.partyMembers : [];
+              const isMember = partyList.some((x: any) => x && x.heroId === removedId);
+              if (!isMember) {
+                console.log("UNPARTY ignored; hero not in local party:", removedId);
+              } else {
+                // Remove the departed member and avoid removing other members unintentionally
+                object.partyMembers = partyList.filter((x: any) => x.heroId !== removedId && x.heroId !== event.heroId);
+                if (removedId === object.metaHero.id) {
+                  object.reinitializeInventoryData();
+                }
+                console.log("processed UNPARTY for hero id", removedId);
+              }
+            }
+          } catch (ex) {
+            console.error('Failed processing UNPARTY event', ex);
           }
         }
         if (event.eventType === "PARTY_INVITE_ACCEPTED" && event.heroId != object.metaHero.id) {

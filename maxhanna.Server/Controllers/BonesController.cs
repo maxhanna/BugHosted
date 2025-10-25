@@ -103,7 +103,34 @@ namespace maxhanna.Server.Controllers
 					if (ownerId != req.UserId.Value) return StatusCode(403, "You do not own this hero");
 				}
 
+				// Perform the unparty deletion
 				await Unparty(req.HeroId, connection, transaction);
+
+				// Persist an UNPARTY meta-event so other clients can reconcile
+				try
+				{
+					// Attempt to fetch the hero's current map for context (non-fatal)
+					string map = string.Empty;
+					try
+					{
+						using var mapCmd = new MySqlCommand("SELECT map FROM maxhanna.bones_hero WHERE id = @HeroId LIMIT 1", connection, transaction);
+						mapCmd.Parameters.AddWithValue("@HeroId", req.HeroId);
+						var mapObj = await mapCmd.ExecuteScalarAsync();
+						map = mapObj != null ? mapObj.ToString() ?? string.Empty : string.Empty;
+					}
+					catch { /* ignore map lookup failures */ }
+
+					var data = new Dictionary<string, string>();
+					data["hero_id"] = req.HeroId.ToString();
+					var ev = new MetaEvent(0, req.HeroId, DateTime.UtcNow, "UNPARTY", map ?? string.Empty, data);
+					await UpdateEventsInDB(ev, connection, transaction);
+				}
+				catch (Exception exEv)
+				{
+					// Log but do not fail leaving the party
+					await _log.Db("Failed to persist UNPARTY event: " + exEv.Message, req.HeroId, "BONES", true);
+				}
+
 				await transaction.CommitAsync();
 				return Ok(new { left = true });
 			}
