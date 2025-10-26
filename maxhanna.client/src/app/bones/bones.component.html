@@ -175,7 +175,7 @@
             (userLoaded)="onUserTagLoaded($event)"></app-user-tag>
         </div>
         <div *ngIf="!deathKillerUserId && deathKillerName" class="deathKillerName">
-          {{ deathKillerName }}
+          {{ deathKillerName | pascalCase }}
         </div>
       </div> 
     </div>
