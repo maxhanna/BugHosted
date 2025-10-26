@@ -847,3 +847,42 @@ body {
 }
 
 /* End Diablo-esque theme overlay */
+
+/* High-specificity overrides to ensure theme applies */
+body .componentMain.popupPanel.startPopupPanel.componentMain, body .componentMain.startPopupPanel, .componentMain .popupPanel.startPopupPanel {
+  background: linear-gradient(180deg, rgba(3,3,5,0.75), rgba(8,6,10,0.95)) !important;
+}
+
+/* Force popup panels to use theme background and z-index */
+html body .popupPanel, html body .popupPanel * {
+  background: linear-gradient(180deg, rgba(18,14,12,0.98), rgba(12,10,9,0.96)) !important;
+  color: var(--diablo-muted) !important;
+  z-index: 3000 !important;
+  border-color: rgba(80,60,40,0.75) !important;
+}
+
+/* Ensure close buttons remain visible (higher specificity) */
+.startPopupPanel .closeButton, .popupPanel.startPopupPanel > .closeButton, .popupPanel .closeButton {
+  position: relative !important;
+  z-index: 3100 !important;
+}
+
+/* Force pending badge visuals (higher specificity) */
+.partyPanel .pendingBadge, .startPopupPanel .pendingBadge, .popupPanel .pendingBadge {
+  --bg-a: #6b180f !important;
+  --bg-b: #c14b2f !important;
+  color: #fff !important;
+  box-shadow: 0 8px 28px rgba(0,0,0,0.6) !important;
+}
+
+/* If some rules still override, target the exact element path */
+.popupPanel .partyPanel .pendingBadge, .popupPanel .pendingBadgeWrapper .pendingBadge {
+  background: linear-gradient(90deg, var(--bg-a), var(--bg-b)) !important;
+}
+
+/* Keep badges readable on mobile */
+@media (max-width: 700px) {
+  .pendingBadge { font-size: 11px !important; padding: 5px 8px !important; }
+}
+
+/* End high-specificity overrides */
