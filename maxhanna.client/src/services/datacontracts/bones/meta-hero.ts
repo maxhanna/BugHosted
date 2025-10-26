@@ -18,7 +18,10 @@ export class MetaHero {
   map: string;
   color?: string;
   mask?: number;
-  constructor(id: number, name: string, position: Vector2, speed: number, map: string, color?: string, mask?: number, hp?: number, level?: number, exp?: number, attackSpeed?: number, userId?: number, str?: number, dex?: number, int?: number) {
+  updated?: Date;
+  constructor(id: number, name: string, position: Vector2, speed: number, map: string, color?: string, 
+    mask?: number, hp?: number, level?: number, exp?: number, attackSpeed?: number, userId?: number, 
+    str?: number, dex?: number, int?: number, updated?: Date) {
     this.id = id; 
     this.name = name;
     this.position = position; 
@@ -34,5 +37,6 @@ export class MetaHero {
     this.str = str ?? 0;
     this.dex = dex ?? 0;
     this.int = int ?? 0;
+    this.updated = updated;
   } 
 }

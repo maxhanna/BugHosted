@@ -220,7 +220,14 @@
         style="display:flex; align-items:center; justify-content:space-between; padding:6px; border-bottom:1px solid #222;">
         <div style="display:flex; align-items:center; gap:8px;">
           <div style="width:28px; height:28px; background:#333; border-radius:50%;"></div>
-          <div>{{p.name}}</div>
+          <div style="display:flex; flex-direction:column;">
+            <div style="display:flex; align-items:center; gap:8px;">
+              <div *ngIf="parentRef?.isUserOnline(p.updated | timeSince)" class="glowing onlineButton" title="Online"></div>
+              <div *ngIf="!parentRef?.isUserOnline(p.updated | timeSince)" style="width:10px; height:10px; border-radius:50%; background:#666; display:inline-block;" title="Offline"></div>
+              <div>{{p.name}}</div>
+            </div>
+            <div class="xxSmallFont thirdFontColor" *ngIf="p.updated" [title]="p.updated">Updated: {{ p.updated | timeSince }}</div>
+          </div>
         </div>
         <div>
           <button *ngIf="!isInParty(p.id) && !isAlreadyInPartyStatus(p.id)" [disabled]="isInvitePending(p.id)"
