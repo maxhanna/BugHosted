@@ -1,15 +1,10 @@
 import { Vector2 } from "../../../services/datacontracts/bones/vector2";
 import { gridCells } from "../helpers/grid-cells";
 import { resources } from "../helpers/resources";
-import { events } from "../helpers/events";
-import { Exit } from "../objects/Environment/Exit/exit";
-import { Wardrobe } from "../objects/Environment/Wardrobe/wardrobe";
+import { events } from "../helpers/events"; 
 import { Level } from "../objects/Level/level";
-import { Sprite } from "../objects/sprite";
-import { Tv } from "../objects/Environment/Tv/tv";
-import { Scenario } from "../helpers/story-flags";
-import { BASE } from "../objects/game-object";
-import { Painting } from "../objects/Environment/Painting/painting";
+import { Sprite } from "../objects/sprite"; 
+import { BASE } from "../objects/game-object"; 
 import { Encounter } from "../objects/Environment/Encounter/encounter";
 
 
@@ -77,8 +72,8 @@ export class HeroRoomLevel extends Level {
     // startTileX/startTileY are in tile coordinates (tile units).
     const roomLeft = startTileX;
     const roomTop = startTileY;
-    const roomRight = startTileX + roomWidth - 1;
-    const roomBottom = startTileY + roomHeight - 1;
+    const roomRight = (startTileX + roomWidth - 1) * 64;
+    const roomBottom = (startTileY + roomHeight - 1) * 96;
     // horizontal edges
     for (let tx = roomLeft; tx <= roomRight; tx++) {
       this.walls.add(`${gridCells(tx)},${gridCells(roomTop)}`);
