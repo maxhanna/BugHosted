@@ -1315,13 +1315,15 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
     return validUsers;
   }
   async handlePollCheckClicked() {
-    const checkValue = (document.getElementById((document.getElementById("pollCheckId") as HTMLInputElement).value) as HTMLInputElement).value;
+    const pollCheckIdElement = document.getElementById("pollCheckId") as HTMLInputElement;
+    const checkInputId = pollCheckIdElement ? pollCheckIdElement.value : undefined;
+    const checkValue = checkInputId ? (document.getElementById(checkInputId) as HTMLInputElement)?.value : undefined;
     const pollQuestion = (document.getElementById("pollQuestion") as HTMLInputElement).value;
     const componentId = (document.getElementById("pollComponentId") as HTMLInputElement).value;
 
+    // Always call server to perform the vote first and get the authoritative results
     try {
-      const res = await this.pollService.vote(this.user?.id ?? 0, checkValue, componentId);
-
+      const res = await this.pollService.vote(this.user?.id ?? 0, checkValue ?? '', componentId);
       this.pollResults = res;
       this.pollChecked = true;
       this.pollQuestion = pollQuestion;
@@ -1331,6 +1333,50 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
       console.error("Error updating poll:", error);
       alert("Failed to update poll. Please try again.");
     }
+  }
+ 
+
+  // Close the poll popup and replace the original poll in the DOM with a completed-render version
+  closePollPopup() {
+    try {
+      const componentId = (document.getElementById("pollComponentId") as HTMLInputElement)?.value;
+      if (componentId && this.pollResults) {
+        const container = document.getElementById(componentId);
+        if (container) {
+          let pollHtml = `<div class="poll-container" data-component-id="${componentId}">` +
+            `<div class="poll-question">${this.pollQuestion || ''}</div><div class="poll-options">`;
+
+          const total = this.pollResults.totalVoters ?? 0;
+          (this.pollResults.options || []).forEach((option: any, index: number) => {
+            const voteCount = option.voteCount ?? 0;
+            const percentage = total > 0 ? Math.round((voteCount / total) * 100) : 0;
+            pollHtml += `
+              <div class="poll-option">
+                <div class="option-text">${this.escapeHtml(option.value ?? '')}</div>
+                <div class="poll-result">
+                  <div class="poll-bar" style="width: ${percentage}%"></div>
+                  <span class="poll-stats">${voteCount} votes (${percentage}%)</span>
+                </div>
+              </div>`;
+          });
+
+          pollHtml += `</div><div class="poll-total">Total Votes: ${total}</div></div>`;
+          container.innerHTML = pollHtml;
+        }
+      }
+    } catch (err) {
+      console.error('Error replacing poll in DOM', err);
+    }
+
+    // Close popup and cleanup
+    this.pollChecked = false;
+    this.pollResults = null;
+    this.pollQuestion = '';
+    this.closeOverlay();
+  }
+
+  private escapeHtml(input: string): string {
+    return input?.toString().replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')?.replace(/"/g, '&quot;') || '';
   }
   async handlePollDeleteClicked() {
     const componentId = (document.getElementById("pollComponentId") as HTMLInputElement).value;

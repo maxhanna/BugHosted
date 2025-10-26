@@ -30,8 +30,8 @@
 </div>
 
 <!-- POLL POPUP PANEL -->
-<div class="popupPanel pollPopupPanel" *ngIf="pollChecked" (click)="pollChecked = false; closeOverlay();">
-  <span class="closeButton" id="closeOverlay" (click)="pollChecked = false; closeOverlay();"></span>
+<div class="popupPanel pollPopupPanel" *ngIf="pollChecked" (click)="closePollPopup()">
+  <span class="closeButton" id="closeOverlay" (click)="closePollPopup()"></span>
   <div class="popupContent" (click)="$event.stopPropagation()">
     <h2 class="pollTitle">Poll Results</h2>
 
