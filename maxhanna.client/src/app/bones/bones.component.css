@@ -598,6 +598,7 @@ body {
   font-size: xx-large !important;
 }
 
+.partyPanel,
 .deathPanel,
 .deathPanel button,
 .deathPanel input[type="button"],
@@ -794,12 +795,21 @@ body {
 .buttonDisplayNone {
   width: 1px;
   height: 1px;
-  padding: 0;
+  padding: 0 !important;
   margin: 0; 
   border: none;
   background: transparent;
   overflow: hidden;
   /* transform: scale(0.01); */
+}
+
+.changeStatsPanel {
+  margin-top:8px;
+   text-align:left;
+    max-height:240px; 
+    overflow:auto;
+    min-width:300px;
+    font-size: xx-large;
 }
 
 .popupPanel {
