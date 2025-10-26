@@ -595,7 +595,6 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
             return; // skip further processing for this bot
           }
         } else if (enemy.hp) {
-          console.log("could not find bot, creating it ", enemy);
           const tgtEncounter = this.mainScene.level.children.find((x: Character) => x.id == enemy.heroId);
           if (tgtEncounter) {
             let tmp = new Bot({
@@ -947,7 +946,6 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
 
   lockMovementForChat() {
     if (!this.hero?.isLocked) {
-      console.log("lock movement for chat");
       events.emit("HERO_MOVEMENT_LOCK");
     }
   }
@@ -1051,11 +1049,12 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
   }
 
   closeStartMenu() {
+    console.log("closing start menu");
     this.isStartMenuOpened = false;
     this.isPartyPanelOpen = false;
     this.isChangeStatsOpen = false;
     if (this.hero) this.hero.isLocked = false;
-    this.parentRef?.closeOverlay();
+    this.parentRef?.closeOverlay(false);
   }
 
   openPartyPanel() {
