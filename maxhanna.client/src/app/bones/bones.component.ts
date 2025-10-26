@@ -1080,7 +1080,6 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
 
   // Internal: ensure the periodic pending-seconds updater is running when needed
   private ensurePendingInvitesInterval() {
-    try {
       if (this._pendingInvitesInterval) return;
       this._pendingInvitesInterval = setInterval(() => {
         const now = Date.now();
@@ -1099,23 +1098,20 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
           this._pendingInvitesInterval = undefined;
         }
       }, 500);
-    } catch (ex) { console.error('Failed to start pending invites interval', ex); }
   }
 
   // Mark a hero as 'already in a party' for a short period (ms). Clears any optimistic pending state.
   private setAlreadyInPartyStatus(heroId: number, ms: number = 5000) {
-    try {
+   
       // clear optimistic pending state
-      try { this.pendingInvites.delete(heroId); } catch { }
-      try { this.pendingInviteSeconds.delete(heroId); } catch { }
-      try {
+       this.pendingInvites.delete(heroId); 
+      this.pendingInviteSeconds.delete(heroId); 
         if (this.pendingClearing.has(heroId)) {
           const t = this.pendingClearingTimers.get(heroId);
           if (t) clearTimeout(t);
           this.pendingClearing.delete(heroId);
           this.pendingClearingTimers.delete(heroId);
         }
-      } catch { }
 
       const until = Date.now() + ms;
       this.alreadyInPartyUntil.set(heroId, until);
@@ -1125,10 +1121,9 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
         try { this.alreadyInPartyUntil.delete(heroId); this.alreadyInPartyTimers.delete(heroId); } catch { }
       }, ms + 50);
       this.alreadyInPartyTimers.set(heroId, to);
-    } catch (ex) { console.error('setAlreadyInPartyStatus failed', ex); }
+   
   }
 
-  // Query helpers for template
   isAlreadyInPartyStatus(heroId: number) {
     const t = this.alreadyInPartyUntil.get(heroId);
     return !!(t && t > Date.now());
@@ -1139,17 +1134,13 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
     return Math.max(0, Math.ceil((t - Date.now()) / 1000));
   }
 
-  // Return whether an invite is currently in the clearing animation
   isPendingClearing(heroId: number) {
     return this.pendingClearing.has(heroId);
   }
 
-  // Return otherHeroes sorted so party members appear at the top, then others by distance or name
   getSortedHeroes() {
     if (!this.otherHeroes) return [] as MetaHero[];
-    // Exclude self
     let filtered = this.otherHeroes.filter(h => h.id !== this.metaHero?.id);
-    // Apply filter
     if (this.partyFilter === 'party') {
       const partySet = new Set((this.partyMembers || []).map(p => p.heroId));
       filtered = filtered.filter(h => partySet.has(h.id));
@@ -1209,7 +1200,6 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
   }
 
   async applyStats() {
-    try {
       // send to server if API exists
       if (this.bonesService && typeof (this.bonesService as any).updateHeroStats === 'function') {
         await this.bonesService.updateHeroStats(
@@ -1218,7 +1208,6 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
           this.parentRef?.user?.id
         );
         // Update local metaHero so UI reflects the new stats immediately
-        try {
           if (this.metaHero) {
             this.metaHero.str = this.editableStats.str;
             this.metaHero.dex = this.editableStats.dex;
@@ -1226,21 +1215,16 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
           }
           // If in-game hero object exists, you may want to apply derived changes here
           if (this.hero) {
-            try { (this.hero as any).str = this.editableStats.str; } catch { }
-            try { (this.hero as any).dex = this.editableStats.dex; } catch { }
-            try { (this.hero as any).int = this.editableStats.int; } catch { }
+             (this.hero as any).str = this.editableStats.str; 
+             (this.hero as any).dex = this.editableStats.dex; 
+             (this.hero as any).int = this.editableStats.int; 
           }
-        } catch { }
         alert('Stats updated');
         // Persist to cachedStats so future fetches that omit stats keep these values
-        try {
           this.cachedStats = { str: this.editableStats.str, dex: this.editableStats.dex, int: this.editableStats.int };
-          try { console.debug('applyStats updated cachedStats', this.cachedStats); } catch { }
-        } catch { }
       } else {
         alert('Update stats not implemented on server. Local demo applied.');
       }
-    } catch (ex) { console.error('applyStats failed', ex); alert('Failed to update stats'); }
     this.closeStartMenu();
   }
 
