@@ -140,153 +140,28 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
       this.isUserComponentOpen = true;
     } else {
       this.startLoading();
-      this.userService.getUserSettings(this.parentRef.user?.id ?? 0).then(res => {
-        this.cachedDefaultName = res?.lastCharacterName ?? undefined;
-        this.cachedDefaultColor = res?.lastCharacterColor ?? undefined;
-        this.isMuted = !!res?.muteSounds;
-        this.isMusicMuted = this.isMuted;
-        this.isSfxMuted = false;
-        resources.setMusicMuted(this.isMusicMuted);
-        resources.setSfxMuted(this.isSfxMuted);
-        // Initialize volume from localStorage if present
-        try {
-          const saved = localStorage.getItem('bonesVolume');
-          if (saved !== null) {
-            const parsed = parseFloat(saved);
-            if (!isNaN(parsed)) {
-              this.currentVolume = Math.max(0, Math.min(1, parsed));
-              resources.setVolumeMultiplier(this.currentVolume);
-            }
-          }
-        } catch { }
-        if (!this.isMusicMuted) {
-          const startMusic = () => {
-            resources.playSound("shadowsUnleashed", { volume: 0.4, loop: true, allowOverlap: false });
-            document.removeEventListener('pointerdown', startMusic);
-            document.removeEventListener('keydown', startMusic);
-          };
-          document.addEventListener('pointerdown', startMusic, { once: true });
-          document.addEventListener('keydown', startMusic, { once: true });
-        }
-      }).catch(() => { /* ignore */ });
+      this.fetchUserSettings();
       this.pollForChanges();
       this.gameLoop.start();
       this.stopLoading();
     }
 
     window.addEventListener("resize", this.adjustCanvasSize);
-    this.adjustCanvasSize();
-
-    // Handle remote attack animations sent from other clients via ATTACK_BATCH
-    events.on("REMOTE_ATTACK", this, (payload: any) => {
-      try {
-        const sourceHeroId = payload?.sourceHeroId;
-        const attack = payload?.attack;
-        if (!sourceHeroId || !attack) return;
-        const srcObj = this.mainScene?.level?.children?.find((x: any) => x.id === sourceHeroId);
-        if (srcObj) {
-          // If the hero object exposes a playAttackAnimation method, use it.
-          if (typeof srcObj.playAttackAnimation === 'function') {
-            srcObj.playAttackAnimation(attack.skill);
-          } else {
-            // Fallback: temporarily set a flag that other rendering code can observe
-            srcObj._remoteAttack = attack;
-            setTimeout(() => { delete srcObj._remoteAttack; }, 500);
-          }
-        }
-      } catch (ex) {
-        console.error('Error handling REMOTE_ATTACK', ex);
-      }
-    });
-
-    // Play attenuated impact SFX when other heroes attack
-    events.on("OTHER_HERO_ATTACK", this, (payload: any) => {
-      try {
-        const sourceHeroId = payload?.sourceHeroId;
-        if (!sourceHeroId) return;
-        // Try to find attacker in scene first, fallback to otherHeroes list
-        let attackerPos: Vector2 | undefined = undefined;
-        const attackerObj = this.mainScene?.level?.children?.find((x: any) => x.id === sourceHeroId);
-        if (attackerObj && attackerObj.position) {
-          attackerPos = attackerObj.position;
-        } else {
-          const mh = this.otherHeroes.find(h => h.id === sourceHeroId);
-          if (mh && mh.position) attackerPos = mh.position;
-        }
-        const myPos = (this.hero && this.hero.position) ? this.hero.position : (this.metaHero && this.metaHero.position) ? this.metaHero.position : undefined;
-        if (!attackerPos || !myPos) return;
-        const dx = attackerPos.x - myPos.x;
-        const dy = attackerPos.y - myPos.y;
-        const dist = Math.sqrt(dx * dx + dy * dy);
-        if (sourceHeroId != this.metaHero.id) {
-          const maxAudible = 800; // pixels: distance a`t which sound is near-silent
-          let vol = 1 - (dist / maxAudible);
-          vol = Math.max(0.05, Math.min(1, vol)); // clamp to [0.05, 1]
-          resources.playSound('punchOrImpact', { volume: vol, allowOverlap: true });
-        }
-      } catch (ex) {
-        console.error('Error playing attenuated impact SFX', ex);
-      }
-    });
+    this.adjustCanvasSize(); 
   }
+  
   ngOnDestroy() {
     clearInterval(this.pollingInterval);
     clearInterval(this._processedCleanupInterval);
     try { if (this._pendingInvitesInterval) clearInterval(this._pendingInvitesInterval); } catch { }
     this.mainScene.destroy();
     this.gameLoop.stop();
-    this.remove_me('MetaComponent');
     this.parentRef?.setViewportScalability(true);
     this.parentRef?.removeResizeListener();
     // clear any outstanding chat timers
     for (const entry of this.heroMessageExpiryTimers.values()) { try { if (entry?.timer) clearTimeout(entry.timer); } catch { } }
     this.heroMessageExpiryTimers.clear();
-  }
-
-  // Return remaining seconds for a hero's pending invite, or null if none
-  getPendingSeconds(heroId: number): number | null {
-    const v = this.pendingInviteSeconds.get(heroId);
-    return (typeof v === 'number') ? v : null;
-  }
-
-  toggleMusic() {
-    this.isMusicMuted = !this.isMusicMuted;
-    resources.setMusicMuted(this.isMusicMuted);
-    if (!this.isMusicMuted) {
-      resources.playSound("shadowsUnleashed", { volume: 0.4, loop: true, allowOverlap: false });
-    } else {
-      resources.stopSound("shadowsUnleashed");
-    }
-    this.isMuted = this.isMusicMuted;
-    if (this.parentRef?.user?.id) {
-      this.userService.updateMuteSounds(this.parentRef.user.id, this.isMuted).catch(() => { });
-    }
-  }
-
-  toggleSfx() {
-    this.isSfxMuted = !this.isSfxMuted;
-    resources.setSfxMuted(this.isSfxMuted);
-    this.isMuted = this.isMusicMuted && this.isSfxMuted;
-  }
-
-  onVolumeSliderInput(e: Event) {
-    try {
-      const val = Number((e.target as HTMLInputElement).value);
-      if (!isNaN(val)) {
-        const vol = Math.max(0, Math.min(100, val)) / 100.0;
-        this.currentVolume = vol;
-        resources.setVolumeMultiplier(this.currentVolume);
-      }
-    } catch { }
-  }
-
-  onVolumeChange(e: Event) {
-    try {
-      // Persist to localStorage for simple persistence across sessions
-      localStorage.setItem('bonesVolume', String(this.currentVolume));
-      // Ensure the persisted value is applied to any currently-playing audio
-      try { resources.setVolumeMultiplier(this.currentVolume); } catch { }
-    } catch { }
+    this.remove_me('BonesComponent');
   }
 
 
@@ -344,88 +219,60 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
         }, 250);
       } catch (ex) { console.error('Failed to show PARTY_INVITED popup', ex); }
     });
-  }
 
-  clearPendingInvitePopup() {
-    try { if (this.pendingInviteTimer) clearInterval(this.pendingInviteTimer); } catch { }
-    this.pendingInviteTimer = undefined;
-    this.pendingInvitePopup = null;
-    this.pendingInviteSecondsLeft = null;
-  }
-
-  async acceptInvite() {
-    if (!this.pendingInvitePopup) return;
-    const inviterId = this.pendingInvitePopup.inviterId;
-    // Build a party members list: include current members, inviter, and self
-    const currentIds = Array.isArray(this.partyMembers) ? this.partyMembers.map(p => p.heroId) : [];
-    const union = Array.from(new Set([...currentIds, this.metaHero.id, inviterId]));
-    try {
-      const metaEvent = new MetaEvent(0, this.metaHero.id, new Date(), "PARTY_INVITE_ACCEPTED", this.metaHero.map, { "party_members": JSON.stringify(union) });
-      await this.bonesService.updateEvents(metaEvent);
-      // Optimistically apply party locally
-      this.partyMembers = union.map(id => {
-        const other = this.otherHeroes.find(h => h.id === id);
-        const nameStr = other ? (other.name ?? `Hero ${id}`) : (id === this.metaHero.id ? (this.metaHero.name ?? `You`) : `Hero ${id}`);
-        return { heroId: id, name: nameStr, color: other ? (other as any).color : undefined };
-      });
-      // Clear any optimistic pending invites for these heroes
-      for (const id of union) { try { this.pendingInvites.delete(id); } catch { } }
-      try { if (this.mainScene && this.mainScene.inventory) { this.mainScene.inventory.partyMembers = this.partyMembers; this.mainScene.inventory.renderParty(); } } catch { }
-    } catch (ex) {
-      console.error('Failed to accept party invite', ex);
-    }
-    this.clearPendingInvitePopup();
-  }
-
-  rejectInvite() {
-    this.clearPendingInvitePopup();
-  }
-
-  private async handleHeroDeath(params: { killerId?: string | number | null, killerUserId?: number | null, cause?: string | null }) {
-    // Debug: log method entry and incoming params (safe stringify)
-    try {
-      console.debug('handleHeroDeath ENTRY', JSON.parse(JSON.stringify(params)));
-    } catch (ex) {
-      try { console.debug('handleHeroDeath ENTRY (raw)', params); } catch { }
-    }
-
-    let killerId = Number(params.killerId);
-    let killerUserId = Number(params.killerUserId);
-    let cause = params.cause;
-
-    if (cause != "spawned_dead") {
-      if (killerId && killerId < 0) {
-        const killer = this.mainScene.level.children.filter((x: any) => x.heroId == killerId);
-        if (killer.length > 0) {
-          this.deathKillerName = killer[0].name;
+    
+    // Handle remote attack animations sent from other clients via ATTACK_BATCH
+    events.on("REMOTE_ATTACK", this, (payload: any) => {
+      try {
+        const sourceHeroId = payload?.sourceHeroId;
+        const attack = payload?.attack;
+        if (!sourceHeroId || !attack) return;
+        const srcObj = this.mainScene?.level?.children?.find((x: any) => x.id === sourceHeroId);
+        if (srcObj) {
+          // If the hero object exposes a playAttackAnimation method, use it.
+          if (typeof srcObj.playAttackAnimation === 'function') {
+            srcObj.playAttackAnimation(attack.skill);
+          } else {
+            // Fallback: temporarily set a flag that other rendering code can observe
+            srcObj._remoteAttack = attack;
+            setTimeout(() => { delete srcObj._remoteAttack; }, 500);
+          }
         }
-      } else {
-        const killer = this.otherHeroes.filter(x => x.id == killerId);
-        if (killer) {
-          this.deathKillerName = killer[0].name;
-          this.deathKillerUserId = killer[0].userId;
-        }
+      } catch (ex) {
+        console.error('Error handling REMOTE_ATTACK', ex);
       }
-    } else {
-      this.deathKillerName = "Spawned Dead";
-    }
+    });
 
-    this.stopPollingForUpdates = true;
-    this.isDead = true;
-    // Stop the game loop briefly and show a death panel, then return player to 0,0
-    setTimeout(() => {
-      try { this.gameLoop.stop(); } catch { }
-      try { this.mainScene?.destroy(); } catch { }
-      this.showDeathPanel = true;
-      this.isMenuPanelOpen = false;
-      this.parentRef?.showOverlay();
-    }, 500);
-  }
-
-  async returnFromDeath() {
-    this.metaHero = await this.bonesService.respawnHero(this.metaHero.id);
-    window.location.href = '/Bones';
-  }
+    // Play attenuated impact SFX when other heroes attack
+    events.on("OTHER_HERO_ATTACK", this, (payload: any) => {
+      try {
+        const sourceHeroId = payload?.sourceHeroId;
+        if (!sourceHeroId) return;
+        // Try to find attacker in scene first, fallback to otherHeroes list
+        let attackerPos: Vector2 | undefined = undefined;
+        const attackerObj = this.mainScene?.level?.children?.find((x: any) => x.id === sourceHeroId);
+        if (attackerObj && attackerObj.position) {
+          attackerPos = attackerObj.position;
+        } else {
+          const mh = this.otherHeroes.find(h => h.id === sourceHeroId);
+          if (mh && mh.position) attackerPos = mh.position;
+        }
+        const myPos = (this.hero && this.hero.position) ? this.hero.position : (this.metaHero && this.metaHero.position) ? this.metaHero.position : undefined;
+        if (!attackerPos || !myPos) return;
+        const dx = attackerPos.x - myPos.x;
+        const dy = attackerPos.y - myPos.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (sourceHeroId != this.metaHero.id) {
+          const maxAudible = 800; // pixels: distance a`t which sound is near-silent
+          let vol = 1 - (dist / maxAudible);
+          vol = Math.max(0.05, Math.min(1, vol)); // clamp to [0.05, 1]
+          resources.playSound('punchOrImpact', { volume: vol, allowOverlap: true });
+        }
+      } catch (ex) {
+        console.error('Error playing attenuated impact SFX', ex);
+      }
+    });
+  } 
 
   update = async (delta: number) => {
     this.mainScene.stepEntry(delta, this.mainScene);
@@ -448,6 +295,7 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
     if (!this.hero?.id && this.parentRef?.user?.id) {
       const rz = await this.bonesService.getHero(this.parentRef.user.id);
       if (rz) {
+        this.copyStatsFromMetaHero(rz);
         this.partyMembers = await this.bonesService.getPartyMembers(rz.id) ?? [];
         this.mainScene.partyMembers = this.partyMembers;
         this.mainScene.inventory.partyMembers = this.partyMembers;
@@ -1440,4 +1288,168 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
   volumePercent(): number {
     return Math.round((this.currentVolume ?? 0) * 100);
   }
+  
+
+  // Return remaining seconds for a hero's pending invite, or null if none
+  getPendingSeconds(heroId: number): number | null {
+    const v = this.pendingInviteSeconds.get(heroId);
+    return (typeof v === 'number') ? v : null;
+  }
+
+  toggleMusic() {
+    this.isMusicMuted = !this.isMusicMuted;
+    resources.setMusicMuted(this.isMusicMuted);
+    if (!this.isMusicMuted) {
+      resources.playSound("shadowsUnleashed", { volume: 0.4, loop: true, allowOverlap: false });
+    } else {
+      resources.stopSound("shadowsUnleashed");
+    }
+    this.isMuted = this.isMusicMuted;
+    if (this.parentRef?.user?.id) {
+      this.userService.updateMuteSounds(this.parentRef.user.id, this.isMuted).catch(() => { });
+    }
+  }
+
+  toggleSfx() {
+    this.isSfxMuted = !this.isSfxMuted;
+    resources.setSfxMuted(this.isSfxMuted);
+    this.isMuted = this.isMusicMuted && this.isSfxMuted;
+  }
+
+  onVolumeSliderInput(e: Event) {
+    try {
+      const val = Number((e.target as HTMLInputElement).value);
+      if (!isNaN(val)) {
+        const vol = Math.max(0, Math.min(100, val)) / 100.0;
+        this.currentVolume = vol;
+        resources.setVolumeMultiplier(this.currentVolume);
+      }
+    } catch { }
+  }
+
+  onVolumeChange(e: Event) {
+    try {
+      // Persist to localStorage for simple persistence across sessions
+      localStorage.setItem('bonesVolume', String(this.currentVolume));
+      // Ensure the persisted value is applied to any currently-playing audio
+      try { resources.setVolumeMultiplier(this.currentVolume); } catch { }
+    } catch { }
+  }
+  private fetchUserSettings() {
+    this.userService.getUserSettings(this.parentRef?.user?.id ?? 0).then(res => {
+      this.cachedDefaultName = res?.lastCharacterName ?? undefined;
+      this.cachedDefaultColor = res?.lastCharacterColor ?? undefined;
+      this.isMuted = !!res?.muteSounds;
+      this.isMusicMuted = this.isMuted;
+      this.isSfxMuted = false;
+      resources.setMusicMuted(this.isMusicMuted);
+      resources.setSfxMuted(this.isSfxMuted);
+      // Initialize volume from localStorage if present 
+      const saved = localStorage.getItem('bonesVolume');
+      if (saved !== null) {
+        const parsed = parseFloat(saved);
+        if (!isNaN(parsed)) {
+          this.currentVolume = Math.max(0, Math.min(1, parsed));
+          resources.setVolumeMultiplier(this.currentVolume);
+        }
+      }
+      
+      if (!this.isMusicMuted) {
+        const startMusic = () => {
+          resources.playSound("shadowsUnleashed", { volume: 0.4, loop: true, allowOverlap: false });
+          document.removeEventListener('pointerdown', startMusic);
+          document.removeEventListener('keydown', startMusic);
+        };
+        document.addEventListener('pointerdown', startMusic, { once: true });
+        document.addEventListener('keydown', startMusic, { once: true });
+      }
+    }).catch(() => { });
+  } 
+  
+  clearPendingInvitePopup() {
+    try { if (this.pendingInviteTimer) clearInterval(this.pendingInviteTimer); } catch { }
+    this.pendingInviteTimer = undefined;
+    this.pendingInvitePopup = null;
+    this.pendingInviteSecondsLeft = null;
+  }
+
+  async acceptInvite() {
+    if (!this.pendingInvitePopup) return;
+    const inviterId = this.pendingInvitePopup.inviterId;
+    // Build a party members list: include current members, inviter, and self
+    const currentIds = Array.isArray(this.partyMembers) ? this.partyMembers.map(p => p.heroId) : [];
+    const union = Array.from(new Set([...currentIds, this.metaHero.id, inviterId]));
+    try {
+      const metaEvent = new MetaEvent(0, this.metaHero.id, new Date(), "PARTY_INVITE_ACCEPTED", this.metaHero.map, { "party_members": JSON.stringify(union) });
+      await this.bonesService.updateEvents(metaEvent);
+      // Optimistically apply party locally
+      this.partyMembers = union.map(id => {
+        const other = this.otherHeroes.find(h => h.id === id);
+        const nameStr = other ? (other.name ?? `Hero ${id}`) : (id === this.metaHero.id ? (this.metaHero.name ?? `You`) : `Hero ${id}`);
+        return { heroId: id, name: nameStr, color: other ? (other as any).color : undefined };
+      });
+      // Clear any optimistic pending invites for these heroes
+      for (const id of union) { try { this.pendingInvites.delete(id); } catch { } }
+      try { if (this.mainScene && this.mainScene.inventory) { this.mainScene.inventory.partyMembers = this.partyMembers; this.mainScene.inventory.renderParty(); } } catch { }
+    } catch (ex) {
+      console.error('Failed to accept party invite', ex);
+    }
+    this.clearPendingInvitePopup();
+  }
+
+  rejectInvite() {
+    this.clearPendingInvitePopup();
+  }
+
+  private async handleHeroDeath(params: { killerId?: string | number | null, killerUserId?: number | null, cause?: string | null }) {
+    // Debug: log method entry and incoming params (safe stringify)
+    try {
+      console.debug('handleHeroDeath ENTRY', JSON.parse(JSON.stringify(params)));
+    } catch (ex) {
+      try { console.debug('handleHeroDeath ENTRY (raw)', params); } catch { }
+    }
+
+    let killerId = Number(params.killerId);
+    let killerUserId = Number(params.killerUserId);
+    let cause = params.cause;
+
+    if (cause != "spawned_dead") {
+      if (killerId && killerId < 0) {
+        const killer = this.mainScene.level.children.filter((x: any) => x.heroId == killerId);
+        if (killer.length > 0) {
+          this.deathKillerName = killer[0].name;
+        }
+      } else {
+        const killer = this.otherHeroes.filter(x => x.id == killerId);
+        if (killer) {
+          this.deathKillerName = killer[0].name;
+          this.deathKillerUserId = killer[0].userId;
+        }
+      }
+    } else {
+      this.deathKillerName = "Spawned Dead";
+    }
+
+    this.stopPollingForUpdates = true;
+    this.isDead = true;
+    // Stop the game loop briefly and show a death panel, then return player to 0,0
+    setTimeout(() => {
+      try { this.gameLoop.stop(); } catch { }
+      try { this.mainScene?.destroy(); } catch { }
+      this.showDeathPanel = true;
+      this.isMenuPanelOpen = false;
+      this.parentRef?.showOverlay();
+    }, 500);
+  }
+
+  async returnFromDeath() {
+    this.metaHero = await this.bonesService.respawnHero(this.metaHero.id);
+    window.location.href = '/Bones';
+  }
+  
+  private copyStatsFromMetaHero(rz: MetaHero) {
+    this.metaHero.dex = rz.dex;
+    this.metaHero.str = rz.str;
+    this.metaHero.int = rz.int;
+  } 
 }
