@@ -1180,12 +1180,12 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
 
   openChangeStats() {
     this.isPartyPanelOpen = false; 
-    // Prefer explicit stats on the metaHero; fall back to cachedStats if server omitted them
-    const mh: MetaHero = this.metaHero || {};
-    const cached = this.cachedStats ?? {} as any;
-    const str = (mh.str !== undefined && mh.str !== null) ? mh.str : (cached.str !== undefined ? cached.str : undefined);
-    const dex = (mh.dex !== undefined && mh.dex !== null) ? mh.dex : (cached.dex !== undefined ? cached.dex : undefined);
-    const intl = (mh.int !== undefined && mh.int !== null) ? mh.int : (cached.int !== undefined ? cached.int : undefined);
+  // Prefer cachedStats (client-preserved) first, then metaHero values, then defaults
+  const mh: MetaHero = this.metaHero || {};
+  const cached = this.cachedStats ?? {} as any;
+  const str = (cached.str !== undefined) ? cached.str : ((mh.str !== undefined && mh.str !== null) ? mh.str : undefined);
+  const dex = (cached.dex !== undefined) ? cached.dex : ((mh.dex !== undefined && mh.dex !== null) ? mh.dex : undefined);
+  const intl = (cached.int !== undefined) ? cached.int : ((mh.int !== undefined && mh.int !== null) ? mh.int : undefined);
     const level = mh.level ?? 1;
     const allocated = (str ?? 0) + (dex ?? 0) + (intl ?? 0);
     const pointsAvailable = Math.max(0, level - allocated);
