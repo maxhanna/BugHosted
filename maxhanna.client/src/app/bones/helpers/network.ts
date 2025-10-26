@@ -637,6 +637,9 @@ export function actionMultiplayerEvents(object: any, metaEvents: MetaEvent[]) {
             // If the death concerns our hero, emit HERO_DIED so UI can handle respawn
             if (event.heroId === object.metaHero.id) {
               events.emit("HERO_DIED", payload);
+              setTimeout(() => {
+                object.bonesService.deleteEvent(event.id);
+              }, 1000);
             } else {
               // For other remote heroes, try to find their scene object and destroy it
               try {
