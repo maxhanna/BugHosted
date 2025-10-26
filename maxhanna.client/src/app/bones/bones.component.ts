@@ -111,7 +111,9 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
 
   // Incoming invite popup state
   pendingInvitePopup: { inviterId: number, inviterName: string, expiresAt: number } | null = null;
-  private pendingInviteTimer?: any;
+  // countdown in seconds for UI binding
+  pendingInviteSecondsLeft: number | null = null;
+  private pendingInviteTimer?: any; // interval id
 
 
   private currentChatTextbox?: ChatSpriteTextString | undefined;
@@ -366,20 +368,30 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
         const inviterId = payload.inviterId as number;
         const inviterName = payload.inviterName as string || (`Hero ${inviterId}`);
         if (this.isInParty(inviterId)) return;
-        // Set popup state and auto-expire after 20s
+        // Set popup state and start a countdown that updates every 250ms
         this.clearPendingInvitePopup();
-        this.pendingInvitePopup = { inviterId: inviterId, inviterName: inviterName, expiresAt: Date.now() + 20000 };
-        this.pendingInviteTimer = setTimeout(() => {
-          this.clearPendingInvitePopup();
-        }, 20000);
+        const expiresAt = Date.now() + 20000;
+        this.pendingInvitePopup = { inviterId: inviterId, inviterName: inviterName, expiresAt: expiresAt };
+        // initialize seconds left
+        this.pendingInviteSecondsLeft = Math.ceil((expiresAt - Date.now()) / 1000);
+        this.pendingInviteTimer = setInterval(() => {
+          if (!this.pendingInvitePopup) return;
+          const leftMs = this.pendingInvitePopup.expiresAt - Date.now();
+          const leftSec = Math.max(0, Math.ceil(leftMs / 1000));
+          this.pendingInviteSecondsLeft = leftSec;
+          if (leftSec <= 0) {
+            this.clearPendingInvitePopup();
+          }
+        }, 250);
       } catch (ex) { console.error('Failed to show PARTY_INVITED popup', ex); }
     });
   }
 
   clearPendingInvitePopup() {
-    try { if (this.pendingInviteTimer) clearTimeout(this.pendingInviteTimer); } catch { }
-    this.pendingInviteTimer = undefined;
-    this.pendingInvitePopup = null;
+  try { if (this.pendingInviteTimer) clearInterval(this.pendingInviteTimer); } catch { }
+  this.pendingInviteTimer = undefined;
+  this.pendingInvitePopup = null;
+  this.pendingInviteSecondsLeft = null;
   }
 
   async acceptInvite() {

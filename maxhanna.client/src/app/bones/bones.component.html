@@ -188,13 +188,18 @@
 
 <!-- Start Menu Popup -->
 <div class="popupPanel startPopupPanel" *ngIf="isStartMenuOpened" style="max-width:360px; text-align:center;">
-  <div class="popupPanelTitle mainPopupTitle">Menu</div>
+  <div style="display:flex; align-items:center; justify-content:center; position:relative;">
+    <div class="popupPanelTitle mainPopupTitle">Menu</div>
+    <!-- Always-visible close button for the start popup (remains visible when Party subpanel is open) -->
+    <button id="closeOverlay" class="closeButton" (click)="closeStartMenu()" 
+      style="position:absolute; right:8px; top:4px; z-index:10;">Close</button>
+  </div>
   <div *ngIf="!isPartyPanelOpen" class="startGrid">
     <button class="bigActionButton" (click)="openPartyPanel()" aria-label="Party">Party</button>
     <button class="bigActionButton" (click)="openChangeCharacter()" aria-label="Change Hero">Change Hero</button>
     <button class="bigActionButton" (click)="openChangeStats()" aria-label="Change Stats">Change Stats</button>
     <button class="bigActionButton" (click)="openTownPortal()" aria-label="Town Portal">Town Portal</button>
-    <button class="bigActionButton" (click)="closeStartMenu()" aria-label="Close">Close</button>
+    <button class="bigActionButton" (click)="closeStartMenu()" id="closeOverlay" aria-label="Close">Close</button>
     <div></div>
   </div>
 
@@ -279,7 +284,7 @@
   style="max-width:320px; text-align:center; position:fixed; left:50%; top:50%; transform:translate(-50%,-50%); z-index:2000;">
   <div class="popupPanelTitle">Party Invite</div>
   <div style="padding:12px;">{{ pendingInvitePopup.inviterName }} invited you to join a party.</div>
-  <div style="padding-bottom:8px; font-size:12px; color:#ccc;">This invite will expire automatically in 20 seconds.</div>
+  <div style="padding-bottom:8px; font-size:12px; color:#ccc;">This invite will expire in <strong>{{ pendingInviteSecondsLeft ?? 20 }}</strong> second{{ pendingInviteSecondsLeft && pendingInviteSecondsLeft !== 1 ? 's' : '' }}.</div>
   <div style="display:flex; gap:8px; justify-content:center; padding-bottom:12px;">
     <button (click)="acceptInvite()">Accept</button>
     <button (click)="rejectInvite()">Reject</button>
