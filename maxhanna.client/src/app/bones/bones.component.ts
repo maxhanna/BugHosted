@@ -1324,11 +1324,11 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
     this.isPartyPanelOpen = false;
     // Initialize editable stats from current metaHero so spent points are reflected
     try {
-      const mh: any = this.metaHero || {};
-      const str = (typeof mh.str === 'number') ? mh.str : 1;
-      const dex = (typeof mh.dex === 'number') ? mh.dex : 1;
-      const intl = (typeof mh.int === 'number') ? mh.int : 1;
-      const level = (typeof mh.level === 'number' && mh.level > 0) ? mh.level : 1;
+      const mh: MetaHero = this.metaHero || {};
+      const str = mh.str;
+      const dex = mh.dex;
+      const intl = mh.int;
+      const level = mh.level ?? 1;
       // Compute points available as level minus allocated stats (clamp to >=0)
       const allocated = (str ?? 0) + (dex ?? 0) + (intl ?? 0);
       const pointsAvailable = Math.max(0, level - allocated);
