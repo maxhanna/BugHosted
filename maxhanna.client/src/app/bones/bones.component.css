@@ -609,15 +609,9 @@ body {
 }
  
 .partyPanel,
-.deathPanel,
-.deathPanel button,
-.deathPanel input[type="button"],
-.menuPopupPanel,
-.menuPopupPanel button,
-.menuPopupPanel input[type="button"],
-.changeCharacterPanel,
-.changeCharacterPanel button,
-.changeCharacterPanel input[type="button"] {
+.deathPanel,  
+.menuPopupPanel,  
+.changeCharacterPanel {
   font-family: owreKynge;
   font-size: large;
 }
