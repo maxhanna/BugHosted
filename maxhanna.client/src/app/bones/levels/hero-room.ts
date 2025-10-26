@@ -72,8 +72,8 @@ export class HeroRoomLevel extends Level {
     // startTileX/startTileY are in tile coordinates (tile units).
     const roomLeft = startTileX;
     const roomTop = startTileY;
-    const roomRight = (startTileX + roomWidth - 1) * 3;
-    const roomBottom = (startTileY + roomHeight - 1) * 3;
+    const roomRight = (startTileX + roomWidth - 1) * 2;
+    const roomBottom = (startTileY + roomHeight - 1) * 2;
     // horizontal edges
     for (let tx = roomLeft; tx <= roomRight; tx++) {
       this.walls.add(`${gridCells(tx)},${gridCells(roomTop)}`);
