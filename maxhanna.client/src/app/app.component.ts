@@ -962,7 +962,7 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
         } else {
           hasVoted = true;
           const optionText = option.trim();
-          const percentage = parseInt(optionText.split(', ')[1]) ?? 0;
+          const percentage = Math.max(1, parseInt(optionText.split(', ')[1]) ?? 0);
           pollHtml += `
           <div class="poll-option">
             <div class="poll-option-text">
@@ -1351,7 +1351,7 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
           const total = this.pollResults.totalVoters ?? 0;
           (this.pollResults.options || []).forEach((option: any, index: number) => {
             const voteCount = option.voteCount ?? 0;
-            const percentage = total > 0 ? Math.round((voteCount / total) * 100) : 0;
+            const percentage = Math.max(1, total > 0 ? Math.round((voteCount / total) * 100) : 0);
             pollHtml += `
               <div class="poll-option">
                 <div class="option-text">${this.escapeHtml(option.value ?? '')}</div>
