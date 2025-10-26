@@ -30,6 +30,7 @@ namespace maxhanna.Server.Services
 		private Timer _threeHourTimer;
 		private Timer _sixHourTimer;
 		private Timer _dailyTimer;
+		private static bool _initialDelayApplied = false;
 		private bool isCrawling = false;
 		private bool lastWasCrypto = false;
 		private static readonly SemaphoreSlim _tradeLock = new SemaphoreSlim(1, 1);
@@ -69,6 +70,19 @@ namespace maxhanna.Server.Services
 		protected override async Task ExecuteAsync(CancellationToken stoppingToken)
 		{
 			// Start all timers but stagger the first run to avoid heavy startup spikes.
+			// Apply a one-time initial delay on first process start so the background
+			// work doesn't hit immediately after deployment. This is an in-process
+			// delay (resets if the process restarts).
+			if (!_initialDelayApplied)
+			{
+				_initialDelayApplied = true;
+				// Wait 5 minutes before scheduling timers for the first run.
+				try
+				{
+					await Task.Delay(TimeSpan.FromMinutes(5), stoppingToken);
+				}
+				catch (OperationCanceledException) { /* shutting down */ }
+			}
 			// Each timer keeps its periodic interval; the initial due time is randomized.
 			var rnd = new Random((int)DateTime.UtcNow.Ticks & 0x0000FFFF);
 
