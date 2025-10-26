@@ -796,7 +796,7 @@ body {
   width: 1px;
   height: 1px;
   padding: 0 !important;
-  margin: 0; 
+  margin: 0;
   border: none;
   background: transparent;
   overflow: hidden;
@@ -804,12 +804,12 @@ body {
 }
 
 .changeStatsPanel {
-  margin-top:8px;
-   text-align:left;
-    max-height:240px; 
-    overflow:auto;
-    min-width:300px;
-    font-size: xx-large;
+  margin-top: 8px;
+  text-align: left;
+  max-height: 240px;
+  overflow: auto;
+  min-width: 300px;
+  font-size: large;
 }
 
 .popupPanel {
@@ -953,6 +953,4 @@ html body .popupPanel * {
     font-size: 11px !important;
     padding: 5px 8px !important;
   }
-}
-
-/* End high-specificity overrides */
+} 
