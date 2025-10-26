@@ -98,6 +98,8 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
   showLeaveConfirm: boolean = false;
   // Stats editing model (simple local model until backend exists)
   editableStats: { str: number; dex: number; int: number; pointsAvailable: number } = { str: 1, dex: 1, int: 1, pointsAvailable: 0 };
+  // Cached stats to preserve values when server fetches omit per-hero stats
+  cachedStats?: { str: number; dex: number; int: number } = undefined;
   // Change character popup state
   isChangeCharacterOpen = false;
   selections: any[] = [];
@@ -716,6 +718,14 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
         if (statsAny.int !== undefined) this.metaHero.int = Number(statsAny.int);
       }
     } catch { }
+    // If server didn't provide stats, but we have cachedStats, apply those so UI remains consistent
+    try {
+      if ((this.metaHero.str === undefined || this.metaHero.dex === undefined || this.metaHero.int === undefined) && this.cachedStats) {
+        this.metaHero.str = this.metaHero.str ?? this.cachedStats.str;
+        this.metaHero.dex = this.metaHero.dex ?? this.cachedStats.dex;
+        this.metaHero.int = this.metaHero.int ?? this.cachedStats.int;
+      }
+    } catch { }
     // propagate attackSpeed to client Hero so attack cooldowns match server-provided value
     if (this.hero) {
       this.hero.attackSpeed = rz.attackSpeed ?? 400;
@@ -1170,16 +1180,23 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
 
   openChangeStats() {
     this.isPartyPanelOpen = false; 
+    // Prefer explicit stats on the metaHero; fall back to cachedStats if server omitted them
     const mh: MetaHero = this.metaHero || {};
-    const str = mh.str;
-    const dex = mh.dex;
-    const intl = mh.int;
+    const cached = this.cachedStats ?? {} as any;
+    const str = (mh.str !== undefined && mh.str !== null) ? mh.str : (cached.str !== undefined ? cached.str : undefined);
+    const dex = (mh.dex !== undefined && mh.dex !== null) ? mh.dex : (cached.dex !== undefined ? cached.dex : undefined);
+    const intl = (mh.int !== undefined && mh.int !== null) ? mh.int : (cached.int !== undefined ? cached.int : undefined);
     const level = mh.level ?? 1;
     const allocated = (str ?? 0) + (dex ?? 0) + (intl ?? 0);
     const pointsAvailable = Math.max(0, level - allocated);
     this.editableStats = { str: Math.max(1, str ?? 1), dex: Math.max(1, dex ?? 1), int: Math.max(1, intl ?? 1), pointsAvailable };
     setTimeout(() => { this.isChangeStatsOpen = true; }, 100);
     console.log("opened change stats with ", this.editableStats);
+  }
+
+  closeChangeStats() {
+    this.isChangeStatsOpen = false;
+    this.parentRef?.closeOverlay();
   }
 
   adjustStat(stat: 'str' | 'dex' | 'int', delta: number) {
@@ -1459,8 +1476,22 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
   }
 
   private copyStatsFromMetaHero(rz: MetaHero) {
-    this.metaHero.dex = rz.dex;
-    this.metaHero.str = rz.str;
-    this.metaHero.int = rz.int;
+    // copy into metaHero and persist to cachedStats so later fetches that omit stats don't wipe them
+    try { this.metaHero.dex = rz.dex; } catch { }
+    try { this.metaHero.str = rz.str; } catch { }
+    try { this.metaHero.int = rz.int; } catch { }
+    try {
+      const sstr = (rz as any)?.str ?? (rz as any)?.stats?.str;
+      const sdex = (rz as any)?.dex ?? (rz as any)?.stats?.dex;
+      const sint = (rz as any)?.int ?? (rz as any)?.stats?.int;
+      // Only set cachedStats when we have at least one defined value to avoid overwriting good cache with undefined
+      if (sstr !== undefined || sdex !== undefined || sint !== undefined) {
+        this.cachedStats = {
+          str: (sstr !== undefined ? Number(sstr) : (this.cachedStats?.str ?? 1)),
+          dex: (sdex !== undefined ? Number(sdex) : (this.cachedStats?.dex ?? 1)),
+          int: (sint !== undefined ? Number(sint) : (this.cachedStats?.int ?? 1)),
+        };
+      }
+    } catch { }
   } 
 }
