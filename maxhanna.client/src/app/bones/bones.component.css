@@ -792,8 +792,8 @@ body {
 }
 
 .buttonDisplayNone {
-  width: 12px;
-  height: 12px;
+  width: 1px;
+  height: 1px;
   padding: 0;
   margin: 0; 
   border: none;
