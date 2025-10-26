@@ -535,9 +535,12 @@ fieldset {
 .highlightBackgroundColor {
   background-color: var(--main-highlight-color);
 }
-
-.onlineButton {
+.onlineButton::before {
   content: '🟢';
+  display: inline-block;
+  line-height: 1;
+}
+.onlineButton { 
   font-size: x-small;
   position: relative;
   top: -3px;

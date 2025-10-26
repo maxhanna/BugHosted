@@ -1232,6 +1232,11 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
           }
         } catch { }
         alert('Stats updated');
+        // Persist to cachedStats so future fetches that omit stats keep these values
+        try {
+          this.cachedStats = { str: this.editableStats.str, dex: this.editableStats.dex, int: this.editableStats.int };
+          try { console.debug('applyStats updated cachedStats', this.cachedStats); } catch { }
+        } catch { }
       } else {
         alert('Update stats not implemented on server. Local demo applied.');
       }
