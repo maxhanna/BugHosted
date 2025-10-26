@@ -535,12 +535,14 @@ fieldset {
 .highlightBackgroundColor {
   background-color: var(--main-highlight-color);
 }
+
 .onlineButton::before {
   content: '🟢';
   display: inline-block;
   line-height: 1;
 }
-.onlineButton { 
+
+.onlineButton {
   font-size: x-small;
   position: relative;
   top: -3px;
@@ -740,7 +742,8 @@ fieldset {
   color: var(--third-font-color);
 }
 
-.linkFontColor, .linkColor {
+.linkFontColor,
+.linkColor {
   color: var(--main-link-color);
 }
 
@@ -783,13 +786,21 @@ fieldset {
   color: var(--secondary-font-color);
 }
 
+.poll-options {
+  width: 100%;
+}
+
 .poll-option {
   margin-bottom: 15px;
   display: flex;
   width: 100%;
-  align-items: stretch; 
-  align-content: space-between; 
+  align-items: stretch;
+  align-content: space-between;
   justify-content: space-between;
+}
+
+.poll-result {
+  width: 100%;
 }
 
 .poll-option:hover {
@@ -809,7 +820,7 @@ fieldset {
 .poll-error {
   color: red;
   font-style: italic;
-} 
+}
 
 .commentContent .poll-option {
   margin-bottom: unset !important;
@@ -819,9 +830,11 @@ fieldset {
 .poll-bar {
   background: linear-gradient(135deg, var(--main-link-color), var(--secondary-component-background-color));
 }
-.poll-stats { 
+
+.poll-stats {
   position: absolute;
 }
+
 .poll-bar,
 .poll-bar-empty {
   border-radius: 5px;
