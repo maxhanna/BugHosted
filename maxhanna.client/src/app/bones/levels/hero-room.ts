@@ -28,7 +28,7 @@ export class HeroRoomLevel extends Level {
     }
 
     // Create a room made of repeated "floorbigtile" sprites, centered on the default hero position.
-    const roomWidth = 5; // tiles horizontally
+    const roomWidth = 12; // tiles horizontally
     const roomHeight = 5; // tiles vertically
     const centerTileX = Math.round(this.defaultHeroPosition.x / gridCells(1));
     const centerTileY = Math.round(this.defaultHeroPosition.y / gridCells(1));
@@ -73,31 +73,23 @@ export class HeroRoomLevel extends Level {
 
 
     this.walls = new Set();
-    // Create a large square boundary around the default hero position.
-    // Size = number of tiles along each axis (odd so hero can be centered).  
-    const SIZE = 80; // tiles
-    const half = Math.floor(SIZE / 2);
-    const centerX = Math.round(this.defaultHeroPosition.x / gridCells(1));
-    const centerY = Math.round(this.defaultHeroPosition.y / gridCells(1));
 
-    const leftTile = centerX - half;
-    const rightTile = centerX + half;
-    const topTile = centerY - half;
-    const bottomTile = centerY + half;
-
-    for (let tx = leftTile; tx <= rightTile; tx++) {
-      // top edge
-      this.walls.add(`${gridCells(tx)},${gridCells(topTile)}`);
-      // bottom edge
-      this.walls.add(`${gridCells(tx)},${gridCells(bottomTile)}`);
+    // Mark the tiled room perimeter as walls so the player cannot leave the tiled area directly.
+    // startTileX/startTileY are in tile coordinates (tile units).
+    const roomLeft = startTileX;
+    const roomTop = startTileY;
+    const roomRight = startTileX + roomWidth - 1;
+    const roomBottom = startTileY + roomHeight - 1;
+    // horizontal edges
+    for (let tx = roomLeft; tx <= roomRight; tx++) {
+      this.walls.add(`${gridCells(tx)},${gridCells(roomTop)}`);
+      this.walls.add(`${gridCells(tx)},${gridCells(roomBottom)}`);
     }
-    for (let ty = topTile; ty <= bottomTile; ty++) {
-      // left edge
-      this.walls.add(`${gridCells(leftTile)},${gridCells(ty)}`);
-      // right edge
-      this.walls.add(`${gridCells(rightTile)},${gridCells(ty)}`);
-    }
-
+    // vertical edges
+    for (let ty = roomTop; ty <= roomBottom; ty++) {
+      this.walls.add(`${gridCells(roomLeft)},${gridCells(ty)}`);
+      this.walls.add(`${gridCells(roomRight)},${gridCells(ty)}`);
+    }  
   }
 
   override ready() {
