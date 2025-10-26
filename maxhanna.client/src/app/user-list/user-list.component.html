@@ -45,7 +45,7 @@
 </div>
 <div class="searchResults" *ngIf="!isSearchPanelOpen">
   <div class="prevChatMessages popupPanelTitle titleContainer" *ngIf="!searchOnly">
-    {{ isFriendsChecked ? 'Friends' : 'User' }} List <span class="smallFont thirdFontColor">({{ getOnlineUserCount() }} online)</span>
+    {{ isFriendsChecked ? 'Friends' : 'Users' }} <span class="smallFont thirdFontColor">({{ getOnlineUserCount() }} online)</span>
   </div>
   <div *ngFor="let user of users" class="userList" (click)="closeOverlayOnClick(user);">
     <span class="user"> 
