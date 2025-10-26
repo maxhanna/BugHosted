@@ -678,8 +678,32 @@ export function actionPartyInviteAcceptedEvent(object: any, event: MetaEvent) {
       }
       console.log("new party:", party);
       if (isMyParty) {
-        object.partyMembers = party;
-        events.emit("PARTY_INVITE_ACCEPTED", { playerId: object.metaHero.id, party: object.partyMembers });
+        // Fetch canonical party from server to avoid relying solely on event payload
+        try {
+          const userId = object.parentRef?.user?.id ?? 0;
+          if (userId && object.bonesService && typeof object.bonesService.getPartyMembers === 'function') {
+            object.bonesService.getPartyMembers(userId).then((resp: any) => {
+              if (Array.isArray(resp)) {
+                object.partyMembers = resp.map((p: any) => ({ heroId: p.heroId ?? p.id ?? 0, name: p.name ?? '', color: p.color }));
+              } else {
+                object.partyMembers = party; // fallback
+              }
+              events.emit("PARTY_INVITE_ACCEPTED", { playerId: object.metaHero.id, party: object.partyMembers });
+            }).catch((err: any) => {
+              console.warn('Failed to fetch canonical party members in actionPartyInviteAcceptedEvent', err);
+              object.partyMembers = party; // fallback
+              events.emit("PARTY_INVITE_ACCEPTED", { playerId: object.metaHero.id, party: object.partyMembers });
+            });
+          } else {
+            object.partyMembers = party; // fallback
+            events.emit("PARTY_INVITE_ACCEPTED", { playerId: object.metaHero.id, party: object.partyMembers });
+          }
+        } catch (err) {
+          console.warn('Failed to fetch canonical party members in actionPartyInviteAcceptedEvent', err);
+          object.partyMembers = party; // fallback
+          events.emit("PARTY_INVITE_ACCEPTED", { playerId: object.metaHero.id, party: object.partyMembers });
+        }
+      
       }
     }
   }
@@ -711,7 +735,26 @@ export function actionPartyUpEvent(object: any, event: MetaEvent) {
         }
         const partyUpAcceptedEvent = new MetaEvent(0, object.metaHero.id, new Date(), "PARTY_INVITE_ACCEPTED", object.metaHero.map, { "party_members": safeStringify(object.partyMembers.map((x: any) => x.heroId)) });
         object.bonesService.updateEvents(partyUpAcceptedEvent);
-        events.emit("PARTY_INVITE_ACCEPTED", { playerId: object.metaHero.id, party: object.partyMembers });
+        // After server-side update, fetch canonical party members and emit
+        try {
+          const userId = object.parentRef?.user?.id ?? 0;
+          if (userId && object.bonesService && typeof object.bonesService.getPartyMembers === 'function') {
+            object.bonesService.getPartyMembers(userId).then((resp: any) => {
+              if (Array.isArray(resp)) {
+                object.partyMembers = resp.map((p: any) => ({ heroId: p.heroId ?? p.id ?? 0, name: p.name ?? '', color: p.color }));
+              }
+              events.emit("PARTY_INVITE_ACCEPTED", { playerId: object.metaHero.id, party: object.partyMembers });
+            }).catch((err: any) => {
+              console.warn('Failed to fetch canonical party members after accepting invite in actionPartyUpEvent', err);
+              events.emit("PARTY_INVITE_ACCEPTED", { playerId: object.metaHero.id, party: object.partyMembers });
+            });
+          } else {
+            events.emit("PARTY_INVITE_ACCEPTED", { playerId: object.metaHero.id, party: object.partyMembers });
+          }
+        } catch (err) {
+          console.warn('Failed to fetch canonical party members after accepting invite in actionPartyUpEvent', err);
+          events.emit("PARTY_INVITE_ACCEPTED", { playerId: object.metaHero.id, party: object.partyMembers });
+        }
         object.isDecidingOnParty = false;
       } else {
         object.isDecidingOnParty = false;

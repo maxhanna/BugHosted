@@ -1382,15 +1382,34 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
     try {
       const metaEvent = new MetaEvent(0, this.metaHero.id, new Date(), "PARTY_INVITE_ACCEPTED", this.metaHero.map, { "party_members": JSON.stringify(union) });
       await this.bonesService.updateEvents(metaEvent);
-      // Optimistically apply party locally
+      // Optimistically apply party locally, then fetch server canonical party to reconcile
       this.partyMembers = union.map(id => {
         const other = this.otherHeroes.find(h => h.id === id);
         const nameStr = other ? (other.name ?? `Hero ${id}`) : (id === this.metaHero.id ? (this.metaHero.name ?? `You`) : `Hero ${id}`);
         return { heroId: id, name: nameStr, color: other ? (other as any).color : undefined };
       });
       // Clear any optimistic pending invites for these heroes
-      for (const id of union) { try { this.pendingInvites.delete(id); } catch { } }
-      try { if (this.mainScene && this.mainScene.inventory) { this.mainScene.inventory.partyMembers = this.partyMembers; this.mainScene.inventory.renderParty(); } } catch { }
+      for (const id of union) {  this.pendingInvites.delete(id);  }
+      try {
+        // Refresh canonical party from server (don't rely solely on passed events)
+        const userId = this.parentRef?.user?.id ?? 0;
+        if (userId && userId > 0 && this.bonesService && typeof (this.bonesService.getPartyMembers) === 'function') {
+          try {
+            const resp: any = await this.bonesService.getPartyMembers(userId);
+            if (Array.isArray(resp)) {
+              // resp items are { heroId, name, color }
+              this.partyMembers = resp.map((p: any) => ({ heroId: p.heroId ?? p.id ?? 0, name: p.name ?? '', color: p.color }));
+            }
+          } catch (err) {
+            // fallback to optimistic view if fetch fails
+            console.warn('Failed to fetch canonical party members after acceptInvite', err);
+          }
+        }
+        if (this.mainScene && this.mainScene.inventory) {
+          this.mainScene.inventory.partyMembers = this.partyMembers;
+          this.mainScene.inventory.renderParty();
+        }
+      } catch (e) { console.error('Error applying party members after acceptInvite', e); }
     } catch (ex) {
       console.error('Failed to accept party invite', ex);
     }
