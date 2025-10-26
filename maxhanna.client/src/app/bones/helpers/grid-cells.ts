@@ -21,5 +21,5 @@ export const snapToGrid = (value: number, gridSize: number = gridCells(1)): numb
   return Math.round(value / gridSize) * gridSize;
 }
 export const isOnGrid = (position: Vector2) => {
-  return (position.x % 16 == 0) && (position.y % 16 == 0);
+  return (position.x % gridCells(1) == 0) && (position.y % gridCells(1) == 0);
 }
