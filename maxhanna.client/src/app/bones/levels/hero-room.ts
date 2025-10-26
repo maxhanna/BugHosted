@@ -42,7 +42,7 @@ export class HeroRoomLevel extends Level {
         const tile = new Sprite({
           objectId: -1000 + tileId++,
           resource: resources.images["floorbigtile"],
-          position: new Vector2(tileStart.x + gridCells(rx), tileStart.y + gridCells(ry)),
+          position: new Vector2(tileStart.x + 64 * rx, tileStart.y + 96 * ry),
           frameSize: new Vector2(64, 96),
         });
         tile.drawLayer = BASE;
