@@ -229,7 +229,7 @@
           <span *ngIf="isInvitePending(p.id)" class="pendingBadgeWrapper" [class.clearing]="isPendingClearing(p.id)">
             <span class="pendingBadge" aria-hidden="true">(pending)</span>
           </span>
-          <span *ngIf="isInParty(p.id)" style="font-weight:700; color:#8f8;">In Party</span>
+          <span *ngIf="isInParty(p.id) && !isInvitePending(p.id)" style="font-weight:700; color:#8f8;">In Party</span>
         </div>
       </div>
     </div>
