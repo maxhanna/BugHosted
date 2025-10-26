@@ -136,7 +136,7 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
     this.parentRef?.addResizeListener();
     this.canvas = this.gameCanvas.nativeElement;
     this.ctx = this.canvas.getContext("2d")!;
-    if (this.parentRef?.user?.id) {
+    if (!this.parentRef?.user?.id) {
         this.isUserComponentOpen = true;
       } else {
       this.startLoading();
