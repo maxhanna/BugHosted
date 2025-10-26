@@ -1642,7 +1642,7 @@ namespace maxhanna.Server.Controllers
 				var parameters = new Dictionary<string, object?>();
 				int idx = 0;
 				// Localize frequently-used values
-				int tile = GRIDCELL; // 16
+				int tile = GRIDCELL; 
 				foreach (var e in encounters)
 				{
 					if (e.hp <= 0) continue; // dead, wait for respawn
