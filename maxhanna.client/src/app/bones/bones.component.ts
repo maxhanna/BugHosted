@@ -296,8 +296,7 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
       const rz = await this.bonesService.getHero(this.parentRef.user.id);
       if (rz) {
         this.copyStatsFromMetaHero(rz);
-    const uid = this.parentRef?.user?.id ?? 0;
-    this.partyMembers = await this.bonesService.getPartyMembers(this.parentRef.user.id) ?? [];
+        this.partyMembers = await this.bonesService.getPartyMembers(rz.id) ?? [];
         this.mainScene.partyMembers = this.partyMembers;
         this.mainScene.inventory.partyMembers = this.partyMembers;
         this.mainScene.inventory.renderParty();

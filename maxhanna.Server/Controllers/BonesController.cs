@@ -639,21 +639,14 @@ namespace maxhanna.Server.Controllers
 			}
 		} 
 
-		[HttpPost("/Bones/GetUserPartyMembers", Name = "Bones_GetUserPartyMembers")]
-		public async Task<IActionResult> GetUserPartyMembers([FromBody] int userId)
+		[HttpPost("/Bones/GetPartyMembers", Name = "Bones_GetUserPartyMembers")]
+		public async Task<IActionResult> GetUserPartyMembers([FromBody] int heroId)
 		{
 			using var connection = new MySqlConnection(_connectionString);
 			await connection.OpenAsync();
 			try
 			{
-				// New schema: determine hero_id for this user, then list all heroes sharing its party_id
-				int heroId = 0;
-				using (var heroCmd = new MySqlCommand("SELECT id FROM bones_hero WHERE user_id = @UserId LIMIT 1", connection))
-				{
-					heroCmd.Parameters.AddWithValue("@UserId", userId);
-					var hObj = await heroCmd.ExecuteScalarAsync();
-					if (hObj == null || !int.TryParse(hObj.ToString(), out heroId)) return Ok(Array.Empty<object>());
-				}
+			 
 				int? partyId = null;
 				using (var partyCmd = new MySqlCommand("SELECT party_id FROM bones_hero_party WHERE hero_id = @HeroId LIMIT 1", connection))
 				{
@@ -1162,7 +1155,7 @@ namespace maxhanna.Server.Controllers
 				return StatusCode(500, "Failed to leave party");
 			}
 		} 
-		
+
 		[HttpPost("/Bones/UpdateHeroStats", Name = "Bones_UpdateHeroStats")]
 		public async Task<IActionResult> UpdateHeroStats([FromBody] UpdateHeroStatsRequest req)
 		{
