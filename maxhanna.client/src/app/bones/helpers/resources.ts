@@ -18,6 +18,7 @@ export class Resources {
     this.imageToLoad = {
       armobot: `${this.dir}armobot.png`,
       spiderBot: `${this.dir}spiderbot.png`,
+      floorbigtile: `${this.dir}floorbigtile.png`,
       fontWhite: `${this.dir}sprite-font-white.png`,
       fontBlack: `${this.dir}sprite-font-black.png`,
       groundFire: `${this.dir}groundFire.png`,
