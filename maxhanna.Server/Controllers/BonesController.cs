@@ -1755,8 +1755,20 @@ namespace maxhanna.Server.Controllers
 					// If target is a hero and the encounter is axis-adjacent by one grid cell, don't move
 					if (closest.HasValue && closest.Value.heroId != 0)
 					{
-						int dxAdj = Math.Abs(closest.Value.x - e.x);
-						int dyAdj = Math.Abs(closest.Value.y - e.y);
+						// Prefer using the hero's actual coordinates for adjacency checks because `closest` may contain
+						// an approach/movement tile rather than the hero's true position.
+						int dxAdj, dyAdj;
+						if (heroById.TryGetValue(closest.Value.heroId, out var actualHeroPos))
+						{
+							dxAdj = Math.Abs(actualHeroPos.x - e.x);
+							dyAdj = Math.Abs(actualHeroPos.y - e.y);
+						}
+						else
+						{
+							dxAdj = Math.Abs(closest.Value.x - e.x);
+							dyAdj = Math.Abs(closest.Value.y - e.y);
+						}
+
 						if ((dxAdj == tile && dyAdj == 0) || (dyAdj == tile && dxAdj == 0))
 						{
 							// Axis-adjacent: attempt server-side attack emission rate-limited by encounter.attackSpeed or last_attack DB column
@@ -1776,10 +1788,22 @@ namespace maxhanna.Server.Controllers
 									// Build attack data so clients will interpret as OTHER_HERO_ATTACK
 									// Determine numeric facing: 0=down,1=left,2=right,3=up
 									int numericFacing = 0;
-									if (dxAdj == tile) {
-										numericFacing = closest.Value.x > e.x ? 2 : 1; // right : left
-									} else {
-										numericFacing = closest.Value.y > e.y ? 0 : 3; // down : up
+									if (heroById.TryGetValue(closest.Value.heroId, out var facingHeroPos))
+									{
+										if (dxAdj == tile) {
+											numericFacing = facingHeroPos.x > e.x ? 2 : 1; // right : left
+										} else {
+											numericFacing = facingHeroPos.y > e.y ? 0 : 3; // down : up
+										}
+									}
+									else
+									{
+										// Fallback: infer facing from the closest/movement tile
+										if (dxAdj == tile) {
+											numericFacing = closest.Value.x > e.x ? 2 : 1;
+										} else {
+											numericFacing = closest.Value.y > e.y ? 0 : 3;
+										}
 									}
 
 									var data = new Dictionary<string, string>() {
@@ -1820,7 +1844,7 @@ namespace maxhanna.Server.Controllers
 										var heroDamageParams = new Dictionary<string, object?>()
 										{
 											{ "@Damage", attackerLevel },
-											{ "@TargetHeroId", targetHeroId }
+											{ "@TargetHeroId", tgtHeroId }
 										};
 										int affected = Convert.ToInt32(await ExecuteInsertOrUpdateOrDeleteAsync(heroDamageSql, heroDamageParams, connection, transaction));
 
@@ -1833,13 +1857,13 @@ namespace maxhanna.Server.Controllers
 											var hpObj = await selHpCmd.ExecuteScalarAsync();
 											int newHp = 0;
 											if (hpObj != null && int.TryParse(hpObj.ToString(), out int hpv))
-                                            {
-                                                newHp = hpv;
-                                            }
+											{
+												newHp = hpv;
+											}
 											if (newHp <= 0)
 											{ 
 												await HandleHeroDeath(tgtHeroId, e.heroId, "encounter", map, connection, transaction);
-												 
+                                                 
 											}
 										}
 									}
