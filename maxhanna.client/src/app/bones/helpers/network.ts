@@ -6,11 +6,11 @@ import { MetaChat } from "../../../services/datacontracts/bones/meta-chat";
 import { Vector2 } from "../../../services/datacontracts/bones/vector2";
 import { Bot } from "../objects/Bot/bot";
 import { GameObject } from "../objects/game-object";
-import { Level } from "../objects/Level/level"; 
-import { WardrobeMenu } from "../objects/Menu/wardrobe-menu"; 
+import { Level } from "../objects/Level/level";
+import { WardrobeMenu } from "../objects/Menu/wardrobe-menu";
 import { gridCells } from "./grid-cells";
-import { Skill } from "./skill-types"; 
-import { Character } from "../objects/character"; 
+import { Skill } from "./skill-types";
+import { Character } from "../objects/character";
 import { HeroInventoryItem } from "../../../services/datacontracts/bones/hero-inventory-item";
 
 
@@ -18,7 +18,7 @@ export class Network {
   constructor() {
   }
 }
- 
+
 export let actionBlocker = false;
 export let encounterUpdates: Bot[] = [];
 export let batchInterval: any;
@@ -33,7 +33,7 @@ export function startBatchUpdates(object: any, batchIntervalMs = 1000) {
     if (encounterUpdates.length > 0) {
       sendBatchToBackend(encounterUpdates, object);
       encounterUpdates = [];
-    } else { 
+    } else {
       stopBatchUpdates();
     }
   }, batchIntervalMs);
@@ -159,7 +159,7 @@ export function subscribeToMainGameEvents(object: any) {
       object.mainScene.level.itemsFound = object.mainScene.inventory.getItemsFound();
 
       const levelHero = object.mainScene.level.children.find((x: Character) => x.id === object.hero.id) ?? object.metaHero;
- 
+
       let tmpBotPosition = levelHero.position.duplicate();
 
       switch (levelHero.facingDirection) {
@@ -176,7 +176,7 @@ export function subscribeToMainGameEvents(object: any) {
           tmpBotPosition.x += gridCells(1); // Move bot to the left
           break;
       }
-       
+
       setTimeout(() => {
         const deployedBot = object.metaHero?.metabots?.find((x: MetaBot) => x.isDeployed && x.hp > 0);
         if (deployedBot) {
@@ -191,8 +191,8 @@ export function subscribeToMainGameEvents(object: any) {
           }
 
           console.log("set deployedBot position to hero position", deployedBot.position, object.metaHero.position);
-        } 
-      }, 25); 
+        }
+      }, 25);
     }
   });
 
@@ -208,9 +208,9 @@ export function subscribeToMainGameEvents(object: any) {
       existingHero.destroy();
     }
     object.updatePlayers();
-  }); 
+  });
   events.on("WARDROBE_OPENED", object, () => {
-    if (actionBlocker) return; 
+    if (actionBlocker) return;
     events.emit("BLOCK_BACKGROUND_SELECTION");
     object.blockOpenStartMenu = true;
     object.mainScene?.inventory?.children?.forEach((x: any) => x.destroy());
@@ -225,15 +225,15 @@ export function subscribeToMainGameEvents(object: any) {
   });
   events.on("WARDROBE_CLOSED", object, (params: { heroPosition: Vector2, entranceLevel: Level }) => {
     object.stopPollingForUpdates = false;
-    object.blockOpenStartMenu = false; 
+    object.blockOpenStartMenu = false;
     object.mainScene?.inventory?.renderParty();
     const newLevel = object.getLevelFromLevelName((params.entranceLevel.name ?? "HERO_ROOM"));
     console.log(newLevel, params.entranceLevel);
     newLevel.defaultHeroPosition = params.heroPosition;
     events.emit("CHANGE_LEVEL", newLevel);
-    events.emit("SHOW_START_BUTTON"); 
+    events.emit("SHOW_START_BUTTON");
     events.emit("UNBLOCK_BACKGROUND_SELECTION");
-  }); 
+  });
   events.on("CHARACTER_NAME_CREATED", object, (name: string) => {
     if (object.chatInput.nativeElement.placeholder === "Enter your name" && object.parentRef && object.parentRef.user && object.parentRef.user.id) {
       object.bonesService.createHero(object.parentRef.user.id, name);
@@ -271,14 +271,14 @@ export function subscribeToMainGameEvents(object: any) {
     }
   });
 
-  events.on("WAVE_AT", object, (objectAtPosition: GameObject) => { 
+  events.on("WAVE_AT", object, (objectAtPosition: GameObject) => {
     const msg = `👋 ${(objectAtPosition as Hero).name}`;
     const metaEvent = new MetaEvent(0, object.metaHero.id, new Date(), "CHAT", object.metaHero.map, { "sender": object.metaHero.name ?? "Anon", "content": msg })
     object.bonesService.updateEvents(metaEvent);
   });
 
-  events.on("WHISPER_AT", object, ( objectAtPosition: GameObject ) => {
-    if (!objectAtPosition) return; 
+  events.on("WHISPER_AT", object, (objectAtPosition: GameObject) => {
+    if (!objectAtPosition) return;
     const msgContent = object.getChatText();
     const receiver = (objectAtPosition as Hero).name ?? "Anon";
     const sender = (object.metaHero as Hero).name ?? "Anon";
@@ -289,13 +289,13 @@ export function subscribeToMainGameEvents(object: any) {
     if (sender === object.metaHero.name) {
       object.chatInput.nativeElement.value = "";
     }
-  });  
- 
-  events.on("UPDATE_ENCOUNTER_POSITION", object, (source: Bot) => {  
+  });
+
+  events.on("UPDATE_ENCOUNTER_POSITION", object, (source: Bot) => {
     handleEncounterUpdate(source);
     startBatchUpdates(object);
   });
-   
+
   events.on("HIDE_START_BUTTON", object, () => {
     object.hideStartButton = true;
   })
@@ -321,16 +321,16 @@ export function subscribeToMainGameEvents(object: any) {
     events.emit("SHOW_START_BUTTON");
   });
 
-  events.on("OPEN_START_MENU", object, () => { 
+  events.on("OPEN_START_MENU", object, () => {
     object.isStartMenuOpened = true;
     events.emit("HIDE_START_BUTTON");
   });
 
-  events.on("BLOCK_START_MENU", object, () => { 
+  events.on("BLOCK_START_MENU", object, () => {
     object.blockOpenStartMenu = true;
     events.emit("HIDE_START_BUTTON");
   });
-  events.on("UNBLOCK_START_MENU", object, () => { 
+  events.on("UNBLOCK_START_MENU", object, () => {
     object.blockOpenStartMenu = false;
     events.emit("SHOW_START_BUTTON");
   });
@@ -362,8 +362,7 @@ export function subscribeToMainGameEvents(object: any) {
   })
 
   events.on("SPACEBAR_PRESSED", object, (skill: Skill) => {
-    if ((object.chatInput && document.activeElement != object.chatInput) || !object.chatInput)
-    {
+    if ((object.chatInput && document.activeElement != object.chatInput) || !object.chatInput) {
       const attackSpeed = object?.metaHero?.attackSpeed ?? 400; // ms
       const now = Date.now();
       const last = lastAttackTimestamps.get(object.metaHero.id) ?? 0;
@@ -385,7 +384,7 @@ export function subscribeToMainGameEvents(object: any) {
   events.on("GOT_REWARDS", object, (params: { location: Vector2, part: HeroInventoryItem }) => {
     if (!params.part) return;
     const metaEvent = new MetaEvent(0, object.metaHero.id, new Date(), "ITEM_DROPPED", object.metaHero.map, { "location": safeStringify(params.location), "item": safeStringify(params.part) })
-    object.bonesService.updateEvents(metaEvent);    
+    object.bonesService.updateEvents(metaEvent);
   });
 
   events.on("PARTY_UP", object, (person: Hero) => {
@@ -397,10 +396,10 @@ export function subscribeToMainGameEvents(object: any) {
     if (!foundInParty2) {
       object.partyMembers.push({ heroId: person.id, name: person.name, color: person.colorSwap });
     }
-    const metaEvent = new MetaEvent(0, object.metaHero.id, new Date(), "PARTY_UP", object.metaHero.map, { "hero_id": `${person.id}`, "party_members": safeStringify(object.partyMembers.map((x:any) => x.heroId)) })
+    const metaEvent = new MetaEvent(0, object.metaHero.id, new Date(), "PARTY_UP", object.metaHero.map, { "hero_id": `${person.id}`, "party_members": safeStringify(object.partyMembers.map((x: any) => x.heroId)) })
     object.bonesService.updateEvents(metaEvent);
   });
-  events.on("UNPARTY", object, (person: Hero) => { 
+  events.on("UNPARTY", object, (person: Hero) => {
     const toRemoveId = person?.id ?? 0;
     if (!toRemoveId) return;
     // Only act if the target hero is currently in our local party list
@@ -408,7 +407,7 @@ export function subscribeToMainGameEvents(object: any) {
     if (!isMember) {
       console.log("UNPARTY ignored; hero not in local party:", toRemoveId);
       return;
-    } 
+    }
     // Remove the departed member from the local party list (keep other members and self)
     object.partyMembers = object.partyMembers.filter((x: any) => x.heroId !== toRemoveId);
     console.log("removed party member id", toRemoveId);
@@ -431,8 +430,8 @@ export function subscribeToMainGameEvents(object: any) {
       //console.log("picking up item: ",data);
       if (data.category) {
         object.bonesService.updateInventory(object.metaHero.id, data.name, data.imageName, data.category);
-      } else if (data.item) { 
-        object.bonesService.updateBotParts(object.metaHero.id, [data.item]); 
+      } else if (data.item) {
+        object.bonesService.updateBotParts(object.metaHero.id, [data.item]);
         object.mainScene.inventory.parts.concat(data.item);
 
         const metaEvent = new MetaEvent(0, object.metaHero.id, new Date(), "ITEM_DESTROYED", object.metaHero.map,
@@ -445,10 +444,10 @@ export function subscribeToMainGameEvents(object: any) {
         object.bonesService.updateEvents(metaEvent);
       }
       setActionBlocker(500);
-    } 
+    }
   });
 
-   
+
 
   events.on("CHANGE_COLOR", object, () => {
     if (object.parentRef) {
@@ -525,7 +524,7 @@ export function actionMultiplayerEvents(object: any, metaEvents: MetaEvent[]) {
         }
         if (event.eventType === "PARTY_INVITE_ACCEPTED" && event.heroId != object.metaHero.id) {
           actionPartyInviteAcceptedEvent(object, event);
-        } 
+        }
         if (event.eventType === "PARTY_INVITED" && event.data && event.data["hero_id"]) {
           try {
             // PARTY_INVITED is a server-persisted meta-event that should target a specific hero id
@@ -659,7 +658,7 @@ export function actionMultiplayerEvents(object: any, metaEvents: MetaEvent[]) {
   object.events = metaEvents;
 }
 
- 
+
 export function actionPartyInviteAcceptedEvent(object: any, event: MetaEvent) {
   if (event.data) {
     const partyMembersData = JSON.parse(event.data["party_members"]);
@@ -667,8 +666,8 @@ export function actionPartyInviteAcceptedEvent(object: any, event: MetaEvent) {
     if (partyMembersData) {
       let isMyParty = false;
       let party: any[] = [];
-      for (let memberId of partyMembersData) { 
-        if (!party.find(x => x.heroId === memberId)) { 
+      for (let memberId of partyMembersData) {
+        if (!party.find(x => x.heroId === memberId)) {
           const otherPlayer = object.otherHeroes.find((hero: Character) => hero.id === memberId);
           party.push({ heroId: memberId, name: otherPlayer.name, color: otherPlayer.color });
           if (memberId === object.metaHero.id) {
@@ -678,32 +677,20 @@ export function actionPartyInviteAcceptedEvent(object: any, event: MetaEvent) {
       }
       console.log("new party:", party);
       if (isMyParty) {
-        // Fetch canonical party from server to avoid relying solely on event payload
-        try {
-          const userId = object.parentRef?.user?.id ?? 0;
-          if (userId && object.bonesService && typeof object.bonesService.getPartyMembers === 'function') {
-            object.bonesService.getPartyMembers(userId).then((resp: any) => {
-              if (Array.isArray(resp)) {
-                object.partyMembers = resp.map((p: any) => ({ heroId: p.heroId ?? p.id ?? 0, name: p.name ?? '', color: p.color }));
-              } else {
-                object.partyMembers = party; // fallback
-              }
-              events.emit("PARTY_INVITE_ACCEPTED", { playerId: object.metaHero.id, party: object.partyMembers });
-            }).catch((err: any) => {
-              console.warn('Failed to fetch canonical party members in actionPartyInviteAcceptedEvent', err);
-              object.partyMembers = party; // fallback
-              events.emit("PARTY_INVITE_ACCEPTED", { playerId: object.metaHero.id, party: object.partyMembers });
-            });
+
+        const heroId = object.metaHero.id ?? 0;
+        object.bonesService.getPartyMembers(heroId).then((resp: any) => {
+          if (Array.isArray(resp)) {
+            object.partyMembers = resp.map((p: any) => ({ heroId: p.heroId ?? p.id ?? 0, name: p.name ?? '', color: p.color }));
           } else {
             object.partyMembers = party; // fallback
-            events.emit("PARTY_INVITE_ACCEPTED", { playerId: object.metaHero.id, party: object.partyMembers });
           }
-        } catch (err) {
+          events.emit("PARTY_INVITE_ACCEPTED", { playerId: object.metaHero.id, party: object.partyMembers });
+        }).catch((err: any) => {
           console.warn('Failed to fetch canonical party members in actionPartyInviteAcceptedEvent', err);
           object.partyMembers = party; // fallback
           events.emit("PARTY_INVITE_ACCEPTED", { playerId: object.metaHero.id, party: object.partyMembers });
-        }
-      
+        });
       }
     }
   }
@@ -717,10 +704,10 @@ export function actionPartyUpEvent(object: any, event: MetaEvent) {
       console.log("found other player", otherPlayer);
       object.isDecidingOnParty = true;
       if (confirm(`Accept party request from ${otherPlayer.name}?`)) {
-        const partyMemberIdsData = JSON.parse(event.data["party_members"]);  
+        const partyMemberIdsData = JSON.parse(event.data["party_members"]);
 
-        for (let memberId of partyMemberIdsData) { 
-          const member = object.otherHeroes.find((x: Character) => x.id === memberId); 
+        for (let memberId of partyMemberIdsData) {
+          const member = object.otherHeroes.find((x: Character) => x.id === memberId);
           object.partyMembers.push({ heroId: memberId, name: member.name, color: member.color });
           console.log("pushing: ", { heroId: memberId, name: member.name, color: member.color });
         }
