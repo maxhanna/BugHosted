@@ -515,9 +515,7 @@ export function actionMultiplayerEvents(object: any, metaEvents: MetaEvent[]) {
               } else {
                 // Remove the departed member and avoid removing other members unintentionally
                 object.partyMembers = partyList.filter((x: any) => x.heroId !== removedId && x.heroId !== event.heroId);
-                if (removedId === object.metaHero.id) {
-                  object.reinitializeInventoryData();
-                }
+                object.reinitializeInventoryData();
                 console.log("processed UNPARTY for hero id", removedId);
               }
             }
