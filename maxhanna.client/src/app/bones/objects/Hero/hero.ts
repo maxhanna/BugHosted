@@ -251,14 +251,14 @@ export class Hero extends Character {
 
 
 
-  override getContent() {
-    return {
-      portraitFrame: 0,
-      string: ["Party Up", "Whisper", "Wave", "Cancel"],
-      canSelectItems: true,
-      addsFlag: undefined
-    }
-  }
+  // override getContent() {
+    // return {
+    //   portraitFrame: 0,
+    //   string: ["Party Up", "Whisper", "Wave", "Cancel"],
+    //   canSelectItems: true,
+    //   addsFlag: undefined
+    // }
+  // }
 
   override drawImage(ctx: CanvasRenderingContext2D, drawPosX: number, drawPosY: number) {
     // call base sprite draw

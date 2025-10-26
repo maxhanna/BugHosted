@@ -14,6 +14,7 @@ namespace maxhanna.Server.Controllers
 	public class BonesController : ControllerBase
 	{
 		// Half-size of the hitbox in pixels; used to compute +/- hit tolerance
+		private const int ATTACK_BUFFER_MS = 50;
 		private const int HITBOX_HALF = 16;
 		private const int GRIDCELL = 20;
 		private readonly Log _log;
@@ -1739,7 +1740,7 @@ namespace maxhanna.Server.Controllers
 							// Axis-adjacent: attempt server-side attack emission rate-limited by encounter.attackSpeed or last_attack DB column
 							try
 							{
-								int attSpd = e.attackSpeed <= 0 ? 400 : e.attackSpeed;
+								int attSpd = (e.attackSpeed <= 0 ? 400 : e.attackSpeed) + ATTACK_BUFFER_MS;
 								DateTime? lastAtDb = e.lastAttack; // may be null
 								bool canAttackNow = false;
 								if (!lastAtDb.HasValue) canAttackNow = true;
