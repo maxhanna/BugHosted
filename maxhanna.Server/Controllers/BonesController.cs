@@ -623,9 +623,75 @@ namespace maxhanna.Server.Controllers
 			using var transaction = connection.BeginTransaction();
 			try
 			{
-				string sql = @"UPDATE maxhanna.bones_hero SET coordsX = 0, coordsY = 0, hp = 100, updated = UTC_TIMESTAMP() WHERE id = @HeroId LIMIT 1;";
-				var parameters = new Dictionary<string, object?>() { { "@HeroId", heroId } };
-				await ExecuteInsertOrUpdateOrDeleteAsync(sql, parameters, connection, transaction);
+				// Determine a safe respawn location. Prefer (0,0) but if another hero occupies
+				// that area on the same map, search nearby grid-aligned tiles (multiples of GRIDCELL)
+				// and pick the first candidate such that for every other hero on the map either
+				// |dx| >= GRIDCELL OR |dy| >= GRIDCELL (i.e. not overlapping within a GRIDCELL box).
+				int spawnX = 0;
+				int spawnY = 0;
+				string map = string.Empty;
+				// Read current map for this hero
+				using (var mapCmd = new MySqlCommand("SELECT map FROM maxhanna.bones_hero WHERE id = @HeroId LIMIT 1", connection, transaction))
+				{
+					mapCmd.Parameters.AddWithValue("@HeroId", heroId);
+					var mapObj = await mapCmd.ExecuteScalarAsync();
+					map = mapObj != null ? mapObj.ToString() ?? string.Empty : string.Empty;
+				}
+				// Fetch other heroes on same map
+				var others = new List<(int x, int y)>();
+				using (var selCmd = new MySqlCommand("SELECT coordsX, coordsY FROM maxhanna.bones_hero WHERE map = @Map AND id <> @HeroId", connection, transaction))
+				{
+					selCmd.Parameters.AddWithValue("@Map", map ?? string.Empty);
+					selCmd.Parameters.AddWithValue("@HeroId", heroId);
+					using var rdr = await selCmd.ExecuteReaderAsync();
+					while (await rdr.ReadAsync())
+					{
+						int ox = rdr.IsDBNull(0) ? 0 : rdr.GetInt32(0);
+						int oy = rdr.IsDBNull(1) ? 0 : rdr.GetInt32(1);
+						others.Add((ox, oy));
+					}
+				}
+
+				bool found = false;
+				int maxRadius = 20; // search range in tiles (multiplied by GRIDCELL)
+				for (int r = 0; r <= maxRadius && !found; r++)
+				{
+					// iterate the square ring at radius r (in tile units)
+					for (int dx = -r; dx <= r && !found; dx++)
+					{
+						for (int dy = -r; dy <= r && !found; dy++)
+						{
+							// Only consider the ring/perimeter for this radius to keep ordering by distance
+							if (Math.Max(Math.Abs(dx), Math.Abs(dy)) != r) continue;
+							int candidateX = dx * GRIDCELL;
+							int candidateY = dy * GRIDCELL;
+							bool conflict = false;
+							foreach (var o in others)
+							{
+								int diffX = Math.Abs(candidateX - o.x);
+								int diffY = Math.Abs(candidateY - o.y);
+								// conflict if both x and y are within a GRIDCELL (i.e., too close)
+								if (diffX < GRIDCELL && diffY < GRIDCELL) { conflict = true; break; }
+							}
+							if (!conflict)
+							{
+								spawnX = candidateX;
+								spawnY = candidateY;
+								found = true;
+								break;
+							}
+						}
+					}
+				}
+				if (!found)
+				{
+					// Fallback: keep 0,0 (last resort)
+					spawnX = 0; spawnY = 0;
+				}
+
+				string updateSql = @"UPDATE maxhanna.bones_hero SET coordsX = @X, coordsY = @Y, hp = 100, updated = UTC_TIMESTAMP() WHERE id = @HeroId LIMIT 1;";
+				var parameters = new Dictionary<string, object?>() { { "@HeroId", heroId }, { "@X", spawnX }, { "@Y", spawnY } };
+				await ExecuteInsertOrUpdateOrDeleteAsync(updateSql, parameters, connection, transaction);
 				// Return updated MetaHero using existing helper
 				var hero = await GetHeroData(0, heroId, connection, transaction);
 				await transaction.CommitAsync();
