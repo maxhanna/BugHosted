@@ -70,6 +70,7 @@ import { CryptoMarketCapsComponent } from './crypto-market-caps/crypto-market-ca
 import { UserTrophiesComponent } from './user-trophies/user-trophies.component';
 import { YoutubeSearchComponent } from './youtube-search/youtube-search.component';
 import { DecodeHtmlPipe } from './decode-html.pipe';
+import { PascalCasePipe } from './pascal-case.pipe';
 import { CryptoTradebotInformationComponent } from './crypto-tradebot-information/crypto-tradebot-information.component';
 import { CryptoBitcoinPerformanceComponent } from './crypto-bitcoin-performance/crypto-bitcoin-performance.component';
 import { CryptoWalletsComponent } from './crypto-wallets/crypto-wallets.component';
@@ -143,6 +144,7 @@ import { NewUsersComponent } from './new-users/new-users.component';
     MetaComponent,
     BonesComponent,
     BonesHighScoresComponent,
+  PascalCasePipe,
     ClickableUrlsPipe,
     CurrencyFlagPipe,
     CurrencyShortenPipe,
@@ -198,6 +200,7 @@ import { NewUsersComponent } from './new-users/new-users.component';
     InViewDirective,
     TimeFormatPipe,
     TimeSincePipe,
+    PascalCasePipe,
     CurrencyFlagPipe,
     CurrencyShortenPipe,
     CountShortenPipe,
