@@ -14,7 +14,7 @@ import { Encounter } from "../objects/Environment/Encounter/encounter";
 
 
 export class HeroRoomLevel extends Level {
-  override defaultHeroPosition = new Vector2(gridCells(18), gridCells(2));
+  override defaultHeroPosition = new Vector2(gridCells(0), gridCells(0));
   showDebugSprites = false;
   constructor(params: { heroPosition?: Vector2, itemsFound?: string[] | undefined } = {}) {
     super();
