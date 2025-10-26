@@ -69,7 +69,10 @@ export class HeroRoomLevel extends Level {
     this.addChild(encounter2);
 
     
-    const bones = new Bones({ position: new Vector2(gridCells(10), gridCells(8)), moveUpDown: 5, moveLeftRight: 1 });
+    const bones = new Bones({ 
+      position: new Vector2(gridCells(5), gridCells(8)), 
+      moveUpDown: 5, 
+      moveLeftRight: 1 });
     bones.textContent = [
       {
         string: ["Stay a while and listen!"],
