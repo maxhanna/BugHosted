@@ -664,7 +664,14 @@ namespace maxhanna.Server.Controllers
 					sql = "SELECT h.id, h.name, h.color FROM bones_hero h WHERE h.id = @HeroId"; // only self
 				}
 				using var command = new MySqlCommand(sql, connection);
-				if (partyId.HasValue) command.Parameters.AddWithValue("@PartyId", partyId.Value); else command.Parameters.AddWithValue("@HeroId", heroId);
+				if (partyId.HasValue)
+                {
+					command.Parameters.AddWithValue("@PartyId", partyId.Value);
+                }
+				else
+                {
+                    command.Parameters.AddWithValue("@HeroId", heroId);
+                }
 				var partyMembers = new List<object>();
 				using var reader = await command.ExecuteReaderAsync();
 				while (await reader.ReadAsync())
@@ -684,12 +691,12 @@ namespace maxhanna.Server.Controllers
 			}
 			catch (MySqlException ex)
 			{
-				await _log.Db($"Database error in Bones_GetUserPartyMembers for userId {userId}: {ex.Message} (Error Code: {ex.Number})", null, "BONES", true);
+				await _log.Db($"Database error in Bones_GetUserPartyMembers for heroId {heroId}: {ex.Message} (Error Code: {ex.Number})", null, "BONES", true);
 				return StatusCode(500, $"Database error: {ex.Message}");
 			}
 			catch (Exception ex)
 			{
-				await _log.Db($"Unexpected error in Bones_GetUserPartyMembers for userId {userId}: {ex.Message}", null, "BONES", true);
+				await _log.Db($"Unexpected error in Bones_GetUserPartyMembers for heroId {heroId}: {ex.Message}", null, "BONES", true);
 				return StatusCode(500, $"Internal server error: {ex.Message}");
 			}
 		}
