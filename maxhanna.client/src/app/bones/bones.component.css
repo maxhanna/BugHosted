@@ -630,7 +630,7 @@ body {
 .partyPanel {
   margin-top: 8px;
   text-align: left;
-  max-height: 240px;
+  max-height: 65vh;
   overflow: auto;
   position: relative;
   padding: 8px 10px 12px 10px;
