@@ -160,7 +160,6 @@
 
 <!-- Death overlay -->
 <div class="popupPanel deathPanel" *ngIf="showDeathPanel" style="max-width:320px; text-align:center;">
-  <div class="popupPanelTitle mainPopupTitle">You Died</div>
   <div class="finalScoreWrapper">
     <div style="pointer-events:none; margin-bottom:8px; font-weight:bold">
       You were killed
@@ -176,12 +175,9 @@
         <div *ngIf="!deathKillerUserId && deathKillerName" class="deathKillerName">
           {{ deathKillerName }}
         </div>
-      </div>
-      <div class="deathKillStatInfo">
-        <div>Return to spawn at (0,0)</div>
-      </div>
+      </div> 
     </div>
-    <button class="closeButton" id="closeOverlay" (click)="returnFromDeath()">Respawn</button>
+    <button id="closeOverlay" (click)="returnFromDeath()">Resurrect</button>
   </div>
 </div>
 

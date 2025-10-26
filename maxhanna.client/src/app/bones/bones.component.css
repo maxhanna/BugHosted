@@ -607,11 +607,7 @@ body {
 .changeCharacterPanel {
   min-width: 300px;
 }
-
-.deathPanel {
-  font-size: xx-large !important;
-}
-
+ 
 .partyPanel,
 .deathPanel,
 .deathPanel button,
