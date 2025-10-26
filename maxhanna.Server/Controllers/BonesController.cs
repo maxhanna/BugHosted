@@ -353,6 +353,7 @@ namespace maxhanna.Server.Controllers
 							// Additionally, apply damage to any bones_hero rows within the AoE. Damage is at least attackerLevel.
 							try
 							{
+								// New party schema exclusion: heroes sharing same party_id should not be damaged.
 								string heroDamageSql = @"
 								UPDATE maxhanna.bones_hero h
 								SET h.hp = GREATEST(h.hp - @Damage, 0), h.updated = UTC_TIMESTAMP()
@@ -362,9 +363,9 @@ namespace maxhanna.Server.Controllers
 									AND h.coordsY BETWEEN @YMin AND @YMax
 									AND h.id <> @AttackerId
 									AND NOT EXISTS (
-										SELECT 1 FROM maxhanna.bones_hero_party p
-										WHERE (p.bones_hero_id_1 = @AttackerId AND p.bones_hero_id_2 = h.id)
-										   OR (p.bones_hero_id_2 = @AttackerId AND p.bones_hero_id_1 = h.id)
+										SELECT 1 FROM maxhanna.bones_hero_party ap
+										JOIN maxhanna.bones_hero_party tp ON tp.hero_id = h.id
+										WHERE ap.hero_id = @AttackerId AND tp.party_id = ap.party_id
 									);";
 								var heroDamageParams = new Dictionary<string, object?>()
 								{
@@ -382,7 +383,7 @@ namespace maxhanna.Server.Controllers
 								{
 									// Find affected hero ids so we can emit HERO_DAMAGE per victim with their damage amount
 									string selectHeroesSql = @"SELECT id, hp FROM maxhanna.bones_hero h WHERE map = @Map AND coordsX BETWEEN @XMin AND @XMax AND coordsY BETWEEN @YMin AND @YMax AND h.id <> @AttackerId AND NOT EXISTS (
-										SELECT 1 FROM maxhanna.bones_hero_party p WHERE (p.bones_hero_id_1 = @AttackerId AND p.bones_hero_id_2 = h.id) OR (p.bones_hero_id_2 = @AttackerId AND p.bones_hero_id_1 = h.id)
+										SELECT 1 FROM maxhanna.bones_hero_party ap JOIN maxhanna.bones_hero_party tp ON tp.hero_id = h.id WHERE ap.hero_id = @AttackerId AND tp.party_id = ap.party_id
 									);";
 									using var selCmd = new MySqlCommand(selectHeroesSql, connection, transaction);
 									selCmd.Parameters.AddWithValue("@Map", hero.Map ?? string.Empty);
@@ -645,9 +646,32 @@ namespace maxhanna.Server.Controllers
 			await connection.OpenAsync();
 			try
 			{
-				const string sql = @"SELECT DISTINCT h.id, h.name, h.color FROM (SELECT bones_hero_id_1 AS hero_id FROM bones_hero_party WHERE bones_hero_id_2 = @UserId UNION SELECT bones_hero_id_2 AS hero_id FROM bones_hero_party WHERE bones_hero_id_1 = @UserId UNION SELECT @UserId AS hero_id) AS party_members JOIN bones_hero h ON party_members.hero_id = h.id";
+				// New schema: determine hero_id for this user, then list all heroes sharing its party_id
+				int heroId = 0;
+				using (var heroCmd = new MySqlCommand("SELECT id FROM bones_hero WHERE user_id = @UserId LIMIT 1", connection))
+				{
+					heroCmd.Parameters.AddWithValue("@UserId", userId);
+					var hObj = await heroCmd.ExecuteScalarAsync();
+					if (hObj == null || !int.TryParse(hObj.ToString(), out heroId)) return Ok(Array.Empty<object>());
+				}
+				int? partyId = null;
+				using (var partyCmd = new MySqlCommand("SELECT party_id FROM bones_hero_party WHERE hero_id = @HeroId LIMIT 1", connection))
+				{
+					partyCmd.Parameters.AddWithValue("@HeroId", heroId);
+					var pObj = await partyCmd.ExecuteScalarAsync();
+					if (pObj != null && int.TryParse(pObj.ToString(), out var tmpPid)) partyId = tmpPid;
+				}
+				string sql;
+				if (partyId.HasValue)
+				{
+					sql = "SELECT h.id, h.name, h.color FROM bones_hero_party p JOIN bones_hero h ON h.id = p.hero_id WHERE p.party_id = @PartyId";
+				}
+				else
+				{
+					sql = "SELECT h.id, h.name, h.color FROM bones_hero h WHERE h.id = @HeroId"; // only self
+				}
 				using var command = new MySqlCommand(sql, connection);
-				command.Parameters.AddWithValue("@UserId", userId);
+				if (partyId.HasValue) command.Parameters.AddWithValue("@PartyId", partyId.Value); else command.Parameters.AddWithValue("@HeroId", heroId);
 				var partyMembers = new List<object>();
 				using var reader = await command.ExecuteReaderAsync();
 				while (await reader.ReadAsync())
@@ -1050,17 +1074,13 @@ namespace maxhanna.Server.Controllers
 					int ownerId = ownerObj != null && int.TryParse(ownerObj.ToString(), out var tmp) ? tmp : 0;
 					if (ownerId != req.UserId.Value) return StatusCode(403, "You do not own this hero");
 				}
-				string checkSql = @"SELECT COUNT(*) FROM bones_hero_party WHERE bones_hero_id_1 = @Target OR bones_hero_id_2 = @Target LIMIT 1;";
-				using var checkCmd = new MySqlCommand(checkSql, connection, transaction);
-				checkCmd.Parameters.AddWithValue("@Target", req.TargetHeroId);
-				var cntObj = await checkCmd.ExecuteScalarAsync();
-				int existingCount = cntObj != null && int.TryParse(cntObj.ToString(), out var tmpCnt) ? tmpCnt : 0;
-				if (existingCount > 0)
+				// New schema: bones_hero_party(hero_id, party_id, joined). If target already has a party_id, decline invite.
+				int? targetPartyId = await GetPartyId(req.TargetHeroId, connection, transaction);
+				if (targetPartyId.HasValue)
 				{
-					// target already in a party — do not persist invite event
 					await transaction.RollbackAsync();
 					return Ok(new { invited = false });
-				}  
+				}
 				string inviterMap = string.Empty; 
 				using var mapCmd = new MySqlCommand("SELECT map FROM maxhanna.bones_hero WHERE id = @HeroId LIMIT 1", connection, transaction);
 				mapCmd.Parameters.AddWithValue("@HeroId", req.HeroId);
@@ -1141,15 +1161,8 @@ namespace maxhanna.Server.Controllers
 				await _log.Db("LeaveParty failed: " + ex.Message, req.HeroId, "BONES", true);
 				return StatusCode(500, "Failed to leave party");
 			}
-		}
-
-		[HttpPost("/Bones/RemovePartyMember", Name = "Bones_RemovePartyMember")]
-		public async Task<IActionResult> RemovePartyMember([FromBody] RemovePartyMemberRequest req)
-		{
-			// Removing other party members server-side is not supported. Clients should call LeaveParty to remove themselves from a party.
-			return StatusCode(410, "Removing other party members is not supported. Use /Bones/LeaveParty to leave a party.");
-		}
-
+		} 
+		
 		[HttpPost("/Bones/UpdateHeroStats", Name = "Bones_UpdateHeroStats")]
 		public async Task<IActionResult> UpdateHeroStats([FromBody] UpdateHeroStatsRequest req)
 		{
@@ -1341,14 +1354,8 @@ namespace maxhanna.Server.Controllers
 			{
 				if (connection.State != System.Data.ConnectionState.Open) await connection.OpenAsync();
 				if (transaction == null) throw new InvalidOperationException("Transaction is required for this operation.");
-				List<int> partyMemberIds = new() { heroId };
-				string partyQuery = @"SELECT bones_hero_id_1 AS hero_id FROM bones_hero_party WHERE bones_hero_id_2 = @HeroId UNION SELECT bones_hero_id_2 AS hero_id FROM bones_hero_party WHERE bones_hero_id_1 = @HeroId";
-				using (var partyCmd = new MySqlCommand(partyQuery, connection, transaction))
-				{
-					partyCmd.Parameters.AddWithValue("@HeroId", heroId);
-					using var partyReader = await partyCmd.ExecuteReaderAsync();
-					while (await partyReader.ReadAsync()) partyMemberIds.Add(Convert.ToInt32(partyReader["hero_id"]));
-				}
+				// New party membership: gather all hero_ids sharing the same party_id
+				var partyMemberIds = await GetPartyMemberIds(heroId, connection, transaction);
 				string sql = @"DELETE FROM maxhanna.bones_event WHERE timestamp < UTC_TIMESTAMP() - INTERVAL 10 SECOND; SELECT * FROM maxhanna.bones_event WHERE map = @Map OR (event = 'CHAT' AND hero_id IN (" + string.Join(",", partyMemberIds) + "));";
 				MySqlCommand cmd = new(sql, connection, transaction); cmd.Parameters.AddWithValue("@Map", map);
 				List<MetaEvent> events = new();
@@ -1986,16 +1993,7 @@ namespace maxhanna.Server.Controllers
 			if (encounterLevel <= 0) encounterLevel = 1;
 			try
 			{
-				List<int> partyIds = new();
-				string partySql = @"SELECT bones_hero_id_1 AS hero_id FROM bones_hero_party WHERE bones_hero_id_2 = @HeroId
-						UNION SELECT bones_hero_id_2 AS hero_id FROM bones_hero_party WHERE bones_hero_id_1 = @HeroId
-						UNION SELECT @HeroId AS hero_id";
-				using (var pCmd = new MySqlCommand(partySql, connection, transaction))
-				{
-					pCmd.Parameters.AddWithValue("@HeroId", killerHeroId);
-					using var pR = await pCmd.ExecuteReaderAsync();
-					while (await pR.ReadAsync()) partyIds.Add(pR.GetInt32(0));
-				}
+				var partyIds = await GetPartyMemberIds(killerHeroId, connection, transaction);
 				if (partyIds.Count == 0) partyIds.Add(killerHeroId);
 				// Debug: log who will receive EXP and how much
 				await _log.Db($"AwardEncounterKillExp: killer={killerHeroId} encounterLevel={encounterLevel} party=[{string.Join(',', partyIds)}]", killerHeroId, "BONES", true);
@@ -2076,18 +2074,67 @@ namespace maxhanna.Server.Controllers
 		}
 		private async Task UpdateMetaHeroParty(List<int>? partyData, MySqlConnection connection, MySqlTransaction transaction)
 		{
+			// Accepts a list of hero IDs forming (or merging into) a single party using new party_id schema.
 			try
 			{
-				if (partyData == null || partyData.Count < 2) return; var heroIds = partyData.Distinct().ToList(); if (heroIds.Count < 2) return;
-				const string deleteQuery = @"DELETE FROM bones_hero_party WHERE bones_hero_id_1 IN (@heroId1) OR bones_hero_id_2 IN (@heroId2)";
-				using (var deleteCommand = new MySqlCommand(deleteQuery, connection, transaction))
+				if (partyData == null || partyData.Count < 2) return;
+				var heroIds = partyData.Distinct().ToList();
+				if (heroIds.Count < 2) return;
+				// Fetch existing party_id assignments for provided heroes
+				string selectSql = $"SELECT hero_id, party_id FROM bones_hero_party WHERE hero_id IN ({string.Join(',', heroIds)})";
+				var existing = new Dictionary<int, int?>();
+				using (var selCmd = new MySqlCommand(selectSql, connection, transaction))
 				{
-					var heroIdParams = string.Join(",", heroIds.Select((_, index) => $"@hero{index}")); deleteCommand.CommandText = deleteQuery.Replace("@heroId1", heroIdParams).Replace("@heroId2", heroIdParams); for (int i = 0; i < heroIds.Count; i++) deleteCommand.Parameters.AddWithValue($"@hero{i}", heroIds[i]); await deleteCommand.ExecuteNonQueryAsync();
+					using var rdr = await selCmd.ExecuteReaderAsync();
+					while (await rdr.ReadAsync())
+					{
+						int hid = rdr.GetInt32(0);
+						int? pid = rdr.IsDBNull(1) ? (int?)null : rdr.GetInt32(1);
+						existing[hid] = pid;
+					}
 				}
-				const string insertQuery = @"INSERT INTO bones_hero_party (bones_hero_id_1, bones_hero_id_2) VALUES (@heroId1, @heroId2)";
-				using (var insertCommand = new MySqlCommand(insertQuery, connection, transaction))
+				foreach (var hid in heroIds) if (!existing.ContainsKey(hid)) existing[hid] = null;
+				var partyIdsFound = existing.Values.Where(v => v.HasValue).Select(v => v!.Value).Distinct().ToList();
+				int targetPartyId;
+				if (partyIdsFound.Count == 0)
 				{
-					for (int i = 0; i < heroIds.Count; i++) for (int j = i + 1; j < heroIds.Count; j++) { insertCommand.Parameters.Clear(); insertCommand.Parameters.AddWithValue("@heroId1", heroIds[i]); insertCommand.Parameters.AddWithValue("@heroId2", heroIds[j]); await insertCommand.ExecuteNonQueryAsync(); }
+					// Allocate new party id (max + 1)
+					using var newCmd = new MySqlCommand("SELECT COALESCE(MAX(party_id),0)+1 FROM bones_hero_party", connection, transaction);
+					var obj = await newCmd.ExecuteScalarAsync();
+					if (obj != null && int.TryParse(obj.ToString(), out var tmpPid) && tmpPid > 0) targetPartyId = tmpPid; else targetPartyId = 1;
+				}
+				else
+				{
+					targetPartyId = partyIdsFound.Min();
+					// Merge any other party_ids into targetPartyId
+					if (partyIdsFound.Count > 1)
+					{
+						string mergeSql = $"UPDATE bones_hero_party SET party_id = @Target WHERE party_id IN ({string.Join(',', partyIdsFound.Where(id => id != targetPartyId))})";
+						using var mergeCmd = new MySqlCommand(mergeSql, connection, transaction);
+						mergeCmd.Parameters.AddWithValue("@Target", targetPartyId);
+						await mergeCmd.ExecuteNonQueryAsync();
+					}
+				}
+				// Upsert membership for each hero
+				foreach (var hid in heroIds)
+				{
+					int? existingPid = existing[hid];
+					if (!existingPid.HasValue)
+					{
+						string insSql = "INSERT INTO bones_hero_party (hero_id, party_id, joined) VALUES (@HeroId, @PartyId, UTC_TIMESTAMP())";
+						using var insCmd = new MySqlCommand(insSql, connection, transaction);
+						insCmd.Parameters.AddWithValue("@HeroId", hid);
+						insCmd.Parameters.AddWithValue("@PartyId", targetPartyId);
+						await insCmd.ExecuteNonQueryAsync();
+					}
+					else if (existingPid.Value != targetPartyId)
+					{
+						string updSql = "UPDATE bones_hero_party SET party_id = @PartyId WHERE hero_id = @HeroId LIMIT 1";
+						using var updCmd = new MySqlCommand(updSql, connection, transaction);
+						updCmd.Parameters.AddWithValue("@HeroId", hid);
+						updCmd.Parameters.AddWithValue("@PartyId", targetPartyId);
+						await updCmd.ExecuteNonQueryAsync();
+					}
 				}
 			}
 			catch (MySqlException) { throw; }
@@ -2097,11 +2144,36 @@ namespace maxhanna.Server.Controllers
 		{
 			try
 			{
-				const string deleteQuery = @"DELETE FROM bones_hero_party WHERE bones_hero_id_1 IN (@heroId) OR bones_hero_id_2 IN (@heroId)";
-				using var deleteCommand = new MySqlCommand(deleteQuery, connection, transaction); deleteCommand.Parameters.AddWithValue("@heroId", heroId); await deleteCommand.ExecuteNonQueryAsync();
+				const string deleteQuery = "DELETE FROM bones_hero_party WHERE hero_id = @HeroId LIMIT 1";
+				using var deleteCommand = new MySqlCommand(deleteQuery, connection, transaction);
+				deleteCommand.Parameters.AddWithValue("@HeroId", heroId);
+				await deleteCommand.ExecuteNonQueryAsync();
 			}
 			catch (MySqlException) { throw; }
 			catch (Exception) { throw; }
+		}
+
+		// Helpers for new party schema
+		private async Task<int?> GetPartyId(int heroId, MySqlConnection connection, MySqlTransaction transaction)
+		{
+			using var cmd = new MySqlCommand("SELECT party_id FROM bones_hero_party WHERE hero_id = @HeroId LIMIT 1", connection, transaction);
+			cmd.Parameters.AddWithValue("@HeroId", heroId);
+			var obj = await cmd.ExecuteScalarAsync();
+			if (obj == null || obj == DBNull.Value) return null;
+			if (int.TryParse(obj.ToString(), out var pid)) return pid;
+			return null;
+		}
+		private async Task<List<int>> GetPartyMemberIds(int heroId, MySqlConnection connection, MySqlTransaction transaction)
+		{
+			var list = new List<int>();
+			int? partyId = await GetPartyId(heroId, connection, transaction);
+			if (!partyId.HasValue) { list.Add(heroId); return list; }
+			using var cmd = new MySqlCommand("SELECT hero_id FROM bones_hero_party WHERE party_id = @Pid", connection, transaction);
+			cmd.Parameters.AddWithValue("@Pid", partyId.Value);
+			using var rdr = await cmd.ExecuteReaderAsync();
+			while (await rdr.ReadAsync()) { var hid = rdr.GetInt32(0); if (!list.Contains(hid)) list.Add(hid); }
+			if (!list.Contains(heroId)) list.Add(heroId);
+			return list;
 		}
 		// Helper to safely read nullable string columns from a data reader
 		private static string? SafeGetString(System.Data.Common.DbDataReader reader, string columnName)

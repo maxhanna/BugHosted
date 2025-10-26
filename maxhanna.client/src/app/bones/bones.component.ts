@@ -136,9 +136,9 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
     this.parentRef?.addResizeListener();
     this.canvas = this.gameCanvas.nativeElement;
     this.ctx = this.canvas.getContext("2d")!;
-    if (!this.parentRef?.user) {
-      this.isUserComponentOpen = true;
-    } else {
+    if (this.parentRef?.user?.id) {
+        this.isUserComponentOpen = true;
+      } else {
       this.startLoading();
       this.fetchUserSettings();
       this.pollForChanges();
@@ -296,7 +296,8 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
       const rz = await this.bonesService.getHero(this.parentRef.user.id);
       if (rz) {
         this.copyStatsFromMetaHero(rz);
-        this.partyMembers = await this.bonesService.getPartyMembers(rz.id) ?? [];
+    const uid = this.parentRef?.user?.id ?? 0;
+    this.partyMembers = await this.bonesService.getPartyMembers(this.parentRef.user.id) ?? [];
         this.mainScene.partyMembers = this.partyMembers;
         this.mainScene.inventory.partyMembers = this.partyMembers;
         this.mainScene.inventory.renderParty();
@@ -1446,7 +1447,7 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
     this.metaHero = await this.bonesService.respawnHero(this.metaHero.id);
     window.location.href = '/Bones';
   }
-  
+
   private copyStatsFromMetaHero(rz: MetaHero) {
     this.metaHero.dex = rz.dex;
     this.metaHero.str = rz.str;
