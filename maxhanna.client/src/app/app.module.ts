@@ -144,7 +144,6 @@ import { NewUsersComponent } from './new-users/new-users.component';
     MetaComponent,
     BonesComponent,
     BonesHighScoresComponent,
-  PascalCasePipe,
     ClickableUrlsPipe,
     CurrencyFlagPipe,
     CurrencyShortenPipe,
@@ -195,6 +194,7 @@ import { NewUsersComponent } from './new-users/new-users.component';
     CryptoFearAndGreedComponent,
     CurrencySymbolPipe,
     DecodeHtmlPipe,
+    PascalCasePipe,
     CryptoGlobalStatsComponent],
   exports: [
     InViewDirective,
