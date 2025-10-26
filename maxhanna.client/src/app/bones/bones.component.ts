@@ -672,7 +672,11 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
       if (heroMeta.id === this.metaHero.id) {
         try { this.metaHero.hp = heroMeta.hp ?? this.metaHero.hp; } catch { }
         try { this.metaHero.level = heroMeta.level ?? this.metaHero.level; } catch { }
-        try { this.metaHero.exp = heroMeta.exp ?? this.metaHero.exp; } catch { }
+  try { this.metaHero.exp = heroMeta.exp ?? this.metaHero.exp; } catch { }
+  // Sync stats from server if provided
+  try { this.metaHero.str = (heroMeta as any).str ?? ((heroMeta as any).stats ? (heroMeta as any).stats.str : this.metaHero.str); } catch { }
+  try { this.metaHero.dex = (heroMeta as any).dex ?? ((heroMeta as any).stats ? (heroMeta as any).stats.dex : this.metaHero.dex); } catch { }
+  try { this.metaHero.int = (heroMeta as any).int ?? ((heroMeta as any).stats ? (heroMeta as any).stats.int : this.metaHero.int); } catch { }
         if (this.hero) {
           // Detect HP drop for local hero and play attenuated impact SFX
 
@@ -852,6 +856,15 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
       rz.level ?? 1,
       rz.exp ?? 0,
       rz.attackSpeed ?? 400);
+    // Restore persisted stats from server response if present
+    try {
+      const statsAny: any = (rz as any).stats ?? rz;
+      if (statsAny) {
+        if (statsAny.str !== undefined) this.metaHero.str = Number(statsAny.str);
+        if (statsAny.dex !== undefined) this.metaHero.dex = Number(statsAny.dex);
+        if (statsAny.int !== undefined) this.metaHero.int = Number(statsAny.int);
+      }
+    } catch { }
     // propagate attackSpeed to client Hero so attack cooldowns match server-provided value
     if (this.hero) {
       this.hero.attackSpeed = rz.attackSpeed ?? 400;
@@ -1291,6 +1304,20 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
           { str: this.editableStats.str, dex: this.editableStats.dex, int: this.editableStats.int },
           this.parentRef?.user?.id
         );
+        // Update local metaHero so UI reflects the new stats immediately
+        try {
+          if (this.metaHero) {
+            this.metaHero.str = this.editableStats.str;
+            this.metaHero.dex = this.editableStats.dex;
+            this.metaHero.int = this.editableStats.int;
+          }
+          // If in-game hero object exists, you may want to apply derived changes here
+          if (this.hero) {
+            try { (this.hero as any).str = this.editableStats.str; } catch { }
+            try { (this.hero as any).dex = this.editableStats.dex; } catch { }
+            try { (this.hero as any).int = this.editableStats.int; } catch { }
+          }
+        } catch { }
         alert('Stats updated');
       } else {
         alert('Update stats not implemented on server. Local demo applied.');

@@ -1462,12 +1462,11 @@ namespace maxhanna.Server.Controllers
 								Level = reader.IsDBNull(levelOrd) ? 0 : reader.GetInt32(levelOrd),
 								Exp = reader.IsDBNull(expOrd) ? 0 : reader.GetInt32(expOrd), 
 								AttackSpeed = attackSpeed,
-								Hp = reader.IsDBNull(reader.GetOrdinal("hero_hp")) ? 100 : reader.GetInt32(reader.GetOrdinal("hero_hp"))
-							};
-							// Populate optional stats if available; be defensive in case schema lacks columns
-							try { hero.Str = reader.IsDBNull(reader.GetOrdinal("hero_str")) ? 0 : reader.GetInt32(reader.GetOrdinal("hero_str")); } catch { hero.Str = 0; }
-							try { hero.Dex = reader.IsDBNull(reader.GetOrdinal("hero_dex")) ? 0 : reader.GetInt32(reader.GetOrdinal("hero_dex")); } catch { hero.Dex = 0; }
-							try { hero.Int = reader.IsDBNull(reader.GetOrdinal("hero_int")) ? 0 : reader.GetInt32(reader.GetOrdinal("hero_int")); } catch { hero.Int = 0; }
+								Hp = reader.IsDBNull(reader.GetOrdinal("hero_hp")) ? 100 : reader.GetInt32(reader.GetOrdinal("hero_hp")),
+								Str = reader.IsDBNull(reader.GetOrdinal("hero_str")) ? 0 : reader.GetInt32(reader.GetOrdinal("hero_str")),
+								Dex = reader.IsDBNull(reader.GetOrdinal("hero_dex")) ? 0 : reader.GetInt32(reader.GetOrdinal("hero_dex")),
+								Int = reader.IsDBNull(reader.GetOrdinal("hero_int")) ? 0 : reader.GetInt32(reader.GetOrdinal("hero_int")),
+							}; 
 						} 
 					}
 				}

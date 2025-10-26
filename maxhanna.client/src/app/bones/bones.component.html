@@ -18,7 +18,7 @@
   </div>
 
   <div class="inputArea"
-    [style.display]="(!isMenuPanelOpen && !isPartyPanelOpen && !isStartMenuOpened) ? 'flex' : 'none'">
+    [style.display]="(!isMenuPanelOpen && !isChangeCharacterOpen && !isPartyPanelOpen && !isStartMenuOpened) ? 'flex' : 'none'">
     <div class="controls">
       <div class="controls">
         <div class="dpad">
@@ -155,7 +155,7 @@
     </div>
     <div *ngIf="!selections || selections.length === 0">No saved characters.</div>
   </div>
-  <button id="closeOverlay" class="closeButton" (click)="closeChangeCharacter()">Close</button>
+  <button id="closeOverlay" (click)="closeChangeCharacter()">Close</button>
 </div>
 
 <!-- Death overlay -->
