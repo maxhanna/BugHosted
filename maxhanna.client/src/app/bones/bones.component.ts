@@ -85,6 +85,8 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
   isChangeStatsOpen = false;
   // optimistic UI state for invites: map heroId -> expiry timestamp (ms)
   pendingInvites: Map<number, number> = new Map<number, number>();
+  // per-hero cached seconds left for UI
+  pendingInviteSeconds: Map<number, number> = new Map<number, number>();
   // track invites that are being cleared so we can play an animation before removing
   pendingClearing: Set<number> = new Set<number>();
   private pendingClearingTimers: Map<number, any> = new Map<number, any>();
@@ -121,6 +123,7 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
   private _lastServerDestinations: Map<number, Vector2> = new Map<number, Vector2>();
   private pollingInterval: any;
   private _processedCleanupInterval: any;
+  private _pendingInvitesInterval: any;
   // Per-hero message expiry timers keyed by hero id (mirrors Ender behavior)
   private heroMessageExpiryTimers: Map<number, { timer: any, msg: string }> = new Map();
 
@@ -223,63 +226,10 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
       }
     });
   }
-
-  // Return whether given heroId is in the player's party (includes optimistic invites)
-  isInParty(heroId: number) {
-    if ((this.partyMembers || []).some(p => p.heroId === heroId)) return true;
-    const expiry = this.pendingInvites.get(heroId);
-    if (expiry && expiry > Date.now()) return true; // optimistic (not expired)
-    return false;
-  }
-
-  // Return whether an invite is currently pending (and not expired)
-  isInvitePending(heroId: number) {
-    const expiry = this.pendingInvites.get(heroId);
-    return !!(expiry && expiry > Date.now());
-  }
-
-  // Return whether an invite is currently in the clearing animation
-  isPendingClearing(heroId: number) {
-    return this.pendingClearing.has(heroId);
-  }
-
-  // Return otherHeroes sorted so party members appear at the top, then others by distance or name
-  getSortedHeroes() {
-    if (!this.otherHeroes) return [] as MetaHero[];
-    // Exclude self
-    let filtered = this.otherHeroes.filter(h => h.id !== this.metaHero?.id);
-    // Apply filter
-    if (this.partyFilter === 'party') {
-      const partySet = new Set((this.partyMembers || []).map(p => p.heroId));
-      filtered = filtered.filter(h => partySet.has(h.id));
-    } else if (this.partyFilter === 'nearby') {
-      const myPos = this.metaHero?.position;
-      if (myPos) {
-        filtered = filtered.filter(h => h.position && Math.hypot(h.position.x - myPos.x, h.position.y - myPos.y) <= 800);
-      }
-    }
-    // Map quick lookup for party membership
-    const partySet = new Set((this.partyMembers || []).map(p => p.heroId));
-    // Compute distance if positions available
-    const myPos = this.metaHero?.position;
-    filtered.sort((a, b) => {
-      const aIn = partySet.has(a.id) ? 0 : 1;
-      const bIn = partySet.has(b.id) ? 0 : 1;
-      if (aIn !== bIn) return aIn - bIn; // party members first
-      if (myPos && a.position && b.position) {
-        const da = Math.hypot(a.position.x - myPos.x, a.position.y - myPos.y);
-        const db = Math.hypot(b.position.x - myPos.x, b.position.y - myPos.y);
-        return da - db;
-      }
-      // fallback to name
-      return (a.name ?? '').localeCompare(b.name ?? '');
-    });
-    return filtered;
-  }
-
   ngOnDestroy() {
     clearInterval(this.pollingInterval);
     clearInterval(this._processedCleanupInterval);
+  try { if (this._pendingInvitesInterval) clearInterval(this._pendingInvitesInterval); } catch { }
     this.mainScene.destroy();
     this.gameLoop.stop();
     this.remove_me('MetaComponent');
@@ -288,6 +238,12 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
     // clear any outstanding chat timers
     for (const entry of this.heroMessageExpiryTimers.values()) { try { if (entry?.timer) clearTimeout(entry.timer); } catch { } }
     this.heroMessageExpiryTimers.clear();
+  }
+
+  // Return remaining seconds for a hero's pending invite, or null if none
+  getPendingSeconds(heroId: number): number | null {
+    const v = this.pendingInviteSeconds.get(heroId);
+    return (typeof v === 'number') ? v : null;
   }
 
   toggleMusic() {
@@ -1173,6 +1129,9 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
   private addPendingInvite(heroId: number, ttlMs: number) {
     const expiry = Date.now() + ttlMs;
     this.pendingInvites.set(heroId, expiry);
+  // set initial seconds value for UI and ensure updater is running
+  try { this.pendingInviteSeconds.set(heroId, Math.ceil(ttlMs / 1000)); } catch { }
+  try { this.ensurePendingInvitesInterval(); } catch { }
     setTimeout(() => {
       const cur = this.pendingInvites.get(heroId);
       if (cur && cur === expiry) {
@@ -1216,6 +1175,7 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
           this.pendingClearing.delete(heroId);
           this.pendingClearingTimers.delete(heroId);
           this.pendingInvites.delete(heroId);
+          try { this.pendingInviteSeconds.delete(heroId); } catch { }
         } catch { }
       }, animationMs + 20);
       this.pendingClearingTimers.set(heroId, t);
@@ -1229,6 +1189,84 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
     this.partyMembers = this.partyMembers.filter(x => x.heroId == this.metaHero.id);
     this.reinitializeInventoryData();
     alert('Left party');
+  }
+
+
+  // Return whether given heroId is in the player's party (includes optimistic invites)
+  isInParty(heroId: number) {
+    if ((this.partyMembers || []).some(p => p.heroId === heroId)) return true;
+    const expiry = this.pendingInvites.get(heroId);
+    if (expiry && expiry > Date.now()) return true; // optimistic (not expired)
+    return false;
+  }
+
+  // Return whether an invite is currently pending (and not expired)
+  isInvitePending(heroId: number) {
+    const expiry = this.pendingInvites.get(heroId);
+    return !!(expiry && expiry > Date.now());
+  }
+
+  // Internal: ensure the periodic pending-seconds updater is running when needed
+  private ensurePendingInvitesInterval() {
+    try {
+      if (this._pendingInvitesInterval) return;
+      this._pendingInvitesInterval = setInterval(() => {
+        const now = Date.now();
+        let any = false;
+        for (const [heroId, expiry] of Array.from(this.pendingInvites.entries())) {
+          const left = Math.max(0, Math.ceil((expiry - now) / 1000));
+          this.pendingInviteSeconds.set(heroId, left);
+          if (expiry > now) any = true;
+        }
+        // remove seconds for invites that no longer exist
+        for (const id of Array.from(this.pendingInviteSeconds.keys())) {
+          if (!this.pendingInvites.has(id)) this.pendingInviteSeconds.delete(id);
+        }
+        if (!any) {
+          try { clearInterval(this._pendingInvitesInterval); } catch { }
+          this._pendingInvitesInterval = undefined;
+        }
+      }, 500);
+    } catch (ex) { console.error('Failed to start pending invites interval', ex); }
+  }
+
+  // Return whether an invite is currently in the clearing animation
+  isPendingClearing(heroId: number) {
+    return this.pendingClearing.has(heroId);
+  }
+
+  // Return otherHeroes sorted so party members appear at the top, then others by distance or name
+  getSortedHeroes() {
+    if (!this.otherHeroes) return [] as MetaHero[];
+    // Exclude self
+    let filtered = this.otherHeroes.filter(h => h.id !== this.metaHero?.id);
+    // Apply filter
+    if (this.partyFilter === 'party') {
+      const partySet = new Set((this.partyMembers || []).map(p => p.heroId));
+      filtered = filtered.filter(h => partySet.has(h.id));
+    } else if (this.partyFilter === 'nearby') {
+      const myPos = this.metaHero?.position;
+      if (myPos) {
+        filtered = filtered.filter(h => h.position && Math.hypot(h.position.x - myPos.x, h.position.y - myPos.y) <= 800);
+      }
+    }
+    // Map quick lookup for party membership
+    const partySet = new Set((this.partyMembers || []).map(p => p.heroId));
+    // Compute distance if positions available
+    const myPos = this.metaHero?.position;
+    filtered.sort((a, b) => {
+      const aIn = partySet.has(a.id) ? 0 : 1;
+      const bIn = partySet.has(b.id) ? 0 : 1;
+      if (aIn !== bIn) return aIn - bIn; // party members first
+      if (myPos && a.position && b.position) {
+        const da = Math.hypot(a.position.x - myPos.x, a.position.y - myPos.y);
+        const db = Math.hypot(b.position.x - myPos.x, b.position.y - myPos.y);
+        return da - db;
+      }
+      // fallback to name
+      return (a.name ?? '').localeCompare(b.name ?? '');
+    });
+    return filtered;
   }
 
   openChangeStats() {
