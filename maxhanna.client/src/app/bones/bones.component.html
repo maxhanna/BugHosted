@@ -1,4 +1,4 @@
-<div class="componentMain" #componentMain>
+<div class="componentMain worn" #componentMain>
   <div class="closeButton" (click)="remove_me('BonesComponent');"></div>
   <!--<div class="refreshButton" (click)="ngOnInit();"></div>-->
   <div class="componentTitle">Bones</div>
@@ -202,7 +202,7 @@
   </div>
 
   <!-- Party subpanel -->
-  <div *ngIf="isPartyPanelOpen" class="partyPanel">
+  <div *ngIf="isPartyPanelOpen" class="partyPanel worn worn-border">
     <div style="font-weight:600; margin-bottom:8px;">Nearby Heroes / Party</div>
     <div style="display:flex; gap:6px; margin-bottom:8px;">
       <button [disabled]="partyFilter==='all'" (click)="partyFilter='all'">All</button>

@@ -970,3 +970,72 @@ html body .popupPanel * {
   color: #331a00;
   box-shadow: 0 6px 20px rgba(246, 184, 90, 0.18), inset 0 -6px 16px rgba(255,255,255,0.06) !important;
 }
+
+
+
+
+
+
+
+
+/* WORN / VINTAGE UI tweaks ------------------------------------------------- */
+/* Subtle paper texture: tiny noise via base64 SVG to avoid extra assets */
+:root {
+  --worn-paper: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='40' height='40'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='1' stitchTiles='stitch'/><feColorMatrix type='saturate' values='0.1'/></filter><rect width='100%' height='100%' filter='url(%23n)' opacity='0.06' fill='black'/></svg>");
+}
+
+/* Utility: apply a worn textured surface */
+.worn {
+  background-image: var(--worn-paper), linear-gradient(180deg, rgba(255,255,255,0.02), rgba(0,0,0,0.06));
+  background-blend-mode: overlay, normal;
+  filter: saturate(0.9) contrast(0.95) brightness(0.98);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.02), inset 0 -6px 20px rgba(0,0,0,0.35);
+  border: 1px solid rgba(255,255,255,0.03);
+  border-radius: 4px;
+}
+
+/* Slightly distressed edges */
+.worn-border {
+  box-shadow: 0 0 0 1px rgba(0,0,0,0.45), inset 0 0 0 1px rgba(255,255,255,0.02);
+  border-radius: 6px;
+}
+
+/* Muted/aged text color */
+.worn .muted {
+  color: rgba(200,200,180,0.8);
+}
+
+/* Faint scratches decoration (pseudo element) */
+.worn::after {
+  content: '';
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  background-image: linear-gradient(135deg, rgba(255,255,255,0.01) 1px, transparent 1px), linear-gradient(45deg, rgba(255,255,255,0.01) 1px, transparent 1px);
+  background-size: 120px 120px, 80px 80px;
+  opacity: 0.25;
+  mix-blend-mode: overlay;
+  border-radius: inherit;
+}
+ 
+/* Vintage button style */
+.wornButton {
+  background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(0,0,0,0.06));
+  border: 1px solid rgba(0,0,0,0.6);
+  color: var(--main-font-color);
+  padding: 6px 10px;
+  border-radius: 3px;
+  box-shadow: 1px 1px 0 rgba(0,0,0,0.6);
+}
+
+/* Small icon style for worn look */
+.worn .avatarPlaceholder {
+  background: linear-gradient(180deg, #333, #222);
+  border: 1px solid rgba(255,255,255,0.02);
+  box-shadow: inset 0 -2px 6px rgba(0,0,0,0.6);
+}
+
+/* Slight desaturation for entire app when activated */
+.appDesaturated {
+  filter: saturate(0.92) contrast(0.96);
+}
