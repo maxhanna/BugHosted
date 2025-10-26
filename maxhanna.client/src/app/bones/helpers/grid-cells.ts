@@ -1,7 +1,7 @@
 import { Vector2 } from "../../../services/datacontracts/bones/vector2";
 
 export const gridCells = (n: number) => {
-  return n * 16;
+  return n * 20;
 }
 export const UP = "UP";
 export const DOWN = "DOWN";
