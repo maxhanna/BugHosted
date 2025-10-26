@@ -282,7 +282,7 @@ namespace maxhanna.Server.Controllers
 							catch { attackerLevel = 1; }
 
 							// Determine AoE half-size: allow client to send 'aoe', 'radius', 'width', or 'threshold'. Fallback to HITBOX_HALF for single-tile tolerance.
-							int aoeHalf = HITBOX_HALF; // default tolerance radius
+							int aoeHalf = GRIDCELL; // default tolerance radius
 							string[] aoeKeys = new[] { "aoe", "radius", "width", "threshold" };
 							foreach (var k in aoeKeys)
 							{
