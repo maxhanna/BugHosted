@@ -266,7 +266,7 @@ export class Hero extends Character {
     // Draw HP & EXP bars and level above hero (similar style to Bot)
     const barWidth = 34;
     const barHeight = 4;
-    const x = drawPosX - 16;
+    const x = drawPosX - gridCells(1);
     const topY = drawPosY - 26; // above head
 
     // HP bar background

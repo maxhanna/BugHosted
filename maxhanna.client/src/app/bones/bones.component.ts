@@ -696,7 +696,7 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
   private async reinitializeHero(rz: MetaHero, skipDataFetch?: boolean) {
     this.hero = new Hero({
       id: rz.id, name: rz.name ?? "Anon",
-      position: new Vector2(snapToGrid(rz.position.x, 16), snapToGrid(rz.position.y, 16)),
+      position: new Vector2(snapToGrid(rz.position.x, gridCells(1)), snapToGrid(rz.position.y, gridCells(1))),
       isUserControlled: true,
       speed: rz.speed,
       mask: rz.mask ? new Mask(getMaskNameById(rz.mask)) : undefined,
