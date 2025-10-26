@@ -27,16 +27,28 @@ export class HeroRoomLevel extends Level {
       this.itemsFound = params.itemsFound;
     }
 
-    const bigTile = new Sprite(
-      {
-        objectId: 0,
-        resource: resources.images["floorbigtile"],
-        position: new Vector2(0, 0),
-        frameSize: new Vector2(64, 96),
+    // Create a room made of repeated "floorbigtile" sprites, centered on the default hero position.
+    const roomWidth = 5; // tiles horizontally
+    const roomHeight = 5; // tiles vertically
+    const centerTileX = Math.round(this.defaultHeroPosition.x / gridCells(1));
+    const centerTileY = Math.round(this.defaultHeroPosition.y / gridCells(1));
+    const startTileX = centerTileX - Math.floor(roomWidth / 2);
+    const startTileY = centerTileY - Math.floor(roomHeight / 2);
+    // Starting point in pixel coordinates for the tiled room
+    const tileStart = new Vector2(gridCells(startTileX), gridCells(startTileY));
+    let tileId = 0;
+    for (let rx = 0; rx < roomWidth; rx++) {
+      for (let ry = 0; ry < roomHeight; ry++) {
+        const tile = new Sprite({
+          objectId: -1000 + tileId++,
+          resource: resources.images["floorbigtile"],
+          position: new Vector2(tileStart.x + gridCells(rx), tileStart.y + gridCells(ry)),
+          frameSize: new Vector2(64, 96),
+        });
+        tile.drawLayer = BASE;
+        this.addChild(tile);
       }
-    );
-    bigTile.drawLayer = BASE;
-    this.addChild(bigTile);
+    }
 
 
 

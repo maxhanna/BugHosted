@@ -1664,7 +1664,20 @@ namespace maxhanna.Server.Controllers
 						{
 							if (distToLocked <= aggroPixels || (now - lockStart).TotalSeconds < graceSeconds)
 							{
-								closest = (targetHeroId, lockedPos.x, lockedPos.y);
+								// Preserve one-grid-cell gap when resuming a locked target: compute adjacent tile
+								int dxLocked = lockedPos.x - e.x;
+								int dyLocked = lockedPos.y - e.y;
+								if (Math.Abs(dxLocked) >= Math.Abs(dyLocked))
+								{
+									curX = lockedPos.x + (dxLocked > 0 ? -tile : tile);
+									curY = lockedPos.y;
+								}
+								else
+								{
+									curX = lockedPos.x;
+									curY = lockedPos.y + (dyLocked > 0 ? -tile : tile);
+								}
+								closest = (targetHeroId, curX, curY);
 								lockValid = true;
 							}
 						}
@@ -1716,7 +1729,16 @@ namespace maxhanna.Server.Controllers
 					// If lock expired (graceSeconds) and hero out of range, transition to return-to-origin
 					if (closest != null && closest.Value.heroId == targetHeroId && targetHeroId != 0 && _encounterTargetLockTimes.TryGetValue(e.heroId, out var ls))
 					{
-						int distCurrent = Math.Abs(closest.Value.x - e.x) + Math.Abs(closest.Value.y - e.y);
+						// Use the actual hero coordinates for distance checks (closest may contain the adjacent tile)
+						int distCurrent;
+						if (heroById.TryGetValue(targetHeroId, out var actualHeroPos))
+						{
+							distCurrent = Math.Abs(actualHeroPos.x - e.x) + Math.Abs(actualHeroPos.y - e.y);
+						}
+						else
+						{
+							distCurrent = Math.Abs(closest.Value.x - e.x) + Math.Abs(closest.Value.y - e.y);
+						}
 						double graceSeconds = Math.Max(1, e.aggro) * 5.0;
 						if (distCurrent > aggroPixels && (now - ls).TotalSeconds >= graceSeconds)
 						{
