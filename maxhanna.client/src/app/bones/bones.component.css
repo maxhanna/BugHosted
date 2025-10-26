@@ -680,7 +680,7 @@ body {
   vertical-align: middle;
 }
 
-.pendingBadge {
+.badge, .pendingBadge {
   --bg-a: #ffd47a;
   /* left */
   --bg-b: #ffb86b;
@@ -736,7 +736,7 @@ body {
 }
 
 /* subtle shimmer sweep */
-.pendingBadge::after {
+.badge::after {
   content: "";
   position: absolute;
   top: 0;
@@ -759,7 +759,7 @@ body {
   }
 }
 
-.pendingBadgeWrapper.clearing .pendingBadge {
+.pendingBadgeWrapper.clearing .badge {
   animation: pendingClear 600ms cubic-bezier(.2, .9, .2, 1) forwards;
 }
 
