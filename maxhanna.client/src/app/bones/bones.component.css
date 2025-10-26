@@ -681,10 +681,8 @@ body {
 }
 
 .badge, .pendingBadge {
-  --bg-a: #ffd47a;
-  /* left */
-  --bg-b: #ffb86b;
-  /* right */
+  --bg-a: #ffd47a; 
+  --bg-b: #ffb86b; 
   display: inline-flex;
   align-items: center;
   gap: 8px;
@@ -693,7 +691,7 @@ body {
   background: linear-gradient(90deg, var(--bg-a), var(--bg-b));
   color: #2b1600;
   font-weight: 800;
-  font-size: 12px;
+  font-size: large;
   line-height: 1;
   box-shadow: 0 6px 18px rgba(255, 164, 66, 0.14), inset 0 -6px 12px rgba(255, 255, 255, 0.12);
   position: relative;
