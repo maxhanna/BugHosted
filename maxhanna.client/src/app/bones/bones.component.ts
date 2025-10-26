@@ -104,7 +104,7 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
   cachedStats?: { str: number; dex: number; int: number } = undefined;
   // Change character popup state
   isChangeCharacterOpen = false;
-  selections: any[] = [];
+  heroSelections: any[] = [];
   serverDown? = false;
   // Count consecutive failures to fetch game data; when threshold reached announce locally via chat
   private consecutiveFetchFailures: number = 0;
@@ -141,8 +141,8 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
     this.canvas = this.gameCanvas.nativeElement;
     this.ctx = this.canvas.getContext("2d")!;
     if (!this.parentRef?.user?.id) {
-        this.isUserComponentOpen = true;
-      } else {
+      this.isUserComponentOpen = true;
+    } else {
       this.startLoading();
       this.fetchUserSettings();
       this.pollForChanges();
@@ -151,9 +151,9 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
     }
 
     window.addEventListener("resize", this.adjustCanvasSize);
-    this.adjustCanvasSize(); 
+    this.adjustCanvasSize();
   }
-  
+
   ngOnDestroy() {
     clearInterval(this.pollingInterval);
     clearInterval(this._processedCleanupInterval);
@@ -224,7 +224,7 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
       } catch (ex) { console.error('Failed to show PARTY_INVITED popup', ex); }
     });
 
-    
+
     // Handle remote attack animations sent from other clients via ATTACK_BATCH
     events.on("REMOTE_ATTACK", this, (payload: any) => {
       try {
@@ -276,7 +276,7 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
         console.error('Error playing attenuated impact SFX', ex);
       }
     });
-  } 
+  }
 
   update = async (delta: number) => {
     this.mainScene.stepEntry(delta, this.mainScene);
@@ -1082,48 +1082,48 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
 
   // Internal: ensure the periodic pending-seconds updater is running when needed
   private ensurePendingInvitesInterval() {
-      if (this._pendingInvitesInterval) return;
-      this._pendingInvitesInterval = setInterval(() => {
-        const now = Date.now();
-        let any = false;
-        for (const [heroId, expiry] of Array.from(this.pendingInvites.entries())) {
-          const left = Math.max(0, Math.ceil((expiry - now) / 1000));
-          this.pendingInviteSeconds.set(heroId, left);
-          if (expiry > now) any = true;
-        }
-        // remove seconds for invites that no longer exist
-        for (const id of Array.from(this.pendingInviteSeconds.keys())) {
-          if (!this.pendingInvites.has(id)) this.pendingInviteSeconds.delete(id);
-        }
-        if (!any) {
-          try { clearInterval(this._pendingInvitesInterval); } catch { }
-          this._pendingInvitesInterval = undefined;
-        }
-      }, 500);
+    if (this._pendingInvitesInterval) return;
+    this._pendingInvitesInterval = setInterval(() => {
+      const now = Date.now();
+      let any = false;
+      for (const [heroId, expiry] of Array.from(this.pendingInvites.entries())) {
+        const left = Math.max(0, Math.ceil((expiry - now) / 1000));
+        this.pendingInviteSeconds.set(heroId, left);
+        if (expiry > now) any = true;
+      }
+      // remove seconds for invites that no longer exist
+      for (const id of Array.from(this.pendingInviteSeconds.keys())) {
+        if (!this.pendingInvites.has(id)) this.pendingInviteSeconds.delete(id);
+      }
+      if (!any) {
+        try { clearInterval(this._pendingInvitesInterval); } catch { }
+        this._pendingInvitesInterval = undefined;
+      }
+    }, 500);
   }
 
   // Mark a hero as 'already in a party' for a short period (ms). Clears any optimistic pending state.
   private setAlreadyInPartyStatus(heroId: number, ms: number = 5000) {
-   
-      // clear optimistic pending state
-       this.pendingInvites.delete(heroId); 
-      this.pendingInviteSeconds.delete(heroId); 
-        if (this.pendingClearing.has(heroId)) {
-          const t = this.pendingClearingTimers.get(heroId);
-          if (t) clearTimeout(t);
-          this.pendingClearing.delete(heroId);
-          this.pendingClearingTimers.delete(heroId);
-        }
 
-      const until = Date.now() + ms;
-      this.alreadyInPartyUntil.set(heroId, until);
-      const existing = this.alreadyInPartyTimers.get(heroId);
-      if (existing) { try { clearTimeout(existing); } catch { } }
-      const to = setTimeout(() => {
-        try { this.alreadyInPartyUntil.delete(heroId); this.alreadyInPartyTimers.delete(heroId); } catch { }
-      }, ms + 50);
-      this.alreadyInPartyTimers.set(heroId, to);
-   
+    // clear optimistic pending state
+    this.pendingInvites.delete(heroId);
+    this.pendingInviteSeconds.delete(heroId);
+    if (this.pendingClearing.has(heroId)) {
+      const t = this.pendingClearingTimers.get(heroId);
+      if (t) clearTimeout(t);
+      this.pendingClearing.delete(heroId);
+      this.pendingClearingTimers.delete(heroId);
+    }
+
+    const until = Date.now() + ms;
+    this.alreadyInPartyUntil.set(heroId, until);
+    const existing = this.alreadyInPartyTimers.get(heroId);
+    if (existing) { try { clearTimeout(existing); } catch { } }
+    const to = setTimeout(() => {
+      try { this.alreadyInPartyUntil.delete(heroId); this.alreadyInPartyTimers.delete(heroId); } catch { }
+    }, ms + 50);
+    this.alreadyInPartyTimers.set(heroId, to);
+
   }
 
   isAlreadyInPartyStatus(heroId: number) {
@@ -1172,20 +1172,20 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
   }
 
   openChangeStats() {
-    this.isPartyPanelOpen = false; 
-  // Prefer cachedStats (client-preserved) first, then metaHero values, then defaults
-  const mh: MetaHero = this.metaHero || {};
-  const cached = this.cachedStats ?? {} as any;
-  const str = (cached.str !== undefined) ? cached.str : ((mh.str !== undefined && mh.str !== null) ? mh.str : undefined);
-  const dex = (cached.dex !== undefined) ? cached.dex : ((mh.dex !== undefined && mh.dex !== null) ? mh.dex : undefined);
-  const intl = (cached.int !== undefined) ? cached.int : ((mh.int !== undefined && mh.int !== null) ? mh.int : undefined);
+    this.isPartyPanelOpen = false;
+    // Prefer cachedStats (client-preserved) first, then metaHero values, then defaults
+    const mh: MetaHero = this.metaHero || {};
+    const cached = this.cachedStats ?? {} as any;
+    const str = (cached.str !== undefined) ? cached.str : ((mh.str !== undefined && mh.str !== null) ? mh.str : undefined);
+    const dex = (cached.dex !== undefined) ? cached.dex : ((mh.dex !== undefined && mh.dex !== null) ? mh.dex : undefined);
+    const intl = (cached.int !== undefined) ? cached.int : ((mh.int !== undefined && mh.int !== null) ? mh.int : undefined);
     const level = mh.level ?? 1;
     const allocated = (str ?? 0) + (dex ?? 0) + (intl ?? 0);
     const pointsAvailable = Math.max(0, level - allocated);
     this.editableStats = { str: Math.max(1, str ?? 1), dex: Math.max(1, dex ?? 1), int: Math.max(1, intl ?? 1), pointsAvailable };
     setTimeout(() => { this.isChangeStatsOpen = true; }, 100);
-  // capture original for change detection
-  try { this.statsOriginal = { str: this.editableStats.str, dex: this.editableStats.dex, int: this.editableStats.int }; } catch { this.statsOriginal = undefined; }
+    // capture original for change detection
+    try { this.statsOriginal = { str: this.editableStats.str, dex: this.editableStats.dex, int: this.editableStats.int }; } catch { this.statsOriginal = undefined; }
     console.log("opened change stats with ", this.editableStats);
   }
 
@@ -1212,31 +1212,31 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
   }
 
   async applyStats() {
-      // send to server if API exists
-      if (this.bonesService && typeof (this.bonesService as any).updateHeroStats === 'function') {
-        await this.bonesService.updateHeroStats(
-          this.metaHero.id,
-          { str: this.editableStats.str, dex: this.editableStats.dex, int: this.editableStats.int },
-          this.parentRef?.user?.id
-        );
-        // Update local metaHero so UI reflects the new stats immediately
-          if (this.metaHero) {
-            this.metaHero.str = this.editableStats.str;
-            this.metaHero.dex = this.editableStats.dex;
-            this.metaHero.int = this.editableStats.int;
-          }
-          // If in-game hero object exists, you may want to apply derived changes here
-          if (this.hero) {
-             (this.hero as any).str = this.editableStats.str; 
-             (this.hero as any).dex = this.editableStats.dex; 
-             (this.hero as any).int = this.editableStats.int; 
-          }
-        alert('Stats updated');
-        // Persist to cachedStats so future fetches that omit stats keep these values
-          this.cachedStats = { str: this.editableStats.str, dex: this.editableStats.dex, int: this.editableStats.int };
-      } else {
-        alert('Update stats not implemented on server. Local demo applied.');
+    // send to server if API exists
+    if (this.bonesService && typeof (this.bonesService as any).updateHeroStats === 'function') {
+      await this.bonesService.updateHeroStats(
+        this.metaHero.id,
+        { str: this.editableStats.str, dex: this.editableStats.dex, int: this.editableStats.int },
+        this.parentRef?.user?.id
+      );
+      // Update local metaHero so UI reflects the new stats immediately
+      if (this.metaHero) {
+        this.metaHero.str = this.editableStats.str;
+        this.metaHero.dex = this.editableStats.dex;
+        this.metaHero.int = this.editableStats.int;
       }
+      // If in-game hero object exists, you may want to apply derived changes here
+      if (this.hero) {
+        (this.hero as any).str = this.editableStats.str;
+        (this.hero as any).dex = this.editableStats.dex;
+        (this.hero as any).int = this.editableStats.int;
+      }
+      alert('Stats updated');
+      // Persist to cachedStats so future fetches that omit stats keep these values
+      this.cachedStats = { str: this.editableStats.str, dex: this.editableStats.dex, int: this.editableStats.int };
+    } else {
+      alert('Update stats not implemented on server. Local demo applied.');
+    }
     this.closeStartMenu();
   }
 
@@ -1271,8 +1271,17 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
     if (!this.parentRef?.user?.id) return;
     try {
       const res = await this.bonesService.getHeroSelections(this.parentRef.user.id);
-      this.selections = Array.isArray(res) ? res : [];
-    } catch (ex) { console.error('Failed to load selections', ex); this.selections = []; }
+      this.heroSelections = Array.isArray(res) ? res : [];
+    } catch (ex) { console.error('Failed to load selections', ex); this.heroSelections = []; }
+  }
+
+  get filteredHeroSelections() {
+    try {
+      const name = this.metaHero?.name ?? null;
+      if (!this.heroSelections || this.heroSelections.length === 0) return [] as any[];
+      if (!name) return this.heroSelections.slice();
+      return this.heroSelections.filter(s => !(s && s.name === name));
+    } catch { return this.heroSelections ?? []; }
   }
 
   async createNewCharacterSelection() {
@@ -1307,7 +1316,7 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
   volumePercent(): number {
     return Math.round((this.currentVolume ?? 0) * 100);
   }
-  
+
 
   // Return remaining seconds for a hero's pending invite, or null if none
   getPendingSeconds(heroId: number): number | null {
@@ -1372,7 +1381,7 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
           resources.setVolumeMultiplier(this.currentVolume);
         }
       }
-      
+
       if (!this.isMusicMuted) {
         const startMusic = () => {
           resources.playSound("shadowsUnleashed", { volume: 0.4, loop: true, allowOverlap: false });
@@ -1383,8 +1392,8 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
         document.addEventListener('keydown', startMusic, { once: true });
       }
     }).catch(() => { });
-  } 
-  
+  }
+
   clearPendingInvitePopup() {
     try { if (this.pendingInviteTimer) clearInterval(this.pendingInviteTimer); } catch { }
     this.pendingInviteTimer = undefined;
@@ -1408,18 +1417,18 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
         return { heroId: id, name: nameStr, color: other ? (other as any).color : undefined };
       });
       // Clear any optimistic pending invites for these heroes
-      for (const id of union) {  this.pendingInvites.delete(id);  }
-       
+      for (const id of union) { this.pendingInvites.delete(id); }
+
       const resp: any = await this.bonesService.getPartyMembers(this.metaHero.id);
       if (Array.isArray(resp)) {
         // resp items are { heroId, name, color }
         this.partyMembers = resp.map((p: any) => ({ heroId: p.heroId ?? p.id ?? 0, name: p.name ?? '', color: p.color }));
-      } 
+      }
       if (this.mainScene && this.mainScene.inventory) {
         this.mainScene.inventory.partyMembers = this.partyMembers;
         this.mainScene.inventory.renderParty();
       }
-      
+
     } catch (ex) {
       console.error('Failed to accept party invite', ex);
     }
@@ -1477,41 +1486,28 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
   }
 
   private copyStatsFromMetaHero(rz: MetaHero) {
-    // Diagnostic logging to debug why stats may become 1
-    try {
-      console.debug('copyStatsFromMetaHero ENTRY', { rzSample: (rz as any) ? { id: (rz as any).id, str: (rz as any).str, dex: (rz as any).dex, int: (rz as any).int, stats: (rz as any).stats } : rz });
-    } catch { }
     const prevMeta = { str: this.metaHero?.str, dex: this.metaHero?.dex, int: this.metaHero?.int };
-    try { console.debug('copyStatsFromMetaHero prevMetaHero', prevMeta); } catch { }
 
     // copy into metaHero and persist to cachedStats so later fetches that omit stats don't wipe them
-    try { this.metaHero.dex = rz.dex; } catch { }
-    try { this.metaHero.str = rz.str; } catch { }
-    try { this.metaHero.int = rz.int; } catch { }
+    this.metaHero.dex = rz.dex;
+    this.metaHero.str = rz.str;
+    this.metaHero.int = rz.int;
 
-    try {
-      const sstr = (rz as any)?.str ?? (rz as any)?.stats?.str;
-      const sdex = (rz as any)?.dex ?? (rz as any)?.stats?.dex;
-      const sint = (rz as any)?.int ?? (rz as any)?.stats?.int;
-      try { console.debug('copyStatsFromMetaHero incomingStats', { sstr, sdex, sint }); } catch { }
+    const sstr = (rz as any)?.str ?? (rz as any)?.stats?.str;
+    const sdex = (rz as any)?.dex ?? (rz as any)?.stats?.dex;
+    const sint = (rz as any)?.int ?? (rz as any)?.stats?.int;
 
-      const beforeCache = this.cachedStats ? { ...this.cachedStats } : undefined;
-      try { console.debug('copyStatsFromMetaHero cachedStats BEFORE', beforeCache); } catch { }
+    const beforeCache = this.cachedStats ? { ...this.cachedStats } : undefined;
 
-      // Only set cachedStats when we have at least one defined value to avoid overwriting good cache with undefined
-      if (sstr !== undefined || sdex !== undefined || sint !== undefined) {
-        this.cachedStats = {
-          str: (sstr !== undefined ? Number(sstr) : (this.cachedStats?.str ?? 1)),
-          dex: (sdex !== undefined ? Number(sdex) : (this.cachedStats?.dex ?? 1)),
-          int: (sint !== undefined ? Number(sint) : (this.cachedStats?.int ?? 1)),
-        };
-      }
-
-      try { console.debug('copyStatsFromMetaHero cachedStats AFTER', this.cachedStats); } catch { }
-    } catch (ex) {
-      try { console.debug('copyStatsFromMetaHero ERROR', ex); } catch { }
+    // Only set cachedStats when we have at least one defined value to avoid overwriting good cache with undefined
+    if (sstr !== undefined || sdex !== undefined || sint !== undefined) {
+      this.cachedStats = {
+        str: (sstr !== undefined ? Number(sstr) : (this.cachedStats?.str ?? 1)),
+        dex: (sdex !== undefined ? Number(sdex) : (this.cachedStats?.dex ?? 1)),
+        int: (sint !== undefined ? Number(sint) : (this.cachedStats?.int ?? 1)),
+      };
     }
 
-    try { console.debug('copyStatsFromMetaHero EXIT', { finalMetaHero: { str: this.metaHero?.str, dex: this.metaHero?.dex, int: this.metaHero?.int }, cached: this.cachedStats }); } catch { }
-  } 
+
+  }
 }

@@ -140,20 +140,23 @@
     <button (click)="createNewCharacterSelection()">New Character (save current)</button>
   </div>
   <div style="padding:8px;">
-    <div *ngIf="selections && selections.length > 0">
-      <div *ngFor="let s of selections"
-        style="display:flex; align-items:center; justify-content:space-between; padding:6px; border-bottom:1px solid #222;">
-        <div>
-          <div style="font-weight:600;" class="popupPanelTitle">{{s.name ?? ('Selection #' + s.id)}}</div>
-          <div style="font-size:12px; color:#aaa;">Created: {{s.created | date:'short'}}</div>
+    <!-- Only show selections that do not share the current hero's name -->
+    <div *ngIf="filteredHeroSelections && filteredHeroSelections.length > 0">
+      <ng-container *ngFor="let s of filteredHeroSelections">
+        <div
+          style="display:flex; align-items:center; justify-content:space-between; padding:6px; border-bottom:1px solid #222;">
+          <div>
+            <div style="font-weight:600;" class="popupPanelTitle">{{s.name ?? ('Selection #' + s.id)}}</div>
+            <div style="font-size:12px; color:#aaa;">Created: {{s.created | date:'short'}}</div>
+          </div>
+          <div>
+            <button (click)="promoteSelection(s.id)">Promote</button>
+            <button (click)="deleteSelection(s.id)">Delete</button>
+          </div>
         </div>
-        <div>
-          <button (click)="promoteSelection(s.id)">Promote</button>
-          <button (click)="deleteSelection(s.id)">Delete</button>
-        </div>
-      </div>
+      </ng-container>
     </div>
-    <div *ngIf="!selections || selections.length === 0">No saved characters.</div>
+    <div *ngIf="!filteredHeroSelections || filteredHeroSelections.length === 0">No saved characters.</div>
   </div>
   <button id="closeOverlay" (click)="closeChangeCharacter()">Close</button>
 </div>
