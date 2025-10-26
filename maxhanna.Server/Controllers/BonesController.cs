@@ -2123,11 +2123,21 @@ namespace maxhanna.Server.Controllers
 				int targetPartyId;
 				if (partyIdsFound.Count == 0)
 				{
-					// Allocate new party id (max + 1)
-					using var newCmd = new MySqlCommand("SELECT COALESCE(MAX(party_id),0)+1 FROM bones_hero_party", connection, transaction);
-					var obj = await newCmd.ExecuteScalarAsync();
-					if (obj != null && int.TryParse(obj.ToString(), out var tmpPid) && tmpPid > 0) targetPartyId = tmpPid; else targetPartyId = 1;
-					await _log.Db($"UpdateMetaHeroParty allocated new partyId={targetPartyId}", null, "BONES", true);
+					// Choose an existing hero id from the provided list to act as the party_id
+					// bones_hero_party.party_id is a FK to bones_hero.id, so party_id must be a valid hero id.
+					string existingHeroSql = $"SELECT id FROM bones_hero WHERE id IN ({string.Join(',', heroIds)}) LIMIT 1";
+					using var existHeroCmd = new MySqlCommand(existingHeroSql, connection, transaction);
+					var existObj = await existHeroCmd.ExecuteScalarAsync();
+					if (existObj != null && int.TryParse(existObj.ToString(), out var foundHeroId) && foundHeroId > 0)
+					{
+						targetPartyId = foundHeroId;
+						await _log.Db($"UpdateMetaHeroParty allocated partyId from hero id={targetPartyId}", null, "BONES", true);
+					}
+					else
+					{
+						await _log.Db($"UpdateMetaHeroParty: none of the supplied heroIds exist in bones_hero, aborting party creation heroes=[{string.Join(',', heroIds)}]", null, "BONES", true);
+						return; // cannot create a party without at least one valid bones_hero id
+					}
 				}
 				else
 				{
