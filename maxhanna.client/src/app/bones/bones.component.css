@@ -400,6 +400,20 @@ body {
   right: -60%;
 }
 
+/* In-party pill styling to match pending badge visuals */
+.pendingBadgeWrapper.inPartyPill {
+  display: inline-block;
+  vertical-align: middle;
+}
+.pendingBadgeWrapper.inPartyPill .pendingBadge {
+  background: #9ff3a1; /* light green */
+  color: #054d12; /* dark green text */
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-weight: 700;
+  font-size: 13px;
+}
+
 .b {
   top: 15px;
   left: 55px;

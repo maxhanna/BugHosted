@@ -238,7 +238,11 @@
               <span style="font-weight:600; margin-left:8px; font-size:11px; opacity:0.95;">· {{ getAlreadyInPartySeconds(p.id) ?? '' }}s</span>
             </span>
           </span>
-          <span *ngIf="isInParty(p.id) && !isInvitePending(p.id)" style="font-weight:700; color:#8f8;">In Party</span>
+          <span *ngIf="isInParty(p.id) && !isInvitePending(p.id)" class="pendingBadgeWrapper inPartyPill">
+            <span class="pendingBadge" aria-hidden="true" style="background:#8f8; color:#063; font-weight:700;">
+              In Party
+            </span>
+          </span>
         </div>
       </div>
     </div>
