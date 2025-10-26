@@ -1179,7 +1179,7 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
     const pointsAvailable = Math.max(0, level - allocated);
     this.editableStats = { str: Math.max(1, str ?? 1), dex: Math.max(1, dex ?? 1), int: Math.max(1, intl ?? 1), pointsAvailable };
     setTimeout(() => { this.isChangeStatsOpen = true; }, 100);
-    console.log("opened change stats with ", this.editableStats)l
+    console.log("opened change stats with ", this.editableStats);
   }
 
   adjustStat(stat: 'str' | 'dex' | 'int', delta: number) {
