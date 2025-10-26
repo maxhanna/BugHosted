@@ -1476,14 +1476,27 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
   }
 
   private copyStatsFromMetaHero(rz: MetaHero) {
+    // Diagnostic logging to debug why stats may become 1
+    try {
+      console.debug('copyStatsFromMetaHero ENTRY', { rzSample: (rz as any) ? { id: (rz as any).id, str: (rz as any).str, dex: (rz as any).dex, int: (rz as any).int, stats: (rz as any).stats } : rz });
+    } catch { }
+    const prevMeta = { str: this.metaHero?.str, dex: this.metaHero?.dex, int: this.metaHero?.int };
+    try { console.debug('copyStatsFromMetaHero prevMetaHero', prevMeta); } catch { }
+
     // copy into metaHero and persist to cachedStats so later fetches that omit stats don't wipe them
     try { this.metaHero.dex = rz.dex; } catch { }
     try { this.metaHero.str = rz.str; } catch { }
     try { this.metaHero.int = rz.int; } catch { }
+
     try {
       const sstr = (rz as any)?.str ?? (rz as any)?.stats?.str;
       const sdex = (rz as any)?.dex ?? (rz as any)?.stats?.dex;
       const sint = (rz as any)?.int ?? (rz as any)?.stats?.int;
+      try { console.debug('copyStatsFromMetaHero incomingStats', { sstr, sdex, sint }); } catch { }
+
+      const beforeCache = this.cachedStats ? { ...this.cachedStats } : undefined;
+      try { console.debug('copyStatsFromMetaHero cachedStats BEFORE', beforeCache); } catch { }
+
       // Only set cachedStats when we have at least one defined value to avoid overwriting good cache with undefined
       if (sstr !== undefined || sdex !== undefined || sint !== undefined) {
         this.cachedStats = {
@@ -1492,6 +1505,12 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
           int: (sint !== undefined ? Number(sint) : (this.cachedStats?.int ?? 1)),
         };
       }
-    } catch { }
+
+      try { console.debug('copyStatsFromMetaHero cachedStats AFTER', this.cachedStats); } catch { }
+    } catch (ex) {
+      try { console.debug('copyStatsFromMetaHero ERROR', ex); } catch { }
+    }
+
+    try { console.debug('copyStatsFromMetaHero EXIT', { finalMetaHero: { str: this.metaHero?.str, dex: this.metaHero?.dex, int: this.metaHero?.int }, cached: this.cachedStats }); } catch { }
   } 
 }
