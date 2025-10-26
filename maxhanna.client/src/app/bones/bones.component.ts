@@ -250,34 +250,32 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
 
     // Play attenuated impact SFX when other heroes attack
     events.on("OTHER_HERO_ATTACK", this, (payload: any) => {
-      try {
-        const sourceHeroId = payload?.sourceHeroId;
-        const targetHeroId = payload?.targetHeroId;
-        if (!sourceHeroId) return;
-        // Try to find attacker in scene first, fallback to otherHeroes list
-        let attackerPos: Vector2 | undefined = undefined;
-        const attackerObj = this.mainScene?.level?.children?.find((x: any) => x.id === sourceHeroId);
-        if (attackerObj && attackerObj.position) {
-          attackerPos = attackerObj.position;
-        } else {
-          const mh = this.otherHeroes.find(h => h.id === sourceHeroId);
-          if (mh && mh.position) attackerPos = mh.position;
-        }
-        const myPos = (this.hero && this.hero.position) ? this.hero.position : (this.metaHero && this.metaHero.position) ? this.metaHero.position : undefined;
-        if (!attackerPos || !myPos) return;
-        const dx = attackerPos.x - myPos.x;
-        const dy = attackerPos.y - myPos.y;
-        const dist = Math.sqrt(dx * dx + dy * dy);
-        if (sourceHeroId != this.metaHero.id || targetHeroId == this.metaHero.id) {
-          console.log("hti sound playing", sourceHeroId, targetHeroId);
-          const maxAudible = 800; // pixels: distance a`t which sound is near-silent
-          let vol = 1 - (dist / maxAudible);
-          vol = Math.max(0.05, Math.min(1, vol)); // clamp to [0.05, 1]
-          resources.playSound('punchOrImpact', { volume: vol, allowOverlap: true });
-        } 
-      } catch (ex) {
-        console.error('Error playing attenuated impact SFX', ex);
+      console.log("got other hero attack event", payload); 
+      const sourceHeroId = payload?.sourceHeroId;
+      const targetHeroId = payload?.targetHeroId;
+      if (!sourceHeroId) return;
+      // Try to find attacker in scene first, fallback to otherHeroes list
+      let attackerPos: Vector2 | undefined = undefined;
+      const attackerObj = this.mainScene?.level?.children?.find((x: any) => x.id === sourceHeroId);
+      if (attackerObj && attackerObj.position) {
+        attackerPos = attackerObj.position;
+      } else {
+        const mh = this.otherHeroes.find(h => h.id === sourceHeroId);
+        if (mh && mh.position) attackerPos = mh.position;
       }
+      const myPos = (this.hero && this.hero.position) ? this.hero.position : (this.metaHero && this.metaHero.position) ? this.metaHero.position : undefined;
+      if (!attackerPos || !myPos) return;
+      const dx = attackerPos.x - myPos.x;
+      const dy = attackerPos.y - myPos.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      if (sourceHeroId != this.metaHero.id || targetHeroId == this.metaHero.id) {
+        console.log("hti sound playing", sourceHeroId, targetHeroId);
+        const maxAudible = 800; // pixels: distance a`t which sound is near-silent
+        let vol = 1 - (dist / maxAudible);
+        vol = Math.max(0.05, Math.min(1, vol)); // clamp to [0.05, 1]
+        resources.playSound('punchOrImpact', { volume: vol, allowOverlap: true });
+      } 
+       
     });
   }
 

@@ -477,21 +477,19 @@ export function actionMultiplayerEvents(object: any, metaEvents: MetaEvent[]) {
   }
 
   for (let event of metaEvents) {
-    try {
-      // If this is an ATTACK or ATTACK_BATCH event, emit OTHER_HERO_ATTACK once per attack
-      if (event && (event.eventType === "ATTACK" || event.eventType === "ATTACK_BATCH")) {
-        const attackId = event.id ? String(event.id) : `${event.heroId}:${event.eventType}:${event.timestamp}:${JSON.stringify(event.data)}`;
-        if (!processedAttacks.has(attackId)) {
-          processedAttacks.set(attackId, Date.now());
-          // Emit normalized payload (name and payload only) so handlers don't need object
-          events.emit("OTHER_HERO_ATTACK", { sourceHeroId: event.heroId, attack: event.data ?? {} });
-        }
+   
+    // If this is an ATTACK or ATTACK_BATCH event, emit OTHER_HERO_ATTACK once per attack
+    if (event && (event.eventType === "ATTACK" || event.eventType === "ATTACK_BATCH")) {
+      const attackId = event.id ? String(event.id) : `${event.heroId}:${event.eventType}:${event.timestamp}:${JSON.stringify(event.data)}`;
+      if (!processedAttacks.has(attackId)) {
+        processedAttacks.set(attackId, Date.now());
+        // Emit normalized payload (name and payload only) so handlers don't need object
+        events.emit("OTHER_HERO_ATTACK", { sourceHeroId: event.heroId, attack: event.data ?? {} });
       }
-    } catch (ex) {
-      console.error('actionMultiplayerEvents ATTACK handling error', ex);
     }
+   
 
-    try {
+     
       // Only handle events we haven't seen before
       const existingEvent = currentEvents.find((e: MetaEvent) => e && e.id == event.id);
       if (!existingEvent) {
@@ -499,7 +497,7 @@ export function actionMultiplayerEvents(object: any, metaEvents: MetaEvent[]) {
         if (event.eventType === "PARTY_UP" && event.data && event.data["hero_id"] == `${object.metaHero.id}` && !object.isDecidingOnParty) {
           actionPartyUpEvent(object, event);
         }
-        if (event.eventType === "UNPARTY" && event.data && event.data["hero_id"]) {
+        else if (event.eventType === "UNPARTY" && event.data && event.data["hero_id"]) {
           try {
             console.log("got unparty event", event);
             const idStr = event.data["hero_id"];
@@ -522,10 +520,10 @@ export function actionMultiplayerEvents(object: any, metaEvents: MetaEvent[]) {
             console.error('Failed processing UNPARTY event', ex);
           }
         }
-        if (event.eventType === "PARTY_INVITE_ACCEPTED" && event.heroId != object.metaHero.id) {
+        else if (event.eventType === "PARTY_INVITE_ACCEPTED" && event.heroId != object.metaHero.id) {
           actionPartyInviteAcceptedEvent(object, event);
         }
-        if (event.eventType === "PARTY_INVITED" && event.data && event.data["hero_id"]) {
+        else if (event.eventType === "PARTY_INVITED" && event.data && event.data["hero_id"]) {
           try {
             // PARTY_INVITED is a server-persisted meta-event that should target a specific hero id
             const targetId = parseInt(event.data["hero_id"]);
@@ -540,7 +538,7 @@ export function actionMultiplayerEvents(object: any, metaEvents: MetaEvent[]) {
             console.error('Failed handling PARTY_INVITED event', ex);
           }
         }
-        if (event.eventType === "ITEM_DESTROYED") {
+        else if (event.eventType === "ITEM_DESTROYED") {
           if (event.data) {
             const dmgMod = event.data["damage"];
             const position = JSON.parse(event.data["position"]) as Vector2;
@@ -563,20 +561,20 @@ export function actionMultiplayerEvents(object: any, metaEvents: MetaEvent[]) {
             if (tgtObject) { tgtObject.destroy(); }
           }
         }
-        if (event.eventType === "BUY_ITEM") {
+        else if (event.eventType === "BUY_ITEM") {
           if (event.heroId === object.metaHero.id) {
             events.emit("BUY_ITEM_CONFIRMED", { heroId: event.heroId, item: (event.data ? event.data["item"] : "") })
             object.bonesService.deleteEvent(event.id);
           }
         }
-        if (event.eventType === "ITEM_DROPPED") {
+        else if (event.eventType === "ITEM_DROPPED") {
           if (event.data) {
             const tmpMetabotPart = JSON.parse(event.data["item"]) as HeroInventoryItem;
             const location = JSON.parse(event.data["location"]) as Vector2;
             object.addItemToScene(tmpMetabotPart, location);
           }
         }
-        if (event.eventType === "ATTACK_BATCH" && event.data && event.data["attacks"]) {
+        else if (event.eventType === "ATTACK_BATCH" && event.data && event.data["attacks"]) {
           try {
             const attacks = JSON.parse(event.data["attacks"] as string) as any[];
             for (let atk of attacks) {
@@ -585,13 +583,11 @@ export function actionMultiplayerEvents(object: any, metaEvents: MetaEvent[]) {
             }
           } catch (ex) { console.error("Failed to process ATTACK_BATCH event", ex); }
         }
-        if (event.eventType === "OTHER_HERO_ATTACK") {
-          try {
+        else if (event.eventType === "OTHER_HERO_ATTACK") { 
             const payload = { sourceHeroId: event.heroId, data: event.data };
             events.emit("OTHER_HERO_ATTACK", payload);
-          } catch (ex) { console.error('Failed to handle OTHER_HERO_ATTACK', ex); }
         }
-        if (event.eventType === "CHAT" && event.data) {
+        else if (event.eventType === "CHAT" && event.data) {
           const content = event.data["content"] ?? '';
           const name = event.data["sender"] ?? "Anon";
           const eventTs = event.timestamp ? new Date(event.timestamp).getTime() : Date.now();
@@ -611,7 +607,7 @@ export function actionMultiplayerEvents(object: any, metaEvents: MetaEvent[]) {
           object.displayChatMessage();
           events.emit("CHAT_MESSAGE_RECEIVED");
         }
-        if (event.eventType === "WHISPER" && event.data) {
+        else if (event.eventType === "WHISPER" && event.data) {
           let breakOut = false;
           const content = event.data["content"] ?? '';
           const senderName = event.data["sender"] ?? "Anon";
@@ -625,8 +621,8 @@ export function actionMultiplayerEvents(object: any, metaEvents: MetaEvent[]) {
             }
           }
         }
-        if (event.eventType === "HERO_DIED") {
-          try {
+        else if (event.eventType === "HERO_DIED") {
+          
             // event.data may contain killerId/killerType; emit a normalized HERO_DIED locally
             const payload: any = {};
             if (event.data) {
@@ -642,21 +638,15 @@ export function actionMultiplayerEvents(object: any, metaEvents: MetaEvent[]) {
               }, 1000);
             } else {
               // For other remote heroes, try to find their scene object and destroy it
-              try {
+               
                 const remote = object.mainScene?.level?.children?.find((x: any) => x.id === event.heroId);
                 if (remote && typeof remote.destroy === 'function') {
                   remote.destroy();
                 }
-              } catch (ex) { /* ignore */ }
-            }
-          } catch (ex) {
-            console.error('Failed to handle HERO_DIED event', ex);
-          }
+               
+            } 
         }
-      }
-    } catch (ex) {
-      console.error('actionMultiplayerEvents handling error', ex);
-    }
+      } 
   }
   object.events = metaEvents;
 }
