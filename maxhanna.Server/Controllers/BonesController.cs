@@ -72,6 +72,30 @@ namespace maxhanna.Server.Controllers
 							   WHERE NOT EXISTS (SELECT 1 FROM bones_hero_party WHERE (bones_hero_id_1 = @A AND bones_hero_id_2 = @B) OR (bones_hero_id_1 = @B AND bones_hero_id_2 = @A));";
 				var parameters = new Dictionary<string, object?>() { { "@A", req.HeroId }, { "@B", req.TargetHeroId } };
 				await ExecuteInsertOrUpdateOrDeleteAsync(sql, parameters, connection, transaction);
+
+				// Persist a PARTY_INVITED meta-event so the target can be prompted to accept/reject
+				try
+				{
+					string inviterMap = string.Empty;
+					try
+					{
+						using var mapCmd = new MySqlCommand("SELECT map FROM maxhanna.bones_hero WHERE id = @HeroId LIMIT 1", connection, transaction);
+						mapCmd.Parameters.AddWithValue("@HeroId", req.HeroId);
+						var mapObj = await mapCmd.ExecuteScalarAsync();
+						inviterMap = mapObj != null ? mapObj.ToString() ?? string.Empty : string.Empty;
+					}
+					catch { }
+
+					var data = new Dictionary<string, string>();
+					// data.hero_id = invited target
+					data["hero_id"] = req.TargetHeroId.ToString();
+					var ev = new MetaEvent(0, req.HeroId, DateTime.UtcNow, "PARTY_INVITED", inviterMap ?? string.Empty, data);
+					await UpdateEventsInDB(ev, connection, transaction);
+				}
+				catch (Exception exEv)
+				{
+					await _log.Db("Failed to persist PARTY_INVITED event: " + exEv.Message, req.HeroId, "BONES", true);
+				}
 				await transaction.CommitAsync();
 				return Ok(new { invited = true });
 			}

@@ -273,3 +273,15 @@
     <button (click)="cancelLeaveParty()">Cancel</button>
   </div>
 </div>
+
+<!-- Party invite popup -->
+<div class="popupPanel" *ngIf="pendingInvitePopup"
+  style="max-width:320px; text-align:center; position:fixed; left:50%; top:50%; transform:translate(-50%,-50%); z-index:2000;">
+  <div class="popupPanelTitle">Party Invite</div>
+  <div style="padding:12px;">{{ pendingInvitePopup.inviterName }} invited you to join a party.</div>
+  <div style="padding-bottom:8px; font-size:12px; color:#ccc;">This invite will expire automatically in 20 seconds.</div>
+  <div style="display:flex; gap:8px; justify-content:center; padding-bottom:12px;">
+    <button (click)="acceptInvite()">Accept</button>
+    <button (click)="rejectInvite()">Reject</button>
+  </div>
+</div>

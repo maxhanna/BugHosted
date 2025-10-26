@@ -528,6 +528,21 @@ export function actionMultiplayerEvents(object: any, metaEvents: MetaEvent[]) {
         if (event.eventType === "PARTY_INVITE_ACCEPTED" && event.heroId != object.metaHero.id) {
           actionPartyInviteAcceptedEvent(object, event);
         } 
+        if (event.eventType === "PARTY_INVITED" && event.data && event.data["hero_id"]) {
+          try {
+            // PARTY_INVITED is a server-persisted meta-event that should target a specific hero id
+            const targetId = parseInt(event.data["hero_id"]);
+            if (!isNaN(targetId) && targetId === object.metaHero.id) {
+              const inviterId = event.heroId;
+              const inviter = object.otherHeroes.find((h: any) => h.id === inviterId);
+              const inviterName = inviter ? inviter.name : (`Hero ${inviterId}`);
+              // Emit a normalized local event so components can show a popup and respond
+              events.emit("PARTY_INVITED", { inviterId: inviterId, inviterName: inviterName, map: event.map });
+            }
+          } catch (ex) {
+            console.error('Failed handling PARTY_INVITED event', ex);
+          }
+        }
         if (event.eventType === "ITEM_DESTROYED") {
           if (event.data) {
             const dmgMod = event.data["damage"];

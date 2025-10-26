@@ -16,16 +16,16 @@ import { Hero } from './objects/Hero/hero';
 import { Main } from './objects/Main/main';
 import { HeroRoomLevel } from './levels/hero-room';
 import { CharacterCreate } from './levels/character-create';
-import { Level } from './objects/Level/level'; 
+import { Level } from './objects/Level/level';
 import { MetaEvent } from '../../services/datacontracts/bones/meta-event';
 import { InventoryItem } from './objects/InventoryItem/inventory-item';
-import { DroppedItem } from './objects/Environment/DroppedItem/dropped-item'; 
+import { DroppedItem } from './objects/Environment/DroppedItem/dropped-item';
 import { ColorSwap } from '../../services/datacontracts/bones/color-swap';
 import { MetaBot } from '../../services/datacontracts/bones/meta-bot';
 import { HeroInventoryItem } from '../../services/datacontracts/bones/hero-inventory-item';
 import { Mask, getMaskNameById } from './objects/Wardrobe/mask';
 import { Bot } from './objects/Bot/bot';
-import { Character } from './objects/character'; 
+import { Character } from './objects/character';
 import { ChatSpriteTextString } from './objects/SpriteTextString/chat-sprite-text-string';
 
 @Component({
@@ -45,8 +45,10 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
     super();
     this.hero = {} as Hero;
     this.metaHero = {} as MetaHero;
-    this.mainScene = new Main({ position: new Vector2(0, 0), heroId: this.metaHero.id, 
-      metaHero: this.metaHero, hero: this.hero, partyMembers: this.partyMembers });
+    this.mainScene = new Main({
+      position: new Vector2(0, 0), heroId: this.metaHero.id,
+      metaHero: this.metaHero, hero: this.hero, partyMembers: this.partyMembers
+    });
     subscribeToMainGameEvents(this);
   }
   canvas!: HTMLCanvasElement;
@@ -107,8 +109,12 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
   // Current global volume (0.0 - 1.0) bound to the UI slider
   currentVolume: number = 1.0;
 
+  // Incoming invite popup state
+  pendingInvitePopup: { inviterId: number, inviterName: string, expiresAt: number } | null = null;
+  private pendingInviteTimer?: any;
 
-  private currentChatTextbox?: ChatSpriteTextString | undefined; 
+
+  private currentChatTextbox?: ChatSpriteTextString | undefined;
   // Track last server-provided destination per encounter to avoid repeatedly reapplying identical targets
   private _lastServerDestinations: Map<number, Vector2> = new Map<number, Vector2>();
   private pollingInterval: any;
@@ -127,33 +133,33 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
     } else {
       this.startLoading();
       this.userService.getUserSettings(this.parentRef.user?.id ?? 0).then(res => {
-          this.cachedDefaultName = res?.lastCharacterName ?? undefined;
-          this.cachedDefaultColor = res?.lastCharacterColor ?? undefined;
-          this.isMuted = !!res?.muteSounds;
-          this.isMusicMuted = this.isMuted;
-          this.isSfxMuted = false;  
-          resources.setMusicMuted(this.isMusicMuted);
-          resources.setSfxMuted(this.isSfxMuted);
-          // Initialize volume from localStorage if present
-          try {
-            const saved = localStorage.getItem('bonesVolume');
-            if (saved !== null) {
-              const parsed = parseFloat(saved);
-              if (!isNaN(parsed)) {
-                this.currentVolume = Math.max(0, Math.min(1, parsed));
-                resources.setVolumeMultiplier(this.currentVolume);
-              }
+        this.cachedDefaultName = res?.lastCharacterName ?? undefined;
+        this.cachedDefaultColor = res?.lastCharacterColor ?? undefined;
+        this.isMuted = !!res?.muteSounds;
+        this.isMusicMuted = this.isMuted;
+        this.isSfxMuted = false;
+        resources.setMusicMuted(this.isMusicMuted);
+        resources.setSfxMuted(this.isSfxMuted);
+        // Initialize volume from localStorage if present
+        try {
+          const saved = localStorage.getItem('bonesVolume');
+          if (saved !== null) {
+            const parsed = parseFloat(saved);
+            if (!isNaN(parsed)) {
+              this.currentVolume = Math.max(0, Math.min(1, parsed));
+              resources.setVolumeMultiplier(this.currentVolume);
             }
-          } catch { }
-            if (!this.isMusicMuted) {
-              const startMusic = () => {
-                  resources.playSound("shadowsUnleashed", { volume: 0.4, loop: true, allowOverlap: false });
-                  document.removeEventListener('pointerdown', startMusic);
-                  document.removeEventListener('keydown', startMusic);
-              };
-              document.addEventListener('pointerdown', startMusic, { once: true });
-              document.addEventListener('keydown', startMusic, { once: true });
           }
+        } catch { }
+        if (!this.isMusicMuted) {
+          const startMusic = () => {
+            resources.playSound("shadowsUnleashed", { volume: 0.4, loop: true, allowOverlap: false });
+            document.removeEventListener('pointerdown', startMusic);
+            document.removeEventListener('keydown', startMusic);
+          };
+          document.addEventListener('pointerdown', startMusic, { once: true });
+          document.addEventListener('keydown', startMusic, { once: true });
+        }
       }).catch(() => { /* ignore */ });
       this.pollForChanges();
       this.gameLoop.start();
@@ -218,9 +224,9 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
 
   // Return whether given heroId is in the player's party (includes optimistic invites)
   isInParty(heroId: number) {
-  if ((this.partyMembers || []).some(p => p.heroId === heroId)) return true;
-  const expiry = this.pendingInvites.get(heroId);
-  if (expiry && expiry > Date.now()) return true; // optimistic (not expired)
+    if ((this.partyMembers || []).some(p => p.heroId === heroId)) return true;
+    const expiry = this.pendingInvites.get(heroId);
+    if (expiry && expiry > Date.now()) return true; // optimistic (not expired)
     return false;
   }
 
@@ -277,9 +283,9 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
     this.remove_me('MetaComponent');
     this.parentRef?.setViewportScalability(true);
     this.parentRef?.removeResizeListener();
-  // clear any outstanding chat timers
-  for (const entry of this.heroMessageExpiryTimers.values()) { try { if (entry?.timer) clearTimeout(entry.timer); } catch { } }
-  this.heroMessageExpiryTimers.clear();
+    // clear any outstanding chat timers
+    for (const entry of this.heroMessageExpiryTimers.values()) { try { if (entry?.timer) clearTimeout(entry.timer); } catch { } }
+    this.heroMessageExpiryTimers.clear();
   }
 
   toggleMusic() {
@@ -351,6 +357,57 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
         try { this.reconcilePendingInvites(); } catch { }
       } catch (ex) { console.error('Error handling PARTY_INVITE_ACCEPTED', ex); }
     });
+
+    // When we receive a server-side PARTY_INVITED, show a popup allowing the player to accept/reject
+    events.on("PARTY_INVITED", this, (payload: any) => {
+      try {
+        if (!payload || !payload.inviterId) return;
+        // If we're already in party with inviter or we already have a pending popup, ignore
+        const inviterId = payload.inviterId as number;
+        const inviterName = payload.inviterName as string || (`Hero ${inviterId}`);
+        if (this.isInParty(inviterId)) return;
+        // Set popup state and auto-expire after 20s
+        this.clearPendingInvitePopup();
+        this.pendingInvitePopup = { inviterId: inviterId, inviterName: inviterName, expiresAt: Date.now() + 20000 };
+        this.pendingInviteTimer = setTimeout(() => {
+          this.clearPendingInvitePopup();
+        }, 20000);
+      } catch (ex) { console.error('Failed to show PARTY_INVITED popup', ex); }
+    });
+  }
+
+  clearPendingInvitePopup() {
+    try { if (this.pendingInviteTimer) clearTimeout(this.pendingInviteTimer); } catch { }
+    this.pendingInviteTimer = undefined;
+    this.pendingInvitePopup = null;
+  }
+
+  async acceptInvite() {
+    if (!this.pendingInvitePopup) return;
+    const inviterId = this.pendingInvitePopup.inviterId;
+    // Build a party members list: include current members, inviter, and self
+    const currentIds = Array.isArray(this.partyMembers) ? this.partyMembers.map(p => p.heroId) : [];
+    const union = Array.from(new Set([...currentIds, this.metaHero.id, inviterId]));
+    try {
+      const metaEvent = new MetaEvent(0, this.metaHero.id, new Date(), "PARTY_INVITE_ACCEPTED", this.metaHero.map, { "party_members": JSON.stringify(union) });
+      await this.bonesService.updateEvents(metaEvent);
+      // Optimistically apply party locally
+      this.partyMembers = union.map(id => {
+        const other = this.otherHeroes.find(h => h.id === id);
+        const nameStr = other ? (other.name ?? `Hero ${id}`) : (id === this.metaHero.id ? (this.metaHero.name ?? `You`) : `Hero ${id}`);
+        return { heroId: id, name: nameStr, color: other ? (other as any).color : undefined };
+      });
+      // Clear any optimistic pending invites for these heroes
+      for (const id of union) { try { this.pendingInvites.delete(id); } catch { } }
+      try { if (this.mainScene && this.mainScene.inventory) { this.mainScene.inventory.partyMembers = this.partyMembers; this.mainScene.inventory.renderParty(); } } catch { }
+    } catch (ex) {
+      console.error('Failed to accept party invite', ex);
+    }
+    this.clearPendingInvitePopup();
+  }
+
+  rejectInvite() {
+    this.clearPendingInvitePopup();
   }
 
   private async handleHeroDeath(params: { killerId?: string | number | null, killerUserId?: number | null, cause?: string | null }) {
@@ -363,7 +420,7 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
 
     let killerId = Number(params.killerId);
     let killerUserId = Number(params.killerUserId);
-    let cause = params.cause; 
+    let cause = params.cause;
 
     if (cause != "spawned_dead") {
       if (killerId && killerId < 0) {
@@ -381,13 +438,13 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
     } else {
       this.deathKillerName = "Spawned Dead";
     }
-       
+
     this.stopPollingForUpdates = true;
     this.isDead = true;
     // Stop the game loop briefly and show a death panel, then return player to 0,0
     setTimeout(() => {
-      try { this.gameLoop.stop(); } catch {}
-      try { this.mainScene?.destroy(); } catch {}
+      try { this.gameLoop.stop(); } catch { }
+      try { this.mainScene?.destroy(); } catch { }
       this.showDeathPanel = true;
       this.isMenuPanelOpen = false;
       this.parentRef?.showOverlay();
@@ -416,16 +473,16 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
   }
   gameLoop = new GameLoop(this.update, this.render);
 
-  async pollForChanges() { 
-    if (!this.hero?.id && this.parentRef?.user?.id) { 
+  async pollForChanges() {
+    if (!this.hero?.id && this.parentRef?.user?.id) {
       const rz = await this.bonesService.getHero(this.parentRef.user.id);
-      if (rz) { 
+      if (rz) {
         this.partyMembers = await this.bonesService.getPartyMembers(rz.id) ?? [];
         this.mainScene.partyMembers = this.partyMembers;
         this.mainScene.inventory.partyMembers = this.partyMembers;
         this.mainScene.inventory.renderParty();
-    // reconcile any optimistic invites after initial party load
-    this.reconcilePendingInvites();
+        // reconcile any optimistic invites after initial party load
+        this.reconcilePendingInvites();
         await this.reinitializeHero(rz);
       } else {
         this.userService.getUserSettings(this.parentRef?.user?.id ?? 0).then(res => {
@@ -467,7 +524,7 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
         timestamp: typeof a.timestamp === 'string' ? a.timestamp : (a.timestamp ? String(a.timestamp) : new Date().toISOString()),
         skill: a.skill && typeof a.skill === 'string' ? a.skill : (a.skill && (a.skill as any).name ? (a.skill as any).name : undefined),
         // include facing so server can apply damage to encounter tile in front of the hero
-        facing: a.facingDirection ?  a.facingDirection : (this.hero && (this.hero as any).facingDirection !== undefined ? (this.hero as any).facingDirection : undefined)
+        facing: a.facingDirection ? a.facingDirection : (this.hero && (this.hero as any).facingDirection !== undefined ? (this.hero as any).facingDirection : undefined)
       }));
       this.metaHero.position = this.metaHero.position.duplicate();
       const res: any = await this.bonesService.fetchGameData(this.metaHero, snapshot);
@@ -475,7 +532,7 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
       if (res && snapshot && snapshot.length > 0) {
         pendingAttacks.splice(0, snapshot.length);
       }
-      if (!res) { 
+      if (!res) {
         this.consecutiveFetchFailures++;
         if (this.consecutiveFetchFailures >= 3 && !this.serverDown) {
           this.announceServerDown();
@@ -483,10 +540,10 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
         return;
       }
       const wasServerDown = this.resetServerDown();
-      if (wasServerDown) {  
-        window.location.href = '/Bones'; 
+      if (wasServerDown) {
+        window.location.href = '/Bones';
       }
- 
+
       if (res) {
         this.updateHeroesFromFetchedData(res);
         // reconcile optimistic invites after updating heroes
@@ -535,40 +592,40 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
   }
 
   private updateOtherHeroesBasedOnFetchedData(res: { map: number; position: Vector2; heroes: MetaHero[]; }) {
-  // Delegate to combined implementation for a single pass
-  this.updateHeroesFromFetchedData(res);
+    // Delegate to combined implementation for a single pass
+    this.updateHeroesFromFetchedData(res);
   }
   private updateEnemyEncounters(res: any) {
     const enemies = res.enemyBots as MetaBot[];
     if (enemies) {
       enemies.forEach(enemy => {
         //look for enemy on the map, if he doesnt exist, create him.
-        const tgtEnemy : Bot = this.mainScene.level.children.find((x: Bot) => x.heroId == enemy.heroId);
+        const tgtEnemy: Bot = this.mainScene.level.children.find((x: Bot) => x.heroId == enemy.heroId);
         if (tgtEnemy) {
-         // console.log("found enemy", enemy, tgtEnemy);
+          // console.log("found enemy", enemy, tgtEnemy);
           // Diagnostic: log the incoming position so we can confirm server provided it
-         // console.log("enemy.position (incoming):", (enemy && (enemy as any).position) ? JSON.stringify(enemy.position) : enemy.position, " typeof:", typeof enemy.position);
+          // console.log("enemy.position (incoming):", (enemy && (enemy as any).position) ? JSON.stringify(enemy.position) : enemy.position, " typeof:", typeof enemy.position);
           tgtEnemy.hp = enemy.hp;
           if (enemy && enemy.position) {
             try {
-              const newPos = new Vector2(enemy.position.x, enemy.position.y); 
-               if (newPos) {
+              const newPos = new Vector2(enemy.position.x, enemy.position.y);
+              if (newPos) {
                 tgtEnemy.destinationPosition = newPos.duplicate();
               }
             } catch (err) {
               console.error('Error duplicating enemy.position for dest set', err, (enemy as any).position);
             }
           }
-      
+
           if (tgtEnemy && tgtEnemy.heroId && (tgtEnemy.hp ?? 0) <= 0) {
             try {
               if (typeof tgtEnemy.destroy === 'function') {
                 tgtEnemy.destroy();
-              }  
+              }
             } catch { /* ignore errors during destroy */ }
             try { this._lastServerDestinations.delete(tgtEnemy.heroId); } catch { }
             return; // skip further processing for this bot
-          } 
+          }
         } else if (enemy.hp) {
           console.log("could not find bot, creating it ", enemy);
           const tgtEncounter = this.mainScene.level.children.find((x: Character) => x.id == enemy.heroId);
@@ -584,7 +641,7 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
               level: enemy.level,
               hp: enemy.hp,
               id: enemy.id,
-              heroId: enemy.heroId, 
+              heroId: enemy.heroId,
               isSolid: true,
             });
             // If the server gave a targetHeroId for this encounter, initialize it on the client bot
@@ -606,10 +663,10 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
       return;
     }
 
-  // Keep reference to previous local HP to detect HP drops
-  const previousLocalHp = this.metaHero?.hp ?? undefined;
+    // Keep reference to previous local HP to detect HP drops
+    const previousLocalHp = this.metaHero?.hp ?? undefined;
 
-  this.otherHeroes = res.heroes;
+    this.otherHeroes = res.heroes;
     const ids: number[] = [];
 
     for (let i = 0; i < this.otherHeroes.length; i++) {
@@ -623,9 +680,9 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
         this.setUpdatedHeroPosition(existingHero, heroMeta);
 
         // Visual attributes from server meta
-        existingHero.hp = heroMeta.hp ?? existingHero.hp;   
-        existingHero.level = heroMeta.level ?? existingHero.level;  
-        existingHero.exp = heroMeta.exp ?? existingHero.exp;  
+        existingHero.hp = heroMeta.hp ?? existingHero.hp;
+        existingHero.level = heroMeta.level ?? existingHero.level;
+        existingHero.exp = heroMeta.exp ?? existingHero.exp;
 
         // Mask handling: if mask state changed, recreate character
         try {
@@ -646,21 +703,21 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
 
       // If this is our metaHero, keep local metaHero and Hero instance in sync
       if (heroMeta.id === this.metaHero.id) {
-        try { this.metaHero.hp = heroMeta.hp ?? this.metaHero.hp; } catch {}
-        try { this.metaHero.level = heroMeta.level ?? this.metaHero.level; } catch {}
-        try { this.metaHero.exp = heroMeta.exp ?? this.metaHero.exp; } catch {}
+        try { this.metaHero.hp = heroMeta.hp ?? this.metaHero.hp; } catch { }
+        try { this.metaHero.level = heroMeta.level ?? this.metaHero.level; } catch { }
+        try { this.metaHero.exp = heroMeta.exp ?? this.metaHero.exp; } catch { }
         if (this.hero) {
           // Detect HP drop for local hero and play attenuated impact SFX
-          
-            const incomingHp = heroMeta.hp ?? this.hero.hp ?? 0;
-            const prevHp = typeof previousLocalHp === 'number' ? previousLocalHp : (this.hero.hp ?? incomingHp);
-            if (incomingHp < prevHp) {
-              resources.playSound('punchOrImpact', { volume: this.currentVolume, allowOverlap: true });  
-            } 
-          this.hero.hp = heroMeta.hp ?? 0;  
-          this.hero.level = heroMeta.level ?? 1; 
-          this.hero.exp = heroMeta.exp ?? 0;  
-          this.hero.maxHp = 100; 
+
+          const incomingHp = heroMeta.hp ?? this.hero.hp ?? 0;
+          const prevHp = typeof previousLocalHp === 'number' ? previousLocalHp : (this.hero.hp ?? incomingHp);
+          if (incomingHp < prevHp) {
+            resources.playSound('punchOrImpact', { volume: this.currentVolume, allowOverlap: true });
+          }
+          this.hero.hp = heroMeta.hp ?? 0;
+          this.hero.level = heroMeta.level ?? 1;
+          this.hero.exp = heroMeta.exp ?? 0;
+          this.hero.maxHp = 100;
         }
       }
 
@@ -669,10 +726,10 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
         if (existingHero) {
           (existingHero as any).partyMembers = (Array.isArray(this.partyMembers) && this.partyMembers.length > 0 && this.partyMembers.some((x: any) => x.heroId == (existingHero as any).heroId)) ? this.partyMembers : undefined;
         }
-      } catch {}
+      } catch { }
 
       // Chat bubble / latest message
-      try { this.setHeroLatestMessage(existingHero); } catch {}
+      try { this.setHeroLatestMessage(existingHero); } catch { }
 
       ids.push(heroMeta.id);
     }
@@ -692,7 +749,7 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
   }
 
   private addHeroToScene(hero: MetaHero) {
-    console.log("add hero to scene" , hero);
+    console.log("add hero to scene", hero);
     const tmpHero = new Hero({
       id: hero.id,
       name: hero.name ?? "Anon",
@@ -710,17 +767,17 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
       if (this.isStartMenuOpened) {
         this.hero.isLocked = true;
       }
-    } 
-  // initialize HP/level/exp on the sprite from server meta if available
-  try { if (hero.hp !== undefined && hero.hp !== null) (tmpHero as any).hp = hero.hp; } catch {}
-  try { if (hero.level !== undefined && hero.level !== null) (tmpHero as any).level = hero.level; } catch {}
-  try { if (hero.exp !== undefined && hero.exp !== null) (tmpHero as any).exp = hero.exp; } catch {}
-  try { if ((tmpHero as any).maxHp === undefined) (tmpHero as any).maxHp = hero.hp ?? 100; } catch {}
-    this.mainScene.level?.addChild(tmpHero); 
+    }
+    // initialize HP/level/exp on the sprite from server meta if available
+    try { if (hero.hp !== undefined && hero.hp !== null) (tmpHero as any).hp = hero.hp; } catch { }
+    try { if (hero.level !== undefined && hero.level !== null) (tmpHero as any).level = hero.level; } catch { }
+    try { if (hero.exp !== undefined && hero.exp !== null) (tmpHero as any).exp = hero.exp; } catch { }
+    try { if ((tmpHero as any).maxHp === undefined) (tmpHero as any).maxHp = hero.hp ?? 100; } catch { }
+    this.mainScene.level?.addChild(tmpHero);
     return tmpHero;
   }
 
- 
+
   private setUpdatedHeroPosition(existingHero: any, hero: MetaHero) {
     if (existingHero.id != this.metaHero.id) {
       const newPos = new Vector2(hero.position.x, hero.position.y);
@@ -778,28 +835,28 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
     }
   }
 
-  displayChatMessage() { 
+  displayChatMessage() {
     if (this.chat.length >= 10) {
-      this.chat.pop();  
-    } 
+      this.chat.pop();
+    }
     if (this.currentChatTextbox) {
       this.currentChatTextbox.destroy();
     }
 
     this.latestMessagesMap.clear();
     let latestMessages: string[] = [];
-  const twentySecondsAgo = new Date(Date.now() - 10000); // match Ender 10s bubble TTL
-    
+    const twentySecondsAgo = new Date(Date.now() - 10000); // match Ender 10s bubble TTL
+
     this.chat.forEach((message: MetaChat) => {
       const timestampDate = message.timestamp ? new Date(message.timestamp) : undefined;
 
-        if (timestampDate && timestampDate > twentySecondsAgo) {
-          const existingMessage = this.latestMessagesMap.get(message.hero);
+      if (timestampDate && timestampDate > twentySecondsAgo) {
+        const existingMessage = this.latestMessagesMap.get(message.hero);
 
-          if (!existingMessage || (existingMessage && existingMessage.timestamp && new Date(existingMessage.timestamp) < timestampDate)) {
-            this.latestMessagesMap.set(message.hero, message);
-          }
+        if (!existingMessage || (existingMessage && existingMessage.timestamp && new Date(existingMessage.timestamp) < timestampDate)) {
+          this.latestMessagesMap.set(message.hero, message);
         }
+      }
       latestMessages.push(`${message.hero}: ${message.content}`);
     });
     this.currentChatTextbox = new ChatSpriteTextString({
@@ -807,7 +864,7 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
       string: latestMessages,
       objectSubject: this.metaHero
     });
-    this.mainScene.level.addChild(this.currentChatTextbox);  
+    this.mainScene.level.addChild(this.currentChatTextbox);
   }
 
   private async reinitializeHero(rz: MetaHero, skipDataFetch?: boolean) {
@@ -821,7 +878,7 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
     this.metaHero = new MetaHero(this.hero.id, (this.hero.name ?? "Anon"),
       this.hero.position.duplicate(),
       rz.speed,
-      rz.map, 
+      rz.map,
       rz.color,
       rz.mask,
       rz.hp ?? 100,
@@ -837,19 +894,19 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
     }
     this.hero.isLocked = this.isStartMenuOpened || this.isShopMenuOpened;
     this.mainScene.setHeroId(this.metaHero.id);
-    this.mainScene.hero = this.hero; 
+    this.mainScene.hero = this.hero;
     this.mainScene.metaHero = this.metaHero;
     storyFlags.flags = new Map<string, boolean>();
 
     if (!!skipDataFetch == false) {
       //console.log("initialize inv after reinitializeHero");
       await this.reinitializeInventoryData(true);
-    } 
+    }
     const level = this.getLevelFromLevelName(rz.map);
 
     if (level) {
       this.mainScene.setLevel(level);
-    } 
+    }
 
     this.mainScene.camera.centerPositionOnTarget(this.metaHero.position);
 
@@ -866,7 +923,7 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
     if (this.mainScene?.inventory?.items) {
       this.mainScene.inventory.items.forEach((item: any) => this.mainScene.inventory.removeFromInventory(item.id));
     }
-  await this.bonesService.fetchInventoryData(this.metaHero.id).then((inventoryData: any) => {
+    await this.bonesService.fetchInventoryData(this.metaHero.id).then((inventoryData: any) => {
       if (inventoryData) {
         const inventoryItems = inventoryData.inventory as InventoryItem[];
         const heroInventoryItems = inventoryData.parts as HeroInventoryItem[];
@@ -878,25 +935,25 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
             name: item.name,
             id: item.id,
             category: item.category,
-          } as InventoryItem; 
+          } as InventoryItem;
           events.emit("INVENTORY_UPDATED", invItem);
         }
       }
-      if (!this.isShopMenuOpened && !skipParty) { 
+      if (!this.isShopMenuOpened && !skipParty) {
         this.mainScene.inventory.renderParty();
       }
     });
-  } 
+  }
 
   private getLevelFromLevelName(key: string): Level {
     const upperKey = key.toUpperCase();
     const itemsFoundNames = this.mainScene?.inventory.getItemsFound();
     //only 1 level for now.
     if (upperKey == "HEROROOM") {
-      return new HeroRoomLevel({ itemsFound: itemsFoundNames });  
+      return new HeroRoomLevel({ itemsFound: itemsFoundNames });
     } else {
       return new HeroRoomLevel({ itemsFound: itemsFoundNames });
-    } 
+    }
   }
 
   private getLatestMessages() {
@@ -946,17 +1003,17 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
     const chosenColor = normalizeHex(raw) ?? this.cachedDefaultColor ?? this.metaHero?.color ?? '#444444';
 
     this.metaHero.color = chosenColor;
-    if (this.hero) this.hero.colorSwap = new ColorSwap([0,160,200], hexToRgb(chosenColor));
+    if (this.hero) this.hero.colorSwap = new ColorSwap([0, 160, 200], hexToRgb(chosenColor));
 
     const userId = this.parentRef?.user?.id ?? 0;
     if (userId && userId > 0) {
-      await this.userService.updateLastCharacterColor(userId, chosenColor).catch(() => {});
+      await this.userService.updateLastCharacterColor(userId, chosenColor).catch(() => { });
       this.cachedDefaultColor = chosenColor;
     }
 
     // propagate to scene and reinitialize if not on character creation
     if (this.metaHero && this.metaHero.id && chosenColor) {
-      if (this.hero) this.hero.colorSwap = new ColorSwap([0,160,200], hexToRgb(chosenColor));
+      if (this.hero) this.hero.colorSwap = new ColorSwap([0, 160, 200], hexToRgb(chosenColor));
     }
 
     if (this.mainScene?.level?.name != 'CharacterCreate') {
@@ -993,7 +1050,7 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
     // Cache loaded user objects so we can map hero -> user without refetching
     try { if (user && user.id) this.cachedUsers.set(user.id, user); } catch { }
   }
-  
+
   async showMenuPanel() {
     if (this.isMenuPanelOpen) {
       this.closeMenuPanel();
@@ -1002,18 +1059,18 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
     this.isMenuPanelOpen = true;
     if (this.parentRef) {
       this.parentRef.showOverlay();
-    }  
+    }
   }
 
   // Start menu toggles
-  async openStartMenu() { 
+  async openStartMenu() {
     this.isStartMenuOpened = true;
     this.isMenuPanelOpen = false;
-    this.parentRef?.showOverlay();  
+    this.parentRef?.showOverlay();
     const level = this.metaHero?.level ?? 1;
     const base = 1;
     const points = Math.max(0, level - 1);
-    this.editableStats = { str: base, dex: base, int: base, pointsAvailable: points }; 
+    this.editableStats = { str: base, dex: base, int: base, pointsAvailable: points };
     const mhAny: any = this.metaHero as any;
     if (mhAny.stats) {
       this.editableStats.str = mhAny.stats.str ?? this.editableStats.str;
@@ -1044,8 +1101,8 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
           this.mainScene.inventory.partyMembers = this.partyMembers;
           this.mainScene.inventory.renderParty();
         }
-  // reconcile optimistic invites
-  this.reconcilePendingInvites();
+        // reconcile optimistic invites
+        this.reconcilePendingInvites();
       }).catch(() => { });
     }
   }
@@ -1152,38 +1209,14 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
       this.pendingClearingTimers.set(heroId, t);
     } catch (ex) { console.error('animateClearPending failed', ex); }
   }
-
-  async removePartyMember(heroId: number) {
-    try {
-      if (!this.metaHero || !this.metaHero.id) return;
-      const userId = this.parentRef?.user?.id ?? undefined;
-      if (this.bonesService && typeof (this.bonesService as any).removePartyMember === 'function') {
-        await (this.bonesService as any).removePartyMember(this.metaHero.id, heroId, userId);
-        alert('Removed from party');
-      } else {
-        // Fallback: if hero is local party member, remove locally
-        this.partyMembers = (this.partyMembers || []).filter(p => p.heroId !== heroId);
-        if (this.mainScene && this.mainScene.inventory) {
-          this.mainScene.inventory.partyMembers = this.partyMembers;
-          this.mainScene.inventory.renderParty();
-        }
-        alert('Removed locally (server not implemented)');
-      }
-    } catch (ex) { console.error('removePartyMember failed', ex); alert('Failed to remove member'); }
-  }
-
+ 
   async leaveParty() {
-    try {
-      if (!this.metaHero || !this.metaHero.id) return;
-      const userId = this.parentRef?.user?.id ?? undefined;
-      if (this.bonesService && typeof (this.bonesService as any).leaveParty === 'function') {
-        await (this.bonesService as any).leaveParty(this.metaHero.id, userId);
-        alert('Left party');
-        this.partyMembers = [];
-      } else {
-        alert('Leave party not implemented on server');
-      }
-    } catch (ex) { console.error('leaveParty failed', ex); alert('Failed to leave party'); }
+    if (!this.metaHero || !this.metaHero.id) return;
+    const userId = this.parentRef?.user?.id ?? undefined;
+    await this.bonesService.leaveParty(this.metaHero.id, userId);
+    this.partyMembers = this.partyMembers.filter(x => x.heroId == this.metaHero.id);
+    this.reinitializeInventoryData();
+    alert('Left party');
   }
 
   openChangeStats() {
@@ -1191,7 +1224,7 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
     this.isPartyPanelOpen = false;
   }
 
-  adjustStat(stat: 'str'|'dex'|'int', delta: number) {
+  adjustStat(stat: 'str' | 'dex' | 'int', delta: number) {
     if (!this.editableStats) return;
     if (delta > 0 && this.editableStats.pointsAvailable <= 0) return;
     const next = (this.editableStats as any)[stat] + delta;
@@ -1205,7 +1238,7 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
       // send to server if API exists
       if (this.bonesService && typeof (this.bonesService as any).updateHeroStats === 'function') {
         await this.bonesService.updateHeroStats(
-          this.metaHero.id, 
+          this.metaHero.id,
           { str: this.editableStats.str, dex: this.editableStats.dex, int: this.editableStats.int },
           this.parentRef?.user?.id
         );
@@ -1220,13 +1253,13 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
   async openTownPortal() {
     try {
       if (!this.metaHero || !this.metaHero.id) return;
-  const userId = this.parentRef?.user?.id;
-  const map = this.metaHero.map || 'Town';
-  const x = Math.floor((this.metaHero.position?.x ?? 0));
-  const y = Math.floor((this.metaHero.position?.y ?? 0));
-  this.closeStartMenu();
-  await this.bonesService.createTownPortal(this.metaHero.id, map, x, y, userId);
-  alert('Town portal created');
+      const userId = this.parentRef?.user?.id;
+      const map = this.metaHero.map || 'Town';
+      const x = Math.floor((this.metaHero.position?.x ?? 0));
+      const y = Math.floor((this.metaHero.position?.y ?? 0));
+      this.closeStartMenu();
+      await this.bonesService.createTownPortal(this.metaHero.id, map, x, y, userId);
+      alert('Town portal created');
     } catch (ex) { console.error('openTownPortal failed', ex); alert('Failed to open town portal'); }
   }
 
@@ -1236,7 +1269,7 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
       this.isChangeCharacterOpen = true;
       this.parentRef?.showOverlay();
       this.loadSelections();
-    }, 100); 
+    }, 100);
   }
 
   closeChangeCharacter() {
@@ -1258,11 +1291,11 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
 
   async promoteSelection(id: number) {
     try {
-  // Only instruct server to promote the chosen selection.
-  // Do NOT create a new bones_hero_selection here — server will update the existing selection matching the current hero id.
-  await this.bonesService.promoteHeroSelection(id);
-  // Reload bones page to pick up server-side changes
-  window.location.href = '/Bones';
+      // Only instruct server to promote the chosen selection.
+      // Do NOT create a new bones_hero_selection here — server will update the existing selection matching the current hero id.
+      await this.bonesService.promoteHeroSelection(id);
+      // Reload bones page to pick up server-side changes
+      window.location.href = '/Bones';
     } catch (ex) { console.error('Failed to promote selection', ex); }
   }
 
