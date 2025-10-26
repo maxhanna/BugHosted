@@ -252,7 +252,7 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
     events.on("OTHER_HERO_ATTACK", this, (payload: any) => {
       console.log("got other hero attack event", payload); 
       const sourceHeroId = payload?.sourceHeroId;
-      const targetHeroId = payload?.targetHeroId;
+      const targetHeroId = payload?.attack?.targetHeroId;
       if (!sourceHeroId) return;
       // Try to find attacker in scene first, fallback to otherHeroes list
       let attackerPos: Vector2 | undefined = undefined;
