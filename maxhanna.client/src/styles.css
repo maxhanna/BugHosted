@@ -788,6 +788,8 @@ fieldset {
   display: flex;
   width: 100%;
   align-items: stretch; 
+  align-content: space-between; 
+  justify-content: space-between;
 }
 
 .poll-option:hover {
@@ -817,7 +819,9 @@ fieldset {
 .poll-bar {
   background: linear-gradient(135deg, var(--main-link-color), var(--secondary-component-background-color));
 }
-
+.poll-stats { 
+  position: absolute;
+}
 .poll-bar,
 .poll-bar-empty {
   border-radius: 5px;
