@@ -17,8 +17,7 @@ export class HeroRoomLevel extends Level {
   override defaultHeroPosition = new Vector2(gridCells(0), gridCells(0));
   showDebugSprites = false;
   constructor(params: { heroPosition?: Vector2, itemsFound?: string[] | undefined } = {}) {
-    super();
-    console.log("hero room created");
+    super(); 
     this.name = "HeroRoom";
     if (params.heroPosition) {
       this.defaultHeroPosition = params.heroPosition;
