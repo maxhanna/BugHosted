@@ -2111,7 +2111,13 @@ namespace maxhanna.Server.Controllers
 						await _log.Db($"UpdateMetaHeroParty existing row hero={hid} party={pid}", null, "BONES", true);
 					}
 				}
-				foreach (var hid in heroIds) if (!existing.ContainsKey(hid)) existing[hid] = null;
+				foreach (var hid in heroIds)
+                {
+                    if (!existing.ContainsKey(hid))
+                    {
+						existing[hid] = null; 
+                    }
+                }
 				var partyIdsFound = existing.Values.Where(v => v.HasValue).Select(v => v!.Value).Distinct().ToList();
 				await _log.Db($"UpdateMetaHeroParty partyIdsFound=[{string.Join(',', partyIdsFound)}]", null, "BONES", true);
 				int targetPartyId;
@@ -2141,6 +2147,17 @@ namespace maxhanna.Server.Controllers
 				foreach (var hid in heroIds)
 				{
 					int? existingPid = existing[hid];
+					// Defensive check: ensure the bones_hero row actually exists to satisfy FK on bones_hero_party
+					using var existsCmd = new MySqlCommand("SELECT COUNT(1) FROM bones_hero WHERE id = @HeroId", connection, transaction);
+					existsCmd.Parameters.AddWithValue("@HeroId", hid);
+					var existsObj = await existsCmd.ExecuteScalarAsync();
+					var existsCount = 0;
+					if (existsObj != null && int.TryParse(existsObj.ToString(), out var tmpExists)) existsCount = tmpExists;
+					if (existsCount == 0)
+					{
+						await _log.Db($"UpdateMetaHeroParty skipping hero={hid} because no bones_hero row exists (to avoid FK error)", null, "BONES", true);
+						continue; // Skip missing heroes
+					}
 					if (!existingPid.HasValue)
 					{
 						string insSql = "INSERT INTO bones_hero_party (hero_id, party_id, joined) VALUES (@HeroId, @PartyId, UTC_TIMESTAMP())";
