@@ -733,3 +733,117 @@ body {
   60% { opacity: 0.95; transform: scale(1.08) translateY(-6px) rotate(-2deg); }
   100% { opacity: 0; transform: scale(0.7) translateY(-18px) rotate(-7deg); }
 }
+
+/* ===== Diablo-esque theme overlay (appended overrides) ===== */
+:root {
+  --diablo-bg-1: #0b0b0d; /* deepest */
+  --diablo-bg-2: #141214; /* mid */
+  --diablo-accent: #c77b1a; /* ember/gold */
+  --diablo-accent-2: #8b2b1b; /* ember-red */
+  --diablo-muted: #a79c92;
+  --diablo-glow: rgba(199,123,26,0.18);
+}
+
+/* overall darker page tint */
+.componentMain {
+  background: linear-gradient(180deg, rgba(3,3,5,0.7), rgba(8,6,10,0.9));
+}
+
+/* textured canvas border and subtle vignette */
+.gameCanvas {
+  background: radial-gradient(ellipse at center, #000 0%, #050405 40%, #000000 100%);
+  box-shadow: 0 10px 40px rgba(0,0,0,0.9), inset 0 0 40px rgba(20,10,5,0.35);
+  border: 2px solid rgba(140,110,80,0.14);
+}
+
+/* Popup panels: heavier, gothic styling */
+.popupPanel {
+  background: linear-gradient(180deg, rgba(18,14,12,0.98), rgba(12,10,9,0.96));
+  border: 2px solid rgba(80,60,40,0.6);
+  box-shadow: 0 18px 48px rgba(0,0,0,0.85), inset 0 -6px 20px rgba(255,255,255,0.02);
+  color: var(--diablo-muted);
+  font-family: owreKynge, fontRetroGaming, serif;
+  text-shadow: 0 1px 0 rgba(0,0,0,0.8);
+}
+
+.popupPanelTitle {
+  font-size: 18px;
+  color: var(--diablo-accent);
+  letter-spacing: 1px;
+  text-shadow: 0 2px 8px rgba(199,123,26,0.12), 0 1px 0 rgba(0,0,0,0.9);
+}
+
+/* Buttons: heavy metallic look */
+.bigActionButton,
+.popupPanel button,
+.menuPopupPanel button,
+.changeCharacterPanel button {
+  background: linear-gradient(180deg, #2b2623, #151212);
+  border: 1px solid rgba(255,255,255,0.04);
+  color: var(--diablo-muted);
+  padding: 10px 12px;
+  border-radius: 6px;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.7), inset 0 -4px 8px rgba(255,255,255,0.02);
+  transition: transform 120ms ease, box-shadow 120ms ease, color 120ms ease;
+}
+
+.bigActionButton:hover,
+.popupPanel button:hover {
+  transform: translateY(-2px);
+  color: #fff;
+  box-shadow: 0 10px 28px rgba(0,0,0,0.8), inset 0 -6px 12px rgba(255,255,255,0.03);
+}
+
+.closeButton {
+  background: linear-gradient(180deg, #2b1a17, #100b0a);
+  border: 1px solid rgba(0,0,0,0.6);
+  color: #fff;
+  text-shadow: 0 -1px 0 rgba(0,0,0,0.8);
+}
+
+.closeButton::after {
+  color: #f6e6cf;
+}
+
+/* make party panel close button match theme */
+.partyPanel .closeButton {
+  background: linear-gradient(180deg, #231916, #0f0b0b);
+  border: 1px solid rgba(0,0,0,0.6);
+}
+
+/* pending badge: darker ember tone to fit theme */
+.pendingBadge {
+  --bg-a: #6b180f;
+  --bg-b: #c14b2f;
+  color: #fff;
+  box-shadow: 0 6px 18px rgba(110,30,20,0.25), inset 0 -6px 16px rgba(255,255,255,0.02);
+}
+
+/* subtle glowing accent for important state text */
+.heroName,
+.componentTitle {
+  text-shadow: 0 0 6px rgba(199,123,26,0.06), 0 1px 0 rgba(0,0,0,0.9);
+}
+
+/* small UI polish: reduce overly bright borders */
+.menuPopupPanel,
+.changeCharacterPanel,
+.deathPanel {
+  border-color: rgba(60,40,30,0.45);
+}
+
+/* ensure modal overlays stay above everything */
+.popupPanel,
+.popupPanel * {
+  z-index: 2001;
+}
+
+/* keep pending badge readable on dark backgrounds */
+.pendingBadgeWrapper { filter: drop-shadow(0 6px 10px rgba(0,0,0,0.6)); }
+
+/* small responsive tweak: slightly larger font on popup titles */
+@media (min-width: 600px) {
+  .popupPanelTitle { font-size: 20px; }
+}
+
+/* End Diablo-esque theme overlay */
