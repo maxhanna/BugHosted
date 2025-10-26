@@ -27,6 +27,7 @@ import { Mask, getMaskNameById } from './objects/Wardrobe/mask';
 import { Bot } from './objects/Bot/bot';
 import { Character } from './objects/character';
 import { ChatSpriteTextString } from './objects/SpriteTextString/chat-sprite-text-string';
+import { target } from './helpers/fight';
 
 @Component({
   selector: 'app-bones',
@@ -268,6 +269,7 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
         const dy = attackerPos.y - myPos.y;
         const dist = Math.sqrt(dx * dx + dy * dy);
         if (sourceHeroId != this.metaHero.id || targetHeroId == this.metaHero.id) {
+          console.log("hti sound playing", sourceHeroId, targetHeroId);
           const maxAudible = 800; // pixels: distance a`t which sound is near-silent
           let vol = 1 - (dist / maxAudible);
           vol = Math.max(0.05, Math.min(1, vol)); // clamp to [0.05, 1]

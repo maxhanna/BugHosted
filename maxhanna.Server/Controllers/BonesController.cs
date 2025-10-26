@@ -1854,6 +1854,16 @@ namespace maxhanna.Server.Controllers
 
 					if (curX != e.x || curY != e.y || e.targetHeroId != targetHeroId)
 					{
+						// Ensure movement coordinates are grid-aligned (multiples of GRIDCELL)
+						try
+						{
+							int snappedX = (int)Math.Round(curX / (double)tile) * tile;
+							int snappedY = (int)Math.Round(curY / (double)tile) * tile;
+							curX = snappedX;
+							curY = snappedY;
+						}
+						catch { /* no-op: keep original values if rounding fails */ }
+
 						// Prevent rapid back-and-forth oscillation: allow one reversal but not repeated toggles
 						if (_encounterRecentPositions.TryGetValue(e.heroId, out var recent))
 						{
