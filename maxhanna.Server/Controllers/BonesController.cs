@@ -2083,14 +2083,14 @@ namespace maxhanna.Server.Controllers
 			// Accepts a list of hero IDs forming (or merging into) a single party using new party_id schema.
 			try
 			{
-				await _log.Db("UpdateMetaHeroParty called", null, "BONES", true);
+				//await _log.Db("UpdateMetaHeroParty called", null, "BONES", true);
 				if (partyData == null || partyData.Count < 2)
 				{
 					await _log.Db("UpdateMetaHeroParty: insufficient partyData", null, "BONES", true);
 					return;
 				}
 				var heroIds = partyData.Distinct().ToList();
-				await _log.Db($"UpdateMetaHeroParty heroes=[{string.Join(',', heroIds)}]", null, "BONES", true);
+				//await _log.Db($"UpdateMetaHeroParty heroes=[{string.Join(',', heroIds)}]", null, "BONES", true);
 				if (heroIds.Count < 2)
 				{
 					await _log.Db("UpdateMetaHeroParty: after distinct only one hero", null, "BONES", true);
@@ -2098,7 +2098,7 @@ namespace maxhanna.Server.Controllers
 				}
 				// Fetch existing party_id assignments for provided heroes
 				string selectSql = $"SELECT hero_id, party_id FROM bones_hero_party WHERE hero_id IN ({string.Join(',', heroIds)})";
-				await _log.Db($"UpdateMetaHeroParty running selectSql={selectSql}", null, "BONES", true);
+				// await _log.Db($"UpdateMetaHeroParty running selectSql={selectSql}", null, "BONES", true);
 				var existing = new Dictionary<int, int?>();
 				using (var selCmd = new MySqlCommand(selectSql, connection, transaction))
 				{
@@ -2108,7 +2108,7 @@ namespace maxhanna.Server.Controllers
 						int hid = rdr.GetInt32(0);
 						int? pid = rdr.IsDBNull(1) ? (int?)null : rdr.GetInt32(1);
 						existing[hid] = pid;
-						await _log.Db($"UpdateMetaHeroParty existing row hero={hid} party={pid}", null, "BONES", true);
+						// await _log.Db($"UpdateMetaHeroParty existing row hero={hid} party={pid}", null, "BONES", true);
 					}
 				}
 				foreach (var hid in heroIds)
@@ -2119,7 +2119,7 @@ namespace maxhanna.Server.Controllers
                     }
                 }
 				var partyIdsFound = existing.Values.Where(v => v.HasValue).Select(v => v!.Value).Distinct().ToList();
-				await _log.Db($"UpdateMetaHeroParty partyIdsFound=[{string.Join(',', partyIdsFound)}]", null, "BONES", true);
+				//await _log.Db($"UpdateMetaHeroParty partyIdsFound=[{string.Join(',', partyIdsFound)}]", null, "BONES", true);
 				int targetPartyId;
 				if (partyIdsFound.Count == 0)
 				{
@@ -2131,7 +2131,7 @@ namespace maxhanna.Server.Controllers
 					if (existObj != null && int.TryParse(existObj.ToString(), out var foundHeroId) && foundHeroId > 0)
 					{
 						targetPartyId = foundHeroId;
-						await _log.Db($"UpdateMetaHeroParty allocated partyId from hero id={targetPartyId}", null, "BONES", true);
+					//	await _log.Db($"UpdateMetaHeroParty allocated partyId from hero id={targetPartyId}", null, "BONES", true);
 					}
 					else
 					{
@@ -2142,12 +2142,12 @@ namespace maxhanna.Server.Controllers
 				else
 				{
 					targetPartyId = partyIdsFound.Min();
-					await _log.Db($"UpdateMetaHeroParty using existing partyId={targetPartyId}", null, "BONES", true);
+					//await _log.Db($"UpdateMetaHeroParty using existing partyId={targetPartyId}", null, "BONES", true);
 					// Merge any other party_ids into targetPartyId
 					if (partyIdsFound.Count > 1)
 					{
 						string mergeSql = $"UPDATE bones_hero_party SET party_id = @Target WHERE party_id IN ({string.Join(',', partyIdsFound.Where(id => id != targetPartyId))})";
-						await _log.Db($"UpdateMetaHeroParty merging partyIds sql={mergeSql}", null, "BONES", true);
+						//await _log.Db($"UpdateMetaHeroParty merging partyIds sql={mergeSql}", null, "BONES", true);
 						using var mergeCmd = new MySqlCommand(mergeSql, connection, transaction);
 						mergeCmd.Parameters.AddWithValue("@Target", targetPartyId);
 						await mergeCmd.ExecuteNonQueryAsync();
@@ -2204,10 +2204,42 @@ namespace maxhanna.Server.Controllers
 		{
 			try
 			{
+				// 1) Find the party_id for this hero (if any)
+				int? partyId = null;
+				using (var pidCmd = new MySqlCommand("SELECT party_id FROM bones_hero_party WHERE hero_id = @HeroId LIMIT 1", connection, transaction))
+				{
+					pidCmd.Parameters.AddWithValue("@HeroId", heroId);
+					var pidObj = await pidCmd.ExecuteScalarAsync();
+					if (pidObj != null && int.TryParse(pidObj.ToString(), out var tmpPid)) partyId = tmpPid;
+				}
+				// 2) Delete the leaving hero's membership
 				const string deleteQuery = "DELETE FROM bones_hero_party WHERE hero_id = @HeroId LIMIT 1";
 				using var deleteCommand = new MySqlCommand(deleteQuery, connection, transaction);
 				deleteCommand.Parameters.AddWithValue("@HeroId", heroId);
 				await deleteCommand.ExecuteNonQueryAsync();
+				//await _log.Db($"Unparty: removed hero={heroId} from partyId={partyId}", heroId, "BONES", true);
+				// 3) If partyId existed, check remaining members. If only one remains, remove that last member (disband)
+				if (partyId.HasValue)
+				{
+					using var countCmd = new MySqlCommand("SELECT COUNT(1) FROM bones_hero_party WHERE party_id = @Pid", connection, transaction);
+					countCmd.Parameters.AddWithValue("@Pid", partyId.Value);
+					var cntObj = await countCmd.ExecuteScalarAsync();
+					int cnt = 0; if (cntObj != null && int.TryParse(cntObj.ToString(), out var tmpCnt)) cnt = tmpCnt;
+					if (cnt == 1)
+					{
+						// find the remaining hero id and delete that row as well
+						using var remCmd = new MySqlCommand("SELECT hero_id FROM bones_hero_party WHERE party_id = @Pid LIMIT 1", connection, transaction);
+						remCmd.Parameters.AddWithValue("@Pid", partyId.Value);
+						var remObj = await remCmd.ExecuteScalarAsync();
+						if (remObj != null && int.TryParse(remObj.ToString(), out var lastHeroId))
+						{
+							using var delLast = new MySqlCommand("DELETE FROM bones_hero_party WHERE hero_id = @HeroId LIMIT 1", connection, transaction);
+							delLast.Parameters.AddWithValue("@HeroId", lastHeroId);
+							await delLast.ExecuteNonQueryAsync();
+							//await _log.Db($"Unparty: disbanded partyId={partyId} by removing last hero={lastHeroId}", lastHeroId, "BONES", true);
+						}
+					}
+				}
 			}
 			catch (MySqlException) { throw; }
 			catch (Exception) { throw; }
