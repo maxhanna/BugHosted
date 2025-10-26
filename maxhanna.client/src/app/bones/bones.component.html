@@ -190,9 +190,7 @@
 <div class="popupPanel startPopupPanel" *ngIf="isStartMenuOpened" style="max-width:360px; text-align:center;">
   <div style="display:flex; align-items:center; justify-content:center; position:relative;">
     <div class="popupPanelTitle mainPopupTitle">Menu</div>
-    <button id="closeOverlay" (click)="closeStartMenu()"
-      [style.display]="(isPartyPanelOpen || isChangeStatsOpen) ? 'none' : 'block'"
-      style="position:absolute; right:8px; top:4px; z-index:10;">Close</button>
+    <button id="closeOverlay" (click)="closeStartMenu()" class="buttonDisplayNone"></button>
   </div>
   <div *ngIf="!isPartyPanelOpen && !isChangeStatsOpen" class="startGrid">
     <button class="bigActionButton" (click)="openPartyPanel()" aria-label="Party">Party</button>
