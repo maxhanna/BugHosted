@@ -67,9 +67,26 @@ namespace maxhanna.Server.Controllers
 					if (ownerId != req.UserId.Value) return StatusCode(403, "You do not own this hero");
 				}
 				// Ensure we don't duplicate pairs (store as provided order, prevent reverse duplicates too)
+				// If the target hero is already in a party (has any partner), do not invite
+				try
+				{
+					string checkSql = @"SELECT COUNT(*) FROM bones_hero_party WHERE bones_hero_id_1 = @Target OR bones_hero_id_2 = @Target LIMIT 1;";
+					using var checkCmd = new MySqlCommand(checkSql, connection, transaction);
+					checkCmd.Parameters.AddWithValue("@Target", req.TargetHeroId);
+					var cntObj = await checkCmd.ExecuteScalarAsync();
+					int existingCount = cntObj != null && int.TryParse(cntObj.ToString(), out var tmpCnt) ? tmpCnt : 0;
+					if (existingCount > 0)
+					{
+						// target already in a party — do not persist invite event
+						await transaction.RollbackAsync();
+						return Ok(new { invited = false });
+					}
+				}
+				catch { /* non-fatal: proceed to attempt insert if check fails */ }
+
 				string sql = @"INSERT INTO bones_hero_party (bones_hero_id_1, bones_hero_id_2)
-							   SELECT @A, @B FROM DUAL
-							   WHERE NOT EXISTS (SELECT 1 FROM bones_hero_party WHERE (bones_hero_id_1 = @A AND bones_hero_id_2 = @B) OR (bones_hero_id_1 = @B AND bones_hero_id_2 = @A));";
+						   SELECT @A, @B FROM DUAL
+						   WHERE NOT EXISTS (SELECT 1 FROM bones_hero_party WHERE (bones_hero_id_1 = @A AND bones_hero_id_2 = @B) OR (bones_hero_id_1 = @B AND bones_hero_id_2 = @A));";
 				var parameters = new Dictionary<string, object?>() { { "@A", req.HeroId }, { "@B", req.TargetHeroId } };
 				await ExecuteInsertOrUpdateOrDeleteAsync(sql, parameters, connection, transaction);
 
