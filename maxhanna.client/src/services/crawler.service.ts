@@ -2,6 +2,7 @@ import { Injectable } from '@angular/core';
 import { MetaData } from './datacontracts/social/story';
 import { CrawlerSearchRequest, CrawlerSearchResponse, NormalizedMetaData, StorageStats } from './datacontracts/crawler';
 import { YoutubeVideo } from './datacontracts/youtube';
+import { User } from './datacontracts/user/user';
 
 @Injectable({
   providedIn: 'root'
@@ -119,7 +120,7 @@ export class CrawlerService {
     }
   }
 
-  async getFavouritedByUrl(url: string): Promise<any[] | null> {
+  async getFavouritedByUrl(url: string): Promise<User[] | null> {
     try {
       const response = await fetch(`/crawler/getfavouritedbyurl`, {
         method: 'POST',

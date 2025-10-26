@@ -6,6 +6,7 @@ import { MetaData } from '../../services/datacontracts/social/story';
 import { CrawlerSearchResponse } from '../../services/datacontracts/crawler';
 import { DomSanitizer, Meta, SafeHtml } from '@angular/platform-browser';
 import { AppComponent } from '../app.component';
+import { User } from '../../services/datacontracts/user/user';
 
 @Component({
   selector: 'app-crawler',
@@ -31,7 +32,7 @@ export class CrawlerComponent extends ChildComponent implements OnInit, OnDestro
   pageSize: number = this.pageSizes[0];
   // Favourite popup state
   isFavouritedByPanelOpen: boolean = false;
-  favouritedByList: any[] = [];
+  favouritedByList: User[] = [];
 
   @ViewChild('pageSizeDropdown') pageSizeDropdown!: ElementRef<HTMLSelectElement>;
   @ViewChild('urlInput') urlInput!: ElementRef<HTMLInputElement>;
@@ -90,12 +91,14 @@ export class CrawlerComponent extends ChildComponent implements OnInit, OnDestro
 
   openFavouritedByPanel(url?: string) {
     if (!url) return;
-    this.isFavouritedByPanelOpen = true;
     this.startLoading();
     this.crawlerService.getFavouritedByUrl(url).then(res => {
       this.favouritedByList = res ?? [];
     }).finally(() => {
       this.stopLoading();
+      const parent = this.inputtedParentRef ?? this.parentRef;
+      parent?.showOverlay(); 
+      this.isFavouritedByPanelOpen = true;
     });
   }
 

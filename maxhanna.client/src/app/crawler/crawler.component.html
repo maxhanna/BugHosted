@@ -154,3 +154,19 @@
   <div>Note: You can index your website by searching for it.</div>  
   <button id="closeOverlay" (click)="closeMenuPanel()" class="closeButton">Close</button> 
 </div>
+
+<!-- Favourited By Popup -->
+<div class="popupPanel" *ngIf="isFavouritedByPanelOpen">
+  <div class="popupPanelTitle">Favourited by</div>
+  <div style="padding: 12px; max-height: 50vh; overflow: auto;">
+    <div *ngIf="favouritedByList && favouritedByList.length > 0; else noFavourites">
+      <div *ngFor="let u of favouritedByList" style="margin-bottom:8px;">
+        <app-user-tag [user]="u" [inputtedParentRef]="inputtedParentRef" [displayMiniTag]="true"></app-user-tag>
+      </div>
+    </div>
+    <ng-template #noFavourites>
+      <div class="smallFont">No users have favourited this URL.</div>
+    </ng-template>
+  </div>
+  <button id="closeOverlay" (click)="closeFavouritedByPanel()" class="closeButton">Close</button>
+</div>
