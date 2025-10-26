@@ -405,9 +405,12 @@ body {
   display: inline-block;
   vertical-align: middle;
 }
+
 .pendingBadgeWrapper.inPartyPill .pendingBadge {
-  background: #9ff3a1; /* light green */
-  color: #054d12; /* dark green text */
+  background: #9ff3a1;
+  /* light green */
+  color: #054d12;
+  /* dark green text */
   padding: 6px 10px;
   border-radius: 999px;
   font-weight: 700;
@@ -607,10 +610,16 @@ body {
 .changeCharacterPanel {
   min-width: 300px;
 }
- 
+
+.deathPanel {
+  min-width: 300px;
+  max-width: 320px;
+  text-align: center;
+}
+
 .partyPanel,
-.deathPanel,  
-.menuPopupPanel,  
+.deathPanel,
+.menuPopupPanel,
 .changeCharacterPanel {
   font-family: owreKynge;
   font-size: large;
@@ -670,9 +679,10 @@ body {
   vertical-align: middle;
 }
 
-.badge, .pendingBadge {
-  --bg-a: #ffd47a; 
-  --bg-b: #ffb86b; 
+.badge,
+.pendingBadge {
+  /* --bg-a: #ffd47a;
+  --bg-b: #ffb86b; */
   display: inline-flex;
   align-items: center;
   gap: 8px;
@@ -870,8 +880,8 @@ body {
 
 /* pending badge: darker ember tone to fit theme */
 .pendingBadge {
-  --bg-a: #6b180f;
-  --bg-b: #c14b2f;
+  /* --bg-a: #6b180f;
+  --bg-b: #c14b2f; */
   color: #fff;
   box-shadow: 0 6px 18px rgba(110, 30, 20, 0.25), inset 0 -6px 16px rgba(255, 255, 255, 0.02);
 }
@@ -937,8 +947,8 @@ html body .popupPanel * {
 .partyPanel .pendingBadge,
 .startPopupPanel .pendingBadge,
 .popupPanel .pendingBadge {
-  --bg-a: #6b180f !important;
-  --bg-b: #c14b2f !important;
+  /* --bg-a: #6b180f !important;
+  --bg-b: #c14b2f !important; */
   color: #fff !important;
   box-shadow: 0 8px 28px rgba(0, 0, 0, 0.6) !important;
 }
@@ -951,12 +961,13 @@ html body .popupPanel * {
     font-size: 11px !important;
     padding: 5px 8px !important;
   }
-} 
+}
 
 /* Temporary 'already in a party' badge variant */
 .pendingBadgeWrapper.alreadyInParty .pendingBadge {
-  --bg-a: #ffdd85; /* lighter amber */
-  --bg-b: #f6b85a; /* warm amber */
+  /* --bg-a: #ffdd85; 
+  --bg-b: #f6b85a; */
+  /* warm amber */
   color: #331a00;
-  box-shadow: 0 6px 20px rgba(246, 184, 90, 0.18), inset 0 -6px 16px rgba(255,255,255,0.06) !important;
-} 
+  box-shadow: 0 6px 20px rgba(246, 184, 90, 0.18), inset 0 -6px 16px rgba(255, 255, 255, 0.06) !important;
+}

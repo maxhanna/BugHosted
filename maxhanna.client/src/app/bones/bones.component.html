@@ -159,14 +159,13 @@
 </div>
 
 <!-- Death overlay -->
-<div class="popupPanel deathPanel" *ngIf="showDeathPanel" style="max-width:320px; text-align:center;">
+<div class="popupPanel deathPanel" *ngIf="showDeathPanel">
   <div class="finalScoreWrapper">
     <div style="pointer-events:none; margin-bottom:8px; font-weight:bold">
-      You were killed
+      You were killed by:
     </div>
     <div class="killerAndStatsWrapper">
       <div *ngIf="deathKillerUserId || deathKillerName" class="deathKillerInfo">
-        <div style="margin-bottom:6px;"><strong>Killed by:</strong></div>
         <div *ngIf="deathKillerUserId" class="deathKillerAvatarContainer">
           <app-user-tag [user]="cachedUsers.get(deathKillerUserId)" [userId]="deathKillerUserId"
             [inputtedParentRef]="parentRef" [displayOnlyAvatar]="false" [openInNewTab]="true"
