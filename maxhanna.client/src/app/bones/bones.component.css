@@ -792,15 +792,15 @@ body {
 }
 
 .buttonDisplayNone {
-  width: 1px;
-  height: 1px;
+  width: 12px;
+  height: 12px;
   padding: 0;
   margin: 0;
   opacity: 0;
   border: none;
   background: transparent;
   overflow: hidden;
-  transform: scale(0.01);
+  /* transform: scale(0.01); */
 }
 
 .popupPanel {
