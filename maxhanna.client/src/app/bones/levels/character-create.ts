@@ -7,6 +7,7 @@ import { HeroRoomLevel } from "./hero-room";
 import { SpriteTextStringWithBackdrop } from "../objects/SpriteTextString/sprite-text-string-with-backdrop";
 import { Referee } from "../objects/Npc/Referee/referee";
 import { SpriteTextString } from "../objects/SpriteTextString/sprite-text-string";
+import { Bones } from "../objects/Npc/Bones/bones";
 
 export class CharacterCreate extends Level { 
   textBox = new SpriteTextStringWithBackdrop({});
@@ -16,7 +17,7 @@ export class CharacterCreate extends Level {
   characterName = "";
   // Optional default name provided from persisted user settings
   defaultName: string | undefined = undefined;
-  referee = new Referee({ position: new Vector2(gridCells(5), gridCells(5)) });
+  bones = new Bones({ position: new Vector2(gridCells(5), gridCells(5)) });
   profanity = ["4r5e", "5h1t", "5hit", "a55", "anal", "anus", "ar5e", "arrse", "arse", "ass", "ass-fucker", "asses",
     "assfucker", "assfukka", "asshole", "assholes", "asswhole", "a_s_s", "b!tch", "b00bs", "b17ch", "b1tch", "ballbag", "balls",
     "ballsack", "bastard", "beastial", "beastiality", "bellend", "bestial", "bestiality", "bi+ch", "biatch", "bitch", "bitcher",
@@ -76,7 +77,7 @@ export class CharacterCreate extends Level {
         this.defaultColor = dc;
       }
     }
-    this.referee.textContent = [
+    this.bones.textContent = [
       {
         string: [params.championName ? 
           `Current Grid leader: ${params.championName} (${params.championScore ?? 0})` 
@@ -101,7 +102,7 @@ export class CharacterCreate extends Level {
         addsFlag: CHARACTER_CREATE_STORY_TEXT_2,
       } as Scenario
     ];
-    this.addChild(this.referee);
+    this.addChild(this.bones);
     this.hideChatInput();
 
     const sts = new SpriteTextString(
@@ -132,7 +133,7 @@ export class CharacterCreate extends Level {
       if (!this.verifyCharacterName(this.characterName) || storyFlags.contains(CHARACTER_CREATE_STORY_TEXT_6)) { return; } 
       this.returnChatInputToNormal();
       storyFlags.add(CHARACTER_CREATE_STORY_TEXT_6);
-      const content = this.referee.getContent();
+      const content = this.bones.getContent();
       if (content) {
         this.displayContent(content);
       }
@@ -165,7 +166,7 @@ export class CharacterCreate extends Level {
           );
           this.addChild(sts);
         }
-        const content = this.referee.getContent();
+        const content = this.bones.getContent();
         if (content) {
           if (storyFlags.contains(CHARACTER_CREATE_STORY_TEXT_4) && !storyFlags.contains(CHARACTER_CREATE_STORY_TEXT_6)) {
             this.createNameChatInput();
@@ -180,7 +181,7 @@ export class CharacterCreate extends Level {
   // Ensure chat input is restored when leaving this level
   this.returnChatInputToNormal();
   this.textBox.destroy();
-  this.referee.destroy();
+  this.bones.destroy();
   events.unsubscribe(this);
   super.destroy();
   }
@@ -209,7 +210,7 @@ export class CharacterCreate extends Level {
     this.textBox = new SpriteTextStringWithBackdrop({
       portraitFrame: content.portraitFrame,
       string: content.string,
-      objectSubject: this.referee,
+      objectSubject: this.bones,
     });
     this.addChild(this.textBox);
   }

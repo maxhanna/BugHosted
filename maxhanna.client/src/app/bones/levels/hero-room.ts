@@ -6,6 +6,9 @@ import { Level } from "../objects/Level/level";
 import { Sprite } from "../objects/sprite"; 
 import { BASE } from "../objects/game-object"; 
 import { Encounter } from "../objects/Environment/Encounter/encounter";
+import { Scenario } from "../helpers/story-flags";
+import { Referee } from "../objects/Npc/Referee/referee";
+import { Bones } from "../objects/Npc/Bones/bones";
 
 
 export class HeroRoomLevel extends Level {
@@ -65,6 +68,14 @@ export class HeroRoomLevel extends Level {
     });
     this.addChild(encounter2);
 
+    
+    const bones = new Bones({ position: new Vector2(gridCells(10), gridCells(8)), moveUpDown: 5, moveLeftRight: 1 });
+    bones.textContent = [
+      {
+        string: ["Stay a while and listen!"],
+      } as Scenario
+    ];
+    this.addChild(bones);
 
     this.walls = new Set();
 
