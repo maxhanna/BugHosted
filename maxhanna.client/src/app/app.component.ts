@@ -1314,27 +1314,29 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
     }
     return validUsers;
   }
-  async handlePollCheckClicked() {
-    const pollCheckIdElement = document.getElementById("pollCheckId") as HTMLInputElement;
-    const checkInputId = pollCheckIdElement ? pollCheckIdElement.value : undefined;
-    const checkValue = checkInputId ? (document.getElementById(checkInputId) as HTMLInputElement)?.value : undefined;
-    const pollQuestion = (document.getElementById("pollQuestion") as HTMLInputElement).value;
-    const componentId = (document.getElementById("pollComponentId") as HTMLInputElement).value;
 
-    // Always call server to perform the vote first and get the authoritative results
-    try {
-      const res = await this.pollService.vote(this.user?.id ?? 0, checkValue ?? '', componentId);
-      this.pollResults = res;
-      this.pollChecked = true;
-      this.pollQuestion = pollQuestion;
-      this.changeDetectorRef.detectChanges();
-      this.showOverlay();
-    } catch (error) {
-      console.error("Error updating poll:", error);
-      alert("Failed to update poll. Please try again.");
-    }
+  async handlePollCheckClicked() {
+    clearTimeout(this.debounceTimer);
+    this.debounceTimer = setTimeout(async () => {
+      const pollCheckIdElement = document.getElementById("pollCheckId") as HTMLInputElement;
+      const checkInputId = pollCheckIdElement ? pollCheckIdElement.value : undefined;
+      const checkValue = checkInputId ? (document.getElementById(checkInputId) as HTMLInputElement)?.value : undefined;
+      const pollQuestion = (document.getElementById("pollQuestion") as HTMLInputElement).value;
+      const componentId = (document.getElementById("pollComponentId") as HTMLInputElement).value;
+
+      try {
+        const res = await this.pollService.vote(this.user?.id ?? 0, checkValue ?? '', componentId);
+        this.pollResults = res;
+        this.pollChecked = true;
+        this.pollQuestion = pollQuestion;
+        this.changeDetectorRef.detectChanges();
+        this.showOverlay();
+      } catch (error) {
+        console.error("Error updating poll:", error);
+        alert("Failed to update poll. Please try again.");
+      }
+    }, 100);
   }
- 
 
   // Close the poll popup and replace the original poll in the DOM with a completed-render version
   closePollPopup() {
