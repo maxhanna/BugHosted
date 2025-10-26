@@ -267,25 +267,31 @@
     <div style="display:flex; flex-direction:column; gap:8px;">
       <div style="display:flex; justify-content:space-between; align-items:center;">
         <div>STR</div>
-        <div><button (click)="adjustStat('str', -1)">-</button> <span style="margin:0 8px">{{editableStats.str}}</span>
-          <button (click)="adjustStat('str', 1)">+</button>
+        <div>
+          <button (click)="adjustStat('str', -1)" [disabled]="editableStats.str <= 1">-</button>
+          <span style="margin:0 8px">{{editableStats.str}}</span>
+          <button (click)="adjustStat('str', 1)" [disabled]="editableStats.pointsAvailable <= 0">+</button>
         </div>
       </div>
       <div style="display:flex; justify-content:space-between; align-items:center;">
         <div>DEX</div>
-        <div><button (click)="adjustStat('dex', -1)">-</button> <span style="margin:0 8px">{{editableStats.dex}}</span>
-          <button (click)="adjustStat('dex', 1)">+</button>
+        <div>
+          <button (click)="adjustStat('dex', -1)" [disabled]="editableStats.dex <= 1">-</button>
+          <span style="margin:0 8px">{{editableStats.dex}}</span>
+          <button (click)="adjustStat('dex', 1)" [disabled]="editableStats.pointsAvailable <= 0">+</button>
         </div>
       </div>
       <div style="display:flex; justify-content:space-between; align-items:center;">
         <div>INT</div>
-        <div><button (click)="adjustStat('int', -1)">-</button> <span style="margin:0 8px">{{editableStats.int}}</span>
-          <button (click)="adjustStat('int', 1)">+</button>
+        <div>
+          <button (click)="adjustStat('int', -1)" [disabled]="editableStats.int <= 1">-</button>
+          <span style="margin:0 8px">{{editableStats.int}}</span>
+          <button (click)="adjustStat('int', 1)" [disabled]="editableStats.pointsAvailable <= 0">+</button>
         </div>
       </div>
     </div>
     <div style="margin-top:10px; display:flex; gap:8px; justify-content:center;">
-      <button (click)="applyStats()">Apply</button>
+      <button *ngIf="statsChanged" (click)="applyStats()">Apply</button>
       <button (click)="closeStartMenu()">Cancel</button>
     </div>
   </div>

@@ -98,6 +98,8 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
   showLeaveConfirm: boolean = false;
   // Stats editing model (simple local model until backend exists)
   editableStats: { str: number; dex: number; int: number; pointsAvailable: number } = { str: 1, dex: 1, int: 1, pointsAvailable: 0 };
+  // Keep a copy of the original stats for change detection while the panel is open
+  private statsOriginal?: { str: number; dex: number; int: number } = undefined;
   // Cached stats to preserve values when server fetches omit per-hero stats
   cachedStats?: { str: number; dex: number; int: number } = undefined;
   // Change character popup state
@@ -1182,6 +1184,8 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
     const pointsAvailable = Math.max(0, level - allocated);
     this.editableStats = { str: Math.max(1, str ?? 1), dex: Math.max(1, dex ?? 1), int: Math.max(1, intl ?? 1), pointsAvailable };
     setTimeout(() => { this.isChangeStatsOpen = true; }, 100);
+  // capture original for change detection
+  try { this.statsOriginal = { str: this.editableStats.str, dex: this.editableStats.dex, int: this.editableStats.int }; } catch { this.statsOriginal = undefined; }
     console.log("opened change stats with ", this.editableStats);
   }
 
@@ -1192,11 +1196,19 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
 
   adjustStat(stat: 'str' | 'dex' | 'int', delta: number) {
     if (!this.editableStats) return;
+    // Defensive checks: ensure we don't go below 1 and don't overspend points
+    const current = (this.editableStats as any)[stat] as number;
+    const next = current + delta;
+    if (next < 1) return;
     if (delta > 0 && this.editableStats.pointsAvailable <= 0) return;
-    const next = (this.editableStats as any)[stat] + delta;
-    if (next < 1) return; // don't allow below 1
     (this.editableStats as any)[stat] = next;
     if (delta > 0) this.editableStats.pointsAvailable -= delta; else this.editableStats.pointsAvailable += Math.abs(delta);
+  }
+
+  // Simple helper to detect if the editable stats differ from the original capture
+  get statsChanged(): boolean {
+    if (!this.statsOriginal) return false;
+    return this.editableStats.str !== this.statsOriginal.str || this.editableStats.dex !== this.statsOriginal.dex || this.editableStats.int !== this.statsOriginal.int;
   }
 
   async applyStats() {
