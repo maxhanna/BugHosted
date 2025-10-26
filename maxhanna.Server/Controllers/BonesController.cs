@@ -1743,17 +1743,14 @@ namespace maxhanna.Server.Controllers
 											selHpCmd.Parameters.AddWithValue("@TargetHeroId", tgtHeroId);
 											var hpObj = await selHpCmd.ExecuteScalarAsync();
 											int newHp = 0;
-					    if (hpObj != null && int.TryParse(hpObj.ToString(), out int hpv)) newHp = hpv;
-					    if (newHp <= 0)
-											{
-												try
-												{
-						    await HandleHeroDeath(tgtHeroId, e.heroId, "encounter", map, connection, transaction);
-												}
-												catch (Exception exHd)
-												{
-													await _log.Db("HandleHeroDeath (encounter) failed: " + exHd.Message, targetHeroId, "BONES", true);
-												}
+											if (hpObj != null && int.TryParse(hpObj.ToString(), out int hpv))
+                                            {
+                                                newHp = hpv;
+                                            }
+											if (newHp <= 0)
+											{ 
+												await HandleHeroDeath(tgtHeroId, e.heroId, "encounter", map, connection, transaction);
+												 
 											}
 										}
 									}
@@ -2002,14 +1999,14 @@ namespace maxhanna.Server.Controllers
 				var partyIds = await GetPartyMemberIds(killerHeroId, connection, transaction);
 				if (partyIds.Count == 0) partyIds.Add(killerHeroId);
 				// Debug: log who will receive EXP and how much
-				await _log.Db($"AwardEncounterKillExp: killer={killerHeroId} encounterLevel={encounterLevel} party=[{string.Join(',', partyIds)}]", killerHeroId, "BONES", true);
+				//await _log.Db($"AwardEncounterKillExp: killer={killerHeroId} encounterLevel={encounterLevel} party=[{string.Join(',', partyIds)}]", killerHeroId, "BONES", true);
 				string idsCsv = string.Join(',', partyIds);
 				string updateSql = $"UPDATE maxhanna.bones_hero SET exp = exp + @Exp WHERE id IN ({idsCsv})";
 				using (var upCmd = new MySqlCommand(updateSql, connection, transaction))
 				{
 					upCmd.Parameters.AddWithValue("@Exp", encounterLevel);
 					int rows = await upCmd.ExecuteNonQueryAsync();
-					await _log.Db($"AwardEncounterKillExp: exp UPDATE rowsAffected={rows} for ids=[{idsCsv}] (added {encounterLevel} exp)", killerHeroId, "BONES", true);
+				//	await _log.Db($"AwardEncounterKillExp: exp UPDATE rowsAffected={rows} for ids=[{idsCsv}] (added {encounterLevel} exp)", killerHeroId, "BONES", true);
 				}
 				// Read back the exp/level values for the party to verify the update took effect
 				try
@@ -2022,7 +2019,7 @@ namespace maxhanna.Server.Controllers
 						int id = selR.GetInt32(0);
 						int exp = selR.IsDBNull(1) ? 0 : selR.GetInt32(1);
 						int lvl = selR.IsDBNull(2) ? 0 : selR.GetInt32(2);
-						await _log.Db($"AwardEncounterKillExp: post-update heroId={id} exp={exp} level={lvl}", killerHeroId, "BONES", true);
+					//	await _log.Db($"AwardEncounterKillExp: post-update heroId={id} exp={exp} level={lvl}", killerHeroId, "BONES", true);
 					}
 					selR.Close();
 				}
@@ -2034,7 +2031,7 @@ namespace maxhanna.Server.Controllers
 				using (var lvlCmd = new MySqlCommand(levelSql, connection, transaction))
 				{
 					int leveled = await lvlCmd.ExecuteNonQueryAsync();
-					await _log.Db($"AwardEncounterKillExp: level UPDATE rowsAffected={leveled} for ids=[{idsCsv}]", killerHeroId, "BONES", true);
+				//	await _log.Db($"AwardEncounterKillExp: level UPDATE rowsAffected={leveled} for ids=[{idsCsv}]", killerHeroId, "BONES", true);
 				}
 			}
 			catch (Exception ex)
