@@ -537,9 +537,11 @@ fieldset {
 }
 
 .onlineButton {
+  content: '🟢';
   font-size: x-small;
   position: relative;
   top: -3px;
+  animation: glow 1.5s infinite alternate;
 }
 
 .glowing {

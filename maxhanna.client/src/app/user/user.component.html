@@ -64,7 +64,7 @@
             <div>
               <span *ngIf="user && user.lastSeen && isUserOnline(user.lastSeen | timeSince)" class="cursorPointer"
                 [title]="user.lastSeen | timeSince">
-                <span class="glowing onlineButton" title="Online">🟢</span> Online
+                <span class="onlineButton" title="Online"></span> Online
               </span>
               <span *ngIf="user && user.lastSeen && !isUserOnline(user.lastSeen | timeSince)" class="smallFont"
                 [title]="user.lastSeen">

@@ -32,8 +32,8 @@
     <span class="user">
       <app-user-tag [user]="user" [inputtedParentRef]="inputtedParentRef ?? parentRef" [displayMiniTag]="true"
         [preventOpenProfile]="true" [preventExpandPicture]="true"></app-user-tag>
-      <span *ngIf="parentRef?.isUserOnline(user.lastSeen | timeSince)" class="glowing onlineButton"
-        [title]="'Online Since: ' + (user.lastSeen | timeSince)" [style.top]="'10px'">🟢</span>
+      <span *ngIf="parentRef?.isUserOnline(user.lastSeen | timeSince)" class="onlineButton"
+        [title]="'Online Since: ' + (user.lastSeen | timeSince)" [style.top]="'10px'"></span>
     </span>
     <span class="chatIcon" *ngIf="getChatNotificationsByUserId(user.id)">
       💬
@@ -54,8 +54,8 @@
                     [displayMiniTag]="true"
                     [preventOpenProfile]="true"
                     [preventExpandPicture]="true"></app-user-tag>  
-      <span *ngIf="parentRef?.isUserOnline(user.lastSeen | timeSince)" class="glowing onlineButton"
-       [title]="'Online Since: ' + (user.lastSeen | timeSince)" [style.top]="'10px'">🟢</span>
+      <span *ngIf="parentRef?.isUserOnline(user.lastSeen | timeSince)" class="onlineButton"
+       [title]="'Online Since: ' + (user.lastSeen | timeSince)" [style.top]="'10px'"></span>
     </span>
     <span class="chatIcon" *ngIf="getChatNotificationsByUserId(user.id)">
       💬
@@ -84,8 +84,8 @@
                           [preventOpenProfile]="true"
                           [preventExpandPicture]="true"
                           [displayOnlyAvatar]="true"></app-user-tag>
-            <span *ngIf="parentRef?.isUserOnline(user.lastSeen | timeSince)" class="glowing onlineButton"
-              [title]="'Online Since: ' + (user.lastSeen | timeSince)" [style.top]="'-20px'" [style.right]="'-10px'">🟢</span>
+            <span *ngIf="parentRef?.isUserOnline(user.lastSeen | timeSince)" class="onlineButton"
+              [title]="'Online Since: ' + (user.lastSeen | timeSince)" [style.top]="'-20px'" [style.right]="'-10px'"></span>
           </span>
         </div>
         <span *ngFor="let user of removeSelfFromReceivers(row.receiver); let i = index; let last = last">

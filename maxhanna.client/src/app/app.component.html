@@ -96,7 +96,7 @@
           <span
             *ngIf="popupUserTagUser && popupUserTagUser.lastSeen && isUserOnline(popupUserTagUser.lastSeen | timeSince)"
             class="cursorPointer" [title]="popupUserTagUser.lastSeen | timeSince">
-            <span class="glowing onlineButton">🟢</span> Online
+            <span class="onlineButton"></span> Online
           </span>
           <span
             *ngIf="popupUserTagUser && popupUserTagUser.lastSeen && !isUserOnline(popupUserTagUser.lastSeen | timeSince)">
