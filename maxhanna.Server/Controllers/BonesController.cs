@@ -1954,7 +1954,13 @@ namespace maxhanna.Server.Controllers
 				if (metaEvent.Data.TryGetValue("party_members", out var partyJson))
 				{
 					try
-					{ var partyData = JsonSerializer.Deserialize<List<int>>(partyJson); if (partyData != null && partyData.Count > 0) await UpdateMetaHeroParty(partyData, connection, transaction); }
+					{
+						var partyData = JsonSerializer.Deserialize<List<int>>(partyJson);
+						if (partyData != null && partyData.Count > 0)
+						{
+							await UpdateMetaHeroParty(partyData, connection, transaction);
+						}
+					}
 					catch (JsonException) { }
 				}
 			}
@@ -2077,11 +2083,22 @@ namespace maxhanna.Server.Controllers
 			// Accepts a list of hero IDs forming (or merging into) a single party using new party_id schema.
 			try
 			{
-				if (partyData == null || partyData.Count < 2) return;
+				await _log.Db("UpdateMetaHeroParty called", null, "BONES", true);
+				if (partyData == null || partyData.Count < 2)
+				{
+					await _log.Db("UpdateMetaHeroParty: insufficient partyData", null, "BONES", true);
+					return;
+				}
 				var heroIds = partyData.Distinct().ToList();
-				if (heroIds.Count < 2) return;
+				await _log.Db($"UpdateMetaHeroParty heroes=[{string.Join(',', heroIds)}]", null, "BONES", true);
+				if (heroIds.Count < 2)
+				{
+					await _log.Db("UpdateMetaHeroParty: after distinct only one hero", null, "BONES", true);
+					return;
+				}
 				// Fetch existing party_id assignments for provided heroes
 				string selectSql = $"SELECT hero_id, party_id FROM bones_hero_party WHERE hero_id IN ({string.Join(',', heroIds)})";
+				await _log.Db($"UpdateMetaHeroParty running selectSql={selectSql}", null, "BONES", true);
 				var existing = new Dictionary<int, int?>();
 				using (var selCmd = new MySqlCommand(selectSql, connection, transaction))
 				{
@@ -2091,10 +2108,12 @@ namespace maxhanna.Server.Controllers
 						int hid = rdr.GetInt32(0);
 						int? pid = rdr.IsDBNull(1) ? (int?)null : rdr.GetInt32(1);
 						existing[hid] = pid;
+						await _log.Db($"UpdateMetaHeroParty existing row hero={hid} party={pid}", null, "BONES", true);
 					}
 				}
 				foreach (var hid in heroIds) if (!existing.ContainsKey(hid)) existing[hid] = null;
 				var partyIdsFound = existing.Values.Where(v => v.HasValue).Select(v => v!.Value).Distinct().ToList();
+				await _log.Db($"UpdateMetaHeroParty partyIdsFound=[{string.Join(',', partyIdsFound)}]", null, "BONES", true);
 				int targetPartyId;
 				if (partyIdsFound.Count == 0)
 				{
@@ -2102,14 +2121,17 @@ namespace maxhanna.Server.Controllers
 					using var newCmd = new MySqlCommand("SELECT COALESCE(MAX(party_id),0)+1 FROM bones_hero_party", connection, transaction);
 					var obj = await newCmd.ExecuteScalarAsync();
 					if (obj != null && int.TryParse(obj.ToString(), out var tmpPid) && tmpPid > 0) targetPartyId = tmpPid; else targetPartyId = 1;
+					await _log.Db($"UpdateMetaHeroParty allocated new partyId={targetPartyId}", null, "BONES", true);
 				}
 				else
 				{
 					targetPartyId = partyIdsFound.Min();
+					await _log.Db($"UpdateMetaHeroParty using existing partyId={targetPartyId}", null, "BONES", true);
 					// Merge any other party_ids into targetPartyId
 					if (partyIdsFound.Count > 1)
 					{
 						string mergeSql = $"UPDATE bones_hero_party SET party_id = @Target WHERE party_id IN ({string.Join(',', partyIdsFound.Where(id => id != targetPartyId))})";
+						await _log.Db($"UpdateMetaHeroParty merging partyIds sql={mergeSql}", null, "BONES", true);
 						using var mergeCmd = new MySqlCommand(mergeSql, connection, transaction);
 						mergeCmd.Parameters.AddWithValue("@Target", targetPartyId);
 						await mergeCmd.ExecuteNonQueryAsync();
@@ -2122,6 +2144,7 @@ namespace maxhanna.Server.Controllers
 					if (!existingPid.HasValue)
 					{
 						string insSql = "INSERT INTO bones_hero_party (hero_id, party_id, joined) VALUES (@HeroId, @PartyId, UTC_TIMESTAMP())";
+						await _log.Db($"UpdateMetaHeroParty inserting hero={hid} into party={targetPartyId}", null, "BONES", true);
 						using var insCmd = new MySqlCommand(insSql, connection, transaction);
 						insCmd.Parameters.AddWithValue("@HeroId", hid);
 						insCmd.Parameters.AddWithValue("@PartyId", targetPartyId);
@@ -2130,15 +2153,25 @@ namespace maxhanna.Server.Controllers
 					else if (existingPid.Value != targetPartyId)
 					{
 						string updSql = "UPDATE bones_hero_party SET party_id = @PartyId WHERE hero_id = @HeroId LIMIT 1";
+						await _log.Db($"UpdateMetaHeroParty updating hero={hid} party from {existingPid.Value} to {targetPartyId}", null, "BONES", true);
 						using var updCmd = new MySqlCommand(updSql, connection, transaction);
 						updCmd.Parameters.AddWithValue("@HeroId", hid);
 						updCmd.Parameters.AddWithValue("@PartyId", targetPartyId);
 						await updCmd.ExecuteNonQueryAsync();
 					}
 				}
+				await _log.Db("UpdateMetaHeroParty completed", null, "BONES", true);
 			}
-			catch (MySqlException) { throw; }
-			catch (Exception) { throw; }
+			catch (MySqlException mex)
+			{
+				await _log.Db("UpdateMetaHeroParty MySqlException: " + mex.Message, null, "BONES", true);
+				throw;
+			}
+			catch (Exception ex)
+			{
+				await _log.Db("UpdateMetaHeroParty Exception: " + ex.Message + "\n" + ex.StackTrace, null, "BONES", true);
+				throw;
+			}
 		}
 		private async Task Unparty(int heroId, MySqlConnection connection, MySqlTransaction transaction)
 		{
@@ -2156,24 +2189,53 @@ namespace maxhanna.Server.Controllers
 		// Helpers for new party schema
 		private async Task<int?> GetPartyId(int heroId, MySqlConnection connection, MySqlTransaction transaction)
 		{
-			using var cmd = new MySqlCommand("SELECT party_id FROM bones_hero_party WHERE hero_id = @HeroId LIMIT 1", connection, transaction);
-			cmd.Parameters.AddWithValue("@HeroId", heroId);
-			var obj = await cmd.ExecuteScalarAsync();
-			if (obj == null || obj == DBNull.Value) return null;
-			if (int.TryParse(obj.ToString(), out var pid)) return pid;
-			return null;
+			try
+			{
+				await _log.Db($"GetPartyId called heroId={heroId}", heroId, "BONES", true);
+				using var cmd = new MySqlCommand("SELECT party_id FROM bones_hero_party WHERE hero_id = @HeroId LIMIT 1", connection, transaction);
+				cmd.Parameters.AddWithValue("@HeroId", heroId);
+				var obj = await cmd.ExecuteScalarAsync();
+				if (obj == null || obj == DBNull.Value)
+				{
+					await _log.Db($"GetPartyId: no party for hero={heroId}", heroId, "BONES", true);
+					return null;
+				}
+				if (int.TryParse(obj.ToString(), out var pid))
+				{
+					await _log.Db($"GetPartyId: hero={heroId} party={pid}", heroId, "BONES", true);
+					return pid;
+				}
+				await _log.Db($"GetPartyId: unexpected scalar value for hero={heroId}: {obj}", heroId, "BONES", true);
+				return null;
+			}
+			catch (Exception ex)
+			{
+				await _log.Db($"GetPartyId Exception for hero={heroId}: " + ex.Message + "\n" + ex.StackTrace, heroId, "BONES", true);
+				throw;
+			}
 		}
 		private async Task<List<int>> GetPartyMemberIds(int heroId, MySqlConnection connection, MySqlTransaction transaction)
 		{
 			var list = new List<int>();
-			int? partyId = await GetPartyId(heroId, connection, transaction);
-			if (!partyId.HasValue) { list.Add(heroId); return list; }
-			using var cmd = new MySqlCommand("SELECT hero_id FROM bones_hero_party WHERE party_id = @Pid", connection, transaction);
-			cmd.Parameters.AddWithValue("@Pid", partyId.Value);
-			using var rdr = await cmd.ExecuteReaderAsync();
-			while (await rdr.ReadAsync()) { var hid = rdr.GetInt32(0); if (!list.Contains(hid)) list.Add(hid); }
-			if (!list.Contains(heroId)) list.Add(heroId);
-			return list;
+			try
+			{
+				await _log.Db($"GetPartyMemberIds called heroId={heroId}", heroId, "BONES", true);
+				int? partyId = await GetPartyId(heroId, connection, transaction);
+				if (!partyId.HasValue) { list.Add(heroId); await _log.Db($"GetPartyMemberIds no party found for hero={heroId}", heroId, "BONES", true); return list; }
+				await _log.Db($"GetPartyMemberIds partyId={partyId.Value} for hero={heroId}", heroId, "BONES", true);
+				using var cmd = new MySqlCommand("SELECT hero_id FROM bones_hero_party WHERE party_id = @Pid", connection, transaction);
+				cmd.Parameters.AddWithValue("@Pid", partyId.Value);
+				using var rdr = await cmd.ExecuteReaderAsync();
+				while (await rdr.ReadAsync()) { var hid = rdr.GetInt32(0); if (!list.Contains(hid)) list.Add(hid); await _log.Db($"GetPartyMemberIds found member hero={hid}", heroId, "BONES", true); }
+				if (!list.Contains(heroId)) list.Add(heroId);
+				await _log.Db($"GetPartyMemberIds returning [{string.Join(',', list)}] for hero={heroId}", heroId, "BONES", true);
+				return list;
+			}
+			catch (Exception ex)
+			{
+				await _log.Db($"GetPartyMemberIds Exception for hero={heroId}: " + ex.Message + "\n" + ex.StackTrace, heroId, "BONES", true);
+				throw;
+			}
 		}
 		// Helper to safely read nullable string columns from a data reader
 		private static string? SafeGetString(System.Data.Common.DbDataReader reader, string columnName)
