@@ -101,7 +101,41 @@ namespace maxhanna.Server.Controllers
 				_ = _log.Db("Error fetching user emulation stats: " + ex.Message, userId, "ROM", true);
 				return StatusCode(500, "Error fetching stats");
 			}
+			}
+		
+
+		[HttpGet("/Rom/UserGameBreakdown/{userId}")]
+		public async Task<IActionResult> UserGameBreakdown(int userId)
+		{
+			try
+			{
+				using (var connection = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+				{
+					await connection.OpenAsync();
+					string sql = @"SELECT rom_file_name, IFNULL(SUM(duration_seconds),0) AS totalSeconds, IFNULL(SUM(plays),0) AS plays FROM maxhanna.emulation_play_time WHERE user_id = @UserId GROUP BY rom_file_name ORDER BY totalSeconds DESC;";
+					var cmd = new MySqlCommand(sql, connection);
+					cmd.Parameters.AddWithValue("@UserId", userId);
+					using (var reader = await cmd.ExecuteReaderAsync())
+					{
+						var list = new List<object>();
+						while (await reader.ReadAsync())
+						{
+							string? name = reader.IsDBNull(0) ? null : reader.GetString(0);
+							int totalSeconds = reader.IsDBNull(1) ? 0 : reader.GetInt32(1);
+							int plays = reader.IsDBNull(2) ? 0 : reader.GetInt32(2);
+							list.Add(new { romFileName = name, totalSeconds = totalSeconds, plays = plays });
+						}
+						return Ok(list);
+					}
+				}
+			}
+			catch (Exception ex)
+			{
+				_ = _log.Db("Error fetching user emulation breakdown: " + ex.Message, userId, "ROM", true);
+				return StatusCode(500, "Error fetching breakdown");
+			}
 		}
+
 
 		private bool ValidatePath(string directory)
 		{

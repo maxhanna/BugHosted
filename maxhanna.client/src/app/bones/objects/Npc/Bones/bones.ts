@@ -61,14 +61,9 @@ export class Bones extends Npc {
     events.on("HERO_REQUESTS_ACTION", this, (params: { hero: any, objectAtPosition: any }) => {
       if (params.objectAtPosition.id === this.id) {
         this.facePlayer(params); 
-        if (this.textContent?.find(x => x.string.find(s => s.toLowerCase().includes("meta-grinder")))) {
-          const encounterBots = params.hero.parent.children.filter((x:any) => x.heroId < 0);
-          if (encounterBots) {
-            for (let x = 0; x < encounterBots.length; x++) {
-              encounterBots[x].chasing = params.hero;
-            }
-          }
-        } 
+        if (params.hero.isUserControlled) {
+          events.emit("HEAL_USER");
+        }
       }
     });
   }

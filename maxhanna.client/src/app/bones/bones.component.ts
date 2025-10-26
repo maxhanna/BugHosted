@@ -277,6 +277,23 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
       } 
        
     });
+
+    // When the player interacts with an NPC that emits HEAL_USER (e.g., Bones NPC),
+    // update local hero/metaHero hp immediately and inform the server to persist the change.
+    events.on("HEAL_USER", this, async () => {
+      try {
+        if (this.metaHero && this.metaHero.id) {
+          // Optimistically update client-side objects so UI responds immediately
+          try { this.metaHero.hp = 100; } catch { }
+          try { if (this.hero) this.hero.hp = 100; } catch { }
+
+          // Persist to server
+          await this.bonesService.healHero(this.metaHero.id).catch((err) => { console.error('healHero API failed', err); });
+        }
+      } catch (ex) {
+        console.error('HEAL_USER handler failed', ex);
+      }
+    });
   }
 
   update = async (delta: number) => {

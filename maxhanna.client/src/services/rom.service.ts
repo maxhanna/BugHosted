@@ -50,6 +50,16 @@ export class RomService {
       return null;
     }
   }
+  // Returns breakdown per ROM: [{ romFileName, totalSeconds, plays }, ...]
+  async getUserEmulationBreakdown(userId: number) {
+    try {
+      const res = await fetch(`/rom/usergamebreakdown/${userId}`);
+      if (!res.ok) return null;
+      return await res.json();
+    } catch (e) {
+      return null;
+    }
+  }
   async getActivePlayers(minutes: number = 2) {
     try {
       const response = await fetch('/rom/activeplayers', {

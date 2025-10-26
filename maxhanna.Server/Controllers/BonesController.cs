@@ -706,6 +706,30 @@ namespace maxhanna.Server.Controllers
 			}
 		} 
 
+		[HttpPost("/Bones/HealHero", Name = "Bones_HealHero")]
+		public async Task<IActionResult> HealHero([FromBody] int heroId)
+		{
+			if (heroId <= 0) return BadRequest("Invalid hero id");
+			using var connection = new MySqlConnection(_connectionString);
+			await connection.OpenAsync();
+			using var transaction = connection.BeginTransaction();
+			try
+			{
+				string sql = "UPDATE maxhanna.bones_hero SET hp = 100, updated = UTC_TIMESTAMP() WHERE id = @HeroId LIMIT 1;";
+				var parameters = new Dictionary<string, object?>() { { "@HeroId", heroId } };
+				await ExecuteInsertOrUpdateOrDeleteAsync(sql, parameters, connection, transaction);
+				var hero = await GetHeroData(0, heroId, connection, transaction);
+				await transaction.CommitAsync();
+				return Ok(hero);
+			}
+			catch (Exception ex)
+			{
+				await transaction.RollbackAsync();
+				await _log.Db("HealHero failed: " + ex.Message, heroId, "BONES", true);
+				return StatusCode(500, "Internal server error: " + ex.Message);
+			}
+		}
+
 		[HttpPost("/Bones/GetPartyMembers", Name = "Bones_GetUserPartyMembers")]
 		public async Task<IActionResult> GetUserPartyMembers([FromBody] int heroId)
 		{

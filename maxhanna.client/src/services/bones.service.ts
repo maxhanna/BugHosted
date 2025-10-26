@@ -137,4 +137,7 @@ export class BonesService {
   async respawnHero(heroId: number) {
     return this.fetchData('/bones/respawnhero', heroId);
   }
+  async healHero(heroId: number) {
+    return this.fetchData('/bones/healhero', heroId);
+  }
 }

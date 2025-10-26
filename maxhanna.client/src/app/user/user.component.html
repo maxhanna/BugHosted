@@ -408,8 +408,19 @@
                   [label]="'Top game played:'"></app-menu-item>
               </div>
               <div class="optionsStatsDescription">
-                {{ topEmulationGameName.replace('.sav', '') }} <span *ngIf="topEmulationGamePlays">• Plays: {{
-                  topEmulationGamePlays }}</span>
+                <span class="clickableLink" (click)="toggleEmulationBreakdown()" title="Click to view all games">
+                  {{ topEmulationGameName.replace('.sav', '') }}
+                </span>
+                <span *ngIf="topEmulationGamePlays">• Plays: {{ topEmulationGamePlays }}</span>
+              </div>
+
+              <!-- Breakdown list (shows per-game total hours) -->
+              <div *ngIf="isEmulationBreakdownOpen" class="optionsStatsBreakdown">
+                <div *ngIf="!emulationGameBreakdown || emulationGameBreakdown.length === 0" class="xxSmallFont">No games found.</div>
+                <div *ngFor="let item of emulationGameBreakdown" class="optionsStatsBreakdownRow">
+                  <div class="optionsStatsBreakdownName">{{ item.romFileName.replace('.sav','') }}</div>
+                  <div class="optionsStatsBreakdownValue">{{ (item.totalSeconds/3600) | number:'1.2-2' }} hours <span *ngIf="item.plays">• Plays: {{item.plays}}</span></div>
+                </div>
               </div>
             </div>
 

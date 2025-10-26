@@ -107,6 +107,9 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
   emulationTotalTimeSeconds?: number = 0;
   topEmulationGameName?: string | null = null;
   topEmulationGamePlays?: number | null = null;
+  // Breakdown per game (populated on demand when user clicks)
+  emulationGameBreakdown: Array<{ romFileName: string; totalSeconds: number; plays: number }> = [];
+  isEmulationBreakdownOpen = false;
   weatherLocation?: { city: string; country: string } = undefined;
   isUserBlocked = false;
   stoppedNotifications: number[] = [];
@@ -261,10 +264,33 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
         }
       });
 
+      // Breakdown will be fetched on demand when user clicks the top-game area
+
       if ((this.numberOfMemesUploaded === undefined || this.numberOfMemesUploaded === null)) {
         this.numberOfMemesUploaded = 0;
       }
     } catch (e) { }
+  }
+
+  // Toggle the emulation breakdown list; fetch from server on first open
+  async toggleEmulationBreakdown() {
+    if (!this.user || !this.user.id) return;
+    if (this.isEmulationBreakdownOpen) {
+      this.isEmulationBreakdownOpen = false;
+      return;
+    }
+    // Open and fetch breakdown
+    this.isEmulationBreakdownOpen = true;
+    try {
+      const data = await this.romService.getUserEmulationBreakdown(this.user.id);
+      if (Array.isArray(data)) {
+        this.emulationGameBreakdown = data.map((d: any) => ({ romFileName: d.romFileName ?? d.rom_file_name ?? d.rom_fileName ?? '', totalSeconds: d.totalSeconds ?? 0, plays: d.plays ?? 0 }));
+      } else {
+        this.emulationGameBreakdown = [];
+      }
+    } catch (e) {
+      this.emulationGameBreakdown = [];
+    }
   }
 
 
