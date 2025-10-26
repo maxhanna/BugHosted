@@ -68,22 +68,31 @@ export class HeroRoomLevel extends Level {
 
     this.walls = new Set();
 
-    // Mark the tiled room perimeter as walls so the player cannot leave the tiled area directly.
-    // startTileX/startTileY are in tile coordinates (tile units).
-    const roomLeft = startTileX;
-    const roomTop = startTileY;
-    const roomRight = (startTileX + roomWidth - 1) * 2.5;
-    const roomBottom = (startTileY + roomHeight - 1) * 2.5;
-    // horizontal edges
-    for (let tx = roomLeft; tx <= roomRight; tx++) {
-      this.walls.add(`${gridCells(tx)},${gridCells(roomTop)}`);
-      this.walls.add(`${gridCells(tx)},${gridCells(roomBottom)}`);
+    // Compute the pixel bounding box of the tiled floor area and convert to hero-grid indices
+    // so walls align with `gridCells(1)` (20px) regardless of floor tile size (64x96).
+    const tilePixelWidth = 64;
+    const tilePixelHeight = 96;
+    const cellPixel = gridCells(1);
+    const leftPixel = tileStart.x;
+    const topPixel = tileStart.y;
+    const rightPixel = tileStart.x + roomWidth * tilePixelWidth - 1;
+    const bottomPixel = tileStart.y + roomHeight * tilePixelHeight - 1;
+
+    const leftIndex = Math.floor(leftPixel / cellPixel);
+    const rightIndex = Math.floor(rightPixel / cellPixel);
+    const topIndex = Math.floor(topPixel / cellPixel);
+    const bottomIndex = Math.floor(bottomPixel / cellPixel);
+
+    // horizontal edges (top and bottom rows of hero-grid cells covered by the floor area)
+    for (let gx = leftIndex; gx <= rightIndex; gx++) {
+      this.walls.add(`${gridCells(gx)},${gridCells(topIndex)}`);
+      this.walls.add(`${gridCells(gx)},${gridCells(bottomIndex)}`);
     }
-    // vertical edges
-    for (let ty = roomTop; ty <= roomBottom; ty++) {
-      this.walls.add(`${gridCells(roomLeft)},${gridCells(ty)}`);
-      this.walls.add(`${gridCells(roomRight)},${gridCells(ty)}`);
-    }  
+    // vertical edges (left and right columns)
+    for (let gy = topIndex; gy <= bottomIndex; gy++) {
+      this.walls.add(`${gridCells(leftIndex)},${gridCells(gy)}`);
+      this.walls.add(`${gridCells(rightIndex)},${gridCells(gy)}`);
+    }
   }
 
   override ready() {
