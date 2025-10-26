@@ -87,6 +87,9 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
   pendingInvites: Map<number, number> = new Map<number, number>();
   // per-hero cached seconds left for UI
   pendingInviteSeconds: Map<number, number> = new Map<number, number>();
+  // temporary per-hero 'already in a party' status (map to expiry timestamp ms)
+  alreadyInPartyUntil: Map<number, number> = new Map<number, number>();
+  private alreadyInPartyTimers: Map<number, any> = new Map<number, any>();
   // track invites that are being cleared so we can play an animation before removing
   pendingClearing: Set<number> = new Set<number>();
   private pendingClearingTimers: Map<number, any> = new Map<number, any>();
@@ -229,7 +232,7 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
   ngOnDestroy() {
     clearInterval(this.pollingInterval);
     clearInterval(this._processedCleanupInterval);
-  try { if (this._pendingInvitesInterval) clearInterval(this._pendingInvitesInterval); } catch { }
+    try { if (this._pendingInvitesInterval) clearInterval(this._pendingInvitesInterval); } catch { }
     this.mainScene.destroy();
     this.gameLoop.stop();
     this.remove_me('MetaComponent');
@@ -344,10 +347,10 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
   }
 
   clearPendingInvitePopup() {
-  try { if (this.pendingInviteTimer) clearInterval(this.pendingInviteTimer); } catch { }
-  this.pendingInviteTimer = undefined;
-  this.pendingInvitePopup = null;
-  this.pendingInviteSecondsLeft = null;
+    try { if (this.pendingInviteTimer) clearInterval(this.pendingInviteTimer); } catch { }
+    this.pendingInviteTimer = undefined;
+    this.pendingInvitePopup = null;
+    this.pendingInviteSecondsLeft = null;
   }
 
   async acceptInvite() {
@@ -672,11 +675,11 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
       if (heroMeta.id === this.metaHero.id) {
         try { this.metaHero.hp = heroMeta.hp ?? this.metaHero.hp; } catch { }
         try { this.metaHero.level = heroMeta.level ?? this.metaHero.level; } catch { }
-  try { this.metaHero.exp = heroMeta.exp ?? this.metaHero.exp; } catch { }
-  // Sync stats from server if provided
-  try { this.metaHero.str = (heroMeta as any).str ?? ((heroMeta as any).stats ? (heroMeta as any).stats.str : this.metaHero.str); } catch { }
-  try { this.metaHero.dex = (heroMeta as any).dex ?? ((heroMeta as any).stats ? (heroMeta as any).stats.dex : this.metaHero.dex); } catch { }
-  try { this.metaHero.int = (heroMeta as any).int ?? ((heroMeta as any).stats ? (heroMeta as any).stats.int : this.metaHero.int); } catch { }
+        try { this.metaHero.exp = heroMeta.exp ?? this.metaHero.exp; } catch { }
+        // Sync stats from server if provided
+        try { this.metaHero.str = (heroMeta as any).str ?? ((heroMeta as any).stats ? (heroMeta as any).stats.str : this.metaHero.str); } catch { }
+        try { this.metaHero.dex = (heroMeta as any).dex ?? ((heroMeta as any).stats ? (heroMeta as any).stats.dex : this.metaHero.dex); } catch { }
+        try { this.metaHero.int = (heroMeta as any).int ?? ((heroMeta as any).stats ? (heroMeta as any).stats.int : this.metaHero.int); } catch { }
         if (this.hero) {
           // Detect HP drop for local hero and play attenuated impact SFX
 
@@ -1105,45 +1108,44 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
   }
 
   async inviteToParty(heroId: number) {
+    if (!this.metaHero || !this.metaHero.id) return;
+    // If an invite is pending and not expired, block resending
+    const existing = this.pendingInvites.get(heroId);
+    if (existing && existing > Date.now()) {
+      alert('Invite already pending. Please wait for recipient to accept or for it to expire.');
+      return;
+    }
+    // optimistic: add pending invite with 20s expiry
+    this.addPendingInvite(heroId, 20000);
     try {
-      if (!this.metaHero || !this.metaHero.id) return;
-      // If an invite is pending and not expired, block resending
-      const existing = this.pendingInvites.get(heroId);
-      if (existing && existing > Date.now()) {
-        alert('Invite already pending. Please wait for recipient to accept or for it to expire.');
+      const res: any = await this.bonesService.inviteToParty(this.metaHero.id, heroId);
+      // If server explicitly indicates the target is already in a party, show a temporary message
+      if (res && res.invited === false) {
+        // remove optimistic pending and show "already in a party" for 5s
+        this.setAlreadyInPartyStatus(heroId, 5000);
         return;
       }
-      // optimistic: add pending invite with 20s expiry
-      this.addPendingInvite(heroId, 20000);
-      const userId = this.parentRef?.user?.id ?? undefined;
-      if (this.bonesService && typeof (this.bonesService as any).inviteToParty === 'function') {
-        try {
-          const res: any = await (this.bonesService as any).inviteToParty(this.metaHero.id, heroId, userId);
-          // if server responds negatively, revert optimistic UI (with animation)
-          if (!(res && (res.success === undefined || res.success === true))) {
-            this.animateClearPending(heroId);
-            alert('Invite failed.');
-          }
-          // otherwise, server accepted — partyMembers will be reconciled on next fetch
-        } catch (err) {
-          this.animateClearPending(heroId);
-          console.error('inviteToParty failed', err);
-          alert('Invite failed.');
-        }
-      } else {
+      // if server responds negatively in other ways, revert optimistic UI (with animation)
+      if (!(res && (res.success === undefined || res.success === true))) {
         this.animateClearPending(heroId);
-        alert('Party invite not implemented on server');
+        alert('Invite failed.');
       }
-    } catch (ex) { console.error('inviteToParty failed', ex); this.pendingInvites.delete(heroId); alert('Failed to send invite'); }
+      // otherwise, server accepted — partyMembers will be reconciled on next fetch
+    } catch (err) {
+      this.animateClearPending(heroId);
+      console.error('inviteToParty failed', err);
+      alert('Invite failed.');
+    }
+
   }
 
   // Add a pending invite entry that auto-expires after `ttlMs` milliseconds
   private addPendingInvite(heroId: number, ttlMs: number) {
     const expiry = Date.now() + ttlMs;
     this.pendingInvites.set(heroId, expiry);
-  // set initial seconds value for UI and ensure updater is running
-  try { this.pendingInviteSeconds.set(heroId, Math.ceil(ttlMs / 1000)); } catch { }
-  try { this.ensurePendingInvitesInterval(); } catch { }
+    // set initial seconds value for UI and ensure updater is running
+    try { this.pendingInviteSeconds.set(heroId, Math.ceil(ttlMs / 1000)); } catch { }
+    try { this.ensurePendingInvitesInterval(); } catch { }
     setTimeout(() => {
       const cur = this.pendingInvites.get(heroId);
       if (cur && cur === expiry) {
@@ -1193,7 +1195,7 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
       this.pendingClearingTimers.set(heroId, t);
     } catch (ex) { console.error('animateClearPending failed', ex); }
   }
- 
+
   async leaveParty() {
     if (!this.metaHero || !this.metaHero.id) return;
     const userId = this.parentRef?.user?.id ?? undefined;
@@ -1240,6 +1242,43 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
         }
       }, 500);
     } catch (ex) { console.error('Failed to start pending invites interval', ex); }
+  }
+
+  // Mark a hero as 'already in a party' for a short period (ms). Clears any optimistic pending state.
+  private setAlreadyInPartyStatus(heroId: number, ms: number = 5000) {
+    try {
+      // clear optimistic pending state
+      try { this.pendingInvites.delete(heroId); } catch { }
+      try { this.pendingInviteSeconds.delete(heroId); } catch { }
+      try {
+        if (this.pendingClearing.has(heroId)) {
+          const t = this.pendingClearingTimers.get(heroId);
+          if (t) clearTimeout(t);
+          this.pendingClearing.delete(heroId);
+          this.pendingClearingTimers.delete(heroId);
+        }
+      } catch { }
+
+      const until = Date.now() + ms;
+      this.alreadyInPartyUntil.set(heroId, until);
+      const existing = this.alreadyInPartyTimers.get(heroId);
+      if (existing) { try { clearTimeout(existing); } catch { } }
+      const to = setTimeout(() => {
+        try { this.alreadyInPartyUntil.delete(heroId); this.alreadyInPartyTimers.delete(heroId); } catch { }
+      }, ms + 50);
+      this.alreadyInPartyTimers.set(heroId, to);
+    } catch (ex) { console.error('setAlreadyInPartyStatus failed', ex); }
+  }
+
+  // Query helpers for template
+  isAlreadyInPartyStatus(heroId: number) {
+    const t = this.alreadyInPartyUntil.get(heroId);
+    return !!(t && t > Date.now());
+  }
+  getAlreadyInPartySeconds(heroId: number): number | null {
+    const t = this.alreadyInPartyUntil.get(heroId);
+    if (!t) return null;
+    return Math.max(0, Math.ceil((t - Date.now()) / 1000));
   }
 
   // Return whether an invite is currently in the clearing animation
