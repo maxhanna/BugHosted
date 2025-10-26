@@ -251,10 +251,10 @@ namespace maxhanna.Server.Controllers
 								{
 									switch (f)
 									{
-										case 0: targetY = sourceY - 16; break; // up
-										case 1: targetX = sourceX + 16; break; // right
-										case 2: targetY = sourceY + 16; break; // down
-										case 3: targetX = sourceX - 16; break; // left
+										case 0: targetY = sourceY - GRIDCELL; break; // up
+										case 1: targetX = sourceX + GRIDCELL; break; // right
+										case 2: targetY = sourceY + GRIDCELL; break; // down
+										case 3: targetX = sourceX - GRIDCELL; break; // left
 										default: break;
 									}
 								}
@@ -263,9 +263,9 @@ namespace maxhanna.Server.Controllers
 									// try common string values
 									var s = fVal?.ToLower() ?? string.Empty;
 									if (s == "up" || s == "north") targetY = sourceY - 1;
-									else if (s == "right" || s == "east") targetX = sourceX + 16;
-									else if (s == "down" || s == "south") targetY = sourceY + 16;
-									else if (s == "left" || s == "west") targetX = sourceX - 16;
+									else if (s == "right" || s == "east") targetX = sourceX + GRIDCELL;
+									else if (s == "down" || s == "south") targetY = sourceY + GRIDCELL;
+									else if (s == "left" || s == "west") targetX = sourceX - GRIDCELL;
 								}
 							}
 
@@ -585,8 +585,8 @@ namespace maxhanna.Server.Controllers
 								WHERE NOT EXISTS (
 									SELECT 1 FROM maxhanna.bones_hero WHERE user_id = @UserId OR name = @Name
 								);";
-				int posX = 16;
-				int posY = 11 * 16;
+				int posX = GRIDCELL;
+				int posY = 11 * GRIDCELL;
 				Dictionary<string, object?> parameters = new()
 				{
 					{ "@CoordsX", posX }, { "@CoordsY", posY }, { "@Speed", 1 }, { "@Name", req.Name ?? "Anonymous"}, { "@UserId", req.UserId }
@@ -1318,8 +1318,8 @@ namespace maxhanna.Server.Controllers
 				string updSql = "UPDATE maxhanna.bones_hero SET map = @Map, coordsX = @X, coordsY = @Y, updated = UTC_TIMESTAMP() WHERE id = @HeroId LIMIT 1";
 				using var upCmd = new MySqlCommand(updSql, connection, transaction);
 				upCmd.Parameters.AddWithValue("@Map", "Town");
-				upCmd.Parameters.AddWithValue("@X", 16);
-				upCmd.Parameters.AddWithValue("@Y", 16);
+				upCmd.Parameters.AddWithValue("@X", GRIDCELL);
+				upCmd.Parameters.AddWithValue("@Y", GRIDCELL);
 				upCmd.Parameters.AddWithValue("@HeroId", heroId);
 				await upCmd.ExecuteNonQueryAsync();
 				var hero = await GetHeroData(0, heroId, connection, transaction);
