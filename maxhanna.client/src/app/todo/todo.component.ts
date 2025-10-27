@@ -375,6 +375,14 @@ export class TodoComponent extends ChildComponent implements OnInit, AfterViewIn
     return this.sharedColumns.filter(x => x.shareDirection == "shared_by_me" && x.ownerId == this.parentRef?.user?.id);
   }
 
+  // Return an activations array for the provided sharedColumn item in a safe way
+  getColumnActivationsFor(item: any): Array<{ userId: number, username?: string, activated?: boolean }> {
+    if (!item) return [];
+    const id = item.ownerColumnId ?? item.OwnerColumnId ?? item.ownerId ?? item.OwnerId;
+    if (!id) return [];
+    return this.columnActivations[id] ?? [];
+  }
+
   currentUserColumns: string[] = []; // List of column names the user has added
 
   isColumnAdded(columnName: string): boolean {
