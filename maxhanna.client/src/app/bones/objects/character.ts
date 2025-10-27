@@ -372,8 +372,8 @@ export class Character extends GameObject {
     const barWidth = 40;  // Total width of HP bar
     const barHeight = 6;  // Height of HP bar
     // Use a small consistent horizontal anchor so bars align relative to the character center
-    const anchorX = drawPosX + 8;
-    const barX = anchorX - barWidth / 2;  // Center the bar on the anchor
+    const anchorX = drawPosX + 20;
+    const barX = anchorX - (this.body?.frameSize?.x ?? 40) / 2;  // Center the bar on the anchor
     const barY = drawPosY - 12;  // Position above character
 
     // Calculate HP percentage
@@ -414,10 +414,10 @@ export class Character extends GameObject {
     }
 
     // Define EXP bar dimensions
-  const barWidth = 40;
-  const barHeight = 4;
-  const anchorX = drawPosX + 8;
-  const barX = anchorX - barWidth / 2;
+    const barWidth = 40;
+    const barHeight = 4;
+    const anchorX = drawPosX + (this.body?.frameSize?.x ?? 40) / 2;
+    const barX = anchorX - barWidth / 2;
     const barY = drawPosY - 7; // Positioned below HP bar
 
     // Calculate EXP percentage
