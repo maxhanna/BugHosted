@@ -142,8 +142,8 @@ body {
 
 .colorInput {
   position: fixed;
-  right: CALC(50% - 125px);
-  top: CALC(50% - 15px); 
+  right: calc(50% - 235px);
+  top: calc(50% - 5px);
   z-index: 102;
 }
 
