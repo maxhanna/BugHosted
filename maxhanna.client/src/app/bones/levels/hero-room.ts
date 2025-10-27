@@ -24,6 +24,12 @@ export class HeroRoomLevel extends Level {
       this.itemsFound = params.itemsFound;
     }
 
+    this.background = new Sprite(
+      {
+        resource: resources.images["townbg"], 
+        frameSize: new Vector2(1011, 124),
+      }
+    );
     // Create a room made of repeated "floorbigtile" sprites, centered on the default hero position.
     const roomWidth = 12; // tiles horizontally
     const roomHeight = 5; // tiles vertically

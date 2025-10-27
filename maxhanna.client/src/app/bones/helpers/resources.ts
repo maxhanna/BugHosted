@@ -31,6 +31,7 @@ export class Resources {
       skeleton: `${this.dir}skeletonspritesheet.png`,
       stars: `${this.dir}stars.png`,
       textBox: `${this.dir}sprite-text-background.png`,
+      townbg: `${this.dir}townbg.png`,
       warpbase: `${this.dir}warpBase.png`,
     };
     this.audioToLoad = {
