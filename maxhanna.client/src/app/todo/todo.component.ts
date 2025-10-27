@@ -403,8 +403,19 @@ export class TodoComponent extends ChildComponent implements OnInit, AfterViewIn
   async addSharedColumn(column: any) {
     // Call your API to add the column to user's list
     // Then update currentUserColumns   
-    await this.addColumn(column.columnName);
-    //  await this.shareWith(new User(column.ownerId));
+    if (!this.parentRef?.user?.id) return;
+    try {
+      const res = await this.todoService.subscribeToColumn(column.ownerColumnId ?? column.OwnerColumnId, this.parentRef.user.id);
+      if (res) {
+        this.parentRef?.showNotification(res);
+        // Add the column name locally so the UI shows it
+        if (!this.todoTypes.includes(column.columnName)) {
+          this.todoTypes.push(column.columnName);
+        }
+      }
+    } catch (err) {
+      console.error('Failed to subscribe to column', err);
+    }
   }
 
   removeColumn(columnName: string): void {

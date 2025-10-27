@@ -224,4 +224,19 @@ export class TodoService {
       return null;
     }
   }
+  async subscribeToColumn(ownerColumnId: number, userId: number) {
+    try {
+      const response = await fetch(`/todo/columns/activate`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ OwnerColumnId: ownerColumnId, UserId: userId }),
+      });
+
+      return await response.text();
+    } catch (error) {
+      return null;
+    }
+  }
 }

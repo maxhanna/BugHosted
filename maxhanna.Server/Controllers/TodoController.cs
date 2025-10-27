@@ -823,6 +823,46 @@ namespace maxhanna.Server.Controllers
 			}
 		}
 
+		[HttpPost("/Todo/Columns/Activate", Name = "ActivateColumn")]
+		public async Task<IActionResult> ActivateColumn([FromBody] ActivateColumnRequest req)
+		{
+			if (req == null || req.OwnerColumnId <= 0 || req.UserId <= 0)
+			{
+				return BadRequest("Invalid activation request");
+			}
+
+			string sql = @"
+				INSERT IGNORE INTO todo_column_activations (todo_column_id, user_id)
+				VALUES (@ColId, @UserId);";
+
+			try
+			{
+				using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+				{
+					await conn.OpenAsync();
+					using (var cmd = new MySqlCommand(sql, conn))
+					{
+						cmd.Parameters.AddWithValue("@ColId", req.OwnerColumnId);
+						cmd.Parameters.AddWithValue("@UserId", req.UserId);
+						var rows = await cmd.ExecuteNonQueryAsync();
+						if (rows >= 0)
+						{
+							return Ok("Activated");
+						}
+						else
+						{
+							return StatusCode(500, "Failed to activate column");
+						}
+					}
+				}
+			}
+			catch (Exception ex)
+			{
+				_ = _log.Db($"Error activating column: {ex.Message}", req.UserId, "TODO", true);
+				return StatusCode(500, "Error activating column");
+			}
+		}
+
 
 		[HttpPost("/Todo/Columns/Remove")]
 		public async Task<IActionResult> RemoveColumn([FromBody] AddTodoColumnRequest req)
@@ -970,4 +1010,10 @@ public class SharedColumnDto
 	public string? OwnerName { get; set; }
 	public string? SharedWith { get; set; }
 	public string? ShareDirection { get; set; } // "shared_with_me" or "shared_by_me"
+}
+
+public class ActivateColumnRequest
+{
+	public int OwnerColumnId { get; set; }
+	public int UserId { get; set; }
 }
