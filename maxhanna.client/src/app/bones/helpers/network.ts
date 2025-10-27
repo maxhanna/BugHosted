@@ -399,7 +399,7 @@ export function subscribeToMainGameEvents(object: any) {
       const payload: any = {
         position: safeStringify(data.position)
       };
-      if (data.id) payload.droppedItemId = data.id;
+  if (data.id !== undefined && data.id !== null) payload.droppedItemId = `${data.id}`;
       if (data.item) payload.item = safeStringify(data.item);
       const metaEvent = new MetaEvent(0, object.metaHero.id, new Date(), "ITEM_DESTROYED", object.metaHero.map, payload);
       // Send the event to the server; server will delete the dropped row and update hero.power
