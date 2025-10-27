@@ -590,10 +590,13 @@ namespace maxhanna.Server.Controllers
 			try
 			{
 				string sql = @"INSERT INTO maxhanna.bones_hero (name, user_id, coordsX, coordsY, speed, created, updated)
-                          SELECT @Name, @UserId, @CoordsX, @CoordsY, @Speed, UTC_TIMESTAMP(), UTC_TIMESTAMP
-								WHERE NOT EXISTS (
-									SELECT 1 FROM maxhanna.bones_hero WHERE user_id = @UserId OR name = @Name
-								);";
+	                          SELECT @Name, @UserId, @CoordsX, @CoordsY, @Speed, UTC_TIMESTAMP(), UTC_TIMESTAMP
+									WHERE NOT EXISTS (
+										SELECT 1 FROM maxhanna.bones_hero WHERE user_id = @UserId AND name = @Name
+										)
+									AND NOT EXISTS (
+										SELECT 1 FROM maxhanna.bones_hero_selection WHERE user_id = @UserId AND name = @Name
+										);";
 				int posX = GRIDCELL;
 				int posY = 11 * GRIDCELL;
 				Dictionary<string, object?> parameters = new()
@@ -922,12 +925,11 @@ namespace maxhanna.Server.Controllers
 			await connection.OpenAsync();
 			try
 			{
-				// Gather distinct names from both bones_hero and bones_hero_selection for this user
 				string sql = @"
 					SELECT DISTINCT name FROM maxhanna.bones_hero WHERE user_id = @UserId AND name IS NOT NULL
 					UNION
 					SELECT DISTINCT name FROM maxhanna.bones_hero_selection WHERE user_id = @UserId AND name IS NOT NULL
-					ORDER BY name COLLATE utf8mb4_general_ci;";
+					ORDER BY name;";
 				using var cmd = new MySqlCommand(sql, connection);
 				cmd.Parameters.AddWithValue("@UserId", userId);
 				using var rdr = await cmd.ExecuteReaderAsync();
@@ -1579,6 +1581,23 @@ namespace maxhanna.Server.Controllers
 								Dex = reader.IsDBNull(reader.GetOrdinal("hero_dex")) ? 0 : reader.GetInt32(reader.GetOrdinal("hero_dex")),
 								Int = reader.IsDBNull(reader.GetOrdinal("hero_int")) ? 0 : reader.GetInt32(reader.GetOrdinal("hero_int")),
 							}; 
+
+						// If a user-level default color is set in user_settings, prefer it over stored hero color
+						try
+						{
+							if (userId != 0 && hero != null)
+							{
+								using var colorCmd = new MySqlCommand("SELECT last_character_color FROM maxhanna.user_settings WHERE user_id = @UserId LIMIT 1", conn, transaction);
+								colorCmd.Parameters.AddWithValue("@UserId", userId);
+								var colorObj = await colorCmd.ExecuteScalarAsync();
+								if (colorObj != null && colorObj != DBNull.Value)
+								{
+									var colorStr = colorObj.ToString();
+									if (!string.IsNullOrEmpty(colorStr)) hero.Color = colorStr;
+								}
+							}
+						}
+						catch { /* non-fatal: ignore user_settings lookup failures */ }
 						} 
 					}
 				}
