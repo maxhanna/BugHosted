@@ -43,20 +43,8 @@ namespace maxhanna.Server.Controllers
 					AND (
 						t.ownership = @UserId
 						OR (
-							-- Owner has an explicit shared_with that includes the user (robust CSV match)
-							EXISTS (
-								SELECT 1 FROM todo_columns tcx
-								WHERE tcx.user_id = t.ownership
-								  AND tcx.column_name = @Type
-								  AND CONCAT(',', REPLACE(COALESCE(tcx.shared_with, ''), ' ', ''), ',') LIKE CONCAT('%,', @UserId, ',%')
-							)
-						)
-						OR (
-							-- Or the owner-column has an activation row for the requesting user
-							EXISTS (
-								SELECT 1 FROM todo_columns tc2
-								JOIN todo_column_activations a ON a.todo_column_id = tc2.id
-								WHERE tc2.user_id = t.ownership AND tc2.column_name = @Type AND a.user_id = @UserId
+							t.type IN (
+								SELECT column_name FROM todo_columns 
 							)
 						)
 					)
@@ -670,20 +658,10 @@ namespace maxhanna.Server.Controllers
 					AND (
 						    t.ownership = @UserId
 						    OR (
-							    EXISTS (
-								SELECT 1 FROM todo_columns tcx
-								WHERE tcx.user_id = t.ownership
-								  AND tcx.column_name = @Type
-								  AND CONCAT(',', REPLACE(COALESCE(tcx.shared_with, ''), ' ', ''), ',') LIKE CONCAT('%,', @UserId, ',%')
-							    )
-						    )
-						    OR (
-							    EXISTS (
-								    SELECT 1 FROM todo_columns tc2
-								    JOIN todo_column_activations a ON a.todo_column_id = tc2.id
-								    WHERE tc2.user_id = t.ownership AND tc2.column_name = @Type AND a.user_id = @UserId
-							    )
-						    )
+								t.type IN (
+									SELECT column_name FROM todo_columns 
+								)
+							)
 						)
 					{(string.IsNullOrEmpty(search) ? "" : " AND t.todo LIKE CONCAT('%', @Search, '%')")};";
 
