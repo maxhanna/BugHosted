@@ -1811,6 +1811,13 @@ namespace maxhanna.Server.Controllers
 				var rng = new Random();
 				(int nx, int ny) PickApproachTile(int centerX, int centerY, int fallbackX, int fallbackY)
 				{
+					// Prefer the caller-provided intended tile (fallback) if available. This helps encounters
+					// stop at the intended adjacent tile (one GRIDCELL away) instead of circling.
+					var fb = (fallbackX, fallbackY);
+					if (!occupiedPositions.Contains(fb) && !reservedPositions.Contains(fb))
+					{
+						return fb;
+					}
 					var candidates = new List<(int, int)>
 					{
 						(centerX - tile, centerY),
@@ -1849,7 +1856,8 @@ namespace maxhanna.Server.Controllers
 					{
 						if (!occupiedPositions.Contains(c) && !reservedPositions.Contains(c)) return c;
 					}
-					return (fallbackX, fallbackY);
+					// As a last resort return the intended fallback
+					return fb;
 				}
 				foreach (var e in encounters)
 				{
