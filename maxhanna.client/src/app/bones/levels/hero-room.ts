@@ -52,9 +52,9 @@ export class HeroRoomLevel extends Level {
 
     // Create a tiled floor and perimeter walls using Level helper
     const roomWidth = 20; // tiles horizontally
-    const roomHeight = 5; // tiles vertically
+    const roomHeight = 3; // tiles vertically
     // tileWidth=64, tileHeight=96 match original layout
-    this.tileFloor(this.defaultHeroPosition, roomWidth, roomHeight, 64, 96, resources.images["floorbigtile"], { drawLayer: BASE, startObjectId: -1000 });
+    this.tileFloor(new Vector2(gridCells(-50), gridCells(0)), roomWidth, roomHeight, 64, 96, resources.images["floorbigtile"], { drawLayer: BASE, startObjectId: -1000 });
 
 
 
