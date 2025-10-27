@@ -397,7 +397,7 @@
                 <app-menu-item [type]="'Emulation'" [parentRef]="parentRef"
                   [label]="'Emulation total time played:'"></app-menu-item>
               </div>
-              <div class="optionsStatsDescription">
+              <div class="optionsStatsDescription cursorPointerUnderlined linkColor" (click)="toggleEmulationBreakdown()">
                 {{ emulationTotalTimeSeconds }} seconds
               </div>
             </div>
