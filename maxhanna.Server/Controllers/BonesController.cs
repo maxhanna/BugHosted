@@ -444,7 +444,9 @@ namespace maxhanna.Server.Controllers
 								// Check if any encounters died (hp reached 0) and award EXP in same transaction
 								try
 								{
-									string selectDeadSql = @"SELECT hero_id, `level`, hp FROM maxhanna.bones_encounter WHERE map = @Map AND hp = 0 AND coordsX BETWEEN @XMin AND @XMax AND coordsY BETWEEN @YMin AND @YMax;";
+									// Only consider encounters that were killed recently (based on last_killed)
+									// to avoid awarding EXP repeatedly for the same dead encounter when the hero stands still.
+									string selectDeadSql = @"SELECT hero_id, `level`, hp FROM maxhanna.bones_encounter WHERE map = @Map AND hp = 0 AND last_killed IS NOT NULL AND last_killed >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 5 SECOND) AND coordsX BETWEEN @XMin AND @XMax AND coordsY BETWEEN @YMin AND @YMax;";
 									using var deadCmd = new MySqlCommand(selectDeadSql, connection, transaction);
 									deadCmd.Parameters.AddWithValue("@Map", hero.Map ?? string.Empty);
 									deadCmd.Parameters.AddWithValue("@XMin", xMin);
