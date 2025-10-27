@@ -187,6 +187,7 @@ namespace maxhanna.Server.Controllers
 				string sql = @"
 					-- Columns shared WITH current user
 					SELECT 
+						tc.id AS owner_column_id,
 						tc.user_id AS owner_id, 
 						tc.column_name, 
 						tc.shared_with, 
@@ -200,6 +201,7 @@ namespace maxhanna.Server.Controllers
 
 					-- Columns current user has shared WITH OTHERS
 					SELECT 
+						tc.id AS owner_column_id,
 						@UserId AS owner_id,
 						tc.column_name,
 						tc.shared_with,
@@ -223,10 +225,11 @@ namespace maxhanna.Server.Controllers
 					{
 						results.Add(new SharedColumnDto
 						{
+							OwnerColumnId = reader.GetInt32("owner_column_id"),
 							OwnerId = reader.GetInt32("owner_id"),
 							ColumnName = reader.GetString("column_name"),
-							SharedWith = reader.GetString("shared_with"),
-							OwnerName = reader.GetString("owner_name"),
+							SharedWith = reader.IsDBNull(reader.GetOrdinal("shared_with")) ? null : reader.GetString("shared_with"),
+							OwnerName = reader.IsDBNull(reader.GetOrdinal("owner_name")) ? null : reader.GetString("owner_name"),
 							ShareDirection = reader.GetString("share_direction")
 						});
 					}
@@ -259,9 +262,9 @@ namespace maxhanna.Server.Controllers
         WHERE user_id = @UserId AND column_name = @Column FOR UPDATE;";
 
 			string insertSql = @"
-        INSERT INTO todo_columns (user_id, column_name, is_added, shared_with)
-        VALUES (@UserId, @Column, TRUE, @SharedWith)
-        ON DUPLICATE KEY UPDATE shared_with = @SharedWith;";
+			INSERT INTO todo_columns (user_id, column_name, shared_with)
+			VALUES (@UserId, @Column, @SharedWith)
+			ON DUPLICATE KEY UPDATE shared_with = @SharedWith;";
 
 			string updateSql = @"
         UPDATE todo_columns 
@@ -659,29 +662,15 @@ namespace maxhanna.Server.Controllers
 				return BadRequest("Invalid column name.");
 			}
 
-			string selectOwnSql = @"
-        SELECT shared_with 
-        FROM todo_columns 
-        WHERE user_id = @Owner AND column_name = @Column FOR UPDATE;";
-
+			// New behavior: ensure a todo_columns row exists and add an activation row for the user
 			string insertSql = @"
-        INSERT INTO todo_columns (user_id, column_name, is_added, shared_with)
-        VALUES (@Owner, @Column, TRUE, NULL)
-        ON DUPLICATE KEY UPDATE is_added = TRUE, shared_with = NULL;";
+			INSERT INTO todo_columns (user_id, column_name, shared_with)
+			VALUES (@Owner, @Column, NULL)
+			ON DUPLICATE KEY UPDATE shared_with = COALESCE(shared_with, NULL);";
 
-			string updateSharedWithSql = @"
-        UPDATE todo_columns tc
-        JOIN (
-            SELECT column_name, 
-                   GROUP_CONCAT(DISTINCT user_id ORDER BY user_id SEPARATOR ',') AS shared_with_list
-            FROM todo_columns
-            WHERE column_name = @Column
-            GROUP BY column_name
-            HAVING LENGTH(GROUP_CONCAT(DISTINCT user_id ORDER BY user_id SEPARATOR ',')) <= 45
-        ) AS sub
-        ON tc.column_name = sub.column_name
-        SET tc.shared_with = sub.shared_with_list
-        WHERE tc.column_name = @Column;";
+			string insertActivationSql = @"
+			INSERT IGNORE INTO todo_column_activations (todo_column_id, user_id)
+			SELECT id, @Owner FROM todo_columns WHERE user_id = @Owner AND column_name = @Column;";
 
 			try
 			{
@@ -690,17 +679,8 @@ namespace maxhanna.Server.Controllers
 					await conn.OpenAsync();
 					using (var transaction = await conn.BeginTransactionAsync())
 					{
-						// Check if the column exists for the current user
-						bool rowExists = false;
-						using (var selectCmd = new MySqlCommand(selectOwnSql, conn, transaction))
-						{
-							selectCmd.Parameters.AddWithValue("@Owner", req.UserId);
-							selectCmd.Parameters.AddWithValue("@Column", req.Column);
-							var result = await selectCmd.ExecuteScalarAsync();
-							rowExists = result != null; // Row exists for this user
-						}
 
-						// Perform the insert or update (set shared_with to NULL initially)
+						// Ensure todo_columns row exists for this user/column
 						using (var insertCmd = new MySqlCommand(insertSql, conn, transaction))
 						{
 							insertCmd.Parameters.AddWithValue("@Owner", req.UserId);
@@ -708,11 +688,12 @@ namespace maxhanna.Server.Controllers
 							await insertCmd.ExecuteNonQueryAsync();
 						}
 
-						// Update shared_with for all rows with the same column_name
-						using (var updateCmd = new MySqlCommand(updateSharedWithSql, conn, transaction))
+						// Create an activation for this user
+						using (var actCmd = new MySqlCommand(insertActivationSql, conn, transaction))
 						{
-							updateCmd.Parameters.AddWithValue("@Column", req.Column);
-							await updateCmd.ExecuteNonQueryAsync();
+							actCmd.Parameters.AddWithValue("@Owner", req.UserId);
+							actCmd.Parameters.AddWithValue("@Column", req.Column);
+							await actCmd.ExecuteNonQueryAsync();
 						}
 
 						await transaction.CommitAsync();
@@ -735,16 +716,17 @@ namespace maxhanna.Server.Controllers
 			{
 				return BadRequest("Invalid column name.");
 			} 
-			string sql = @"
-				INSERT INTO todo_columns (user_id, column_name, is_added)
-				VALUES (@Owner, @Column, FALSE)
-				ON DUPLICATE KEY UPDATE is_added = FALSE;";
+			// New behavior: remove activation for this user
+			string deleteActivationSql = @"
+			DELETE a FROM todo_column_activations a
+			JOIN todo_columns tc ON tc.id = a.todo_column_id
+			WHERE tc.user_id = @Owner AND tc.column_name = @Column AND a.user_id = @Owner;";
 			try
 			{
 				using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
 				{
 					await conn.OpenAsync();
-					using (var cmd = new MySqlCommand(sql, conn))
+					using (var cmd = new MySqlCommand(deleteActivationSql, conn))
 					{
 						cmd.Parameters.AddWithValue("@Owner", req.UserId);
 						cmd.Parameters.AddWithValue("@Column", req.Column);
@@ -764,9 +746,10 @@ namespace maxhanna.Server.Controllers
 		public async Task<IActionResult> GetColumnsForUser([FromBody] int userId)
 		{
 			string sqlColumns = @"
-				SELECT column_name, is_added 
-				FROM todo_columns 
-				WHERE user_id = @Owner;";
+				SELECT tc.id AS column_id, tc.column_name, 
+				       EXISTS(SELECT 1 FROM todo_column_activations a WHERE a.todo_column_id = tc.id AND a.user_id = @Owner) AS is_added
+				FROM todo_columns tc
+				WHERE tc.user_id = @Owner;";
 
 			string[] defaultTodoTypes = new[] { "Todo", "Work", "Shopping", "Study", "Movie", "Bucket", "Recipe" };
 
@@ -791,13 +774,13 @@ namespace maxhanna.Server.Controllers
 
 							while (await rdrColumns.ReadAsync())
 							{
-								string columnName = rdrColumns.GetString(0);
-								bool isAdded = rdrColumns.GetBoolean(1);
+								int columnId = rdrColumns.GetInt32(0);
+								string columnName = rdrColumns.GetString(1);
+								bool isAdded = rdrColumns.GetBoolean(2);
 								dbColumns[columnName] = isAdded;
 								dbColumnCount++;
 
-								// Debug: Log each column as it's read from DB
-							//	_ = _log.Db($"Read from DB - Column: {columnName}, IsAdded: {isAdded}", userId, "TODO", outputToConsole: true);
+								// We could also collect the columnId if needed in the response
 							}
 
 							// Debug: Log summary of DB columns
@@ -865,6 +848,8 @@ namespace maxhanna.Server.Controllers
 }
 public class SharedColumnDto
 {
+    // ID of the row in todo_columns table
+    public int OwnerColumnId { get; set; }
 	public int OwnerId { get; set; }
 	public string? ColumnName { get; set; }
 	public string? OwnerName { get; set; }

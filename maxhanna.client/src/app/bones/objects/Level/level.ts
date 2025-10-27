@@ -8,7 +8,9 @@ import { Resource } from "../../helpers/resources";
 export class Level extends GameObject {
   // Support multiple background layers with per-layer parallax factors.
   // Each layer can be an image or any drawable object the renderer understands.
-  backgroundLayers: Array<{ image: any; parallax: number; offset?: Vector2; repeat?: boolean; scale?: number }> = [];
+  // direction: 'LEFT' means the layer moves opposite the camera (default behavior).
+  // direction: 'RIGHT' reverses the horizontal movement direction for the layer.
+  backgroundLayers: Array<{ image: any; parallax: number; offset?: Vector2; repeat?: boolean; scale?: number; direction?: 'LEFT' | 'RIGHT' }> = [];
   defaultHeroPosition = new Vector2(gridCells(1), gridCells(1)); 
   itemsFound: string[] = [];
   walls: Set<string> = new Set(); 
@@ -92,11 +94,11 @@ export class Level extends GameObject {
    * @param repeat whether to tile the image horizontally/vertically
    * @param scale optional scale multiplier when drawing
    */
-  addBackgroundLayer(image: any, parallax: number = 0.5, offset: Vector2 = new Vector2(0, 0), repeat: boolean = true, scale: number = 1) {
-    this.backgroundLayers.push({ image, parallax, offset, repeat, scale });
+  addBackgroundLayer(image: any, parallax: number = 0.5, offset: Vector2 = new Vector2(0, 0), repeat: boolean = true, scale: number = 1, direction: 'LEFT' | 'RIGHT' = 'LEFT') {
+    this.backgroundLayers.push({ image, parallax, offset, repeat, scale, direction });
   }
 
-  setBackgroundLayers(layers: Array<{ image: any; parallax: number; offset?: Vector2; repeat?: boolean; scale?: number }>) {
+  setBackgroundLayers(layers: Array<{ image: any; parallax: number; offset?: Vector2; repeat?: boolean; scale?: number; direction?: 'LEFT' | 'RIGHT' }>) {
     this.backgroundLayers = layers;
   }
 
@@ -112,14 +114,19 @@ export class Level extends GameObject {
       const raw = layer.image as any;
       if (!raw) continue;
 
-      const par = layer.parallax ?? 0.5;
-      const offX = layer.offset?.x ?? 0;
+  const par = layer.parallax ?? 0.5;
+  const offX = layer.offset?.x ?? 0;
       const offY = layer.offset?.y ?? 0;
       const scale = layer.scale ?? 1;
       const repeat = layer.repeat ?? true;
 
-      // compute base draw position so that camera movement shifts layer by parallax factor
-      const drawX = -cameraPos.x * par + offX;
+  // direction controls horizontal movement: LEFT (default) moves opposite camera (-cameraPos.x * par)
+  // RIGHT moves in the same direction as camera movement (cameraPos.x * par)
+  const dir = (layer.direction ?? 'LEFT');
+  const dirFactor = dir === 'RIGHT' ? 1 : -1;
+
+  // compute base draw position so that camera movement shifts layer by parallax factor
+  const drawX = dirFactor * cameraPos.x * par + offX;
       const drawY = -cameraPos.y * par + offY;
 
       // Determine drawable type:
