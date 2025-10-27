@@ -20,9 +20,6 @@ namespace maxhanna.Server.Controllers
 		private readonly Log _log;
 		private readonly IConfiguration _config;
 		private readonly string _connectionString;
-	// Note: activeLocks was previously declared here but not used in this controller.
-	// Removed to avoid unnecessary static allocation. Other controllers may still
-	// declare their own activeLocks where used.
 		// Track last time encounter movement was processed per map to limit updates to once per second
 		private static readonly Dictionary<string, DateTime> _lastEncounterAiRun = new();
 		// Track when an encounter started chasing a specific hero (key: encounter hero_id)
