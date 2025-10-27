@@ -1784,7 +1784,7 @@ namespace maxhanna.Server.Controllers
 				// Get heroes on this map to determine targets. Build both list and fast lookup dictionary to avoid LINQ allocations in hot loops.
 				var heroes = new List<(int heroId, int x, int y)>();
 				var heroById = new Dictionary<int, (int x, int y)>();
-				const string heroSql = @"SELECT id, coordsX, coordsY FROM maxhanna.bones_hero WHERE map = @Map";
+				const string heroSql = @"SELECT id, coordsX, coordsY FROM maxhanna.bones_hero WHERE map = @Map AND hp > 0";
 				using (var hCmd = new MySqlCommand(heroSql, connection, transaction))
 				{
 					hCmd.Parameters.AddWithValue("@Map", map);
