@@ -484,16 +484,7 @@ namespace maxhanna.Server.Controllers
 							{
 
 								// Check if any encounters died (hp reached 0) and award EXP in same transaction
-								try
-								{
-									// Ensure the 'awarded' column exists (safe to run repeatedly).
-										try
-										{
-											string addColSql = "ALTER TABLE maxhanna.bones_encounter ADD COLUMN IF NOT EXISTS awarded TINYINT(1) DEFAULT 0;";
-											await ExecuteInsertOrUpdateOrDeleteAsync(addColSql, new Dictionary<string, object?>(), connection, transaction);
-										}
-										catch { /* non-fatal: older MySQL versions might not support IF NOT EXISTS; ignore */ }
-
+								try 
 										// Only consider encounters that were killed recently and have not yet been awarded.
 										// Rely on an 'awarded' boolean to atomically prevent double-awarding.
 										string selectDeadSql = @"SELECT hero_id, `level`, hp FROM maxhanna.bones_encounter WHERE map = @Map AND hp = 0 AND (awarded IS NULL OR awarded = 0) AND last_killed IS NOT NULL AND last_killed >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 5 SECOND) AND coordsX BETWEEN @XMin AND @XMax AND coordsY BETWEEN @YMin AND @YMax;";
