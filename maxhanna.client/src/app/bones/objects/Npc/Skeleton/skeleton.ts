@@ -48,12 +48,12 @@ export class Skeleton extends Bot {
     console.log("added skel", this);
   } 
 
-  override getContent() {
-    return {
-      portraitFrame: 0,
-      string: ["ZZZzzzt!"],
-      addsFlag: undefined,
-      canSelectItems: false
-    }
-  }
+  // override getContent() {
+  //   return {
+  //     portraitFrame: 0,
+  //     string: ["ZZZzzzt!"],
+  //     addsFlag: undefined,
+  //     canSelectItems: false
+  //   }
+  // }
 }
