@@ -445,43 +445,69 @@ namespace maxhanna.Server.Controllers
 			MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
 			try
 			{
-				conn.Open();
-				string sql = @"
-				SELECT
-				  CAST(TRIM(s) AS UNSIGNED) AS user_id,
-				  u.username,
-				  (EXISTS(SELECT 1 FROM todo_column_activations a WHERE a.todo_column_id = tc.id AND a.user_id = CAST(TRIM(s) AS UNSIGNED))) AS activated
-				FROM (
-				  SELECT shared_with FROM todo_columns WHERE id = @OwnerColumnId
-				) AS tc_row
-				CROSS JOIN
-				(
-				  SELECT TRIM(SUBSTRING_INDEX(SUBSTRING_INDEX(tc_row.shared_with, ',', numbers.n), ',', -1)) AS s
-				  FROM (SELECT 1 n UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5 UNION ALL SELECT 6 UNION ALL SELECT 7 UNION ALL SELECT 8 UNION ALL SELECT 9 UNION ALL SELECT 10) numbers
-				  WHERE numbers.n <= (LENGTH(tc_row.shared_with) - LENGTH(REPLACE(tc_row.shared_with, ',', '')) + 1)
-				) users_list
-				LEFT JOIN users u ON u.id = CAST(TRIM(s) AS UNSIGNED)
-				;";
-
-				using (var cmd = new MySqlCommand(sql, conn))
+				await conn.OpenAsync();
+				// Get the shared_with csv for the column
+				string getCsvSql = "SELECT shared_with FROM todo_columns WHERE id = @OwnerColumnId LIMIT 1;";
+				string? sharedWith = null;
+				using (var getCmd = new MySqlCommand(getCsvSql, conn))
 				{
-					cmd.Parameters.AddWithValue("@OwnerColumnId", ownerColumnId);
-					using (var rdr = await cmd.ExecuteReaderAsync())
+					getCmd.Parameters.AddWithValue("@OwnerColumnId", ownerColumnId);
+					var val = await getCmd.ExecuteScalarAsync();
+					if (val != null && val != DBNull.Value)
 					{
-						var list = new List<object>();
-						while (await rdr.ReadAsync())
-						{
-							int? uid = rdr.IsDBNull(rdr.GetOrdinal("user_id")) ? (int?)null : Convert.ToInt32(rdr.GetValue(rdr.GetOrdinal("user_id")));
-							string? uname = rdr.IsDBNull(rdr.GetOrdinal("username")) ? null : rdr.GetString("username");
-							bool activated = rdr.IsDBNull(rdr.GetOrdinal("activated")) ? false : rdr.GetBoolean("activated");
-							if (uid != null)
-							{
-								list.Add(new { userId = uid, username = uname, activated = activated });
-							}
-						}
-						return Ok(list);
+						sharedWith = val.ToString();
 					}
 				}
+
+				if (string.IsNullOrWhiteSpace(sharedWith)) return Ok(new List<object>());
+
+				// parse ids
+				var idStrings = sharedWith.Split(',', StringSplitOptions.RemoveEmptyEntries)
+					.Select(s => s.Trim())
+					.Where(s => int.TryParse(s, out _))
+					.Select(s => int.Parse(s))
+					.Distinct()
+					.ToArray();
+
+				if (!idStrings.Any()) return Ok(new List<object>());
+
+				// fetch usernames for these ids
+				string usersSql = $"SELECT id, username FROM users WHERE id IN ({string.Join(',', idStrings)})";
+				var userMap = new Dictionary<int, string?>();
+				using (var ucmd = new MySqlCommand(usersSql, conn))
+				using (var rdr = await ucmd.ExecuteReaderAsync())
+				{
+					while (await rdr.ReadAsync())
+					{
+						int id = rdr.GetInt32(0);
+						string? name = rdr.IsDBNull(1) ? null : rdr.GetString(1);
+						userMap[id] = name;
+					}
+				}
+
+				// fetch activations for this column
+				string actSql = $"SELECT user_id FROM todo_column_activations WHERE todo_column_id = @ColId AND user_id IN ({string.Join(',', idStrings)})";
+				var activatedSet = new HashSet<int>();
+				using (var acmd = new MySqlCommand(actSql, conn))
+				{
+					acmd.Parameters.AddWithValue("@ColId", ownerColumnId);
+					using (var rdr = await acmd.ExecuteReaderAsync())
+					{
+						while (await rdr.ReadAsync())
+						{
+							activatedSet.Add(rdr.GetInt32(0));
+						}
+					}
+				}
+
+				var list = new List<object>();
+				foreach (var uid in idStrings)
+				{
+					userMap.TryGetValue(uid, out var uname);
+					list.Add(new { userId = uid, username = uname, activated = activatedSet.Contains(uid) });
+				}
+
+				return Ok(list);
 			}
 			catch (Exception ex)
 			{

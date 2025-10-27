@@ -130,11 +130,6 @@
             <div>
               <div>Category: {{item.columnName}}</div>
               <div class="smallFont">Shared With {{item.sharedWith.split(',').length}} user{{item.sharedWith.split(',').length > 1 ? 's' : ''}}.</div>
-
-              <app-user-tag [userId]="item.ownerId" [inputtedParentRef]="parentRef" 
-                [displayHoverPicture]="true" 
-                [displayMiniTag]="true">
-              </app-user-tag>
             </div>
           
             <div class="shareListButtons">
