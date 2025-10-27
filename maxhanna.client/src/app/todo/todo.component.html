@@ -146,8 +146,23 @@
                 </label>
               </div> 
               <div>
-                Manage: <button class="unshare-btn" (click)="openSharePanel(item)">Manage</button>
+                Manage: <button class="unshare-btn" (click)="openManageInline(item)">Manage</button>
               </div>
+            </div>
+            <!-- Inline manage UI -->
+            <div *ngIf="managingColumnId === (item.ownerColumnId ?? item.OwnerColumnId)" class="manage-inline" style="margin-top:8px; padding:8px; border-top:1px solid #ccc;">
+              <div *ngIf="columnActivations[(item.ownerColumnId ?? item.OwnerColumnId)]?.length > 0">
+                <div *ngFor="let u of columnActivations[(item.ownerColumnId ?? item.OwnerColumnId)]" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+                  <div>
+                    <strong>{{u.username || ('User ' + u.userId)}}</strong>
+                    <div class="smallFont">Activated: {{u.activated ? 'Yes' : 'No'}}</div>
+                  </div>
+                  <div>
+                    <button class="unshare-btn" (click)="removeSharedUser(item.ownerId ?? item.OwnerId, (item.ownerColumnId ?? item.OwnerColumnId), u.userId)">Remove</button>
+                  </div>
+                </div>
+              </div>
+              <div *ngIf="!(columnActivations[(item.ownerColumnId ?? item.OwnerColumnId)]?.length > 0)">No users found for this column.</div>
             </div>
           </div>
         </div>

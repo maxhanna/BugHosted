@@ -179,6 +179,21 @@ export class TodoService {
       return null;
     }
   }
+  async getColumnActivations(ownerColumnId: number) {
+    try {
+      const response = await fetch(`/todo/getcolumnactivations`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(ownerColumnId),
+      });
+
+      return await response.json();
+    } catch (error) {
+      return null;
+    }
+  }
   async unshareWith(userId: number, unshareWithUserId: number, column: string) {
     try {
       const response = await fetch(`/todo/unsharewith`, {

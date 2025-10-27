@@ -391,10 +391,11 @@ namespace maxhanna.Server.Controllers
 
 				string newSharedWith = string.Join(", ", userIds);
 
+
 				// Update the shared_with column
 				string updateSql = @"UPDATE todo_columns 
-                        SET shared_with = @SharedWith 
-                        WHERE user_id = @UserId AND column_name = @Column";
+				        SET shared_with = @SharedWith 
+				        WHERE user_id = @UserId AND column_name = @Column";
 
 				MySqlCommand updateCmd = new MySqlCommand(updateSql, conn);
 				updateCmd.Parameters.AddWithValue("@SharedWith", newSharedWith.Length <= 0 ? DBNull.Value : newSharedWith);
@@ -402,6 +403,20 @@ namespace maxhanna.Server.Controllers
 				updateCmd.Parameters.AddWithValue("@Column", req.Column);
 
 				int rowsAffected = await updateCmd.ExecuteNonQueryAsync();
+
+				// Also delete any activation for the unshared user for this column
+				try
+				{
+					string deleteActivationSql = @"DELETE a FROM todo_column_activations a
+					JOIN todo_columns tc ON tc.id = a.todo_column_id
+					WHERE tc.user_id = @UserId AND tc.column_name = @Column AND a.user_id = @ToUserId;";
+					MySqlCommand delAct = new MySqlCommand(deleteActivationSql, conn);
+					delAct.Parameters.AddWithValue("@UserId", req.UserId);
+					delAct.Parameters.AddWithValue("@Column", req.Column);
+					delAct.Parameters.AddWithValue("@ToUserId", req.ToUserId);
+					await delAct.ExecuteNonQueryAsync();
+				}
+				catch { /* non-fatal */ }
 
 				if (rowsAffected > 0)
 				{
@@ -422,6 +437,58 @@ namespace maxhanna.Server.Controllers
 			{
 				conn.Close();
 			}
+		}
+
+		[HttpPost("/Todo/GetColumnActivations", Name = "GetColumnActivations")]
+		public async Task<IActionResult> GetColumnActivations([FromBody] int ownerColumnId)
+		{
+			MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+			try
+			{
+				conn.Open();
+				string sql = @"
+				SELECT
+				  CAST(TRIM(s) AS UNSIGNED) AS user_id,
+				  u.username,
+				  (EXISTS(SELECT 1 FROM todo_column_activations a WHERE a.todo_column_id = tc.id AND a.user_id = CAST(TRIM(s) AS UNSIGNED))) AS activated
+				FROM (
+				  SELECT shared_with FROM todo_columns WHERE id = @OwnerColumnId
+				) AS tc_row
+				CROSS JOIN
+				(
+				  SELECT TRIM(SUBSTRING_INDEX(SUBSTRING_INDEX(tc_row.shared_with, ',', numbers.n), ',', -1)) AS s
+				  FROM (SELECT 1 n UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5 UNION ALL SELECT 6 UNION ALL SELECT 7 UNION ALL SELECT 8 UNION ALL SELECT 9 UNION ALL SELECT 10) numbers
+				  WHERE numbers.n <= (LENGTH(tc_row.shared_with) - LENGTH(REPLACE(tc_row.shared_with, ',', '')) + 1)
+				) users_list
+				LEFT JOIN users u ON u.id = CAST(TRIM(s) AS UNSIGNED)
+				;";
+
+				using (var cmd = new MySqlCommand(sql, conn))
+				{
+					cmd.Parameters.AddWithValue("@OwnerColumnId", ownerColumnId);
+					using (var rdr = await cmd.ExecuteReaderAsync())
+					{
+						var list = new List<object>();
+						while (await rdr.ReadAsync())
+						{
+							int? uid = rdr.IsDBNull(rdr.GetOrdinal("user_id")) ? (int?)null : Convert.ToInt32(rdr.GetValue(rdr.GetOrdinal("user_id")));
+							string? uname = rdr.IsDBNull(rdr.GetOrdinal("username")) ? null : rdr.GetString("username");
+							bool activated = rdr.IsDBNull(rdr.GetOrdinal("activated")) ? false : rdr.GetBoolean("activated");
+							if (uid != null)
+							{
+								list.Add(new { userId = uid, username = uname, activated = activated });
+							}
+						}
+						return Ok(list);
+					}
+				}
+			}
+			catch (Exception ex)
+			{
+				_ = _log.Db($"Error fetching column activations: {ex.Message}", null, "TODO", true);
+				return StatusCode(500, "Error fetching column activations");
+			}
+			finally { conn.Close(); }
 		}
 
 		[HttpPost("/Todo/LeaveSharedColumn", Name = "LeaveSharedColumn")]

@@ -15,6 +15,10 @@ import { User } from '../../services/datacontracts/user/user';
 export class TodoComponent extends ChildComponent implements OnInit, AfterViewInit, OnDestroy {
   todos: Array<Todo> = [];
   sharedColumns: any[] = [];
+  // Map ownerColumnId -> activations list
+  columnActivations: { [ownerColumnId: number]: Array<{ userId: number, username?: string, activated?: boolean }> } = {};
+  // currently managing ownerColumnId
+  managingColumnId?: number = undefined;
   todoTypes: string[] = ['Todo', 'Work', 'Shopping', 'Study', 'Movie', 'Bucket', 'Recipe'];
   defaultTodoTypes: string[] = ['Todo', 'Work', 'Shopping', 'Study', 'Movie', 'Bucket', 'Recipe'];
   todoCount = 0;
@@ -39,6 +43,40 @@ export class TodoComponent extends ChildComponent implements OnInit, AfterViewIn
   constructor(private todoService: TodoService) {
     super();
   }
+
+  async openManageInline(item: any) {
+    if (!item || !item.ownerColumnId) return;
+    // toggle close if already open
+    if (this.managingColumnId === item.ownerColumnId) { this.managingColumnId = undefined; return; }
+    this.managingColumnId = item.ownerColumnId;
+    this.startLoading();
+    try {
+      const res = await this.todoService.getColumnActivations(item.ownerColumnId);
+      this.columnActivations[item.ownerColumnId] = res ?? [];
+    } catch (err) {
+      console.error('Failed to load activations', err);
+      this.columnActivations[item.ownerColumnId] = [];
+    }
+    this.stopLoading();
+  }
+
+  async removeSharedUser(ownerId: number, ownerColumnId: number, userIdToRemove: number) {
+    if (!this.parentRef?.user?.id) return;
+    try {
+      const result = await this.todoService.unshareWith(ownerId, userIdToRemove, this.sharedColumns.find(c => c.OwnerColumnId === ownerColumnId || c.ownerColumnId === ownerColumnId)?.columnName ?? '');
+      if (result) {
+        this.parentRef?.showNotification(result);
+        // refresh activations and sharedColumns
+        const res = await this.todoService.getColumnActivations(ownerColumnId);
+        this.columnActivations[ownerColumnId] = res ?? [];
+        await this.todoService.getSharedColumns(this.parentRef.user.id).then(r => {
+          if (r) { this.sharedColumns = (r as any[]).map((r2: any) => ({ ownerId: r2.ownerId ?? r2.OwnerId, columnName: r2.columnName ?? r2.ColumnName, sharedWith: r2.sharedWith ?? r2.SharedWith ?? '', ownerName: r2.ownerName ?? r2.OwnerName ?? '', shareDirection: r2.shareDirection ?? r2.ShareDirection ?? '', ownerColumnId: r2.ownerColumnId ?? r2.OwnerColumnId })) }
+        });
+      }
+    } catch (err) {
+      console.error('Failed to remove shared user', err);
+    }
+  }
   async ngOnInit() {
     this.parentRef?.addResizeListener();
     this.startLoading();
@@ -61,13 +99,14 @@ export class TodoComponent extends ChildComponent implements OnInit, AfterViewIn
       await this.todoService.getSharedColumns(this.parentRef.user.id).then(res => {
         if (res) {
           // Normalize server response keys (handle PascalCase from server or camelCase)
-          this.sharedColumns = (res as any[]).map((r: any) => ({
-            ownerId: r.ownerId ?? r.OwnerId,
-            columnName: r.columnName ?? r.ColumnName,
-            sharedWith: r.sharedWith ?? r.SharedWith ?? '',
-            ownerName: r.ownerName ?? r.OwnerName ?? '',
-            shareDirection: r.shareDirection ?? r.ShareDirection ?? ''
-          }));
+              this.sharedColumns = (res as any[]).map((r: any) => ({
+                ownerId: r.ownerId ?? r.OwnerId,
+                columnName: r.columnName ?? r.ColumnName,
+                sharedWith: r.sharedWith ?? r.SharedWith ?? '',
+                ownerName: r.ownerName ?? r.OwnerName ?? '',
+                shareDirection: r.shareDirection ?? r.ShareDirection ?? '',
+                ownerColumnId: r.ownerColumnId ?? r.OwnerColumnId ?? r.OwnerColumnId
+              }));
         }
       });
     }
