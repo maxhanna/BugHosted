@@ -56,7 +56,7 @@ const makeStandingFrames = (rootFrame = 0) => {
       }, 
     ]
   }
-}
+}  
 
 
 const makeAttackFrames = (rootFrame = 0) => {
@@ -80,7 +80,7 @@ export const WALK_RIGHT = makeWalkingFrames(16);
 export const WALK_UP = makeWalkingFrames(8);
 export const WALK_LEFT = makeWalkingFrames(12);
 
-export const STAND_DOWN = makeWalkingFrames(24);
+export const STAND_DOWN = makeStandingDownFrames(24);
 export const STAND_RIGHT = makeStandingFrames(17);
 export const STAND_UP = makeStandingFrames(8);
 export const STAND_LEFT = makeStandingFrames(12);  
