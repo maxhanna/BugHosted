@@ -47,7 +47,7 @@ export class HeroRoomLevel extends Level {
     this.addBackgroundLayer(resources.images["townbg"], /*parallax=*/0, new Vector2(0, 0), /*repeat=*/false, /*scale=*/1);
   
     // Fallback: if resource isn't directly drawable, try passing the sprite itself
-    this.addBackgroundLayer(resources.images["townbg2"], /*parallax=*/0.4, new Vector2(-400, 32), /*repeat=*/false, /*scale=*/1);
+    this.addBackgroundLayer(resources.images["townbg2"], /*parallax=*/0.4, new Vector2(-400, 16), /*repeat=*/false, /*scale=*/1);
 
 
     // Create a tiled floor and perimeter walls using Level helper
