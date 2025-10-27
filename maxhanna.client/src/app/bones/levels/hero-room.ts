@@ -44,10 +44,10 @@ export class HeroRoomLevel extends Level {
     // keep the Sprite instance in case other code references it, but don't add it to children
     try {
       // resources.images[...] is expected to be a drawable (HTMLImageElement or canvas)
-      this.addBackgroundLayer(this.background2.resource, /*parallax=*/0, new Vector2(0, 0), /*repeat=*/false, /*scale=*/1);
+      this.addBackgroundLayer(resources.images["townbg"], /*parallax=*/0, new Vector2(0, 0), /*repeat=*/false, /*scale=*/1);
     } catch (e) {
       // Fallback: if resource isn't directly drawable, try passing the sprite itself
-      this.addBackgroundLayer(this.background2, /*parallax=*/0.4, new Vector2(0, 0), /*repeat=*/false, /*scale=*/1);
+      this.addBackgroundLayer(resources.images["townbg2"], /*parallax=*/0.4, new Vector2(0, 0), /*repeat=*/false, /*scale=*/1);
     }
 
     // Create a room made of repeated "floorbigtile" sprites, centered on the default hero position.
