@@ -42,13 +42,13 @@ export class HeroRoomLevel extends Level {
     );
     // Register background2 as a parallax background layer instead of a scene child
     // keep the Sprite instance in case other code references it, but don't add it to children
-    try {
-      // resources.images[...] is expected to be a drawable (HTMLImageElement or canvas)
-      this.addBackgroundLayer(resources.images["townbg"], /*parallax=*/0, new Vector2(0, 0), /*repeat=*/false, /*scale=*/1);
-    } catch (e) {
-      // Fallback: if resource isn't directly drawable, try passing the sprite itself
-      this.addBackgroundLayer(resources.images["townbg2"], /*parallax=*/0.4, new Vector2(0, 0), /*repeat=*/false, /*scale=*/1);
-    }
+   
+    // resources.images[...] is expected to be a drawable (HTMLImageElement or canvas)
+    this.addBackgroundLayer(resources.images["townbg"], /*parallax=*/0, new Vector2(0, 0), /*repeat=*/false, /*scale=*/1);
+  
+    // Fallback: if resource isn't directly drawable, try passing the sprite itself
+    this.addBackgroundLayer(resources.images["townbg2"], /*parallax=*/0.4, new Vector2(0, 16), /*repeat=*/false, /*scale=*/1);
+
 
     // Create a room made of repeated "floorbigtile" sprites, centered on the default hero position.
     const roomWidth = 12; // tiles horizontally
