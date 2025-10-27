@@ -4,40 +4,24 @@ const makeWalkingFrames = (rootFrame = 0) => {
     frames: [
       {
         time: 0,
-        frame: rootFrame + 1
-      },
-      {
-        time: 100,
         frame: rootFrame
       },
       {
-        time: 200,
+        time: 100,
         frame: rootFrame + 1
       },
       {
-        time: 300,
+        time: 200,
         frame: rootFrame + 2
+      },
+      {
+        time: 300,
+        frame: rootFrame + 3
       }
     ]
   }
 }
-
-const makeSideWalkingFrames = (rootFrame = 0) => {
-  return {
-    duration: 400,
-    frames: [
-      {
-        time: 0,
-        frame: rootFrame + 1
-      },
-      {
-        time: 200,
-        frame: rootFrame
-      }, 
-    ]
-  }
-}
-
+ 
 const makeStandingDownFrames = (rootFrame = 0) => {
   return {
     duration: 2200,
@@ -83,24 +67,28 @@ const makeAttackFrames = (rootFrame = 0) => {
         time: 0,
         frame: rootFrame
       },  
+      {
+        time: 200,
+        frame: rootFrame + 1
+      },  
     ]
   }
 }
 
-export const WALK_DOWN = makeWalkingFrames(5);
-export const WALK_RIGHT = makeSideWalkingFrames(10);
-export const WALK_UP = makeWalkingFrames(13);
-export const WALK_LEFT = makeSideWalkingFrames(8);
+export const WALK_DOWN = makeWalkingFrames(4);
+export const WALK_RIGHT = makeWalkingFrames(16);
+export const WALK_UP = makeWalkingFrames(8);
+export const WALK_LEFT = makeWalkingFrames(12);
 
-export const STAND_DOWN = makeStandingDownFrames(1);
-export const STAND_RIGHT = makeStandingFrames(11);
-export const STAND_UP = makeStandingFrames(12);
-export const STAND_LEFT = makeStandingFrames(9);  
+export const STAND_DOWN = makeWalkingFrames(24);
+export const STAND_RIGHT = makeStandingFrames(17);
+export const STAND_UP = makeStandingFrames(8);
+export const STAND_LEFT = makeStandingFrames(12);  
 
-export const ATTACK_LEFT = makeAttackFrames(16);
-export const ATTACK_DOWN = makeAttackFrames(17);
-export const ATTACK_RIGHT = makeAttackFrames(18);
-export const ATTACK_UP = makeAttackFrames(19);
+export const ATTACK_LEFT = makeAttackFrames(22);
+export const ATTACK_DOWN = makeAttackFrames(22);
+export const ATTACK_RIGHT = makeAttackFrames(20);
+export const ATTACK_UP = makeAttackFrames(20);
 
 export const PICK_UP_DOWN = { 
   duration: 2500,
