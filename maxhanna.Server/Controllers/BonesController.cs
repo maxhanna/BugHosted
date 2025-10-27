@@ -74,37 +74,79 @@ namespace maxhanna.Server.Controllers
 			await connection.OpenAsync();
 			using var transaction = connection.BeginTransaction();
 			try
-			{
-				if (request != null)
-				{
-					await PersistNewAttacks(request, hero, connection, transaction);
-				}
+            {
+                if (request != null)
+                {
+                    await PersistNewAttacks(request, hero, connection, transaction);
+                }
 
-				hero = await UpdateHeroInDB(hero, connection, transaction);
-				MetaHero[]? heroes = await GetNearbyPlayers(hero, connection, transaction);
-				if (!string.IsNullOrEmpty(hero.Map))
-				{
-					await ProcessEncounterAI(hero.Map, connection, transaction);
-				}
-				MetaBot[]? enemyBots = await GetEncounters(connection, transaction, hero.Map);
-				List<MetaEvent> events = await GetEventsFromDb(hero.Map, hero.Id, connection, transaction);
-				// Query recent ATTACK events (last 5 seconds) excluding attacks originating from this hero.
-				List<Dictionary<string, object>> recentAttacks = new();
-				await CreateAttackEvents(hero, connection, transaction, recentAttacks);
-				AddAttackEventsToEventsList(hero, events, recentAttacks);
+                hero = await UpdateHeroInDB(hero, connection, transaction);
+                MetaHero[]? heroes = await GetNearbyPlayers(hero, connection, transaction);
+                if (!string.IsNullOrEmpty(hero.Map))
+                {
+                    await ProcessEncounterAI(hero.Map, connection, transaction);
+                }
+                MetaBot[]? enemyBots = await GetEncounters(connection, transaction, hero.Map);
+                List<MetaEvent> events = await GetEventsFromDb(hero.Map, hero.Id, connection, transaction);
+                // Query recent ATTACK events (last 5 seconds) excluding attacks originating from this hero.
+                List<Dictionary<string, object>> recentAttacks = new();
+                await CreateAttackEvents(hero, connection, transaction, recentAttacks);
+                AddAttackEventsToEventsList(hero, events, recentAttacks);
+				List<object> droppedItems = await FetchDroppedItems(hero, connection, transaction);
 
-				await transaction.CommitAsync();
-				var resp = new FetchGameDataResponse { Map = hero.Map, Position = hero.Position, Heroes = heroes, Events = events, EnemyBots = enemyBots, RecentAttacks = recentAttacks };
-				return Ok(resp);
-			}
-			catch (Exception ex)
+                await transaction.CommitAsync();
+                var resp = new FetchGameDataResponse { Map = hero.Map, Position = hero.Position, Heroes = heroes, Events = events, EnemyBots = enemyBots, DroppedItems = droppedItems, RecentAttacks = recentAttacks };
+                return Ok(resp);
+            }
+            catch (Exception ex)
 			{
 				await transaction.RollbackAsync();
 				return StatusCode(500, "Internal server error: " + ex.Message);
 			}
 		}
 
-		private static void AddAttackEventsToEventsList(MetaHero hero, List<MetaEvent> events, List<Dictionary<string, object>> recentAttacks)
+        private async Task<List<object>> FetchDroppedItems(MetaHero hero, MySqlConnection connection, MySqlTransaction transaction)
+        {
+            List<object> droppedItems = new();
+            try
+            {
+                int radiusTiles = 8;
+                int tile = GRIDCELL;
+                int xMin = hero.Position.x - radiusTiles * tile;
+                int xMax = hero.Position.x + radiusTiles * tile;
+                int yMin = hero.Position.y - radiusTiles * tile;
+                int yMax = hero.Position.y + radiusTiles * tile;
+                string selSql = "SELECT id, map, coordsX, coordsY, data, created FROM maxhanna.bones_items_dropped WHERE map = @Map AND coordsX BETWEEN @XMin AND @XMax AND coordsY BETWEEN @YMin AND @YMax ORDER BY created DESC;";
+                using var selCmd = new MySqlCommand(selSql, connection, transaction);
+                selCmd.Parameters.AddWithValue("@Map", hero.Map ?? string.Empty);
+                selCmd.Parameters.AddWithValue("@XMin", xMin);
+                selCmd.Parameters.AddWithValue("@XMax", xMax);
+                selCmd.Parameters.AddWithValue("@YMin", yMin);
+                selCmd.Parameters.AddWithValue("@YMax", yMax);
+                using var rdr = await selCmd.ExecuteReaderAsync();
+                while (await rdr.ReadAsync())
+                {
+                    int id = rdr.GetInt32(0);
+                    string map = rdr.IsDBNull(1) ? string.Empty : rdr.GetString(1);
+                    int cx = rdr.IsDBNull(2) ? 0 : rdr.GetInt32(2);
+                    int cy = rdr.IsDBNull(3) ? 0 : rdr.GetInt32(3);
+                    string dataJson = rdr.IsDBNull(4) ? "{}" : rdr.GetString(4);
+                    DateTime created = rdr.IsDBNull(5) ? DateTime.UtcNow : rdr.GetDateTime(5);
+                    object? parsed = null;
+                    try { parsed = Newtonsoft.Json.JsonConvert.DeserializeObject<object>(dataJson); } catch { parsed = dataJson; }
+                    droppedItems.Add(new { id = id, map = map, coordsX = cx, coordsY = cy, data = parsed, created = created });
+                }
+                rdr.Close();
+            }
+            catch (Exception ex)
+            {
+                await _log.Db("Failed to read nearby dropped items: " + ex.Message, hero.Id, "BONES", true);
+            }
+
+            return droppedItems;
+        }
+
+        private static void AddAttackEventsToEventsList(MetaHero hero, List<MetaEvent> events, List<Dictionary<string, object>> recentAttacks)
 		{
 			foreach (var atk in recentAttacks)
 			{
@@ -1537,6 +1579,8 @@ namespace maxhanna.Server.Controllers
 				object? heroIdParam = (@event.HeroId <= 0) ? null : (object?)@event.HeroId;
 				Dictionary<string, object?> parameters = new() { { "@HeroId", heroIdParam }, { "@Event", @event.EventType }, { "@Map", @event.Map }, { "@Data", Newtonsoft.Json.JsonConvert.SerializeObject(@event.Data) } };
 				await ExecuteInsertOrUpdateOrDeleteAsync(sql, parameters, connection, transaction);
+
+				// NOTE: ITEM_DROPPED persistence is handled in SpawnDroppedItemPlaceholder to avoid creating spawn events.
 			}
 			catch (Exception ex) { await _log.Db("UpdateEventsInDb failed : " + ex.ToString(), null, "BONES", true); }
 		}
@@ -2342,6 +2386,90 @@ namespace maxhanna.Server.Controllers
 					try { var batchData = JsonSerializer.Deserialize<List<EncounterPositionUpdate>>(batchJson); if (batchData != null && batchData.Count > 0) await UpdateEncounterPositionBatch(batchData, connection, transaction); } catch (JsonException) { }
 				}
 			}
+			else if (metaEvent != null && metaEvent.Data != null && string.Equals(metaEvent.EventType, "ITEM_DESTROYED", StringComparison.OrdinalIgnoreCase))
+			{
+				// A player picked up/destroyed an item. If a matching dropped-item exists at the specified position,
+				// delete it from bones_items_dropped and apply its power to the picking hero's 'power' column.
+				try
+				{
+					int heroId = metaEvent.HeroId;
+					string map = metaEvent.Map ?? string.Empty;
+					int x = 0, y = 0;
+					if (metaEvent.Data.TryGetValue("position", out var posObj) && posObj != null)
+					{
+						try
+						{
+							var posStr = posObj.ToString() ?? string.Empty;
+							if (!string.IsNullOrEmpty(posStr))
+							{
+								var jo = Newtonsoft.Json.Linq.JObject.Parse(posStr);
+								x = jo.Value<int?>("x") ?? 0;
+								y = jo.Value<int?>("y") ?? 0;
+							}
+						}
+						catch { }
+					}
+
+					if (x == 0 && y == 0)
+					{
+						// No precise coords; nothing to do.
+						return;
+					}
+
+					// Find the most recent dropped item at this location
+					string selectSql = "SELECT id, data FROM maxhanna.bones_items_dropped WHERE map = @Map AND coordsX = @X AND coordsY = @Y ORDER BY created DESC LIMIT 1;";
+					using var selCmd = new MySqlCommand(selectSql, connection, transaction);
+					selCmd.Parameters.AddWithValue("@Map", map);
+					selCmd.Parameters.AddWithValue("@X", x);
+					selCmd.Parameters.AddWithValue("@Y", y);
+					using var rdr = await selCmd.ExecuteReaderAsync();
+					if (!await rdr.ReadAsync())
+					{
+						rdr.Close();
+						return; // nothing to pick up
+					}
+					int droppedId = rdr.GetInt32(0);
+					string dataJson = rdr.IsDBNull(1) ? "{}" : rdr.GetString(1);
+					rdr.Close();
+
+					int power = 0;
+					try
+					{
+						var parsed = Newtonsoft.Json.JsonConvert.DeserializeObject<Newtonsoft.Json.Linq.JObject>(dataJson);
+						if (parsed != null)
+						{
+							power = parsed.Value<int?>("power") ?? 0;
+						}
+					}
+					catch { }
+
+					// Delete the dropped item row and add power to bones_hero.power
+					try
+					{
+						string deleteSql = "DELETE FROM maxhanna.bones_items_dropped WHERE id = @Id LIMIT 1;";
+						using var delCmd = new MySqlCommand(deleteSql, connection, transaction);
+						delCmd.Parameters.AddWithValue("@Id", droppedId);
+						await delCmd.ExecuteNonQueryAsync();
+
+						if (power != 0 && heroId > 0)
+						{
+							string updHeroSql = "UPDATE maxhanna.bones_hero SET power = COALESCE(power,0) + @Power WHERE id = @HeroId LIMIT 1;";
+							using var upCmd = new MySqlCommand(updHeroSql, connection, transaction);
+							upCmd.Parameters.AddWithValue("@Power", power);
+							upCmd.Parameters.AddWithValue("@HeroId", heroId);
+							await upCmd.ExecuteNonQueryAsync();
+						}
+					}
+					catch (Exception ex)
+					{
+						await _log.Db("Failed to delete dropped item or update hero power: " + ex.Message, heroId, "BONES", true);
+					}
+				}
+				catch (Exception ex)
+				{
+					await _log.Db("ITEM_DESTROYED handling error: " + ex.Message, metaEvent.HeroId, "BONES", true);
+				}
+			}
 		}
 		private async Task UpdateEncounterPositionBatch(List<EncounterPositionUpdate> updates, MySqlConnection connection, MySqlTransaction transaction)
 		{
@@ -2417,13 +2545,35 @@ namespace maxhanna.Server.Controllers
 		// Placeholder hook called when an encounter dies so dropped item logic can be added here later.
 		private async Task SpawnDroppedItemPlaceholder(int encounterId, int encounterLevel, int x, int y, MySqlConnection connection, MySqlTransaction transaction)
 		{
-			// Minimal non-blocking placeholder: log the spawn request so it can be implemented later.
+			// Create a dropped item row in bones_items_dropped and prune older entries (>2 minutes)
 			try
 			{
-				await _log.Db($"SpawnDroppedItemPlaceholder: encounterId={encounterId} level={encounterLevel} at=({x},{y})", null, "BONES", true);
+				// Construct a simple data payload; include a random power relative to the encounterLevel
+				int heroLevel = Math.Max(1, encounterLevel);
+				var rng = new Random();
+				int powerLower = -15 + heroLevel;
+				int powerUpper = 10 + heroLevel;
+				int power = rng.Next(powerLower, powerUpper + 1);
+
+				var itemData = new Dictionary<string, object?>() { { "power", power }, { "sourceEncounterId", encounterId } };
+
+				string insertSql = @"DELETE FROM maxhanna.bones_items_dropped WHERE created < DATE_SUB(UTC_TIMESTAMP(), INTERVAL 2 MINUTE); INSERT INTO maxhanna.bones_items_dropped (map, coordsX, coordsY, data, created) VALUES (@Map, @X, @Y, @Data, UTC_TIMESTAMP());";
+				var parameters = new Dictionary<string, object?>()
+				{
+					{"@Map", ""}, // map unknown here; owner flow should set map if available
+					{"@X", x},
+					{"@Y", y},
+					{"@Data", Newtonsoft.Json.JsonConvert.SerializeObject(itemData)}
+				};
+				// Attempt insert (non-fatal). Use ExecuteInsertOrUpdateOrDeleteAsync to respect transaction
+				await ExecuteInsertOrUpdateOrDeleteAsync(insertSql, parameters, connection, transaction);
+				await _log.Db($"SpawnDroppedItemPlaceholder created dropped item at=({x},{y}) power={power}", null, "BONES", true);
 			}
-			catch { /* swallow logging errors to avoid impacting game flow */ }
-			await Task.CompletedTask;
+			catch (Exception ex)
+			{
+				await _log.Db("SpawnDroppedItemPlaceholder failed: " + ex.Message, null, "BONES", true);
+			}
+			return;
 		}
 
 		// Handle hero death: reset coordinates to (0,0) on the same map and emit a HERO_DIED meta-event with killer info.

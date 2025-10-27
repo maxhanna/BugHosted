@@ -19,6 +19,9 @@ namespace maxhanna.Server.Controllers.DataContracts.Bones
         [JsonPropertyName("enemyBots")]
         public MetaBot[]? EnemyBots { get; set; }
 
+        [JsonPropertyName("droppedItems")]
+        public List<object>? DroppedItems { get; set; }
+
         [JsonPropertyName("recentattacks")]
         public List<Dictionary<string, object>>? RecentAttacks { get; set; }
     }

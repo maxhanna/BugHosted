@@ -387,6 +387,21 @@ export function subscribeToMainGameEvents(object: any) {
     object.bonesService.updateEvents(metaEvent);
   });
 
+  // When a character picks up an item in the scene, emit an ITEM_DESTROYED event so the server
+  // can remove the dropped item row and apply any effects (power) to the hero.
+  events.on("CHARACTER_PICKS_UP_ITEM", object, (data: { position: Vector2, id?: number, imageName?: string, hero?: any, item?: any }) => {
+    try {
+      const payload: any = {
+        position: safeStringify(data.position)
+      };
+      if (data.id) payload.droppedItemId = data.id;
+      if (data.item) payload.item = safeStringify(data.item);
+      const metaEvent = new MetaEvent(0, object.metaHero.id, new Date(), "ITEM_DESTROYED", object.metaHero.map, payload);
+      // Send the event to the server; server will delete the dropped row and update hero.power
+      object.bonesService.updateEvents(metaEvent).catch((err: any) => { console.warn('Failed to send ITEM_DESTROYED', err); });
+    } catch (ex) { console.warn('CHARACTER_PICKS_UP_ITEM -> ITEM_DESTROYED mapping failed', ex); }
+  });
+
   events.on("PARTY_UP", object, (person: Hero) => {
     const foundInParty = object.partyMembers.find((x: any) => x.heroId === object.metaHero.id);
     if (!foundInParty) {
