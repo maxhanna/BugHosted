@@ -71,7 +71,8 @@ export class CharacterCreate extends Level {
     this.name = "CharacterCreate";
     if (params.heroPosition) {
       this.defaultHeroPosition = params.heroPosition;
-    } 
+    }  
+    this.heroNames = params.heroNames; 
     if (params.defaultName) {
       const dn = params.defaultName.trim();
       if (dn.length > 0) {
