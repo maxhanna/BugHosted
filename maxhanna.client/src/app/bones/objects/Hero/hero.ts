@@ -38,11 +38,11 @@ export class Hero extends Character {
         objectId: params.id ?? 0,
         resource: resources.images["knightspritesheet"], 
         name: "hero",
-        position: new Vector2(-8, 0),
-        frameSize: new Vector2(32, 32),
+        position: new Vector2(-10, 0),
+        frameSize: new Vector2(40, 40),
         offsetY: -10,
         hFrames: 4,
-        vFrames: 6,
+        vFrames: 7,
         isSolid: false,
         animations: new Animations(
           {
