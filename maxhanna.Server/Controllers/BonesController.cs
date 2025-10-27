@@ -331,7 +331,14 @@ namespace maxhanna.Server.Controllers
 								}
 							}
 
-							string updateHpSql = @"
+							// Decide whether this is an AoE attack or a regular single-target attack.
+							// If aoeHalf is <= GRIDCELL and the client did not explicitly provide a length extension,
+							// treat it as a regular attack and limit damage to a single encounter (LIMIT 1).
+							string limitClause = "";
+							bool isRegularSingleTarget = aoeHalf <= GRIDCELL && !(normalized.ContainsKey("length") && normalized["length"] != null);
+							if (isRegularSingleTarget) limitClause = " LIMIT 1";
+
+							string updateHpSql = $@"
 							UPDATE maxhanna.bones_encounter e
 							SET e.hp = GREATEST(e.hp - @AttackerLevel, 0),
 								e.target_hero_id = @HeroId,
@@ -339,16 +346,16 @@ namespace maxhanna.Server.Controllers
 							WHERE e.map = @Map
 								AND e.hp > 0
 								AND e.coordsX BETWEEN @XMin AND @XMax
-								AND e.coordsY BETWEEN @YMin AND @YMax;"; // allow multi-row AoE damage; no LIMIT
+								AND e.coordsY BETWEEN @YMin AND @YMax{limitClause};";
 							var updateParams = new Dictionary<string, object?>() {
-							{ "@Map", hero.Map ?? string.Empty },
-							{ "@HeroId", sourceHeroId },
-							{ "@AttackerLevel", attackerLevel },
-							{ "@XMin", xMin },
-							{ "@XMax", xMax },
-							{ "@YMin", yMin },
-							{ "@YMax", yMax }
-						};
+								{ "@Map", hero.Map ?? string.Empty },
+								{ "@HeroId", sourceHeroId },
+								{ "@AttackerLevel", attackerLevel },
+								{ "@XMin", xMin },
+								{ "@XMax", xMax },
+								{ "@YMin", yMin },
+								{ "@YMax", yMax }
+							};
 							int rows = Convert.ToInt32(await ExecuteInsertOrUpdateOrDeleteAsync(updateHpSql, updateParams, connection, transaction));
 
 							// Additionally, apply damage to any bones_hero rows within the AoE. Damage is at least attackerLevel.
