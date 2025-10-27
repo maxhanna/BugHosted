@@ -1662,12 +1662,59 @@ namespace maxhanna.Server.Controllers
 				}
 
 				if (heroes.Count == 0) return; // no targets
-
 				var updateBuilder = new StringBuilder();
 				var parameters = new Dictionary<string, object?>();
 				int idx = 0;
 				// Localize frequently-used values
 				int tile = GRIDCELL; 
+				// Build occupied/reserved position sets so encounters can spread and avoid stacking
+				var occupiedPositions = new HashSet<(int x, int y)>();
+				foreach (var ce in encounters) occupiedPositions.Add((ce.x, ce.y));
+				foreach (var h in heroes) occupiedPositions.Add((h.x, h.y));
+				var reservedPositions = new HashSet<(int x, int y)>();
+				var rng = new Random();
+				(int nx, int ny) PickApproachTile(int centerX, int centerY, int fallbackX, int fallbackY)
+				{
+					var candidates = new List<(int, int)>
+					{
+						(centerX - tile, centerY),
+						(centerX + tile, centerY),
+						(centerX, centerY - tile),
+						(centerX, centerY + tile),
+						(centerX - tile, centerY - tile),
+						(centerX + tile, centerY - tile),
+						(centerX - tile, centerY + tile),
+						(centerX + tile, centerY + tile)
+					};
+					for (int i = candidates.Count - 1; i > 0; i--)
+					{
+						int j = rng.Next(i + 1);
+						var tmp = candidates[i]; candidates[i] = candidates[j]; candidates[j] = tmp;
+					}
+					foreach (var c in candidates)
+					{
+						if (!occupiedPositions.Contains(c) && !reservedPositions.Contains(c)) return c;
+					}
+					var ring = new List<(int, int)>();
+					for (int dx = -2; dx <= 2; dx++)
+					{
+						for (int dy = -2; dy <= 2; dy++)
+						{
+							if (Math.Max(Math.Abs(dx), Math.Abs(dy)) != 2) continue;
+							ring.Add((centerX + dx * tile, centerY + dy * tile));
+						}
+					}
+					for (int i = ring.Count - 1; i > 0; i--)
+					{
+						int j = rng.Next(i + 1);
+						var tmp = ring[i]; ring[i] = ring[j]; ring[j] = tmp;
+					}
+					foreach (var c in ring)
+					{
+						if (!occupiedPositions.Contains(c) && !reservedPositions.Contains(c)) return c;
+					}
+					return (fallbackX, fallbackY);
+				}
 				foreach (var e in encounters)
 				{
 					if (e.hp <= 0) continue; // dead, wait for respawn
@@ -1691,16 +1738,18 @@ namespace maxhanna.Server.Controllers
 								// Preserve one-grid-cell gap when resuming a locked target: compute adjacent tile
 								int dxLocked = lockedPos.x - e.x;
 								int dyLocked = lockedPos.y - e.y;
+								int intendedX, intendedY;
 								if (Math.Abs(dxLocked) >= Math.Abs(dyLocked))
 								{
-									curX = lockedPos.x + (dxLocked > 0 ? -tile : tile);
-									curY = lockedPos.y;
+									intendedX = lockedPos.x + (dxLocked > 0 ? -tile : tile);
+									intendedY = lockedPos.y;
 								}
 								else
 								{
-									curX = lockedPos.x;
-									curY = lockedPos.y + (dyLocked > 0 ? -tile : tile);
+									intendedX = lockedPos.x;
+									intendedY = lockedPos.y + (dyLocked > 0 ? -tile : tile);
 								}
+								(curX, curY) = PickApproachTile(lockedPos.x, lockedPos.y, intendedX, intendedY);
 								closest = (targetHeroId, curX, curY);
 								lockValid = true;
 							}
@@ -1728,16 +1777,18 @@ namespace maxhanna.Server.Controllers
 							targetHeroId = closest.Value.heroId;
 							int dx = closest.Value.x - e.x;
 							int dy = closest.Value.y - e.y;
+							int intendedX, intendedY;
 							if (Math.Abs(dx) >= Math.Abs(dy))
 							{
-								curX = closest.Value.x + (dx > 0 ? -tile : tile);
-								curY = closest.Value.y;
+								intendedX = closest.Value.x + (dx > 0 ? -tile : tile);
+								intendedY = closest.Value.y;
 							}
 							else
 							{
-								curX = closest.Value.x;
-								curY = closest.Value.y + (dy > 0 ? -tile : tile);
+								intendedX = closest.Value.x;
+								intendedY = closest.Value.y + (dy > 0 ? -tile : tile);
 							}
+							(curX, curY) = PickApproachTile(closest.Value.x, closest.Value.y, intendedX, intendedY);
 							closest = (closest.Value.heroId, curX, curY);
 						}
 						else
@@ -1969,6 +2020,8 @@ namespace maxhanna.Server.Controllers
 						parameters[$"@ny_{idx}"] = curY;
 						parameters[$"@hid_{idx}"] = e.heroId;
 						parameters[$"@thid_{idx}"] = targetHeroId;
+						// Reserve this destination so other encounters won't pick the same tile this tick
+						try { reservedPositions.Add((curX, curY)); } catch { }
 						idx++;
 					}
 				}
