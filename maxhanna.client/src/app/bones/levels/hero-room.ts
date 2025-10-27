@@ -47,7 +47,7 @@ export class HeroRoomLevel extends Level {
     this.addBackgroundLayer(resources.images["townbg"], /*parallax=*/0, new Vector2(0, 0), /*repeat=*/false, /*scale=*/1);
   
     // Fallback: if resource isn't directly drawable, try passing the sprite itself
-    this.addBackgroundLayer(resources.images["townbg2"], /*parallax=*/0.4, new Vector2(-1011, 0), /*repeat=*/false, /*scale=*/1);
+    this.addBackgroundLayer(resources.images["townbg2"], /*parallax=*/0.4, new Vector2(-101, 0), /*repeat=*/false, /*scale=*/1);
 
 
     // Create a room made of repeated "floorbigtile" sprites, centered on the default hero position.
