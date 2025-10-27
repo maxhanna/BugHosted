@@ -264,10 +264,14 @@ export class Hero extends Character {
     // call base sprite draw
     super.drawImage(ctx, drawPosX, drawPosY);
     // Draw HP & EXP bars and level above hero (similar style to Bot)
-    const barWidth = 34;
-    const barHeight = 4;
-    const x = drawPosX - gridCells(1);
-    const topY = drawPosY - 26; // above head
+  const barWidth = 34;
+  const barHeight = 4;
+  // Compute horizontal center using sprite frame width when available so overlays sit above the
+  // visual sprite regardless of frameSize or scale. Fallback to previous offset when not present.
+  const spriteWidth = this.body?.frameSize?.x ?? (gridCells(2));
+  const anchorX = drawPosX + (spriteWidth / 2);
+  const x = Math.round(anchorX - (barWidth / 2));
+  const topY = drawPosY - 26; // above head (vertical offset unchanged)
 
     // HP bar background
     ctx.fillStyle = "#2b2b2b";
@@ -280,7 +284,7 @@ export class Hero extends Character {
     ctx.fillRect(x + 1, topY + 1, (barWidth - 2) * hpRatio, barHeight - 2);
 
     // EXP bar just below HP
-    const expBarY = topY + barHeight + 2;
+  const expBarY = topY + barHeight + 2;
     ctx.fillStyle = "#2b2b2b";
     ctx.fillRect(x, expBarY, barWidth, barHeight);
     const level = (this as any).level ?? 1;
@@ -294,6 +298,6 @@ export class Hero extends Character {
     ctx.fillStyle = "#fff";
     ctx.font = "10px monospace";
     ctx.textAlign = "center";
-    ctx.fillText(`Lv${level}`, x + barWidth / 2, topY - 2);
+  ctx.fillText(`Lv${level}`, x + barWidth / 2, topY - 2);
   }
 }

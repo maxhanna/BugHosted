@@ -60,7 +60,14 @@ export class TodoComponent extends ChildComponent implements OnInit, AfterViewIn
 
       await this.todoService.getSharedColumns(this.parentRef.user.id).then(res => {
         if (res) {
-          this.sharedColumns = res;
+          // Normalize server response keys (handle PascalCase from server or camelCase)
+          this.sharedColumns = (res as any[]).map((r: any) => ({
+            ownerId: r.ownerId ?? r.OwnerId,
+            columnName: r.columnName ?? r.ColumnName,
+            sharedWith: r.sharedWith ?? r.SharedWith ?? '',
+            ownerName: r.ownerName ?? r.OwnerName ?? '',
+            shareDirection: r.shareDirection ?? r.ShareDirection ?? ''
+          }));
         }
       });
     }

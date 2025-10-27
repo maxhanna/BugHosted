@@ -91,36 +91,67 @@
     </div> 
   </div> 
 
-  <!-- New Shared Columns Display -->
+  <!-- Shared Columns Display -->
   <div *ngIf="showSharedList" class="shared-columns-view">
     <div class="panel-title">Sharing Status</div>  
-    <div class="shared-section" *ngIf="this.sharedColumns.length > 0"> 
-      <div class="shared-user" *ngFor="let item of getSharedWithYou()">
-        
-        <div>
-          <div>Category: {{item.columnName}}</div>
-          <div class="smallFont">Shared With {{item.sharedWith.split(',').length}} user{{item.sharedWith.split(',').length > 0 ? 's' : ''}}.</div>
+      <div class="shared-section" *ngIf="this.sharedColumns.length > 0"> 
+        <!-- Sections for columns shared with the user and columns shared by the user -->
+        <div *ngIf="getSharedWithYou().length > 0">
+          <div class="section-title">Shared With You</div>
+          <div class="shared-user" *ngFor="let item of getSharedWithYou()">
+            <div>
+              <div>Category: {{item.columnName}}</div>
+              <div class="smallFont">Shared With {{item.sharedWith.split(',').length}} user{{item.sharedWith.split(',').length > 1 ? 's' : ''}}.</div>
 
-          <app-user-tag [userId]="item.ownerId" [inputtedParentRef]="parentRef" 
-            [displayHoverPicture]="true" 
-            [displayMiniTag]="true">
-          </app-user-tag>
+              <app-user-tag [userId]="item.ownerId" [inputtedParentRef]="parentRef" 
+                [displayHoverPicture]="true" 
+                [displayMiniTag]="true">
+              </app-user-tag>
+            </div>
+          
+            <div class="shareListButtons">
+              <div>
+                Enabled:
+                <label class="toggle-switch">
+                  <input type="checkbox" [checked]="isColumnAdded(item.columnName)" (change)="toggleSharedColumn(item)">
+                  <span class="slider round"></span>
+                </label>
+              </div> 
+              <div>
+                Leave: <button class="unshare-btn" (click)="leaveSharedColumn(item.columnName, item.ownerId)">Remove</button>
+              </div>
+            </div>
+          </div>
         </div>
-        
-        <div class="shareListButtons">
-          <div>
-            Enabled:
-            <label class="toggle-switch">
-              <input type="checkbox" [checked]="isColumnAdded(item.columnName)" (change)="toggleSharedColumn(item)">
-              <span class="slider round"></span>
-            </label>
-          </div> 
-          <div>
-            Delete: <button class="unshare-btn" (click)="leaveSharedColumn(item.columnName, item.ownerId)">Remove</button>
+
+        <div *ngIf="getSharedUsers().length > 0" style="margin-top:16px;">
+          <div class="section-title">Shared By You</div>
+          <div class="shared-user" *ngFor="let item of getSharedUsers()">
+            <div>
+              <div>Category: {{item.columnName}}</div>
+              <div class="smallFont">Shared With {{item.sharedWith.split(',').length}} user{{item.sharedWith.split(',').length > 1 ? 's' : ''}}.</div>
+
+              <app-user-tag [userId]="item.ownerId" [inputtedParentRef]="parentRef" 
+                [displayHoverPicture]="true" 
+                [displayMiniTag]="true">
+              </app-user-tag>
+            </div>
+          
+            <div class="shareListButtons">
+              <div>
+                Enabled:
+                <label class="toggle-switch">
+                  <input type="checkbox" [checked]="isColumnAdded(item.columnName)" (change)="toggleSharedColumn(item)">
+                  <span class="slider round"></span>
+                </label>
+              </div> 
+              <div>
+                Manage: <button class="unshare-btn" (click)="openSharePanel(item)">Manage</button>
+              </div>
+            </div>
           </div>
         </div>
       </div>
-    </div> 
 
     <div *ngIf="this.sharedColumns.length === 0">
       <p>Currently no lists shared with anyone</p>
