@@ -14,6 +14,9 @@ import { Bones } from "../objects/Npc/Bones/bones";
 export class HeroRoomLevel extends Level {
   override defaultHeroPosition = new Vector2(gridCells(0), gridCells(0));
   showDebugSprites = false;
+  // Background sprite references (optional)
+  background?: Sprite;
+  background2?: Sprite;
   constructor(params: { heroPosition?: Vector2, itemsFound?: string[] | undefined } = {}) {
     super(); 
     this.name = "HeroRoom";
@@ -37,7 +40,15 @@ export class HeroRoomLevel extends Level {
         frameSize: new Vector2(1011, 124),
       }
     );
-    this.addChild(background2);
+    // Register background2 as a parallax background layer instead of a scene child
+    // keep the Sprite instance in case other code references it, but don't add it to children
+    try {
+      // resources.images[...] is expected to be a drawable (HTMLImageElement or canvas)
+      this.addBackgroundLayer(this.background2.resource, /*parallax=*/0.4, new Vector2(0, 0), /*repeat=*/false, /*scale=*/1);
+    } catch (e) {
+      // Fallback: if resource isn't directly drawable, try passing the sprite itself
+      this.addBackgroundLayer(this.background2, /*parallax=*/0.4, new Vector2(0, 0), /*repeat=*/false, /*scale=*/1);
+    }
 
     // Create a room made of repeated "floorbigtile" sprites, centered on the default hero position.
     const roomWidth = 12; // tiles horizontally
