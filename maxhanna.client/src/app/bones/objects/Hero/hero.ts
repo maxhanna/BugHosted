@@ -268,8 +268,13 @@ export class Hero extends Character {
   const barHeight = 4;
   // Compute horizontal center using sprite frame width when available so overlays sit above the
   // visual sprite regardless of frameSize or scale. Fallback to previous offset when not present.
-  const spriteWidth = this.body?.frameSize?.x ?? (gridCells(2));
-  const anchorX = drawPosX + (spriteWidth / 2);
+  // Use rendered sprite width (frameSize * scale) and include the sprite offsetX so the
+  // overlay aligns with the visual sprite. Sprite.drawImage applies offsetX before centering.
+  const spriteFrameWidth = (this.body?.frameSize?.x ?? gridCells(2));
+  const spriteScaleX = (this.body?.scale?.x ?? 1);
+  const spriteWidth = spriteFrameWidth * spriteScaleX;
+  const spriteOffsetX = (this.body?.offsetX ?? 0);
+  const anchorX = drawPosX + spriteOffsetX + (spriteWidth / 2);
   const x = Math.round(anchorX - (barWidth / 2));
   const topY = drawPosY - 26; // above head (vertical offset unchanged)
 
