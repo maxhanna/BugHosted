@@ -2420,25 +2420,20 @@ namespace maxhanna.Server.Controllers
 		}
 		private async Task UpdateMetaHeroParty(List<int>? partyData, MySqlConnection connection, MySqlTransaction transaction)
 		{
-			// Accepts a list of hero IDs forming (or merging into) a single party using new party_id schema.
 			try
 			{
-				//await _log.Db("UpdateMetaHeroParty called", null, "BONES", true);
 				if (partyData == null || partyData.Count < 2)
 				{
 					await _log.Db("UpdateMetaHeroParty: insufficient partyData", null, "BONES", true);
 					return;
 				}
 				var heroIds = partyData.Distinct().ToList();
-				//await _log.Db($"UpdateMetaHeroParty heroes=[{string.Join(',', heroIds)}]", null, "BONES", true);
 				if (heroIds.Count < 2)
 				{
 					await _log.Db("UpdateMetaHeroParty: after distinct only one hero", null, "BONES", true);
 					return;
 				}
-				// Fetch existing party_id assignments for provided heroes
 				string selectSql = $"SELECT hero_id, party_id FROM bones_hero_party WHERE hero_id IN ({string.Join(',', heroIds)})";
-				// await _log.Db($"UpdateMetaHeroParty running selectSql={selectSql}", null, "BONES", true);
 				var existing = new Dictionary<int, int?>();
 				using (var selCmd = new MySqlCommand(selectSql, connection, transaction))
 				{
@@ -2448,7 +2443,6 @@ namespace maxhanna.Server.Controllers
 						int hid = rdr.GetInt32(0);
 						int? pid = rdr.IsDBNull(1) ? (int?)null : rdr.GetInt32(1);
 						existing[hid] = pid;
-						// await _log.Db($"UpdateMetaHeroParty existing row hero={hid} party={pid}", null, "BONES", true);
 					}
 				}
 				foreach (var hid in heroIds)
@@ -2459,24 +2453,20 @@ namespace maxhanna.Server.Controllers
 					}
 				}
 				var partyIdsFound = existing.Values.Where(v => v.HasValue).Select(v => v!.Value).Distinct().ToList();
-				//await _log.Db($"UpdateMetaHeroParty partyIdsFound=[{string.Join(',', partyIdsFound)}]", null, "BONES", true);
 				int targetPartyId;
 				if (partyIdsFound.Count == 0)
 				{
-					// Choose an existing hero id from the provided list to act as the party_id
-					// bones_hero_party.party_id is a FK to bones_hero.id, so party_id must be a valid hero id.
 					string existingHeroSql = $"SELECT id FROM bones_hero WHERE id IN ({string.Join(',', heroIds)}) LIMIT 1";
 					using var existHeroCmd = new MySqlCommand(existingHeroSql, connection, transaction);
 					var existObj = await existHeroCmd.ExecuteScalarAsync();
 					if (existObj != null && int.TryParse(existObj.ToString(), out var foundHeroId) && foundHeroId > 0)
 					{
 						targetPartyId = foundHeroId;
-						//	await _log.Db($"UpdateMetaHeroParty allocated partyId from hero id={targetPartyId}", null, "BONES", true);
 					}
 					else
 					{
 						await _log.Db($"UpdateMetaHeroParty: none of the supplied heroIds exist in bones_hero, aborting party creation heroes=[{string.Join(',', heroIds)}]", null, "BONES", true);
-						return; // cannot create a party without at least one valid bones_hero id
+						return; 
 					}
 				}
 				else
@@ -2527,7 +2517,6 @@ namespace maxhanna.Server.Controllers
 						await updCmd.ExecuteNonQueryAsync();
 					}
 				}
-				await _log.Db("UpdateMetaHeroParty completed", null, "BONES", true);
 			}
 			catch (MySqlException mex)
 			{
@@ -2544,7 +2533,6 @@ namespace maxhanna.Server.Controllers
 		{
 			try
 			{
-				// 1) Find the party_id for this hero (if any)
 				int? partyId = null;
 				using (var pidCmd = new MySqlCommand("SELECT party_id FROM bones_hero_party WHERE hero_id = @HeroId LIMIT 1", connection, transaction))
 				{
@@ -2552,19 +2540,19 @@ namespace maxhanna.Server.Controllers
 					var pidObj = await pidCmd.ExecuteScalarAsync();
 					if (pidObj != null && int.TryParse(pidObj.ToString(), out var tmpPid)) partyId = tmpPid;
 				}
-				// 2) Delete the leaving hero's membership
 				const string deleteQuery = "DELETE FROM bones_hero_party WHERE hero_id = @HeroId LIMIT 1";
 				using var deleteCommand = new MySqlCommand(deleteQuery, connection, transaction);
 				deleteCommand.Parameters.AddWithValue("@HeroId", heroId);
 				await deleteCommand.ExecuteNonQueryAsync();
-				//await _log.Db($"Unparty: removed hero={heroId} from partyId={partyId}", heroId, "BONES", true);
-				// 3) If partyId existed, check remaining members. If only one remains, remove that last member (disband)
 				if (partyId.HasValue)
 				{
 					using var countCmd = new MySqlCommand("SELECT COUNT(1) FROM bones_hero_party WHERE party_id = @Pid", connection, transaction);
 					countCmd.Parameters.AddWithValue("@Pid", partyId.Value);
 					var cntObj = await countCmd.ExecuteScalarAsync();
-					int cnt = 0; if (cntObj != null && int.TryParse(cntObj.ToString(), out var tmpCnt)) cnt = tmpCnt;
+					int cnt = 0;
+					if (cntObj != null && int.TryParse(cntObj.ToString(), out var tmpCnt)) {
+						cnt = tmpCnt; 
+					}
 					if (cnt == 1)
 					{
 						// find the remaining hero id and delete that row as well
@@ -2576,7 +2564,6 @@ namespace maxhanna.Server.Controllers
 							using var delLast = new MySqlCommand("DELETE FROM bones_hero_party WHERE hero_id = @HeroId LIMIT 1", connection, transaction);
 							delLast.Parameters.AddWithValue("@HeroId", lastHeroId);
 							await delLast.ExecuteNonQueryAsync();
-							//await _log.Db($"Unparty: disbanded partyId={partyId} by removing last hero={lastHeroId}", lastHeroId, "BONES", true);
 						}
 					}
 				}
@@ -2584,25 +2571,21 @@ namespace maxhanna.Server.Controllers
 			catch (MySqlException) { throw; }
 			catch (Exception) { throw; }
 		}
-
-		// Helpers for new party schema
+ 
 		private async Task<int?> GetPartyId(int heroId, MySqlConnection connection, MySqlTransaction transaction)
 		{
 			try
 			{
-				await _log.Db($"GetPartyId called heroId={heroId}", heroId, "BONES", true);
-				using var cmd = new MySqlCommand("SELECT party_id FROM bones_hero_party WHERE hero_id = @HeroId LIMIT 1", connection, transaction);
+ 				using var cmd = new MySqlCommand("SELECT party_id FROM bones_hero_party WHERE hero_id = @HeroId LIMIT 1", connection, transaction);
 				cmd.Parameters.AddWithValue("@HeroId", heroId);
 				var obj = await cmd.ExecuteScalarAsync();
 				if (obj == null || obj == DBNull.Value)
 				{
-					await _log.Db($"GetPartyId: no party for hero={heroId}", heroId, "BONES", true);
-					return null;
+ 					return null;
 				}
 				if (int.TryParse(obj.ToString(), out var pid))
 				{
-					await _log.Db($"GetPartyId: hero={heroId} party={pid}", heroId, "BONES", true);
-					return pid;
+ 					return pid;
 				}
 				await _log.Db($"GetPartyId: unexpected scalar value for hero={heroId}: {obj}", heroId, "BONES", true);
 				return null;
@@ -2618,16 +2601,23 @@ namespace maxhanna.Server.Controllers
 			var list = new List<int>();
 			try
 			{
-				await _log.Db($"GetPartyMemberIds called heroId={heroId}", heroId, "BONES", true);
-				int? partyId = await GetPartyId(heroId, connection, transaction);
-				if (!partyId.HasValue) { list.Add(heroId); await _log.Db($"GetPartyMemberIds no party found for hero={heroId}", heroId, "BONES", true); return list; }
-				await _log.Db($"GetPartyMemberIds partyId={partyId.Value} for hero={heroId}", heroId, "BONES", true);
-				using var cmd = new MySqlCommand("SELECT hero_id FROM bones_hero_party WHERE party_id = @Pid", connection, transaction);
+ 				int? partyId = await GetPartyId(heroId, connection, transaction);
+				if (!partyId.HasValue) {
+					list.Add(heroId);
+ 					return list; 
+				}
+ 				using var cmd = new MySqlCommand("SELECT hero_id FROM bones_hero_party WHERE party_id = @Pid", connection, transaction);
 				cmd.Parameters.AddWithValue("@Pid", partyId.Value);
 				using var rdr = await cmd.ExecuteReaderAsync();
-				while (await rdr.ReadAsync()) { var hid = rdr.GetInt32(0); if (!list.Contains(hid)) list.Add(hid); await _log.Db($"GetPartyMemberIds found member hero={hid}", heroId, "BONES", true); }
-				if (!list.Contains(heroId)) list.Add(heroId);
-				await _log.Db($"GetPartyMemberIds returning [{string.Join(',', list)}] for hero={heroId}", heroId, "BONES", true);
+				while (await rdr.ReadAsync()) {
+					var hid = rdr.GetInt32(0); 
+					if (!list.Contains(hid)) {
+						list.Add(hid);
+					}
+				}
+				if (!list.Contains(heroId)) {
+					list.Add(heroId); 
+					}
 				return list;
 			}
 			catch (Exception ex)
