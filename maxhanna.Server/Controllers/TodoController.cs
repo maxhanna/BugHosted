@@ -863,6 +863,46 @@ namespace maxhanna.Server.Controllers
 			}
 		}
 
+		[HttpPost("/Todo/Columns/Unsubscribe", Name = "UnsubscribeFromColumn")]
+		public async Task<IActionResult> UnsubscribeFromColumn([FromBody] UnsubscribeActivationRequest req)
+		{
+			if (req == null || req.OwnerColumnId <= 0 || req.UserId <= 0)
+			{
+				return BadRequest("Invalid unsubscribe request");
+			}
+
+			string sql = @"
+				DELETE a FROM todo_column_activations a
+				WHERE a.todo_column_id = @ColId AND a.user_id = @UserId;";
+
+			try
+			{
+				using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+				{
+					await conn.OpenAsync();
+					using (var cmd = new MySqlCommand(sql, conn))
+					{
+						cmd.Parameters.AddWithValue("@ColId", req.OwnerColumnId);
+						cmd.Parameters.AddWithValue("@UserId", req.UserId);
+						var rows = await cmd.ExecuteNonQueryAsync();
+						if (rows > 0)
+						{
+							return Ok("Unsubscribed");
+						}
+						else
+						{
+							return NotFound();
+						}
+					}
+				}
+			}
+			catch (Exception ex)
+			{
+				_ = _log.Db($"Error unsubscribing from column: {ex.Message}", req.UserId, "TODO", true);
+				return StatusCode(500, "Error unsubscribing from column");
+			}
+		}
+
 
 		[HttpPost("/Todo/Columns/Remove")]
 		public async Task<IActionResult> RemoveColumn([FromBody] AddTodoColumnRequest req)
@@ -1013,6 +1053,12 @@ public class SharedColumnDto
 }
 
 public class ActivateColumnRequest
+{
+	public int OwnerColumnId { get; set; }
+	public int UserId { get; set; }
+}
+
+public class UnsubscribeActivationRequest
 {
 	public int OwnerColumnId { get; set; }
 	public int UserId { get; set; }

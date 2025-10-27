@@ -418,9 +418,34 @@ export class TodoComponent extends ChildComponent implements OnInit, AfterViewIn
     }
   }
 
-  removeColumn(columnName: string): void {
-    // Call your API to remove the column from user's list
-    // Then update currentUserColumns 
+  async removeColumn(columnName: string): Promise<void> {
+    // If this column is a shared column owned by someone else, unsubscribe (leave shared column)
+    if (!this.parentRef?.user?.id) {
+      alert("You must be logged in to remove a column");
+      return;
+    }
+
+    // Find a shared column entry where the owner is not the current user
+  const currentUserId = this.parentRef?.user?.id ?? 0;
+  const shared = this.sharedColumns.find((c: any) => c.columnName === columnName && c.ownerId && c.ownerId !== currentUserId);
+    if (shared) {
+      try {
+        const ownerColumnId = shared.ownerColumnId ?? shared.OwnerColumnId ?? shared.OwnerColumnId;
+        const res = await this.todoService.unsubscribeFromColumn(ownerColumnId, this.parentRef.user.id);
+        if (res) {
+          this.parentRef?.showNotification(res);
+          // Remove the column from local UI lists
+          this.todoTypes = this.todoTypes.filter(x => x !== columnName);
+          this.sharedColumns = this.sharedColumns.filter((c: any) => !(c.columnName === columnName && c.ownerId === shared.ownerId));
+        }
+      } catch (err) {
+        console.error('Failed to unsubscribe from shared column', err);
+        this.parentRef?.showNotification('Failed to unsubscribe from shared column');
+      }
+      return;
+    }
+
+    // Otherwise, remove user's own column
     this.hideColumn(columnName);
   }
 
