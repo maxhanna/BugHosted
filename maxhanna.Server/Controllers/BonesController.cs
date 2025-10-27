@@ -925,10 +925,11 @@ namespace maxhanna.Server.Controllers
 			await connection.OpenAsync();
 			try
 			{
+				// Force a common collation on both sides of the UNION to avoid 'Illegal mix of collations' errors
 				string sql = @"
-					SELECT DISTINCT name FROM maxhanna.bones_hero WHERE user_id = @UserId AND name IS NOT NULL
+					SELECT DISTINCT name COLLATE utf8mb4_general_ci AS name FROM maxhanna.bones_hero WHERE user_id = @UserId AND name IS NOT NULL
 					UNION
-					SELECT DISTINCT name FROM maxhanna.bones_hero_selection WHERE user_id = @UserId AND name IS NOT NULL
+					SELECT DISTINCT name COLLATE utf8mb4_general_ci FROM maxhanna.bones_hero_selection WHERE user_id = @UserId AND name IS NOT NULL
 					ORDER BY name;";
 				using var cmd = new MySqlCommand(sql, connection);
 				cmd.Parameters.AddWithValue("@UserId", userId);
