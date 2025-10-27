@@ -94,7 +94,10 @@ export class Main extends GameObject {
   }
 
   drawBackground(ctx: CanvasRenderingContext2D) { 
-	this.level?.background?.drawImage(ctx, 0, 0);
+	// Prefer the Level's parallax renderer when available. Fall back to legacy single-background draw.
+ 	  // camera.position is in pixels — renderBackground expects cameraPos in same units
+	const camPos = this.camera?.position ?? new Vector2(0, 0); 
+	this.level?.renderBackground(ctx, camPos, ctx.canvas.width, ctx.canvas.height);  
   }
 
   drawObjects(ctx: CanvasRenderingContext2D) { 
