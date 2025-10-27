@@ -41,8 +41,8 @@ export class Level extends GameObject {
     if (!this.backgroundLayers || this.backgroundLayers.length === 0) return;
 
     for (const layer of this.backgroundLayers) {
-      const img = layer.image as any;
-      if (!img) continue;
+      const raw = layer.image as any;
+      if (!raw) continue;
 
       const par = layer.parallax ?? 0.5;
       const offX = layer.offset?.x ?? 0;
@@ -54,31 +54,66 @@ export class Level extends GameObject {
       const drawX = -cameraPos.x * par + offX;
       const drawY = -cameraPos.y * par + offY;
 
-      // If the image has width/height (HTMLImageElement or canvas), handle simple tiling
-      const iw = (img.width ?? 0) * scale;
-      const ih = (img.height ?? 0) * scale;
+      // Determine drawable type:
+      // - resources.Resource-like: { image: HTMLImageElement, isLoaded }
+      // - HTMLImageElement
+      // - Sprite-like: object with drawImage(ctx,x,y)
+      let drawableImage: HTMLImageElement | null = null;
+      let drawableSprite: any = null;
+      let isLoaded = true;
+
+      if (raw && raw.image instanceof HTMLImageElement) {
+        drawableImage = raw.image as HTMLImageElement;
+        isLoaded = !!raw.isLoaded;
+      } else if (raw instanceof HTMLImageElement) {
+        drawableImage = raw as HTMLImageElement;
+        isLoaded = !!drawableImage.complete;
+      } else if (typeof raw.drawImage === 'function') {
+        // Sprite-like
+        drawableSprite = raw;
+        // Sprite.drawImage checks resource.isLoaded internally
+      }
+
+      if (!drawableImage && !drawableSprite) continue;
+
+      if (drawableImage && !isLoaded) {
+        // not ready yet — skip drawing this layer for now
+        continue;
+      }
+
+      // If we have a Sprite-like object, use its drawImage method. For repeating, we call drawImage in tiles.
+      if (drawableSprite) {
+        // Try tiling by calling drawImage at tile positions. If the sprite expects frame drawing, it will handle resource check.
+        const iw = (drawableSprite.frameSize?.x ?? drawableSprite.resource?.image?.width ?? 0) * (drawableSprite.scale?.x ?? 1) * scale;
+        const ih = (drawableSprite.frameSize?.y ?? drawableSprite.resource?.image?.height ?? 0) * (drawableSprite.scale?.y ?? 1) * scale;
+        if (repeat && iw > 0 && ih > 0) {
+          const startX = ((drawX % iw) + iw) % iw - iw;
+          const startY = ((drawY % ih) + ih) % ih - ih;
+          for (let x = startX; x < canvasWidth; x += iw) {
+            for (let y = startY; y < canvasHeight; y += ih) {
+              try { drawableSprite.drawImage(ctx, x, y); } catch { }
+            }
+          }
+        } else {
+          try { drawableSprite.drawImage(ctx, drawX, drawY); } catch { }
+        }
+        continue;
+      }
+
+      // Otherwise use raw HTMLImageElement drawing
+      const iw = (drawableImage?.width ?? 0) * scale;
+      const ih = (drawableImage?.height ?? 0) * scale;
 
       if (repeat && iw > 0 && ih > 0) {
-        // Start drawing from a tiled origin that covers the canvas
         const startX = ((drawX % iw) + iw) % iw - iw;
         const startY = ((drawY % ih) + ih) % ih - ih;
-
         for (let x = startX; x < canvasWidth; x += iw) {
           for (let y = startY; y < canvasHeight; y += ih) {
-            try {
-              ctx.drawImage(img, x, y, iw, ih);
-            } catch (e) {
-              // drawImage may fail if img is not a real image yet — ignore
-            }
+            try { ctx.drawImage(drawableImage as HTMLImageElement, x, y, iw, ih); } catch { }
           }
         }
       } else {
-        // Single draw centered based on drawX/drawY
-        try {
-          ctx.drawImage(img, drawX, drawY, iw || canvasWidth, ih || canvasHeight);
-        } catch (e) {
-          // ignore if not ready
-        }
+        try { ctx.drawImage(drawableImage as HTMLImageElement, drawX, drawY, iw || canvasWidth, ih || canvasHeight); } catch { }
       }
     }
   }
