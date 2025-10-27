@@ -379,25 +379,133 @@ namespace maxhanna.Server.Controllers
 							bool isRegularSingleTarget = aoeHalf <= GRIDCELL && !(normalized.ContainsKey("length") && normalized["length"] != null);
 							if (isRegularSingleTarget) limitClause = " LIMIT 1";
 
-							string updateHpSql = $@"
-							UPDATE maxhanna.bones_encounter e
-							SET e.hp = GREATEST(e.hp - @AttackerLevel, 0),
-								e.target_hero_id = @HeroId,
-								e.last_killed = CASE WHEN (e.hp - @AttackerLevel) <= 0 THEN UTC_TIMESTAMP() ELSE e.last_killed END
-							WHERE e.map = @Map
-								AND e.hp > 0
-								AND e.coordsX BETWEEN @XMin AND @XMax
-								AND e.coordsY BETWEEN @YMin AND @YMax{limitClause};";
-							var updateParams = new Dictionary<string, object?>() {
-								{ "@Map", hero.Map ?? string.Empty },
-								{ "@HeroId", sourceHeroId },
-								{ "@AttackerLevel", attackerLevel },
-								{ "@XMin", xMin },
-								{ "@XMax", xMax },
-								{ "@YMin", yMin },
-								{ "@YMax", yMax }
-							};
-							int rows = Convert.ToInt32(await ExecuteInsertOrUpdateOrDeleteAsync(updateHpSql, updateParams, connection, transaction));
+							// For regular single-target attacks prefer the encounter in the player's facing direction
+							int rows = 0;
+							if (isRegularSingleTarget)
+							{
+								// Attempt to parse facing from the normalized payload; if missing/invalid we fallback to a LIMIT 1 UPDATE
+								int? facingInt = null;
+								try
+								{
+									if (normalized.ContainsKey("facing") && normalized["facing"] != null)
+									{
+										var fVal = normalized["facing"]?.ToString();
+										if (int.TryParse(fVal, out int fParsed)) facingInt = fParsed;
+									}
+								}
+								catch { facingInt = null; }
+
+								if (facingInt.HasValue)
+								{
+									// Read candidate encounters in the AoE and prefer those that lie in the facing direction
+									string selEncSql = @"SELECT hero_id, coordsX, coordsY FROM maxhanna.bones_encounter WHERE map = @Map AND hp > 0 AND coordsX BETWEEN @XMin AND @XMax AND coordsY BETWEEN @YMin AND @YMax;";
+									using var selEncCmd = new MySqlCommand(selEncSql, connection, transaction);
+									selEncCmd.Parameters.AddWithValue("@Map", hero.Map ?? string.Empty);
+									selEncCmd.Parameters.AddWithValue("@XMin", xMin);
+									selEncCmd.Parameters.AddWithValue("@XMax", xMax);
+									selEncCmd.Parameters.AddWithValue("@YMin", yMin);
+									selEncCmd.Parameters.AddWithValue("@YMax", yMax);
+									using var encRdr = await selEncCmd.ExecuteReaderAsync();
+									int? chosenEncId = null;
+									int bestDist = int.MaxValue;
+									var candidatesInFacing = new List<(int id, int x, int y)>();
+									while (await encRdr.ReadAsync())
+									{
+										int eid = encRdr.GetInt32(0);
+										int ex = encRdr.IsDBNull(1) ? 0 : encRdr.GetInt32(1);
+										int ey = encRdr.IsDBNull(2) ? 0 : encRdr.GetInt32(2);
+										candidatesInFacing.Add((eid, ex, ey));
+									}
+									encRdr.Close();
+
+									// Filter by facing
+									foreach (var c in candidatesInFacing)
+									{
+										int dxEnc = c.x - sourceX;
+										int dyEnc = c.y - sourceY;
+										bool inFacing = false;
+										switch (facingInt.Value)
+										{
+											case 0: // up
+												inFacing = dyEnc < 0; break;
+											case 1: // right
+												inFacing = dxEnc > 0; break;
+											case 2: // down
+												inFacing = dyEnc > 0; break;
+											case 3: // left
+												inFacing = dxEnc < 0; break;
+											default: inFacing = false; break;
+										}
+										if (inFacing)
+										{
+											int dist = Math.Abs(dxEnc) + Math.Abs(dyEnc);
+											if (dist < bestDist)
+											{
+												bestDist = dist;
+												chosenEncId = c.id;
+											}
+										}
+									}
+
+									if (chosenEncId.HasValue)
+									{
+										// Update the chosen encounter only
+										string updateChosenSql = @"UPDATE maxhanna.bones_encounter e SET e.hp = GREATEST(e.hp - @AttackerLevel, 0), e.target_hero_id = @HeroId, e.last_killed = CASE WHEN (e.hp - @AttackerLevel) <= 0 THEN UTC_TIMESTAMP() ELSE e.last_killed END WHERE e.hero_id = @EncId LIMIT 1;";
+										var chosenParams = new Dictionary<string, object?>() {
+											{"@AttackerLevel", attackerLevel},
+											{"@HeroId", sourceHeroId},
+											{"@EncId", chosenEncId.Value}
+										};
+										rows = Convert.ToInt32(await ExecuteInsertOrUpdateOrDeleteAsync(updateChosenSql, chosenParams, connection, transaction));
+									}
+								}
+								// If no rows were updated by facing-specific logic (either no facing or no matching encounter), fallback
+								if (rows == 0)
+								{
+									string updateHpSql = $@"
+									UPDATE maxhanna.bones_encounter e
+									SET e.hp = GREATEST(e.hp - @AttackerLevel, 0),
+										e.target_hero_id = @HeroId,
+										e.last_killed = CASE WHEN (e.hp - @AttackerLevel) <= 0 THEN UTC_TIMESTAMP() ELSE e.last_killed END
+									WHERE e.map = @Map
+										AND e.hp > 0
+										AND e.coordsX BETWEEN @XMin AND @XMax
+										AND e.coordsY BETWEEN @YMin AND @YMax{limitClause};";
+									var updateParams = new Dictionary<string, object?>() {
+										{ "@Map", hero.Map ?? string.Empty },
+										{ "@HeroId", sourceHeroId },
+										{ "@AttackerLevel", attackerLevel },
+										{ "@XMin", xMin },
+										{ "@XMax", xMax },
+										{ "@YMin", yMin },
+										{ "@YMax", yMax }
+									};
+									rows = Convert.ToInt32(await ExecuteInsertOrUpdateOrDeleteAsync(updateHpSql, updateParams, connection, transaction));
+								}
+							}
+							else
+							{
+								// Non-regular AoE: keep previous behaviour (may update multiple rows)
+								string updateHpSql = $@"
+								UPDATE maxhanna.bones_encounter e
+								SET e.hp = GREATEST(e.hp - @AttackerLevel, 0),
+									e.target_hero_id = @HeroId,
+									e.last_killed = CASE WHEN (e.hp - @AttackerLevel) <= 0 THEN UTC_TIMESTAMP() ELSE e.last_killed END
+								WHERE e.map = @Map
+									AND e.hp > 0
+									AND e.coordsX BETWEEN @XMin AND @XMax
+									AND e.coordsY BETWEEN @YMin AND @YMax;";
+								var updateParams = new Dictionary<string, object?>() {
+									{ "@Map", hero.Map ?? string.Empty },
+									{ "@HeroId", sourceHeroId },
+									{ "@AttackerLevel", attackerLevel },
+									{ "@XMin", xMin },
+									{ "@XMax", xMax },
+									{ "@YMin", yMin },
+									{ "@YMax", yMax }
+								};
+								rows = Convert.ToInt32(await ExecuteInsertOrUpdateOrDeleteAsync(updateHpSql, updateParams, connection, transaction));
+							}
 
 							// Additionally, apply damage to any bones_hero rows within the AoE. Damage is at least attackerLevel.
 							try
