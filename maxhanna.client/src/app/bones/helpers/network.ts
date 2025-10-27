@@ -12,6 +12,7 @@ import { gridCells } from "./grid-cells";
 import { Skill } from "./skill-types";
 import { Character } from "../objects/character";
 import { HeroInventoryItem } from "../../../services/datacontracts/bones/hero-inventory-item";
+import { DroppedItem } from "../objects/Environment/DroppedItem/dropped-item";
 
 
 export class Network {
@@ -756,6 +757,70 @@ export function actionPartyUpEvent(object: any, event: MetaEvent) {
       }
     } else {
       console.log("could not find other player?");
+    }
+  }
+}
+
+// Reconcile dropped items sent by server in FetchGameData response.
+// This mirrors the logic previously in BonesComponent and is exported so
+// the component can delegate to this centralized implementation.
+export function reconcileDroppedItemsFromFetch(object: any, res: any) {
+  if (!res) return;
+  const map = res.map ?? object.metaHero?.map;
+  // If map changed since last fetch, clear all dropped items
+  if ((object as any)._lastDroppedMap !== undefined && (object as any)._lastDroppedMap !== map) {
+    try {
+      for (const inst of Array.from(((object as any)._droppedItemsMap ?? new Map()).values())) {
+        try { if (inst && typeof (inst as any).destroy === 'function') (inst as any).destroy(); } catch { }
+      }
+    } finally {
+      try { if ((object as any)._droppedItemsMap) (object as any)._droppedItemsMap.clear(); } catch { }
+    }
+  }
+  try { (object as any)._lastDroppedMap = map; } catch { }
+
+  const serverItems = Array.isArray(res.droppedItems) ? res.droppedItems : [];
+  const seenIds = new Set<number>();
+
+  for (const it of serverItems) {
+    try {
+  const id = Number(it.id ?? it.itemId ?? it.id);
+      if (isNaN(id)) continue;
+      seenIds.add(id);
+      if (!(object as any)._droppedItemsMap) (object as any)._droppedItemsMap = new Map<number, any>();
+      if ((object as any)._droppedItemsMap.has(id)) {
+        // already present, skip
+        continue;
+      }
+      // determine position
+      const x = (it.coordsX !== undefined && it.coordsX !== null) ? Number(it.coordsX) : (it.position && it.position.x ? Number(it.position.x) : undefined);
+      const y = (it.coordsY !== undefined && it.coordsY !== null) ? Number(it.coordsY) : (it.position && it.position.y ? Number(it.position.y) : undefined);
+      if (x === undefined || y === undefined || isNaN(x) || isNaN(y)) continue;
+      const itemData = (it.data && typeof it.data === 'object') ? it.data : (() => {
+        try { return JSON.parse(it.data); } catch { return undefined; }
+      })();
+      const item = itemData?.item ?? itemData ?? undefined;
+      const label = item && item.name ? item.name : (itemData && itemData.power ? `Power ${itemData.power}` : undefined);
+      const skin = item && item.image ? item.image : (itemData && itemData.image ? itemData.image : undefined);
+
+  // Use local constructors if available via object, otherwise expect globals/imports to exist in runtime
+       const dropped =  new DroppedItem({ position: new Vector2(x, y), item: item, itemLabel: label, itemSkin: skin, preventDestroyTimeout: true });
+      // Attach server id so pickup forwards droppedItemId when available
+      try { (dropped as any).serverDroppedId = id; } catch { }
+      // Add to scene and tracking map
+      try { object.mainScene.level.addChild(dropped); } catch (ex) { console.warn('Failed adding dropped to scene', ex); }
+  (object as any)._droppedItemsMap.set(id, dropped);
+    } catch (ex) {
+      console.warn('Error processing dropped item from server', ex, it);
+    }
+  }
+
+  // Remove any dropped items that we no longer see from server
+  const mapRef = ((object as any)._droppedItemsMap ?? new Map<any, any>()) as Map<any, any>;
+  for (const [id, inst] of Array.from(mapRef.entries())) {
+    if (!seenIds.has(id)) {
+      try { if (inst && typeof (inst as any).destroy === 'function') (inst as any).destroy(); } catch { }
+      try { mapRef.delete(id); } catch { }
     }
   }
 }
