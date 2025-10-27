@@ -371,9 +371,7 @@ export class Character extends GameObject {
     // Define HP bar dimensions
     const barWidth = 40;  // Total width of HP bar
     const barHeight = 6;  // Height of HP bar
-    // Use a small consistent horizontal anchor so bars align relative to the character center
-    const anchorX = drawPosX + 8;
-    const barX = anchorX - barWidth / 2;  // Center the bar on the anchor
+    const barX = drawPosX - barWidth / 2 + 10;  // Center the bar
     const barY = drawPosY - 12;  // Position above character
 
     // Calculate HP percentage
@@ -397,7 +395,7 @@ export class Character extends GameObject {
     ctx.textAlign = "center";
 
     // Measure text width 
-  const textX = barX + (barWidth / 2);
+    const textX = barX + (barWidth / 2);
     const textY = barY + barHeight - 1;
 
     // Determine text color for contrast (White if dark, Black if bright)
@@ -414,10 +412,9 @@ export class Character extends GameObject {
     }
 
     // Define EXP bar dimensions
-  const barWidth = 40;
-  const barHeight = 4;
-  const anchorX = drawPosX + 8;
-  const barX = anchorX - barWidth / 2;
+    const barWidth = 40;
+    const barHeight = 4;
+    const barX = drawPosX - barWidth / 2 + 10;
     const barY = drawPosY - 7; // Positioned below HP bar
 
     // Calculate EXP percentage
@@ -439,9 +436,7 @@ export class Character extends GameObject {
   drawLevel(ctx: CanvasRenderingContext2D, drawPosX: number, drawPosY: number) {
     // Diamond (rhombus) dimensions
     const diamondSize = 12;
-    // Position the diamond left of the HP/EXP bars using the same anchor
-    const anchorX = drawPosX + 8;
-    const diamondX = anchorX - 36; // place to the left of the HP bar
+    const diamondX = drawPosX + 35; // Position to the left of HP bar
     const diamondY = drawPosY - 8; // Align with HP bar
 
     // Draw diamond outline
