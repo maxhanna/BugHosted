@@ -797,8 +797,22 @@ export function reconcileDroppedItemsFromFetch(object: any, res: any) {
         try { return JSON.parse(it.data); } catch { return undefined; }
       })();
       const item = itemData?.item ?? itemData ?? undefined;
-      const label = item && item.name ? item.name : (itemData && itemData.power ? `Power ${itemData.power}` : undefined);
-      const skin = item && item.image ? item.image : (itemData && itemData.image ? itemData.image : undefined);
+      // Determine label: prefer item.name; if server provided a numeric 'power' property,
+      // compare against the current hero's power to show up/down arrow for upgrade/downgrade.
+      let label: string | undefined = undefined;
+      if (item && item.name) {
+        label = item.name;
+      } else if (itemData && (itemData as any).power !== undefined && (itemData as any).power !== null) {
+        const droppedPower = Number((itemData as any).power) || 0;
+        const heroPower = Number((object?.metaHero?.power ?? (object?.hero as any)?.power ?? 0)) || 0;
+        let arrow = '';
+        if (droppedPower > heroPower) arrow = '▲';
+        else if (droppedPower < heroPower) arrow = '▼';
+        label = `${arrow} Power ${droppedPower}`.trim();
+      } else {
+        label = undefined;
+      }
+      const skin = item && item.image ? item.image : (itemData && (itemData as any).image ? (itemData as any).image : undefined);
 
   // Use local constructors if available via object, otherwise expect globals/imports to exist in runtime
        const dropped =  new DroppedItem({ position: new Vector2(x, y), item: item, itemLabel: label, itemSkin: skin, preventDestroyTimeout: true });
