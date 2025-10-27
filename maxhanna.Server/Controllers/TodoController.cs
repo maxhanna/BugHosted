@@ -26,27 +26,30 @@ namespace maxhanna.Server.Controllers
 					await conn.OpenAsync();
 
 					string sql = $@"
-                SELECT DISTINCT 
-                    t.id, 
-                    t.todo, 
-                    t.type, 
-                    t.url, 
-                    t.file_id, 
-                    t.date, 
-                    t.ownership,
-                    u.username as owner_name
-                FROM 
-                    todo t
-                JOIN users u ON t.ownership = u.id
-                LEFT JOIN todo_columns tc ON t.ownership = tc.user_id AND tc.column_name = @Type
+				SELECT DISTINCT 
+					t.id, 
+					t.todo, 
+					t.type, 
+					t.url, 
+					t.file_id, 
+					t.date, 
+					t.ownership,
+					u.username as owner_name
+				FROM 
+					todo t
+				JOIN users u ON t.ownership = u.id
 				WHERE  
 					t.type = @Type
 					AND (
 						t.ownership = @UserId
 						OR (
-							-- Owner has an explicit shared_with that includes the user
-							tc.user_id IS NOT NULL
-							AND FIND_IN_SET(@UserId, REPLACE(tc.shared_with, ' ', ''))
+							-- Owner has an explicit shared_with that includes the user (robust CSV match)
+							EXISTS (
+								SELECT 1 FROM todo_columns tcx
+								WHERE tcx.user_id = t.ownership
+								  AND tcx.column_name = @Type
+								  AND CONCAT(',', REPLACE(COALESCE(tcx.shared_with, ''), ' ', ''), ',') LIKE CONCAT('%,', @UserId, ',%')
+							)
 						)
 						OR (
 							-- Or the owner-column has an activation row for the requesting user
@@ -57,8 +60,8 @@ namespace maxhanna.Server.Controllers
 							)
 						)
 					)
-                    {(string.IsNullOrEmpty(search) ? "" : " AND t.todo LIKE CONCAT('%', @Search, '%')")} 
-                ORDER BY t.date DESC";
+					{(string.IsNullOrEmpty(search) ? "" : " AND t.todo LIKE CONCAT('%', @Search, '%')")} 
+					ORDER BY t.date DESC";
 
 					using (var cmd = new MySqlCommand(sql, conn))
 					{
@@ -80,10 +83,10 @@ namespace maxhanna.Server.Controllers
 									todo: rdr.GetString(rdr.GetOrdinal("todo")),
 									type: rdr.GetString(rdr.GetOrdinal("type")),
 									url: rdr.IsDBNull(rdr.GetOrdinal("url")) ? null : rdr.GetString(rdr.GetOrdinal("url")),
-									fileId: rdr.IsDBNull(rdr.GetOrdinal("file_id")) ? null : rdr.GetInt32(rdr.GetOrdinal("file_id")),
+									fileId: rdr.IsDBNull(rdr.GetOrdinal("file_id")) ? (int?)null : rdr.GetInt32(rdr.GetOrdinal("file_id")),
 									date: rdr.GetDateTime(rdr.GetOrdinal("date")),
-									ownership: rdr.GetInt32(rdr.GetOrdinal("ownership"))
-								//ownerName: rdr.IsDBNull(rdr.GetOrdinal("owner_name")) ? null : rdr.GetString(rdr.GetOrdinal("owner_name"))
+									ownership: rdr.GetInt32(rdr.GetOrdinal("ownership")),
+									owner_name: rdr.IsDBNull(rdr.GetOrdinal("owner_name")) ? null : rdr.GetString(rdr.GetOrdinal("owner_name"))
 								));
 							}
 
@@ -659,27 +662,30 @@ namespace maxhanna.Server.Controllers
 				{
 					await conn.OpenAsync();
 
-									string sql = $@"
-									SELECT COUNT(DISTINCT t.id) AS cnt
-									FROM todo t
-									JOIN users u ON t.ownership = u.id
-									LEFT JOIN todo_columns tc ON t.ownership = tc.user_id AND tc.column_name = @Type
-									WHERE t.type = @Type
-										AND (
-													t.ownership = @UserId
-													OR (
-															tc.user_id IS NOT NULL
-															AND FIND_IN_SET(@UserId, REPLACE(tc.shared_with, ' ', ''))
-													)
-													OR (
-															EXISTS (
-																	SELECT 1 FROM todo_columns tc2
-																	JOIN todo_column_activations a ON a.todo_column_id = tc2.id
-																	WHERE tc2.user_id = t.ownership AND tc2.column_name = @Type AND a.user_id = @UserId
-															)
-													)
-												)
-										{(string.IsNullOrEmpty(search) ? "" : " AND t.todo LIKE CONCAT('%', @Search, '%')")};";
+				    string sql = $@"
+				    SELECT COUNT(DISTINCT t.id) AS cnt
+				    FROM todo t
+				    JOIN users u ON t.ownership = u.id
+				    WHERE t.type = @Type
+					AND (
+						    t.ownership = @UserId
+						    OR (
+							    EXISTS (
+								SELECT 1 FROM todo_columns tcx
+								WHERE tcx.user_id = t.ownership
+								  AND tcx.column_name = @Type
+								  AND CONCAT(',', REPLACE(COALESCE(tcx.shared_with, ''), ' ', ''), ',') LIKE CONCAT('%,', @UserId, ',%')
+							    )
+						    )
+						    OR (
+							    EXISTS (
+								    SELECT 1 FROM todo_columns tc2
+								    JOIN todo_column_activations a ON a.todo_column_id = tc2.id
+								    WHERE tc2.user_id = t.ownership AND tc2.column_name = @Type AND a.user_id = @UserId
+							    )
+						    )
+						)
+					{(string.IsNullOrEmpty(search) ? "" : " AND t.todo LIKE CONCAT('%', @Search, '%')")};";
 
 					using (var cmd = new MySqlCommand(sql, conn))
 					{
