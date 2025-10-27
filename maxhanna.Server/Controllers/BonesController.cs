@@ -74,79 +74,79 @@ namespace maxhanna.Server.Controllers
 			await connection.OpenAsync();
 			using var transaction = connection.BeginTransaction();
 			try
-            {
-                if (request != null)
-                {
-                    await PersistNewAttacks(request, hero, connection, transaction);
-                }
+			{
+				if (request != null)
+				{
+					await PersistNewAttacks(request, hero, connection, transaction);
+				}
 
-                hero = await UpdateHeroInDB(hero, connection, transaction);
-                MetaHero[]? heroes = await GetNearbyPlayers(hero, connection, transaction);
-                if (!string.IsNullOrEmpty(hero.Map))
-                {
-                    await ProcessEncounterAI(hero.Map, connection, transaction);
-                }
-                MetaBot[]? enemyBots = await GetEncounters(connection, transaction, hero.Map);
-                List<MetaEvent> events = await GetEventsFromDb(hero.Map, hero.Id, connection, transaction);
-                // Query recent ATTACK events (last 5 seconds) excluding attacks originating from this hero.
-                List<Dictionary<string, object>> recentAttacks = new();
-                await CreateAttackEvents(hero, connection, transaction, recentAttacks);
-                AddAttackEventsToEventsList(hero, events, recentAttacks);
+				hero = await UpdateHeroInDB(hero, connection, transaction);
+				MetaHero[]? heroes = await GetNearbyPlayers(hero, connection, transaction);
+				if (!string.IsNullOrEmpty(hero.Map))
+				{
+					await ProcessEncounterAI(hero.Map, connection, transaction);
+				}
+				MetaBot[]? enemyBots = await GetEncounters(connection, transaction, hero.Map);
+				List<MetaEvent> events = await GetEventsFromDb(hero.Map, hero.Id, connection, transaction);
+				// Query recent ATTACK events (last 5 seconds) excluding attacks originating from this hero.
+				List<Dictionary<string, object>> recentAttacks = new();
+				await CreateAttackEvents(hero, connection, transaction, recentAttacks);
+				AddAttackEventsToEventsList(hero, events, recentAttacks);
 				List<object> droppedItems = await FetchDroppedItems(hero, connection, transaction);
 
-                await transaction.CommitAsync();
-                var resp = new FetchGameDataResponse { Map = hero.Map, Position = hero.Position, Heroes = heroes, Events = events, EnemyBots = enemyBots, DroppedItems = droppedItems, RecentAttacks = recentAttacks };
-                return Ok(resp);
-            }
-            catch (Exception ex)
+				await transaction.CommitAsync();
+				var resp = new FetchGameDataResponse { Map = hero.Map, Position = hero.Position, Heroes = heroes, Events = events, EnemyBots = enemyBots, DroppedItems = droppedItems, RecentAttacks = recentAttacks };
+				return Ok(resp);
+			}
+			catch (Exception ex)
 			{
 				await transaction.RollbackAsync();
 				return StatusCode(500, "Internal server error: " + ex.Message);
 			}
 		}
 
-        private async Task<List<object>> FetchDroppedItems(MetaHero hero, MySqlConnection connection, MySqlTransaction transaction)
-        {
-            List<object> droppedItems = new();
-            try
-            {
-                int radiusTiles = 8;
-                int tile = GRIDCELL;
-                int xMin = hero.Position.x - radiusTiles * tile;
-                int xMax = hero.Position.x + radiusTiles * tile;
-                int yMin = hero.Position.y - radiusTiles * tile;
-                int yMax = hero.Position.y + radiusTiles * tile;
-                string selSql = "SELECT id, map, coordsX, coordsY, data, created FROM maxhanna.bones_items_dropped WHERE map = @Map AND coordsX BETWEEN @XMin AND @XMax AND coordsY BETWEEN @YMin AND @YMax ORDER BY created DESC;";
-                using var selCmd = new MySqlCommand(selSql, connection, transaction);
-                selCmd.Parameters.AddWithValue("@Map", hero.Map ?? string.Empty);
-                selCmd.Parameters.AddWithValue("@XMin", xMin);
-                selCmd.Parameters.AddWithValue("@XMax", xMax);
-                selCmd.Parameters.AddWithValue("@YMin", yMin);
-                selCmd.Parameters.AddWithValue("@YMax", yMax);
-                using var rdr = await selCmd.ExecuteReaderAsync();
-                while (await rdr.ReadAsync())
-                {
-                    int id = rdr.GetInt32(0);
-                    string map = rdr.IsDBNull(1) ? string.Empty : rdr.GetString(1);
-                    int cx = rdr.IsDBNull(2) ? 0 : rdr.GetInt32(2);
-                    int cy = rdr.IsDBNull(3) ? 0 : rdr.GetInt32(3);
-                    string dataJson = rdr.IsDBNull(4) ? "{}" : rdr.GetString(4);
-                    DateTime created = rdr.IsDBNull(5) ? DateTime.UtcNow : rdr.GetDateTime(5);
-                    object? parsed = null;
-                    try { parsed = Newtonsoft.Json.JsonConvert.DeserializeObject<object>(dataJson); } catch { parsed = dataJson; }
-                    droppedItems.Add(new { id = id, map = map, coordsX = cx, coordsY = cy, data = parsed, created = created });
-                }
-                rdr.Close();
-            }
-            catch (Exception ex)
-            {
-                await _log.Db("Failed to read nearby dropped items: " + ex.Message, hero.Id, "BONES", true);
-            }
+		private async Task<List<object>> FetchDroppedItems(MetaHero hero, MySqlConnection connection, MySqlTransaction transaction)
+		{
+			List<object> droppedItems = new();
+			try
+			{
+				int radiusTiles = 8;
+				int tile = GRIDCELL;
+				int xMin = hero.Position.x - radiusTiles * tile;
+				int xMax = hero.Position.x + radiusTiles * tile;
+				int yMin = hero.Position.y - radiusTiles * tile;
+				int yMax = hero.Position.y + radiusTiles * tile;
+				string selSql = "SELECT id, map, coordsX, coordsY, data, created FROM maxhanna.bones_items_dropped WHERE map = @Map AND coordsX BETWEEN @XMin AND @XMax AND coordsY BETWEEN @YMin AND @YMax ORDER BY created DESC;";
+				using var selCmd = new MySqlCommand(selSql, connection, transaction);
+				selCmd.Parameters.AddWithValue("@Map", hero.Map ?? string.Empty);
+				selCmd.Parameters.AddWithValue("@XMin", xMin);
+				selCmd.Parameters.AddWithValue("@XMax", xMax);
+				selCmd.Parameters.AddWithValue("@YMin", yMin);
+				selCmd.Parameters.AddWithValue("@YMax", yMax);
+				using var rdr = await selCmd.ExecuteReaderAsync();
+				while (await rdr.ReadAsync())
+				{
+					int id = rdr.GetInt32(0);
+					string map = rdr.IsDBNull(1) ? string.Empty : rdr.GetString(1);
+					int cx = rdr.IsDBNull(2) ? 0 : rdr.GetInt32(2);
+					int cy = rdr.IsDBNull(3) ? 0 : rdr.GetInt32(3);
+					string dataJson = rdr.IsDBNull(4) ? "{}" : rdr.GetString(4);
+					DateTime created = rdr.IsDBNull(5) ? DateTime.UtcNow : rdr.GetDateTime(5);
+					object? parsed = null;
+					try { parsed = Newtonsoft.Json.JsonConvert.DeserializeObject<object>(dataJson); } catch { parsed = dataJson; }
+					droppedItems.Add(new { id = id, map = map, coordsX = cx, coordsY = cy, data = parsed, created = created });
+				}
+				rdr.Close();
+			}
+			catch (Exception ex)
+			{
+				await _log.Db("Failed to read nearby dropped items: " + ex.Message, hero.Id, "BONES", true);
+			}
 
-            return droppedItems;
-        }
+			return droppedItems;
+		}
 
-        private static void AddAttackEventsToEventsList(MetaHero hero, List<MetaEvent> events, List<Dictionary<string, object>> recentAttacks)
+		private static void AddAttackEventsToEventsList(MetaHero hero, List<MetaEvent> events, List<Dictionary<string, object>> recentAttacks)
 		{
 			foreach (var atk in recentAttacks)
 			{
@@ -484,63 +484,59 @@ namespace maxhanna.Server.Controllers
 							{
 
 								// Check if any encounters died (hp reached 0) and award EXP in same transaction
-								try 
-										// Only consider encounters that were killed recently and have not yet been awarded.
-										// Rely on an 'awarded' boolean to atomically prevent double-awarding.
-										string selectDeadSql = @"SELECT hero_id, `level`, hp FROM maxhanna.bones_encounter WHERE map = @Map AND hp = 0 AND (awarded IS NULL OR awarded = 0) AND last_killed IS NOT NULL AND last_killed >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 5 SECOND) AND coordsX BETWEEN @XMin AND @XMax AND coordsY BETWEEN @YMin AND @YMax;";
-										using var deadCmd = new MySqlCommand(selectDeadSql, connection, transaction);
-										deadCmd.Parameters.AddWithValue("@Map", hero.Map ?? string.Empty);
-										deadCmd.Parameters.AddWithValue("@XMin", xMin);
-										deadCmd.Parameters.AddWithValue("@XMax", xMax);
-										deadCmd.Parameters.AddWithValue("@YMin", yMin);
-										deadCmd.Parameters.AddWithValue("@YMax", yMax);
-										using var deadRdr = await deadCmd.ExecuteReaderAsync();
-									var deadEncounters = new List<(int encId, int encLevel)>();
-									while (await deadRdr.ReadAsync())
-									{
-										int encLevel = deadRdr.IsDBNull(deadRdr.GetOrdinal("level")) ? 0 : deadRdr.GetInt32(deadRdr.GetOrdinal("level"));
-										int encId = deadRdr.GetInt32(deadRdr.GetOrdinal("hero_id"));
-										deadEncounters.Add((encId, encLevel));
-									}
-									deadRdr.Close();
-									// Now award EXP after the reader is closed to avoid using the same connection with an open reader
-									var awarded = new HashSet<int>();
-									foreach (var d in deadEncounters)
-									{
-										if (!awarded.Contains(d.encId))
-										{
-											await AwardEncounterKillExp(sourceHeroId, d.encLevel, connection, transaction);
-											// Placeholder hook: spawn a dropped item for this defeated encounter
-											try
-											{
-												await SpawnDroppedItemPlaceholder(d.encId, d.encLevel, targetX, targetY, connection, transaction);
-											}
-											catch (Exception exSpawn)
-											{
-												// Log but do not fail the entire attack processing flow
-												await _log.Db("SpawnDroppedItemPlaceholder failed: " + exSpawn.Message, hero.Id, "BONES", true);
-											}
 
-											// Atomically mark encounter as awarded and move it off-map and clear its target to prevent re-awarding.
-											try
-											{
-												string finalizeSql = @"UPDATE maxhanna.bones_encounter SET awarded = 1, coordsX = -1000, coordsY = -1000, target_hero_id = 0 WHERE hero_id = @EncId LIMIT 1;";
-												var finalizeParams = new Dictionary<string, object?>() { { "@EncId", d.encId } };
-												await ExecuteInsertOrUpdateOrDeleteAsync(finalizeSql, finalizeParams, connection, transaction);
-											}
-											catch (Exception exFinalize)
-											{
-												await _log.Db("Failed to finalize dead encounter (award/move): " + exFinalize.Message, hero.Id, "BONES", true);
-											}
-
-											awarded.Add(d.encId);
-										}
-									}
-								}
-								catch (Exception ex2)
+								// Only consider encounters that were killed recently and have not yet been awarded.
+								// Rely on an 'awarded' boolean to atomically prevent double-awarding.
+								string selectDeadSql = @"SELECT hero_id, `level`, hp FROM maxhanna.bones_encounter WHERE map = @Map AND hp = 0 AND (awarded IS NULL OR awarded = 0) AND last_killed IS NOT NULL AND last_killed >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 5 SECOND) AND coordsX BETWEEN @XMin AND @XMax AND coordsY BETWEEN @YMin AND @YMax;";
+								using var deadCmd = new MySqlCommand(selectDeadSql, connection, transaction);
+								deadCmd.Parameters.AddWithValue("@Map", hero.Map ?? string.Empty);
+								deadCmd.Parameters.AddWithValue("@XMin", xMin);
+								deadCmd.Parameters.AddWithValue("@XMax", xMax);
+								deadCmd.Parameters.AddWithValue("@YMin", yMin);
+								deadCmd.Parameters.AddWithValue("@YMax", yMax);
+								using var deadRdr = await deadCmd.ExecuteReaderAsync();
+								var deadEncounters = new List<(int encId, int encLevel)>();
+								while (await deadRdr.ReadAsync())
 								{
-									await _log.Db("Failed awarding EXP in PersistNewAttacks: " + ex2.Message, hero.Id, "BONES", true);
+									int encLevel = deadRdr.IsDBNull(deadRdr.GetOrdinal("level")) ? 0 : deadRdr.GetInt32(deadRdr.GetOrdinal("level"));
+									int encId = deadRdr.GetInt32(deadRdr.GetOrdinal("hero_id"));
+									deadEncounters.Add((encId, encLevel));
 								}
+								deadRdr.Close();
+								// Now award EXP after the reader is closed to avoid using the same connection with an open reader
+								var awarded = new HashSet<int>();
+								foreach (var d in deadEncounters)
+								{
+									if (!awarded.Contains(d.encId))
+									{
+										await AwardEncounterKillExp(sourceHeroId, d.encLevel, connection, transaction);
+										// Placeholder hook: spawn a dropped item for this defeated encounter
+										try
+										{
+											await SpawnDroppedItemPlaceholder(d.encId, d.encLevel, targetX, targetY, connection, transaction);
+										}
+										catch (Exception exSpawn)
+										{
+											// Log but do not fail the entire attack processing flow
+											await _log.Db("SpawnDroppedItemPlaceholder failed: " + exSpawn.Message, hero.Id, "BONES", true);
+										}
+
+										// Atomically mark encounter as awarded and move it off-map and clear its target to prevent re-awarding.
+										try
+										{
+											string finalizeSql = @"UPDATE maxhanna.bones_encounter SET awarded = 1, coordsX = -1000, coordsY = -1000, target_hero_id = 0 WHERE hero_id = @EncId LIMIT 1;";
+											var finalizeParams = new Dictionary<string, object?>() { { "@EncId", d.encId } };
+											await ExecuteInsertOrUpdateOrDeleteAsync(finalizeSql, finalizeParams, connection, transaction);
+										}
+										catch (Exception exFinalize)
+										{
+											await _log.Db("Failed to finalize dead encounter (award/move): " + exFinalize.Message, hero.Id, "BONES", true);
+										}
+
+										awarded.Add(d.encId);
+									}
+								}
+
 							}
 						}
 						catch (Exception ex)
@@ -645,7 +641,7 @@ namespace maxhanna.Server.Controllers
 			using var transaction = connection.BeginTransaction();
 			try
 			{
-                string sql = @"
+				string sql = @"
 						INSERT INTO maxhanna.bones_hero (name, user_id, coordsX, coordsY, speed, color, created, updated)
                               SELECT @Name, @UserId, @CoordsX, @CoordsY, @Speed,
                                 COALESCE((SELECT last_character_color FROM maxhanna.user_settings WHERE user_id = @UserId LIMIT 1), ''),
@@ -688,7 +684,7 @@ namespace maxhanna.Server.Controllers
 				using var upCmd = new MySqlCommand(upsertNameSql, connection, transaction);
 				upCmd.Parameters.AddWithValue("@UserId", req.UserId);
 				upCmd.Parameters.AddWithValue("@Name", req.Name ?? "");
-				await upCmd.ExecuteNonQueryAsync(); 
+				await upCmd.ExecuteNonQueryAsync();
 
 				MetaHero hero = new()
 				{
@@ -2638,7 +2634,7 @@ namespace maxhanna.Server.Controllers
 					else
 					{
 						await _log.Db($"UpdateMetaHeroParty: none of the supplied heroIds exist in bones_hero, aborting party creation heroes=[{string.Join(',', heroIds)}]", null, "BONES", true);
-						return; 
+						return;
 					}
 				}
 				else
@@ -2722,8 +2718,9 @@ namespace maxhanna.Server.Controllers
 					countCmd.Parameters.AddWithValue("@Pid", partyId.Value);
 					var cntObj = await countCmd.ExecuteScalarAsync();
 					int cnt = 0;
-					if (cntObj != null && int.TryParse(cntObj.ToString(), out var tmpCnt)) {
-						cnt = tmpCnt; 
+					if (cntObj != null && int.TryParse(cntObj.ToString(), out var tmpCnt))
+					{
+						cnt = tmpCnt;
 					}
 					if (cnt == 1)
 					{
@@ -2743,21 +2740,21 @@ namespace maxhanna.Server.Controllers
 			catch (MySqlException) { throw; }
 			catch (Exception) { throw; }
 		}
- 
+
 		private async Task<int?> GetPartyId(int heroId, MySqlConnection connection, MySqlTransaction transaction)
 		{
 			try
 			{
- 				using var cmd = new MySqlCommand("SELECT party_id FROM bones_hero_party WHERE hero_id = @HeroId LIMIT 1", connection, transaction);
+				using var cmd = new MySqlCommand("SELECT party_id FROM bones_hero_party WHERE hero_id = @HeroId LIMIT 1", connection, transaction);
 				cmd.Parameters.AddWithValue("@HeroId", heroId);
 				var obj = await cmd.ExecuteScalarAsync();
 				if (obj == null || obj == DBNull.Value)
 				{
- 					return null;
+					return null;
 				}
 				if (int.TryParse(obj.ToString(), out var pid))
 				{
- 					return pid;
+					return pid;
 				}
 				await _log.Db($"GetPartyId: unexpected scalar value for hero={heroId}: {obj}", heroId, "BONES", true);
 				return null;
@@ -2773,23 +2770,27 @@ namespace maxhanna.Server.Controllers
 			var list = new List<int>();
 			try
 			{
- 				int? partyId = await GetPartyId(heroId, connection, transaction);
-				if (!partyId.HasValue) {
+				int? partyId = await GetPartyId(heroId, connection, transaction);
+				if (!partyId.HasValue)
+				{
 					list.Add(heroId);
- 					return list; 
+					return list;
 				}
- 				using var cmd = new MySqlCommand("SELECT hero_id FROM bones_hero_party WHERE party_id = @Pid", connection, transaction);
+				using var cmd = new MySqlCommand("SELECT hero_id FROM bones_hero_party WHERE party_id = @Pid", connection, transaction);
 				cmd.Parameters.AddWithValue("@Pid", partyId.Value);
 				using var rdr = await cmd.ExecuteReaderAsync();
-				while (await rdr.ReadAsync()) {
-					var hid = rdr.GetInt32(0); 
-					if (!list.Contains(hid)) {
+				while (await rdr.ReadAsync())
+				{
+					var hid = rdr.GetInt32(0);
+					if (!list.Contains(hid))
+					{
 						list.Add(hid);
 					}
 				}
-				if (!list.Contains(heroId)) {
-					list.Add(heroId); 
-					}
+				if (!list.Contains(heroId))
+				{
+					list.Add(heroId);
+				}
 				return list;
 			}
 			catch (Exception ex)
