@@ -36,7 +36,7 @@ export class Hero extends Character {
       isSolid: false,
       body: new Sprite({
         objectId: params.id ?? 0,
-        resource: resources.images["knightspritesheet"], 
+        resource: resources.images["knight"], 
         name: "hero",
         position: new Vector2(-10, 0),
         frameSize: new Vector2(40, 40),
