@@ -96,7 +96,7 @@
     <div class="panel-title">Sharing Status</div>  
       <div class="shared-section" *ngIf="this.sharedColumns.length > 0"> 
         <!-- Sections for columns shared with the user and columns shared by the user -->
-        <div *ngIf="getSharedWithYou().length > 0">
+        <div *ngIf="getSharedWithYou().length > 0" style="max-height:30vh; overflow: auto;">
           <div class="section-title">Shared With You</div>
           <div class="shared-user" *ngFor="let item of getSharedWithYou()">
             <div>
@@ -124,7 +124,7 @@
           </div>
         </div>
 
-        <div *ngIf="getSharedUsers().length > 0" style="margin-top:16px;">
+        <div *ngIf="getSharedUsers().length > 0"  style="max-height:30vh; overflow: auto; margin-top:16px;">
           <div class="section-title">Shared By You</div>
           <div class="shared-user" *ngFor="let item of getSharedUsers()">
             <div>

@@ -96,6 +96,9 @@
   padding: 10px;
   background: linear-gradient(135deg, var(--component-background-color), var(--secondary-component-background-color));
   border-radius: 6px;
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
 }
 
 .shared-section h4 {
