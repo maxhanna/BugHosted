@@ -275,12 +275,16 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
   // Toggle the emulation breakdown list; fetch from server on first open
   async toggleEmulationBreakdown() {
     if (!this.user || !this.user.id) return;
+    const parent = this.inputtedParentRef ?? this.parentRef;
     if (this.isEmulationBreakdownOpen) {
+      // Close popup and overlay
       this.isEmulationBreakdownOpen = false;
+      parent?.closeOverlay();
       return;
     }
-    // Open and fetch breakdown
+    // Open popup, show overlay and fetch breakdown
     this.isEmulationBreakdownOpen = true;
+    parent?.showOverlay();
     try {
       const data = await this.romService.getUserEmulationBreakdown(this.user.id);
       if (Array.isArray(data)) {
@@ -291,6 +295,12 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
     } catch (e) {
       this.emulationGameBreakdown = [];
     }
+  }
+
+  closeEmulationBreakdownPopup() {
+    this.isEmulationBreakdownOpen = false;
+    const parent = this.inputtedParentRef ?? this.parentRef;
+    parent?.closeOverlay();
   }
 
 
