@@ -442,25 +442,17 @@ export function subscribeToMainGameEvents(object: any) {
       item: any,
       stats: any,
     }) => {
-    if (!actionBlocker) {
-      //console.log("picking up item: ",data);
-      if (data.category) {
-        object.bonesService.updateInventory(object.metaHero.id, data.name, data.imageName, data.category);
-      } else if (data.item) {
-        object.bonesService.updateBotParts(object.metaHero.id, [data.item]);
-        object.mainScene.inventory.parts.concat(data.item);
-
-        const metaEvent = new MetaEvent(0, object.metaHero.id, new Date(), "ITEM_DESTROYED", object.metaHero.map,
-          {
-            "position": `${safeStringify(data.position)}`,
-            "damage": `${data.item?.damageMod}`,
-            "partName": `${data.item?.partName}`,
-            "skill": `${data.item?.skill?.name}`
-          });
-        object.bonesService.updateEvents(metaEvent);
-      }
-      setActionBlocker(500);
+    if (!actionBlocker) {  
+      const metaEvent = new MetaEvent(0, object.metaHero.id, new Date(), "ITEM_DESTROYED", object.metaHero.map,
+        {
+          "position": `${safeStringify(data.position)}`,
+          "damage": `${data.item?.damageMod}`,
+          "partName": `${data.item?.partName}`,
+          "skill": `${data.item?.skill?.name}`
+        });
+      object.bonesService.updateEvents(metaEvent);
     }
+    setActionBlocker(500); 
   });
 
 
