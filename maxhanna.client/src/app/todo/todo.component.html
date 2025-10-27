@@ -6,8 +6,8 @@
     <select #selectedType class=selectType (change)="typeOnChange()" style="font-size:large">
       <option *ngFor="let type of todoTypes" [value]="type">{{ type }} <span *ngIf="type === selectedType.value">({{ todoCount }})</span></option>
     </select>
-    <span class="smallFont cursorPointerUnderlined" (click)="openEditListPanel()">[Edit]</span>
-    <span class="smallFont cursorPointerUnderlined" (click)="openShareListPanel()">[Share]</span>
+  <button type="button" class="smallFont cursorPointerUnderlined" aria-label="Edit list" (click)="openEditListPanel()">Edit</button>
+  <button type="button" class="smallFont cursorPointerUnderlined" aria-label="Share list" (click)="openShareListPanel()">Sharing</button>
   </div>
 
   <fieldset class="addTodoInputFieldset"> 
