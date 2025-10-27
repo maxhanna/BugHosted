@@ -124,7 +124,7 @@ export class Bot extends Character {
         resource: resources.images["shadow"],
         scale: params.scale,
         offsetX: (params.offsetX ?? 0),
-        offsetY: params.spriteName?.includes("skeleton") ? -12 : 2 + (params.offsetY ?? 0),
+        offsetY: params.spriteName?.includes("skeleton") ? 0 : 2 + (params.offsetY ?? 0),
         frameSize: new Vector2(32, 32),
       }),
     });
