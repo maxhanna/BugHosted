@@ -325,13 +325,16 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
         // reconcile any optimistic invites after initial party load
         this.reconcilePendingInvites();
         await this.reinitializeHero(rz);
-      } else {
-        this.userService.getUserSettings(this.parentRef?.user?.id ?? 0).then(res => {
-          const defaultName = res?.lastCharacterName ?? undefined;
-          this.mainScene.setLevel(new CharacterCreate({ defaultName, defaultColor: this.cachedDefaultColor }));
-        }).catch(() => {
-          this.mainScene.setLevel(new CharacterCreate({ defaultColor: this.cachedDefaultColor }));
-        });
+      } else { 
+        const heroNames = await this.bonesService.getHeroNames(this.parentRef.user.id);
+        this.mainScene.setLevel(
+          new CharacterCreate(
+            { defaultName: this.cachedDefaultName, 
+              defaultColor: this.cachedDefaultColor,
+              heroNames: heroNames  
+            }
+          )
+        );
         return;
       }
     }

@@ -110,6 +110,10 @@ export class BonesService {
     return this.fetchData('/bones/getheroselections', userId);
   }
 
+  async getHeroNames(userId: number): Promise<string[] | undefined> {
+    return this.fetchData('/bones/getheronames', userId);
+  }
+
   async createHeroSelection(userId: number) {
     return this.fetchData('/bones/createheroselection', userId);
   }

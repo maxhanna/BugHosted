@@ -57,7 +57,15 @@ export class CharacterCreate extends Level {
     "wang", "wank", "wanker", "wanky", "whoar", "whore", "willies", "xrated", "xxx", "suck"];
   override defaultHeroPosition = new Vector2(gridCells(1), gridCells(1));
   defaultColor: string | undefined = undefined;
-  constructor(params: { heroPosition?: Vector2, defaultName?: string, defaultColor?: string, championName?: string, championScore?: number } = {}) {
+  heroNames: string[] | undefined = undefined;
+  constructor(params: { 
+    heroPosition?: Vector2, 
+    defaultName?: string, 
+    defaultColor?: string, 
+    championName?: string, 
+    championScore?: number,
+    heroNames?: string[] 
+  } = {}) {
     super();
     console.log("new char create");
     this.name = "CharacterCreate";
@@ -275,8 +283,12 @@ export class CharacterCreate extends Level {
     }
     else if (this.profanity.some(bw => n.includes(bw))) {
       outcome = "No bad words allowed.";
-    } else if (name.length > 12) {
+    } 
+    else if (name.length > 12) {
       outcome = "Name must be under 12 characters long.";
+    }
+    else if (this.heroNames?.includes(name)) {
+      outcome = "Name already taken, please choose another.";
     }
 
     if (outcome) {

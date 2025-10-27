@@ -914,6 +914,42 @@ namespace maxhanna.Server.Controllers
 			}
 		}
 
+		[HttpPost("/Bones/GetHeroNames", Name = "Bones_GetHeroNames")]
+		public async Task<IActionResult> GetHeroNames([FromBody] int userId)
+		{
+			if (userId <= 0) return BadRequest("Invalid user id");
+			using var connection = new MySqlConnection(_connectionString);
+			await connection.OpenAsync();
+			try
+			{
+				// Gather distinct names from both bones_hero and bones_hero_selection for this user
+				string sql = @"
+					SELECT DISTINCT name FROM maxhanna.bones_hero WHERE user_id = @UserId AND name IS NOT NULL
+					UNION
+					SELECT DISTINCT name FROM maxhanna.bones_hero_selection WHERE user_id = @UserId AND name IS NOT NULL
+					ORDER BY name COLLATE utf8mb4_general_ci;";
+				using var cmd = new MySqlCommand(sql, connection);
+				cmd.Parameters.AddWithValue("@UserId", userId);
+				using var rdr = await cmd.ExecuteReaderAsync();
+				var names = new List<string>();
+				while (await rdr.ReadAsync())
+				{
+					if (!rdr.IsDBNull(0)) names.Add(rdr.GetString(0));
+				}
+				return Ok(names);
+			}
+			catch (MySqlException ex)
+			{
+				await _log.Db($"Database error in Bones_GetHeroNames for userId {userId}: {ex.Message} (Error Code: {ex.Number})", userId, "BONES", true);
+				return StatusCode(500, $"Database error: {ex.Message}");
+			}
+			catch (Exception ex)
+			{
+				await _log.Db($"Unexpected error in Bones_GetHeroNames for userId {userId}: {ex.Message}", userId, "BONES", true);
+				return StatusCode(500, $"Internal server error: {ex.Message}");
+			}
+		}
+
 		[HttpPost("/Bones/CreateHeroSelection", Name = "Bones_CreateHeroSelection")]
 		public async Task<IActionResult> CreateHeroSelection([FromBody] int userId)
 		{
