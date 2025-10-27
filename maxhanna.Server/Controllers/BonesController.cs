@@ -20,7 +20,9 @@ namespace maxhanna.Server.Controllers
 		private readonly Log _log;
 		private readonly IConfiguration _config;
 		private readonly string _connectionString;
-		private static Dictionary<string, CancellationTokenSource> activeLocks = new();
+	// Note: activeLocks was previously declared here but not used in this controller.
+	// Removed to avoid unnecessary static allocation. Other controllers may still
+	// declare their own activeLocks where used.
 		// Track last time encounter movement was processed per map to limit updates to once per second
 		private static readonly Dictionary<string, DateTime> _lastEncounterAiRun = new();
 		// Track when an encounter started chasing a specific hero (key: encounter hero_id)
@@ -1648,7 +1650,40 @@ namespace maxhanna.Server.Controllers
 					}
 				}
 
-				if (encounters.Count == 0) return;
+				// If there are no encounters on this map, prune any stale entries from the
+				// static per-encounter dictionaries so they don't grow unbounded over time.
+				if (encounters.Count == 0)
+				{
+					lock (_encounterRecentPositions)
+					{
+						_encounterRecentPositions.Clear();
+					}
+					lock (_encounterTargetLockTimes)
+					{
+						_encounterTargetLockTimes.Clear();
+					}
+					return;
+				}
+
+				// Prune any entries that refer to encounters which are no longer present
+				var currentEncounterIds = new HashSet<int>();
+				foreach (var ce in encounters) currentEncounterIds.Add(ce.heroId);
+				lock (_encounterRecentPositions)
+				{
+					var keys = _encounterRecentPositions.Keys.ToList();
+					foreach (var k in keys)
+					{
+						if (!currentEncounterIds.Contains(k)) _encounterRecentPositions.Remove(k);
+					}
+				}
+				lock (_encounterTargetLockTimes)
+				{
+					var keys2 = _encounterTargetLockTimes.Keys.ToList();
+					foreach (var k in keys2)
+					{
+						if (!currentEncounterIds.Contains(k)) _encounterTargetLockTimes.Remove(k);
+					}
+				}
 
 				// Get heroes on this map to determine targets. Build both list and fast lookup dictionary to avoid LINQ allocations in hot loops.
 				var heroes = new List<(int heroId, int x, int y)>();
