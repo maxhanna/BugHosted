@@ -513,7 +513,7 @@ namespace maxhanna.Server.Controllers
 										// Placeholder hook: spawn a dropped item for this defeated encounter
 										try
 										{
-											await SpawnDroppedItemPlaceholder(d.encId, d.encLevel, targetX, targetY, connection, transaction);
+											await SpawnDroppedItemPlaceholder(d.encId, d.encLevel, targetX, targetY, hero.Map ?? string.Empty, connection, transaction);
 										}
 										catch (Exception exSpawn)
 										{
@@ -2530,7 +2530,7 @@ namespace maxhanna.Server.Controllers
 		}
 
 		// Placeholder hook called when an encounter dies so dropped item logic can be added here later.
-		private async Task SpawnDroppedItemPlaceholder(int encounterId, int encounterLevel, int x, int y, MySqlConnection connection, MySqlTransaction transaction)
+	private async Task SpawnDroppedItemPlaceholder(int encounterId, int encounterLevel, int x, int y, string map, MySqlConnection connection, MySqlTransaction transaction)
 		{
 			// Create a dropped item row in bones_items_dropped and prune older entries (>2 minutes)
 			try
@@ -2547,7 +2547,7 @@ namespace maxhanna.Server.Controllers
 				string insertSql = @"DELETE FROM maxhanna.bones_items_dropped WHERE created < DATE_SUB(UTC_TIMESTAMP(), INTERVAL 2 MINUTE); INSERT INTO maxhanna.bones_items_dropped (map, coordsX, coordsY, data, created) VALUES (@Map, @X, @Y, @Data, UTC_TIMESTAMP());";
 				var parameters = new Dictionary<string, object?>()
 				{
-					{"@Map", ""}, // map unknown here; owner flow should set map if available
+					{"@Map", map ?? string.Empty},
 					{"@X", x},
 					{"@Y", y},
 					{"@Data", Newtonsoft.Json.JsonConvert.SerializeObject(itemData)}

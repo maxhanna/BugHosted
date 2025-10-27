@@ -779,7 +779,12 @@ export function reconcileDroppedItemsFromFetch(object: any, res: any) {
   }
   try { (object as any)._lastDroppedMap = map; } catch { }
 
-  const serverItems = Array.isArray(res.droppedItems) ? res.droppedItems : [];
+  // Accept both camelCase and PascalCase server responses (server uses DroppedItems in C#)
+  const serverItems = Array.isArray(res.droppedItems) ? res.droppedItems : (Array.isArray(res.DroppedItems) ? res.DroppedItems : []);
+  // Debug trace to help diagnose cases when server returns empty list or unexpected shape
+  if (!serverItems || serverItems.length === 0) {
+    try { console.debug('reconcileDroppedItemsFromFetch: serverItems empty', Object.keys(res || {})); } catch { }
+  }
   const seenIds = new Set<number>();
 
   for (const it of serverItems) {
