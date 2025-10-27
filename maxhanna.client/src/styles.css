@@ -785,7 +785,9 @@ fieldset {
   font-size: x-large;
   color: var(--secondary-font-color);
 }
-
+.poll-option-text { 
+  width: 300px;
+}
 .poll-options {
   width: 100%;
 }
