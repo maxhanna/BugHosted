@@ -50,28 +50,11 @@ export class HeroRoomLevel extends Level {
     this.addBackgroundLayer(resources.images["townbg2"], /*parallax=*/0.4, new Vector2(-400, 16), /*repeat=*/false, /*scale=*/1);
 
 
-    // Create a room made of repeated "floorbigtile" sprites, centered on the default hero position.
-    const roomWidth = 12; // tiles horizontally
+    // Create a tiled floor and perimeter walls using Level helper
+    const roomWidth = 20; // tiles horizontally
     const roomHeight = 5; // tiles vertically
-    const centerTileX = Math.round(this.defaultHeroPosition.x / gridCells(1));
-    const centerTileY = Math.round(this.defaultHeroPosition.y / gridCells(1));
-    const startTileX = centerTileX - Math.floor(roomWidth / 2);
-    const startTileY = centerTileY - Math.floor(roomHeight / 2);
-    // Starting point in pixel coordinates for the tiled room
-    const tileStart = new Vector2(gridCells(startTileX), gridCells(startTileY));
-    let tileId = 0;
-    for (let rx = 0; rx < roomWidth; rx++) {
-      for (let ry = 0; ry < roomHeight; ry++) {
-        const tile = new Sprite({
-          objectId: -1000 + tileId++,
-          resource: resources.images["floorbigtile"],
-          position: new Vector2(tileStart.x + 64 * rx, tileStart.y + 96 * ry),
-          frameSize: new Vector2(64, 96),
-        });
-        tile.drawLayer = BASE;
-        this.addChild(tile);
-      }
-    }
+    // tileWidth=64, tileHeight=96 match original layout
+    this.tileFloor(this.defaultHeroPosition, roomWidth, roomHeight, 64, 96, resources.images["floorbigtile"], { drawLayer: BASE, startObjectId: -1000 });
 
 
 
@@ -106,34 +89,7 @@ export class HeroRoomLevel extends Level {
     ];
     this.addChild(bones);
 
-    this.walls = new Set();
-
-    // Compute the pixel bounding box of the tiled floor area and convert to hero-grid indices
-    // so walls align with `gridCells(1)` (20px) regardless of floor tile size (64x96).
-    const tilePixelWidth = 64;
-    const tilePixelHeight = 96;
-    const cellPixel = gridCells(1);
-    const leftPixel = tileStart.x;
-    const topPixel = tileStart.y;
-    const rightPixel = tileStart.x + roomWidth * tilePixelWidth - 1;
-    const bottomPixel = tileStart.y + roomHeight * tilePixelHeight - 1;
-
-    const leftIndex = Math.floor(leftPixel / cellPixel);
-    const rightIndex = Math.floor(rightPixel / cellPixel);
-    const topIndex = Math.floor(topPixel / cellPixel);
-    const bottomIndex = Math.floor(bottomPixel / cellPixel);
-
-    // horizontal edges (top and bottom rows of hero-grid cells covered by the floor area)
-    for (let gx = leftIndex; gx <= rightIndex; gx++) {
-      this.walls.add(`${gridCells(gx)},${gridCells(topIndex)}`);
-      this.walls.add(`${gridCells(gx)},${gridCells(bottomIndex)}`);
     }
-    // vertical edges (left and right columns)
-    for (let gy = topIndex; gy <= bottomIndex; gy++) {
-      this.walls.add(`${gridCells(leftIndex)},${gridCells(gy)}`);
-      this.walls.add(`${gridCells(rightIndex)},${gridCells(gy)}`);
-    }
-  }
 
   override ready() {
     events.on("CHARACTER_EXITS", this, () => {

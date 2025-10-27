@@ -1,6 +1,8 @@
 import { Vector2 } from "../../../../services/datacontracts/bones/vector2";
-import { GameObject } from "../game-object";
+import { BASE, GameObject } from "../game-object";
 import { gridCells } from "../../helpers/grid-cells";
+import { Sprite } from "../sprite";
+import { Resource } from "../../helpers/resources";
 
  
 export class Level extends GameObject {
@@ -14,6 +16,72 @@ export class Level extends GameObject {
   constructor() {
     super({ position: new Vector2(0, 0) });
     this.isOmittable = false;
+  }
+
+  /**
+   * Tile a rectangular floor area centered at `center`.
+   * Adds Sprite tiles as children and marks perimeter walls in `this.walls`.
+   *
+   * @param center pixel position (Vector2) used as the center of the tiled area
+   * @param tilesX number of tiles horizontally
+   * @param tilesY number of tiles vertically
+   * @param tileWidth tile pixel width
+   * @param tileHeight tile pixel height
+   * @param resource Resource used for each tile (must match Sprite constructor expectations)
+   * @param opts optional settings: drawLayer (defaults to BASE) and startObjectId (optional starting id for tiles)
+   * @returns array of created Sprite tiles
+   */
+  tileFloor(center: Vector2, tilesX: number, tilesY: number, tileWidth: number, tileHeight: number, resource: Resource, opts?: { drawLayer?: typeof BASE | string, startObjectId?: number }) : Sprite[] {
+    const drawLayer = opts?.drawLayer ?? BASE;
+    let nextId = opts?.startObjectId ?? Math.floor(Math.random() * 10000) * -1;
+
+    // central tile indices on the hero grid (gridCells(1) == 20px)
+    const centerTileX = Math.round(center.x / gridCells(1));
+    const centerTileY = Math.round(center.y / gridCells(1));
+    const startTileX = centerTileX - Math.floor(tilesX / 2);
+    const startTileY = centerTileY - Math.floor(tilesY / 2);
+
+    const tileStart = new Vector2(gridCells(startTileX), gridCells(startTileY));
+
+    const created: Sprite[] = [];
+    for (let rx = 0; rx < tilesX; rx++) {
+      for (let ry = 0; ry < tilesY; ry++) {
+        const tile = new Sprite({
+          objectId: nextId--,
+          resource: resource,
+          position: new Vector2(tileStart.x + tileWidth * rx, tileStart.y + tileHeight * ry),
+          frameSize: new Vector2(tileWidth, tileHeight),
+          drawLayer: drawLayer as any,
+        });
+        created.push(tile);
+        this.addChild(tile);
+      }
+    }
+
+    // compute perimeter walls in hero-grid coordinates so they align with gridCells(1)
+    const leftPixel = tileStart.x;
+    const topPixel = tileStart.y;
+    const rightPixel = tileStart.x + tilesX * tileWidth - 1;
+    const bottomPixel = tileStart.y + tilesY * tileHeight - 1;
+
+    const cellPixel = gridCells(1);
+    const leftIndex = Math.floor(leftPixel / cellPixel);
+    const rightIndex = Math.floor(rightPixel / cellPixel);
+    const topIndex = Math.floor(topPixel / cellPixel);
+    const bottomIndex = Math.floor(bottomPixel / cellPixel);
+
+    // horizontal edges
+    for (let gx = leftIndex; gx <= rightIndex; gx++) {
+      this.walls.add(`${gridCells(gx)},${gridCells(topIndex)}`);
+      this.walls.add(`${gridCells(gx)},${gridCells(bottomIndex)}`);
+    }
+    // vertical edges
+    for (let gy = topIndex; gy <= bottomIndex; gy++) {
+      this.walls.add(`${gridCells(leftIndex)},${gridCells(gy)}`);
+      this.walls.add(`${gridCells(rightIndex)},${gridCells(gy)}`);
+    }
+
+    return created;
   }
 
   /**
