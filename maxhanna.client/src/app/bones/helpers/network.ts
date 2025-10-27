@@ -392,6 +392,10 @@ export function subscribeToMainGameEvents(object: any) {
   // can remove the dropped item row and apply any effects (power) to the hero.
   events.on("CHARACTER_PICKS_UP_ITEM", object, (data: { position: Vector2, id?: number, imageName?: string, hero?: any, item?: any }) => {
     try {
+      // Prevent duplicate handling by other CHARACTER_PICKS_UP_ITEM listeners in this module
+      // (some handlers also listen for the same event and send ITEM_DESTROYED). Setting
+      // an action blocker briefly avoids sending the same meta-event twice.
+      try { setActionBlocker(500); } catch { }
       const payload: any = {
         position: safeStringify(data.position)
       };
