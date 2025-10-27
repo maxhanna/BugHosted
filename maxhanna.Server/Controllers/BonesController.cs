@@ -44,7 +44,7 @@ namespace maxhanna.Server.Controllers
 			_config = config;
 			_connectionString = config.GetValue<string>("ConnectionStrings:maxhanna") ?? "";
 		}
-  
+
 		[HttpPost("/Bones", Name = "Bones_GetHero")]
 		public async Task<IActionResult> GetHero([FromBody] int userId)
 		{
@@ -436,11 +436,11 @@ namespace maxhanna.Server.Controllers
 								await _log.Db("Failed to apply hero damage in PersistNewAttacks: " + exHd.Message, hero.Id, "BONES", true);
 							}
 
-						 
+
 
 							if (rows > 0)
 							{
-						 
+
 								// Check if any encounters died (hp reached 0) and award EXP in same transaction
 								try
 								{
@@ -589,34 +589,61 @@ namespace maxhanna.Server.Controllers
 			using var transaction = connection.BeginTransaction();
 			try
 			{
-				string sql = @"INSERT INTO maxhanna.bones_hero (name, user_id, coordsX, coordsY, speed, created, updated)
-	                          SELECT @Name, @UserId, @CoordsX, @CoordsY, @Speed, UTC_TIMESTAMP(), UTC_TIMESTAMP
-									WHERE NOT EXISTS (
-										SELECT 1 FROM maxhanna.bones_hero WHERE user_id = @UserId AND name = @Name
-										)
-									AND NOT EXISTS (
-										SELECT 1 FROM maxhanna.bones_hero_selection WHERE user_id = @UserId AND name = @Name
-										);";
+                string sql = @"
+						INSERT INTO maxhanna.bones_hero (name, user_id, coordsX, coordsY, speed, color, created, updated)
+                              SELECT @Name, @UserId, @CoordsX, @CoordsY, @Speed,
+                                COALESCE((SELECT last_character_color FROM maxhanna.user_settings WHERE user_id = @UserId LIMIT 1), ''),
+                                UTC_TIMESTAMP(), UTC_TIMESTAMP()
+						WHERE NOT EXISTS (
+							SELECT 1 FROM maxhanna.bones_hero WHERE user_id = @UserId AND name = @Name
+							)
+						AND NOT EXISTS (
+							SELECT 1 FROM maxhanna.bones_hero_selection WHERE user_id = @UserId AND name = @Name
+							);";
 				int posX = GRIDCELL;
 				int posY = 11 * GRIDCELL;
 				Dictionary<string, object?> parameters = new()
 				{
-					{ "@CoordsX", posX }, { "@CoordsY", posY }, { "@Speed", 1 }, { "@Name", req.Name ?? "Anonymous"}, { "@UserId", req.UserId }
+					{ "@CoordsX", posX },
+					{ "@CoordsY", posY },
+					{ "@Speed", 1 },
+					{ "@Name", req.Name ?? "Anonymous"},
+					{ "@UserId", req.UserId }
 				};
 				long? botId = await ExecuteInsertOrUpdateOrDeleteAsync(sql, parameters, connection, transaction);
-				await transaction.CommitAsync();
 
+				// Read the user's preferred character color so we can return it with the created MetaHero
+				string returnedColor = string.Empty;
 				try
 				{
-					string upsertNameSql = @"INSERT INTO maxhanna.user_settings (user_id, last_character_name) VALUES (@UserId, @Name) ON DUPLICATE KEY UPDATE last_character_name = VALUES(last_character_name);";
-					using var upCmd = new MySqlCommand(upsertNameSql, connection, transaction);
-					upCmd.Parameters.AddWithValue("@UserId", req.UserId);
-					upCmd.Parameters.AddWithValue("@Name", req.Name ?? "");
-					await upCmd.ExecuteNonQueryAsync();
+					using var colorCmd = new MySqlCommand("SELECT last_character_color FROM maxhanna.user_settings WHERE user_id = @UserId LIMIT 1", connection, transaction);
+					colorCmd.Parameters.AddWithValue("@UserId", req.UserId);
+					var colorObj = await colorCmd.ExecuteScalarAsync();
+					if (colorObj != null && colorObj != DBNull.Value)
+					{
+						returnedColor = colorObj.ToString() ?? string.Empty;
+					}
 				}
-				catch { }
+				catch { /* non-fatal: ignore color lookup failures */ }
 
-				MetaHero hero = new() { Position = new Vector2(posX, posY), Id = (int)botId!, Speed = 1, Map = "HeroRoom", Name = req.Name, Hp = 100 };
+				await transaction.CommitAsync();
+
+				string upsertNameSql = @"INSERT INTO maxhanna.user_settings (user_id, last_character_name) VALUES (@UserId, @Name) ON DUPLICATE KEY UPDATE last_character_name = VALUES(last_character_name);";
+				using var upCmd = new MySqlCommand(upsertNameSql, connection, transaction);
+				upCmd.Parameters.AddWithValue("@UserId", req.UserId);
+				upCmd.Parameters.AddWithValue("@Name", req.Name ?? "");
+				await upCmd.ExecuteNonQueryAsync(); 
+
+				MetaHero hero = new()
+				{
+					Position = new Vector2(posX, posY),
+					Id = (int)botId!,
+					Speed = 1,
+					Map = "HeroRoom",
+					Name = req.Name,
+					Color = returnedColor ?? string.Empty,
+					Hp = 100
+				};
 				return Ok(hero);
 			}
 			catch (Exception ex)
@@ -715,7 +742,7 @@ namespace maxhanna.Server.Controllers
 				await _log.Db("RespawnHero failed: " + ex.Message, heroId, "BONES", true);
 				return StatusCode(500, "Internal server error: " + ex.Message);
 			}
-		} 
+		}
 
 		[HttpPost("/Bones/HealHero", Name = "Bones_HealHero")]
 		public async Task<IActionResult> HealHero([FromBody] int heroId)
@@ -748,7 +775,7 @@ namespace maxhanna.Server.Controllers
 			await connection.OpenAsync();
 			try
 			{
-			 
+
 				int? partyId = null;
 				using (var partyCmd = new MySqlCommand("SELECT party_id FROM bones_hero_party WHERE hero_id = @HeroId LIMIT 1", connection))
 				{
@@ -767,13 +794,13 @@ namespace maxhanna.Server.Controllers
 				}
 				using var command = new MySqlCommand(sql, connection);
 				if (partyId.HasValue)
-                {
+				{
 					command.Parameters.AddWithValue("@PartyId", partyId.Value);
-                }
+				}
 				else
-                {
-                    command.Parameters.AddWithValue("@HeroId", heroId);
-                }
+				{
+					command.Parameters.AddWithValue("@HeroId", heroId);
+				}
 				var partyMembers = new List<object>();
 				using var reader = await command.ExecuteReaderAsync();
 				while (await reader.ReadAsync())
@@ -1019,7 +1046,7 @@ namespace maxhanna.Server.Controllers
 					inCmd.Parameters.AddWithValue("@Exp", exp);
 					inCmd.Parameters.AddWithValue("@AttackSpeed", attack_speed);
 					rows = await inCmd.ExecuteNonQueryAsync();
-				} 
+				}
 				string delHeroSql = @"
 				DELETE FROM maxhanna.bones_hero
 				WHERE id = @HeroId
@@ -1027,7 +1054,7 @@ namespace maxhanna.Server.Controllers
 				using var delHeroCmd = new MySqlCommand(delHeroSql, connection, transaction);
 				delHeroCmd.Parameters.AddWithValue("@HeroId", heroId);
 				await delHeroCmd.ExecuteNonQueryAsync();
-				
+
 				await transaction.CommitAsync();
 				return Ok(new { created = rows > 0 });
 			}
@@ -1196,7 +1223,7 @@ namespace maxhanna.Server.Controllers
 				return StatusCode(500, "Failed to delete hero");
 			}
 		}
- 
+
 
 		[HttpPost("/Bones/InviteToParty", Name = "Bones_InviteToParty")]
 		public async Task<IActionResult> InviteToParty([FromBody] InviteToPartyRequest req)
@@ -1224,18 +1251,18 @@ namespace maxhanna.Server.Controllers
 					await transaction.RollbackAsync();
 					return Ok(new { invited = false });
 				}
-				string inviterMap = string.Empty; 
+				string inviterMap = string.Empty;
 				using var mapCmd = new MySqlCommand("SELECT map FROM maxhanna.bones_hero WHERE id = @HeroId LIMIT 1", connection, transaction);
 				mapCmd.Parameters.AddWithValue("@HeroId", req.HeroId);
 				var mapObj = await mapCmd.ExecuteScalarAsync();
 				inviterMap = mapObj != null ? mapObj.ToString() ?? string.Empty : string.Empty;
-				 
+
 				var data = new Dictionary<string, string>();
 				// data.hero_id = invited target
 				data["hero_id"] = req.TargetHeroId.ToString();
 				var ev = new MetaEvent(0, req.HeroId, DateTime.UtcNow, "PARTY_INVITED", inviterMap ?? string.Empty, data);
 				await UpdateEventsInDB(ev, connection, transaction);
-				 
+
 				await transaction.CommitAsync();
 				return Ok(new { invited = true });
 			}
@@ -1304,7 +1331,7 @@ namespace maxhanna.Server.Controllers
 				await _log.Db("LeaveParty failed: " + ex.Message, req.HeroId, "BONES", true);
 				return StatusCode(500, "Failed to leave party");
 			}
-		} 
+		}
 
 		[HttpPost("/Bones/UpdateHeroStats", Name = "Bones_UpdateHeroStats")]
 		public async Task<IActionResult> UpdateHeroStats([FromBody] UpdateHeroStatsRequest req)
@@ -1336,22 +1363,22 @@ namespace maxhanna.Server.Controllers
 
 				// Persist stats directly to bones_hero table (STR/DEX/INT stored as JSON in a 'stats' JSON column or individual columns)
 				try
-				{ 
-						// Build UPDATE for only provided keys
-						var setParts = new List<string>();
-						var updParams = new Dictionary<string, object?>();
-						if (req.Stats.ContainsKey("str")) { setParts.Add("str = @str"); updParams["@str"] = req.Stats["str"]; }
-						if (req.Stats.ContainsKey("dex")) { setParts.Add("dex = @dex"); updParams["@dex"] = req.Stats["dex"]; }
-						if (req.Stats.ContainsKey("int")) { setParts.Add("`int` = @int"); updParams["@int"] = req.Stats["int"]; }
-						if (setParts.Count > 0)
-						{
-							string updSql = $"UPDATE maxhanna.bones_hero SET {string.Join(", ", setParts)}, updated = UTC_TIMESTAMP() WHERE id = @HeroId LIMIT 1";
-							var parameters = new Dictionary<string, object?>() { { "@HeroId", req.HeroId } };
-							foreach (var kv in updParams) parameters[kv.Key] = kv.Value;
-							await ExecuteInsertOrUpdateOrDeleteAsync(updSql, parameters, connection, transaction);
-						}
-				 
-					 
+				{
+					// Build UPDATE for only provided keys
+					var setParts = new List<string>();
+					var updParams = new Dictionary<string, object?>();
+					if (req.Stats.ContainsKey("str")) { setParts.Add("str = @str"); updParams["@str"] = req.Stats["str"]; }
+					if (req.Stats.ContainsKey("dex")) { setParts.Add("dex = @dex"); updParams["@dex"] = req.Stats["dex"]; }
+					if (req.Stats.ContainsKey("int")) { setParts.Add("`int` = @int"); updParams["@int"] = req.Stats["int"]; }
+					if (setParts.Count > 0)
+					{
+						string updSql = $"UPDATE maxhanna.bones_hero SET {string.Join(", ", setParts)}, updated = UTC_TIMESTAMP() WHERE id = @HeroId LIMIT 1";
+						var parameters = new Dictionary<string, object?>() { { "@HeroId", req.HeroId } };
+						foreach (var kv in updParams) parameters[kv.Key] = kv.Value;
+						await ExecuteInsertOrUpdateOrDeleteAsync(updSql, parameters, connection, transaction);
+					}
+
+
 				}
 				catch (Exception ex)
 				{
@@ -1458,8 +1485,14 @@ namespace maxhanna.Server.Controllers
 		{
 			try
 			{
-				string sql = @"UPDATE maxhanna.bones_hero SET coordsX = @CoordsX, coordsY = @CoordsY, color = @Color, mask = @Mask, map = @Map, speed = @Speed, updated = UTC_TIMESTAMP() WHERE id = @HeroId";
-				Dictionary<string, object?> parameters = new() { { "@CoordsX", hero.Position.x }, { "@CoordsY", hero.Position.y }, { "@Color", hero.Color }, { "@Mask", hero.Mask }, { "@Map", hero.Map }, { "@Speed", hero.Speed }, { "@HeroId", hero.Id } };
+				string sql = @"UPDATE maxhanna.bones_hero SET coordsX = @CoordsX, coordsY = @CoordsY, mask = @Mask, map = @Map, speed = @Speed, updated = UTC_TIMESTAMP() WHERE id = @HeroId";
+				Dictionary<string, object?> parameters = new() {
+					{ "@CoordsX", hero.Position.x },
+					 { "@CoordsY", hero.Position.y },
+					 { "@Mask", hero.Mask },
+					 { "@Map", hero.Map },
+					 { "@Speed", hero.Speed },
+					 { "@HeroId", hero.Id } };
 				await ExecuteInsertOrUpdateOrDeleteAsync(sql, parameters, connection, transaction);
 				return hero;
 			}
@@ -1469,7 +1502,7 @@ namespace maxhanna.Server.Controllers
 				throw;
 			}
 		}
-		 
+
 		private async Task UpdateEventsInDB(MetaEvent @event, MySqlConnection connection, MySqlTransaction transaction)
 		{
 			try
@@ -1556,7 +1589,7 @@ namespace maxhanna.Server.Controllers
 				// Include optional stat columns (str,dex,int) aliased to hero_str/hero_dex/hero_int if present in schema
 				string sql = $"SELECT h.id as hero_id, h.coordsX, h.coordsY, h.map, h.speed, h.name as hero_name, h.color as hero_color, h.mask as hero_mask, h.level as hero_level, h.exp as hero_exp, h.hp as hero_hp, h.attack_speed as attack_speed, h.str AS hero_str, h.dex AS hero_dex, h.int AS hero_int FROM maxhanna.bones_hero h WHERE {(heroId == null ? "h.user_id = @UserId" : "h.id = @UserId")};";
 				MySqlCommand cmd = new(sql, conn, transaction); cmd.Parameters.AddWithValue("@UserId", heroId != null ? heroId : userId);
-				MetaHero? hero = null;  
+				MetaHero? hero = null;
 				using (var reader = await cmd.ExecuteReaderAsync())
 				{
 					while (reader.Read())
@@ -1565,8 +1598,9 @@ namespace maxhanna.Server.Controllers
 						{
 							int levelOrd = reader.GetOrdinal("hero_level");
 							int expOrd = reader.GetOrdinal("hero_exp");
-							int attackSpeed = reader.IsDBNull(reader.GetOrdinal("attack_speed")) ? 400 : reader.GetInt32(reader.GetOrdinal("attack_speed"));  
-							hero = new MetaHero {
+							int attackSpeed = reader.IsDBNull(reader.GetOrdinal("attack_speed")) ? 400 : reader.GetInt32(reader.GetOrdinal("attack_speed"));
+							hero = new MetaHero
+							{
 								Id = reader.GetInt32("hero_id"),
 								Position = new Vector2(reader.GetInt32("coordsX"), reader.GetInt32("coordsY")),
 								Speed = reader.GetInt32("speed"),
@@ -1575,31 +1609,31 @@ namespace maxhanna.Server.Controllers
 								Color = SafeGetString(reader, "hero_color") ?? string.Empty,
 								Mask = reader.IsDBNull(reader.GetOrdinal("hero_mask")) ? null : reader.GetInt32("hero_mask"),
 								Level = reader.IsDBNull(levelOrd) ? 0 : reader.GetInt32(levelOrd),
-								Exp = reader.IsDBNull(expOrd) ? 0 : reader.GetInt32(expOrd), 
+								Exp = reader.IsDBNull(expOrd) ? 0 : reader.GetInt32(expOrd),
 								AttackSpeed = attackSpeed,
 								Hp = reader.IsDBNull(reader.GetOrdinal("hero_hp")) ? 100 : reader.GetInt32(reader.GetOrdinal("hero_hp")),
 								Str = reader.IsDBNull(reader.GetOrdinal("hero_str")) ? 0 : reader.GetInt32(reader.GetOrdinal("hero_str")),
 								Dex = reader.IsDBNull(reader.GetOrdinal("hero_dex")) ? 0 : reader.GetInt32(reader.GetOrdinal("hero_dex")),
 								Int = reader.IsDBNull(reader.GetOrdinal("hero_int")) ? 0 : reader.GetInt32(reader.GetOrdinal("hero_int")),
-							}; 
+							};
 
-						// If a user-level default color is set in user_settings, prefer it over stored hero color
-						try
-						{
-							if (userId != 0 && hero != null)
+							// If a user-level default color is set in user_settings, prefer it over stored hero color
+							try
 							{
-								using var colorCmd = new MySqlCommand("SELECT last_character_color FROM maxhanna.user_settings WHERE user_id = @UserId LIMIT 1", conn, transaction);
-								colorCmd.Parameters.AddWithValue("@UserId", userId);
-								var colorObj = await colorCmd.ExecuteScalarAsync();
-								if (colorObj != null && colorObj != DBNull.Value)
+								if (userId != 0 && hero != null)
 								{
-									var colorStr = colorObj.ToString();
-									if (!string.IsNullOrEmpty(colorStr)) hero.Color = colorStr;
+									using var colorCmd = new MySqlCommand("SELECT last_character_color FROM maxhanna.user_settings WHERE user_id = @UserId LIMIT 1", conn, transaction);
+									colorCmd.Parameters.AddWithValue("@UserId", userId);
+									var colorObj = await colorCmd.ExecuteScalarAsync();
+									if (colorObj != null && colorObj != DBNull.Value)
+									{
+										var colorStr = colorObj.ToString();
+										if (!string.IsNullOrEmpty(colorStr)) hero.Color = colorStr;
+									}
 								}
 							}
+							catch { /* non-fatal: ignore user_settings lookup failures */ }
 						}
-						catch { /* non-fatal: ignore user_settings lookup failures */ }
-						} 
 					}
 				}
 				return hero;
@@ -1768,7 +1802,7 @@ namespace maxhanna.Server.Controllers
 				var parameters = new Dictionary<string, object?>();
 				int idx = 0;
 				// Localize frequently-used values
-				int tile = GRIDCELL; 
+				int tile = GRIDCELL;
 				// Build occupied/reserved position sets so encounters can spread and avoid stacking
 				var occupiedPositions = new HashSet<(int x, int y)>();
 				foreach (var ce in encounters) occupiedPositions.Add((ce.x, ce.y));
@@ -1967,18 +2001,24 @@ namespace maxhanna.Server.Controllers
 									int numericFacing = 0;
 									if (heroById.TryGetValue(closest.Value.heroId, out var facingHeroPos))
 									{
-										if (dxAdj == tile) {
+										if (dxAdj == tile)
+										{
 											numericFacing = facingHeroPos.x > e.x ? 2 : 1; // right : left
-										} else {
+										}
+										else
+										{
 											numericFacing = facingHeroPos.y > e.y ? 0 : 3; // down : up
 										}
 									}
 									else
 									{
 										// Fallback: infer facing from the closest/movement tile
-										if (dxAdj == tile) {
+										if (dxAdj == tile)
+										{
 											numericFacing = closest.Value.x > e.x ? 2 : 1;
-										} else {
+										}
+										else
+										{
 											numericFacing = closest.Value.y > e.y ? 0 : 3;
 										}
 									}
@@ -1994,7 +2034,8 @@ namespace maxhanna.Server.Controllers
 										{ "attack_speed", (e.attackSpeed <= 0 ? 400 : e.attackSpeed).ToString() }
 									};
 									// Defensive: do not allow an encounter to attack itself
-									if (closest.Value.heroId == e.heroId) {
+									if (closest.Value.heroId == e.heroId)
+									{
 										continue;
 									}
 
@@ -2038,9 +2079,9 @@ namespace maxhanna.Server.Controllers
 												newHp = hpv;
 											}
 											if (newHp <= 0)
-											{ 
+											{
 												await HandleHeroDeath(tgtHeroId, e.heroId, "encounter", map, connection, transaction);
-                                                 
+
 											}
 										}
 									}
@@ -2186,7 +2227,7 @@ namespace maxhanna.Server.Controllers
 							int speed = reader.IsDBNull(reader.GetOrdinal("speed")) ? 0 : reader.GetInt32(reader.GetOrdinal("speed"));
 							var updated = reader.IsDBNull(reader.GetOrdinal("hero_updated")) ? DateTime.UtcNow : reader.GetDateTime(reader.GetOrdinal("hero_updated"));
 							var created = reader.IsDBNull(reader.GetOrdinal("hero_created")) ? DateTime.UtcNow : reader.GetDateTime(reader.GetOrdinal("hero_created"));
-							int attackSpeed = reader.IsDBNull(reader.GetOrdinal("hero_attack_speed")) ? 400 : reader.GetInt32(reader.GetOrdinal("hero_attack_speed"));  
+							int attackSpeed = reader.IsDBNull(reader.GetOrdinal("hero_attack_speed")) ? 400 : reader.GetInt32(reader.GetOrdinal("hero_attack_speed"));
 							tmpHero = new MetaHero
 							{
 								Id = heroId,
@@ -2241,7 +2282,7 @@ namespace maxhanna.Server.Controllers
 				throw;
 			}
 		}
-		
+
 		private async Task PerformEventChecks(MetaEvent metaEvent, MySqlConnection connection, MySqlTransaction transaction)
 		{
 			if (metaEvent != null && metaEvent.Data != null && metaEvent.EventType == "UNPARTY")
@@ -2308,7 +2349,7 @@ namespace maxhanna.Server.Controllers
 				{
 					upCmd.Parameters.AddWithValue("@Exp", encounterLevel);
 					int rows = await upCmd.ExecuteNonQueryAsync();
-				//	await _log.Db($"AwardEncounterKillExp: exp UPDATE rowsAffected={rows} for ids=[{idsCsv}] (added {encounterLevel} exp)", killerHeroId, "BONES", true);
+					//	await _log.Db($"AwardEncounterKillExp: exp UPDATE rowsAffected={rows} for ids=[{idsCsv}] (added {encounterLevel} exp)", killerHeroId, "BONES", true);
 				}
 				// Read back the exp/level values for the party to verify the update took effect
 				try
@@ -2321,7 +2362,7 @@ namespace maxhanna.Server.Controllers
 						int id = selR.GetInt32(0);
 						int exp = selR.IsDBNull(1) ? 0 : selR.GetInt32(1);
 						int lvl = selR.IsDBNull(2) ? 0 : selR.GetInt32(2);
-					//	await _log.Db($"AwardEncounterKillExp: post-update heroId={id} exp={exp} level={lvl}", killerHeroId, "BONES", true);
+						//	await _log.Db($"AwardEncounterKillExp: post-update heroId={id} exp={exp} level={lvl}", killerHeroId, "BONES", true);
 					}
 					selR.Close();
 				}
@@ -2333,7 +2374,7 @@ namespace maxhanna.Server.Controllers
 				using (var lvlCmd = new MySqlCommand(levelSql, connection, transaction))
 				{
 					int leveled = await lvlCmd.ExecuteNonQueryAsync();
-				//	await _log.Db($"AwardEncounterKillExp: level UPDATE rowsAffected={leveled} for ids=[{idsCsv}]", killerHeroId, "BONES", true);
+					//	await _log.Db($"AwardEncounterKillExp: level UPDATE rowsAffected={leveled} for ids=[{idsCsv}]", killerHeroId, "BONES", true);
 				}
 			}
 			catch (Exception ex)
@@ -2411,12 +2452,12 @@ namespace maxhanna.Server.Controllers
 					}
 				}
 				foreach (var hid in heroIds)
-                {
-                    if (!existing.ContainsKey(hid))
-                    {
-						existing[hid] = null; 
-                    }
-                }
+				{
+					if (!existing.ContainsKey(hid))
+					{
+						existing[hid] = null;
+					}
+				}
 				var partyIdsFound = existing.Values.Where(v => v.HasValue).Select(v => v!.Value).Distinct().ToList();
 				//await _log.Db($"UpdateMetaHeroParty partyIdsFound=[{string.Join(',', partyIdsFound)}]", null, "BONES", true);
 				int targetPartyId;
@@ -2430,7 +2471,7 @@ namespace maxhanna.Server.Controllers
 					if (existObj != null && int.TryParse(existObj.ToString(), out var foundHeroId) && foundHeroId > 0)
 					{
 						targetPartyId = foundHeroId;
-					//	await _log.Db($"UpdateMetaHeroParty allocated partyId from hero id={targetPartyId}", null, "BONES", true);
+						//	await _log.Db($"UpdateMetaHeroParty allocated partyId from hero id={targetPartyId}", null, "BONES", true);
 					}
 					else
 					{
