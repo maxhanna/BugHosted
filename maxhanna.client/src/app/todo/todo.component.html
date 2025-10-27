@@ -178,8 +178,13 @@
   </div>
  
   <div class="shareErrorMessage" *ngIf="defaultTodoTypes.includes(selectedType.value) && !showSharedList">
-    {{selectedType.value}} cannot be shared.<br>Choose another or create a new list to share it with another user.
-    <div class="smallFont thirdFontColor">Cannot share : {{defaultTodoTypes.join(', ')}}</div>
+    <strong>{{selectedType.value}} cannot be shared.</strong>
+    <p style="margin:8px 0">If someone shared a list with you, click the button below to view shared lists and enable them for your UI. To share this category with someone else, create a new custom list first (use the Edit button).</p>
+    <div style="display:flex; gap:8px; align-items:center; margin-bottom:8px;">
+      <button class="view-shared-btn" (click)="showSharedList = true">View Shared Status</button>
+      <button type="button" class="smallFont cursorPointerUnderlined" (click)="openEditListPanel()">Create / Edit Lists</button>
+    </div>
+    <div class="smallFont thirdFontColor">Non-shareable lists: {{defaultTodoTypes.join(', ')}}</div>
   </div>
 
 </div>

@@ -39,15 +39,24 @@ namespace maxhanna.Server.Controllers
                     todo t
                 JOIN users u ON t.ownership = u.id
                 LEFT JOIN todo_columns tc ON t.ownership = tc.user_id AND tc.column_name = @Type
-                WHERE  
-                    t.type = @Type
-                    AND (
-                        t.ownership = @UserId
-                        OR (
-                            tc.user_id IS NOT NULL
-                            AND FIND_IN_SET(@UserId, tc.shared_with)
-                        )
-                    )
+				WHERE  
+					t.type = @Type
+					AND (
+						t.ownership = @UserId
+						OR (
+							-- Owner has an explicit shared_with that includes the user
+							tc.user_id IS NOT NULL
+							AND FIND_IN_SET(@UserId, REPLACE(tc.shared_with, ' ', ''))
+						)
+						OR (
+							-- Or the owner-column has an activation row for the requesting user
+							EXISTS (
+								SELECT 1 FROM todo_columns tc2
+								JOIN todo_column_activations a ON a.todo_column_id = tc2.id
+								WHERE tc2.user_id = t.ownership AND tc2.column_name = @Type AND a.user_id = @UserId
+							)
+						)
+					)
                     {(string.IsNullOrEmpty(search) ? "" : " AND t.todo LIKE CONCAT('%', @Search, '%')")} 
                 ORDER BY t.date DESC";
 
@@ -650,20 +659,27 @@ namespace maxhanna.Server.Controllers
 				{
 					await conn.OpenAsync();
 
-					string sql = $@"
-                SELECT COUNT(DISTINCT t.id) AS cnt
-                FROM todo t
-                JOIN users u ON t.ownership = u.id
-                LEFT JOIN todo_columns tc ON t.ownership = tc.user_id AND tc.column_name = @Type
-                WHERE t.type = @Type
-                  AND (
-                        t.ownership = @UserId
-                        OR (
-                            tc.user_id IS NOT NULL
-                            AND FIND_IN_SET(@UserId, tc.shared_with)
-                        )
-                      )
-                  {(string.IsNullOrEmpty(search) ? "" : " AND t.todo LIKE CONCAT('%', @Search, '%')")};";
+									string sql = $@"
+									SELECT COUNT(DISTINCT t.id) AS cnt
+									FROM todo t
+									JOIN users u ON t.ownership = u.id
+									LEFT JOIN todo_columns tc ON t.ownership = tc.user_id AND tc.column_name = @Type
+									WHERE t.type = @Type
+										AND (
+													t.ownership = @UserId
+													OR (
+															tc.user_id IS NOT NULL
+															AND FIND_IN_SET(@UserId, REPLACE(tc.shared_with, ' ', ''))
+													)
+													OR (
+															EXISTS (
+																	SELECT 1 FROM todo_columns tc2
+																	JOIN todo_column_activations a ON a.todo_column_id = tc2.id
+																	WHERE tc2.user_id = t.ownership AND tc2.column_name = @Type AND a.user_id = @UserId
+															)
+													)
+												)
+										{(string.IsNullOrEmpty(search) ? "" : " AND t.todo LIKE CONCAT('%', @Search, '%')")};";
 
 					using (var cmd = new MySqlCommand(sql, conn))
 					{
