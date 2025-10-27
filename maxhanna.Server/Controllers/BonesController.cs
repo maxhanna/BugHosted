@@ -364,19 +364,19 @@ namespace maxhanna.Server.Controllers
 							try
 							{
 								// New party schema exclusion: heroes sharing same party_id should not be damaged.
-								string heroDamageSql = @"
-								UPDATE maxhanna.bones_hero h
-								SET h.hp = GREATEST(h.hp - @Damage, 0), h.updated = UTC_TIMESTAMP()
-								WHERE h.map = @Map
-									AND h.hp > 0
-									AND h.coordsX BETWEEN @XMin AND @XMax
-									AND h.coordsY BETWEEN @YMin AND @YMax
-									AND h.id <> @AttackerId
-									AND NOT EXISTS (
-										SELECT 1 FROM maxhanna.bones_hero_party ap
-										JOIN maxhanna.bones_hero_party tp ON tp.hero_id = h.id
-										WHERE ap.hero_id = @AttackerId AND tp.party_id = ap.party_id
-									);";
+								string heroDamageSql = $@"
+									UPDATE maxhanna.bones_hero h
+									SET h.hp = GREATEST(h.hp - @Damage, 0), h.updated = UTC_TIMESTAMP()
+									WHERE h.map = @Map
+										AND h.hp > 0
+										AND h.coordsX BETWEEN @XMin AND @XMax
+										AND h.coordsY BETWEEN @YMin AND @YMax
+										AND h.id <> @AttackerId
+										AND NOT EXISTS (
+											SELECT 1 FROM maxhanna.bones_hero_party ap
+											JOIN maxhanna.bones_hero_party tp ON tp.hero_id = h.id
+											WHERE ap.hero_id = @AttackerId AND tp.party_id = ap.party_id
+										){(isRegularSingleTarget ? " LIMIT 1" : "")};";
 								var heroDamageParams = new Dictionary<string, object?>()
 								{
 									{ "@Map", hero.Map ?? string.Empty },
@@ -392,9 +392,11 @@ namespace maxhanna.Server.Controllers
 								if (heroRows > 0)
 								{
 									// Find affected hero ids so we can emit HERO_DAMAGE per victim with their damage amount
-									string selectHeroesSql = @"SELECT id, hp FROM maxhanna.bones_hero h WHERE map = @Map AND coordsX BETWEEN @XMin AND @XMax AND coordsY BETWEEN @YMin AND @YMax AND h.id <> @AttackerId AND NOT EXISTS (
-										SELECT 1 FROM maxhanna.bones_hero_party ap JOIN maxhanna.bones_hero_party tp ON tp.hero_id = h.id WHERE ap.hero_id = @AttackerId AND tp.party_id = ap.party_id
-									);";
+									// When hero damage was limited to 1 row above, ensure we only select the same
+									// (up to one) affected hero row to inspect HP/death.
+									string selectHeroesSql = $@"SELECT id, hp FROM maxhanna.bones_hero h WHERE map = @Map AND coordsX BETWEEN @XMin AND @XMax AND coordsY BETWEEN @YMin AND @YMax AND h.id <> @AttackerId AND NOT EXISTS (
+											SELECT 1 FROM maxhanna.bones_hero_party ap JOIN maxhanna.bones_hero_party tp ON tp.hero_id = h.id WHERE ap.hero_id = @AttackerId AND tp.party_id = ap.party_id
+										){(isRegularSingleTarget ? " LIMIT 1" : "")};";
 									using var selCmd = new MySqlCommand(selectHeroesSql, connection, transaction);
 									selCmd.Parameters.AddWithValue("@Map", hero.Map ?? string.Empty);
 									selCmd.Parameters.AddWithValue("@XMin", xMin);
