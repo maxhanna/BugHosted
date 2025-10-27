@@ -1303,9 +1303,10 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
   }
 
   async createNewCharacterSelection() {
-    // removePartyMember was deprecated: clients cannot remove other members; use leaveParty() to leave yourself
+    if (!this.parentRef?.user?.id) return;
+    await this.bonesService.createHeroSelection(this.parentRef.user.id);
+    window.location.href = '/Bones';  
   }
-
   async promoteSelection(id: number) {
     try {
       // Only instruct server to promote the chosen selection.

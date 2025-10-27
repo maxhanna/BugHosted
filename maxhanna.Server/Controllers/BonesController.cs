@@ -923,9 +923,6 @@ namespace maxhanna.Server.Controllers
 			using var transaction = await connection.BeginTransactionAsync();
 			try
 			{
-				// Copy current bones_hero for user into bones_hero_selection (snapshot)
-				// Attempt to update an existing selection that references the same bones_hero for this user.
-				// Ensure there is an active bones_hero for this user and capture its id.
 				string findHeroSql = @"SELECT id, name, coordsX, coordsY, map, speed, color, mask, level, exp, attack_speed FROM maxhanna.bones_hero WHERE user_id = @UserId LIMIT 1;";
 				using var findCmd = new MySqlCommand(findHeroSql, connection, transaction);
 				findCmd.Parameters.AddWithValue("@UserId", userId);
@@ -983,7 +980,15 @@ namespace maxhanna.Server.Controllers
 					inCmd.Parameters.AddWithValue("@Exp", exp);
 					inCmd.Parameters.AddWithValue("@AttackSpeed", attack_speed);
 					rows = await inCmd.ExecuteNonQueryAsync();
-				}
+				} 
+				string delHeroSql = @"
+				DELETE FROM maxhanna.bones_hero
+				WHERE id = @HeroId
+				LIMIT 1;";
+				using var delHeroCmd = new MySqlCommand(delHeroSql, connection, transaction);
+				delHeroCmd.Parameters.AddWithValue("@HeroId", heroId);
+				await delHeroCmd.ExecuteNonQueryAsync();
+				
 				await transaction.CommitAsync();
 				return Ok(new { created = rows > 0 });
 			}
