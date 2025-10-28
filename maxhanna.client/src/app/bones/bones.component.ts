@@ -1134,10 +1134,8 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
     }, 500);
   }
 
-  // Mark a hero as 'already in a party' for a short period (ms). Clears any optimistic pending state.
   private setAlreadyInPartyStatus(heroId: number, ms: number = 5000) {
 
-    // clear optimistic pending state
     this.pendingInvites.delete(heroId);
     this.pendingInviteSeconds.delete(heroId);
     if (this.pendingClearing.has(heroId)) {
@@ -1184,9 +1182,7 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
         filtered = filtered.filter(h => h.position && Math.hypot(h.position.x - myPos.x, h.position.y - myPos.y) <= 800);
       }
     }
-    // Map quick lookup for party membership
     const partySet = new Set((this.partyMembers || []).map(p => p.heroId));
-    // Compute distance if positions available
     const myPos = this.metaHero?.position;
     filtered.sort((a, b) => {
       const aIn = partySet.has(a.id) ? 0 : 1;
@@ -1197,7 +1193,6 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
         const db = Math.hypot(b.position.x - myPos.x, b.position.y - myPos.y);
         return da - db;
       }
-      // fallback to name
       return (a.name ?? '').localeCompare(b.name ?? '');
     });
     return filtered;
@@ -1205,7 +1200,6 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
 
   openChangeStats() {
     this.isPartyPanelOpen = false;
-    // Prefer cachedStats (client-preserved) first, then metaHero values, then defaults
     const mh: MetaHero = this.metaHero || {};
     const cached = this.cachedStats ?? {} as any;
     const str = (cached.str !== undefined) ? cached.str : ((mh.str !== undefined && mh.str !== null) ? mh.str : undefined);
@@ -1217,7 +1211,11 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
     this.editableStats = { str: Math.max(1, str ?? 1), dex: Math.max(1, dex ?? 1), int: Math.max(1, intl ?? 1), pointsAvailable };
     setTimeout(() => { this.isChangeStatsOpen = true; }, 100);
     // capture original for change detection
-    try { this.statsOriginal = { str: this.editableStats.str, dex: this.editableStats.dex, int: this.editableStats.int }; } catch { this.statsOriginal = undefined; }
+    try {
+      this.statsOriginal = { str: this.editableStats.str, dex: this.editableStats.dex, int: this.editableStats.int };
+    } catch {
+      this.statsOriginal = undefined;
+    }
     console.log("opened change stats with ", this.editableStats);
   }
 
@@ -1264,15 +1262,15 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
         (this.hero as any).int = this.editableStats.int;
       }
       // Show transient 'Stats updated' message, hide normal panel contents while visible, then auto-close
-      try {
+  
         this.statsUpdatedVisible = true;
         // Clear any existing timer
         try { if (this.statsUpdatedTimer) clearTimeout(this.statsUpdatedTimer); } catch { }
         this.statsUpdatedTimer = setTimeout(() => {
-          try { this.statsUpdatedVisible = false; } catch { }
-          try { this.closeStartMenu(); } catch { }
+            this.statsUpdatedVisible = false;  
+          this.closeStartMenu();  
         }, 3000);
-      } catch { }
+      
       // Persist to cachedStats so future fetches that omit stats keep these values
       this.cachedStats = { str: this.editableStats.str, dex: this.editableStats.dex, int: this.editableStats.int };
     } else {
