@@ -273,8 +273,10 @@ export class Hero extends Character {
   const spriteFrameWidth = (this.body?.frameSize?.x ?? gridCells(2));
   const spriteScaleX = (this.body?.scale?.x ?? 1);
   const spriteWidth = spriteFrameWidth * spriteScaleX;
-  const spriteOffsetX = (this.body?.offsetX ?? 0);
-  const anchorX = drawPosX + spriteOffsetX + (spriteWidth / 2);
+  // drawPosX is already the x position used by Sprite.drawImage which applies offsetX
+  // so including offsetX again here shifts overlays to the right. Use the rendered sprite
+  // center (drawPosX + spriteWidth/2) to align overlays horizontally with the visual sprite.
+  const anchorX = drawPosX + (spriteWidth / 2);
   const x = Math.round(anchorX - (barWidth / 2));
   const topY = drawPosY - 26; // above head (vertical offset unchanged)
 
