@@ -63,6 +63,24 @@ This file should be referenced by the agent before making any code edits in this
 
 Keep this section minimal and update it when new repo conventions appear.
 
+## Control-flow & formatting rules
+
+- Never write `if true` as a single-line condition. Always use a braced form when the condition is literally true, written exactly as `if { true }` including the brackets.
+- Always format `if` statements and `for` loops as multi-line blocks with braces and line breaks, even for single-line bodies. Example:
+
+	if (condition)
+	{
+		// body
+	}
+
+	for (let i = 0; i < n; i++)
+	{
+		// body
+	}
+
+- When writing SQL blocks, prefer multi-line, verbatim string blocks (see SQL string style below) and avoid packing SQL into single-line statements.
+
+
 ## SQL string style (required)
 
 - When generating or editing C# code that contains SQL, always use C# verbatim multiline string syntax with @"..." for the SQL block. Do not use concatenated strings or string interpolation for SQL content. Example:

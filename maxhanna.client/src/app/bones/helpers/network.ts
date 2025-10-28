@@ -388,24 +388,25 @@ export function subscribeToMainGameEvents(object: any) {
     const metaEvent = new MetaEvent(0, object.metaHero.id, new Date(), "ITEM_DROPPED", object.metaHero.map, { "location": safeStringify(params.location), "item": safeStringify(params.part) })
     object.bonesService.updateEvents(metaEvent);
   });
-
-  // When a character picks up an item in the scene, emit an ITEM_DESTROYED event so the server
-  // can remove the dropped item row and apply any effects (power) to the hero.
+ 
   events.on("CHARACTER_PICKS_UP_ITEM", object, (data: { position: Vector2, id?: number, imageName?: string, hero?: any, item?: any }) => {
-    try {
-      // Prevent duplicate handling by other CHARACTER_PICKS_UP_ITEM listeners in this module
-      // (some handlers also listen for the same event and send ITEM_DESTROYED). Setting
-      // an action blocker briefly avoids sending the same meta-event twice.
-      try { setActionBlocker(500); } catch { }
-      const payload: any = {
-        position: safeStringify(data.position)
-      };
-  if (data.id !== undefined && data.id !== null) payload.droppedItemId = `${data.id}`;
-      if (data.item) payload.item = safeStringify(data.item);
-      const metaEvent = new MetaEvent(0, object.metaHero.id, new Date(), "ITEM_DESTROYED", object.metaHero.map, payload);
-      // Send the event to the server; server will delete the dropped row and update hero.power
-      object.bonesService.updateEvents(metaEvent).catch((err: any) => { console.warn('Failed to send ITEM_DESTROYED', err); });
-    } catch (ex) { console.warn('CHARACTER_PICKS_UP_ITEM -> ITEM_DESTROYED mapping failed', ex); }
+    setActionBlocker(500); 
+    resources.playSound('itemdrop', { volume: 0.8, allowOverlap: true }); 
+    const payload: any = {
+      position: safeStringify(data.position)
+    };
+
+    if (data.id !== undefined && data.id !== null) {
+      payload.droppedItemId = `${data.id}`;
+    }
+
+    if (data.item) {
+      payload.item = safeStringify(data.item);
+    }
+    const metaEvent = new MetaEvent(0, object.metaHero.id, new Date(), "ITEM_DESTROYED", object.metaHero.map, payload);
+    object.bonesService.updateEvents(metaEvent).catch((err: any) => { 
+      console.warn('Failed to send ITEM_DESTROYED', err); 
+    });
   });
 
   events.on("PARTY_UP", object, (person: Hero) => {

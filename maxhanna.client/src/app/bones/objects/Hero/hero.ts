@@ -18,7 +18,7 @@ export class Hero extends Character {
   // lastAttack timestamp to enforce attackSpeed cooldown (ms since epoch)
   private lastAttackAt: number = 0;
   // attack cooldown in milliseconds (populated from metaHero via parent code)
-  public attackSpeed: number = 400; 
+  public attackSpeed: number = 400;
   constructor(params: {
     position: Vector2, id?: number, name?: string, metabots?: MetaBot[], colorSwap?: ColorSwap,
     isUserControlled?: boolean, speed?: number, mask?: Mask, scale?: Vector2,
@@ -36,7 +36,7 @@ export class Hero extends Character {
       isSolid: false,
       body: new Sprite({
         objectId: params.id ?? 0,
-        resource: resources.images["knight"], 
+        resource: resources.images["knight"],
         name: "hero",
         position: new Vector2(-10, 0),
         frameSize: new Vector2(40, 40),
@@ -63,7 +63,7 @@ export class Hero extends Character {
         colorSwap: params.colorSwap,
         scale: params.scale,
       })
-    }); 
+    });
     this.facingDirection = DOWN;
     this.destinationPosition = this.position.duplicate();
     this.lastPosition = this.position.duplicate();
@@ -85,11 +85,11 @@ export class Hero extends Character {
   }
 
 
-  override ready() { 
+  override ready() {
     if (this.isUserControlled) {
       events.on("START_TEXT_BOX", this, () => {
-        this.isLocked = true; 
-      }); 
+        this.isLocked = true;
+      });
       events.on("END_TEXT_BOX", this, () => {
         this.isLocked = false;
       });
@@ -98,14 +98,14 @@ export class Hero extends Character {
       });
       events.on("HERO_MOVEMENT_UNLOCK", this, () => {
         this.isLocked = false;
-      }); 
+      });
       events.on("SPACEBAR_PRESSED", this, () => {
         const attackSpeed = this.attackSpeed ?? 400;
         const now = Date.now();
         if (now - this.lastAttackAt < attackSpeed) return; // still cooling down
         this.lastAttackAt = now;
         this.isAttacking = true;
-       // this.isLocked = true;
+        // this.isLocked = true;
         if (this.facingDirection == "DOWN") {
           this.body?.animations?.play("attackDown");
         } else if (this.facingDirection == "UP") {
@@ -115,9 +115,7 @@ export class Hero extends Character {
         } else if (this.facingDirection == "RIGHT") {
           this.body?.animations?.play("attackRight");
         }
-        if (isObjectNearby(this)) {
-          resources.playSound('punchOrImpact', { volume: 1.0, allowOverlap: true });  
-        }
+        this.playAttackSound();
         // After the attack animation finishes, allow another attack to be queued if the user is still holding
         // the attack input (space / controller A). We'll wait for the visual animation to finish (400ms)
         // then, if the input is held, trigger another SPACEBAR_PRESSED respecting the attackSpeed cooldown.
@@ -151,21 +149,21 @@ export class Hero extends Character {
           } catch (ex) {
             // swallow any input inspection errors
           }
-        //  this.isLocked = false;
+          //  this.isLocked = false;
         }, 400);
       });
-      events.on("SELECTED_ITEM", this, (selectedItem: string) => { 
+      events.on("SELECTED_ITEM", this, (selectedItem: string) => {
         if (selectedItem === "Party Up") {
           events.emit("PARTY_UP", isObjectNearby(this));
         }
-        else if (selectedItem === "Unparty") { 
+        else if (selectedItem === "Unparty") {
           events.emit("UNPARTY", isObjectNearby(this));
         }
         else if (selectedItem === "Wave") {
           events.emit("WAVE_AT", isObjectNearby(this));
         }
         else if (selectedItem === "Whisper") {
-          events.emit("WHISPER_AT", isObjectNearby(this));  
+          events.emit("WHISPER_AT", isObjectNearby(this));
         }
       });
       events.on("CLOSE_HERO_DIALOGUE", this, () => {
@@ -191,9 +189,9 @@ export class Hero extends Character {
               this.parent.addChild(warpBase2);
               setTimeout(() => {
                 warpBase2.destroy();
-                events.emit("HERO_MOVEMENT_UNLOCK"); 
+                events.emit("HERO_MOVEMENT_UNLOCK");
               }, 1300);
-            }, 15); 
+            }, 15);
           }, 1300);
         } else {
           events.emit("INVALID_WARP", this);
@@ -227,6 +225,29 @@ export class Hero extends Character {
     });
   }
 
+  private playAttackSound() {
+    const nearby = isObjectNearby(this);
+    let shouldPlaySound = false;
+    if (Array.isArray(nearby)) {
+      for (const obj of nearby) {
+        if (obj && typeof (obj as any).hp === 'number' && (obj as any).hp > 0) {
+          shouldPlaySound = true;
+          break;
+        }
+      }
+    }
+
+    else {
+      if (nearby && typeof (nearby as any).hp === 'number' && (nearby as any).hp > 0) {
+        shouldPlaySound = true;
+      }
+    }
+
+    if (shouldPlaySound) {
+      resources.playSound('punchOrImpact', { volume: 1.0, allowOverlap: true });
+    }
+  }
+
   // Walk up the parent chain to find an object exposing an `input` instance (Main / level hierarchy is variable)
   private findInputInstance(): any | null {
     let p: any = (this as any).parent;
@@ -252,35 +273,35 @@ export class Hero extends Character {
 
 
   // override getContent() {
-    // return {
-    //   portraitFrame: 0,
-    //   string: ["Party Up", "Whisper", "Wave", "Cancel"],
-    //   canSelectItems: true,
-    //   addsFlag: undefined
-    // }
+  // return {
+  //   portraitFrame: 0,
+  //   string: ["Party Up", "Whisper", "Wave", "Cancel"],
+  //   canSelectItems: true,
+  //   addsFlag: undefined
+  // }
   // }
 
   override drawImage(ctx: CanvasRenderingContext2D, drawPosX: number, drawPosY: number) {
     // call base sprite draw
     super.drawImage(ctx, drawPosX, drawPosY);
     // Draw HP & EXP bars and level above hero (similar style to Bot)
-  const barWidth = 34;
-  const barHeight = 4;
-  // Compute horizontal center using sprite frame width when available so overlays sit above the
-  // visual sprite regardless of frameSize or scale. Fallback to previous offset when not present.
-  // Use rendered sprite width (frameSize * scale) and include the sprite offsetX so the
-  // overlay aligns with the visual sprite. Sprite.drawImage applies offsetX before centering.
-  const spriteFrameWidth = (this.body?.frameSize?.x ?? gridCells(2));
-  const spriteScaleX = (this.body?.scale?.x ?? 1);
-  const spriteWidth = spriteFrameWidth * spriteScaleX;
-  // Sprite.drawImage applies this.body.position.x and this.body.offsetX when drawing the frame
-  // and then centers the frame around that resulting x. To compute the visual center we need
-  // to include the body.position.x and any offsetX so the overlay aligns with the actual image.
-  const bodyPosX = (this.body?.position?.x ?? 0);
-  const bodyOffsetX = (this.body?.offsetX ?? 0);
-  const anchorX = drawPosX + bodyPosX + bodyOffsetX + (spriteWidth / 2);
-  const x = Math.round(anchorX - (barWidth / 2));
-  const topY = drawPosY - 26; // above head (vertical offset unchanged)
+    const barWidth = 34;
+    const barHeight = 4;
+    // Compute horizontal center using sprite frame width when available so overlays sit above the
+    // visual sprite regardless of frameSize or scale. Fallback to previous offset when not present.
+    // Use rendered sprite width (frameSize * scale) and include the sprite offsetX so the
+    // overlay aligns with the visual sprite. Sprite.drawImage applies offsetX before centering.
+    const spriteFrameWidth = (this.body?.frameSize?.x ?? gridCells(2));
+    const spriteScaleX = (this.body?.scale?.x ?? 1);
+    const spriteWidth = spriteFrameWidth * spriteScaleX;
+    // Sprite.drawImage applies this.body.position.x and this.body.offsetX when drawing the frame
+    // and then centers the frame around that resulting x. To compute the visual center we need
+    // to include the body.position.x and any offsetX so the overlay aligns with the actual image.
+    const bodyPosX = (this.body?.position?.x ?? 0);
+    const bodyOffsetX = (this.body?.offsetX ?? 0);
+    const anchorX = drawPosX + bodyPosX + bodyOffsetX + (spriteWidth / 2);
+    const x = Math.round(anchorX - (barWidth / 2));
+    const topY = drawPosY - 26; // above head (vertical offset unchanged)
 
     // HP bar background
     ctx.fillStyle = "#2b2b2b";
@@ -293,7 +314,7 @@ export class Hero extends Character {
     ctx.fillRect(x + 1, topY + 1, (barWidth - 2) * hpRatio, barHeight - 2);
 
     // EXP bar just below HP
-  const expBarY = topY + barHeight + 2;
+    const expBarY = topY + barHeight + 2;
     ctx.fillStyle = "#2b2b2b";
     ctx.fillRect(x, expBarY, barWidth, barHeight);
     const level = (this as any).level ?? 1;
@@ -307,6 +328,6 @@ export class Hero extends Character {
     ctx.fillStyle = "#fff";
     ctx.font = "10px monospace";
     ctx.textAlign = "center";
-  ctx.fillText(`Lv${level}`, x + barWidth / 2, topY - 2);
+    ctx.fillText(`Lv${level}`, x + barWidth / 2, topY - 2);
   }
 }
