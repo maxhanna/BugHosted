@@ -202,10 +202,22 @@ export class Bot extends Character {
           }
 
           // map numeric facing to animation
-          if (facingNum === 0) this.body?.animations?.play("attackDown");
-          else if (facingNum === 3) this.body?.animations?.play("attackUp");
-          else if (facingNum === 1) this.body?.animations?.play("attackLeft");
-          else if (facingNum === 2) this.body?.animations?.play("attackRight");
+          if (facingNum === 0) {
+            this.body?.animations?.play("attackDown");
+            this.facingDirection = DOWN;
+          }
+          else if (facingNum === 3) {
+            this.body?.animations?.play("attackUp");
+            this.facingDirection = UP;
+          }
+          else if (facingNum === 1) {
+            this.body?.animations?.play("attackLeft");
+            this.facingDirection = LEFT;
+          }
+          else if (facingNum === 2) {
+            this.body?.animations?.play("attackRight");
+            this.facingDirection = RIGHT;
+          }
           else {
             // fallback to existing facingDirection string if numeric facing unavailable
             if (this.facingDirection == "DOWN") this.body?.animations?.play("attackDown");

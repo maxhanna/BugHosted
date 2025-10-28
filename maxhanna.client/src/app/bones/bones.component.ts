@@ -396,14 +396,10 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
       }
 
       if (res) {
-        this.updateHeroesFromFetchedData(res);
-        // reconcile optimistic invites after updating heroes
+        this.updateHeroesFromFetchedData(res); 
         this.reconcilePendingInvites();
-        this.updateEnemyEncounters(res);
-
-        // Reconcile dropped items from the server response: create sprites for new items,
-        // remove sprites for items no longer present, and clear when changing levels.
-        try { this.reconcileDroppedItemsFromFetch(res); } catch (ex) { console.warn('reconcileDroppedItemsFromFetch failed', ex); }
+        this.updateEnemyEncounters(res); 
+        this.reconcileDroppedItemsFromFetch(res);  
 
         if (this.chat) {
           this.getLatestMessages();
