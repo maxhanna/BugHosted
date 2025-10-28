@@ -13,6 +13,7 @@ import { Skill } from "./skill-types";
 import { Character } from "../objects/character";
 import { HeroInventoryItem } from "../../../services/datacontracts/bones/hero-inventory-item";
 import { DroppedItem } from "../objects/Environment/DroppedItem/dropped-item";
+import { resources } from "./resources";
 
 
 export class Network {
@@ -819,12 +820,33 @@ export function reconcileDroppedItemsFromFetch(object: any, res: any) {
       const skin = item && item.image ? item.image : (itemData && (itemData as any).image ? (itemData as any).image : undefined);
 
   // Use local constructors if available via object, otherwise expect globals/imports to exist in runtime
-       const dropped =  new DroppedItem({ position: new Vector2(x, y), item: item, itemLabel: label, itemSkin: skin, preventDestroyTimeout: true });
+      const dropped =  new DroppedItem({ position: new Vector2(x, y), item: item, itemLabel: label, itemSkin: skin, preventDestroyTimeout: true });
       // Attach server id so pickup forwards droppedItemId when available
       try { (dropped as any).serverDroppedId = id; } catch { }
       // Add to scene and tracking map
       try { object.mainScene.level.addChild(dropped); } catch (ex) { console.warn('Failed adding dropped to scene', ex); }
   (object as any)._droppedItemsMap.set(id, dropped);
+      // Play item drop sound with distance-based attenuation from the player's hero
+      try {
+        const heroPos = object?.metaHero?.position;
+        if (heroPos) {
+          const dx = heroPos.x - x;
+          const dy = heroPos.y - y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          // Attenuation: define a hearing radius in pixels (e.g., 300). Outside of that, sound is very quiet.
+          const maxHear = gridCells(15); // 15 tiles by default
+          const minVolume = 0.12;
+          const maxVolume = 1.0;
+          // Map distance [0, maxHear] -> volume [maxVolume, minVolume]
+          const clamped = Math.max(0, Math.min(maxHear, dist));
+          const t = clamped / maxHear; // 0..1
+          const volume = Math.max(minVolume, maxVolume * (1 - t));
+          resources.playSound('itemdrop', { volume: volume, allowOverlap: true });
+        } else {
+          // fallback: play at default volume
+          resources.playSound('itemdrop', { volume: 0.8, allowOverlap: true });
+        }
+      } catch (ex) { console.warn('Failed to play itemdrop sound', ex); }
     } catch (ex) {
       console.warn('Error processing dropped item from server', ex, it);
     }
