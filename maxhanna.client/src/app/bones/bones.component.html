@@ -298,6 +298,8 @@
         <button (click)="closeStartMenu()">Cancel</button>
       </div>
     </ng-container>
+    
+    <button (click)="closeStartMenu()" *ngIf="statsUpdatedVisible">Close</button>
   </div>
 
 </div>
