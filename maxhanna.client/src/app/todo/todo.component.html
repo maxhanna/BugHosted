@@ -38,6 +38,7 @@
             <div *ngIf="isEditing.includes(item)" class="popupPanelTitle">Edit {{selectedType.value}}</div>
             <div>
               <span class="todoText" *ngIf="!isEditing.includes(item)">{{ item.todo }}</span>
+              <span class="creator-badge" *ngIf="!isEditing.includes(item) && item.ownership && parentRef?.user?.id && item.ownership !== parentRef.user.id" style="margin-left:8px; font-size:0.85em; color:#666;">by {{ item.owner_name ?? ('User ' + item.ownership) }}</span>
               <div *ngIf="isEditing.includes(item)">
                 Text: <textarea [value]="item.todo" id="todoEditingTextarea" style="width:calc(100% - 10px)" (input)="hasEditedTodo = true"></textarea>
               </div><div *ngIf="isEditing.includes(item)">

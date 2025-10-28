@@ -31,6 +31,9 @@ export class TodoComponent extends ChildComponent implements OnInit, AfterViewIn
   showSharedList = false;
   isExpandedEditFile = false; 
   hasEditedTodo = false;
+  // Polling for shared columns updates
+  private sharedPollIntervalMs = 15000; // 15s
+  private sharedPollTimer: any = null;
 
   @ViewChild('todoInput') todoInput!: ElementRef<HTMLInputElement>;
   @ViewChild('urlInput') urlInput!: ElementRef<HTMLInputElement>;
@@ -112,10 +115,41 @@ export class TodoComponent extends ChildComponent implements OnInit, AfterViewIn
     }
 
     this.clearInputs();
+    this.startSharedPolling();
     this.stopLoading();
   }
   ngOnDestroy() {
     this.parentRef?.removeResizeListener();
+    this.stopSharedPolling();
+  }
+
+  private startSharedPolling() {
+    this.stopSharedPolling();
+    this.sharedPollTimer = setInterval(async () => {
+      if (!this.parentRef?.user?.id) return;
+      try {
+        const res = await this.todoService.getSharedColumns(this.parentRef.user.id);
+        if (res) {
+          this.sharedColumns = (res as any[]).map((r: any) => ({ ownerId: r.ownerId ?? r.OwnerId, columnName: r.columnName ?? r.ColumnName, sharedWith: r.sharedWith ?? r.SharedWith ?? '', ownerName: r.ownerName ?? r.OwnerName ?? '', shareDirection: r.shareDirection ?? r.ShareDirection ?? '', ownerColumnId: r.ownerColumnId ?? r.OwnerColumnId ?? r.OwnerColumnId }));
+        }
+
+        // If the currently selected column is a shared column and enabled, refresh todos
+        const type = this.selectedType?.nativeElement.value || this.todoTypes[0];
+        const isShared = this.sharedColumns.some(sc => sc.columnName === type && sc.sharedWith && sc.sharedWith.trim() !== '');
+        if (isShared) {
+          await this.getTodoInfo();
+        }
+      } catch (err) {
+        // swallow polling errors
+      }
+    }, this.sharedPollIntervalMs);
+  }
+
+  private stopSharedPolling() {
+    if (this.sharedPollTimer) {
+      clearInterval(this.sharedPollTimer);
+      this.sharedPollTimer = null;
+    }
   }
   ngAfterViewInit() {
     this.setTodoDropdownPlaceholder();
