@@ -84,11 +84,7 @@ export class Bot extends Character {
       body: params.preventDraw ? undefined : 
         new Sprite({
           objectId: params.id ?? Math.floor(Math.random() * (-9999 + 1000)) - 1000,
-          resource: resources.images[
-            params.name == "Jaguar" ? "botFrame"
-            : params.name == "Ram" ? "botFrame5"
-            : params.name == "Bee" ? "botFrame7"
-            : (params.spriteName ?? "botFrame")],
+          resource: resources.images[(params.spriteName ?? "skeleton")],
           frameSize: params.spriteName == "white" ? new Vector2(0, 0) 
             : params.spriteName?.includes("skeleton") ? new Vector2(40, 40) 
             : new Vector2(32, 32),
@@ -97,7 +93,7 @@ export class Bot extends Character {
           isSolid:params.isSolid ?? false,
           position: new Vector2(-7, 0),
           offsetX: (params.offsetX ?? 0), 
-          offsetY: params.spriteName?.includes("skeleton") ? -12 : (params.offsetY ?? 0), 
+          offsetY: params.spriteName?.includes("skeleton") ? 0 : (params.offsetY ?? 0), 
           colorSwap: params.colorSwap,
           hFrames: params.spriteName?.includes("skeleton") ? 4 : 1,
           vFrames: params.spriteName?.includes("skeleton") ? 5 : 1,
