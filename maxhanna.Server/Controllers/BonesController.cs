@@ -1254,71 +1254,80 @@ namespace maxhanna.Server.Controllers
 				string? selDataJson = selRdr.IsDBNull(4) ? null : selRdr.GetString(4);
 				selRdr.Close();
 
-				// 2) Read the current bones_hero for this user (must exist)
+				// 2) Read the current bones_hero for this user (if any)
 				string curSql = @"SELECT id, name, coordsX, coordsY, map, speed, color, mask, level, exp, attack_speed FROM maxhanna.bones_hero WHERE user_id = @UserId LIMIT 1;";
 				using var curCmd = new MySqlCommand(curSql, connection, transaction);
 				curCmd.Parameters.AddWithValue("@UserId", userId);
 				using var curRdr = await curCmd.ExecuteReaderAsync(System.Data.CommandBehavior.SingleRow);
-				if (!await curRdr.ReadAsync())
+				bool hasCurrentHero = await curRdr.ReadAsync();
+
+				int currentHeroId = 0;
+				string currentName = "Anon";
+				int curCoordsX = 0, curCoordsY = 0, curSpeed = 0, curMask = 0, curLevel = 0, curExp = 0, curAttackSpeed = 400;
+				string curMap = string.Empty, curColor = string.Empty;
+
+				if (hasCurrentHero)
 				{
+					currentHeroId = curRdr.GetInt32(0);
+					currentName = curRdr.IsDBNull(1) ? "Anon" : curRdr.GetString(1);
+					curCoordsX = curRdr.IsDBNull(2) ? 0 : curRdr.GetInt32(2);
+					curCoordsY = curRdr.IsDBNull(3) ? 0 : curRdr.GetInt32(3);
+					curMap = curRdr.IsDBNull(4) ? string.Empty : curRdr.GetString(4);
+					curSpeed = curRdr.IsDBNull(5) ? 0 : curRdr.GetInt32(5);
+					curColor = curRdr.IsDBNull(6) ? string.Empty : curRdr.GetString(6);
+					curMask = curRdr.IsDBNull(7) ? 0 : curRdr.GetInt32(7);
+					curLevel = curRdr.IsDBNull(8) ? 0 : curRdr.GetInt32(8);
+					curExp = curRdr.IsDBNull(9) ? 0 : curRdr.GetInt32(9);
+					curAttackSpeed = curRdr.IsDBNull(10) ? 400 : curRdr.GetInt32(10);
+					curRdr.Close();
+
+					// 3) Store current bones_hero into bones_hero_selection: update if a selection references this hero_id, otherwise insert
+					// When storing the current bones_hero into a selection, match by user + name to avoid hero id mismatches
+					string updateSelSql = @"UPDATE maxhanna.bones_hero_selection SET name = @Name, data = JSON_OBJECT('coordsX', @CoordsX, 'coordsY', @CoordsY, 'map', @Map, 'speed', @Speed, 'color', @Color, 'mask', @Mask, 'level', @Level, 'exp', @Exp, 'attack_speed', @AttackSpeed), created = UTC_TIMESTAMP() WHERE user_id = @UserId AND name = @Name LIMIT 1;";
+					using var updateSelCmd = new MySqlCommand(updateSelSql, connection, transaction);
+					updateSelCmd.Parameters.AddWithValue("@Name", currentName);
+					updateSelCmd.Parameters.AddWithValue("@CoordsX", curCoordsX);
+					updateSelCmd.Parameters.AddWithValue("@CoordsY", curCoordsY);
+					updateSelCmd.Parameters.AddWithValue("@Map", curMap);
+					updateSelCmd.Parameters.AddWithValue("@Speed", curSpeed);
+					updateSelCmd.Parameters.AddWithValue("@Color", curColor);
+					updateSelCmd.Parameters.AddWithValue("@Mask", curMask);
+					updateSelCmd.Parameters.AddWithValue("@Level", curLevel);
+					updateSelCmd.Parameters.AddWithValue("@Exp", curExp);
+					updateSelCmd.Parameters.AddWithValue("@AttackSpeed", curAttackSpeed);
+					updateSelCmd.Parameters.AddWithValue("@UserId", userId);
+					updateSelCmd.Parameters.AddWithValue("@HeroId", currentHeroId);
+					int updatedRows = await updateSelCmd.ExecuteNonQueryAsync();
+					if (updatedRows == 0)
+					{
+						string insertSelSql = @"INSERT INTO maxhanna.bones_hero_selection (user_id, bones_hero_id, name, data, created) VALUES (@UserId, @HeroId, @Name, JSON_OBJECT('coordsX', @CoordsX, 'coordsY', @CoordsY, 'map', @Map, 'speed', @Speed, 'color', @Color, 'mask', @Mask, 'level', @Level, 'exp', @Exp, 'attack_speed', @AttackSpeed), UTC_TIMESTAMP());";
+						using var inSelCmd = new MySqlCommand(insertSelSql, connection, transaction);
+						inSelCmd.Parameters.AddWithValue("@UserId", userId);
+						inSelCmd.Parameters.AddWithValue("@HeroId", currentHeroId);
+						inSelCmd.Parameters.AddWithValue("@Name", currentName);
+						inSelCmd.Parameters.AddWithValue("@CoordsX", curCoordsX);
+						inSelCmd.Parameters.AddWithValue("@CoordsY", curCoordsY);
+						inSelCmd.Parameters.AddWithValue("@Map", curMap);
+						inSelCmd.Parameters.AddWithValue("@Speed", curSpeed);
+						inSelCmd.Parameters.AddWithValue("@Color", curColor);
+						inSelCmd.Parameters.AddWithValue("@Mask", curMask);
+						inSelCmd.Parameters.AddWithValue("@Level", curLevel);
+						inSelCmd.Parameters.AddWithValue("@Exp", curExp);
+						inSelCmd.Parameters.AddWithValue("@AttackSpeed", curAttackSpeed);
+						await inSelCmd.ExecuteNonQueryAsync();
+					}
+
+					// 4) Delete the current bones_hero for this user
+					string delSql = @"DELETE FROM maxhanna.bones_hero WHERE user_id = @UserId LIMIT 1;";
+					using var delCmd = new MySqlCommand(delSql, connection, transaction);
+					delCmd.Parameters.AddWithValue("@UserId", userId);
+					await delCmd.ExecuteNonQueryAsync();
+				}
+				else
+				{
+					// No current bones_hero exists for this user: dispose reader and proceed to insert the selection directly.
 					await curRdr.DisposeAsync();
-					await transaction.RollbackAsync();
-					return BadRequest("No active bones_hero found for user");
 				}
-				int currentHeroId = curRdr.GetInt32(0);
-				string currentName = curRdr.IsDBNull(1) ? "Anon" : curRdr.GetString(1);
-				int curCoordsX = curRdr.IsDBNull(2) ? 0 : curRdr.GetInt32(2);
-				int curCoordsY = curRdr.IsDBNull(3) ? 0 : curRdr.GetInt32(3);
-				string curMap = curRdr.IsDBNull(4) ? string.Empty : curRdr.GetString(4);
-				int curSpeed = curRdr.IsDBNull(5) ? 0 : curRdr.GetInt32(5);
-				string curColor = curRdr.IsDBNull(6) ? string.Empty : curRdr.GetString(6);
-				int curMask = curRdr.IsDBNull(7) ? 0 : curRdr.GetInt32(7);
-				int curLevel = curRdr.IsDBNull(8) ? 0 : curRdr.GetInt32(8);
-				int curExp = curRdr.IsDBNull(9) ? 0 : curRdr.GetInt32(9);
-				int curAttackSpeed = curRdr.IsDBNull(10) ? 400 : curRdr.GetInt32(10);
-				curRdr.Close();
-
-				// 3) Store current bones_hero into bones_hero_selection: update if a selection references this hero_id, otherwise insert
-				// When storing the current bones_hero into a selection, match by user + name to avoid hero id mismatches
-				string updateSelSql = @"UPDATE maxhanna.bones_hero_selection SET name = @Name, data = JSON_OBJECT('coordsX', @CoordsX, 'coordsY', @CoordsY, 'map', @Map, 'speed', @Speed, 'color', @Color, 'mask', @Mask, 'level', @Level, 'exp', @Exp, 'attack_speed', @AttackSpeed), created = UTC_TIMESTAMP() WHERE user_id = @UserId AND name = @Name LIMIT 1;";
-				using var updateSelCmd = new MySqlCommand(updateSelSql, connection, transaction);
-				updateSelCmd.Parameters.AddWithValue("@Name", currentName);
-				updateSelCmd.Parameters.AddWithValue("@CoordsX", curCoordsX);
-				updateSelCmd.Parameters.AddWithValue("@CoordsY", curCoordsY);
-				updateSelCmd.Parameters.AddWithValue("@Map", curMap);
-				updateSelCmd.Parameters.AddWithValue("@Speed", curSpeed);
-				updateSelCmd.Parameters.AddWithValue("@Color", curColor);
-				updateSelCmd.Parameters.AddWithValue("@Mask", curMask);
-				updateSelCmd.Parameters.AddWithValue("@Level", curLevel);
-				updateSelCmd.Parameters.AddWithValue("@Exp", curExp);
-				updateSelCmd.Parameters.AddWithValue("@AttackSpeed", curAttackSpeed);
-				updateSelCmd.Parameters.AddWithValue("@UserId", userId);
-				updateSelCmd.Parameters.AddWithValue("@HeroId", currentHeroId);
-				int updatedRows = await updateSelCmd.ExecuteNonQueryAsync();
-				if (updatedRows == 0)
-				{
-					string insertSelSql = @"INSERT INTO maxhanna.bones_hero_selection (user_id, bones_hero_id, name, data, created) VALUES (@UserId, @HeroId, @Name, JSON_OBJECT('coordsX', @CoordsX, 'coordsY', @CoordsY, 'map', @Map, 'speed', @Speed, 'color', @Color, 'mask', @Mask, 'level', @Level, 'exp', @Exp, 'attack_speed', @AttackSpeed), UTC_TIMESTAMP());";
-					using var inSelCmd = new MySqlCommand(insertSelSql, connection, transaction);
-					inSelCmd.Parameters.AddWithValue("@UserId", userId);
-					inSelCmd.Parameters.AddWithValue("@HeroId", currentHeroId);
-					inSelCmd.Parameters.AddWithValue("@Name", currentName);
-					inSelCmd.Parameters.AddWithValue("@CoordsX", curCoordsX);
-					inSelCmd.Parameters.AddWithValue("@CoordsY", curCoordsY);
-					inSelCmd.Parameters.AddWithValue("@Map", curMap);
-					inSelCmd.Parameters.AddWithValue("@Speed", curSpeed);
-					inSelCmd.Parameters.AddWithValue("@Color", curColor);
-					inSelCmd.Parameters.AddWithValue("@Mask", curMask);
-					inSelCmd.Parameters.AddWithValue("@Level", curLevel);
-					inSelCmd.Parameters.AddWithValue("@Exp", curExp);
-					inSelCmd.Parameters.AddWithValue("@AttackSpeed", curAttackSpeed);
-					await inSelCmd.ExecuteNonQueryAsync();
-				}
-
-				// 4) Delete the current bones_hero for this user
-				string delSql = @"DELETE FROM maxhanna.bones_hero WHERE user_id = @UserId LIMIT 1;";
-				using var delCmd = new MySqlCommand(delSql, connection, transaction);
-				delCmd.Parameters.AddWithValue("@UserId", userId);
-				await delCmd.ExecuteNonQueryAsync();
 
 				// 5) Insert the selected snapshot into bones_hero (guard numeric JSON parsing)
 				string insertSql = @"INSERT INTO maxhanna.bones_hero (user_id, coordsX, coordsY, map, speed, name, color, mask, level, exp, created, attack_speed)
