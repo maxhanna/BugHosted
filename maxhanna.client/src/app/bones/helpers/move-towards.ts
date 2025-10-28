@@ -40,17 +40,6 @@ export function isSprite(obj: any): boolean {
 		return obj?.constructor?.name === 'Sprite';
 }
 
-// Helper: play an animation key only if the animations object exposes it
-export function playAnimationIfExists(player: any, key: string) {
-	try {
-		const anims = player?.body?.animations;
-		if (!anims) return;
-		if (anims.patterns && Object.prototype.hasOwnProperty.call(anims.patterns, key)) {
-			anims.play(key);
-		}
-	} catch { }
-}
-
 
 export function bodyAtSpace(parent: GameObject, position: Vector2, solid?: boolean) {
 	return parent.children.find((c: any) => {
@@ -76,58 +65,73 @@ export function tryMove(player: any, root: any, isUserControlled: boolean, dista
 		if (input.direction === DOWN) {
 			position.x = snapToGrid(position.x, gridSize);
 			position.y = snapToGrid(position.y + gridSize, gridSize);
-			playAnimationIfExists(player, "walkDown");
+			player.body.animations?.play("walkDown");
 		}
 		else if (input.direction === UP) {
 			position.x = snapToGrid(position.x, gridSize);
 			position.y = snapToGrid(position.y - gridSize, gridSize);
-			playAnimationIfExists(player, "walkUp");
+			player.body.animations?.play("walkUp");
 		}
 		else if (input.direction === LEFT) {
 			position.x = snapToGrid(position.x - gridSize, gridSize);
 			position.y = snapToGrid(position.y, gridSize);
-			playAnimationIfExists(player, "walkLeft");
+			player.body.animations?.play("walkLeft");
 		}
 		else if (input.direction === RIGHT) {
 			position.x = snapToGrid(position.x + gridSize, gridSize);
 			position.y = snapToGrid(position.y, gridSize);
-			playAnimationIfExists(player, "walkRight");
+			player.body.animations?.play("walkRight");
 		}
 		player.facingDirection = input.direction ?? player.facingDirection;
 	}
-	else if (!isUserControlled) {
-		if (distanceToTravel > 0) {
-			// If this object is a hero-owned bot (heroId < 0 indicates player's metabots), animate by facing
-			if (player.heroId) {
-				// Use existing facingDirection to pick walk animation
-				const key = "walk" + player.facingDirection.charAt(0) + player.facingDirection.substring(1).toLowerCase();
-				playAnimationIfExists(player, key);
-			} else {
-				// Non-hero NPCs/encounters — derive facing from destination delta
-				const destPos = player.destinationPosition;
-				const tmpPosition = player.position;
-				const deltaX = destPos.x - tmpPosition.x;
-				const deltaY = destPos.y - tmpPosition.y;
-				if (deltaX !== 0 || deltaY !== 0) {
-					if (Math.abs(deltaX) > Math.abs(deltaY)) {
-						if (deltaX > 0) {
-							player.facingDirection = RIGHT;
-							playAnimationIfExists(player, "walkRight");
-						} else {
-							player.facingDirection = LEFT;
-							playAnimationIfExists(player, "walkLeft");
-						}
-					} else {
-						if (deltaY > 0) {
-							player.facingDirection = DOWN;
-							playAnimationIfExists(player, "walkDown");
-						} else {
-							player.facingDirection = UP;
-							playAnimationIfExists(player, "walkUp");
-						}
-					}
-				}
-			}
+  else if (!isUserControlled) { 
+    if (distanceToTravel > 0) {
+      if (player.heroId) {
+        player.body.animations?.play("walk" + player.facingDirection.charAt(0) + player.facingDirection.substring(1, player.facingDirection.length).toLowerCase());
+      } else {
+        const destPos = player.destinationPosition;
+        let tmpPosition = player.position;
+        const deltaX = destPos.x - tmpPosition.x;
+        const deltaY = destPos.y - tmpPosition.y;
+        if (deltaX != 0 || deltaY != 0) {
+          if (deltaY <= 0) {
+            if (deltaX > 0 && deltaY >= 0) {
+              player.facingDirection = RIGHT;
+              player.body?.animations?.play("walkRight");
+            }
+            else if (deltaX < 0 && deltaY >= 0) {
+              player.facingDirection = LEFT;
+              player.body?.animations?.play("walkLeft");
+            }
+            else if (deltaX <= 0 && deltaY <= 0) {
+              player.facingDirection = UP;
+              player.body?.animations?.play("walkUp");
+            }
+            else if (deltaX == 0 && deltaY > 0) {
+              player.facingDirection = DOWN;
+              player.body?.animations?.play("walkDown");
+            }
+          }
+          else if (deltaY > 0) {
+            if (deltaX > 0 && deltaY > 0) {
+              player.facingDirection = RIGHT;
+              player.body?.animations?.play("walkRight");
+            }
+            else if (deltaX < 0 && deltaY >= 0) {
+              player.facingDirection = LEFT;
+              player.body?.animations?.play("walkLeft");
+            }
+            else if (deltaX >= 0 && deltaY <= 0) {
+              player.facingDirection = UP;
+              player.body?.animations?.play("walkUp");
+            }
+            else if (deltaX == 0 && deltaY > 0) {
+              player.facingDirection = DOWN;
+              player.body?.animations?.play("walkDown");
+            }
+          }
+        } 
+      } 
 
 			setAnimationToStandAfterTimeElapsed(player);
 		}
