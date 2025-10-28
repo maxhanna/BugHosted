@@ -6,7 +6,7 @@ import { User } from '../../services/datacontracts/user/user';
 import { BonesService } from '../../services/bones.service';
 import { UserService } from '../../services/user.service';
 import { MetaChat } from '../../services/datacontracts/bones/meta-chat';
-import { gridCells, snapToGrid, DOWN, UP, LEFT, RIGHT } from './helpers/grid-cells';
+import { gridCells, snapToGrid } from './helpers/grid-cells';
 import { GameLoop } from './helpers/game-loop';
 import { hexToRgb, resources } from './helpers/resources';
 import { events } from './helpers/events';
@@ -465,21 +465,7 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
               }
             } catch (err) {
               console.error('Error duplicating enemy.position for dest set', err, (enemy as any).position);
-            } 
-            const eAny: any = enemy;
-            const f = (eAny.facing !== undefined && eAny.facing !== null) ? eAny.facing : (eAny.facingDirection ?? undefined);
-            if (f !== undefined && f !== null) {
-              if (typeof f === 'number') {
-                // server: 0=down,1=left,2=right,3=up
-                if (f === 0) tgtEnemy.facingDirection = DOWN;
-                else if (f === 1) tgtEnemy.facingDirection = LEFT;
-                else if (f === 2) tgtEnemy.facingDirection = RIGHT;
-                else if (f === 3) tgtEnemy.facingDirection = UP;
-              } else if (typeof f === 'string') {
-                const s = (f as string).toUpperCase();
-                if (s === 'UP' || s === 'DOWN' || s === 'LEFT' || s === 'RIGHT') tgtEnemy.facingDirection = s as any;
-              }
-            } 
+            }
           }
 
           if (tgtEnemy && tgtEnemy.heroId && (tgtEnemy.hp ?? 0) <= 0) {
@@ -494,7 +480,6 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
         } else if (enemy.hp) {
           const tgtEncounter = this.mainScene.level.children.find((x: Character) => x.id == enemy.heroId);
           if (tgtEncounter) {
-            const eAny: any = enemy;
             let tmp = new Bot({
               botType: enemy.type,
               name: enemy.name ?? "botFrame",
@@ -507,7 +492,6 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
               hp: enemy.hp,
               id: enemy.id,
               heroId: enemy.heroId,
-              facingDirection: (eAny.facing !== undefined && eAny.facing !== null) ? (typeof eAny.facing === 'number' ? (eAny.facing === 0 ? DOWN : eAny.facing === 1 ? LEFT : eAny.facing === 2 ? RIGHT : UP) : String(eAny.facing)) : (eAny.facingDirection ?? undefined),
               isSolid: true,
             });
             // If the server gave a targetHeroId for this encounter, initialize it on the client bot
