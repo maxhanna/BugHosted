@@ -1240,9 +1240,10 @@ namespace maxhanna.Server.Controllers
 				string selSql = @"SELECT id, user_id, bones_hero_id, name, data FROM maxhanna.bones_hero_selection WHERE id = @SelId LIMIT 1;";
 				using var selCmd = new MySqlCommand(selSql, connection, transaction);
 				selCmd.Parameters.AddWithValue("@SelId", selectionId);
-				using var selRdr = await selCmd.ExecuteReaderAsync();
+				using var selRdr = await selCmd.ExecuteReaderAsync(System.Data.CommandBehavior.SingleRow);
 				if (!await selRdr.ReadAsync())
 				{
+					await selRdr.DisposeAsync();
 					await transaction.RollbackAsync();
 					return NotFound();
 				}
@@ -1257,9 +1258,10 @@ namespace maxhanna.Server.Controllers
 				string curSql = @"SELECT id, name, coordsX, coordsY, map, speed, color, mask, level, exp, attack_speed FROM maxhanna.bones_hero WHERE user_id = @UserId LIMIT 1;";
 				using var curCmd = new MySqlCommand(curSql, connection, transaction);
 				curCmd.Parameters.AddWithValue("@UserId", userId);
-				using var curRdr = await curCmd.ExecuteReaderAsync();
+				using var curRdr = await curCmd.ExecuteReaderAsync(System.Data.CommandBehavior.SingleRow);
 				if (!await curRdr.ReadAsync())
 				{
+					await curRdr.DisposeAsync();
 					await transaction.RollbackAsync();
 					return BadRequest("No active bones_hero found for user");
 				}
