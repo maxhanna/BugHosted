@@ -8,6 +8,7 @@ import { SpriteTextStringWithBackdrop } from "../objects/SpriteTextString/sprite
 import { Referee } from "../objects/Npc/Referee/referee";
 import { SpriteTextString } from "../objects/SpriteTextString/sprite-text-string";
 import { Bones } from "../objects/Npc/Bones/bones";
+import { resources } from "../helpers/resources";
 
 export class CharacterCreate extends Level { 
   textBox = new SpriteTextStringWithBackdrop({});
@@ -86,6 +87,8 @@ export class CharacterCreate extends Level {
         this.defaultColor = dc;
       }
     }
+    this.addBackgroundLayer(resources.images["charcreatebg"], /*parallax=*/0, new Vector2(0, 0), /*repeat=*/false, /*scale=*/1, /*direction=*/'LEFT');
+    
     this.bones.textContent = [
       {
         string: [params.championName ? 

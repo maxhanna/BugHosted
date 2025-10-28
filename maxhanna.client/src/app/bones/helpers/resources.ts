@@ -17,6 +17,7 @@ export class Resources {
   constructor() {
     this.imageToLoad = {
       armobot: `${this.dir}armobot.png`,
+      charcreatebg: `${this.dir}charcreatebg.png`,
       lootbag: `${this.dir}lootbag.png`,
       spiderBot: `${this.dir}spiderbot.png`,
       floorbigtile: `${this.dir}floorbigtile.png`,
