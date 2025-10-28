@@ -205,6 +205,23 @@ export class Hero extends Character {
         const sourceHeroId = payload?.sourceHeroId;
         if (!sourceHeroId) return;
         if (this.id === sourceHeroId) {
+          // Determine facing from payload if provided (server may send numeric 0=down,1=left,2=right,3=up or string)
+          try {
+            const fRaw = payload?.facing ?? payload?.facingDirection ?? undefined;
+            let fNum: number | null = null;
+            if (typeof fRaw === 'number') fNum = fRaw;
+            else if (typeof fRaw === 'string') {
+              const s = fRaw.toLowerCase();
+              if (s === 'down') fNum = 0;
+              else if (s === 'left') fNum = 1;
+              else if (s === 'right') fNum = 2;
+              else if (s === 'up') fNum = 3;
+            }
+            if (fNum === 0) this.facingDirection = DOWN;
+            else if (fNum === 1) this.facingDirection = LEFT;
+            else if (fNum === 2) this.facingDirection = RIGHT;
+            else if (fNum === 3) this.facingDirection = UP;
+          } catch { }
           if (this.facingDirection == "DOWN") this.body?.animations?.play("attackDown");
           else if (this.facingDirection == "UP") this.body?.animations?.play("attackUp");
           else if (this.facingDirection == "LEFT") this.body?.animations?.play("attackLeft");
