@@ -30,6 +30,7 @@ export class DroppedItem extends GameObject {
       name: this.itemLabel ?? "Item",
       frameSize: this.itemSkin.includes("mask") ? new Vector2(32, 32) : new Vector2(15, 15),  
       drawLayer: FLOOR,
+      scale: this.itemSkin.includes("lootbag") ? new Vector2(0.5, 0.5) : undefined,
       rotation: Math.floor(Math.random() * 360) + 1,
     });
     this.addChild(body); 
