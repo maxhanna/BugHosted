@@ -93,7 +93,7 @@ export class Bot extends Character {
           isSolid:params.isSolid ?? false,
           position: new Vector2(-7, 0),
           offsetX: (params.offsetX ?? 0), 
-          offsetY: params.spriteName?.includes("skeleton") ? 0 : (params.offsetY ?? 0), 
+          offsetY: params.spriteName?.includes("skeleton") ? -6 : (params.offsetY ?? 0), 
           colorSwap: params.colorSwap,
           hFrames: params.spriteName?.includes("skeleton") ? 4 : 1,
           vFrames: params.spriteName?.includes("skeleton") ? 5 : 1,
