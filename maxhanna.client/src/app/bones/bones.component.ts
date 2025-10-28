@@ -84,6 +84,9 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
   isStartMenuOpened = false;
   isPartyPanelOpen = false;
   isChangeStatsOpen = false;
+  // Transient UI: show 'Stats updated' message when present
+  statsUpdatedVisible: boolean = false;
+  private statsUpdatedTimer: any | undefined = undefined;
   // optimistic UI state for invites: map heroId -> expiry timestamp (ms)
   pendingInvites: Map<number, number> = new Map<number, number>();
   // per-hero cached seconds left for UI
@@ -1260,7 +1263,16 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
         (this.hero as any).dex = this.editableStats.dex;
         (this.hero as any).int = this.editableStats.int;
       }
-      alert('Stats updated');
+      // Show transient 'Stats updated' message, hide normal panel contents while visible, then auto-close
+      try {
+        this.statsUpdatedVisible = true;
+        // Clear any existing timer
+        try { if (this.statsUpdatedTimer) clearTimeout(this.statsUpdatedTimer); } catch { }
+        this.statsUpdatedTimer = setTimeout(() => {
+          try { this.statsUpdatedVisible = false; } catch { }
+          try { this.closeStartMenu(); } catch { }
+        }, 3000);
+      } catch { }
       // Persist to cachedStats so future fetches that omit stats keep these values
       this.cachedStats = { str: this.editableStats.str, dex: this.editableStats.dex, int: this.editableStats.int };
     } else {

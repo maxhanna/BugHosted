@@ -21,7 +21,7 @@
 - Avoid use of `any` type; prefer explicit interfaces and types.
 - Use Observables and RxJS for asynchronous operations.
 
-## Backend (C#) Specifics
+## Backend C# Specifics
 - Ensure all controller actions validate input and return appropriate status codes.
 - Use async/await for all database and IO operations.
 - Validate all user input before processing.
@@ -47,7 +47,7 @@ This file should be referenced by the agent before making any code edits in this
 
 ## Project peculiarities & guidance for Copilot-style agents
 
-- Backend is .NET (C#) + MySQL and many controllers use manual, parameterized SQL with explicit transactions; prefer `async/await` and keep the transaction in the same method when editing controller flows.
+- Backend is .NET C# + MySQL and many controllers use manual, parameterized SQL with explicit transactions; prefer `async/await` and keep the transaction in the same method when editing controller flows.
 - Many database columns can be NULL. Avoid calling `reader.GetString(...)` or similar directly without checking `IsDBNull` (or use a small helper like `SafeGetString`). Prefer ordinals, `IsDBNull`, or Convert.ToString for nullable columns.
  - Many database columns can be NULL. Avoid calling `reader.GetString(...)` or similar directly without checking `IsDBNull`.
 	 Prefer the explicit `IsDBNull` pattern for nullable ints where callers expect a nullable result, for example:
