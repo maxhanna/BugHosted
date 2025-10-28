@@ -150,7 +150,11 @@ export class Bot extends Character {
 
     if (!this.preventDestroyAnimation) {
       this.isLocked = true;
-      resources.playSound('maleDeathScream', { volume: 0.9, loop: false, allowOverlap: true });
+      if (this.body?.resource == resources.images["skeleton"]) {
+        resources.playSound('bonescracking', { volume: 0.9, loop: false, allowOverlap: true });
+      } else {
+        resources.playSound('maleDeathScream', { volume: 0.9, loop: false, allowOverlap: true });
+      }
       this.body?.animations?.play("die");
 
       setTimeout(() => {
