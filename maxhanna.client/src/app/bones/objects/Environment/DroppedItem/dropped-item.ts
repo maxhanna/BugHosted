@@ -8,7 +8,7 @@ import { events } from "../../../helpers/events";
 export class DroppedItem extends GameObject {  
   item?: any;
   itemLabel = `${this.item?.damageMod} ${this.item?.skill?.name}`;
-  itemSkin = "warpbase";
+  itemSkin = "lootbag";
   id = Math.floor(Math.random() * 55000) + 10000;
   objectId = Math.floor(Math.random() * 55000) + 10000;
   preventDestroyTimeout = false;
@@ -22,13 +22,13 @@ export class DroppedItem extends GameObject {
     })
     this.item = params.item;
     this.itemLabel = params.itemLabel ?? `${this.item?.damageMod} ${this.item?.skill?.name}`;
-    this.itemSkin = params.itemSkin ?? "warpbase";
+    this.itemSkin = params.itemSkin ?? "lootbag";
     this.preventDestroyTimeout = params.preventDestroyTimeout ?? false;
     const body = new Sprite({
       objectId: Math.floor(Math.random() * (9999)) * -1,
       resource: resources.images[this.itemSkin],
       name: this.itemLabel ?? "Item",
-      frameSize: this.itemSkin.includes("mask") ? new Vector2(32, 32) : new Vector2(6, 17),  
+      frameSize: this.itemSkin.includes("mask") ? new Vector2(32, 32) : new Vector2(15, 15),  
       drawLayer: FLOOR,
       rotation: Math.floor(Math.random() * 360) + 1,
     });
