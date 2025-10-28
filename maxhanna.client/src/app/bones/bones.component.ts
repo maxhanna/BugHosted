@@ -1243,40 +1243,37 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
 
   async applyStats() {
     // send to server if API exists
-    if (this.bonesService && typeof (this.bonesService as any).updateHeroStats === 'function') {
-      await this.bonesService.updateHeroStats(
-        this.metaHero.id,
-        { str: this.editableStats.str, dex: this.editableStats.dex, int: this.editableStats.int },
-        this.parentRef?.user?.id
-      );
-      // Update local metaHero so UI reflects the new stats immediately
-      if (this.metaHero) {
-        this.metaHero.str = this.editableStats.str;
-        this.metaHero.dex = this.editableStats.dex;
-        this.metaHero.int = this.editableStats.int;
-      }
-      // If in-game hero object exists, you may want to apply derived changes here
-      if (this.hero) {
-        (this.hero as any).str = this.editableStats.str;
-        (this.hero as any).dex = this.editableStats.dex;
-        (this.hero as any).int = this.editableStats.int;
-      }
-      // Show transient 'Stats updated' message, hide normal panel contents while visible, then auto-close
-  
-        this.statsUpdatedVisible = true;
-        // Clear any existing timer
-        try { if (this.statsUpdatedTimer) clearTimeout(this.statsUpdatedTimer); } catch { }
-        this.statsUpdatedTimer = setTimeout(() => {
-            this.statsUpdatedVisible = false;  
-          this.closeStartMenu();  
-        }, 3000);
-      
-      // Persist to cachedStats so future fetches that omit stats keep these values
-      this.cachedStats = { str: this.editableStats.str, dex: this.editableStats.dex, int: this.editableStats.int };
-    } else {
-      alert('Update stats not implemented on server. Local demo applied.');
+    await this.bonesService.updateHeroStats(
+      this.metaHero.id,
+      { str: this.editableStats.str, dex: this.editableStats.dex, int: this.editableStats.int },
+      this.parentRef?.user?.id
+    );
+    // Update local metaHero so UI reflects the new stats immediately
+    if (this.metaHero) {
+      this.metaHero.str = this.editableStats.str;
+      this.metaHero.dex = this.editableStats.dex;
+      this.metaHero.int = this.editableStats.int;
     }
-    this.closeStartMenu();
+    // If in-game hero object exists, you may want to apply derived changes here
+    if (this.hero) {
+      (this.hero as any).str = this.editableStats.str;
+      (this.hero as any).dex = this.editableStats.dex;
+      (this.hero as any).int = this.editableStats.int;
+    } 
+
+    this.statsUpdatedVisible = true;
+    // Clear any existing timer
+     if (this.statsUpdatedTimer) {
+      clearTimeout(this.statsUpdatedTimer);
+     }
+    this.statsUpdatedTimer = setTimeout(() => {
+        this.statsUpdatedVisible = false;  
+      this.closeStartMenu();  
+    }, 3000);
+    
+    // Persist to cachedStats so future fetches that omit stats keep these values
+    this.cachedStats = { str: this.editableStats.str, dex: this.editableStats.dex, int: this.editableStats.int };
+       
   }
 
   async openTownPortal() {
