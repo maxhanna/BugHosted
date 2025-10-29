@@ -219,7 +219,9 @@ export class NotepadComponent extends ChildComponent implements OnInit, OnDestro
     return parseInt(ownership[0]) === this.parentRef.user.id;
   }
 
-  async unshareUser(userId: number) {
+  async unshareUser(userId?: number) {
+    // accept possibly-undefined userId (template may pass user.id which can be undefined)
+    if (!userId) { return; }
     if (!this.selectedNote || !this.parentRef?.user?.id) { return; }
     if (!confirm('Unshare this note with selected user?')) { return; }
     try {

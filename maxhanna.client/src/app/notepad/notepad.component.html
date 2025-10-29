@@ -12,7 +12,7 @@
         [inputtedParentRef]="parentRef" 
         [displayMiniTag]="true"
         [previousComponent]="'Notepad'"></app-user-tag>
-        <button *ngIf="isOriginalOwner()" class="unshareButton" (click)="unshareUser(user.id)">Unshare</button>
+  <button *ngIf="isOriginalOwner()" class="unshareButton" (click)="unshareUser(user.id!)">Unshare</button>
       </div>
     </div>
     <app-user-list (userClickEvent)="shareNote($event);"
