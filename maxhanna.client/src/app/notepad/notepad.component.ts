@@ -117,12 +117,11 @@ export class NotepadComponent extends ChildComponent implements OnInit, OnDestro
       }
       this.isPanelExpanded = false;
       this.selectedNote = res;
-      this.splitNoteOwnership(); 
-
+      this.splitNoteOwnership();  
       this.newNoteButton.nativeElement.style.display = "inline-block";
       this.shareNoteButton.nativeElement.style.display = "inline-block";
       this.deleteNoteButton.nativeElement.style.display = "inline-block";
-      // Start polling only if this note is shared with other users
+      this.lastSyncedAt = undefined;
       this.stopSharedNotePolling();
       const ownership = this.selectedNote?.ownership ?? '';
       if (ownership.includes(",")) {
