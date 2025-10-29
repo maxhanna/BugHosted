@@ -38,7 +38,7 @@ textarea {
 
 }
 
-.notesCarousel div {
+.notesCarousel div, .poppedUpCarouselleList div {
   overflow-y: hidden;
   overflow-x: auto;
   display: flex;
@@ -50,7 +50,7 @@ textarea {
   gap: 5px;
 }
 
-.notesCarousel div label {
+.notesCarousel div label, .poppedUpCarouselleList div label {
   flex-shrink: 0;
   box-shadow: inset 0px 10px 0px 0px rgba(248, 255, 148, 1);
   padding-top: 6px;

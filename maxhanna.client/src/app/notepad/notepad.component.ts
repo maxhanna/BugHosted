@@ -13,7 +13,6 @@ import { NotificationService } from '../../services/notification.service';
     standalone: false
 })
 export class NotepadComponent extends ChildComponent implements OnInit, OnDestroy {
-  notes: Array<Note> = [];
   @ViewChild('noteInput') noteInput!: ElementRef<HTMLTextAreaElement>;
   @ViewChild('noteId') noteId!: ElementRef<HTMLInputElement>;
   @ViewChild('noteAddButton') noteAddButton!: ElementRef<HTMLInputElement>;
@@ -26,11 +25,19 @@ export class NotepadComponent extends ChildComponent implements OnInit, OnDestro
 
   noteInputValue: string = ''; // Initialize with an empty string
   isPanelExpanded: boolean = false;
-  // whether the notes carousel is popped out as a popup
+  notes: Array<Note> = [];
   isCarouselPopped: boolean = false;
   users: User[] = [];
   selectedNote?: Note;
   splitNoteOwnershipUsers: User[] = [];
+  // Polling timer id for shared note refresh
+  private sharedNotePollTimer?: any;
+  // Poll interval in ms
+  private readonly SHARED_NOTE_POLL_INTERVAL = 5000;
+  // Timestamp when the selected note was last auto-synced from server
+  lastSyncedAt?: Date;
+  // Timer to auto-hide the synced indicator
+  private lastSyncedHideTimer?: any;
   constructor(private notepadService: NotepadService, private userService: UserService, private notificationService: NotificationService) {
     super();
   }
@@ -43,6 +50,8 @@ export class NotepadComponent extends ChildComponent implements OnInit, OnDestro
     this.clearInputs();
   }
   ngOnDestroy() { 
+    // stop polling when component is destroyed
+    this.stopSharedNotePolling();
     this.parentRef?.removeResizeListener();
   }
   clearInputs() {
@@ -52,6 +61,8 @@ export class NotepadComponent extends ChildComponent implements OnInit, OnDestro
     this.newNoteButton.nativeElement.style.display = "none";
     this.shareNoteButton.nativeElement.style.display = "none";
     this.deleteNoteButton.nativeElement.style.display = "none";
+    // stop any polling when inputs are cleared
+    this.stopSharedNotePolling();
   }
   handleNoteInputChange() {
     this.noteAddButton.nativeElement.disabled = false;
@@ -109,6 +120,15 @@ export class NotepadComponent extends ChildComponent implements OnInit, OnDestro
       this.newNoteButton.nativeElement.style.display = "inline-block";
       this.shareNoteButton.nativeElement.style.display = "inline-block";
       this.deleteNoteButton.nativeElement.style.display = "inline-block";
+      // Start polling only if this note is shared with other users
+      this.stopSharedNotePolling();
+      const ownership = this.selectedNote?.ownership ?? '';
+      const ids = ownership.split(',').map(s => s.trim()).filter(x => x !== '');
+      // shared if more than one id present and at least one id is not the current user
+      const isShared = ids.length > 1 && ids.some(x => parseInt(x) !== this.parentRef?.user?.id);
+      if (isShared) {
+        this.startSharedNotePolling();
+      }
        
     } catch (error) {
       console.error(`Error fetching notepad entry (${id}): ${error}`);
@@ -175,4 +195,44 @@ export class NotepadComponent extends ChildComponent implements OnInit, OnDestro
       await this.userService.getUserById(parseInt(id)).then((res: User) => { this.splitNoteOwnershipUsers.push(res); });
     }); 
   } 
+
+  // Polling helpers for shared notes
+  private startSharedNotePolling() {
+    // ensure any existing timer is cleared first
+    this.stopSharedNotePolling();
+    this.sharedNotePollTimer = setInterval(async () => {
+      await this.fetchLatestSelectedNote();
+    }, this.SHARED_NOTE_POLL_INTERVAL);
+  }
+
+  private stopSharedNotePolling() {
+    if (this.sharedNotePollTimer) {
+      clearInterval(this.sharedNotePollTimer);
+      this.sharedNotePollTimer = undefined;
+    }
+  }
+
+  private async fetchLatestSelectedNote() {
+    try {
+      if (!this.selectedNote || !this.parentRef?.user?.id) { return; }
+      const latest = await this.notepadService.getNote(this.parentRef.user.id, this.selectedNote.id!);
+      // Only update the UI if the content changed
+      if (latest && latest.note !== this.noteInput?.nativeElement.value) {
+        this.noteInput.nativeElement.value = latest.note ?? '';
+        this.selectedNote = latest;
+        // set visual sync indicator
+        this.setLastSynced(new Date());
+      }
+    } catch (error) {
+      console.error('Error polling shared note:', error);
+    }
+  }
+
+  private setLastSynced(d: Date) {
+    this.lastSyncedAt = d;
+    // clear any previous hide timer
+    if (this.lastSyncedHideTimer) { clearTimeout(this.lastSyncedHideTimer); }
+    // hide after 3 seconds
+    this.lastSyncedHideTimer = setTimeout(() => { this.lastSyncedAt = undefined; this.lastSyncedHideTimer = undefined; }, 3000);
+  }
 }
