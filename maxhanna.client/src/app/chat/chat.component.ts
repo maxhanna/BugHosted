@@ -39,6 +39,9 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
   currentChatTheme: string = '';
   currentChatUserThemeId: number | null = null;
   userThemes: any[] = [];
+  // store the page's theme state before entering a chat so we can restore it on exit
+  private _preChatThemeClasses: string[] | null = null;
+  private _preChatCssVars: { [key: string]: string | null } | null = null;
   app?: any;
   messaging?: any;
   ghostReadEnabled = false;
@@ -571,6 +574,34 @@ q                  onClick="document.getElementById('pollCheckId').value='${inpu
   }
   async openChat(users?: User[]) {
     if (!users) { return; }
+    // capture existing theme state so we can restore it when leaving the chat
+    try {
+      const container = document.querySelector('.chatArea') as HTMLElement | null;
+      if (container) {
+        this._preChatThemeClasses = Array.from(container.classList).filter((c: string) => c.startsWith('theme-'));
+        // capture known CSS variables used by ThemesComponent
+        this._preChatCssVars = {
+          '--main-background-image-url': container.style.getPropertyValue('--main-background-image-url') || null,
+          '--main-bg-color': container.style.getPropertyValue('--main-bg-color') || null,
+          '--component-background-color': container.style.getPropertyValue('--component-background-color') || null,
+          '--secondary-component-background-color': container.style.getPropertyValue('--secondary-component-background-color') || null,
+          '--main-font-color': container.style.getPropertyValue('--main-font-color') || null,
+          '--secondary-font-color': container.style.getPropertyValue('--secondary-font-color') || null,
+          '--third-font-color': container.style.getPropertyValue('--third-font-color') || null,
+          '--main-highlight-color': container.style.getPropertyValue('--main-highlight-color') || null,
+          '--main-highlight-color-quarter-opacity': container.style.getPropertyValue('--main-highlight-color-quarter-opacity') || null,
+          '--main-link-color': container.style.getPropertyValue('--main-link-color') || null,
+          '--main-font-family': container.style.getPropertyValue('--main-font-family') || null,
+          '--main-font-size': container.style.getPropertyValue('--main-font-size') || null
+        };
+      } else {
+        this._preChatThemeClasses = null;
+        this._preChatCssVars = null;
+      }
+    } catch (e) {
+      this._preChatThemeClasses = null;
+      this._preChatCssVars = null;
+    }
     setTimeout(() => {
       const parent = this.parentRef ?? this.inputtedParentRef;
       parent?.addResizeListener();
@@ -681,6 +712,30 @@ q                  onClick="document.getElementById('pollCheckId').value='${inpu
     this.showUserList = true;
     this.firstMessageDetails = null;
     this.isPanelExpanded = true;
+
+    // restore the theme that was active before entering the chat
+    try {
+      const container = document.querySelector('.chatArea') as HTMLElement | null;
+      if (container) {
+        // remove any theme-* classes applied while in chat
+        const classesToRemove = Array.from(container.classList).filter((c: string) => c.startsWith('theme-'));
+        for (const c of classesToRemove) container.classList.remove(c);
+        // restore pre-chat classes
+        if (this._preChatThemeClasses && this._preChatThemeClasses.length) {
+          for (const c of this._preChatThemeClasses) container.classList.add(c);
+        }
+        // restore CSS vars
+        if (this._preChatCssVars) {
+          for (const k of Object.keys(this._preChatCssVars)) {
+            const v = this._preChatCssVars[k as keyof typeof this._preChatCssVars];
+            if (v === null || v === undefined || v === '') container.style.removeProperty(k);
+            else container.style.setProperty(k, v as string);
+          }
+        }
+      }
+    } catch (e) {
+      // ignore restore errors
+    }
 
     const parent = this.inputtedParentRef ?? this.parentRef;
     parent?.closeOverlay();
