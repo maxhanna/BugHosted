@@ -96,13 +96,31 @@ export class NotepadComponent extends ChildComponent implements OnInit, OnDestro
       return;
     }
     if (confirm(`Share note with ${withUser.username}?`)) {
-      this.notepadService.shareNote(this.parentRef?.user?.id, withUser.id, parseInt(this.noteId.nativeElement.value));
-      this.isPanelExpanded = false;
-      this.parentRef?.showNotification(`Shared note with ${withUser.username}.`);
-      if (this.parentRef?.user) {
-        this.notificationService.createNotifications(
-          { fromUserId: this.parentRef.user?.id ?? 0, toUserIds: [withUser.id ?? 0], message: `${this.parentRef.user.username} Shared a note with you.` });      
-      }     
+      try {
+        // await the share call in case it returns a promise
+        await this.notepadService.shareNote(this.parentRef?.user?.id, withUser.id, parseInt(this.noteId.nativeElement.value));
+        // update local ownership string so UI updates immediately
+        if (this.selectedNote) {
+          const ownerStr = this.selectedNote.ownership ?? '';
+          const ids = ownerStr.split(',').map(s => s.trim()).filter(x => x !== '');
+          const idStr = (withUser.id ?? 0).toString();
+          if (!ids.includes(idStr)) {
+            ids.push(idStr);
+            this.selectedNote.ownership = ids.join(',');
+            // refresh displayed split ownership users
+            this.splitNoteOwnership();
+          }
+        }
+        this.isPanelExpanded = false;
+        this.parentRef?.showNotification(`Shared note with ${withUser.username}.`);
+        if (this.parentRef?.user) {
+          this.notificationService.createNotifications(
+            { fromUserId: this.parentRef.user?.id ?? 0, toUserIds: [withUser.id ?? 0], message: `${this.parentRef.user.username} Shared a note with you.` });      
+        }
+      } catch (err) {
+        console.error('Error sharing note:', err);
+        this.parentRef?.showNotification('Failed to share note.');
+      }
     }
   }
   async getNote(id: number) {
