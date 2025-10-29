@@ -68,7 +68,7 @@
     <button type="submit" (click)="uploadSubmitClicked()" title="Upload file(s)" style="position:relative; top: -8px;">
       {{isUploading ? (getOverallProgress() == 100 ? 'Finalizing...' : getOverallProgress() + '%') : (uploadFileList.length > 0 ? '✅Upload' : '⏫' + uploadButtonText)}}
     </button>
-    <button *ngIf="displayListContainer && !isUploading" type="button" (click)="fileInput.click()" title="Add more files" style="margin-left:8px;">
+    <button *ngIf="displayListContainer && !isUploading" type="button" (click)="fileInput.click()" title="Add more files" style="margin-left:8px; margin-top: -15px;">
       ➕ Add more files
     </button>
     <button type="submit" id="closeOverlay" *ngIf="!isUploading" 
