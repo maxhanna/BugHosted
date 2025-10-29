@@ -49,7 +49,7 @@ textarea {
   gap: 5px;
 }
 
-.notesCarousel div label, .poppedUpCarouselleList div label {
+.notesCarousel div label, .poppedUpCarouselleList label {
   flex-shrink: 0;
   box-shadow: inset 0px 10px 0px 0px rgba(248, 255, 148, 1);
   padding-top: 6px;
