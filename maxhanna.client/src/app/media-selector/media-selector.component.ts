@@ -94,7 +94,7 @@ export class MediaSelectorComponent implements OnDestroy {
       return alert(`Cannot add more then ${this.maxSelectedFiles} files!`);
     }
     this.selectedFiles.push(file);
-    //this.displaySearch = false;
+    this.displaySearch = false;
     this.viewMediaChoicesOpen = true;
     this.maxFilesReached = (this.selectedFiles.length >= this.maxSelectedFiles);
   }
@@ -162,7 +162,7 @@ export class MediaSelectorComponent implements OnDestroy {
   closeMediaSelector() {
     this.displaySearchButton = false;
     this.viewMediaChoicesOpen = false;
-    //this.displaySearch = false;
+    this.displaySearch = false;
     if (this.inputtedParentRef) {
       this.inputtedParentRef.closeOverlay();
     }
