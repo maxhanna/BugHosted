@@ -440,8 +440,8 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
             html += `
               <div class="poll-option">
                 <input type="checkbox" value="${escapedOpt}" id="${inputId}" name="${inputId}"
-                  onClick="document.getElementById('pollCheckId').value='${inputId}';document.getElementById('pollQuestion').value='${safeQuestion}';document.getElementById('pollComponentId').value='${poll.componentId}';document.getElementById('pollCheckClickedButton').click()">
-                <label for="${inputId}" onclick="document.getElementById('pollCheckId').value='${inputId}';document.getElementById('pollQuestion').value='${safeQuestion}';document.getElementById('pollComponentId').value='${poll.componentId}';document.getElementById('pollCheckClickedButton').click()">${optText}</label>
+q                  onClick="document.getElementById('pollCheckId').value='${inputId}';document.getElementById('pollValue').value='${escapedOpt}';document.getElementById('pollQuestion').value='${safeQuestion}';document.getElementById('pollComponentId').value='${poll.componentId}';document.getElementById('pollCheckClickedButton').click()">
+                <label for="${inputId}" onclick="document.getElementById('pollCheckId').value='${inputId}';document.getElementById('pollValue').value='${escapedOpt}';document.getElementById('pollQuestion').value='${safeQuestion}';document.getElementById('pollComponentId').value='${poll.componentId}';document.getElementById('pollCheckClickedButton').click()">${optText}</label>
               </div>`;
           }
           html += `</div>`;

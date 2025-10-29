@@ -953,10 +953,11 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
       let hasVoted = false;
       options.forEach((option: string, index: number) => {
         if (!option.includes("votes, ")) {
+          const escOption = ('' + option).replace(/'/g, "");
           pollHtml += `
             <div class="poll-option">
-                <input type="checkbox" value="${option}" id="poll-option-${pollId}-${index}" name="poll-options-${pollId}" onClick="document.getElementById('pollCheckId').value='poll-option-${pollId}-${index}';document.getElementById('pollQuestion').value='${this.htmlEncodeForInput(question)}';document.getElementById('pollComponentId').value='${normalizedComponentId}';document.getElementById('pollCheckClickedButton').click()">
-                <label for="poll-option-${pollId}-${index}" onClick="document.getElementById('pollCheckId').value='poll-option-${pollId}-${index}';document.getElementById('pollQuestion').value='${this.htmlEncodeForInput(question)}';document.getElementById('pollComponentId').value='${normalizedComponentId}';document.getElementById('pollCheckClickedButton').click()">${option}</label>
+                <input type="checkbox" value="${option}" id="poll-option-${pollId}-${index}" name="poll-options-${pollId}" onClick="document.getElementById('pollCheckId').value='poll-option-${pollId}-${index}';document.getElementById('pollValue').value='${escOption}';document.getElementById('pollQuestion').value='${this.htmlEncodeForInput(question)}';document.getElementById('pollComponentId').value='${normalizedComponentId}';document.getElementById('pollCheckClickedButton').click()">
+                <label for="poll-option-${pollId}-${index}" onClick="document.getElementById('pollCheckId').value='poll-option-${pollId}-${index}';document.getElementById('pollValue').value='${escOption}';document.getElementById('pollQuestion').value='${this.htmlEncodeForInput(question)}';document.getElementById('pollComponentId').value='${normalizedComponentId}';document.getElementById('pollCheckClickedButton').click()">${option}</label>
             </div>
           `;
         } else {
@@ -1318,11 +1319,55 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
   async handlePollCheckClicked() {
     clearTimeout(this.debounceTimer);
     this.debounceTimer = setTimeout(async () => {
-      const pollCheckIdElement = document.getElementById("pollCheckId") as HTMLInputElement;
+      // Read basic hidden inputs
+      const pollCheckIdElement = document.getElementById("pollCheckId") as HTMLInputElement | null;
       const checkInputId = pollCheckIdElement ? pollCheckIdElement.value : undefined;
-      const checkValue = checkInputId ? (document.getElementById(checkInputId) as HTMLInputElement)?.value : undefined;
-      const pollQuestion = (document.getElementById("pollQuestion") as HTMLInputElement).value;
-      const componentId = (document.getElementById("pollComponentId") as HTMLInputElement).value;
+      const pollQuestion = (document.getElementById("pollQuestion") as HTMLInputElement)?.value ?? '';
+      const componentId = (document.getElementById("pollComponentId") as HTMLInputElement)?.value ?? '';
+
+      // First, prefer explicit pollValue hidden input if present (set by the onclick handlers)
+      const pollValueElement = document.getElementById('pollValue') as HTMLInputElement | null;
+      const pollValueFromHidden = pollValueElement?.value;
+
+      // Attempt to reliably find the chosen option's value.
+      // Prefer a checked input inside the poll container, then the element referenced by pollCheckId,
+      // then fall back to the label text for that input id.
+      let checkValue: string | undefined = undefined;
+      if (pollValueFromHidden && pollValueFromHidden.trim() !== '') {
+        // Use provided pollValue as highest priority
+        checkValue = pollValueFromHidden;
+      }
+
+      if (componentId) {
+        const container = document.getElementById(componentId);
+        if (container) {
+          // 1) find any checked input inside the container
+          const checked = container.querySelector<HTMLInputElement>('input[type="checkbox"]:checked, input[type="radio"]:checked');
+          if (checked && checked.value) {
+            checkValue = checked.value;
+          }
+
+          // 2) if not found, but we were given an input id, try to find that input inside the container
+          if (!checkValue && checkInputId) {
+            const inputEl = container.querySelector<HTMLInputElement>(`#${checkInputId}`);
+            if (inputEl && inputEl.value) checkValue = inputEl.value;
+          }
+        }
+      }
+
+      // 3) global fallback: try to find element by id anywhere in document
+      if (!checkValue && checkInputId) {
+        const inputElGlobal = document.getElementById(checkInputId) as HTMLInputElement | null;
+        if (inputElGlobal && inputElGlobal.value) {
+          checkValue = inputElGlobal.value;
+        } else {
+          // 4) as a last resort, try the label text (sometimes inputs are missing value attributes)
+          try {
+            const label = document.querySelector<HTMLLabelElement>(`label[for="${checkInputId}"]`);
+            if (label) checkValue = label.textContent?.trim() ?? '';
+          } catch (e) { /* ignore */ }
+        }
+      }
 
       try {
         const res = await this.pollService.vote(this.user?.id ?? 0, checkValue ?? '', componentId);
