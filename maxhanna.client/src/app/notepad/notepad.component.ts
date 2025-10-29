@@ -198,6 +198,7 @@ export class NotepadComponent extends ChildComponent implements OnInit, OnDestro
     this.stopSharedNotePolling();
     this.sharedNotePollTimer = setInterval(async () => {
       await this.fetchLatestSelectedNote();
+      console.log("fetch");
     }, this.SHARED_NOTE_POLL_INTERVAL);
   }
 
