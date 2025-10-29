@@ -68,6 +68,9 @@
     <button type="submit" (click)="uploadSubmitClicked()" title="Upload file(s)" style="position:relative; top: -8px;">
       {{isUploading ? (getOverallProgress() == 100 ? 'Finalizing...' : getOverallProgress() + '%') : (uploadFileList.length > 0 ? '✅Upload' : '⏫' + uploadButtonText)}}
     </button>
+    <button *ngIf="displayListContainer && !isUploading" type="button" (click)="fileInput.nativeElement.click()" title="Add more files" style="margin-left:8px;">
+      ➕ Add more files
+    </button>
     <button type="submit" id="closeOverlay" *ngIf="!isUploading" 
       (click)="preventDisplayClose ? null : cancelFileUpload()" title="Cancel upload" style="position:relative; top: -8px;">❌Cancel</button>
     <button *ngIf="isUploading && getOverallProgress() == 100"  (click)="manualFinalizeClose()" title="Close this popup; upload will finish in background">Close</button>

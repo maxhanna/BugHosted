@@ -85,11 +85,16 @@ export class FileUploadComponent implements OnDestroy {
         }
       }
 
-      if (validFiles.length > this.maxSelectedFiles) {
+      // If there are already files selected, append new ones, enforcing maxSelectedFiles
+      const currentNames = new Set(this.uploadFileList.map(f => f.name));
+      const newFiles = validFiles.filter(f => !currentNames.has(f.name));
+      const combined = this.uploadFileList.concat(newFiles);
+      if (combined.length > this.maxSelectedFiles) {
         alert(`Cannot add more than ${this.maxSelectedFiles} files! Took the first ${this.maxSelectedFiles} valid files for upload.`);
       }
-
-      this.uploadFileList = validFiles.slice(0, this.maxSelectedFiles);
+      this.uploadFileList = combined.slice(0, this.maxSelectedFiles);
+      // reset the file input so the same file can be selected again if desired
+      try { this.fileInput.nativeElement.value = ''; } catch { }
       this.userUploadEvent.emit(this.uploadFileList);
     }
   }
