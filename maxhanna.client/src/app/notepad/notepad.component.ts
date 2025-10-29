@@ -198,7 +198,6 @@ export class NotepadComponent extends ChildComponent implements OnInit, OnDestro
     this.stopSharedNotePolling();
     this.sharedNotePollTimer = setInterval(async () => {
       await this.fetchLatestSelectedNote();
-      console.log("fetch");
     }, this.SHARED_NOTE_POLL_INTERVAL);
   }
 
@@ -212,14 +211,8 @@ export class NotepadComponent extends ChildComponent implements OnInit, OnDestro
   private async fetchLatestSelectedNote() {
     try {
       if (!this.selectedNote || !this.parentRef?.user?.id) { return; }
-      const latest = await this.notepadService.getNote(this.parentRef.user.id, this.selectedNote.id!);
-      // Only update the UI if the content changed
-      if (latest && latest.note !== this.noteInput?.nativeElement.value) {
-        this.noteInput.nativeElement.value = latest.note ?? '';
-        this.selectedNote = latest;
-        // set visual sync indicator
-        this.setLastSynced(new Date());
-      }
+      await this.notepadService.getNote(this.parentRef.user.id, this.selectedNote.id!); 
+      this.setLastSynced(new Date());
     } catch (error) {
       console.error('Error polling shared note:', error);
     }
