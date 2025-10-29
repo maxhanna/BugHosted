@@ -30,6 +30,7 @@ export class ThemesComponent extends ChildComponent implements OnInit, OnDestroy
   userSelectedTheme?: Theme;
   allThemes?: Theme[];
   myThemes?: Theme[];
+  showDeleteConfirm: boolean = false;
  
   isSearching = false
   originalThemeId = 0;
@@ -219,24 +220,47 @@ export class ThemesComponent extends ChildComponent implements OnInit, OnDestroy
     }, 500);
   }
 
-  deleteTheme() {
-    clearTimeout(this.debounceTimer);
-    this.debounceTimer = setTimeout(() => {
-      try {
-        const user = this.parentRef?.user;
-        if (!this.userSelectedTheme?.id) return alert("No theme selected.");
-        if (!user || !user.id) return alert("You must be logged in to delete a theme.");
-        if (confirm("Are you sure you want to delete this theme?")) {
-          this.userService.deleteUserTheme(user.id, this.userSelectedTheme.id).then((res: any) => {
-            if (res) {
-              this.parentRef?.showNotification(res.message);
-            }
-          });
-        } 
-      } catch (error) {
-        console.error('Error saving theme:', error);
+  // Show confirmation dialog before deleting
+  promptDeleteTheme() {
+    const user = this.parentRef?.user;
+    if (!this.userSelectedTheme?.id) return alert("No theme selected.");
+    if (!user || !user.id) return alert("You must be logged in to delete a theme.");
+    // show modal overlay
+    this.showDeleteConfirm = true;
+    this.parentRef?.showOverlay();
+  }
+
+  async confirmDeleteTheme() {
+    try {
+      const user = this.parentRef?.user;
+      if (!this.userSelectedTheme?.id || !user || !user.id) {
+        this.cancelDeleteTheme();
+        return;
       }
-    }, 500);
+      const themeId = this.userSelectedTheme.id;
+      const res: any = await this.userService.deleteUserTheme(user.id, themeId);
+      if (res) {
+        this.parentRef?.showNotification(res.message);
+      }
+      // Remove from myThemes and clear selection
+      if (this.myThemes) {
+        this.myThemes = this.myThemes.filter(t => t.id !== themeId);
+      }
+      if (this.userSelectedTheme && this.userSelectedTheme.id === themeId) {
+        this.userSelectedTheme = undefined;
+        this.restoreDefaultSettings(false);
+      }
+    } catch (err) {
+      console.error('Error deleting theme:', err);
+      this.parentRef?.showNotification('Failed to delete theme');
+    } finally {
+      this.cancelDeleteTheme();
+    }
+  }
+
+  cancelDeleteTheme() {
+    this.showDeleteConfirm = false;
+    this.parentRef?.closeOverlay();
   }
 
   selectFile(files?: FileEntry[]) {

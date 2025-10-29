@@ -124,9 +124,20 @@
       <input #themeNameInput placeholder="Theme Name" />
       <div class="theme-save-delete">
         <button class="theme-save" (click)="saveTheme()">💾 Save</button>
-        <button class="theme-delete" (click)="deleteTheme()" *ngIf="userSelectedTheme">❌ Delete</button>
+        <button class="theme-delete" (click)="promptDeleteTheme()" *ngIf="userSelectedTheme">❌ Delete</button>
       </div>
       <button class="theme-reset" (click)="restoreDefaultSettings(true)">🔄 Reset</button>
+    </div>
+  </div>
+  <!-- Delete confirmation modal -->
+  <div class="popupPanel" *ngIf="showDeleteConfirm">
+    <div class="popupPanelTitle">Confirm Delete</div>
+    <div class="popupSectionContainer">
+      <div>Are you sure you want to permanently delete this theme?</div>
+      <div style="margin-top:12px; display:flex; gap:10px;">
+        <button (click)="confirmDeleteTheme()" class="theme-save">Yes, Delete</button>
+        <button (click)="cancelDeleteTheme()" class="theme-delete">Cancel</button>
+      </div>
     </div>
   </div>
 </div>
