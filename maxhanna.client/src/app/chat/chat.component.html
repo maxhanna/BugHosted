@@ -165,6 +165,15 @@
         <button (click)="enableGhostRead()">{{ghostReadEnabled ? '🙈Disable' : '🙉Enable'}}</button>
       </div>
     </div>
+    <div class="optionsStatsDiv" *ngIf="!showUserList && currentChatId && userThemes?.length">
+      <div class="optionsStatsHeader">Saved Themes:</div>
+      <div class="optionsStatsDescription">
+        <select (change)="changeChatUserTheme($event)" #changeUserThemeSelect>
+          <option value="">(none)</option>
+          <option *ngFor="let ut of userThemes" [value]="ut.id">{{ut.name}}</option>
+        </select>
+      </div>
+    </div>
     <div class="optionsStatsDiv" *ngIf="!showUserList && currentChatUsers">
       <div class="optionsStatsHeader">
         Members:

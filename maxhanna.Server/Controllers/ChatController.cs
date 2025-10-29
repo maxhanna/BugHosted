@@ -293,6 +293,82 @@ namespace maxhanna.Server.Controllers
 			}
 		}
 
+
+		[HttpPost("/Chat/GetChatTheme", Name = "GetChatTheme")]
+		public async Task<IActionResult> GetChatTheme([FromBody] dynamic req)
+		{
+			int chatId = 0;
+			try { chatId = (int)req.ChatId; } catch { return BadRequest(); }
+			string connectionString = _config.GetValue<string>("ConnectionStrings:maxhanna") ?? "";
+			using (MySqlConnection conn = new MySqlConnection(connectionString))
+			{
+				try
+				{
+					await conn.OpenAsync();
+					string sql = @"SELECT theme, user_theme_id FROM maxhanna.chat_themes WHERE chat_id = @ChatId LIMIT 1";
+					MySqlCommand cmd = new MySqlCommand(sql, conn);
+					cmd.Parameters.AddWithValue("@ChatId", chatId);
+					using (var reader = await cmd.ExecuteReaderAsync())
+					{
+						if (await reader.ReadAsync())
+						{
+							var theme = reader.IsDBNull(0) ? "" : reader.GetString(0);
+							int? userThemeId = reader.IsDBNull(1) ? null : (int?)reader.GetInt32(1);
+							return Ok(new { theme = theme, userThemeId = userThemeId });
+						}
+					}
+					return Ok(new { theme = "", userThemeId = (int?)null });
+				}
+				catch (Exception ex)
+				{
+					_ = _log.Db("Error in GetChatTheme: " + ex.Message, null, "CHAT");
+					return StatusCode(500, "Error");
+				}
+			}
+		}
+
+		[HttpPost("/Chat/SetChatTheme", Name = "SetChatTheme")]
+		public async Task<IActionResult> SetChatTheme([FromBody] dynamic req)
+		{
+			int chatId = 0;
+			string theme = "";
+			try { chatId = (int)req.ChatId; theme = (string)req.Theme; } catch { return BadRequest(); }
+			string connectionString = _config.GetValue<string>("ConnectionStrings:maxhanna") ?? "";
+			using (MySqlConnection conn = new MySqlConnection(connectionString))
+			{
+				try
+				{
+					await conn.OpenAsync();
+					string existsSql = @"SELECT COUNT(*) FROM maxhanna.chat_themes WHERE chat_id = @ChatId";
+					MySqlCommand existsCmd = new MySqlCommand(existsSql, conn);
+					existsCmd.Parameters.AddWithValue("@ChatId", chatId);
+					var count = Convert.ToInt32(await existsCmd.ExecuteScalarAsync());
+					if (count > 0)
+					{
+						string updateSql = @"UPDATE maxhanna.chat_themes SET theme = @Theme WHERE chat_id = @ChatId";
+						MySqlCommand updateCmd = new MySqlCommand(updateSql, conn);
+						updateCmd.Parameters.AddWithValue("@Theme", theme ?? "");
+						updateCmd.Parameters.AddWithValue("@ChatId", chatId);
+						await updateCmd.ExecuteNonQueryAsync();
+					}
+					else
+					{
+						string insertSql = @"INSERT INTO maxhanna.chat_themes (chat_id, theme) VALUES (@ChatId, @Theme)";
+						MySqlCommand insertCmd = new MySqlCommand(insertSql, conn);
+						insertCmd.Parameters.AddWithValue("@ChatId", chatId);
+						insertCmd.Parameters.AddWithValue("@Theme", theme ?? "");
+						await insertCmd.ExecuteNonQueryAsync();
+					}
+					return Ok("OK");
+				}
+				catch (Exception ex)
+				{
+					_ = _log.Db("Error in SetChatTheme: " + ex.Message, null, "CHAT");
+					return StatusCode(500, "Error");
+				}
+			}
+		}
+
 		[HttpPost("/Chat/GetMessageHistory", Name = "GetMessageHistory")]
 		public async Task<IActionResult> GetMessageHistory([FromBody] MessageHistoryRequest request)
 		{

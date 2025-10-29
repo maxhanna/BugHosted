@@ -36,6 +36,8 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
   isDisplayingChatMembersPanel = false;
   isMenuPanelOpen = false;
   showUserList = true;
+  currentChatTheme: string = '';
+  userThemes: any[] = [];
   app?: any;
   messaging?: any;
   ghostReadEnabled = false;
@@ -72,6 +74,33 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
     parent?.addResizeListener();
   }
 
+  async changeChatUserTheme(event: any) {
+    if (!this.currentChatId) return;
+    const val = event.target.value;
+    const userThemeId = val ? +val : null;
+    try {
+      const res = await this.chatService.setChatTheme(this.currentChatId, this.currentChatTheme ?? '', userThemeId);
+      if (res) {
+        if (userThemeId) {
+          // find the theme values and apply CSS vars
+          const ut = this.userThemes.find(u => u.id === userThemeId);
+          if (ut) {
+            // apply colors as CSS variables for chatArea
+            const container = document.querySelector('.chatArea') as HTMLElement | null;
+            if (container) {
+              if (ut.background_color) container.style.setProperty('--main-bg-color', ut.background_color);
+              if (ut.font_color) container.style.setProperty('--main-font-color', ut.font_color);
+            }
+          }
+        }
+        this.parentRef?.showNotification('Chat saved theme updated.');
+      }
+    } catch (ex) {
+      console.error('Failed to set chat theme userThemeId', ex);
+      this.parentRef?.showNotification('Failed to update chat theme.');
+    }
+  }
+
   async ngOnInit() {
     if (this.selectedUser) {
       if (this.inputtedParentRef) {
@@ -100,6 +129,12 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
           }
         }
       })
+      // load user-created themes so they appear in the Saved Themes dropdown
+      if (user.id) {
+        this.userService.getAllUserThemes(user.id).then((res: any) => {
+          if (res) this.userThemes = res;
+        }).catch(() => { /* ignore */ });
+      }
     }
   }
 
@@ -483,6 +518,36 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
     }, 410);
     this.togglePanel();
 
+    // Load chat theme for this chat id (prefer saved user theme if present)
+    try {
+      if (this.currentChatId) {
+        const themeRes = await this.chatService.getChatTheme(this.currentChatId);
+        if (themeRes) {
+          // if a saved user theme id is present, apply its CSS variables
+          if (themeRes.userThemeId) {
+            const ut = this.userThemes.find((u: any) => u.id === themeRes.userThemeId);
+            if (ut) {
+              const container = document.querySelector('.chatArea') as HTMLElement | null;
+              if (container) {
+                if (ut.background_color) container.style.setProperty('--main-bg-color', ut.background_color);
+                if (ut.font_color) container.style.setProperty('--main-font-color', ut.font_color);
+              }
+            }
+            this.currentChatTheme = '';
+          } else if (themeRes.theme) {
+            // fallback to any class-based theme value
+            this.currentChatTheme = themeRes.theme;
+            this.applyChatTheme(this.currentChatTheme);
+          } else {
+            this.currentChatTheme = '';
+            this.applyChatTheme('');
+          }
+        }
+      }
+    } catch (ex) {
+      // ignore
+    }
+
     this.stopLoading();
   }
 
@@ -736,6 +801,24 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
     this.isMenuPanelOpen = false;
     const parent = this.inputtedParentRef ?? this.parentRef;
     parent?.closeOverlay();
+  }
+  
+  
+
+  applyChatTheme(themeClass: string) {
+    try {
+      // apply a class to the chat container element to scope the theme
+      const container = document.querySelector('.chatArea');
+      if (!container) return;
+      // remove previous theme classes (any class beginning with 'theme-')
+      const classesToRemove = Array.from(container.classList).filter((c: string) => c.startsWith('theme-'));
+      for (const c of classesToRemove) {
+        container.classList.remove(c);
+      }
+      if (themeClass) container.classList.add(themeClass);
+    } catch (ex) {
+      // ignore
+    }
   }
   async enableGhostRead() {
     const parent = this.inputtedParentRef ?? this.parentRef;

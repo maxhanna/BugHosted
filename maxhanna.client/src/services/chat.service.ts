@@ -113,6 +113,38 @@ export class ChatService {
       return null;
     }
   }
+  async getChatTheme(chatId: number) {
+    try {
+      const response = await fetch(`/chat/getchattheme`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ ChatId: chatId }),
+      });
+
+      return await response.json();
+    } catch (error) {
+      return null;
+    }
+  }
+  async setChatTheme(chatId: number, theme: string, userThemeId?: number | null) {
+    try {
+      const payload: any = { ChatId: chatId, Theme: theme };
+      if (userThemeId) payload.UserThemeId = userThemeId;
+      const response = await fetch(`/chat/setchattheme`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      });
+
+      return await response.text();
+    } catch (error) {
+      return null;
+    }
+  }
   async sendMessage(senderId: number, receiverIds: number[], chatId?: number, content?: string, files?: FileEntry[]) {
     try {
       const response = await fetch(`/chat/sendmessage`, {
