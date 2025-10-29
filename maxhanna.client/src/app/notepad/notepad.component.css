@@ -102,26 +102,14 @@ textarea {
     align-content: flex-start;
     align-items: flex-start;
 }
-
-/* Auto-synced indicator styles */
-.autoSyncedIndicator {
-  display: inline;
-  transform: translateY(6px);
-  transition: opacity 250ms ease, transform 250ms ease;
-  z-index: 9999;
+ 
+.autoSyncedIndicator {  
   pointer-events: none;
-}
-.autoSyncedIndicator small {
+  margin-right: 15px;
   color: #ffffff;
   background: rgba(75, 159, 59, 1);
   padding: 4px 8px;
   border-radius: 6px;
   font-size: 12px;
   box-shadow: 0 2px 6px rgba(0,0,0,0.2);
-}
-
-/* When Angular inserts the element it will transition into view */
-.autoSyncedIndicator.ng-star-inserted {
-  opacity: 1;
-  transform: translateY(0);
-}
+} 
