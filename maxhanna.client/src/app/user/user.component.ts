@@ -298,9 +298,7 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
   }
 
   closeEmulationBreakdownPopup() {
-    this.isEmulationBreakdownOpen = false;
-    const parent = this.inputtedParentRef ?? this.parentRef;
-    parent?.closeOverlay();
+    this.isEmulationBreakdownOpen = false; 
   }
 
 
