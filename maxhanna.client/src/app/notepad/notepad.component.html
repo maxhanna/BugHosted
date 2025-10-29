@@ -29,10 +29,9 @@
     <input type="submit" value="🆕" (click)="clearInputs()" #newNoteButton title="New Note" />
     <input type="submit" value="❌" (click)="deleteNote()" #deleteNoteButton title="Delete Note" />
     <input type="hidden" value="" #noteId />
-  </fieldset>
-  <div class="autoSyncedIndicator" *ngIf="lastSyncedAt">
-    <small>Auto-synced at {{ lastSyncedAt | date:'mediumTime' }}</small>
-  </div>
+  </fieldset> 
+  <small  class="autoSyncedIndicator" *ngIf="lastSyncedAt">Auto-synced at {{ lastSyncedAt | date:'mediumTime' }}</small>
+  
   <div *ngIf="(notes && notes.length > 0) || (searchInput && searchInput.nativeElement && searchInput.nativeElement.value)" class="searchBar">
     <input placeholder="Search" #searchInput (keyup)="search()" />
     <button (click)="search()">🔍</button>

@@ -35,9 +35,7 @@ export class NotepadComponent extends ChildComponent implements OnInit, OnDestro
   // Poll interval in ms
   private readonly SHARED_NOTE_POLL_INTERVAL = 5000;
   // Timestamp when the selected note was last auto-synced from server
-  lastSyncedAt?: Date;
-  // Timer to auto-hide the synced indicator
-  private lastSyncedHideTimer?: any;
+  lastSyncedAt?: Date; 
   constructor(private notepadService: NotepadService, private userService: UserService, private notificationService: NotificationService) {
     super();
   }
@@ -219,10 +217,6 @@ export class NotepadComponent extends ChildComponent implements OnInit, OnDestro
   }
 
   private setLastSynced(d: Date) {
-    this.lastSyncedAt = d;
-    // clear any previous hide timer
-    if (this.lastSyncedHideTimer) { clearTimeout(this.lastSyncedHideTimer); }
-    // hide after 3 seconds
-    this.lastSyncedHideTimer = setTimeout(() => { this.lastSyncedAt = undefined; this.lastSyncedHideTimer = undefined; }, 3000);
+    this.lastSyncedAt = d; 
   }
 }
