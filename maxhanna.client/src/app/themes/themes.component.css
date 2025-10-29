@@ -52,8 +52,7 @@
 .theme-list input {
   padding: 8px 10px;
   border-radius: 8px;
-  border: 1px solid rgba(0,0,0,0.12);
-  background: var(--component-background-color, #fff);
+  border: 1px solid rgba(0,0,0,0.12); 
 }
 .theme-section-title {
   font-weight: 600;
@@ -75,8 +74,7 @@
 .theme-actions button {
   padding: 8px 10px;
   border-radius: 8px;
-  border: 1px solid rgba(0,0,0,0.12);
-  background: var(--component-background-color, #fff);
+  border: 1px solid rgba(0,0,0,0.12); 
   cursor: pointer;
 }
 .theme-actions .theme-save {
