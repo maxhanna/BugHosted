@@ -10,8 +10,6 @@ using static maxhanna.Server.Controllers.AiController;
 
 namespace maxhanna.Server.Controllers
 {
-	// Chat theme DTOs moved to DataContracts/Chat/ChatThemeDtos.cs
-
 	[ApiController]
 	[Route("[controller]")]
 	public class ChatController : ControllerBase
