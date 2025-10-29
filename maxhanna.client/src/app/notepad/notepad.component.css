@@ -1,8 +1,7 @@
 .componentMain {
   max-width: 90vw;
   height: CALC(var(--vh, 1vh) * 100 - 60px);
-}
-
+} 
 @media only screen and (max-width : 667px) {
   .componentMain {
     width: 98vw;
@@ -106,22 +105,25 @@ textarea {
 
 /* Auto-synced indicator styles */
 .autoSyncedIndicator {
-  text-align: right;
-  margin-right: 10px;
-  margin-top: 6px;
+  position: absolute;
+  top: 8px;
+  right: 10px;
   opacity: 0;
   transform: translateY(6px);
-  transition: opacity 300ms ease, transform 300ms ease;
+  transition: opacity 250ms ease, transform 250ms ease;
+  z-index: 9999;
+  pointer-events: none;
 }
 .autoSyncedIndicator small {
-  color: #4b9f3b;
-  background: rgba(75, 159, 59, 0.08);
-  padding: 2px 6px;
-  border-radius: 4px;
+  color: #ffffff;
+  background: rgba(75, 159, 59, 1);
+  padding: 4px 8px;
+  border-radius: 6px;
   font-size: 12px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.2);
 }
 
-/* When the element is present (ngIf), it will transition to visible state */
+/* When Angular inserts the element it will transition into view */
 .autoSyncedIndicator.ng-star-inserted {
   opacity: 1;
   transform: translateY(0);
