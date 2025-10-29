@@ -787,10 +787,7 @@ fieldset {
 }
 .poll-option-text { 
   width: 300px;
-}
-.poll-options {
-  width: 100%;
-}
+} 
 
 .poll-option {
   margin-bottom: 15px;
