@@ -123,13 +123,9 @@ export class NotepadComponent extends ChildComponent implements OnInit, OnDestro
       // Start polling only if this note is shared with other users
       this.stopSharedNotePolling();
       const ownership = this.selectedNote?.ownership ?? '';
-      const ids = ownership.split(',').map(s => s.trim()).filter(x => x !== '');
-      // shared if more than one id present and at least one id is not the current user
-      const isShared = ids.length > 1 && ids.some(x => parseInt(x) !== this.parentRef?.user?.id);
-      if (isShared) {
+      if (ownership.includes(",")) {
         this.startSharedNotePolling();
-      }
-       
+      } 
     } catch (error) {
       console.error(`Error fetching notepad entry (${id}): ${error}`);
     }
