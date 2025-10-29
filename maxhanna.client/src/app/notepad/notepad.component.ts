@@ -225,17 +225,11 @@ export class NotepadComponent extends ChildComponent implements OnInit, OnDestro
     if (!this.selectedNote || !this.parentRef?.user?.id) { return; }
     if (!confirm('Unshare this note with selected user?')) { return; }
     try {
-      const res = await this.notepadService.unshareNote(this.parentRef.user.id, userId, this.selectedNote.id!);
-      // assume success if res is truthy
-      if (res) {
-        // remove the user id from the ownership string locally
-        const ownership = (this.selectedNote.ownership ?? '').split(',').map(s => s.trim()).filter(x => x !== '' && parseInt(x) !== userId);
-        this.selectedNote.ownership = ownership.join(',');
-        this.splitNoteOwnership();
-        this.parentRef?.showNotification('Note unshared.');
-      } else {
-        this.parentRef?.showNotification('Failed to unshare note.');
-      }
+      await this.notepadService.unshareNote(this.parentRef.user.id, userId, this.selectedNote.id!);
+      const ownership = (this.selectedNote.ownership ?? '').split(',').map(s => s.trim()).filter(x => x !== '' && parseInt(x) !== userId);
+      this.selectedNote.ownership = ownership.join(',');
+      this.splitNoteOwnership();
+      this.parentRef?.showNotification('Note unshared.'); 
     } catch (err) {
       console.error('Error unsharing note:', err);
       this.parentRef?.showNotification('Failed to unshare note.');
