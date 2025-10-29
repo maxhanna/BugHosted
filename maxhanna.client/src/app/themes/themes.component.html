@@ -104,7 +104,8 @@
   </div>
 
   <div class="themeButtons">
-    <div style="display: flex; flex-direction:column;">
+    <div class="theme-list">
+      <div class="theme-section-title">Top Themes / Search</div>
       <select (change)="onThemeChange($event)" [disabled]="allThemes?.length === 0" id="allThemesDropdown">
         <option selected>
           {{ (isSearching || themeSearchInput.value)? (allThemes?.length === 0 ? 'No search matches' : 'Searched Themes') : 'Top Themes' }}
@@ -117,12 +118,15 @@
       </select>
       <input #themeSearchInput placeholder="Search for themes" (input)="themeSearch()" />
     </div>
-   
-    <div style="display: flex; flex-direction:column;">
+
+    <div class="theme-actions">
+      <div class="theme-section-title">Save / Manage</div>
       <input #themeNameInput placeholder="Theme Name" />
-      <button (click)="saveTheme()">💾Save</button>
-      <button (click)="deleteTheme()" *ngIf="userSelectedTheme">❌Delete</button>
+      <div class="theme-save-delete">
+        <button class="theme-save" (click)="saveTheme()">💾 Save</button>
+        <button class="theme-delete" (click)="deleteTheme()" *ngIf="userSelectedTheme">❌ Delete</button>
+      </div>
+      <button class="theme-reset" (click)="restoreDefaultSettings(true)">🔄 Reset</button>
     </div>
-    <button (click)="restoreDefaultSettings(true)">🔄Reset</button>
   </div>
 </div>

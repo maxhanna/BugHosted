@@ -41,6 +41,61 @@
   flex-wrap: wrap;
 }
 
+/* New: clearer groups for theme lists and actions */
+.theme-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 240px;
+}
+.theme-list select,
+.theme-list input {
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(0,0,0,0.12);
+  background: var(--component-background-color, #fff);
+}
+.theme-section-title {
+  font-weight: 600;
+  margin-bottom: 6px;
+  font-size: 0.95rem;
+}
+
+.theme-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 200px;
+}
+.theme-actions .theme-save-delete {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+.theme-actions button {
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(0,0,0,0.12);
+  background: var(--component-background-color, #fff);
+  cursor: pointer;
+}
+.theme-actions .theme-save {
+  background: linear-gradient(180deg, #e8fff0, #dff8e8);
+  border-color: #28a74533;
+}
+.theme-actions .theme-delete {
+  background: linear-gradient(180deg, #fff0f0, #ffecec);
+  border-color: #d9534f33;
+}
+.theme-actions .theme-delete[hidden] { display: none; }
+
+.theme-reset {
+  margin-left: 6px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(0,0,0,0.12);
+}
+
 .textExpanderDiv {
   width: 100%;
   text-align: center;
