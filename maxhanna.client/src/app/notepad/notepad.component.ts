@@ -85,6 +85,10 @@ export class NotepadComponent extends ChildComponent implements OnInit, OnDestro
       }
     } catch { }
   }
+  closeCarouselPopup() {
+    this.isCarouselPopped = false; 
+    this.parentRef?.closeOverlay(); 
+  }
   async shareNote(withUser?: User) {
     if (!withUser?.id || !this.parentRef?.user?.id) {
       this.isPanelExpanded = false;

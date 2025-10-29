@@ -40,8 +40,8 @@
   <div [style.gap]="isCarouselPopped ? '5px' : ''"
     [class]="isCarouselPopped ? 'popupPanel poppedUpCarouselleArea' : 'notesCarousel'">
     <div [class]="isCarouselPopped ? 'poppedUpCarouselleArea poppedUpCarouselleList' : ''">
-      <label *ngFor="let note of notes" (click)="getNote(note.id!)">{{ note.note }}</label>
+      <label *ngFor="let note of notes" (click)="getNote(note.id!); closeCarouselPopup();">{{ note.note }}</label>
     </div>
-    <div *ngIf="isCarouselPopped" class="closeButton" (click)="toggleCarouselPopup()" id="closeOverlay"></div>
+    <button *ngIf="isCarouselPopped" class="closeButton" (click)="closeCarouselPopup()" id="closeOverlay">Close</button>
   </div> 
 </div>
