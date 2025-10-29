@@ -23,13 +23,13 @@
         <button (click)="displayFileUploadOptions = !displayFileUploadOptions" class="cursorPointer smallFont">
           Options [{{displayFileUploadOptions ? '-' : '+'}}]
         </button>
+        <div *ngIf="displayFileUploadOptions" style="display: flex; flex-direction: column;">
+          <label><input type="checkbox" #compressCheckbox checked /> Compress Media Files</label>
+        </div>
         <button (click)="displayFileUploadTopics = !displayFileUploadTopics" class="cursorPointer smallFont">
           Topics [{{displayFileUploadTopics ? '-' : '+'}}]
         </button>
-      </div>
-      <div *ngIf="displayFileUploadOptions" style="display: flex; flex-direction: column;">
-        <label><input type="checkbox" #compressCheckbox checked /> Compress Media Files</label>
-      </div>
+      </div> 
       <div *ngIf="displayFileUploadTopics">
         <app-topics #topicComponent
                     [isDropdown]="true"
