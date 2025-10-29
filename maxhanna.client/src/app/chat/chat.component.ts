@@ -82,18 +82,19 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
     if (!container) return;
 
     if (!ut) {
-      // clear properties
+      // clear properties (use the same vars ThemesComponent uses)
+      container.style.removeProperty('--main-background-image-url');
       container.style.removeProperty('--main-bg-color');
+      container.style.removeProperty('--component-background-color');
+      container.style.removeProperty('--secondary-component-background-color');
       container.style.removeProperty('--main-font-color');
-      container.style.removeProperty('--chat-secondary-font-color');
-      container.style.removeProperty('--chat-third-font-color');
-      container.style.removeProperty('--chat-component-background-color');
-      container.style.removeProperty('--chat-secondary-component-background-color');
-      container.style.removeProperty('--chat-main-highlight-color');
-      container.style.removeProperty('--chat-link-color');
-      container.style.removeProperty('--chat-font-family');
-      container.style.removeProperty('--chat-font-size');
-      container.style.removeProperty('--chat-background-image');
+      container.style.removeProperty('--secondary-font-color');
+      container.style.removeProperty('--third-font-color');
+      container.style.removeProperty('--main-highlight-color');
+      container.style.removeProperty('--main-highlight-color-quarter-opacity');
+      container.style.removeProperty('--main-link-color');
+      container.style.removeProperty('--main-font-family');
+      container.style.removeProperty('--main-font-size');
       return;
     }
 
@@ -104,29 +105,32 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
       return null;
     };
 
-    const background = g('backgroundColor', 'background_color');
-    const fontColor = g('fontColor', 'font_color');
-    const secondaryFont = g('secondaryFontColor', 'secondary_font_color');
-    const thirdFont = g('thirdFontColor', 'third_font_color');
-    const compBg = g('componentBackgroundColor', 'component_background_color');
-    const secCompBg = g('secondaryComponentBackgroundColor', 'secondary_component_background_color');
-    const highlight = g('mainHighlightColor', 'main_highlight_color');
-    const linkColor = g('linkColor', 'link_color');
-    const fontFamily = g('fontFamily', 'font_family');
-    const fontSize = g('fontSize', 'font_size');
-    const bgImage = g('backgroundImage', 'background_image');
+  const background = g('backgroundColor', 'background_color');
+  const fontColor = g('fontColor', 'font_color');
+  const secondaryFont = g('secondaryFontColor', 'secondary_font_color');
+  const thirdFont = g('thirdFontColor', 'third_font_color');
+  const compBg = g('componentBackgroundColor', 'component_background_color');
+  const secCompBg = g('secondaryComponentBackgroundColor', 'secondary_component_background_color');
+  const highlight = g('mainHighlightColor', 'main_highlight_color');
+  const highlightQuarter = g('mainHighlightColorQuarterOpacity', 'main_highlight_color_quarter_opacity');
+  const linkColor = g('linkColor', 'link_color');
+  const fontFamily = g('fontFamily', 'font_family');
+  const fontSize = g('fontSize', 'font_size');
+  const bgImage = g('backgroundImage', 'background_image');
 
-    if (background) container.style.setProperty('--main-bg-color', background);
-    if (fontColor) container.style.setProperty('--main-font-color', fontColor);
-    if (secondaryFont) container.style.setProperty('--chat-secondary-font-color', secondaryFont);
-    if (thirdFont) container.style.setProperty('--chat-third-font-color', thirdFont);
-    if (compBg) container.style.setProperty('--chat-component-background-color', compBg);
-    if (secCompBg) container.style.setProperty('--chat-secondary-component-background-color', secCompBg);
-    if (highlight) container.style.setProperty('--chat-main-highlight-color', highlight);
-    if (linkColor) container.style.setProperty('--chat-link-color', linkColor);
-    if (fontFamily) container.style.setProperty('--chat-font-family', fontFamily);
-    if (fontSize) container.style.setProperty('--chat-font-size', fontSize + 'px');
-    if (bgImage) container.style.setProperty('--chat-background-image', `url('${bgImage}')`);
+  // Apply using the global var names used by ThemesComponent
+  if (bgImage) container.style.setProperty('--main-background-image-url', typeof bgImage === 'string' && bgImage.startsWith('http') ? bgImage : (bgImage ? `url('${bgImage}')` : ''));
+  if (background) container.style.setProperty('--main-bg-color', background);
+  if (compBg) container.style.setProperty('--component-background-color', compBg);
+  if (secCompBg) container.style.setProperty('--secondary-component-background-color', secCompBg);
+  if (fontColor) container.style.setProperty('--main-font-color', fontColor);
+  if (secondaryFont) container.style.setProperty('--secondary-font-color', secondaryFont);
+  if (thirdFont) container.style.setProperty('--third-font-color', thirdFont);
+  if (highlight) container.style.setProperty('--main-highlight-color', highlight);
+  if (highlightQuarter) container.style.setProperty('--main-highlight-color-quarter-opacity', highlightQuarter);
+  if (linkColor) container.style.setProperty('--main-link-color', linkColor);
+  if (fontFamily) container.style.setProperty('--main-font-family', fontFamily);
+  if (fontSize) container.style.setProperty('--main-font-size', (typeof fontSize === 'number' ? fontSize + 'px' : fontSize));
   }
 
   async changeChatUserTheme(event: any) {

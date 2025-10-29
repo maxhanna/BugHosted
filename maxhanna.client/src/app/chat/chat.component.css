@@ -37,6 +37,15 @@
   width: 100%;
 }
 
+/* Use the global theme variables so per-chat user themes affect the chat area */
+.chatArea {
+  background-color: var(--main-bg-color, transparent);
+  color: var(--main-font-color, inherit);
+  background-image: var(--main-background-image-url, none);
+  background-size: cover;
+  background-position: center;
+}
+
 .messageInputInnerDiv {
   display: flex;
   flex-direction: column;
