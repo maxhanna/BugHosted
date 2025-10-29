@@ -24,13 +24,13 @@
 
   <textarea #noteInput class="noteInputTextArea" (input)="handleNoteInputChange()" required></textarea>
   <fieldset class="buttonFields">
+    <small  class="autoSyncedIndicator" *ngIf="lastSyncedAt">Auto-synced at {{ lastSyncedAt | date:'mediumTime' }}</small>
     <input type="submit" value="💾" (click)="addNote(); noteAddButton.disabled=true;" #noteAddButton title="Save Note" />
     <input type="submit" value="↗️" (click)="shareNoteButtonClick()" #shareNoteButton title="Share Note" />
     <input type="submit" value="🆕" (click)="clearInputs()" #newNoteButton title="New Note" />
     <input type="submit" value="❌" (click)="deleteNote()" #deleteNoteButton title="Delete Note" />
     <input type="hidden" value="" #noteId />
   </fieldset> 
-  <small  class="autoSyncedIndicator" *ngIf="lastSyncedAt">Auto-synced at {{ lastSyncedAt | date:'mediumTime' }}</small>
   
   <div *ngIf="(notes && notes.length > 0) || (searchInput && searchInput.nativeElement && searchInput.nativeElement.value)" class="searchBar">
     <input placeholder="Search" #searchInput (keyup)="search()" />
