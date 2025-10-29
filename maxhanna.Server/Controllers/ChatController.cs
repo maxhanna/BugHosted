@@ -305,19 +305,18 @@ namespace maxhanna.Server.Controllers
 				try
 				{
 					await conn.OpenAsync();
-					string sql = @"SELECT theme, user_theme_id FROM maxhanna.chat_themes WHERE chat_id = @ChatId LIMIT 1";
+					string sql = @"SELECT user_theme_id FROM maxhanna.chat_themes WHERE chat_id = @ChatId LIMIT 1";
 					MySqlCommand cmd = new MySqlCommand(sql, conn);
 					cmd.Parameters.AddWithValue("@ChatId", chatId);
 					using (var reader = await cmd.ExecuteReaderAsync())
 					{
 						if (await reader.ReadAsync())
 						{
-							var theme = reader.IsDBNull(0) ? "" : reader.GetString(0);
-							int? userThemeId = reader.IsDBNull(1) ? null : (int?)reader.GetInt32(1);
-							return Ok(new { theme = theme, userThemeId = userThemeId });
+							int? userThemeId = reader.IsDBNull(0) ? null : (int?)reader.GetInt32(0);
+							return Ok(new {  userThemeId });
 						}
 					}
-					return Ok(new { theme = "", userThemeId = (int?)null });
+					return Ok(new {  userThemeId = (int?)null });
 				}
 				catch (Exception ex)
 				{
@@ -331,8 +330,11 @@ namespace maxhanna.Server.Controllers
 		public async Task<IActionResult> SetChatTheme([FromBody] dynamic req)
 		{
 			int chatId = 0;
-			string theme = "";
-			try { chatId = (int)req.ChatId; theme = (string)req.Theme; } catch { return BadRequest(); }
+			int userThemeId = 0; 
+			try {
+				chatId = (int)req.ChatId;
+				userThemeId = (int)req.UserThemeId;
+			} catch { return BadRequest(); }
 			string connectionString = _config.GetValue<string>("ConnectionStrings:maxhanna") ?? "";
 			using (MySqlConnection conn = new MySqlConnection(connectionString))
 			{
@@ -345,18 +347,18 @@ namespace maxhanna.Server.Controllers
 					var count = Convert.ToInt32(await existsCmd.ExecuteScalarAsync());
 					if (count > 0)
 					{
-						string updateSql = @"UPDATE maxhanna.chat_themes SET theme = @Theme WHERE chat_id = @ChatId";
+						string updateSql = @"UPDATE maxhanna.chat_themes SET user_theme_id = @UserThemeId WHERE chat_id = @ChatId";
 						MySqlCommand updateCmd = new MySqlCommand(updateSql, conn);
-						updateCmd.Parameters.AddWithValue("@Theme", theme ?? "");
+						updateCmd.Parameters.AddWithValue("@UserThemeId", userThemeId);
 						updateCmd.Parameters.AddWithValue("@ChatId", chatId);
 						await updateCmd.ExecuteNonQueryAsync();
 					}
 					else
 					{
-						string insertSql = @"INSERT INTO maxhanna.chat_themes (chat_id, theme) VALUES (@ChatId, @Theme)";
+						string insertSql = @"INSERT INTO maxhanna.chat_themes (chat_id, user_theme_id) VALUES (@ChatId, @UserThemeId)";
 						MySqlCommand insertCmd = new MySqlCommand(insertSql, conn);
 						insertCmd.Parameters.AddWithValue("@ChatId", chatId);
-						insertCmd.Parameters.AddWithValue("@Theme", theme ?? "");
+						insertCmd.Parameters.AddWithValue("@UserThemeId", userThemeId);
 						await insertCmd.ExecuteNonQueryAsync();
 					}
 					return Ok("OK");
