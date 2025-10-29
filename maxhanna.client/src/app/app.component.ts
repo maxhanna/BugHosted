@@ -1468,13 +1468,16 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
 
           pollHtml += `</div>`;
 
-          // Attempt to decrement the total votes display if present
+          // Attempt to decrement the total votes display if present; hide it if total becomes 0
           const totalEl = container.querySelector('.poll-total') as HTMLElement | null;
           if (totalEl) {
             const m = (totalEl.textContent ?? '').match(/Total Votes:\s*(\d+)/i);
             let total = m ? parseInt(m[1]) : 0;
             total = Math.max(0, total - 1);
-            pollHtml += `<div class="poll-total">Total Votes: ${total}</div>`;
+            if (total > 0) {
+              pollHtml += `<div class="poll-total">Total Votes: ${total}</div>`;
+            }
+            // if total === 0, omit the poll-total element entirely to hide vote summaries
           }
 
           pollHtml += `</div>`;
