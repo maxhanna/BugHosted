@@ -103,3 +103,26 @@ textarea {
     align-content: flex-start;
     align-items: flex-start;
 }
+
+/* Auto-synced indicator styles */
+.autoSyncedIndicator {
+  text-align: right;
+  margin-right: 10px;
+  margin-top: 6px;
+  opacity: 0;
+  transform: translateY(6px);
+  transition: opacity 300ms ease, transform 300ms ease;
+}
+.autoSyncedIndicator small {
+  color: #4b9f3b;
+  background: rgba(75, 159, 59, 0.08);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 12px;
+}
+
+/* When the element is present (ngIf), it will transition to visible state */
+.autoSyncedIndicator.ng-star-inserted {
+  opacity: 1;
+  transform: translateY(0);
+}
