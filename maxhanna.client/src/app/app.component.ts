@@ -1429,13 +1429,60 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
     const componentId = (document.getElementById("pollComponentId") as HTMLInputElement).value;
 
     try {
-      await this.pollService.deleteVote(this.user?.id ?? 0, componentId).then(res => {
-        if (res) {
-          this.showNotification(res);
-        } else {
-          this.showNotification("Error deleting vote.");
+      const res = await this.pollService.deleteVote(this.user?.id ?? 0, componentId);
+      if (res) {
+        this.showNotification(res);
+      } else {
+        this.showNotification("Error deleting vote.");
+      }
+
+      // Re-render the poll client-side to remove the user's vote without fetching updated data.
+      // Strategy: find the poll container by componentId, extract the question and option texts
+      // (strip any "(X votes, Y%)" suffixes), then rebuild the interactive poll HTML (checkboxes)
+      // and decrement the displayed total votes by 1 if present.
+      try {
+        const container = document.getElementById(componentId);
+        if (container) {
+          const qEl = container.querySelector('.poll-question') as HTMLElement | null;
+          const question = qEl ? (qEl.textContent ?? '').trim() : '';
+
+          const optionEls = Array.from(container.querySelectorAll('.poll-option')) as HTMLElement[];
+          const options: string[] = optionEls.map(optEl => {
+            // Prefer label text if available
+            const lbl = optEl.querySelector('label') as HTMLElement | null;
+            let txt = lbl ? (lbl.textContent ?? '') : (optEl.textContent ?? '');
+            // Remove common vote-summary suffix like " (123 votes, 45%)" or " (123 votes)"
+            txt = txt.replace(/\s*\(\d+\s*votes?,\s*\d+%?\)/i, '').replace(/\s*\(\d+\s*votes?\)/i, '').trim();
+            return txt;
+          }).filter(t => t && t.length > 0);
+
+          // Build interactive poll HTML similar to how polls are generated elsewhere
+          let pollHtml = `<div class="poll-container" data-component-id="${componentId}">` +
+            `<div class="poll-question">${this.escapeHtml(question)}</div><div class="poll-options">`;
+
+          options.forEach((opt, idx) => {
+            const pollId = `poll_${componentId}_${idx}`;
+            const escOpt = ('' + opt).replace(/'/g, "");
+            pollHtml += `\n  <div class="poll-option">\n    <input type="checkbox" value="${this.escapeHtml(opt)}" id="poll-option-${pollId}" name="poll-options-${pollId}" onClick="document.getElementById('pollValue').value='${escOpt}';document.getElementById('pollCheckId').value='poll-option-${pollId}';document.getElementById('pollQuestion').value='${this.htmlEncodeForInput(question)}';document.getElementById('pollComponentId').value='${componentId}';document.getElementById('pollCheckClickedButton').click()">\n    <label for="poll-option-${pollId}" onClick="document.getElementById('pollValue').value='${escOpt}';document.getElementById('pollCheckId').value='poll-option-${pollId}';document.getElementById('pollQuestion').value='${this.htmlEncodeForInput(question)}';document.getElementById('pollComponentId').value='${componentId}';document.getElementById('pollCheckClickedButton').click()">${this.escapeHtml(opt)}</label>\n  </div>`;
+          });
+
+          pollHtml += `</div>`;
+
+          // Attempt to decrement the total votes display if present
+          const totalEl = container.querySelector('.poll-total') as HTMLElement | null;
+          if (totalEl) {
+            const m = (totalEl.textContent ?? '').match(/Total Votes:\s*(\d+)/i);
+            let total = m ? parseInt(m[1]) : 0;
+            total = Math.max(0, total - 1);
+            pollHtml += `<div class="poll-total">Total Votes: ${total}</div>`;
+          }
+
+          pollHtml += `</div>`;
+          container.innerHTML = pollHtml;
         }
-      });
+      } catch (domErr) {
+        console.error('Error updating poll DOM after delete:', domErr);
+      }
     } catch (error) {
       console.error("Error updating poll:", error);
       alert("Failed to update poll. Please try again.");
