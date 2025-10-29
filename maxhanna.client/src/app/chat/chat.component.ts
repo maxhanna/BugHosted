@@ -196,9 +196,9 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
           }
         }
       })
-      // load user-created themes so they appear in the Saved Themes dropdown
+      // load themes so they appear in the Saved Themes dropdown (show all themes, not just user's)
       if (user.id) {
-        this.userService.getAllUserThemes(user.id).then((res: any) => {
+        this.userService.getAllThemes().then((res: any) => {
           if (res) this.userThemes = res;
         }).catch(() => { /* ignore */ });
       }
@@ -223,6 +223,44 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
           this.getMessageHistory(this.pageNumber, this.pageSize);
         }
       }, 5000);
+    }
+  }
+
+  // Fetch the current chat theme from the server and apply it if it changed.
+  async checkAndApplyChatTheme() {
+    try {
+      if (!this.currentChatId) return;
+      const themeRes = await this.chatService.getChatTheme(this.currentChatId);
+      if (!themeRes) return;
+
+      // If server returns full userTheme, apply it. Otherwise handle older shapes.
+      if (themeRes.userTheme) {
+        // If it's different from current selection, apply it
+        if (this.currentChatUserThemeId !== themeRes.userTheme.id) {
+          this.currentChatUserThemeId = themeRes.userTheme.id;
+          this.applyUserTheme(themeRes.userTheme);
+          this.currentChatTheme = '';
+        }
+      } else if (themeRes.userThemeId) {
+        if (this.currentChatUserThemeId !== themeRes.userThemeId) {
+          this.currentChatUserThemeId = themeRes.userThemeId;
+          const ut = this.userThemes.find((u: any) => u.id === themeRes.userThemeId);
+          if (ut) this.applyUserTheme(ut);
+          this.currentChatTheme = '';
+        }
+      } else if (themeRes.theme) {
+        if (this.currentChatTheme !== themeRes.theme) {
+          this.currentChatTheme = themeRes.theme;
+          this.applyChatTheme(this.currentChatTheme);
+        }
+      } else {
+        if (this.currentChatTheme) {
+          this.currentChatTheme = '';
+          this.applyChatTheme('');
+        }
+      }
+    } catch (err) {
+      // ignore errors here
     }
   }
 
@@ -350,6 +388,9 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
             // ignore
           }
           this.isInitialLoad = true;
+          // Ensure chat theme is kept in sync for all participants. If someone updates the chat theme server-side,
+          // fetch and apply it locally so all users see the same theme without requiring a full reload.
+          try { this.checkAndApplyChatTheme(); } catch {}
         }, 1000);
       }
     } catch (error) {
