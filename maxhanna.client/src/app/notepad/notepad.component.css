@@ -105,6 +105,7 @@ textarea {
 
 /* Auto-synced indicator styles */
 .autoSyncedIndicator {
+  display: inline;
   transform: translateY(6px);
   transition: opacity 250ms ease, transform 250ms ease;
   z-index: 9999;
