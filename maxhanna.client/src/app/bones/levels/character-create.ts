@@ -5,7 +5,6 @@ import { storyFlags, Scenario, CHARACTER_CREATE_STORY_TEXT_2, CHARACTER_CREATE_S
 import { Level } from "../objects/Level/level"; 
 import { HeroRoomLevel } from "./hero-room";
 import { SpriteTextStringWithBackdrop } from "../objects/SpriteTextString/sprite-text-string-with-backdrop";
-import { Referee } from "../objects/Npc/Referee/referee";
 import { SpriteTextString } from "../objects/SpriteTextString/sprite-text-string";
 import { Bones } from "../objects/Npc/Bones/bones";
 import { resources } from "../helpers/resources";
