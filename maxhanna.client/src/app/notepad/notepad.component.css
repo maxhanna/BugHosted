@@ -112,4 +112,20 @@ textarea {
   border-radius: 6px;
   font-size: 12px;
   box-shadow: 0 2px 6px rgba(0,0,0,0.2);
-} 
+}
+
+.sharedWithWrapperDiv .sharedUserRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.sharedWithWrapperDiv .unshareButton {
+  background: #ff6b6b;
+  color: white;
+  border: none;
+  padding: 4px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+}
+.sharedWithWrapperDiv .unshareButton:hover { opacity: 0.9; }

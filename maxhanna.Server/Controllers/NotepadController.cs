@@ -146,6 +146,80 @@ namespace maxhanna.Server.Controllers
 			} 
 			return Ok(); 
 		}
+
+		[HttpPost("/Notepad/Unshare/{noteId}", Name = "UnshareNote")]
+		public async Task<IActionResult> Unshare([FromBody] ShareNotepadRequest request, int noteId)
+		{
+			if (request.User1Id == null || request.User2Id == null)
+			{
+				return BadRequest("Both users must be present in the request");
+			}
+			// only allow the original owner (first id in ownership) to unshare
+			string selectSql = "SELECT ownership FROM maxhanna.notepad WHERE id = @noteId";
+			string? ownership = null;
+			try
+			{
+				using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+				{
+					await conn.OpenAsync();
+					using (var cmd = new MySqlCommand(selectSql, conn))
+					{
+						cmd.Parameters.AddWithValue("@noteId", noteId);
+						using (var rdr = await cmd.ExecuteReaderAsync())
+						{
+							if (await rdr.ReadAsync())
+							{
+								ownership = rdr.IsDBNull(0) ? null : rdr.GetString(0);
+							}
+						}
+					}
+				}
+			}
+			catch (Exception ex)
+			{
+				_ = _log.Db("Error reading ownership before unshare: " + ex.Message, request.User1Id, "NOTE", true);
+				return StatusCode(500, "An error occurred while processing the request.");
+			}
+			if (string.IsNullOrEmpty(ownership)) {
+				return StatusCode(404, "Note not found or no ownership data.");
+			}
+			var parts = ownership.Split(',').Select(s => s.Trim()).Where(s => s != "").ToList();
+			if (parts.Count == 0) return StatusCode(400, "Invalid ownership data.");
+			if (!int.TryParse(parts[0], out var ownerId) || ownerId != request.User1Id)
+			{
+				return Forbid();
+			}
+			// remove the user2 id from parts
+			parts = parts.Where(p => int.TryParse(p, out var pid) && pid != request.User2Id).ToList();
+			string newOwnership = string.Join(',', parts);
+			string updateSql = "UPDATE maxhanna.notepad SET ownership = @ownership WHERE id = @noteId";
+			try
+			{
+				using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+				{
+					await conn.OpenAsync();
+					using (var cmd = new MySqlCommand(updateSql, conn))
+					{
+						cmd.Parameters.AddWithValue("@ownership", newOwnership);
+						cmd.Parameters.AddWithValue("@noteId", noteId);
+						if (await cmd.ExecuteNonQueryAsync() > 0)
+						{
+							return Ok();
+						}
+						else
+						{
+							_ = _log.Db("Returned 500 updating ownership", request.User1Id, "NOTE", true);
+							return StatusCode(500, "Failed to update ownership");
+						}
+					}
+				}
+			}
+			catch (Exception ex)
+			{
+				_ = _log.Db("Error updating ownership during unshare: " + ex.Message, request.User1Id, "NOTE", true);
+				return StatusCode(500, "An error occurred while processing the request.");
+			}
+		}
 		[HttpPost("/Notepad/{id}", Name = "GetNoteById")]
 		public async Task<IActionResult> Get([FromBody] int userId, int id)
 		{  

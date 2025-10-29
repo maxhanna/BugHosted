@@ -51,6 +51,21 @@ export class NotepadService {
       return null; // Return null in case of error
     }
   }
+  async unshareNote(userId: number, user2Id: number, noteId: number) {
+    try {
+      const response = await fetch(`/notepad/unshare/${noteId}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ user1Id: userId, user2Id: user2Id }),
+      });
+
+      return await response.json();
+    } catch (error) {
+      return null;
+    }
+  }
   async addNote(userId: number, text: string) {
     try {
       const response = await fetch(`/notepad/create`, {
