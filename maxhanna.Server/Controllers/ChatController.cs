@@ -10,6 +10,8 @@ using static maxhanna.Server.Controllers.AiController;
 
 namespace maxhanna.Server.Controllers
 {
+	// Chat theme DTOs moved to DataContracts/Chat/ChatThemeDtos.cs
+
 	[ApiController]
 	[Route("[controller]")]
 	public class ChatController : ControllerBase
@@ -295,28 +297,78 @@ namespace maxhanna.Server.Controllers
 
 
 		[HttpPost("/Chat/GetChatTheme", Name = "GetChatTheme")]
-		public async Task<IActionResult> GetChatTheme([FromBody] dynamic req)
+		public async Task<IActionResult> GetChatTheme([FromBody] GetChatThemeRequest req)
 		{
-			int chatId = 0;
-			try { chatId = (int)req.ChatId; } catch { return BadRequest(); }
+			if (req == null) return BadRequest();
+			int chatId = req.ChatId;
 			string connectionString = _config.GetValue<string>("ConnectionStrings:maxhanna") ?? "";
 			using (MySqlConnection conn = new MySqlConnection(connectionString))
 			{
 				try
 				{
 					await conn.OpenAsync();
-					string sql = @"SELECT user_theme_id FROM maxhanna.chat_themes WHERE chat_id = @ChatId LIMIT 1";
+					// Join to user_theme to return the saved theme properties when available
+					string sql = @"
+						SELECT ct.theme, ct.user_theme_id,
+							   ut.id AS ut_id,
+							   ut.user_id AS ut_user_id,
+							   ut.background_image AS ut_background_image,
+							   ut.font_color AS ut_font_color,
+							   ut.secondary_font_color AS ut_secondary_font_color,
+							   ut.third_font_color AS ut_third_font_color,
+							   ut.background_color AS ut_background_color,
+							   ut.component_background_color AS ut_component_background_color,
+							   ut.secondary_component_background_color AS ut_secondary_component_background_color,
+							   ut.main_highlight_color AS ut_main_highlight_color,
+							   ut.main_highlight_color_quarter_opacity AS ut_main_highlight_color_quarter_opacity,
+							   ut.link_color AS ut_link_color,
+							   ut.font_size AS ut_font_size,
+							   ut.font_family AS ut_font_family,
+							   ut.name AS ut_name
+						FROM maxhanna.chat_themes ct
+						LEFT JOIN maxhanna.user_theme ut ON ct.user_theme_id = ut.id
+						WHERE ct.chat_id = @ChatId
+						LIMIT 1";
+
 					MySqlCommand cmd = new MySqlCommand(sql, conn);
 					cmd.Parameters.AddWithValue("@ChatId", chatId);
+
 					using (var reader = await cmd.ExecuteReaderAsync())
 					{
 						if (await reader.ReadAsync())
 						{
-							int? userThemeId = reader.IsDBNull(0) ? null : (int?)reader.GetInt32(0);
-							return Ok(new {  userThemeId });
+							var theme = reader.IsDBNull(reader.GetOrdinal("theme")) ? "" : reader.GetString("theme");
+							int? userThemeId = reader.IsDBNull(reader.GetOrdinal("user_theme_id")) ? null : (int?)reader.GetInt32("user_theme_id");
+
+							UserThemeDto? userTheme = null;
+							if (!reader.IsDBNull(reader.GetOrdinal("ut_id")))
+							{
+								userTheme = new UserThemeDto
+								{
+									Id = reader.GetInt32("ut_id"),
+									UserId = reader.IsDBNull(reader.GetOrdinal("ut_user_id")) ? null : (int?)reader.GetInt32("ut_user_id"),
+									BackgroundImage = reader.IsDBNull(reader.GetOrdinal("ut_background_image")) ? null : reader.GetString("ut_background_image"),
+									FontColor = reader.IsDBNull(reader.GetOrdinal("ut_font_color")) ? null : reader.GetString("ut_font_color"),
+									SecondaryFontColor = reader.IsDBNull(reader.GetOrdinal("ut_secondary_font_color")) ? null : reader.GetString("ut_secondary_font_color"),
+									ThirdFontColor = reader.IsDBNull(reader.GetOrdinal("ut_third_font_color")) ? null : reader.GetString("ut_third_font_color"),
+									BackgroundColor = reader.IsDBNull(reader.GetOrdinal("ut_background_color")) ? null : reader.GetString("ut_background_color"),
+									ComponentBackgroundColor = reader.IsDBNull(reader.GetOrdinal("ut_component_background_color")) ? null : reader.GetString("ut_component_background_color"),
+									SecondaryComponentBackgroundColor = reader.IsDBNull(reader.GetOrdinal("ut_secondary_component_background_color")) ? null : reader.GetString("ut_secondary_component_background_color"),
+									MainHighlightColor = reader.IsDBNull(reader.GetOrdinal("ut_main_highlight_color")) ? null : reader.GetString("ut_main_highlight_color"),
+									MainHighlightColorQuarterOpacity = reader.IsDBNull(reader.GetOrdinal("ut_main_highlight_color_quarter_opacity")) ? null : reader.GetString("ut_main_highlight_color_quarter_opacity"),
+									LinkColor = reader.IsDBNull(reader.GetOrdinal("ut_link_color")) ? null : reader.GetString("ut_link_color"),
+									FontSize = reader.IsDBNull(reader.GetOrdinal("ut_font_size")) ? null : (int?)reader.GetInt32("ut_font_size"),
+									FontFamily = reader.IsDBNull(reader.GetOrdinal("ut_font_family")) ? null : reader.GetString("ut_font_family"),
+									Name = reader.IsDBNull(reader.GetOrdinal("ut_name")) ? "" : reader.GetString("ut_name")
+								};
+							}
+
+							var resp = new GetChatThemeResponse { Theme = theme, UserThemeId = userThemeId, UserTheme = userTheme };
+							return Ok(resp);
 						}
 					}
-					return Ok(new {  userThemeId = (int?)null });
+
+					return Ok(new GetChatThemeResponse { Theme = "", UserThemeId = null, UserTheme = null });
 				}
 				catch (Exception ex)
 				{
@@ -327,14 +379,12 @@ namespace maxhanna.Server.Controllers
 		}
 
 		[HttpPost("/Chat/SetChatTheme", Name = "SetChatTheme")]
-		public async Task<IActionResult> SetChatTheme([FromBody] dynamic req)
+		public async Task<IActionResult> SetChatTheme([FromBody] SetChatThemeRequest req)
 		{
-			int chatId = 0;
-			int userThemeId = 0; 
-			try {
-				chatId = (int)req.ChatId;
-				userThemeId = (int)req.UserThemeId;
-			} catch { return BadRequest(); }
+			if (req == null) return BadRequest();
+			int chatId = req.ChatId;
+			int? userThemeId = req.UserThemeId;
+			string theme = req.Theme ?? "";
 			string connectionString = _config.GetValue<string>("ConnectionStrings:maxhanna") ?? "";
 			using (MySqlConnection conn = new MySqlConnection(connectionString))
 			{
@@ -347,18 +397,20 @@ namespace maxhanna.Server.Controllers
 					var count = Convert.ToInt32(await existsCmd.ExecuteScalarAsync());
 					if (count > 0)
 					{
-						string updateSql = @"UPDATE maxhanna.chat_themes SET user_theme_id = @UserThemeId WHERE chat_id = @ChatId";
+						string updateSql = @"UPDATE maxhanna.chat_themes SET user_theme_id = @UserThemeId, theme = @Theme WHERE chat_id = @ChatId";
 						MySqlCommand updateCmd = new MySqlCommand(updateSql, conn);
-						updateCmd.Parameters.AddWithValue("@UserThemeId", userThemeId);
+						updateCmd.Parameters.AddWithValue("@UserThemeId", (object?)userThemeId ?? DBNull.Value);
+						updateCmd.Parameters.AddWithValue("@Theme", theme);
 						updateCmd.Parameters.AddWithValue("@ChatId", chatId);
 						await updateCmd.ExecuteNonQueryAsync();
 					}
 					else
 					{
-						string insertSql = @"INSERT INTO maxhanna.chat_themes (chat_id, user_theme_id) VALUES (@ChatId, @UserThemeId)";
+						string insertSql = @"INSERT INTO maxhanna.chat_themes (chat_id, user_theme_id, theme) VALUES (@ChatId, @UserThemeId, @Theme)";
 						MySqlCommand insertCmd = new MySqlCommand(insertSql, conn);
 						insertCmd.Parameters.AddWithValue("@ChatId", chatId);
-						insertCmd.Parameters.AddWithValue("@UserThemeId", userThemeId);
+						insertCmd.Parameters.AddWithValue("@UserThemeId", (object?)userThemeId ?? DBNull.Value);
+						insertCmd.Parameters.AddWithValue("@Theme", theme);
 						await insertCmd.ExecuteNonQueryAsync();
 					}
 					return Ok("OK");

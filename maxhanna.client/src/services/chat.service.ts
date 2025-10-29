@@ -3,6 +3,7 @@ import { Injectable } from '@angular/core';
 import { User } from './datacontracts/user/user';
 import { FileEntry } from './datacontracts/file/file-entry';
 import { Message } from './datacontracts/chat/message'; 
+import { GetChatThemeResponse, SetChatThemeRequest } from './datacontracts/chat/chat-theme';
 
 @Injectable({
   providedIn: 'root'
@@ -113,7 +114,7 @@ export class ChatService {
       return null;
     }
   }
-  async getChatTheme(chatId: number) {
+  async getChatTheme(chatId: number): Promise<GetChatThemeResponse | null> {
     try {
       const response = await fetch(`/chat/getchattheme`, {
         method: 'POST',
@@ -123,15 +124,15 @@ export class ChatService {
         body: JSON.stringify({ ChatId: chatId }),
       });
 
-      return await response.json();
+      return await response.json() as GetChatThemeResponse;
     } catch (error) {
       return null;
     }
   }
-  async setChatTheme(chatId: number, theme: string, userThemeId?: number | null) {
+  async setChatTheme(chatId: number, theme: string, userThemeId?: number | null): Promise<string | null> {
     try {
-      const payload: any = { ChatId: chatId, Theme: theme };
-      if (userThemeId) payload.UserThemeId = userThemeId;
+      const payload: any = { ChatId: chatId, Theme: theme } as SetChatThemeRequest;
+      if (userThemeId !== undefined && userThemeId !== null) payload.UserThemeId = userThemeId;
       const response = await fetch(`/chat/setchattheme`, {
         method: 'POST',
         headers: {

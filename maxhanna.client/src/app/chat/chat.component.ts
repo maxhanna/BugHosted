@@ -37,6 +37,7 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
   isMenuPanelOpen = false;
   showUserList = true;
   currentChatTheme: string = '';
+  currentChatUserThemeId: number | null = null;
   userThemes: any[] = [];
   app?: any;
   messaging?: any;
@@ -73,6 +74,60 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
     const parent = this.inputtedParentRef ?? this.parentRef;
     parent?.addResizeListener();
   }
+  
+  // Apply a user theme object to the chatArea by setting CSS variables.
+  // Supports both camelCase and snake_case property names from server or local records.
+  applyUserTheme(ut: any | null) {
+    const container = document.querySelector('.chatArea') as HTMLElement | null;
+    if (!container) return;
+
+    if (!ut) {
+      // clear properties
+      container.style.removeProperty('--main-bg-color');
+      container.style.removeProperty('--main-font-color');
+      container.style.removeProperty('--chat-secondary-font-color');
+      container.style.removeProperty('--chat-third-font-color');
+      container.style.removeProperty('--chat-component-background-color');
+      container.style.removeProperty('--chat-secondary-component-background-color');
+      container.style.removeProperty('--chat-main-highlight-color');
+      container.style.removeProperty('--chat-link-color');
+      container.style.removeProperty('--chat-font-family');
+      container.style.removeProperty('--chat-font-size');
+      container.style.removeProperty('--chat-background-image');
+      return;
+    }
+
+    // helper to read either snake_case or camelCase
+    const g = (k1: string, k2: string) => {
+      if (ut[k1] !== undefined) return ut[k1];
+      if (ut[k2] !== undefined) return ut[k2];
+      return null;
+    };
+
+    const background = g('backgroundColor', 'background_color');
+    const fontColor = g('fontColor', 'font_color');
+    const secondaryFont = g('secondaryFontColor', 'secondary_font_color');
+    const thirdFont = g('thirdFontColor', 'third_font_color');
+    const compBg = g('componentBackgroundColor', 'component_background_color');
+    const secCompBg = g('secondaryComponentBackgroundColor', 'secondary_component_background_color');
+    const highlight = g('mainHighlightColor', 'main_highlight_color');
+    const linkColor = g('linkColor', 'link_color');
+    const fontFamily = g('fontFamily', 'font_family');
+    const fontSize = g('fontSize', 'font_size');
+    const bgImage = g('backgroundImage', 'background_image');
+
+    if (background) container.style.setProperty('--main-bg-color', background);
+    if (fontColor) container.style.setProperty('--main-font-color', fontColor);
+    if (secondaryFont) container.style.setProperty('--chat-secondary-font-color', secondaryFont);
+    if (thirdFont) container.style.setProperty('--chat-third-font-color', thirdFont);
+    if (compBg) container.style.setProperty('--chat-component-background-color', compBg);
+    if (secCompBg) container.style.setProperty('--chat-secondary-component-background-color', secCompBg);
+    if (highlight) container.style.setProperty('--chat-main-highlight-color', highlight);
+    if (linkColor) container.style.setProperty('--chat-link-color', linkColor);
+    if (fontFamily) container.style.setProperty('--chat-font-family', fontFamily);
+    if (fontSize) container.style.setProperty('--chat-font-size', fontSize + 'px');
+    if (bgImage) container.style.setProperty('--chat-background-image', `url('${bgImage}')`);
+  }
 
   async changeChatUserTheme(event: any) {
     if (!this.currentChatId) return;
@@ -81,17 +136,25 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
     try {
       const res = await this.chatService.setChatTheme(this.currentChatId, this.currentChatTheme ?? '', userThemeId);
       if (res) {
+        // store the selected saved theme id (or null)
+        this.currentChatUserThemeId = userThemeId;
         if (userThemeId) {
-          // find the theme values and apply CSS vars
+          // find the theme values and apply CSS vars (support both snake_case and camelCase shapes)
           const ut = this.userThemes.find(u => u.id === userThemeId);
           if (ut) {
-            // apply colors as CSS variables for chatArea
-            const container = document.querySelector('.chatArea') as HTMLElement | null;
-            if (container) {
-              if (ut.background_color) container.style.setProperty('--main-bg-color', ut.background_color);
-              if (ut.font_color) container.style.setProperty('--main-font-color', ut.font_color);
-            }
+            this.applyUserTheme(ut);
           }
+        } else {
+          // user cleared saved theme; remove CSS variables and any theme classes
+          const container = document.querySelector('.chatArea') as HTMLElement | null;
+          if (container) {
+            container.style.removeProperty('--main-bg-color');
+            container.style.removeProperty('--main-font-color');
+            // also remove any theme-* classes
+            const classesToRemove = Array.from(container.classList).filter((c: string) => c.startsWith('theme-'));
+            for (const c of classesToRemove) container.classList.remove(c);
+          }
+          this.currentChatTheme = '';
         }
         this.parentRef?.showNotification('Chat saved theme updated.');
       }
@@ -523,19 +586,19 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
       if (this.currentChatId) {
         const themeRes = await this.chatService.getChatTheme(this.currentChatId);
         if (themeRes) {
-          // if a saved user theme id is present, apply its CSS variables
-          if (themeRes.userThemeId) {
+          // prefer the full userTheme object returned by server (camelCase)
+          if (themeRes.userTheme) {
+            this.currentChatUserThemeId = themeRes.userTheme.id;
+            this.applyUserTheme(themeRes.userTheme);
+            this.currentChatTheme = '';
+          } else if (themeRes.userThemeId) {
+            // fallback to local cached themes (older shape may use snake_case)
+            this.currentChatUserThemeId = themeRes.userThemeId;
             const ut = this.userThemes.find((u: any) => u.id === themeRes.userThemeId);
-            if (ut) {
-              const container = document.querySelector('.chatArea') as HTMLElement | null;
-              if (container) {
-                if (ut.background_color) container.style.setProperty('--main-bg-color', ut.background_color);
-                if (ut.font_color) container.style.setProperty('--main-font-color', ut.font_color);
-              }
-            }
+            if (ut) this.applyUserTheme(ut);
             this.currentChatTheme = '';
           } else if (themeRes.theme) {
-            // fallback to any class-based theme value
+            // fallback to class-based theme
             this.currentChatTheme = themeRes.theme;
             this.applyChatTheme(this.currentChatTheme);
           } else {

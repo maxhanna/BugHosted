@@ -169,8 +169,8 @@
       <div class="optionsStatsHeader">Saved Themes:</div>
       <div class="optionsStatsDescription">
         <select (change)="changeChatUserTheme($event)" #changeUserThemeSelect>
-          <option value="">(none)</option>
-          <option *ngFor="let ut of userThemes" [value]="ut.id">{{ut.name}}</option>
+          <option [value]="''" [selected]="currentChatUserThemeId === null">(none)</option>
+          <option *ngFor="let ut of userThemes" [value]="ut.id" [selected]="currentChatUserThemeId === ut.id">{{ut.name}}</option>
         </select>
       </div>
     </div>
