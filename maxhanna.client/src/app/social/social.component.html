@@ -161,38 +161,67 @@
       <div class="popupPanelTitle" style="margin-bottom: 15px;">
         Post Options
       </div>
-      <div class="storyOptionsPopupButtons" style="margin-bottom: 15px;">
-        <button (click)="copyLink(optionStory.id)" title="Share Link" style="display:inline-block">📋Share</button>
-        <button (click)="copyAllText(optionStory.id)" title="Copy all text" style="display:inline-block">
-          📋Copy Text
-        </button>
-        <button (click)="edit(optionStory)" *ngIf="optionStory.user?.id == parentRef?.user?.id" title="Edit Post Text"
-          style="display:inline-block">
-          <span class="storyEditSpans storyRejectEdit"
-            [style.display]="isEditButtonVisible(optionStory.id) ? 'block' : 'none'"
-            [id]="'storyRejectEditButtonSpan' + optionStory.id">❌</span>
-          ✏️Edit
-        </button>
-        <button (click)="hide(optionStory)" title="Hide Post" style="display:inline-block" *ngIf="parentRef?.user?.id">
-          {{optionStory.hidden ? '🙉Unhide' : '🙈Hide'}}
-        </button>
-        <button (click)="delete(optionStory)"
-          *ngIf="(optionStory.user?.id == parentRef?.user?.id) || (userProfileId && userProfileId == parentRef?.user?.id) || (parentRef?.user?.id == 1 || parent?.user?.id == 1)"
-          title="Delete Post" style="display:inline-block">
-          ❌Delete
-        </button>
-        <button (click)="speakMessage(optionStory.storyText)" *ngIf="!isTextToSpeechSpeaking()">
-          🔊Read Outloud
-        </button>
-        <button (click)="stopSpeaking()" *ngIf="isTextToSpeechSpeaking()">
-          🤐Stop Reading Outloud
-        </button>
-        <button *ngFor="let topic of optionStory.storyTopics" (click)="ignoreTopic(topic)">
-          Ignore Topic <span class="matchingTopic">{{topic.topicText}}</span>
-        </button>
-      </div>
+      <!-- Buttons moved into optionsStatsWrapperDiv as an Actions row -->
 
       <div class="optionsStatsWrapperDiv gradientBackground">
+        <div class="optionsStatsDiv">
+          <div class="optionsStatsHeader">Share</div>
+          <div class="optionsStatsDescription">
+            <button (click)="copyLink(optionStory.id)" title="Share Link">📋 Share</button>
+            <div class="smallFont">Share a direct link to this post.</div>
+          </div>
+        </div>
+
+        <div class="optionsStatsDiv">
+          <div class="optionsStatsHeader">Copy Text</div>
+          <div class="optionsStatsDescription">
+            <button (click)="copyAllText(optionStory.id)" title="Copy all text">📋 Copy</button>
+            <div class="smallFont">Copy the full post text to clipboard.</div>
+          </div>
+        </div>
+
+        <div class="optionsStatsDiv" *ngIf="optionStory.user?.id == parentRef?.user?.id">
+          <div class="optionsStatsHeader">Edit</div>
+          <div class="optionsStatsDescription">
+            <button (click)="edit(optionStory)" title="Edit Post Text">✏️ Edit</button>
+            <div class="smallFont">Edit the post content (owner only).</div>
+          </div>
+        </div>
+
+        <div class="optionsStatsDiv" *ngIf="parentRef?.user?.id">
+          <div class="optionsStatsHeader">Visibility</div>
+          <div class="optionsStatsDescription">
+            <button (click)="hide(optionStory)">{{optionStory.hidden ? '🙉 Unhide' : '🙈 Hide'}}</button>
+            <div class="smallFont">Toggle visibility for this post.</div>
+          </div>
+        </div>
+
+        <div class="optionsStatsDiv" *ngIf="(optionStory.user?.id == parentRef?.user?.id) || (userProfileId && userProfileId == parentRef?.user?.id) || (parentRef?.user?.id == 1 || parent?.user?.id == 1)">
+          <div class="optionsStatsHeader">Delete</div>
+          <div class="optionsStatsDescription">
+            <button (click)="delete(optionStory)" title="Delete Post">❌ Delete</button>
+            <div class="smallFont">Permanently remove this post.</div>
+          </div>
+        </div>
+
+        <div class="optionsStatsDiv">
+          <div class="optionsStatsHeader">Text-to-Speech</div>
+          <div class="optionsStatsDescription">
+            <button (click)="speakMessage(optionStory.storyText)" *ngIf="!isTextToSpeechSpeaking()">🔊 Read Outloud</button>
+            <button (click)="stopSpeaking()" *ngIf="isTextToSpeechSpeaking()">🤐 Stop Reading</button>
+            <div class="smallFont">Listen to the post or stop playback.</div>
+          </div>
+        </div>
+
+        <div class="optionsStatsDiv" *ngIf="optionStory.storyTopics && optionStory.storyTopics.length">
+          <div class="optionsStatsHeader">Ignore Topics</div>
+          <div class="optionsStatsDescription">
+            <div style="display:flex;flex-wrap:wrap;gap:6px;">
+              <button *ngFor="let topic of optionStory.storyTopics" (click)="ignoreTopic(topic)">Ignore <span class="matchingTopic">{{topic.topicText}}</span></button>
+            </div>
+            <div class="smallFont">Ignore posts with these topics.</div>
+          </div>
+        </div>
         <div class="optionsStatsDiv">
           <div class="optionsStatsHeader">
             Story Id:
