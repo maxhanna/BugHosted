@@ -10,6 +10,7 @@ import { Scenario } from "../helpers/story-flags";
 import { Referee } from "../objects/Npc/Referee/referee";
 import { Bones } from "../objects/Npc/Bones/bones";
 import { Exit } from "../objects/Environment/Exit/exit";
+import { RoadToGatesOfHell } from "./road-to-gates-of-hell";
 
 
 export class GatesOfHell extends Level {
@@ -66,15 +67,18 @@ export class GatesOfHell extends Level {
     this.addChild(encounter2);
 
   
-    // const exit = new Exit({
-    //   position: new Vector2(gridCells(18), gridCells(1)), showSprite: true
-    // });
-    // this.addChild(exit);
+    const exit = new Exit({ position: new Vector2(gridCells(18), gridCells(1)), showSprite: true, targetMap: 'RoadToGatesOfHell' });
+    this.addChild(exit);
+
+    // Backward exit to the preceding road level
+    const backExit = new Exit({ position: new Vector2(gridCells(1), gridCells(1)), showSprite: true, targetMap: 'RoadToGatesOfHell' });
+    this.addChild(backExit);
   }
 
   override ready() {
-    // events.on("CHARACTER_EXITS", this, () => {
-    //   events.emit("CHANGE_LEVEL", new RoadToGatesOfHell({ heroPosition: new Vector2(gridCells(2), gridCells(2)), itemsFound: this.itemsFound }));
-    // });
+    events.on("CHARACTER_EXITS", this, (targetMap?: string) => {
+      // Both exits will target the road by convention
+      events.emit("CHANGE_LEVEL", new RoadToGatesOfHell({ heroPosition: new Vector2(gridCells(2), gridCells(2)), itemsFound: this.itemsFound }));
+    });
   }
 }

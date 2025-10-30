@@ -53,14 +53,22 @@ export class RoadToGatesOfHell extends Level {
 
   
     const exit = new Exit({
-      position: new Vector2(gridCells(18), gridCells(1)), showSprite: true
+      position: new Vector2(gridCells(18), gridCells(1)), showSprite: true, targetMap: 'GatesOfHell'
     });
     this.addChild(exit);
+
+    // Backward exit to the previous level (CitadelOfVesper)
+    const backExit = new Exit({ position: new Vector2(gridCells(1), gridCells(1)), showSprite: true, targetMap: 'CitadelOfVesper' });
+    this.addChild(backExit);
   }
 
   override ready() {
-    events.on("CHARACTER_EXITS", this, () => {
-      events.emit("CHANGE_LEVEL", new GatesOfHell({ heroPosition: new Vector2(gridCells(2), gridCells(2)), itemsFound: this.itemsFound }));
+    events.on("CHARACTER_EXITS", this, (targetMap?: string) => {
+      if (!targetMap || targetMap === 'GatesOfHell') {
+        events.emit("CHANGE_LEVEL", new GatesOfHell({ heroPosition: new Vector2(gridCells(2), gridCells(2)), itemsFound: this.itemsFound }));
+      } else if (targetMap === 'CitadelOfVesper') {
+        events.emit("CHANGE_LEVEL", new CitadelOfVesper({ heroPosition: new Vector2(gridCells(2), gridCells(2)), itemsFound: this.itemsFound }));
+      }
     });
   }
 }

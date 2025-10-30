@@ -11,6 +11,7 @@ import { Referee } from "../objects/Npc/Referee/referee";
 import { Bones } from "../objects/Npc/Bones/bones";
 import { Exit } from "../objects/Environment/Exit/exit";
 import { RoadToFortPenumbra } from "./road-to-fort-penumbra";
+import { RoadToRiftedBastion } from "./road-to-rifted-bastion";
 
 
 export class RiftedBastion extends Level {
@@ -71,11 +72,19 @@ export class RiftedBastion extends Level {
       position: new Vector2(gridCells(18), gridCells(1)), showSprite: true
     });
     this.addChild(exit);
+
+    // Backward exit to the preceding road level
+    const backExit = new Exit({ position: new Vector2(gridCells(1), gridCells(1)), showSprite: true, targetMap: 'RoadToRiftedBastion' });
+    this.addChild(backExit);
   }
 
   override ready() {
-    events.on("CHARACTER_EXITS", this, () => {
-      events.emit("CHANGE_LEVEL", new RoadToFortPenumbra({ heroPosition: new Vector2(gridCells(2), gridCells(2)), itemsFound: this.itemsFound }));
+    events.on("CHARACTER_EXITS", this, (targetMap?: string) => {
+      if (!targetMap || targetMap === 'RoadToFortPenumbra') {
+        events.emit("CHANGE_LEVEL", new RoadToFortPenumbra({ heroPosition: new Vector2(gridCells(2), gridCells(2)), itemsFound: this.itemsFound }));
+      } else if (targetMap === 'RoadToRiftedBastion') {
+        events.emit("CHANGE_LEVEL", new RoadToRiftedBastion({ heroPosition: new Vector2(gridCells(2), gridCells(2)), itemsFound: this.itemsFound }));
+      }
     });
   }
 }

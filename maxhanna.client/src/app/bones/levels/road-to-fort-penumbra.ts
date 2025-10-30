@@ -8,6 +8,7 @@ import { Encounter } from "../objects/Environment/Encounter/encounter";
 import { Exit } from "../objects/Environment/Exit/exit";
 import { CitadelOfVesper } from "./citadel-of-vesper";
 import { FortPenumbra } from "./fort-penumbra";
+import { RiftedBastion } from "./rifted-bastion";
 
 
 export class RoadToFortPenumbra extends Level {
@@ -53,14 +54,22 @@ export class RoadToFortPenumbra extends Level {
 
   
     const exit = new Exit({
-      position: new Vector2(gridCells(18), gridCells(1)), showSprite: true
+      position: new Vector2(gridCells(18), gridCells(1)), showSprite: true, targetMap: 'FortPenumbra'
     });
     this.addChild(exit);
+
+    // Backward exit to the previous level (RiftedBastion)
+    const backExit = new Exit({ position: new Vector2(gridCells(1), gridCells(1)), showSprite: true, targetMap: 'RiftedBastion' });
+    this.addChild(backExit);
   }
 
   override ready() {
-    events.on("CHARACTER_EXITS", this, () => {
-      events.emit("CHANGE_LEVEL", new FortPenumbra({ heroPosition: new Vector2(gridCells(2), gridCells(2)), itemsFound: this.itemsFound }));
+    events.on("CHARACTER_EXITS", this, (targetMap?: string) => {
+      if (!targetMap || targetMap === 'FortPenumbra') {
+        events.emit("CHANGE_LEVEL", new FortPenumbra({ heroPosition: new Vector2(gridCells(2), gridCells(2)), itemsFound: this.itemsFound }));
+      } else if (targetMap === 'RiftedBastion') {
+        events.emit("CHANGE_LEVEL", new RiftedBastion({ heroPosition: new Vector2(gridCells(2), gridCells(2)), itemsFound: this.itemsFound }));
+      }
     });
   }
 }

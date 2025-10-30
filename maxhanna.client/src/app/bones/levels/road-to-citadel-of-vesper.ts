@@ -7,6 +7,7 @@ import { BASE } from "../objects/game-object";
 import { Encounter } from "../objects/Environment/Encounter/encounter"; 
 import { Exit } from "../objects/Environment/Exit/exit";
 import { CitadelOfVesper } from "./citadel-of-vesper";
+import { HeroRoomLevel } from "./hero-room";
 
 
 export class RoadToCitadelOfVesper extends Level {
@@ -52,14 +53,22 @@ export class RoadToCitadelOfVesper extends Level {
 
   
     const exit = new Exit({
-      position: new Vector2(gridCells(18), gridCells(1)), showSprite: true
+      position: new Vector2(gridCells(18), gridCells(1)), showSprite: true, targetMap: 'CitadelOfVesper'
     });
     this.addChild(exit);
+
+    // Backward exit to the previous level (HeroRoom)
+    const backExit = new Exit({ position: new Vector2(gridCells(1), gridCells(1)), showSprite: true, targetMap: 'HeroRoom' });
+    this.addChild(backExit);
   }
 
   override ready() {
-    events.on("CHARACTER_EXITS", this, () => {
-      events.emit("CHANGE_LEVEL", new CitadelOfVesper({ heroPosition: new Vector2(gridCells(2), gridCells(2)), itemsFound: this.itemsFound }));
+    events.on("CHARACTER_EXITS", this, (targetMap?: string) => {
+      if (!targetMap || targetMap === 'CitadelOfVesper') {
+        events.emit("CHANGE_LEVEL", new CitadelOfVesper({ heroPosition: new Vector2(gridCells(2), gridCells(2)), itemsFound: this.itemsFound }));
+      } else if (targetMap === 'HeroRoom') {
+        events.emit("CHANGE_LEVEL", new HeroRoomLevel({ heroPosition: new Vector2(gridCells(2), gridCells(2)), itemsFound: this.itemsFound }));
+      }
     });
   }
 }

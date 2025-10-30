@@ -11,6 +11,7 @@ import { Referee } from "../objects/Npc/Referee/referee";
 import { Bones } from "../objects/Npc/Bones/bones";
 import { Exit } from "../objects/Environment/Exit/exit";
 import { RoadToRiftedBastion } from "./road-to-rifted-bastion";
+import { RoadToCitadelOfVesper } from "./road-to-citadel-of-vesper";
 
 
 export class CitadelOfVesper extends Level {
@@ -68,14 +69,22 @@ export class CitadelOfVesper extends Level {
 
   
     const exit = new Exit({
-      position: new Vector2(gridCells(18), gridCells(1)), showSprite: true
+      position: new Vector2(gridCells(18), gridCells(1)), showSprite: true, targetMap: 'RoadToRiftedBastion'
     });
     this.addChild(exit);
+
+    // Backward exit to the road that precedes this citadel
+    const backExit = new Exit({ position: new Vector2(gridCells(1), gridCells(1)), showSprite: true, targetMap: 'RoadToCitadelOfVesper' });
+    this.addChild(backExit);
   }
 
   override ready() {
-    events.on("CHARACTER_EXITS", this, () => {
-      events.emit("CHANGE_LEVEL", new RoadToRiftedBastion({ heroPosition: new Vector2(gridCells(2), gridCells(2)), itemsFound: this.itemsFound }));
+    events.on("CHARACTER_EXITS", this, (targetMap?: string) => {
+      if (!targetMap || targetMap === 'RoadToRiftedBastion') {
+        events.emit("CHANGE_LEVEL", new RoadToRiftedBastion({ heroPosition: new Vector2(gridCells(2), gridCells(2)), itemsFound: this.itemsFound }));
+      } else if (targetMap === 'RoadToCitadelOfVesper') {
+        events.emit("CHANGE_LEVEL", new RoadToCitadelOfVesper({ heroPosition: new Vector2(gridCells(2), gridCells(2)), itemsFound: this.itemsFound }));
+      }
     });
   }
 }
