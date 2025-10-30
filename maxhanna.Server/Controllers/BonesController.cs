@@ -69,7 +69,7 @@ namespace maxhanna.Server.Controllers
 		public async Task<IActionResult> FetchGameData([FromBody] FetchGameDataRequest request)
 		{
 			var hero = request?.Hero ?? new MetaHero();
-			_ = _log.Db("Fetch game data for hero " + hero.Id, hero.Id, "BONES", true);
+			//_ = _log.Db("Fetch game data for hero " + hero.Id, hero.Id, "BONES", true);
 			using var connection = new MySqlConnection(_connectionString);
 			await connection.OpenAsync();
 			using var transaction = connection.BeginTransaction();
