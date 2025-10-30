@@ -8,6 +8,7 @@ import { SpriteTextStringWithBackdrop } from "../objects/SpriteTextString/sprite
 import { SpriteTextString } from "../objects/SpriteTextString/sprite-text-string";
 import { Bones } from "../objects/Npc/Bones/bones";
 import { resources } from "../helpers/resources";
+import { Sprite } from "../objects/sprite";
 
 export class CharacterCreate extends Level { 
   textBox = new SpriteTextStringWithBackdrop({});
@@ -88,6 +89,23 @@ export class CharacterCreate extends Level {
     }
     this.addBackgroundLayer(resources.images["charcreatebg"], /*parallax=*/0, new Vector2(0, 0), /*repeat=*/false, /*scale=*/1, /*direction=*/'LEFT');
     
+    const magi = new Sprite({
+      objectId: 0,
+      resource: resources.images["heroSelectMagi"],
+      name: "Magi", 
+      frameSize: new Vector2(320, 220), 
+    });
+    this.addChild(magi);
+
+    
+    const knight = new Sprite({
+      objectId: 0,
+      resource: resources.images["heroSelectKnight"],
+      name: "Knight", 
+      frameSize: new Vector2(320, 220), 
+    });
+    this.addChild(knight);
+
     this.bones.textContent = [
       {
         string: [params.championName ? 
