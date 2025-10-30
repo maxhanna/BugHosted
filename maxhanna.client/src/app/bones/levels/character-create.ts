@@ -180,6 +180,7 @@ export class CharacterCreate extends Level {
       if (!this.characterNameEmitted) {
         events.emit("CHARACTER_NAME_CREATED", this.characterName);
         this.characterNameEmitted = true;
+        storyFlags.add(CHARACTER_CREATE_STORY_TEXT_7);
       }
     });
     events.on("SPACEBAR_PRESSED", this, () => { 
@@ -199,20 +200,12 @@ export class CharacterCreate extends Level {
             this.destroy();
           }, 100);
           return;
-        } else if (storyFlags.contains(CHARACTER_CREATE_STORY_TEXT_4)) {
-          const sts = new SpriteTextString(  
-            `Enter your name in the chat input, then press ${!this.onMobile() ? 'Enter or ' : ''}the A Button to confirm`, new Vector2(10, 10)
-          );
-          this.addChild(sts);
-        }
-        const content = this.bones.getContent();
-        if (content) {
-          if (storyFlags.contains(CHARACTER_CREATE_STORY_TEXT_4) && !storyFlags.contains(CHARACTER_CREATE_STORY_TEXT_6)) {
-            this.createNameChatInput();
-          } else {
-            this.displayContent(content);
-          }
-        }
+        } 
+        const sts = new SpriteTextString(  
+          `Enter your name in the chat input, then press ${!this.onMobile() ? 'Enter or ' : ''}the A Button to confirm`, new Vector2(10, 10)
+        );
+        this.addChild(sts);
+        this.createNameChatInput(); 
       }
     })
   }
