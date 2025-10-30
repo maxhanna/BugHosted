@@ -246,21 +246,18 @@ ORDER BY p.created DESC;";
 		{
 			try
 			{
-				int portalId = 0;
-				try { portalId = (int)body.portalId; } catch { }
-				if (portalId <= 0) return BadRequest("Invalid portal id");
+				int heroId = 0;
+				try { heroId = (int)body.heroId; } catch { }
+				if (heroId <= 0) return BadRequest("Invalid hero id");
 				using var connection = new MySqlConnection(_connectionString);
 				await connection.OpenAsync();
 				using var transaction = connection.BeginTransaction();
 				try
 				{
-					string delSql = "DELETE FROM maxhanna.bones_town_portal WHERE id = @Id LIMIT 1;";
+					string delSql = "DELETE FROM maxhanna.bones_town_portal WHERE creator_hero_id = @Id;";
 					using var delCmd = new MySqlCommand(delSql, connection, transaction);
-					delCmd.Parameters.AddWithValue("@Id", portalId);
-					int rows = await delCmd.ExecuteNonQueryAsync();
-					var data = new Dictionary<string, string>() { { "portalId", portalId.ToString() } };
-					var ev = new MetaEvent(0, 0, DateTime.UtcNow, "TOWN_PORTAL_DELETED", string.Empty, data);
-					await UpdateEventsInDB(ev, connection, transaction);
+					delCmd.Parameters.AddWithValue("@Id", heroId);
+					int rows = await delCmd.ExecuteNonQueryAsync(); 
 					await transaction.CommitAsync();
 					return Ok(new { deleted = rows > 0 });
 				}

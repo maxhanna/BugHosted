@@ -369,19 +369,7 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
             const isCreator = (creatorId !== undefined && creatorId !== null) ? (Number(creatorId) === Number(this.metaHero.id)) : false;
             const isNonRoad = !currentMapName.includes('roadto');
             if (isCreator && isNonRoad) {
-               
-                // iterate portal map and delete all portals belonging to this hero
-                for (const [key, inst] of Array.from((townMapRef as Map<number, any>).entries())) {
-                   
-                    const idNum = Number(key);
-                    const owner = (inst as any).serverCreatorHeroId ?? (inst as any).serverData?.creatorHeroId ?? (inst as any).serverData?.creator ?? undefined;
-                    if (owner !== undefined && Number(owner) === Number(this.metaHero.id)) {
-                      // fire-and-forget delete
-                      this.bonesService.deleteTownPortal(idNum).catch(() => { });
-                    }
-                  
-                }
-             
+                this.bonesService.deleteTownPortal(this.metaHero?.id).catch(() => { }); 
             }
           }
         } catch (exDel) { console.warn('ENTER_TOWN_PORTAL deletion check failed', exDel); }

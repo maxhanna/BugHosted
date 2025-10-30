@@ -146,7 +146,7 @@ export class BonesService {
   async healHero(heroId: number) {
     return this.fetchData('/bones/healhero', heroId);
   }
-  async deleteTownPortal(portalId: number) {
-    return this.fetchData('/bones/deletetownportal', { portalId: portalId });
+  async deleteTownPortal(heroId: number) {
+    return this.fetchData('/bones/deletetownportal', { heroId: heroId });
   }
 }
