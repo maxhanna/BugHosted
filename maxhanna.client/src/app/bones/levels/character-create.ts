@@ -18,7 +18,7 @@ export class CharacterCreate extends Level {
   characterName = "";
   // Optional default name provided from persisted user settings
   defaultName: string | undefined = undefined;
-  bones = new Bones({ position: new Vector2(gridCells(5), gridCells(5)) });
+  bones = new Bones({ position: new Vector2(120, 90) });
   profanity = ["4r5e", "5h1t", "5hit", "a55", "anal", "anus", "ar5e", "arrse", "arse", "ass", "ass-fucker", "asses",
     "assfucker", "assfukka", "asshole", "assholes", "asswhole", "a_s_s", "b!tch", "b00bs", "b17ch", "b1tch", "ballbag", "balls",
     "ballsack", "bastard", "beastial", "beastiality", "bellend", "bestial", "bestiality", "bi+ch", "biatch", "bitch", "bitcher",
