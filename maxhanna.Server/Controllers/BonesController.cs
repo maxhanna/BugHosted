@@ -1763,6 +1763,44 @@ namespace maxhanna.Server.Controllers
 					if (insertedObj != null && int.TryParse(insertedObj.ToString(), out var tmpId)) insertedId = tmpId;
 					// include portal id in event data so clients can reference it
 					if (insertedId > 0) data["portalId"] = insertedId.ToString();
+
+					// Also create a paired portal in Town so other players can enter the town portal and be sent back.
+					// Compute a deterministic position on a circle around (GRIDCELL*4, GRIDCELL*4)
+					try
+					{
+						int townCenter = GRIDCELL * 4; // center point in town
+						int radius = GRIDCELL * 4; // place portals on a circle of 4 grid cells
+						double angleDeg = (heroId * 97) % 360; // pseudo-random but deterministic by heroId
+						double angleRad = angleDeg * Math.PI / 180.0;
+						int tx = townCenter + (int)Math.Round(Math.Cos(angleRad) * radius);
+						int ty = townCenter + (int)Math.Round(Math.Sin(angleRad) * radius);
+						var townData = new Dictionary<string, string>();
+						// Include backlink information so using the town portal returns you to the original map+coords
+						townData["originMap"] = map ?? string.Empty;
+						townData["originX"] = x.ToString();
+						townData["originY"] = y.ToString();
+						// Reference the canonical portalId (insertedId). We'll insert the town-side portal and then add both ids to events.
+						string insertTownSql = @"INSERT INTO maxhanna.bones_town_portal (creator_hero_id, map, coordsX, coordsY, radius, data, created) VALUES (@CreatorHeroId, @Map, @X, @Y, @Radius, @Data, UTC_TIMESTAMP()); SELECT LAST_INSERT_ID();";
+						using var insertTownCmd = new MySqlCommand(insertTownSql, connection, transaction);
+						insertTownCmd.Parameters.AddWithValue("@CreatorHeroId", heroId);
+						insertTownCmd.Parameters.AddWithValue("@Map", "Town");
+						insertTownCmd.Parameters.AddWithValue("@X", tx);
+						insertTownCmd.Parameters.AddWithValue("@Y", ty);
+						insertTownCmd.Parameters.AddWithValue("@Radius", DBNull.Value);
+						insertTownCmd.Parameters.AddWithValue("@Data", Newtonsoft.Json.JsonConvert.SerializeObject(townData));
+						var townInsertedObj = await insertTownCmd.ExecuteScalarAsync();
+						int townInsertedId = 0;
+						if (townInsertedObj != null && int.TryParse(townInsertedObj.ToString(), out var tmpTownId)) townInsertedId = tmpTownId;
+						// If both inserted, include town portal id in original event data to help clients correlate
+						if (townInsertedId > 0 && insertedId > 0)
+						{
+							data["pairedTownPortalId"] = townInsertedId.ToString();
+						}
+					}
+					catch (Exception exPair)
+					{
+						await _log.Db("Create paired town portal failed: " + exPair.Message, heroId, "BONES", true);
+					}
 				}
 				catch (Exception exIns)
 				{

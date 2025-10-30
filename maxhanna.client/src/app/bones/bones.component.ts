@@ -309,25 +309,7 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
         console.error('HEAL_USER handler failed', ex);
       }
     });
-    // Handle when a TownPortal is used: teleport hero to targetMap and delete portal server-side
-    events.on("ENTER_TOWN_PORTAL", this, async (payload: { hero: any, targetMap: string, portalId?: number | null }) => {
-      try {
-        if (!payload || !payload.targetMap) return;
-        // Only act when our hero triggered it
-        if (!payload.hero || payload.hero.id !== this.metaHero.id) return;
-        const level = this.getLevelFromLevelName(payload.targetMap);
-        if (!level) return;
-        // Set the target default hero position to current hero position to preserve offset
-        level.defaultHeroPosition = this.metaHero.position.duplicate();
-        events.emit("CHANGE_LEVEL", level);
-        // Request server to delete portal so it disappears for other players
-        try {
-          if (payload.portalId) {
-            await this.bonesService.deleteTownPortal(payload.portalId);
-          }
-        } catch (ex) { console.warn('Failed to delete town portal after use', ex); }
-      } catch (ex) { console.error('ENTER_TOWN_PORTAL handler failed', ex); }
-    });
+    // Town portal interactions now emit CHANGE_LEVEL directly (string or payload). Handling performed centrally in subscribeToMainGameEvents.
   }
 
   update = async (delta: number) => {

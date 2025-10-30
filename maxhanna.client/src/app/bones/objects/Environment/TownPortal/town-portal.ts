@@ -62,18 +62,30 @@ export class TownPortal extends GameObject {
     }
     events.on("HERO_REQUESTS_ACTION", this, (params: { hero: any, objectAtPosition: any }) => {
       try { 
-       if (params.objectAtPosition.id === this.id) {
-          // Determine previous town in chain based on hero's current map
-          const currentMap = this.parent.name ?? undefined;
-          if (!currentMap) return;
-          const idx = TOWN_CHAIN.findIndex(s => s && s.toLowerCase() === (currentMap as string).toLowerCase());
-          let target: string | undefined = undefined;
-          if (idx > 0) target = TOWN_CHAIN[idx - 1];
-          console.log(currentMap, target);
-          // If current map not found, or at start of chain, do nothing
-          if (!target) return;
-          // Emit a centralized event that the bones component will handle to change level
-          events.emit("ENTER_TOWN_PORTAL", { hero: params.hero, targetMap: target, portalId: (this as any).serverPortalId ?? null });
+         if (params.objectAtPosition.id === this.id) {
+           const currentMap = this.parent.name ?? undefined;
+           if (!currentMap) return;
+           // If this portal object has server-provided data that includes an originMap/originX/originY,
+           // we are likely in Town and should emit a CHANGE_LEVEL payload object that contains coordinates
+           // so the destination level can position the hero where they entered from.
+           try {
+             const data: any = (this as any).data ?? (this as any).serverData ?? undefined;
+             if (data && data.originMap) {
+               // Emitting full payload object: { map: originMap, position: { x, y }, portalId }
+               const originMap = data.originMap as string;
+               const originX = Number(data.originX ?? data.coordsX ?? 0);
+               const originY = Number(data.originY ?? data.coordsY ?? 0);
+               const payload = { map: originMap, position: { x: originX, y: originY }, portalId: (this as any).serverPortalId ?? null };
+               events.emit("CHANGE_LEVEL", payload);
+               return;
+             }
+           } catch (e) { /* ignore and fallback to chain behavior */ }
+           // Fallback chain behavior: find previous map in chain and emit its name
+           const idx = TOWN_CHAIN.findIndex(s => s && s.toLowerCase() === (currentMap as string).toLowerCase());
+           let target: string | undefined = undefined;
+           if (idx > 0) target = TOWN_CHAIN[idx - 1];
+           if (!target) return;
+           events.emit("CHANGE_LEVEL", target);
         }
       } catch (ex) { console.warn('TownPortal interaction failed', ex); }
     });
