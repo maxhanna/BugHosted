@@ -898,10 +898,7 @@ export function reconcileTownPortalsFromFetch(object: any, res: any) {
   try { (object as any)._lastPortalsMap = map; } catch { }
 
   const serverPortals = Array.isArray(res.townPortals) ? res.townPortals : (Array.isArray(res.TownPortals) ? res.TownPortals : []);
-  if (!serverPortals || serverPortals.length === 0) {
-    try { console.debug('reconcileTownPortalsFromFetch: serverPortals empty', Object.keys(res || {})); } catch { }
-  }
-
+  
   const createPortalFromServer = (it: any): any | undefined => {
     try {
       const id = Number(it.id ?? it.portalId ?? it.id);
@@ -920,8 +917,7 @@ export function reconcileTownPortalsFromFetch(object: any, res: any) {
       if (!dataObj && it.data && (it.coordsX !== undefined || it.coordsY !== undefined || it.map !== undefined)) {
         dataObj = { coordsX: it.coordsX, coordsY: it.coordsY, map: it.map };
       }
-      // Normalize array-valued fields to primitives to handle inconsistent server shapes
-      try {
+       
         if (dataObj && typeof dataObj === 'object') {
           let coerced = false;
           const pickFirst = (v: any) => Array.isArray(v) ? (v.length > 0 ? v[0] : undefined) : v;
@@ -940,12 +936,8 @@ export function reconcileTownPortalsFromFetch(object: any, res: any) {
               dataObj[k] = dataObj[k].length > 0 ? dataObj[k][0] : 0;
               coerced = true;
             }
-          }
-          if (coerced) {
-            try { console.debug('reconcileTownPortalsFromFetch: coerced server data arrays to primitives', { id, raw: it.data, coercedData: dataObj }); } catch { }
-          }
-        }
-      } catch { }
+          } 
+        } 
       try { (portalMarker as any).serverData = dataObj; } catch { }
       try { (portalMarker as any).serverCreatorHeroId = Number(it.creatorHeroId ?? it.creator_hero_id ?? it.heroId ?? it.creator ?? it.creatorId ?? it.ownerId ?? it.createdBy ?? it.hero_id ?? undefined); } catch { }
       return { id, portalMarker };

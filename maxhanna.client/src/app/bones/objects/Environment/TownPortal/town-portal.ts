@@ -18,8 +18,8 @@ export class TownPortal extends GameObject {
     super({
       position: new Vector2(snapToGrid(params.position.x), snapToGrid(params.position.y)),
       name: params.label ?? "Town Portal",
-      forceDrawName: true,
-      preventDrawName: false,
+      forceDrawName: false,
+      preventDrawName: true,
       drawLayer: FLOOR,
     });
 

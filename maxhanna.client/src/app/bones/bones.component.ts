@@ -479,7 +479,7 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
         this.reconcilePendingInvites();
         this.updateEnemyEncounters(res);
         this.reconcileDroppedItemsFromFetch(res);
-        try { reconcileTownPortalsFromFetch(this, res); } catch (ex) { console.warn('reconcileTownPortalsFromFetch failed', ex); }
+        reconcileTownPortalsFromFetch(this, res); 
 
         if (this.chat) {
           this.getLatestMessages();
@@ -534,23 +534,21 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
           // console.log("enemy.position (incoming):", (enemy && (enemy as any).position) ? JSON.stringify(enemy.position) : enemy.position, " typeof:", typeof enemy.position);
           tgtEnemy.hp = enemy.hp;
           if (enemy && enemy.position) {
-            try {
-              const newPos = new Vector2(enemy.position.x, enemy.position.y);
-              if (newPos) {
-                tgtEnemy.destinationPosition = newPos.duplicate();
-              }
-            } catch (err) {
-              console.error('Error duplicating enemy.position for dest set', err, (enemy as any).position);
+            
+            const newPos = new Vector2(enemy.position.x, enemy.position.y);
+            if (newPos) {
+              tgtEnemy.destinationPosition = newPos.duplicate();
             }
+             
           }
 
           if (tgtEnemy && tgtEnemy.heroId && (tgtEnemy.hp ?? 0) <= 0) {
-            try {
+           
               if (typeof tgtEnemy.destroy === 'function') {
                 tgtEnemy.destroy();
               }
-            } catch { /* ignore errors during destroy */ }
-            try { this._lastServerDestinations.delete(tgtEnemy.heroId); } catch { }
+            
+           this._lastServerDestinations.delete(tgtEnemy.heroId); 
             return; // skip further processing for this bot
           }
         } else if (enemy.hp) {
@@ -629,16 +627,13 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
 
       // If this is our metaHero, keep local metaHero and Hero instance in sync
       if (heroMeta.id === this.metaHero.id) {
-        try { this.metaHero.hp = heroMeta.hp ?? this.metaHero.hp; } catch { }
-        try { this.metaHero.level = heroMeta.level ?? this.metaHero.level; } catch { }
-        try { this.metaHero.exp = heroMeta.exp ?? this.metaHero.exp; } catch { }
-        // Sync stats from server if provided
-        try { this.metaHero.str = (heroMeta as any).str ?? ((heroMeta as any).stats ? (heroMeta as any).stats.str : this.metaHero.str); } catch { }
-        try { this.metaHero.dex = (heroMeta as any).dex ?? ((heroMeta as any).stats ? (heroMeta as any).stats.dex : this.metaHero.dex); } catch { }
-        try { this.metaHero.int = (heroMeta as any).int ?? ((heroMeta as any).stats ? (heroMeta as any).stats.int : this.metaHero.int); } catch { }
-        if (this.hero) {
-          // Detect HP drop for local hero and play attenuated impact SFX
-
+        this.metaHero.hp = heroMeta.hp ?? this.metaHero.hp;  
+        this.metaHero.level = heroMeta.level ?? this.metaHero.level;  
+        this.metaHero.exp = heroMeta.exp ?? this.metaHero.exp;   
+        this.metaHero.str = (heroMeta as any).str ?? ((heroMeta as any).stats ? (heroMeta as any).stats.str : this.metaHero.str);  
+        this.metaHero.dex = (heroMeta as any).dex ?? ((heroMeta as any).stats ? (heroMeta as any).stats.dex : this.metaHero.dex);  
+        this.metaHero.int = (heroMeta as any).int ?? ((heroMeta as any).stats ? (heroMeta as any).stats.int : this.metaHero.int);  
+        if (this.hero) { 
           const incomingHp = heroMeta.hp ?? this.hero.hp ?? 0;
           const prevHp = typeof previousLocalHp === 'number' ? previousLocalHp : (this.hero.hp ?? incomingHp);
           if (incomingHp < prevHp) {
