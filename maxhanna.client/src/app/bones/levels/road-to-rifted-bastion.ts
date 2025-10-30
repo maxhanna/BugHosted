@@ -32,25 +32,31 @@ export class RoadToRiftedBastion extends Level {
     // tileWidth=64, tileHeight=96 match original layout
     this.tileFloor(new Vector2(gridCells(0), gridCells(-1)), roomWidth, roomHeight, 64, 96, resources.images["floorbigtile"], { drawLayer: BASE, startObjectId: -1000 });
 
-    const encounter = new Encounter({
-      id: -999999,
-      position: new Vector2(gridCells(3), gridCells(4)),
-      possibleEnemies: ["skeleton"],
-      moveLeftRight: 0,
-      moveUpDown: 0
-    });
-    this.addChild(encounter);
+    const encounterPositions: { x: number; y: number }[] = [
+      { x: 3, y: 4 },
+      { x: 6, y: 8 },
+      { x: 5, y: 3 },
+      { x: 8, y: 5 },
+      { x: 10, y: 4 },
+      { x: 12, y: 7 },
+      { x: 14, y: 3 },
+      { x: 16, y: 6 },
+      { x: 18, y: 4 },
+      { x: 20, y: 8 }
+    ];
 
-
-    const encounter2 = new Encounter({
-      id: -999998,
-      position: new Vector2(gridCells(6), gridCells(8)),
-      possibleEnemies: ["skeleton"],
-      moveLeftRight: 0,
-      moveUpDown: 0
-    });
-    this.addChild(encounter2);
-
+    let curId = -999989;
+    for (const pos of encounterPositions) {
+      const enc = new Encounter({
+        id: curId,
+        position: new Vector2(gridCells(pos.x), gridCells(pos.y)),
+        possibleEnemies: ["skeleton"],
+        moveLeftRight: 0,
+        moveUpDown: 0
+      });
+      this.addChild(enc);
+      curId--;
+    }
   
     const exit = new Exit({
       position: new Vector2(gridCells(18), gridCells(1)), showSprite: true, targetMap: 'RiftedBastion'
