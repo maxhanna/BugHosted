@@ -13,6 +13,7 @@ import { Skill } from "./skill-types";
 import { Character } from "../objects/character";
 import { HeroInventoryItem } from "../../../services/datacontracts/bones/hero-inventory-item";
 import { DroppedItem } from "../objects/Environment/DroppedItem/dropped-item";
+import { TownPortal } from "../objects/Environment/TownPortal/town-portal";
 import { resources } from "./resources";
 
 
@@ -859,6 +860,47 @@ export function reconcileDroppedItemsFromFetch(object: any, res: any) {
     if (!seenIds.has(id)) {
       try { if (inst && typeof (inst as any).destroy === 'function') (inst as any).destroy(); } catch { }
       try { mapRef.delete(id); } catch { }
+    }
+  }
+}
+
+// Reconcile persisted town portals from FetchGameData response.
+export function reconcileTownPortalsFromFetch(object: any, res: any) {
+  if (!res) return;
+  const map = res.map ?? object.metaHero?.map;
+  if ((object as any)._lastPortalsMap !== undefined && (object as any)._lastPortalsMap !== map) {
+    try { for (const inst of Array.from(((object as any)._townPortalsMap ?? new Map()).values())) { try { if (inst && typeof (inst as any).destroy === 'function') (inst as any).destroy(); } catch { } } } finally { try { if ((object as any)._townPortalsMap) (object as any)._townPortalsMap.clear(); } catch { } }
+  }
+  try { (object as any)._lastPortalsMap = map; } catch { }
+
+  const serverPortals = Array.isArray(res.townPortals) ? res.townPortals : (Array.isArray(res.TownPortals) ? res.TownPortals : []);
+  if (!serverPortals || serverPortals.length === 0) {
+    try { console.debug('reconcileTownPortalsFromFetch: serverPortals empty', Object.keys(res || {})); } catch { }
+  }
+  const seenIds = new Set<number>();
+  for (const it of serverPortals) {
+    try {
+      const id = Number(it.id ?? it.portalId ?? it.id);
+      if (isNaN(id)) continue;
+      seenIds.add(id);
+      if (!(object as any)._townPortalsMap) (object as any)._townPortalsMap = new Map<number, any>();
+      if ((object as any)._townPortalsMap.has(id)) continue;
+      const x = (it.coordsX !== undefined && it.coordsX !== null) ? Number(it.coordsX) : (it.position && it.position.x ? Number(it.position.x) : undefined);
+      const y = (it.coordsY !== undefined && it.coordsY !== null) ? Number(it.coordsY) : (it.position && it.position.y ? Number(it.position.y) : undefined);
+      if (x === undefined || y === undefined || isNaN(x) || isNaN(y)) continue;
+  // Create a TownPortal world object so it can handle interaction (teleport) behavior
+  const portalMarker = new TownPortal({ position: new Vector2(x, y), label: 'Town Portal', preventDestroyTimeout: true });
+  try { (portalMarker as any).serverPortalId = id; } catch { }
+  try { object.mainScene.level.addChild(portalMarker); } catch { }
+  try { (object as any)._townPortalsMap.set(id, portalMarker); } catch { }
+    } catch (ex) { console.warn('Error processing town portal from server', ex, it); }
+  }
+
+  const mapRef2 = ((object as any)._townPortalsMap ?? new Map<any, any>()) as Map<any, any>;
+  for (const [id, inst] of Array.from(mapRef2.entries())) {
+    if (!seenIds.has(id)) {
+      try { if (inst && typeof (inst as any).destroy === 'function') (inst as any).destroy(); } catch { }
+      try { mapRef2.delete(id); } catch { }
     }
   }
 }

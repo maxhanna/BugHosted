@@ -7,6 +7,7 @@ import { MetaEvent } from './datacontracts/bones/meta-event';
 import { InventoryItem } from '../app/bones/objects/InventoryItem/inventory-item';
 import { MetaBot } from './datacontracts/bones/meta-bot';
 import { HeroInventoryItem } from './datacontracts/bones/hero-inventory-item';
+import { CreateTownPortalRequest } from './datacontracts/bones/create-town-portal-request';
 
 @Injectable({
   providedIn: 'root'
@@ -60,9 +61,10 @@ export class BonesService {
   async townPortal(heroId: number, userId?: number) {
     return this.fetchData('/bones/townportal', { HeroId: heroId, UserId: userId });
   }
-  async createTownPortal(heroId: number, map: string, x: number, y: number, userId?: number, radius?: number) {
-    const body: any = { HeroId: heroId, Map: map, X: x, Y: y, UserId: userId };
-    if (radius) body.Radius = radius;
+  async createTownPortal(req: CreateTownPortalRequest) {
+    // Map TypeScript-friendly names to server-expected casing
+    const body: any = { HeroId: req.heroId, Map: req.map ?? undefined, X: req.x, Y: req.y, UserId: req.userId };
+    if (req.radius !== undefined && req.radius !== null) body.Radius = req.radius;
     return this.fetchData('/bones/createtownportal', body);
   }
   async createHero(userId: number, name: string): Promise<MetaHero | undefined> {
@@ -143,5 +145,8 @@ export class BonesService {
   }
   async healHero(heroId: number) {
     return this.fetchData('/bones/healhero', heroId);
+  }
+  async deleteTownPortal(portalId: number) {
+    return this.fetchData('/bones/deletetownportal', { portalId: portalId });
   }
 }

@@ -22,6 +22,9 @@ namespace maxhanna.Server.Controllers.DataContracts.Bones
         [JsonPropertyName("droppedItems")]
         public List<object>? DroppedItems { get; set; }
 
+    [JsonPropertyName("townPortals")]
+    public List<object>? TownPortals { get; set; }
+
         [JsonPropertyName("recentattacks")]
         public List<Dictionary<string, object>>? RecentAttacks { get; set; }
     }

@@ -93,9 +93,10 @@ namespace maxhanna.Server.Controllers
 				await CreateAttackEvents(hero, connection, transaction, recentAttacks);
 				AddAttackEventsToEventsList(hero, events, recentAttacks);
 				List<object> droppedItems = await FetchDroppedItems(hero, connection, transaction);
+				List<object> townPortals = await FetchTownPortals(hero, connection, transaction);
 
 				await transaction.CommitAsync();
-				var resp = new FetchGameDataResponse { Map = hero.Map, Position = hero.Position, Heroes = heroes, Events = events, EnemyBots = enemyBots, DroppedItems = droppedItems, RecentAttacks = recentAttacks };
+				var resp = new FetchGameDataResponse { Map = hero.Map, Position = hero.Position, Heroes = heroes, Events = events, EnemyBots = enemyBots, DroppedItems = droppedItems, TownPortals = townPortals, RecentAttacks = recentAttacks };
 				return Ok(resp);
 			}
 			catch (Exception ex)
@@ -144,6 +145,86 @@ namespace maxhanna.Server.Controllers
 			}
 
 			return droppedItems;
+		}
+
+		private async Task<List<object>> FetchTownPortals(MetaHero hero, MySqlConnection connection, MySqlTransaction transaction)
+		{
+			List<object> portals = new();
+			try
+			{
+				int radiusTiles = 8;
+				int tile = GRIDCELL;
+				int xMin = hero.Position.x - radiusTiles * tile;
+				int xMax = hero.Position.x + radiusTiles * tile;
+				int yMin = hero.Position.y - radiusTiles * tile;
+				int yMax = hero.Position.y + radiusTiles * tile;
+				string selSql = "SELECT id, creator_hero_id, map, coordsX, coordsY, radius, data, created FROM maxhanna.bones_town_portal WHERE map = @Map AND coordsX BETWEEN @XMin AND @XMax AND coordsY BETWEEN @YMin AND @YMax ORDER BY created DESC;";
+				using var selCmd = new MySqlCommand(selSql, connection, transaction);
+				selCmd.Parameters.AddWithValue("@Map", hero.Map ?? string.Empty);
+				selCmd.Parameters.AddWithValue("@XMin", xMin);
+				selCmd.Parameters.AddWithValue("@XMax", xMax);
+				selCmd.Parameters.AddWithValue("@YMin", yMin);
+				selCmd.Parameters.AddWithValue("@YMax", yMax);
+				using var rdr = await selCmd.ExecuteReaderAsync();
+				while (await rdr.ReadAsync())
+				{
+					int id = rdr.GetInt32(0);
+					int creatorId = rdr.IsDBNull(1) ? 0 : rdr.GetInt32(1);
+					string map = rdr.IsDBNull(2) ? string.Empty : rdr.GetString(2);
+					int cx = rdr.IsDBNull(3) ? 0 : rdr.GetInt32(3);
+					int cy = rdr.IsDBNull(4) ? 0 : rdr.GetInt32(4);
+					int? radius = rdr.IsDBNull(5) ? (int?)null : rdr.GetInt32(5);
+					string dataJson = rdr.IsDBNull(6) ? "{}" : rdr.GetString(6);
+					DateTime created = rdr.IsDBNull(7) ? DateTime.UtcNow : rdr.GetDateTime(7);
+					object? parsed = null;
+					try { parsed = Newtonsoft.Json.JsonConvert.DeserializeObject<object>(dataJson); } catch { parsed = dataJson; }
+					portals.Add(new { id = id, creatorHeroId = creatorId, map = map, coordsX = cx, coordsY = cy, radius = radius, data = parsed, created = created });
+				}
+				rdr.Close();
+			}
+			catch (Exception ex)
+			{
+				await _log.Db("Failed to read nearby town portals: " + ex.Message, hero.Id, "BONES", true);
+			}
+
+			return portals;
+		}
+
+		[HttpPost("/Bones/DeleteTownPortal", Name = "Bones_DeleteTownPortal")]
+		public async Task<IActionResult> DeleteTownPortal([FromBody] dynamic body)
+		{
+			try
+			{
+				int portalId = 0;
+				try { portalId = (int)body.portalId; } catch { }
+				if (portalId <= 0) return BadRequest("Invalid portal id");
+				using var connection = new MySqlConnection(_connectionString);
+				await connection.OpenAsync();
+				using var transaction = connection.BeginTransaction();
+				try
+				{
+					string delSql = "DELETE FROM maxhanna.bones_town_portal WHERE id = @Id LIMIT 1;";
+					using var delCmd = new MySqlCommand(delSql, connection, transaction);
+					delCmd.Parameters.AddWithValue("@Id", portalId);
+					int rows = await delCmd.ExecuteNonQueryAsync();
+					var data = new Dictionary<string, string>() { { "portalId", portalId.ToString() } };
+					var ev = new MetaEvent(0, 0, DateTime.UtcNow, "TOWN_PORTAL_DELETED", string.Empty, data);
+					await UpdateEventsInDB(ev, connection, transaction);
+					await transaction.CommitAsync();
+					return Ok(new { deleted = rows > 0 });
+				}
+				catch (Exception ex)
+				{
+					await transaction.RollbackAsync();
+					await _log.Db("DeleteTownPortal failed: " + ex.Message, null, "BONES", true);
+					return StatusCode(500, "Failed to delete town portal");
+				}
+			}
+			catch (Exception ex)
+			{
+				await _log.Db("DeleteTownPortal failure: " + ex.Message, null, "BONES", true);
+				return StatusCode(500, "Failed to delete town portal");
+			}
 		}
 
 		private static void AddAttackEventsToEventsList(MetaHero hero, List<MetaEvent> events, List<Dictionary<string, object>> recentAttacks)
@@ -1609,21 +1690,20 @@ namespace maxhanna.Server.Controllers
 		}
 
 		[HttpPost("/Bones/CreateTownPortal", Name = "Bones_CreateTownPortal")]
-		public async Task<IActionResult> CreateTownPortal([FromBody] dynamic body)
+		public async Task<IActionResult> CreateTownPortal([FromBody] CreateTownPortalRequest? request)
 		{
 			try
 			{
-				int heroId = 0; int? userId = null; string map = string.Empty; int x = 0; int y = 0;
-				try { heroId = (int)body.HeroId; } catch { }
-				try { userId = (int?)body.UserId; } catch { }
-				try { map = (string)body.Map; } catch { }
-				try { x = (int)body.X; } catch { }
-				try { y = (int)body.Y; } catch { }
+				if (request == null) return BadRequest("Invalid request");
+				int heroId = request.HeroId;
+				int? userId = request.UserId;
+				string map = request.Map ?? string.Empty;
+				int x = request.X;
+				int y = request.Y;
 				if (heroId <= 0) return BadRequest("Invalid hero id");
 				using var connection = new MySqlConnection(_connectionString);
 				await connection.OpenAsync();
 				using var transaction = connection.BeginTransaction();
-				// Ownership check
 				if (userId.HasValue)
 				{
 					string ownerSql = "SELECT user_id FROM maxhanna.bones_hero WHERE id = @HeroId LIMIT 1";
@@ -1639,11 +1719,59 @@ namespace maxhanna.Server.Controllers
 				data["x"] = x.ToString();
 				data["y"] = y.ToString();
 				// optional radius or metadata
-				if (body.Radius != null) try { data["radius"] = ((int)body.Radius).ToString(); } catch { }
+				if (request.Radius.HasValue) try { data["radius"] = request.Radius.Value.ToString(); } catch { }
+				// Ensure the hero only has one portal: remove any existing portals created by this hero, and emit delete events
+				try
+				{
+					var removedIds = new List<int>();
+					string selExistingSql = "SELECT id FROM maxhanna.bones_town_portal WHERE creator_hero_id = @CreatorHeroId;";
+					using (var selCmd = new MySqlCommand(selExistingSql, connection, transaction))
+					{
+						selCmd.Parameters.AddWithValue("@CreatorHeroId", heroId);
+						using var rdr = await selCmd.ExecuteReaderAsync();
+						while (await rdr.ReadAsync())
+						{
+							removedIds.Add(rdr.GetInt32(0));
+						}
+						rdr.Close();
+					}
+					if (removedIds.Count > 0)
+					{
+						string delSql = "DELETE FROM maxhanna.bones_town_portal WHERE creator_hero_id = @CreatorHeroId;";
+						using var delCmd = new MySqlCommand(delSql, connection, transaction);
+						delCmd.Parameters.AddWithValue("@CreatorHeroId", heroId);
+						await delCmd.ExecuteNonQueryAsync();
+						// Emit delete events for each removed portal so clients remove them immediately
+						foreach (var rid in removedIds)
+						{
+							var evDelData = new Dictionary<string, string>() { { "portalId", rid.ToString() } };
+							var evDel = new MetaEvent(0, 0, DateTime.UtcNow, "TOWN_PORTAL_DELETED", map ?? string.Empty, evDelData);
+							await UpdateEventsInDB(evDel, connection, transaction);
+						}
+					}
+
+					string insertPortalSql = @"INSERT INTO maxhanna.bones_town_portal (creator_hero_id, map, coordsX, coordsY, radius, data, created) VALUES (@CreatorHeroId, @Map, @X, @Y, @Radius, @Data, UTC_TIMESTAMP()); SELECT LAST_INSERT_ID();";
+					using var insertCmd = new MySqlCommand(insertPortalSql, connection, transaction);
+					insertCmd.Parameters.AddWithValue("@CreatorHeroId", heroId);
+					insertCmd.Parameters.AddWithValue("@Map", map ?? string.Empty);
+					insertCmd.Parameters.AddWithValue("@X", x);
+					insertCmd.Parameters.AddWithValue("@Y", y);
+					insertCmd.Parameters.AddWithValue("@Radius", request.Radius.HasValue ? (object?)request.Radius.Value : DBNull.Value);
+					insertCmd.Parameters.AddWithValue("@Data", Newtonsoft.Json.JsonConvert.SerializeObject(data));
+					var insertedObj = await insertCmd.ExecuteScalarAsync();
+					int insertedId = 0;
+					if (insertedObj != null && int.TryParse(insertedObj.ToString(), out var tmpId)) insertedId = tmpId;
+					// include portal id in event data so clients can reference it
+					if (insertedId > 0) data["portalId"] = insertedId.ToString();
+				}
+				catch (Exception exIns)
+				{
+					await _log.Db("Persist town portal failed: " + exIns.Message, heroId, "BONES", true);
+				}
 				var ev = new MetaEvent(0, heroId, DateTime.UtcNow, "TOWN_PORTAL", map ?? string.Empty, data);
 				await UpdateEventsInDB(ev, connection, transaction);
 				await transaction.CommitAsync();
-				return Ok(new { created = true });
+				return Ok(new { created = true, portalId = data.ContainsKey("portalId") ? data["portalId"] : (object?)null });
 			}
 			catch (Exception ex)
 			{

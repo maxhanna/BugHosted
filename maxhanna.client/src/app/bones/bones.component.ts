@@ -11,7 +11,7 @@ import { GameLoop } from './helpers/game-loop';
 import { hexToRgb, resources } from './helpers/resources';
 import { events } from './helpers/events';
 import { storyFlags } from './helpers/story-flags';
-import { actionMultiplayerEvents, subscribeToMainGameEvents, pendingAttacks, processedAttacks, reconcileDroppedItemsFromFetch } from './helpers/network';
+import { actionMultiplayerEvents, subscribeToMainGameEvents, pendingAttacks, processedAttacks, reconcileDroppedItemsFromFetch, reconcileTownPortalsFromFetch } from './helpers/network';
 import { Hero } from './objects/Hero/hero';
 import { Main } from './objects/Main/main';
 import { HeroRoomLevel } from './levels/hero-room';
@@ -309,6 +309,25 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
         console.error('HEAL_USER handler failed', ex);
       }
     });
+    // Handle when a TownPortal is used: teleport hero to targetMap and delete portal server-side
+    events.on("ENTER_TOWN_PORTAL", this, async (payload: { hero: any, targetMap: string, portalId?: number | null }) => {
+      try {
+        if (!payload || !payload.targetMap) return;
+        // Only act when our hero triggered it
+        if (!payload.hero || payload.hero.id !== this.metaHero.id) return;
+        const level = this.getLevelFromLevelName(payload.targetMap);
+        if (!level) return;
+        // Set the target default hero position to current hero position to preserve offset
+        level.defaultHeroPosition = this.metaHero.position.duplicate();
+        events.emit("CHANGE_LEVEL", level);
+        // Request server to delete portal so it disappears for other players
+        try {
+          if (payload.portalId) {
+            await this.bonesService.deleteTownPortal(payload.portalId);
+          }
+        } catch (ex) { console.warn('Failed to delete town portal after use', ex); }
+      } catch (ex) { console.error('ENTER_TOWN_PORTAL handler failed', ex); }
+    });
   }
 
   update = async (delta: number) => {
@@ -407,7 +426,8 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
         this.updateHeroesFromFetchedData(res); 
         this.reconcilePendingInvites();
         this.updateEnemyEncounters(res); 
-        this.reconcileDroppedItemsFromFetch(res);  
+  this.reconcileDroppedItemsFromFetch(res);  
+  try { reconcileTownPortalsFromFetch(this, res); } catch (ex) { console.warn('reconcileTownPortalsFromFetch failed', ex); }
 
         if (this.chat) {
           this.getLatestMessages();
@@ -1300,7 +1320,7 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
       const x = Math.floor((this.metaHero.position?.x ?? 0));
       const y = Math.floor((this.metaHero.position?.y ?? 0));
       this.closeStartMenu();
-      await this.bonesService.createTownPortal(this.metaHero.id, map, x, y, userId);
+  await this.bonesService.createTownPortal({ heroId: this.metaHero.id, map: map, x: x, y: y, userId: userId });
       alert('Town portal created');
     } catch (ex) { console.error('openTownPortal failed', ex); alert('Failed to open town portal'); }
   }
