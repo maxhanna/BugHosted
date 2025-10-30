@@ -37,7 +37,7 @@ export class RiftedBastion extends Level {
     });
     bones.textContent = [
       {
-        string: ["Stay a while and listen!"],
+        string: ["Two sides of the same ruin - one frozen, one burning."],
       } as Scenario
     ];
     this.addChild(bones);
@@ -47,27 +47,7 @@ export class RiftedBastion extends Level {
     const roomHeight = 3; // tiles vertically
     // tileWidth=64, tileHeight=96 match original layout
     this.tileFloor(new Vector2(gridCells(0), gridCells(-1)), roomWidth, roomHeight, 64, 96, resources.images["floorbigtile"], { drawLayer: BASE, startObjectId: -1000 });
-
-    const encounter = new Encounter({
-      id: -999999,
-      position: new Vector2(gridCells(3), gridCells(4)),
-      possibleEnemies: ["skeleton"],
-      moveLeftRight: 0,
-      moveUpDown: 0
-    });
-    this.addChild(encounter);
-
-
-    const encounter2 = new Encounter({
-      id: -999998,
-      position: new Vector2(gridCells(6), gridCells(8)),
-      possibleEnemies: ["skeleton"],
-      moveLeftRight: 0,
-      moveUpDown: 0
-    });
-    this.addChild(encounter2);
-
-  
+   
     const exit = new Exit({
       position: new Vector2(gridCells(18), gridCells(1)), showSprite: true
     });
