@@ -176,9 +176,28 @@ namespace maxhanna.Server.Controllers
 					int? radius = rdr.IsDBNull(5) ? (int?)null : rdr.GetInt32(5);
 					string dataJson = rdr.IsDBNull(6) ? "{}" : rdr.GetString(6);
 					DateTime created = rdr.IsDBNull(7) ? DateTime.UtcNow : rdr.GetDateTime(7);
-					object? parsed = null;
-					try { parsed = Newtonsoft.Json.JsonConvert.DeserializeObject<object>(dataJson); } catch { parsed = dataJson; }
-					portals.Add(new { id = id, creatorHeroId = creatorId, map = map, coordsX = cx, coordsY = cy, radius = radius, data = parsed, created = created });
+					var dataDict = new Dictionary<string, string>();
+					if (!string.IsNullOrEmpty(dataJson))
+					{
+						try
+						{
+							var jo = JObject.Parse(dataJson);
+							foreach (var prop in jo.Properties())
+							{
+								dataDict[prop.Name] = prop.Value?.ToString() ?? string.Empty;
+							}
+						}
+						catch
+						{
+							try
+							{
+								var tmp = Newtonsoft.Json.JsonConvert.DeserializeObject<Dictionary<string, string>>(dataJson);
+								if (tmp != null) dataDict = tmp;
+							}
+							catch { /* ignore malformed data */ }
+						}
+					}
+					portals.Add(new { id = id, creatorHeroId = creatorId, map = map, coordsX = cx, coordsY = cy, radius = radius, data = dataDict, created = created });
 				}
 				rdr.Close();
 			}
@@ -641,10 +660,7 @@ namespace maxhanna.Server.Controllers
 										victims.Add((id, hp));
 									}
 									selR.Close();
-
-									// No per-hero immediate damage events emitted: frontend detects HP changes from FetchGameData heroes payload.
-									// However, if any hero reached 0 HP, handle death server-side in the same transaction so position reset and event emission
-									// are atomic with the damage update.
+ 
 									foreach (var v in victims)
 									{
 										if (v.hp <= 0)
