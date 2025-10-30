@@ -5,8 +5,9 @@ import { Sprite } from "../sprite";
 import { Mask } from "../Wardrobe/mask";
 import { DOWN, gridCells, isSpaceFree, LEFT, RIGHT, UP } from "../../helpers/grid-cells";
 import { Animations } from "../../helpers/animations";
-import { bodyAtSpace, isObjectNearby } from "../../helpers/move-towards";
+import { bodyAtSpace, isObjectNearby, objectAtLocation } from "../../helpers/move-towards";
 import { resources } from "../../helpers/resources";
+import { Npc } from "../Npc/npc";
 import { FrameIndexPattern } from "../../helpers/frame-index-pattern";
 import { WALK_DOWN, WALK_UP, WALK_LEFT, WALK_RIGHT, STAND_DOWN, STAND_RIGHT, STAND_LEFT, STAND_UP, PICK_UP_DOWN, ATTACK_DOWN, ATTACK_LEFT, ATTACK_RIGHT, ATTACK_UP } from "./hero-animations";
 import { ColorSwap } from "../../../../services/datacontracts/bones/color-swap";
@@ -106,14 +107,34 @@ export class Hero extends Character {
         this.lastAttackAt = now;
         this.isAttacking = true;
         // this.isLocked = true;
-        if (this.facingDirection == "DOWN") {
-          this.body?.animations?.play("attackDown");
-        } else if (this.facingDirection == "UP") {
-          this.body?.animations?.play("attackUp");
-        } else if (this.facingDirection == "LEFT") {
-          this.body?.animations?.play("attackLeft");
-        } else if (this.facingDirection == "RIGHT") {
-          this.body?.animations?.play("attackRight");
+        // If the object in front is an NPC, don't play the attack animation (we treat it as interaction)
+        try {
+          const neighbour = this.position.toNeighbour ? this.position.toNeighbour(this.facingDirection) : null;
+          const objInFront = neighbour ? objectAtLocation(this.parent, neighbour, true) : null;
+          const isNpcInFront = objInFront && (objInFront instanceof Npc || objInFront.constructor?.name?.toLowerCase().endsWith('npc'));
+          if (!isNpcInFront) {
+            if (this.facingDirection == "DOWN") {
+              this.body?.animations?.play("attackDown");
+            } else if (this.facingDirection == "UP") {
+              this.body?.animations?.play("attackUp");
+            } else if (this.facingDirection == "LEFT") {
+              this.body?.animations?.play("attackLeft");
+            } else if (this.facingDirection == "RIGHT") {
+              this.body?.animations?.play("attackRight");
+            }
+          }
+        } catch (e) {
+          console.log("error checking npc", e);
+          // If anything goes wrong while checking, fallback to playing the attack animation
+          if (this.facingDirection == "DOWN") {
+            this.body?.animations?.play("attackDown");
+          } else if (this.facingDirection == "UP") {
+            this.body?.animations?.play("attackUp");
+          } else if (this.facingDirection == "LEFT") {
+            this.body?.animations?.play("attackLeft");
+          } else if (this.facingDirection == "RIGHT") {
+            this.body?.animations?.play("attackRight");
+          }
         }
         this.playAttackSound();
         // After the attack animation finishes, allow another attack to be queued if the user is still holding

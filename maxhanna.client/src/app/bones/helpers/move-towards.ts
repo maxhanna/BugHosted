@@ -48,6 +48,11 @@ export function bodyAtSpace(parent: GameObject, position: Vector2, solid?: boole
 	});
 }
 
+// Stable helper: find an object at a given location (alias for bodyAtSpace)
+export function objectAtLocation(parent: GameObject, position: Vector2, solid?: boolean) {
+    return bodyAtSpace(parent, position, solid);
+}
+
 
 export function tryMove(player: any, root: any, isUserControlled: boolean, distanceToTravel: number) {
 	if (!player.body) return;
