@@ -227,7 +227,7 @@ export class Hero extends Character {
       try {
         const sourceHeroId = payload?.sourceHeroId;
         if (!sourceHeroId) return;
-        if (this.id === sourceHeroId) {
+        if (this.id === sourceHeroId && !this.isUserControlled) {
           // Determine facing from payload if provided (server may send numeric 0=down,1=left,2=right,3=up or string)
           try {
             const fRaw = payload?.facing ?? payload?.facingDirection ?? undefined;
