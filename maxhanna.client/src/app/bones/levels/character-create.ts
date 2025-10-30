@@ -1,6 +1,7 @@
 import { Vector2 } from "../../../services/datacontracts/bones/vector2";
 import { gridCells } from "../helpers/grid-cells";
 import { events } from "../helpers/events";
+import { Input } from "../helpers/input";
 import { storyFlags, Scenario, CHARACTER_CREATE_STORY_TEXT_2, CHARACTER_CREATE_STORY_TEXT_4, CHARACTER_CREATE_STORY_TEXT_5, CHARACTER_CREATE_STORY_TEXT_6, CHARACTER_CREATE_STORY_TEXT_7 } from "../helpers/story-flags";
 import { Level } from "../objects/Level/level"; 
 import { HeroRoomLevel } from "./hero-room";
@@ -213,6 +214,31 @@ export class CharacterCreate extends Level {
   this.bones.destroy();
   events.unsubscribe(this);
   super.destroy();
+  }
+
+  // Capture keyboard input from parent Main.input each frame so this level can react to arrow presses.
+  // For now we simply log when arrows are pressed to demonstrate capability.
+  override step(delta: number, root: any) {
+    try {
+      const input = (root as any).input as Input | undefined;
+      if (!input) return;
+      // Use getActionJustPressed for instantaneous presses and heldDirections for continuous holds
+      if (input.getActionJustPressed('ArrowUp') || input.heldDirections.includes('UP')) {
+        console.log('CharacterCreate: ArrowUp pressed/held');
+      }
+      if (input.getActionJustPressed('ArrowDown') || input.heldDirections.includes('DOWN')) {
+        console.log('CharacterCreate: ArrowDown pressed/held');
+      }
+      if (input.getActionJustPressed('ArrowLeft') || input.heldDirections.includes('LEFT')) {
+        console.log('CharacterCreate: ArrowLeft pressed/held');
+      }
+      if (input.getActionJustPressed('ArrowRight') || input.heldDirections.includes('RIGHT')) {
+        console.log('CharacterCreate: ArrowRight pressed/held');
+      }
+    } catch (ex) {
+      // swallow errors to avoid breaking the level loop
+      try { console.warn('CharacterCreate.step input check failed', ex); } catch { }
+    }
   }
   private displayContent(content: Scenario) {
     this.children.forEach((child: any) => {
