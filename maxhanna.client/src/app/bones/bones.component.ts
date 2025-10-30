@@ -310,6 +310,21 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
       }
     });
     // Town portal interactions now emit CHANGE_LEVEL directly (string or payload). Handling performed centrally in subscribeToMainGameEvents.
+    // New: handle ENTER_TOWN_PORTAL events emitted by TownPortal objects. Build the concrete Level here
+    // (so level construction logic remains in the component) and emit a canonical CHANGE_LEVEL with
+    // the Level instance that includes defaultHeroPosition and portalId metadata.
+    events.on("ENTER_TOWN_PORTAL", this, (payload: { map: string, x: number, y: number, portalId?: number }) => {
+      try {
+        if (!payload || !payload.map) return;
+        const lvl = this.getLevelFromLevelName(payload.map ?? "HEROROOM");
+        const heroPos = new Vector2(Number(payload.x ?? 0), Number(payload.y ?? 0));
+        try { (lvl as any).defaultHeroPosition = heroPos; } catch { }
+        try { (lvl as any).portalId = payload.portalId ?? null; } catch { }
+        events.emit("CHANGE_LEVEL", lvl);
+      } catch (ex) {
+        console.warn('ENTER_TOWN_PORTAL handler failed', ex);
+      }
+    });
   }
 
   update = async (delta: number) => {
