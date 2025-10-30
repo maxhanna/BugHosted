@@ -28,6 +28,14 @@ import { Bot } from './objects/Bot/bot';
 import { Character } from './objects/character';
 import { ChatSpriteTextString } from './objects/SpriteTextString/chat-sprite-text-string';
 import { target } from './helpers/fight';
+import { RoadToGatesOfHell } from './levels/road-to-gates-of-hell';
+import { CitadelOfVesper } from './levels/citadel-of-vesper';
+import { RoadToCitadelOfVesper } from './levels/road-to-citadel-of-vesper';
+import { FortPenumbra } from './levels/fort-penumbra';
+import { RoadToFortPenumbra } from './levels/road-to-fort-penumbra';
+import { GatesOfHell } from './levels/gates-of-hell';
+import { RiftedBastion } from './levels/rifted-bastion';
+import { RoadToRiftedBastion } from './levels/road-to-rifted-bastion';
 
 @Component({
   selector: 'app-bones',
@@ -441,11 +449,7 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
     this.serverDown = false;
     return wasServerDown;
   }
-
-  private updateOtherHeroesBasedOnFetchedData(res: { map: number; position: Vector2; heroes: MetaHero[]; }) {
-    // Delegate to combined implementation for a single pass
-    this.updateHeroesFromFetchedData(res);
-  }
+ 
   private updateEnemyEncounters(res: any) {
     const enemies = res.enemyBots as MetaBot[];
     if (enemies) {
@@ -822,6 +826,22 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
     //only 1 level for now.
     if (upperKey == "HEROROOM") {
       return new HeroRoomLevel({ itemsFound: itemsFoundNames });
+    } else if (upperKey == "CITADELOFVESPER") {
+      return new CitadelOfVesper({ itemsFound: itemsFoundNames });
+    } else if (upperKey == "ROADTOCITADELOFVESPER") {
+      return new RoadToCitadelOfVesper({ itemsFound: itemsFoundNames });
+    }  else if (upperKey == "FORTPENUMBRA") {
+      return new FortPenumbra({ itemsFound: itemsFoundNames });
+    }  else if (upperKey == "ROADTOFORTPENUMBRA") {
+      return new RoadToFortPenumbra({ itemsFound: itemsFoundNames });
+    } else if (upperKey == "GATESOFHELL") {
+      return new GatesOfHell({ itemsFound: itemsFoundNames });
+    } else if (upperKey == "ROADTOGATESOFHELL") {
+      return new RoadToGatesOfHell({ itemsFound: itemsFoundNames });
+    }  else if (upperKey == "RIFTEDBASTION") {
+      return new RiftedBastion({ itemsFound: itemsFoundNames });
+    } else if (upperKey == "ROADTORIFTEDBASTION") {
+      return new RoadToRiftedBastion({ itemsFound: itemsFoundNames });
     } else {
       return new HeroRoomLevel({ itemsFound: itemsFoundNames });
     }

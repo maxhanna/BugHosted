@@ -10,18 +10,15 @@ import { Scenario } from "../helpers/story-flags";
 import { Referee } from "../objects/Npc/Referee/referee";
 import { Bones } from "../objects/Npc/Bones/bones";
 import { Exit } from "../objects/Environment/Exit/exit";
-import { RoadToCitadelOfVesper } from "./road-to-citadel-of-vesper";
+import { RoadToFortPenumbra } from "./road-to-fort-penumbra";
 
 
-export class HeroRoomLevel extends Level {
-  override defaultHeroPosition = new Vector2(gridCells(0), gridCells(0));
-  showDebugSprites = false;
-  // Background sprite references (optional)
-  background?: Sprite;
-  background2?: Sprite;
+export class RiftedBastion extends Level {
+  override defaultHeroPosition = new Vector2(gridCells(2), gridCells(2));
+  showDebugSprites = false;  
   constructor(params: { heroPosition?: Vector2, itemsFound?: string[] | undefined } = {}) {
     super();
-    this.name = "HeroRoom";
+    this.name = "RiftedBastion";
     if (params.heroPosition) {
       this.defaultHeroPosition = params.heroPosition;
     }
@@ -31,6 +28,18 @@ export class HeroRoomLevel extends Level {
 
     this.addBackgroundLayer(resources.images["townbg"], /*parallax=*/0, new Vector2(0, 0), /*repeat=*/false, /*scale=*/1, /*direction=*/'LEFT');
     this.addBackgroundLayer(resources.images["townbg2"], /*parallax=*/0.4, new Vector2(-400, 16), /*repeat=*/false, /*scale=*/1, /*direction=*/'RIGHT');
+
+    const bones = new Bones({
+      position: new Vector2(gridCells(5), gridCells(8)),
+      moveUpDown: 5,
+      moveLeftRight: 1
+    });
+    bones.textContent = [
+      {
+        string: ["Stay a while and listen!"],
+      } as Scenario
+    ];
+    this.addChild(bones);
 
     // Create a tiled floor and perimeter walls using Level helper
     const roomWidth = 20; // tiles horizontally
@@ -57,21 +66,7 @@ export class HeroRoomLevel extends Level {
     });
     this.addChild(encounter2);
 
-
-    const bones = new Bones({
-      position: new Vector2(gridCells(5), gridCells(8)),
-      moveUpDown: 5,
-      moveLeftRight: 1
-    });
-    bones.textContent = [
-      {
-        string: ["Stay a while and listen!"],
-      } as Scenario
-    ];
-    this.addChild(bones);
-
-    
-
+  
     const exit = new Exit({
       position: new Vector2(gridCells(18), gridCells(1)), showSprite: true
     });
@@ -80,7 +75,7 @@ export class HeroRoomLevel extends Level {
 
   override ready() {
     events.on("CHARACTER_EXITS", this, () => {
-      events.emit("CHANGE_LEVEL", new RoadToCitadelOfVesper({ heroPosition: new Vector2(gridCells(2), gridCells(2)), itemsFound: this.itemsFound }));
+      events.emit("CHANGE_LEVEL", new RoadToFortPenumbra({ heroPosition: new Vector2(gridCells(2), gridCells(2)), itemsFound: this.itemsFound }));
     });
   }
 }

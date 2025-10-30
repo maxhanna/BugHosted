@@ -1,4 +1,6 @@
 ﻿using maxhanna.Server.Controllers.DataContracts.News;
+using maxhanna.Server.Controllers.DataContracts.Metadata;
+using System.Web;
 using System.Net;
 using MySqlConnector;
 using System.Text.RegularExpressions;
@@ -209,11 +211,13 @@ public class NewsService
 
 
 	private readonly NewsHttpClient _newsHttp;
-	public NewsService(IConfiguration config, Log log, NewsHttpClient newsHttp)
+	private readonly WebCrawler _crawler;
+	public NewsService(IConfiguration config, Log log, NewsHttpClient newsHttp, WebCrawler webCrawler)
 	{
 		_config = config;
 		_log = log;
 		_newsHttp = newsHttp;
+		_crawler = webCrawler;
 	}
 	public async Task<ArticlesResult?> GetTopHeadlines(string? keywords)
 	{
@@ -705,9 +709,12 @@ Posted by user @{topMeme.Username}<br><small>Daily top memes are selected based 
 			// Attach first file if present
 			int? firstFileId = todos.FirstOrDefault(t => t.FileId != null).FileId;
 
+			// Collect URLs from todos to attempt metadata scraping
+			var urls = todos.Where(t => !string.IsNullOrWhiteSpace(t.Url)).Select(t => t.Url!).ToArray();
+
 			// Insert the story for the service account and user profile (if desired)
-			await InsertMusicStoryAsync(conn, transaction, fullStoryText, firstFileId, musicServiceAccountNo);
-			await InsertMusicStoryAsync(conn, transaction, fullStoryText, firstFileId, null);
+			await InsertMusicStoryAsync(conn, transaction, fullStoryText, firstFileId, musicServiceAccountNo, urls);
+			await InsertMusicStoryAsync(conn, transaction, fullStoryText, firstFileId, null, urls);
 
 			await transaction.CommitAsync();
 			await _log.Db($"Successfully posted daily music with {todos.Count} entries.", null, "MUSICSERVICE");
@@ -738,7 +745,7 @@ Posted by user @{topMeme.Username}<br><small>Daily top memes are selected based 
 		return false;
 	}
 
-	private async Task InsertMusicStoryAsync(MySqlConnection conn, MySqlTransaction transaction, string storyText, int? fileId, int? profileUserId)
+	private async Task InsertMusicStoryAsync(MySqlConnection conn, MySqlTransaction transaction, string storyText, int? fileId, int? profileUserId, string[]? urls = null)
 	{
 		// Insert the main story
 		const string insertStorySql = @"
@@ -753,7 +760,7 @@ Posted by user @{topMeme.Username}<br><small>Daily top memes are selected based 
 
 		var storyId = Convert.ToInt32(await storyCmd.ExecuteScalarAsync());
 
-		// Link file if provided
+	// Link file if provided
 		if (fileId != null)
 		{
 			const string insertStoryFileSql = @"
@@ -774,6 +781,54 @@ Posted by user @{topMeme.Username}<br><small>Daily top memes are selected based 
 			topicCmd.Parameters.AddWithValue("@storyId", storyId);
 			await topicCmd.ExecuteNonQueryAsync();
 		}
+		// If urls are provided, attempt to fetch metadata for each and insert into story_metadata
+		if (urls != null && urls.Length > 0)
+		{
+			foreach (var url in urls)
+			{
+				try
+				{
+					var metadata = await _crawler.ScrapeUrlData(url);
+					if (metadata != null)
+					{
+						await InsertMetadata(storyId, metadata);
+					}
+				}
+				catch (Exception ex)
+				{
+					await _log.Db($"Failed to fetch/insert metadata for url {url}: {ex.Message}", null, "NEWSSERVICE", false);
+				}
+			}
+		}
+	}
+
+	private async Task<string> InsertMetadata(int storyId, Metadata? metadata)
+	{
+		if (metadata == null) return "No metadata to insert";
+		string sql = @"INSERT INTO story_metadata (story_id, title, description, image_url, metadata_url) VALUES (@storyId, @title, @description, @imageUrl, @metadataUrl);";
+		try
+		{
+			using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+			{
+				await conn.OpenAsync();
+
+				using (var cmd = new MySqlCommand(sql, conn))
+				{
+					cmd.Parameters.AddWithValue("@storyId", storyId);
+					cmd.Parameters.AddWithValue("@title", HttpUtility.HtmlDecode(metadata.Title ?? ""));
+					cmd.Parameters.AddWithValue("@description", HttpUtility.HtmlDecode(metadata.Description ?? ""));
+					cmd.Parameters.AddWithValue("@imageUrl", metadata.ImageUrl ?? "");
+					cmd.Parameters.AddWithValue("@metadataUrl", metadata.Url ?? "");
+
+					await cmd.ExecuteNonQueryAsync();
+				}
+			}
+		}
+		catch
+		{
+			return "Could not insert metadata";
+		}
+		return "Inserted metadata";
 	}
 
 	private async Task<bool> HasPostedMemeTodayAsync(MySqlConnection conn, MySqlTransaction transaction)
