@@ -8,18 +8,16 @@ import { FrameIndexPattern } from "../../../helpers/frame-index-pattern";
 import { Animations } from "../../../helpers/animations";
 import { WARP_BASE_ANIMATION } from "../../Effects/Warp/warp-base-animations";
 
-// Ordered chain for portal navigation (previous town is earlier in array)
-// Use canonical level keys recognized by BonesComponent.getLevelFromLevelName
 const TOWN_CHAIN = [
-  // If Eclipsera Keep or similar custom maps exist, add their canonical keys here.
-  "ROADTOCITADELOFVESPER",
-  "CITADELOFVESPER",
-  "ROADTORIFTEDBASTION",
-  "RIFTEDBASTION",
-  "ROADTOFORTPENUMBRA",
-  "FORTPENUMBRA",
-  "ROADTOGATESOFHELL",
-  "GATESOFHELL",
+    "HEROROOM",
+    "ROADTOCITADELOFVESPER",
+    "CITADELOFVESPER",
+    "ROADTORIFTEDBASTION",
+    "RIFTEDBASTION",
+    "ROADTOFORTPENUMBRA",
+    "FORTPENUMBRA",
+    "ROADTOGATESOFHELL",
+    "GATESOFHELL",
 ];
 
 export class TownPortal extends GameObject {
