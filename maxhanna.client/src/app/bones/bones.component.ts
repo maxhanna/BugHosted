@@ -1317,6 +1317,9 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
     if (!this.metaHero || !this.metaHero.id) return;
     const userId = this.parentRef?.user?.id;
     const map = this.metaHero.map || 'Town';
+    if (!map.toLowerCase().includes("road")) {
+      return;
+    }
     const x = Math.floor((this.metaHero.position?.x ?? 0));
     const y = Math.floor((this.metaHero.position?.y ?? 0));
     this.closeStartMenu();
