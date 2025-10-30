@@ -223,7 +223,6 @@ ORDER BY p.created DESC;";
 							{ "map", otherMap },
 							{ "creatorHeroId", otherCreator.ToString() }
 						};
-						_ = _log.Db($"FetchTownPortals: paired portal for id={id} -> otherId={otherId}, otherMap={otherMap}", hero.Id, "BONES", true);
 						portals.Add(new { id = id, creatorHeroId = creatorId, map = map, coordsX = cx, coordsY = cy, radius = radius, data = pairedData, created = created });
 					}
 					else
