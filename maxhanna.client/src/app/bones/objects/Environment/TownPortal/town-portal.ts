@@ -36,11 +36,13 @@ export class TownPortal extends GameObject {
     this.preventDestroyTimeout = params.preventDestroyTimeout ?? false;
 
     const body = new Sprite({
-      objectId: Math.floor(Math.random() * (9999)) * -1,
-      resource: resources.images['portal'] ?? resources.images['lootbag'],
-      name: this.name ?? "Portal",
-      frameSize: new Vector2(24, 24),
-      drawLayer: FLOOR,
+        objectId: Math.floor(Math.random() * (9999)) * -1,
+        resource: resources.images['warpbase'],
+        name: this.name ?? "Portal", 
+        frameSize: new Vector2(32, 32),
+        vFrames: 1,
+        hFrames: 8,
+        drawLayer: FLOOR,
     });
     this.addChild(body);
     const shadow = new Sprite({

@@ -265,7 +265,7 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
 
     // Play attenuated impact SFX when other heroes attack
     events.on("OTHER_HERO_ATTACK", this, (payload: any) => {
-      console.log("got other hero attack event", payload); 
+      console.log("got other hero attack event", payload);
       const sourceHeroId = payload?.sourceHeroId;
       const targetHeroId = payload?.attack?.targetHeroId;
       if (!sourceHeroId) return;
@@ -289,8 +289,8 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
         let vol = 1 - (dist / maxAudible);
         vol = Math.max(0.05, Math.min(1, vol)); // clamp to [0.05, 1]
         resources.playSound('punchOrImpact', { volume: vol, allowOverlap: true });
-      } 
-       
+      }
+
     });
 
     // When the player interacts with an NPC that emits HEAL_USER (e.g., Bones NPC),
@@ -359,13 +359,14 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
         // reconcile any optimistic invites after initial party load
         this.reconcilePendingInvites();
         await this.reinitializeHero(rz);
-      } else { 
+      } else {
         const heroNames = await this.bonesService.getHeroNames(this.parentRef.user.id);
         this.mainScene.setLevel(
           new CharacterCreate(
-            { defaultName: this.cachedDefaultName, 
+            {
+              defaultName: this.cachedDefaultName,
               defaultColor: this.cachedDefaultColor,
-              heroNames: heroNames  
+              heroNames: heroNames
             }
           )
         );
@@ -423,11 +424,11 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
       }
 
       if (res) {
-        this.updateHeroesFromFetchedData(res); 
+        this.updateHeroesFromFetchedData(res);
         this.reconcilePendingInvites();
-        this.updateEnemyEncounters(res); 
-  this.reconcileDroppedItemsFromFetch(res);  
-  try { reconcileTownPortalsFromFetch(this, res); } catch (ex) { console.warn('reconcileTownPortalsFromFetch failed', ex); }
+        this.updateEnemyEncounters(res);
+        this.reconcileDroppedItemsFromFetch(res);
+        try { reconcileTownPortalsFromFetch(this, res); } catch (ex) { console.warn('reconcileTownPortalsFromFetch failed', ex); }
 
         if (this.chat) {
           this.getLatestMessages();
@@ -469,7 +470,7 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
     this.serverDown = false;
     return wasServerDown;
   }
- 
+
   private updateEnemyEncounters(res: any) {
     const enemies = res.enemyBots as MetaBot[];
     if (enemies) {
@@ -850,15 +851,15 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
       return new CitadelOfVesper({ itemsFound: itemsFoundNames });
     } else if (upperKey == "ROADTOCITADELOFVESPER") {
       return new RoadToCitadelOfVesper({ itemsFound: itemsFoundNames });
-    }  else if (upperKey == "FORTPENUMBRA") {
+    } else if (upperKey == "FORTPENUMBRA") {
       return new FortPenumbra({ itemsFound: itemsFoundNames });
-    }  else if (upperKey == "ROADTOFORTPENUMBRA") {
+    } else if (upperKey == "ROADTOFORTPENUMBRA") {
       return new RoadToFortPenumbra({ itemsFound: itemsFoundNames });
     } else if (upperKey == "GATESOFHELL") {
       return new GatesOfHell({ itemsFound: itemsFoundNames });
     } else if (upperKey == "ROADTOGATESOFHELL") {
       return new RoadToGatesOfHell({ itemsFound: itemsFoundNames });
-    }  else if (upperKey == "RIFTEDBASTION") {
+    } else if (upperKey == "RIFTEDBASTION") {
       return new RiftedBastion({ itemsFound: itemsFoundNames });
     } else if (upperKey == "ROADTORIFTEDBASTION") {
       return new RoadToRiftedBastion({ itemsFound: itemsFoundNames });
@@ -1295,34 +1296,31 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
       (this.hero as any).str = this.editableStats.str;
       (this.hero as any).dex = this.editableStats.dex;
       (this.hero as any).int = this.editableStats.int;
-    } 
+    }
 
     this.statsUpdatedVisible = true;
     // Clear any existing timer
-     if (this.statsUpdatedTimer) {
+    if (this.statsUpdatedTimer) {
       clearTimeout(this.statsUpdatedTimer);
-     }
+    }
     this.statsUpdatedTimer = setTimeout(() => {
-        this.statsUpdatedVisible = false;  
-      this.closeStartMenu();  
+      this.statsUpdatedVisible = false;
+      this.closeStartMenu();
     }, 3000);
-    
+
     // Persist to cachedStats so future fetches that omit stats keep these values
     this.cachedStats = { str: this.editableStats.str, dex: this.editableStats.dex, int: this.editableStats.int };
-       
+
   }
 
   async openTownPortal() {
-    try {
-      if (!this.metaHero || !this.metaHero.id) return;
-      const userId = this.parentRef?.user?.id;
-      const map = this.metaHero.map || 'Town';
-      const x = Math.floor((this.metaHero.position?.x ?? 0));
-      const y = Math.floor((this.metaHero.position?.y ?? 0));
-      this.closeStartMenu();
-  await this.bonesService.createTownPortal({ heroId: this.metaHero.id, map: map, x: x, y: y, userId: userId });
-      alert('Town portal created');
-    } catch (ex) { console.error('openTownPortal failed', ex); alert('Failed to open town portal'); }
+    if (!this.metaHero || !this.metaHero.id) return;
+    const userId = this.parentRef?.user?.id;
+    const map = this.metaHero.map || 'Town';
+    const x = Math.floor((this.metaHero.position?.x ?? 0));
+    const y = Math.floor((this.metaHero.position?.y ?? 0));
+    this.closeStartMenu();
+    await this.bonesService.createTownPortal({ heroId: this.metaHero.id, map: map, x: x, y: y, userId: userId });
   }
 
   openChangeCharacter() {
@@ -1359,7 +1357,7 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
   async createNewCharacterSelection() {
     if (!this.parentRef?.user?.id) return;
     await this.bonesService.createHeroSelection(this.parentRef.user.id);
-    window.location.href = '/Bones';  
+    window.location.href = '/Bones';
   }
   async promoteSelection(id: number) {
     try {
@@ -1579,9 +1577,7 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
         dex: (sdex !== undefined ? Number(sdex) : (this.cachedStats?.dex ?? 1)),
         int: (sint !== undefined ? Number(sint) : (this.cachedStats?.int ?? 1)),
       };
-    }
-
-
+    } 
   }
 
   private reconcileDroppedItemsFromFetch(res: any) {
