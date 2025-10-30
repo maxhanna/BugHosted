@@ -197,6 +197,43 @@ namespace maxhanna.Server.Controllers
 							catch { /* ignore malformed data */ }
 						}
 					}
+					// If the hero is on a 'RoadTo' map, try to find the paired town-side portal
+					// whose data.originMap == this portal.map and originX/Y == this portal coords.
+					if (!string.IsNullOrEmpty(hero.Map) && hero.Map.IndexOf("RoadTo", StringComparison.OrdinalIgnoreCase) >= 0)
+					{
+						try
+						{
+							string pairSql = @"SELECT id, creator_hero_id, map, coordsX, coordsY, data FROM maxhanna.bones_town_portal WHERE JSON_UNQUOTE(JSON_EXTRACT(data,'$.originMap')) = @RoadMap AND JSON_UNQUOTE(JSON_EXTRACT(data,'$.originX')) = @OriginX AND JSON_UNQUOTE(JSON_EXTRACT(data,'$.originY')) = @OriginY LIMIT 1;";
+							using var pairCmd = new MySqlCommand(pairSql, connection, transaction);
+							pairCmd.Parameters.AddWithValue("@RoadMap", map ?? string.Empty);
+							pairCmd.Parameters.AddWithValue("@OriginX", cx.ToString());
+							pairCmd.Parameters.AddWithValue("@OriginY", cy.ToString());
+							using var pairRdr = await pairCmd.ExecuteReaderAsync();
+							if (await pairRdr.ReadAsync())
+							{
+								int townId = pairRdr.GetInt32(0);
+								int townCreator = pairRdr.IsDBNull(1) ? 0 : pairRdr.GetInt32(1);
+								string townMap = pairRdr.IsDBNull(2) ? string.Empty : pairRdr.GetString(2);
+								int townCx = pairRdr.IsDBNull(3) ? 0 : pairRdr.GetInt32(3);
+								int townCy = pairRdr.IsDBNull(4) ? 0 : pairRdr.GetInt32(4);
+								string townDataJson = pairRdr.IsDBNull(5) ? "{}" : pairRdr.GetString(5);
+								pairRdr.Close();
+								// Replace data returned with the town portal's location so clients can teleport into the town portal
+								var townDataOut = new Dictionary<string, string>
+								{
+									{ "x", townCx.ToString() },
+									{ "y", townCy.ToString() },
+									{ "map", townMap },
+									{ "creatorHeroId", townCreator.ToString() }
+								};
+								portals.Add(new { id = id, creatorHeroId = creatorId, map = map, coordsX = cx, coordsY = cy, radius = radius, data = townDataOut, created = created });
+								continue; // next portal
+							}
+							pairRdr.Close();
+						}
+						catch { /* non-fatal: fall back to returning original portal data */ }
+					}
+
 					portals.Add(new { id = id, creatorHeroId = creatorId, map = map, coordsX = cx, coordsY = cy, radius = radius, data = dataDict, created = created });
 				}
 				rdr.Close();
