@@ -79,12 +79,10 @@ export class TownPortal extends GameObject {
         let originMapRaw: any = data ? (data.originMap ?? data.map) : undefined;
         if (Array.isArray(originMapRaw)) originMapRaw = originMapRaw.length > 0 ? originMapRaw[0] : undefined;
         let originMap = originMapRaw !== undefined && originMapRaw !== null ? String(originMapRaw).trim() : undefined;
-        let usedTownAlias = false;
-        if (!originMap) {
+         if (!originMap) {
           // No origin map provided by server; emit the 'town' alias so the component resolves the previous town
           console.debug('[TownPortal] no originMap found in server data (after coercion); falling back to alias "town"', originMapRaw);
-          originMap = 'HeroHome';
-          usedTownAlias = true;
+          originMap = 'HeroHome'; 
         }
 
         // Compute origin coordinates from multiple possible keys and coerce arrays -> primitives
