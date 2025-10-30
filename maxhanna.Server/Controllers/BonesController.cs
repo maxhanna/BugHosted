@@ -1783,7 +1783,7 @@ namespace maxhanna.Server.Controllers
 						string insertTownSql = @"INSERT INTO maxhanna.bones_town_portal (creator_hero_id, map, coordsX, coordsY, radius, data, created) VALUES (@CreatorHeroId, @Map, @X, @Y, @Radius, @Data, UTC_TIMESTAMP()); SELECT LAST_INSERT_ID();";
 						using var insertTownCmd = new MySqlCommand(insertTownSql, connection, transaction);
 						insertTownCmd.Parameters.AddWithValue("@CreatorHeroId", heroId);
-						insertTownCmd.Parameters.AddWithValue("@Map", "Town");
+						insertTownCmd.Parameters.AddWithValue("@Map", map?.Replace("RoadTo", "") ?? "HeroRoom");
 						insertTownCmd.Parameters.AddWithValue("@X", tx);
 						insertTownCmd.Parameters.AddWithValue("@Y", ty);
 						insertTownCmd.Parameters.AddWithValue("@Radius", DBNull.Value);
