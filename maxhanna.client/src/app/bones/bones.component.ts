@@ -355,6 +355,37 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
         const heroPos = new Vector2(Number(posObj.x ?? 0), Number(posObj.y ?? 0));
         try { (lvl as any).defaultHeroPosition = heroPos; } catch { }
         try { (lvl as any).portalId = payload.portalId ?? null; } catch { }
+
+        // If the portal's creator is the current user and the user is currently in a non-'RoadTo' map,
+        // request deletion of all portals owned by this user. This ensures creators remove their portals when
+        // they enter a town portal from a town (not from a road).
+        try { 
+          const portalId = payload.portalId ?? null;
+          const townMapRef = (this as any)._townPortalsMap as Map<number, any> | undefined;
+          if (portalId && townMapRef && this.metaHero && this.metaHero.id) {
+            const portalObj = townMapRef.get(Number(portalId));
+            const creatorId = portalObj ? ((portalObj as any).serverCreatorHeroId ?? (portalObj as any).serverData?.creatorHeroId ?? (portalObj as any).serverData?.creator ?? undefined) : undefined;
+            const currentMapName = String(this.mainScene?.level?.name ?? this.metaHero?.map ?? '').toLowerCase();
+            const isCreator = (creatorId !== undefined && creatorId !== null) ? (Number(creatorId) === Number(this.metaHero.id)) : false;
+            const isNonRoad = !currentMapName.includes('roadto');
+            if (isCreator && isNonRoad) {
+               
+                // iterate portal map and delete all portals belonging to this hero
+                for (const [key, inst] of Array.from((townMapRef as Map<number, any>).entries())) {
+                   
+                    const idNum = Number(key);
+                    const owner = (inst as any).serverCreatorHeroId ?? (inst as any).serverData?.creatorHeroId ?? (inst as any).serverData?.creator ?? undefined;
+                    if (owner !== undefined && Number(owner) === Number(this.metaHero.id)) {
+                      // fire-and-forget delete
+                      this.bonesService.deleteTownPortal(idNum).catch(() => { });
+                    }
+                  
+                }
+             
+            }
+          }
+        } catch (exDel) { console.warn('ENTER_TOWN_PORTAL deletion check failed', exDel); }
+
         events.emit("CHANGE_LEVEL", lvl);
       } catch (ex) {
         console.warn('ENTER_TOWN_PORTAL handler failed', ex);
