@@ -64,11 +64,9 @@ export class TownPortal extends GameObject {
     }
     events.on("HERO_REQUESTS_ACTION", this, (params: { hero: any, objectAtPosition: any }) => {
       try { 
-        console.log(this.parent.name);
-        console.log(`requesting portal? ${params.objectAtPosition.id} == ${this.id}`, params.objectAtPosition.id === this.id, params);
-        if (params.objectAtPosition.id === this.id) {
+       if (params.objectAtPosition.id === this.id) {
           // Determine previous town in chain based on hero's current map
-          const currentMap = (params.hero && (params.hero.map ?? params.hero.Map)) ?? undefined;
+          const currentMap = this.parent.name ?? undefined;
           if (!currentMap) return;
           const idx = TOWN_CHAIN.findIndex(s => s && s.toLowerCase() === (currentMap as string).toLowerCase());
           let target: string | undefined = undefined;
