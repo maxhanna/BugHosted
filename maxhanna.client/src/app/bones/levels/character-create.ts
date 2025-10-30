@@ -171,11 +171,7 @@ export class CharacterCreate extends Level {
       this.characterName = nameToUse;
       if (!this.verifyCharacterName(this.characterName) || storyFlags.contains(CHARACTER_CREATE_STORY_TEXT_6)) { return; } 
       this.returnChatInputToNormal();
-      storyFlags.add(CHARACTER_CREATE_STORY_TEXT_6);
-      const content = this.bones.getContent();
-      if (content) {
-        this.displayContent(content);
-      }
+      
       console.log("emitting char name");
       if (!this.characterNameEmitted) {
         events.emit("CHARACTER_NAME_CREATED", this.characterName);
