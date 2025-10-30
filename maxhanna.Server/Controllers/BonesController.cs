@@ -1783,7 +1783,41 @@ namespace maxhanna.Server.Controllers
 						string insertTownSql = @"INSERT INTO maxhanna.bones_town_portal (creator_hero_id, map, coordsX, coordsY, radius, data, created) VALUES (@CreatorHeroId, @Map, @X, @Y, @Radius, @Data, UTC_TIMESTAMP()); SELECT LAST_INSERT_ID();";
 						using var insertTownCmd = new MySqlCommand(insertTownSql, connection, transaction);
 						insertTownCmd.Parameters.AddWithValue("@CreatorHeroId", heroId);
-						insertTownCmd.Parameters.AddWithValue("@Map", map?.Replace("RoadTo", "") ?? "HeroRoom");
+						// Determine paired town map as the previous town relative to the hero's current map.
+						// Use an ordered list and walk backwards to find the preceding town.
+						string[] orderedMaps = new[] {
+							"HeroRoom",
+							"RoadToCitadelOfVesper",
+							"CitadelOfVesper",
+							"RoadToRiftedBastion",
+							"RiftedBastion",
+							"RoadToFortPenumbra",
+							"FortPenumbra",
+							"RoadToGatesOfHell",
+							"GatesOfHell"
+						};
+						var townSet = new HashSet<string>(new[] { "HeroRoom", "CitadelOfVesper", "RiftedBastion", "FortPenumbra", "GatesOfHell" });
+						string currentMapRaw = map ?? string.Empty;
+						string NormalizeMap(string s) {
+							if (string.IsNullOrEmpty(s)) return string.Empty;
+							var sb = new System.Text.StringBuilder();
+							foreach (var ch in s.ToUpperInvariant()) { if (char.IsLetterOrDigit(ch)) sb.Append(ch); }
+							return sb.ToString();
+						}
+						string normCurrent = NormalizeMap(currentMapRaw);
+						int idx = -1;
+						for (int i = 0; i < orderedMaps.Length; i++) {
+							if (NormalizeMap(orderedMaps[i]) == normCurrent) { idx = i; break; }
+						}
+						string targetMap = "HeroRoom";
+						if (idx == -1) {
+							targetMap = "HeroRoom";
+						} else {
+							for (int i = idx - 1; i >= 0; i--) {
+								if (townSet.Contains(orderedMaps[i])) { targetMap = orderedMaps[i]; break; }
+							}
+						}
+						insertTownCmd.Parameters.AddWithValue("@Map", targetMap ?? "HeroRoom");
 						insertTownCmd.Parameters.AddWithValue("@X", tx);
 						insertTownCmd.Parameters.AddWithValue("@Y", ty);
 						insertTownCmd.Parameters.AddWithValue("@Radius", DBNull.Value);
