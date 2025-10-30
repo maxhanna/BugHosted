@@ -313,11 +313,46 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
     // New: handle ENTER_TOWN_PORTAL events emitted by TownPortal objects. Build the concrete Level here
     // (so level construction logic remains in the component) and emit a canonical CHANGE_LEVEL with
     // the Level instance that includes defaultHeroPosition and portalId metadata.
-    events.on("ENTER_TOWN_PORTAL", this, (payload: { map: string, x: number, y: number, portalId?: number }) => {
+    events.on("ENTER_TOWN_PORTAL", this, (payload: any) => {
       try {
         if (!payload || !payload.map) return;
-        const lvl = this.getLevelFromLevelName(payload.map ?? "HEROROOM");
-        const heroPos = new Vector2(Number(payload.x ?? 0), Number(payload.y ?? 0));
+
+        // Normalize map name and accept 'town' alias which means "the town before the current user's location"
+        let requestedMap = String(payload.map ?? '').trim();
+        if (!requestedMap) return;
+        if (requestedMap.toUpperCase() === 'TOWN') {
+          // Ordered sequence of maps (must match getLevelFromLevelName keys when uppercased)
+          const ordered = [
+            'HEROROOM',
+            'ROADTOCITADELOFVESPER',
+            'CITADELOFVESPER',
+            'ROADTORIFTEDBASTION',
+            'RIFTEDBASTION',
+            'ROADTOFORTPENUMBRA',
+            'FORTPENUMBRA',
+            'ROADTOGATESOFHELL',
+            'GATESOFHELL'
+          ];
+          const townSet = new Set(['HEROROOM','CITADELOFVESPER','RIFTEDBASTION','FORTPENUMBRA','GATESOFHELL']);
+          const currentMapKey = String(this.mainScene?.level?.name ?? this.metaHero?.map ?? '').toUpperCase();
+          let idx = ordered.indexOf(currentMapKey);
+          let target = 'HEROROOM';
+          if (idx === -1) {
+            // Unknown current location: default to HERO_ROOM
+            target = 'HEROROOM';
+          } else {
+            // Walk back until we find a town entry
+            for (let i = idx - 1; i >= 0; i--) {
+              if (townSet.has(ordered[i])) { target = ordered[i]; break; }
+            }
+          }
+          requestedMap = target;
+        }
+
+        const lvl = this.getLevelFromLevelName(requestedMap ?? "HEROROOM");
+        // Accept either payload.position (object) or legacy x/y fields
+        const posObj = payload.position ?? { x: payload.x ?? 0, y: payload.y ?? 0 };
+        const heroPos = new Vector2(Number(posObj.x ?? 0), Number(posObj.y ?? 0));
         try { (lvl as any).defaultHeroPosition = heroPos; } catch { }
         try { (lvl as any).portalId = payload.portalId ?? null; } catch { }
         events.emit("CHANGE_LEVEL", lvl);
