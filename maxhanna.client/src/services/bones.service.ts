@@ -8,7 +8,6 @@ import { InventoryItem } from '../app/bones/objects/InventoryItem/inventory-item
 import { MetaBot } from './datacontracts/bones/meta-bot';
 import { HeroInventoryItem } from './datacontracts/bones/hero-inventory-item';
 import { CreateTownPortalRequest } from './datacontracts/bones/create-town-portal-request';
-import { DeleteTownPortalRequest } from './datacontracts/bones/delete-town-portal-request';
 
 @Injectable({
   providedIn: 'root'
