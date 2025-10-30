@@ -7,19 +7,7 @@ import { events } from "../../../helpers/events";
 import { FrameIndexPattern } from "../../../helpers/frame-index-pattern";
 import { Animations } from "../../../helpers/animations";
 import { WARP_BASE_ANIMATION } from "../../Effects/Warp/warp-base-animations";
-// TownPortal no longer constructs Level instances itself; it emits ENTER_TOWN_PORTAL
-
-const TOWN_CHAIN = [
-    "HEROROOM",
-    "ROADTOCITADELOFVESPER",
-    "CITADELOFVESPER",
-    "ROADTORIFTEDBASTION",
-    "RIFTEDBASTION",
-    "ROADTOFORTPENUMBRA",
-    "FORTPENUMBRA",
-    "ROADTOGATESOFHELL",
-    "GATESOFHELL",
-];
+  
 
 export class TownPortal extends GameObject {
   id = Math.floor(Math.random() * 55000) + 10000;
@@ -62,43 +50,54 @@ export class TownPortal extends GameObject {
       // portals persist by default; do not auto destroy
     }
     events.on("HERO_REQUESTS_ACTION", this, (params: { hero: any, objectAtPosition: any }) => {
-      try { 
-         if (params.objectAtPosition.id === this.id) {
-           const currentMap = this.parent.name ?? undefined;
-           if (!currentMap) return;
-           // If this portal object has server-provided data that includes an originMap/originX/originY,
-           // we are likely in Town and should emit a CHANGE_LEVEL payload object that contains coordinates
-           // so the destination level can position the hero where they entered from.
-           try {
-             const data: any = (this as any).data ?? (this as any).serverData ?? undefined;
-             if (data && data.originMap) {
-               // Create a real Level instance for the origin map so listeners that expect a Level
-               // can call getDefaultHeroPosition(). Attach portalId and defaultHeroPosition so
-               // the network handler can clean up the town portal when appropriate.
-               try {
-                 const originMap = data.originMap as string;
-                 const originX = Number(data.originX ?? data.coordsX ?? 0);
-                 const originY = Number(data.originY ?? data.coordsY ?? 0);
-                 // Emit a normalized event so the component can construct the proper Level instance
-                 const payload = {
-                   map: originMap,
-                   x: originX,
-                   y: originY,
-                   portalId: (this as any).serverPortalId ?? null,
-                 };
-                 events.emit("ENTER_TOWN_PORTAL", payload);
-                 return;
-               } catch (e) { /* ignore and fallback to chain behavior */ }
-             }
-           } catch (e) { /* ignore and fallback to chain behavior */ }
-           // Fallback chain behavior: find previous map in chain and emit its name
-           const idx = TOWN_CHAIN.findIndex(s => s && s.toLowerCase() === (currentMap as string).toLowerCase());
-           let target: string | undefined = undefined;
-           if (idx > 0) target = TOWN_CHAIN[idx - 1];
-           if (!target) return;
-           events.emit("CHANGE_LEVEL", target);
+      try {
+        console.debug('[TownPortal] HERO_REQUESTS_ACTION received', params);
+        if (!params || !params.objectAtPosition) {
+          console.debug('[TownPortal] HERO_REQUESTS_ACTION missing params or objectAtPosition');
+          return;
         }
-      } catch (ex) { console.warn('TownPortal interaction failed', ex); }
+        // objectAtPosition may be a wrapper or a raw object; guard access
+        const targetId = params.objectAtPosition.id ?? params.objectAtPosition.objectId ?? params.objectAtPosition?.id;
+        console.debug('[TownPortal] resolved targetId', targetId, 'this.id', this.id);
+        if (targetId === undefined || targetId === null) return;
+        if (Number(targetId) !== Number(this.id)) {
+          console.debug('[TownPortal] targetId does not match portal id, ignoring');
+          return;
+        }
+
+        // Ensure we have a parent map name (we're in a level)
+        const currentMap = this.parent?.name ?? undefined;
+        if (!currentMap) {
+          console.debug('[TownPortal] no parent map, ignoring');
+          return;
+        }
+
+        // serverData is attached during reconciliation; fall back to 'data' if present
+        const data: any = (this as any).serverData ?? (this as any).data ?? undefined;
+        console.debug('[TownPortal] server/data', data);
+        // Support either originMap (preferred) or map (older format)
+        const originMap = data ? (data.originMap ?? data.map) : undefined;
+        if (!originMap) {
+          console.debug('[TownPortal] no originMap found in server data');
+          return;
+        }
+
+        // Compute origin coordinates from multiple possible keys
+        const originX = Number(data.originX ?? data.coordsX ?? data.x ?? 0);
+        const originY = Number(data.originY ?? data.coordsY ?? data.y ?? 0);
+        console.debug('[TownPortal] origin coords', originX, originY);
+
+        // Emit a normalized event so the component can construct the proper Level instance
+        const payload = {
+          map: originMap,
+          position: { x: originX, y: originY },
+          portalId: ((this as any).serverPortalId !== undefined && (this as any).serverPortalId !== null) ? Number((this as any).serverPortalId) : undefined,
+        };
+        console.info('[TownPortal] emitting ENTER_TOWN_PORTAL', payload);
+        events.emit("ENTER_TOWN_PORTAL", payload);
+      } catch (ex) {
+        console.warn('HERO_REQUESTS_ACTION handler failed for TownPortal', ex);
+      }
     });
   }
 }

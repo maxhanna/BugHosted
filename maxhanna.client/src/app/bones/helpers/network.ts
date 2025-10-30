@@ -151,66 +151,74 @@ function sendBatchToBackend(bots: Bot[], object: any) {
 }
 export function subscribeToMainGameEvents(object: any) {
   // Accept Level instance, level name string, or a payload { map, position, portalId }
+  const parseLevelOrPayload = (levelOrPayload: any): { levelObj: Level | null, providedPosition?: any, portalId?: number } => {
+    if (!levelOrPayload) return { levelObj: null };
+    try {
+      if (levelOrPayload instanceof Level) {
+        const providedPosition = (levelOrPayload as any).defaultHeroPosition ?? (typeof (levelOrPayload as any)?.getDefaultHeroPosition === 'function' ? (levelOrPayload as any).getDefaultHeroPosition() : undefined);
+        const portalId = (levelOrPayload as any).portalId ? Number((levelOrPayload as any).portalId) : undefined;
+        return { levelObj: levelOrPayload as Level, providedPosition, portalId };
+      }
+      if (typeof levelOrPayload === 'string') {
+        return { levelObj: object.getLevelFromLevelName(levelOrPayload as string) };
+      }
+      if (typeof levelOrPayload === 'object' && levelOrPayload.map) {
+        const lvl = object.getLevelFromLevelName(levelOrPayload.map as string);
+        const providedPosition = levelOrPayload.position ?? undefined;
+        const portalId = levelOrPayload.portalId ? Number(levelOrPayload.portalId) : undefined;
+        return { levelObj: lvl, providedPosition, portalId };
+      }
+    } catch (ex) {
+      console.warn('parseLevelOrPayload failed', ex, levelOrPayload);
+    }
+    return { levelObj: null };
+  };
+
+  const shouldRequestPortalDeletion = (portalIdToDelete: number | undefined): boolean => {
+    if (!portalIdToDelete || !object.bonesService || typeof object.bonesService.deleteTownPortal !== 'function') return false;
+    try {
+      const townMap = (object as any)._townPortalsMap as Map<number, any> | undefined;
+      const portalObj = townMap ? townMap.get(portalIdToDelete) : undefined;
+      if (!portalObj) return false;
+      const serverData = portalObj ? (portalObj as any).serverData : undefined;
+      const hasOrigin = !!(serverData && (serverData.originMap || serverData.map || serverData.originX !== undefined || serverData.coordsX !== undefined || serverData.originY !== undefined || serverData.coordsY !== undefined));
+      const creatorId = portalObj ? ((portalObj as any).serverCreatorHeroId ?? (serverData ? (serverData.creatorHeroId ?? serverData.creator_id ?? serverData.creator ?? serverData.createdBy) : undefined)) : undefined;
+      const isCreator = (creatorId !== undefined && creatorId !== null) ? (Number(creatorId) === Number(object.metaHero?.id)) : false;
+      return !!(portalObj && hasOrigin && isCreator);
+    } catch (err) {
+      console.warn('Failed evaluating portal deletion conditions', err);
+      return false;
+    }
+  };
+
   events.on("CHANGE_LEVEL", object.mainScene, (levelOrPayload: any) => {
     try {
-      let levelObj: Level | null = null;
-      let providedPosition: any = null;
-      let portalIdToDelete: number | null = null;
-      if (!levelOrPayload) return;
-      if (levelOrPayload instanceof Level) {
-        // If it's an actual Level instance use it directly.
-        levelObj = levelOrPayload as Level;
-        // If the Level instance carries a defaultHeroPosition or a portalId metadata, capture them
-        try {
-          if ((levelOrPayload as any).defaultHeroPosition) providedPosition = (levelOrPayload as any).defaultHeroPosition;
-          else if (typeof (levelOrPayload as any)?.getDefaultHeroPosition === 'function') providedPosition = (levelOrPayload as any).getDefaultHeroPosition();
-        } catch { }
-        try { if ((levelOrPayload as any).portalId) portalIdToDelete = Number((levelOrPayload as any).portalId); } catch { }
-      } else if (typeof levelOrPayload === 'string') {
-        levelObj = object.getLevelFromLevelName(levelOrPayload as string);
-      } else if (typeof levelOrPayload === 'object' && levelOrPayload.map) {
-        levelObj = object.getLevelFromLevelName(levelOrPayload.map as string);
-        if (levelOrPayload.position) providedPosition = levelOrPayload.position;
-        if (levelOrPayload.portalId) portalIdToDelete = Number(levelOrPayload.portalId);
-      }
+      const parsed = parseLevelOrPayload(levelOrPayload);
+      const levelObj = parsed.levelObj;
       if (!levelObj) return;
 
       console.log("changing levels");
       object.otherHeroes = [];
-      if (!object.hero?.id) {
-        object.pollForChanges();
-      }
+      if (!object.hero?.id) object.pollForChanges();
+
       if (object.mainScene && object.mainScene.level) {
         object.metaHero.map = levelObj.name ?? "HERO_ROOM";
-        // Determine hero position safely: prefer providedPosition, then Level.getDefaultHeroPosition(), then defaultHeroPosition, then a grid fallback
-        let posToUse: any = null;
+        // Determine hero position safely
+        let posToUse: any = parsed.providedPosition ?? undefined;
         try {
-          if (providedPosition) posToUse = providedPosition;
-          else if (typeof (levelObj as any)?.getDefaultHeroPosition === 'function') posToUse = (levelObj as any).getDefaultHeroPosition();
-          else if ((levelObj as any).defaultHeroPosition) posToUse = (levelObj as any).defaultHeroPosition;
+          if (!posToUse) {
+            if (typeof (levelObj as any)?.getDefaultHeroPosition === 'function') posToUse = (levelObj as any).getDefaultHeroPosition();
+            else posToUse = (levelObj as any).defaultHeroPosition;
+          }
         } catch { }
         if (!posToUse) posToUse = new Vector2(gridCells(4), gridCells(4));
         object.metaHero.position = new Vector2(Number(posToUse.x), Number(posToUse.y));
-        object.mainScene.level.itemsFound = object.mainScene.inventory.getItemsFound(); 
+        object.mainScene.level.itemsFound = object.mainScene.inventory.getItemsFound();
       }
 
-      // If this level change came from using a town portal and included a portalId, only request deletion
-      // when the portal is present locally, is a town-side portal (has origin/backlink data), and
-      // the current hero is the creator of that portal.
-      if (portalIdToDelete && object.bonesService && typeof object.bonesService.deleteTownPortal === 'function') {
-        try {
-          const townMap = (object as any)._townPortalsMap as Map<number, any> | undefined;
-          const portalObj = townMap ? townMap.get(portalIdToDelete) : undefined;
-          const serverData = portalObj ? (portalObj as any).serverData : undefined;
-          const hasOrigin = !!(serverData && (serverData.originMap || serverData.map || serverData.originX !== undefined || serverData.coordsX !== undefined || serverData.originY !== undefined || serverData.coordsY !== undefined));
-          const creatorId = portalObj ? ((portalObj as any).serverCreatorHeroId ?? (serverData ? (serverData.creatorHeroId ?? serverData.creator_id ?? serverData.creator ?? serverData.createdBy) : undefined)) : undefined;
-          const isCreator = (creatorId !== undefined && creatorId !== null) ? (Number(creatorId) === Number(object.metaHero?.id)) : false;
-          if (portalObj && hasOrigin && isCreator) {
-            try { object.bonesService.deleteTownPortal(portalIdToDelete).catch(() => { }); } catch { }
-          }
-        } catch (err) {
-          console.warn('Failed evaluating portal deletion conditions', err);
-        }
+      // Conditionally request portal deletion
+      if (shouldRequestPortalDeletion(parsed.portalId)) {
+        try { object.bonesService.deleteTownPortal(parsed.portalId).catch(() => { }); } catch { }
       }
     } catch (ex) {
       console.error('CHANGE_LEVEL handler failed', ex);
@@ -879,7 +887,13 @@ export function reconcileTownPortalsFromFetch(object: any, res: any) {
   if (!res) return;
   const map = res.map ?? object.metaHero?.map;
   if ((object as any)._lastPortalsMap !== undefined && (object as any)._lastPortalsMap !== map) {
-    try { for (const inst of Array.from(((object as any)._townPortalsMap ?? new Map()).values())) { try { if (inst && typeof (inst as any).destroy === 'function') (inst as any).destroy(); } catch { } } } finally { try { if ((object as any)._townPortalsMap) (object as any)._townPortalsMap.clear(); } catch { } }
+    try {
+      for (const inst of Array.from(((object as any)._townPortalsMap ?? new Map()).values())) {
+        try { if (inst && typeof (inst as any).destroy === 'function') (inst as any).destroy(); } catch { }
+      }
+    } finally {
+      try { if ((object as any)._townPortalsMap) (object as any)._townPortalsMap.clear(); } catch { }
+    }
   }
   try { (object as any)._lastPortalsMap = map; } catch { }
 
@@ -887,36 +901,44 @@ export function reconcileTownPortalsFromFetch(object: any, res: any) {
   if (!serverPortals || serverPortals.length === 0) {
     try { console.debug('reconcileTownPortalsFromFetch: serverPortals empty', Object.keys(res || {})); } catch { }
   }
-  const seenIds = new Set<number>();
-  for (const it of serverPortals) {
+
+  const createPortalFromServer = (it: any): any | undefined => {
     try {
       const id = Number(it.id ?? it.portalId ?? it.id);
-      if (isNaN(id)) continue;
-      seenIds.add(id);
-      if (!(object as any)._townPortalsMap) (object as any)._townPortalsMap = new Map<number, any>();
-      if ((object as any)._townPortalsMap.has(id)) continue;
+      if (isNaN(id)) return undefined;
       const x = (it.coordsX !== undefined && it.coordsX !== null) ? Number(it.coordsX) : (it.position && it.position.x ? Number(it.position.x) : undefined);
       const y = (it.coordsY !== undefined && it.coordsY !== null) ? Number(it.coordsY) : (it.position && it.position.y ? Number(it.position.y) : undefined);
-      if (x === undefined || y === undefined || isNaN(x) || isNaN(y)) continue;
-  // Create a TownPortal world object so it can handle interaction (teleport) behavior
-  const portalMarker = new TownPortal({ position: new Vector2(x, y), label: 'Town Portal', preventDestroyTimeout: true });
-  try { (portalMarker as any).serverPortalId = id; } catch { }
-  // Parse and attach server data and creator id (if present)
-  try {
-    let dataObj: any = undefined;
-    if (it.data && typeof it.data === 'object') dataObj = it.data;
-    else if (it.data && typeof it.data === 'string') {
-      try { dataObj = JSON.parse(it.data); } catch { dataObj = undefined; }
+      if (x === undefined || y === undefined || isNaN(x) || isNaN(y)) return undefined;
+      const portalMarker = new TownPortal({ position: new Vector2(x, y), label: 'Town Portal', preventDestroyTimeout: true });
+      try { (portalMarker as any).serverPortalId = id; } catch { }
+      // Parse server data
+      let dataObj: any = undefined;
+      if (it.data && typeof it.data === 'object') dataObj = it.data;
+      else if (it.data && typeof it.data === 'string') {
+        try { dataObj = JSON.parse(it.data); } catch { dataObj = undefined; }
+      }
+      if (!dataObj && it.data && (it.coordsX !== undefined || it.coordsY !== undefined || it.map !== undefined)) {
+        dataObj = { coordsX: it.coordsX, coordsY: it.coordsY, map: it.map };
+      }
+      try { (portalMarker as any).serverData = dataObj; } catch { }
+      try { (portalMarker as any).serverCreatorHeroId = Number(it.creatorHeroId ?? it.creator_hero_id ?? it.heroId ?? it.creator ?? it.creatorId ?? it.ownerId ?? it.createdBy ?? it.hero_id ?? undefined); } catch { }
+      return { id, portalMarker };
+    } catch (ex) {
+      console.warn('Error processing town portal from server', ex, it);
+      return undefined;
     }
-    if (!dataObj && it.data && (it.coordsX !== undefined || it.coordsY !== undefined || it.map !== undefined)) {
-      dataObj = { coordsX: it.coordsX, coordsY: it.coordsY, map: it.map };
-    }
-    try { (portalMarker as any).serverData = dataObj; } catch { }
-    try { (portalMarker as any).serverCreatorHeroId = Number(it.creatorHeroId ?? it.creator_hero_id ?? it.heroId ?? it.creator ?? it.creatorId ?? it.ownerId ?? it.createdBy ?? it.hero_id ?? undefined); } catch { }
-  } catch { }
-  try { object.mainScene.level.addChild(portalMarker); } catch { }
-  try { (object as any)._townPortalsMap.set(id, portalMarker); } catch { }
-    } catch (ex) { console.warn('Error processing town portal from server', ex, it); }
+  };
+
+  const seenIds = new Set<number>();
+  for (const it of serverPortals) {
+    const created = createPortalFromServer(it);
+    if (!created) continue;
+    const { id, portalMarker } = created;
+    seenIds.add(id);
+    try { if (!(object as any)._townPortalsMap) (object as any)._townPortalsMap = new Map<number, any>(); } catch { }
+    try { if ((object as any)._townPortalsMap.has(id)) continue; } catch { }
+    try { object.mainScene.level.addChild(portalMarker); } catch { }
+    try { (object as any)._townPortalsMap.set(id, portalMarker); } catch { }
   }
 
   const mapRef2 = ((object as any)._townPortalsMap ?? new Map<any, any>()) as Map<any, any>;
