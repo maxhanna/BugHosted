@@ -75,17 +75,21 @@ export class TownPortal extends GameObject {
         // serverData is attached during reconciliation; fall back to 'data' if present
         const data: any = (this as any).serverData ?? (this as any).data ?? undefined;
         console.debug('[TownPortal] server/data', data);
-        // Support either originMap (preferred) or map (older format)
-        const originMap = data ? (data.originMap ?? data.map) : undefined;
+        // Support either originMap (preferred) or map (older format) and coerce arrays -> primitives
+        let originMapRaw: any = data ? (data.originMap ?? data.map) : undefined;
+        if (Array.isArray(originMapRaw)) originMapRaw = originMapRaw.length > 0 ? originMapRaw[0] : undefined;
+        const originMap = originMapRaw !== undefined && originMapRaw !== null ? String(originMapRaw).trim() : undefined;
         if (!originMap) {
-          console.debug('[TownPortal] no originMap found in server data');
+          console.debug('[TownPortal] no originMap found in server data (after coercion)', originMapRaw);
           return;
         }
 
-        // Compute origin coordinates from multiple possible keys
-        const originX = Number(data.originX ?? data.coordsX ?? data.x ?? 0);
-        const originY = Number(data.originY ?? data.coordsY ?? data.y ?? 0);
-        console.debug('[TownPortal] origin coords', originX, originY);
+        // Compute origin coordinates from multiple possible keys and coerce arrays -> primitives
+        const rawX = data ? (data.originX ?? data.coordsX ?? data.x ?? 0) : 0;
+        const rawY = data ? (data.originY ?? data.coordsY ?? data.y ?? 0) : 0;
+        const originX = Number(Array.isArray(rawX) ? (rawX.length > 0 ? rawX[0] : 0) : rawX) || 0;
+        const originY = Number(Array.isArray(rawY) ? (rawY.length > 0 ? rawY[0] : 0) : rawY) || 0;
+        console.debug('[TownPortal] origin coords', originX, originY, 'rawX', rawX, 'rawY', rawY);
 
         // Emit a normalized event so the component can construct the proper Level instance
         const payload = {
