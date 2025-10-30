@@ -176,7 +176,7 @@ export function subscribeToMainGameEvents(object: any) {
       }
       if (object.mainScene && object.mainScene.level) {
         object.metaHero.map = levelObj.name ?? "HERO_ROOM";
-        object.metaHero.position = providedPosition ? new Vector2(Number(providedPosition.x), Number(providedPosition.y)) : levelObj.getDefaultHeroPosition();
+        object.metaHero.position = providedPosition ? new Vector2(Number(providedPosition.x), Number(providedPosition.y)) : new Vector2(0,0);
         object.mainScene.level.itemsFound = object.mainScene.inventory.getItemsFound(); 
       }
 
