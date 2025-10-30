@@ -27,6 +27,8 @@ export class Resources {
       groundFire: `${this.dir}groundFire.png`,
       heroSelectKnight: `${this.dir}HeroSelect-Knight.png`,
       heroSelectMagi: `${this.dir}HeroSelect-Magi.png`,
+      heroSelectKnight2: `${this.dir}HeroSelect-Knight2.png`,
+      heroSelectMagi2: `${this.dir}HeroSelect-Magi2.png`,
       knight: `${this.dir}knightspritesheet.png`,
       pointer: `${this.dir}pointer.png`,
       portraits: `${this.dir}portraits-sheet.png`,

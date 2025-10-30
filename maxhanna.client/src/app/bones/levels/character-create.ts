@@ -20,6 +20,11 @@ export class CharacterCreate extends Level {
   // Optional default name provided from persisted user settings
   defaultName: string | undefined = undefined;
   bones = new Bones({ position: new Vector2(120, 95) });
+  // selectable hero sprites
+  magiSprite?: Sprite;
+  knightSprite?: Sprite;
+  // selection index: 0 = magi, 1 = knight
+  selectionIndex: number = 0;
   profanity = ["4r5e", "5h1t", "5hit", "a55", "anal", "anus", "ar5e", "arrse", "arse", "ass", "ass-fucker", "asses",
     "assfucker", "assfukka", "asshole", "assholes", "asswhole", "a_s_s", "b!tch", "b00bs", "b17ch", "b1tch", "ballbag", "balls",
     "ballsack", "bastard", "beastial", "beastiality", "bellend", "bestial", "bestiality", "bi+ch", "biatch", "bitch", "bitcher",
@@ -90,22 +95,26 @@ export class CharacterCreate extends Level {
     }
     this.addBackgroundLayer(resources.images["charcreatebg"], /*parallax=*/0, new Vector2(0, 0), /*repeat=*/false, /*scale=*/1, /*direction=*/'LEFT');
     
-    const magi = new Sprite({
+    // Create selectable hero sprites and keep references so we can swap skins
+    this.magiSprite = new Sprite({
       objectId: 0,
       resource: resources.images["heroSelectMagi"],
-      name: "Magi", 
-      frameSize: new Vector2(320, 220), 
+      name: "Magi",
+      frameSize: new Vector2(320, 220),
     });
-    this.addChild(magi);
+    this.addChild(this.magiSprite);
 
-    
-    const knight = new Sprite({
+    this.knightSprite = new Sprite({
       objectId: 0,
       resource: resources.images["heroSelectKnight"],
-      name: "Knight", 
-      frameSize: new Vector2(320, 220), 
+      name: "Knight",
+      frameSize: new Vector2(320, 220),
     });
-    this.addChild(knight);
+    this.addChild(this.knightSprite);
+
+    // selection: 0 = magi, 1 = knight
+    this.selectionIndex = 0;
+    this.applySelectionSkins();
 
     this.bones.textContent = [
       {
@@ -229,15 +238,55 @@ export class CharacterCreate extends Level {
       if (input.getActionJustPressed('ArrowDown') || input.heldDirections.includes('DOWN')) {
         console.log('CharacterCreate: ArrowDown pressed/held');
       }
-      if (input.getActionJustPressed('ArrowLeft') || input.heldDirections.includes('LEFT')) {
-        console.log('CharacterCreate: ArrowLeft pressed/held');
+
+      // Toggle selection when left/right just pressed
+      if (input.getActionJustPressed('ArrowLeft')) {
+        // move selection left
+        this.selectionIndex = Math.max(0, this.selectionIndex - 1);
+        this.applySelectionSkins();
+        console.log('CharacterCreate: selectionIndex', this.selectionIndex);
       }
-      if (input.getActionJustPressed('ArrowRight') || input.heldDirections.includes('RIGHT')) {
-        console.log('CharacterCreate: ArrowRight pressed/held');
+      if (input.getActionJustPressed('ArrowRight')) {
+        // move selection right
+        this.selectionIndex = Math.min(1, this.selectionIndex + 1);
+        this.applySelectionSkins();
+        console.log('CharacterCreate: selectionIndex', this.selectionIndex);
       }
     } catch (ex) {
       // swallow errors to avoid breaking the level loop
       try { console.warn('CharacterCreate.step input check failed', ex); } catch { }
+    }
+  }
+
+  // Swap sprite skins based on current selectionIndex.
+  // selectionIndex 0 => magi selected, magi shows *2 skin
+  // selectionIndex 1 => knight selected, knight shows *2 skin
+  applySelectionSkins() {
+    try {
+      // Helper to replace a sprite with a new resource while preserving basic properties
+      const replaceSprite = (oldSprite: Sprite | undefined, resourceKey: string, name: string) => {
+        if (oldSprite) {
+          const pos = oldSprite.position?.duplicate ? oldSprite.position.duplicate() : new Vector2(0, 0);
+          try { oldSprite.destroy(); } catch { }
+          const s = new Sprite({ objectId: 0, resource: resources.images[resourceKey], name: name, frameSize: new Vector2(320, 220) });
+          s.position = pos;
+          this.addChild(s);
+          return s;
+        }
+        return undefined;
+      };
+
+      if (this.selectionIndex === 0) {
+        // magi selected
+        this.magiSprite = replaceSprite(this.magiSprite, "heroSelectMagi2", "Magi");
+        this.knightSprite = replaceSprite(this.knightSprite, "heroSelectKnight", "Knight");
+      } else {
+        // knight selected
+        this.magiSprite = replaceSprite(this.magiSprite, "heroSelectMagi", "Magi");
+        this.knightSprite = replaceSprite(this.knightSprite, "heroSelectKnight2", "Knight");
+      }
+    } catch (ex) {
+      try { console.warn('applySelectionSkins failed', ex); } catch { }
     }
   }
   private displayContent(content: Scenario) {
