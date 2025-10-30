@@ -759,10 +759,7 @@ export function actionPartyUpEvent(object: any, event: MetaEvent) {
     }
   }
 }
-
-// Reconcile dropped items sent by server in FetchGameData response.
-// This mirrors the logic previously in BonesComponent and is exported so
-// the component can delegate to this centralized implementation.
+ 
 export function reconcileDroppedItemsFromFetch(object: any, res: any) {
   if (!res) return;
   const map = res.map ?? object.metaHero?.map;
@@ -778,17 +775,12 @@ export function reconcileDroppedItemsFromFetch(object: any, res: any) {
   }
   try { (object as any)._lastDroppedMap = map; } catch { }
 
-  // Accept both camelCase and PascalCase server responses (server uses DroppedItems in C#)
   const serverItems = Array.isArray(res.droppedItems) ? res.droppedItems : (Array.isArray(res.DroppedItems) ? res.DroppedItems : []);
-  // Debug trace to help diagnose cases when server returns empty list or unexpected shape
-  if (!serverItems || serverItems.length === 0) {
-    try { console.debug('reconcileDroppedItemsFromFetch: serverItems empty', Object.keys(res || {})); } catch { }
-  }
   const seenIds = new Set<number>();
 
   for (const it of serverItems) {
     try {
-  const id = Number(it.id ?? it.itemId ?? it.id);
+      const id = Number(it.id ?? it.itemId ?? it.id);
       if (isNaN(id)) continue;
       seenIds.add(id);
       if (!(object as any)._droppedItemsMap) (object as any)._droppedItemsMap = new Map<number, any>();

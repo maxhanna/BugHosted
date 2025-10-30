@@ -71,6 +71,7 @@ export class TownPortal extends GameObject {
           const idx = TOWN_CHAIN.findIndex(s => s && s.toLowerCase() === (currentMap as string).toLowerCase());
           let target: string | undefined = undefined;
           if (idx > 0) target = TOWN_CHAIN[idx - 1];
+          console.log(currentMap, target);
           // If current map not found, or at start of chain, do nothing
           if (!target) return;
           // Emit a centralized event that the bones component will handle to change level
