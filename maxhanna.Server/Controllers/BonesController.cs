@@ -202,6 +202,7 @@ namespace maxhanna.Server.Controllers
 					// but set `data` to the paired portal's coords/map so the client can teleport to the other portal.
 					try
 					{
+						Console.WriteLine($"getting associated tp data {id}");
 						string pairSql = @"SELECT id, creator_hero_id, map, coordsX, coordsY FROM maxhanna.bones_town_portal WHERE creator_hero_id = @CreatorId AND id <> @Id ORDER BY created DESC LIMIT 1;";
 						using var pairCmd = new MySqlCommand(pairSql, connection, transaction);
 						pairCmd.Parameters.AddWithValue("@CreatorId", creatorId);
