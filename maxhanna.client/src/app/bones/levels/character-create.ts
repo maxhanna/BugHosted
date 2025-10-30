@@ -18,9 +18,7 @@ export class CharacterCreate extends Level {
   changeLevelEmitted = false;
   characterName = "";
   // Optional default name provided from persisted user settings
-  defaultName: string | undefined = undefined;
-  bones = new Bones({ position: new Vector2(120, 95) });
-  // selectable hero sprites
+  defaultName: string | undefined = undefined; 
   magiSprite?: Sprite;
   knightSprite?: Sprite;
   // selection index: 0 = magi, 1 = knight
@@ -115,33 +113,7 @@ export class CharacterCreate extends Level {
     // selection: 0 = magi, 1 = knight
     this.selectionIndex = 0;
     this.applySelectionSkins();
-
-    this.bones.textContent = [
-      {
-        string: [params.championName ? 
-          `Current Grid leader: ${params.championName} (${params.championScore ?? 0})` 
-          : "Ah, ready to light the Grid.", "Boot complete. Cycle online. Let's ride."
-        ],
-        requires: [CHARACTER_CREATE_STORY_TEXT_6],
-        addsFlag: CHARACTER_CREATE_STORY_TEXT_7,
-      } as Scenario,
-      // Name prompt (appears once flag 4 obtained)
-      {
-        string: ["State your handle."],
-        requires: [CHARACTER_CREATE_STORY_TEXT_4],
-        addsFlag: CHARACTER_CREATE_STORY_TEXT_5,
-      } as Scenario,
-      {
-        string: ["Welcome to the Neon Grid.", "ID not registered. Initialization required."],
-        requires: [CHARACTER_CREATE_STORY_TEXT_2],
-        addsFlag: CHARACTER_CREATE_STORY_TEXT_4,
-      } as Scenario, 
-      {
-        string: ["...Booting consciousness... signal locked."] ,
-        addsFlag: CHARACTER_CREATE_STORY_TEXT_2,
-      } as Scenario
-    ];
-    this.addChild(this.bones);
+  
     this.hideChatInput();
 
     const sts = new SpriteTextString(
@@ -176,27 +148,23 @@ export class CharacterCreate extends Level {
       if (!this.characterNameEmitted) {
         events.emit("CHARACTER_NAME_CREATED", this.characterName);
         this.characterNameEmitted = true;
-        storyFlags.add(CHARACTER_CREATE_STORY_TEXT_7);
+        setTimeout(() => {
+          // pick a random spawn within a 10x10 grid centered area
+          const randX = Math.floor(Math.random() * 10) + 2; // 2..11
+          const randY = Math.floor(Math.random() * 10) + 2;
+          console.log("changing level to hero room");
+          events.emit("CHANGE_LEVEL", new HeroRoomLevel({
+            heroPosition: new Vector2(gridCells(randX), gridCells(randY))
+          }));
+          this.destroy();
+        }, 100);
+        return;
       }
     });
     events.on("SPACEBAR_PRESSED", this, () => { 
       const currentTime = new Date();
       if (currentTime.getTime() - this.inputKeyPressedDate.getTime() > 1000) {
-        this.inputKeyPressedDate = new Date();
-         
-        if (storyFlags.contains(CHARACTER_CREATE_STORY_TEXT_7)) {
-          setTimeout(() => {
-            // pick a random spawn within a 10x10 grid centered area
-            const randX = Math.floor(Math.random() * 10) + 2; // 2..11
-            const randY = Math.floor(Math.random() * 10) + 2;
-            console.log("changing level to hero room");
-            events.emit("CHANGE_LEVEL", new HeroRoomLevel({
-              heroPosition: new Vector2(gridCells(randX), gridCells(randY))
-            }));
-            this.destroy();
-          }, 100);
-          return;
-        } 
+        this.inputKeyPressedDate = new Date(); 
         const sts = new SpriteTextString(  
           `Enter your name in the chat input, then press ${!this.onMobile() ? 'Enter or ' : ''}the A Button to confirm`, new Vector2(10, 10)
         );
@@ -208,8 +176,7 @@ export class CharacterCreate extends Level {
   override destroy() {
   // Ensure chat input is restored when leaving this level
   this.returnChatInputToNormal();
-  this.textBox.destroy();
-  this.bones.destroy();
+  this.textBox.destroy(); 
   events.unsubscribe(this);
   super.destroy();
   }
@@ -279,36 +246,7 @@ export class CharacterCreate extends Level {
     } catch (ex) {
       try { console.warn('applySelectionSkins failed', ex); } catch { }
     }
-  }
-  private displayContent(content: Scenario) {
-    this.children.forEach((child: any) => {
-      if (child instanceof SpriteTextStringWithBackdrop || child instanceof SpriteTextString) {
-        child.destroy();
-      }
-    });
-    if (this.textBox) { this.textBox.destroy(); }
-
-    if (content.addsFlag) {
-      storyFlags.add(content.addsFlag);
-    }
-    // If this content unlocks the CHARACTER_CREATE_STORY_TEXT_6 flag,
-    // make sure the chat input is no longer forced hidden.
-    if (storyFlags.contains(CHARACTER_CREATE_STORY_TEXT_6) && this.parent?.input?.chatInput) {
-      const chatInput = this.parent.input.chatInput;
-      chatInput.style.setProperty('display', 'block', 'important');
-    }
-    for (let x = 0; x < content.string.length; x++) {
-      if (content.string[x].startsWith("Ah,")) {
-        content.string[x] = `Ah, ${this.characterName} ready to light the Grid.`;
-      }
-    }
-    this.textBox = new SpriteTextStringWithBackdrop({
-      portraitFrame: content.portraitFrame,
-      string: content.string,
-      objectSubject: this.bones,
-    });
-    this.addChild(this.textBox);
-  }
+  } 
 
   private returnChatInputToNormal() {
     setTimeout(() => {
