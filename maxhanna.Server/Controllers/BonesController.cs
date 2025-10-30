@@ -241,24 +241,40 @@ ORDER BY p.created DESC;";
 		}
 
 		[HttpPost("/Bones/DeleteTownPortal", Name = "Bones_DeleteTownPortal")]
-		public async Task<IActionResult> DeleteTownPortal([FromBody] dynamic body)
+			public async Task<IActionResult> DeleteTownPortal([FromBody] DeleteTownPortalRequest req)
 		{
 			try
 			{
-				int heroId = 0;
-				try { heroId = (int)body.heroId; } catch { }
-				if (heroId <= 0) return BadRequest("Invalid hero id");
+					int portalId = req?.PortalId ?? 0;
+					int heroId = req?.HeroId ?? 0;
+
+					if (portalId <= 0 && heroId <= 0) return BadRequest("Invalid hero id or portal id");
+
 				using var connection = new MySqlConnection(_connectionString);
 				await connection.OpenAsync();
 				using var transaction = connection.BeginTransaction();
 				try
 				{
-					string delSql = "DELETE FROM maxhanna.bones_town_portal WHERE creator_hero_id = @Id;";
-					using var delCmd = new MySqlCommand(delSql, connection, transaction);
-					delCmd.Parameters.AddWithValue("@Id", heroId);
-					int rows = await delCmd.ExecuteNonQueryAsync(); 
+					int rows = 0;
+					if (portalId > 0)
+					{
+						// Delete single portal by id
+						string delSql = "DELETE FROM maxhanna.bones_town_portal WHERE id = @Id LIMIT 1;";
+						using var delCmd = new MySqlCommand(delSql, connection, transaction);
+						delCmd.Parameters.AddWithValue("@Id", portalId);
+						rows = await delCmd.ExecuteNonQueryAsync();
+					}
+					else if (heroId > 0)
+					{
+						// Delete all portals created by this hero
+						string delSql = "DELETE FROM maxhanna.bones_town_portal WHERE creator_hero_id = @Id;";
+						using var delCmd = new MySqlCommand(delSql, connection, transaction);
+						delCmd.Parameters.AddWithValue("@Id", heroId);
+						rows = await delCmd.ExecuteNonQueryAsync();
+					}
+
 					await transaction.CommitAsync();
-					return Ok(new { deleted = rows > 0 });
+					return Ok(new { deleted = rows > 0, rowsDeleted = rows });
 				}
 				catch (Exception ex)
 				{

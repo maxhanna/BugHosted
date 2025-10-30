@@ -8,6 +8,7 @@ import { InventoryItem } from '../app/bones/objects/InventoryItem/inventory-item
 import { MetaBot } from './datacontracts/bones/meta-bot';
 import { HeroInventoryItem } from './datacontracts/bones/hero-inventory-item';
 import { CreateTownPortalRequest } from './datacontracts/bones/create-town-portal-request';
+import { DeleteTownPortalRequest } from './datacontracts/bones/delete-town-portal-request';
 
 @Injectable({
   providedIn: 'root'
@@ -146,7 +147,7 @@ export class BonesService {
   async healHero(heroId: number) {
     return this.fetchData('/bones/healhero', heroId);
   }
-  async deleteTownPortal(heroId: number) {
-    return this.fetchData('/bones/deletetownportal', { heroId: heroId });
+  async deleteTownPortal(heroId: number) { 
+    return this.fetchData('/bones/deletetownportal',  { HeroId: heroId });
   }
 }
