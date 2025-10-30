@@ -197,17 +197,15 @@ namespace maxhanna.Server.Controllers
 							catch { /* ignore malformed data */ }
 						}
 					}
-					// If the hero is on a 'RoadTo' map, try to find the paired town-side portal
-					// whose data.originMap == this portal.map and originX/Y == this portal coords.
+					// If the hero is on a 'RoadTo' map, try to find the most recent paired town-side portal
+					// created by the same hero where the town portal map does not start with 'RoadTo'
 					if (!string.IsNullOrEmpty(hero.Map) && hero.Map.IndexOf("RoadTo", StringComparison.OrdinalIgnoreCase) >= 0)
 					{
 						try
 						{
-							string pairSql = @"SELECT id, creator_hero_id, map, coordsX, coordsY, data FROM maxhanna.bones_town_portal WHERE JSON_UNQUOTE(JSON_EXTRACT(data,'$.originMap')) = @RoadMap AND JSON_UNQUOTE(JSON_EXTRACT(data,'$.originX')) = @OriginX AND JSON_UNQUOTE(JSON_EXTRACT(data,'$.originY')) = @OriginY LIMIT 1;";
+							string pairSql = @"SELECT id, creator_hero_id, map, coordsX, coordsY FROM maxhanna.bones_town_portal WHERE creator_hero_id = @CreatorId AND map NOT LIKE 'RoadTo%' ORDER BY created DESC LIMIT 1;";
 							using var pairCmd = new MySqlCommand(pairSql, connection, transaction);
-							pairCmd.Parameters.AddWithValue("@RoadMap", map ?? string.Empty);
-							pairCmd.Parameters.AddWithValue("@OriginX", cx.ToString());
-							pairCmd.Parameters.AddWithValue("@OriginY", cy.ToString());
+							pairCmd.Parameters.AddWithValue("@CreatorId", creatorId);
 							using var pairRdr = await pairCmd.ExecuteReaderAsync();
 							if (await pairRdr.ReadAsync())
 							{
@@ -216,9 +214,7 @@ namespace maxhanna.Server.Controllers
 								string townMap = pairRdr.IsDBNull(2) ? string.Empty : pairRdr.GetString(2);
 								int townCx = pairRdr.IsDBNull(3) ? 0 : pairRdr.GetInt32(3);
 								int townCy = pairRdr.IsDBNull(4) ? 0 : pairRdr.GetInt32(4);
-								string townDataJson = pairRdr.IsDBNull(5) ? "{}" : pairRdr.GetString(5);
 								pairRdr.Close();
-								// Replace data returned with the town portal's location so clients can teleport into the town portal
 								var townDataOut = new Dictionary<string, string>
 								{
 									{ "x", townCx.ToString() },
@@ -227,7 +223,7 @@ namespace maxhanna.Server.Controllers
 									{ "creatorHeroId", townCreator.ToString() }
 								};
 								portals.Add(new { id = id, creatorHeroId = creatorId, map = map, coordsX = cx, coordsY = cy, radius = radius, data = townDataOut, created = created });
-								continue; // next portal
+								continue;
 							}
 							pairRdr.Close();
 						}
