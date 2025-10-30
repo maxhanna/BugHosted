@@ -158,7 +158,15 @@ namespace maxhanna.Server.Controllers
 				int xMax = hero.Position.x + radiusTiles * tile;
 				int yMin = hero.Position.y - radiusTiles * tile;
 				int yMax = hero.Position.y + radiusTiles * tile;
-				string selSql = "SELECT id, creator_hero_id, map, coordsX, coordsY, radius, data, created FROM maxhanna.bones_town_portal WHERE map = @Map AND coordsX BETWEEN @XMin AND @XMax AND coordsY BETWEEN @YMin AND @YMax ORDER BY created DESC;";
+				string selSql = @"SELECT p.id, p.creator_hero_id, p.map, p.coordsX, p.coordsY, p.radius, p.data, p.created,
+  (SELECT o.id FROM maxhanna.bones_town_portal o WHERE o.creator_hero_id = p.creator_hero_id AND o.id <> p.id ORDER BY o.created DESC LIMIT 1) AS otherId,
+  (SELECT o.map FROM maxhanna.bones_town_portal o WHERE o.creator_hero_id = p.creator_hero_id AND o.id <> p.id ORDER BY o.created DESC LIMIT 1) AS otherMap,
+  (SELECT o.coordsX FROM maxhanna.bones_town_portal o WHERE o.creator_hero_id = p.creator_hero_id AND o.id <> p.id ORDER BY o.created DESC LIMIT 1) AS otherCx,
+  (SELECT o.coordsY FROM maxhanna.bones_town_portal o WHERE o.creator_hero_id = p.creator_hero_id AND o.id <> p.id ORDER BY o.created DESC LIMIT 1) AS otherCy,
+  (SELECT o.creator_hero_id FROM maxhanna.bones_town_portal o WHERE o.creator_hero_id = p.creator_hero_id AND o.id <> p.id ORDER BY o.created DESC LIMIT 1) AS otherCreator
+FROM maxhanna.bones_town_portal p
+WHERE p.map = @Map AND p.coordsX BETWEEN @XMin AND @XMax AND p.coordsY BETWEEN @YMin AND @YMax
+ORDER BY p.created DESC;";
 				using var selCmd = new MySqlCommand(selSql, connection, transaction);
 				selCmd.Parameters.AddWithValue("@Map", hero.Map ?? string.Empty);
 				selCmd.Parameters.AddWithValue("@XMin", xMin);
@@ -176,6 +184,14 @@ namespace maxhanna.Server.Controllers
 					int? radius = rdr.IsDBNull(5) ? (int?)null : rdr.GetInt32(5);
 					string dataJson = rdr.IsDBNull(6) ? "{}" : rdr.GetString(6);
 					DateTime created = rdr.IsDBNull(7) ? DateTime.UtcNow : rdr.GetDateTime(7);
+
+					// paired columns (from correlated subselects)
+					int otherId = rdr.IsDBNull(8) ? 0 : rdr.GetInt32(8);
+					string otherMap = rdr.IsDBNull(9) ? string.Empty : rdr.GetString(9);
+					int otherCx = rdr.IsDBNull(10) ? 0 : rdr.GetInt32(10);
+					int otherCy = rdr.IsDBNull(11) ? 0 : rdr.GetInt32(11);
+					int otherCreator = rdr.IsDBNull(12) ? 0 : rdr.GetInt32(12);
+
 					var dataDict = new Dictionary<string, string>();
 					if (!string.IsNullOrEmpty(dataJson))
 					{
@@ -197,24 +213,9 @@ namespace maxhanna.Server.Controllers
 							catch { /* ignore malformed data */ }
 						}
 					}
-					// Try to find the paired portal (the "other" portal) created by the same hero.
-					// If found, return the current portal's top-level fields (id, map, coordsX, coordsY, etc.)
-					// but set `data` to the paired portal's coords/map so the client can teleport to the other portal.
-					 
-					Console.WriteLine($"getting associated tp data {id}");
-					string pairSql = @"SELECT id, creator_hero_id, map, coordsX, coordsY FROM maxhanna.bones_town_portal WHERE creator_hero_id = @CreatorId ORDER BY created DESC LIMIT 1;";
-					using var pairCmd = new MySqlCommand(pairSql, connection, transaction);
-					pairCmd.Parameters.AddWithValue("@CreatorId", creatorId);
-					pairCmd.Parameters.AddWithValue("@Id", id);
-					using var pairRdr = await pairCmd.ExecuteReaderAsync();
-					if (await pairRdr.ReadAsync())
+
+					if (!string.IsNullOrEmpty(otherMap) || otherId != 0)
 					{
-						int otherId = pairRdr.GetInt32(0);
-						int otherCreator = pairRdr.IsDBNull(1) ? 0 : pairRdr.GetInt32(1);
-						string otherMap = pairRdr.IsDBNull(2) ? string.Empty : pairRdr.GetString(2);
-						int otherCx = pairRdr.IsDBNull(3) ? 0 : pairRdr.GetInt32(3);
-						int otherCy = pairRdr.IsDBNull(4) ? 0 : pairRdr.GetInt32(4);
-						pairRdr.Close();
 						var pairedData = new Dictionary<string, string>
 						{
 							{ "x", otherCx.ToString() },
@@ -222,14 +223,13 @@ namespace maxhanna.Server.Controllers
 							{ "map", otherMap },
 							{ "creatorHeroId", otherCreator.ToString() }
 						};
-						Console.WriteLine($"FetchTownPortals: paired portal for id={id} -> otherId={otherId}, otherMap={otherMap}");
+						_ = _log.Db($"FetchTownPortals: paired portal for id={id} -> otherId={otherId}, otherMap={otherMap}", hero.Id, "BONES", true);
 						portals.Add(new { id = id, creatorHeroId = creatorId, map = map, coordsX = cx, coordsY = cy, radius = radius, data = pairedData, created = created });
-						continue;
 					}
-					pairRdr.Close(); 
-
-					// No pairing found; return the portal with its original parsed data
-					portals.Add(new { id = id, creatorHeroId = creatorId, map = map, coordsX = cx, coordsY = cy, radius = radius, data = dataDict, created = created });
+					else
+					{
+						portals.Add(new { id = id, creatorHeroId = creatorId, map = map, coordsX = cx, coordsY = cy, radius = radius, data = dataDict, created = created });
+					}
 				}
 				rdr.Close();
 			}
