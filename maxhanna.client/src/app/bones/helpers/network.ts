@@ -175,7 +175,18 @@ export function subscribeToMainGameEvents(object: any) {
       }
       if (object.mainScene && object.mainScene.level) {
         object.metaHero.map = levelObj.name ?? "HERO_ROOM";
-        object.metaHero.position = providedPosition ? new Vector2(Number(providedPosition.x), Number(providedPosition.y)) : levelObj.getDefaultHeroPosition();
+        // Safely obtain default hero position: prefer provided position, then call the level method if present,
+        // otherwise fall back to a default property or a safe grid location.
+        if (providedPosition) {
+          object.metaHero.position = new Vector2(Number(providedPosition.x), Number(providedPosition.y));
+        } else if (levelObj && typeof (levelObj as any).getDefaultHeroPosition === 'function') {
+          object.metaHero.position = levelObj.getDefaultHeroPosition();
+        } else if (levelObj && (levelObj as any).defaultHeroPosition) {
+          object.metaHero.position = (levelObj as any).defaultHeroPosition;
+        } else {
+          // Fallback: center-ish safe position
+          object.metaHero.position = new Vector2(gridCells(4), gridCells(4));
+        }
         object.mainScene.level.itemsFound = object.mainScene.inventory.getItemsFound();
  
       }
