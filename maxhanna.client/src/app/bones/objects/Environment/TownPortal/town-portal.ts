@@ -4,6 +4,9 @@ import { resources } from "../../../helpers/resources";
 import { FLOOR, GameObject } from "../../game-object";
 import { snapToGrid } from "../../../helpers/grid-cells";
 import { events } from "../../../helpers/events";
+import { FrameIndexPattern } from "../../../helpers/frame-index-pattern";
+import { Animations } from "../../../helpers/animations";
+import { WARP_BASE_ANIMATION } from "../../Effects/Warp/warp-base-animations";
 
 // Ordered chain for portal navigation (previous town is earlier in array)
 // Use canonical level keys recognized by BonesComponent.getLevelFromLevelName
@@ -43,6 +46,9 @@ export class TownPortal extends GameObject {
         vFrames: 1,
         hFrames: 8,
         drawLayer: FLOOR,
+        animations: new Animations({
+            warpBaseAnimation: new FrameIndexPattern(WARP_BASE_ANIMATION),
+        }),
     });
     this.addChild(body);
     const shadow = new Sprite({
@@ -57,7 +63,8 @@ export class TownPortal extends GameObject {
       // portals persist by default; do not auto destroy
     }
     events.on("HERO_REQUESTS_ACTION", this, (params: { hero: any, objectAtPosition: any }) => {
-      try {
+      try { 
+        console.log(`requesting portal? ${params.objectAtPosition.id} == ${this.id}`, params.objectAtPosition.id === this.id);
         if (params.objectAtPosition.id === this.id) {
           // Determine previous town in chain based on hero's current map
           const currentMap = (params.hero && (params.hero.map ?? params.hero.Map)) ?? undefined;
