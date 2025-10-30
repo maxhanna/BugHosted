@@ -113,6 +113,7 @@ export class Hero extends Character {
           const objInFront = neighbour ? objectAtLocation(this.parent, neighbour, true) : null;
           const isNpcInFront = objInFront && (objInFront instanceof Npc || objInFront.constructor?.name?.toLowerCase().endsWith('npc'));
           if (!isNpcInFront) {
+            console.log("playing attack");
             if (this.facingDirection == "DOWN") {
               this.body?.animations?.play("attackDown");
             } else if (this.facingDirection == "UP") {
@@ -163,6 +164,7 @@ export class Hero extends Character {
                   const stillMoving = (this.position.x !== this.destinationPosition.x) || (this.position.y !== this.destinationPosition.y);
                   if (stillHolding && !stillMoving) {
                     events.emit('SPACEBAR_PRESSED');
+                    console.log("reemitting spacebar pressed");
                   }
                 } catch (e) { }
               }, requiredWait);

@@ -264,7 +264,8 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
     });
 
     // Play attenuated impact SFX when other heroes attack
-    events.on("OTHER_HERO_ATTACK", this, (payload: any) => { 
+    events.on("OTHER_HERO_ATTACK", this, (payload: any) => {
+      console.log("got other hero attack event", payload);
       const sourceHeroId = payload?.sourceHeroId;
       const targetHeroId = payload?.attack?.targetHeroId;
       if (!sourceHeroId) return;
