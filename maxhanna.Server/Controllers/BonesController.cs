@@ -197,39 +197,40 @@ namespace maxhanna.Server.Controllers
 							catch { /* ignore malformed data */ }
 						}
 					}
-					// If the hero is on a 'RoadTo' map, try to find the most recent paired town-side portal
-					// created by the same hero where the town portal map does not start with 'RoadTo'
-					if (!string.IsNullOrEmpty(hero.Map) && hero.Map.IndexOf("RoadTo", StringComparison.OrdinalIgnoreCase) >= 0)
+					// Try to find the paired portal (the "other" portal) created by the same hero.
+					// If found, return the current portal's top-level fields (id, map, coordsX, coordsY, etc.)
+					// but set `data` to the paired portal's coords/map so the client can teleport to the other portal.
+					try
 					{
-						try
+						string pairSql = @"SELECT id, creator_hero_id, map, coordsX, coordsY FROM maxhanna.bones_town_portal WHERE creator_hero_id = @CreatorId AND id <> @Id ORDER BY created DESC LIMIT 1;";
+						using var pairCmd = new MySqlCommand(pairSql, connection, transaction);
+						pairCmd.Parameters.AddWithValue("@CreatorId", creatorId);
+						pairCmd.Parameters.AddWithValue("@Id", id);
+						using var pairRdr = await pairCmd.ExecuteReaderAsync();
+						if (await pairRdr.ReadAsync())
 						{
-							string pairSql = @"SELECT id, creator_hero_id, map, coordsX, coordsY FROM maxhanna.bones_town_portal WHERE creator_hero_id = @CreatorId AND map NOT LIKE 'RoadTo%' ORDER BY created DESC LIMIT 1;";
-							using var pairCmd = new MySqlCommand(pairSql, connection, transaction);
-							pairCmd.Parameters.AddWithValue("@CreatorId", creatorId);
-							using var pairRdr = await pairCmd.ExecuteReaderAsync();
-							if (await pairRdr.ReadAsync())
-							{
-								int townId = pairRdr.GetInt32(0);
-								int townCreator = pairRdr.IsDBNull(1) ? 0 : pairRdr.GetInt32(1);
-								string townMap = pairRdr.IsDBNull(2) ? string.Empty : pairRdr.GetString(2);
-								int townCx = pairRdr.IsDBNull(3) ? 0 : pairRdr.GetInt32(3);
-								int townCy = pairRdr.IsDBNull(4) ? 0 : pairRdr.GetInt32(4);
-								pairRdr.Close();
-								var townDataOut = new Dictionary<string, string>
-								{
-									{ "x", townCx.ToString() },
-									{ "y", townCy.ToString() },
-									{ "map", townMap },
-									{ "creatorHeroId", townCreator.ToString() }
-								};
-								portals.Add(new { id = id, creatorHeroId = creatorId, map = map, coordsX = cx, coordsY = cy, radius = radius, data = townDataOut, created = created });
-								continue;
-							}
+							int otherId = pairRdr.GetInt32(0);
+							int otherCreator = pairRdr.IsDBNull(1) ? 0 : pairRdr.GetInt32(1);
+							string otherMap = pairRdr.IsDBNull(2) ? string.Empty : pairRdr.GetString(2);
+							int otherCx = pairRdr.IsDBNull(3) ? 0 : pairRdr.GetInt32(3);
+							int otherCy = pairRdr.IsDBNull(4) ? 0 : pairRdr.GetInt32(4);
 							pairRdr.Close();
+							var pairedData = new Dictionary<string, string>
+							{
+								{ "x", otherCx.ToString() },
+								{ "y", otherCy.ToString() },
+								{ "map", otherMap },
+								{ "creatorHeroId", otherCreator.ToString() }
+							};
+							_ = _log.Db($"FetchTownPortals: paired portal for id={id} -> otherId={otherId}, otherMap={otherMap}", hero.Id, "BONES", true);
+							portals.Add(new { id = id, creatorHeroId = creatorId, map = map, coordsX = cx, coordsY = cy, radius = radius, data = pairedData, created = created });
+							continue;
 						}
-						catch { /* non-fatal: fall back to returning original portal data */ }
+						pairRdr.Close();
 					}
+					catch { /* non-fatal: fall back to returning original portal data */ }
 
+					// No pairing found; return the portal with its original parsed data
 					portals.Add(new { id = id, creatorHeroId = creatorId, map = map, coordsX = cx, coordsY = cy, radius = radius, data = dataDict, created = created });
 				}
 				rdr.Close();
