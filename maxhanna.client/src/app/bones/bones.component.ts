@@ -92,9 +92,13 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
   isStartMenuOpened = false;
   isPartyPanelOpen = false;
   isChangeStatsOpen = false;
+  isChangeSkillsOpen = false;
   // Transient UI: show 'Stats updated' message when present
   statsUpdatedVisible: boolean = false;
   private statsUpdatedTimer: any | undefined = undefined;
+  // Transient UI: show 'Skills updated' message when present
+  skillsUpdatedVisible: boolean = false;
+  private skillsUpdatedTimer: any | undefined = undefined;
   // optimistic UI state for invites: map heroId -> expiry timestamp (ms)
   pendingInvites: Map<number, number> = new Map<number, number>();
   // per-hero cached seconds left for UI
@@ -110,10 +114,14 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
   showLeaveConfirm: boolean = false;
   // Stats editing model (simple local model until backend exists)
   editableStats: { str: number; dex: number; int: number; pointsAvailable: number } = { str: 1, dex: 1, int: 1, pointsAvailable: 0 };
+  // Skills editing model (example: three generic skills). Adjust fields as your game defines.
+  editableSkills: { skillA: number; skillB: number; skillC: number; pointsAvailable: number } = { skillA: 0, skillB: 0, skillC: 0, pointsAvailable: 0 };
   // Keep a copy of the original stats for change detection while the panel is open
   private statsOriginal?: { str: number; dex: number; int: number } = undefined;
   // Cached stats to preserve values when server fetches omit per-hero stats
   cachedStats?: { str: number; dex: number; int: number } = undefined;
+  // Cached skills to preserve values when server fetches omit them
+  cachedSkills?: { skillA: number; skillB: number; skillC: number } = undefined;
   // Change character popup state
   isChangeCharacterOpen = false;
   heroSelections: any[] = [];
@@ -1051,6 +1059,7 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
   openPartyPanel() {
     this.isPartyPanelOpen = true;
     this.isChangeStatsOpen = false;
+    this.isChangeSkillsOpen = false;
     // ensure party members list is up to date
     if (this.metaHero && this.metaHero.id) {
       this.bonesService.getPartyMembers(this.metaHero.id).then(pm => {
@@ -1283,6 +1292,7 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
 
   openChangeStats() {
     this.isPartyPanelOpen = false;
+    this.isChangeSkillsOpen = false;
     const mh: MetaHero = this.metaHero || {};
     const cached = this.cachedStats ?? {} as any;
     const str = (cached.str !== undefined) ? cached.str : ((mh.str !== undefined && mh.str !== null) ? mh.str : undefined);
@@ -1300,6 +1310,69 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
       this.statsOriginal = undefined;
     }
     console.log("opened change stats with ", this.editableStats);
+  }
+
+  openChangeSkills() {
+    this.isPartyPanelOpen = false;
+    this.isChangeStatsOpen = false;
+    const mh: any = this.metaHero || {};
+    // Example default allocation: base 0 for skills, points based on level
+    const level = mh.level ?? 1;
+    const base = 0;
+    const points = Math.max(0, level - 1);
+    const sA = this.cachedSkills?.skillA !== undefined ? this.cachedSkills.skillA : (mh.skills?.skillA ?? base);
+    const sB = this.cachedSkills?.skillB !== undefined ? this.cachedSkills.skillB : (mh.skills?.skillB ?? base);
+    const sC = this.cachedSkills?.skillC !== undefined ? this.cachedSkills.skillC : (mh.skills?.skillC ?? base);
+    const allocated = (sA ?? 0) + (sB ?? 0) + (sC ?? 0);
+    const pointsAvailable = Math.max(0, points - allocated);
+    this.editableSkills = { skillA: Math.max(0, sA ?? base), skillB: Math.max(0, sB ?? base), skillC: Math.max(0, sC ?? base), pointsAvailable };
+    setTimeout(() => { this.isChangeSkillsOpen = true; }, 100);
+    console.log('opened change skills with', this.editableSkills);
+  }
+
+  closeChangeSkills() {
+    this.isChangeSkillsOpen = false;
+    this.parentRef?.closeOverlay();
+  }
+
+  adjustSkill(skill: 'skillA' | 'skillB' | 'skillC', delta: number) {
+    if (!this.editableSkills) return;
+    const current = (this.editableSkills as any)[skill] as number;
+    const next = current + delta;
+    if (next < 0) return;
+    if (delta > 0 && this.editableSkills.pointsAvailable <= 0) return;
+    (this.editableSkills as any)[skill] = next;
+    if (delta > 0) this.editableSkills.pointsAvailable -= delta; else this.editableSkills.pointsAvailable += Math.abs(delta);
+  }
+
+  get skillsChanged(): boolean {
+    // Simple change detection: compare to cachedSkills or metaHero.skills
+    const mhAny: any = this.metaHero || {};
+    const orig = mhAny.skills ?? this.cachedSkills ?? { skillA: 0, skillB: 0, skillC: 0 };
+    return this.editableSkills.skillA !== (orig.skillA ?? 0) || this.editableSkills.skillB !== (orig.skillB ?? 0) || this.editableSkills.skillC !== (orig.skillC ?? 0);
+  }
+
+  async applySkills() {
+    // Persist: there is no dedicated API; update local model and cache. If you have an API, call it here.
+    try {
+      // Update metaHero model (use a `skills` property to avoid colliding with other fields)
+      (this.metaHero as any).skills = { skillA: this.editableSkills.skillA, skillB: this.editableSkills.skillB, skillC: this.editableSkills.skillC };
+      // Apply to in-game hero object if relevant
+      if (this.hero) {
+        try { (this.hero as any).skillA = this.editableSkills.skillA; } catch { }
+        try { (this.hero as any).skillB = this.editableSkills.skillB; } catch { }
+        try { (this.hero as any).skillC = this.editableSkills.skillC; } catch { }
+      }
+      // Show transient success
+      this.skillsUpdatedVisible = true;
+      if (this.skillsUpdatedTimer) clearTimeout(this.skillsUpdatedTimer);
+      this.skillsUpdatedTimer = setTimeout(() => {
+        this.skillsUpdatedVisible = false;
+        this.closeStartMenu();
+      }, 3000);
+      // Persist to cache so future fetches that omit skills keep these values
+      this.cachedSkills = { skillA: this.editableSkills.skillA, skillB: this.editableSkills.skillB, skillC: this.editableSkills.skillC };
+    } catch (ex) { console.error('applySkills failed', ex); }
   }
 
   closeChangeStats() {
