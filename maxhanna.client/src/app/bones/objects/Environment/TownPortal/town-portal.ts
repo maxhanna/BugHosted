@@ -75,7 +75,11 @@ export class TownPortal extends GameObject {
                const originMap = data.originMap as string;
                const originX = Number(data.originX ?? data.coordsX ?? 0);
                const originY = Number(data.originY ?? data.coordsY ?? 0);
-               const payload = { map: originMap, position: { x: originX, y: originY }, portalId: (this as any).serverPortalId ?? null };
+               const payload = { 
+                 map: originMap,
+                 position: { x: originX, y: originY }, 
+                 portalId: (this as any).serverPortalId ?? null,
+                 defaultHeroPosition: new Vector2(0,0) };
                events.emit("CHANGE_LEVEL", payload);
                return;
              }
