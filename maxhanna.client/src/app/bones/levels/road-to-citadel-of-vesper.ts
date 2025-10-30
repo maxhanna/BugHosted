@@ -32,32 +32,23 @@ export class RoadToCitadelOfVesper extends Level {
     // tileWidth=64, tileHeight=96 match original layout
     this.tileFloor(new Vector2(gridCells(0), gridCells(-1)), roomWidth, roomHeight, 64, 96, resources.images["floorbigtile"], { drawLayer: BASE, startObjectId: -1000 });
 
-
-    // Hardcoded skeleton encounter positions for ids -999997..-999990
-    const encounterPositions: { x: number; y: number }[] = [
-      { x: 3, y: 4 },
-      { x: 6, y: 8 },
-      { x: 5, y: 3 },
-      { x: 8, y: 5 },
-      { x: 10, y: 4 },
-      { x: 12, y: 7 },
-      { x: 14, y: 3 },
-      { x: 16, y: 6 }
-    ];
-
-    let curId = -999997;
-    for (const pos of encounterPositions) {
-      const enc = new Encounter({
-        id: curId,
-        position: new Vector2(gridCells(pos.x), gridCells(pos.y)),
-        possibleEnemies: ["skeleton"],
-        moveLeftRight: 0,
-        moveUpDown: 0
-      });
-      this.addChild(enc);
-      curId--;
-    }
-
+    // Explicitly declare each encounter so they always appear (no loop)
+    const encA = new Encounter({ id: -999997, position: new Vector2(gridCells(3), gridCells(4)), possibleEnemies: ["skeleton"], moveLeftRight: 0, moveUpDown: 0 });
+    this.addChild(encA);
+    const encB = new Encounter({ id: -999996, position: new Vector2(gridCells(6), gridCells(8)), possibleEnemies: ["skeleton"], moveLeftRight: 0, moveUpDown: 0 });
+    this.addChild(encB);
+    const encC = new Encounter({ id: -999995, position: new Vector2(gridCells(5), gridCells(3)), possibleEnemies: ["skeleton"], moveLeftRight: 0, moveUpDown: 0 });
+    this.addChild(encC);
+    const encD = new Encounter({ id: -999994, position: new Vector2(gridCells(8), gridCells(5)), possibleEnemies: ["skeleton"], moveLeftRight: 0, moveUpDown: 0 });
+    this.addChild(encD);
+    const encE = new Encounter({ id: -999993, position: new Vector2(gridCells(10), gridCells(4)), possibleEnemies: ["skeleton"], moveLeftRight: 0, moveUpDown: 0 });
+    this.addChild(encE);
+    const encF = new Encounter({ id: -999992, position: new Vector2(gridCells(12), gridCells(7)), possibleEnemies: ["skeleton"], moveLeftRight: 0, moveUpDown: 0 });
+    this.addChild(encF);
+    const encG = new Encounter({ id: -999991, position: new Vector2(gridCells(14), gridCells(3)), possibleEnemies: ["skeleton"], moveLeftRight: 0, moveUpDown: 0 });
+    this.addChild(encG);
+    const encH = new Encounter({ id: -999990, position: new Vector2(gridCells(16), gridCells(6)), possibleEnemies: ["skeleton"], moveLeftRight: 0, moveUpDown: 0 });
+    this.addChild(encH); 
   
     const exit = new Exit({
       position: new Vector2(gridCells(18), gridCells(1)), showSprite: true, targetMap: 'CitadelOfVesper'
