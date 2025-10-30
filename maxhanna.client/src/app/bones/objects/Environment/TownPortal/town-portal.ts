@@ -7,6 +7,16 @@ import { events } from "../../../helpers/events";
 import { FrameIndexPattern } from "../../../helpers/frame-index-pattern";
 import { Animations } from "../../../helpers/animations";
 import { WARP_BASE_ANIMATION } from "../../Effects/Warp/warp-base-animations";
+import { Level } from "../../Level/level";
+import { HeroRoomLevel } from "../../../levels/hero-room";
+import { RoadToCitadelOfVesper } from "../../../levels/road-to-citadel-of-vesper";
+import { CitadelOfVesper } from "../../../levels/citadel-of-vesper";
+import { RoadToRiftedBastion } from "../../../levels/road-to-rifted-bastion";
+import { RiftedBastion } from "../../../levels/rifted-bastion";
+import { RoadToFortPenumbra } from "../../../levels/road-to-fort-penumbra";
+import { FortPenumbra } from "../../../levels/fort-penumbra";
+import { RoadToGatesOfHell } from "../../../levels/road-to-gates-of-hell";
+import { GatesOfHell } from "../../../levels/gates-of-hell";
 
 const TOWN_CHAIN = [
     "HEROROOM",
@@ -71,17 +81,58 @@ export class TownPortal extends GameObject {
            try {
              const data: any = (this as any).data ?? (this as any).serverData ?? undefined;
              if (data && data.originMap) {
-               // Emitting full payload object: { map: originMap, position: { x, y }, portalId }
-               const originMap = data.originMap as string;
-               const originX = Number(data.originX ?? data.coordsX ?? 0);
-               const originY = Number(data.originY ?? data.coordsY ?? 0);
-               const payload = { 
-                 map: originMap,
-                 position: { x: originX, y: originY }, 
-                 portalId: (this as any).serverPortalId ?? null,
-                 defaultHeroPosition: new Vector2(0,0) };
-               events.emit("CHANGE_LEVEL", payload);
-               return;
+               // Create a real Level instance for the origin map so listeners that expect a Level
+               // can call getDefaultHeroPosition(). Attach portalId and defaultHeroPosition so
+               // the network handler can clean up the town portal when appropriate.
+               try {
+                 const originMap = data.originMap as string;
+                 const originX = Number(data.originX ?? data.coordsX ?? 0);
+                 const originY = Number(data.originY ?? data.coordsY ?? 0);
+                 // Instantiate the concrete level class when possible so level-specific layout/logic runs.
+                 let lvl: Level;
+                 const heroPos = new Vector2(originX, originY);
+                 switch ((originMap || '').toLowerCase()) {
+                   case 'heroroom':
+                   case 'hero_room':
+                   case 'heroroom':
+                     lvl = new HeroRoomLevel({ heroPosition: heroPos } as any);
+                     break;
+                   case 'roadtocitadelofvesper':
+                   case 'roadtocitadelofvesper':
+                   case 'roadtocitadelofvesper'.toLowerCase():
+                     lvl = new RoadToCitadelOfVesper({ heroPosition: heroPos } as any);
+                     break;
+                   case 'citadelofvesper':
+                     lvl = new CitadelOfVesper({ heroPosition: heroPos } as any);
+                     break;
+                   case 'roadtoriftedbastion':
+                     lvl = new RoadToRiftedBastion({ heroPosition: heroPos } as any);
+                     break;
+                   case 'riftedbastion':
+                     lvl = new RiftedBastion({ heroPosition: heroPos } as any);
+                     break;
+                   case 'roadtofortpenumbra':
+                     lvl = new RoadToFortPenumbra({ heroPosition: heroPos } as any);
+                     break;
+                   case 'fortpenumbra':
+                     lvl = new FortPenumbra({ heroPosition: heroPos } as any);
+                     break;
+                   case 'roadtogatesofhell':
+                     lvl = new RoadToGatesOfHell({ heroPosition: heroPos } as any);
+                     break;
+                   case 'gatesofhell':
+                     lvl = new GatesOfHell({ heroPosition: heroPos } as any);
+                     break;
+                   default:
+                     lvl = new Level();
+                     lvl.name = originMap;
+                     lvl.defaultHeroPosition = heroPos;
+                 }
+                 // Attach portal id metadata so the CHANGE_LEVEL handler can find and delete the town portal
+                 try { (lvl as any).portalId = (this as any).serverPortalId ?? null; } catch { }
+                 events.emit("CHANGE_LEVEL", lvl);
+                 return;
+               } catch (e) { /* ignore and fallback to chain behavior */ }
              }
            } catch (e) { /* ignore and fallback to chain behavior */ }
            // Fallback chain behavior: find previous map in chain and emit its name

@@ -158,8 +158,14 @@ export function subscribeToMainGameEvents(object: any) {
       let portalIdToDelete: number | null = null;
       if (!levelOrPayload) return;
       if (levelOrPayload instanceof Level) {
-        // If it's an actual Level instance use it directly, otherwise treat it as a Level-like object
+        // If it's an actual Level instance use it directly.
         levelObj = levelOrPayload as Level;
+        // If the Level instance carries a defaultHeroPosition or a portalId metadata, capture them
+        try {
+          if ((levelOrPayload as any).defaultHeroPosition) providedPosition = (levelOrPayload as any).defaultHeroPosition;
+          else if (typeof (levelOrPayload as any)?.getDefaultHeroPosition === 'function') providedPosition = (levelOrPayload as any).getDefaultHeroPosition();
+        } catch { }
+        try { if ((levelOrPayload as any).portalId) portalIdToDelete = Number((levelOrPayload as any).portalId); } catch { }
       } else if (typeof levelOrPayload === 'string') {
         levelObj = object.getLevelFromLevelName(levelOrPayload as string);
       } else if (typeof levelOrPayload === 'object' && levelOrPayload.map) {
@@ -176,10 +182,15 @@ export function subscribeToMainGameEvents(object: any) {
       }
       if (object.mainScene && object.mainScene.level) {
         object.metaHero.map = levelObj.name ?? "HERO_ROOM";
-        object.metaHero.position = 
-          providedPosition ?
-            new Vector2(Number(providedPosition.x), Number(providedPosition.y)) 
-            : new Vector2(0,0);
+        // Determine hero position safely: prefer providedPosition, then Level.getDefaultHeroPosition(), then defaultHeroPosition, then a grid fallback
+        let posToUse: any = null;
+        try {
+          if (providedPosition) posToUse = providedPosition;
+          else if (typeof (levelObj as any)?.getDefaultHeroPosition === 'function') posToUse = (levelObj as any).getDefaultHeroPosition();
+          else if ((levelObj as any).defaultHeroPosition) posToUse = (levelObj as any).defaultHeroPosition;
+        } catch { }
+        if (!posToUse) posToUse = new Vector2(gridCells(4), gridCells(4));
+        object.metaHero.position = new Vector2(Number(posToUse.x), Number(posToUse.y));
         object.mainScene.level.itemsFound = object.mainScene.inventory.getItemsFound(); 
       }
 
