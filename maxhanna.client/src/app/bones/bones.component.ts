@@ -1690,6 +1690,7 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
     this.metaHero.dex = rz.dex;
     this.metaHero.str = rz.str;
     this.metaHero.int = rz.int;
+    this.metaHero.type = rz.type;
 
     const sstr = (rz as any)?.str ?? (rz as any)?.stats?.str;
     const sdex = (rz as any)?.dex ?? (rz as any)?.stats?.dex;
