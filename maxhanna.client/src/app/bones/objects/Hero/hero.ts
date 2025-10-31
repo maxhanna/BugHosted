@@ -118,42 +118,22 @@ export class Hero extends Character {
             if (this.facingDirection == "DOWN") {
               this.body?.animations?.play("attackDown");
               if (this.type === "magi") {
-                const sting = new Sting( this.position.x,  this.position.y);
-                this.addChild(sting);
-                sting.moveTo(this.position.x, this.position.y +200, 1000);
-                setTimeout(() => {
-                  sting.destroy();
-                }, 2000);
+                this.spawnStingTo(this.position.x + 200, this.position.y);
               }
             } else if (this.facingDirection == "UP") {
               this.body?.animations?.play("attackUp");
                if (this.type === "magi") {
-                const sting = new Sting( this.position.x,  this.position.y);
-                this.addChild(sting);
-                sting.moveTo(this.position.x, this.position.y -200, 1000);
-                setTimeout(() => {
-                  sting.destroy();
-                }, 2000);
+                this.spawnStingTo(this.position.x, this.position.y - 200);
               }
             } else if (this.facingDirection == "LEFT") {
               this.body?.animations?.play("attackLeft");
               if (this.type === "magi") {
-                const sting = new Sting( this.position.x,  this.position.y);
-                this.addChild(sting);
-                sting.moveTo(this.position.x -200, this.position.y, 1000);
-                setTimeout(() => {
-                  sting.destroy();
-                }, 2000);
+                this.spawnStingTo(this.position.x - 200, this.position.y);
               }
             } else if (this.facingDirection == "RIGHT") {
               this.body?.animations?.play("attackRight");
               if (this.type === "magi") {
-                const sting = new Sting( this.position.x,  this.position.y);
-                this.addChild(sting);
-                sting.moveTo(this.position.x +200, this.position.y, 1000);
-                setTimeout(() => {
-                  sting.destroy();
-                }, 2000);
+                this.spawnStingTo(this.position.x + 200, this.position.y);
               }
             }
             this.playAttackSound(); 
@@ -297,6 +277,20 @@ export class Hero extends Character {
         }
       } catch (ex) { console.error('OTHER_HERO_ATTACK handler error', ex); }
     });
+  }
+
+  // Helper to spawn a Sting effect at the hero's position and move it toward (targetX, targetY).
+  private spawnStingTo(targetX: number, targetY: number) {
+    try {
+      const sting = new Sting(this.position.x, this.position.y);
+      this.addChild(sting);
+      sting.moveTo(targetX, targetY, 1000);
+      setTimeout(() => {
+        try { sting.destroy(); } catch { }
+      }, 2000);
+    } catch (ex) {
+      console.warn('spawnStingTo failed', ex);
+    }
   }
 
   private playAttackSound() {
