@@ -1426,7 +1426,12 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
     if (next < 0) return;
     // Points bookkeeping: if increasing, require available points
     if (delta > 0 && this.editableStats.pointsAvailable <= 0) return;
-    (this.editableStats as any)[stat] = next;
+    // If this is regen, clamp to 2 decimal places to avoid long floats
+    if (stat === 'regen') {
+      (this.editableStats as any)[stat] = Math.round(next * 100) / 100;
+    } else {
+      (this.editableStats as any)[stat] = next;
+    }
     if (delta > 0) this.editableStats.pointsAvailable -= delta; else this.editableStats.pointsAvailable += Math.abs(delta);
   }
 
