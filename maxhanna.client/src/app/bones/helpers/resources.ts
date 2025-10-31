@@ -30,6 +30,7 @@ export class Resources {
       heroSelectKnight2: `${this.dir}HeroSelect-Knight2.png`,
       heroSelectMagi2: `${this.dir}HeroSelect-Magi2.png`,
       knight: `${this.dir}knightspritesheet.png`,
+      magi: `${this.dir}magispritesheet.png`,
       pointer: `${this.dir}pointer.png`,
       portraits: `${this.dir}portraits-sheet.png`,
       referee: `${this.dir}referee-spritesheet.png`,

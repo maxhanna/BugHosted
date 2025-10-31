@@ -146,7 +146,9 @@ export class CharacterCreate extends Level {
       
       console.log("emitting char name");
       if (!this.characterNameEmitted) {
-        events.emit("CHARACTER_NAME_CREATED", this.characterName);
+        // Emit a structured payload so listeners know which hero type was selected
+        const selectedType = this.selectionIndex === 0 ? 'magi' : 'knight';
+        events.emit("CHARACTER_NAME_CREATED", { name: this.characterName, type: selectedType });
         this.characterNameEmitted = true;
         setTimeout(() => {
           // pick a random spawn within a 10x10 grid centered area

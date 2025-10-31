@@ -263,9 +263,13 @@ export function subscribeToMainGameEvents(object: any) {
     events.emit("SHOW_START_BUTTON");
     events.emit("UNBLOCK_BACKGROUND_SELECTION");
   });
-  events.on("CHARACTER_NAME_CREATED", object, (name: string) => {
+  events.on("CHARACTER_NAME_CREATED", object, (payload: any) => {
+    // Accept either legacy string or new { name, type } payload
+    const name = payload.name ?? undefined;
+    const type = payload.type ?? undefined;
+    if (!name || !type) return;
     if (object.chatInput.nativeElement.placeholder === "Enter your name" && object.parentRef && object.parentRef.user && object.parentRef.user.id) {
-      object.bonesService.createHero(object.parentRef.user.id, name);
+      object.bonesService.createHero(object.parentRef.user.id, name, type);
     }
   });
   events.on("STARTED_TYPING", object, () => {

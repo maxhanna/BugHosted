@@ -16,12 +16,11 @@ import { WarpBase } from "../Effects/Warp/warp-base";
 
 export class Hero extends Character {
   isAttacking = false;
-  // lastAttack timestamp to enforce attackSpeed cooldown (ms since epoch)
+  type: string = "knight";
   private lastAttackAt: number = 0;
-  // attack cooldown in milliseconds (populated from metaHero via parent code)
   public attackSpeed: number = 400;
   constructor(params: {
-    position: Vector2, id?: number, name?: string, metabots?: MetaBot[], colorSwap?: ColorSwap,
+    position: Vector2, id?: number, name?: string, type?: string, metabots?: MetaBot[], colorSwap?: ColorSwap,
     isUserControlled?: boolean, speed?: number, mask?: Mask, scale?: Vector2,
     forceDrawName?: boolean, preventDrawName?: boolean,
   }) {
@@ -37,7 +36,7 @@ export class Hero extends Character {
       isSolid: false,
       body: new Sprite({
         objectId: params.id ?? 0,
-        resource: resources.images["knight"],
+        resource: resources.images[params.type ?? "knight"],
         name: "hero",
         position: new Vector2(-10, 0),
         frameSize: new Vector2(40, 40),
@@ -70,6 +69,7 @@ export class Hero extends Character {
     this.lastPosition = this.position.duplicate();
     this.speed = params.speed ?? 1;
     this.mask = params.mask;
+    this.type = params.type ?? "knight";
     this.itemPickupTime = 0;
     this.isOmittable = false;
     this.scale = params.scale ?? new Vector2(1, 1);

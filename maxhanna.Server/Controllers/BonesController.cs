@@ -891,8 +891,8 @@ ORDER BY p.created DESC;";
 			try
 			{
 				string sql = @"
-						INSERT INTO maxhanna.bones_hero (name, user_id, coordsX, coordsY, speed, color, created, updated)
-                              SELECT @Name, @UserId, @CoordsX, @CoordsY, @Speed,
+						INSERT INTO maxhanna.bones_hero (name, type, user_id, coordsX, coordsY, speed, color, created, updated)
+                              SELECT @Name, @Type, @UserId, @CoordsX, @CoordsY, @Speed,
                                 COALESCE((SELECT last_character_color FROM maxhanna.user_settings WHERE user_id = @UserId LIMIT 1), ''),
                                 UTC_TIMESTAMP(), UTC_TIMESTAMP()
 						WHERE NOT EXISTS (
@@ -909,6 +909,7 @@ ORDER BY p.created DESC;";
 					{ "@CoordsY", posY },
 					{ "@Speed", 1 },
 					{ "@Name", req.Name ?? "Anonymous"},
+					{ "@Type", req.Type ?? "Unknown"},
 					{ "@UserId", req.UserId }
 				};
 				long? botId = await ExecuteInsertOrUpdateOrDeleteAsync(sql, parameters, connection, transaction);
@@ -942,6 +943,7 @@ ORDER BY p.created DESC;";
 					Speed = 1,
 					Map = "HeroRoom",
 					Name = req.Name,
+					Type = req.Type,
 					Color = returnedColor ?? string.Empty,
 					Hp = 100
 				};
@@ -2632,6 +2634,7 @@ ORDER BY p.created DESC;";
 				string sql = @"
 				SELECT m.id as hero_id, 
 					m.name as hero_name,
+					m.type as hero_type,
 					m.map as hero_map,
 					m.coordsX, 
 					m.coordsY,
@@ -2658,6 +2661,7 @@ ORDER BY p.created DESC;";
 						if (!heroesDict.TryGetValue(heroId, out MetaHero? tmpHero))
 						{
 							var name = reader.IsDBNull(reader.GetOrdinal("hero_name")) ? null : reader.GetString(reader.GetOrdinal("hero_name"));
+							var type = reader.IsDBNull(reader.GetOrdinal("hero_type")) ? null : reader.GetString(reader.GetOrdinal("hero_type"));
 							var mapVal = reader.IsDBNull(reader.GetOrdinal("hero_map")) ? string.Empty : reader.GetString(reader.GetOrdinal("hero_map"));
 							var level = reader.IsDBNull(reader.GetOrdinal("hero_level")) ? 0 : reader.GetInt32(reader.GetOrdinal("hero_level"));
 							var exp = reader.IsDBNull(reader.GetOrdinal("hero_exp")) ? 0 : reader.GetInt32(reader.GetOrdinal("hero_exp"));
@@ -2673,6 +2677,7 @@ ORDER BY p.created DESC;";
 							{
 								Id = heroId,
 								Name = name,
+								Type = type,
 								Map = mapVal,
 								Level = level,
 								Exp = exp,

@@ -339,7 +339,10 @@ export function subscribeToMainGameEvents(object: any) {
     }
   }); 
 
-  events.on("CHARACTER_NAME_CREATED", object, (name: string) => {
+  events.on("CHARACTER_NAME_CREATED", object, (payload: any) => {
+    // Accept legacy string or new structured payload { name, type }
+    const name = typeof payload === 'string' ? payload : (payload && payload.name) ? payload.name : undefined;
+    if (!name) return;
     if (object.chatInput.nativeElement.placeholder === "Enter your name" && object.parentRef && object.parentRef.user && object.parentRef.user.id) {
       object.metaService.createHero(object.parentRef.user.id, name);
     }

@@ -5,6 +5,7 @@ import { MetaBot } from "./meta-bot";
 export class MetaHero {
   id: number;  
   name?: string;
+  type?: string;
   position: Vector2; 
   speed: number;
   attackSpeed?: number;  // attackSpeed in milliseconds (minimum time between attacks)
@@ -19,11 +20,12 @@ export class MetaHero {
   color?: string;
   mask?: number;
   updated?: Date;
-  constructor(id: number, name: string, position: Vector2, speed: number, map: string, color?: string, 
+  constructor(id: number, name: string, type: string, position: Vector2, speed: number, map: string, color?: string, 
     mask?: number, hp?: number, level?: number, exp?: number, attackSpeed?: number, userId?: number, 
     str?: number, dex?: number, int?: number, updated?: Date) {
     this.id = id; 
     this.name = name;
+    this.type = type;
     this.position = position; 
     this.speed = speed;
     this.hp = hp ?? 100;

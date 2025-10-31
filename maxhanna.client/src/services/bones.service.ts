@@ -67,8 +67,8 @@ export class BonesService {
     if (req.radius !== undefined && req.radius !== null) body.Radius = req.radius;
     return this.fetchData('/bones/createtownportal', body);
   }
-  async createHero(userId: number, name: string): Promise<MetaHero | undefined> {
-    return this.fetchData('/bones/create', { UserId: userId, Name: name });
+  async createHero(userId: number, name: string, type: string): Promise<MetaHero | undefined> {
+    return this.fetchData('/bones/create', { UserId: userId, Name: name, Type: type });
   }
   async createBot(bot: MetaBot): Promise<MetaBot | undefined> {
     return this.fetchData('/bones/createbot', bot);

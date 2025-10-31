@@ -6,5 +6,6 @@ namespace maxhanna.Server.Controllers.DataContracts.Bones
 	{
 		public int UserId { get; set; }
 		public string? Name { get; set; }
+		public string? Type { get; set; }
 	}
 }
