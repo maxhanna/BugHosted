@@ -9,6 +9,7 @@ import { SpriteTextStringWithBackdrop } from "../objects/SpriteTextString/sprite
 import { SpriteTextString } from "../objects/SpriteTextString/sprite-text-string";
 import { resources } from "../helpers/resources";
 import { Sprite } from "../objects/sprite";
+import { actionBlocker, setActionBlocker } from "../helpers/network";
 
 export class CharacterCreate extends Level { 
   // Condensed profanity list: base stems rather than exhaustive variants.
@@ -175,7 +176,7 @@ export class CharacterCreate extends Level {
   // Capture keyboard input from parent Main.input each frame so this level can react to arrow presses.
   // For now we simply log when arrows are pressed to demonstrate capability.
   override step(delta: number, root: any) {
-    try {
+    try { 
       const input = (root as any).input as Input | undefined;
       if (!input) return;
       // Use getActionJustPressed for instantaneous presses and heldDirections for continuous holds
@@ -185,30 +186,34 @@ export class CharacterCreate extends Level {
       if (input.getActionJustPressed('ArrowDown') || input.heldDirections.includes('DOWN')) {
         console.log('CharacterCreate: ArrowDown pressed/held');
       } 
-      // Toggle selection when left/right just pressed
+      // Toggle selection when left/right just pressed (throttle rapid switching)
       if (input.getActionJustPressed('ArrowLeft') || input.heldDirections.includes('LEFT')) {
-        console.log('CharacterCreate: ArrowLeft pressed/held', this.selectionIndex );
-
-        // move selection left
-        this.selectionIndex = Math.max(0, this.selectionIndex - 1);
-        this.applySelectionSkins();
-        console.log('CharacterCreate: selectionIndex', this.selectionIndex);
+        if (!actionBlocker) {
+          console.log('CharacterCreate: ArrowLeft pressed/held', this.selectionIndex );
+          // move selection left
+          this.selectionIndex = Math.max(0, this.selectionIndex - 1);
+          this.applySelectionSkins();
+          console.log('CharacterCreate: selectionIndex', this.selectionIndex);
+          // prevent another immediate selection change
+          setActionBlocker(300);
+        }
       }
       if (input.getActionJustPressed('ArrowRight') || input.heldDirections.includes('RIGHT')) {
-        console.log('CharacterCreate: ArrowRight pressed/held', this.selectionIndex );
-        this.selectionIndex = Math.min(2, this.selectionIndex + 1);
-        this.applySelectionSkins();
-        console.log('CharacterCreate: selectionIndex', this.selectionIndex);
+        if (!actionBlocker) {
+          console.log('CharacterCreate: ArrowRight pressed/held', this.selectionIndex );
+          this.selectionIndex = Math.min(2, this.selectionIndex + 1);
+          this.applySelectionSkins();
+          console.log('CharacterCreate: selectionIndex', this.selectionIndex);
+          // prevent another immediate selection change
+          setActionBlocker(300);
+        }
       }
     } catch (ex) {
       // swallow errors to avoid breaking the level loop
       try { console.warn('CharacterCreate.step input check failed', ex); } catch { }
     }
   }
-
-  // Swap sprite skins based on current selectionIndex.
-  // selectionIndex 0 => magi selected, magi shows *2 skin
-  // selectionIndex 1 => knight selected, knight shows *2 skin
+ 
   applySelectionSkins() {
     try {
       // Helper to replace a sprite with a new resource while preserving basic properties
