@@ -1196,13 +1196,12 @@ ORDER BY p.created DESC;";
 					u.username AS username,
 					udpfl.id AS display_picture_file_id
 				FROM (
-					SELECT mh.id AS heroId, mh.user_id AS userId, mh.name AS heroName, mh.level AS level, mh.exp AS exp
-					, mh.type AS type
+					SELECT mh.id AS heroId, mh.user_id AS userId, mh.name COLLATE utf8mb4_general_ci AS heroName, mh.type AS type, mh.level AS level, mh.exp AS exp
 					FROM maxhanna.bones_hero mh
 					WHERE mh.name IS NOT NULL
 					UNION ALL
-					SELECT COALESCE(bhs.bones_hero_id, 0) AS heroId, bhs.user_id AS userId, bhs.name AS heroName,
-						JSON_UNQUOTE(JSON_EXTRACT(bhs.data, '$.type')) AS type,
+					SELECT COALESCE(bhs.bones_hero_id, 0) AS heroId, bhs.user_id AS userId, bhs.name COLLATE utf8mb4_general_ci AS heroName,
+						JSON_UNQUOTE(JSON_EXTRACT(bhs.data, '$.type')) COLLATE utf8mb4_general_ci AS type,
 						CAST(JSON_UNQUOTE(JSON_EXTRACT(bhs.data, '$.level')) AS UNSIGNED) AS level,
 						CAST(JSON_UNQUOTE(JSON_EXTRACT(bhs.data, '$.exp')) AS UNSIGNED) AS exp
 					FROM maxhanna.bones_hero_selection bhs
@@ -1226,6 +1225,7 @@ ORDER BY p.created DESC;";
 						heroId = rdr.GetInt32("heroId"),
 						owner = ownerUser,
 						heroName = rdr.IsDBNull(rdr.GetOrdinal("heroName")) ? null : SafeGetString(rdr, "heroName"),
+						type = rdr.IsDBNull(rdr.GetOrdinal("type")) ? null : SafeGetString(rdr, "type"),
 						level = rdr.IsDBNull(rdr.GetOrdinal("level")) ? 0 : rdr.GetInt32("level")
 					});
 				}
