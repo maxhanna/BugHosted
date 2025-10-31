@@ -20,7 +20,7 @@ export class Inventory extends GameObject {
   parentCharacter: MetaHero;
   partyMembers?: { heroId: number, name: string, color?: string, type?: string }[] = [];
   inventoryRendered = false;
-  constructor(config: { character: MetaHero, partyMembers?: { heroId: number, name: string, color?: string }[] }) {
+  constructor(config: { character: MetaHero, partyMembers?: { heroId: number, name: string, color?: string, type?: string }[] }) {
     super({ position: new Vector2(0, 0), drawLayer: HUD });
     this.items = [];
     this.parentCharacter = config.character;
@@ -173,8 +173,8 @@ export class Inventory extends GameObject {
           : new ColorSwap([0, 160, 200], hexToRgb(color));
       console.log("creating portrait with color: ", color, item, this.parentCharacter);
       // Create portrait sprite
-      // Determine portrait frame by hero type: rogue=0, knight=1, magi=2
-      let frameIndex = 1; // default to knight
+  // Determine portrait frame by hero type: rogue=0, knight=1, magi=2
+  let frameIndex = 1; // default to knight
       try {
         const pm = this.partyMembers?.find(x => x.heroId == item.id) as any | undefined;
         const typeFromMember = pm?.type ?? undefined;
@@ -185,11 +185,15 @@ export class Inventory extends GameObject {
         else if (heroType === 'magi') frameIndex = 2;
       } catch { frameIndex = 1; }
 
+      // Ensure frameIndex is within expected bounds
+      frameIndex = Math.max(0, Math.min(2, frameIndex));
+
       const sprite = new Sprite({
         objectId: item.id,
         resource: resources.images["portraits"],
         vFrames: 1,
-        hFrames: 1,
+        // portraits image contains 3 horizontal frames: rogue, knight, magi
+        hFrames: 3,
         frame: frameIndex,
         drawLayer: HUD,
         colorSwap: tmpColor,
