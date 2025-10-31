@@ -2355,13 +2355,13 @@ ORDER BY p.created DESC;";
 						// compute seconds = FLOOR(TIMESTAMPDIFF(SECOND, COALESCE(last_regen, UTC_TIMESTAMP() - INTERVAL 1 SECOND), UTC_TIMESTAMP()))
 						// heal = FLOOR(regen * seconds)
 						// new hp = LEAST(100, hp + heal)
-						string regenUpdateSql = @"UPDATE maxhanna.bones_hero h
+						string regenUpdateSql = @"
+							UPDATE maxhanna.bones_hero h
 							SET h.hp = LEAST(100, h.hp + GREATEST(FLOOR(h.regen * FLOOR(TIMESTAMPDIFF(SECOND, COALESCE(h.last_regen, UTC_TIMESTAMP() - INTERVAL 1 SECOND), UTC_TIMESTAMP()))),0)),
 								h.last_regen = UTC_TIMESTAMP(),
 								h.updated = UTC_TIMESTAMP()
-							WHERE h.hp > 0 AND h.regen > 0
-							  AND (h.last_regen IS NULL OR h.last_regen <= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 1 SECOND))
-							  AND FLOOR(h.regen * FLOOR(TIMESTAMPDIFF(SECOND, COALESCE(h.last_regen, UTC_TIMESTAMP() - INTERVAL 1 SECOND), UTC_TIMESTAMP()))) >= 1;";
+							WHERE h.hp > 0 AND h.regen > 0 AND h.hp < 100
+								AND (h.last_regen IS NULL OR h.last_regen <= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 1 SECOND));";
 						await ExecuteInsertOrUpdateOrDeleteAsync(regenUpdateSql, new Dictionary<string, object?>(), connection, transaction);
 					}
 					catch (Exception exRegen)
