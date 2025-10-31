@@ -254,8 +254,11 @@ export class NotepadComponent extends ChildComponent implements OnInit, OnDestro
 
   private async fetchLatestSelectedNote() {
     try {
-      if (!this.selectedNote || !this.parentRef?.user?.id) { return; }
-      await this.notepadService.getNote(this.parentRef.user.id, this.selectedNote.id!); 
+      if (!this.selectedNote || !this.parentRef?.user?.id) { return; } 
+      const res = await this.notepadService.getNote(this.parentRef?.user.id, this.selectedNote.id!);
+      if (this.noteInput) {
+        this.noteInput.nativeElement.value = res.note!;
+      }
       this.setLastSynced(new Date());
     } catch (error) {
       console.error('Error polling shared note:', error);

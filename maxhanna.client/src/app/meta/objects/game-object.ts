@@ -206,7 +206,8 @@ export class GameObject {
       const boxWidth = maxWidth + boxPadding * 2; // Box width
       const boxHeight = lines.length * lineHeight + boxPadding * 2; // Box height
       const boxX = drawPosX - (boxWidth / 2) + 7; // Center the box horizontally (matching previous offset behavior)
-      const boxY = drawPosY + 23; // Position the box below the player
+  // Move name box slightly lower to avoid overlapping the head/portrait
+  const boxY = drawPosY + 27; // Position the box below the player (moved down 4px)
 
       // Draw the dark background box for the name
       ctx.fillStyle = "rgba(0, 0, 0, 0.7)"; // Semi-transparent black for the box
