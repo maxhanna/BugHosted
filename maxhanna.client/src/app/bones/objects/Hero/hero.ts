@@ -124,7 +124,7 @@ export class Hero extends Character {
           if (this.facingDirection == "DOWN") {
             this.body?.animations?.play("attackDown");
             if (this.currentSkill) {
-                this.spawnSkillTo(this.position.x + 200, this.position.y, this.currentSkill);
+                this.spawnSkillTo(this.position.x, this.position.y + 200, this.currentSkill);
             }
           } else if (this.facingDirection == "UP") {
             this.body?.animations?.play("attackUp");
