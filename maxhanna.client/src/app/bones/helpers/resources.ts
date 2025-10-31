@@ -53,6 +53,8 @@ export class Resources {
     };
     this.audioToLoad = {
       arcadeUi: `${this.dir}arcade-ui.mp4`,
+      ambiance_campfire: `${this.dir}ambiance_campfire.mp4`,
+      ambiance_wind: `${this.dir}ambiance_wind.mp4`,
       bonescracking: `${this.dir}bonescracking.mp4`,
       itemdrop: `${this.dir}itemdrop.mp4`,
       shadowsUnleashed: `${this.dir}shadows_unleashed.mp4`,
@@ -102,6 +104,8 @@ export class Resources {
     shadowsUnleashed: 'music',
     wilhelmScream: 'sfx',
     arcadeUi: 'sfx',
+    ambiance_campfire: 'sfx',
+    ambiance_wind: 'sfx',
     bonescracking: 'sfx',
     itemdrop: 'sfx',
     maleDeathScream: 'sfx',

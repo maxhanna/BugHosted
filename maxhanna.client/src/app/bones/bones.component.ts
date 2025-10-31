@@ -872,6 +872,8 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
     }
 
     this.mainScene.camera.centerPositionOnTarget(this.metaHero.position);
+    // play music appropriate for this level
+    try { this.playLevelMusic(this.metaHero.map ?? ''); } catch { }
 
     // If the server returned a dead hero (hp <= 0), present the death panel so user can respawn
     try {
@@ -1593,7 +1595,7 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
     this.isMusicMuted = !this.isMusicMuted;
     resources.setMusicMuted(this.isMusicMuted);
     if (!this.isMusicMuted) {
-      resources.playSound("shadowsUnleashed", { volume: 0.4, loop: true, allowOverlap: false });
+      this.playLevelMusic(this.mainScene?.level?.name ?? '');
     } else {
       resources.stopSound("shadowsUnleashed");
     }
@@ -1601,6 +1603,21 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
     if (this.parentRef?.user?.id) {
       this.userService.updateMuteSounds(this.parentRef.user.id, this.isMuted).catch(() => { });
     }
+  }
+
+  // Play music appropriate for the given level name. Caller must ensure resources APIs are available.
+  private playLevelMusic(levelName: string) {
+    if (this.isMusicMuted) return;
+    const key = (levelName || '').toUpperCase();
+    // CharacterCreate should play two ambiance tracks
+    if (key === 'CHARACTERCREATE') {
+      resources.playSound('ambiance_wind', { volume: 0.35, loop: true, allowOverlap: false });
+      resources.playSound('ambiance_campfire', { volume: 0.25, loop: true, allowOverlap: false });
+      return;
+    }
+
+    // Default: shadowsUnleashed
+    try { resources.playSound('shadowsUnleashed', { volume: 0.4, loop: true, allowOverlap: false }); } catch { }
   }
 
   toggleSfx() {
@@ -1648,13 +1665,13 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
       }
 
       if (!this.isMusicMuted) {
-        const startMusic = () => {
-          resources.playSound("shadowsUnleashed", { volume: 0.4, loop: true, allowOverlap: false });
-          document.removeEventListener('pointerdown', startMusic);
-          document.removeEventListener('keydown', startMusic);
-        };
-        document.addEventListener('pointerdown', startMusic, { once: true });
-        document.addEventListener('keydown', startMusic, { once: true });
+          const startMusic = () => {
+            try { this.playLevelMusic(this.mainScene?.level?.name ?? ''); } catch { resources.playSound("shadowsUnleashed", { volume: 0.4, loop: true, allowOverlap: false }); }
+            document.removeEventListener('pointerdown', startMusic);
+            document.removeEventListener('keydown', startMusic);
+          };
+          document.addEventListener('pointerdown', startMusic, { once: true });
+          document.addEventListener('keydown', startMusic, { once: true });
       }
     }).catch(() => { });
   }
