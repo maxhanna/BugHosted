@@ -982,14 +982,12 @@ ORDER BY p.created DESC;";
 				int spawnX = 0;
 				int spawnY = 0;
 				string map = string.Empty;
-				// Read current map for this hero
 				using (var mapCmd = new MySqlCommand("SELECT map FROM maxhanna.bones_hero WHERE id = @HeroId LIMIT 1", connection, transaction))
 				{
 					mapCmd.Parameters.AddWithValue("@HeroId", heroId);
 					var mapObj = await mapCmd.ExecuteScalarAsync();
 					map = mapObj != null ? mapObj.ToString() ?? string.Empty : string.Empty;
 				}
-				// Fetch other heroes on same map
 				var others = new List<(int x, int y)>();
 				using (var selCmd = new MySqlCommand("SELECT coordsX, coordsY FROM maxhanna.bones_hero WHERE map = @Map AND id <> @HeroId", connection, transaction))
 				{
