@@ -18,7 +18,7 @@ export class Inventory extends GameObject {
   currentlySelectedId?: number = undefined;
   startMenu?: StartMenu;
   parentCharacter: MetaHero;
-  partyMembers?: { heroId: number, name: string, color?: string }[] = [];
+  partyMembers?: { heroId: number, name: string, color?: string, type?: string }[] = [];
   inventoryRendered = false;
   constructor(config: { character: MetaHero, partyMembers?: { heroId: number, name: string, color?: string }[] }) {
     super({ position: new Vector2(0, 0), drawLayer: HUD });
@@ -42,12 +42,17 @@ export class Inventory extends GameObject {
 
     if (this.partyMembers.length === 0) {
       if (this.parent?.hero?.id) {
-        this.partyMembers.push({ heroId: this.parent.hero.id, name: this.parent.hero.name, color: this.parent.hero.color });
+        this.partyMembers.push({ heroId: this.parent.hero.id, name: this.parent.hero.name, color: this.parent.hero.color, type: (this.parent?.hero?.type ?? 'knight') });
       }
       console.log(this.parent?.hero?.id, this.parentCharacter, this.root.level);
     }
     console.log("rendering party", this.items, this.partyMembers);
     for (let member of this.partyMembers) {
+      // Ensure member has a type so render logic can determine portrait frame
+      if (typeof (member as any).type === 'undefined') {
+        const inferred = (this.parentCharacter && this.parentCharacter.id === member.heroId) ? (this.parentCharacter as any).type : undefined;
+        (member as any).type = inferred ?? 'knight';
+      }
       const itemData = {
         id: member.heroId,
         image: "portraits", // use string key to avoid type mismatch
@@ -86,6 +91,12 @@ export class Inventory extends GameObject {
     events.on("PARTY_INVITE_ACCEPTED", this, (data: { playerId: number, party: { heroId: number, name: string, color?: string }[] }) => {
       if (data.party) {
         for (let member of data.party) {
+          // ensure partyMembers array is kept in sync and includes type
+          const existing = this.partyMembers?.find(x => x.heroId === member.heroId);
+          if (!existing) {
+            const inferredType = (this.parentCharacter && this.parentCharacter.id === member.heroId) ? (this.parentCharacter as any).type : 'knight';
+            (this.partyMembers as any).push({ heroId: member.heroId, name: member.name, color: member.color, type: inferredType });
+          }
           const itemData = {
             id: member.heroId,
             image: "portraits", // use string key to avoid type mismatch
