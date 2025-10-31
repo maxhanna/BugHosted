@@ -1185,7 +1185,25 @@ ORDER BY p.created DESC;";
 				await connection.OpenAsync();
 				// Highscores: include both live heroes and saved hero selections.
 				// bones_hero_selection.data stores a JSON object that may include level/exp; extract those values.
+				// Combine live heroes and saved selections, default missing/empty type to 'knight',
+				// then pick the top row per heroName (highest level, then exp) to ensure distinct names.
 				string sql = @"
+				WITH combined AS (
+					SELECT mh.id AS heroId, mh.user_id AS userId, mh.name COLLATE utf8mb4_general_ci AS heroName,
+						COALESCE(NULLIF(mh.type,''),'knight') AS type,
+						mh.level AS level, mh.exp AS exp
+					FROM maxhanna.bones_hero mh
+					WHERE mh.name IS NOT NULL
+					UNION ALL
+					SELECT COALESCE(bhs.bones_hero_id, 0) AS heroId, bhs.user_id AS userId, bhs.name COLLATE utf8mb4_general_ci AS heroName,
+						COALESCE(NULLIF(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(bhs.data, '$.type')),'null'),'') ,'knight') AS type,
+						CAST(JSON_UNQUOTE(JSON_EXTRACT(bhs.data, '$.level')) AS UNSIGNED) AS level,
+						CAST(JSON_UNQUOTE(JSON_EXTRACT(bhs.data, '$.exp')) AS UNSIGNED) AS exp
+					FROM maxhanna.bones_hero_selection bhs
+					WHERE bhs.name IS NOT NULL
+				), ranked AS (
+					SELECT *, ROW_NUMBER() OVER (PARTITION BY heroName ORDER BY level DESC, exp DESC) AS rn FROM combined
+				)
 				SELECT
 					src.heroId AS heroId,
 					src.userId AS userId,
@@ -1195,21 +1213,11 @@ ORDER BY p.created DESC;";
 					src.exp AS exp,
 					u.username AS username,
 					udpfl.id AS display_picture_file_id
-				FROM (
-					SELECT mh.id AS heroId, mh.user_id AS userId, mh.name COLLATE utf8mb4_general_ci AS heroName, mh.type AS type, mh.level AS level, mh.exp AS exp
-					FROM maxhanna.bones_hero mh
-					WHERE mh.name IS NOT NULL
-					UNION ALL
-					SELECT COALESCE(bhs.bones_hero_id, 0) AS heroId, bhs.user_id AS userId, bhs.name COLLATE utf8mb4_general_ci AS heroName,
-						JSON_UNQUOTE(JSON_EXTRACT(bhs.data, '$.type')) COLLATE utf8mb4_general_ci AS type,
-						CAST(JSON_UNQUOTE(JSON_EXTRACT(bhs.data, '$.level')) AS UNSIGNED) AS level,
-						CAST(JSON_UNQUOTE(JSON_EXTRACT(bhs.data, '$.exp')) AS UNSIGNED) AS exp
-					FROM maxhanna.bones_hero_selection bhs
-					WHERE bhs.name IS NOT NULL
-				) AS src
+				FROM ranked src
 				LEFT JOIN maxhanna.users u ON u.id = src.userId
 				LEFT JOIN maxhanna.user_display_pictures udp ON udp.user_id = u.id
 				LEFT JOIN maxhanna.file_uploads udpfl ON udp.file_id = udpfl.id
+				WHERE src.rn = 1
 				ORDER BY src.level DESC, src.exp DESC, src.heroName ASC
 				LIMIT @Count;";
 				using var cmd = new MySqlCommand(sql, connection);
