@@ -188,13 +188,14 @@
 <div class="popupPanel startPopupPanel" *ngIf="isStartMenuOpened" style="max-width:360px; text-align:center;">
   <div style="display:flex; align-items:center; justify-content:center; position:relative;">
     <div class="popupPanelTitle mainPopupTitle">
-      {{isChangeStatsOpen ? 'Change Stats' 
+      {{isChangeStatsOpen ? 'Change Stats'
+        : isChangeSkillsOpen ? 'Change Skills' 
         : isPartyPanelOpen ? 'Nearby Heroes / Party'
         : 'Menu'}}
     </div>
     <button id="closeOverlay" (click)="closeStartMenu()" class="buttonDisplayNone"></button>
   </div>
-  <div *ngIf="!isPartyPanelOpen && !isChangeStatsOpen" class="startGrid">
+  <div *ngIf="!isPartyPanelOpen && !isChangeStatsOpen && !isChangeSkillsOpen" class="startGrid">
     <button class="bigActionButton" (click)="openChangeCharacter()" aria-label="Change Hero">Change Hero</button>
     <button class="bigActionButton" (click)="openChangeStats()" aria-label="Change Stats">Change Stats</button>
     <button class="bigActionButton" (click)="openChangeSkills()" aria-label="Change Skills">Change Skills</button>
@@ -302,7 +303,7 @@
     <button (click)="closeStartMenu()" *ngIf="statsUpdatedVisible">Close</button>
   </div>
 
-  <!-- Change Skills subpanel -->
+  <!-- Change Skills subpanel: 3-box layout (large center box + two stacked to the right) -->
   <div *ngIf="isChangeSkillsOpen" class="changeStatsPanel"> 
     <div *ngIf="skillsUpdatedVisible" style="padding:12px; font-weight:700; text-align:center;">Skills updated</div>
     <ng-container *ngIf="!skillsUpdatedVisible">
@@ -310,32 +311,42 @@
         <div>Points:</div>
         <div style="font-weight:700;">{{editableSkills.pointsAvailable}}</div>
       </div>
-      <div style="display:flex; flex-direction:column; gap:8px;">
-        <div style="display:flex; justify-content:space-between; align-items:center;">
-          <div>Skill A</div>
-          <div>
-            <button (click)="adjustSkill('skillA', -1)" [disabled]="editableSkills.skillA <= 0">-</button>
-            <span style="margin:0 8px">{{editableSkills.skillA}}</span>
-            <button (click)="adjustSkill('skillA', 1)" [disabled]="editableSkills.pointsAvailable <= 0">+</button>
+
+      <!-- Skills row -->
+      <div style="display:flex; gap:12px; align-items:flex-start; justify-content:center;">
+        <!-- Large center skill box (Skill A) -->
+        <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; width:160px; height:140px; background:#0f0f0f; border:1px solid #333; padding:8px; border-radius:8px;">
+          <div style="display:flex; align-items:center; width:100%; justify-content:space-between;">
+            <button (click)="adjustSkill('skillA', -1)" [disabled]="editableSkills.skillA <= 0" aria-label="Decrease Skill A">-</button>
+            <div style="width:84px; height:84px; background:#222; display:flex; align-items:center; justify-content:center; border-radius:8px;">
+              <!-- placeholder large icon -->
+              <div style="width:44px; height:44px; background:#555; border-radius:6px;"></div>
+            </div>
+            <button (click)="adjustSkill('skillA', 1)" [disabled]="editableSkills.pointsAvailable <= 0" aria-label="Increase Skill A">+</button>
           </div>
+          <div style="margin-top:8px; font-weight:700;">Skill A</div>
+          <div style="font-size:12px; color:#ccc;">{{editableSkills.skillA}}</div>
         </div>
-        <div style="display:flex; justify-content:space-between; align-items:center;">
-          <div>Skill B</div>
-          <div>
-            <button (click)="adjustSkill('skillB', -1)" [disabled]="editableSkills.skillB <= 0">-</button>
-            <span style="margin:0 8px">{{editableSkills.skillB}}</span>
-            <button (click)="adjustSkill('skillB', 1)" [disabled]="editableSkills.pointsAvailable <= 0">+</button>
+
+        <!-- Right column: Skill B and C stacked -->
+        <div style="display:flex; flex-direction:column; gap:8px;">
+          <div style="display:flex; align-items:center; width:140px; height:64px; background:#0f0f0f; border:1px solid #333; padding:8px; border-radius:8px; justify-content:space-between;">
+            <button (click)="adjustSkill('skillB', -1)" [disabled]="editableSkills.skillB <= 0" aria-label="Decrease Skill B">-</button>
+            <div style="width:56px; height:44px; background:#222; display:flex; align-items:center; justify-content:center; border-radius:6px;">
+              <div style="width:28px; height:28px; background:#555; border-radius:4px;"></div>
+            </div>
+            <button (click)="adjustSkill('skillB', 1)" [disabled]="editableSkills.pointsAvailable <= 0" aria-label="Increase Skill B">+</button>
           </div>
-        </div>
-        <div style="display:flex; justify-content:space-between; align-items:center;">
-          <div>Skill C</div>
-          <div>
-            <button (click)="adjustSkill('skillC', -1)" [disabled]="editableSkills.skillC <= 0">-</button>
-            <span style="margin:0 8px">{{editableSkills.skillC}}</span>
-            <button (click)="adjustSkill('skillC', 1)" [disabled]="editableSkills.pointsAvailable <= 0">+</button>
+          <div style="display:flex; align-items:center; width:140px; height:64px; background:#0f0f0f; border:1px solid #333; padding:8px; border-radius:8px; justify-content:space-between;">
+            <button (click)="adjustSkill('skillC', -1)" [disabled]="editableSkills.skillC <= 0" aria-label="Decrease Skill C">-</button>
+            <div style="width:56px; height:44px; background:#222; display:flex; align-items:center; justify-content:center; border-radius:6px;">
+              <div style="width:28px; height:28px; background:#555; border-radius:4px;"></div>
+            </div>
+            <button (click)="adjustSkill('skillC', 1)" [disabled]="editableSkills.pointsAvailable <= 0" aria-label="Increase Skill C">+</button>
           </div>
         </div>
       </div>
+
       <div style="margin-top:10px; display:flex; gap:8px; justify-content:center;">
         <button *ngIf="skillsChanged" (click)="applySkills()">Apply</button>
         <button (click)="closeStartMenu()">Cancel</button>
