@@ -1036,6 +1036,10 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
   async openStartMenu() {
     this.isStartMenuOpened = true;
     this.isMenuPanelOpen = false;
+    this.isPartyPanelOpen = false;
+    this.isChangeSkillsOpen = false;
+    this.isChangeStatsOpen = false;
+    
     this.parentRef?.showOverlay();
     const level = this.metaHero?.level ?? 1;
     const base = 1;

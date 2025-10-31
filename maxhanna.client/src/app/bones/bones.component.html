@@ -185,7 +185,7 @@
 
 
 <!-- Start Menu Popup -->
-<div class="popupPanel startPopupPanel" *ngIf="isStartMenuOpened" style="max-width:360px; text-align:center;">
+<div class="popupPanel startPopupPanel" *ngIf="isStartMenuOpened" [style.maxWidth]="!isPartyPanelOpen && !isChangeStatsOpen && !isChangeSkillsOpen ? '360px' : ''" style="text-align:center;">
   <div style="display:flex; align-items:center; justify-content:center; position:relative;">
     <div class="popupPanelTitle mainPopupTitle">
       {{isChangeStatsOpen ? 'Change Stats'
