@@ -5,11 +5,12 @@ import { GameObject, HUD } from "../../game-object";
 import { Animations } from "../../../helpers/animations";
 import { FrameIndexPattern } from "../../../helpers/frame-index-pattern";
 import { ARROW_LEFT_ANIMATION, ARROW_RIGHT_ANIMATION, HIT_LEFT_ANIMATION, HIT_RIGHT_ANIMATION } from "./arrow-animations"; 
+import { RIGHT } from "../../../helpers/grid-cells";
 
 export class Arrow extends GameObject {
   body?: Sprite;
-
-  constructor(x: number, y: number) {
+  facingDirection: string = RIGHT;
+  constructor(x: number, y: number, facingDirection: string) {
     super({
       position: new Vector2(x, y),
       name: "Arrow",
@@ -35,11 +36,20 @@ export class Arrow extends GameObject {
       }), 
     });
     this.addChild(this.body);
-    this.body.animations?.play("arrowRightAnimation");
+    this.facingDirection = facingDirection;
+    if (facingDirection === RIGHT) { 
+      this.body.animations?.play("arrowRightAnimation");
+    } else { 
+      this.body.animations?.play("arrowLeftAnimation");
+    }
   }
 
   override destroy(): void { 
-    this.body?.animations?.play("hitRightAnimation")
+    if (this.facingDirection === RIGHT) { 
+      this.body?.animations?.play("hitRightAnimation");
+    } else { 
+      this.body?.animations?.play("hitLeftAnimation");
+    }
     setTimeout(() => {
       super.destroy();
     }, 1000); 

@@ -283,9 +283,9 @@ export class Hero extends Character {
       if (type === "sting") {
         skillType = new Sting(startX, startY);
       } else if (type === "arrow") {
-        skillType = new Arrow(startX, startY);
+        skillType = new Arrow(startX, startY, this.facingDirection);
       } else {
-        skillType = new Arrow(startX, startY);
+        skillType = new Arrow(startX, startY, this.facingDirection);
       }
       // Place the sting on the same parent that renders the hero (usually the level)
       // so the world coordinates used above align with the sting's local coordinates.
