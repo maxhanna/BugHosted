@@ -6,6 +6,7 @@ import { Animations } from "../../../helpers/animations";
 import { FrameIndexPattern } from "../../../helpers/frame-index-pattern";
 import { ARROW_LEFT_ANIMATION, ARROW_RIGHT_ANIMATION, HIT_LEFT_ANIMATION, HIT_RIGHT_ANIMATION } from "./arrow-animations"; 
 import { RIGHT } from "../../../helpers/grid-cells";
+import { objectAtLocation } from "../../../helpers/move-towards";
 
 export class Arrow extends GameObject {
   body?: Sprite;
@@ -75,11 +76,14 @@ export class Arrow extends GameObject {
 
       this.position.x = startX + deltaX * progress;
       this.position.y = startY + deltaY * progress;
-
-      if (progress < 1) {
-        requestAnimationFrame(animate);
-      } else {
+      if (objectAtLocation(this.parent.parent, this.position)) {
         this.destroy();
+      } else {
+        if (progress < 1) {
+          requestAnimationFrame(animate);
+        } else {
+          this.destroy();
+        }
       }
     };
 
