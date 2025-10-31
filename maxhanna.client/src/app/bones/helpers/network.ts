@@ -421,9 +421,19 @@ export function subscribeToMainGameEvents(object: any) {
           attack.facing = String(facingRaw).toLowerCase();
         }
 
-        const isMagi = (object.metaHero && (object.metaHero as any).type === 'magi') || (srcObj && (srcObj as any).type === 'magi');
-        if (isMagi) { 
-          attack.length = 200;
+        // Normalize type checks to be robust against casing, missing fields, or server shape differences
+        try {
+          const metaHeroType = String((object.metaHero as any)?.type ?? '').toLowerCase();
+          const srcObjType = String((srcObj as any)?.type ?? '').toLowerCase();
+          // Debug: show types when debugging magi detection (kept minimal)
+          // console.debug(`attack type check: metaHero.type='${metaHeroType}', srcObj.type='${srcObjType}'`);
+          const isMagi = (metaHeroType === 'magi') || (srcObjType === 'magi');
+          if (isMagi) {
+            attack.length = 200;
+          }
+        } catch (innerEx) {
+          // If anything goes wrong here, don't block the attack; fall back to no length
+          console.warn('Failed to determine hero type for magi length', innerEx);
         }
       } catch (ex) {
         console.log("Failed to extract facing/length for attack:", ex);
