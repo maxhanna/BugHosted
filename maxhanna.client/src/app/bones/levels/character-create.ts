@@ -165,12 +165,11 @@ export class CharacterCreate extends Level {
       }
     })
   }
-  override destroy() {
-  // Ensure chat input is restored when leaving this level
-  this.returnChatInputToNormal();
-  this.textBox.destroy(); 
-  events.unsubscribe(this);
-  super.destroy();
+  override destroy() { 
+    this.returnChatInputToNormal();
+    this.textBox.destroy(); 
+    events.unsubscribe(this);
+    super.destroy();
   }
 
   // Capture keyboard input from parent Main.input each frame so this level can react to arrow presses.

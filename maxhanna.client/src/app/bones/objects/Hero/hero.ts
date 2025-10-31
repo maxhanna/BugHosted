@@ -14,10 +14,12 @@ import { ColorSwap } from "../../../../services/datacontracts/bones/color-swap";
 import { events } from "../../helpers/events";
 import { WarpBase } from "../Effects/Warp/warp-base";
 import { Sting } from "../Effects/Sting/sting";
+import { Arrow } from "../Effects/Arrow/arrow";
 
 export class Hero extends Character {
   isAttacking = false;
   type: string = "knight";
+  currentSkill?: string = undefined;
   private lastAttackAt: number = 0;
   public attackSpeed: number = 400;
   constructor(params: {
@@ -74,6 +76,11 @@ export class Hero extends Character {
     this.itemPickupTime = 0;
     this.isOmittable = false;
     this.scale = params.scale ?? new Vector2(1, 1);
+    if (this.type === "magi") {
+      this.currentSkill = "sting"; 
+    } else if (this.type === "rogue") {
+      this.currentSkill = "arrow";
+    }
     const shadow = new Sprite({
       resource: resources.images["shadow"],
       offsetY: 10,
@@ -108,50 +115,36 @@ export class Hero extends Character {
         this.lastAttackAt = now;
         this.isAttacking = true;
         // this.isLocked = true;
-        // If the object in front is an NPC, don't play the attack animation (we treat it as interaction)
-        try {
-          const neighbour = this.position.toNeighbour ? this.position.toNeighbour(this.facingDirection) : null;
-          const objInFront = neighbour ? objectAtLocation(this.parent, neighbour, true) : null;
-          const isNpcInFront = objInFront && (objInFront instanceof Npc || objInFront.constructor?.name?.toLowerCase().endsWith('npc'));
-          if (!isNpcInFront) {
-            console.log("playing attack");
-            if (this.facingDirection == "DOWN") {
-              this.body?.animations?.play("attackDown");
-              if (this.type === "magi") {
-                this.spawnStingTo(this.position.x + 200, this.position.y);
-              }
-            } else if (this.facingDirection == "UP") {
-              this.body?.animations?.play("attackUp");
-               if (this.type === "magi") {
-                this.spawnStingTo(this.position.x, this.position.y - 200);
-              }
-            } else if (this.facingDirection == "LEFT") {
-              this.body?.animations?.play("attackLeft");
-              if (this.type === "magi") {
-                this.spawnStingTo(this.position.x - 200, this.position.y);
-              }
-            } else if (this.facingDirection == "RIGHT") {
-              this.body?.animations?.play("attackRight");
-              if (this.type === "magi") {
-                this.spawnStingTo(this.position.x + 200, this.position.y);
-              }
-            }
-            this.playAttackSound(); 
-          }
-        } catch (e) {
-          console.log("error checking npc", e);
-          // If anything goes wrong while checking, fallback to playing the attack animation
+      
+        const neighbour = this.position.toNeighbour ? this.position.toNeighbour(this.facingDirection) : null;
+        const objInFront = neighbour ? objectAtLocation(this.parent, neighbour, true) : null;
+        const isNpcInFront = objInFront && (objInFront instanceof Npc || objInFront.constructor?.name?.toLowerCase().endsWith('npc'));
+        if (!isNpcInFront) { 
+          console.log("playing attack");
           if (this.facingDirection == "DOWN") {
             this.body?.animations?.play("attackDown");
+            if (this.currentSkill) {
+                this.spawnSkillTo(this.position.x + 200, this.position.y, this.currentSkill);
+            }
           } else if (this.facingDirection == "UP") {
             this.body?.animations?.play("attackUp");
+            if (this.currentSkill) {
+              this.spawnSkillTo(this.position.x, this.position.y - 200, this.currentSkill);
+            } 
           } else if (this.facingDirection == "LEFT") {
             this.body?.animations?.play("attackLeft");
+            if (this.currentSkill) {
+              this.spawnSkillTo(this.position.x - 200, this.position.y, this.currentSkill);
+            }
           } else if (this.facingDirection == "RIGHT") {
             this.body?.animations?.play("attackRight");
+            if (this.currentSkill) {
+              this.spawnSkillTo(this.position.x + 200, this.position.y, this.currentSkill);
+            } 
           }
-          this.playAttackSound();
+          this.playAttackSound(); 
         }
+        
         // After the attack animation finishes, allow another attack to be queued if the user is still holding
         // the attack input (space / controller A). We'll wait for the visual animation to finish (400ms)
         // then, if the input is held, trigger another SPACEBAR_PRESSED respecting the attackSpeed cooldown.
@@ -159,33 +152,29 @@ export class Hero extends Character {
           this.isAttacking = false;
           // try to locate the input instance by walking parents
           const inputInstance = this.findInputInstance();
-          try {
-            const holding = !!(inputInstance && (inputInstance.keys?.['Space'] || inputInstance.keys?.['KeyA']));
-            if (holding) {
-              // don't queue follow-up if the hero started moving
-              const isMovingNow = (this.position.x !== this.destinationPosition.x) || (this.position.y !== this.destinationPosition.y);
-              if (isMovingNow) {
-                return;
-              }
-              const elapsed = Date.now() - this.lastAttackAt;
-              // wait until both cooldown and animation complete to trigger next attack
-              const cooldownRemaining = Math.max(0, (this.attackSpeed ?? 400) - elapsed);
-              const requiredWait = Math.max(cooldownRemaining, (this.attackSpeed ?? 400) + 50);
-              setTimeout(() => {
-                try {
-                  const inputNow = this.findInputInstance();
-                  const stillHolding = !!(inputNow && (inputNow.keys?.['Space'] || inputNow.keys?.['KeyA']));
-                  const stillMoving = (this.position.x !== this.destinationPosition.x) || (this.position.y !== this.destinationPosition.y);
-                  if (stillHolding && !stillMoving) {
-                    events.emit('SPACEBAR_PRESSED');
-                    console.log("reemitting spacebar pressed");
-                  }
-                } catch (e) { }
-              }, requiredWait);
+          
+          const holding = !!(inputInstance && (inputInstance.keys?.['Space'] || inputInstance.keys?.['KeyA']));
+          if (holding) {
+            // don't queue follow-up if the hero started moving
+            const isMovingNow = (this.position.x !== this.destinationPosition.x) || (this.position.y !== this.destinationPosition.y);
+            if (isMovingNow) {
+              return;
             }
-          } catch (ex) {
-            // swallow any input inspection errors
+            const elapsed = Date.now() - this.lastAttackAt;
+            // wait until both cooldown and animation complete to trigger next attack
+            const cooldownRemaining = Math.max(0, (this.attackSpeed ?? 400) - elapsed);
+            const requiredWait = Math.max(cooldownRemaining, (this.attackSpeed ?? 400) + 50);
+            setTimeout(() => { 
+              const inputNow = this.findInputInstance();
+              const stillHolding = !!(inputNow && (inputNow.keys?.['Space'] || inputNow.keys?.['KeyA']));
+              const stillMoving = (this.position.x !== this.destinationPosition.x) || (this.position.y !== this.destinationPosition.y);
+              if (stillHolding && !stillMoving) {
+                events.emit('SPACEBAR_PRESSED');
+                console.log("reemitting spacebar pressed");
+              } 
+            }, requiredWait);
           }
+          
           //  this.isLocked = false;
         }, 400);
       });
@@ -277,9 +266,9 @@ export class Hero extends Character {
         }
       } catch (ex) { console.error('OTHER_HERO_ATTACK handler error', ex); }
     });
-  }
-
-  private spawnStingTo(targetX: number, targetY: number) {
+  } 
+  
+  private spawnSkillTo(targetX: number, targetY: number, type: string) {
     try {
       // Compute rendered anchor point for this hero's sprite so the effect appears at the same place
       const bodyPosX = (this.body?.position?.x ?? 0);
@@ -297,15 +286,21 @@ export class Hero extends Character {
       // Convert target world position to rendered anchor using the same offsets so the sting moves to the visual target
       const targetAnchorX = targetX + bodyPosX + bodyOffsetX + (frameW * scaleX) / 2;
       const targetAnchorY = targetY + bodyPosY + bodyOffsetY + (frameH * scaleY) / 2;
-
-      const sting = new Sting(startX, startY);
+      let skillType = undefined;
+      if (type === "sting") {
+        skillType = new Sting(startX, startY);
+      } else if (type === "arrow") {
+        skillType = new Arrow(startX, startY);
+      } else {
+        skillType = new Arrow(startX, startY);
+      }
       // Place the sting on the same parent that renders the hero (usually the level)
       // so the world coordinates used above align with the sting's local coordinates.
       const host = (this.parent as any) ?? this;
-      host.addChild(sting);
-      sting.moveTo(targetAnchorX, targetAnchorY, 1000);
+      host.addChild(skillType);
+      skillType.moveTo(targetAnchorX, targetAnchorY, 1000);
       setTimeout(() => {
-        try { sting.destroy(); } catch { }
+        try { skillType.destroy(); } catch { }
       }, 2000);
     } catch (ex) {
       console.warn('spawnStingTo failed', ex);
