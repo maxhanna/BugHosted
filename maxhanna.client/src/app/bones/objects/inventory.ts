@@ -162,12 +162,24 @@ export class Inventory extends GameObject {
           : new ColorSwap([0, 160, 200], hexToRgb(color));
       console.log("creating portrait with color: ", color, item, this.parentCharacter);
       // Create portrait sprite
+      // Determine portrait frame by hero type: rogue=0, knight=1, magi=2
+      let frameIndex = 1; // default to knight
+      try {
+        const pm = this.partyMembers?.find(x => x.heroId == item.id) as any | undefined;
+        const typeFromMember = pm?.type ?? undefined;
+        const typeFromParent = (this.parentCharacter && this.parentCharacter.id === item.id) ? (this.parentCharacter as any).type : undefined;
+        const heroType = (typeFromMember ?? typeFromParent ?? '').toString().toLowerCase();
+        if (heroType === 'rogue') frameIndex = 0;
+        else if (heroType === 'knight') frameIndex = 1;
+        else if (heroType === 'magi') frameIndex = 2;
+      } catch { frameIndex = 1; }
+
       const sprite = new Sprite({
         objectId: item.id,
         resource: resources.images["portraits"],
         vFrames: 1,
         hFrames: 1,
-        frame: 0, // You might want to set this based on hero ID
+        frame: frameIndex,
         drawLayer: HUD,
         colorSwap: tmpColor,
         position: new Vector2(PORTRAIT_X, START_Y + (count * ROW_HEIGHT)),
