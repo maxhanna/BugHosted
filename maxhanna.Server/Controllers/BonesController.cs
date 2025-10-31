@@ -494,8 +494,13 @@ ORDER BY p.created DESC;";
 								using var rdrStats = await lvlCmd.ExecuteReaderAsync();
 								if (await rdrStats.ReadAsync())
 								{
-									attackerLevel = rdrStats.IsDBNull(rdrStats.GetOrdinal("lvl")) ? 1 : rdrStats.GetInt32(rdrStats.GetOrdinal("lvl"));
-									dbAttackDmg = rdrStats.IsDBNull(rdrStats.GetOrdinal("attack_dmg")) ? 0 : rdrStats.GetInt32(rdrStats.GetOrdinal("attack_dmg"));
+									// Read numeric columns defensively: underlying DB type may be DOUBLE or INT.
+									var lvlObj = rdrStats.IsDBNull(rdrStats.GetOrdinal("lvl")) ? null : rdrStats.GetValue(rdrStats.GetOrdinal("lvl"));
+									attackerLevel = lvlObj == null ? 1 : Convert.ToInt32(Convert.ToDouble(lvlObj));
+
+									var dmgObj = rdrStats.IsDBNull(rdrStats.GetOrdinal("attack_dmg")) ? null : rdrStats.GetValue(rdrStats.GetOrdinal("attack_dmg"));
+									dbAttackDmg = dmgObj == null ? 0 : Convert.ToInt32(Convert.ToDouble(dmgObj));
+
 									dbCritRate = rdrStats.IsDBNull(rdrStats.GetOrdinal("crit_rate")) ? 0.0 : rdrStats.GetDouble(rdrStats.GetOrdinal("crit_rate"));
 									dbCritDmg = rdrStats.IsDBNull(rdrStats.GetOrdinal("crit_dmg")) ? 2.0 : rdrStats.GetDouble(rdrStats.GetOrdinal("crit_dmg"));
 								}
@@ -1348,7 +1353,8 @@ ORDER BY p.created DESC;";
 				int level = heroRdr.IsDBNull(heroRdr.GetOrdinal("level")) ? 0 : heroRdr.GetInt32(heroRdr.GetOrdinal("level"));
 				int exp = heroRdr.IsDBNull(heroRdr.GetOrdinal("exp")) ? 0 : heroRdr.GetInt32(heroRdr.GetOrdinal("exp"));
 				int attack_speed = heroRdr.IsDBNull(heroRdr.GetOrdinal("attack_speed")) ? 400 : heroRdr.GetInt32(heroRdr.GetOrdinal("attack_speed"));
-				int attack_dmg = heroRdr.IsDBNull(heroRdr.GetOrdinal("attack_dmg")) ? 1 : heroRdr.GetInt32(heroRdr.GetOrdinal("attack_dmg"));
+				var attackDmgObj = heroRdr.IsDBNull(heroRdr.GetOrdinal("attack_dmg")) ? null : heroRdr.GetValue(heroRdr.GetOrdinal("attack_dmg"));
+				int attack_dmg = attackDmgObj == null ? 1 : Convert.ToInt32(Convert.ToDouble(attackDmgObj));
 				double crit_rate = heroRdr.IsDBNull(heroRdr.GetOrdinal("crit_rate")) ? 0.0 : heroRdr.GetDouble(heroRdr.GetOrdinal("crit_rate"));
 				double crit_dmg = heroRdr.IsDBNull(heroRdr.GetOrdinal("crit_dmg")) ? 2.0 : heroRdr.GetDouble(heroRdr.GetOrdinal("crit_dmg"));
 				int health = heroRdr.IsDBNull(heroRdr.GetOrdinal("health")) ? 100 : heroRdr.GetInt32(heroRdr.GetOrdinal("health"));
@@ -2139,7 +2145,7 @@ ORDER BY p.created DESC;";
 								AttackSpeed = attackSpeed,
 								Hp = reader.IsDBNull(reader.GetOrdinal("hero_hp")) ? 100 : reader.GetInt32(reader.GetOrdinal("hero_hp")),
 								// Legacy stats removed; not included in MetaHero mapping
-								AttackDmg = reader.IsDBNull(reader.GetOrdinal("hero_attack_dmg")) ? 1 : reader.GetInt32(reader.GetOrdinal("hero_attack_dmg")),
+								AttackDmg = reader.IsDBNull(reader.GetOrdinal("hero_attack_dmg")) ? 1 : Convert.ToInt32(Convert.ToDouble(reader.GetValue(reader.GetOrdinal("hero_attack_dmg")))),
 								CritRate = reader.IsDBNull(reader.GetOrdinal("hero_crit_rate")) ? 0.0 : reader.GetDouble(reader.GetOrdinal("hero_crit_rate")),
 								CritDmg = reader.IsDBNull(reader.GetOrdinal("hero_crit_dmg")) ? 2.0 : reader.GetDouble(reader.GetOrdinal("hero_crit_dmg")),
 								Health = reader.IsDBNull(reader.GetOrdinal("hero_health")) ? 100 : reader.GetInt32(reader.GetOrdinal("hero_health")),
