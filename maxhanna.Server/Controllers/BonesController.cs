@@ -2025,7 +2025,24 @@ ORDER BY p.created DESC;";
 				// bones_bot_part table removed — don't join or select part columns
 				// include attack_speed and hp if present
 				// Include optional stat columns (str,dex,int) aliased to hero_str/hero_dex/hero_int if present in schema
-				string sql = $"SELECT h.id as hero_id, h.coordsX, h.coordsY, h.map, h.speed, h.name as hero_name, h.color as hero_color, h.mask as hero_mask, h.level as hero_level, h.exp as hero_exp, h.hp as hero_hp, h.attack_speed as attack_speed, h.str AS hero_str, h.dex AS hero_dex, h.int AS hero_int FROM maxhanna.bones_hero h WHERE {(heroId == null ? "h.user_id = @UserId" : "h.id = @UserId")};";
+				string sql = $@"
+				SELECT 
+					h.id as hero_id, 
+					h.coordsX, h.coordsY,
+					h.map, h.speed, 
+					h.name as hero_name, 
+					h.type as hero_type, 
+					h.color as hero_color, 
+					h.mask as hero_mask, 
+					h.level as hero_level,
+					h.exp as hero_exp, 
+					h.hp as hero_hp, 
+					h.attack_speed as attack_speed, 
+					h.str AS hero_str, 
+					h.dex AS hero_dex,
+					h.int AS hero_int 
+				FROM maxhanna.bones_hero h 
+				WHERE {(heroId == null ? "h.user_id = @UserId" : "h.id = @UserId")};";
 				MySqlCommand cmd = new(sql, conn, transaction); cmd.Parameters.AddWithValue("@UserId", heroId != null ? heroId : userId);
 				MetaHero? hero = null;
 				using (var reader = await cmd.ExecuteReaderAsync())
@@ -2044,6 +2061,7 @@ ORDER BY p.created DESC;";
 								Speed = reader.GetInt32("speed"),
 								Map = SafeGetString(reader, "map") ?? string.Empty,
 								Name = SafeGetString(reader, "hero_name"),
+								Type = SafeGetString(reader, "hero_type"),
 								Color = SafeGetString(reader, "hero_color") ?? string.Empty,
 								Mask = reader.IsDBNull(reader.GetOrdinal("hero_mask")) ? null : reader.GetInt32("hero_mask"),
 								Level = reader.IsDBNull(levelOrd) ? 0 : reader.GetInt32(levelOrd),
