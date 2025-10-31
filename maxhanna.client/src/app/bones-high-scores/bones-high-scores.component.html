@@ -5,6 +5,7 @@
       <tr>
         <th></th>
         <th></th>
+        <th>Type</th>
         <th>Hero</th>
         <th>Level</th>
       </tr>
@@ -17,6 +18,7 @@
             [displayMiniTag]="true" [displayHoverPicture]="true" [openInNewTab]="true"
             [previousComponent]="'Bones'"></app-user-tag>
         </td>
+        <td>{{ h.type || '' }}</td>
         <td>{{h.heroName}}</td> 
         <td>{{h.level}}</td>
       </tr>
