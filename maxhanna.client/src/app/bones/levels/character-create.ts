@@ -225,16 +225,18 @@ export class CharacterCreate extends Level {
         return undefined;
       };
 
-      if (this.selectionIndex === 0) {
-        // magi selected
-        this.magiSprite = replaceSprite(this.magiSprite, "heroSelectMagi2", "Magi");
+      if (this.selectionIndex === 0) { // magi selected 
         this.knightSprite = replaceSprite(this.knightSprite, "heroSelectKnight", "Knight");
-      } else {
-        // knight selected
+        this.rogueSprite = replaceSprite(this.rogueSprite, "heroSelectRogue", "Rogue");
+        this.magiSprite = replaceSprite(this.magiSprite, "heroSelectMagi2", "Magi");
+      } else if (this.selectionIndex === 1)  { // knight selected 
         this.magiSprite = replaceSprite(this.magiSprite, "heroSelectMagi", "Magi");
+        this.rogueSprite = replaceSprite(this.rogueSprite, "heroSelectRogue", "Rogue");
         this.knightSprite = replaceSprite(this.knightSprite, "heroSelectKnight2", "Knight");
-      } else {
-        th
+      } else if (this.selectionIndex === 2)  { // rogue selected
+        this.magiSprite = replaceSprite(this.magiSprite, "heroSelectMagi", "Magi");
+        this.knightSprite = replaceSprite(this.knightSprite, "heroSelectKnight", "Knight");
+        this.rogueSprite = replaceSprite(this.rogueSprite, "heroSelectRogue2", "Rogue");
       }
     } catch (ex) {
       try { console.warn('applySelectionSkins failed', ex); } catch { }
