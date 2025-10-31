@@ -426,7 +426,7 @@ export function subscribeToMainGameEvents(object: any) {
           const metaHeroType = String((object.metaHero as any)?.type ?? '').toLowerCase();
           const srcObjType = String((srcObj as any)?.type ?? '').toLowerCase();
           // Debug: show types when debugging magi detection (kept minimal)
-          // console.debug(`attack type check: metaHero.type='${metaHeroType}', srcObj.type='${srcObjType}'`);
+          console.debug(`attack type check: metaHero.type='${metaHeroType}', srcObj.type='${srcObjType}'`);
           const isMagi = (metaHeroType === 'magi') || (srcObjType === 'magi');
           if (isMagi) {
             attack.length = 200;
