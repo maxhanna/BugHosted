@@ -2359,7 +2359,9 @@ ORDER BY p.created DESC;";
 							SET h.hp = LEAST(100, h.hp + GREATEST(FLOOR(h.regen * FLOOR(TIMESTAMPDIFF(SECOND, COALESCE(h.last_regen, UTC_TIMESTAMP() - INTERVAL 1 SECOND), UTC_TIMESTAMP()))),0)),
 								h.last_regen = UTC_TIMESTAMP(),
 								h.updated = UTC_TIMESTAMP()
-							WHERE h.hp > 0 AND h.regen > 0 AND (h.last_regen IS NULL OR h.last_regen <= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 1 SECOND));";
+							WHERE h.hp > 0 AND h.regen > 0
+							  AND (h.last_regen IS NULL OR h.last_regen <= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 1 SECOND))
+							  AND FLOOR(h.regen * FLOOR(TIMESTAMPDIFF(SECOND, COALESCE(h.last_regen, UTC_TIMESTAMP() - INTERVAL 1 SECOND), UTC_TIMESTAMP()))) >= 1;";
 						await ExecuteInsertOrUpdateOrDeleteAsync(regenUpdateSql, new Dictionary<string, object?>(), connection, transaction);
 					}
 					catch (Exception exRegen)
