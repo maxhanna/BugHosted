@@ -1183,21 +1183,32 @@ ORDER BY p.created DESC;";
 			{
 				using var connection = new MySqlConnection(_connectionString);
 				await connection.OpenAsync();
-				// Simplified highscores: return heroes ordered by created date as placeholder. Metabot aggregation removed.
-				string sql = @"SELECT
-					mh.id AS heroId,
-					mh.user_id AS userId,
-					mh.name AS heroName,
-					mh.level AS level,
-					mh.exp AS exp,
-					u.username as username,
-					udpfl.id as display_picture_file_id
-				FROM maxhanna.bones_hero mh
-				LEFT JOIN maxhanna.users u ON u.id = mh.user_id
+				// Highscores: include both live heroes and saved hero selections.
+				// bones_hero_selection.data stores a JSON object that may include level/exp; extract those values.
+				string sql = @"
+				SELECT
+					src.heroId AS heroId,
+					src.userId AS userId,
+					src.heroName AS heroName,
+					src.level AS level,
+					src.exp AS exp,
+					u.username AS username,
+					udpfl.id AS display_picture_file_id
+				FROM (
+					SELECT mh.id AS heroId, mh.user_id AS userId, mh.name AS heroName, mh.level AS level, mh.exp AS exp
+					FROM maxhanna.bones_hero mh
+					WHERE mh.name IS NOT NULL
+					UNION ALL
+					SELECT COALESCE(bhs.bones_hero_id, 0) AS heroId, bhs.user_id AS userId, bhs.name AS heroName,
+						CAST(JSON_UNQUOTE(JSON_EXTRACT(bhs.data, '$.level')) AS UNSIGNED) AS level,
+						CAST(JSON_UNQUOTE(JSON_EXTRACT(bhs.data, '$.exp')) AS UNSIGNED) AS exp
+					FROM maxhanna.bones_hero_selection bhs
+					WHERE bhs.name IS NOT NULL
+				) AS src
+				LEFT JOIN maxhanna.users u ON u.id = src.userId
 				LEFT JOIN maxhanna.user_display_pictures udp ON udp.user_id = u.id
 				LEFT JOIN maxhanna.file_uploads udpfl ON udp.file_id = udpfl.id
-				WHERE mh.name IS NOT NULL
-				ORDER BY mh.level DESC, mh.exp DESC, mh.created ASC
+				ORDER BY src.level DESC, src.exp DESC, src.heroName ASC
 				LIMIT @Count;";
 				using var cmd = new MySqlCommand(sql, connection);
 				cmd.Parameters.AddWithValue("@Count", Math.Max(1, count));
