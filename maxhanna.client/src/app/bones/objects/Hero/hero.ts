@@ -110,7 +110,7 @@ export class Hero extends Character {
         // this.isLocked = true;
         // If the object in front is an NPC, don't play the attack animation (we treat it as interaction)
         try {
-          const neighbour = this.lastPosition.toNeighbour ? this.lastPosition.toNeighbour(this.facingDirection) : null;
+          const neighbour = this.position.toNeighbour ? this.position.toNeighbour(this.facingDirection) : null;
           const objInFront = neighbour ? objectAtLocation(this.parent, neighbour, true) : null;
           const isNpcInFront = objInFront && (objInFront instanceof Npc || objInFront.constructor?.name?.toLowerCase().endsWith('npc'));
           if (!isNpcInFront) {
@@ -126,7 +126,7 @@ export class Hero extends Character {
             }
             this.playAttackSound();
             if (this.type === "magi") {
-              const sting = new Sting(neighbour?.x ?? this.position.x, neighbour?.y ?? this.position.y);
+              const sting = new Sting( this.position.x,  this.position.y);
               this.addChild(sting);
               setTimeout(() => {
                 sting.destroy();
