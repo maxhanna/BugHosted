@@ -5,8 +5,7 @@ import { GameObject, HUD } from "../../game-object";
 import { Animations } from "../../../helpers/animations";
 import { FrameIndexPattern } from "../../../helpers/frame-index-pattern";
 import { ARROW_LEFT_ANIMATION, ARROW_RIGHT_ANIMATION, HIT_LEFT_ANIMATION, HIT_RIGHT_ANIMATION } from "./arrow-animations"; 
-import { gridCells, RIGHT, snapToGrid } from "../../../helpers/grid-cells";
-import { objectAtLocation } from "../../../helpers/move-towards";
+import { RIGHT } from "../../../helpers/grid-cells"; 
 
 export class Arrow extends GameObject {
   body?: Sprite;
@@ -76,18 +75,12 @@ export class Arrow extends GameObject {
 
       this.position.x = startX + deltaX * progress;
       this.position.y = startY + deltaY * progress;
-      const tmpLoc = new Vector2(snapToGrid(this.position.x, gridCells(1)), snapToGrid(this.position.y, gridCells(1)));
-      if (objectAtLocation(this.parent.parent, tmpLoc)) {
-        this.destroy();
+      if (progress < 1) {
+        requestAnimationFrame(animate);
       } else {
-        if (progress < 1) {
-          requestAnimationFrame(animate);
-        } else {
-          this.destroy();
-        }
+        this.destroy();
       }
     };
-
     animate();
   }
 }
