@@ -15,8 +15,8 @@ export class Sting extends GameObject {
       name: "Sting",
       isSolid: false,
       drawLayer: HUD,
-      forceDrawName: true,
-      preventDrawName: false,
+      forceDrawName: false,
+      preventDrawName: true,
     })
 
     this.body = new Sprite({
