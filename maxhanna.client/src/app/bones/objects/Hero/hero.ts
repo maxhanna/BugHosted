@@ -123,6 +123,7 @@ export class Hero extends Character {
             } else if (this.facingDirection == "RIGHT") {
               this.body?.animations?.play("attackRight");
             }
+            this.playAttackSound();
           }
         } catch (e) {
           console.log("error checking npc", e);
@@ -136,8 +137,8 @@ export class Hero extends Character {
           } else if (this.facingDirection == "RIGHT") {
             this.body?.animations?.play("attackRight");
           }
+          this.playAttackSound();
         }
-        this.playAttackSound();
         // After the attack animation finishes, allow another attack to be queued if the user is still holding
         // the attack input (space / controller A). We'll wait for the visual animation to finish (400ms)
         // then, if the input is held, trigger another SPACEBAR_PRESSED respecting the attackSpeed cooldown.
