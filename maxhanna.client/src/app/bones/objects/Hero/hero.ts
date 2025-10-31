@@ -120,7 +120,7 @@ export class Hero extends Character {
               if (this.type === "magi") {
                 const sting = new Sting( this.position.x,  this.position.y);
                 this.addChild(sting);
-                sting.moveTo(this.position.x, this.position.y +100, 1000);
+                sting.moveTo(this.position.x, this.position.y +200, 1000);
                 setTimeout(() => {
                   sting.destroy();
                 }, 2000);
@@ -130,7 +130,7 @@ export class Hero extends Character {
                if (this.type === "magi") {
                 const sting = new Sting( this.position.x,  this.position.y);
                 this.addChild(sting);
-                sting.moveTo(this.position.x, this.position.y -100, 1000);
+                sting.moveTo(this.position.x, this.position.y -200, 1000);
                 setTimeout(() => {
                   sting.destroy();
                 }, 2000);
@@ -140,7 +140,7 @@ export class Hero extends Character {
               if (this.type === "magi") {
                 const sting = new Sting( this.position.x,  this.position.y);
                 this.addChild(sting);
-                sting.moveTo(this.position.x -100, this.position.y, 1000);
+                sting.moveTo(this.position.x -200, this.position.y, 1000);
                 setTimeout(() => {
                   sting.destroy();
                 }, 2000);
@@ -150,7 +150,7 @@ export class Hero extends Character {
               if (this.type === "magi") {
                 const sting = new Sting( this.position.x,  this.position.y);
                 this.addChild(sting);
-                sting.moveTo(this.position.x +100, this.position.y, 1000);
+                sting.moveTo(this.position.x +200, this.position.y, 1000);
                 setTimeout(() => {
                   sting.destroy();
                 }, 2000);
