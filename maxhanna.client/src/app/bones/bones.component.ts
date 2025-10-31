@@ -1553,6 +1553,20 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
     } catch (ex) { console.error('Failed to load selections', ex); this.heroSelections = []; }
   }
 
+  // Helper to extract character type from a saved selection. Selection may have a top-level `type` or JSON `data`.
+  getSelectionType(s: any): string | null {
+    try {
+      if (!s) return null;
+      if (s.type) return s.type;
+      if (s.data) {
+        // data may be JSON string or object
+        const parsed = (typeof s.data === 'string') ? JSON.parse(s.data) : s.data;
+        if (parsed && parsed.type) return parsed.type;
+      }
+    } catch (ex) { /* ignore parse errors */ }
+    return null;
+  }
+
   get filteredHeroSelections() {
     try {
       const name = this.metaHero?.name ?? null;

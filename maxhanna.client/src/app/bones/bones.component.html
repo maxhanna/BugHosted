@@ -147,6 +147,7 @@
           style="display:flex; align-items:center; justify-content:space-between; padding:6px; border-bottom:1px solid #222;">
           <div>
             <div style="font-weight:600;" class="popupPanelTitle">{{s.name ?? ('Selection #' + s.id)}}</div>
+            <div style="font-size:12px; color:#aaa;">Type: {{ getSelectionType(s) ?? 'Unknown' }}</div>
             <div style="font-size:12px; color:#aaa;">Created: {{s.created | date:'short'}}</div>
           </div>
           <div>
