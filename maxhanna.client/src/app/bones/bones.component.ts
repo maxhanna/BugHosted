@@ -341,7 +341,7 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
             'ROADTOGATESOFHELL',
             'GATESOFHELL'
           ];
-          const townSet = new Set(['HEROROOM','CITADELOFVESPER','RIFTEDBASTION','FORTPENUMBRA','GATESOFHELL']);
+          const townSet = new Set(['HEROROOM', 'CITADELOFVESPER', 'RIFTEDBASTION', 'FORTPENUMBRA', 'GATESOFHELL']);
           const currentMapKey = String(this.mainScene?.level?.name ?? this.metaHero?.map ?? '').toUpperCase();
           let idx = ordered.indexOf(currentMapKey);
           let target = 'HEROROOM';
@@ -367,7 +367,7 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
         // If the portal's creator is the current user and the user is currently in a non-'RoadTo' map,
         // request deletion of all portals owned by this user. This ensures creators remove their portals when
         // they enter a town portal from a town (not from a road).
-        try { 
+        try {
           const portalId = payload.portalId ?? null;
           const townMapRef = (this as any)._townPortalsMap as Map<number, any> | undefined;
           if (portalId && townMapRef && this.metaHero && this.metaHero.id) {
@@ -377,7 +377,7 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
             const isCreator = (creatorId !== undefined && creatorId !== null) ? (Number(creatorId) === Number(this.metaHero.id)) : false;
             const isNonRoad = !currentMapName.includes('roadto');
             if (isCreator && isNonRoad) {
-                this.bonesService.deleteTownPortal(this.metaHero?.id).catch(() => { }); 
+              this.bonesService.deleteTownPortal(this.metaHero?.id).catch(() => { });
             }
           }
         } catch (exDel) { console.warn('ENTER_TOWN_PORTAL deletion check failed', exDel); }
@@ -487,7 +487,7 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
         this.reconcilePendingInvites();
         this.updateEnemyEncounters(res);
         this.reconcileDroppedItemsFromFetch(res);
-        reconcileTownPortalsFromFetch(this, res); 
+        reconcileTownPortalsFromFetch(this, res);
 
         if (this.chat) {
           this.getLatestMessages();
@@ -542,21 +542,21 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
           // console.log("enemy.position (incoming):", (enemy && (enemy as any).position) ? JSON.stringify(enemy.position) : enemy.position, " typeof:", typeof enemy.position);
           tgtEnemy.hp = enemy.hp;
           if (enemy && enemy.position) {
-            
+
             const newPos = new Vector2(enemy.position.x, enemy.position.y);
             if (newPos) {
               tgtEnemy.destinationPosition = newPos.duplicate();
             }
-             
+
           }
 
           if (tgtEnemy && tgtEnemy.heroId && (tgtEnemy.hp ?? 0) <= 0) {
-           
-              if (typeof tgtEnemy.destroy === 'function') {
-                tgtEnemy.destroy();
-              }
-            
-           this._lastServerDestinations.delete(tgtEnemy.heroId); 
+
+            if (typeof tgtEnemy.destroy === 'function') {
+              tgtEnemy.destroy();
+            }
+
+            this._lastServerDestinations.delete(tgtEnemy.heroId);
             return; // skip further processing for this bot
           }
         } else if (enemy.hp) {
@@ -635,13 +635,13 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
 
       // If this is our metaHero, keep local metaHero and Hero instance in sync
       if (heroMeta.id === this.metaHero.id) {
-        this.metaHero.hp = heroMeta.hp ?? this.metaHero.hp;  
-        this.metaHero.level = heroMeta.level ?? this.metaHero.level;  
-        this.metaHero.exp = heroMeta.exp ?? this.metaHero.exp;   
-        this.metaHero.str = (heroMeta as any).str ?? ((heroMeta as any).stats ? (heroMeta as any).stats.str : this.metaHero.str);  
-        this.metaHero.dex = (heroMeta as any).dex ?? ((heroMeta as any).stats ? (heroMeta as any).stats.dex : this.metaHero.dex);  
-        this.metaHero.int = (heroMeta as any).int ?? ((heroMeta as any).stats ? (heroMeta as any).stats.int : this.metaHero.int);  
-        if (this.hero) { 
+        this.metaHero.hp = heroMeta.hp ?? this.metaHero.hp;
+        this.metaHero.level = heroMeta.level ?? this.metaHero.level;
+        this.metaHero.exp = heroMeta.exp ?? this.metaHero.exp;
+        this.metaHero.str = (heroMeta as any).str ?? ((heroMeta as any).stats ? (heroMeta as any).stats.str : this.metaHero.str);
+        this.metaHero.dex = (heroMeta as any).dex ?? ((heroMeta as any).stats ? (heroMeta as any).stats.dex : this.metaHero.dex);
+        this.metaHero.int = (heroMeta as any).int ?? ((heroMeta as any).stats ? (heroMeta as any).stats.int : this.metaHero.int);
+        if (this.hero) {
           const incomingHp = heroMeta.hp ?? this.hero.hp ?? 0;
           const prevHp = typeof previousLocalHp === 'number' ? previousLocalHp : (this.hero.hp ?? incomingHp);
           if (incomingHp < prevHp) {
@@ -653,13 +653,15 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
           this.hero.maxHp = 100;
         }
       }
+      if (existingHero) {
+        (existingHero as any).partyMembers =
+          (Array.isArray(this.partyMembers)
+            && this.partyMembers.length > 0
+            && this.partyMembers.some((x: any) => x.heroId == (existingHero as any).heroId))
+            ? this.partyMembers
+            : undefined;
+      }
 
-      // Party members wiring
-      try {
-        if (existingHero) {
-          (existingHero as any).partyMembers = (Array.isArray(this.partyMembers) && this.partyMembers.length > 0 && this.partyMembers.some((x: any) => x.heroId == (existingHero as any).heroId)) ? this.partyMembers : undefined;
-        }
-      } catch { }
 
       // Chat bubble / latest message
       try { this.setHeroLatestMessage(existingHero); } catch { }
@@ -811,7 +813,7 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
       mask: rz.mask ? new Mask(getMaskNameById(rz.mask)) : undefined,
     });
     this.metaHero = new MetaHero(
-      this.hero.id, 
+      this.hero.id,
       (this.hero.name ?? "Anon"),
       rz.type ?? "knight",
       this.hero.position.duplicate(),
@@ -1614,9 +1616,9 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
       await this.bonesService.updateEvents(metaEvent);
       // Optimistically apply party locally, then fetch server canonical party to reconcile
       this.partyMembers = union.map(id => {
-        const other = this.otherHeroes.find(h => h.id === id);
+        const other: MetaHero | undefined = this.otherHeroes.find(h => h.id === id);
         const nameStr = other ? (other.name ?? `Hero ${id}`) : (id === this.metaHero.id ? (this.metaHero.name ?? `You`) : `Hero ${id}`);
-        return { heroId: id, name: nameStr, color: other ? (other as any).color : undefined };
+        return { heroId: id, name: nameStr, color: other ? other.color : undefined, type: other ? other.type : 'knight' };
       });
       // Clear any optimistic pending invites for these heroes
       for (const id of union) { this.pendingInvites.delete(id); }
@@ -1709,7 +1711,7 @@ export class BonesComponent extends ChildComponent implements OnInit, OnDestroy,
         dex: (sdex !== undefined ? Number(sdex) : (this.cachedStats?.dex ?? 1)),
         int: (sint !== undefined ? Number(sint) : (this.cachedStats?.int ?? 1)),
       };
-    } 
+    }
   }
 
   private reconcileDroppedItemsFromFetch(res: any) {
